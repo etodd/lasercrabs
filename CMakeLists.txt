@@ -373,6 +373,8 @@ if (SERVER)
 		src/platform/util.h
 		src/game/master.h
 		src/game/master.cpp
+		src/game/constants.h
+		src/asset/level.h
 		src/platform/master_server.cpp
 	)
 	#enable_unity_build(yearningmaster SRC_MASTER)
@@ -413,6 +415,7 @@ if (SERVER)
 
 	target_link_libraries(yearningmaster
 		zlibstatic
+		cJSON
 	)
 
 endif()

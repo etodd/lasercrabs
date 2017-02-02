@@ -33,6 +33,7 @@ namespace Settings
 	b8 waypoints;
 	b8 scan_lines;
 	char master_server[MAX_PATH_LENGTH];
+	s32 secret;
 }
 
 Array<Loader::Entry<Mesh> > Loader::meshes;
@@ -234,6 +235,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	}
 
 	strncpy(Settings::master_server, Json::get_string(json, "master_server", default_master_server), MAX_PATH_LENGTH - 1);
+	Settings::secret = Json::get_s32(json, "secret");
 
 	if (!json)
 		settings_save(); // failed to load the config file; save our own

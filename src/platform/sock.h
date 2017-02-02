@@ -1,5 +1,6 @@
 #pragma once
 #include "types.h"
+#include <functional>
 
 namespace VI
 {
@@ -12,7 +13,9 @@ struct Address
 {
 	u32 host;
 	u16 port;
+
 	b8 equals(const Address&) const;
+	b8 operator==(const Address&) const;
 };
 
 struct Handle
@@ -38,4 +41,20 @@ s32 udp_receive(Handle*, Address*, void*, s32);
 }
 
 
+}
+
+
+namespace std
+{
+	using namespace VI;
+	template <> struct hash<Sock::Address>
+	{
+		std::size_t operator()(const Sock::Address& addr) const
+		{
+			size_t result = 17;
+			result = result * 31 + std::hash<u32>()(addr.host);
+			result = result * 31 + std::hash<u16>()(addr.port);
+			return result;
+		}
+	};
 }

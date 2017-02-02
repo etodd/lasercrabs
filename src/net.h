@@ -117,6 +117,7 @@ namespace Server
 {
 	enum Mode
 	{
+		Idle,
 		Loading,
 		Waiting,
 		Active,

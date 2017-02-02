@@ -1000,6 +1000,7 @@ const char* AssetLookup::String::names[] =
 	"confirm_skip_tutorial",
 	"confirm_spend",
 	"connecting",
+	"connection_failed",
 	"contacting_master",
 	"containment_field",
 	"containment_field_destroyed",

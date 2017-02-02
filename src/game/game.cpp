@@ -69,6 +69,7 @@ GameTime Game::real_time;
 r32 Game::physics_timestep;
 
 AssetID Game::scheduled_load_level = AssetNull;
+AssetID Game::scheduled_dialog = AssetNull;
 Game::Mode Game::scheduled_mode = Game::Mode::Pvp;
 r32 Game::schedule_timer;
 Game::Save Game::save = Game::Save();
@@ -353,7 +354,14 @@ void Game::update(const Update& update_in)
 			Net::Server::transition_level(); // let clients know that we're switching levels
 #endif
 		if (scheduled_load_level != AssetNull && schedule_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
+		{
 			load_level(scheduled_load_level, scheduled_mode);
+			if (scheduled_dialog != AssetNull)
+			{
+				Menu::dialog(0, &Menu::dialog_no_action, _(scheduled_dialog));
+				scheduled_dialog = AssetNull;
+			}
+		}
 	}
 
 	AI::update(u);
@@ -523,6 +531,14 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 		| EnergyPickup::component_mask
 	);
 	return t->component_mask & (mode == Game::Mode::Pvp ? mask_pvp : mask_parkour);
+}
+
+s32 Game::player_slots()
+{
+	if (session.story_mode)
+		return 1;
+	else
+		return 4; // todo
 }
 
 #if SERVER
@@ -1163,8 +1179,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 #endif
 
 	time.total = 0.0f;
-
-	Menu::clear();
 
 	scheduled_load_level = AssetNull;
 

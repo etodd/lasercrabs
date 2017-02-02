@@ -63,6 +63,11 @@ b8 Address::equals(const Address& other) const
 	return host == other.host && port == other.port;
 }
 
+b8 Address::operator==(const Address& other) const
+{
+	return host == other.host && port == other.port;
+}
+
 s32 get_address(Address* address, const char* host, u16 port)
 {
 	if (host == NULL)

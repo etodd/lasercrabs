@@ -32,6 +32,7 @@ DialogCallback dialog_callback_last[MAX_GAMEPADS];
 r32 dialog_time[MAX_GAMEPADS];
 char dialog_string[MAX_GAMEPADS][255];
 r32 dialog_time_limit[MAX_GAMEPADS];
+Camera* camera_connecting;
 
 // default callback
 void dialog_no_action(s8 gamepad)
@@ -404,6 +405,39 @@ void update(const Update& u)
 		{
 			title();
 		}
+	}
+	
+	// "connecting..." camera
+	{
+		b8 camera_needed = Net::Client::mode() == Net::Client::Mode::ContactingMaster
+			|| Net::Client::mode() == Net::Client::Mode::Connecting
+			|| Net::Client::mode() == Net::Client::Mode::Loading;
+		if (camera_needed && !camera_connecting)
+		{
+			camera_connecting = Camera::add();
+			camera_connecting->mask = 0; // don't display anything; entities will be popping in over the network
+			camera_connecting->viewport =
+			{
+				Vec2::zero,
+				Vec2(u.input->width, u.input->height),
+			};
+			r32 aspect = camera_connecting->viewport.size.y == 0 ? 1 : (r32)camera_connecting->viewport.size.x / (r32)camera_connecting->viewport.size.y;
+			camera_connecting->perspective((60.0f * PI * 0.5f / 180.0f), aspect, 0.1f, 2.0f);
+		}
+		else if (!camera_needed && camera_connecting)
+		{
+			camera_connecting->remove();
+			camera_connecting = nullptr;
+		}
+	}
+
+	if (Net::Client::mode() == Net::Client::Mode::Disconnected
+		&& Game::level.id == AssetNull
+		&& Game::scheduled_load_level == AssetNull)
+	{
+		// connection process failed
+		title();
+		Game::scheduled_dialog = strings::connection_failed;
 	}
 #endif
 

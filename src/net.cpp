@@ -3,7 +3,6 @@
 #include "game/game.h"
 #if SERVER
 #include "asset/level.h"
-#include "game/master.h"
 #endif
 #include "mersenne/mersenne-twister.h"
 #include "common.h"
@@ -77,7 +76,6 @@ enum class ClientPacket
 enum class ServerPacket
 {
 	Init,
-	Keepalive,
 	Update,
 	Disconnect,
 	count,
@@ -129,13 +127,14 @@ struct StateCommon
 	s32 bandwidth_in_counter;
 	s32 bandwidth_out_counter;
 	r32 timestamp;
-	Master::Channel master;
+	Master::Messenger master;
+	Sock::Address master_addr;
 };
 StateCommon state_common;
 
 void master_init()
 {
-	Sock::get_address(&state_common.master.addr, Settings::master_server, 3497);
+	Sock::get_address(&state_common.master_addr, Settings::master_server, 3497);
 }
 
 b8 msg_process(StreamRead*, MessageSource);
@@ -222,24 +221,24 @@ template<typename Stream> b8 serialize_constraint(Stream* p, RigidBody::Constrai
 	Vec3 pos;
 	if (Stream::IsWriting)
 		pos = c->frame_a.getOrigin();
-	serialize_position(p, &pos, Net::Resolution::High);
+	serialize_position(p, &pos, Resolution::High);
 	Quat rot;
 	if (Stream::IsWriting)
 		rot = c->frame_a.getRotation();
-	serialize_quat(p, &rot, Net::Resolution::High);
+	serialize_quat(p, &rot, Resolution::High);
 	if (Stream::IsReading)
 		c->frame_a = btTransform(rot, pos);
 
 	if (Stream::IsWriting)
 		pos = c->frame_b.getOrigin();
-	serialize_position(p, &pos, Net::Resolution::High);
+	serialize_position(p, &pos, Resolution::High);
 	if (Stream::IsWriting)
 		rot = c->frame_b.getRotation();
-	serialize_quat(p, &rot, Net::Resolution::High);
+	serialize_quat(p, &rot, Resolution::High);
 	if (Stream::IsReading)
 		c->frame_b = btTransform(rot, pos);
 
-	serialize_position(p, &c->limits, Net::Resolution::Medium);
+	serialize_position(p, &c->limits, Resolution::Medium);
 
 	return true;
 }
@@ -525,8 +524,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 			Ragdoll::BoneBody* bone = &r->bodies[i];
 			serialize_ref(p, bone->body);
 			serialize_asset(p, bone->bone, Asset::Bone::count);
-			serialize_position(p, &bone->body_to_bone_pos, Net::Resolution::Medium);
-			serialize_quat(p, &bone->body_to_bone_rot, Net::Resolution::Medium);
+			serialize_position(p, &bone->body_to_bone_pos, Resolution::Medium);
+			serialize_quat(p, &bone->body_to_bone_rot, Resolution::Medium);
 		}
 	}
 
@@ -1965,6 +1964,8 @@ struct StateServer
 	Mode mode;
 	r32 time_sync_timer;
 	s32 expected_clients = 1;
+	r32 master_timer;
+	r32 idle_timer;
 };
 StateServer state_server;
 
@@ -2010,6 +2011,35 @@ Client* client_for_player(const PlayerHuman* player)
 	return nullptr;
 }
 
+void server_state(Master::ServerState* s)
+{
+	s->level = Game::level.id;
+	s->story_mode = Game::session.story_mode;
+	s->open_slots = s8(Game::player_slots() - PlayerManager::list.count());
+}
+
+b8 master_send_status_update()
+{
+	using Stream = StreamWrite;
+	StreamWrite p;
+	packet_init(&p);
+	state_common.master.add_header(&p, state_common.master_addr, Master::Message::ServerStatusUpdate);
+	serialize_s32(&p, Settings::secret);
+	b8 active = state_server.mode != Mode::Idle;
+	serialize_bool(&p, active);
+	Master::ServerState s;
+	server_state(&s);
+	if (!serialize_server_state(&p, &s))
+		return false;
+
+	packet_finalize(&p);
+	state_common.master.send_unreliable(p, state_common.master_addr, &sock);
+
+	state_server.master_timer = 0.0f;
+
+	return true;
+}
+
 b8 init()
 {
 	if (Sock::udp_open(&sock, 3494, true))
@@ -2019,10 +2049,6 @@ b8 init()
 	}
 
 	master_init();
-
-	// todo: allow both multiplayer / story mode sessions
-	Game::session.story_mode = true;
-	Game::load_level(Asset::Level::Medias_Res, Game::Mode::Parkour);
 
 	return true;
 }
@@ -2047,6 +2073,7 @@ void level_loaded()
 		state_server.mode = Mode::Active;
 	else
 		state_server.mode = Mode::Waiting;
+	master_send_status_update();
 }
 
 b8 sync_time()
@@ -2086,16 +2113,6 @@ b8 packet_build_disconnect(StreamWrite* p)
 	using Stream = StreamWrite;
 	packet_init(p);
 	ServerPacket type = ServerPacket::Disconnect;
-	serialize_enum(p, ServerPacket, type);
-	packet_finalize(p);
-	return true;
-}
-
-b8 packet_build_keepalive(StreamWrite* p)
-{
-	packet_init(p);
-	using Stream = StreamWrite;
-	ServerPacket type = ServerPacket::Keepalive;
 	serialize_enum(p, ServerPacket, type);
 	packet_finalize(p);
 	return true;
@@ -2210,6 +2227,7 @@ void handle_client_disconnect(Client* c)
 		}
 	}
 	state_server.clients.remove(c - &state_server.clients[0]);
+	master_send_status_update();
 }
 
 void tick(const Update& u, r32 dt)
@@ -2220,6 +2238,20 @@ void tick(const Update& u, r32 dt)
 		if (state_server.time_sync_timer > 5.0f)
 			sync_time();
 	}
+
+	if (PlayerHuman::list.count() == 0)
+	{
+		state_server.idle_timer += dt;
+		if (state_server.idle_timer > NET_SERVER_IDLE_TIME)
+			state_server.mode = Mode::Idle;
+	}
+	else
+		state_server.idle_timer = 0.0f;
+
+	state_server.master_timer += dt;
+	if (state_server.master_timer > NET_MASTER_STATUS_INTERVAL)
+		master_send_status_update();
+	state_common.master.update(state_common.timestamp, &sock);
 
 	StateFrame* frame = nullptr;
 
@@ -2262,8 +2294,50 @@ b8 client_connected(StreamRead* p, Client* client)
 	return true;
 }
 
+b8 packet_handle_master(StreamRead* p)
+{
+	using Stream = StreamRead;
+	SequenceID seq;
+	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
+	Master::Message type;
+	serialize_enum(p, Master::Message, type);
+	if (!state_common.master.received(type, seq, state_common.master_addr, &sock))
+		return false; // out of order
+
+	switch (type)
+	{
+		case Master::Message::Ack:
+		case Master::Message::Keepalive:
+		{
+			break;
+		}
+		case Master::Message::ServerLoad:
+		{
+			Master::ServerState s;
+			if (!serialize_server_state(p, &s))
+				net_error();
+			if (s.level >= 0 && s.level < Asset::Level::count)
+			{
+				Game::session.story_mode = s.story_mode;
+				Game::load_level(s.level, s.story_mode ? Game::Mode::Parkour : Game::Mode::Pvp);
+			}
+			break;
+		}
+		default:
+		{
+			net_error();
+			break;
+		}
+	}
+
+	return true;
+}
+
 b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
+	if (address.equals(state_common.master_addr))
+		return packet_handle_master(p);
+
 	Client* client = nullptr;
 	s32 client_index = -1;
 	for (s32 i = 0; i < state_server.clients.length; i++)
@@ -2289,7 +2363,9 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			serialize_s16(p, game_version);
 			if (game_version == GAME_VERSION)
 			{
-				if (!client && state_server.clients.length < state_server.expected_clients)
+				if (!client
+					&& (state_server.mode == Mode::Active || state_server.mode == Mode::Waiting)
+					&& state_server.clients.length < state_server.expected_clients)
 				{
 					client = state_server.clients.add();
 					client_index = state_server.clients.length - 1;
@@ -2555,6 +2631,7 @@ b8 msg_process(StreamRead* p, Client* client)
 						client->players.add(player);
 						finalize(e);
 					}
+					master_send_status_update();
 				}
 				else
 				{
@@ -2625,7 +2702,6 @@ b8 msg_process(StreamRead*);
 
 struct StateClient
 {
-	Camera* camera_connecting;
 	r32 timeout;
 	r32 tick_timer;
 	r32 server_rtt = 0.15f;
@@ -2738,30 +2814,6 @@ b8 packet_build_update(StreamWrite* p, const Update& u)
 
 void update(const Update& u, r32 dt)
 {
-	// "connecting..." camera
-	{
-		b8 camera_needed = state_client.mode == Mode::ContactingMaster
-			|| state_client.mode == Mode::Connecting
-			|| state_client.mode == Mode::Loading;
-		if (camera_needed && !state_client.camera_connecting)
-		{
-			state_client.camera_connecting = Camera::add();
-			state_client.camera_connecting->mask = 0; // don't display anything; entities will be popping in over the network
-			state_client.camera_connecting->viewport =
-			{
-				Vec2::zero,
-				Vec2(u.input->width, u.input->height),
-			};
-			r32 aspect = state_client.camera_connecting->viewport.size.y == 0 ? 1 : (r32)state_client.camera_connecting->viewport.size.x / (r32)state_client.camera_connecting->viewport.size.y;
-			state_client.camera_connecting->perspective((60.0f * PI * 0.5f / 180.0f), aspect, 0.1f, 2.0f);
-		}
-		else if (!camera_needed && state_client.camera_connecting)
-		{
-			state_client.camera_connecting->remove();
-			state_client.camera_connecting = nullptr;
-		}
-	}
-
 	if (Game::level.local)
 		return;
 
@@ -2822,6 +2874,17 @@ void handle_server_disconnect()
 	}
 }
 
+b8 master_send_keepalive()
+{
+	using Stream = StreamWrite;
+	StreamWrite p;
+	packet_init(&p);
+	state_common.master.add_header(&p, state_common.master_addr, Master::Message::Keepalive);
+	packet_finalize(&p);
+	state_common.master.send_unreliable(p, state_common.master_addr, &sock);
+	return true;
+}
+
 void tick(const Update& u, r32 dt)
 {
 	switch (state_client.mode)
@@ -2833,7 +2896,12 @@ void tick(const Update& u, r32 dt)
 		case Mode::ContactingMaster:
 		{
 			state_client.timeout += dt;
-			state_common.master.update(&sock);
+			if (state_client.timeout > NET_MASTER_STATUS_INTERVAL)
+			{
+				state_client.timeout = 0.0f;
+				master_send_keepalive();
+			}
+			state_common.master.update(state_common.timestamp, &sock);
 			break;
 		}
 		case Mode::Connecting:
@@ -2902,14 +2970,17 @@ b8 allocate_server(b8 story_mode, AssetID level, s8 open_slots)
 
 	{
 		using Stream = StreamWrite;
-		Net::StreamWrite p;
+		StreamWrite p;
 		packet_init(&p);
-		state_common.master.add_header(&p, Master::Message::ClientRequestServer);
-		serialize_bool(&p, story_mode);
-		serialize_s16(&p, Game::level.id);
-		serialize_s8(&p, open_slots);
+		state_common.master.add_header(&p, state_common.master_addr, Master::Message::ClientRequestServer);
+		Master::ServerState s;
+		s.story_mode = story_mode;
+		s.level = level;
+		s.open_slots = open_slots;
+		if (!serialize_server_state(&p, &s))
+			return false;
 		packet_finalize(&p);
-		state_common.master.send(p, &sock);
+		state_common.master.send(p, state_common.timestamp, state_common.master_addr, &sock);
 	}
 	return true;
 }
@@ -2926,7 +2997,8 @@ b8 packet_handle_master(StreamRead* p)
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	Master::Message type;
 	serialize_enum(p, Master::Message, type);
-	state_common.master.received(type, seq, &sock);
+	if (!state_common.master.received(type, seq, state_common.master_addr, &sock))
+		return false; // out of order
 	switch (type)
 	{
 		case Master::Message::Keepalive:
@@ -2936,7 +3008,10 @@ b8 packet_handle_master(StreamRead* p)
 		}
 		case Master::Message::ClientConnect:
 		{
-			// todo
+			Sock::Address addr;
+			serialize_u32(p, addr.host);
+			serialize_u16(p, addr.port);
+			connect(addr);
 			break;
 		}
 		default:
@@ -2951,8 +3026,8 @@ b8 packet_handle_master(StreamRead* p)
 b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
 	using Stream = StreamRead;
-	if (address.equals(state_common.master.addr) && state_client.mode == Mode::ContactingMaster)
-		packet_handle_master(p);
+	if (address.equals(state_common.master_addr) && state_client.mode == Mode::ContactingMaster)
+		return packet_handle_master(p);
 	else if (state_client.mode == Mode::Disconnected
 		|| state_client.mode == Mode::ContactingMaster
 		|| !address.equals(state_client.server_address))
@@ -3000,11 +3075,6 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					}
 				}
 			}
-			break;
-		}
-		case ServerPacket::Keepalive:
-		{
-			state_client.timeout = 0.0f; // reset connection timeout
 			break;
 		}
 		case ServerPacket::Update:
@@ -3639,7 +3709,7 @@ b8 state_frame_by_timestamp(StateFrame* result, r32 timestamp)
 	const StateFrame* frame_a = state_frame_by_timestamp(state_common.state_history, timestamp);
 	if (frame_a)
 	{
-		const Net::StateFrame* frame_b = state_frame_next(state_common.state_history, *frame_a);
+		const StateFrame* frame_b = state_frame_next(state_common.state_history, *frame_a);
 		if (frame_b)
 			state_frame_interpolate(*frame_a, *frame_b, result, timestamp);
 		else

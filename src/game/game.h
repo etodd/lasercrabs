@@ -165,6 +165,7 @@ namespace VI
 		static Array<CleanupFunction> cleanups;
 		static r32 physics_timestep;
 		static AssetID scheduled_load_level;
+		static AssetID scheduled_dialog;
 		static Mode scheduled_mode;
 		static r32 schedule_timer;
 		static b8 cancel_event_eaten[MAX_GAMEPADS];
@@ -189,6 +190,7 @@ namespace VI
 		static void draw_override(const RenderParams&);
 		static void term();
 
+		static s32 player_slots();
 		static b8 net_transform_filter(const Entity*, Mode);
 	};
 

@@ -864,6 +864,13 @@ void Game::execute(const char* cmd)
 		save.reset();
 		Net::Client::connect(host, 3494);
 	}
+	else if (strstr(cmd, "alloc") == cmd)
+	{
+		// allocate a server
+		unload_level();
+		save.reset();
+		Net::Client::allocate_server(true, Asset::Level::Medias_Res, 1);
+	}
 #endif
 #if DEBUG && !SERVER
 	else if (!level.local && Net::Client::mode() == Net::Client::Mode::Connected)

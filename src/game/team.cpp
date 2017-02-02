@@ -16,7 +16,6 @@
 #include "mersenne/mersenne-twister.h"
 #include "render/particles.h"
 #include "net.h"
-#include "net_serialize.h"
 #include "ai_player.h"
 #include "overworld.h"
 #include "player.h"

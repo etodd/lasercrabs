@@ -229,6 +229,8 @@ set(SRC
 	src/platform/util.h
 	src/platform/sock.h
 	src/platform/sock.cpp
+	src/game/master.h
+	src/game/master.cpp
 	src/sync.h
 	src/types.h
 	src/vi_assert.h
@@ -352,7 +354,6 @@ if (SERVER)
 	# server
 	set(SRC_SERVER
 		${SRC}
-		src/game/master.h
 		src/platform/server.cpp
 	)
 	#enable_unity_build(yearningsrv SRC_SERVER)
@@ -371,7 +372,8 @@ if (SERVER)
 		src/platform/sock.cpp
 		src/platform/util.h
 		src/game/master.h
-		src/platform/master.cpp
+		src/game/master.cpp
+		src/platform/master_server.cpp
 	)
 	#enable_unity_build(yearningmaster SRC_MASTER)
 	add_executable(yearningmaster
@@ -408,6 +410,11 @@ if (SERVER)
 	endif()
 
 	target_compile_definitions(yearningsrv PRIVATE -DSERVER=1)
+
+	target_link_libraries(yearningmaster
+		zlibstatic
+	)
+
 endif()
 
 if (CLIENT)

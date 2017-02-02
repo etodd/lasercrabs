@@ -5,6 +5,7 @@
 #include "vi_assert.h"
 #include "lmath.h"
 #include "data/entity.h"
+#include "net_serialize.h"
 
 namespace VI
 {
@@ -22,20 +23,7 @@ namespace Sock
 namespace Net
 {
 
-struct StreamRead;
-struct StreamWrite;
-
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
-
-typedef u16 SequenceID;
-
-enum class Resolution
-{
-	Low,
-	Medium,
-	High,
-	count,
-};
 
 enum class MessageType
 {
@@ -148,6 +136,7 @@ namespace Client
 	enum class Mode
 	{
 		Disconnected,
+		ContactingMaster,
 		Connecting,
 		Loading,
 		Connected,
@@ -157,6 +146,7 @@ namespace Client
 
 	void connect(Sock::Address);
 	void connect(const char*, u16);
+	b8 allocate_server(b8, AssetID, s8);
 
 	b8 lagging();
 

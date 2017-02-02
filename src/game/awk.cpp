@@ -20,7 +20,6 @@
 #include "strings.h"
 #include "render/particles.h"
 #include "net.h"
-#include "net_serialize.h"
 #include "team.h"
 #include "load.h"
 

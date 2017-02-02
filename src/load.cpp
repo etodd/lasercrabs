@@ -32,6 +32,7 @@ namespace Settings
 	b8 antialiasing;
 	b8 waypoints;
 	b8 scan_lines;
+	char master_server[MAX_PATH_LENGTH];
 }
 
 Array<Loader::Entry<Mesh> > Loader::meshes;
@@ -57,6 +58,11 @@ s32 Loader::animation_count;
 
 #define config_filename "config.txt"
 #define mod_manifest_filename "mod.json"
+#if DEBUG
+	#define default_master_server "127.0.0.1"
+#else
+	#define default_master_server "127.0.0.1"
+#endif
 
 Array<const char*> mod_level_names;
 Array<const char*> mod_level_paths;
@@ -227,6 +233,8 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		gamepad = gamepad ? gamepad->next : nullptr;
 	}
 
+	strncpy(Settings::master_server, Json::get_string(json, "master_server", default_master_server), MAX_PATH_LENGTH - 1);
+
 	if (!json)
 		settings_save(); // failed to load the config file; save our own
 }
@@ -273,6 +281,10 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(gamepad, "sensitivity", cJSON_CreateNumber(bindings->sensitivity));
 		cJSON_AddItemToArray(gamepads, gamepad);
 	}
+
+	// only save master server setting if it is not the default
+	if (strncmp(Settings::master_server, default_master_server, MAX_PATH_LENGTH - 1) != 0)
+		cJSON_AddStringToObject(json, "master_server", Settings::master_server);
 
 	char path[MAX_PATH_LENGTH];
 	user_data_path(path, config_filename);

@@ -1,5 +1,4 @@
 #include "net.h"
-#include "net_serialize.h"
 #include "platform/sock.h"
 #include "game/game.h"
 #if SERVER
@@ -25,10 +24,11 @@
 #include "game/parkour.h"
 #include "game/overworld.h"
 #include "game/scripts.h"
-#include "assimp/contrib/zlib/zlib.h"
+#include "game/master.h"
 #include "console.h"
 #include "asset/armature.h"
 #include "load.h"
+#include "settings.h"
 
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0
@@ -50,6 +50,22 @@ namespace Net
 b8 show_stats;
 Sock::Handle sock;
 
+struct MessageFrame // container for the amount of messages that can come in a single frame
+{
+	union
+	{
+		StreamRead read;
+		StreamWrite write;
+	};
+	r32 timestamp;
+	s32 bytes;
+	SequenceID sequence_id;
+
+	MessageFrame() : read(), sequence_id(), timestamp(), bytes() {}
+	MessageFrame(r32 t, s32 bytes) : read(), sequence_id(), timestamp(t), bytes(bytes) {}
+	~MessageFrame() {}
+};
+
 enum class ClientPacket
 {
 	Connect,
@@ -65,21 +81,6 @@ enum class ServerPacket
 	Update,
 	Disconnect,
 	count,
-};
-
-struct MessageFrame // container for the amount of messages that can come in a single frame
-{
-	union
-	{
-		StreamRead read;
-		StreamWrite write;
-	};
-	r32 timestamp;
-	s32 bytes;
-	SequenceID sequence_id;
-
-	MessageFrame(r32 t, s32 bytes) : read(), sequence_id(), timestamp(t), bytes(bytes) {}
-	~MessageFrame() {}
 };
 
 struct StateHistory
@@ -128,8 +129,14 @@ struct StateCommon
 	s32 bandwidth_in_counter;
 	s32 bandwidth_out_counter;
 	r32 timestamp;
+	Master::Channel master;
 };
 StateCommon state_common;
+
+void master_init()
+{
+	Sock::get_address(&state_common.master.addr, Settings::master_server, 3497);
+}
 
 b8 msg_process(StreamRead*, MessageSource);
 StreamWrite* msg_new(MessageBuffer*, MessageType);
@@ -773,52 +780,6 @@ template<typename Stream> b8 serialize_save(Stream* p)
 	return true;
 }
 
-// true if s1 > s2
-b8 sequence_more_recent(SequenceID s1, SequenceID s2)
-{
-	return (s1 != NET_SEQUENCE_INVALID && s2 == NET_SEQUENCE_INVALID)
-		|| ((s1 > s2) && (s1 - s2 <= NET_SEQUENCE_COUNT / 2))
-		|| ((s2 > s1) && (s2 - s1 > NET_SEQUENCE_COUNT / 2));
-}
-
-b8 sequence_older_than(SequenceID s1, SequenceID s2)
-{
-	return sequence_more_recent(s2, s1);
-}
-
-s32 sequence_relative_to(SequenceID s1, SequenceID s2)
-{
-	vi_assert(s1 >= 0 && s1 < NET_SEQUENCE_COUNT);
-	vi_assert(s2 >= 0 && s2 < NET_SEQUENCE_COUNT);
-	if (s1 == s2)
-		return 0;
-	else if (sequence_more_recent(s1, s2))
-	{
-		if (s1 < s2)
-			return (s32(s1) + NET_SEQUENCE_COUNT) - s32(s2);
-		else
-			return s32(s1) - s32(s2);
-	}
-	else
-	{
-		if (s1 < s2)
-			return s32(s1) - s32(s2);
-		else
-			return s32(s1) - (s32(s2) + NET_SEQUENCE_COUNT);
-	}
-}
-
-SequenceID sequence_advance(SequenceID start, s32 delta)
-{
-	vi_assert(start >= 0 && start < NET_SEQUENCE_COUNT);
-	s32 result = s32(start) + delta;
-	while (result < 0)
-		result += NET_SEQUENCE_COUNT;
-	while (result >= NET_SEQUENCE_COUNT)
-		result -= NET_SEQUENCE_COUNT;
-	return SequenceID(result);
-}
-
 #if DEBUG
 void ack_debug(const char* caption, const Ack& ack)
 {
@@ -928,92 +889,10 @@ Ack msg_history_ack(const MessageHistory& history)
 	return ack;
 }
 
-void packet_init(StreamWrite* p)
-{
-	p->bits(NET_PROTOCOL_ID, 32); // packet_send() will replace this with the packet checksum
-}
-
-void packet_finalize(StreamWrite* p)
-{
-	vi_assert(p->data[0] == NET_PROTOCOL_ID);
-	p->flush();
-
-	// compress everything but the protocol ID
-	StreamWrite compressed;
-	compressed.resize_bytes(NET_MAX_PACKET_SIZE);
-	z_stream z;
-	z.zalloc = nullptr;
-	z.zfree = nullptr;
-	z.opaque = nullptr;
-	z.next_out = (Bytef*)&compressed.data[1];
-	z.avail_out = NET_MAX_PACKET_SIZE - sizeof(u32);
-	z.next_in = (Bytef*)&p->data[1];
-	z.avail_in = p->bytes_written() - sizeof(u32);
-
-	s32 result = deflateInit(&z, Z_DEFAULT_COMPRESSION);
-	vi_assert(result == Z_OK);
-
-	result = deflate(&z, Z_FINISH);
-
-	vi_assert(result == Z_STREAM_END && z.avail_in == 0);
-
-	result = deflateEnd(&z);
-	vi_assert(result == Z_OK);
-
-	p->reset();
-	p->resize_bytes(sizeof(u32) + NET_MAX_PACKET_SIZE - z.avail_out); // include one u32 for the CRC32
-	vi_assert(p->data.length > 0);
-	p->data[p->data.length - 1] = 0; // make sure everything gets zeroed out so the CRC32 comes out right
-	memcpy(&p->data[1], &compressed.data[1], NET_MAX_PACKET_SIZE - z.avail_out);
-
-	// replace protocol ID with CRC32
-	u32 checksum = crc32((const u8*)&p->data[0], sizeof(u32));
-	checksum = crc32((const u8*)&p->data[1], (p->data.length - 1) * sizeof(u32), checksum);
-
-	p->data[0] = checksum;
-}
-
-void packet_decompress(StreamRead* p, s32 bytes)
-{
-	StreamRead decompressed;
-	decompressed.resize_bytes(NET_MAX_PACKET_SIZE);
-	
-	z_stream z;
-	z.zalloc = nullptr;
-	z.zfree = nullptr;
-	z.opaque = nullptr;
-	z.next_in = (Bytef*)&p->data[1];
-	z.avail_in = bytes - sizeof(u32);
-	z.next_out = (Bytef*)&decompressed.data[1];
-	z.avail_out = NET_MAX_PACKET_SIZE - sizeof(u32);
-
-	s32 result = inflateInit(&z);
-	vi_assert(result == Z_OK);
-	
-	result = inflate(&z, Z_NO_FLUSH);
-	vi_assert(result == Z_STREAM_END);
-
-	result = inflateEnd(&z);
-	vi_assert(result == Z_OK);
-
-	p->reset();
-	p->resize_bytes(sizeof(u32) + (NET_MAX_PACKET_SIZE - sizeof(u32)) - z.avail_out);
-	vi_assert(p->data.length > 0);
-
-	p->data[p->data.length - 1] = 0; // make sure everything is zeroed out so the CRC32 comes out right
-	memcpy(&p->data[1], &decompressed.data[1], NET_MAX_PACKET_SIZE - z.avail_out);
-
-	p->bits_read = 32; // skip past the CRC32
-}
-
 void packet_send(const StreamWrite& p, const Sock::Address& address)
 {
 	Sock::udp_send(&sock, address, p.data.data, p.bytes_written());
 	state_common.bandwidth_out_counter += p.bytes_written();
-}
-
-namespace Server
-{
 }
 
 // consolidate msgs_out into msgs_out_history
@@ -2089,14 +1968,6 @@ struct StateServer
 };
 StateServer state_server;
 
-struct StateMaster
-{
-	Sock::Address addr;
-	SequenceID sequence_id_remote;
-	SequenceID sequence_id_local;
-};
-StateMaster state_master;
-
 s32 clients_loaded()
 {
 	s32 result = 0;
@@ -2147,7 +2018,7 @@ b8 init()
 		return false;
 	}
 
-	Sock::get_address(&state_master.addr, "127.0.0.1", 3497);
+	master_init();
 
 	// todo: allow both multiplayer / story mode sessions
 	Game::session.story_mode = true;
@@ -2782,6 +2653,8 @@ b8 init()
 		}
 	}
 
+	master_init();
+
 	return true;
 }
 
@@ -2867,7 +2740,8 @@ void update(const Update& u, r32 dt)
 {
 	// "connecting..." camera
 	{
-		b8 camera_needed = state_client.mode == Mode::Connecting
+		b8 camera_needed = state_client.mode == Mode::ContactingMaster
+			|| state_client.mode == Mode::Connecting
 			|| state_client.mode == Mode::Loading;
 		if (camera_needed && !state_client.camera_connecting)
 		{
@@ -2956,6 +2830,12 @@ void tick(const Update& u, r32 dt)
 		{
 			break;
 		}
+		case Mode::ContactingMaster:
+		{
+			state_client.timeout += dt;
+			state_common.master.update(&sock);
+			break;
+		}
 		case Mode::Connecting:
 		{
 			state_client.timeout += dt;
@@ -2999,6 +2879,7 @@ void connect(Sock::Address addr)
 	Game::level.local = false;
 	Game::schedule_timer = 0.0f;
 	state_client.server_address = addr;
+	state_client.timeout = 0.0f;
 	state_client.mode = Mode::Connecting;
 }
 
@@ -3009,21 +2890,77 @@ void connect(const char* ip, u16 port)
 	connect(addr);
 }
 
+b8 allocate_server(b8 story_mode, AssetID level, s8 open_slots)
+{
+	Game::level.local = false;
+	Game::schedule_timer = 0.0f;
+
+	state_client.timeout = 0.0f;
+	state_client.mode = Mode::ContactingMaster;
+
+	state_common.master.reset();
+
+	{
+		using Stream = StreamWrite;
+		Net::StreamWrite p;
+		packet_init(&p);
+		state_common.master.add_header(&p, Master::Message::ClientRequestServer);
+		serialize_bool(&p, story_mode);
+		serialize_s16(&p, Game::level.id);
+		serialize_s8(&p, open_slots);
+		packet_finalize(&p);
+		state_common.master.send(p, &sock);
+	}
+	return true;
+}
+
 Mode mode()
 {
 	return state_client.mode;
 }
 
+b8 packet_handle_master(StreamRead* p)
+{
+	using Stream = StreamRead;
+	SequenceID seq;
+	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
+	Master::Message type;
+	serialize_enum(p, Master::Message, type);
+	state_common.master.received(type, seq, &sock);
+	switch (type)
+	{
+		case Master::Message::Keepalive:
+		case Master::Message::Ack:
+		{
+			break;
+		}
+		case Master::Message::ClientConnect:
+		{
+			// todo
+			break;
+		}
+		default:
+		{
+			net_error();
+			break;
+		}
+	}
+	return true;
+}
+
 b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
 	using Stream = StreamRead;
-	if (state_client.mode == Mode::Disconnected)
-		return false;
-	else if (!address.equals(state_client.server_address))
+	if (address.equals(state_common.master.addr) && state_client.mode == Mode::ContactingMaster)
+		packet_handle_master(p);
+	else if (state_client.mode == Mode::Disconnected
+		|| state_client.mode == Mode::ContactingMaster
+		|| !address.equals(state_client.server_address))
 	{
 		vi_debug("%s", "Discarding packet from unexpected host.");
 		return false;
 	}
+
 	ServerPacket type;
 	serialize_enum(p, ServerPacket, type);
 	switch (type)
@@ -3478,6 +3415,8 @@ void reset()
 #endif
 
 	new (&state_common) StateCommon();
+
+	master_init();
 }
 
 

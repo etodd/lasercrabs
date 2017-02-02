@@ -500,6 +500,11 @@ void draw(const RenderParams& params)
 		AssetID str;
 		switch (Net::Client::mode())
 		{
+			case Net::Client::Mode::ContactingMaster:
+			{
+				str = strings::contacting_master;
+				break;
+			}
 			case Net::Client::Mode::Connecting:
 			{
 				str = strings::connecting;

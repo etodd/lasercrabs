@@ -4,7 +4,6 @@
 #include "data/array.h"
 #include "vi_assert.h"
 #include "lmath.h"
-#include "net.h"
 
 namespace VI
 {
@@ -94,6 +93,26 @@ struct StreamRead
 	void resize_bytes(s32);
 	void reset();
 	void rewind(s32 = 0);
+};
+
+typedef u16 SequenceID;
+
+void packet_init(StreamWrite*);
+void packet_finalize(StreamWrite*);
+void packet_decompress(StreamRead*, s32);
+
+// true if s1 > s2
+b8 sequence_more_recent(SequenceID, SequenceID);
+b8 sequence_older_than(SequenceID, SequenceID);
+s32 sequence_relative_to(SequenceID, SequenceID);
+SequenceID sequence_advance(SequenceID, s32);
+
+enum class Resolution
+{
+	Low,
+	Medium,
+	High,
+	count,
 };
 
 union Double

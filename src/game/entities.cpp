@@ -25,7 +25,6 @@
 #include "strings.h"
 #include "data/priority_queue.h"
 #include "net.h"
-#include "net_serialize.h"
 #include "team.h"
 #include "parkour.h"
 #include "overworld.h"

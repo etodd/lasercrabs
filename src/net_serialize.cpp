@@ -1,5 +1,6 @@
 #include "net_serialize.h"
 #include <cstdio>
+#include "assimp/contrib/zlib/zlib.h"
 
 namespace VI
 {
@@ -323,6 +324,130 @@ b8 StreamRead::align()
 		}
 	}
 	return true;
+}
+
+void packet_init(StreamWrite* p)
+{
+	p->bits(NET_PROTOCOL_ID, 32); // packet_send() will replace this with the packet checksum
+}
+
+void packet_finalize(StreamWrite* p)
+{
+	vi_assert(p->data[0] == NET_PROTOCOL_ID);
+	p->flush();
+
+	// compress everything but the protocol ID
+	StreamWrite compressed;
+	compressed.resize_bytes(NET_MAX_PACKET_SIZE);
+	z_stream z;
+	z.zalloc = nullptr;
+	z.zfree = nullptr;
+	z.opaque = nullptr;
+	z.next_out = (Bytef*)&compressed.data[1];
+	z.avail_out = NET_MAX_PACKET_SIZE - sizeof(u32);
+	z.next_in = (Bytef*)&p->data[1];
+	z.avail_in = p->bytes_written() - sizeof(u32);
+
+	s32 result = deflateInit(&z, Z_DEFAULT_COMPRESSION);
+	vi_assert(result == Z_OK);
+
+	result = deflate(&z, Z_FINISH);
+
+	vi_assert(result == Z_STREAM_END && z.avail_in == 0);
+
+	result = deflateEnd(&z);
+	vi_assert(result == Z_OK);
+
+	p->reset();
+	p->resize_bytes(sizeof(u32) + NET_MAX_PACKET_SIZE - z.avail_out); // include one u32 for the CRC32
+	vi_assert(p->data.length > 0);
+	p->data[p->data.length - 1] = 0; // make sure everything gets zeroed out so the CRC32 comes out right
+	memcpy(&p->data[1], &compressed.data[1], NET_MAX_PACKET_SIZE - z.avail_out);
+
+	// replace protocol ID with CRC32
+	u32 checksum = crc32((const u8*)&p->data[0], sizeof(u32));
+	checksum = crc32((const u8*)&p->data[1], (p->data.length - 1) * sizeof(u32), checksum);
+
+	p->data[0] = checksum;
+}
+
+void packet_decompress(StreamRead* p, s32 bytes)
+{
+	StreamRead decompressed;
+	decompressed.resize_bytes(NET_MAX_PACKET_SIZE);
+	
+	z_stream z;
+	z.zalloc = nullptr;
+	z.zfree = nullptr;
+	z.opaque = nullptr;
+	z.next_in = (Bytef*)&p->data[1];
+	z.avail_in = bytes - sizeof(u32);
+	z.next_out = (Bytef*)&decompressed.data[1];
+	z.avail_out = NET_MAX_PACKET_SIZE - sizeof(u32);
+
+	s32 result = inflateInit(&z);
+	vi_assert(result == Z_OK);
+	
+	result = inflate(&z, Z_NO_FLUSH);
+	vi_assert(result == Z_STREAM_END);
+
+	result = inflateEnd(&z);
+	vi_assert(result == Z_OK);
+
+	p->reset();
+	p->resize_bytes(sizeof(u32) + (NET_MAX_PACKET_SIZE - sizeof(u32)) - z.avail_out);
+	vi_assert(p->data.length > 0);
+
+	p->data[p->data.length - 1] = 0;
+	memcpy(&p->data[1], &decompressed.data[1], NET_MAX_PACKET_SIZE - z.avail_out);
+
+	p->bits_read = 32; // skip past the CRC32
+}
+
+// true if s1 > s2
+b8 sequence_more_recent(SequenceID s1, SequenceID s2)
+{
+	return (s1 != NET_SEQUENCE_INVALID && s2 == NET_SEQUENCE_INVALID)
+		|| ((s1 > s2) && (s1 - s2 <= NET_SEQUENCE_COUNT / 2))
+		|| ((s2 > s1) && (s2 - s1 > NET_SEQUENCE_COUNT / 2));
+}
+
+b8 sequence_older_than(SequenceID s1, SequenceID s2)
+{
+	return sequence_more_recent(s2, s1);
+}
+
+s32 sequence_relative_to(SequenceID s1, SequenceID s2)
+{
+	vi_assert(s1 >= 0 && s1 < NET_SEQUENCE_COUNT);
+	vi_assert(s2 >= 0 && s2 < NET_SEQUENCE_COUNT);
+	if (s1 == s2)
+		return 0;
+	else if (sequence_more_recent(s1, s2))
+	{
+		if (s1 < s2)
+			return (s32(s1) + NET_SEQUENCE_COUNT) - s32(s2);
+		else
+			return s32(s1) - s32(s2);
+	}
+	else
+	{
+		if (s1 < s2)
+			return s32(s1) - s32(s2);
+		else
+			return s32(s1) - (s32(s2) + NET_SEQUENCE_COUNT);
+	}
+}
+
+SequenceID sequence_advance(SequenceID start, s32 delta)
+{
+	vi_assert(start >= 0 && start < NET_SEQUENCE_COUNT);
+	s32 result = s32(start) + delta;
+	while (result < 0)
+		result += NET_SEQUENCE_COUNT;
+	while (result >= NET_SEQUENCE_COUNT)
+		result -= NET_SEQUENCE_COUNT;
+	return SequenceID(result);
 }
 
 

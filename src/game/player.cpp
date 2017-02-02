@@ -33,7 +33,6 @@
 #endif
 #include "scripts.h"
 #include "net.h"
-#include "net_serialize.h"
 #include "team.h"
 #include "overworld.h"
 #include "utf8/utf8.h"

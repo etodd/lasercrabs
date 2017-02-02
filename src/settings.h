@@ -33,6 +33,7 @@ namespace Settings
 	extern b8 antialiasing;
 	extern b8 waypoints;
 	extern b8 scan_lines;
+	extern char master_server[MAX_PATH_LENGTH];
 };
 
 

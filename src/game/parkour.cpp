@@ -18,6 +18,7 @@
 #include "data/components.h"
 #include "player.h"
 #include "render/skinned_model.h"
+#include "net.h"
 
 namespace VI
 {

@@ -6,7 +6,6 @@
 #include "render/views.h"
 #include <unordered_map>
 #include "constants.h"
-#include "net_serialize.h"
 
 namespace VI
 {

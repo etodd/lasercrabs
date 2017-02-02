@@ -29,6 +29,7 @@
 #include "player.h"
 #include "data/components.h"
 #include "ease.h"
+#include "net.h"
 
 namespace VI
 {

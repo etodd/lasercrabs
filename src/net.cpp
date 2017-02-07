@@ -127,14 +127,27 @@ struct StateCommon
 	s32 bandwidth_in_counter;
 	s32 bandwidth_out_counter;
 	r32 timestamp;
-	Master::Messenger master;
-	Sock::Address master_addr;
 };
 StateCommon state_common;
+Master::Messenger state_master;
+Sock::Address master_addr;
+
+b8 master_send_disconnect()
+{
+	using Stream = StreamWrite;
+	StreamWrite p;
+	packet_init(&p);
+	state_master.add_header(&p, master_addr, Master::Message::Disconnect);
+	packet_finalize(&p);
+	state_master.send(p, state_common.timestamp, master_addr, &sock);
+	state_master.reset();
+	return true;
+}
 
 void master_init()
 {
-	Sock::get_address(&state_common.master_addr, Settings::master_server, 3497);
+	Sock::get_address(&master_addr, Settings::master_server, 3497);
+	master_send_disconnect();
 }
 
 b8 msg_process(StreamRead*, MessageSource);
@@ -767,6 +780,8 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_int(p, u16, Game::level.scripts.length, 0, Game::level.scripts.capacity());
 	for (s32 i = 0; i < Game::level.scripts.length; i++)
 		serialize_int(p, AssetID, Game::level.scripts[i], 0, Script::count);
+	serialize_int(p, s8, Game::session.player_slots, 1, MAX_PLAYERS);
+	serialize_int(p, s8, Game::session.team_count, 2, MAX_PLAYERS);
 	if (Stream::IsReading)
 		Game::level.finder.map.length = 0;
 	return true;
@@ -1963,22 +1978,10 @@ struct StateServer
 	Array<Client> clients;
 	Mode mode;
 	r32 time_sync_timer;
-	s32 expected_clients = 1;
 	r32 master_timer;
 	r32 idle_timer;
 };
 StateServer state_server;
-
-s32 clients_loaded()
-{
-	s32 result = 0;
-	for (s32 i = 0; i < state_server.clients.length; i++)
-	{
-		if (state_server.clients[i].connected && state_server.clients[i].loading_done)
-			result++;
-	}
-	return result;
-}
 
 b8 client_owns(Client* c, Entity* e)
 {
@@ -2015,7 +2018,8 @@ void server_state(Master::ServerState* s)
 {
 	s->level = Game::level.id;
 	s->story_mode = Game::session.story_mode;
-	s->open_slots = s8(Game::player_slots() - PlayerManager::list.count());
+	s->open_slots = s8(Game::session.player_slots - PlayerManager::list.count());
+	s->team_count = Game::session.team_count;
 }
 
 b8 master_send_status_update()
@@ -2023,7 +2027,7 @@ b8 master_send_status_update()
 	using Stream = StreamWrite;
 	StreamWrite p;
 	packet_init(&p);
-	state_common.master.add_header(&p, state_common.master_addr, Master::Message::ServerStatusUpdate);
+	state_master.add_header(&p, master_addr, Master::Message::ServerStatusUpdate);
 	serialize_s32(&p, Settings::secret);
 	b8 active = state_server.mode != Mode::Idle;
 	serialize_bool(&p, active);
@@ -2033,7 +2037,7 @@ b8 master_send_status_update()
 		return false;
 
 	packet_finalize(&p);
-	state_common.master.send_unreliable(p, state_common.master_addr, &sock);
+	state_master.send(p, state_common.timestamp, master_addr, &sock);
 
 	state_server.master_timer = 0.0f;
 
@@ -2049,6 +2053,7 @@ b8 init()
 	}
 
 	master_init();
+	master_send_disconnect();
 
 	return true;
 }
@@ -2243,7 +2248,10 @@ void tick(const Update& u, r32 dt)
 	{
 		state_server.idle_timer += dt;
 		if (state_server.idle_timer > NET_SERVER_IDLE_TIME)
+		{
 			state_server.mode = Mode::Idle;
+			Game::session.player_slots = 0;
+		}
 	}
 	else
 		state_server.idle_timer = 0.0f;
@@ -2251,7 +2259,7 @@ void tick(const Update& u, r32 dt)
 	state_server.master_timer += dt;
 	if (state_server.master_timer > NET_MASTER_STATUS_INTERVAL)
 		master_send_status_update();
-	state_common.master.update(state_common.timestamp, &sock);
+	state_master.update(state_common.timestamp, &sock, 4);
 
 	StateFrame* frame = nullptr;
 
@@ -2301,14 +2309,18 @@ b8 packet_handle_master(StreamRead* p)
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	Master::Message type;
 	serialize_enum(p, Master::Message, type);
-	if (!state_common.master.received(type, seq, state_common.master_addr, &sock))
+	if (!state_master.received(type, seq, master_addr, &sock))
 		return false; // out of order
 
 	switch (type)
 	{
 		case Master::Message::Ack:
-		case Master::Message::Keepalive:
 		{
+			break;
+		}
+		case Master::Message::Disconnect:
+		{
+			state_master.reset();
 			break;
 		}
 		case Master::Message::ServerLoad:
@@ -2319,6 +2331,8 @@ b8 packet_handle_master(StreamRead* p)
 			if (s.level >= 0 && s.level < Asset::Level::count)
 			{
 				Game::session.story_mode = s.story_mode;
+				Game::session.team_count = s.team_count;
+				Game::session.player_slots = s.open_slots;
 				Game::load_level(s.level, s.story_mode ? Game::Mode::Parkour : Game::Mode::Pvp);
 			}
 			break;
@@ -2335,7 +2349,7 @@ b8 packet_handle_master(StreamRead* p)
 
 b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
-	if (address.equals(state_common.master_addr))
+	if (address.equals(master_addr))
 		return packet_handle_master(p);
 
 	Client* client = nullptr;
@@ -2365,7 +2379,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			{
 				if (!client
 					&& (state_server.mode == Mode::Active || state_server.mode == Mode::Waiting)
-					&& state_server.clients.length < state_server.expected_clients)
+					&& Game::session.player_slots > PlayerManager::list.count())
 				{
 					client = state_server.clients.add();
 					client_index = state_server.clients.length - 1;
@@ -2555,9 +2569,10 @@ b8 msg_process(StreamRead* p, Client* client)
 		{
 			client->loading_done = true;
 			vi_debug("Client %s:%hd finished loading.", Sock::host_to_str(client->address.host), client->address.port);
-			if (state_server.mode == Mode::Waiting && clients_loaded() == state_server.expected_clients)
-				state_server.mode = Mode::Active;
+			if (state_server.mode == Mode::Waiting
+				&& PlayerManager::list.count() == Game::session.player_slots)
 			{
+				state_server.mode = Mode::Active;
 				sync_time();
 			}
 			break;
@@ -2676,11 +2691,6 @@ Mode mode()
 	return state_server.mode;
 }
 
-s32 expected_clients()
-{
-	return state_server.expected_clients;
-}
-
 void reset()
 {
 	StreamWrite p;
@@ -2688,7 +2698,8 @@ void reset()
 	for (s32 i = 0; i < state_server.clients.length; i++)
 		packet_send(p, state_server.clients[i].address);
 
-	new (&Server::state_server) Server::StateServer();
+	state_server.~StateServer();
+	new (&state_server) StateServer();
 }
 
 }
@@ -2715,6 +2726,7 @@ struct StateClient
 	MessageFrameState server_processed_msg_frame = { NET_SEQUENCE_INVALID, false }; // most recent sequence ID we've processed from the server
 	MessageFrameState server_processed_load_msg_frame = { NET_SEQUENCE_INVALID, false }; // most recent sequence ID of load messages we've processed from the server
 	b8 reconnect;
+	Master::ServerState requested_server_state;
 };
 StateClient state_client;
 
@@ -2874,14 +2886,16 @@ void handle_server_disconnect()
 	}
 }
 
-b8 master_send_keepalive()
+b8 master_send_server_request()
 {
 	using Stream = StreamWrite;
 	StreamWrite p;
 	packet_init(&p);
-	state_common.master.add_header(&p, state_common.master_addr, Master::Message::Keepalive);
+	state_master.add_header(&p, master_addr, Master::Message::ClientRequestServer);
+	if (!serialize_server_state(&p, &state_client.requested_server_state))
+		return false;
 	packet_finalize(&p);
-	state_common.master.send_unreliable(p, state_common.master_addr, &sock);
+	state_master.send(p, state_common.timestamp, master_addr, &sock);
 	return true;
 }
 
@@ -2899,9 +2913,9 @@ void tick(const Update& u, r32 dt)
 			if (state_client.timeout > NET_MASTER_STATUS_INTERVAL)
 			{
 				state_client.timeout = 0.0f;
-				master_send_keepalive();
+				master_send_server_request();
 			}
-			state_common.master.update(state_common.timestamp, &sock);
+			state_master.update(state_common.timestamp, &sock, 4);
 			break;
 		}
 		case Mode::Connecting:
@@ -2958,30 +2972,22 @@ void connect(const char* ip, u16 port)
 	connect(addr);
 }
 
-b8 allocate_server(b8 story_mode, AssetID level, s8 open_slots)
+b8 allocate_server(b8 story_mode, AssetID level, s8 open_slots, s8 team_count)
 {
 	Game::level.local = false;
 	Game::schedule_timer = 0.0f;
 
 	state_client.timeout = 0.0f;
 	state_client.mode = Mode::ContactingMaster;
+	state_client.requested_server_state.story_mode = story_mode;
+	state_client.requested_server_state.level = level;
+	state_client.requested_server_state.open_slots = open_slots;
+	state_client.requested_server_state.team_count = team_count;
 
-	state_common.master.reset();
+	master_send_disconnect();
 
-	{
-		using Stream = StreamWrite;
-		StreamWrite p;
-		packet_init(&p);
-		state_common.master.add_header(&p, state_common.master_addr, Master::Message::ClientRequestServer);
-		Master::ServerState s;
-		s.story_mode = story_mode;
-		s.level = level;
-		s.open_slots = open_slots;
-		if (!serialize_server_state(&p, &s))
-			return false;
-		packet_finalize(&p);
-		state_common.master.send(p, state_common.timestamp, state_common.master_addr, &sock);
-	}
+	master_send_server_request();
+
 	return true;
 }
 
@@ -2997,13 +3003,17 @@ b8 packet_handle_master(StreamRead* p)
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	Master::Message type;
 	serialize_enum(p, Master::Message, type);
-	if (!state_common.master.received(type, seq, state_common.master_addr, &sock))
+	if (!state_master.received(type, seq, master_addr, &sock))
 		return false; // out of order
 	switch (type)
 	{
-		case Master::Message::Keepalive:
 		case Master::Message::Ack:
 		{
+			break;
+		}
+		case Master::Message::Disconnect:
+		{
+			state_master.reset();
 			break;
 		}
 		case Master::Message::ClientConnect:
@@ -3012,6 +3022,7 @@ b8 packet_handle_master(StreamRead* p)
 			serialize_u32(p, addr.host);
 			serialize_u16(p, addr.port);
 			connect(addr);
+			master_send_disconnect();
 			break;
 		}
 		default:
@@ -3026,7 +3037,7 @@ b8 packet_handle_master(StreamRead* p)
 b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
 	using Stream = StreamRead;
-	if (address.equals(state_common.master_addr) && state_client.mode == Mode::ContactingMaster)
+	if (address.equals(master_addr) && state_client.mode == Mode::ContactingMaster)
 		return packet_handle_master(p);
 	else if (state_client.mode == Mode::Disconnected
 		|| state_client.mode == Mode::ContactingMaster
@@ -3271,6 +3282,7 @@ void reset()
 		packet_send(p, state_client.server_address);
 	}
 
+	state_client.~StateClient();
 	new (&state_client) StateClient();
 }
 
@@ -3484,9 +3496,8 @@ void reset()
 	Client::reset();
 #endif
 
+	state_common.~StateCommon();
 	new (&state_common) StateCommon();
-
-	master_init();
 }
 
 

@@ -1805,7 +1805,10 @@ void splitscreen_select_zone_update(const Update& u)
 
 	// deploy button
 	if (Menu::main_menu_state == Menu::State::Hidden && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+	{
+		Game::session.team_count = splitscreen_team_count();
 		deploy_start();
+	}
 }
 
 void hide()

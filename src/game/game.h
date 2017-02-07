@@ -78,12 +78,13 @@ namespace VI
 			r32 zone_under_attack_timer;
 			AssetID zone_under_attack = AssetNull;
 			b8 story_mode;
+			s8 player_slots;
+			s8 team_count;
 
 			Session();
 			void reset();
 			r32 effective_time_scale() const;
 			s32 local_player_count() const;
-			s32 team_count() const;
 		};
 
 		struct CollectibleEntry
@@ -190,7 +191,6 @@ namespace VI
 		static void draw_override(const RenderParams&);
 		static void term();
 
-		static s32 player_slots();
 		static b8 net_transform_filter(const Entity*, Mode);
 	};
 

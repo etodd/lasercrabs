@@ -17,12 +17,12 @@ namespace Master
 
 enum class Message
 {
-	Keepalive,
 	Ack,
 	ServerStatusUpdate, // game server telling master what it's up to
 	ServerLoad, // master telling a server to load a certain level
 	ClientConnect, // master telling a client to connect to a game server
 	ClientRequestServer, // a client requesting the master to allocate it a game server
+	Disconnect,
 	count,
 };
 
@@ -32,6 +32,7 @@ struct Messenger
 	{
 		SequenceID incoming_seq;
 		SequenceID outgoing_seq;
+		Peer();
 	};
 
 	struct OutgoingPacket
@@ -49,13 +50,12 @@ struct Messenger
 	b8 has_unacked_outgoing_messages(Sock::Address) const;
 
 	b8 add_header(StreamWrite*, Sock::Address, Message);
-	void update(r64, Sock::Handle*);
+	void update(r64, Sock::Handle*, s32 = 0);
 	void remove(Sock::Address);
 	void reset();
 
 	// these assume packets have already been checksummed and compressed
 	void send(const StreamWrite&, r64, Sock::Address, Sock::Handle*);
-	void send_unreliable(const StreamWrite&, Sock::Address, Sock::Handle*);
 	b8 received(Message, SequenceID, Sock::Address, Sock::Handle*); // returns true if the packet is in order and should be processed
 };
 
@@ -63,14 +63,17 @@ struct ServerState // represents the current state of a game server
 {
 	AssetID level;
 	b8 story_mode;
-	s8 open_slots;
+	s8 open_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
+	s8 team_count;
+	b8 equals(const ServerState&) const;
 };
 
 template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)
 {
 	serialize_s16(p, s->level);
 	serialize_bool(p, s->story_mode);
-	serialize_int(p, s8, s->open_slots, 1, MAX_PLAYERS);
+	serialize_int(p, s8, s->open_slots, 0, MAX_PLAYERS);
+	serialize_int(p, s8, s->team_count, 2, MAX_PLAYERS);
 	return true;
 }
 

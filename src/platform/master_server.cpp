@@ -44,9 +44,9 @@ namespace Net
 namespace Master
 {
 
-#define MASTER_AUDIT_INTERVAL 3.0 // remove inactive nodes every x seconds
-#define MASTER_MATCH_INTERVAL 1.0 // run matchmaking searches every x seconds
-#define MASTER_INACTIVE_THRESHOLD 8.0 // remove node if it's inactive for x seconds
+#define MASTER_AUDIT_INTERVAL 1.25 // remove inactive nodes every x seconds
+#define MASTER_MATCH_INTERVAL 0.5 // run matchmaking searches every x seconds
+#define MASTER_INACTIVE_THRESHOLD 7.0 // remove node if it's inactive for x seconds
 #define MASTER_SETTINGS_FILE "config.txt"
 
 	namespace Settings
@@ -60,8 +60,10 @@ namespace Master
 		{
 			Invalid,
 			ServerActive,
+			ServerLoading,
 			ServerIdle,
 			ClientWaiting,
+			ClientConnecting,
 			ClientIdle,
 			count,
 		};
@@ -72,11 +74,19 @@ namespace Master
 		ServerState server_state;
 	};
 
+	struct ClientConnection
+	{
+		Sock::Address client;
+		Sock::Address server;
+	};
+
 	std::unordered_map<Sock::Address, Node> nodes;
 	Sock::Handle sock;
 	Messenger messenger;
 	Array<Sock::Address> servers;
 	Array<Sock::Address> clients_waiting;
+	Array<ClientConnection> clients_connecting;
+	Array<Sock::Address> servers_loading;
 
 	Node* node_for_address(Sock::Address addr)
 	{
@@ -91,6 +101,91 @@ namespace Master
 		else
 			n = &i->second;
 		return n;
+	}
+
+	void disconnected(Sock::Address addr)
+	{
+		const Node& node = *node_for_address(addr);
+		if (node.state == Node::State::ServerActive
+			|| node.state == Node::State::ServerLoading
+			|| node.state == Node::State::ServerIdle)
+		{
+			// it's a server; remove from the server list
+			for (s32 i = 0; i < servers.length; i++)
+			{
+				if (servers[i].equals(addr))
+				{
+					servers.remove(i);
+					i--;
+				}
+			}
+
+			// reset any clients trying to connect to this server
+			for (s32 i = 0; i < clients_connecting.length; i++)
+			{
+				const ClientConnection& connection = clients_connecting[i];
+				if (connection.server.equals(addr))
+				{
+					node_for_address(connection.client)->state = Node::State::ClientWaiting;
+					clients_connecting.remove(i);
+					i--;
+				}
+			}
+		}
+		else if (node.state == Node::State::ClientWaiting)
+		{
+			// it's a client waiting for a server; remove it from the wait list
+			for (s32 i = 0; i < clients_waiting.length; i++)
+			{
+				if (clients_waiting[i].equals(addr))
+				{
+					clients_waiting.remove(i);
+					i--;
+				}
+			}
+		}
+		else if (node.state == Node::State::ClientConnecting)
+		{
+			// remove it from the connecting list
+			for (s32 i = 0; i < clients_connecting.length; i++)
+			{
+				if (clients_connecting[i].client.equals(addr))
+				{
+					clients_connecting.remove(i);
+					i--;
+				}
+			}
+		}
+		nodes.erase(addr);
+		messenger.remove(addr);
+	}
+
+	b8 send_server_load(r64 timestamp, Node* server, ServerState* s)
+	{
+		server->state = Node::State::ServerLoading;
+		server->server_state = *s;
+		using Stream = StreamWrite;
+		StreamWrite p;
+		packet_init(&p);
+		messenger.add_header(&p, server->addr, Message::ServerLoad);
+		if (!serialize_server_state(&p, s))
+			return false;
+		packet_finalize(&p);
+		messenger.send(p, timestamp, server->addr, &sock);
+		return true;
+	}
+
+	b8 send_client_connect(r64 timestamp, Sock::Address server_addr, Sock::Address addr)
+	{
+		using Stream = StreamWrite;
+		StreamWrite p;
+		packet_init(&p);
+		messenger.add_header(&p, addr, Message::ClientConnect);
+		serialize_u32(&p, server_addr.host);
+		serialize_u16(&p, server_addr.port);
+		packet_finalize(&p);
+		messenger.send(p, timestamp, addr, &sock);
+		return true;
 	}
 
 	b8 packet_handle(StreamRead* p, Sock::Address addr, r64 timestamp)
@@ -109,8 +204,12 @@ namespace Master
 		switch (type)
 		{
 			case Message::Ack:
-			case Message::Keepalive:
 			{
+				break;
+			}
+			case Message::Disconnect:
+			{
+				disconnected(addr);
 				break;
 			}
 			case Message::ClientRequestServer:
@@ -118,9 +217,17 @@ namespace Master
 				ServerState s;
 				if (!serialize_server_state(p, &s))
 					net_error();
-				if (s.level < 0 || s.level >= Asset::Level::count)
+				if (s.level < 0
+					|| s.open_slots == 0
+					|| s.level >= Asset::Level::count
+					|| (s.story_mode && s.open_slots != 1)
+					|| (s.story_mode && s.team_count != 2))
 					net_error();
-				if (node->state == Node::State::Invalid
+				if (node->state == Node::State::ClientConnecting)
+				{
+					// ignore
+				}
+				else if (node->state == Node::State::Invalid
 					|| node->state == Node::State::ClientIdle
 					|| node->state == Node::State::ClientWaiting)
 				{
@@ -147,7 +254,23 @@ namespace Master
 				ServerState s;
 				if (!serialize_server_state(p, &s))
 					net_error();
-				if (node->state == Node::State::Invalid
+				if (node->state == Node::State::ServerLoading)
+				{
+					if (s.equals(node->server_state) && active) // done loading
+					{
+						node->server_state = s;
+						node->state = Node::State::ServerActive;
+						
+						// tell clients to connect to this server
+						for (s32 i = 0; i < clients_connecting.length; i++)
+						{
+							const ClientConnection& connection = clients_connecting[i];
+							if (connection.server.equals(node->addr))
+								send_client_connect(timestamp, node->addr, connection.client);
+						}
+					}
+				}
+				else if (node->state == Node::State::Invalid
 					|| node->state == Node::State::ServerActive
 					|| node->state == Node::State::ServerIdle)
 				{
@@ -171,38 +294,59 @@ namespace Master
 		return true;
 	}
 
-	b8 send_server_load(r64 timestamp, ServerState* s, Sock::Address addr)
+	Node* alloc_server(r64 timestamp, ServerState* s)
 	{
-		using Stream = StreamWrite;
-		StreamWrite p;
-		packet_init(&p);
-		messenger.add_header(&p, addr, Message::ServerLoad);
-		if (!serialize_server_state(&p, s))
-			return false;
-		packet_finalize(&p);
-		messenger.send(p, timestamp, addr, &sock);
-		return true;
+		for (s32 i = 0; i < servers.length; i++)
+		{
+			Node* n = node_for_address(servers[i]);
+			if (n->state == Node::State::ServerIdle)
+			{
+				send_server_load(timestamp, n, s);
+				return n;
+			}
+		}
+		return nullptr;
 	}
 
-	b8 send_client_connect(r64 timestamp, Sock::Address server_addr, Sock::Address addr)
+	void client_queue_join(Node* server, Node* client)
 	{
-		using Stream = StreamWrite;
-		StreamWrite p;
-		packet_init(&p);
-		messenger.add_header(&p, addr, Message::ClientConnect);
-		serialize_u32(&p, server_addr.host);
-		serialize_u16(&p, server_addr.port);
-		packet_finalize(&p);
-		messenger.send(p, timestamp, addr, &sock);
-		return true;
+		vi_assert(client->state == Node::State::ClientWaiting);
+		b8 found = false;
+		for (s32 i = 0; i < clients_waiting.length; i++)
+		{
+			if (clients_waiting[i].equals(client->addr))
+			{
+				found = true;
+				clients_waiting.remove(i);
+				break;
+			}
+		}
+		vi_assert(found);
+
+		ClientConnection* connection = clients_connecting.add();
+		connection->server = server->addr;
+		connection->client = client->addr;
+
+		client->state = Node::State::ClientConnecting;
 	}
 
-	void match(r64 timestamp, Node* server, Node* client)
+	s8 server_open_slots(Node* server)
 	{
-		server->state = Node::State::ServerActive;
-		server->server_state = client->server_state;
-		send_server_load(timestamp, &server->server_state, server->addr);
-		send_client_connect(timestamp, server->addr, client->addr);
+		if (server->state == Node::State::ServerLoading
+			|| server->state == Node::State::ServerActive
+			|| server->state == Node::State::ServerIdle)
+		{
+			s8 slots = server->server_state.open_slots;
+			for (s32 i = 0; i < clients_connecting.length; i++)
+			{
+				const ClientConnection& connection = clients_connecting[i];
+				if (connection.server.equals(server->addr))
+					slots -= node_for_address(connection.client)->server_state.open_slots;
+			}
+			return slots;
+		}
+		else
+			vi_assert(false);
 	}
 
 	s32 proc()
@@ -246,10 +390,16 @@ namespace Master
 
 		r64 last_audit = 0.0;
 		r64 last_match = 0.0;
+		r64 timestamp = 0.0;
+		r64 last_update = platform::time();
 
 		while (true)
 		{
-			r64 timestamp = platform::timestamp();
+			{
+				r64 t = platform::time();
+				timestamp += vi_min(0.25, t - last_update);
+				last_update = t;
+			}
 
 			messenger.update(timestamp, &sock);
 
@@ -264,54 +414,93 @@ namespace Master
 						removals.add(i->first);
 				}
 				for (s32 i = 0; i < removals.length; i++)
-				{
-					const Sock::Address& addr = removals[i];
-					const Node& node = nodes[addr];
-					if (node.state == Node::State::ServerActive || node.state == Node::State::ServerIdle)
-					{
-						// it's a server; remove from the server list
-						for (s32 i = 0; i < servers.length; i++)
-						{
-							if (servers[i].equals(addr))
-							{
-								servers.remove(i);
-								i--;
-							}
-						}
-					}
-					else if (node.state == Node::State::ClientWaiting)
-					{
-						// it's a client waiting for a server; remove it from the wait list
-						for (s32 i = 0; i < clients_waiting.length; i++)
-						{
-							if (clients_waiting[i].equals(addr))
-							{
-								clients_waiting.remove(i);
-								i--;
-							}
-						}
-					}
-					nodes.erase(addr);
-					messenger.remove(addr);
-				}
+					disconnected(removals[i]);
 				last_audit = timestamp;
 			}
 
 			if (timestamp - last_match > MASTER_MATCH_INTERVAL)
 			{
 				last_match = timestamp;
+				Array<Sock::Address> multiplayer_servers;
+				s32 existing_multiplayer_slots = 0;
+
+				s32 idle_servers = 0;
 				for (s32 i = 0; i < servers.length; i++)
 				{
-					Node* server = &nodes[servers[i]];
-					if (server->state == Node::State::ServerIdle
-						&& !messenger.has_unacked_outgoing_messages(server->addr))
+					Node* server = node_for_address(servers[i]);
+					if (server->state == Node::State::ServerIdle)
 					{
 						// find someone looking for a story-mode server and give this server to them
 						for (s32 j = 0; j < clients_waiting.length; j++)
 						{
-							Node* client = &nodes[clients_waiting[j]];
+							Node* client = node_for_address(clients_waiting[j]);
 							if (client->server_state.story_mode)
-								match(timestamp, server, client);
+							{
+								send_server_load(timestamp, server, &client->server_state);
+								client_queue_join(server, client);
+								break;
+							}
+						}
+
+						if (server->state == Node::State::ServerIdle) // still idle
+							idle_servers += 1;
+					}
+					else
+					{
+						vi_assert(server->state == Node::State::ServerActive || server->state == Node::State::ServerLoading);
+						s8 open_slots = server_open_slots(server);
+						if (!server->server_state.story_mode && open_slots > 0)
+						{
+							multiplayer_servers.add(server->addr);
+							existing_multiplayer_slots += open_slots;
+						}
+					}
+				}
+
+				// allocate multiplayer servers as necessary
+				s32 needed_multiplayer_slots = 0;
+				{
+					for (s32 i = 0; i < clients_waiting.length; i++)
+					{
+						Node* node = node_for_address(clients_waiting[i]);
+						if (!node->server_state.story_mode)
+							needed_multiplayer_slots += node->server_state.open_slots;
+					}
+
+					// todo: different multiplayer setups
+					ServerState multiplayer_state;
+					multiplayer_state.level = Asset::Level::Medias_Res;
+					multiplayer_state.open_slots = 4;
+					multiplayer_state.story_mode = false;
+					multiplayer_state.team_count = 2;
+
+					s32 server_allocs = vi_min(idle_servers, ((needed_multiplayer_slots - existing_multiplayer_slots) + MAX_PLAYERS - 1) / MAX_PLAYERS); // ceil divide
+					for (s32 i = 0; i < server_allocs; i++)
+					{
+						Node* server = alloc_server(timestamp, &multiplayer_state);
+						if (server)
+							multiplayer_servers.add(server->addr);
+						else
+							break; // not enough servers available
+					}
+				}
+
+				// assign clients to servers
+				for (s32 i = 0; i < multiplayer_servers.length; i++)
+				{
+					Node* server = node_for_address(multiplayer_servers[i]);
+					s8 slots = server_open_slots(server);
+					for (s32 j = 0; j < clients_waiting.length; j++)
+					{
+						Node* client = node_for_address(clients_waiting[j]);
+						if (slots >= client->server_state.open_slots)
+						{
+							client_queue_join(server, client);
+							if (server->state != Node::State::ServerLoading) // server already loaded, no need to wait for it
+								send_client_connect(timestamp, server->addr, client->addr);
+							slots -= client->server_state.open_slots;
+							if (slots == 0)
+								break;
 						}
 					}
 				}

@@ -125,7 +125,6 @@ namespace Server
 	};
 
 	Mode mode();
-	s32 expected_clients();
 	void transition_level();
 	void level_loading();
 	void level_loaded();
@@ -147,7 +146,7 @@ namespace Client
 
 	void connect(Sock::Address);
 	void connect(const char*, u16);
-	b8 allocate_server(b8, AssetID, s8);
+	b8 allocate_server(b8, AssetID, s8, s8);
 
 	b8 lagging();
 

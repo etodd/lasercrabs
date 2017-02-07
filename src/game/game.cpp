@@ -86,6 +86,8 @@ Game::Session::Session()
 	local_player_config{ 0, AI::TeamNone, AI::TeamNone, AI::TeamNone },
 #endif
 	story_mode(true),
+	player_slots(1),
+	team_count(2),
 	time_scale(1.0f)
 {
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
@@ -106,33 +108,6 @@ s32 Game::Session::local_player_count() const
 			count++;
 	}
 	return count;
-}
-
-s32 Game::Session::team_count() const
-{
-	if (story_mode)
-		return 2;
-	else
-	{
-#if SERVER
-		return Net::Server::expected_clients(); // HACK
-#else
-		s32 team_counts[MAX_PLAYERS] = {};
-		for (s32 i = 0; i < MAX_GAMEPADS; i++)
-		{
-			if (local_player_config[i] != AI::TeamNone)
-				team_counts[local_player_config[i]]++;
-		}
-
-		s32 count = 0;
-		for (s32 i = 0; i < MAX_PLAYERS; i++)
-		{
-			if (team_counts[i] > 0)
-				count++;
-		}
-		return count;
-#endif
-	}
 }
 
 void Game::Session::reset()
@@ -533,14 +508,6 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 	return t->component_mask & (mode == Game::Mode::Pvp ? mask_pvp : mask_parkour);
 }
 
-s32 Game::player_slots()
-{
-	if (session.story_mode)
-		return 1;
-	else
-		return 4; // todo
-}
-
 #if SERVER
 
 void Game::draw_opaque(const RenderParams&) { }
@@ -880,12 +847,19 @@ void Game::execute(const char* cmd)
 		save.reset();
 		Net::Client::connect(host, 3494);
 	}
-	else if (strstr(cmd, "alloc") == cmd)
+	else if (strcmp(cmd, "allocs") == 0)
 	{
-		// allocate a server
+		// allocate a story-mode server
 		unload_level();
 		save.reset();
-		Net::Client::allocate_server(true, Asset::Level::Medias_Res, 1);
+		Net::Client::allocate_server(true, Asset::Level::Port_District, 1, 2);
+	}
+	else if (strcmp(cmd, "allocm") == 0)
+	{
+		// allocate a multiplayer server
+		unload_level();
+		save.reset();
+		Net::Client::allocate_server(false, Asset::Level::Medias_Res, 2, 2);
 	}
 #endif
 #if DEBUG && !SERVER
@@ -1325,8 +1299,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
 
-			s32 team_count = session.team_count();
-
 			// fill team lookup table
 			{
 				s32 offset;
@@ -1341,10 +1313,10 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				{
 					// shuffle teams and make sure they're packed in the array starting at 0
 					b8 lock_teams = Json::get_s32(element, "lock_teams");
-					offset = lock_teams ? 0 : mersenne::rand() % team_count;
+					offset = lock_teams ? 0 : mersenne::rand() % session.team_count;
 				}
 				for (s32 i = 0; i < MAX_PLAYERS; i++)
-					level.team_lookup[i] = AI::Team((offset + i) % team_count);
+					level.team_lookup[i] = AI::Team((offset + i) % session.team_count);
 			}
 
 			level.skybox.far_plane = Json::get_r32(element, "far_plane", 100.0f);
@@ -1362,7 +1334,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			// initialize teams
 			if (m != Mode::Special || level.id == Asset::Level::Dock)
 			{
-				for (s32 i = 0; i < team_count; i++)
+				for (s32 i = 0; i < session.team_count; i++)
 				{
 					Entity* e = World::alloc<ContainerEntity>(); // team entities get awoken and finalized at the end of load_level()
 					e->create<Team>();

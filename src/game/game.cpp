@@ -72,7 +72,7 @@ AssetID Game::scheduled_load_level = AssetNull;
 AssetID Game::scheduled_dialog = AssetNull;
 Game::Mode Game::scheduled_mode = Game::Mode::Pvp;
 r32 Game::schedule_timer;
-Game::Save Game::save = Game::Save();
+Net::Master::Save Game::save;
 Game::Level Game::level;
 Game::Session Game::session;
 b8 Game::cancel_event_eaten[] = {};
@@ -114,29 +114,6 @@ void Game::Session::reset()
 {
 	this->~Session();
 	*this = Session();
-}
-
-Game::Save::Save()
-{
-	reset();
-}
-
-void Game::Save::reset()
-{
-	this->~Save();
-
-	memset(this, 0, sizeof(*this));
-
-	zone_last = AssetNull;
-	zone_current = AssetNull;
-	zone_overworld = AssetNull;
-	locke_index = -1;
-
-	strcpy(username, "etodd");
-	zones[Asset::Level::Dock] = ZoneState::GroupOwned;
-	zones[Asset::Level::Qualia] = ZoneState::GroupOwned;
-
-	resources[(s32)Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
 }
 
 b8 Game::Level::has_feature(Game::FeatureLevel f) const
@@ -330,7 +307,20 @@ void Game::update(const Update& update_in)
 #endif
 		if (scheduled_load_level != AssetNull && schedule_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
 		{
-			load_level(scheduled_load_level, scheduled_mode);
+#if !SERVER
+			if (level.local
+				&& session.story_mode
+				&& level.id == Asset::Level::Dock
+				&& scheduled_load_level == Asset::Level::Port_District) // we're playing locally on the title screen; need to switch to a server
+			{
+				save.zone_last = level.id; // hack to ensure hand-off works correctly
+				unload_level();
+				Net::Client::allocate_server(true, scheduled_load_level, 1, 2);
+				scheduled_load_level = AssetNull;
+			}
+			else
+#endif
+				load_level(scheduled_load_level, scheduled_mode);
 			if (scheduled_dialog != AssetNull)
 			{
 				Menu::dialog(0, &Menu::dialog_no_action, _(scheduled_dialog));
@@ -803,9 +793,9 @@ void game_end_cheat(b8 win)
 				return;
 		}
 
-		if (Game::level.type == Game::Type::Deathmatch)
+		if (Game::level.type == GameType::Deathmatch)
 			player->kills = Game::level.kill_limit;
-		else if (Game::level.type == Game::Type::Rush)
+		else if (Game::level.type == GameType::Rush)
 		{
 			if (player->team.ref()->team() == 0) // defending
 				Team::match_time = Game::level.time_limit;
@@ -1169,7 +1159,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 	cJSON* json = Loader::level(l, true);
 
-	new (&level) Level();
 	level.mode = m;
 	level.id = l;
 	level.local = true;
@@ -1181,7 +1170,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 	// count control point sets and pick one of them
 	s32 control_point_set = 0;
-	if (level.type == Type::Rush)
+	if (level.type == GameType::Rush)
 	{
 		s32 max_control_point_set = -1;
 		cJSON* element = json->child;
@@ -1195,8 +1184,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		// pick a set of control points
 		if (max_control_point_set >= 0)
 			control_point_set = mersenne::rand() % (max_control_point_set + 1);
-		else if (level.type == Type::Rush) // no control points
-			level.type = Type::Deathmatch;
+		else if (level.type == GameType::Rush) // no control points
+			level.type = GameType::Deathmatch;
 	}
 
 	// count AI players
@@ -1214,12 +1203,12 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	level.time_limit = 60.0f * 8.0f;
 	switch (level.type)
 	{
-		case Type::Rush:
+		case GameType::Rush:
 		{
 			level.respawns = DEFAULT_RUSH_DRONES;
 			break;
 		}
-		case Type::Deathmatch:
+		case GameType::Deathmatch:
 		{
 			level.respawns = -1;
 			break;
@@ -1482,7 +1471,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "ControlPoint"))
 		{
-			if (level.type == Type::Rush && (!cJSON_HasObjectItem(element, "set") || Json::get_s32(element, "set") == control_point_set))
+			if (level.type == GameType::Rush && (!cJSON_HasObjectItem(element, "set") || Json::get_s32(element, "set") == control_point_set))
 				entity = World::alloc<ControlPointEntity>(AI::Team(0), absolute_pos);
 			else
 				entity = World::alloc<StaticGeom>(Asset::Mesh::control_point, absolute_pos, absolute_rot);
@@ -1800,7 +1789,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				ID id = ID(transforms.length);
 				for (s32 i = 0; i < save.collectibles.length; i++)
 				{
-					const CollectibleEntry& entry = save.collectibles[i];
+					const Net::Master::CollectibleEntry& entry = save.collectibles[i];
 					if (entry.zone == level.id && entry.id == id)
 					{
 						already_collected = true;
@@ -1900,12 +1889,12 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 	switch (level.type)
 	{
-		case Type::Rush:
+		case GameType::Rush:
 		{
 			level.kill_limit = 0;
 			break;
 		}
-		case Type::Deathmatch:
+		case GameType::Deathmatch:
 		{
 			level.kill_limit = ai_player_count == 1 ? 5 : 15;
 			break;

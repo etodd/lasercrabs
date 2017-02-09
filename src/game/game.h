@@ -6,6 +6,7 @@
 #include "render/views.h"
 #include <unordered_map>
 #include "constants.h"
+#include "master.h"
 
 namespace VI
 {
@@ -45,14 +46,6 @@ namespace VI
 			count = None,
 		};
 
-		enum class Group
-		{
-			None,
-			WuGang,
-			Ephyra,
-			count,
-		};
-
 		enum class FeatureLevel
 		{
 			Base,
@@ -60,13 +53,6 @@ namespace VI
 			Abilities,
 			TutorialAll,
 			All,
-			count,
-		};
-
-		enum class Type
-		{
-			Rush,
-			Deathmatch,
 			count,
 		};
 
@@ -85,34 +71,6 @@ namespace VI
 			void reset();
 			r32 effective_time_scale() const;
 			s32 local_player_count() const;
-		};
-
-		struct CollectibleEntry
-		{
-			AssetID zone;
-			ID id;
-		};
-
-		struct Save
-		{
-			r64 timestamp;
-			r64 zone_lost_times[MAX_ZONES];
-			Array<CollectibleEntry> collectibles;
-			Vec3 zone_current_restore_position;
-			r32 zone_current_restore_rotation;
-			s32 locke_index;
-			ZoneState zones[MAX_ZONES];
-			Group group;
-			s16 resources[s32(Resource::count)];
-			AssetID zone_last;
-			AssetID zone_current;
-			AssetID zone_overworld;
-			char username[MAX_USERNAME + 1];
-			b8 zone_current_restore;
-			b8 locke_spoken;
-
-			Save();
-			void reset();
 		};
 
 		struct TramTrack
@@ -136,7 +94,7 @@ namespace VI
 			r32 rotation;
 			s32 max_teams;
 			FeatureLevel feature_level;
-			Type type;
+			GameType type;
 			Mode mode;
 			Skybox::Config skybox;
 			StaticArray<AssetID, 8> scripts;
@@ -155,7 +113,7 @@ namespace VI
 		};
 
 		static Session session;
-		static Save save;
+		static Net::Master::Save save;
 		static Level level;
 
 		static GameTime time;

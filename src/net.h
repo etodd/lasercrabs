@@ -42,6 +42,7 @@ enum class MessageType
 	Interactable,
 	ClientSetup,
 	EntityName,
+	InitSave,
 	InitDone,
 	LoadingDone,
 	TimeSync,

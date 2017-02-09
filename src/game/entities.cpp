@@ -3094,7 +3094,7 @@ void TramInteractableEntity::interacted(Interactable* i)
 		if (Game::save.zones[Game::level.id] != ZoneState::Locked
 			|| Game::save.zones[target_level] != ZoneState::Locked)
 		{
-			if (Game::level.local && Game::save.zones[target_level] != ZoneState::Friendly && Game::save.zones[target_level] != ZoneState::GroupOwned)
+			if (Game::level.local && Game::save.zones[target_level] == ZoneState::Locked)
 				Overworld::resource_change(Resource::HackKits, -1);
 			tram->departing = true;
 			tram->doors_open(true);

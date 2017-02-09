@@ -648,12 +648,12 @@ void Team::update_all_server(const Update& u)
 
 	if (!game_over)
 	{
-		Team* team_with_most_kills = Game::level.type == Game::Type::Deathmatch ? with_most_kills() : nullptr;
+		Team* team_with_most_kills = Game::level.type == GameType::Deathmatch ? with_most_kills() : nullptr;
 		if (!Game::level.continue_match_after_death
-			&& ((match_time > Game::level.time_limit && (Game::level.type != Game::Type::Rush || ControlPoint::count_capturing() == 0))
+			&& ((match_time > Game::level.time_limit && (Game::level.type != GameType::Rush || ControlPoint::count_capturing() == 0))
 			|| (Game::level.has_feature(Game::FeatureLevel::All) && Team::teams_with_players() <= 1)
-			|| (Game::level.type == Game::Type::Rush && list[1].control_point_count() == ControlPoint::list.count())
-			|| (Game::level.type == Game::Type::Deathmatch && team_with_most_kills && team_with_most_kills->kills() >= Game::level.kill_limit)))
+			|| (Game::level.type == GameType::Rush && list[1].control_point_count() == ControlPoint::list.count())
+			|| (Game::level.type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills() >= Game::level.kill_limit)))
 		{
 			// determine the winner, if any
 			Team* w = nullptr;
@@ -670,9 +670,9 @@ void Team::update_all_server(const Update& u)
 
 			if (teams_with_players == 1)
 				w = team_with_player;
-			else if (Game::level.type == Game::Type::Deathmatch)
+			else if (Game::level.type == GameType::Deathmatch)
 				w = team_with_most_kills;
-			else if (Game::level.type == Game::Type::Rush)
+			else if (Game::level.type == GameType::Rush)
 			{
 				if (list[0].control_point_count() > 0)
 					w = &list[0]; // defenders win
@@ -878,7 +878,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
 	{
 		credits = CREDITS_INITIAL;
-		if (Game::session.story_mode && Game::level.type == Game::Type::Rush && team->team() == 0)
+		if (Game::session.story_mode && Game::level.type == GameType::Rush && team->team() == 0)
 			credits += s32(Team::match_time / ENERGY_INCREMENT_INTERVAL) * (CREDITS_DEFAULT_INCREMENT * s32(EnergyPickup::list.count() * 0.75f));
 	}
 	else

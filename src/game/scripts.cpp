@@ -637,7 +637,7 @@ namespace title
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 				i.item()->camera->active = false;
 		}
-		else
+		else if (Game::level.local)
 			World::remove(entities.find("character"));
 
 		if ((Game::save.zone_last == AssetNull || Game::save.zone_last == Asset::Level::Dock)
@@ -656,6 +656,9 @@ namespace title
 			Game::draws.add(draw);
 
 			data->sailor = Actor::add(entities.find("sailor"), Asset::Bone::sailor_head);
+			Loader::animation(Asset::Animation::sailor_close_door);
+			Loader::animation(Asset::Animation::sailor_wait);
+			Loader::animation(Asset::Animation::sailor_talk);
 			if (Game::level.mode != Game::Mode::Special)
 				data->sailor->highlight = true;
 		}
@@ -824,6 +827,7 @@ namespace tutorial
 	void init(const EntityFinder& entities)
 	{
 		Actor::init();
+		Loader::animation(Asset::Animation::hobo_idle);
 
 		data = new Data();
 
@@ -970,6 +974,11 @@ namespace locke
 		Entity* locke = entities.find("locke");
 		locke->get<PlayerTrigger>()->entered.link(&trigger);
 		data->locke = Actor::add(locke, Asset::Bone::locke_head);
+		Loader::animation(Asset::Animation::locke_gesture_both_arms);
+		Loader::animation(Asset::Animation::locke_gesture_one_hand);
+		Loader::animation(Asset::Animation::locke_gesture_one_hand_short);
+		Loader::animation(Asset::Animation::locke_idle);
+		Loader::animation(Asset::Animation::locke_shift_weight);
 		Game::updates.add(&update);
 		Game::cleanups.add(&cleanup);
 	}

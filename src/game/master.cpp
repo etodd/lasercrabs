@@ -1,4 +1,5 @@
 #include "master.h"
+#include "asset/level.h"
 
 namespace VI
 {
@@ -9,8 +10,32 @@ namespace Net
 namespace Master
 {
 
-#define DEBUG_MSG 1
+#define DEBUG_MSG 0
 #define NET_MASTER_RESEND_INTERVAL 1.5
+
+Save::Save()
+{
+	reset();
+}
+
+void Save::reset()
+{
+	this->~Save();
+
+	memset(this, 0, sizeof(*this));
+
+	zone_last = AssetNull;
+	zone_current = AssetNull;
+	zone_overworld = AssetNull;
+	locke_index = -1;
+
+	strcpy(username, "etodd");
+	zones[Asset::Level::Dock] = ZoneState::GroupOwned;
+	zones[Asset::Level::Qualia] = ZoneState::GroupOwned;
+
+	resources[(s32)Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
+}
+
 
 Messenger::Peer::Peer()
 	: incoming_seq(NET_SEQUENCE_COUNT - 1),

@@ -683,9 +683,9 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 			username_length = strlen(m->username);
 		serialize_int(p, s32, username_length, 0, MAX_USERNAME);
 		serialize_bytes(p, (u8*)m->username, username_length);
-		serialize_bool(p, m->can_spawn);
 		if (Stream::IsReading)
 			m->username[username_length] = '\0';
+		serialize_bool(p, m->can_spawn);
 	}
 
 	if (e->has<PlayerCommon>())
@@ -767,7 +767,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_s16(p, Game::level.kill_limit);
 	serialize_s16(p, Game::level.respawns);
 	serialize_enum(p, Game::Mode, Game::level.mode);
-	serialize_enum(p, Game::Type, Game::level.type);
+	serialize_enum(p, GameType, Game::level.type);
 	serialize_bool(p, Game::session.story_mode);
 	serialize_bool(p, Game::level.post_pvp);
 	serialize_ref(p, Game::level.map_view);
@@ -784,13 +784,6 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_int(p, s8, Game::session.team_count, 2, MAX_PLAYERS);
 	if (Stream::IsReading)
 		Game::level.finder.map.length = 0;
-	return true;
-}
-
-template<typename Stream> b8 serialize_save(Stream* p)
-{
-	for (s32 i = 0; i < MAX_ZONES; i++)
-		serialize_enum(p, ZoneState, Game::save.zones[i]);
 	return true;
 }
 
@@ -1979,7 +1972,7 @@ struct StateServer
 	Mode mode;
 	r32 time_sync_timer;
 	r32 master_timer;
-	r32 idle_timer;
+	r32 idle_timer = NET_SERVER_IDLE_TIME;
 };
 StateServer state_server;
 
@@ -2020,6 +2013,7 @@ void server_state(Master::ServerState* s)
 	s->story_mode = Game::session.story_mode;
 	s->open_slots = s8(Game::session.player_slots - PlayerManager::list.count());
 	s->team_count = Game::session.team_count;
+	s->game_type = Game::level.type;
 }
 
 b8 master_send_status_update()
@@ -2034,7 +2028,7 @@ b8 master_send_status_update()
 	Master::ServerState s;
 	server_state(&s);
 	if (!serialize_server_state(&p, &s))
-		return false;
+		net_error();
 
 	packet_finalize(&p);
 	state_master.send(p, state_common.timestamp, master_addr, &sock);
@@ -2074,10 +2068,7 @@ void level_loading()
 void level_loaded()
 {
 	vi_assert(state_server.mode == Mode::Loading);
-	if (Game::session.story_mode)
-		state_server.mode = Mode::Active;
-	else
-		state_server.mode = Mode::Waiting;
+	state_server.mode = Game::session.story_mode ? Mode::Active : Mode::Waiting;
 	master_send_status_update();
 }
 
@@ -2246,15 +2237,19 @@ void tick(const Update& u, r32 dt)
 
 	if (PlayerHuman::list.count() == 0)
 	{
-		state_server.idle_timer += dt;
-		if (state_server.idle_timer > NET_SERVER_IDLE_TIME)
+		if (state_server.mode != Mode::Idle)
 		{
-			state_server.mode = Mode::Idle;
-			Game::session.player_slots = 0;
+			state_server.idle_timer -= dt;
+			if (state_server.idle_timer < 0.0f)
+			{
+				state_server.mode = Mode::Idle;
+				Game::session.player_slots = 0;
+				Game::unload_level();
+			}
 		}
 	}
 	else
-		state_server.idle_timer = 0.0f;
+		state_server.idle_timer = 1.0f; // after players have connected, the server can be empty for one second before it reverts to idle state
 
 	state_server.master_timer += dt;
 	if (state_server.master_timer > NET_MASTER_STATUS_INTERVAL)
@@ -2333,8 +2328,16 @@ b8 packet_handle_master(StreamRead* p)
 				Game::session.story_mode = s.story_mode;
 				Game::session.team_count = s.team_count;
 				Game::session.player_slots = s.open_slots;
+				Game::level.type = s.game_type;
+				if (s.story_mode)
+				{
+					if (!Master::serialize_save(p, &Game::save))
+						net_error();
+				}
 				Game::load_level(s.level, s.story_mode ? Game::Mode::Parkour : Game::Mode::Pvp);
 			}
+			else
+				net_error();
 			break;
 		}
 		default:
@@ -2391,6 +2394,15 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					// serialize out map data
 					{
 						using Stream = StreamWrite;
+
+						// save data
+						if (Game::session.story_mode)
+						{
+							StreamWrite* p = msg_new(&client->msgs_out_load, MessageType::InitSave);
+							if (!Master::serialize_save(p, &Game::save))
+								vi_assert(false);
+							msg_finalize(p);
+						}
 
 						// entity data
 						for (auto j = Entity::list.iterator(); !j.is_last(); j.next())
@@ -2893,7 +2905,12 @@ b8 master_send_server_request()
 	packet_init(&p);
 	state_master.add_header(&p, master_addr, Master::Message::ClientRequestServer);
 	if (!serialize_server_state(&p, &state_client.requested_server_state))
-		return false;
+		net_error();
+	if (state_client.requested_server_state.story_mode)
+	{
+		if (!Master::serialize_save(&p, &Game::save))
+			net_error();
+	}
 	packet_finalize(&p);
 	state_master.send(p, state_common.timestamp, master_addr, &sock);
 	return true;
@@ -3211,12 +3228,20 @@ b8 msg_process(StreamRead* p)
 		}
 		case MessageType::EntityName:
 		{
+			vi_assert(state_client.mode == Mode::Loading);
 			s32 length;
 			serialize_int(p, s32, length, 0, 255);
 			EntityFinder::NameEntry* entry = Game::level.finder.map.add();
 			serialize_bytes(p, (u8*)entry->name, length);
 			entry->name[length] = '\0';
 			serialize_ref(p, entry->entity);
+			break;
+		}
+		case MessageType::InitSave:
+		{
+			vi_assert(state_client.mode == Mode::Loading);
+			if (!Master::serialize_save(p, &Game::save))
+				net_error();
 			break;
 		}
 		case MessageType::InitDone:
@@ -3678,6 +3703,7 @@ b8 msg_finalize(StreamWrite* p)
 		&& type != MessageType::EntityCreate
 		&& type != MessageType::EntityRemove
 		&& type != MessageType::EntityName
+		&& type != MessageType::InitSave
 		&& type != MessageType::InitDone
 		&& type != MessageType::LoadingDone
 		&& type != MessageType::TimeSync

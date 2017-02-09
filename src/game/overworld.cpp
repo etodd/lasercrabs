@@ -425,7 +425,7 @@ s16 energy_increment_total()
 		if (zone_state == ZoneState::Friendly)
 			result += energy_increment_zone(zone);
 	}
-	if (Game::save.group != Game::Group::None)
+	if (Game::save.group != Net::Master::Group::None)
 		result = result / 8;
 	return result;
 }
@@ -1150,7 +1150,7 @@ b8 enable_input()
 
 #define TAB_ANIMATION_TIME 0.3f
 
-void group_join(Game::Group g)
+void group_join(Net::Master::Group g)
 {
 	// todo: redo this whole thing
 	Game::save.group = g;
@@ -1159,7 +1159,7 @@ void group_join(Game::Group g)
 		const ZoneNode& zone = global.zones[i];
 		if (zone.max_teams > 2)
 		{
-			if (g == Game::Group::None)
+			if (g == Net::Master::Group::None)
 				zone_change(zone.id, ZoneState::Locked);
 			else
 				zone_change(zone.id, mersenne::randf_cc() > 0.7f ? ZoneState::Friendly : ZoneState::Hostile);
@@ -1478,7 +1478,7 @@ Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, cons
 	return result;
 }
 
-AssetID group_name[s32(Game::Group::count)] =
+AssetID group_name[s32(Net::Master::Group::count)] =
 {
 	strings::none,
 	strings::wu_gang,
@@ -1539,7 +1539,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		{
 			const char* label;
 			if (story.tab == Tab::Map)
-				label = _(Game::save.group == Game::Group::None ? strings::energy_generation_total : strings::energy_generation_group);
+				label = _(Game::save.group == Net::Master::Group::None ? strings::energy_generation_total : strings::energy_generation_group);
 			else
 				label = "+%d";
 			sprintf(buffer, label, s32(energy_increment_total()));
@@ -1571,7 +1571,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			zone_statistics(&captured, &hostile, &locked);
 
 			sprintf(buffer, _(strings::zones_captured), captured);
-			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, Game::save.group == Game::Group::None ? Team::ui_color_friend : UI::color_accent);
+			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, Game::save.group == Net::Master::Group::None ? Team::ui_color_friend : UI::color_accent);
 
 			sprintf(buffer, _(strings::zones_hostile), hostile);
 			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, UI::color_alert);
@@ -1856,8 +1856,6 @@ void show_complete()
 
 	data.state = state_next;
 	data.story.tab = tab_next;
-
-	Game::save.zone_last = Game::level.id;
 
 	if (Game::session.story_mode)
 	{
@@ -2147,11 +2145,11 @@ void execute(const char* cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');
 		const char* group_string = delimiter + 1;
-		for (s32 i = 0; i < s32(Game::Group::count); i++)
+		for (s32 i = 0; i < s32(Net::Master::Group::count); i++)
 		{
 			if (utf8cmp(group_string, _(group_name[i])) == 0)
 			{
-				group_join((Game::Group)i);
+				group_join(Net::Master::Group(i));
 				break;
 			}
 		}

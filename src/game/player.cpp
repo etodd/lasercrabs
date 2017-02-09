@@ -438,7 +438,7 @@ void PlayerHuman::update(const Update& u)
 		&& Team::match_time > GAME_BUY_PERIOD
 		&& Team::match_time - Game::time.delta <= GAME_BUY_PERIOD)
 	{
-		if (Game::level.type == Game::Type::Rush)
+		if (Game::level.type == GameType::Rush)
 			msg(_(get<PlayerManager>()->team.ref()->team() == 0 ? strings::defend : strings::attack), true);
 		else
 			msg(_(strings::attack), true);
@@ -905,7 +905,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 	}
 
-	if (Game::level.type == Game::Type::Rush)
+	if (Game::level.type == GameType::Rush)
 	{
 		// show remaining drones label
 		text.text(_(strings::drones_remaining));
@@ -928,7 +928,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 
 		text.anchor_x = UIText::Anchor::Max;
 		text.wrap_width = 0;
-		if (Game::level.type == Game::Type::Deathmatch)
+		if (Game::level.type == GameType::Deathmatch)
 			text.text("%d", s32(i.item()->kills));
 		else
 			text.text("%d", s32(i.item()->respawns));
@@ -2636,7 +2636,7 @@ void PlayerControlHuman::update(const Update& u)
 										player.ref()->msg(_(strings::terminal_locked), false);
 										interactable = nullptr;
 									}
-									else if (Game::level.max_teams <= 2 || Game::save.group != Game::Group::None) // if the map requires more than two players, you must be in a group
+									else if (Game::level.max_teams <= 2 || Game::save.group != Net::Master::Group::None) // if the map requires more than two players, you must be in a group
 									{
 										if (Game::save.resources[s32(Resource::Drones)] < DEFAULT_RUSH_DRONES)
 										{
@@ -2701,29 +2701,32 @@ void PlayerControlHuman::update(const Update& u)
 							}
 							else
 							{
-								if (Game::save.zones[target_level] == ZoneState::Friendly || Game::save.zones[target_level] == ZoneState::GroupOwned)
+								if (Game::save.zones[target_level] == ZoneState::Locked)
+								{
+									if (Game::save.resources[s32(Resource::HackKits)] > 0) // zone is unlocked, but need to hack this tram first
+									{
+										if (Game::level.id == Asset::Level::Port_District && s32(Game::level.feature_level) < s32(Game::FeatureLevel::TutorialAll))
+										{
+											// player is about to skip tutorial
+											Menu::dialog(gamepad, &player_confirm_skip_tutorial, _(strings::confirm_skip_tutorial));
+											interactable = nullptr;
+										}
+										else
+										{
+											Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::hack_kits));
+											interactable = nullptr;
+										}
+									}
+									else // not enough
+									{
+										Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
+										interactable = nullptr;
+									}
+								}
+								else // no need to hack, just go
 								{
 									interactable.ref()->interact();
 									get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-								}
-								else if (Game::save.resources[s32(Resource::HackKits)] > 0) // zone is unlocked, but need to hack this tram first
-								{
-									if (Game::level.id == Asset::Level::Port_District && s32(Game::level.feature_level) < s32(Game::FeatureLevel::TutorialAll))
-									{
-										// player is about to skip tutorial
-										Menu::dialog(gamepad, &player_confirm_skip_tutorial, _(strings::confirm_skip_tutorial));
-										interactable = nullptr;
-									}
-									else
-									{
-										Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::hack_kits));
-										interactable = nullptr;
-									}
-								}
-								else // not enough
-								{
-									Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
-									interactable = nullptr;
 								}
 							}
 							break;

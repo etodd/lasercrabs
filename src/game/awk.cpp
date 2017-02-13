@@ -22,6 +22,7 @@
 #include "net.h"
 #include "team.h"
 #include "load.h"
+#include "ease.h"
 
 namespace VI
 {

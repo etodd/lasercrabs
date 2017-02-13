@@ -31,6 +31,7 @@
 #include "common.h"
 #include "player.h"
 #include "load.h"
+#include "ease.h"
 
 namespace VI
 {

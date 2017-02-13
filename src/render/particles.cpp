@@ -121,7 +121,7 @@ void ParticleSystem::upload_range(RenderSync* sync, s32 start, s32 count)
 	sync->write(&params[start], count);
 }
 
-void ParticleSystem::draw(const RenderParams& params)
+void ParticleSystem::update(const Update& u)
 {
 	// free active particles
 	while (first_active != first_free)
@@ -134,7 +134,10 @@ void ParticleSystem::draw(const RenderParams& params)
 		if (first_active >= MAX_PARTICLES)
 			first_active = 0;
 	}
+}
 
+void ParticleSystem::draw(const RenderParams& params)
+{
 	if (first_new != first_free)
 	{
 		// send new particles to GPU

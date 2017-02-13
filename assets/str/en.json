@@ -2,6 +2,8 @@
 	"contacting_master": "Allocating a server...",
 	"connecting": "Connecting...",
 	"connection_failed": "Connection failed",
+	"need_upgrade": "Game client out of date. Please update.",
+	"master_timeout": "Error contacting server.\nSome functionality may be limited.",
 	"hacking": "Cracking...",
 	"hack_complete": "Crack complete",
 	"error_locked_zone": "Error: unlock terminal first",

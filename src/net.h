@@ -141,9 +141,20 @@ namespace Client
 		Connecting,
 		Loading,
 		Connected,
+		count,
+	};
+
+	enum class MasterError
+	{
+		None,
+		WrongVersion,
+		Timeout,
+		count,
 	};
 
 	Mode mode();
+	
+	extern MasterError master_error;
 
 	void connect(Sock::Address);
 	void connect(const char*, u16);

@@ -200,8 +200,6 @@ set(SRC
 	src/data/animator.cpp
 	src/data/ragdoll.h
 	src/data/ragdoll.cpp
-	src/data/behavior.h
-	src/data/behavior.cpp
 	src/data/priority_queue.h
 	src/render/render.h
 	src/render/render.cpp
@@ -412,6 +410,7 @@ if (SERVER)
 	endif()
 
 	target_compile_definitions(yearningsrv PRIVATE -DSERVER=1)
+	target_compile_definitions(yearningmaster PRIVATE -DMASTER_SERVER=1)
 
 	target_link_libraries(yearningmaster
 		zlibstatic

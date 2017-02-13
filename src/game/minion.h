@@ -2,7 +2,6 @@
 
 #include "data/entity.h"
 #include "ai.h"
-#include "data/behavior.h"
 
 namespace VI
 {

@@ -19,6 +19,7 @@
 #include "player.h"
 #include "render/skinned_model.h"
 #include "net.h"
+#include "ease.h"
 
 namespace VI
 {

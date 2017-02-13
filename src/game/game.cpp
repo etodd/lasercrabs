@@ -37,7 +37,6 @@
 #include "console.h"
 #include "ease.h"
 #include "minion.h"
-#include "data/behavior.h"
 #include "render/particles.h"
 #include "ai_player.h"
 #include "usernames.h"
@@ -209,14 +208,6 @@ void Game::update(const Update& update_in)
 
 	real_time = update_in.time;
 	time.delta = update_in.time.delta * session.effective_time_scale();
-	if (update_game)
-	{
-		time.total += time.delta;
-		Team::match_time += time.delta;
-		ParticleSystem::time = time.total;
-	}
-	else if (Overworld::modal()) // particles still work in overworld even though the rest of the world is paused
-		ParticleSystem::time += time.delta;
 
 	if (update_game)
 		physics_timestep = (1.0f / 60.0f) * session.effective_time_scale();
@@ -225,6 +216,21 @@ void Game::update(const Update& update_in)
 
 	Update u = update_in;
 	u.time = time;
+
+	if (update_game)
+	{
+		time.total += time.delta;
+		Team::match_time += time.delta;
+		ParticleSystem::time = time.total;
+		for (s32 i = 0; i < ParticleSystem::list.length; i++)
+			ParticleSystem::list[i]->update(u);
+	}
+	else if (Overworld::modal()) // particles still work in overworld even though the rest of the world is paused
+	{
+		ParticleSystem::time += time.delta;
+		for (s32 i = 0; i < ParticleSystem::list.length; i++)
+			ParticleSystem::list[i]->update(u);
+	}
 
 	Net::update_start(u);
 
@@ -349,9 +355,6 @@ void Game::update(const Update& update_in)
 				i.item()->update_server(u);
 		}
 
-		LerpTo<Vec3>::update_active(u);
-		Delay::update_active(u);
-
 		for (auto i = TramRunner::list.iterator(); !i.is_last(); i.next())
 		{
 			if (level.local)
@@ -378,7 +381,7 @@ void Game::update(const Update& update_in)
 					if (Team::match_time > config->spawn_time)
 					{
 						Entity* e = World::create<ContainerEntity>();
-						PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)config->team], Usernames::all[mersenne::rand_u32() % Usernames::count]);
+						PlayerManager* manager = e->add<PlayerManager>(&Team::list[s32(config->team)], Usernames::all[mersenne::rand_u32() % Usernames::count]);
 						if (config->spawn_time == 0.0f)
 							manager->spawn_timer = 0.01f; // spawn instantly
 						Net::finalize(e);
@@ -1169,22 +1172,21 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		level.post_pvp = true;
 
 	// count control point sets and pick one of them
-	s32 control_point_set = 0;
 	if (level.type == GameType::Rush)
 	{
-		s32 max_control_point_set = -1;
+		b8 has_control_points = false;
 		cJSON* element = json->child;
 		while (element)
 		{
 			if (cJSON_HasObjectItem(element, "ControlPoint"))
-				max_control_point_set = vi_max(max_control_point_set, Json::get_s32(element, "set"));
+			{
+				has_control_points = true;
+				break;
+			}
 			element = element->next;
 		}
 
-		// pick a set of control points
-		if (max_control_point_set >= 0)
-			control_point_set = mersenne::rand() % (max_control_point_set + 1);
-		else if (level.type == GameType::Rush) // no control points
+		if (level.type == GameType::Rush && !has_control_points)
 			level.type = GameType::Deathmatch;
 	}
 
@@ -1471,7 +1473,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "ControlPoint"))
 		{
-			if (level.type == GameType::Rush && (!cJSON_HasObjectItem(element, "set") || Json::get_s32(element, "set") == control_point_set))
+			if (level.type == GameType::Rush)
 				entity = World::alloc<ControlPointEntity>(AI::Team(0), absolute_pos);
 			else
 				entity = World::alloc<StaticGeom>(Asset::Mesh::control_point, absolute_pos, absolute_rot);

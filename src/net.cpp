@@ -37,6 +37,8 @@
 #define DEBUG_PACKET_LOSS 0
 #define DEBUG_PACKET_LOSS_AMOUNT 0.25f
 
+#define MASTER_PING_TIMEOUT 5.0f
+
 namespace VI
 {
 
@@ -132,22 +134,22 @@ StateCommon state_common;
 Master::Messenger state_master;
 Sock::Address master_addr;
 
-b8 master_send_disconnect()
+b8 master_send(Master::Message msg)
 {
 	using Stream = StreamWrite;
 	StreamWrite p;
 	packet_init(&p);
-	state_master.add_header(&p, master_addr, Master::Message::Disconnect);
+	state_master.add_header(&p, master_addr, msg);
 	packet_finalize(&p);
 	state_master.send(p, state_common.timestamp, master_addr, &sock);
-	state_master.reset();
 	return true;
 }
 
 void master_init()
 {
 	Sock::get_address(&master_addr, Settings::master_server, 3497);
-	master_send_disconnect();
+	master_send(Master::Message::Disconnect);
+	state_master.reset();
 }
 
 b8 msg_process(StreamRead*, MessageSource);
@@ -2047,7 +2049,8 @@ b8 init()
 	}
 
 	master_init();
-	master_send_disconnect();
+	master_send(Master::Message::Disconnect);
+	state_master.reset();
 
 	return true;
 }
@@ -2340,6 +2343,11 @@ b8 packet_handle_master(StreamRead* p)
 				net_error();
 			break;
 		}
+		case Master::Message::WrongVersion:
+		{
+			// todo: something
+			break;
+		}
 		default:
 		{
 			net_error();
@@ -2582,7 +2590,7 @@ b8 msg_process(StreamRead* p, Client* client)
 			client->loading_done = true;
 			vi_debug("Client %s:%hd finished loading.", Sock::host_to_str(client->address.host), client->address.port);
 			if (state_server.mode == Mode::Waiting
-				&& PlayerManager::list.count() == Game::session.player_slots)
+				&& Team::teams_with_players() > 1)
 			{
 				state_server.mode = Mode::Active;
 				sync_time();
@@ -2721,6 +2729,9 @@ void reset()
 namespace Client
 {
 
+MasterError master_error;
+r32 master_ping_timer;
+
 b8 msg_process(StreamRead*);
 
 struct StateClient
@@ -2754,6 +2765,8 @@ b8 init()
 	}
 
 	master_init();
+	master_ping_timer = MASTER_PING_TIMEOUT;
+	master_send(Master::Message::Ping);
 
 	return true;
 }
@@ -2838,6 +2851,17 @@ b8 packet_build_update(StreamWrite* p, const Update& u)
 
 void update(const Update& u, r32 dt)
 {
+	if (master_ping_timer > 0.0f)
+	{
+		master_ping_timer = vi_max(0.0f, master_ping_timer - dt);
+		if (master_ping_timer == 0.0f)
+		{
+			if (state_client.mode == Mode::Disconnected)
+				state_master.reset();
+			master_error = MasterError::Timeout;
+		}
+	}
+
 	if (Game::level.local)
 		return;
 
@@ -3001,7 +3025,9 @@ b8 allocate_server(b8 story_mode, AssetID level, s8 open_slots, s8 team_count)
 	state_client.requested_server_state.open_slots = open_slots;
 	state_client.requested_server_state.team_count = team_count;
 
-	master_send_disconnect();
+	master_send(Master::Message::Disconnect);
+	state_master.reset();
+	master_ping_timer = 0.0f;
 
 	master_send_server_request();
 
@@ -3016,12 +3042,18 @@ Mode mode()
 b8 packet_handle_master(StreamRead* p)
 {
 	using Stream = StreamRead;
+	{
+		s16 version;
+		serialize_s16(p, version);
+	}
 	SequenceID seq;
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	Master::Message type;
 	serialize_enum(p, Master::Message, type);
 	if (!state_master.received(type, seq, master_addr, &sock))
 		return false; // out of order
+	master_ping_timer = 0.0f;
+	master_error = MasterError::None;
 	switch (type)
 	{
 		case Master::Message::Ack:
@@ -3031,6 +3063,7 @@ b8 packet_handle_master(StreamRead* p)
 		case Master::Message::Disconnect:
 		{
 			state_master.reset();
+			state_client.mode = Mode::Disconnected;
 			break;
 		}
 		case Master::Message::ClientConnect:
@@ -3039,7 +3072,14 @@ b8 packet_handle_master(StreamRead* p)
 			serialize_u32(p, addr.host);
 			serialize_u16(p, addr.port);
 			connect(addr);
-			master_send_disconnect();
+			master_send(Master::Message::Disconnect);
+			state_master.reset();
+			break;
+		}
+		case Master::Message::WrongVersion:
+		{
+			master_error = MasterError::WrongVersion;
+			state_client.mode = Mode::Disconnected;
 			break;
 		}
 		default:

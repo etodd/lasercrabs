@@ -197,5 +197,53 @@ struct FSM
 	}
 };
 
+struct RecordedLife
+{
+	struct Upgrades
+	{
+		s8 a;
+		s8 b;
+		s8 c;
+	};
+
+	struct ControlPointState
+	{
+		s8 a;
+		s8 b;
+	};
+
+	struct Action
+	{
+		const s8 TypeMove = 0;
+		const s8 TypeAttack = 1;
+		const s8 TypeUpgrade = 2;
+		const s8 TypeAbility = 3;
+		const s8 TypeWait = 4;
+
+		union
+		{
+			AwkNavMeshNode node; // for move and build ability actions
+			s8 entity_type; // for attack and shoot ability actions
+		};
+		s8 type;
+		union
+		{
+			s8 duration; // for wait actions
+			s8 ability; // for upgrade and build or shoot ability actions
+		};
+	};
+
+	AI::Team team;
+	s8 drones_remaining;
+	Array<s8> shield;
+	Array<s8> time;
+	Array<s8> energy;
+	Array<s16> chunk; // which nav mesh chunk are we in
+	Array<Upgrades> enemy_upgrades;
+	Array<ControlPointState> control_point_state;
+	Array<s16> nearby_entities;
+	Array<Action> action;
+};
+
 
 }

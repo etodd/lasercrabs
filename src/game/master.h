@@ -54,10 +54,12 @@ struct Save
 enum class Message
 {
 	Ack,
+	Ping, // client checking if master is present
 	ServerStatusUpdate, // game server telling master what it's up to
 	ServerLoad, // master telling a server to load a certain level
 	ClientConnect, // master telling a client to connect to a game server
 	ClientRequestServer, // a client requesting the master to allocate it a game server
+	WrongVersion, // master telling a server or client that it needs to upgrade
 	Disconnect,
 	count,
 };

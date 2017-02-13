@@ -27,8 +27,6 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 	config.team = team;
 	config.spawn_time = spawn_time;
 
-	config.low_level = AI::LowLevelLoop::Default;
-	config.high_level = AI::HighLevelLoop::Default;
 	config.interval_memory_update = 0.2f;
 	config.interval_low_level = 0.25f;
 	config.interval_high_level = 0.5f;
@@ -38,72 +36,7 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 	config.aim_timeout = 2.0f;
 	config.aim_speed = 3.0f;
 	config.dodge_chance = 0.1f;
-	config.projectile_preference = 0.75f;
 
-	for (s32 i = 0; i < s32(Upgrade::count); i++)
-	{
-		config.upgrade_priority[i] = Upgrade::None;
-		config.upgrade_strategies[i] = AI::UpgradeStrategy::Ignore;
-	}
-
-	switch (mersenne::rand() % 5)
-	{
-		case 0:
-		{
-			config.upgrade_priority[0] = Upgrade::Minion;
-			config.upgrade_strategies[0] = AI::UpgradeStrategy::SaveUp;
-			config.upgrade_priority[1] = Upgrade::Decoy;
-			config.upgrade_strategies[1] = AI::UpgradeStrategy::IfAvailable;
-			config.upgrade_priority[2] = Upgrade::Rocket;
-			config.upgrade_strategies[2] = AI::UpgradeStrategy::SaveUp;
-			break;
-		}
-		case 1:
-		{
-			config.upgrade_priority[0] = Upgrade::Sensor;
-			config.upgrade_strategies[0] = AI::UpgradeStrategy::SaveUp;
-			config.upgrade_priority[1] = Upgrade::Bolter;
-			config.upgrade_strategies[1] = AI::UpgradeStrategy::IfAvailable;
-			config.upgrade_priority[2] = Upgrade::Sniper;
-			config.upgrade_strategies[2] = AI::UpgradeStrategy::IfAvailable;
-			break;
-		}
-		case 2:
-		{
-			config.upgrade_priority[0] = Upgrade::ContainmentField;
-			config.upgrade_strategies[0] = AI::UpgradeStrategy::SaveUp;
-			config.upgrade_priority[1] = Upgrade::Sniper;
-			config.upgrade_strategies[1] = AI::UpgradeStrategy::IfAvailable;
-			config.upgrade_priority[2] = Upgrade::Rocket;
-			config.upgrade_strategies[2] = AI::UpgradeStrategy::IfAvailable;
-			break;
-		}
-		case 3:
-		{
-			config.upgrade_priority[0] = Upgrade::Sensor;
-			config.upgrade_strategies[0] = AI::UpgradeStrategy::SaveUp;
-			config.upgrade_priority[1] = Upgrade::Rocket;
-			config.upgrade_strategies[1] = AI::UpgradeStrategy::SaveUp;
-			config.upgrade_priority[2] = Upgrade::ContainmentField;
-			config.upgrade_strategies[2] = AI::UpgradeStrategy::IfAvailable;
-			break;
-		}
-		case 4:
-		{
-			config.upgrade_priority[0] = Upgrade::Sniper;
-			config.upgrade_strategies[0] = AI::UpgradeStrategy::IfAvailable;
-			config.upgrade_priority[1] = Upgrade::Minion;
-			config.upgrade_strategies[1] = AI::UpgradeStrategy::IfAvailable;
-			config.upgrade_priority[2] = Upgrade::Rocket;
-			config.upgrade_strategies[2] = AI::UpgradeStrategy::IfAvailable;
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
 	return config;
 }
 
@@ -187,55 +120,11 @@ void PlayerAI::spawn()
 	}
 }
 
-// save up priority ranges from -2 to 3
-s32 PlayerAI::save_up_priority() const
-{
-	s16 increment = manager.ref()->increment();
-	s16 credits = manager.ref()->credits;
-	for (s32 i = 0; i < (s32)Upgrade::count; i++)
-	{
-		Upgrade upgrade = config.upgrade_priority[i];
-		if (upgrade != Upgrade::None
-			&& manager.ref()->upgrade_available(upgrade))
-		{
-			AI::UpgradeStrategy strategy = config.upgrade_strategies[i];
-			s32 priority;
-			if (strategy == AI::UpgradeStrategy::Ignore)
-				continue;
-			else if (strategy == AI::UpgradeStrategy::IfAvailable)
-				priority = 1;
-			else // save up
-				priority = 2;
-
-			if (credits < manager.ref()->upgrade_cost(upgrade) * 1.2f)
-				priority += 1;
-
-			if (increment > 20)
-				priority -= 2;
-			else if (increment > 10)
-				priority -= 1;
-			else if (increment < 5)
-				priority += 1;
-			return priority;
-		}
-	}
-
-	if (credits < 80 && increment < 5)
-		return 1;
-
-	return 0;
-}
-
 PlayerControlAI::PlayerControlAI(PlayerAI* p)
 	: path_index(),
 	player(p),
-	active_behavior(),
 	path_priority(),
 	path(),
-	loop_high_level(),
-	loop_low_level(),
-	loop_low_level_2(),
-	loop_memory(),
 	target(),
 	shot_at_target(),
 	hit_target(),
@@ -250,9 +139,6 @@ PlayerControlAI::PlayerControlAI(PlayerAI* p)
 #endif
 }
 
-Repeat* make_high_level_loop(PlayerControlAI*, const AI::Config&);
-Repeat* make_low_level_loop(PlayerControlAI*, const AI::Config&);
-
 void PlayerControlAI::awake()
 {
 #if DEBUG_AI_CONTROL
@@ -266,29 +152,6 @@ void PlayerControlAI::awake()
 	link_arg<Entity*, &PlayerControlAI::awk_hit>(get<Awk>()->hit);
 	link<&PlayerControlAI::awk_detached>(get<Awk>()->detached);
 	link<&PlayerControlAI::awk_detached>(get<Awk>()->dashed);
-
-	// init behavior trees
-	const AI::Config& config = player.ref()->config;
-
-	loop_memory = Repeat::alloc // memory update loop
-	(
-		Sequence::alloc
-		(
-			Delay::alloc(config.interval_memory_update),
-			Execute::alloc()->method<PlayerControlAI, &PlayerControlAI::update_memory >(this)
-		)
-	);
-	loop_memory->set_context(this);
-
-	loop_high_level = make_high_level_loop(this, config);
-
-	loop_low_level = make_low_level_loop(this, config);
-
-	loop_low_level_2 = make_low_level_loop(this, config);
-
-	loop_memory->run();
-	loop_high_level->run();
-	loop_low_level->run();
 }
 
 b8 PlayerControlAI::in_range(const Vec3& p, r32 range) const
@@ -303,10 +166,6 @@ PlayerControlAI::~PlayerControlAI()
 #if DEBUG_AI_CONTROL
 	camera->remove();
 #endif
-	loop_high_level->~Repeat();
-	loop_low_level->~Repeat();
-	loop_low_level_2->~Repeat();
-	loop_memory->~Repeat();
 }
 
 void PlayerControlAI::awk_done_flying_or_dashing()
@@ -332,105 +191,12 @@ void PlayerControlAI::awk_hit(Entity* e)
 	hit_target = true;
 }
 
-void PlayerControlAI::set_target(Entity* t, r32 delay)
-{
-	aim_timer = aim_timeout = -delay;
-	target = t;
-	hit_target = false;
-	path.length = 0;
-}
-
-void PlayerControlAI::set_path(const AI::AwkPath& p)
-{
-	path = p;
-	path_index = 1; // first point is the starting point, should be roughly where we are already
-	aim_timer = 0.0f;
-	aim_timeout = 0.0f;
-	target = nullptr;
-	hit_target = false;
-}
-
-void PlayerControlAI::behavior_start(Behavior* caller, s8 priority)
-{
-	// depending on which loop this behavior is in,
-	// we need to abort the others and restart them
-	Behavior* r = caller->root();
-	if (r == loop_low_level)
-	{
-		if (loop_high_level->active())
-			loop_high_level->abort();
-		if (loop_low_level_2->active())
-			loop_low_level_2->abort();
-		loop_low_level_2->run();
-	}
-	else if (r == loop_low_level_2)
-	{
-		if (loop_high_level->active())
-			loop_high_level->abort();
-		if (loop_low_level->active())
-			loop_low_level->abort();
-		loop_low_level->run();
-	}
-	else
-	{
-		// high-level loop
-		if (loop_low_level->active())
-			loop_low_level->abort();
-		if (loop_low_level_2->active())
-			loop_low_level_2->abort();
-		loop_low_level->run();
-	}
-
-#if DEBUG_AI_CONTROL
-	const char* loop;
-	if (r == loop_low_level)
-		loop = "Low-level 1";
-	else if (r == loop_low_level_2)
-		loop = "Low-level 2";
-	else
-		loop = "High-level";
-	vi_debug("%s: %s", loop, typeid(*caller).name());
-#endif
-
-	vi_assert(!active_behavior);
-
-	active_behavior = caller;
-	path_priority = priority;
-}
-
-void PlayerControlAI::behavior_clear()
-{
-	active_behavior = nullptr;
-	shot_at_target = false;
-	path_priority = 0;
-	path.length = 0;
-	target = nullptr;
-}
-
-b8 PlayerControlAI::restore_loops()
-{
-	// return to normal state
-	if (!active_behavior)
-	{
-		if (loop_low_level_2->active())
-			loop_low_level_2->abort();
-
-		if (!loop_high_level->active())
-			loop_high_level->run();
-
-		if (!loop_low_level->active())
-			loop_low_level->run();
-	}
-
-	return true;
-}
-
-void add_memory(PlayerAI::MemoryArray* component_memories, Entity* entity, const Vec3& pos)
+void add_memory(Array<PlayerAI::Memory>* memories, Entity* entity, const Vec3& pos)
 {
 	b8 already_found = false;
-	for (s32 j = 0; j < component_memories->length; j++)
+	for (s32 j = 0; j < memories->length; j++)
 	{
-		PlayerAI::Memory* m = &(*component_memories)[j];
+		PlayerAI::Memory* m = &(*memories)[j];
 		if (m->entity.ref() == entity)
 		{
 			m->pos = pos;
@@ -441,7 +207,7 @@ void add_memory(PlayerAI::MemoryArray* component_memories, Entity* entity, const
 
 	if (!already_found)
 	{
-		PlayerAI::Memory* m = component_memories->add();
+		PlayerAI::Memory* m = memories->add();
 		m->entity = entity;
 		m->pos = pos;
 	}
@@ -462,38 +228,31 @@ enum UpdateMemoryFlags
 template<typename Component>
 void update_component_memory(PlayerControlAI* control, MemoryStatus (*filter)(const PlayerControlAI*, const Entity*), UpdateMemoryFlags flags = UpdateMemoryLimitRange)
 {
-	PlayerAI::MemoryArray* component_memories = &control->player.ref()->memory[Component::family];
+	Array<PlayerAI::Memory>* memory = &control->player.ref()->memory;
 	r32 range = control->get<Awk>()->range() * 1.5f;
 	b8 limit_range = flags & UpdateMemoryLimitRange;
 	// remove outdated memories
-	for (s32 i = 0; i < component_memories->length; i++)
+	for (s32 i = 0; i < memory->length; i++)
 	{
-		PlayerAI::Memory* m = &(*component_memories)[i];
+		PlayerAI::Memory* m = &(*memory)[i];
 		if (!limit_range || control->in_range(m->pos, range))
 		{
 			MemoryStatus status = MemoryStatus::Keep;
 			Entity* entity = m->entity.ref();
 			if (!entity || ((!limit_range || control->in_range(entity->get<Transform>()->absolute_pos(), range)) && filter(control, entity) == MemoryStatus::Forget))
 			{
-				component_memories->remove(i);
+				memory->remove(i);
 				i--;
 			}
 		}
 	}
 
 	// add or update memories
-	if (component_memories->length < component_memories->capacity())
+	for (auto i = Component::list.iterator(); !i.is_last(); i.next())
 	{
-		for (auto i = Component::list.iterator(); !i.is_last(); i.next())
-		{
-			Vec3 pos = i.item()->template get<Transform>()->absolute_pos();
-			if ((!limit_range || control->in_range(pos, range)) && filter(control, i.item()->entity()) == MemoryStatus::Update)
-			{
-				add_memory(component_memories, i.item()->entity(), pos);
-				if (component_memories->length == component_memories->capacity())
-					break;
-			}
-		}
+		Vec3 pos = i.item()->template get<Transform>()->absolute_pos();
+		if ((!limit_range || control->in_range(pos, range)) && filter(control, i.item()->entity()) == MemoryStatus::Update)
+			add_memory(memory, i.item()->entity(), pos);
 	}
 }
 
@@ -1024,53 +783,6 @@ MemoryStatus default_memory_filter(const PlayerControlAI* control, const Entity*
 	return MemoryStatus::Update;
 }
 
-Upgrade want_available_upgrade(const PlayerControlAI* control)
-{
-	if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
-		return Upgrade::None;
-
-	PlayerManager* manager = control->player.ref()->manager.ref();
-	const AI::Config& config = control->config();
-	for (s32 i = 0; i < (s32)Upgrade::count; i++)
-	{
-		Upgrade upgrade = config.upgrade_priority[i];
-		if (upgrade != Upgrade::None
-			&& manager->upgrade_available(upgrade)
-			&& manager->credits > manager->upgrade_cost(upgrade)
-			&& config.upgrade_strategies[i] != AI::UpgradeStrategy::Ignore)
-		{
-			return upgrade;
-		}
-	}
-	return Upgrade::None;
-}
-
-b8 want_upgrade_filter(const PlayerControlAI* control)
-{
-	return want_available_upgrade(control) != Upgrade::None && control->player.ref()->save_up_priority() > 0;
-}
-
-b8 really_want_upgrade_filter(const PlayerControlAI* control)
-{
-	return want_available_upgrade(control) != Upgrade::None && control->player.ref()->save_up_priority() > 1;
-}
-
-b8 should_spawn_sensor(const PlayerControlAI* control)
-{
-	Vec3 me = control->get<Transform>()->absolute_pos();
-
-	r32 closest_friendly_sensor;
-	Sensor::closest(1 << control->get<AIAgent>()->team, me, &closest_friendly_sensor);
-	if (closest_friendly_sensor > SENSOR_RANGE)
-	{
-		s32 cues_in_range;
-		AICue::in_range(AICue::Type::Sensor, me, SENSOR_RANGE, &cues_in_range);
-		return cues_in_range > 0 && cues_in_range >= control->player.ref()->save_up_priority();
-	}
-
-	return false;
-}
-
 b8 attack_inbound(const PlayerControlAI* control)
 {
 	return control->get<PlayerCommon>()->incoming_attacker() != nullptr;
@@ -1094,150 +806,6 @@ s32 geometry_query(const PlayerControlAI* control, r32 range, r32 angle_range, s
 	}
 
 	return result;
-}
-
-b8 should_spawn_rocket(const PlayerControlAI* control)
-{
-	Vec3 pos;
-	Quat rot;
-	control->get<Transform>()->absolute(&pos, &rot);
-
-	{
-		r32 closest_rocket;
-		Rocket::closest(1 << control->get<AIAgent>()->team, pos, &closest_rocket);
-		if (closest_rocket < 0.75f)
-			return false;
-	}
-
-	s32 priority = AICue::in_range(AICue::Type::Rocket, pos, 8.0f) ? 2 : 1;
-
-	if (Sensor::can_see(control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1)))
-		priority += 1;
-
-	if (ContainmentField::inside(1 << control->get<AIAgent>()->team, pos))
-		priority += 1;
-
-	{
-		r32 closest_enemy_awk;
-		Awk::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_enemy_awk);
-		if (closest_enemy_awk < 8.0f)
-			priority -= 1; // too close
-		else if (closest_enemy_awk < AWK_MAX_DISTANCE)
-			priority += 1;
-	}
-
-	if (control->player.ref()->save_up_priority() >= priority)
-		return false;
-
-	// make sure it's in a relatively open area
-	return geometry_query(control, AWK_MAX_DISTANCE * 0.4f, PI * 0.35f, 8) < 4;
-}
-
-b8 sniping_or_bolting(const PlayerControlAI* control)
-{
-	Ability ability = control->get<Awk>()->current_ability;
-	return ability == Ability::Sniper || ability == Ability::Bolter;
-}
-
-b8 should_snipe_or_bolt(const PlayerControlAI* control, Ability ability)
-{
-	Vec3 pos;
-	Quat rot;
-	control->get<Transform>()->absolute(&pos, &rot);
-
-	if (mersenne::randf_co() < 0.5f)
-		return false;
-
-	s32 priority = AICue::in_range(AICue::Type::Snipe, pos, 8.0f) ? 2 : 1;
-
-	if (Sensor::can_see(control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1)))
-		priority += 1;
-
-	if (ContainmentField::inside(1 << control->get<AIAgent>()->team, pos))
-		priority += 1;
-
-	if (control->player.ref()->save_up_priority() >= priority)
-		return false;
-
-	if (geometry_query(control, AWK_MAX_DISTANCE * 0.4f, PI * 0.35f, 8) < 4)
-	{
-		b8 result = false;
-		{
-			const PlayerAI::MemoryArray& memory = control->player.ref()->memory[Awk::family];
-			for (s32 i = 0; i < memory.length; i++)
-			{
-				Vec3 to_awk = memory[i].pos - pos;
-				if (ability == Ability::Sniper && to_awk.length_squared() < AWK_MAX_DISTANCE * 0.6f * AWK_MAX_DISTANCE * 0.6f)
-					return false; // too close
-				if (!control->get<Awk>()->direction_is_toward_attached_wall(to_awk))
-					result = true; // the awk is at the right distance and it's in front of us
-			}
-		}
-
-		{
-			const PlayerAI::MemoryArray& memory = control->player.ref()->memory[MinionCommon::family];
-			for (s32 i = 0; i < memory.length; i++)
-			{
-				Vec3 to_minion = memory[i].pos - pos;
-				if (!control->get<Awk>()->direction_is_toward_attached_wall(to_minion))
-				{
-					if (ability == Ability::Sniper && to_minion.length_squared() < AWK_MAX_DISTANCE * 0.6f * AWK_MAX_DISTANCE * 0.6f)
-						return false; // too close
-					result = true; // the minion is at the right distance and it's in front of us
-				}
-			}
-		}
-
-		return result;
-	}
-
-	return false;
-}
-
-b8 should_snipe(const PlayerControlAI* control)
-{
-	return should_snipe_or_bolt(control, Ability::Sniper);
-}
-
-b8 should_bolt(const PlayerControlAI* control)
-{
-	return should_snipe_or_bolt(control, Ability::Bolter);
-}
-
-b8 should_spawn_containment_field(const PlayerControlAI* control)
-{
-	Vec3 me = control->get<Transform>()->absolute_pos();
-	AI::Team team = control->get<AIAgent>()->team;
-
-	// make sure we're not overlapping with an existing friendly containment field
-	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->team == team
-			&& (i.item()->get<Transform>()->absolute_pos() - me).length_squared() < CONTAINMENT_FIELD_RADIUS * 2.0f * CONTAINMENT_FIELD_RADIUS * 2.0f)
-		{
-			return false;
-		}
-	}
-
-	s32 save_up_priority = control->player.ref()->save_up_priority();
-	if (save_up_priority < 2)
-	{
-		r32 closest_distance;
-		EnergyPickup::closest(1 << team, me, &closest_distance);
-		if (closest_distance < CONTAINMENT_FIELD_RADIUS)
-			return true;
-	}
-
-	if (save_up_priority < 1)
-	{
-		r32 closest_distance;
-		Awk* closest = Awk::closest(~(1 << team), me, &closest_distance);
-		if (closest_distance < CONTAINMENT_FIELD_RADIUS && closest->get<Health>()->hp <= control->get<Health>()->hp)
-			return true;
-
-		// todo: use containment field to protect friendly minions, control points, and sensors
-	}
-	return false;
 }
 
 s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
@@ -1292,198 +860,6 @@ s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
 	return score;
 }
 
-b8 should_spawn_minion(const PlayerControlAI* control)
-{
-	if (control->player.ref()->save_up_priority() < 2 && danger(control) <= 1)
-	{
-		AI::Team my_team = control->get<AIAgent>()->team;
-		Vec3 my_pos;
-		Quat my_rot;
-		control->get<Transform>()->absolute(&my_pos, &my_rot);
-
-		b8 spawn = false;
-		r32 closest_enemy_sensor;
-		Sensor::closest(~(1 << my_team), my_pos, &closest_enemy_sensor);
-		if (closest_enemy_sensor < SENSOR_RANGE + AWK_MAX_DISTANCE)
-			spawn = true;
-
-		if (!spawn)
-		{
-			r32 closest_enemy_rocket;
-			Rocket::closest(~(1 << my_team), my_pos, &closest_enemy_rocket);
-			if (closest_enemy_rocket < ROCKET_RANGE)
-				spawn = true;
-		}
-
-		if (!spawn)
-		{
-			r32 closest_enemy_field;
-			ContainmentField::closest(~(1 << my_team), my_pos, &closest_enemy_field);
-			if (closest_enemy_field < CONTAINMENT_FIELD_RADIUS + AWK_MAX_DISTANCE)
-				spawn = true;
-		}
-
-		if (spawn)
-		{
-			// make sure the minion has a reasonably close surface to stand on
-			Vec3 ray_start = my_pos + my_rot * Vec3(0, 0, 1);
-			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_start + Vec3(0, -5, 0));
-			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~control->get<Awk>()->ally_containment_field_mask());
-			if (ray_callback.hasHit())
-				return true;
-		}
-	}
-	return false;
-}
-
-Repeat* make_low_level_loop(PlayerControlAI* control, const AI::Config& config)
-{
-	Repeat* loop;
-	switch (config.low_level)
-	{
-		case AI::LowLevelLoop::Default:
-		{
-			loop = Repeat::alloc
-			(
-				Sequence::alloc
-				(
-					Succeed::alloc
-					(
-						Sequence::alloc
-						(
-							Delay::alloc(config.interval_low_level),
-							AIBehaviors::WaitForAttachment::alloc(),
-							Select::alloc // if any of these succeed, they will abort the high level loop
-							(
-								Select::alloc
-								(
-									Sequence::alloc
-									(
-										// sniper mode
-										AIBehaviors::Test::alloc(&sniping_or_bolting),
-										Select::alloc
-										(
-											AIBehaviors::ReactTarget::alloc(Awk::family, 0, 6, &awk_react_filter),
-											AIBehaviors::ReactTarget::alloc(MinionCommon::family, 0, 5, &default_filter),
-											AIBehaviors::ReactTarget::alloc(EnergyPickup::family, 0, 4, &energy_pickup_enemy_filter),
-											AIBehaviors::ReactTarget::alloc(Sensor::family, 0, 4, &default_filter),
-											AIBehaviors::RandomPath::alloc(4),
-											Sequence::alloc
-											(
-												AIBehaviors::Chance::alloc(0.05f),
-												Execute::alloc()->method<PlayerControlAI, &PlayerControlAI::sniper_or_bolter_cancel>(control)
-											),
-											Succeed::alloc() // make sure we never get to the rest of the Select
-										)
-									),
-									Sequence::alloc
-									(
-										AIBehaviors::Chance::alloc(config.dodge_chance),
-										AIBehaviors::Test::alloc(&attack_inbound),
-										AIBehaviors::Panic::alloc(127)
-									),
-									AIBehaviors::RunAway::alloc(Awk::family, 6, &awk_run_filter),
-									AIBehaviors::ReactTarget::alloc(ContainmentField::family, 4, 6, &containment_field_filter),
-									AIBehaviors::ReactTarget::alloc(Awk::family, 4, 6, &awk_react_filter),
-									AIBehaviors::ReactTarget::alloc(MinionCommon::family, 4, 5, &default_filter),
-									AIBehaviors::ReactTarget::alloc(EnergyPickup::family, 3, 4, &energy_pickup_filter)
-								),
-								Select::alloc
-								(
-									AIBehaviors::ReactTarget::alloc(Sensor::family, 3, 4, &default_filter),
-									Sequence::alloc
-									(
-										AIBehaviors::ReactControlPoint::alloc(4, &enemy_control_point_filter),
-										AIBehaviors::CaptureControlPoint::alloc(5)
-									),
-									Sequence::alloc
-									(
-										AIBehaviors::ReactSpawn::alloc(5, &want_upgrade_filter),
-										AIBehaviors::DoUpgrade::alloc(4)
-									),
-									AIBehaviors::AbilitySpawn::alloc()
-								)
-							)
-						)
-					),
-					Execute::alloc()->method<PlayerControlAI, &PlayerControlAI::restore_loops>(control) // restart the high level loop if necessary
-				)
-			);
-			break;
-		}
-		case AI::LowLevelLoop::Noop:
-		{
-			loop = Repeat::alloc(Delay::alloc(1.0f));
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
-	loop->set_context(control);
-	return loop;
-}
-
-Repeat* make_high_level_loop(PlayerControlAI* control, const AI::Config& config)
-{
-	Repeat* loop;
-	switch (config.high_level)
-	{
-		case AI::HighLevelLoop::Default:
-		{
-			loop = Repeat::alloc
-			(
-				Sequence::alloc
-				(
-					Delay::alloc(config.interval_high_level),
-					AIBehaviors::WaitForAttachment::alloc(),
-					Succeed::alloc
-					(
-						Select::alloc
-						(
-							Select::alloc
-							(
-								AIBehaviors::Find::alloc(ControlPoint::family, 2, &enemy_control_point_filter),
-								AIBehaviors::Find::alloc(EnergyPickup::family, 2, &energy_pickup_filter),
-								AIBehaviors::FindSpawn::alloc(3, &want_upgrade_filter),
-								AIBehaviors::FindSpawn::alloc(4, &really_want_upgrade_filter),
-								AIBehaviors::Find::alloc(MinionCommon::family, 2, &minion_filter),
-								AIBehaviors::Find::alloc(Sensor::family, 2, &default_filter)
-							),
-							Select::alloc
-							(
-								AIBehaviors::Find::alloc(Awk::family, 2, &awk_find_filter),
-								Sequence::alloc
-								(
-									AIBehaviors::HasUpgrade::alloc(Upgrade::Sensor),
-									AIBehaviors::Find::alloc(AICue::family, 2, &aicue_sensor_filter)
-								),
-								AIBehaviors::RandomPath::alloc(1),
-								AIBehaviors::Panic::alloc(1)
-							)
-						)
-					)
-				)
-			);
-			break;
-		}
-		case AI::HighLevelLoop::Noop:
-		{
-			loop = Repeat::alloc(Delay::alloc(1.0f));
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
-	loop->set_context(control);
-	return loop;
-}
-
 b8 PlayerControlAI::update_memory()
 {
 	update_component_memory<EnergyPickup>(this, &default_memory_filter);
@@ -1498,12 +874,11 @@ b8 PlayerControlAI::update_memory()
 	update_component_memory<Awk>(this, &awk_memory_filter);
 
 	const Team& team = Team::list[(s32)get<AIAgent>()->team];
-	PlayerAI::MemoryArray* memory = player.ref()->memory;
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
 		const Team::SensorTrack& track = team.player_tracks[i];
 		if (track.tracking && track.entity.ref())
-			add_memory(&memory[Awk::family], track.entity.ref(), track.entity.ref()->get<Transform>()->absolute_pos());
+			add_memory(&player.ref()->memory, track.entity.ref(), track.entity.ref()->get<Transform>()->absolute_pos());
 	}
 
 	return true; // this returns true so we can call this from an Execute behavior
@@ -1515,6 +890,36 @@ b8 PlayerControlAI::sniper_or_bolter_cancel()
 	if (a == Ability::Sniper || a == Ability::Bolter)
 		get<Awk>()->current_ability = Ability::None;
 	return true; // this returns true so we can call this from an Execute behavior
+}
+
+void PlayerControlAI::set_target(Entity* t, r32 delay)
+{
+	aim_timer = aim_timeout = -delay;
+	target = t;
+	hit_target = false;
+	path.length = 0;
+}
+
+void PlayerControlAI::set_path(const AI::AwkPath& p)
+{
+	path = p;
+	path_index = 1; // first point is the starting point, should be roughly where we are already
+	aim_timer = 0.0f;
+	aim_timeout = 0.0f;
+	target = nullptr;
+	hit_target = false;
+}
+
+void PlayerControlAI::behavior_clear()
+{
+	path_priority = 0;
+	path.length = 0;
+	target = nullptr;
+}
+
+void PlayerControlAI::behavior_done(b8 success)
+{
+
 }
 
 void PlayerControlAI::update(const Update& u)
@@ -1556,13 +961,13 @@ void PlayerControlAI::update(const Update& u)
 					&& get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection, speed))
 					aim_and_shoot_target(u, intersection, target.ref()->get<Target>());
 				else
-					active_behavior->done(false); // we can't hit it
+					behavior_done(false); // we can't hit it
 			}
 			else
 			{
 				// just trying to go to a certain spot (probably our spawn)
 				if (aim_timeout > config.aim_timeout)
-					active_behavior->done(false); // something went wrong
+					behavior_done(false); // something went wrong
 				else
 				{
 					Vec3 target_pos;
@@ -1574,7 +979,7 @@ void PlayerControlAI::update(const Update& u)
 					target.normal = target_rot * Vec3(0, 0, 1);
 					target.ref = AWK_NAV_MESH_NODE_NONE;
 					if (!go(u, target, target, CONTROL_POINT_RADIUS)) // assume the target is a control point
-						active_behavior->done(false); // can't hit it
+						behavior_done(false); // can't hit it
 				}
 			}
 		}
@@ -1592,7 +997,7 @@ void PlayerControlAI::update(const Update& u)
 				vi_debug("Marking bad Awk adjacency");
 #endif
 				AI::awk_mark_adjacency_bad(path[path_index - 1].ref, path[path_index].ref);
-				active_behavior->done(false); // active behavior failed
+				behavior_done(false); // active behavior failed
 			}
 			else
 			{
@@ -1602,7 +1007,7 @@ void PlayerControlAI::update(const Update& u)
 					vi_debug("Marking bad Awk adjacency");
 #endif
 					AI::awk_mark_adjacency_bad(path[path_index - 1].ref, path[path_index].ref);
-					active_behavior->done(false);
+					behavior_done(false);
 				}
 			}
 		}
@@ -1623,7 +1028,7 @@ void PlayerControlAI::update(const Update& u)
 					if (get<Awk>()->can_shoot(look_dir))
 					{
 						if (get<Awk>()->go(look_dir))
-							active_behavior->done(true);
+							behavior_done(true);
 					}
 				}
 			}
@@ -1639,14 +1044,14 @@ void PlayerControlAI::update(const Update& u)
 					if (shot_at_target)
 					{
 						if (get<Awk>()->current_ability != Ability::Bolter)
-							active_behavior->done(hit_target); // call it success if we hit our target, or if there was nothing to hit
+							behavior_done(hit_target); // call it success if we hit our target, or if there was nothing to hit
 					}
 				}
 				else
 				{
 					// the only other kind of target we can have is a control point
 					if ((target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->absolute_pos()).length_squared() < CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS)
-						active_behavior->done(true);
+						behavior_done(true);
 				}
 			}
 			else if (path.length > 0)
@@ -1654,7 +1059,7 @@ void PlayerControlAI::update(const Update& u)
 				// a behavior is waiting for a callback; see if we're done executing it
 				// following a path
 				if (path_index >= path.length)
-					active_behavior->done(path.length > 1); // call it success if the path we followed was actually valid
+					behavior_done(path.length > 1); // call it success if the path we followed was actually valid
 			}
 		}
 	}
@@ -1682,537 +1087,5 @@ const AI::Config& PlayerControlAI::config() const
 	return player.ref()->config;
 }
 
-namespace AIBehaviors
-{
-
-Find::Find(Family fam, s8 priority, b8(*filter)(const PlayerControlAI*, const Entity*))
-	: filter(filter), family(fam)
-{
-	path_priority = priority;
-}
-
-void Find::run()
-{
-	active(true);
-	if (control->get<Awk>()->state() == Awk::State::Crawl && path_priority > control->path_priority)
-	{
-		const PlayerAI::MemoryArray& memory = control->player.ref()->memory[family];
-		const PlayerAI::Memory* closest = nullptr;
-		Entity* closest_entity;
-		r32 closest_distance = FLT_MAX;
-		Vec3 pos = control->get<Transform>()->absolute_pos();
-		for (s32 i = 0; i < memory.length; i++)
-		{
-			r32 distance = (memory[i].pos - pos).length_squared();
-			if (distance < closest_distance)
-			{
-				if (memory[i].entity.ref() && filter(control, memory[i].entity.ref()))
-				{
-					closest_distance = distance;
-					closest = &memory[i];
-				}
-			}
-		}
-		if (closest)
-		{
-			pathfind(closest->pos, Vec3::zero, AI::AwkPathfind::LongRange);
-			return;
-		}
-	}
-	done(false);
-}
-
-FindSpawn::FindSpawn(s8 priority, b8(*filter)(const PlayerControlAI*))
-	: filter(filter)
-{
-	path_priority = priority;
-}
-
-void FindSpawn::run()
-{
-	active(true);
-	if (control->get<Awk>()->state() == Awk::State::Crawl
-		&& path_priority > control->path_priority
-		&& filter(control))
-	{
-		pathfind(control->get<PlayerCommon>()->manager.ref()->team.ref()->player_spawn.ref()->absolute_pos(), Vec3(0, 1, 0), AI::AwkPathfind::LongRange);
-		return;
-	}
-	done(false);
-}
-
-RandomPath::RandomPath(s8 priority)
-{
-	path_priority = priority;
-}
-
-void RandomPath::run()
-{
-	active(true);
-	if (control->get<Awk>()->state() == Awk::State::Crawl && path_priority > control->path_priority)
-	{
-		Vec3 pos;
-		Quat rot;
-		control->get<Transform>()->absolute(&pos, &rot);
-		AI::AwkAllow rule;
-		if (control->get<Awk>()->current_ability == Ability::None)
-			rule = AI::AwkAllow::All;
-		else
-			rule = AI::AwkAllow::Crawl;
-		AI::awk_random_path(rule, control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), ObjectLinkEntryArg<Base<RandomPath>, const AI::AwkResult&, &Base<RandomPath>::path_callback>(id()));
-	}
-	else
-		done(false);
-}
-
-Chance::Chance(r32 odds)
-	: odds(odds)
-{
-}
-
-void Chance::run()
-{
-	active(true);
-	done(mersenne::randf_co() < odds);
-}
-
-HasUpgrade::HasUpgrade(Upgrade u)
-	: upgrade(u)
-{
-}
-
-void HasUpgrade::run()
-{
-	active(true);
-	done(control->player.ref()->manager.ref()->has_upgrade(upgrade));
-}
-
-Panic::Panic(s8 priority)
-{
-	path_priority = priority;
-}
-
-void Panic::abort()
-{
-	control->panic = false;
-	Base<Panic>::abort();
-}
-
-void Panic::done(b8 success)
-{
-	if (success)
-		control->panic = false;
-	Base<Panic>::done(success);
-}
-
-// pathfinding routines failed; we are stuck
-void Panic::run()
-{
-	active(true);
-	if (!control->panic && path_priority > control->path_priority)
-	{
-		control->panic = true;
-		control->sniper_or_bolter_cancel();
-		control->behavior_start(this, 127); // if we're panicking, nothing can interrupt us
-	}
-	else
-		done(false);
-}
-
-// WaitForAttachment waits for us to be on a surface and done with any ability upgrades
-void WaitForAttachment::set_context(void* ctx)
-{
-	Base::set_context(ctx);
-	control->get<Awk>()->done_flying.link<WaitForAttachment, &WaitForAttachment::done_flying_or_dashing>(this);
-	control->get<Awk>()->done_dashing.link<WaitForAttachment, &WaitForAttachment::done_flying_or_dashing>(this);
-	control->player.ref()->manager.ref()->upgrade_completed.link<WaitForAttachment, Upgrade, &WaitForAttachment::upgrade_completed>(this);
-}
-
-void WaitForAttachment::done_flying_or_dashing()
-{
-	if (active() && control->player.ref()->manager.ref()->current_upgrade == Upgrade::None)
-		done(true);
-}
-
-void WaitForAttachment::upgrade_completed(Upgrade)
-{
-	if (active() && control->get<Awk>()->state() == Awk::State::Crawl)
-		done(true);
-}
-
-void WaitForAttachment::run()
-{
-	active(true);
-	if (control->get<Awk>()->state() == Awk::State::Crawl && control->player.ref()->manager.ref()->current_upgrade == Upgrade::None)
-		done(true);
-}
-
-AbilitySpawn::AbilitySpawn()
-{
-	path_priority = 0;
-}
-
-b8 AbilitySpawn::try_spawn(s8 priority, Upgrade required_upgrade, Ability a, AbilitySpawnFilter filter)
-{
-	PlayerManager* manager = control->player.ref()->manager.ref();
-	const AbilityInfo& info = AbilityInfo::list[(s32)Ability::Sensor];
-	if (priority > control->path_priority
-		&& control->get<Awk>()->state() == Awk::State::Crawl
-		&& manager->has_upgrade(required_upgrade)
-		&& manager->credits > info.spawn_cost
-		&& filter(control))
-	{
-		path_priority = priority;
-		ability = a;
-		const AbilityInfo& info = AbilityInfo::list[s32(a)];
-		switch (info.type)
-		{
-			case AbilityInfo::Type::Shoot:
-			{
-				pathfind(Vec3::zero, control->get<PlayerCommon>()->look_dir(), AI::AwkPathfind::Spawn);
-				break;
-			}
-			case AbilityInfo::Type::Build:
-			{
-				done(true);
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
-		}
-		return true;
-	}
-	return false;
-}
-
-void AbilitySpawn::run()
-{
-	active(true);
-
-	if (!try_spawn(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion)
-		&& !try_spawn(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor)
-		&& !try_spawn(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket)
-		&& !try_spawn(4, Upgrade::ContainmentField, Ability::ContainmentField, &should_spawn_containment_field)
-		&& !try_spawn(4, Upgrade::Sniper, Ability::Sniper, &should_snipe)
-		&& !try_spawn(4, Upgrade::Bolter, Ability::Bolter, &should_bolt))
-		done(false);
-}
-
-void AbilitySpawn::path_request_succeeded()
-{
-	control->get<Awk>()->current_ability = ability;
-}
-
-void AbilitySpawn::abort()
-{
-	if (control->active_behavior == this)
-		control->get<Awk>()->current_ability = Ability::None;
-	Base<AbilitySpawn>::abort();
-}
-
-void AbilitySpawn::done(b8 success)
-{
-	if (control->active_behavior == this)
-		control->get<Awk>()->current_ability = Ability::None;
-	Base<AbilitySpawn>::done(success);
-}
-
-ReactTarget::ReactTarget(Family fam, s8 priority_path, s8 react_priority, b8(*filter)(const PlayerControlAI*, const Entity*))
-	: react_priority(react_priority), filter(filter), family(fam)
-{
-	path_priority = priority_path;
-}
-
-void ReactTarget::run()
-{
-	active(true);
-	b8 can_path = path_priority > control->path_priority;
-	b8 can_react = react_priority > control->path_priority;
-	if (control->get<Awk>()->state() == Awk::State::Crawl && (can_path || can_react))
-	{
-		Entity* closest = nullptr;
-		r32 range = control->get<Awk>()->range();
-		r32 closest_distance = range * range;
-		Vec3 pos = control->get<Transform>()->absolute_pos();
-		const PlayerAI::MemoryArray& memory = control->player.ref()->memory[family];
-		for (s32 i = 0; i < memory.length; i++)
-		{
-			r32 distance = (memory[i].pos - pos).length_squared();
-			if (distance < closest_distance)
-			{
-				if (!control->in_range(memory[i].pos, range) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref())))
-				{
-					closest_distance = distance;
-					closest = memory[i].entity.ref();
-				}
-			}
-		}
-
-		if (closest)
-		{
-			if (can_react && control->get<Awk>()->can_hit(closest->get<Target>()))
-			{
-				b8 selected_ability = false;
-				if (control->get<Awk>()->current_ability == Ability::None
-					&& mersenne::randf_co() < control->config().projectile_preference
-					&& control->player.ref()->save_up_priority() < 1)
-				{
-					PlayerManager* player = control->player.ref()->manager.ref();
-					for (s32 i = 0; i < s32(Ability::count); i++)
-					{
-						const AbilityInfo& info = AbilityInfo::list[i];
-						if (info.type == AbilityInfo::Type::Shoot && player->ability_valid(Ability(i)))
-						{
-							control->get<Awk>()->current_ability = Ability(i);
-							selected_ability = true;
-							break;
-						}
-					}
-				}
-				control->behavior_start(this, react_priority);
-				control->set_target(closest, selected_ability ? 0.2f : 0.0f); // add delay for selecting ability
-				return;
-			}
-			else if (can_path)
-			{
-				pathfind(closest->get<Target>()->absolute_pos(), Vec3::zero, AI::AwkPathfind::Target, control->get<Awk>()->current_ability == Ability::Sniper ? AI::AwkAllow::Crawl : AI::AwkAllow::All);
-				return;
-			}
-		}
-	}
-	done(false);
-}
-
-RunAway::RunAway(Family fam, s8 priority_path, b8(*filter)(const PlayerControlAI*, const Entity*))
-	: filter(filter), family(fam)
-{
-	path_priority = priority_path;
-}
-
-void RunAway::run()
-{
-	active(true);
-	Vec3 pos = control->get<Transform>()->absolute_pos();
-	if (control->get<Awk>()->state() == Awk::State::Crawl
-		&& !control->get<AIAgent>()->stealth // if we're stealthed, no need to run away
-		&& control->get<Awk>()->invincible_timer == 0.0f // if we're invincible, no need to run away
-		&& path_priority > control->path_priority)
-	{
-		Entity* closest = nullptr;
-		r32 range = control->get<Awk>()->range();
-		r32 closest_distance = range * range;
-		const PlayerAI::MemoryArray& memory = control->player.ref()->memory[family];
-		for (s32 i = 0; i < memory.length; i++)
-		{
-			r32 distance = (memory[i].pos - pos).length_squared();
-			if (distance < closest_distance)
-			{
-				if (control->in_range(memory[i].pos, range)
-					&& memory[i].entity.ref()
-					&& filter(control, memory[i].entity.ref()))
-				{
-					closest_distance = distance;
-					closest = memory[i].entity.ref();
-				}
-			}
-		}
-		if (closest)
-		{
-			Vec3 enemy_pos;
-			Quat enemy_rot;
-			closest->get<Transform>()->absolute(&enemy_pos, &enemy_rot);
-			pathfind(enemy_pos, enemy_rot * Vec3(0, 0, 1), AI::AwkPathfind::Away);
-			return;
-		}
-	}
-	done(false);
-}
-
-Test::Test(b8(*f)(const PlayerControlAI*))
-	: filter(f)
-{
-}
-
-void Test::run()
-{
-	active(true);
-	done(filter(control));
-}
-
-ReactControlPoint::ReactControlPoint(s8 priority, b8(*f)(const PlayerControlAI*, const Entity*))
-{
-	path_priority = priority;
-	filter = f;
-}
-
-void ReactControlPoint::run()
-{
-	active(true);
-	if (path_priority > control->path_priority)
-	{
-		Vec3 me = control->get<Transform>()->absolute_pos();
-		r32 closest_distance;
-		ControlPoint* control_point = ControlPoint::closest(AI::TeamNone, me, &closest_distance);
-		if (control_point && filter(control, control_point->entity()))
-		{
-			if (closest_distance < CONTROL_POINT_RADIUS)
-			{
-				done(true);
-				return;
-			}
-			if (closest_distance < AWK_MAX_DISTANCE)
-			{
-				Vec3 target = control_point->get<Transform>()->absolute_pos();
-				Vec3 hit;
-				if (control->get<Awk>()->can_shoot(target - me, &hit))
-				{
-					if ((hit - target).length_squared() < CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS)
-					{
-						control->behavior_start(this, path_priority);
-						control->set_target(control_point->entity());
-						return;
-					}
-				}
-			}
-		}
-	}
-	done(false);
-}
-
-ReactSpawn::ReactSpawn(s8 priority, b8(*f)(const PlayerControlAI*))
-	: filter(f)
-{
-	path_priority = priority;
-}
-
-void ReactSpawn::run()
-{
-	active(true);
-	if (path_priority > control->path_priority && filter(control))
-	{
-		Vec3 me = control->get<Transform>()->absolute_pos();
-		Transform* spawn = control->player.ref()->manager.ref()->team.ref()->player_spawn.ref();
-		Vec3 target = spawn->absolute_pos();
-		r32 distance = (me - target).length_squared();
-		if (distance < CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS)
-		{
-			done(true);
-			return;
-		}
-		if (distance < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-		{
-			Vec3 hit;
-			if (control->get<Awk>()->can_shoot(target - me, &hit))
-			{
-				if ((hit - target).length_squared() < CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS)
-				{
-					control->behavior_start(this, path_priority);
-					control->set_target(spawn->entity());
-					return;
-				}
-			}
-		}
-	}
-	done(false);
-}
-
-DoUpgrade::DoUpgrade(s8 priority)
-{
-	path_priority = priority;
-}
-
-void DoUpgrade::set_context(void* ctx)
-{
-	Base::set_context(ctx);
-	control->player.ref()->manager.ref()->upgrade_completed.link<DoUpgrade, Upgrade, &DoUpgrade::completed>(this);
-}
-
-void DoUpgrade::completed(Upgrade u)
-{
-	if (active())
-	{
-#if DEBUG_AI_CONTROL
-		vi_debug("Upgrade: %d", u);
-#endif
-		done(true);
-	}
-}
-
-void DoUpgrade::run()
-{
-	active(true);
-	if (path_priority > control->path_priority)
-	{
-		PlayerManager* manager = control->player.ref()->manager.ref();
-		if (manager->at_upgrade_point())
-		{
-			Upgrade u = want_available_upgrade(control);
-			if (u != Upgrade::None
-				&& manager->current_upgrade == Upgrade::None
-				&& manager->upgrade_start(u)
-				)
-			{
-				control->behavior_start(this, 127); // set the priority higher than everything else; upgrades can't be cancelled
-				return;
-			}
-		}
-	}
-	done(false);
-}
-
-CaptureControlPoint::CaptureControlPoint(s8 priority)
-{
-	path_priority = priority;
-}
-
-void CaptureControlPoint::set_context(void* ctx)
-{
-	Base::set_context(ctx);
-	control->player.ref()->manager.ref()->control_point_capture_completed.link<CaptureControlPoint, b8, &CaptureControlPoint::completed>(this);
-}
-
-void CaptureControlPoint::completed(b8 success)
-{
-	if (active())
-	{
-#if DEBUG_AI_CONTROL
-		vi_debug("Control point captured: %s", success ? "succ" : "fail");
-#endif
-		done(success);
-	}
-}
-
-void CaptureControlPoint::run()
-{
-	active(true);
-	if (path_priority > control->path_priority)
-	{
-		PlayerManager* manager = control->player.ref()->manager.ref();
-		ControlPoint* control_point = manager->at_control_point();
-		if (control_point) 
-		{
-			if (manager->friendly_control_point(control_point))
-			{
-				done(true); // already captured
-				return;
-			}
-			else if (manager->capture_start())
-			{
-				control->behavior_start(this, 127); // can't be canceled
-				return;
-			}
-		}
-	}
-	done(false);
-}
-
-void update_active(const Update& u)
-{
-}
-
-}
 
 }

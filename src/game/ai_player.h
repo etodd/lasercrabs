@@ -1,7 +1,6 @@
 #pragma once
 #include "data/entity.h"
 #include "ai.h"
-#include "data/behavior.h"
 #include "constants.h"
 #include "game.h"
 #if DEBUG_AI_CONTROL
@@ -21,23 +20,20 @@ struct Camera;
 struct Target;
 struct ControlPoint;
 
-#define MAX_MEMORY 8
-
 struct PlayerAI
 {
 	struct Memory
 	{
 		Vec3 pos;
+		Vec3 velocity;
 		Ref<Entity> entity;
 	};
-
-	typedef StaticArray<Memory, MAX_MEMORY> MemoryArray;
 
 	static PinArray<PlayerAI, MAX_PLAYERS> list;
 
 	static AI::Config generate_config(AI::Team, r32);
 
-	MemoryArray memory[MAX_FAMILIES];
+	Array<Memory> memory;
 	Ref<PlayerManager> manager;
 	Revision revision;
 	AI::Config config;
@@ -51,7 +47,6 @@ struct PlayerAI
 	void update(const Update&);
 	void spawn();
 	void spawn_callback(const AI::AwkPathNode&);
-	s32 save_up_priority() const;
 };
 
 struct PlayerControlAI : public ComponentType<PlayerControlAI>
@@ -59,11 +54,6 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 #if DEBUG_AI_CONTROL
 	Camera* camera;
 #endif
-	Repeat* loop_high_level;
-	Repeat* loop_low_level;
-	Repeat* loop_low_level_2;
-	Repeat* loop_memory;
-	Behavior* active_behavior;
 	Vec3 random_look;
 	r32 aim_timeout; // time we've been able to shoot but haven't due to aiming
 	r32 aim_timer; // total aim time including cooldowns etc.
@@ -81,10 +71,9 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	void awake();
 	~PlayerControlAI();
 
-	b8 update_memory();
-	void behavior_start(Behavior*, s8);
 	void behavior_clear();
-	b8 restore_loops();
+	void behavior_done(b8);
+	b8 update_memory();
 	b8 sniper_or_bolter_cancel();
 	Vec2 aim(const Update&, const Vec3&);
 	void aim_and_shoot_target(const Update&, const Vec3&, Target*);
@@ -99,217 +88,5 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	const AI::Config& config() const;
 };
 
-namespace AIBehaviors
-{
-	template<typename Derived> struct Base : public BehaviorBase<Derived>
-	{
-		PlayerControlAI* control;
-		s8 path_priority;
-		virtual void set_context(void* ctx)
-		{
-			this->control = (PlayerControlAI*)ctx;
-		}
-
-		virtual void path_request_succeeded()
-		{
-		}
-
-		void path_callback(const AI::AwkResult& result)
-		{
-			if (this->active())
-			{
-				if (result.path.length > 1
-					&& this->control->template get<Awk>()->state() == Awk::State::Crawl
-					&& this->path_priority > this->control->path_priority)
-				{
-					vi_assert(this->control->active_behavior != this);
-					this->control->behavior_start(this, this->path_priority);
-					this->control->set_path(result.path);
-					this->path_request_succeeded();
-				}
-				else
-					this->done(false);
-			}
-		}
-
-		virtual void done(b8 success)
-		{
-			if (this->control->active_behavior == this)
-			{
-				vi_assert(this->active());
-				this->control->behavior_clear();
-#if DEBUG_AI_CONTROL
-				Behavior* r = this->root();
-				const char* loop;
-				if (r == this->control->loop_low_level)
-					loop = "low-level 1";
-				else if (r == this->control->loop_low_level_2)
-					loop = "low-level 2";
-				else
-					loop = "high-level";
-				vi_debug("%s %s: %s", success ? "succ" : "fail", loop, typeid(*this).name());
-#endif
-			}
-			BehaviorBase<Derived>::done(success);
-		}
-
-		virtual void abort()
-		{
-			if (this->active())
-			{
-#if DEBUG_AI_CONTROL
-				Behavior* r = this->root();
-				const char* loop;
-				if (r == this->control->loop_low_level)
-					loop = "low-level 1";
-				else if (r == this->control->loop_low_level_2)
-					loop = "low-level 2";
-				else
-					loop = "high-level";
-				vi_debug("%s: %s", loop, typeid(*this).name());
-#endif
-			}
-			if (this->control->active_behavior == this)
-				this->control->behavior_clear();
-			BehaviorBase<Derived>::abort();
-		}
-
-		void pathfind(const Vec3& target, const Vec3& normal, AI::AwkPathfind type, AI::AwkAllow rule = AI::AwkAllow::All)
-		{
-			vi_assert(this->control->template get<Awk>()->state() == Awk::State::Crawl);
-			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::AwkResult&, &Base<Derived>::path_callback>(this->id());
-			Vec3 pos;
-			Quat rot;
-			this->control->template get<Transform>()->absolute(&pos, &rot);
-			AI::awk_pathfind(type, rule, this->control->template get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), target, normal, ai_callback);
-		}
-	};
-
-	struct RandomPath : Base<RandomPath>
-	{
-		RandomPath(s8);
-		void run();
-	};
-
-	struct Find : Base<Find>
-	{
-		b8(*filter)(const PlayerControlAI*, const Entity*);
-		Family family;
-		Find(Family, s8, b8(*)(const PlayerControlAI*, const Entity*));
-
-		void run();
-	};
-
-	struct Chance : Base<Chance>
-	{
-		r32 odds;
-		Chance(r32);
-		void run();
-	};
-
-	struct HasUpgrade : Base<HasUpgrade>
-	{
-		Upgrade upgrade;
-		HasUpgrade(Upgrade);
-		void run();
-	};
-
-	struct Panic : Base<Panic>
-	{
-		Panic(s8);
-		void abort();
-		void done(b8);
-		void run();
-	};
-
-	struct Test : Base<Test>
-	{
-		b8(*filter)(const PlayerControlAI*);
-
-		Test(b8(*)(const PlayerControlAI*));
-		void run();
-	};
-
-	// low-level behaviors
-
-	struct WaitForAttachment : Base<WaitForAttachment>
-	{
-		void set_context(void*);
-		void done_flying_or_dashing();
-		void upgrade_completed(Upgrade);
-		void run();
-	};
-
-	struct FindSpawn : Base<FindSpawn>
-	{
-		b8(*filter)(const PlayerControlAI*);
-
-		FindSpawn(s8, b8(*)(const PlayerControlAI*));
-		void run();
-	};
-
-	typedef b8(*AbilitySpawnFilter)(const PlayerControlAI*);
-	struct AbilitySpawn : Base<AbilitySpawn>
-	{
-		Ability ability;
-
-		AbilitySpawn();
-		b8 try_spawn(s8, Upgrade, Ability, AbilitySpawnFilter);
-		void run();
-		void abort();
-		void done(b8);
-		void path_request_succeeded();
-	};
-
-	struct ReactTarget : Base<ReactTarget>
-	{
-		s8 react_priority;
-		b8(*filter)(const PlayerControlAI*, const Entity*);
-		Family family;
-		ReactTarget(Family, s8, s8, b8(*)(const PlayerControlAI*, const Entity*));
-
-		void run();
-	};
-
-	struct ReactSpawn : Base<ReactSpawn>
-	{
-		b8(*filter)(const PlayerControlAI*);
-		ReactSpawn(s8, b8(*)(const PlayerControlAI*));
-		void run();
-	};
-
-	struct ReactControlPoint : Base<ReactControlPoint>
-	{
-		ReactControlPoint(s8, b8(*)(const PlayerControlAI*, const Entity*));
-		b8(*filter)(const PlayerControlAI*, const Entity*);
-		void run();
-	};
-
-	struct DoUpgrade : Base<DoUpgrade>
-	{
-		DoUpgrade(s8);
-		void completed(Upgrade);
-		void set_context(void*);
-		void run();
-	};
-
-	struct CaptureControlPoint : Base<CaptureControlPoint>
-	{
-		CaptureControlPoint(s8);
-		void completed(b8);
-		void set_context(void*);
-		void run();
-	};
-
-	struct RunAway : Base<RunAway>
-	{
-		b8(*filter)(const PlayerControlAI*, const Entity*);
-		Family family;
-		RunAway(Family, s8, b8(*)(const PlayerControlAI*, const Entity*));
-		void run();
-	};
-
-	void update_active(const Update&);
-}
 
 }

@@ -10,7 +10,7 @@ namespace Net
 namespace Master
 {
 
-#define DEBUG_MSG 0
+#define DEBUG_MSG 1
 #define NET_MASTER_RESEND_INTERVAL 1.5
 
 Save::Save()
@@ -75,6 +75,10 @@ b8 Messenger::add_header(StreamWrite* p, Sock::Address addr, Message type)
 {
 	using Stream = StreamWrite;
 	SequenceID seq = outgoing_sequence_id(addr);
+	{
+		s16 version = GAME_VERSION;
+		serialize_s16(p, version);
+	}
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 #if DEBUG_MSG
 	vi_debug("Sending seq %d message %d to %s:%hd", s32(seq), s32(type), Sock::host_to_str(addr.host), addr.port);
@@ -141,9 +145,9 @@ b8 Messenger::received(Message type, SequenceID seq, Sock::Address addr, Sock::H
 				break;
 			}
 		}
-		return false; // ignore this packet
+		return true;
 	}
-	else
+	else if (type != Message::Disconnect)
 	{
 		// when we receive any kind of message other than an ack, we must send an ack back
 

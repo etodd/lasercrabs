@@ -117,29 +117,8 @@ namespace AI
 
 	const Team TeamNone = 255;
 
-	enum class LowLevelLoop
-	{
-		Default,
-		Noop,
-	};
-
-	enum class HighLevelLoop
-	{
-		Default,
-		Noop,
-	};
-
-	enum class UpgradeStrategy
-	{
-		Ignore,
-		SaveUp,
-		IfAvailable,
-	};
-
 	struct Config
 	{
-		LowLevelLoop low_level;
-		HighLevelLoop high_level;
 		r32 interval_memory_update;
 		r32 interval_low_level;
 		r32 interval_high_level;
@@ -149,10 +128,7 @@ namespace AI
 		r32 aim_speed;
 		r32 aim_min_delay;
 		r32 dodge_chance;
-		r32 projectile_preference;
 		r32 spawn_time;
-		Upgrade upgrade_priority[(s32)Upgrade::count];
-		UpgradeStrategy upgrade_strategies[(s32)Upgrade::count];
 		AI::Team team;
 	};
 }

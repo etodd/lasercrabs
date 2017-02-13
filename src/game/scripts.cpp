@@ -46,19 +46,31 @@ struct Cue
 	b8 loop;
 };
 
+enum class Behavior
+{
+	WaitForIdleAnimation,
+	InterruptIdleAnimation,
+	count,
+};
+
 struct Instance
 {
 	StaticArray<Cue, 32> cues;
 	r32 last_cue_real_time;
+	Behavior behavior;
 	Ref<Entity> model;
 	Ref<Transform> collision;
 	AssetID text = AssetNull;
 	AssetID head_bone;
 	b8 highlight;
 	b8 sound_done;
+	b8 interrupt_idle_animation;
 
 	void cue(AkUniqueID sound, AssetID animation, AssetID text = AssetNull, b8 loop = true, r32 delay = 0.3f)
 	{
+		if (behavior == Behavior::InterruptIdleAnimation && model.ref()->has<Animator>() && cues.length == 0)
+			interrupt_idle_animation = true;
+
 		Cue* c = cues.add();
 		new (c) Cue();
 		c->sound = sound;
@@ -70,6 +82,9 @@ struct Instance
 
 	void cue(Callback callback, r32 delay = 0.3f)
 	{
+		if (behavior == Behavior::InterruptIdleAnimation && model.ref()->has<Animator>() && cues.length == 0)
+			interrupt_idle_animation = true;
+
 		Cue* c = cues.add();
 		new (c) Cue();
 		c->callback = callback;
@@ -157,7 +172,7 @@ void update(const Update& u)
 			else
 				layer = nullptr;
 
-			if ((!layer || layer->animation == AssetNull || layer->behavior == Animator::Behavior::Loop || layer->time == Loader::animation(layer->animation)->duration)
+			if ((!layer || layer->animation == AssetNull || layer->behavior == Animator::Behavior::Loop || layer->time == Loader::animation(layer->animation)->duration || instance->interrupt_idle_animation)
 				&& instance->sound_done
 				&& instance->cues.length > 0)
 			{
@@ -166,6 +181,7 @@ void update(const Update& u)
 					cue->delay -= u.time.delta;
 				else
 				{
+					instance->interrupt_idle_animation = false;
 					if (cue->callback)
 						cue->callback(instance);
 					else
@@ -289,13 +305,14 @@ void init()
 	}
 }
 
-Instance* add(Entity* model, AssetID head_bone = AssetNull)
+Instance* add(Entity* model, Behavior behavior = Behavior::WaitForIdleAnimation, AssetID head_bone = AssetNull)
 {
 	init();
 
 	Instance* i = data->instances.add();
 	new (i) Instance();
 
+	i->behavior = behavior;
 	i->model = model;
 	i->head_bone = head_bone;
 	i->sound_done = true;
@@ -655,7 +672,7 @@ namespace title
 			Game::updates.add(update);
 			Game::draws.add(draw);
 
-			data->sailor = Actor::add(entities.find("sailor"), Asset::Bone::sailor_head);
+			data->sailor = Actor::add(entities.find("sailor"), Actor::Behavior::WaitForIdleAnimation, Asset::Bone::sailor_head);
 			Loader::animation(Asset::Animation::sailor_close_door);
 			Loader::animation(Asset::Animation::sailor_wait);
 			Loader::animation(Asset::Animation::sailor_talk);
@@ -839,7 +856,7 @@ namespace tutorial
 		data->hobo = entities.find("hobo");
 		data->battery = entities.find("health");
 
-		Actor::Instance* hobo = Actor::add(data->hobo.ref(), Asset::Bone::hobo_head);
+		Actor::Instance* hobo = Actor::add(data->hobo.ref(), Actor::Behavior::WaitForIdleAnimation, Asset::Bone::hobo_head);
 		hobo_done(hobo);
 
 		data->ivory_ad_actor = Actor::add(entities.find("ivory_ad"));
@@ -973,7 +990,7 @@ namespace locke
 		data = new Data();
 		Entity* locke = entities.find("locke");
 		locke->get<PlayerTrigger>()->entered.link(&trigger);
-		data->locke = Actor::add(locke, Asset::Bone::locke_head);
+		data->locke = Actor::add(locke, Actor::Behavior::InterruptIdleAnimation, Asset::Bone::locke_head);
 		Loader::animation(Asset::Animation::locke_gesture_both_arms);
 		Loader::animation(Asset::Animation::locke_gesture_one_hand);
 		Loader::animation(Asset::Animation::locke_gesture_one_hand_short);

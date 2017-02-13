@@ -10,7 +10,7 @@ namespace Net
 namespace Master
 {
 
-#define DEBUG_MSG 1
+#define DEBUG_MSG 0
 #define NET_MASTER_RESEND_INTERVAL 1.5
 
 Save::Save()
@@ -33,7 +33,7 @@ void Save::reset()
 	zones[Asset::Level::Dock] = ZoneState::GroupOwned;
 	zones[Asset::Level::Qualia] = ZoneState::GroupOwned;
 
-	resources[(s32)Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
+	resources[s32(Resource::Energy)] = s16(CREDITS_INITIAL * 3.5f);
 }
 
 
@@ -119,6 +119,10 @@ b8 messenger_send_ack(SequenceID seq, Sock::Address addr, Sock::Handle* sock)
 	using Stream = StreamWrite;
 	StreamWrite p;
 	packet_init(&p);
+	{
+		s16 version = GAME_VERSION;
+		serialize_s16(&p, version);
+	}
 	serialize_int(&p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	{
 		Message ack_type = Message::Ack;
@@ -209,12 +213,18 @@ void Messenger::update(r64 timestamp, Sock::Handle* sock, s32 max_outgoing)
 
 void Messenger::reset()
 {
+#if DEBUG_MSG
+	vi_debug("Resetting all connections");
+#endif
 	outgoing.length = 0;
 	sequence_ids.clear();
 }
 
 void Messenger::remove(Sock::Address addr)
 {
+#if DEBUG_MSG
+	vi_debug("Removing peer %s:%hd", Sock::host_to_str(addr.host), addr.port);
+#endif
 	for (s32 i = 0; i < outgoing.length; i++)
 	{
 		if (outgoing[i].addr.equals(addr))

@@ -40,12 +40,12 @@ struct Loader
 	static Array<Entry<Mesh> > meshes;
 	static Array<Entry<Animation> > animations;
 	static Array<Entry<Armature> > armatures;
-	static Array<Entry<void*> > textures; // Nothing actually stored
-	static Array<Entry<void*> > shaders; // Nothing actually stored
+	static Array<Entry<s8> > textures; // nothing actually stored
+	static Array<Entry<s8> > shaders; // nothing actually stored
 	static Array<Entry<Font> > fonts;
-	static Array<Entry<void*> > dynamic_meshes; // Nothing actually stored
-	static Array<Entry<void*> > dynamic_textures; // Nothing actually stored
-	static Array<Entry<void*> > framebuffers; // Nothing actually stored
+	static Array<Entry<s8> > dynamic_meshes; // nothing actually stored
+	static Array<Entry<s8> > dynamic_textures; // nothing actually stored
+	static Array<Entry<s8> > framebuffers; // nothing actually stored
 #if !SERVER
 	static Array<Entry<AkBankID> > soundbanks;
 #endif

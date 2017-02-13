@@ -81,6 +81,7 @@ namespace Master
 		r64 timestamp;
 		Sock::Address client;
 		Sock::Address server;
+		s8 slots;
 	};
 
 	std::unordered_map<Sock::Address, Node> nodes;
@@ -218,7 +219,7 @@ namespace Master
 		{
 			const ClientConnection& connection = clients_connecting[i];
 			if (connection.server.equals(server->addr))
-				slots += node_for_address(connection.client)->server_state.open_slots;
+				slots += connection.slots;
 		}
 		return slots;
 	}
@@ -420,6 +421,7 @@ namespace Master
 		connection->timestamp = timestamp;
 		connection->server = server->addr;
 		connection->client = client->addr;
+		connection->slots = client->server_state.open_slots;
 
 		client->state = Node::State::ClientConnecting;
 	}
@@ -496,7 +498,7 @@ namespace Master
 							// since there are clients connecting to this server, we've been ignoring its updates telling us how many open slots it has
 							// we need to manually update the open slot count until the server gives us a fresh count
 							// don't try to fill these slots until the server tells us for sure they're available
-							server->server_state.open_slots -= client->server_state.open_slots;
+							server->server_state.open_slots -= c.slots;
 						}
 
 						clients_connecting.remove(i);

@@ -2303,6 +2303,10 @@ b8 client_connected(StreamRead* p, Client* client)
 b8 packet_handle_master(StreamRead* p)
 {
 	using Stream = StreamRead;
+	{
+		s16 version;
+		serialize_s16(p, version);
+	}
 	SequenceID seq;
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	Master::Message type;

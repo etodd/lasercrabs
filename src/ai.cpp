@@ -26,6 +26,9 @@ u32 callback_in_id;
 u32 callback_out_id;
 Revision level_revision;
 Revision level_revision_worker;
+AwkNavMesh::Coord awk_nav_mesh_size;
+Vec3 awk_nav_mesh_vmin;
+r32 awk_nav_mesh_chunk_size;
 
 void loop()
 {
@@ -122,6 +125,9 @@ void update(const Update& u)
 			case Callback::Load:
 			{
 				sync_out.read(&level_revision_worker);
+				sync_out.read(&awk_nav_mesh_chunk_size);
+				sync_out.read(&awk_nav_mesh_size);
+				sync_out.read(&awk_nav_mesh_vmin);
 				break;
 			}
 			default:
@@ -132,6 +138,32 @@ void update(const Update& u)
 		}
 	}
 	sync_out.unlock();
+}
+
+AwkNavMesh::Coord chunk_coord(s32 i)
+{
+	AwkNavMesh::Coord c;
+	s32 xz = awk_nav_mesh_size.x * awk_nav_mesh_size.z;
+	c.y = i / xz;
+	s32 y_start = c.y * xz;
+	c.z = (i - y_start) / awk_nav_mesh_size.x;
+	c.x = i - (y_start + c.z * awk_nav_mesh_size.x);
+	return c;
+}
+
+AwkNavMesh::Coord chunk_coord(const Vec3& pos)
+{
+	return
+	{
+		s32((pos.x - awk_nav_mesh_vmin.x) / awk_nav_mesh_chunk_size),
+		s32((pos.y - awk_nav_mesh_vmin.y) / awk_nav_mesh_chunk_size),
+		s32((pos.z - awk_nav_mesh_vmin.z) / awk_nav_mesh_chunk_size),
+	};
+}
+
+s16 chunk_index(AwkNavMesh::Coord c)
+{
+	return c.x + (c.z * awk_nav_mesh_size.x) + (c.y * (awk_nav_mesh_size.x * awk_nav_mesh_size.z));
 }
 
 b8 match(Team t, TeamMask m)
@@ -469,6 +501,103 @@ void debug_draw_awk_nav_mesh(const RenderParams& params)
 }
 
 #endif
+
+void RecordedLife::reset()
+{
+	shield.length = 0;
+	time.length = 0;
+	energy.length = 0;
+	chunk.length = 0;
+	enemy_upgrades.length = 0;
+	control_point_state.length = 0;
+	nearby_entities.length = 0;
+	stealth.length = 0;
+	action.length = 0;
+}
+
+void RecordedLife::reset(AI::Team t, s8 d)
+{
+	team = t;
+	drones_remaining = d;
+	reset();
+}
+
+void RecordedLife::add(const Tag& tag, const Action& a)
+{
+	shield.add(tag.shield);
+	time.add(tag.time);
+	energy.add(tag.energy);
+	chunk.add(tag.chunk);
+	enemy_upgrades.add(tag.enemy_upgrades);
+	control_point_state.add(tag.control_point_state);
+	nearby_entities.add(tag.nearby_entities);
+	stealth.add(tag.stealth);
+	action.add(a);
+}
+
+RecordedLife::Action::Action()
+{
+	memset(this, 0, sizeof(*this));
+}
+
+RecordedLife::Action& RecordedLife::Action::operator=(const Action& other)
+{
+	memcpy(this, &other, sizeof(*this));
+	return *this;
+}
+
+// these functions get rid of const nonsense so we can pass either one into the serialize function
+size_t RecordedLife::custom_fwrite(void* buffer, size_t size, size_t count, FILE* f)
+{
+	return fwrite(buffer, size, count, f);
+}
+
+size_t RecordedLife::custom_fread(void* buffer, size_t size, size_t count, FILE* f)
+{
+	return fread(buffer, size, count, f);
+}
+
+void RecordedLife::serialize(FILE* f, size_t(*func)(void*, size_t, size_t, FILE*))
+{
+	func(&team, sizeof(AI::Team), 1, f);
+	func(&drones_remaining, sizeof(s8), 1, f);
+
+	func(&shield.length, sizeof(s32), 1, f);
+	shield.resize(shield.length);
+	func(shield.data, sizeof(s8), shield.length, f);
+
+	func(&time.length, sizeof(s32), 1, f);
+	time.resize(time.length);
+	func(time.data, sizeof(s8), time.length, f);
+
+	func(&energy.length, sizeof(s32), 1, f);
+	energy.resize(energy.length);
+	func(energy.data, sizeof(s16), energy.length, f);
+
+	func(&chunk.length, sizeof(s32), 1, f);
+	chunk.resize(chunk.length);
+	func(chunk.data, sizeof(s16), chunk.length, f);
+
+	func(&enemy_upgrades.length, sizeof(s32), 1, f);
+	enemy_upgrades.resize(enemy_upgrades.length);
+	func(enemy_upgrades.data, sizeof(s32), enemy_upgrades.length, f);
+
+	func(&control_point_state.length, sizeof(s32), 1, f);
+	control_point_state.resize(control_point_state.length);
+	func(control_point_state.data, sizeof(ControlPointState), control_point_state.length, f);
+
+	func(&nearby_entities.length, sizeof(s32), 1, f);
+	nearby_entities.resize(nearby_entities.length);
+	func(nearby_entities.data, sizeof(s32), nearby_entities.length, f);
+
+	func(&stealth.length, sizeof(s32), 1, f);
+	stealth.resize(stealth.length);
+	func(stealth.data, sizeof(b8), stealth.length, f);
+
+	func(&action.length, sizeof(s32), 1, f);
+	action.resize(action.length);
+	func(action.data, sizeof(Action), action.length, f);
+}
 
 }
 

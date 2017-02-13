@@ -48,6 +48,9 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static void clear();
 	static void camera_setup_awk(Entity*, Camera*, r32);
 
+#if SERVER
+	AI::RecordedLife ai_record;
+#endif
 	u64 uuid;
 	Camera* camera;
 	UIMenu menu;
@@ -69,7 +72,11 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	
 	PlayerHuman(b8 = false, s8 = 0);
 	void awake();
+	~PlayerHuman();
 
+#if SERVER
+	void ai_record_save();
+#endif
 	void msg(const char*, b8);
 	void rumble_add(r32);
 	UIMode ui_mode() const;
@@ -154,9 +161,12 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	static b8 net_msg(Net::StreamRead*, PlayerControlHuman*, Net::MessageSource);
 	static s32 count_local();
 
+	Array<TargetIndicator> target_indicators;
+	Array<PositionEntry> position_history;
+#if SERVER
+	AI::RecordedLife::Tag* ai_record_tag;
+#endif
 	Reticle reticle;
-	StaticArray<TargetIndicator, 32> target_indicators;
-	StaticArray<PositionEntry, 60> position_history;
 	RemoteControl remote_control;
 	Vec3 last_pos;
 	r32 fov;
@@ -171,8 +181,8 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	b8 sudoku_active;
 
 	PlayerControlHuman(PlayerHuman* = nullptr);
-	~PlayerControlHuman();
 	void awake();
+	~PlayerControlHuman();
 
 	r32 look_speed() const;
 	b8 local() const;
@@ -187,7 +197,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void awk_reflecting(const AwkReflectEvent&);
 	void parkour_landed(r32);
 	void hit_target(Entity*);
-	b8 add_target_indicator(Target*, TargetIndicator::Type);
+	void add_target_indicator(Target*, TargetIndicator::Type);
 	void remote_control_handle(const RemoteControl&);
 
 	void update(const Update&);

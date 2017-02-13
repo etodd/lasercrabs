@@ -120,6 +120,16 @@ b8 Game::Level::has_feature(Game::FeatureLevel f) const
 	return (s32)feature_level >= (s32)f;
 }
 
+AI::Team Game::Level::team_lookup_reverse(AI::Team t) const
+{
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	{
+		if (team_lookup[i] == t)
+			return AI::Team(i);
+	}
+	return AI::TeamNone;
+}
+
 Array<UpdateFunction> Game::updates;
 Array<DrawFunction> Game::draws;
 Array<CleanupFunction> Game::cleanups;
@@ -1202,7 +1212,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 	}
 
-	level.time_limit = 60.0f * 8.0f;
+	level.time_limit = MATCH_TIME_DEFAULT;
 	switch (level.type)
 	{
 		case GameType::Rush:

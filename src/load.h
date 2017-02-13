@@ -50,6 +50,7 @@ struct Loader
 	static Array<Entry<AkBankID> > soundbanks;
 #endif
 	static void user_data_path(char*, const char*);
+	static void ai_record_path(char*, AssetID, GameType);
 
 	static const Mesh* mesh(AssetID);
 	static const Mesh* mesh_permanent(AssetID);

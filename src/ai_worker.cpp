@@ -803,6 +803,9 @@ void loop()
 					sync_out.lock();
 					sync_out.write(Callback::Load);
 					sync_out.write(level_revision);
+					sync_out.write(awk_nav_mesh.chunk_size);
+					sync_out.write(awk_nav_mesh.size);
+					sync_out.write(awk_nav_mesh.vmin);
 					sync_out.unlock();
 				}
 				break;

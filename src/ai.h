@@ -113,6 +113,9 @@ namespace AI
 	void update(const Update&);
 	void debug_draw_nav_mesh(const RenderParams&);
 	void debug_draw_awk_nav_mesh(const RenderParams&);
+	AwkNavMesh::Coord chunk_coord(s32);
+	AwkNavMesh::Coord chunk_coord(const Vec3&);
+	s16 chunk_index(AwkNavMesh::Coord);
 
 	b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);
 
@@ -158,6 +161,101 @@ namespace AI
 
 		void loop();
 	}
+
+	struct RecordedLife
+	{
+		struct ControlPointState
+		{
+			static const s8 StateNormal = 0;
+			static const s8 StateLosingFirstHalf = 1;
+			static const s8 StateLosingSecondHalf = 2;
+			static const s8 StateRecapturingFirstHalf = 3;
+			static const s8 StateLost = 4;
+
+			s8 a;
+			s8 b;
+		};
+
+		struct Tag
+		{
+			s32 enemy_upgrades;
+			s32 nearby_entities;
+			s16 energy;
+			s16 chunk; // which nav mesh chunk are we in
+			ControlPointState control_point_state;
+			s8 shield;
+			s8 time;
+			b8 stealth;
+		};
+
+		struct Action
+		{
+			static const s8 TypeMove = 0;
+			static const s8 TypeAttack = 1;
+			static const s8 TypeUpgrade = 2;
+			static const s8 TypeAbility = 3;
+			static const s8 TypeWait = 4;
+
+			s8 type;
+			union
+			{
+				Vec3 pos; // for move and build ability actions
+				s8 entity_type; // for attack and shoot ability actions
+			};
+			union
+			{
+				Vec3 normal; // for move and build ability actions
+				s8 duration; // for wait actions
+				s8 ability; // for upgrade and build and shoot ability actions
+			};
+			Action();
+			Action& operator=(const Action&);
+		};
+
+		static const s8 EntitySensorEnemy = 0;
+		static const s8 EntitySensorFriend = 1;
+		static const s8 EntityBatteryEnemy = 2;
+		static const s8 EntityBatteryFriend = 3;
+		static const s8 EntityBatteryNeutral = 4;
+		static const s8 EntityMinionEnemy = 5;
+		static const s8 EntityMinionFriend = 6;
+		static const s8 EntityForceFieldEnemy = 7;
+		static const s8 EntityForceFieldFriend = 8;
+		static const s8 EntityRocketEnemyAttached = 9;
+		static const s8 EntityRocketEnemyDetached = 10;
+		static const s8 EntityRocketFriendAttached = 11;
+		static const s8 EntityRocketFriendDetached = 12;
+		static const s8 EntityDroneEnemyShield2 = 13;
+		static const s8 EntityDroneEnemyShield1 = 14;
+		static const s8 EntityDroneFriendShield2 = 15;
+		static const s8 EntityDroneFriendShield1 = 16;
+		static const s8 EntityProjectileEnemy = 17;
+		static const s8 EntityProjectileFriend = 18;
+		static const s8 EntityGrenadeEnemyAttached = 19;
+		static const s8 EntityGrenadeEnemyDetached = 20;
+		static const s8 EntityGrenadeFriendAttached = 21;
+		static const s8 EntityGrenadeFriendDetached = 22;
+
+		Array<s32> enemy_upgrades;
+		Array<s32> nearby_entities;
+		Array<s16> energy;
+		Array<s16> chunk; // which nav mesh chunk are we in
+		Array<ControlPointState> control_point_state;
+		Array<s8> shield;
+		Array<s8> time;
+		Array<b8> stealth;
+		Array<Action> action;
+		AI::Team team;
+		s8 drones_remaining;
+
+		void reset();
+		void reset(AI::Team, s8);
+		void add(const Tag&, const Action&);
+
+		static size_t custom_fwrite(void*, size_t, size_t, FILE*);
+		static size_t custom_fread(void*, size_t, size_t, FILE*);
+		void serialize(FILE*, size_t(*)(void*, size_t, size_t, FILE*));
+	};
 }
 
 struct AIAgent : public ComponentType<AIAgent>
@@ -195,54 +293,6 @@ struct FSM
 		}
 		return false;
 	}
-};
-
-struct RecordedLife
-{
-	struct Upgrades
-	{
-		s8 a;
-		s8 b;
-		s8 c;
-	};
-
-	struct ControlPointState
-	{
-		s8 a;
-		s8 b;
-	};
-
-	struct Action
-	{
-		const s8 TypeMove = 0;
-		const s8 TypeAttack = 1;
-		const s8 TypeUpgrade = 2;
-		const s8 TypeAbility = 3;
-		const s8 TypeWait = 4;
-
-		union
-		{
-			AwkNavMeshNode node; // for move and build ability actions
-			s8 entity_type; // for attack and shoot ability actions
-		};
-		s8 type;
-		union
-		{
-			s8 duration; // for wait actions
-			s8 ability; // for upgrade and build or shoot ability actions
-		};
-	};
-
-	AI::Team team;
-	s8 drones_remaining;
-	Array<s8> shield;
-	Array<s8> time;
-	Array<s8> energy;
-	Array<s16> chunk; // which nav mesh chunk are we in
-	Array<Upgrades> enemy_upgrades;
-	Array<ControlPointState> control_point_state;
-	Array<s16> nearby_entities;
-	Array<Action> action;
 };
 
 

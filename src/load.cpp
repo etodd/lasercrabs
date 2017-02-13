@@ -39,12 +39,12 @@ namespace Settings
 Array<Loader::Entry<Mesh> > Loader::meshes;
 Array<Loader::Entry<Animation> > Loader::animations;
 Array<Loader::Entry<Armature> > Loader::armatures;
-Array<Loader::Entry<void*> > Loader::textures;
-Array<Loader::Entry<void*> > Loader::shaders;
+Array<Loader::Entry<s8> > Loader::textures;
+Array<Loader::Entry<s8> > Loader::shaders;
 Array<Loader::Entry<Font> > Loader::fonts;
-Array<Loader::Entry<void*> > Loader::dynamic_meshes;
-Array<Loader::Entry<void*> > Loader::dynamic_textures;
-Array<Loader::Entry<void*> > Loader::framebuffers;
+Array<Loader::Entry<s8> > Loader::dynamic_meshes;
+Array<Loader::Entry<s8> > Loader::dynamic_textures;
+Array<Loader::Entry<s8> > Loader::framebuffers;
 #if !SERVER
 Array<Loader::Entry<AkBankID> > Loader::soundbanks;
 #endif
@@ -1128,6 +1128,30 @@ void Loader::user_data_path(char* path, const char* filename)
 {
 	vi_assert(strlen(Loader::data_directory) + strlen(filename) < MAX_PATH_LENGTH);
 	sprintf(path, "%s%s", Loader::data_directory, filename);
+}
+
+void Loader::ai_record_path(char* path, AssetID level, GameType type)
+{
+	const char* type_str;
+	switch (type)
+	{
+		case GameType::Deathmatch:
+		{
+			type_str = "dm";
+			break;
+		}
+		case GameType::Rush:
+		{
+			type_str = "r";
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+	sprintf(path, "%s_%s.air", level_name(level), type_str);
 }
 
 }

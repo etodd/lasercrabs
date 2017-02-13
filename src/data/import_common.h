@@ -198,9 +198,9 @@ template<typename T> struct Chunks
 	{
 		vmin = bmin;
 		chunk_size = cell_size;
-		size.x = (s32)ceilf((bmax.x - bmin.x) / cell_size);
-		size.y = (s32)ceilf((bmax.y - bmin.y) / cell_size);
-		size.z = (s32)ceilf((bmax.z - bmin.z) / cell_size);
+		size.x = s32(ceilf((bmax.x - bmin.x) / cell_size));
+		size.y = s32(ceilf((bmax.y - bmin.y) / cell_size));
+		size.z = s32(ceilf((bmax.z - bmin.z) / cell_size));
 		resize();
 	}
 
@@ -229,9 +229,9 @@ template<typename T> struct Chunks
 	{
 		return
 		{
-			(s32)((pos.x - vmin.x) / chunk_size),
-			(s32)((pos.y - vmin.y) / chunk_size),
-			(s32)((pos.z - vmin.z) / chunk_size),
+			s32((pos.x - vmin.x) / chunk_size),
+			s32((pos.y - vmin.y) / chunk_size),
+			s32((pos.z - vmin.z) / chunk_size),
 		};
 	}
 

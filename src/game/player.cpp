@@ -150,6 +150,9 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	score_summary_scroll(),
 	spectate_index(),
 	try_capture(),
+#if SERVER
+	ai_record(),
+#endif
 	local(local)
 {
 	if (local)
@@ -209,6 +212,13 @@ void PlayerHuman::awake()
 	Quat rot;
 	Game::level.map_view.ref()->absolute(&camera->pos, &rot);
 	camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+}
+
+PlayerHuman::~PlayerHuman()
+{
+#if SERVER
+	ai_record_save();
+#endif
 }
 
 #define DANGER_RAMP_UP_TIME 2.0f
@@ -683,11 +693,37 @@ void get_interactable_standing_position(Transform* i, Vec3* pos, r32* angle)
 	pos->y += (WALKER_DEFAULT_CAPSULE_HEIGHT * 0.5f) + WALKER_SUPPORT_HEIGHT;
 }
 
+#if SERVER
+void PlayerHuman::ai_record_save()
+{
+	if (ai_record.action.length > 0)
+	{
+		// save AI record
+		char path[512];
+		Loader::ai_record_path(path, Game::level.id, Game::level.type);
+		FILE* f = fopen(path, "ab");
+		if (!f)
+		{
+			fprintf(stderr, "Can't open air file '%s'\n", path);
+			vi_assert(false);
+		}
+		ai_record.serialize(f, &AI::RecordedLife::custom_fwrite);
+		fclose(f);
+	}
+	ai_record.reset();
+}
+#endif
+
 void PlayerHuman::spawn()
 {
 	Vec3 pos;
 	r32 angle;
 	Entity* spawned;
+
+#if SERVER
+	ai_record_save();
+	ai_record.reset(Game::level.team_lookup_reverse(get<PlayerManager>()->team.ref()->team()), get<PlayerManager>()->respawns);
+#endif
 
 	if (Game::level.mode == Game::Mode::Pvp)
 	{
@@ -1696,6 +1732,17 @@ void PlayerControlHuman::awk_done_flying_or_dashing()
 {
 	player.ref()->rumble_add(0.2f);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
+#if SERVER
+	if (ai_record_tag)
+	{
+		AI::RecordedLife::Action action;
+		action.type = AI::RecordedLife::Action::TypeMove;
+		Quat rot;
+		get<Transform>()->absolute(&action.pos, &rot);
+		action.normal = rot * Vec3(0, 0, 1);
+		player.ref()->ai_record.add(*ai_record_tag, action);
+	}
+#endif
 }
 
 void ability_select(Awk* awk, Ability a)
@@ -1747,6 +1794,9 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 	player(p),
 	position_history(),
 	interactable(),
+#if SERVER
+	ai_record_tag(),
+#endif
 	sudoku_active()
 {
 }
@@ -1754,6 +1804,13 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 PlayerControlHuman::~PlayerControlHuman()
 {
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
+#if SERVER
+	if (ai_record_tag)
+	{
+		delete ai_record_tag;
+		ai_record_tag = nullptr;
+	}
+#endif
 }
 
 void PlayerControlHuman::awake()
@@ -1814,9 +1871,151 @@ void PlayerControlHuman::hit_target(Entity* target)
 	player.ref()->rumble_add(0.5f);
 }
 
+#if SERVER
+s8 ai_record_control_point_state(ControlPoint* c)
+{
+	if (c->capture_timer > 0.0f)
+	{
+		if (c->team == 0)
+			return AI::RecordedLife::ControlPointState::StateLosingFirstHalf;
+		else if (c->team == AI::TeamNone)
+		{
+			if (c->team_next == 1)
+				return AI::RecordedLife::ControlPointState::StateLosingSecondHalf;
+			else
+				return AI::RecordedLife::ControlPointState::StateRecapturingFirstHalf;
+		}
+		else
+		{
+			vi_assert(false);
+			return -1;
+		}
+	}
+	else
+	{
+		if (c->team == 0)
+			return AI::RecordedLife::ControlPointState::StateNormal;
+		else
+			return AI::RecordedLife::ControlPointState::StateLost;
+	}
+}
+
+b8 ai_record_filter(Entity* e, const Vec3& pos)
+{
+	return (e->get<Transform>()->absolute_pos() - pos).length_squared() < (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f);
+}
+
+void ai_record_create_tag(AI::RecordedLife::Tag* tag, PlayerControlHuman* player)
+{
+	AI::Team team = player->get<AIAgent>()->team;
+	tag->shield = player->get<Health>()->shield;
+	tag->time = vi_min(255, s32(Game::time.total / (MATCH_TIME_DEFAULT / 255.0f)));
+	tag->energy = player->player.ref()->get<PlayerManager>()->credits;
+	tag->enemy_upgrades = 0;
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team.ref()->team() != team)
+			tag->enemy_upgrades |= i.item()->upgrades;
+	}
+
+	if (Game::level.type == GameType::Rush)
+	{
+		vi_assert(ControlPoint::list.count() == 2);
+		auto i = ControlPoint::list.iterator();
+		tag->control_point_state.a = ai_record_control_point_state(i.item());
+		i.next();
+		tag->control_point_state.b = ai_record_control_point_state(i.item());
+	}
+	else
+	{
+		tag->control_point_state.a = 0;
+		tag->control_point_state.b = 0;
+	}
+
+	tag->stealth = player->get<AIAgent>()->stealth;
+
+	Vec3 me = player->get<Transform>()->absolute_pos();
+
+	tag->chunk = AI::chunk_index(AI::chunk_coord(me));
+
+	tag->nearby_entities = 0;
+	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+	{
+		if (ai_record_filter(i.item()->entity(), me))
+			tag->nearby_entities |= 1 << (i.item()->team == team ? AI::RecordedLife::EntitySensorFriend : AI::RecordedLife::EntitySensorEnemy);
+	}
+	for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
+	{
+		if (ai_record_filter(i.item()->entity(), me))
+		{
+			if (i.item()->team == team)
+				tag->nearby_entities |= 1 << AI::RecordedLife::EntityBatteryFriend;
+			else if (i.item()->team == AI::TeamNone)
+				tag->nearby_entities |= 1 << AI::RecordedLife::EntityBatteryNeutral;
+			else
+				tag->nearby_entities |= 1 << AI::RecordedLife::EntityBatteryEnemy;
+		}
+	}
+	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+	{
+		if (ai_record_filter(i.item()->entity(), me))
+			tag->nearby_entities |= 1 << (i.item()->get<AIAgent>()->team == team ? AI::RecordedLife::EntityMinionFriend : AI::RecordedLife::EntityMinionEnemy);
+	}
+	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	{
+		if (ai_record_filter(i.item()->entity(), me))
+			tag->nearby_entities |= 1 << (i.item()->team == team ? AI::RecordedLife::EntityForceFieldFriend : AI::RecordedLife::EntityForceFieldEnemy);
+	}
+	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+	{
+		if (ai_record_filter(i.item()->entity(), me))
+		{
+			b8 attached = i.item()->get<Transform>()->parent.ref();
+			if (i.item()->team() == team)
+				tag->nearby_entities |= 1 << (attached ? AI::RecordedLife::EntityRocketFriendAttached : AI::RecordedLife::EntityRocketFriendDetached);
+			else
+				tag->nearby_entities |= 1 << (attached ? AI::RecordedLife::EntityRocketEnemyAttached : AI::RecordedLife::EntityRocketEnemyDetached);
+		}
+	}
+	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
+	{
+		if (ai_record_filter(i.item()->entity(), me))
+		{
+			s8 shield = i.item()->get<Health>()->hp;
+			if (i.item()->get<AIAgent>()->team == team)
+				tag->nearby_entities |= 1 << (shield <= 1 ? AI::RecordedLife::EntityDroneFriendShield1 : AI::RecordedLife::EntityDroneFriendShield2);
+			else
+				tag->nearby_entities |= 1 << (shield <= 1 ? AI::RecordedLife::EntityDroneEnemyShield1 : AI::RecordedLife::EntityDroneEnemyShield2);
+		}
+	}
+	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+	{
+		if (ai_record_filter(i.item()->entity(), me))
+			tag->nearby_entities |= 1 << (i.item()->team() == team ? AI::RecordedLife::EntityProjectileFriend : AI::RecordedLife::EntityProjectileEnemy);
+	}
+	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+	{
+		if (ai_record_filter(i.item()->entity(), me))
+		{
+			b8 attached = i.item()->get<Transform>()->parent.ref();
+			if (i.item()->team() == team)
+				tag->nearby_entities |= 1 << (attached ? AI::RecordedLife::EntityGrenadeFriendAttached : AI::RecordedLife::EntityGrenadeFriendDetached);
+			else
+				tag->nearby_entities |= 1 << (attached ? AI::RecordedLife::EntityGrenadeEnemyAttached : AI::RecordedLife::EntityGrenadeEnemyDetached);
+		}
+	}
+}
+#endif
+
 void PlayerControlHuman::awk_detached()
 {
 	camera_shake_timer = 0.0f; // stop screen shake
+
+#if SERVER
+	if (!ai_record_tag)
+		ai_record_tag = new AI::RecordedLife::Tag();
+	ai_record_create_tag(ai_record_tag, this);
+#endif
 }
 
 void PlayerControlHuman::camera_shake(r32 amount) // amount ranges from 0 to 1
@@ -1942,8 +2141,7 @@ Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot)
 	return movement;
 }
 
-// returns false if there is no more room in the target indicator array
-b8 PlayerControlHuman::add_target_indicator(Target* target, TargetIndicator::Type type)
+void PlayerControlHuman::add_target_indicator(Target* target, TargetIndicator::Type type)
 {
 	Vec3 me = get<Transform>()->absolute_pos();
 
@@ -1981,13 +2179,8 @@ b8 PlayerControlHuman::add_target_indicator(Target* target, TargetIndicator::Typ
 		}
 		Vec3 intersection;
 		if (get<Awk>()->predict_intersection(target, nullptr, &intersection, speed))
-		{
 			target_indicators.add({ intersection, target->velocity(), type });
-			if (target_indicators.length == target_indicators.capacity())
-				return false;
-		}
 	}
-	return true;
 }
 
 // returns the actual detected entity, if any. could be the original player, or a decoy.
@@ -2164,7 +2357,7 @@ void PlayerControlHuman::update(const Update& u)
 				if (position_history.length == 0 || Game::real_time.total > position_history[position_history.length - 1].timestamp + NET_TICK_RATE * 0.5f)
 				{
 					// save our position history
-					if (position_history.length == position_history.capacity())
+					if (position_history.length == 60)
 						position_history.remove_ordered(0);
 					Transform* t = get<Transform>();
 					Vec3 abs_pos;
@@ -2472,89 +2665,55 @@ void PlayerControlHuman::update(const Update& u)
 			AI::Team team = get<AIAgent>()->team;
 
 			// awk indicators
-			if (target_indicators.length < target_indicators.capacity())
+			for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
 			{
-				for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
+				if (other_player.item()->get<AIAgent>()->team != team)
 				{
-					if (other_player.item()->get<AIAgent>()->team != team)
-					{
-						b8 tracking;
-						b8 visible;
-						Entity* detected_entity = determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+					b8 tracking;
+					b8 visible;
+					Entity* detected_entity = determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
 
-						if (visible || tracking)
-						{
-							if (!add_target_indicator(detected_entity->get<Target>(), tracking ? TargetIndicator::Type::AwkTracking : TargetIndicator::Type::AwkVisible))
-								break; // no more room for indicators
-						}
-					}
+					if (visible || tracking)
+						add_target_indicator(detected_entity->get<Target>(), tracking ? TargetIndicator::Type::AwkTracking : TargetIndicator::Type::AwkVisible);
 				}
 			}
 
 			// headshot indicators
-			if (target_indicators.length < target_indicators.capacity())
+			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 			{
-				for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item()->get<AIAgent>()->team != team)
-					{
-						if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Minion))
-							break; // no more room for indicators
-					}
-				}
+				if (i.item()->get<AIAgent>()->team != team)
+					add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Minion);
 			}
 
 			// health pickups
-			if (target_indicators.length < target_indicators.capacity())
 			{
 				b8 full_health = get<Health>()->hp == get<Health>()->hp_max;
 				for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
 				{
 					if (i.item()->team != team)
-					{
-						if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Energy))
-							break; // no more room for indicators
-					}
+						add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Energy);
 				}
 			}
 
 			// sensors
-			if (target_indicators.length < target_indicators.capacity())
+			for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 			{
-				for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item()->team != team)
-					{
-						if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Invisible))
-							break; // no more room for indicators
-					}
-				}
+				if (i.item()->team != team)
+					add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Invisible);
 			}
 
 			// rockets
-			if (target_indicators.length < target_indicators.capacity())
+			for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 			{
-				for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item()->team() != team)
-					{
-						if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Invisible))
-							break; // no more room for indicators
-					}
-				}
+				if (i.item()->team() != team)
+					add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Invisible);
 			}
 
 			// containment fields
-			if (target_indicators.length < target_indicators.capacity())
+			for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
 			{
-				for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item()->team != team)
-					{
-						if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Invisible))
-							break; // no more room for indicators
-					}
-				}
+				if (i.item()->team != team)
+					add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Invisible);
 			}
 
 			{

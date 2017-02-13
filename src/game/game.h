@@ -110,6 +110,7 @@ namespace VI
 			b8 post_pvp; // true if we've already played a PvP match on this level
 
 			b8 has_feature(FeatureLevel) const;
+			AI::Team team_lookup_reverse(AI::Team) const;
 		};
 
 		static Session session;

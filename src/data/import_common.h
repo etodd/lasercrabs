@@ -299,5 +299,21 @@ struct AwkNavMesh : Chunks<AwkNavMeshChunk>
 {
 };
 
+template<typename T>
+void clean_name(T& name)
+{
+	for (s32 i = 0; ; i++)
+	{
+		char c = name[i];
+		if (c == 0)
+			break;
+		if ((c < 'A' || c > 'Z')
+			&& (c < 'a' || c > 'z')
+			&& (i == 0 || c < '0' || c > '9')
+			&& c != '_')
+			name[i] = '_';
+	}
+}
+
 
 }

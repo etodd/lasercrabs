@@ -91,7 +91,7 @@ struct Loader
 	static const Font* font_permanent(AssetID);
 	static void font_free(AssetID);
 
-	static cJSON* level(AssetID, b8);
+	static cJSON* level(AssetID, GameType, b8);
 	static void level_free(cJSON*);
 
 	static b8 soundbank(AssetID);

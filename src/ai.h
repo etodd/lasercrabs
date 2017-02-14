@@ -107,15 +107,12 @@ namespace AI
 	u32 random_path(const Vec3&, const Vec3&, r32, const LinkEntryArg<const Result&>&);
 	u32 closest_walk_point(const Vec3&, const LinkEntryArg<const Vec3&>&);
 	u32 awk_random_path(AwkAllow, AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const AwkResult&>&);
-	void load(AssetID, const char*);
+	void load(AssetID, const char*, const char*);
 	void loop();
 	void quit();
 	void update(const Update&);
 	void debug_draw_nav_mesh(const RenderParams&);
 	void debug_draw_awk_nav_mesh(const RenderParams&);
-	AwkNavMesh::Coord chunk_coord(s32);
-	AwkNavMesh::Coord chunk_coord(const Vec3&);
-	s16 chunk_index(AwkNavMesh::Coord);
 
 	b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);
 
@@ -178,14 +175,17 @@ namespace AI
 
 		struct Tag
 		{
+			Vec3 pos;
+			Vec3 normal;
 			s32 enemy_upgrades;
 			s32 nearby_entities;
 			s16 energy;
-			s16 chunk; // which nav mesh chunk are we in
 			ControlPointState control_point_state;
 			s8 shield;
 			s8 time;
 			b8 stealth;
+
+			void init(Entity*);
 		};
 
 		struct Action
@@ -236,10 +236,11 @@ namespace AI
 		static const s8 EntityGrenadeFriendAttached = 21;
 		static const s8 EntityGrenadeFriendDetached = 22;
 
+		Array<Vec3> pos;
+		Array<Vec3> normal;
 		Array<s32> enemy_upgrades;
 		Array<s32> nearby_entities;
 		Array<s16> energy;
-		Array<s16> chunk; // which nav mesh chunk are we in
 		Array<ControlPointState> control_point_state;
 		Array<s8> shield;
 		Array<s8> time;

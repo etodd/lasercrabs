@@ -34,6 +34,7 @@ dtNavMeshQuery* nav_mesh_query = nullptr;
 dtQueryFilter default_query_filter = dtQueryFilter();
 const r32 default_search_extents[] = { 15, 30, 15 };
 Revision level_revision;
+Array<RecordedLife> records;
 
 dtPolyRef get_poly(const Vec3& pos, const r32* search_extents)
 {
@@ -628,27 +629,66 @@ void loop()
 					new (&awk_nav_mesh_key) AwkNavMeshKey();
 
 					sensors.length = 0;
+
+					for (s32 i = 0; i < records.length; i++)
+						records[i].~RecordedLife();
+					records.length = 0;
 				}
 
 				AssetID level_id;
 				sync_in.read(&level_id);
 
+				// get filenames of nav mesh and records and load them
 				FILE* f = nullptr;
 				s32 data_length = 0;
 				{
+					// nav mesh path
 					char path[MAX_PATH_LENGTH];
 					s32 path_length;
 					sync_in.read(&path_length);
 					vi_assert(path_length < MAX_PATH_LENGTH);
 					sync_in.read(path, path_length);
-					sync_in.unlock();
 					path[path_length] = '\0';
 
+					// read records
+					{
+						char record_path[MAX_PATH_LENGTH];
+						s32 record_path_length;
+						sync_in.read(&record_path_length);
+						vi_assert(record_path_length < MAX_PATH_LENGTH);
+						sync_in.read(record_path, record_path_length);
+						record_path[record_path_length] = '\0';
+						sync_in.unlock();
+						if (record_path_length > 0)
+						{
+							FILE* f = fopen(record_path, "rb");
+							if (f)
+							{
+								fseek(f, 0, SEEK_END);
+								s32 end = ftell(f);
+								fseek(f, 0, SEEK_SET);
+								while (ftell(f) != end)
+								{
+									RecordedLife* record = records.add();
+									new (record) RecordedLife();
+									record->serialize(f, &RecordedLife::custom_fread);
+								}
+								fclose(f);
+							}
+							else
+								fprintf(stderr, "Can't open air file '%s'\n", record_path);
+						}
+					}
+
+					// open nav mesh file
 					if (path_length > 0)
 					{
 						f = fopen(path, "rb");
 						if (!f)
+						{
 							fprintf(stderr, "Can't open nav file '%s'\n", path);
+							vi_assert(false);
+						}
 
 						fseek(f, 0, SEEK_END);
 						data_length = ftell(f);
@@ -803,9 +843,6 @@ void loop()
 					sync_out.lock();
 					sync_out.write(Callback::Load);
 					sync_out.write(level_revision);
-					sync_out.write(awk_nav_mesh.chunk_size);
-					sync_out.write(awk_nav_mesh.size);
-					sync_out.write(awk_nav_mesh.vmin);
 					sync_out.unlock();
 				}
 				break;

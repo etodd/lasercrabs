@@ -148,7 +148,7 @@ b8 Game::init(LoopSync* sync)
 	World::init();
 
 	{
-		cJSON* overworld_level = Loader::level(Asset::Level::overworld, false);
+		cJSON* overworld_level = Loader::level(Asset::Level::overworld, GameType::Rush, false);
 		Overworld::init(overworld_level);
 		Loader::level_free(overworld_level);
 	}
@@ -1170,7 +1170,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	Array<LevelLink<Entity>> links;
 	Array<LevelLink<Transform>> transform_links;
 
-	cJSON* json = Loader::level(l, true);
+	cJSON* json = Loader::level(l, level.type, true);
 
 	level.mode = m;
 	level.id = l;
@@ -1180,25 +1180,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 	if (save.zone_current_restore) // we are restoring the player's position in this map; must have happened after a PvP match
 		level.post_pvp = true;
-
-	// count control point sets and pick one of them
-	if (level.type == GameType::Rush)
-	{
-		b8 has_control_points = false;
-		cJSON* element = json->child;
-		while (element)
-		{
-			if (cJSON_HasObjectItem(element, "ControlPoint"))
-			{
-				has_control_points = true;
-				break;
-			}
-			element = element->next;
-		}
-
-		if (level.type == GameType::Rush && !has_control_points)
-			level.type = GameType::Deathmatch;
-	}
 
 	// count AI players
 	s32 ai_player_count = 0;

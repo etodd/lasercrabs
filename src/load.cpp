@@ -923,18 +923,22 @@ const char* nav_mesh_path(AssetID id)
 		return mod_nav_paths[id - Loader::compiled_level_count];
 }
 
-cJSON* Loader::level(AssetID id, b8 load_nav)
+cJSON* Loader::level(AssetID id, GameType game_type, b8 load_nav)
 {
 	if (id == AssetNull)
 	{
-		AI::load(AssetNull, nullptr);
+		AI::load(AssetNull, nullptr, nullptr);
 		return 0;
 	}
 
 	if (load_nav)
-		AI::load(id, nav_mesh_path(id));
+	{
+		char record_path[MAX_PATH_LENGTH];
+		ai_record_path(record_path, id, game_type);
+		AI::load(id, nav_mesh_path(id), record_path);
+	}
 	else
-		AI::load(AssetNull, nullptr);
+		AI::load(AssetNull, nullptr, nullptr);
 	
 	return Json::load(level_path(id));
 }
@@ -1151,7 +1155,10 @@ void Loader::ai_record_path(char* path, AssetID level, GameType type)
 			break;
 		}
 	}
-	sprintf(path, "%s_%s.air", level_name(level), type_str);
+	char clean_level_name[MAX_PATH_LENGTH];
+	strncpy(clean_level_name, level_name(level), MAX_PATH_LENGTH - 1);
+	clean_name(clean_level_name);
+	sprintf(path, "air/%s_%s.air", clean_level_name, type_str);
 }
 
 }

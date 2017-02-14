@@ -11,6 +11,12 @@
 #include "mersenne/mersenne-twister.h"
 #include "render/ui.h"
 #include "asset/shader.h"
+#include "game/player.h"
+#include "game/game.h"
+#include "game/team.h"
+#include "game/entities.h"
+#include "game/awk.h"
+#include "game/minion.h"
 
 namespace VI
 {
@@ -26,9 +32,6 @@ u32 callback_in_id;
 u32 callback_out_id;
 Revision level_revision;
 Revision level_revision_worker;
-AwkNavMesh::Coord awk_nav_mesh_size;
-Vec3 awk_nav_mesh_vmin;
-r32 awk_nav_mesh_chunk_size;
 
 void loop()
 {
@@ -125,9 +128,6 @@ void update(const Update& u)
 			case Callback::Load:
 			{
 				sync_out.read(&level_revision_worker);
-				sync_out.read(&awk_nav_mesh_chunk_size);
-				sync_out.read(&awk_nav_mesh_size);
-				sync_out.read(&awk_nav_mesh_vmin);
 				break;
 			}
 			default:
@@ -138,32 +138,6 @@ void update(const Update& u)
 		}
 	}
 	sync_out.unlock();
-}
-
-AwkNavMesh::Coord chunk_coord(s32 i)
-{
-	AwkNavMesh::Coord c;
-	s32 xz = awk_nav_mesh_size.x * awk_nav_mesh_size.z;
-	c.y = i / xz;
-	s32 y_start = c.y * xz;
-	c.z = (i - y_start) / awk_nav_mesh_size.x;
-	c.x = i - (y_start + c.z * awk_nav_mesh_size.x);
-	return c;
-}
-
-AwkNavMesh::Coord chunk_coord(const Vec3& pos)
-{
-	return
-	{
-		s32((pos.x - awk_nav_mesh_vmin.x) / awk_nav_mesh_chunk_size),
-		s32((pos.y - awk_nav_mesh_vmin.y) / awk_nav_mesh_chunk_size),
-		s32((pos.z - awk_nav_mesh_vmin.z) / awk_nav_mesh_chunk_size),
-	};
-}
-
-s16 chunk_index(AwkNavMesh::Coord c)
-{
-	return c.x + (c.z * awk_nav_mesh_size.x) + (c.y * (awk_nav_mesh_size.x * awk_nav_mesh_size.z));
 }
 
 b8 match(Team t, TeamMask m)
@@ -216,16 +190,21 @@ void obstacle_remove(u32 id)
 	sync_in.unlock();
 }
 
-void load(AssetID id, const char* filename)
+void load(AssetID id, const char* filename, const char* record_filename)
 {
 	sync_in.lock();
 	sync_in.write(Op::Load);
 	sync_in.write(id);
 	s32 length = filename ? strlen(filename) : 0;
-	vi_assert(length < 512);
+	vi_assert(length < MAX_PATH_LENGTH);
 	sync_in.write(length);
 	if (length > 0)
 		sync_in.write(filename, length);
+	length = record_filename ? strlen(record_filename) : 0;
+	vi_assert(length < MAX_PATH_LENGTH);
+	sync_in.write(length);
+	if (length > 0)
+		sync_in.write(record_filename, length);
 	sync_in.unlock();
 	level_revision++;
 	render_meshes_dirty = true;
@@ -502,12 +481,149 @@ void debug_draw_awk_nav_mesh(const RenderParams& params)
 
 #endif
 
+s8 record_control_point_state(ControlPoint* c)
+{
+	if (c->capture_timer > 0.0f)
+	{
+		if (c->team == 0)
+			return AI::RecordedLife::ControlPointState::StateLosingFirstHalf;
+		else if (c->team == AI::TeamNone)
+		{
+			if (c->team_next == 1)
+				return AI::RecordedLife::ControlPointState::StateLosingSecondHalf;
+			else
+				return AI::RecordedLife::ControlPointState::StateRecapturingFirstHalf;
+		}
+		else
+		{
+			vi_assert(false);
+			return -1;
+		}
+	}
+	else
+	{
+		if (c->team == 0)
+			return AI::RecordedLife::ControlPointState::StateNormal;
+		else
+			return AI::RecordedLife::ControlPointState::StateLost;
+	}
+}
+
+b8 record_filter(Entity* e, const Vec3& pos)
+{
+	return (e->get<Transform>()->absolute_pos() - pos).length_squared() < (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f);
+}
+
+void RecordedLife::Tag::init(Entity* player)
+{
+	AI::Team team = player->get<AIAgent>()->team;
+	shield = player->get<Health>()->shield;
+	time = vi_min(255, s32(Game::time.total / (MATCH_TIME_DEFAULT / 255.0f)));
+	energy = player->get<PlayerCommon>()->get<PlayerManager>()->credits;
+	enemy_upgrades = 0;
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team.ref()->team() != team)
+			enemy_upgrades |= i.item()->upgrades;
+	}
+
+	if (Game::level.type == GameType::Rush)
+	{
+		vi_assert(ControlPoint::list.count() == 2);
+		auto i = ControlPoint::list.iterator();
+		control_point_state.a = record_control_point_state(i.item());
+		i.next();
+		control_point_state.b = record_control_point_state(i.item());
+	}
+	else
+	{
+		control_point_state.a = 0;
+		control_point_state.b = 0;
+	}
+
+	stealth = player->get<AIAgent>()->stealth;
+
+	{
+		Quat rot;
+		player->get<Transform>()->absolute(&pos, &rot);
+		normal = rot * Vec3(0, 0, 1);
+	}
+
+	nearby_entities = 0;
+	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+	{
+		if (record_filter(i.item()->entity(), pos))
+			nearby_entities |= 1 << (i.item()->team == team ? AI::RecordedLife::EntitySensorFriend : AI::RecordedLife::EntitySensorEnemy);
+	}
+	for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
+	{
+		if (record_filter(i.item()->entity(), pos))
+		{
+			if (i.item()->team == team)
+				nearby_entities |= 1 << AI::RecordedLife::EntityBatteryFriend;
+			else if (i.item()->team == AI::TeamNone)
+				nearby_entities |= 1 << AI::RecordedLife::EntityBatteryNeutral;
+			else
+				nearby_entities |= 1 << AI::RecordedLife::EntityBatteryEnemy;
+		}
+	}
+	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+	{
+		if (record_filter(i.item()->entity(), pos))
+			nearby_entities |= 1 << (i.item()->get<AIAgent>()->team == team ? AI::RecordedLife::EntityMinionFriend : AI::RecordedLife::EntityMinionEnemy);
+	}
+	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	{
+		if (record_filter(i.item()->entity(), pos))
+			nearby_entities |= 1 << (i.item()->team == team ? AI::RecordedLife::EntityForceFieldFriend : AI::RecordedLife::EntityForceFieldEnemy);
+	}
+	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+	{
+		if (record_filter(i.item()->entity(), pos))
+		{
+			b8 attached = i.item()->get<Transform>()->parent.ref();
+			if (i.item()->team() == team)
+				nearby_entities |= 1 << (attached ? AI::RecordedLife::EntityRocketFriendAttached : AI::RecordedLife::EntityRocketFriendDetached);
+			else
+				nearby_entities |= 1 << (attached ? AI::RecordedLife::EntityRocketEnemyAttached : AI::RecordedLife::EntityRocketEnemyDetached);
+		}
+	}
+	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
+	{
+		if (record_filter(i.item()->entity(), pos))
+		{
+			s8 shield = i.item()->get<Health>()->hp;
+			if (i.item()->get<AIAgent>()->team == team)
+				nearby_entities |= 1 << (shield <= 1 ? AI::RecordedLife::EntityDroneFriendShield1 : AI::RecordedLife::EntityDroneFriendShield2);
+			else
+				nearby_entities |= 1 << (shield <= 1 ? AI::RecordedLife::EntityDroneEnemyShield1 : AI::RecordedLife::EntityDroneEnemyShield2);
+		}
+	}
+	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+	{
+		if (record_filter(i.item()->entity(), pos))
+			nearby_entities |= 1 << (i.item()->team() == team ? AI::RecordedLife::EntityProjectileFriend : AI::RecordedLife::EntityProjectileEnemy);
+	}
+	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+	{
+		if (record_filter(i.item()->entity(), pos))
+		{
+			b8 attached = i.item()->get<Transform>()->parent.ref();
+			if (i.item()->team() == team)
+				nearby_entities |= 1 << (attached ? AI::RecordedLife::EntityGrenadeFriendAttached : AI::RecordedLife::EntityGrenadeFriendDetached);
+			else
+				nearby_entities |= 1 << (attached ? AI::RecordedLife::EntityGrenadeEnemyAttached : AI::RecordedLife::EntityGrenadeEnemyDetached);
+		}
+	}
+}
+
 void RecordedLife::reset()
 {
 	shield.length = 0;
 	time.length = 0;
 	energy.length = 0;
-	chunk.length = 0;
+	pos.length = 0;
+	normal.length = 0;
 	enemy_upgrades.length = 0;
 	control_point_state.length = 0;
 	nearby_entities.length = 0;
@@ -527,7 +643,8 @@ void RecordedLife::add(const Tag& tag, const Action& a)
 	shield.add(tag.shield);
 	time.add(tag.time);
 	energy.add(tag.energy);
-	chunk.add(tag.chunk);
+	pos.add(tag.pos);
+	normal.add(tag.normal);
 	enemy_upgrades.add(tag.enemy_upgrades);
 	control_point_state.add(tag.control_point_state);
 	nearby_entities.add(tag.nearby_entities);
@@ -574,9 +691,13 @@ void RecordedLife::serialize(FILE* f, size_t(*func)(void*, size_t, size_t, FILE*
 	energy.resize(energy.length);
 	func(energy.data, sizeof(s16), energy.length, f);
 
-	func(&chunk.length, sizeof(s32), 1, f);
-	chunk.resize(chunk.length);
-	func(chunk.data, sizeof(s16), chunk.length, f);
+	func(&pos.length, sizeof(s32), 1, f);
+	pos.resize(pos.length);
+	func(pos.data, sizeof(Vec3), pos.length, f);
+
+	func(&normal.length, sizeof(s32), 1, f);
+	normal.resize(normal.length);
+	func(normal.data, sizeof(Vec3), normal.length, f);
 
 	func(&enemy_upgrades.length, sizeof(s32), 1, f);
 	enemy_upgrades.resize(enemy_upgrades.length);

@@ -1169,7 +1169,7 @@ void PlayerManager::update_server(const Update& u)
 			spawn_timer = vi_max(0.0f, spawn_timer - u.time.delta);
 			if (spawn_timer == 0.0f)
 			{
-				if (respawns != -1)
+				if (respawns != -1 && Game::level.has_feature(Game::FeatureLevel::All)) // infinite respawns in the tutorial
 					respawns--;
 				if (respawns != 0)
 					spawn_timer = PLAYER_SPAWN_DELAY;

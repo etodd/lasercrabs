@@ -36,6 +36,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/lvl)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/str)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/shader)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/air)
 
 if (APPLE)
 	set(ENV{PKG_CONFIG_PATH} ${CMAKE_SOURCE_DIR}/pkgconfig) # so pkg-config can find our custom gl.pc

@@ -1441,7 +1441,7 @@ void PlayerCommon::awake()
 	{
 		get<Health>()->hp_max = AWK_HEALTH;
 		link<&PlayerCommon::awk_done_flying>(get<Awk>()->done_flying);
-		link<&PlayerCommon::awk_detached>(get<Awk>()->detached);
+		link<&PlayerCommon::awk_detaching>(get<Awk>()->detaching);
 		link_arg<const AwkReflectEvent&, &PlayerCommon::awk_reflecting>(get<Awk>()->reflecting);
 	}
 }
@@ -1581,7 +1581,7 @@ void PlayerCommon::awk_done_flying()
 	}
 }
 
-void PlayerCommon::awk_detached()
+void PlayerCommon::awk_detaching()
 {
 	Vec3 direction = Vec3::normalize(get<Awk>()->velocity);
 	attach_quat = Quat::look(direction);
@@ -1733,15 +1733,17 @@ void PlayerControlHuman::awk_done_flying_or_dashing()
 	player.ref()->rumble_add(0.2f);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 #if SERVER
-	if (ai_record_tag)
+	if (get<Awk>()->invincible_timer == 0.0f)
 	{
 		AI::RecordedLife::Action action;
 		action.type = AI::RecordedLife::Action::TypeMove;
 		Quat rot;
 		get<Transform>()->absolute(&action.pos, &rot);
 		action.normal = rot * Vec3(0, 0, 1);
-		player.ref()->ai_record.add(*ai_record_tag, action);
+		player.ref()->ai_record.add(ai_record_tag, action);
+		ai_record_wait_timer = AI_RECORD_WAIT_TIME;
 	}
+	ai_record_tag.init(entity());
 #endif
 }
 
@@ -1753,6 +1755,199 @@ void ability_select(Awk* awk, Ability a)
 void ability_cancel(Awk* awk)
 {
 	awk->current_ability = Ability::None;
+}
+
+void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerControlHuman::TargetIndicator::Type type)
+{
+	Vec3 me = p->get<Transform>()->absolute_pos();
+
+	b8 show;
+
+	if (type == PlayerControlHuman::TargetIndicator::Type::AwkTracking)
+		show = true; // show even out of range
+	else
+	{
+		r32 range = p->get<Awk>()->range();
+		show = (target->absolute_pos() - me).length_squared() < range * range;
+	}
+
+	if (show)
+	{
+		// calculate target intersection trajectory
+		Vec3 intersection;
+		if (p->get<Awk>()->predict_intersection(target, nullptr, &intersection, p->get<Awk>()->target_prediction_speed()))
+			p->target_indicators.add({ intersection, target->velocity(), type });
+	}
+}
+
+// returns the actual detected entity, if any. could be the original player, or a decoy.
+Entity* player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visible, b8* tracking)
+{
+	// make sure we can see this guy
+	AI::Team team = me->get<AIAgent>()->team;
+	const Team::SensorTrack track = Team::list[(s32)team].player_tracks[other_player->manager.id];
+	*tracking = track.tracking;
+
+	if (other_player->get<AIAgent>()->team == team)
+	{
+		*visible = true;
+		return other_player->entity();
+	}
+	else
+	{
+		Entity* visible_entity = PlayerManager::visibility[PlayerManager::visibility_hash(me->manager.ref(), other_player->manager.ref())].ref();
+		*visible = visible_entity != nullptr;
+
+		if (track.tracking)
+			return track.entity.ref();
+		else
+			return visible_entity;
+	}
+}
+
+void player_collect_target_indicators(PlayerControlHuman* p)
+{
+	p->target_indicators.length = 0;
+
+	Vec3 me = p->get<Transform>()->absolute_pos();
+	AI::Team team = p->get<AIAgent>()->team;
+
+	// awk indicators
+	for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
+	{
+		if (other_player.item()->get<AIAgent>()->team != team)
+		{
+			b8 tracking;
+			b8 visible;
+			Entity* detected_entity = player_determine_visibility(p->get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+
+			if (visible || tracking)
+				player_add_target_indicator(p, detected_entity->get<Target>(), tracking ? PlayerControlHuman::TargetIndicator::Type::AwkTracking : PlayerControlHuman::TargetIndicator::Type::AwkVisible);
+		}
+	}
+
+	// headshot indicators
+	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->get<AIAgent>()->team != team)
+			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Minion);
+	}
+
+	// energy pickups
+	{
+		for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->team != team)
+				player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Energy);
+		}
+	}
+
+	// sensors
+	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team != team)
+			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Sensor);
+	}
+
+	// rockets
+	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team() != team)
+			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Rocket);
+	}
+
+	// containment fields
+	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team != team)
+			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::ContainmentField);
+	}
+}
+
+void player_ability_update(const Update& u, PlayerControlHuman* control, Controls binding, s8 gamepad, s32 index)
+{
+	PlayerHuman* player = control->player.ref();
+	PlayerManager* manager = player->get<PlayerManager>();
+	Ability ability = manager->abilities[index];
+
+	if (ability == Ability::None || !control->input_enabled())
+		return;
+
+	Awk* awk = control->get<Awk>();
+
+	if (u.input->get(binding, gamepad) && !u.last_input->get(binding, gamepad))
+	{
+		if (awk->current_ability == ability)
+		{
+			// cancel current spawn ability
+			ability_cancel(awk);
+		}
+		else
+		{
+			if (awk->current_ability != Ability::None)
+				ability_cancel(awk);
+			ability_select(awk, ability);
+		}
+	}
+}
+
+PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
+	: fov(fov_default),
+	try_primary(),
+	try_secondary(),
+	try_slide(),
+	camera_shake_timer(),
+	target_indicators(),
+	last_gamepad_input_time(),
+	gamepad_rotation_speed(),
+	remote_control(),
+	player(p),
+	position_history(),
+	interactable(),
+#if SERVER
+	ai_record_tag(),
+	ai_record_wait_timer(AI_RECORD_WAIT_TIME),
+#endif
+	sudoku_active()
+{
+}
+
+void PlayerControlHuman::awake()
+{
+	if (player.ref()->local && !Game::level.local)
+	{
+		Transform* t = get<Transform>();
+		remote_control.pos = t->pos;
+		remote_control.rot = t->rot;
+		remote_control.parent = t->parent;
+	}
+
+	link_arg<const HealthEvent&, &PlayerControlHuman::health_changed>(get<Health>()->changed);
+
+	if (has<Awk>())
+	{
+		last_pos = get<Awk>()->center_lerped();
+		link<&PlayerControlHuman::awk_detaching>(get<Awk>()->detaching);
+		link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
+		link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
+		link_arg<const AwkReflectEvent&, &PlayerControlHuman::awk_reflecting>(get<Awk>()->reflecting);
+		link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Awk>()->hit);
+	}
+	else
+	{
+		last_pos = get<Transform>()->absolute_pos();
+		link_arg<r32, &PlayerControlHuman::parkour_landed>(get<Walker>()->land);
+		link<&PlayerControlHuman::terminal_enter_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_enter, 2.5f));
+		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_interact, 3.8f));
+		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_exit, 4.0f));
+		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+		get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, 0.0f);
+	}
+}
+
+PlayerControlHuman::~PlayerControlHuman()
+{
+	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 }
 
 void PlayerControlHuman::health_changed(const HealthEvent& e)
@@ -1781,71 +1976,6 @@ void PlayerControlHuman::awk_reflecting(const AwkReflectEvent& e)
 	}
 }
 
-PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
-	: fov(fov_default),
-	try_primary(),
-	try_secondary(),
-	try_slide(),
-	camera_shake_timer(),
-	target_indicators(),
-	last_gamepad_input_time(),
-	gamepad_rotation_speed(),
-	remote_control(),
-	player(p),
-	position_history(),
-	interactable(),
-#if SERVER
-	ai_record_tag(),
-#endif
-	sudoku_active()
-{
-}
-
-PlayerControlHuman::~PlayerControlHuman()
-{
-	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
-#if SERVER
-	if (ai_record_tag)
-	{
-		delete ai_record_tag;
-		ai_record_tag = nullptr;
-	}
-#endif
-}
-
-void PlayerControlHuman::awake()
-{
-	if (player.ref()->local && !Game::level.local)
-	{
-		Transform* t = get<Transform>();
-		remote_control.pos = t->pos;
-		remote_control.rot = t->rot;
-		remote_control.parent = t->parent;
-	}
-
-	link_arg<const HealthEvent&, &PlayerControlHuman::health_changed>(get<Health>()->changed);
-
-	if (has<Awk>())
-	{
-		last_pos = get<Awk>()->center_lerped();
-		link<&PlayerControlHuman::awk_detached>(get<Awk>()->detached);
-		link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
-		link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
-		link_arg<const AwkReflectEvent&, &PlayerControlHuman::awk_reflecting>(get<Awk>()->reflecting);
-		link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Awk>()->hit);
-	}
-	else
-	{
-		last_pos = get<Transform>()->absolute_pos();
-		link_arg<r32, &PlayerControlHuman::parkour_landed>(get<Walker>()->land);
-		link<&PlayerControlHuman::terminal_enter_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_enter, 2.5f));
-		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_interact, 3.8f));
-		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_exit, 4.0f));
-		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
-		get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, 0.0f);
-	}
-}
-
 void PlayerControlHuman::parkour_landed(r32 velocity_diff)
 {
 	Parkour::State parkour_state = get<Parkour>()->fsm.current;
@@ -1871,24 +2001,69 @@ void PlayerControlHuman::hit_target(Entity* target)
 	player.ref()->rumble_add(0.5f);
 }
 
-void PlayerControlHuman::awk_detached()
+void PlayerControlHuman::awk_detaching()
 {
 	camera_shake_timer = 0.0f; // stop screen shake
 
 #if SERVER
-	if (!ai_record_tag)
-		ai_record_tag = new AI::RecordedLife::Tag();
-	ai_record_tag->init(entity());
+	ai_record_tag.init(entity());
+
+	player_collect_target_indicators(this);
+
+	AI::Team my_team = get<AIAgent>()->team;
+	Vec3 me = get<Transform>()->absolute_pos();
+	Vec3 dir = Vec3::normalize(get<Awk>()->velocity);
+	r32 closest_distance = AWK_MAX_DISTANCE;
+	r32 closest_dot = 0.8f;
+	s8 closest_entity_type = AI::RecordedLife::EntityNone;
+	r32 target_prediction_speed = get<Awk>()->target_prediction_speed();
+
+	Net::StateFrame state_frame_data;
+	Net::StateFrame* state_frame = nullptr;
+	if (get<Awk>()->net_state_frame(&state_frame_data))
+		state_frame = &state_frame_data;
+
+	for (auto i = Entity::iterator(AI::entity_mask & ~Projectile::component_mask); !i.is_last(); i.next())
+	{
+		AI::Team team;
+		s8 entity_type;
+		AI::entity_info(i.item(), my_team, &team, &entity_type);
+		if (team != my_team)
+		{
+			Vec3 pos;
+			if (!i.item()->has<Target>() || !get<Awk>()->predict_intersection(i.item()->get<Target>(), state_frame, &pos, target_prediction_speed))
+				pos = i.item()->get<Transform>()->absolute_pos();
+
+			Vec3 to_target = pos - me;
+			r32 distance = to_target.length();
+			if (distance < closest_distance)
+			{
+				to_target /= distance;
+				r32 dot = to_target.dot(dir);
+				if (dot > closest_dot)
+				{
+					RaycastCallbackExcept ray_callback(me, pos, entity());
+					Physics::raycast(&ray_callback, CollisionStatic);
+					if (!ray_callback.hasHit())
+					{
+						closest_distance = distance;
+						closest_dot = dot;
+						closest_entity_type = entity_type;
+					}
+				}
+			}
+		}
+	}
+
+	// todo: add AI record
 #endif
 }
 
 void PlayerControlHuman::camera_shake(r32 amount) // amount ranges from 0 to 1
 {
 	if (!has<Awk>() || get<Awk>()->state() == Awk::State::Crawl) // don't shake the screen if we reflect off something in the air
-	{
 		camera_shake_timer = vi_max(camera_shake_timer, camera_shake_time * amount);
-		player.ref()->rumble_add(amount);
-	}
+	player.ref()->rumble_add(amount);
 }
 
 b8 PlayerControlHuman::input_enabled() const
@@ -2003,100 +2178,6 @@ Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot)
 		movement = rot * movement;
 	}
 	return movement;
-}
-
-void PlayerControlHuman::add_target_indicator(Target* target, TargetIndicator::Type type)
-{
-	Vec3 me = get<Transform>()->absolute_pos();
-
-	b8 show;
-
-	if (type == TargetIndicator::Type::AwkTracking)
-		show = true; // show even out of range
-	else
-	{
-		r32 range = get<Awk>()->range();
-		show = (target->absolute_pos() - me).length_squared() < range * range;
-	}
-
-	if (show)
-	{
-		// calculate target intersection trajectory
-		r32 speed;
-		switch (get<Awk>()->current_ability)
-		{
-			case Ability::Sniper:
-			{
-				speed = 0.0f;
-				break;
-			}
-			case Ability::Bolter:
-			{
-				speed = PROJECTILE_SPEED;
-				break;
-			}
-			default:
-			{
-				speed = AWK_FLY_SPEED;
-				break;
-			}
-		}
-		Vec3 intersection;
-		if (get<Awk>()->predict_intersection(target, nullptr, &intersection, speed))
-			target_indicators.add({ intersection, target->velocity(), type });
-	}
-}
-
-// returns the actual detected entity, if any. could be the original player, or a decoy.
-Entity* determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visible, b8* tracking)
-{
-	// make sure we can see this guy
-	AI::Team team = me->get<AIAgent>()->team;
-	const Team::SensorTrack track = Team::list[(s32)team].player_tracks[other_player->manager.id];
-	*tracking = track.tracking;
-
-	if (other_player->get<AIAgent>()->team == team)
-	{
-		*visible = true;
-		return other_player->entity();
-	}
-	else
-	{
-		Entity* visible_entity = PlayerManager::visibility[PlayerManager::visibility_hash(me->manager.ref(), other_player->manager.ref())].ref();
-		*visible = visible_entity != nullptr;
-
-		if (track.tracking)
-			return track.entity.ref();
-		else
-			return visible_entity;
-	}
-}
-
-void ability_update(const Update& u, PlayerControlHuman* control, Controls binding, s8 gamepad, s32 index)
-{
-	PlayerHuman* player = control->player.ref();
-	PlayerManager* manager = player->get<PlayerManager>();
-	Ability ability = manager->abilities[index];
-
-	if (ability == Ability::None || !control->input_enabled())
-		return;
-
-	Awk* awk = control->get<Awk>();
-
-	if (u.input->get(binding, gamepad) && !u.last_input->get(binding, gamepad))
-	{
-		if (awk->current_ability == ability)
-		{
-			// cancel current spawn ability
-			ability_cancel(awk);
-		}
-		else
-		{
-			if (awk->current_ability != Ability::None)
-				ability_cancel(awk);
-			ability_select(awk, ability);
-		}
-	}
 }
 
 b8 PlayerControlHuman::local() const
@@ -2322,13 +2403,16 @@ void PlayerControlHuman::update(const Update& u)
 				camera->perspective(fov, aspect, 0.005f, Game::level.skybox.far_plane);
 			}
 
+			// collect target indicators
+			player_collect_target_indicators(this);
+
 			if (get<Transform>()->parent.ref())
 			{
 				r32 gamepad_rotation_multiplier = 1.0f;
 
 				if (input_enabled() && u.input->gamepads[gamepad].active)
 				{
-					// gamepad aim assist based on data from last frame
+					// gamepad aim assist
 					Vec3 to_reticle = reticle.pos - camera->pos;
 					r32 reticle_distance = to_reticle.length();
 					to_reticle /= reticle_distance;
@@ -2407,9 +2491,9 @@ void PlayerControlHuman::update(const Update& u)
 
 			{
 				// abilities
-				ability_update(u, this, Controls::Ability1, gamepad, 0);
-				ability_update(u, this, Controls::Ability2, gamepad, 1);
-				ability_update(u, this, Controls::Ability3, gamepad, 2);
+				player_ability_update(u, this, Controls::Ability1, gamepad, 0);
+				player_ability_update(u, this, Controls::Ability2, gamepad, 1);
+				player_ability_update(u, this, Controls::Ability3, gamepad, 2);
 			}
 
 			camera_shake_update(u, camera);
@@ -2522,64 +2606,6 @@ void PlayerControlHuman::update(const Update& u)
 				}
 			}
 
-			// collect target indicators
-			target_indicators.length = 0;
-
-			Vec3 me = get<Transform>()->absolute_pos();
-			AI::Team team = get<AIAgent>()->team;
-
-			// awk indicators
-			for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
-			{
-				if (other_player.item()->get<AIAgent>()->team != team)
-				{
-					b8 tracking;
-					b8 visible;
-					Entity* detected_entity = determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
-
-					if (visible || tracking)
-						add_target_indicator(detected_entity->get<Target>(), tracking ? TargetIndicator::Type::AwkTracking : TargetIndicator::Type::AwkVisible);
-				}
-			}
-
-			// headshot indicators
-			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->get<AIAgent>()->team != team)
-					add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Minion);
-			}
-
-			// health pickups
-			{
-				b8 full_health = get<Health>()->hp == get<Health>()->hp_max;
-				for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item()->team != team)
-						add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Energy);
-				}
-			}
-
-			// sensors
-			for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->team != team)
-					add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Invisible);
-			}
-
-			// rockets
-			for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->team() != team)
-					add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Invisible);
-			}
-
-			// containment fields
-			for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->team != team)
-					add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Invisible);
-			}
-
 			{
 				b8 primary_pressed = u.input->get(Controls::Primary, gamepad);
 				if (primary_pressed && !u.last_input->get(Controls::Primary, gamepad))
@@ -2624,8 +2650,25 @@ void PlayerControlHuman::update(const Update& u)
 		else if (Game::level.local)
 		{
 			// we are a server, but this Awk is being controlled by a client
+#if SERVER
+			ai_record_wait_timer -= u.time.delta;
+			if (ai_record_wait_timer < 0.0f)
+			{
+				ai_record_wait_timer += AI_RECORD_WAIT_TIME;
+				if (get<Awk>()->invincible_timer == 0.0f)
+				{
+					AI::RecordedLife::Action action;
+					action.type = AI::RecordedLife::Action::TypeWait;
+					player.ref()->ai_record.add(ai_record_tag, action);
+				}
+				ai_record_tag.init(entity());
+			}
+
 			get<Awk>()->crawl(remote_control.movement, u);
 			last_pos = get<Awk>()->center_lerped();
+#else
+			vi_assert(false);
+#endif
 		}
 		else
 		{
@@ -3088,35 +3131,37 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		const TargetIndicator& indicator = target_indicators[i];
 		switch (indicator.type)
 		{
-		case TargetIndicator::Type::AwkVisible:
-		{
-			UI::indicator(params, indicator.pos, UI::color_alert, false);
-			break;
-		}
-		case TargetIndicator::Type::AwkTracking:
-		{
-			UI::indicator(params, indicator.pos, UI::color_alert, true);
-			break;
-		}
-		case TargetIndicator::Type::Energy:
-		{
-			UI::indicator(params, indicator.pos, UI::color_accent, true, 1.0f, PI);
-			break;
-		}
-		case TargetIndicator::Type::Minion:
-		{
-			UI::indicator(params, indicator.pos, UI::color_alert, true);
-			break;
-		}
-		case TargetIndicator::Type::Invisible:
-		{
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
+			case TargetIndicator::Type::AwkVisible:
+			{
+				UI::indicator(params, indicator.pos, UI::color_alert, false);
+				break;
+			}
+			case TargetIndicator::Type::AwkTracking:
+			{
+				UI::indicator(params, indicator.pos, UI::color_alert, true);
+				break;
+			}
+			case TargetIndicator::Type::Energy:
+			{
+				UI::indicator(params, indicator.pos, UI::color_accent, true, 1.0f, PI);
+				break;
+			}
+			case TargetIndicator::Type::Minion:
+			{
+				UI::indicator(params, indicator.pos, UI::color_alert, true);
+				break;
+			}
+			case TargetIndicator::Type::Sensor:
+			case TargetIndicator::Type::Rocket:
+			case TargetIndicator::Type::ContainmentField:
+			{
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
 		}
 	}
 
@@ -3449,7 +3494,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		{
 			b8 tracking;
 			b8 visible;
-			Entity* detected_entity = determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+			Entity* detected_entity = player_determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
 
 			b8 friendly = other_player.item()->get<AIAgent>()->team == team;
 

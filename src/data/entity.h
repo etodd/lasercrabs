@@ -130,6 +130,35 @@ struct Entity
 	template<typename T> inline T* get() const;
 	static PinArray<Entity, MAX_ENTITIES> list;
 
+	struct Iterator
+	{
+		ComponentMask mask;
+		ID index;
+
+		inline b8 is_last() const
+		{
+			return index >= Entity::list.mask.end;
+		}
+
+		inline void next()
+		{
+			while (true)
+			{
+				index = Entity::list.mask.next(index);
+				if (is_last() || (Entity::list[index].component_mask & mask))
+					break;
+			}
+		}
+
+		inline Entity* item() const
+		{
+			vi_assert(!is_last() && Entity::list.active(index));
+			return &Entity::list[index];
+		}
+	};
+
+	static Iterator iterator(ComponentMask);
+
 	inline ID id() const
 	{
 		return (ID)(this - &list[0]);

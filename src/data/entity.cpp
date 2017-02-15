@@ -62,6 +62,14 @@ Entity::Entity()
 #endif
 }
 
+Entity::Iterator Entity::iterator(ComponentMask mask)
+{
+	Entity::Iterator i;
+	i.index = Entity::list.mask.start;
+	i.mask = mask;
+	return i;
+}
+
 void remove_components(Entity* e)
 {
 	for (Family i = 0; i < World::families; i++)

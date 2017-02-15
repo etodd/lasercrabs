@@ -83,7 +83,7 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	void set_path(const AI::AwkPath&);
 	void awk_done_flying_or_dashing();
 	void awk_hit(Entity*);
-	void awk_detached();
+	void awk_detaching();
 	void update(const Update&);
 	const AI::Config& config() const;
 };

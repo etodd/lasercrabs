@@ -317,13 +317,14 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (apply_msg && awk->charges > 0)
 			{
 				awk->velocity = dir * AWK_FLY_SPEED;
+				awk->detaching.fire();
 				awk->get<Transform>()->absolute_pos(awk->get<Transform>()->absolute_pos() + dir * AWK_RADIUS * 0.5f);
 				awk->get<Transform>()->absolute_rot(Quat::look(dir));
 
 				awk->get<Audio>()->post_event(awk->has<PlayerControlHuman>() && awk->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 
 				awk->cooldown_setup();
-				awk->detach_teleport();
+				awk->ensure_detached();
 			}
 
 			break;
@@ -338,6 +339,9 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (apply_msg && awk->charges > 0)
 			{
 				awk->velocity = dir * AWK_DASH_SPEED;
+
+				awk->dashing.fire();
+
 				awk->dash_timer = AWK_DASH_TIME;
 
 				awk->hit_targets.length = 0;
@@ -354,8 +358,6 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				awk->particle_accumulator = 0;
 
 				awk->get<Audio>()->post_event(awk->has<PlayerControlHuman>() && awk->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
-
-				awk->dashed.fire();
 			}
 
 			break;
@@ -810,8 +812,8 @@ Awk::Awk()
 	: velocity(0.0f, -AWK_FLY_SPEED, 0.0f),
 	done_flying(),
 	done_dashing(),
-	detached(),
-	dashed(),
+	detaching(),
+	dashing(),
 	shield_time(),
 	dash_timer(),
 	stun_timer(),
@@ -1137,10 +1139,12 @@ b8 Awk::direction_is_toward_attached_wall(const Vec3& dir) const
 	return dir.dot(wall_normal) < 0.0f;
 }
 
-b8 awk_state_frame(const Awk* a, Net::StateFrame* state_frame)
+// get the state frame representing the world according to this player, if one exists
+// return false if no state frame is necessary
+b8 Awk::net_state_frame(Net::StateFrame* state_frame) const
 {
-	if (Game::level.local && a->has<PlayerControlHuman>() && !a->get<PlayerControlHuman>()->local()) // this Awk is being controlled remotely; we need to rewind the world state to what it looks like from their side
-		return Net::state_frame_by_timestamp(state_frame, Net::timestamp() - (Net::rtt(a->get<PlayerControlHuman>()->player.ref()) + NET_INTERPOLATION_DELAY));
+	if (Game::level.local && has<PlayerControlHuman>() && !get<PlayerControlHuman>()->local()) // this Awk is being controlled remotely; we need to rewind the world state to what it looks like from their side
+		return Net::state_frame_by_timestamp(state_frame, Net::timestamp() - (Net::rtt(get<PlayerControlHuman>()->player.ref()) + NET_INTERPOLATION_DELAY));
 	else
 		return false;
 }
@@ -1165,7 +1169,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::S
 	Vec3 trace_end = trace_start + trace_dir * AWK_SNIPE_DISTANCE;
 
 	Net::StateFrame state_frame_data;
-	if (!state_frame && awk_state_frame(this, &state_frame_data))
+	if (!state_frame && net_state_frame(&state_frame_data))
 		state_frame = &state_frame_data;
 
 	Hits hits;
@@ -1305,7 +1309,7 @@ void Awk::cooldown_setup()
 	cooldown = AWK_COOLDOWN;
 }
 
-void Awk::detach_teleport()
+void Awk::ensure_detached()
 {
 	hit_targets.length = 0;
 	remote_reflection_timer = 0.0f;
@@ -1321,7 +1325,6 @@ void Awk::detach_teleport()
 	get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
 
 	particle_accumulator = 0;
-	detached.fire();
 }
 
 b8 Awk::dash_start(const Vec3& dir)
@@ -1337,6 +1340,25 @@ b8 Awk::dash_start(const Vec3& dir)
 b8 Awk::cooldown_can_shoot() const
 {
 	return charges > 0 && stun_timer == 0.0f;
+}
+
+r32 Awk::target_prediction_speed() const
+{
+	switch (current_ability)
+	{
+		case Ability::Sniper:
+		{
+			return 0.0f;
+		}
+		case Ability::Bolter:
+		{
+			return PROJECTILE_SPEED;
+		}
+		default:
+		{
+			return AWK_FLY_SPEED;
+		}
+	}
 }
 
 r32 Awk::range() const
@@ -1356,7 +1378,7 @@ b8 Awk::go(const Vec3& dir)
 		{
 			Net::StateFrame* state_frame = nullptr;
 			Net::StateFrame state_frame_data;
-			if (awk_state_frame(this, &state_frame_data))
+			if (net_state_frame(&state_frame_data))
 				state_frame = &state_frame_data;
 			if (!can_shoot(dir, nullptr, nullptr, state_frame))
 				return false;
@@ -2149,7 +2171,7 @@ void Awk::update_client(const Update& u)
 		if (get<Animator>()->layers[0].animation == AssetNull)
 		{
 			// this means that we were crawling, but were interrupted.
-			detach_teleport();
+			ensure_detached();
 		}
 
 		Quat rot;
@@ -2313,7 +2335,7 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 
 	const Net::StateFrame* state_frame = nullptr;
 	Net::StateFrame state_frame_data;
-	if (awk_state_frame(this, &state_frame_data))
+	if (net_state_frame(&state_frame_data))
 		state_frame = &state_frame_data;
 
 	Hits hits;

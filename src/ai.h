@@ -159,6 +159,9 @@ namespace AI
 		void loop();
 	}
 
+	extern ComponentMask entity_mask;
+	void entity_info(Entity*, AI::Team, AI::Team*, s8*);
+
 	struct RecordedLife
 	{
 		struct ControlPointState
@@ -205,13 +208,13 @@ namespace AI
 			union
 			{
 				Vec3 normal; // for move and build ability actions
-				s8 duration; // for wait actions
 				s8 ability; // for upgrade and build and shoot ability actions
 			};
 			Action();
 			Action& operator=(const Action&);
 		};
 
+		static const s8 EntityNone = -1;
 		static const s8 EntitySensorEnemy = 0;
 		static const s8 EntitySensorFriend = 1;
 		static const s8 EntityBatteryEnemy = 2;

@@ -150,8 +150,8 @@ void PlayerControlAI::awake()
 	link<&PlayerControlAI::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
 	link<&PlayerControlAI::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
 	link_arg<Entity*, &PlayerControlAI::awk_hit>(get<Awk>()->hit);
-	link<&PlayerControlAI::awk_detached>(get<Awk>()->detached);
-	link<&PlayerControlAI::awk_detached>(get<Awk>()->dashed);
+	link<&PlayerControlAI::awk_detaching>(get<Awk>()->detaching);
+	link<&PlayerControlAI::awk_detaching>(get<Awk>()->dashing);
 }
 
 b8 PlayerControlAI::in_range(const Vec3& p, r32 range) const
@@ -178,7 +178,7 @@ void PlayerControlAI::awk_done_flying_or_dashing()
 		path_index++;
 }
 
-void PlayerControlAI::awk_detached()
+void PlayerControlAI::awk_detaching()
 {
 	shot_at_target = true;
 	hit_target = false;
@@ -412,7 +412,7 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 					shot_at_target = true;
 
 					// reset timer for rapid-fire bolter shots
-					// if we are actually moving, awk_detached() will overwrite this to 0
+					// if we are actually moving, awk_detaching() will overwrite this to 0
 					aim_timer = config.aim_min_delay - (0.2f + mersenne::randf_co() * 0.1f);
 
 					get<Awk>()->go(look_dir);

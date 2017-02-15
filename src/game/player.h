@@ -101,7 +101,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	Quat look() const;
 	r32 detect_danger() const;
 	void update(const Update&);
-	void awk_detached();
+	void awk_detaching();
 	void awk_done_flying();
 	void awk_reflecting(const AwkReflectEvent&);
 	void clamp_rotation(const Vec3&, r32 = 0.0f);
@@ -150,7 +150,11 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 			AwkTracking,
 			Minion,
 			Energy,
-			Invisible,
+			Sensor,
+			Rocket,
+			ContainmentField,
+			Grenade,
+			count,
 		};
 
 		Vec3 pos;
@@ -164,11 +168,14 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	Array<TargetIndicator> target_indicators;
 	Array<PositionEntry> position_history;
 #if SERVER
-	AI::RecordedLife::Tag* ai_record_tag;
+	AI::RecordedLife::Tag ai_record_tag;
 #endif
 	Reticle reticle;
 	RemoteControl remote_control;
 	Vec3 last_pos;
+#if SERVER
+	r32 ai_record_wait_timer;
+#endif
 	r32 fov;
 	r32 camera_shake_timer;
 	r32 last_gamepad_input_time;
@@ -192,12 +199,11 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void terminal_enter_animation_callback();
 	void interact_animation_callback();
 
-	void awk_detached();
+	void awk_detaching();
 	void awk_done_flying_or_dashing();
 	void awk_reflecting(const AwkReflectEvent&);
 	void parkour_landed(r32);
 	void hit_target(Entity*);
-	void add_target_indicator(Target*, TargetIndicator::Type);
 	void remote_control_handle(const RemoteControl&);
 
 	void update(const Update&);

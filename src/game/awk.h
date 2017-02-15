@@ -124,10 +124,10 @@ struct Awk : public ComponentType<Awk>
 	LinkArg<const AwkReflectEvent&> reflecting;
 	LinkArg<Entity*> hit;
 	LinkArg<Ability> ability_spawned;
+	Link detaching;
+	Link dashing;
 	Link done_flying;
 	Link done_dashing;
-	Link detached;
-	Link dashed;
 	s8 charges;
 	b8 reflection_source_remote;
 
@@ -135,7 +135,10 @@ struct Awk : public ComponentType<Awk>
 	void awake();
 	~Awk();
 
+	r32 target_prediction_speed() const;
 	r32 range() const;
+
+	b8 net_state_frame(Net::StateFrame*) const;
 
 	void cooldown_setup();
 	State state() const;
@@ -163,7 +166,7 @@ struct Awk : public ComponentType<Awk>
 	Vec3 center_lerped() const;
 	Vec3 attach_point(r32 = 0.0f) const;
 
-	void detach_teleport();
+	void ensure_detached();
 	void finish_flying_dashing_common();
 	b8 go(const Vec3&);
 

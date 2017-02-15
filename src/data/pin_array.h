@@ -95,8 +95,8 @@ struct PinArray
 
 	struct Iterator
 	{
-		ID index;
 		PinArray<T, size>* array;
+		ID index;
 
 		inline void next()
 		{

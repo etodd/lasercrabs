@@ -481,6 +481,82 @@ void debug_draw_awk_nav_mesh(const RenderParams& params)
 
 #endif
 
+ComponentMask entity_mask = Sensor::component_mask
+	| Awk::component_mask
+	| MinionCommon::component_mask
+	| EnergyPickup::component_mask
+	| Rocket::component_mask
+	| ContainmentField::component_mask
+	| Projectile::component_mask
+	| Grenade::component_mask;
+
+void entity_info(Entity* e, AI::Team query_team, AI::Team* team, s8* type)
+{
+	if (e->has<AIAgent>())
+	{
+		*team = e->get<AIAgent>()->team;
+		if (e->has<Awk>())
+		{
+			s8 shield = e->get<Health>()->hp;
+			if (*team == query_team)
+				*type = shield <= 1 ? AI::RecordedLife::EntityDroneFriendShield1 : AI::RecordedLife::EntityDroneFriendShield2;
+			else
+				*type = shield <= 1 ? AI::RecordedLife::EntityDroneEnemyShield1 : AI::RecordedLife::EntityDroneEnemyShield2;
+		}
+		else if (e->has<MinionCommon>())
+			*type = *team == query_team ? AI::RecordedLife::EntityMinionFriend : AI::RecordedLife::EntityMinionEnemy;
+	}
+	else if (e->has<EnergyPickup>())
+	{
+		*team = e->get<Sensor>()->team;
+		if (*team == query_team)
+			*type = AI::RecordedLife::EntityBatteryFriend;
+		else if (*team == AI::TeamNone)
+			*type = AI::RecordedLife::EntityBatteryNeutral;
+		else
+			*type = AI::RecordedLife::EntityBatteryEnemy;
+	}
+	else if (e->has<Sensor>())
+	{
+		*team = e->get<Sensor>()->team;
+		*type = *team == query_team ? AI::RecordedLife::EntitySensorFriend : AI::RecordedLife::EntitySensorEnemy;
+	}
+	else if (e->has<Rocket>())
+	{
+		*team = e->get<Rocket>()->team();
+		b8 attached = e->get<Transform>()->parent.ref();
+		if (*team == query_team)
+			*type = attached ? AI::RecordedLife::EntityRocketFriendAttached : AI::RecordedLife::EntityRocketFriendDetached;
+		else
+			*type = attached ? AI::RecordedLife::EntityRocketEnemyAttached : AI::RecordedLife::EntityRocketEnemyDetached;
+	}
+	else if (e->has<ContainmentField>())
+	{
+		*team = e->get<ContainmentField>()->team;
+		*type = *team == query_team ? AI::RecordedLife::EntityForceFieldFriend : AI::RecordedLife::EntityForceFieldEnemy;
+	}
+	else if (e->has<Projectile>())
+	{
+		*team = e->get<Projectile>()->team();
+		*type = *team == query_team ? AI::RecordedLife::EntityProjectileFriend : AI::RecordedLife::EntityProjectileEnemy;
+	}
+	else if (e->has<Grenade>())
+	{
+		b8 attached = e->get<Transform>()->parent.ref();
+		*team = e->get<Grenade>()->team();
+		if (*team == query_team)
+			*type = attached ? AI::RecordedLife::EntityGrenadeFriendAttached : AI::RecordedLife::EntityGrenadeFriendDetached;
+		else
+			*type = attached ? AI::RecordedLife::EntityGrenadeEnemyAttached : AI::RecordedLife::EntityGrenadeEnemyDetached;
+	}
+	else
+	{
+		*team = AI::TeamNone;
+		*type = AI::RecordedLife::EntityNone;
+		vi_assert(false);
+	}
+}
+
 s8 record_control_point_state(ControlPoint* c)
 {
 	if (c->capture_timer > 0.0f)
@@ -516,14 +592,14 @@ b8 record_filter(Entity* e, const Vec3& pos)
 
 void RecordedLife::Tag::init(Entity* player)
 {
-	AI::Team team = player->get<AIAgent>()->team;
+	AI::Team my_team = player->get<AIAgent>()->team;
 	shield = player->get<Health>()->shield;
 	time = vi_min(255, s32(Game::time.total / (MATCH_TIME_DEFAULT / 255.0f)));
 	energy = player->get<PlayerCommon>()->get<PlayerManager>()->credits;
 	enemy_upgrades = 0;
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team.ref()->team() != team)
+		if (i.item()->team.ref()->team() != my_team)
 			enemy_upgrades |= i.item()->upgrades;
 	}
 
@@ -550,69 +626,14 @@ void RecordedLife::Tag::init(Entity* player)
 	}
 
 	nearby_entities = 0;
-	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Entity::iterator(entity_mask); !i.is_last(); i.next())
 	{
-		if (record_filter(i.item()->entity(), pos))
-			nearby_entities |= 1 << (i.item()->team == team ? AI::RecordedLife::EntitySensorFriend : AI::RecordedLife::EntitySensorEnemy);
-	}
-	for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
-	{
-		if (record_filter(i.item()->entity(), pos))
+		if (record_filter(i.item(), pos))
 		{
-			if (i.item()->team == team)
-				nearby_entities |= 1 << AI::RecordedLife::EntityBatteryFriend;
-			else if (i.item()->team == AI::TeamNone)
-				nearby_entities |= 1 << AI::RecordedLife::EntityBatteryNeutral;
-			else
-				nearby_entities |= 1 << AI::RecordedLife::EntityBatteryEnemy;
-		}
-	}
-	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-	{
-		if (record_filter(i.item()->entity(), pos))
-			nearby_entities |= 1 << (i.item()->get<AIAgent>()->team == team ? AI::RecordedLife::EntityMinionFriend : AI::RecordedLife::EntityMinionEnemy);
-	}
-	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
-	{
-		if (record_filter(i.item()->entity(), pos))
-			nearby_entities |= 1 << (i.item()->team == team ? AI::RecordedLife::EntityForceFieldFriend : AI::RecordedLife::EntityForceFieldEnemy);
-	}
-	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-	{
-		if (record_filter(i.item()->entity(), pos))
-		{
-			b8 attached = i.item()->get<Transform>()->parent.ref();
-			if (i.item()->team() == team)
-				nearby_entities |= 1 << (attached ? AI::RecordedLife::EntityRocketFriendAttached : AI::RecordedLife::EntityRocketFriendDetached);
-			else
-				nearby_entities |= 1 << (attached ? AI::RecordedLife::EntityRocketEnemyAttached : AI::RecordedLife::EntityRocketEnemyDetached);
-		}
-	}
-	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
-	{
-		if (record_filter(i.item()->entity(), pos))
-		{
-			s8 shield = i.item()->get<Health>()->hp;
-			if (i.item()->get<AIAgent>()->team == team)
-				nearby_entities |= 1 << (shield <= 1 ? AI::RecordedLife::EntityDroneFriendShield1 : AI::RecordedLife::EntityDroneFriendShield2);
-			else
-				nearby_entities |= 1 << (shield <= 1 ? AI::RecordedLife::EntityDroneEnemyShield1 : AI::RecordedLife::EntityDroneEnemyShield2);
-		}
-	}
-	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
-	{
-		if (record_filter(i.item()->entity(), pos))
-			nearby_entities |= 1 << (i.item()->team() == team ? AI::RecordedLife::EntityProjectileFriend : AI::RecordedLife::EntityProjectileEnemy);
-	}
-	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
-	{
-		if (record_filter(i.item()->entity(), pos))
-		{
-			b8 attached = i.item()->get<Transform>()->parent.ref();
-			if (i.item()->team() == team)
-				nearby_entities |= 1 << (attached ? AI::RecordedLife::EntityGrenadeFriendAttached : AI::RecordedLife::EntityGrenadeFriendDetached);
-			else
-				nearby_entities |= 1 << (attached ? AI::RecordedLife::EntityGrenadeEnemyAttached : AI::RecordedLife::EntityGrenadeEnemyDetached);
+			AI::Team team;
+			s8 entity_type;
+			entity_info(i.item(), my_team, &team, &entity_type);
+			nearby_entities |= 1 << s32(entity_type);
 		}
 	}
 }

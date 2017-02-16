@@ -48,7 +48,7 @@ PlayerAI::PlayerAI(PlayerManager* m, const AI::Config& config)
 	spawning()
 {
 	m->can_spawn = true;
-	m->spawn.link<PlayerAI, &PlayerAI::spawn>(this);
+	m->spawn.link<PlayerAI, const PlayerSpawnPosition&, &PlayerAI::spawn>(this);
 }
 
 void PlayerAI::update(const Update& u)
@@ -89,13 +89,15 @@ void PlayerAI::spawn_callback(const AI::AwkPathNode& node)
 	ai_player_spawn(node.pos, Quat::look(-node.normal), this);
 }
 
-void PlayerAI::spawn()
+void PlayerAI::spawn(const PlayerSpawnPosition& spawn_pos)
 {
 	if (!spawning)
 	{
 		AI::TeamMask team_mask = 1 << manager.ref()->team.ref()->team();
 		if (config.spawn_time == 0.0f && Game::session.story_mode && EnergyPickup::count(team_mask) > 0)
 		{
+			// player has been here for a while; pick a random spawn point near a pickup we own
+
 			Array<Ref<EnergyPickup>> pickups;
 			for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
 			{
@@ -111,12 +113,8 @@ void PlayerAI::spawn()
 				ObjectLinkEntryArg<PlayerAI, const AI::AwkPathNode&, &PlayerAI::spawn_callback>(id())
 			);
 		}
-		else
-		{
-			Vec3 pos = manager.ref()->team.ref()->player_spawn.ref()->absolute_pos();
-			pos += Quat::euler(0, (id() * PI * 0.5f), 0) * Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
-			ai_player_spawn(pos, Quat::look(Vec3(0, -1, 0)), this);
-		}
+		else // normal spawn at spawn point
+			ai_player_spawn(spawn_pos.pos, Quat::look(Vec3(0, -1, 0)), this);
 	}
 }
 

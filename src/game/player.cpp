@@ -198,7 +198,7 @@ void PlayerHuman::awake()
 {
 	Audio::listener_enable(gamepad);
 
-	get<PlayerManager>()->spawn.link<PlayerHuman, &PlayerHuman::spawn>(this);
+	get<PlayerManager>()->spawn.link<PlayerHuman, const PlayerSpawnPosition&, &PlayerHuman::spawn>(this);
 
 	msg_text.size = text_size;
 	msg_text.anchor_x = UIText::Anchor::Center;
@@ -399,6 +399,14 @@ b8 send(PlayerControlHuman* c, Message* msg)
 
 }
 
+void PlayerHuman::show_upgrade_menu()
+{
+	upgrade_menu_open = true;
+	menu.animate();
+	upgrade_animation_time = Game::real_time.total;
+	get<PlayerManager>()->instance.ref()->get<Awk>()->current_ability = Ability::None;
+}
+
 void PlayerHuman::update(const Update& u)
 {
 	if (!local)
@@ -426,13 +434,13 @@ void PlayerHuman::update(const Update& u)
 
 		camera->viewport =
 		{
-			Vec2((s32)(blueprint->x * (r32)u.input->width), (s32)(blueprint->y * (r32)u.input->height)),
-			Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
+			Vec2(s32(blueprint->x * r32(u.input->width)), s32(blueprint->y * r32(u.input->height))),
+			Vec2(s32(blueprint->w * r32(u.input->width)), s32(blueprint->h * r32(u.input->height))),
 		};
 
 		if (!entity)
 		{
-			r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+			r32 aspect = camera->viewport.size.y == 0 ? 1.0f : camera->viewport.size.x / camera->viewport.size.y;
 			camera->perspective(fov_map_view, aspect, 1.0f, Game::level.skybox.far_plane);
 		}
 	}
@@ -520,12 +528,7 @@ void PlayerHuman::update(const Update& u)
 			else if (get<PlayerManager>()->at_upgrade_point())
 			{
 				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
-				{
-					upgrade_menu_open = true;
-					menu.animate();
-					upgrade_animation_time = Game::real_time.total;
-					get<PlayerManager>()->instance.ref()->get<Awk>()->current_ability = Ability::None;
-				}
+					show_upgrade_menu();
 			}
 			break;
 		}
@@ -551,7 +554,7 @@ void PlayerHuman::update(const Update& u)
 
 				menu.start(u, gamepad);
 
-				if (menu.item(u, _(strings::close), nullptr))
+				if (menu.item(u, _(strings::close), nullptr, false, Asset::Mesh::icon_close))
 					upgrade_menu_open = false;
 
 				for (s32 i = 0; i < (s32)Upgrade::count; i++)
@@ -714,11 +717,11 @@ void PlayerHuman::ai_record_save()
 }
 #endif
 
-void PlayerHuman::spawn()
+void PlayerHuman::spawn(const PlayerSpawnPosition& normal_spawn_pos)
 {
-	Vec3 pos;
-	r32 angle;
 	Entity* spawned;
+
+	PlayerSpawnPosition spawn_pos;
 
 #if SERVER
 	ai_record_save();
@@ -728,27 +731,22 @@ void PlayerHuman::spawn()
 	if (Game::level.mode == Game::Mode::Pvp)
 	{
 		// spawn drone
-		Quat rot;
-		get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
-		Vec3 dir = rot * Vec3(0, 1, 0);
-		angle = atan2f(dir.x, dir.z);
-
-		pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
 		spawned = World::create<AwkEntity>(get<PlayerManager>()->team.ref()->team());
+		spawn_pos = normal_spawn_pos;
 	}
 	else
 	{
 		// spawn traceur
 		if (Game::save.zone_current_restore)
 		{
-			angle = Game::save.zone_current_restore_rotation;
-			pos = Game::save.zone_current_restore_position;
+			spawn_pos.angle = Game::save.zone_current_restore_rotation;
+			spawn_pos.pos = Game::save.zone_current_restore_position;
 		}
 		else if (Game::level.post_pvp)
 		{
 			// we have already played a PvP match on this level; we must be exiting PvP mode.
 			// spawn the player at the terminal.
-			get_interactable_standing_position(Game::level.terminal_interactable.ref()->get<Transform>(), &pos, &angle);
+			get_interactable_standing_position(Game::level.terminal_interactable.ref()->get<Transform>(), &spawn_pos.pos, &spawn_pos.angle);
 		}
 		else
 		{
@@ -772,29 +770,29 @@ void PlayerHuman::spawn()
 			{
 				// spawn in tram
 				Quat rot;
-				tram->get<Transform>()->absolute(&pos, &rot);
-				pos.y -= 0.5f;
+				tram->get<Transform>()->absolute(&spawn_pos.pos, &rot);
+				spawn_pos.pos.y -= 0.5f;
 				dir = rot * Vec3(0, 0, -1);
 			}
 			else
 			{
 				// spawn at PlayerSpawn
 				Quat rot;
-				get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
+				get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&spawn_pos.pos, &rot);
 				dir = rot * Vec3(0, 1, 0);
 			}
-			pos.y += 1.0f;
+			spawn_pos.pos.y += 1.0f;
 			dir.y = 0.0f;
 			dir.normalize();
-			angle = atan2f(dir.x, dir.z);
+			spawn_pos.angle = atan2f(dir.x, dir.z);
 		}
 
-		spawned = World::create<Traceur>(pos, angle, get<PlayerManager>()->team.ref()->team());
+		spawned = World::create<Traceur>(spawn_pos.pos, spawn_pos.angle, get<PlayerManager>()->team.ref()->team());
 	}
 
-	spawned->get<Transform>()->absolute_pos(pos);
+	spawned->get<Transform>()->absolute_pos(spawn_pos.pos);
 	PlayerCommon* common = spawned->add<PlayerCommon>(get<PlayerManager>());
-	common->angle_horizontal = angle;
+	common->angle_horizontal = spawn_pos.angle;
 
 	get<PlayerManager>()->instance = spawned;
 
@@ -1745,6 +1743,13 @@ void PlayerControlHuman::awk_done_flying_or_dashing()
 	}
 	ai_record_tag.init(entity());
 #endif
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
+		&& !Game::session.story_mode
+		&& Team::match_time < GAME_BUY_PERIOD)
+	{
+		// automatically open buy menu
+		player.ref()->show_upgrade_menu();
+	}
 }
 
 void ability_select(Awk* awk, Ability a)
@@ -3331,12 +3336,12 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			&& Team::match_time < GAME_BUY_PERIOD)
 		{
 			UIText text;
-			text.color = UI::color_accent;
+			text.color = Team::ui_color_friend;
 			text.text(_(strings::buy_period), (s32)(GAME_BUY_PERIOD - Team::match_time) + 1);
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = text_size;
-			Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
+			Vec2 pos = viewport.size * Vec2(0.5f, 0.85f);
 			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 			text.draw(params, pos);
 		}

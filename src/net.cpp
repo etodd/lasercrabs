@@ -2594,7 +2594,7 @@ b8 msg_process(StreamRead* p, Client* client)
 			client->loading_done = true;
 			vi_debug("Client %s:%hd finished loading.", Sock::host_to_str(client->address.host), client->address.port);
 			if (state_server.mode == Mode::Waiting
-				&& Team::teams_with_players() > 1)
+				&& Team::teams_with_active_players() > 1)
 			{
 				state_server.mode = Mode::Active;
 				sync_time();

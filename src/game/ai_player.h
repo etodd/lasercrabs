@@ -19,6 +19,7 @@ struct PlayerManager;
 struct Camera;
 struct Target;
 struct ControlPoint;
+struct PlayerSpawnPosition;
 
 struct PlayerAI
 {
@@ -45,7 +46,7 @@ struct PlayerAI
 		return this - &list[0];
 	}
 	void update(const Update&);
-	void spawn();
+	void spawn(const PlayerSpawnPosition&);
 	void spawn_callback(const AI::AwkPathNode&);
 };
 

@@ -20,6 +20,7 @@ struct TargetEvent;
 struct HealthEvent;
 struct Target;
 struct AwkReflectEvent;
+struct PlayerSpawnPosition;
 
 namespace Net
 {
@@ -80,10 +81,11 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void msg(const char*, b8);
 	void rumble_add(r32);
 	UIMode ui_mode() const;
+	void show_upgrade_menu();
 	void update(const Update&);
 	void update_camera_rotation(const Update&);
 	void draw_ui(const RenderParams&) const;
-	void spawn();
+	void spawn(const PlayerSpawnPosition&);
 };
 
 struct PlayerCommon : public ComponentType<PlayerCommon>

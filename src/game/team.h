@@ -32,7 +32,7 @@ struct AbilityInfo
 	AssetID icon;
 	s16 spawn_cost;
 	b8 rapid_fire;
-	static AbilityInfo list[(s32)Ability::count];
+	static AbilityInfo list[s32(Ability::count)];
 };
 
 struct UpgradeInfo
@@ -41,10 +41,16 @@ struct UpgradeInfo
 	AssetID description;
 	AssetID icon;
 	s16 cost;
-	static UpgradeInfo list[(s32)Upgrade::count];
+	static UpgradeInfo list[s32(Upgrade::count)];
 };
 
 #define PLAYER_SCORE_SUMMARY_ITEMS 4
+
+struct PlayerSpawnPosition
+{
+	Vec3 pos;
+	r32 angle;
+};
 
 struct Team : public ComponentType<Team>
 {
@@ -82,7 +88,7 @@ struct Team : public ComponentType<Team>
 	static void update(const Update&);
 	static void update_all_server(const Update&);
 	static void update_all_client_only(const Update&);
-	static s32 teams_with_players();
+	static s32 teams_with_active_players();
 	static Team* with_most_kills();
 	static b8 net_msg(Net::StreamRead*);
 	static void transition_mode(Game::Mode);
@@ -103,9 +109,10 @@ struct Team : public ComponentType<Team>
 
 	Team();
 	void awake() {}
-	b8 has_player() const;
+	b8 has_active_player() const;
 	void track(PlayerManager*, Entity*);
 	s32 control_point_count() const;
+	s32 player_count() const;
 	s16 kills() const;
 
 	inline AI::Team team() const
@@ -140,7 +147,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s32 upgrades;
 	Ability abilities[MAX_ABILITIES];
 	Upgrade current_upgrade;
-	Link spawn;
+	LinkArg<const PlayerSpawnPosition&> spawn;
 	LinkArg<Upgrade> upgrade_completed;
 	LinkArg<b8> control_point_capture_completed;
 	Ref<Team> team;
@@ -158,6 +165,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void awake();
 	~PlayerManager();
 
+	PlayerSpawnPosition spawn_position() const;
 	Entity* decoy() const;
 	State state() const;
 	b8 can_transition_state() const;

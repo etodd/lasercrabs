@@ -161,18 +161,18 @@ void Team::awake_all()
 	score_summary.length = 0;
 }
 
-s32 Team::teams_with_players()
+s32 Team::teams_with_active_players()
 {
 	s32 t = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->has_player())
+		if (i.item()->has_active_player())
 			t++;
 	}
 	return t;
 }
 
-b8 Team::has_player() const
+b8 Team::has_active_player() const
 {
 	for (s32 i = 0; i < Game::level.ai_config.length; i++)
 	{
@@ -229,6 +229,17 @@ s32 Team::control_point_count() const
 	for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team == team())
+			count++;
+	}
+	return count;
+}
+
+s32 Team::player_count() const
+{
+	s32 count = 0;
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team.ref() == this)
 			count++;
 	}
 	return count;
@@ -651,7 +662,7 @@ void Team::update_all_server(const Update& u)
 		Team* team_with_most_kills = Game::level.type == GameType::Deathmatch ? with_most_kills() : nullptr;
 		if (!Game::level.continue_match_after_death
 			&& ((match_time > Game::level.time_limit && (Game::level.type != GameType::Rush || ControlPoint::count_capturing() == 0))
-			|| (Game::level.has_feature(Game::FeatureLevel::All) && Team::teams_with_players() <= 1)
+			|| (Game::level.has_feature(Game::FeatureLevel::All) && Team::teams_with_active_players() <= 1)
 			|| (Game::level.type == GameType::Rush && list[1].control_point_count() == ControlPoint::list.count())
 			|| (Game::level.type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills() >= Game::level.kill_limit)))
 		{
@@ -661,7 +672,7 @@ void Team::update_all_server(const Update& u)
 			s32 teams_with_players = 0;
 			for (auto i = list.iterator(); !i.is_last(); i.next())
 			{
-				if (i.item()->has_player())
+				if (i.item()->has_active_player())
 				{
 					team_with_player = i.item();
 					teams_with_players++;
@@ -822,6 +833,19 @@ void Team::update_all_client_only(const Update& u)
 		return;
 
 	update_visibility(u);
+}
+
+PlayerSpawnPosition PlayerManager::spawn_position() const
+{
+	PlayerSpawnPosition result;
+	Quat rot;
+	team.ref()->player_spawn.ref()->absolute(&result.pos, &rot);
+	Vec3 dir = rot * Vec3(0, 1, 0);
+	result.angle = atan2f(dir.x, dir.z);
+
+	if (team.ref()->player_count() > 1)
+		result.pos += Quat::euler(0, result.angle + (id() * PI * 0.5f), 0) * Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
+	return result;
 }
 
 b8 PlayerManager::has_upgrade(Upgrade u) const
@@ -1173,7 +1197,7 @@ void PlayerManager::update_server(const Update& u)
 					respawns--;
 				if (respawns != 0)
 					spawn_timer = PLAYER_SPAWN_DELAY;
-				spawn.fire();
+				spawn.fire(spawn_position());
 			}
 		}
 	}
@@ -1183,7 +1207,7 @@ void PlayerManager::update_server(const Update& u)
 			&& !Team::game_over
 			&& !Game::level.continue_match_after_death)
 		{
-			spawn.fire();
+			spawn.fire(spawn_position());
 		}
 	}
 

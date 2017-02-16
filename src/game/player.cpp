@@ -50,7 +50,7 @@ namespace VI
 #define zoom_speed_multiplier 0.25f
 #define zoom_speed_multiplier_sniper 0.15f
 #define zoom_speed (1.0f / 0.1f)
-#define speed_mouse (0.1f / 60.0f)
+#define speed_mouse (0.05f / 60.0f)
 #define speed_joystick 5.0f
 #define gamepad_rotation_acceleration (1.0f / 0.2f)
 #define attach_speed 5.0f
@@ -917,7 +917,7 @@ void battery_timer_draw(const RenderParams& params, const Vec2& pos)
 void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 {
 	const Rect2& vp = params.camera->viewport;
-	Vec2 p = vp.size * Vec2(0.5f);
+	Vec2 p = vp.size * Vec2(0.5f, 0.8f);
 
 	UIText text;
 	text.size = text_size;

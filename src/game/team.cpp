@@ -810,6 +810,7 @@ void Team::transition_mode(Game::Mode m)
 {
 	vi_assert(Game::level.local);
 	transition_mode_scheduled = m;
+	vi_debug_break();
 }
 
 void Team::draw_ui(const RenderParams& params)
@@ -916,7 +917,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 
 void PlayerManager::awake()
 {
-	if ((!Game::level.local || Game::session.story_mode) && list.count() > 1)
+	if ((!Game::level.local || Game::session.story_mode) && Game::level.mode == Game::Mode::Pvp)
 	{
 		char log[512];
 		sprintf(log, _(strings::player_joined), username);
@@ -926,7 +927,7 @@ void PlayerManager::awake()
 
 PlayerManager::~PlayerManager()
 {
-	if (!Game::level.local || Game::session.story_mode)
+	if ((!Game::level.local || Game::session.story_mode) && Game::level.mode == Game::Mode::Pvp)
 	{
 		char log[512];
 		sprintf(log, _(strings::player_left), username);

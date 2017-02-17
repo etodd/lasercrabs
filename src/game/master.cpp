@@ -31,7 +31,7 @@ void Save::reset()
 
 	strcpy(username, "etodd");
 	zones[Asset::Level::Dock] = ZoneState::GroupOwned;
-	zones[Asset::Level::Qualia] = ZoneState::GroupOwned;
+	zones[Asset::Level::Library] = ZoneState::GroupOwned;
 
 	resources[s32(Resource::Energy)] = s16(CREDITS_INITIAL * 3.5f);
 }

@@ -1871,7 +1871,7 @@ void show_complete()
 		if (zone_can_select(Game::save.zone_last))
 			data.zone_selected = Game::save.zone_last;
 		else
-			data.zone_selected = Asset::Level::Medias_Res;
+			data.zone_selected = Asset::Level::Media_Tower;
 	}
 
 	data.camera_pos = global.camera_offset_pos;

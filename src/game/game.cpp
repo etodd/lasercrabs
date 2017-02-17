@@ -862,7 +862,7 @@ void Game::execute(const char* cmd)
 		// allocate a multiplayer server
 		unload_level();
 		save.reset();
-		Net::Client::allocate_server(false, Asset::Level::Medias_Res, 2, 2);
+		Net::Client::allocate_server(false, Asset::Level::Media_Tower, 2, 2);
 	}
 #endif
 #if DEBUG && !SERVER
@@ -1507,7 +1507,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				AI::Team team = team_lookup(level.team_lookup, team_original);
 				if (ai_player_count > 1)
 				{
-					if (((save.zones[Game::level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) && team_original == 1) || mersenne::randf_cc() < 0.5f)
+					if ((save.zones[Game::level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) && (team_original == 1 || mersenne::randf_cc() < 0.5f))
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // enemy is attacking; they're there from the beginning
 					else
 						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));

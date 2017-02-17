@@ -15,7 +15,7 @@ Transform::Transform()
 void Transform::mat(Mat4* m) const
 {
 	*m = Mat4::identity;
-	Transform* t = const_cast<Transform*>(this);
+	const Transform* t = this;
 	while (t)
 	{ 
 		Mat4 local = Mat4(t->rot);
@@ -50,7 +50,7 @@ void Transform::absolute(Vec3* abs_pos, Quat* abs_rot) const
 {
 	*abs_rot = Quat::identity;
 	*abs_pos = Vec3::zero;
-	Transform* t = const_cast<Transform*>(this);
+	const Transform* t = this;
 	while (t)
 	{ 
 		*abs_rot = t->rot * *abs_rot;
@@ -80,7 +80,7 @@ void Transform::absolute(const Vec3& abs_pos, const Quat& abs_rot)
 Quat Transform::absolute_rot() const
 {
 	Quat q = Quat::identity;
-	Transform* t = const_cast<Transform*>(this);
+	const Transform* t = this;
 	while (t)
 	{ 
 		q = t->rot * q;
@@ -100,7 +100,7 @@ void Transform::absolute_rot(const Quat& q)
 Vec3 Transform::absolute_pos() const
 {
 	Vec3 abs_pos = Vec3::zero;
-	Transform* t = const_cast<Transform*>(this);
+	const Transform* t = this;
 	while (t)
 	{ 
 		abs_pos = (t->rot * abs_pos) + t->pos;
@@ -120,7 +120,7 @@ void Transform::absolute_pos(const Vec3& p)
 Vec3 Transform::to_world(const Vec3& p) const
 {
 	Vec3 abs_pos = p;
-	Transform* t = const_cast<Transform*>(this);
+	const Transform* t = this;
 	while (t)
 	{ 
 		abs_pos = (t->rot * abs_pos) + t->pos;
@@ -150,7 +150,7 @@ Vec3 Transform::to_local_normal(const Vec3& p) const
 
 void Transform::to_world(Vec3* p, Quat* q) const
 {
-	Transform* t = const_cast<Transform*>(this);
+	const Transform* t = this;
 	while (t)
 	{ 
 		*q = t->rot * *q;

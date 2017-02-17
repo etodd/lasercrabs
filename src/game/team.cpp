@@ -810,7 +810,6 @@ void Team::transition_mode(Game::Mode m)
 {
 	vi_assert(Game::level.local);
 	transition_mode_scheduled = m;
-	vi_debug_break();
 }
 
 void Team::draw_ui(const RenderParams& params)

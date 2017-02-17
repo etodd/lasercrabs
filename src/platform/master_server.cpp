@@ -573,7 +573,7 @@ namespace Master
 
 					// todo: different multiplayer setups
 					ServerState multiplayer_state;
-					multiplayer_state.level = Asset::Level::Medias_Res;
+					multiplayer_state.level = Asset::Level::Media_Tower;
 					multiplayer_state.open_slots = 4;
 					multiplayer_state.story_mode = false;
 					multiplayer_state.team_count = 2;

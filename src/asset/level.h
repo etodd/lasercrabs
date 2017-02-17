@@ -9,18 +9,18 @@ namespace Asset
 	namespace Level
 	{
 		const s32 count = 13;
-		const AssetID Dock = 0;
-		const AssetID Ioke = 1;
-		const AssetID Isthmus = 2;
-		const AssetID Medias_Res = 3;
-		const AssetID Moros = 4;
-		const AssetID Pistis = 5;
-		const AssetID Ponos = 6;
-		const AssetID Port_District = 7;
-		const AssetID Proci = 8;
-		const AssetID Qualia = 9;
-		const AssetID Tyche = 10;
-		const AssetID Tyro = 11;
+		const AssetID Canal = 0;
+		const AssetID Comm_Array = 1;
+		const AssetID Commons = 2;
+		const AssetID Dock = 3;
+		const AssetID Financial_District = 4;
+		const AssetID Library = 5;
+		const AssetID Media_Tower = 6;
+		const AssetID Palace_of_Arts = 7;
+		const AssetID Plaza = 8;
+		const AssetID Port_District = 9;
+		const AssetID Refinery = 10;
+		const AssetID Treatment_Plant = 11;
 		const AssetID overworld = 12;
 	}
 }

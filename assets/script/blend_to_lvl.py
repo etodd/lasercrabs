@@ -68,6 +68,9 @@ def add(obj, parent_index = -1):
 			node['radius'] = obj.data.distance
 			node['color'] = list(obj.data.color)
 			node['fov'] = obj.data.spot_size * 0.5
+		elif lamp_type == 'HEMI': # hemi lights are actually clouds. go figure
+			node['Cloud'] = True
+			node['color'] = list(obj.data.color) + [obj.data.energy,]
 	elif obj_type == 'CAMERA':
 		node['Camera'] = True
 		node['far_plane'] = obj.data.clip_end

@@ -554,6 +554,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 	if (render_params.camera->fog)
 		Skybox::draw_alpha(render_params);
 	SkyDecal::draw_alpha(render_params);
+	Clouds::draw_alpha(render_params);
 
 #if DEBUG_NAV_MESH
 	AI::debug_draw_nav_mesh(render_params);
@@ -1308,7 +1309,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			level.skybox.mesh = Asset::Mesh::skybox;
 			level.skybox.color = Json::get_vec3(element, "skybox_color");
 			level.skybox.ambient_color = Json::get_vec3(element, "ambient_color");
-			level.skybox.player_light = Json::get_vec3(element, "zenith_color");
+			level.skybox.player_light = Vec3(0.7f);
 
 			level.min_y = Json::get_r32(element, "min_y", -20.0f);
 			level.rotation = Json::get_r32(element, "rotation");
@@ -1497,6 +1498,17 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			DirectionalLight* light = entity->create<DirectionalLight>();
 			light->color = Json::get_vec3(element, "color");
 			light->shadowed = Json::get_s32(element, "shadowed");
+		}
+		else if (cJSON_HasObjectItem(element, "Cloud"))
+		{
+			entity = nullptr; // clouds are not part of the entity system
+			Clouds::Config config;
+			config.color = Json::get_vec4(element, "color");
+			config.height = Json::get_r32(element, "height");
+			config.scale = Json::get_r32(element, "scale", 1.0f);
+			config.velocity = Vec2(Json::get_r32(element, "velocity_x"), Json::get_r32(element, "velocity_z"));
+			config.shadow = Json::get_r32(element, "shadow");
+			level.clouds.add(config);
 		}
 		else if (cJSON_HasObjectItem(element, "AIPlayer"))
 		{

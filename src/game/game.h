@@ -32,7 +32,7 @@ namespace VI
 	};
 
 #if DEBUG
-#define DEBUG_AI_CONTROL 1
+#define DEBUG_AI_CONTROL 0
 #endif
 
 	struct Game
@@ -97,6 +97,7 @@ namespace VI
 			GameType type;
 			Mode mode;
 			Skybox::Config skybox;
+			StaticArray<Clouds::Config, 4> clouds;
 			StaticArray<AssetID, 8> scripts;
 			AssetID id = AssetNull;
 			Ref<Transform> map_view;

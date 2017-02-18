@@ -765,6 +765,21 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_r32_range(p, Game::level.skybox.player_light.x, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.player_light.y, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.player_light.z, 0.0f, 1.0f, 8);
+
+	serialize_int(p, u16, Game::level.clouds.length, 0, Game::level.clouds.capacity());
+	for (s32 i = 0; i < Game::level.clouds.length; i++)
+	{
+		Clouds::Config* cloud = &Game::level.clouds[i];
+		serialize_r32_range(p, cloud->height, -50.0f, 200.0f, 16);
+		serialize_r32_range(p, cloud->velocity.x, -20, 20.0f, 8);
+		serialize_r32_range(p, cloud->velocity.y, -20, 20.0f, 8);
+		serialize_r32_range(p, cloud->scale, 0.0f, 10.0f, 8);
+		serialize_r32_range(p, cloud->color.x, 0.0f, 1.0f, 8);
+		serialize_r32_range(p, cloud->color.y, 0.0f, 1.0f, 8);
+		serialize_r32_range(p, cloud->color.z, 0.0f, 1.0f, 8);
+		serialize_r32_range(p, cloud->color.w, 0.0f, 1.0f, 8);
+		serialize_r32_range(p, cloud->shadow, 0.0f, 1.0f, 8);
+	}
 	serialize_s16(p, Game::level.id);
 	serialize_s16(p, Game::level.kill_limit);
 	serialize_s16(p, Game::level.respawns);

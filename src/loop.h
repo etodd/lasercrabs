@@ -595,7 +595,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 			if (shadowed)
 			{
-				// Global shadow map
+				// global shadow map
 				Camera shadow_camera;
 				r32 size = vi_min(800.0f, render_params.camera->far_plane * 1.5f);
 				Vec3 pos = render_params.camera->pos;
@@ -626,7 +626,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				if (Settings::volumetric_lighting)
 					render_params.shadow_buffer = shadow_buffer[1]; // skybox needs this for volumetric lighting
 
-				// Detail shadow map
+				// detail shadow map
 				shadow_camera.viewport =
 				{
 					Vec2(0, 0),
@@ -648,8 +648,8 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<AssetID>(lighting_fbo);
 
 			sync->write(RenderOp::Clear);
-			sync->write<b8>(true); // Clear color
-			sync->write<b8>(true); // Clear depth
+			sync->write<b8>(true); // clear color
+			sync->write<b8>(true); // clear depth
 
 			Loader::shader_permanent(Asset::Shader::global_light);
 
@@ -715,6 +715,72 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write<s32>(1);
 				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 				sync->write<AssetID>(shadow_buffer[0]);
+
+				Loader::texture_permanent(Asset::Texture::clouds);
+
+				const Clouds::Config* cloud_shadow = nullptr;
+				for (s32 i = 0; i < Game::level.clouds.length; i++)
+				{
+					const Clouds::Config& cloud = Game::level.clouds[i];
+					if (cloud.shadow > 0.0f)
+					{
+						cloud_shadow = &cloud;
+						break;
+					}
+				}
+
+				Loader::texture_permanent(Asset::Texture::clouds);
+
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::cloud_map);
+				sync->write(RenderDataType::Texture);
+				sync->write<s32>(1);
+				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+				sync->write<AssetID>(Asset::Texture::clouds);
+
+				if (cloud_shadow)
+				{
+					sync->write(RenderOp::Uniform);
+					sync->write(Asset::Uniform::cloud_uv_offset);
+					sync->write(RenderDataType::Vec2);
+					sync->write<s32>(1);
+					Vec2 uv;
+					{
+						// HACK
+						uv = cloud_shadow->uv_offset(render_params);
+						Vec3 uv3 = Vec3(uv.x, 0, uv.y);
+						uv3 = Quat::euler(0, PI * -0.5f, 0) * uv3;
+						uv.x = uv3.x;
+						uv.y = uv3.z;
+					}
+					sync->write<Vec2>(uv);
+
+					sync->write(RenderOp::Uniform);
+					sync->write(Asset::Uniform::v);
+					sync->write(RenderDataType::Mat4);
+					sync->write<s32>(1);
+					sync->write<Mat4>(render_params.camera->view().inverse());
+
+					sync->write(RenderOp::Uniform);
+					sync->write(Asset::Uniform::cloud_inv_uv_scale);
+					sync->write(RenderDataType::R32);
+					sync->write<s32>(1);
+					sync->write<r32>(1.0f / (render_params.camera->far_plane * cloud_shadow->scale));
+
+					sync->write(RenderOp::Uniform);
+					sync->write(Asset::Uniform::cloud_alpha);
+					sync->write(RenderDataType::R32);
+					sync->write<s32>(1);
+					sync->write<r32>(cloud_shadow->shadow);
+				}
+				else
+				{
+					sync->write(RenderOp::Uniform);
+					sync->write(Asset::Uniform::cloud_alpha);
+					sync->write(RenderDataType::R32);
+					sync->write<s32>(1);
+					sync->write<r32>(0.0f);
+				}
 			}
 
 			sync->write(RenderOp::Uniform);

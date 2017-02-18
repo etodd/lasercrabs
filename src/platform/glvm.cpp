@@ -316,7 +316,15 @@ void render(RenderSync* sync)
 	{
 #if DEBUG
 		GLenum error;
-#define debug_check() vi_assert((error = glGetError()) == GL_NO_ERROR)
+#define debug_check()\
+do\
+{\
+	if ((error = glGetError()) != GL_NO_ERROR)\
+	{\
+		vi_debug("GL error: %lu", error);\
+		vi_debug_break();\
+	}\
+} while (0)
 #else
 #define debug_check() {}
 #endif
@@ -779,6 +787,8 @@ void render(RenderSync* sync)
 				GLuint uniform_id = GLData::shaders[GLData::current_shader_asset][(s32)GLData::current_shader_technique].uniforms[uniform_asset];
 				RenderDataType uniform_type = *(sync->read<RenderDataType>());
 				s32 uniform_count = *(sync->read<s32>());
+
+
 				switch (uniform_type)
 				{
 					case RenderDataType::R32:

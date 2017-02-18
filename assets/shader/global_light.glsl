@@ -1,17 +1,14 @@
 #ifdef VERTEX
 
-// Input vertex data, different for all executions of this shader.
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_ray;
 layout(location = 2) in vec2 in_uv;
 
-// Output data ; will be interpolated for each fragment.
 out vec2 uv;
 out vec3 view_ray;
 
 void main()
 {
-	// Output position of the vertex, in clip space : MVP * position
 	gl_Position = vec4(in_position, 1);
 
 	uv = in_uv;
@@ -21,7 +18,6 @@ void main()
 
 #else
 
-// Interpolated values from the vertex shaders
 in vec2 uv;
 in vec3 view_ray;
 
@@ -33,13 +29,18 @@ const int max_lights = 3;
 uniform vec3 light_color[max_lights];
 uniform vec3 light_direction[max_lights];
 uniform mat4 light_vp;
+uniform mat4 v;
 uniform sampler2DShadow shadow_map;
 uniform mat4 detail_light_vp;
 uniform sampler2DShadow detail_shadow_map;
+uniform sampler2D cloud_map;
 uniform vec3 player_light;
 uniform float far_plane;
 uniform float range;
 uniform vec3 range_center;
+uniform vec2 cloud_uv_offset;
+uniform float cloud_inv_uv_scale;
+uniform float cloud_alpha;
 
 out vec4 out_color;
 
@@ -54,7 +55,7 @@ void main()
 	vec3 normal = texture(normal_buffer, uv).xyz * 2.0 - 1.0;
 
 	{
-		// Player light
+		// player light
 		float normal_attenuation = dot(normal, view_pos / -view_distance);
 		float distance_attenuation = 1.0f - (length(view_pos - range_center) / range);
 		float light = max(0, distance_attenuation) * max(0, normal_attenuation);
@@ -86,6 +87,16 @@ void main()
 			else
 				shadow = 1.0f;
 		}
+
+		if (cloud_alpha > 0.0f)
+		{
+			vec3 dir = (v * vec4(light_direction[0], 0)).xyz;
+			vec3 world_pos = (v * vec4(view_pos, 1)).xyz;
+			float t = -world_pos.y / dir.y;
+			vec2 p = world_pos.xz + t * dir.xz;
+			shadow = max(0, shadow - texture(cloud_map, p * cloud_inv_uv_scale + cloud_uv_offset).a * cloud_alpha);
+		}
+
 		out_color.xyz += full_light * shadow;
 	}
 

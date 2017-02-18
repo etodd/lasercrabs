@@ -326,6 +326,7 @@ set(SRC
 	assets/shader/skybox.glsl
 	assets/shader/underwater.glsl
 	assets/shader/sky_decal.glsl
+	assets/shader/clouds.glsl
 	assets/script/blend_to_fbx.py
 	assets/script/blend_to_lvl.py
 	assets/script/ttf_to_fbx.py

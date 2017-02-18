@@ -72,6 +72,22 @@ struct SkyDecal : ComponentType<SkyDecal>
 	void awake() {}
 };
 
+struct Clouds
+{
+	struct Config
+	{
+		Vec4 color;
+		Vec2 velocity;
+		r32 height;
+		r32 scale;
+		r32 shadow;
+
+		Vec2 uv_offset(const RenderParams&) const;
+	};
+
+	static void draw_alpha(const RenderParams&);
+};
+
 struct Water : public ComponentType<Water>
 {
 	struct Config

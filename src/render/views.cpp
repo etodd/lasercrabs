@@ -615,6 +615,131 @@ void Skybox::draw_alpha(const RenderParams& p)
 	sync->write<b8>(true);
 }
 
+void Clouds::draw_alpha(const RenderParams& p)
+{
+	if (Game::level.clouds.length == 0 || p.technique != RenderTechnique::Default)
+		return;
+
+	Loader::shader_permanent(Asset::Shader::clouds);
+	Loader::mesh_permanent(Asset::Mesh::clouds);
+	Loader::texture_permanent(Asset::Texture::clouds);
+
+	RenderSync* sync = p.sync;
+
+	sync->write<RenderOp>(RenderOp::DepthTest);
+	sync->write<b8>(false);
+
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::clouds);
+	sync->write(p.technique);
+
+	for (s32 i = 0; i < Game::level.clouds.length; i++)
+	{
+		const Config& config = Game::level.clouds[i];
+
+		Mat4 mvp = p.view * Mat4::make_scale(Vec3(p.camera->far_plane));
+		mvp.translation(p.camera->rot.inverse() * Vec3(0, config.height - p.camera->pos.y, 0));
+		mvp = mvp * p.camera->projection;
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::mvp);
+		sync->write(RenderDataType::Mat4);
+		sync->write<s32>(1);
+		sync->write<Mat4>(mvp);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::diffuse_color);
+		sync->write(RenderDataType::Vec4);
+		sync->write<s32>(1);
+		if (p.camera->colors)
+			sync->write<Vec4>(config.color);
+		else
+			sync->write<Vec4>(LMath::desaturate(config.color));
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::p);
+		sync->write(RenderDataType::Mat4);
+		sync->write<s32>(1);
+		sync->write<Mat4>(p.camera->projection);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::frustum);
+		sync->write(RenderDataType::Vec3);
+		sync->write<s32>(4);
+		sync->write<Vec3>(p.camera->frustum_rays, 4);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::fog_start);
+		sync->write(RenderDataType::R32);
+		sync->write<s32>(1);
+		sync->write<r32>(fog_start(p));
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::fog_extent);
+		sync->write(RenderDataType::R32);
+		sync->write<s32>(1);
+		sync->write<r32>(p.camera->far_plane - fog_start(p));
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::cloud_inv_uv_scale);
+		sync->write(RenderDataType::R32);
+		sync->write<s32>(1);
+		sync->write<r32>(1.0f / config.scale);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::cloud_uv_offset);
+		sync->write(RenderDataType::Vec2);
+		sync->write<s32>(1);
+		sync->write<Vec2>(Vec2(p.camera->pos.z * 0.5f, p.camera->pos.x * -0.5f) * (1.0f / p.camera->far_plane) + config.uv_offset(p));
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::cloud_height_diff_scaled);
+		sync->write(RenderDataType::R32);
+		sync->write<s32>(1);
+		sync->write<r32>((config.height - p.camera->pos.y) / p.camera->far_plane);
+
+		Vec2 inv_buffer_size = Vec2(1.0f / r32(p.sync->input.width), 1.0f / r32(p.sync->input.height));
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::uv_offset);
+		sync->write(RenderDataType::Vec2);
+		sync->write<s32>(1);
+		sync->write<Vec2>(p.camera->viewport.pos * inv_buffer_size);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::uv_scale);
+		sync->write(RenderDataType::Vec2);
+		sync->write<s32>(1);
+		sync->write<Vec2>(p.camera->viewport.size * inv_buffer_size);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::depth_buffer);
+		sync->write(RenderDataType::Texture);
+		sync->write<s32>(1);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write<AssetID>(p.depth_buffer);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::cloud_map);
+		sync->write(RenderDataType::Texture);
+		sync->write<s32>(1);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write<AssetID>(Asset::Texture::clouds);
+
+		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
+		sync->write<AssetID>(Asset::Mesh::clouds);
+	}
+
+	sync->write<RenderOp>(RenderOp::DepthTest);
+	sync->write<b8>(true);
+}
+
+Vec2 Clouds::Config::uv_offset(const RenderParams& p) const
+{
+	return Vec2(velocity * (Game::time.total * 0.05f));
+}
+
 void SkyPattern::draw_opaque(const RenderParams& p)
 {
 	// only render depth

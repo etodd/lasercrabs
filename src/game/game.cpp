@@ -1504,8 +1504,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			entity = nullptr; // clouds are not part of the entity system
 			Clouds::Config config;
 			config.color = Json::get_vec4(element, "color");
-			config.height = Json::get_r32(element, "height");
-			config.scale = Json::get_r32(element, "scale", 1.0f);
+			config.height = absolute_pos.y;
+			config.scale = Json::get_r32(element, "scale", 1.0f) * 2.0f;
 			config.velocity = Vec2(Json::get_r32(element, "velocity_x"), Json::get_r32(element, "velocity_z"));
 			config.shadow = Json::get_r32(element, "shadow");
 			level.clouds.add(config);

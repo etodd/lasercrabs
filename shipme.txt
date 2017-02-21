@@ -1,5 +1,5 @@
-The Yearning
-===========
+Deceiver
+========
 
 Requirements
 ------------
@@ -14,6 +14,6 @@ Settings
 
 Settings are stored in the following locations:
 
-- Windows: C:\Users\<user>\AppData\Roaming\HelveticaScenario\Yearning\config.txt
-- Mac: /Users/<user>/Library/Application Support/HelveticaScenario/Yearning/config.txt
-- Linux: /home/<user>/.local/share/HelveticaScenario/Yearning/config.txt
+- Windows: C:\Users\<user>\AppData\Roaming\HelveticaScenario\Deceiver\config.txt
+- Mac: /Users/<user>/Library/Application Support/HelveticaScenario/Deceiver/config.txt
+- Linux: /home/<user>/.local/share/HelveticaScenario/Deceiver/config.txt

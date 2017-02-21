@@ -3433,6 +3433,10 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 								if (UI::project(params, pos + Vec3(0, 3, 0), &p))
 								{
 									AssetID zone = Game::level.tram_tracks[i.item()->track()].level;
+
+									if (zone == AssetNull)
+										continue;
+
 									UIText text;
 									switch (Game::save.zones[zone])
 									{

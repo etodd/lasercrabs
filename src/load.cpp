@@ -187,14 +187,14 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	Settings::width = Json::get_s32(json, "width", default_width);
 	Settings::height = Json::get_s32(json, "height", default_height);
 	Settings::fullscreen = b8(Json::get_s32(json, "fullscreen", 0));
-	Settings::vsync = b8(Json::get_s32(json, "vsync", 0));
+	Settings::vsync = b8(Json::get_s32(json, "vsync", 1));
 	Settings::sfx = u8(Json::get_s32(json, "sfx", 100));
 	Settings::music = u8(Json::get_s32(json, "music", 100));
 	s32 default_framerate_limit;
 #if SERVER
 	default_framerate_limit = 60;
 #else
-	default_framerate_limit = 144;
+	default_framerate_limit = 300;
 #endif
 	Settings::framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", default_framerate_limit));
 	Settings::shadow_quality = Settings::ShadowQuality(vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", (s32)Settings::ShadowQuality::High), (s32)Settings::ShadowQuality::count - 1)));
@@ -264,21 +264,21 @@ void Loader::settings_save()
 	{
 		Settings::Gamepad* bindings = &Settings::gamepads[i];
 		cJSON* gamepad = cJSON_CreateObject();
-		cJSON_AddItemToObject(gamepad, "backward", input_binding_json(bindings->bindings[(s32)Controls::Backward]));
-		cJSON_AddItemToObject(gamepad, "forward", input_binding_json(bindings->bindings[(s32)Controls::Forward]));
-		cJSON_AddItemToObject(gamepad, "left", input_binding_json(bindings->bindings[(s32)Controls::Left]));
-		cJSON_AddItemToObject(gamepad, "right", input_binding_json(bindings->bindings[(s32)Controls::Right]));
-		cJSON_AddItemToObject(gamepad, "primary", input_binding_json(bindings->bindings[(s32)Controls::Primary]));
-		cJSON_AddItemToObject(gamepad, "zoom", input_binding_json(bindings->bindings[(s32)Controls::Zoom]));
-		cJSON_AddItemToObject(gamepad, "ability1", input_binding_json(bindings->bindings[(s32)Controls::Ability1]));
-		cJSON_AddItemToObject(gamepad, "ability2", input_binding_json(bindings->bindings[(s32)Controls::Ability2]));
-		cJSON_AddItemToObject(gamepad, "ability3", input_binding_json(bindings->bindings[(s32)Controls::Ability3]));
-		cJSON_AddItemToObject(gamepad, "interact", input_binding_json(bindings->bindings[(s32)Controls::Interact]));
-		cJSON_AddItemToObject(gamepad, "interact_secondary", input_binding_json(bindings->bindings[(s32)Controls::InteractSecondary]));
-		cJSON_AddItemToObject(gamepad, "scoreboard", input_binding_json(bindings->bindings[(s32)Controls::Scoreboard]));
-		cJSON_AddItemToObject(gamepad, "jump", input_binding_json(bindings->bindings[(s32)Controls::Jump]));
-		cJSON_AddItemToObject(gamepad, "parkour", input_binding_json(bindings->bindings[(s32)Controls::Parkour]));
-		cJSON_AddItemToObject(gamepad, "slide", input_binding_json(bindings->bindings[(s32)Controls::Slide]));
+		cJSON_AddItemToObject(gamepad, "backward", input_binding_json(bindings->bindings[s32(Controls::Backward)]));
+		cJSON_AddItemToObject(gamepad, "forward", input_binding_json(bindings->bindings[s32(Controls::Forward)]));
+		cJSON_AddItemToObject(gamepad, "left", input_binding_json(bindings->bindings[s32(Controls::Left)]));
+		cJSON_AddItemToObject(gamepad, "right", input_binding_json(bindings->bindings[s32(Controls::Right)]));
+		cJSON_AddItemToObject(gamepad, "primary", input_binding_json(bindings->bindings[s32(Controls::Primary)]));
+		cJSON_AddItemToObject(gamepad, "zoom", input_binding_json(bindings->bindings[s32(Controls::Zoom)]));
+		cJSON_AddItemToObject(gamepad, "ability1", input_binding_json(bindings->bindings[s32(Controls::Ability1)]));
+		cJSON_AddItemToObject(gamepad, "ability2", input_binding_json(bindings->bindings[s32(Controls::Ability2)]));
+		cJSON_AddItemToObject(gamepad, "ability3", input_binding_json(bindings->bindings[s32(Controls::Ability3)]));
+		cJSON_AddItemToObject(gamepad, "interact", input_binding_json(bindings->bindings[s32(Controls::Interact)]));
+		cJSON_AddItemToObject(gamepad, "interact_secondary", input_binding_json(bindings->bindings[s32(Controls::InteractSecondary)]));
+		cJSON_AddItemToObject(gamepad, "scoreboard", input_binding_json(bindings->bindings[s32(Controls::Scoreboard)]));
+		cJSON_AddItemToObject(gamepad, "jump", input_binding_json(bindings->bindings[s32(Controls::Jump)]));
+		cJSON_AddItemToObject(gamepad, "parkour", input_binding_json(bindings->bindings[s32(Controls::Parkour)]));
+		cJSON_AddItemToObject(gamepad, "slide", input_binding_json(bindings->bindings[s32(Controls::Slide)]));
 		cJSON_AddItemToObject(gamepad, "invert_y", cJSON_CreateNumber(bindings->invert_y));
 		cJSON_AddItemToObject(gamepad, "sensitivity", cJSON_CreateNumber(bindings->sensitivity));
 		cJSON_AddItemToArray(gamepads, gamepad);

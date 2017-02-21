@@ -165,7 +165,7 @@ const r32 nav_resolution = 0.2f;
 const r32 nav_walkable_slope = 45.0f; // degrees
 const r32 nav_tile_size = 20.0f;
 const s32 nav_max_layers = 32;
-const s32 nav_expected_layers_per_tile = 8; // how many layers (or "floors") each navmesh tile is expected to have
+const s32 nav_expected_layers_per_tile = 12; // how many layers (or "floors") each navmesh tile is expected to have
 const s32 nav_max_obstacles = 128;
 
 template<typename T> struct Chunks

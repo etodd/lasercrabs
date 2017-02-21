@@ -1,6 +1,6 @@
 # CMake entry point
 cmake_minimum_required (VERSION 2.6)
-project (yearning)
+project (deceiver)
 
 ## Includes
 
@@ -356,8 +356,8 @@ if (SERVER)
 		${SRC}
 		src/platform/server.cpp
 	)
-	#enable_unity_build(yearningsrv SRC_SERVER)
-	add_executable(yearningsrv ${SRC_SERVER})
+	#enable_unity_build(deceiversrv SRC_SERVER)
+	add_executable(deceiversrv ${SRC_SERVER})
 
 	# master
 	set(SRC_MASTER
@@ -377,21 +377,21 @@ if (SERVER)
 		src/asset/level.h
 		src/platform/master_server.cpp
 	)
-	#enable_unity_build(yearningmaster SRC_MASTER)
-	add_executable(yearningmaster
+	#enable_unity_build(deceivermaster SRC_MASTER)
+	add_executable(deceivermaster
 		${SRC_MASTER}
 	)
 
-	target_include_directories(yearningsrv PRIVATE
+	target_include_directories(deceiversrv PRIVATE
 		${ALL_INCLUDES}
 		external/wwise
 	)
 
-	target_include_directories(yearningmaster PRIVATE
+	target_include_directories(deceivermaster PRIVATE
 		${ALL_INCLUDES}
 	)
 
-	target_link_libraries(yearningsrv
+	target_link_libraries(deceiversrv
 		BulletDynamics
 		BulletCollision
 		BulletSoftBody
@@ -408,13 +408,13 @@ if (SERVER)
 	if (APPLE)
 	elseif (WIN32)
 	else()
-		target_link_libraries(yearningsrv "-lpthread")
+		target_link_libraries(deceiversrv "-lpthread")
 	endif()
 
-	target_compile_definitions(yearningsrv PRIVATE -DSERVER=1)
-	target_compile_definitions(yearningmaster PRIVATE -DMASTER_SERVER=1)
+	target_compile_definitions(deceiversrv PRIVATE -DSERVER=1)
+	target_compile_definitions(deceivermaster PRIVATE -DMASTER_SERVER=1)
 
-	target_link_libraries(yearningmaster
+	target_link_libraries(deceivermaster
 		zlibstatic
 		cJSON
 	)
@@ -429,17 +429,17 @@ if (CLIENT)
 			src/platform/ps/glvm.cpp
 			src/platform/ps/main.cpp
 		)
-		#enable_unity_build(yearning SRC_PLAYSTATION)
-		add_executable(yearning ${SRC_PLAYSTATION})
+		#enable_unity_build(deceiver SRC_PLAYSTATION)
+		add_executable(deceiver ${SRC_PLAYSTATION})
 	else()
 		set(SRC_CLIENT
 			${SRC}
 			src/platform/glvm.cpp
 			src/platform/sdl.cpp
 		)
-		#enable_unity_build(yearning SRC_CLIENT)
-		add_executable(yearning ${SRC_CLIENT})
-		target_include_directories(yearning PRIVATE ${SDL2_BINARY_DIR}/include)
+		#enable_unity_build(deceiver SRC_CLIENT)
+		add_executable(deceiver ${SRC_CLIENT})
+		target_include_directories(deceiver PRIVATE ${SDL2_BINARY_DIR}/include)
 	endif()
 
 	add_custom_command(
@@ -448,19 +448,19 @@ if (CLIENT)
 		MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt
 	)
 
-	target_include_directories(yearning PRIVATE ${ALL_INCLUDES})
+	target_include_directories(deceiver PRIVATE ${ALL_INCLUDES})
 
 	if(WIN32)
-		set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
-		set_property(TARGET yearning APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
-		set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
-		set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
-		set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
+		set_property(TARGET deceiver APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+		set_property(TARGET deceiver APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
+		set_property(TARGET deceiver APPEND PROPERTY LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
+		set_property(TARGET deceiver APPEND PROPERTY LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
+		set_property(TARGET deceiver APPEND PROPERTY LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
 	endif(WIN32)
 
 	## Libraries
 
-	target_link_libraries(yearning
+	target_link_libraries(deceiver
 		${OPENGL_LIBRARIES}
 		${SDL_LIBS}
 		BulletDynamics
@@ -479,10 +479,10 @@ if (CLIENT)
 	)
 
 	if (APPLE)
-		target_link_libraries(yearning "-framework AudioToolbox" "-framework CoreAudio")
+		target_link_libraries(deceiver "-framework AudioToolbox" "-framework CoreAudio")
 	elseif (WIN32)
 	else()
-		target_link_libraries(yearning "-lpthread")
+		target_link_libraries(deceiver "-lpthread")
 	endif()
 endif()
 
@@ -649,9 +649,9 @@ if (NOT PLAYSTATION)
 	)
 	add_dependencies(assets import)
 	if (CLIENT)
-		add_dependencies(yearning assets)
+		add_dependencies(deceiver assets)
 	endif()
 	if (SERVER)
-		add_dependencies(yearningsrv assets)
+		add_dependencies(deceiversrv assets)
 	endif()
 endif()

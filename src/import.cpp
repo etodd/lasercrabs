@@ -1863,13 +1863,13 @@ b8 build_nav_mesh(const Mesh& input, TileCacheData* output_tiles)
 	cfg.walkableRadius = (s32)ceilf(nav_agent_radius / cfg.cs);
 	cfg.maxEdgeLen = (s32)(nav_edge_max_length / cfg.cs);
 	cfg.maxSimplificationError = nav_mesh_max_error;
-	cfg.minRegionArea = (s32)rcSqr(nav_min_region_size);		// Note: area = size*size
-	cfg.mergeRegionArea = (s32)rcSqr(nav_merged_region_size);	// Note: area = size*size
+	cfg.minRegionArea = (s32)rcSqr(nav_min_region_size); // area = size*size
+	cfg.mergeRegionArea = (s32)rcSqr(nav_merged_region_size); // area = size*size
 	cfg.maxVertsPerPoly = 6;
 	cfg.detailSampleDist = nav_detail_sample_distance < 0.9f ? 0 : cfg.cs * nav_detail_sample_distance;
 	cfg.detailSampleMaxError = cfg.ch * nav_detail_sample_max_error;
 	cfg.tileSize = nav_tile_size;
-	cfg.borderSize = cfg.walkableRadius + 3; // Reserve enough padding.
+	cfg.borderSize = cfg.walkableRadius + 3; // reserve enough padding.
 	cfg.width = cfg.tileSize + cfg.borderSize * 2;
 	cfg.height = cfg.tileSize + cfg.borderSize * 2;
 

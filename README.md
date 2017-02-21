@@ -1,5 +1,5 @@
-The Yearning
-===========
+Deceiver
+========
 
 Features
 --------
@@ -10,11 +10,10 @@ separate threads for physics, rendering, AI, and game logic
 - Linear math suite somewhat stolen from Ogre
 - Content pipeline supporting .blend, .glsl, .otf, .png
 - Create levels, models, animations, and ragdoll rigs in Blender
-- Deferred rendering, cascaded shadow maps, edge detection, bloom, SSAO
+- Deferred rendering, cascaded shadow maps, edge detection, bloom, SSAO, clouds
 - Geometry-based UI system
-- Efficient behavior tree implementation doubles as a tween system
+- UDP client-server network architecture with master server
 - Localization support
-- Dialogue tree system complete with [an editor](https://github.com/etodd/dialogger/tree/yearning)
 - Keyboard/mouse/gamepad support via SDL
 - Automatic navmesh generation with realtime mutations via Recast
 - Audio via Wwise
@@ -39,8 +38,8 @@ Windows quickstart
 6. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI`
 is available on the path
 7. Run `setup-win.bat`
-8. Open `build/yearning.sln` in Visual Studio
-9. Set the `yearning` project as the default startup project
+8. Open `build/deceiver.sln` in Visual Studio
+9. Set the `deceiver` project as the default startup project
 10. Hit F5 to run the game
 
 Linux quickstart
@@ -53,7 +52,7 @@ to build the Linux soundbanks.
 4. Copy the soundbanks into `assets/audio/GeneratedSoundBanks/Linux`
 5. If you are on Debian/Ubuntu, run `./setup-debian-deps`. Otherwise you'll need to install these dependencies yourself.
 6. Run `./setup-linux`
-7. Run `./yearning` from the `build` folder
+7. Run `./deceiver` from the `build` folder
 
 Mac quickstart
 --------------
@@ -67,7 +66,7 @@ is available on the path
 5. Wwise might have trouble generating soundbanks the first time. You might
 need to delete any cache files and open the project manually in Wwise first.
 6. Run `./setup-mac`
-7. Run `./yearning` from the `build` folder
+7. Run `./deceiver` from the `build` folder
 
 Asset license
 -------------

@@ -105,7 +105,7 @@ namespace VI
 			return -1;
 		}
 
-		Loader::data_directory = SDL_GetPrefPath("HelveticaScenario", "Yearning");
+		Loader::data_directory = SDL_GetPrefPath("HelveticaScenario", "Deceiver");
 
 		SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
 
@@ -128,7 +128,7 @@ namespace VI
 
 		window = SDL_CreateWindow
 		(
-			"The Yearning",
+			"Deceiver",
 			0,
 			0,
 			Settings::width, Settings::height,

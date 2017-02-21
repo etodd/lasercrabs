@@ -373,6 +373,10 @@ namespace Master
 				}
 				break;
 			}
+			case Message::Ping:
+			{
+				break;
+			}
 			default:
 			{
 				net_error();

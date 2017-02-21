@@ -64,9 +64,11 @@ Entity::Entity()
 
 Entity::Iterator Entity::iterator(ComponentMask mask)
 {
-	Entity::Iterator i;
-	i.index = Entity::list.mask.start;
+	Iterator i;
+	i.index = list.mask.start;
 	i.mask = mask;
+	while (!i.is_last() && !(list[i.index].component_mask & mask))
+		i.next();
 	return i;
 }
 

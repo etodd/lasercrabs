@@ -37,7 +37,7 @@
 #define DEBUG_PACKET_LOSS 0
 #define DEBUG_PACKET_LOSS_AMOUNT 0.25f
 
-#define MASTER_PING_TIMEOUT 5.0f
+#define MASTER_PING_TIMEOUT 8.0f
 
 namespace VI
 {
@@ -2028,7 +2028,7 @@ void server_state(Master::ServerState* s)
 {
 	s->level = Game::level.id;
 	s->story_mode = Game::session.story_mode;
-	s->open_slots = s8(Game::session.player_slots - PlayerManager::list.count());
+	s->open_slots = s8(vi_max(0, Game::session.player_slots - PlayerManager::list.count()));
 	s->team_count = Game::session.team_count;
 	s->game_type = Game::level.type;
 }
@@ -2975,7 +2975,6 @@ void tick(const Update& u, r32 dt)
 				state_client.timeout = 0.0f;
 				master_send_server_request();
 			}
-			state_master.update(state_common.timestamp, &sock, 4);
 			break;
 		}
 		case Mode::Connecting:
@@ -3113,7 +3112,7 @@ b8 packet_handle_master(StreamRead* p)
 b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
 	using Stream = StreamRead;
-	if (address.equals(master_addr) && state_client.mode == Mode::ContactingMaster)
+	if (address.equals(master_addr) && (state_client.mode == Mode::ContactingMaster || master_ping_timer > 0.0f))
 		return packet_handle_master(p);
 	else if (state_client.mode == Mode::Disconnected
 		|| state_client.mode == Mode::ContactingMaster
@@ -3548,6 +3547,9 @@ void update_end(const Update& u)
 	// server always runs at 60 FPS
 	Server::tick(u, dt);
 #else
+	if (Client::state_client.mode == Client::Mode::ContactingMaster || Client::master_ping_timer > 0.0f)
+		state_master.update(state_common.timestamp, &sock, 4);
+
 	if (Game::level.local)
 		state_common.msgs_out.length = 0; // clear out message queue because we're never going to send these
 	else

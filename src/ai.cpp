@@ -587,6 +587,11 @@ s8 record_control_point_state(ControlPoint* c)
 
 b8 record_filter(Entity* e, const Vec3& pos)
 {
+	if (!e->has<Transform>())
+	{
+		vi_debug("%d", s32(e->id()));
+		vi_debug_break();
+	}
 	return (e->get<Transform>()->absolute_pos() - pos).length_squared() < (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f);
 }
 
@@ -595,7 +600,7 @@ void RecordedLife::Tag::init(Entity* player)
 	AI::Team my_team = player->get<AIAgent>()->team;
 	shield = player->get<Health>()->shield;
 	time = vi_min(255, s32(Game::time.total / (MATCH_TIME_DEFAULT / 255.0f)));
-	energy = player->get<PlayerCommon>()->get<PlayerManager>()->credits;
+	energy = player->get<PlayerCommon>()->manager.ref()->credits;
 	enemy_upgrades = 0;
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{

@@ -1609,8 +1609,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			entity = World::alloc<WaterEntity>(mesh_id);
 			Water* water = entity->get<Water>();
 			water->config.texture = Loader::find(Json::get_string(element, "texture", "water_normal"), AssetLookup::Texture::names);
-			water->config.displacement_horizontal = Json::get_r32(element, "displacement_horizontal", 2.0f);
-			water->config.displacement_vertical = Json::get_r32(element, "displacement_vertical", 0.75f);
+			water->config.displacement_horizontal = Json::get_r32(element, "displacement_horizontal", 1.25f);
+			water->config.displacement_vertical = Json::get_r32(element, "displacement_vertical", 1.0f);
 		}
 		else if (cJSON_HasObjectItem(element, "Prop"))
 		{

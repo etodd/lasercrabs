@@ -508,7 +508,7 @@ ControlPointEntity::ControlPointEntity(AI::Team team, const Vec3& pos)
 	create<PlayerTrigger>()->radius = CONTROL_POINT_RADIUS;
 
 	PointLight* light = create<PointLight>();
-	light->offset.z = 2.0f;
+	light->offset.y = 2.0f;
 	light->radius = 12.0f;
 
 	create<ControlPoint>(team);

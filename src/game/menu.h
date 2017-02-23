@@ -29,15 +29,17 @@ struct UIMenu
 		b8 slider;
 	};
 
-	enum class Delta
-	{
-		None,
-		Up,
-		Down,
-	};
-
 	static void text_clip_timer(UIText*, r32, r32);
 	static void text_clip(UIText*, r32, r32);
+	template<typename T> static void enum_option(T* t, s32 delta)
+	{
+		s32 value_new = s32(*t) + delta;
+		if (value_new < 0)
+			value_new = s32(T::count) - 1;
+		else if (value_new >= s32(T::count))
+			value_new = 0;
+		*t = T(value_new);
+	}
 
 	char selected;
 	StaticArray<Item, 10> items;
@@ -53,7 +55,7 @@ struct UIMenu
 	const Item* last_visible_item() const;
 	b8 add_item(b8, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	b8 item(const Update&, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
-	Delta slider_item(const Update&, const char*, const char*, b8 = false, AssetID = AssetNull);
+	s32 slider_item(const Update&, const char*, const char*, b8 = false, AssetID = AssetNull);
 	void draw_ui(const RenderParams&, const Vec2&, UIText::Anchor, UIText::Anchor) const;
 	void end();
 };

@@ -188,8 +188,8 @@ namespace Master
 		messenger.add_header(&p, server->addr, Message::ServerLoad);
 		if (!serialize_server_state(&p, s))
 			net_error();
-		vi_assert(b8(save) == s->story_mode);
-		if (s->story_mode)
+		vi_assert(b8(save) == (s->session_type == SessionType::Story));
+		if (s->session_type == SessionType::Story)
 		{
 			if (!serialize_save(&p, save))
 				net_error();
@@ -298,8 +298,8 @@ namespace Master
 				if (s.level < 0
 					|| s.open_slots == 0
 					|| s.level >= Asset::Level::count
-					|| (s.story_mode && s.open_slots != 1)
-					|| (s.story_mode && s.team_count != 2))
+					|| (s.session_type == SessionType::Story && s.open_slots != 1)
+					|| (s.session_type == SessionType::Story && s.team_count != 2))
 					net_error();
 				if (node->state == Node::State::ClientConnecting)
 				{
@@ -309,7 +309,7 @@ namespace Master
 					|| node->state == Node::State::ClientIdle
 					|| node->state == Node::State::ClientWaiting)
 				{
-					if (s.story_mode)
+					if (s.session_type == SessionType::Story)
 					{
 						if (!node->save)
 							node->save = new Save();
@@ -538,11 +538,12 @@ namespace Master
 					Node* server = node_for_address(servers[i]);
 					if (server->state == Node::State::ServerIdle)
 					{
-						// find someone looking for a story-mode server and give this server to them
+						// find someone looking for a custom server and give this server to them
 						for (s32 j = 0; j < clients_waiting.length; j++)
 						{
 							Node* client = node_for_address(clients_waiting[j]);
-							if (client->server_state.story_mode)
+							if (client->server_state.session_type == SessionType::Story
+								|| client->server_state.session_type == SessionType::Custom)
 							{
 								send_server_load(timestamp, server, &client->server_state, client->save);
 								client_queue_join(timestamp, server, client);
@@ -557,7 +558,7 @@ namespace Master
 					{
 						vi_assert(server->state == Node::State::ServerActive || server->state == Node::State::ServerLoading);
 						s8 open_slots = server_open_slots(server);
-						if (!server->server_state.story_mode && open_slots > 0)
+						if (server->server_state.session_type == SessionType::Public && open_slots > 0)
 						{
 							multiplayer_servers.add(server->addr);
 							existing_multiplayer_slots += open_slots;
@@ -565,23 +566,26 @@ namespace Master
 					}
 				}
 
-				// allocate multiplayer servers as necessary
+				// allocate public multiplayer servers as necessary
 				s32 needed_multiplayer_slots = 0;
 				{
 					for (s32 i = 0; i < clients_waiting.length; i++)
 					{
 						Node* node = node_for_address(clients_waiting[i]);
-						if (!node->server_state.story_mode)
+						if (node->server_state.session_type == SessionType::Public)
 							needed_multiplayer_slots += node->server_state.open_slots;
 					}
 
-					// todo: different multiplayer setups
+					// todo: different public multiplayer setups
 					ServerState multiplayer_state;
 					multiplayer_state.level = Asset::Level::Media_Tower;
 					multiplayer_state.open_slots = 4;
-					multiplayer_state.story_mode = false;
+					multiplayer_state.session_type = SessionType::Public;
 					multiplayer_state.team_count = 2;
 					multiplayer_state.game_type = GameType::Rush;
+					multiplayer_state.kill_limit = 0;
+					multiplayer_state.respawns = 5;
+					multiplayer_state.time_limit_minutes = 8;
 
 					s32 server_allocs = vi_min(idle_servers, ((needed_multiplayer_slots - existing_multiplayer_slots) + MAX_PLAYERS - 1) / MAX_PLAYERS); // ceil divide
 					for (s32 i = 0; i < server_allocs; i++)
@@ -602,7 +606,7 @@ namespace Master
 					for (s32 j = 0; j < clients_waiting.length; j++)
 					{
 						Node* client = node_for_address(clients_waiting[j]);
-						if (slots >= client->server_state.open_slots)
+						if (client->server_state.session_type == SessionType::Public && slots >= client->server_state.open_slots)
 						{
 							client_queue_join(timestamp, server, client);
 							if (server->state != Node::State::ServerLoading) // server already loaded, no need to wait for it

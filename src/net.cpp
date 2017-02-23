@@ -449,6 +449,9 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Decoy* d = e->get<Decoy>();
 		serialize_ref(p, d->owner);
 		serialize_ref(p, d->shield);
+		serialize_ref(p, d->overshield);
+		if (Stream::IsReading)
+			d->shield_time = 0.0f;
 	}
 
 	if (e->has<MinionCommon>())
@@ -785,7 +788,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_s16(p, Game::level.respawns);
 	serialize_enum(p, Game::Mode, Game::level.mode);
 	serialize_enum(p, GameType, Game::level.type);
-	serialize_bool(p, Game::session.story_mode);
+	serialize_enum(p, SessionType, Game::session.type);
 	serialize_bool(p, Game::level.post_pvp);
 	serialize_ref(p, Game::level.map_view);
 	serialize_ref(p, Game::level.terminal);
@@ -799,8 +802,14 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 		serialize_int(p, AssetID, Game::level.scripts[i], 0, Script::count);
 	serialize_int(p, s8, Game::session.player_slots, 1, MAX_PLAYERS);
 	serialize_int(p, s8, Game::session.team_count, 2, MAX_PLAYERS);
+	serialize_s16(p, Game::session.kill_limit);
+	serialize_s16(p, Game::session.respawns);
 	if (Stream::IsReading)
+	{
 		Game::level.finder.map.length = 0;
+		Game::session.game_type = Game::level.type;
+		Game::session.time_limit = Game::level.time_limit;
+	}
 	return true;
 }
 
@@ -2027,10 +2036,13 @@ Client* client_for_player(const PlayerHuman* player)
 void server_state(Master::ServerState* s)
 {
 	s->level = Game::level.id;
-	s->story_mode = Game::session.story_mode;
+	s->session_type = Game::session.type;
 	s->open_slots = s8(vi_max(0, Game::session.player_slots - PlayerManager::list.count()));
 	s->team_count = Game::session.team_count;
 	s->game_type = Game::level.type;
+	s->time_limit_minutes = u8(Game::level.time_limit / 60.0f);
+	s->kill_limit = Game::level.kill_limit;
+	s->respawns = Game::level.respawns;
 }
 
 b8 master_send_status_update()
@@ -2086,7 +2098,7 @@ void level_loading()
 void level_loaded()
 {
 	vi_assert(state_server.mode == Mode::Loading);
-	state_server.mode = Game::session.story_mode ? Mode::Active : Mode::Waiting;
+	state_server.mode = Game::session.type == SessionType::Story ? Mode::Active : Mode::Waiting;
 	master_send_status_update();
 }
 
@@ -2218,13 +2230,6 @@ void update(const Update& u, r32 dt)
 			}
 		}
 	}
-
-	// ensure everything is being finalized properly
-#if DEBUG
-	for (s32 i = 0; i < World::create_queue.length; i++)
-		vi_assert(World::create_queue[i].ref()->finalized);
-	World::create_queue.length = 0;
-#endif
 }
 
 void handle_client_disconnect(Client* c)
@@ -2347,16 +2352,19 @@ b8 packet_handle_master(StreamRead* p)
 				net_error();
 			if (s.level >= 0 && s.level < Asset::Level::count)
 			{
-				Game::session.story_mode = s.story_mode;
 				Game::session.team_count = s.team_count;
 				Game::session.player_slots = s.open_slots;
-				Game::level.type = s.game_type;
-				if (s.story_mode)
+				Game::session.type = s.session_type;
+				Game::session.game_type = s.game_type;
+				Game::session.kill_limit = s.kill_limit;
+				Game::session.respawns = s.respawns;
+				Game::session.time_limit = r32(s.time_limit_minutes) * 60.0f;
+				if (s.session_type == SessionType::Story)
 				{
 					if (!Master::serialize_save(p, &Game::save))
 						net_error();
 				}
-				Game::load_level(s.level, s.story_mode ? Game::Mode::Parkour : Game::Mode::Pvp);
+				Game::load_level(s.level, s.session_type == SessionType::Story ? Game::Mode::Parkour : Game::Mode::Pvp);
 			}
 			else
 				net_error();
@@ -2423,7 +2431,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 						using Stream = StreamWrite;
 
 						// save data
-						if (Game::session.story_mode)
+						if (Game::session.type == SessionType::Story)
 						{
 							StreamWrite* p = msg_new(&client->msgs_out_load, MessageType::InitSave);
 							if (!Master::serialize_save(p, &Game::save))
@@ -2881,6 +2889,14 @@ void update(const Update& u, r32 dt)
 		}
 	}
 
+	if (show_stats) // bandwidth counters are updated every half second
+	{
+		if (state_client.mode == Mode::Disconnected)
+			Console::debug("%s", "Disconnected");
+		else
+			Console::debug("%.0fkbps down | %.0fkbps up | %.0fms", state_common.bandwidth_in * 8.0f / 500.0f, state_common.bandwidth_out * 8.0f / 500.0f, state_client.server_rtt * 1000.0f);
+	}
+
 	if (Game::level.local)
 		return;
 
@@ -2920,14 +2936,6 @@ void update(const Update& u, r32 dt)
 				break;
 		}
 	}
-
-	if (show_stats) // bandwidth counters are updated every half second
-	{
-		if (state_client.mode == Mode::Disconnected)
-			Console::debug("%s", "Disconnected");
-		else
-			Console::debug("%.0fkbps down | %.0fkbps up | %.0fms", state_common.bandwidth_in * 8.0f / 500.0f, state_common.bandwidth_out * 8.0f / 500.0f, state_client.server_rtt * 1000.0f);
-	}
 }
 
 void handle_server_disconnect()
@@ -2949,7 +2957,7 @@ b8 master_send_server_request()
 	state_master.add_header(&p, master_addr, Master::Message::ClientRequestServer);
 	if (!serialize_server_state(&p, &state_client.requested_server_state))
 		net_error();
-	if (state_client.requested_server_state.story_mode)
+	if (state_client.requested_server_state.session_type == SessionType::Story)
 	{
 		if (!Master::serialize_save(&p, &Game::save))
 			net_error();
@@ -3031,17 +3039,14 @@ void connect(const char* ip, u16 port)
 	connect(addr);
 }
 
-b8 allocate_server(b8 story_mode, AssetID level, s8 open_slots, s8 team_count)
+b8 allocate_server(const Master::ServerState& server_state)
 {
 	Game::level.local = false;
 	Game::schedule_timer = 0.0f;
 
 	state_client.timeout = 0.0f;
 	state_client.mode = Mode::ContactingMaster;
-	state_client.requested_server_state.story_mode = story_mode;
-	state_client.requested_server_state.level = level;
-	state_client.requested_server_state.open_slots = open_slots;
-	state_client.requested_server_state.team_count = team_count;
+	state_client.requested_server_state = server_state;
 
 	master_send(Master::Message::Disconnect);
 	state_master.reset();
@@ -3423,9 +3428,6 @@ b8 finalize(Entity* e)
 			vi_assert(false);
 		msg_finalize(p);
 	}
-#if DEBUG
-	e->finalized = true;
-#endif
 #else
 	// client
 	vi_assert(Game::level.local); // client can't spawn entities if it is connected to a server

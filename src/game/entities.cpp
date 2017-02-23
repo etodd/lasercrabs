@@ -1199,6 +1199,8 @@ void Decoy::awake()
 			s->shader = Asset::Shader::fresnel;
 			s->alpha();
 			s->color.w = AWK_OVERSHIELD_ALPHA;
+
+			Net::finalize(overshield_entity);
 		}
 	}
 }

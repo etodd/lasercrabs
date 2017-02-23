@@ -118,9 +118,6 @@ struct Entity
 	ComponentMask component_mask;
 	ID components[MAX_FAMILIES];
 	Revision revision;
-#if SERVER && DEBUG
-	b8 finalized;
-#endif
 	Entity();
 
 	template<typename T, typename... Args> T* create(Args... args);
@@ -170,9 +167,6 @@ struct World
 	static Family families;
 	static Array<ID> remove_buffer;
 	static ComponentPoolBase* component_pools[MAX_FAMILIES];
-#if SERVER && DEBUG
-	static Array<Ref<Entity> > create_queue;
-#endif
 
 	static void init();
 
@@ -180,9 +174,6 @@ struct World
 	{
 		Entity* e = Entity::list.add();
 		e->revision++;
-#if SERVER && DEBUG
-		create_queue.add(e);
-#endif
 		new (e) T(args...);
 		return (T*)e;
 	}

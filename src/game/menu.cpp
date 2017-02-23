@@ -301,15 +301,10 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			{
 				Game::save.reset();
 				Game::session.reset();
-				Game::session.story_mode = false;
+				Game::session.type = SessionType::Public;
 				Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
 				clear();
 			}
-			/*
-			if (menu->item(u, _(strings::online)))
-			{
-			}
-			*/
 			if (menu->item(u, _(strings::options)))
 			{
 				*state = State::Options;
@@ -362,7 +357,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			}
 			if (menu->item(u, _(strings::quit)))
 			{
-				if (Game::session.story_mode)
+				if (Game::session.type == SessionType::Story)
 					dialog(gamepad, &quit_to_title, _(strings::confirm_quit));
 				else
 					dialog(gamepad, &quit_to_overworld, _(strings::confirm_quit));
@@ -696,15 +691,15 @@ b8 options(const Update& u, s8 gamepad, UIMenu* menu)
 	b8 exit = menu->item(u, _(strings::back)) || (!Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
 
 	char str[128];
-	UIMenu::Delta delta;
+	s32 delta;
 
 	{
 		u8* sensitivity = &Settings::gamepads[gamepad].sensitivity;
 		sprintf(str, "%u", *sensitivity);
 		delta = menu->slider_item(u, _(strings::sensitivity), str);
-		if (delta == UIMenu::Delta::Down)
+		if (delta < 0)
 			*sensitivity = vi_max(10, (s32)(*sensitivity) - 10);
-		else if (delta == UIMenu::Delta::Up)
+		else if (delta > 0)
 			*sensitivity = vi_min(250, (s32)(*sensitivity) + 10);
 	}
 
@@ -712,29 +707,29 @@ b8 options(const Update& u, s8 gamepad, UIMenu* menu)
 		b8* invert_y = &Settings::gamepads[gamepad].invert_y;
 		sprintf(str, "%s", _(*invert_y ? strings::yes : strings::no));
 		delta = menu->slider_item(u, _(strings::invert_y), str);
-		if (delta != UIMenu::Delta::None)
+		if (delta != 0)
 			*invert_y = !(*invert_y);
 	}
 
 	{
 		sprintf(str, "%d", Settings::sfx);
 		delta = menu->slider_item(u, _(strings::sfx), str);
-		if (delta == UIMenu::Delta::Down)
+		if (delta < 0)
 			Settings::sfx = vi_max(0, Settings::sfx - 10);
-		else if (delta == UIMenu::Delta::Up)
+		else if (delta > 0)
 			Settings::sfx = vi_min(100, Settings::sfx + 10);
-		if (delta != UIMenu::Delta::None)
+		if (delta != 0)
 			Audio::global_param(AK::GAME_PARAMETERS::SFXVOL, (r32)Settings::sfx / 100.0f);
 	}
 
 	{
 		sprintf(str, "%d", Settings::music);
 		delta = menu->slider_item(u, _(strings::music), str);
-		if (delta == UIMenu::Delta::Down)
+		if (delta < 0)
 			Settings::music = vi_max(0, Settings::music - 10);
-		else if (delta == UIMenu::Delta::Up)
+		else if (delta > 0)
 			Settings::music = vi_min(100, Settings::music + 10);
-		if (delta != UIMenu::Delta::None)
+		if (delta != 0)
 			Audio::global_param(AK::GAME_PARAMETERS::MUSICVOL, (r32)Settings::music / 100.0f);
 	}
 
@@ -846,34 +841,29 @@ b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disab
 	return false;
 }
 
-UIMenu::Delta UIMenu::slider_item(const Update& u, const char* label, const char* value, b8 disabled, AssetID icon)
+s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b8 disabled, AssetID icon)
 {
 	if (!add_item(true, label, value, disabled, icon))
-		return Delta::None;
+		return 0;
 
 	if (Console::visible || active[gamepad] != this)
-		return Delta::None;
+		return 0;
 
 	if (disabled)
-		return Delta::None;
+		return 0;
 
 	if (selected == items.length - 1
 		&& Game::time.total > 0.5f)
 	{
 		s32 delta = UI::input_delta_horizontal(u, gamepad);
 		if (delta < 0)
-		{
 			Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-			return Delta::Down;
-		}
 		else if (delta > 0)
-		{
 			Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-			return Delta::Up;
-		}
+		return delta;
 	}
 	
-	return Delta::None;
+	return 0;
 }
 
 void UIMenu::end()

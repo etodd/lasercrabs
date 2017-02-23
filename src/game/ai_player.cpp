@@ -94,7 +94,7 @@ void PlayerAI::spawn(const PlayerSpawnPosition& spawn_pos)
 	if (!spawning)
 	{
 		AI::TeamMask team_mask = 1 << manager.ref()->team.ref()->team();
-		if (config.spawn_time == 0.0f && Game::session.story_mode && EnergyPickup::count(team_mask) > 0)
+		if (config.spawn_time == 0.0f && Game::session.type == SessionType::Story && EnergyPickup::count(team_mask) > 0)
 		{
 			// player has been here for a while; pick a random spawn point near a pickup we own
 

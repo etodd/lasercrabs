@@ -28,6 +28,7 @@ struct ResourceInfo
 enum class State
 {
 	Hidden,
+	SplitscreenSelectOptions,
 	SplitscreenSelectTeams,
 	SplitscreenSelectZone,
 	SplitscreenDeploying,

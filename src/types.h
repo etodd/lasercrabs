@@ -7,8 +7,6 @@ namespace VI
 {
 
 typedef bool b8;
-
-typedef std::size_t memory_index;
 	
 typedef int8_t s8;
 typedef int16_t s16;
@@ -19,6 +17,8 @@ typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
+
+typedef std::size_t memory_index;
 
 typedef float r32;
 typedef double r64;
@@ -96,6 +96,14 @@ enum class GameType
 {
 	Rush,
 	Deathmatch,
+	count,
+};
+
+enum class SessionType
+{
+	Story,
+	Public,
+	Custom,
 	count,
 };
 

@@ -9,9 +9,6 @@ namespace VI
 PinArray<Entity, MAX_ENTITIES> Entity::list;
 Array<ID> World::remove_buffer;
 ComponentPoolBase* World::component_pools[MAX_FAMILIES];
-#if SERVER && DEBUG
-Array<Ref<Entity> > World::create_queue;
-#endif
 
 LinkEntry::Data::Data()
 	: id(), revision()
@@ -57,9 +54,6 @@ void World::awake(Entity* e)
 Entity::Entity()
 	: component_mask()
 {
-#if SERVER && DEBUG
-	finalized = false;
-#endif
 }
 
 Entity::Iterator Entity::iterator(ComponentMask mask)

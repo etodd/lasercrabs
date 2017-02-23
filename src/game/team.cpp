@@ -192,7 +192,7 @@ b8 Team::has_active_player() const
 
 void Team::transition_next()
 {
-	if (Game::session.story_mode)
+	if (Game::session.type == SessionType::Story)
 	{
 		if (Game::level.id == Game::save.zone_current)
 			transition_mode(Game::Mode::Parkour);
@@ -205,7 +205,14 @@ void Team::transition_next()
 		}
 	}
 	else
+	{
+#if SERVER
+		// todo: map rotation
+		Game::schedule_load_level(Game::level.id, Game::Mode::Pvp);
+#else
 		Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
+#endif
+	}
 }
 
 s16 Team::containment_field_mask(AI::Team t)
@@ -559,7 +566,7 @@ b8 Team::net_msg(Net::StreamRead* p)
 				AI::Team team = i.item()->team.ref()->team();
 				team_add_score_summary_item(i.item(), i.item()->username);
 				team_add_score_summary_item(i.item(), _(strings::kills), i.item()->kills);
-				if (Game::session.story_mode)
+				if (Game::session.type == SessionType::Story)
 					team_add_score_summary_item(i.item(), _(strings::leftover_energy), i.item()->credits);
 				if (PlayerManager::list.count() > 2)
 					team_add_score_summary_item(i.item(), _(strings::deaths), i.item()->deaths);
@@ -612,7 +619,7 @@ b8 Team::net_msg(Net::StreamRead* p)
 			if (Game::level.post_pvp && Game::level.mode == Game::Mode::Parkour)
 			{
 				// exiting pvp mode
-				vi_assert(Game::session.story_mode);
+				vi_assert(Game::session.type == SessionType::Story);
 				AI::Team team_winner = winner.ref()->team();
 				// winner takes all
 				if (Game::level.local)
@@ -722,7 +729,7 @@ void Team::update_all_server(const Update& u)
 			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 				i.item()->set_team(w->team());
 
-			if (Game::session.story_mode)
+			if (Game::session.type == SessionType::Story)
 			{
 				// we're in story mode, give the player whatever stuff they have leftover
 				if (PlayerHuman::list.count() > 0)
@@ -889,7 +896,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	abilities{ Ability::None, Ability::None, Ability::None },
 	instance(),
 	spawn(),
-	can_spawn(Game::level.mode == Game::Mode::Parkour || !Game::session.story_mode || Game::save.zones[Game::level.id] == ZoneState::Friendly),
+	can_spawn(Game::level.mode == Game::Mode::Parkour || Game::session.type != SessionType::Story || Game::save.zones[Game::level.id] == ZoneState::Friendly),
 	current_upgrade(Upgrade::None),
 	state_timer(),
 	upgrade_completed(),
@@ -902,7 +909,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
 	{
 		credits = CREDITS_INITIAL;
-		if (Game::session.story_mode && Game::level.type == GameType::Rush && team->team() == 0)
+		if (Game::session.type == SessionType::Story && Game::level.type == GameType::Rush && team->team() == 0)
 			credits += s32(Team::match_time / ENERGY_INCREMENT_INTERVAL) * (CREDITS_DEFAULT_INCREMENT * s32(EnergyPickup::list.count() * 0.75f));
 	}
 	else
@@ -916,7 +923,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 
 void PlayerManager::awake()
 {
-	if ((!Game::level.local || Game::session.story_mode) && Game::level.mode == Game::Mode::Pvp)
+	if ((!Game::level.local || Game::session.type == SessionType::Story) && Game::level.mode == Game::Mode::Pvp)
 	{
 		char log[512];
 		sprintf(log, _(strings::player_joined), username);
@@ -926,7 +933,7 @@ void PlayerManager::awake()
 
 PlayerManager::~PlayerManager()
 {
-	if ((!Game::level.local || Game::session.story_mode) && Game::level.mode == Game::Mode::Pvp)
+	if ((!Game::level.local || Game::session.type == SessionType::Story) && Game::level.mode == Game::Mode::Pvp)
 	{
 		char log[512];
 		sprintf(log, _(strings::player_left), username);

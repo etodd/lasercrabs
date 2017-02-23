@@ -84,10 +84,14 @@ Game::Session::Session()
 #else
 	local_player_config{ 0, AI::TeamNone, AI::TeamNone, AI::TeamNone },
 #endif
-	story_mode(true),
+	type(SessionType::Story),
 	player_slots(1),
 	team_count(2),
-	time_scale(1.0f)
+	time_scale(1.0f),
+	time_limit(MATCH_TIME_DEFAULT),
+	game_type(GameType::Rush),
+	respawns(DEFAULT_RUSH_DRONES),
+	kill_limit(8)
 {
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 		local_player_uuids[i] = mersenne::rand_u64();
@@ -209,15 +213,50 @@ void Game::update(const Update& update_in)
 	width = update_in.input->width;
 	height = update_in.input->height;
 
+	real_time = update_in.time;
+	time.delta = update_in.time.delta * session.effective_time_scale();
+
+	if (schedule_timer > 0.0f)
+	{
+		r32 old_timer = schedule_timer;
+		schedule_timer = vi_max(0.0f, schedule_timer - real_time.delta);
+#if SERVER
+		if (schedule_timer < TRANSITION_TIME && old_timer >= TRANSITION_TIME)
+			Net::Server::transition_level(); // let clients know that we're switching levels
+#endif
+		if (scheduled_load_level != AssetNull && schedule_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
+		{
+#if !SERVER
+			if (level.local
+				&& session.type == SessionType::Story
+				&& level.id == Asset::Level::Dock
+				&& scheduled_load_level == Asset::Level::Port_District) // we're playing locally on the title screen; need to switch to a server
+			{
+				save.zone_last = level.id; // hack to ensure hand-off works correctly
+				unload_level();
+				Net::Master::ServerState s;
+				s.make_story();
+				s.level = scheduled_load_level;
+				Net::Client::allocate_server(s);
+				scheduled_load_level = AssetNull;
+			}
+			else
+#endif
+				load_level(scheduled_load_level, scheduled_mode);
+			if (scheduled_dialog != AssetNull)
+			{
+				Menu::dialog(0, &Menu::dialog_no_action, _(scheduled_dialog));
+				scheduled_dialog = AssetNull;
+			}
+		}
+	}
+
 	b8 update_game;
 #if SERVER
 	update_game = Net::Server::mode() == Net::Server::Mode::Active;
 #else
-	update_game = !Overworld::modal() && (level.local || Net::Client::mode() == Net::Client::Mode::Connected);
+	update_game = (!Overworld::modal() || level.id == Asset::Level::overworld) && (level.local || Net::Client::mode() == Net::Client::Mode::Connected);
 #endif
-
-	real_time = update_in.time;
-	time.delta = update_in.time.delta * session.effective_time_scale();
 
 	if (update_game)
 		physics_timestep = (1.0f / 60.0f) * session.effective_time_scale();
@@ -258,7 +297,7 @@ void Game::update(const Update& update_in)
 		if (is_gamepad)
 		{
 			// check if we need to clear the gamepad flag
-			if ((session.story_mode || gamepad_count <= 1)
+			if ((session.type == SessionType::Story || gamepad_count <= 1)
 				&& (!gamepad.active || update_in.input->cursor_x != 0 || update_in.input->cursor_y != 0))
 			{
 				is_gamepad = false;
@@ -268,7 +307,7 @@ void Game::update(const Update& update_in)
 		else
 		{
 			// check if we need to set the gamepad flag
-			if (!session.story_mode && gamepad_count > 1)
+			if (session.type != SessionType::Story && gamepad_count > 1)
 			{
 				is_gamepad = true;
 				refresh = true;
@@ -313,38 +352,6 @@ void Game::update(const Update& update_in)
 
 	Overworld::update(u);
 
-	if (schedule_timer > 0.0f)
-	{
-		r32 old_timer = schedule_timer;
-		schedule_timer = vi_max(0.0f, schedule_timer - real_time.delta);
-#if SERVER
-		if (schedule_timer < TRANSITION_TIME && old_timer >= TRANSITION_TIME)
-			Net::Server::transition_level(); // let clients know that we're switching levels
-#endif
-		if (scheduled_load_level != AssetNull && schedule_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
-		{
-#if !SERVER
-			if (level.local
-				&& session.story_mode
-				&& level.id == Asset::Level::Dock
-				&& scheduled_load_level == Asset::Level::Port_District) // we're playing locally on the title screen; need to switch to a server
-			{
-				save.zone_last = level.id; // hack to ensure hand-off works correctly
-				unload_level();
-				Net::Client::allocate_server(true, scheduled_load_level, 1, 2);
-				scheduled_load_level = AssetNull;
-			}
-			else
-#endif
-				load_level(scheduled_load_level, scheduled_mode);
-			if (scheduled_dialog != AssetNull)
-			{
-				Menu::dialog(0, &Menu::dialog_no_action, _(scheduled_dialog));
-				scheduled_dialog = AssetNull;
-			}
-		}
-	}
-
 	AI::update(u);
 
 	if (update_game)
@@ -382,7 +389,7 @@ void Game::update(const Update& update_in)
 		PlayerHuman::update_all(u);
 		if (level.local)
 		{
-			if (session.story_mode && level.mode == Mode::Pvp && !Team::game_over)
+			if (session.type == SessionType::Story && level.mode == Mode::Pvp && !Team::game_over)
 			{
 				// spawn AI players
 				for (s32 i = 0; i < level.ai_config.length; i++)
@@ -787,7 +794,7 @@ void Game::draw_alpha_late(const RenderParams& render_params)
 
 void game_end_cheat(b8 win)
 {
-	if (Game::level.mode == Game::Mode::Pvp && Game::session.story_mode)
+	if (Game::level.mode == Game::Mode::Pvp && Game::session.type == SessionType::Story)
 	{
 		PlayerManager* player = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 		if (!win)
@@ -856,14 +863,25 @@ void Game::execute(const char* cmd)
 		// allocate a story-mode server
 		unload_level();
 		save.reset();
-		Net::Client::allocate_server(true, Asset::Level::Port_District, 1, 2);
+		Net::Master::ServerState s;
+		s.make_story();
+		s.level = Asset::Level::Port_District;
+		Net::Client::allocate_server(s);
 	}
 	else if (strcmp(cmd, "allocm") == 0)
 	{
 		// allocate a multiplayer server
 		unload_level();
 		save.reset();
-		Net::Client::allocate_server(false, Asset::Level::Media_Tower, 2, 2);
+		Net::Master::ServerState s;
+		s.session_type = SessionType::Custom;
+		s.level = Asset::Level::Media_Tower;
+		s.open_slots = 2;
+		s.team_count = 2;
+		s.game_type = GameType::Rush;
+		s.respawns = 5;
+		s.time_limit_minutes = 8;
+		Net::Client::allocate_server(s);
 	}
 #endif
 #if DEBUG && !SERVER
@@ -1038,6 +1056,7 @@ void Game::execute(const char* cmd)
 
 void Game::schedule_load_level(AssetID level_id, Mode m, r32 delay)
 {
+	vi_debug("Scheduling level load: %d", s32(level_id));
 	scheduled_load_level = level_id;
 	scheduled_mode = m;
 	schedule_timer = TRANSITION_TIME + delay;
@@ -1047,15 +1066,12 @@ void Game::unload_level()
 {
 	Net::reset();
 
+	level.local = true;
+
 	Overworld::clear();
 	Ascensions::clear();
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		Audio::listener_disable(i);
-
-	level.~Level();
-	new (&level) Level();
-
-	level.local = true;
 
 	World::clear(); // deletes all entities
 
@@ -1072,6 +1088,10 @@ void Game::unload_level()
 	for (s32 i = 0; i < cleanups.length; i++)
 		(*cleanups[i])();
 	cleanups.length = 0;
+
+	level.~Level();
+
+	new (&level) Level();
 
 	level.skybox.far_plane = 1.0f;
 	level.skybox.color = Vec3::zero;
@@ -1171,6 +1191,11 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	Array<LevelLink<Entity>> links;
 	Array<LevelLink<Transform>> transform_links;
 
+	level.time_limit = session.time_limit;
+	level.respawns = session.respawns;
+	level.kill_limit = session.kill_limit;
+	level.type = session.game_type;
+
 	cJSON* json = Loader::level(l, level.type, true);
 
 	level.mode = m;
@@ -1191,26 +1216,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			if (cJSON_HasObjectItem(element, "AIPlayer"))
 				ai_player_count++;
 			element = element->next;
-		}
-	}
-
-	level.time_limit = MATCH_TIME_DEFAULT;
-	switch (level.type)
-	{
-		case GameType::Rush:
-		{
-			level.respawns = DEFAULT_RUSH_DRONES;
-			break;
-		}
-		case GameType::Deathmatch:
-		{
-			level.respawns = -1;
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
 		}
 	}
 
@@ -1285,7 +1290,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			// fill team lookup table
 			{
 				s32 offset;
-				if (session.story_mode)
+				if (session.type == SessionType::Story)
 				{
 					if (save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned)
 						offset = 0; // put local player on team 0 (defenders)
@@ -1334,7 +1339,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 							strncpy(username, Usernames::all[mersenne::rand_u32() % Usernames::count], MAX_USERNAME);
 						else
 						{
-							if (level.local && !session.story_mode)
+							if (level.local && session.type != SessionType::Story)
 								sprintf(username, _(strings::player), i + 1);
 							else
 							{
@@ -1440,7 +1445,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "Minion"))
 		{
-			if (session.story_mode)
+			if (session.type == SessionType::Story)
 			{
 				// starts out owned by player if the zone is friendly
 				s32 default_team_index = (save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) ? 0 : 1;
@@ -1513,7 +1518,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_HasObjectItem(element, "AIPlayer"))
 		{
 			// only add an AI player if we are in online pvp mode
-			if (session.story_mode)
+			if (session.type == SessionType::Story)
 			{
 				AI::Team team_original = Json::get_s32(element, "team", 1);
 				AI::Team team = team_lookup(level.team_lookup, team_original);
@@ -1538,7 +1543,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			if (level.has_feature(FeatureLevel::EnergyPickups))
 			{
 				AI::Team team;
-				if (session.story_mode)
+				if (session.type == SessionType::Story)
 				{
 					// starts out owned by player if the zone is friendly
 					s32 default_team_index;
@@ -1788,7 +1793,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "Collectible"))
 		{
-			if (session.story_mode)
+			if (session.type == SessionType::Story)
 			{
 				b8 already_collected = false;
 				ID id = ID(transforms.length);
@@ -1817,7 +1822,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "Shop"))
 		{
-			if (session.story_mode)
+			if (session.type == SessionType::Story)
 			{
 				entity = World::alloc<ShopEntity>();
 
@@ -1848,7 +1853,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (strcmp(Json::get_string(element, "name"), "terminal") == 0)
 		{
-			if (session.story_mode)
+			if (session.type == SessionType::Story)
 			{
 				entity = World::alloc<TerminalEntity>();
 				level.terminal = entity;
@@ -1890,25 +1895,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 
 		element = element->next;
-	}
-
-	switch (level.type)
-	{
-		case GameType::Rush:
-		{
-			level.kill_limit = 0;
-			break;
-		}
-		case GameType::Deathmatch:
-		{
-			level.kill_limit = ai_player_count == 1 ? 5 : 15;
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
 	}
 
 	for (s32 i = 0; i < links.length; i++)

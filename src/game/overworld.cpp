@@ -38,7 +38,7 @@ namespace VI
 namespace Overworld
 {
 
-#define DEPLOY_TIME_LOCAL 1.0f
+#define DEPLOY_TIME 1.0f
 
 #define SCALE_MULTIPLIER (UI::scale < 1.0f ? 0.5f : 1.0f)
 #define PADDING (16.0f * UI::scale * SCALE_MULTIPLIER)
@@ -106,6 +106,7 @@ struct Data
 		{
 			Normal,
 			Buy,
+			count,
 		};
 
 		r32 resource_change_time[s32(Resource::count)];
@@ -131,6 +132,20 @@ struct Data
 		Map map;
 	};
 
+	struct Splitscreen
+	{
+		enum class Mode
+		{
+			Public,
+			Custom,
+			Local,
+			count,
+		};
+
+		Mode mode;
+		UIMenu menu;
+	};
+
 	Camera* camera;
 	Camera camera_restore_data;
 	Quat camera_rot;
@@ -140,6 +155,7 @@ struct Data
 	State state;
 	State state_next;
 	StoryMode story;
+	Splitscreen splitscreen;
 	AssetID zone_selected = AssetNull;
 };
 
@@ -169,6 +185,138 @@ b8 splitscreen_teams_are_valid()
 	return splitscreen_team_count() > 1;
 }
 
+void deploy_start()
+{
+	if (Game::session.type == SessionType::Story)
+		Game::session.team_count = 2;
+	else
+		Game::session.team_count = splitscreen_team_count();
+	data.state = Game::session.type == SessionType::Story ? State::Deploying : State::SplitscreenDeploying;
+	data.timer_deploy = DEPLOY_TIME;
+}
+
+void splitscreen_select_options_update(const Update& u)
+{
+	if (Menu::main_menu_state != Menu::State::Hidden)
+		return;
+
+	if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
+		&& !Game::cancel_event_eaten[0] && Game::scheduled_load_level == AssetNull)
+	{
+		Menu::title();
+		Game::cancel_event_eaten[0] = true;
+		return;
+	}
+
+	data.splitscreen.menu.start(u, 0);
+	if (data.splitscreen.menu.item(u, _(strings::back)))
+	{
+		Menu::title();
+		return;
+	}
+
+	// multiplayer type
+	{
+		AssetID value;
+		switch (data.splitscreen.mode)
+		{
+			case Data::Splitscreen::Mode::Public:
+			{
+				Game::session.type = SessionType::Public;
+				value = strings::multiplayer_public;
+				break;
+			}
+			case Data::Splitscreen::Mode::Custom:
+			{
+				Game::session.type = SessionType::Custom;
+				value = strings::multiplayer_custom;
+				break;
+			}
+			case Data::Splitscreen::Mode::Local:
+			{
+				Game::session.type = SessionType::Custom;
+				value = strings::multiplayer_local;
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+		UIMenu::enum_option(&data.splitscreen.mode, data.splitscreen.menu.slider_item(u, _(strings::multiplayer), _(value)));
+	}
+
+	if (data.splitscreen.mode != Data::Splitscreen::Mode::Public)
+	{
+		{
+			// game type
+			AssetID value;
+			switch (Game::session.game_type)
+			{
+				case GameType::Rush:
+				{
+					value = strings::game_type_rush;
+					break;
+				}
+				case GameType::Deathmatch:
+				{
+					value = strings::game_type_deathmatch;
+					break;
+				}
+				default:
+				{
+					vi_assert(false);
+					break;
+				}
+			}
+			UIMenu::enum_option(&Game::session.game_type, data.splitscreen.menu.slider_item(u, _(strings::game_type), _(value)));
+		}
+
+		s32 delta;
+		char str[MAX_PATH_LENGTH];
+
+		{
+			// time limit
+			r32* time_limit = &Game::session.time_limit;
+			sprintf(str, _(strings::timer), s32(*time_limit / 60.0f), 0);
+			delta = data.splitscreen.menu.slider_item(u, _(strings::time_limit), str);
+			if (delta < 0)
+				*time_limit = vi_max(120.0f, *time_limit - 120.0f);
+			else if (delta > 0)
+				*time_limit = vi_min(254.0f * 60.0f, *time_limit + 120.0f);
+		}
+
+		if (Game::session.game_type == GameType::Rush)
+		{
+			// respawns
+			s16* respawns = &Game::session.respawns;
+			sprintf(str, "%hd", *respawns);
+			delta = data.splitscreen.menu.slider_item(u, _(strings::drones), str);
+			if (delta < 0)
+				*respawns = vi_max(1, (s32)(*respawns) - 1);
+			else if (delta > 0)
+				*respawns = vi_min(100, (s32)(*respawns) + 1);
+		}
+		else
+		{
+			// kill limit
+			s16* kill_limit = &Game::session.kill_limit;
+			sprintf(str, "%hd", *kill_limit);
+			delta = data.splitscreen.menu.slider_item(u, _(strings::kill_limit), str);
+			if (delta < 0)
+				*kill_limit = vi_max(2, (s32)(*kill_limit) - 2);
+			else if (delta > 0)
+				*kill_limit = vi_min(200, (s32)(*kill_limit) + 2);
+		}
+	}
+
+	if (data.splitscreen.menu.item(u, _(strings::_continue)))
+		data.state = State::SplitscreenSelectTeams;
+
+	data.splitscreen.menu.end();
+}
+
 void splitscreen_select_teams_update(const Update& u)
 {
 	if (UIMenu::active[0])
@@ -177,7 +325,8 @@ void splitscreen_select_teams_update(const Update& u)
 	if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
 		&& !Game::cancel_event_eaten[0] && Game::scheduled_load_level == AssetNull)
 	{
-		Menu::title();
+		data.state = State::SplitscreenSelectOptions;
+		Game::cancel_event_eaten[0] = true;
 		return;
 	}
 
@@ -187,22 +336,7 @@ void splitscreen_select_teams_update(const Update& u)
 		if (u.input->gamepads[i].active || i == 0) // player is active
 		{
 			// handle D-pad
-			b8 left = u.input->get(Controls::Left, i) && !u.last_input->get(Controls::Left, i);
-			b8 right = u.input->get(Controls::Right, i) && !u.last_input->get(Controls::Right, i);
-
-			// handle joysticks
-			if (u.input->gamepads[i].active)
-			{
-				r32 x_last = Input::dead_zone(u.last_input->gamepads[i].left_x);
-				if (x_last == 0.0f)
-				{
-					r32 x_current = Input::dead_zone(u.input->gamepads[i].left_x);
-					if (x_current < 0.0f)
-						left = true;
-					else if (x_current > 0.0f)
-						right = true;
-				}
-			}
+			s32 delta = UI::input_delta_horizontal(u, i);
 
 			if (u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i) && !Game::cancel_event_eaten[i])
 			{
@@ -210,9 +344,10 @@ void splitscreen_select_teams_update(const Update& u)
 				{
 					*team = AI::TeamNone;
 					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+					Game::cancel_event_eaten[i] = true;
 				}
 			}
-			else if (left)
+			else if (delta < 0)
 			{
 				if (*team == AI::TeamNone)
 				{
@@ -232,7 +367,7 @@ void splitscreen_select_teams_update(const Update& u)
 					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 				}
 			}
-			else if (right)
+			else if (delta > 0)
 			{
 				if (*team == AI::TeamNone)
 				{
@@ -254,7 +389,10 @@ void splitscreen_select_teams_update(const Update& u)
 		&& !u.input->get(Controls::Interact, 0)
 		&& splitscreen_teams_are_valid())
 	{
-		data.state = State::SplitscreenSelectZone;
+		if (Game::session.type == SessionType::Public)
+			deploy_start();
+		else
+			data.state = State::SplitscreenSelectZone;
 	}
 }
 
@@ -292,6 +430,15 @@ void draw_gamepad_icon(const RenderParams& p, const Vec2& pos, s32 index, const 
 	text.color = UI::color_background;
 	text.text("%d", index + 1);
 	text.draw(p, pos);
+}
+
+void splitscreen_select_options_draw(const RenderParams& params)
+{
+	if (Menu::main_menu_state == Menu::State::Hidden)
+	{
+		const Rect2& viewport = params.camera->viewport;
+		data.splitscreen.menu.draw_ui(params, Vec2(viewport.size.x * 0.5f, viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f), UIText::Anchor::Center, UIText::Anchor::Max);
+	}
 }
 
 void splitscreen_select_teams_draw(const RenderParams& params)
@@ -372,7 +519,7 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 void go(AssetID zone)
 {
 	vi_assert(Game::level.local);
-	if (Game::session.story_mode)
+	if (Game::session.type == SessionType::Story)
 	{
 		PlayerControlHuman* player = PlayerControlHuman::list.iterator().item();
 		Game::save.zone_current_restore = true;
@@ -404,12 +551,6 @@ const ZoneNode* zone_node_get(AssetID id)
 	return nullptr;
 }
 
-void deploy_start()
-{
-	data.state = Game::session.story_mode ? State::Deploying : State::SplitscreenDeploying;
-	data.timer_deploy = DEPLOY_TIME_LOCAL;
-}
-
 s16 energy_increment_zone(const ZoneNode& zone)
 {
 	return zone.size * (zone.max_teams == MAX_PLAYERS ? 200 : 10);
@@ -432,7 +573,7 @@ s16 energy_increment_total()
 
 b8 zone_can_select(AssetID z)
 {
-	if (Game::session.story_mode)
+	if (Game::session.type == SessionType::Story)
 		return true;
 	else
 	{
@@ -539,14 +680,7 @@ void select_zone_update(const Update& u, b8 enable_movement)
 
 Vec3 zone_color(const ZoneNode& zone)
 {
-	if (!Game::session.story_mode)
-	{
-		if (splitscreen_team_count() <= zone.max_teams)
-			return Team::color_friend.xyz();
-		else
-			return Vec3(0.25f);
-	}
-	else
+	if (Game::session.type == SessionType::Story)
 	{
 		ZoneState zone_state = Game::save.zones[zone.id];
 		switch (zone_state)
@@ -574,11 +708,18 @@ Vec3 zone_color(const ZoneNode& zone)
 			}
 		}
 	}
+	else
+	{
+		if (splitscreen_team_count() <= zone.max_teams)
+			return Team::color_friend.xyz();
+		else
+			return Vec3(0.25f);
+	}
 }
 
 const Vec4& zone_ui_color(const ZoneNode& zone)
 {
-	if (Game::session.story_mode)
+	if (Game::session.type == SessionType::Story)
 	{
 		ZoneState zone_state = Game::save.zones[zone.id];
 		switch (zone_state)
@@ -673,7 +814,7 @@ void zones_draw_override(const RenderParams& params)
 	{
 		const ZoneNode& zone = global.zones[i];
 		// flash if necessary
-		if (!Game::session.story_mode
+		if (Game::session.type != SessionType::Story
 			|| Game::real_time.total > data.story.map.zones_change_time[zone.id] + 0.5f
 			|| UI::flash_function(Game::real_time.total))
 		{
@@ -707,7 +848,7 @@ const ZoneNode* zones_draw(const RenderParams& params)
 	// highlight zone locations
 	const ZoneNode* selected_zone = zone_node_get(data.zone_selected);
 
-	if (Game::session.story_mode)
+	if (Game::session.type == SessionType::Story)
 	{
 		// "you are here"
 		const ZoneNode* current_zone = zone_node_get(Game::level.id);
@@ -996,7 +1137,7 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_s16(p, zone);
 
 			// only server accepts CaptureOrDefend messages
-			if (Game::level.local && Game::session.story_mode)
+			if (Game::level.local && Game::session.type == SessionType::Story)
 			{
 				if (zone_node_get(zone) && zone_can_capture(zone))
 				{
@@ -1062,7 +1203,7 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 			s16 amount;
 			serialize_s16(p, amount);
 			// only server accepts Buy messages
-			if (Game::level.local && Game::session.story_mode && amount > 0 && Interactable::is_present(Interactable::Type::Shop))
+			if (Game::level.local && Game::session.type == SessionType::Story && amount > 0 && Interactable::is_present(Interactable::Type::Shop))
 			{
 				s32 cost = s32(amount) * s32(resource_info[s32(r)].cost);
 				if (cost <= Game::save.resources[s32(Resource::Energy)])
@@ -1081,6 +1222,26 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 	}
 
 	return true;
+}
+
+void hide()
+{
+	if (data.timer_transition == 0.0f)
+	{
+		data.timer_transition = TRANSITION_TIME;
+		data.state_next = State::Hidden;
+	}
+}
+
+void hide_complete()
+{
+	Particles::clear();
+	if (data.camera)
+	{
+		memcpy(data.camera, &data.camera_restore_data, sizeof(Camera));
+		data.camera = nullptr;
+	}
+	data.state = data.state_next = State::Hidden;
 }
 
 void deploy_update(const Update& u)
@@ -1121,12 +1282,31 @@ void deploy_update(const Update& u)
 
 	if (data.timer_deploy == 0.0f && old_timer > 0.0f)
 	{
-		if (Game::level.local)
-			go(data.zone_selected);
-		else if (Game::session.story_mode)
+		if (Game::session.type == SessionType::Story)
 			OverworldNet::capture_or_defend(data.zone_selected);
+		else if (data.splitscreen.mode == Data::Splitscreen::Mode::Local)
+			go(data.zone_selected);
 		else
-			vi_assert(false); // todo: networked pvp matches
+		{
+#if SERVER
+			vi_assert(false);
+#else
+			Game::unload_level();
+			Game::save.reset();
+			Net::Master::ServerState s;
+			s.session_type = Game::session.type;
+			s.game_type = Game::session.game_type;
+			s.kill_limit = Game::session.kill_limit;
+			s.respawns = Game::session.respawns;
+			s.team_count = Game::session.team_count;
+			s.open_slots = Game::session.local_player_count();
+			s.level = data.zone_selected;
+			s.time_limit_minutes = s8(Game::session.time_limit / 60.0f);
+			Net::Client::allocate_server(s);
+
+			clear();
+#endif
+		}
 	}
 }
 
@@ -1212,7 +1392,7 @@ b8 zone_filter_can_be_attacked(AssetID zone_id)
 {
 	if (zone_id == Asset::Level::Port_District)
 		return false;
-	else if (zone_id == Game::level.id || (Game::session.story_mode && zone_id == Game::save.zone_current))
+	else if (zone_id == Game::level.id || (Game::session.type == SessionType::Story && zone_id == Game::save.zone_current))
 		return false;
 
 	return true;
@@ -1792,7 +1972,7 @@ b8 should_draw_zones()
 void splitscreen_select_zone_update(const Update& u)
 {
 	// cancel
-	if (!Game::session.story_mode
+	if (Game::session.type != SessionType::Story
 		&& !Game::cancel_event_eaten[0]
 		&& u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
 	{
@@ -1806,29 +1986,8 @@ void splitscreen_select_zone_update(const Update& u)
 	// deploy button
 	if (Menu::main_menu_state == Menu::State::Hidden && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 	{
-		Game::session.team_count = splitscreen_team_count();
 		deploy_start();
 	}
-}
-
-void hide()
-{
-	if (data.timer_transition == 0.0f)
-	{
-		data.timer_transition = TRANSITION_TIME;
-		data.state_next = State::Hidden;
-	}
-}
-
-void hide_complete()
-{
-	Particles::clear();
-	if (data.camera)
-	{
-		memcpy(data.camera, &data.camera_restore_data, sizeof(Camera));
-		data.camera = nullptr;
-	}
-	data.state = data.state_next = State::Hidden;
 }
 
 void show_complete()
@@ -1857,7 +2016,7 @@ void show_complete()
 	data.state = state_next;
 	data.story.tab = tab_next;
 
-	if (Game::session.story_mode)
+	if (Game::session.type == SessionType::Story)
 	{
 		if (Game::session.zone_under_attack == AssetNull)
 			data.zone_selected = Game::level.id;
@@ -1889,7 +2048,12 @@ void show_complete()
 r32 particle_accumulator = 0.0f;
 void update(const Update& u)
 {
-	if (Game::level.id == Asset::Level::overworld && Game::scheduled_load_level == AssetNull && data.state == State::Hidden && data.state_next == State::Hidden)
+	if (Game::level.id == Asset::Level::overworld
+		&& data.state == State::Hidden && data.state_next == State::Hidden
+#if !SERVER
+		&& Net::Client::mode() == Net::Client::Mode::Disconnected
+#endif
+		&& Game::scheduled_load_level == AssetNull)
 	{
 		Camera* c = Camera::add();
 		c->viewport =
@@ -1902,12 +2066,12 @@ void update(const Update& u)
 		data.timer_transition = 0.0f;
 
 
-		if (Game::session.story_mode)
+		if (Game::session.type == SessionType::Story)
 			vi_assert(false);
 		else if (Game::session.local_player_count() > 1)
 			show(c, State::SplitscreenSelectZone);
 		else
-			show(c, State::SplitscreenSelectTeams);
+			show(c, State::SplitscreenSelectOptions);
 
 		show_complete();
 		data.timer_transition = 0.0f;
@@ -1926,7 +2090,7 @@ void update(const Update& u)
 		}
 	}
 
-	if (Game::level.local && Game::session.story_mode)
+	if (Game::level.local && Game::session.type == SessionType::Story)
 	{
 		// random zone attacks
 		{
@@ -1965,6 +2129,11 @@ void update(const Update& u)
 				story_mode_update(u);
 				break;
 			}
+			case State::SplitscreenSelectOptions:
+			{
+				splitscreen_select_options_update(u);
+				break;
+			}
 			case State::SplitscreenSelectTeams:
 			{
 				splitscreen_select_teams_update(u);
@@ -1997,7 +2166,7 @@ void update(const Update& u)
 		// pause
 		if (!Game::cancel_event_eaten[0])
 		{
-			if (Game::session.story_mode && ((u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+			if (Game::session.type == SessionType::Story && ((u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
 				|| (u.input->get(Controls::Scoreboard, 0) && !u.last_input->get(Controls::Scoreboard, 0))))
 			{
 				Game::cancel_event_eaten[0] = true;
@@ -2056,6 +2225,11 @@ void draw_ui(const RenderParams& params)
 	{
 		switch (data.state)
 		{
+			case State::SplitscreenSelectOptions:
+			{
+				splitscreen_select_options_draw(params);
+				break;
+			}
 			case State::SplitscreenSelectTeams:
 			{
 				splitscreen_select_teams_draw(params);
@@ -2265,7 +2439,7 @@ void init(cJSON* level)
 		}
 	}
 
-	if (Game::session.story_mode)
+	if (Game::session.type == SessionType::Story)
 	{
 		r64 t = platform::timestamp();
 		r64 elapsed_time = t - Game::save.timestamp;
@@ -2278,13 +2452,10 @@ void init(cJSON* level)
 			resource_change(Resource::Energy, vi_min(s32(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL), s32(elapsed_time / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total());
 		}
 	}
+	else if (Game::session.local_player_count() <= 1) // haven't selected teams yet
+		data.state = State::SplitscreenSelectOptions;
 	else
-	{
-		if (Game::session.local_player_count() <= 1) // haven't selected teams yet
-			data.state = State::SplitscreenSelectTeams;
-		else
-			data.state = State::SplitscreenSelectZone; // already selected teams, go straight to level select; the player can always go back
-	}
+		data.state = State::SplitscreenSelectZone; // already selected teams, go straight to level select; the player can always go back
 }
 
 }

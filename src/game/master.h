@@ -99,21 +99,28 @@ struct Messenger
 
 struct ServerState // represents the current state of a game server
 {
+	SessionType session_type;
 	GameType game_type;
 	AssetID level;
-	b8 story_mode;
+	s16 kill_limit;
+	s16 respawns;
 	s8 open_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
 	s8 team_count;
+	u8 time_limit_minutes;
 	b8 equals(const ServerState&) const;
+	void make_story();
 };
 
 template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)
 {
 	serialize_enum(p, GameType, s->game_type);
+	serialize_enum(p, SessionType, s->session_type);
 	serialize_s16(p, s->level);
-	serialize_bool(p, s->story_mode);
 	serialize_int(p, s8, s->open_slots, 0, MAX_PLAYERS);
 	serialize_int(p, s8, s->team_count, 2, MAX_PLAYERS);
+	serialize_s16(p, s->respawns);
+	serialize_s16(p, s->kill_limit);
+	serialize_u8(p, s->time_limit_minutes);
 	return true;
 }
 

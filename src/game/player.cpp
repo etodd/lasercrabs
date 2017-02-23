@@ -404,7 +404,9 @@ void PlayerHuman::show_upgrade_menu()
 	upgrade_menu_open = true;
 	menu.animate();
 	upgrade_animation_time = Game::real_time.total;
-	get<PlayerManager>()->instance.ref()->get<Awk>()->current_ability = Ability::None;
+	Entity* instance = get<PlayerManager>()->instance.ref();
+	if (instance)
+		instance->get<Awk>()->current_ability = Ability::None;
 }
 
 void PlayerHuman::update(const Update& u)
@@ -451,7 +453,7 @@ void PlayerHuman::update(const Update& u)
 	// flash message when the buy period expires
 	if (!Team::game_over
 		&& Game::level.mode == Game::Mode::Pvp
-		&& !Game::session.story_mode
+		&& Game::session.type != SessionType::Story
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
 		&& Team::match_time > GAME_BUY_PERIOD
 		&& Team::match_time - Game::time.delta <= GAME_BUY_PERIOD)
@@ -1450,7 +1452,7 @@ b8 PlayerCommon::movement_enabled() const
 	{
 		return get<Awk>()->state() == Awk::State::Crawl // must be attached to wall
 			&& manager.ref()->state() == PlayerManager::State::Default // can't move while upgrading and stuff
-			&& (Team::match_time > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities) || Game::session.story_mode); // or during the buy period
+			&& (Team::match_time > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities) || Game::session.type == SessionType::Story); // or during the buy period
 	}
 	else
 		return true;
@@ -1744,7 +1746,7 @@ void PlayerControlHuman::awk_done_flying_or_dashing()
 	ai_record_tag.init(entity());
 #endif
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& !Game::session.story_mode
+		&& Game::session.type != SessionType::Story
 		&& Team::match_time < GAME_BUY_PERIOD)
 	{
 		// automatically open buy menu
@@ -3332,7 +3334,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 		// buy period indicator
 		if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-			&& !Game::session.story_mode
+			&& Game::session.type != SessionType::Story
 			&& Team::match_time < GAME_BUY_PERIOD)
 		{
 			UIText text;

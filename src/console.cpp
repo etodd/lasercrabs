@@ -225,6 +225,8 @@ void Console::update(const Update& u)
 	}
 
 	debug_text.text(debug_buffer.data);
+	if (debug_buffer.data)
+		debug_buffer.data[0] = '\0';
 	debug_buffer.length = 0;
 
 	b8 update_log = false;

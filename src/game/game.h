@@ -61,9 +61,13 @@ namespace VI
 			AI::Team local_player_config[MAX_GAMEPADS];
 			u64 local_player_uuids[MAX_GAMEPADS];
 			r32 time_scale;
+			r32 time_limit;
 			r32 zone_under_attack_timer;
+			SessionType type;
+			GameType game_type;
 			AssetID zone_under_attack = AssetNull;
-			b8 story_mode;
+			s16 respawns;
+			s16 kill_limit;
 			s8 player_slots;
 			s8 team_count;
 

@@ -25,6 +25,11 @@ namespace Net
 
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
+namespace Master
+{
+	struct ServerState;
+};
+
 enum class MessageType
 {
 	Noop,
@@ -158,7 +163,7 @@ namespace Client
 
 	void connect(Sock::Address);
 	void connect(const char*, u16);
-	b8 allocate_server(b8, AssetID, s8, s8);
+	b8 allocate_server(const Master::ServerState&);
 
 	b8 lagging();
 

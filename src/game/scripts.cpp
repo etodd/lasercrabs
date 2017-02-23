@@ -629,6 +629,7 @@ namespace title
 
 	void init(const EntityFinder& entities)
 	{
+		vi_assert(!data);
 		data = new Data();
 		Game::cleanups.add(cleanup);
 

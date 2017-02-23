@@ -2088,6 +2088,19 @@ void transition_level()
 	msg_finalize(msg_new(MessageType::TransitionLevel));
 }
 
+// disable entity messages while we're unloading the level
+void level_unloading()
+{
+	state_server.mode = Mode::Loading;
+}
+
+// enter normal operation after loading a level
+void level_unloaded()
+{
+	vi_assert(state_server.mode == Mode::Loading);
+	state_server.mode = Mode::Idle;
+}
+
 // disable entity spawn messages while we're loading the level
 void level_loading()
 {

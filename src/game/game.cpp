@@ -116,7 +116,7 @@ s32 Game::Session::local_player_count() const
 void Game::Session::reset()
 {
 	this->~Session();
-	*this = Session();
+	new (this) Session();
 }
 
 b8 Game::Level::has_feature(Game::FeatureLevel f) const
@@ -1064,7 +1064,12 @@ void Game::schedule_load_level(AssetID level_id, Mode m, r32 delay)
 
 void Game::unload_level()
 {
+	vi_debug("Unloading level %d", s32(level.id));
 	Net::reset();
+
+#if SERVER
+	Net::Server::level_unloading();
+#endif
 
 	level.local = true;
 
@@ -1114,6 +1119,10 @@ void Game::unload_level()
 	time.total = 0;
 
 	level.id = AssetNull;
+
+#if SERVER
+	Net::Server::level_unloaded();
+#endif
 }
 
 Entity* EntityFinder::find(const char* name) const

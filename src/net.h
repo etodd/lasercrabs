@@ -132,6 +132,8 @@ namespace Server
 
 	Mode mode();
 	void transition_level();
+	void level_unloading();
+	void level_unloaded();
 	void level_loading();
 	void level_loaded();
 	b8 sync_time();

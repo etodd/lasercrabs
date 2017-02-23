@@ -192,6 +192,7 @@ b8 Team::has_active_player() const
 
 void Team::transition_next()
 {
+	vi_assert(Game::level.local);
 	if (Game::session.type == SessionType::Story)
 	{
 		if (Game::level.id == Game::save.zone_current)

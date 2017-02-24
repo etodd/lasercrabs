@@ -3247,7 +3247,15 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				const StateFrame* base = state_frame_by_sequence(state_common.state_history, base_sequence_id);
 				StateFrame frame;
 				serialize_state_frame(p, &frame, base);
-				vi_assert((base_sequence_id == NET_SEQUENCE_INVALID) == (base == nullptr)); // make sure the server says we have a base state frame if and only if we actually have it
+
+				// make sure the server says we have a base state frame if and only if we actually have it
+				if ((base_sequence_id == NET_SEQUENCE_INVALID) != (base == nullptr))
+				{
+					vi_debug("Lost connection to %s:%hd due to missing state frame delta compression basis: seq %d", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port, s32(processed_msg_frame.sequence_id), s32(base_sequence_id));
+					handle_server_disconnect();
+					return false;
+				}
+
 				// only insert the frame into the history if it is more recent
 				if (state_common.state_history.frames.length == 0 || sequence_more_recent(frame.sequence_id, state_common.state_history.frames[state_common.state_history.current_index].sequence_id))
 				{

@@ -271,19 +271,16 @@ void client_hit_effects(Awk* awk, Entity* target)
 
 void sniper_hit_effects(const Awk::Hit& hit)
 {
-	if (hit.type == Awk::Hit::Type::Environment || hit.type == Awk::Hit::Type::Inaccessible || hit.type == Awk::Hit::Type::ContainmentField)
+	// we just shot at something; spawn some particles
+	Quat rot = Quat::look(hit.normal);
+	for (s32 j = 0; j < 50; j++)
 	{
-		// we just shot at a wall; spawn some particles
-		Quat rot = Quat::look(hit.normal);
-		for (s32 j = 0; j < 50; j++)
-		{
-			Particles::sparks.add
-			(
-				hit.pos,
-				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-				Vec4(1, 1, 1, 1)
-			);
-		}
+		Particles::sparks.add
+		(
+			hit.pos,
+			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+			Vec4(1, 1, 1, 1)
+		);
 	}
 }
 

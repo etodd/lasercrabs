@@ -36,7 +36,6 @@ void Save::reset()
 	resources[s32(Resource::Energy)] = s16(CREDITS_INITIAL * 3.5f);
 }
 
-
 Messenger::Peer::Peer()
 	: incoming_seq(NET_SEQUENCE_COUNT - 1),
 	outgoing_seq(0)

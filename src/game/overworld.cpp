@@ -226,6 +226,8 @@ void deploy_start()
 	data.timer_deploy = DEPLOY_TIME;
 }
 
+void deploy_done();
+
 void splitscreen_select_options_update(const Update& u)
 {
 	if (Menu::main_menu_state != Menu::State::Hidden || Game::scheduled_load_level != AssetNull)
@@ -421,7 +423,10 @@ void splitscreen_select_teams_update(const Update& u)
 		&& splitscreen_teams_are_valid())
 	{
 		if (Game::session.type == SessionType::Public)
+		{
 			deploy_start();
+			deploy_done();
+		}
 		else
 			data.state = State::SplitscreenSelectZone;
 	}
@@ -1270,6 +1275,35 @@ void hide_complete()
 	data.state = data.state_next = State::Hidden;
 }
 
+void deploy_done()
+{
+	if (Game::session.type == SessionType::Story)
+		OverworldNet::capture_or_defend(data.zone_selected);
+	else if (data.splitscreen.mode == Data::Splitscreen::Mode::Local)
+		go(data.zone_selected);
+	else
+	{
+#if SERVER
+		vi_assert(false);
+#else
+		Game::unload_level();
+		Game::save.reset();
+		Net::Master::ServerState s;
+		s.session_type = Game::session.type;
+		s.game_type = Game::session.game_type;
+		s.kill_limit = Game::session.kill_limit;
+		s.respawns = Game::session.respawns;
+		s.team_count = Game::session.team_count;
+		s.open_slots = Game::session.local_player_count();
+		s.level = data.zone_selected;
+		s.time_limit_minutes = s8(Game::session.time_limit / 60.0f);
+		Net::Client::allocate_server(s);
+
+		clear();
+#endif
+	}
+}
+
 void deploy_update(const Update& u)
 {
 	const ZoneNode& zone = *zone_node_get(data.zone_selected);
@@ -1307,33 +1341,7 @@ void deploy_update(const Update& u)
 	}
 
 	if (data.timer_deploy == 0.0f && old_timer > 0.0f)
-	{
-		if (Game::session.type == SessionType::Story)
-			OverworldNet::capture_or_defend(data.zone_selected);
-		else if (data.splitscreen.mode == Data::Splitscreen::Mode::Local)
-			go(data.zone_selected);
-		else
-		{
-#if SERVER
-			vi_assert(false);
-#else
-			Game::unload_level();
-			Game::save.reset();
-			Net::Master::ServerState s;
-			s.session_type = Game::session.type;
-			s.game_type = Game::session.game_type;
-			s.kill_limit = Game::session.kill_limit;
-			s.respawns = Game::session.respawns;
-			s.team_count = Game::session.team_count;
-			s.open_slots = Game::session.local_player_count();
-			s.level = data.zone_selected;
-			s.time_limit_minutes = s8(Game::session.time_limit / 60.0f);
-			Net::Client::allocate_server(s);
-
-			clear();
-#endif
-		}
-	}
+		deploy_done();
 }
 
 void deploy_draw(const RenderParams& params)

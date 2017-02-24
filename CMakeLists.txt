@@ -128,6 +128,7 @@ add_library(recast STATIC
 	external/recast/Recast/Source/RecastMeshDetail.cpp
 	external/recast/Recast/Source/RecastRasterization.cpp
 	external/recast/Recast/Source/RecastRegion.cpp
+	external/recast/Recast/Source/RecastAssert.cpp
 )
 
 target_include_directories(recast PRIVATE external/recast/Recast/Include)
@@ -149,6 +150,7 @@ add_library(detour STATIC
 	external/recast/Detour/Source/DetourNavMeshBuilder.cpp
 	external/recast/Detour/Source/DetourNavMeshQuery.cpp
 	external/recast/Detour/Source/DetourNode.cpp
+	external/recast/Detour/Source/DetourAssert.cpp
 	external/recast/DetourTileCache/Include/DetourTileCache.h
 	external/recast/DetourTileCache/Include/DetourTileCacheBuilder.h
 	external/recast/DetourTileCache/Source/DetourTileCache.cpp

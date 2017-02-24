@@ -189,7 +189,7 @@ s32 splitscreen_team_count()
 
 b8 splitscreen_teams_are_valid()
 {
-	return splitscreen_team_count() > 1;
+	return Game::session.type == SessionType::Public || splitscreen_team_count() > 1;
 }
 
 void deploy_start()
@@ -198,7 +198,7 @@ void deploy_start()
 		Game::session.team_count = 2;
 	else
 	{
-		Game::session.team_count = splitscreen_team_count();
+		Game::session.team_count = vi_max(2, splitscreen_team_count());
 
 		// consolidate teams
 

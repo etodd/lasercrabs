@@ -2694,8 +2694,27 @@ b8 msg_process(StreamRead* p, Client* client)
 						s8 gamepad;
 						serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
 
+						Team* team_ref = nullptr;
+						if (Game::session.type == SessionType::Public)
+						{
+							// public match; assign players evenly
+							s32 least_players = MAX_PLAYERS + 1;
+							for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+							{
+								s32 player_count = i.item()->player_count();
+								if (player_count < least_players)
+								{
+									least_players = player_count;
+									team_ref = i.item();
+								}
+							}
+							vi_assert(team_ref);
+						}
+						else // custom match, assign player to whichever team they want
+							team_ref = &Team::list[Game::level.team_lookup[s32(team)]];
+
 						Entity* e = World::create<ContainerEntity>();
-						PlayerManager* manager = e->add<PlayerManager>(&Team::list[Game::level.team_lookup[s32(team)]]);
+						PlayerManager* manager = e->add<PlayerManager>(team_ref);
 						if (gamepad == 0)
 							sprintf(manager->username, "%s", username);
 						else

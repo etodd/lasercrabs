@@ -282,7 +282,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 			shadow_camera.viewport =
 			{
 				Vec2(0, 0),
-				Vec2(shadow_map_size[(s32)Settings::shadow_quality][0], shadow_map_size[(s32)Settings::shadow_quality][0]),
+				Vec2(shadow_map_size[s32(Settings::shadow_quality)][0], shadow_map_size[s32(Settings::shadow_quality)][0]),
 			};
 			shadow_camera.perspective(light->fov, 1.0f, 0.1f, light->radius);
 			shadow_camera.pos = abs_pos;
@@ -614,7 +614,7 @@ void draw(LoopSync* sync, const Camera* camera)
 					shadow_camera.viewport =
 					{
 						Vec2(0, 0),
-						Vec2(shadow_map_size[(s32)Settings::shadow_quality][1], shadow_map_size[(s32)Settings::shadow_quality][1]),
+						Vec2(shadow_map_size[s32(Settings::shadow_quality)][1], shadow_map_size[s32(Settings::shadow_quality)][1]),
 					};
 					shadow_camera.orthographic(size, size, 1.0f, depth);
 					far_shadow_cascade_camera = shadow_camera;
@@ -630,7 +630,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				shadow_camera.viewport =
 				{
 					Vec2(0, 0),
-					Vec2(shadow_map_size[(s32)Settings::shadow_quality][0], shadow_map_size[(s32)Settings::shadow_quality][0]),
+					Vec2(shadow_map_size[s32(Settings::shadow_quality)][0], shadow_map_size[s32(Settings::shadow_quality)][0]),
 				};
 				shadow_camera.orthographic(20.0f, 20.0f, 1.0f, depth);
 
@@ -1506,7 +1506,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 
 	for (s32 i = 0; i < SHADOW_MAP_CASCADES; i++)
 	{
-		shadow_buffer[i] = Loader::dynamic_texture_permanent(shadow_map_size[(s32)Settings::shadow_quality][i], shadow_map_size[(s32)Settings::shadow_quality][i], RenderDynamicTextureType::Depth, RenderTextureWrap::Clamp, RenderTextureFilter::Linear, RenderTextureCompare::RefToTexture);
+		shadow_buffer[i] = Loader::dynamic_texture_permanent(shadow_map_size[s32(Settings::shadow_quality)][i], shadow_map_size[s32(Settings::shadow_quality)][i], RenderDynamicTextureType::Depth, RenderTextureWrap::Clamp, RenderTextureFilter::Linear, RenderTextureCompare::RefToTexture);
 		shadow_fbo[i] = Loader::framebuffer_permanent(1);
 		Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, shadow_buffer[i]);
 	}

@@ -66,7 +66,7 @@ void main()
 
 		#define FOG_SHADOW_SAMPLES 16
 		#define FOG_SHADOW_EXTINCTION 1.0f
-		#define FOG_SHADOW_STRENGTH 0.5f
+		#define FOG_SHADOW_STRENGTH 0.6f
 
 		float diff = final_depth - fog_start;
 		if (diff < 0.0f)

@@ -52,6 +52,7 @@ enum class MessageType
 	LoadingDone,
 	TimeSync,
 	Tram,
+	Rocket,
 	TransitionLevel,
 	Overworld,
 #if DEBUG
@@ -114,7 +115,8 @@ struct StateFrame
 b8 init();
 void update_start(const Update&);
 void update_end(const Update&);
-b8 finalize(Entity*);
+void finalize(Entity*);
+void finalize_child(Entity*);
 b8 remove(Entity*);
 extern b8 show_stats;
 

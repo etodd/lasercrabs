@@ -854,12 +854,12 @@ void Awk::awake()
 			s->alpha();
 			s->color.w = AWK_SHIELD_ALPHA;
 
-			Net::finalize(shield_entity);
+			Net::finalize_child(shield_entity);
 		}
 
-		vi_assert(!overshield.ref());
 		{
 			// overshield
+			vi_assert(!overshield.ref());
 			Entity* shield_entity = World::create<Empty>();
 			shield_entity->get<Transform>()->parent = get<Transform>();
 			overshield = shield_entity;
@@ -872,7 +872,7 @@ void Awk::awake()
 			s->alpha();
 			s->color.w = AWK_OVERSHIELD_ALPHA;
 
-			Net::finalize(shield_entity);
+			Net::finalize_child(shield_entity);
 		}
 	}
 	shield_time = Game::time.total;
@@ -1543,6 +1543,7 @@ void Awk::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos, c
 	{
 		// we're a server; the client is notifying us that it did a reflection
 
+		// check if they're roughly where we think they should be
 		if ((get<Transform>()->absolute_pos() - reflection_pos).length() < AWK_SHIELD_RADIUS * 6.0f)
 		{
 			if (remote_reflection_timer == 0.0f)
@@ -1563,8 +1564,7 @@ void Awk::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos, c
 		}
 		else
 		{
-			// if this happens, something went wrong or the player is hacking
-			vi_assert(false); // do nothing in release mode
+			// client is not where we think they should be. they might be hacking. don't reflect
 		}
 	}
 	else

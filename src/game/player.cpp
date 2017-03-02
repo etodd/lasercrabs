@@ -2337,7 +2337,7 @@ void PlayerControlHuman::update(const Update& u)
 					{
 						position = &entry;
 						// calculate tolerance based on velocity
-						const s32 radius = 3;
+						const s32 radius = 4;
 						for (s32 j = vi_max(0, i - radius); j < vi_min(s32(position_history.length), i + radius + 1); j++)
 						{
 							if (i != j)

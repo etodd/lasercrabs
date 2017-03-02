@@ -11,7 +11,7 @@ namespace Master
 {
 
 #define DEBUG_MSG 0
-#define NET_MASTER_RESEND_INTERVAL 1.5
+#define NET_MASTER_RESEND_INTERVAL 0.5
 
 Save::Save()
 {

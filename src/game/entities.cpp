@@ -267,7 +267,7 @@ EnergyPickupEntity::EnergyPickupEntity(const Vec3& p, AI::Team team)
 	Entity* e = World::create<Empty>();
 	e->get<Transform>()->parent = get<Transform>();
 	e->add<PointLight>()->radius = 8.0f;
-	Net::finalize(e);
+	Net::finalize_child(e);
 	pickup->light = e;
 }
 
@@ -908,15 +908,47 @@ void Rocket::hit_by(const TargetEvent& e)
 	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
 }
 
+namespace RocketNet
+{
+	b8 send_launch(Rocket* r, Entity* target)
+	{
+		using Stream = Net::StreamWrite;
+
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Rocket);
+		{
+			Ref<Rocket> ref = r;
+			serialize_ref(p, ref);
+		}
+		{
+			Ref<Entity> ref = target;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+
+		return true;
+	}
+}
+
+b8 Rocket::net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+	Ref<Rocket> rocket;
+	serialize_ref(p, rocket);
+	Ref<Entity> target;
+	serialize_ref(p, target);
+	Rocket* r = rocket.ref();
+	if (r)
+	{
+		r->target = target;
+		r->get<PointLight>()->radius = 10.0f;
+	}
+	return true;
+}
+
 void Rocket::launch(Entity* t)
 {
-	vi_assert(!target.ref() && get<Transform>()->parent.ref());
-	target = t;
-
-	PointLight* light = entity()->add<PointLight>();
-	light->radius = 10.0f;
-	light->color = Vec3(1, 1, 1);
-
+	vi_assert(Game::level.local && !target.ref() && get<Transform>()->parent.ref());
+	RocketNet::send_launch(this, t);
 	get<Transform>()->reparent(nullptr);
 }
 
@@ -1132,6 +1164,10 @@ RocketEntity::RocketEntity(PlayerManager* owner, Transform* parent, const Vec3& 
 	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.1f, 0.3f, 0.3f), 0.0f, CollisionAwkIgnore, CollisionDefault);
 
 	create<Target>();
+
+	PointLight* light = create<PointLight>();
+	light->radius = 0.0f;
+	light->color = Vec3(1.0f);
 }
 
 DecoyEntity::DecoyEntity(PlayerManager* owner, Transform* parent, const Vec3& pos, const Quat& rot)
@@ -1184,7 +1220,7 @@ void Decoy::awake()
 			s->alpha();
 			s->color.w = AWK_SHIELD_ALPHA;
 
-			Net::finalize(shield_entity);
+			Net::finalize_child(shield_entity);
 		}
 
 		{
@@ -1200,7 +1236,7 @@ void Decoy::awake()
 			s->alpha();
 			s->color.w = AWK_OVERSHIELD_ALPHA;
 
-			Net::finalize(overshield_entity);
+			Net::finalize_child(overshield_entity);
 		}
 	}
 }
@@ -1428,7 +1464,7 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 
 	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_group, CollisionAwkIgnore, view->mesh);
 
-	Net::finalize(f);
+	Net::finalize_child(f);
 
 	field->field = f;
 }
@@ -2886,7 +2922,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 		child->get<View>()->shader = Asset::Shader::flat;
 		child->get<View>()->alpha();
 		World::awake(child);
-		Net::finalize(child);
+		Net::finalize_child(child);
 	}
 
 	{
@@ -2911,7 +2947,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 		doors->create<PlayerTrigger>()->radius = 8.0f; // trigger for exiting
 
 		World::awake(doors);
-		Net::finalize(doors);
+		Net::finalize_child(doors);
 
 		tram->doors = doors;
 	}
@@ -3132,7 +3168,7 @@ TramInteractableEntity::TramInteractableEntity(const Vec3& absolute_pos, const Q
 	{
 		Entity* collision = World::create<StaticGeom>(Asset::Mesh::interactable_collision, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 		collision->get<View>()->color.w = MATERIAL_INACCESSIBLE;
-		Net::finalize(collision);
+		Net::finalize_child(collision);
 	}
 }
 

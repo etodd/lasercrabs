@@ -167,6 +167,7 @@ struct Rocket : public ComponentType<Rocket>
 	static Rocket* inbound(Entity*);
 	static Rocket* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static void update_client_all(const Update&);
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
 	Rocket();
 	void awake();

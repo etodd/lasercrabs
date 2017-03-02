@@ -33,9 +33,9 @@
 #define DEBUG_ENTITY 0
 #define DEBUG_TRANSFORMS 0
 #define DEBUG_LAG 0
-#define DEBUG_LAG_AMOUNT 0.15f
+#define DEBUG_LAG_AMOUNT 0.1f
 #define DEBUG_PACKET_LOSS 0
-#define DEBUG_PACKET_LOSS_AMOUNT 0.25f
+#define DEBUG_PACKET_LOSS_AMOUNT 0.1f
 
 #define MASTER_PING_TIMEOUT 8.0f
 
@@ -1084,21 +1084,25 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 			}
 
 			// start resending frames starting at that index
-			r32 timestamp_cutoff = state_common.timestamp - vi_min(NET_TICK_RATE * 1.5f, rtt * 2.0f); // wait a certain period before trying to resend a sequence
+			s32 resend_wait_period = s32(ceilf(rtt / NET_TICK_RATE)) + 2; // how many sequences to let pass by before we start resending them
+			s32 sequence_cutoff = sequence_advance(state_common.local_sequence_id, -resend_wait_period);
+			r32 timestamp_cutoff = state_common.timestamp - vi_min(NET_TICK_RATE * 2.0f, rtt * 0.5f); // don't resend stuff multiple times; wait a certain period before trying to resend it again
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				const MessageFrame& frame = history.msg_frames[index];
-				s32 relative_sequence = sequence_relative_to(frame.sequence_id, remote_ack.sequence_id);
-				if (relative_sequence < 0
-					&& relative_sequence >= -NET_ACK_PREVIOUS_SEQUENCES
-					&& !ack_get(remote_ack, frame.sequence_id)
-					&& !sequence_history_contains_newer_than(*recently_resent, frame.sequence_id, timestamp_cutoff)
-					&& 8 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
+				if (sequence_more_recent(sequence_cutoff, frame.sequence_id))
 				{
-					vi_debug("Resending seq %d: %d bytes", s32(frame.sequence_id), frame.bytes);
-					bytes += frame.write.bytes_written();
-					serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
-					sequence_history_add(recently_resent, frame.sequence_id, state_common.timestamp);
+					s32 relative_sequence = sequence_relative_to(frame.sequence_id, remote_ack.sequence_id);
+					if (relative_sequence >= -NET_ACK_PREVIOUS_SEQUENCES
+						&& !ack_get(remote_ack, frame.sequence_id)
+						&& !sequence_history_contains_newer_than(*recently_resent, frame.sequence_id, timestamp_cutoff)
+						&& 8 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
+					{
+						vi_debug("Resending seq %d: %d bytes", s32(frame.sequence_id), frame.bytes);
+						bytes += frame.write.bytes_written();
+						serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
+						sequence_history_add(recently_resent, frame.sequence_id, state_common.timestamp);
+					}
 				}
 
 				index = index < history.msg_frames.length - 1 ? index + 1 : 0;
@@ -1995,6 +1999,7 @@ b8 msg_process(StreamRead*, Client*);
 struct StateServer
 {
 	Array<Client> clients;
+	Array<Ref<Entity>> finalize_children_queue;
 	Mode mode;
 	r32 time_sync_timer;
 	r32 master_timer;
@@ -2527,7 +2532,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				if (!msgs_read(p, &client->msgs_in_history, &sequence_id))
 					net_error();
 
-				if (sequence_relative_to(sequence_id, client->processed_msg_frame.sequence_id) > NET_ACK_PREVIOUS_SEQUENCES)
+				if (sequence_relative_to(sequence_id, client->processed_msg_frame.sequence_id) > NET_MAX_SEQUENCE_GAP)
 				{
 					// we missed a packet that we'll never be able to recover
 					vi_debug("Client %s:%hd timed out.", Sock::host_to_str(client->address.host), client->address.port);
@@ -3232,7 +3237,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 
 			// check for large gaps in the sequence
 			const MessageFrameState& processed_msg_frame = state_client.mode == Mode::Loading ? state_client.server_processed_load_msg_frame : state_client.server_processed_msg_frame;
-			if (sequence_relative_to(processed_msg_frame.sequence_id, msg_sequence_id) > NET_ACK_PREVIOUS_SEQUENCES)
+			if (sequence_relative_to(processed_msg_frame.sequence_id, msg_sequence_id) > NET_MAX_SEQUENCE_GAP)
 			{
 				// we missed a packet that we'll never be able to recover
 				vi_debug("Lost connection to %s:%hd due to sequence gap. Local seq: %d. Remote seq: %d.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port, s32(processed_msg_frame.sequence_id), s32(msg_sequence_id));
@@ -3455,24 +3460,42 @@ b8 init()
 #endif
 }
 
-b8 finalize(Entity* e)
+b8 finalize_internal(Entity* e)
+{
+	using Stream = StreamWrite;
+	StreamWrite* p = msg_new(MessageType::EntityCreate);
+	ID id = e->id();
+	serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
+	if (!serialize_entity(p, e))
+		vi_assert(false);
+	msg_finalize(p);
+	return true;
+}
+
+void finalize(Entity* e)
 {
 #if SERVER
 	if (Server::state_server.mode != Server::Mode::Loading)
 	{
-		using Stream = StreamWrite;
-		StreamWrite* p = msg_new(MessageType::EntityCreate);
-		ID id = e->id();
-		serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
-		if (!serialize_entity(p, e))
-			vi_assert(false);
-		msg_finalize(p);
+		finalize_internal(e);
+		for (s32 i = 0; i < Server::state_server.finalize_children_queue.length; i++)
+			finalize_internal(Server::state_server.finalize_children_queue[i].ref());
+		Server::state_server.finalize_children_queue.length = 0;
 	}
 #else
 	// client
 	vi_assert(Game::level.local); // client can't spawn entities if it is connected to a server
 #endif
-	return true;
+}
+
+void finalize_child(Entity* e)
+{
+#if SERVER
+	if (Server::state_server.mode != Server::Mode::Loading)
+		Server::state_server.finalize_children_queue.add(e);
+#else
+	finalize(e);
+#endif
 }
 
 b8 remove(Entity* e)
@@ -3511,7 +3534,7 @@ Array<PacketEntry> lag_buffer;
 void packet_read(const Update& u, PacketEntry* entry)
 {
 #if DEBUG_PACKET_LOSS
-	if (mersenne::randf_co() < 1.0f - DEBUG_PACKET_LOSS_AMOUNT) // packet loss simulation
+	if (mersenne::randf_co() < DEBUG_PACKET_LOSS_AMOUNT) // packet loss simulation
 		return;
 #endif
 
@@ -3762,6 +3785,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Tram:
 		{
 			if (!Tram::net_msg(p, src))
+				net_error();
+			break;
+		}
+		case MessageType::Rocket:
+		{
+			if (!Rocket::net_msg(p, src))
 				net_error();
 			break;
 		}

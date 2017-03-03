@@ -61,9 +61,10 @@ struct MessageFrame // container for the amount of messages that can come in a s
 	r32 timestamp;
 	s32 bytes;
 	SequenceID sequence_id;
+	SequenceID remote_sequence_id;
 
-	MessageFrame() : read(), sequence_id(), timestamp(), bytes() {}
-	MessageFrame(r32 t, s32 bytes) : read(), sequence_id(), timestamp(t), bytes(bytes) {}
+	MessageFrame() : read(), sequence_id(), remote_sequence_id(), timestamp(), bytes() {}
+	MessageFrame(r32 t, s32 bytes) : read(), sequence_id(), remote_sequence_id(), timestamp(t), bytes(bytes) {}
 	~MessageFrame() {}
 };
 
@@ -706,7 +707,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		PlayerControlHuman* c = e->get<PlayerControlHuman>();
 		serialize_ref(p, c->player);
-		serialize_ref(p, c->interactable);
 	}
 
 	if (e->has<Interactable>())
@@ -1131,7 +1131,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 	return true;
 }
 
-b8 msgs_read(StreamRead* p, MessageHistory* history, SequenceID* received_sequence = nullptr)
+b8 msgs_read(StreamRead* p, MessageHistory* history, const Ack& remote_ack, SequenceID* received_sequence = nullptr)
 {
 	using Stream = StreamRead;
 
@@ -1146,6 +1146,7 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, SequenceID* received_sequen
 		{
 			MessageFrame* frame = msg_history_add(history, state_common.timestamp, bytes);
 			serialize_int(p, SequenceID, frame->sequence_id, 0, NET_SEQUENCE_COUNT - 1);
+			frame->remote_sequence_id = remote_ack.sequence_id;
 #if DEBUG_MSG
 			if (bytes > 1)
 				vi_debug("Received seq %d: %d bytes", s32(frame->sequence_id), s32(bytes));
@@ -1994,7 +1995,7 @@ struct Client
 	b8 loading_done;
 };
 
-b8 msg_process(StreamRead*, Client*);
+b8 msg_process(StreamRead*, Client*, SequenceID);
 
 struct StateServer
 {
@@ -2036,6 +2037,16 @@ Client* client_for_player(const PlayerHuman* player)
 		}
 	}
 	return nullptr;
+}
+
+// for external consumption
+ID client_id(const PlayerHuman* player)
+{
+	Client* client = client_for_player(player);
+	if (client)
+		return ID(client - &state_server.clients[0]);
+	else
+		return IDNull;
 }
 
 void server_state(Master::ServerState* s)
@@ -2242,7 +2253,7 @@ void update(const Update& u, r32 dt)
 			frame->read.rewind();
 			while (frame->read.bytes_read() < frame->bytes)
 			{
-				b8 success = msg_process(&frame->read, client);
+				b8 success = msg_process(&frame->read, client, frame->sequence_id);
 				if (!success)
 					break;
 			}
@@ -2525,11 +2536,9 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				serialize_u64(p, ack_candidate.previous_sequences);
 				if (sequence_more_recent(ack_candidate.sequence_id, client->ack.sequence_id))
 					client->ack = ack_candidate;
-			}
 
-			{
 				SequenceID sequence_id; // TODO: calculate this differently because this packet might be missing the current message frame
-				if (!msgs_read(p, &client->msgs_in_history, &sequence_id))
+				if (!msgs_read(p, &client->msgs_in_history, ack_candidate, &sequence_id))
 					net_error();
 
 				if (sequence_relative_to(sequence_id, client->processed_msg_frame.sequence_id) > NET_MAX_SEQUENCE_GAP)
@@ -2614,7 +2623,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 }
 
 // server function for processing messages
-b8 msg_process(StreamRead* p, Client* client)
+b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 {
 	using Stream = StreamRead;
 	vi_assert(client);
@@ -2647,7 +2656,7 @@ b8 msg_process(StreamRead* p, Client* client)
 			Ref<PlayerControlHuman> c;
 			serialize_ref(p, c);
 			b8 valid = c.ref() && client_owns(client, c.ref()->entity());
-			if (!PlayerControlHuman::net_msg(p, c.ref(), valid ? MessageSource::Remote : MessageSource::Invalid))
+			if (!PlayerControlHuman::net_msg(p, c.ref(), valid ? MessageSource::Remote : MessageSource::Invalid, seq))
 				net_error();
 			break;
 		}
@@ -2784,6 +2793,27 @@ void reset()
 
 	state_server.~StateServer();
 	new (&state_server) StateServer();
+}
+
+// this is meant for external consumption in the game code.
+r32 rtt(const PlayerHuman* p, SequenceID client_seq)
+{
+	if (Game::level.local && p->local)
+		return 0.0f;
+
+	Server::Client* client = Server::client_for_player(p);
+
+	vi_assert(client);
+
+	MessageFrame* frame = msg_frame_by_sequence(&client->msgs_in_history, client_seq);
+	if (frame)
+	{
+		SequenceID server_seq = frame->remote_sequence_id;
+		const StateFrame* state_frame = state_frame_by_sequence(state_common.state_history, server_seq);
+		return (state_common.timestamp - state_frame->timestamp) + NET_INTERPOLATION_DELAY;
+	}
+	else
+		return client->rtt + NET_INTERPOLATION_DELAY;
 }
 
 }
@@ -3211,16 +3241,14 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				return false; // need the init packet first
 
 			// read ack
-			{
-				Ack ack_candidate;
-				serialize_int(p, SequenceID, ack_candidate.sequence_id, 0, NET_SEQUENCE_COUNT); // not NET_SEQUENCE_COUNT - 1, because it might be NET_SEQUENCE_INVALID
-				serialize_u64(p, ack_candidate.previous_sequences);
-				if (sequence_more_recent(ack_candidate.sequence_id, state_client.server_ack.sequence_id))
-					state_client.server_ack = ack_candidate;
-			}
+			Ack ack_candidate;
+			serialize_int(p, SequenceID, ack_candidate.sequence_id, 0, NET_SEQUENCE_COUNT); // not NET_SEQUENCE_COUNT - 1, because it might be NET_SEQUENCE_INVALID
+			serialize_u64(p, ack_candidate.previous_sequences);
+			if (sequence_more_recent(ack_candidate.sequence_id, state_client.server_ack.sequence_id))
+				state_client.server_ack = ack_candidate;
 
 			SequenceID msg_sequence_id;
-			if (!msgs_read(p, &state_client.msgs_in_history, &msg_sequence_id))
+			if (!msgs_read(p, &state_client.msgs_in_history, ack_candidate, &msg_sequence_id))
 				net_error();
 
 			calculate_rtt(state_common.timestamp, state_client.server_ack, state_common.msgs_out_history, &state_client.server_rtt);
@@ -3231,7 +3259,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				vi_assert(has_load_msgs);
 			if (has_load_msgs)
 			{
-				if (!msgs_read(p, &state_client.msgs_in_load_history))
+				if (!msgs_read(p, &state_client.msgs_in_load_history, ack_candidate))
 					net_error();
 			}
 
@@ -3727,7 +3755,7 @@ b8 msg_process(StreamRead* p, MessageSource src)
 			vi_assert(src == MessageSource::Loopback || !Game::level.local); // Server::msg_process handles this on the server
 			Ref<PlayerControlHuman> c;
 			serialize_ref(p, c);
-			if (!PlayerControlHuman::net_msg(p, c.ref(), src))
+			if (!PlayerControlHuman::net_msg(p, c.ref(), src, 0))
 				net_error();
 			break;
 		}

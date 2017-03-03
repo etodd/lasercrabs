@@ -164,7 +164,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		Type type;
 	};
 
-	static b8 net_msg(Net::StreamRead*, PlayerControlHuman*, Net::MessageSource);
+	static b8 net_msg(Net::StreamRead*, PlayerControlHuman*, Net::MessageSource, Net::SequenceID);
 	static s32 count_local();
 
 	Array<TargetIndicator> target_indicators;
@@ -177,6 +177,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	Vec3 last_pos;
 #if SERVER
 	r32 ai_record_wait_timer;
+	r32 rtt;
 #endif
 	r32 fov;
 	r32 camera_shake_timer;

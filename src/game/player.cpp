@@ -1619,7 +1619,7 @@ void PlayerCommon::clamp_rotation(const Vec3& direction, r32 dot_limit)
 	}
 }
 
-b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::MessageSource src)
+b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::MessageSource src, Net::SequenceID seq)
 {
 	using Stream = Net::StreamRead;
 
@@ -1651,6 +1651,11 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		r32 dist_sq = (c->get<Transform>()->absolute_pos() - msg.pos).length_squared();
 		if (dist_sq < NET_SYNC_TOLERANCE_POS * NET_SYNC_TOLERANCE_POS)
 			c->get<Transform>()->absolute_pos(msg.pos);
+
+#if SERVER
+		// update RTT based on the sequence number
+		c->rtt = Net::Server::rtt(c->player.ref(), seq);
+#endif
 	}
 
 	switch (msg.type)
@@ -1914,6 +1919,7 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 #if SERVER
 	ai_record_tag(),
 	ai_record_wait_timer(AI_RECORD_WAIT_TIME),
+	rtt(),
 #endif
 	sudoku_active()
 {
@@ -1921,6 +1927,10 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 
 void PlayerControlHuman::awake()
 {
+#if SERVER
+	rtt = Net::rtt(player.ref());
+#endif
+
 	if (player.ref()->local && !Game::level.local)
 	{
 		Transform* t = get<Transform>();
@@ -2658,6 +2668,11 @@ void PlayerControlHuman::update(const Update& u)
 		{
 			// we are a server, but this Awk is being controlled by a client
 #if SERVER
+			// if we are crawling, update the RTT every frame
+			// if we're dashing or flying, the RTT is set based on the sequence number of the command we received
+			if (get<Awk>()->state() == Awk::State::Crawl)
+				rtt = Net::rtt(player.ref());
+
 			ai_record_wait_timer -= u.time.delta;
 			if (ai_record_wait_timer < 0.0f)
 			{

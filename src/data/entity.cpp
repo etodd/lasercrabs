@@ -46,7 +46,7 @@ void World::awake(Entity* e)
 {
 	for (Family i = 0; i < World::families; i++)
 	{
-		if (e->component_mask & ((ComponentMask)1 << i))
+		if (e->component_mask & (ComponentMask(1) << i))
 			component_pools[i]->awake(e->components[i]);
 	}
 }

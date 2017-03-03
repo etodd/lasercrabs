@@ -139,6 +139,8 @@ namespace Server
 	void level_loading();
 	void level_loaded();
 	b8 sync_time();
+	r32 rtt(const PlayerHuman*, SequenceID);
+	ID client_id(const PlayerHuman*);
 }
 #else
 namespace Client

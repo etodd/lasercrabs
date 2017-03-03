@@ -88,6 +88,14 @@ struct WaterEntry
 	Water::Config config;
 };
 
+enum class SplitscreenMode
+{
+	Public,
+	Custom,
+	Local,
+	count,
+};
+
 struct DataGlobal
 {
 	StaticArray<ZoneNode, MAX_ZONES> zones;
@@ -95,6 +103,7 @@ struct DataGlobal
 	Array<WaterEntry> waters;
 	Vec3 camera_offset_pos;
 	Quat camera_offset_rot;
+	SplitscreenMode splitscreen_mode;
 };
 DataGlobal global;
 
@@ -134,15 +143,6 @@ struct Data
 
 	struct Splitscreen
 	{
-		enum class Mode
-		{
-			Public,
-			Custom,
-			Local,
-			count,
-		};
-
-		Mode mode;
 		UIMenu menu;
 	};
 
@@ -251,21 +251,21 @@ void splitscreen_select_options_update(const Update& u)
 	// multiplayer type
 	{
 		AssetID value;
-		switch (data.splitscreen.mode)
+		switch (global.splitscreen_mode)
 		{
-			case Data::Splitscreen::Mode::Public:
+			case SplitscreenMode::Public:
 			{
 				Game::session.type = SessionType::Public;
 				value = strings::multiplayer_public;
 				break;
 			}
-			case Data::Splitscreen::Mode::Custom:
+			case SplitscreenMode::Custom:
 			{
 				Game::session.type = SessionType::Custom;
 				value = strings::multiplayer_custom;
 				break;
 			}
-			case Data::Splitscreen::Mode::Local:
+			case SplitscreenMode::Local:
 			{
 				Game::session.type = SessionType::Custom;
 				value = strings::multiplayer_local;
@@ -277,10 +277,10 @@ void splitscreen_select_options_update(const Update& u)
 				break;
 			}
 		}
-		UIMenu::enum_option(&data.splitscreen.mode, data.splitscreen.menu.slider_item(u, _(strings::multiplayer), _(value)));
+		UIMenu::enum_option(&global.splitscreen_mode, data.splitscreen.menu.slider_item(u, _(strings::multiplayer), _(value)));
 	}
 
-	if (data.splitscreen.mode != Data::Splitscreen::Mode::Public)
+	if (global.splitscreen_mode != SplitscreenMode::Public)
 	{
 		{
 			// game type
@@ -1279,7 +1279,7 @@ void deploy_done()
 {
 	if (Game::session.type == SessionType::Story)
 		OverworldNet::capture_or_defend(data.zone_selected);
-	else if (data.splitscreen.mode == Data::Splitscreen::Mode::Local)
+	else if (global.splitscreen_mode == SplitscreenMode::Local)
 		go(data.zone_selected);
 	else
 	{

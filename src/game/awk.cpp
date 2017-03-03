@@ -34,7 +34,7 @@ namespace VI
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.03f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
 #define AWK_SHIELD_ANIM_TIME 0.35f
-#define AWK_REFLECTION_TIME_TOLERANCE 0.1f
+#define AWK_REFLECTION_TIME_TOLERANCE 0.2f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -420,7 +420,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				if (target_awk->state() == Awk::State::Crawl && target_awk->invincible_timer == 0.0f)
 				{
 					if (Game::level.local) // if we're a client, this has already been handled by the server
-						target.ref()->get<Health>()->damage(awk->entity(), 1);
+						target.ref()->get<Health>()->damage(awk->entity(), awk->current_ability == Ability::Sniper ? 2 : 1);
 				}
 				else // we didn't hurt them
 				{
@@ -643,7 +643,12 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							// step 4. if a target was hit, delete the bolt and apply any damage effects
 
 							Vec3 pos_bolt = my_pos + dir_normalized * AWK_SHIELD_RADIUS;
-							r32 timestamp = Net::timestamp() - Net::rtt(manager->get<PlayerHuman>());
+							r32 timestamp;
+#if SERVER
+							timestamp = Net::timestamp() - awk->get<PlayerControlHuman>()->rtt;
+#else
+							timestamp = Net::timestamp();
+#endif
 
 							Entity* closest_hit_entity = nullptr;
 							Vec3 closest_hit;
@@ -1141,7 +1146,17 @@ b8 Awk::direction_is_toward_attached_wall(const Vec3& dir) const
 b8 Awk::net_state_frame(Net::StateFrame* state_frame) const
 {
 	if (Game::level.local && has<PlayerControlHuman>() && !get<PlayerControlHuman>()->local()) // this Awk is being controlled remotely; we need to rewind the world state to what it looks like from their side
-		return Net::state_frame_by_timestamp(state_frame, Net::timestamp() - (Net::rtt(get<PlayerControlHuman>()->player.ref()) + NET_INTERPOLATION_DELAY));
+	{
+		r32 timestamp;
+#if SERVER
+		timestamp = Net::timestamp() - get<PlayerControlHuman>()->rtt;
+#else
+		// should never happen on client
+		timestamp = 0.0f;
+		vi_assert(false);
+#endif
+		return Net::state_frame_by_timestamp(state_frame, timestamp);
+	}
 	else
 		return false;
 }
@@ -1303,7 +1318,13 @@ void Awk::cooldown_setup()
 		vi_assert(charges > 0);
 		charges--;
 	}
-	cooldown = AWK_COOLDOWN;
+
+#if SERVER
+	if (has<PlayerControlHuman>())
+		cooldown = AWK_COOLDOWN - get<PlayerControlHuman>()->rtt;
+	else
+#endif
+		cooldown = AWK_COOLDOWN;
 }
 
 void Awk::ensure_detached()
@@ -2211,6 +2232,15 @@ void Awk::update_client(const Update& u)
 	}
 }
 
+b8 players_on_same_client(PlayerControlHuman* a, PlayerControlHuman* b)
+{
+#if SERVER
+	return Net::Server::client_id(a->player.ref()) == Net::Server::client_id(b->player.ref());
+#else
+	return true;
+#endif
+}
+
 void Awk::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, const Net::StateFrame* state_frame, Hits* result) const
 {
 	r32 distance_total = (ray_end - ray_start).length();
@@ -2269,7 +2299,8 @@ void Awk::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, 
 			continue;
 
 		Vec3 p;
-		if (state_frame)
+		// do rewinding, unless we're checking collisions between two players on the same client
+		if (state_frame && (!has<PlayerControlHuman>() || !i.item()->has<PlayerControlHuman>() || !players_on_same_client(get<PlayerControlHuman>(), i.item()->get<PlayerControlHuman>())))
 		{
 			Vec3 pos;
 			Quat rot;

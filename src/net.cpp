@@ -1084,9 +1084,10 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 			}
 
 			// start resending frames starting at that index
-			s32 resend_wait_period = s32(ceilf(rtt / NET_TICK_RATE)) + 3; // how many sequences to let pass by before we start resending them
-			s32 sequence_cutoff = sequence_advance(msg_history_most_recent_sequence(history), -resend_wait_period);
-			r32 timestamp_cutoff = state_common.timestamp - rtt * 1.1f; // don't resend stuff multiple times; wait a certain period before trying to resend it again
+			s32 resend_wait_period = s32(ceilf(rtt / NET_TICK_RATE)) + 5; // how many sequences to let pass by before we start resending them
+			SequenceID current_seq = msg_history_most_recent_sequence(history);
+			s32 sequence_cutoff = sequence_advance(current_seq, -resend_wait_period);
+			r32 timestamp_cutoff = state_common.timestamp - rtt * 1.5f; // don't resend stuff multiple times; wait a certain period before trying to resend it again
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				const MessageFrame& frame = history.msg_frames[index];
@@ -1097,7 +1098,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 					&& !sequence_history_contains_newer_than(*recently_resent, frame.sequence_id, timestamp_cutoff)
 					&& 8 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 				{
-					vi_debug("Resending seq %d: %d bytes", s32(frame.sequence_id), frame.bytes);
+					vi_debug("Resending seq %d: %d bytes. Current seq: %d", s32(frame.sequence_id), frame.bytes, s32(current_seq));
 					bytes += frame.write.bytes_written();
 					serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
 					sequence_history_add(recently_resent, frame.sequence_id, state_common.timestamp);
@@ -2521,11 +2522,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		}
 		case ClientPacket::Update:
 		{
-			if (!client)
-			{
-				vi_debug("%s", "Discarding packet from unknown client.");
+			if (!client) // unknown client; ignore
 				return false;
-			}
 
 			// read ack
 			{
@@ -2576,7 +2574,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				// because perhaps msgs_write did not have enough room to serialize the message frame for the current sequence
 				SequenceID sequence_id;
 				serialize_int(p, SequenceID, sequence_id, 0, NET_SEQUENCE_COUNT - 1);
-				most_recent = sequence_id == msg_history_most_recent_sequence(client->msgs_in_history);
+				most_recent = sequence_relative_to(sequence_id, msg_history_most_recent_sequence(client->msgs_in_history)) >= 0;
 			}
 
 			s32 count;
@@ -2600,11 +2598,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		}
 		case ClientPacket::Disconnect:
 		{
-			if (!client)
-			{
-				vi_debug("%s", "Discarding packet from unknown client.");
+			if (!client) // unknown client; ignore
 				return false;
-			}
 			vi_debug("Client %s:%hd disconnected.", Sock::host_to_str(address.host), address.port);
 			handle_client_disconnect(client);
 
@@ -3188,7 +3183,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		|| state_client.mode == Mode::ContactingMaster
 		|| !address.equals(state_client.server_address))
 	{
-		vi_debug("%s", "Discarding packet from unexpected host.");
+		// unknown host; ignore
 		return false;
 	}
 

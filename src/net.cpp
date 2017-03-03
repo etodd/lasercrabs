@@ -1084,9 +1084,9 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 			}
 
 			// start resending frames starting at that index
-			s32 resend_wait_period = s32(ceilf(rtt / NET_TICK_RATE)) + 2; // how many sequences to let pass by before we start resending them
-			s32 sequence_cutoff = sequence_advance(state_common.local_sequence_id, -resend_wait_period);
-			r32 timestamp_cutoff = state_common.timestamp - vi_min(NET_TICK_RATE * 2.0f, rtt * 0.5f); // don't resend stuff multiple times; wait a certain period before trying to resend it again
+			s32 resend_wait_period = s32(ceilf(rtt / NET_TICK_RATE)) + 3; // how many sequences to let pass by before we start resending them
+			s32 sequence_cutoff = sequence_advance(msg_history_most_recent_sequence(history), -resend_wait_period);
+			r32 timestamp_cutoff = state_common.timestamp - rtt * 1.1f; // don't resend stuff multiple times; wait a certain period before trying to resend it again
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				const MessageFrame& frame = history.msg_frames[index];

@@ -1090,19 +1090,17 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				const MessageFrame& frame = history.msg_frames[index];
-				if (sequence_more_recent(sequence_cutoff, frame.sequence_id))
+				s32 relative_sequence = sequence_relative_to(frame.sequence_id, remote_ack.sequence_id);
+				if ((relative_sequence < 0 || sequence_more_recent(sequence_cutoff, frame.sequence_id))
+					&& relative_sequence >= -NET_ACK_PREVIOUS_SEQUENCES
+					&& !ack_get(remote_ack, frame.sequence_id)
+					&& !sequence_history_contains_newer_than(*recently_resent, frame.sequence_id, timestamp_cutoff)
+					&& 8 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 				{
-					s32 relative_sequence = sequence_relative_to(frame.sequence_id, remote_ack.sequence_id);
-					if (relative_sequence >= -NET_ACK_PREVIOUS_SEQUENCES
-						&& !ack_get(remote_ack, frame.sequence_id)
-						&& !sequence_history_contains_newer_than(*recently_resent, frame.sequence_id, timestamp_cutoff)
-						&& 8 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
-					{
-						vi_debug("Resending seq %d: %d bytes", s32(frame.sequence_id), frame.bytes);
-						bytes += frame.write.bytes_written();
-						serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
-						sequence_history_add(recently_resent, frame.sequence_id, state_common.timestamp);
-					}
+					vi_debug("Resending seq %d: %d bytes", s32(frame.sequence_id), frame.bytes);
+					bytes += frame.write.bytes_written();
+					serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
+					sequence_history_add(recently_resent, frame.sequence_id, state_common.timestamp);
 				}
 
 				index = index < history.msg_frames.length - 1 ? index + 1 : 0;
@@ -2541,7 +2539,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				if (!msgs_read(p, &client->msgs_in_history, ack_candidate, &sequence_id))
 					net_error();
 
-				if (sequence_relative_to(sequence_id, client->processed_msg_frame.sequence_id) > NET_MAX_SEQUENCE_GAP)
+				if (abs(sequence_relative_to(sequence_id, client->processed_msg_frame.sequence_id)) > NET_MAX_SEQUENCE_GAP)
 				{
 					// we missed a packet that we'll never be able to recover
 					vi_debug("Client %s:%hd timed out.", Sock::host_to_str(client->address.host), client->address.port);
@@ -3259,13 +3257,13 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				vi_assert(has_load_msgs);
 			if (has_load_msgs)
 			{
-				if (!msgs_read(p, &state_client.msgs_in_load_history, ack_candidate))
+				if (!msgs_read(p, &state_client.msgs_in_load_history, ack_candidate, &msg_sequence_id))
 					net_error();
 			}
 
 			// check for large gaps in the sequence
-			const MessageFrameState& processed_msg_frame = state_client.mode == Mode::Loading ? state_client.server_processed_load_msg_frame : state_client.server_processed_msg_frame;
-			if (sequence_relative_to(processed_msg_frame.sequence_id, msg_sequence_id) > NET_MAX_SEQUENCE_GAP)
+			const MessageFrameState& processed_msg_frame = has_load_msgs ? state_client.server_processed_load_msg_frame : state_client.server_processed_msg_frame;
+			if (abs(sequence_relative_to(processed_msg_frame.sequence_id, msg_sequence_id)) > NET_MAX_SEQUENCE_GAP)
 			{
 				// we missed a packet that we'll never be able to recover
 				vi_debug("Lost connection to %s:%hd due to sequence gap. Local seq: %d. Remote seq: %d.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port, s32(processed_msg_frame.sequence_id), s32(msg_sequence_id));

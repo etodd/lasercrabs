@@ -1024,19 +1024,15 @@ MessageFrame* msg_frame_advance(MessageHistory* history, MessageFrameState* proc
 
 b8 ack_get(const Ack& ack, SequenceID sequence_id)
 {
-	if (sequence_more_recent(sequence_id, ack.sequence_id))
-		return false;
-	else if (sequence_id == ack.sequence_id)
+	s32 relative = sequence_relative_to(sequence_id, ack.sequence_id);
+	if (relative == 0)
 		return true;
+	else if (relative > 0)
+		return false;
+	else if (relative < -NET_ACK_PREVIOUS_SEQUENCES)
+		return false;
 	else
-	{
-		s32 relative = sequence_relative_to(sequence_id, ack.sequence_id);
-		vi_assert(relative < 0);
-		if (relative < -NET_ACK_PREVIOUS_SEQUENCES)
-			return false;
-		else
-			return ack.previous_sequences & (u64(1) << (-relative - 1));
-	}
+		return ack.previous_sequences & (u64(1) << (-relative - 1));
 }
 
 void sequence_history_add(SequenceHistory* history, SequenceID id, r32 timestamp)
@@ -1084,15 +1080,13 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 			}
 
 			// start resending frames starting at that index
-			s32 resend_wait_period = s32(ceilf(rtt / NET_TICK_RATE)) + 5; // how many sequences to let pass by before we start resending them
-			SequenceID current_seq = msg_history_most_recent_sequence(history);
-			s32 sequence_cutoff = sequence_advance(current_seq, -resend_wait_period);
+			SequenceID current_seq = history.msg_frames[history.current_index].sequence_id;
 			r32 timestamp_cutoff = state_common.timestamp - rtt * 1.5f; // don't resend stuff multiple times; wait a certain period before trying to resend it again
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				const MessageFrame& frame = history.msg_frames[index];
 				s32 relative_sequence = sequence_relative_to(frame.sequence_id, remote_ack.sequence_id);
-				if ((relative_sequence < 0 || sequence_more_recent(sequence_cutoff, frame.sequence_id))
+				if (relative_sequence < 0
 					&& relative_sequence >= -NET_ACK_PREVIOUS_SEQUENCES
 					&& !ack_get(remote_ack, frame.sequence_id)
 					&& !sequence_history_contains_newer_than(*recently_resent, frame.sequence_id, timestamp_cutoff)
@@ -3376,6 +3370,7 @@ b8 msg_process(StreamRead* p)
 		case MessageType::InitDone:
 		{
 			vi_assert(state_client.mode == Mode::Loading);
+			Tram::setup(); // HACK to make sure trams are in the right position
 			for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 				World::awake(i.item());
 			Game::awake_all();

@@ -2713,6 +2713,10 @@ void TerminalInteractable::interacted(Interactable*)
 
 const r32 TRAM_LENGTH = 3.7f * 2.0f;
 const r32 TRAM_SPEED_MAX = 10.0f;
+const r32 TRAM_WIDTH = TRAM_LENGTH * 0.5f;
+const r32 TRAM_HEIGHT = 2.54f;
+const r32 TRAM_ROPE_LENGTH = 4.0f;
+
 
 TramRunnerEntity::TramRunnerEntity(s8 track, b8 is_front)
 {
@@ -2882,33 +2886,21 @@ void TramRunner::update_client(const Update& u)
 
 TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 {
-	const r32 width = TRAM_LENGTH * 0.5f;
-	const r32 height = 2.54f;
-	const r32 rope_length = 4.0f;
-
 	Transform* transform = create<Transform>();
-
-	{
-		Vec3 pos_a = runner_a->get<Transform>()->pos;
-		Vec3 pos_b = runner_b->get<Transform>()->pos;
-		transform->pos = (pos_a + pos_b) * 0.5f;
-		transform->pos.y += (fabsf(pos_b.y - pos_a.y) * 0.5f) - height - rope_length;
-		transform->rot = Quat::look(Vec3::normalize(pos_b - pos_a));
-	}
 
 	const Mesh* mesh = Loader::mesh(Asset::Mesh::tram_mesh);
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionAwkIgnore, ~CollisionWalker & ~CollisionInaccessible & ~CollisionParkour & ~CollisionStatic & ~CollisionElectric);
 	body->set_restitution(0.75f);
 	body->set_damping(0.5f, 0.5f);
-	body->rebuild();
-
-	create<PlayerTrigger>()->radius = 1.3f; // trigger for entering
 
 	Tram* tram = create<Tram>();
 	tram->runner_a = runner_a->get<TramRunner>();
 	tram->runner_b = runner_b->get<TramRunner>();
-	if (tram->runner_b.ref()->state == TramRunner::State::Arriving)
-		body->btBody->setLinearVelocity(transform->rot * Vec3(0, 0, -TRAM_SPEED_MAX));
+
+	tram->set_position();
+	body->rebuild();
+
+	create<PlayerTrigger>()->radius = 1.3f; // trigger for entering
 
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::tram_mesh;
@@ -2957,14 +2949,14 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 		Quat rot_a = runner_a->get<Transform>()->rot;
 		Rope* rope1 = Rope::start(runner_a->get<RigidBody>(), runner_a->get<Transform>()->pos + rot_a * Vec3(0, -0.37f, 0), rot_a * Vec3(0, -1, 0), Quat::look(rot_a * Vec3(0, -1, 0)));
 		if (rope1)
-			rope1->end(transform->to_world(Vec3(0, height, -width)), transform->rot * (Quat::euler(0, 0, PI * (30.0f / 180.0f)) * Vec3(0, 1, 0)), body, 0.0f, true);
+			rope1->end(transform->to_world(Vec3(0, TRAM_HEIGHT, -TRAM_WIDTH)), transform->rot * (Quat::euler(0, 0, PI * (30.0f / 180.0f)) * Vec3(0, 1, 0)), body, 0.0f, true);
 	}
 	{
 		runner_b->get<RigidBody>()->rebuild();
 		Quat rot_b = runner_b->get<Transform>()->rot;
 		Rope* rope2 = Rope::start(runner_b->get<RigidBody>(), runner_b->get<Transform>()->pos + rot_b * Vec3(0, -0.37f, 0), rot_b * Vec3(0, -1, 0), Quat::look(rot_b * Vec3(0, -1, 0)));
 		if (rope2)
-			rope2->end(transform->to_world(Vec3(0, height, width)), rot_b * (Quat::euler(0, 0, PI * (-30.0f / 180.0f)) * Vec3(0, 1, 0)), body, 0.0f, true);
+			rope2->end(transform->to_world(Vec3(0, TRAM_HEIGHT, TRAM_WIDTH)), rot_b * (Quat::euler(0, 0, PI * (-30.0f / 180.0f)) * Vec3(0, 1, 0)), body, 0.0f, true);
 	}
 }
 
@@ -2972,6 +2964,27 @@ void Tram::awake()
 {
 	link_arg<Entity*, &Tram::player_entered>(get<PlayerTrigger>()->entered);
 	link_arg<Entity*, &Tram::player_exited>(doors.ref()->get<PlayerTrigger>()->exited);
+}
+
+void Tram::setup()
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+		i.item()->set_position();
+}
+
+void Tram::set_position()
+{
+	Vec3 pos_a = runner_a.ref()->get<Transform>()->pos;
+	Vec3 pos_b = runner_b.ref()->get<Transform>()->pos;
+	Transform* transform = get<Transform>();
+	transform->pos = (pos_a + pos_b) * 0.5f;
+	transform->pos.y += (fabsf(pos_b.y - pos_a.y) * 0.5f) - TRAM_HEIGHT - TRAM_ROPE_LENGTH;
+	transform->rot = Quat::look(Vec3::normalize(pos_b - pos_a));
+	if (runner_b.ref()->state == TramRunner::State::Arriving)
+	{
+		get<RigidBody>()->awake(); // create the rigid body if we haven't yet
+		get<RigidBody>()->btBody->setLinearVelocity(transform->rot * Vec3(0, 0, -TRAM_SPEED_MAX));
+	}
 }
 
 namespace TramNet

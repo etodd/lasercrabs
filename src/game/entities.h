@@ -521,6 +521,7 @@ struct Tram : public ComponentType<Tram>
 	static Tram* by_track(s8);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static b8 player_inside(Entity*);
+	static void setup();
 
 	Ref<TramRunner> runner_a;
 	Ref<TramRunner> runner_b;
@@ -530,6 +531,7 @@ struct Tram : public ComponentType<Tram>
 	b8 doors_open() const;
 	void doors_open(b8);
 	s8 track() const;
+	void set_position();
 
 	void player_entered(Entity*);
 	void player_exited(Entity*);

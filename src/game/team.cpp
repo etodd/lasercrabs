@@ -891,7 +891,7 @@ s32 PlayerManager::visibility_hash(const PlayerManager* awk_a, const PlayerManag
 
 PlayerManager::PlayerManager(Team* team, const char* u)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
-	score_accepted(),
+	score_accepted(Team::game_over),
 	team(team),
 	upgrades(0),
 	abilities{ Ability::None, Ability::None, Ability::None },

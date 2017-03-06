@@ -68,7 +68,7 @@ const Vec3 corners[num_corners] =
 	Vec3(0.0f, 0.0f, 1.0f),
 };
 
-// Slide against walls
+// slide against walls
 b8 Walker::slide(Vec2* movement, const Vec3& wall_ray)
 {
 	Vec3 ray_start = get<Transform>()->absolute_pos();
@@ -82,20 +82,24 @@ b8 Walker::slide(Vec2* movement, const Vec3& wall_ray)
 		Vec3 new_movement3 = ray_callback.m_hitNormalWorld.cross(orthogonal);
 		Vec2 new_movement(new_movement3.x, new_movement3.z);
 		new_movement.normalize();
-		if (new_movement.dot(*movement) < 0)
+		r32 dot = new_movement.dot(*movement);
+		if (dot < 0)
+		{
 			new_movement *= -1.0f;
+			dot *= -1.0f;
+		}
 
-		if (new_movement.dot(*movement) > 0.25f) // The new direction is similar to what we want. Go ahead.
+		if (dot > 0.25f) // the new direction is similar to what we want. go ahead.
 		{
 			new_movement *= movement->length();
 			*movement = new_movement;
 			return true;
 		}
 		else
-			return false; // New direction is too different. Continue in the old direction.
+			return false; // new direction is too different. continue in the old direction.
 	}
 	else
-		return false; // No wall. Continue in the old direction.
+		return false; // no wall. continue in the old direction.
 }
 
 const btRigidBody* get_actual_support_body(const btRigidBody* object)
@@ -223,7 +227,7 @@ void Walker::update(const Update& u)
 
 				if (has_traction && !btFuzzyZero(movement_length))
 				{
-					// Slide against walls
+					// slide against walls
 					if (!slide(&movement, Vec3::normalize(Vec3(dir.x, 0, dir.y))))
 					{
 						r32 angle = atan2f(movement.x, movement.y);

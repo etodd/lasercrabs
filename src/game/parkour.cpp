@@ -73,6 +73,7 @@ Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 
 void Parkour::awake()
 {
+	get<RigidBody>()->set_ccd(true);
 	Animator* animator = get<Animator>();
 	animator->layers[0].behavior = Animator::Behavior::Loop;
 	animator->layers[0].play(Asset::Animation::character_idle);

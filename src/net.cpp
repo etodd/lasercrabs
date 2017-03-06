@@ -3266,12 +3266,13 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				serialize_int(p, SequenceID, base_sequence_id, 0, NET_SEQUENCE_COUNT); // not NET_SEQUENCE_COUNT - 1, because base_sequence_id might be NET_SEQUENCE_INVALID
 				const StateFrame* base = state_frame_by_sequence(state_common.state_history, base_sequence_id);
 				StateFrame frame;
-				serialize_state_frame(p, &frame, base);
+				if (!serialize_state_frame(p, &frame, base))
+					net_error();
 
 				// make sure the server says we have a base state frame if and only if we actually have it
 				if ((base_sequence_id == NET_SEQUENCE_INVALID) != (base == nullptr))
 				{
-					vi_debug("Lost connection to %s:%hd due to missing state frame delta compression basis: seq %d", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port, s32(processed_msg_frame.sequence_id), s32(base_sequence_id));
+					vi_debug("Lost connection to %s:%hd due to missing state frame delta compression basis seq %d. Current seq: %d", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port, s32(base_sequence_id), s32(frame.sequence_id));
 					handle_server_disconnect();
 					return false;
 				}

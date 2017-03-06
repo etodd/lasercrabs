@@ -14,7 +14,6 @@
 #include <map>
 #include <array>
 #include "mersenne/mersenne-twister.h"
-#include "sha1/sha1.h"
 #include "platform/util.h"
 
 #if !LINUX

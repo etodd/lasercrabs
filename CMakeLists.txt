@@ -181,12 +181,6 @@ add_library(cJSON STATIC
 	external/cjson/cJSON_Utils.h
 )
 
-## SHA1
-add_library(sha1 STATIC
-	external/sha1/sha1.cpp
-	external/sha1/sha1.h
-)
-
 ## Source
 
 set(SRC 
@@ -403,7 +397,6 @@ if (SERVER)
 		fastlz
 		cJSON
 		mersenne
-		sha1
 		zlibstatic
 	)
 
@@ -474,7 +467,6 @@ if (CLIENT)
 		fastlz
 		cJSON
 		mersenne
-		sha1
 		lodepng
 		wwise_integration
 		zlibstatic
@@ -641,7 +633,6 @@ if (NOT PLAYSTATION)
 		fastlz
 		cJSON
 		mersenne
-		sha1
 	)
 
 	add_custom_target(

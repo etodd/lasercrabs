@@ -17,7 +17,6 @@
 #include "entities.h"
 #include "render/particles.h"
 #include "data/import_common.h"
-#include "sha1/sha1.h"
 #include "vi_assert.h"
 #include "cjson/cJSON.h"
 #include "settings.h"

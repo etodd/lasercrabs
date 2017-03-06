@@ -38,7 +38,7 @@ uniform float fog_extent;
 uniform float far_plane;
 uniform vec2 uv_offset;
 uniform vec2 uv_scale;
-uniform sampler2D shadow_map;
+uniform sampler2DShadow shadow_map;
 uniform mat4 light_vp;
 uniform bool fog;
 
@@ -65,7 +65,6 @@ void main()
 #ifdef SHADOW
 
 		#define FOG_SHADOW_SAMPLES 16
-		#define FOG_SHADOW_EXTINCTION 1.0f
 		#define FOG_SHADOW_STRENGTH 0.6f
 
 		float diff = final_depth - fog_start;
@@ -89,7 +88,7 @@ void main()
 
 			float new_value;
 			if (abs(shadow_projected.x) < 1.0f && abs(shadow_projected.y) < 1.0f)
-				new_value = float(texture(shadow_map, shadow_projected.xy * 0.5f + 0.5f).x > shadow_projected.z * 0.5f + 0.5f);
+				new_value = texture(shadow_map, shadow_projected.xyz * 0.5f + 0.5f);
 			else
 				new_value = 1.0f;
 

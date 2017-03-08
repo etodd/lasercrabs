@@ -352,11 +352,10 @@ b8 Sparks::pre_draw(const RenderParams& params)
 	return true;
 }
 
-Rain::Rain(ID camera_id, const Vec2& size, const Vec3& velocity)
+Rain::Rain(const Vec2& size, const Vec3& velocity)
 	: ParticleSystem(4, 6, 2.0f, Asset::Shader::particle_rain, AssetNull),
 	size(size),
 	velocity(velocity),
-	camera_id(camera_id),
 	camera_last_pos()
 {
 }
@@ -551,7 +550,7 @@ void Rain::spawn_fill(const Update& u, const Vec3& min, const Vec3& max, r32 str
 
 b8 Rain::pre_draw(const RenderParams& params)
 {
-	if (params.camera->id() != camera_id)
+	if (params.camera->id() != id())
 		return false;
 
 	params.sync->write(RenderOp::Uniform);
@@ -567,6 +566,11 @@ b8 Rain::pre_draw(const RenderParams& params)
 	params.sync->write<Vec2>(size);
 
 	return true;
+}
+
+ID Rain::id() const
+{
+	return ID(this - &Particles::rain[0]);
 }
 
 SkyboxParticleSystem::SkyboxParticleSystem(s32 vertices_per_particle, s32 indices_per_particle, const Vec2& start_size, const Vec2& end_size, r32 lifetime, const Vec3& gravity, const Vec4& color, AssetID shader, AssetID texture)
@@ -613,7 +617,7 @@ void SkyboxParticleSystem::add(const Vec3& pos, r32 scale)
 	add_raw(pos, Vec4::zero, param, 0.0f);
 }
 
-// Configurations
+// configurations
 
 Sparks Particles::sparks
 (
@@ -638,49 +642,41 @@ Rain Particles::rain[Camera::max_cameras] =
 {
 	Rain
 	(
-		0,
 		rain_size,
 		rain_velocity
 	),
 	Rain
 	(
-		1,
 		rain_size,
 		rain_velocity
 	),
 	Rain
 	(
-		2,
 		rain_size,
 		rain_velocity
 	),
 	Rain
 	(
-		3,
 		rain_size,
 		rain_velocity
 	),
 	Rain
 	(
-		4,
 		rain_size,
 		rain_velocity
 	),
 	Rain
 	(
-		5,
 		rain_size,
 		rain_velocity
 	),
 	Rain
 	(
-		6,
 		rain_size,
 		rain_velocity
 	),
 	Rain
 	(
-		7,
 		rain_size,
 		rain_velocity
 	),

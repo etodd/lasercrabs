@@ -73,15 +73,15 @@ struct Rain : public ParticleSystem
 	Vec2 size;
 	r32 raycast_grid[raycast_grid_size * raycast_grid_size];
 	s32 raycast_grid_index;
-	ID camera_id;
 
-	Rain(ID, const Vec2&, const Vec3&);
+	Rain(const Vec2&, const Vec3&);
 	void spawn(const Update&, const Vec3&, const Vec3&, r32, b8);
 	void clear();
 	void spawn_fill(const Update&, const Vec3&, const Vec3&, r32, r32);
 	b8 pre_draw(const RenderParams&);
 	r32 density(r32) const;
 	r32 height() const;
+	ID id() const;
 };
 
 struct SkyboxParticleSystem : public StandardParticleSystem

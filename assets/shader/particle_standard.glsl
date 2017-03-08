@@ -43,7 +43,6 @@ void main()
 
 #else
 
-in float alpha;
 out vec4 out_color;
 uniform vec4 diffuse_color;
 

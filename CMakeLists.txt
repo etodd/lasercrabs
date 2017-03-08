@@ -292,6 +292,7 @@ set(SRC
 	assets/shader/particle_eased.glsl
 	assets/shader/particle_textured.glsl
 	assets/shader/particle_spark.glsl
+	assets/shader/particle_rain.glsl
 	assets/shader/armature.glsl
 	assets/shader/composite.glsl
 	assets/shader/flat.glsl

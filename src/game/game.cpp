@@ -472,6 +472,9 @@ void Game::update(const Update& update_in)
 
 		for (s32 i = 0; i < updates.length; i++)
 			(*updates[i])(u);
+
+		if (level.rain > 0.0f)
+			Rain::spawn(u, level.rain);
 	}
 
 	Console::update(u);
@@ -1295,6 +1298,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			// World is guaranteed to be the first element in the entity list
 
 			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
+
+			level.rain = Json::get_r32(element, "rain");
 
 			// fill team lookup table
 			{

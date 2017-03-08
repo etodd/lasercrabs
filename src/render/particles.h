@@ -8,8 +8,8 @@ namespace VI
 
 struct ParticleSystem
 {
-	static const s32 MAX_PARTICLE_SYSTEMS = 500;
-	static const s32 MAX_PARTICLES = 5000;
+	static const s32 MAX_PARTICLE_SYSTEMS = 128;
+	static const s32 MAX_PARTICLES = 8096;
 	static StaticArray<ParticleSystem*, MAX_PARTICLE_SYSTEMS> list;
 	static r32 time;
 
@@ -33,9 +33,10 @@ struct ParticleSystem
 	void update(const Update&);
 	void upload_range(RenderSync*, s32, s32);
 	void draw(const RenderParams&);
-	virtual void pre_draw(const RenderParams&) {}
+	virtual b8 pre_draw(const RenderParams&) { return true; }
 	void add_raw(const Vec3&, const Vec4& = Vec4::zero, const Vec4& = Vec4::zero, r32 = 0.0f);
-	void clear();
+	virtual void clear();
+	b8 full() const;
 };
 
 struct StandardParticleSystem : public ParticleSystem
@@ -46,7 +47,7 @@ struct StandardParticleSystem : public ParticleSystem
 	Vec4 color;
 	AssetID texture;
 	StandardParticleSystem(s32, s32, const Vec2&, const Vec2&, r32, const Vec3&, const Vec4&, AssetID = AssetNull, AssetID = AssetNull);
-	virtual void pre_draw(const RenderParams&);
+	virtual b8 pre_draw(const RenderParams&);
 	void add(const Vec3&, const Vec3&, r32, r32 = 0.0f);
 	void add(const Vec3&, const Vec3& = Vec3::zero);
 };
@@ -56,20 +57,44 @@ struct Sparks : public ParticleSystem
 	Vec2 size;
 	Vec3 gravity;
 	Sparks(const Vec2&, r32, const Vec3&);
-	void pre_draw(const RenderParams&);
+	b8 pre_draw(const RenderParams&);
 	void add(const Vec3&, const Vec3&, const Vec4& = Vec4(1));
+};
+
+struct Rain : public ParticleSystem
+{
+	static r32 particle_accumulator;
+	static const s32 raycast_grid_size = 24; // must be a power of 2
+
+	static void spawn(const Update&, r32);
+
+	Vec3 velocity;
+	Vec3 camera_last_pos;
+	Vec2 size;
+	r32 raycast_grid[raycast_grid_size * raycast_grid_size];
+	s32 raycast_grid_index;
+	ID camera_id;
+
+	Rain(ID, const Vec2&, const Vec3&);
+	void spawn(const Update&, const Vec3&, const Vec3&, r32, b8);
+	void clear();
+	void spawn_fill(const Update&, const Vec3&, const Vec3&, r32, r32);
+	b8 pre_draw(const RenderParams&);
+	r32 density(r32) const;
+	r32 height() const;
 };
 
 struct SkyboxParticleSystem : public StandardParticleSystem
 {
 	SkyboxParticleSystem(s32, s32, const Vec2&, const Vec2&, r32, const Vec3&, const Vec4&, AssetID = AssetNull, AssetID = AssetNull);
-	void pre_draw(const RenderParams&);
+	b8 pre_draw(const RenderParams&);
 	void add(const Vec3&, r32);
 };
 
 struct Particles
 {
 	static Sparks sparks;
+	static Rain rain[Camera::max_cameras];
 	static StandardParticleSystem tracers;
 	static SkyboxParticleSystem tracers_skybox;
 	static StandardParticleSystem fast_tracers;

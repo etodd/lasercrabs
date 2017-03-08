@@ -96,6 +96,7 @@ namespace VI
 			r32 time_limit;
 			r32 min_y;
 			r32 rotation;
+			r32 rain;
 			s32 max_teams;
 			FeatureLevel feature_level;
 			GameType type;

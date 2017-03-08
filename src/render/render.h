@@ -85,6 +85,11 @@ struct Camera
 	void update_frustum();
 	Mat4 view() const;
 	void remove();
+
+	inline ID id() const
+	{
+		return this - &list[0];
+	}
 };
 
 struct LoopSync : RenderSync

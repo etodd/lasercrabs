@@ -89,9 +89,9 @@ struct WaterEntry
 
 enum class SplitscreenMode
 {
-	Public,
 	Custom,
 	Local,
+	Public,
 	count,
 };
 

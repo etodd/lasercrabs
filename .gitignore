@@ -16,3 +16,5 @@ __pycache__
 /assets/audio/Originals/WavAnalysis.cache
 *.akd
 .DS_Store
+/*.dir
+/x64/

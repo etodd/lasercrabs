@@ -45,6 +45,7 @@
 #include "overworld.h"
 #include "team.h"
 #include "load.h"
+#include <dirent.h>
 
 #if DEBUG
 	#define DEBUG_NAV_MESH 0
@@ -66,6 +67,8 @@ b8 Game::is_gamepad = false;
 GameTime Game::time;
 GameTime Game::real_time;
 r32 Game::physics_timestep;
+r32 Game::inactive_timer;
+b8 Game::enable_attract;
 
 AssetID Game::scheduled_load_level = AssetNull;
 AssetID Game::scheduled_dialog = AssetNull;
@@ -161,6 +164,27 @@ b8 Game::init(LoopSync* sync)
 		return false;
 
 #if !SERVER
+	// replay files
+	{
+		const char* replay_dir = "rec/";
+		DIR* dir = opendir(replay_dir);
+		if (dir)
+		{
+			struct dirent* entry;
+			while ((entry = readdir(dir)))
+			{
+				if (entry->d_type != DT_REG)
+					continue; // not a file
+
+				char filename[MAX_PATH_LENGTH];
+				sprintf(filename, "%s%s", replay_dir, entry->d_name);
+				Net::Client::replay_file_add(filename);
+				enable_attract = true;
+			}
+			closedir(dir);
+		}
+	}
+
 	if (!Audio::init())
 		return false;
 
@@ -284,6 +308,37 @@ void Game::update(const Update& update_in)
 	Net::update_start(u);
 
 #if !SERVER
+	// trigger attract mode
+	if (enable_attract && Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying)
+	{
+		inactive_timer += u.time.delta;
+		if (update_in.input->keys.any()
+			|| update_in.input->cursor_x != 0 || update_in.input->cursor_y != 0)
+			inactive_timer = 0.0f;
+		else
+		{
+			for (s32 i = 0; i < MAX_GAMEPADS; i++)
+			{
+				const Gamepad& gamepad = update_in.input->gamepads[i];
+				if (gamepad.active
+					&& (gamepad.btns
+						|| Input::dead_zone(gamepad.left_x) != 0.0f || Input::dead_zone(gamepad.left_y) != 0.0f
+						|| Input::dead_zone(gamepad.right_x) != 0.0f || Input::dead_zone(gamepad.right_y) != 0.0f))
+				{
+					inactive_timer = 0.0f;
+					break;
+				}
+			}
+		}
+		if (inactive_timer > 60.0f)
+		{
+			unload_level();
+			save.reset();
+			Net::Client::replay();
+			inactive_timer = 0.0f;
+		}
+	}
+
 	// determine whether to display gamepad or keyboard bindings
 	{
 		const Gamepad& gamepad = update_in.input->gamepads[0];
@@ -468,6 +523,9 @@ void Game::update(const Update& update_in)
 				i.item()->get<Animator>()->update_server(u);
 		}
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+			i.item()->update_late(u);
+
+		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 			i.item()->update_late(u);
 
 		for (s32 i = 0; i < updates.length; i++)
@@ -860,6 +918,37 @@ void Game::execute(const char* cmd)
 		unload_level();
 		save.reset();
 		Net::Client::connect(host, 3494);
+	}
+	else if (strstr(cmd, "record") == cmd)
+	{
+		char filename[MAX_PATH_LENGTH];
+		while (true)
+		{
+			sprintf(filename, "rec/%u.rec", mersenne::rand());
+
+			// check for file's existence
+			FILE* f = fopen(filename, "rb");
+			if (f)
+				fclose(f);
+			else
+				break;
+		}
+		Net::Client::record_next_game(filename);
+	}
+	else if (strstr(cmd, "replay") == cmd)
+	{
+		const char* delimiter = strchr(cmd, ' ');
+		const char* filename;
+		if (delimiter)
+			filename = delimiter + 1;
+		else
+			filename = nullptr;
+		if (!filename || strlen(filename) < MAX_PATH_LENGTH)
+		{
+			unload_level();
+			save.reset();
+			Net::Client::replay(filename);
+		}
 	}
 	else if (strcmp(cmd, "allocs") == 0)
 	{

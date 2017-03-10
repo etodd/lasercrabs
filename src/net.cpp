@@ -660,13 +660,20 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		if (Stream::IsReading)
 		{
 			ph->local = false;
-			for (s32 i = 0; i < MAX_GAMEPADS; i++)
+#if !SERVER // when replaying, all players are remote
+			if (Client::state_client.replay_mode == Client::ReplayMode::Replaying)
+				ph->gamepad = s8(ph->id());
+			else
+#endif
 			{
-				if (ph->uuid == Game::session.local_player_uuids[i])
+				for (s32 i = 0; i < MAX_GAMEPADS; i++)
 				{
-					ph->local = true;
-					ph->gamepad = s8(i);
-					break;
+					if (ph->uuid == Game::session.local_player_uuids[i])
+					{
+						ph->local = true;
+						ph->gamepad = s8(i);
+						break;
+					}
 				}
 			}
 		}
@@ -2813,16 +2820,27 @@ namespace Client
 
 MasterError master_error;
 r32 master_ping_timer;
+char next_record_file[MAX_PATH_LENGTH] = {};
+Array<std::array<char, MAX_PATH_LENGTH> > replay_files;
+s32 replay_file_index;
+
+void replay_file_add(const char* filename)
+{
+	std::array<char, MAX_PATH_LENGTH>* entry = replay_files.add();
+	strncpy(entry->data(), filename, MAX_PATH_LENGTH - 1);
+}
 
 b8 msg_process(StreamRead*);
 
 struct StateClient
 {
+	FILE* replay_file;
 	r32 timeout;
 	r32 tick_timer;
 	r32 server_rtt = 0.15f;
 	r32 rtts[MAX_PLAYERS];
 	Mode mode;
+	ReplayMode replay_mode;
 	MessageHistory msgs_in_history; // messages we've received from the server
 	MessageHistory msgs_in_load_history; // load messages we've received from the server
 	Ack server_ack = { u32(-1), NET_SEQUENCE_INVALID }; // most recent ack we've received from the server
@@ -2851,6 +2869,11 @@ b8 init()
 	master_send(Master::Message::Ping);
 
 	return true;
+}
+
+ReplayMode replay_mode()
+{
+	return state_client.replay_mode;
 }
 
 b8 packet_build_connect(StreamWrite* p)
@@ -2996,7 +3019,17 @@ void update(const Update& u, r32 dt)
 void handle_server_disconnect()
 {
 	state_client.mode = Mode::Disconnected;
-	if (state_client.reconnect)
+	if (state_client.replay_mode == ReplayMode::Replaying)
+	{
+		if (replay_files.length > 0)
+		{
+			Game::unload_level();
+			Game::save.reset();
+			Game::session.reset();
+			replay();
+		}
+	}
+	else if (state_client.reconnect)
 	{
 		Sock::Address addr = state_client.server_address;
 		Game::unload_level();
@@ -3085,6 +3118,14 @@ void connect(Sock::Address addr)
 	state_client.server_address = addr;
 	state_client.timeout = 0.0f;
 	state_client.mode = Mode::Connecting;
+	if (next_record_file[0] != '\0')
+	{
+		state_client.replay_mode = ReplayMode::Recording;
+		if (state_client.replay_file)
+			fclose(state_client.replay_file);
+		state_client.replay_file = fopen(next_record_file, "wb");
+		next_record_file[0] = '\0';
+	}
 }
 
 void connect(const char* ip, u16 port)
@@ -3092,6 +3133,30 @@ void connect(const char* ip, u16 port)
 	Sock::Address addr;
 	Sock::get_address(&addr, ip, port);
 	connect(addr);
+}
+
+void replay(const char* filename)
+{
+	Game::level.local = false;
+	Game::schedule_timer = 0.0f;
+	Sock::get_address(&state_client.server_address, "127.0.0.1", 3495);
+	state_client.timeout = 0.0f;
+	state_client.mode = Mode::Connecting;
+	state_client.replay_mode = ReplayMode::Replaying;
+	if (state_client.replay_file)
+		fclose(state_client.replay_file);
+	if (!filename)
+	{
+		vi_assert(replay_files.length > 0);
+		filename = replay_files[replay_file_index].data();
+		replay_file_index = (replay_file_index + 1) % replay_files.length;
+	}
+	state_client.replay_file = fopen(filename, "rb");
+}
+
+void record_next_game(const char* filename)
+{
+	strncpy(next_record_file, filename, MAX_PATH_LENGTH - 1);
 }
 
 b8 allocate_server(const Master::ServerState& server_state)
@@ -3433,6 +3498,15 @@ void reset()
 		packet_send(p, state_client.server_address);
 	}
 
+	if (state_client.replay_mode == ReplayMode::Recording)
+	{
+		s16 size = 0;
+		fwrite(&size, sizeof(s16), 1, state_client.replay_file);
+	}
+
+	if (state_client.replay_file)
+		fclose(state_client.replay_file);
+
 	state_client.~StateClient();
 	new (&state_client) StateClient();
 }
@@ -3576,6 +3650,30 @@ void update_start(const Update& u)
 	r32 dt = vi_min(Game::real_time.delta, NET_MAX_FRAME_TIME);
 	state_common.timestamp += dt;
 
+#if !SERVER
+	if (Client::state_client.replay_mode == Client::ReplayMode::Replaying)
+	{
+		Client::state_client.tick_timer += dt;
+		if (Client::state_client.tick_timer > NET_TICK_RATE)
+		{
+			s16 size;
+			fread(&size, sizeof(s16), 1, Client::state_client.replay_file);
+			s32 bytes_received = s32(size);
+			if (bytes_received > 0)
+			{
+				PacketEntry entry(state_common.timestamp);
+				entry.address = Client::state_client.server_address;
+				fread(entry.packet.data.data, sizeof(s8), bytes_received, Client::state_client.replay_file);
+				entry.packet.resize_bytes(bytes_received);
+				packet_read(u, &entry);
+			}
+			else
+				Client::handle_server_disconnect();
+			Client::state_client.tick_timer = fmodf(Client::state_client.tick_timer, NET_TICK_RATE);
+		}
+	}
+#endif
+
 	while (true)
 	{
 		PacketEntry entry(state_common.timestamp);
@@ -3586,6 +3684,17 @@ void update_start(const Update& u)
 #if DEBUG_LAG
 			lag_buffer.add(entry); // save for later
 #else
+#if !SERVER
+			if (Client::state_client.replay_mode == Client::ReplayMode::Replaying)
+				continue; // ignore all incoming packets while we're replaying
+			else if (Client::state_client.replay_mode == Client::ReplayMode::Recording
+				&& entry.address.equals(Client::state_client.server_address))
+			{
+				s16 size = s16(bytes_received);
+				fwrite(&size, sizeof(s16), 1, Client::state_client.replay_file);
+				fwrite(entry.packet.data.data, sizeof(s8), bytes_received, Client::state_client.replay_file);
+			}
+#endif
 			packet_read(u, &entry); // read packet instantly
 #endif
 		}
@@ -3633,7 +3742,7 @@ void update_end(const Update& u)
 	if (Client::state_client.mode == Client::Mode::ContactingMaster || Client::master_ping_timer > 0.0f)
 		state_master.update(state_common.timestamp, &sock, 4);
 
-	if (Game::level.local)
+	if (Game::level.local || Client::state_client.replay_mode == Client::ReplayMode::Replaying)
 		state_common.msgs_out.length = 0; // clear out message queue because we're never going to send these
 	else
 	{

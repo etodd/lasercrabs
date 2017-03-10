@@ -10,7 +10,7 @@
 	"error_inside_tram": "Error: console unavailable",
 	"error_zone_under_attack": "Error: zone under attack",
 	"multiplayer": "Multiplayer",
-	"multiplayer_public": "Public",
+	"multiplayer_public": "(WIP)",
 	"multiplayer_custom": "Custom",
 	"multiplayer_local": "Local",
 	"game_type": "Type",

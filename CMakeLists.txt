@@ -23,9 +23,17 @@ endif(WIN32)
 
 set(ALL_INCLUDES
 	external
-	external/bullet/src
 	src
 	${ZLIB_INCLUDE_DIR}
+)
+
+if (WIN32)
+	set(ALL_INCLUDES ${ALL_INCLUDES} external/dirent)
+endif(WIN32)
+
+set(SERVER_CLIENT_INCLUDES
+	${ALL_INCLUDES}
+	external/bullet/src
 )
 
 string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
@@ -380,7 +388,7 @@ if (SERVER)
 	)
 
 	target_include_directories(deceiversrv PRIVATE
-		${ALL_INCLUDES}
+		${SERVER_CLIENT_INCLUDES}
 		external/wwise
 	)
 
@@ -444,7 +452,7 @@ if (CLIENT)
 		MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt
 	)
 
-	target_include_directories(deceiver PRIVATE ${ALL_INCLUDES})
+	target_include_directories(deceiver PRIVATE ${SERVER_CLIENT_INCLUDES})
 
 	if(WIN32)
 		set_property(TARGET deceiver APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")

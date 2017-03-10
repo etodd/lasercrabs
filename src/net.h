@@ -163,15 +163,28 @@ namespace Client
 		count,
 	};
 
+	enum class ReplayMode
+	{
+		None,
+		Replaying,
+		Recording,
+		count,
+	};
+
 	Mode mode();
 	
 	extern MasterError master_error;
 
 	void connect(Sock::Address);
 	void connect(const char*, u16);
+	void replay(const char* = nullptr);
+	void replay_file_add(const char*);
+	void record_next_game(const char*);
 	b8 allocate_server(const Master::ServerState&);
 
 	b8 lagging();
+
+	ReplayMode replay_mode();
 
 	Sock::Address server_address();
 

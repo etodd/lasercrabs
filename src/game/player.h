@@ -83,6 +83,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	UIMode ui_mode() const;
 	void show_upgrade_menu();
 	void update(const Update&);
+	void update_late(const Update&);
 	void update_camera_rotation(const Update&);
 	void draw_ui(const RenderParams&) const;
 	void spawn(const PlayerSpawnPosition&);

@@ -565,20 +565,17 @@ namespace title
 				b8 show = false;
 				if (first_show) // wait for the user to hit a button before showing the menu
 				{
-					for (s32 j = 0; j < s32(KeyCode::Count); j++)
+					if (u.last_input->keys.any() && !u.input->keys.any())
+						show = true;
+					else
 					{
-						if (u.last_input->keys[j] && !u.input->keys[j])
+						for (s32 i = 0; i < MAX_GAMEPADS; i++)
 						{
-							show = true;
-							break;
-						}
-					}
-					for (s32 i = 0; i < MAX_GAMEPADS; i++)
-					{
-						if (u.last_input->gamepads[i].btns && !u.input->gamepads[i].btns)
-						{
-							show = true;
-							break;
+							if (u.last_input->gamepads[i].btns && !u.input->gamepads[i].btns)
+							{
+								show = true;
+								break;
+							}
 						}
 					}
 				}

@@ -54,53 +54,53 @@ void Console::init()
 	memset(normal_map, 0, sizeof(normal_map));
 	memset(shift_map, 0, sizeof(shift_map));
 
-	normal_map[(s32)KeyCode::D0] = '0';
-	normal_map[(s32)KeyCode::D1] = '1';
-	normal_map[(s32)KeyCode::D2] = '2';
-	normal_map[(s32)KeyCode::D3] = '3';
-	normal_map[(s32)KeyCode::D4] = '4';
-	normal_map[(s32)KeyCode::D5] = '5';
-	normal_map[(s32)KeyCode::D6] = '6';
-	normal_map[(s32)KeyCode::D7] = '7';
-	normal_map[(s32)KeyCode::D8] = '8';
-	normal_map[(s32)KeyCode::D9] = '9';
-	shift_map[(s32)KeyCode::D0] = ')';
-	shift_map[(s32)KeyCode::D1] = '!';
-	shift_map[(s32)KeyCode::D2] = '@';
-	shift_map[(s32)KeyCode::D3] = '#';
-	shift_map[(s32)KeyCode::D4] = '$';
-	shift_map[(s32)KeyCode::D5] = '%';
-	shift_map[(s32)KeyCode::D6] = '^';
-	shift_map[(s32)KeyCode::D7] = '&';
-	shift_map[(s32)KeyCode::D8] = '*';
-	shift_map[(s32)KeyCode::D9] = '(';
+	normal_map[s32(KeyCode::D0)] = '0';
+	normal_map[s32(KeyCode::D1)] = '1';
+	normal_map[s32(KeyCode::D2)] = '2';
+	normal_map[s32(KeyCode::D3)] = '3';
+	normal_map[s32(KeyCode::D4)] = '4';
+	normal_map[s32(KeyCode::D5)] = '5';
+	normal_map[s32(KeyCode::D6)] = '6';
+	normal_map[s32(KeyCode::D7)] = '7';
+	normal_map[s32(KeyCode::D8)] = '8';
+	normal_map[s32(KeyCode::D9)] = '9';
+	shift_map[s32(KeyCode::D0)] = ')';
+	shift_map[s32(KeyCode::D1)] = '!';
+	shift_map[s32(KeyCode::D2)] = '@';
+	shift_map[s32(KeyCode::D3)] = '#';
+	shift_map[s32(KeyCode::D4)] = '$';
+	shift_map[s32(KeyCode::D5)] = '%';
+	shift_map[s32(KeyCode::D6)] = '^';
+	shift_map[s32(KeyCode::D7)] = '&';
+	shift_map[s32(KeyCode::D8)] = '*';
+	shift_map[s32(KeyCode::D9)] = '(';
 
-	normal_map[(s32)KeyCode::Space] = ' ';
-	shift_map[(s32)KeyCode::Space] = ' ';
+	normal_map[s32(KeyCode::Space)] = ' ';
+	shift_map[s32(KeyCode::Space)] = ' ';
 
-	normal_map[(s32)KeyCode::Apostrophe] = '\'';
-	shift_map[(s32)KeyCode::Apostrophe] = '"';
+	normal_map[s32(KeyCode::Apostrophe)] = '\'';
+	shift_map[s32(KeyCode::Apostrophe)] = '"';
 
-	normal_map[(s32)KeyCode::Minus] = '-';
-	normal_map[(s32)KeyCode::Equals] = '=';
-	normal_map[(s32)KeyCode::LeftBracket] = '[';
-	normal_map[(s32)KeyCode::RightBracket] = ']';
-	normal_map[(s32)KeyCode::Comma] = ',';
-	normal_map[(s32)KeyCode::Period] = '.';
-	normal_map[(s32)KeyCode::Slash] = '/';
-	normal_map[(s32)KeyCode::Grave] = '`';
-	normal_map[(s32)KeyCode::Semicolon] = ';';
-	normal_map[(s32)KeyCode::Backslash] = '\\';
-	shift_map[(s32)KeyCode::Minus] = '_';
-	shift_map[(s32)KeyCode::Equals] = '+';
-	shift_map[(s32)KeyCode::LeftBracket] = '{';
-	shift_map[(s32)KeyCode::RightBracket] = '}';
-	shift_map[(s32)KeyCode::Comma] = '<';
-	shift_map[(s32)KeyCode::Period] = '>';
-	shift_map[(s32)KeyCode::Slash] = '?';
-	shift_map[(s32)KeyCode::Grave] = '~';
-	shift_map[(s32)KeyCode::Semicolon] = ':';
-	shift_map[(s32)KeyCode::Backslash] = '|';
+	normal_map[s32(KeyCode::Minus)] = '-';
+	normal_map[s32(KeyCode::Equals)] = '=';
+	normal_map[s32(KeyCode::LeftBracket)] = '[';
+	normal_map[s32(KeyCode::RightBracket)] = ']';
+	normal_map[s32(KeyCode::Comma)] = ',';
+	normal_map[s32(KeyCode::Period)] = '.';
+	normal_map[s32(KeyCode::Slash)] = '/';
+	normal_map[s32(KeyCode::Grave)] = '`';
+	normal_map[s32(KeyCode::Semicolon)] = ';';
+	normal_map[s32(KeyCode::Backslash)] = '\\';
+	shift_map[s32(KeyCode::Minus)] = '_';
+	shift_map[s32(KeyCode::Equals)] = '+';
+	shift_map[s32(KeyCode::LeftBracket)] = '{';
+	shift_map[s32(KeyCode::RightBracket)] = '}';
+	shift_map[s32(KeyCode::Comma)] = '<';
+	shift_map[s32(KeyCode::Period)] = '>';
+	shift_map[s32(KeyCode::Slash)] = '?';
+	shift_map[s32(KeyCode::Grave)] = '~';
+	shift_map[s32(KeyCode::Semicolon)] = ':';
+	shift_map[s32(KeyCode::Backslash)] = '|';
 
 	for (s32 i = 0; i <= (s32)KeyCode::Z - (s32)KeyCode::A; i++)
 	{
@@ -113,8 +113,8 @@ void Console::init()
 
 void Console::update(const Update& u)
 {
-	if (u.input->keys[(s32)KeyCode::Grave]
-		&& !u.last_input->keys[(s32)KeyCode::Grave])
+	if (u.input->keys.get(s32(KeyCode::Grave))
+		&& !u.last_input->keys.get(s32(KeyCode::Grave)))
 		visible = !visible;
 
 	if (fps_visible)
@@ -136,12 +136,12 @@ void Console::update(const Update& u)
 	{
 		const Font* font = Loader::font_permanent(font_asset);
 		b8 update = false;
-		b8 shift = u.input->keys[(s32)KeyCode::LShift]
-			|| u.input->keys[(s32)KeyCode::RShift];
+		b8 shift = u.input->keys.get(s32(KeyCode::LShift))
+			|| u.input->keys.get(s32(KeyCode::RShift));
 		b8 any_key_pressed = false;
 		for (s32 i = 1; i < font->characters.length; i++)
 		{
-			if (i == (s32)KeyCode::Grave)
+			if (i == s32(KeyCode::Grave))
 				continue;
 
 			char c = shift ? shift_map[i] : normal_map[i];
@@ -149,10 +149,10 @@ void Console::update(const Update& u)
 				continue;
 
 			b8 add = false;
-			if (u.input->keys[i])
+			if (u.input->keys.get(i))
 			{
 				any_key_pressed = true;
-				if (!u.last_input->keys[i])
+				if (!u.last_input->keys.get(i))
 				{
 					repeat_start_time = Game::real_time.total;
 					add = true;
@@ -174,12 +174,12 @@ void Console::update(const Update& u)
 			}
 		}
 
-		if (command.length > 2 && u.input->keys[(s32)KeyCode::Backspace])
+		if (command.length > 2 && u.input->keys.get(s32(KeyCode::Backspace)))
 		{
 			any_key_pressed = true;
 
 			b8 remove = false;
-			if (!u.last_input->keys[(s32)KeyCode::Backspace])
+			if (!u.last_input->keys.get(s32(KeyCode::Backspace)))
 			{
 				repeat_start_time = Game::real_time.total;
 				remove = true;
@@ -202,7 +202,7 @@ void Console::update(const Update& u)
 		if (!any_key_pressed)
 			repeat_start_time = 0.0f;
 
-		if (!u.input->keys[(s32)KeyCode::Return] && u.last_input->keys[(s32)KeyCode::Return])
+		if (!u.input->keys.get(s32(KeyCode::Return)) && u.last_input->keys.get(s32(KeyCode::Return)))
 		{
 			visible = false;
 

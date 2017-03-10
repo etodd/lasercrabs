@@ -147,6 +147,9 @@ void ParticleSystem::update(const Update& u)
 
 void ParticleSystem::draw(const RenderParams& params)
 {
+	if (!params.camera->mask)
+		return;
+
 	if (first_new != first_free)
 	{
 		// send new particles to GPU

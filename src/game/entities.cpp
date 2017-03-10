@@ -2003,6 +2003,9 @@ Array<Mat4> Rope::instances;
 // draw rope segments and projectiles
 void Rope::draw(const RenderParams& params)
 {
+	if (!params.camera->mask)
+		return;
+
 	instances.length = 0;
 
 	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::tri_tube);

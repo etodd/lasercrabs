@@ -106,7 +106,11 @@ s32 PlayerHuman::count_local()
 	s32 count = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
+#if !SERVER
+		if (i.item()->local || Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
+#else
 		if (i.item()->local)
+#endif
 			count++;
 	}
 	return count;
@@ -129,7 +133,11 @@ s32 PlayerHuman::count_local_before(PlayerHuman* h)
 	{
 		if (i.item() == h)
 			break;
+#if !SERVER
+		if (i.item()->local || Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
+#else
 		if (i.item()->local)
+#endif
 			count++;
 	}
 	return count;
@@ -196,26 +204,38 @@ void PlayerHuman::msg(const char* msg, b8 good)
 
 void PlayerHuman::awake()
 {
-	Audio::listener_enable(gamepad);
-
 	get<PlayerManager>()->spawn.link<PlayerHuman, const PlayerSpawnPosition&, &PlayerHuman::spawn>(this);
 
 	msg_text.size = text_size;
 	msg_text.anchor_x = UIText::Anchor::Center;
 	msg_text.anchor_y = UIText::Anchor::Center;
 
-	camera = Camera::add();
-	camera->team = s8(get<PlayerManager>()->team.ref()->team());
-	camera->mask = 1 << camera->team;
-	camera->colors = false;
+	if (local
+#if !SERVER
+		|| Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying
+#endif
+		)
+	{
+		Audio::listener_enable(gamepad);
 
-	Quat rot;
-	Game::level.map_view.ref()->absolute(&camera->pos, &rot);
-	camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+		camera = Camera::add();
+		camera->team = s8(get<PlayerManager>()->team.ref()->team());
+		camera->mask = 1 << camera->team;
+		camera->colors = false;
+
+		Quat rot;
+		Game::level.map_view.ref()->absolute(&camera->pos, &rot);
+		camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+	}
 }
 
 PlayerHuman::~PlayerHuman()
 {
+	if (camera)
+	{
+		camera->remove();
+		Audio::listener_disable(gamepad);
+	}
 #if SERVER
 	ai_record_save();
 #endif
@@ -411,12 +431,25 @@ void PlayerHuman::show_upgrade_menu()
 
 void PlayerHuman::update(const Update& u)
 {
-	if (!local)
+	if (!local
+#if !SERVER
+		&& Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying
+#endif
+		)
 		return;
 
 	Entity* entity = get<PlayerManager>()->instance.ref();
 
-	// rumble
+#if !SERVER
+	// if anyone hits a button, go back to the main menu
+	if (Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
+	{
+		if (Game::scheduled_load_level == AssetNull
+			&& ((gamepad == 0 && u.input->keys.any()) || u.input->gamepads[gamepad].btns))
+			Menu::title();
+	}
+	else // no rumble when replaying
+#endif
 	if (rumble > 0.0f)
 	{
 		u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
@@ -445,10 +478,17 @@ void PlayerHuman::update(const Update& u)
 			r32 aspect = camera->viewport.size.y == 0 ? 1.0f : camera->viewport.size.x / camera->viewport.size.y;
 			camera->perspective(fov_map_view, aspect, 1.0f, Game::level.skybox.far_plane);
 		}
-	}
 
-	if (Console::visible || Overworld::active())
-		return;
+		// reset camera range after the player dies
+		if (!get<PlayerManager>()->instance.ref())
+		{
+			camera->range = 0;
+			camera->colors = Game::level.mode == Game::Mode::Parkour;
+			upgrade_menu_open = false;
+		}
+
+		Audio::listener_update(gamepad, camera->pos, camera->rot);
+	}
 
 	// flash message when the buy period expires
 	if (!Team::game_over
@@ -467,10 +507,17 @@ void PlayerHuman::update(const Update& u)
 	if (msg_timer < msg_time)
 		msg_timer += Game::real_time.delta;
 
+	// after this point, it's all input-related stuff
+	if (Console::visible || Overworld::active()
+#if !SERVER
+		|| Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying
+#endif
+		)
+		return;
+
 	// close/open pause menu if needed
 	{
 		if (Game::time.total > 0.5f
-			&& camera->active
 			&& u.last_input->get(Controls::Pause, gamepad)
 			&& !u.input->get(Controls::Pause, gamepad)
 			&& !Game::cancel_event_eaten[gamepad]
@@ -489,14 +536,6 @@ void PlayerHuman::update(const Update& u)
 			Game::cancel_event_eaten[gamepad] = true;
 			menu_state = Menu::State::Hidden;
 		}
-	}
-
-	// reset camera range after the player dies
-	if (!get<PlayerManager>()->instance.ref())
-	{
-		camera->range = 0;
-		camera->colors = Game::level.mode == Game::Mode::Parkour;
-		upgrade_menu_open = false;
 	}
 
 	switch (ui_mode())
@@ -595,14 +634,14 @@ void PlayerHuman::update(const Update& u)
 				// noclip
 				update_camera_rotation(u);
 
-				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+				r32 aspect = camera->viewport.size.y == 0 ? 1 : r32(camera->viewport.size.x) / r32(camera->viewport.size.y);
 				camera->perspective(fov_map_view, aspect, 0.02f, Game::level.skybox.far_plane);
 				camera->range = 0;
 				camera->cull_range = 0;
 
 				if (!Console::visible)
 				{
-					r32 speed = u.input->keys[(s32)KeyCode::LShift] ? 24.0f : 4.0f;
+					r32 speed = u.input->keys.get(s32(KeyCode::LShift)) ? 24.0f : 4.0f;
 					if (u.input->get(Controls::Forward, gamepad))
 						camera->pos += camera->rot * Vec3(0, 0, 1) * u.time.delta * speed;
 					if (u.input->get(Controls::Backward, gamepad))
@@ -613,7 +652,7 @@ void PlayerHuman::update(const Update& u)
 						camera->pos += camera->rot * Vec3(1, 0, 0) * u.time.delta * speed;
 
 #if DEBUG
-					if (Game::level.local && u.input->keys[s32(KeyCode::MouseLeft)] && !u.last_input->keys[s32(KeyCode::MouseLeft)])
+					if (Game::level.local && u.input->keys.get(s32(KeyCode::MouseLeft)) && !u.last_input->keys.get(s32(KeyCode::MouseLeft)))
 					{
 						Entity* box = World::create<PhysicsEntity>(Asset::Mesh::cube, camera->pos, camera->rot, RigidBody::Type::Box, Vec3(0.25f, 0.25f, 0.5f), 1.0f, CollisionDefault, ~CollisionAwkIgnore);
 						box->get<RigidBody>()->btBody->setLinearVelocity(camera->rot * Vec3(0, 0, 15));
@@ -680,8 +719,21 @@ void PlayerHuman::update(const Update& u)
 			break;
 		}
 	}
+}
 
-	Audio::listener_update(gamepad, camera->pos, camera->rot);
+void PlayerHuman::update_late(const Update& u)
+{
+#if !SERVER
+	if (Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
+	{
+		Entity* e = get<PlayerManager>()->instance.ref();
+		if (e)
+		{
+			camera->rot = Quat::euler(0.0f, PI * 0.25f, PI * 0.25f);
+			camera_setup_awk(e, camera, 8.0f);
+		}
+	}
+#endif
 }
 
 void get_interactable_standing_position(Transform* i, Vec3* pos, r32* angle)
@@ -3119,6 +3171,9 @@ void PlayerControlHuman::draw(const RenderParams& p) const
 		|| p.camera != player.ref()->camera
 		|| p.camera->cull_range <= 0.0f
 		|| Overworld::active()
+#if !SERVER
+		|| Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying
+#endif
 		|| !get<Transform>()->parent.ref())
 		return;
 

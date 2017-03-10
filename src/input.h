@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.h"
+#include "data/pin_array.h"
 #include "sdl/include/SDL_keycode.h"
 
 namespace VI
@@ -247,7 +248,7 @@ enum class KeyCode
 	MouseWheelUp,
 	MouseWheelDown,
 
-	Count,
+	count,
 };
 
 namespace Input
@@ -280,7 +281,7 @@ struct Gamepad
 		DLeft = 1 << 14,
 		DRight = 1 << 15,
 		None,
-		Count,
+		count,
 	};
 
 	b8 active;
@@ -330,7 +331,7 @@ enum class Controls
 
 struct InputState
 {
-	b8 keys[(s32)KeyCode::Count];
+	Bitmask<s16(KeyCode::count)> keys;
 	Gamepad gamepads[MAX_GAMEPADS];
 	s32 cursor_x;
 	s32 cursor_y;

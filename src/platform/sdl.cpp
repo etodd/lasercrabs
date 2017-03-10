@@ -221,10 +221,12 @@ namespace VI
 
 			SDL_PumpEvents();
 
-			memcpy(sync->input.keys, sdl_keys, sizeof(sync->input.keys));
-
-			sync->input.keys[(s32)KeyCode::MouseWheelDown] = false;
-			sync->input.keys[(s32)KeyCode::MouseWheelUp] = false;
+			sync->input.keys.clear();
+			for (s32 i = 0; i < s32(KeyCode::count); i++)
+			{
+				if (sdl_keys[i])
+					sync->input.keys.set(i, true);
+			}
 
 			SDL_Event sdl_event;
 			while (SDL_PollEvent(&sdl_event))
@@ -237,9 +239,9 @@ namespace VI
 					if (sdl_event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED)
 						up = !up;
 					if (up)
-						sync->input.keys[(s32)KeyCode::MouseWheelUp] = true;
+						sync->input.keys.set(s32(KeyCode::MouseWheelUp), true);
 					else
-						sync->input.keys[(s32)KeyCode::MouseWheelDown] = true;
+						sync->input.keys.set(s32(KeyCode::MouseWheelDown), true);
 				} 
 				else if (sdl_event.type == SDL_JOYDEVICEADDED
 					|| sdl_event.type == SDL_JOYDEVICEREMOVED)
@@ -257,9 +259,9 @@ namespace VI
 
 			s32 mouse_buttons = SDL_GetRelativeMouseState(&sync->input.cursor_x, &sync->input.cursor_y);
 
-			sync->input.keys[(s32)KeyCode::MouseLeft] = mouse_buttons & (1 << 0);
-			sync->input.keys[(s32)KeyCode::MouseMiddle] = mouse_buttons & (1 << 1);
-			sync->input.keys[(s32)KeyCode::MouseRight] = mouse_buttons & (1 << 2);
+			sync->input.keys.set(s32(KeyCode::MouseLeft), mouse_buttons & (1 << 0));
+			sync->input.keys.set(s32(KeyCode::MouseMiddle), mouse_buttons & (1 << 1));
+			sync->input.keys.set(s32(KeyCode::MouseRight), mouse_buttons & (1 << 2));
 
 			s32 active_gamepads = 0;
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)

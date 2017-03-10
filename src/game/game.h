@@ -125,6 +125,8 @@ namespace VI
 
 		static GameTime time;
 		static GameTime real_time;
+		static r32 inactive_timer;
+		static b8 enable_attract;
 		static ScreenQuad screen_quad;
 		static Array<UpdateFunction> updates;
 		static Array<DrawFunction> draws;

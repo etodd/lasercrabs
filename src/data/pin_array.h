@@ -5,11 +5,11 @@
 namespace VI
 {
 
-template<u16 size> struct Bitmask
+template<s16 size> struct Bitmask
 {
 	u32 data[(size / (sizeof(u32) * 8)) + 1];
-	u16 start;
-	u16 end;
+	s16 start;
+	s16 end;
 
 	Bitmask()
 		: start(size), end(0)
@@ -21,6 +21,11 @@ template<u16 size> struct Bitmask
 		vi_assert(i >= 0 && i < size);
 		s32 index = i / (sizeof(u32) * 8);
 		return data[index] & (1 << (i - (index * sizeof(u32) * 8)));
+	}
+
+	inline b8 any() const
+	{
+		return start < end;
 	}
 
 	inline s32 next(s32 i) const
@@ -51,7 +56,7 @@ template<u16 size> struct Bitmask
 		{
 			data[index] |= mask;
 			start = start < i ? start : i;
-			end = end > i + 1 ? end : (u16)(i + 1);
+			end = end > i + 1 ? end : s16(i + 1);
 		}
 		else
 		{
@@ -65,7 +70,7 @@ template<u16 size> struct Bitmask
 					if (get(j))
 						break;
 				}
-				end = (u16)(j > 0 ? j : 0);
+				end = s16(j > 0 ? j : 0);
 			}
 			if (i == start)
 			{
@@ -75,7 +80,7 @@ template<u16 size> struct Bitmask
 					if (get(j))
 						break;
 				}
-				start = (u16)j;
+				start = s16(j);
 			}
 			if (start >= end)
 			{
@@ -86,7 +91,7 @@ template<u16 size> struct Bitmask
 	}
 };
 
-template<typename T, u16 size>
+template<typename T, s16 size>
 struct PinArray
 {
 	StaticArray<T, size> data;

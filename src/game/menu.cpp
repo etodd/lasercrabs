@@ -18,6 +18,8 @@
 #include "scripts.h"
 #include "overworld.h"
 #include "ease.h"
+#include "data/components.h"
+#include "team.h"
 
 namespace VI
 {
@@ -301,7 +303,7 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			{
 				Game::save.reset();
 				Game::session.reset();
-				Game::session.type = SessionType::Public;
+				Game::session.type = SessionType::Custom;
 				Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
 				clear();
 			}
@@ -401,30 +403,6 @@ void update(const Update& u)
 			title();
 		}
 	}
-	
-	// "connecting..." camera
-	{
-		b8 camera_needed = Net::Client::mode() == Net::Client::Mode::ContactingMaster
-			|| Net::Client::mode() == Net::Client::Mode::Connecting
-			|| Net::Client::mode() == Net::Client::Mode::Loading;
-		if (camera_needed && !camera_connecting)
-		{
-			camera_connecting = Camera::add();
-			camera_connecting->mask = 0; // don't display anything; entities will be popping in over the network
-			camera_connecting->viewport =
-			{
-				Vec2::zero,
-				Vec2(u.input->width, u.input->height),
-			};
-			r32 aspect = camera_connecting->viewport.size.y == 0 ? 1 : (r32)camera_connecting->viewport.size.x / (r32)camera_connecting->viewport.size.y;
-			camera_connecting->perspective((60.0f * PI * 0.5f / 180.0f), aspect, 0.1f, 2.0f);
-		}
-		else if (!camera_needed && camera_connecting)
-		{
-			camera_connecting->remove();
-			camera_connecting = nullptr;
-		}
-	}
 
 	if (Net::Client::mode() == Net::Client::Mode::Disconnected
 		&& Game::level.id == AssetNull
@@ -520,6 +498,34 @@ void update_end(const Update& u)
 		dialog_callback_last[i] = dialog_callback[i];
 		if (!u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i))
 			Game::cancel_event_eaten[i] = false;
+	}
+	
+	// "connecting..." camera
+	{
+		b8 camera_needed = Net::Client::mode() == Net::Client::Mode::ContactingMaster
+			|| Net::Client::mode() == Net::Client::Mode::Connecting
+			|| Net::Client::mode() == Net::Client::Mode::Loading;
+		if (camera_needed)
+		{
+			if (!camera_connecting)
+			{
+				camera_connecting = Camera::add();
+
+				camera_connecting->viewport =
+				{
+					Vec2::zero,
+					Vec2(u.input->width, u.input->height),
+				};
+				r32 aspect = camera_connecting->viewport.size.y == 0 ? 1 : (r32)camera_connecting->viewport.size.x / (r32)camera_connecting->viewport.size.y;
+				camera_connecting->perspective((60.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+				camera_connecting->mask = 0; // don't display anything; entities will be popping in over the network
+			}
+		}
+		else if (!camera_needed && camera_connecting)
+		{
+			camera_connecting->remove();
+			camera_connecting = nullptr;
+		}
 	}
 }
 

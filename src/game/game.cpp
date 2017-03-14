@@ -1116,13 +1116,6 @@ void Game::execute(const char* cmd)
 			}
 		}
 	}
-	else if (strcmp(cmd, "skip") == 0)
-	{
-		Team::match_time += PLAYER_SPAWN_DELAY + GAME_BUY_PERIOD;
-#if SERVER
-		Net::Server::sync_time();
-#endif
-	}
 	else if (strstr(cmd, "resources ") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');

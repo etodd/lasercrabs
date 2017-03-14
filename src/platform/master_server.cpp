@@ -53,6 +53,7 @@ namespace Master
 	namespace Settings
 	{
 		s32 secret;
+		u32 public_ip;
 	}
 
 	struct Node // could be a server or client
@@ -91,6 +92,7 @@ namespace Master
 	Array<Sock::Address> clients_waiting;
 	Array<ClientConnection> clients_connecting;
 	Array<Sock::Address> servers_loading;
+	u32 localhost_ip;
 
 	Node* node_add_or_get(Sock::Address addr)
 	{
@@ -205,7 +207,15 @@ namespace Master
 		StreamWrite p;
 		packet_init(&p);
 		messenger.add_header(&p, addr, Message::ClientConnect);
-		serialize_u32(&p, server_addr.host);
+
+		// if the server is running on localhost, send the public IP rather than a useless 127.0.0.1 address
+		u32 host;
+		if (server_addr.host == localhost_ip)
+			host = Settings::public_ip;
+		else
+			host = server_addr.host;
+
+		serialize_u32(&p, host);
 		serialize_u16(&p, server_addr.port);
 		packet_finalize(&p);
 		messenger.send(p, timestamp, addr, &sock);
@@ -441,6 +451,13 @@ namespace Master
 			return 1;
 		}
 
+		// get localhost IP
+		{
+			Sock::Address addr;
+			Sock::get_address(&addr, "127.0.0.1", 3494);
+			localhost_ip = addr.host;
+		}
+
 		// load settings
 		{
 			FILE* f = fopen(MASTER_SETTINGS_FILE, "rb");
@@ -461,6 +478,15 @@ namespace Master
 					cJSON* secret = cJSON_GetObjectItem(json, "secret");
 					if (secret)
 						Settings::secret = secret->valueint;
+					cJSON* public_ip = cJSON_GetObjectItem(json, "public_ip");
+					if (public_ip)
+					{
+						Sock::Address addr;
+						Sock::get_address(&addr, public_ip->valuestring, 3494);
+						Settings::public_ip = addr.host;
+					}
+					else
+						Settings::public_ip = localhost_ip;
 					cJSON_Delete(json);
 				}
 				else

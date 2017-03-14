@@ -1164,8 +1164,7 @@ void PlayerManager::update_all(const Update& u)
 	if (Game::level.local)
 	{
 		if (Game::level.mode == Game::Mode::Pvp
-			&& Game::level.has_feature(Game::FeatureLevel::EnergyPickups)
-			&& Team::match_time > GAME_BUY_PERIOD)
+			&& Game::level.has_feature(Game::FeatureLevel::EnergyPickups))
 		{
 			s32 index = s32((Team::match_time - u.time.delta) / ENERGY_INCREMENT_INTERVAL);
 			while (index < s32(Team::match_time / ENERGY_INCREMENT_INTERVAL))

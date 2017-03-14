@@ -109,7 +109,6 @@ struct Awk : public ComponentType<Awk>
 	r32 invincible_timer;
 	r32 shield_time;
 	r32 cooldown; // remaining cooldown time
-	r32 stun_timer;
 	r32 last_footstep;
 	r32 particle_accumulator;
 	r32 dash_timer;

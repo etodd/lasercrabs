@@ -136,7 +136,7 @@ inline void sudoku_swap(s8* state, s16* solved, s32 a, s32 b)
 	}
 }
 
-#define SUDOKU_AUTO_SOLVE_TIME 4.0f
+#define SUDOKU_AUTO_SOLVE_TIME 3.0f
 #define SUDOKU_FLASH_TIME 0.2f
 #define SUDOKU_ANIMATION_TIME 0.5f
 

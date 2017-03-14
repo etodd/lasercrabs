@@ -51,6 +51,7 @@ namespace VI
 			Base,
 			EnergyPickups,
 			Abilities,
+			AbilitiesDone,
 			TutorialAll,
 			All,
 			count,

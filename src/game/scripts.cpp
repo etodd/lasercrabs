@@ -55,16 +55,38 @@ enum class Behavior
 
 struct Instance
 {
+	static PinArray<Instance, 8> list;
+
 	StaticArray<Cue, 32> cues;
 	r32 last_cue_real_time;
 	Behavior behavior;
 	Ref<Entity> model;
 	Ref<Transform> collision;
-	AssetID text = AssetNull;
+	AssetID text;
 	AssetID head_bone;
+	Revision revision;
 	b8 highlight;
 	b8 sound_done;
 	b8 interrupt_idle_animation;
+
+	inline ID id() const
+	{
+		return this - &list[0];
+	}
+
+	Instance()
+		: cues(),
+		last_cue_real_time(),
+		behavior(),
+		model(),
+		collision(),
+		text(AssetNull),
+		head_bone(AssetNull),
+		highlight(),
+		sound_done(),
+		interrupt_idle_animation()
+	{
+	}
 
 	void cue(AkUniqueID sound, AssetID animation, AssetID text = AssetNull, b8 loop = true, r32 delay = 0.3f)
 	{
@@ -105,9 +127,10 @@ struct Instance
 	}
 };
 
+PinArray<Instance, 8> Instance::list;
+
 struct Data
 {
-	StaticArray<Instance, 8> instances;
 	r32 text_tut_real_time;
 	AssetID text_tut = AssetNull;
 };
@@ -118,6 +141,7 @@ void cleanup()
 {
 	delete data;
 	data = nullptr;
+	Instance::list.clear();
 
 	Audio::post_global_event(AK::EVENTS::STOP_DIALOGUE);
 	Audio::dialogue_callbacks.length = 0;
@@ -147,9 +171,9 @@ void update(const Update& u)
 	if (!data)
 		return;
 
-	for (s32 i = 0; i < data->instances.length; i++)
+	for (auto i = Instance::list.iterator(); !i.is_last(); i.next())
 	{
-		Instance* instance = &data->instances[i];
+		Instance* instance = i.item();
 
 		if (instance->model.ref())
 		{
@@ -217,7 +241,6 @@ void update(const Update& u)
 		{
 			// model has been removed
 			remove(instance);
-			i--;
 		}
 	}
 
@@ -231,9 +254,9 @@ void draw(const RenderParams& params)
 
 	if (!Overworld::active())
 	{
-		for (s32 i = 0; i < data->instances.length; i++)
+		for (auto i = Instance::list.iterator(); !i.is_last(); i.next())
 		{
-			const Instance& instance = data->instances[i];
+			const Instance& instance = *i.item();
 
 			if (!instance.model.ref())
 				continue;
@@ -245,13 +268,7 @@ void draw(const RenderParams& params)
 				instance.model.ref()->get<Animator>()->to_world(instance.head_bone, &actor_pos);
 
 			if (instance.highlight)
-			{
-				// direct the player toward the actor only if they're looking the wrong way
-				Vec2 p;
-				Vec2 offset;
-				if (!UI::is_onscreen(params, actor_pos, &p, &offset))
-					UI::triangle(params, { p, Vec2(24 * UI::scale) }, UI::color_default, atan2f(offset.y, offset.x) + PI * -0.5f);
-			}
+				UI::indicator(params, actor_pos + Vec3(0, -0.4f, 0), UI::color_accent, true);
 
 			if (instance.text != AssetNull
 				&& (instance.highlight || (actor_pos - params.camera->pos).length_squared() < 8.0f * 8.0f))
@@ -309,9 +326,10 @@ Instance* add(Entity* model, Behavior behavior = Behavior::WaitForIdleAnimation,
 {
 	init();
 
-	Instance* i = data->instances.add();
+	Instance* i = Instance::list.add();
 	new (i) Instance();
 
+	i->revision++;
 	i->behavior = behavior;
 	i->model = model;
 	i->head_bone = head_bone;
@@ -361,7 +379,9 @@ void remove(Instance* i)
 		if (i->collision.ref())
 			World::remove(i->collision.ref()->entity());
 	}
-	data->instances.remove(i - &data->instances[0]);
+	i->~Instance();
+	i->revision++;
+	Instance::list.remove(i->id());
 }
 
 }
@@ -455,6 +475,7 @@ namespace title
 		Ref<Animator> character;
 		Ref<Transform> target_climb;
 		Ref<Transform> target_hack_kits;
+		Ref<Transform> target_wall_run;
 		TutorialState state;
 		b8 sailor_talked;
 	};
@@ -525,6 +546,7 @@ namespace title
 		if (!data->sailor_talked)
 		{
 			data->sailor_talked = true;
+			data->sailor->highlight = false;
 			data->sailor->cue(AK::EVENTS::PLAY_SAILOR_SPEECH_1, Asset::Animation::sailor_talk, strings::sailor_speech_1);
 			data->sailor->cue(AK::EVENTS::PLAY_SAILOR_SPEECH_2, Asset::Animation::sailor_talk, strings::sailor_speech_2);
 			data->sailor->cue(AK_InvalidID, Asset::Animation::sailor_close_door, AssetNull, false);
@@ -554,6 +576,7 @@ namespace title
 				data->camera = nullptr;
 				World::remove(data->character.ref()->entity());
 				Game::level.mode = Game::Mode::Parkour;
+				data->sailor->highlight = true;
 				for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 					i.item()->camera->active = true;
 			}
@@ -616,7 +639,9 @@ namespace title
 		{
 			if (data->state == TutorialState::Climb)
 				UI::indicator(p, data->target_climb.ref()->absolute_pos(), UI::color_accent, true);
-			else if (data->state == TutorialState::ClimbDone || data->state == TutorialState::WallRun)
+			else if (data->state == TutorialState::ClimbDone)
+				UI::indicator(p, data->target_wall_run.ref()->absolute_pos(), UI::color_accent, true);
+			else if (data->state == TutorialState::WallRun)
 				UI::indicator(p, data->target_hack_kits.ref()->absolute_pos(), UI::color_accent, true);
 		}
 
@@ -661,6 +686,7 @@ namespace title
 			data->target_climb = entities.find("target_climb")->get<Transform>();
 			data->target_hack_kits = entities.find("hack_kits")->get<Transform>();
 			data->target_hack_kits.ref()->get<Collectible>()->collected.link(&wallrun_success);
+			data->target_wall_run = entities.find("wallrun_target")->get<Transform>();
 			entities.find("climb_trigger1")->get<PlayerTrigger>()->entered.link(&climb_success);
 			entities.find("climb_trigger2")->get<PlayerTrigger>()->entered.link(&climb_success);
 			entities.find("wallrun_trigger")->get<PlayerTrigger>()->entered.link(&wallrun_start);
@@ -690,7 +716,6 @@ namespace title
 		Game::save.reset();
 		Game::session.reset();
 		data->transition_timer = total_transition;
-		data->sailor->highlight = true;
 	}
 }
 
@@ -698,12 +723,22 @@ namespace tutorial
 {
 	enum class TutorialState
 	{
-		ParkourStart, ParkourSlide, ParkourDone, Start, Upgrade, Ability, Capture, Done,
+		ParkourStart,
+		ParkourSlide,
+		ParkourDone,
+		Start,
+		Upgrade,
+		Ability,
+		Capture,
+		ZoneCaptured,
+		Overworld,
+		Done,
+		count,
 	};
 
 	struct Data
 	{
-		Actor::Instance* ivory_ad_actor;
+		Ref<Actor::Instance> ivory_ad_actor;
 		TutorialState state;
 		Ref<Transform> sparks;
 		Ref<Transform> ivory_ad_text;
@@ -770,6 +805,21 @@ namespace tutorial
 					Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
 				}
 			}
+			else
+			{
+				// parkour mode
+				if (data->state == TutorialState::ZoneCaptured)
+				{
+					data->state = TutorialState::Overworld;
+					Actor::tut(strings::tut_overworld, 4.5f);
+				}
+			}
+		}
+
+		if (data->state == TutorialState::Overworld && Overworld::active())
+		{
+			data->state = TutorialState::Done;
+			Actor::tut_clear();
 		}
 
 		// ivory ad text
@@ -781,9 +831,9 @@ namespace tutorial
 			data->hobo = nullptr;
 		}
 
-		if (data->state != TutorialState::Done && Team::game_over)
+		if (data->state != TutorialState::ZoneCaptured && Team::game_over && Game::level.mode == Game::Mode::Pvp)
 		{
-			data->state = TutorialState::Done;
+			data->state = TutorialState::ZoneCaptured;
 			Actor::tut_clear();
 		}
 		else if (data->state == TutorialState::Upgrade)
@@ -797,6 +847,7 @@ namespace tutorial
 					{
 						data->state = TutorialState::Ability;
 						Actor::tut(strings::tut_ability);
+						Game::level.feature_level = Game::FeatureLevel::AbilitiesDone;
 						break;
 					}
 				}
@@ -831,11 +882,11 @@ namespace tutorial
 
 	void ivory_ad_play(Entity*)
 	{
-		if (data->ivory_ad_actor->cues.length == 0)
+		if (data->ivory_ad_actor.ref()->cues.length == 0)
 		{
-			data->ivory_ad_actor->cue(AK::EVENTS::PLAY_IVORY_AD1, AssetNull, strings::ivory_ad1);
-			data->ivory_ad_actor->cue(AK::EVENTS::PLAY_IVORY_AD2, AssetNull, strings::ivory_ad2);
-			data->ivory_ad_actor->cue(AK::EVENTS::PLAY_IVORY_AD3, AssetNull, strings::ivory_ad3);
+			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD1, AssetNull, strings::ivory_ad1);
+			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD2, AssetNull, strings::ivory_ad2);
+			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD3, AssetNull, strings::ivory_ad3);
 		}
 	}
 
@@ -844,6 +895,7 @@ namespace tutorial
 		Actor::init();
 		Loader::animation(Asset::Animation::hobo_idle);
 
+		vi_assert(!data);
 		data = new Data();
 
 		entities.find("slide_trigger")->get<PlayerTrigger>()->entered.link(&slide_trigger);

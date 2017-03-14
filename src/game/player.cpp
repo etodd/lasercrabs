@@ -490,16 +490,16 @@ void PlayerHuman::update(const Update& u)
 		Audio::listener_update(gamepad, camera->pos, camera->rot);
 	}
 
-	// flash message when the buy period expires
-	if (!Team::game_over
-		&& Game::level.mode == Game::Mode::Pvp
-		&& Game::session.type != SessionType::Story
+	// flash "attack" or "defend" message after spawning
+	if (Game::level.mode == Game::Mode::Pvp
+		&& !Team::game_over
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& Team::match_time > GAME_BUY_PERIOD
-		&& Team::match_time - Game::time.delta <= GAME_BUY_PERIOD)
+		&& Team::match_time > PLAYER_SPAWN_DELAY
+		&& Team::match_time - Game::time.delta <= PLAYER_SPAWN_DELAY)
 	{
-		if (Game::level.type == GameType::Rush)
-			msg(_(get<PlayerManager>()->team.ref()->team() == 0 ? strings::defend : strings::attack), true);
+		if (Game::level.type == GameType::Rush
+			&& get<PlayerManager>()->team.ref()->team() == 0)
+			msg(_(strings::defend), true);
 		else
 			msg(_(strings::attack), true);
 	}
@@ -1110,7 +1110,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
 				text.size = text_size;
-				Vec2 pos = vp.size * Vec2(0.5f, 0.55f);
+				Vec2 pos = vp.size * Vec2(0.5f, 0.15f);
 				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 				text.draw(params, pos);
 			}
@@ -1123,7 +1123,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
 				text.size = text_size;
-				Vec2 pos = vp.size * Vec2(0.5f, 0.55f);
+				Vec2 pos = vp.size * Vec2(0.5f, 0.15f);
 				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 				text.draw(params, pos);
 			}
@@ -1503,8 +1503,7 @@ b8 PlayerCommon::movement_enabled() const
 	if (has<Awk>())
 	{
 		return get<Awk>()->state() == Awk::State::Crawl // must be attached to wall
-			&& manager.ref()->state() == PlayerManager::State::Default // can't move while upgrading and stuff
-			&& (Team::match_time > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities) || Game::session.type == SessionType::Story); // or during the buy period
+			&& manager.ref()->state() == PlayerManager::State::Default; // can't move while upgrading and stuff
 	}
 	else
 		return true;
@@ -1802,13 +1801,6 @@ void PlayerControlHuman::awk_done_flying_or_dashing()
 	}
 	ai_record_tag.init(entity());
 #endif
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& Game::session.type != SessionType::Story
-		&& Team::match_time < GAME_BUY_PERIOD)
-	{
-		// automatically open buy menu
-		player.ref()->show_upgrade_menu();
-	}
 }
 
 void ability_select(Awk* awk, Ability a)
@@ -3297,33 +3289,70 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	}
 
 	// highlight enemy rockets
+	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 	{
-		for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+		if (i.item()->target.ref() == entity())
 		{
-			if (i.item()->target.ref() == entity())
-			{
-				enemy_visible = true;
+			enemy_visible = true;
 
-				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-				UI::indicator(params, pos, Team::ui_color_enemy, true);
+			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+			UI::indicator(params, pos, Team::ui_color_enemy, true);
 
-				UIText text;
-				text.color = Team::ui_color_enemy;
-				text.text(_(strings::rocket_incoming));
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				text.size = text_size;
-				Vec2 p;
-				UI::is_onscreen(params, pos, &p);
-				p.y += text_size * 2.0f * UI::scale;
-				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
-				if (UI::flash_function(Game::real_time.total))
-					text.draw(params, p);
-			}
+			UIText text;
+			text.color = Team::ui_color_enemy;
+			text.text(_(strings::rocket_incoming));
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.size = text_size;
+			Vec2 p;
+			UI::is_onscreen(params, pos, &p);
+			p.y += text_size * 2.0f * UI::scale;
+			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
+			if (UI::flash_function(Game::real_time.total))
+				text.draw(params, p);
+		}
+	}
+
+	// highlight enemy grenades in-air
+	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team() != team && !i.item()->get<Transform>()->parent.ref())
+		{
+			enemy_visible = true;
+
+			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+			UI::indicator(params, pos, Team::ui_color_enemy, true);
+
+			UIText text;
+			text.color = Team::ui_color(team, i.item()->team());
+			text.text(_(strings::grenade_incoming));
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.size = text_size;
+			Vec2 p;
+			UI::is_onscreen(params, pos, &p);
+			p.y += text_size * 2.0f * UI::scale;
+			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
+			if (UI::flash_function(Game::real_time.total))
+				text.draw(params, p);
 		}
 	}
 
 	Vec3 me = get<Transform>()->absolute_pos();
+
+	// highlight incoming projectiles
+	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+	{
+		Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+		Vec3 diff = me - pos;
+		r32 distance = diff.length();
+		if (distance < AWK_MAX_DISTANCE
+			&& (diff / distance).dot(Vec3::normalize(i.item()->velocity)) > 0.7f)
+		{
+			if (UI::flash_function(Game::real_time.total))
+				UI::indicator(params, pos, Team::ui_color_enemy, true);
+		}
+	}
 
 	if (has<Awk>())
 	{
@@ -3331,6 +3360,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 		// highlight upgrade point if there is an upgrade available
 		if (Game::level.has_feature(Game::FeatureLevel::Abilities)
+			&& (Game::level.has_feature(Game::FeatureLevel::All) || Game::level.feature_level == Game::FeatureLevel::Abilities) // disable prompt in tutorial after ability has been purchased
 			&& manager->upgrade_available()
 			&& !manager->at_upgrade_point())
 		{
@@ -3400,22 +3430,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					}
 				}
 			}
-		}
-
-		// buy period indicator
-		if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-			&& Game::session.type != SessionType::Story
-			&& Team::match_time < GAME_BUY_PERIOD)
-		{
-			UIText text;
-			text.color = Team::ui_color_friend;
-			text.text(_(strings::buy_period), (s32)(GAME_BUY_PERIOD - Team::match_time) + 1);
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			text.size = text_size;
-			Vec2 pos = viewport.size * Vec2(0.5f, 0.85f);
-			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-			text.draw(params, pos);
 		}
 	}
 	else

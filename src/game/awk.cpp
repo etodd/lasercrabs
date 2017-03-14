@@ -818,7 +818,6 @@ Awk::Awk()
 	dashing(),
 	shield_time(),
 	dash_timer(),
-	stun_timer(),
 	attach_time(Game::time.total),
 	footing(),
 	last_footstep(),
@@ -1019,8 +1018,6 @@ void Awk::health_changed(const HealthEvent& e)
 	if (e.hp + e.shield < 0)
 	{
 		// damaged
-
-		stun_timer = AWK_STUN_TIME;
 
 		if (get<Health>()->hp == 0)
 		{
@@ -1357,7 +1354,7 @@ b8 Awk::dash_start(const Vec3& dir)
 
 b8 Awk::cooldown_can_shoot() const
 {
-	return charges > 0 && stun_timer == 0.0f;
+	return charges > 0;
 }
 
 r32 Awk::target_prediction_speed() const
@@ -1683,7 +1680,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 	r32 dir_length = dir_raw.length();
 
 	State s = state();
-	if (s != State::Fly && dir_length > 0.0f && stun_timer == 0.0f)
+	if (s != State::Fly && dir_length > 0.0f)
 	{
 		Vec3 dir_normalized = dir_raw / dir_length;
 
@@ -1890,8 +1887,6 @@ void Awk::update_server(const Update& u)
 		if (cooldown == 0.0f && Game::level.local)
 			charges = AWK_CHARGES;
 	}
-
-	stun_timer = vi_max(0.0f, stun_timer - u.time.delta);
 
 	if (s != Awk::State::Crawl)
 	{

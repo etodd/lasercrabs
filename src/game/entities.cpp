@@ -1109,7 +1109,8 @@ void Rocket::update_server(const Update& u)
 				// kaboom
 
 				// do damage
-				if (hit->has<Awk>() || hit->has<Decoy>())
+				if ((hit->has<Awk>() && hit->get<Awk>()->invincible_timer == 0.0f)
+					|| hit->has<Decoy>())
 					hit->get<Health>()->damage(entity(), 1);
 
 				explode();
@@ -1543,9 +1544,9 @@ void Projectile::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& nor
 				if (state == Parkour::State::Roll || state == Parkour::State::Slide)
 					do_damage = false;
 			}
-			if (hit_object->has<Awk>()) // player is invincible while flying or dashing
+			if (hit_object->has<Awk>()) // player is invincible while flying or dashing, and just after spawning
 			{
-				if (hit_object->get<Awk>()->state() != Awk::State::Crawl)
+				if (hit_object->get<Awk>()->state() != Awk::State::Crawl || hit_object->get<Awk>()->invincible_timer > 0.0f)
 					do_damage = false;
 			}
 			if (do_damage)
@@ -1746,7 +1747,7 @@ void Grenade::explode()
 		to_item /= distance;
 		if (i.item()->has<Awk>())
 		{
-			if (distance < GRENADE_RANGE * 0.66f)
+			if (distance < GRENADE_RANGE * 0.66f && i.item()->get<Awk>()->invincible_timer == 0.0f)
 				i.item()->damage(entity(), 1);
 		}
 		else if (distance < GRENADE_RANGE && !i.item()->has<EnergyPickup>())

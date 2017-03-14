@@ -498,32 +498,34 @@ Transform* parkour_get_rope(Parkour* parkour, ParkourRopeSearch search)
 	for (auto i = Rope::list.iterator(); !i.is_last(); i.next())
 	{
 		Vec3 diff = i.item()->get<Transform>()->absolute_pos() - climb_attach_point;
-		if (diff.length_squared() < ROPE_SEGMENT_LENGTH * 0.75f * ROPE_SEGMENT_LENGTH * 0.75f)
+		r32 distance_sq = diff.length_squared();
+		switch (search)
 		{
-			switch (search)
+			case ParkourRopeSearch::Any:
 			{
-				case ParkourRopeSearch::Any:
-				{
-					break;
-				}
-				case ParkourRopeSearch::Above:
-				{
-					if (diff.y < ROPE_SEGMENT_LENGTH * 0.25f)
-						continue;
-					break;
-				}
-				case ParkourRopeSearch::Below:
-				{
-					if (diff.y > ROPE_SEGMENT_LENGTH * -0.25f)
-						continue;
-					break;
-				}
-				default:
-				{
-					vi_assert(false);
-				}
+				if (distance_sq < ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_LENGTH)
+					return i.item()->get<Transform>();
+				break;
 			}
-			return i.item()->get<Transform>();
+			case ParkourRopeSearch::Above:
+			{
+				if (distance_sq < ROPE_SEGMENT_LENGTH * 0.75f * ROPE_SEGMENT_LENGTH * 0.75f
+					&& diff.y > ROPE_SEGMENT_LENGTH * 0.25f)
+					return i.item()->get<Transform>();
+				break;
+			}
+			case ParkourRopeSearch::Below:
+			{
+				if (distance_sq < ROPE_SEGMENT_LENGTH * 0.75f * ROPE_SEGMENT_LENGTH * 0.75f
+					&& diff.y < ROPE_SEGMENT_LENGTH * -0.25f)
+					return i.item()->get<Transform>();
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
 		}
 	}
 	return nullptr;

@@ -159,6 +159,8 @@ void Team::awake_all()
 		match_time = 0.0f;
 	winner = nullptr;
 	score_summary.length = 0;
+	for (s32 i = 0; i < MAX_PLAYERS * MAX_PLAYERS; i++)
+		PlayerManager::visibility[i] = nullptr;
 }
 
 s32 Team::teams_with_active_players()
@@ -794,7 +796,11 @@ void Team::update_all_server(const Update& u)
 						if (track.tracking)
 							detected_entity = track.entity.ref();
 						else
-							detected_entity = PlayerManager::visibility[PlayerManager::visibility_hash(rocket.item()->owner.ref(), player.item())].ref();
+						{
+							Entity* e = PlayerManager::visibility[PlayerManager::visibility_hash(rocket.item()->owner.ref(), player.item())].ref();
+							if (e && (!e->has<Awk>() || e->get<Awk>()->state() == Awk::State::Crawl)) // only launch rockets at drones that are crawling; this prevents rockets from launching and immediately losing their target
+								detected_entity = e;
+						}
 
 						if (detected_entity && !Rocket::inbound(detected_entity))
 						{

@@ -7,6 +7,8 @@
 #include "menu.h"
 #include "player.h"
 #include "console.h"
+#include "net_serialize.h" // for popcount
+#include "noise.h"
 
 namespace VI
 {
@@ -30,7 +32,7 @@ b8 sudoku_valid_column(const Sudoku& s, s32 column)
 	return counter == 15;
 }
 
-b8 sudoku_valid_cell(const Sudoku& s, s32 cell_row, s32 cell_column)
+b8 sudoku_valid_cell(const Sudoku& s, s32 cell_column, s32 cell_row)
 {
 	vi_assert(cell_row == 0 || cell_row == 2);
 	vi_assert(cell_column == 0 || cell_column == 2);
@@ -94,13 +96,75 @@ void sudoku_generate(Sudoku* s)
 	}
 }
 
+s32 sudoku_index(s32 x, s32 y)
+{
+	return x + (y * 4);
+}
+
+void sudoku_remove_possibilities_column(const Sudoku& s, s32 x, s32* possibilities)
+{
+	for (s32 y = 0; y < 4; y++)
+	{
+		if (s.solved & (1 << sudoku_index(x, y)))
+			*possibilities &= ~(1 << s.get(x, y));
+	}
+}
+
+void sudoku_remove_possibilities_row(const Sudoku& s, s32 y, s32* possibilities)
+{
+	for (s32 x = 0; x < 4; x++)
+	{
+		if (s.solved & (1 << sudoku_index(x, y)))
+			*possibilities &= ~(1 << s.get(x, y));
+	}
+}
+
+void sudoku_remove_possibilities_cell(const Sudoku& s, s32 x, s32 y, s32* possibilities)
+{
+	vi_assert(x == 0 || x == 2);
+	vi_assert(y == 0 || y == 2);
+	if (s.solved & (1 << sudoku_index(x + 0, y + 0)))
+		*possibilities &= ~(1 << s.get(x + 0, y + 0));
+	if (s.solved & (1 << sudoku_index(x + 0, y + 1)))
+		*possibilities &= ~(1 << s.get(x + 0, y + 1));
+	if (s.solved & (1 << sudoku_index(x + 1, y + 0)))
+		*possibilities &= ~(1 << s.get(x + 1, y + 0));
+	if (s.solved & (1 << sudoku_index(x + 1, y + 1)))
+		*possibilities &= ~(1 << s.get(x + 1, y + 1));
+}
+
+s32 sudoku_possibilities(const Sudoku& s, s32 x, s32 y)
+{
+	// how many different numbers could this cell be?
+	vi_assert(!(s.solved & (1 << sudoku_index(x, y))));
+
+	s32 possibilities = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3);
+
+	sudoku_remove_possibilities_column(s, x, &possibilities);
+	sudoku_remove_possibilities_row(s, y, &possibilities);
+	sudoku_remove_possibilities_cell(s, (x / 2) * 2, (y / 2) * 2, &possibilities);
+
+	return Net::popcount(possibilities);
+}
+
 s8 sudoku_get_free_number(const Sudoku& s)
 {
+	s32 lowest_possibilities = 4;
 	StaticArray<s32, 16> indices;
 	for (s32 i = 0; i < 16; i++)
 	{
 		if (!(s.solved & (1 << i)))
-			indices.add(i);
+		{
+			// this number has not been solved
+			s32 possibilities = sudoku_possibilities(s, i % 4, i / 4);
+			if (possibilities < lowest_possibilities)
+			{
+				indices.length = 0;
+				lowest_possibilities = possibilities;
+			}
+			if (possibilities <= lowest_possibilities)
+				indices.add(i);
+		}
 	}
 	if (indices.length == 0)
 		return -1;
@@ -139,6 +203,7 @@ inline void sudoku_swap(s8* state, s16* solved, s32 a, s32 b)
 #define SUDOKU_AUTO_SOLVE_TIME 3.0f
 #define SUDOKU_FLASH_TIME 0.2f
 #define SUDOKU_ANIMATION_TIME 0.5f
+#define SUDOKU_ERROR_TIME 0.5f
 
 void sudoku_mark_solved(Sudoku* s, s8 index, PlayerHuman* player)
 {
@@ -163,6 +228,7 @@ void Sudoku::reset()
 {
 	timer = 0.0f;
 	timer_animation = SUDOKU_ANIMATION_TIME;
+	timer_error = 0.0f;
 	flash_timer = 0.0f;
 
 	const Puzzle& puzzle = puzzles[mersenne::rand() % SUDOKU_PUZZLES];
@@ -214,6 +280,8 @@ void Sudoku::update(const Update& u, s8 gamepad, PlayerHuman* player)
 
 	if (timer_animation > 0.0f)
 		timer_animation = vi_max(0.0f, timer_animation - Game::real_time.delta);
+	else if (timer_error > 0.0f)
+		timer_error = vi_max(0.0f, timer_error - Game::real_time.delta);
 	else if (!complete())
 	{
 		timer += Game::real_time.delta;
@@ -280,6 +348,8 @@ void Sudoku::update(const Update& u, s8 gamepad, PlayerHuman* player)
 							indices.add(i);
 					}
 					solved &= ~(1 << indices[mersenne::rand() % indices.length]);
+					timer_error = SUDOKU_ERROR_TIME;
+					player->rumble_add(1.0f);
 				}
 			}
 		}
@@ -323,6 +393,12 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 
 	text.size = UI_TEXT_SIZE_DEFAULT * 2.0f;
 	Vec2 offset = params.camera->viewport.size * 0.5f + cell_spacing * -1.5f;
+	if (timer_error > 0.0f)
+	{
+		r32 shake = (timer_error / SUDOKU_ERROR_TIME) * 20.0f * UI::scale;
+		r32 time_offset = Game::time.total * 10.0f;
+		offset += Vec2(noise::sample3d(Vec3(time_offset)) * shake, noise::sample3d(Vec3(time_offset + 64)) * shake);
+	}
 	s32 clip_index = s32(15.0f * (timer_animation / SUDOKU_ANIMATION_TIME));
 	if (!complete())
 		clip_index = 15 - clip_index;
@@ -356,7 +432,9 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 				{
 					// draw existing number
 					// fade out number when player is hovering over it
-					text.color = hovering ? UI::color_disabled : UI::color_accent;
+					text.color = hovering
+						? UI::color_disabled
+						: (timer_error > 0.0f ? UI::color_alert : UI::color_accent);
 					text.text("%d", s32(state[index]) + 1);
 					text.draw(params, p);
 				}
@@ -364,7 +442,8 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 				if (hovering)
 				{
 					b8 pressed = !Console::visible && params.sync->input.get(Controls::Interact, gamepad);
-					const Vec4& color = already_solved || pressed ? UI::color_alert : UI::color_default;
+
+					const Vec4& color = already_solved || pressed || timer_error > 0.0f ? UI::color_alert : UI::color_default;
 
 					UI::centered_border(params, { p, cell_size }, 4.0f, color);
 

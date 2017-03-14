@@ -21,7 +21,8 @@ struct Sudoku
 	};
 	static Puzzle puzzles[SUDOKU_PUZZLES];
 	r32 timer;
-	r32 timer_animation;
+	r32 timer_animation; // for opening/closing animation
+	r32 timer_error; 
 	r32 flash_timer;
 	s16 solved;
 	s8 state[16]; // stored as a list of rows

@@ -62,7 +62,7 @@ s32 Loader::animation_count;
 #if DEBUG
 	#define default_master_server "127.0.0.1"
 #else
-	#define default_master_server "127.0.0.1"
+	#define default_master_server "104.236.204.240"
 #endif
 
 Array<const char*> mod_level_names;
@@ -160,9 +160,9 @@ InputBinding input_binding(cJSON* parent, const char* key, const InputBinding& d
 		return default_value;
 
 	InputBinding binding;
-	binding.key1 = (KeyCode)Json::get_s32(json, "key1", (s32)default_value.key1);
-	binding.key2 = (KeyCode)Json::get_s32(json, "key2", (s32)default_value.key2);
-	binding.btn = (Gamepad::Btn)Json::get_s32(json, "btn", (s32)default_value.btn);
+	binding.key1 = KeyCode(Json::get_s32(json, "key1", s32(default_value.key1)));
+	binding.key2 = KeyCode(Json::get_s32(json, "key2", s32(default_value.key2)));
+	binding.btn = Gamepad::Btn(Json::get_s32(json, "btn", s32(default_value.btn)));
 	return binding;
 }
 
@@ -170,11 +170,11 @@ cJSON* input_binding_json(const InputBinding& binding)
 {
 	cJSON* json = cJSON_CreateObject();
 	if (binding.key1 != KeyCode::None)
-		cJSON_AddNumberToObject(json, "key1", (s32)binding.key1);
+		cJSON_AddNumberToObject(json, "key1", s32(binding.key1));
 	if (binding.key2 != KeyCode::None)
-		cJSON_AddNumberToObject(json, "key2", (s32)binding.key2);
+		cJSON_AddNumberToObject(json, "key2", s32(binding.key2));
 	if (binding.btn != Gamepad::Btn::None)
-		cJSON_AddNumberToObject(json, "btn", (s32)binding.btn);
+		cJSON_AddNumberToObject(json, "btn", s32(binding.btn));
 	return json;
 }
 
@@ -197,7 +197,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	default_framerate_limit = 300;
 #endif
 	Settings::framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", default_framerate_limit));
-	Settings::shadow_quality = Settings::ShadowQuality(vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", (s32)Settings::ShadowQuality::High), (s32)Settings::ShadowQuality::count - 1)));
+	Settings::shadow_quality = Settings::ShadowQuality(vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", s32(Settings::ShadowQuality::High)), s32(Settings::ShadowQuality::count - 1))));
 	Settings::volumetric_lighting = b8(Json::get_s32(json, "volumetric_lighting", 1));
 	Settings::antialiasing = b8(Json::get_s32(json, "antialiasing", 1));
 	Settings::waypoints = b8(Json::get_s32(json, "waypoints", 1));
@@ -208,29 +208,29 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
 		Settings::Gamepad* bindings = &Settings::gamepads[i];
-		bindings->bindings[(s32)Controls::Backward] = input_binding(gamepad, "backward", { KeyCode::S, KeyCode::Down, Gamepad::Btn::DDown });
-		bindings->bindings[(s32)Controls::Forward] = input_binding(gamepad, "forward", { KeyCode::W, KeyCode::Up, Gamepad::Btn::DUp });
-		bindings->bindings[(s32)Controls::Left] = input_binding(gamepad, "left", { KeyCode::A, KeyCode::Left, Gamepad::Btn::DLeft });
-		bindings->bindings[(s32)Controls::Right] = input_binding(gamepad, "right", { KeyCode::D, KeyCode::Right, Gamepad::Btn::DRight });
-		bindings->bindings[(s32)Controls::Primary] = input_binding(gamepad, "primary", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::RightTrigger });
-		bindings->bindings[(s32)Controls::Zoom] = input_binding(gamepad, "zoom", { KeyCode::MouseRight, KeyCode::Q, Gamepad::Btn::LeftTrigger });
-		bindings->bindings[(s32)Controls::Ability1] = input_binding(gamepad, "ability1", { KeyCode::D1, KeyCode::None, Gamepad::Btn::X });
-		bindings->bindings[(s32)Controls::Ability2] = input_binding(gamepad, "ability2", { KeyCode::D2, KeyCode::None, Gamepad::Btn::Y });
-		bindings->bindings[(s32)Controls::Ability3] = input_binding(gamepad, "ability3", { KeyCode::D3, KeyCode::None, Gamepad::Btn::B });
-		bindings->bindings[(s32)Controls::Interact] = input_binding(gamepad, "interact", { KeyCode::Space, KeyCode::Return, Gamepad::Btn::A });
-		bindings->bindings[(s32)Controls::InteractSecondary] = input_binding(gamepad, "interact_secondary", { KeyCode::F, KeyCode::None, Gamepad::Btn::A });
-		bindings->bindings[(s32)Controls::Scoreboard] = input_binding(gamepad, "scoreboard", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::Back });
-		bindings->bindings[(s32)Controls::Jump] = input_binding(gamepad, "jump", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightTrigger });
-		bindings->bindings[(s32)Controls::Parkour] = input_binding(gamepad, "parkour", { KeyCode::LShift, KeyCode::None, Gamepad::Btn::LeftTrigger });
-		bindings->bindings[(s32)Controls::Slide] = input_binding(gamepad, "slide", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::LeftShoulder });
+		bindings->bindings[s32(Controls::Backward)] = input_binding(gamepad, "backward", { KeyCode::S, KeyCode::Down, Gamepad::Btn::DDown });
+		bindings->bindings[s32(Controls::Forward)] = input_binding(gamepad, "forward", { KeyCode::W, KeyCode::Up, Gamepad::Btn::DUp });
+		bindings->bindings[s32(Controls::Left)] = input_binding(gamepad, "left", { KeyCode::A, KeyCode::Left, Gamepad::Btn::DLeft });
+		bindings->bindings[s32(Controls::Right)] = input_binding(gamepad, "right", { KeyCode::D, KeyCode::Right, Gamepad::Btn::DRight });
+		bindings->bindings[s32(Controls::Primary)] = input_binding(gamepad, "primary", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::RightTrigger });
+		bindings->bindings[s32(Controls::Zoom)] = input_binding(gamepad, "zoom", { KeyCode::MouseRight, KeyCode::Q, Gamepad::Btn::LeftTrigger });
+		bindings->bindings[s32(Controls::Ability1)] = input_binding(gamepad, "ability1", { KeyCode::D1, KeyCode::None, Gamepad::Btn::X });
+		bindings->bindings[s32(Controls::Ability2)] = input_binding(gamepad, "ability2", { KeyCode::D2, KeyCode::None, Gamepad::Btn::Y });
+		bindings->bindings[s32(Controls::Ability3)] = input_binding(gamepad, "ability3", { KeyCode::D3, KeyCode::None, Gamepad::Btn::B });
+		bindings->bindings[s32(Controls::Interact)] = input_binding(gamepad, "interact", { KeyCode::Space, KeyCode::Return, Gamepad::Btn::A });
+		bindings->bindings[s32(Controls::InteractSecondary)] = input_binding(gamepad, "interact_secondary", { KeyCode::F, KeyCode::None, Gamepad::Btn::A });
+		bindings->bindings[s32(Controls::Scoreboard)] = input_binding(gamepad, "scoreboard", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::Back });
+		bindings->bindings[s32(Controls::Jump)] = input_binding(gamepad, "jump", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightTrigger });
+		bindings->bindings[s32(Controls::Parkour)] = input_binding(gamepad, "parkour", { KeyCode::LShift, KeyCode::None, Gamepad::Btn::LeftTrigger });
+		bindings->bindings[s32(Controls::Slide)] = input_binding(gamepad, "slide", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::LeftShoulder });
 
 		// these bindings cannot be changed
-		bindings->bindings[(s32)Controls::Start] = { KeyCode::Return, KeyCode::None, Gamepad::Btn::Start };
-		bindings->bindings[(s32)Controls::Cancel] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::B };
-		bindings->bindings[(s32)Controls::Pause] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::Start };
+		bindings->bindings[s32(Controls::Start)] = { KeyCode::Return, KeyCode::None, Gamepad::Btn::Start };
+		bindings->bindings[s32(Controls::Cancel)] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::B };
+		bindings->bindings[s32(Controls::Pause)] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::Start };
 
 		bindings->invert_y = Json::get_s32(gamepad, "invert_y", 0);
-		bindings->sensitivity = (u8)Json::get_s32(gamepad, "sensitivity", 100);
+		bindings->sensitivity = u8(Json::get_s32(gamepad, "sensitivity", 100));
 		gamepad = gamepad ? gamepad->next : nullptr;
 	}
 

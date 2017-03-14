@@ -1639,6 +1639,9 @@ void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const 
 // Return true if we actually switched to the other wall
 b8 Awk::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultCallback& ray_callback)
 {
+	if (state() == State::Dash) // don't dash around corners
+		return false;
+
 	// Reparent to obstacle/wall
 	Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 	Vec3 other_wall_normal = ray_callback.m_hitNormalWorld;
@@ -1691,10 +1694,10 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 
 		if (dir_normalized.dot(wall_normal) > 0.0f)
 		{
-			// First, try to climb in the actual direction requested
+			// first, try to climb in the actual direction requested
 			Vec3 next_pos = pos + dir_normalized * u.time.delta * speed;
 			
-			// Check for obstacles
+			// check for obstacles
 			Vec3 ray_end = next_pos + (dir_normalized * AWK_RADIUS * 1.5f);
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, ray_end);
 			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
@@ -1715,7 +1718,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 
 		Vec3 next_pos = pos + dir_flattened * u.time.delta * speed;
 
-		// Check for obstacles
+		// check for obstacles
 		{
 			Vec3 ray_end = next_pos + (dir_flattened * AWK_RADIUS);
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, ray_end);
@@ -1732,7 +1735,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 			}
 		}
 
-		// No obstacle. Check if we still have wall to walk on.
+		// no obstacle. Check if we still have wall to walk on.
 
 		Vec3 wall_ray_start = next_pos + wall_normal * AWK_RADIUS;
 		Vec3 wall_ray_end = next_pos + wall_normal * AWK_RADIUS * -2.0f;
@@ -1742,12 +1745,12 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 
 		if (ray_callback.hasHit())
 		{
-			// All good, go ahead
+			// all good, go ahead
 
 			Vec3 other_wall_normal = ray_callback.m_hitNormalWorld;
 			Vec3 dir_flattened_other_wall = dir_normalized - other_wall_normal * other_wall_normal.dot(dir_normalized);
-			// Check to make sure that our movement direction won't get flipped if we switch walls.
-			// This prevents jittering back and forth between walls all the time.
+			// check to make sure that our movement direction won't get flipped if we switch walls.
+			// this prevents jittering back and forth between walls all the time.
 			if (dir_flattened_other_wall.dot(dir_flattened) > 0.0f
 				&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK))
 			{
@@ -1766,15 +1769,15 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 				}
 				else
 				{
-					// Stay on our current wall
+					// stay on our current wall
 					crawl_wall_edge(dir_normalized, other_wall_normal, u, speed);
 				}
 			}
 		}
 		else
 		{
-			// No wall left
-			// See if we can walk around the corner
+			// no wall left
+			// see if we can walk around the corner
 			Vec3 wall_ray2_start = next_pos + wall_normal * AWK_RADIUS * -1.25f;
 			Vec3 wall_ray2_end = wall_ray2_start + dir_flattened * AWK_RADIUS * -2.0f;
 
@@ -1783,14 +1786,15 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 
 			if (ray_callback.hasHit())
 			{
-				// Walk around the corner
+				// walk around the corner
 
-				// Check to make sure that our movement direction won't get flipped if we switch walls.
-				// This prevents jittering back and forth between walls all the time.
-				if (dir_normalized.dot(wall_normal) < 0.05f
+				// check to make sure that our movement direction won't get flipped if we switch walls.
+				// this prevents jittering back and forth between walls all the time.
+				if (state() != State::Dash // don't dash around corners
+					&& dir_normalized.dot(wall_normal) < 0.05f
 					&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK))
 				{
-					// Transition to the other wall
+					// transition to the other wall
 					move
 					(
 						ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * AWK_RADIUS,
@@ -1800,7 +1804,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 				}
 				else
 				{
-					// Stay on our current wall
+					// stay on our current wall
 					Vec3 other_wall_normal = Vec3(ray_callback.m_hitNormalWorld);
 					crawl_wall_edge(dir_normalized, other_wall_normal, u, speed);
 				}

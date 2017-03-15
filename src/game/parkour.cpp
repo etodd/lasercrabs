@@ -1244,6 +1244,18 @@ b8 Parkour::try_slide()
 	return false;
 }
 
+// i hate you OOP
+struct RayCallbackDefaultConstructor : public btCollisionWorld::ClosestRayResultCallback
+{
+	RayCallbackDefaultConstructor() : btCollisionWorld::ClosestRayResultCallback(btVector3(), btVector3())
+	{
+	}
+
+	RayCallbackDefaultConstructor(const btVector3& start, const btVector3& end) : btCollisionWorld::ClosestRayResultCallback(start, end)
+	{
+	}
+};
+
 // If force is true, we'll raycast farther downward when trying to mantle, to make sure we find something.
 b8 Parkour::try_parkour(b8 force)
 {
@@ -1265,6 +1277,9 @@ b8 Parkour::try_parkour(b8 force)
 		Vec3 pos = get<Transform>()->absolute_pos();
 		Walker* walker = get<Walker>();
 
+		RayCallbackDefaultConstructor ray_callbacks[mantle_sample_count];
+
+		// perform all raycasts, checking for obstacles first
 		for (s32 i = 0; i < mantle_sample_count; i++)
 		{
 			Vec3 dir_offset = rot * (mantle_samples[i] * WALKER_RADIUS * RAYCAST_RADIUS_RATIO);
@@ -1272,23 +1287,31 @@ b8 Parkour::try_parkour(b8 force)
 			Vec3 ray_start = pos + Vec3(dir_offset.x, 1.3f, dir_offset.z);
 			Vec3 ray_end = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * -0.25f + (force ? -WALKER_SUPPORT_HEIGHT - 0.5f : 0.0f), dir_offset.z);
 
-			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
+			RayCallbackDefaultConstructor ray_callback(ray_start, ray_end);
 			Physics::raycast(&ray_callback, CollisionParkour);
 
+			// check for wall blocking the mantle
 			if (ray_callback.hasHit() && ray_callback.m_hitNormalWorld.getY() > 0.25f)
 			{
-				// check for wall blocking the mantle
-				{
-					Vec3 wall_ray_start = pos;
-					wall_ray_start.y = ray_callback.m_hitPointWorld.getY() + 0.1f;
-					Vec3 wall_ray_end = ray_callback.m_hitPointWorld;
-					wall_ray_end.y += 0.1f;
-					btCollisionWorld::ClosestRayResultCallback wall_ray_callback(wall_ray_start, wall_ray_end);
-					Physics::raycast(&wall_ray_callback, ~CollisionAwkIgnore);
-					if (wall_ray_callback.hasHit())
-						return false;
-				}
+				Vec3 wall_ray_start = pos;
+				wall_ray_start.y = ray_callback.m_hitPointWorld.getY() + 0.1f;
+				Vec3 wall_ray_end = ray_callback.m_hitPointWorld;
+				wall_ray_end.y += 0.1f;
+				btCollisionWorld::ClosestRayResultCallback wall_ray_callback(wall_ray_start, wall_ray_end);
+				Physics::raycast(&wall_ray_callback, ~CollisionAwkIgnore);
+				if (wall_ray_callback.hasHit())
+					return false;
 
+				ray_callbacks[i] = ray_callback;
+			}
+		}
+
+		// no obstacles. see if any of the raycasts were valid and if so, use it
+		for (s32 i = 0; i < mantle_sample_count; i++)
+		{
+			const RayCallbackDefaultConstructor& ray_callback = ray_callbacks[i];
+			if (ray_callback.hasHit() && ray_callback.m_hitNormalWorld.getY() > 0.25f)
+			{
 				b8 top_out = ray_callback.m_hitPointWorld.getY() > pos.y + 0.2f;
 
 				get<Animator>()->layers[1].play(top_out ? Asset::Animation::character_top_out : Asset::Animation::character_mantle);

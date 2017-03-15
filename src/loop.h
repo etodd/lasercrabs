@@ -440,7 +440,7 @@ void draw_edges(const RenderParams& render_params)
 	{
 		RenderParams p = render_params;
 		p.technique = RenderTechnique::Shadow;
-		p.edges = true;
+		p.flags |= RenderFlagEdges;
 		Game::draw_opaque(p);
 		Game::draw_hollow(p);
 	}

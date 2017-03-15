@@ -490,20 +490,6 @@ void PlayerHuman::update(const Update& u)
 		Audio::listener_update(gamepad, camera->pos, camera->rot);
 	}
 
-	// flash "attack" or "defend" message after spawning
-	if (Game::level.mode == Game::Mode::Pvp
-		&& !Team::game_over
-		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& Team::match_time > PLAYER_SPAWN_DELAY
-		&& Team::match_time - Game::time.delta <= PLAYER_SPAWN_DELAY)
-	{
-		if (Game::level.type == GameType::Rush
-			&& get<PlayerManager>()->team.ref()->team() == 0)
-			msg(_(strings::defend), true);
-		else
-			msg(_(strings::attack), true);
-	}
-
 	if (msg_timer < msg_time)
 		msg_timer += Game::real_time.delta;
 
@@ -1993,6 +1979,17 @@ void PlayerControlHuman::awake()
 		link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
 		link_arg<const AwkReflectEvent&, &PlayerControlHuman::awk_reflecting>(get<Awk>()->reflecting);
 		link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Awk>()->hit);
+
+		if (!Team::game_over
+			&& Game::level.has_feature(Game::FeatureLevel::All)
+			&& player.ref()->get<PlayerManager>()->deaths == 0)
+		{
+			if (Game::level.type == GameType::Rush
+				&& player.ref()->get<PlayerManager>()->team.ref()->team() == 0)
+				player.ref()->msg(_(strings::defend), true);
+			else
+				player.ref()->msg(_(strings::attack), true);
+		}
 	}
 	else
 	{
@@ -3115,68 +3112,6 @@ void PlayerControlHuman::update_late(const Update& u)
 		}
 
 		camera_shake_update(u, camera);
-	}
-}
-
-void draw_mesh_clipped(const RenderParams& p, AssetID mesh, const Mat4& m, const Plane& plane)
-{
-	RenderSync* sync = p.sync;
-	sync->write(RenderOp::Shader);
-	sync->write(Asset::Shader::flat_clipped);
-	sync->write(p.technique);
-
-	Mat4 mvp = m * p.view_projection;
-
-	sync->write(RenderOp::Uniform);
-	sync->write(Asset::Uniform::mvp);
-	sync->write(RenderDataType::Mat4);
-	sync->write<s32>(1);
-	sync->write<Mat4>(mvp);
-
-	sync->write(RenderOp::Uniform);
-	sync->write(Asset::Uniform::mv);
-	sync->write(RenderDataType::Mat4);
-	sync->write<s32>(1);
-	sync->write<Mat4>(m * p.view);
-
-	sync->write(RenderOp::Uniform);
-	sync->write(Asset::Uniform::diffuse_color);
-	sync->write(RenderDataType::Vec4);
-	sync->write<s32>(1);
-	sync->write<Vec4>(Vec4(0, 0, 0, MATERIAL_NO_OVERRIDE));
-
-	// write culling info
-	sync->write(RenderOp::Uniform);
-	sync->write(Asset::Uniform::plane);
-	sync->write(RenderDataType::Vec4);
-	sync->write<s32>(1);
-	sync->write<Plane>(plane);
-
-	sync->write(RenderOp::Mesh);
-	sync->write(RenderPrimitiveMode::Triangles);
-	sync->write(mesh);
-}
-
-void PlayerControlHuman::draw(const RenderParams& p) const
-{
-	if (p.technique != RenderTechnique::Default
-		|| p.camera != player.ref()->camera
-		|| p.camera->cull_range <= 0.0f
-		|| Overworld::active()
-#if !SERVER
-		|| Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying
-#endif
-		|| !get<Transform>()->parent.ref())
-		return;
-
-	Loader::mesh_permanent(Asset::Mesh::cylinder_inside);
-	Loader::shader_permanent(Asset::Shader::flat_clipped);
-
-	if (p.camera->cull_behind_wall) // primary wall
-	{
-		Mat4 m;
-		m.make_transform(p.camera->pos, Vec3(p.camera->cull_range, p.camera->cull_range, 10), p.camera->rot);
-		draw_mesh_clipped(p, Asset::Mesh::cylinder_inside, m, p.camera->clip_planes[0]);
 	}
 }
 

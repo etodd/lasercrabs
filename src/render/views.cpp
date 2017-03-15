@@ -46,7 +46,7 @@ View::~View()
 
 void View::draw_opaque(const RenderParams& params)
 {
-	for (auto i = View::list.iterator(); !i.is_last(); i.next())
+	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (!list_alpha.get(i.index) && !list_additive.get(i.index) && !list_hollow.get(i.index) && (i.item()->mask & params.camera->mask))
 			i.item()->draw(params);
@@ -55,7 +55,7 @@ void View::draw_opaque(const RenderParams& params)
 
 void View::draw_additive(const RenderParams& params)
 {
-	for (auto i = View::list.iterator(); !i.is_last(); i.next())
+	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (list_additive.get(i.index) && (i.item()->mask & params.camera->mask))
 			i.item()->draw(params);
@@ -64,7 +64,7 @@ void View::draw_additive(const RenderParams& params)
 
 void View::draw_alpha(const RenderParams& params)
 {
-	for (auto i = View::list.iterator(); !i.is_last(); i.next())
+	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (list_alpha.get(i.index) && (i.item()->mask & params.camera->mask))
 			i.item()->draw(params);
@@ -73,9 +73,18 @@ void View::draw_alpha(const RenderParams& params)
 
 void View::draw_hollow(const RenderParams& params)
 {
-	for (auto i = View::list.iterator(); !i.is_last(); i.next())
+	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (list_hollow.get(i.index) && (i.item()->mask & params.camera->mask))
+			i.item()->draw(params);
+	}
+}
+
+void View::draw_filtered(const RenderParams& params, Filter* filter)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (filter(params, i.item()))
 			i.item()->draw(params);
 	}
 }
@@ -205,7 +214,7 @@ void View::draw_mesh(const RenderParams& params, AssetID mesh, AssetID shader, A
 		sync->write<AssetID>(texture);
 	}
 
-	if (params.edges)
+	if (params.flags & RenderFlagEdges)
 	{
 		sync->write(RenderOp::MeshEdges);
 		sync->write(mesh);
@@ -220,7 +229,7 @@ void View::draw_mesh(const RenderParams& params, AssetID mesh, AssetID shader, A
 
 void View::draw(const RenderParams& params) const
 {
-	AssetID mesh_actual = (params.technique != RenderTechnique::Shadow || params.edges || mesh_shadow == AssetNull) ? mesh : mesh_shadow;
+	AssetID mesh_actual = (params.technique != RenderTechnique::Shadow || (params.flags & RenderFlagEdges) || mesh_shadow == AssetNull) ? mesh : mesh_shadow;
 
 	if (mesh_actual == AssetNull || shader == AssetNull)
 		return;
@@ -238,7 +247,7 @@ void View::draw(const RenderParams& params) const
 	}
 
 	// if allow_culled_shader is false, replace the culled shader with the standard shader.
-	b8 allow_culled_shader = params.camera->cull_range > 0.0f && !params.edges;
+	b8 allow_culled_shader = params.camera->cull_range > 0.0f && !(params.flags & RenderFlagEdges);
 	AssetID shader_actual = allow_culled_shader || shader != Asset::Shader::culled ? shader : Asset::Shader::standard;
 
 	Loader::shader(shader_actual);
@@ -268,11 +277,11 @@ void View::draw(const RenderParams& params) const
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
 
-	if (team == (s8)AI::TeamNone)
+	if (team == s8(AI::TeamNone))
 	{
 		if (params.camera->colors)
 			sync->write<Vec4>(color);
-		else if (color.w == MATERIAL_INACCESSIBLE)
+		else if (color.w == MATERIAL_INACCESSIBLE || (params.flags & RenderFlagBackFace))
 			sync->write<Vec4>(PVP_INACCESSIBLE);
 		else if (color.w == MATERIAL_NO_OVERRIDE)
 			sync->write<Vec4>(PVP_ACCESSIBLE_NO_OVERRIDE);
@@ -326,7 +335,7 @@ void View::draw(const RenderParams& params) const
 		sync->write<AssetID>(texture);
 	}
 
-	if (params.edges)
+	if (params.flags & RenderFlagEdges)
 	{
 		sync->write(RenderOp::MeshEdges);
 		sync->write(mesh_actual);
@@ -785,7 +794,7 @@ void SkyPattern::draw_opaque(const RenderParams& p)
 
 void SkyPattern::draw_hollow(const RenderParams& p)
 {
-	if (!p.edges)
+	if (!(p.flags & RenderFlagEdges))
 		return;
 
 	Loader::shader_permanent(Asset::Shader::flat);
@@ -1111,7 +1120,7 @@ void Cube::draw(const RenderParams& params, const Vec3& pos, const b8 alpha, con
 	sync->write<s32>(1);
 	sync->write<Vec4>(color);
 
-	if (params.edges)
+	if (params.flags & RenderFlagEdges)
 	{
 		sync->write(RenderOp::MeshEdges);
 		sync->write(Asset::Mesh::cube);

@@ -593,10 +593,26 @@ void Game::draw_alpha_late(const RenderParams&) { }
 
 // client
 
+b8 view_filter_culled(const RenderParams& params, const View* v)
+{
+	return v->shader == Asset::Shader::culled && (v->mask & params.camera->mask);
+}
+
 void Game::draw_opaque(const RenderParams& render_params)
 {
-	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw(render_params);
+	if (render_params.technique == RenderTechnique::Default && !(render_params.flags & RenderFlagEdges))
+	{
+		// render back faces of culled geometry
+		render_params.sync->write<RenderOp>(RenderOp::CullMode);
+		render_params.sync->write<RenderCullMode>(RenderCullMode::Front);
+		{
+			RenderParams p = render_params;
+			p.flags |= RenderFlagBackFace;
+			View::draw_filtered(p, &view_filter_culled);
+		}
+		render_params.sync->write<RenderOp>(RenderOp::CullMode);
+		render_params.sync->write<RenderCullMode>(RenderCullMode::Back);
+	}
 
 	View::draw_opaque(render_params);
 

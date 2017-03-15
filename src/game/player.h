@@ -212,7 +212,6 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 	void update(const Update&);
 	void update_late(const Update&);
-	void draw(const RenderParams&) const;
 	void draw_ui(const RenderParams&) const;
 
 	void update_camera_input(const Update&, r32 = 1.0f);

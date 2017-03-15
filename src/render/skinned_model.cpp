@@ -173,7 +173,7 @@ void SkinnedModel::draw(const RenderParams& params)
 	
 	m = offset * m;
 
-	AssetID mesh_actual = (params.technique != RenderTechnique::Shadow || params.edges) || mesh_shadow == AssetNull ? mesh : mesh_shadow;
+	AssetID mesh_actual = (params.technique != RenderTechnique::Shadow || (params.flags & RenderFlagEdges)) || mesh_shadow == AssetNull ? mesh : mesh_shadow;
 
 	const Mesh* mesh_data = Loader::mesh(mesh_actual);
 	{
@@ -243,7 +243,7 @@ void SkinnedModel::draw(const RenderParams& params)
 			sync->write<Vec4>(team_color);
 	}
 
-	if (params.edges)
+	if (params.flags & RenderFlagEdges)
 	{
 		sync->write(RenderOp::MeshEdges);
 		sync->write(mesh_actual);

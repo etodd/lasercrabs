@@ -26,6 +26,8 @@ struct View : public ComponentType<View>
 	static void draw_alpha(const RenderParams&);
 	static void draw_hollow(const RenderParams&);
 	static void draw_additive(const RenderParams&);
+	typedef b8 Filter(const RenderParams&, const View*);
+	static void draw_filtered(const RenderParams&, Filter*);
 
 	static void draw_mesh(const RenderParams&, AssetID, AssetID, AssetID, const Mat4&, const Vec4&);
 

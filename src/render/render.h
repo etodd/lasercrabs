@@ -101,6 +101,12 @@ struct LoopSync : RenderSync
 
 typedef Sync<LoopSync>::Swapper LoopSwapper;
 
+enum RenderFlags
+{
+	RenderFlagEdges = 1 << 0,
+	RenderFlagBackFace = 1 << 1,
+};
+
 struct RenderParams
 {
 	const Camera* camera;
@@ -111,7 +117,7 @@ struct RenderParams
 	s32 depth_buffer;
 	s32 shadow_buffer;
 	Mat4 shadow_vp;
-	b8 edges;
+	s32 flags;
 
 	RenderParams()
 		: camera(),
@@ -122,7 +128,7 @@ struct RenderParams
 		depth_buffer(AssetNull),
 		shadow_buffer(AssetNull),
 		shadow_vp(),
-		edges()
+		flags()
 	{
 	}
 };

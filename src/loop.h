@@ -31,20 +31,24 @@ namespace VI
 namespace Loop
 {
 
-#define SHADOW_MAP_CASCADES 2
+#define SHADOW_MAP_CASCADES 3
+#define SHADOW_MAP_CASCADE_TRI_THRESHOLD 300.0f // if the far plane is farther than this, then we need three shadow map cascades
 
-const s32 shadow_map_size[(s32)Settings::ShadowQuality::count][SHADOW_MAP_CASCADES] =
+const s32 shadow_map_size[s32(Settings::ShadowQuality::count)][SHADOW_MAP_CASCADES] =
 {
 	{
 		512, // detail
+		512, // detail level 2
 		512, // global
 	},
 	{
 		1024, // detail
+		1024, // detail level 2
 		1024, // global
 	},
 	{
 		2048, // detail
+		2048, // detail level 2
 		2048, // global
 	},
 };
@@ -551,10 +555,10 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<b8>(true);
 	}
 
-	// Regular lighting
+	// regular lighting
 	{
 		{
-			// Global light (directional and player lights)
+			// global light (directional and player lights)
 			const s32 max_lights = 3;
 			Vec3 colors[max_lights] = {};
 			Vec3 directions[max_lights] = {};
@@ -592,6 +596,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			}
 
 			Mat4 detail_light_vp;
+			Mat4 detail2_light_vp;
 
 			if (shadowed)
 			{
@@ -600,7 +605,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				r32 size = vi_min(800.0f, render_params.camera->far_plane * 1.5f);
 				Vec3 pos = render_params.camera->pos;
 				const r32 interval = 2.0f;
-				pos = Vec3((s32)(pos.x / interval), (s32)(pos.y / interval), (s32)(pos.z / interval)) * interval;
+				pos = Vec3(s32(pos.x / interval), s32(pos.y / interval), s32(pos.z / interval)) * interval;
 				r32 depth = vi_min(400.0f, size * 2.0f);
 				shadow_camera.pos = pos + (abs_directions[0] * depth * -0.25f);
 				shadow_camera.rot = Quat::look(abs_directions[0]);
@@ -609,33 +614,49 @@ void draw(LoopSync* sync, const Camera* camera)
 				else
 					shadow_camera.mask = RENDER_MASK_SHADOW;
 
-				if (draw_far_shadow_cascade || Camera::active_count() > 1) // only draw far shadow cascade every other frame, if we can
+				if (draw_far_shadow_cascade || Camera::active_count() > 1 || SpotLight::list.count() > 0) // only draw far shadow cascade every other frame, if we can
+				{
+					shadow_camera.viewport =
+					{
+						Vec2(0, 0),
+						Vec2(shadow_map_size[s32(Settings::shadow_quality)][2], shadow_map_size[s32(Settings::shadow_quality)][2]),
+					};
+					shadow_camera.orthographic(size, size, 1.0f, depth);
+					far_shadow_cascade_camera = shadow_camera;
+					render_shadows(sync, shadow_fbo[2], *render_params.camera, shadow_camera);
+				}
+				draw_far_shadow_cascade = !draw_far_shadow_cascade;
+
+				render_params.shadow_vp = relative_shadow_vp(*render_params.camera, far_shadow_cascade_camera);
+				if (Settings::volumetric_lighting)
+					render_params.shadow_buffer = shadow_buffer[2]; // skybox needs this for volumetric lighting
+
+				// detail level 2 shadow map
+				if (render_params.camera->far_plane > SHADOW_MAP_CASCADE_TRI_THRESHOLD)
 				{
 					shadow_camera.viewport =
 					{
 						Vec2(0, 0),
 						Vec2(shadow_map_size[s32(Settings::shadow_quality)][1], shadow_map_size[s32(Settings::shadow_quality)][1]),
 					};
-					shadow_camera.orthographic(size, size, 1.0f, depth);
-					far_shadow_cascade_camera = shadow_camera;
-					render_shadows(sync, shadow_fbo[1], *render_params.camera, shadow_camera);
-				}
-				draw_far_shadow_cascade = !draw_far_shadow_cascade;
+					shadow_camera.orthographic(100.0f, 100.0f, 1.0f, depth);
 
-				render_params.shadow_vp = relative_shadow_vp(*render_params.camera, far_shadow_cascade_camera);
-				if (Settings::volumetric_lighting)
-					render_params.shadow_buffer = shadow_buffer[1]; // skybox needs this for volumetric lighting
+					render_shadows(sync, shadow_fbo[1], *render_params.camera, shadow_camera);
+					detail2_light_vp = relative_shadow_vp(*render_params.camera, shadow_camera);
+				}
 
 				// detail shadow map
-				shadow_camera.viewport =
 				{
-					Vec2(0, 0),
-					Vec2(shadow_map_size[s32(Settings::shadow_quality)][0], shadow_map_size[s32(Settings::shadow_quality)][0]),
-				};
-				shadow_camera.orthographic(20.0f, 20.0f, 1.0f, depth);
+					shadow_camera.viewport =
+					{
+						Vec2(0, 0),
+						Vec2(shadow_map_size[s32(Settings::shadow_quality)][0], shadow_map_size[s32(Settings::shadow_quality)][0]),
+					};
+					shadow_camera.orthographic(20.0f, 20.0f, 1.0f, depth);
 
-				render_shadows(sync, shadow_fbo[0], *render_params.camera, shadow_camera);
-				detail_light_vp = relative_shadow_vp(*render_params.camera, shadow_camera);
+					render_shadows(sync, shadow_fbo[0], *render_params.camera, shadow_camera);
+					detail_light_vp = relative_shadow_vp(*render_params.camera, shadow_camera);
+				}
 
 				sync->write<RenderOp>(RenderOp::Viewport);
 				sync->write<Rect2>(camera->viewport);
@@ -665,10 +686,16 @@ void draw(LoopSync* sync, const Camera* camera)
 
 			// player light settings
 			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::player_light);
-			sync->write(RenderDataType::Vec3);
+			sync->write(Asset::Uniform::camera_light_strength);
+			sync->write(RenderDataType::R32);
 			sync->write<s32>(1);
-			sync->write<Vec3>(Game::level.skybox.player_light);
+			sync->write(render_params.camera->colors ? 0.25f : 0.7f);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::camera_light_radius);
+			sync->write(RenderDataType::R32);
+			sync->write<s32>(1);
+			sync->write(render_params.camera->colors ? 6.0f : render_params.camera->range);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::range);
@@ -701,7 +728,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(RenderDataType::Texture);
 				sync->write<s32>(1);
 				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-				sync->write<AssetID>(shadow_buffer[1]);
+				sync->write<AssetID>(shadow_buffer[2]);
 
 				sync->write(RenderOp::Uniform);
 				sync->write(Asset::Uniform::detail_light_vp);
@@ -715,6 +742,45 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write<s32>(1);
 				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 				sync->write<AssetID>(shadow_buffer[0]);
+
+				if (render_params.camera->far_plane > SHADOW_MAP_CASCADE_TRI_THRESHOLD)
+				{
+					// three cascades
+					sync->write(RenderOp::Uniform);
+					sync->write(Asset::Uniform::tri_shadow_cascade);
+					sync->write(RenderDataType::S32);
+					sync->write<s32>(1);
+					sync->write<s32>(1);
+
+					sync->write(RenderOp::Uniform);
+					sync->write(Asset::Uniform::detail2_light_vp);
+					sync->write(RenderDataType::Mat4);
+					sync->write<s32>(1);
+					sync->write<Mat4>(inverse_view_rotation_only * detail2_light_vp);
+
+					sync->write(RenderOp::Uniform);
+					sync->write(Asset::Uniform::detail2_shadow_map);
+					sync->write(RenderDataType::Texture);
+					sync->write<s32>(1);
+					sync->write(RenderTextureType::Texture2D);
+					sync->write<AssetID>(shadow_buffer[1]);
+				}
+				else
+				{
+					// two cascades
+					sync->write(RenderOp::Uniform);
+					sync->write(Asset::Uniform::tri_shadow_cascade);
+					sync->write(RenderDataType::S32);
+					sync->write<s32>(1);
+					sync->write<s32>(0);
+
+					sync->write(RenderOp::Uniform);
+					sync->write(Asset::Uniform::detail2_shadow_map);
+					sync->write(RenderDataType::Texture);
+					sync->write<s32>(1);
+					sync->write(RenderTextureType::Texture2D);
+					sync->write<AssetID>(AssetNull);
+				}
 
 				Loader::texture_permanent(Asset::Texture::clouds);
 

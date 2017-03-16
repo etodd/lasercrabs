@@ -772,9 +772,6 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_r32_range(p, Game::level.skybox.ambient_color.x, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.ambient_color.y, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.ambient_color.z, 0.0f, 1.0f, 8);
-	serialize_r32_range(p, Game::level.skybox.player_light.x, 0.0f, 1.0f, 8);
-	serialize_r32_range(p, Game::level.skybox.player_light.y, 0.0f, 1.0f, 8);
-	serialize_r32_range(p, Game::level.skybox.player_light.z, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.rain, 0.0f, 1.0f, 8);
 
 	serialize_int(p, u16, Game::level.clouds.length, 0, Game::level.clouds.capacity());

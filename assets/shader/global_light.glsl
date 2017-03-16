@@ -28,13 +28,19 @@ uniform mat4 p;
 const int max_lights = 3;
 uniform vec3 light_color[max_lights];
 uniform vec3 light_direction[max_lights];
-uniform mat4 light_vp;
 uniform mat4 v;
+
+uniform bool tri_shadow_cascade;
+uniform mat4 light_vp;
 uniform sampler2DShadow shadow_map;
 uniform mat4 detail_light_vp;
 uniform sampler2DShadow detail_shadow_map;
+uniform mat4 detail2_light_vp;
+uniform sampler2DShadow detail2_shadow_map;
+
 uniform sampler2D cloud_map;
-uniform vec3 player_light;
+uniform float camera_light_radius;
+uniform float camera_light_strength;
 uniform float far_plane;
 uniform float range;
 uniform vec3 range_center;
@@ -57,9 +63,9 @@ void main()
 	{
 		// player light
 		float normal_attenuation = dot(normal, view_pos / -view_distance);
-		float distance_attenuation = 1.0f - (length(view_pos - range_center) / range);
+		float distance_attenuation = 1.0f - view_distance / camera_light_radius;
 		float light = max(0, distance_attenuation) * max(0, normal_attenuation);
-		out_color = vec4(player_light * light, 1);
+		out_color = vec4(vec3(camera_light_strength * light), 1);
 	}
 
 #ifdef SHADOW
@@ -77,15 +83,31 @@ void main()
 		}
 		else
 		{
-			vec4 light_projected = light_vp * vec4(view_pos, 1.0f);
-			light_projected.xy /= light_projected.w;
-			if (abs(light_projected.x) < 1.0f && abs(light_projected.y) < 1.0f)
+			bool detail2 = false;
+			if (tri_shadow_cascade)
 			{
-				light_projected.z -= 0.002f;
-				shadow = texture(shadow_map, light_projected.xyz * 0.5f + 0.5f);
+				vec4 detail2_light_projected = detail2_light_vp * vec4(view_pos, 1.0f);
+				detail2_light_projected.xy /= detail2_light_projected.w;
+				if (abs(detail2_light_projected.x) < 1.0f && abs(detail2_light_projected.y) < 1.0f)
+				{
+					detail2_light_projected.z -= 0.001f;
+					shadow = texture(detail2_shadow_map, detail2_light_projected.xyz * 0.5f + 0.5f);
+					detail2 = true;
+				}
 			}
-			else
-				shadow = 1.0f;
+
+			if (!detail2)
+			{
+				vec4 light_projected = light_vp * vec4(view_pos, 1.0f);
+				light_projected.xy /= light_projected.w;
+				if (abs(light_projected.x) < 1.0f && abs(light_projected.y) < 1.0f)
+				{
+					light_projected.z -= 0.002f;
+					shadow = texture(shadow_map, light_projected.xyz * 0.5f + 0.5f);
+				}
+				else
+					shadow = 1.0f;
+			}
 		}
 
 		if (cloud_alpha > 0.0f)

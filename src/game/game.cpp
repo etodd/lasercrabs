@@ -1205,7 +1205,6 @@ void Game::unload_level()
 	level.skybox.shader = AssetNull;
 	level.skybox.texture = AssetNull;
 	level.skybox.mesh = AssetNull;
-	level.skybox.player_light = Vec3::zero;
 
 	Audio::post_global_event(AK::EVENTS::STOP_ALL);
 
@@ -1426,7 +1425,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			level.skybox.mesh = Asset::Mesh::skybox;
 			level.skybox.color = Json::get_vec3(element, "skybox_color");
 			level.skybox.ambient_color = Json::get_vec3(element, "ambient_color");
-			level.skybox.player_light = Vec3(0.7f);
 
 			level.min_y = Json::get_r32(element, "min_y", -20.0f);
 			level.rotation = Json::get_r32(element, "rotation");

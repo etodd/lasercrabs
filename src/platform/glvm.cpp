@@ -15,14 +15,14 @@ b8 compile_shader(const char* prefix, const char* code, s32 code_length, u32* pr
 	GLuint vertex_id = glCreateShader(GL_VERTEX_SHADER);
 	GLuint frag_id = glCreateShader(GL_FRAGMENT_SHADER);
 
-	// Compile Vertex Shader
+	// compile Vertex Shader
 	GLint prefix_length = strlen(prefix);
 	char const* vertex_code[] = { "#version 330 core\n#define VERTEX\n", prefix, code };
 	const GLint vertex_code_length[] = { 33, prefix_length, (GLint)code_length };
 	glShaderSource(vertex_id, 3, vertex_code, vertex_code_length);
 	glCompileShader(vertex_id);
 
-	// Check Vertex Shader
+	// check Vertex Shader
 	GLint result;
 	glGetShaderiv(vertex_id, GL_COMPILE_STATUS, &result);
 	s32 msg_length;
@@ -35,13 +35,13 @@ b8 compile_shader(const char* prefix, const char* code, s32 code_length, u32* pr
 		success = false;
 	}
 
-	// Compile Fragment Shader
+	// compile Fragment Shader
 	const char* frag_code[] = { "#version 330 core\n", prefix, code };
 	const GLint frag_code_length[] = { 18, prefix_length, (GLint)code_length };
 	glShaderSource(frag_id, 3, frag_code, frag_code_length);
 	glCompileShader(frag_id);
 
-	// Check Fragment Shader
+	// check Fragment Shader
 	glGetShaderiv(frag_id, GL_COMPILE_STATUS, &result);
 	glGetShaderiv(frag_id, GL_INFO_LOG_LENGTH, &msg_length);
 	if (msg_length > 1)
@@ -52,13 +52,13 @@ b8 compile_shader(const char* prefix, const char* code, s32 code_length, u32* pr
 		success = false;
 	}
 
-	// Link the program
+	// link the program
 	*program_id = glCreateProgram();
 	glAttachShader(*program_id, vertex_id);
 	glAttachShader(*program_id, frag_id);
 	glLinkProgram(*program_id);
 
-	// Check the program
+	// check the program
 	glGetProgramiv(*program_id, GL_LINK_STATUS, &result);
 	glGetProgramiv(*program_id, GL_INFO_LOG_LENGTH, &msg_length);
 	if (msg_length > 1)
@@ -343,7 +343,7 @@ do\
 
 				s32 buffer_index = GLData::uniform_name_buffer.length;
 				GLData::uniform_names[id] = buffer_index;
-				GLData::uniform_name_buffer.resize(GLData::uniform_name_buffer.length + length + 1); // Extra character - null-terminated string
+				GLData::uniform_name_buffer.resize(GLData::uniform_name_buffer.length + length + 1); // extra character - null-terminated string
 				memcpy(&GLData::uniform_name_buffer[buffer_index], name, length);
 				break;
 			}
@@ -397,7 +397,7 @@ do\
 							a.gl_type = GL_FLOAT;
 							break;
 						case RenderDataType::Mat4:
-							vi_assert(false); // Not supported yet
+							vi_assert(false); // not supported yet
 							break;
 						default:
 							vi_assert(false);
@@ -421,7 +421,7 @@ do\
 			{
 				AssetID id = *(sync->read<AssetID>());
 
-				// Assume the mesh is already loaded
+				// assume the mesh is already loaded
 				GLData::Mesh* mesh = &GLData::meshes[id];
 
 				glGenVertexArrays(1, &mesh->instance_array);
@@ -431,7 +431,7 @@ do\
 
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
 
-				// Right now the only supported instanced attribute is the world matrix
+				// right now the only supported instanced attribute is the world matrix
 
 				glGenBuffers(1, &mesh->instance_buffer);
 				glBindBuffer(GL_ARRAY_BUFFER, mesh->instance_buffer);
@@ -755,7 +755,7 @@ do\
 			}
 			case RenderOp::Clear:
 			{
-				// Clear the screen
+				// clear the screen
 				GLbitfield clear_flags = 0;
 				if (*(sync->read<b8>()))
 					clear_flags |= GL_COLOR_BUFFER_BIT;
@@ -787,7 +787,6 @@ do\
 				GLuint uniform_id = GLData::shaders[GLData::current_shader_asset][(s32)GLData::current_shader_technique].uniforms[uniform_asset];
 				RenderDataType uniform_type = *(sync->read<RenderDataType>());
 				s32 uniform_count = *(sync->read<s32>());
-
 
 				switch (uniform_type)
 				{
@@ -835,7 +834,7 @@ do\
 					}
 					case RenderDataType::Texture:
 					{
-						vi_assert(uniform_count == 1); // Only single textures supported for now
+						vi_assert(uniform_count == 1); // only single textures supported for now
 						RenderTextureType texture_type = *(sync->read<RenderTextureType>());
 						AssetID texture_asset = *(sync->read<AssetID>());
 						GLuint texture_id;
@@ -866,7 +865,7 @@ do\
 									gl_texture_type = GL_TEXTURE_2D;
 									break;
 								default:
-									vi_assert(false); // Only 2D textures supported for now
+									vi_assert(false); // only 2D textures supported for now
 									break;
 							}
 							glBindTexture(gl_texture_type, texture_id);

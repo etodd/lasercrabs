@@ -51,7 +51,6 @@ struct Skybox
 	{
 		Vec3 color;
 		Vec3 ambient_color;
-		Vec3 player_light;
 		r32 far_plane;
 		r32 fog_start;
 		AssetID texture;

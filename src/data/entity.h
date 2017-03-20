@@ -7,10 +7,6 @@
 namespace VI
 {
 
-typedef s8 Family;
-typedef s16 Revision;
-typedef s64 ComponentMask;
-
 #define MAX_FAMILIES (sizeof(ComponentMask) * 8)
 
 struct ComponentPoolBase

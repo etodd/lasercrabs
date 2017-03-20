@@ -7,7 +7,6 @@
 #include "recast/DetourTileCache/Include/DetourTileCache.h"
 #include "recast/DetourTileCache/Include/DetourTileCacheBuilder.h"
 #include "fastlz/fastlz.h"
-#include "utf8/utf8.h"
 
 namespace VI
 {
@@ -158,7 +157,7 @@ namespace Json
 			s32 i = 0;
 			while (search[i])
 			{
-				if (utf8cmp(string, search[i]) == 0)
+				if (strcmp(string, search[i]) == 0)
 					return i;
 				i++;
 			}
@@ -188,16 +187,71 @@ TileCacheData::~TileCacheData()
 	}
 }
 
-const Font::Character& Font::get(const void* character) const
+s32 Font::codepoint(const char* s)
 {
-	// TODO: unicode
-	char c = *((char*)character);
-	return characters[c];
+	if (0xf0 == (0xf8 & s[0]))
+		return ((0x07 & s[0]) << 18)
+			| ((0x3f & s[1]) << 12)
+			| ((0x3f & s[2]) << 6)
+			| (0x3f & s[3]); // 4 byte utf8 codepoint
+	else if (0xe0 == (0xf0 & s[0]))
+		return ((0x0f & s[0]) << 12)
+			| ((0x3f & s[1]) << 6)
+			| (0x3f & s[2]); // 3 byte utf8 codepoint
+	else if (0xc0 == (0xe0 & s[0]))
+		return ((0x1f & s[0]) << 6) | (0x3f & s[1]); // 2 byte utf8 codepoint
+	else
+		return 0xff & s[0]; // 1 byte utf8 codepoint otherwise
 }
 
-int FastLZCompressor::maxCompressedSize(const int bufferSize)
+const char* Font::codepoint_next(const char* s)
 {
-	return (int)(bufferSize* 1.05f);
+	if (0xf0 == (0xf8 & s[0]))
+		s += 4;
+	else if (0xe0 == (0xf0 & s[0]))
+		s += 3;
+	else if (0xc0 == (0xe0 & s[0]))
+		s += 2;
+	else
+		s += 1;
+
+	return s;
+}
+
+s32 Font::codepoint_count(const char* s)
+{
+	s32 count = 0;
+	while (*s)
+	{
+		count++;
+		s = codepoint_next(s);
+	}
+	return count;
+}
+
+Font::Character::Character()
+	: min(),
+	max(),
+	index_start(),
+	index_count(),
+	vertex_start(),
+	vertex_count(),
+	codepoint()
+{
+}
+
+const Font::Character& Font::get(const char* character) const
+{
+	auto i = characters.find(codepoint(character));
+	if (i == characters.end())
+		return characters.find(codepoint(" "))->second;
+	else
+		return i->second;
+}
+
+s32 FastLZCompressor::maxCompressedSize(const int bufferSize)
+{
+	return s32(bufferSize * 1.05f);
 }
 
 dtStatus FastLZCompressor::compress(const unsigned char* buffer, const int bufferSize,
@@ -233,11 +287,6 @@ void AwkNavMeshAdjacency::flag(s32 i, b8 value)
 		flags |= ((u64)1 << i);
 	else
 		flags &= ~((u64)1 << i);
-}
-
-Font::Font()
-	: characters(), indices(), vertices()
-{
 }
 
 Armature::Armature()

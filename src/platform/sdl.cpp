@@ -43,6 +43,7 @@ namespace VI
 
 	SDL_Window* window = 0;
 	SDL_GameController* controllers[MAX_GAMEPADS] = {};
+	Gamepad::Type controller_types[MAX_GAMEPADS] = {};
 	SDL_Haptic* haptics[MAX_GAMEPADS] = {};
 
 	void refresh_controllers()
@@ -60,6 +61,7 @@ namespace VI
 				SDL_GameControllerClose(controllers[i]);
 				controllers[i] = nullptr;
 			}
+			controller_types[i] = Gamepad::Type::None;
 		}
 
 		for (s32 i = 0; i < SDL_NumJoysticks(); i++)
@@ -67,7 +69,14 @@ namespace VI
 			if (SDL_IsGameController(i))
 			{
 				controllers[i] = SDL_GameControllerOpen(i);
+				const char* name = SDL_GameControllerName(controllers[i]);
+				if (strstr(name, "DualShock"))
+					controller_types[i] = Gamepad::Type::Playstation;
+				else
+					controller_types[i] = Gamepad::Type::Xbox;
+
 				SDL_Joystick* joystick = SDL_GameControllerGetJoystick(controllers[i]);
+
 				if (SDL_JoystickIsHaptic(joystick))
 				{
 					haptics[i] = SDL_HapticOpenFromJoystick(joystick);
@@ -268,9 +277,19 @@ namespace VI
 			{
 				SDL_GameController* controller = controllers[i];
 				Gamepad* gamepad = &sync->input.gamepads[i];
-				gamepad->active = controller != 0;
+				gamepad->type = controller_types[i];
 				gamepad->btns = 0;
-				if (gamepad->active)
+				if (gamepad->type == Gamepad::Type::None)
+				{
+					gamepad->left_x = 0.0f;
+					gamepad->left_y = 0.0f;
+					gamepad->right_x = 0.0f;
+					gamepad->right_y = 0.0f;
+					gamepad->left_trigger = 0.0f;
+					gamepad->right_trigger = 0.0f;
+					gamepad->rumble = 0.0f;
+				}
+				else
 				{
 					gamepad->left_x = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) / 32767.0f;
 					gamepad->left_y = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) / 32767.0f;
@@ -314,16 +333,6 @@ namespace VI
 						SDL_HapticRumblePlay(haptics[i], gamepad->rumble, 33);
 					gamepad->rumble = 0.0f;
 					active_gamepads++;
-				}
-				else
-				{
-					gamepad->left_x = 0.0f;
-					gamepad->left_y = 0.0f;
-					gamepad->right_x = 0.0f;
-					gamepad->right_y = 0.0f;
-					gamepad->left_trigger = 0.0f;
-					gamepad->right_trigger = 0.0f;
-					gamepad->rumble = 0.0f;
 				}
 			}
 

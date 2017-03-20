@@ -23,6 +23,10 @@ typedef std::size_t memory_index;
 typedef float r32;
 typedef double r64;
 
+typedef s8 Family;
+typedef s16 Revision;
+typedef s64 ComponentMask;
+
 struct GameTime
 {
 	r32 total;

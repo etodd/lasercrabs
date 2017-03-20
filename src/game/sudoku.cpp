@@ -419,7 +419,7 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 				if (UI::flash_function(Game::real_time.total))
 				{
 					text.color = UI::color_accent;
-					text.text("%d", s32(state[index]) + 1);
+					text.text(gamepad, "%d", s32(state[index]) + 1);
 					text.draw(params, p);
 
 					UI::centered_border(params, { p, cell_size }, 4.0f, UI::color_accent);
@@ -435,7 +435,7 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 					text.color = hovering
 						? UI::color_disabled
 						: (timer_error > 0.0f ? UI::color_alert : UI::color_accent);
-					text.text("%d", s32(state[index]) + 1);
+					text.text(gamepad, "%d", s32(state[index]) + 1);
 					text.draw(params, p);
 				}
 
@@ -448,7 +448,7 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 					UI::centered_border(params, { p, cell_size }, 4.0f, color);
 
 					text.color = color;
-					text.text("%d", s32(current_value) + 1);
+					text.text(gamepad, "%d", s32(current_value) + 1);
 					text.draw(params, p);
 				}
 			}
@@ -462,7 +462,7 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 		{
 			if (UI::flash_function(Game::real_time.total))
 			{
-				text.text(_(strings::hack_complete));
+				text.text(gamepad, _(strings::hack_complete));
 				Vec2 pos = params.camera->viewport.size * 0.5f;
 				UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
 				text.color = UI::color_accent;
@@ -471,7 +471,7 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 		}
 		else if (timer_animation == 0.0f)
 		{
-			text.text(_(strings::hacking));
+			text.text(gamepad, _(strings::hacking));
 
 			Vec2 pos = params.camera->viewport.size * 0.5f + Vec2(0, cell_spacing.y * 2.5f);
 			Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
@@ -485,7 +485,7 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 			text.draw(params, pos);
 
 			pos = params.camera->viewport.size * 0.5f + Vec2(0, cell_spacing.y * -2.5f);
-			text.text(_(strings::prompt_sudoku_place));
+			text.text(gamepad, _(strings::prompt_sudoku_place));
 			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 			text.color = UI::color_accent;
 			text.draw(params, pos);

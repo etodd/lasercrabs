@@ -35,7 +35,6 @@
 #include "net.h"
 #include "team.h"
 #include "overworld.h"
-#include "utf8/utf8.h"
 #include "load.h"
 #include "asset/level.h"
 
@@ -95,10 +94,10 @@ void PlayerHuman::camera_setup_awk(Entity* e, Camera* camera, r32 offset)
 	camera->range_center = rot_inverse * (center - camera->pos);
 	Vec3 wall_normal_viewspace = rot_inverse * abs_wall_normal;
 	camera->clip_planes[0].redefine(wall_normal_viewspace, camera->range_center + wall_normal_viewspace * -AWK_RADIUS);
-	camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - center) < -AWK_RADIUS + 0.02f; // camera is behind wall; set clip plane to wall
+	camera->flag(CameraFlagCullBehindWall, abs_wall_normal.dot(camera->pos - center) < -AWK_RADIUS + 0.02f); // camera is behind wall; set clip plane to wall
 	camera->cull_range = camera->range_center.length();
-	camera->colors = false;
-	camera->fog = false;
+	camera->flag(CameraFlagColors, false);
+	camera->flag(CameraFlagFog, false);
 }
 
 s32 PlayerHuman::count_local()
@@ -196,7 +195,7 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 
 void PlayerHuman::msg(const char* msg, b8 good)
 {
-	msg_text.text(msg);
+	msg_text.text(gamepad, msg);
 	msg_text.color = good ? UI::color_accent : UI::color_alert;
 	msg_timer = 0.0f;
 	msg_good = good;
@@ -218,10 +217,10 @@ void PlayerHuman::awake()
 	{
 		Audio::listener_enable(gamepad);
 
-		camera = Camera::add();
+		camera = Camera::add(gamepad);
 		camera->team = s8(get<PlayerManager>()->team.ref()->team());
 		camera->mask = 1 << camera->team;
-		camera->colors = false;
+		camera->flag(CameraFlagColors, false);
 
 		Quat rot;
 		Game::level.map_view.ref()->absolute(&camera->pos, &rot);
@@ -234,6 +233,7 @@ PlayerHuman::~PlayerHuman()
 	if (camera)
 	{
 		camera->remove();
+		camera = nullptr;
 		Audio::listener_disable(gamepad);
 	}
 #if SERVER
@@ -307,7 +307,7 @@ void PlayerHuman::update_camera_rotation(const Update& u)
 		angle_vertical += (r32)u.input->cursor_y * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
 	}
 
-	if (u.input->gamepads[gamepad].active)
+	if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
 	{
 		r32 s = speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::time.delta;
 		Vec2 rotation(u.input->gamepads[gamepad].right_x, u.input->gamepads[gamepad].right_y);
@@ -483,7 +483,7 @@ void PlayerHuman::update(const Update& u)
 		if (!get<PlayerManager>()->instance.ref())
 		{
 			camera->range = 0;
-			camera->colors = Game::level.mode == Game::Mode::Parkour;
+			camera->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour);
 			upgrade_menu_open = false;
 		}
 
@@ -854,7 +854,7 @@ void PlayerHuman::spawn(const PlayerSpawnPosition& normal_spawn_pos)
 	Net::finalize(spawned);
 }
 
-void draw_icon_text(const RenderParams& params, const Vec2& pos, AssetID icon, char* string, const Vec4& color)
+void draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, AssetID icon, char* string, const Vec4& color)
 {
 	r32 icon_size = text_size * UI::scale;
 	r32 padding = 8 * UI::scale;
@@ -864,7 +864,7 @@ void draw_icon_text(const RenderParams& params, const Vec2& pos, AssetID icon, c
 	text.size = text_size;
 	text.anchor_x = UIText::Anchor::Min;
 	text.anchor_y = UIText::Anchor::Center;
-	text.text(string);
+	text.text(gamepad, string);
 
 	r32 total_width = icon_size + padding + text.bounds().x;
 
@@ -878,7 +878,7 @@ void ability_draw(const RenderParams& params, const PlayerHuman* player, const V
 	char string[255];
 
 	s16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
-	sprintf(string, "%s", Settings::gamepads[gamepad].bindings[(s32)binding].string(Game::is_gamepad));
+	sprintf(string, "%s", Settings::gamepads[gamepad].bindings[s32(binding)].string(Game::ui_gamepad_types[gamepad]));
 	const Vec4* color;
 	PlayerManager* manager = player->get<PlayerManager>();
 	if (!manager->ability_valid(ability) || !manager->instance.ref()->get<PlayerCommon>()->movement_enabled())
@@ -887,7 +887,7 @@ void ability_draw(const RenderParams& params, const PlayerHuman* player, const V
 		color = &UI::color_default;
 	else
 		color = &UI::color_accent;
-	draw_icon_text(params, pos, icon, string, *color);
+	draw_icon_text(params, gamepad, pos, icon, string, *color);
 }
 
 void battery_timer_draw(const RenderParams& params, const Vec2& pos)
@@ -950,7 +950,7 @@ void battery_timer_draw(const RenderParams& params, const Vec2& pos)
 	text.anchor_x = UIText::Anchor::Min;
 	text.anchor_y = UIText::Anchor::Center;
 	text.color = *color;
-	text.text(_(strings::timer), remaining_minutes, remaining_seconds);
+	text.text(0, _(strings::timer), remaining_minutes, remaining_seconds);
 	text.draw(params, icon_pos + Vec2(text_size * UI::scale * 1.5f, 0));
 }
 
@@ -973,7 +973,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 	// "spawning..."
 	if (!manager->instance.ref() && manager->respawns != 0)
 	{
-		text.text(_(strings::deploy_timer), s32(manager->spawn_timer + 1));
+		text.text(0, _(strings::deploy_timer), s32(manager->spawn_timer + 1));
 		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -982,7 +982,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 	if (Game::level.type == GameType::Rush)
 	{
 		// show remaining drones label
-		text.text(_(strings::drones_remaining));
+		text.text(0, _(strings::drones_remaining));
 		text.color = UI::color_accent;
 		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
@@ -996,16 +996,16 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 		text.wrap_width = wrap;
 		text.anchor_x = UIText::Anchor::Min;
 		text.color = Team::ui_color(manager->team.ref()->team(), i.item()->team.ref()->team());
-		text.text_raw(i.item()->username);
+		text.text_raw(0, i.item()->username);
 		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
 
 		text.anchor_x = UIText::Anchor::Max;
 		text.wrap_width = 0;
 		if (Game::level.type == GameType::Deathmatch)
-			text.text("%d", s32(i.item()->kills));
+			text.text(0, "%d", s32(i.item()->kills));
 		else
-			text.text("%d", s32(i.item()->respawns));
+			text.text(0, "%d", s32(i.item()->respawns));
 		text.draw(params, p + Vec2(wrap, 0));
 
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -1028,10 +1028,10 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 	r32 radius = 64.0f * UI::scale;
 	Vec2 center;
-	if (Game::is_gamepad) // right side
-		center = vp.size * Vec2(0.9f, 0.1f) + Vec2(-radius, radius * 0.5f + (text_size * UI::scale * 0.5f));
-	else // left side
+	if (Game::ui_gamepad_types[gamepad] == Gamepad::Type::None) // left side
 		center = vp.size * Vec2(0.1f, 0.1f) + Vec2(radius, radius * 0.5f + (text_size * UI::scale * 0.5f));
+	else // right side
+		center = vp.size * Vec2(0.9f, 0.1f) + Vec2(-radius, radius * 0.5f + (text_size * UI::scale * 0.5f));
 
 	// todo: revamp game mode system
 	if (Game::level.mode == Game::Mode::Pvp
@@ -1047,7 +1047,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		char buffer[128];
 		sprintf(buffer, "%d", get<PlayerManager>()->credits);
 		Vec2 credits_pos = center + Vec2(0, radius * -0.5f);
-		draw_icon_text(params, credits_pos, Asset::Mesh::icon_energy, buffer, draw ? (flashing ? UI::color_default : UI::color_accent) : UI::color_background);
+		draw_icon_text(params, gamepad, credits_pos, Asset::Mesh::icon_energy, buffer, draw ? (flashing ? UI::color_default : UI::color_accent) : UI::color_background);
 
 		// control point increment amount
 		{
@@ -1056,7 +1056,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 			UIText text;
 			text.color = UI::color_accent;
-			text.text("+%d", get<PlayerManager>()->increment());
+			text.text(0, "+%d", get<PlayerManager>()->increment());
 			text.anchor_x = UIText::Anchor::Min;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = text_size;
@@ -1090,9 +1090,9 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				UIText text;
 				text.color = UI::color_accent;
 				if (get<PlayerManager>()->team.ref()->team() == 0) // defending
-					text.text(_(strings::prompt_cancel_hack));
+					text.text(gamepad, _(strings::prompt_cancel_hack));
 				else
-					text.text(_(strings::prompt_hack));
+					text.text(gamepad, _(strings::prompt_hack));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
 				text.size = text_size;
@@ -1105,7 +1105,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				// "upgrade!" prompt
 				UIText text;
 				text.color = get<PlayerManager>()->upgrade_available() ? UI::color_accent : UI::color_disabled;
-				text.text(_(strings::prompt_upgrade));
+				text.text(gamepad, _(strings::prompt_upgrade));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
 				text.size = text_size;
@@ -1179,7 +1179,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				text.anchor_y = UIText::Anchor::Max;
 				text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
 				s16 cost = get<PlayerManager>()->upgrade_cost(upgrade);
-				text.text(_(strings::upgrade_description), cost, _(info.description));
+				text.text(gamepad, _(strings::upgrade_description), cost, _(info.description));
 				UIMenu::text_clip(&text, upgrade_animation_time, 150.0f);
 
 				Vec2 pos = upgrade_menu_pos + Vec2(MENU_ITEM_WIDTH * -0.5f + padding, menu.height() * -0.5f - padding * 7.0f);
@@ -1207,7 +1207,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 						text.anchor_x = UIText::Anchor::Center;
 						text.anchor_y = UIText::Anchor::Min;
 						text.color = UI::color_alert;
-						text.text(_(strings::alarm));
+						text.text(gamepad, _(strings::alarm));
 
 						Vec2 pos = vp.size * Vec2(0.5f, 0.8f);
 						Rect2 rect = text.rect(pos).outset(MENU_ITEM_PADDING * 2.0f);
@@ -1234,14 +1234,14 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 					// username
 					text.color = Team::ui_color(get<PlayerManager>()->team.ref()->team(), spectating->get<AIAgent>()->team);
-					text.text_raw(spectating->get<PlayerCommon>()->manager.ref()->username);
+					text.text_raw(gamepad, spectating->get<PlayerCommon>()->manager.ref()->username);
 					Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
 					UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
 					text.draw(params, pos);
 
 					// "spectating"
 					text.color = UI::color_accent;
-					text.text(_(strings::spectating));
+					text.text(gamepad, _(strings::spectating));
 					pos = vp.size * Vec2(0.5f, 0.1f);
 					UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
 					text.draw(params, pos);
@@ -1262,17 +1262,17 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		if (winner == get<PlayerManager>()->team.ref()) // we won
 		{
 			text.color = UI::color_accent;
-			text.text(_(strings::victory));
+			text.text(gamepad, _(strings::victory));
 		}
 		else if (!winner) // it's a draw
 		{
 			text.color = UI::color_alert;
-			text.text(_(strings::draw));
+			text.text(gamepad, _(strings::draw));
 		}
 		else // we lost
 		{
 			text.color = UI::color_alert;
-			text.text(_(strings::defeat));
+			text.text(gamepad, _(strings::defeat));
 		}
 		UIMenu::text_clip(&text, Team::game_over_real_time, 20.0f);
 
@@ -1308,13 +1308,13 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 				if (score_summary_scroll.item(i))
 				{
-					text.text_raw(item.label);
+					text.text_raw(gamepad, item.label);
 					UIMenu::text_clip(&text, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + (r32)vi_min(i, 6) * -5.0f);
 					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 					text.draw(params, p);
 					if (item.amount != -1)
 					{
-						amount.text("%d", item.amount);
+						amount.text(gamepad, "%d", item.amount);
 						amount.draw(params, p + Vec2(MENU_ITEM_WIDTH * 0.5f - MENU_ITEM_PADDING, 0));
 					}
 					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -1328,7 +1328,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				Vec2 p = vp.size * Vec2(0.5f, 0.2f);
 				text.wrap_width = 0;
 				text.color = UI::color_accent;
-				text.text(_(get<PlayerManager>()->score_accepted ? strings::waiting : strings::prompt_accept));
+				text.text(gamepad, _(get<PlayerManager>()->score_accepted ? strings::waiting : strings::prompt_accept));
 				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 				text.draw(params, p);
 			}
@@ -1384,7 +1384,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				text.color = UI::color_background;
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
-				text.text(_(string), (s32)cost);
+				text.text(gamepad, _(string), s32(cost));
 				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
 				Rect2 bar = text.rect(pos).outset(MENU_ITEM_PADDING);
 				UI::box(params, bar, UI::color_background);
@@ -1395,7 +1395,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 
 		if (mode == UIMode::PvpDefault || mode == UIMode::Upgrading) // show game timer
-			battery_timer_draw(params, vp.size * Vec2(Game::is_gamepad ? 0.1f : 0.9f, 0.1f));
+			battery_timer_draw(params, vp.size * Vec2(Game::ui_gamepad_types[gamepad] != Gamepad::Type::None ? 0.1f : 0.9f, 0.1f));
 	}
 
 	// network error icon
@@ -1433,7 +1433,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		{
 			const LogEntry& entry = logs[i];
 			text.color = Team::ui_color(my_team, entry.team);
-			text.text_raw(entry.text);
+			text.text_raw(gamepad, entry.text);
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 			UIMenu::text_clip(&text, entry.timestamp, 80.0f);
 			text.draw(params, p);
@@ -1453,7 +1453,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.anchor_y = UIText::Anchor::Min;
 			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 			text.color = UI::color_alert;
-			text.text(_(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), s32(ceilf(timer)));
+			text.text(gamepad, _(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), s32(ceilf(timer)));
 			UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_THRESHOLD - timer, 80.0f);
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, p);
@@ -2169,7 +2169,7 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 gamepad_rotati
 			get<PlayerCommon>()->angle_vertical += (r32)u.input->cursor_y * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
 		}
 
-		if (u.input->gamepads[gamepad].active)
+		if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
 		{
 			Vec2 adjustment = Vec2
 			(
@@ -2206,7 +2206,7 @@ Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot)
 	if (movement_enabled())
 	{
 		s32 gamepad = player.ref()->gamepad;
-		if (u.input->gamepads[gamepad].active)
+		if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
 		{
 			Vec2 gamepad_movement(-u.input->gamepads[gamepad].left_x, -u.input->gamepads[gamepad].left_y);
 			if (has<Awk>())
@@ -2468,7 +2468,7 @@ void PlayerControlHuman::update(const Update& u)
 			{
 				r32 gamepad_rotation_multiplier = 1.0f;
 
-				if (input_enabled() && u.input->gamepads[gamepad].active)
+				if (input_enabled() && u.input->gamepads[gamepad].type != Gamepad::Type::None)
 				{
 					// gamepad aim assist
 					Vec3 to_reticle = reticle.pos - camera->pos;
@@ -3074,9 +3074,9 @@ void PlayerControlHuman::update_late(const Update& u)
 			camera->perspective(fov_default, aspect, 0.02f, Game::level.skybox.far_plane);
 			camera->clip_planes[0] = Plane();
 			camera->cull_range = 0.0f;
-			camera->cull_behind_wall = false;
-			camera->colors = true;
-			camera->fog = true;
+			camera->flag(CameraFlagCullBehindWall, false);
+			camera->flag(CameraFlagColors, true);
+			camera->flag(CameraFlagFog, true);
 			camera->range = 0.0f;
 		}
 
@@ -3235,7 +3235,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 			UIText text;
 			text.color = Team::ui_color_enemy;
-			text.text(_(strings::rocket_incoming));
+			text.text(player.ref()->gamepad, _(strings::rocket_incoming));
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = text_size;
@@ -3260,7 +3260,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 			UIText text;
 			text.color = Team::ui_color(team, i.item()->team());
-			text.text(_(strings::grenade_incoming));
+			text.text(player.ref()->gamepad, _(strings::grenade_incoming));
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = text_size;
@@ -3304,7 +3304,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 			UIText text;
 			text.color = Team::ui_color_friend;
-			text.text(_(strings::upgrade_notification));
+			text.text(player.ref()->gamepad, _(strings::upgrade_notification));
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = text_size;
@@ -3356,7 +3356,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 							text.anchor_x = UIText::Anchor::Center;
 							text.anchor_y = UIText::Anchor::Min;
 							text.color = i.item()->team_next == team ? UI::color_accent : UI::color_alert;
-							text.text(_(team == i.item()->team_next ? strings::hacking : strings::losing));
+							text.text(player.ref()->gamepad, _(team == i.item()->team_next ? strings::hacking : strings::losing));
 
 							Vec2 p = bar.pos + Vec2(bar.size.x * 0.5f, bar.size.y + 10.0f * UI::scale);
 							UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
@@ -3404,7 +3404,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 							: (Game::save.resources[i] == 0 ? UI::color_alert : UI::color_accent);
 						UI::mesh(params, info.icon, pos + Vec2(-panel_size.x + MENU_ITEM_PADDING + icon_size * 0.5f, panel_size.y * 0.5f), Vec2(icon_size), color);
 						text.color = color;
-						text.text("%d", Game::save.resources[i]);
+						text.text(player.ref()->gamepad, "%d", Game::save.resources[i]);
 						text.draw(params, pos + Vec2(-MENU_ITEM_PADDING, panel_size.y * 0.5f));
 					}
 
@@ -3419,7 +3419,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				{
 					UIText text;
 					text.color = UI::color_accent;
-					text.text(_(strings::prompt_interact));
+					text.text(player.ref()->gamepad, _(strings::prompt_interact));
 					text.anchor_x = UIText::Anchor::Center;
 					text.anchor_y = UIText::Anchor::Center;
 					text.size = text_size;
@@ -3487,7 +3487,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 											break;
 										}
 									}
-									text.text(Loader::level_name(zone));
+									text.text(player.ref()->gamepad, Loader::level_name(zone));
 									text.anchor_x = UIText::Anchor::Center;
 									text.anchor_y = UIText::Anchor::Center;
 									text.size = text_size * 0.75f;
@@ -3503,7 +3503,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 						// show climb controls
 						UIText text;
 						text.color = UI::color_accent;
-						text.text("{{ClimbingMovement}}");
+						text.text(player.ref()->gamepad, "{{ClimbingMovement}}");
 						text.anchor_x = UIText::Anchor::Center;
 						text.anchor_y = UIText::Anchor::Center;
 						Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.1f);
@@ -3581,7 +3581,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				username.anchor_x = UIText::Anchor::Center;
 				username.anchor_y = UIText::Anchor::Min;
 				username.color = *color;
-				username.text(other_player.item()->manager.ref()->username);
+				username.text(player.ref()->gamepad, other_player.item()->manager.ref()->username);
 
 				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::color_background);
 
@@ -3622,7 +3622,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Min;
 
-			text.text(_(strings::danger));
+			text.text(player.ref()->gamepad, _(strings::danger));
 
 			Vec2 pos = viewport.size * Vec2(0.5f, 0.2f);
 
@@ -3639,7 +3639,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			text.color = UI::color_alert;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Min;
-			text.text(_(strings::shield_down));
+			text.text(player.ref()->gamepad, _(strings::shield_down));
 
 			Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
 
@@ -3663,7 +3663,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	{
 		UIText text;
 		text.color = UI::color_accent;
-		text.text(_(strings::stealth));
+		text.text(player.ref()->gamepad, _(strings::stealth));
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
 		text.size = text_size;
@@ -3682,7 +3682,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			text.size = 18.0f;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
-			text.text(_(strings::enemy_tracking));
+			text.text(player.ref()->gamepad, _(strings::enemy_tracking));
 			if (detect_danger == 1.0f)
 			{
 				Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
@@ -3780,7 +3780,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					}
 				}
 				vi_assert(binding != Controls::count);
-				text.text(_(strings::prompt_cancel_ability), Settings::gamepads[player.ref()->gamepad].bindings[(s32)binding].string(Game::is_gamepad));
+				text.text(player.ref()->gamepad, _(strings::prompt_cancel_ability), Settings::gamepads[player.ref()->gamepad].bindings[s32(binding)].string(Game::ui_gamepad_types[player.ref()->gamepad]));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Max;
 				text.size = text_size;

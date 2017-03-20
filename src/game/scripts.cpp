@@ -4,7 +4,6 @@
 #include "common.h"
 #include "game.h"
 #include "strings.h"
-#include "utf8/utf8.h"
 #include "ai_player.h"
 #include "console.h"
 #include <unordered_map>
@@ -280,7 +279,7 @@ void draw(const RenderParams& params)
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Min;
 				text.color = UI::color_default;
-				text.text(_(instance.text));
+				text.text(params.camera->gamepad, _(instance.text));
 				UIMenu::text_clip(&text, instance.last_cue_real_time, 80.0f);
 
 				{
@@ -299,7 +298,7 @@ void draw(const RenderParams& params)
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Max;
 		text.color = UI::color_accent;
-		text.text(_(data->text_tut));
+		text.text(params.camera->gamepad, _(data->text_tut));
 		UIMenu::text_clip(&text, data->text_tut_real_time, 80.0f);
 
 		{
@@ -394,7 +393,7 @@ AssetID Script::find(const char* name)
 		if (!Script::list[i].name)
 			break;
 
-		if (utf8cmp(Script::list[i].name, name) == 0)
+		if (strcmp(Script::list[i].name, name) == 0)
 			return i;
 
 		i++;
@@ -417,7 +416,6 @@ namespace scene
 
 	void cleanup()
 	{
-		data->camera->remove();
 		delete data;
 		data = nullptr;
 	}
@@ -428,7 +426,7 @@ namespace scene
 		{
 			data = new Data();
 
-			data->camera = Camera::add();
+			data->camera = Camera::add(0);
 
 			data->camera->viewport =
 			{
@@ -484,8 +482,6 @@ namespace title
 
 	void cleanup()
 	{
-		if (data->camera)
-			data->camera->remove();
 		delete data;
 		data = nullptr;
 	}
@@ -578,7 +574,7 @@ namespace title
 				Game::level.mode = Game::Mode::Parkour;
 				data->sailor->highlight = true;
 				for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-					i.item()->camera->active = true;
+					i.item()->camera->flag(CameraFlagActive, true);
 			}
 		}
 		else
@@ -627,7 +623,7 @@ namespace title
 		{
 			UIText text;
 			text.color = UI::color_accent;
-			text.text("[{{Start}}]");
+			text.text(0, "[{{Start}}]");
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			Vec2 pos = p.camera->viewport.size * Vec2(0.5f, 0.1f);
@@ -657,7 +653,7 @@ namespace title
 
 		if (Game::level.mode == Game::Mode::Special)
 		{
-			data->camera = Camera::add();
+			data->camera = Camera::add(0);
 
 			data->camera->viewport =
 			{
@@ -675,7 +671,7 @@ namespace title
 			data->character = entities.find("character")->get<Animator>();
 
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-				i.item()->camera->active = false;
+				i.item()->camera->flag(CameraFlagActive, false);
 		}
 		else if (Game::level.local)
 			World::remove(entities.find("character"));

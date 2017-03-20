@@ -38,11 +38,10 @@ Camera::ViewportBlueprint* Camera::viewport_blueprints[] =
 	Camera::viewports_four_player,
 };
 
-Camera Camera::list[Camera::max_cameras];
+PinArray<Camera, Camera::max_cameras> Camera::list;
 
-Camera::Camera()
-	: active(),
-	projection(),
+Camera::Camera(s8 gamepad)
+	: projection(),
 	projection_inverse(),
 	pos(),
 	rot(),
@@ -54,37 +53,35 @@ Camera::Camera()
 	range(),
 	range_center(),
 	cull_range(),
-	cull_behind_wall(),
-	team(-1),
-	colors(true),
-	fog(true)
+	flags(CameraFlagActive | CameraFlagColors | CameraFlagFog),
+	gamepad(gamepad),
+	team(-1)
 {
+	revision++;
+}
+
+Camera* Camera::add(s8 gamepad)
+{
+	Camera* c = list.add();
+	new (c) Camera(gamepad);
+	return c;
+}
+
+void Camera::remove()
+{
+	this->~Camera();
+	list.remove(id());
 }
 
 s32 Camera::active_count()
 {
 	s32 count = 0;
-	for (s32 i = 0; i < max_cameras; i++)
+	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (list[i].active)
+		if (i.item()->flag(CameraFlagActive))
 			count++;
 	}
 	return count;
-}
-
-Camera* Camera::add()
-{
-	for (s32 i = 0; i < max_cameras; i++)
-	{
-		if (!list[i].active)
-		{
-			new (&list[i]) Camera();
-			list[i].active = true;
-			return &list[i];
-		}
-	}
-	vi_assert(false);
-	return 0;
 }
 
 Mat4 Camera::view() const
@@ -110,9 +107,10 @@ void Camera::orthographic(r32 width, r32 height, r32 near, r32 far)
 	update_frustum();
 }
 
-void Camera::remove()
+Camera::~Camera()
 {
-	active = false;
+	flag(CameraFlagActive, false);
+	revision++;
 }
 
 b8 Camera::visible_sphere(const Vec3& sphere_pos, r32 sphere_radius) const

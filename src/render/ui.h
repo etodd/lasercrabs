@@ -22,13 +22,15 @@ struct UIText
 {
 	struct VariableEntry
 	{
+		s8 gamepad;
 		char name[255];
 		char value[255];
 	};
 
 	static Array<VariableEntry> variables;
 
-	static void set_variable(const char*, const char*);
+	static void variables_clear();
+	static void variable_add(s8, const char*, const char*);
 
 	enum class Anchor
 	{
@@ -48,8 +50,8 @@ struct UIText
 	Vec2 normalized_bounds;
 	Vec2 bounds() const;
 	Rect2 rect(const Vec2&) const;
-	void text(const char*, ...);
-	void text_raw(const char*, UITextFlags = UITextFlagNone);
+	void text(s8, const char*, ...);
+	void text_raw(s8, const char*, UITextFlags = UITextFlagNone);
 	void refresh_bounds();
 	void set_size(r32);
 	void wrap(r32);

@@ -7,6 +7,7 @@
 #include "pin_array.h"
 #include "game/constants.h"
 #include "render/glvm.h"
+#include <unordered_map>
 
 struct cJSON;
 struct rcPolyMesh;
@@ -108,20 +109,26 @@ struct Font
 {
 	struct Character
 	{
-		char code;
+		Vec2 min;
+		Vec2 max;
 		s32 index_start;
 		s32 index_count;
 		s32 vertex_start;
 		s32 vertex_count;
-		Vec2 min;
-		Vec2 max;
+		s32 codepoint;
+
+		Character();
 	};
-	Array<Character> characters;
+
+	static s32 codepoint(const char*);
+	static const char* codepoint_next(const char*);
+	static s32 codepoint_count(const char*);
+
+	std::unordered_map<s32, Character> characters;
 	Array<s32> indices;
 	Array<Vec3> vertices;
-	Font();
 
-	const Character& get(const void*) const;
+	const Character& get(const char*) const;
 };
 
 struct FastLZCompressor : public dtTileCacheCompressor

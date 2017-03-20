@@ -279,7 +279,7 @@ void View::draw(const RenderParams& params) const
 
 	if (team == s8(AI::TeamNone))
 	{
-		if (params.camera->colors)
+		if (params.camera->flag(CameraFlagColors))
 			sync->write<Vec4>(color);
 		else if (color.w == MATERIAL_INACCESSIBLE || (params.flags & RenderFlagBackFace))
 			sync->write<Vec4>(PVP_INACCESSIBLE);
@@ -290,7 +290,7 @@ void View::draw(const RenderParams& params) const
 	}
 	else
 	{
-		const Vec4& team_color = Team::color((AI::Team)team, (AI::Team)params.camera->team);
+		const Vec4& team_color = Team::color(AI::Team(team), AI::Team(params.camera->team));
 		if (list_alpha.get(id()) || list_additive.get(id()) || list_hollow.get(id()))
 			sync->write<Vec4>(Vec4(team_color.xyz(), color.w));
 		else
@@ -322,7 +322,7 @@ void View::draw(const RenderParams& params) const
 		sync->write(Asset::Uniform::cull_behind_wall);
 		sync->write(RenderDataType::S32);
 		sync->write<s32>(1);
-		sync->write<s32>(params.camera->cull_behind_wall);
+		sync->write<s32>(params.camera->flag(CameraFlagCullBehindWall));
 	}
 
 	if (texture != AssetNull)
@@ -331,7 +331,7 @@ void View::draw(const RenderParams& params) const
 		sync->write(Asset::Uniform::diffuse_map);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(texture);
 	}
 
@@ -403,7 +403,7 @@ void SkyDecal::draw_alpha(const RenderParams& p)
 	sync->write<s32>(1);
 	sync->write<r32>(p.camera->far_plane * 0.75f);
 
-	Vec2 inv_buffer_size = Vec2(1.0f / (r32)p.sync->input.width, 1.0f / (r32)p.sync->input.height);
+	Vec2 inv_buffer_size = Vec2(1.0f / r32(p.sync->input.width), 1.0f / r32(p.sync->input.height));
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::uv_offset);
@@ -452,7 +452,7 @@ void SkyDecal::draw_alpha(const RenderParams& p)
 		sync->write(Asset::Uniform::diffuse_color);
 		sync->write(RenderDataType::Vec4);
 		sync->write<s32>(1);
-		if (p.camera->colors)
+		if (p.camera->flag(CameraFlagColors))
 			sync->write<Vec4>(d->color);
 		else
 			sync->write<Vec4>(LMath::desaturate(d->color));
@@ -495,9 +495,9 @@ void Skybox::draw_alpha(const RenderParams& p)
 	sync->write(RenderOp::Shader);
 	sync->write(Game::level.skybox.shader);
 
-	b8 volumetric_lighting = p.shadow_buffer != AssetNull && p.camera->fog;
+	b8 volumetric_lighting = p.shadow_buffer != AssetNull && p.camera->flag(CameraFlagFog);
 
-	vi_assert(p.camera->fog == (p.camera->range == 0.0f));
+	vi_assert(p.camera->flag(CameraFlagFog) == (p.camera->range == 0.0f));
 
 	if (volumetric_lighting)
 		sync->write(RenderTechnique::Shadow);
@@ -518,7 +518,7 @@ void Skybox::draw_alpha(const RenderParams& p)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec3);
 	sync->write<s32>(1);
-	if (p.camera->colors)
+	if (p.camera->flag(CameraFlagColors))
 		sync->write<Vec3>(Game::level.skybox.color);
 	else
 		sync->write<Vec3>(LMath::desaturate(Game::level.skybox.color));
@@ -557,9 +557,9 @@ void Skybox::draw_alpha(const RenderParams& p)
 	sync->write(Asset::Uniform::fog);
 	sync->write(RenderDataType::S32);
 	sync->write<s32>(1);
-	sync->write<s32>(p.camera->fog);
+	sync->write<s32>(p.camera->flag(CameraFlagFog));
 
-	Vec2 inv_buffer_size = Vec2(1.0f / (r32)p.sync->input.width, 1.0f / (r32)p.sync->input.height);
+	Vec2 inv_buffer_size = Vec2(1.0f / r32(p.sync->input.width), 1.0f / r32(p.sync->input.height));
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::uv_offset);
@@ -660,7 +660,7 @@ void Clouds::draw_alpha(const RenderParams& p)
 		sync->write(Asset::Uniform::diffuse_color);
 		sync->write(RenderDataType::Vec4);
 		sync->write<s32>(1);
-		if (p.camera->colors)
+		if (p.camera->flag(CameraFlagColors))
 			sync->write<Vec4>(config.color);
 		else
 			sync->write<Vec4>(LMath::desaturate(config.color));
@@ -943,7 +943,7 @@ void Water::draw_opaque(const RenderParams& params, const Config& cfg, const Vec
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	if (params.camera->colors)
+	if (params.camera->flag(CameraFlagColors))
 		sync->write<Vec4>(cfg.color);
 	else
 		sync->write<Vec4>(PVP_INACCESSIBLE);
@@ -1037,7 +1037,7 @@ void Water::draw_alpha_late(const RenderParams& p)
 		sync->write(Asset::Uniform::diffuse_color);
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
-		sync->write<Vec3>(p.camera->colors ? w->config.color.xyz() : Vec3(0.0f));
+		sync->write<Vec3>(p.camera->flag(CameraFlagColors) ? w->config.color.xyz() : Vec3(0.0f));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::p);

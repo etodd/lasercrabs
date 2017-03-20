@@ -379,6 +379,7 @@ Capture the hanging battery.
 	"key_MouseLeft": "Mouse Left",
 	"key_MouseRight": "Mouse Right",
 	"key_MouseMiddle": "Mouse Middle",
+
 	"btn_LeftShoulder": "LB",
 	"btn_RightShoulder": "RB",
 	"btn_LeftClick": "Left Stick Click",
@@ -392,6 +393,20 @@ Capture the hanging battery.
 	"btn_LeftTrigger": "LT",
 	"btn_RightTrigger": "RT",
 	"btn_None": "None",
+
+	"btn_ps4_LeftShoulder": "L1",
+	"btn_ps4_RightShoulder": "R1",
+	"btn_ps4_LeftClick": "Left Stick Click",
+	"btn_ps4_RightClick": "Right Stick Click",
+	"btn_ps4_A": "½",
+	"btn_ps4_B": "¾",
+	"btn_ps4_X": "¼",
+	"btn_ps4_Y": "»",
+	"btn_ps4_Back": "Share",
+	"btn_ps4_Start": "Options",
+	"btn_ps4_LeftTrigger": "L2",
+	"btn_ps4_RightTrigger": "R2",
+	"btn_ps4_None": "None",
 
 	"prompt_zone_defend": "%s under attack. [{{Scoreboard}}] to defend. (%d)",
 

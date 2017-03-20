@@ -3,7 +3,6 @@
 #include "asset/font.h"
 #include <cstdio>
 #include "load.h"
-#include "utf8/utf8.h"
 
 namespace VI
 {
@@ -108,7 +107,7 @@ void Console::init()
 		shift_map[(s32)KeyCode::A + i] = 'A' + i;
 	}
 
-	text.text(command.data);
+	text.text(0, command.data);
 }
 
 void Console::update(const Update& u)
@@ -138,8 +137,8 @@ void Console::update(const Update& u)
 		b8 update = false;
 		b8 shift = u.input->keys.get(s32(KeyCode::LShift))
 			|| u.input->keys.get(s32(KeyCode::RShift));
-		b8 any_key_pressed = false;
-		for (s32 i = 1; i < font->characters.length; i++)
+		b8 any_key_pressed = u.input->keys.any();
+		for (s32 i = u.input->keys.start; i < u.input->keys.end; i = u.input->keys.next(i))
 		{
 			if (i == s32(KeyCode::Grave))
 				continue;
@@ -149,28 +148,24 @@ void Console::update(const Update& u)
 				continue;
 
 			b8 add = false;
-			if (u.input->keys.get(i))
+			if (!u.last_input->keys.get(i))
 			{
-				any_key_pressed = true;
-				if (!u.last_input->keys.get(i))
-				{
-					repeat_start_time = Game::real_time.total;
-					add = true;
-				}
-				else if (Game::real_time.total - repeat_start_time > REPEAT_DELAY &&
-					Game::real_time.total - repeat_last_time > REPEAT_INTERVAL)
-				{
-					repeat_last_time = Game::real_time.total;
-					add = true;
-				}
+				repeat_start_time = Game::real_time.total;
+				add = true;
+			}
+			else if (Game::real_time.total - repeat_start_time > REPEAT_DELAY &&
+				Game::real_time.total - repeat_last_time > REPEAT_INTERVAL)
+			{
+				repeat_last_time = Game::real_time.total;
+				add = true;
+			}
 
-				if (add)
-				{
-					command[command.length - 1] = c;
-					command.add(0);
-					update = true;
-					break;
-				}
+			if (add)
+			{
+				command[command.length - 1] = c;
+				command.add(0);
+				update = true;
+				break;
 			}
 		}
 
@@ -206,7 +201,7 @@ void Console::update(const Update& u)
 		{
 			visible = false;
 
-			if (utf8cmp(&command[1], "fps") == 0)
+			if (strcmp(&command[1], "fps") == 0)
 			{
 				fps_visible = !fps_visible;
 				fps_count = 0;
@@ -221,10 +216,10 @@ void Console::update(const Update& u)
 		}
 
 		if (update)
-			text.text(command.data);
+			text.text(0, command.data);
 	}
 
-	debug_text.text(debug_buffer.data);
+	debug_text.text(0, debug_buffer.data);
 	if (debug_buffer.data)
 		debug_buffer.data[0] = '\0';
 	debug_buffer.length = 0;
@@ -282,11 +277,11 @@ void Console::update_log()
 			index++;
 		}
 		string[index - 1] = '\0';
-		log_text.text(string.data);
+		log_text.text(0, string.data);
 	}
 
 	else
-		log_text.text("");
+		log_text.text(0, "");
 }
 
 void Console::debug(const char* format, ...)

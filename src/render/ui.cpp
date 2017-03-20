@@ -2,7 +2,6 @@
 #include "asset/shader.h"
 #include "load.h"
 #include "render/render.h"
-#include "utf8/utf8.h"
 #include "strings.h"
 #include "asset/font.h"
 
@@ -24,28 +23,20 @@ UIText::UIText()
 
 Array<UIText::VariableEntry> UIText::variables;
 
-void UIText::set_variable(const char* name, const char* value)
+void UIText::variables_clear()
 {
-	vi_assert(strlen(name) < 255 && strlen(value) < 255);
-	b8 found = false;
-	for (s32 i = 0; i < variables.length; i++)
-	{
-		if (utf8cmp(variables[i].name, name) == 0)
-		{
-			utf8cpy(variables[i].value, value);
-			found = true;
-			break;
-		}
-	}
-	if (!found)
-	{
-		VariableEntry* entry = variables.add();
-		utf8cpy(entry->name, name);
-		utf8cpy(entry->value, value);
-	}
+	variables.length = 0;
 }
 
-void UIText::text(const char* format, ...)
+void UIText::variable_add(s8 gamepad, const char* name, const char* value)
+{
+	VariableEntry* entry = variables.add();
+	entry->gamepad = gamepad;
+	strncpy(entry->name, name, 254);
+	strncpy(entry->value, value, 254);
+}
+
+void UIText::text(s8 gamepad, const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -62,10 +53,10 @@ void UIText::text(const char* format, ...)
 
 	va_end(args);
 
-	text_raw(string);
+	text_raw(gamepad, string);
 }
 
-void UIText::text_raw(const char* string, UITextFlags flags)
+void UIText::text_raw(s8 gamepad, const char* string, UITextFlags flags)
 {
 	if (!string)
 		string = "";
@@ -86,16 +77,17 @@ void UIText::text_raw(const char* string, UITextFlags flags)
 			{
 				const char* start = &string[char_index + 2];
 				const char* end = start;
-				while (end && (*end != '}' || *(end + 1) != '}'))
-					end = strchr(end + 1, '}');
+				while (*end && (*end != '}' || *(end + 1) != '}'))
+					end = Font::codepoint_next(end);
 
-				if (end)
+				if (*end)
 				{
 					for (s32 i = 0; i < variables.length; i++)
 					{
-						if (strncmp(variables[i].name, start, end - start) == 0)
+						const VariableEntry& entry = variables[i];
+						if (entry.gamepad == gamepad && strncmp(entry.name, start, end - start) == 0)
 						{
-							variable = variables[i].value;
+							variable = entry.value;
 
 							c = *variable;
 							// set up char_index to resume at the end of the variable name once we're done with it
@@ -109,7 +101,7 @@ void UIText::text_raw(const char* string, UITextFlags flags)
 			if (!c)
 				break;
 
-			// Store the final result in rendered_string
+			// store the final result in rendered_string
 			rendered_string[rendered_index] = c;
 			rendered_index++;
 
@@ -134,59 +126,56 @@ void UIText::refresh_bounds()
 	const Font* f = Loader::font(font);
 	normalized_bounds = Vec2::zero;
 	Vec3 pos(0, -1.0f, 0);
-	s32 char_index = 0;
-	char c;
+	const char* c = &rendered_string[0];
 	const Vec2 spacing = Vec2(0.075f, 0.3f);
 	r32 wrap = wrap_width / (size * UI::scale);
-	while ((c = rendered_string[char_index]))
+	while (*c)
 	{
-		const Font::Character* character = &f->get(&c);
-		if (c == '\n')
+		const Font::Character& character = f->get(c);
+		if (*c == '\n')
 		{
 			pos.x = 0.0f;
 			pos.y -= 1.0f + spacing.y;
 		}
-		else if (wrap > 0.0f && (c == ' ' || c == '\t'))
+		else if (wrap > 0.0f && (*c == ' ' || *c == '\t'))
 		{
-			// Check if we need to put the next word on the next line
+			// check if we need to put the next word on the next line
 
-			r32 end_of_next_word = pos.x + spacing.x + character->max.x;
-			s32 word_index = char_index + 1;
-			char word_char;
+			r32 end_of_next_word = pos.x + spacing.x + character.max.x;
+			const char* word_char = Font::codepoint_next(c);
 			while (true)
 			{
-				word_char = rendered_string[word_index];
-				if (!word_char || word_char == ' ' || word_char == '\t' || word_char == '\n')
+				if (!(*word_char) || *word_char == ' ' || *word_char == '\t' || *word_char == '\n')
 					break;
-				end_of_next_word += spacing.x + f->get(&word_char).max.x;
-				word_index++;
+				end_of_next_word += spacing.x + f->get(word_char).max.x;
+				word_char = Font::codepoint_next(word_char);
 			}
 
 			if (end_of_next_word > wrap)
 			{
-				// New line
+				// new line
 				pos.x = 0.0f;
 				pos.y -= 1.0f + spacing.y;
 			}
 			else
 			{
-				// Just a regular whitespace character
-				pos.x += spacing.x + character->max.x;
+				// just a regular whitespace character
+				pos.x += spacing.x + character.max.x;
 			}
 		}
 		else
 		{
-			if (character->code == c)
-				pos.x += spacing.x + character->max.x;
+			if (character.codepoint == Font::codepoint(c))
+				pos.x += spacing.x + character.max.x;
 			else
 			{
-				// Font is missing character
+				// font is missing character
 			}
 		}
 
 		normalized_bounds.x = vi_max(normalized_bounds.x, pos.x);
 
-		char_index++;
+		c = Font::codepoint_next(c);
 	}
 
 	normalized_bounds.y = -pos.y;
@@ -194,7 +183,7 @@ void UIText::refresh_bounds()
 
 b8 UIText::clipped() const
 {
-	return clip > 0 && clip < utf8len(rendered_string);
+	return clip > 0 && clip < Font::codepoint_count(rendered_string);
 }
 
 void UIText::set_size(r32 s)
@@ -295,58 +284,55 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 	s32 vertex_index = UI::vertices.length;
 	s32 index_index = UI::indices.length;
 	Vec3 p(0, -1.0f, 0);
-	s32 char_index = 0;
-	char c;
+	const char* c = &rendered_string[0];
 	const Vec2 spacing = Vec2(0.075f, 0.3f);
 	r32 scaled_size = size * UI::scale;
 	r32 wrap = wrap_width / scaled_size;
-	while ((c = rendered_string[char_index]))
+	s32 char_index = 0;
+	while (*c)
 	{
 		b8 clipped = clip > 0 && char_index == clip - 1;
-		const Font::Character* character = &f->get(&c);
-		if (c == '\n')
+		const Font::Character* character = &f->get(c);
+		if (*c == '\n')
 		{
 			p.x = 0.0f;
 			p.y -= 1.0f + spacing.y;
 		}
-		else if (wrap > 0.0f && (c == ' ' || c == '\t'))
+		else if (wrap > 0.0f && (*c == ' ' || *c == '\t'))
 		{
-			// Check if we need to put the next word on the next line
+			// check if we need to put the next word on the next line
 
 			r32 end_of_next_word = p.x + spacing.x + character->max.x;
-			s32 word_index = char_index + 1;
-			char word_char;
+			const char* word_char = Font::codepoint_next(c);
 			while (true)
 			{
-				word_char = rendered_string[word_index];
-				if (!word_char || word_char == ' ' || word_char == '\t' || word_char == '\n')
+				if (!(*word_char) || *word_char == ' ' || *word_char == '\t' || *word_char == '\n')
 					break;
-				end_of_next_word += spacing.x + f->get(&word_char).max.x;
-				word_index++;
+				end_of_next_word += spacing.x + f->get(word_char).max.x;
+				word_char = Font::codepoint_next(word_char);
 			}
 
 			if (end_of_next_word > wrap)
 			{
-				// New line
+				// new line
 				p.x = 0.0f;
 				p.y -= 1.0f + spacing.y;
 			}
 			else
 			{
-				// Just a regular whitespace character
+				// just a regular whitespace character
 				p.x += spacing.x + character->max.x;
 			}
 		}
 		else
 		{
 			b8 valid_character;
-			if (character->code == c)
+			if (character->codepoint == Font::codepoint(c))
 				valid_character = true;
 			else
 			{
 				valid_character = false;
-				const char* space = " ";
-				character = &f->get(space);
+				character = &f->get(" ");
 			}
 			if (clipped || !valid_character)
 			{
@@ -417,6 +403,8 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 
 		if (clipped)
 			break;
+
+		c = Font::codepoint_next(c);
 		char_index++;
 	}
 }
@@ -425,7 +413,7 @@ s32 UI::input_delta_vertical(const Update& u, s32 gamepad)
 {
 	s32 result = 0;
 	// joystick
-	if (u.input->gamepads[gamepad].active)
+	if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
 	{
 		Vec2 last_joystick(u.last_input->gamepads[gamepad].left_x, u.last_input->gamepads[gamepad].left_y);
 		Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
@@ -455,7 +443,7 @@ s32 UI::input_delta_horizontal(const Update& u, s32 gamepad)
 {
 	s32 result = 0;
 	// joystick
-	if (u.input->gamepads[gamepad].active)
+	if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
 	{
 		Vec2 last_joystick(u.last_input->gamepads[gamepad].left_x, u.last_input->gamepads[gamepad].left_y);
 		Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);

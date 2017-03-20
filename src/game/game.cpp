@@ -63,13 +63,13 @@ namespace VI
 b8 Game::quit = false;
 s32 Game::width;
 s32 Game::height;
-b8 Game::is_gamepad = false;
 GameTime Game::time;
 GameTime Game::real_time;
 r32 Game::physics_timestep;
 r32 Game::inactive_timer;
 b8 Game::enable_attract;
 
+Gamepad::Type Game::ui_gamepad_types[MAX_GAMEPADS] = { };
 AssetID Game::scheduled_load_level = AssetNull;
 AssetID Game::scheduled_dialog = AssetNull;
 Game::Mode Game::scheduled_mode = Game::Mode::Pvp;
@@ -219,7 +219,7 @@ b8 Game::init(LoopSync* sync)
 		// don't free the JSON objects; we'll read strings directly from them
 	}
 
-	Menu::init();
+	Menu::init(sync->input);
 
 	for (s32 i = 0; i < ParticleSystem::list.length; i++)
 		ParticleSystem::list[i]->init(sync);
@@ -320,7 +320,7 @@ void Game::update(const Update& update_in)
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)
 			{
 				const Gamepad& gamepad = update_in.input->gamepads[i];
-				if (gamepad.active
+				if (gamepad.type != Gamepad::Type::None
 					&& (gamepad.btns
 						|| Input::dead_zone(gamepad.left_x) != 0.0f || Input::dead_zone(gamepad.left_y) != 0.0f
 						|| Input::dead_zone(gamepad.right_x) != 0.0f || Input::dead_zone(gamepad.right_y) != 0.0f))
@@ -341,64 +341,67 @@ void Game::update(const Update& update_in)
 
 	// determine whether to display gamepad or keyboard bindings
 	{
-		const Gamepad& gamepad = update_in.input->gamepads[0];
-		s32 gamepad_count = 0;
+		b8 refresh = false;
 		for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		{
-			if (update_in.input->gamepads[i].active)
-				gamepad_count++;
-		}
-		b8 refresh = false;
-		if (is_gamepad)
-		{
-			// check if we need to clear the gamepad flag
-			if ((session.type == SessionType::Story || gamepad_count <= 1)
-				&& (!gamepad.active || update_in.input->cursor_x != 0 || update_in.input->cursor_y != 0))
+			const Gamepad& gamepad = update_in.input->gamepads[i];
+			if (i == 0)
 			{
-				is_gamepad = false;
-				refresh = true;
-			}
-		}
-		else
-		{
-			// check if we need to set the gamepad flag
-			if (session.type != SessionType::Story && gamepad_count > 1)
-			{
-				is_gamepad = true;
-				refresh = true;
-			}
-			else if (gamepad.active)
-			{
-				if (gamepad.btns)
+				if (ui_gamepad_types[0] == Gamepad::Type::None)
 				{
-					is_gamepad = true;
-					refresh = true;
-				}
-				else
-				{
-					Vec2 left(gamepad.left_x, gamepad.left_y);
-					Input::dead_zone(&left.x, &left.y);
-					if (left.length_squared() > 0.0f)
+					// check if we need to update the gamepad type
+					if (gamepad.type != Gamepad::Type::None)
 					{
-						is_gamepad = true;
-						refresh = true;
-					}
-					else
-					{
-						Vec2 right(gamepad.right_x, gamepad.right_y);
-						Input::dead_zone(&right.x, &right.y);
-						if (right.length_squared() > 0.0f)
+						if (gamepad.btns)
 						{
-							is_gamepad = true;
+							ui_gamepad_types[0] = gamepad.type;
 							refresh = true;
+						}
+						else
+						{
+							Vec2 left(gamepad.left_x, gamepad.left_y);
+							Input::dead_zone(&left.x, &left.y);
+							if (left.length_squared() > 0.0f)
+							{
+								ui_gamepad_types[0] = gamepad.type;
+								refresh = true;
+							}
+							else
+							{
+								Vec2 right(gamepad.right_x, gamepad.right_y);
+								Input::dead_zone(&right.x, &right.y);
+								if (right.length_squared() > 0.0f)
+								{
+									ui_gamepad_types[0] = gamepad.type;
+									refresh = true;
+								}
+							}
 						}
 					}
 				}
+				else
+				{
+					// check if we need to clear the gamepad flag
+					if (gamepad.type == Gamepad::Type::None
+						|| update_in.input->cursor_x != 0
+						|| update_in.input->cursor_y != 0
+						|| update_in.input->keys.any())
+					{
+						ui_gamepad_types[0] = Gamepad::Type::None;
+						refresh = true;
+					}
+				}
+			}
+			else if (gamepad.type != ui_gamepad_types[i])
+			{
+				ui_gamepad_types[i] = gamepad.type;
+				refresh = true;
+				break;
 			}
 		}
 
 		if (refresh)
-			Menu::refresh_variables();
+			Menu::refresh_variables(*u.input);
 	}
 
 	Menu::update(u);
@@ -635,7 +638,7 @@ void Game::draw_override(const RenderParams& params)
 
 void Game::draw_alpha(const RenderParams& render_params)
 {
-	if (render_params.camera->fog)
+	if (render_params.camera->flag(CameraFlagFog))
 		Skybox::draw_alpha(render_params);
 	SkyDecal::draw_alpha(render_params);
 	Clouds::draw_alpha(render_params);
@@ -1210,11 +1213,7 @@ void Game::unload_level()
 
 	Menu::clear();
 
-	for (s32 i = 0; i < Camera::max_cameras; i++)
-	{
-		if (Camera::list[i].active)
-			Camera::list[i].remove();
-	}
+	Camera::list.clear();
 
 	time.total = 0;
 

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import bpy
 import math
 from math import pi
@@ -43,6 +44,7 @@ try:
 		'u', 'v', 'w', 'x', 'y',
 		'z',
 		'{', '|', '}', '~',
+		'»', '¼', '½', '¾',
 	]
 
 	for character in characters:

@@ -13,7 +13,8 @@ namespace Input
 {
 
 const char* key_strings[s32(KeyCode::count)];
-const char* btn_strings[s32(Gamepad::Btn::count)];
+const char* btn_strings_xbox[s32(Gamepad::Btn::count)];
+const char* btn_strings_playstation[s32(Gamepad::Btn::count)];
 
 void load_strings()
 {
@@ -240,19 +241,33 @@ void load_strings()
 	key_strings[s32(KeyCode::MouseRight)] = _(strings::key_MouseRight);
 	key_strings[s32(KeyCode::MouseMiddle)] = _(strings::key_MouseMiddle);
 
-	btn_strings[s32(Gamepad::Btn::LeftShoulder)] = _(strings::btn_LeftShoulder);
-	btn_strings[s32(Gamepad::Btn::RightShoulder)] = _(strings::btn_RightShoulder);
-	btn_strings[s32(Gamepad::Btn::LeftClick)] = _(strings::btn_LeftClick);
-	btn_strings[s32(Gamepad::Btn::RightClick)] = _(strings::btn_RightClick);
-	btn_strings[s32(Gamepad::Btn::A)] = _(strings::btn_A);
-	btn_strings[s32(Gamepad::Btn::B)] = _(strings::btn_B);
-	btn_strings[s32(Gamepad::Btn::X)] = _(strings::btn_X);
-	btn_strings[s32(Gamepad::Btn::Y)] = _(strings::btn_Y);
-	btn_strings[s32(Gamepad::Btn::Back)] = _(strings::btn_Back);
-	btn_strings[s32(Gamepad::Btn::Start)] = _(strings::btn_Start);
-	btn_strings[s32(Gamepad::Btn::LeftTrigger)] = _(strings::btn_LeftTrigger);
-	btn_strings[s32(Gamepad::Btn::RightTrigger)] = _(strings::btn_RightTrigger);
-	btn_strings[s32(Gamepad::Btn::None)] = _(strings::btn_None);
+	btn_strings_xbox[s32(Gamepad::Btn::LeftShoulder)] = _(strings::btn_LeftShoulder);
+	btn_strings_xbox[s32(Gamepad::Btn::RightShoulder)] = _(strings::btn_RightShoulder);
+	btn_strings_xbox[s32(Gamepad::Btn::LeftClick)] = _(strings::btn_LeftClick);
+	btn_strings_xbox[s32(Gamepad::Btn::RightClick)] = _(strings::btn_RightClick);
+	btn_strings_xbox[s32(Gamepad::Btn::A)] = _(strings::btn_A);
+	btn_strings_xbox[s32(Gamepad::Btn::B)] = _(strings::btn_B);
+	btn_strings_xbox[s32(Gamepad::Btn::X)] = _(strings::btn_X);
+	btn_strings_xbox[s32(Gamepad::Btn::Y)] = _(strings::btn_Y);
+	btn_strings_xbox[s32(Gamepad::Btn::Back)] = _(strings::btn_Back);
+	btn_strings_xbox[s32(Gamepad::Btn::Start)] = _(strings::btn_Start);
+	btn_strings_xbox[s32(Gamepad::Btn::LeftTrigger)] = _(strings::btn_LeftTrigger);
+	btn_strings_xbox[s32(Gamepad::Btn::RightTrigger)] = _(strings::btn_RightTrigger);
+	btn_strings_xbox[s32(Gamepad::Btn::None)] = _(strings::btn_None);
+
+	btn_strings_playstation[s32(Gamepad::Btn::LeftShoulder)] = _(strings::btn_ps4_LeftShoulder);
+	btn_strings_playstation[s32(Gamepad::Btn::RightShoulder)] = _(strings::btn_ps4_RightShoulder);
+	btn_strings_playstation[s32(Gamepad::Btn::LeftClick)] = _(strings::btn_ps4_LeftClick);
+	btn_strings_playstation[s32(Gamepad::Btn::RightClick)] = _(strings::btn_ps4_RightClick);
+	btn_strings_playstation[s32(Gamepad::Btn::A)] = _(strings::btn_ps4_A);
+	btn_strings_playstation[s32(Gamepad::Btn::B)] = _(strings::btn_ps4_B);
+	btn_strings_playstation[s32(Gamepad::Btn::X)] = _(strings::btn_ps4_X);
+	btn_strings_playstation[s32(Gamepad::Btn::Y)] = _(strings::btn_ps4_Y);
+	btn_strings_playstation[s32(Gamepad::Btn::Back)] = _(strings::btn_ps4_Back);
+	btn_strings_playstation[s32(Gamepad::Btn::Start)] = _(strings::btn_ps4_Start);
+	btn_strings_playstation[s32(Gamepad::Btn::LeftTrigger)] = _(strings::btn_ps4_LeftTrigger);
+	btn_strings_playstation[s32(Gamepad::Btn::RightTrigger)] = _(strings::btn_ps4_RightTrigger);
+	btn_strings_playstation[s32(Gamepad::Btn::None)] = _(strings::btn_None);
 }
 
 void dead_zone(r32* x, r32* y, r32 threshold)
@@ -288,12 +303,29 @@ r32 dead_zone(r32 x, r32 threshold)
 
 }
 
-const char* InputBinding::string(b8 gamepad) const
+const char* InputBinding::string(Gamepad::Type type) const
 {
-	if (gamepad)
-		return Input::btn_strings[s32(btn)];
-	else
-		return Input::key_strings[s32(key1)];
+	switch (type)
+	{
+		case Gamepad::Type::None:
+		{
+			return Input::key_strings[s32(key1)];
+		}
+		case Gamepad::Type::Xbox:
+		{
+			return Input::btn_strings_xbox[s32(btn)];
+		}
+		case Gamepad::Type::Playstation:
+		{
+			return Input::btn_strings_playstation[s32(btn)];
+		}
+		default:
+		{
+			vi_assert(false);
+			return nullptr;
+			break;
+		}
+	}
 }
 
 b8 InputBinding::overlaps(const InputBinding& other) const

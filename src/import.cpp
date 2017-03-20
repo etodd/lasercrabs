@@ -58,7 +58,7 @@ namespace platform
 
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
-const s32 version = 29;
+const s32 version = 30;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -2954,21 +2954,21 @@ b8 load_font(const aiScene* scene, Font& font)
 		font.indices.reserve(current_mesh_index + ai_mesh->mNumFaces * 3);
 		for (s32 j = 0; j < ai_mesh->mNumFaces; j++)
 		{
-			// Assume the model has only triangles.
+			// assume the model has only triangles.
 			font.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[0]);
 			font.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[1]);
 			font.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[2]);
 		}
 
 		Font::Character c;
-		c.code = ai_mesh->mName.data[0];
+		c.codepoint = Font::codepoint((char*)&ai_mesh->mName.data[0]);
 		c.vertex_start = current_mesh_vertex;
 		c.vertex_count = ai_mesh->mNumVertices;
 		c.index_start = current_mesh_index;
 		c.index_count = ai_mesh->mNumFaces * 3;
 		c.min = min_vertex;
 		c.max = max_vertex;
-		font.characters.add(c);
+		font.characters[c.codepoint] = c;
 
 		current_mesh_vertex = font.vertices.length;
 		current_mesh_index = font.indices.length;
@@ -3022,8 +3022,10 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 				fwrite(font.vertices.data, sizeof(Vec3), font.vertices.length, f);
 				fwrite(&font.indices.length, sizeof(s32), 1, f);
 				fwrite(font.indices.data, sizeof(s32), font.indices.length, f);
-				fwrite(&font.characters.length, sizeof(s32), 1, f);
-				fwrite(font.characters.data, sizeof(Font::Character), font.characters.length, f);
+				s32 character_count = s32(font.characters.size());
+				fwrite(&character_count, sizeof(s32), 1, f);
+				for (auto i = font.characters.begin(); i != font.characters.end(); i++)
+					fwrite(&i->second, sizeof(Font::Character), 1, f);
 				fclose(f);
 			}
 			else

@@ -22,7 +22,6 @@
 #include "settings.h"
 #include "data/priority_queue.h"
 #include "platform/util.h"
-#include "utf8/utf8.h"
 #include "noise.h"
 #include "team.h"
 #include "player.h"
@@ -365,7 +364,7 @@ void splitscreen_select_teams_update(const Update& u)
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
 		AI::Team* team = &Game::session.local_player_config[i];
-		if (u.input->gamepads[i].active || i == 0) // player is active
+		if (u.input->gamepads[i].type != Gamepad::Type::None || i == 0) // player is active
 		{
 			// handle D-pad
 			s32 delta = UI::input_delta_horizontal(u, i);
@@ -450,7 +449,7 @@ void tab_draw_common(const RenderParams& p, const char* label, const Vec2& pos, 
 		text.anchor_x = UIText::Anchor::Min;
 		text.anchor_y = UIText::Anchor::Min;
 		text.color = text_color;
-		text.text(label);
+		text.text(0, label);
 		text.draw(p, tab_pos + Vec2(PADDING));
 	}
 }
@@ -463,7 +462,7 @@ void draw_gamepad_icon(const RenderParams& p, const Vec2& pos, s32 index, const 
 	text.anchor_x = UIText::Anchor::Center;
 	text.anchor_y = UIText::Anchor::Center;
 	text.color = UI::color_background;
-	text.text("%d", index + 1);
+	text.text(0, "%d", index + 1);
 	text.draw(p, pos);
 }
 
@@ -499,7 +498,7 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 	// prompt
 	if (splitscreen_teams_are_valid())
 	{
-		text.text(_(strings::prompt_splitscreen_ready));
+		text.text(0, _(strings::prompt_splitscreen_ready));
 		text.draw(params, pos);
 	}
 
@@ -508,13 +507,13 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 	// draw team labels
 	const r32 team_offset = 128.0f * UI::scale * SCALE_MULTIPLIER;
 	text.wrap_width = 0;
-	text.text(_(strings::team_a));
+	text.text(0, _(strings::team_a));
 	text.draw(params, pos + Vec2(team_offset * -1.0f, 0));
-	text.text(_(strings::team_b));
+	text.text(0, _(strings::team_b));
 	text.draw(params, pos + Vec2(0, 0));
-	text.text(_(strings::team_c));
+	text.text(0, _(strings::team_c));
 	text.draw(params, pos + Vec2(team_offset * 1.0f, 0));
-	text.text(_(strings::team_d));
+	text.text(0, _(strings::team_d));
 	text.draw(params, pos + Vec2(team_offset * 2.0f, 0));
 
 	// set up text for gamepad number labels
@@ -531,7 +530,7 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 
 		const Vec4* color;
 		r32 x_offset;
-		if (i > 0 && !params.sync->input.gamepads[i].active)
+		if (i > 0 && params.sync->input.gamepads[i].type == Gamepad::Type::None)
 		{
 			color = &UI::color_disabled;
 			x_offset = team_offset * -2.0f;
@@ -905,7 +904,7 @@ const ZoneNode* zones_draw(const RenderParams& params)
 				{
 					s32 remaining_minutes = lost_timer / 60.0;
 					s32 remaining_seconds = lost_timer - (remaining_minutes * 60.0);
-					text.text(_(strings::timer), remaining_minutes, remaining_seconds);
+					text.text(0, _(strings::timer), remaining_minutes, remaining_seconds);
 				}
 
 				{
@@ -939,9 +938,9 @@ const ZoneNode* zones_draw(const RenderParams& params)
 			text.anchor_y = UIText::Anchor::Min;
 			r32 time = zone_under_attack_timer();
 			if (time > 0.0f)
-				text.text("%d", s32(ceilf(time)));
+				text.text(0, "%d", s32(ceilf(time)));
 			else
-				text.text(_(strings::zone_defense_expired));
+				text.text(0, _(strings::zone_defense_expired));
 
 			{
 				Vec2 text_pos = p;
@@ -965,7 +964,7 @@ const ZoneNode* zones_draw(const RenderParams& params)
 				text.color = zone_ui_color(*selected_zone);
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Min;
-				text.text_raw(AssetLookup::Level::names[selected_zone->id]);
+				text.text_raw(0, AssetLookup::Level::names[selected_zone->id]);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
 				text.draw(params, p);
 			}
@@ -984,7 +983,7 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 		UIText text;
 		text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 		text.color = zone_ui_color(*zone);
-		text.text("%s\n%s", _(strings::prompt_deploy), _(strings::prompt_back));
+		text.text(0, "%s\n%s", _(strings::prompt_deploy), _(strings::prompt_back));
 
 		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.25f);
 
@@ -1018,7 +1017,7 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 			AI::Team team = Game::session.local_player_config[i];
 			if (team != AI::TeamNone)
 			{
-				text.text(_(team_labels[s32(team)]));
+				text.text(0, _(team_labels[s32(team)]));
 				text.draw(params, pos + Vec2(0, 32.0f * UI::scale * SCALE_MULTIPLIER));
 				draw_gamepad_icon(params, pos, i, UI::color_accent, SCALE_MULTIPLIER);
 				pos.x += gamepad_spacing;
@@ -1731,7 +1730,7 @@ Rect2 zone_stat_draw(const RenderParams& p, const Rect2& rect, UIText::Anchor an
 		}
 	}
 	pos.y += rect.size.y - PADDING + index * (text.size * -UI::scale - PADDING);
-	text.text_raw(label);
+	text.text_raw(0, label);
 	Rect2 text_rect = text.rect(pos);
 	UI::box(p, text_rect.outset(PADDING), UI::color_background);
 	if (draw_text)
@@ -1850,7 +1849,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			UIText text;
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 			text.color = UI::color_accent;
-			text.text(_(Game::save.zones[data.zone_selected] == ZoneState::Friendly ? strings::prompt_defend : strings::prompt_capture));
+			text.text(0, _(Game::save.zones[data.zone_selected] == ZoneState::Friendly ? strings::prompt_defend : strings::prompt_capture));
 
 			Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
 
@@ -1908,13 +1907,13 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 		{
 			// current amount
 			text.anchor_x = UIText::Anchor::Max;
-			text.text("%d", Game::save.resources[i]);
+			text.text(0, "%d", Game::save.resources[i]);
 			text.draw(p, pos + Vec2(panel_size.x - PADDING, panel_size.y * 0.5f));
 
 			if (data.tab == Tab::Inventory)
 			{
 				text.anchor_x = UIText::Anchor::Min;
-				text.text(_(info.description));
+				text.text(0, _(info.description));
 				text.draw(p, pos + Vec2(icon_size * 2.0f + PADDING * 2.0f, panel_size.y * 0.5f));
 
 				if (selected)
@@ -1923,7 +1922,7 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 					{
 						// buy interface
 						text.anchor_x = UIText::Anchor::Center;
-						text.text("+%d", data.inventory.buy_quantity);
+						text.text(0, "+%d", data.inventory.buy_quantity);
 
 						const r32 buy_quantity_spacing = 32.0f * UI::scale * SCALE_MULTIPLIER;
 						Vec2 buy_quantity_pos = pos + Vec2(panel_size.x * 0.4f, panel_size.y * 0.5f);
@@ -1934,7 +1933,7 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 
 						// cost
 						text.anchor_x = UIText::Anchor::Min;
-						text.text(_(strings::ability_spawn_cost), s32(info.cost * data.inventory.buy_quantity));
+						text.text(0, _(strings::ability_spawn_cost), s32(info.cost * data.inventory.buy_quantity));
 						text.draw(p, pos + Vec2(panel_size.x * 0.6f, panel_size.y * 0.5f));
 					}
 					else
@@ -1944,7 +1943,7 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 						{
 							// "buy more!"
 							text.anchor_x = UIText::Anchor::Center;
-							text.text(_(strings::prompt_buy_more));
+							text.text(0, _(strings::prompt_buy_more));
 							text.draw(p, pos + Vec2(panel_size.x * 0.5f, panel_size.y * 0.5f));
 						}
 					}
@@ -2043,7 +2042,7 @@ void show_complete()
 
 		if (state_next != State::StoryModeOverlay) // if we're going to be modal, we need to mess with the camera.
 		{
-			data.camera->colors = false;
+			data.camera->flag(CameraFlagColors, false);
 			data.camera->mask = 0;
 		}
 	}
@@ -2090,7 +2089,7 @@ void update(const Update& u)
 #endif
 		&& Game::scheduled_load_level == AssetNull)
 	{
-		Camera* c = Camera::add();
+		Camera* c = Camera::add(0);
 		c->viewport =
 		{
 			Vec2(0, 0),
@@ -2099,7 +2098,6 @@ void update(const Update& u)
 		r32 aspect = c->viewport.size.y == 0 ? 1 : (r32)c->viewport.size.x / (r32)c->viewport.size.y;
 		c->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
 		data.timer_transition = 0.0f;
-
 
 		if (Game::session.type == SessionType::Story)
 			vi_assert(false);
@@ -2339,12 +2337,12 @@ void clear()
 
 void execute(const char* cmd)
 {
-	if (utf8cmp(cmd, "capture") == 0)
+	if (strcmp(cmd, "capture") == 0)
 	{
 		zone_change(data.zone_selected, ZoneState::Friendly);
 		zone_done(data.zone_selected);
 	}
-	else if (utf8cmp(cmd, "attack") == 0)
+	else if (strcmp(cmd, "attack") == 0)
 	{
 		AssetID z = zone_random(&zone_filter_captured, &zone_filter_can_be_attacked); // live incoming attack
 		if (z != AssetNull)
@@ -2356,7 +2354,7 @@ void execute(const char* cmd)
 		const char* group_string = delimiter + 1;
 		for (s32 i = 0; i < s32(Net::Master::Group::count); i++)
 		{
-			if (utf8cmp(group_string, _(group_name[i])) == 0)
+			if (strcmp(group_string, _(group_name[i])) == 0)
 			{
 				group_join(Net::Master::Group(i));
 				break;

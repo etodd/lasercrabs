@@ -262,6 +262,14 @@ namespace Input
 
 struct Gamepad
 {
+	enum class Type
+	{
+		None,
+		Xbox,
+		Playstation,
+		count,
+	};
+
 	enum Btn
 	{
 		LeftShoulder = 1 << 0,
@@ -284,7 +292,7 @@ struct Gamepad
 		count,
 	};
 
-	b8 active;
+	Type type;
 	r32 left_x;
 	r32 left_y;
 	r32 right_x;
@@ -302,7 +310,7 @@ struct InputBinding
 	KeyCode key1;
 	KeyCode key2;
 	Gamepad::Btn btn;
-	const char* string(b8) const;
+	const char* string(Gamepad::Type) const;
 	b8 overlaps(const InputBinding&) const;
 };
 

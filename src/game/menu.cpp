@@ -43,14 +43,14 @@ void dialog_no_action(s8 gamepad)
 
 #if SERVER
 
-void init() {}
+void init(const InputState&) {}
 void update(const Update&) {}
 void update_end(const Update&) {}
 void clear() {}
 void draw(const RenderParams&) {}
 void title() {}
 void show() {}
-void refresh_variables() {}
+void refresh_variables(const InputState&) {}
 void pause_menu(const Update&, s8, UIMenu*, State*) {}
 void draw_letterbox(const RenderParams&, r32, r32) {}
 b8 options(const Update&, s8, UIMenu*) { return true; }
@@ -164,7 +164,7 @@ void progress_bar(const RenderParams& params, const char* label, r32 percentage,
 	text.color = UI::color_background;
 	text.anchor_x = UIText::Anchor::Center;
 	text.anchor_y = UIText::Anchor::Center;
-	text.text(label);
+	text.text(0, label);
 
 	Rect2 bar = text.rect(pos).outset(16.0f * UI::scale);
 
@@ -187,7 +187,7 @@ void progress_infinite(const RenderParams& params, const char* label, const Vec2
 	UIText text;
 	text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 	text.color = UI::color_accent;
-	text.text(label);
+	text.text(0, label);
 
 	Vec2 pos = pos_overall + Vec2(24 * UI::scale, 0);
 
@@ -207,63 +207,68 @@ Game::Mode next_mode;
 UIMenu main_menu;
 b8 gamepad_active[MAX_GAMEPADS] = {};
 
-void refresh_variables()
+void refresh_variables(const InputState& input)
 {
-	const Settings::Gamepad& gamepad = Settings::gamepads[0];
-	UIText::set_variable("Start", gamepad.bindings[(s32)Controls::Start].string(Game::is_gamepad));
-	UIText::set_variable("Cancel", gamepad.bindings[(s32)Controls::Cancel].string(Game::is_gamepad));
-
-	UIText::set_variable("Primary", gamepad.bindings[(s32)Controls::Primary].string(Game::is_gamepad));
-	UIText::set_variable("Zoom", gamepad.bindings[(s32)Controls::Zoom].string(Game::is_gamepad));
-	if (Game::is_gamepad)
+	UIText::variables_clear();
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		UIText::set_variable("Movement", _(strings::left_joystick));
+		Gamepad::Type type = Game::ui_gamepad_types[i];
+		const Settings::Gamepad& gamepad = Settings::gamepads[i];
+		UIText::variable_add(i, "Start", gamepad.bindings[s32(Controls::Start)].string(type));
+		UIText::variable_add(i, "Cancel", gamepad.bindings[s32(Controls::Cancel)].string(type));
 
-		char buffer[512];
-		sprintf
-		(
-			buffer, "[%s] + [%s]",
-			gamepad.bindings[s32(Controls::Parkour)].string(true),
-			_(strings::left_joystick)
-		);
-		UIText::set_variable("ClimbingMovement", buffer);
-	}
-	else
-	{
-		char buffer[512];
-		sprintf
-		(
-			buffer, "[%s %s %s %s]",
-			gamepad.bindings[s32(Controls::Forward)].string(false),
-			gamepad.bindings[s32(Controls::Left)].string(false),
-			gamepad.bindings[s32(Controls::Backward)].string(false),
-			gamepad.bindings[s32(Controls::Right)].string(false)
-		);
-		UIText::set_variable("Movement", buffer);
+		UIText::variable_add(i, "Primary", gamepad.bindings[s32(Controls::Primary)].string(type));
+		UIText::variable_add(i, "Zoom", gamepad.bindings[s32(Controls::Zoom)].string(type));
+		if (type == Gamepad::Type::None)
+		{
+			char buffer[512];
+			sprintf
+			(
+				buffer, "[%s %s %s %s]",
+				gamepad.bindings[s32(Controls::Forward)].string(Gamepad::Type::None),
+				gamepad.bindings[s32(Controls::Left)].string(Gamepad::Type::None),
+				gamepad.bindings[s32(Controls::Backward)].string(Gamepad::Type::None),
+				gamepad.bindings[s32(Controls::Right)].string(Gamepad::Type::None)
+			);
+			UIText::variable_add(i, "Movement", buffer);
 
-		sprintf
-		(
-			buffer, "[%s] + [%s/%s]",
-			gamepad.bindings[s32(Controls::Parkour)].string(false),
-			gamepad.bindings[s32(Controls::Forward)].string(false),
-			gamepad.bindings[s32(Controls::Backward)].string(false)
-		);
-		UIText::set_variable("ClimbingMovement", buffer);
+			sprintf
+			(
+				buffer, "[%s] + [%s/%s]",
+				gamepad.bindings[s32(Controls::Parkour)].string(Gamepad::Type::None),
+				gamepad.bindings[s32(Controls::Forward)].string(Gamepad::Type::None),
+				gamepad.bindings[s32(Controls::Backward)].string(Gamepad::Type::None)
+			);
+			UIText::variable_add(i, "ClimbingMovement", buffer);
+		}
+		else
+		{
+			UIText::variable_add(i, "Movement", _(strings::left_joystick));
+
+			char buffer[512];
+			sprintf
+			(
+				buffer, "[%s] + [%s]",
+				gamepad.bindings[s32(Controls::Parkour)].string(type),
+				_(strings::left_joystick)
+			);
+			UIText::variable_add(i, "ClimbingMovement", buffer);
+		}
+		UIText::variable_add(i, "Ability1", gamepad.bindings[s32(Controls::Ability1)].string(type));
+		UIText::variable_add(i, "Ability2", gamepad.bindings[s32(Controls::Ability2)].string(type));
+		UIText::variable_add(i, "Ability3", gamepad.bindings[s32(Controls::Ability3)].string(type));
+		UIText::variable_add(i, "Interact", gamepad.bindings[s32(Controls::Interact)].string(type));
+		UIText::variable_add(i, "InteractSecondary", gamepad.bindings[s32(Controls::InteractSecondary)].string(type));
+		UIText::variable_add(i, "Scoreboard", gamepad.bindings[s32(Controls::Scoreboard)].string(type));
+		UIText::variable_add(i, "Jump", gamepad.bindings[s32(Controls::Jump)].string(type));
+		UIText::variable_add(i, "Parkour", gamepad.bindings[s32(Controls::Parkour)].string(type));
+		UIText::variable_add(i, "Slide", gamepad.bindings[s32(Controls::Slide)].string(type));
 	}
-	UIText::set_variable("Ability1", gamepad.bindings[(s32)Controls::Ability1].string(Game::is_gamepad));
-	UIText::set_variable("Ability2", gamepad.bindings[(s32)Controls::Ability2].string(Game::is_gamepad));
-	UIText::set_variable("Ability3", gamepad.bindings[(s32)Controls::Ability3].string(Game::is_gamepad));
-	UIText::set_variable("Interact", gamepad.bindings[(s32)Controls::Interact].string(Game::is_gamepad));
-	UIText::set_variable("InteractSecondary", gamepad.bindings[(s32)Controls::InteractSecondary].string(Game::is_gamepad));
-	UIText::set_variable("Scoreboard", gamepad.bindings[(s32)Controls::Scoreboard].string(Game::is_gamepad));
-	UIText::set_variable("Jump", gamepad.bindings[(s32)Controls::Jump].string(Game::is_gamepad));
-	UIText::set_variable("Parkour", gamepad.bindings[(s32)Controls::Parkour].string(Game::is_gamepad));
-	UIText::set_variable("Slide", gamepad.bindings[(s32)Controls::Slide].string(Game::is_gamepad));
 }
 
-void init()
+void init(const InputState& input)
 {
-	refresh_variables();
+	refresh_variables(input);
 
 	title();
 }
@@ -510,7 +515,7 @@ void update_end(const Update& u)
 		{
 			if (!camera_connecting)
 			{
-				camera_connecting = Camera::add();
+				camera_connecting = Camera::add(0);
 
 				camera_connecting->viewport =
 				{
@@ -621,7 +626,7 @@ void draw(const RenderParams& params)
 				text.anchor_x = UIText::Anchor::Min;
 				text.anchor_y = UIText::Anchor::Center;
 				text.wrap_width = MENU_ITEM_WIDTH;
-				text.text(_(error_string));
+				text.text(0, _(error_string));
 				Vec2 pos = params.camera->viewport.size * Vec2(0.1f, 0.1f);
 				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 				text.draw(params, pos);
@@ -646,7 +651,7 @@ void draw(const RenderParams& params)
 		text.color = UI::color_default;
 		text.wrap_width = MENU_ITEM_WIDTH;
 		text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-		text.text(dialog_string[gamepad]);
+		text.text(gamepad, dialog_string[gamepad]);
 		UIMenu::text_clip(&text, dialog_time[gamepad], 150.0f);
 		Vec2 pos = params.camera->viewport.size * 0.5f;
 		Rect2 text_rect = text.rect(pos).outset(padding);
@@ -659,7 +664,7 @@ void draw(const RenderParams& params)
 		text.anchor_x = UIText::Anchor::Min;
 		text.color = UI::color_accent;
 		text.clip = 0;
-		text.text(dialog_time_limit[gamepad] > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(dialog_time_limit[gamepad]) + 1);
+		text.text(gamepad, dialog_time_limit[gamepad] > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(dialog_time_limit[gamepad]) + 1);
 		Vec2 prompt_pos = text_rect.pos + Vec2(padding, 0);
 		Rect2 prompt_rect = text.rect(prompt_pos).outset(padding);
 		prompt_rect.size.x = text_rect.size.x;
@@ -672,7 +677,7 @@ void draw(const RenderParams& params)
 			text.anchor_x = UIText::Anchor::Max;
 			text.color = UI::color_alert;
 			text.clip = 0;
-			text.text(_(strings::prompt_cancel));
+			text.text(gamepad, _(strings::prompt_cancel));
 			text.draw(params, prompt_pos + Vec2(text_rect.size.x + padding * -2.0f, 0));
 		}
 
@@ -813,11 +818,11 @@ b8 UIMenu::add_item(b8 slider, const char* string, const char* value, b8 disable
 
 	b8 is_selected = active[gamepad] == this && selected == items.length - 1;
 	item->label.color = item->value.color = disabled ? UI::color_disabled : (is_selected ? UI::color_accent : UI::color_default);
-	item->label.text(string);
+	item->label.text(gamepad, string);
 	text_clip(&item->label, animation_time + (items.length - 1 - scroll.pos) * 0.1f, 100.0f);
 
 	item->value.anchor_x = UIText::Anchor::Center;
-	item->value.text(value);
+	item->value.text(gamepad, value);
 
 	if (!scroll.item(items.length - 1)) // this item is not visible
 		return false;

@@ -146,9 +146,9 @@ void render_point_light(const RenderParams& render_params, const Vec3& pos, r32 
 	sync->write(Asset::Uniform::light_color);
 	sync->write(RenderDataType::Vec3);
 	sync->write<s32>(1);
-	if (team == (s8)AI::TeamNone)
+	if (team == s8(AI::TeamNone))
 	{
-		if (render_params.camera->colors)
+		if (render_params.camera->flag(CameraFlagColors))
 			sync->write<Vec3>(color);
 		else
 			sync->write<Vec3>(LMath::desaturate(color));
@@ -366,7 +366,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 		sync->write<s32>(1);
 		if (light->team == (s8)AI::TeamNone)
 		{
-			if (render_params.camera->colors)
+			if (render_params.camera->flag(CameraFlagColors))
 				sync->write<Vec3>(light->color);
 			else
 				sync->write<Vec3>(LMath::desaturate(light->color));
@@ -515,7 +515,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	}
 
 	// Render override lights
-	if (!render_params.camera->colors)
+	if (!render_params.camera->flag(CameraFlagColors))
 	{
 		sync->write(RenderOp::DepthTest);
 		sync->write<b8>(false);
@@ -569,7 +569,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			{
 				DirectionalLight* light = i.item();
 
-				colors[j] = render_params.camera->colors ? light->color : LMath::desaturate(light->color);
+				colors[j] = render_params.camera->flag(CameraFlagColors) ? light->color : LMath::desaturate(light->color);
 				abs_directions[j] = light->get<Transform>()->absolute_rot() * Vec3(0, 1, 0);
 				directions[j] = (render_params.view * Vec4(abs_directions[j], 0)).xyz();
 				if (Settings::shadow_quality != Settings::ShadowQuality::Off && light->shadowed)
@@ -614,7 +614,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				else
 					shadow_camera.mask = RENDER_MASK_SHADOW;
 
-				if (draw_far_shadow_cascade || Camera::active_count() > 1 || SpotLight::list.count() > 0) // only draw far shadow cascade every other frame, if we can
+				if (draw_far_shadow_cascade || Camera::list.count() > 1 || SpotLight::list.count() > 0) // only draw far shadow cascade every other frame, if we can
 				{
 					shadow_camera.viewport =
 					{
@@ -689,13 +689,13 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::camera_light_strength);
 			sync->write(RenderDataType::R32);
 			sync->write<s32>(1);
-			sync->write(render_params.camera->colors ? 0.25f : 0.7f);
+			sync->write(render_params.camera->flag(CameraFlagColors) ? 0.25f : 0.7f);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::camera_light_radius);
 			sync->write(RenderDataType::R32);
 			sync->write<s32>(1);
-			sync->write(render_params.camera->colors ? 6.0f : render_params.camera->range);
+			sync->write(render_params.camera->flag(CameraFlagColors) ? 6.0f : render_params.camera->range);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::range);
@@ -1135,7 +1135,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::ambient_color);
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
-		if (camera->colors)
+		if (camera->flag(CameraFlagColors))
 			sync->write<Vec3>(Game::level.skybox.ambient_color);
 		else
 			sync->write<Vec3>(LMath::desaturate(Game::level.skybox.ambient_color));
@@ -1647,10 +1647,10 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 		sync_render->write(true);
 		sync_render->write(true);
 
-		for (s32 i = 0; i < Camera::max_cameras; i++)
+		for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
 		{
-			if (Camera::list[i].active)
-				draw(sync_render, &Camera::list[i]);
+			if (i.item()->flag(CameraFlagActive))
+				draw(sync_render, i.item());
 		}
 #endif
 

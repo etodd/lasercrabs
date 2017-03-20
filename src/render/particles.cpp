@@ -390,11 +390,11 @@ void Rain::spawn(const Update& u, r32 strength)
 	const r32 raycast_grid_time_to_refresh = 0.5f; // in seconds
 	s32 raycasts_per_frame = u.time.delta * (raycast_grid_size * raycast_grid_size) / raycast_grid_time_to_refresh;
 
-	for (s32 i = 0; i < Camera::max_cameras; i++)
+	for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
 	{
-		const Camera& camera = Camera::list[i];
-		Rain* rain = &Particles::rain[i];
-		if (camera.active)
+		const Camera& camera = *i.item();
+		Rain* rain = &Particles::rain[camera.id()];
+		if (camera.flag(CameraFlagActive))
 		{
 			r32 height = rain->height();
 

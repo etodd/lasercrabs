@@ -76,14 +76,14 @@ extern State main_menu_state;
 extern DialogCallback dialog_callback[MAX_GAMEPADS];
 extern DialogCallback dialog_cancel_callback[MAX_GAMEPADS];
 
-void init();
+void init(const InputState&);
 void update(const Update&);
 void update_end(const Update&);
 void clear();
 void draw(const RenderParams&);
 void title();
 void show();
-void refresh_variables();
+void refresh_variables(const InputState&);
 void pause_menu(const Update&, s8, UIMenu*, State*);
 b8 options(const Update&, s8, UIMenu*);
 void progress_spinner(const RenderParams&, const Vec2&, r32 = 20.0f);

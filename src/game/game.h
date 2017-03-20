@@ -124,6 +124,8 @@ namespace VI
 		static Net::Master::Save save;
 		static Level level;
 
+		static Gamepad::Type ui_gamepad_types[MAX_GAMEPADS];
+
 		static GameTime time;
 		static GameTime real_time;
 		static r32 inactive_timer;
@@ -138,7 +140,6 @@ namespace VI
 		static Mode scheduled_mode;
 		static r32 schedule_timer;
 		static b8 cancel_event_eaten[MAX_GAMEPADS];
-		static b8 is_gamepad;
 		static b8 quit;
 		static s32 width;
 		static s32 height;

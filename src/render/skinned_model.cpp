@@ -225,7 +225,7 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write<s32>(1);
 	if (team == (s8)AI::TeamNone)
 	{
-		if (params.camera->colors)
+		if (params.camera->flag(CameraFlagColors))
 			sync->write<Vec4>(color);
 		else if (color.w == MATERIAL_INACCESSIBLE)
 			sync->write<Vec4>(PVP_INACCESSIBLE);

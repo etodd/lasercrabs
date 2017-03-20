@@ -35,10 +35,18 @@ struct Frustum
 #define MATERIAL_NO_OVERRIDE 0.0f
 #define MATERIAL_INACCESSIBLE (1.0f / 255.0f)
 
+enum CameraFlags
+{
+	CameraFlagActive = 1 << 0,
+	CameraFlagColors = 1 << 1,
+	CameraFlagFog = 1 << 2,
+	CameraFlagCullBehindWall = 1 << 3,
+};
+
 struct Camera
 {
 	static const s32 max_cameras = 8;
-	static Camera list[max_cameras];
+	static PinArray<Camera, max_cameras> list;
 
 	RenderMask mask;
 
@@ -54,9 +62,8 @@ struct Camera
 
 	static ViewportBlueprint* viewport_blueprints[4];
 
-	static Camera* add();
-
 	static s32 active_count();
+	static Camera* add(s8);
 
 	Mat4 projection;
 	Mat4 projection_inverse;
@@ -71,24 +78,38 @@ struct Camera
 	r32 near_plane;
 	r32 far_plane;
 	r32 range;
+	s32 flags;
+	Revision revision;
 	s8 team;
-	b8 cull_behind_wall;
-	b8 active;
-	b8 colors;
-	b8 fog;
+	s8 gamepad;
 
-	Camera();
+	Camera(s8 = 0);
+	~Camera();
+
+	void remove();
+
+	inline b8 flag(s32 flag) const
+	{
+		return b8(flags & flag);
+	}
+
+	inline void flag(s32 flag, b8 value)
+	{
+		if (value)
+			flags |= flag;
+		else
+			flags &= ~flag;
+	}
 
 	void perspective(r32, r32, r32, r32);
 	void orthographic(r32, r32, r32, r32);
 	b8 visible_sphere(const Vec3&, r32) const;
 	void update_frustum();
 	Mat4 view() const;
-	void remove();
 
 	inline ID id() const
 	{
-		return this - &list[0];
+		return ID(this - &list[0]);
 	}
 };
 

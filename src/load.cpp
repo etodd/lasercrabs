@@ -9,7 +9,6 @@
 #include "cjson/cJSON.h"
 #include "ai.h"
 #include "settings.h"
-#include "utf8/utf8.h"
 
 namespace VI
 {
@@ -99,6 +98,13 @@ void Loader::init(LoopSwapper* s)
 	while ((p = AssetLookup::Mesh::names[compiled_static_mesh_count]))
 		compiled_static_mesh_count++;
 	static_mesh_count = compiled_static_mesh_count;
+
+	{
+		s32 i = 0;
+		while ((p = AssetLookup::Font::names[i]))
+			i++;
+		fonts.resize(i);
+	}
 
 	// load mod levels and meshes
 	{
@@ -846,6 +852,9 @@ void Loader::shader_free(AssetID id)
 
 const Font* Loader::font(AssetID id)
 {
+#if SERVER
+	return 0;
+#else
 	if (id == AssetNull)
 		return 0;
 
@@ -862,7 +871,7 @@ const Font* Loader::font(AssetID id)
 		}
 
 		Font* font = &fonts[id].data;
-		new (font)Font();
+		new (font) Font();
 
 		s32 j;
 
@@ -875,26 +884,31 @@ const Font* Loader::font(AssetID id)
 		fread(font->indices.data, sizeof(s32), font->indices.length, f);
 
 		fread(&j, sizeof(s32), 1, f);
-		Array<Font::Character> characters;
-		characters.resize(j);
-		fread(characters.data, sizeof(Font::Character), characters.length, f);
-		for (s32 i = 0; i < characters.length; i++)
+		for (s32 i = 0; i < j; i++)
 		{
-			Font::Character* c = &characters[i];
-			if (c->code >= font->characters.length)
-				font->characters.resize(c->code + 1);
-			font->characters[c->code] = *c;
+			Font::Character c;
+			fread(&c, sizeof(Font::Character), 1, f);
+			font->characters[c.codepoint] = c;
 		}
-		font->characters[' '].code = ' ';
-		font->characters[' '].max.x = 0.3f;
-		font->characters['\t'].code = ' ';
-		font->characters['\t'].max.x = 1.5f;
+		{
+			Font::Character space;
+			space.codepoint = Font::codepoint(" ");
+			space.max.x = 0.3f;
+			font->characters[space.codepoint] = space;
+		}
+		{
+			Font::Character tab;
+			tab.codepoint = Font::codepoint("\t");
+			tab.max.x = 1.5f;
+			font->characters[tab.codepoint] = tab;
+		}
 
 		fclose(f);
 
 		fonts[id].type = AssetTransient;
 	}
 	return &fonts[id].data;
+#endif
 }
 
 const Font* Loader::font_permanent(AssetID id)
@@ -907,11 +921,13 @@ const Font* Loader::font_permanent(AssetID id)
 
 void Loader::font_free(AssetID id)
 {
+#if !SERVER
 	if (id != AssetNull && fonts[id].type != AssetNone)
 	{
 		fonts[id].data.~Font();
 		fonts[id].type = AssetNone;
 	}
+#endif
 }
 
 const char* nav_mesh_path(AssetID id)
@@ -1061,7 +1077,7 @@ AssetID Loader::find(const char* name, const char** list, s32 max_id)
 	{
 		if (max_id >= 0 && i >= max_id)
 			break;
-		if (utf8cmp(name, p) == 0)
+		if (strcmp(name, p) == 0)
 			return i;
 		i++;
 	}

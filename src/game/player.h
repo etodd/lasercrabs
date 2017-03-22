@@ -19,7 +19,7 @@ struct Interactable;
 struct TargetEvent;
 struct HealthEvent;
 struct Target;
-struct AwkReflectEvent;
+struct DroneReflectEvent;
 struct PlayerSpawnPosition;
 
 namespace Net
@@ -47,7 +47,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static PlayerHuman* player_for_camera(const Camera*);
 	static void log_add(const char*, AI::Team = AI::TeamNone);
 	static void clear();
-	static void camera_setup_awk(Entity*, Camera*, r32);
+	static void camera_setup_drone(Entity*, Camera*, r32);
 
 #if SERVER
 	AI::RecordedLife ai_record;
@@ -104,9 +104,9 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	Quat look() const;
 	r32 detect_danger() const;
 	void update(const Update&);
-	void awk_detaching();
-	void awk_done_flying();
-	void awk_reflecting(const AwkReflectEvent&);
+	void drone_detaching();
+	void drone_done_flying();
+	void drone_reflecting(const DroneReflectEvent&);
 	void clamp_rotation(const Vec3&, r32 = 0.0f);
 	b8 movement_enabled() const;
 };
@@ -149,8 +149,8 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	{
 		enum class Type
 		{
-			AwkVisible,
-			AwkTracking,
+			DroneVisible,
+			DroneTracking,
 			Minion,
 			Energy,
 			Sensor,
@@ -203,9 +203,9 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void terminal_enter_animation_callback();
 	void interact_animation_callback();
 
-	void awk_detaching();
-	void awk_done_flying_or_dashing();
-	void awk_reflecting(const AwkReflectEvent&);
+	void drone_detaching();
+	void drone_done_flying_or_dashing();
+	void drone_reflecting(const DroneReflectEvent&);
 	void parkour_landed(r32);
 	void hit_target(Entity*);
 	void remote_control_handle(const RemoteControl&);

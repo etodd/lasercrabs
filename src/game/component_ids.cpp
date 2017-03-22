@@ -4,7 +4,7 @@
 #include "render/views.h"
 #include "render/skinned_model.h"
 #include "data/animator.h"
-#include "awk.h"
+#include "drone.h"
 #include "physics.h"
 #include "walker.h"
 #include "audio.h"
@@ -24,7 +24,7 @@ COMPONENT_TYPE(1,  RigidBody) \
 COMPONENT_TYPE(2,  View) \
 COMPONENT_TYPE(3,  Animator) \
 COMPONENT_TYPE(4,  AIAgent) \
-COMPONENT_TYPE(5,  Awk) \
+COMPONENT_TYPE(5,  Drone) \
 COMPONENT_TYPE(6,  PlayerControlAI) \
 COMPONENT_TYPE(7,  PlayerControlHuman) \
 COMPONENT_TYPE(8,  PlayerCommon) \

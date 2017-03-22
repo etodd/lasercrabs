@@ -15,12 +15,12 @@ namespace AK
     {
         static const AkUniqueID MOVER_LOOP = 791592797U;
         static const AkUniqueID MOVER_STOP = 4257217443U;
-        static const AkUniqueID PLAY_AWK_FOOTSTEP = 1090945306U;
-        static const AkUniqueID PLAY_AWK_FOOTSTEP_PLAYER = 2973042886U;
         static const AkUniqueID PLAY_BEEP_BAD = 1098101826U;
         static const AkUniqueID PLAY_BEEP_GOOD = 2594258934U;
         static const AkUniqueID PLAY_BEEP_GRENADE = 113164529U;
         static const AkUniqueID PLAY_CONSOLE_KEY = 3924749205U;
+        static const AkUniqueID PLAY_DRONE_FOOTSTEP = 2572319737U;
+        static const AkUniqueID PLAY_DRONE_FOOTSTEP_PLAYER = 826911035U;
         static const AkUniqueID PLAY_EXPLOSION = 4030404899U;
         static const AkUniqueID PLAY_FLY = 2941622701U;
         static const AkUniqueID PLAY_FOOTSTEP = 1602358412U;

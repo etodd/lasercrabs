@@ -58,7 +58,7 @@ uniform vec3 wall_normal;
 uniform float cull_radius;
 uniform bool cull_behind_wall;
 
-#define AWK_RADIUS 0.2f
+#define DRONE_RADIUS 0.2f
 
 layout (location = 0) out vec4 out_color;
 layout (location = 1) out vec4 out_normal;
@@ -67,7 +67,7 @@ void main()
 {
 	vec3 p = pos_viewspace - cull_center;
 				
-	if (dot(p, wall_normal) > -AWK_RADIUS + 0.01f) // is the pixel in front of the wall?
+	if (dot(p, wall_normal) > -DRONE_RADIUS + 0.01f) // is the pixel in front of the wall?
 	{
 		// in front of wall
 		if (p.z / length(p) < -0.707106781186547f) // inside view cone

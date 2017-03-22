@@ -2,7 +2,7 @@
 #include "mersenne/mersenne-twister.h"
 #include "entities.h"
 #include "console.h"
-#include "awk.h"
+#include "drone.h"
 #include "minion.h"
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "minion.h"
@@ -70,10 +70,10 @@ void ai_player_spawn(const Vec3& pos, const Quat& rot, PlayerAI* player)
 	player->manager.ref()->control_point_capture_completed.entries.length = 0;
 	player->manager.ref()->upgrade_completed.entries.length = 0;
 
-	Entity* e = World::create<AwkEntity>(player->manager.ref()->team.ref()->team());
+	Entity* e = World::create<DroneEntity>(player->manager.ref()->team.ref()->team());
 
 	e->get<Transform>()->absolute(pos, rot);
-	e->get<Awk>()->velocity = rot * Vec3(0, 0, AWK_FLY_SPEED);
+	e->get<Drone>()->velocity = rot * Vec3(0, 0, DRONE_FLY_SPEED);
 
 	e->add<PlayerCommon>(player->manager.ref());
 
@@ -83,7 +83,7 @@ void ai_player_spawn(const Vec3& pos, const Quat& rot, PlayerAI* player)
 	Net::finalize(e);
 }
 
-void PlayerAI::spawn_callback(const AI::AwkPathNode& node)
+void PlayerAI::spawn_callback(const AI::DronePathNode& node)
 {
 	spawning = false;
 	ai_player_spawn(node.pos, Quat::look(-node.normal), this);
@@ -106,11 +106,11 @@ void PlayerAI::spawn(const PlayerSpawnPosition& spawn_pos)
 			}
 
 			spawning = true;
-			AI::awk_closest_point
+			AI::drone_closest_point
 			(
 				pickups[mersenne::rand() % pickups.length].ref()->get<Transform>()->absolute_pos(),
 				manager.ref()->team.ref()->team(),
-				ObjectLinkEntryArg<PlayerAI, const AI::AwkPathNode&, &PlayerAI::spawn_callback>(id())
+				ObjectLinkEntryArg<PlayerAI, const AI::DronePathNode&, &PlayerAI::spawn_callback>(id())
 			);
 		}
 		else // normal spawn at spawn point
@@ -144,13 +144,13 @@ void PlayerControlAI::awake()
 	camera->flag(CameraFlagFog, false);
 	camera->team = s8(get<AIAgent>()->team);
 	camera->mask = 1 << camera->team;
-	camera->range = AWK_MAX_DISTANCE;
+	camera->range = DRONE_MAX_DISTANCE;
 #endif
-	link<&PlayerControlAI::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
-	link<&PlayerControlAI::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
-	link_arg<Entity*, &PlayerControlAI::awk_hit>(get<Awk>()->hit);
-	link<&PlayerControlAI::awk_detaching>(get<Awk>()->detaching);
-	link<&PlayerControlAI::awk_detaching>(get<Awk>()->dashing);
+	link<&PlayerControlAI::drone_done_flying_or_dashing>(get<Drone>()->done_flying);
+	link<&PlayerControlAI::drone_done_flying_or_dashing>(get<Drone>()->done_dashing);
+	link_arg<Entity*, &PlayerControlAI::drone_hit>(get<Drone>()->hit);
+	link<&PlayerControlAI::drone_detaching>(get<Drone>()->detaching);
+	link<&PlayerControlAI::drone_detaching>(get<Drone>()->dashing);
 	link_arg<b8, &PlayerControlAI::control_point_capture_completed>(get<PlayerCommon>()->manager.ref()->control_point_capture_completed);
 	link_arg<Upgrade, &PlayerControlAI::upgrade_completed>(get<PlayerCommon>()->manager.ref()->upgrade_completed);
 }
@@ -169,7 +169,7 @@ PlayerControlAI::~PlayerControlAI()
 #endif
 }
 
-void PlayerControlAI::awk_done_flying_or_dashing()
+void PlayerControlAI::drone_done_flying_or_dashing()
 {
 	const AI::Config& config = player.ref()->config;
 	inaccuracy = config.inaccuracy_min + (mersenne::randf_cc() * config.inaccuracy_range);
@@ -181,7 +181,7 @@ void PlayerControlAI::awk_done_flying_or_dashing()
 		path_index++;
 }
 
-void PlayerControlAI::awk_detaching()
+void PlayerControlAI::drone_detaching()
 {
 	shot_at_target = true;
 	hit_target = false;
@@ -189,7 +189,7 @@ void PlayerControlAI::awk_detaching()
 	aim_timeout = 0.0f;
 }
 
-void PlayerControlAI::awk_hit(Entity* e)
+void PlayerControlAI::drone_hit(Entity* e)
 {
 	hit_target = true;
 }
@@ -242,7 +242,7 @@ template<typename Component>
 void update_component_memory(PlayerControlAI* control, MemoryStatus (*filter)(const PlayerControlAI*, const Entity*), UpdateMemoryFlags flags = UpdateMemoryLimitRange)
 {
 	Array<PlayerAI::Memory>* memory = &control->player.ref()->memory;
-	r32 range = control->get<Awk>()->range() * 1.5f;
+	r32 range = control->get<Drone>()->range() * 1.5f;
 	b8 limit_range = flags & UpdateMemoryLimitRange;
 	// remove outdated memories
 	for (s32 i = 0; i < memory->length; i++)
@@ -313,7 +313,7 @@ Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target)
 		common->angle_vertical = LMath::angle_range(common->angle_vertical);
 	}
 
-	common->angle_vertical = LMath::clampf(common->angle_vertical, -AWK_VERTICAL_ANGLE_LIMIT, AWK_VERTICAL_ANGLE_LIMIT);
+	common->angle_vertical = LMath::clampf(common->angle_vertical, -DRONE_VERTICAL_ANGLE_LIMIT, DRONE_VERTICAL_ANGLE_LIMIT);
 	common->clamp_rotation(wall_normal, 0.5f);
 
 	return Vec2(target_angle_horizontal, target_angle_vertical);
@@ -336,12 +336,12 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 
 		Vec3 to_target = diff / distance_to_target;
 
-		if (get<Awk>()->direction_is_toward_attached_wall(to_target)
-			|| (distance_to_target < AWK_DASH_DISTANCE && fabsf(to_target.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1f))
+		if (get<Drone>()->direction_is_toward_attached_wall(to_target)
+			|| (distance_to_target < DRONE_DASH_DISTANCE && fabsf(to_target.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1f))
 			only_crawling_dashing = true;
 
 		// if we're shooting for a normal target (health or something), don't crawl
-		// except if we're shooting at an enemy Awk and we're on the same surface as them, then crawl
+		// except if we're shooting at an enemy Drone and we're on the same surface as them, then crawl
 		if (can_move)
 		{
 			Vec3 to_target_crawl = Vec3::normalize(target - pos);
@@ -350,8 +350,8 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 			{
 				// we're only going to be crawling and dashing there
 				// crawl toward it, but if it's a target we're trying to shoot/dash through, don't get too close
-				if (distance_to_target > AWK_RADIUS * 2.0f)
-					get<Awk>()->crawl(to_target_crawl, u);
+				if (distance_to_target > DRONE_RADIUS * 2.0f)
+					get<Drone>()->crawl(to_target_crawl, u);
 			}
 			else
 			{
@@ -360,23 +360,23 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 				// try to crawl toward the target
 				Vec3 old_pos = get<Transform>()->pos;
 				Quat old_rot = get<Transform>()->rot;
-				Vec3 old_lerped_pos = get<Awk>()->lerped_pos;
-				Quat old_lerped_rot = get<Awk>()->lerped_rotation;
+				Vec3 old_lerped_pos = get<Drone>()->lerped_pos;
+				Quat old_lerped_rot = get<Drone>()->lerped_rotation;
 				Transform* old_parent = get<Transform>()->parent.ref();
-				get<Awk>()->crawl(to_target_crawl, u);
+				get<Drone>()->crawl(to_target_crawl, u);
 
 				Vec3 new_pos = get<Transform>()->absolute_pos();
 
 				// make sure we can still go where we need to go
-				if (!get<Awk>()->can_hit(target_entity))
+				if (!get<Drone>()->can_hit(target_entity))
 				{
 					// revert the crawling we just did
 					get<Transform>()->pos = old_pos;
 					get<Transform>()->rot = old_rot;
 					get<Transform>()->parent = old_parent;
-					get<Awk>()->lerped_pos = old_lerped_pos;
-					get<Awk>()->lerped_rotation = old_lerped_rot;
-					get<Awk>()->update_offset();
+					get<Drone>()->lerped_pos = old_lerped_pos;
+					get<Drone>()->lerped_rotation = old_lerped_rot;
+					get<Drone>()->update_offset();
 				}
 			}
 		}
@@ -390,7 +390,7 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 		b8 can_shoot = false;
 
 		aim_timer += u.time.delta;
-		if (can_move && get<Awk>()->cooldown_can_shoot())
+		if (can_move && get<Drone>()->cooldown_can_shoot())
 		{
 			aim_timeout += u.time.delta;
 			if (aim_timer > config.aim_min_delay)
@@ -415,20 +415,20 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 			Vec3 look_dir = common->look_dir();
 			if (only_crawling_dashing)
 			{
-				if (lined_up || distance_to_target < AWK_SHIELD_RADIUS)
-					get<Awk>()->dash_start(look_dir);
+				if (lined_up || distance_to_target < DRONE_SHIELD_RADIUS)
+					get<Drone>()->dash_start(look_dir);
 			}
 			else
 			{
-				if (lined_up && get<Awk>()->can_shoot(look_dir))
+				if (lined_up && get<Drone>()->can_shoot(look_dir))
 				{
 					shot_at_target = true;
 
 					// reset timer for rapid-fire bolter shots
-					// if we are actually moving, awk_detaching() will overwrite this to 0
+					// if we are actually moving, drone_detaching() will overwrite this to 0
 					aim_timer = config.aim_min_delay - (0.2f + mersenne::randf_co() * 0.1f);
 
-					get<Awk>()->go(look_dir);
+					get<Drone>()->go(look_dir);
 				}
 			}
 		}
@@ -437,7 +437,7 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 
 // if tolerance is greater than 0, we need to land within that distance of the given target point
 // returns true as long as it's possible for us to eventually hit the goal
-b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const AI::AwkPathNode& node, r32 tolerance)
+b8 PlayerControlAI::go(const Update& u, const AI::DronePathNode& node_prev, const AI::DronePathNode& node, r32 tolerance)
 {
 	PlayerCommon* common = get<PlayerCommon>();
 
@@ -453,30 +453,30 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 		Vec3 pos = position_before_crawling;
 		Vec3 diff = node.pos - pos;
 		r32 distance_to_target = diff.length();
-		if (distance_to_target < AWK_RADIUS * 1.2f)
+		if (distance_to_target < DRONE_RADIUS * 1.2f)
 		{
 			// and we're already there
-			awk_done_flying_or_dashing();
+			drone_done_flying_or_dashing();
 			return true;
 		}
 
 		Vec3 to_target = diff / distance_to_target;
 
-		if (get<Awk>()->current_ability == Ability::None && (node.crawl || get<Awk>()->direction_is_toward_attached_wall(to_target)))
+		if (get<Drone>()->current_ability == Ability::None && (node.crawl || get<Drone>()->direction_is_toward_attached_wall(to_target)))
 			only_crawling_dashing = true;
 
 		// crawling
 		// if we're shooting for a normal target (health or something), don't crawl
-		// except if we're shooting at an enemy Awk and we're on the same surface as them, then crawl
+		// except if we're shooting at an enemy Drone and we're on the same surface as them, then crawl
 		if (can_move)
 		{
 			Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
-			Vec3 to_target_convex = (node.pos + node.normal * AWK_RADIUS) - pos;
+			Vec3 to_target_convex = (node.pos + node.normal * DRONE_RADIUS) - pos;
 			Vec3 to_target_crawl;
 			if (wall_normal.dot(to_target_convex) > 0.0f && node.normal.dot(wall_normal) < 0.9f)
 			{
 				// concave corner
-				to_target_crawl = Vec3::normalize((node.pos + node.normal * -AWK_RADIUS) - pos);
+				to_target_crawl = Vec3::normalize((node.pos + node.normal * -DRONE_RADIUS) - pos);
 			}
 			else
 			{
@@ -488,14 +488,14 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 			{
 				// we're only going to be crawling and dashing there
 				// crawl toward it, but if it's a target we're trying to shoot/dash through, don't get too close
-				get<Awk>()->crawl(to_target_crawl, u);
+				get<Drone>()->crawl(to_target_crawl, u);
 			}
 			else
 			{
 				// eventually we will shoot there
 				b8 could_go_before_crawling = false;
 				Vec3 hit;
-				if (get<Awk>()->can_shoot(to_target, &hit))
+				if (get<Drone>()->can_shoot(to_target, &hit))
 				{
 					// we can go generally toward the target
 					// now make sure we're actually going to land at the right spot
@@ -509,17 +509,17 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 					// try to crawl toward the target
 					Vec3 old_pos = get<Transform>()->pos;
 					Quat old_rot = get<Transform>()->rot;
-					Vec3 old_lerped_pos = get<Awk>()->lerped_pos;
-					Quat old_lerped_rot = get<Awk>()->lerped_rotation;
+					Vec3 old_lerped_pos = get<Drone>()->lerped_pos;
+					Quat old_lerped_rot = get<Drone>()->lerped_rotation;
 					Transform* old_parent = get<Transform>()->parent.ref();
-					get<Awk>()->crawl(to_target_crawl, u);
+					get<Drone>()->crawl(to_target_crawl, u);
 
 					Vec3 new_pos = get<Transform>()->absolute_pos();
 
 					// make sure we can still go where we need to go
 					b8 revert = true;
 					Vec3 hit;
-					if (get<Awk>()->can_shoot(Vec3::normalize(node.pos - new_pos), &hit))
+					if (get<Drone>()->can_shoot(Vec3::normalize(node.pos - new_pos), &hit))
 					{
 						// we can go generally toward the target
 						// now make sure we're actually going to land at the right spot
@@ -534,16 +534,16 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 						get<Transform>()->pos = old_pos;
 						get<Transform>()->rot = old_rot;
 						get<Transform>()->parent = old_parent;
-						get<Awk>()->lerped_pos = old_lerped_pos;
-						get<Awk>()->lerped_rotation = old_lerped_rot;
-						get<Awk>()->update_offset();
+						get<Drone>()->lerped_pos = old_lerped_pos;
+						get<Drone>()->lerped_rotation = old_lerped_rot;
+						get<Drone>()->update_offset();
 					}
 				}
 				else
 				{
 					// we can't currently get to the target
 					// crawl toward our current path node in an attempt to get a clear shot
-					get<Awk>()->crawl(node_prev.pos - get<Transform>()->absolute_pos(), u);
+					get<Drone>()->crawl(node_prev.pos - get<Transform>()->absolute_pos(), u);
 				}
 			}
 		}
@@ -570,7 +570,7 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 		else
 		{
 			Vec3 hit;
-			if (get<Awk>()->can_shoot(to_target, &hit))
+			if (get<Drone>()->can_shoot(to_target, &hit))
 			{
 				// make sure we're actually going to land at the right spot
 				if ((hit - node.pos).length_squared() > tolerance * tolerance) // check the tolerance
@@ -584,7 +584,7 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 	b8 can_shoot = false;
 
 	aim_timer += u.time.delta;
-	if (can_move && get<Awk>()->cooldown_can_shoot())
+	if (can_move && get<Drone>()->cooldown_can_shoot())
 	{
 		aim_timeout += u.time.delta;
 		if (aim_timer > config.aim_min_delay)
@@ -607,7 +607,7 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 				// don't dash around corners or anything; only dash toward coplanar points
 				if (fabsf(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1f)
 				{
-					if (!get<Awk>()->dash_start(look_dir))
+					if (!get<Drone>()->dash_start(look_dir))
 						return false;
 				}
 				else
@@ -616,11 +616,11 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 			else
 			{
 				Vec3 hit;
-				if (get<Awk>()->can_shoot(look_dir, &hit))
+				if (get<Drone>()->can_shoot(look_dir, &hit))
 				{
 					// make sure we're actually going to land at the right spot
 					if ((hit - node.pos).length_squared() < tolerance * tolerance) // check the tolerance
-						get<Awk>()->go(look_dir);
+						get<Drone>()->go(look_dir);
 					else
 						return false;
 				}
@@ -671,13 +671,13 @@ s32 danger(const PlayerControlAI* control)
 	if (control->get<PlayerCommon>()->incoming_attacker())
 		return 3;
 
-	r32 closest_awk;
-	Awk::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_awk);
+	r32 closest_drone;
+	Drone::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_drone);
 
-	if (closest_awk < AWK_MAX_DISTANCE * 0.5f)
+	if (closest_drone < DRONE_MAX_DISTANCE * 0.5f)
 		return 2;
 
-	if (closest_awk < AWK_MAX_DISTANCE)
+	if (closest_drone < DRONE_MAX_DISTANCE)
 		return 1;
 
 	return 0;
@@ -723,7 +723,7 @@ MemoryStatus sensor_memory_filter(const PlayerControlAI* control, const Entity* 
 		return MemoryStatus::Update;
 }
 
-MemoryStatus awk_memory_filter(const PlayerControlAI* control, const Entity* e)
+MemoryStatus drone_memory_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (e->get<AIAgent>()->stealth)
 		return MemoryStatus::Keep; // don't update it, but also don't forget it
@@ -734,16 +734,16 @@ MemoryStatus awk_memory_filter(const PlayerControlAI* control, const Entity* e)
 		return MemoryStatus::Update;
 }
 
-b8 awk_run_filter(const PlayerControlAI* control, const Entity* e)
+b8 drone_run_filter(const PlayerControlAI* control, const Entity* e)
 {
 	r32 run_chance = control->get<Health>()->hp == 1 ? 0.5f : 0.2f;
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& e->get<Health>()->hp > control->get<Health>()->hp
 		&& mersenne::randf_co() < run_chance
-		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f);
+		&& (e->get<Drone>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < DRONE_MAX_DISTANCE * 0.5f * DRONE_MAX_DISTANCE * 0.5f);
 }
 
-b8 awk_find_filter(const PlayerControlAI* control, const Entity* e)
+b8 drone_find_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (!default_filter(control, e))
 		return false;
@@ -752,21 +752,21 @@ b8 awk_find_filter(const PlayerControlAI* control, const Entity* e)
 	s16 enemy_hp = e->get<Health>()->hp;
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& !e->get<AIAgent>()->stealth
-		&& (e->has<Decoy>() || e->get<Awk>()->invincible_timer == 0.0f || (enemy_hp == 1 && my_hp > enemy_hp + 1))
-		&& (enemy_hp <= my_hp || (my_hp > 1 && control->get<Awk>()->invincible_timer > 0.0f));
+		&& (e->has<Decoy>() || e->get<Drone>()->invincible_timer == 0.0f || (enemy_hp == 1 && my_hp > enemy_hp + 1))
+		&& (enemy_hp <= my_hp || (my_hp > 1 && control->get<Drone>()->invincible_timer > 0.0f));
 }
 
-b8 awk_react_filter(const PlayerControlAI* control, const Entity* e)
+b8 drone_react_filter(const PlayerControlAI* control, const Entity* e)
 {
-	if (!awk_find_filter(control, e))
+	if (!drone_find_filter(control, e))
 		return false;
 
 	if (e->has<Decoy>())
 		return true;
 	else
 	{
-		Awk* a = e->get<Awk>();
-		return a->state() == Awk::State::Crawl && a->invincible_timer == 0.0f;
+		Drone* a = e->get<Drone>();
+		return a->state() == Drone::State::Crawl && a->invincible_timer == 0.0f;
 	}
 }
 
@@ -807,7 +807,7 @@ s32 geometry_query(const PlayerControlAI* control, r32 range, r32 angle_range, s
 	Quat rot;
 	control->get<Transform>()->absolute(&pos, &rot);
 
-	s16 mask = ~AWK_PERMEABLE_MASK & ~control->get<Awk>()->ally_force_field_mask();
+	s16 mask = ~DRONE_PERMEABLE_MASK & ~control->get<Drone>()->ally_force_field_mask();
 	s32 result = 0;
 	for (s32 i = 0; i < count; i++)
 	{
@@ -825,7 +825,7 @@ s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
 {
 	r32 radius_sq = radius * radius;
 	s32 score = 0;
-	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
 	{
 		if (AI::match(i.item()->get<AIAgent>()->team, mask)
 			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
@@ -882,9 +882,9 @@ void PlayerControlAI::update_memory()
 	update_component_memory<ControlPoint>(this, &default_memory_filter, UpdateMemoryFlags(0)); // unlimited range
 	update_component_memory<ForceField>(this, &default_memory_filter);
 
-	// update memory of enemy AWK positions based on team sensor data
+	// update memory of enemy DRONE positions based on team sensor data
 
-	update_component_memory<Awk>(this, &awk_memory_filter);
+	update_component_memory<Drone>(this, &drone_memory_filter);
 
 	const Team& team = Team::list[(s32)get<AIAgent>()->team];
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
@@ -897,9 +897,9 @@ void PlayerControlAI::update_memory()
 
 void PlayerControlAI::sniper_or_bolter_cancel()
 {
-	Ability a = get<Awk>()->current_ability;
+	Ability a = get<Drone>()->current_ability;
 	if (a == Ability::Sniper || a == Ability::Bolter)
-		get<Awk>()->current_ability = Ability::None;
+		get<Drone>()->current_ability = Ability::None;
 }
 
 void PlayerControlAI::set_target(Entity* t, r32 delay)
@@ -910,7 +910,7 @@ void PlayerControlAI::set_target(Entity* t, r32 delay)
 	path.length = 0;
 }
 
-void PlayerControlAI::set_path(const AI::AwkPath& p)
+void PlayerControlAI::set_path(const AI::DronePath& p)
 {
 	path = p;
 	path_index = 1; // first point is the starting point, should be roughly where we are already
@@ -1082,11 +1082,11 @@ void PlayerControlAI::action_done(b8 success)
 		{
 			case AI::RecordedLife::Action::TypeMove:
 			{
-				auto callback = ObjectLinkEntryArg<PlayerControlAI, const AI::AwkResult&, &PlayerControlAI::path_callback>(id());
+				auto callback = ObjectLinkEntryArg<PlayerControlAI, const AI::DroneResult&, &PlayerControlAI::path_callback>(id());
 				Vec3 pos;
 				Quat rot;
 				get<Transform>()->absolute(&pos, &rot);
-				AI::awk_pathfind(AI::AwkPathfind::LongRange, AI::AwkAllow::All, get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), current.action.pos, current.action.normal, callback);
+				AI::drone_pathfind(AI::DronePathfind::LongRange, AI::DroneAllow::All, get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), current.action.pos, current.action.normal, callback);
 				break;
 			}
 			case AI::RecordedLife::Action::TypeUpgrade:
@@ -1117,7 +1117,7 @@ void PlayerControlAI::action_done(b8 success)
 	}
 }
 
-void PlayerControlAI::path_callback(const AI::AwkResult& result)
+void PlayerControlAI::path_callback(const AI::DroneResult& result)
 {
 	if (result.path.length == 0)
 		action_done(false); // failed
@@ -1127,7 +1127,7 @@ void PlayerControlAI::path_callback(const AI::AwkResult& result)
 
 void PlayerControlAI::update(const Update& u)
 {
-	if (get<Awk>()->state() == Awk::State::Crawl && !Team::game_over)
+	if (get<Drone>()->state() == Drone::State::Crawl && !Team::game_over)
 	{
 		const AI::Config& config = player.ref()->config;
 
@@ -1141,7 +1141,7 @@ void PlayerControlAI::update(const Update& u)
 			{
 				// trying to a hit a moving thingy
 				r32 speed;
-				switch (get<Awk>()->current_ability)
+				switch (get<Drone>()->current_ability)
 				{
 					case Ability::Bolter:
 					{
@@ -1155,13 +1155,13 @@ void PlayerControlAI::update(const Update& u)
 					}
 					default:
 					{
-						speed = AWK_FLY_SPEED;
+						speed = DRONE_FLY_SPEED;
 						break;
 					}
 				}
 				Vec3 intersection;
 				if (aim_timeout < config.aim_timeout
-					&& get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection, speed))
+					&& get<Drone>()->can_hit(target.ref()->get<Target>(), &intersection, speed))
 					aim_and_shoot_target(u, intersection, target.ref()->get<Target>());
 				else
 					action_done(false); // we can't hit it
@@ -1176,11 +1176,11 @@ void PlayerControlAI::update(const Update& u)
 					Vec3 target_pos;
 					Quat target_rot;
 					target.ref()->get<Transform>()->absolute(&target_pos, &target_rot);
-					AI::AwkPathNode target;
+					AI::DronePathNode target;
 					target.crawl = false;
 					target.pos = target_pos;
 					target.normal = target_rot * Vec3(0, 0, 1);
-					target.ref = AWK_NAV_MESH_NODE_NONE;
+					target.ref = DRONE_NAV_MESH_NODE_NONE;
 					if (!go(u, target, target, CONTROL_POINT_RADIUS)) // assume the target is a control point
 						action_done(false); // can't hit it
 				}
@@ -1188,7 +1188,7 @@ void PlayerControlAI::update(const Update& u)
 		}
 		else if (path_index < path.length)
 		{
-			if (AbilityInfo::list[s32(get<Awk>()->current_ability)].type == AbilityInfo::Type::Shoot)
+			if (AbilityInfo::list[s32(get<Drone>()->current_ability)].type == AbilityInfo::Type::Shoot)
 				sniper_or_bolter_cancel();
 
 			// look at next target
@@ -1197,19 +1197,19 @@ void PlayerControlAI::update(const Update& u)
 				// timeout; we can't hit it
 				// mark path bad
 #if DEBUG_AI_CONTROL
-				vi_debug("Marking bad Awk adjacency");
+				vi_debug("Marking bad Drone adjacency");
 #endif
-				AI::awk_mark_adjacency_bad(path[path_index - 1].ref, path[path_index].ref);
+				AI::drone_mark_adjacency_bad(path[path_index - 1].ref, path[path_index].ref);
 				action_done(false); // action failed
 			}
 			else
 			{
-				if (!go(u, path[path_index - 1], path[path_index], AWK_RADIUS)) // path_index starts at 1 so we're good here
+				if (!go(u, path[path_index - 1], path[path_index], DRONE_RADIUS)) // path_index starts at 1 so we're good here
 				{
 #if DEBUG_AI_CONTROL
-					vi_debug("Marking bad Awk adjacency");
+					vi_debug("Marking bad Drone adjacency");
 #endif
-					AI::awk_mark_adjacency_bad(path[path_index - 1].ref, path[path_index].ref);
+					AI::drone_mark_adjacency_bad(path[path_index - 1].ref, path[path_index].ref);
 					action_done(false);
 				}
 			}
@@ -1227,9 +1227,9 @@ void PlayerControlAI::update(const Update& u)
 				{
 					// cooldown is done; we can shoot.
 					Vec3 look_dir = common->look_dir();
-					get<Awk>()->crawl(look_dir, u);
-					if (get<Awk>()->can_shoot(look_dir))
-						get<Awk>()->go(look_dir);
+					get<Drone>()->crawl(look_dir, u);
+					if (get<Drone>()->can_shoot(look_dir))
+						get<Drone>()->go(look_dir);
 				}
 			}
 		}
@@ -1243,7 +1243,7 @@ void PlayerControlAI::update(const Update& u)
 				{
 					if (shot_at_target)
 					{
-						if (get<Awk>()->current_ability != Ability::Bolter)
+						if (get<Drone>()->current_ability != Ability::Bolter)
 							action_done(hit_target); // call it success if we hit our target, or if there was nothing to hit
 					}
 				}
@@ -1278,7 +1278,7 @@ void PlayerControlAI::update(const Update& u)
 	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
 	camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.02f, Game::level.skybox.far_plane);
 	camera->rot = Quat::euler(0.0f, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
-	PlayerHuman::camera_setup_awk(entity(), camera, AWK_THIRD_PERSON_OFFSET);
+	PlayerHuman::camera_setup_drone(entity(), camera, DRONE_THIRD_PERSON_OFFSET);
 #endif
 }
 

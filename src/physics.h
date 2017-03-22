@@ -18,7 +18,7 @@ enum CollisionGroup
 	CollisionInaccessible = 1 << 3,
 	CollisionTarget = 1 << 4,
 	CollisionShield = 1 << 5,
-	CollisionAwkIgnore = 1 << 6,
+	CollisionDroneIgnore = 1 << 6,
 	CollisionTeamAForceField = 1 << 7,
 	CollisionTeamBForceField = 1 << 8,
 	CollisionTeamCForceField = 1 << 9,
@@ -34,8 +34,8 @@ enum CollisionGroup
 	CollisionElectric = 1 << 13,
 };
 
-#define AWK_PERMEABLE_MASK (CollisionTarget | CollisionShield | CollisionAwkIgnore)
-#define AWK_INACCESSIBLE_MASK (CollisionInaccessible | CollisionElectric | CollisionWalker | AWK_PERMEABLE_MASK | CollisionAllTeamsForceField)
+#define DRONE_PERMEABLE_MASK (CollisionTarget | CollisionShield | CollisionDroneIgnore)
+#define DRONE_INACCESSIBLE_MASK (CollisionInaccessible | CollisionElectric | CollisionWalker | DRONE_PERMEABLE_MASK | CollisionAllTeamsForceField)
 
 struct RaycastCallbackExcept : btCollisionWorld::ClosestRayResultCallback
 {

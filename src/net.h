@@ -11,7 +11,7 @@ namespace VI
 {
 
 struct Entity;
-struct Awk;
+struct Drone;
 struct PlayerHuman;
 struct Transform;
 
@@ -35,7 +35,7 @@ enum class MessageType
 	Noop,
 	EntityCreate,
 	EntityRemove,
-	Awk,
+	Drone,
 	PlayerControlHuman,
 	Health,
 	Battery,
@@ -93,7 +93,7 @@ struct PlayerManagerState
 	b8 active;
 };
 
-struct AwkState
+struct DroneState
 {
 	Revision revision; // not synced over network; only stored on server
 	s8 charges;
@@ -108,7 +108,7 @@ struct StateFrame
 	r32 timestamp;
 	Bitmask<MAX_ENTITIES> transforms_active;
 	Bitmask<MAX_ENTITIES> minions_active;
-	AwkState awks[MAX_PLAYERS];
+	DroneState drones[MAX_PLAYERS];
 	SequenceID sequence_id;
 };
 

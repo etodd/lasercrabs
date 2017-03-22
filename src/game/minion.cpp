@@ -12,7 +12,7 @@
 #include "mersenne/mersenne-twister.h"
 #include "game.h"
 #include "render/views.h"
-#include "awk.h"
+#include "drone.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "data/ragdoll.h"
 #include "entities.h"
@@ -160,7 +160,7 @@ void MinionCommon::melee_damage()
 			}
 			else
 			{
-				// awk
+				// drone
 				if (Game::level.local)
 					i.item()->get<Health>()->damage(entity(), 1);
 			}
@@ -340,8 +340,8 @@ void MinionCommon::killed(Entity* killer)
 
 		if (killer)
 		{
-			if (killer->has<Awk>())
-				r->apply_impulse(Ragdoll::Impulse::Head, killer->get<Awk>()->velocity * 0.1f);
+			if (killer->has<Drone>())
+				r->apply_impulse(Ragdoll::Impulse::Head, killer->get<Drone>()->velocity * 0.1f);
 			else
 			{
 				Vec3 killer_to_us = get<Transform>()->absolute_pos() - killer->get<Transform>()->absolute_pos();
@@ -492,11 +492,11 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 {
 	for (auto i = Decoy::list.iterator(); !i.is_last(); i.next())
 	{
-		Decoy* awk = i.item();
-		if (awk->get<AIAgent>()->team != team)
+		Decoy* drone = i.item();
+		if (drone->get<AIAgent>()->team != team)
 		{
-			if (me->can_see(awk->entity(), true))
-				return awk->entity();
+			if (me->can_see(drone->entity(), true))
+				return drone->entity();
 		}
 	}
 
@@ -590,14 +590,14 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 	Vec3 diff = target_pos - pos;
 	r32 distance_squared = diff.length_squared();
 
-	// if we're targeting an awk that is flying or just flew recently,
+	// if we're targeting an drone that is flying or just flew recently,
 	// then don't limit detection to the minion's vision cone
-	// this essentially means the minion can hear the awk flying around
+	// this essentially means the minion can hear the drone flying around
 	if (limit_vision_cone)
 	{
-		if (target->has<Awk>())
+		if (target->has<Drone>())
 		{
-			if (distance_squared < MINION_HEARING_RANGE * MINION_HEARING_RANGE && Game::time.total - target->get<Awk>()->attach_time < 1.0f) // we can hear the awk
+			if (distance_squared < MINION_HEARING_RANGE * MINION_HEARING_RANGE && Game::time.total - target->get<Drone>()->attach_time < 1.0f) // we can hear the drone
 				limit_vision_cone = false;
 			else
 			{

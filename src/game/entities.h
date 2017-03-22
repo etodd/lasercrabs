@@ -18,9 +18,9 @@ struct RigidBody;
 
 void spawn_sparks(const Vec3&, const Quat&, Transform* = nullptr);
 
-struct AwkEntity : public Entity
+struct DroneEntity : public Entity
 {
-	AwkEntity(AI::Team);
+	DroneEntity(AI::Team);
 };
 
 struct HealthEvent

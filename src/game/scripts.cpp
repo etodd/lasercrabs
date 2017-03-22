@@ -22,7 +22,7 @@
 #include "audio.h"
 #include "load.h"
 #include "data/components.h"
-#include "awk.h"
+#include "drone.h"
 
 namespace VI
 {
@@ -746,7 +746,7 @@ namespace tutorial
 
 	Data* data;
 
-	void awk_target_hit(Entity* e)
+	void drone_target_hit(Entity* e)
 	{
 		if (data->state == TutorialState::Start && e == data->battery.ref())
 		{
@@ -789,11 +789,11 @@ namespace tutorial
 		if (!data->player.ref() && PlayerControlHuman::list.count() > 0)
 		{
 			Entity* player = PlayerControlHuman::list.iterator().item()->entity();
-			if (player->has<Awk>())
+			if (player->has<Drone>())
 			{
 				data->player = player;
-				player->get<Awk>()->ability_spawned.link(&ability_spawned);
-				player->get<Awk>()->hit.link(&awk_target_hit);
+				player->get<Drone>()->ability_spawned.link(&ability_spawned);
+				player->get<Drone>()->hit.link(&drone_target_hit);
 
 				if (s32(data->state) <= s32(TutorialState::Start))
 				{

@@ -268,7 +268,7 @@ dtStatus FastLZCompressor::decompress(const unsigned char* compressed, const int
 	return *bufferSize < 0 ? DT_FAILURE : DT_SUCCESS;
 }
 
-void AwkNavMeshAdjacency::remove(s32 i)
+void DroneNavMeshAdjacency::remove(s32 i)
 {
 	if (i != neighbors.length - 1)
 		flag(i, flag(neighbors.length - 1));
@@ -276,12 +276,12 @@ void AwkNavMeshAdjacency::remove(s32 i)
 	neighbors.remove(i);
 }
 
-b8 AwkNavMeshAdjacency::flag(s32 i) const
+b8 DroneNavMeshAdjacency::flag(s32 i) const
 {
 	return flags & ((u64)1 << i);
 }
 
-void AwkNavMeshAdjacency::flag(s32 i, b8 value)
+void DroneNavMeshAdjacency::flag(s32 i, b8 value)
 {
 	if (value)
 		flags |= ((u64)1 << i);

@@ -9,7 +9,7 @@
 #include "data/entity.h"
 #include "data/components.h"
 #include "data/ragdoll.h"
-#include "awk.h"
+#include "drone.h"
 #include "player.h"
 #include "physics.h"
 #include "entities.h"
@@ -50,8 +50,8 @@
 #if DEBUG
 	#define DEBUG_NAV_MESH 0
 	#define DEBUG_AI_PATH 0
-	#define DEBUG_AWK_NAV_MESH 0
-	#define DEBUG_AWK_AI_PATH 0
+	#define DEBUG_DRONE_NAV_MESH 0
+	#define DEBUG_DRONE_AI_PATH 0
 	#define DEBUG_PHYSICS 0
 #endif
 
@@ -491,7 +491,7 @@ void Game::update(const Update& update_in)
 		MinionCommon::update_client_all(u);
 		Grenade::update_client_all(u);
 		Rocket::update_client_all(u);
-		for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
+		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
 		{
 			if (level.local || (i.item()->has<PlayerControlHuman>() && i.item()->get<PlayerControlHuman>()->local()))
 				i.item()->update_server(u);
@@ -567,7 +567,7 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 
 	const ComponentMask mask_parkour =
 	(
-		Awk::component_mask
+		Drone::component_mask
 		| Projectile::component_mask
 		| Rocket::component_mask
 		| MinionCommon::component_mask
@@ -647,8 +647,8 @@ void Game::draw_alpha(const RenderParams& render_params)
 	AI::debug_draw_nav_mesh(render_params);
 #endif
 
-#if DEBUG_AWK_NAV_MESH
-	AI::debug_draw_awk_nav_mesh(render_params);
+#if DEBUG_DRONE_NAV_MESH
+	AI::debug_draw_drone_nav_mesh(render_params);
 #endif
 
 #if DEBUG_AI_PATH
@@ -671,7 +671,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 	}
 #endif
 
-#if DEBUG_AWK_AI_PATH
+#if DEBUG_DRONE_AI_PATH
 	{
 		UIText text;
 		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())

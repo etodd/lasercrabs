@@ -9,8 +9,8 @@ namespace Asset
 	namespace Armature
 	{
 		const s32 count = 12;
-		const AssetID awk = 0;
-		const AssetID character = 1;
+		const AssetID character = 0;
+		const AssetID drone = 1;
 		const AssetID hobo = 2;
 		const AssetID interactable = 3;
 		const AssetID locke = 4;
@@ -25,13 +25,6 @@ namespace Asset
 	namespace Bone
 	{
 		const s32 count = 363;
-		const AssetID awk_a1 = 5;
-		const AssetID awk_a2 = 6;
-		const AssetID awk_b1 = 1;
-		const AssetID awk_b2 = 2;
-		const AssetID awk_c1 = 3;
-		const AssetID awk_c2 = 4;
-		const AssetID awk_root = 0;
 		const AssetID character_camera = 0;
 		const AssetID character_claw1_L = 9;
 		const AssetID character_claw1_R = 15;
@@ -56,6 +49,13 @@ namespace Asset
 		const AssetID character_thigh_R = 21;
 		const AssetID character_upper_arm_L = 6;
 		const AssetID character_upper_arm_R = 12;
+		const AssetID drone_a1 = 5;
+		const AssetID drone_a2 = 6;
+		const AssetID drone_b1 = 1;
+		const AssetID drone_b2 = 2;
+		const AssetID drone_c1 = 3;
+		const AssetID drone_c2 = 4;
+		const AssetID drone_root = 0;
 		const AssetID hobo_ball_l = 47;
 		const AssetID hobo_ball_r = 51;
 		const AssetID hobo_calf_l = 45;

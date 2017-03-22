@@ -2035,7 +2035,7 @@ b8 default_filter(const Mesh* m)
 	return true;
 }
 
-// spacing of awk nav mesh points
+// spacing of drone nav mesh points
 const r32 grid_spacing = 1.5f;
 const r32 inv_grid_spacing = 1.0f / grid_spacing;
 
@@ -2053,7 +2053,7 @@ inline b8 point_in_tri(const Vec2& pt, const Vec2& v1, const Vec2& v2, const Vec
 }
 
 // v1 is at the bottom, v2 and v3 flush with the top
-void rasterize_top_flat_triangle(AwkNavMesh* out, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
+void rasterize_top_flat_triangle(DroneNavMesh* out, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
 {
 	r32 invslope1 = grid_spacing * (v2.x - v1.x) / (v2.y - v1.y);
 	r32 invslope2 = grid_spacing * (v3.x - v1.x) / (v3.y - v1.y);
@@ -2090,7 +2090,7 @@ void rasterize_top_flat_triangle(AwkNavMesh* out, const Vec3& normal, const Vec3
 }
 
 // v1 and v2 are flush with the bottom, v3 is at the top
-void rasterize_bottom_flat_triangle(AwkNavMesh* out, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
+void rasterize_bottom_flat_triangle(DroneNavMesh* out, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
 {
 	r32 invslope1 = grid_spacing * (v3.x - v1.x) / (v3.y - v1.y);
 	r32 invslope2 = grid_spacing * (v3.x - v2.x) / (v3.y - v2.y);
@@ -2126,7 +2126,7 @@ void rasterize_bottom_flat_triangle(AwkNavMesh* out, const Vec3& normal, const V
 	}
 }
 
-b8 awk_raycast_chunk(const Array<Vec3>& tris, const Vec3& start, const Vec3& dir, r32* closest_distance, Vec3* closest_normal = nullptr)
+b8 drone_raycast_chunk(const Array<Vec3>& tris, const Vec3& start, const Vec3& dir, r32* closest_distance, Vec3* closest_normal = nullptr)
 {
 	b8 hit = false;
 	for (s32 vertex_index = 0; vertex_index < tris.length; vertex_index += 3)
@@ -2170,7 +2170,7 @@ b8 awk_raycast_chunk(const Array<Vec3>& tris, const Vec3& start, const Vec3& dir
 	return hit;
 }
 
-b8 awk_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, const Vec3* end_normal = nullptr, b8* hit_close = nullptr)
+b8 drone_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, const Vec3* end_normal = nullptr, b8* hit_close = nullptr)
 {
 	if (hit_close)
 		*hit_close = false;
@@ -2188,7 +2188,7 @@ b8 awk_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, cons
 	// rasterization adapted from PolyVox
 	// http://www.volumesoffun.com/polyvox/documentation/library/doc/html/_raycast_8inl_source.html
 
-	r32 closest_distance = distance + AWK_RADIUS;
+	r32 closest_distance = distance + DRONE_RADIUS;
 
 	ChunkedTris::Coord coord_start = mesh.clamped_coord(mesh.coord(start));
 	ChunkedTris::Coord coord_end = mesh.clamped_coord(mesh.coord(end));
@@ -2222,14 +2222,14 @@ b8 awk_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, cons
 	while (true)
 	{
 		Vec3 hit_normal;
-		if (awk_raycast_chunk(mesh.get(coord), start, dir, &closest_distance, &hit_normal))
+		if (drone_raycast_chunk(mesh.get(coord), start, dir, &closest_distance, &hit_normal))
 		{
 			if (hit_close)
 			{
 				if (end_normal && end_normal->dot(hit_normal) < 0.8f)
 					*hit_close = false;
 				else
-					*hit_close = fabs(closest_distance - distance) < AWK_RADIUS;
+					*hit_close = fabs(closest_distance - distance) < DRONE_RADIUS;
 			}
 			hit = true;
 		}
@@ -2260,11 +2260,11 @@ b8 awk_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, cons
 	return hit;
 }
 
-void build_awk_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, AwkNavMesh* out, s32* adjacency_buffer_overflows, s32* orphans)
+void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, DroneNavMesh* out, s32* adjacency_buffer_overflows, s32* orphans)
 {
 	r64 timer = platform::time();
 	const r32 chunk_size = 10.0f;
-	const r32 chunk_padding = AWK_RADIUS;
+	const r32 chunk_padding = DRONE_RADIUS;
 
 	ChunkedTris accessible_chunked;
 
@@ -2396,22 +2396,22 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, AwkN
 	}
 
 	// filter out bad nav graph vertices where there is an obstruction between the surface point
-	// and the Awk's actual location which is offset by AWK_RADIUS
+	// and the Drone's actual location which is offset by DRONE_RADIUS
 	{
 		s32 vertex_removals = 0;
 		for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
 		{
-			AwkNavMeshChunk* chunk = &out->chunks[chunk_index];
+			DroneNavMeshChunk* chunk = &out->chunks[chunk_index];
 
 			for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
 			{
-				AwkNavMeshNode vertex_node = { s16(chunk_index), s16(vertex_index) };
+				DroneNavMeshNode vertex_node = { s16(chunk_index), s16(vertex_index) };
 				const Vec3& vertex_normal = chunk->normals[vertex_index];
 				const Vec3 vertex_surface = chunk->vertices[vertex_index];
 				const Vec3 a = vertex_surface + vertex_normal * 0.001f;
-				const Vec3 b = vertex_surface + vertex_normal * (AWK_RADIUS + 0.02f);
-				if (awk_raycast(inaccessible_chunked, a, b)
-					|| awk_raycast(accessible_chunked, a, b))
+				const Vec3 b = vertex_surface + vertex_normal * (DRONE_RADIUS + 0.02f);
+				if (drone_raycast(inaccessible_chunked, a, b)
+					|| drone_raycast(accessible_chunked, a, b))
 				{
 					// remove vertex
 					vertex_removals++;
@@ -2433,40 +2433,40 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, AwkN
 	// how many vertices had overflowing adjacency buffers?
 	*adjacency_buffer_overflows = 0;
 
-	Array<AwkNavMeshNode> potential_neighbors;
-	Array<AwkNavMeshNode> potential_crawl_neighbors;
+	Array<DroneNavMeshNode> potential_neighbors;
+	Array<DroneNavMeshNode> potential_crawl_neighbors;
 	for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
 	{
-		AwkNavMeshChunk* chunk = &out->chunks[chunk_index];
+		DroneNavMeshChunk* chunk = &out->chunks[chunk_index];
 
 		for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
 		{
-			AwkNavMeshNode vertex_node = { s16(chunk_index), s16(vertex_index) };
+			DroneNavMeshNode vertex_node = { s16(chunk_index), s16(vertex_index) };
 			const Vec3& vertex_normal = chunk->normals[vertex_index];
 			const Vec3 vertex_surface = chunk->vertices[vertex_index];
-			const Vec3 vertex = vertex_surface + vertex_normal * AWK_RADIUS;
-			AwkNavMeshAdjacency* vertex_adjacency = &chunk->adjacency[vertex_index];
+			const Vec3 vertex = vertex_surface + vertex_normal * DRONE_RADIUS;
+			DroneNavMeshAdjacency* vertex_adjacency = &chunk->adjacency[vertex_index];
 
 			potential_neighbors.length = 0;
 			potential_crawl_neighbors.length = 0;
 
 			// visit neighbors
-			AwkNavMesh::Coord chunk_coord = out->coord(chunk_index);
-			s32 chunk_radius = (s32)ceilf(AWK_MAX_DISTANCE / chunk_size);
+			DroneNavMesh::Coord chunk_coord = out->coord(chunk_index);
+			s32 chunk_radius = (s32)ceilf(DRONE_MAX_DISTANCE / chunk_size);
 			for (s32 neighbor_chunk_x = vi_max(chunk_coord.x - chunk_radius + 1, 0); neighbor_chunk_x < vi_min(chunk_coord.x + chunk_radius, out->size.x); neighbor_chunk_x++)
 			{
 				for (s32 neighbor_chunk_y = vi_max(chunk_coord.y - chunk_radius + 1, 0); neighbor_chunk_y < vi_min(chunk_coord.y + chunk_radius, out->size.y); neighbor_chunk_y++)
 				{
 					for (s32 neighbor_chunk_z = vi_max(chunk_coord.z - chunk_radius + 1, 0); neighbor_chunk_z < vi_min(chunk_coord.z + chunk_radius, out->size.z); neighbor_chunk_z++)
 					{
-						AwkNavMesh::Coord neighbor_chunk_coord = { neighbor_chunk_x, neighbor_chunk_y, neighbor_chunk_z };
+						DroneNavMesh::Coord neighbor_chunk_coord = { neighbor_chunk_x, neighbor_chunk_y, neighbor_chunk_z };
 
 						s32 neighbor_chunk_index = out->index(neighbor_chunk_coord);
-						AwkNavMeshChunk* neighbor_chunk = out->get(neighbor_chunk_coord);
+						DroneNavMeshChunk* neighbor_chunk = out->get(neighbor_chunk_coord);
 
 						for (s32 neighbor_index = 0; neighbor_index < neighbor_chunk->vertices.length; neighbor_index++)
 						{
-							AwkNavMeshNode neighbor_node = { s16(neighbor_chunk_index), s16(neighbor_index) };
+							DroneNavMeshNode neighbor_node = { s16(neighbor_chunk_index), s16(neighbor_index) };
 							if (vertex_node.equals(neighbor_node)) // don't connect this vertex to itself
 								continue;
 
@@ -2477,11 +2477,11 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, AwkN
 							{
 								// neighbor is in front of our surface; we might be able to shoot there
 								r32 distance_squared = to_neighbor.length_squared();
-								if (distance_squared < (AWK_MAX_DISTANCE - AWK_RADIUS) * (AWK_MAX_DISTANCE - AWK_RADIUS)
-									&& distance_squared > (AWK_RADIUS * 2.0f) * (AWK_RADIUS * 2.0f))
+								if (distance_squared < (DRONE_MAX_DISTANCE - DRONE_RADIUS) * (DRONE_MAX_DISTANCE - DRONE_RADIUS)
+									&& distance_squared > (DRONE_RADIUS * 2.0f) * (DRONE_RADIUS * 2.0f))
 								{
 									to_neighbor /= sqrtf(distance_squared);
-									if (fabs(to_neighbor.y) < AWK_VERTICAL_DOT_LIMIT) // can't shoot straight up or straight down
+									if (fabs(to_neighbor.y) < DRONE_VERTICAL_DOT_LIMIT) // can't shoot straight up or straight down
 									{
 										const Vec3& normal_neighbor = neighbor_chunk->normals[neighbor_index];
 										if (normal_neighbor.dot(to_neighbor) < 0.0f)
@@ -2505,9 +2505,9 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, AwkN
 				// raycast to make sure we can actually get to the neighbor
 				for (s32 i = 0; i < potential_crawl_neighbors.length; i++)
 				{
-					const AwkNavMeshNode neighbor_index = potential_crawl_neighbors[i];
+					const DroneNavMeshNode neighbor_index = potential_crawl_neighbors[i];
 					const Vec3& neighbor_normal = out->chunks[neighbor_index.chunk].normals[neighbor_index.vertex];
-					const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex] + neighbor_normal * AWK_RADIUS;
+					const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex] + neighbor_normal * DRONE_RADIUS;
 
 					b8 add_neighbor = true;
 
@@ -2516,14 +2516,14 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, AwkN
 					r32 neighbor_dot = to_neighbor.dot(vertex_normal);
 					if (neighbor_dot > 0.07f) // neighbor is in front of vertex surface
 					{
-						if (awk_raycast(inaccessible_chunked, vertex, neighbor_vertex)
-							|| awk_raycast(accessible_chunked, vertex, neighbor_vertex))
+						if (drone_raycast(inaccessible_chunked, vertex, neighbor_vertex)
+							|| drone_raycast(accessible_chunked, vertex, neighbor_vertex))
 							add_neighbor = false;
 					}
 					else if (neighbor_dot > -0.07f) // neighbor is coplanar
 					{
-						if (awk_raycast(inaccessible_chunked, vertex, neighbor_vertex)
-							|| awk_raycast(accessible_chunked, vertex, neighbor_vertex))
+						if (drone_raycast(inaccessible_chunked, vertex, neighbor_vertex)
+							|| drone_raycast(accessible_chunked, vertex, neighbor_vertex))
 							add_neighbor = false;
 					}
 					else // neighbor is behind our surface
@@ -2592,21 +2592,21 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, AwkN
 							// closest point on the intersection line
 							Vec3 intersection = intersection_line_origin + intersection_line_dir * s;
 
-							// check if the Awk will actually go the right direction if it tries to crawl toward the point
+							// check if the Drone will actually go the right direction if it tries to crawl toward the point
 							if ((intersection - vertex).dot(to_neighbor) < 0.0f)
 								add_neighbor = false;
 							else
 							{
 								// check vertex surface for obstacles
 								{
-									if (awk_raycast(inaccessible_chunked, vertex, intersection)
-										|| awk_raycast(accessible_chunked, vertex, intersection))
+									if (drone_raycast(inaccessible_chunked, vertex, intersection)
+										|| drone_raycast(accessible_chunked, vertex, intersection))
 										add_neighbor = false;
 								}
 								// check neighbor surface for obstacles
 								{
-									if (awk_raycast(inaccessible_chunked, intersection, neighbor_vertex)
-										|| awk_raycast(accessible_chunked, intersection, neighbor_vertex))
+									if (drone_raycast(inaccessible_chunked, intersection, neighbor_vertex)
+										|| drone_raycast(accessible_chunked, intersection, neighbor_vertex))
 										add_neighbor = false;
 								}
 							}
@@ -2632,7 +2632,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, AwkN
 				for (s32 i = 0; i < potential_neighbors.length - 1; i++)
 				{
 					s32 j = i + mersenne::rand() % (potential_neighbors.length - i);
-					const AwkNavMeshNode tmp = potential_neighbors[i];
+					const DroneNavMeshNode tmp = potential_neighbors[i];
 					potential_neighbors[i] = potential_neighbors[j];
 					potential_neighbors[j] = tmp;
 				}
@@ -2640,13 +2640,13 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, AwkN
 				// raycast potential neighbors
 				for (s32 i = 0; i < potential_neighbors.length; i++)
 				{
-					const AwkNavMeshNode neighbor_index = potential_neighbors[i];
+					const DroneNavMeshNode neighbor_index = potential_neighbors[i];
 					const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex];
-					if (!awk_raycast(inaccessible_chunked, vertex, neighbor_vertex))
+					if (!drone_raycast(inaccessible_chunked, vertex, neighbor_vertex))
 					{
 						const Vec3& neighbor_normal = out->chunks[neighbor_index.chunk].normals[neighbor_index.vertex];
 						b8 hit_close;
-						awk_raycast(accessible_chunked, vertex, neighbor_vertex, &neighbor_normal, &hit_close);
+						drone_raycast(accessible_chunked, vertex, neighbor_vertex, &neighbor_normal, &hit_close);
 						if (hit_close)
 						{
 							vertex_adjacency->neighbors.add(neighbor_index);
@@ -2670,7 +2670,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, AwkN
 	*orphans = 0;
 	for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
 	{
-		AwkNavMeshChunk* chunk = &out->chunks[chunk_index];
+		DroneNavMeshChunk* chunk = &out->chunks[chunk_index];
 		s32 chunk_orphans = 0;
 		for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
 		{
@@ -2691,10 +2691,10 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, AwkN
 			// make sure there are no incoming links to this chunk
 			for (s32 j = 0; j < out->chunks.length; j++)
 			{
-				AwkNavMeshChunk* c = &out->chunks[j];
+				DroneNavMeshChunk* c = &out->chunks[j];
 				for (s32 k = 0; k < c->adjacency.length; k++)
 				{
-					AwkNavMeshAdjacency* adjacency = &c->adjacency[k];
+					DroneNavMeshAdjacency* adjacency = &c->adjacency[k];
 					for (s32 l = 0; l < adjacency->neighbors.length; l++)
 					{
 						if (adjacency->neighbors[l].chunk == chunk_index)
@@ -2771,11 +2771,11 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			}
 		}
 
-		// build awk nav mesh
-		AwkNavMesh awk_nav;
-		s32 awk_adjacency_buffer_overflows;
-		s32 awk_orphans;
-		build_awk_nav_mesh(meshes, state.manifest, json, &awk_nav, &awk_adjacency_buffer_overflows, &awk_orphans);
+		// build drone nav mesh
+		DroneNavMesh drone_nav;
+		s32 drone_adjacency_buffer_overflows;
+		s32 drone_orphans;
+		build_drone_nav_mesh(meshes, state.manifest, json, &drone_nav, &drone_adjacency_buffer_overflows, &drone_orphans);
 
 		// write file data
 
@@ -2805,21 +2805,21 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			}
 
 			s32 total_vertices = 0;
-			fwrite(&awk_nav.chunk_size, sizeof(r32), 1, f);
-			fwrite(&awk_nav.vmin, sizeof(Vec3), 1, f);
-			fwrite(&awk_nav.size, sizeof(AwkNavMesh::Coord), 1, f);
-			for (s32 i = 0; i < awk_nav.chunks.length; i++)
+			fwrite(&drone_nav.chunk_size, sizeof(r32), 1, f);
+			fwrite(&drone_nav.vmin, sizeof(Vec3), 1, f);
+			fwrite(&drone_nav.size, sizeof(DroneNavMesh::Coord), 1, f);
+			for (s32 i = 0; i < drone_nav.chunks.length; i++)
 			{
-				const AwkNavMeshChunk& chunk = awk_nav.chunks[i];
+				const DroneNavMeshChunk& chunk = drone_nav.chunks[i];
 				vi_assert(chunk.vertices.length == chunk.adjacency.length);
 				fwrite(&chunk.vertices.length, sizeof(s32), 1, f);
 				fwrite(chunk.vertices.data, sizeof(Vec3), chunk.vertices.length, f);
 				fwrite(chunk.normals.data, sizeof(Vec3), chunk.normals.length, f);
-				fwrite(chunk.adjacency.data, sizeof(AwkNavMeshAdjacency), chunk.adjacency.length, f);
+				fwrite(chunk.adjacency.data, sizeof(DroneNavMeshAdjacency), chunk.adjacency.length, f);
 				total_vertices += chunk.vertices.length;
 			}
 
-			printf("%s - Awk nav mesh - Chunks: %d Vertices: %d Adjacency buffer overflows: %d Orphans: %d\n", nav_mesh_out_path.c_str(), awk_nav.chunks.length, total_vertices, awk_adjacency_buffer_overflows, awk_orphans);
+			printf("%s - Drone nav mesh - Chunks: %d Vertices: %d Adjacency buffer overflows: %d Orphans: %d\n", nav_mesh_out_path.c_str(), drone_nav.chunks.length, total_vertices, drone_adjacency_buffer_overflows, drone_orphans);
 		}
 
 		fclose(f);

@@ -1,5 +1,5 @@
 #include "player.h"
-#include "awk.h"
+#include "drone.h"
 #include "data/components.h"
 #include "entities.h"
 #include "render/render.h"
@@ -73,15 +73,15 @@ r32 hp_width(u8 hp, s8 shield, r32 scale = 1.0f)
 	return scale * ((shield + (hp - 1)) * (box_size.x + HP_BOX_SPACING) - HP_BOX_SPACING);
 }
 
-void PlayerHuman::camera_setup_awk(Entity* e, Camera* camera, r32 offset)
+void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, r32 offset)
 {
-	Quat awk_rot = e->get<Awk>()->lerped_rotation;
-	Vec3 center = e->get<Awk>()->center_lerped();
+	Quat drone_rot = e->get<Drone>()->lerped_rotation;
+	Vec3 center = e->get<Drone>()->center_lerped();
 	camera->pos = center + camera->rot * Vec3(0, 0, -offset);
 	Vec3 abs_wall_normal;
 	if (e->get<Transform>()->parent.ref())
 	{
-		abs_wall_normal = awk_rot * Vec3(0, 0, 1);
+		abs_wall_normal = drone_rot * Vec3(0, 0, 1);
 		camera->pos += abs_wall_normal * 0.5f;
 		camera->pos.y += 0.5f - vi_min((r32)fabsf(abs_wall_normal.y), 0.5f);
 	}
@@ -90,11 +90,11 @@ void PlayerHuman::camera_setup_awk(Entity* e, Camera* camera, r32 offset)
 
 	Quat rot_inverse = camera->rot.inverse();
 
-	camera->range = e->get<Awk>()->range();
+	camera->range = e->get<Drone>()->range();
 	camera->range_center = rot_inverse * (center - camera->pos);
 	Vec3 wall_normal_viewspace = rot_inverse * abs_wall_normal;
-	camera->clip_planes[0].redefine(wall_normal_viewspace, camera->range_center + wall_normal_viewspace * -AWK_RADIUS);
-	camera->flag(CameraFlagCullBehindWall, abs_wall_normal.dot(camera->pos - center) < -AWK_RADIUS + 0.02f); // camera is behind wall; set clip plane to wall
+	camera->clip_planes[0].redefine(wall_normal_viewspace, camera->range_center + wall_normal_viewspace * -DRONE_RADIUS);
+	camera->flag(CameraFlagCullBehindWall, abs_wall_normal.dot(camera->pos - center) < -DRONE_RADIUS + 0.02f); // camera is behind wall; set clip plane to wall
 	camera->cull_range = camera->range_center.length();
 	camera->flag(CameraFlagColors, false);
 	camera->flag(CameraFlagFog, false);
@@ -183,7 +183,7 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 			return UIMode::Upgrading;
 		else
 		{
-			if (get<PlayerManager>()->instance.ref()->has<Awk>())
+			if (get<PlayerManager>()->instance.ref()->has<Drone>())
 				return UIMode::PvpDefault;
 			else
 				return UIMode::ParkourDefault;
@@ -426,7 +426,7 @@ void PlayerHuman::show_upgrade_menu()
 	upgrade_animation_time = Game::real_time.total;
 	Entity* instance = get<PlayerManager>()->instance.ref();
 	if (instance)
-		instance->get<Awk>()->current_ability = Ability::None;
+		instance->get<Drone>()->current_ability = Ability::None;
 }
 
 void PlayerHuman::update(const Update& u)
@@ -640,7 +640,7 @@ void PlayerHuman::update(const Update& u)
 #if DEBUG
 					if (Game::level.local && u.input->keys.get(s32(KeyCode::MouseLeft)) && !u.last_input->keys.get(s32(KeyCode::MouseLeft)))
 					{
-						Entity* box = World::create<PhysicsEntity>(Asset::Mesh::cube, camera->pos, camera->rot, RigidBody::Type::Box, Vec3(0.25f, 0.25f, 0.5f), 1.0f, CollisionDefault, ~CollisionAwkIgnore);
+						Entity* box = World::create<PhysicsEntity>(Asset::Mesh::cube, camera->pos, camera->rot, RigidBody::Type::Box, Vec3(0.25f, 0.25f, 0.5f), 1.0f, CollisionDefault, ~CollisionDroneIgnore);
 						box->get<RigidBody>()->btBody->setLinearVelocity(camera->rot * Vec3(0, 0, 15));
 						Net::finalize(box);
 					}
@@ -677,7 +677,7 @@ void PlayerHuman::update(const Update& u)
 					Entity* spectating = live_player_get(spectate_index);
 
 					if (spectating)
-						camera_setup_awk(spectating, camera, 6.0f);
+						camera_setup_drone(spectating, camera, 6.0f);
 				}
 			}
 			break;
@@ -716,7 +716,7 @@ void PlayerHuman::update_late(const Update& u)
 		if (e)
 		{
 			camera->rot = Quat::euler(0.0f, PI * 0.25f, PI * 0.25f);
-			camera_setup_awk(e, camera, 8.0f);
+			camera_setup_drone(e, camera, 8.0f);
 		}
 	}
 #endif
@@ -771,7 +771,7 @@ void PlayerHuman::spawn(const PlayerSpawnPosition& normal_spawn_pos)
 	if (Game::level.mode == Game::Mode::Pvp)
 	{
 		// spawn drone
-		spawned = World::create<AwkEntity>(get<PlayerManager>()->team.ref()->team());
+		spawned = World::create<DroneEntity>(get<PlayerManager>()->team.ref()->team());
 		spawn_pos = normal_spawn_pos;
 	}
 	else
@@ -883,7 +883,7 @@ void ability_draw(const RenderParams& params, const PlayerHuman* player, const V
 	PlayerManager* manager = player->get<PlayerManager>();
 	if (!manager->ability_valid(ability) || !manager->instance.ref()->get<PlayerCommon>()->movement_enabled())
 		color = params.sync->input.get(binding, gamepad) ? &UI::color_disabled : &UI::color_alert;
-	else if (manager->instance.ref()->get<Awk>()->current_ability == ability)
+	else if (manager->instance.ref()->get<Drone>()->current_ability == ability)
 		color = &UI::color_default;
 	else
 		color = &UI::color_accent;
@@ -1475,20 +1475,20 @@ PlayerCommon::PlayerCommon(PlayerManager* m)
 
 void PlayerCommon::awake()
 {
-	if (has<Awk>())
+	if (has<Drone>())
 	{
-		get<Health>()->hp_max = AWK_HEALTH;
-		link<&PlayerCommon::awk_done_flying>(get<Awk>()->done_flying);
-		link<&PlayerCommon::awk_detaching>(get<Awk>()->detaching);
-		link_arg<const AwkReflectEvent&, &PlayerCommon::awk_reflecting>(get<Awk>()->reflecting);
+		get<Health>()->hp_max = DRONE_HEALTH;
+		link<&PlayerCommon::drone_done_flying>(get<Drone>()->done_flying);
+		link<&PlayerCommon::drone_detaching>(get<Drone>()->detaching);
+		link_arg<const DroneReflectEvent&, &PlayerCommon::drone_reflecting>(get<Drone>()->reflecting);
 	}
 }
 
 b8 PlayerCommon::movement_enabled() const
 {
-	if (has<Awk>())
+	if (has<Drone>())
 	{
-		return get<Awk>()->state() == Awk::State::Crawl // must be attached to wall
+		return get<Drone>()->state() == Drone::State::Crawl // must be attached to wall
 			&& manager.ref()->state() == PlayerManager::State::Default; // can't move while upgrading and stuff
 	}
 	else
@@ -1499,15 +1499,15 @@ Entity* PlayerCommon::incoming_attacker() const
 {
 	Vec3 me = get<Transform>()->absolute_pos();
 
-	// check incoming Awks
+	// check incoming Drones
 	PlayerManager* manager = get<PlayerCommon>()->manager.ref();
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
 		if (PlayerManager::visibility[PlayerManager::visibility_hash(manager, i.item()->manager.ref())].ref())
 		{
 			// determine if they're attacking us
-			if (i.item()->get<Awk>()->state() != Awk::State::Crawl
-				&& Vec3::normalize(i.item()->get<Awk>()->velocity).dot(Vec3::normalize(me - i.item()->get<Transform>()->absolute_pos())) > 0.98f)
+			if (i.item()->get<Drone>()->state() != Drone::State::Crawl
+				&& Vec3::normalize(i.item()->get<Drone>()->velocity).dot(Vec3::normalize(me - i.item()->get<Transform>()->absolute_pos())) > 0.98f)
 			{
 				return i.item()->entity();
 			}
@@ -1521,11 +1521,11 @@ Entity* PlayerCommon::incoming_attacker() const
 		Vec3 projectile_pos = i.item()->get<Transform>()->absolute_pos();
 		Vec3 to_me = me - projectile_pos;
 		r32 dot = velocity.dot(to_me);
-		if (dot > 0.0f && dot < AWK_MAX_DISTANCE && velocity.dot(Vec3::normalize(to_me)) > 0.98f)
+		if (dot > 0.0f && dot < DRONE_MAX_DISTANCE && velocity.dot(Vec3::normalize(to_me)) > 0.98f)
 		{
 			// only worry about it if it can actually see us
 			btCollisionWorld::ClosestRayResultCallback ray_callback(me, projectile_pos);
-			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionShield);
+			Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionShield);
 			if (!ray_callback.hasHit())
 				return i.item()->entity();
 		}
@@ -1539,7 +1539,7 @@ Entity* PlayerCommon::incoming_attacker() const
 		{
 			// only worry about it if the rocket can actually see us
 			btCollisionWorld::ClosestRayResultCallback ray_callback(me, rocket->get<Transform>()->absolute_pos());
-			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionShield);
+			Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionShield);
 			if (!ray_callback.hasHit())
 				return rocket->entity();
 		}
@@ -1550,7 +1550,7 @@ Entity* PlayerCommon::incoming_attacker() const
 
 void PlayerCommon::update(const Update& u)
 {
-	if (has<Awk>())
+	if (has<Drone>())
 	{
 		Quat rot = get<Transform>()->absolute_rot();
 		r32 angle = Quat::angle(attach_quat, rot);
@@ -1580,14 +1580,14 @@ r32 PlayerCommon::detect_danger() const
 	return 0.0f;
 }
 
-void PlayerCommon::awk_done_flying()
+void PlayerCommon::drone_done_flying()
 {
 	Quat absolute_rot = get<Transform>()->absolute_rot();
 	Vec3 wall_normal = absolute_rot * Vec3(0, 0, 1);
 
 	// If we are spawning on to a flat floor, set attach_quat immediately
 	// This preserves the camera rotation set by the PlayerSpawn
-	if (Vec3::normalize(get<Awk>()->velocity).y == -1.0f && wall_normal.y > 0.9f)
+	if (Vec3::normalize(get<Drone>()->velocity).y == -1.0f && wall_normal.y > 0.9f)
 		attach_quat = absolute_rot;
 	else
 	{
@@ -1618,13 +1618,13 @@ void PlayerCommon::awk_done_flying()
 	}
 }
 
-void PlayerCommon::awk_detaching()
+void PlayerCommon::drone_detaching()
 {
-	Vec3 direction = Vec3::normalize(get<Awk>()->velocity);
+	Vec3 direction = Vec3::normalize(get<Drone>()->velocity);
 	attach_quat = Quat::look(direction);
 }
 
-void PlayerCommon::awk_reflecting(const AwkReflectEvent& e)
+void PlayerCommon::drone_reflecting(const DroneReflectEvent& e)
 {
 	attach_quat = Quat::look(Vec3::normalize(e.new_velocity));
 }
@@ -1699,8 +1699,8 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 	{
 		case PlayerControlHumanNet::Message::Type::Dash:
 		{
-			c->get<Awk>()->current_ability = Ability::None;
-			if (c->get<Awk>()->dash_start(msg.dir))
+			c->get<Drone>()->current_ability = Ability::None;
+			if (c->get<Drone>()->dash_start(msg.dir))
 			{
 				c->get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 				c->try_primary = false;
@@ -1710,8 +1710,8 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		}
 		case PlayerControlHumanNet::Message::Type::Go:
 		{
-			c->get<Awk>()->current_ability = msg.ability;
-			if (c->get<Awk>()->go(msg.dir))
+			c->get<Drone>()->current_ability = msg.ability;
+			if (c->get<Drone>()->go(msg.dir))
 			{
 				c->try_primary = false;
 				if (msg.ability == Ability::None)
@@ -1746,7 +1746,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		case PlayerControlHumanNet::Message::Type::Reflect:
 		{
 			if (src == Net::MessageSource::Remote)
-				c->get<Awk>()->handle_remote_reflection(msg.entity.ref(), msg.pos, msg.dir);
+				c->get<Drone>()->handle_remote_reflection(msg.entity.ref(), msg.pos, msg.dir);
 			break;
 		}
 		default:
@@ -1770,12 +1770,12 @@ s32 PlayerControlHuman::count_local()
 	return count;
 }
 
-void PlayerControlHuman::awk_done_flying_or_dashing()
+void PlayerControlHuman::drone_done_flying_or_dashing()
 {
 	player.ref()->rumble_add(0.2f);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 #if SERVER
-	if (get<Awk>()->invincible_timer == 0.0f)
+	if (get<Drone>()->invincible_timer == 0.0f)
 	{
 		AI::RecordedLife::Action action;
 		action.type = AI::RecordedLife::Action::TypeMove;
@@ -1789,14 +1789,14 @@ void PlayerControlHuman::awk_done_flying_or_dashing()
 #endif
 }
 
-void ability_select(Awk* awk, Ability a)
+void ability_select(Drone* drone, Ability a)
 {
-	awk->current_ability = a;
+	drone->current_ability = a;
 }
 
-void ability_cancel(Awk* awk)
+void ability_cancel(Drone* drone)
 {
-	awk->current_ability = Ability::None;
+	drone->current_ability = Ability::None;
 }
 
 void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerControlHuman::TargetIndicator::Type type)
@@ -1805,11 +1805,11 @@ void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerCo
 
 	b8 show;
 
-	if (type == PlayerControlHuman::TargetIndicator::Type::AwkTracking)
+	if (type == PlayerControlHuman::TargetIndicator::Type::DroneTracking)
 		show = true; // show even out of range
 	else
 	{
-		r32 range = p->get<Awk>()->range();
+		r32 range = p->get<Drone>()->range();
 		show = (target->absolute_pos() - me).length_squared() < range * range;
 	}
 
@@ -1817,7 +1817,7 @@ void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerCo
 	{
 		// calculate target intersection trajectory
 		Vec3 intersection;
-		if (p->get<Awk>()->predict_intersection(target, nullptr, &intersection, p->get<Awk>()->target_prediction_speed()))
+		if (p->get<Drone>()->predict_intersection(target, nullptr, &intersection, p->get<Drone>()->target_prediction_speed()))
 			p->target_indicators.add({ intersection, target->velocity(), type });
 	}
 }
@@ -1854,7 +1854,7 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 	Vec3 me = p->get<Transform>()->absolute_pos();
 	AI::Team team = p->get<AIAgent>()->team;
 
-	// awk indicators
+	// drone indicators
 	for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
 	{
 		if (other_player.item()->get<AIAgent>()->team != team)
@@ -1864,7 +1864,7 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 			Entity* detected_entity = player_determine_visibility(p->get<PlayerCommon>(), other_player.item(), &visible, &tracking);
 
 			if (visible || tracking)
-				player_add_target_indicator(p, detected_entity->get<Target>(), tracking ? PlayerControlHuman::TargetIndicator::Type::AwkTracking : PlayerControlHuman::TargetIndicator::Type::AwkVisible);
+				player_add_target_indicator(p, detected_entity->get<Target>(), tracking ? PlayerControlHuman::TargetIndicator::Type::DroneTracking : PlayerControlHuman::TargetIndicator::Type::DroneVisible);
 		}
 	}
 
@@ -1915,20 +1915,20 @@ void player_ability_update(const Update& u, PlayerControlHuman* control, Control
 	if (ability == Ability::None || !control->input_enabled())
 		return;
 
-	Awk* awk = control->get<Awk>();
+	Drone* drone = control->get<Drone>();
 
 	if (u.input->get(binding, gamepad) && !u.last_input->get(binding, gamepad))
 	{
-		if (awk->current_ability == ability)
+		if (drone->current_ability == ability)
 		{
 			// cancel current spawn ability
-			ability_cancel(awk);
+			ability_cancel(drone);
 		}
 		else
 		{
-			if (awk->current_ability != Ability::None)
-				ability_cancel(awk);
-			ability_select(awk, ability);
+			if (drone->current_ability != Ability::None)
+				ability_cancel(drone);
+			ability_select(drone, ability);
 		}
 	}
 }
@@ -1971,14 +1971,14 @@ void PlayerControlHuman::awake()
 
 	link_arg<const HealthEvent&, &PlayerControlHuman::health_changed>(get<Health>()->changed);
 
-	if (has<Awk>())
+	if (has<Drone>())
 	{
-		last_pos = get<Awk>()->center_lerped();
-		link<&PlayerControlHuman::awk_detaching>(get<Awk>()->detaching);
-		link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
-		link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
-		link_arg<const AwkReflectEvent&, &PlayerControlHuman::awk_reflecting>(get<Awk>()->reflecting);
-		link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Awk>()->hit);
+		last_pos = get<Drone>()->center_lerped();
+		link<&PlayerControlHuman::drone_detaching>(get<Drone>()->detaching);
+		link<&PlayerControlHuman::drone_done_flying_or_dashing>(get<Drone>()->done_flying);
+		link<&PlayerControlHuman::drone_done_flying_or_dashing>(get<Drone>()->done_dashing);
+		link_arg<const DroneReflectEvent&, &PlayerControlHuman::drone_reflecting>(get<Drone>()->reflecting);
+		link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Drone>()->hit);
 
 		if (!Team::game_over
 			&& Game::level.has_feature(Game::FeatureLevel::All)
@@ -2018,7 +2018,7 @@ void PlayerControlHuman::health_changed(const HealthEvent& e)
 	}
 }
 
-void PlayerControlHuman::awk_reflecting(const AwkReflectEvent& e)
+void PlayerControlHuman::drone_reflecting(const DroneReflectEvent& e)
 {
 	// send message if we are a server or client in a network game. don't if it's an all-local game
 #if !SERVER
@@ -2059,7 +2059,7 @@ void PlayerControlHuman::hit_target(Entity* target)
 	player.ref()->rumble_add(0.5f);
 }
 
-void PlayerControlHuman::awk_detaching()
+void PlayerControlHuman::drone_detaching()
 {
 	camera_shake_timer = 0.0f; // stop screen shake
 
@@ -2070,15 +2070,15 @@ void PlayerControlHuman::awk_detaching()
 
 	AI::Team my_team = get<AIAgent>()->team;
 	Vec3 me = get<Transform>()->absolute_pos();
-	Vec3 dir = Vec3::normalize(get<Awk>()->velocity);
-	r32 closest_distance = AWK_MAX_DISTANCE;
+	Vec3 dir = Vec3::normalize(get<Drone>()->velocity);
+	r32 closest_distance = DRONE_MAX_DISTANCE;
 	r32 closest_dot = 0.8f;
 	s8 closest_entity_type = AI::RecordedLife::EntityNone;
-	r32 target_prediction_speed = get<Awk>()->target_prediction_speed();
+	r32 target_prediction_speed = get<Drone>()->target_prediction_speed();
 
 	Net::StateFrame state_frame_data;
 	Net::StateFrame* state_frame = nullptr;
-	if (get<Awk>()->net_state_frame(&state_frame_data))
+	if (get<Drone>()->net_state_frame(&state_frame_data))
 		state_frame = &state_frame_data;
 
 	for (auto i = Entity::iterator(AI::entity_mask & ~Projectile::component_mask); !i.is_last(); i.next())
@@ -2089,7 +2089,7 @@ void PlayerControlHuman::awk_detaching()
 		if (team != my_team)
 		{
 			Vec3 pos;
-			if (!i.item()->has<Target>() || !get<Awk>()->predict_intersection(i.item()->get<Target>(), state_frame, &pos, target_prediction_speed))
+			if (!i.item()->has<Target>() || !get<Drone>()->predict_intersection(i.item()->get<Target>(), state_frame, &pos, target_prediction_speed))
 				pos = i.item()->get<Transform>()->absolute_pos();
 
 			Vec3 to_target = pos - me;
@@ -2119,7 +2119,7 @@ void PlayerControlHuman::awk_detaching()
 
 void PlayerControlHuman::camera_shake(r32 amount) // amount ranges from 0 to 1
 {
-	if (!has<Awk>() || get<Awk>()->state() == Awk::State::Crawl) // don't shake the screen if we reflect off something in the air
+	if (!has<Drone>() || get<Drone>()->state() == Drone::State::Crawl) // don't shake the screen if we reflect off something in the air
 		camera_shake_timer = vi_max(camera_shake_timer, camera_shake_time * amount);
 	player.ref()->rumble_add(amount);
 }
@@ -2151,8 +2151,8 @@ b8 PlayerControlHuman::movement_enabled() const
 
 r32 PlayerControlHuman::look_speed() const
 {
-	if (has<Awk>() && try_secondary)
-		return get<Awk>()->current_ability == Ability::Sniper ? zoom_speed_multiplier_sniper : zoom_speed_multiplier;
+	if (has<Drone>() && try_secondary)
+		return get<Drone>()->current_ability == Ability::Sniper ? zoom_speed_multiplier_sniper : zoom_speed_multiplier;
 	else
 		return 1.0f;
 }
@@ -2196,7 +2196,7 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 gamepad_rotati
 			get<PlayerCommon>()->angle_vertical += adjustment.y * gamepad_rotation_speed;
 		}
 
-		get<PlayerCommon>()->angle_vertical = LMath::clampf(get<PlayerCommon>()->angle_vertical, -AWK_VERTICAL_ANGLE_LIMIT, AWK_VERTICAL_ANGLE_LIMIT);
+		get<PlayerCommon>()->angle_vertical = LMath::clampf(get<PlayerCommon>()->angle_vertical, -DRONE_VERTICAL_ANGLE_LIMIT, DRONE_VERTICAL_ANGLE_LIMIT);
 	}
 }
 
@@ -2209,7 +2209,7 @@ Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot)
 		if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
 		{
 			Vec2 gamepad_movement(-u.input->gamepads[gamepad].left_x, -u.input->gamepads[gamepad].left_y);
-			if (has<Awk>())
+			if (has<Drone>())
 				Input::dead_zone(&gamepad_movement.x, &gamepad_movement.y);
 			else
 				Input::dead_zone_cross(&gamepad_movement.x, &gamepad_movement.y);
@@ -2287,7 +2287,7 @@ void PlayerControlHuman::camera_shake_update(const Update& u, Camera* camera)
 	if (camera_shake_timer > 0.0f)
 	{
 		camera_shake_timer -= u.time.delta;
-		if (!has<Awk>() || get<Awk>()->state() == Awk::State::Crawl)
+		if (!has<Drone>() || get<Drone>()->state() == Drone::State::Crawl)
 		{
 			r32 shake = (camera_shake_timer / camera_shake_time) * 0.3f;
 			r32 offset = Game::time.total * 10.0f;
@@ -2350,7 +2350,7 @@ void PlayerControlHuman::update(const Update& u)
 {
 	s32 gamepad = player.ref()->gamepad;
 
-	if (has<Awk>())
+	if (has<Drone>())
 	{
 		if (local())
 		{
@@ -2406,7 +2406,7 @@ void PlayerControlHuman::update(const Update& u)
 				tolerance_rot += NET_SYNC_TOLERANCE_ROT;
 
 				// make sure we're not too far from it
-				if (position && get<Awk>()->remote_reflection_timer == 0.0f) // if we just reflected, don't worry about it
+				if (position && get<Drone>()->remote_reflection_timer == 0.0f) // if we just reflected, don't worry about it
 				{
 					Vec3 remote_abs_pos = remote_control.pos;
 					Quat remote_abs_rot = remote_control.rot;
@@ -2423,7 +2423,7 @@ void PlayerControlHuman::update(const Update& u)
 						t->rot = remote_control.rot;
 						t->parent = remote_control.parent;
 						if (!t->parent.ref())
-							get<Awk>()->velocity = t->rot * Vec3(0, 0, vi_max(AWK_DASH_SPEED, get<Awk>()->velocity.length()));
+							get<Drone>()->velocity = t->rot * Vec3(0, 0, vi_max(DRONE_DASH_SPEED, get<Drone>()->velocity.length()));
 					}
 				}
 			}
@@ -2449,7 +2449,7 @@ void PlayerControlHuman::update(const Update& u)
 					try_secondary = false;
 				}
 
-				r32 fov_target = try_secondary ? (get<Awk>()->current_ability == Ability::Sniper ? fov_sniper : fov_zoom) : fov_default;
+				r32 fov_target = try_secondary ? (get<Drone>()->current_ability == Ability::Sniper ? fov_sniper : fov_zoom) : fov_default;
 
 				if (fov < fov_target)
 					fov = vi_min(fov + zoom_speed * sinf(fov) * u.time.delta, fov_target);
@@ -2481,7 +2481,7 @@ void PlayerControlHuman::update(const Update& u)
 						const TargetIndicator indicator = target_indicators[i];
 						Vec3 to_indicator = indicator.pos - camera->pos;
 						r32 indicator_distance = to_indicator.length();
-						if (indicator_distance > AWK_THIRD_PERSON_OFFSET && indicator_distance < reticle_distance + 2.5f)
+						if (indicator_distance > DRONE_THIRD_PERSON_OFFSET && indicator_distance < reticle_distance + 2.5f)
 						{
 							to_indicator /= indicator_distance;
 							if (to_indicator.dot(to_reticle) > 0.99f)
@@ -2494,16 +2494,16 @@ void PlayerControlHuman::update(const Update& u)
 									// adjust for relative velocity
 									Vec2 predicted_offset;
 									{
-										Vec3 me = get<Awk>()->center_lerped();
-										Vec3 my_velocity = get<Awk>()->center_lerped() - last_pos;
+										Vec3 me = get<Drone>()->center_lerped();
+										Vec3 my_velocity = get<Drone>()->center_lerped() - last_pos;
 										{
 											r32 my_speed = my_velocity.length_squared();
-											if (my_speed == 0.0f || my_speed > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // don't adjust if we're going too fast or not moving
+											if (my_speed == 0.0f || my_speed > DRONE_CRAWL_SPEED * 1.5f * DRONE_CRAWL_SPEED * 1.5f) // don't adjust if we're going too fast or not moving
 												break;
 										}
 										Vec3 me_predicted = me + my_velocity;
 
-										if (indicator.velocity.length_squared() > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // enemy moving too fast
+										if (indicator.velocity.length_squared() > DRONE_CRAWL_SPEED * 1.5f * DRONE_CRAWL_SPEED * 1.5f) // enemy moving too fast
 											break;
 
 										Vec3 target_predicted = indicator.pos + indicator.velocity * u.time.delta;
@@ -2541,10 +2541,10 @@ void PlayerControlHuman::update(const Update& u)
 				// crawling
 				{
 					Vec3 movement = get_movement(u, get<PlayerCommon>()->look());
-					get<Awk>()->crawl(movement, u);
+					get<Drone>()->crawl(movement, u);
 				}
 
-				last_pos = get<Awk>()->center_lerped();
+				last_pos = get<Drone>()->center_lerped();
 			}
 			else
 				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
@@ -2558,7 +2558,7 @@ void PlayerControlHuman::update(const Update& u)
 
 			camera_shake_update(u, camera);
 
-			PlayerHuman::camera_setup_awk(entity(), camera, AWK_THIRD_PERSON_OFFSET);
+			PlayerHuman::camera_setup_drone(entity(), camera, DRONE_THIRD_PERSON_OFFSET);
 
 			// reticle
 			{
@@ -2570,11 +2570,11 @@ void PlayerControlHuman::update(const Update& u)
 
 				if (movement_enabled())
 				{
-					Vec3 trace_end = trace_start + trace_dir * (AWK_SNIPE_DISTANCE + AWK_THIRD_PERSON_OFFSET);
+					Vec3 trace_end = trace_start + trace_dir * (DRONE_SNIPE_DISTANCE + DRONE_THIRD_PERSON_OFFSET);
 					RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-					Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsForceField);
+					Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
 
-					Ability ability = get<Awk>()->current_ability;
+					Ability ability = get<Drone>()->current_ability;
 
 					if (ray_callback.hasHit())
 					{
@@ -2584,10 +2584,10 @@ void PlayerControlHuman::update(const Update& u)
 						Vec3 detach_dir = reticle.pos - me;
 						r32 distance = detach_dir.length();
 						detach_dir /= distance;
-						r32 dot_tolerance = distance < AWK_DASH_DISTANCE ? 0.3f : 0.1f;
+						r32 dot_tolerance = distance < DRONE_DASH_DISTANCE ? 0.3f : 0.1f;
 						if (ability == Ability::None) // normal movement
 						{
-							if (get<Awk>()->direction_is_toward_attached_wall(detach_dir))
+							if (get<Drone>()->direction_is_toward_attached_wall(detach_dir))
 							{
 								Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 								if (hit_entity->has<Target>()
@@ -2600,11 +2600,11 @@ void PlayerControlHuman::update(const Update& u)
 							{
 								Vec3 hit;
 								b8 hit_target;
-								if (get<Awk>()->can_shoot(detach_dir, &hit, &hit_target))
+								if (get<Drone>()->can_shoot(detach_dir, &hit, &hit_target))
 								{
 									if (hit_target)
 										reticle.type = ReticleType::Target;
-									else if ((reticle.pos - hit).length_squared() < AWK_RADIUS * AWK_RADIUS)
+									else if ((reticle.pos - hit).length_squared() < DRONE_RADIUS * DRONE_RADIUS)
 										reticle.type = ReticleType::Normal;
 								}
 								else
@@ -2615,7 +2615,7 @@ void PlayerControlHuman::update(const Update& u)
 									// and sometimes that shot can't actually be taken.
 									// so we need to check for this case and turn it into a dash if we can.
 
-									if (distance < AWK_DASH_DISTANCE && hit_entity->has<Target>() && hit_entity->get<Transform>()->parent.ref())
+									if (distance < DRONE_DASH_DISTANCE && hit_entity->has<Target>() && hit_entity->get<Transform>()->parent.ref())
 									{
 										Quat my_rot = get<Transform>()->absolute_rot();
 										Vec3 target_pos;
@@ -2635,7 +2635,7 @@ void PlayerControlHuman::update(const Update& u)
 						{
 							Vec3 hit;
 							b8 hit_target;
-							if (get<Awk>()->can_spawn(ability, detach_dir, &hit, nullptr, nullptr, &hit_target))
+							if (get<Drone>()->can_spawn(ability, detach_dir, &hit, nullptr, nullptr, &hit_target))
 							{
 								if (AbilityInfo::list[s32(ability)].type == AbilityInfo::Type::Shoot)
 								{
@@ -2643,7 +2643,7 @@ void PlayerControlHuman::update(const Update& u)
 									if (hit_target)
 										reticle.type = ReticleType::Target;
 								}
-								else if ((hit - Vec3(ray_callback.m_hitPointWorld)).length_squared() < AWK_RADIUS * AWK_RADIUS)
+								else if ((hit - Vec3(ray_callback.m_hitPointWorld)).length_squared() < DRONE_RADIUS * DRONE_RADIUS)
 									reticle.type = ReticleType::Normal;
 							}
 						}
@@ -2653,7 +2653,7 @@ void PlayerControlHuman::update(const Update& u)
 						reticle.pos = trace_end;
 						reticle.normal = -trace_dir;
 						if (ability != Ability::None
-							&& get<Awk>()->can_spawn(ability, trace_dir)) // spawning an ability
+							&& get<Drone>()->can_spawn(ability, trace_dir)) // spawning an ability
 						{
 							reticle.type = ReticleType::Normal;
 						}
@@ -2661,7 +2661,7 @@ void PlayerControlHuman::update(const Update& u)
 				}
 				else
 				{
-					reticle.pos = trace_start + trace_dir * AWK_THIRD_PERSON_OFFSET;
+					reticle.pos = trace_start + trace_dir * DRONE_THIRD_PERSON_OFFSET;
 					reticle.normal = -trace_dir;
 				}
 			}
@@ -2674,7 +2674,7 @@ void PlayerControlHuman::update(const Update& u)
 					try_primary = false;
 			}
 
-			if (reticle.type == ReticleType::None || !get<Awk>()->cooldown_can_shoot())
+			if (reticle.type == ReticleType::None || !get<Drone>()->cooldown_can_shoot())
 			{
 				// can't shoot
 				if (u.input->get(Controls::Primary, gamepad)) // player is mashing the fire button; give them some feedback
@@ -2701,7 +2701,7 @@ void PlayerControlHuman::update(const Update& u)
 					else
 					{
 						msg.type = PlayerControlHumanNet::Message::Type::Go;
-						msg.ability = get<Awk>()->current_ability;
+						msg.ability = get<Drone>()->current_ability;
 						PlayerControlHumanNet::send(this, &msg);
 					}
 				}
@@ -2709,18 +2709,18 @@ void PlayerControlHuman::update(const Update& u)
 		}
 		else if (Game::level.local)
 		{
-			// we are a server, but this Awk is being controlled by a client
+			// we are a server, but this Drone is being controlled by a client
 #if SERVER
 			// if we are crawling, update the RTT every frame
 			// if we're dashing or flying, the RTT is set based on the sequence number of the command we received
-			if (get<Awk>()->state() == Awk::State::Crawl)
+			if (get<Drone>()->state() == Drone::State::Crawl)
 				rtt = Net::rtt(player.ref());
 
 			ai_record_wait_timer -= u.time.delta;
 			if (ai_record_wait_timer < 0.0f)
 			{
 				ai_record_wait_timer += AI_RECORD_WAIT_TIME;
-				if (get<Awk>()->invincible_timer == 0.0f)
+				if (get<Drone>()->invincible_timer == 0.0f)
 				{
 					AI::RecordedLife::Action action;
 					action.type = AI::RecordedLife::Action::TypeWait;
@@ -2729,15 +2729,15 @@ void PlayerControlHuman::update(const Update& u)
 				ai_record_tag.init(entity());
 			}
 
-			get<Awk>()->crawl(remote_control.movement, u);
-			last_pos = get<Awk>()->center_lerped();
+			get<Drone>()->crawl(remote_control.movement, u);
+			last_pos = get<Drone>()->center_lerped();
 #else
 			vi_assert(false);
 #endif
 		}
 		else
 		{
-			// we are a client and this Awk is not local
+			// we are a client and this Drone is not local
 			// do nothing
 		}
 	}
@@ -3127,7 +3127,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 	const Rect2& viewport = params.camera->viewport;
 
-	r32 range = has<Awk>() ? get<Awk>()->range() : AWK_MAX_DISTANCE;
+	r32 range = has<Drone>() ? get<Drone>()->range() : DRONE_MAX_DISTANCE;
 
 	AI::Team team = get<AIAgent>()->team;
 
@@ -3137,12 +3137,12 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		const TargetIndicator& indicator = target_indicators[i];
 		switch (indicator.type)
 		{
-			case TargetIndicator::Type::AwkVisible:
+			case TargetIndicator::Type::DroneVisible:
 			{
 				UI::indicator(params, indicator.pos, UI::color_alert, false);
 				break;
 			}
-			case TargetIndicator::Type::AwkTracking:
+			case TargetIndicator::Type::DroneTracking:
 			{
 				UI::indicator(params, indicator.pos, UI::color_alert, true);
 				break;
@@ -3283,7 +3283,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 		Vec3 diff = me - pos;
 		r32 distance = diff.length();
-		if (distance < AWK_MAX_DISTANCE
+		if (distance < DRONE_MAX_DISTANCE
 			&& (diff / distance).dot(Vec3::normalize(i.item()->velocity)) > 0.7f)
 		{
 			if (UI::flash_function(Game::real_time.total))
@@ -3291,7 +3291,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		}
 	}
 
-	if (has<Awk>())
+	if (has<Drone>())
 	{
 		PlayerManager* manager = player.ref()->get<PlayerManager>();
 
@@ -3539,7 +3539,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 			if (friendly)
 			{
-				Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
+				Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, DRONE_RADIUS * 2.0f, 0);
 				draw = UI::project(params, pos3d, &p);
 				color = &Team::ui_color_friend;
 			}
@@ -3548,7 +3548,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				// highlight the username and draw it even if it's offscreen
 				if (detected_entity)
 				{
-					Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
+					Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, DRONE_RADIUS * 2.0f, 0);
 
 					if (friendly)
 						color = &Team::ui_color_friend;
@@ -3594,7 +3594,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 	const Health* health = get<Health>();
 
-	b8 is_vulnerable = !get<AIAgent>()->stealth && (!has<Awk>() || get<Awk>()->invincible_timer == 0.0f) && health->hp == 1 && health->shield == 0;
+	b8 is_vulnerable = !get<AIAgent>()->stealth && (!has<Drone>() || get<Drone>()->invincible_timer == 0.0f) && health->hp == 1 && health->shield == 0;
 
 	// compass
 	{
@@ -3712,31 +3712,31 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	}
 
 	// reticle
-	if (has<Awk>() && movement_enabled())
+	if (has<Drone>() && movement_enabled())
 	{
 		Vec2 pos = viewport.size * Vec2(0.5f, 0.5f);
 		const r32 spoke_length = 10.0f;
 		const r32 spoke_width = 3.0f;
 		const r32 start_radius = 8.0f + spoke_length * 0.5f;
 
-		b8 cooldown_can_go = get<Awk>()->cooldown_can_shoot();
+		b8 cooldown_can_go = get<Drone>()->cooldown_can_shoot();
 
 		const Vec4* color;
 		if (reticle.type == ReticleType::Error || reticle.type == ReticleType::DashError)
 			color = &UI::color_disabled;
 		else if (reticle.type != ReticleType::None
 			&& cooldown_can_go
-			&& (get<Awk>()->current_ability == Ability::None || player.ref()->get<PlayerManager>()->ability_valid(get<Awk>()->current_ability)))
+			&& (get<Drone>()->current_ability == Ability::None || player.ref()->get<PlayerManager>()->ability_valid(get<Drone>()->current_ability)))
 			color = &UI::color_accent;
 		else
 			color = &UI::color_alert;
 
 		// cooldown indicator
 		{
-			s32 charges = get<Awk>()->charges;
+			s32 charges = get<Drone>()->charges;
 			if (charges == 0)
-				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * (get<Awk>()->cooldown / AWK_COOLDOWN)) * UI::scale) }, spoke_width, UI::color_alert, PI);
-			else if (get<Awk>()->current_ability == Ability::None)
+				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * (get<Drone>()->cooldown / DRONE_COOLDOWN)) * UI::scale) }, spoke_width, UI::color_alert, PI);
+			else if (get<Drone>()->current_ability == Ability::None)
 			{
 				const Vec2 box_size = Vec2(10.0f) * UI::scale;
 				for (s32 i = 0; i < charges; i++)
@@ -3760,9 +3760,9 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			UI::centered_box(params, { pos + Vec2(-ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * -0.33f);
 			UI::centered_box(params, { pos + Vec2(0, -1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, *color);
 
-			if (get<Awk>()->current_ability != Ability::None)
+			if (get<Drone>()->current_ability != Ability::None)
 			{
-				Ability a = get<Awk>()->current_ability;
+				Ability a = get<Drone>()->current_ability;
 				Vec2 p = pos + Vec2(0, -48.0f * UI::scale);
 				UI::centered_box(params, { p, Vec2(34.0f * UI::scale) }, UI::color_background);
 				UI::mesh(params, AbilityInfo::list[(s32)a].icon, p, Vec2(18.0f * UI::scale), *color);

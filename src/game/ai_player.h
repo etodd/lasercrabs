@@ -7,7 +7,7 @@
 #include <typeinfo>
 #endif
 #include "data/components.h"
-#include "awk.h"
+#include "drone.h"
 #include "entities.h"
 #include "data/priority_queue.h"
 
@@ -48,7 +48,7 @@ struct PlayerAI
 	}
 	void update(const Update&);
 	void spawn(const PlayerSpawnPosition&);
-	void spawn_callback(const AI::AwkPathNode&);
+	void spawn_callback(const AI::DronePathNode&);
 };
 
 struct ActionEntry
@@ -77,7 +77,7 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	r32 aim_timeout; // time we've been able to shoot but haven't due to aiming
 	r32 aim_timer; // total aim time including cooldowns etc.
 	r32 inaccuracy;
-	AI::AwkPath path;
+	AI::DronePath path;
 	s32 path_index;
 	Ref<PlayerAI> player;
 	Ref<Entity> target;
@@ -92,20 +92,20 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	void action_clear();
 	void action_done(b8);
 
-	void path_callback(const AI::AwkResult&);
+	void path_callback(const AI::DroneResult&);
 	void control_point_capture_completed(b8);
 	void upgrade_completed(Upgrade);
 	void update_memory();
 	void sniper_or_bolter_cancel();
 	Vec2 aim(const Update&, const Vec3&);
 	void aim_and_shoot_target(const Update&, const Vec3&, Target*);
-	b8 go(const Update&, const AI::AwkPathNode&, const AI::AwkPathNode&, r32);
+	b8 go(const Update&, const AI::DronePathNode&, const AI::DronePathNode&, r32);
 	b8 in_range(const Vec3&, r32) const;
 	void set_target(Entity*, r32 = 0.0f);
-	void set_path(const AI::AwkPath&);
-	void awk_done_flying_or_dashing();
-	void awk_hit(Entity*);
-	void awk_detaching();
+	void set_path(const AI::DronePath&);
+	void drone_done_flying_or_dashing();
+	void drone_hit(Entity*);
+	void drone_detaching();
 	void update(const Update&);
 	const AI::Config& config() const;
 };

@@ -1,4 +1,4 @@
-#include "awk.h"
+#include "drone.h"
 #include "data/components.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "entities.h"
@@ -30,25 +30,25 @@ namespace VI
 #define LERP_ROTATION_SPEED 10.0f
 #define LERP_TRANSLATION_SPEED 3.0f
 #define MAX_FLIGHT_TIME 6.0f
-#define AWK_LEG_LENGTH (0.277f - 0.101f)
-#define AWK_LEG_BLEND_SPEED (1.0f / 0.03f)
-#define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
-#define AWK_SHIELD_ANIM_TIME 0.35f
-#define AWK_REFLECTION_TIME_TOLERANCE 0.2f
+#define DRONE_LEG_LENGTH (0.277f - 0.101f)
+#define DRONE_LEG_BLEND_SPEED (1.0f / 0.03f)
+#define DRONE_MIN_LEG_BLEND_SPEED (DRONE_LEG_BLEND_SPEED * 0.1f)
+#define DRONE_SHIELD_ANIM_TIME 0.35f
+#define DRONE_REFLECTION_TIME_TOLERANCE 0.2f
 
-AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
+DroneRaycastCallback::DroneRaycastCallback(const Vec3& a, const Vec3& b, const Entity* drone)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
 {
 	closest_target_hit_fraction = 2.0f;
-	entity_id = awk->id();
+	entity_id = drone->id();
 }
 
-b8 AwkRaycastCallback::hit_target() const
+b8 DroneRaycastCallback::hit_target() const
 {
 	return closest_target_hit_fraction < 2.0f;
 }
 
-btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& ray_result, b8 normalInWorldSpace)
+btScalar DroneRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& ray_result, b8 normalInWorldSpace)
 {
 	s32 collision_entity_id = ray_result.m_collisionObject->getUserIndex();
 	if (collision_entity_id == entity_id)
@@ -80,7 +80,7 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 	return ray_result.m_hitFraction;
 }
 
-namespace AwkNet
+namespace DroneNet
 {
 
 enum class Message
@@ -95,12 +95,12 @@ enum class Message
 	count,
 };
 
-b8 start_flying(Awk* a, Vec3 dir)
+b8 start_flying(Drone* a, Vec3 dir)
 {
 	using Stream = Net::StreamWrite;
-	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
 	{
-		Ref<Awk> ref = a;
+		Ref<Drone> ref = a;
 		serialize_ref(p, ref);
 	}
 	{
@@ -115,12 +115,12 @@ b8 start_flying(Awk* a, Vec3 dir)
 	return true;
 }
 
-b8 ability_spawn(Awk* a, Vec3 dir, Ability ability)
+b8 ability_spawn(Drone* a, Vec3 dir, Ability ability)
 {
 	using Stream = Net::StreamWrite;
-	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
 	{
-		Ref<Awk> ref = a;
+		Ref<Drone> ref = a;
 		serialize_ref(p, ref);
 	}
 	{
@@ -136,12 +136,12 @@ b8 ability_spawn(Awk* a, Vec3 dir, Ability ability)
 	return true;
 }
 
-b8 start_dashing(Awk* a, Vec3 dir)
+b8 start_dashing(Drone* a, Vec3 dir)
 {
 	using Stream = Net::StreamWrite;
-	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
 	{
-		Ref<Awk> ref = a;
+		Ref<Drone> ref = a;
 		serialize_ref(p, ref);
 	}
 	{
@@ -156,12 +156,12 @@ b8 start_dashing(Awk* a, Vec3 dir)
 	return true;
 }
 
-b8 finish_flying(Awk* a)
+b8 finish_flying(Drone* a)
 {
 	using Stream = Net::StreamWrite;
-	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
 	{
-		Ref<Awk> ref = a;
+		Ref<Drone> ref = a;
 		serialize_ref(p, ref);
 	}
 	{
@@ -172,12 +172,12 @@ b8 finish_flying(Awk* a)
 	return true;
 }
 
-b8 finish_dashing(Awk* a)
+b8 finish_dashing(Drone* a)
 {
 	using Stream = Net::StreamWrite;
-	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
 	{
-		Ref<Awk> ref = a;
+		Ref<Drone> ref = a;
 		serialize_ref(p, ref);
 	}
 	{
@@ -188,12 +188,12 @@ b8 finish_dashing(Awk* a)
 	return true;
 }
 
-b8 hit_target(Awk* a, Entity* target)
+b8 hit_target(Drone* a, Entity* target)
 {
 	using Stream = Net::StreamWrite;
-	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
 	{
-		Ref<Awk> ref = a;
+		Ref<Drone> ref = a;
 		serialize_ref(p, ref);
 	}
 	{
@@ -208,12 +208,12 @@ b8 hit_target(Awk* a, Entity* target)
 	return true;
 }
 
-b8 reflection_effects(Awk* a, Entity* reflected_off)
+b8 reflection_effects(Drone* a, Entity* reflected_off)
 {
 	using Stream = Net::StreamWrite;
-	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
 	{
-		Ref<Awk> ref = a;
+		Ref<Drone> ref = a;
 		serialize_ref(p, ref);
 	}
 	{
@@ -248,11 +248,11 @@ void particle_trail(const Vec3& start, const Vec3& dir, r32 distance, r32 interv
 	}
 }
 
-void client_hit_effects(Awk* awk, Entity* target)
+void client_hit_effects(Drone* drone, Entity* target)
 {
-	Vec3 pos = awk->get<Transform>()->absolute_pos();
+	Vec3 pos = drone->get<Transform>()->absolute_pos();
 
-	Quat rot = Quat::look(Vec3::normalize(awk->velocity));
+	Quat rot = Quat::look(Vec3::normalize(drone->velocity));
 	for (s32 i = 0; i < 50; i++)
 	{
 		Particles::sparks.add
@@ -266,10 +266,10 @@ void client_hit_effects(Awk* awk, Entity* target)
 	EffectLight::add(pos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 	// controller vibration, etc.
-	awk->hit.fire(target);
+	drone->hit.fire(target);
 }
 
-void sniper_hit_effects(const Awk::Hit& hit)
+void sniper_hit_effects(const Drone::Hit& hit)
 {
 	// we just shot at something; spawn some particles
 	Quat rot = Quat::look(hit.normal);
@@ -295,27 +295,27 @@ b8 players_on_same_client(Entity* a, Entity* b)
 #endif
 }
 
-s32 impact_damage(Awk* awk, Awk* target_awk)
+s32 impact_damage(Drone* drone, Drone* target_drone)
 {
 	Net::StateFrame state_frame;
 
 	Vec3 target_pos;
 
-	if (!players_on_same_client(awk->entity(), target_awk->entity()) && awk->net_state_frame(&state_frame))
+	if (!players_on_same_client(drone->entity(), target_drone->entity()) && drone->net_state_frame(&state_frame))
 	{
 		Vec3 pos;
 		Quat rot;
-		Net::transform_absolute(state_frame, target_awk->get<Transform>()->id(), &pos, &rot);
-		target_pos = pos + (rot * target_awk->get<Target>()->local_offset); // todo possibly: rewind local_offset as well?
+		Net::transform_absolute(state_frame, target_drone->get<Transform>()->id(), &pos, &rot);
+		target_pos = pos + (rot * target_drone->get<Target>()->local_offset); // todo possibly: rewind local_offset as well?
 	}
 	else
-		target_pos = target_awk->get<Target>()->absolute_pos();
+		target_pos = target_drone->get<Target>()->absolute_pos();
 
-	Vec3 ray_start = awk->get<Transform>()->absolute_pos();
-	Vec3 ray_dir = Vec3::normalize(awk->velocity);
+	Vec3 ray_start = drone->get<Transform>()->absolute_pos();
+	Vec3 ray_dir = Vec3::normalize(drone->velocity);
 
 	Vec3 intersection;
-	if (LMath::ray_sphere_intersect(ray_start, ray_start + ray_dir * AWK_MAX_DISTANCE, target_pos, AWK_SHIELD_RADIUS, &intersection))
+	if (LMath::ray_sphere_intersect(ray_start, ray_start + ray_dir * DRONE_MAX_DISTANCE, target_pos, DRONE_SHIELD_RADIUS, &intersection))
 	{
 		r32 dot = Vec3::normalize(intersection - target_pos).dot(ray_dir);
 		if (dot < -0.85f)
@@ -326,154 +326,154 @@ s32 impact_damage(Awk* awk, Awk* target_awk)
 	return 1;
 }
 
-b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
+b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
 
-	Awk* awk;
+	Drone* drone;
 	{
-		Ref<Awk> ref;
+		Ref<Drone> ref;
 		serialize_ref(p, ref);
-		awk = ref.ref();
+		drone = ref.ref();
 	}
 
-	AwkNet::Message type;
-	serialize_enum(p, AwkNet::Message, type);
+	DroneNet::Message type;
+	serialize_enum(p, DroneNet::Message, type);
 
 	// should we actually pay attention to this message?
 	// if it's a message from a remote, but we are a local entity, then ignore the message.
-	b8 apply_msg = src == Net::MessageSource::Loopback || !awk->has<PlayerControlHuman>() || !awk->get<PlayerControlHuman>()->local();
+	b8 apply_msg = src == Net::MessageSource::Loopback || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local();
 
 	switch (type)
 	{
-		case AwkNet::Message::FlyStart:
+		case DroneNet::Message::FlyStart:
 		{
 			Vec3 dir;
 			serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
 
-			if (apply_msg && awk->charges > 0)
+			if (apply_msg && drone->charges > 0)
 			{
-				awk->velocity = dir * AWK_FLY_SPEED;
-				awk->detaching.fire();
-				awk->get<Transform>()->absolute_pos(awk->get<Transform>()->absolute_pos() + dir * AWK_RADIUS * 0.5f);
-				awk->get<Transform>()->absolute_rot(Quat::look(dir));
+				drone->velocity = dir * DRONE_FLY_SPEED;
+				drone->detaching.fire();
+				drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
+				drone->get<Transform>()->absolute_rot(Quat::look(dir));
 
-				awk->get<Audio>()->post_event(awk->has<PlayerControlHuman>() && awk->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+				drone->get<Audio>()->post_event(drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 
-				awk->cooldown_setup();
-				awk->ensure_detached();
+				drone->cooldown_setup();
+				drone->ensure_detached();
 			}
 
 			break;
 		}
-		case AwkNet::Message::DashStart:
+		case DroneNet::Message::DashStart:
 		{
 			Vec3 dir;
 			serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
 
-			if (apply_msg && awk->charges > 0)
+			if (apply_msg && drone->charges > 0)
 			{
-				awk->velocity = dir * AWK_DASH_SPEED;
+				drone->velocity = dir * DRONE_DASH_SPEED;
 
-				awk->dashing.fire();
+				drone->dashing.fire();
 
-				awk->dash_timer = AWK_DASH_TIME;
+				drone->dash_timer = DRONE_DASH_TIME;
 
-				awk->hit_targets.length = 0;
-				awk->remote_reflection_timer = 0.0f;
+				drone->hit_targets.length = 0;
+				drone->remote_reflection_timer = 0.0f;
 
-				awk->attach_time = Game::time.total;
-				awk->cooldown_setup();
+				drone->attach_time = Game::time.total;
+				drone->cooldown_setup();
 
-				for (s32 i = 0; i < AWK_LEGS; i++)
-					awk->footing[i].parent = nullptr;
-				awk->get<Animator>()->reset_overrides();
-				awk->get<Animator>()->layers[0].animation = Asset::Animation::awk_dash;
+				for (s32 i = 0; i < DRONE_LEGS; i++)
+					drone->footing[i].parent = nullptr;
+				drone->get<Animator>()->reset_overrides();
+				drone->get<Animator>()->layers[0].animation = Asset::Animation::drone_dash;
 
-				awk->particle_accumulator = 0;
+				drone->particle_accumulator = 0;
 
-				awk->get<Audio>()->post_event(awk->has<PlayerControlHuman>() && awk->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+				drone->get<Audio>()->post_event(drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 			}
 
 			break;
 		}
-		case AwkNet::Message::DashDone:
+		case DroneNet::Message::DashDone:
 		{
 			if (apply_msg)
 			{
-				Vec3 p = awk->get<Transform>()->absolute_pos();
-				awk->finish_flying_dashing_common();
-				awk->done_dashing.fire();
+				Vec3 p = drone->get<Transform>()->absolute_pos();
+				drone->finish_flying_dashing_common();
+				drone->done_dashing.fire();
 			}
 			break;
 		}
-		case AwkNet::Message::FlyDone:
+		case DroneNet::Message::FlyDone:
 		{
 			if (apply_msg)
 			{
-				awk->finish_flying_dashing_common();
-				awk->done_flying.fire();
+				drone->finish_flying_dashing_common();
+				drone->done_flying.fire();
 			}
 			break;
 		}
-		case AwkNet::Message::HitTarget:
+		case DroneNet::Message::HitTarget:
 		{
 			Ref<Entity> target;
 			serialize_ref(p, target);
 
 			if (apply_msg)
-				client_hit_effects(awk, target.ref());
+				client_hit_effects(drone, target.ref());
 
 			// damage messages
-			if (awk->has<PlayerControlHuman>())
+			if (drone->has<PlayerControlHuman>())
 			{
 				if (target.ref()->has<MinionCommon>())
 				{
-					b8 is_enemy = target.ref()->get<AIAgent>()->team != awk->get<AIAgent>()->team;
-					awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::minion_killed), is_enemy);
+					b8 is_enemy = target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team;
+					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::minion_killed), is_enemy);
 				}
 				else if (target.ref()->has<Sensor>() && !target.ref()->has<Battery>())
 				{
-					b8 is_enemy = target.ref()->get<Sensor>()->team != awk->get<AIAgent>()->team;
-					awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::sensor_destroyed), is_enemy);
+					b8 is_enemy = target.ref()->get<Sensor>()->team != drone->get<AIAgent>()->team;
+					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::sensor_destroyed), is_enemy);
 				}
 				else if (target.ref()->has<ForceField>())
 				{
-					b8 is_enemy = target.ref()->get<ForceField>()->team != awk->get<AIAgent>()->team;
-					awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::force_field_destroyed), is_enemy);
+					b8 is_enemy = target.ref()->get<ForceField>()->team != drone->get<AIAgent>()->team;
+					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::force_field_destroyed), is_enemy);
 				}
 				else if (target.ref()->has<Rocket>())
 				{
-					b8 is_enemy = target.ref()->get<Rocket>()->team() != awk->get<AIAgent>()->team;
-					awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::rocket_destroyed), is_enemy);
+					b8 is_enemy = target.ref()->get<Rocket>()->team() != drone->get<AIAgent>()->team;
+					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::rocket_destroyed), is_enemy);
 				}
 			}
 
-			if (target.ref()->has<Awk>())
+			if (target.ref()->has<Drone>())
 			{
 				target.ref()->get<Audio>()->post_event(target.ref()->has<PlayerControlHuman>() && target.ref()->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
 
 				// only do damage if they're attached to a wall and have no overshield
-				Awk* target_awk = target.ref()->get<Awk>();
-				if (target_awk->state() == Awk::State::Crawl && target_awk->invincible_timer == 0.0f)
+				Drone* target_drone = target.ref()->get<Drone>();
+				if (target_drone->state() == Drone::State::Crawl && target_drone->invincible_timer == 0.0f)
 				{
 					if (Game::level.local) // if we're a client, this has already been handled by the server
-						target.ref()->get<Health>()->damage(awk->entity(), impact_damage(awk, target_awk));
+						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target_drone));
 				}
 				else // we didn't hurt them
 				{
-					if (awk->has<PlayerControlHuman>())
-						awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
+					if (drone->has<PlayerControlHuman>())
+						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
 				}
 			}
 
 			break;
 		}
-		case AwkNet::Message::AbilitySpawn:
+		case DroneNet::Message::AbilitySpawn:
 		{
 			Vec3 dir;
 			serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
@@ -490,7 +490,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				dir_normalized = dir / length;
 			}
 
-			PlayerManager* manager = awk->get<PlayerCommon>()->manager.ref();
+			PlayerManager* manager = drone->get<PlayerCommon>()->manager.ref();
 
 #if SERVER
 			if (!manager->ability_valid(ability))
@@ -500,7 +500,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			Vec3 pos;
 			Vec3 normal;
 			RigidBody* parent;
-			if (!awk->can_spawn(ability, dir_normalized, &pos, &normal, &parent))
+			if (!drone->can_spawn(ability, dir_normalized, &pos, &normal, &parent))
 				return true;
 
 			Quat rot = Quat::look(normal);
@@ -509,11 +509,11 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			manager->add_energy(-info.spawn_cost);
 
 			if (!info.rapid_fire)
-				awk->cooldown_setup();
+				drone->cooldown_setup();
 
 			Vec3 my_pos;
 			Quat my_rot;
-			awk->get<Transform>()->absolute(&my_pos, &my_rot);
+			drone->get<Transform>()->absolute(&my_pos, &my_rot);
 
 			switch (ability)
 			{
@@ -543,13 +543,13 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					// spawn a rocket pod
 					if (Game::level.local)
 					{
-						Net::finalize(World::create<RocketEntity>(manager, parent->get<Transform>(), pos, rot, awk->get<AIAgent>()->team));
+						Net::finalize(World::create<RocketEntity>(manager, parent->get<Transform>(), pos, rot, drone->get<AIAgent>()->team));
 
 						// rocket base
 						Entity* base = World::create<Prop>(Asset::Mesh::rocket_base);
 						base->get<Transform>()->absolute(pos, rot);
 						base->get<Transform>()->reparent(parent->get<Transform>());
-						base->get<View>()->team = s8(awk->get<AIAgent>()->team);
+						base->get<View>()->team = s8(drone->get<AIAgent>()->team);
 						Net::finalize(base);
 					}
 
@@ -557,7 +557,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					EffectLight::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f, EffectLight::Type::Shockwave);
+					EffectLight::add(pos + rot * Vec3(0, 0, DRONE_RADIUS), 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 					break;
 				}
@@ -586,7 +586,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							else
 								angle = 0.0f;
 						}
-						Net::finalize(World::create<Minion>(npos, Quat::euler(0, angle, 0), awk->get<AIAgent>()->team, manager));
+						Net::finalize(World::create<Minion>(npos, Quat::euler(0, angle, 0), drone->get<AIAgent>()->team, manager));
 					}
 
 					// effects
@@ -614,20 +614,20 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				case Ability::Sniper:
 				{
-					awk->hit_targets.length = 0;
+					drone->hit_targets.length = 0;
 
-					Vec3 pos = awk->get<Transform>()->absolute_pos();
-					Vec3 ray_start = pos + dir_normalized * -AWK_RADIUS;
-					Vec3 ray_end = pos + dir_normalized * awk->range();
-					awk->velocity = dir_normalized * AWK_FLY_SPEED;
+					Vec3 pos = drone->get<Transform>()->absolute_pos();
+					Vec3 ray_start = pos + dir_normalized * -DRONE_RADIUS;
+					Vec3 ray_end = pos + dir_normalized * drone->range();
+					drone->velocity = dir_normalized * DRONE_FLY_SPEED;
 					r32 distance;
 					if (Game::level.local)
-						distance = awk->movement_raycast(ray_start, ray_end);
+						distance = drone->movement_raycast(ray_start, ray_end);
 					else
 					{
-						Awk::Hits hits;
-						awk->raycast(RaycastMode::Default, ray_start, ray_end, nullptr, &hits);
-						distance = hits.fraction_end * awk->range();
+						Drone::Hits hits;
+						drone->raycast(RaycastMode::Default, ray_start, ray_end, nullptr, &hits);
+						distance = hits.fraction_end * drone->range();
 						if (hits.index_end != -1)
 							sniper_hit_effects(hits.hits[hits.index_end]);
 					}
@@ -636,11 +636,11 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					particle_trail(ray_start, dir_normalized, distance);
 
 					// everyone instantly knows where we are
-					AI::Team team = awk->get<AIAgent>()->team;
+					AI::Team team = drone->get<AIAgent>()->team;
 					for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 					{
 						if (i.item()->team() != team)
-							i.item()->track(awk->get<PlayerCommon>()->manager.ref(), awk->entity());
+							i.item()->track(drone->get<PlayerCommon>()->manager.ref(), drone->entity());
 					}
 
 					break;
@@ -657,7 +657,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					EffectLight::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f, EffectLight::Type::Shockwave);
+					EffectLight::add(pos + rot * Vec3(0, 0, DRONE_RADIUS), 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 					break;
 				}
@@ -668,7 +668,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						Vec3 dir_adjusted = dir_normalized;
 						if (dir_adjusted.y > -0.25f)
 							dir_adjusted.y += 0.35f;
-						Net::finalize(World::create<GrenadeEntity>(manager, my_pos + dir_adjusted * (AWK_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted));
+						Net::finalize(World::create<GrenadeEntity>(manager, my_pos + dir_adjusted * (DRONE_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted));
 					}
 					break;
 				}
@@ -684,10 +684,10 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							// step 3. spawn the bolt at the final position
 							// step 4. if a target was hit, delete the bolt and apply any damage effects
 
-							Vec3 pos_bolt = my_pos + dir_normalized * AWK_SHIELD_RADIUS;
+							Vec3 pos_bolt = my_pos + dir_normalized * DRONE_SHIELD_RADIUS;
 							r32 timestamp;
 #if SERVER
-							timestamp = Net::timestamp() - awk->get<PlayerControlHuman>()->rtt;
+							timestamp = Net::timestamp() - drone->get<PlayerControlHuman>()->rtt;
 #else
 							timestamp = Net::timestamp();
 #endif
@@ -709,7 +709,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 								// check environment collisions
 								{
 									btCollisionWorld::ClosestRayResultCallback ray_callback(pos_bolt, pos_bolt_next_ray);
-									Physics::raycast(&ray_callback, Projectile::raycast_mask(awk->get<AIAgent>()->team));
+									Physics::raycast(&ray_callback, Projectile::raycast_mask(drone->get<AIAgent>()->team));
 									if (ray_callback.hasHit())
 									{
 										closest_hit = ray_callback.m_hitPointWorld;
@@ -722,7 +722,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 								// check target collisions
 								for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 								{
-									if (i.item() == awk->get<Target>())
+									if (i.item() == drone->get<Target>())
 										continue;
 
 									Vec3 p;
@@ -762,19 +762,19 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						else
 						{
 							// not a remote player; no lag compensation needed
-							Net::finalize(World::create<ProjectileEntity>(manager, my_pos + dir_normalized * AWK_SHIELD_RADIUS, dir_normalized));
+							Net::finalize(World::create<ProjectileEntity>(manager, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
 						}
 					}
 					else
 					{
 						// we're a client; if this is a local player who has already spawned a fake projectile for client-side prediction,
 						// we need to delete that fake projectile, since the server has spawned a real one.
-						if (awk->fake_projectiles.length > 0)
+						if (drone->fake_projectiles.length > 0)
 						{
-							EffectLight* projectile = awk->fake_projectiles[0].ref();
+							EffectLight* projectile = drone->fake_projectiles[0].ref();
 							if (projectile) // might have already been removed
 								EffectLight::remove(projectile);
-							awk->fake_projectiles.remove_ordered(0);
+							drone->fake_projectiles.remove_ordered(0);
 						}
 					}
 					break;
@@ -787,16 +787,16 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			}
 
 			if (!info.rapid_fire)
-				awk->current_ability = Ability::None;
-			awk->ability_spawned.fire(ability);
+				drone->current_ability = Ability::None;
+			drone->ability_spawned.fire(ability);
 			break;
 		}
-		case AwkNet::Message::ReflectionEffects:
+		case DroneNet::Message::ReflectionEffects:
 		{
 			Ref<Entity> reflected_off;
 			serialize_ref(p, reflected_off);
 			if (apply_msg)
-				client_hit_effects(awk, reflected_off.ref());
+				client_hit_effects(drone, reflected_off.ref());
 			break;
 		}
 		default:
@@ -808,7 +808,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	return true;
 }
 
-void Awk::finish_flying_dashing_common()
+void Drone::finish_flying_dashing_common()
 {
 	get<Animator>()->layers[0].animation = AssetNull;
 
@@ -823,9 +823,9 @@ void Awk::finish_flying_dashing_common()
 	last_pos = lerped_pos;
 }
 
-Awk* Awk::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
+Drone* Drone::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
-	Awk* closest = nullptr;
+	Drone* closest = nullptr;
 	r32 closest_distance = FLT_MAX;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -852,8 +852,8 @@ Awk* Awk::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 	return closest;
 }
 
-Awk::Awk()
-	: velocity(0.0f, -AWK_FLY_SPEED, 0.0f),
+Drone::Drone()
+	: velocity(0.0f, -DRONE_FLY_SPEED, 0.0f),
 	done_flying(),
 	done_dashing(),
 	detaching(),
@@ -868,8 +868,8 @@ Awk::Awk()
 	reflecting(),
 	hit_targets(),
 	cooldown(),
-	charges(AWK_CHARGES),
-	invincible_timer(AWK_INVINCIBLE_TIME),
+	charges(DRONE_CHARGES),
+	invincible_timer(DRONE_INVINCIBLE_TIME),
 	particle_accumulator(),
 	current_ability(Ability::None),
 	fake_projectiles(),
@@ -880,11 +880,11 @@ Awk::Awk()
 {
 }
 
-void Awk::awake()
+void Drone::awake()
 {
 	get<Animator>()->layers[0].behavior = Animator::Behavior::Loop;
-	link_arg<Entity*, &Awk::killed>(get<Health>()->killed);
-	link_arg<const HealthEvent&, &Awk::health_changed>(get<Health>()->changed);
+	link_arg<Entity*, &Drone::killed>(get<Health>()->killed);
+	link_arg<const HealthEvent&, &Drone::health_changed>(get<Health>()->changed);
 	if (Game::level.local && !shield.ref())
 	{
 		{
@@ -895,10 +895,10 @@ void Awk::awake()
 			View* s = shield_entity->add<View>();
 			s->team = s8(get<AIAgent>()->team);
 			s->mesh = Asset::Mesh::sphere_highres;
-			s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
+			s->offset.scale(Vec3(DRONE_SHIELD_RADIUS));
 			s->shader = Asset::Shader::fresnel;
 			s->alpha();
-			s->color.w = AWK_SHIELD_ALPHA;
+			s->color.w = DRONE_SHIELD_ALPHA;
 
 			Net::finalize_child(shield_entity);
 		}
@@ -913,10 +913,10 @@ void Awk::awake()
 			View* s = shield_entity->add<View>();
 			s->team = (s8)get<AIAgent>()->team;
 			s->mesh = Asset::Mesh::sphere_highres;
-			s->offset.scale(Vec3(AWK_OVERSHIELD_RADIUS));
+			s->offset.scale(Vec3(DRONE_OVERSHIELD_RADIUS));
 			s->shader = Asset::Shader::fresnel;
 			s->alpha();
-			s->color.w = AWK_OVERSHIELD_ALPHA;
+			s->color.w = DRONE_OVERSHIELD_ALPHA;
 
 			Net::finalize_child(shield_entity);
 		}
@@ -924,7 +924,7 @@ void Awk::awake()
 	shield_time = Game::time.total;
 }
 
-Awk::~Awk()
+Drone::~Drone()
 {
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 	if (Game::level.local)
@@ -936,7 +936,7 @@ Awk::~Awk()
 	}
 }
 
-Awk::State Awk::state() const
+Drone::State Drone::state() const
 {
 	if (dash_timer > 0.0f)
 		return State::Dash;
@@ -946,26 +946,26 @@ Awk::State Awk::state() const
 		return State::Fly;
 }
 
-s16 Awk::ally_force_field_mask() const
+s16 Drone::ally_force_field_mask() const
 {
 	return Team::force_field_mask(get<AIAgent>()->team);
 }
 
-Vec3 Awk::center_lerped() const
+Vec3 Drone::center_lerped() const
 {
 	return lerped_pos;
 }
 
-Vec3 Awk::attach_point(r32 offset) const
+Vec3 Drone::attach_point(r32 offset) const
 {
 	Quat rot;
 	Vec3 pos;
 	get<Transform>()->absolute(&pos, &rot);
-	return pos + rot * Vec3(0, 0, offset + -AWK_RADIUS);
+	return pos + rot * Vec3(0, 0, offset + -DRONE_RADIUS);
 }
 
 // returns true if it's a valid hit
-b8 Awk::hit_target(Entity* target)
+b8 Drone::hit_target(Entity* target)
 {
 	for (s32 i = 0; i < hit_targets.length; i++)
 	{
@@ -983,7 +983,7 @@ b8 Awk::hit_target(Entity* target)
 		return true;
 	}
 
-	AwkNet::hit_target(this, target);
+	DroneNet::hit_target(this, target);
 
 	// award energy for hitting stuff
 	if (target->has<MinionAI>())
@@ -1017,8 +1017,8 @@ b8 Awk::hit_target(Entity* target)
 			get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_ROCKET_DESTROY);
 	}
 
-	if (current_ability == Ability::None && invincible_timer > 0.0f && (target->has<Awk>() || target->has<Decoy>()))
-		invincible_timer = 0.0f; // damaging an Awk cancels our invincibility
+	if (current_ability == Ability::None && invincible_timer > 0.0f && (target->has<Drone>() || target->has<Decoy>()))
+		invincible_timer = 0.0f; // damaging an Drone cancels our invincibility
 
 	if (target->has<Target>())
 	{
@@ -1037,7 +1037,7 @@ b8 Awk::hit_target(Entity* target)
 	return true;
 }
 
-b8 Awk::predict_intersection(const Target* target, const Net::StateFrame* state_frame, Vec3* intersection, r32 speed) const
+b8 Drone::predict_intersection(const Target* target, const Net::StateFrame* state_frame, Vec3* intersection, r32 speed) const
 {
 	if (speed == 0.0f) // instant bullet travel time
 	{
@@ -1055,7 +1055,7 @@ b8 Awk::predict_intersection(const Target* target, const Net::StateFrame* state_
 	}
 }
 
-void Awk::health_changed(const HealthEvent& e)
+void Drone::health_changed(const HealthEvent& e)
 {
 	if (e.hp + e.shield < 0)
 	{
@@ -1098,7 +1098,7 @@ void Awk::health_changed(const HealthEvent& e)
 		shield_time = Game::time.total;
 }
 
-void Awk::killed(Entity* e)
+void Drone::killed(Entity* e)
 {
 	if (Game::level.local)
 	{
@@ -1110,18 +1110,18 @@ void Awk::killed(Entity* e)
 	}
 }
 
-b8 Awk::can_dash(const Target* target, Vec3* out_intersection) const
+b8 Drone::can_dash(const Target* target, Vec3* out_intersection) const
 {
 	Vec3 intersection;
-	if (predict_intersection(target, nullptr, &intersection, AWK_DASH_SPEED))
+	if (predict_intersection(target, nullptr, &intersection, DRONE_DASH_SPEED))
 	{
-		// the Target is situated at the base of the enemy Awk, where it attaches to the surface.
+		// the Target is situated at the base of the enemy Drone, where it attaches to the surface.
 		// we need to calculate the vector starting from our own base attach point, otherwise the dot product will be messed up.
 		Vec3 me = get<Target>()->absolute_pos();
 		Vec3 to_intersection = intersection - me;
 		r32 distance = to_intersection.length();
 		to_intersection /= distance;
-		if (distance < AWK_DASH_DISTANCE)
+		if (distance < DRONE_DASH_DISTANCE)
 		{
 			Vec3 dash_to_intersection = intersection - me;
 			r32 dot = to_intersection.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1));
@@ -1136,7 +1136,7 @@ b8 Awk::can_dash(const Target* target, Vec3* out_intersection) const
 	return false;
 }
 
-b8 Awk::can_shoot(const Target* target, Vec3* out_intersection, r32 speed, const Net::StateFrame* state_frame) const
+b8 Drone::can_shoot(const Target* target, Vec3* out_intersection, r32 speed, const Net::StateFrame* state_frame) const
 {
 	Vec3 intersection;
 	if (predict_intersection(target, state_frame, &intersection, speed))
@@ -1150,7 +1150,7 @@ b8 Awk::can_shoot(const Target* target, Vec3* out_intersection, r32 speed, const
 		b8 hit_target;
 		if (can_shoot(to_intersection, &final_pos, &hit_target, state_frame))
 		{
-			if (hit_target || (final_pos - me).length() > distance - AWK_RADIUS * 2.0f)
+			if (hit_target || (final_pos - me).length() > distance - DRONE_RADIUS * 2.0f)
 			{
 				if (out_intersection)
 					*out_intersection = intersection;
@@ -1161,7 +1161,7 @@ b8 Awk::can_shoot(const Target* target, Vec3* out_intersection, r32 speed, const
 	return false;
 }
 
-b8 Awk::can_hit(const Target* target, Vec3* out_intersection, r32 speed) const
+b8 Drone::can_hit(const Target* target, Vec3* out_intersection, r32 speed) const
 {
 	// first try to dash there
 	if (can_dash(target, out_intersection))
@@ -1174,7 +1174,7 @@ b8 Awk::can_hit(const Target* target, Vec3* out_intersection, r32 speed) const
 	return false;
 }
 
-b8 Awk::direction_is_toward_attached_wall(const Vec3& dir) const
+b8 Drone::direction_is_toward_attached_wall(const Vec3& dir) const
 {
 	Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 	return dir.dot(wall_normal) < 0.0f;
@@ -1182,9 +1182,9 @@ b8 Awk::direction_is_toward_attached_wall(const Vec3& dir) const
 
 // get the state frame representing the world according to this player, if one exists
 // return false if no state frame is necessary
-b8 Awk::net_state_frame(Net::StateFrame* state_frame) const
+b8 Drone::net_state_frame(Net::StateFrame* state_frame) const
 {
-	if (Game::level.local && has<PlayerControlHuman>() && !get<PlayerControlHuman>()->local()) // this Awk is being controlled remotely; we need to rewind the world state to what it looks like from their side
+	if (Game::level.local && has<PlayerControlHuman>() && !get<PlayerControlHuman>()->local()) // this Drone is being controlled remotely; we need to rewind the world state to what it looks like from their side
 	{
 		r32 timestamp;
 #if SERVER
@@ -1200,12 +1200,12 @@ b8 Awk::net_state_frame(Net::StateFrame* state_frame) const
 		return false;
 }
 
-b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::StateFrame* state_frame) const
+b8 Drone::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::StateFrame* state_frame) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
 
 	// if we're attached to a wall, make sure we're not shooting into the wall
-	if (state() == Awk::State::Crawl && direction_is_toward_attached_wall(trace_dir))
+	if (state() == Drone::State::Crawl && direction_is_toward_attached_wall(trace_dir))
 		return false;
 
 	// can't shoot straight up or straight down
@@ -1213,11 +1213,11 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::S
 	// in certain cases where the drone won't let you go where you should be able to go
 	// due to the third-person camera offset
 	// the AI however needs to know whether it can hit actually hit a target
-	if (!has<PlayerControlHuman>() && fabsf(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
+	if (!has<PlayerControlHuman>() && fabsf(trace_dir.y) > DRONE_VERTICAL_DOT_LIMIT)
 		return false;
 
 	Vec3 trace_start = get<Transform>()->absolute_pos();
-	Vec3 trace_end = trace_start + trace_dir * AWK_SNIPE_DISTANCE;
+	Vec3 trace_end = trace_start + trace_dir * DRONE_SNIPE_DISTANCE;
 
 	Net::StateFrame state_frame_data;
 	if (!state_frame && net_state_frame(&state_frame_data))
@@ -1228,16 +1228,16 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::S
 
 	r32 r = range();
 	const Hit* environment_hit = nullptr;
-	b8 allow_further_end = false; // allow awk to shoot if we're aiming at an enemy awk in range but the backing behind it is out of range
+	b8 allow_further_end = false; // allow drone to shoot if we're aiming at an enemy drone in range but the backing behind it is out of range
 	b8 hit_target_value = false;
 	for (s32 i = 0; i < hits.hits.length; i++)
 	{
 		const Hit& hit = hits.hits[i];
 		if (hit.type == Hit::Type::Environment || hit.type == Hit::Type::ForceField)
 			environment_hit = &hit;
-		if (hit.fraction * AWK_SNIPE_DISTANCE < r)
+		if (hit.fraction * DRONE_SNIPE_DISTANCE < r)
 		{
-			if (hit.type == Hit::Type::Awk)
+			if (hit.type == Hit::Type::Drone)
 			{
 				allow_further_end = true;
 				if (hit.fraction <= hits.fraction_end)
@@ -1251,23 +1251,23 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::S
 	if (environment_hit)
 	{
 		// need to check that the environment hit is within range
-		// however if we are shooting at an Awk, we can tolerate further environment hits
+		// however if we are shooting at an Drone, we can tolerate further environment hits
 		b8 can_shoot = false;
-		if (allow_further_end || environment_hit->fraction * AWK_SNIPE_DISTANCE < r)
+		if (allow_further_end || environment_hit->fraction * DRONE_SNIPE_DISTANCE < r)
 			can_shoot = true;
 		else
 		{
-			// check awk target predictions
-			r32 end_distance_sq = vi_min(r * r, hits.fraction_end * AWK_SNIPE_DISTANCE * hits.fraction_end * AWK_SNIPE_DISTANCE);
+			// check drone target predictions
+			r32 end_distance_sq = vi_min(r * r, hits.fraction_end * DRONE_SNIPE_DISTANCE * hits.fraction_end * DRONE_SNIPE_DISTANCE);
 			for (auto i = list.iterator(); !i.is_last(); i.next())
 			{
-				if (i.item() != this && (i.item()->get<Target>()->absolute_pos() - trace_start).length_squared() > AWK_SHIELD_RADIUS * 2.0f * AWK_SHIELD_RADIUS * 2.0f)
+				if (i.item() != this && (i.item()->get<Target>()->absolute_pos() - trace_start).length_squared() > DRONE_SHIELD_RADIUS * 2.0f * DRONE_SHIELD_RADIUS * 2.0f)
 				{
 					Vec3 intersection;
-					if (predict_intersection(i.item()->get<Target>(), state_frame, &intersection, AWK_FLY_SPEED))
+					if (predict_intersection(i.item()->get<Target>(), state_frame, &intersection, DRONE_FLY_SPEED))
 					{
 						if ((intersection - trace_start).length_squared() <= end_distance_sq
-							&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, AWK_SHIELD_RADIUS))
+							&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, DRONE_SHIELD_RADIUS))
 						{
 							can_shoot = true;
 							hit_target_value = true;
@@ -1290,7 +1290,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::S
 	return false;
 }
 
-b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_normal, RigidBody** hit_parent, b8* hit_target) const
+b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_normal, RigidBody** hit_parent, b8* hit_target) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
 
@@ -1299,7 +1299,7 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 	// in certain cases where the drone won't let you go where you should be able to go
 	// due to the third-person camera offset
 	// the AI however needs to know whether it can hit actually hit a target
-	if (!has<PlayerControlHuman>() && fabsf(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
+	if (!has<PlayerControlHuman>() && fabsf(trace_dir.y) > DRONE_VERTICAL_DOT_LIMIT)
 		return false;
 
 	Vec3 trace_start = get<Transform>()->absolute_pos();
@@ -1308,7 +1308,7 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 	if (AbilityInfo::list[s32(a)].type == AbilityInfo::Type::Shoot)
 	{
 		RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsForceField);
+		Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
 		if (ray_callback.hasHit())
 		{
 			Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
@@ -1332,11 +1332,11 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 	}
 	else
 	{
-		AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
-		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsForceField);
+		DroneRaycastCallback ray_callback(trace_start, trace_end, entity());
+		Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
 
 		b8 can_spawn = ray_callback.hasHit()
-			&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK);
+			&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK);
 		if (can_spawn)
 		{
 			if (final_pos)
@@ -1350,7 +1350,7 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 	}
 }
 
-void Awk::cooldown_setup()
+void Drone::cooldown_setup()
 {
 	if (Game::level.local)
 	{
@@ -1360,13 +1360,13 @@ void Awk::cooldown_setup()
 
 #if SERVER
 	if (has<PlayerControlHuman>())
-		cooldown = AWK_COOLDOWN - get<PlayerControlHuman>()->rtt;
+		cooldown = DRONE_COOLDOWN - get<PlayerControlHuman>()->rtt;
 	else
 #endif
-		cooldown = AWK_COOLDOWN;
+		cooldown = DRONE_COOLDOWN;
 }
 
-void Awk::ensure_detached()
+void Drone::ensure_detached()
 {
 	hit_targets.length = 0;
 	remote_reflection_timer = 0.0f;
@@ -1376,30 +1376,30 @@ void Awk::ensure_detached()
 	get<Transform>()->reparent(nullptr);
 	get<SkinnedModel>()->offset = Mat4::identity;
 
-	for (s32 i = 0; i < AWK_LEGS; i++)
+	for (s32 i = 0; i < DRONE_LEGS; i++)
 		footing[i].parent = nullptr;
 	get<Animator>()->reset_overrides();
-	get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
+	get<Animator>()->layers[0].animation = Asset::Animation::drone_fly;
 
 	particle_accumulator = 0;
 }
 
-b8 Awk::dash_start(const Vec3& dir)
+b8 Drone::dash_start(const Vec3& dir)
 {
 	if (state() != State::Crawl || current_ability != Ability::None)
 		return false;
 
-	AwkNet::start_dashing(this, dir);
+	DroneNet::start_dashing(this, dir);
 
 	return true;
 }
 
-b8 Awk::cooldown_can_shoot() const
+b8 Drone::cooldown_can_shoot() const
 {
 	return charges > 0;
 }
 
-r32 Awk::target_prediction_speed() const
+r32 Drone::target_prediction_speed() const
 {
 	switch (current_ability)
 	{
@@ -1413,17 +1413,17 @@ r32 Awk::target_prediction_speed() const
 		}
 		default:
 		{
-			return AWK_FLY_SPEED;
+			return DRONE_FLY_SPEED;
 		}
 	}
 }
 
-r32 Awk::range() const
+r32 Drone::range() const
 {
-	return current_ability == Ability::Sniper ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
+	return current_ability == Ability::Sniper ? DRONE_SNIPE_DISTANCE : DRONE_MAX_DISTANCE;
 }
 
-b8 Awk::go(const Vec3& dir)
+b8 Drone::go(const Vec3& dir)
 {
 	if (!cooldown_can_shoot())
 		return false;
@@ -1440,7 +1440,7 @@ b8 Awk::go(const Vec3& dir)
 			if (!can_shoot(dir, nullptr, nullptr, state_frame))
 				return false;
 		}
-		AwkNet::start_flying(this, dir_normalized);
+		DroneNet::start_flying(this, dir_normalized);
 	}
 	else
 	{
@@ -1451,7 +1451,7 @@ b8 Awk::go(const Vec3& dir)
 			return false;
 
 		if (Game::level.local)
-			AwkNet::ability_spawn(this, dir_normalized, current_ability);
+			DroneNet::ability_spawn(this, dir_normalized, current_ability);
 		else if (current_ability == Ability::Bolter)
 		{
 			// client-side prediction; create fake bolt
@@ -1466,7 +1466,7 @@ b8 Awk::go(const Vec3& dir)
 			(
 				EffectLight::add
 				(
-					get<Transform>()->absolute_pos() + dir_normalized * AWK_SHIELD_RADIUS,
+					get<Transform>()->absolute_pos() + dir_normalized * DRONE_SHIELD_RADIUS,
 					PROJECTILE_LIGHT_RADIUS,
 					0.5f,
 					EffectLight::Type::Projectile,
@@ -1482,7 +1482,7 @@ b8 Awk::go(const Vec3& dir)
 
 #define REFLECTION_TRIES 20 // try 20 raycasts. if they all fail, just shoot off into space.
 
-void awk_reflection_execute(Awk* a, Entity* reflected_off, const Vec3& dir)
+void drone_reflection_execute(Drone* a, Entity* reflected_off, const Vec3& dir)
 {
 	{
 		r32 l = dir.length_squared();
@@ -1490,12 +1490,12 @@ void awk_reflection_execute(Awk* a, Entity* reflected_off, const Vec3& dir)
 	}
 	a->get<Transform>()->reparent(nullptr);
 	a->dash_timer = 0.0f;
-	a->get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
+	a->get<Animator>()->layers[0].animation = Asset::Animation::drone_fly;
 
 	if (!reflected_off || !reflected_off->has<Target>()) // target hit effects are handled separately
 	{
 		if (Game::level.local)
-			AwkNet::reflection_effects(a, reflected_off); // let everyone know we're doing reflection effects
+			DroneNet::reflection_effects(a, reflected_off); // let everyone know we're doing reflection effects
 		else
 		{
 			// client-side prediction
@@ -1504,20 +1504,20 @@ void awk_reflection_execute(Awk* a, Entity* reflected_off, const Vec3& dir)
 		}
 	}
 
-	AwkReflectEvent e;
+	DroneReflectEvent e;
 	e.entity = reflected_off;
-	e.new_velocity = dir * AWK_DASH_SPEED;
+	e.new_velocity = dir * DRONE_DASH_SPEED;
 	a->reflecting.fire(e);
 	a->get<Transform>()->rot = Quat::look(Vec3::normalize(e.new_velocity));
 	a->velocity = e.new_velocity;
 	a->remote_reflection_timer = 0.0f;
 }
 
-void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net::StateFrame* state_frame)
+void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net::StateFrame* state_frame)
 {
 	// it's possible to reflect off a shield while we are dashing (still parented to an object)
 	// so we need to make sure we're not dashing anymore
-	Vec3 reflection_pos = hit + normal * AWK_RADIUS * 0.5f;
+	Vec3 reflection_pos = hit + normal * DRONE_RADIUS * 0.5f;
 	get<Transform>()->parent = nullptr;
 	get<Transform>()->absolute_pos(reflection_pos);
 
@@ -1535,8 +1535,8 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 		Quat target_quat = Quat::look(target_dir);
 
 		r32 random_range = 0.0f;
-		r32 best_score = AWK_MAX_DISTANCE;
-		const r32 goal_distance = AWK_MAX_DISTANCE * 0.25f;
+		r32 best_score = DRONE_MAX_DISTANCE;
+		const r32 goal_distance = DRONE_MAX_DISTANCE * 0.25f;
 		for (s32 i = 0; i < REFLECTION_TRIES; i++)
 		{
 			Vec3 candidate_dir = target_quat * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * random_range, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * random_range, 0) * Vec3(1, 0, 0));
@@ -1552,7 +1552,7 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 					best_score = score;
 				}
 
-				if (distance > goal_distance && score < AWK_MAX_DISTANCE * 0.4f)
+				if (distance > goal_distance && score < DRONE_MAX_DISTANCE * 0.4f)
 				{
 					new_dir = candidate_dir;
 					best_score = score;
@@ -1565,13 +1565,13 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 
 	if (state_frame)
 	{
-		// this awk is being controlled by a remote
+		// this drone is being controlled by a remote
 		if (remote_reflection_timer > 0.0f)
 		{
 			// the remote already told us about the reflection
 			// so go the direction they told us to
 			get<Transform>()->absolute_pos(remote_reflection_pos);
-			awk_reflection_execute(this, entity, remote_reflection_dir);
+			drone_reflection_execute(this, entity, remote_reflection_dir);
 		}
 		else
 		{
@@ -1579,7 +1579,7 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 			// if we don't hear from them in a certain amount of time, forget anything happened
 			remote_reflection_dir = velocity; // HACK: not normalized. this will be restored to the velocity variable if the client does not acknowledge the hit
 			remote_reflection_pos = reflection_pos;
-			remote_reflection_timer = AWK_REFLECTION_TIME_TOLERANCE;
+			remote_reflection_timer = DRONE_REFLECTION_TIME_TOLERANCE;
 			remote_reflection_entity = entity;
 			reflection_source_remote = false; // this hit was detected locally
 			velocity = Vec3::zero;
@@ -1588,13 +1588,13 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 	else
 	{
 		// locally controlled; bounce instantly
-		awk_reflection_execute(this, entity, new_dir);
+		drone_reflection_execute(this, entity, new_dir);
 		if (!Game::level.local && has<PlayerControlHuman>())
-			remote_reflection_timer = Net::rtt(get<PlayerControlHuman>()->player.ref()) + AWK_REFLECTION_TIME_TOLERANCE;
+			remote_reflection_timer = Net::rtt(get<PlayerControlHuman>()->player.ref()) + DRONE_REFLECTION_TIME_TOLERANCE;
 	}
 }
 
-void Awk::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos, const Vec3& reflection_dir)
+void Drone::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos, const Vec3& reflection_dir)
 {
 	if (reflection_dir.length() == 0.0f)
 		return;
@@ -1606,14 +1606,14 @@ void Awk::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos, c
 		// we're a server; the client is notifying us that it did a reflection
 
 		// check if they're roughly where we think they should be
-		if ((get<Transform>()->absolute_pos() - reflection_pos).length() < AWK_SHIELD_RADIUS * 6.0f)
+		if ((get<Transform>()->absolute_pos() - reflection_pos).length() < DRONE_SHIELD_RADIUS * 6.0f)
 		{
 			if (remote_reflection_timer == 0.0f)
 			{
 				// we haven't reflected off anything on the server yet; save this info and wait for us to hit something
 				remote_reflection_dir = reflection_dir_normalized;
 				remote_reflection_pos = reflection_pos;
-				remote_reflection_timer = AWK_REFLECTION_TIME_TOLERANCE;
+				remote_reflection_timer = DRONE_REFLECTION_TIME_TOLERANCE;
 				remote_reflection_entity = entity;
 				reflection_source_remote = true; // this hit came from the remote
 			}
@@ -1623,10 +1623,10 @@ void Awk::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos, c
 				r32 original_timer = remote_reflection_timer;
 
 				get<Transform>()->absolute_pos(reflection_pos);
-				awk_reflection_execute(this, remote_reflection_entity.ref(), reflection_dir_normalized);
+				drone_reflection_execute(this, remote_reflection_entity.ref(), reflection_dir_normalized);
 
 				// fast forward the amount of time we've been sitting here waiting for the client to acknowledge the reflection
-				Vec3 dir = velocity * (AWK_REFLECTION_TIME_TOLERANCE - original_timer);
+				Vec3 dir = velocity * (DRONE_REFLECTION_TIME_TOLERANCE - original_timer);
 				Vec3 ray_start = get<Transform>()->absolute_pos();
 				r32 distance = movement_raycast(ray_start, ray_start + dir);
 				if (distance > 0.0f)
@@ -1641,16 +1641,16 @@ void Awk::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos, c
 	else
 	{
 		// we're a client; the server is just sending this to us to let us know which direction it chose
-		if (state() == Awk::State::Fly)
+		if (state() == Drone::State::Fly)
 		{
-			velocity = Vec3::normalize(reflection_dir) * AWK_DASH_SPEED;
+			velocity = Vec3::normalize(reflection_dir) * DRONE_DASH_SPEED;
 			get<Transform>()->rot = Quat::look(reflection_dir_normalized);
 		}
 		remote_reflection_timer = 0.0f;
 	}
 }
 
-void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const Update& u, r32 speed)
+void Drone::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const Update& u, r32 speed)
 {
 	Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 
@@ -1664,23 +1664,23 @@ void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const 
 		dir_flattened /= dir_flattened_length;
 		Vec3 pos = get<Transform>()->absolute_pos();
 		Vec3 next_pos = pos + dir_flattened * u.time.delta * speed;
-		Vec3 wall_ray_start = next_pos + wall_normal * AWK_RADIUS;
-		Vec3 wall_ray_end = next_pos + wall_normal * AWK_RADIUS * -2.0f;
+		Vec3 wall_ray_start = next_pos + wall_normal * DRONE_RADIUS;
+		Vec3 wall_ray_end = next_pos + wall_normal * DRONE_RADIUS * -2.0f;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray_start, wall_ray_end);
-		Physics::raycast(&ray_callback, ~AWK_INACCESSIBLE_MASK & ~ally_force_field_mask());
+		Physics::raycast(&ray_callback, ~DRONE_INACCESSIBLE_MASK & ~ally_force_field_mask());
 
 		if (ray_callback.hasHit())
 		{
 			// check for obstacles
-			btCollisionWorld::ClosestRayResultCallback ray_callback2(pos, next_pos + dir_flattened * AWK_RADIUS);
-			Physics::raycast(&ray_callback2, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
+			btCollisionWorld::ClosestRayResultCallback ray_callback2(pos, next_pos + dir_flattened * DRONE_RADIUS);
+			Physics::raycast(&ray_callback2, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
 			if (!ray_callback2.hasHit())
 			{
 				// all good, go ahead
 				move
 				(
-					ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * AWK_RADIUS,
+					ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * DRONE_RADIUS,
 					Quat::look(ray_callback.m_hitNormalWorld),
 					ray_callback.m_collisionObject->getUserIndex()
 				);
@@ -1690,7 +1690,7 @@ void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const 
 }
 
 // Return true if we actually switched to the other wall
-b8 Awk::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultCallback& ray_callback)
+b8 Drone::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultCallback& ray_callback)
 {
 	if (state() == State::Dash) // don't dash around corners
 		return false;
@@ -1703,16 +1703,16 @@ b8 Awk::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultC
 	// This prevents jittering back and forth between walls all the time.
 	// Also, don't crawl onto inaccessible surfaces.
 	if (dir_flattened_other_wall.dot(wall_normal) > 0.0f
-		&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK))
+		&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
 	{
 		// check for obstacles
-		btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(ray_callback.m_hitPointWorld, ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * (AWK_RADIUS * 1.1f));
-		Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
+		btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(ray_callback.m_hitPointWorld, ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * (DRONE_RADIUS * 1.1f));
+		Physics::raycast(&obstacle_ray_callback, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
 		if (!obstacle_ray_callback.hasHit())
 		{
 			move
 			(
-				ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * AWK_RADIUS,
+				ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * DRONE_RADIUS,
 				Quat::look(ray_callback.m_hitNormalWorld),
 				ray_callback.m_collisionObject->getUserIndex()
 			);
@@ -1722,7 +1722,7 @@ b8 Awk::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultC
 	return false;
 }
 
-void Awk::move(const Vec3& new_pos, const Quat& new_rotation, const ID entity_id)
+void Drone::move(const Vec3& new_pos, const Quat& new_rotation, const ID entity_id)
 {
 	get<Transform>()->absolute(new_pos, new_rotation);
 	Entity* entity = &Entity::list[entity_id];
@@ -1731,7 +1731,7 @@ void Awk::move(const Vec3& new_pos, const Quat& new_rotation, const ID entity_id
 	update_offset();
 }
 
-void Awk::crawl(const Vec3& dir_raw, const Update& u)
+void Drone::crawl(const Vec3& dir_raw, const Update& u)
 {
 	r32 dir_length = dir_raw.length();
 
@@ -1740,7 +1740,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 	{
 		Vec3 dir_normalized = dir_raw / dir_length;
 
-		r32 speed = s == State::Dash ? AWK_DASH_SPEED : (vi_min(dir_length, 1.0f) * AWK_CRAWL_SPEED);
+		r32 speed = s == State::Dash ? DRONE_DASH_SPEED : (vi_min(dir_length, 1.0f) * DRONE_CRAWL_SPEED);
 
 		Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 		Vec3 pos = get<Transform>()->absolute_pos();
@@ -1751,9 +1751,9 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 			Vec3 next_pos = pos + dir_normalized * u.time.delta * speed;
 			
 			// check for obstacles
-			Vec3 ray_end = next_pos + (dir_normalized * AWK_RADIUS * 1.5f);
+			Vec3 ray_end = next_pos + (dir_normalized * DRONE_RADIUS * 1.5f);
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, ray_end);
-			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
+			Physics::raycast(&ray_callback, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
 
 			if (ray_callback.hasHit())
 			{
@@ -1773,9 +1773,9 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 
 		// check for obstacles
 		{
-			Vec3 ray_end = next_pos + (dir_flattened * AWK_RADIUS);
+			Vec3 ray_end = next_pos + (dir_flattened * DRONE_RADIUS);
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, ray_end);
-			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
+			Physics::raycast(&ray_callback, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
 
 			if (ray_callback.hasHit())
 			{
@@ -1790,11 +1790,11 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 
 		// no obstacle. Check if we still have wall to walk on.
 
-		Vec3 wall_ray_start = next_pos + wall_normal * AWK_RADIUS;
-		Vec3 wall_ray_end = next_pos + wall_normal * AWK_RADIUS * -2.0f;
+		Vec3 wall_ray_start = next_pos + wall_normal * DRONE_RADIUS;
+		Vec3 wall_ray_end = next_pos + wall_normal * DRONE_RADIUS * -2.0f;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray_start, wall_ray_end);
-		Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
+		Physics::raycast(&ray_callback, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
 
 		if (ray_callback.hasHit())
 		{
@@ -1805,7 +1805,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 			// check to make sure that our movement direction won't get flipped if we switch walls.
 			// this prevents jittering back and forth between walls all the time.
 			if (dir_flattened_other_wall.dot(dir_flattened) > 0.0f
-				&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK))
+				&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
 			{
 				Vec3 to_next_wall = Vec3(ray_callback.m_hitPointWorld) - attach_point();
 				b8 next_wall_curves_away = wall_normal.dot(to_next_wall) < 0.0f;
@@ -1815,7 +1815,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 				{
 					move
 					(
-						ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * AWK_RADIUS,
+						ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * DRONE_RADIUS,
 						Quat::look(ray_callback.m_hitNormalWorld),
 						ray_callback.m_collisionObject->getUserIndex()
 					);
@@ -1831,11 +1831,11 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 		{
 			// no wall left
 			// see if we can walk around the corner
-			Vec3 wall_ray2_start = next_pos + wall_normal * AWK_RADIUS * -1.25f;
-			Vec3 wall_ray2_end = wall_ray2_start + dir_flattened * AWK_RADIUS * -2.0f;
+			Vec3 wall_ray2_start = next_pos + wall_normal * DRONE_RADIUS * -1.25f;
+			Vec3 wall_ray2_end = wall_ray2_start + dir_flattened * DRONE_RADIUS * -2.0f;
 
 			btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray2_start, wall_ray2_end);
-			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
+			Physics::raycast(&ray_callback, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
 
 			if (ray_callback.hasHit())
 			{
@@ -1845,12 +1845,12 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 				// this prevents jittering back and forth between walls all the time.
 				if (state() != State::Dash // don't dash around corners
 					&& dir_normalized.dot(wall_normal) < 0.05f
-					&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK))
+					&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
 				{
 					// transition to the other wall
 					move
 					(
-						ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * AWK_RADIUS,
+						ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * DRONE_RADIUS,
 						Quat::look(ray_callback.m_hitNormalWorld),
 						ray_callback.m_collisionObject->getUserIndex()
 					);
@@ -1865,28 +1865,28 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 		}
 	}
 }
-const AssetID awk_legs[AWK_LEGS] =
+const AssetID drone_legs[DRONE_LEGS] =
 {
-	Asset::Bone::awk_a1,
-	Asset::Bone::awk_b1,
-	Asset::Bone::awk_c1,
+	Asset::Bone::drone_a1,
+	Asset::Bone::drone_b1,
+	Asset::Bone::drone_c1,
 };
 
-const AssetID awk_outer_legs[AWK_LEGS] =
+const AssetID drone_outer_legs[DRONE_LEGS] =
 {
-	Asset::Bone::awk_a2,
-	Asset::Bone::awk_b2,
-	Asset::Bone::awk_c2,
+	Asset::Bone::drone_a2,
+	Asset::Bone::drone_b2,
+	Asset::Bone::drone_c2,
 };
 
-const r32 awk_outer_leg_rotation[AWK_LEGS] =
+const r32 drone_outer_leg_rotation[DRONE_LEGS] =
 {
 	-1,
 	1,
 	1,
 };
 
-void Awk::set_footing(const s32 index, const Transform* parent, const Vec3& pos)
+void Drone::set_footing(const s32 index, const Transform* parent, const Vec3& pos)
 {
 	if (footing[index].parent.ref())
 	{
@@ -1899,7 +1899,7 @@ void Awk::set_footing(const s32 index, const Transform* parent, const Vec3& pos)
 	footing[index].pos = footing[index].parent.ref()->to_local(pos);
 }
 
-void Awk::update_offset()
+void Drone::update_offset()
 {
 	Quat offset_rot = lerped_rotation;
 	Vec3 offset_pos = lerped_pos;
@@ -1914,7 +1914,7 @@ void Awk::update_offset()
 	overshield.ref()->get<View>()->offset.translation(offset_pos);
 }
 
-void Awk::stealth(Entity* e, b8 enable)
+void Drone::stealth(Entity* e, b8 enable)
 {
 	if (enable != e->get<AIAgent>()->stealth)
 	{
@@ -1934,7 +1934,7 @@ void Awk::stealth(Entity* e, b8 enable)
 	}
 }
 
-void Awk::update_server(const Update& u)
+void Drone::update_server(const Update& u)
 {
 	State s = state();
 
@@ -1942,10 +1942,10 @@ void Awk::update_server(const Update& u)
 	{
 		cooldown = vi_max(0.0f, cooldown - u.time.delta);
 		if (cooldown == 0.0f && Game::level.local)
-			charges = AWK_CHARGES;
+			charges = DRONE_CHARGES;
 	}
 
-	if (s != Awk::State::Crawl)
+	if (s != Drone::State::Crawl)
 	{
 		// flying or dashing
 		if (Game::level.local && u.time.total - attach_time > MAX_FLIGHT_TIME)
@@ -1958,12 +1958,12 @@ void Awk::update_server(const Update& u)
 			dash_timer -= u.time.delta;
 			if (dash_timer <= 0.0f)
 			{
-				AwkNet::finish_dashing(this);
+				DroneNet::finish_dashing(this);
 				return;
 			}
 			else
 			{
-				get<Awk>()->crawl(velocity, u);
+				get<Drone>()->crawl(velocity, u);
 				next_position = get<Transform>()->absolute_pos();
 			}
 		}
@@ -1976,8 +1976,8 @@ void Awk::update_server(const Update& u)
 		if (!btVector3(velocity).fuzzyZero())
 		{
 			Vec3 dir = Vec3::normalize(velocity);
-			Vec3 ray_start = position + dir * -AWK_RADIUS;
-			Vec3 ray_end = next_position + dir * AWK_RADIUS;
+			Vec3 ray_start = position + dir * -DRONE_RADIUS;
+			Vec3 ray_end = next_position + dir * DRONE_RADIUS;
 			movement_raycast(ray_start, ray_end);
 		}
 	}
@@ -1985,7 +1985,7 @@ void Awk::update_server(const Update& u)
 #if SERVER
 	if (remote_reflection_timer > 0.0f)
 	{
-		if (s == Awk::State::Crawl)
+		if (s == Drone::State::Crawl)
 			remote_reflection_timer = 0.0f; // cancel
 		else
 		{
@@ -1997,7 +1997,7 @@ void Awk::update_server(const Update& u)
 				{
 					// the remote told us about this reflection. go ahead and do it even though we never detected the hit locally
 					get<Transform>()->absolute_pos(remote_reflection_pos);
-					awk_reflection_execute(this, remote_reflection_entity.ref(), remote_reflection_dir);
+					drone_reflection_execute(this, remote_reflection_entity.ref(), remote_reflection_dir);
 				}
 				else
 				{
@@ -2005,11 +2005,11 @@ void Awk::update_server(const Update& u)
 					velocity = remote_reflection_dir; // restore original velocity
 				}
 				Vec3 position = get<Transform>()->absolute_pos();
-				Vec3 next_position = position + velocity * AWK_REFLECTION_TIME_TOLERANCE;
+				Vec3 next_position = position + velocity * DRONE_REFLECTION_TIME_TOLERANCE;
 				get<Transform>()->absolute_pos(next_position);
 				Vec3 dir = Vec3::normalize(velocity);
-				Vec3 ray_start = position + dir * -AWK_RADIUS;
-				Vec3 ray_end = next_position + dir * AWK_RADIUS;
+				Vec3 ray_start = position + dir * -DRONE_RADIUS;
+				Vec3 ray_end = next_position + dir * DRONE_RADIUS;
 				movement_raycast(ray_start, ray_end);
 			}
 		}
@@ -2019,37 +2019,37 @@ void Awk::update_server(const Update& u)
 #endif
 }
 
-void Awk::update_shield_view(const Update& u, Entity* e, View* shield, View* overshield, r32 shield_time)
+void Drone::update_shield_view(const Update& u, Entity* e, View* shield, View* overshield, r32 shield_time)
 {
 	s8 shield_value = e->get<Health>()->shield;
-	if (shield_value > 0 || u.time.total - shield_time < AWK_SHIELD_ANIM_TIME)
+	if (shield_value > 0 || u.time.total - shield_time < DRONE_SHIELD_ANIM_TIME)
 	{
 		if (e->get<AIAgent>()->stealth)
 			shield->mask = 1 << s32(e->get<AIAgent>()->team); // only display to fellow teammates
 		else
 			shield->mask = RENDER_MASK_DEFAULT; // everyone can see
 
-		r32 blend = vi_min((u.time.total - shield_time) / AWK_SHIELD_ANIM_TIME, 1.0f);
+		r32 blend = vi_min((u.time.total - shield_time) / DRONE_SHIELD_ANIM_TIME, 1.0f);
 		shield->offset = e->get<SkinnedModel>()->offset;
 		if (shield_value > 1)
 		{
 			// shield is done; working on overshield
-			shield->color.w = AWK_SHIELD_ALPHA;
-			shield->offset.make_transform(shield->offset.translation(), Vec3(AWK_SHIELD_RADIUS * AWK_SHIELD_VIEW_RATIO), Quat::identity);
+			shield->color.w = DRONE_SHIELD_ALPHA;
+			shield->offset.make_transform(shield->offset.translation(), Vec3(DRONE_SHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO), Quat::identity);
 		}
 		else if (shield_value > 0)
 		{
 			// shield is coming in; blend from zero to normal size
 			blend = Ease::cubic_out<r32>(blend);
-			shield->color.w = LMath::lerpf(blend, 0.0f, AWK_SHIELD_ALPHA);
-			shield->offset.make_transform(shield->offset.translation(), Vec3(LMath::lerpf(blend, 0.0f, AWK_SHIELD_RADIUS * AWK_SHIELD_VIEW_RATIO)), Quat::identity);
+			shield->color.w = LMath::lerpf(blend, 0.0f, DRONE_SHIELD_ALPHA);
+			shield->offset.make_transform(shield->offset.translation(), Vec3(LMath::lerpf(blend, 0.0f, DRONE_SHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO)), Quat::identity);
 		}
 		else
 		{
 			// we just lost our shield; blend from normal size to large and faded out
 			blend = Ease::cubic_in<r32>(blend);
 			shield->color.w = LMath::lerpf(blend, 0.75f, 0.0f);
-			shield->offset.make_transform(shield->offset.translation(), Vec3(LMath::lerpf(blend, AWK_SHIELD_RADIUS * AWK_SHIELD_VIEW_RATIO, 8.0f)), Quat::identity);
+			shield->offset.make_transform(shield->offset.translation(), Vec3(LMath::lerpf(blend, DRONE_SHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO, 8.0f)), Quat::identity);
 		}
 	}
 	else
@@ -2057,41 +2057,41 @@ void Awk::update_shield_view(const Update& u, Entity* e, View* shield, View* ove
 
 	// overshield
 	s8 shield_value_last = e->get<Health>()->shield_last;
-	if (shield_value > 1 || (shield_value_last > 1 && u.time.total - shield_time < AWK_SHIELD_ANIM_TIME))
+	if (shield_value > 1 || (shield_value_last > 1 && u.time.total - shield_time < DRONE_SHIELD_ANIM_TIME))
 	{
 		if (e->get<AIAgent>()->stealth)
 			overshield->mask = 1 << s32(e->get<AIAgent>()->team); // only display to fellow teammates
 		else
 			overshield->mask = RENDER_MASK_DEFAULT; // everyone can see
 
-		r32 blend = vi_min((u.time.total - shield_time) / AWK_SHIELD_ANIM_TIME, 1.0f);
+		r32 blend = vi_min((u.time.total - shield_time) / DRONE_SHIELD_ANIM_TIME, 1.0f);
 		overshield->offset = e->get<SkinnedModel>()->offset;
 		if (shield_value > 1)
 		{
 			// shield is coming in; blend from zero to normal size
 			blend = Ease::cubic_out<r32>(blend);
-			overshield->color.w = LMath::lerpf(blend, 0.0f, AWK_OVERSHIELD_ALPHA);
-			overshield->offset.make_transform(overshield->offset.translation(), Vec3(LMath::lerpf(blend, 0.0f, AWK_OVERSHIELD_RADIUS * AWK_SHIELD_VIEW_RATIO)), Quat::identity);
+			overshield->color.w = LMath::lerpf(blend, 0.0f, DRONE_OVERSHIELD_ALPHA);
+			overshield->offset.make_transform(overshield->offset.translation(), Vec3(LMath::lerpf(blend, 0.0f, DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO)), Quat::identity);
 		}
 		else
 		{
 			// we just lost our shield; blend from normal size to large and faded out
 			blend = Ease::cubic_in<r32>(blend);
 			overshield->color.w = LMath::lerpf(blend, 0.75f, 0.0f);
-			overshield->offset.make_transform(overshield->offset.translation(), Vec3(LMath::lerpf(blend, AWK_OVERSHIELD_RADIUS * AWK_SHIELD_VIEW_RATIO, 8.0f)), Quat::identity);
+			overshield->offset.make_transform(overshield->offset.translation(), Vec3(LMath::lerpf(blend, DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO, 8.0f)), Quat::identity);
 		}
 	}
 	else
 		overshield->mask = 0;
 }
 
-void Awk::update_client(const Update& u)
+void Drone::update_client(const Update& u)
 {
 	State s = state();
 
 	invincible_timer = vi_max(invincible_timer - u.time.delta, 0.0f);
 
-	if (s == Awk::State::Crawl)
+	if (s == Drone::State::Crawl)
 	{
 		{
 			// update lerped pos so we crawl smoothly
@@ -2116,7 +2116,7 @@ void Awk::update_client(const Update& u)
 				r32 distance = (abs_pos - lerped_pos).length();
 				if (distance > 0.0f)
 				{
-					const r32 tolerance = AWK_SHIELD_RADIUS;
+					const r32 tolerance = DRONE_SHIELD_RADIUS;
 					if (distance < tolerance)
 						lerped_pos = Vec3::lerp(vi_min(1.0f, (LERP_TRANSLATION_SPEED / distance) * u.time.delta), lerped_pos, abs_pos);
 					else // keep the lerped pos within tolerance of the absolute pos
@@ -2130,10 +2130,10 @@ void Awk::update_client(const Update& u)
 
 		Mat4 inverse_offset = get<SkinnedModel>()->offset.inverse();
 
-		r32 leg_blend_speed = vi_max(AWK_MIN_LEG_BLEND_SPEED, AWK_LEG_BLEND_SPEED * (velocity.length() / AWK_CRAWL_SPEED));
+		r32 leg_blend_speed = vi_max(DRONE_MIN_LEG_BLEND_SPEED, DRONE_LEG_BLEND_SPEED * (velocity.length() / DRONE_CRAWL_SPEED));
 
 		const Armature* arm = Loader::armature(get<Animator>()->armature);
-		for (s32 i = 0; i < AWK_LEGS; i++)
+		for (s32 i = 0; i < DRONE_LEGS; i++)
 		{
 			b8 find_footing = false;
 
@@ -2145,48 +2145,48 @@ void Awk::update_client(const Update& u)
 			{
 				Vec3 target = footing[i].parent.ref()->to_world(footing[i].pos);
 				Vec3 relative_target = get<Transform>()->to_local(target);
-				Vec3 target_leg_space = (arm->inverse_bind_pose[awk_legs[i]] * Vec4(relative_target, 1.0f)).xyz();
+				Vec3 target_leg_space = (arm->inverse_bind_pose[drone_legs[i]] * Vec4(relative_target, 1.0f)).xyz();
 				// x axis = lengthwise along the leg
 				// y axis = left and right rotation of the leg
 				// z axis = up and down rotation of the leg
-				if (target_leg_space.x < AWK_LEG_LENGTH * 0.25f && target_leg_space.z > AWK_LEG_LENGTH * -1.25f)
+				if (target_leg_space.x < DRONE_LEG_LENGTH * 0.25f && target_leg_space.z > DRONE_LEG_LENGTH * -1.25f)
 				{
-					find_footing_offset = Vec3(AWK_LEG_LENGTH * 2.0f, -target_leg_space.y, 0);
+					find_footing_offset = Vec3(DRONE_LEG_LENGTH * 2.0f, -target_leg_space.y, 0);
 					find_footing = true;
 				}
-				else if (target_leg_space.x > AWK_LEG_LENGTH * 1.75f)
+				else if (target_leg_space.x > DRONE_LEG_LENGTH * 1.75f)
 				{
-					find_footing_offset = Vec3(AWK_LEG_LENGTH * 0.5f, -target_leg_space.y, 0);
+					find_footing_offset = Vec3(DRONE_LEG_LENGTH * 0.5f, -target_leg_space.y, 0);
 					find_footing = true;
 				}
-				else if (target_leg_space.y < AWK_LEG_LENGTH * -1.5f || target_leg_space.y > AWK_LEG_LENGTH * 1.5f
-					|| target_leg_space.length_squared() > (AWK_LEG_LENGTH * 2.0f) * (AWK_LEG_LENGTH * 2.0f))
+				else if (target_leg_space.y < DRONE_LEG_LENGTH * -1.5f || target_leg_space.y > DRONE_LEG_LENGTH * 1.5f
+					|| target_leg_space.length_squared() > (DRONE_LEG_LENGTH * 2.0f) * (DRONE_LEG_LENGTH * 2.0f))
 				{
-					find_footing_offset = Vec3(vi_max(target_leg_space.x, AWK_LEG_LENGTH * 0.25f), -target_leg_space.y, 0);
+					find_footing_offset = Vec3(vi_max(target_leg_space.x, DRONE_LEG_LENGTH * 0.25f), -target_leg_space.y, 0);
 					find_footing = true;
 				}
 			}
 			else
 			{
 				find_footing = true;
-				find_footing_offset = Vec3(AWK_LEG_LENGTH, 0, 0);
+				find_footing_offset = Vec3(DRONE_LEG_LENGTH, 0, 0);
 			}
 
 			if (find_footing)
 			{
-				Mat4 bind_pose_mat = arm->abs_bind_pose[awk_legs[i]];
-				Vec3 ray_start = get<Transform>()->to_world((bind_pose_mat * Vec4(0, 0, AWK_LEG_LENGTH * 1.75f, 1)).xyz());
-				Vec3 ray_end = get<Transform>()->to_world((bind_pose_mat * Vec4(find_footing_offset + Vec3(0, 0, AWK_LEG_LENGTH * -1.0f), 1)).xyz());
+				Mat4 bind_pose_mat = arm->abs_bind_pose[drone_legs[i]];
+				Vec3 ray_start = get<Transform>()->to_world((bind_pose_mat * Vec4(0, 0, DRONE_LEG_LENGTH * 1.75f, 1)).xyz());
+				Vec3 ray_end = get<Transform>()->to_world((bind_pose_mat * Vec4(find_footing_offset + Vec3(0, 0, DRONE_LEG_LENGTH * -1.0f), 1)).xyz());
 				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-				Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
+				Physics::raycast(&ray_callback, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
 				if (ray_callback.hasHit())
 					set_footing(i, Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<Transform>(), ray_callback.m_hitPointWorld);
 				else
 				{
-					Vec3 new_ray_start = get<Transform>()->to_world((bind_pose_mat * Vec4(AWK_LEG_LENGTH * 1.5f, 0, 0, 1)).xyz());
-					Vec3 new_ray_end = get<Transform>()->to_world((bind_pose_mat * Vec4(AWK_LEG_LENGTH * -1.0f, find_footing_offset.y, AWK_LEG_LENGTH * -1.0f, 1)).xyz());
+					Vec3 new_ray_start = get<Transform>()->to_world((bind_pose_mat * Vec4(DRONE_LEG_LENGTH * 1.5f, 0, 0, 1)).xyz());
+					Vec3 new_ray_end = get<Transform>()->to_world((bind_pose_mat * Vec4(DRONE_LEG_LENGTH * -1.0f, find_footing_offset.y, DRONE_LEG_LENGTH * -1.0f, 1)).xyz());
 					btCollisionWorld::ClosestRayResultCallback ray_callback(new_ray_start, new_ray_end);
-					Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
+					Physics::raycast(&ray_callback, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
 					if (ray_callback.hasHit())
 						set_footing(i, Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<Transform>(), ray_callback.m_hitPointWorld);
 					else
@@ -2198,25 +2198,25 @@ void Awk::update_client(const Update& u)
 			{
 				Vec3 target = footing[i].parent.ref()->to_world(footing[i].pos);
 				Vec3 relative_target = (inverse_offset * Vec4(get<Transform>()->to_local(target), 1)).xyz();
-				Vec3 target_leg_space = (arm->inverse_bind_pose[awk_legs[i]] * Vec4(relative_target, 1.0f)).xyz();
+				Vec3 target_leg_space = (arm->inverse_bind_pose[drone_legs[i]] * Vec4(relative_target, 1.0f)).xyz();
 
 				if (footing[i].blend < 1.0f)
 				{
 					Vec3 last_relative_target = (inverse_offset * Vec4(get<Transform>()->to_local(footing[i].last_abs_pos), 1)).xyz();
-					Vec3 last_target_leg_space = (arm->inverse_bind_pose[awk_legs[i]] * Vec4(last_relative_target, 1.0f)).xyz();
+					Vec3 last_target_leg_space = (arm->inverse_bind_pose[drone_legs[i]] * Vec4(last_relative_target, 1.0f)).xyz();
 
 					footing[i].blend = vi_min(1.0f, footing[i].blend + u.time.delta * leg_blend_speed);
 					target_leg_space = Vec3::lerp(footing[i].blend, last_target_leg_space, target_leg_space);
 					if (footing[i].blend == 1.0f && Game::real_time.total - last_footstep > 0.07f)
 					{
-						get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_AWK_FOOTSTEP_PLAYER : AK::EVENTS::PLAY_AWK_FOOTSTEP);
+						get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_FOOTSTEP_PLAYER : AK::EVENTS::PLAY_DRONE_FOOTSTEP);
 						last_footstep = Game::real_time.total;
 					}
 				}
 
 				r32 angle = atan2f(-target_leg_space.y, target_leg_space.x);
 
-				r32 angle_x = acosf((target_leg_space.length() * 0.5f) / AWK_LEG_LENGTH);
+				r32 angle_x = acosf((target_leg_space.length() * 0.5f) / DRONE_LEG_LENGTH);
 
 				if (target_leg_space.x < 0.0f)
 					angle += PI;
@@ -2224,13 +2224,13 @@ void Awk::update_client(const Update& u)
 				Vec2 xy_offset = Vec2(target_leg_space.x, target_leg_space.y);
 				r32 angle_x_offset = -atan2f(target_leg_space.z, xy_offset.length() * (target_leg_space.x < 0.0f ? -1.0f : 1.0f));
 
-				get<Animator>()->override_bone(awk_legs[i], Vec3::zero, Quat::euler(-angle, 0, 0) * Quat::euler(0, angle_x_offset - angle_x, 0));
-				get<Animator>()->override_bone(awk_outer_legs[i], Vec3::zero, Quat::euler(0, angle_x * 2.0f * awk_outer_leg_rotation[i], 0));
+				get<Animator>()->override_bone(drone_legs[i], Vec3::zero, Quat::euler(-angle, 0, 0) * Quat::euler(0, angle_x_offset - angle_x, 0));
+				get<Animator>()->override_bone(drone_outer_legs[i], Vec3::zero, Quat::euler(0, angle_x * 2.0f * drone_outer_leg_rotation[i], 0));
 			}
 			else
 			{
-				get<Animator>()->override_bone(awk_legs[i], Vec3::zero, Quat::euler(0, PI * -0.1f, 0));
-				get<Animator>()->override_bone(awk_outer_legs[i], Vec3::zero, Quat::euler(0, PI * 0.75f * awk_outer_leg_rotation[i], 0));
+				get<Animator>()->override_bone(drone_legs[i], Vec3::zero, Quat::euler(0, PI * -0.1f, 0));
+				get<Animator>()->override_bone(drone_outer_legs[i], Vec3::zero, Quat::euler(0, PI * 0.75f * drone_outer_leg_rotation[i], 0));
 			}
 		}
 
@@ -2262,9 +2262,9 @@ void Awk::update_client(const Update& u)
 		update_offset();
 
 		// emit particles
-		// but don't start until the awk has cleared the camera radius
+		// but don't start until the drone has cleared the camera radius
 		// we do this so that the particles don't block the camera
-		r32 particle_start_delay = AWK_THIRD_PERSON_OFFSET / velocity.length();
+		r32 particle_start_delay = DRONE_THIRD_PERSON_OFFSET / velocity.length();
 		if (u.time.total > attach_time + particle_start_delay)
 		{
 			const r32 particle_interval = 0.05f;
@@ -2293,7 +2293,7 @@ void Awk::update_client(const Update& u)
 	}
 }
 
-void Awk::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, const Net::StateFrame* state_frame, Hits* result) const
+void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, const Net::StateFrame* state_frame, Hits* result) const
 {
 	r32 distance_total = (ray_end - ray_start).length();
 
@@ -2370,7 +2370,7 @@ void Awk::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, 
 				intersection,
 				Vec3::normalize(intersection - p),
 				(intersection - ray_start).length() / distance_total,
-				(i.item()->has<Awk>() || i.item()->has<Decoy>()) ? Hit::Type::Awk : Hit::Type::Target,
+				(i.item()->has<Drone>() || i.item()->has<Decoy>()) ? Hit::Type::Drone : Hit::Type::Target,
 				i.item()->entity(),
 			});
 		}
@@ -2385,9 +2385,9 @@ void Awk::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, 
 		if (hit.fraction < result->fraction_end)
 		{
 			b8 stop = false;
-			if (hit.type == Hit::Type::Awk)
+			if (hit.type == Hit::Type::Drone)
 			{
-				if (hit.entity.ref()->has<Awk>() && hit.entity.ref()->get<Awk>()->state() != Awk::State::Crawl) // it's flying or dashing; always bounce off
+				if (hit.entity.ref()->has<Drone>() && hit.entity.ref()->get<Drone>()->state() != Drone::State::Crawl) // it's flying or dashing; always bounce off
 					stop = true;
 				else if (hit.entity.ref()->get<Health>()->total() > 1)
 					stop = true; // they have health or shield to spare; we'll bounce off
@@ -2409,7 +2409,7 @@ void Awk::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, 
 	}
 }
 
-r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
+r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 {
 	State s = state();
 
@@ -2432,7 +2432,7 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 
 			if (hit.type == Hit::Type::Target)
 				hit_target(hit.entity.ref());
-			else if (hit.type == Hit::Type::Awk)
+			else if (hit.type == Hit::Type::Drone)
 			{
 				b8 do_reflect;
 				if (!Game::level.local && has<PlayerControlHuman>() && get<PlayerControlHuman>()->local())
@@ -2440,8 +2440,8 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 					// client-side prediction
 					do_reflect = hit_target(hit.entity.ref())
 						&& s != State::Crawl
-						&& (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()->get<Awk>()) // will they still be alive after we hit them? if so, reflect
-							|| (hit.entity.ref()->get<Awk>()->state() != State::Crawl || hit.entity.ref()->get<Awk>()->invincible_timer > 0.0f));
+						&& (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()->get<Drone>()) // will they still be alive after we hit them? if so, reflect
+							|| (hit.entity.ref()->get<Drone>()->state() != State::Crawl || hit.entity.ref()->get<Drone>()->invincible_timer > 0.0f));
 				}
 				else
 				{
@@ -2468,20 +2468,20 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 					Vec3 point = hit.pos;
 					// check for obstacles
 					{
-						btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(hit.pos, hit.pos + hit.normal * (AWK_RADIUS * 1.1f));
-						Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
+						btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(hit.pos, hit.pos + hit.normal * (DRONE_RADIUS * 1.1f));
+						Physics::raycast(&obstacle_ray_callback, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
 						if (obstacle_ray_callback.hasHit())
 						{
 							// push us away from the obstacle
 							Vec3 obstacle_normal_flattened = obstacle_ray_callback.m_hitNormalWorld - hit.normal * hit.normal.dot(obstacle_ray_callback.m_hitNormalWorld);
-							point += obstacle_normal_flattened * AWK_RADIUS;
+							point += obstacle_normal_flattened * DRONE_RADIUS;
 						}
 					}
 
 					get<Transform>()->parent = hit.entity.ref()->get<Transform>();
-					get<Transform>()->absolute(point + hit.normal * AWK_RADIUS, Quat::look(hit.normal));
+					get<Transform>()->absolute(point + hit.normal * DRONE_RADIUS, Quat::look(hit.normal));
 
-					AwkNet::finish_flying(this);
+					DroneNet::finish_flying(this);
 				}
 			}
 		}

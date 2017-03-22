@@ -15,7 +15,7 @@
 #include "game/game.h"
 #include "game/team.h"
 #include "game/entities.h"
-#include "game/awk.h"
+#include "game/drone.h"
 #include "game/minion.h"
 
 namespace VI
@@ -91,11 +91,11 @@ void update(const Update& u)
 					(&link)->fire(result);
 				break;
 			}
-			case Callback::AwkPath:
+			case Callback::DronePath:
 			{
-				LinkEntryArg<const AwkResult&> link;
+				LinkEntryArg<const DroneResult&> link;
 				sync_out.read(&link);
-				AwkResult result;
+				DroneResult result;
 				sync_out.read(&result.path);
 				result.id = callback_out_id;
 				callback_out_id++;
@@ -114,11 +114,11 @@ void update(const Update& u)
 					(&link)->fire(result);
 				break;
 			}
-			case Callback::AwkPoint:
+			case Callback::DronePoint:
 			{
-				LinkEntryArg<const AwkPathNode&> link;
+				LinkEntryArg<const DronePathNode&> link;
 				sync_out.read(&link);
-				AwkPathNode result;
+				DronePathNode result;
 				sync_out.read(&result);
 				callback_out_id++;
 				if (level_revision == level_revision_worker) // prevent entity ID/revision collisions
@@ -240,9 +240,9 @@ u32 closest_walk_point(const Vec3& pos, const LinkEntryArg<const Vec3&>& callbac
 	return id;
 }
 
-u32 awk_random_path(AwkAllow rule, Team team, const Vec3& pos, const Vec3& normal, const LinkEntryArg<const AwkResult&>& callback)
+u32 drone_random_path(DroneAllow rule, Team team, const Vec3& pos, const Vec3& normal, const LinkEntryArg<const DroneResult&>& callback)
 {
-	return awk_pathfind(AwkPathfind::Random, rule, team, pos, normal, Vec3::zero, Vec3::zero, callback);
+	return drone_pathfind(DronePathfind::Random, rule, team, pos, normal, Vec3::zero, Vec3::zero, callback);
 }
 
 u32 pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
@@ -260,24 +260,24 @@ u32 pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& ca
 	return id;
 }
 
-u32 awk_pathfind(AwkPathfind type, AwkAllow rule, Team team, const Vec3& a, const Vec3& a_normal, const Vec3& b, const Vec3& b_normal, const LinkEntryArg<const AwkResult&>& callback)
+u32 drone_pathfind(DronePathfind type, DroneAllow rule, Team team, const Vec3& a, const Vec3& a_normal, const Vec3& b, const Vec3& b_normal, const LinkEntryArg<const DroneResult&>& callback)
 {
 	u32 id = callback_in_id;
 	callback_in_id++;
 
 	sync_in.lock();
-	sync_in.write(Op::AwkPathfind);
+	sync_in.write(Op::DronePathfind);
 	sync_in.write(type);
 	sync_in.write(rule);
 	sync_in.write(team);
 	sync_in.write(callback);
 	sync_in.write(a);
 	sync_in.write(a_normal);
-	if (type != AwkPathfind::Random)
+	if (type != DronePathfind::Random)
 	{
-		if (type != AwkPathfind::Spawn)
+		if (type != DronePathfind::Spawn)
 			sync_in.write(b);
-		if (type != AwkPathfind::Target)
+		if (type != DronePathfind::Target)
 			sync_in.write(b_normal);
 	}
 	sync_in.unlock();
@@ -285,13 +285,13 @@ u32 awk_pathfind(AwkPathfind type, AwkAllow rule, Team team, const Vec3& a, cons
 	return id;
 }
 
-u32 awk_closest_point(const Vec3& pos, AI::Team team, const LinkEntryArg<const AwkPathNode&>& callback)
+u32 drone_closest_point(const Vec3& pos, AI::Team team, const LinkEntryArg<const DronePathNode&>& callback)
 {
 	u32 id = callback_in_id;
 	callback_in_id++;
 
 	sync_in.lock();
-	sync_in.write(Op::AwkClosestPoint);
+	sync_in.write(Op::DroneClosestPoint);
 	sync_in.write(callback);
 	sync_in.write(team);
 	sync_in.write(pos);
@@ -300,10 +300,10 @@ u32 awk_closest_point(const Vec3& pos, AI::Team team, const LinkEntryArg<const A
 	return id;
 }
 
-void awk_mark_adjacency_bad(AwkNavMeshNode a, AwkNavMeshNode b)
+void drone_mark_adjacency_bad(DroneNavMeshNode a, DroneNavMeshNode b)
 {
 	sync_in.lock();
-	sync_in.write(Op::AwkMarkAdjacencyBad);
+	sync_in.write(Op::DroneMarkAdjacencyBad);
 	sync_in.write(a);
 	sync_in.write(b);
 	sync_in.unlock();
@@ -311,7 +311,7 @@ void awk_mark_adjacency_bad(AwkNavMeshNode a, AwkNavMeshNode b)
 
 #if DEBUG
 AssetID render_mesh = AssetNull;
-AssetID awk_render_mesh = AssetNull;
+AssetID drone_render_mesh = AssetNull;
 void refresh_nav_render_meshes(const RenderParams& params)
 {
 	if (!render_meshes_dirty)
@@ -326,7 +326,7 @@ void refresh_nav_render_meshes(const RenderParams& params)
 		Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
 		Loader::shader_permanent(Asset::Shader::flat);
 
-		awk_render_mesh = Loader::dynamic_mesh_permanent(1);
+		drone_render_mesh = Loader::dynamic_mesh_permanent(1);
 		Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
 	}
 
@@ -383,27 +383,27 @@ void refresh_nav_render_meshes(const RenderParams& params)
 	vertices.length = 0;
 	indices.length = 0;
 
-	// awk nav mesh
+	// drone nav mesh
 	{
 		s32 vertex_count = 0;
-		for (s32 chunk_index = 0; chunk_index < Worker::awk_nav_mesh.chunks.length; chunk_index++)
+		for (s32 chunk_index = 0; chunk_index < Worker::drone_nav_mesh.chunks.length; chunk_index++)
 		{
-			const AwkNavMeshChunk& chunk = Worker::awk_nav_mesh.chunks[chunk_index];
+			const DroneNavMeshChunk& chunk = Worker::drone_nav_mesh.chunks[chunk_index];
 
 			for (s32 i = 0; i < chunk.vertices.length; i++)
 				vertices.add(chunk.vertices[i]);
 
 			for (s32 i = 0; i < chunk.adjacency.length; i++)
 			{
-				const AwkNavMeshAdjacency& adjacency = chunk.adjacency[i];
+				const DroneNavMeshAdjacency& adjacency = chunk.adjacency[i];
 				for (s32 j = 0; j < adjacency.neighbors.length; j++)
 				{
-					const AwkNavMeshNode& neighbor = adjacency.neighbors[j];
+					const DroneNavMeshNode& neighbor = adjacency.neighbors[j];
 					indices.add(vertex_count + i);
 
 					s32 neighbor_chunk_vertex_index = 0;
 					for (s32 k = 0; k < neighbor.chunk; k++)
-						neighbor_chunk_vertex_index += Worker::awk_nav_mesh.chunks[k].vertices.length;
+						neighbor_chunk_vertex_index += Worker::drone_nav_mesh.chunks[k].vertices.length;
 					indices.add(neighbor_chunk_vertex_index + neighbor.vertex);
 				}
 			}
@@ -412,13 +412,13 @@ void refresh_nav_render_meshes(const RenderParams& params)
 		}
 
 		params.sync->write(RenderOp::UpdateAttribBuffers);
-		params.sync->write(awk_render_mesh);
+		params.sync->write(drone_render_mesh);
 
 		params.sync->write<s32>(vertices.length);
 		params.sync->write<Vec3>(vertices.data, vertices.length);
 
 		params.sync->write(RenderOp::UpdateIndexBuffer);
-		params.sync->write(awk_render_mesh);
+		params.sync->write(drone_render_mesh);
 
 		params.sync->write<s32>(indices.length);
 		params.sync->write<s32>(indices.data, indices.length);
@@ -473,16 +473,16 @@ void debug_draw_nav_mesh(const RenderParams& params)
 	render_helper(params, render_mesh, RenderPrimitiveMode::Triangles, RenderFillMode::Point);
 }
 
-void debug_draw_awk_nav_mesh(const RenderParams& params)
+void debug_draw_drone_nav_mesh(const RenderParams& params)
 {
 	refresh_nav_render_meshes(params);
-	render_helper(params, awk_render_mesh, RenderPrimitiveMode::Lines, RenderFillMode::Line);
+	render_helper(params, drone_render_mesh, RenderPrimitiveMode::Lines, RenderFillMode::Line);
 }
 
 #endif
 
 ComponentMask entity_mask = Sensor::component_mask
-	| Awk::component_mask
+	| Drone::component_mask
 	| MinionCommon::component_mask
 	| Battery::component_mask
 	| Rocket::component_mask
@@ -495,7 +495,7 @@ void entity_info(Entity* e, AI::Team query_team, AI::Team* team, s8* type)
 	if (e->has<AIAgent>())
 	{
 		*team = e->get<AIAgent>()->team;
-		if (e->has<Awk>())
+		if (e->has<Drone>())
 		{
 			s8 shield = e->get<Health>()->hp;
 			if (*team == query_team)
@@ -592,7 +592,7 @@ b8 record_filter(Entity* e, const Vec3& pos)
 		vi_debug("%d", s32(e->id()));
 		vi_debug_break();
 	}
-	return (e->get<Transform>()->absolute_pos() - pos).length_squared() < (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f);
+	return (e->get<Transform>()->absolute_pos() - pos).length_squared() < (DRONE_MAX_DISTANCE * 0.5f * DRONE_MAX_DISTANCE * 0.5f);
 }
 
 void RecordedLife::Tag::init(Entity* player)

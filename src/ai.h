@@ -24,9 +24,9 @@ namespace AI
 		ObstacleAdd,
 		ObstacleRemove,
 		Pathfind,
-		AwkPathfind,
-		AwkMarkAdjacencyBad,
-		AwkClosestPoint,
+		DronePathfind,
+		DroneMarkAdjacencyBad,
+		DroneClosestPoint,
 		RandomPath,
 		ClosestWalkPoint,
 		UpdateState,
@@ -36,13 +36,13 @@ namespace AI
 	enum class Callback
 	{
 		Path,
-		AwkPath,
+		DronePath,
 		Point,
-		AwkPoint,
+		DronePoint,
 		Load,
 	};
 
-	enum class AwkPathfind
+	enum class DronePathfind
 	{
 		LongRange,
 		Target,
@@ -51,7 +51,7 @@ namespace AI
 		Spawn,
 	};
 
-	enum class AwkAllow
+	enum class DroneAllow
 	{
 		Crawl = 1,
 		Shoot = 1 << 1,
@@ -60,14 +60,14 @@ namespace AI
 
 	typedef StaticArray<Vec3, AI_MAX_PATH_LENGTH> Path;
 
-	struct AwkPathNode
+	struct DronePathNode
 	{
 		Vec3 pos;
 		Vec3 normal;
-		AwkNavMeshNode ref;
+		DroneNavMeshNode ref;
 		b8 crawl;
 	};
-	typedef StaticArray<AwkPathNode, AI_MAX_PATH_LENGTH> AwkPath;
+	typedef StaticArray<DronePathNode, AI_MAX_PATH_LENGTH> DronePath;
 
 	struct Result
 	{
@@ -75,9 +75,9 @@ namespace AI
 		u32 id;
 	};
 
-	struct AwkResult
+	struct DroneResult
 	{
-		AwkPath path;
+		DronePath path;
 		u32 id;
 	};
 	
@@ -101,18 +101,18 @@ namespace AI
 	u32 obstacle_add(const Vec3&, r32, r32);
 	void obstacle_remove(u32);
 	u32 pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
-	u32 awk_pathfind(AwkPathfind, AwkAllow, AI::Team, const Vec3&, const Vec3&, const Vec3&, const Vec3&, const LinkEntryArg<const AwkResult&>&);
-	void awk_mark_adjacency_bad(AwkNavMeshNode, AwkNavMeshNode);
-	u32 awk_closest_point(const Vec3&, AI::Team, const LinkEntryArg<const AwkPathNode&>&);
+	u32 drone_pathfind(DronePathfind, DroneAllow, AI::Team, const Vec3&, const Vec3&, const Vec3&, const Vec3&, const LinkEntryArg<const DroneResult&>&);
+	void drone_mark_adjacency_bad(DroneNavMeshNode, DroneNavMeshNode);
+	u32 drone_closest_point(const Vec3&, AI::Team, const LinkEntryArg<const DronePathNode&>&);
 	u32 random_path(const Vec3&, const Vec3&, r32, const LinkEntryArg<const Result&>&);
 	u32 closest_walk_point(const Vec3&, const LinkEntryArg<const Vec3&>&);
-	u32 awk_random_path(AwkAllow, AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const AwkResult&>&);
+	u32 drone_random_path(DroneAllow, AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const DroneResult&>&);
 	void load(AssetID, const char*, const char*);
 	void loop();
 	void quit();
 	void update(const Update&);
 	void debug_draw_nav_mesh(const RenderParams&);
-	void debug_draw_awk_nav_mesh(const RenderParams&);
+	void debug_draw_drone_nav_mesh(const RenderParams&);
 
 	b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);
 
@@ -123,31 +123,31 @@ namespace AI
 			void process(struct dtNavMeshCreateParams* params, u8* polyAreas, u16* polyFlags);
 		};
 
-		struct AwkNavMeshNodeData
+		struct DroneNavMeshNodeData
 		{
 			r32 travel_score;
 			r32 estimate_score;
 			r32 sensor_score;
-			AwkNavMeshNode parent;
+			DroneNavMeshNode parent;
 			b8 visited;
 			b8 in_queue;
 			b8 crawled_from_parent;
 		};
 
-		struct AwkNavMeshKey
+		struct DroneNavMeshKey
 		{
-			Chunks<Array<AwkNavMeshNodeData>> data;
-			r32 priority(const AwkNavMeshNode&);
-			void resize(const AwkNavMesh&);
+			Chunks<Array<DroneNavMeshNodeData>> data;
+			r32 priority(const DroneNavMeshNode&);
+			void resize(const DroneNavMesh&);
 			void reset();
-			AwkNavMeshNodeData& get(const AwkNavMeshNode&);
+			DroneNavMeshNodeData& get(const DroneNavMeshNode&);
 		};
 
 		const extern r32 default_search_extents[];
 
 		extern dtNavMesh* nav_mesh;
-		extern AwkNavMesh awk_nav_mesh;
-		extern AwkNavMeshKey awk_nav_mesh_key;
+		extern DroneNavMesh drone_nav_mesh;
+		extern DroneNavMeshKey drone_nav_mesh_key;
 		extern dtNavMeshQuery* nav_mesh_query;
 		extern dtTileCache* nav_tile_cache;
 		extern dtQueryFilter default_query_filter;

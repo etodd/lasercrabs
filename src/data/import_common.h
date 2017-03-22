@@ -270,39 +270,39 @@ template<typename T> struct Chunks
 	}
 };
 
-#define AWK_NAV_MESH_ADJACENCY 48 // must be <= 64 because flags is a u64
-struct AwkNavMeshNode
+#define DRONE_NAV_MESH_ADJACENCY 48 // must be <= 64 because flags is a u64
+struct DroneNavMeshNode
 {
 	s16 chunk;
 	s16 vertex;
 
-	inline b8 equals(const AwkNavMeshNode& other) const
+	inline b8 equals(const DroneNavMeshNode& other) const
 	{
 		return chunk == other.chunk && vertex == other.vertex;
 	}
 };
 
-#define AWK_NAV_MESH_NODE_NONE { -1, -1 }
+#define DRONE_NAV_MESH_NODE_NONE { -1, -1 }
 
-struct AwkNavMeshAdjacency
+struct DroneNavMeshAdjacency
 {
 	// true = crawl
 	// false = shoot
 	u64 flags;
-	StaticArray<AwkNavMeshNode, AWK_NAV_MESH_ADJACENCY> neighbors;
+	StaticArray<DroneNavMeshNode, DRONE_NAV_MESH_ADJACENCY> neighbors;
 	b8 flag(s32) const;
 	void flag(s32, b8);
 	void remove(s32);
 };
 
-struct AwkNavMeshChunk
+struct DroneNavMeshChunk
 {
 	Array<Vec3> vertices;
 	Array<Vec3> normals;
-	Array<AwkNavMeshAdjacency> adjacency;
+	Array<DroneNavMeshAdjacency> adjacency;
 };
 
-struct AwkNavMesh : Chunks<AwkNavMeshChunk>
+struct DroneNavMesh : Chunks<DroneNavMeshChunk>
 {
 };
 

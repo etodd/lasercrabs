@@ -10,14 +10,14 @@ namespace Asset
 	{
 		const s32 count = 67;
 		const AssetID actor_collision = 0;
-		const AssetID awk = 1;
-		const AssetID battery = 2;
-		const AssetID character = 3;
-		const AssetID clouds = 4;
-		const AssetID compass = 5;
-		const AssetID cone = 6;
-		const AssetID control_point = 7;
-		const AssetID cube = 8;
+		const AssetID battery = 1;
+		const AssetID character = 2;
+		const AssetID clouds = 3;
+		const AssetID compass = 4;
+		const AssetID cone = 5;
+		const AssetID control_point = 6;
+		const AssetID cube = 7;
+		const AssetID drone = 8;
 		const AssetID energy = 9;
 		const AssetID force_field_base = 10;
 		const AssetID force_field_sphere = 11;

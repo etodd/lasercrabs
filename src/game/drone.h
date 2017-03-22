@@ -26,25 +26,25 @@ namespace Net
 }
 
 // If we raycast through a Minion's head, keep going.
-struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
+struct DroneRaycastCallback : btCollisionWorld::ClosestRayResultCallback
 {
 	r32 closest_target_hit_fraction;
 	s16 closest_target_hit_group;
 	b8 hit_target() const;
 	ID entity_id;
 
-	AwkRaycastCallback(const Vec3&, const Vec3&, const Entity*);
+	DroneRaycastCallback(const Vec3&, const Vec3&, const Entity*);
 
 	btScalar addSingleResult(btCollisionWorld::LocalRayResult&, b8);
 };
 
-struct AwkReflectEvent
+struct DroneReflectEvent
 {
 	Entity* entity;
 	Vec3 new_velocity;
 };
 
-struct Awk : public ComponentType<Awk>
+struct Drone : public ComponentType<Drone>
 {
 	enum class State
 	{
@@ -69,7 +69,7 @@ struct Awk : public ComponentType<Awk>
 			Environment,
 			Inaccessible,
 			ForceField,
-			Awk,
+			Drone,
 			Target,
 			count,
 		};
@@ -94,7 +94,7 @@ struct Awk : public ComponentType<Awk>
 		IgnoreForceFields,
 	};
 
-	static Awk* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+	static Drone* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static void update_shield_view(const Update&, Entity*, View*, View*, r32);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void stealth(Entity*, b8);
@@ -114,13 +114,13 @@ struct Awk : public ComponentType<Awk>
 	r32 dash_timer;
 	r32 remote_reflection_timer;
 	Ability current_ability;
-	Footing footing[AWK_LEGS];
+	Footing footing[DRONE_LEGS];
 	Ref<Entity> shield;
 	Ref<Entity> overshield;
 	Ref<Entity> remote_reflection_entity;
 	StaticArray<Ref<Entity>, 8> hit_targets;
 	StaticArray<Ref<EffectLight>, 4> fake_projectiles;
-	LinkArg<const AwkReflectEvent&> reflecting;
+	LinkArg<const DroneReflectEvent&> reflecting;
 	LinkArg<Entity*> hit;
 	LinkArg<Ability> ability_spawned;
 	Link detaching;
@@ -130,9 +130,9 @@ struct Awk : public ComponentType<Awk>
 	s8 charges;
 	b8 reflection_source_remote;
 
-	Awk();
+	Drone();
 	void awake();
-	~Awk();
+	~Drone();
 
 	r32 target_prediction_speed() const;
 	r32 range() const;
@@ -171,10 +171,10 @@ struct Awk : public ComponentType<Awk>
 
 	b8 direction_is_toward_attached_wall(const Vec3&) const;
 	b8 can_shoot(const Vec3&, Vec3* = nullptr, b8* = nullptr, const Net::StateFrame* = nullptr) const;
-	b8 can_shoot(const Target*, Vec3* = nullptr, r32 = AWK_FLY_SPEED, const Net::StateFrame* = nullptr) const;
+	b8 can_shoot(const Target*, Vec3* = nullptr, r32 = DRONE_FLY_SPEED, const Net::StateFrame* = nullptr) const;
 	b8 can_spawn(Ability, const Vec3&, Vec3* = nullptr, Vec3* = nullptr, RigidBody** = nullptr, b8* = nullptr) const;
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
-	b8 can_hit(const Target*, Vec3* = nullptr, r32 = AWK_FLY_SPEED) const; // shoot or dash
+	b8 can_hit(const Target*, Vec3* = nullptr, r32 = DRONE_FLY_SPEED) const; // shoot or dash
 
 	void raycast(RaycastMode, const Vec3&, const Vec3&, const Net::StateFrame*, Hits*) const;
 	r32 movement_raycast(const Vec3&, const Vec3&);

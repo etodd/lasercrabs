@@ -276,8 +276,8 @@ set(SRC
 	src/game/overworld.cpp
 	src/game/ai_player.h
 	src/game/ai_player.cpp
-	src/game/awk.h
-	src/game/awk.cpp
+	src/game/drone.h
+	src/game/drone.cpp
 	src/game/walker.h
 	src/game/walker.cpp
 	src/game/constants.h
@@ -315,7 +315,6 @@ set(SRC
 	assets/shader/standard_instanced.glsl
 	assets/shader/flat_instanced.glsl
 	assets/shader/culled.glsl
-	assets/shader/flat_clipped.glsl
 	assets/shader/ui.glsl
 	assets/shader/ui_texture.glsl
 	assets/shader/debug_depth.glsl

@@ -14,7 +14,7 @@
 #include "audio.h"
 #include "asset/Wwise_IDs.h"
 #include "render/views.h"
-#include "awk.h"
+#include "drone.h"
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "menu.h"
 #include "data/ragdoll.h"
@@ -37,24 +37,24 @@ namespace VI
 {
 
 
-AwkEntity::AwkEntity(AI::Team team)
+DroneEntity::DroneEntity(AI::Team team)
 {
 	create<Audio>();
 	create<Transform>();
-	create<Awk>();
+	create<Drone>();
 	create<AIAgent>()->team = team;
-	create<Health>(AWK_HEALTH, AWK_HEALTH, AWK_SHIELD, AWK_SHIELD);
+	create<Health>(DRONE_HEALTH, DRONE_HEALTH, DRONE_SHIELD, DRONE_SHIELD);
 
 	SkinnedModel* model = create<SkinnedModel>();
-	model->mesh = Asset::Mesh::awk;
+	model->mesh = Asset::Mesh::drone;
 	model->shader = Asset::Shader::armature;
 	model->team = s8(team);
 
 	Animator* anim = create<Animator>();
-	anim->armature = Asset::Armature::awk;
+	anim->armature = Asset::Armature::drone;
 
 	create<Target>();
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault, AssetNull);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(DRONE_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault, AssetNull);
 }
 
 Health::Health(s8 hp, s8 hp_max, s8 shield, s8 shield_max)
@@ -260,7 +260,7 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 
 	model->offset.scale(Vec3(ENERGY_PICKUP_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(ENERGY_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(ENERGY_PICKUP_RADIUS), 0.1f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker);
 	body->set_damping(0.5f, 0.5f);
 	body->set_ccd(true);
 
@@ -355,7 +355,7 @@ Battery::~Battery()
 
 void Battery::hit(const TargetEvent& e)
 {
-	if (e.hit_by->has<Awk>() && e.hit_by->get<Awk>()->current_ability == Ability::Sniper)
+	if (e.hit_by->has<Drone>() && e.hit_by->get<Drone>()->current_ability == Ability::Sniper)
 		set_team(AI::TeamNone, e.hit_by);
 	else
 		set_team(e.hit_by->get<AIAgent>()->team, e.hit_by);
@@ -756,7 +756,7 @@ SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_r
 
 	create<Target>();
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 1.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 1.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield);
 	body->set_damping(0.5f, 0.5f);
 }
 
@@ -1075,7 +1075,7 @@ void Rocket::update_server(const Update& u)
 				for (s32 i = 0; i < whisker_count; i++)
 				{
 					btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, get<Transform>()->pos + get<Transform>()->rot * whiskers[i]);
-					Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionAwkIgnore & ~CollisionShield);
+					Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionDroneIgnore & ~CollisionShield);
 					if (ray_callback.hasHit())
 					{
 						// avoid the obstacle
@@ -1099,7 +1099,7 @@ void Rocket::update_server(const Update& u)
 		Vec3 next_pos = get<Transform>()->pos + velocity() * u.time.delta;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, next_pos + get<Transform>()->rot * Vec3(0, 0, 0.1f));
-		Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionAwkIgnore);
+		Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionDroneIgnore);
 		if (ray_callback.hasHit())
 		{
 			// we hit something
@@ -1109,7 +1109,7 @@ void Rocket::update_server(const Update& u)
 				// kaboom
 
 				// do damage
-				if ((hit->has<Awk>() && hit->get<Awk>()->invincible_timer == 0.0f)
+				if ((hit->has<Drone>() && hit->get<Drone>()->invincible_timer == 0.0f)
 					|| hit->has<Decoy>())
 					hit->get<Health>()->damage(entity(), 1);
 
@@ -1162,7 +1162,7 @@ RocketEntity::RocketEntity(PlayerManager* owner, Transform* parent, const Vec3& 
 	model->team = s8(team);
 	model->shader = Asset::Shader::standard;
 
-	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.1f, 0.3f, 0.3f), 0.0f, CollisionAwkIgnore, CollisionDefault);
+	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.1f, 0.3f, 0.3f), 0.0f, CollisionDroneIgnore, CollisionDefault);
 
 	create<Target>();
 
@@ -1178,24 +1178,24 @@ DecoyEntity::DecoyEntity(PlayerManager* owner, Transform* parent, const Vec3& po
 	AI::Team team = owner->team.ref()->team();
 	Transform* transform = create<Transform>();
 	transform->parent = parent;
-	transform->absolute(pos + rot * Vec3(0, 0, AWK_RADIUS), rot);
+	transform->absolute(pos + rot * Vec3(0, 0, DRONE_RADIUS), rot);
 	create<AIAgent>()->team = team;
 
-	create<Health>(AWK_HEALTH, AWK_HEALTH, AWK_SHIELD, AWK_SHIELD);
+	create<Health>(DRONE_HEALTH, DRONE_HEALTH, DRONE_SHIELD, DRONE_SHIELD);
 
 	SkinnedModel* model = create<SkinnedModel>();
-	model->mesh = Asset::Mesh::awk;
+	model->mesh = Asset::Mesh::drone;
 	model->shader = Asset::Shader::armature;
 	model->team = s8(team);
 
 	Animator* anim = create<Animator>();
-	anim->armature = Asset::Armature::awk;
+	anim->armature = Asset::Armature::drone;
 	anim->layers[0].behavior = Animator::Behavior::Loop;
-	anim->layers[0].play(Asset::Animation::awk_dash);
+	anim->layers[0].play(Asset::Animation::drone_dash);
 
 	create<Target>();
 
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(DRONE_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault);
 
 	create<Decoy>()->owner = owner;
 }
@@ -1216,10 +1216,10 @@ void Decoy::awake()
 			View* s = shield_entity->add<View>();
 			s->team = (s8)get<AIAgent>()->team;
 			s->mesh = Asset::Mesh::sphere_highres;
-			s->offset.scale(Vec3(AWK_SHIELD_RADIUS * AWK_SHIELD_VIEW_RATIO));
+			s->offset.scale(Vec3(DRONE_SHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO));
 			s->shader = Asset::Shader::fresnel;
 			s->alpha();
-			s->color.w = AWK_SHIELD_ALPHA;
+			s->color.w = DRONE_SHIELD_ALPHA;
 
 			Net::finalize_child(shield_entity);
 		}
@@ -1232,10 +1232,10 @@ void Decoy::awake()
 			View* s = overshield_entity->add<View>();
 			s->team = (s8)get<AIAgent>()->team;
 			s->mesh = Asset::Mesh::sphere_highres;
-			s->offset.scale(Vec3(AWK_OVERSHIELD_RADIUS * AWK_SHIELD_VIEW_RATIO));
+			s->offset.scale(Vec3(DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO));
 			s->shader = Asset::Shader::fresnel;
 			s->alpha();
-			s->color.w = AWK_OVERSHIELD_ALPHA;
+			s->color.w = DRONE_OVERSHIELD_ALPHA;
 
 			Net::finalize_child(overshield_entity);
 		}
@@ -1270,7 +1270,7 @@ void Decoy::health_changed(const HealthEvent& e)
 
 void Decoy::update(const Update& u)
 {
-	Awk::update_shield_view(u, entity(), shield.ref()->get<View>(), overshield.ref()->get<View>(), shield_time);
+	Drone::update_shield_view(u, entity(), shield.ref()->get<View>(), overshield.ref()->get<View>(), shield_time);
 }
 
 void Decoy::destroy()
@@ -1445,7 +1445,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 
 	create<Target>();
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(FORCE_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionStatic & ~CollisionShield & ~CollisionParkour & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionElectric);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(FORCE_FIELD_BASE_RADIUS), 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionStatic & ~CollisionShield & ~CollisionParkour & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionElectric);
 
 	ForceField* field = create<ForceField>();
 	field->team = team;
@@ -1463,7 +1463,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 
 	CollisionGroup team_group = CollisionGroup(1 << (8 + team));
 
-	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_group, CollisionAwkIgnore, view->mesh);
+	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_group, CollisionDroneIgnore, view->mesh);
 
 	Net::finalize_child(f);
 
@@ -1544,9 +1544,9 @@ void Projectile::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& nor
 				if (state == Parkour::State::Roll || state == Parkour::State::Slide)
 					do_damage = false;
 			}
-			if (hit_object->has<Awk>()) // player is invincible while flying or dashing, and just after spawning
+			if (hit_object->has<Drone>()) // player is invincible while flying or dashing, and just after spawning
 			{
-				if (hit_object->get<Awk>()->state() != Awk::State::Crawl || hit_object->get<Awk>()->invincible_timer > 0.0f)
+				if (hit_object->get<Drone>()->state() != Drone::State::Crawl || hit_object->get<Drone>()->invincible_timer > 0.0f)
 					do_damage = false;
 			}
 			if (do_damage)
@@ -1654,7 +1654,7 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	g->owner = owner;
 	g->velocity = Vec3::normalize(velocity) * GRENADE_LAUNCH_SPEED;
 
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS), 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield);
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::sphere_highres;
@@ -1702,7 +1702,7 @@ void Grenade::update_server(const Update& u)
 			if (v.length_squared() > 0.0f)
 				v.normalize();
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + v * GRENADE_RADIUS);
-			Physics::raycast(&ray_callback, ~Team::force_field_mask(team()) & ~CollisionAwkIgnore & ~CollisionTarget);
+			Physics::raycast(&ray_callback, ~Team::force_field_mask(team()) & ~CollisionDroneIgnore & ~CollisionTarget);
 			if (ray_callback.hasHit())
 			{
 				Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
@@ -1745,9 +1745,9 @@ void Grenade::explode()
 		Vec3 to_item = i.item()->get<Transform>()->absolute_pos() - me;
 		r32 distance = to_item.length();
 		to_item /= distance;
-		if (i.item()->has<Awk>())
+		if (i.item()->has<Drone>())
 		{
-			if (distance < GRENADE_RANGE * 0.66f && i.item()->get<Awk>()->invincible_timer == 0.0f)
+			if (distance < GRENADE_RANGE * 0.66f && i.item()->get<Drone>()->invincible_timer == 0.0f)
 				i.item()->damage(entity(), 1);
 		}
 		else if (distance < GRENADE_RANGE && !i.item()->has<Battery>())
@@ -1848,8 +1848,8 @@ void Grenade::killed_by(Entity* e)
 
 Vec3 Target::velocity() const
 {
-	if (has<Awk>())
-		return get<Awk>()->velocity;
+	if (has<Drone>())
+		return get<Drone>()->velocity;
 	else if (has<Rocket>())
 		return get<Rocket>()->velocity();
 	else if (Game::level.local)
@@ -2118,7 +2118,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 					Net::finalize(last_segment->entity());
 
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
-				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, ~CollisionWalker & ~CollisionAllTeamsForceField);
+				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionDroneIgnore, ~CollisionWalker & ~CollisionAllTeamsForceField);
 				box->add<Rope>();
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);
@@ -2405,15 +2405,15 @@ CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)
 		{
 			// animated model
 			SkinnedModel* model = create<SkinnedModel>();
-			model->mesh = Asset::Mesh::awk;
+			model->mesh = Asset::Mesh::drone;
 			model->shader = Asset::Shader::armature;
 			model->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
-			model->offset.translate(Vec3(0, 0, AWK_RADIUS));
+			model->offset.translate(Vec3(0, 0, DRONE_RADIUS));
 
 			Animator* anim = create<Animator>();
-			anim->armature = Asset::Armature::awk;
+			anim->armature = Asset::Armature::drone;
 			anim->layers[0].behavior = Animator::Behavior::Loop;
-			anim->layers[0].animation = Asset::Animation::awk_fly;
+			anim->layers[0].animation = Asset::Animation::drone_fly;
 			break;
 		}
 		default:
@@ -2893,7 +2893,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 	Transform* transform = create<Transform>();
 
 	const Mesh* mesh = Loader::mesh(Asset::Mesh::tram_mesh);
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionAwkIgnore, ~CollisionWalker & ~CollisionInaccessible & ~CollisionParkour & ~CollisionStatic & ~CollisionElectric);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionDroneIgnore, ~CollisionWalker & ~CollisionInaccessible & ~CollisionParkour & ~CollisionStatic & ~CollisionElectric);
 	body->set_restitution(0.75f);
 	body->set_damping(0.5f, 0.5f);
 
@@ -2912,7 +2912,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 	view->color.w = MATERIAL_INACCESSIBLE;
 
 	{
-		Entity* child = World::alloc<StaticGeom>(Asset::Mesh::tram_collision, Vec3::zero, Quat::identity, CollisionInaccessible, ~CollisionAwkIgnore & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric);
+		Entity* child = World::alloc<StaticGeom>(Asset::Mesh::tram_collision, Vec3::zero, Quat::identity, CollisionInaccessible, ~CollisionDroneIgnore & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric);
 		child->get<Transform>()->parent = transform;
 		child->get<View>()->mesh = Asset::Mesh::tram_mesh_1;
 		child->get<View>()->shader = Asset::Shader::flat;
@@ -2937,7 +2937,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 		anim->layers[0].blend_time = 0.0f;
 		anim->layers[1].blend_time = 0.0f;
 
-		RigidBody* body = doors->create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAwkIgnore & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric, Asset::Mesh::tram_collision_door);
+		RigidBody* body = doors->create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionDroneIgnore & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric, Asset::Mesh::tram_collision_door);
 		body->set_restitution(0.75f);
 		
 		doors->create<PlayerTrigger>()->radius = 8.0f; // trigger for exiting
@@ -3129,7 +3129,7 @@ void Tram::doors_open(b8 open)
 	}
 	else
 	{
-		body->set_collision_masks(CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAwkIgnore & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric); // enable collision
+		body->set_collision_masks(CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionDroneIgnore & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric); // enable collision
 		anim->layers[0].animation = AssetNull;
 		anim->layers[1].play(Asset::Animation::tram_doors_close);
 	}

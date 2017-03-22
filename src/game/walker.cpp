@@ -74,7 +74,7 @@ b8 Walker::slide(Vec2* movement, const Vec3& wall_ray)
 	Vec3 ray_start = get<Transform>()->absolute_pos();
 	Vec3 ray_end = ray_start + wall_ray * (WALKER_RADIUS + 0.25f);
 	btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-	Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAllTeamsForceField);
+	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAllTeamsForceField);
 	if (ray_callback.hasHit()
 		&& Vec3(ray_callback.m_hitNormalWorld).dot(Vec3(movement->x, 0, movement->y)) < 0.0f)
 	{
@@ -122,7 +122,7 @@ btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_dista
 		Vec3 ray_end = ray_start + Vec3(0, (capsule_height() * -0.5f) + (WALKER_SUPPORT_HEIGHT * -1.5f) - extra_distance, 0);
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAllTeamsForceField);
+		Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAllTeamsForceField);
 		if (ray_callback.hasHit())
 		{
 			ray_callback.m_collisionObject = get_actual_support_body((const btRigidBody*)(ray_callback.m_collisionObject));

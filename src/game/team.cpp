@@ -6,7 +6,7 @@
 #include "asset/animation.h"
 #include "asset/mesh.h"
 #include "strings.h"
-#include "awk.h"
+#include "drone.h"
 #include "minion.h"
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "audio.h"
@@ -316,7 +316,7 @@ void update_visibility_sensor(Entity* visibility[][MAX_PLAYERS], PlayerManager* 
 	Quat player_rot;
 	Vec3 player_pos;
 	player_entity->get<Transform>()->absolute(&player_pos, &player_rot);
-	player_pos += player_rot * Vec3(0, 0, -AWK_RADIUS);
+	player_pos += player_rot * Vec3(0, 0, -DRONE_RADIUS);
 	Vec3 normal = player_rot * Vec3(0, 0, 1);
 	for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
 	{
@@ -336,7 +336,7 @@ void update_stealth_state(PlayerManager* player, AIAgent* a, Entity* visibility[
 	Quat player_rot;
 	Vec3 player_pos;
 	a->get<Transform>()->absolute(&player_pos, &player_rot);
-	player_pos += player_rot * Vec3(0, 0, -AWK_RADIUS);
+	player_pos += player_rot * Vec3(0, 0, -DRONE_RADIUS);
 	Vec3 normal = player_rot * Vec3(0, 0, 1);
 
 	// if we are within range of their own sensors
@@ -357,7 +357,7 @@ void update_stealth_state(PlayerManager* player, AIAgent* a, Entity* visibility[
 			}
 		}
 	}
-	Awk::stealth(a->entity(), stealth_enabled);
+	Drone::stealth(a->entity(), stealth_enabled);
 }
 
 void update_visibility(const Update& u)
@@ -375,15 +375,15 @@ void update_visibility(const Update& u)
 		}
 
 		Entity* player_entity = player.item()->instance.ref();
-		if (player_entity && player_entity->has<Awk>())
+		if (player_entity && player_entity->has<Drone>())
 		{
-			if (player_entity->get<Awk>()->state() == Awk::State::Crawl) // we're on a wall and can thus be detected
+			if (player_entity->get<Drone>()->state() == Drone::State::Crawl) // we're on a wall and can thus be detected
 			{
 				update_visibility_sensor(visibility, player.item(), player_entity);
 				update_stealth_state(player.item(), player_entity->get<AIAgent>(), visibility);
 			}
 			else
-				Awk::stealth(player_entity, false); // always visible while flying or dashing
+				Drone::stealth(player_entity, false); // always visible while flying or dashing
 		}
 	}
 
@@ -392,12 +392,12 @@ void update_visibility(const Update& u)
 	{
 		Entity* i_entity = i.item()->instance.ref();
 
-		if (!i_entity || !i_entity->has<Awk>())
+		if (!i_entity || !i_entity->has<Drone>())
 			continue;
 
 		Team* i_team = i.item()->team.ref();
 
-		r32 i_range = i_entity->get<Awk>()->range();
+		r32 i_range = i_entity->get<Drone>()->range();
 
 		Entity* i_decoy = i.item()->decoy();
 
@@ -421,7 +421,7 @@ void update_visibility(const Update& u)
 					&& distance < i_range)
 					|| (i_decoy
 						&& visibility_check(i_decoy, j_decoy, &distance)
-						&& distance < AWK_MAX_DISTANCE))
+						&& distance < DRONE_MAX_DISTANCE))
 					detected_entity = j_decoy;
 			}
 
@@ -435,7 +435,7 @@ void update_visibility(const Update& u)
 						&& distance < i_range)
 						|| (i_decoy
 							&& visibility_check(i_decoy, j_actual_entity, &distance)
-							&& distance < AWK_MAX_DISTANCE))
+							&& distance < DRONE_MAX_DISTANCE))
 						detected_entity = j_actual_entity;
 				}
 			}
@@ -460,7 +460,7 @@ void update_visibility(const Update& u)
 			Team::SensorTrack* track = &team->player_tracks[player.index];
 			if (detected_entity)
 			{
-				// team's sensors are picking up the Awk
+				// team's sensors are picking up the Drone
 				if (track->entity.ref() == detected_entity)
 				{
 					if (track->tracking)
@@ -473,10 +473,10 @@ void update_visibility(const Update& u)
 							team->track(player.item(), detected_entity);
 					}
 				}
-				else if (detected_entity->has<Decoy>() || detected_entity->get<Awk>()->state() == Awk::State::Crawl)
+				else if (detected_entity->has<Decoy>() || detected_entity->get<Drone>()->state() == Drone::State::Crawl)
 				{
 					// not tracking yet; insert new track entry
-					// (only start tracking if the Awk is attached to a wall; don't start tracking if Awk is mid-air)
+					// (only start tracking if the Drone is attached to a wall; don't start tracking if Drone is mid-air)
 
 					new (track) Team::SensorTrack();
 					track->entity = detected_entity;
@@ -484,7 +484,7 @@ void update_visibility(const Update& u)
 			}
 			else
 			{
-				// team's sensors don't see the Awk
+				// team's sensors don't see the Drone
 				// done tracking
 				if (track->tracking && track->entity.ref() && track->timer > 0.0f) // track still remains active for SENSOR_LINGER_TIME seconds
 					track->timer -= u.time.delta;
@@ -798,7 +798,7 @@ void Team::update_all_server(const Update& u)
 						else
 						{
 							Entity* e = PlayerManager::visibility[PlayerManager::visibility_hash(rocket.item()->owner.ref(), player.item())].ref();
-							if (e && (!e->has<Awk>() || e->get<Awk>()->state() == Awk::State::Crawl)) // only launch rockets at drones that are crawling; this prevents rockets from launching and immediately losing their target
+							if (e && (!e->has<Drone>() || e->get<Drone>()->state() == Drone::State::Crawl)) // only launch rockets at drones that are crawling; this prevents rockets from launching and immediately losing their target
 								detected_entity = e;
 						}
 
@@ -890,9 +890,9 @@ b8 PlayerManager::ability_valid(Ability ability) const
 
 Ref<Entity> PlayerManager::visibility[MAX_PLAYERS * MAX_PLAYERS];
 
-s32 PlayerManager::visibility_hash(const PlayerManager* awk_a, const PlayerManager* awk_b)
+s32 PlayerManager::visibility_hash(const PlayerManager* drone_a, const PlayerManager* drone_b)
 {
-	return awk_a->id() * MAX_PLAYERS + awk_b->id();
+	return drone_a->id() * MAX_PLAYERS + drone_b->id();
 }
 
 PlayerManager::PlayerManager(Team* team, const char* u)
@@ -997,7 +997,7 @@ b8 PlayerManager::capture_start()
 	if (can_transition_state() && control_point && control_point->can_be_captured_by(team.ref()->team()))
 	{
 		vi_assert(current_upgrade == Upgrade::None);
-		instance.ref()->get<Awk>()->current_ability = Ability::None;
+		instance.ref()->get<Drone>()->current_ability = Ability::None;
 		state_timer = CAPTURE_TIME;
 		return true;
 	}
@@ -1114,7 +1114,7 @@ b8 PlayerManager::at_upgrade_point() const
 ControlPoint* PlayerManager::at_control_point() const
 {
 	Entity* e = instance.ref();
-	if (e && (!e->has<Awk>() || e->get<Awk>()->state() == Awk::State::Crawl))
+	if (e && (!e->has<Drone>() || e->get<Drone>()->state() == Drone::State::Crawl))
 	{
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 		{
@@ -1156,7 +1156,7 @@ b8 PlayerManager::can_transition_state() const
 	if (s != State::Default)
 		return false;
 
-	return e->get<Awk>()->state() == Awk::State::Crawl;
+	return e->get<Drone>()->state() == Drone::State::Crawl;
 }
 
 s16 PlayerManager::increment() const

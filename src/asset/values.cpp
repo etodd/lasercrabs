@@ -7,7 +7,6 @@ namespace VI
 const char* AssetLookup::Mesh::values[] =
 {
 	"assets/actor_collision.msh",
-	"assets/awk.msh",
 	"assets/battery.msh",
 	"assets/character.msh",
 	"assets/clouds.msh",
@@ -15,6 +14,7 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/cone.msh",
 	"assets/control_point.msh",
 	"assets/cube.msh",
+	"assets/drone.msh",
 	"assets/energy.msh",
 	"assets/force_field_base.msh",
 	"assets/force_field_sphere.msh",
@@ -297,7 +297,6 @@ const char* AssetLookup::Mesh::values[] =
 const char* AssetLookup::Mesh::names[] =
 {
 	"actor_collision",
-	"awk",
 	"battery",
 	"character",
 	"clouds",
@@ -305,6 +304,7 @@ const char* AssetLookup::Mesh::names[] =
 	"cone",
 	"control_point",
 	"cube",
+	"drone",
 	"energy",
 	"force_field_base",
 	"force_field_sphere",
@@ -586,8 +586,6 @@ const char* AssetLookup::Mesh::names[] =
 
 const char* AssetLookup::Animation::values[] =
 {
-	"assets/awk_dash.anm",
-	"assets/awk_fly.anm",
 	"assets/character_aim.anm",
 	"assets/character_climb_down.anm",
 	"assets/character_climb_up.anm",
@@ -619,6 +617,8 @@ const char* AssetLookup::Animation::values[] =
 	"assets/character_wall_run_left.anm",
 	"assets/character_wall_run_right.anm",
 	"assets/character_wall_run_straight.anm",
+	"assets/drone_dash.anm",
+	"assets/drone_fly.anm",
 	"assets/hobo_idle.anm",
 	"assets/interactable_disabled.anm",
 	"assets/interactable_enabled.anm",
@@ -644,8 +644,6 @@ const char* AssetLookup::Animation::values[] =
 
 const char* AssetLookup::Animation::names[] =
 {
-	"awk_dash",
-	"awk_fly",
 	"character_aim",
 	"character_climb_down",
 	"character_climb_up",
@@ -677,6 +675,8 @@ const char* AssetLookup::Animation::names[] =
 	"character_wall_run_left",
 	"character_wall_run_right",
 	"character_wall_run_straight",
+	"drone_dash",
+	"drone_fly",
 	"hobo_idle",
 	"interactable_disabled",
 	"interactable_enabled",
@@ -702,8 +702,8 @@ const char* AssetLookup::Animation::names[] =
 
 const char* AssetLookup::Armature::values[] =
 {
-	"assets/awk.arm",
 	"assets/character.arm",
+	"assets/drone.arm",
 	"assets/hobo.arm",
 	"assets/interactable.arm",
 	"assets/locke.arm",
@@ -720,8 +720,8 @@ const char* AssetLookup::Armature::values[] =
 
 const char* AssetLookup::Armature::names[] =
 {
-	"awk",
 	"character",
+	"drone",
 	"hobo",
 	"interactable",
 	"locke",

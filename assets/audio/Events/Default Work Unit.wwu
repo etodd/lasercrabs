@@ -151,7 +151,7 @@
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_Awk_Footstep" ID="{9AD0CCCD-E630-4B8F-8802-2DC5B8F56A22}">
+						<Event Name="Play_Drone_Footstep" ID="{9AD0CCCD-E630-4B8F-8802-2DC5B8F56A22}">
 							<ChildrenList>
 								<Action Name="Play" ID="{E90F6585-D59C-4781-847D-A3D289A45F5E}" ShortID="518706445" Type="Play" Scope="One" Global="false">
 									<ElementList>
@@ -238,7 +238,7 @@
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_Awk_Footstep_Player" ID="{B0A466EE-8EFB-4309-86E6-B6197AEE19C7}">
+						<Event Name="Play_Drone_Footstep_Player" ID="{B0A466EE-8EFB-4309-86E6-B6197AEE19C7}">
 							<ChildrenList>
 								<Action Name="Play" ID="{1D6A808B-A22A-419C-B53D-9EC9FC2D6187}" ShortID="743802534" Type="Play" Scope="One" Global="false">
 									<ElementList>

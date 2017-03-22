@@ -12,7 +12,7 @@
 #include "data/animator.h"
 #include "data/ragdoll.h"
 #include "physics.h"
-#include "game/awk.h"
+#include "game/drone.h"
 #include "game/minion.h"
 #include "game/audio.h"
 #include "game/player.h"
@@ -284,7 +284,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Sensor::component_mask
 		| Rocket::component_mask
 		| ForceField::component_mask
-		| Awk::component_mask
+		| Drone::component_mask
 		| Decoy::component_mask
 		| Audio::component_mask
 		| Team::component_mask
@@ -435,14 +435,14 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_bool(p, a->stealth);
 	}
 
-	if (e->has<Awk>())
+	if (e->has<Drone>())
 	{
-		Awk* a = e->get<Awk>();
-		serialize_r32_range(p, a->cooldown, 0, AWK_COOLDOWN, 8);
+		Drone* a = e->get<Drone>();
+		serialize_r32_range(p, a->cooldown, 0, DRONE_COOLDOWN, 8);
 		serialize_int(p, Ability, a->current_ability, 0, s32(Ability::count) + 1);
 		serialize_ref(p, a->shield);
 		serialize_ref(p, a->overshield);
-		serialize_int(p, s8, a->charges, 0, AWK_CHARGES);
+		serialize_int(p, s8, a->charges, 0, DRONE_CHARGES);
 	}
 
 	if (e->has<Decoy>())
@@ -1317,7 +1317,7 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 	return true;
 }
 
-template<typename Stream> b8 serialize_awk(Stream* p, AwkState* state, const AwkState* old)
+template<typename Stream> b8 serialize_drone(Stream* p, DroneState* state, const DroneState* old)
 {
 	b8 b;
 
@@ -1328,7 +1328,7 @@ template<typename Stream> b8 serialize_awk(Stream* p, AwkState* state, const Awk
 		b = old && state->charges != old->charges;
 	serialize_bool(p, b);
 	if (b)
-		serialize_int(p, s8, state->charges, 0, AWK_CHARGES);
+		serialize_int(p, s8, state->charges, 0, DRONE_CHARGES);
 	return true;
 }
 
@@ -1414,7 +1414,7 @@ b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
 }
 
 
-b8 equal_states_awk(const AwkState& a, const AwkState& b)
+b8 equal_states_drone(const DroneState& a, const DroneState& b)
 {
 	return a.revision == b.revision
 		&& a.active == b.active
@@ -1512,17 +1512,17 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 		}
 	}
 
-	// awks
+	// drones
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
-		AwkState* state = &frame->awks[i];
+		DroneState* state = &frame->drones[i];
 		b8 serialize;
 		if (Stream::IsWriting)
-			serialize = state->active && base && !equal_states_awk(*state, base->awks[i]);
+			serialize = state->active && base && !equal_states_drone(*state, base->drones[i]);
 		serialize_bool(p, serialize);
 		if (serialize)
 		{
-			if (!serialize_awk(p, state, base ? &base->awks[i] : nullptr))
+			if (!serialize_drone(p, state, base ? &base->drones[i] : nullptr))
 				net_error();
 		}
 	}
@@ -1576,7 +1576,7 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 
 Resolution transform_resolution(const Transform* t)
 {
-	if (t->has<Awk>())
+	if (t->has<Drone>())
 		return Resolution::High;
 	return Resolution::Medium;
 }
@@ -1617,11 +1617,11 @@ void state_frame_build(StateFrame* frame)
 		state->active = true;
 	}
 
-	// awks
-	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
+	// drones
+	for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
 	{
 		vi_assert(i.index < MAX_PLAYERS);
-		AwkState* state = &frame->awks[i.index];
+		DroneState* state = &frame->drones[i.index];
 		state->revision = i.item()->revision;
 		state->active = true;
 		state->charges = i.item()->charges;
@@ -1751,8 +1751,8 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 		}
 	}
 
-	// awks
-	memcpy(result->awks, a.awks, sizeof(result->awks));
+	// drones
+	memcpy(result->drones, a.drones, sizeof(result->drones));
 
 	// minions
 	{
@@ -1861,13 +1861,13 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 		}
 	}
 
-	// awks
+	// drones
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
-		const AwkState& state = frame.awks[i];
+		const DroneState& state = frame.drones[i];
 		if (state.active)
 		{
-			Awk* a = &Awk::list[i];
+			Drone* a = &Drone::list[i];
 			a->charges = state.charges;
 		}
 	}
@@ -3840,9 +3840,9 @@ b8 msg_process(StreamRead* p, MessageSource src)
 	serialize_enum(p, MessageType, type);
 	switch (type)
 	{
-		case MessageType::Awk:
+		case MessageType::Drone:
 		{
-			if (!Awk::net_msg(p, src))
+			if (!Drone::net_msg(p, src))
 				net_error();
 			break;
 		}

@@ -10,7 +10,7 @@
 #include "asset/Wwise_IDs.h"
 #include "audio.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
-#include "awk.h"
+#include "drone.h"
 #include "minion.h"
 #include "render/particles.h"
 #include "mersenne/mersenne-twister.h"
@@ -66,7 +66,7 @@ Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 	create<AIAgent>()->team = team;
 
 	create<Target>();
-	create<Health>(AWK_HEALTH, AWK_HEALTH, PARKOUR_SHIELD, PARKOUR_SHIELD);
+	create<Health>(DRONE_HEALTH, DRONE_HEALTH, PARKOUR_SHIELD, PARKOUR_SHIELD);
 
 	create<Parkour>();
 }
@@ -1298,7 +1298,7 @@ b8 Parkour::try_parkour(b8 force)
 				Vec3 wall_ray_end = ray_callback.m_hitPointWorld;
 				wall_ray_end.y += 0.1f;
 				btCollisionWorld::ClosestRayResultCallback wall_ray_callback(wall_ray_start, wall_ray_end);
-				Physics::raycast(&wall_ray_callback, ~CollisionAwkIgnore);
+				Physics::raycast(&wall_ray_callback, ~CollisionDroneIgnore);
 				if (wall_ray_callback.hasHit())
 					return false;
 

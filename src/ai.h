@@ -87,7 +87,7 @@ namespace AI
 		AI::Team team;
 	};
 
-	typedef SensorState ContainmentFieldState;
+	typedef SensorState ForceFieldState;
 
 	static const s32 SYNC_IN_SIZE = 512 * 1024;
 	static const s32 SYNC_OUT_SIZE = 512 * 1024;
@@ -178,37 +178,50 @@ namespace AI
 
 		struct Tag
 		{
+			enum BatteryState
+			{
+				BatteryStateNone = 0,
+				BatteryStateNeutral = 1 << 0,
+				BatteryStateFriendly = 1 << 1,
+				BatteryStateEnemy = 1 << 2,
+			};
+
 			Vec3 pos;
 			Vec3 normal;
+			s32 upgrades;
 			s32 enemy_upgrades;
 			s32 nearby_entities;
+			s32 battery_state;
 			s16 energy;
 			ControlPointState control_point_state;
 			s8 shield;
-			s8 time;
+			u8 time_remaining;
 			b8 stealth;
+
+			s32 battery_count(BatteryState) const;
+			BatteryState battery(s32) const;
 
 			void init(Entity*);
 		};
 
 		struct Action
 		{
-			static const s8 TypeMove = 0;
-			static const s8 TypeAttack = 1;
-			static const s8 TypeUpgrade = 2;
-			static const s8 TypeAbility = 3;
-			static const s8 TypeWait = 4;
+			static const s8 TypeNone = 0;
+			static const s8 TypeMove = 1;
+			static const s8 TypeAttack = 2;
+			static const s8 TypeUpgrade = 3;
+			static const s8 TypeAbility = 4;
+			static const s8 TypeCapture = 5;
+			static const s8 TypeWait = 6;
 
+			Vec3 pos; // for move and build ability actions
+			Vec3 normal; // for move and build ability actions
 			s8 type;
 			union
 			{
-				Vec3 pos; // for move and build ability actions
+				s8 ability; // for build and shoot ability actions
+				s8 upgrade; // for upgrade actions
 				s8 entity_type; // for attack and shoot ability actions
-			};
-			union
-			{
-				Vec3 normal; // for move and build ability actions
-				s8 ability; // for upgrade and build and shoot ability actions
 			};
 			Action();
 			Action& operator=(const Action&);
@@ -241,12 +254,14 @@ namespace AI
 
 		Array<Vec3> pos;
 		Array<Vec3> normal;
+		Array<s32> upgrades;
 		Array<s32> enemy_upgrades;
 		Array<s32> nearby_entities;
+		Array<s32> battery_state;
 		Array<s16> energy;
 		Array<ControlPointState> control_point_state;
 		Array<s8> shield;
-		Array<s8> time;
+		Array<s8> time_remaining;
 		Array<b8> stealth;
 		Array<Action> action;
 		AI::Team team;

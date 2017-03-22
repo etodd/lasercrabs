@@ -233,12 +233,12 @@ s8 Health::total() const
 	return hp + shield;
 }
 
-EnergyPickupEntity::EnergyPickupEntity(const Vec3& p, AI::Team team)
+BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 {
 	create<Transform>()->pos = p;
 	View* model = create<View>();
 	model->color = Vec4(0.6f, 0.6f, 0.6f, MATERIAL_NO_OVERRIDE);
-	model->mesh = Asset::Mesh::target;
+	model->mesh = Asset::Mesh::battery;
 	model->shader = Asset::Shader::standard;
 
 	create<AICue>(AICue::Type::Sensor | AICue::Type::Rocket);
@@ -254,13 +254,13 @@ EnergyPickupEntity::EnergyPickupEntity(const Vec3& p, AI::Team team)
 
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
 
-	EnergyPickup* pickup = create<EnergyPickup>();
+	Battery* pickup = create<Battery>();
 	pickup->team = team;
 	model->team = s8(team);
 
 	model->offset.scale(Vec3(ENERGY_PICKUP_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(ENERGY_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsContainmentField & ~CollisionWalker);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(ENERGY_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker);
 	body->set_damping(0.5f, 0.5f);
 	body->set_ccd(true);
 
@@ -271,20 +271,20 @@ EnergyPickupEntity::EnergyPickupEntity(const Vec3& p, AI::Team team)
 	pickup->light = e;
 }
 
-void EnergyPickup::killed(Entity* e)
+void Battery::killed(Entity* e)
 {
 	if (Game::level.local)
 		set_team(AI::TeamNone, e);
 }
 
-r32 EnergyPickup::Key::priority(EnergyPickup* p)
+r32 Battery::Key::priority(Battery* p)
 {
 	return (p->get<Transform>()->absolute_pos() - me).length_squared() * (closest_first ? 1.0f : -1.0f);
 }
 
-EnergyPickup* EnergyPickup::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
+Battery* Battery::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
-	EnergyPickup* closest = nullptr;
+	Battery* closest = nullptr;
 	r32 closest_distance = FLT_MAX;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -311,7 +311,7 @@ EnergyPickup* EnergyPickup::closest(AI::TeamMask mask, const Vec3& pos, r32* dis
 	return closest;
 }
 
-s32 EnergyPickup::count(AI::TeamMask m)
+s32 Battery::count(AI::TeamMask m)
 {
 	s32 count = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -322,12 +322,12 @@ s32 EnergyPickup::count(AI::TeamMask m)
 	return count;
 }
 
-void EnergyPickup::sort_all(const Vec3& pos, Array<Ref<EnergyPickup>>* result, b8 closest_first, AI::TeamMask mask)
+void Battery::sort_all(const Vec3& pos, Array<Ref<Battery>>* result, b8 closest_first, AI::TeamMask mask)
 {
 	Key key;
 	key.me = pos;
 	key.closest_first = closest_first;
-	PriorityQueue<EnergyPickup*, Key> pickups(&key);
+	PriorityQueue<Battery*, Key> pickups(&key);
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
@@ -340,20 +340,20 @@ void EnergyPickup::sort_all(const Vec3& pos, Array<Ref<EnergyPickup>>* result, b
 		result->add(pickups.pop());
 }
 
-void EnergyPickup::awake()
+void Battery::awake()
 {
-	link_arg<const TargetEvent&, &EnergyPickup::hit>(get<Target>()->target_hit);
-	link_arg<Entity*, &EnergyPickup::killed>(get<Health>()->killed);
+	link_arg<const TargetEvent&, &Battery::hit>(get<Target>()->target_hit);
+	link_arg<Entity*, &Battery::killed>(get<Health>()->killed);
 	set_team_client(team);
 }
 
-EnergyPickup::~EnergyPickup()
+Battery::~Battery()
 {
 	if (Game::level.local && light.ref())
 		World::remove_deferred(light.ref());
 }
 
-void EnergyPickup::hit(const TargetEvent& e)
+void Battery::hit(const TargetEvent& e)
 {
 	if (e.hit_by->has<Awk>() && e.hit_by->get<Awk>()->current_ability == Ability::Sniper)
 		set_team(AI::TeamNone, e.hit_by);
@@ -361,7 +361,7 @@ void EnergyPickup::hit(const TargetEvent& e)
 		set_team(e.hit_by->get<AIAgent>()->team, e.hit_by);
 }
 
-void EnergyPickup::set_team_client(AI::Team t)
+void Battery::set_team_client(AI::Team t)
 {
 	team = t;
 	get<View>()->team = s8(t);
@@ -370,22 +370,22 @@ void EnergyPickup::set_team_client(AI::Team t)
 	get<Sensor>()->team = t;
 }
 
-b8 EnergyPickup::net_msg(Net::StreamRead* p)
+b8 Battery::net_msg(Net::StreamRead* p)
 {
 	using Stream = Net::StreamRead;
-	Ref<EnergyPickup> ref;
+	Ref<Battery> ref;
 	serialize_ref(p, ref);
 	AI::Team t;
 	serialize_s8(p, t);
 	Ref<Entity> caused_by;
 	serialize_ref(p, caused_by);
 
-	EnergyPickup* pickup = ref.ref();
+	Battery* pickup = ref.ref();
 	pickup->set_team_client(t);
 	if (caused_by.ref() && t == caused_by.ref()->get<AIAgent>()->team)
 	{
 		if (Game::level.local)
-			caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CAPTURE_ENERGY_PICKUP);
+			caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_CAPTURE_ENERGY_PICKUP);
 		if (caused_by.ref()->has<PlayerControlHuman>())
 			caused_by.ref()->get<PlayerControlHuman>()->player.ref()->msg(_(strings::battery_captured), true);
 	}
@@ -395,7 +395,7 @@ b8 EnergyPickup::net_msg(Net::StreamRead* p)
 
 // returns true if we were successfully captured
 // the second parameter is the entity that caused the ownership change
-b8 EnergyPickup::set_team(AI::Team t, Entity* caused_by)
+b8 Battery::set_team(AI::Team t, Entity* caused_by)
 {
 	vi_assert(Game::level.local);
 
@@ -405,8 +405,8 @@ b8 EnergyPickup::set_team(AI::Team t, Entity* caused_by)
 		get<Health>()->reset_hp();
 
 		using Stream = Net::StreamWrite;
-		Net::StreamWrite* p = Net::msg_new(Net::MessageType::EnergyPickup);
-		Ref<EnergyPickup> ref = this;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Battery);
+		Ref<Battery> ref = this;
 		serialize_ref(p, ref);
 		serialize_s8(p, t);
 		Ref<Entity> caused_by_ref = caused_by;
@@ -418,9 +418,9 @@ b8 EnergyPickup::set_team(AI::Team t, Entity* caused_by)
 	return false;
 }
 
-r32 EnergyPickup::power_particle_timer;
-r32 EnergyPickup::particle_accumulator;
-void EnergyPickup::update_all(const Update& u)
+r32 Battery::power_particle_timer;
+r32 Battery::particle_accumulator;
+void Battery::update_all(const Update& u)
 {
 	if (!Overworld::modal())
 	{
@@ -453,8 +453,8 @@ void EnergyPickup::update_all(const Update& u)
 		power_particle_timer -= particle_reset;
 	r32 particle_blend = power_particle_timer / particle_reset;
 
-	// clear powered state for all containment fields; we're going to update this flag
-	for (auto field = ContainmentField::list.iterator(); !field.is_last(); field.next())
+	// clear powered state for all force fields; we're going to update this flag
+	for (auto field = ForceField::list.iterator(); !field.is_last(); field.next())
 		field.item()->powered = false;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -464,17 +464,17 @@ void EnergyPickup::update_all(const Update& u)
 
 		Vec3 control_point_pos = i.item()->get<Transform>()->absolute_pos();
 
-		// update powered state of all containment fields in range
-		StaticArray<Vec3, 10> containment_fields;
-		for (auto field = ContainmentField::list.iterator(); !field.is_last(); field.next())
+		// update powered state of all force fields in range
+		StaticArray<Vec3, 10> force_fields;
+		for (auto field = ForceField::list.iterator(); !field.is_last(); field.next())
 		{
 			if (field.item()->team == i.item()->team)
 			{
 				Vec3 field_pos = field.item()->get<Transform>()->absolute_pos();
-				if ((field_pos - control_point_pos).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
+				if ((field_pos - control_point_pos).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS)
 				{
-					if (containment_fields.length < containment_fields.capacity())
-						containment_fields.add(field_pos);
+					if (force_fields.length < force_fields.capacity())
+						force_fields.add(field_pos);
 					field.item()->powered = true;
 				}
 			}
@@ -482,12 +482,12 @@ void EnergyPickup::update_all(const Update& u)
 
 		if (emit_particles)
 		{
-			// particle effects to all containment fields in range
-			for (s32 i = 0; i < containment_fields.length; i++)
+			// particle effects to all force fields in range
+			for (s32 i = 0; i < force_fields.length; i++)
 			{
 				Particles::tracers.add
 				(
-					Vec3::lerp(particle_blend, control_point_pos, containment_fields[i]),
+					Vec3::lerp(particle_blend, control_point_pos, force_fields[i]),
 					Vec3::zero,
 					0
 				);
@@ -767,7 +767,7 @@ Sensor::Sensor(AI::Team t)
 
 void Sensor::awake()
 {
-	if (!has<EnergyPickup>())
+	if (!has<Battery>())
 	{
 		link_arg<Entity*, &Sensor::killed_by>(get<Health>()->killed);
 		link_arg<const TargetEvent&, &Sensor::hit_by>(get<Target>()->target_hit);
@@ -776,13 +776,13 @@ void Sensor::awake()
 
 void Sensor::hit_by(const TargetEvent& e)
 {
-	vi_assert(!has<EnergyPickup>());
+	vi_assert(!has<Battery>());
 	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
 }
 
 void Sensor::killed_by(Entity* e)
 {
-	vi_assert(!has<EnergyPickup>());
+	vi_assert(!has<Battery>());
 	if (Game::level.local)
 		World::remove_deferred(entity());
 }
@@ -1289,8 +1289,8 @@ void Decoy::hit_by(const TargetEvent& e)
 	get<Health>()->damage(e.hit_by, 1);
 }
 
-// returns true if the given position is inside an enemy containment field
-ContainmentField* ContainmentField::inside(AI::TeamMask mask, const Vec3& pos)
+// returns true if the given position is inside an enemy force field
+ForceField* ForceField::inside(AI::TeamMask mask, const Vec3& pos)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
@@ -1300,18 +1300,18 @@ ContainmentField* ContainmentField::inside(AI::TeamMask mask, const Vec3& pos)
 	return nullptr;
 }
 
-b8 ContainmentField::contains(const Vec3& pos) const
+b8 ForceField::contains(const Vec3& pos) const
 {
-	return (pos - get<Transform>()->absolute_pos()).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS;
+	return (pos - get<Transform>()->absolute_pos()).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS;
 }
 
-// describes which enemy containment fields you are currently inside
-u32 ContainmentField::hash(AI::Team my_team, const Vec3& pos)
+// describes which enemy force fields you are currently inside
+u32 ForceField::hash(AI::Team my_team, const Vec3& pos)
 {
 	u32 result = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team != my_team && (pos - i.item()->get<Transform>()->absolute_pos()).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
+		if (i.item()->team != my_team && (pos - i.item()->get<Transform>()->absolute_pos()).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS)
 		{
 			if (result == 0)
 				result = 1;
@@ -1321,37 +1321,37 @@ u32 ContainmentField::hash(AI::Team my_team, const Vec3& pos)
 	return result;
 }
 
-ContainmentField::ContainmentField()
-	: team(AI::TeamNone), owner(), remaining_lifetime(CONTAINMENT_FIELD_LIFETIME), powered()
+ForceField::ForceField()
+	: team(AI::TeamNone), owner(), remaining_lifetime(FORCE_FIELD_LIFETIME), powered()
 {
 }
 
-void ContainmentField::awake()
+void ForceField::awake()
 {
-	link_arg<const TargetEvent&, &ContainmentField::hit_by>(get<Target>()->target_hit);
-	link_arg<Entity*, &ContainmentField::killed>(get<Health>()->killed);
+	link_arg<const TargetEvent&, &ForceField::hit_by>(get<Target>()->target_hit);
+	link_arg<Entity*, &ForceField::killed>(get<Health>()->killed);
 }
 
-ContainmentField::~ContainmentField()
+ForceField::~ForceField()
 {
 	if (Game::level.local && field.ref())
 		World::remove_deferred(field.ref());
 }
 
-void ContainmentField::hit_by(const TargetEvent& e)
+void ForceField::hit_by(const TargetEvent& e)
 {
 	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
 }
 
-void ContainmentField::killed(Entity*)
+void ForceField::killed(Entity*)
 {
 	if (Game::level.local)
 		World::remove_deferred(entity());
 }
 
-ContainmentField* ContainmentField::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
+ForceField* ForceField::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
-	ContainmentField* closest = nullptr;
+	ForceField* closest = nullptr;
 	r32 closest_distance = FLT_MAX;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -1378,9 +1378,9 @@ ContainmentField* ContainmentField::closest(AI::TeamMask mask, const Vec3& pos, 
 	return closest;
 }
 
-// must be called after EnergyPickup::update_all(), which sets the powered flag
-r32 ContainmentField::particle_accumulator;
-void ContainmentField::update_all(const Update& u)
+// must be called after Battery::update_all(), which sets the powered flag
+r32 ForceField::particle_accumulator;
+void ForceField::update_all(const Update& u)
 {
 	const r32 interval = 0.1f;
 	particle_accumulator += u.time.delta;
@@ -1409,7 +1409,7 @@ void ContainmentField::update_all(const Update& u)
 	}
 }
 
-void ContainmentField::destroy()
+void ForceField::destroy()
 {
 	vi_assert(Game::level.local);
 	Vec3 pos;
@@ -1419,8 +1419,8 @@ void ContainmentField::destroy()
 	World::remove_deferred(entity());
 }
 
-#define CONTAINMENT_FIELD_BASE_RADIUS 0.385f
-ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& abs_pos, const Quat& abs_rot, PlayerManager* m)
+#define FORCE_FIELD_BASE_RADIUS 0.385f
+ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const Quat& abs_rot, PlayerManager* m)
 {
 	Transform* transform = create<Transform>();
 	transform->absolute(abs_pos, abs_rot);
@@ -1428,11 +1428,11 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 
 	AI::Team team = m->team.ref()->team();
 
-	// destroy any overlapping friendly containment field
-	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	// destroy any overlapping friendly force field
+	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team == team
-			&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < CONTAINMENT_FIELD_RADIUS * 2.0f * CONTAINMENT_FIELD_RADIUS * 2.0f)
+			&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < FORCE_FIELD_RADIUS * 2.0f * FORCE_FIELD_RADIUS * 2.0f)
 		{
 			i.item()->destroy();
 		}
@@ -1440,14 +1440,14 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 
 	View* model = create<View>();
 	model->team = (s8)m->team.ref()->team();
-	model->mesh = Asset::Mesh::containment_field_base;
+	model->mesh = Asset::Mesh::force_field_base;
 	model->shader = Asset::Shader::standard;
 
 	create<Target>();
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionStatic & ~CollisionShield & ~CollisionParkour & ~CollisionInaccessible & ~CollisionAllTeamsContainmentField & ~CollisionElectric);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(FORCE_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionStatic & ~CollisionShield & ~CollisionParkour & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionElectric);
 
-	ContainmentField* field = create<ContainmentField>();
+	ForceField* field = create<ForceField>();
 	field->team = team;
 	field->owner = m;
 
@@ -1456,7 +1456,7 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 
 	View* view = f->add<View>();
 	view->team = (s8)team;
-	view->mesh = Asset::Mesh::containment_field_sphere;
+	view->mesh = Asset::Mesh::force_field_sphere;
 	view->shader = Asset::Shader::fresnel;
 	view->alpha();
 	view->color.w = 0.35f;
@@ -1525,7 +1525,7 @@ void Projectile::update(const Update& u)
 
 s16 Projectile::raycast_mask(AI::Team team)
 {
-	return ~Team::containment_field_mask(team);
+	return ~Team::force_field_mask(team);
 }
 
 void Projectile::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
@@ -1671,9 +1671,9 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 template<typename T> b8 grenade_trigger_filter(T* e, AI::Team team)
 {
 	return (e->template has<AIAgent>() && e->template get<AIAgent>()->team != team && !e->template get<AIAgent>()->stealth)
-		|| (e->template has<ContainmentField>() && e->template get<ContainmentField>()->team != team)
+		|| (e->template has<ForceField>() && e->template get<ForceField>()->team != team)
 		|| (e->template has<Rocket>() && e->template get<Rocket>()->team() != team)
-		|| (e->template has<Sensor>() && !e->template has<EnergyPickup>() && e->template get<Sensor>()->team != team)
+		|| (e->template has<Sensor>() && !e->template has<Battery>() && e->template get<Sensor>()->team != team)
 		|| (e->template has<Decoy>() && e->template get<Decoy>()->team() != team);
 }
 
@@ -1702,7 +1702,7 @@ void Grenade::update_server(const Update& u)
 			if (v.length_squared() > 0.0f)
 				v.normalize();
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + v * GRENADE_RADIUS);
-			Physics::raycast(&ray_callback, ~Team::containment_field_mask(team()) & ~CollisionAwkIgnore & ~CollisionTarget);
+			Physics::raycast(&ray_callback, ~Team::force_field_mask(team()) & ~CollisionAwkIgnore & ~CollisionTarget);
 			if (ray_callback.hasHit())
 			{
 				Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
@@ -1750,7 +1750,7 @@ void Grenade::explode()
 			if (distance < GRENADE_RANGE * 0.66f && i.item()->get<Awk>()->invincible_timer == 0.0f)
 				i.item()->damage(entity(), 1);
 		}
-		else if (distance < GRENADE_RANGE && !i.item()->has<EnergyPickup>())
+		else if (distance < GRENADE_RANGE && !i.item()->has<Battery>())
 			i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 3 : (distance < GRENADE_RANGE * 0.75f ? 2 : 1));
 	}
 
@@ -2118,7 +2118,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 					Net::finalize(last_segment->entity());
 
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
-				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, ~CollisionWalker & ~CollisionAllTeamsContainmentField);
+				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, ~CollisionWalker & ~CollisionAllTeamsForceField);
 				box->add<Rope>();
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);

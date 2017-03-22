@@ -9,6 +9,7 @@
 #include "data/components.h"
 #include "awk.h"
 #include "entities.h"
+#include "data/priority_queue.h"
 
 namespace VI
 {
@@ -50,11 +51,28 @@ struct PlayerAI
 	void spawn_callback(const AI::AwkPathNode&);
 };
 
+struct ActionEntry
+{
+	s32 priority;
+	AI::RecordedLife::Action action;
+};
+
+struct ActionEntryKey
+{
+	r32 priority(const ActionEntry& e)
+	{
+		return r32(e.priority);
+	}
+};
+
 struct PlayerControlAI : public ComponentType<PlayerControlAI>
 {
 #if DEBUG_AI_CONTROL
 	Camera* camera;
 #endif
+
+	PriorityQueue<ActionEntry, ActionEntryKey> action_queue;
+	ActionEntry current;
 	Vec3 random_look;
 	r32 aim_timeout; // time we've been able to shoot but haven't due to aiming
 	r32 aim_timer; // total aim time including cooldowns etc.
@@ -65,17 +83,20 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	Ref<Entity> target;
 	b8 shot_at_target;
 	b8 hit_target;
-	b8 panic;
-	s8 path_priority;
+	ActionEntryKey action_queue_key;
 
 	PlayerControlAI(PlayerAI* = nullptr);
 	void awake();
 	~PlayerControlAI();
 
-	void behavior_clear();
-	void behavior_done(b8);
-	b8 update_memory();
-	b8 sniper_or_bolter_cancel();
+	void action_clear();
+	void action_done(b8);
+
+	void path_callback(const AI::AwkResult&);
+	void control_point_capture_completed(b8);
+	void upgrade_completed(Upgrade);
+	void update_memory();
+	void sniper_or_bolter_cancel();
 	Vec2 aim(const Update&, const Vec3&);
 	void aim_and_shoot_target(const Update&, const Vec3&, Target*);
 	b8 go(const Update&, const AI::AwkPathNode&, const AI::AwkPathNode&, r32);

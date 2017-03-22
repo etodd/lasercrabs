@@ -589,7 +589,7 @@ void PlayerHuman::update(const Update& u)
 					Upgrade upgrade = (Upgrade)i;
 					b8 can_upgrade = !upgrade_in_progress
 						&& get<PlayerManager>()->upgrade_available(upgrade)
-						&& get<PlayerManager>()->credits >= get<PlayerManager>()->upgrade_cost(upgrade);
+						&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade);
 					const UpgradeInfo& info = UpgradeInfo::list[(s32)upgrade];
 					if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
 					{
@@ -1038,16 +1038,16 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
 		&& (mode == UIMode::PvpDefault || mode == UIMode::Upgrading))
 	{
-		// credits
+		// energy
 		b8 draw = true;
-		b8 flashing = get<PlayerManager>()->credits_flash_timer > 0.0f;
+		b8 flashing = get<PlayerManager>()->energy_flash_timer > 0.0f;
 		if (flashing)
 			draw = UI::flash_function(Game::real_time.total);
 
 		char buffer[128];
-		sprintf(buffer, "%d", get<PlayerManager>()->credits);
-		Vec2 credits_pos = center + Vec2(0, radius * -0.5f);
-		draw_icon_text(params, gamepad, credits_pos, Asset::Mesh::icon_energy, buffer, draw ? (flashing ? UI::color_default : UI::color_accent) : UI::color_background);
+		sprintf(buffer, "%d", get<PlayerManager>()->energy);
+		Vec2 energy_pos = center + Vec2(0, radius * -0.5f);
+		draw_icon_text(params, gamepad, energy_pos, Asset::Mesh::icon_energy, buffer, draw ? (flashing ? UI::color_default : UI::color_accent) : UI::color_background);
 
 		// control point increment amount
 		{
@@ -1063,7 +1063,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 			r32 total_width = icon_size + padding + text.bounds().x;
 
-			Vec2 pos = credits_pos + Vec2(0, text_size * UI::scale * -2.0f);
+			Vec2 pos = energy_pos + Vec2(0, text_size * UI::scale * -2.0f);
 			UI::box(params, Rect2(pos + Vec2(total_width * -0.5f, icon_size * -0.5f), Vec2(total_width, icon_size)).outset(padding), UI::color_background);
 			UI::triangle_percentage
 			(
@@ -1877,7 +1877,7 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 
 	// energy pickups
 	{
-		for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
+		for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->team != team)
 				player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Energy);
@@ -1898,11 +1898,11 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Rocket);
 	}
 
-	// containment fields
-	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	// force fields
+	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team != team)
-			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::ContainmentField);
+			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::ForceField);
 	}
 }
 
@@ -2406,7 +2406,7 @@ void PlayerControlHuman::update(const Update& u)
 				tolerance_rot += NET_SYNC_TOLERANCE_ROT;
 
 				// make sure we're not too far from it
-				if (position)
+				if (position && get<Awk>()->remote_reflection_timer == 0.0f) // if we just reflected, don't worry about it
 				{
 					Vec3 remote_abs_pos = remote_control.pos;
 					Quat remote_abs_rot = remote_control.rot;
@@ -2422,6 +2422,8 @@ void PlayerControlHuman::update(const Update& u)
 						t->pos = remote_control.pos;
 						t->rot = remote_control.rot;
 						t->parent = remote_control.parent;
+						if (!t->parent.ref())
+							get<Awk>()->velocity = t->rot * Vec3(0, 0, vi_max(AWK_DASH_SPEED, get<Awk>()->velocity.length()));
 					}
 				}
 			}
@@ -2570,7 +2572,7 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					Vec3 trace_end = trace_start + trace_dir * (AWK_SNIPE_DISTANCE + AWK_THIRD_PERSON_OFFSET);
 					RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-					Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
+					Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsForceField);
 
 					Ability ability = get<Awk>()->current_ability;
 
@@ -3157,7 +3159,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			}
 			case TargetIndicator::Type::Sensor:
 			case TargetIndicator::Type::Rocket:
-			case TargetIndicator::Type::ContainmentField:
+			case TargetIndicator::Type::ForceField:
 			{
 				break;
 			}
@@ -3204,7 +3206,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		}
 
 		// force field battery bars
-		for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 		{
 			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 			if ((pos - me).length_squared() < range * range)
@@ -3217,7 +3219,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					UI::box(params, bar, UI::color_background);
 					const Vec4& color = Team::ui_color(team, i.item()->team);
 					UI::border(params, bar, 2, color);
-					UI::box(params, { bar.pos, Vec2(bar.size.x * (i.item()->remaining_lifetime / CONTAINMENT_FIELD_LIFETIME), bar.size.y) }, color);
+					UI::box(params, { bar.pos, Vec2(bar.size.x * (i.item()->remaining_lifetime / FORCE_FIELD_LIFETIME), bar.size.y) }, color);
 				}
 			}
 		}

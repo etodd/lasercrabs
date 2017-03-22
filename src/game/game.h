@@ -32,7 +32,7 @@ namespace VI
 	};
 
 #if DEBUG
-#define DEBUG_AI_CONTROL 0
+#define DEBUG_AI_CONTROL 1
 #endif
 
 	struct Game
@@ -49,7 +49,7 @@ namespace VI
 		enum class FeatureLevel
 		{
 			Base,
-			EnergyPickups,
+			Batterys,
 			Abilities,
 			AbilitiesDone,
 			TutorialAll,

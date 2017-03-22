@@ -39,17 +39,17 @@ namespace platform
 	{
 		time_t t;
 		::time(&t);
-		return (u64)t;
+		return u64(t);
 	}
 
 	r64 time()
 	{
-		return (r64)std::chrono::high_resolution_clock::now().time_since_epoch().count() / 1000000000.0;
+		return r64(std::chrono::high_resolution_clock::now().time_since_epoch().count()) / 1000000000.0;
 	}
 
 	void sleep(r32 time)
 	{
-		std::this_thread::sleep_for(std::chrono::milliseconds((s64)(time * 1000.0f)));
+		std::this_thread::sleep_for(std::chrono::milliseconds(s64(time * 1000.0f)));
 	}
 
 }

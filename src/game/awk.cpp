@@ -284,6 +284,48 @@ void sniper_hit_effects(const Awk::Hit& hit)
 	}
 }
 
+b8 players_on_same_client(Entity* a, Entity* b)
+{
+#if SERVER
+	return a->has<PlayerControlHuman>()
+		&& b->has<PlayerControlHuman>()
+		&& Net::Server::client_id(a->get<PlayerControlHuman>()->player.ref()) == Net::Server::client_id(b->get<PlayerControlHuman>()->player.ref());
+#else
+	return true;
+#endif
+}
+
+s32 impact_damage(Awk* awk, Awk* target_awk)
+{
+	Net::StateFrame state_frame;
+
+	Vec3 target_pos;
+
+	if (!players_on_same_client(awk->entity(), target_awk->entity()) && awk->net_state_frame(&state_frame))
+	{
+		Vec3 pos;
+		Quat rot;
+		Net::transform_absolute(state_frame, target_awk->get<Transform>()->id(), &pos, &rot);
+		target_pos = pos + (rot * target_awk->get<Target>()->local_offset); // todo possibly: rewind local_offset as well?
+	}
+	else
+		target_pos = target_awk->get<Target>()->absolute_pos();
+
+	Vec3 ray_start = awk->get<Transform>()->absolute_pos();
+	Vec3 ray_dir = Vec3::normalize(awk->velocity);
+
+	Vec3 intersection;
+	if (LMath::ray_sphere_intersect(ray_start, ray_start + ray_dir * AWK_MAX_DISTANCE, target_pos, AWK_SHIELD_RADIUS, &intersection))
+	{
+		r32 dot = Vec3::normalize(intersection - target_pos).dot(ray_dir);
+		if (dot < -0.85f)
+			return 3;
+		else if (dot < -0.7f)
+			return 2;
+	}
+	return 1;
+}
+
 b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
@@ -394,15 +436,15 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					b8 is_enemy = target.ref()->get<AIAgent>()->team != awk->get<AIAgent>()->team;
 					awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::minion_killed), is_enemy);
 				}
-				else if (target.ref()->has<Sensor>() && !target.ref()->has<EnergyPickup>())
+				else if (target.ref()->has<Sensor>() && !target.ref()->has<Battery>())
 				{
 					b8 is_enemy = target.ref()->get<Sensor>()->team != awk->get<AIAgent>()->team;
 					awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::sensor_destroyed), is_enemy);
 				}
-				else if (target.ref()->has<ContainmentField>())
+				else if (target.ref()->has<ForceField>())
 				{
-					b8 is_enemy = target.ref()->get<ContainmentField>()->team != awk->get<AIAgent>()->team;
-					awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::containment_field_destroyed), is_enemy);
+					b8 is_enemy = target.ref()->get<ForceField>()->team != awk->get<AIAgent>()->team;
+					awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::force_field_destroyed), is_enemy);
 				}
 				else if (target.ref()->has<Rocket>())
 				{
@@ -420,7 +462,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				if (target_awk->state() == Awk::State::Crawl && target_awk->invincible_timer == 0.0f)
 				{
 					if (Game::level.local) // if we're a client, this has already been handled by the server
-						target.ref()->get<Health>()->damage(awk->entity(), awk->current_ability == Ability::Sniper ? 2 : 1);
+						target.ref()->get<Health>()->damage(awk->entity(), impact_damage(awk, target_awk));
 				}
 				else // we didn't hurt them
 				{
@@ -464,7 +506,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			Quat rot = Quat::look(normal);
 
 			const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-			manager->add_credits(-info.spawn_cost);
+			manager->add_energy(-info.spawn_cost);
 
 			if (!info.rapid_fire)
 				awk->cooldown_setup();
@@ -554,15 +596,15 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
 					break;
 				}
-				case Ability::ContainmentField:
+				case Ability::ForceField:
 				{
-					// spawn a containment field
-					Vec3 npos = pos + rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
+					// spawn a force field
+					Vec3 npos = pos + rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
 
 					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, npos);
 
 					if (Game::level.local)
-						Net::finalize(World::create<ContainmentFieldEntity>(parent->get<Transform>(), npos, rot, manager));
+						Net::finalize(World::create<ForceFieldEntity>(parent->get<Transform>(), npos, rot, manager));
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
@@ -904,9 +946,9 @@ Awk::State Awk::state() const
 		return State::Fly;
 }
 
-s16 Awk::ally_containment_field_mask() const
+s16 Awk::ally_force_field_mask() const
 {
-	return Team::containment_field_mask(get<AIAgent>()->team);
+	return Team::force_field_mask(get<AIAgent>()->team);
 }
 
 Vec3 Awk::center_lerped() const
@@ -943,7 +985,7 @@ b8 Awk::hit_target(Entity* target)
 
 	AwkNet::hit_target(this, target);
 
-	// award credits for hitting stuff
+	// award energy for hitting stuff
 	if (target->has<MinionAI>())
 	{
 		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
@@ -952,7 +994,7 @@ b8 Awk::hit_target(Entity* target)
 			if (owner)
 			{
 				owner->team.ref()->track(get<PlayerCommon>()->manager.ref(), entity());
-				get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_MINION_KILL);
+				get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_MINION_KILL);
 			}
 		}
 	}
@@ -960,19 +1002,19 @@ b8 Awk::hit_target(Entity* target)
 	{
 		b8 is_enemy = target->get<Sensor>()->team != get<AIAgent>()->team;
 		if (is_enemy)
-			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_SENSOR_DESTROY);
+			get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_SENSOR_DESTROY);
 	}
-	else if (target->has<ContainmentField>())
+	else if (target->has<ForceField>())
 	{
-		b8 is_enemy = target->get<ContainmentField>()->team != get<AIAgent>()->team;
+		b8 is_enemy = target->get<ForceField>()->team != get<AIAgent>()->team;
 		if (is_enemy)
-			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CONTAINMENT_FIELD_DESTROY);
+			get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_FORCE_FIELD_DESTROY);
 	}
 	else if (target->has<Rocket>())
 	{
 		b8 is_enemy = target->get<Rocket>()->team() != get<AIAgent>()->team;
 		if (is_enemy)
-			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_ROCKET_DESTROY);
+			get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_ROCKET_DESTROY);
 	}
 
 	if (current_ability == Ability::None && invincible_timer > 0.0f && (target->has<Awk>() || target->has<Decoy>()))
@@ -1182,7 +1224,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::S
 		state_frame = &state_frame_data;
 
 	Hits hits;
-	raycast(RaycastMode::IgnoreContainmentFields, trace_start, trace_end, state_frame, &hits);
+	raycast(RaycastMode::IgnoreForceFields, trace_start, trace_end, state_frame, &hits);
 
 	r32 r = range();
 	const Hit* environment_hit = nullptr;
@@ -1191,7 +1233,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::S
 	for (s32 i = 0; i < hits.hits.length; i++)
 	{
 		const Hit& hit = hits.hits[i];
-		if (hit.type == Hit::Type::Environment || hit.type == Hit::Type::ContainmentField)
+		if (hit.type == Hit::Type::Environment || hit.type == Hit::Type::ForceField)
 			environment_hit = &hit;
 		if (hit.fraction * AWK_SNIPE_DISTANCE < r)
 		{
@@ -1266,7 +1308,7 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 	if (AbilityInfo::list[s32(a)].type == AbilityInfo::Type::Shoot)
 	{
 		RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
+		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsForceField);
 		if (ray_callback.hasHit())
 		{
 			Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
@@ -1291,7 +1333,7 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 	else
 	{
 		AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
-		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
+		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsForceField);
 
 		b8 can_spawn = ray_callback.hasHit()
 			&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK);
@@ -1547,6 +1589,8 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 	{
 		// locally controlled; bounce instantly
 		awk_reflection_execute(this, entity, new_dir);
+		if (!Game::level.local && has<PlayerControlHuman>())
+			remote_reflection_timer = Net::rtt(get<PlayerControlHuman>()->player.ref()) + AWK_REFLECTION_TIME_TOLERANCE;
 	}
 }
 
@@ -1576,8 +1620,17 @@ void Awk::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos, c
 			else
 			{
 				// we HAVE already detected a reflection off something; let's do it now
+				r32 original_timer = remote_reflection_timer;
+
 				get<Transform>()->absolute_pos(reflection_pos);
 				awk_reflection_execute(this, remote_reflection_entity.ref(), reflection_dir_normalized);
+
+				// fast forward the amount of time we've been sitting here waiting for the client to acknowledge the reflection
+				Vec3 dir = velocity * (AWK_REFLECTION_TIME_TOLERANCE - original_timer);
+				Vec3 ray_start = get<Transform>()->absolute_pos();
+				r32 distance = movement_raycast(ray_start, ray_start + dir);
+				if (distance > 0.0f)
+					get<Transform>()->absolute_pos(ray_start + Vec3::normalize(dir) * distance);
 			}
 		}
 		else
@@ -1615,13 +1668,13 @@ void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const 
 		Vec3 wall_ray_end = next_pos + wall_normal * AWK_RADIUS * -2.0f;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray_start, wall_ray_end);
-		Physics::raycast(&ray_callback, ~AWK_INACCESSIBLE_MASK & ~ally_containment_field_mask());
+		Physics::raycast(&ray_callback, ~AWK_INACCESSIBLE_MASK & ~ally_force_field_mask());
 
 		if (ray_callback.hasHit())
 		{
 			// check for obstacles
 			btCollisionWorld::ClosestRayResultCallback ray_callback2(pos, next_pos + dir_flattened * AWK_RADIUS);
-			Physics::raycast(&ray_callback2, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
+			Physics::raycast(&ray_callback2, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
 			if (!ray_callback2.hasHit())
 			{
 				// all good, go ahead
@@ -1654,7 +1707,7 @@ b8 Awk::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultC
 	{
 		// check for obstacles
 		btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(ray_callback.m_hitPointWorld, ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * (AWK_RADIUS * 1.1f));
-		Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
+		Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
 		if (!obstacle_ray_callback.hasHit())
 		{
 			move
@@ -1700,7 +1753,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 			// check for obstacles
 			Vec3 ray_end = next_pos + (dir_normalized * AWK_RADIUS * 1.5f);
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, ray_end);
-			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
+			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
 
 			if (ray_callback.hasHit())
 			{
@@ -1722,7 +1775,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 		{
 			Vec3 ray_end = next_pos + (dir_flattened * AWK_RADIUS);
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, ray_end);
-			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
+			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
 
 			if (ray_callback.hasHit())
 			{
@@ -1741,7 +1794,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 		Vec3 wall_ray_end = next_pos + wall_normal * AWK_RADIUS * -2.0f;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray_start, wall_ray_end);
-		Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
+		Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
 
 		if (ray_callback.hasHit())
 		{
@@ -1782,7 +1835,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 			Vec3 wall_ray2_end = wall_ray2_start + dir_flattened * AWK_RADIUS * -2.0f;
 
 			btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray2_start, wall_ray2_end);
-			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
+			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
 
 			if (ray_callback.hasHit())
 			{
@@ -1869,7 +1922,7 @@ void Awk::stealth(Entity* e, b8 enable)
 		{
 			e->get<AIAgent>()->stealth = true;
 			e->get<SkinnedModel>()->hollow();
-			e->get<SkinnedModel>()->mask = 1 << (s32)e->get<AIAgent>()->team; // only display to fellow teammates
+			e->get<SkinnedModel>()->mask = 1 << s32(e->get<AIAgent>()->team); // only display to fellow teammates
 		}
 		else
 		{
@@ -1949,11 +2002,20 @@ void Awk::update_server(const Update& u)
 				else
 				{
 					// we detected the hit locally, but the client never acknowledged it. ignore the reflection and keep going straight.
-					velocity = remote_reflection_dir;
+					velocity = remote_reflection_dir; // restore original velocity
 				}
+				Vec3 position = get<Transform>()->absolute_pos();
+				Vec3 next_position = position + velocity * AWK_REFLECTION_TIME_TOLERANCE;
+				get<Transform>()->absolute_pos(next_position);
+				Vec3 dir = Vec3::normalize(velocity);
+				Vec3 ray_start = position + dir * -AWK_RADIUS;
+				Vec3 ray_end = next_position + dir * AWK_RADIUS;
+				movement_raycast(ray_start, ray_end);
 			}
 		}
 	}
+#else
+	remote_reflection_timer = vi_max(0.0f, remote_reflection_timer - u.time.delta);
 #endif
 }
 
@@ -2116,7 +2178,7 @@ void Awk::update_client(const Update& u)
 				Vec3 ray_start = get<Transform>()->to_world((bind_pose_mat * Vec4(0, 0, AWK_LEG_LENGTH * 1.75f, 1)).xyz());
 				Vec3 ray_end = get<Transform>()->to_world((bind_pose_mat * Vec4(find_footing_offset + Vec3(0, 0, AWK_LEG_LENGTH * -1.0f), 1)).xyz());
 				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-				Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
+				Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
 				if (ray_callback.hasHit())
 					set_footing(i, Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<Transform>(), ray_callback.m_hitPointWorld);
 				else
@@ -2124,7 +2186,7 @@ void Awk::update_client(const Update& u)
 					Vec3 new_ray_start = get<Transform>()->to_world((bind_pose_mat * Vec4(AWK_LEG_LENGTH * 1.5f, 0, 0, 1)).xyz());
 					Vec3 new_ray_end = get<Transform>()->to_world((bind_pose_mat * Vec4(AWK_LEG_LENGTH * -1.0f, find_footing_offset.y, AWK_LEG_LENGTH * -1.0f, 1)).xyz());
 					btCollisionWorld::ClosestRayResultCallback ray_callback(new_ray_start, new_ray_end);
-					Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
+					Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
 					if (ray_callback.hasHit())
 						set_footing(i, Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<Transform>(), ray_callback.m_hitPointWorld);
 					else
@@ -2231,15 +2293,6 @@ void Awk::update_client(const Update& u)
 	}
 }
 
-b8 players_on_same_client(PlayerControlHuman* a, PlayerControlHuman* b)
-{
-#if SERVER
-	return Net::Server::client_id(a->player.ref()) == Net::Server::client_id(b->player.ref());
-#else
-	return true;
-#endif
-}
-
 void Awk::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, const Net::StateFrame* state_frame, Hits* result) const
 {
 	r32 distance_total = (ray_end - ray_start).length();
@@ -2253,10 +2306,10 @@ void Awk::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, 
 			{
 				case RaycastMode::Default:
 				{
-					mask = (CollisionStatic | CollisionAllTeamsContainmentField) & ~ally_containment_field_mask();
+					mask = (CollisionStatic | CollisionAllTeamsForceField) & ~ally_force_field_mask();
 					break;
 				}
-				case RaycastMode::IgnoreContainmentFields:
+				case RaycastMode::IgnoreForceFields:
 				{
 					mask = CollisionStatic;
 					break;
@@ -2276,8 +2329,8 @@ void Awk::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, 
 			s16 group = ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
 			if (group & CollisionInaccessible)
 				type = Hit::Type::Inaccessible;
-			else if (group & CollisionAllTeamsContainmentField)
-				type = Hit::Type::ContainmentField;
+			else if (group & CollisionAllTeamsForceField)
+				type = Hit::Type::ForceField;
 			else
 				type = Hit::Type::Environment;
 			result->hits.add(
@@ -2299,7 +2352,7 @@ void Awk::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, 
 
 		Vec3 p;
 		// do rewinding, unless we're checking collisions between two players on the same client
-		if (state_frame && (!has<PlayerControlHuman>() || !i.item()->has<PlayerControlHuman>() || !players_on_same_client(get<PlayerControlHuman>(), i.item()->get<PlayerControlHuman>())))
+		if (state_frame && !players_on_same_client(entity(), i.item()->entity()))
 		{
 			Vec3 pos;
 			Quat rot;
@@ -2387,9 +2440,8 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 					// client-side prediction
 					do_reflect = hit_target(hit.entity.ref())
 						&& s != State::Crawl
-						&& (hit.entity.ref()->get<Health>()->total() > 1 // will they still be alive after we hit them? if so, reflect
-							|| (hit.entity.ref()->has<Awk>()
-								&& (hit.entity.ref()->get<Awk>()->state() != State::Crawl || hit.entity.ref()->get<Awk>()->invincible_timer > 0.0f)));
+						&& (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()->get<Awk>()) // will they still be alive after we hit them? if so, reflect
+							|| (hit.entity.ref()->get<Awk>()->state() != State::Crawl || hit.entity.ref()->get<Awk>()->invincible_timer > 0.0f));
 				}
 				else
 				{
@@ -2402,7 +2454,7 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 				if (do_reflect)
 					reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
 			}
-			else if (hit.type == Hit::Type::Inaccessible || hit.type == Hit::Type::ContainmentField)
+			else if (hit.type == Hit::Type::Inaccessible || hit.type == Hit::Type::ForceField)
 			{
 				if (s == State::Fly)
 					reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
@@ -2417,7 +2469,7 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 					// check for obstacles
 					{
 						btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(hit.pos, hit.pos + hit.normal * (AWK_RADIUS * 1.1f));
-						Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
+						Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~ally_force_field_mask());
 						if (obstacle_ray_callback.hasHit())
 						{
 							// push us away from the obstacle

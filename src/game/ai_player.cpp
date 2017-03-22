@@ -13,6 +13,7 @@
 #include "net.h"
 #include "team.h"
 #include "player.h"
+#include "net_serialize.h" // for popcount
 
 namespace VI
 {
@@ -79,7 +80,6 @@ void ai_player_spawn(const Vec3& pos, const Quat& rot, PlayerAI* player)
 	player->manager.ref()->instance = e;
 
 	e->add<PlayerControlAI>(player);
-
 	Net::finalize(e);
 }
 
@@ -94,12 +94,12 @@ void PlayerAI::spawn(const PlayerSpawnPosition& spawn_pos)
 	if (!spawning)
 	{
 		AI::TeamMask team_mask = 1 << manager.ref()->team.ref()->team();
-		if (config.spawn_time == 0.0f && Game::session.type == SessionType::Story && EnergyPickup::count(team_mask) > 0)
+		if (config.spawn_time == 0.0f && Game::session.type == SessionType::Story && Battery::count(team_mask) > 0)
 		{
 			// player has been here for a while; pick a random spawn point near a pickup we own
 
-			Array<Ref<EnergyPickup>> pickups;
-			for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
+			Array<Ref<Battery>> pickups;
+			for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 			{
 				if (AI::match(i.item()->team, team_mask))
 					pickups.add(i.item());
@@ -121,27 +121,28 @@ void PlayerAI::spawn(const PlayerSpawnPosition& spawn_pos)
 PlayerControlAI::PlayerControlAI(PlayerAI* p)
 	: path_index(),
 	player(p),
-	path_priority(),
 	path(),
 	target(),
 	shot_at_target(),
 	hit_target(),
-	panic(),
 	aim_timer(),
 	aim_timeout(),
 	inaccuracy(),
+	current(),
+	action_queue_key(),
+	action_queue(&action_queue_key),
 	random_look(0, 0, 1)
 {
 #if DEBUG_AI_CONTROL
-	camera = Camera::add();
+	camera = Camera::add(0);
 #endif
 }
 
 void PlayerControlAI::awake()
 {
 #if DEBUG_AI_CONTROL
-	camera->fog = false;
-	camera->team = (s8)get<AIAgent>()->team;
+	camera->flag(CameraFlagFog, false);
+	camera->team = s8(get<AIAgent>()->team);
 	camera->mask = 1 << camera->team;
 	camera->range = AWK_MAX_DISTANCE;
 #endif
@@ -150,6 +151,8 @@ void PlayerControlAI::awake()
 	link_arg<Entity*, &PlayerControlAI::awk_hit>(get<Awk>()->hit);
 	link<&PlayerControlAI::awk_detaching>(get<Awk>()->detaching);
 	link<&PlayerControlAI::awk_detaching>(get<Awk>()->dashing);
+	link_arg<b8, &PlayerControlAI::control_point_capture_completed>(get<PlayerCommon>()->manager.ref()->control_point_capture_completed);
+	link_arg<Upgrade, &PlayerControlAI::upgrade_completed>(get<PlayerCommon>()->manager.ref()->upgrade_completed);
 }
 
 b8 PlayerControlAI::in_range(const Vec3& p, r32 range) const
@@ -172,7 +175,9 @@ void PlayerControlAI::awk_done_flying_or_dashing()
 	inaccuracy = config.inaccuracy_min + (mersenne::randf_cc() * config.inaccuracy_range);
 	aim_timer = 0.0f;
 	aim_timeout = 0.0f;
-	if (path_index < path.length)
+	if (current.action.type == AI::RecordedLife::Action::TypeNone)
+		action_done(true); // successfully panicked
+	else if (path_index < path.length)
 		path_index++;
 }
 
@@ -187,6 +192,16 @@ void PlayerControlAI::awk_detaching()
 void PlayerControlAI::awk_hit(Entity* e)
 {
 	hit_target = true;
+}
+
+void PlayerControlAI::control_point_capture_completed(b8 success)
+{
+	action_done(success);
+}
+
+void PlayerControlAI::upgrade_completed(Upgrade upgrade)
+{
+	action_done(true);
 }
 
 void add_memory(Array<PlayerAI::Memory>* memories, Entity* entity, const Vec3& pos)
@@ -621,8 +636,8 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 b8 default_filter(const PlayerControlAI* control, const Entity* e)
 {
 	AI::Team team = control->get<AIAgent>()->team;
-	return ContainmentField::hash(team, control->get<Transform>()->absolute_pos())
-		== ContainmentField::hash(team, e->get<Transform>()->absolute_pos());
+	return ForceField::hash(team, control->get<Transform>()->absolute_pos())
+		== ForceField::hash(team, e->get<Transform>()->absolute_pos());
 }
 
 b8 energy_pickup_enemy_filter(const PlayerControlAI* control, const Entity* e)
@@ -630,7 +645,7 @@ b8 energy_pickup_enemy_filter(const PlayerControlAI* control, const Entity* e)
 	if (!default_filter(control, e))
 		return false;
 
-	AI::Team team = e->get<EnergyPickup>()->team;
+	AI::Team team = e->get<Battery>()->team;
 	return team != AI::TeamNone && team != control->get<AIAgent>()->team;
 }
 
@@ -639,7 +654,7 @@ b8 energy_pickup_filter(const PlayerControlAI* control, const Entity* e)
 	if (!default_filter(control, e))
 		return false;
 
-	return e->get<EnergyPickup>()->team != control->get<AIAgent>()->team;
+	return e->get<Battery>()->team != control->get<AIAgent>()->team;
 }
 
 b8 minion_filter(const PlayerControlAI* control, const Entity* e)
@@ -702,7 +717,7 @@ MemoryStatus minion_memory_filter(const PlayerControlAI* control, const Entity* 
 
 MemoryStatus sensor_memory_filter(const PlayerControlAI* control, const Entity* e)
 {
-	if (e->get<Sensor>()->team == control->get<AIAgent>()->team || e->has<EnergyPickup>())
+	if (e->get<Sensor>()->team == control->get<AIAgent>()->team || e->has<Battery>())
 		return MemoryStatus::Forget;
 	else
 		return MemoryStatus::Update;
@@ -755,12 +770,12 @@ b8 awk_react_filter(const PlayerControlAI* control, const Entity* e)
 	}
 }
 
-b8 containment_field_filter(const PlayerControlAI* control, const Entity* e)
+b8 force_field_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (!default_filter(control, e))
 		return false;
 
-	ContainmentField* field = e->get<ContainmentField>();
+	ForceField* field = e->get<ForceField>();
 	return field->team != control->get<AIAgent>()->team && field->contains(control->get<Transform>()->absolute_pos());
 }
 
@@ -792,7 +807,7 @@ s32 geometry_query(const PlayerControlAI* control, r32 range, r32 angle_range, s
 	Quat rot;
 	control->get<Transform>()->absolute(&pos, &rot);
 
-	s16 mask = ~AWK_PERMEABLE_MASK & ~control->get<Awk>()->ally_containment_field_mask();
+	s16 mask = ~AWK_PERMEABLE_MASK & ~control->get<Awk>()->ally_force_field_mask();
 	s32 result = 0;
 	for (s32 i = 0; i < count; i++)
 	{
@@ -828,7 +843,7 @@ s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
 		}
 	}
 
-	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
 		if (AI::match(i.item()->team, mask)
 			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
@@ -858,14 +873,14 @@ s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
 	return score;
 }
 
-b8 PlayerControlAI::update_memory()
+void PlayerControlAI::update_memory()
 {
-	update_component_memory<EnergyPickup>(this, &default_memory_filter);
+	update_component_memory<Battery>(this, &default_memory_filter);
 	update_component_memory<MinionCommon>(this, &minion_memory_filter);
 	update_component_memory<Sensor>(this, &sensor_memory_filter);
 	update_component_memory<AICue>(this, &default_memory_filter);
 	update_component_memory<ControlPoint>(this, &default_memory_filter, UpdateMemoryFlags(0)); // unlimited range
-	update_component_memory<ContainmentField>(this, &default_memory_filter);
+	update_component_memory<ForceField>(this, &default_memory_filter);
 
 	// update memory of enemy AWK positions based on team sensor data
 
@@ -878,16 +893,13 @@ b8 PlayerControlAI::update_memory()
 		if (track.tracking && track.entity.ref())
 			add_memory(&player.ref()->memory, track.entity.ref(), track.entity.ref()->get<Transform>()->absolute_pos());
 	}
-
-	return true; // this returns true so we can call this from an Execute behavior
 }
 
-b8 PlayerControlAI::sniper_or_bolter_cancel()
+void PlayerControlAI::sniper_or_bolter_cancel()
 {
 	Ability a = get<Awk>()->current_ability;
 	if (a == Ability::Sniper || a == Ability::Bolter)
 		get<Awk>()->current_ability = Ability::None;
-	return true; // this returns true so we can call this from an Execute behavior
 }
 
 void PlayerControlAI::set_target(Entity* t, r32 delay)
@@ -908,16 +920,209 @@ void PlayerControlAI::set_path(const AI::AwkPath& p)
 	hit_target = false;
 }
 
-void PlayerControlAI::behavior_clear()
+void PlayerControlAI::action_clear()
 {
-	path_priority = 0;
+	current.action.type = AI::RecordedLife::Action::TypeNone;
+	current.priority = 0;
 	path.length = 0;
 	target = nullptr;
 }
 
-void PlayerControlAI::behavior_done(b8 success)
+b8 want_upgrade(PlayerControlAI* player, Upgrade u)
+{
+	PlayerManager* manager = player->get<PlayerCommon>()->manager.ref();
+	return manager->upgrade_available(u) && manager->upgrade_cost(u) < manager->energy;
+}
+
+void action_go(PlayerControlAI* player, const AI::RecordedLife::Action& action)
 {
 
+}
+
+void PlayerControlAI::action_done(b8 success)
+{
+#if DEBUG_AI_CONTROL
+	vi_debug("Complete: %s", success ? "success" : "fail");
+#endif
+
+	static Upgrade upgrade_priorities[MAX_ABILITIES] = { Upgrade::Minion, Upgrade::Bolter, Upgrade::ForceField };
+
+	action_clear();
+	
+	if (success)
+		action_queue.clear(); // force calculation of new actions
+
+	if (action_queue.size() == 0) // get new actions
+	{
+		AI::RecordedLife::Tag tag;
+		tag.init(entity());
+
+		PlayerManager* manager = get<PlayerCommon>()->manager.ref();
+
+		AI::Team my_team = get<AIAgent>()->team;
+
+		if (manager->at_upgrade_point())
+		{
+			for (s32 i = 0; i < MAX_ABILITIES; i++)
+			{
+				if (want_upgrade(this, upgrade_priorities[i]))
+				{
+					// buy upgrade
+					AI::RecordedLife::Action action;
+					action.type = AI::RecordedLife::Action::TypeUpgrade;
+					action.ability = s8(upgrade_priorities[i]);
+					action_queue.push({ 0, action });
+				}
+			}
+		}
+
+		if (Net::popcount(u32(tag.upgrades)) < MAX_ABILITIES)
+		{
+			for (s32 i = 0; i < MAX_ABILITIES; i++)
+			{
+				if (want_upgrade(this, upgrade_priorities[i]))
+				{
+					// go to upgrade
+					AI::RecordedLife::Action action;
+					action.type = AI::RecordedLife::Action::TypeMove;
+					action.pos = manager->team.ref()->player_spawn.ref()->get<Transform>()->absolute_pos();
+					action.normal = Vec3(0, 1, 0);
+					action_queue.push({ 0, action });
+				}
+			}
+		}
+
+		if (Game::level.type == GameType::Rush)
+		{
+			b8 capture = false;
+			b8 attacking = false;
+			if (manager->team.ref()->team() == AI::Team(0)) // defend
+			{
+				if (tag.control_point_state.a == AI::RecordedLife::ControlPointState::StateLosingFirstHalf
+					|| tag.control_point_state.a == AI::RecordedLife::ControlPointState::StateLosingSecondHalf
+					|| tag.control_point_state.b == AI::RecordedLife::ControlPointState::StateLosingFirstHalf
+					|| tag.control_point_state.b == AI::RecordedLife::ControlPointState::StateLosingSecondHalf)
+				{
+					capture = true;
+				}
+			}
+			else // attack
+			{
+				attacking = true;
+				if (tag.control_point_state.a == AI::RecordedLife::ControlPointState::StateNormal
+					|| tag.control_point_state.a == AI::RecordedLife::ControlPointState::StateRecapturingFirstHalf
+					|| tag.control_point_state.b == AI::RecordedLife::ControlPointState::StateNormal
+					|| tag.control_point_state.b == AI::RecordedLife::ControlPointState::StateRecapturingFirstHalf)
+				{
+					capture = true;
+				}
+			}
+
+			if (capture)
+			{
+				s32 priority = 0 - (255 - tag.time_remaining) / 70;
+
+				if (manager->at_control_point())
+				{
+					priority -= 1;
+					AI::RecordedLife::Action action;
+					action.type = AI::RecordedLife::Action::TypeCapture;
+					action_queue.push({ priority, action });
+				}
+				else
+				{
+					// go to control point
+					AI::RecordedLife::Action action;
+					action.type = AI::RecordedLife::Action::TypeMove;
+
+					r32 closest_distance_sq = FLT_MAX;
+					ControlPoint* closest_control_point = nullptr;
+					for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+					{
+						if ((attacking || i.item()->capture_timer > 0.0f)
+							&& i.item()->team_next != my_team)
+						{
+							r32 distance_sq = (i.item()->get<Transform>()->absolute_pos() - tag.pos).length_squared();
+							if (distance_sq < closest_distance_sq)
+							{
+								closest_distance_sq = distance_sq;
+								closest_control_point = i.item();
+							}
+						}
+					}
+
+					{
+						Quat rot;
+						closest_control_point->get<Transform>()->absolute(&action.pos, &rot);
+						action.normal = rot * Vec3(0, 1, 0);
+					}
+
+					action_queue.push({ priority, action });
+				}
+			}
+		}
+	}
+
+	// execute action
+	if (action_queue.size() == 0)
+	{
+#if DEBUG_AI_CONTROL
+		vi_debug("Action: %d", 0);
+#endif
+		current.action.type = AI::RecordedLife::Action::TypeNone; // just do something
+	}
+	else
+	{
+		current = action_queue.pop();
+#if DEBUG_AI_CONTROL
+		vi_debug("Action: %d", s32(current.action.type));
+#endif
+
+		switch (current.action.type)
+		{
+			case AI::RecordedLife::Action::TypeMove:
+			{
+				auto callback = ObjectLinkEntryArg<PlayerControlAI, const AI::AwkResult&, &PlayerControlAI::path_callback>(id());
+				Vec3 pos;
+				Quat rot;
+				get<Transform>()->absolute(&pos, &rot);
+				AI::awk_pathfind(AI::AwkPathfind::LongRange, AI::AwkAllow::All, get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), current.action.pos, current.action.normal, callback);
+				break;
+			}
+			case AI::RecordedLife::Action::TypeUpgrade:
+			{
+				if (!get<PlayerCommon>()->manager.ref()->at_upgrade_point()
+					|| !get<PlayerCommon>()->manager.ref()->upgrade_start(Upgrade(current.action.upgrade)))
+					action_done(false); // fail
+				break;
+			}
+			case AI::RecordedLife::Action::TypeCapture:
+			{
+				ControlPoint* c = get<PlayerCommon>()->manager.ref()->at_control_point();
+				if (!c || !get<PlayerCommon>()->manager.ref()->capture_start())
+					action_done(false); // fail
+				break;
+			}
+			/*
+			TypeAttack
+			TypeAbility
+			TypeWait
+			*/
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+	}
+}
+
+void PlayerControlAI::path_callback(const AI::AwkResult& result)
+{
+	if (result.path.length == 0)
+		action_done(false); // failed
+	else
+		set_path(result.path);
 }
 
 void PlayerControlAI::update(const Update& u)
@@ -959,13 +1164,13 @@ void PlayerControlAI::update(const Update& u)
 					&& get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection, speed))
 					aim_and_shoot_target(u, intersection, target.ref()->get<Target>());
 				else
-					behavior_done(false); // we can't hit it
+					action_done(false); // we can't hit it
 			}
 			else
 			{
 				// just trying to go to a certain spot (probably our spawn)
 				if (aim_timeout > config.aim_timeout)
-					behavior_done(false); // something went wrong
+					action_done(false); // something went wrong
 				else
 				{
 					Vec3 target_pos;
@@ -977,7 +1182,7 @@ void PlayerControlAI::update(const Update& u)
 					target.normal = target_rot * Vec3(0, 0, 1);
 					target.ref = AWK_NAV_MESH_NODE_NONE;
 					if (!go(u, target, target, CONTROL_POINT_RADIUS)) // assume the target is a control point
-						behavior_done(false); // can't hit it
+						action_done(false); // can't hit it
 				}
 			}
 		}
@@ -995,7 +1200,7 @@ void PlayerControlAI::update(const Update& u)
 				vi_debug("Marking bad Awk adjacency");
 #endif
 				AI::awk_mark_adjacency_bad(path[path_index - 1].ref, path[path_index].ref);
-				behavior_done(false); // active behavior failed
+				action_done(false); // action failed
 			}
 			else
 			{
@@ -1005,7 +1210,7 @@ void PlayerControlAI::update(const Update& u)
 					vi_debug("Marking bad Awk adjacency");
 #endif
 					AI::awk_mark_adjacency_bad(path[path_index - 1].ref, path[path_index].ref);
-					behavior_done(false);
+					action_done(false);
 				}
 			}
 		}
@@ -1014,7 +1219,7 @@ void PlayerControlAI::update(const Update& u)
 			// look randomly
 			aim(u, random_look);
 
-			if (panic)
+			if (current.action.type == AI::RecordedLife::Action::TypeNone)
 			{
 				// pathfinding routines failed; we are stuck
 				PlayerCommon* common = get<PlayerCommon>();
@@ -1024,40 +1229,37 @@ void PlayerControlAI::update(const Update& u)
 					Vec3 look_dir = common->look_dir();
 					get<Awk>()->crawl(look_dir, u);
 					if (get<Awk>()->can_shoot(look_dir))
-					{
-						if (get<Awk>()->go(look_dir))
-							behavior_done(true);
-					}
+						get<Awk>()->go(look_dir);
 				}
 			}
 		}
 
-		if (!panic)
+		if (current.action.type != AI::RecordedLife::Action::TypeNone)
 		{
 			if (target.ref())
 			{
-				// a behavior is waiting for a callback; see if we're done executing it
+				// current action is waiting for a callback; see if we're done executing it
 				if (target.ref()->has<Target>())
 				{
 					if (shot_at_target)
 					{
 						if (get<Awk>()->current_ability != Ability::Bolter)
-							behavior_done(hit_target); // call it success if we hit our target, or if there was nothing to hit
+							action_done(hit_target); // call it success if we hit our target, or if there was nothing to hit
 					}
 				}
 				else
 				{
 					// the only other kind of target we can have is a control point
 					if ((target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->absolute_pos()).length_squared() < CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS)
-						behavior_done(true);
+						action_done(true);
 				}
 			}
 			else if (path.length > 0)
 			{
-				// a behavior is waiting for a callback; see if we're done executing it
+				// current action is waiting for a callback; see if we're done executing it
 				// following a path
 				if (path_index >= path.length)
-					behavior_done(path.length > 1); // call it success if the path we followed was actually valid
+					action_done(path.length > 1); // call it success if the path we followed was actually valid
 			}
 		}
 	}

@@ -130,7 +130,7 @@ void RigidBody::awake()
 		& ~(
 			CollisionStatic
 			| CollisionInaccessible
-			| CollisionAllTeamsContainmentField
+			| CollisionAllTeamsForceField
 			| CollisionParkour
 			| CollisionElectric
 		);

@@ -68,7 +68,7 @@ struct Awk : public ComponentType<Awk>
 		{
 			Environment,
 			Inaccessible,
-			ContainmentField,
+			ForceField,
 			Awk,
 			Target,
 			count,
@@ -91,7 +91,7 @@ struct Awk : public ComponentType<Awk>
 	enum class RaycastMode
 	{
 		Default,
-		IgnoreContainmentFields,
+		IgnoreForceFields,
 	};
 
 	static Awk* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
@@ -147,7 +147,7 @@ struct Awk : public ComponentType<Awk>
 	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 
-	s16 ally_containment_field_mask() const;
+	s16 ally_force_field_mask() const;
 
 	b8 predict_intersection(const Target*, const Net::StateFrame*, Vec3*, r32) const;
 

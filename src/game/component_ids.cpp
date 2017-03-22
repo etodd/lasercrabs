@@ -44,11 +44,11 @@ COMPONENT_TYPE(21, PlayerTrigger) \
 COMPONENT_TYPE(22, SkinnedModel) \
 COMPONENT_TYPE(23, Projectile) \
 COMPONENT_TYPE(24, Grenade) \
-COMPONENT_TYPE(25, EnergyPickup) \
+COMPONENT_TYPE(25, Battery) \
 COMPONENT_TYPE(26, Sensor) \
 COMPONENT_TYPE(27, Rocket) \
 COMPONENT_TYPE(28, Decoy) \
-COMPONENT_TYPE(29, ContainmentField) \
+COMPONENT_TYPE(29, ForceField) \
 COMPONENT_TYPE(30, AICue) \
 COMPONENT_TYPE(31, Water) \
 COMPONENT_TYPE(32, DirectionalLight) \

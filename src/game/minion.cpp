@@ -365,9 +365,9 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 
 	r32 closest_distance = FLT_MAX;
 
-	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
-		ContainmentField* field = i.item();
+		ForceField* field = i.item();
 		if (field->team != team)
 		{
 			Vec3 item_pos = field->get<Transform>()->absolute_pos();
@@ -385,9 +385,9 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 		}
 	}
 
-	for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 	{
-		EnergyPickup* pickup = i.item();
+		Battery* pickup = i.item();
 		if (pickup->team != team && pickup->team != AI::TeamNone)
 		{
 			Vec3 item_pos = pickup->get<Transform>()->absolute_pos();
@@ -408,7 +408,7 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 	{
 		Sensor* sensor = i.item();
-		if (sensor->team != team && !sensor->has<EnergyPickup>())
+		if (sensor->team != team && !sensor->has<Battery>())
 		{
 			Vec3 item_pos = sensor->get<Transform>()->absolute_pos();
 			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
@@ -530,9 +530,9 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 		}
 	}
 
-	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
-		ContainmentField* field = i.item();
+		ForceField* field = i.item();
 		if (field->team != team)
 		{
 			if (me->can_see(field->entity()))
@@ -540,9 +540,9 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 		}
 	}
 
-	for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 	{
-		EnergyPickup* pickup = i.item();
+		Battery* pickup = i.item();
 		if (pickup->team != team && pickup->team != AI::TeamNone)
 		{
 			if (me->can_see(pickup->entity()))
@@ -553,7 +553,7 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 	{
 		Sensor* sensor = i.item();
-		if (sensor->team != team && !sensor->has<EnergyPickup>())
+		if (sensor->team != team && !sensor->has<Battery>())
 		{
 			if (me->can_see(sensor->entity()))
 				return sensor->entity();
@@ -624,7 +624,7 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 			if (!target->has<Parkour>() || fabsf(diff.y) < MINION_HEARING_RANGE)
 			{
 				btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-				Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionElectric | CollisionAllTeamsContainmentField) & ~Team::containment_field_mask(get<AIAgent>()->team));
+				Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionElectric | CollisionAllTeamsForceField) & ~Team::force_field_mask(get<AIAgent>()->team));
 				if (!ray_callback.hasHit())
 					return true;
 			}

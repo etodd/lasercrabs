@@ -280,10 +280,10 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| SkinnedModel::component_mask
 		| Projectile::component_mask
 		| Grenade::component_mask
-		| EnergyPickup::component_mask
+		| Battery::component_mask
 		| Sensor::component_mask
 		| Rocket::component_mask
-		| ContainmentField::component_mask
+		| ForceField::component_mask
 		| Awk::component_mask
 		| Decoy::component_mask
 		| Audio::component_mask
@@ -585,9 +585,9 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_bool(p, g->active);
 	}
 
-	if (e->has<EnergyPickup>())
+	if (e->has<Battery>())
 	{
-		EnergyPickup* b = e->get<EnergyPickup>();
+		Battery* b = e->get<Battery>();
 		serialize_s8(p, b->team);
 		serialize_ref(p, b->light);
 	}
@@ -605,9 +605,9 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_ref(p, r->owner);
 	}
 
-	if (e->has<ContainmentField>())
+	if (e->has<ForceField>())
 	{
-		ContainmentField* c = e->get<ContainmentField>();
+		ForceField* c = e->get<ForceField>();
 		serialize_r32(p, c->remaining_lifetime);
 		serialize_ref(p, c->field);
 		serialize_ref(p, c->owner);
@@ -687,7 +687,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 			serialize_int(p, Ability, m->abilities[i], 0, s32(Ability::count) + 1);
 		serialize_ref(p, m->team);
 		serialize_ref(p, m->instance);
-		serialize_s16(p, m->credits);
+		serialize_s16(p, m->energy);
 		serialize_s16(p, m->kills);
 		serialize_s16(p, m->deaths);
 		serialize_s16(p, m->respawns);
@@ -1291,10 +1291,10 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 		serialize_ref(p, state->instance);
 
 	if (Stream::IsWriting)
-		b = !base || state->credits != base->credits;
+		b = !base || state->energy != base->energy;
 	serialize_bool(p, b);
 	if (b)
-		serialize_s16(p, state->credits);
+		serialize_s16(p, state->energy);
 
 	if (Stream::IsWriting)
 		b = !base || state->kills != base->kills;
@@ -1397,7 +1397,7 @@ b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
 		|| a.upgrades != b.upgrades
 		|| a.current_upgrade != b.current_upgrade
 		|| !a.instance.equals(b.instance)
-		|| a.credits != b.credits
+		|| a.energy != b.energy
 		|| a.kills != b.kills
 		|| a.deaths != b.deaths
 		|| a.respawns != b.respawns
@@ -1610,7 +1610,7 @@ void state_frame_build(StateFrame* frame)
 		memcpy(state->abilities, i.item()->abilities, sizeof(state->abilities));
 		state->current_upgrade = i.item()->current_upgrade;
 		state->instance = i.item()->instance;
-		state->credits = i.item()->credits;
+		state->energy = i.item()->energy;
 		state->kills = i.item()->kills;
 		state->deaths = i.item()->deaths;
 		state->respawns = i.item()->respawns;
@@ -1854,7 +1854,7 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			memcpy(s->abilities, state.abilities, sizeof(s->abilities));
 			s->current_upgrade = state.current_upgrade;
 			s->instance = state.instance;
-			s->credits = state.credits;
+			s->energy = state.energy;
 			s->kills = state.kills;
 			s->deaths = state.deaths;
 			s->respawns = state.respawns;
@@ -3855,9 +3855,9 @@ b8 msg_process(StreamRead* p, MessageSource src)
 				net_error();
 			break;
 		}
-		case MessageType::EnergyPickup:
+		case MessageType::Battery:
 		{
-			if (!EnergyPickup::net_msg(p))
+			if (!Battery::net_msg(p))
 				net_error();
 			break;
 		}

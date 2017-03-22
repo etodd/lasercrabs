@@ -90,7 +90,7 @@ struct AwayScorer : AstarScorer
 		if (v.equals(start_vertex)) // we need to go somewhere other than here
 			return false;
 
-		if (data.sensor_score <= 8.0f) // inside a friendly sensor zone or containment field
+		if (data.sensor_score <= 8.0f) // inside a friendly sensor zone or force field
 			return true;
 
 		const Vec3& vertex = awk_nav_mesh.chunks[v.chunk].vertices[v.vertex];
@@ -145,16 +145,16 @@ struct SpawnScorer : AstarScorer
 };
 
 Array<SensorState> sensors;
-Array<ContainmentFieldState> containment_fields;
+Array<ForceFieldState> force_fields;
 
-// describes which enemy containment fields you are currently inside
-u32 containment_field_hash(Team my_team, const Vec3& pos)
+// describes which enemy force fields you are currently inside
+u32 force_field_hash(Team my_team, const Vec3& pos)
 {
 	u32 result = 0;
-	for (s32 i = 0; i < containment_fields.length; i++)
+	for (s32 i = 0; i < force_fields.length; i++)
 	{
-		const ContainmentFieldState& field = containment_fields[i];
-		if (field.team != my_team && (pos - field.pos).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
+		const ForceFieldState& field = force_fields[i];
+		if (field.team != my_team && (pos - field.pos).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS)
 		{
 			if (result == 0)
 				result = 1;
@@ -164,12 +164,12 @@ u32 containment_field_hash(Team my_team, const Vec3& pos)
 	return result;
 }
 
-b8 containment_field_raycast(Team my_team, const Vec3& a, const Vec3& b)
+b8 force_field_raycast(Team my_team, const Vec3& a, const Vec3& b)
 {
-	for (s32 i = 0; i < containment_fields.length; i++)
+	for (s32 i = 0; i < force_fields.length; i++)
 	{
-		const ContainmentFieldState& field = containment_fields[i];
-		if (field.team != my_team && LMath::ray_sphere_intersect(a, b, field.pos, CONTAINMENT_FIELD_RADIUS))
+		const ForceFieldState& field = force_fields[i];
+		if (field.team != my_team && LMath::ray_sphere_intersect(a, b, field.pos, FORCE_FIELD_RADIUS))
 			return true;
 	}
 	return false;
@@ -208,23 +208,23 @@ r32 sensor_cost(Team team, const AwkNavMeshNode& node)
 	else
 		sensor_cost = 8.0f;
 
-	r32 containment_field_cost = 8.0f;
+	r32 force_field_cost = 8.0f;
 
-	for (s32 i = 0; i < containment_fields.length; i++)
+	for (s32 i = 0; i < force_fields.length; i++)
 	{
-		const ContainmentFieldState& field = containment_fields[i];
+		const ForceFieldState& field = force_fields[i];
 		if (field.team == team)
 		{
 			Vec3 to_field = field.pos - pos;
-			if (to_field.length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
+			if (to_field.length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS)
 			{
-				containment_field_cost = 0.0f;
+				force_field_cost = 0.0f;
 				break;
 			}
 		}
 	}
 
-	return sensor_cost + containment_field_cost;
+	return sensor_cost + force_field_cost;
 }
 
 AwkNavMeshNode awk_closest_point(Team team, const Vec3& p, const Vec3& normal = Vec3::zero)
@@ -234,7 +234,7 @@ AwkNavMeshNode awk_closest_point(Team team, const Vec3& p, const Vec3& normal = 
 	b8 found = false;
 	AwkNavMeshNode closest = AWK_NAV_MESH_NODE_NONE;
 	b8 ignore_normals = normal.dot(normal) == 0.0f;
-	u32 desired_hash = containment_field_hash(team, p);
+	u32 desired_hash = force_field_hash(team, p);
 	s32 end_x = vi_min(vi_max(chunk_coord.x + 2, 1), awk_nav_mesh.size.x);
 	for (s32 chunk_x = vi_min(vi_max(chunk_coord.x - 1, 0), awk_nav_mesh.size.x - 1); chunk_x < end_x; chunk_x++)
 	{
@@ -258,7 +258,7 @@ AwkNavMeshNode awk_closest_point(Team team, const Vec3& p, const Vec3& normal = 
 						{
 							r32 distance = to_vertex.length_squared();
 							if (distance < closest_distance
-								&& containment_field_hash(team, vertex) == desired_hash)
+								&& force_field_hash(team, vertex) == desired_hash)
 							{
 								const Vec3& vertex_normal = chunk.normals[vertex_index];
 								if (ignore_normals || normal.dot(vertex_normal) > 0.8f) // make sure it's roughly facing the right way
@@ -338,7 +338,7 @@ void awk_astar(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, Ast
 
 	const Vec3& start_pos = awk_nav_mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
 
-	u32 start_field_hash = containment_field_hash(team, start_pos);
+	u32 start_field_hash = force_field_hash(team, start_pos);
 
 	awk_nav_mesh_key.reset();
 	astar_queue.clear();
@@ -408,9 +408,9 @@ void awk_astar(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, Ast
 				const Vec3& adjacent_pos = awk_nav_mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
 
 				if (!awk_flags_match(adjacency.flag(i), rule)
-					|| containment_field_raycast(team, vertex_pos, adjacent_pos))
+					|| force_field_raycast(team, vertex_pos, adjacent_pos))
 				{
-					// flags don't match or it's in a different containment field
+					// flags don't match or it's in a different force field
 					// therefore it's unreachable
 					adjacent_data->visited = true;
 				}
@@ -473,8 +473,8 @@ void awk_pathfind_internal(AwkAllow rule, Team team, const AwkNavMeshNode& start
 	scorer.end_vertex = end_vertex;
 	scorer.end_pos = awk_nav_mesh.chunks[end_vertex.chunk].vertices[end_vertex.vertex];
 	const Vec3& start_pos = awk_nav_mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
-	if (containment_field_hash(team, start_pos) != containment_field_hash(team, scorer.end_pos))
-		return; // in a different containment field; unreachable
+	if (force_field_hash(team, start_pos) != force_field_hash(team, scorer.end_pos))
+		return; // in a different force field; unreachable
 	else
 		awk_astar(rule, team, start_vertex, &scorer, path);
 }
@@ -484,8 +484,8 @@ void awk_pathfind_internal(AwkAllow rule, Team team, const AwkNavMeshNode& start
 void awk_pathfind_hit(AwkAllow rule, Team team, const Vec3& start, const Vec3& start_normal, const Vec3& target, AwkPath* path)
 {
 	path->length = 0;
-	if (containment_field_hash(team, start) != containment_field_hash(team, target))
-		return; // in a different containment field; unreachable
+	if (force_field_hash(team, start) != force_field_hash(team, target))
+		return; // in a different force field; unreachable
 
 	AwkNavMeshNode target_closest_vertex = awk_closest_point(team, target, Vec3::zero);
 	if (target_closest_vertex.equals(AWK_NAV_MESH_NODE_NONE))
@@ -1157,8 +1157,8 @@ void loop()
 				sensors.resize(count);
 				sync_in.read(sensors.data, sensors.length);
 				sync_in.read(&count);
-				containment_fields.resize(count);
-				sync_in.read(containment_fields.data, containment_fields.length);
+				force_fields.resize(count);
+				sync_in.read(force_fields.data, force_fields.length);
 				sync_in.unlock();
 				break;
 			}

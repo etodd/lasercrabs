@@ -55,9 +55,9 @@ struct Health : public ComponentType<Health>
 	s8 total() const;
 };
 
-struct EnergyPickupEntity : public Entity
+struct BatteryEntity : public Entity
 {
-	EnergyPickupEntity(const Vec3&, AI::Team = AI::TeamNone);
+	BatteryEntity(const Vec3&, AI::Team = AI::TeamNone);
 };
 
 struct TargetEvent
@@ -66,21 +66,21 @@ struct TargetEvent
 	Entity* target;
 };
 
-struct EnergyPickup : public ComponentType<EnergyPickup>
+struct Battery : public ComponentType<Battery>
 {
 	struct Key
 	{
 		Vec3 me;
 		b8 closest_first;
-		r32 priority(EnergyPickup*);
+		r32 priority(Battery*);
 	};
 
 	static r32 power_particle_timer;
 	static r32 particle_accumulator;
 
 	static void update_all(const Update&);
-	static void sort_all(const Vec3&, Array<Ref<EnergyPickup>>*, b8, AI::TeamMask);
-	static EnergyPickup* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+	static void sort_all(const Vec3&, Array<Ref<Battery>>*, b8, AI::TeamMask);
+	static Battery* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static s32 count(AI::TeamMask);
 	static b8 net_msg(Net::StreamRead*);
 
@@ -89,7 +89,7 @@ struct EnergyPickup : public ComponentType<EnergyPickup>
 
 	void awake();
 	void killed(Entity*);
-	~EnergyPickup();
+	~Battery();
 	void hit(const TargetEvent&);
 	b8 set_team(AI::Team, Entity* = nullptr);
 	void set_team_client(AI::Team);
@@ -210,13 +210,13 @@ struct DecoyEntity : public Entity
 	DecoyEntity(PlayerManager*, Transform*, const Vec3&, const Quat&);
 };
 
-struct ContainmentField : public ComponentType<ContainmentField>
+struct ForceField : public ComponentType<ForceField>
 {
 	static r32 particle_accumulator;
 
 	static void update_all(const Update&);
-	static ContainmentField* inside(AI::TeamMask, const Vec3&);
-	static ContainmentField* closest(AI::TeamMask, const Vec3&, r32*);
+	static ForceField* inside(AI::TeamMask, const Vec3&);
+	static ForceField* closest(AI::TeamMask, const Vec3&, r32*);
 	static u32 hash(AI::Team, const Vec3&);
 
 	r32 remaining_lifetime;
@@ -225,18 +225,18 @@ struct ContainmentField : public ComponentType<ContainmentField>
 	AI::Team team;
 	b8 powered;
 
-	ContainmentField();
+	ForceField();
 	void awake();
-	~ContainmentField();
+	~ForceField();
 	void hit_by(const TargetEvent&);
 	void killed(Entity*);
 	void destroy();
 	b8 contains(const Vec3&) const;
 };
 
-struct ContainmentFieldEntity : public Entity
+struct ForceFieldEntity : public Entity
 {
-	ContainmentFieldEntity(Transform*, const Vec3&, const Quat&, PlayerManager*);
+	ForceFieldEntity(Transform*, const Vec3&, const Quat&, PlayerManager*);
 };
 
 struct AICue : public ComponentType<AICue>

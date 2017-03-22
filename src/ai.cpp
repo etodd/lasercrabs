@@ -59,16 +59,16 @@ void update(const Update& u)
 		for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 			sensors.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
 
-		Array<ContainmentFieldState> containment_fields;
-		for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
-			containment_fields.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
+		Array<ForceFieldState> force_fields;
+		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
+			force_fields.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
 
 		sync_in.lock();
 		sync_in.write(Op::UpdateState);
 		sync_in.write(sensors.length);
 		sync_in.write(sensors.data, sensors.length);
-		sync_in.write(containment_fields.length);
-		sync_in.write(containment_fields.data, containment_fields.length);
+		sync_in.write(force_fields.length);
+		sync_in.write(force_fields.data, force_fields.length);
 		sync_in.unlock();
 	}
 
@@ -484,9 +484,9 @@ void debug_draw_awk_nav_mesh(const RenderParams& params)
 ComponentMask entity_mask = Sensor::component_mask
 	| Awk::component_mask
 	| MinionCommon::component_mask
-	| EnergyPickup::component_mask
+	| Battery::component_mask
 	| Rocket::component_mask
-	| ContainmentField::component_mask
+	| ForceField::component_mask
 	| Projectile::component_mask
 	| Grenade::component_mask;
 
@@ -506,7 +506,7 @@ void entity_info(Entity* e, AI::Team query_team, AI::Team* team, s8* type)
 		else if (e->has<MinionCommon>())
 			*type = *team == query_team ? AI::RecordedLife::EntityMinionFriend : AI::RecordedLife::EntityMinionEnemy;
 	}
-	else if (e->has<EnergyPickup>())
+	else if (e->has<Battery>())
 	{
 		*team = e->get<Sensor>()->team;
 		if (*team == query_team)
@@ -530,9 +530,9 @@ void entity_info(Entity* e, AI::Team query_team, AI::Team* team, s8* type)
 		else
 			*type = attached ? AI::RecordedLife::EntityRocketEnemyAttached : AI::RecordedLife::EntityRocketEnemyDetached;
 	}
-	else if (e->has<ContainmentField>())
+	else if (e->has<ForceField>())
 	{
-		*team = e->get<ContainmentField>()->team;
+		*team = e->get<ForceField>()->team;
 		*type = *team == query_team ? AI::RecordedLife::EntityForceFieldFriend : AI::RecordedLife::EntityForceFieldEnemy;
 	}
 	else if (e->has<Projectile>())
@@ -599,13 +599,37 @@ void RecordedLife::Tag::init(Entity* player)
 {
 	AI::Team my_team = player->get<AIAgent>()->team;
 	shield = player->get<Health>()->shield;
-	time = vi_min(255, s32(Game::time.total / (MATCH_TIME_DEFAULT / 255.0f)));
-	energy = player->get<PlayerCommon>()->manager.ref()->credits;
+	time_remaining = vi_min(255, vi_max(0, s32((Game::level.time_limit - Game::time.total) * 0.5f)));
+
+	{
+		PlayerManager* manager = player->get<PlayerCommon>()->manager.ref();
+		energy = manager->energy;
+		upgrades = manager->upgrades;
+	}
+
 	enemy_upgrades = 0;
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team.ref()->team() != my_team)
 			enemy_upgrades |= i.item()->upgrades;
+	}
+
+	battery_state = 0;
+	{
+		s32 index = 0;
+		for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
+		{
+			AI::Team t = i.item()->team;
+			if (t == AI::TeamNone)
+				battery_state |= (1 << (index * 2)) | (1 << ((index * 2) + 1));
+			else if (t == my_team)
+				battery_state |= (1 << (index * 2));
+			else
+				battery_state |= (1 << ((index * 2) + 1));
+			index++;
+			if (index == 16)
+				break;
+		}
 	}
 
 	if (Game::level.type == GameType::Rush)
@@ -643,14 +667,59 @@ void RecordedLife::Tag::init(Entity* player)
 	}
 }
 
+s32 RecordedLife::Tag::battery_count(BatteryState s) const
+{
+	vi_assert(s);
+	s32 count = 0;
+	for (s32 i = 0; i < 32; i += 2)
+	{
+		b8 a = battery_state & (1 << i);
+		b8 b = battery_state & (1 << (i + 1));
+		if (a && b)
+		{
+			if (s & BatteryStateNeutral)
+				count++;
+		}
+		else if (a)
+		{
+			if (s & BatteryStateFriendly)
+				count++;
+		}
+		else if (b)
+		{
+			if (s & BatteryStateEnemy)
+				count++;
+		}
+		else
+			break;
+	}
+	return count;
+}
+
+RecordedLife::Tag::BatteryState RecordedLife::Tag::battery(s32 index) const
+{
+	b8 a = battery_state & (1 << index);
+	b8 b = battery_state & (1 << (index + 1));
+	if (a && b)
+		return BatteryStateNeutral;
+	else if (a)
+		return BatteryStateFriendly;
+	else if (b)
+		return BatteryStateEnemy;
+	else
+		return BatteryStateNone;
+}
+
 void RecordedLife::reset()
 {
 	shield.length = 0;
-	time.length = 0;
+	time_remaining.length = 0;
 	energy.length = 0;
 	pos.length = 0;
 	normal.length = 0;
+	upgrades.length = 0;
 	enemy_upgrades.length = 0;
+	battery_state.length = 0;
 	control_point_state.length = 0;
 	nearby_entities.length = 0;
 	stealth.length = 0;
@@ -667,11 +736,13 @@ void RecordedLife::reset(AI::Team t, s8 d)
 void RecordedLife::add(const Tag& tag, const Action& a)
 {
 	shield.add(tag.shield);
-	time.add(tag.time);
+	time_remaining.add(tag.time_remaining);
 	energy.add(tag.energy);
 	pos.add(tag.pos);
 	normal.add(tag.normal);
+	upgrades.add(tag.upgrades);
 	enemy_upgrades.add(tag.enemy_upgrades);
+	battery_state.add(tag.battery_state);
 	control_point_state.add(tag.control_point_state);
 	nearby_entities.add(tag.nearby_entities);
 	stealth.add(tag.stealth);
@@ -709,9 +780,9 @@ void RecordedLife::serialize(FILE* f, size_t(*func)(void*, size_t, size_t, FILE*
 	shield.resize(shield.length);
 	func(shield.data, sizeof(s8), shield.length, f);
 
-	func(&time.length, sizeof(s32), 1, f);
-	time.resize(time.length);
-	func(time.data, sizeof(s8), time.length, f);
+	func(&time_remaining.length, sizeof(s32), 1, f);
+	time_remaining.resize(time_remaining.length);
+	func(time_remaining.data, sizeof(s8), time_remaining.length, f);
 
 	func(&energy.length, sizeof(s32), 1, f);
 	energy.resize(energy.length);
@@ -724,6 +795,10 @@ void RecordedLife::serialize(FILE* f, size_t(*func)(void*, size_t, size_t, FILE*
 	func(&normal.length, sizeof(s32), 1, f);
 	normal.resize(normal.length);
 	func(normal.data, sizeof(Vec3), normal.length, f);
+
+	func(&upgrades.length, sizeof(s32), 1, f);
+	upgrades.resize(upgrades.length);
+	func(upgrades.data, sizeof(s32), upgrades.length, f);
 
 	func(&enemy_upgrades.length, sizeof(s32), 1, f);
 	enemy_upgrades.resize(enemy_upgrades.length);

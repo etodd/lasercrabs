@@ -20,7 +20,7 @@
 #include "overworld.h"
 #include "player.h"
 
-#define CREDITS_FLASH_TIME 0.5f
+#define ENERGY_FLASH_TIME 0.5f
 
 namespace VI
 {
@@ -69,7 +69,7 @@ AbilityInfo AbilityInfo::list[(s32)Ability::count] =
 	},
 	{
 		AbilityInfo::Type::Build,
-		Asset::Mesh::icon_containment_field,
+		Asset::Mesh::icon_force_field,
 		40,
 		false,
 	},
@@ -120,9 +120,9 @@ UpgradeInfo UpgradeInfo::list[(s32)Upgrade::count] =
 		50,
 	},
 	{
-		strings::containment_field,
-		strings::description_containment_field,
-		Asset::Mesh::icon_containment_field,
+		strings::force_field,
+		strings::description_force_field,
+		Asset::Mesh::icon_force_field,
 		120,
 	},
 	{
@@ -218,7 +218,7 @@ void Team::transition_next()
 	}
 }
 
-s16 Team::containment_field_mask(AI::Team t)
+s16 Team::force_field_mask(AI::Team t)
 {
 	return 1 << (8 + t);
 }
@@ -570,7 +570,7 @@ b8 Team::net_msg(Net::StreamRead* p)
 				team_add_score_summary_item(i.item(), i.item()->username);
 				team_add_score_summary_item(i.item(), _(strings::kills), i.item()->kills);
 				if (Game::session.type == SessionType::Story)
-					team_add_score_summary_item(i.item(), _(strings::leftover_energy), i.item()->credits);
+					team_add_score_summary_item(i.item(), _(strings::leftover_energy), i.item()->energy);
 				if (PlayerManager::list.count() > 2)
 					team_add_score_summary_item(i.item(), _(strings::deaths), i.item()->deaths);
 			}
@@ -627,7 +627,7 @@ b8 Team::net_msg(Net::StreamRead* p)
 				// winner takes all
 				if (Game::level.local)
 				{
-					for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
+					for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 						i.item()->set_team(team_winner); // these are synced over the network, so must do them only on the server
 					for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 						World::remove_deferred(i.item()->entity());
@@ -710,7 +710,7 @@ void Team::update_all_server(const Update& u)
 				ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
 				World::remove_deferred(i.item()->entity());
 			}
-			for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+			for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 			{
 				Vec3 pos;
 				Quat rot;
@@ -738,7 +738,7 @@ void Team::update_all_server(const Update& u)
 				if (PlayerHuman::list.count() > 0)
 				{
 					PlayerManager* player = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-					Overworld::resource_change(Resource::Energy, player->credits);
+					Overworld::resource_change(Resource::Energy, player->energy);
 					Overworld::resource_change(Resource::Drones, vi_max(s16(0), player->respawns));
 				}
 
@@ -807,7 +807,7 @@ void Team::update_all_server(const Update& u)
 							Vec3 target_pos = detected_entity->get<Transform>()->absolute_pos();
 							Vec3 rocket_pos = rocket.item()->get<Transform>()->absolute_pos();
 							if ((rocket_pos - target_pos).length_squared() < ROCKET_RANGE * ROCKET_RANGE // it's in range
-								&& ContainmentField::hash(team->team(), rocket_pos) == ContainmentField::hash(team->team(), target_pos)) // no containment fields in the way
+								&& ForceField::hash(team->team(), rocket_pos) == ForceField::hash(team->team(), target_pos)) // no force fields in the way
 							{
 								rocket.item()->launch(detected_entity);
 								break;
@@ -882,7 +882,7 @@ b8 PlayerManager::ability_valid(Ability ability) const
 		return false;
 
 	const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-	if (credits < info.spawn_cost)
+	if (energy < info.spawn_cost)
 		return false;
 
 	return true;
@@ -915,13 +915,13 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 {
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
 	{
-		credits = CREDITS_INITIAL;
+		energy = ENERGY_INITIAL;
 		if (Game::session.type == SessionType::Story && Game::level.type == GameType::Rush && team->team() == 0)
-			credits += s32(Team::match_time / ENERGY_INCREMENT_INTERVAL) * (CREDITS_DEFAULT_INCREMENT * s32(EnergyPickup::list.count() * 0.75f));
+			energy += s32(Team::match_time / ENERGY_INCREMENT_INTERVAL) * (ENERGY_DEFAULT_INCREMENT * s32(Battery::list.count() * 0.75f));
 	}
 	else
-		credits = 0;
-	credits_last = credits;
+		energy = 0;
+	energy_last = energy;
 	if (u)
 		strncpy(username, u, MAX_USERNAME);
 	else
@@ -953,12 +953,12 @@ b8 PlayerManager::upgrade_start(Upgrade u)
 	s16 cost = upgrade_cost(u);
 	if (can_transition_state()
 		&& upgrade_available(u)
-		&& credits >= cost
+		&& energy >= cost
 		&& at_upgrade_point())
 	{
 		current_upgrade = u;
 		state_timer = UPGRADE_TIME;
-		add_credits(-cost);
+		add_energy(-cost);
 		return true;
 	}
 	return false;
@@ -1058,7 +1058,7 @@ b8 PlayerManager::upgrade_available(Upgrade u) const
 	{
 		for (s32 i = 0; i < (s32)Upgrade::count; i++)
 		{
-			if (!has_upgrade((Upgrade)i) && credits >= upgrade_cost((Upgrade)i))
+			if (!has_upgrade((Upgrade)i) && energy >= upgrade_cost((Upgrade)i))
 			{
 				if (i >= (s32)Ability::count || ability_count() < MAX_ABILITIES)
 					return true; // either it's not an ability, or it is an ability and we have enough room for it
@@ -1069,7 +1069,7 @@ b8 PlayerManager::upgrade_available(Upgrade u) const
 	else
 	{
 		// make sure that either it's not an ability, or it is an ability and we have enough room for it
-		return !has_upgrade(u) && ((s32)u >= (s32)Ability::count || ability_count() < MAX_ABILITIES);
+		return !has_upgrade(u) && (s32(u) >= s32(Ability::count) || ability_count() < MAX_ABILITIES);
 	}
 }
 
@@ -1085,13 +1085,13 @@ s32 PlayerManager::ability_count() const
 }
 
 // returns the difference actually applied (never goes below 0)
-s32 PlayerManager::add_credits(s32 c)
+s32 PlayerManager::add_energy(s32 c)
 {
 	if (c != 0)
 	{
-		s16 old_credits = credits;
-		credits = s16(vi_max(0, s32(credits) + c));
-		return credits - old_credits;
+		s16 old_energy = energy;
+		energy = s16(vi_max(0, s32(energy) + c));
+		return energy - old_energy;
 	}
 	return 0;
 }
@@ -1161,8 +1161,8 @@ b8 PlayerManager::can_transition_state() const
 
 s16 PlayerManager::increment() const
 {
-	return CREDITS_DEFAULT_INCREMENT
-		+ EnergyPickup::count(1 << team.ref()->team()) * CREDITS_ENERGY_PICKUP;
+	return ENERGY_DEFAULT_INCREMENT
+		+ Battery::count(1 << team.ref()->team()) * ENERGY_ENERGY_PICKUP;
 }
 
 void PlayerManager::update_all(const Update& u)
@@ -1170,14 +1170,14 @@ void PlayerManager::update_all(const Update& u)
 	if (Game::level.local)
 	{
 		if (Game::level.mode == Game::Mode::Pvp
-			&& Game::level.has_feature(Game::FeatureLevel::EnergyPickups))
+			&& Game::level.has_feature(Game::FeatureLevel::Batterys))
 		{
 			s32 index = s32((Team::match_time - u.time.delta) / ENERGY_INCREMENT_INTERVAL);
 			while (index < s32(Team::match_time / ENERGY_INCREMENT_INTERVAL))
 			{
 				// give points to players based on how many control points they own
 				for (auto i = list.iterator(); !i.is_last(); i.next())
-					i.item()->add_credits(i.item()->increment());
+					i.item()->add_energy(i.item()->increment());
 				index++;
 			}
 		}
@@ -1281,12 +1281,12 @@ void PlayerManager::update_server(const Update& u)
 
 void PlayerManager::update_client(const Update& u)
 {
-	if (credits != credits_last)
+	if (energy != energy_last)
 	{
-		credits_flash_timer = CREDITS_FLASH_TIME;
-		credits_last = credits;
+		energy_flash_timer = ENERGY_FLASH_TIME;
+		energy_last = energy;
 	}
-	credits_flash_timer = vi_max(0.0f, credits_flash_timer - Game::real_time.delta);
+	energy_flash_timer = vi_max(0.0f, energy_flash_timer - Game::real_time.delta);
 }
 
 b8 PlayerManager::is_local() const

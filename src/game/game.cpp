@@ -501,9 +501,9 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
-		EnergyPickup::update_all(u);
+		Battery::update_all(u);
 		Sensor::update_all_client(u);
-		ContainmentField::update_all(u);
+		ForceField::update_all(u);
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
@@ -562,7 +562,7 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 {
 	// energy pickups are not synced in parkour mode
 
-	if (t->has<Sensor>() && !t->has<EnergyPickup>())
+	if (t->has<Sensor>() && !t->has<Battery>())
 		return true;
 
 	const ComponentMask mask_parkour =
@@ -577,7 +577,7 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 	const ComponentMask mask_pvp =
 	(
 		mask_parkour
-		| EnergyPickup::component_mask
+		| Battery::component_mask
 	);
 	return t->component_mask & (mode == Game::Mode::Pvp ? mask_pvp : mask_parkour);
 }
@@ -1062,7 +1062,7 @@ void Game::execute(const char* cmd)
 				else if (PlayerManager::list.count() > 0)
 				{
 					for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-						i.item()->credits += value;
+						i.item()->energy += value;
 				}
 			}
 		}
@@ -1073,17 +1073,17 @@ void Game::execute(const char* cmd)
 		{
 			if (i.item()->instance.ref())
 			{
-				s16 credits = i.item()->credits;
-				i.item()->credits = 10000;
-				for (s32 upgrade = 0; upgrade < (s32)Upgrade::count; upgrade++)
+				s16 energy = i.item()->energy;
+				i.item()->energy = 10000;
+				for (s32 upgrade = 0; upgrade < s32(Upgrade::count); upgrade++)
 				{
-					while (i.item()->upgrade_available((Upgrade)upgrade))
+					while (i.item()->upgrade_available(Upgrade(upgrade)))
 					{
-						i.item()->upgrade_start((Upgrade)upgrade);
+						i.item()->upgrade_start(Upgrade(upgrade));
 						i.item()->upgrade_complete();
 					}
 				}
-				i.item()->credits = credits;
+				i.item()->energy = energy;
 			}
 		}
 	}
@@ -1647,9 +1647,9 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				}
 			}
 		}
-		else if (cJSON_HasObjectItem(element, "EnergyPickup"))
+		else if (cJSON_HasObjectItem(element, "Battery") || cJSON_HasObjectItem(element, "EnergyPickup"))
 		{
-			if (level.has_feature(FeatureLevel::EnergyPickups))
+			if (level.has_feature(FeatureLevel::Batterys))
 			{
 				AI::Team team;
 				if (session.type == SessionType::Story)
@@ -1664,7 +1664,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				}
 				else
 					team = AI::TeamNone;
-				entity = World::alloc<EnergyPickupEntity>(absolute_pos, team);
+				entity = World::alloc<BatteryEntity>(absolute_pos, team);
 
 				absolute_rot = Quat::identity;
 

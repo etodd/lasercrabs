@@ -4,7 +4,6 @@
 #include "common.h"
 #include "game.h"
 #include "strings.h"
-#include "ai_player.h"
 #include "console.h"
 #include <unordered_map>
 #include <string>
@@ -22,6 +21,8 @@
 #include "player.h"
 #include "audio.h"
 #include "load.h"
+#include "data/components.h"
+#include "awk.h"
 
 namespace VI
 {
@@ -754,7 +755,7 @@ namespace tutorial
 
 			Game::level.feature_level = Game::FeatureLevel::Abilities;
 			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-			manager->credits = UpgradeInfo::list[s32(Upgrade::Sensor)].cost + AbilityInfo::list[s32(Ability::Sensor)].spawn_cost * 2;
+			manager->energy = UpgradeInfo::list[s32(Upgrade::Sensor)].cost + AbilityInfo::list[s32(Ability::Sensor)].spawn_cost * 2;
 		}
 	}
 
@@ -798,7 +799,7 @@ namespace tutorial
 				{
 					data->state = TutorialState::Start;
 					Actor::tut(strings::tut_start);
-					Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
+					Game::level.feature_level = Game::FeatureLevel::Batterys;
 				}
 			}
 			else
@@ -912,7 +913,7 @@ namespace tutorial
 		else
 			data->state = TutorialState::ParkourStart;
 
-		Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
+		Game::level.feature_level = Game::FeatureLevel::Batterys;
 
 		Game::updates.add(&update);
 		Game::cleanups.add(&cleanup);

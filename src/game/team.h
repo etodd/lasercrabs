@@ -84,7 +84,7 @@ struct Team : public ComponentType<Team>
 
 	static void awake_all();
 	static void transition_next();
-	static s16 containment_field_mask(AI::Team);
+	static s16 force_field_mask(AI::Team);
 	static void update(const Update&);
 	static void update_all_server(const Update&);
 	static void update_all_client_only(const Update&);
@@ -141,7 +141,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	static b8 net_msg(Net::StreamRead*, PlayerManager*, Net::MessageSource);
 
 	r32 spawn_timer;
-	r32 credits_flash_timer;
+	r32 energy_flash_timer;
 	r32 particle_accumulator;
 	r32 state_timer;
 	s32 upgrades;
@@ -152,8 +152,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	LinkArg<b8> control_point_capture_completed;
 	Ref<Team> team;
 	Ref<Entity> instance;
-	s16 credits;
-	s16 credits_last;
+	s16 energy;
+	s16 energy_last;
 	s16 kills;
 	s16 deaths;
 	s16 respawns;
@@ -181,7 +181,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void capture_complete();
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
 	s16 upgrade_cost(Upgrade) const;
-	s32 add_credits(s32);
+	s32 add_energy(s32);
 	void add_kills(s32);
 	void add_deaths(s32);
 	b8 at_upgrade_point() const;

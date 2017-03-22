@@ -38,7 +38,7 @@ enum class MessageType
 	Awk,
 	PlayerControlHuman,
 	Health,
-	EnergyPickup,
+	Battery,
 	PlayerManager,
 	ParticleEffect,
 	ControlPoint,
@@ -86,7 +86,7 @@ struct PlayerManagerState
 	Ability abilities[MAX_ABILITIES] = { Ability::None, Ability::None, Ability::None };
 	Upgrade current_upgrade = Upgrade::None;
 	Ref<Entity> instance;
-	s16 credits;
+	s16 energy;
 	s16 kills;
 	s16 deaths;
 	s16 respawns;

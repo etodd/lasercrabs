@@ -33,7 +33,7 @@ void Save::reset()
 	zones[Asset::Level::Dock] = ZoneState::GroupOwned;
 	zones[Asset::Level::Library] = ZoneState::GroupOwned;
 
-	resources[s32(Resource::Energy)] = s16(CREDITS_INITIAL * 3.5f);
+	resources[s32(Resource::Energy)] = s16(ENERGY_INITIAL * 3.5f);
 }
 
 Messenger::Peer::Peer()

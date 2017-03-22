@@ -1,7 +1,7 @@
 #pragma once
 
 // NOTE: this is also the max number of teams
-// if you change this, make sure to allocate more physics categories for each team's containment field
+// if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_PLAYERS 4
 
 #define GAME_VERSION 1
@@ -12,14 +12,14 @@
 
 #define UI_JOYSTICK_DEAD_ZONE 0.5f
 #define PLAYER_SPAWN_DELAY 3.0f
-#define CREDITS_INITIAL 0
-#define CREDITS_MINION_KILL 10
-#define CREDITS_SENSOR_DESTROY 10
-#define CREDITS_CONTAINMENT_FIELD_DESTROY 10
-#define CREDITS_ROCKET_DESTROY 5
-#define CREDITS_DEFAULT_INCREMENT 5
-#define CREDITS_ENERGY_PICKUP 5
-#define CREDITS_CAPTURE_ENERGY_PICKUP 10
+#define ENERGY_INITIAL 0
+#define ENERGY_MINION_KILL 10
+#define ENERGY_SENSOR_DESTROY 10
+#define ENERGY_FORCE_FIELD_DESTROY 10
+#define ENERGY_ROCKET_DESTROY 5
+#define ENERGY_DEFAULT_INCREMENT 5
+#define ENERGY_ENERGY_PICKUP 5
+#define ENERGY_CAPTURE_ENERGY_PICKUP 10
 #define MAX_ABILITIES 3
 #define DEFAULT_RUSH_DRONES 5
 #define MATCH_TIME_DEFAULT (60.0f * 8.0f)
@@ -91,9 +91,9 @@
 #define SENSOR_HEALTH 3
 #define SENSOR_RANGE 14.0f
 
-#define CONTAINMENT_FIELD_RADIUS 12.0f
-#define CONTAINMENT_FIELD_BASE_OFFSET 0.95f
-#define CONTAINMENT_FIELD_LIFETIME 8.0f
+#define FORCE_FIELD_RADIUS 12.0f
+#define FORCE_FIELD_BASE_OFFSET 0.95f
+#define FORCE_FIELD_LIFETIME 8.0f
 
 #define ROCKET_RANGE (AWK_MAX_DISTANCE * 1.5f)
 #define ROCKET_SPEED 15.0f

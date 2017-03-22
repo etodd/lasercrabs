@@ -92,6 +92,7 @@ void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, r32 offset)
 
 	camera->range = e->get<Drone>()->range();
 	camera->range_center = rot_inverse * (center - camera->pos);
+	camera->cull_center = Vec3(0, 0, offset + DRONE_SHIELD_RADIUS);
 	Vec3 wall_normal_viewspace = rot_inverse * abs_wall_normal;
 	camera->clip_planes[0].redefine(wall_normal_viewspace, camera->range_center + wall_normal_viewspace * -DRONE_RADIUS);
 	camera->flag(CameraFlagCullBehindWall, abs_wall_normal.dot(camera->pos - center) < -DRONE_RADIUS + 0.02f); // camera is behind wall; set clip plane to wall
@@ -3172,6 +3173,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	}
 
 	b8 enemy_visible = false;
+	b8 enemy_drone_visible = false;
 
 	{
 		Vec3 me = get<Transform>()->absolute_pos();
@@ -3531,7 +3533,10 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			b8 friendly = other_player.item()->get<AIAgent>()->team == team;
 
 			if (visible && !friendly)
+			{
 				enemy_visible = true;
+				enemy_drone_visible = true;
+			}
 
 			b8 draw;
 			Vec2 p;
@@ -3615,7 +3620,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	{
 		// danger indicator
 
-		b8 danger = enemy_visible && is_vulnerable;
+		b8 danger = enemy_visible && (enemy_drone_visible || is_vulnerable) && !get<AIAgent>()->stealth;
 		if (danger)
 		{
 			UIText text;
@@ -3630,7 +3635,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 			Rect2 box = text.rect(pos).outset(8 * UI::scale);
 			UI::box(params, box, UI::color_background);
-			if (UI::flash_function(Game::real_time.total))
+			if (is_vulnerable ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total))
 				text.draw(params, pos);
 		}
 

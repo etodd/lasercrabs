@@ -1061,17 +1061,16 @@ void PlayerControlAI::action_done(b8 success)
 				}
 			}
 		}
+
+		// last resort: panic
+		{
+			AI::RecordedLife::Action action;
+			action.type = AI::RecordedLife::Action::TypeNone;
+			action_queue.push({ INT_MAX, action });
+		}
 	}
 
 	// execute action
-	if (action_queue.size() == 0)
-	{
-#if DEBUG_AI_CONTROL
-		vi_debug("Action: %d", 0);
-#endif
-		current.action.type = AI::RecordedLife::Action::TypeNone; // just do something
-	}
-	else
 	{
 		current = action_queue.pop();
 #if DEBUG_AI_CONTROL
@@ -1101,6 +1100,11 @@ void PlayerControlAI::action_done(b8 success)
 				ControlPoint* c = get<PlayerCommon>()->manager.ref()->at_control_point();
 				if (!c || !get<PlayerCommon>()->manager.ref()->capture_start())
 					action_done(false); // fail
+				break;
+			}
+			case AI::RecordedLife::Action::TypeNone:
+			{
+				// update method will handle panicking
 				break;
 			}
 			/*

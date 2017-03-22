@@ -886,6 +886,7 @@ const char* AssetLookup::Uniform::names[] =
 	"fog",
 	"fog_extent",
 	"fog_start",
+	"frontface",
 	"frustum",
 	"gravity",
 	"inv_buffer_size",

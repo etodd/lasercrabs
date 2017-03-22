@@ -1386,7 +1386,15 @@ void Drone::ensure_detached()
 
 b8 Drone::dash_start(const Vec3& dir)
 {
-	if (state() != State::Crawl || current_ability != Ability::None)
+	if (state() == State::Dash)
+	{
+#if SERVER
+		// add some forgiveness
+		if (dash_timer > DRONE_REFLECTION_TIME_TOLERANCE)
+#endif
+			return false;
+	}
+	else if (state() == State::Fly || current_ability != Ability::None)
 		return false;
 
 	DroneNet::start_dashing(this, dir);
@@ -1480,7 +1488,7 @@ b8 Drone::go(const Vec3& dir)
 	return true;
 }
 
-#define REFLECTION_TRIES 20 // try 20 raycasts. if they all fail, just shoot off into space.
+#define REFLECTION_TRIES 32 // try x raycasts. if they all fail, just shoot off into space.
 
 void drone_reflection_execute(Drone* a, Entity* reflected_off, const Vec3& dir)
 {
@@ -1689,19 +1697,19 @@ void Drone::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, cons
 	}
 }
 
-// Return true if we actually switched to the other wall
+// return true if we actually switched to the other wall
 b8 Drone::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultCallback& ray_callback)
 {
 	if (state() == State::Dash) // don't dash around corners
 		return false;
 
-	// Reparent to obstacle/wall
+	// check to make sure that our movement direction won't get flipped if we switch walls.
+	// this prevents jittering back and forth between walls all the time.
+	// also, don't crawl onto inaccessible surfaces.
 	Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 	Vec3 other_wall_normal = ray_callback.m_hitNormalWorld;
 	Vec3 dir_flattened_other_wall = dir - other_wall_normal * other_wall_normal.dot(dir);
-	// Check to make sure that our movement direction won't get flipped if we switch walls.
-	// This prevents jittering back and forth between walls all the time.
-	// Also, don't crawl onto inaccessible surfaces.
+
 	if (dir_flattened_other_wall.dot(wall_normal) > 0.0f
 		&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
 	{
@@ -1779,7 +1787,7 @@ void Drone::crawl(const Vec3& dir_raw, const Update& u)
 
 			if (ray_callback.hasHit())
 			{
-				if (!transfer_wall(dir_flattened, ray_callback))
+				if (!transfer_wall(dir_normalized, ray_callback))
 				{
 					// Stay on our current wall
 					crawl_wall_edge(dir_normalized, ray_callback.m_hitNormalWorld, u, speed);
@@ -1921,7 +1929,8 @@ void Drone::stealth(Entity* e, b8 enable)
 		if (enable)
 		{
 			e->get<AIAgent>()->stealth = true;
-			e->get<SkinnedModel>()->hollow();
+			e->get<SkinnedModel>()->alpha();
+			e->get<SkinnedModel>()->color.w = 0.6f;
 			e->get<SkinnedModel>()->mask = 1 << s32(e->get<AIAgent>()->team); // only display to fellow teammates
 		}
 		else

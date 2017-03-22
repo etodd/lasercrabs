@@ -49,7 +49,7 @@ layout (location = 1) out vec4 out_normal;
 void main()
 {
 	out_color = diffuse_color;
-	out_normal = vec4(vec3(0.5, 0.5, 0), 1.0);
+	out_normal = vec4(0.5, 0.5, 0, 1.0);
 }
 
 #endif

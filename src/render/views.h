@@ -11,7 +11,6 @@ struct View : public ComponentType<View>
 {
 	static Bitmask<MAX_ENTITIES> list_alpha;
 	static Bitmask<MAX_ENTITIES> list_additive;
-	static Bitmask<MAX_ENTITIES> list_hollow;
 
 	Mat4 offset;
 	Vec4 color;
@@ -24,7 +23,6 @@ struct View : public ComponentType<View>
 
 	static void draw_opaque(const RenderParams&);
 	static void draw_alpha(const RenderParams&);
-	static void draw_hollow(const RenderParams&);
 	static void draw_additive(const RenderParams&);
 	typedef b8 Filter(const RenderParams&, const View*);
 	static void draw_filtered(const RenderParams&, Filter*);
@@ -39,7 +37,6 @@ struct View : public ComponentType<View>
 	AlphaMode alpha_mode() const;
 	void alpha_mode(AlphaMode);
 	void alpha();
-	void hollow();
 	void additive();
 	void alpha_disable();
 	void draw(const RenderParams&) const;

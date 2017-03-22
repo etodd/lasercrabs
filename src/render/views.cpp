@@ -13,7 +13,6 @@ namespace VI
 
 Bitmask<MAX_ENTITIES> View::list_alpha;
 Bitmask<MAX_ENTITIES> View::list_additive;
-Bitmask<MAX_ENTITIES> View::list_hollow;
 
 View::View(AssetID m)
 	: mesh(m),
@@ -48,7 +47,7 @@ void View::draw_opaque(const RenderParams& params)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (!list_alpha.get(i.index) && !list_additive.get(i.index) && !list_hollow.get(i.index) && (i.item()->mask & params.camera->mask))
+		if (!list_alpha.get(i.index) && !list_additive.get(i.index) && (i.item()->mask & params.camera->mask))
 			i.item()->draw(params);
 	}
 }
@@ -71,15 +70,6 @@ void View::draw_alpha(const RenderParams& params)
 	}
 }
 
-void View::draw_hollow(const RenderParams& params)
-{
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (list_hollow.get(i.index) && (i.item()->mask & params.camera->mask))
-			i.item()->draw(params);
-	}
-}
-
 void View::draw_filtered(const RenderParams& params, Filter* filter)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -93,28 +83,18 @@ void View::alpha()
 {
 	list_alpha.set(id(), true);
 	list_additive.set(id(), false);
-	list_hollow.set(id(), false);
 }
 
 void View::additive()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), true);
-	list_hollow.set(id(), false);
-}
-
-void View::hollow()
-{
-	list_alpha.set(id(), false);
-	list_additive.set(id(), false);
-	list_hollow.set(id(), true);
 }
 
 void View::alpha_disable()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), false);
-	list_hollow.set(id(), false);
 }
 
 AlphaMode View::alpha_mode() const
@@ -123,8 +103,6 @@ AlphaMode View::alpha_mode() const
 		return AlphaMode::Alpha;
 	else if (list_additive.get(id()))
 		return AlphaMode::Additive;
-	else if (list_hollow.get(id()))
-		return AlphaMode::Hollow;
 	else
 		return AlphaMode::Opaque;
 }
@@ -146,11 +124,6 @@ void View::alpha_mode(AlphaMode m)
 		case AlphaMode::Additive:
 		{
 			additive();
-			break;
-		}
-		case AlphaMode::Hollow:
-		{
-			hollow();
 			break;
 		}
 		default:
@@ -291,7 +264,7 @@ void View::draw(const RenderParams& params) const
 	else
 	{
 		const Vec4& team_color = Team::color(AI::Team(team), AI::Team(params.camera->team));
-		if (list_alpha.get(id()) || list_additive.get(id()) || list_hollow.get(id()))
+		if (list_alpha.get(id()) || list_additive.get(id()))
 			sync->write<Vec4>(Vec4(team_color.xyz(), color.w));
 		else
 			sync->write<Vec4>(team_color);
@@ -301,10 +274,16 @@ void View::draw(const RenderParams& params) const
 	{
 		// write culling info
 		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::cull_center);
+		sync->write(Asset::Uniform::range_center);
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
 		sync->write<Vec3>(params.camera->range_center);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::cull_center);
+		sync->write(RenderDataType::Vec3);
+		sync->write<s32>(1);
+		sync->write<Vec3>(params.camera->cull_center);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::cull_radius);
@@ -323,6 +302,12 @@ void View::draw(const RenderParams& params) const
 		sync->write(RenderDataType::S32);
 		sync->write<s32>(1);
 		sync->write<s32>(params.camera->flag(CameraFlagCullBehindWall));
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::frontface);
+		sync->write(RenderDataType::S32);
+		sync->write<s32>(1);
+		sync->write<s32>(!(params.flags & RenderFlagBackFace));
 	}
 
 	if (texture != AssetNull)
@@ -761,9 +746,6 @@ void SkyPattern::draw_opaque(const RenderParams& p)
 
 	RenderSync* sync = p.sync;
 
-	sync->write(RenderOp::ColorMask);
-	sync->write<s8>(0);
-
 	sync->write(RenderOp::Shader);
 	sync->write(Asset::Shader::standard_flat);
 	sync->write(p.technique);
@@ -787,9 +769,6 @@ void SkyPattern::draw_opaque(const RenderParams& p)
 	sync->write(RenderOp::Mesh);
 	sync->write(RenderPrimitiveMode::Triangles);
 	sync->write(Asset::Mesh::sky_pattern);
-
-	sync->write(RenderOp::ColorMask);
-	sync->write<s8>(RENDER_COLOR_MASK_DEFAULT);
 }
 
 void SkyPattern::draw_hollow(const RenderParams& p)

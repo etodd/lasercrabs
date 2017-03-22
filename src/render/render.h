@@ -15,7 +15,6 @@ enum class AlphaMode
 	Opaque,
 	Alpha,
 	Additive,
-	Hollow,
 	count,
 };
 
@@ -74,6 +73,7 @@ struct Camera
 	Plane clip_planes[RENDER_CLIP_PLANE_MAX];
 	Vec3 pos;
 	Vec3 range_center;
+	Vec3 cull_center;
 	r32 cull_range;
 	r32 near_plane;
 	r32 far_plane;

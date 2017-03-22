@@ -2675,7 +2675,7 @@ TerminalInteractable::TerminalInteractable()
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::interactable;
 	model->shader = Asset::Shader::armature;
-	model->hollow();
+	model->alpha();
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::interactable;
@@ -3170,7 +3170,7 @@ TramInteractableEntity::TramInteractableEntity(const Vec3& absolute_pos, const Q
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::interactable;
 	model->shader = Asset::Shader::armature;
-	model->hollow();
+	model->alpha();
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::interactable;

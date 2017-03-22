@@ -102,8 +102,8 @@ void render_shadows(LoopSync* sync, s32 fbo, const Camera& main_camera, const Ca
 	sync->write<Rect2>(shadow_camera.viewport);
 
 	sync->write<RenderOp>(RenderOp::Clear);
-	sync->write<b8>(false); // Don't clear color
-	sync->write<b8>(true); // Clear depth
+	sync->write<b8>(false); // don't clear color
+	sync->write<b8>(true); // clear depth
 
 	shadow_render_params.camera = &shadow_camera;
 	shadow_render_params.view = shadow_camera.view();
@@ -228,7 +228,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 		render_point_light(render_params, light->get<Transform>()->to_world(light->offset), light->radius, light->type, light->color, light->team);
 	}
 
-	if (RENDER_MASK_DEFAULT & render_params.camera->mask)
+	if (render_params.camera->mask & RENDER_MASK_DEFAULT)
 	{
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 		{
@@ -1245,6 +1245,13 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<AssetID>(g_depth_buffer);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::normal_buffer);
+			sync->write(RenderDataType::Texture);
+			sync->write<s32>(1);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+			sync->write<AssetID>(g_normal_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::inv_buffer_size);

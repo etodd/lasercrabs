@@ -10,11 +10,9 @@ struct SkinnedModel : public ComponentType<SkinnedModel>
 {
 	static Bitmask<MAX_ENTITIES> list_alpha;
 	static Bitmask<MAX_ENTITIES> list_additive;
-	static Bitmask<MAX_ENTITIES> list_hollow;
 
 	static void draw_opaque(const RenderParams&);
 	static void draw_alpha(const RenderParams&);
-	static void draw_hollow(const RenderParams&);
 	static void draw_additive(const RenderParams&);
 
 	Mat4 offset;
@@ -33,7 +31,6 @@ struct SkinnedModel : public ComponentType<SkinnedModel>
 	void draw(const RenderParams&);
 	void alpha();
 	void additive();
-	void hollow();
 	void alpha_disable();
 	AlphaMode alpha_mode() const;
 	void alpha_mode(AlphaMode);

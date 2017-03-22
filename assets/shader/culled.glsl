@@ -54,9 +54,11 @@ in vec3 pos_viewspace;
 // Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
 uniform vec3 cull_center;
+uniform vec3 range_center;
 uniform vec3 wall_normal;
 uniform float cull_radius;
 uniform bool cull_behind_wall;
+uniform bool frontface;
 
 #define DRONE_RADIUS 0.2f
 
@@ -65,12 +67,13 @@ layout (location = 1) out vec4 out_normal;
 
 void main()
 {
-	vec3 p = pos_viewspace - cull_center;
+	vec3 p = pos_viewspace - range_center;
 				
 	if (dot(p, wall_normal) > -DRONE_RADIUS + 0.01f) // is the pixel in front of the wall?
 	{
 		// in front of wall
-		if (p.z / length(p) < -0.707106781186547f) // inside view cone
+		vec3 p2 = pos_viewspace - cull_center;
+		if (p2.z / length(p2) < -0.707106781186547f) // inside view cone
 			discard;
 	}
 	else
@@ -82,7 +85,7 @@ void main()
 	}
 
 	out_color = diffuse_color;
-	out_normal = vec4(normalize(normal_viewspace) * 0.5f + 0.5f, 1.0f);
+	out_normal = vec4(normalize(normal_viewspace) * 0.5f + 0.5f, frontface);
 }
 
 #endif

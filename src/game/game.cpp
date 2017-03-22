@@ -603,27 +603,32 @@ b8 view_filter_culled(const RenderParams& params, const View* v)
 
 void Game::draw_opaque(const RenderParams& render_params)
 {
-	if (render_params.technique == RenderTechnique::Default && !(render_params.flags & RenderFlagEdges))
-	{
-		// render back faces of culled geometry
-		render_params.sync->write<RenderOp>(RenderOp::CullMode);
-		render_params.sync->write<RenderCullMode>(RenderCullMode::Front);
-		{
-			RenderParams p = render_params;
-			p.flags |= RenderFlagBackFace;
-			View::draw_filtered(p, &view_filter_culled);
-		}
-		render_params.sync->write<RenderOp>(RenderOp::CullMode);
-		render_params.sync->write<RenderCullMode>(RenderCullMode::Back);
-	}
-
 	View::draw_opaque(render_params);
 
 	Water::draw_opaque(render_params);
 
 	SkinnedModel::draw_opaque(render_params);
 
-	SkyPattern::draw_opaque(render_params);
+
+	if (render_params.technique == RenderTechnique::Default
+		&& !(render_params.flags & RenderFlagEdges))
+	{
+		SkyPattern::draw_opaque(render_params);
+
+		// render back faces of culled geometry
+		if (render_params.camera->cull_range > 0.0f)
+		{
+			render_params.sync->write<RenderOp>(RenderOp::CullMode);
+			render_params.sync->write<RenderCullMode>(RenderCullMode::Front);
+			{
+				RenderParams p = render_params;
+				p.flags |= RenderFlagBackFace;
+				View::draw_filtered(p, &view_filter_culled);
+			}
+			render_params.sync->write<RenderOp>(RenderOp::CullMode);
+			render_params.sync->write<RenderCullMode>(RenderCullMode::Back);
+		}
+	}
 
 	Overworld::draw_opaque(render_params);
 
@@ -837,8 +842,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 void Game::draw_hollow(const RenderParams& render_params)
 {
 	SkyPattern::draw_hollow(render_params);
-	SkinnedModel::draw_hollow(render_params);
-	View::draw_hollow(render_params);
 
 	Overworld::draw_hollow(render_params);
 
@@ -1747,7 +1750,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				if (armature)
 					shader = Asset::Shader::armature; // todo: alpha support for skinned meshes
 				else
-					shader = alpha || additive ? Asset::Shader::flat : Asset::Shader::standard;
+					shader = alpha || additive ? Asset::Shader::flat : Asset::Shader::culled;
 			}
 
 			if (name)

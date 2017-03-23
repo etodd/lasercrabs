@@ -855,7 +855,7 @@ void PlayerHuman::spawn(const PlayerSpawnPosition& normal_spawn_pos)
 	Net::finalize(spawned);
 }
 
-void draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, AssetID icon, char* string, const Vec4& color)
+r32 draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, AssetID icon, char* string, const Vec4& color, r32 total_width = 0.0f)
 {
 	r32 icon_size = text_size * UI::scale;
 	r32 padding = 8 * UI::scale;
@@ -867,14 +867,20 @@ void draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, Ass
 	text.anchor_y = UIText::Anchor::Center;
 	text.text(gamepad, string);
 
-	r32 total_width = icon_size + padding + text.bounds().x;
+	if (total_width == 0.0f)
+		total_width = icon_size + padding + text.bounds().x;
+	else
+		total_width -= padding * 2.0f;
 
-	UI::box(params, Rect2(pos + Vec2(total_width * -0.5f, icon_size * -0.5f), Vec2(total_width, icon_size)).outset(padding), UI::color_background);
-	UI::mesh(params, icon, pos + Vec2(total_width * -0.5f + icon_size - padding, 0), Vec2(icon_size), text.color);
-	text.draw(params, pos + Vec2(total_width * -0.5f + icon_size + padding, 0));
+	UI::box(params, Rect2(pos, Vec2(total_width, icon_size)).outset(padding), UI::color_background);
+	if (icon != AssetNull)
+		UI::mesh(params, icon, pos + Vec2(icon_size - padding, icon_size * 0.5f), Vec2(icon_size), text.color);
+	text.draw(params, pos + Vec2(icon == AssetNull ? 0 : icon_size + padding, padding));
+
+	return total_width + padding * 2.0f;
 }
 
-void ability_draw(const RenderParams& params, const PlayerHuman* player, const Vec2& pos, Ability ability, AssetID icon, s8 gamepad, Controls binding)
+r32 ability_draw(const RenderParams& params, const PlayerHuman* player, const Vec2& pos, Ability ability, AssetID icon, s8 gamepad, Controls binding)
 {
 	char string[255];
 
@@ -888,17 +894,44 @@ void ability_draw(const RenderParams& params, const PlayerHuman* player, const V
 		color = &UI::color_default;
 	else
 		color = &UI::color_accent;
-	draw_icon_text(params, gamepad, pos, icon, string, *color);
+	return draw_icon_text(params, gamepad, pos, icon, string, *color);
 }
 
-void battery_timer_draw(const RenderParams& params, const Vec2& pos)
+r32 battery_timer_width()
+{
+	return text_size * 5 * UI::scale;
+}
+
+void battery_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Anchor anchor_x)
 {
 	r32 remaining = vi_max(0.0f, Game::level.time_limit - Team::match_time);
 
-	const Vec2 box(text_size * 5 * UI::scale, text_size * UI::scale);
-	const r32 padding = 8.0f * UI::scale;
+	Vec2 box(battery_timer_width(), text_size * UI::scale);
+	r32 padding = 8.0f * UI::scale;
 
-	const Vec2 p = pos + Vec2(box.x * -0.5f, 0);
+	Vec2 p = pos;
+	switch (anchor_x)
+	{
+		case UIText::Anchor::Min:
+		{
+			break;
+		}
+		case UIText::Anchor::Center:
+		{
+			p.x += box.x * -0.5f;
+			break;
+		}
+		case UIText::Anchor::Max:
+		{
+			p.x -= box.x;
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
 		
 	UI::box(params, Rect2(p, box).outset(padding), UI::color_background);
 
@@ -968,7 +1001,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 	text.color = UI::color_default;
 
 	if (Game::level.mode == Game::Mode::Pvp)
-		battery_timer_draw(params, p);
+		battery_timer_draw(params, p, UIText::Anchor::Center);
 	p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 
 	// "spawning..."
@@ -1027,56 +1060,11 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 	UIMode mode = ui_mode();
 
-	r32 radius = 64.0f * UI::scale;
-	Vec2 center;
+	Vec2 ui_anchor;
 	if (Game::ui_gamepad_types[gamepad] == Gamepad::Type::None) // left side
-		center = vp.size * Vec2(0.1f, 0.1f) + Vec2(radius, radius * 0.5f + (text_size * UI::scale * 0.5f));
+		ui_anchor = vp.size * Vec2(0.1f, 0.1f) + Vec2(0, text_size * UI::scale * 0.5f);
 	else // right side
-		center = vp.size * Vec2(0.9f, 0.1f) + Vec2(-radius, radius * 0.5f + (text_size * UI::scale * 0.5f));
-
-	// todo: revamp game mode system
-	if (Game::level.mode == Game::Mode::Pvp
-		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& (mode == UIMode::PvpDefault || mode == UIMode::Upgrading))
-	{
-		// energy
-		b8 draw = true;
-		b8 flashing = get<PlayerManager>()->energy_flash_timer > 0.0f;
-		if (flashing)
-			draw = UI::flash_function(Game::real_time.total);
-
-		char buffer[128];
-		sprintf(buffer, "%d", get<PlayerManager>()->energy);
-		Vec2 energy_pos = center + Vec2(0, radius * -0.5f);
-		draw_icon_text(params, gamepad, energy_pos, Asset::Mesh::icon_energy, buffer, draw ? (flashing ? UI::color_default : UI::color_accent) : UI::color_background);
-
-		// control point increment amount
-		{
-			r32 icon_size = text_size * UI::scale;
-			r32 padding = 8 * UI::scale;
-
-			UIText text;
-			text.color = UI::color_accent;
-			text.text(0, "+%d", get<PlayerManager>()->increment());
-			text.anchor_x = UIText::Anchor::Min;
-			text.anchor_y = UIText::Anchor::Center;
-			text.size = text_size;
-
-			r32 total_width = icon_size + padding + text.bounds().x;
-
-			Vec2 pos = energy_pos + Vec2(0, text_size * UI::scale * -2.0f);
-			UI::box(params, Rect2(pos + Vec2(total_width * -0.5f, icon_size * -0.5f), Vec2(total_width, icon_size)).outset(padding), UI::color_background);
-			UI::triangle_percentage
-			(
-				params,
-				{ pos + Vec2(total_width * -0.5f + icon_size - padding, 3.0f * UI::scale), Vec2(icon_size * 1.25f) },
-				fmodf(Team::match_time, ENERGY_INCREMENT_INTERVAL) / ENERGY_INCREMENT_INTERVAL,
-				text.color,
-				PI
-			);
-			text.draw(params, pos + Vec2(total_width * -0.5f + icon_size + padding, 0));
-		}
-	}
+		ui_anchor = vp.size * Vec2(0.9f, 0.1f) + Vec2(text_size * UI::scale * -11.0f, text_size * UI::scale * 0.5f);
 
 	// draw abilities
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
@@ -1121,13 +1109,14 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		{
 			// draw abilities
 
+			Vec2 pos = ui_anchor;
 			// ability 1
 			{
 				Ability ability = get<PlayerManager>()->abilities[0];
 				if (ability != Ability::None)
 				{
 					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-					ability_draw(params, this, center + Vec2(-radius, 0), ability, info.icon, gamepad, Controls::Ability1);
+					pos.x += ability_draw(params, this, pos, ability, info.icon, gamepad, Controls::Ability1);
 				}
 			}
 
@@ -1137,7 +1126,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				if (ability != Ability::None)
 				{
 					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-					ability_draw(params, this, center + Vec2(0, radius * 0.5f), ability, info.icon, gamepad, Controls::Ability2);
+					pos.x += ability_draw(params, this, pos, ability, info.icon, gamepad, Controls::Ability2);
 				}
 			}
 
@@ -1147,10 +1136,24 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				if (ability != Ability::None)
 				{
 					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-					ability_draw(params, this, center + Vec2(radius, 0), ability, info.icon, gamepad, Controls::Ability3);
+					pos.x += ability_draw(params, this, pos, ability, info.icon, gamepad, Controls::Ability3);
 				}
 			}
 		}
+	}
+
+	if (Game::level.mode == Game::Mode::Pvp
+		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
+		&& (mode == UIMode::PvpDefault || mode == UIMode::Upgrading))
+	{
+		// energy
+		char buffer[128];
+		sprintf(buffer, "%d", get<PlayerManager>()->energy);
+		Vec2 p = ui_anchor + Vec2(battery_timer_width() + text_size * UI::scale, (text_size + 16.0f) * -UI::scale);
+		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_energy, buffer, UI::color_accent, text_size * 5 * UI::scale);
+		p.x += text_size * 5 * UI::scale;
+		sprintf(buffer, "+%d", s32(get<PlayerManager>()->increment()));
+		draw_icon_text(params, gamepad, p, AssetNull, buffer, UI::color_accent, text_size * 3 * UI::scale);
 	}
 
 	if (mode == UIMode::PvpDefault)
@@ -1310,7 +1313,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				if (score_summary_scroll.item(i))
 				{
 					text.text_raw(gamepad, item.label);
-					UIMenu::text_clip(&text, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + (r32)vi_min(i, 6) * -5.0f);
+					UIMenu::text_clip(&text, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + r32(vi_min(i, 6)) * -5.0f);
 					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 					text.draw(params, p);
 					if (item.amount != -1)
@@ -1396,7 +1399,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 
 		if (mode == UIMode::PvpDefault || mode == UIMode::Upgrading) // show game timer
-			battery_timer_draw(params, vp.size * Vec2(Game::ui_gamepad_types[gamepad] != Gamepad::Type::None ? 0.1f : 0.9f, 0.1f));
+			battery_timer_draw(params, ui_anchor + Vec2(0, (text_size + 16.0f) * -UI::scale), UIText::Anchor::Min);
 	}
 
 	// network error icon

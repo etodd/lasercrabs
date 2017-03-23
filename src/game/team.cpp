@@ -1172,13 +1172,16 @@ void PlayerManager::update_all(const Update& u)
 		if (Game::level.mode == Game::Mode::Pvp
 			&& Game::level.has_feature(Game::FeatureLevel::Batterys))
 		{
-			s32 index = s32((Team::match_time - u.time.delta) / ENERGY_INCREMENT_INTERVAL);
-			while (index < s32(Team::match_time / ENERGY_INCREMENT_INTERVAL))
+			for (auto i = list.iterator(); !i.is_last(); i.next())
 			{
-				// give points to players based on how many control points they own
-				for (auto i = list.iterator(); !i.is_last(); i.next())
-					i.item()->add_energy(i.item()->increment());
-				index++;
+				r32 interval_per_point = ENERGY_INCREMENT_INTERVAL / i.item()->increment();
+				s32 index = s32((Team::match_time - u.time.delta) / interval_per_point);
+				while (index < s32(Team::match_time / interval_per_point))
+				{
+					// give points to players based on how many control points they own
+					i.item()->add_energy(1);
+					index++;
+				}
 			}
 		}
 	}
@@ -1281,12 +1284,6 @@ void PlayerManager::update_server(const Update& u)
 
 void PlayerManager::update_client(const Update& u)
 {
-	if (energy != energy_last)
-	{
-		energy_flash_timer = ENERGY_FLASH_TIME;
-		energy_last = energy;
-	}
-	energy_flash_timer = vi_max(0.0f, energy_flash_timer - Game::real_time.delta);
 }
 
 b8 PlayerManager::is_local() const

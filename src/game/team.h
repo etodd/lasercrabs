@@ -141,7 +141,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	static b8 net_msg(Net::StreamRead*, PlayerManager*, Net::MessageSource);
 
 	r32 spawn_timer;
-	r32 energy_flash_timer;
 	r32 particle_accumulator;
 	r32 state_timer;
 	s32 upgrades;

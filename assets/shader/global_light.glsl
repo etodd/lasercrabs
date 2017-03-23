@@ -72,7 +72,7 @@ void main()
 	{
 		vec3 full_light = light_color[0] * max(0, dot(normal, light_direction[0]));
 
-		float shadow;
+		float shadow = 0.0f;
 
 		vec4 detail_light_projected = detail_light_vp * vec4(view_pos, 1.0f);
 		detail_light_projected.xy /= detail_light_projected.w;

@@ -17,6 +17,7 @@ in vec2 uv;
 
 uniform vec2 buffer_size;
 uniform sampler2D depth_buffer;
+uniform sampler2D normal_buffer;
 uniform float time;
 uniform float range;
 uniform mat4 p;
@@ -32,7 +33,7 @@ void main()
 	float line2 = float((y_pixel + 1) % scan_line_interval == 0);
 	float y_subpixel = min(y - float(y_pixel), 0.25);
 	float value = mix(line1, line2, y_subpixel);
-	float clip_depth = texture(depth_buffer, uv).x;
+	float clip_depth = texture(depth_buffer, uv).x * texture(normal_buffer, uv).w;
 	float clip_depth_scaled = clip_depth * 2.0 - 1.0;
 	float depth = p[3][2] / (clip_depth_scaled - p[2][2]);
 	float strength = 0.1 + clamp((depth - 5.0) / range, 0, 1) * 0.35;

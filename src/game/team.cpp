@@ -1021,7 +1021,7 @@ void PlayerManager::capture_complete()
 
 	b8 success = false;
 	ControlPoint* control_point = at_control_point();
-	if (control_point && !friendly_control_point(control_point))
+	if (control_point && control_point->can_be_captured_by(team.ref()->team()))
 	{
 		if (control_point->team_next == AI::TeamNone)
 		{
@@ -1034,10 +1034,7 @@ void PlayerManager::capture_complete()
 			vi_assert(control_point->team_next != team.ref()->team());
 			control_point->capture_cancel();
 			if (control_point->team != team.ref()->team())
-			{
-				// start capturing again
-				control_point->capture_start(team.ref()->team());
-			}
+				control_point->capture_start(team.ref()->team()); // start capturing again
 		}
 		success = true;
 	}

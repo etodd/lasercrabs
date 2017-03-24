@@ -1483,6 +1483,13 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<AssetID>(g_depth_buffer);
 
 		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::normal_buffer);
+		sync->write(RenderDataType::Texture);
+		sync->write<s32>(1);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write<AssetID>(g_normal_buffer);
+
+		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::range);
 		sync->write(RenderDataType::R32);
 		sync->write<s32>(1);

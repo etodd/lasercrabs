@@ -123,15 +123,16 @@ PlayerControlAI::PlayerControlAI(PlayerAI* p)
 	player(p),
 	path(),
 	target(),
-	shot_at_target(),
-	hit_target(),
+	target_shot_at(),
+	target_hit(),
 	aim_timer(),
 	aim_timeout(),
 	inaccuracy(),
 	current(),
 	action_queue_key(),
 	action_queue(&action_queue_key),
-	random_look(0, 0, 1)
+	random_look(0, 0, 1),
+	target_active()
 {
 #if DEBUG_AI_CONTROL
 	camera = Camera::add(0);
@@ -183,15 +184,15 @@ void PlayerControlAI::drone_done_flying_or_dashing()
 
 void PlayerControlAI::drone_detaching()
 {
-	shot_at_target = true;
-	hit_target = false;
+	target_shot_at = true;
+	target_hit = false;
 	aim_timer = 0.0f;
 	aim_timeout = 0.0f;
 }
 
 void PlayerControlAI::drone_hit(Entity* e)
 {
-	hit_target = true;
+	target_hit = true;
 }
 
 void PlayerControlAI::control_point_capture_completed(b8 success)
@@ -422,8 +423,6 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 			{
 				if (lined_up && get<Drone>()->can_shoot(look_dir))
 				{
-					shot_at_target = true;
-
 					// reset timer for rapid-fire bolter shots
 					// if we are actually moving, drone_detaching() will overwrite this to 0
 					aim_timer = config.aim_min_delay - (0.2f + mersenne::randf_co() * 0.1f);
@@ -902,14 +901,6 @@ void PlayerControlAI::sniper_or_bolter_cancel()
 		get<Drone>()->current_ability = Ability::None;
 }
 
-void PlayerControlAI::set_target(Entity* t, r32 delay)
-{
-	aim_timer = aim_timeout = -delay;
-	target = t;
-	hit_target = false;
-	path.length = 0;
-}
-
 void PlayerControlAI::set_path(const AI::DronePath& p)
 {
 	path = p;
@@ -917,15 +908,19 @@ void PlayerControlAI::set_path(const AI::DronePath& p)
 	aim_timer = 0.0f;
 	aim_timeout = 0.0f;
 	target = nullptr;
-	hit_target = false;
+	target_hit = false;
 }
 
 void PlayerControlAI::action_clear()
 {
+	active_callback = 0;
 	current.action.type = AI::RecordedLife::Action::TypeNone;
 	current.priority = 0;
 	path.length = 0;
 	target = nullptr;
+	target_active = false;
+	target_shot_at = false;
+	target_hit = false;
 }
 
 b8 want_upgrade(PlayerControlAI* player, Upgrade u)
@@ -1022,7 +1017,8 @@ void PlayerControlAI::action_done(b8 success)
 			{
 				s32 priority = 0 - (255 - tag.time_remaining) / 70;
 
-				if (manager->at_control_point())
+				ControlPoint* c;
+				if ((c = manager->at_control_point()) && c->can_be_captured_by(my_team))
 				{
 					priority -= 1;
 					AI::RecordedLife::Action action;
@@ -1062,6 +1058,74 @@ void PlayerControlAI::action_done(b8 success)
 			}
 		}
 
+		if (tag.nearby_entities
+			& ((1 << s32(AI::RecordedLife::EntityDroneEnemyShield1))
+				| (1 << s32(AI::RecordedLife::EntityDroneEnemyShield2))
+				| (1 << s32(AI::RecordedLife::EntityMinionEnemy))
+				| (1 << s32(AI::RecordedLife::EntityBatteryEnemy))
+				| (1 << s32(AI::RecordedLife::EntityBatteryNeutral))
+				| (1 << s32(AI::RecordedLife::EntitySensorEnemy))))
+		{
+			Vec3 pos = get<Transform>()->absolute_pos();
+			for (auto i = Target::list.iterator(); !i.is_last(); i.next())
+			{
+				Entity* entity = i.item()->entity();
+				AI::Team team;
+				s8 entity_type;
+				AI::entity_info(entity, my_team, &team, &entity_type);
+				if (team != my_team
+					&& entity_type != AI::RecordedLife::EntityNone
+					&& (entity->get<Transform>()->absolute_pos() - pos).length_squared() < DRONE_MAX_DISTANCE * DRONE_MAX_DISTANCE)
+				{
+					s8 priority = 1;
+					if (get<Drone>()->can_hit(i.item()))
+						priority -= 1;
+
+					switch (entity_type)
+					{
+						case AI::RecordedLife::EntityDroneEnemyShield2:
+						{
+							priority -= 2;
+							break;
+						}
+						case AI::RecordedLife::EntityDroneEnemyShield1:
+						{
+							priority -= 3;
+							break;
+						}
+						case AI::RecordedLife::EntityMinionEnemy:
+						{
+							priority -= 1;
+							break;
+						}
+						case AI::RecordedLife::EntityBatteryEnemy:
+						{
+							priority -= 1;
+							break;
+						}
+						case AI::RecordedLife::EntityBatteryNeutral:
+						{
+							break;
+						}
+						case AI::RecordedLife::EntitySensorEnemy:
+						{
+							break;
+						}
+						default:
+						{
+							vi_assert(false);
+							break;
+						}
+					}
+
+					AI::RecordedLife::Action action;
+					action.type = AI::RecordedLife::Action::TypeAttack;
+					action.entity_type = entity_type;
+					action_queue.push({ priority, action });
+				}
+			}
+		}
+
 		// last resort: panic
 		{
 			AI::RecordedLife::Action action;
@@ -1085,7 +1149,7 @@ void PlayerControlAI::action_done(b8 success)
 				Vec3 pos;
 				Quat rot;
 				get<Transform>()->absolute(&pos, &rot);
-				AI::drone_pathfind(AI::DronePathfind::LongRange, AI::DroneAllow::All, get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), current.action.pos, current.action.normal, callback);
+				active_callback = AI::drone_pathfind(AI::DronePathfind::LongRange, AI::DroneAllow::All, get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), current.action.pos, current.action.normal, callback);
 				break;
 			}
 			case AI::RecordedLife::Action::TypeUpgrade:
@@ -1102,13 +1166,59 @@ void PlayerControlAI::action_done(b8 success)
 					action_done(false); // fail
 				break;
 			}
+			case AI::RecordedLife::Action::TypeAttack:
+			{
+				AI::Team my_team = get<AIAgent>()->team;
+				Target* closest = nullptr;
+				r32 closest_distance_sq = FLT_MAX;
+				Vec3 pos;
+				Quat rot;
+				get<Transform>()->absolute(&pos, &rot);
+				for (auto i = Target::list.iterator(); !i.is_last(); i.next())
+				{
+					Entity* entity = i.item()->entity();
+					AI::Team team;
+					s8 entity_type;
+					AI::entity_info(entity, my_team, &team, &entity_type);
+					if (entity_type == current.action.entity_type)
+					{
+						if (get<Drone>()->can_hit(i.item()))
+						{
+							closest = i.item();
+							break;
+						}
+						else
+						{
+							r32 distance_sq = (i.item()->absolute_pos() - pos).length_squared();
+							if (distance_sq < closest_distance_sq)
+							{
+								closest = i.item();
+								closest_distance_sq = distance_sq;
+							}
+						}
+					}
+				}
+				if (closest)
+				{
+					target_active = true;
+					target = closest->entity();
+					if (!get<Drone>()->can_hit(closest))
+					{
+						// pathfind
+						auto callback = ObjectLinkEntryArg<PlayerControlAI, const AI::DroneResult&, &PlayerControlAI::path_callback>(id());
+						active_callback = AI::drone_pathfind(AI::DronePathfind::Target, AI::DroneAllow::All, my_team, pos, rot * Vec3(0, 0, 1), closest->get<Transform>()->absolute_pos(), Vec3::zero, callback);
+					}
+				}
+				else
+					action_done(false); // fail
+				break;
+			}
 			case AI::RecordedLife::Action::TypeNone:
 			{
 				// update method will handle panicking
 				break;
 			}
 			/*
-			TypeAttack
 			TypeAbility
 			TypeWait
 			*/
@@ -1123,10 +1233,13 @@ void PlayerControlAI::action_done(b8 success)
 
 void PlayerControlAI::path_callback(const AI::DroneResult& result)
 {
-	if (result.path.length == 0)
-		action_done(false); // failed
-	else
-		set_path(result.path);
+	if (result.id == active_callback)
+	{
+		if (result.path.length == 0)
+			action_done(false); // failed
+		else
+			set_path(result.path);
+	}
 }
 
 void PlayerControlAI::update(const Update& u)
@@ -1135,13 +1248,45 @@ void PlayerControlAI::update(const Update& u)
 	{
 		const AI::Config& config = player.ref()->config;
 
+		if (current.action.type != AI::RecordedLife::Action::TypeNone)
+		{
+			// current action is waiting for a callback; see if we're done executing it
+			if (target_active)
+			{
+				if (!target.ref())
+					action_done(target_shot_at); // target's gone
+				else if (target.ref()->has<Target>())
+				{
+					if (target_shot_at)
+					{
+						if (get<Drone>()->current_ability != Ability::Bolter)
+							action_done(target_hit); // call it success if we hit our target, or if there was nothing to hit
+					}
+				}
+				else
+				{
+					// the only other kind of target we can have is a control point
+					if ((target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->absolute_pos()).length_squared() < CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS)
+						action_done(true);
+				}
+			}
+			else if (path.length > 0)
+			{
+				// following a path
+				if (path_index >= path.length)
+					action_done(path.length > 1); // call it success if the path we followed was actually valid
+			}
+		}
+
 		// new random look direction
 		if (s32(u.time.total * config.aim_speed * 0.3f) != s32((u.time.total - u.time.delta) * config.aim_speed * 0.3f))
 			random_look = get<PlayerCommon>()->attach_quat * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * PI * 1.2f, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * PI * 1.2f, 0) * Vec3(1, 0, 0));
 
-		if (target.ref())
+		b8 follow_path = true;
+
+		if (target_active)
 		{
-			if (target.ref()->has<Target>())
+			if (target.ref())
 			{
 				// trying to a hit a moving thingy
 				r32 speed;
@@ -1166,104 +1311,53 @@ void PlayerControlAI::update(const Update& u)
 				Vec3 intersection;
 				if (aim_timeout < config.aim_timeout
 					&& get<Drone>()->can_hit(target.ref()->get<Target>(), &intersection, speed))
+				{
+					follow_path = false;
 					aim_and_shoot_target(u, intersection, target.ref()->get<Target>());
-				else
+				}
+				else if (path_index >= path.length)
 					action_done(false); // we can't hit it
 			}
-			else
-			{
-				// just trying to go to a certain spot (probably our spawn)
-				if (aim_timeout > config.aim_timeout)
-					action_done(false); // something went wrong
-				else
-				{
-					Vec3 target_pos;
-					Quat target_rot;
-					target.ref()->get<Transform>()->absolute(&target_pos, &target_rot);
-					AI::DronePathNode target;
-					target.crawl = false;
-					target.pos = target_pos;
-					target.normal = target_rot * Vec3(0, 0, 1);
-					target.ref = DRONE_NAV_MESH_NODE_NONE;
-					if (!go(u, target, target, CONTROL_POINT_RADIUS)) // assume the target is a control point
-						action_done(false); // can't hit it
-				}
-			}
+			else // target is gone
+				action_done(target_hit);
 		}
-		else if (path_index < path.length)
-		{
-			if (AbilityInfo::list[s32(get<Drone>()->current_ability)].type == AbilityInfo::Type::Shoot)
-				sniper_or_bolter_cancel();
 
-			// look at next target
-			if (aim_timeout > config.aim_timeout)
+		if (follow_path)
+		{
+			if (path_index < path.length)
 			{
-				// timeout; we can't hit it
-				// mark path bad
-#if DEBUG_AI_CONTROL
-				vi_debug("Marking bad Drone adjacency");
-#endif
-				AI::drone_mark_adjacency_bad(path[path_index - 1].ref, path[path_index].ref);
-				action_done(false); // action failed
-			}
-			else
-			{
-				if (!go(u, path[path_index - 1], path[path_index], DRONE_RADIUS)) // path_index starts at 1 so we're good here
+				if (AbilityInfo::list[s32(get<Drone>()->current_ability)].type == AbilityInfo::Type::Shoot)
+					sniper_or_bolter_cancel();
+
+				// look at next target
+				if (aim_timeout > config.aim_timeout
+					|| !go(u, path[path_index - 1], path[path_index], DRONE_RADIUS))
 				{
 #if DEBUG_AI_CONTROL
 					vi_debug("Marking bad Drone adjacency");
 #endif
 					AI::drone_mark_adjacency_bad(path[path_index - 1].ref, path[path_index].ref);
-					action_done(false);
+					action_done(false); // action failed
 				}
 			}
-		}
-		else
-		{
-			// look randomly
-			aim(u, random_look);
-
-			if (current.action.type == AI::RecordedLife::Action::TypeNone)
+			else
 			{
-				// pathfinding routines failed; we are stuck
-				PlayerCommon* common = get<PlayerCommon>();
-				if (common->movement_enabled())
-				{
-					// cooldown is done; we can shoot.
-					Vec3 look_dir = common->look_dir();
-					get<Drone>()->crawl(look_dir, u);
-					if (get<Drone>()->can_shoot(look_dir))
-						get<Drone>()->go(look_dir);
-				}
-			}
-		}
+				// look randomly
+				aim(u, random_look);
 
-		if (current.action.type != AI::RecordedLife::Action::TypeNone)
-		{
-			if (target.ref())
-			{
-				// current action is waiting for a callback; see if we're done executing it
-				if (target.ref()->has<Target>())
+				if (current.action.type == AI::RecordedLife::Action::TypeNone)
 				{
-					if (shot_at_target)
+					// pathfinding routines failed; panic
+					PlayerCommon* common = get<PlayerCommon>();
+					if (common->movement_enabled())
 					{
-						if (get<Drone>()->current_ability != Ability::Bolter)
-							action_done(hit_target); // call it success if we hit our target, or if there was nothing to hit
+						// cooldown is done; we can shoot.
+						Vec3 look_dir = common->look_dir();
+						get<Drone>()->crawl(look_dir, u);
+						if (get<Drone>()->can_shoot(look_dir))
+							get<Drone>()->go(look_dir);
 					}
 				}
-				else
-				{
-					// the only other kind of target we can have is a control point
-					if ((target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->absolute_pos()).length_squared() < CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS)
-						action_done(true);
-				}
-			}
-			else if (path.length > 0)
-			{
-				// current action is waiting for a callback; see if we're done executing it
-				// following a path
-				if (path_index >= path.length)
-					action_done(path.length > 1); // call it success if the path we followed was actually valid
 			}
 		}
 	}
@@ -1276,11 +1370,11 @@ void PlayerControlAI::update(const Update& u)
 
 	camera->viewport =
 	{
-		Vec2((s32)(blueprint->x * (r32)u.input->width), (s32)(blueprint->y * (r32)u.input->height)),
-		Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
+		Vec2(s32(blueprint->x * r32(u.input->width)), s32(blueprint->y * r32(u.input->height))),
+		Vec2(s32(blueprint->w * r32(u.input->width)), s32(blueprint->h * r32(u.input->height))),
 	};
-	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-	camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.02f, Game::level.skybox.far_plane);
+	r32 aspect = camera->viewport.size.y == 0 ? 1 : r32(camera->viewport.size.x) / r32(camera->viewport.size.y);
+	camera->perspective(80.0f * PI * 0.5f / 180.0f, aspect, 0.02f, Game::level.skybox.far_plane);
 	camera->rot = Quat::euler(0.0f, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 	PlayerHuman::camera_setup_drone(entity(), camera, DRONE_THIRD_PERSON_OFFSET);
 #endif

@@ -490,71 +490,87 @@ ComponentMask entity_mask = Sensor::component_mask
 	| Projectile::component_mask
 	| Grenade::component_mask;
 
-void entity_info(Entity* e, AI::Team query_team, AI::Team* team, s8* type)
+void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 {
+	Team _team;
+	s8 _type;
+
 	if (e->has<AIAgent>())
 	{
-		*team = e->get<AIAgent>()->team;
-		if (e->has<Drone>())
+		_team = e->get<AIAgent>()->team;
+		if (e->has<Drone>() || e->has<Decoy>())
 		{
-			s8 shield = e->get<Health>()->hp;
-			if (*team == query_team)
-				*type = shield <= 1 ? AI::RecordedLife::EntityDroneFriendShield1 : AI::RecordedLife::EntityDroneFriendShield2;
+			s8 shield = e->get<Health>()->shield;
+			if (_team == query_team)
+				_type = shield <= 1 ? RecordedLife::EntityDroneFriendShield1 : RecordedLife::EntityDroneFriendShield2;
 			else
-				*type = shield <= 1 ? AI::RecordedLife::EntityDroneEnemyShield1 : AI::RecordedLife::EntityDroneEnemyShield2;
+			{
+				if (e->get<AIAgent>()->stealth)
+				{
+					_team = TeamNone;
+					_type = RecordedLife::EntityNone;
+				}
+				else
+					_type = shield <= 1 ? RecordedLife::EntityDroneEnemyShield1 : RecordedLife::EntityDroneEnemyShield2;
+			}
 		}
 		else if (e->has<MinionCommon>())
-			*type = *team == query_team ? AI::RecordedLife::EntityMinionFriend : AI::RecordedLife::EntityMinionEnemy;
+			_type = _team == query_team ? RecordedLife::EntityMinionFriend : RecordedLife::EntityMinionEnemy;
 	}
 	else if (e->has<Battery>())
 	{
-		*team = e->get<Sensor>()->team;
-		if (*team == query_team)
-			*type = AI::RecordedLife::EntityBatteryFriend;
-		else if (*team == AI::TeamNone)
-			*type = AI::RecordedLife::EntityBatteryNeutral;
+		_team = e->get<Sensor>()->team;
+		if (_team == query_team)
+			_type = RecordedLife::EntityBatteryFriend;
+		else if (_team == TeamNone)
+			_type = RecordedLife::EntityBatteryNeutral;
 		else
-			*type = AI::RecordedLife::EntityBatteryEnemy;
+			_type = RecordedLife::EntityBatteryEnemy;
 	}
 	else if (e->has<Sensor>())
 	{
-		*team = e->get<Sensor>()->team;
-		*type = *team == query_team ? AI::RecordedLife::EntitySensorFriend : AI::RecordedLife::EntitySensorEnemy;
+		_team = e->get<Sensor>()->team;
+		_type = _team == query_team ? RecordedLife::EntitySensorFriend : RecordedLife::EntitySensorEnemy;
 	}
 	else if (e->has<Rocket>())
 	{
-		*team = e->get<Rocket>()->team();
+		_team = e->get<Rocket>()->team();
 		b8 attached = e->get<Transform>()->parent.ref();
-		if (*team == query_team)
-			*type = attached ? AI::RecordedLife::EntityRocketFriendAttached : AI::RecordedLife::EntityRocketFriendDetached;
+		if (_team == query_team)
+			_type = attached ? RecordedLife::EntityRocketFriendAttached : RecordedLife::EntityRocketFriendDetached;
 		else
-			*type = attached ? AI::RecordedLife::EntityRocketEnemyAttached : AI::RecordedLife::EntityRocketEnemyDetached;
+			_type = attached ? RecordedLife::EntityRocketEnemyAttached : RecordedLife::EntityRocketEnemyDetached;
 	}
 	else if (e->has<ForceField>())
 	{
-		*team = e->get<ForceField>()->team;
-		*type = *team == query_team ? AI::RecordedLife::EntityForceFieldFriend : AI::RecordedLife::EntityForceFieldEnemy;
+		_team = e->get<ForceField>()->team;
+		_type = _team == query_team ? RecordedLife::EntityForceFieldFriend : RecordedLife::EntityForceFieldEnemy;
 	}
 	else if (e->has<Projectile>())
 	{
-		*team = e->get<Projectile>()->team();
-		*type = *team == query_team ? AI::RecordedLife::EntityProjectileFriend : AI::RecordedLife::EntityProjectileEnemy;
+		_team = e->get<Projectile>()->team();
+		_type = _team == query_team ? RecordedLife::EntityProjectileFriend : RecordedLife::EntityProjectileEnemy;
 	}
 	else if (e->has<Grenade>())
 	{
 		b8 attached = e->get<Transform>()->parent.ref();
-		*team = e->get<Grenade>()->team();
-		if (*team == query_team)
-			*type = attached ? AI::RecordedLife::EntityGrenadeFriendAttached : AI::RecordedLife::EntityGrenadeFriendDetached;
+		_team = e->get<Grenade>()->team();
+		if (_team == query_team)
+			_type = attached ? RecordedLife::EntityGrenadeFriendAttached : RecordedLife::EntityGrenadeFriendDetached;
 		else
-			*type = attached ? AI::RecordedLife::EntityGrenadeEnemyAttached : AI::RecordedLife::EntityGrenadeEnemyDetached;
+			_type = attached ? RecordedLife::EntityGrenadeEnemyAttached : RecordedLife::EntityGrenadeEnemyDetached;
 	}
 	else
 	{
-		*team = AI::TeamNone;
-		*type = AI::RecordedLife::EntityNone;
+		_team = TeamNone;
+		_type = RecordedLife::EntityNone;
 		vi_assert(false);
 	}
+
+	if (team)
+		*team = _team;
+	if (type)
+		*type = _type;
 }
 
 s8 record_control_point_state(ControlPoint* c)
@@ -587,11 +603,6 @@ s8 record_control_point_state(ControlPoint* c)
 
 b8 record_filter(Entity* e, const Vec3& pos)
 {
-	if (!e->has<Transform>())
-	{
-		vi_debug("%d", s32(e->id()));
-		vi_debug_break();
-	}
 	return (e->get<Transform>()->absolute_pos() - pos).length_squared() < (DRONE_MAX_DISTANCE * 0.5f * DRONE_MAX_DISTANCE * 0.5f);
 }
 
@@ -657,12 +668,13 @@ void RecordedLife::Tag::init(Entity* player)
 	nearby_entities = 0;
 	for (auto i = Entity::iterator(entity_mask); !i.is_last(); i.next())
 	{
-		if (record_filter(i.item(), pos))
+		if (i.item() != player && record_filter(i.item(), pos))
 		{
 			AI::Team team;
 			s8 entity_type;
 			entity_info(i.item(), my_team, &team, &entity_type);
-			nearby_entities |= 1 << s32(entity_type);
+			if (entity_type != EntityNone)
+				nearby_entities |= 1 << s32(entity_type);
 		}
 	}
 }

@@ -318,9 +318,9 @@ s32 impact_damage(Drone* drone, Drone* target_drone)
 	if (LMath::ray_sphere_intersect(ray_start, ray_start + ray_dir * DRONE_MAX_DISTANCE, target_pos, DRONE_SHIELD_RADIUS, &intersection))
 	{
 		r32 dot = Vec3::normalize(intersection - target_pos).dot(ray_dir);
-		if (dot < -0.85f)
+		if (dot < -0.95f)
 			return 3;
-		else if (dot < -0.7f)
+		else if (dot < -0.75f)
 			return 2;
 	}
 	return 1;

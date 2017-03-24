@@ -245,12 +245,14 @@ namespace AI
 		static const s8 EntityDroneEnemyShield1 = 14;
 		static const s8 EntityDroneFriendShield2 = 15;
 		static const s8 EntityDroneFriendShield1 = 16;
-		static const s8 EntityProjectileEnemy = 17;
-		static const s8 EntityProjectileFriend = 18;
-		static const s8 EntityGrenadeEnemyAttached = 19;
-		static const s8 EntityGrenadeEnemyDetached = 20;
-		static const s8 EntityGrenadeFriendAttached = 21;
-		static const s8 EntityGrenadeFriendDetached = 22;
+		static const s8 EntityDecoyEnemyShield2 = 17;
+		static const s8 EntityDecoyEnemyShield1 = 18;
+		static const s8 EntityProjectileEnemy = 19;
+		static const s8 EntityProjectileFriend = 20;
+		static const s8 EntityGrenadeEnemyAttached = 21;
+		static const s8 EntityGrenadeEnemyDetached = 22;
+		static const s8 EntityGrenadeFriendAttached = 23;
+		static const s8 EntityGrenadeFriendDetached = 24;
 
 		Array<Vec3> pos;
 		Array<Vec3> normal;

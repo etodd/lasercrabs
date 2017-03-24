@@ -74,6 +74,7 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	PriorityQueue<ActionEntry, ActionEntryKey> action_queue;
 	ActionEntry current;
 	Vec3 random_look;
+	u32 active_callback;
 	r32 aim_timeout; // time we've been able to shoot but haven't due to aiming
 	r32 aim_timer; // total aim time including cooldowns etc.
 	r32 inaccuracy;
@@ -81,8 +82,9 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	s32 path_index;
 	Ref<PlayerAI> player;
 	Ref<Entity> target;
-	b8 shot_at_target;
-	b8 hit_target;
+	b8 target_shot_at;
+	b8 target_hit;
+	b8 target_active;
 	ActionEntryKey action_queue_key;
 
 	PlayerControlAI(PlayerAI* = nullptr);
@@ -101,7 +103,6 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	void aim_and_shoot_target(const Update&, const Vec3&, Target*);
 	b8 go(const Update&, const AI::DronePathNode&, const AI::DronePathNode&, r32);
 	b8 in_range(const Vec3&, r32) const;
-	void set_target(Entity*, r32 = 0.0f);
 	void set_path(const AI::DronePath&);
 	void drone_done_flying_or_dashing();
 	void drone_hit(Entity*);

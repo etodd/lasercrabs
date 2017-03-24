@@ -41,12 +41,13 @@ struct ParticleSystem
 
 struct StandardParticleSystem : public ParticleSystem
 {
+	Vec4 color;
+	Vec3 gravity;
 	Vec2 start_size;
 	Vec2 end_size;
-	Vec3 gravity;
-	Vec4 color;
+	r32 fade_in;
 	AssetID texture;
-	StandardParticleSystem(s32, s32, const Vec2&, const Vec2&, r32, const Vec3&, const Vec4&, AssetID = AssetNull, AssetID = AssetNull);
+	StandardParticleSystem(s32, s32, const Vec2&, const Vec2&, r32, const Vec3&, const Vec4&, AssetID = AssetNull, AssetID = AssetNull, r32 = 0.1f);
 	virtual b8 pre_draw(const RenderParams&);
 	void add(const Vec3&, const Vec3&, r32, r32 = 0.0f);
 	void add(const Vec3&, const Vec3& = Vec3::zero);
@@ -54,8 +55,8 @@ struct StandardParticleSystem : public ParticleSystem
 
 struct Sparks : public ParticleSystem
 {
-	Vec2 size;
 	Vec3 gravity;
+	Vec2 size;
 	Sparks(const Vec2&, r32, const Vec3&);
 	b8 pre_draw(const RenderParams&);
 	void add(const Vec3&, const Vec3&, const Vec4& = Vec4(1));
@@ -99,6 +100,7 @@ struct Particles
 	static SkyboxParticleSystem tracers_skybox;
 	static StandardParticleSystem fast_tracers;
 	static StandardParticleSystem eased_particles;
+	static StandardParticleSystem sparkles;
 
 	static void clear();
 };

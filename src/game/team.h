@@ -27,6 +27,8 @@ struct AbilityInfo
 	{
 		Build,
 		Shoot,
+		Other,
+		count,
 	};
 	Type type;
 	AssetID icon;

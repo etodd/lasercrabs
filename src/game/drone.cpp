@@ -466,6 +466,15 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				else // we didn't hurt them
 				{
+					if (Game::level.local)
+					{
+						if (target_drone->invincible_timer > 0.0f && target_drone->invincible_timer <= ACTIVE_ARMOR_TIME) // they were invincible; they should damage us
+						{
+							s8 damage = s8(vi_max(1, s32(target_drone->invincible_timer * (3.1f / ACTIVE_ARMOR_TIME))));
+							drone->get<Health>()->damage(target_drone->entity(), damage);
+						}
+					}
+
 					if (drone->has<PlayerControlHuman>())
 						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
 				}
@@ -497,6 +506,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				return true;
 #endif
 
+			const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+
 			Vec3 pos;
 			Vec3 normal;
 			RigidBody* parent;
@@ -505,7 +516,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			Quat rot = Quat::look(normal);
 
-			const AbilityInfo& info = AbilityInfo::list[(s32)ability];
 			manager->add_energy(-info.spawn_cost);
 
 			if (!info.rapid_fire)
@@ -777,6 +787,11 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							drone->fake_projectiles.remove_ordered(0);
 						}
 					}
+					break;
+				}
+				case Ability::ActiveArmor:
+				{
+					drone->invincible_timer = vi_max(drone->invincible_timer, ACTIVE_ARMOR_TIME);
 					break;
 				}
 				default:
@@ -1292,6 +1307,19 @@ b8 Drone::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net:
 
 b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_normal, RigidBody** hit_parent, b8* hit_target) const
 {
+	if (AbilityInfo::list[s32(a)].type == AbilityInfo::Type::Other)
+	{
+		if (final_pos)
+			*final_pos = Vec3::zero;
+		if (final_normal)
+			*final_normal = Vec3::zero;
+		if (hit_parent)
+			*hit_parent = nullptr;
+		if (hit_target)
+			*hit_target = false;
+		return true;
+	}
+
 	Vec3 trace_dir = Vec3::normalize(dir);
 
 	// can't shoot straight up or straight down
@@ -1452,15 +1480,21 @@ b8 Drone::go(const Vec3& dir)
 	}
 	else
 	{
-		if (!get<PlayerCommon>()->manager.ref()->ability_valid(current_ability))
+		Ability a = current_ability;
+		if (AbilityInfo::list[s32(a)].type == AbilityInfo::Type::Other)
+			current_ability = Ability::None;
+
+		if (!get<PlayerCommon>()->manager.ref()->ability_valid(a))
 			return false;
 
-		if (!can_spawn(current_ability, dir_normalized))
+		if (!can_spawn(a, dir_normalized))
 			return false;
 
 		if (Game::level.local)
-			DroneNet::ability_spawn(this, dir_normalized, current_ability);
-		else if (current_ability == Ability::Bolter)
+			DroneNet::ability_spawn(this, dir_normalized, a);
+		else if (a == Ability::ActiveArmor)
+			invincible_timer = ACTIVE_ARMOR_TIME; // client-side prediction; show invincibility sparkles instantly
+		else if (a == Ability::Bolter)
 		{
 			// client-side prediction; create fake bolt
 			if (fake_projectiles.length == fake_projectiles.capacity())
@@ -2092,6 +2126,44 @@ void Drone::update_shield_view(const Update& u, Entity* e, View* shield, View* o
 	}
 	else
 		overshield->mask = 0;
+}
+
+void Drone::update_client_all(const Update& u)
+{
+	static r32 particle_accumulator = 0.0f;
+	static r32 particle_interval = 0.05f;
+	particle_accumulator += u.time.delta;
+
+	s32 particles = s32(particle_accumulator / particle_interval);
+	if (particles > 0)
+	{
+		particle_accumulator -= particle_interval * particles;
+		particle_interval = 0.01f + mersenne::randf_cc() * 0.005f;
+	}
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (particles > 0 && i.item()->invincible_timer > 0.0f)
+		{
+			Vec3 pos = i.item()->center_lerped();
+			for (s32 j = 0; j < particles; j++)
+			{
+				s32 cluster = 1 + s32(mersenne::randf_co() * 3.0f);
+				Vec3 cluster_center = pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, DRONE_SHIELD_RADIUS);
+				for (s32 k = 0; k < cluster; k++)
+				{
+					Particles::sparkles.add
+					(
+						cluster_center + Vec3((mersenne::randf_co() - 0.5f) * 0.2f, (mersenne::randf_co() - 0.5f) * 0.2f, (mersenne::randf_co() - 0.5f) * 0.2f),
+						Vec3::zero,
+						mersenne::randf_co() * PI * 2.0f
+					);
+				}
+			}
+		}
+
+		i.item()->update_client(u);
+	}
 }
 
 void Drone::update_client(const Update& u)

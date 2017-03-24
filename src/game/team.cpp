@@ -41,7 +41,7 @@ StaticArray<Team::ScoreSummaryItem, MAX_PLAYERS * PLAYER_SCORE_SUMMARY_ITEMS> Te
 r32 Team::transition_timer;
 r32 Team::match_time;
 
-AbilityInfo AbilityInfo::list[(s32)Ability::count] =
+AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 {
 	{
 		AbilityInfo::Type::Build,
@@ -54,6 +54,12 @@ AbilityInfo AbilityInfo::list[(s32)Ability::count] =
 		Asset::Mesh::icon_bolter,
 		8,
 		true,
+	},
+	{
+		AbilityInfo::Type::Other,
+		Asset::Mesh::icon_active_armor,
+		10,
+		false,
 	},
 	{
 		AbilityInfo::Type::Build,
@@ -93,7 +99,7 @@ AbilityInfo AbilityInfo::list[(s32)Ability::count] =
 	},
 };
 
-UpgradeInfo UpgradeInfo::list[(s32)Upgrade::count] =
+UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 {
 	{
 		strings::minion,
@@ -105,6 +111,12 @@ UpgradeInfo UpgradeInfo::list[(s32)Upgrade::count] =
 		strings::bolter,
 		strings::description_bolter,
 		Asset::Mesh::icon_bolter,
+		40,
+	},
+	{
+		strings::active_armor,
+		strings::description_active_armor,
+		Asset::Mesh::icon_active_armor,
 		40,
 	},
 	{
@@ -883,6 +895,9 @@ b8 PlayerManager::ability_valid(Ability ability) const
 
 	const AbilityInfo& info = AbilityInfo::list[(s32)ability];
 	if (energy < info.spawn_cost)
+		return false;
+
+	if (ability == Ability::ActiveArmor && instance.ref()->get<Drone>()->invincible_timer > 0.0f)
 		return false;
 
 	return true;

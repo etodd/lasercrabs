@@ -279,12 +279,13 @@ void Particles::clear()
 	ParticleSystem::time = 0.0f;
 }
 
-StandardParticleSystem::StandardParticleSystem(s32 vertices_per_particle, s32 indices_per_particle, const Vec2& start_size, const Vec2& end_size, r32 lifetime, const Vec3& gravity, const Vec4& color, AssetID shader, AssetID texture)
+StandardParticleSystem::StandardParticleSystem(s32 vertices_per_particle, s32 indices_per_particle, const Vec2& start_size, const Vec2& end_size, r32 lifetime, const Vec3& gravity, const Vec4& color, AssetID shader, AssetID texture, r32 fade_in)
 	: ParticleSystem(vertices_per_particle, indices_per_particle, lifetime, shader == AssetNull ? (texture == AssetNull ? Asset::Shader::particle_standard : Asset::Shader::particle_textured) : shader, texture),
 	start_size(start_size),
 	end_size(end_size),
 	gravity(gravity),
-	color(color)
+	color(color),
+	fade_in(fade_in)
 {
 }
 
@@ -319,6 +320,12 @@ b8 StandardParticleSystem::pre_draw(const RenderParams& params)
 	params.sync->write(RenderDataType::Vec3);
 	params.sync->write<s32>(1);
 	params.sync->write<Vec3>(gravity);
+
+	params.sync->write(RenderOp::Uniform);
+	params.sync->write(Asset::Uniform::fade_in);
+	params.sync->write(RenderDataType::R32);
+	params.sync->write<s32>(1);
+	params.sync->write<r32>(fade_in);
 
 	return true;
 }
@@ -700,6 +707,19 @@ StandardParticleSystem Particles::fast_tracers
 	0.25f,
 	Vec3::zero,
 	Vec4(1, 1, 1, 1)
+);
+
+StandardParticleSystem Particles::sparkles
+(
+	3, 3,
+	Vec2(0.05f, 0.2f),
+	Vec2(0.0f, 0.0f),
+	0.1f,
+	Vec3::zero,
+	Vec4(1, 1, 1, 1),
+	AssetNull, // shader
+	AssetNull, // texture
+	0.05f // fade in time
 );
 
 StandardParticleSystem Particles::eased_particles

@@ -132,6 +132,8 @@
 	"description_grenade": "Area of effect weapon. Useful for crowd control. Can also function as a mine.",
 	"bolter": "Bolter",
 	"description_bolter": "Shoots rapid-fire slow-moving projectiles.",
+	"active_armor": "Active Armor",
+	"description_active_armor": "Deflects and damages incoming enemy drones.",
 
 	"tab_map": "Map",
 	"tab_inventory": "Inventory",

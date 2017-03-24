@@ -98,6 +98,7 @@ struct Drone : public ComponentType<Drone>
 	static void update_shield_view(const Update&, Entity*, View*, View*, r32);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void stealth(Entity*, b8);
+	static void update_client_all(const Update&);
 
 	Quat lerped_rotation;
 	Vec3 velocity;

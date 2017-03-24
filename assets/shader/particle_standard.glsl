@@ -11,6 +11,7 @@ uniform mat4 p;
 uniform float time;
 uniform vec2 viewport_scale;
 uniform float lifetime;
+uniform float fade_in;
 uniform vec3 gravity;
 
 // in_param
@@ -35,7 +36,7 @@ void main()
 		rotation = mat2(c, -s, s, c);
 	}
 
-	float size = (dt < 0.25 ? dt * 4.0 : 1.0) * (in_param.y + (in_param.z - in_param.y) * (dt / lifetime));
+	float size = (dt < fade_in ? dt / fade_in : 1.0) * (in_param.y + (in_param.z - in_param.y) * (dt / lifetime));
 	projected.xy += rotation * ((in_uv * 2.0) - 1.0) * size * p[1][1] * viewport_scale;
 
 	gl_Position = projected;

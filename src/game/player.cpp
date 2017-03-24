@@ -585,13 +585,13 @@ void PlayerHuman::update(const Update& u)
 				if (menu.item(u, _(strings::close), nullptr, false, Asset::Mesh::icon_close))
 					upgrade_menu_open = false;
 
-				for (s32 i = 0; i < (s32)Upgrade::count; i++)
+				for (s32 i = 0; i < s32(Upgrade::count); i++)
 				{
 					Upgrade upgrade = (Upgrade)i;
 					b8 can_upgrade = !upgrade_in_progress
 						&& get<PlayerManager>()->upgrade_available(upgrade)
 						&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade);
-					const UpgradeInfo& info = UpgradeInfo::list[(s32)upgrade];
+					const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
 					if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
 					{
 						PlayerControlHumanNet::Message msg;
@@ -884,7 +884,7 @@ r32 ability_draw(const RenderParams& params, const PlayerHuman* player, const Ve
 {
 	char string[255];
 
-	s16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
+	s16 cost = AbilityInfo::list[s32(ability)].spawn_cost;
 	sprintf(string, "%s", Settings::gamepads[gamepad].bindings[s32(binding)].string(Game::ui_gamepad_types[gamepad]));
 	const Vec4* color;
 	PlayerManager* manager = player->get<PlayerManager>();
@@ -1115,7 +1115,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				Ability ability = get<PlayerManager>()->abilities[0];
 				if (ability != Ability::None)
 				{
-					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+					const AbilityInfo& info = AbilityInfo::list[s32(ability)];
 					pos.x += ability_draw(params, this, pos, ability, info.icon, gamepad, Controls::Ability1);
 				}
 			}
@@ -1125,7 +1125,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				Ability ability = get<PlayerManager>()->abilities[1];
 				if (ability != Ability::None)
 				{
-					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+					const AbilityInfo& info = AbilityInfo::list[s32(ability)];
 					pos.x += ability_draw(params, this, pos, ability, info.icon, gamepad, Controls::Ability2);
 				}
 			}
@@ -1135,7 +1135,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				Ability ability = get<PlayerManager>()->abilities[2];
 				if (ability != Ability::None)
 				{
-					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+					const AbilityInfo& info = AbilityInfo::list[s32(ability)];
 					pos.x += ability_draw(params, this, pos, ability, info.icon, gamepad, Controls::Ability3);
 				}
 			}
@@ -1175,7 +1175,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			{
 				r32 padding = 8.0f * UI::scale;
 
-				const UpgradeInfo& info = UpgradeInfo::list[(s32)upgrade];
+				const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
 				UIText text;
 				text.color = UI::color_accent;
 				text.size = text_size;
@@ -1358,7 +1358,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 						// getting an upgrade
 						string = strings::upgrading;
 
-						const UpgradeInfo& info = UpgradeInfo::list[(s32)get<PlayerManager>()->current_upgrade];
+						const UpgradeInfo& info = UpgradeInfo::list[s32(get<PlayerManager>()->current_upgrade)];
 						cost = info.cost;
 						total_time = UPGRADE_TIME;
 						break;
@@ -1795,6 +1795,7 @@ void PlayerControlHuman::drone_done_flying_or_dashing()
 
 void ability_select(Drone* drone, Ability a)
 {
+	vi_assert(AbilityInfo::list[s32(a)].type != AbilityInfo::Type::Other);
 	drone->current_ability = a;
 }
 
@@ -1831,7 +1832,7 @@ Entity* player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player
 {
 	// make sure we can see this guy
 	AI::Team team = me->get<AIAgent>()->team;
-	const Team::SensorTrack track = Team::list[(s32)team].player_tracks[other_player->manager.id];
+	const Team::SensorTrack track = Team::list[s32(team)].player_tracks[other_player->manager.id];
 	*tracking = track.tracking;
 
 	if (other_player->get<AIAgent>()->team == team)
@@ -1923,16 +1924,31 @@ void player_ability_update(const Update& u, PlayerControlHuman* control, Control
 
 	if (u.input->get(binding, gamepad) && !u.last_input->get(binding, gamepad))
 	{
-		if (drone->current_ability == ability)
+		if (AbilityInfo::list[s32(ability)].type == AbilityInfo::Type::Other)
 		{
-			// cancel current spawn ability
-			ability_cancel(drone);
+			if (manager->ability_valid(ability))
+			{
+				PlayerControlHumanNet::Message msg;
+				msg.pos = control->get<Transform>()->absolute_pos();
+				msg.dir = Vec3::normalize(control->reticle.pos - msg.pos);
+				msg.type = PlayerControlHumanNet::Message::Type::Go;
+				msg.ability = ability;
+				PlayerControlHumanNet::send(control, &msg);
+			}
 		}
 		else
 		{
-			if (drone->current_ability != Ability::None)
+			if (drone->current_ability == ability)
+			{
+				// cancel current spawn ability
 				ability_cancel(drone);
-			ability_select(drone, ability);
+			}
+			else
+			{
+				if (drone->current_ability != Ability::None)
+					ability_cancel(drone);
+				ability_select(drone, ability);
+			}
 		}
 	}
 }
@@ -3773,7 +3789,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				Ability a = get<Drone>()->current_ability;
 				Vec2 p = pos + Vec2(0, -48.0f * UI::scale);
 				UI::centered_box(params, { p, Vec2(34.0f * UI::scale) }, UI::color_background);
-				UI::mesh(params, AbilityInfo::list[(s32)a].icon, p, Vec2(18.0f * UI::scale), *color);
+				UI::mesh(params, AbilityInfo::list[s32(a)].icon, p, Vec2(18.0f * UI::scale), *color);
 
 				// cancel prompt
 				UIText text;

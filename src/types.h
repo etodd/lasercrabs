@@ -55,6 +55,7 @@ enum class Ability
 {
 	Minion,
 	Bolter,
+	ActiveArmor,
 	Sensor,
 	Decoy,
 	ForceField,
@@ -69,6 +70,7 @@ enum class Upgrade
 {
 	Minion,
 	Bolter,
+	ActiveArmor,
 	Sensor,
 	Decoy,
 	ForceField,

@@ -736,8 +736,6 @@ Vec2 Clouds::Config::uv_offset(const RenderParams& p) const
 
 void SkyPattern::draw_opaque(const RenderParams& p)
 {
-	// only render depth
-
 	if (p.technique != RenderTechnique::Default)
 		return;
 
@@ -750,7 +748,7 @@ void SkyPattern::draw_opaque(const RenderParams& p)
 	sync->write(Asset::Shader::standard_flat);
 	sync->write(p.technique);
 
-	Mat4 mvp = p.view * Mat4::make_scale(Vec3(p.camera->far_plane));
+	Mat4 mvp = p.view * Mat4::make_scale(Vec3(p.camera->far_plane * 0.99f));
 	mvp.translation(Vec3::zero);
 	mvp = mvp * p.camera->projection;
 

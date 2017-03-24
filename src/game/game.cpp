@@ -495,8 +495,8 @@ void Game::update(const Update& update_in)
 		{
 			if (level.local || (i.item()->has<PlayerControlHuman>() && i.item()->get<PlayerControlHuman>()->local()))
 				i.item()->update_server(u);
-			i.item()->update_client(u);
 		}
+		Drone::update_client_all(u);
 		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())

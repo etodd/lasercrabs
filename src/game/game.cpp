@@ -609,7 +609,6 @@ void Game::draw_opaque(const RenderParams& render_params)
 
 	SkinnedModel::draw_opaque(render_params);
 
-
 	if (render_params.technique == RenderTechnique::Default
 		&& !(render_params.flags & RenderFlagEdges))
 	{
@@ -817,6 +816,8 @@ void Game::draw_alpha(const RenderParams& render_params)
 	View::draw_alpha(render_params);
 
 	EffectLight::draw_alpha(render_params);
+	
+	Ascensions::draw_ui(render_params);
 
 	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_ui(render_params);

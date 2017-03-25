@@ -3607,7 +3607,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				username.anchor_x = UIText::Anchor::Center;
 				username.anchor_y = UIText::Anchor::Min;
 				username.color = *color;
-				username.text(player.ref()->gamepad, other_player.item()->manager.ref()->username);
+				username.text_raw(player.ref()->gamepad, other_player.item()->manager.ref()->username);
 
 				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::color_background);
 

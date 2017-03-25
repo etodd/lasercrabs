@@ -9,6 +9,7 @@ namespace VI
 struct SkinnedModel : public ComponentType<SkinnedModel>
 {
 	static Bitmask<MAX_ENTITIES> list_alpha;
+	static Bitmask<MAX_ENTITIES> list_alpha_if_obstructing;
 	static Bitmask<MAX_ENTITIES> list_additive;
 
 	static void draw_opaque(const RenderParams&);
@@ -28,12 +29,23 @@ struct SkinnedModel : public ComponentType<SkinnedModel>
 	void awake();
 	~SkinnedModel();
 
-	void draw(const RenderParams&);
 	void alpha();
+	void alpha_if_obstructing();
 	void additive();
 	void alpha_disable();
 	AlphaMode alpha_mode() const;
 	void alpha_mode(AlphaMode);
+
+private:
+	enum class ObstructingBehavior
+	{
+		Normal,
+		Hide,
+		Alpha,
+		count,
+	};
+	
+	void draw(const RenderParams&, ObstructingBehavior);
 };
 
 }

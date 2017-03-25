@@ -552,6 +552,9 @@ struct Ascensions
 	{
 		const char* username;
 		r32 timer;
+
+		Vec3 pos() const;
+		r32 scale() const;
 	};
 
 	static Array<Entry> entries;
@@ -559,6 +562,7 @@ struct Ascensions
 	static r32 particle_accumulator;
 
 	static void update(const Update&);
+	static void draw_ui(const RenderParams&);
 	static void clear();
 };
 

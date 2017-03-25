@@ -16,6 +16,7 @@ namespace VI
 
 Bitmask<MAX_ENTITIES> SkinnedModel::list_alpha;
 Bitmask<MAX_ENTITIES> SkinnedModel::list_additive;
+Bitmask<MAX_ENTITIES> SkinnedModel::list_alpha_if_obstructing;
 
 SkinnedModel::SkinnedModel()
 	: mesh(AssetNull),
@@ -57,7 +58,7 @@ void SkinnedModel::draw_opaque(const RenderParams& params)
 	for (auto i = SkinnedModel::list.iterator(); !i.is_last(); i.next())
 	{
 		if (!list_alpha.get(i.index) && !list_additive.get(i.index))
-			i.item()->draw(params);
+			i.item()->draw(params, list_alpha_if_obstructing.get(i.index) ? ObstructingBehavior::Hide : ObstructingBehavior::Normal);
 	}
 }
 
@@ -66,7 +67,7 @@ void SkinnedModel::draw_additive(const RenderParams& params)
 	for (auto i = SkinnedModel::list.iterator(); !i.is_last(); i.next())
 	{
 		if (list_additive.get(i.index))
-			i.item()->draw(params);
+			i.item()->draw(params, ObstructingBehavior::Normal);
 	}
 }
 
@@ -74,8 +75,8 @@ void SkinnedModel::draw_alpha(const RenderParams& params)
 {
 	for (auto i = SkinnedModel::list.iterator(); !i.is_last(); i.next())
 	{
-		if (list_alpha.get(i.index))
-			i.item()->draw(params);
+		if (list_alpha.get(i.index) || list_alpha_if_obstructing.get(i.index))
+			i.item()->draw(params, list_alpha_if_obstructing.get(i.index) ? ObstructingBehavior::Alpha : ObstructingBehavior::Normal);
 	}
 }
 
@@ -83,18 +84,28 @@ void SkinnedModel::alpha()
 {
 	list_alpha.set(id(), true);
 	list_additive.set(id(), false);
+	list_alpha_if_obstructing.set(id(), false);
 }
 
 void SkinnedModel::additive()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), true);
+	list_alpha_if_obstructing.set(id(), false);
+}
+
+void SkinnedModel::alpha_if_obstructing()
+{
+	list_alpha.set(id(), false);
+	list_additive.set(id(), false);
+	list_alpha_if_obstructing.set(id(), true);
 }
 
 void SkinnedModel::alpha_disable()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), false);
+	list_alpha_if_obstructing.set(id(), false);
 }
 
 AlphaMode SkinnedModel::alpha_mode() const
@@ -103,6 +114,8 @@ AlphaMode SkinnedModel::alpha_mode() const
 		return AlphaMode::Alpha;
 	else if (list_additive.get(id()))
 		return AlphaMode::Additive;
+	else if (list_alpha_if_obstructing.get(id()))
+		return AlphaMode::AlphaIfObstructing;
 	else
 		return AlphaMode::Opaque;
 }
@@ -126,6 +139,11 @@ void SkinnedModel::alpha_mode(AlphaMode m)
 			additive();
 			break;
 		}
+		case AlphaMode::AlphaIfObstructing:
+		{
+			alpha_if_obstructing();
+			break;
+		}
 		default:
 		{
 			vi_assert(false);
@@ -134,7 +152,7 @@ void SkinnedModel::alpha_mode(AlphaMode m)
 	}
 }
 
-void SkinnedModel::draw(const RenderParams& params)
+void SkinnedModel::draw(const RenderParams& params, ObstructingBehavior b)
 {
 	if (!(params.camera->mask & mask))
 		return;
@@ -148,11 +166,32 @@ void SkinnedModel::draw(const RenderParams& params)
 
 	AssetID mesh_actual = (params.technique != RenderTechnique::Shadow || (params.flags & RenderFlagEdges)) || mesh_shadow == AssetNull ? mesh : mesh_shadow;
 
+	b8 alpha_override = false;
+
 	const Mesh* mesh_data = Loader::mesh(mesh_actual);
 	{
 		Vec3 radius = (offset * Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
-		if (!params.camera->visible_sphere(m.translation(), vi_max(radius.x, vi_max(radius.y, radius.z))))
+		r32 max_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
+		if (!params.camera->visible_sphere(m.translation(), max_radius))
 			return;
+		
+		if (b != ObstructingBehavior::Normal)
+		{
+			if (LMath::ray_sphere_intersect(params.camera->pos, params.camera->pos + params.camera->rot * Vec3(0, 0, params.camera->cull_range), m.translation(), max_radius * 0.5f))
+			{
+				// obstructing
+				if (b == ObstructingBehavior::Hide)
+					return;
+				else if (b == ObstructingBehavior::Alpha)
+					alpha_override = true;
+			}
+			else
+			{
+				// not obstructing
+				if (b == ObstructingBehavior::Alpha)
+					return;
+			}
+		}
 	}
 
 	sync->write(RenderOp::Shader);
@@ -196,24 +235,31 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	if (team == (s8)AI::TeamNone)
 	{
-		if (params.camera->flag(CameraFlagColors))
-			sync->write<Vec4>(color);
-		else if (color.w == MATERIAL_INACCESSIBLE)
-			sync->write<Vec4>(PVP_INACCESSIBLE);
-		else if (color.w == MATERIAL_NO_OVERRIDE)
-			sync->write<Vec4>(PVP_ACCESSIBLE_NO_OVERRIDE);
+		Vec4 c;
+		if (team == s8(AI::TeamNone))
+		{
+			if (params.camera->flag(CameraFlagColors))
+				c = color;
+			else if (color.w == MATERIAL_INACCESSIBLE)
+				c = PVP_INACCESSIBLE;
+			else if (color.w == MATERIAL_NO_OVERRIDE)
+				c = PVP_ACCESSIBLE_NO_OVERRIDE;
+			else
+				c = PVP_ACCESSIBLE;
+		}
 		else
-			sync->write<Vec4>(PVP_ACCESSIBLE);
-	}
-	else
-	{
-		const Vec4& team_color = Team::color((AI::Team)team, (AI::Team)params.camera->team);
-		if (list_alpha.get(id()) || list_additive.get(id()))
-			sync->write<Vec4>(Vec4(team_color.xyz(), color.w));
-		else
-			sync->write<Vec4>(team_color);
+		{
+			const Vec4& team_color = Team::color(AI::Team(team), AI::Team(params.camera->team));
+			if (list_alpha.get(id()) || list_additive.get(id()))
+				c = Vec4(team_color.xyz(), color.w);
+			else
+				c = team_color;
+		}
+
+		if (alpha_override)
+			c.w = 0.7f;
+		sync->write<Vec4>(c);
 	}
 
 	if (params.flags & RenderFlagEdges)

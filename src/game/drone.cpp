@@ -1964,13 +1964,16 @@ void Drone::stealth(Entity* e, b8 enable)
 		{
 			e->get<AIAgent>()->stealth = true;
 			e->get<SkinnedModel>()->alpha();
-			e->get<SkinnedModel>()->color.w = 0.6f;
+			e->get<SkinnedModel>()->color.w = 0.7f;
 			e->get<SkinnedModel>()->mask = 1 << s32(e->get<AIAgent>()->team); // only display to fellow teammates
 		}
 		else
 		{
 			e->get<AIAgent>()->stealth = false;
-			e->get<SkinnedModel>()->alpha_disable();
+			if (e->get<Drone>()->state() == State::Crawl)
+				e->get<SkinnedModel>()->alpha_if_obstructing();
+			else
+				e->get<SkinnedModel>()->alpha_disable();
 			e->get<SkinnedModel>()->color.w = MATERIAL_NO_OVERRIDE;
 			e->get<SkinnedModel>()->mask = RENDER_MASK_DEFAULT; // display to everyone
 		}
@@ -2174,6 +2177,11 @@ void Drone::update_client(const Update& u)
 
 	if (s == Drone::State::Crawl)
 	{
+		// crawling
+
+		if (!get<AIAgent>()->stealth)
+			get<SkinnedModel>()->alpha_if_obstructing();
+
 		{
 			// update lerped pos so we crawl smoothly
 			Quat abs_rot;
@@ -2327,6 +2335,9 @@ void Drone::update_client(const Update& u)
 	else
 	{
 		// flying or dashing
+
+		if (!get<AIAgent>()->stealth)
+			get<SkinnedModel>()->alpha_disable();
 
 		if (get<Animator>()->layers[0].animation == AssetNull)
 		{

@@ -15,6 +15,7 @@ enum class AlphaMode
 	Opaque,
 	Alpha,
 	Additive,
+	AlphaIfObstructing,
 	count,
 };
 

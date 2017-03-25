@@ -49,6 +49,7 @@ DroneEntity::DroneEntity(AI::Team team)
 	model->mesh = Asset::Mesh::drone;
 	model->shader = Asset::Shader::armature;
 	model->team = s8(team);
+	model->alpha_if_obstructing();
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::drone;
@@ -3193,9 +3194,22 @@ Array<Ascensions::Entry> Ascensions::entries;
 r32 Ascensions::timer;
 r32 Ascensions::particle_accumulator;
 
+const r32 ascension_total_time = 20.0f;
+
+Vec3 Ascensions::Entry::pos() const
+{
+	r32 blend = 1.0f - (timer / ascension_total_time);
+	return Quat::euler(Ease::circ_out<r32>(blend) * PI * 0.45f, Game::level.rotation, 0) * Vec3(Game::level.skybox.far_plane * 0.9f, 0, 0);
+}
+
+r32 Ascensions::Entry::scale() const
+{
+	r32 blend = 1.0f - (timer / ascension_total_time);
+	return (Game::level.skybox.far_plane / 100.0f) * LMath::lerpf(blend, 1.0f, 0.5f);
+}
+
 void Ascensions::update(const Update& u)
 {
-	const r32 total_time = 20.0f; // total duration of an individual ascension animation
 	if (Game::level.mode != Game::Mode::Special)
 	{
 		timer -= Game::real_time.delta;
@@ -3204,7 +3218,7 @@ void Ascensions::update(const Update& u)
 			timer = 40.0f + mersenne::randf_co() * 200.0f;
 
 			Entry* e = entries.add();
-			e->timer = total_time;
+			e->timer = ascension_total_time;
 			e->username = Usernames::all[mersenne::rand_u32() % Usernames::count];
 		}
 	}
@@ -3223,7 +3237,7 @@ void Ascensions::update(const Update& u)
 		{
 			// only show notifications in parkour mode
 			if (Game::level.mode == Game::Mode::Parkour
-				&& old_timer >= total_time * 0.85f && e->timer < total_time * 0.85f)
+				&& old_timer >= ascension_total_time * 0.85f && e->timer < ascension_total_time * 0.85f)
 			{
 				char msg[512];
 				sprintf(msg, _(strings::player_ascended), e->username);
@@ -3241,12 +3255,34 @@ void Ascensions::update(const Update& u)
 		for (s32 i = 0; i < entries.length; i++)
 		{
 			const Entry& e = entries[i];
-			r32 blend = 1.0f - (e.timer / total_time);
-			Particles::tracers_skybox.add
-			(
-				Quat::euler(Ease::circ_out<r32>(blend) * PI * 0.45f, Game::level.rotation, 0) * Vec3(Game::level.skybox.far_plane * 0.9f, 0, 0), // position
-				(Game::level.skybox.far_plane / 100.0f) * LMath::lerpf(blend, 1.0f, 0.5f) // size scale
-			);
+			Particles::tracers_skybox.add(e.pos(), e.scale());
+		}
+	}
+}
+
+void Ascensions::draw_ui(const RenderParams& params)
+{
+	if (Game::level.mode != Game::Mode::Pvp)
+	{
+		for (s32 i = 0; i < entries.length; i++)
+		{
+			if (entries[i].timer < ascension_total_time * 0.85f)
+			{
+				Vec2 p;
+				if (UI::project(params, entries[i].pos(), &p))
+				{
+					p.y += 8.0f * UI::scale;
+
+					UIText username;
+					username.size = 16.0f;
+					username.anchor_x = UIText::Anchor::Center;
+					username.anchor_y = UIText::Anchor::Min;
+					username.color = UI::color_accent;
+					username.text_raw(params.camera->gamepad, entries[i].username);
+					UI::box(params, username.rect(p).outset(8.0f * UI::scale), UI::color_background);
+					username.draw(params, p);
+				}
+			}
 		}
 	}
 }

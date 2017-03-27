@@ -259,6 +259,7 @@ namespace ParkourNet
 		Pickup,
 		StateSync,
 		Kill,
+		Electrocuted,
 		count,
 	};
 
@@ -313,6 +314,22 @@ namespace ParkourNet
 		}
 		{
 			Ref<MinionCommon> ref = minion;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 electrocuted(Parkour* parkour)
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Parkour);
+		{
+			Message m = Message::Electrocuted;
+			serialize_enum(p, Message, m);
+		}
+		{
+			Ref<Parkour> ref = parkour;
 			serialize_ref(p, ref);
 		}
 		Net::msg_finalize(p);
@@ -456,6 +473,13 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					minion.ref()->get<Health>()->kill(parkour.ref()->entity());
 				}
+				break;
+			}
+			case ParkourNet::Message::Electrocuted:
+			{
+				spawn_sparks(parkour.ref()->get<Walker>()->base_pos(), Quat::look(Vec3(0, 1, 0)));
+				if (Game::level.local)
+					parkour.ref()->get<Health>()->kill(nullptr);
 				break;
 			}
 			default:
@@ -706,11 +730,7 @@ void Parkour::update(const Update& u)
 		if (get<Walker>()->support.ref())
 		{
 			if (get<Walker>()->support.ref()->get<RigidBody>()->collision_group & CollisionElectric)
-			{
-				// electrocuted
-				spawn_sparks(get<Walker>()->base_pos(), Quat::look(Vec3(0, 1, 0)));
-				get<Health>()->kill(nullptr);
-			}
+				ParkourNet::electrocuted(this);
 
 			Animator::Layer* layer1 = &get<Animator>()->layers[1];
 			if (layer1->animation == Asset::Animation::character_jump1)

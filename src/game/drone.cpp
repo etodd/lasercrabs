@@ -34,7 +34,7 @@ namespace VI
 #define DRONE_LEG_BLEND_SPEED (1.0f / 0.03f)
 #define DRONE_MIN_LEG_BLEND_SPEED (DRONE_LEG_BLEND_SPEED * 0.1f)
 #define DRONE_SHIELD_ANIM_TIME 0.35f
-#define DRONE_REFLECTION_TIME_TOLERANCE 0.2f
+#define DRONE_REFLECTION_TIME_TOLERANCE 0.1f
 
 DroneRaycastCallback::DroneRaycastCallback(const Vec3& a, const Vec3& b, const Entity* drone)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -284,7 +284,7 @@ void sniper_hit_effects(const Drone::Hit& hit)
 	}
 }
 
-b8 players_on_same_client(Entity* a, Entity* b)
+b8 players_on_same_client(const Entity* a, const Entity* b)
 {
 #if SERVER
 	return a->has<PlayerControlHuman>()
@@ -295,13 +295,13 @@ b8 players_on_same_client(Entity* a, Entity* b)
 #endif
 }
 
-s32 impact_damage(Drone* drone, Drone* target_drone)
+s32 impact_damage(const Drone* drone, const Entity* target_drone)
 {
 	Net::StateFrame state_frame;
 
 	Vec3 target_pos;
 
-	if (!players_on_same_client(drone->entity(), target_drone->entity()) && drone->net_state_frame(&state_frame))
+	if (!players_on_same_client(drone->entity(), target_drone) && drone->net_state_frame(&state_frame))
 	{
 		Vec3 pos;
 		Quat rot;
@@ -462,7 +462,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				if (target_drone->state() == Drone::State::Crawl && target_drone->invincible_timer == 0.0f)
 				{
 					if (Game::level.local) // if we're a client, this has already been handled by the server
-						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target_drone));
+						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target_drone->entity()));
 				}
 				else // we didn't hurt them
 				{
@@ -1279,7 +1279,7 @@ b8 Drone::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net:
 				if (i.item() != this && (i.item()->get<Target>()->absolute_pos() - trace_start).length_squared() > DRONE_SHIELD_RADIUS * 2.0f * DRONE_SHIELD_RADIUS * 2.0f)
 				{
 					Vec3 intersection;
-					if (predict_intersection(i.item()->get<Target>(), state_frame, &intersection, DRONE_FLY_SPEED))
+					if (predict_intersection(i.item()->get<Target>(), state_frame, &intersection, target_prediction_speed()))
 					{
 						if ((intersection - trace_start).length_squared() <= end_distance_sq
 							&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, DRONE_SHIELD_RADIUS))
@@ -1641,54 +1641,43 @@ void Drone::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos,
 	if (reflection_dir.length() == 0.0f)
 		return;
 
+	vi_assert(Game::level.local);
+
 	Vec3 reflection_dir_normalized = Vec3::normalize(reflection_dir);
 
-	if (Game::level.local)
+	// we're a server; the client is notifying us that it did a reflection
+
+	// check if they're roughly where we think they should be
+	if ((get<Transform>()->absolute_pos() - reflection_pos).length() < DRONE_SHIELD_RADIUS * 6.0f)
 	{
-		// we're a server; the client is notifying us that it did a reflection
-
-		// check if they're roughly where we think they should be
-		if ((get<Transform>()->absolute_pos() - reflection_pos).length() < DRONE_SHIELD_RADIUS * 6.0f)
+		if (remote_reflection_timer == 0.0f)
 		{
-			if (remote_reflection_timer == 0.0f)
-			{
-				// we haven't reflected off anything on the server yet; save this info and wait for us to hit something
-				remote_reflection_dir = reflection_dir_normalized;
-				remote_reflection_pos = reflection_pos;
-				remote_reflection_timer = DRONE_REFLECTION_TIME_TOLERANCE;
-				remote_reflection_entity = entity;
-				reflection_source_remote = true; // this hit came from the remote
-			}
-			else
-			{
-				// we HAVE already detected a reflection off something; let's do it now
-				r32 original_timer = remote_reflection_timer;
-
-				get<Transform>()->absolute_pos(reflection_pos);
-				drone_reflection_execute(this, remote_reflection_entity.ref(), reflection_dir_normalized);
-
-				// fast forward the amount of time we've been sitting here waiting for the client to acknowledge the reflection
-				Vec3 dir = velocity * (DRONE_REFLECTION_TIME_TOLERANCE - original_timer);
-				Vec3 ray_start = get<Transform>()->absolute_pos();
-				r32 distance = movement_raycast(ray_start, ray_start + dir);
-				if (distance > 0.0f)
-					get<Transform>()->absolute_pos(ray_start + Vec3::normalize(dir) * distance);
-			}
+			// we haven't reflected off anything on the server yet; save this info and wait for us to hit something
+			remote_reflection_dir = reflection_dir_normalized;
+			remote_reflection_pos = reflection_pos;
+			remote_reflection_timer = DRONE_REFLECTION_TIME_TOLERANCE;
+			remote_reflection_entity = entity;
+			reflection_source_remote = true; // this hit came from the remote
 		}
 		else
 		{
-			// client is not where we think they should be. they might be hacking. don't reflect
+			// we HAVE already detected a reflection off something; let's do it now
+			r32 original_timer = remote_reflection_timer;
+
+			get<Transform>()->absolute_pos(reflection_pos);
+			drone_reflection_execute(this, remote_reflection_entity.ref(), reflection_dir_normalized);
+
+			// fast forward the amount of time we've been sitting here waiting for the client to acknowledge the reflection
+			Vec3 dir = velocity * (DRONE_REFLECTION_TIME_TOLERANCE - original_timer);
+			Vec3 old_pos = get<Transform>()->absolute_pos();
+			Vec3 new_pos = old_pos + dir;
+			get<Transform>()->absolute_pos(new_pos);
+			movement_raycast(old_pos + Vec3::normalize(dir) * -DRONE_RADIUS, new_pos);
 		}
 	}
 	else
 	{
-		// we're a client; the server is just sending this to us to let us know which direction it chose
-		if (state() == Drone::State::Fly)
-		{
-			velocity = Vec3::normalize(reflection_dir) * DRONE_DASH_SPEED;
-			get<Transform>()->rot = Quat::look(reflection_dir_normalized);
-		}
-		remote_reflection_timer = 0.0f;
+		// client is not where we think they should be. they might be hacking. don't reflect
 	}
 }
 
@@ -2479,10 +2468,25 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 			b8 stop = false;
 			if (hit.type == Hit::Type::Drone)
 			{
-				if (hit.entity.ref()->has<Drone>() && hit.entity.ref()->get<Drone>()->state() != Drone::State::Crawl) // it's flying or dashing; always bounce off
-					stop = true;
-				else if (hit.entity.ref()->get<Health>()->total() > 1)
-					stop = true; // they have health or shield to spare; we'll bounce off
+				// if we've already hit this drone once, we must ignore it
+				b8 already_hit = false;
+				for (s32 i = 0; i < hit_targets.length; i++)
+				{
+					if (hit_targets[i].equals(hit.entity))
+					{
+						already_hit = true;
+						break;
+					}
+				}
+
+				if (!already_hit)
+				{
+					if (hit.entity.ref()->has<Drone>() && (hit.entity.ref()->get<Drone>()->state() != Drone::State::Crawl // it's flying or dashing; always bounce off
+						|| hit.entity.ref()->get<Drone>()->invincible_timer > 0.0f)) // it's invincible; always bounce off
+						stop = true;
+					else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()))
+						stop = true; // it has health or shield to spare; we'll bounce off
+				}
 			}
 			else if (hit.type == Hit::Type::Target)
 			{
@@ -2532,7 +2536,7 @@ r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 					// client-side prediction
 					do_reflect = hit_target(hit.entity.ref())
 						&& s != State::Crawl
-						&& (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()->get<Drone>()) // will they still be alive after we hit them? if so, reflect
+						&& (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()) // will they still be alive after we hit them? if so, reflect
 							|| (hit.entity.ref()->get<Drone>()->state() != State::Crawl || hit.entity.ref()->get<Drone>()->invincible_timer > 0.0f));
 				}
 				else

@@ -918,8 +918,8 @@ Ack msg_history_ack(const MessageHistory& history)
 			if (msg.sequence_id != ack.sequence_id) // ignore the ack
 			{
 				s32 sequence_id_relative_to_most_recent = sequence_relative_to(msg.sequence_id, ack.sequence_id);
-				vi_assert(sequence_id_relative_to_most_recent < 0); // ack.sequence_id should always be the most recent received message
-				if (sequence_id_relative_to_most_recent >= -NET_ACK_PREVIOUS_SEQUENCES)
+				if (sequence_id_relative_to_most_recent < 0 // ack.sequence_id should always be the most recent received message
+					&& sequence_id_relative_to_most_recent >= -NET_ACK_PREVIOUS_SEQUENCES)
 					ack.previous_sequences |= u64(1) << (-sequence_id_relative_to_most_recent - 1);
 			}
 		}
@@ -2134,6 +2134,7 @@ b8 sync_time()
 	using Stream = StreamWrite;
 	StreamWrite* p = msg_new(MessageType::TimeSync);
 	serialize_r32_range(p, Team::match_time, 0, Game::level.time_limit, 16);
+	serialize_r32_range(p, Game::session.time_scale, 0, 1, 8);
 	s32 players = PlayerHuman::list.count();
 	serialize_int(p, s32, players, 0, MAX_PLAYERS);
 	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
@@ -3452,6 +3453,7 @@ b8 msg_process(StreamRead* p)
 		case MessageType::TimeSync:
 		{
 			serialize_r32_range(p, Team::match_time, 0, Game::level.time_limit, 16);
+			serialize_r32_range(p, Game::session.time_scale, 0, 1, 8);
 			s32 player_count;
 			serialize_int(p, s32, player_count, 0, MAX_PLAYERS);
 			for (s32 i = 0; i < player_count; i++)
@@ -3704,7 +3706,7 @@ void update_start(const Update& u)
 	for (s32 i = 0; i < lag_buffer.length; i++)
 	{
 		PacketEntry* entry = &lag_buffer[i];
-		if (entry->timestamp < state_common.timestamp - DEBUG_LAG_AMOUNT)
+		if (entry->timestamp < state_common.timestamp - DEBUG_LAG_AMOUNT / Game::session.time_scale)
 		{
 			packet_read(u, entry);
 			lag_buffer.remove_ordered(i);

@@ -62,7 +62,7 @@ template<s16 size> struct Bitmask
 		{
 			data[index] &= ~mask;
 
-			if (i == end)
+			if (i + 1 == end)
 			{
 				s32 j;
 				for (j = i - 1; j > start; j--)
@@ -70,7 +70,7 @@ template<s16 size> struct Bitmask
 					if (get(j))
 						break;
 				}
-				end = s16(j > 0 ? j : 0);
+				end = s16(j + 1);
 			}
 			if (i == start)
 			{

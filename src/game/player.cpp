@@ -813,7 +813,7 @@ void PlayerHuman::spawn(const PlayerSpawnPosition& normal_spawn_pos)
 				// spawn in tram
 				Quat rot;
 				tram->get<Transform>()->absolute(&spawn_pos.pos, &rot);
-				spawn_pos.pos.y -= 0.5f;
+				spawn_pos.pos.y -= 1.0f;
 				dir = rot * Vec3(0, 0, -1);
 			}
 			else
@@ -2041,10 +2041,8 @@ void PlayerControlHuman::health_changed(const HealthEvent& e)
 
 void PlayerControlHuman::drone_reflecting(const DroneReflectEvent& e)
 {
-	// send message if we are a server or client in a network game. don't if it's an all-local game
-#if !SERVER
+	// send message if we are a client in a network game.
 	if (!Game::level.local)
-#endif
 	{
 		PlayerControlHumanNet::Message msg;
 		msg.pos = get<Transform>()->absolute_pos();
@@ -2427,7 +2425,7 @@ void PlayerControlHuman::update(const Update& u)
 				tolerance_rot += NET_SYNC_TOLERANCE_ROT;
 
 				// make sure we're not too far from it
-				if (position && get<Drone>()->remote_reflection_timer == 0.0f) // if we just reflected, don't worry about it
+				if (position)
 				{
 					Vec3 remote_abs_pos = remote_control.pos;
 					Quat remote_abs_rot = remote_control.rot;

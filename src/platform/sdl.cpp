@@ -291,12 +291,12 @@ namespace VI
 				}
 				else
 				{
-					gamepad->left_x = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) / 32767.0f;
-					gamepad->left_y = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) / 32767.0f;
-					gamepad->right_x = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) / 32767.0f;
-					gamepad->right_y = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) / 32767.0f;
-					gamepad->left_trigger = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) / 32767.0f;
-					gamepad->right_trigger = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / 32767.0f;
+					gamepad->left_x = r32(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX)) / 32767.0f;
+					gamepad->left_y = r32(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY)) / 32767.0f;
+					gamepad->right_x = r32(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX)) / 32767.0f;
+					gamepad->right_y = r32(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY)) / 32767.0f;
+					gamepad->left_trigger = r32(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT)) / 32767.0f;
+					gamepad->right_trigger = r32(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) / 32767.0f;
 					if (gamepad->left_trigger > 0.5f)
 						gamepad->btns |= Gamepad::Btn::LeftTrigger;
 					if (gamepad->right_trigger > 0.5f)
@@ -339,8 +339,8 @@ namespace VI
 			SDL_GetWindowSize(window, &sync->input.width, &sync->input.height);
 
 			r64 time = (SDL_GetTicks() / 1000.0);
-			sync->time.total = (r32)time;
-			sync->time.delta = vi_min((r32)(time - last_time), 0.25f);
+			sync->time.total = r32(time);
+			sync->time.delta = vi_min(r32(time - last_time), 0.25f);
 			last_time = time;
 
 			b8 quit = sync->quit;

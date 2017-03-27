@@ -973,15 +973,24 @@ void Game::execute(const char* cmd)
 			Net::Client::replay(filename);
 		}
 	}
-	else if (strcmp(cmd, "allocs") == 0)
+	else if (strstr(cmd, "lds ") == cmd)
 	{
 		// allocate a story-mode server
-		unload_level();
-		save.reset();
-		Net::Master::ServerState s;
-		s.make_story();
-		s.level = Asset::Level::Port_District;
-		Net::Client::allocate_server(s);
+		const char* delimiter = strchr(cmd, ' ');
+		if (delimiter)
+		{
+			const char* level_name = delimiter + 1;
+			AssetID level = Loader::find_level(level_name);
+			if (level != AssetNull)
+			{
+				unload_level();
+				save.reset();
+				Net::Master::ServerState s;
+				s.make_story();
+				s.level = level;
+				Net::Client::allocate_server(s);
+			}
+		}
 	}
 	else if (strcmp(cmd, "allocm") == 0)
 	{
@@ -1048,7 +1057,12 @@ void Game::execute(const char* cmd)
 			char* end;
 			r32 value = std::strtod(number_string, &end);
 			if (*end == '\0')
+			{
 				session.time_scale = value;
+#if SERVER
+				Net::Server::sync_time();
+#endif
+			}
 		}
 	}
 	else if (strstr(cmd, "energy ") == cmd)
@@ -1091,7 +1105,7 @@ void Game::execute(const char* cmd)
 			}
 		}
 	}
-	else if (strstr(cmd, "loadai ") == cmd)
+	else if (strstr(cmd, "lda ") == cmd)
 	{
 		// AI test
 		const char* delimiter = strchr(cmd, ' ');
@@ -1107,7 +1121,7 @@ void Game::execute(const char* cmd)
 			}
 		}
 	}
-	else if (strstr(cmd, "load ") == cmd)
+	else if (strstr(cmd, "ld ") == cmd)
 	{
 		// pvp mode
 		const char* delimiter = strchr(cmd, ' ');
@@ -1123,7 +1137,7 @@ void Game::execute(const char* cmd)
 			}
 		}
 	}
-	else if (strstr(cmd, "loadp ") == cmd)
+	else if (strstr(cmd, "ldp ") == cmd)
 	{
 		// parkour mode
 		const char* delimiter = strchr(cmd, ' ');

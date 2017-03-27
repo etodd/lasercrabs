@@ -1672,7 +1672,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 
 		memcpy(&last_input, &sync_render->input, sizeof(last_input));
 
-		time_update = (r32)(platform::time() - time_update_start);
+		time_update = r32(platform::time() - time_update_start);
 
 		sync_render = swapper_render->swap<SwapType_Write>();
 		sync_render->queue.length = 0;

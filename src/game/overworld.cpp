@@ -2123,7 +2123,7 @@ void update(const Update& u)
 		}
 	}
 
-	if (Game::level.local && Game::session.type == SessionType::Story)
+	if (Game::session.type == SessionType::Story)
 	{
 		// random zone attacks
 		{
@@ -2140,10 +2140,12 @@ void update(const Update& u)
 					Game::session.zone_under_attack = AssetNull;
 				}
 			}
-			zone_random_attack(Game::real_time.delta);
+			if (Game::level.local)
+				zone_random_attack(Game::real_time.delta);
 		}
 
 		// energy increment
+		if (Game::level.local)
 		{
 			r64 t = platform::timestamp();
 			if (s32(t / ENERGY_INCREMENT_INTERVAL) > s32(data.story.timestamp_last / ENERGY_INCREMENT_INTERVAL))

@@ -7,7 +7,7 @@
 	"hacking": "Cracking...",
 	"hack_complete": "Crack complete",
 	"error_locked_zone": "Error: unlock terminal first",
-	"error_inside_tram": "Error: console unavailable",
+	"error_inside_tram": "Error: map unavailable",
 	"error_zone_under_attack": "Error: zone under attack",
 	"multiplayer": "Multiplayer",
 	"multiplayer_public": "(WIP)",

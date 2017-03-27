@@ -122,9 +122,9 @@ void Game::Session::reset()
 	new (this) Session();
 }
 
-b8 Game::Level::has_feature(Game::FeatureLevel f) const
+b8 Game::Level::has_feature(FeatureLevel f) const
 {
-	return (s32)feature_level >= (s32)f;
+	return s32(feature_level) >= s32(f);
 }
 
 AI::Team Game::Level::team_lookup_reverse(AI::Team t) const
@@ -452,17 +452,17 @@ void Game::update(const Update& update_in)
 				// spawn AI players
 				for (s32 i = 0; i < level.ai_config.length; i++)
 				{
-					AI::Config* config = &level.ai_config[i];
-					if (Team::match_time > config->spawn_time)
+					const AI::Config& config = level.ai_config[i];
+					if (Team::match_time > config.spawn_time)
 					{
 						Entity* e = World::create<ContainerEntity>();
-						PlayerManager* manager = e->add<PlayerManager>(&Team::list[s32(config->team)], Usernames::all[mersenne::rand_u32() % Usernames::count]);
-						if (config->spawn_time == 0.0f)
+						PlayerManager* manager = e->add<PlayerManager>(&Team::list[s32(config.team)], Usernames::all[mersenne::rand_u32() % Usernames::count]);
+						if (config.spawn_time == 0.0f)
 							manager->spawn_timer = 0.01f; // spawn instantly
 						Net::finalize(e);
 
 						PlayerAI* player = PlayerAI::list.add();
-						new (player) PlayerAI(manager, *config);
+						new (player) PlayerAI(manager, config);
 
 						level.ai_config.remove(i);
 						i--;
@@ -522,7 +522,7 @@ void Game::update(const Update& update_in)
 					i.item()->get<Walker>()->update(u); // walkers are normally only updated on the server
 				i.item()->update(u);
 			}
-			else if (Game::level.local) // server needs to manually update the animator because it's normally updated by the Parkour component
+			else if (level.local) // server needs to manually update the animator because it's normally updated by the Parkour component
 				i.item()->get<Animator>()->update_server(u);
 		}
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
@@ -579,7 +579,7 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 		mask_parkour
 		| Battery::component_mask
 	);
-	return t->component_mask & (mode == Game::Mode::Pvp ? mask_pvp : mask_parkour);
+	return t->component_mask & (mode == Mode::Pvp ? mask_pvp : mask_parkour);
 }
 
 #if SERVER
@@ -1155,10 +1155,10 @@ void Game::execute(const char* cmd)
 		}
 	}
 	else if (!Overworld::active() && strcmp(cmd, "capture") == 0)
-		Overworld::zone_change(Game::level.id, ZoneState::Friendly);
+		Overworld::zone_change(level.id, ZoneState::Friendly);
 	else if (!Overworld::active() && strcmp(cmd, "unlock") == 0)
-		Overworld::zone_change(Game::level.id, ZoneState::Hostile);
-	else if (Overworld::active())
+		Overworld::zone_change(level.id, ZoneState::Hostile);
+	else
 		Overworld::execute(cmd);
 }
 
@@ -1478,7 +1478,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				}
 			}
 		}
-		else if (Json::get_s32(element, "min_players") > PlayerManager::list.count() + level.ai_config.length
+		else if (Json::get_s32(element, "min_players") > PlayerManager::list.count() + ai_player_count
 			|| Json::get_s32(element, "min_teams") > Team::list.count())
 		{
 			// not enough players or teams
@@ -1630,21 +1630,23 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "AIPlayer"))
 		{
-			// only add an AI player if we are in online pvp mode
+			// only add an AI player if we are in story mode
 			if (session.type == SessionType::Story)
 			{
 				AI::Team team_original = Json::get_s32(element, "team", 1);
 				AI::Team team = team_lookup(level.team_lookup, team_original);
 				if (ai_player_count > 1)
 				{
-					if ((save.zones[Game::level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) && (team_original == 1 || mersenne::randf_cc() < 0.5f))
+					// 2v2 map
+					if ((save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) && (team_original == 1 || mersenne::randf_cc() < 0.5f))
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // enemy is attacking; they're there from the beginning
 					else
 						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
 				}
 				else
 				{
-					if (save.zones[Game::level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned)
+					// 1v1 map
+					if (save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned)
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // player is defending, enemy is already there
 					else // player is attacking, eventually enemy will come to defend
 						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
@@ -1660,7 +1662,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				{
 					// starts out owned by player if the zone is friendly
 					s32 default_team_index;
-					if (save.zones[Game::level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned)
+					if (save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned)
 						default_team_index = mersenne::randf_cc() < 0.8f ? 0 : 1;
 					else
 						default_team_index = 1;
@@ -1881,7 +1883,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				}
 			}
 			vi_assert(track != -1);
-			Game::level.tram_tracks[track].level = Loader::find_level(Json::get_string(element, "level"));
+			level.tram_tracks[track].level = Loader::find_level(Json::get_string(element, "level"));
 			Entity* runner_a = World::create<TramRunnerEntity>(track, false);
 			Net::finalize(runner_a);
 			Entity* runner_b = World::create<TramRunnerEntity>(track, true);

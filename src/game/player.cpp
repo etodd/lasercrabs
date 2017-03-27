@@ -587,11 +587,12 @@ void PlayerHuman::update(const Update& u)
 
 				for (s32 i = 0; i < s32(Upgrade::count); i++)
 				{
-					Upgrade upgrade = (Upgrade)i;
+					Upgrade upgrade = Upgrade(i);
+					const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
 					b8 can_upgrade = !upgrade_in_progress
 						&& get<PlayerManager>()->upgrade_available(upgrade)
-						&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade);
-					const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
+						&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade)
+						&& (AbilityInfo::list[i].type != AbilityInfo::Type::Other || Game::level.has_feature(Game::FeatureLevel::All)); // don't allow Other ability upgrades in tutorial
 					if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
 					{
 						PlayerControlHumanNet::Message msg;

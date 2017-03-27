@@ -10,7 +10,7 @@ separate threads for physics, rendering, AI, and game logic
 - Linear math suite somewhat stolen from Ogre
 - Content pipeline supporting .blend, .glsl, .otf, .png
 - Create levels, models, animations, and ragdoll rigs in Blender
-- Deferred rendering, cascaded shadow maps, edge detection, bloom, SSAO, clouds
+- Deferred rendering, cascaded shadow maps, edge detection, bloom, SSAO, weather effects
 - Geometry-based UI system
 - UDP client-server network architecture with master server
 - Localization support

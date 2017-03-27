@@ -2125,7 +2125,7 @@ void level_loading()
 void level_loaded()
 {
 	vi_assert(state_server.mode == Mode::Loading);
-	state_server.mode = Game::session.type == SessionType::Story ? Mode::Active : Mode::Waiting;
+	state_server.mode = Mode::Waiting;
 	master_send_status_update();
 }
 
@@ -2636,7 +2636,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 			client->loading_done = true;
 			vi_debug("Client %s:%hd finished loading.", Sock::host_to_str(client->address.host), client->address.port);
 			if (state_server.mode == Mode::Waiting
-				&& Team::teams_with_active_players() > 1)
+				&& (Team::teams_with_active_players() > 1 || Game::session.type == SessionType::Story))
 			{
 				state_server.mode = Mode::Active;
 				sync_time();

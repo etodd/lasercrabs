@@ -1130,7 +1130,7 @@ void PlayerControlAI::action_done(b8 success)
 		{
 			AI::RecordedLife::Action action;
 			action.type = AI::RecordedLife::Action::TypeNone;
-			action_queue.push({ INT_MAX, action });
+			action_queue.push({ 1 << 31, action });
 		}
 	}
 

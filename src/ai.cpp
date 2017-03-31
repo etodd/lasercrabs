@@ -772,6 +772,31 @@ RecordedLife::Action& RecordedLife::Action::operator=(const Action& other)
 	return *this;
 }
 
+b8 RecordedLife::Action::fuzzy_equal(const Action& other) const
+{
+	if (type == other.type)
+	{
+		switch (type)
+		{
+			case TypeNone:
+				return true;
+			case TypeMove:
+				return (pos - other.pos).length_squared() < DRONE_MAX_DISTANCE * 0.1f * DRONE_MAX_DISTANCE * 0.1f;
+			case TypeAttack:
+				return entity_type == other.entity_type;
+			case TypeUpgrade:
+				return upgrade == other.upgrade;
+			case TypeAbility:
+				return ability == other.ability;
+			case TypeCapture:
+				return true;
+			case TypeWait:
+				return true;
+		}
+	}
+	return false;
+}
+
 // these functions get rid of const nonsense so we can pass either one into the serialize function
 size_t RecordedLife::custom_fwrite(void* buffer, size_t size, size_t count, FILE* f)
 {

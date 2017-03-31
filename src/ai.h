@@ -225,6 +225,8 @@ namespace AI
 			};
 			Action();
 			Action& operator=(const Action&);
+
+			b8 fuzzy_equal(const Action&) const;
 		};
 
 		static const s8 EntityNone = -1;

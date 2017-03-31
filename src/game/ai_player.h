@@ -77,6 +77,8 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	u32 active_callback;
 	r32 aim_timeout; // time we've been able to shoot but haven't due to aiming
 	r32 aim_timer; // total aim time including cooldowns etc.
+	r32 recalc_timer;
+	r32 reeval_timer;
 	r32 inaccuracy;
 	AI::DronePath path;
 	s32 path_index;
@@ -92,7 +94,9 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	~PlayerControlAI();
 
 	void action_clear();
+	void action_execute(const ActionEntry&);
 	void action_done(b8);
+	void actions_populate();
 
 	void path_callback(const AI::DroneResult&);
 	void control_point_capture_completed(b8);

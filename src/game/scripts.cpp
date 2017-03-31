@@ -303,7 +303,7 @@ void draw(const RenderParams& params)
 		UIMenu::text_clip(&text, data->text_tut_real_time, 80.0f);
 
 		{
-			Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.9f);
+			Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.8f);
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, p);
 		}

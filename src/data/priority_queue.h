@@ -103,6 +103,16 @@ public:
 			heap.length--;
 	}
 
+	const T& peek() const
+	{
+		return heap[0];
+	}
+
+	T& peek()
+	{
+		return heap[0];
+	}
+
 	T pop()
 	{
 		vi_assert(heap.length > 0);

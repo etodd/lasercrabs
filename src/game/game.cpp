@@ -51,7 +51,7 @@
 	#define DEBUG_NAV_MESH 0
 	#define DEBUG_AI_PATH 0
 	#define DEBUG_DRONE_NAV_MESH 0
-	#define DEBUG_DRONE_AI_PATH 0
+	#define DEBUG_DRONE_AI_PATH 1
 	#define DEBUG_PHYSICS 0
 #endif
 
@@ -687,7 +687,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 				Vec2 p;
 				if (UI::project(render_params, ai->path[j].pos, &p))
 				{
-					text.text("%d", j);
+					text.text(0, "%d", j);
 					text.draw(render_params, p);
 				}
 			}

@@ -73,11 +73,11 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 
 	PriorityQueue<ActionEntry, ActionEntryKey> action_queue;
 	ActionEntry current;
+	Vec3 target_pos;
 	Vec3 random_look;
 	u32 active_callback;
 	r32 aim_timeout; // time we've been able to shoot but haven't due to aiming
 	r32 aim_timer; // total aim time including cooldowns etc.
-	r32 recalc_timer;
 	r32 reeval_timer;
 	r32 inaccuracy;
 	AI::DronePath path;

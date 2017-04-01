@@ -32,7 +32,7 @@ namespace VI
 	};
 
 #if DEBUG
-#define DEBUG_AI_CONTROL 1
+#define DEBUG_AI_CONTROL 0
 #endif
 
 	struct Game

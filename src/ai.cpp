@@ -28,8 +28,8 @@ Array<b8> obstacles;
 SyncRingBuffer<SYNC_IN_SIZE> sync_in;
 SyncRingBuffer<SYNC_OUT_SIZE> sync_out;
 b8 render_meshes_dirty;
-u32 callback_in_id;
-u32 callback_out_id;
+u32 callback_in_id = 1;
+u32 callback_out_id = 1;
 Revision level_revision;
 Revision level_revision_worker;
 

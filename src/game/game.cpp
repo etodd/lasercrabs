@@ -51,7 +51,7 @@
 	#define DEBUG_NAV_MESH 0
 	#define DEBUG_AI_PATH 0
 	#define DEBUG_DRONE_NAV_MESH 0
-	#define DEBUG_DRONE_AI_PATH 1
+	#define DEBUG_DRONE_AI_PATH 0
 	#define DEBUG_PHYSICS 0
 #endif
 
@@ -1022,6 +1022,11 @@ void Game::execute(const char* cmd)
 			Health* health = i.item()->get<Health>();
 			health->damage(nullptr, health->hp_max + health->shield_max);
 		}
+	}
+	else if (strcmp(cmd, "spawn") == 0)
+	{
+		for (s32 i = 0; i < level.ai_config.length; i++)
+			level.ai_config[i].spawn_time = 0.0f;
 	}
 	else if (strcmp(cmd, "win") == 0)
 		game_end_cheat(true);

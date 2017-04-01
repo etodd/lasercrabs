@@ -20,7 +20,6 @@ namespace VI
 
 
 #define REEVAL_INTERVAL 0.25f
-#define RECALC_INTERVAL 0.5f
 
 PinArray<PlayerAI, MAX_PLAYERS> PlayerAI::list;
 
@@ -128,6 +127,8 @@ PlayerControlAI::PlayerControlAI(PlayerAI* p)
 	target(),
 	target_shot_at(),
 	target_hit(),
+	target_active(),
+	target_pos(),
 	aim_timer(),
 	aim_timeout(),
 	inaccuracy(),
@@ -135,8 +136,6 @@ PlayerControlAI::PlayerControlAI(PlayerAI* p)
 	action_queue_key(),
 	action_queue(&action_queue_key),
 	random_look(0, 0, 1),
-	target_active(),
-	recalc_timer(RECALC_INTERVAL),
 	reeval_timer(REEVAL_INTERVAL)
 {
 #if DEBUG_AI_CONTROL
@@ -923,11 +922,11 @@ void PlayerControlAI::action_clear()
 	current.action.type = AI::RecordedLife::Action::TypeNone;
 	current.priority = 0;
 	path.length = 0;
+	path_index = 0;
 	target = nullptr;
 	target_active = false;
 	target_shot_at = false;
 	target_hit = false;
-	recalc_timer = RECALC_INTERVAL;
 	reeval_timer = REEVAL_INTERVAL;
 
 	if (action_type == AI::RecordedLife::Action::TypeCapture)
@@ -1216,11 +1215,12 @@ void PlayerControlAI::action_execute(const ActionEntry& a)
 			{
 				target_active = true;
 				target = closest->entity();
+				target_pos = closest->get<Target>()->absolute_pos();
 				if (!get<Drone>()->can_hit(closest))
 				{
 					// pathfind
 					auto callback = ObjectLinkEntryArg<PlayerControlAI, const AI::DroneResult&, &PlayerControlAI::path_callback>(id());
-					active_callback = AI::drone_pathfind(AI::DronePathfind::Target, AI::DroneAllow::All, my_team, pos, rot * Vec3(0, 0, 1), closest->get<Transform>()->absolute_pos(), Vec3::zero, callback);
+					active_callback = AI::drone_pathfind(AI::DronePathfind::Target, AI::DroneAllow::All, my_team, pos, rot * Vec3(0, 0, 1), closest->get<Target>()->absolute_pos(), Vec3::zero, callback);
 				}
 			}
 			else
@@ -1254,12 +1254,6 @@ void PlayerControlAI::path_callback(const AI::DroneResult& result)
 		else
 			set_path(result.path);
 	}
-}
-
-b8 action_needs_recalc(s8 type)
-{
-	return type == AI::RecordedLife::Action::TypeMove
-		|| type == AI::RecordedLife::Action::TypeAttack;
 }
 
 b8 action_can_interrupt(s8 type)
@@ -1297,17 +1291,6 @@ void PlayerControlAI::update(const Update& u)
 				}
 			}
 
-			// recalc path if necessary
-			if (!active_callback && action_needs_recalc(current.action.type)) // don't recalculate stuff while we're waiting for pathfinding results
-			{
-				recalc_timer -= u.time.delta;
-				if (recalc_timer < 0.0f)
-				{
-					recalc_timer += RECALC_INTERVAL;
-					action_execute(current);
-				}
-			}
-
 			// current action is waiting for a callback; see if we're done executing it
 			if (target_active)
 			{
@@ -1315,6 +1298,9 @@ void PlayerControlAI::update(const Update& u)
 					action_done(target_shot_at); // target's gone
 				else if (target.ref()->has<Target>())
 				{
+					if ((target.ref()->get<Target>()->absolute_pos() - target_pos).length_squared() > 8.0f * 8.0f)
+						action_execute(current); // recalculate path
+
 					if (target_shot_at)
 					{
 						if (get<Drone>()->current_ability != Ability::Bolter)
@@ -1324,6 +1310,7 @@ void PlayerControlAI::update(const Update& u)
 				else
 				{
 					// the only other kind of target we can have is a control point
+					vi_assert(target.ref()->has<ControlPoint>());
 					if ((target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->absolute_pos()).length_squared() < CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS)
 						action_done(true);
 				}
@@ -1344,40 +1331,16 @@ void PlayerControlAI::update(const Update& u)
 
 		if (target_active)
 		{
-			if (target.ref())
+			// trying to a hit a moving thingy
+			Vec3 intersection;
+			if (aim_timeout < config.aim_timeout
+				&& get<Drone>()->can_hit(target.ref()->get<Target>(), &intersection, get<Drone>()->target_prediction_speed()))
 			{
-				// trying to a hit a moving thingy
-				r32 speed;
-				switch (get<Drone>()->current_ability)
-				{
-					case Ability::Bolter:
-					{
-						speed = PROJECTILE_SPEED;
-						break;
-					}
-					case Ability::Sniper:
-					{
-						speed = 0.0f; // instant
-						break;
-					}
-					default:
-					{
-						speed = DRONE_FLY_SPEED;
-						break;
-					}
-				}
-				Vec3 intersection;
-				if (aim_timeout < config.aim_timeout
-					&& get<Drone>()->can_hit(target.ref()->get<Target>(), &intersection, speed))
-				{
-					follow_path = false;
-					aim_and_shoot_target(u, intersection, target.ref()->get<Target>());
-				}
-				else if (path_index >= path.length)
-					action_done(false); // we can't hit it
+				follow_path = false;
+				aim_and_shoot_target(u, intersection, target.ref()->get<Target>());
 			}
-			else // target is gone
-				action_done(target_hit);
+			else if (!active_callback && path_index >= path.length)
+				action_done(false); // we can't hit it
 		}
 
 		if (follow_path)

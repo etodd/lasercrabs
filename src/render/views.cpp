@@ -266,6 +266,8 @@ void View::draw(const RenderParams& params) const
 		const Vec4& team_color = Team::color(AI::Team(team), AI::Team(params.camera->team));
 		if (list_alpha.get(id()) || list_additive.get(id()))
 			sync->write<Vec4>(Vec4(team_color.xyz(), color.w));
+		else if (params.flags & RenderFlagBackFace)
+			sync->write<Vec4>(PVP_INACCESSIBLE);
 		else
 			sync->write<Vec4>(team_color);
 	}

@@ -58,7 +58,7 @@ namespace platform
 
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
-const s32 version = 30;
+const s32 version = 31;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -980,10 +980,11 @@ const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path, b8 
 	return scene;
 }
 
-void edge_add(const Array<Vec3>& vertices, Array<s32>* indices, s32 a, s32 b)
+void edge_add(const Array<Vec3>& vertices, const Array<Vec3>& normals, Array<s32>* indices, s32 a, s32 b)
 {
 	const Vec3& va = vertices[a];
 	const Vec3& vb = vertices[b];
+	const Vec3& na = normals[a];
 
 	b8 found = false;
 	for (s32 j = 0; j < indices->length; j += 2)
@@ -1008,6 +1009,12 @@ void edge_add(const Array<Vec3>& vertices, Array<s32>* indices, s32 a, s32 b)
 			{
 				// it's a highlighted edge, but it's already been added as part of a different face
 				found = true;
+				const Vec3& nu = normals[u];
+				if (nu.dot(na) > 0.999f) // face is coplanar; remove existing edge
+				{
+					indices->remove(j + 1);
+					indices->remove(j);
+				}
 			}
 		}
 	}
@@ -1068,9 +1075,9 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out)
 		out->indices.add(b);
 		s32 c = mesh->mFaces[i].mIndices[2];
 		out->indices.add(c);
-		edge_add(out->vertices, &out->edge_indices, a, b);
-		edge_add(out->vertices, &out->edge_indices, b, c);
-		edge_add(out->vertices, &out->edge_indices, a, c);
+		edge_add(out->vertices, out->normals, &out->edge_indices, a, b);
+		edge_add(out->vertices, out->normals, &out->edge_indices, b, c);
+		edge_add(out->vertices, out->normals, &out->edge_indices, a, c);
 	}
 
 	return true;

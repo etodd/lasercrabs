@@ -253,11 +253,23 @@ void update_component_memory(PlayerControlAI* control, MemoryStatus (*filter)(co
 	for (s32 i = 0; i < memory->length; i++)
 	{
 		PlayerAI::Memory* m = &(*memory)[i];
+		Entity* entity = m->entity.ref();
+
+		if (!entity)
+		{
+			memory->remove(i);
+			i--;
+			continue;
+		}
+
+		if (!entity->has<Component>())
+			continue;
+
 		if (!limit_range || control->in_range(m->pos, range))
 		{
 			MemoryStatus status = MemoryStatus::Keep;
-			Entity* entity = m->entity.ref();
-			if (!entity || ((!limit_range || control->in_range(entity->get<Transform>()->absolute_pos(), range)) && filter(control, entity) == MemoryStatus::Forget))
+			if ((!limit_range || control->in_range(entity->get<Transform>()->absolute_pos(), range))
+				&& filter(control, entity) == MemoryStatus::Forget)
 			{
 				memory->remove(i);
 				i--;
@@ -644,28 +656,13 @@ b8 default_filter(const PlayerControlAI* control, const Entity* e)
 		== ForceField::hash(team, e->get<Transform>()->absolute_pos());
 }
 
-b8 energy_pickup_enemy_filter(const PlayerControlAI* control, const Entity* e)
+b8 battery_filter(const PlayerControlAI* control, const Entity* e)
 {
-	if (!default_filter(control, e))
-		return false;
-
-	AI::Team team = e->get<Battery>()->team;
-	return team != AI::TeamNone && team != control->get<AIAgent>()->team;
-}
-
-b8 energy_pickup_filter(const PlayerControlAI* control, const Entity* e)
-{
-	if (!default_filter(control, e))
-		return false;
-
 	return e->get<Battery>()->team != control->get<AIAgent>()->team;
 }
 
 b8 minion_filter(const PlayerControlAI* control, const Entity* e)
 {
-	if (!default_filter(control, e))
-		return false;
-
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& !e->get<AIAgent>()->stealth;
 }
@@ -685,27 +682,6 @@ s32 danger(const PlayerControlAI* control)
 		return 1;
 
 	return 0;
-}
-
-b8 control_point_filter(const PlayerControlAI* control, const Entity* e)
-{
-	if (!default_filter(control, e))
-		return false;
-
-	return danger(control) <= 0;
-}
-
-b8 enemy_control_point_filter(const PlayerControlAI* control, const Entity* e)
-{
-	if (!control_point_filter(control, e))
-		return false;
-
-	AI::Team team = control->get<AIAgent>()->team;
-	ControlPoint* c = e->get<ControlPoint>();
-	if (team == 0) // defend
-		return c->team_next != AI::TeamNone && c->team_next != team;
-	else // attack
-		return c->team != team && c->team_next != team;
 }
 
 MemoryStatus minion_memory_filter(const PlayerControlAI* control, const Entity* e)
@@ -740,7 +716,7 @@ MemoryStatus drone_memory_filter(const PlayerControlAI* control, const Entity* e
 
 b8 drone_run_filter(const PlayerControlAI* control, const Entity* e)
 {
-	r32 run_chance = control->get<Health>()->hp == 1 ? 0.5f : 0.2f;
+	r32 run_chance = control->get<Health>()->shield <= 1 ? 0.3f : 0.1f;
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& e->get<Health>()->hp > control->get<Health>()->hp
 		&& mersenne::randf_co() < run_chance
@@ -749,9 +725,6 @@ b8 drone_run_filter(const PlayerControlAI* control, const Entity* e)
 
 b8 drone_find_filter(const PlayerControlAI* control, const Entity* e)
 {
-	if (!default_filter(control, e))
-		return false;
-
 	s16 my_hp = control->get<Health>()->hp;
 	s16 enemy_hp = e->get<Health>()->hp;
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
@@ -770,15 +743,12 @@ b8 drone_react_filter(const PlayerControlAI* control, const Entity* e)
 	else
 	{
 		Drone* a = e->get<Drone>();
-		return a->state() == Drone::State::Crawl && a->invincible_timer == 0.0f;
+		return a->state() == Drone::State::Crawl && (a->invincible_timer == 0.0f || mersenne::randf_co() > 0.5f);
 	}
 }
 
 b8 force_field_filter(const PlayerControlAI* control, const Entity* e)
 {
-	if (!default_filter(control, e))
-		return false;
-
 	ForceField* field = e->get<ForceField>();
 	return field->team != control->get<AIAgent>()->team && field->contains(control->get<Transform>()->absolute_pos());
 }
@@ -941,6 +911,8 @@ b8 want_upgrade(PlayerControlAI* player, Upgrade u)
 
 void PlayerControlAI::actions_populate()
 {
+	update_memory();
+
 	static Upgrade upgrade_priorities[MAX_ABILITIES] = { Upgrade::Minion, Upgrade::Bolter, Upgrade::ForceField };
 
 	AI::RecordedLife::Tag tag;
@@ -1052,6 +1024,39 @@ void PlayerControlAI::actions_populate()
 		}
 	}
 
+	if (mersenne::randf_co() > 0.1f
+		&& ((my_team == 0 && tag.nearby_entities & ((1 << s32(AI::RecordedLife::EntityControlPointRecapturingFirstHalf)) | (1 << s32(AI::RecordedLife::EntityControlPointNormal)))) // defending
+		|| (my_team == 1 && tag.nearby_entities & ((1 << s32(AI::RecordedLife::EntityControlPointLosingFirstHalf)) | (1 << s32(AI::RecordedLife::EntityControlPointLosingSecondHalf)))) // attacking
+		))
+	{
+		// wait for enemy to show up
+		AI::RecordedLife::Action action;
+		action.type = AI::RecordedLife::Action::TypeWait;
+		s8 priority = 1;
+		if (tag.stealth)
+			priority -= 2;
+		action_queue.push({ priority, action });
+	}
+
+	// run away
+	if (!tag.stealth
+		&& tag.nearby_entities & ((1 << s32(AI::RecordedLife::EntityDroneEnemyShield1) | (1 << s32(AI::RecordedLife::EntityDroneEnemyShield2)))))
+	{
+		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
+		{
+			if (drone_run_filter(this, i.item()->entity()))
+			{
+				AI::RecordedLife::Action action;
+				action.type = AI::RecordedLife::Action::TypeRunAway;
+				action.pos = i.item()->get<Transform>()->absolute_pos();
+				s8 priority = -1;
+				priority -= DRONE_SHIELD - get<Health>()->shield;
+				action_queue.push({ priority, action });
+				break;
+			}
+		}
+	}
+
 	if (tag.nearby_entities
 		& ((1 << s32(AI::RecordedLife::EntityDroneEnemyShield1))
 			| (1 << s32(AI::RecordedLife::EntityDroneEnemyShield2))
@@ -1061,44 +1066,63 @@ void PlayerControlAI::actions_populate()
 			| (1 << s32(AI::RecordedLife::EntitySensorEnemy))))
 	{
 		Vec3 pos = get<Transform>()->absolute_pos();
-		for (auto i = Target::list.iterator(); !i.is_last(); i.next())
+		for (s32 i = 0; i < player.ref()->memory.length; i++)
 		{
-			Entity* entity = i.item()->entity();
+			const PlayerAI::Memory& memory = player.ref()->memory[i];
+
+			Entity* entity = memory.entity.ref();
+			if (!entity || !entity->has<Target>())
+				continue;
+
 			AI::Team team;
 			s8 entity_type;
 			AI::entity_info(entity, my_team, &team, &entity_type);
 			if (team != my_team
 				&& entity_type != AI::RecordedLife::EntityNone
-				&& (entity->get<Transform>()->absolute_pos() - pos).length_squared() < DRONE_MAX_DISTANCE * DRONE_MAX_DISTANCE)
+				&& (memory.pos - pos).length_squared() < DRONE_MAX_DISTANCE * DRONE_MAX_DISTANCE
+				&& default_filter(this, entity))
 			{
 				s8 priority = 1;
-				if (get<Drone>()->can_hit(i.item()))
+				if (get<Drone>()->can_hit(entity->get<Target>()))
 					priority -= 1;
 
 				switch (entity_type)
 				{
 					case AI::RecordedLife::EntityDroneEnemyShield2:
-					{
-						priority -= 2;
-						break;
-					}
 					case AI::RecordedLife::EntityDroneEnemyShield1:
 					{
-						priority -= 3;
+						if (!drone_react_filter(this, entity))
+							continue;
+
+						if (entity_type == AI::RecordedLife::EntityDroneEnemyShield2)
+							priority -= 2;
+						else if (entity_type == AI::RecordedLife::EntityDroneEnemyShield1)
+							priority -= 3;
+
+						priority -= (DRONE_SHIELD - tag.shield);
+
+						if (get<PlayerCommon>()->manager.ref()->state() == PlayerManager::State::Capturing)
+							priority -= 1;
+
 						break;
 					}
 					case AI::RecordedLife::EntityMinionEnemy:
 					{
+						if (!minion_filter(this, entity))
+							continue;
+
 						priority -= 1;
+						priority -= (DRONE_SHIELD - tag.shield);
 						break;
 					}
 					case AI::RecordedLife::EntityBatteryEnemy:
-					{
-						priority -= 1;
-						break;
-					}
 					case AI::RecordedLife::EntityBatteryNeutral:
 					{
+						if (!battery_filter(this, entity))
+							continue;
+
+						if (entity_type == AI::RecordedLife::EntityBatteryEnemy)
+							priority -= 1;
 						break;
 					}
 					case AI::RecordedLife::EntitySensorEnemy:
@@ -1158,11 +1182,20 @@ void PlayerControlAI::action_execute(const ActionEntry& a)
 	{
 		case AI::RecordedLife::Action::TypeMove:
 		{
-			auto callback = ObjectLinkEntryArg<PlayerControlAI, const AI::DroneResult&, &PlayerControlAI::path_callback>(id());
+			auto callback = ObjectLinkEntryArg<PlayerControlAI, const AI::DroneResult&, &PlayerControlAI::callback_path>(id());
 			Vec3 pos;
 			Quat rot;
 			get<Transform>()->absolute(&pos, &rot);
 			active_callback = AI::drone_pathfind(AI::DronePathfind::LongRange, AI::DroneAllow::All, get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), current.action.pos, current.action.normal, callback);
+			break;
+		}
+		case AI::RecordedLife::Action::TypeRunAway:
+		{
+			auto callback = ObjectLinkEntryArg<PlayerControlAI, const AI::DroneResult&, &PlayerControlAI::callback_path>(id());
+			Vec3 pos;
+			Quat rot;
+			get<Transform>()->absolute(&pos, &rot);
+			active_callback = AI::drone_pathfind(AI::DronePathfind::Away, AI::DroneAllow::All, get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), current.action.pos, Vec3::zero, callback);
 			break;
 		}
 		case AI::RecordedLife::Action::TypeUpgrade:
@@ -1195,6 +1228,12 @@ void PlayerControlAI::action_execute(const ActionEntry& a)
 				AI::entity_info(entity, my_team, &team, &entity_type);
 				if (entity_type == current.action.entity_type)
 				{
+					if (!default_filter(this, entity)
+						|| (entity->has<MinionCommon>() && !minion_filter(this, entity))
+						|| (entity->has<Drone>() && !drone_react_filter(this, entity))
+						|| (entity->has<Battery>() && !battery_filter(this, entity)))
+						continue;
+
 					if (get<Drone>()->can_hit(i.item()))
 					{
 						closest = i.item();
@@ -1219,7 +1258,7 @@ void PlayerControlAI::action_execute(const ActionEntry& a)
 				if (!get<Drone>()->can_hit(closest))
 				{
 					// pathfind
-					auto callback = ObjectLinkEntryArg<PlayerControlAI, const AI::DroneResult&, &PlayerControlAI::path_callback>(id());
+					auto callback = ObjectLinkEntryArg<PlayerControlAI, const AI::DroneResult&, &PlayerControlAI::callback_path>(id());
 					active_callback = AI::drone_pathfind(AI::DronePathfind::Target, AI::DroneAllow::All, my_team, pos, rot * Vec3(0, 0, 1), closest->get<Target>()->absolute_pos(), Vec3::zero, callback);
 				}
 			}
@@ -1232,10 +1271,12 @@ void PlayerControlAI::action_execute(const ActionEntry& a)
 			// update method will handle panicking
 			break;
 		}
-		/*
-		TypeAbility
-		TypeWait
-		*/
+		case AI::RecordedLife::Action::TypeWait:
+		{
+			// do nothing and wait to be interrupted by another action
+			break;
+		}
+		// todo: TypeAbility
 		default:
 		{
 			vi_assert(false);
@@ -1244,7 +1285,7 @@ void PlayerControlAI::action_execute(const ActionEntry& a)
 	}
 }
 
-void PlayerControlAI::path_callback(const AI::DroneResult& result)
+void PlayerControlAI::callback_path(const AI::DroneResult& result)
 {
 	if (result.id == active_callback)
 	{

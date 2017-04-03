@@ -468,7 +468,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					if (Game::level.local)
 					{
-						if (target_drone->invincible_timer > 0.0f && target_drone->invincible_timer <= ACTIVE_ARMOR_TIME) // they were invincible; they should damage us
+						if (target_drone->invincible_timer > 0.0f && target_drone->invincible_timer <= ACTIVE_ARMOR_TIME // they were invincible; they should damage us
+							&& (drone->current_ability == Ability::None || AbilityInfo::list[s32(drone->current_ability)].type != AbilityInfo::Type::Shoot))
 						{
 							s8 damage = s8(vi_max(1, s32(target_drone->invincible_timer * (3.1f / ACTIVE_ARMOR_TIME))));
 							drone->get<Health>()->damage(target_drone->entity(), damage);
@@ -1373,6 +1374,8 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 				*final_normal = ray_callback.m_hitNormalWorld;
 			if (hit_parent)
 				*hit_parent = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+			if (hit_target)
+				*hit_target = false;
 		}
 		return can_spawn;
 	}

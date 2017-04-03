@@ -98,7 +98,7 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	void action_done(b8);
 	void actions_populate();
 
-	void path_callback(const AI::DroneResult&);
+	void callback_path(const AI::DroneResult&);
 	void control_point_capture_completed(b8);
 	void upgrade_completed(Upgrade);
 	void update_memory();

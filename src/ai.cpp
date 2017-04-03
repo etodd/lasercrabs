@@ -481,6 +481,34 @@ void debug_draw_drone_nav_mesh(const RenderParams& params)
 
 #endif
 
+s8 record_control_point_state(ControlPoint* c)
+{
+	if (c->capture_timer > 0.0f)
+	{
+		if (c->team == 0)
+			return AI::RecordedLife::ControlPointState::StateLosingFirstHalf;
+		else if (c->team == AI::TeamNone)
+		{
+			if (c->team_next == 1)
+				return AI::RecordedLife::ControlPointState::StateLosingSecondHalf;
+			else
+				return AI::RecordedLife::ControlPointState::StateRecapturingFirstHalf;
+		}
+		else
+		{
+			vi_assert(false);
+			return -1;
+		}
+	}
+	else
+	{
+		if (c->team == 0)
+			return AI::RecordedLife::ControlPointState::StateNormal;
+		else
+			return AI::RecordedLife::ControlPointState::StateLost;
+	}
+}
+
 ComponentMask entity_mask = Sensor::component_mask
 	| Drone::component_mask
 	| MinionCommon::component_mask
@@ -488,7 +516,8 @@ ComponentMask entity_mask = Sensor::component_mask
 	| Rocket::component_mask
 	| ForceField::component_mask
 	| Projectile::component_mask
-	| Grenade::component_mask;
+	| Grenade::component_mask
+	| ControlPoint::component_mask;
 
 void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 {
@@ -560,6 +589,43 @@ void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 		else
 			_type = attached ? RecordedLife::EntityGrenadeEnemyAttached : RecordedLife::EntityGrenadeEnemyDetached;
 	}
+	else if (e->has<ControlPoint>())
+	{
+		_team = e->get<ControlPoint>()->team;
+		switch (record_control_point_state(e->get<ControlPoint>()))
+		{
+			case RecordedLife::ControlPointState::StateNormal:
+			{
+				_type = RecordedLife::EntityControlPointNormal;
+				break;
+			}
+			case RecordedLife::ControlPointState::StateLosingFirstHalf:
+			{
+				_type = RecordedLife::EntityControlPointLosingFirstHalf;
+				break;
+			}
+			case RecordedLife::ControlPointState::StateLosingSecondHalf:
+			{
+				_type = RecordedLife::EntityControlPointLosingSecondHalf;
+				break;
+			}
+			case RecordedLife::ControlPointState::StateRecapturingFirstHalf:
+			{
+				_type = RecordedLife::EntityControlPointRecapturingFirstHalf;
+				break;
+			}
+			case RecordedLife::ControlPointState::StateLost:
+			{
+				_type = RecordedLife::EntityNone;
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+	}
 	else
 	{
 		_team = TeamNone;
@@ -571,34 +637,6 @@ void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 		*team = _team;
 	if (type)
 		*type = _type;
-}
-
-s8 record_control_point_state(ControlPoint* c)
-{
-	if (c->capture_timer > 0.0f)
-	{
-		if (c->team == 0)
-			return AI::RecordedLife::ControlPointState::StateLosingFirstHalf;
-		else if (c->team == AI::TeamNone)
-		{
-			if (c->team_next == 1)
-				return AI::RecordedLife::ControlPointState::StateLosingSecondHalf;
-			else
-				return AI::RecordedLife::ControlPointState::StateRecapturingFirstHalf;
-		}
-		else
-		{
-			vi_assert(false);
-			return -1;
-		}
-	}
-	else
-	{
-		if (c->team == 0)
-			return AI::RecordedLife::ControlPointState::StateNormal;
-		else
-			return AI::RecordedLife::ControlPointState::StateLost;
-	}
 }
 
 b8 record_filter(Entity* e, const Vec3& pos)

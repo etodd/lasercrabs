@@ -213,6 +213,7 @@ namespace AI
 			static const s8 TypeAbility = 4;
 			static const s8 TypeCapture = 5;
 			static const s8 TypeWait = 6;
+			static const s8 TypeRunAway = 7;
 
 			Vec3 pos; // for move and build ability actions
 			Vec3 normal; // for move and build ability actions
@@ -255,6 +256,10 @@ namespace AI
 		static const s8 EntityGrenadeEnemyDetached = 22;
 		static const s8 EntityGrenadeFriendAttached = 23;
 		static const s8 EntityGrenadeFriendDetached = 24;
+		static const s8 EntityControlPointNormal = 25;
+		static const s8 EntityControlPointLosingFirstHalf = 26;
+		static const s8 EntityControlPointLosingSecondHalf = 27;
+		static const s8 EntityControlPointRecapturingFirstHalf = 28;
 
 		Array<Vec3> pos;
 		Array<Vec3> normal;

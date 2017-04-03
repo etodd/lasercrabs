@@ -356,7 +356,7 @@ Battery::~Battery()
 
 void Battery::hit(const TargetEvent& e)
 {
-	if (e.hit_by->has<Drone>() && e.hit_by->get<Drone>()->current_ability == Ability::Sniper)
+	if (e.hit_by->has<Drone>() && (e.hit_by->get<Drone>()->current_ability != Ability::None && AbilityInfo::list[s32(e.hit_by->get<Drone>()->current_ability)].type == AbilityInfo::Type::Shoot))
 		set_team(AI::TeamNone, e.hit_by);
 	else
 		set_team(e.hit_by->get<AIAgent>()->team, e.hit_by);
@@ -1163,7 +1163,7 @@ RocketEntity::RocketEntity(PlayerManager* owner, Transform* parent, const Vec3& 
 	model->team = s8(team);
 	model->shader = Asset::Shader::standard;
 
-	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.1f, 0.3f, 0.3f), 0.0f, CollisionDroneIgnore, CollisionDefault);
+	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.2f, 0.4f, 0.4f), 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield);
 
 	create<Target>();
 
@@ -1655,7 +1655,7 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	g->owner = owner;
 	g->velocity = Vec3::normalize(velocity) * GRENADE_LAUNCH_SPEED;
 
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS), 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield);
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::sphere_highres;
@@ -3097,15 +3097,15 @@ Tram* Tram::by_track(s8 track)
 	return nullptr;
 }
 
-b8 Tram::player_inside(Entity* player)
+Tram* Tram::player_inside(Entity* player)
 {
 	Ref<RigidBody> support = player->get<Walker>()->support;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (support.equals(i.item()->get<RigidBody>()))
-			return true;
+			return i.item();
 	}
-	return false;
+	return nullptr;
 }
 
 s8 Tram::track() const

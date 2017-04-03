@@ -1904,6 +1904,13 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Rocket);
 	}
 
+	// grenades
+	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team() != team)
+			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Grenade);
+	}
+
 	// force fields
 	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
@@ -2478,7 +2485,7 @@ void PlayerControlHuman::update(const Update& u)
 
 			// update camera projection
 			{
-				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+				r32 aspect = camera->viewport.size.y == 0 ? 1 : r32(camera->viewport.size.x) / r32(camera->viewport.size.y);
 				camera->perspective(fov, aspect, 0.005f, Game::level.skybox.far_plane);
 			}
 
@@ -3179,6 +3186,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			case TargetIndicator::Type::Sensor:
 			case TargetIndicator::Type::Rocket:
 			case TargetIndicator::Type::ForceField:
+			case TargetIndicator::Type::Grenade:
 			{
 				break;
 			}
@@ -3270,32 +3278,36 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		}
 	}
 
+	Vec3 me = get<Transform>()->absolute_pos();
+
 	// highlight enemy grenades in-air
 	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team() != team && !i.item()->get<Transform>()->parent.ref())
+		if (i.item()->team() != team
+			&& !i.item()->get<Transform>()->parent.ref())
 		{
-			enemy_visible = true;
-
 			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-			UI::indicator(params, pos, Team::ui_color_enemy, true);
+			if ((me - pos).length_squared() < DRONE_MAX_DISTANCE * DRONE_MAX_DISTANCE)
+			{
+				enemy_visible = true;
 
-			UIText text;
-			text.color = Team::ui_color(team, i.item()->team());
-			text.text(player.ref()->gamepad, _(strings::grenade_incoming));
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			text.size = text_size;
-			Vec2 p;
-			UI::is_onscreen(params, pos, &p);
-			p.y += text_size * 2.0f * UI::scale;
-			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
-			if (UI::flash_function(Game::real_time.total))
-				text.draw(params, p);
+				UI::indicator(params, pos, Team::ui_color_enemy, true);
+
+				UIText text;
+				text.color = Team::ui_color(team, i.item()->team());
+				text.text(player.ref()->gamepad, _(strings::grenade_incoming));
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				text.size = text_size;
+				Vec2 p;
+				UI::is_onscreen(params, pos, &p);
+				p.y += text_size * 2.0f * UI::scale;
+				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
+				if (UI::flash_function(Game::real_time.total))
+					text.draw(params, p);
+			}
 		}
 	}
-
-	Vec3 me = get<Transform>()->absolute_pos();
 
 	// highlight incoming projectiles
 	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())

@@ -577,6 +577,22 @@ void Parkour::update(const Update& u)
 	angular_velocity = (0.5f * angular_velocity) + (0.5f * last_angular_velocity); // smooth it out a bit
 	last_angular_velocity = angular_velocity;
 
+	{
+		Tram* tram = Tram::player_inside(entity());
+		if (tram)
+		{
+			// HACK to prevent player from falling out of tram
+			Vec3 tram_pos;
+			Quat tram_rot;
+			tram->get<Transform>()->absolute(&tram_pos, &tram_rot);
+			Vec3 pos = get<Transform>()->absolute_pos();
+			Vec3 forward = tram_rot * Vec3(0, 0, 1);
+			r32 z = (pos - tram_pos).dot(forward);
+			if (z < -5.0f)
+				get<Walker>()->absolute_pos(pos + forward * (-5.0f - z));
+		}
+	}
+
 	if (fsm.current == State::Mantle)
 	{
 		// top-out animation is slower than mantle animation

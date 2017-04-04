@@ -300,7 +300,7 @@ namespace ParkourNet
 		return true;
 	}
 
-	b8 kill(Parkour* parkour, MinionCommon* minion)
+	b8 kill(Parkour* parkour, Minion* minion)
 	{
 		using Stream = Net::StreamWrite;
 		Stream* p = Net::msg_new(Net::MessageType::Parkour);
@@ -313,7 +313,7 @@ namespace ParkourNet
 			serialize_ref(p, ref);
 		}
 		{
-			Ref<MinionCommon> ref = minion;
+			Ref<Minion> ref = minion;
 			serialize_ref(p, ref);
 		}
 		Net::msg_finalize(p);
@@ -337,7 +337,7 @@ namespace ParkourNet
 	}
 }
 
-b8 minion_in_front_strict(Parkour* parkour, MinionCommon* minion)
+b8 minion_in_front_strict(Parkour* parkour, Minion* minion)
 {
 	Vec3 minion_pos = minion->get<Walker>()->base_pos();
 	Vec3 to_minion = minion_pos - parkour->get<Walker>()->base_pos();
@@ -349,7 +349,7 @@ b8 minion_in_front_strict(Parkour* parkour, MinionCommon* minion)
 
 // check on the server if we can damage this minion
 // this check is very forgiving to prevent player frustration
-b8 minion_can_damage_forgiving(Parkour* parkour, MinionCommon* minion)
+b8 minion_can_damage_forgiving(Parkour* parkour, Minion* minion)
 {
 	Vec3 minion_pos = minion->get<Walker>()->base_pos();
 	Vec3 to_minion = minion_pos - parkour->get<Walker>()->base_pos();
@@ -357,7 +357,7 @@ b8 minion_can_damage_forgiving(Parkour* parkour, MinionCommon* minion)
 	return to_minion.length_squared() < radius * radius;
 }
 
-b8 minion_below(Parkour* parkour, MinionCommon* minion)
+b8 minion_below(Parkour* parkour, Minion* minion)
 {
 	Vec3 minion_pos = minion->get<Walker>()->base_pos();
 	Vec3 to_minion = minion_pos - parkour->get<Walker>()->base_pos();
@@ -371,10 +371,10 @@ b8 minion_below(Parkour* parkour, MinionCommon* minion)
 	return false;
 }
 
-b8 minions_do_damage(Parkour* parkour, b8(*minion_filter)(Parkour*, MinionCommon*))
+b8 minions_do_damage(Parkour* parkour, b8(*minion_filter)(Parkour*, Minion*))
 {
 	b8 did_damage = false;
-	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 	{
 		b8 already_damaged = false;
 		for (s32 j = 0; j < parkour->damage_minions.length; j++)
@@ -465,7 +465,7 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			}
 			case ParkourNet::Message::Kill:
 			{
-				Ref<MinionCommon> minion;
+				Ref<Minion> minion;
 				serialize_ref(p, minion);
 				if (minion.ref()
 					&& (src == Net::MessageSource::Remote || Game::level.local)

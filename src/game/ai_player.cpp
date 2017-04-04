@@ -808,7 +808,7 @@ s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
 		}
 	}
 
-	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 	{
 		if (AI::match(i.item()->get<AIAgent>()->team, mask)
 			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
@@ -850,7 +850,7 @@ s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
 void PlayerControlAI::update_memory()
 {
 	update_component_memory<Battery>(this, &default_memory_filter);
-	update_component_memory<MinionCommon>(this, &minion_memory_filter);
+	update_component_memory<Minion>(this, &minion_memory_filter);
 	update_component_memory<Sensor>(this, &sensor_memory_filter);
 	update_component_memory<AICue>(this, &default_memory_filter);
 	update_component_memory<ControlPoint>(this, &default_memory_filter, UpdateMemoryFlags(0)); // unlimited range
@@ -1229,7 +1229,7 @@ void PlayerControlAI::action_execute(const ActionEntry& a)
 				if (entity_type == current.action.entity_type)
 				{
 					if (!default_filter(this, entity)
-						|| (entity->has<MinionCommon>() && !minion_filter(this, entity))
+						|| (entity->has<Minion>() && !minion_filter(this, entity))
 						|| (entity->has<Drone>() && !drone_react_filter(this, entity))
 						|| (entity->has<Battery>() && !battery_filter(this, entity)))
 						continue;

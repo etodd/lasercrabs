@@ -260,7 +260,8 @@ void PlayerHuman::update_all(const Update& u)
 		PlayerManager* local_common = i.item()->get<PlayerCommon>()->manager.ref();
 		for (auto j = PlayerCommon::list.iterator(); !j.is_last(); j.next())
 		{
-			if (PlayerManager::visibility[PlayerManager::visibility_hash(local_common, j.item()->manager.ref())].ref())
+			const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(local_common, j.item()->manager.ref())];
+			if (visibility.type == PlayerManager::Visibility::Type::Direct && visibility.entity.ref())
 			{
 				visible_enemy = true;
 				break;
@@ -1026,24 +1027,37 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 
 	// show player list
 	p.x += wrap * -0.5f;
-	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+
+	// sort by team
+	AI::Team team_mine = manager->team.ref()->team();
+	AI::Team team = team_mine;
+	while (true)
 	{
-		text.wrap_width = wrap;
-		text.anchor_x = UIText::Anchor::Min;
-		text.color = Team::ui_color(manager->team.ref()->team(), i.item()->team.ref()->team());
-		text.text_raw(0, i.item()->username);
-		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-		text.draw(params, p);
+		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->team.ref()->team() == team)
+			{
+				text.wrap_width = wrap;
+				text.anchor_x = UIText::Anchor::Min;
+				text.color = Team::ui_color(manager->team.ref()->team(), i.item()->team.ref()->team());
+				text.text_raw(0, i.item()->username);
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+				text.draw(params, p);
 
-		text.anchor_x = UIText::Anchor::Max;
-		text.wrap_width = 0;
-		if (Game::level.type == GameType::Deathmatch)
-			text.text(0, "%d", s32(i.item()->kills));
-		else
-			text.text(0, "%d", s32(i.item()->respawns));
-		text.draw(params, p + Vec2(wrap, 0));
+				text.anchor_x = UIText::Anchor::Max;
+				text.wrap_width = 0;
+				if (Game::level.type == GameType::Deathmatch)
+					text.text(0, "%d", s32(i.item()->kills));
+				else
+					text.text(0, "%d", s32(i.item()->respawns));
+				text.draw(params, p + Vec2(wrap, 0));
 
-		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+				p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+			}
+		}
+		team = AI::Team(s32(team) + 1 % Team::list.count());
+		if (team == team_mine)
+			break;
 	}
 }
 
@@ -1508,7 +1522,8 @@ Entity* PlayerCommon::incoming_attacker() const
 	PlayerManager* manager = get<PlayerCommon>()->manager.ref();
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
-		if (PlayerManager::visibility[PlayerManager::visibility_hash(manager, i.item()->manager.ref())].ref())
+		const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(manager, i.item()->manager.ref())];
+		if (visibility.entity.ref() && visibility.type == PlayerManager::Visibility::Type::Direct)
 		{
 			// determine if they're attacking us
 			if (i.item()->get<Drone>()->state() != Drone::State::Crawl
@@ -1843,13 +1858,14 @@ Entity* player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player
 	}
 	else
 	{
-		Entity* visible_entity = PlayerManager::visibility[PlayerManager::visibility_hash(me->manager.ref(), other_player->manager.ref())].ref();
-		*visible = visible_entity != nullptr;
+		const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(me->manager.ref(), other_player->manager.ref())];
+		Entity* visible_entity = visibility.entity.ref();
+		*visible = visibility.type == PlayerManager::Visibility::Type::Direct && visibility.entity.ref();
 
 		if (track.tracking)
 			return track.entity.ref();
 		else
-			return visible_entity;
+			return visibility.entity.ref();
 	}
 }
 
@@ -1875,7 +1891,7 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 	}
 
 	// headshot indicators
-	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->get<AIAgent>()->team != team)
 			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Minion);
@@ -3205,7 +3221,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		Vec3 me = get<Transform>()->absolute_pos();
 
 		// minion cooldown bars
-		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+		for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->attack_timer > 0.0f)
 			{

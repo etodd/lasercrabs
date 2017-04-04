@@ -172,7 +172,7 @@ void Team::awake_all()
 	winner = nullptr;
 	score_summary.length = 0;
 	for (s32 i = 0; i < MAX_PLAYERS * MAX_PLAYERS; i++)
-		PlayerManager::visibility[i] = nullptr;
+		PlayerManager::visibility[i] = { PlayerManager::Visibility::Type::Direct, nullptr };
 }
 
 s32 Team::teams_with_active_players()
@@ -420,7 +420,7 @@ void update_visibility(const Update& u)
 			if (i_team == j_team)
 				continue;
 
-			Entity* detected_entity = nullptr; // the entity i detected, if any
+			PlayerManager::Visibility detected = { PlayerManager::Visibility::Type::Direct, nullptr };
 
 			// if j_decoy is at all visible, it will be detected first
 			// i_decoy is also able to detect j_actual_entity and j_decoy
@@ -434,12 +434,16 @@ void update_visibility(const Update& u)
 					|| (i_decoy
 						&& visibility_check(i_decoy, j_decoy, &distance)
 						&& distance < DRONE_MAX_DISTANCE))
-					detected_entity = j_decoy;
+				{
+					detected.entity = j_decoy;
+					detected.type = PlayerManager::Visibility::Type::Direct;
+				}
 			}
 
-			if (!detected_entity)
+			// actual player
+			Entity* j_actual_entity = j.item()->instance.ref();
+			if (!detected.entity.ref())
 			{
-				Entity* j_actual_entity = j.item()->instance.ref();
 				if (j_actual_entity && !j_actual_entity->get<AIAgent>()->stealth)
 				{
 					r32 distance;
@@ -448,11 +452,42 @@ void update_visibility(const Update& u)
 						|| (i_decoy
 							&& visibility_check(i_decoy, j_actual_entity, &distance)
 							&& distance < DRONE_MAX_DISTANCE))
-						detected_entity = j_actual_entity;
+					{
+						detected.entity = j_actual_entity;
+						detected.type = PlayerManager::Visibility::Type::Direct;
+					}
 				}
 			}
 
-			PlayerManager::visibility[PlayerManager::visibility_hash(i.item(), j.item())] = detected_entity;
+			// minions detecting decoy
+			if (!detected.entity.ref() && j_decoy && !j_decoy->get<AIAgent>()->stealth)
+			{
+				for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->get<AIAgent>()->team == i_team->team() && i.item()->goal.entity.ref() == j_decoy)
+					{
+						detected.entity = j_decoy;
+						detected.type = PlayerManager::Visibility::Type::Indirect;
+						break;
+					}
+				}
+			}
+
+			// minions detecting actual player
+			if (!detected.entity.ref() && j_actual_entity && !j_actual_entity->get<AIAgent>()->stealth)
+			{
+				for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->get<AIAgent>()->team == i_team->team() && i.item()->goal.entity.ref() == j_actual_entity)
+					{
+						detected.entity = j_actual_entity;
+						detected.type = PlayerManager::Visibility::Type::Indirect;
+						break;
+					}
+				}
+			}
+
+			PlayerManager::visibility[PlayerManager::visibility_hash(i.item(), j.item())] = detected;
 		}
 	}
 
@@ -645,7 +680,7 @@ b8 Team::net_msg(Net::StreamRead* p)
 						World::remove_deferred(i.item()->entity());
 				}
 				// teams are not synced over the network, so set them on both client and server
-				for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+				for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 					i.item()->team(team_winner);
 				for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 					i.item()->set_owner(nullptr);
@@ -809,7 +844,7 @@ void Team::update_all_server(const Update& u)
 							detected_entity = track.entity.ref();
 						else
 						{
-							Entity* e = PlayerManager::visibility[PlayerManager::visibility_hash(rocket.item()->owner.ref(), player.item())].ref();
+							Entity* e = PlayerManager::visibility[PlayerManager::visibility_hash(rocket.item()->owner.ref(), player.item())].entity.ref();
 							if (e && (!e->has<Drone>() || e->get<Drone>()->state() == Drone::State::Crawl)) // only launch rockets at drones that are crawling; this prevents rockets from launching and immediately losing their target
 								detected_entity = e;
 						}
@@ -903,7 +938,7 @@ b8 PlayerManager::ability_valid(Ability ability) const
 	return true;
 }
 
-Ref<Entity> PlayerManager::visibility[MAX_PLAYERS * MAX_PLAYERS];
+PlayerManager::Visibility PlayerManager::visibility[MAX_PLAYERS * MAX_PLAYERS];
 
 s32 PlayerManager::visibility_hash(const PlayerManager* drone_a, const PlayerManager* drone_b)
 {

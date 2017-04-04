@@ -511,7 +511,7 @@ s8 record_control_point_state(ControlPoint* c)
 
 ComponentMask entity_mask = Sensor::component_mask
 	| Drone::component_mask
-	| MinionCommon::component_mask
+	| Minion::component_mask
 	| Battery::component_mask
 	| Rocket::component_mask
 	| ForceField::component_mask
@@ -543,7 +543,7 @@ void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 					_type = shield <= 1 ? RecordedLife::EntityDroneEnemyShield1 : RecordedLife::EntityDroneEnemyShield2;
 			}
 		}
-		else if (e->has<MinionCommon>())
+		else if (e->has<Minion>())
 			_type = _team == query_team ? RecordedLife::EntityMinionFriend : RecordedLife::EntityMinionEnemy;
 	}
 	else if (e->has<Battery>())

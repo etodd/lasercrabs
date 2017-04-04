@@ -424,7 +424,7 @@ void Game::update(const Update& update_in)
 		}
 		for (auto i = Animator::list.iterator(); !i.is_last(); i.next())
 		{
-			if (!level.local && i.item()->has<MinionCommon>())
+			if (!level.local && i.item()->has<Minion>())
 				i.item()->update_client_only(u); // minion animations are synced over the network
 			else if (!i.item()->has<Parkour>()) // Parkour component updates the Animator on its own terms
 				i.item()->update_server(u);
@@ -480,15 +480,13 @@ void Game::update(const Update& update_in)
 				i.item()->update_server(u);
 			for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
-			for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
-			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+			for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
 			for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 		}
 
-		MinionCommon::update_client_all(u);
+		Minion::update_client_all(u);
 		Grenade::update_client_all(u);
 		Rocket::update_client_all(u);
 		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
@@ -570,7 +568,7 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 		Drone::component_mask
 		| Projectile::component_mask
 		| Rocket::component_mask
-		| MinionCommon::component_mask
+		| Minion::component_mask
 		| Grenade::component_mask
 		| TramRunner::component_mask
 	);
@@ -659,9 +657,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 	{
 		UIText text;
 		text.color = UI::color_accent;
-		for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
+		for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 		{
-			MinionAI* minion = i.item();
+			Minion* minion = i.item();
 			for (s32 j = minion->path_index; j < minion->path.length; j++)
 			{
 				Vec2 p;
@@ -776,7 +774,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 			sync->write(mesh_id);
 		}
 
-		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+		for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 		{
 			// render a sphere for the headshot collision volume
 			Vec3 head_pos = i.item()->head_pos();
@@ -1582,7 +1580,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				// starts out owned by player if the zone is friendly
 				s32 default_team_index = (save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) ? 0 : 1;
 				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
-				entity = World::alloc<Minion>(absolute_pos, absolute_rot, team);
+				entity = World::alloc<MinionEntity>(absolute_pos, absolute_rot, team);
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "PlayerSpawn"))

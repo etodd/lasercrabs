@@ -292,7 +292,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| PlayerManager::component_mask
 		| PlayerCommon::component_mask
 		| PlayerControlHuman::component_mask
-		| MinionCommon::component_mask
+		| Minion::component_mask
 		| Parkour::component_mask
 		| Interactable::component_mask
 		| Tram::component_mask
@@ -455,9 +455,9 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 			d->shield_time = 0.0f;
 	}
 
-	if (e->has<MinionCommon>())
+	if (e->has<Minion>())
 	{
-		MinionCommon* m = e->get<MinionCommon>();
+		Minion* m = e->get<Minion>();
 		serialize_r32_range(p, m->attack_timer, 0.0f, MINION_ATTACK_TIME, 8);
 		serialize_ref(p, m->owner);
 	}
@@ -1628,7 +1628,7 @@ void state_frame_build(StateFrame* frame)
 	}
 
 	// minions
-	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 	{
 		frame->minions_active.set(i.index, true);
 		MinionState* minion = &frame->minions[i.index];
@@ -1877,9 +1877,9 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 		s32 index = frame.minions_active.start;
 		while (index < frame.minions_active.end)
 		{
-			MinionCommon* m = &MinionCommon::list[index];
+			Minion* m = &Minion::list[index];
 			const MinionState& s = frame.minions[index];
-			if (MinionCommon::list.active(index))
+			if (Minion::list.active(index))
 			{
 				m->get<Walker>()->rotation = s.rotation;
 				m->attack_timer = s.attack_timer;

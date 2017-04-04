@@ -59,7 +59,7 @@ btScalar DroneRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult&
 	{
 		Entity* entity = &Entity::list[collision_entity_id];
 		// if it's a minion, do an extra headshot test
-		if (!entity->has<MinionCommon>() || entity->get<MinionCommon>()->headshot_test(m_rayFromWorld, m_rayToWorld))
+		if (!entity->has<Minion>() || entity->get<Minion>()->headshot_test(m_rayFromWorld, m_rayToWorld))
 		{
 			if (ray_result.m_hitFraction < closest_target_hit_fraction)
 			{
@@ -431,7 +431,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			// damage messages
 			if (drone->has<PlayerControlHuman>())
 			{
-				if (target.ref()->has<MinionCommon>())
+				if (target.ref()->has<Minion>())
 				{
 					b8 is_enemy = target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team;
 					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::minion_killed), is_enemy);
@@ -597,7 +597,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							else
 								angle = 0.0f;
 						}
-						Net::finalize(World::create<Minion>(npos, Quat::euler(0, angle, 0), drone->get<AIAgent>()->team, manager));
+						Net::finalize(World::create<MinionEntity>(npos, Quat::euler(0, angle, 0), drone->get<AIAgent>()->team, manager));
 					}
 
 					// effects
@@ -1002,11 +1002,11 @@ b8 Drone::hit_target(Entity* target)
 	DroneNet::hit_target(this, target);
 
 	// award energy for hitting stuff
-	if (target->has<MinionAI>())
+	if (target->has<Minion>())
 	{
 		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
 		{
-			PlayerManager* owner = target->get<MinionCommon>()->owner.ref();
+			PlayerManager* owner = target->get<Minion>()->owner.ref();
 			if (owner)
 			{
 				owner->team.ref()->track(get<PlayerCommon>()->manager.ref(), entity());

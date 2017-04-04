@@ -135,8 +135,21 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		count,
 	};
 
+	struct Visibility
+	{
+		enum class Type
+		{
+			Direct,
+			Indirect,
+			count,
+		};
+
+		Type type;
+		Ref<Entity> entity;
+	};
+
 	static s32 visibility_hash(const PlayerManager*, const PlayerManager*);
-	static Ref<Entity> visibility[MAX_PLAYERS * MAX_PLAYERS];
+	static Visibility visibility[MAX_PLAYERS * MAX_PLAYERS];
 
 	static void update_all(const Update&);
 

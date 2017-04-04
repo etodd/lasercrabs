@@ -21,7 +21,7 @@ namespace Net
 	struct StreamRead;
 };
 
-struct MinionCommon;
+struct Minion;
 struct Transform;
 struct RigidBody;
 
@@ -65,7 +65,7 @@ struct Parkour : public ComponentType<Parkour>
 	Ref<Transform> rope;
 	Ref<Transform> animation_start_support;
 	ID rope_constraint = IDNull;
-	StaticArray<Ref<MinionCommon>, 4> damage_minions; // HACK; minions we're currently damaging
+	StaticArray<Ref<Minion>, 4> damage_minions; // HACK; minions we're currently damaging
 	b8 slide_continue;
 
 	b8 wallrun(const Update&, RigidBody*, const Vec3&, const Vec3&);

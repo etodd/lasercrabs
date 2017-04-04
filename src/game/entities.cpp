@@ -166,12 +166,17 @@ void Health::damage(Entity* e, s8 damage)
 	vi_assert(Game::level.local);
 	if (hp > 0 && damage > 0)
 	{
+		s8 shield_value = shield;
+
+		if (has<Drone>() && get<Drone>()->current_ability == Ability::Sniper) // shield is down while sniping
+			shield_value = 0;
+
 		s8 damage_accumulator = damage;
 		s8 damage_shield;
-		if (damage_accumulator > shield)
+		if (damage_accumulator > shield_value)
 		{
-			damage_shield = shield;
-			damage_accumulator -= shield;
+			damage_shield = shield_value;
+			damage_accumulator -= shield_value;
 		}
 		else
 		{
@@ -1203,7 +1208,6 @@ DecoyEntity::DecoyEntity(PlayerManager* owner, Transform* parent, const Vec3& po
 
 void Decoy::awake()
 {
-	link_arg<const TargetEvent&, &Decoy::hit_by>(get<Target>()->target_hit);
 	link_arg<Entity*, &Decoy::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &Decoy::health_changed>(get<Health>()->changed);
 
@@ -1247,8 +1251,8 @@ Decoy::~Decoy()
 {
 	if (Game::level.local)
 	{
-		if (shield.ref())
-			World::remove_deferred(shield.ref());
+		World::remove_deferred(shield.ref());
+		World::remove_deferred(overshield.ref());
 	}
 }
 
@@ -1282,12 +1286,6 @@ void Decoy::destroy()
 	get<Transform>()->absolute(&pos, &rot);
 	ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
 	World::remove_deferred(entity());
-}
-
-void Decoy::hit_by(const TargetEvent& e)
-{
-	get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
-	get<Health>()->damage(e.hit_by, 1);
 }
 
 // returns true if the given position is inside an enemy force field

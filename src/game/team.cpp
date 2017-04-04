@@ -925,7 +925,7 @@ b8 PlayerManager::ability_valid(Ability ability) const
 	if (!can_transition_state())
 		return false;
 
-	if (!has_upgrade((Upgrade)ability))
+	if (!has_upgrade(Upgrade(ability)))
 		return false;
 
 	const AbilityInfo& info = AbilityInfo::list[(s32)ability];
@@ -1047,7 +1047,7 @@ b8 PlayerManager::capture_start()
 	if (can_transition_state() && control_point && control_point->can_be_captured_by(team.ref()->team()))
 	{
 		vi_assert(current_upgrade == Upgrade::None);
-		instance.ref()->get<Drone>()->current_ability = Ability::None;
+		instance.ref()->get<Drone>()->ability(Ability::None);
 		state_timer = CAPTURE_TIME;
 		return true;
 	}

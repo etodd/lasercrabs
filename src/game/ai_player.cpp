@@ -873,7 +873,7 @@ void PlayerControlAI::sniper_or_bolter_cancel()
 {
 	Ability a = get<Drone>()->current_ability;
 	if (a == Ability::Sniper || a == Ability::Bolter)
-		get<Drone>()->current_ability = Ability::None;
+		get<Drone>()->ability(Ability::None);
 }
 
 void PlayerControlAI::set_path(const AI::DronePath& p)

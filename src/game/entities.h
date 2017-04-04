@@ -197,7 +197,6 @@ struct Decoy : public ComponentType<Decoy>
 	void awake();
 	~Decoy();
 
-	void hit_by(const TargetEvent&);
 	void killed(Entity*);
 	void destroy();
 	AI::Team team() const;

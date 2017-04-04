@@ -90,6 +90,7 @@ enum class Message
 	DashStart,
 	DashDone,
 	HitTarget,
+	AbilitySelect,
 	AbilitySpawn,
 	ReflectionEffects,
 	count,
@@ -132,6 +133,23 @@ b8 ability_spawn(Drone* a, Vec3 dir, Ability ability)
 	serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
 	serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
 	serialize_enum(p, Ability, ability);
+	Net::msg_finalize(p);
+	return true;
+}
+
+b8 ability_select(Drone* d, Ability ability)
+{
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
+	{
+		Ref<Drone> ref = d;
+		serialize_ref(p, ref);
+	}
+	{
+		Message t = Message::AbilitySelect;
+		serialize_enum(p, Message, t);
+	}
+	serialize_int(p, Ability, ability, 0, s32(Ability::count) + 1); // must be +1 for Ability::None
 	Net::msg_finalize(p);
 	return true;
 }
@@ -342,7 +360,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 	// should we actually pay attention to this message?
 	// if it's a message from a remote, but we are a local entity, then ignore the message.
-	b8 apply_msg = src == Net::MessageSource::Loopback || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local();
+	b8 apply_msg = drone && (src == Net::MessageSource::Loopback || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local());
 
 	switch (type)
 	{
@@ -426,61 +444,75 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_ref(p, target);
 
 			if (apply_msg)
+			{
 				client_hit_effects(drone, target.ref());
 
-			// damage messages
-			if (drone->has<PlayerControlHuman>())
-			{
-				if (target.ref()->has<Minion>())
+				// damage messages
+				if (drone->has<PlayerControlHuman>())
 				{
-					b8 is_enemy = target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team;
-					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::minion_killed), is_enemy);
-				}
-				else if (target.ref()->has<Sensor>() && !target.ref()->has<Battery>())
-				{
-					b8 is_enemy = target.ref()->get<Sensor>()->team != drone->get<AIAgent>()->team;
-					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::sensor_destroyed), is_enemy);
-				}
-				else if (target.ref()->has<ForceField>())
-				{
-					b8 is_enemy = target.ref()->get<ForceField>()->team != drone->get<AIAgent>()->team;
-					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::force_field_destroyed), is_enemy);
-				}
-				else if (target.ref()->has<Rocket>())
-				{
-					b8 is_enemy = target.ref()->get<Rocket>()->team() != drone->get<AIAgent>()->team;
-					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::rocket_destroyed), is_enemy);
-				}
-			}
-
-			if (target.ref()->has<Drone>())
-			{
-				target.ref()->get<Audio>()->post_event(target.ref()->has<PlayerControlHuman>() && target.ref()->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
-
-				// only do damage if they're attached to a wall and have no overshield
-				Drone* target_drone = target.ref()->get<Drone>();
-				if (target_drone->state() == Drone::State::Crawl && target_drone->invincible_timer == 0.0f)
-				{
-					if (Game::level.local) // if we're a client, this has already been handled by the server
-						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target_drone->entity()));
-				}
-				else // we didn't hurt them
-				{
-					if (Game::level.local)
+					if (target.ref()->has<Minion>())
 					{
-						if (target_drone->invincible_timer > 0.0f && target_drone->invincible_timer <= ACTIVE_ARMOR_TIME // they were invincible; they should damage us
-							&& (drone->current_ability == Ability::None || AbilityInfo::list[s32(drone->current_ability)].type != AbilityInfo::Type::Shoot))
-						{
-							s8 damage = s8(vi_max(1, s32(target_drone->invincible_timer * (3.1f / ACTIVE_ARMOR_TIME))));
-							drone->get<Health>()->damage(target_drone->entity(), damage);
-						}
+						b8 is_enemy = target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team;
+						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::minion_killed), is_enemy);
 					}
+					else if (target.ref()->has<Sensor>() && !target.ref()->has<Battery>())
+					{
+						b8 is_enemy = target.ref()->get<Sensor>()->team != drone->get<AIAgent>()->team;
+						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::sensor_destroyed), is_enemy);
+					}
+					else if (target.ref()->has<ForceField>())
+					{
+						b8 is_enemy = target.ref()->get<ForceField>()->team != drone->get<AIAgent>()->team;
+						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::force_field_destroyed), is_enemy);
+					}
+					else if (target.ref()->has<Rocket>())
+					{
+						b8 is_enemy = target.ref()->get<Rocket>()->team() != drone->get<AIAgent>()->team;
+						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::rocket_destroyed), is_enemy);
+					}
+				}
 
-					if (drone->has<PlayerControlHuman>())
-						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
+				if (target.ref()->has<Drone>() || target.ref()->has<Decoy>())
+				{
+					target.ref()->get<Audio>()->post_event(target.ref()->has<PlayerControlHuman>() && target.ref()->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
+
+					// only do damage if they're attached to a wall and have no overshield
+					Drone* target_drone = target.ref()->has<Drone>() ? target.ref()->get<Drone>() : nullptr;
+					if (target.ref()->has<Decoy>() || (target_drone->state() == Drone::State::Crawl && target_drone->invincible_timer == 0.0f))
+					{
+						if (Game::level.local) // if we're a client, this has already been handled by the server
+							target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref()));
+					}
+					else // we didn't hurt them
+					{
+						if (Game::level.local)
+						{
+							if (target_drone->invincible_timer > 0.0f && target_drone->invincible_timer <= ACTIVE_ARMOR_TIME // they were invincible; they should damage us
+								&& (drone->current_ability == Ability::None || AbilityInfo::list[s32(drone->current_ability)].type != AbilityInfo::Type::Shoot))
+							{
+								s8 damage = s8(vi_max(1, s32(target_drone->invincible_timer * (3.1f / ACTIVE_ARMOR_TIME))));
+								drone->get<Health>()->damage(target_drone->entity(), damage);
+							}
+						}
+
+						if (drone->has<PlayerControlHuman>())
+							drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
+					}
 				}
 			}
 
+			break;
+		}
+		case DroneNet::Message::AbilitySelect:
+		{
+			Ability ability;
+			serialize_int(p, Ability, ability, 0, s32(Ability::count) + 1); // must be +1 for Ability::None
+			if (apply_msg)
+			{
+				if (drone->current_ability == Ability::Sniper || ability == Ability::Sniper)
+					drone->shield_time = Game::time.total;
+				drone->current_ability = ability;
+			}
 			break;
 		}
 		case DroneNet::Message::AbilitySpawn:
@@ -491,6 +523,9 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
 			Ability ability;
 			serialize_enum(p, Ability, ability);
+
+			if (!drone)
+				break;
 
 			Vec3 dir_normalized;
 			{
@@ -792,7 +827,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				case Ability::ActiveArmor:
 				{
-					drone->invincible_timer = vi_max(drone->invincible_timer, ACTIVE_ARMOR_TIME);
+					if (drone)
+						drone->invincible_timer = vi_max(drone->invincible_timer, ACTIVE_ARMOR_TIME);
 					break;
 				}
 				default:
@@ -803,7 +839,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			}
 
 			if (!info.rapid_fire)
-				drone->current_ability = Ability::None;
+				drone->ability(Ability::None);
 			drone->ability_spawned.fire(ability);
 			break;
 		}
@@ -1381,6 +1417,12 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	}
 }
 
+void Drone::ability(Ability a)
+{
+	if (a != current_ability)
+		DroneNet::ability_select(this, a);
+}
+
 void Drone::cooldown_setup()
 {
 	if (Game::level.local)
@@ -1485,7 +1527,7 @@ b8 Drone::go(const Vec3& dir)
 	{
 		Ability a = current_ability;
 		if (AbilityInfo::list[s32(a)].type == AbilityInfo::Type::Other)
-			current_ability = Ability::None;
+			ability(Ability::None);
 
 		if (!get<PlayerCommon>()->manager.ref()->ability_valid(a))
 			return false;
@@ -1962,7 +2004,7 @@ void Drone::stealth(Entity* e, b8 enable)
 		else
 		{
 			e->get<AIAgent>()->stealth = false;
-			if (e->get<Drone>()->state() == State::Crawl)
+			if (!e->has<Drone>() || e->get<Drone>()->state() == State::Crawl)
 				e->get<SkinnedModel>()->alpha_if_obstructing();
 			else
 				e->get<SkinnedModel>()->alpha_disable();
@@ -2060,6 +2102,8 @@ void Drone::update_server(const Update& u)
 void Drone::update_shield_view(const Update& u, Entity* e, View* shield, View* overshield, r32 shield_time)
 {
 	s8 shield_value = e->get<Health>()->shield;
+	if (e->has<Drone>() && e->get<Drone>()->current_ability == Ability::Sniper)
+		shield_value = 0;
 	if (shield_value > 0 || u.time.total - shield_time < DRONE_SHIELD_ANIM_TIME)
 	{
 		if (e->get<AIAgent>()->stealth)
@@ -2540,7 +2584,7 @@ r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 					do_reflect = hit_target(hit.entity.ref())
 						&& s != State::Crawl
 						&& (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()) // will they still be alive after we hit them? if so, reflect
-							|| (hit.entity.ref()->get<Drone>()->state() != State::Crawl || hit.entity.ref()->get<Drone>()->invincible_timer > 0.0f));
+							|| (hit.entity.ref()->has<Drone>() && (hit.entity.ref()->get<Drone>()->state() != State::Crawl || hit.entity.ref()->get<Drone>()->invincible_timer > 0.0f)));
 				}
 				else
 				{

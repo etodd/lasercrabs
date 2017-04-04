@@ -40,7 +40,7 @@ dtPolyRef get_poly(const Vec3& pos, const r32* search_extents)
 {
 	dtPolyRef result;
 
-	nav_mesh_query->findNearestPoly((r32*)&pos, search_extents, &default_query_filter, &result, 0);
+	nav_mesh_query->findNearestPoly((r32*)(&pos), search_extents, &default_query_filter, &result, 0);
 
 	return result;
 }

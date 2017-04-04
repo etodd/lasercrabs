@@ -140,6 +140,7 @@ struct Drone : public ComponentType<Drone>
 
 	b8 net_state_frame(Net::StateFrame*) const;
 
+	void ability(Ability);
 	void cooldown_setup();
 	State state() const;
 	b8 dash_start(const Vec3&);

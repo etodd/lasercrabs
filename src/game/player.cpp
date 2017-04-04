@@ -351,6 +351,7 @@ struct Message
 		UpgradeStart,
 		CaptureStart,
 		CaptureCancel,
+		AbilitySelect,
 		count,
 	};
 
@@ -367,9 +368,9 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 	serialize_enum(p, Message::Type, msg->type);
 
 	// position/dir
-	if (msg->type != Message::Type::UpgradeStart
-		&& msg->type != Message::Type::CaptureStart
-		&& msg->type != Message::Type::CaptureCancel)
+	if (msg->type == Message::Type::Dash
+		|| msg->type == Message::Type::Go
+		|| msg->type == Message::Type::Reflect)
 	{
 		serialize_position(p, &msg->pos, Net::Resolution::High);
 		serialize_r32_range(p, msg->dir.x, -1.0f, 1.0f, 16);
@@ -378,7 +379,8 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 	}
 
 	// ability
-	if (msg->type == Message::Type::Go)
+	if (msg->type == Message::Type::Go
+		|| msg->type == Message::Type::AbilitySelect)
 	{
 		b8 has_ability;
 		if (Stream::IsWriting)
@@ -428,7 +430,7 @@ void PlayerHuman::show_upgrade_menu()
 	upgrade_animation_time = Game::real_time.total;
 	Entity* instance = get<PlayerManager>()->instance.ref();
 	if (instance)
-		instance->get<Drone>()->current_ability = Ability::None;
+		instance->get<Drone>()->ability(Ability::None);
 }
 
 void PlayerHuman::update(const Update& u)
@@ -1769,6 +1771,12 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 				c->get<Drone>()->handle_remote_reflection(msg.entity.ref(), msg.pos, msg.dir);
 			break;
 		}
+		case PlayerControlHumanNet::Message::Type::AbilitySelect:
+		{
+			if (msg.ability == Ability::None || c->get<PlayerCommon>()->manager.ref()->has_upgrade(Upgrade(msg.ability)))
+				c->get<Drone>()->ability(msg.ability);
+			break;
+		}
 		default:
 		{
 			vi_assert(false);
@@ -1809,15 +1817,21 @@ void PlayerControlHuman::drone_done_flying_or_dashing()
 #endif
 }
 
-void ability_select(Drone* drone, Ability a)
+void ability_select(PlayerControlHuman* control, Ability a)
 {
 	vi_assert(AbilityInfo::list[s32(a)].type != AbilityInfo::Type::Other);
-	drone->current_ability = a;
+	PlayerControlHumanNet::Message msg;
+	msg.type = PlayerControlHumanNet::Message::Type::AbilitySelect;
+	msg.ability = a;
+	PlayerControlHumanNet::send(control, &msg);
 }
 
-void ability_cancel(Drone* drone)
+void ability_cancel(PlayerControlHuman* control)
 {
-	drone->current_ability = Ability::None;
+	PlayerControlHumanNet::Message msg;
+	msg.type = PlayerControlHumanNet::Message::Type::AbilitySelect;
+	msg.ability = Ability::None;
+	PlayerControlHumanNet::send(control, &msg);
 }
 
 void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerControlHuman::TargetIndicator::Type type)
@@ -1963,16 +1977,9 @@ void player_ability_update(const Update& u, PlayerControlHuman* control, Control
 		else
 		{
 			if (drone->current_ability == ability)
-			{
-				// cancel current spawn ability
-				ability_cancel(drone);
-			}
+				ability_cancel(control); // cancel current spawn ability
 			else
-			{
-				if (drone->current_ability != Ability::None)
-					ability_cancel(drone);
-				ability_select(drone, ability);
-			}
+				ability_select(control, ability);
 		}
 	}
 }

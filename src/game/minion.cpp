@@ -28,7 +28,7 @@
 #define MINION_HEARING_RANGE 7.0f
 #define MINION_VISION_RANGE 20.0f
 #define MINION_MELEE_RANGE 2.5f
-#define HEALTH 3
+#define HEALTH 5
 #define PATH_RECALC_TIME 1.0f
 #define TARGET_SCAN_TIME 0.5f
 
@@ -81,9 +81,12 @@ void Minion::awake()
 	link<&Minion::footstep>(animator->trigger(Asset::Animation::character_walk, 0.5f));
 	link<&Minion::melee_damage>(animator->trigger(Asset::Animation::character_melee, 0.875f));
 
-	path_request = PathRequest::PointQuery;
-	auto callback = ObjectLinkEntryArg<Minion, const Vec3&, &Minion::set_patrol_point>(id());
-	AI::closest_walk_point(get<Transform>()->absolute_pos(), callback);
+	if (Game::level.local)
+	{
+		path_request = PathRequest::PointQuery;
+		auto callback = ObjectLinkEntryArg<Minion, const Vec3&, &Minion::set_patrol_point>(id());
+		AI::closest_walk_point(get<Transform>()->absolute_pos(), callback);
+	}
 }
 
 void Minion::team(AI::Team t)
@@ -296,6 +299,26 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 		}
 	}
 
+	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+	{
+		Turret* turret = i.item();
+		if (turret->team != team)
+		{
+			Vec3 item_pos = turret->get<Transform>()->absolute_pos();
+			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
+				continue;
+			if (me->can_see(turret->entity()))
+				return turret->entity();
+			Vec3 to_turret = turret->get<Transform>()->absolute_pos() - pos;
+			r32 total_distance = to_turret.length_squared() + (to_turret.dot(direction) < 0.0f ? direction_cost : 0.0f);
+			if (total_distance < closest_distance)
+			{
+				closest = turret->entity();
+				closest_distance = total_distance;
+			}
+		}
+	}
+
 	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 	{
 		Rocket* rocket = i.item();
@@ -368,6 +391,16 @@ Entity* visible_target(Minion* me, AI::Team team)
 		{
 			if (me->can_see(minion->entity()))
 				return minion->entity();
+		}
+	}
+
+	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+	{
+		Turret* turret = i.item();
+		if (turret->team != team)
+		{
+			if (me->can_see(turret->entity()))
+				return turret->entity();
 		}
 	}
 
@@ -623,7 +656,7 @@ void Minion::fire(const Vec3& target)
 {
 	vi_assert(Game::level.local);
 	Vec3 hand = hand_pos();
-	Net::finalize(World::create<ProjectileEntity>(owner.ref(), hand, target - hand));
+	Net::finalize(World::create<ProjectileEntity>(get<AIAgent>()->team, owner.ref(), hand, target - hand));
 
 	Animator::Layer* layer = &get<Animator>()->layers[0];
 	layer->speed = 1.0f;
@@ -775,13 +808,15 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 
 	if (distance_squared < MINION_VISION_RANGE * MINION_VISION_RANGE)
 	{
-		if (!limit_vision_cone || Vec3::normalize(diff).dot(get<Walker>()->forward()) > 0.707f)
+		r32 distance = diff.length();
+		Vec3 dir = diff / distance;
+		if (!limit_vision_cone || dir.dot(get<Walker>()->forward()) > 0.707f)
 		{
 			if (!target->has<Parkour>() || fabsf(diff.y) < MINION_HEARING_RANGE)
 			{
 				btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
 				Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionElectric | CollisionAllTeamsForceField) & ~Team::force_field_mask(get<AIAgent>()->team));
-				if (!ray_callback.hasHit())
+				if (!ray_callback.hasHit() || target == &Entity::list[ray_callback.m_collisionObject->getUserIndex()])
 					return true;
 			}
 		}

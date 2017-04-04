@@ -54,7 +54,7 @@ void Walker::awake()
 
 Walker::~Walker()
 {
-	if (obstacle_id != (u32)-1)
+	if (obstacle_id != u32(-1))
 		AI::obstacle_remove(obstacle_id);
 }
 

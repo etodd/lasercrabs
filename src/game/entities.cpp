@@ -1288,6 +1288,161 @@ void Decoy::destroy()
 	World::remove_deferred(entity());
 }
 
+#define TURRET_TARGET_CHECK_TIME 0.5f
+#define TURRET_ROTATION_SPEED ((PI * 0.5f) / 0.75f)
+TurretEntity::TurretEntity(AI::Team team)
+{
+	create<Transform>();
+
+	View* view = create<View>();
+	view->mesh = Asset::Mesh::turret;
+	view->shader = Asset::Shader::standard;
+	view->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
+	view->team = u8(team);
+	
+	create<Turret>()->team = team;
+
+	create<Target>()->local_offset = Vec3(0, 0, TURRET_HEIGHT - 0.25f);
+
+	create<Health>(10, 10);
+
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::turret);
+	body->set_restitution(0.75f);
+
+	PointLight* light = create<PointLight>();
+	light->team = u8(team);
+	light->type = PointLight::Type::Normal;
+	light->radius = TURRET_VIEW_RANGE * 0.5f;
+	light->offset = Vec3(0, 0, TURRET_HEIGHT);
+}
+
+void Turret::awake()
+{
+	target_check_time = mersenne::randf_oo() * TURRET_TARGET_CHECK_TIME;
+	link_arg<Entity*, &Turret::killed>(get<Health>()->killed);
+	obstacle_id = AI::obstacle_add(get<Transform>()->to_world(Vec3(0, TURRET_HEIGHT * -0.5f, 0)), TURRET_RADIUS, TURRET_HEIGHT);
+}
+
+void Turret::killed(Entity* by)
+{
+	if (Game::level.local)
+		World::remove_deferred(entity());
+}
+
+b8 Turret::can_see(Entity* target) const
+{
+	if (target->has<AIAgent>() && target->get<AIAgent>()->stealth)
+		return false;
+
+	Vec3 pos = get<Transform>()->absolute_pos();
+
+	Vec3 target_pos = target->get<Transform>()->absolute_pos();
+	Vec3 to_target = target_pos - pos;
+	float distance_to_target = to_target.length();
+	if (distance_to_target < TURRET_VIEW_RANGE)
+	{
+		Vec3 to_target_normalized = to_target / distance_to_target;
+		if (to_target_normalized.y > -0.75f)
+		{
+			RaycastCallbackExcept ray_callback(pos, target_pos, entity());
+			Physics::raycast(&ray_callback);
+			if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == target->id())
+				return true;
+		}
+	}
+	return false;
+}
+
+s32 turret_priority(Entity* e)
+{
+	if (e->has<Minion>())
+		return 2;
+	else
+		return 1;
+}
+
+void Turret::check_target()
+{
+	target_check_time = TURRET_TARGET_CHECK_TIME;
+
+	// if we are targeting an enemy
+	// make sure we still want to do that
+	if (target.ref() && can_see(target.ref()))
+		return;
+
+	// find a new target
+	target = nullptr;
+
+	r32 target_priority = 0;
+	for (auto i = AIAgent::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team != team && can_see(i.item()->entity()))
+		{
+			r32 candidate_priority = turret_priority(i.item()->entity());
+			if (candidate_priority > target_priority)
+			{
+				target = i.item()->entity();
+				target_priority = candidate_priority;
+			}
+		}
+	}
+}
+
+void Turret::update_server(const Update& u)
+{
+	if (cooldown > 0.0f)
+		cooldown -= u.time.delta;
+
+	target_check_time -= u.time.delta;
+	if (target_check_time < 0.0f)
+		check_target();
+
+	if (target.ref() && cooldown <= 0.0f)
+	{
+		Vec3 gun_pos = tip();
+		Vec3 aim_pos;
+		if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, PROJECTILE_SPEED, nullptr, &aim_pos))
+			aim_pos = target.ref()->get<Transform>()->absolute_pos();
+		Net::finalize(World::create<ProjectileEntity>(team, nullptr, gun_pos, aim_pos - gun_pos));
+		cooldown += TURRET_COOLDOWN;
+	}
+}
+
+Vec3 Turret::tip() const
+{
+	return get<Transform>()->to_world(Vec3(0, 0, TURRET_HEIGHT));
+}
+
+r32 Turret::particle_accumulator;
+void Turret::update_client_all(const Update& u)
+{
+	const r32 interval = 0.1f;
+	particle_accumulator += u.time.delta;
+	while (particle_accumulator > interval)
+	{
+		particle_accumulator -= interval;
+		for (auto i = list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->cooldown > 0.0f)
+			{
+				// spawn particle effect
+				Vec3 offset = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1.0f);
+				Particles::fast_tracers.add
+				(
+					i.item()->tip() + offset,
+					offset * -3.5f,
+					0
+				);
+			}
+		}
+	}
+}
+
+Turret::~Turret()
+{
+	AI::obstacle_remove(obstacle_id);
+}
+
 // returns true if the given position is inside an enemy force field
 ForceField* ForceField::inside(AI::TeamMask mask, const Vec3& pos)
 {
@@ -1473,7 +1628,8 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 #define PROJECTILE_THICKNESS 0.05f
 #define PROJECTILE_MAX_LIFETIME 10.0f
 #define PROJECTILE_DAMAGE 1
-ProjectileEntity::ProjectileEntity(PlayerManager* owner, const Vec3& abs_pos, const Vec3& velocity)
+#define PROJECTILE_DRONE_DAMAGE 2
+ProjectileEntity::ProjectileEntity(AI::Team team, PlayerManager* owner, const Vec3& abs_pos, const Vec3& velocity)
 {
 	Vec3 dir = Vec3::normalize(velocity);
 	Transform* transform = create<Transform>();
@@ -1487,6 +1643,7 @@ ProjectileEntity::ProjectileEntity(PlayerManager* owner, const Vec3& abs_pos, co
 	create<Audio>();
 
 	Projectile* p = create<Projectile>();
+	p->team = team;
 	p->owner = owner;
 	p->velocity = dir * PROJECTILE_SPEED;
 }
@@ -1494,11 +1651,6 @@ ProjectileEntity::ProjectileEntity(PlayerManager* owner, const Vec3& abs_pos, co
 void Projectile::awake()
 {
 	get<Audio>()->post_event(AK::EVENTS::PLAY_LASER);
-}
-
-AI::Team Projectile::team() const
-{
-	return owner.ref() ? owner.ref()->team.ref()->team() : AI::TeamNone;
 }
 
 void Projectile::update(const Update& u)
@@ -1515,7 +1667,7 @@ void Projectile::update(const Update& u)
 	btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * PROJECTILE_LENGTH);
 
 	// if we have an owner, we can go through their team's force fields. otherwise, collide with everything.
-	Physics::raycast(&ray_callback, raycast_mask(team()));
+	Physics::raycast(&ray_callback, raycast_mask(team));
 	if (ray_callback.hasHit())
 		hit_entity(&Entity::list[ray_callback.m_collisionObject->getUserIndex()], ray_callback.m_hitPointWorld, ray_callback.m_hitNormalWorld);
 	else
@@ -1529,40 +1681,38 @@ s16 Projectile::raycast_mask(AI::Team team)
 
 void Projectile::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 {
-	if (!owner.ref() || hit_object != owner.ref()->instance.ref())
+	Vec3 basis;
+	if (hit_object->has<Health>())
 	{
-		Entity* owner_instance = owner.ref() ? owner.ref()->instance.ref() : nullptr;
-		Vec3 basis;
-		if (hit_object->has<Health>())
+		basis = Vec3::normalize(velocity);
+		s8 damage = PROJECTILE_DAMAGE;
+		if (hit_object->has<Parkour>()) // player is invincible while rolling and sliding
 		{
-			basis = Vec3::normalize(velocity);
-			b8 do_damage = true;
-			if (hit_object->has<Parkour>()) // player is invincible while rolling and sliding
-			{
-				Parkour::State state = hit_object->get<Parkour>()->fsm.current;
-				if (state == Parkour::State::Roll || state == Parkour::State::Slide)
-					do_damage = false;
-			}
-			if (hit_object->has<Drone>()) // player is invincible while flying or dashing, and just after spawning
-			{
-				if (hit_object->get<Drone>()->state() != Drone::State::Crawl || hit_object->get<Drone>()->invincible_timer > 0.0f)
-					do_damage = false;
-			}
-			if (do_damage)
-				hit_object->get<Health>()->damage(owner_instance, PROJECTILE_DAMAGE);
-			if (hit_object->has<RigidBody>())
-			{
-				RigidBody* body = hit_object->get<RigidBody>();
-				body->btBody->applyImpulse(velocity * 0.1f, Vec3::zero);
-				body->btBody->activate(true);
-			}
+			Parkour::State state = hit_object->get<Parkour>()->fsm.current;
+			if (state == Parkour::State::Roll || state == Parkour::State::Slide)
+				damage = 0;
 		}
-		else
-			basis = normal;
-
-		ParticleEffect::spawn(ParticleEffect::Type::Impact, hit, Quat::look(basis));
-		World::remove(entity());
+		if (hit_object->has<Drone>()) // player is invincible while flying or dashing, and just after spawning
+		{
+			if (hit_object->get<Drone>()->state() == Drone::State::Crawl && hit_object->get<Drone>()->invincible_timer == 0.0f)
+				damage = PROJECTILE_DRONE_DAMAGE;
+			else
+				damage = 0;
+		}
+		if (damage > 0)
+			hit_object->get<Health>()->damage(entity(), damage);
+		if (hit_object->has<RigidBody>())
+		{
+			RigidBody* body = hit_object->get<RigidBody>();
+			body->btBody->applyImpulse(velocity * 0.1f, Vec3::zero);
+			body->btBody->activate(true);
+		}
 	}
+	else
+		basis = normal;
+
+	ParticleEffect::spawn(ParticleEffect::Type::Impact, hit, Quat::look(basis));
+	World::remove(entity());
 }
 
 b8 ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot)

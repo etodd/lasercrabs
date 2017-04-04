@@ -800,7 +800,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 									break;
 							}
 
-							Entity* bolt = World::create<ProjectileEntity>(manager, pos_bolt, dir_normalized);
+							Entity* bolt = World::create<ProjectileEntity>(manager->team.ref()->team(), manager, pos_bolt, dir_normalized);
 							Net::finalize(bolt);
 							if (closest_hit_entity) // we hit something, register it instantly
 								bolt->get<Projectile>()->hit_entity(closest_hit_entity, closest_hit, closest_hit_normal);
@@ -808,7 +808,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						else
 						{
 							// not a remote player; no lag compensation needed
-							Net::finalize(World::create<ProjectileEntity>(manager, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
+							Net::finalize(World::create<ProjectileEntity>(manager->team.ref()->team(), manager, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
 						}
 					}
 					else

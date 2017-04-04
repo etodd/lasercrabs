@@ -577,7 +577,7 @@ void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 	}
 	else if (e->has<Projectile>())
 	{
-		_team = e->get<Projectile>()->team();
+		_team = e->get<Projectile>()->team;
 		_type = _team == query_team ? RecordedLife::EntityProjectileFriend : RecordedLife::EntityProjectileEnemy;
 	}
 	else if (e->has<Grenade>())

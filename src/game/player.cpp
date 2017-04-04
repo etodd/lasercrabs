@@ -3222,7 +3222,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	}
 
 	b8 enemy_visible = false;
-	b8 enemy_drone_visible = false;
+	b8 enemy_dangerous_visible = false; // an especially dangerous enemy is visible
 
 	{
 		Vec3 me = get<Transform>()->absolute_pos();
@@ -3256,6 +3256,35 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			}
 		}
 
+		// turret cooldown bars
+		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+		{
+			Vec3 turret_pos = i.item()->tip();
+			if ((turret_pos - me).length_squared() < range * range)
+			{
+				if (i.item()->cooldown > 0.0f)
+				{
+					Vec2 p;
+					if (UI::is_onscreen(params, turret_pos, &p) || i.item()->team != team)
+					{
+						Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
+						Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+						UI::box(params, bar, UI::color_background);
+						const Vec4& color = Team::ui_color(team, i.item()->team);
+						UI::border(params, bar, 2, color);
+						UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (i.item()->cooldown / TURRET_COOLDOWN)), bar.size.y) }, color);
+					}
+				}
+
+				if (i.item()->target.ref() == entity())
+				{
+					if (UI::flash_function(Game::time.total))
+						UI::indicator(params, turret_pos, Team::ui_color_enemy, true);
+					enemy_dangerous_visible = true;
+				}
+			}
+		}
+
 		// force field battery bars
 		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 		{
@@ -3274,51 +3303,20 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				}
 			}
 		}
-	}
 
-	// highlight enemy rockets
-	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->target.ref() == entity())
+		// highlight enemy rockets
+		for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 		{
-			enemy_visible = true;
-
-			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-			UI::indicator(params, pos, Team::ui_color_enemy, true);
-
-			UIText text;
-			text.color = Team::ui_color_enemy;
-			text.text(player.ref()->gamepad, _(strings::rocket_incoming));
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			text.size = text_size;
-			Vec2 p;
-			UI::is_onscreen(params, pos, &p);
-			p.y += text_size * 2.0f * UI::scale;
-			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
-			if (UI::flash_function(Game::real_time.total))
-				text.draw(params, p);
-		}
-	}
-
-	Vec3 me = get<Transform>()->absolute_pos();
-
-	// highlight enemy grenades in-air
-	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->team() != team
-			&& !i.item()->get<Transform>()->parent.ref())
-		{
-			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-			if ((me - pos).length_squared() < DRONE_MAX_DISTANCE * DRONE_MAX_DISTANCE)
+			if (i.item()->target.ref() == entity())
 			{
 				enemy_visible = true;
 
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 				UI::indicator(params, pos, Team::ui_color_enemy, true);
 
 				UIText text;
-				text.color = Team::ui_color(team, i.item()->team());
-				text.text(player.ref()->gamepad, _(strings::grenade_incoming));
+				text.color = Team::ui_color_enemy;
+				text.text(player.ref()->gamepad, _(strings::rocket_incoming));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
 				text.size = text_size;
@@ -3330,19 +3328,48 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					text.draw(params, p);
 			}
 		}
-	}
 
-	// highlight incoming projectiles
-	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
-	{
-		Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-		Vec3 diff = me - pos;
-		r32 distance = diff.length();
-		if (distance < DRONE_MAX_DISTANCE
-			&& (diff / distance).dot(Vec3::normalize(i.item()->velocity)) > 0.7f)
+		// highlight enemy grenades in-air
+		for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 		{
-			if (UI::flash_function(Game::real_time.total))
-				UI::indicator(params, pos, Team::ui_color_enemy, true);
+			if (i.item()->team() != team
+				&& !i.item()->get<Transform>()->parent.ref())
+			{
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+				if ((me - pos).length_squared() < DRONE_MAX_DISTANCE * DRONE_MAX_DISTANCE)
+				{
+					enemy_visible = true;
+
+					UI::indicator(params, pos, Team::ui_color_enemy, true);
+
+					UIText text;
+					text.color = Team::ui_color(team, i.item()->team());
+					text.text(player.ref()->gamepad, _(strings::grenade_incoming));
+					text.anchor_x = UIText::Anchor::Center;
+					text.anchor_y = UIText::Anchor::Center;
+					text.size = text_size;
+					Vec2 p;
+					UI::is_onscreen(params, pos, &p);
+					p.y += text_size * 2.0f * UI::scale;
+					UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
+					if (UI::flash_function(Game::real_time.total))
+						text.draw(params, p);
+				}
+			}
+		}
+
+		// highlight incoming projectiles
+		for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+		{
+			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+			Vec3 diff = me - pos;
+			r32 distance = diff.length();
+			if (distance < DRONE_MAX_DISTANCE
+				&& (diff / distance).dot(Vec3::normalize(i.item()->velocity)) > 0.7f)
+			{
+				if (UI::flash_function(Game::real_time.total))
+					UI::indicator(params, pos, Team::ui_color_enemy, true);
+			}
 		}
 	}
 
@@ -3432,7 +3459,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			player.ref()->sudoku.draw(params, player.ref()->gamepad);
 		else
 		{
-			Interactable* closest_interactable = Interactable::closest(me);
+			Interactable* closest_interactable = Interactable::closest(get<Transform>()->absolute_pos());
 
 			if (closest_interactable || get<Animator>()->layers[3].animation == Asset::Animation::character_pickup)
 			{
@@ -3588,7 +3615,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (visible && !friendly)
 			{
 				enemy_visible = true;
-				enemy_drone_visible = true;
+				enemy_dangerous_visible = true;
 			}
 
 			b8 draw;
@@ -3673,7 +3700,8 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	{
 		// danger indicator
 
-		b8 danger = enemy_visible && (enemy_drone_visible || is_vulnerable) && !get<AIAgent>()->stealth;
+		b8 danger = enemy_visible && (enemy_dangerous_visible || is_vulnerable) && !get<AIAgent>()->stealth;
+
 		if (danger)
 		{
 			UIText text;

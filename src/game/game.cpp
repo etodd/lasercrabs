@@ -470,6 +470,8 @@ void Game::update(const Update& update_in)
 				}
 			}
 
+			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+				i.item()->update_server(u);
 			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
@@ -486,6 +488,7 @@ void Game::update(const Update& update_in)
 				i.item()->update(u);
 		}
 
+		Turret::update_client_all(u);
 		Minion::update_client_all(u);
 		Grenade::update_client_all(u);
 		Rocket::update_client_all(u);
@@ -1391,6 +1394,9 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 	}
 
+	// default team index for minions and other items that spawn in the level
+	s32 default_team_index = (save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) ? 0 : 1;
+
 	cJSON* element = json->child;
 	while (element)
 	{
@@ -1573,12 +1579,16 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			rope->max_distance = Json::get_r32(element, "max_distance", 20.0f);
 			rope->attach_end = b8(Json::get_s32(element, "attach_end", 0));
 		}
+		else if (cJSON_HasObjectItem(element, "Turret"))
+		{
+			AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
+			entity = World::alloc<TurretEntity>(team);
+		}
 		else if (cJSON_HasObjectItem(element, "Minion"))
 		{
 			if (session.type == SessionType::Story)
 			{
 				// starts out owned by player if the zone is friendly
-				s32 default_team_index = (save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) ? 0 : 1;
 				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
 				entity = World::alloc<MinionEntity>(absolute_pos, absolute_rot, team);
 			}

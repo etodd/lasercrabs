@@ -209,6 +209,34 @@ struct DecoyEntity : public Entity
 	DecoyEntity(PlayerManager*, Transform*, const Vec3&, const Quat&);
 };
 
+struct TurretEntity : public Entity
+{
+	TurretEntity(AI::Team);
+};
+
+struct Turret : public ComponentType<Turret>
+{
+	static r32 particle_accumulator;
+
+	static void update_client_all(const Update&);
+
+	r32 cooldown;
+	r32 target_check_time;
+	u32 obstacle_id;
+	Ref<Entity> target;
+	AI::Team team;
+
+	void awake();
+
+	Vec3 tip() const;
+	void killed(Entity*);
+	void update_server(const Update&);
+	void check_target();
+	b8 can_see(Entity*) const;
+
+	~Turret();
+};
+
 struct ForceField : public ComponentType<ForceField>
 {
 	static r32 particle_accumulator;
@@ -314,7 +342,7 @@ struct Rope : public ComponentType<Rope>
 
 struct ProjectileEntity : public Entity
 {
-	ProjectileEntity(PlayerManager*, const Vec3&, const Vec3&);
+	ProjectileEntity(AI::Team, PlayerManager*, const Vec3&, const Vec3&);
 };
 
 struct Projectile : public ComponentType<Projectile>
@@ -324,10 +352,10 @@ struct Projectile : public ComponentType<Projectile>
 	Vec3 velocity;
 	r32 lifetime;
 	Ref<PlayerManager> owner;
+	AI::Team team;
 
 	void awake();
 
-	AI::Team team() const;
 	void update(const Update&);
 	void hit_entity(Entity*, const Vec3&, const Vec3&);
 };

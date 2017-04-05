@@ -1420,7 +1420,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		{
 			// World is guaranteed to be the first element in the entity list
 
-			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
+			level.feature_level = FeatureLevel(Json::get_s32(element, "feature_level", s32(FeatureLevel::All)));
 
 			level.rain = Json::get_r32(element, "rain");
 
@@ -1687,7 +1687,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "Battery") || cJSON_HasObjectItem(element, "EnergyPickup"))
 		{
-			if (level.has_feature(FeatureLevel::Batterys))
+			if (level.has_feature(FeatureLevel::Batteries))
 			{
 				AI::Team team;
 				if (session.type == SessionType::Story)
@@ -1701,7 +1701,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
 				}
 				else
-					team = AI::TeamNone;
+					team = AI::Team(0);
 				entity = World::alloc<BatteryEntity>(absolute_pos, team);
 
 				absolute_rot = Quat::identity;

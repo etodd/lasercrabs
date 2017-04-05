@@ -142,10 +142,10 @@ void update(const Update& u)
 
 b8 match(Team t, TeamMask m)
 {
-	if (t == TeamNone)
-		return m == TeamNone;
+	if (m == TeamNone)
+		return t == TeamNone;
 	else
-		return m & (1 << t);
+		return t != TeamNone && (m & (1 << t));
 }
 
 u32 obstacle_add(const Vec3& pos, r32 radius, r32 height)

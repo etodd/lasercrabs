@@ -799,7 +799,7 @@ namespace tutorial
 				{
 					data->state = TutorialState::Start;
 					Actor::tut(strings::tut_start);
-					Game::level.feature_level = Game::FeatureLevel::Batterys;
+					Game::level.feature_level = Game::FeatureLevel::Batteries;
 				}
 			}
 			else
@@ -913,7 +913,7 @@ namespace tutorial
 		else
 			data->state = TutorialState::ParkourStart;
 
-		Game::level.feature_level = Game::FeatureLevel::Batterys;
+		Game::level.feature_level = Game::FeatureLevel::Batteries;
 
 		Game::updates.add(&update);
 		Game::cleanups.add(&cleanup);

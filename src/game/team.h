@@ -190,6 +190,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	b8 upgrade_start(Upgrade);
 	void upgrade_cancel();
 	void upgrade_complete();
+	Upgrade upgrade_highest_owned_or_available() const;
 	b8 capture_start();
 	void capture_cancel();
 	void capture_complete();

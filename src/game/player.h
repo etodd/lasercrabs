@@ -63,6 +63,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	r32 angle_vertical;
 	s32 spectate_index;
 	r32 rumble;
+	Upgrade upgrade_last_visit_highest_available;
 	Menu::State menu_state;
 	Sudoku sudoku;
 	s8 gamepad;
@@ -81,7 +82,8 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void msg(const char*, b8);
 	void rumble_add(r32);
 	UIMode ui_mode() const;
-	void show_upgrade_menu();
+	void upgrade_menu_show();
+	void upgrade_menu_hide();
 	void update(const Update&);
 	void update_late(const Update&);
 	void update_camera_rotation(const Update&);

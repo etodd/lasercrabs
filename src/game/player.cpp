@@ -155,6 +155,7 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	rumble(),
 	upgrade_menu_open(),
 	upgrade_animation_time(),
+	upgrade_last_visit_highest_available(Upgrade::None),
 	score_summary_scroll(),
 	spectate_index(),
 	try_capture(),
@@ -423,7 +424,7 @@ b8 send(PlayerControlHuman* c, Message* msg)
 
 }
 
-void PlayerHuman::show_upgrade_menu()
+void PlayerHuman::upgrade_menu_show()
 {
 	upgrade_menu_open = true;
 	menu.animate();
@@ -431,6 +432,13 @@ void PlayerHuman::show_upgrade_menu()
 	Entity* instance = get<PlayerManager>()->instance.ref();
 	if (instance)
 		instance->get<Drone>()->ability(Ability::None);
+}
+
+void PlayerHuman::upgrade_menu_hide()
+{
+	if (upgrade_menu_open)
+		upgrade_last_visit_highest_available = get<PlayerManager>()->upgrade_highest_owned_or_available();
+	upgrade_menu_open = false;
 }
 
 void PlayerHuman::update(const Update& u)
@@ -488,7 +496,7 @@ void PlayerHuman::update(const Update& u)
 		{
 			camera->range = 0;
 			camera->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour);
-			upgrade_menu_open = false;
+			upgrade_menu_hide();
 		}
 
 		Audio::listener_update(gamepad, camera->pos, camera->rot);
@@ -559,7 +567,7 @@ void PlayerHuman::update(const Update& u)
 			else if (get<PlayerManager>()->at_upgrade_point())
 			{
 				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
-					show_upgrade_menu();
+					upgrade_menu_show();
 			}
 			break;
 		}
@@ -575,7 +583,7 @@ void PlayerHuman::update(const Update& u)
 				&& !Game::cancel_event_eaten[gamepad])
 			{
 				Game::cancel_event_eaten[gamepad] = true;
-				upgrade_menu_open = false;
+				upgrade_menu_hide();
 			}
 			else
 			{
@@ -586,7 +594,7 @@ void PlayerHuman::update(const Update& u)
 				menu.start(u, gamepad);
 
 				if (menu.item(u, _(strings::close), nullptr, false, Asset::Mesh::icon_close))
-					upgrade_menu_open = false;
+					upgrade_menu_hide();
 
 				for (s32 i = 0; i < s32(Upgrade::count); i++)
 				{
@@ -1081,7 +1089,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	if (Game::ui_gamepad_types[gamepad] == Gamepad::Type::None) // left side
 		ui_anchor = vp.size * Vec2(0.1f, 0.1f) + Vec2(0, text_size * UI::scale * 0.5f);
 	else // right side
-		ui_anchor = vp.size * Vec2(0.9f, 0.1f) + Vec2(text_size * UI::scale * -11.0f, text_size * UI::scale * 0.5f);
+		ui_anchor = vp.size * Vec2(0.9f, 0.1f) + Vec2(text_size * UI::scale * -14.0f, text_size * UI::scale * 0.5f);
 
 	// draw abilities
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
@@ -1168,9 +1176,18 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		sprintf(buffer, "%d", get<PlayerManager>()->energy);
 		Vec2 p = ui_anchor + Vec2(battery_timer_width() + text_size * UI::scale, (text_size + 16.0f) * -UI::scale);
 		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_energy, buffer, UI::color_accent, text_size * 5 * UI::scale);
+
+		// battery counts
+		AI::Team my_team = get<PlayerManager>()->team.ref()->team();
 		p.x += text_size * 5 * UI::scale;
-		sprintf(buffer, "+%d", s32(get<PlayerManager>()->increment()));
-		draw_icon_text(params, gamepad, p, AssetNull, buffer, UI::color_accent, text_size * 3 * UI::scale);
+		sprintf(buffer, "%d", Battery::count(1 << s32(my_team)));
+		draw_icon_text(params, gamepad, p, AssetNull, buffer, Team::ui_color_friend, text_size * 1.5f * UI::scale);
+		p.x += text_size * 1.5f * UI::scale;
+		sprintf(buffer, "%d", Battery::count(AI::TeamNone));
+		draw_icon_text(params, gamepad, p, AssetNull, buffer, UI::color_accent, text_size * 1.5f * UI::scale);
+		p.x += text_size * 1.5f * UI::scale;
+		sprintf(buffer, "%d", Battery::count(~(1 << s32(my_team))));
+		draw_icon_text(params, gamepad, p, AssetNull, buffer, Team::ui_color_enemy, text_size * 1.5f * UI::scale);
 	}
 
 	if (mode == UIMode::PvpDefault)
@@ -3384,7 +3401,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		// highlight upgrade point if there is an upgrade available
 		if (Game::level.has_feature(Game::FeatureLevel::Abilities)
 			&& (Game::level.has_feature(Game::FeatureLevel::All) || Game::level.feature_level == Game::FeatureLevel::Abilities) // disable prompt in tutorial after ability has been purchased
-			&& manager->upgrade_available()
+			&& manager->upgrade_available() && manager->upgrade_highest_owned_or_available() != player.ref()->upgrade_last_visit_highest_available
 			&& !manager->at_upgrade_point())
 		{
 			Vec3 pos = manager->team.ref()->player_spawn.ref()->get<Transform>()->absolute_pos();

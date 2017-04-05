@@ -332,7 +332,7 @@ void update_visibility_sensor(Entity* visibility[][MAX_PLAYERS], PlayerManager* 
 	Vec3 normal = player_rot * Vec3(0, 0, 1);
 	for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
 	{
-		Entity** sensor_visibility = &visibility[player->id()][(s32)sensor.item()->team];
+		Entity** sensor_visibility = &visibility[player->id()][s32(sensor.item()->team)];
 		if (!(*sensor_visibility))
 		{
 			Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
@@ -911,7 +911,7 @@ PlayerSpawnPosition PlayerManager::spawn_position() const
 
 b8 PlayerManager::has_upgrade(Upgrade u) const
 {
-	return upgrades & (1 << (s32)u);
+	return upgrades & (1 << s32(u));
 }
 
 b8 PlayerManager::ability_valid(Ability ability) const
@@ -928,7 +928,7 @@ b8 PlayerManager::ability_valid(Ability ability) const
 	if (!has_upgrade(Upgrade(ability)))
 		return false;
 
-	const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+	const AbilityInfo& info = AbilityInfo::list[s32(ability)];
 	if (energy < info.spawn_cost)
 		return false;
 
@@ -1095,19 +1095,35 @@ void PlayerManager::capture_complete()
 s16 PlayerManager::upgrade_cost(Upgrade u) const
 {
 	vi_assert(u != Upgrade::None);
-	const UpgradeInfo& info = UpgradeInfo::list[(s32)u];
+	const UpgradeInfo& info = UpgradeInfo::list[s32(u)];
 	return info.cost;
+}
+
+Upgrade PlayerManager::upgrade_highest_owned_or_available() const
+{
+	s16 highest_cost = 0;
+	Upgrade highest_upgrade = Upgrade::None;
+	for (s32 i = 0; i < s32(Upgrade::count); i++)
+	{
+		s16 cost = upgrade_cost(Upgrade(i));
+		if (cost > highest_cost && energy >= cost && (upgrade_available(Upgrade(i)) || has_upgrade(Upgrade(i))))
+		{
+			highest_cost = cost;
+			highest_upgrade = Upgrade(i);
+		}
+	}
+	return highest_upgrade;
 }
 
 b8 PlayerManager::upgrade_available(Upgrade u) const
 {
 	if (u == Upgrade::None)
 	{
-		for (s32 i = 0; i < (s32)Upgrade::count; i++)
+		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{
-			if (!has_upgrade((Upgrade)i) && energy >= upgrade_cost((Upgrade)i))
+			if (!has_upgrade(Upgrade(i)) && energy >= upgrade_cost(Upgrade(i)))
 			{
-				if (i >= (s32)Ability::count || ability_count() < MAX_ABILITIES)
+				if (i >= s32(Ability::count) || ability_count() < MAX_ABILITIES)
 					return true; // either it's not an ability, or it is an ability and we have enough room for it
 			}
 		}
@@ -1217,7 +1233,7 @@ void PlayerManager::update_all(const Update& u)
 	if (Game::level.local)
 	{
 		if (Game::level.mode == Game::Mode::Pvp
-			&& Game::level.has_feature(Game::FeatureLevel::Batterys))
+			&& Game::level.has_feature(Game::FeatureLevel::Batteries))
 		{
 			for (auto i = list.iterator(); !i.is_last(); i.next())
 			{

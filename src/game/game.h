@@ -49,7 +49,7 @@ namespace VI
 		enum class FeatureLevel
 		{
 			Base,
-			Batterys,
+			Batteries,
 			Abilities,
 			AbilitiesDone,
 			TutorialAll,

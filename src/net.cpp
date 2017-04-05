@@ -467,7 +467,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		Turret* t = e->get<Turret>();
 		serialize_s8(p, t->team);
-		serialize_r32_range(p, t->cooldown, 0.0f, TURRET_COOLDOWN, 8);
 		serialize_ref(p, t->target);
 	}
 
@@ -1254,13 +1253,6 @@ template<typename Stream> b8 serialize_minion(Stream* p, MinionState* state, con
 	return true;
 }
 
-template<typename Stream> b8 serialize_turret(Stream* p, TurretState* state, const TurretState* base)
-{
-	serialize_ref(p, state->target);
-	serialize_r32_range(p, state->cooldown, 0, TURRET_COOLDOWN, 8);
-	return true;
-}
-
 template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerState* state, const PlayerManagerState* base)
 {
 	b8 b;
@@ -1385,24 +1377,6 @@ b8 equal_states_transform(const StateFrame* a, const StateFrame* b, s32 index)
 		}
 	}
 	return false;
-}
-
-b8 equal_states_turret(const StateFrame* frame_a, const StateFrame* frame_b, s32 index)
-{
-	if (frame_a && frame_b)
-	{
-		b8 a_active = frame_a->turrets_active.get(index);
-		b8 b_active = frame_b->turrets_active.get(index);
-		if (!a_active && !b_active)
-			return true;
-		const TurretState& a = frame_a->turrets[index];
-		const TurretState& b = frame_b->turrets[index];
-		return a_active == b_active
-			&& a.target.equals(b.target)
-			&& a.cooldown == 0.0f && b.cooldown == 0.0f;
-	}
-	else
-		return !frame_a && frame_b->turrets_active.get(index);
 }
 
 b8 equal_states_minion(const StateFrame* frame_a, const StateFrame* frame_b, s32 index)
@@ -1606,50 +1580,6 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 		}
 	}
 
-	// turrets
-	{
-		s32 changed_count;
-		if (Stream::IsWriting)
-		{
-			// count changed turrets
-			changed_count = 0;
-			s32 index = vi_min(s32(frame->turrets_active.start), base ? s32(base->turrets_active.start) : MAX_ENTITIES - 1);
-			while (index < vi_max(s32(frame->turrets_active.end), base ? s32(base->turrets_active.end) : 0))
-			{
-				if (!equal_states_turret(frame, base, index))
-					changed_count++;
-				index++;
-			}
-		}
-		serialize_int(p, s32, changed_count, 0, MAX_ENTITIES);
-
-		s32 index;
-		if (Stream::IsWriting)
-			index = vi_min(s32(frame->turrets_active.start), base ? s32(base->turrets_active.start) : MAX_ENTITIES - 1);
-		for (s32 i = 0; i < changed_count; i++)
-		{
-			if (Stream::IsWriting)
-			{
-				while (equal_states_turret(frame, base, index))
-					index++;
-			}
-
-			serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
-			b8 active;
-			if (Stream::IsWriting)
-				active = frame->turrets_active.get(index);
-			serialize_bool(p, active);
-			if (Stream::IsReading)
-				frame->turrets_active.set(index, active);
-			if (active)
-			{
-				if (!serialize_turret(p, &frame->turrets[index], base ? &base->turrets[index] : nullptr))
-					net_error();
-			}
-			index++;
-		}
-	}
-
 	return true;
 }
 
@@ -1717,15 +1647,6 @@ void state_frame_build(StateFrame* frame)
 		const Animator::Layer& layer = i.item()->get<Animator>()->layers[0];
 		minion->animation = layer.animation;
 		minion->animation_time = layer.time;
-	}
-
-	// turrets
-	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-	{
-		frame->turrets_active.set(i.index, true);
-		TurretState* turret = &frame->turrets[i.index];
-		turret->target = i.item()->target;
-		turret->cooldown = i.item()->cooldown;
 	}
 }
 
@@ -1866,26 +1787,6 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 			index = b.minions_active.next(index);
 		}
 	}
-
-	// turrets
-	{
-		result->turrets_active = b.turrets_active;
-		s32 index = s32(b.turrets_active.start);
-		while (index < b.turrets_active.end)
-		{
-			TurretState* turret = &result->turrets[index];
-			const TurretState& last = a.turrets[index];
-			const TurretState& next = b.turrets[index];
-
-			if (fabsf(next.cooldown - last.cooldown) < NET_TICK_RATE * 10.0f)
-				turret->cooldown = LMath::lerpf(blend, last.cooldown, next.cooldown);
-			else
-				turret->cooldown = next.cooldown;
-			turret->target = next.target;
-
-			index = b.minions_active.next(index);
-		}
-	}
 }
 
 void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, const StateFrame* frame_next)
@@ -1997,23 +1898,6 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			}
 
 			index = frame.minions_active.next(index);
-		}
-	}
-
-	// turrets
-	{
-		s32 index = frame.turrets_active.start;
-		while (index < frame.turrets_active.end)
-		{
-			Turret* m = &Turret::list[index];
-			const TurretState& s = frame.turrets[index];
-			if (Turret::list.active(index))
-			{
-				m->cooldown = s.cooldown;
-				m->target = s.target;
-			}
-
-			index = frame.turrets_active.next(index);
 		}
 	}
 }
@@ -4042,6 +3926,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Rocket:
 		{
 			if (!Rocket::net_msg(p, src))
+				net_error();
+			break;
+		}
+		case MessageType::Turret:
+		{
+			if (!Turret::net_msg(p, src))
 				net_error();
 			break;
 		}

@@ -1912,12 +1912,10 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 	}
 
 	// energy pickups
+	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 	{
-		for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->team != team)
-				player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Energy);
-		}
+		if (i.item()->team != team)
+			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Energy);
 	}
 
 	// sensors
@@ -1925,6 +1923,13 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 	{
 		if (i.item()->team != team)
 			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Sensor);
+	}
+
+	// turrets
+	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team != team)
+			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Turret);
 	}
 
 	// rockets
@@ -3210,6 +3215,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			case TargetIndicator::Type::Rocket:
 			case TargetIndicator::Type::ForceField:
 			case TargetIndicator::Type::Grenade:
+			case TargetIndicator::Type::Turret:
 			{
 				break;
 			}
@@ -3256,24 +3262,22 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			}
 		}
 
-		// turret cooldown bars
+		// turret health bars
 		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 		{
 			Vec3 turret_pos = i.item()->tip();
 			if ((turret_pos - me).length_squared() < range * range)
 			{
-				if (i.item()->cooldown > 0.0f)
+				Vec2 p;
+				if (UI::is_onscreen(params, turret_pos, &p) || i.item()->team != team)
 				{
-					Vec2 p;
-					if (UI::is_onscreen(params, turret_pos, &p) || i.item()->team != team)
-					{
-						Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
-						Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-						UI::box(params, bar, UI::color_background);
-						const Vec4& color = Team::ui_color(team, i.item()->team);
-						UI::border(params, bar, 2, color);
-						UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (i.item()->cooldown / TURRET_COOLDOWN)), bar.size.y) }, color);
-					}
+					Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
+					Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+					UI::box(params, bar, UI::color_background);
+					const Vec4& color = Team::ui_color(team, i.item()->team);
+					UI::border(params, bar, 2, color);
+					Health* health = i.item()->get<Health>();
+					UI::box(params, { bar.pos, Vec2(bar.size.x * (r32(health->hp) / r32(health->hp_max)), bar.size.y) }, color);
 				}
 
 				if (i.item()->target.ref() == entity())

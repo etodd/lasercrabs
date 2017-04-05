@@ -160,7 +160,7 @@ namespace AI
 	}
 
 	extern ComponentMask entity_mask;
-	void entity_info(Entity*, AI::Team, AI::Team*, s8*);
+	void entity_info(Entity*, AI::Team, AI::Team*, s8* = nullptr);
 
 	struct RecordedLife
 	{
@@ -260,6 +260,8 @@ namespace AI
 		static const s8 EntityControlPointLosingFirstHalf = 26;
 		static const s8 EntityControlPointLosingSecondHalf = 27;
 		static const s8 EntityControlPointRecapturingFirstHalf = 28;
+		static const s8 EntityTurretFriend = 29;
+		static const s8 EntityTurretEnemy = 30;
 
 		Array<Vec3> pos;
 		Array<Vec3> normal;

@@ -219,10 +219,10 @@ struct Turret : public ComponentType<Turret>
 	static r32 particle_accumulator;
 
 	static void update_client_all(const Update&);
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
 	r32 cooldown;
 	r32 target_check_time;
-	u32 obstacle_id;
 	Ref<Entity> target;
 	AI::Team team;
 
@@ -233,8 +233,7 @@ struct Turret : public ComponentType<Turret>
 	void update_server(const Update&);
 	void check_target();
 	b8 can_see(Entity*) const;
-
-	~Turret();
+	void hit_by(const TargetEvent&);
 };
 
 struct ForceField : public ComponentType<ForceField>

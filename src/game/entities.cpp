@@ -1047,15 +1047,8 @@ void Rocket::update_server(const Update& u)
 		}
 
 		// we're in flight
-		if (target.ref() && !target.ref()->get<AIAgent>()->stealth)
+		if (target.ref() && (!target.ref()->has<AIAgent>() || !target.ref()->get<AIAgent>()->stealth))
 		{
-			if (target.ref()->has<PlayerCommon>()) // we're locked on to the actual player; see if we need to switch to targeting a decoy
-			{
-				Entity* decoy = target.ref()->get<PlayerCommon>()->manager.ref()->decoy();
-				if (decoy)
-					target = decoy;
-			}
-
 			// aim toward target
 			Vec3 target_pos;
 			if (!target.ref()->get<Target>()->predict_intersection(get<Transform>()->pos, ROCKET_SPEED, nullptr, &target_pos))
@@ -1105,20 +1098,26 @@ void Rocket::update_server(const Update& u)
 		Vec3 next_pos = get<Transform>()->pos + velocity() * u.time.delta;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, next_pos + get<Transform>()->rot * Vec3(0, 0, 0.1f));
-		Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionDroneIgnore);
+		Physics::raycast(&ray_callback, ~Team::force_field_mask(team()) & ~CollisionTarget & ~CollisionDroneIgnore);
 		if (ray_callback.hasHit())
 		{
 			// we hit something
 			Entity* hit = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-			if (!hit->has<AIAgent>() || hit->get<AIAgent>()->team != team()) // fly through friendlies
+
+			b8 die = true;
+
+			if (hit->has<Health>())
 			{
-				// kaboom
+				AI::Team entity_team;
+				AI::entity_info(hit, team(), &entity_team);
+				if (entity_team == team()) // fly through friendlies
+					die = false;
+				else
+					hit->get<Health>()->damage(entity(), 2); // do damage
+			}
 
-				// do damage
-				if ((hit->has<Drone>() && hit->get<Drone>()->invincible_timer == 0.0f)
-					|| hit->has<Decoy>())
-					hit->get<Health>()->damage(entity(), 1);
-
+			if (die)
+			{
 				explode();
 				return;
 			}
@@ -1288,29 +1287,28 @@ void Decoy::destroy()
 	World::remove_deferred(entity());
 }
 
-#define TURRET_TARGET_CHECK_TIME 0.5f
-#define TURRET_ROTATION_SPEED ((PI * 0.5f) / 0.75f)
+#define TURRET_TARGET_CHECK_TIME 0.75f
+#define TURRET_HEALTH 20
 TurretEntity::TurretEntity(AI::Team team)
 {
 	create<Transform>();
 
 	View* view = create<View>();
-	view->mesh = Asset::Mesh::turret;
-	view->shader = Asset::Shader::standard;
-	view->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
-	view->team = u8(team);
+	view->mesh = Asset::Mesh::turret_normal;
+	view->shader = Asset::Shader::culled;
+	view->team = s8(team);
 	
 	create<Turret>()->team = team;
 
 	create<Target>()->local_offset = Vec3(0, 0, TURRET_HEIGHT - 0.25f);
 
-	create<Health>(10, 10);
+	create<Health>(TURRET_HEALTH, TURRET_HEALTH);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::turret);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::turret_normal);
 	body->set_restitution(0.75f);
 
 	PointLight* light = create<PointLight>();
-	light->team = u8(team);
+	light->team = s8(team);
 	light->type = PointLight::Type::Normal;
 	light->radius = TURRET_VIEW_RANGE * 0.5f;
 	light->offset = Vec3(0, 0, TURRET_HEIGHT);
@@ -1320,13 +1318,60 @@ void Turret::awake()
 {
 	target_check_time = mersenne::randf_oo() * TURRET_TARGET_CHECK_TIME;
 	link_arg<Entity*, &Turret::killed>(get<Health>()->killed);
-	obstacle_id = AI::obstacle_add(get<Transform>()->to_world(Vec3(0, TURRET_HEIGHT * -0.5f, 0)), TURRET_RADIUS, TURRET_HEIGHT);
+	link_arg<const TargetEvent&, &Turret::hit_by>(get<Target>()->target_hit);
+}
+
+void Turret::hit_by(const TargetEvent& e)
+{
+	get<Health>()->damage(e.hit_by, 2);
 }
 
 void Turret::killed(Entity* by)
 {
 	if (Game::level.local)
+	{
+		Vec3 pos;
+		Quat rot;
+		get<Transform>()->absolute(&pos, &rot);
+		ParticleEffect::spawn(ParticleEffect::Type::Explosion, tip(), rot);
+
+		Entity* remnant = World::create<StaticGeom>(Asset::Mesh::turret_destroyed, pos, rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+		remnant->get<View>()->team = s8(team);
+		Net::finalize(remnant);
+
 		World::remove_deferred(entity());
+	}
+}
+
+namespace TurretNet
+{
+	b8 update_target(Turret* turret, Entity* target)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Turret);
+		{
+			Ref<Turret> ref_turret = turret;
+			serialize_ref(p, ref_turret);
+		}
+		{
+			Ref<Entity> ref_target = target;
+			serialize_ref(p, ref_target);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
+b8 Turret::net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+	Ref<Turret> ref;
+	serialize_ref(p, ref);
+	Ref<Entity> target;
+	serialize_ref(p, target);
+	if (ref.ref())
+		ref.ref()->target = target;
+	return true;
 }
 
 b8 Turret::can_see(Entity* target) const
@@ -1334,21 +1379,17 @@ b8 Turret::can_see(Entity* target) const
 	if (target->has<AIAgent>() && target->get<AIAgent>()->stealth)
 		return false;
 
-	Vec3 pos = get<Transform>()->absolute_pos();
+	Vec3 pos = tip();
 
-	Vec3 target_pos = target->get<Transform>()->absolute_pos();
+	Vec3 target_pos = target->has<Target>() ? target->get<Target>()->absolute_pos() : target->get<Transform>()->absolute_pos();
 	Vec3 to_target = target_pos - pos;
 	float distance_to_target = to_target.length();
 	if (distance_to_target < TURRET_VIEW_RANGE)
 	{
-		Vec3 to_target_normalized = to_target / distance_to_target;
-		if (to_target_normalized.y > -0.75f)
-		{
-			RaycastCallbackExcept ray_callback(pos, target_pos, entity());
-			Physics::raycast(&ray_callback);
-			if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == target->id())
-				return true;
-		}
+		RaycastCallbackExcept ray_callback(pos, target_pos, entity());
+		Physics::raycast(&ray_callback, ~Team::force_field_mask(team));
+		if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == target->id())
+			return true;
 	}
 	return false;
 }
@@ -1363,29 +1404,35 @@ s32 turret_priority(Entity* e)
 
 void Turret::check_target()
 {
-	target_check_time = TURRET_TARGET_CHECK_TIME;
-
 	// if we are targeting an enemy
 	// make sure we still want to do that
 	if (target.ref() && can_see(target.ref()))
 		return;
 
 	// find a new target
-	target = nullptr;
+	Ref<Entity> target_old = target;
+
+	Ref<Entity> target_new = nullptr;
 
 	r32 target_priority = 0;
-	for (auto i = AIAgent::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team != team && can_see(i.item()->entity()))
+		Entity* e = i.item()->entity();
+		AI::Team e_team;
+		AI::entity_info(e, team, &e_team);
+		if (e_team != AI::TeamNone && e_team != team && can_see(i.item()->entity()))
 		{
 			r32 candidate_priority = turret_priority(i.item()->entity());
 			if (candidate_priority > target_priority)
 			{
-				target = i.item()->entity();
+				target_new = i.item()->entity();
 				target_priority = candidate_priority;
 			}
 		}
 	}
+
+	if (!target_new.equals(target_old))
+		TurretNet::update_target(this, target_new.ref());
 }
 
 void Turret::update_server(const Update& u)
@@ -1395,7 +1442,10 @@ void Turret::update_server(const Update& u)
 
 	target_check_time -= u.time.delta;
 	if (target_check_time < 0.0f)
+	{
+		target_check_time += TURRET_TARGET_CHECK_TIME;
 		check_target();
+	}
 
 	if (target.ref() && cooldown <= 0.0f)
 	{
@@ -1403,6 +1453,7 @@ void Turret::update_server(const Update& u)
 		Vec3 aim_pos;
 		if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, PROJECTILE_SPEED, nullptr, &aim_pos))
 			aim_pos = target.ref()->get<Transform>()->absolute_pos();
+		gun_pos += Vec3::normalize(aim_pos - gun_pos) * TURRET_RADIUS;
 		Net::finalize(World::create<ProjectileEntity>(team, nullptr, gun_pos, aim_pos - gun_pos));
 		cooldown += TURRET_COOLDOWN;
 	}
@@ -1416,31 +1467,26 @@ Vec3 Turret::tip() const
 r32 Turret::particle_accumulator;
 void Turret::update_client_all(const Update& u)
 {
-	const r32 interval = 0.1f;
+	const r32 interval = 0.05f;
 	particle_accumulator += u.time.delta;
 	while (particle_accumulator > interval)
 	{
 		particle_accumulator -= interval;
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->cooldown > 0.0f)
+			if (i.item()->target.ref())
 			{
 				// spawn particle effect
-				Vec3 offset = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1.0f);
+				Vec3 offset = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1.5f);
 				Particles::fast_tracers.add
 				(
 					i.item()->tip() + offset,
-					offset * -3.5f,
+					offset * -5.0f,
 					0
 				);
 			}
 		}
 	}
-}
-
-Turret::~Turret()
-{
-	AI::obstacle_remove(obstacle_id);
 }
 
 // returns true if the given position is inside an enemy force field
@@ -1626,7 +1672,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 
 #define TELEPORTER_RADIUS 0.5f
 #define PROJECTILE_THICKNESS 0.05f
-#define PROJECTILE_MAX_LIFETIME 10.0f
+#define PROJECTILE_MAX_LIFETIME (DRONE_MAX_DISTANCE * 0.99f) / PROJECTILE_SPEED
 #define PROJECTILE_DAMAGE 1
 #define PROJECTILE_DRONE_DAMAGE 2
 ProjectileEntity::ProjectileEntity(AI::Team team, PlayerManager* owner, const Vec3& abs_pos, const Vec3& velocity)
@@ -1823,7 +1869,8 @@ template<typename T> b8 grenade_trigger_filter(T* e, AI::Team team)
 		|| (e->template has<ForceField>() && e->template get<ForceField>()->team != team)
 		|| (e->template has<Rocket>() && e->template get<Rocket>()->team() != team)
 		|| (e->template has<Sensor>() && !e->template has<Battery>() && e->template get<Sensor>()->team != team)
-		|| (e->template has<Decoy>() && e->template get<Decoy>()->team() != team);
+		|| (e->template has<Decoy>() && e->template get<Decoy>()->team() != team)
+		|| (e->template has<Turret>() && e->template get<Turret>()->team != team);
 }
 
 void Grenade::update_server(const Update& u)
@@ -1900,7 +1947,7 @@ void Grenade::explode()
 				i.item()->damage(entity(), 1);
 		}
 		else if (distance < GRENADE_RANGE && !i.item()->has<Battery>())
-			i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 3 : (distance < GRENADE_RANGE * 0.75f ? 2 : 1));
+			i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 5 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1));
 	}
 
 	World::remove_deferred(entity());

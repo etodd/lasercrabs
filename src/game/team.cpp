@@ -52,7 +52,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 	{
 		AbilityInfo::Type::Shoot,
 		Asset::Mesh::icon_bolter,
-		8,
+		10,
 		true,
 	},
 	{
@@ -819,7 +819,7 @@ void Team::update_all_server(const Update& u)
 
 	update_visibility(u);
 
-	// rockets
+	// launch rockets
 	if (!game_over)
 	{
 		for (auto t = Team::list.iterator(); !t.is_last(); t.next())
@@ -845,7 +845,7 @@ void Team::update_all_server(const Update& u)
 						else
 						{
 							Entity* e = PlayerManager::visibility[PlayerManager::visibility_hash(rocket.item()->owner.ref(), player.item())].entity.ref();
-							if (e && (!e->has<Drone>() || e->get<Drone>()->state() == Drone::State::Crawl)) // only launch rockets at drones that are crawling; this prevents rockets from launching and immediately losing their target
+							if (e && (!e->has<Drone>() || e->get<Drone>()->state() == Drone::State::Crawl)) // only launch rockets at decoys or drones that are crawling; this prevents rockets from launching and immediately losing their target
 								detected_entity = e;
 						}
 

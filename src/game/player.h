@@ -157,6 +157,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 			Rocket,
 			ForceField,
 			Grenade,
+			Turret,
 			count,
 		};
 

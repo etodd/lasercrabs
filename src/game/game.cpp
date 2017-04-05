@@ -1581,8 +1581,13 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "Turret"))
 		{
-			AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
-			entity = World::alloc<TurretEntity>(team);
+			if (level.type == GameType::Rush)
+				entity = World::alloc<TurretEntity>(AI::Team(0));
+			else
+			{
+				entity = World::alloc<StaticGeom>(Asset::Mesh::turret_destroyed, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+				entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
+			}
 		}
 		else if (cJSON_HasObjectItem(element, "Minion"))
 		{

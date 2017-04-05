@@ -657,6 +657,7 @@ struct StaticMeshes
 	Mesh terminal;
 	Mesh control_point;
 	Mesh interactable;
+	Mesh turret_normal;
 	Map<Mesh> meshes;
 
 	void import()
@@ -666,6 +667,7 @@ struct StaticMeshes
 			Mesh::read(&terminal, ASSET_OUT_FOLDER"terminal_collision.msh");
 			Mesh::read(&control_point, ASSET_OUT_FOLDER"control_point.msh");
 			Mesh::read(&interactable, ASSET_OUT_FOLDER"interactable_collision.msh");
+			Mesh::read(&turret_normal, ASSET_OUT_FOLDER"turret_normal.msh");
 		}
 	}
 
@@ -2014,6 +2016,11 @@ void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, Manifest& manifes
 		{
 			if (!filter || filter(&static_meshes.control_point))
 				consolidate_nav_geometry_mesh(result, static_meshes.control_point, mat);
+		}
+		else if (cJSON_HasObjectItem(element, "Turret"))
+		{
+			if (!filter || filter(&static_meshes.turret_normal))
+				consolidate_nav_geometry_mesh(result, static_meshes.turret_normal, mat);
 		}
 
 		element = element->next;

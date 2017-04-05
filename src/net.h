@@ -53,6 +53,7 @@ enum class MessageType
 	TimeSync,
 	Tram,
 	Rocket,
+	Turret,
 	TransitionLevel,
 	Overworld,
 #if DEBUG
@@ -76,12 +77,6 @@ struct MinionState
 	r32 animation_time;
 	r32 attack_timer;
 	AssetID animation;
-};
-
-struct TurretState
-{
-	r32 cooldown;
-	Ref<Entity> target;
 };
 
 struct PlayerManagerState
@@ -111,11 +106,9 @@ struct StateFrame
 	TransformState transforms[MAX_ENTITIES];
 	PlayerManagerState players[MAX_PLAYERS];
 	MinionState minions[MAX_ENTITIES];
-	TurretState turrets[MAX_ENTITIES];
 	r32 timestamp;
 	Bitmask<MAX_ENTITIES> transforms_active;
 	Bitmask<MAX_ENTITIES> minions_active;
-	Bitmask<MAX_ENTITIES> turrets_active;
 	DroneState drones[MAX_PLAYERS];
 	SequenceID sequence_id;
 };

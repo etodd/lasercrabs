@@ -589,7 +589,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					// spawn a rocket pod
 					if (Game::level.local)
 					{
-						Net::finalize(World::create<RocketEntity>(manager, parent->get<Transform>(), pos, rot, drone->get<AIAgent>()->team));
+						Entity* rocket = World::create<RocketEntity>(manager, parent->get<Transform>(), pos, rot, drone->get<AIAgent>()->team);
+						Net::finalize(rocket);
 
 						// rocket base
 						Entity* base = World::create<Prop>(Asset::Mesh::rocket_base);
@@ -597,6 +598,30 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						base->get<Transform>()->reparent(parent->get<Transform>());
 						base->get<View>()->team = s8(drone->get<AIAgent>()->team);
 						Net::finalize(base);
+
+						// launch rocket at turrets if necessary
+
+						AI::Team team_mine = drone->get<AIAgent>()->team;
+						u32 force_field_hash_mine = ForceField::hash(team_mine, pos);
+						for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+						{
+							if (i.item()->team != team_mine)
+							{
+								Vec3 turret_pos = i.item()->tip();
+								if ((turret_pos - pos).length_squared() < TURRET_VIEW_RANGE * TURRET_VIEW_RANGE
+									&& force_field_hash_mine == ForceField::hash(team_mine, turret_pos))
+								{
+									RaycastCallbackExcept ray_callback(pos, turret_pos, rocket);
+									Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~Team::force_field_mask(team_mine));
+									if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == i.item()->entity_id)
+									{
+										// launch at this turret
+										rocket->get<Rocket>()->launch(i.item()->entity());
+										break;
+									}
+								}
+							}
+						}
 					}
 
 					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
@@ -2461,14 +2486,23 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 				type = Hit::Type::ForceField;
 			else
 				type = Hit::Type::Environment;
-			result->hits.add(
+
+			Hit hit =
 			{
 				ray_callback.m_hitPointWorld,
 				ray_callback.m_hitNormalWorld,
 				(ray_callback.m_hitPointWorld - ray_start).length() / distance_total,
 				type,
 				&Entity::list[ray_callback.m_collisionObject->getUserIndex()],
-			});
+			};
+			result->hits.add(hit);
+
+			if (hit.entity.ref()->has<Turret>())
+			{
+				hit.type = Hit::Type::Target;
+				hit.fraction -= 0.01f; // make sure this hit will be registered before we stop at the original hit
+				result->hits.add(hit);
+			}
 		}
 	}
 

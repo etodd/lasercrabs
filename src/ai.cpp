@@ -626,6 +626,11 @@ void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 			}
 		}
 	}
+	else if (e->has<Turret>())
+	{
+		_team = e->get<Turret>()->team;
+		_type = _team == query_team ? RecordedLife::EntityTurretFriend : RecordedLife::EntityTurretEnemy;
+	}
 	else
 	{
 		_team = TeamNone;

@@ -1460,21 +1460,6 @@ struct Mat4
 		m[0][2] *= v.x; m[1][2] *= v.y; m[2][2] *= v.z;
 	}
 
-	inline void set_scale(const Vec3& v)
-	{
-		Vec3 a(m[0][0], m[1][0], m[2][0]);
-		a.normalize();
-		m[0][0] = a.x * v.x; m[1][0] = a.y * v.y; m[2][0] = a.z * v.z;
-
-		a.x = m[0][1]; a.y = m[1][1]; a.z = m[2][1];
-		a.normalize();
-		m[0][1] = a.x * v.x; m[1][1] = a.y * v.y; m[2][1] = a.z * v.z;
-
-		a.x = m[0][2]; a.y = m[1][2]; a.z = m[2][2];
-		a.normalize();
-		m[0][2] = a.x * v.x; m[1][2] = a.y * v.y; m[2][2] = a.z * v.z;
-	}
-
 	inline static Mat4 make_scale(const Vec3& v)
 	{
 		Mat4 r;

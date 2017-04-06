@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 445;
+		const s32 count = 446;
 		const AssetID _continue = 0;
 		const AssetID ability_spawn_cost = 1;
 		const AssetID active_armor = 2;
@@ -454,6 +454,7 @@ namespace Asset
 		const AssetID zones_hostile = 442;
 		const AssetID zones_locked = 443;
 		const AssetID zones_under_attack = 444;
+		const AssetID zoom_toggle = 445;
 	}
 }
 

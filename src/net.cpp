@@ -286,6 +286,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Rocket::component_mask
 		| ForceField::component_mask
 		| Drone::component_mask
+		| Shield::component_mask
 		| Decoy::component_mask
 		| Audio::component_mask
 		| Team::component_mask
@@ -441,8 +442,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Drone* a = e->get<Drone>();
 		serialize_r32_range(p, a->cooldown, 0, DRONE_COOLDOWN, 8);
 		serialize_int(p, Ability, a->current_ability, 0, s32(Ability::count) + 1);
-		serialize_ref(p, a->shield);
-		serialize_ref(p, a->overshield);
 		serialize_int(p, s8, a->charges, 0, DRONE_CHARGES);
 	}
 
@@ -450,10 +449,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		Decoy* d = e->get<Decoy>();
 		serialize_ref(p, d->owner);
-		serialize_ref(p, d->shield);
-		serialize_ref(p, d->overshield);
-		if (Stream::IsReading)
-			d->shield_time = 0.0f;
 	}
 
 	if (e->has<Minion>())
@@ -473,11 +468,19 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<Health>())
 	{
 		Health* h = e->get<Health>();
+		serialize_r32_range(p, h->invincible_timer, 0, 5, 8);
 		serialize_r32_range(p, h->regen_timer, 0, 10, 8);
 		serialize_s8(p, h->shield);
 		serialize_s8(p, h->shield_max);
 		serialize_s8(p, h->hp);
 		serialize_s8(p, h->hp_max);
+	}
+
+	if (e->has<Shield>())
+	{
+		Shield* s = e->get<Shield>();
+		serialize_ref(p, s->inner);
+		serialize_ref(p, s->outer);
 	}
 
 	if (e->has<PointLight>())

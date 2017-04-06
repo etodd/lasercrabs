@@ -473,7 +473,7 @@ void Game::update(const Update& update_in)
 			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
 			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
+				i.item()->update_server(u);
 			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 			for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
@@ -488,6 +488,8 @@ void Game::update(const Update& update_in)
 				i.item()->update(u);
 		}
 
+		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+			i.item()->update_client(u);
 		Turret::update_client_all(u);
 		Minion::update_client_all(u);
 		Grenade::update_client_all(u);
@@ -496,8 +498,8 @@ void Game::update(const Update& update_in)
 		{
 			if (level.local || (i.item()->has<PlayerControlHuman>() && i.item()->get<PlayerControlHuman>()->local()))
 				i.item()->update_server(u);
+			i.item()->update_client(u);
 		}
-		Drone::update_client_all(u);
 		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
@@ -508,8 +510,6 @@ void Game::update(const Update& update_in)
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
-		for (auto i = Decoy::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
@@ -526,6 +526,9 @@ void Game::update(const Update& update_in)
 			else if (level.local) // server needs to manually update the animator because it's normally updated by the Parkour component
 				i.item()->get<Animator>()->update_server(u);
 		}
+
+		Shield::update_client_all(u);
+
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 			i.item()->update_late(u);
 

@@ -11,9 +11,10 @@ namespace Settings
 		InputBinding bindings[(s32)Controls::count];
 		u8 sensitivity;
 		b8 invert_y;
+		b8 zoom_toggle;
 		r32 effective_sensitivity() const
 		{
-			return (r32)sensitivity * 0.01f;
+			return r32(sensitivity) * 0.01f;
 		}
 	};
 

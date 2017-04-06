@@ -1842,7 +1842,7 @@ void PlayerControlHuman::drone_done_flying_or_dashing()
 	player.ref()->rumble_add(0.2f);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 #if SERVER
-	if (get<Drone>()->invincible_timer == 0.0f)
+	if (!get<Health>()->invincible())
 	{
 		AI::RecordedLife::Action action;
 		action.type = AI::RecordedLife::Action::TypeMove;
@@ -2531,11 +2531,19 @@ void PlayerControlHuman::update(const Update& u)
 					if (get<Transform>()->parent.ref() && input_enabled())
 					{
 						// we can actually zoom
-						try_secondary = true;
-						get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_IN);
+						if (Settings::gamepads[gamepad].zoom_toggle)
+						{
+							try_secondary = !try_secondary;
+							get<Audio>()->post_event(try_secondary ? AK::EVENTS::PLAY_ZOOM_IN : AK::EVENTS::PLAY_ZOOM_OUT);
+						}
+						else
+						{
+							try_secondary = true;
+							get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_IN);
+						}
 					}
 				}
-				else if (!zoom_pressed)
+				else if (!Settings::gamepads[gamepad].zoom_toggle && !zoom_pressed)
 				{
 					if (try_secondary)
 						get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_OUT);
@@ -2813,7 +2821,7 @@ void PlayerControlHuman::update(const Update& u)
 			if (ai_record_wait_timer < 0.0f)
 			{
 				ai_record_wait_timer += AI_RECORD_WAIT_TIME;
-				if (get<Drone>()->invincible_timer == 0.0f)
+				if (!get<Health>()->invincible())
 				{
 					AI::RecordedLife::Action action;
 					action.type = AI::RecordedLife::Action::TypeWait;
@@ -3693,7 +3701,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 	const Health* health = get<Health>();
 
-	b8 is_vulnerable = !get<AIAgent>()->stealth && (!has<Drone>() || get<Drone>()->invincible_timer == 0.0f) && health->hp == 1 && health->shield == 0;
+	b8 is_vulnerable = !get<AIAgent>()->stealth && !get<Health>()->invincible() && health->hp == 1 && health->shield == 0;
 
 	// compass
 	{

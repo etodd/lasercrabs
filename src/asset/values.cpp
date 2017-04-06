@@ -1462,6 +1462,7 @@ const char* AssetLookup::String::names[] =
 	"zones_hostile",
 	"zones_locked",
 	"zones_under_attack",
+	"zoom_toggle",
 	0,
 };
 

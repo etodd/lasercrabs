@@ -725,12 +725,10 @@ b8 drone_run_filter(const PlayerControlAI* control, const Entity* e)
 
 b8 drone_find_filter(const PlayerControlAI* control, const Entity* e)
 {
-	s16 my_hp = control->get<Health>()->hp;
-	s16 enemy_hp = e->get<Health>()->hp;
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& !e->get<AIAgent>()->stealth
-		&& (e->has<Decoy>() || e->get<Drone>()->invincible_timer == 0.0f || (enemy_hp == 1 && my_hp > enemy_hp + 1))
-		&& (enemy_hp <= my_hp || (my_hp > 1 && control->get<Drone>()->invincible_timer > 0.0f));
+		&& !e->get<Health>()->invincible()
+		&& (e->get<Health>()->shield <= control->get<Health>()->shield);
 }
 
 b8 drone_react_filter(const PlayerControlAI* control, const Entity* e)
@@ -738,13 +736,10 @@ b8 drone_react_filter(const PlayerControlAI* control, const Entity* e)
 	if (!drone_find_filter(control, e))
 		return false;
 
-	if (e->has<Decoy>())
-		return true;
-	else
-	{
-		Drone* a = e->get<Drone>();
-		return a->state() == Drone::State::Crawl && (a->invincible_timer == 0.0f || mersenne::randf_co() > 0.5f);
-	}
+	if (e->get<Health>()->invincible() && mersenne::randf_co() > 0.5f)
+		return false;
+
+	return !e->has<Drone>() || e->get<Drone>()->state() == Drone::State::Crawl;
 }
 
 b8 force_field_filter(const PlayerControlAI* control, const Entity* e)

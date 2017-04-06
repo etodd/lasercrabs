@@ -724,6 +724,14 @@ b8 options(const Update& u, s8 gamepad, UIMenu* menu)
 	}
 
 	{
+		b8* zoom_toggle = &Settings::gamepads[gamepad].zoom_toggle;
+		sprintf(str, "%s", _(*zoom_toggle ? strings::yes : strings::no));
+		delta = menu->slider_item(u, _(strings::zoom_toggle), str);
+		if (delta != 0)
+			*zoom_toggle = !(*zoom_toggle);
+	}
+
+	{
 		sprintf(str, "%d", Settings::sfx);
 		delta = menu->slider_item(u, _(strings::sfx), str);
 		if (delta < 0)

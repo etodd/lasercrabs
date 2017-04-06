@@ -932,7 +932,7 @@ b8 PlayerManager::ability_valid(Ability ability) const
 	if (energy < info.spawn_cost)
 		return false;
 
-	if (ability == Ability::ActiveArmor && instance.ref()->get<Drone>()->invincible_timer > 0.0f)
+	if (ability == Ability::ActiveArmor && instance.ref()->get<Health>()->invincible())
 		return false;
 
 	return true;

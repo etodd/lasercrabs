@@ -33,7 +33,6 @@ namespace VI
 #define DRONE_LEG_LENGTH (0.277f - 0.101f)
 #define DRONE_LEG_BLEND_SPEED (1.0f / 0.03f)
 #define DRONE_MIN_LEG_BLEND_SPEED (DRONE_LEG_BLEND_SPEED * 0.1f)
-#define DRONE_SHIELD_ANIM_TIME 0.35f
 #define DRONE_REFLECTION_TIME_TOLERANCE 0.1f
 
 DroneRaycastCallback::DroneRaycastCallback(const Vec3& a, const Vec3& b, const Entity* drone)
@@ -472,13 +471,12 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					}
 				}
 
-				if (target.ref()->has<Drone>() || target.ref()->has<Decoy>())
+				if (target.ref()->has<Shield>())
 				{
 					target.ref()->get<Audio>()->post_event(target.ref()->has<PlayerControlHuman>() && target.ref()->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
 
 					// only do damage if they're attached to a wall and have no overshield
-					Drone* target_drone = target.ref()->has<Drone>() ? target.ref()->get<Drone>() : nullptr;
-					if (target.ref()->has<Decoy>() || (target_drone->state() == Drone::State::Crawl && target_drone->invincible_timer == 0.0f))
+					if (!target.ref()->get<Health>()->invincible() && (!target.ref()->has<Drone>() || target.ref()->get<Drone>()->state() == Drone::State::Crawl))
 					{
 						if (Game::level.local) // if we're a client, this has already been handled by the server
 							target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref()));
@@ -487,11 +485,11 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					{
 						if (Game::level.local)
 						{
-							if (target_drone->invincible_timer > 0.0f && target_drone->invincible_timer <= ACTIVE_ARMOR_TIME // they were invincible; they should damage us
+							if (target.ref()->get<Health>()->invincible() && target.ref()->get<Health>()->invincible_timer <= ACTIVE_ARMOR_TIME // they were invincible; they should damage us
 								&& (drone->current_ability == Ability::None || AbilityInfo::list[s32(drone->current_ability)].type != AbilityInfo::Type::Shoot))
 							{
-								s8 damage = s8(vi_max(1, s32(target_drone->invincible_timer * (3.1f / ACTIVE_ARMOR_TIME))));
-								drone->get<Health>()->damage(target_drone->entity(), damage);
+								s8 damage = s8(vi_max(1, s32(target.ref()->get<Health>()->invincible_timer * (3.1f / ACTIVE_ARMOR_TIME))));
+								drone->get<Health>()->damage(target.ref(), damage);
 							}
 						}
 
@@ -508,11 +506,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			Ability ability;
 			serialize_int(p, Ability, ability, 0, s32(Ability::count) + 1); // must be +1 for Ability::None
 			if (apply_msg)
-			{
-				if (drone->current_ability == Ability::Sniper || ability == Ability::Sniper)
-					drone->shield_time = Game::time.total;
 				drone->current_ability = ability;
-			}
 			break;
 		}
 		case DroneNet::Message::AbilitySpawn:
@@ -853,7 +847,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				case Ability::ActiveArmor:
 				{
 					if (drone)
-						drone->invincible_timer = vi_max(drone->invincible_timer, ACTIVE_ARMOR_TIME);
+						drone->get<Health>()->invincible_timer = vi_max(drone->get<Health>()->invincible_timer, ACTIVE_ARMOR_TIME);
 					break;
 				}
 				default:
@@ -864,7 +858,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			}
 
 			if (!info.rapid_fire)
-				drone->ability(Ability::None);
+				drone->current_ability = Ability::None;
 			drone->ability_spawned.fire(ability);
 			break;
 		}
@@ -935,18 +929,14 @@ Drone::Drone()
 	done_dashing(),
 	detaching(),
 	dashing(),
-	shield_time(),
 	dash_timer(),
 	attach_time(Game::time.total),
 	footing(),
 	last_footstep(),
-	shield(),
-	overshield(),
 	reflecting(),
 	hit_targets(),
 	cooldown(),
 	charges(DRONE_CHARGES),
-	invincible_timer(DRONE_INVINCIBLE_TIME),
 	particle_accumulator(),
 	current_ability(Ability::None),
 	fake_projectiles(),
@@ -962,55 +952,11 @@ void Drone::awake()
 	get<Animator>()->layers[0].behavior = Animator::Behavior::Loop;
 	link_arg<Entity*, &Drone::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &Drone::health_changed>(get<Health>()->changed);
-	if (Game::level.local && !shield.ref())
-	{
-		{
-			Entity* shield_entity = World::create<Empty>();
-			shield_entity->get<Transform>()->parent = get<Transform>();
-			shield = shield_entity;
-
-			View* s = shield_entity->add<View>();
-			s->team = s8(get<AIAgent>()->team);
-			s->mesh = Asset::Mesh::sphere_highres;
-			s->offset.scale(Vec3(DRONE_SHIELD_RADIUS));
-			s->shader = Asset::Shader::fresnel;
-			s->alpha();
-			s->color.w = DRONE_SHIELD_ALPHA;
-
-			Net::finalize_child(shield_entity);
-		}
-
-		{
-			// overshield
-			vi_assert(!overshield.ref());
-			Entity* shield_entity = World::create<Empty>();
-			shield_entity->get<Transform>()->parent = get<Transform>();
-			overshield = shield_entity;
-
-			View* s = shield_entity->add<View>();
-			s->team = (s8)get<AIAgent>()->team;
-			s->mesh = Asset::Mesh::sphere_highres;
-			s->offset.scale(Vec3(DRONE_OVERSHIELD_RADIUS));
-			s->shader = Asset::Shader::fresnel;
-			s->alpha();
-			s->color.w = DRONE_OVERSHIELD_ALPHA;
-
-			Net::finalize_child(shield_entity);
-		}
-	}
-	shield_time = Game::time.total;
 }
 
 Drone::~Drone()
 {
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
-	if (Game::level.local)
-	{
-		if (shield.ref())
-			World::remove_deferred(shield.ref());
-		if (overshield.ref())
-			World::remove_deferred(overshield.ref());
-	}
 }
 
 Drone::State Drone::state() const
@@ -1051,6 +997,9 @@ b8 Drone::hit_target(Entity* target)
 	}
 	if (hit_targets.length < hit_targets.capacity())
 		hit_targets.add(target);
+
+	if (current_ability == Ability::None && get<Health>()->invincible() && (target->has<Drone>() || target->has<Decoy>()))
+		get<Health>()->invincible_timer = 0.0f; // damaging a Drone cancels our invincibility
 
 	if (!Game::level.local) // then we are a local player on a client
 	{
@@ -1093,9 +1042,6 @@ b8 Drone::hit_target(Entity* target)
 		if (is_enemy)
 			get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_ROCKET_DESTROY);
 	}
-
-	if (current_ability == Ability::None && invincible_timer > 0.0f && (target->has<Drone>() || target->has<Decoy>()))
-		invincible_timer = 0.0f; // damaging an Drone cancels our invincibility
 
 	if (target->has<Target>())
 	{
@@ -1164,9 +1110,6 @@ void Drone::health_changed(const HealthEvent& e)
 			PlayerHuman::log_add(buffer, team);
 		}
 	}
-
-	if (e.shield != 0)
-		shield_time = Game::time.total;
 }
 
 void Drone::killed(Entity* e)
@@ -1308,7 +1251,7 @@ b8 Drone::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net:
 			environment_hit = &hit;
 		if (hit.fraction * DRONE_SNIPE_DISTANCE < r)
 		{
-			if (hit.type == Hit::Type::Drone)
+			if (hit.type == Hit::Type::Shield)
 			{
 				allow_further_end = true;
 				if (hit.fraction <= hits.fraction_end)
@@ -1557,7 +1500,7 @@ b8 Drone::go(const Vec3& dir)
 		if (Game::level.local)
 			DroneNet::ability_spawn(this, dir_normalized, a);
 		else if (a == Ability::ActiveArmor)
-			invincible_timer = ACTIVE_ARMOR_TIME; // client-side prediction; show invincibility sparkles instantly
+			get<Health>()->invincible_timer = ACTIVE_ARMOR_TIME; // client-side prediction; show invincibility sparkles instantly
 		else if (a == Ability::Bolter)
 		{
 			// client-side prediction; create fake bolt
@@ -2005,8 +1948,6 @@ void Drone::update_offset()
 		offset_pos = Vec3::zero;
 
 	get<SkinnedModel>()->offset.translation(offset_pos);
-	shield.ref()->get<View>()->offset.translation(offset_pos);
-	overshield.ref()->get<View>()->offset.translation(offset_pos);
 }
 
 void Drone::stealth(Entity* e, b8 enable)
@@ -2118,117 +2059,9 @@ void Drone::update_server(const Update& u)
 #endif
 }
 
-void Drone::update_shield_view(const Update& u, Entity* e, View* shield, View* overshield, r32 shield_time)
-{
-	s8 shield_value = e->get<Health>()->shield;
-	if (e->has<Drone>() && e->get<Drone>()->current_ability == Ability::Sniper)
-		shield_value = 0;
-	if (shield_value > 0 || u.time.total - shield_time < DRONE_SHIELD_ANIM_TIME)
-	{
-		if (e->get<AIAgent>()->stealth)
-			shield->mask = 1 << s32(e->get<AIAgent>()->team); // only display to fellow teammates
-		else
-			shield->mask = RENDER_MASK_DEFAULT; // everyone can see
-
-		r32 blend = vi_min((u.time.total - shield_time) / DRONE_SHIELD_ANIM_TIME, 1.0f);
-		shield->offset = e->get<SkinnedModel>()->offset;
-		if (shield_value > 1)
-		{
-			// shield is done; working on overshield
-			shield->color.w = DRONE_SHIELD_ALPHA;
-			shield->offset.make_transform(shield->offset.translation(), Vec3(DRONE_SHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO), Quat::identity);
-		}
-		else if (shield_value > 0)
-		{
-			// shield is coming in; blend from zero to normal size
-			blend = Ease::cubic_out<r32>(blend);
-			shield->color.w = LMath::lerpf(blend, 0.0f, DRONE_SHIELD_ALPHA);
-			shield->offset.make_transform(shield->offset.translation(), Vec3(LMath::lerpf(blend, 0.0f, DRONE_SHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO)), Quat::identity);
-		}
-		else
-		{
-			// we just lost our shield; blend from normal size to large and faded out
-			blend = Ease::cubic_in<r32>(blend);
-			shield->color.w = LMath::lerpf(blend, 0.75f, 0.0f);
-			shield->offset.make_transform(shield->offset.translation(), Vec3(LMath::lerpf(blend, DRONE_SHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO, 8.0f)), Quat::identity);
-		}
-	}
-	else
-		shield->mask = 0;
-
-	// overshield
-	s8 shield_value_last = e->get<Health>()->shield_last;
-	if (shield_value > 1 || (shield_value_last > 1 && u.time.total - shield_time < DRONE_SHIELD_ANIM_TIME))
-	{
-		if (e->get<AIAgent>()->stealth)
-			overshield->mask = 1 << s32(e->get<AIAgent>()->team); // only display to fellow teammates
-		else
-			overshield->mask = RENDER_MASK_DEFAULT; // everyone can see
-
-		r32 blend = vi_min((u.time.total - shield_time) / DRONE_SHIELD_ANIM_TIME, 1.0f);
-		overshield->offset = e->get<SkinnedModel>()->offset;
-		if (shield_value > 1)
-		{
-			// shield is coming in; blend from zero to normal size
-			blend = Ease::cubic_out<r32>(blend);
-			overshield->color.w = LMath::lerpf(blend, 0.0f, DRONE_OVERSHIELD_ALPHA);
-			overshield->offset.make_transform(overshield->offset.translation(), Vec3(LMath::lerpf(blend, 0.0f, DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO)), Quat::identity);
-		}
-		else
-		{
-			// we just lost our shield; blend from normal size to large and faded out
-			blend = Ease::cubic_in<r32>(blend);
-			overshield->color.w = LMath::lerpf(blend, 0.75f, 0.0f);
-			overshield->offset.make_transform(overshield->offset.translation(), Vec3(LMath::lerpf(blend, DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO, 8.0f)), Quat::identity);
-		}
-	}
-	else
-		overshield->mask = 0;
-}
-
-void Drone::update_client_all(const Update& u)
-{
-	static r32 particle_accumulator = 0.0f;
-	static r32 particle_interval = 0.05f;
-	particle_accumulator += u.time.delta;
-
-	s32 particles = s32(particle_accumulator / particle_interval);
-	if (particles > 0)
-	{
-		particle_accumulator -= particle_interval * particles;
-		particle_interval = 0.01f + mersenne::randf_cc() * 0.005f;
-	}
-
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (particles > 0 && i.item()->invincible_timer > 0.0f)
-		{
-			Vec3 pos = i.item()->center_lerped();
-			for (s32 j = 0; j < particles; j++)
-			{
-				s32 cluster = 1 + s32(mersenne::randf_co() * 3.0f);
-				Vec3 cluster_center = pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, DRONE_SHIELD_RADIUS);
-				for (s32 k = 0; k < cluster; k++)
-				{
-					Particles::sparkles.add
-					(
-						cluster_center + Vec3((mersenne::randf_co() - 0.5f) * 0.2f, (mersenne::randf_co() - 0.5f) * 0.2f, (mersenne::randf_co() - 0.5f) * 0.2f),
-						Vec3::zero,
-						mersenne::randf_co() * PI * 2.0f
-					);
-				}
-			}
-		}
-
-		i.item()->update_client(u);
-	}
-}
-
 void Drone::update_client(const Update& u)
 {
 	State s = state();
-
-	invincible_timer = vi_max(invincible_timer - u.time.delta, 0.0f);
 
 	if (s == Drone::State::Crawl)
 	{
@@ -2429,8 +2262,6 @@ void Drone::update_client(const Update& u)
 		}
 	}
 
-	update_shield_view(u, entity(), shield.ref()->get<View>(), overshield.ref()->get<View>(), shield_time);
-
 	// update velocity
 	{
 		Vec3 pos = lerped_pos;
@@ -2526,7 +2357,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 				intersection,
 				Vec3::normalize(intersection - p),
 				(intersection - ray_start).length() / distance_total,
-				(i.item()->has<Drone>() || i.item()->has<Decoy>()) ? Hit::Type::Drone : Hit::Type::Target,
+				i.item()->has<Shield>() ? Hit::Type::Shield : Hit::Type::Target,
 				i.item()->entity(),
 			});
 		}
@@ -2541,9 +2372,9 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 		if (hit.fraction < result->fraction_end)
 		{
 			b8 stop = false;
-			if (hit.type == Hit::Type::Drone)
+			if (hit.type == Hit::Type::Shield)
 			{
-				// if we've already hit this drone once, we must ignore it
+				// if we've already hit this shield once, we must ignore it
 				b8 already_hit = false;
 				for (s32 i = 0; i < hit_targets.length; i++)
 				{
@@ -2556,8 +2387,8 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 
 				if (!already_hit)
 				{
-					if (hit.entity.ref()->has<Drone>() && (hit.entity.ref()->get<Drone>()->state() != Drone::State::Crawl // it's flying or dashing; always bounce off
-						|| hit.entity.ref()->get<Drone>()->invincible_timer > 0.0f)) // it's invincible; always bounce off
+					if ((hit.entity.ref()->has<Drone>() && hit.entity.ref()->get<Drone>()->state() != Drone::State::Crawl) // it's flying or dashing; always bounce off
+						|| hit.entity.ref()->get<Health>()->invincible()) // it's invincible; always bounce off
 						stop = true;
 					else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()))
 						stop = true; // it has health or shield to spare; we'll bounce off
@@ -2603,7 +2434,7 @@ r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 
 			if (hit.type == Hit::Type::Target)
 				hit_target(hit.entity.ref());
-			else if (hit.type == Hit::Type::Drone)
+			else if (hit.type == Hit::Type::Shield)
 			{
 				b8 do_reflect;
 				if (!Game::level.local && has<PlayerControlHuman>() && get<PlayerControlHuman>()->local())
@@ -2612,7 +2443,7 @@ r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 					do_reflect = hit_target(hit.entity.ref())
 						&& s != State::Crawl
 						&& (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()) // will they still be alive after we hit them? if so, reflect
-							|| (hit.entity.ref()->has<Drone>() && (hit.entity.ref()->get<Drone>()->state() != State::Crawl || hit.entity.ref()->get<Drone>()->invincible_timer > 0.0f)));
+							|| ((hit.entity.ref()->has<Drone>() && hit.entity.ref()->get<Drone>()->state() != State::Crawl) || hit.entity.ref()->get<Health>()->invincible()));
 				}
 				else
 				{

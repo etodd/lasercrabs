@@ -69,7 +69,7 @@ struct Drone : public ComponentType<Drone>
 			Environment,
 			Inaccessible,
 			ForceField,
-			Drone,
+			Shield,
 			Target,
 			count,
 		};
@@ -95,10 +95,8 @@ struct Drone : public ComponentType<Drone>
 	};
 
 	static Drone* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
-	static void update_shield_view(const Update&, Entity*, View*, View*, r32);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void stealth(Entity*, b8);
-	static void update_client_all(const Update&);
 
 	Quat lerped_rotation;
 	Vec3 velocity;
@@ -107,8 +105,6 @@ struct Drone : public ComponentType<Drone>
 	Vec3 remote_reflection_pos;
 	Vec3 remote_reflection_dir;
 	r32 attach_time;
-	r32 invincible_timer;
-	r32 shield_time;
 	r32 cooldown; // remaining cooldown time
 	r32 last_footstep;
 	r32 particle_accumulator;
@@ -116,8 +112,6 @@ struct Drone : public ComponentType<Drone>
 	r32 remote_reflection_timer;
 	Ability current_ability;
 	Footing footing[DRONE_LEGS];
-	Ref<Entity> shield;
-	Ref<Entity> overshield;
 	Ref<Entity> remote_reflection_entity;
 	StaticArray<Ref<Entity>, 8> hit_targets;
 	StaticArray<Ref<EffectLight>, 4> fake_projectiles;

@@ -236,6 +236,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[s32(Controls::Pause)] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::Start };
 
 		bindings->invert_y = Json::get_s32(gamepad, "invert_y", 0);
+		bindings->zoom_toggle = Json::get_s32(gamepad, "zoom_toggle", 0);
 		bindings->sensitivity = u8(Json::get_s32(gamepad, "sensitivity", 100));
 		gamepad = gamepad ? gamepad->next : nullptr;
 	}

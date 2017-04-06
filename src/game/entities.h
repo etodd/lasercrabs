@@ -34,18 +34,19 @@ struct Health : public ComponentType<Health>
 {
 	static b8 net_msg(Net::StreamRead*);
 
+	r32 invincible_timer;
 	r32 regen_timer;
 	LinkArg<const HealthEvent&> changed;
 	LinkArg<Entity*> killed;
 	s8 shield;
-	s8 shield_last;
 	s8 shield_max;
 	s8 hp;
 	s8 hp_max;
 
 	Health(s8 = 0, s8 = 0, s8 = 0, s8 = 0);
 
-	void update(const Update&);
+	void update_server(const Update&);
+	void update_client(const Update&);
 	void awake() {}
 	void damage(Entity*, s8);
 	void take_shield();
@@ -53,6 +54,20 @@ struct Health : public ComponentType<Health>
 	void kill(Entity*);
 	void add(s8);
 	s8 total() const;
+	b8 invincible() const;
+};
+
+struct Shield : public ComponentType<Shield>
+{
+	static void update_client_all(const Update&);
+
+	Ref<Entity> inner;
+	Ref<Entity> outer;
+
+	void awake();
+	~Shield();
+
+	void update_client(const Update&);
 };
 
 struct BatteryEntity : public Entity
@@ -189,19 +204,13 @@ struct RocketEntity : public Entity
 
 struct Decoy : public ComponentType<Decoy>
 {
-	r32 shield_time;
 	Ref<PlayerManager> owner;
-	Ref<Entity> shield;
-	Ref<Entity> overshield;
 
 	void awake();
-	~Decoy();
 
 	void killed(Entity*);
 	void destroy();
 	AI::Team team() const;
-	void health_changed(const HealthEvent&);
-	void update(const Update&);
 };
 
 struct DecoyEntity : public Entity

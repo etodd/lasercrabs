@@ -28,6 +28,7 @@
 	"options": "Settings",
 	"sensitivity": "Sensitivity",
 	"invert_y": "Invert Y Axis",
+  "zoom_toggle": "Toggle Zoom",
 	"splitscreen": "Quick combat",
 	"online": "Online",
 	"prompt_splitscreen": "Choose teams",

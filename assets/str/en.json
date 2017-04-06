@@ -83,7 +83,7 @@
 	"stealth": "Stealth",
 	"no_effect": "No effect",
 	"enemy_tracking": "Enemy tracking",
-	"player_killed": "%s destroyed",
+  "player_killed": "%s destroyed.",
 	"danger": "Danger",
 	"rocket_incoming": "Rocket",
 	"grenade_incoming": "Grenade",

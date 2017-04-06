@@ -1113,7 +1113,7 @@ void Rocket::update_server(const Update& u)
 				if (entity_team == team()) // fly through friendlies
 					die = false;
 				else
-					hit->get<Health>()->damage(entity(), 2); // do damage
+					hit->get<Health>()->damage(entity(), 1); // do damage
 			}
 
 			if (die)
@@ -1287,31 +1287,32 @@ void Decoy::destroy()
 	World::remove_deferred(entity());
 }
 
+#define TURRET_COOLDOWN 1.5f
 #define TURRET_TARGET_CHECK_TIME 0.75f
 #define TURRET_HEALTH 20
+#define TURRET_RADIUS 0.5f
 TurretEntity::TurretEntity(AI::Team team)
 {
 	create<Transform>();
 
 	View* view = create<View>();
-	view->mesh = Asset::Mesh::turret_normal;
+	view->mesh = Asset::Mesh::turret_top;
 	view->shader = Asset::Shader::culled;
 	view->team = s8(team);
 	
 	create<Turret>()->team = team;
 
-	create<Target>()->local_offset = Vec3(0, 0, TURRET_HEIGHT - 0.25f);
+	create<Target>();
 
 	create<Health>(TURRET_HEALTH, TURRET_HEALTH);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::turret_normal);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::turret_top);
 	body->set_restitution(0.75f);
 
 	PointLight* light = create<PointLight>();
 	light->team = s8(team);
 	light->type = PointLight::Type::Normal;
 	light->radius = TURRET_VIEW_RANGE * 0.5f;
-	light->offset = Vec3(0, 0, TURRET_HEIGHT);
 }
 
 void Turret::awake()
@@ -1333,11 +1334,7 @@ void Turret::killed(Entity* by)
 		Vec3 pos;
 		Quat rot;
 		get<Transform>()->absolute(&pos, &rot);
-		ParticleEffect::spawn(ParticleEffect::Type::Explosion, tip(), rot);
-
-		Entity* remnant = World::create<StaticGeom>(Asset::Mesh::turret_destroyed, pos, rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
-		remnant->get<View>()->team = s8(team);
-		Net::finalize(remnant);
+		ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
 
 		World::remove_deferred(entity());
 	}
@@ -1379,7 +1376,7 @@ b8 Turret::can_see(Entity* target) const
 	if (target->has<AIAgent>() && target->get<AIAgent>()->stealth)
 		return false;
 
-	Vec3 pos = tip();
+	Vec3 pos = get<Transform>()->absolute_pos();
 
 	Vec3 target_pos = target->has<Target>() ? target->get<Target>()->absolute_pos() : target->get<Transform>()->absolute_pos();
 	Vec3 to_target = target_pos - pos;
@@ -1449,7 +1446,7 @@ void Turret::update_server(const Update& u)
 
 	if (target.ref() && cooldown <= 0.0f)
 	{
-		Vec3 gun_pos = tip();
+		Vec3 gun_pos = get<Transform>()->absolute_pos();
 		Vec3 aim_pos;
 		if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, PROJECTILE_SPEED, nullptr, &aim_pos))
 			aim_pos = target.ref()->get<Transform>()->absolute_pos();
@@ -1457,11 +1454,6 @@ void Turret::update_server(const Update& u)
 		Net::finalize(World::create<ProjectileEntity>(team, nullptr, gun_pos, aim_pos - gun_pos));
 		cooldown += TURRET_COOLDOWN;
 	}
-}
-
-Vec3 Turret::tip() const
-{
-	return get<Transform>()->to_world(Vec3(0, 0, TURRET_HEIGHT));
 }
 
 r32 Turret::particle_accumulator;
@@ -1480,7 +1472,7 @@ void Turret::update_client_all(const Update& u)
 				Vec3 offset = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1.5f);
 				Particles::fast_tracers.add
 				(
-					i.item()->tip() + offset,
+					i.item()->get<Transform>()->absolute_pos() + offset,
 					offset * -5.0f,
 					0
 				);
@@ -1727,6 +1719,8 @@ s16 Projectile::raycast_mask(AI::Team team)
 
 void Projectile::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 {
+	b8 die = true;
+
 	Vec3 basis;
 	if (hit_object->has<Health>())
 	{
@@ -1743,7 +1737,19 @@ void Projectile::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& nor
 			if (hit_object->get<Drone>()->state() == Drone::State::Crawl && hit_object->get<Drone>()->invincible_timer == 0.0f)
 				damage = PROJECTILE_DRONE_DAMAGE;
 			else
+			{
 				damage = 0;
+
+				// reflect
+				lifetime = 0.0f;
+				velocity = -velocity;
+				Vec3 dir = Vec3::normalize(velocity);
+				Transform* transform = get<Transform>();
+				transform->absolute_rot(Quat::look(dir));
+				transform->absolute_pos(transform->absolute_pos() + dir * PROJECTILE_LENGTH);
+
+				die = false; // keep going
+			}
 		}
 		if (damage > 0)
 			hit_object->get<Health>()->damage(entity(), damage);
@@ -1757,8 +1763,11 @@ void Projectile::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& nor
 	else
 		basis = normal;
 
-	ParticleEffect::spawn(ParticleEffect::Type::Impact, hit, Quat::look(basis));
-	World::remove(entity());
+	if (die)
+	{
+		ParticleEffect::spawn(ParticleEffect::Type::Impact, hit, Quat::look(basis));
+		World::remove(entity());
+	}
 }
 
 b8 ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot)

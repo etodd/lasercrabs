@@ -77,8 +77,8 @@ namespace Asset
 		const AssetID tram_mesh_1 = 65;
 		const AssetID tram_runner = 66;
 		const AssetID tri_tube = 67;
-		const AssetID turret_destroyed = 68;
-		const AssetID turret_normal = 69;
+		const AssetID turret_base = 68;
+		const AssetID turret_top = 69;
 	}
 }
 

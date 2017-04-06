@@ -607,7 +607,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						{
 							if (i.item()->team != team_mine)
 							{
-								Vec3 turret_pos = i.item()->tip();
+								Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
 								if ((turret_pos - pos).length_squared() < TURRET_VIEW_RANGE * TURRET_VIEW_RANGE
 									&& force_field_hash_mine == ForceField::hash(team_mine, turret_pos))
 								{
@@ -1158,16 +1158,10 @@ void Drone::health_changed(const HealthEvent& e)
 			PlayerManager* manager = get<PlayerCommon>()->manager.ref();
 			if (Game::level.local)
 				manager->add_deaths(1);
-			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->get<PlayerManager>() != manager) // don't need to notify ourselves
-				{
-					b8 friendly = i.item()->get<PlayerManager>()->team.ref()->team() == team;
-					char buffer[512];
-					sprintf(buffer, _(strings::player_killed), manager->username);
-					i.item()->msg(buffer, !friendly);
-				}
-			}
+
+			char buffer[512];
+			sprintf(buffer, _(strings::player_killed), manager->username);
+			PlayerHuman::log_add(buffer, team);
 		}
 	}
 

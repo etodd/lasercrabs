@@ -599,17 +599,20 @@ void PlayerHuman::update(const Update& u)
 				for (s32 i = 0; i < s32(Upgrade::count); i++)
 				{
 					Upgrade upgrade = Upgrade(i);
-					const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
-					b8 can_upgrade = !upgrade_in_progress
-						&& get<PlayerManager>()->upgrade_available(upgrade)
-						&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade)
-						&& (AbilityInfo::list[i].type != AbilityInfo::Type::Other || Game::level.has_feature(Game::FeatureLevel::All)); // don't allow Other ability upgrades in tutorial
-					if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
+					if (!get<PlayerManager>()->has_upgrade(upgrade))
 					{
-						PlayerControlHumanNet::Message msg;
-						msg.type = PlayerControlHumanNet::Message::Type::UpgradeStart;
-						msg.upgrade = upgrade;
-						PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
+						const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
+						b8 can_upgrade = !upgrade_in_progress
+							&& get<PlayerManager>()->upgrade_available(upgrade)
+							&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade)
+							&& (AbilityInfo::list[i].type != AbilityInfo::Type::Other || Game::level.has_feature(Game::FeatureLevel::All)); // don't allow Other ability upgrades in tutorial
+						if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
+						{
+							PlayerControlHumanNet::Message msg;
+							msg.type = PlayerControlHumanNet::Message::Type::UpgradeStart;
+							msg.upgrade = upgrade;
+							PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
+						}
 					}
 				}
 
@@ -1203,7 +1206,26 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		if (menu.selected > 0)
 		{
 			// show details of currently highlighted upgrade
-			Upgrade upgrade = (Upgrade)(menu.selected - 1);
+			Upgrade upgrade = Upgrade::None;
+			{
+				// purchased upgrades are removed from the menu
+				// we have to figure out which one is selected
+				s32 index = 0;
+				for (s32 i = 0; i < s32(Upgrade::count); i++)
+				{
+					if (!get<PlayerManager>()->has_upgrade(Upgrade(i)))
+					{
+						if (index == menu.selected - 1)
+						{
+							upgrade = Upgrade(i);
+							break;
+						}
+						index++;
+					}
+				}
+			}
+			vi_assert(upgrade != Upgrade::None);
+
 			if (get<PlayerManager>()->current_upgrade == Upgrade::None
 				&& get<PlayerManager>()->upgrade_available(upgrade))
 			{
@@ -3250,39 +3272,10 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	{
 		Vec3 me = get<Transform>()->absolute_pos();
 
-		// minion cooldown bars
-		for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->attack_timer > 0.0f)
-			{
-				Vec3 head = i.item()->head_pos();
-				if ((head - me).length_squared() < range * range)
-				{
-					AI::Team minion_team = i.item()->get<AIAgent>()->team;
-
-					if (minion_team != team)
-						enemy_visible = true;
-
-					// if the minion is on our team, we can let the indicator go offscreen
-					// if it's an enemy minion, clamp the indicator inside the screen
-					Vec2 p;
-					if (UI::is_onscreen(params, head, &p) || minion_team != team)
-					{
-						Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
-						Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-						UI::box(params, bar, UI::color_background);
-						const Vec4& color = Team::ui_color(team, minion_team);
-						UI::border(params, bar, 2, color);
-						UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (i.item()->attack_timer / MINION_ATTACK_TIME)), bar.size.y) }, color);
-					}
-				}
-			}
-		}
-
 		// turret health bars
 		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 		{
-			Vec3 turret_pos = i.item()->tip();
+			Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
 			if ((turret_pos - me).length_squared() < range * range)
 			{
 				Vec2 p;

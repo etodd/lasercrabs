@@ -228,7 +228,6 @@ struct Turret : public ComponentType<Turret>
 
 	void awake();
 
-	Vec3 tip() const;
 	void killed(Entity*);
 	void update_server(const Update&);
 	void check_target();

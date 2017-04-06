@@ -1581,12 +1581,15 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "Turret"))
 		{
+			entity = World::alloc<StaticGeom>(Asset::Mesh::turret_base, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+			entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
+
 			if (level.type == GameType::Rush)
-				entity = World::alloc<TurretEntity>(AI::Team(0));
-			else
 			{
-				entity = World::alloc<StaticGeom>(Asset::Mesh::turret_destroyed, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
-				entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
+				Entity* turret = World::alloc<TurretEntity>(AI::Team(0));
+				turret->get<Transform>()->absolute(absolute_pos + absolute_rot * Vec3(0, 0, TURRET_HEIGHT), absolute_rot);
+				World::awake(turret);
+				Net::finalize(turret);
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "Minion"))

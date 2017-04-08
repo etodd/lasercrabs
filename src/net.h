@@ -41,7 +41,6 @@ enum class MessageType
 	Battery,
 	PlayerManager,
 	ParticleEffect,
-	ControlPoint,
 	Team,
 	Parkour,
 	Interactable,

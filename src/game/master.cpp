@@ -54,7 +54,7 @@ b8 ServerState::equals(const ServerState& s) const
 void ServerState::make_story()
 {
 	session_type = SessionType::Story;
-	game_type = GameType::Rush;
+	game_type = GameType::Assault;
 	kill_limit = 0;
 	respawns = 5;
 	time_limit_minutes = 8;

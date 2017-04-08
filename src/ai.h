@@ -164,18 +164,6 @@ namespace AI
 
 	struct RecordedLife
 	{
-		struct ControlPointState
-		{
-			static const s8 StateNormal = 0;
-			static const s8 StateLosingFirstHalf = 1;
-			static const s8 StateLosingSecondHalf = 2;
-			static const s8 StateRecapturingFirstHalf = 3;
-			static const s8 StateLost = 4;
-
-			s8 a;
-			s8 b;
-		};
-
 		struct Tag
 		{
 			enum BatteryState
@@ -193,7 +181,6 @@ namespace AI
 			s32 nearby_entities;
 			s32 battery_state;
 			s16 energy;
-			ControlPointState control_point_state;
 			s8 shield;
 			u8 time_remaining;
 			b8 stealth;
@@ -211,9 +198,8 @@ namespace AI
 			static const s8 TypeAttack = 2;
 			static const s8 TypeUpgrade = 3;
 			static const s8 TypeAbility = 4;
-			static const s8 TypeCapture = 5;
-			static const s8 TypeWait = 6;
-			static const s8 TypeRunAway = 7;
+			static const s8 TypeWait = 5;
+			static const s8 TypeRunAway = 6;
 
 			Vec3 pos; // for move and build ability actions
 			Vec3 normal; // for move and build ability actions
@@ -250,18 +236,18 @@ namespace AI
 		static const s8 EntityDroneFriendShield1 = 16;
 		static const s8 EntityDecoyEnemyShield2 = 17;
 		static const s8 EntityDecoyEnemyShield1 = 18;
-		static const s8 EntityProjectileEnemy = 19;
-		static const s8 EntityProjectileFriend = 20;
+		static const s8 EntityBoltEnemy = 19;
+		static const s8 EntityBoltFriend = 20;
 		static const s8 EntityGrenadeEnemyAttached = 21;
 		static const s8 EntityGrenadeEnemyDetached = 22;
 		static const s8 EntityGrenadeFriendAttached = 23;
 		static const s8 EntityGrenadeFriendDetached = 24;
-		static const s8 EntityControlPointNormal = 25;
-		static const s8 EntityControlPointLosingFirstHalf = 26;
-		static const s8 EntityControlPointLosingSecondHalf = 27;
-		static const s8 EntityControlPointRecapturingFirstHalf = 28;
-		static const s8 EntityTurretFriend = 29;
-		static const s8 EntityTurretEnemy = 30;
+		static const s8 EntitySpawnPointFriend = 25;
+		static const s8 EntitySpawnPointEnemy = 26;
+		static const s8 EntityTurretFriend = 27;
+		static const s8 EntityTurretEnemy = 28;
+		static const s8 EntityCoreModuleInvincible = 29;
+		static const s8 EntityCoreModuleVulnerable = 30;
 
 		Array<Vec3> pos;
 		Array<Vec3> normal;
@@ -270,7 +256,6 @@ namespace AI
 		Array<s32> nearby_entities;
 		Array<s32> battery_state;
 		Array<s16> energy;
-		Array<ControlPointState> control_point_state;
 		Array<s8> shield;
 		Array<s8> time_remaining;
 		Array<b8> stealth;

@@ -48,9 +48,7 @@ namespace Overworld
 #define BORDER 2.0f
 #define OPACITY 0.8f
 #define STRING_BUFFER_SIZE 256
-#define HACK_TIME 2.0f
 #define BUY_TIME 1.0f
-#define AUTO_CAPTURE_TIME 30.0f
 #define ZONE_MAX_CHILDREN 12
 #define EVENT_INTERVAL_PER_ZONE (60.0f * 5.0f)
 #define EVENT_ODDS_PER_ZONE (1.0f / EVENT_INTERVAL_PER_ZONE) // an event will happen on average every X minutes per zone you own
@@ -285,9 +283,9 @@ void splitscreen_select_options_update(const Update& u)
 			AssetID value;
 			switch (Game::session.game_type)
 			{
-				case GameType::Rush:
+				case GameType::Assault:
 				{
-					value = strings::game_type_rush;
+					value = strings::game_type_assault;
 					break;
 				}
 				case GameType::Deathmatch:
@@ -318,7 +316,7 @@ void splitscreen_select_options_update(const Update& u)
 				*time_limit = vi_min(254.0f * 60.0f, *time_limit + 120.0f);
 		}
 
-		if (Game::session.game_type == GameType::Rush)
+		if (Game::session.game_type == GameType::Assault)
 		{
 			// respawns
 			s16* respawns = &Game::session.respawns;

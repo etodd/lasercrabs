@@ -168,13 +168,15 @@ void Shield::awake()
 {
 	if (Game::level.local && !inner.ref())
 	{
+		AI::Team team = has<CoreModule>() ? get<CoreModule>()->team : get<AIAgent>()->team;
+
 		{
 			Entity* shield_entity = World::create<Empty>();
 			shield_entity->get<Transform>()->parent = get<Transform>();
 			inner = shield_entity;
 
 			View* s = shield_entity->add<View>();
-			s->team = s8(get<AIAgent>()->team);
+			s->team = s8(team);
 			s->mesh = Asset::Mesh::sphere_highres;
 			s->offset.scale(Vec3::zero);
 			s->shader = Asset::Shader::fresnel;
@@ -192,7 +194,7 @@ void Shield::awake()
 			outer = shield_entity;
 
 			View* s = shield_entity->add<View>();
-			s->team = s8(get<AIAgent>()->team);
+			s->team = s8(team);
 			s->mesh = Asset::Mesh::sphere_highres;
 			s->offset.scale(Vec3::zero);
 			s->shader = Asset::Shader::fresnel;
@@ -229,7 +231,7 @@ void Shield::update_client_all(const Update& u)
 
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->get<Health>()->invincible_timer > 0.0f)
+			if (i.item()->get<Health>()->invincible())
 			{
 				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 				for (s32 j = 0; j < particles; j++)
@@ -286,7 +288,7 @@ void apply_alpha_scale(View* v, const Update& u, const Vec3& offset_pos, r32 tar
 
 void Shield::update_client(const Update& u)
 {
-	Vec3 offset_pos = get<SkinnedModel>()->offset.translation();
+	Vec3 offset_pos = has<SkinnedModel>() ? get<SkinnedModel>()->offset.translation() : get<View>()->offset.translation();
 
 	{
 		// inner shield
@@ -418,7 +420,10 @@ s8 Health::total() const
 
 b8 Health::invincible() const
 {
-	return invincible_timer > 0.0f;
+	if (has<CoreModule>())
+		return invincible_timer > 0.0f || Turret::list.count() > 0;
+	else
+		return invincible_timer > 0.0f;
 }
 
 BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
@@ -442,13 +447,13 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
 
-	Battery* pickup = create<Battery>();
-	pickup->team = team;
+	Battery* battery = create<Battery>();
+	battery->team = team;
 	model->team = s8(team);
 
-	model->offset.scale(Vec3(ENERGY_PICKUP_RADIUS - 0.2f));
+	model->offset.scale(Vec3(BATTERY_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(ENERGY_PICKUP_RADIUS), 0.1f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(BATTERY_RADIUS), 0.1f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker);
 	body->set_damping(0.5f, 0.5f);
 	body->set_ccd(true);
 
@@ -456,7 +461,7 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 	e->get<Transform>()->parent = get<Transform>();
 	e->add<PointLight>()->radius = 8.0f;
 	Net::finalize_child(e);
-	pickup->light = e;
+	battery->light = e;
 }
 
 void Battery::killed(Entity* e)
@@ -556,6 +561,8 @@ void Battery::set_team_client(AI::Team t)
 	get<PointLight>()->team = s8(t);
 	get<PointLight>()->radius = (t == AI::TeamNone) ? 0.0f : SENSOR_RANGE;
 	get<Sensor>()->team = t;
+	if (spawn_point.ref())
+		spawn_point.ref()->set_team(t);
 }
 
 b8 Battery::net_msg(Net::StreamRead* p)
@@ -570,10 +577,10 @@ b8 Battery::net_msg(Net::StreamRead* p)
 
 	Battery* pickup = ref.ref();
 	pickup->set_team_client(t);
-	if (caused_by.ref() && t == caused_by.ref()->get<AIAgent>()->team)
+	if (caused_by.ref() && caused_by.ref()->has<AIAgent>() && t == caused_by.ref()->get<AIAgent>()->team)
 	{
 		if (Game::level.local)
-			caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_CAPTURE_ENERGY_PICKUP);
+			caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_BATTERY_CAPTURE);
 		if (caused_by.ref()->has<PlayerControlHuman>())
 			caused_by.ref()->get<PlayerControlHuman>()->player.ref()->msg(_(strings::battery_captured), true);
 	}
@@ -684,216 +691,38 @@ void Battery::update_all(const Update& u)
 	}
 }
 
-ControlPointEntity::ControlPointEntity(AI::Team team, const Vec3& pos)
-{
-	create<Transform>()->absolute_pos(pos);
-
-	View* view = create<View>();
-	view->mesh = Asset::Mesh::control_point;
-	view->shader = Asset::Shader::culled;
-	view->color = Vec4(0.6f, 0.6f, 0.6f, MATERIAL_NO_OVERRIDE);
-
-	create<PlayerTrigger>()->radius = CONTROL_POINT_RADIUS;
-
-	PointLight* light = create<PointLight>();
-	light->offset.y = 2.0f;
-	light->radius = 12.0f;
-
-	create<ControlPoint>(team);
-
-	create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionParkour, ~CollisionStatic, Asset::Mesh::control_point);
-}
-
-PlayerSpawnEntity::PlayerSpawnEntity(AI::Team team)
+SpawnPointEntity::SpawnPointEntity(AI::Team team, b8 visible)
 {
 	create<Transform>();
 
-	View* view = create<View>();
-	view->mesh = Asset::Mesh::spawn;
-	view->shader = Asset::Shader::culled;
-	view->team = s8(team);
-
-	create<PlayerTrigger>()->radius = CONTROL_POINT_RADIUS;
-
-	PointLight* light = create<PointLight>();
-	light->offset.z = 2.0f;
-	light->radius = 12.0f;
-	light->team = s8(team);
-
-	create<PlayerSpawn>()->team = team;
-}
-
-ControlPoint::ControlPoint(AI::Team t)
-	: team(t),
-	obstacle_id(u32(-1))
-{
-}
-
-void ControlPoint::awake()
-{
-	get<PointLight>()->team = s8(team);
-	get<View>()->team = s8(team);
-	if (Game::level.local && obstacle_id == u32(-1))
+	if (visible)
 	{
-		Vec3 pos = get<Transform>()->absolute_pos();
-		pos.y -= 1.5f;
-		obstacle_id = AI::obstacle_add(pos, 1.0f, 3.0f);
-	}
-}
+		View* view = create<View>();
+		view->mesh = Asset::Mesh::spawn;
+		view->shader = Asset::Shader::culled;
+		view->team = s8(team);
 
-namespace ControlPointNet
-{
-	template<typename Stream> b8 serialize_update(Stream* p, ControlPoint* c)
-	{
-		serialize_r32_range(p, c->capture_timer, 0, CONTROL_POINT_CAPTURE_TIME, 16);
-		serialize_s8(p, c->team_next);
-		serialize_s8(p, c->team);
-		return true;
+		PointLight* light = create<PointLight>();
+		light->offset.z = 2.0f;
+		light->radius = 12.0f;
+		light->team = s8(team);
 	}
 
-	b8 send_update(ControlPoint* c)
-	{
-		vi_assert(Game::level.local);
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::ControlPoint);
-		{
-			Ref<ControlPoint> ref = c;
-			serialize_ref(p, ref);
-		}
-		if (!serialize_update(p, c))
-			vi_assert(false);
-		Net::msg_finalize(p);
-		return true;
-	}
+	create<PlayerTrigger>()->radius = SPAWN_POINT_RADIUS;
+
+	create<SpawnPoint>()->team = team;
 }
 
-void control_point_notify_captured(ControlPoint* c)
-{
-	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->get<PlayerManager>()->team.ref()->team() == c->team)
-			i.item()->msg(_(strings::control_point_captured), true);
-		else
-			i.item()->msg(_(strings::control_point_lost), false);
-	}
-}
-
-b8 ControlPoint::net_msg(Net::StreamRead* p)
-{
-	using Stream = Net::StreamRead;
-	Ref<ControlPoint> ref;
-	serialize_ref(p, ref);
-	ControlPoint* c = ref.ref();
-	AI::Team team_original = c->team;
-	if (!c || !ControlPointNet::serialize_update(p, c))
-		net_error();
-	if (!Game::level.local && c->team != team_original && c->team == 1) // captured by attackers
-		control_point_notify_captured(c);
-	c->get<PointLight>()->team = s8(c->team);
-	c->get<View>()->team = s8(c->team);
-	return true;
-}
-
-ControlPoint::~ControlPoint()
-{
-	if (obstacle_id != u32(-1))
-		AI::obstacle_remove(obstacle_id);
-}
-
-void ControlPoint::capture_start(AI::Team t)
-{
-	vi_assert(Game::level.local);
-	vi_assert(team_next == AI::TeamNone);
-	// no capture in progress; start capturing
-	team_next = t;
-	capture_timer = CONTROL_POINT_CAPTURE_TIME * (team == AI::TeamNone ? 0.5f : 1.0f);
-	ControlPointNet::send_update(this);
-}
-
-void ControlPoint::capture_cancel()
-{
-	vi_assert(Game::level.local);
-	team_next = AI::TeamNone;
-	capture_timer = 0.0f;
-	ControlPointNet::send_update(this);
-}
-
-b8 ControlPoint::owned_by(AI::Team t) const
-{
-	return (team == t && team_next == AI::TeamNone) || team_next == t;
-}
-
-b8 ControlPoint::can_be_captured_by(AI::Team t) const
-{
-	if (team_next == AI::TeamNone)
-		return team != t && (team != 1 || t != 0); // once attackers take a control point, defenders can't take it back
-	else
-		return team_next != t;
-}
-
-void ControlPoint::update(const Update& u)
-{
-	if (capture_timer > 0.0f)
-	{
-		if (Game::level.feature_level != Game::FeatureLevel::All) // tutorial mode
-			capture_timer -= u.time.delta * 10.0f; // go faster
-		else
-			capture_timer -= u.time.delta;
-		if (Game::level.local)
-		{
-			if (capture_timer <= 0.0f)
-			{
-				// capture complete
-				team = team_next;
-				team_next = AI::TeamNone;
-				capture_timer = 0.0f;
-				if (team == 1)
-					control_point_notify_captured(this);
-				ControlPointNet::send_update(this);
-			}
-			else if (capture_timer < CONTROL_POINT_CAPTURE_TIME * 0.5f && capture_timer + u.time.delta >= CONTROL_POINT_CAPTURE_TIME * 0.5f)
-			{
-				// halfway point
-				team = AI::TeamNone;
-				ControlPointNet::send_update(this);
-			}
-		}
-	}
-}
-
-void ControlPoint::set_team(AI::Team t)
+void SpawnPoint::set_team(AI::Team t)
 {
 	team = t;
-	team_next = AI::TeamNone;
-	capture_timer = 0.0f;
-	ControlPointNet::send_update(this);
+	get<View>()->team = s8(t);
+	get<PointLight>()->team = s8(t);
 }
 
-s32 ControlPoint::count(AI::TeamMask mask)
+SpawnPoint* SpawnPoint::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
-	s32 count = 0;
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (AI::match(i.item()->team, mask))
-			count++;
-	}
-	return count;
-}
-
-s32 ControlPoint::count_capturing()
-{
-	s32 count = 0;
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->capture_timer > 0.0f)
-			count++;
-	}
-	return count;
-}
-
-ControlPoint* ControlPoint::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
-{
-	ControlPoint* closest = nullptr;
+	SpawnPoint* closest = nullptr;
 	r32 closest_distance = FLT_MAX;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -918,6 +747,19 @@ ControlPoint* ControlPoint::closest(AI::TeamMask mask, const Vec3& pos, r32* dis
 	}
 
 	return closest;
+}
+
+SpawnPosition SpawnPoint::spawn_position(PlayerManager* player) const
+{
+	SpawnPosition result;
+	Quat rot;
+	get<Transform>()->absolute(&result.pos, &rot);
+	Vec3 dir = rot * Vec3(0, 1, 0);
+	result.angle = atan2f(dir.x, dir.z);
+
+	if (player->team.ref()->player_count() > 1)
+		result.pos += Quat::euler(0, result.angle + (player->id() * PI * 0.5f), 0) * Vec3(0, 0, SPAWN_POINT_RADIUS * 0.5f); // spawn it around the edges
+	return result;
 }
 
 SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_rot)
@@ -1360,8 +1202,6 @@ RocketEntity::RocketEntity(PlayerManager* owner, Transform* parent, const Vec3& 
 
 DecoyEntity::DecoyEntity(PlayerManager* owner, Transform* parent, const Vec3& pos, const Quat& rot)
 {
-	create<Audio>();
-
 	AI::Team team = owner->team.ref()->team();
 	Transform* transform = create<Transform>();
 	transform->parent = parent;
@@ -1387,6 +1227,8 @@ DecoyEntity::DecoyEntity(PlayerManager* owner, Transform* parent, const Vec3& po
 	create<Decoy>()->owner = owner;
 
 	create<Shield>();
+
+	create<Audio>();
 }
 
 void Decoy::awake()
@@ -1406,6 +1248,62 @@ void Decoy::killed(Entity*)
 }
 
 void Decoy::destroy()
+{
+	vi_assert(Game::level.local);
+	Vec3 pos;
+	Quat rot;
+	get<Transform>()->absolute(&pos, &rot);
+	ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+	World::remove_deferred(entity());
+}
+
+CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3& pos, const Quat& rot)
+{
+	Transform* transform = create<Transform>();
+	transform->parent = parent;
+	transform->absolute(pos + rot * Vec3(0, 0, DRONE_RADIUS), rot);
+
+	create<Health>(DRONE_HEALTH, DRONE_HEALTH, DRONE_SHIELD, DRONE_SHIELD);
+
+	View* model = create<View>();
+	model->mesh = Asset::Mesh::core_module;
+	model->shader = Asset::Shader::standard;
+	model->team = s8(team);
+
+	create<Target>();
+
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(DRONE_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault);
+
+	create<CoreModule>()->team = team;
+
+	create<Shield>();
+
+	create<Audio>();
+}
+
+void CoreModule::awake()
+{
+	link_arg<Entity*, &CoreModule::killed>(get<Health>()->killed);
+}
+
+s32 CoreModule::count(AI::TeamMask mask)
+{
+	s32 count = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask))
+			count++;
+	}
+	return count;
+}
+
+void CoreModule::killed(Entity*)
+{
+	if (Game::level.local)
+		destroy();
+}
+
+void CoreModule::destroy()
 {
 	vi_assert(Game::level.local);
 	Vec3 pos;
@@ -1579,7 +1477,7 @@ void Turret::update_server(const Update& u)
 		if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, PROJECTILE_SPEED, nullptr, &aim_pos))
 			aim_pos = target.ref()->get<Transform>()->absolute_pos();
 		gun_pos += Vec3::normalize(aim_pos - gun_pos) * TURRET_RADIUS;
-		Net::finalize(World::create<ProjectileEntity>(team, nullptr, gun_pos, aim_pos - gun_pos));
+		Net::finalize(World::create<BoltEntity>(team, nullptr, gun_pos, aim_pos - gun_pos));
 		cooldown += TURRET_COOLDOWN;
 	}
 }
@@ -1795,7 +1693,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 #define PROJECTILE_MAX_LIFETIME (DRONE_MAX_DISTANCE * 0.99f) / PROJECTILE_SPEED
 #define PROJECTILE_DAMAGE 1
 #define PROJECTILE_DRONE_DAMAGE 2
-ProjectileEntity::ProjectileEntity(AI::Team team, PlayerManager* owner, const Vec3& abs_pos, const Vec3& velocity)
+BoltEntity::BoltEntity(AI::Team team, PlayerManager* owner, const Vec3& abs_pos, const Vec3& velocity)
 {
 	Vec3 dir = Vec3::normalize(velocity);
 	Transform* transform = create<Transform>();
@@ -1808,18 +1706,18 @@ ProjectileEntity::ProjectileEntity(AI::Team team, PlayerManager* owner, const Ve
 
 	create<Audio>();
 
-	Projectile* p = create<Projectile>();
+	Bolt* p = create<Bolt>();
 	p->team = team;
 	p->owner = owner;
 	p->velocity = dir * PROJECTILE_SPEED;
 }
 
-void Projectile::awake()
+void Bolt::awake()
 {
 	get<Audio>()->post_event(AK::EVENTS::PLAY_LASER);
 }
 
-void Projectile::update(const Update& u)
+void Bolt::update(const Update& u)
 {
 	lifetime += u.time.delta;
 	if (lifetime > PROJECTILE_MAX_LIFETIME)
@@ -1840,12 +1738,12 @@ void Projectile::update(const Update& u)
 		get<Transform>()->absolute_pos(next_pos);
 }
 
-s16 Projectile::raycast_mask(AI::Team team)
+s16 Bolt::raycast_mask(AI::Team team)
 {
 	return ~Team::force_field_mask(team);
 }
 
-void Projectile::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
+void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 {
 	b8 reflect = false;
 
@@ -2342,7 +2240,7 @@ s32 PlayerTrigger::count() const
 
 Array<Mat4> Rope::instances;
 
-// draw rope segments and projectiles
+// draw rope segments and bolts
 void Rope::draw(const RenderParams& params)
 {
 	if (!params.camera->mask)
@@ -2371,12 +2269,12 @@ void Rope::draw(const RenderParams& params)
 		}
 	}
 
-	// projectiles
-	if (!(params.camera->mask & RENDER_MASK_SHADOW)) // projectiles don't cast shadows
+	// bolts
+	if (!(params.camera->mask & RENDER_MASK_SHADOW)) // bolts don't cast shadows
 	{
 		static const Vec3 scale = Vec3(PROJECTILE_THICKNESS, PROJECTILE_THICKNESS, PROJECTILE_LENGTH * 0.5f);
 		static const Mat4 offset = Mat4::make_translation(0, 0, PROJECTILE_LENGTH * 0.5f);
-		for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+		for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
 		{
 			Mat4 m;
 			i.item()->get<Transform>()->mat(&m);
@@ -2388,10 +2286,10 @@ void Rope::draw(const RenderParams& params)
 			}
 		}
 
-		// fake projectiles
+		// fake bolts
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->type == EffectLight::Type::Projectile)
+			if (i.item()->type == EffectLight::Type::Bolt)
 			{
 				Mat4 m;
 				m.make_transform(i.item()->pos, scale, i.item()->rot);
@@ -2646,7 +2544,7 @@ r32 EffectLight::radius() const
 {
 	switch (type)
 	{
-		case Type::Projectile:
+		case Type::Bolt:
 		{
 			return max_radius;
 		}
@@ -2676,7 +2574,7 @@ r32 EffectLight::opacity() const
 {
 	switch (type)
 	{
-		case Type::Projectile:
+		case Type::Bolt:
 		{
 			return 1.0f;
 		}
@@ -2715,7 +2613,7 @@ void EffectLight::update(const Update& u)
 	timer += u.time.delta;
 	if (timer > duration)
 		remove(this);
-	else if (type == Type::Projectile)
+	else if (type == Type::Bolt)
 		pos += rot * Vec3(0, 0, u.time.delta * PROJECTILE_SPEED);
 }
 
@@ -2808,7 +2706,7 @@ void Collectible::give_rewards()
 
 Interactable* Interactable::closest(const Vec3& pos)
 {
-	r32 distance_sq = CONTROL_POINT_RADIUS * 0.35f * CONTROL_POINT_RADIUS * 0.35f;
+	r32 distance_sq = SPAWN_POINT_RADIUS * 0.35f * SPAWN_POINT_RADIUS * 0.35f;
 	Interactable* result = nullptr;
 	// find the closest interactable
 	for (auto i = list.iterator(); !i.is_last(); i.next())

@@ -232,7 +232,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 	{
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 		{
-			if ((i.item()->type == EffectLight::Type::Spark || i.item()->type == EffectLight::Type::Projectile) && s32(PointLight::Type::Normal) & type_mask)
+			if ((i.item()->type == EffectLight::Type::Spark || i.item()->type == EffectLight::Type::Bolt) && s32(PointLight::Type::Normal) & type_mask)
 				render_point_light(render_params, i.item()->absolute_pos(), i.item()->radius(), PointLight::Type::Normal, Vec3(i.item()->opacity()), AI::TeamNone);
 			else if (i.item()->type == EffectLight::Type::Shockwave && s32(PointLight::Type::Shockwave) & type_mask)
 				render_point_light(render_params, i.item()->absolute_pos(), i.item()->radius(), PointLight::Type::Shockwave, Vec3(i.item()->opacity()), AI::TeamNone);

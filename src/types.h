@@ -100,7 +100,7 @@ enum class ZoneState
 
 enum class GameType
 {
-	Rush,
+	Assault,
 	Deathmatch,
 	count,
 };

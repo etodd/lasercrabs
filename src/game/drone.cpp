@@ -593,25 +593,52 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						base->get<View>()->team = s8(drone->get<AIAgent>()->team);
 						Net::finalize(base);
 
-						// launch rocket at turrets if necessary
+						// launch rocket at turrets and core modules if necessary
 
 						AI::Team team_mine = drone->get<AIAgent>()->team;
 						u32 force_field_hash_mine = ForceField::hash(team_mine, pos);
-						for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+						if (Turret::list.count() > 0)
 						{
-							if (i.item()->team != team_mine)
+							// launch at turrets
+							for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 							{
-								Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
-								if ((turret_pos - pos).length_squared() < TURRET_VIEW_RANGE * TURRET_VIEW_RANGE
-									&& force_field_hash_mine == ForceField::hash(team_mine, turret_pos))
+								if (i.item()->team != team_mine)
 								{
-									RaycastCallbackExcept ray_callback(pos, turret_pos, rocket);
-									Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~Team::force_field_mask(team_mine));
-									if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == i.item()->entity_id)
+									Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
+									if ((turret_pos - pos).length_squared() < TURRET_VIEW_RANGE * TURRET_VIEW_RANGE
+										&& force_field_hash_mine == ForceField::hash(team_mine, turret_pos))
 									{
-										// launch at this turret
-										rocket->get<Rocket>()->launch(i.item()->entity());
-										break;
+										RaycastCallbackExcept ray_callback(pos, turret_pos, rocket);
+										Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~Team::force_field_mask(team_mine));
+										if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == i.item()->entity_id)
+										{
+											// launch at this turret
+											rocket->get<Rocket>()->launch(i.item()->entity());
+											break;
+										}
+									}
+								}
+							}
+						}
+						else
+						{
+							// launch at core modules
+							for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+							{
+								if (i.item()->team != team_mine)
+								{
+									Vec3 core_pos = i.item()->get<Transform>()->absolute_pos();
+									if ((core_pos - pos).length_squared() < TURRET_VIEW_RANGE * TURRET_VIEW_RANGE
+										&& force_field_hash_mine == ForceField::hash(team_mine, core_pos))
+									{
+										RaycastCallbackExcept ray_callback(pos, core_pos, rocket);
+										Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~Team::force_field_mask(team_mine));
+										if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == i.item()->entity_id)
+										{
+											// launch at this core
+											rocket->get<Rocket>()->launch(i.item()->entity());
+											break;
+										}
 									}
 								}
 							}
@@ -774,7 +801,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 								// check environment collisions
 								{
 									btCollisionWorld::ClosestRayResultCallback ray_callback(pos_bolt, pos_bolt_next_ray);
-									Physics::raycast(&ray_callback, Projectile::raycast_mask(drone->get<AIAgent>()->team));
+									Physics::raycast(&ray_callback, Bolt::raycast_mask(drone->get<AIAgent>()->team));
 									if (ray_callback.hasHit())
 									{
 										closest_hit = ray_callback.m_hitPointWorld;
@@ -819,27 +846,27 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 									break;
 							}
 
-							Entity* bolt = World::create<ProjectileEntity>(manager->team.ref()->team(), manager, pos_bolt, dir_normalized);
+							Entity* bolt = World::create<BoltEntity>(manager->team.ref()->team(), manager, pos_bolt, dir_normalized);
 							Net::finalize(bolt);
 							if (closest_hit_entity) // we hit something, register it instantly
-								bolt->get<Projectile>()->hit_entity(closest_hit_entity, closest_hit, closest_hit_normal);
+								bolt->get<Bolt>()->hit_entity(closest_hit_entity, closest_hit, closest_hit_normal);
 						}
 						else
 						{
 							// not a remote player; no lag compensation needed
-							Net::finalize(World::create<ProjectileEntity>(manager->team.ref()->team(), manager, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
+							Net::finalize(World::create<BoltEntity>(manager->team.ref()->team(), manager, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
 						}
 					}
 					else
 					{
-						// we're a client; if this is a local player who has already spawned a fake projectile for client-side prediction,
-						// we need to delete that fake projectile, since the server has spawned a real one.
-						if (drone->fake_projectiles.length > 0)
+						// we're a client; if this is a local player who has already spawned a fake bolt for client-side prediction,
+						// we need to delete that fake bolt, since the server has spawned a real one.
+						if (drone->fake_bolts.length > 0)
 						{
-							EffectLight* projectile = drone->fake_projectiles[0].ref();
-							if (projectile) // might have already been removed
-								EffectLight::remove(projectile);
-							drone->fake_projectiles.remove_ordered(0);
+							EffectLight* bolt = drone->fake_bolts[0].ref();
+							if (bolt) // might have already been removed
+								EffectLight::remove(bolt);
+							drone->fake_bolts.remove_ordered(0);
 						}
 					}
 					break;
@@ -939,7 +966,7 @@ Drone::Drone()
 	charges(DRONE_CHARGES),
 	particle_accumulator(),
 	current_ability(Ability::None),
-	fake_projectiles(),
+	fake_bolts(),
 	ability_spawned(),
 	remote_reflection_timer(),
 	reflection_source_remote(),
@@ -1092,8 +1119,8 @@ void Drone::health_changed(const HealthEvent& e)
 				PlayerManager* enemy = nullptr;
 				if (e.source.ref()->has<PlayerCommon>())
 					enemy = e.source.ref()->get<PlayerCommon>()->manager.ref();
-				else if (e.source.ref()->has<Projectile>())
-					enemy = e.source.ref()->get<Projectile>()->owner.ref();
+				else if (e.source.ref()->has<Bolt>())
+					enemy = e.source.ref()->get<Bolt>()->owner.ref();
 				else if (e.source.ref()->has<Rocket>())
 					enemy = e.source.ref()->get<Rocket>()->owner.ref();
 				if (Game::level.local && enemy)
@@ -1504,21 +1531,21 @@ b8 Drone::go(const Vec3& dir)
 		else if (a == Ability::Bolter)
 		{
 			// client-side prediction; create fake bolt
-			if (fake_projectiles.length == fake_projectiles.capacity())
+			if (fake_bolts.length == fake_bolts.capacity())
 			{
-				EffectLight* projectile = fake_projectiles[0].ref();
-				if (projectile) // might have already been removed
-					EffectLight::remove(projectile);
-				fake_projectiles.remove_ordered(0);
+				EffectLight* bolt = fake_bolts[0].ref();
+				if (bolt) // might have already been removed
+					EffectLight::remove(bolt);
+				fake_bolts.remove_ordered(0);
 			}
-			fake_projectiles.add
+			fake_bolts.add
 			(
 				EffectLight::add
 				(
 					get<Transform>()->absolute_pos() + dir_normalized * DRONE_SHIELD_RADIUS,
 					PROJECTILE_LIGHT_RADIUS,
 					0.5f,
-					EffectLight::Type::Projectile,
+					EffectLight::Type::Bolt,
 					nullptr,
 					Quat::look(dir_normalized)
 				)

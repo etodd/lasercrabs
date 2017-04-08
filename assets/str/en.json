@@ -14,7 +14,7 @@
 	"multiplayer_custom": "Custom",
 	"multiplayer_local": "Local",
 	"game_type": "Type",
-	"game_type_rush": "Control",
+  "game_type_assault": "Assault",
 	"game_type_deathmatch": "DM",
 	"time_limit": "Time limit",
 	"kill_limit": "Score limit",

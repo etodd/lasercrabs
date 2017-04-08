@@ -655,7 +655,6 @@ struct Manifest
 struct StaticMeshes
 {
 	Mesh terminal;
-	Mesh control_point;
 	Mesh interactable;
 	Mesh turret_base;
 	Mesh turret_top;
@@ -666,7 +665,6 @@ struct StaticMeshes
 		if (terminal.vertices.length == 0)
 		{
 			Mesh::read(&terminal, ASSET_OUT_FOLDER"terminal_collision.msh");
-			Mesh::read(&control_point, ASSET_OUT_FOLDER"control_point.msh");
 			Mesh::read(&interactable, ASSET_OUT_FOLDER"interactable_collision.msh");
 			Mesh::read(&turret_base, ASSET_OUT_FOLDER"turret_base.msh");
 			Mesh::read(&turret_top, ASSET_OUT_FOLDER"turret_top.msh");
@@ -2013,11 +2011,6 @@ void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, Manifest& manifes
 		{
 			if (!filter || filter(&static_meshes.interactable))
 				consolidate_nav_geometry_mesh(result, static_meshes.interactable, mat);
-		}
-		else if (cJSON_HasObjectItem(element, "ControlPoint"))
-		{
-			if (!filter || filter(&static_meshes.control_point))
-				consolidate_nav_geometry_mesh(result, static_meshes.control_point, mat);
 		}
 		else if (cJSON_HasObjectItem(element, "Turret"))
 		{

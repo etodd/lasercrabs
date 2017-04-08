@@ -81,6 +81,8 @@ struct TargetEvent
 	Entity* target;
 };
 
+struct SpawnPoint;
+
 struct Battery : public ComponentType<Battery>
 {
 	struct Key
@@ -100,6 +102,7 @@ struct Battery : public ComponentType<Battery>
 	static b8 net_msg(Net::StreamRead*);
 
 	Ref<Entity> light;
+	Ref<SpawnPoint> spawn_point;
 	AI::Team team = AI::TeamNone;
 
 	void awake();
@@ -110,43 +113,26 @@ struct Battery : public ComponentType<Battery>
 	void set_team_client(AI::Team);
 };
 
-struct PlayerSpawnEntity : public Entity
+struct SpawnPointEntity : public Entity
 {
-	PlayerSpawnEntity(AI::Team);
+	SpawnPointEntity(AI::Team, b8);
 };
 
-struct ControlPointEntity : public Entity
+struct SpawnPosition
 {
-	ControlPointEntity(AI::Team, const Vec3&);
+	Vec3 pos;
+	r32 angle;
 };
 
-struct PlayerSpawn : public ComponentType<PlayerSpawn>
+struct SpawnPoint : public ComponentType<SpawnPoint>
 {
+	static SpawnPoint* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+
 	AI::Team team;
+
 	void awake() {}
-};
-
-struct ControlPoint : public ComponentType<ControlPoint>
-{
-	static ControlPoint* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
-	static s32 count(AI::TeamMask);
-	static s32 count_capturing();
-	static b8 net_msg(Net::StreamRead*);
-
-	r32 capture_timer;
-	AI::Team team;
-	AI::Team team_next = AI::TeamNone;
-	u32 obstacle_id;
-
-	ControlPoint(AI::Team = AI::TeamNone);
-	~ControlPoint();
-	b8 owned_by(AI::Team) const;
-	b8 can_be_captured_by(AI::Team) const;
-	void awake();
-	void capture_start(AI::Team);
-	void capture_cancel();
-	void update(const Update&);
 	void set_team(AI::Team);
+	SpawnPosition spawn_position(PlayerManager*) const;
 };
 
 struct SensorEntity : public Entity
@@ -202,6 +188,11 @@ struct RocketEntity : public Entity
 	RocketEntity(PlayerManager*, Transform*, const Vec3&, const Quat&, AI::Team);
 };
 
+struct DecoyEntity : public Entity
+{
+	DecoyEntity(PlayerManager*, Transform*, const Vec3&, const Quat&);
+};
+
 struct Decoy : public ComponentType<Decoy>
 {
 	Ref<PlayerManager> owner;
@@ -213,9 +204,20 @@ struct Decoy : public ComponentType<Decoy>
 	AI::Team team() const;
 };
 
-struct DecoyEntity : public Entity
+struct CoreModuleEntity : public Entity
 {
-	DecoyEntity(PlayerManager*, Transform*, const Vec3&, const Quat&);
+	CoreModuleEntity(AI::Team, Transform*, const Vec3&, const Quat&);
+};
+
+struct CoreModule : public ComponentType<CoreModule>
+{
+	static s32 count(AI::TeamMask);
+
+	AI::Team team;
+
+	void awake();
+	void killed(Entity*);
+	void destroy();
 };
 
 struct TurretEntity : public Entity
@@ -297,7 +299,7 @@ struct EffectLight
 {
 	enum class Type
 	{
-		Projectile,
+		Bolt,
 		Spark,
 		Shockwave,
 		Alpha,
@@ -347,12 +349,12 @@ struct Rope : public ComponentType<Rope>
 	void end(const Vec3&, const Vec3&, RigidBody*, r32 = 0.0f, b8 = false);
 };
 
-struct ProjectileEntity : public Entity
+struct BoltEntity : public Entity
 {
-	ProjectileEntity(AI::Team, PlayerManager*, const Vec3&, const Vec3&);
+	BoltEntity(AI::Team, PlayerManager*, const Vec3&, const Vec3&);
 };
 
-struct Projectile : public ComponentType<Projectile>
+struct Bolt : public ComponentType<Bolt>
 {
 	static s16 raycast_mask(AI::Team);
 	

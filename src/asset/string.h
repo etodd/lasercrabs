@@ -90,8 +90,8 @@ namespace Asset
 		const AssetID force_field = 78;
 		const AssetID force_field_destroyed = 79;
 		const AssetID game_type = 80;
-		const AssetID game_type_deathmatch = 81;
-		const AssetID game_type_rush = 82;
+		const AssetID game_type_assault = 81;
+		const AssetID game_type_deathmatch = 82;
 		const AssetID grenade = 83;
 		const AssetID grenade_incoming = 84;
 		const AssetID group_required = 85;

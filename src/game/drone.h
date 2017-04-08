@@ -114,7 +114,7 @@ struct Drone : public ComponentType<Drone>
 	Footing footing[DRONE_LEGS];
 	Ref<Entity> remote_reflection_entity;
 	StaticArray<Ref<Entity>, 8> hit_targets;
-	StaticArray<Ref<EffectLight>, 4> fake_projectiles;
+	StaticArray<Ref<EffectLight>, 4> fake_bolts;
 	LinkArg<const DroneReflectEvent&> reflecting;
 	LinkArg<Entity*> hit;
 	LinkArg<Ability> ability_spawned;

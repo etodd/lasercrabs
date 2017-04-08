@@ -16,6 +16,7 @@ struct Transform;
 struct Target;
 struct TargetEvent;
 struct PlayerManager;
+struct SpawnPosition;
 namespace Net
 {
 	struct StreamRead;
@@ -47,12 +48,6 @@ struct UpgradeInfo
 };
 
 #define PLAYER_SCORE_SUMMARY_ITEMS 4
-
-struct PlayerSpawnPosition
-{
-	Vec3 pos;
-	r32 angle;
-};
 
 struct Team : public ComponentType<Team>
 {
@@ -107,13 +102,11 @@ struct Team : public ComponentType<Team>
 	}
 
 	SensorTrack player_tracks[MAX_PLAYERS];
-	Ref<Transform> player_spawn;
 
 	Team();
 	void awake() {}
 	b8 has_active_player() const;
 	void track(PlayerManager*, Entity*);
-	s32 control_point_count() const;
 	s32 player_count() const;
 	s16 kills() const;
 
@@ -123,15 +116,12 @@ struct Team : public ComponentType<Team>
 	}
 };
 
-struct ControlPoint;
-
 struct PlayerManager : public ComponentType<PlayerManager>
 {
 	enum State
 	{
 		Default,
 		Upgrading,
-		Capturing,
 		count,
 	};
 
@@ -161,9 +151,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s32 upgrades;
 	Ability abilities[MAX_ABILITIES];
 	Upgrade current_upgrade;
-	LinkArg<const PlayerSpawnPosition&> spawn;
+	LinkArg<const SpawnPosition&> spawn;
 	LinkArg<Upgrade> upgrade_completed;
-	LinkArg<b8> control_point_capture_completed;
 	Ref<Team> team;
 	Ref<Entity> instance;
 	s16 energy;
@@ -179,7 +168,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void awake();
 	~PlayerManager();
 
-	PlayerSpawnPosition spawn_position() const;
+	SpawnPosition default_spawn_position() const;
 	Entity* decoy() const;
 	State state() const;
 	b8 can_transition_state() const;
@@ -191,17 +180,12 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void upgrade_cancel();
 	void upgrade_complete();
 	Upgrade upgrade_highest_owned_or_available() const;
-	b8 capture_start();
-	void capture_cancel();
-	void capture_complete();
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
 	s16 upgrade_cost(Upgrade) const;
 	s32 add_energy(s32);
 	void add_kills(s32);
 	void add_deaths(s32);
-	b8 at_upgrade_point() const;
-	ControlPoint* at_control_point() const;
-	b8 friendly_control_point(const ControlPoint*) const;
+	b8 at_spawn_point() const;
 	s16 increment() const;
 	void update_server(const Update&);
 	void update_client(const Update&);

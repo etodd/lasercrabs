@@ -608,7 +608,7 @@ namespace Master
 					multiplayer_state.open_slots = 4;
 					multiplayer_state.session_type = SessionType::Public;
 					multiplayer_state.team_count = 2;
-					multiplayer_state.game_type = GameType::Rush;
+					multiplayer_state.game_type = GameType::Assault;
 					multiplayer_state.kill_limit = 0;
 					multiplayer_state.respawns = 5;
 					multiplayer_state.time_limit_minutes = 8;

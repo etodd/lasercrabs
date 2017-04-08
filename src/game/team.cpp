@@ -158,8 +158,7 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 };
 
 Team::Team()
-	: player_tracks(),
-	player_spawn()
+	: player_tracks()
 {
 }
 
@@ -243,17 +242,6 @@ void Team::track(PlayerManager* player, Entity* e)
 	SensorTrack* track = &player_tracks[player->id()];
 	track->tracking = true; // got em
 	track->entity = e;
-}
-
-s32 Team::control_point_count() const
-{
-	s32 count = 0;
-	for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->team == team())
-			count++;
-	}
-	return count;
 }
 
 s32 Team::player_count() const
@@ -718,9 +706,9 @@ void Team::update_all_server(const Update& u)
 	{
 		Team* team_with_most_kills = Game::level.type == GameType::Deathmatch ? with_most_kills() : nullptr;
 		if (!Game::level.continue_match_after_death
-			&& ((match_time > Game::level.time_limit && (Game::level.type != GameType::Rush || ControlPoint::count_capturing() == 0))
+			&& (match_time > Game::level.time_limit
 			|| (Game::level.has_feature(Game::FeatureLevel::All) && Team::teams_with_active_players() <= 1)
-			|| (Game::level.type == GameType::Rush && list[1].control_point_count() == ControlPoint::list.count())
+			|| (Game::level.type == GameType::Assault && CoreModule::count(1 << 0) == 0)
 			|| (Game::level.type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills() >= Game::level.kill_limit)))
 		{
 			// determine the winner, if any
@@ -740,12 +728,12 @@ void Team::update_all_server(const Update& u)
 				w = team_with_player;
 			else if (Game::level.type == GameType::Deathmatch)
 				w = team_with_most_kills;
-			else if (Game::level.type == GameType::Rush)
+			else if (Game::level.type == GameType::Assault)
 			{
-				if (list[0].control_point_count() > 0)
-					w = &list[0]; // defenders win
-				else
+				if (CoreModule::count(1 << 0) == 0)
 					w = &list[1]; // attackers win
+				else
+					w = &list[0]; // defenders win
 			}
 
 			// remove entities
@@ -775,9 +763,6 @@ void Team::update_all_server(const Update& u)
 			}
 
 			TeamNet::send_game_over(w);
-
-			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-				i.item()->set_team(w->team());
 
 			if (Game::session.type == SessionType::Story)
 			{
@@ -896,19 +881,6 @@ void Team::update_all_client_only(const Update& u)
 	update_visibility(u);
 }
 
-PlayerSpawnPosition PlayerManager::spawn_position() const
-{
-	PlayerSpawnPosition result;
-	Quat rot;
-	team.ref()->player_spawn.ref()->absolute(&result.pos, &rot);
-	Vec3 dir = rot * Vec3(0, 1, 0);
-	result.angle = atan2f(dir.x, dir.z);
-
-	if (team.ref()->player_count() > 1)
-		result.pos += Quat::euler(0, result.angle + (id() * PI * 0.5f), 0) * Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
-	return result;
-}
-
 b8 PlayerManager::has_upgrade(Upgrade u) const
 {
 	return upgrades & (1 << s32(u));
@@ -957,7 +929,6 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	current_upgrade(Upgrade::None),
 	state_timer(),
 	upgrade_completed(),
-	control_point_capture_completed(),
 	particle_accumulator(),
 	respawns(Game::level.respawns),
 	kills(),
@@ -966,7 +937,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
 	{
 		energy = ENERGY_INITIAL;
-		if (Game::session.type == SessionType::Story && Game::level.type == GameType::Rush && team->team() == 0)
+		if (Game::session.type == SessionType::Story && Game::level.type == GameType::Assault && team->team() == 0)
 			energy += s32(Team::match_time / ENERGY_INCREMENT_INTERVAL) * (ENERGY_DEFAULT_INCREMENT * s32(Battery::list.count() * 0.75f));
 	}
 	else
@@ -1004,7 +975,7 @@ b8 PlayerManager::upgrade_start(Upgrade u)
 	if (can_transition_state()
 		&& upgrade_available(u)
 		&& energy >= cost
-		&& at_upgrade_point())
+		&& at_spawn_point())
 	{
 		current_upgrade = u;
 		state_timer = UPGRADE_TIME;
@@ -1027,6 +998,7 @@ void PlayerManager::upgrade_complete()
 {
 	Upgrade u = current_upgrade;
 	current_upgrade = Upgrade::None;
+	state_timer = 0.0f;
 
 	vi_assert(!has_upgrade(u));
 
@@ -1039,57 +1011,6 @@ void PlayerManager::upgrade_complete()
 	}
 
 	upgrade_completed.fire(u);
-}
-
-b8 PlayerManager::capture_start()
-{
-	ControlPoint* control_point = at_control_point();
-	if (can_transition_state() && control_point && control_point->can_be_captured_by(team.ref()->team()))
-	{
-		vi_assert(current_upgrade == Upgrade::None);
-		instance.ref()->get<Drone>()->ability(Ability::None);
-		state_timer = CAPTURE_TIME;
-		return true;
-	}
-	return false;
-}
-
-void PlayerManager::capture_cancel()
-{
-	if (state() == State::Capturing)
-	{
-		control_point_capture_completed.fire(false);
-		state_timer = 0.0f;
-	}
-}
-
-// the capture is not actually complete; we've completed the process of *starting* to capture the point
-void PlayerManager::capture_complete()
-{
-	if (!instance.ref())
-		return;
-
-	b8 success = false;
-	ControlPoint* control_point = at_control_point();
-	if (control_point && control_point->can_be_captured_by(team.ref()->team()))
-	{
-		if (control_point->team_next == AI::TeamNone)
-		{
-			// no capture in progress; start capturing
-			control_point->capture_start(team.ref()->team());
-		}
-		else
-		{
-			// capture already in progress; cancel if necessary
-			vi_assert(control_point->team_next != team.ref()->team());
-			control_point->capture_cancel();
-			if (control_point->team != team.ref()->team())
-				control_point->capture_start(team.ref()->team()); // start capturing again
-		}
-		success = true;
-	}
-
-	control_point_capture_completed.fire(success);
 }
 
 s16 PlayerManager::upgrade_cost(Upgrade u) const
@@ -1169,41 +1090,26 @@ void PlayerManager::add_deaths(s32 d)
 	deaths += d;
 }
 
-b8 PlayerManager::at_upgrade_point() const
+b8 PlayerManager::at_spawn_point() const
 {
-	return team.ref()->player_spawn.ref()->get<PlayerTrigger>()->is_triggered(instance.ref());
-}
+	if (!instance.ref())
+		return false;
 
-ControlPoint* PlayerManager::at_control_point() const
-{
-	Entity* e = instance.ref();
-	if (e && (!e->has<Drone>() || e->get<Drone>()->state() == Drone::State::Crawl))
+	for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
 	{
-		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->get<PlayerTrigger>()->is_triggered(e))
-				return i.item();
-		}
+		if (i.item()->team == team.ref()->team() && i.item()->get<PlayerTrigger>()->is_triggered(instance.ref()))
+			return true;
 	}
-	return nullptr;
-}
 
-b8 PlayerManager::friendly_control_point(const ControlPoint* p) const
-{
-	return p && p->owned_by(team.ref()->team());
+	return false;
 }
 
 PlayerManager::State PlayerManager::state() const
 {
-	if (state_timer == 0.0f)
+	if (current_upgrade == Upgrade::None)
 		return State::Default;
 	else
-	{
-		if (current_upgrade == Upgrade::None)
-			return State::Capturing;
-		else
-			return State::Upgrading;
-	}
+		return State::Upgrading;
 }
 
 b8 PlayerManager::can_transition_state() const
@@ -1225,7 +1131,7 @@ b8 PlayerManager::can_transition_state() const
 s16 PlayerManager::increment() const
 {
 	return ENERGY_DEFAULT_INCREMENT
-		+ Battery::count(1 << team.ref()->team()) * ENERGY_ENERGY_PICKUP;
+		+ Battery::count(1 << team.ref()->team()) * ENERGY_BATTERY_INCREMENT;
 }
 
 void PlayerManager::update_all(const Update& u)
@@ -1257,6 +1163,26 @@ void PlayerManager::update_all(const Update& u)
 	}
 }
 
+SpawnPosition PlayerManager::default_spawn_position() const
+{
+	SpawnPosition result;
+	for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team == team.ref()->team())
+		{
+			Quat rot;
+			i.item()->get<Transform>()->absolute(&result.pos, &rot);
+			Vec3 dir = rot * Vec3(0, 1, 0);
+			result.angle = atan2f(dir.x, dir.z);
+
+			if (team.ref()->player_count() > 1)
+				result.pos += Quat::euler(0, result.angle + (id() * PI * 0.5f), 0) * Vec3(0, 0, SPAWN_POINT_RADIUS * 0.5f); // spawn it around the edges
+			break;
+		}
+	}
+	return result;
+}
+
 void PlayerManager::update_server(const Update& u)
 {
 	if (Game::level.mode == Game::Mode::Pvp)
@@ -1264,7 +1190,6 @@ void PlayerManager::update_server(const Update& u)
 		if (!instance.ref()
 			&& can_spawn
 			&& spawn_timer > 0.0f
-			&& team.ref()->player_spawn.ref()
 			&& respawns != 0
 			&& !Team::game_over
 			&& !Game::level.continue_match_after_death)
@@ -1276,7 +1201,7 @@ void PlayerManager::update_server(const Update& u)
 					respawns--;
 				if (respawns != 0)
 					spawn_timer = PLAYER_SPAWN_DELAY;
-				spawn.fire(spawn_position());
+				spawn.fire(default_spawn_position());
 			}
 		}
 	}
@@ -1286,7 +1211,7 @@ void PlayerManager::update_server(const Update& u)
 			&& !Team::game_over
 			&& !Game::level.continue_match_after_death)
 		{
-			spawn.fire(spawn_position());
+			spawn.fire(default_spawn_position());
 		}
 	}
 
@@ -1299,11 +1224,6 @@ void PlayerManager::update_server(const Update& u)
 		{
 			switch (s)
 			{
-				case State::Capturing:
-				{
-					capture_cancel();
-					break;
-				}
 				case State::Upgrading:
 				{
 					upgrade_cancel();
@@ -1324,11 +1244,6 @@ void PlayerManager::update_server(const Update& u)
 			{
 				switch (s)
 				{
-					case State::Capturing:
-					{
-						capture_complete();
-						break;
-					}
 					case State::Upgrading:
 					{
 						upgrade_complete();

@@ -481,43 +481,15 @@ void debug_draw_drone_nav_mesh(const RenderParams& params)
 
 #endif
 
-s8 record_control_point_state(ControlPoint* c)
-{
-	if (c->capture_timer > 0.0f)
-	{
-		if (c->team == 0)
-			return AI::RecordedLife::ControlPointState::StateLosingFirstHalf;
-		else if (c->team == AI::TeamNone)
-		{
-			if (c->team_next == 1)
-				return AI::RecordedLife::ControlPointState::StateLosingSecondHalf;
-			else
-				return AI::RecordedLife::ControlPointState::StateRecapturingFirstHalf;
-		}
-		else
-		{
-			vi_assert(false);
-			return -1;
-		}
-	}
-	else
-	{
-		if (c->team == 0)
-			return AI::RecordedLife::ControlPointState::StateNormal;
-		else
-			return AI::RecordedLife::ControlPointState::StateLost;
-	}
-}
-
 ComponentMask entity_mask = Sensor::component_mask
 	| Drone::component_mask
 	| Minion::component_mask
 	| Battery::component_mask
 	| Rocket::component_mask
 	| ForceField::component_mask
-	| Projectile::component_mask
+	| Bolt::component_mask
 	| Grenade::component_mask
-	| ControlPoint::component_mask;
+	| SpawnPoint::component_mask;
 
 void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 {
@@ -575,10 +547,10 @@ void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 		_team = e->get<ForceField>()->team;
 		_type = _team == query_team ? RecordedLife::EntityForceFieldFriend : RecordedLife::EntityForceFieldEnemy;
 	}
-	else if (e->has<Projectile>())
+	else if (e->has<Bolt>())
 	{
-		_team = e->get<Projectile>()->team;
-		_type = _team == query_team ? RecordedLife::EntityProjectileFriend : RecordedLife::EntityProjectileEnemy;
+		_team = e->get<Bolt>()->team;
+		_type = _team == query_team ? RecordedLife::EntityBoltFriend : RecordedLife::EntityBoltEnemy;
 	}
 	else if (e->has<Grenade>())
 	{
@@ -589,47 +561,20 @@ void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 		else
 			_type = attached ? RecordedLife::EntityGrenadeEnemyAttached : RecordedLife::EntityGrenadeEnemyDetached;
 	}
-	else if (e->has<ControlPoint>())
+	else if (e->has<SpawnPoint>())
 	{
-		_team = e->get<ControlPoint>()->team;
-		switch (record_control_point_state(e->get<ControlPoint>()))
-		{
-			case RecordedLife::ControlPointState::StateNormal:
-			{
-				_type = RecordedLife::EntityControlPointNormal;
-				break;
-			}
-			case RecordedLife::ControlPointState::StateLosingFirstHalf:
-			{
-				_type = RecordedLife::EntityControlPointLosingFirstHalf;
-				break;
-			}
-			case RecordedLife::ControlPointState::StateLosingSecondHalf:
-			{
-				_type = RecordedLife::EntityControlPointLosingSecondHalf;
-				break;
-			}
-			case RecordedLife::ControlPointState::StateRecapturingFirstHalf:
-			{
-				_type = RecordedLife::EntityControlPointRecapturingFirstHalf;
-				break;
-			}
-			case RecordedLife::ControlPointState::StateLost:
-			{
-				_type = RecordedLife::EntityNone;
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
-		}
+		_team = e->get<SpawnPoint>()->team;
+		_type = _team == query_team ? RecordedLife::EntitySpawnPointFriend : RecordedLife::EntitySpawnPointEnemy;
 	}
 	else if (e->has<Turret>())
 	{
 		_team = e->get<Turret>()->team;
 		_type = _team == query_team ? RecordedLife::EntityTurretFriend : RecordedLife::EntityTurretEnemy;
+	}
+	else if (e->has<CoreModule>())
+	{
+		_team = e->get<CoreModule>()->team;
+		_type = e->get<Health>()->invincible() ? RecordedLife::EntityCoreModuleInvincible : RecordedLife::EntityCoreModuleVulnerable;
 	}
 	else
 	{
@@ -684,20 +629,6 @@ void RecordedLife::Tag::init(Entity* player)
 			if (index == 16)
 				break;
 		}
-	}
-
-	if (Game::level.type == GameType::Rush)
-	{
-		vi_assert(ControlPoint::list.count() == 2);
-		auto i = ControlPoint::list.iterator();
-		control_point_state.a = record_control_point_state(i.item());
-		i.next();
-		control_point_state.b = record_control_point_state(i.item());
-	}
-	else
-	{
-		control_point_state.a = 0;
-		control_point_state.b = 0;
 	}
 
 	stealth = player->get<AIAgent>()->stealth;
@@ -775,7 +706,6 @@ void RecordedLife::reset()
 	upgrades.length = 0;
 	enemy_upgrades.length = 0;
 	battery_state.length = 0;
-	control_point_state.length = 0;
 	nearby_entities.length = 0;
 	stealth.length = 0;
 	action.length = 0;
@@ -798,7 +728,6 @@ void RecordedLife::add(const Tag& tag, const Action& a)
 	upgrades.add(tag.upgrades);
 	enemy_upgrades.add(tag.enemy_upgrades);
 	battery_state.add(tag.battery_state);
-	control_point_state.add(tag.control_point_state);
 	nearby_entities.add(tag.nearby_entities);
 	stealth.add(tag.stealth);
 	action.add(a);
@@ -831,8 +760,6 @@ b8 RecordedLife::Action::fuzzy_equal(const Action& other) const
 				return upgrade == other.upgrade;
 			case TypeAbility:
 				return ability == other.ability;
-			case TypeCapture:
-				return true;
 			case TypeWait:
 				return true;
 		}
@@ -883,10 +810,6 @@ void RecordedLife::serialize(FILE* f, size_t(*func)(void*, size_t, size_t, FILE*
 	func(&enemy_upgrades.length, sizeof(s32), 1, f);
 	enemy_upgrades.resize(enemy_upgrades.length);
 	func(enemy_upgrades.data, sizeof(s32), enemy_upgrades.length, f);
-
-	func(&control_point_state.length, sizeof(s32), 1, f);
-	control_point_state.resize(control_point_state.length);
-	func(control_point_state.data, sizeof(ControlPointState), control_point_state.length, f);
 
 	func(&nearby_entities.length, sizeof(s32), 1, f);
 	nearby_entities.resize(nearby_entities.length);

@@ -267,19 +267,20 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Animator::component_mask
 		| Rope::component_mask
 		| DirectionalLight::component_mask
+		| SpawnPoint::component_mask
 		| SkyDecal::component_mask
 		| AIAgent::component_mask
 		| Health::component_mask
 		| PointLight::component_mask
 		| SpotLight::component_mask
-		| ControlPoint::component_mask
+		| CoreModule::component_mask
 		| Walker::component_mask
 		| Turret::component_mask
 		| Ragdoll::component_mask
 		| Target::component_mask
 		| PlayerTrigger::component_mask
 		| SkinnedModel::component_mask
-		| Projectile::component_mask
+		| Bolt::component_mask
 		| Grenade::component_mask
 		| Battery::component_mask
 		| Sensor::component_mask
@@ -483,6 +484,12 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_ref(p, s->outer);
 	}
 
+	if (e->has<CoreModule>())
+	{
+		CoreModule* c = e->get<CoreModule>();
+		serialize_s8(p, c->team);
+	}
+
 	if (e->has<PointLight>())
 	{
 		PointLight* l = e->get<PointLight>();
@@ -510,12 +517,10 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_s8(p, l->team);
 	}
 
-	if (e->has<ControlPoint>())
+	if (e->has<SpawnPoint>())
 	{
-		ControlPoint* c = e->get<ControlPoint>();
-		serialize_r32_range(p, c->capture_timer, 0, CONTROL_POINT_CAPTURE_TIME, 16);
-		serialize_s8(p, c->team_next);
-		serialize_s8(p, c->team);
+		SpawnPoint* s = e->get<SpawnPoint>();
+		serialize_s8(p, s->team);
 	}
 
 	if (e->has<Walker>())
@@ -579,9 +584,9 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 			net_error();
 	}
 
-	if (e->has<Projectile>())
+	if (e->has<Bolt>())
 	{
-		Projectile* x = e->get<Projectile>();
+		Bolt* x = e->get<Bolt>();
 		serialize_s8(p, x->team);
 		serialize_ref(p, x->owner);
 		serialize_r32(p, x->velocity.x);
@@ -602,6 +607,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Battery* b = e->get<Battery>();
 		serialize_s8(p, b->team);
 		serialize_ref(p, b->light);
+		serialize_ref(p, b->spawn_point);
 	}
 
 	if (e->has<Sensor>())
@@ -657,12 +663,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, d->color.w, 0, 1.0f, 8);
 		serialize_r32_range(p, d->scale, 0, 10.0f, 8);
 		serialize_asset(p, d->texture, Loader::static_texture_count);
-	}
-
-	if (e->has<Team>())
-	{
-		Team* t = e->get<Team>();
-		serialize_ref(p, t->player_spawn);
 	}
 
 	if (e->has<PlayerHuman>())
@@ -3884,12 +3884,6 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Team:
 		{
 			if (!Team::net_msg(p))
-				net_error();
-			break;
-		}
-		case MessageType::ControlPoint:
-		{
-			if (!ControlPoint::net_msg(p))
 				net_error();
 			break;
 		}

@@ -205,7 +205,7 @@ void PlayerHuman::msg(const char* msg, b8 good)
 
 void PlayerHuman::awake()
 {
-	get<PlayerManager>()->spawn.link<PlayerHuman, const PlayerSpawnPosition&, &PlayerHuman::spawn>(this);
+	get<PlayerManager>()->spawn.link<PlayerHuman, const SpawnPosition&, &PlayerHuman::spawn>(this);
 
 	msg_text.size = text_size;
 	msg_text.anchor_x = UIText::Anchor::Center;
@@ -350,8 +350,6 @@ struct Message
 		Go,
 		Reflect,
 		UpgradeStart,
-		CaptureStart,
-		CaptureCancel,
 		AbilitySelect,
 		count,
 	};
@@ -540,31 +538,7 @@ void PlayerHuman::update(const Update& u)
 	{
 		case UIMode::PvpDefault:
 		{
-			b8 pressed = u.input->get(Controls::Interact, gamepad);
-			b8 pressed_last = u.last_input->get(Controls::Interact, gamepad);
-			if (pressed && !pressed_last)
-				try_capture = true;
-			else if (!pressed && pressed_last)
-				try_capture = false;
-			ControlPoint* control_point = Game::level.has_feature(Game::FeatureLevel::TutorialAll) ? get<PlayerManager>()->at_control_point() : nullptr;
-			if (control_point && control_point->can_be_captured_by(get<PlayerManager>()->team.ref()->team()))
-			{
-				// enemy control point; capture
-				if (try_capture)
-				{
-					PlayerControlHumanNet::Message msg;
-					msg.type = PlayerControlHumanNet::Message::Type::CaptureStart;
-					PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
-					try_capture = false;
-				}
-				else if (!pressed && pressed_last)
-				{
-					PlayerControlHumanNet::Message msg;
-					msg.type = PlayerControlHumanNet::Message::Type::CaptureCancel;
-					PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
-				}
-			}
-			else if (get<PlayerManager>()->at_upgrade_point())
+			if (get<PlayerManager>()->at_spawn_point())
 			{
 				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 					upgrade_menu_show();
@@ -773,11 +747,11 @@ void PlayerHuman::ai_record_save()
 }
 #endif
 
-void PlayerHuman::spawn(const PlayerSpawnPosition& normal_spawn_pos)
+void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 {
 	Entity* spawned;
 
-	PlayerSpawnPosition spawn_pos;
+	SpawnPosition spawn_pos;
 
 #if SERVER
 	ai_record_save();
@@ -830,13 +804,8 @@ void PlayerHuman::spawn(const PlayerSpawnPosition& normal_spawn_pos)
 				spawn_pos.pos.y -= 1.0f;
 				dir = rot * Vec3(0, 0, -1);
 			}
-			else
-			{
-				// spawn at PlayerSpawn
-				Quat rot;
-				get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&spawn_pos.pos, &rot);
-				dir = rot * Vec3(0, 1, 0);
-			}
+			else // spawn at normal position
+				spawn_pos = normal_spawn_pos;
 			spawn_pos.pos.y += 1.0f;
 			dir.y = 0.0f;
 			dir.normalize();
@@ -1028,7 +997,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 	}
 
-	if (Game::level.type == GameType::Rush)
+	if (Game::level.type == GameType::Assault)
 	{
 		// show remaining drones label
 		text.text(0, _(strings::drones_remaining));
@@ -1098,38 +1067,19 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
 	{
 		if (mode == UIMode::PvpDefault
-			&& get<PlayerManager>()->can_transition_state())
+			&& get<PlayerManager>()->can_transition_state()
+			&& get<PlayerManager>()->at_spawn_point())
 		{
-			ControlPoint* control_point = Game::level.has_feature(Game::FeatureLevel::TutorialAll) ? get<PlayerManager>()->at_control_point() : nullptr;
-			if (control_point && control_point->can_be_captured_by(get<PlayerManager>()->team.ref()->team()))
-			{
-				// at control point; "capture!" prompt
-				UIText text;
-				text.color = UI::color_accent;
-				if (get<PlayerManager>()->team.ref()->team() == 0) // defending
-					text.text(gamepad, _(strings::prompt_cancel_hack));
-				else
-					text.text(gamepad, _(strings::prompt_hack));
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				text.size = text_size;
-				Vec2 pos = vp.size * Vec2(0.5f, 0.15f);
-				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-				text.draw(params, pos);
-			}
-			else if (get<PlayerManager>()->at_upgrade_point())
-			{
-				// "upgrade!" prompt
-				UIText text;
-				text.color = get<PlayerManager>()->upgrade_available() ? UI::color_accent : UI::color_disabled;
-				text.text(gamepad, _(strings::prompt_upgrade));
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				text.size = text_size;
-				Vec2 pos = vp.size * Vec2(0.5f, 0.15f);
-				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-				text.draw(params, pos);
-			}
+			// "upgrade!" prompt
+			UIText text;
+			text.color = get<PlayerManager>()->upgrade_available() ? UI::color_accent : UI::color_disabled;
+			text.text(gamepad, _(strings::prompt_upgrade));
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.size = text_size;
+			Vec2 pos = vp.size * Vec2(0.5f, 0.15f);
+			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+			text.draw(params, pos);
 		}
 
 		if ((mode == UIMode::PvpDefault || mode == UIMode::Upgrading)
@@ -1419,17 +1369,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 						total_time = UPGRADE_TIME;
 						break;
 					}
-					case PlayerManager::State::Capturing:
-					{
-						// capturing a control point
-						if (get<PlayerManager>()->team.ref()->team() == 0) // defending
-							string = strings::canceling_capture;
-						else
-							string = strings::starting_capture;
-						cost = 0;
-						total_time = CAPTURE_TIME;
-						break;
-					}
 					default:
 					{
 						vi_assert(false);
@@ -1575,17 +1514,17 @@ Entity* PlayerCommon::incoming_attacker() const
 		}
 	}
 
-	// check incoming projectiles
-	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+	// check incoming bolts
+	for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
 	{
 		Vec3 velocity = Vec3::normalize(i.item()->velocity);
-		Vec3 projectile_pos = i.item()->get<Transform>()->absolute_pos();
-		Vec3 to_me = me - projectile_pos;
+		Vec3 bolt_pos = i.item()->get<Transform>()->absolute_pos();
+		Vec3 to_me = me - bolt_pos;
 		r32 dot = velocity.dot(to_me);
 		if (dot > 0.0f && dot < DRONE_MAX_DISTANCE && velocity.dot(Vec3::normalize(to_me)) > 0.98f)
 		{
 			// only worry about it if it can actually see us
-			btCollisionWorld::ClosestRayResultCallback ray_callback(me, projectile_pos);
+			btCollisionWorld::ClosestRayResultCallback ray_callback(me, bolt_pos);
 			Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionShield);
 			if (!ray_callback.hasHit())
 				return i.item()->entity();
@@ -1790,18 +1729,6 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		{
 			if (Game::level.local)
 				c->get<PlayerCommon>()->manager.ref()->upgrade_start(msg.upgrade);
-			break;
-		}
-		case PlayerControlHumanNet::Message::Type::CaptureStart:
-		{
-			if (Game::level.local)
-				c->get<PlayerCommon>()->manager.ref()->capture_start();
-			break;
-		}
-		case PlayerControlHumanNet::Message::Type::CaptureCancel:
-		{
-			if (Game::level.local)
-				c->get<PlayerCommon>()->manager.ref()->capture_cancel();
 			break;
 		}
 		case PlayerControlHumanNet::Message::Type::Reflect:
@@ -2079,7 +2006,7 @@ void PlayerControlHuman::awake()
 			&& Game::level.has_feature(Game::FeatureLevel::All)
 			&& player.ref()->get<PlayerManager>()->deaths == 0)
 		{
-			if (Game::level.type == GameType::Rush
+			if (Game::level.type == GameType::Assault
 				&& player.ref()->get<PlayerManager>()->team.ref()->team() == 0)
 				player.ref()->msg(_(strings::defend), true);
 			else
@@ -2174,7 +2101,7 @@ void PlayerControlHuman::drone_detaching()
 	if (get<Drone>()->net_state_frame(&state_frame_data))
 		state_frame = &state_frame_data;
 
-	for (auto i = Entity::iterator(AI::entity_mask & ~Projectile::component_mask); !i.is_last(); i.next())
+	for (auto i = Entity::iterator(AI::entity_mask & ~Bolt::component_mask); !i.is_last(); i.next())
 	{
 		AI::Team team;
 		s8 entity_type;
@@ -3380,8 +3307,8 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			}
 		}
 
-		// highlight incoming projectiles
-		for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+		// highlight incoming bolts
+		for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
 		{
 			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 			Vec3 diff = me - pos;
@@ -3403,9 +3330,9 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		if (Game::level.has_feature(Game::FeatureLevel::Abilities)
 			&& (Game::level.has_feature(Game::FeatureLevel::All) || Game::level.feature_level == Game::FeatureLevel::Abilities) // disable prompt in tutorial after ability has been purchased
 			&& manager->upgrade_available() && manager->upgrade_highest_owned_or_available() != player.ref()->upgrade_last_visit_highest_available
-			&& !manager->at_upgrade_point())
+			&& !manager->at_spawn_point())
 		{
-			Vec3 pos = manager->team.ref()->player_spawn.ref()->get<Transform>()->absolute_pos();
+			Vec3 pos = SpawnPoint::closest(1 << s32(get<AIAgent>()->team), get<Transform>()->absolute_pos())->get<Transform>()->absolute_pos();
 			UI::indicator(params, pos, Team::ui_color_friend, true);
 
 			UIText text;
@@ -3420,57 +3347,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
 			if (UI::flash_function_slow(Game::real_time.total))
 				text.draw(params, p);
-		}
-
-		// highlight control points
-		if (Game::level.has_feature(Game::FeatureLevel::TutorialAll))
-		{
-			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->team == 0 || i.item()->team_next != AI::TeamNone || i.item()->can_be_captured_by(team))
-				{
-					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-					UI::indicator(params, pos, Team::ui_color(team, i.item()->team), i.item()->capture_timer > 0.0f || team == 1);
-					if (i.item()->capture_timer > 0.0f)
-					{
-						// control point is being captured; show progress bar
-						Rect2 bar;
-						{
-							Vec2 p;
-							UI::is_onscreen(params, pos, &p);
-							Vec2 bar_size(80.0f * UI::scale, (UI_TEXT_SIZE_DEFAULT + 12.0f) * UI::scale);
-							bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-							UI::box(params, bar, UI::color_background);
-							const Vec4* color;
-							r32 percentage;
-							if (i.item()->capture_timer > CONTROL_POINT_CAPTURE_TIME * 0.5f)
-							{
-								color = &Team::ui_color(team, i.item()->team);
-								percentage = (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f)) - 1.0f;
-							}
-							else
-							{
-								color = &Team::ui_color(team, i.item()->team_next);
-								percentage = 1.0f - (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f));
-							}
-							UI::border(params, bar, 2, *color);
-							UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, *color);
-						}
-
-						{
-							UIText text;
-							text.anchor_x = UIText::Anchor::Center;
-							text.anchor_y = UIText::Anchor::Min;
-							text.color = i.item()->team_next == team ? UI::color_accent : UI::color_alert;
-							text.text(player.ref()->gamepad, _(team == i.item()->team_next ? strings::hacking : strings::losing));
-
-							Vec2 p = bar.pos + Vec2(bar.size.x * 0.5f, bar.size.y + 10.0f * UI::scale);
-							UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
-							text.draw(params, p);
-						}
-					}
-				}
-			}
 		}
 	}
 	else

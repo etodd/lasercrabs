@@ -19,8 +19,6 @@ struct Transform;
 struct PlayerManager;
 struct Camera;
 struct Target;
-struct ControlPoint;
-struct PlayerSpawnPosition;
 
 struct PlayerAI
 {
@@ -47,7 +45,7 @@ struct PlayerAI
 		return this - &list[0];
 	}
 	void update(const Update&);
-	void spawn(const PlayerSpawnPosition&);
+	void spawn(const SpawnPosition&);
 	void spawn_callback(const AI::DronePathNode&);
 };
 
@@ -99,7 +97,6 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	void actions_populate();
 
 	void callback_path(const AI::DroneResult&);
-	void control_point_capture_completed(b8);
 	void upgrade_completed(Upgrade);
 	void update_memory();
 	void sniper_or_bolter_cancel();

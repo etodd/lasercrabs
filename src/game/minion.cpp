@@ -319,6 +319,29 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 		}
 	}
 
+	if (Turret::list.count() == 0)
+	{
+		for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+		{
+			CoreModule* core = i.item();
+			if (core->team != team)
+			{
+				Vec3 item_pos = core->get<Transform>()->absolute_pos();
+				if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
+					continue;
+				if (me->can_see(core->entity()))
+					return core->entity();
+				Vec3 to_core = core->get<Transform>()->absolute_pos() - pos;
+				r32 total_distance = to_core.length_squared() + (to_core.dot(direction) < 0.0f ? direction_cost : 0.0f);
+				if (total_distance < closest_distance)
+				{
+					closest = core->entity();
+					closest_distance = total_distance;
+				}
+			}
+		}
+	}
+
 	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 	{
 		Rocket* rocket = i.item();
@@ -401,6 +424,19 @@ Entity* visible_target(Minion* me, AI::Team team)
 		{
 			if (me->can_see(turret->entity()))
 				return turret->entity();
+		}
+	}
+
+	if (Turret::list.count() == 0)
+	{
+		for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+		{
+			CoreModule* core = i.item();
+			if (core->team != team)
+			{
+				if (me->can_see(core->entity()))
+					return core->entity();
+			}
 		}
 	}
 
@@ -656,7 +692,7 @@ void Minion::fire(const Vec3& target)
 {
 	vi_assert(Game::level.local);
 	Vec3 hand = hand_pos();
-	Net::finalize(World::create<ProjectileEntity>(get<AIAgent>()->team, owner.ref(), hand, target - hand));
+	Net::finalize(World::create<BoltEntity>(get<AIAgent>()->team, owner.ref(), hand, target - hand));
 
 	Animator::Layer* layer = &get<Animator>()->layers[0];
 	layer->speed = 1.0f;

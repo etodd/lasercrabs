@@ -92,7 +92,7 @@ Game::Session::Session()
 	team_count(2),
 	time_scale(1.0f),
 	time_limit(MATCH_TIME_DEFAULT),
-	game_type(GameType::Rush),
+	game_type(GameType::Assault),
 	respawns(DEFAULT_RUSH_DRONES),
 	kill_limit(8)
 {
@@ -155,7 +155,7 @@ b8 Game::init(LoopSync* sync)
 	World::init();
 
 	{
-		cJSON* overworld_level = Loader::level(Asset::Level::overworld, GameType::Rush, false);
+		cJSON* overworld_level = Loader::level(Asset::Level::overworld, GameType::Assault, false);
 		Overworld::init(overworld_level);
 		Loader::level_free(overworld_level);
 	}
@@ -459,7 +459,6 @@ void Game::update(const Update& update_in)
 						PlayerManager* manager = e->add<PlayerManager>(&Team::list[s32(config.team)], Usernames::all[mersenne::rand_u32() % Usernames::count]);
 						if (config.spawn_time == 0.0f)
 							manager->spawn_timer = 0.01f; // spawn instantly
-						Net::finalize(e);
 
 						PlayerAI* player = PlayerAI::list.add();
 						new (player) PlayerAI(manager, config);
@@ -476,7 +475,7 @@ void Game::update(const Update& update_in)
 				i.item()->update_server(u);
 			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
-			for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+			for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 			for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
@@ -507,8 +506,6 @@ void Game::update(const Update& update_in)
 		Battery::update_all(u);
 		Sensor::update_all_client(u);
 		ForceField::update_all(u);
-		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
@@ -572,7 +569,7 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 	const ComponentMask mask_parkour =
 	(
 		Drone::component_mask
-		| Projectile::component_mask
+		| Bolt::component_mask
 		| Rocket::component_mask
 		| Minion::component_mask
 		| Grenade::component_mask
@@ -904,17 +901,14 @@ void game_end_cheat(b8 win)
 
 		if (Game::level.type == GameType::Deathmatch)
 			player->kills = Game::level.kill_limit;
-		else if (Game::level.type == GameType::Rush)
+		else if (Game::level.type == GameType::Assault)
 		{
 			if (player->team.ref()->team() == 0) // defending
 				Team::match_time = Game::level.time_limit;
 			else // attacking
 			{
-				for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-				{
-					i.item()->team = player->team.ref()->team();
-					i.item()->team_next = AI::TeamNone;
-				}
+				for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+					i.item()->destroy();
 			}
 		}
 	}
@@ -1006,7 +1000,7 @@ void Game::execute(const char* cmd)
 		s.level = Asset::Level::Media_Tower;
 		s.open_slots = 2;
 		s.team_count = 2;
-		s.game_type = GameType::Rush;
+		s.game_type = GameType::Assault;
 		s.respawns = 5;
 		s.time_limit_minutes = 8;
 		Net::Client::allocate_server(s);
@@ -1564,7 +1558,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					{
 						World::awake(m);
 						m->get<Transform>()->reparent(entity->get<Transform>());
-						Net::finalize(m);
 					}
 					else
 						entity = m;
@@ -1587,12 +1580,11 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			entity = World::alloc<StaticGeom>(Asset::Mesh::turret_base, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 			entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 
-			if (level.type == GameType::Rush)
+			if (level.type == GameType::Assault)
 			{
 				Entity* turret = World::alloc<TurretEntity>(AI::Team(0));
 				turret->get<Transform>()->absolute(absolute_pos + absolute_rot * Vec3(0, 0, TURRET_HEIGHT), absolute_rot);
 				World::awake(turret);
-				Net::finalize(turret);
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "Minion"))
@@ -1604,27 +1596,18 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				entity = World::alloc<MinionEntity>(absolute_pos, absolute_rot, team);
 			}
 		}
-		else if (cJSON_HasObjectItem(element, "PlayerSpawn"))
+		else if (cJSON_HasObjectItem(element, "SpawnPoint") || cJSON_HasObjectItem(element, "PlayerSpawn"))
 		{
 			AI::Team team = AI::Team(Json::get_s32(element, "team"));
 
-			if (Team::list.count() > (s32)team)
-			{
-				if (Json::get_s32(element, "visible", 1))
-					entity = World::alloc<PlayerSpawnEntity>(team);
-				else
-					entity = World::alloc<Empty>();
-				Team::list[(s32)team].player_spawn = entity->get<Transform>();
-			}
-			else
-				entity = World::alloc<Empty>();
+			if (Team::list.count() > s32(team))
+				entity = World::alloc<SpawnPointEntity>(team, Json::get_s32(element, "visible", 1));
 		}
-		else if (cJSON_HasObjectItem(element, "ControlPoint"))
+		else if (cJSON_HasObjectItem(element, "CoreModule"))
 		{
-			if (level.type == GameType::Rush)
-				entity = World::alloc<ControlPointEntity>(AI::Team(0), absolute_pos);
-			else
-				entity = World::alloc<StaticGeom>(Asset::Mesh::control_point, absolute_pos, absolute_rot);
+			AI::Team team = AI::Team(Json::get_s32(element, "team"));
+			if (Team::list.count() > s32(team))
+				entity = World::alloc<CoreModuleEntity>(team, nullptr, absolute_pos, absolute_rot);
 		}
 		else if (cJSON_HasObjectItem(element, "PlayerTrigger"))
 		{
@@ -1708,6 +1691,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				}
 				else
 					team = AI::Team(0);
+
 				entity = World::alloc<BatteryEntity>(absolute_pos, team);
 
 				absolute_rot = Quat::identity;
@@ -1900,7 +1884,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					{
 						World::awake(m);
 						m->get<Transform>()->reparent(entity->get<Transform>());
-						Net::finalize(m);
 					}
 					else
 						entity = m;
@@ -1923,9 +1906,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			vi_assert(track != -1);
 			level.tram_tracks[track].level = Loader::find_level(Json::get_string(element, "level"));
 			Entity* runner_a = World::create<TramRunnerEntity>(track, false);
-			Net::finalize(runner_a);
 			Entity* runner_b = World::create<TramRunnerEntity>(track, true);
-			Net::finalize(runner_b);
 			entity = World::alloc<TramEntity>(runner_a->get<TramRunner>(), runner_b->get<TramRunner>());
 		}
 		else if (cJSON_HasObjectItem(element, "Interactable"))
@@ -1984,7 +1965,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					i->get<Transform>()->parent = entity->get<Transform>();
 					i->get<Transform>()->pos = Vec3(-3.0f, 0, 0);
 					World::awake(i);
-					Net::finalize(i);
 				}
 
 				{
@@ -1993,7 +1973,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					locke->get<Transform>()->rot = absolute_rot;
 					locke->add<PlayerTrigger>()->radius = 5.0f;
 					locke->get<Animator>()->layers[0].behavior = Animator::Behavior::Freeze;
-					Net::finalize(locke);
 					level.finder.add("locke", locke);
 					level.scripts.add(Script::find("locke"));
 				}
@@ -2016,7 +1995,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				i->get<Transform>()->pos = Vec3(1.0f, 0, 0);
 				World::awake(i);
 				level.terminal_interactable = i;
-				Net::finalize(i);
 			}
 			else
 			{
@@ -2042,10 +2020,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			transforms.add(nullptr);
 
 		if (entity)
-		{
 			level.finder.add(Json::get_string(element, "name"), entity);
-			Net::finalize(entity);
-		}
 
 		element = element->next;
 	}
@@ -2077,14 +2052,25 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	for (s32 i = 0; i < ropes.length; i++)
 		Rope::spawn(ropes[i].pos, ropes[i].rot * Vec3(0, 1, 0), ropes[i].max_distance, ropes[i].slack, ropes[i].attach_end);
 
+	// create spawn points beneath batteries
+	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
+	{
+		Quat rot;
+		Vec3 ray_start;
+		i.item()->get<Transform>()->absolute(&ray_start, &rot);
+		Vec3 ray_end = ray_start + Vec3(0, -20, 0);
+		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
+		Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter);
+		vi_assert(ray_callback.hasHit());
+		Entity* e = World::create<SpawnPointEntity>(i.item()->team, true);
+		e->get<Transform>()->absolute(ray_callback.m_hitPointWorld, Quat::euler(0, 0, PI * -0.5f) * rot);
+		i.item()->spawn_point = e->get<SpawnPoint>();
+	}
+
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		World::awake(i.item()->entity());
-	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-		Net::finalize(i.item()->entity());
 
 	awake_all();
-	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
-		Net::finalize(i.item()->entity());
 
 	Loader::level_free(json);
 

@@ -20,7 +20,7 @@ struct TargetEvent;
 struct HealthEvent;
 struct Target;
 struct DroneReflectEvent;
-struct PlayerSpawnPosition;
+struct SpawnPosition;
 
 namespace Net
 {
@@ -88,7 +88,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void update_late(const Update&);
 	void update_camera_rotation(const Update&);
 	void draw_ui(const RenderParams&) const;
-	void spawn(const PlayerSpawnPosition&);
+	void spawn(const SpawnPosition&);
 };
 
 struct PlayerCommon : public ComponentType<PlayerCommon>

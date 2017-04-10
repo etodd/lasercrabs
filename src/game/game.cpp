@@ -1605,9 +1605,12 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "CoreModule"))
 		{
-			AI::Team team = AI::Team(Json::get_s32(element, "team"));
-			if (Team::list.count() > s32(team))
-				entity = World::alloc<CoreModuleEntity>(team, nullptr, absolute_pos, absolute_rot);
+			if (level.type == GameType::Assault)
+			{
+				AI::Team team = AI::Team(Json::get_s32(element, "team"));
+				if (Team::list.count() > s32(team))
+					entity = World::alloc<CoreModuleEntity>(team, nullptr, absolute_pos, absolute_rot);
+			}
 		}
 		else if (cJSON_HasObjectItem(element, "PlayerTrigger"))
 		{

@@ -795,21 +795,20 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 
 			Tram* tram = Tram::by_track(track);
 
-			Vec3 dir;
 			if (tram)
 			{
 				// spawn in tram
 				Quat rot;
 				tram->get<Transform>()->absolute(&spawn_pos.pos, &rot);
 				spawn_pos.pos.y -= 1.0f;
-				dir = rot * Vec3(0, 0, -1);
+				Vec3 dir = rot * Vec3(0, 0, -1);
+				dir.y = 0.0f;
+				dir.normalize();
+				spawn_pos.angle = atan2f(dir.x, dir.z);
 			}
 			else // spawn at normal position
 				spawn_pos = normal_spawn_pos;
 			spawn_pos.pos.y += 1.0f;
-			dir.y = 0.0f;
-			dir.normalize();
-			spawn_pos.angle = atan2f(dir.x, dir.z);
 		}
 
 		spawned = World::create<Traceur>(spawn_pos.pos, spawn_pos.angle, get<PlayerManager>()->team.ref()->team());

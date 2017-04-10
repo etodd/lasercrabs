@@ -224,7 +224,7 @@ void Messenger::update(r64 timestamp, Sock::Handle* sock, s32 max_outgoing)
 void Messenger::reset()
 {
 #if DEBUG_MSG
-	vi_debug("Resetting all connections");
+	vi_debug("%s", "Resetting all connections");
 #endif
 	outgoing.length = 0;
 	sequence_ids.clear();

@@ -143,6 +143,7 @@ namespace Master
 			|| node->state == Node::State::ServerIdle)
 		{
 			// it's a server; remove from the server list
+			vi_debug("Server %s:%hd disconnected.", Sock::host_to_str(addr.host), addr.port);
 			for (s32 i = 0; i < servers.length; i++)
 			{
 				if (servers[i].equals(addr))
@@ -377,6 +378,7 @@ namespace Master
 					if (node->state == Node::State::Invalid)
 					{
 						// add to server list
+						vi_debug("Server %s:%hd connected.", Sock::host_to_str(addr.host), addr.port);
 						servers.add(node->addr);
 					}
 					node->state = active ? Node::State::ServerActive : Node::State::ServerIdle;

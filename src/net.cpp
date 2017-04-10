@@ -1267,7 +1267,7 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 		b = !base || state->spawn_timer != base->spawn_timer;
 	serialize_bool(p, b);
 	if (b)
-		serialize_r32_range(p, state->spawn_timer, 0, PLAYER_SPAWN_DELAY, 8);
+		serialize_r32_range(p, state->spawn_timer, 0, SPAWN_DELAY, 8);
 
 	if (Stream::IsWriting)
 		b = !base || state->state_timer != base->state_timer;

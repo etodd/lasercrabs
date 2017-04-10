@@ -621,53 +621,9 @@ void select_zone_update(const Update& u, b8 enable_movement)
 	// movement
 	if (enable_movement)
 	{
-		Vec2 movement(0, 0);
-
-		b8 keyboard = false;
-
-		// buttons/keys
+		Vec2 movement = PlayerHuman::camera_topdown_movement(u, 0, data.camera);
+		if (movement.length_squared() > 0.0f)
 		{
-			if (u.input->get(Controls::Left, 0) && !u.last_input->get(Controls::Left, 0))
-			{
-				movement.x -= 1.0f;
-				keyboard = true;
-			}
-			if (u.input->get(Controls::Right, 0) && !u.last_input->get(Controls::Right, 0))
-			{
-				movement.x += 1.0f;
-				keyboard = true;
-			}
-			if (u.input->get(Controls::Forward, 0) && !u.last_input->get(Controls::Forward, 0))
-			{
-				movement.y -= 1.0f;
-				keyboard = true;
-			}
-			if (u.input->get(Controls::Backward, 0) && !u.last_input->get(Controls::Backward, 0))
-			{
-				movement.y += 1.0f;
-				keyboard = true;
-			}
-		}
-
-		// joysticks
-		{
-			Vec2 last_joystick(u.last_input->gamepads[0].left_x, u.last_input->gamepads[0].left_y);
-			Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-			Vec2 current_joystick(u.input->gamepads[0].left_x, u.input->gamepads[0].left_y);
-			Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-
-			if (last_joystick.length_squared() == 0.0f
-				&& current_joystick.length_squared() > 0.0f)
-				movement += current_joystick;
-		}
-
-		r32 movement_amount = movement.length();
-		if (movement_amount > 0.0f)
-		{
-			// transitioning from one zone to another
-			movement /= movement_amount; // normalize
-			Vec3 movement3d = data.camera_rot * Vec3(-movement.x, 0, -movement.y);
-			movement = Vec2(movement3d.x, movement3d.z);
 			const ZoneNode* closest = nullptr;
 			r32 closest_dot = FLT_MAX;
 			r32 closest_normalized_dot = 0.6f;

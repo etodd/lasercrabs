@@ -918,7 +918,7 @@ s32 PlayerManager::visibility_hash(const PlayerManager* drone_a, const PlayerMan
 }
 
 PlayerManager::PlayerManager(Team* team, const char* u)
-	: spawn_timer(PLAYER_SPAWN_DELAY),
+	: spawn_timer(SPAWN_DELAY),
 	score_accepted(Team::game_over),
 	team(team),
 	upgrades(0),
@@ -1163,24 +1163,14 @@ void PlayerManager::update_all(const Update& u)
 	}
 }
 
-SpawnPosition PlayerManager::default_spawn_position() const
+void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
 {
-	SpawnPosition result;
-	for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->team == team.ref()->team())
-		{
-			Quat rot;
-			i.item()->get<Transform>()->absolute(&result.pos, &rot);
-			Vec3 dir = rot * Vec3(0, 1, 0);
-			result.angle = atan2f(dir.x, dir.z);
-
-			if (team.ref()->player_count() > 1)
-				result.pos += Quat::euler(0, result.angle + (id() * PI * 0.5f), 0) * Vec3(0, 0, SPAWN_POINT_RADIUS * 0.5f); // spawn it around the edges
-			break;
-		}
-	}
-	return result;
+	vi_assert(Game::level.local);
+	if (m->respawns != -1 && Game::level.has_feature(Game::FeatureLevel::All)) // infinite respawns in the tutorial
+		m->respawns--;
+	if (m->respawns != 0)
+		m->spawn_timer = SPAWN_DELAY;
+	m->spawn.fire(point->spawn_position(m));
 }
 
 void PlayerManager::update_server(const Update& u)
@@ -1197,11 +1187,8 @@ void PlayerManager::update_server(const Update& u)
 			spawn_timer = vi_max(0.0f, spawn_timer - u.time.delta);
 			if (spawn_timer == 0.0f)
 			{
-				if (respawns != -1 && Game::level.has_feature(Game::FeatureLevel::All)) // infinite respawns in the tutorial
-					respawns--;
-				if (respawns != 0)
-					spawn_timer = PLAYER_SPAWN_DELAY;
-				spawn.fire(default_spawn_position());
+				if (SpawnPoint::count(1 << s32(team.ref()->team())) == 1)
+					internal_spawn_go(this, SpawnPoint::first(1 << s32(team.ref()->team())));
 			}
 		}
 	}
@@ -1211,7 +1198,7 @@ void PlayerManager::update_server(const Update& u)
 			&& !Team::game_over
 			&& !Game::level.continue_match_after_death)
 		{
-			spawn.fire(default_spawn_position());
+			internal_spawn_go(this, SpawnPoint::first(1 << s32(team.ref()->team())));
 		}
 	}
 
@@ -1290,6 +1277,7 @@ namespace PlayerManagerNet
 	{
 		CanSpawn,
 		ScoreAccept,
+		SpawnSelect,
 		count,
 	};
 
@@ -1305,6 +1293,26 @@ namespace PlayerManagerNet
 		Net::msg_finalize(p);
 		return true;
 	}
+
+	b8 spawn_select(PlayerManager* m, SpawnPoint* point)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			Message msg = Message::SpawnSelect;
+			serialize_enum(p, Message, msg);
+		}
+		{
+			Ref<SpawnPoint> ref = point;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
 }
 
 void PlayerManager::set_can_spawn()
@@ -1315,6 +1323,11 @@ void PlayerManager::set_can_spawn()
 void PlayerManager::score_accept()
 {
 	PlayerManagerNet::send(this, PlayerManagerNet::Message::ScoreAccept);
+}
+
+void PlayerManager::spawn_select(SpawnPoint* point)
+{
+	PlayerManagerNet::spawn_select(this, point);
 }
 
 b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSource src)
@@ -1330,6 +1343,19 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSour
 			{
 				m->can_spawn = true;
 				break;
+			}
+			case PlayerManagerNet::Message::SpawnSelect:
+			{
+				Ref<SpawnPoint> ref;
+				serialize_ref(p, ref);
+				if (Game::level.local
+					&& !Team::game_over
+					&& m->spawn_timer == 0.0f
+					&& m->respawns != 0
+					&& !m->instance.ref()
+					&& m->can_spawn
+					&& ref.ref() && ref.ref()->team == m->team.ref()->team())
+					internal_spawn_go(m, ref.ref());
 			}
 			case PlayerManagerNet::Message::ScoreAccept:
 			{

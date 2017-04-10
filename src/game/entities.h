@@ -127,6 +127,8 @@ struct SpawnPosition
 struct SpawnPoint : public ComponentType<SpawnPoint>
 {
 	static SpawnPoint* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+	static SpawnPoint* first(AI::TeamMask);
+	static s32 count(AI::TeamMask);
 
 	AI::Team team;
 

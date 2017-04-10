@@ -17,6 +17,7 @@ struct Target;
 struct TargetEvent;
 struct PlayerManager;
 struct SpawnPosition;
+struct SpawnPoint;
 namespace Net
 {
 	struct StreamRead;
@@ -168,7 +169,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void awake();
 	~PlayerManager();
 
-	SpawnPosition default_spawn_position() const;
+	void spawn_select(SpawnPoint*);
 	Entity* decoy() const;
 	State state() const;
 	b8 can_transition_state() const;

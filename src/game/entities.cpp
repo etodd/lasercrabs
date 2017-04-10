@@ -749,6 +749,27 @@ SpawnPoint* SpawnPoint::closest(AI::TeamMask mask, const Vec3& pos, r32* distanc
 	return closest;
 }
 
+s32 SpawnPoint::count(AI::TeamMask mask)
+{
+	s32 count = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask))
+			count++;
+	}
+	return count;
+}
+
+SpawnPoint* SpawnPoint::first(AI::TeamMask mask)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask))
+			return i.item();
+	}
+	return nullptr;
+}
+
 SpawnPosition SpawnPoint::spawn_position(PlayerManager* player) const
 {
 	SpawnPosition result;

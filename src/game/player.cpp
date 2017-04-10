@@ -143,6 +143,55 @@ s32 PlayerHuman::count_local_before(PlayerHuman* h)
 	return count;
 }
 
+Vec2 PlayerHuman::camera_topdown_movement(const Update& u, s8 gamepad, Camera* camera)
+{
+	Vec2 movement(0, 0);
+
+	b8 keyboard = false;
+
+	// buttons/keys
+	{
+		if ((u.input->get(Controls::Left, gamepad) && !u.last_input->get(Controls::Left, gamepad))
+			|| (u.input->get(Controls::Right, gamepad) && !u.last_input->get(Controls::Right, gamepad))
+			|| (u.input->get(Controls::Forward, gamepad) && !u.last_input->get(Controls::Forward, gamepad))
+			|| (u.input->get(Controls::Backward, gamepad) && !u.last_input->get(Controls::Backward, gamepad)))
+		{
+			keyboard = true;
+			if (u.input->get(Controls::Left, gamepad))
+				movement.x -= 1.0f;
+			if (u.input->get(Controls::Right, gamepad))
+				movement.x += 1.0f;
+			if (u.input->get(Controls::Forward, gamepad))
+				movement.y -= 1.0f;
+			if (u.input->get(Controls::Backward, gamepad))
+				movement.y += 1.0f;
+		}
+	}
+
+	// joysticks
+	{
+		Vec2 last_joystick(u.last_input->gamepads[gamepad].left_x, u.last_input->gamepads[gamepad].left_y);
+		Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+		Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
+		Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+
+		if (last_joystick.length_squared() == 0.0f
+			&& current_joystick.length_squared() > 0.0f)
+			movement += current_joystick;
+	}
+
+	r32 movement_amount = movement.length();
+	if (movement_amount > 0.0f)
+	{
+		// transitioning from one zone to another
+		movement /= movement_amount; // normalize
+		Vec3 movement3d = camera->rot * Vec3(-movement.x, 0, -movement.y);
+		movement = Vec2(movement3d.x, movement3d.z);
+	}
+
+	return movement;
+}
+
 PlayerHuman::PlayerHuman(b8 local, s8 g)
 	: gamepad(g),
 	camera(),
@@ -158,7 +207,7 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	upgrade_last_visit_highest_available(Upgrade::None),
 	score_summary_scroll(),
 	spectate_index(),
-	try_capture(),
+	selected_spawn(),
 #if SERVER
 	ai_record(),
 #endif
@@ -402,7 +451,7 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 	// what did we reflect off of
 	if (msg->type == Message::Type::Reflect)
 		serialize_ref(p, msg->entity);
-	else
+	else if (Stream::IsReading)
 		msg->entity = nullptr;
 
 	return true;
@@ -493,6 +542,12 @@ void PlayerHuman::update(const Update& u)
 		if (!get<PlayerManager>()->instance.ref())
 		{
 			camera->range = 0;
+			if (get<PlayerManager>()->spawn_timer == 0.0f)
+			{
+				camera->cull_range = 0;
+				camera->flag(CameraFlagCullBehindWall, false);
+				camera->flag(CameraFlagFog, true);
+			}
 			camera->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour);
 			upgrade_menu_hide();
 		}
@@ -637,7 +692,7 @@ void PlayerHuman::update(const Update& u)
 #endif
 				}
 			}
-			else if (get<PlayerManager>()->spawn_timer > 0.0f)
+			else if (get<PlayerManager>()->respawns != 0)
 			{
 				// we're spawning
 				if (Game::level.mode == Game::Mode::Pvp && !get<PlayerManager>()->can_spawn)
@@ -647,13 +702,60 @@ void PlayerHuman::update(const Update& u)
 					if (sudoku.complete() && sudoku.timer_animation == 0.0f)
 						get<PlayerManager>()->set_can_spawn();
 				}
+				else if (get<PlayerManager>()->spawn_timer == 0.0f)
+				{
+					// select a spawn point
+					AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+					if (!selected_spawn.ref() || selected_spawn.ref()->team != my_team)
+						selected_spawn = SpawnPoint::closest(1 << s32(my_team), camera->pos);
+
+					Vec2 movement = camera_topdown_movement(u, gamepad, camera);
+					if (movement.length_squared() > 0.0f)
+					{
+						SpawnPoint* closest = nullptr;
+						r32 closest_dot = FLT_MAX;
+						r32 closest_normalized_dot = 0.4f;
+
+						Vec3 spawn_pos = selected_spawn.ref()->get<Transform>()->absolute_pos();
+						for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+						{
+							SpawnPoint* candidate = i.item();
+							if (candidate == selected_spawn.ref() || candidate->team != my_team)
+								continue;
+
+							Vec3 candidate_pos = candidate->get<Transform>()->absolute_pos();
+							Vec3 to_candidate = candidate_pos - spawn_pos;
+							r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
+							r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
+							r32 mixed_dot = dot * vi_max(normalized_dot, 0.9f);
+							if (mixed_dot < closest_dot && normalized_dot > closest_normalized_dot)
+							{
+								closest = candidate;
+								closest_normalized_dot = vi_min(0.8f, normalized_dot);
+								closest_dot = vi_max(2.0f, mixed_dot);
+							}
+						}
+						if (closest)
+							selected_spawn = closest;
+					}
+
+					{
+						Quat target_rot = Quat::look(Game::level.map_view.ref()->absolute_rot() * Vec3(0, -1, 0));
+						Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.skybox.far_plane * -0.5f);
+						camera->pos += (target_pos - camera->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
+						camera->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera->rot, target_rot);
+					}
+
+					if (u.input->get(Controls::Interact, gamepad) && !u.last_input->get(Controls::Interact, gamepad))
+						get<PlayerManager>()->spawn_select(selected_spawn.ref());
+				}
 			}
 			else
 			{
 				// we're dead but others still playing; spectate
 				update_camera_rotation(u);
 
-				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+				r32 aspect = camera->viewport.size.y == 0 ? 1 : r32(camera->viewport.size.x) / r32(camera->viewport.size.y);
 				camera->perspective(fov_default, aspect, 0.02f, Game::level.skybox.far_plane);
 
 				if (PlayerCommon::list.count() > 0)
@@ -1202,7 +1304,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		if (Game::level.mode == Game::Mode::Pvp)
 		{
 			// if we haven't spawned yet, then show the player list
-			if (get<PlayerManager>()->spawn_timer > 0.0f)
+			if (get<PlayerManager>()->respawns != 0)
 			{
 				if (!get<PlayerManager>()->can_spawn)
 				{
@@ -1227,7 +1329,33 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 					sudoku.draw(params, gamepad);
 				}
 				else
-					scoreboard_draw(params, get<PlayerManager>());
+				{
+					if (get<PlayerManager>()->spawn_timer > 0.0f)
+						scoreboard_draw(params, get<PlayerManager>());
+					else
+					{
+						// select spawn point
+						AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+						for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+						{
+							if (i.item()->team == my_team)
+								UI::indicator(params, i.item()->get<Transform>()->absolute_pos(), Team::ui_color_friend, true, 1.0f, PI);
+						}
+
+						Vec2 p;
+						if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
+							UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent, PI);
+
+						// spawn prompt
+						UIText text;
+						text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+						text.color = UI::color_accent;
+						text.text(gamepad, _(strings::prompt_deploy));
+						Vec2 pos = vp.pos + vp.size * Vec2(0.5f, 0.2f);
+						UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
+						text.draw(params, pos);
+					}
+				}
 			}
 			else
 			{
@@ -2617,11 +2745,8 @@ void PlayerControlHuman::update(const Update& u)
 							if (get<Drone>()->direction_is_toward_attached_wall(detach_dir))
 							{
 								Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
-								if (hit_entity->has<Target>()
-									|| (detach_dir.dot(wall_normal) > -dot_tolerance && reticle.normal.dot(wall_normal) > 1.0f - dot_tolerance))
-								{
+								if (hit_entity->has<Target>() || (detach_dir.dot(wall_normal) > -dot_tolerance && reticle.normal.dot(wall_normal) > 1.0f - dot_tolerance))
 									reticle.type = ReticleType::Dash;
-								}
 							}
 							else
 							{
@@ -2634,7 +2759,7 @@ void PlayerControlHuman::update(const Update& u)
 									else if ((reticle.pos - hit).length_squared() < DRONE_RADIUS * DRONE_RADIUS)
 										reticle.type = ReticleType::Normal;
 								}
-								else
+								else if (hit_entity->has<Target>())
 								{
 									// when you're aiming at a target that is attached to the same surface you are,
 									// sometimes the point you're aiming at is actually away from the wall,
@@ -2642,19 +2767,13 @@ void PlayerControlHuman::update(const Update& u)
 									// and sometimes that shot can't actually be taken.
 									// so we need to check for this case and turn it into a dash if we can.
 
-									if (distance < DRONE_DASH_DISTANCE && hit_entity->has<Target>() && hit_entity->get<Transform>()->parent.ref())
-									{
-										Quat my_rot = get<Transform>()->absolute_rot();
-										Vec3 target_pos;
-										Quat target_rot;
-										hit_entity->get<Transform>()->absolute(&target_pos, &target_rot);
-										Vec3 my_normal = my_rot * Vec3(0, 0, 1);
-										if (my_normal.dot(target_rot * Vec3(0, 0, 1)) > 1.0f - dot_tolerance
-											&& fabsf(my_normal.dot(target_pos - me)) < dot_tolerance)
-										{
-											reticle.type = ReticleType::Dash;
-										}
-									}
+									// raycast again, ignoring moving objects
+									RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
+									Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~CollisionShield & ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
+
+									Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+									if (detach_dir.dot(wall_normal) > -dot_tolerance && reticle.normal.dot(wall_normal) > 1.0f - dot_tolerance)
+										reticle.type = ReticleType::Dash;
 								}
 							}
 						}

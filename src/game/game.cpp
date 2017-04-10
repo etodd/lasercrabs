@@ -1693,7 +1693,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
 				}
 				else
-					team = AI::Team(0);
+					team = AI::TeamNone;
 
 				entity = World::alloc<BatteryEntity>(absolute_pos, team);
 

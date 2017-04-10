@@ -21,6 +21,7 @@ struct HealthEvent;
 struct Target;
 struct DroneReflectEvent;
 struct SpawnPosition;
+struct SpawnPoint;
 
 namespace Net
 {
@@ -29,7 +30,16 @@ namespace Net
 
 struct PlayerHuman : public ComponentType<PlayerHuman>
 {
-	enum class UIMode { PvpDefault, ParkourDefault, Pause, Dead, Upgrading, GameOver };
+	enum class UIMode
+	{
+		PvpDefault,
+		ParkourDefault,
+		Pause,
+		Dead,
+		Upgrading,
+		GameOver,
+		count,
+	};
 
 	struct LogEntry
 	{
@@ -40,6 +50,8 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 
 	static r32 danger;
 	static StaticArray<LogEntry, 4> logs;
+
+	static Vec2 camera_topdown_movement(const Update&, s8, Camera*);
 
 	static void update_all(const Update&);
 	static s32 count_local();
@@ -66,10 +78,10 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	Upgrade upgrade_last_visit_highest_available;
 	Menu::State menu_state;
 	Sudoku sudoku;
+	Ref<SpawnPoint> selected_spawn;
 	s8 gamepad;
 	b8 msg_good;
 	b8 upgrade_menu_open;
-	b8 try_capture;
 	b8 local;
 	
 	PlayerHuman(b8 = false, s8 = 0);

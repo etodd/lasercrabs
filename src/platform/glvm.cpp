@@ -321,7 +321,7 @@ do\
 {\
 	if ((error = glGetError()) != GL_NO_ERROR)\
 	{\
-		vi_debug("GL error: %lu", error);\
+		vi_debug("GL error: %du", error);\
 		vi_debug_break();\
 	}\
 } while (0)

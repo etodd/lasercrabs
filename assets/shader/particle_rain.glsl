@@ -46,7 +46,7 @@ void main()
 {
 	if (remaining_life < 0.0)
 		discard;
-	out_color = vec4(1, 1, 1, 1);
+	out_color = color;
 }
 
 #endif

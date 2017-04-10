@@ -673,7 +673,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		{
 			ph->local = false;
 #if !SERVER // when replaying, all players are remote
-			if (Client::state_client.replay_mode == Client::ReplayMode::Replaying)
+			if (Client::replay_mode() == Client::ReplayMode::Replaying)
 				ph->gamepad = s8(ph->id());
 			else
 #endif
@@ -761,7 +761,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	}
 
 #if !SERVER
-	if (Stream::IsReading && Client::state_client.mode == Client::Mode::Connected)
+	if (Stream::IsReading && Client::mode() == Client::Mode::Connected)
 		World::awake(e);
 #endif
 
@@ -3453,7 +3453,7 @@ b8 msg_process(StreamRead* p)
 			Game::awake_all();
 
 			// let the server know we're done loading
-			vi_debug("Finished loading.");
+			vi_debug("%s", "Finished loading.");
 			msg_finalize(msg_new(MessageType::LoadingDone));
 			state_client.mode = Mode::Connected;
 

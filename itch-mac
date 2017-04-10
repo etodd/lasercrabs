@@ -10,7 +10,7 @@ cp -R build/assets/ final/assets
 cp -R assets/script/ final/script
 rm -rf final/script/etodd_blender_fbx/__pycache__
 cp build/gamecontrollerdb.txt final
-cp .itch.toml final
+cp .itch-mac.toml final/.itch.toml
 cp language.txt final
 cp shipme.txt final/readme.txt
 butler push ./final etodd/deceiver:mac

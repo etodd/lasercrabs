@@ -112,7 +112,7 @@ b8 Audio::init()
 	}
 
 #if !_WIN32
-	wwise_io.SetBasePath("");
+	wwise_io.SetBasePath("./");
 #endif
 	
 	AkInitSettings initSettings;

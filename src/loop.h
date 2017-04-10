@@ -219,7 +219,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 	for (auto i = PointLight::list.iterator(); !i.is_last(); i.next())
 	{
 		PointLight* light = i.item();
-		if (!((s32)light->type & type_mask) || !(light->mask & render_params.camera->mask))
+		if (!(s32(light->type) & type_mask) || !(light->mask & render_params.camera->mask))
 			continue;
 
 		if (light->team != (s8)AI::TeamNone && !((1 << light->team) & team_mask))
@@ -470,8 +470,8 @@ void draw(LoopSync* sync, const Camera* camera)
 
 	Rect2 half_viewport =
 	{
-		Vec2((s32)(camera->viewport.pos.x * 0.5f), (s32)(camera->viewport.pos.y * 0.5f)),
-		Vec2((s32)(camera->viewport.size.x * 0.5f), (s32)(camera->viewport.size.y * 0.5f)),
+		Vec2(s32(camera->viewport.pos.x * 0.5f), s32(camera->viewport.pos.y * 0.5f)),
+		Vec2(s32(camera->viewport.size.x * 0.5f), s32(camera->viewport.size.y * 0.5f)),
 	};
 
 	Mat4 inverse_view = render_params.view.inverse();
@@ -538,10 +538,10 @@ void draw(LoopSync* sync, const Camera* camera)
 		else
 		{
 			// render our team lights first
-			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size, 1 << camera->team);
+			render_point_lights(render_params, s32(PointLight::Type::Override), inv_buffer_size, 1 << camera->team);
 
 			// render other team lights
-			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size, ~(1 << camera->team));
+			render_point_lights(render_params, s32(PointLight::Type::Override), inv_buffer_size, ~(1 << camera->team));
 		}
 
 		Game::draw_override(render_params);
@@ -887,7 +887,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<RenderOp>(RenderOp::BlendMode);
 			sync->write<RenderBlendMode>(RenderBlendMode::Additive);
 
-			render_point_lights(render_params, (s32)PointLight::Type::Normal | s32(PointLight::Type::Shockwave), inv_buffer_size, -1);
+			render_point_lights(render_params, s32(PointLight::Type::Normal) | s32(PointLight::Type::Shockwave), inv_buffer_size, -1);
 		}
 
 		{

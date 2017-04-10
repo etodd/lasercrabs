@@ -321,7 +321,7 @@ do\
 {\
 	if ((error = glGetError()) != GL_NO_ERROR)\
 	{\
-		vi_debug("GL error: %du", error);\
+		vi_debug("GL error: %u", error);\
 		vi_debug_break();\
 	}\
 } while (0)
@@ -1062,7 +1062,17 @@ do\
 			{
 				r32 size = GLData::line_width = *(sync->read<r32>());
 				glLineWidth(size);
-				debug_check();
+				if ((error = glGetError()) == GL_NO_ERROR
+					|| error == GL_INVALID_VALUE)
+				{
+					// fine; glLineWidth might not be supported
+					error = GL_NO_ERROR;
+				}
+				else
+				{
+					vi_debug("GL error: %u", error);\
+					vi_debug_break();\
+				}
 				break;
 			}
 			case RenderOp::AllocFramebuffer:

@@ -192,7 +192,13 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 
 	Settings::width = Json::get_s32(json, "width", default_width);
 	Settings::height = Json::get_s32(json, "height", default_height);
-	Settings::fullscreen = b8(Json::get_s32(json, "fullscreen", 0));
+	s32 default_fullscreen;
+#if _WIN32
+	default_fullscreen = 0;
+#else
+	default_fullscreen = 1;
+#endif
+	Settings::fullscreen = b8(Json::get_s32(json, "fullscreen", default_fullscreen));
 	Settings::vsync = b8(Json::get_s32(json, "vsync", 1));
 	Settings::sfx = u8(Json::get_s32(json, "sfx", 100));
 	Settings::music = u8(Json::get_s32(json, "music", 100));

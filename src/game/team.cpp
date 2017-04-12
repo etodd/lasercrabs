@@ -635,6 +635,7 @@ b8 Team::net_msg(Net::StreamRead* p)
 			score_summary.length = 0;
 			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 			{
+				i.item()->score_accepted = false;
 				AI::Team team = i.item()->team.ref()->team();
 				team_add_score_summary_item(i.item(), i.item()->username);
 				team_add_score_summary_item(i.item(), _(strings::kills), i.item()->kills);
@@ -1209,31 +1210,25 @@ void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
 
 void PlayerManager::update_server(const Update& u)
 {
-	if (Game::level.mode == Game::Mode::Pvp)
+	if (can_spawn
+		&& !instance.ref()
+		&& !Team::game_over
+		&& !Game::level.continue_match_after_death)
 	{
-		if (!instance.ref()
-			&& can_spawn
-			&& spawn_timer > 0.0f
-			&& respawns != 0
-			&& !Team::game_over
-			&& !Game::level.continue_match_after_death)
+		if (Game::level.mode == Game::Mode::Pvp)
 		{
-			spawn_timer = vi_max(0.0f, spawn_timer - u.time.delta);
-			if (spawn_timer == 0.0f)
+			if (spawn_timer > 0.0f && respawns != 0)
 			{
-				if (SpawnPoint::count(1 << s32(team.ref()->team())) == 1)
-					internal_spawn_go(this, SpawnPoint::first(1 << s32(team.ref()->team())));
+				spawn_timer = vi_max(0.0f, spawn_timer - u.time.delta);
+				if (spawn_timer == 0.0f)
+				{
+					if (SpawnPoint::count(1 << s32(team.ref()->team())) == 1)
+						internal_spawn_go(this, SpawnPoint::first(1 << s32(team.ref()->team())));
+				}
 			}
 		}
-	}
-	else if (Game::level.mode == Game::Mode::Parkour)
-	{
-		if (!instance.ref()
-			&& !Team::game_over
-			&& !Game::level.continue_match_after_death)
-		{
+		else if (Game::level.mode == Game::Mode::Parkour)
 			internal_spawn_go(this, SpawnPoint::first(1 << s32(team.ref()->team())));
-		}
 	}
 
 	State s = state();

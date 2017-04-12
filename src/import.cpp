@@ -671,7 +671,7 @@ struct StaticMeshes
 		}
 	}
 
-	const Mesh* get(Manifest& manifest, const char* name)
+	const Mesh* get(Manifest& manifest, const char* asset, const char* name)
 	{
 		if (map_has(meshes, name))
 			return &map_get(meshes, name);
@@ -679,7 +679,7 @@ struct StaticMeshes
 		{
 			map_add(meshes, name, Mesh());
 			Mesh* mesh = &map_get(meshes, name);
-			const std::string& filename = map_get(manifest.meshes, std::string(name), std::string(name));
+			const std::string& filename = map_get(manifest.meshes, std::string(asset), std::string(name));
 			Mesh::read(mesh, filename.c_str());
 			return mesh;
 		}
@@ -1986,13 +1986,21 @@ void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, Manifest& manifes
 			cJSON* mesh_ref_json = mesh_refs->child;
 			while (mesh_ref_json)
 			{
-				char* mesh_ref = mesh_ref_json->valuestring;
+				const char* mesh_ref = mesh_ref_json->valuestring;
 
 				const Mesh* mesh;
 				if (map_has(meshes, mesh_ref))
 					mesh = &map_get(meshes, mesh_ref);
 				else
-					mesh = static_meshes.get(manifest, mesh_ref);
+				{
+					cJSON* asset = cJSON_GetObjectItem(element, "_asset");
+					const char* asset_name;
+					if (asset)
+						asset_name = asset->valuestring;
+					else
+						asset_name = mesh_ref;
+					mesh = static_meshes.get(manifest, asset_name, mesh_ref);
+				}
 
 				vi_assert(mesh);
 

@@ -46,7 +46,7 @@ def add(obj, parent_index = -1):
 	if obj_type == 'MESH':
 		meshes = []
 		if getattr(obj, 'proxy', None):
-			clean_obj_name = clean_name(os.path.basename(obj.proxy.library.filepath[:-6]))
+			node['_asset'] = clean_obj_name = clean_name(os.path.basename(obj.proxy.library.filepath[:-6]))
 			if len(obj.data.materials) > 1:
 				clean_obj_name = '{0}_{1}'.format(clean_obj_name, clean_name(obj.proxy.name))
 		else:

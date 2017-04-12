@@ -575,7 +575,10 @@ namespace title
 				Game::level.mode = Game::Mode::Parkour;
 				data->sailor->highlight = true;
 				for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+				{
+					i.item()->get<PlayerManager>()->can_spawn = true;
 					i.item()->camera->flag(CameraFlagActive, true);
+				}
 			}
 		}
 		else

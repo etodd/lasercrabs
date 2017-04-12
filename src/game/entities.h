@@ -237,6 +237,7 @@ struct Turret : public ComponentType<Turret>
 
 	r32 cooldown;
 	r32 target_check_time;
+	StaticArray<Vec3, 4> ingress_points; // points for AI minions to attack from
 	Ref<Entity> target;
 	AI::Team team;
 

@@ -32,7 +32,7 @@ Walker::Walker(r32 rot)
 	rotation_speed(8.0f),
 	auto_rotate(true),
 	enabled(true),
-	obstacle_id((u32)-1),
+	obstacle_id(u32(-1)),
 	land(),
 	net_speed_timer(),
 	net_speed()
@@ -314,15 +314,15 @@ void Walker::update(const Update& u)
 		body->setLinearVelocity(velocity + adjustment);
 	}
 
-	if (net_speed > 0.1f && obstacle_id != (u32)-1)
+	if (net_speed > 0.1f && obstacle_id != u32(-1))
 	{
 		AI::obstacle_remove(obstacle_id);
 		obstacle_id = (u32)-1;
 	}
-	else if (net_speed < 0.1f && obstacle_id == (u32)-1)
+	else if (net_speed < 0.1f && obstacle_id == u32(-1))
 		obstacle_id = AI::obstacle_add(base_pos(), WALKER_RADIUS * 2.0f, capsule_height() + WALKER_SUPPORT_HEIGHT);
 
-	// Handle rotation
+	// handle rotation
 
 	target_rotation = LMath::closest_angle(target_rotation, rotation);
 

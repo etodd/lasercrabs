@@ -63,7 +63,6 @@ MinionEntity::MinionEntity(const Vec3& pos, const Quat& quat, AI::Team team, Pla
 
 	Minion* m = create<Minion>();
 	m->owner = manager;
-	m->patrol_point = pos;
 
 	create<AIAgent>()->team = team;
 
@@ -80,13 +79,6 @@ void Minion::awake()
 	link<&Minion::footstep>(animator->trigger(Asset::Animation::character_walk, 0.0f));
 	link<&Minion::footstep>(animator->trigger(Asset::Animation::character_walk, 0.5f));
 	link<&Minion::melee_damage>(animator->trigger(Asset::Animation::character_melee, 0.875f));
-
-	if (Game::level.local)
-	{
-		path_request = PathRequest::PointQuery;
-		auto callback = ObjectLinkEntryArg<Minion, const Vec3&, &Minion::set_patrol_point>(id());
-		AI::closest_walk_point(get<Transform>()->absolute_pos(), callback);
-	}
 }
 
 void Minion::team(AI::Team t)
@@ -219,14 +211,56 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 
 	r32 closest_distance = FLT_MAX;
 
+	if (Turret::list.count() > 0)
+	{
+		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+		{
+			Turret* turret = i.item();
+			if (turret->team != team)
+			{
+				Vec3 item_pos = turret->get<Transform>()->absolute_pos();
+				if (me->can_see(turret->entity()))
+					return turret->entity();
+				Vec3 to_turret = turret->get<Transform>()->absolute_pos() - pos;
+				r32 total_distance = to_turret.length_squared() + (to_turret.dot(direction) < 0.0f ? direction_cost : 0.0f);
+				if (total_distance < closest_distance)
+				{
+					closest = turret->entity();
+					closest_distance = total_distance;
+				}
+			}
+		}
+	}
+	else
+	{
+		for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+		{
+			CoreModule* core = i.item();
+			if (core->team != team)
+			{
+				Vec3 item_pos = core->get<Transform>()->absolute_pos();
+				if (me->can_see(core->entity()))
+					return core->entity();
+				Vec3 to_core = core->get<Transform>()->absolute_pos() - pos;
+				r32 total_distance = to_core.length_squared() + (to_core.dot(direction) < 0.0f ? direction_cost : 0.0f);
+				if (total_distance < closest_distance)
+				{
+					closest = core->entity();
+					closest_distance = total_distance;
+				}
+			}
+		}
+	}
+
+	if (closest)
+		return closest;
+
 	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
 		ForceField* field = i.item();
 		if (field->team != team)
 		{
 			Vec3 item_pos = field->get<Transform>()->absolute_pos();
-			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
-				continue;
 			if (me->can_see(field->entity()))
 				return field->entity();
 			Vec3 to_field = item_pos - pos;
@@ -245,8 +279,6 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 		if (pickup->team != team && pickup->team != AI::TeamNone)
 		{
 			Vec3 item_pos = pickup->get<Transform>()->absolute_pos();
-			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
-				continue;
 			if (me->can_see(pickup->entity()))
 				return pickup->entity();
 			Vec3 to_pickup = item_pos - pos;
@@ -265,8 +297,6 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 		if (sensor->team != team && !sensor->has<Battery>())
 		{
 			Vec3 item_pos = sensor->get<Transform>()->absolute_pos();
-			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
-				continue;
 			if (me->can_see(sensor->entity()))
 				return sensor->entity();
 			Vec3 to_sensor = sensor->get<Transform>()->absolute_pos() - pos;
@@ -285,8 +315,6 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 		if (minion->get<AIAgent>()->team != team)
 		{
 			Vec3 item_pos = minion->get<Transform>()->absolute_pos();
-			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
-				continue;
 			if (me->can_see(minion->entity()))
 				return minion->entity();
 			Vec3 to_minion = minion->get<Transform>()->absolute_pos() - pos;
@@ -299,57 +327,12 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 		}
 	}
 
-	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-	{
-		Turret* turret = i.item();
-		if (turret->team != team)
-		{
-			Vec3 item_pos = turret->get<Transform>()->absolute_pos();
-			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
-				continue;
-			if (me->can_see(turret->entity()))
-				return turret->entity();
-			Vec3 to_turret = turret->get<Transform>()->absolute_pos() - pos;
-			r32 total_distance = to_turret.length_squared() + (to_turret.dot(direction) < 0.0f ? direction_cost : 0.0f);
-			if (total_distance < closest_distance)
-			{
-				closest = turret->entity();
-				closest_distance = total_distance;
-			}
-		}
-	}
-
-	if (Turret::list.count() == 0)
-	{
-		for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
-		{
-			CoreModule* core = i.item();
-			if (core->team != team)
-			{
-				Vec3 item_pos = core->get<Transform>()->absolute_pos();
-				if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
-					continue;
-				if (me->can_see(core->entity()))
-					return core->entity();
-				Vec3 to_core = core->get<Transform>()->absolute_pos() - pos;
-				r32 total_distance = to_core.length_squared() + (to_core.dot(direction) < 0.0f ? direction_cost : 0.0f);
-				if (total_distance < closest_distance)
-				{
-					closest = core->entity();
-					closest_distance = total_distance;
-				}
-			}
-		}
-	}
-
 	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 	{
 		Rocket* rocket = i.item();
 		if (rocket->get<Transform>()->parent.ref() && rocket->team() != team)
 		{
 			Vec3 item_pos = rocket->get<Transform>()->absolute_pos();
-			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
-				continue;
 			if (me->can_see(rocket->entity()))
 				return rocket->entity();
 			Vec3 to_rocket = rocket->get<Transform>()->absolute_pos() - pos;
@@ -368,8 +351,6 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 		if (grenade->team() != team)
 		{
 			Vec3 item_pos = grenade->get<Transform>()->absolute_pos();
-			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
-				continue;
 			if (me->can_see(grenade->entity()))
 				return grenade->entity();
 			Vec3 to_grenade = grenade->get<Transform>()->absolute_pos() - pos;
@@ -417,17 +398,19 @@ Entity* visible_target(Minion* me, AI::Team team)
 		}
 	}
 
-	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+	if (Turret::list.count() > 0)
 	{
-		Turret* turret = i.item();
-		if (turret->team != team)
+		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 		{
-			if (me->can_see(turret->entity()))
-				return turret->entity();
+			Turret* turret = i.item();
+			if (turret->team != team)
+			{
+				if (me->can_see(turret->entity()))
+					return turret->entity();
+			}
 		}
 	}
-
-	if (Turret::list.count() == 0)
+	else
 	{
 		for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
 		{
@@ -491,6 +474,36 @@ Entity* visible_target(Minion* me, AI::Team team)
 	}
 
 	return nullptr;
+}
+
+Vec3 Minion::goal_position(const Goal& g, const Vec3& minion_pos)
+{
+	if (g.type == Goal::Type::Target)
+	{
+		Entity* e = g.entity.ref();
+		vi_assert(e);
+		if (e->has<Turret>() && e->get<Turret>()->ingress_points.length > 0)
+		{
+			r32 closest_distance_sq = FLT_MAX;
+			Vec3 closest_point;
+			Turret* t = e->get<Turret>();
+			for (s32 i = 0; i < t->ingress_points.length; i++)
+			{
+				const Vec3& pos = t->ingress_points[i];
+				r32 distance_sq = (pos - minion_pos).length_squared();
+				if (distance_sq < closest_distance_sq)
+				{
+					closest_distance_sq = distance_sq;
+					closest_point = pos;
+				}
+			}
+			return closest_point;
+		}
+		else
+			return e->get<Transform>()->absolute_pos();
+	}
+	else
+		return g.pos;
 }
 
 void Minion::update_server(const Update& u)
@@ -600,11 +613,7 @@ void Minion::update_server(const Update& u)
 						{
 							// recalc path
 							path_request = PathRequest::Target;
-							Vec3 goal_pos = g->get<Transform>()->absolute_pos();
-							if ((goal_pos - patrol_point).length_squared() < MINION_VISION_RANGE * MINION_VISION_RANGE) // still in range; follow them
-								AI::pathfind(pos, goal_pos, ObjectLinkEntryArg<Minion, const AI::Result&, &Minion::set_path>(id()));
-							else // out of range
-								new_goal();
+							AI::pathfind(pos, goal_position(goal, get<Walker>()->base_pos()), ObjectLinkEntryArg<Minion, const AI::Result&, &Minion::set_path>(id()));
 						}
 					}
 				}
@@ -871,7 +880,7 @@ void Minion::new_goal(const Vec3& direction, b8 allow_entity_target)
 		if (!can_see(goal.entity.ref()))
 		{
 			path_request = PathRequest::Target;
-			goal.pos = goal.entity.ref()->get<Transform>()->absolute_pos();
+			goal.pos = goal_position(goal, pos);
 			AI::pathfind(pos, goal.pos, path_callback);
 		}
 	}
@@ -879,7 +888,7 @@ void Minion::new_goal(const Vec3& direction, b8 allow_entity_target)
 	{
 		goal.type = Goal::Type::Position;
 		path_request = PathRequest::Random;
-		AI::random_path(pos, patrol_point, MINION_VISION_RANGE, path_callback);
+		AI::random_path(pos, pos, MINION_VISION_RANGE, path_callback);
 	}
 	target_timer = 0.0f;
 	path_timer = PATH_RECALC_TIME;
@@ -891,13 +900,6 @@ Vec3 goal_pos(const Minion::Goal& g)
 		return g.pos;
 	else
 		return g.entity.ref()->get<Transform>()->absolute_pos();
-}
-
-void Minion::set_patrol_point(const Vec3& p)
-{
-	patrol_point = p;
-	path_request = PathRequest::None;
-	new_goal(get<Walker>()->forward());
 }
 
 void Minion::set_path(const AI::Result& result)

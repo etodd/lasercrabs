@@ -758,7 +758,7 @@ void PlayerHuman::update(const Update& u)
 					}
 				}
 			}
-			else
+			else if (Game::level.mode == Game::Mode::Pvp)
 			{
 				// we're dead but others still playing; spectate
 				update_camera_rotation(u);
@@ -949,6 +949,23 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 	}
 
 	Net::finalize(spawned);
+}
+
+void PlayerHuman::assault_status_display()
+{
+	AI::Team team = get<PlayerManager>()->team.ref()->team();
+	if (Turret::list.count() > 0)
+	{
+		b8 good = team == 0;
+		char buffer[512];
+		sprintf(buffer, _(strings::turrets_remaining), Turret::list.count());
+		msg(buffer, good);
+	}
+	else
+	{
+		b8 good = team != 0;
+		msg(_(strings::core_vulnerable), good);
+	}
 }
 
 r32 draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, AssetID icon, char* string, const Vec4& color, r32 total_width = 0.0f)
@@ -1912,6 +1929,7 @@ s32 PlayerControlHuman::count_local()
 
 void PlayerControlHuman::drone_done_flying_or_dashing()
 {
+	camera_shake_timer = 0.0f; // stop screen shake
 	player.ref()->rumble_add(0.2f);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 #if SERVER
@@ -2153,15 +2171,15 @@ void PlayerControlHuman::awake()
 		link_arg<const DroneReflectEvent&, &PlayerControlHuman::drone_reflecting>(get<Drone>()->reflecting);
 		link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Drone>()->hit);
 
-		if (!Team::game_over
-			&& Game::level.has_feature(Game::FeatureLevel::All)
-			&& player.ref()->get<PlayerManager>()->deaths == 0)
+		if (!Team::game_over && Game::level.has_feature(Game::FeatureLevel::All))
 		{
-			if (Game::level.type == GameType::Assault
-				&& player.ref()->get<PlayerManager>()->team.ref()->team() == 0)
-				player.ref()->msg(_(strings::defend), true);
-			else
-				player.ref()->msg(_(strings::attack), true);
+			if (Game::level.type == GameType::Assault)
+				player.ref()->assault_status_display();
+			else if (Game::level.type == GameType::Deathmatch)
+			{
+				if (player.ref()->get<PlayerManager>()->deaths == 0)
+					player.ref()->msg(_(strings::attack), true);
+			}
 		}
 	}
 	else
@@ -2478,8 +2496,9 @@ void player_confirm_tram_interactable(s8 gamepad)
 			i.item()->interactable = Interactable::closest(i.item()->get<Transform>()->absolute_pos());
 			if (i.item()->interactable.ref())
 			{
-				player->sudoku.reset();
-				i.item()->sudoku_active = true;
+				// skip sudoku
+				i.item()->interactable.ref()->interact();
+				i.item()->get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 			}
 			break;
 		}
@@ -3362,47 +3381,53 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			r32 closest_turret_distance_sq = range * range;
 
 			// turret health bars
-			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+			if (Game::level.mode == Game::Mode::Pvp)
 			{
-				Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
-				r32 distance_sq = (turret_pos - me).length_squared();
-
-				if (i.item()->team != my_team && distance_sq < closest_turret_distance_sq)
+				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 				{
-					closest_turret_distance_sq = distance_sq;
-					closest_turret = i.item();
-				}
+					Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
+					r32 distance_sq = (turret_pos - me).length_squared();
 
-				if (distance_sq < range * range)
-				{
-					Vec2 p;
-					if (UI::project(params, turret_pos, &p))
+					if (i.item()->team != my_team && distance_sq < closest_turret_distance_sq)
 					{
-						Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
-						Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-						UI::box(params, bar, UI::color_background);
-						const Vec4& color = Team::ui_color(team, i.item()->team);
-						UI::border(params, bar, 2, color);
-						Health* health = i.item()->get<Health>();
-						UI::box(params, { bar.pos, Vec2(bar.size.x * (r32(health->hp) / r32(health->hp_max)), bar.size.y) }, color);
+						closest_turret_distance_sq = distance_sq;
+						closest_turret = i.item();
 					}
 
-					if (i.item()->target.ref() == entity())
+					if (distance_sq < range * range)
 					{
-						if (UI::flash_function(Game::time.total))
-							UI::indicator(params, turret_pos, Team::ui_color_enemy, true);
-						enemy_dangerous_visible = true;
+						Vec2 p;
+						if (UI::project(params, turret_pos, &p))
+						{
+							Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
+							Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+							UI::box(params, bar, UI::color_background);
+							const Vec4& color = Team::ui_color(team, i.item()->team);
+							UI::border(params, bar, 2, color);
+							Health* health = i.item()->get<Health>();
+							UI::box(params, { bar.pos, Vec2(bar.size.x * (r32(health->hp) / r32(health->hp_max)), bar.size.y) }, color);
+						}
+
+						if (i.item()->target.ref() == entity())
+						{
+							if (UI::flash_function(Game::time.total))
+								UI::indicator(params, turret_pos, Team::ui_color_enemy, true);
+							enemy_dangerous_visible = true;
+						}
 					}
 				}
+
+				if (closest_turret && closest_turret->target.ref() != entity())
+					UI::indicator(params, closest_turret->get<Transform>()->absolute_pos(), Team::ui_color_enemy, true);
 			}
-
-			if (closest_turret && closest_turret->target.ref() != entity())
-				UI::indicator(params, closest_turret->get<Transform>()->absolute_pos(), Team::ui_color_enemy, true);
 		}
 		else
 		{
 			for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
-				UI::indicator(params, i.item()->get<Transform>()->absolute_pos(), Team::ui_color(i.item()->team, my_team), true);
+			{
+				if (!i.item()->get<Health>()->invincible())
+					UI::indicator(params, i.item()->get<Transform>()->absolute_pos(), Team::ui_color(i.item()->team, my_team), true);
+			}
 		}
 
 		// force field battery bars

@@ -421,7 +421,7 @@ s8 Health::total() const
 b8 Health::invincible() const
 {
 	if (has<CoreModule>())
-		return invincible_timer > 0.0f || Turret::list.count() > 0 || !Game::level.has_feature(Game::FeatureLevel::TutorialAll);
+		return invincible_timer > 0.0f || Turret::list.count() > 0 || !Game::level.has_feature(Game::FeatureLevel::TutorialAll) || Game::level.mode != Game::Mode::Pvp;
 	else
 		return invincible_timer > 0.0f;
 }
@@ -786,8 +786,8 @@ void SpawnPoint::update_server_all(const Update& u)
 {
 	const s32 minion_group = 3;
 	const r32 minion_initial_delay = 30.0f;
-	const r32 minion_spawn_interval = 3.0f;
-	const r32 minion_group_interval = 120.0f; // must be a multiple of minion_spawn_interval
+	const r32 minion_spawn_interval = 6.0f;
+	const r32 minion_group_interval = minion_spawn_interval * 18.0f; // must be a multiple of minion_spawn_interval
 	if (Game::level.type == GameType::Assault
 		&& Game::level.mode == Game::Mode::Pvp
 		&& !Team::game_over)
@@ -1370,7 +1370,7 @@ void CoreModule::destroy()
 
 #define TURRET_COOLDOWN 1.5f
 #define TURRET_TARGET_CHECK_TIME 0.75f
-#define TURRET_HEALTH 20
+#define TURRET_HEALTH 25
 #define TURRET_RADIUS 0.5f
 TurretEntity::TurretEntity(AI::Team team)
 {

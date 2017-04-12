@@ -464,6 +464,8 @@ void Game::update(const Update& update_in)
 						PlayerAI* player = PlayerAI::list.add();
 						new (player) PlayerAI(manager, config);
 
+						Net::finalize(e);
+
 						level.ai_config.remove(i);
 						i--;
 					}
@@ -908,6 +910,8 @@ void game_end_cheat(b8 win)
 				Team::match_time = Game::level.time_limit;
 			else // attacking
 			{
+				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+					i.item()->killed(nullptr);
 				for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
 					i.item()->destroy();
 			}
@@ -1318,7 +1322,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 	Array<RopeEntry> ropes;
 
-	Array<LevelLink<Entity>> links;
 	Array<LevelLink<SpawnPoint>> spawn_links;
 
 	level.time_limit = session.time_limit;
@@ -1585,6 +1588,31 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			{
 				Entity* turret = World::alloc<TurretEntity>(AI::Team(0));
 				turret->get<Transform>()->absolute(absolute_pos + absolute_rot * Vec3(0, 0, TURRET_HEIGHT), absolute_rot);
+
+				cJSON* links = cJSON_GetObjectItem(element, "links");
+				cJSON* link = links->child;
+				while (link)
+				{
+					const char* ingress_entity_name = link->valuestring;
+
+					// look up ingress point
+					cJSON* i = json->child;
+					b8 found = false;
+					while (i)
+					{
+						if (strcmp(cJSON_GetObjectItem(i, "name")->valuestring, ingress_entity_name) == 0)
+						{
+							turret->get<Turret>()->ingress_points.add(Json::get_vec3(i, "pos"));
+							found = true;
+							break;
+						}
+						i = i->next;
+					}
+					vi_assert(found);
+
+					link = link->next;
+				}
+
 				World::awake(turret);
 			}
 		}
@@ -1995,6 +2023,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 			}
 		}
+		else if (cJSON_HasObjectItem(element, "Empty"))
+			entity = World::alloc<Empty>();
 		else if (strcmp(Json::get_string(element, "name"), "terminal") == 0)
 		{
 			if (session.type == SessionType::Story)
@@ -2014,8 +2044,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 			}
 		}
-		else
-			entity = World::alloc<Empty>();
 
 		if (entity && entity->has<Transform>())
 		{
@@ -2035,12 +2063,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			level.finder.add(Json::get_string(element, "name"), entity);
 
 		element = element->next;
-	}
-
-	for (s32 i = 0; i < links.length; i++)
-	{
-		LevelLink<Entity>* link = &links[i];
-		*link->ref = level.finder.find(link->target_name);
 	}
 
 	for (s32 i = 0; i < spawn_links.length; i++)

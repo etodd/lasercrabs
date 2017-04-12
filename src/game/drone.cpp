@@ -504,7 +504,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		{
 			Ability ability;
 			serialize_int(p, Ability, ability, 0, s32(Ability::count) + 1); // must be +1 for Ability::None
-			if (apply_msg)
+			if (apply_msg && (ability == Ability::None || AbilityInfo::list[s32(ability)].type != AbilityInfo::Type::Other))
 				drone->current_ability = ability;
 			break;
 		}
@@ -1494,12 +1494,16 @@ r32 Drone::range() const
 
 b8 Drone::go(const Vec3& dir)
 {
+	Ability a = current_ability;
+	if (AbilityInfo::list[s32(a)].type == AbilityInfo::Type::Other)
+		current_ability = Ability::None;
+
 	if (!cooldown_can_shoot())
 		return false;
 
 	Vec3 dir_normalized = Vec3::normalize(dir);
 
-	if (current_ability == Ability::None)
+	if (a == Ability::None)
 	{
 		{
 			Net::StateFrame* state_frame = nullptr;
@@ -1513,10 +1517,6 @@ b8 Drone::go(const Vec3& dir)
 	}
 	else
 	{
-		Ability a = current_ability;
-		if (AbilityInfo::list[s32(a)].type == AbilityInfo::Type::Other)
-			ability(Ability::None);
-
 		if (!get<PlayerCommon>()->manager.ref()->ability_valid(a))
 			return false;
 

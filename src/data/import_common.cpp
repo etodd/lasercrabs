@@ -315,13 +315,13 @@ void Mesh::read(Mesh* mesh, const char* path, Array<Attrib>* extra_attribs)
 	if (!f)
 	{
 		fprintf(stderr, "Can't open msh file '%s'\n", path);
-		return;
+		vi_assert(false);
 	}
 
-	// Read color
+	// read color
 	fread(&mesh->color, sizeof(Vec4), 1, f);
 
-	// Read bounding box
+	// read bounding box
 	fread(&mesh->bounds_min, sizeof(Vec3), 1, f);
 	fread(&mesh->bounds_max, sizeof(Vec3), 1, f);
 	fread(&mesh->bounds_radius, sizeof(r32), 1, f);

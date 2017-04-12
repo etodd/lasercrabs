@@ -26,6 +26,7 @@ struct Minion : public ComponentType<Minion>
 		{
 			Position,
 			Target,
+			count,
 		};
 
 		Vec3 pos;
@@ -41,6 +42,7 @@ struct Minion : public ComponentType<Minion>
 		Target,
 		Repath,
 		PointQuery,
+		count,
 	};
 
 	static r32 particle_accumulator;
@@ -48,11 +50,11 @@ struct Minion : public ComponentType<Minion>
 	static Minion* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static s32 count(AI::TeamMask);
 	static void update_client_all(const Update&);
+	static Vec3 goal_position(const Goal&, const Vec3&);
 
 	PathRequest path_request;
 	Goal goal;
 	AI::Path path;
-	Vec3 patrol_point;
 	r32 attack_timer;
 	r32 path_timer;
 	r32 target_timer;
@@ -76,7 +78,6 @@ struct Minion : public ComponentType<Minion>
 
 	void new_goal(const Vec3& = Vec3::zero, b8 = true);
 	void set_path(const AI::Result&);
-	void set_patrol_point(const Vec3&);
 	void turn_to(const Vec3&);
 };
 

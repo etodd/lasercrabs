@@ -447,6 +447,7 @@ void Game::update(const Update& update_in)
 		PlayerHuman::update_all(u);
 		if (level.local)
 		{
+			SpawnPoint::update_server_all(u);
 			if (session.type == SessionType::Story && level.mode == Mode::Pvp && !Team::game_over)
 			{
 				// spawn AI players
@@ -1318,7 +1319,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	Array<RopeEntry> ropes;
 
 	Array<LevelLink<Entity>> links;
-	Array<LevelLink<Transform>> transform_links;
+	Array<LevelLink<SpawnPoint>> spawn_links;
 
 	level.time_limit = session.time_limit;
 	level.respawns = session.respawns;
@@ -1596,7 +1597,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				entity = World::alloc<MinionEntity>(absolute_pos, absolute_rot, team);
 			}
 		}
-		else if (cJSON_HasObjectItem(element, "SpawnPoint") || cJSON_HasObjectItem(element, "PlayerSpawn"))
+		else if (cJSON_HasObjectItem(element, "SpawnPoint"))
 		{
 			AI::Team team = AI::Team(Json::get_s32(element, "team"));
 
@@ -1677,7 +1678,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				}
 			}
 		}
-		else if (cJSON_HasObjectItem(element, "Battery") || cJSON_HasObjectItem(element, "EnergyPickup"))
+		else if (cJSON_HasObjectItem(element, "Battery"))
 		{
 			if (level.has_feature(FeatureLevel::Batteries))
 			{
@@ -1705,6 +1706,14 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				rope->slack = 0.0f;
 				rope->max_distance = 100.0f;
 				rope->attach_end = true;
+
+				cJSON* links = cJSON_GetObjectItem(element, "links");
+				vi_assert(links && cJSON_GetArraySize(links) == 1);
+				const char* spawn_point_name = links->child->valuestring;
+
+				LevelLink<SpawnPoint>* spawn_link = spawn_links.add();
+				spawn_link->ref = &entity->get<Battery>()->spawn_point;
+				spawn_link->target_name = spawn_point_name;
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "AICue"))
@@ -2034,10 +2043,10 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		*link->ref = level.finder.find(link->target_name);
 	}
 
-	for (s32 i = 0; i < transform_links.length; i++)
+	for (s32 i = 0; i < spawn_links.length; i++)
 	{
-		LevelLink<Transform>& link = transform_links[i];
-		*link.ref = level.finder.find(link.target_name)->get<Transform>();
+		LevelLink<SpawnPoint>* link = &spawn_links[i];
+		*link->ref = level.finder.find(link->target_name)->get<SpawnPoint>();
 	}
 
 	// Set map view for local players
@@ -2054,21 +2063,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 	for (s32 i = 0; i < ropes.length; i++)
 		Rope::spawn(ropes[i].pos, ropes[i].rot * Vec3(0, 1, 0), ropes[i].max_distance, ropes[i].slack, ropes[i].attach_end);
-
-	// create spawn points beneath batteries
-	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
-	{
-		Quat rot;
-		Vec3 ray_start;
-		i.item()->get<Transform>()->absolute(&ray_start, &rot);
-		Vec3 ray_end = ray_start + Vec3(0, -20, 0);
-		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-		Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter);
-		vi_assert(ray_callback.hasHit());
-		Entity* e = World::create<SpawnPointEntity>(i.item()->team, true);
-		e->get<Transform>()->absolute(ray_callback.m_hitPointWorld, Quat::euler(0, 0, PI * -0.5f) * rot);
-		i.item()->spawn_point = e->get<SpawnPoint>();
-	}
 
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		World::awake(i.item()->entity());

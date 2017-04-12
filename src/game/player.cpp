@@ -203,11 +203,12 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	menu_state(),
 	rumble(),
 	upgrade_menu_open(),
-	upgrade_animation_time(),
+	animation_time(),
 	upgrade_last_visit_highest_available(Upgrade::None),
 	score_summary_scroll(),
 	spectate_index(),
 	selected_spawn(),
+	select_spawn_timer(),
 #if SERVER
 	ai_record(),
 #endif
@@ -355,8 +356,8 @@ void PlayerHuman::update_camera_rotation(const Update& u)
 {
 	{
 		r32 s = speed_mouse * Settings::gamepads[gamepad].effective_sensitivity() * Game::session.effective_time_scale();
-		angle_horizontal -= (r32)u.input->cursor_x * s;
-		angle_vertical += (r32)u.input->cursor_y * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
+		angle_horizontal -= r32(u.input->cursor_x) * s;
+		angle_vertical += r32(u.input->cursor_y) * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
 	}
 
 	if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
@@ -475,7 +476,7 @@ void PlayerHuman::upgrade_menu_show()
 {
 	upgrade_menu_open = true;
 	menu.animate();
-	upgrade_animation_time = Game::real_time.total;
+	animation_time = Game::real_time.total;
 	Entity* instance = get<PlayerManager>()->instance.ref();
 	if (instance)
 		instance->get<Drone>()->ability(Ability::None);
@@ -515,7 +516,7 @@ void PlayerHuman::update(const Update& u)
 		rumble = vi_max(0.0f, rumble - u.time.delta);
 	}
 
-	if (camera)
+	// camera stuff
 	{
 		s32 player_count;
 #if DEBUG_AI_CONTROL
@@ -536,11 +537,6 @@ void PlayerHuman::update(const Update& u)
 		{
 			r32 aspect = camera->viewport.size.y == 0 ? 1.0f : camera->viewport.size.x / camera->viewport.size.y;
 			camera->perspective(fov_map_view, aspect, 1.0f, Game::level.skybox.far_plane);
-		}
-
-		// reset camera range after the player dies
-		if (!get<PlayerManager>()->instance.ref())
-		{
 			camera->range = 0;
 			if (get<PlayerManager>()->spawn_timer == 0.0f)
 			{
@@ -551,8 +547,6 @@ void PlayerHuman::update(const Update& u)
 			camera->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour);
 			upgrade_menu_hide();
 		}
-
-		Audio::listener_update(gamepad, camera->pos, camera->rot);
 	}
 
 	if (msg_timer < msg_time)
@@ -649,7 +643,7 @@ void PlayerHuman::update(const Update& u)
 
 				if (menu.selected != last_selected
 					|| upgrade_in_progress) // once the upgrade is done, animate the new ability description
-					upgrade_animation_time = Game::real_time.total;
+					animation_time = Game::real_time.total;
 			}
 			break;
 		}
@@ -706,48 +700,62 @@ void PlayerHuman::update(const Update& u)
 				{
 					// select a spawn point
 					AI::Team my_team = get<PlayerManager>()->team.ref()->team();
-					if (!selected_spawn.ref() || selected_spawn.ref()->team != my_team)
-						selected_spawn = SpawnPoint::closest(1 << s32(my_team), camera->pos);
-
-					Vec2 movement = camera_topdown_movement(u, gamepad, camera);
-					if (movement.length_squared() > 0.0f)
+					if (select_spawn_timer > 0.0f)
 					{
-						SpawnPoint* closest = nullptr;
-						r32 closest_dot = FLT_MAX;
-						r32 closest_normalized_dot = 0.4f;
-
-						Vec3 spawn_pos = selected_spawn.ref()->get<Transform>()->absolute_pos();
-						for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+						if (selected_spawn.ref() && selected_spawn.ref()->team == my_team)
 						{
-							SpawnPoint* candidate = i.item();
-							if (candidate == selected_spawn.ref() || candidate->team != my_team)
-								continue;
-
-							Vec3 candidate_pos = candidate->get<Transform>()->absolute_pos();
-							Vec3 to_candidate = candidate_pos - spawn_pos;
-							r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
-							r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
-							r32 mixed_dot = dot * vi_max(normalized_dot, 0.9f);
-							if (mixed_dot < closest_dot && normalized_dot > closest_normalized_dot)
-							{
-								closest = candidate;
-								closest_normalized_dot = vi_min(0.8f, normalized_dot);
-								closest_dot = vi_max(2.0f, mixed_dot);
-							}
+							select_spawn_timer = vi_max(0.0f, select_spawn_timer - u.time.delta);
+							if (select_spawn_timer == 0.0f)
+								get<PlayerManager>()->spawn_select(selected_spawn.ref());
 						}
-						if (closest)
-							selected_spawn = closest;
+						else
+							select_spawn_timer = 0.0f;
 					}
-
+					else
 					{
-						Quat target_rot = Quat::look(Game::level.map_view.ref()->absolute_rot() * Vec3(0, -1, 0));
-						Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.skybox.far_plane * -0.5f);
-						camera->pos += (target_pos - camera->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
-						camera->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera->rot, target_rot);
-					}
+						if (!selected_spawn.ref() || selected_spawn.ref()->team != my_team)
+							selected_spawn = SpawnPoint::closest(1 << s32(my_team), camera->pos);
 
-					if (u.input->get(Controls::Interact, gamepad) && !u.last_input->get(Controls::Interact, gamepad))
-						get<PlayerManager>()->spawn_select(selected_spawn.ref());
+						Vec2 movement = camera_topdown_movement(u, gamepad, camera);
+						if (movement.length_squared() > 0.0f)
+						{
+							SpawnPoint* closest = nullptr;
+							r32 closest_dot = FLT_MAX;
+							r32 closest_normalized_dot = 0.4f;
+
+							Vec3 spawn_pos = selected_spawn.ref()->get<Transform>()->absolute_pos();
+							for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+							{
+								SpawnPoint* candidate = i.item();
+								if (candidate == selected_spawn.ref() || candidate->team != my_team)
+									continue;
+
+								Vec3 candidate_pos = candidate->get<Transform>()->absolute_pos();
+								Vec3 to_candidate = candidate_pos - spawn_pos;
+								r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
+								r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
+								r32 mixed_dot = dot * vi_max(normalized_dot, 0.9f);
+								if (mixed_dot < closest_dot && normalized_dot > closest_normalized_dot)
+								{
+									closest = candidate;
+									closest_normalized_dot = vi_min(0.8f, normalized_dot);
+									closest_dot = vi_max(2.0f, mixed_dot);
+								}
+							}
+							if (closest)
+								selected_spawn = closest;
+						}
+
+						{
+							Quat target_rot = Quat::look(Game::level.map_view.ref()->absolute_rot() * Vec3(0, -1, 0));
+							Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.skybox.far_plane * -0.6f);
+							camera->pos += (target_pos - camera->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
+							camera->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera->rot, target_rot);
+						}
+
+						if (u.input->get(Controls::Interact, gamepad) && !u.last_input->get(Controls::Interact, gamepad))
+							select_spawn_timer = 1.0f;
+					}
 				}
 			}
 			else
@@ -811,6 +819,9 @@ void PlayerHuman::update_late(const Update& u)
 			camera_setup_drone(e, camera, 8.0f);
 		}
 	}
+	
+	if (camera)
+		Audio::listener_update(gamepad, camera->pos, camera->rot);
 #endif
 }
 
@@ -1291,7 +1302,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
 				s16 cost = get<PlayerManager>()->upgrade_cost(upgrade);
 				text.text(gamepad, _(strings::upgrade_description), cost, _(info.description));
-				UIMenu::text_clip(&text, upgrade_animation_time, 150.0f);
+				UIMenu::text_clip(&text, animation_time, 150.0f);
 
 				Vec2 pos = upgrade_menu_pos + Vec2(MENU_ITEM_WIDTH * -0.5f + padding, menu.height() * -0.5f - padding * 7.0f);
 				UI::box(params, text.rect(pos).outset(padding), UI::color_background);
@@ -1334,26 +1345,34 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 						scoreboard_draw(params, get<PlayerManager>());
 					else
 					{
-						// select spawn point
-						AI::Team my_team = get<PlayerManager>()->team.ref()->team();
-						for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+						if (select_spawn_timer > 0.0f)
 						{
-							if (i.item()->team == my_team)
-								UI::indicator(params, i.item()->get<Transform>()->absolute_pos(), Team::ui_color_friend, true, 1.0f, PI);
+							// spawning...
+							Menu::progress_infinite(params, _(strings::deploying), vp.size * Vec2(0.5f));
 						}
+						else
+						{
+							// select spawn point
+							AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+							for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+							{
+								if (i.item()->team == my_team)
+									UI::indicator(params, i.item()->get<Transform>()->absolute_pos(), Team::ui_color_friend, true, 1.0f, PI);
+							}
 
-						Vec2 p;
-						if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
-							UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent, PI);
+							Vec2 p;
+							if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
+								UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent, PI);
 
-						// spawn prompt
-						UIText text;
-						text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-						text.color = UI::color_accent;
-						text.text(gamepad, _(strings::prompt_deploy));
-						Vec2 pos = vp.pos + vp.size * Vec2(0.5f, 0.2f);
-						UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
-						text.draw(params, pos);
+							// spawn prompt
+							UIText text;
+							text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+							text.color = UI::color_accent;
+							text.text(gamepad, _(strings::prompt_deploy));
+							Vec2 pos = vp.pos + vp.size * Vec2(0.5f, 0.2f);
+							UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
+							text.draw(params, pos);
+						}
 					}
 				}
 			}
@@ -2001,7 +2020,12 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->get<AIAgent>()->team != team)
-			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Minion);
+		{
+			PlayerControlHuman::TargetIndicator::Type type = i.item()->goal.entity.ref() == p->entity()
+				? PlayerControlHuman::TargetIndicator::Type::MinionAttacking
+				: PlayerControlHuman::TargetIndicator::Type::Minion;
+			player_add_target_indicator(p, i.item()->get<Target>(), type);
+		}
 	}
 
 	// energy pickups
@@ -2312,8 +2336,8 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 gamepad_rotati
 		if (gamepad == 0)
 		{
 			r32 s = look_speed() * speed_mouse * Settings::gamepads[gamepad].effective_sensitivity();
-			get<PlayerCommon>()->angle_horizontal -= (r32)u.input->cursor_x * s;
-			get<PlayerCommon>()->angle_vertical += (r32)u.input->cursor_y * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
+			get<PlayerCommon>()->angle_horizontal -= r32(u.input->cursor_x) * s;
+			get<PlayerCommon>()->angle_vertical += r32(u.input->cursor_y) * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
 		}
 
 		if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
@@ -3300,7 +3324,13 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			}
 			case TargetIndicator::Type::Minion:
 			{
-				UI::indicator(params, indicator.pos, UI::color_alert, true);
+				UI::indicator(params, indicator.pos, UI::color_alert, false);
+				break;
+			}
+			case TargetIndicator::Type::MinionAttacking:
+			{
+				if (UI::flash_function(Game::time.total))
+					UI::indicator(params, indicator.pos, UI::color_alert, true);
 				break;
 			}
 			case TargetIndicator::Type::Sensor:
@@ -3325,31 +3355,54 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	{
 		Vec3 me = get<Transform>()->absolute_pos();
 
-		// turret health bars
-		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+		AI::Team my_team = get<AIAgent>()->team;
+		if (Turret::list.count() > 0)
 		{
-			Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
-			if ((turret_pos - me).length_squared() < range * range)
+			Turret* closest_turret = nullptr;
+			r32 closest_turret_distance_sq = range * range;
+
+			// turret health bars
+			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 			{
-				Vec2 p;
-				if (UI::is_onscreen(params, turret_pos, &p) || i.item()->team != team)
+				Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
+				r32 distance_sq = (turret_pos - me).length_squared();
+
+				if (i.item()->team != my_team && distance_sq < closest_turret_distance_sq)
 				{
-					Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
-					Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-					UI::box(params, bar, UI::color_background);
-					const Vec4& color = Team::ui_color(team, i.item()->team);
-					UI::border(params, bar, 2, color);
-					Health* health = i.item()->get<Health>();
-					UI::box(params, { bar.pos, Vec2(bar.size.x * (r32(health->hp) / r32(health->hp_max)), bar.size.y) }, color);
+					closest_turret_distance_sq = distance_sq;
+					closest_turret = i.item();
 				}
 
-				if (i.item()->target.ref() == entity())
+				if (distance_sq < range * range)
 				{
-					if (UI::flash_function(Game::time.total))
-						UI::indicator(params, turret_pos, Team::ui_color_enemy, true);
-					enemy_dangerous_visible = true;
+					Vec2 p;
+					if (UI::project(params, turret_pos, &p))
+					{
+						Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
+						Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+						UI::box(params, bar, UI::color_background);
+						const Vec4& color = Team::ui_color(team, i.item()->team);
+						UI::border(params, bar, 2, color);
+						Health* health = i.item()->get<Health>();
+						UI::box(params, { bar.pos, Vec2(bar.size.x * (r32(health->hp) / r32(health->hp_max)), bar.size.y) }, color);
+					}
+
+					if (i.item()->target.ref() == entity())
+					{
+						if (UI::flash_function(Game::time.total))
+							UI::indicator(params, turret_pos, Team::ui_color_enemy, true);
+						enemy_dangerous_visible = true;
+					}
 				}
 			}
+
+			if (closest_turret && closest_turret->target.ref() != entity())
+				UI::indicator(params, closest_turret->get<Transform>()->absolute_pos(), Team::ui_color_enemy, true);
+		}
+		else
+		{
+			for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+				UI::indicator(params, i.item()->get<Transform>()->absolute_pos(), Team::ui_color(i.item()->team, my_team), true);
 		}
 
 		// force field battery bars

@@ -311,7 +311,7 @@ void Loader::settings_save()
 const Mesh* Loader::mesh(AssetID id)
 {
 	if (id == AssetNull)
-		return 0;
+		return nullptr;
 
 	vi_assert(id < static_mesh_count);
 
@@ -332,15 +332,15 @@ const Mesh* Loader::mesh(AssetID id)
 		RenderSync* sync = Loader::swapper->get();
 		sync->write(RenderOp::AllocMesh);
 		sync->write<AssetID>(id);
-		sync->write<b8>(false); // Whether the buffers should be dynamic or not
+		sync->write<b8>(false); // whether the buffers should be dynamic or not
 
-		sync->write<s32>(2 + extra_attribs.length); // Attribute count
+		sync->write<s32>(2 + extra_attribs.length); // attribute count
 
-		sync->write(RenderDataType::Vec3); // Position
-		sync->write<s32>(1); // Number of data elements per vertex
+		sync->write(RenderDataType::Vec3); // position
+		sync->write<s32>(1); // number of data elements per vertex
 
 		sync->write(RenderDataType::Vec3); // Normal
-		sync->write<s32>(1); // Number of data elements per vertex
+		sync->write<s32>(1); // number of data elements per vertex
 
 		for (s32 i = 0; i < extra_attribs.length; i++)
 		{

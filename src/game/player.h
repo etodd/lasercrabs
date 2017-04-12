@@ -70,7 +70,8 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	UIScroll score_summary_scroll;
 	UIText msg_text;
 	r32 msg_timer;
-	r32 upgrade_animation_time;
+	r32 animation_time;
+	r32 select_spawn_timer;
 	r32 angle_horizontal;
 	r32 angle_vertical;
 	s32 spectate_index;
@@ -166,6 +167,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 			DroneVisible,
 			DroneTracking,
 			Minion,
+			MinionAttacking,
 			Energy,
 			Sensor,
 			Rocket,

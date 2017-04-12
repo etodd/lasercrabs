@@ -872,8 +872,10 @@ namespace tutorial
 		if (Game::level.mode == Game::Mode::Parkour)
 		{
 			if (data->state == TutorialState::ParkourSlide)
+			{
 				Actor::tut_clear();
-			data->state = TutorialState::ParkourDone;
+				data->state = TutorialState::ParkourDone;
+			}
 		}
 	}
 
@@ -901,7 +903,7 @@ namespace tutorial
 		data->sparks = entities.find("sparks")->get<Transform>();
 		data->ivory_ad_text = entities.find("ivory_ad_text")->get<Transform>();
 		data->hobo = entities.find("hobo");
-		data->battery = entities.find("health");
+		data->battery = entities.find("battery");
 
 		Actor::Instance* hobo = Actor::add(data->hobo.ref(), Actor::Behavior::WaitForIdleAnimation, Asset::Bone::hobo_head);
 		hobo_done(hobo);

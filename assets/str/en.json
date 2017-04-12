@@ -14,7 +14,9 @@
 	"multiplayer_custom": "Custom",
 	"multiplayer_local": "Local",
 	"game_type": "Type",
-  "game_type_assault": "Assault",
+	"game_type_assault": "Assault",
+	"turrets_remaining": "%d turrets remaining",
+	"core_vulnerable": "Core vulnerable",
 	"game_type_deathmatch": "DM",
 	"time_limit": "Time limit",
 	"kill_limit": "Score limit",
@@ -28,7 +30,7 @@
 	"options": "Settings",
 	"sensitivity": "Sensitivity",
 	"invert_y": "Invert Y Axis",
-  "zoom_toggle": "Toggle Zoom",
+	"zoom_toggle": "Toggle Zoom",
 	"splitscreen": "Quick combat",
 	"online": "Online",
 	"prompt_splitscreen": "Choose teams",
@@ -143,7 +145,7 @@ Capture the hanging battery.
 (2/4)",
 	"tut_ability": "Press [{{Ability1}}] to select the ability, then [{{Primary}}] to use it.
 (3/4)",
-	"tut_capture": "Crack both control points to capture this zone.
+	"tut_capture": "Destroy the core modules to capture the zone.
 (4/4)",
 	"tut_overworld": "Press [{{Scoreboard}}] to open the map.",
 

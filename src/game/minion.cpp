@@ -569,7 +569,7 @@ void Minion::update_server(const Update& u)
 						// turn to and attack the target
 						Vec3 hand_pos = get<Minion>()->hand_pos();
 						Vec3 aim_pos;
-						if (!g->has<Target>() || !g->get<Target>()->predict_intersection(hand_pos, PROJECTILE_SPEED, nullptr, &aim_pos))
+						if (!g->has<Target>() || !g->get<Target>()->predict_intersection(hand_pos, BOLT_SPEED, nullptr, &aim_pos))
 							aim_pos = g->get<Transform>()->absolute_pos();
 						turn_to(aim_pos);
 						path.length = 0;

@@ -129,12 +129,13 @@ struct SpawnPoint : public ComponentType<SpawnPoint>
 	static SpawnPoint* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static SpawnPoint* first(AI::TeamMask);
 	static s32 count(AI::TeamMask);
+	static void update_server_all(const Update&);
 
 	AI::Team team;
 
 	void awake() {}
 	void set_team(AI::Team);
-	SpawnPosition spawn_position(PlayerManager*) const;
+	SpawnPosition spawn_position(PlayerManager* = nullptr) const;
 };
 
 struct SensorEntity : public Entity

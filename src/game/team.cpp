@@ -447,30 +447,64 @@ void update_visibility(const Update& u)
 				}
 			}
 
-			// minions detecting decoy
-			if (!detected.entity.ref() && j_decoy && !j_decoy->get<AIAgent>()->stealth)
+			if (j_decoy && !j_decoy->get<AIAgent>()->stealth)
 			{
-				for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+				// turrets detecting decoy
+				if (!detected.entity.ref())
 				{
-					if (i.item()->get<AIAgent>()->team == i_team->team() && i.item()->goal.entity.ref() == j_decoy)
+					for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 					{
-						detected.entity = j_decoy;
-						detected.type = PlayerManager::Visibility::Type::Indirect;
-						break;
+						if (i.item()->team == i_team->team() && i.item()->target.ref() == j_decoy)
+						{
+							detected.entity = j_decoy;
+							detected.type = PlayerManager::Visibility::Type::Indirect;
+							break;
+						}
+					}
+				}
+
+				// minions detecting decoy
+				if (!detected.entity.ref())
+				{
+					for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+					{
+						if (i.item()->get<AIAgent>()->team == i_team->team() && i.item()->goal.entity.ref() == j_decoy)
+						{
+							detected.entity = j_decoy;
+							detected.type = PlayerManager::Visibility::Type::Indirect;
+							break;
+						}
 					}
 				}
 			}
 
-			// minions detecting actual player
-			if (!detected.entity.ref() && j_actual_entity && !j_actual_entity->get<AIAgent>()->stealth)
+			if (j_actual_entity && !j_actual_entity->get<AIAgent>()->stealth)
 			{
-				for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+				// turrets detecting decoy
+				if (!detected.entity.ref())
 				{
-					if (i.item()->get<AIAgent>()->team == i_team->team() && i.item()->goal.entity.ref() == j_actual_entity)
+					for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 					{
-						detected.entity = j_actual_entity;
-						detected.type = PlayerManager::Visibility::Type::Indirect;
-						break;
+						if (i.item()->team == i_team->team() && i.item()->target.ref() == j_actual_entity)
+						{
+							detected.entity = j_actual_entity;
+							detected.type = PlayerManager::Visibility::Type::Indirect;
+							break;
+						}
+					}
+				}
+
+				// minions detecting actual player
+				if (!detected.entity.ref())
+				{
+					for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+					{
+						if (i.item()->get<AIAgent>()->team == i_team->team() && i.item()->goal.entity.ref() == j_actual_entity)
+						{
+							detected.entity = j_actual_entity;
+							detected.type = PlayerManager::Visibility::Type::Indirect;
+							break;
+						}
 					}
 				}
 			}

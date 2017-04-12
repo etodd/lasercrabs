@@ -368,6 +368,9 @@ void Mesh::read(Mesh* mesh, const char* path, Array<Attrib>* extra_attribs)
 		}
 	}
 
+	vi_assert(mesh->vertices.length > 0);
+	vi_assert(mesh->indices.length > 0);
+
 	fclose(f);
 }
 

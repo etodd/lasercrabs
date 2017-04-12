@@ -421,7 +421,7 @@ s8 Health::total() const
 b8 Health::invincible() const
 {
 	if (has<CoreModule>())
-		return invincible_timer > 0.0f || Turret::list.count() > 0;
+		return invincible_timer > 0.0f || Turret::list.count() > 0 || !Game::level.has_feature(Game::FeatureLevel::TutorialAll);
 	else
 		return invincible_timer > 0.0f;
 }
@@ -561,8 +561,7 @@ void Battery::set_team_client(AI::Team t)
 	get<PointLight>()->team = s8(t);
 	get<PointLight>()->radius = (t == AI::TeamNone) ? 0.0f : SENSOR_RANGE;
 	get<Sensor>()->team = t;
-	if (spawn_point.ref())
-		spawn_point.ref()->set_team(t);
+	spawn_point.ref()->set_team(t);
 }
 
 b8 Battery::net_msg(Net::StreamRead* p)
@@ -778,9 +777,44 @@ SpawnPosition SpawnPoint::spawn_position(PlayerManager* player) const
 	Vec3 dir = rot * Vec3(0, 1, 0);
 	result.angle = atan2f(dir.x, dir.z);
 
-	if (player->team.ref()->player_count() > 1)
+	if (player && player->team.ref()->player_count() > 1)
 		result.pos += Quat::euler(0, result.angle + (player->id() * PI * 0.5f), 0) * Vec3(0, 0, SPAWN_POINT_RADIUS * 0.5f); // spawn it around the edges
 	return result;
+}
+
+void SpawnPoint::update_server_all(const Update& u)
+{
+	const s32 minion_group = 3;
+	const r32 minion_initial_delay = 30.0f;
+	const r32 minion_spawn_interval = 3.0f;
+	const r32 minion_group_interval = 120.0f; // must be a multiple of minion_spawn_interval
+	if (Game::level.type == GameType::Assault
+		&& Game::level.mode == Game::Mode::Pvp
+		&& !Team::game_over)
+	{
+		r32 t = Team::match_time - minion_initial_delay;
+		if (t > 0.0f)
+		{
+			s32 index = t / minion_spawn_interval;
+			s32 index_last = (t - u.time.delta) / minion_spawn_interval;
+			if (index != index_last && (index % s32(minion_group_interval / minion_spawn_interval)) <= minion_group)
+			{
+				// spawn points owned by a team will spawn a minion
+				for (auto i = list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->team != AI::TeamNone)
+					{
+						SpawnPosition pos = i.item()->spawn_position();
+						Net::finalize(World::create<MinionEntity>(pos.pos + Vec3(0, 1, 0), Quat::euler(0, pos.angle, 0), i.item()->team, nullptr));
+
+						// effects
+						EffectLight::add(pos.pos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
+						Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos.pos);
+					}
+				}
+			}
+		}
+	}
 }
 
 SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_rot)
@@ -1376,6 +1410,23 @@ void Turret::hit_by(const TargetEvent& e)
 
 void Turret::killed(Entity* by)
 {
+	{
+		// let everyone know what happened
+		char buffer[512];
+		if (list.count() > 1)
+			sprintf(buffer, _(strings::turrets_remaining), list.count() - 1);
+		else
+			strcpy(buffer, _(strings::core_vulnerable));
+
+		PlayerHuman::log_add(buffer, 0);
+		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+		{
+			// it's a good thing if you're not on the defending team
+			b8 good = i.item()->get<PlayerManager>()->team.ref()->team() != 0;
+			i.item()->msg(buffer, good);
+		}
+	}
+
 	if (Game::level.local)
 	{
 		Vec3 pos;
@@ -1440,7 +1491,9 @@ b8 Turret::can_see(Entity* target) const
 
 s32 turret_priority(Entity* e)
 {
-	if (e->has<Minion>())
+	if (e->has<Battery>() || e->has<SpawnPoint>())
+		return -1; // never attack
+	else if (e->has<Minion>())
 		return 2;
 	else
 		return 1;
@@ -1464,7 +1517,9 @@ void Turret::check_target()
 		Entity* e = i.item()->entity();
 		AI::Team e_team;
 		AI::entity_info(e, team, &e_team);
-		if (e_team != AI::TeamNone && e_team != team && can_see(i.item()->entity()))
+		if (e_team != AI::TeamNone
+			&& e_team != team
+			&& can_see(i.item()->entity()))
 		{
 			r32 candidate_priority = turret_priority(i.item()->entity());
 			if (candidate_priority > target_priority)
@@ -1495,7 +1550,7 @@ void Turret::update_server(const Update& u)
 	{
 		Vec3 gun_pos = get<Transform>()->absolute_pos();
 		Vec3 aim_pos;
-		if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, PROJECTILE_SPEED, nullptr, &aim_pos))
+		if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, BOLT_SPEED, nullptr, &aim_pos))
 			aim_pos = target.ref()->get<Transform>()->absolute_pos();
 		gun_pos += Vec3::normalize(aim_pos - gun_pos) * TURRET_RADIUS;
 		Net::finalize(World::create<BoltEntity>(team, nullptr, gun_pos, aim_pos - gun_pos));
@@ -1710,10 +1765,10 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 }
 
 #define TELEPORTER_RADIUS 0.5f
-#define PROJECTILE_THICKNESS 0.05f
-#define PROJECTILE_MAX_LIFETIME (DRONE_MAX_DISTANCE * 0.99f) / PROJECTILE_SPEED
-#define PROJECTILE_DAMAGE 1
-#define PROJECTILE_DRONE_DAMAGE 2
+#define BOLT_THICKNESS 0.05f
+#define BOLT_MAX_LIFETIME (DRONE_MAX_DISTANCE * 0.99f) / BOLT_SPEED
+#define BOLT_DAMAGE 1
+#define BOLT_DRONE_DAMAGE 1
 BoltEntity::BoltEntity(AI::Team team, PlayerManager* owner, const Vec3& abs_pos, const Vec3& velocity)
 {
 	Vec3 dir = Vec3::normalize(velocity);
@@ -1722,7 +1777,7 @@ BoltEntity::BoltEntity(AI::Team team, PlayerManager* owner, const Vec3& abs_pos,
 	transform->absolute_rot(Quat::look(dir));
 
 	PointLight* light = create<PointLight>();
-	light->radius = PROJECTILE_LIGHT_RADIUS;
+	light->radius = BOLT_LIGHT_RADIUS;
 	light->color = Vec3(1, 1, 1);
 
 	create<Audio>();
@@ -1730,7 +1785,7 @@ BoltEntity::BoltEntity(AI::Team team, PlayerManager* owner, const Vec3& abs_pos,
 	Bolt* p = create<Bolt>();
 	p->team = team;
 	p->owner = owner;
-	p->velocity = dir * PROJECTILE_SPEED;
+	p->velocity = dir * BOLT_SPEED;
 }
 
 void Bolt::awake()
@@ -1741,7 +1796,7 @@ void Bolt::awake()
 void Bolt::update(const Update& u)
 {
 	lifetime += u.time.delta;
-	if (lifetime > PROJECTILE_MAX_LIFETIME)
+	if (lifetime > BOLT_MAX_LIFETIME)
 	{
 		World::remove(entity());
 		return;
@@ -1749,7 +1804,7 @@ void Bolt::update(const Update& u)
 
 	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 next_pos = pos + velocity * u.time.delta;
-	btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * PROJECTILE_LENGTH);
+	btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * BOLT_LENGTH);
 
 	// if we have an owner, we can go through their team's force fields. otherwise, collide with everything.
 	Physics::raycast(&ray_callback, raycast_mask(team));
@@ -1772,7 +1827,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 	if (hit_object->has<Health>())
 	{
 		basis = Vec3::normalize(velocity);
-		s8 damage = PROJECTILE_DAMAGE;
+		s8 damage = BOLT_DAMAGE;
 		if (hit_object->has<Parkour>()) // player is invincible while rolling and sliding
 		{
 			Parkour::State state = hit_object->get<Parkour>()->fsm.current;
@@ -1781,7 +1836,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 		}
 		if (hit_object->has<Drone>())
 		{
-			damage = PROJECTILE_DRONE_DAMAGE;
+			damage = BOLT_DRONE_DAMAGE;
 			if (hit_object->get<Drone>()->state() != Drone::State::Crawl)
 			{
 				damage = 0;
@@ -1816,7 +1871,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 		Vec3 dir = Vec3::normalize(velocity);
 		Transform* transform = get<Transform>();
 		transform->absolute_rot(Quat::look(dir));
-		transform->absolute_pos(transform->absolute_pos() + dir * PROJECTILE_LENGTH);
+		transform->absolute_pos(transform->absolute_pos() + dir * BOLT_LENGTH);
 	}
 	else
 		World::remove(entity());
@@ -2293,14 +2348,14 @@ void Rope::draw(const RenderParams& params)
 	// bolts
 	if (!(params.camera->mask & RENDER_MASK_SHADOW)) // bolts don't cast shadows
 	{
-		static const Vec3 scale = Vec3(PROJECTILE_THICKNESS, PROJECTILE_THICKNESS, PROJECTILE_LENGTH * 0.5f);
-		static const Mat4 offset = Mat4::make_translation(0, 0, PROJECTILE_LENGTH * 0.5f);
+		static const Vec3 scale = Vec3(BOLT_THICKNESS, BOLT_THICKNESS, BOLT_LENGTH * 0.5f);
+		static const Mat4 offset = Mat4::make_translation(0, 0, BOLT_LENGTH * 0.5f);
 		for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
 		{
 			Mat4 m;
 			i.item()->get<Transform>()->mat(&m);
 			m = offset * m;
-			if (params.camera->visible_sphere(m.translation(), PROJECTILE_LENGTH * f_radius))
+			if (params.camera->visible_sphere(m.translation(), BOLT_LENGTH * f_radius))
 			{
 				m.scale(scale);
 				instances.add(m);
@@ -2315,7 +2370,7 @@ void Rope::draw(const RenderParams& params)
 				Mat4 m;
 				m.make_transform(i.item()->pos, scale, i.item()->rot);
 				m = offset * m;
-				if (params.camera->visible_sphere(m.translation(), PROJECTILE_LENGTH * f_radius))
+				if (params.camera->visible_sphere(m.translation(), BOLT_LENGTH * f_radius))
 					instances.add(m);
 			}
 		}
@@ -2635,7 +2690,7 @@ void EffectLight::update(const Update& u)
 	if (timer > duration)
 		remove(this);
 	else if (type == Type::Bolt)
-		pos += rot * Vec3(0, 0, u.time.delta * PROJECTILE_SPEED);
+		pos += rot * Vec3(0, 0, u.time.delta * BOLT_SPEED);
 }
 
 CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)

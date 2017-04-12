@@ -3432,7 +3432,7 @@ b8 msg_process(StreamRead* p)
 			s32 length;
 			serialize_int(p, s32, length, 0, 255);
 			EntityFinder::NameEntry* entry = Game::level.finder.map.add();
-			serialize_bytes(p, (u8*)entry->name, length);
+			serialize_bytes(p, (u8*)(entry->name), length);
 			entry->name[length] = '\0';
 			serialize_ref(p, entry->entity);
 			break;

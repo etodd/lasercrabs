@@ -46,12 +46,14 @@ def add(obj, parent_index = -1):
 	if obj_type == 'MESH':
 		meshes = []
 		if getattr(obj, 'proxy', None):
-			meshes.append(clean_name(os.path.basename(obj.proxy.library.filepath[:-6])))
+			clean_obj_name = clean_name(os.path.basename(obj.proxy.library.filepath[:-6]))
+			if len(obj.data.materials) > 1:
+				clean_obj_name = '{0}_{1}'.format(clean_obj_name, clean_name(obj.proxy.name))
 		else:
 			clean_obj_name = '{0}_{1}'.format(output_asset_name, clean_name(obj.name))
-			meshes.append(clean_obj_name)
-			for i in range(1, len(obj.data.materials)):
-				meshes.append('{0}_{1}'.format(clean_obj_name, i))
+		meshes.append(clean_obj_name)
+		for i in range(1, len(obj.data.materials)):
+			meshes.append('{0}_{1}'.format(clean_obj_name, i))
 		node['meshes'] = meshes
 	elif obj_type == 'LAMP':
 		lamp_type = obj.data.type

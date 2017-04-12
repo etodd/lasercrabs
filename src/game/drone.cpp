@@ -443,62 +443,61 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_ref(p, target);
 
 			if (apply_msg)
-			{
 				client_hit_effects(drone, target.ref());
 
-				// damage messages
-				if (drone->has<PlayerControlHuman>())
+			// damage messages
+			if (drone->has<PlayerControlHuman>())
+			{
+				if (target.ref()->has<Minion>())
 				{
-					if (target.ref()->has<Minion>())
-					{
-						b8 is_enemy = target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team;
-						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::minion_killed), is_enemy);
-					}
-					else if (target.ref()->has<Sensor>() && !target.ref()->has<Battery>())
-					{
-						b8 is_enemy = target.ref()->get<Sensor>()->team != drone->get<AIAgent>()->team;
-						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::sensor_destroyed), is_enemy);
-					}
-					else if (target.ref()->has<ForceField>())
-					{
-						b8 is_enemy = target.ref()->get<ForceField>()->team != drone->get<AIAgent>()->team;
-						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::force_field_destroyed), is_enemy);
-					}
-					else if (target.ref()->has<Rocket>())
-					{
-						b8 is_enemy = target.ref()->get<Rocket>()->team() != drone->get<AIAgent>()->team;
-						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::rocket_destroyed), is_enemy);
-					}
+					b8 is_enemy = target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team;
+					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::minion_killed), is_enemy);
 				}
-
-				if (target.ref()->has<Shield>())
+				else if (target.ref()->has<Sensor>() && !target.ref()->has<Battery>())
 				{
-					target.ref()->get<Audio>()->post_event(target.ref()->has<PlayerControlHuman>() && target.ref()->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
-
-					// only do damage if they're attached to a wall and have no overshield
-					if (!target.ref()->get<Health>()->invincible() && (!target.ref()->has<Drone>() || target.ref()->get<Drone>()->state() == Drone::State::Crawl))
-					{
-						if (Game::level.local) // if we're a client, this has already been handled by the server
-							target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref()));
-					}
-					else // we didn't hurt them
-					{
-						if (Game::level.local)
-						{
-							if (target.ref()->get<Health>()->invincible() && target.ref()->get<Health>()->invincible_timer <= ACTIVE_ARMOR_TIME // they were invincible; they should damage us
-								&& (drone->current_ability == Ability::None || AbilityInfo::list[s32(drone->current_ability)].type != AbilityInfo::Type::Shoot))
-							{
-								s8 damage = s8(vi_max(1, s32(target.ref()->get<Health>()->invincible_timer * (3.1f / ACTIVE_ARMOR_TIME))));
-								drone->get<Health>()->damage(target.ref(), damage);
-							}
-						}
-
-						if (drone->has<PlayerControlHuman>())
-							drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
-					}
+					b8 is_enemy = target.ref()->get<Sensor>()->team != drone->get<AIAgent>()->team;
+					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::sensor_destroyed), is_enemy);
+				}
+				else if (target.ref()->has<ForceField>())
+				{
+					b8 is_enemy = target.ref()->get<ForceField>()->team != drone->get<AIAgent>()->team;
+					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::force_field_destroyed), is_enemy);
+				}
+				else if (target.ref()->has<Rocket>())
+				{
+					b8 is_enemy = target.ref()->get<Rocket>()->team() != drone->get<AIAgent>()->team;
+					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::rocket_destroyed), is_enemy);
 				}
 			}
 
+			if (target.ref()->has<Shield>())
+			{
+				target.ref()->get<Audio>()->post_event(target.ref()->has<PlayerControlHuman>() && target.ref()->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
+
+				// check if we can damage them
+				if (target.ref()->get<Health>()->invincible() || (target.ref()->has<Drone>() && target.ref()->get<Drone>()->state() != Drone::State::Crawl))
+				{
+					// we didn't hurt them
+					if (Game::level.local)
+					{
+						if (target.ref()->get<Health>()->invincible() && target.ref()->get<Health>()->invincible_timer <= ACTIVE_ARMOR_TIME // they were invincible; they should damage us
+							&& (drone->current_ability == Ability::None || AbilityInfo::list[s32(drone->current_ability)].type != AbilityInfo::Type::Shoot))
+						{
+							s8 damage = s8(vi_max(1, s32(target.ref()->get<Health>()->invincible_timer * (3.1f / ACTIVE_ARMOR_TIME))));
+							drone->get<Health>()->damage(target.ref(), damage);
+						}
+					}
+
+					if (drone->has<PlayerControlHuman>())
+						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
+				}
+				else
+				{
+					// we hurt them
+					if (Game::level.local) // if we're a client, this has already been handled by the server
+						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref()));
+				}
+			}
 			break;
 		}
 		case DroneNet::Message::AbilitySelect:
@@ -793,8 +792,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 								const r32 SIMULATION_STEP = NET_TICK_RATE;
 								Net::StateFrame state_frame;
 								Net::state_frame_by_timestamp(&state_frame, timestamp);
-								Vec3 pos_bolt_next = pos_bolt + dir_normalized * (PROJECTILE_SPEED * SIMULATION_STEP);
-								Vec3 pos_bolt_next_ray = pos_bolt_next + dir_normalized * PROJECTILE_LENGTH;
+								Vec3 pos_bolt_next = pos_bolt + dir_normalized * (BOLT_SPEED * SIMULATION_STEP);
+								Vec3 pos_bolt_next_ray = pos_bolt_next + dir_normalized * BOLT_LENGTH;
 
 								r32 closest_hit_distance_sq = FLT_MAX;
 
@@ -1479,7 +1478,7 @@ r32 Drone::target_prediction_speed() const
 		}
 		case Ability::Bolter:
 		{
-			return PROJECTILE_SPEED;
+			return BOLT_SPEED;
 		}
 		default:
 		{
@@ -1543,7 +1542,7 @@ b8 Drone::go(const Vec3& dir)
 				EffectLight::add
 				(
 					get<Transform>()->absolute_pos() + dir_normalized * DRONE_SHIELD_RADIUS,
-					PROJECTILE_LIGHT_RADIUS,
+					BOLT_LIGHT_RADIUS,
 					0.5f,
 					EffectLight::Type::Bolt,
 					nullptr,

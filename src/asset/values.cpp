@@ -1087,6 +1087,7 @@ const char* AssetLookup::String::names[] =
 	"drones_remaining",
 	"enemy_tracking",
 	"energy",
+	"energy_added",
 	"energy_generation",
 	"energy_generation_group",
 	"energy_generation_total",

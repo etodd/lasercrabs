@@ -615,20 +615,24 @@ void RecordedLife::Tag::init(Entity* player)
 
 	battery_state = 0;
 	{
-		s32 index = 0;
+		vi_assert(Battery::list.count() <= 16);
 		for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 		{
 			AI::Team t = i.item()->team;
 			if (t == AI::TeamNone)
-				battery_state |= (1 << (index * 2)) | (1 << ((index * 2) + 1));
+				battery_state |= (1 << (i.index * 2)) | (1 << ((i.index * 2) + 1));
 			else if (t == my_team)
-				battery_state |= (1 << (index * 2));
+				battery_state |= (1 << (i.index * 2));
 			else
-				battery_state |= (1 << ((index * 2) + 1));
-			index++;
-			if (index == 16)
-				break;
+				battery_state |= (1 << ((i.index * 2) + 1));
 		}
+	}
+
+	turret_state = 0;
+	{
+		vi_assert(Turret::list.count() <= 32);
+		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+			turret_state |= 1 << s32(i.index);
 	}
 
 	stealth = player->get<AIAgent>()->stealth;
@@ -682,6 +686,16 @@ s32 RecordedLife::Tag::battery_count(BatteryState s) const
 	return count;
 }
 
+s32 RecordedLife::Tag::turret_count() const
+{
+	return Net::popcount(turret_state);
+}
+
+b8 RecordedLife::Tag::turret(s32 index) const
+{
+	return turret_state & (1 << index);
+}
+
 RecordedLife::Tag::BatteryState RecordedLife::Tag::battery(s32 index) const
 {
 	b8 a = battery_state & (1 << index);
@@ -706,6 +720,7 @@ void RecordedLife::reset()
 	upgrades.length = 0;
 	enemy_upgrades.length = 0;
 	battery_state.length = 0;
+	turret_state.length = 0;
 	nearby_entities.length = 0;
 	stealth.length = 0;
 	action.length = 0;
@@ -728,6 +743,7 @@ void RecordedLife::add(const Tag& tag, const Action& a)
 	upgrades.add(tag.upgrades);
 	enemy_upgrades.add(tag.enemy_upgrades);
 	battery_state.add(tag.battery_state);
+	turret_state.add(tag.turret_state);
 	nearby_entities.add(tag.nearby_entities);
 	stealth.add(tag.stealth);
 	action.add(a);
@@ -810,6 +826,14 @@ void RecordedLife::serialize(FILE* f, size_t(*func)(void*, size_t, size_t, FILE*
 	func(&enemy_upgrades.length, sizeof(s32), 1, f);
 	enemy_upgrades.resize(enemy_upgrades.length);
 	func(enemy_upgrades.data, sizeof(s32), enemy_upgrades.length, f);
+
+	func(&battery_state.length, sizeof(s32), 1, f);
+	battery_state.resize(battery_state.length);
+	func(battery_state.data, sizeof(s32), battery_state.length, f);
+
+	func(&turret_state.length, sizeof(s32), 1, f);
+	turret_state.resize(turret_state.length);
+	func(turret_state.data, sizeof(s32), turret_state.length, f);
 
 	func(&nearby_entities.length, sizeof(s32), 1, f);
 	nearby_entities.resize(nearby_entities.length);

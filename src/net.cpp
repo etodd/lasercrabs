@@ -3914,6 +3914,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 				net_error();
 			break;
 		}
+		case MessageType::Bolt:
+		{
+			if (!Bolt::net_msg(p, src))
+				net_error();
+			break;
+		}
 		case MessageType::Tram:
 		{
 			if (!Tram::net_msg(p, src))

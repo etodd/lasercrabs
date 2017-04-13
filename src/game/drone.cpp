@@ -800,7 +800,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 								// check environment collisions
 								{
 									btCollisionWorld::ClosestRayResultCallback ray_callback(pos_bolt, pos_bolt_next_ray);
-									Physics::raycast(&ray_callback, Bolt::raycast_mask(drone->get<AIAgent>()->team));
+									Physics::raycast(&ray_callback, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(drone->get<AIAgent>()->team)));
 									if (ray_callback.hasHit())
 									{
 										closest_hit = ray_callback.m_hitPointWorld;
@@ -963,7 +963,6 @@ Drone::Drone()
 	hit_targets(),
 	cooldown(),
 	charges(DRONE_CHARGES),
-	particle_accumulator(),
 	current_ability(Ability::None),
 	fake_bolts(),
 	ability_spawned(),
@@ -1441,8 +1440,6 @@ void Drone::ensure_detached()
 		footing[i].parent = nullptr;
 	get<Animator>()->reset_overrides();
 	get<Animator>()->layers[0].animation = Asset::Animation::drone_fly;
-
-	particle_accumulator = 0;
 }
 
 b8 Drone::dash_start(const Vec3& dir)
@@ -2085,6 +2082,49 @@ void Drone::update_server(const Update& u)
 #endif
 }
 
+r32 Drone::particle_accumulator;
+void Drone::update_client_all(const Update& u)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+		i.item()->update_client(u);
+
+	const r32 particle_interval = 0.05f;
+	particle_accumulator += u.time.delta;
+	while (particle_accumulator > particle_interval)
+	{
+		particle_accumulator -= particle_interval;
+		for (auto i = list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->state() != State::Crawl)
+			{
+				// emit particles
+				// but don't start until the drone has cleared the camera radius
+				// we do this so that the particles don't block the camera
+				r32 particle_start_delay = DRONE_THIRD_PERSON_OFFSET / i.item()->velocity.length();
+				if (u.time.total - particle_accumulator > i.item()->attach_time + particle_start_delay)
+				{
+					Particles::tracers.add
+					(
+						Vec3::lerp((particle_accumulator - particle_start_delay) / vi_max(0.0001f, u.time.delta), i.item()->last_pos, i.item()->lerped_pos),
+						Vec3::zero,
+						0
+					);
+				}
+			}
+		}
+	}
+
+	// update velocity and last_pos
+	// this has to happen after the particles so that we can lerp between last_pos and lerped_pos
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		Vec3 pos = i.item()->lerped_pos;
+		if (i.item()->state() == State::Crawl)
+			i.item()->velocity = i.item()->velocity * 0.9f + ((pos - i.item()->last_pos) / vi_max(0.0001f, u.time.delta)) * 0.1f;
+		i.item()->last_pos = pos;
+	}
+}
+
 void Drone::update_client(const Update& u)
 {
 	State s = state();
@@ -2266,34 +2306,6 @@ void Drone::update_client(const Update& u)
 		lerped_pos = pos;
 		lerped_rotation = rot;
 		update_offset();
-
-		// emit particles
-		// but don't start until the drone has cleared the camera radius
-		// we do this so that the particles don't block the camera
-		r32 particle_start_delay = DRONE_THIRD_PERSON_OFFSET / velocity.length();
-		if (u.time.total > attach_time + particle_start_delay)
-		{
-			const r32 particle_interval = 0.05f;
-			particle_accumulator += u.time.delta;
-			while (particle_accumulator > particle_interval)
-			{
-				particle_accumulator -= particle_interval;
-				Particles::tracers.add
-				(
-					Vec3::lerp((particle_accumulator - particle_start_delay) / vi_max(0.0001f, u.time.delta), last_pos, pos),
-					Vec3::zero,
-					0
-				);
-			}
-		}
-	}
-
-	// update velocity
-	{
-		Vec3 pos = lerped_pos;
-		if (s == State::Crawl)
-			velocity = velocity * 0.9f + ((pos - last_pos) / vi_max(0.0001f, u.time.delta)) * 0.1f;
-		last_pos = pos;
 	}
 }
 

@@ -103,11 +103,14 @@ struct Battery : public ComponentType<Battery>
 
 	Ref<Entity> light;
 	Ref<SpawnPoint> spawn_point;
+	s16 reward_level;
 	AI::Team team = AI::TeamNone;
 
 	void awake();
-	void killed(Entity*);
 	~Battery();
+
+	s16 reward() const;
+	void killed(Entity*);
 	void hit(const TargetEvent&);
 	b8 set_team(AI::Team, Entity* = nullptr);
 	void set_team_client(AI::Team);
@@ -360,16 +363,22 @@ struct BoltEntity : public Entity
 
 struct Bolt : public ComponentType<Bolt>
 {
+	static r32 particle_accumulator;
+
 	static s16 raycast_mask(AI::Team);
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
+	static void update_client_all(const Update&);
 	
 	Vec3 velocity;
+	Vec3 last_pos;
 	r32 lifetime;
 	Ref<PlayerManager> owner;
 	AI::Team team;
+	b8 reflected;
 
 	void awake();
 
-	void update(const Update&);
+	void update_server(const Update&);
 	void hit_entity(Entity*, const Vec3&, const Vec3&);
 };
 

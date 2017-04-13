@@ -180,6 +180,7 @@ namespace AI
 			s32 enemy_upgrades;
 			s32 nearby_entities;
 			s32 battery_state;
+			s32 turret_state;
 			s16 energy;
 			s8 shield;
 			u8 time_remaining;
@@ -187,6 +188,8 @@ namespace AI
 
 			s32 battery_count(BatteryState) const;
 			BatteryState battery(s32) const;
+			s32 turret_count() const;
+			b8 turret(s32) const;
 
 			void init(Entity*);
 		};
@@ -255,6 +258,7 @@ namespace AI
 		Array<s32> enemy_upgrades;
 		Array<s32> nearby_entities;
 		Array<s32> battery_state;
+		Array<s32> turret_state;
 		Array<s16> energy;
 		Array<s8> shield;
 		Array<s8> time_remaining;

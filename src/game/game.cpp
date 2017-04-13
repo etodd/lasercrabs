@@ -478,8 +478,6 @@ void Game::update(const Update& update_in)
 				i.item()->update_server(u);
 			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
-			for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
 			for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
 			for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
@@ -488,10 +486,13 @@ void Game::update(const Update& update_in)
 				i.item()->update_server(u);
 			for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
+			for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
+				i.item()->update_server(u);
 		}
 
 		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 			i.item()->update_client(u);
+		Bolt::update_client_all(u);
 		Turret::update_client_all(u);
 		Minion::update_client_all(u);
 		Grenade::update_client_all(u);
@@ -500,8 +501,8 @@ void Game::update(const Update& update_in)
 		{
 			if (level.local || (i.item()->has<PlayerControlHuman>() && i.item()->get<PlayerControlHuman>()->local()))
 				i.item()->update_server(u);
-			i.item()->update_client(u);
 		}
+		Drone::update_client_all(u);
 		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())

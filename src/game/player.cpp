@@ -1678,19 +1678,23 @@ Entity* PlayerCommon::incoming_attacker() const
 	}
 
 	// check incoming bolts
+	AI::Team my_team = get<AIAgent>()->team;
 	for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
 	{
-		Vec3 velocity = Vec3::normalize(i.item()->velocity);
-		Vec3 bolt_pos = i.item()->get<Transform>()->absolute_pos();
-		Vec3 to_me = me - bolt_pos;
-		r32 dot = velocity.dot(to_me);
-		if (dot > 0.0f && dot < DRONE_MAX_DISTANCE && velocity.dot(Vec3::normalize(to_me)) > 0.98f)
+		if (i.item()->team != my_team)
 		{
-			// only worry about it if it can actually see us
-			btCollisionWorld::ClosestRayResultCallback ray_callback(me, bolt_pos);
-			Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionShield);
-			if (!ray_callback.hasHit())
-				return i.item()->entity();
+			Vec3 velocity = Vec3::normalize(i.item()->velocity);
+			Vec3 bolt_pos = i.item()->get<Transform>()->absolute_pos();
+			Vec3 to_me = me - bolt_pos;
+			r32 dot = velocity.dot(to_me);
+			if (dot > 0.0f && dot < DRONE_MAX_DISTANCE && velocity.dot(Vec3::normalize(to_me)) > 0.98f)
+			{
+				// only worry about it if it can actually see us
+				btCollisionWorld::ClosestRayResultCallback ray_callback(me, bolt_pos);
+				Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionShield);
+				if (!ray_callback.hasHit())
+					return i.item()->entity();
+			}
 		}
 	}
 
@@ -3506,14 +3510,17 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		// highlight incoming bolts
 		for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
 		{
-			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-			Vec3 diff = me - pos;
-			r32 distance = diff.length();
-			if (distance < DRONE_MAX_DISTANCE
-				&& (diff / distance).dot(Vec3::normalize(i.item()->velocity)) > 0.7f)
+			if (i.item()->team != my_team)
 			{
-				if (UI::flash_function(Game::real_time.total))
-					UI::indicator(params, pos, Team::ui_color_enemy, true);
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+				Vec3 diff = me - pos;
+				r32 distance = diff.length();
+				if (distance < DRONE_MAX_DISTANCE
+					&& (diff / distance).dot(Vec3::normalize(i.item()->velocity)) > 0.7f)
+				{
+					if (UI::flash_function(Game::real_time.total))
+						UI::indicator(params, pos, Team::ui_color_enemy, true);
+				}
 			}
 		}
 	}

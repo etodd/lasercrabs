@@ -94,9 +94,12 @@ struct Drone : public ComponentType<Drone>
 		IgnoreForceFields,
 	};
 
+	static r32 particle_accumulator;
+
 	static Drone* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void stealth(Entity*, b8);
+	static void update_client_all(const Update&);
 
 	Quat lerped_rotation;
 	Vec3 velocity;
@@ -107,7 +110,6 @@ struct Drone : public ComponentType<Drone>
 	r32 attach_time;
 	r32 cooldown; // remaining cooldown time
 	r32 last_footstep;
-	r32 particle_accumulator;
 	r32 dash_timer;
 	r32 remote_reflection_timer;
 	Ability current_ability;

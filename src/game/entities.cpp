@@ -571,17 +571,24 @@ b8 Battery::net_msg(Net::StreamRead* p)
 	serialize_ref(p, ref);
 	AI::Team t;
 	serialize_s8(p, t);
+	s16 reward_level;
+	serialize_s16(p, reward_level);
 	Ref<Entity> caused_by;
 	serialize_ref(p, caused_by);
 
 	Battery* pickup = ref.ref();
 	pickup->set_team_client(t);
+	pickup->reward_level = reward_level;
 	if (caused_by.ref() && caused_by.ref()->has<AIAgent>() && t == caused_by.ref()->get<AIAgent>()->team)
 	{
 		if (Game::level.local)
-			caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_BATTERY_CAPTURE);
+			caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_energy(pickup->reward());
 		if (caused_by.ref()->has<PlayerControlHuman>())
-			caused_by.ref()->get<PlayerControlHuman>()->player.ref()->msg(_(strings::battery_captured), true);
+		{
+			char buffer[512];
+			sprintf(buffer, _(strings::energy_added), s32(pickup->reward()));
+			caused_by.ref()->get<PlayerControlHuman>()->player.ref()->msg(buffer, true);
+		}
 	}
 
 	return true;
@@ -597,12 +604,14 @@ b8 Battery::set_team(AI::Team t, Entity* caused_by)
 	if (t != team)
 	{
 		get<Health>()->reset_hp();
+		reward_level++;
 
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Battery);
 		Ref<Battery> ref = this;
 		serialize_ref(p, ref);
 		serialize_s8(p, t);
+		serialize_s16(p, reward_level);
 		Ref<Entity> caused_by_ref = caused_by;
 		serialize_ref(p, caused_by_ref);
 		Net::msg_finalize(p);
@@ -688,6 +697,11 @@ void Battery::update_all(const Update& u)
 			}
 		}
 	}
+}
+
+s16 Battery::reward() const
+{
+	return s16(vi_max(1, vi_min(8, s32(reward_level))) * 10);
 }
 
 SpawnPointEntity::SpawnPointEntity(AI::Team team, b8 visible)
@@ -1769,6 +1783,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 #define BOLT_MAX_LIFETIME (DRONE_MAX_DISTANCE * 0.99f) / BOLT_SPEED
 #define BOLT_DAMAGE 1
 #define BOLT_DRONE_DAMAGE 1
+#define BOLT_REFLECT_DAMAGE 4
 BoltEntity::BoltEntity(AI::Team team, PlayerManager* owner, const Vec3& abs_pos, const Vec3& velocity)
 {
 	Vec3 dir = Vec3::normalize(velocity);
@@ -1788,12 +1803,42 @@ BoltEntity::BoltEntity(AI::Team team, PlayerManager* owner, const Vec3& abs_pos,
 	p->velocity = dir * BOLT_SPEED;
 }
 
+namespace BoltNet
+{
+	b8 change_team(Bolt* b, AI::Team team)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Bolt);
+		{
+			Ref<Bolt> ref = b;
+			serialize_ref(p, ref);
+		}
+		serialize_s8(p, team);
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
+b8 Bolt::net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+	Ref<Bolt> ref;
+	serialize_ref(p, ref);
+	if (ref.ref())
+	{
+		serialize_s8(p, ref.ref()->team);
+		ref.ref()->reflected = true;
+	}
+	return true;
+}
+
 void Bolt::awake()
 {
 	get<Audio>()->post_event(AK::EVENTS::PLAY_LASER);
+	last_pos = get<Transform>()->absolute_pos();
 }
 
-void Bolt::update(const Update& u)
+void Bolt::update_server(const Update& u)
 {
 	lifetime += u.time.delta;
 	if (lifetime > BOLT_MAX_LIFETIME)
@@ -1804,14 +1849,63 @@ void Bolt::update(const Update& u)
 
 	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 next_pos = pos + velocity * u.time.delta;
-	btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * BOLT_LENGTH);
+	btCollisionWorld::AllHitsRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * BOLT_LENGTH);
 
-	// if we have an owner, we can go through their team's force fields. otherwise, collide with everything.
-	Physics::raycast(&ray_callback, raycast_mask(team));
-	if (ray_callback.hasHit())
-		hit_entity(&Entity::list[ray_callback.m_collisionObject->getUserIndex()], ray_callback.m_hitPointWorld, ray_callback.m_hitNormalWorld);
+	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+	ray_callback.m_collisionFilterMask = raycast_mask(team);
+	ray_callback.m_collisionFilterGroup = -1;
+	Physics::btWorld->rayTest(ray_callback.m_rayFromWorld, ray_callback.m_rayToWorld, ray_callback);
+
+	r32 closest_fraction = 2.0f;
+	Entity* closest_entity = nullptr;
+	Vec3 closest_point;
+	Vec3 closest_normal;
+	for (s32 i = 0; i < ray_callback.m_collisionObjects.size(); i++)
+	{
+		if (ray_callback.m_hitFractions[i] < closest_fraction)
+		{
+			Entity* e = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
+			if (!e->has<AIAgent>() || e->get<AIAgent>()->team != team)
+			{
+				closest_entity = e;
+				closest_fraction = ray_callback.m_hitFractions[i];
+				closest_point = ray_callback.m_hitPointWorld[i];
+				closest_normal = ray_callback.m_hitNormalWorld[i];
+			}
+		}
+	}
+	if (closest_entity)
+		hit_entity(closest_entity, closest_point, closest_normal);
 	else
 		get<Transform>()->absolute_pos(next_pos);
+}
+
+r32 Bolt::particle_accumulator;
+void Bolt::update_client_all(const Update& u)
+{
+	const r32 particle_interval = 0.05f;
+	particle_accumulator += u.time.delta;
+	while (particle_accumulator > particle_interval)
+	{
+		particle_accumulator -= particle_interval;
+		for (auto i = list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->reflected)
+			{
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+				Particles::tracers.add
+				(
+					Vec3::lerp(particle_accumulator / vi_max(0.0001f, u.time.delta), i.item()->last_pos, pos),
+					Vec3::zero,
+					0
+				);
+			}
+		}
+	}
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+		i.item()->last_pos = i.item()->get<Transform>()->absolute_pos();
 }
 
 s16 Bolt::raycast_mask(AI::Team team)
@@ -1821,7 +1915,7 @@ s16 Bolt::raycast_mask(AI::Team team)
 
 void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 {
-	b8 reflect = false;
+	b8 do_reflect = false;
 
 	Vec3 basis;
 	if (hit_object->has<Health>())
@@ -1840,14 +1934,19 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 			if (hit_object->get<Drone>()->state() != Drone::State::Crawl)
 			{
 				damage = 0;
-				reflect = true;
+				do_reflect = true;
+				team = hit_object->get<AIAgent>()->team;
 			}
 		}
 		if (hit_object->get<Health>()->invincible())
 		{
 			damage = 0;
-			reflect = true;
+			do_reflect = true;
+			AI::entity_info(hit_object, team, &team);
 		}
+
+		if (reflected)
+			damage += BOLT_REFLECT_DAMAGE;
 
 		if (damage > 0)
 			hit_object->get<Health>()->damage(entity(), damage);
@@ -1863,11 +1962,11 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 
 	ParticleEffect::spawn(ParticleEffect::Type::Impact, hit, Quat::look(basis));
 
-	if (reflect)
+	if (do_reflect)
 	{
-		// reflect
+		BoltNet::change_team(this, team);
 		lifetime = 0.0f;
-		velocity = -velocity;
+		velocity = velocity * -2.0f;
 		Vec3 dir = Vec3::normalize(velocity);
 		Transform* transform = get<Transform>();
 		transform->absolute_rot(Quat::look(dir));

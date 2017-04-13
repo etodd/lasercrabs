@@ -45,6 +45,7 @@ enum class MessageType
 	Parkour,
 	Interactable,
 	ClientSetup,
+	Bolt,
 	EntityName,
 	InitSave,
 	InitDone,

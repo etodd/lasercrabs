@@ -15,6 +15,7 @@ namespace VI
 
 struct AIAgent;
 struct RenderParams;
+struct PlayerManager;
 
 namespace AI
 {
@@ -191,7 +192,7 @@ namespace AI
 			s32 turret_count() const;
 			b8 turret(s32) const;
 
-			void init(Entity*);
+			void init(const PlayerManager*);
 		};
 
 		struct Action
@@ -203,9 +204,10 @@ namespace AI
 			static const s8 TypeAbility = 4;
 			static const s8 TypeWait = 5;
 			static const s8 TypeRunAway = 6;
+			static const s8 TypeSpawn = 7;
 
-			Vec3 pos; // for move and build ability actions
-			Vec3 normal; // for move and build ability actions
+			Vec3 pos; // for move, spawn, and build ability actions
+			Vec3 normal; // for move, spawn, and build ability actions
 			s8 type;
 			union
 			{

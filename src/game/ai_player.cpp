@@ -930,10 +930,10 @@ void PlayerControlAI::actions_populate()
 
 	static Upgrade upgrade_priorities[MAX_ABILITIES] = { Upgrade::Minion, Upgrade::Bolter, Upgrade::ForceField };
 
-	AI::RecordedLife::Tag tag;
-	tag.init(entity());
-
 	PlayerManager* manager = get<PlayerCommon>()->manager.ref();
+
+	AI::RecordedLife::Tag tag;
+	tag.init(manager);
 
 	AI::Team my_team = get<AIAgent>()->team;
 

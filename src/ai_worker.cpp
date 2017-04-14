@@ -6,6 +6,8 @@
 #include "data/priority_queue.h"
 #include "mersenne/mersenne-twister.h"
 
+#define RECORD_VERSION 1
+
 #define DEBUG_AI 0
 
 #if DEBUG_AI
@@ -661,22 +663,54 @@ void loop()
 						sync_in.unlock();
 						if (record_path_length > 0)
 						{
+							b8 create_file = false;
 							FILE* f = fopen(record_path, "rb");
 							if (f)
 							{
-								fseek(f, 0, SEEK_END);
-								s32 end = ftell(f);
-								fseek(f, 0, SEEK_SET);
-								while (ftell(f) != end)
+								s32 version;
+								fread(&version, sizeof(s32), 1, f);
+								if (version == GAME_VERSION)
 								{
-									RecordedLife* record = records.add();
-									new (record) RecordedLife();
-									record->serialize(f, &RecordedLife::custom_fread);
+									fseek(f, 0, SEEK_END);
+									s32 end = ftell(f);
+									fseek(f, sizeof(s32), SEEK_SET);
+									while (ftell(f) != end)
+									{
+										RecordedLife* record = records.add();
+										new (record) RecordedLife();
+										record->serialize(f, &RecordedLife::custom_fread);
+									}
+									fclose(f);
+									printf("Read %d records from '%s'.\n", records.length, record_path);
 								}
-								fclose(f);
+								else
+								{
+									fclose(f);
+									fprintf(stderr, "Version mismatch in '%s'. Expected %d, got %d. Truncating.\n", record_path, RECORD_VERSION, version);
+									create_file = true;
+								}
 							}
 							else
-								fprintf(stderr, "Can't open air file '%s'\n", record_path);
+							{
+								create_file = true;
+								fprintf(stderr, "Failed to open '%s'. Creating.\n", record_path);
+							}
+
+							if (create_file)
+							{
+								f = fopen(record_path, "wb");
+								if (f)
+								{
+									s32 version = RECORD_VERSION;
+									fwrite(&version, sizeof(s32), 1, f);
+									fclose(f);
+								}
+								else
+								{
+									fprintf(stderr, "Failed to open '%s' for writing.\n", record_path);
+									vi_assert(false);
+								}
+							}
 						}
 					}
 

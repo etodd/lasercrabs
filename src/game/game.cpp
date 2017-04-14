@@ -67,7 +67,6 @@ GameTime Game::time;
 GameTime Game::real_time;
 r32 Game::physics_timestep;
 r32 Game::inactive_timer;
-b8 Game::enable_attract;
 
 Gamepad::Type Game::ui_gamepad_types[MAX_GAMEPADS] = { };
 AssetID Game::scheduled_load_level = AssetNull;
@@ -170,6 +169,7 @@ b8 Game::init(LoopSync* sync)
 		DIR* dir = opendir(replay_dir);
 		if (dir)
 		{
+			Net::Client::record = true;
 			struct dirent* entry;
 			while ((entry = readdir(dir)))
 			{
@@ -179,7 +179,6 @@ b8 Game::init(LoopSync* sync)
 				char filename[MAX_PATH_LENGTH];
 				sprintf(filename, "%s%s", replay_dir, entry->d_name);
 				Net::Client::replay_file_add(filename);
-				enable_attract = true;
 			}
 			closedir(dir);
 		}
@@ -189,6 +188,7 @@ b8 Game::init(LoopSync* sync)
 		return false;
 
 	Loader::font_permanent(Asset::Font::lowpoly);
+	Loader::font_permanent(Asset::Font::pt_sans);
 
 	if (!Loader::soundbank_permanent(Asset::Soundbank::Init))
 		return false;
@@ -309,7 +309,7 @@ void Game::update(const Update& update_in)
 
 #if !SERVER
 	// trigger attract mode
-	if (enable_attract && Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying)
+	if (Net::Client::replay_file_count() > 0 && Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying)
 	{
 		inactive_timer += u.time.delta;
 		if (update_in.input->keys.any()
@@ -946,22 +946,6 @@ void Game::execute(const char* cmd)
 		save.reset();
 		Net::Client::connect(host, 3494);
 	}
-	else if (strstr(cmd, "record") == cmd)
-	{
-		char filename[MAX_PATH_LENGTH];
-		while (true)
-		{
-			sprintf(filename, "rec/%u.rec", mersenne::rand());
-
-			// check for file's existence
-			FILE* f = fopen(filename, "rb");
-			if (f)
-				fclose(f);
-			else
-				break;
-		}
-		Net::Client::record_next_game(filename);
-	}
 	else if (strstr(cmd, "replay") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');
@@ -1291,6 +1275,8 @@ AI::Team team_lookup(const AI::Team* table, s32 i)
 
 void Game::load_level(AssetID l, Mode m, b8 ai_test)
 {
+	vi_debug("Loading level %d", s32(l));
+
 	AssetID last_level = level.id;
 	Mode last_mode = level.mode;
 	unload_level();

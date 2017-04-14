@@ -1169,7 +1169,7 @@ void Loader::ai_record_path(char* path, AssetID level, GameType type)
 		}
 		case GameType::Assault:
 		{
-			type_str = "r";
+			type_str = "as";
 			break;
 		}
 		default:

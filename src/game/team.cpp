@@ -1384,7 +1384,23 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSour
 					&& !m->instance.ref()
 					&& m->can_spawn
 					&& ref.ref() && ref.ref()->team == m->team.ref()->team())
+				{
+#if SERVER
+					if (m->has<PlayerHuman>())
+					{
+						AI::RecordedLife::Tag tag;
+						tag.init(m);
+
+						AI::RecordedLife::Action action;
+						action.type = AI::RecordedLife::Action::TypeSpawn;
+						Quat rot;
+						ref.ref()->get<Transform>()->absolute(&action.pos, &rot);
+						action.normal = rot * Vec3(0, 0, 1);
+						m->get<PlayerHuman>()->ai_record.add(tag, action);
+					}
+#endif
 					internal_spawn_go(m, ref.ref());
+				}
 			}
 			case PlayerManagerNet::Message::ScoreAccept:
 			{

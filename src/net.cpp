@@ -2829,8 +2829,8 @@ namespace Client
 {
 
 MasterError master_error;
+b8 record;
 r32 master_ping_timer;
-char next_record_file[MAX_PATH_LENGTH] = {};
 Array<std::array<char, MAX_PATH_LENGTH> > replay_files;
 s32 replay_file_index;
 
@@ -2838,6 +2838,11 @@ void replay_file_add(const char* filename)
 {
 	std::array<char, MAX_PATH_LENGTH>* entry = replay_files.add();
 	strncpy(entry->data(), filename, MAX_PATH_LENGTH - 1);
+}
+
+s32 replay_file_count()
+{
+	return replay_files.length;
 }
 
 b8 msg_process(StreamRead*);
@@ -3128,13 +3133,29 @@ void connect(Sock::Address addr)
 	state_client.server_address = addr;
 	state_client.timeout = 0.0f;
 	state_client.mode = Mode::Connecting;
-	if (next_record_file[0] != '\0')
+	if (record)
 	{
 		state_client.replay_mode = ReplayMode::Recording;
 		if (state_client.replay_file)
 			fclose(state_client.replay_file);
-		state_client.replay_file = fopen(next_record_file, "wb");
-		next_record_file[0] = '\0';
+
+		// generate a filename for this replay
+		char filename[MAX_PATH_LENGTH];
+		while (true)
+		{
+			sprintf(filename, "rec/%u.rec", mersenne::rand());
+
+			// check for file's existence
+			FILE* f = fopen(filename, "rb");
+			if (f)
+				fclose(f);
+			else
+				break;
+		}
+
+		vi_debug("Recording gameplay to '%s'.", filename);
+		replay_file_add(filename);
+		state_client.replay_file = fopen(filename, "wb");
 	}
 }
 
@@ -3162,11 +3183,6 @@ void replay(const char* filename)
 		replay_file_index = (replay_file_index + 1) % replay_files.length;
 	}
 	state_client.replay_file = fopen(filename, "rb");
-}
-
-void record_next_game(const char* filename)
-{
-	strncpy(next_record_file, filename, MAX_PATH_LENGTH - 1);
 }
 
 b8 allocate_server(const Master::ServerState& server_state)

@@ -1947,7 +1947,7 @@ void PlayerControlHuman::drone_done_flying_or_dashing()
 		player.ref()->ai_record.add(ai_record_tag, action);
 		ai_record_wait_timer = AI_RECORD_WAIT_TIME;
 	}
-	ai_record_tag.init(entity());
+	ai_record_tag.init(player.ref()->get<PlayerManager>());
 #endif
 }
 
@@ -2257,7 +2257,7 @@ void PlayerControlHuman::drone_detaching()
 	camera_shake_timer = 0.0f; // stop screen shake
 
 #if SERVER
-	ai_record_tag.init(entity());
+	ai_record_tag.init(player.ref()->get<PlayerManager>());
 
 	player_collect_target_indicators(this);
 
@@ -2919,7 +2919,7 @@ void PlayerControlHuman::update(const Update& u)
 					action.type = AI::RecordedLife::Action::TypeWait;
 					player.ref()->ai_record.add(ai_record_tag, action);
 				}
-				ai_record_tag.init(entity());
+				ai_record_tag.init(player.ref()->get<PlayerManager>());
 			}
 
 			get<Drone>()->crawl(remote_control.movement, u);
@@ -3899,7 +3899,12 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	}
 
 	// reticle
-	if (has<Drone>() && movement_enabled())
+	if (has<Drone>()
+		&& movement_enabled()
+#if !SERVER
+		&& Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying
+#endif
+		)
 	{
 		Vec2 pos = viewport.size * Vec2(0.5f, 0.5f);
 		const r32 spoke_length = 10.0f;

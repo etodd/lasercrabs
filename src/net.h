@@ -175,12 +175,13 @@ namespace Client
 	Mode mode();
 	
 	extern MasterError master_error;
+	extern b8 record;
 
 	void connect(Sock::Address);
 	void connect(const char*, u16);
 	void replay(const char* = nullptr);
 	void replay_file_add(const char*);
-	void record_next_game(const char*);
+	s32 replay_file_count();
 	b8 allocate_server(const Master::ServerState&);
 
 	b8 lagging();

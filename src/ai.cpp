@@ -594,17 +594,13 @@ b8 record_filter(Entity* e, const Vec3& pos)
 	return (e->get<Transform>()->absolute_pos() - pos).length_squared() < (DRONE_MAX_DISTANCE * 0.5f * DRONE_MAX_DISTANCE * 0.5f);
 }
 
-void RecordedLife::Tag::init(Entity* player)
+void RecordedLife::Tag::init(const PlayerManager* manager)
 {
-	AI::Team my_team = player->get<AIAgent>()->team;
-	shield = player->get<Health>()->shield;
-	time_remaining = vi_min(255, vi_max(0, s32((Game::level.time_limit - Game::time.total) * 0.5f)));
+	energy = manager->energy;
+	upgrades = manager->upgrades;
 
-	{
-		PlayerManager* manager = player->get<PlayerCommon>()->manager.ref();
-		energy = manager->energy;
-		upgrades = manager->upgrades;
-	}
+	AI::Team my_team = manager->team.ref()->team();
+	time_remaining = vi_min(255, vi_max(0, s32((Game::level.time_limit - Game::time.total) * 0.5f)));
 
 	enemy_upgrades = 0;
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
@@ -635,25 +631,39 @@ void RecordedLife::Tag::init(Entity* player)
 			turret_state |= 1 << s32(i.index);
 	}
 
-	stealth = player->get<AIAgent>()->stealth;
 
-	{
-		Quat rot;
-		player->get<Transform>()->absolute(&pos, &rot);
-		normal = rot * Vec3(0, 0, 1);
-	}
+	Entity* player = manager->instance.ref();
 
-	nearby_entities = 0;
-	for (auto i = Entity::iterator(entity_mask); !i.is_last(); i.next())
+	if (player)
 	{
-		if (i.item() != player && record_filter(i.item(), pos))
+		shield = player->get<Health>()->shield;
+		stealth = player->get<AIAgent>()->stealth;
+
 		{
-			AI::Team team;
-			s8 entity_type;
-			entity_info(i.item(), my_team, &team, &entity_type);
-			if (entity_type != EntityNone)
-				nearby_entities |= 1 << s32(entity_type);
+			Quat rot;
+			player->get<Transform>()->absolute(&pos, &rot);
+			normal = rot * Vec3(0, 0, 1);
 		}
+
+		nearby_entities = 0;
+		for (auto i = Entity::iterator(entity_mask); !i.is_last(); i.next())
+		{
+			if (i.item() != player && record_filter(i.item(), pos))
+			{
+				AI::Team team;
+				s8 entity_type;
+				entity_info(i.item(), my_team, &team, &entity_type);
+				if (entity_type != EntityNone)
+					nearby_entities |= 1 << s32(entity_type);
+			}
+		}
+	}
+	else
+	{
+		shield = 0;
+		stealth = false;
+		pos = normal = Vec3::zero;
+		nearby_entities = 0;
 	}
 }
 

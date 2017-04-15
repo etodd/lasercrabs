@@ -696,6 +696,7 @@ void loop()
 								fprintf(stderr, "Failed to open '%s'. Creating.\n", record_path);
 							}
 
+#if SERVER
 							if (create_file)
 							{
 								f = fopen(record_path, "wb");
@@ -711,6 +712,7 @@ void loop()
 									vi_assert(false);
 								}
 							}
+#endif
 						}
 					}
 

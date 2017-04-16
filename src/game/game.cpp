@@ -1404,6 +1404,9 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				transforms[parent]->to_world(&absolute_pos, &absolute_rot);
 		}
 
+		if (strcmp(cJSON_GetObjectItem(element, "name")->valuestring, "map_view") == 0)
+			vi_debug_break();
+
 		if (cJSON_HasObjectItem(element, "World"))
 		{
 			// World is guaranteed to be the first element in the entity list
@@ -2010,7 +2013,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 			}
 		}
-		else if (cJSON_HasObjectItem(element, "Empty"))
+		else if (cJSON_HasObjectItem(element, "Empty") || cJSON_HasObjectItem(element, "Camera"))
 			entity = World::alloc<Empty>();
 		else if (strcmp(Json::get_string(element, "name"), "terminal") == 0)
 		{

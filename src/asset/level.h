@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Level
 	{
-		const s32 count = 13;
+		const s32 count = 14;
 		const AssetID Canal = 0;
 		const AssetID Comm_Array = 1;
 		const AssetID Commons = 2;
@@ -22,6 +22,7 @@ namespace Asset
 		const AssetID Refinery = 10;
 		const AssetID Treatment_Plant = 11;
 		const AssetID overworld = 12;
+		const AssetID test = 13;
 	}
 }
 

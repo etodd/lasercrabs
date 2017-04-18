@@ -455,7 +455,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<Minion>())
 	{
 		Minion* m = e->get<Minion>();
-		serialize_r32_range(p, m->attack_timer, 0.0f, MINION_ATTACK_TIME, 8);
 		serialize_ref(p, m->owner);
 	}
 
@@ -592,7 +591,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32(p, x->velocity.x);
 		serialize_r32(p, x->velocity.y);
 		serialize_r32(p, x->velocity.z);
-		serialize_r32(p, x->lifetime);
 	}
 
 	if (e->has<Grenade>())
@@ -1243,14 +1241,6 @@ template<typename Stream> b8 serialize_minion(Stream* p, MinionState* state, con
 	if (b)
 		serialize_asset(p, state->animation, Loader::animation_count);
 
-	if (Stream::IsWriting)
-		b = !base || state->attack_timer > 0.0f;
-	serialize_bool(p, b);
-	if (b)
-		serialize_r32_range(p, state->attack_timer, 0, MINION_ATTACK_TIME, 8);
-	else if (Stream::IsReading)
-		state->attack_timer = 0.0f;
-
 	serialize_r32_range(p, state->animation_time, 0, 20.0f, 11);
 
 	return true;
@@ -1395,7 +1385,6 @@ b8 equal_states_minion(const StateFrame* frame_a, const StateFrame* frame_b, s32
 		return a_active == b_active
 			&& fabsf(a.rotation - b.rotation) < 0.001f
 			&& fabsf(a.animation_time - b.animation_time) < 0.001f
-			&& a.attack_timer == 0.0f && b.attack_timer == 0.0f
 			&& a.animation == b.animation;
 	}
 	else
@@ -1645,7 +1634,6 @@ void state_frame_build(StateFrame* frame)
 		frame->minions_active.set(i.index, true);
 		MinionState* minion = &frame->minions[i.index];
 		minion->rotation = LMath::angle_range(i.item()->get<Walker>()->rotation);
-		minion->attack_timer = i.item()->attack_timer;
 
 		const Animator::Layer& layer = i.item()->get<Animator>()->layers[0];
 		minion->animation = layer.animation;
@@ -1777,10 +1765,6 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 			const MinionState& next = b.minions[index];
 
 			minion->rotation = LMath::angle_range(LMath::lerpf(blend, last.rotation, LMath::closest_angle(last.rotation, next.rotation)));
-			if (fabsf(next.attack_timer - last.attack_timer) < NET_TICK_RATE * 10.0f)
-				minion->attack_timer = LMath::lerpf(blend, last.attack_timer, next.attack_timer);
-			else
-				minion->attack_timer = next.attack_timer;
 			minion->animation = last.animation;
 			if (last.animation == next.animation && fabsf(next.animation_time - last.animation_time) < NET_TICK_RATE * 10.0f)
 				minion->animation_time = LMath::lerpf(blend, last.animation_time, next.animation_time);
@@ -1894,7 +1878,6 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			if (Minion::list.active(index))
 			{
 				m->get<Walker>()->rotation = s.rotation;
-				m->attack_timer = s.attack_timer;
 				Animator::Layer* layer = &m->get<Animator>()->layers[0];
 				layer->animation = s.animation;
 				layer->time = s.animation_time;

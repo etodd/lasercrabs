@@ -489,7 +489,9 @@ ComponentMask entity_mask = Sensor::component_mask
 	| ForceField::component_mask
 	| Bolt::component_mask
 	| Grenade::component_mask
-	| SpawnPoint::component_mask;
+	| SpawnPoint::component_mask
+	| Turret::component_mask
+	| CoreModule::component_mask;
 
 void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 {
@@ -591,7 +593,7 @@ void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 
 b8 record_filter(Entity* e, const Vec3& pos)
 {
-	return (e->get<Transform>()->absolute_pos() - pos).length_squared() < (DRONE_MAX_DISTANCE * 0.5f * DRONE_MAX_DISTANCE * 0.5f);
+	return (e->get<Transform>()->absolute_pos() - pos).length_squared() < (DRONE_MAX_DISTANCE * 1.5f * DRONE_MAX_DISTANCE * 1.5f);
 }
 
 void RecordedLife::Tag::init(const PlayerManager* manager)

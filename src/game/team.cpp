@@ -167,7 +167,14 @@ void Team::awake_all()
 	game_over = false;
 	game_over_real_time = 0.0f;
 	if (Game::level.local) // if we're a client, the netcode manages this
-		match_time = 0.0f;
+	{
+		if (Game::session.type == SessionType::Story
+			&& Game::level.mode == Game::Mode::Pvp
+			&& Game::save.zones[Game::level.id] == ZoneState::Friendly)
+			match_time = 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f); // player is defending; AI attacker has been here for some time
+		else
+			match_time = 0.0f;
+	}
 	winner = nullptr;
 	score_summary.length = 0;
 	for (s32 i = 0; i < MAX_PLAYERS * MAX_PLAYERS; i++)
@@ -264,6 +271,17 @@ s16 Team::kills() const
 			kills += i.item()->kills;
 	}
 	return kills;
+}
+
+s16 Team::increment() const
+{
+	s16 increment = ENERGY_DEFAULT_INCREMENT;
+	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team == team())
+			increment += i.item()->increment();
+	}
+	return increment;
 }
 
 Team* Team::with_most_kills()
@@ -839,46 +857,51 @@ void Team::update_all_server(const Update& u)
 
 	update_visibility(u);
 
-	// launch rockets
-	if (!game_over)
+	launch_rockets();
+}
+
+void Team::launch_rockets()
+{
+	// launch any rockets if necessary
+	if (game_over)
+		return;
+
+	for (auto t = Team::list.iterator(); !t.is_last(); t.next())
 	{
-		for (auto t = Team::list.iterator(); !t.is_last(); t.next())
+		Team* team = t.item();
+
+		for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 		{
-			Team* team = t.item();
+			AI::Team player_team = player.item()->team.ref()->team();
+			if (team->team() == player_team)
+				continue;
 
-			for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
+			// launch a rocket at this player if the conditions are right
+			const Team::SensorTrack& track = team->player_tracks[player.index];
+			for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
 			{
-				AI::Team player_team = player.item()->team.ref()->team();
-				if (team->team() == player_team)
-					continue;
-
-				// launch a rocket at this player if the conditions are right
-				const Team::SensorTrack& track = team->player_tracks[player.index];
-				for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
+				if (rocket.item()->team() == team->team() // it belongs to our team
+					&& rocket.item()->get<Transform>()->parent.ref()) // it's waiting to be fired
 				{
-					if (rocket.item()->team() == team->team() // it belongs to our team
-						&& rocket.item()->get<Transform>()->parent.ref()) // it's waiting to be fired
+					Entity* detected_entity = nullptr; // we're tracking the player, or the owner is alive and can see the player
+					if (track.tracking)
+						detected_entity = track.entity.ref();
+					else
 					{
-						Entity* detected_entity = nullptr; // we're tracking the player, or the owner is alive and can see the player
-						if (track.tracking)
-							detected_entity = track.entity.ref();
-						else
-						{
-							Entity* e = PlayerManager::visibility[PlayerManager::visibility_hash(rocket.item()->owner.ref(), player.item())].entity.ref();
-							if (e && (!e->has<Drone>() || e->get<Drone>()->state() == Drone::State::Crawl)) // only launch rockets at decoys or drones that are crawling; this prevents rockets from launching and immediately losing their target
-								detected_entity = e;
-						}
+						Entity* e = PlayerManager::visibility[PlayerManager::visibility_hash(rocket.item()->owner.ref(), player.item())].entity.ref();
+						if (e && (!e->has<Drone>() || e->get<Drone>()->state() == Drone::State::Crawl)) // only launch rockets at decoys or drones that are crawling; this prevents rockets from launching and immediately losing their target
+							detected_entity = e;
+					}
 
-						if (detected_entity && !Rocket::inbound(detected_entity))
+					if (detected_entity && !Rocket::inbound(detected_entity))
+					{
+						Vec3 target_pos = detected_entity->get<Transform>()->absolute_pos();
+						Vec3 rocket_pos = rocket.item()->get<Transform>()->absolute_pos();
+						if ((rocket_pos - target_pos).length_squared() < ROCKET_RANGE * ROCKET_RANGE // it's in range
+							&& ForceField::hash(team->team(), rocket_pos) == ForceField::hash(team->team(), target_pos)) // no force fields in the way
 						{
-							Vec3 target_pos = detected_entity->get<Transform>()->absolute_pos();
-							Vec3 rocket_pos = rocket.item()->get<Transform>()->absolute_pos();
-							if ((rocket_pos - target_pos).length_squared() < ROCKET_RANGE * ROCKET_RANGE // it's in range
-								&& ForceField::hash(team->team(), rocket_pos) == ForceField::hash(team->team(), target_pos)) // no force fields in the way
-							{
-								rocket.item()->launch(detected_entity);
-								break;
-							}
+							rocket.item()->launch(detected_entity);
+							break;
 						}
 					}
 				}
@@ -916,6 +939,58 @@ void Team::update_all_client_only(const Update& u)
 	update_visibility(u);
 }
 
+PlayerManager::Visibility PlayerManager::visibility[MAX_PLAYERS * MAX_PLAYERS];
+
+PlayerManager::PlayerManager(Team* team, const char* u)
+	: spawn_timer((Game::session.type == SessionType::Story && team->team() == 1) ? 0 : SPAWN_DELAY), // defenders in story mode get to spawn instantly
+	score_accepted(Team::game_over),
+	team(team),
+	upgrades(0),
+	abilities{ Ability::None, Ability::None, Ability::None },
+	instance(),
+	spawn(),
+	can_spawn(Game::level.mode == Game::Mode::Parkour || Game::session.type != SessionType::Story || Game::save.zones[Game::level.id] == ZoneState::Friendly),
+	current_upgrade(Upgrade::None),
+	state_timer(),
+	upgrade_completed(),
+	respawns(Game::level.respawns),
+	kills(),
+	deaths()
+{
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
+	{
+		energy = ENERGY_INITIAL;
+		if (Game::session.type == SessionType::Story && Game::level.type == GameType::Assault && team->team() == 0)
+			energy += s32(Team::match_time / ENERGY_INCREMENT_INTERVAL) * (ENERGY_DEFAULT_INCREMENT * s32(Battery::list.count() * 0.75f));
+	}
+	else
+		energy = 0;
+	if (u)
+		strncpy(username, u, MAX_USERNAME);
+	else
+		username[0] = '\0';
+}
+
+void PlayerManager::awake()
+{
+	if ((!Game::level.local || Game::session.type == SessionType::Story) && Game::level.mode == Game::Mode::Pvp)
+	{
+		char log[512];
+		sprintf(log, _(strings::player_joined), username);
+		PlayerHuman::log_add(log, team.ref()->team());
+	}
+}
+
+PlayerManager::~PlayerManager()
+{
+	if ((!Game::level.local || Game::session.type == SessionType::Story) && Game::level.mode == Game::Mode::Pvp)
+	{
+		char log[512];
+		sprintf(log, _(strings::player_left), username);
+		PlayerHuman::log_add(log, team.ref()->team());
+	}
+}
+
 b8 PlayerManager::has_upgrade(Upgrade u) const
 {
 	return upgrades & (1 << s32(u));
@@ -945,63 +1020,9 @@ b8 PlayerManager::ability_valid(Ability ability) const
 	return true;
 }
 
-PlayerManager::Visibility PlayerManager::visibility[MAX_PLAYERS * MAX_PLAYERS];
-
 s32 PlayerManager::visibility_hash(const PlayerManager* drone_a, const PlayerManager* drone_b)
 {
 	return drone_a->id() * MAX_PLAYERS + drone_b->id();
-}
-
-PlayerManager::PlayerManager(Team* team, const char* u)
-	: spawn_timer(SPAWN_DELAY),
-	score_accepted(Team::game_over),
-	team(team),
-	upgrades(0),
-	abilities{ Ability::None, Ability::None, Ability::None },
-	instance(),
-	spawn(),
-	can_spawn(Game::level.mode == Game::Mode::Parkour || Game::session.type != SessionType::Story || Game::save.zones[Game::level.id] == ZoneState::Friendly),
-	current_upgrade(Upgrade::None),
-	state_timer(),
-	upgrade_completed(),
-	particle_accumulator(),
-	respawns(Game::level.respawns),
-	kills(),
-	deaths()
-{
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
-	{
-		energy = ENERGY_INITIAL;
-		if (Game::session.type == SessionType::Story && Game::level.type == GameType::Assault && team->team() == 0)
-			energy += s32(Team::match_time / ENERGY_INCREMENT_INTERVAL) * (ENERGY_DEFAULT_INCREMENT * s32(Battery::list.count() * 0.75f));
-	}
-	else
-		energy = 0;
-	energy_last = energy;
-	if (u)
-		strncpy(username, u, MAX_USERNAME);
-	else
-		username[0] = '\0';
-}
-
-void PlayerManager::awake()
-{
-	if ((!Game::level.local || Game::session.type == SessionType::Story) && Game::level.mode == Game::Mode::Pvp)
-	{
-		char log[512];
-		sprintf(log, _(strings::player_joined), username);
-		PlayerHuman::log_add(log, team.ref()->team());
-	}
-}
-
-PlayerManager::~PlayerManager()
-{
-	if ((!Game::level.local || Game::session.type == SessionType::Story) && Game::level.mode == Game::Mode::Pvp)
-	{
-		char log[512];
-		sprintf(log, _(strings::player_left), username);
-		PlayerHuman::log_add(log, team.ref()->team());
-	}
 }
 
 b8 PlayerManager::upgrade_start(Upgrade u)
@@ -1018,15 +1039,6 @@ b8 PlayerManager::upgrade_start(Upgrade u)
 		return true;
 	}
 	return false;
-}
-
-void PlayerManager::upgrade_cancel()
-{
-	if (state() == State::Upgrading)
-	{
-		current_upgrade = Upgrade::None;
-		state_timer = 0.0f;
-	}
 }
 
 void PlayerManager::upgrade_complete()
@@ -1103,16 +1115,17 @@ s32 PlayerManager::ability_count() const
 	return count;
 }
 
-// returns the difference actually applied (never goes below 0)
-s32 PlayerManager::add_energy(s32 c)
+void PlayerManager::add_energy(s32 c)
 {
-	if (c != 0)
-	{
-		s16 old_energy = energy;
-		energy = s16(vi_max(0, s32(energy) + c));
-		return energy - old_energy;
-	}
-	return 0;
+	energy = s16(vi_max(0, s32(energy) + c));
+}
+
+void PlayerManager::add_energy_and_notify(s32 c)
+{
+	if (Game::level.local)
+		add_energy(c);
+	if (has<PlayerHuman>())
+		get<PlayerHuman>()->energy_notify(c);
 }
 
 void PlayerManager::add_kills(s32 k)
@@ -1163,12 +1176,6 @@ b8 PlayerManager::can_transition_state() const
 	return e->get<Drone>()->state() == Drone::State::Crawl;
 }
 
-s16 PlayerManager::increment() const
-{
-	return ENERGY_DEFAULT_INCREMENT
-		+ Battery::count(1 << team.ref()->team()) * ENERGY_BATTERY_INCREMENT;
-}
-
 void PlayerManager::update_all(const Update& u)
 {
 	if (Game::level.local)
@@ -1178,7 +1185,7 @@ void PlayerManager::update_all(const Update& u)
 		{
 			for (auto i = list.iterator(); !i.is_last(); i.next())
 			{
-				r32 interval_per_point = ENERGY_INCREMENT_INTERVAL / i.item()->increment();
+				r32 interval_per_point = ENERGY_INCREMENT_INTERVAL / i.item()->team.ref()->increment();
 				s32 index = s32((Team::match_time - u.time.delta) / interval_per_point);
 				while (index < s32(Team::match_time / interval_per_point))
 				{
@@ -1195,6 +1202,70 @@ void PlayerManager::update_all(const Update& u)
 		if (Game::level.local)
 			i.item()->update_server(u);
 		i.item()->update_client(u);
+	}
+}
+
+PlayerManager* PlayerManager::owner(Entity* e)
+{
+	if (e->has<PlayerCommon>())
+		return e->get<PlayerCommon>()->manager.ref();
+	else if (e->has<Minion>())
+		return e->get<Minion>()->owner.ref();
+	else if (e->has<Bolt>())
+		return e->get<Bolt>()->owner.ref();
+	else if (e->has<Rocket>())
+		return e->get<Rocket>()->owner.ref();
+	else if (e->has<Grenade>())
+		return e->get<Grenade>()->owner.ref();
+	return nullptr;
+}
+
+void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
+{
+	if (killer)
+	{
+		PlayerManager* enemy = owner(killer);
+		if (enemy && enemy != owner(e))
+		{
+			s32 reward = 0;
+
+			if (e->has<Drone>())
+			{
+				PlayerManager* player = e->get<PlayerCommon>()->manager.ref();
+
+				{
+					char buffer[512];
+					sprintf(buffer, _(strings::player_killed), player->username);
+					PlayerHuman::log_add(buffer, e->get<AIAgent>()->team);
+				}
+
+				if (Game::level.local)
+				{
+					enemy->add_kills(1);
+					player->add_deaths(1);
+				}
+
+				reward = ENERGY_DRONE_DESTROY;
+			}
+			else if (e->has<Minion>())
+				reward = ENERGY_MINION_KILL;
+			else if (e->has<Grenade>())
+				reward = ENERGY_GRENADE_DESTROY;
+			else if (e->has<Rocket>())
+				reward = ENERGY_ROCKET_DESTROY;
+			else if (e->has<ForceField>())
+				reward = ENERGY_FORCE_FIELD_DESTROY;
+			else if (e->has<Sensor>())
+				reward = ENERGY_SENSOR_DESTROY;
+			else if (e->has<Turret>())
+				reward = ENERGY_TURRET_DESTROY;
+			else if (e->has<CoreModule>())
+				reward = ENERGY_CORE_MODULE_DESTROY;
+			else
+				vi_assert(false);
+
+			enemy->add_energy_and_notify(reward);
+		}
 	}
 }
 
@@ -1236,40 +1307,20 @@ void PlayerManager::update_server(const Update& u)
 	if (state_timer > 0.0f)
 	{
 		// something is in progress
-		if (!instance.ref()) // we got killed; cancel whatever we were doing
+		state_timer = vi_max(0.0f, state_timer - u.time.delta);
+		if (state_timer == 0.0f)
 		{
 			switch (s)
 			{
 				case State::Upgrading:
 				{
-					upgrade_cancel();
+					upgrade_complete();
 					break;
 				}
 				default:
 				{
 					vi_assert(false);
 					break;
-				}
-			}
-		}
-		else
-		{
-			// still alive
-			state_timer = vi_max(0.0f, state_timer - u.time.delta);
-			if (state_timer == 0.0f)
-			{
-				switch (s)
-				{
-					case State::Upgrading:
-					{
-						upgrade_complete();
-						break;
-					}
-					default:
-					{
-						vi_assert(false);
-						break;
-					}
 				}
 			}
 		}

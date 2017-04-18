@@ -290,6 +290,9 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/overworld_Cube_044.msh",
 	"assets/lvl/overworld_Pyramid.msh",
 	"assets/lvl/overworld_water.msh",
+	"assets/lvl/test_Cube_000_proxy.msh",
+	"assets/lvl/test_Cube_000_proxy_1.msh",
+	"assets/lvl/test_concept3_001.msh",
 	0,
 };
 
@@ -580,6 +583,9 @@ const char* AssetLookup::Mesh::names[] =
 	"overworld_Cube_044",
 	"overworld_Pyramid",
 	"overworld_water",
+	"test_Cube_000_proxy",
+	"test_Cube_000_proxy_1",
+	"test_concept3_001",
 	0,
 };
 
@@ -956,6 +962,7 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/Refinery.lvl",
 	"assets/lvl/Treatment_Plant.lvl",
 	"assets/lvl/overworld.lvl",
+	"assets/lvl/test.lvl",
 	0,
 };
 
@@ -975,6 +982,7 @@ const char* AssetLookup::Level::names[] =
 	"Refinery",
 	"Treatment Plant",
 	"overworld",
+	"test",
 	0,
 };
 
@@ -994,6 +1002,7 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/Refinery.nav",
 	"assets/lvl/Treatment_Plant.nav",
 	"assets/lvl/overworld.nav",
+	"assets/lvl/test.nav",
 	0,
 };
 
@@ -1013,6 +1022,7 @@ const char* AssetLookup::NavMesh::names[] =
 	"Refinery",
 	"Treatment Plant",
 	"overworld",
+	"test",
 	0,
 };
 
@@ -1097,7 +1107,6 @@ const char* AssetLookup::String::names[] =
 	"error_zone_under_attack",
 	"exit",
 	"force_field",
-	"force_field_destroyed",
 	"game_type",
 	"game_type_assault",
 	"game_type_deathmatch",
@@ -1375,7 +1384,6 @@ const char* AssetLookup::String::names[] =
 	"master_timeout",
 	"member_of_group",
 	"minion",
-	"minion_killed",
 	"multiplayer",
 	"multiplayer_custom",
 	"multiplayer_local",
@@ -1414,14 +1422,12 @@ const char* AssetLookup::String::names[] =
 	"resource_collected",
 	"right_joystick",
 	"rocket",
-	"rocket_destroyed",
 	"rocket_incoming",
 	"sailor_come_here",
 	"sailor_speech_1",
 	"sailor_speech_2",
 	"sensitivity",
 	"sensor",
-	"sensor_destroyed",
 	"sfx",
 	"shield",
 	"shield_down",

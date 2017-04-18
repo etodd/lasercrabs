@@ -75,7 +75,6 @@ struct MinionState
 {
 	r32 rotation;
 	r32 animation_time;
-	r32 attack_timer;
 	AssetID animation;
 };
 

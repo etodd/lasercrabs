@@ -79,6 +79,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	Upgrade upgrade_last_visit_highest_available;
 	Menu::State menu_state;
 	Sudoku sudoku;
+	s16 energy_notification_accumulator;
 	Ref<SpawnPoint> selected_spawn;
 	s8 gamepad;
 	b8 msg_good;
@@ -103,6 +104,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void draw_ui(const RenderParams&) const;
 	void spawn(const SpawnPosition&);
 	void assault_status_display();
+	void energy_notify(s32);
 };
 
 struct PlayerCommon : public ComponentType<PlayerCommon>
@@ -166,15 +168,20 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		enum class Type
 		{
 			DroneVisible,
-			DroneTracking,
+			DroneOutOfRange,
 			Minion,
 			MinionAttacking,
-			Energy,
+			Battery,
+			BatteryFriendly,
+			BatteryOutOfRange,
 			Sensor,
 			Rocket,
 			ForceField,
 			Grenade,
 			Turret,
+			TurretAttacking,
+			TurretFriendly,
+			TurretOutOfRange,
 			count,
 		};
 
@@ -216,7 +223,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	r32 look_speed() const;
 	b8 local() const;
 	void health_changed(const HealthEvent&);
-	void camera_shake(r32 = 1.0f);
+	void camera_shake(r32);
 	void camera_shake_update(const Update&, Camera*);
 	void terminal_enter_animation_callback();
 	void interact_animation_callback();

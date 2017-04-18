@@ -446,29 +446,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				client_hit_effects(drone, target.ref());
 
 			// damage messages
-			if (drone->has<PlayerControlHuman>())
-			{
-				if (target.ref()->has<Minion>())
-				{
-					b8 is_enemy = target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team;
-					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::minion_killed), is_enemy);
-				}
-				else if (target.ref()->has<Sensor>() && !target.ref()->has<Battery>())
-				{
-					b8 is_enemy = target.ref()->get<Sensor>()->team != drone->get<AIAgent>()->team;
-					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::sensor_destroyed), is_enemy);
-				}
-				else if (target.ref()->has<ForceField>())
-				{
-					b8 is_enemy = target.ref()->get<ForceField>()->team != drone->get<AIAgent>()->team;
-					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::force_field_destroyed), is_enemy);
-				}
-				else if (target.ref()->has<Rocket>())
-				{
-					b8 is_enemy = target.ref()->get<Rocket>()->team() != drone->get<AIAgent>()->team;
-					drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::rocket_destroyed), is_enemy);
-				}
-			}
 
 			if (target.ref()->has<Shield>())
 			{
@@ -592,51 +569,57 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						base->get<View>()->team = s8(drone->get<AIAgent>()->team);
 						Net::finalize(base);
 
-						// launch rocket at turrets and core modules if necessary
+						// first check if it should launch at a drone
+						Team::launch_rockets();
 
-						AI::Team team_mine = drone->get<AIAgent>()->team;
-						u32 force_field_hash_mine = ForceField::hash(team_mine, pos);
-						if (Turret::list.count() > 0)
+						if (rocket->get<Transform>()->parent.ref()) // still hasn't launched
 						{
-							// launch at turrets
-							for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+							// try to launch it at turrets and core modules
+
+							AI::Team team_mine = drone->get<AIAgent>()->team;
+							u32 force_field_hash_mine = ForceField::hash(team_mine, pos);
+							if (Turret::list.count() > 0)
 							{
-								if (i.item()->team != team_mine)
+								// launch at turrets
+								for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 								{
-									Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
-									if ((turret_pos - pos).length_squared() < TURRET_VIEW_RANGE * TURRET_VIEW_RANGE
-										&& force_field_hash_mine == ForceField::hash(team_mine, turret_pos))
+									if (i.item()->team != team_mine)
 									{
-										RaycastCallbackExcept ray_callback(pos, turret_pos, rocket);
-										Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~Team::force_field_mask(team_mine));
-										if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == i.item()->entity_id)
+										Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
+										if ((turret_pos - pos).length_squared() < TURRET_VIEW_RANGE * TURRET_VIEW_RANGE
+											&& force_field_hash_mine == ForceField::hash(team_mine, turret_pos))
 										{
-											// launch at this turret
-											rocket->get<Rocket>()->launch(i.item()->entity());
-											break;
+											RaycastCallbackExcept ray_callback(pos, turret_pos, rocket);
+											Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~Team::force_field_mask(team_mine));
+											if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == i.item()->entity_id)
+											{
+												// launch at this turret
+												rocket->get<Rocket>()->launch(i.item()->entity());
+												break;
+											}
 										}
 									}
 								}
 							}
-						}
-						else
-						{
-							// launch at core modules
-							for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+							else
 							{
-								if (i.item()->team != team_mine)
+								// launch at core modules
+								for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
 								{
-									Vec3 core_pos = i.item()->get<Transform>()->absolute_pos();
-									if ((core_pos - pos).length_squared() < TURRET_VIEW_RANGE * TURRET_VIEW_RANGE
-										&& force_field_hash_mine == ForceField::hash(team_mine, core_pos))
+									if (i.item()->team != team_mine)
 									{
-										RaycastCallbackExcept ray_callback(pos, core_pos, rocket);
-										Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~Team::force_field_mask(team_mine));
-										if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == i.item()->entity_id)
+										Vec3 core_pos = i.item()->get<Transform>()->absolute_pos();
+										if ((core_pos - pos).length_squared() < TURRET_VIEW_RANGE * TURRET_VIEW_RANGE
+											&& force_field_hash_mine == ForceField::hash(team_mine, core_pos))
 										{
-											// launch at this core
-											rocket->get<Rocket>()->launch(i.item()->entity());
-											break;
+											RaycastCallbackExcept ray_callback(pos, core_pos, rocket);
+											Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~Team::force_field_mask(team_mine));
+											if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == i.item()->entity_id)
+											{
+												// launch at this core
+												rocket->get<Rocket>()->launch(i.item()->entity());
+												break;
+											}
 										}
 									}
 								}
@@ -976,7 +959,6 @@ void Drone::awake()
 {
 	get<Animator>()->layers[0].behavior = Animator::Behavior::Loop;
 	link_arg<Entity*, &Drone::killed>(get<Health>()->killed);
-	link_arg<const HealthEvent&, &Drone::health_changed>(get<Health>()->changed);
 }
 
 Drone::~Drone()
@@ -1036,38 +1018,6 @@ b8 Drone::hit_target(Entity* target)
 
 	DroneNet::hit_target(this, target);
 
-	// award energy for hitting stuff
-	if (target->has<Minion>())
-	{
-		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
-		{
-			PlayerManager* owner = target->get<Minion>()->owner.ref();
-			if (owner)
-			{
-				owner->team.ref()->track(get<PlayerCommon>()->manager.ref(), entity());
-				get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_MINION_KILL);
-			}
-		}
-	}
-	else if (target->has<Sensor>())
-	{
-		b8 is_enemy = target->get<Sensor>()->team != get<AIAgent>()->team;
-		if (is_enemy)
-			get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_SENSOR_DESTROY);
-	}
-	else if (target->has<ForceField>())
-	{
-		b8 is_enemy = target->get<ForceField>()->team != get<AIAgent>()->team;
-		if (is_enemy)
-			get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_FORCE_FIELD_DESTROY);
-	}
-	else if (target->has<Rocket>())
-	{
-		b8 is_enemy = target->get<Rocket>()->team() != get<AIAgent>()->team;
-		if (is_enemy)
-			get<PlayerCommon>()->manager.ref()->add_energy(ENERGY_ROCKET_DESTROY);
-	}
-
 	if (target->has<Target>())
 	{
 		Ref<Target> t = target->get<Target>();
@@ -1103,42 +1053,11 @@ b8 Drone::predict_intersection(const Target* target, const Net::StateFrame* stat
 	}
 }
 
-void Drone::health_changed(const HealthEvent& e)
-{
-	if (e.hp + e.shield < 0)
-	{
-		// damaged
-
-		if (get<Health>()->hp == 0)
-		{
-			// killed; notify everyone
-			if (e.source.ref())
-			{
-				PlayerManager* enemy = nullptr;
-				if (e.source.ref()->has<PlayerCommon>())
-					enemy = e.source.ref()->get<PlayerCommon>()->manager.ref();
-				else if (e.source.ref()->has<Bolt>())
-					enemy = e.source.ref()->get<Bolt>()->owner.ref();
-				else if (e.source.ref()->has<Rocket>())
-					enemy = e.source.ref()->get<Rocket>()->owner.ref();
-				if (Game::level.local && enemy)
-					enemy->add_kills(1);
-			}
-
-			AI::Team team = get<AIAgent>()->team;
-			PlayerManager* manager = get<PlayerCommon>()->manager.ref();
-			if (Game::level.local)
-				manager->add_deaths(1);
-
-			char buffer[512];
-			sprintf(buffer, _(strings::player_killed), manager->username);
-			PlayerHuman::log_add(buffer, team);
-		}
-	}
-}
-
 void Drone::killed(Entity* e)
 {
+	// killed; notify everyone
+	PlayerManager::entity_killed_by(entity(), e);
+
 	if (Game::level.local)
 	{
 		Vec3 pos;
@@ -2169,6 +2088,15 @@ void Drone::update_client(const Update& u)
 		}
 		update_offset();
 
+		if (get<Animator>()->layers[0].animation != AssetNull)
+		{
+			// this means that we were flying or dashing, but we were interrupted. the animation is still playing.
+			// this probably happened because the server never started flying or dashing in the first place, while we did
+			// and now we're snapping back to the server's state
+			finish_flying_dashing_common();
+			done_dashing.fire();
+		}
+
 		// update footing
 
 		Mat4 inverse_offset = get<SkinnedModel>()->offset.inverse();
@@ -2237,6 +2165,9 @@ void Drone::update_client(const Update& u)
 				}
 			}
 
+			Quat leg_rot_inner;
+			Quat leg_rot_outer;
+
 			if (footing[i].parent.ref())
 			{
 				Vec3 target = footing[i].parent.ref()->to_world(footing[i].pos);
@@ -2267,23 +2198,21 @@ void Drone::update_client(const Update& u)
 				Vec2 xy_offset = Vec2(target_leg_space.x, target_leg_space.y);
 				r32 angle_x_offset = -atan2f(target_leg_space.z, xy_offset.length() * (target_leg_space.x < 0.0f ? -1.0f : 1.0f));
 
-				get<Animator>()->override_bone(drone_legs[i], Vec3::zero, Quat::euler(-angle, 0, 0) * Quat::euler(0, angle_x_offset - angle_x, 0));
-				get<Animator>()->override_bone(drone_outer_legs[i], Vec3::zero, Quat::euler(0, angle_x * 2.0f * drone_outer_leg_rotation[i], 0));
+				leg_rot_inner = Quat::euler(-angle, 0, 0) * Quat::euler(0, angle_x_offset - angle_x, 0);
+				leg_rot_outer = Quat::euler(0, angle_x * 2.0f * drone_outer_leg_rotation[i], 0);
 			}
 			else
 			{
-				get<Animator>()->override_bone(drone_legs[i], Vec3::zero, Quat::euler(0, PI * -0.1f, 0));
-				get<Animator>()->override_bone(drone_outer_legs[i], Vec3::zero, Quat::euler(0, PI * 0.75f * drone_outer_leg_rotation[i], 0));
+				leg_rot_inner = Quat::euler(0, PI * -0.1f, 0);
+				leg_rot_outer =  Quat::euler(0, PI * 0.75f * drone_outer_leg_rotation[i], 0);
 			}
-		}
 
-		if (get<Animator>()->layers[0].animation != AssetNull)
-		{
-			// this means that we were flying or dashing, but we were interrupted. the animation is still playing.
-			// this probably happened because the server never started flying or dashing in the first place, while we did
-			// and now we're snapping back to the server's state
-			finish_flying_dashing_common();
-			done_dashing.fire();
+			{
+				const Animator::Layer& layer = get<Animator>()->layers[0];
+				r32 animation_strength = Ease::quad_out<r32>(layer.blend);
+				get<Animator>()->override_bone(drone_legs[i], Vec3::zero, Quat::slerp(animation_strength, Quat::identity, leg_rot_inner));
+				get<Animator>()->override_bone(drone_outer_legs[i], Vec3::zero, Quat::slerp(animation_strength, Quat::identity, leg_rot_outer));
+			}
 		}
 	}
 	else

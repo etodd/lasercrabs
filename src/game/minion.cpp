@@ -719,7 +719,7 @@ void Minion::update_client_all(const Update& u)
 		particle_accumulator -= interval;
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->attack_timer > 0.0f)
+			if (i.item()->get<Animator>()->layers[0].animation == Asset::Animation::character_aim)
 			{
 				Vec3 pos = i.item()->hand_pos();
 
@@ -760,6 +760,7 @@ void Minion::hit_by(const TargetEvent& e)
 
 void Minion::killed(Entity* killer)
 {
+	PlayerManager::entity_killed_by(entity(), killer);
 	get<Audio>()->post_event(AK::EVENTS::STOP);
 	Audio::post_global_event(AK::EVENTS::PLAY_HEADSHOT, head_pos());
 

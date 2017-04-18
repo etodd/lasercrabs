@@ -92,7 +92,7 @@ Game::Session::Session()
 	time_scale(1.0f),
 	time_limit(MATCH_TIME_DEFAULT),
 	game_type(GameType::Assault),
-	respawns(DEFAULT_RUSH_DRONES),
+	respawns(DEFAULT_ASSAULT_DRONES),
 	kill_limit(8)
 {
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
@@ -923,9 +923,7 @@ void game_end_cheat(b8 win)
 void Game::execute(const char* cmd)
 {
 	if (strcmp(cmd, "netstat") == 0)
-	{
 		Net::show_stats = !Net::show_stats;
-	}
 	else if (strcmp(cmd, "solve") == 0)
 	{
 		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
@@ -965,35 +963,17 @@ void Game::execute(const char* cmd)
 	{
 		// allocate a story-mode server
 		const char* delimiter = strchr(cmd, ' ');
-		if (delimiter)
+		const char* level_name = delimiter + 1;
+		AssetID level = Loader::find_level(level_name);
+		if (level != AssetNull)
 		{
-			const char* level_name = delimiter + 1;
-			AssetID level = Loader::find_level(level_name);
-			if (level != AssetNull)
-			{
-				unload_level();
-				save.reset();
-				Net::Master::ServerState s;
-				s.make_story();
-				s.level = level;
-				Net::Client::allocate_server(s);
-			}
+			unload_level();
+			save.reset();
+			Net::Master::ServerState s;
+			s.make_story();
+			s.level = level;
+			Net::Client::allocate_server(s);
 		}
-	}
-	else if (strcmp(cmd, "allocm") == 0)
-	{
-		// allocate a multiplayer server
-		unload_level();
-		save.reset();
-		Net::Master::ServerState s;
-		s.session_type = SessionType::Custom;
-		s.level = Asset::Level::Media_Tower;
-		s.open_slots = 2;
-		s.team_count = 2;
-		s.game_type = GameType::Assault;
-		s.respawns = 5;
-		s.time_limit_minutes = 8;
-		Net::Client::allocate_server(s);
 	}
 #endif
 #if DEBUG && !SERVER
@@ -1044,37 +1024,31 @@ void Game::execute(const char* cmd)
 	else if (strstr(cmd, "timescale ") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');
-		if (delimiter)
+		const char* number_string = delimiter + 1;
+		char* end;
+		r32 value = std::strtod(number_string, &end);
+		if (*end == '\0')
 		{
-			const char* number_string = delimiter + 1;
-			char* end;
-			r32 value = std::strtod(number_string, &end);
-			if (*end == '\0')
-			{
-				session.time_scale = value;
+			session.time_scale = value;
 #if SERVER
-				Net::Server::sync_time();
+			Net::Server::sync_time();
 #endif
-			}
 		}
 	}
 	else if (strstr(cmd, "energy ") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');
-		if (delimiter)
+		const char* number_string = delimiter + 1;
+		char* end;
+		s32 value = (s32)std::strtol(number_string, &end, 10);
+		if (*end == '\0')
 		{
-			const char* number_string = delimiter + 1;
-			char* end;
-			s32 value = (s32)std::strtol(number_string, &end, 10);
-			if (*end == '\0')
+			if (level.mode == Mode::Parkour)
+				Overworld::resource_change(Resource::Energy, value);
+			else if (PlayerManager::list.count() > 0)
 			{
-				if (level.mode == Mode::Parkour)
-					Overworld::resource_change(Resource::Energy, value);
-				else if (PlayerManager::list.count() > 0)
-				{
-					for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-						i.item()->energy += value;
-				}
+				for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+					i.item()->energy += value;
 			}
 		}
 	}
@@ -1102,32 +1076,26 @@ void Game::execute(const char* cmd)
 	{
 		// AI test
 		const char* delimiter = strchr(cmd, ' ');
-		if (delimiter)
+		const char* level_name = delimiter + 1;
+		AssetID level = Loader::find_level(level_name);
+		if (level != AssetNull)
 		{
-			const char* level_name = delimiter + 1;
-			AssetID level = Loader::find_level(level_name);
-			if (level != AssetNull)
-			{
-				save.reset();
-				save.zone_current = level;
-				load_level(level, Mode::Pvp, true);
-			}
+			save.reset();
+			save.zone_current = level;
+			load_level(level, Mode::Pvp, true);
 		}
 	}
 	else if (strstr(cmd, "ld ") == cmd)
 	{
 		// pvp mode
 		const char* delimiter = strchr(cmd, ' ');
-		if (delimiter)
+		const char* level_name = delimiter + 1;
+		AssetID level = Loader::find_level(level_name);
+		if (level != AssetNull)
 		{
-			const char* level_name = delimiter + 1;
-			AssetID level = Loader::find_level(level_name);
-			if (level != AssetNull)
-			{
-				save.reset();
-				save.zone_current = level;
-				schedule_load_level(level, Mode::Pvp);
-			}
+			save.reset();
+			save.zone_current = level;
+			schedule_load_level(level, Mode::Pvp);
 		}
 	}
 	else if (strstr(cmd, "ldp ") == cmd)
@@ -1149,21 +1117,23 @@ void Game::execute(const char* cmd)
 	else if (strstr(cmd, "resources ") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');
-		if (delimiter)
+		const char* number_string = delimiter + 1;
+		char* end;
+		r32 value = std::strtod(number_string, &end);
+		if (*end == '\0')
 		{
-			const char* number_string = delimiter + 1;
-			char* end;
-			r32 value = std::strtod(number_string, &end);
-			if (*end == '\0')
-			{
-				for (s32 i = 0; i < s32(Resource::count); i++)
-					Overworld::resource_change(Resource(i), value);
-			}
+			for (s32 i = 0; i < s32(Resource::count); i++)
+				Overworld::resource_change(Resource(i), value);
 		}
 	}
-	else if (!Overworld::active() && strcmp(cmd, "capture") == 0)
-		Overworld::zone_change(level.id, ZoneState::Friendly);
-	else if (!Overworld::active() && strcmp(cmd, "unlock") == 0)
+	else if (strstr(cmd, "capture ") == cmd)
+	{
+		const char* delimiter = strchr(cmd, ' ');
+		const char* zone_string = delimiter + 1;
+		AssetID id = Loader::find(zone_string, AssetLookup::Level::names);
+		Overworld::zone_change(id, ZoneState::Friendly);
+	}
+	else if (strcmp(cmd, "unlock") == 0)
 		Overworld::zone_change(level.id, ZoneState::Hostile);
 	else
 		Overworld::execute(cmd);
@@ -1403,9 +1373,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			if (parent != -1)
 				transforms[parent]->to_world(&absolute_pos, &absolute_rot);
 		}
-
-		if (strcmp(cJSON_GetObjectItem(element, "name")->valuestring, "map_view") == 0)
-			vi_debug_break();
 
 		if (cJSON_HasObjectItem(element, "World"))
 		{

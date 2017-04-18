@@ -91,6 +91,7 @@ struct Team : public ComponentType<Team>
 	static b8 net_msg(Net::StreamRead*);
 	static void transition_mode(Game::Mode);
 	static void draw_ui(const RenderParams&);
+	static void launch_rockets();
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{
@@ -110,6 +111,7 @@ struct Team : public ComponentType<Team>
 	void track(PlayerManager*, Entity*);
 	s32 player_count() const;
 	s16 kills() const;
+	s16 increment() const;
 
 	inline AI::Team team() const
 	{
@@ -143,11 +145,11 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	static Visibility visibility[MAX_PLAYERS * MAX_PLAYERS];
 
 	static void update_all(const Update&);
-
 	static b8 net_msg(Net::StreamRead*, PlayerManager*, Net::MessageSource);
+	static PlayerManager* owner(Entity*);
+	static void entity_killed_by(Entity*, Entity*);
 
 	r32 spawn_timer;
-	r32 particle_accumulator;
 	r32 state_timer;
 	s32 upgrades;
 	Ability abilities[MAX_ABILITIES];
@@ -157,7 +159,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	Ref<Team> team;
 	Ref<Entity> instance;
 	s16 energy;
-	s16 energy_last;
 	s16 kills;
 	s16 deaths;
 	s16 respawns;
@@ -178,16 +179,15 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s32 ability_count() const;
 	b8 ability_valid(Ability) const;
 	b8 upgrade_start(Upgrade);
-	void upgrade_cancel();
 	void upgrade_complete();
 	Upgrade upgrade_highest_owned_or_available() const;
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
 	s16 upgrade_cost(Upgrade) const;
-	s32 add_energy(s32);
+	void add_energy(s32);
+	void add_energy_and_notify(s32);
 	void add_kills(s32);
 	void add_deaths(s32);
 	b8 at_spawn_point() const;
-	s16 increment() const;
 	void update_server(const Update&);
 	void update_client(const Update&);
 	void score_accept();

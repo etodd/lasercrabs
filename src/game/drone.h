@@ -142,7 +142,6 @@ struct Drone : public ComponentType<Drone>
 	b8 dash_start(const Vec3&);
 	b8 cooldown_can_shoot() const; // can we go?
 	b8 hit_target(Entity*); // called when we hit a target
-	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 
 	s16 ally_force_field_mask() const;

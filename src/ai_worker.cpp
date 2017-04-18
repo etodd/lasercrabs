@@ -693,12 +693,13 @@ void loop()
 							else
 							{
 								create_file = true;
-								fprintf(stderr, "Failed to open '%s'. Creating.\n", record_path);
+								fprintf(stderr, "Failed to open '%s'.\n", record_path);
 							}
 
 #if SERVER
 							if (create_file)
 							{
+								printf("Creating '%s'.\n", record_path);
 								f = fopen(record_path, "wb");
 								if (f)
 								{
@@ -732,7 +733,6 @@ void loop()
 					}
 				}
 
-
 				if (data_length > 0)
 				{
 #if DEBUG_AI
@@ -763,7 +763,7 @@ void loop()
 					}
 
 					{
-						// Create Detour navmesh
+						// create Detour navmesh
 
 						nav_mesh = dtAllocNavMesh();
 						vi_assert(nav_mesh);
@@ -785,7 +785,7 @@ void loop()
 							vi_assert(dtStatusSucceed(status));
 						}
 
-						// Create Detour tile cache
+						// create Detour tile cache
 
 						dtTileCacheParams tcparams;
 						memset(&tcparams, 0, sizeof(tcparams));
@@ -822,7 +822,7 @@ void loop()
 							}
 						}
 
-						// Build initial meshes
+						// build initial meshes
 						for (s32 ty = 0; ty < tiles.height; ty++)
 						{
 							for (s32 tx = 0; tx < tiles.width; tx++)
@@ -836,7 +836,7 @@ void loop()
 						vi_assert(dtStatusSucceed(status));
 					}
 
-					// Drone nav mesh
+					// drone nav mesh
 					{
 						fread(&drone_nav_mesh.chunk_size, sizeof(r32), 1, f);
 						fread(&drone_nav_mesh.vmin, sizeof(Vec3), 1, f);
@@ -1012,7 +1012,7 @@ void loop()
 
 				dtPolyRef poly = get_poly(pos, default_search_extents);
 				Vec3 closest;
-				nav_mesh_query->closestPointOnPoly(poly, (r32*)&pos, (r32*)&closest, 0);
+				nav_mesh_query->closestPointOnPoly(poly, (r32*)(&pos), (r32*)(&closest), 0);
 
 				sync_out.lock();
 				sync_out.write(Callback::Point);

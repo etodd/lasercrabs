@@ -993,6 +993,8 @@ void PlayerControlAI::actions_populate()
 			| (1 << s32(AI::RecordedLife::EntityMinionEnemy))
 			| (1 << s32(AI::RecordedLife::EntityBatteryEnemy))
 			| (1 << s32(AI::RecordedLife::EntityBatteryNeutral))
+			| (1 << s32(AI::RecordedLife::EntityTurretEnemy))
+			| (1 << s32(AI::RecordedLife::EntityCoreModuleVulnerable))
 			| (1 << s32(AI::RecordedLife::EntitySensorEnemy))))
 	{
 		Vec3 pos = get<Transform>()->absolute_pos();

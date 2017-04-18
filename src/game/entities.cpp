@@ -580,16 +580,7 @@ b8 Battery::net_msg(Net::StreamRead* p)
 	pickup->set_team_client(t);
 	pickup->reward_level = reward_level;
 	if (caused_by.ref() && caused_by.ref()->has<AIAgent>() && t == caused_by.ref()->get<AIAgent>()->team)
-	{
-		if (Game::level.local)
-			caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_energy(pickup->reward());
-		if (caused_by.ref()->has<PlayerControlHuman>())
-		{
-			char buffer[512];
-			sprintf(buffer, _(strings::energy_added), s32(pickup->reward()));
-			caused_by.ref()->get<PlayerControlHuman>()->player.ref()->msg(buffer, true);
-		}
-	}
+		caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_energy_and_notify(pickup->reward());
 
 	return true;
 }
@@ -704,6 +695,11 @@ s16 Battery::reward() const
 	return s16(vi_max(1, vi_min(8, s32(reward_level))) * 10);
 }
 
+s16 Battery::increment() const
+{
+	return s16(vi_max(1, vi_min(8, s32(reward_level))) * 2);
+}
+
 SpawnPointEntity::SpawnPointEntity(AI::Team team, b8 visible)
 {
 	create<Transform>();
@@ -799,9 +795,9 @@ SpawnPosition SpawnPoint::spawn_position(PlayerManager* player) const
 void SpawnPoint::update_server_all(const Update& u)
 {
 	const s32 minion_group = 3;
-	const r32 minion_initial_delay = 30.0f;
-	const r32 minion_spawn_interval = 6.0f;
-	const r32 minion_group_interval = minion_spawn_interval * 18.0f; // must be a multiple of minion_spawn_interval
+	const r32 minion_initial_delay = 45.0f;
+	const r32 minion_spawn_interval = 8.0f;
+	const r32 minion_group_interval = minion_spawn_interval * 14.0f; // must be a multiple of minion_spawn_interval
 	if (Game::level.type == GameType::Assault
 		&& Game::level.mode == Game::Mode::Pvp
 		&& !Team::game_over)
@@ -882,6 +878,7 @@ void Sensor::hit_by(const TargetEvent& e)
 void Sensor::killed_by(Entity* e)
 {
 	vi_assert(!has<Battery>());
+	PlayerManager::entity_killed_by(entity(), e);
 	if (Game::level.local)
 		World::remove_deferred(entity());
 }
@@ -996,8 +993,9 @@ void Rocket::awake()
 	get<Target>()->target_hit.link<Rocket, const TargetEvent&, &Rocket::hit_by>(this);
 }
 
-void Rocket::killed(Entity*)
+void Rocket::killed(Entity* e)
 {
+	PlayerManager::entity_killed_by(entity(), e);
 	if (Game::level.local)
 		explode();
 }
@@ -1206,7 +1204,7 @@ void Rocket::update_server(const Update& u)
 				if (entity_team == team()) // fly through friendlies
 					die = false;
 				else
-					hit->get<Health>()->damage(entity(), 1); // do damage
+					hit->get<Health>()->damage(entity(), hit->has<Turret>() ? 4 : 1); // do damage
 			}
 
 			if (die)
@@ -1366,8 +1364,9 @@ s32 CoreModule::count(AI::TeamMask mask)
 	return count;
 }
 
-void CoreModule::killed(Entity*)
+void CoreModule::killed(Entity* e)
 {
+	PlayerManager::entity_killed_by(entity(), e);
 	if (Game::level.local)
 		destroy();
 }
@@ -1384,7 +1383,6 @@ void CoreModule::destroy()
 
 #define TURRET_COOLDOWN 1.5f
 #define TURRET_TARGET_CHECK_TIME 0.75f
-#define TURRET_HEALTH 25
 #define TURRET_RADIUS 0.5f
 TurretEntity::TurretEntity(AI::Team team)
 {
@@ -1419,11 +1417,13 @@ void Turret::awake()
 
 void Turret::hit_by(const TargetEvent& e)
 {
-	get<Health>()->damage(e.hit_by, 2);
+	get<Health>()->damage(e.hit_by, 4);
 }
 
 void Turret::killed(Entity* by)
 {
+	PlayerManager::entity_killed_by(entity(), by);
+
 	{
 		// let everyone know what happened
 		char buffer[512];
@@ -1651,8 +1651,9 @@ void ForceField::hit_by(const TargetEvent& e)
 	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
 }
 
-void ForceField::killed(Entity*)
+void ForceField::killed(Entity* e)
 {
+	PlayerManager::entity_killed_by(entity(), e);
 	if (Game::level.local)
 		World::remove_deferred(entity());
 }
@@ -1797,10 +1798,11 @@ BoltEntity::BoltEntity(AI::Team team, PlayerManager* owner, const Vec3& abs_pos,
 
 	create<Audio>();
 
-	Bolt* p = create<Bolt>();
-	p->team = team;
-	p->owner = owner;
-	p->velocity = dir * BOLT_SPEED;
+	Bolt* b = create<Bolt>();
+	b->remaining_lifetime = BOLT_MAX_LIFETIME;
+	b->team = team;
+	b->owner = owner;
+	b->velocity = dir * BOLT_SPEED;
 }
 
 namespace BoltNet
@@ -1840,14 +1842,16 @@ void Bolt::awake()
 
 void Bolt::update_server(const Update& u)
 {
-	lifetime += u.time.delta;
-	if (lifetime > BOLT_MAX_LIFETIME)
+	Vec3 pos = get<Transform>()->absolute_pos();
+
+	remaining_lifetime -= u.time.delta;
+	if (remaining_lifetime < 0.0f)
 	{
+		ParticleEffect::spawn(ParticleEffect::Type::Impact, pos, Quat::look(Vec3::normalize(velocity)));
 		World::remove(entity());
 		return;
 	}
 
-	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 next_pos = pos + velocity * u.time.delta;
 	btCollisionWorld::AllHitsRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * BOLT_LENGTH);
 
@@ -1933,8 +1937,8 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 			damage = BOLT_DRONE_DAMAGE;
 			if (hit_object->get<Drone>()->state() != Drone::State::Crawl)
 			{
+				// don't do damage, but also don't reflect
 				damage = 0;
-				do_reflect = true;
 				team = hit_object->get<AIAgent>()->team;
 			}
 		}
@@ -1965,7 +1969,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 	if (do_reflect)
 	{
 		BoltNet::change_team(this, team);
-		lifetime = 0.0f;
+		remaining_lifetime = BOLT_MAX_LIFETIME;
 		velocity = velocity * -2.0f;
 		Vec3 dir = Vec3::normalize(velocity);
 		Transform* transform = get<Transform>();
@@ -2085,7 +2089,8 @@ template<typename T> b8 grenade_trigger_filter(T* e, AI::Team team)
 		|| (e->template has<Rocket>() && e->template get<Rocket>()->team() != team)
 		|| (e->template has<Sensor>() && !e->template has<Battery>() && e->template get<Sensor>()->team != team)
 		|| (e->template has<Decoy>() && e->template get<Decoy>()->team() != team)
-		|| (e->template has<Turret>() && e->template get<Turret>()->team != team);
+		|| (e->template has<Turret>() && e->template get<Turret>()->team != team)
+		|| (e->template has<CoreModule>() && e->template get<CoreModule>()->team != team);
 }
 
 void Grenade::update_server(const Update& u)
@@ -2256,8 +2261,14 @@ void Grenade::hit_by(const TargetEvent& e)
 
 void Grenade::killed_by(Entity* e)
 {
+	PlayerManager::entity_killed_by(entity(), e);
 	if (Game::level.local)
-		World::remove_deferred(entity());
+	{
+		if (e->has<Grenade>())
+			explode();
+		else
+			World::remove_deferred(entity());
+	}
 }
 
 Vec3 Target::velocity() const
@@ -3122,7 +3133,7 @@ void TerminalInteractable::interacted(Interactable*)
 			if (Game::level.local)
 			{
 				Overworld::resource_change(Resource::HackKits, -1);
-				Overworld::resource_change(Resource::Drones, -DEFAULT_RUSH_DRONES);
+				Overworld::resource_change(Resource::Drones, -DEFAULT_ASSAULT_DRONES);
 			}
 			TerminalEntity::close();
 		}

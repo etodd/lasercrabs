@@ -1124,10 +1124,10 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 			{
 				if (zone_node_get(zone) && zone_can_capture(zone))
 				{
-					if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_RUSH_DRONES
+					if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES
 						&& (Game::save.zones[zone] == ZoneState::Friendly || Game::save.resources[s32(Resource::HackKits)] > 0))
 					{
-						resource_change(Resource::Drones, -DEFAULT_RUSH_DRONES);
+						resource_change(Resource::Drones, -DEFAULT_ASSAULT_DRONES);
 						if (Game::save.zones[zone] != ZoneState::Friendly)
 							resource_change(Resource::HackKits, -1);
 						go(zone);
@@ -1336,7 +1336,7 @@ void group_join(Net::Master::Group g)
 void capture_start(s8 gamepad)
 {
 	if (zone_can_capture(data.zone_selected)
-		&& Game::save.resources[s32(Resource::Drones)] >= DEFAULT_RUSH_DRONES)
+		&& Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
 	{
 		// one hack kit needed if we're attacking
 		if (Game::save.zones[data.zone_selected] == ZoneState::Friendly || Game::save.resources[s32(Resource::HackKits)] > 0)
@@ -1421,21 +1421,21 @@ void tab_map_update(const Update& u)
 			&& u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0)
 			&& zone_can_capture(data.zone_selected))
 		{
-			if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_RUSH_DRONES)
+			if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
 			{
 				if (Game::save.zones[data.zone_selected] == ZoneState::Friendly) // defending
-					Menu::dialog(0, &capture_start, _(strings::confirm_defend), DEFAULT_RUSH_DRONES);
+					Menu::dialog(0, &capture_start, _(strings::confirm_defend), DEFAULT_ASSAULT_DRONES);
 				else
 				{
 					// attacking
 					if (Game::save.resources[s32(Resource::HackKits)] > 0)
-						Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEFAULT_RUSH_DRONES, 1);
+						Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES, 1);
 					else
 						Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
 				}
 			}
 			else
-				Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), DEFAULT_RUSH_DRONES, _(strings::drones));
+				Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), DEFAULT_ASSAULT_DRONES, _(strings::drones));
 		}
 	}
 }
@@ -2293,12 +2293,7 @@ void clear()
 
 void execute(const char* cmd)
 {
-	if (strcmp(cmd, "capture") == 0)
-	{
-		zone_change(data.zone_selected, ZoneState::Friendly);
-		zone_done(data.zone_selected);
-	}
-	else if (strcmp(cmd, "attack") == 0)
+	if (strcmp(cmd, "attack") == 0)
 	{
 		AssetID z = zone_random(&zone_filter_captured, &zone_filter_can_be_attacked); // live incoming attack
 		if (z != AssetNull)

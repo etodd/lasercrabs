@@ -110,6 +110,7 @@ struct Battery : public ComponentType<Battery>
 	~Battery();
 
 	s16 reward() const;
+	s16 increment() const;
 	void killed(Entity*);
 	void hit(const TargetEvent&);
 	b8 set_team(AI::Team, Entity* = nullptr);
@@ -371,7 +372,7 @@ struct Bolt : public ComponentType<Bolt>
 	
 	Vec3 velocity;
 	Vec3 last_pos;
-	r32 lifetime;
+	r32 remaining_lifetime;
 	Ref<PlayerManager> owner;
 	AI::Team team;
 	b8 reflected;

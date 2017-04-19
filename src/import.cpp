@@ -1866,13 +1866,13 @@ b8 build_nav_mesh(const Mesh& input, TileCacheData* output_tiles)
 	cfg.cs = nav_resolution;
 	cfg.ch = nav_resolution;
 	cfg.walkableSlopeAngle = nav_walkable_slope;
-	cfg.walkableHeight = (s32)ceilf(nav_agent_height / cfg.ch);
-	cfg.walkableClimb = (s32)floorf(nav_agent_max_climb / cfg.ch);
-	cfg.walkableRadius = (s32)ceilf(nav_agent_radius / cfg.cs);
-	cfg.maxEdgeLen = (s32)(nav_edge_max_length / cfg.cs);
+	cfg.walkableHeight = s32(ceilf(nav_agent_height / cfg.ch));
+	cfg.walkableClimb = s32(floorf(nav_agent_max_climb / cfg.ch));
+	cfg.walkableRadius = s32(ceilf(nav_agent_radius / cfg.cs));
+	cfg.maxEdgeLen = s32(nav_edge_max_length / cfg.cs);
 	cfg.maxSimplificationError = nav_mesh_max_error;
-	cfg.minRegionArea = (s32)rcSqr(nav_min_region_size); // area = size*size
-	cfg.mergeRegionArea = (s32)rcSqr(nav_merged_region_size); // area = size*size
+	cfg.minRegionArea = s32(rcSqr(nav_min_region_size)); // area = size*size
+	cfg.mergeRegionArea = s32(rcSqr(nav_merged_region_size)); // area = size*size
 	cfg.maxVertsPerPoly = 6;
 	cfg.detailSampleDist = nav_detail_sample_distance < 0.9f ? 0 : cfg.cs * nav_detail_sample_distance;
 	cfg.detailSampleMaxError = cfg.ch * nav_detail_sample_max_error;
@@ -1881,20 +1881,15 @@ b8 build_nav_mesh(const Mesh& input, TileCacheData* output_tiles)
 	cfg.width = cfg.tileSize + cfg.borderSize * 2;
 	cfg.height = cfg.tileSize + cfg.borderSize * 2;
 
-	rcVcopy(cfg.bmin, (r32*)&input.bounds_min);
-	rcVcopy(cfg.bmax, (r32*)&input.bounds_max);
-	s32 grid_width;
-	s32 grid_height;
-	rcCalcGridSize(cfg.bmin, cfg.bmax, cfg.cs, &grid_width, &grid_height);
-	
-	output_tiles->width = (grid_width + (s32)nav_tile_size - 1) / (s32)nav_tile_size;
-	output_tiles->height = (grid_height + (s32)nav_tile_size - 1) / (s32)nav_tile_size;
+	rcVcopy(cfg.bmin, (r32*)(&input.bounds_min));
+	rcVcopy(cfg.bmax, (r32*)(&input.bounds_max));
 
 	memcpy(&output_tiles->min, cfg.bmin, sizeof(Vec3));
 
 	Chunks<Array<s32>> chunked_mesh;
 	chunk_mesh<Array<s32>, &chunk_handle_mesh>(input, &chunked_mesh, nav_tile_size * nav_resolution, nav_resolution * 2.0f);
-	vi_assert(output_tiles->width == chunked_mesh.size.x && output_tiles->height == chunked_mesh.size.z);
+	output_tiles->width = chunked_mesh.size.x;
+	output_tiles->height = chunked_mesh.size.z;
 	
 	for (s32 ty = 0; ty < output_tiles->height; ty++)
 	{

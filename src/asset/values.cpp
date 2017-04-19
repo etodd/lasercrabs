@@ -123,6 +123,10 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/Commons_bsp_model_0_011.msh",
 	"assets/lvl/Commons_bsp_model_0_012.msh",
 	"assets/lvl/Commons_bsp_model_0_013.msh",
+	"assets/lvl/Crossing_Cube_000_proxy.msh",
+	"assets/lvl/Crossing_Cube_000_proxy_1.msh",
+	"assets/lvl/Crossing_concept3_001.msh",
+	"assets/lvl/Crossing_concept3_001_1.msh",
 	"assets/lvl/Dock_Cube.msh",
 	"assets/lvl/Dock_Cube_001.msh",
 	"assets/lvl/Dock_Cube_002.msh",
@@ -290,9 +294,6 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/overworld_Cube_044.msh",
 	"assets/lvl/overworld_Pyramid.msh",
 	"assets/lvl/overworld_water.msh",
-	"assets/lvl/test_Cube_000_proxy.msh",
-	"assets/lvl/test_Cube_000_proxy_1.msh",
-	"assets/lvl/test_concept3_001.msh",
 	0,
 };
 
@@ -416,6 +417,10 @@ const char* AssetLookup::Mesh::names[] =
 	"Commons_bsp_model_0_011",
 	"Commons_bsp_model_0_012",
 	"Commons_bsp_model_0_013",
+	"Crossing_Cube_000_proxy",
+	"Crossing_Cube_000_proxy_1",
+	"Crossing_concept3_001",
+	"Crossing_concept3_001_1",
 	"Dock_Cube",
 	"Dock_Cube_001",
 	"Dock_Cube_002",
@@ -583,9 +588,6 @@ const char* AssetLookup::Mesh::names[] =
 	"overworld_Cube_044",
 	"overworld_Pyramid",
 	"overworld_water",
-	"test_Cube_000_proxy",
-	"test_Cube_000_proxy_1",
-	"test_concept3_001",
 	0,
 };
 
@@ -952,6 +954,7 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/Canal.lvl",
 	"assets/lvl/Comm_Array.lvl",
 	"assets/lvl/Commons.lvl",
+	"assets/lvl/Crossing.lvl",
 	"assets/lvl/Dock.lvl",
 	"assets/lvl/Financial_District.lvl",
 	"assets/lvl/Library.lvl",
@@ -962,7 +965,6 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/Refinery.lvl",
 	"assets/lvl/Treatment_Plant.lvl",
 	"assets/lvl/overworld.lvl",
-	"assets/lvl/test.lvl",
 	0,
 };
 
@@ -972,6 +974,7 @@ const char* AssetLookup::Level::names[] =
 	"Canal",
 	"Comm Array",
 	"Commons",
+	"Crossing",
 	"Dock",
 	"Financial District",
 	"Library",
@@ -982,7 +985,6 @@ const char* AssetLookup::Level::names[] =
 	"Refinery",
 	"Treatment Plant",
 	"overworld",
-	"test",
 	0,
 };
 
@@ -992,6 +994,7 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/Canal.nav",
 	"assets/lvl/Comm_Array.nav",
 	"assets/lvl/Commons.nav",
+	"assets/lvl/Crossing.nav",
 	"assets/lvl/Dock.nav",
 	"assets/lvl/Financial_District.nav",
 	"assets/lvl/Library.nav",
@@ -1002,7 +1005,6 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/Refinery.nav",
 	"assets/lvl/Treatment_Plant.nav",
 	"assets/lvl/overworld.nav",
-	"assets/lvl/test.nav",
 	0,
 };
 
@@ -1012,6 +1014,7 @@ const char* AssetLookup::NavMesh::names[] =
 	"Canal",
 	"Comm Array",
 	"Commons",
+	"Crossing",
 	"Dock",
 	"Financial District",
 	"Library",
@@ -1022,7 +1025,6 @@ const char* AssetLookup::NavMesh::names[] =
 	"Refinery",
 	"Treatment Plant",
 	"overworld",
-	"test",
 	0,
 };
 

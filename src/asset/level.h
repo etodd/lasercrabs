@@ -12,17 +12,17 @@ namespace Asset
 		const AssetID Canal = 0;
 		const AssetID Comm_Array = 1;
 		const AssetID Commons = 2;
-		const AssetID Dock = 3;
-		const AssetID Financial_District = 4;
-		const AssetID Library = 5;
-		const AssetID Media_Tower = 6;
-		const AssetID Palace_of_Arts = 7;
-		const AssetID Plaza = 8;
-		const AssetID Port_District = 9;
-		const AssetID Refinery = 10;
-		const AssetID Treatment_Plant = 11;
-		const AssetID overworld = 12;
-		const AssetID test = 13;
+		const AssetID Crossing = 3;
+		const AssetID Dock = 4;
+		const AssetID Financial_District = 5;
+		const AssetID Library = 6;
+		const AssetID Media_Tower = 7;
+		const AssetID Palace_of_Arts = 8;
+		const AssetID Plaza = 9;
+		const AssetID Port_District = 10;
+		const AssetID Refinery = 11;
+		const AssetID Treatment_Plant = 12;
+		const AssetID overworld = 13;
 	}
 }
 

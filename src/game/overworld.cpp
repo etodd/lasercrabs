@@ -2016,7 +2016,7 @@ void show_complete()
 	else
 	{
 		if (Game::save.zone_last == AssetNull)
-			data.zone_selected = Asset::Level::Media_Tower;
+			data.zone_selected = Asset::Level::Crossing;
 		else
 			data.zone_selected = Game::save.zone_last;
 	}

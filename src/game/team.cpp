@@ -147,13 +147,13 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::sniper,
 		strings::description_sniper,
 		Asset::Mesh::icon_sniper,
-		120,
+		200,
 	},
 	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
-		120,
+		200,
 	},
 };
 
@@ -1273,7 +1273,10 @@ void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
 {
 	vi_assert(Game::level.local);
 	if (m->respawns != -1 && Game::level.has_feature(Game::FeatureLevel::All)) // infinite respawns in the tutorial
-		m->respawns--;
+	{
+		if (Game::level.mode == Game::Mode::Pvp)
+			m->respawns--;
+	}
 	if (m->respawns != 0)
 		m->spawn_timer = SPAWN_DELAY;
 	m->spawn.fire(point->spawn_position(m));

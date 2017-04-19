@@ -535,16 +535,9 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			{
 				case Ability::Sensor:
 				{
-					// place a proximity sensor
+					// place a sensor
 					if (Game::level.local)
-					{
-						Entity* sensor = World::create<SensorEntity>(manager->team.ref()->team(), pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH - ROPE_RADIUS + SENSOR_RADIUS), rot);
-						Net::finalize(sensor);
-
-						// attach it to the wall
-						Rope* rope = Rope::start(parent, pos, rot * Vec3(0, 0, 1), rot);
-						rope->end(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH), rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
-					}
+						Net::finalize(World::create<SensorEntity>(manager->team.ref()->team(), pos + rot * Vec3(0, 0, SENSOR_RADIUS), rot));
 
 					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
 

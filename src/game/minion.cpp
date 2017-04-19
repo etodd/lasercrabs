@@ -74,6 +74,7 @@ void Minion::awake()
 {
 	link_arg<const TargetEvent&, &Minion::hit_by>(get<Target>()->target_hit);
 	link_arg<Entity*, &Minion::killed>(get<Health>()->killed);
+	target_timer = 100000.0f; // force target recalculation
 
 	Animator* animator = get<Animator>();
 	link<&Minion::footstep>(animator->trigger(Asset::Animation::character_walk, 0.0f));
@@ -482,22 +483,27 @@ Vec3 Minion::goal_position(const Goal& g, const Vec3& minion_pos)
 	{
 		Entity* e = g.entity.ref();
 		vi_assert(e);
-		if (e->has<Turret>() && e->get<Turret>()->ingress_points.length > 0)
+		if (e->has<Turret>())
 		{
-			r32 closest_distance_sq = FLT_MAX;
-			Vec3 closest_point;
-			Turret* t = e->get<Turret>();
-			for (s32 i = 0; i < t->ingress_points.length; i++)
+			if (e->get<Turret>()->ingress_points.length > 0)
 			{
-				const Vec3& pos = t->ingress_points[i];
-				r32 distance_sq = (pos - minion_pos).length_squared();
-				if (distance_sq < closest_distance_sq)
+				r32 closest_distance_sq = FLT_MAX;
+				Vec3 closest_point;
+				Turret* t = e->get<Turret>();
+				for (s32 i = 0; i < t->ingress_points.length; i++)
 				{
-					closest_distance_sq = distance_sq;
-					closest_point = pos;
+					const Vec3& pos = t->ingress_points[i];
+					r32 distance_sq = (pos - minion_pos).length_squared();
+					if (distance_sq < closest_distance_sq)
+					{
+						closest_distance_sq = distance_sq;
+						closest_point = pos;
+					}
 				}
+				return closest_point;
 			}
-			return closest_point;
+			else
+				return e->get<Transform>()->to_world(Vec3(0, 0, -TURRET_HEIGHT));
 		}
 		else
 			return e->get<Transform>()->absolute_pos();
@@ -914,13 +920,7 @@ void Minion::set_path(const AI::Result& result)
 	{
 		// sometimes the system returns an extra path point at the beginning, which actually puts us farther from the goal
 		// if we're close enough to the second path point, then skip that first one.
-		Vec3 flat_pos = get<Walker>()->base_pos();
-		flat_pos.y = 0.0f;
-		Vec3 p0 = path[0];
-		p0.y = 0.0f;
-		Vec3 p1 = path[1];
-		p1.y = 0.0f;
-		if ((p1 - flat_pos).length_squared() < 0.3f * 0.3f)
+		if ((path[1] - get<Walker>()->base_pos()).length_squared() < 0.3f * 0.3f)
 			path_index = 1;
 	}
 	if (path_request != PathRequest::Repath)

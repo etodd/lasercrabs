@@ -562,25 +562,25 @@ void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_
 	dtPolyRef path_straight_polys[AI_MAX_PATH_LENGTH];
 	s32 path_poly_count;
 
-	nav_mesh_query->findPath(start_poly, end_poly, (r32*)&a, (r32*)&b, &default_query_filter, path_polys, &path_poly_count, AI_MAX_PATH_LENGTH);
+	nav_mesh_query->findPath(start_poly, end_poly, (r32*)(&a), (r32*)(&b), &default_query_filter, path_polys, &path_poly_count, AI_MAX_PATH_LENGTH);
 	if (path_poly_count == 0)
 		path->length = 0;
 	else
 	{
-		// In case of partial path, make sure the end point is clamped to the last polygon.
+		// in case of partial path, make sure the end point is clamped to the last polygon.
 		Vec3 end;
 		if (path_polys[path_poly_count - 1] == end_poly)
 			end = b;
 		else
-			nav_mesh_query->closestPointOnPoly(path_polys[path_poly_count - 1], (r32*)&b, (r32*)&end, 0);
+			nav_mesh_query->closestPointOnPoly(path_polys[path_poly_count - 1], (r32*)(&b), (r32*)(&end), 0);
 
 		Vec3 start;
-		nav_mesh_query->closestPointOnPoly(path_polys[0], (r32*)&a, (r32*)&start, 0);
+		nav_mesh_query->closestPointOnPoly(path_polys[0], (r32*)(&a), (r32*)(&start), 0);
 
 		s32 path_length;
 		nav_mesh_query->findStraightPath
 		(
-			(const r32*)&a, (const r32*)&end, path_polys, path_poly_count,
+			(const r32*)(&a), (const r32*)(&end), path_polys, path_poly_count,
 			(r32*)path->data, path_straight_flags,
 			path_straight_polys, &path_length, AI_MAX_PATH_LENGTH, 0
 		);

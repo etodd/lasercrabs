@@ -838,7 +838,7 @@ SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_r
 	model->color = Team::color_enemy;
 	model->team = s8(team);
 	model->shader = Asset::Shader::standard;
-	model->offset.scale(Vec3(SENSOR_RADIUS * 1.2f)); // a little bigger for aesthetic reasons
+	model->offset.scale(Vec3(SENSOR_RADIUS));
 
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
 
@@ -851,8 +851,7 @@ SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_r
 
 	create<Target>();
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 1.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield);
-	body->set_damping(0.5f, 0.5f);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield);
 }
 
 Sensor::Sensor(AI::Team t)
@@ -2071,7 +2070,7 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield);
 
 	View* model = create<View>();
-	model->mesh = Asset::Mesh::sphere_highres;
+	model->mesh = Asset::Mesh::grenade_detached;
 	model->color = Team::color_enemy;
 	model->team = s8(owner->team.ref()->team());
 	model->shader = Asset::Shader::standard;

@@ -116,7 +116,7 @@ struct MessageFrameState
 };
 
 typedef StaticArray<SequenceHistoryEntry, NET_SEQUENCE_RESEND_BUFFER> SequenceHistory;
-typedef StaticArray<StreamWrite, NET_MESSAGE_BUFFER> MessageBuffer;
+typedef Array<StreamWrite> MessageBuffer;
 
 // server/client data
 struct StateCommon

@@ -385,11 +385,13 @@ void update_visibility(const Update& u)
 	Entity* visibility[MAX_PLAYERS][MAX_PLAYERS] = {};
 	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 	{
-		Entity* decoy = player.item()->decoy();
-		if (decoy)
+		for (auto i = Decoy::list.iterator(); !i.is_last(); i.next())
 		{
-			update_visibility_sensor(visibility, player.item(), decoy);
-			update_stealth_state(player.item(), decoy->get<AIAgent>(), visibility);
+			if (i.item()->owner.ref() == player.item())
+			{
+				update_visibility_sensor(visibility, player.item(), i.item()->entity());
+				update_stealth_state(player.item(), i.item()->get<AIAgent>(), visibility);
+			}
 		}
 
 		Entity* player_entity = player.item()->instance.ref();
@@ -417,8 +419,6 @@ void update_visibility(const Update& u)
 
 		r32 i_range = i_entity->get<Drone>()->range();
 
-		Entity* i_decoy = i.item()->decoy();
-
 		for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 		{
 			Team* j_team = j.item()->team.ref();
@@ -429,99 +429,138 @@ void update_visibility(const Update& u)
 			PlayerManager::Visibility detected = { PlayerManager::Visibility::Type::Direct, nullptr };
 
 			// if j_decoy is at all visible, it will be detected first
-			// i_decoy is also able to detect j_actual_entity and j_decoy
 
-			Entity* j_decoy = j.item()->decoy();
-			if (j_decoy && !j_decoy->get<AIAgent>()->stealth)
+			for (auto j_decoy = Decoy::list.iterator(); !j_decoy.is_last(); j_decoy.next())
 			{
-				r32 distance;
-				if ((visibility_check(i_entity, j_decoy, &distance)
-					&& distance < i_range)
-					|| (i_decoy
-						&& visibility_check(i_decoy, j_decoy, &distance)
-						&& distance < DRONE_MAX_DISTANCE))
+				if (j_decoy.item()->owner.ref() == j.item() && !j_decoy.item()->get<AIAgent>()->stealth)
 				{
-					detected.entity = j_decoy;
-					detected.type = PlayerManager::Visibility::Type::Direct;
+					// i_entity detecting j_decoy
+					r32 distance;
+					if (visibility_check(i_entity, j_decoy.item()->entity(), &distance)
+						&& distance < i_range)
+					{
+						detected.entity = j_decoy.item()->entity();
+						detected.type = PlayerManager::Visibility::Type::Direct;
+						break;
+					}
+
+					// i_decoy detecting j_decoy
+					if (!detected.entity.ref())
+					{
+						for (auto i_decoy = Decoy::list.iterator(); !i_decoy.is_last(); i_decoy.next())
+						{
+							if (i_decoy.item()->owner.ref() == i.item())
+							{
+								if (visibility_check(i_decoy.item()->entity(), j_decoy.item()->entity(), &distance)
+									&& distance < DRONE_MAX_DISTANCE)
+								{
+									detected.entity = j_decoy.item()->entity();
+									detected.type = PlayerManager::Visibility::Type::Direct;
+								}
+							}
+						}
+					}
 				}
 			}
 
-			// actual player
 			Entity* j_actual_entity = j.item()->instance.ref();
-			if (!detected.entity.ref())
+			if (j_actual_entity && !j_actual_entity->get<AIAgent>()->stealth)
 			{
-				if (j_actual_entity && !j_actual_entity->get<AIAgent>()->stealth)
+				// i_entity detecting j_actual_entity
+				if (!detected.entity.ref())
 				{
 					r32 distance;
 					if ((visibility_check(i_entity, j_actual_entity, &distance)
-						&& distance < i_range)
-						|| (i_decoy
-							&& visibility_check(i_decoy, j_actual_entity, &distance)
-							&& distance < DRONE_MAX_DISTANCE))
+						&& distance < i_range))
 					{
 						detected.entity = j_actual_entity;
 						detected.type = PlayerManager::Visibility::Type::Direct;
 					}
 				}
-			}
 
-			if (j_decoy && !j_decoy->get<AIAgent>()->stealth)
-			{
-				// turrets detecting decoy
+				// i_decoy detecting j_actual_entity
 				if (!detected.entity.ref())
 				{
-					for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+					for (auto i_decoy = Decoy::list.iterator(); !i_decoy.is_last(); i_decoy.next())
 					{
-						if (i.item()->team == i_team->team() && i.item()->target.ref() == j_decoy)
+						if (i_decoy.item()->owner.ref() == i.item())
 						{
-							detected.entity = j_decoy;
-							detected.type = PlayerManager::Visibility::Type::Indirect;
-							break;
-						}
-					}
-				}
-
-				// minions detecting decoy
-				if (!detected.entity.ref())
-				{
-					for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
-					{
-						if (i.item()->get<AIAgent>()->team == i_team->team() && i.item()->goal.entity.ref() == j_decoy)
-						{
-							detected.entity = j_decoy;
-							detected.type = PlayerManager::Visibility::Type::Indirect;
-							break;
+							r32 distance;
+							if (visibility_check(i_decoy.item()->entity(), j_actual_entity, &distance)
+								&& distance < DRONE_MAX_DISTANCE)
+							{
+								detected.entity = j_actual_entity;
+								detected.type = PlayerManager::Visibility::Type::Direct;
+								break;
+							}
 						}
 					}
 				}
 			}
 
-			if (j_actual_entity && !j_actual_entity->get<AIAgent>()->stealth)
+			if (!detected.entity.ref())
 			{
-				// turrets detecting decoy
-				if (!detected.entity.ref())
+				for (auto j_decoy = Decoy::list.iterator(); !j_decoy.is_last(); j_decoy.next())
 				{
-					for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+					if (j_decoy.item()->owner.ref() == j.item() && !j_decoy.item()->get<AIAgent>()->stealth)
 					{
-						if (i.item()->team == i_team->team() && i.item()->target.ref() == j_actual_entity)
+						// i turrets detecting j_decoy
+						for (auto t = Turret::list.iterator(); !t.is_last(); t.next())
+						{
+							if (t.item()->team == i_team->team() && t.item()->target.ref() == j_decoy.item()->entity())
+							{
+								detected.entity = j_decoy.item()->entity();
+								detected.type = PlayerManager::Visibility::Type::Indirect;
+								break;
+							}
+						}
+
+						// i minions detecting j_decoy
+						if (!detected.entity.ref())
+						{
+							for (auto m = Minion::list.iterator(); !m.is_last(); m.next())
+							{
+								if (m.item()->get<AIAgent>()->team == i_team->team() && m.item()->goal.entity.ref() == j_decoy.item()->entity())
+								{
+									detected.entity = j_decoy.item()->entity();
+									detected.type = PlayerManager::Visibility::Type::Indirect;
+									break;
+								}
+							}
+						}
+
+						if (detected.entity.ref())
+							break;
+					}
+				}
+			}
+
+			if (!detected.entity.ref())
+			{
+				if (j_actual_entity && !j_actual_entity->get<AIAgent>()->stealth)
+				{
+					// i turrets detecting j_actual_entity
+					for (auto t = Turret::list.iterator(); !t.is_last(); t.next())
+					{
+						if (t.item()->team == i_team->team() && t.item()->target.ref() == j_actual_entity)
 						{
 							detected.entity = j_actual_entity;
 							detected.type = PlayerManager::Visibility::Type::Indirect;
 							break;
 						}
 					}
-				}
 
-				// minions detecting actual player
-				if (!detected.entity.ref())
-				{
-					for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+					// i minions detecting j_actual_entity
+					if (!detected.entity.ref())
 					{
-						if (i.item()->get<AIAgent>()->team == i_team->team() && i.item()->goal.entity.ref() == j_actual_entity)
+						for (auto m = Minion::list.iterator(); !m.is_last(); m.next())
 						{
-							detected.entity = j_actual_entity;
-							detected.type = PlayerManager::Visibility::Type::Indirect;
-							break;
+							if (m.item()->get<AIAgent>()->team == i_team->team() && m.item()->goal.entity.ref() == j_actual_entity)
+							{
+								detected.entity = j_actual_entity;
+								detected.type = PlayerManager::Visibility::Type::Indirect;
+								break;
+							}
 						}
 					}
 				}
@@ -1342,16 +1381,6 @@ b8 PlayerManager::is_local() const
 			return true;
 	}
 	return false;
-}
-
-Entity* PlayerManager::decoy() const
-{
-	for (auto i = Decoy::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->owner.ref() == this)
-			return i.item()->entity();
-	}
-	return nullptr;
 }
 
 namespace PlayerManagerNet

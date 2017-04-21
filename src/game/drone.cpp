@@ -715,12 +715,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				case Ability::Decoy:
 				{
 					if (Game::level.local)
-					{
-						Entity* existing_decoy = manager->decoy();
-						if (existing_decoy)
-							existing_decoy->get<Decoy>()->destroy();
 						Net::finalize(World::create<DecoyEntity>(manager, parent->get<Transform>(), pos, rot));
-					}
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());

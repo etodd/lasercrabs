@@ -795,7 +795,7 @@ SpawnPosition SpawnPoint::spawn_position(PlayerManager* player) const
 void SpawnPoint::update_server_all(const Update& u)
 {
 	const s32 minion_group = 3;
-	const r32 minion_initial_delay = 45.0f;
+	const r32 minion_initial_delay = Game::session.type == SessionType::Story ? 45.0f : 30.0f;
 	const r32 minion_spawn_interval = 8.0f;
 	const r32 minion_group_interval = minion_spawn_interval * 14.0f; // must be a multiple of minion_spawn_interval
 	if (Game::level.type == GameType::Assault
@@ -1284,7 +1284,7 @@ DecoyEntity::DecoyEntity(PlayerManager* owner, Transform* parent, const Vec3& po
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::drone;
 	anim->layers[0].behavior = Animator::Behavior::Loop;
-	anim->layers[0].play(Asset::Animation::drone_dash);
+	anim->layers[0].play(Asset::Animation::drone_idle);
 
 	create<Target>();
 

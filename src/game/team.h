@@ -171,7 +171,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	~PlayerManager();
 
 	void spawn_select(SpawnPoint*);
-	Entity* decoy() const;
 	State state() const;
 	b8 can_transition_state() const;
 	b8 has_upgrade(Upgrade) const;

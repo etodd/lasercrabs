@@ -2028,7 +2028,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		*link->ref = level.finder.find(link->target_name)->get<SpawnPoint>();
 	}
 
-	// Set map view for local players
 	{
 		Entity* map_view = level.finder.find("map_view");
 		if (map_view && map_view->has<Transform>())

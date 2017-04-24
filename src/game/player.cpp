@@ -621,6 +621,8 @@ void PlayerHuman::update(const Update& u)
 				Game::cancel_event_eaten[gamepad] = true;
 				upgrade_menu_hide();
 			}
+			else if (!get<PlayerManager>()->at_spawn_point())
+				upgrade_menu_hide();
 			else
 			{
 				b8 upgrade_in_progress = !get<PlayerManager>()->can_transition_state();

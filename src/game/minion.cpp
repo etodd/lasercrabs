@@ -197,6 +197,14 @@ Vec3 Minion::hand_pos() const
 	return p;
 }
 
+Vec3 Minion::aim_pos() const
+{
+	Mat4 mat;
+	get<Transform>()->mat(&mat);
+	mat = get<SkinnedModel>()->offset * mat;
+	return (mat * Vec4(-0.188f, 1.600f, -0.516f, 1.0f)).xyz();
+}
+
 b8 Minion::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 {
 	return LMath::ray_sphere_intersect(ray_start, ray_end, head_pos(), MINION_HEAD_RADIUS);
@@ -586,7 +594,7 @@ void Minion::update_server(const Update& u)
 					if (can_see(g))
 					{
 						// turn to and attack the target
-						Vec3 hand_pos = get<Minion>()->hand_pos();
+						Vec3 hand_pos = get<Minion>()->aim_pos();
 						Vec3 aim_pos;
 						if (!g->has<Target>() || !g->get<Target>()->predict_intersection(hand_pos, BOLT_SPEED, nullptr, &aim_pos))
 							aim_pos = g->get<Transform>()->absolute_pos();
@@ -706,7 +714,7 @@ void Minion::update_server(const Update& u)
 void Minion::fire(const Vec3& target)
 {
 	vi_assert(Game::level.local);
-	Vec3 hand = hand_pos();
+	Vec3 hand = aim_pos();
 	Net::finalize(World::create<BoltEntity>(get<AIAgent>()->team, owner.ref(), hand, target - hand));
 
 	Animator::Layer* layer = &get<Animator>()->layers[0];
@@ -826,7 +834,7 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 	if (target->has<AIAgent>() && target->get<AIAgent>()->stealth)
 		return false;
 
-	Vec3 pos = get<Minion>()->head_pos();
+	Vec3 pos = get<Minion>()->aim_pos();
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
 	Vec3 diff = target_pos - pos;
 	r32 distance_squared = diff.length_squared();

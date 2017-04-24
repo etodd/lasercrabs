@@ -309,7 +309,7 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 				Game::save.reset();
 				Game::session.reset();
 				Game::session.type = SessionType::Custom;
-				Game::session.game_type = GameType::Deathmatch;
+				Game::session.game_type = GameType::Assault;
 				Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
 				clear();
 			}

@@ -65,6 +65,7 @@ struct Minion : public ComponentType<Minion>
 	void awake();
 	Vec3 head_pos() const;
 	Vec3 hand_pos() const;
+	Vec3 aim_pos() const;
 	b8 headshot_test(const Vec3&, const Vec3&);
 	void hit_by(const TargetEvent& e);
 	void fire(const Vec3&);

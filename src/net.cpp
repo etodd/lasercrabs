@@ -3116,7 +3116,7 @@ void connect(Sock::Address addr)
 	state_client.server_address = addr;
 	state_client.timeout = 0.0f;
 	state_client.mode = Mode::Connecting;
-	if (record)
+	if (record && Game::session.type != SessionType::Story)
 	{
 		state_client.replay_mode = ReplayMode::Recording;
 		if (state_client.replay_file)
@@ -3667,17 +3667,24 @@ void update_start(const Update& u)
 		if (Client::state_client.tick_timer > NET_TICK_RATE)
 		{
 			s16 size;
-			fread(&size, sizeof(s16), 1, Client::state_client.replay_file);
-			s32 bytes_received = s32(size);
-			if (bytes_received > 0)
+			b8 packet_successfully_read = false;
+			if (fread(&size, sizeof(s16), 1, Client::state_client.replay_file) == 1)
 			{
-				PacketEntry entry(state_common.timestamp);
-				entry.address = Client::state_client.server_address;
-				fread(entry.packet.data.data, sizeof(s8), bytes_received, Client::state_client.replay_file);
-				entry.packet.resize_bytes(bytes_received);
-				packet_read(u, &entry);
+				s32 bytes_received = s32(size);
+				if (bytes_received > 0)
+				{
+					PacketEntry entry(state_common.timestamp);
+					entry.address = Client::state_client.server_address;
+					if (fread(entry.packet.data.data, sizeof(s8), bytes_received, Client::state_client.replay_file) == bytes_received)
+					{
+						entry.packet.resize_bytes(bytes_received);
+						packet_read(u, &entry);
+						packet_successfully_read = true;
+					}
+				}
 			}
-			else
+
+			if (!packet_successfully_read)
 				Client::handle_server_disconnect();
 			Client::state_client.tick_timer = fmodf(Client::state_client.tick_timer, NET_TICK_RATE);
 		}

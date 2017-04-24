@@ -798,8 +798,8 @@ void SpawnPoint::update_server_all(const Update& u)
 	const r32 minion_initial_delay = Game::session.type == SessionType::Story ? 45.0f : 30.0f;
 	const r32 minion_spawn_interval = 8.0f;
 	const r32 minion_group_interval = minion_spawn_interval * 14.0f; // must be a multiple of minion_spawn_interval
-	if (Game::level.type == GameType::Assault
-		&& Game::level.mode == Game::Mode::Pvp
+	if (Game::level.mode == Game::Mode::Pvp
+		&& Game::level.has_feature(Game::FeatureLevel::TutorialAll)
 		&& !Team::game_over)
 	{
 		r32 t = Team::match_time - minion_initial_delay;

@@ -422,6 +422,7 @@ struct Message
 
 	Vec3 pos;
 	Vec3 dir;
+	Vec3 target;
 	Ability ability = Ability::None;
 	Upgrade upgrade = Upgrade::None;
 	Type type;
@@ -442,6 +443,11 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 		serialize_r32_range(p, msg->dir.y, -1.0f, 1.0f, 16);
 		serialize_r32_range(p, msg->dir.z, -1.0f, 1.0f, 16);
 	}
+
+	if (msg->type == Message::Type::Dash)
+		serialize_position(p, &msg->target, Net::Resolution::High);
+	else
+		msg->target = Vec3::zero;
 
 	// ability
 	if (msg->type == Message::Type::Go
@@ -1134,7 +1140,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 		battery_timer_draw(params, p, UIText::Anchor::Center);
 	p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 
-	// "spawning..."
+	// "deploying..."
 	if (!manager->instance.ref() && manager->respawns != 0)
 	{
 		text.text(0, _(strings::deploy_timer), s32(manager->spawn_timer + 1));
@@ -1146,7 +1152,12 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 	if (Game::level.type == GameType::Assault)
 	{
 		// show remaining drones label
-		text.text(0, _(strings::drones_remaining));
+		AssetID remaining_string;
+		if (manager->team.ref()->team() == 0)
+			remaining_string = strings::drones_remaining_defender;
+		else
+			remaining_string = strings::drones_remaining_attacker;
+		text.text(0, _(remaining_string));
 		text.color = UI::color_accent;
 		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
@@ -1398,14 +1409,30 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 							if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
 								UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent, PI);
 
-							// spawn prompt
-							UIText text;
-							text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-							text.color = UI::color_accent;
-							text.text(gamepad, _(strings::prompt_deploy));
-							Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
-							UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
-							text.draw(params, pos);
+							if (Game::level.type == GameType::Assault)
+							{
+								// attacking/defending
+								UIText text;
+								text.anchor_x = UIText::Anchor::Center;
+								text.anchor_y = UIText::Anchor::Min;
+								text.color = UI::color_default;
+								text.text(gamepad, _(my_team == 0 ? strings::turrets_remaining_defending : strings::turrets_remaining_attacking), Turret::list.count());
+								Vec2 pos = vp.size * Vec2(0.5f, 0.25f);
+								UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
+								text.draw(params, pos);
+							}
+
+							{
+								// deploy prompt
+								UIText text;
+								text.anchor_x = UIText::Anchor::Center;
+								text.anchor_y = UIText::Anchor::Max;
+								text.color = UI::color_accent;
+								text.text(gamepad, _(strings::prompt_deploy));
+								Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
+								UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
+								text.draw(params, pos);
+							}
 						}
 					}
 				}
@@ -1886,7 +1913,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		case PlayerControlHumanNet::Message::Type::Dash:
 		{
 			c->get<Drone>()->current_ability = Ability::None;
-			if (c->get<Drone>()->dash_start(msg.dir))
+			if (c->get<Drone>()->dash_start(msg.dir, msg.target))
 			{
 				c->get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 				c->try_primary = false;
@@ -2849,36 +2876,33 @@ void PlayerControlHuman::update(const Update& u)
 						r32 dot_tolerance = distance < DRONE_DASH_DISTANCE ? 0.3f : 0.1f;
 						if (ability == Ability::None) // normal movement
 						{
-							if (get<Drone>()->direction_is_toward_attached_wall(detach_dir))
-								reticle.type = ReticleType::Dash;
-							else
+							Vec3 hit;
+							b8 hit_target;
+							if (get<Drone>()->can_shoot(detach_dir, &hit, &hit_target))
 							{
-								Vec3 hit;
-								b8 hit_target;
-								if (get<Drone>()->can_shoot(detach_dir, &hit, &hit_target))
-								{
-									if (hit_target)
-										reticle.type = ReticleType::Target;
-									else if ((hit - me).length() > distance - DRONE_RADIUS)
-										reticle.type = ReticleType::Normal;
-								}
-								else if (hit_entity->has<Target>())
-								{
-									// when you're aiming at a target that is attached to the same surface you are,
-									// sometimes the point you're aiming at is actually away from the wall,
-									// so it registers as a shot rather than a dash.
-									// and sometimes that shot can't actually be taken.
-									// so we need to check for this case and turn it into a dash if we can.
-
-									// raycast again, ignoring moving objects
-									RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-									Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~CollisionShield & ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
-
-									Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
-									if (detach_dir.dot(wall_normal) > -dot_tolerance && reticle.normal.dot(wall_normal) > 1.0f - dot_tolerance)
-										reticle.type = ReticleType::Dash;
-								}
+								if (hit_target)
+									reticle.type = ReticleType::Target;
+								else if ((hit - me).length() > distance - DRONE_RADIUS)
+									reticle.type = ReticleType::Normal;
 							}
+							else if (hit_entity->has<Target>())
+							{
+								// when you're aiming at a target that is attached to the same surface you are,
+								// sometimes the point you're aiming at is actually away from the wall,
+								// so it registers as a shot rather than a dash.
+								// and sometimes that shot can't actually be taken.
+								// so we need to check for this case and turn it into a dash if we can.
+
+								// raycast again, ignoring moving objects
+								RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
+								Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~CollisionShield & ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
+
+								Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+								if (detach_dir.dot(wall_normal) > -dot_tolerance && reticle.normal.dot(wall_normal) > 1.0f - dot_tolerance)
+									reticle.type = ReticleType::Dash;
+							}
+							else if (get<Drone>()->direction_is_toward_attached_wall(detach_dir))
+								reticle.type = ReticleType::Dash;
 						}
 						else // spawning an ability
 						{
@@ -2904,7 +2928,7 @@ void PlayerControlHuman::update(const Update& u)
 						if (ability != Ability::None
 							&& get<Drone>()->can_spawn(ability, trace_dir)) // spawning an ability
 						{
-							reticle.type = ReticleType::Normal;
+							reticle.type = ReticleType::Target;
 						}
 					}
 				}
@@ -2945,6 +2969,7 @@ void PlayerControlHuman::update(const Update& u)
 					if (reticle.type == ReticleType::Dash)
 					{
 						msg.type = PlayerControlHumanNet::Message::Type::Dash;
+						msg.target = reticle.pos;
 						PlayerControlHumanNet::send(this, &msg);
 					}
 					else

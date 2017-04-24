@@ -1398,7 +1398,7 @@ TurretEntity::TurretEntity(AI::Team team)
 
 	create<Health>(TURRET_HEALTH, TURRET_HEALTH);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::turret_top);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker, Asset::Mesh::turret_top);
 	body->set_restitution(0.75f);
 
 	PointLight* light = create<PointLight>();
@@ -1416,7 +1416,7 @@ void Turret::awake()
 
 void Turret::hit_by(const TargetEvent& e)
 {
-	get<Health>()->damage(e.hit_by, 4);
+	get<Health>()->damage(e.hit_by, 5);
 }
 
 void Turret::killed(Entity* by)
@@ -2329,6 +2329,8 @@ r32 Target::radius() const
 {
 	if (has<Walker>())
 		return MINION_HEAD_RADIUS;
+	else if (has<Turret>())
+		return TURRET_RADIUS;
 	else
 		return get<RigidBody>()->size.y;
 }

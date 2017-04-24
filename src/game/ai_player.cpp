@@ -458,7 +458,7 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 			if (only_crawling_dashing)
 			{
 				if (lined_up || distance_to_target < DRONE_SHIELD_RADIUS)
-					get<Drone>()->dash_start(look_dir);
+					get<Drone>()->dash_start(look_dir, target);
 			}
 			else
 			{
@@ -648,7 +648,7 @@ b8 PlayerControlAI::go(const Update& u, const AI::DronePathNode& node_prev, cons
 				// don't dash around corners or anything; only dash toward coplanar points
 				if (fabsf(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1f)
 				{
-					if (!get<Drone>()->dash_start(look_dir))
+					if (!get<Drone>()->dash_start(look_dir, node.pos))
 						return false;
 				}
 				else
@@ -1055,6 +1055,7 @@ void PlayerControlAI::actions_populate()
 							priority -= 1;
 						break;
 					}
+					case AI::RecordedLife::EntityTurretEnemy:
 					case AI::RecordedLife::EntitySensorEnemy:
 					{
 						break;

@@ -29,7 +29,7 @@ namespace VI
 
 #define LERP_ROTATION_SPEED 10.0f
 #define LERP_TRANSLATION_SPEED 3.0f
-#define MAX_FLIGHT_TIME 6.0f
+#define MAX_FLIGHT_TIME 4.0f
 #define DRONE_LEG_LENGTH (0.277f - 0.101f)
 #define DRONE_LEG_BLEND_SPEED (1.0f / 0.03f)
 #define DRONE_MIN_LEG_BLEND_SPEED (DRONE_LEG_BLEND_SPEED * 0.1f)
@@ -95,7 +95,14 @@ enum class Message : s8
 	count,
 };
 
-b8 start_flying(Drone* a, Vec3 dir)
+enum class FlyFlag : s8
+{
+	None,
+	CancelExisting,
+	count,
+};
+
+b8 start_flying(Drone* a, Vec3 dir, FlyFlag flag)
 {
 	using Stream = Net::StreamWrite;
 	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
@@ -107,6 +114,7 @@ b8 start_flying(Drone* a, Vec3 dir)
 		Message t = Message::FlyStart;
 		serialize_enum(p, Message, t);
 	}
+	serialize_enum(p, FlyFlag, flag);
 	dir.normalize();
 	serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
 	serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
@@ -153,7 +161,7 @@ b8 ability_select(Drone* d, Ability ability)
 	return true;
 }
 
-b8 start_dashing(Drone* a, Vec3 dir)
+b8 start_dashing(Drone* a, Vec3 dir, Vec3 target)
 {
 	using Stream = Net::StreamWrite;
 	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
@@ -165,6 +173,9 @@ b8 start_dashing(Drone* a, Vec3 dir)
 		Message t = Message::DashStart;
 		serialize_enum(p, Message, t);
 	}
+	serialize_r32(p, target.x);
+	serialize_r32(p, target.y);
+	serialize_r32(p, target.z);
 	dir.normalize();
 	serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
 	serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
@@ -365,28 +376,41 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	{
 		case DroneNet::Message::FlyStart:
 		{
+			DroneNet::FlyFlag flag;
+			serialize_enum(p, DroneNet::FlyFlag, flag);
+
 			Vec3 dir;
 			serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
 
-			if (apply_msg && drone->charges > 0)
+			if (apply_msg)
 			{
-				drone->velocity = dir * DRONE_FLY_SPEED;
-				drone->detaching.fire();
-				drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
-				drone->get<Transform>()->absolute_rot(Quat::look(dir));
+				if (drone->charges > 0 || flag == DroneNet::FlyFlag::CancelExisting)
+				{
+					drone->dash_timer = 0.0f;
+					drone->velocity = dir * DRONE_FLY_SPEED;
+					drone->detaching.fire();
+					drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
+					drone->get<Transform>()->absolute_rot(Quat::look(dir));
 
-				drone->get<Audio>()->post_event(drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+					drone->get<Audio>()->post_event(drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 
-				drone->cooldown_setup();
-				drone->ensure_detached();
+					if (flag != DroneNet::FlyFlag::CancelExisting)
+						drone->cooldown_setup();
+					drone->ensure_detached();
+				}
 			}
 
 			break;
 		}
 		case DroneNet::Message::DashStart:
 		{
+			Vec3 dash_target;
+			serialize_r32(p, dash_target.x);
+			serialize_r32(p, dash_target.y);
+			serialize_r32(p, dash_target.z);
+
 			Vec3 dir;
 			serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
@@ -394,6 +418,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			if (apply_msg && drone->charges > 0)
 			{
+				drone->dash_target = dash_target;
 				drone->velocity = dir * DRONE_DASH_SPEED;
 
 				drone->dashing.fire();
@@ -937,6 +962,7 @@ Drone::Drone()
 	current_ability(Ability::None),
 	fake_bolts(),
 	ability_spawned(),
+	dash_target(),
 	remote_reflection_timer(),
 	reflection_source_remote(),
 	remote_reflection_entity()
@@ -1349,7 +1375,7 @@ void Drone::ensure_detached()
 	get<Animator>()->layers[0].animation = Asset::Animation::drone_fly;
 }
 
-b8 Drone::dash_start(const Vec3& dir)
+b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 {
 	if (state() == State::Dash)
 	{
@@ -1362,7 +1388,7 @@ b8 Drone::dash_start(const Vec3& dir)
 	else if (state() == State::Fly || current_ability != Ability::None)
 		return false;
 
-	DroneNet::start_dashing(this, dir);
+	DroneNet::start_dashing(this, dir, target);
 
 	return true;
 }
@@ -1417,7 +1443,7 @@ b8 Drone::go(const Vec3& dir)
 			if (!can_shoot(dir, nullptr, nullptr, state_frame))
 				return false;
 		}
-		DroneNet::start_flying(this, dir_normalized);
+		DroneNet::start_flying(this, dir_normalized, DroneNet::FlyFlag::None);
 	}
 	else
 	{
@@ -1919,16 +1945,27 @@ void Drone::update_server(const Update& u)
 	{
 		// flying or dashing
 		if (Game::level.local && u.time.total - attach_time > MAX_FLIGHT_TIME)
-			get<Health>()->kill(entity()); // Kill self
+			get<Health>()->kill(entity()); // kill self
 
 		Vec3 position = get<Transform>()->absolute_pos();
 		Vec3 next_position;
 		if (s == State::Dash)
 		{
-			get<Drone>()->crawl(velocity, vi_min(dash_timer, u.time.delta));
+			crawl(velocity, vi_min(dash_timer, u.time.delta));
 			next_position = get<Transform>()->absolute_pos();
 			dash_timer = vi_max(0.0f, dash_timer - u.time.delta);
-			if (dash_timer == 0.0f)
+			Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+			Vec3 wall_pos = next_position + wall_normal * -DRONE_RADIUS;
+			Vec3 shoot_dir = dash_target - next_position;
+			Vec3 final_pos;
+			if (Vec3::normalize(dash_target - wall_pos).dot(wall_normal) < -0.01f
+				&& can_shoot(shoot_dir, &final_pos)
+				&& (final_pos - dash_target).length_squared() < DRONE_RADIUS * 2.0f * DRONE_RADIUS * 2.0f)
+			{
+				DroneNet::start_flying(this, shoot_dir, DroneNet::FlyFlag::CancelExisting);
+				return;
+			}
+			else if (dash_timer == 0.0f)
 			{
 				DroneNet::finish_dashing(this);
 				return;

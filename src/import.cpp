@@ -657,7 +657,6 @@ struct StaticMeshes
 	Mesh terminal;
 	Mesh interactable;
 	Mesh turret_base;
-	Mesh turret_top;
 	Map<Mesh> meshes;
 
 	void import()
@@ -667,7 +666,6 @@ struct StaticMeshes
 			Mesh::read(&terminal, ASSET_OUT_FOLDER"terminal_collision.msh");
 			Mesh::read(&interactable, ASSET_OUT_FOLDER"interactable_collision.msh");
 			Mesh::read(&turret_base, ASSET_OUT_FOLDER"turret_base.msh");
-			Mesh::read(&turret_top, ASSET_OUT_FOLDER"turret_top.msh");
 		}
 	}
 
@@ -2019,13 +2017,6 @@ void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, Manifest& manifes
 		{
 			if (!filter || filter(&static_meshes.turret_base))
 				consolidate_nav_geometry_mesh(result, static_meshes.turret_base, mat);
-
-			if (!filter || filter(&static_meshes.turret_top))
-			{
-				Mat4 m;
-				m.make_transform(pos + rot * Vec3(0, 0, TURRET_HEIGHT), Vec3(1, 1, 1), rot);
-				consolidate_nav_geometry_mesh(result, static_meshes.turret_top, m);
-			}
 		}
 
 		element = element->next;

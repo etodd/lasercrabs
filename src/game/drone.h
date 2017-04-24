@@ -107,6 +107,7 @@ struct Drone : public ComponentType<Drone>
 	Vec3 last_pos;
 	Vec3 remote_reflection_pos;
 	Vec3 remote_reflection_dir;
+	Vec3 dash_target;
 	r32 attach_time;
 	r32 cooldown; // remaining cooldown time
 	r32 last_footstep;
@@ -139,7 +140,7 @@ struct Drone : public ComponentType<Drone>
 	void ability(Ability);
 	void cooldown_setup();
 	State state() const;
-	b8 dash_start(const Vec3&);
+	b8 dash_start(const Vec3&, const Vec3&);
 	b8 cooldown_can_shoot() const; // can we go?
 	b8 hit_target(Entity*); // called when we hit a target
 	void killed(Entity*);

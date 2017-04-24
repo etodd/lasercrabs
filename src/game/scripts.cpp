@@ -46,7 +46,7 @@ struct Cue
 	b8 loop;
 };
 
-enum class Behavior
+enum class Behavior : s8
 {
 	WaitForIdleAnimation,
 	InterruptIdleAnimation,
@@ -453,7 +453,7 @@ namespace title
 	const r32 end_fov = 70.0f * PI * 0.5f / 180.0f;
 	const r32 total_transition = TRANSITION_TIME + 0.5f;
 
-	enum class TutorialState
+	enum class TutorialState : s8
 	{
 		Start,
 		SailorSpotted,
@@ -721,7 +721,7 @@ namespace title
 
 namespace tutorial
 {
-	enum class TutorialState
+	enum class TutorialState : s8
 	{
 		ParkourStart,
 		ParkourSlide,

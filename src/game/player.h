@@ -30,7 +30,7 @@ namespace Net
 
 struct PlayerHuman : public ComponentType<PlayerHuman>
 {
-	enum class UIMode
+	enum class UIMode : s8
 	{
 		PvpDefault,
 		ParkourDefault,
@@ -146,7 +146,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		Ref<Transform> parent;
 	};
 
-	enum class ReticleType
+	enum class ReticleType : s8
 	{
 		None,
 		Error,
@@ -154,6 +154,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		Target,
 		Dash,
 		DashError,
+		count,
 	};
 
 	struct Reticle
@@ -165,7 +166,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 	struct TargetIndicator
 	{
-		enum class Type
+		enum class Type : s8
 		{
 			DroneVisible,
 			DroneOutOfRange,
@@ -227,6 +228,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void camera_shake_update(const Update&, Camera*);
 	void terminal_enter_animation_callback();
 	void interact_animation_callback();
+	const PositionEntry* remote_position(r32* = nullptr, r32* = nullptr) const;
 
 	void drone_detaching();
 	void drone_done_flying_or_dashing();

@@ -38,11 +38,12 @@ struct Bone
 
 struct BodyEntry : Bone
 {
-	enum class Type
+	enum class Type : s8
 	{
 		Box,
 		Capsule,
 		Sphere,
+		count,
 	};
 
 	Vec3 size;

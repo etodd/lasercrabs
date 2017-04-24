@@ -305,7 +305,7 @@ struct AICue : public ComponentType<AICue>
 
 struct EffectLight
 {
-	enum class Type
+	enum class Type : s8
 	{
 		Bolt,
 		Spark,
@@ -325,9 +325,9 @@ struct EffectLight
 	r32 max_radius;
 	r32 timer;
 	r32 duration;
-	Type type;
 	Ref<Transform> parent;
 	Revision revision;
+	Type type;
 
 	r32 radius() const;
 	r32 opacity() const;
@@ -357,13 +357,15 @@ struct Rope : public ComponentType<Rope>
 	void end(const Vec3&, const Vec3&, RigidBody*, r32 = 0.0f, b8 = false);
 };
 
-struct BoltEntity : public Entity
-{
-	BoltEntity(AI::Team, PlayerManager*, const Vec3&, const Vec3&);
-};
-
 struct Bolt : public ComponentType<Bolt>
 {
+	enum class Type : s8
+	{
+		Normal,
+		Player,
+		count,
+	};
+
 	static r32 particle_accumulator;
 
 	static s16 raycast_mask(AI::Team);
@@ -375,6 +377,7 @@ struct Bolt : public ComponentType<Bolt>
 	r32 remaining_lifetime;
 	Ref<PlayerManager> owner;
 	AI::Team team;
+	Type type;
 	b8 reflected;
 
 	void awake();
@@ -383,9 +386,14 @@ struct Bolt : public ComponentType<Bolt>
 	void hit_entity(Entity*, const Vec3&, const Vec3&);
 };
 
+struct BoltEntity : public Entity
+{
+	BoltEntity(AI::Team, PlayerManager*, Bolt::Type, const Vec3&, const Vec3&);
+};
+
 struct ParticleEffect
 {
-	enum class Type
+	enum class Type : s8
 	{
 		Impact,
 		Explosion,
@@ -535,7 +543,7 @@ struct TramRunnerEntity : public Entity
 
 struct TramRunner : public ComponentType<TramRunner>
 {
-	enum class State
+	enum class State : s8
 	{
 		Idle,
 		Arriving,

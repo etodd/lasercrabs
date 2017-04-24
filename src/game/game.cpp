@@ -648,9 +648,11 @@ void Game::draw_override(const RenderParams& params)
 void Game::draw_alpha(const RenderParams& render_params)
 {
 	if (render_params.camera->flag(CameraFlagFog))
+	{
 		Skybox::draw_alpha(render_params);
-	SkyDecal::draw_alpha(render_params);
-	Clouds::draw_alpha(render_params);
+		SkyDecal::draw_alpha(render_params);
+		Clouds::draw_alpha(render_params);
+	}
 
 #if DEBUG_NAV_MESH
 	AI::debug_draw_nav_mesh(render_params);

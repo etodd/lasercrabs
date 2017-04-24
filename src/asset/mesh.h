@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const s32 count = 72;
+		const s32 count = 71;
 		const AssetID actor_collision = 0;
 		const AssetID battery = 1;
 		const AssetID character = 2;
@@ -54,33 +54,32 @@ namespace Asset
 		const AssetID parkour = 42;
 		const AssetID parkour_headless = 43;
 		const AssetID plane = 44;
-		const AssetID reticle_dash = 45;
-		const AssetID rocket_base = 46;
-		const AssetID rocket_pod = 47;
-		const AssetID rope_base = 48;
-		const AssetID sailor = 49;
-		const AssetID seven = 50;
-		const AssetID shop = 51;
-		const AssetID shop_collision = 52;
-		const AssetID sky_decal = 53;
-		const AssetID sky_pattern = 54;
-		const AssetID skybox = 55;
-		const AssetID spawn = 56;
-		const AssetID sphere = 57;
-		const AssetID sphere_highres = 58;
-		const AssetID support = 59;
-		const AssetID support2 = 60;
-		const AssetID terminal = 61;
-		const AssetID terminal_collision = 62;
-		const AssetID tram_collision = 63;
-		const AssetID tram_collision_door = 64;
-		const AssetID tram_doors = 65;
-		const AssetID tram_mesh = 66;
-		const AssetID tram_mesh_1 = 67;
-		const AssetID tram_runner = 68;
-		const AssetID tri_tube = 69;
-		const AssetID turret_base = 70;
-		const AssetID turret_top = 71;
+		const AssetID rocket_base = 45;
+		const AssetID rocket_pod = 46;
+		const AssetID rope_base = 47;
+		const AssetID sailor = 48;
+		const AssetID seven = 49;
+		const AssetID shop = 50;
+		const AssetID shop_collision = 51;
+		const AssetID sky_decal = 52;
+		const AssetID sky_pattern = 53;
+		const AssetID skybox = 54;
+		const AssetID spawn = 55;
+		const AssetID sphere = 56;
+		const AssetID sphere_highres = 57;
+		const AssetID support = 58;
+		const AssetID support2 = 59;
+		const AssetID terminal = 60;
+		const AssetID terminal_collision = 61;
+		const AssetID tram_collision = 62;
+		const AssetID tram_collision_door = 63;
+		const AssetID tram_doors = 64;
+		const AssetID tram_mesh = 65;
+		const AssetID tram_mesh_1 = 66;
+		const AssetID tram_runner = 67;
+		const AssetID tri_tube = 68;
+		const AssetID turret_base = 69;
+		const AssetID turret_top = 70;
 	}
 }
 

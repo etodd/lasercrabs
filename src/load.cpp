@@ -57,6 +57,7 @@ s32 Loader::armature_count;
 s32 Loader::animation_count;
 
 #define config_filename "config.txt"
+#define config_version 1
 #define mod_manifest_filename "mod.json"
 #if DEBUG
 	#define default_master_server "127.0.0.1"
@@ -167,8 +168,14 @@ InputBinding input_binding(cJSON* parent, const char* key, const InputBinding& d
 
 	InputBinding binding;
 	binding.key1 = KeyCode(Json::get_s32(json, "key1", s32(default_value.key1)));
+	if (s32(binding.key1) < 0 || s32(binding.key1) >= s32(KeyCode::count))
+		binding.key1 = default_value.key1;
 	binding.key2 = KeyCode(Json::get_s32(json, "key2", s32(default_value.key2)));
+	if (s32(binding.key2) < 0 || s32(binding.key2) >= s32(KeyCode::count))
+		binding.key2 = default_value.key2;
 	binding.btn = Gamepad::Btn(Json::get_s32(json, "btn", s32(default_value.btn)));
+	if (s32(binding.btn) < 0 || s32(binding.btn) >= s32(Gamepad::Btn::count))
+		binding.btn = Gamepad::Btn(default_value.btn);
 	return binding;
 }
 
@@ -189,6 +196,11 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	char path[MAX_PATH_LENGTH];
 	user_data_path(path, config_filename);
 	cJSON* json = Json::load(path);
+	if (Json::get_s32(json, "version") != config_version)
+	{
+		Json::json_free(json);
+		json = nullptr;
+	}
 
 	Settings::width = Json::get_s32(json, "width", default_width);
 	Settings::height = Json::get_s32(json, "height", default_height);
@@ -220,26 +232,26 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
 		Settings::Gamepad* bindings = &Settings::gamepads[i];
-		bindings->bindings[s32(Controls::Backward)] = input_binding(gamepad, "backward", { KeyCode::S, KeyCode::Down, Gamepad::Btn::DDown });
-		bindings->bindings[s32(Controls::Forward)] = input_binding(gamepad, "forward", { KeyCode::W, KeyCode::Up, Gamepad::Btn::DUp });
-		bindings->bindings[s32(Controls::Left)] = input_binding(gamepad, "left", { KeyCode::A, KeyCode::Left, Gamepad::Btn::DLeft });
-		bindings->bindings[s32(Controls::Right)] = input_binding(gamepad, "right", { KeyCode::D, KeyCode::Right, Gamepad::Btn::DRight });
-		bindings->bindings[s32(Controls::Primary)] = input_binding(gamepad, "primary", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::RightTrigger });
-		bindings->bindings[s32(Controls::Zoom)] = input_binding(gamepad, "zoom", { KeyCode::MouseRight, KeyCode::Q, Gamepad::Btn::LeftTrigger });
-		bindings->bindings[s32(Controls::Ability1)] = input_binding(gamepad, "ability1", { KeyCode::D1, KeyCode::None, Gamepad::Btn::X });
-		bindings->bindings[s32(Controls::Ability2)] = input_binding(gamepad, "ability2", { KeyCode::D2, KeyCode::None, Gamepad::Btn::Y });
-		bindings->bindings[s32(Controls::Ability3)] = input_binding(gamepad, "ability3", { KeyCode::D3, KeyCode::None, Gamepad::Btn::B });
-		bindings->bindings[s32(Controls::Interact)] = input_binding(gamepad, "interact", { KeyCode::Space, KeyCode::Return, Gamepad::Btn::A });
-		bindings->bindings[s32(Controls::InteractSecondary)] = input_binding(gamepad, "interact_secondary", { KeyCode::F, KeyCode::None, Gamepad::Btn::A });
-		bindings->bindings[s32(Controls::Scoreboard)] = input_binding(gamepad, "scoreboard", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::Back });
-		bindings->bindings[s32(Controls::Jump)] = input_binding(gamepad, "jump", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightTrigger });
-		bindings->bindings[s32(Controls::Parkour)] = input_binding(gamepad, "parkour", { KeyCode::LShift, KeyCode::None, Gamepad::Btn::LeftTrigger });
-		bindings->bindings[s32(Controls::Slide)] = input_binding(gamepad, "slide", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::LeftShoulder });
+		bindings->bindings[s32(Controls::Backward)] = input_binding(gamepad, "backward", { Gamepad::Btn::DDown, KeyCode::S, KeyCode::Down, });
+		bindings->bindings[s32(Controls::Forward)] = input_binding(gamepad, "forward", { Gamepad::Btn::DUp, KeyCode::W, KeyCode::Up, });
+		bindings->bindings[s32(Controls::Left)] = input_binding(gamepad, "left", { Gamepad::Btn::DLeft, KeyCode::A, KeyCode::Left, });
+		bindings->bindings[s32(Controls::Right)] = input_binding(gamepad, "right", { Gamepad::Btn::DRight, KeyCode::D, KeyCode::Right, });
+		bindings->bindings[s32(Controls::Primary)] = input_binding(gamepad, "primary", { Gamepad::Btn::RightTrigger, KeyCode::MouseLeft, KeyCode::E, });
+		bindings->bindings[s32(Controls::Zoom)] = input_binding(gamepad, "zoom", { Gamepad::Btn::LeftTrigger, KeyCode::MouseRight, KeyCode::Q, });
+		bindings->bindings[s32(Controls::Ability1)] = input_binding(gamepad, "ability1", { Gamepad::Btn::X, KeyCode::D1, KeyCode::None, });
+		bindings->bindings[s32(Controls::Ability2)] = input_binding(gamepad, "ability2", { Gamepad::Btn::Y, KeyCode::D2, KeyCode::None, });
+		bindings->bindings[s32(Controls::Ability3)] = input_binding(gamepad, "ability3", { Gamepad::Btn::B, KeyCode::D3, KeyCode::None, });
+		bindings->bindings[s32(Controls::Interact)] = input_binding(gamepad, "interact", { Gamepad::Btn::A, KeyCode::Space, KeyCode::Return, });
+		bindings->bindings[s32(Controls::InteractSecondary)] = input_binding(gamepad, "interact_secondary", { Gamepad::Btn::A, KeyCode::F, KeyCode::None, });
+		bindings->bindings[s32(Controls::Scoreboard)] = input_binding(gamepad, "scoreboard", { Gamepad::Btn::Back, KeyCode::Tab, KeyCode::None, });
+		bindings->bindings[s32(Controls::Jump)] = input_binding(gamepad, "jump", { Gamepad::Btn::RightTrigger, KeyCode::Space, KeyCode::None, });
+		bindings->bindings[s32(Controls::Parkour)] = input_binding(gamepad, "parkour", { Gamepad::Btn::LeftTrigger, KeyCode::LShift, KeyCode::None, });
+		bindings->bindings[s32(Controls::Slide)] = input_binding(gamepad, "slide", { Gamepad::Btn::LeftShoulder, KeyCode::MouseLeft, KeyCode::E, });
 
 		// these bindings cannot be changed
-		bindings->bindings[s32(Controls::Start)] = { KeyCode::Return, KeyCode::None, Gamepad::Btn::Start };
-		bindings->bindings[s32(Controls::Cancel)] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::B };
-		bindings->bindings[s32(Controls::Pause)] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::Start };
+		bindings->bindings[s32(Controls::Start)] = { Gamepad::Btn::Start, KeyCode::Return, KeyCode::None, };
+		bindings->bindings[s32(Controls::Cancel)] = { Gamepad::Btn::B, KeyCode::Escape, KeyCode::None, };
+		bindings->bindings[s32(Controls::Pause)] = { Gamepad::Btn::Start, KeyCode::Escape, KeyCode::None, };
 
 		bindings->invert_y = Json::get_s32(gamepad, "invert_y", 0);
 		bindings->zoom_toggle = Json::get_s32(gamepad, "zoom_toggle", 0);
@@ -250,13 +262,16 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	strncpy(Settings::master_server, Json::get_string(json, "master_server", default_master_server), MAX_PATH_LENGTH - 1);
 	Settings::secret = Json::get_s32(json, "secret");
 
-	if (!json)
+	if (json)
+		Json::json_free(json);
+	else
 		settings_save(); // failed to load the config file; save our own
 }
 
 void Loader::settings_save()
 {
 	cJSON* json = cJSON_CreateObject();
+	cJSON_AddNumberToObject(json, "version", config_version);
 	cJSON_AddNumberToObject(json, "width", Settings::width);
 	cJSON_AddNumberToObject(json, "height", Settings::height);
 	cJSON_AddNumberToObject(json, "fullscreen", Settings::fullscreen);

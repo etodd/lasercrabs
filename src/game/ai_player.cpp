@@ -255,11 +255,12 @@ void add_memory(Array<PlayerAI::Memory>* memories, Entity* entity, const Vec3& p
 	}
 }
 
-enum class MemoryStatus
+enum class MemoryStatus : s8
 {
 	Update, // add or update existing memory
 	Keep, // keep any existing memory, but don't update it
 	Forget, // ignore and delete any existing memory
+	count,
 };
 
 enum UpdateMemoryFlags
@@ -392,7 +393,7 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 				// we're only going to be crawling and dashing there
 				// crawl toward it, but if it's a target we're trying to shoot/dash through, don't get too close
 				if (distance_to_target > DRONE_RADIUS * 2.0f)
-					get<Drone>()->crawl(to_target_crawl, u);
+					get<Drone>()->crawl(to_target_crawl, u.time.delta);
 			}
 			else
 			{
@@ -404,7 +405,7 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 				Vec3 old_lerped_pos = get<Drone>()->lerped_pos;
 				Quat old_lerped_rot = get<Drone>()->lerped_rotation;
 				Transform* old_parent = get<Transform>()->parent.ref();
-				get<Drone>()->crawl(to_target_crawl, u);
+				get<Drone>()->crawl(to_target_crawl, u.time.delta);
 
 				Vec3 new_pos = get<Transform>()->absolute_pos();
 
@@ -528,7 +529,7 @@ b8 PlayerControlAI::go(const Update& u, const AI::DronePathNode& node_prev, cons
 			{
 				// we're only going to be crawling and dashing there
 				// crawl toward it, but if it's a target we're trying to shoot/dash through, don't get too close
-				get<Drone>()->crawl(to_target_crawl, u);
+				get<Drone>()->crawl(to_target_crawl, u.time.delta);
 			}
 			else
 			{
@@ -552,7 +553,7 @@ b8 PlayerControlAI::go(const Update& u, const AI::DronePathNode& node_prev, cons
 					Vec3 old_lerped_pos = get<Drone>()->lerped_pos;
 					Quat old_lerped_rot = get<Drone>()->lerped_rotation;
 					Transform* old_parent = get<Transform>()->parent.ref();
-					get<Drone>()->crawl(to_target_crawl, u);
+					get<Drone>()->crawl(to_target_crawl, u.time.delta);
 
 					Vec3 new_pos = get<Transform>()->absolute_pos();
 
@@ -583,7 +584,7 @@ b8 PlayerControlAI::go(const Update& u, const AI::DronePathNode& node_prev, cons
 				{
 					// we can't currently get to the target
 					// crawl toward our current path node in an attempt to get a clear shot
-					get<Drone>()->crawl(node_prev.pos - get<Transform>()->absolute_pos(), u);
+					get<Drone>()->crawl(node_prev.pos - get<Transform>()->absolute_pos(), u.time.delta);
 				}
 			}
 		}
@@ -1337,7 +1338,7 @@ void PlayerControlAI::update(const Update& u)
 					{
 						// cooldown is done; we can shoot.
 						Vec3 look_dir = common->look_dir();
-						get<Drone>()->crawl(look_dir, u);
+						get<Drone>()->crawl(look_dir, u.time.delta);
 						if (get<Drone>()->can_shoot(look_dir))
 							get<Drone>()->go(look_dir);
 					}

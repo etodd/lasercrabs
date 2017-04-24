@@ -1566,7 +1566,7 @@ void Turret::update_server(const Update& u)
 		if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, BOLT_SPEED, nullptr, &aim_pos))
 			aim_pos = target.ref()->get<Transform>()->absolute_pos();
 		gun_pos += Vec3::normalize(aim_pos - gun_pos) * TURRET_RADIUS;
-		Net::finalize(World::create<BoltEntity>(team, nullptr, gun_pos, aim_pos - gun_pos));
+		Net::finalize(World::create<BoltEntity>(team, nullptr, Bolt::Type::Normal, gun_pos, aim_pos - gun_pos));
 		cooldown += TURRET_COOLDOWN;
 	}
 }
@@ -1781,10 +1781,11 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 #define TELEPORTER_RADIUS 0.5f
 #define BOLT_THICKNESS 0.05f
 #define BOLT_MAX_LIFETIME (DRONE_MAX_DISTANCE * 0.99f) / BOLT_SPEED
-#define BOLT_DAMAGE 1
+#define BOLT_NORMAL_DAMAGE 1
+#define BOLT_PLAYER_DAMAGE 3
 #define BOLT_DRONE_DAMAGE 1
 #define BOLT_REFLECT_DAMAGE 4
-BoltEntity::BoltEntity(AI::Team team, PlayerManager* owner, const Vec3& abs_pos, const Vec3& velocity)
+BoltEntity::BoltEntity(AI::Team team, PlayerManager* owner, Bolt::Type type, const Vec3& abs_pos, const Vec3& velocity)
 {
 	Vec3 dir = Vec3::normalize(velocity);
 	Transform* transform = create<Transform>();
@@ -1802,6 +1803,7 @@ BoltEntity::BoltEntity(AI::Team team, PlayerManager* owner, const Vec3& abs_pos,
 	b->team = team;
 	b->owner = owner;
 	b->velocity = dir * BOLT_SPEED;
+	b->type = type;
 }
 
 namespace BoltNet
@@ -1924,7 +1926,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 	if (hit_object->has<Health>())
 	{
 		basis = Vec3::normalize(velocity);
-		s8 damage = BOLT_DAMAGE;
+		s8 damage = type == Type::Player ? BOLT_PLAYER_DAMAGE : BOLT_NORMAL_DAMAGE;
 		if (hit_object->has<Parkour>()) // player is invincible while rolling and sliding
 		{
 			Parkour::State state = hit_object->get<Parkour>()->fsm.current;

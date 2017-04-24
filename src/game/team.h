@@ -25,18 +25,20 @@ namespace Net
 
 struct AbilityInfo
 {
-	enum class Type
+	enum class Type : s8
 	{
 		Build,
 		Shoot,
 		Other,
 		count,
 	};
-	Type type;
+
+	static AbilityInfo list[s32(Ability::count)];
+
 	AssetID icon;
 	s16 spawn_cost;
+	Type type;
 	b8 rapid_fire;
-	static AbilityInfo list[s32(Ability::count)];
 };
 
 struct UpgradeInfo
@@ -130,15 +132,15 @@ struct PlayerManager : public ComponentType<PlayerManager>
 
 	struct Visibility
 	{
-		enum class Type
+		enum class Type : s8
 		{
 			Direct,
 			Indirect,
 			count,
 		};
 
-		Type type;
 		Ref<Entity> entity;
+		Type type;
 	};
 
 	static s32 visibility_hash(const PlayerManager*, const PlayerManager*);

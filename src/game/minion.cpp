@@ -212,6 +212,9 @@ b8 Minion::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 
 Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 {
+	if (!Game::level.has_feature(Game::FeatureLevel::TutorialAll)) // in tutorial, don't chase after targets
+		return nullptr;
+
 	// if the target is in the wrong direction, add a cost to it
 	r32 direction_cost = direction.length_squared() > 0.0f ? 100.0f : 0.0f;
 
@@ -715,7 +718,7 @@ void Minion::fire(const Vec3& target)
 {
 	vi_assert(Game::level.local);
 	Vec3 hand = aim_pos();
-	Net::finalize(World::create<BoltEntity>(get<AIAgent>()->team, owner.ref(), hand, target - hand));
+	Net::finalize(World::create<BoltEntity>(get<AIAgent>()->team, owner.ref(), Bolt::Type::Normal, hand, target - hand));
 
 	Animator::Layer* layer = &get<Animator>()->layers[0];
 	layer->speed = 1.0f;

@@ -68,7 +68,7 @@ struct MessageFrame // container for the amount of messages that can come in a s
 	~MessageFrame() {}
 };
 
-enum class ClientPacket
+enum class ClientPacket : s8
 {
 	Connect,
 	Update,
@@ -76,7 +76,7 @@ enum class ClientPacket
 	count,
 };
 
-enum class ServerPacket
+enum class ServerPacket : s8
 {
 	Init,
 	Update,
@@ -2798,10 +2798,10 @@ r32 rtt(const PlayerHuman* p, SequenceID client_seq)
 	{
 		SequenceID server_seq = frame->remote_sequence_id;
 		const StateFrame* state_frame = state_frame_by_sequence(state_common.state_history, server_seq);
-		return (state_common.timestamp - state_frame->timestamp) + NET_INTERPOLATION_DELAY;
+		return state_common.timestamp - state_frame->timestamp;
 	}
 	else
-		return client->rtt + NET_INTERPOLATION_DELAY;
+		return client->rtt;
 }
 
 }
@@ -4001,8 +4001,6 @@ b8 msg_finalize(StreamWrite* p)
 }
 
 // this is meant for external consumption in the game code.
-// on the server, it includes NET_INTERPOLATION_DELAY so the server can now exactly what the client's state is
-// don't use this inside net.cpp, because NET_INTERPOLATION_DELAY should not normally be included in RTT
 r32 rtt(const PlayerHuman* p)
 {
 	if (Game::level.local && p->local)
@@ -4012,7 +4010,7 @@ r32 rtt(const PlayerHuman* p)
 	const Server::Client* client = Server::client_for_player(p);
 
 	if (client)
-		return client->rtt + NET_INTERPOLATION_DELAY;
+		return client->rtt;
 	else
 		return 0.0f;
 #else

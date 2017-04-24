@@ -25,7 +25,7 @@ struct ResourceInfo
 	s16 cost;
 };
 
-enum class State
+enum class State : s8
 {
 	Hidden,
 	SplitscreenSelectOptions,
@@ -38,7 +38,7 @@ enum class State
 	count,
 };
 
-enum class Tab
+enum class Tab : s8
 {
 	Map,
 	Inventory,

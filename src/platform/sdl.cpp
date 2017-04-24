@@ -298,37 +298,37 @@ namespace VI
 					gamepad->left_trigger = r32(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT)) / 32767.0f;
 					gamepad->right_trigger = r32(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) / 32767.0f;
 					if (gamepad->left_trigger > 0.5f)
-						gamepad->btns |= Gamepad::Btn::LeftTrigger;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::LeftTrigger);
 					if (gamepad->right_trigger > 0.5f)
-						gamepad->btns |= Gamepad::Btn::RightTrigger;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::RightTrigger);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER))
-						gamepad->btns |= Gamepad::Btn::LeftShoulder;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::LeftShoulder);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER))
-						gamepad->btns |= Gamepad::Btn::RightShoulder;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::RightShoulder);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSTICK))
-						gamepad->btns |= Gamepad::Btn::LeftClick;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::LeftClick);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSTICK))
-						gamepad->btns |= Gamepad::Btn::RightClick;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::RightClick);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_A))
-						gamepad->btns |= Gamepad::Btn::A;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::A);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_B))
-						gamepad->btns |= Gamepad::Btn::B;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::B);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_X))
-						gamepad->btns |= Gamepad::Btn::X;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::X);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_Y))
-						gamepad->btns |= Gamepad::Btn::Y;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::Y);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_BACK))
-						gamepad->btns |= Gamepad::Btn::Back;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::Back);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_START))
-						gamepad->btns |= Gamepad::Btn::Start;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::Start);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_UP))
-						gamepad->btns |= Gamepad::Btn::DUp;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::DUp);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN))
-						gamepad->btns |= Gamepad::Btn::DDown;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::DDown);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT))
-						gamepad->btns |= Gamepad::Btn::DLeft;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::DLeft);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT))
-						gamepad->btns |= Gamepad::Btn::DRight;
+						gamepad->btns |= 1 << s32(Gamepad::Btn::DRight);
 					if (gamepad->rumble > 0.0f)
 						SDL_HapticRumblePlay(haptics[i], gamepad->rumble, 33);
 					gamepad->rumble = 0.0f;

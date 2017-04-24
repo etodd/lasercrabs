@@ -13,7 +13,7 @@ struct Armature;
 
 struct Animator : public ComponentType<Animator>
 {
-	enum class Behavior
+	enum class Behavior : s8
 	{
 		Default,
 		Loop,
@@ -73,7 +73,7 @@ struct Animator : public ComponentType<Animator>
 		Ref<Transform> transform;
 	};
 
-	enum class OverrideMode
+	enum class OverrideMode : s8
 	{
 		Offset,
 		Override,

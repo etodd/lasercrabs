@@ -107,7 +107,7 @@ b8 sequence_older_than(SequenceID, SequenceID);
 s32 sequence_relative_to(SequenceID, SequenceID);
 SequenceID sequence_advance(SequenceID, s32);
 
-enum class Resolution
+enum class Resolution : s8
 {
 	Low,
 	Medium,

@@ -82,7 +82,7 @@ btScalar DroneRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult&
 namespace DroneNet
 {
 
-enum class Message
+enum class Message : s8
 {
 	FlyStart,
 	FlyDone,
@@ -816,7 +816,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 									break;
 							}
 
-							Entity* bolt = World::create<BoltEntity>(manager->team.ref()->team(), manager, pos_bolt, dir_normalized);
+							Entity* bolt = World::create<BoltEntity>(manager->team.ref()->team(), manager, Bolt::Type::Player, pos_bolt, dir_normalized);
 							Net::finalize(bolt);
 							if (closest_hit_entity) // we hit something, register it instantly
 								bolt->get<Bolt>()->hit_entity(closest_hit_entity, closest_hit, closest_hit_normal);
@@ -824,7 +824,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						else
 						{
 							// not a remote player; no lag compensation needed
-							Net::finalize(World::create<BoltEntity>(manager->team.ref()->team(), manager, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
+							Net::finalize(World::create<BoltEntity>(manager->team.ref()->team(), manager, Bolt::Type::Player, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
 						}
 					}
 					else
@@ -1569,7 +1569,7 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 		// locally controlled; bounce instantly
 		drone_reflection_execute(this, entity, new_dir);
 		if (!Game::level.local && has<PlayerControlHuman>())
-			remote_reflection_timer = Net::rtt(get<PlayerControlHuman>()->player.ref()) + DRONE_REFLECTION_TIME_TOLERANCE;
+			remote_reflection_timer = Net::rtt(get<PlayerControlHuman>()->player.ref()) + NET_INTERPOLATION_DELAY + DRONE_REFLECTION_TIME_TOLERANCE;
 	}
 }
 
@@ -1618,7 +1618,7 @@ void Drone::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos,
 	}
 }
 
-void Drone::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const Update& u, r32 speed)
+void Drone::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, r32 dt, r32 speed)
 {
 	Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 
@@ -1631,14 +1631,14 @@ void Drone::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, cons
 	{
 		dir_flattened /= dir_flattened_length;
 		Vec3 pos = get<Transform>()->absolute_pos();
-		Vec3 next_pos = pos + dir_flattened * u.time.delta * speed;
+		Vec3 next_pos = pos + dir_flattened * dt * speed;
 		Vec3 wall_ray_start = next_pos + wall_normal * DRONE_RADIUS;
 		Vec3 wall_ray_end = next_pos + wall_normal * DRONE_RADIUS * -2.0f;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray_start, wall_ray_end);
 		Physics::raycast(&ray_callback, ~DRONE_INACCESSIBLE_MASK & ~ally_force_field_mask());
 
-		if (ray_callback.hasHit())
+		if (ray_callback.hasHit() && !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
 		{
 			// check for obstacles
 			btCollisionWorld::ClosestRayResultCallback ray_callback2(pos, next_pos + dir_flattened * DRONE_RADIUS);
@@ -1699,7 +1699,7 @@ void Drone::move(const Vec3& new_pos, const Quat& new_rotation, const ID entity_
 	update_offset();
 }
 
-void Drone::crawl(const Vec3& dir_raw, const Update& u)
+void Drone::crawl(const Vec3& dir_raw, r32 dt)
 {
 	r32 dir_length = dir_raw.length();
 
@@ -1716,7 +1716,7 @@ void Drone::crawl(const Vec3& dir_raw, const Update& u)
 		if (dir_normalized.dot(wall_normal) > 0.0f)
 		{
 			// first, try to climb in the actual direction requested
-			Vec3 next_pos = pos + dir_normalized * u.time.delta * speed;
+			Vec3 next_pos = pos + dir_normalized * dt * speed;
 			
 			// check for obstacles
 			Vec3 ray_end = next_pos + (dir_normalized * DRONE_RADIUS * 1.5f);
@@ -1737,7 +1737,7 @@ void Drone::crawl(const Vec3& dir_raw, const Update& u)
 
 		dir_flattened /= dir_flattened_length;
 
-		Vec3 next_pos = pos + dir_flattened * u.time.delta * speed;
+		Vec3 next_pos = pos + dir_flattened * dt * speed;
 
 		// check for obstacles
 		{
@@ -1750,7 +1750,7 @@ void Drone::crawl(const Vec3& dir_raw, const Update& u)
 				if (!transfer_wall(dir_normalized, ray_callback))
 				{
 					// Stay on our current wall
-					crawl_wall_edge(dir_normalized, ray_callback.m_hitNormalWorld, u, speed);
+					crawl_wall_edge(dir_normalized, ray_callback.m_hitNormalWorld, dt, speed);
 				}
 				return;
 			}
@@ -1791,7 +1791,7 @@ void Drone::crawl(const Vec3& dir_raw, const Update& u)
 				else
 				{
 					// stay on our current wall
-					crawl_wall_edge(dir_normalized, other_wall_normal, u, speed);
+					crawl_wall_edge(dir_normalized, other_wall_normal, dt, speed);
 				}
 			}
 		}
@@ -1827,7 +1827,7 @@ void Drone::crawl(const Vec3& dir_raw, const Update& u)
 				{
 					// stay on our current wall
 					Vec3 other_wall_normal = Vec3(ray_callback.m_hitNormalWorld);
-					crawl_wall_edge(dir_normalized, other_wall_normal, u, speed);
+					crawl_wall_edge(dir_normalized, other_wall_normal, dt, speed);
 				}
 			}
 		}
@@ -1925,16 +1925,13 @@ void Drone::update_server(const Update& u)
 		Vec3 next_position;
 		if (s == State::Dash)
 		{
-			dash_timer -= u.time.delta;
-			if (dash_timer <= 0.0f)
+			get<Drone>()->crawl(velocity, vi_min(dash_timer, u.time.delta));
+			next_position = get<Transform>()->absolute_pos();
+			dash_timer = vi_max(0.0f, dash_timer - u.time.delta);
+			if (dash_timer == 0.0f)
 			{
 				DroneNet::finish_dashing(this);
 				return;
-			}
-			else
-			{
-				get<Drone>()->crawl(velocity, u);
-				next_position = get<Transform>()->absolute_pos();
 			}
 		}
 		else
@@ -1972,6 +1969,7 @@ void Drone::update_server(const Update& u)
 				else
 				{
 					// we detected the hit locally, but the client never acknowledged it. ignore the reflection and keep going straight.
+					vi_assert(remote_reflection_dir.length_squared() > 0.0f);
 					velocity = remote_reflection_dir; // restore original velocity
 				}
 				Vec3 position = get<Transform>()->absolute_pos();
@@ -2272,8 +2270,8 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 				ray_callback.m_hitPointWorld,
 				ray_callback.m_hitNormalWorld,
 				(ray_callback.m_hitPointWorld - ray_start).length() / distance_total,
-				type,
 				&Entity::list[ray_callback.m_collisionObject->getUserIndex()],
+				type,
 			};
 			result->hits.add(hit);
 
@@ -2312,8 +2310,8 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 				intersection,
 				Vec3::normalize(intersection - p),
 				(intersection - ray_start).length() / distance_total,
-				i.item()->has<Shield>() ? Hit::Type::Shield : Hit::Type::Target,
 				i.item()->entity(),
+				i.item()->has<Shield>() ? Hit::Type::Shield : Hit::Type::Target,
 			});
 		}
 	}

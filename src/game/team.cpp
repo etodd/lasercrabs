@@ -44,57 +44,57 @@ r32 Team::match_time;
 AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 {
 	{
-		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_minion,
 		20,
+		AbilityInfo::Type::Build,
 		false,
 	},
 	{
-		AbilityInfo::Type::Shoot,
 		Asset::Mesh::icon_bolter,
 		10,
+		AbilityInfo::Type::Shoot,
 		true,
 	},
 	{
-		AbilityInfo::Type::Other,
 		Asset::Mesh::icon_active_armor,
 		10,
+		AbilityInfo::Type::Other,
 		false,
 	},
 	{
-		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_sensor,
 		15,
+		AbilityInfo::Type::Build,
 		false,
 	},
 	{
-		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_drone,
 		20,
+		AbilityInfo::Type::Build,
 		false,
 	},
 	{
-		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_force_field,
 		40,
+		AbilityInfo::Type::Build,
 		false,
 	},
 	{
-		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_rocket,
 		10,
+		AbilityInfo::Type::Build,
 		false,
 	},
 	{
-		AbilityInfo::Type::Shoot,
 		Asset::Mesh::icon_sniper,
 		10,
+		AbilityInfo::Type::Shoot,
 		false,
 	},
 	{
-		AbilityInfo::Type::Shoot,
 		Asset::Mesh::icon_grenade,
 		20,
+		AbilityInfo::Type::Shoot,
 		false,
 	},
 };
@@ -178,7 +178,7 @@ void Team::awake_all()
 	winner = nullptr;
 	score_summary.length = 0;
 	for (s32 i = 0; i < MAX_PLAYERS * MAX_PLAYERS; i++)
-		PlayerManager::visibility[i] = { PlayerManager::Visibility::Type::Direct, nullptr };
+		PlayerManager::visibility[i] = { nullptr, PlayerManager::Visibility::Type::Direct };
 }
 
 s32 Team::teams_with_active_players()
@@ -426,7 +426,7 @@ void update_visibility(const Update& u)
 			if (i_team == j_team)
 				continue;
 
-			PlayerManager::Visibility detected = { PlayerManager::Visibility::Type::Direct, nullptr };
+			PlayerManager::Visibility detected = { nullptr, PlayerManager::Visibility::Type::Direct };
 
 			// if j_decoy is at all visible, it will be detected first
 
@@ -1385,7 +1385,7 @@ b8 PlayerManager::is_local() const
 
 namespace PlayerManagerNet
 {
-	enum class Message
+	enum class Message : s8
 	{
 		CanSpawn,
 		ScoreAccept,

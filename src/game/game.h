@@ -37,7 +37,7 @@ namespace VI
 
 	struct Game
 	{
-		enum class Mode
+		enum class Mode : s8
 		{
 			Special,
 			Parkour,
@@ -46,7 +46,7 @@ namespace VI
 			count = None,
 		};
 
-		enum class FeatureLevel
+		enum class FeatureLevel : s8
 		{
 			Base,
 			Batteries,

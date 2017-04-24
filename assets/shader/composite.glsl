@@ -31,7 +31,6 @@ uniform sampler2D lighting_buffer;
 uniform sampler2D depth_buffer;
 uniform sampler2D ssao_buffer;
 uniform mat4 p;
-uniform vec3 wall_normal;
 uniform float range;
 uniform vec3 range_center;
 
@@ -53,7 +52,7 @@ void main()
 		float depth = p[3][2] / (clip_depth_scaled - p[2][2]);
 		vec3 pos = (view_ray * depth) - range_center;
 		if (dot(pos, pos) < range * range)
-			final_color = lighting_color * (dot(pos, wall_normal) > 0.0 ? 1.0 : 0.4);
+			final_color = lighting_color;
 		else
 			final_color = vec3(0, 0, 0);
 	}

@@ -37,7 +37,7 @@ struct SkinnedModel : public ComponentType<SkinnedModel>
 	void alpha_mode(AlphaMode);
 
 private:
-	enum class ObstructingBehavior
+	enum class ObstructingBehavior : s8
 	{
 		Normal,
 		Hide,

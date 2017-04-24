@@ -340,7 +340,7 @@ b8 InputState::get(Controls c, s32 gamepad) const
 #else
 	const InputBinding& binding = Settings::gamepads[gamepad].bindings[s32(c)];
 	return (gamepad == 0 && (keys.get(s32(binding.key1)) || (binding.key2 != KeyCode::None && keys.get(s32(binding.key2))))) // keys
-		|| (gamepads[gamepad].btns & s32(binding.btn)); // gamepad buttons
+		|| (gamepads[gamepad].btns & (1 << s32(binding.btn))); // gamepad buttons
 #endif
 }
 

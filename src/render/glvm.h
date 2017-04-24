@@ -6,7 +6,7 @@
 namespace VI
 {
 
-enum class RenderOp
+enum class RenderOp : s8
 {
 	AllocUniform,
 	Viewport,
@@ -45,9 +45,10 @@ enum class RenderOp
 	BindFramebuffer,
 	FreeFramebuffer,
 	BlitFramebuffer,
+	count,
 };
 
-enum class RenderPrimitiveMode
+enum class RenderPrimitiveMode : s8
 {
 	Triangles,
 	TriangleStrip,
@@ -56,64 +57,73 @@ enum class RenderPrimitiveMode
 	LineStrip,
 	LineLoop,
 	Points,
+	count,
 };
 
-enum class RenderBlendMode
+enum class RenderBlendMode : s8
 {
 	Opaque,
 	Alpha,
 	Additive,
 	AlphaDestination,
 	Multiply,
+	count,
 };
 
-enum class RenderDynamicTextureType
+enum class RenderDynamicTextureType : s8
 {
 	Color,
 	ColorMultisample,
 	Depth,
 	DepthMultisample,
+	count,
 };
 
 enum class RenderTextureFilter
 {
 	Nearest,
 	Linear,
+	count,
 };
 
-enum class RenderTextureWrap
+enum class RenderTextureWrap : s8
 {
 	Repeat,
 	Clamp,
+	count,
 };
 
-enum class RenderTextureCompare
+enum class RenderTextureCompare : s8
 {
 	None,
 	RefToTexture,
+	count,
 };
 
-enum class RenderFramebufferAttachment
+enum class RenderFramebufferAttachment : s8
 {
 	Color0,
 	Color1,
 	Color2,
 	Color3,
 	Depth,
+	count,
 };
 
-enum class RenderCullMode
+enum class RenderCullMode : s8
 {
 	Back,
 	Front,
 	None,
+	count,
 };
 
-enum class RenderFillMode
+enum class RenderFillMode : s8
 {
 	Fill,
 	Line,
 	Point,
+	count,
 };
 
 typedef s8 RenderColorMask;
@@ -123,16 +133,17 @@ struct RenderSync : public SyncBuffer
 {
 };
 
-enum class RenderTextureType
+enum class RenderTextureType : s8
 {
 	Texture2D,
+	count,
 };
 
 void render_init();
 void render(RenderSync*);
 b8 compile_shader(const char*, const char*, s32, u32*, const char* = 0);
 
-enum class RenderTechnique
+enum class RenderTechnique : s8
 {
 	Default,
 	Shadow,
@@ -144,7 +155,7 @@ struct TechniquePrefixes
 	static const char* all[(s32)RenderTechnique::count]; // defined in import_common.cpp
 };
 
-enum class RenderDataType
+enum class RenderDataType : s8
 {
 	R32,
 	Vec2,
@@ -153,6 +164,7 @@ enum class RenderDataType
 	S32,
 	Mat4,
 	Texture,
+	count,
 };
 
 inline size_t render_data_type_size(RenderDataType type)

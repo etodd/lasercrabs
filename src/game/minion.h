@@ -22,7 +22,7 @@ struct Minion : public ComponentType<Minion>
 {
 	struct Goal
 	{
-		enum class Type
+		enum class Type : s8
 		{
 			Position,
 			Target,
@@ -30,11 +30,11 @@ struct Minion : public ComponentType<Minion>
 		};
 
 		Vec3 pos;
-		Type type;
 		Ref<Entity> entity;
+		Type type;
 	};
 
-	enum class PathRequest
+	enum class PathRequest : s8
 	{
 		None,
 		Random,

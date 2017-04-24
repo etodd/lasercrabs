@@ -70,7 +70,7 @@ struct Physics
 
 struct RigidBody : public ComponentType<RigidBody>
 {
-	enum class Type
+	enum class Type : s8
 	{
 		Box,
 		CapsuleX,
@@ -83,7 +83,7 @@ struct RigidBody : public ComponentType<RigidBody>
 
 	struct Constraint
 	{
-		enum class Type
+		enum class Type : s8
 		{
 			ConeTwist,
 			PointToPoint,
@@ -94,9 +94,9 @@ struct RigidBody : public ComponentType<RigidBody>
 		btTransform frame_a;
 		btTransform frame_b;
 		Vec3 limits;
-		Type type;
 		Ref<RigidBody> a;
 		Ref<RigidBody> b;
+		Type type;
 	};
 
 	static PinArray<Constraint, MAX_ENTITIES> global_constraints;
@@ -111,12 +111,12 @@ struct RigidBody : public ComponentType<RigidBody>
 	btRigidBody* btBody;
 	Vec3 size;
 	Vec2 damping; // use set_damping to ensure the btBody will be updated
-	Type type;
 	r32 mass;
 	r32 restitution;
 	AssetID mesh_id;
 	s16 collision_group;
 	s16 collision_filter;
+	Type type;
 	b8 ccd; // continuous collision detection
 	b8 has_constraints;
 

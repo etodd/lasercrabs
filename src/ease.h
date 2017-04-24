@@ -12,7 +12,7 @@ namespace VI
 // Easing functions based on http://www.gizma.com/easing/
 namespace Ease
 {
-	enum class Type
+	enum class Type : s8
 	{
 		Linear,
 		QuadIn,
@@ -36,6 +36,7 @@ namespace Ease
 		CircIn,
 		CircOut,
 		CircInOut,
+		count,
 	};
 
 	static const char* type_names[] =

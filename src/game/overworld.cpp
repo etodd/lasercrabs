@@ -84,7 +84,7 @@ struct WaterEntry
 	Water::Config config;
 };
 
-enum class SplitscreenMode
+enum class SplitscreenMode : s8
 {
 	Custom,
 	Local,
@@ -107,7 +107,7 @@ struct Data
 {
 	struct Inventory
 	{
-		enum class Mode
+		enum class Mode : s8
 		{
 			Normal,
 			Buy,
@@ -117,8 +117,8 @@ struct Data
 		r32 resource_change_time[s32(Resource::count)];
 		r32 timer_buy;
 		Resource resource_selected;
-		Mode mode;
 		s16 buy_quantity;
+		Mode mode;
 	};
 
 	struct Map
@@ -1014,7 +1014,7 @@ b8 zone_can_capture(AssetID zone_id)
 
 namespace OverworldNet
 {
-	enum class Message
+	enum class Message : s8
 	{
 		CaptureOrDefend,
 		ZoneUnderAttack,

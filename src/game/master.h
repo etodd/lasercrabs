@@ -21,7 +21,7 @@ struct CollectibleEntry
 	ID id;
 };
 
-enum class Group
+enum class Group : s8
 {
 	None,
 	WuGang,
@@ -51,7 +51,7 @@ struct Save
 	void reset();
 };
 
-enum class Message
+enum class Message : s8
 {
 	Ack,
 	Ping, // client checking if master is present

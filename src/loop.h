@@ -91,7 +91,7 @@ Mat4 relative_shadow_vp(const Camera& main_camera, const Camera& shadow_camera)
 
 void render_shadows(LoopSync* sync, s32 fbo, const Camera& main_camera, const Camera& shadow_camera)
 {
-	// Render shadows
+	// render shadows
 	sync->write<RenderOp>(RenderOp::BindFramebuffer);
 	sync->write<AssetID>(fbo);
 
@@ -502,19 +502,19 @@ void draw(LoopSync* sync, const Camera* camera)
 	sync->write<RenderOp>(RenderOp::Viewport);
 	sync->write<Rect2>({ camera->viewport.pos, camera->viewport.size });
 
-	// Fill G buffer
+	// fill G buffer
 	{
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
 		sync->write<AssetID>(g_fbo);
 
 		sync->write(RenderOp::Clear);
-		sync->write<b8>(true); // Clear color
-		sync->write<b8>(true); // Clear depth
+		sync->write<b8>(true); // clear color
+		sync->write<b8>(true); // clear depth
 
 		Game::draw_opaque(render_params);
 	}
 
-	// Render override lights
+	// render override lights
 	if (!render_params.camera->flag(CameraFlagColors))
 	{
 		sync->write(RenderOp::DepthTest);
@@ -881,7 +881,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		}
 
 		{
-			// Point lights
+			// point lights
 			sync->write<RenderOp>(RenderOp::CullMode);
 			sync->write<RenderCullMode>(RenderCullMode::Front);
 			sync->write<RenderOp>(RenderOp::BlendMode);
@@ -891,7 +891,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		}
 
 		{
-			// Spot lights
+			// spot lights
 			render_spot_lights(render_params, lighting_fbo, RenderBlendMode::Additive, inv_buffer_size, inverse_view_rotation_only, -1);
 		}
 
@@ -905,11 +905,11 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderOp::Viewport);
 		sync->write<Rect2>(half_viewport);
 
-		// Downsample
+		// downsample
 		{
 			sync->write(RenderOp::Clear);
-			sync->write<b8>(true); // Clear color
-			sync->write<b8>(true); // Clear depth
+			sync->write<b8>(true); // clear color
+			sync->write<b8>(true); // clear depth
 
 			Loader::shader_permanent(Asset::Shader::ssao_downsample);
 			sync->write(RenderOp::Shader);
@@ -1019,7 +1019,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderOp::DepthTest);
 		sync->write<b8>(false);
 
-		// Horizontal blur
+		// horizontal blur
 		{
 			sync->write(RenderOp::BindFramebuffer);
 			sync->write<AssetID>(half_fbo1);
@@ -1054,7 +1054,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Game::screen_quad.mesh);
 		}
 
-		// Vertical blur
+		// vertical blur
 		{
 			sync->write(RenderOp::BindFramebuffer);
 			sync->write<AssetID>(half_fbo2);
@@ -1078,12 +1078,12 @@ void draw(LoopSync* sync, const Camera* camera)
 		}
 	}
 
-	// Post processing
+	// post processing
 
 	sync->write<RenderOp>(RenderOp::Viewport);
 	sync->write<Rect2>(camera->viewport);
 
-	// Composite
+	// composite
 	{
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
 		sync->write<AssetID>(color2_fbo);
@@ -1094,8 +1094,8 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<b8>(true);
 
 		sync->write(RenderOp::Clear);
-		sync->write<b8>(true); // Clear color
-		sync->write<b8>(true); // Clear depth
+		sync->write<b8>(true); // clear color
+		sync->write<b8>(true); // clear depth
 
 		Loader::shader_permanent(Asset::Shader::composite);
 		sync->write(RenderOp::Shader);
@@ -1111,13 +1111,6 @@ void draw(LoopSync* sync, const Camera* camera)
 		if (camera->range > 0.0f)
 		{
 			// we need to mark unreachable and out-of-range areas
-			// set the wall normal so everything behind the wall is marked off
-			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::wall_normal);
-			sync->write(RenderDataType::Vec3);
-			sync->write<s32>(1);
-			sync->write<Vec3>(render_params.camera->clip_planes[0].normal);
-
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::range_center);
 			sync->write(RenderDataType::Vec3);
@@ -1173,7 +1166,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Game::screen_quad.mesh);
 	}
 
-	// Alpha components
+	// alpha components
 	{
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(RenderBlendMode::Alpha);
@@ -1205,7 +1198,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 	// scene is in color2 at this point
 
-	// Edges and UI
+	// edges and UI
 	{
 		if (!Settings::antialiasing)
 			draw_edges(render_params); // draw edges directly on scene
@@ -1286,8 +1279,8 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write(RenderOp::BlitFramebuffer);
 		sync->write(ui_fbo);
-		sync->write(camera->viewport); // Source
-		sync->write(camera->viewport); // Destination
+		sync->write(camera->viewport); // source
+		sync->write(camera->viewport); // destination
 
 		// overlay on to color2
 		{
@@ -1316,9 +1309,9 @@ void draw(LoopSync* sync, const Camera* camera)
 
 	// scene is in color2
 
-	// Bloom
+	// bloom
 	{
-		// Downsample
+		// downsample
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
 		sync->write<AssetID>(half_fbo1);
 
@@ -1350,7 +1343,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderPrimitiveMode::Triangles);
 		sync->write(Game::screen_quad.mesh);
 
-		// Blur x
+		// blur x
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
 		sync->write<AssetID>(half_fbo3);
 
@@ -1376,7 +1369,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderPrimitiveMode::Triangles);
 		sync->write(Game::screen_quad.mesh);
 
-		// Blur y
+		// blur y
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
 		sync->write<AssetID>(half_fbo2);
 
@@ -1423,7 +1416,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Game::screen_quad.mesh);
 	}
 
-	// Composite bloom
+	// composite bloom
 	sync->write<RenderOp>(RenderOp::BlendMode);
 	sync->write<RenderBlendMode>(RenderBlendMode::Additive);
 	{
@@ -1618,7 +1611,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 
 	while (!sync_render->quit && !Game::quit)
 	{
-		// Update
+		// update loop
 
 		{
 			// limit framerate

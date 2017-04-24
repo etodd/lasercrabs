@@ -27,7 +27,7 @@ struct RigidBody;
 
 struct Parkour : public ComponentType<Parkour>
 {
-	enum class State
+	enum class State : s8
 	{
 		Normal,
 		Mantle,
@@ -39,12 +39,13 @@ struct Parkour : public ComponentType<Parkour>
 		count,
 	};
 
-	enum class WallRunState
+	enum class WallRunState : s8
 	{
 		Left,
 		Right,
 		Forward,
 		None,
+		count,
 	};
 
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);

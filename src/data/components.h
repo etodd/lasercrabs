@@ -42,7 +42,7 @@ struct Transform : public ComponentType<Transform>
 
 struct PointLight : public ComponentType<PointLight>
 {
-	enum class Type
+	enum class Type : s8
 	{
 		Normal = 1,
 		Override = 1 << 1,
@@ -53,8 +53,8 @@ struct PointLight : public ComponentType<PointLight>
 	Vec3 color;
 	Vec3 offset;
 	r32 radius;
-	Type type;
 	RenderMask mask;
+	Type type;
 	s8 team;
 
 	PointLight();

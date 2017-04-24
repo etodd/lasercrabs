@@ -7,7 +7,7 @@
 namespace VI
 {
 
-enum class KeyCode
+enum class KeyCode : s16
 {
 	None = SDL_SCANCODE_UNKNOWN,
 
@@ -262,7 +262,7 @@ namespace Input
 
 struct Gamepad
 {
-	enum class Type
+	enum class Type : s8
 	{
 		None,
 		Xbox,
@@ -270,29 +270,28 @@ struct Gamepad
 		count,
 	};
 
-	enum Btn
+	enum class Btn : s8
 	{
-		LeftShoulder = 1 << 0,
-		RightShoulder = 1 << 1,
-		LeftClick = 1 << 2,
-		RightClick = 1 << 3,
-		A = 1 << 4,
-		B = 1 << 5,
-		X = 1 << 6,
-		Y = 1 << 7,
-		Back = 1 << 8,
-		Start = 1 << 9,
-		LeftTrigger = 1 << 10,
-		RightTrigger = 1 << 11,
-		DUp = 1 << 12,
-		DDown = 1 << 13,
-		DLeft = 1 << 14,
-		DRight = 1 << 15,
+		LeftShoulder,
+		RightShoulder,
+		LeftClick,
+		RightClick,
+		A,
+		B,
+		X,
+		Y,
+		Back,
+		Start,
+		LeftTrigger,
+		RightTrigger,
+		DUp,
+		DDown,
+		DLeft,
+		DRight,
 		None,
 		count,
 	};
 
-	Type type;
 	r32 left_x;
 	r32 left_y;
 	r32 right_x;
@@ -301,20 +300,21 @@ struct Gamepad
 	r32 right_trigger;
 	r32 rumble;
 	s32 btns;
+	Type type;
 };
 
 #define MAX_GAMEPADS 4
 
 struct InputBinding
 {
+	Gamepad::Btn btn;
 	KeyCode key1;
 	KeyCode key2;
-	Gamepad::Btn btn;
 	const char* string(Gamepad::Type) const;
 	b8 overlaps(const InputBinding&) const;
 };
 
-enum class Controls
+enum class Controls : s8
 {
 	Forward,
 	Backward,

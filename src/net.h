@@ -30,7 +30,7 @@ namespace Master
 	struct ServerState;
 };
 
-enum class MessageType
+enum class MessageType : s8
 {
 	Noop,
 	EntityCreate,
@@ -145,7 +145,7 @@ namespace Server
 #else
 namespace Client
 {
-	enum class Mode
+	enum class Mode : s8
 	{
 		Disconnected,
 		ContactingMaster,
@@ -155,7 +155,7 @@ namespace Client
 		count,
 	};
 
-	enum class MasterError
+	enum class MasterError : s8
 	{
 		None,
 		WrongVersion,
@@ -163,7 +163,7 @@ namespace Client
 		count,
 	};
 
-	enum class ReplayMode
+	enum class ReplayMode : s8
 	{
 		None,
 		Replaying,

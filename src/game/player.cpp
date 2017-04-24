@@ -42,6 +42,8 @@ namespace VI
 {
 
 
+#define DEBUG_NET_SYNC 0
+
 #define fov_map_view (60.0f * PI * 0.5f / 180.0f)
 #define fov_default (70.0f * PI * 0.5f / 180.0f)
 #define fov_zoom (fov_default * 0.5f)
@@ -408,7 +410,7 @@ namespace PlayerControlHumanNet
 
 struct Message
 {
-	enum class Type
+	enum class Type : s8
 	{
 		Dash,
 		Go,
@@ -1401,7 +1403,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 							text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 							text.color = UI::color_accent;
 							text.text(gamepad, _(strings::prompt_deploy));
-							Vec2 pos = vp.pos + vp.size * Vec2(0.5f, 0.2f);
+							Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
 							UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
 							text.draw(params, pos);
 						}
@@ -1816,7 +1818,7 @@ Vec3 PlayerCommon::look_dir() const
 	if (has<PlayerControlHuman>()) // HACK for third-person camera
 		return Vec3::normalize(get<PlayerControlHuman>()->reticle.pos - get<Transform>()->absolute_pos());
 	else
-		return Quat::euler(0.0f, angle_horizontal, angle_vertical) * Vec3(0, 0, 1);
+		return look() * Vec3(0, 0, 1);
 }
 
 Quat PlayerCommon::look() const
@@ -1868,12 +1870,14 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 	{
 		// make sure we are where the remote thinks we are when we start processing this message
 		r32 dist_sq = (c->get<Transform>()->absolute_pos() - msg.pos).length_squared();
-		if (dist_sq < NET_SYNC_TOLERANCE_POS * NET_SYNC_TOLERANCE_POS)
+		r32 tolerance_pos;
+		c->remote_position(&tolerance_pos);
+		if (dist_sq < tolerance_pos * tolerance_pos)
 			c->get<Transform>()->absolute_pos(msg.pos);
 
 #if SERVER
 		// update RTT based on the sequence number
-		c->rtt = Net::Server::rtt(c->player.ref(), seq);
+		c->rtt = Net::Server::rtt(c->player.ref(), seq) + NET_INTERPOLATION_DELAY;
 #endif
 	}
 
@@ -2186,7 +2190,7 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 void PlayerControlHuman::awake()
 {
 #if SERVER
-	rtt = Net::rtt(player.ref());
+	rtt = Net::rtt(player.ref()) + NET_INTERPOLATION_DELAY;
 #endif
 
 	if (player.ref()->local && !Game::level.local)
@@ -2502,9 +2506,12 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 		Quat remote_abs_rot = remote_control.rot;
 		if (remote_control.parent.ref())
 			remote_control.parent.ref()->to_world(&remote_abs_pos, &remote_abs_rot);
-		if ((remote_abs_pos - abs_pos).length_squared() < NET_SYNC_TOLERANCE_POS * NET_SYNC_TOLERANCE_POS)
+		r32 tolerance_pos;
+		r32 tolerance_rot;
+		remote_position(&tolerance_pos, &tolerance_rot);
+		if ((remote_abs_pos - abs_pos).length_squared() < tolerance_pos * tolerance_pos)
 			t->absolute_pos(remote_abs_pos);
-		if (Quat::angle(remote_abs_rot, abs_rot) < NET_SYNC_TOLERANCE_ROT)
+		if (Quat::angle(remote_abs_rot, abs_rot) < tolerance_rot)
 			t->absolute_rot(remote_abs_rot);
 	}
 }
@@ -2574,9 +2581,62 @@ void player_cancel_interactable(s8 gamepad)
 	}
 }
 
+const PlayerControlHuman::PositionEntry* PlayerControlHuman::remote_position(r32* tolerance_pos, r32* tolerance_rot) const
+{
+	r32 timestamp = Game::real_time.total - Net::rtt(player.ref());
+	const PositionEntry* position = nullptr;
+	r32 tmp_tolerance_pos = 0.0f;
+	r32 tmp_tolerance_rot = 0.0f;
+	for (s32 i = position_history.length - 1; i >= 0; i--)
+	{
+		const PositionEntry& entry = position_history[i];
+		if (entry.timestamp < timestamp)
+		{
+			position = &entry;
+			// calculate tolerance based on velocity
+			const s32 radius = 4;
+			for (s32 j = vi_max(0, i - radius); j < vi_min(s32(position_history.length), i + radius + 1); j++)
+			{
+				if (i != j)
+				{
+					tmp_tolerance_pos = vi_max(tmp_tolerance_pos, (position_history[i].pos - position_history[j].pos).length());
+					tmp_tolerance_rot = vi_max(tmp_tolerance_rot, Quat::angle(position_history[i].rot, position_history[j].rot));
+				}
+			}
+			tmp_tolerance_pos *= 6.0f;
+			tmp_tolerance_rot *= 6.0f;
+			break;
+		}
+	}
+	tmp_tolerance_pos += NET_SYNC_TOLERANCE_POS;
+	tmp_tolerance_rot += NET_SYNC_TOLERANCE_ROT;
+	if (tolerance_pos)
+		*tolerance_pos = tmp_tolerance_pos;
+	if (tolerance_rot)
+		*tolerance_rot = tmp_tolerance_rot;
+	return position;
+}
+
 void PlayerControlHuman::update(const Update& u)
 {
 	s32 gamepad = player.ref()->gamepad;
+
+	if (position_history.length == 0 || Game::real_time.total > position_history[position_history.length - 1].timestamp + NET_TICK_RATE * 0.5f)
+	{
+		// save our position history
+		if (position_history.length == 60)
+			position_history.remove_ordered(0);
+		Transform* t = get<Transform>();
+		Vec3 abs_pos;
+		Quat abs_rot;
+		t->absolute(&abs_pos, &abs_rot);
+		position_history.add(
+		{
+			abs_rot,
+			abs_pos,
+			Game::real_time.total,
+		});
+	}
 
 	if (has<Drone>())
 	{
@@ -2585,55 +2645,13 @@ void PlayerControlHuman::update(const Update& u)
 			if (!Game::level.local)
 			{
 				// we are a client and this is a local player
-				if (position_history.length == 0 || Game::real_time.total > position_history[position_history.length - 1].timestamp + NET_TICK_RATE * 0.5f)
-				{
-					// save our position history
-					if (position_history.length == 60)
-						position_history.remove_ordered(0);
-					Transform* t = get<Transform>();
-					Vec3 abs_pos;
-					Quat abs_rot;
-					t->absolute(&abs_pos, &abs_rot);
-					position_history.add(
-					{
-						abs_rot,
-						abs_pos,
-						Game::real_time.total,
-					});
-				}
-
 				// make sure we never get too far from where the server says we should be
-
 				// get the position entry at this time in the history
-				r32 timestamp = Game::real_time.total - Net::rtt(player.ref());
-				const PositionEntry* position = nullptr;
-				r32 tolerance_pos = 0.0f;
-				r32 tolerance_rot = 0.0f;
-				for (s32 i = position_history.length - 1; i >= 0; i--)
-				{
-					const PositionEntry& entry = position_history[i];
-					if (entry.timestamp < timestamp)
-					{
-						position = &entry;
-						// calculate tolerance based on velocity
-						const s32 radius = 4;
-						for (s32 j = vi_max(0, i - radius); j < vi_min(s32(position_history.length), i + radius + 1); j++)
-						{
-							if (i != j)
-							{
-								tolerance_pos = vi_max(tolerance_pos, (position_history[i].pos - position_history[j].pos).length());
-								tolerance_rot = vi_max(tolerance_rot, Quat::angle(position_history[i].rot, position_history[j].rot));
-							}
-						}
-						tolerance_pos *= 6.0f;
-						tolerance_rot *= 6.0f;
-						break;
-					}
-				}
-				tolerance_pos += NET_SYNC_TOLERANCE_POS;
-				tolerance_rot += NET_SYNC_TOLERANCE_ROT;
 
 				// make sure we're not too far from it
+				r32 tolerance_pos;
+				r32 tolerance_rot;
+				const PositionEntry* position = remote_position(&tolerance_pos, &tolerance_rot);
 				if (position)
 				{
 					Vec3 remote_abs_pos = remote_control.pos;
@@ -2785,7 +2803,7 @@ void PlayerControlHuman::update(const Update& u)
 				// crawling
 				{
 					Vec3 movement = get_movement(u, get<PlayerCommon>()->look());
-					get<Drone>()->crawl(movement, u);
+					get<Drone>()->crawl(movement, u.time.delta);
 				}
 
 				last_pos = get<Drone>()->center_lerped();
@@ -2832,11 +2850,7 @@ void PlayerControlHuman::update(const Update& u)
 						if (ability == Ability::None) // normal movement
 						{
 							if (get<Drone>()->direction_is_toward_attached_wall(detach_dir))
-							{
-								Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
-								if (hit_entity->has<Target>() || (detach_dir.dot(wall_normal) > -dot_tolerance && reticle.normal.dot(wall_normal) > 1.0f - dot_tolerance))
-									reticle.type = ReticleType::Dash;
-							}
+								reticle.type = ReticleType::Dash;
 							else
 							{
 								Vec3 hit;
@@ -2845,7 +2859,7 @@ void PlayerControlHuman::update(const Update& u)
 								{
 									if (hit_target)
 										reticle.type = ReticleType::Target;
-									else if ((reticle.pos - hit).length_squared() < DRONE_RADIUS * DRONE_RADIUS)
+									else if ((hit - me).length() > distance - DRONE_RADIUS)
 										reticle.type = ReticleType::Normal;
 								}
 								else if (hit_entity->has<Target>())
@@ -2949,7 +2963,7 @@ void PlayerControlHuman::update(const Update& u)
 			// if we are crawling, update the RTT every frame
 			// if we're dashing or flying, the RTT is set based on the sequence number of the command we received
 			if (get<Drone>()->state() == Drone::State::Crawl)
-				rtt = Net::rtt(player.ref());
+				rtt = Net::rtt(player.ref()) + NET_INTERPOLATION_DELAY;
 
 			ai_record_wait_timer -= u.time.delta;
 			if (ai_record_wait_timer < 0.0f)
@@ -2964,7 +2978,7 @@ void PlayerControlHuman::update(const Update& u)
 				ai_record_tag.init(player.ref()->get<PlayerManager>());
 			}
 
-			get<Drone>()->crawl(remote_control.movement, u);
+			get<Drone>()->crawl(remote_control.movement, u.time.delta);
 			last_pos = get<Drone>()->center_lerped();
 #else
 			vi_assert(false);
@@ -3365,6 +3379,13 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	r32 range = has<Drone>() ? get<Drone>()->range() : DRONE_MAX_DISTANCE;
 
 	AI::Team team = get<AIAgent>()->team;
+
+#if DEBUG_NET_SYNC
+	Vec3 remote_abs_pos = remote_control.pos;
+	if (remote_control.parent.ref())
+		remote_abs_pos = remote_control.parent.ref()->to_world(remote_abs_pos);
+	UI::indicator(params, remote_abs_pos, UI::color_default, false);
+#endif
 
 	// target indicators
 	for (s32 i = 0; i < target_indicators.length; i++)
@@ -3966,21 +3987,31 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		)
 	{
 		Vec2 pos = viewport.size * Vec2(0.5f, 0.5f);
-		const r32 spoke_length = 10.0f;
+		const r32 spoke_length = 12.0f;
 		const r32 spoke_width = 3.0f;
 		const r32 start_radius = 8.0f + spoke_length * 0.5f;
 
 		b8 cooldown_can_go = get<Drone>()->cooldown_can_shoot();
 
+		b8 reticle_valid;
 		const Vec4* color;
 		if (reticle.type == ReticleType::Error || reticle.type == ReticleType::DashError)
+		{
 			color = &UI::color_disabled;
+			reticle_valid = false;
+		}
 		else if (reticle.type != ReticleType::None
 			&& cooldown_can_go
 			&& (get<Drone>()->current_ability == Ability::None || player.ref()->get<PlayerManager>()->ability_valid(get<Drone>()->current_ability)))
+		{
 			color = &UI::color_accent;
+			reticle_valid = true;
+		}
 		else
+		{
 			color = &UI::color_alert;
+			reticle_valid = false;
+		}
 
 		// cooldown indicator
 		{
@@ -3998,18 +4029,22 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			}
 		}
 
-		if (reticle.type == ReticleType::Dash || reticle.type == ReticleType::DashError)
-		{
-			Vec2 a;
-			if (UI::project(params, reticle.pos, &a))
-				UI::mesh(params, Asset::Mesh::reticle_dash, a, Vec2(10.0f * UI::scale), *color);
-		}
-		else
+		// reticle
 		{
 			const r32 ratio = 0.8660254037844386f;
-			UI::centered_box(params, { pos + Vec2(ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * 0.33f);
-			UI::centered_box(params, { pos + Vec2(-ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * -0.33f);
-			UI::centered_box(params, { pos + Vec2(0, -1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, *color);
+			if (reticle_valid)
+			{
+				// triangular crosshair
+				UI::centered_box(params, { pos + Vec2(ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * 0.33f);
+				UI::centered_box(params, { pos + Vec2(-ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * -0.33f);
+				UI::centered_box(params, { pos + Vec2(0, -1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, *color);
+			}
+			else
+			{
+				// crossbars
+				UI::centered_box(params, { pos, Vec2(spoke_length * 3.0f, spoke_width) * UI::scale }, *color, PI * 0.25f);
+				UI::centered_box(params, { pos, Vec2(spoke_length * 3.0f, spoke_width) * UI::scale }, *color, PI * 0.75f);
+			}
 
 			if (get<Drone>()->current_ability != Ability::None)
 			{
@@ -4042,7 +4077,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				text.draw(params, p);
 			}
 
-			if (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target)
+			if (reticle_valid && (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target))
 			{
 				Vec2 a;
 				if (UI::project(params, reticle.pos, &a))

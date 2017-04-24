@@ -32,11 +32,12 @@ struct UIText
 	static void variables_clear();
 	static void variable_add(s8, const char*, const char*);
 
-	enum class Anchor
+	enum class Anchor : s8
 	{
 		Min,
 		Center,
 		Max,
+		count,
 	};
 	char rendered_string[1024];
 	Vec4 color;

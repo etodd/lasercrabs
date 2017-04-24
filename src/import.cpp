@@ -58,7 +58,7 @@ namespace platform
 
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
-const s32 version = 31;
+const s32 version = 32;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";

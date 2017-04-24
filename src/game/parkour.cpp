@@ -503,7 +503,7 @@ void parkour_stop_climbing(Parkour* parkour)
 	parkour->rope_constraint = IDNull;
 }
 
-enum class ParkourRopeSearch
+enum class ParkourRopeSearch : s8
 {
 	Any,
 	Above,

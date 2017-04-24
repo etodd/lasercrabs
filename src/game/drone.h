@@ -46,7 +46,7 @@ struct DroneReflectEvent
 
 struct Drone : public ComponentType<Drone>
 {
-	enum class State
+	enum class State : s8
 	{
 		Crawl,
 		Dash,
@@ -64,7 +64,7 @@ struct Drone : public ComponentType<Drone>
 
 	struct Hit
 	{
-		enum class Type
+		enum class Type : s8
 		{
 			Environment,
 			Inaccessible,
@@ -77,8 +77,8 @@ struct Drone : public ComponentType<Drone>
 		Vec3 pos;
 		Vec3 normal;
 		r32 fraction;
-		Type type;
 		Ref<Entity> entity;
+		Type type;
 	};
 
 	struct Hits
@@ -88,7 +88,7 @@ struct Drone : public ComponentType<Drone>
 		s32 index_end;
 	};
 
-	enum class RaycastMode
+	enum class RaycastMode : s8
 	{
 		Default,
 		IgnoreForceFields,
@@ -149,10 +149,10 @@ struct Drone : public ComponentType<Drone>
 	b8 predict_intersection(const Target*, const Net::StateFrame*, Vec3*, r32) const;
 
 	void reflect(Entity*, const Vec3&, const Vec3&, const Net::StateFrame*);
-	void crawl_wall_edge(const Vec3&, const Vec3&, const Update&, r32);
+	void crawl_wall_edge(const Vec3&, const Vec3&, r32, r32);
 	b8 transfer_wall(const Vec3&, const btCollisionWorld::ClosestRayResultCallback&);
 	void move(const Vec3&, const Quat&, const ID);
-	void crawl(const Vec3&, const Update&);
+	void crawl(const Vec3&, r32);
 	void update_offset();
 
 	void handle_remote_reflection(Entity*, const Vec3&, const Vec3&);

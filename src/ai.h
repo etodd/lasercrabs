@@ -19,7 +19,7 @@ struct PlayerManager;
 
 namespace AI
 {
-	enum class Op
+	enum class Op : s8
 	{
 		Load,
 		ObstacleAdd,
@@ -34,7 +34,7 @@ namespace AI
 		Quit,
 	};
 
-	enum class Callback
+	enum class Callback : s8
 	{
 		Path,
 		DronePath,
@@ -43,7 +43,7 @@ namespace AI
 		Load,
 	};
 
-	enum class DronePathfind
+	enum class DronePathfind : s8
 	{
 		LongRange,
 		Target,
@@ -52,7 +52,7 @@ namespace AI
 		Spawn,
 	};
 
-	enum class DroneAllow
+	enum class DroneAllow : s8
 	{
 		Crawl = 1,
 		Shoot = 1 << 1,

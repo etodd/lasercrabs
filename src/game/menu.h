@@ -65,11 +65,12 @@ typedef void(*DialogCallback)(s8);
 namespace Menu
 {
 
-enum class State
+enum class State : s8
 {
 	Hidden,
 	Visible,
 	Options,
+	count,
 };
 
 extern State main_menu_state;

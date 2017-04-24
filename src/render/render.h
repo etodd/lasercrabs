@@ -10,7 +10,7 @@ namespace VI
 {
 
 
-enum class AlphaMode
+enum class AlphaMode : s8
 {
 	Opaque,
 	Alpha,

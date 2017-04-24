@@ -51,7 +51,7 @@ const AssetID AssetNull = AssetID(-1);
 typedef s16 ID;
 const ID IDNull = ID(MAX_ENTITIES);
 
-enum class Ability
+enum class Ability : s8
 {
 	Minion,
 	Bolter,
@@ -66,7 +66,7 @@ enum class Ability
 	None,
 };
 
-enum class Upgrade
+enum class Upgrade : s8
 {
 	Minion,
 	Bolter,
@@ -81,7 +81,7 @@ enum class Upgrade
 	None = count,
 };
 
-enum class Resource
+enum class Resource : s8
 {
 	Energy,
 	HackKits,
@@ -89,7 +89,7 @@ enum class Resource
 	count,
 };
 
-enum class ZoneState
+enum class ZoneState : s8
 {
 	Locked,
 	Friendly,
@@ -98,14 +98,14 @@ enum class ZoneState
 	count,
 };
 
-enum class GameType
+enum class GameType : s8
 {
 	Assault,
 	Deathmatch,
 	count,
 };
 
-enum class SessionType
+enum class SessionType : s8
 {
 	Story,
 	Public,
@@ -115,7 +115,7 @@ enum class SessionType
 
 namespace Net
 {
-	enum class MessageSource // included here to prevent having to include net.h everywhere
+	enum class MessageSource : s8 // included here to prevent having to include net.h everywhere
 	{
 		Remote,
 		Loopback,

@@ -161,7 +161,7 @@ b8 ability_select(Drone* d, Ability ability)
 	return true;
 }
 
-b8 start_dashing(Drone* a, Vec3 dir, Vec3 target)
+b8 start_dashing(Drone* a, Vec3 dir, r32 time, b8 combo, Vec3 target)
 {
 	using Stream = Net::StreamWrite;
 	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
@@ -173,9 +173,14 @@ b8 start_dashing(Drone* a, Vec3 dir, Vec3 target)
 		Message t = Message::DashStart;
 		serialize_enum(p, Message, t);
 	}
-	serialize_r32(p, target.x);
-	serialize_r32(p, target.y);
-	serialize_r32(p, target.z);
+	serialize_r32_range(p, time, 0, DRONE_DASH_TIME, 16);
+	serialize_bool(p, combo);
+	if (combo)
+	{
+		serialize_r32(p, target.x);
+		serialize_r32(p, target.y);
+		serialize_r32(p, target.z);
+	}
 	dir.normalize();
 	serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
 	serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
@@ -388,6 +393,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			{
 				if (drone->charges > 0 || flag == DroneNet::FlyFlag::CancelExisting)
 				{
+					drone->dash_combo = false;
 					drone->dash_timer = 0.0f;
 					drone->velocity = dir * DRONE_FLY_SPEED;
 					drone->detaching.fire();
@@ -406,10 +412,19 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		}
 		case DroneNet::Message::DashStart:
 		{
+			r32 dash_time;
+			serialize_r32_range(p, dash_time, 0, DRONE_DASH_TIME, 16);
+
+			b8 dash_combo;
+			serialize_bool(p, dash_combo);
+
 			Vec3 dash_target;
-			serialize_r32(p, dash_target.x);
-			serialize_r32(p, dash_target.y);
-			serialize_r32(p, dash_target.z);
+			if (dash_combo)
+			{
+				serialize_r32(p, dash_target.x);
+				serialize_r32(p, dash_target.y);
+				serialize_r32(p, dash_target.z);
+			}
 
 			Vec3 dir;
 			serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
@@ -418,12 +433,14 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			if (apply_msg && drone->charges > 0)
 			{
-				drone->dash_target = dash_target;
+				drone->dash_combo = dash_combo;
+				if (dash_combo)
+					drone->dash_target = dash_target;
 				drone->velocity = dir * DRONE_DASH_SPEED;
 
 				drone->dashing.fire();
 
-				drone->dash_timer = DRONE_DASH_TIME;
+				drone->dash_timer = dash_time;
 
 				drone->hit_targets.length = 0;
 				drone->remote_reflection_timer = 0.0f;
@@ -908,6 +925,7 @@ void Drone::finish_flying_dashing_common()
 	get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
 	attach_time = Game::time.total;
 	dash_timer = 0.0f;
+	dash_combo = false;
 
 	remote_reflection_timer = 0.0f;
 
@@ -952,6 +970,7 @@ Drone::Drone()
 	detaching(),
 	dashing(),
 	dash_timer(),
+	dash_combo(),
 	attach_time(Game::time.total),
 	footing(),
 	last_footstep(),
@@ -1174,11 +1193,16 @@ b8 Drone::net_state_frame(Net::StateFrame* state_frame) const
 
 b8 Drone::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::StateFrame* state_frame) const
 {
-	Vec3 trace_dir = Vec3::normalize(dir);
-
 	// if we're attached to a wall, make sure we're not shooting into the wall
-	if (state() == Drone::State::Crawl && direction_is_toward_attached_wall(trace_dir))
+	if (state() == Drone::State::Crawl && direction_is_toward_attached_wall(dir))
 		return false;
+
+	return could_shoot(get<Transform>()->absolute_pos(), dir, final_pos, hit_target, state_frame);
+}
+
+b8 Drone::could_shoot(const Vec3& trace_start, const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::StateFrame* state_frame) const
+{
+	Vec3 trace_dir = Vec3::normalize(dir);
 
 	// can't shoot straight up or straight down
 	// HACK: if it's a local player, let them do what they want because it's frustrating
@@ -1188,7 +1212,6 @@ b8 Drone::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net:
 	if (!has<PlayerControlHuman>() && fabsf(trace_dir.y) > DRONE_VERTICAL_DOT_LIMIT)
 		return false;
 
-	Vec3 trace_start = get<Transform>()->absolute_pos();
 	Vec3 trace_end = trace_start + trace_dir * DRONE_SNIPE_DISTANCE;
 
 	Net::StateFrame state_frame_data;
@@ -1388,7 +1411,64 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 	else if (state() == State::Fly || current_ability != Ability::None)
 		return false;
 
-	DroneNet::start_dashing(this, dir, target);
+	Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+	Vec3 dir_normalized = Vec3::normalize(dir);
+	Vec3 pos = get<Transform>()->absolute_pos();
+	Vec3 wall_pos = pos + wall_normal * -DRONE_RADIUS;
+	
+	b8 combo = false;
+
+	// check if the target is behind the wall we're currently attached to
+	b8 behind_wall = Vec3::normalize(target - wall_pos).dot(wall_normal) < -0.05f;
+
+	// determine how long we'll be dashing
+
+	Vec3 dir_flattened = dir_normalized - wall_normal * wall_normal.dot(dir_normalized);
+
+	// check for obstacles
+	r32 max_time = DRONE_DASH_TIME;
+	{
+		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, pos + dir_flattened * DRONE_DASH_DISTANCE);
+		Physics::raycast(&ray_callback, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
+		if (ray_callback.hasHit())
+			max_time = ray_callback.m_closestHitFraction * DRONE_DASH_TIME;
+	}
+
+	r32 time = 0.0f;
+	while (time < max_time)
+	{
+		r32 time_next = time + NET_TICK_RATE * 0.1f;
+		Vec3 next_pos = pos + dir_flattened * DRONE_DASH_SPEED * time_next;
+
+		// check if we still have wall to dash on
+		Vec3 wall_ray_start = next_pos + wall_normal * DRONE_RADIUS;
+		Vec3 wall_ray_end = next_pos + wall_normal * DRONE_RADIUS * -2.0f;
+		btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray_start, wall_ray_end);
+		Physics::raycast(&ray_callback, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
+		if (ray_callback.hasHit())
+		{
+			Vec3 other_wall_normal = ray_callback.m_hitNormalWorld;
+			if (other_wall_normal.dot(wall_normal) < 0.99f
+				|| (ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
+				break; // no more wall
+		}
+		else
+			break; // no more wall
+
+		time = time_next;
+
+		// check if we can hit the target now
+		Vec3 final_pos;
+		if (behind_wall
+			&& could_shoot(next_pos, target - next_pos, &final_pos)
+			&& (final_pos - target).length_squared() < DRONE_RADIUS * 2.0f * DRONE_RADIUS * 2.0f)
+		{
+			combo = true;
+			break;
+		}
+	}
+
+	DroneNet::start_dashing(this, dir_normalized, time, combo, target);
 
 	return true;
 }
@@ -1495,6 +1575,7 @@ void drone_reflection_execute(Drone* a, Entity* reflected_off, const Vec3& dir)
 	}
 	a->get<Transform>()->reparent(nullptr);
 	a->dash_timer = 0.0f;
+	a->dash_combo = false;
 	a->get<Animator>()->layers[0].animation = Asset::Animation::drone_fly;
 
 	if (!reflected_off || !reflected_off->has<Target>()) // target hit effects are handled separately
@@ -1782,7 +1863,7 @@ void Drone::crawl(const Vec3& dir_raw, r32 dt)
 			}
 		}
 
-		// no obstacle. Check if we still have wall to walk on.
+		// no obstacle. check if we still have wall to walk on.
 
 		Vec3 wall_ray_start = next_pos + wall_normal * DRONE_RADIUS;
 		Vec3 wall_ray_end = next_pos + wall_normal * DRONE_RADIUS * -2.0f;
@@ -1945,7 +2026,10 @@ void Drone::update_server(const Update& u)
 	{
 		// flying or dashing
 		if (Game::level.local && u.time.total - attach_time > MAX_FLIGHT_TIME)
+		{
 			get<Health>()->kill(entity()); // kill self
+			return;
+		}
 
 		Vec3 position = get<Transform>()->absolute_pos();
 		Vec3 next_position;
@@ -1954,20 +2038,12 @@ void Drone::update_server(const Update& u)
 			crawl(velocity, vi_min(dash_timer, u.time.delta));
 			next_position = get<Transform>()->absolute_pos();
 			dash_timer = vi_max(0.0f, dash_timer - u.time.delta);
-			Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
-			Vec3 wall_pos = next_position + wall_normal * -DRONE_RADIUS;
-			Vec3 shoot_dir = dash_target - next_position;
-			Vec3 final_pos;
-			if (Vec3::normalize(dash_target - wall_pos).dot(wall_normal) < -0.01f
-				&& can_shoot(shoot_dir, &final_pos)
-				&& (final_pos - dash_target).length_squared() < DRONE_RADIUS * 2.0f * DRONE_RADIUS * 2.0f)
+			if (dash_timer == 0.0f)
 			{
-				DroneNet::start_flying(this, shoot_dir, DroneNet::FlyFlag::CancelExisting);
-				return;
-			}
-			else if (dash_timer == 0.0f)
-			{
-				DroneNet::finish_dashing(this);
+				if (dash_combo)
+					DroneNet::start_flying(this, dash_target - next_position, DroneNet::FlyFlag::CancelExisting);
+				else
+					DroneNet::finish_dashing(this);
 				return;
 			}
 		}

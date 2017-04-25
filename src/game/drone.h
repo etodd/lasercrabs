@@ -126,6 +126,7 @@ struct Drone : public ComponentType<Drone>
 	Link done_flying;
 	Link done_dashing;
 	s8 charges;
+	b8 dash_combo;
 	b8 reflection_source_remote;
 
 	Drone();
@@ -170,6 +171,7 @@ struct Drone : public ComponentType<Drone>
 	b8 direction_is_toward_attached_wall(const Vec3&) const;
 	b8 can_shoot(const Vec3&, Vec3* = nullptr, b8* = nullptr, const Net::StateFrame* = nullptr) const;
 	b8 can_shoot(const Target*, Vec3* = nullptr, r32 = DRONE_FLY_SPEED, const Net::StateFrame* = nullptr) const;
+	b8 could_shoot(const Vec3&, const Vec3&, Vec3* = nullptr, b8* = nullptr, const Net::StateFrame* = nullptr) const;
 	b8 can_spawn(Ability, const Vec3&, Vec3* = nullptr, Vec3* = nullptr, RigidBody** = nullptr, b8* = nullptr) const;
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr, r32 = DRONE_FLY_SPEED) const; // shoot or dash

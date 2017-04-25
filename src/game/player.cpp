@@ -2885,6 +2885,17 @@ void PlayerControlHuman::update(const Update& u)
 								else if ((hit - me).length() > distance - DRONE_RADIUS)
 									reticle.type = ReticleType::Normal;
 							}
+							else if (get<Drone>()->direction_is_toward_attached_wall(detach_dir))
+							{
+								r32 range = get<Drone>()->range();
+								if ((Vec3(ray_callback.m_hitPointWorld) - me).length_squared() < range * range)
+								{
+									if (hit_entity->has<Target>())
+										reticle.type = ReticleType::DashTarget;
+									else if (!(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
+										reticle.type = ReticleType::Dash;
+								}
+							}
 							else if (hit_entity->has<Target>())
 							{
 								// when you're aiming at a target that is attached to the same surface you are,
@@ -2901,8 +2912,6 @@ void PlayerControlHuman::update(const Update& u)
 								if (detach_dir.dot(wall_normal) > -dot_tolerance && reticle.normal.dot(wall_normal) > 1.0f - dot_tolerance)
 									reticle.type = ReticleType::Dash;
 							}
-							else if (get<Drone>()->direction_is_toward_attached_wall(detach_dir))
-								reticle.type = ReticleType::Dash;
 						}
 						else // spawning an ability
 						{
@@ -2966,7 +2975,7 @@ void PlayerControlHuman::update(const Update& u)
 					PlayerControlHumanNet::Message msg;
 					msg.dir = Vec3::normalize(reticle.pos - get<Transform>()->absolute_pos());
 					msg.pos = get<Transform>()->absolute_pos();
-					if (reticle.type == ReticleType::Dash)
+					if (reticle.type == ReticleType::Dash || reticle.type == ReticleType::DashTarget)
 					{
 						msg.type = PlayerControlHumanNet::Message::Type::Dash;
 						msg.target = reticle.pos;
@@ -4102,11 +4111,11 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				text.draw(params, p);
 			}
 
-			if (reticle_valid && (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target))
+			if (reticle_valid && (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target || reticle.type == ReticleType::DashTarget))
 			{
 				Vec2 a;
 				if (UI::project(params, reticle.pos, &a))
-					UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Target ? UI::color_alert : *color, PI);
+					UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Target || reticle.type == ReticleType::DashTarget ? UI::color_alert : *color, PI);
 			}
 		}
 	}

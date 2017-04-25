@@ -1458,10 +1458,11 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 		time = time_next;
 
 		// check if we can hit the target now
+		Vec3 target_dir = Vec3::normalize(target - next_pos);
 		Vec3 final_pos;
 		if (behind_wall
-			&& could_shoot(next_pos, target - next_pos, &final_pos)
-			&& (final_pos - target).length_squared() < DRONE_RADIUS * 2.0f * DRONE_RADIUS * 2.0f)
+			&& could_shoot(next_pos, target_dir, &final_pos)
+			&& (final_pos - target).dot(target_dir) > DRONE_RADIUS * -2.0f)
 		{
 			combo = true;
 			break;

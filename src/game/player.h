@@ -153,6 +153,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		Normal,
 		Target,
 		Dash,
+		DashTarget,
 		DashError,
 		count,
 	};

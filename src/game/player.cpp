@@ -210,6 +210,7 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	score_summary_scroll(),
 	spectate_index(),
 	selected_spawn(),
+	killed_by(),
 	select_spawn_timer(),
 	energy_notification_accumulator(),
 #if SERVER
@@ -719,7 +720,17 @@ void PlayerHuman::update(const Update& u)
 					if (sudoku.complete() && sudoku.timer_animation == 0.0f)
 						get<PlayerManager>()->set_can_spawn();
 				}
-				else if (get<PlayerManager>()->spawn_timer == 0.0f)
+				else if (get<PlayerManager>()->spawn_timer > 0.0f)
+				{
+					// waiting for spawn timer; if something killed us, show the kill cam
+					Entity* k = killed_by.ref();
+					if (k && get<PlayerManager>()->spawn_timer < SPAWN_DELAY - 1.0f)
+					{
+						Quat target_rot = Quat::look(Vec3::normalize(k->get<Transform>()->absolute_pos() - camera->pos));
+						camera->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera->rot, target_rot);
+					}
+				}
+				else
 				{
 					// select a spawn point
 					AI::Team my_team = get<PlayerManager>()->team.ref()->team();
@@ -885,6 +896,8 @@ void PlayerHuman::ai_record_save()
 
 void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 {
+	killed_by = nullptr;
+
 	Entity* spawned;
 
 	SpawnPosition spawn_pos;
@@ -1124,10 +1137,35 @@ void battery_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Anc
 	text.draw(params, icon_pos + Vec2(text_size * UI::scale * 1.5f, 0));
 }
 
-void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
+enum class ScoreboardPosition : s8
+{
+	Center,
+	Bottom,
+	count,
+};
+
+void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, ScoreboardPosition position)
 {
 	const Rect2& vp = params.camera->viewport;
-	Vec2 p = vp.size * Vec2(0.5f, 0.8f);
+	Vec2 p;
+	switch (position)
+	{
+		case ScoreboardPosition::Center:
+		{
+			p = vp.size * Vec2(0.5f, 0.8f);
+			break;
+		}
+		case ScoreboardPosition::Bottom:
+		{
+			p = vp.size * Vec2(0.5f, 0.3f);
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
 
 	UIText text;
 	text.size = text_size;
@@ -1143,7 +1181,17 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 	// "deploying..."
 	if (!manager->instance.ref() && manager->respawns != 0)
 	{
-		text.text(0, _(strings::deploy_timer), s32(manager->spawn_timer + 1));
+		AssetID string;
+		if (Game::level.type == GameType::Assault)
+		{
+			if (manager->team.ref()->team() == 0)
+				string = strings::deploy_timer_defender;
+			else
+				string = strings::deploy_timer_attacker;
+		}
+		else
+			string = strings::deploy_timer;
+		text.text(0, _(string), s32(manager->spawn_timer + 1));
 		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -1152,12 +1200,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 	if (Game::level.type == GameType::Assault)
 	{
 		// show remaining drones label
-		AssetID remaining_string;
-		if (manager->team.ref()->team() == 0)
-			remaining_string = strings::drones_remaining_defender;
-		else
-			remaining_string = strings::drones_remaining_attacker;
-		text.text(0, _(remaining_string));
+		text.text(0, _(strings::drones_remaining));
 		text.color = UI::color_accent;
 		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
@@ -1303,7 +1346,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	if (mode == UIMode::PvpDefault)
 	{
 		if (params.sync->input.get(Controls::Scoreboard, gamepad))
-			scoreboard_draw(params, get<PlayerManager>());
+			scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Center);
 	}
 	else if (mode == UIMode::Upgrading)
 	{
@@ -1387,7 +1430,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				else
 				{
 					if (get<PlayerManager>()->spawn_timer > 0.0f)
-						scoreboard_draw(params, get<PlayerManager>());
+						scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Bottom);
 					else
 					{
 						if (select_spawn_timer > 0.0f)
@@ -2229,6 +2272,7 @@ void PlayerControlHuman::awake()
 	}
 
 	link_arg<const HealthEvent&, &PlayerControlHuman::health_changed>(get<Health>()->changed);
+	link_arg<Entity*, &PlayerControlHuman::killed>(get<Health>()->killed);
 
 	if (has<Drone>())
 	{
@@ -2276,6 +2320,18 @@ void PlayerControlHuman::health_changed(const HealthEvent& e)
 			try_secondary = false;
 		camera_shake(total < -1 ? 1.0f : 0.7f);
 	}
+}
+
+void PlayerControlHuman::killed(Entity* killed_by)
+{
+	if (killed_by->has<Bolt>())
+		player.ref()->killed_by = killed_by->get<Bolt>()->owner.ref();
+	else if (killed_by->has<Grenade>())
+		player.ref()->killed_by = killed_by->get<Grenade>()->owner.ref()->instance.ref();
+	else if (killed_by->has<Rocket>())
+		player.ref()->killed_by = killed_by->get<Rocket>()->owner.ref()->instance.ref();
+	else
+		player.ref()->killed_by = killed_by;
 }
 
 void PlayerControlHuman::drone_reflecting(const DroneReflectEvent& e)
@@ -2552,7 +2608,7 @@ void PlayerControlHuman::camera_shake_update(const Update& u, Camera* camera)
 		{
 			r32 shake = (camera_shake_timer / camera_shake_time) * 0.3f;
 			r32 offset = Game::time.total * 10.0f;
-			camera->rot = camera->rot * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+			camera->rot = camera->rot * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 67)) * shake, noise::sample3d(Vec3(offset + 137)) * shake);
 		}
 	}
 }

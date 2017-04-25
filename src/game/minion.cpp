@@ -718,7 +718,7 @@ void Minion::fire(const Vec3& target)
 {
 	vi_assert(Game::level.local);
 	Vec3 hand = aim_pos();
-	Net::finalize(World::create<BoltEntity>(get<AIAgent>()->team, owner.ref(), Bolt::Type::Normal, hand, target - hand));
+	Net::finalize(World::create<BoltEntity>(get<AIAgent>()->team, owner.ref(), entity(), Bolt::Type::Normal, hand, target - hand));
 
 	Animator::Layer* layer = &get<Animator>()->layers[0];
 	layer->speed = 1.0f;

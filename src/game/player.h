@@ -81,6 +81,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	Sudoku sudoku;
 	s16 energy_notification_accumulator;
 	Ref<SpawnPoint> selected_spawn;
+	Ref<Entity> killed_by;
 	s8 gamepad;
 	b8 msg_good;
 	b8 upgrade_menu_open;
@@ -225,6 +226,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	r32 look_speed() const;
 	b8 local() const;
 	void health_changed(const HealthEvent&);
+	void killed(Entity*);
 	void camera_shake(r32);
 	void camera_shake_update(const Update&, Camera*);
 	void terminal_enter_animation_callback();

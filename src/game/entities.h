@@ -375,7 +375,8 @@ struct Bolt : public ComponentType<Bolt>
 	Vec3 velocity;
 	Vec3 last_pos;
 	r32 remaining_lifetime;
-	Ref<PlayerManager> owner;
+	Ref<PlayerManager> player;
+	Ref<Entity> owner;
 	AI::Team team;
 	Type type;
 	b8 reflected;
@@ -388,7 +389,7 @@ struct Bolt : public ComponentType<Bolt>
 
 struct BoltEntity : public Entity
 {
-	BoltEntity(AI::Team, PlayerManager*, Bolt::Type, const Vec3&, const Vec3&);
+	BoltEntity(AI::Team, PlayerManager*, Entity*, Bolt::Type, const Vec3&, const Vec3&);
 };
 
 struct ParticleEffect

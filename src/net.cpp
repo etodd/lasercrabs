@@ -588,6 +588,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Bolt* x = e->get<Bolt>();
 		serialize_s8(p, x->team);
 		serialize_ref(p, x->owner);
+		serialize_ref(p, x->player);
 		serialize_r32(p, x->velocity.x);
 		serialize_r32(p, x->velocity.y);
 		serialize_r32(p, x->velocity.z);

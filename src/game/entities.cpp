@@ -272,11 +272,6 @@ void apply_alpha_scale(View* v, const Update& u, const Vec3& offset_pos, r32 tar
 	}
 	else
 	{
-		if (v->has<AIAgent>() && v->get<AIAgent>()->stealth)
-			v->mask = 1 << s32(v->get<AIAgent>()->team); // only display to fellow teammates
-		else
-			v->mask = RENDER_MASK_DEFAULT; // everyone can see
-
 		r32 scale_speed = (DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO / anim_time) * scale_speed_multiplier * u.time.delta;
 		r32 existing_scale = v->offset.m[0][0];
 		if (existing_scale > target_scale)
@@ -289,10 +284,12 @@ void apply_alpha_scale(View* v, const Update& u, const Vec3& offset_pos, r32 tar
 void Shield::update_client(const Update& u)
 {
 	Vec3 offset_pos = has<SkinnedModel>() ? get<SkinnedModel>()->offset.translation() : get<View>()->offset.translation();
+	RenderMask mask = has<SkinnedModel>() ? get<SkinnedModel>()->mask : get<View>()->mask;
 
 	{
 		// inner shield
 		View* inner_view = inner.ref()->get<View>();
+		inner_view->mask = mask;
 
 		r32 target_alpha;
 		r32 target_scale;
@@ -317,6 +314,7 @@ void Shield::update_client(const Update& u)
 	{
 		// outer shield
 		View* outer_view = outer.ref()->get<View>();
+		outer_view->mask = mask;
 
 		r32 target_alpha;
 		r32 target_scale;
@@ -1566,7 +1564,7 @@ void Turret::update_server(const Update& u)
 		if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, BOLT_SPEED, nullptr, &aim_pos))
 			aim_pos = target.ref()->get<Transform>()->absolute_pos();
 		gun_pos += Vec3::normalize(aim_pos - gun_pos) * TURRET_RADIUS;
-		Net::finalize(World::create<BoltEntity>(team, nullptr, Bolt::Type::Normal, gun_pos, aim_pos - gun_pos));
+		Net::finalize(World::create<BoltEntity>(team, nullptr, entity(), Bolt::Type::Normal, gun_pos, aim_pos - gun_pos));
 		cooldown += TURRET_COOLDOWN;
 	}
 }
@@ -1785,7 +1783,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 #define BOLT_PLAYER_DAMAGE 3
 #define BOLT_DRONE_DAMAGE 1
 #define BOLT_REFLECT_DAMAGE 4
-BoltEntity::BoltEntity(AI::Team team, PlayerManager* owner, Bolt::Type type, const Vec3& abs_pos, const Vec3& velocity)
+BoltEntity::BoltEntity(AI::Team team, PlayerManager* player, Entity* owner, Bolt::Type type, const Vec3& abs_pos, const Vec3& velocity)
 {
 	Vec3 dir = Vec3::normalize(velocity);
 	Transform* transform = create<Transform>();
@@ -1802,6 +1800,7 @@ BoltEntity::BoltEntity(AI::Team team, PlayerManager* owner, Bolt::Type type, con
 	b->remaining_lifetime = BOLT_MAX_LIFETIME;
 	b->team = team;
 	b->owner = owner;
+	b->player = player;
 	b->velocity = dir * BOLT_SPEED;
 	b->type = type;
 }

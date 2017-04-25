@@ -1057,6 +1057,7 @@ void PlayerControlAI::actions_populate()
 					}
 					case AI::RecordedLife::EntityTurretEnemy:
 					case AI::RecordedLife::EntitySensorEnemy:
+					case AI::RecordedLife::EntityForceFieldEnemy:
 					{
 						break;
 					}

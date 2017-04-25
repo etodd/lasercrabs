@@ -1251,7 +1251,7 @@ PlayerManager* PlayerManager::owner(Entity* e)
 	else if (e->has<Minion>())
 		return e->get<Minion>()->owner.ref();
 	else if (e->has<Bolt>())
-		return e->get<Bolt>()->owner.ref();
+		return e->get<Bolt>()->player.ref();
 	else if (e->has<Rocket>())
 		return e->get<Rocket>()->owner.ref();
 	else if (e->has<Grenade>())

@@ -499,8 +499,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					// we didn't hurt them
 					if (Game::level.local)
 					{
-						if (target.ref()->get<Health>()->invincible() && target.ref()->get<Health>()->invincible_timer <= ACTIVE_ARMOR_TIME // they were invincible; they should damage us
-							&& (drone->current_ability == Ability::None || AbilityInfo::list[s32(drone->current_ability)].type != AbilityInfo::Type::Shoot))
+						if (target.ref()->get<Health>()->invincible() && target.ref()->get<Health>()->invincible_timer <= ACTIVE_ARMOR_TIME) // they were invincible; they should damage us
 						{
 							s8 damage = s8(vi_max(1, s32(target.ref()->get<Health>()->invincible_timer * (3.1f / ACTIVE_ARMOR_TIME))));
 							drone->get<Health>()->damage(target.ref(), damage);
@@ -858,7 +857,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 									break;
 							}
 
-							Entity* bolt = World::create<BoltEntity>(manager->team.ref()->team(), manager, Bolt::Type::Player, pos_bolt, dir_normalized);
+							Entity* bolt = World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), Bolt::Type::Player, pos_bolt, dir_normalized);
 							Net::finalize(bolt);
 							if (closest_hit_entity) // we hit something, register it instantly
 								bolt->get<Bolt>()->hit_entity(closest_hit_entity, closest_hit, closest_hit_normal);
@@ -866,7 +865,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						else
 						{
 							// not a remote player; no lag compensation needed
-							Net::finalize(World::create<BoltEntity>(manager->team.ref()->team(), manager, Bolt::Type::Player, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
+							Net::finalize(World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), Bolt::Type::Player, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
 						}
 					}
 					else
@@ -1602,6 +1601,8 @@ void drone_reflection_execute(Drone* a, Entity* reflected_off, const Vec3& dir)
 
 void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net::StateFrame* state_frame)
 {
+	vi_assert(velocity.length_squared() > 0.0f);
+
 	// it's possible to reflect off a shield while we are dashing (still parented to an object)
 	// so we need to make sure we're not dashing anymore
 	Vec3 reflection_pos = hit + normal * DRONE_RADIUS * 0.5f;
@@ -2530,6 +2531,7 @@ r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 			}
 			else if (hit.type == Hit::Type::Environment)
 			{
+				vi_assert(i == hits.index_end); // no more hits should come after we hit an environment surface
 				if (s == State::Fly)
 				{
 					// we hit a normal surface; attach to it

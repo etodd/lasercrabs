@@ -1186,7 +1186,7 @@ void Rocket::update_server(const Update& u)
 		Vec3 next_pos = get<Transform>()->pos + velocity() * u.time.delta;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, next_pos + get<Transform>()->rot * Vec3(0, 0, 0.1f));
-		Physics::raycast(&ray_callback, ~Team::force_field_mask(team()) & ~CollisionTarget & ~CollisionDroneIgnore);
+		Physics::raycast(&ray_callback, ~Team::force_field_mask(team()) & ~CollisionDroneIgnore);
 		if (ray_callback.hasHit())
 		{
 			// we hit something

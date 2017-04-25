@@ -161,7 +161,7 @@ b8 ability_select(Drone* d, Ability ability)
 	return true;
 }
 
-b8 start_dashing(Drone* a, Vec3 dir, r32 time, b8 combo, Vec3 target)
+b8 start_dashing(Drone* a, Vec3 dir, r32 time)
 {
 	using Stream = Net::StreamWrite;
 	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
@@ -174,13 +174,6 @@ b8 start_dashing(Drone* a, Vec3 dir, r32 time, b8 combo, Vec3 target)
 		serialize_enum(p, Message, t);
 	}
 	serialize_r32_range(p, time, 0, DRONE_DASH_TIME, 16);
-	serialize_bool(p, combo);
-	if (combo)
-	{
-		serialize_r32(p, target.x);
-		serialize_r32(p, target.y);
-		serialize_r32(p, target.z);
-	}
 	dir.normalize();
 	serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
 	serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
@@ -415,17 +408,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			r32 dash_time;
 			serialize_r32_range(p, dash_time, 0, DRONE_DASH_TIME, 16);
 
-			b8 dash_combo;
-			serialize_bool(p, dash_combo);
-
-			Vec3 dash_target;
-			if (dash_combo)
-			{
-				serialize_r32(p, dash_target.x);
-				serialize_r32(p, dash_target.y);
-				serialize_r32(p, dash_target.z);
-			}
-
 			Vec3 dir;
 			serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
@@ -433,9 +415,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			if (apply_msg && drone->charges > 0)
 			{
-				drone->dash_combo = dash_combo;
-				if (dash_combo)
-					drone->dash_target = dash_target;
 				drone->velocity = dir * DRONE_DASH_SPEED;
 
 				drone->dashing.fire();
@@ -1468,7 +1447,9 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 		}
 	}
 
-	DroneNet::start_dashing(this, dir_normalized, time, combo, target);
+	dash_combo = combo;
+	dash_target = target;
+	DroneNet::start_dashing(this, dir_normalized, time);
 
 	return true;
 }

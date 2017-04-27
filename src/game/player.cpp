@@ -2580,22 +2580,25 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 	else if (input_enabled())
 	{
 		// if the remote position is close to what we think it is, snap to it
-		Transform* t = get<Transform>();
-		Vec3 abs_pos;
-		Quat abs_rot;
-		t->absolute(&abs_pos, &abs_rot);
+		if (get<Drone>()->state() == Drone::State::Crawl // only if we're crawling
+			&& remote_control.parent.ref()) // and only if the remote thinks we're crawling
+		{
+			Transform* t = get<Transform>();
+			Vec3 abs_pos;
+			Quat abs_rot;
+			t->absolute(&abs_pos, &abs_rot);
 
-		Vec3 remote_abs_pos = remote_control.pos;
-		Quat remote_abs_rot = remote_control.rot;
-		if (remote_control.parent.ref())
+			Vec3 remote_abs_pos = remote_control.pos;
+			Quat remote_abs_rot = remote_control.rot;
 			remote_control.parent.ref()->to_world(&remote_abs_pos, &remote_abs_rot);
-		r32 tolerance_pos;
-		r32 tolerance_rot;
-		remote_position(&tolerance_pos, &tolerance_rot);
-		if ((remote_abs_pos - abs_pos).length_squared() < tolerance_pos * tolerance_pos)
-			t->absolute_pos(remote_abs_pos);
-		if (Quat::angle(remote_abs_rot, abs_rot) < tolerance_rot)
-			t->absolute_rot(remote_abs_rot);
+			r32 tolerance_pos;
+			r32 tolerance_rot;
+			remote_position(&tolerance_pos, &tolerance_rot);
+			if ((remote_abs_pos - abs_pos).length_squared() < tolerance_pos * tolerance_pos)
+				t->absolute_pos(remote_abs_pos);
+			if (Quat::angle(remote_abs_rot, abs_rot) < tolerance_rot)
+				t->absolute_rot(remote_abs_rot);
+		}
 	}
 }
 

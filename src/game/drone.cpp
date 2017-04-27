@@ -443,7 +443,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		{
 			if (apply_msg)
 			{
-				Vec3 p = drone->get<Transform>()->absolute_pos();
 				drone->finish_flying_dashing_common();
 				drone->done_dashing.fire();
 			}

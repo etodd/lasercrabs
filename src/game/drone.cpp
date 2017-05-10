@@ -1704,6 +1704,7 @@ void Drone::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos,
 	else
 	{
 		// client is not where we think they should be. they might be hacking. don't reflect
+		vi_debug("Remote attempted to force an invalid drone reflection. Ignoring.");
 	}
 }
 

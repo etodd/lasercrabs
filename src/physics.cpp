@@ -27,13 +27,18 @@ void Physics::sync_static()
 {
 	for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
 	{
-		btRigidBody* body = i.item()->btBody;
-		if (body->isStaticOrKinematicObject())
+#if SERVER
+		if (!(i.item()->flags & RigidBody::FlagGhost))
+#endif
 		{
-			btTransform transform;
-			i.item()->get<Transform>()->get_bullet(transform);
-			body->setWorldTransform(transform);
-			body->setInterpolationWorldTransform(transform);
+			btRigidBody* body = i.item()->btBody;
+			if (body->isStaticOrKinematicObject())
+			{
+				btTransform transform;
+				i.item()->get<Transform>()->get_bullet(transform);
+				body->setWorldTransform(transform);
+				body->setInterpolationWorldTransform(transform);
+			}
 		}
 	}
 }
@@ -42,9 +47,14 @@ void Physics::sync_dynamic()
 {
 	for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
 	{
-		btRigidBody* body = i.item()->btBody;
-		if (body->isActive() && !body->isStaticOrKinematicObject())
-			i.item()->get<Transform>()->set_bullet(body->getInterpolationWorldTransform());
+#if SERVER
+		if (!(i.item()->flags & RigidBody::FlagGhost))
+#endif
+		{
+			btRigidBody* body = i.item()->btBody;
+			if (body->isActive() && !body->isStaticOrKinematicObject())
+				i.item()->get<Transform>()->set_bullet(body->getInterpolationWorldTransform());
+		}
 	}
 }
 
@@ -83,7 +93,7 @@ void Physics::raycast(btCollisionWorld::ClosestRayResultCallback* ray_callback, 
 
 PinArray<RigidBody::Constraint, MAX_ENTITIES> RigidBody::global_constraints;
 
-RigidBody::RigidBody(Type type, const Vec3& size, r32 mass, s16 group, s16 mask, AssetID mesh_id)
+RigidBody::RigidBody(Type type, const Vec3& size, r32 mass, s16 group, s16 mask, AssetID mesh_id, s8 flags)
 	: type(type),
 	size(size),
 	mass(mass),
@@ -94,8 +104,7 @@ RigidBody::RigidBody(Type type, const Vec3& size, r32 mass, s16 group, s16 mask,
 	btShape(),
 	mesh_id(mesh_id),
 	restitution(),
-	ccd(),
-	has_constraints()
+	flags(flags)
 {
 }
 
@@ -110,8 +119,7 @@ RigidBody::RigidBody()
 	btShape(),
 	mesh_id(IDNull),
 	restitution(),
-	ccd(),
-	has_constraints()
+	flags()
 {
 }
 
@@ -123,6 +131,14 @@ void RigidBody::awake()
 	// rigid bodies controlled by the server appear as kinematic bodies to the client
 	short actual_collision_filter;
 	r32 m;
+#if SERVER
+	if (flags & FlagGhost)
+	{
+		m = 0.0f;
+		actual_collision_filter = 0;
+	}
+	else
+#endif
 	if (!Game::level.local && Game::net_transform_filter(entity(), Game::level.mode))
 	{
 		m = 0.0f;
@@ -190,21 +206,26 @@ void RigidBody::awake()
 	btBody->setUserIndex(entity_id);
 	btBody->setRestitution(restitution);
 	btBody->setDamping(damping.x, damping.y);
-	set_ccd(ccd);
+	set_ccd(flags & FlagContinuousCollisionDetection);
 
 	Physics::btWorld->addRigidBody(btBody, collision_group, actual_collision_filter);
 
 	// rebuild constraints
 
-	for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
+#if SERVER
+	if (!(flags & FlagGhost))
+#endif
 	{
-		Constraint* constraint = i.item();
-		if (!constraint->btPointer
-			&& (constraint->a.ref() == this || constraint->b.ref() == this)
-			&& (constraint->a.ref() && constraint->b.ref())
-			&& (constraint->a.ref()->btBody && constraint->b.ref()->btBody))
+		for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
 		{
-			instantiate_constraint(constraint, i.index);
+			Constraint* constraint = i.item();
+			if (!constraint->btPointer
+				&& (constraint->a.ref() == this || constraint->b.ref() == this)
+				&& (constraint->a.ref() && constraint->b.ref())
+				&& (constraint->a.ref()->btBody && constraint->b.ref()->btBody))
+			{
+				instantiate_constraint(constraint, i.index);
+			}
 		}
 	}
 }
@@ -228,7 +249,10 @@ void RigidBody::set_restitution(r32 r)
 
 void RigidBody::set_ccd(b8 c)
 {
-	ccd = c;
+	if (c)
+		flags |= FlagContinuousCollisionDetection;
+	else
+		flags &= ~FlagContinuousCollisionDetection;
 	if (btBody)
 	{
 		if (c)
@@ -248,6 +272,19 @@ void RigidBody::set_ccd(b8 c)
 			btBody->setCcdMotionThreshold(0.0f);
 			btBody->setCcdSweptSphereRadius(0.0f);
 		}
+	}
+}
+
+void RigidBody::set_ghost(b8 g)
+{
+	if (g != (flags & FlagGhost))
+	{
+		if (g)
+			flags |= FlagGhost;
+		else
+			flags &= ~FlagGhost;
+
+		rebuild();
 	}
 }
 
@@ -313,65 +350,76 @@ void RigidBody::set_damping(r32 linear, r32 angular)
 void RigidBody::instantiate_constraint(Constraint* constraint, ID id)
 {
 	vi_assert(!constraint->btPointer);
-	switch (constraint->type)
+
+	constraint->a.ref()->flags |= FlagHasConstraints;
+	constraint->b.ref()->flags |= FlagHasConstraints;
+
+#if SERVER
+	if (!(constraint->a.ref()->flags & FlagGhost)
+		&& !(constraint->b.ref()->flags & FlagGhost))
+#endif
 	{
-		case Constraint::Type::ConeTwist:
+		switch (constraint->type)
 		{
-			constraint->btPointer = new btConeTwistConstraint
-			(
-				*constraint->a.ref()->btBody,
-				*constraint->b.ref()->btBody,
-				constraint->frame_a,
-				constraint->frame_b
-			);
-			((btConeTwistConstraint*)constraint->btPointer)->setLimit(constraint->limits.x, constraint->limits.y, constraint->limits.z);
-			break;
+			case Constraint::Type::ConeTwist:
+			{
+				constraint->btPointer = new btConeTwistConstraint
+				(
+					*constraint->a.ref()->btBody,
+					*constraint->b.ref()->btBody,
+					constraint->frame_a,
+					constraint->frame_b
+				);
+				((btConeTwistConstraint*)constraint->btPointer)->setLimit(constraint->limits.x, constraint->limits.y, constraint->limits.z);
+				break;
+			}
+			case Constraint::Type::PointToPoint:
+			{
+				constraint->btPointer = new btPoint2PointConstraint
+				(
+					*constraint->a.ref()->btBody,
+					*constraint->b.ref()->btBody,
+					constraint->frame_a.getOrigin(),
+					constraint->frame_b.getOrigin()
+				);
+				break;
+			}
+			case Constraint::Type::Fixed:
+			{
+				constraint->btPointer = new btFixedConstraint
+				(
+					*constraint->a.ref()->btBody,
+					*constraint->b.ref()->btBody,
+					constraint->frame_a,
+					constraint->frame_b
+				);
+				break;
+			}
+			default:
+				vi_assert(false);
+				break;
 		}
-		case Constraint::Type::PointToPoint:
-		{
-			constraint->btPointer = new btPoint2PointConstraint
-			(
-				*constraint->a.ref()->btBody,
-				*constraint->b.ref()->btBody,
-				constraint->frame_a.getOrigin(),
-				constraint->frame_b.getOrigin()
-			);
-			break;
-		}
-		case Constraint::Type::Fixed:
-		{
-			constraint->btPointer = new btFixedConstraint
-			(
-				*constraint->a.ref()->btBody,
-				*constraint->b.ref()->btBody,
-				constraint->frame_a,
-				constraint->frame_b
-			);
-			break;
-		}
-		default:
-			vi_assert(false);
-			break;
+
+		constraint->btPointer->setUserConstraintId(id);
+
+		Physics::btWorld->addConstraint(constraint->btPointer);
 	}
-
-	constraint->btPointer->setUserConstraintId(id);
-
-	constraint->a.ref()->has_constraints = true;
-	constraint->b.ref()->has_constraints = true;
-
-	Physics::btWorld->addConstraint(constraint->btPointer);
 }
 
 void RigidBody::rebuild_constraint(ID id)
 {
 	Constraint* constraint = &global_constraints[id];
+
 	constraint->a.ref()->btBody->activate(true);
 	constraint->b.ref()->btBody->activate(true);
 
-	Physics::btWorld->removeConstraint(constraint->btPointer);
+	if (constraint->btPointer)
+	{
+		Physics::btWorld->removeConstraint(constraint->btPointer);
 
-	delete constraint->btPointer;
-	constraint->btPointer = nullptr;
+		delete constraint->btPointer;
+		constraint->btPointer = nullptr;
+	}
 
 	instantiate_constraint(constraint, id);
 }
@@ -394,13 +442,16 @@ void RigidBody::remove_constraint(ID id)
 {
 	Constraint* constraint = &global_constraints[id];
 
-	constraint->a.ref()->btBody->activate(true);
-	constraint->b.ref()->btBody->activate(true);
+	if (constraint->btPointer)
+	{
+		constraint->a.ref()->btBody->activate(true);
+		constraint->b.ref()->btBody->activate(true);
 
-	Physics::btWorld->removeConstraint(constraint->btPointer);
+		Physics::btWorld->removeConstraint(constraint->btPointer);
 
-	delete constraint->btPointer;
-	constraint->btPointer = nullptr;
+		delete constraint->btPointer;
+		constraint->btPointer = nullptr;
+	}
 
 	global_constraints.remove(id);
 }
@@ -408,7 +459,7 @@ void RigidBody::remove_constraint(ID id)
 void RigidBody::activate_linked()
 {
 	btBody->activate(true);
-	if (has_constraints)
+	if (flags & FlagHasConstraints)
 	{
 		for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
 		{
@@ -423,7 +474,7 @@ void RigidBody::activate_linked()
 
 void RigidBody::remove_all_constraints()
 {
-	if (has_constraints)
+	if (flags & FlagHasConstraints)
 	{
 		for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
 		{
@@ -431,7 +482,7 @@ void RigidBody::remove_all_constraints()
 			if (constraint->a.ref() == this || constraint->b.ref() == this)
 				remove_constraint(i.index);
 		}
-		has_constraints = false;
+		flags &= ~FlagHasConstraints;
 	}
 }
 

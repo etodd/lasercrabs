@@ -29,7 +29,7 @@ ContainerEntity::ContainerEntity()
 {
 }
 
-Prop::Prop(const AssetID mesh_id, const AssetID armature, const AssetID animation)
+Prop::Prop(AssetID mesh_id, AssetID armature, AssetID animation)
 {
 	Transform* transform = create<Transform>();
 	if (armature == AssetNull)
@@ -50,7 +50,7 @@ Prop::Prop(const AssetID mesh_id, const AssetID armature, const AssetID animatio
 	}
 }
 
-StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot, short group, short mask)
+StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot, short group, short mask, s8 flags)
 {
 	Transform* transform = create<Transform>();
 	transform->absolute(absolute_pos, absolute_rot);
@@ -59,11 +59,11 @@ StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& ab
 
 	const Mesh* mesh = Loader::mesh(model->mesh);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | group, ~CollisionStatic & mask, mesh_id);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | group, ~CollisionStatic & mask, mesh_id, flags);
 	body->set_restitution(0.75f);
 }
 
-PhysicsEntity::PhysicsEntity(AssetID mesh, const Vec3& pos, const Quat& quat, RigidBody::Type type, const Vec3& scale, r32 mass, short filter_group, short filter_mask)
+PhysicsEntity::PhysicsEntity(AssetID mesh, const Vec3& pos, const Quat& quat, RigidBody::Type type, const Vec3& scale, r32 mass, short filter_group, short filter_mask, s8 flags)
 {
 	vi_assert(type != RigidBody::Type::Mesh);
 	Transform* transform = create<Transform>();
@@ -78,7 +78,7 @@ PhysicsEntity::PhysicsEntity(AssetID mesh, const Vec3& pos, const Quat& quat, Ri
 		model->shader = Asset::Shader::standard;
 	}
 	
-	create<RigidBody>(type, scale, mass, filter_group, filter_mask, AssetNull);
+	create<RigidBody>(type, scale, mass, filter_group, filter_mask, AssetNull, flags);
 }
 
 

@@ -2,7 +2,6 @@
 
 #include "data/entity.h"
 #include "physics.h"
-#include "ai.h"
 
 namespace VI
 {
@@ -21,17 +20,17 @@ struct ContainerEntity : public Entity
 
 struct Prop : public Entity
 {
-	Prop(const AssetID, const AssetID = AssetNull, const AssetID = AssetNull);
+	Prop(AssetID, AssetID = AssetNull, AssetID = AssetNull);
 };
 
 struct StaticGeom : public Entity
 {
-	StaticGeom(AssetID, const Vec3&, const Quat&, short = CollisionStatic, short = ~CollisionStatic);
+	StaticGeom(AssetID, const Vec3&, const Quat&, short = CollisionStatic, short = ~CollisionStatic, s8 = 0);
 };
 
 struct PhysicsEntity : public Entity
 {
-	PhysicsEntity(AssetID, const Vec3&, const Quat&, RigidBody::Type, const Vec3&, r32, short, short);
+	PhysicsEntity(AssetID, const Vec3&, const Quat&, RigidBody::Type, const Vec3&, r32, short, short, s8 = 0);
 };
 
 }

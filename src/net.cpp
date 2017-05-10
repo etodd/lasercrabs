@@ -35,7 +35,7 @@
 #define DEBUG_LAG 0
 #define DEBUG_LAG_AMOUNT 0.1f
 #define DEBUG_PACKET_LOSS 0
-#define DEBUG_PACKET_LOSS_AMOUNT 0.1f
+#define DEBUG_PACKET_LOSS_AMOUNT 0.05f
 
 #define MASTER_PING_TIMEOUT 8.0f
 
@@ -366,7 +366,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_asset(p, r->mesh_id, Loader::static_mesh_count);
 		serialize_s16(p, r->collision_group);
 		serialize_s16(p, r->collision_filter);
-		serialize_bool(p, r->ccd);
+		serialize_s8(p, r->flags);
 
 		if (Stream::IsWriting)
 		{

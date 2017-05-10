@@ -422,6 +422,7 @@ struct Message
 	};
 
 	Vec3 pos;
+	Quat rot;
 	Vec3 dir;
 	Vec3 target;
 	Ability ability = Ability::None;
@@ -440,6 +441,8 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 		|| msg->type == Message::Type::Reflect)
 	{
 		serialize_position(p, &msg->pos, Net::Resolution::High);
+		if (!serialize_quat(p, &msg->rot, Net::Resolution::High))
+			net_error();
 		serialize_r32_range(p, msg->dir.x, -1.0f, 1.0f, 16);
 		serialize_r32_range(p, msg->dir.y, -1.0f, 1.0f, 16);
 		serialize_r32_range(p, msg->dir.z, -1.0f, 1.0f, 16);
@@ -780,15 +783,16 @@ void PlayerHuman::update(const Update& u)
 								selected_spawn = closest;
 						}
 
-						{
-							Quat target_rot = Quat::look(Game::level.map_view.ref()->absolute_rot() * Vec3(0, -1, 0));
-							Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.skybox.far_plane * -0.6f);
-							camera->pos += (target_pos - camera->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
-							camera->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera->rot, target_rot);
-						}
-
 						if (u.input->get(Controls::Interact, gamepad) && !u.last_input->get(Controls::Interact, gamepad))
 							select_spawn_timer = 1.0f;
+					}
+
+					// move camera to focus on selected spawn point
+					{
+						Quat target_rot = Quat::look(Game::level.map_view.ref()->absolute_rot() * Vec3(0, -1, 0));
+						Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.skybox.far_plane * -0.6f);
+						camera->pos += (target_pos - camera->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
+						camera->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera->rot, target_rot);
 					}
 				}
 			}
@@ -1943,7 +1947,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		r32 tolerance_pos;
 		c->remote_position(&tolerance_pos);
 		if (dist_sq < tolerance_pos * tolerance_pos)
-			c->get<Transform>()->absolute_pos(msg.pos);
+			c->get<Transform>()->absolute(msg.pos, msg.rot);
 
 #if SERVER
 		// update RTT based on the sequence number
@@ -2218,7 +2222,7 @@ void player_ability_update(const Update& u, PlayerControlHuman* control, Control
 			if (manager->ability_valid(ability))
 			{
 				PlayerControlHumanNet::Message msg;
-				msg.pos = control->get<Transform>()->absolute_pos();
+				control->get<Transform>()->absolute(&msg.pos, &msg.rot);
 				msg.dir = Vec3::normalize(control->reticle.pos - msg.pos);
 				msg.type = PlayerControlHumanNet::Message::Type::Go;
 				msg.ability = ability;
@@ -2340,7 +2344,7 @@ void PlayerControlHuman::drone_reflecting(const DroneReflectEvent& e)
 	if (!Game::level.local)
 	{
 		PlayerControlHumanNet::Message msg;
-		msg.pos = get<Transform>()->absolute_pos();
+		get<Transform>()->absolute(&msg.pos, &msg.rot);
 		msg.dir = Vec3::normalize(e.new_velocity);
 		msg.entity = e.entity;
 		msg.type = PlayerControlHumanNet::Message::Type::Reflect;
@@ -3033,7 +3037,7 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					PlayerControlHumanNet::Message msg;
 					msg.dir = Vec3::normalize(reticle.pos - get<Transform>()->absolute_pos());
-					msg.pos = get<Transform>()->absolute_pos();
+					get<Transform>()->absolute(&msg.pos, &msg.rot);
 					if (reticle.type == ReticleType::Dash || reticle.type == ReticleType::DashTarget)
 					{
 						msg.type = PlayerControlHumanNet::Message::Type::Dash;

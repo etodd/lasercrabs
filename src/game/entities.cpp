@@ -1396,7 +1396,7 @@ TurretEntity::TurretEntity(AI::Team team)
 
 	create<Health>(TURRET_HEALTH, TURRET_HEALTH);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker, Asset::Mesh::turret_top);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionInaccessible & ~CollisionElectric & ~CollisionParkour & ~CollisionStatic & ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker, Asset::Mesh::turret_top);
 	body->set_restitution(0.75f);
 
 	PointLight* light = create<PointLight>();

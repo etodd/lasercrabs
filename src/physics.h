@@ -117,10 +117,13 @@ struct RigidBody : public ComponentType<RigidBody>
 	s16 collision_group;
 	s16 collision_filter;
 	Type type;
-	b8 ccd; // continuous collision detection
-	b8 has_constraints;
+	s8 flags;
 
-	RigidBody(Type, const Vec3&, r32, s16, s16, AssetID = AssetNull);
+	static const s8 FlagContinuousCollisionDetection = 1 << 0;
+	static const s8 FlagHasConstraints = 1 << 1;
+	static const s8 FlagGhost = 1 << 2; // ghost rigidbodies still exist, but don't collide or move or affect constraints. Only servers have ghost objects. Clients always simulate everything.
+
+	RigidBody(Type, const Vec3&, r32, s16, s16, AssetID = AssetNull, s8 = 0);
 	RigidBody();
 	~RigidBody();
 	void awake();
@@ -129,7 +132,8 @@ struct RigidBody : public ComponentType<RigidBody>
 
 	void set_damping(r32, r32);
 	void set_restitution(r32);
-	void set_ccd(b8);
+	void set_ccd(b8); // continuous collision detection
+	void set_ghost(b8);
 	void set_collision_masks(s16, s16);
 
 	void activate_linked();

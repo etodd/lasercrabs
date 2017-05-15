@@ -3,13 +3,13 @@
 	<GameParameters>
 		<WorkUnit Name="Default Work Unit" ID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}" PersistMode="Standalone">
 			<ChildrenList>
-				<GameParameter Name="MusicVol" ID="{B1E54CCC-5EC7-4345-A62F-3A5A4F0365C8}">
+				<GameParameter Name="Volume_Music" ID="{B1E54CCC-5EC7-4345-A62F-3A5A4F0365C8}">
 					<PropertyList>
 						<Property Name="InitialValue" Type="Real64" Value="1"/>
 						<Property Name="Max" Type="Real64" Value="1"/>
 					</PropertyList>
 				</GameParameter>
-				<GameParameter Name="SFXVol" ID="{31BB14DE-9BFF-4D9D-A09A-D58020485541}">
+				<GameParameter Name="Volume_SFX" ID="{31BB14DE-9BFF-4D9D-A09A-D58020485541}">
 					<PropertyList>
 						<Property Name="InitialValue" Type="Real64" Value="1"/>
 						<Property Name="Max" Type="Real64" Value="1"/>
@@ -21,9 +21,21 @@
 						<Property Name="Max" Type="Real64" Value="1"/>
 					</PropertyList>
 				</GameParameter>
-				<GameParameter Name="Fly_Volume" ID="{708CBCD1-1DB0-485B-AEAE-F0CA2AF9EC2A}">
+				<GameParameter Name="Parkour_Slide" ID="{6071C0CE-A3CA-461F-BDE3-5ADA06A81114}">
 					<PropertyList>
-						<Property Name="InitialValue" Type="Real64" Value="1"/>
+						<Property Name="InitialValue" Type="Real64" Value="0"/>
+						<Property Name="Max" Type="Real64" Value="1"/>
+					</PropertyList>
+				</GameParameter>
+				<GameParameter Name="Tram_Loop" ID="{4141EC43-09B5-47DC-90E6-E83292CD9ACD}">
+					<PropertyList>
+						<Property Name="InitialValue" Type="Real64" Value="0"/>
+						<Property Name="Max" Type="Real64" Value="1"/>
+					</PropertyList>
+				</GameParameter>
+				<GameParameter Name="Parkour_Wind" ID="{F6905F29-60EE-4D61-80E8-1CE93F7CC94F}">
+					<PropertyList>
+						<Property Name="InitialValue" Type="Real64" Value="0"/>
 						<Property Name="Max" Type="Real64" Value="1"/>
 					</PropertyList>
 				</GameParameter>

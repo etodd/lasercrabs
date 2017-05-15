@@ -256,6 +256,15 @@ void Shield::update_client_all(const Update& u)
 		i.item()->update_client(u);
 }
 
+void Shield::damaged(const HealthEvent& e)
+{
+	s8 total = e.hp + e.shield;
+	if (total < -1)
+		get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_DAMAGE_LARGE_PLAYER : AK::EVENTS::PLAY_DRONE_DAMAGE_LARGE);
+	else if (total < 0)
+		get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_DAMAGE_SMALL_PLAYER : AK::EVENTS::PLAY_DRONE_DAMAGE_SMALL);
+}
+
 void apply_alpha_scale(View* v, const Update& u, const Vec3& offset_pos, r32 target_alpha, r32 target_scale, r32 scale_speed_multiplier)
 {
 	const r32 anim_time = 0.3f;
@@ -1836,7 +1845,7 @@ b8 Bolt::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 void Bolt::awake()
 {
-	get<Audio>()->post_event(AK::EVENTS::PLAY_LASER);
+	get<Audio>()->post_event(AK::EVENTS::PLAY_BOLT_SPAWN);
 	last_pos = get<Transform>()->absolute_pos();
 }
 
@@ -2015,6 +2024,8 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 		Audio::post_global_event(AK::EVENTS::PLAY_EXPLOSION, pos);
 		EffectLight::add(pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
 	}
+	else if (t == Type::Impact)
+		Audio::post_global_event(AK::EVENTS::PLAY_IMPACT, pos);
 
 	if (t == Type::Grenade)
 	{
@@ -2208,7 +2219,7 @@ void Grenade::update_client_all(const Update& u)
 				if (v->mesh != Asset::Mesh::grenade_attached)
 				{
 					v->mesh = Asset::Mesh::grenade_attached;
-					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_BEEP_GRENADE);
+					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_ATTACH);
 				}
 			}
 			else
@@ -2240,7 +2251,7 @@ void Grenade::update_client_all(const Update& u)
 				i.item()->timer += u.time.delta;
 				r32 interval = LMath::lerpf(vi_min(1.0f, i.item()->timer / GRENADE_DELAY), 0.35f, 0.05f);
 				if (s32(i.item()->timer / interval) != s32((i.item()->timer - u.time.delta) / interval))
-					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_BEEP_GRENADE);
+					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_BEEP);
 			}
 			else
 				i.item()->timer = 0.0f;

@@ -1190,7 +1190,7 @@ b8 Parkour::try_jump(r32 rotation)
 
 	if (did_jump)
 	{
-		get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_JUMP_PLAYER : AK::EVENTS::PLAY_JUMP);
+		get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_JUMP);
 		fsm.transition(State::Normal);
 	}
 

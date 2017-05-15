@@ -1670,7 +1670,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			UI::box(params, box, UI::color_background);
 			msg_text.draw(params, pos);
 			if (!last_flash)
-				Audio::post_global_event(msg_good ? AK::EVENTS::PLAY_BEEP_GOOD : AK::EVENTS::PLAY_BEEP_BAD);
+				Audio::post_global_event(msg_good ? AK::EVENTS::PLAY_MESSAGE_BEEP_GOOD : AK::EVENTS::PLAY_MESSAGE_BEEP_BAD);
 		}
 	}
 
@@ -1962,7 +1962,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 			c->get<Drone>()->current_ability = Ability::None;
 			if (c->get<Drone>()->dash_start(msg.dir, msg.target))
 			{
-				c->get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+				c->get<Audio>()->post_event(c->local() ? AK::EVENTS::PLAY_DRONE_FLY_PLAYER : AK::EVENTS::PLAY_DRONE_FLY);
 				c->try_primary = false;
 				c->try_secondary = false;
 			}
@@ -1976,7 +1976,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 				c->try_primary = false;
 				if (msg.ability == Ability::None)
 				{
-					c->get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+					c->get<Audio>()->post_event(c->local() ? AK::EVENTS::PLAY_DRONE_FLY_PLAYER : AK::EVENTS::PLAY_DRONE_FLY);
 					c->try_secondary = false;
 				}
 				else
@@ -2028,7 +2028,7 @@ void PlayerControlHuman::drone_done_flying_or_dashing()
 {
 	camera_shake_timer = 0.0f; // stop screen shake
 	player.ref()->rumble_add(0.2f);
-	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
+	get<Audio>()->post_event(AK::EVENTS::STOP_DRONE_FLY);
 #if SERVER
 	if (!get<Health>()->invincible())
 	{
@@ -2305,14 +2305,17 @@ void PlayerControlHuman::awake()
 		link<&PlayerControlHuman::terminal_enter_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_enter, 2.5f));
 		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_interact, 3.8f));
 		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_exit, 4.0f));
-		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
-		get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, 0.0f);
+		get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_WIND);
+		get<Audio>()->param(AK::GAME_PARAMETERS::PARKOUR_WIND, 0.0f);
 	}
 }
 
 PlayerControlHuman::~PlayerControlHuman()
 {
-	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
+	if (has<Drone>())
+		get<Audio>()->post_event(AK::EVENTS::STOP_DRONE_FLY);
+	else
+		get<Audio>()->post_event(AK::EVENTS::STOP_PARKOUR_ALL);
 }
 
 void PlayerControlHuman::health_changed(const HealthEvent& e)
@@ -3451,7 +3454,7 @@ void PlayerControlHuman::update_late(const Update& u)
 			r32 speed = get<Parkour>()->fsm.current == Parkour::State::Mantle || get<Walker>()->support.ref()
 				? 0.0f
 				: get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
-			get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
+			get<Audio>()->param(AK::GAME_PARAMETERS::PARKOUR_WIND, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
 			r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1);
 			player.ref()->rumble_add(shake);
 			shake *= 0.2f;
@@ -3969,7 +3972,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (show)
 				UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert);
 			if (show && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
-				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
+				Audio::post_global_event(AK::EVENTS::PLAY_DANGER_BEEP);
 		}
 		else if (enemy_visible && !get<AIAgent>()->stealth)
 			UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert);
@@ -4011,16 +4014,8 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 			Rect2 box = text.rect(pos).outset(8 * UI::scale);
 			UI::box(params, box, UI::color_background);
-			if (danger)
-			{
-				if (UI::flash_function(Game::real_time.total))
-					text.draw(params, pos);
-			}
-			else
-			{
-				if (UI::flash_function_slow(Game::real_time.total))
-					text.draw(params, pos);
-			}
+			if (danger ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total))
+				text.draw(params, pos);
 		}
 	}
 

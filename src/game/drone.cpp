@@ -393,7 +393,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
 					drone->get<Transform>()->absolute_rot(Quat::look(dir));
 
-					drone->get<Audio>()->post_event(drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+					drone->get<Audio>()->post_event(drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_LAUNCH_PLAYER : AK::EVENTS::PLAY_DRONE_LAUNCH);
 
 					if (flag != DroneNet::FlyFlag::CancelExisting)
 						drone->cooldown_setup();
@@ -434,7 +434,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 				drone->particle_accumulator = 0;
 
-				drone->get<Audio>()->post_event(drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+				drone->get<Audio>()->post_event(drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_LAUNCH_PLAYER : AK::EVENTS::PLAY_DRONE_LAUNCH);
 			}
 
 			break;
@@ -469,8 +469,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			if (target.ref()->has<Shield>())
 			{
-				target.ref()->get<Audio>()->post_event(target.ref()->has<PlayerControlHuman>() && target.ref()->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
-
 				// check if we can damage them
 				if (target.ref()->get<Health>()->invincible() || (target.ref()->has<Drone>() && target.ref()->get<Drone>()->state() != Drone::State::Crawl))
 				{
@@ -899,7 +897,7 @@ void Drone::finish_flying_dashing_common()
 {
 	get<Animator>()->layers[0].animation = AssetNull;
 
-	get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
+	get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_LAND_PLAYER : AK::EVENTS::PLAY_DRONE_LAND);
 	attach_time = Game::time.total;
 	dash_timer = 0.0f;
 	dash_combo = false;
@@ -973,7 +971,7 @@ void Drone::awake()
 
 Drone::~Drone()
 {
-	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
+	get<Audio>()->post_event(AK::EVENTS::STOP_DRONE_FLY);
 }
 
 Drone::State Drone::state() const

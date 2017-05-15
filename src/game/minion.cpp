@@ -779,7 +779,7 @@ void Minion::killed(Entity* killer)
 {
 	PlayerManager::entity_killed_by(entity(), killer);
 	get<Audio>()->post_event(AK::EVENTS::STOP);
-	Audio::post_global_event(AK::EVENTS::PLAY_HEADSHOT, head_pos());
+	Audio::post_global_event(killer->has<Drone>() ? AK::EVENTS::PLAY_MINION_HEADSHOT : AK::EVENTS::PLAY_MINION_DIE, head_pos());
 
 	if (Game::level.local)
 	{

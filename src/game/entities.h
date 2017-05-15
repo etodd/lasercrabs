@@ -68,6 +68,7 @@ struct Shield : public ComponentType<Shield>
 	~Shield();
 
 	void update_client(const Update&);
+	void damaged(const HealthEvent&);
 };
 
 struct BatteryEntity : public Entity

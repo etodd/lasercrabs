@@ -12,7 +12,7 @@
 										<RTPC Name="" ID="{0B774BC8-4D21-48A6-9C9A-86A957E3F85F}" ShortID="853417574">
 											<ReferenceList>
 												<Reference Name="ControlInput">
-													<ObjectRef Name="MusicVol" ID="{B1E54CCC-5EC7-4345-A62F-3A5A4F0365C8}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+													<ObjectRef Name="Volume_Music" ID="{B1E54CCC-5EC7-4345-A62F-3A5A4F0365C8}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
 												</Reference>
 											</ReferenceList>
 											<Curve Name="" ID="{F6AE5BCC-8393-4242-A6BE-0091304B06B1}">
@@ -44,7 +44,7 @@
 										<RTPC Name="" ID="{2139DD91-8EC7-486D-816D-97F36F3604C0}" ShortID="563762353">
 											<ReferenceList>
 												<Reference Name="ControlInput">
-													<ObjectRef Name="SFXVol" ID="{31BB14DE-9BFF-4D9D-A09A-D58020485541}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+													<ObjectRef Name="Volume_SFX" ID="{31BB14DE-9BFF-4D9D-A09A-D58020485541}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
 												</Reference>
 											</ReferenceList>
 											<Curve Name="" ID="{0932D6F6-08B4-4E9F-871B-CE0B544D5DF4}">

@@ -436,6 +436,8 @@ b8 Health::invincible() const
 BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 {
 	create<Transform>()->pos = p;
+	create<Audio>();
+
 	View* model = create<View>();
 	model->color = Vec4(0.6f, 0.6f, 0.6f, MATERIAL_NO_OVERRIDE);
 	model->mesh = Asset::Mesh::battery;
@@ -545,6 +547,7 @@ void Battery::awake()
 	link_arg<const TargetEvent&, &Battery::hit>(get<Target>()->target_hit);
 	link_arg<Entity*, &Battery::killed>(get<Health>()->killed);
 	set_team_client(team);
+	get<Audio>()->post_event(AK::EVENTS::PLAY_BATTERY_LOOP);
 }
 
 Battery::~Battery()
@@ -587,7 +590,12 @@ b8 Battery::net_msg(Net::StreamRead* p)
 	pickup->set_team_client(t);
 	pickup->reward_level = reward_level;
 	if (caused_by.ref() && caused_by.ref()->has<AIAgent>() && t == caused_by.ref()->get<AIAgent>()->team)
+	{
 		caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_energy_and_notify(pickup->reward());
+		pickup->get<Audio>()->post_event(AK::EVENTS::PLAY_BATTERY_CAPTURE);
+	}
+	else if (t == AI::TeamNone)
+		pickup->get<Audio>()->post_event(AK::EVENTS::PLAY_BATTERY_RESET);
 
 	return true;
 }
@@ -840,6 +848,8 @@ SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_r
 	transform->pos = abs_pos;
 	transform->rot = abs_rot;
 
+	create<Audio>();
+
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::sphere;
 	model->color = Team::color_enemy;
@@ -889,7 +899,7 @@ void Sensor::killed_by(Entity* e)
 		World::remove_deferred(entity());
 }
 
-void Sensor::update_all_client(const Update& u)
+void Sensor::update_client_all(const Update& u)
 {
 	r32 time = u.time.total;
 	r32 last_time = time - u.time.delta;
@@ -899,8 +909,11 @@ void Sensor::update_all_client(const Update& u)
 		if (i.item()->team != AI::TeamNone)
 		{
 			r32 offset = i.index * sensor_shockwave_interval * 0.3f;
-			if ((s32)((time + offset) / sensor_shockwave_interval) != (s32)((last_time + offset) / sensor_shockwave_interval))
+			if (s32((time + offset) / sensor_shockwave_interval) != s32((last_time + offset) / sensor_shockwave_interval))
+			{
 				EffectLight::add(i.item()->get<Transform>()->absolute_pos(), 10.0f, 1.5f, EffectLight::Type::Shockwave);
+				i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_SENSOR_PING);
+			}
 		}
 	}
 }
@@ -999,6 +1012,11 @@ void Rocket::awake()
 	get<Target>()->target_hit.link<Rocket, const TargetEvent&, &Rocket::hit_by>(this);
 }
 
+Rocket::~Rocket()
+{
+	get<Audio>()->post_event(AK::EVENTS::STOP_ROCKET_FLY);
+}
+
 void Rocket::killed(Entity* e)
 {
 	PlayerManager::entity_killed_by(entity(), e);
@@ -1044,6 +1062,8 @@ b8 Rocket::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	{
 		r->target = target;
 		r->get<PointLight>()->radius = 10.0f;
+		r->get<Audio>()->post_event(AK::EVENTS::PLAY_ROCKET_FLY);
+		Audio::post_global_event(AK::EVENTS::PLAY_ROCKET_LAUNCH, r->get<Transform>()->absolute_pos());
 	}
 	return true;
 }
@@ -1393,6 +1413,7 @@ void CoreModule::destroy()
 TurretEntity::TurretEntity(AI::Team team)
 {
 	create<Transform>();
+	create<Audio>();
 
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::turret_top;
@@ -1588,7 +1609,8 @@ void Turret::update_client_all(const Update& u)
 		particle_accumulator -= interval;
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->target.ref())
+			b8 has_target = b8(i.item()->target.ref());
+			if (has_target)
 			{
 				// spawn particle effect
 				Vec3 offset = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1.5f);
@@ -1598,6 +1620,15 @@ void Turret::update_client_all(const Update& u)
 					offset * -5.0f,
 					0
 				);
+			}
+
+			if (has_target != i.item()->charging)
+			{
+				if (has_target)
+					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_TURRET_CHARGE);
+				else
+					i.item()->get<Audio>()->post_event(AK::EVENTS::STOP_TURRET_CHARGE);
+				i.item()->charging = has_target;
 			}
 		}
 	}
@@ -1644,12 +1675,14 @@ void ForceField::awake()
 {
 	link_arg<const TargetEvent&, &ForceField::hit_by>(get<Target>()->target_hit);
 	link_arg<Entity*, &ForceField::killed>(get<Health>()->killed);
+	get<Audio>()->post_event(AK::EVENTS::PLAY_FORCE_FIELD_LOOP);
 }
 
 ForceField::~ForceField()
 {
 	if (Game::level.local && field.ref())
 		World::remove_deferred(field.ref());
+	get<Audio>()->post_event(AK::EVENTS::STOP_FORCE_FIELD_LOOP);
 }
 
 void ForceField::hit_by(const TargetEvent& e)
@@ -1740,6 +1773,8 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 	Transform* transform = create<Transform>();
 	transform->absolute(abs_pos, abs_rot);
 	transform->reparent(parent);
+
+	create<Audio>();
 
 	AI::Team team = m->team.ref()->team();
 
@@ -1845,8 +1880,14 @@ b8 Bolt::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 void Bolt::awake()
 {
-	get<Audio>()->post_event(AK::EVENTS::PLAY_BOLT_SPAWN);
 	last_pos = get<Transform>()->absolute_pos();
+	get<Audio>()->post_event(AK::EVENTS::PLAY_BOLT_FLY);
+	Audio::post_global_event(AK::EVENTS::PLAY_BOLT_SPAWN, last_pos);
+}
+
+Bolt::~Bolt()
+{
+	get<Audio>()->post_event(AK::EVENTS::STOP_BOLT_FLY);
 }
 
 void Bolt::update_server(const Update& u)
@@ -1856,7 +1897,7 @@ void Bolt::update_server(const Update& u)
 	remaining_lifetime -= u.time.delta;
 	if (remaining_lifetime < 0.0f)
 	{
-		ParticleEffect::spawn(ParticleEffect::Type::Impact, pos, Quat::look(Vec3::normalize(velocity)));
+		ParticleEffect::spawn(ParticleEffect::Type::Fizzle, pos, Quat::look(Vec3::normalize(velocity)));
 		World::remove(entity());
 		return;
 	}
@@ -2026,6 +2067,8 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 	}
 	else if (t == Type::Impact)
 		Audio::post_global_event(AK::EVENTS::PLAY_IMPACT, pos);
+	else if (t == Type::Fizzle)
+		Audio::post_global_event(AK::EVENTS::PLAY_FIZZLE, pos);
 
 	if (t == Type::Grenade)
 	{
@@ -2093,6 +2136,35 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	create<Target>();
 }
 
+b8 Grenade::net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+	Ref<Grenade> ref;
+	serialize_ref(p, ref);
+	if (ref.ref())
+	{
+		ref.ref()->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_ARM);
+		ref.ref()->active = true;
+	}
+
+	return true;
+}
+
+namespace GrenadeNet
+{
+	b8 send_activate(Grenade* g)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Grenade);
+		{
+			Ref<Grenade> ref = g;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
 template<typename T> b8 grenade_trigger_filter(T* e, AI::Team team)
 {
 	return (e->template has<AIAgent>() && e->template get<AIAgent>()->team != team && !e->template get<AIAgent>()->stealth)
@@ -2149,8 +2221,8 @@ void Grenade::update_server(const Update& u)
 					{
 						// bounce
 						velocity = velocity.reflect(ray_callback.m_hitNormalWorld) * 0.5f;
+						GrenadeNet::send_activate(this);
 					}
-					active = true;
 				}
 			}
 		}
@@ -2174,7 +2246,7 @@ void Grenade::explode()
 			Vec3 to_item = i.item()->get<Transform>()->absolute_pos() - me;
 			r32 distance = to_item.length();
 			to_item /= distance;
-			if (i.item()->has<Drone>())
+			if (i.item()->has<Shield>())
 			{
 				if (distance < GRENADE_RANGE * 0.66f)
 					i.item()->damage(entity(), 1);
@@ -2675,6 +2747,7 @@ WaterEntity::WaterEntity(AssetID mesh_id)
 {
 	create<Transform>();
 	create<Water>(mesh_id);
+	create<Audio>();
 }
 
 PinArray<EffectLight, MAX_ENTITIES> EffectLight::list;
@@ -3070,6 +3143,7 @@ void TerminalEntity::open()
 	Animator* animator = Game::level.terminal.ref()->get<Animator>();
 	animator->layers[0].play(Asset::Animation::terminal_opened);
 	animator->layers[1].play(Asset::Animation::terminal_open);
+	animator->get<Audio>()->post_event(AK::EVENTS::PLAY_TERMINAL_OPEN);
 }
 
 void TerminalEntity::close()
@@ -3077,6 +3151,7 @@ void TerminalEntity::close()
 	Animator* animator = Game::level.terminal.ref()->get<Animator>();
 	animator->layers[0].animation = AssetNull;
 	animator->layers[1].play(Asset::Animation::terminal_close);
+	animator->get<Audio>()->post_event(AK::EVENTS::PLAY_TERMINAL_CLOSE);
 }
 
 void TerminalEntity::closed()
@@ -3088,6 +3163,8 @@ void TerminalEntity::closed()
 TerminalEntity::TerminalEntity()
 {
 	Transform* transform = create<Transform>();
+	
+	create<Audio>();
 
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::terminal;
@@ -3172,6 +3249,8 @@ TramRunnerEntity::TramRunnerEntity(s8 track, b8 is_front)
 	r->track = track;
 	r->is_front = is_front;
 
+	create<Audio>();
+
 	const Game::TramTrack& t = Game::level.tram_tracks[track];
 	r32 offset;
 	if (Game::save.zone_last == t.level && !Game::save.zone_current_restore)
@@ -3236,12 +3315,19 @@ namespace TramNet
 	{
 		Entered,
 		Exited,
+		Arrived,
 		DoorsOpen,
 		count,
 	};
 
 	b8 send(Tram*, Message);
 };
+
+void TramRunner::awake()
+{
+	get<Audio>()->post_event(AK::EVENTS::PLAY_TRAM_LOOP);
+	get<Audio>()->param(AK::GAME_PARAMETERS::TRAM_LOOP, 0.0f);
+}
 
 void TramRunner::update_server(const Update& u)
 {
@@ -3279,7 +3365,7 @@ void TramRunner::update_server(const Update& u)
 		if (state == State::Arriving)
 		{
 			if (is_front)
-				TramNet::send(Tram::by_track(track), TramNet::Message::DoorsOpen);
+				TramNet::send(Tram::by_track(track), TramNet::Message::Arrived);
 			state = State::Idle;
 		}
 
@@ -3306,6 +3392,7 @@ void TramRunner::update_server(const Update& u)
 
 void TramRunner::update_client(const Update& u)
 {
+	get<Audio>()->param(AK::GAME_PARAMETERS::TRAM_LOOP, fabsf(velocity) / TRAM_SPEED_MAX);
 	if (get<RigidBody>()->btBody->isActive() && mersenne::randf_co() < u.time.delta / 3.0f)
 	{
 		b8 left = mersenne::randf_co() < 0.5f;
@@ -3322,6 +3409,7 @@ void TramRunner::update_client(const Update& u)
 			);
 		}
 
+		get<Audio>()->post_event(AK::EVENTS::PLAY_TRAM_SPARK);
 		EffectLight::add(pos + Vec3(0, -0.2f, 0), 3.0f, 0.25f, EffectLight::Type::Spark, get<Transform>());
 	}
 }
@@ -3334,6 +3422,8 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionDroneIgnore, ~CollisionWalker & ~CollisionInaccessible & ~CollisionParkour & ~CollisionStatic & ~CollisionElectric);
 	body->set_restitution(0.75f);
 	body->set_damping(0.5f, 0.5f);
+
+	create<Audio>();
 
 	Tram* tram = create<Tram>();
 	tram->runner_a = runner_a->get<TramRunner>();
@@ -3469,6 +3559,7 @@ b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 					&& ref.ref()->doors_open())
 				{
 					ref.ref()->doors_open(false);
+					ref.ref()->get<Audio>()->post_event(AK::EVENTS::PLAY_TRAM_START);
 					if (Game::level.local)
 						TramRunner::go(ref.ref()->track(), 1.0f, TramRunner::State::Departing);
 				}
@@ -3485,6 +3576,12 @@ b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 			}
 			case TramNet::Message::DoorsOpen:
 			{
+				ref.ref()->doors_open(true);
+				break;
+			}
+			case TramNet::Message::Arrived:
+			{
+				ref.ref()->get<Audio>()->post_event(AK::EVENTS::PLAY_TRAM_STOP);
 				ref.ref()->doors_open(true);
 				break;
 			}
@@ -3564,12 +3661,14 @@ void Tram::doors_open(b8 open)
 		body->set_collision_masks(CollisionStatic | CollisionInaccessible, 0); // disable collision
 		anim->layers[0].play(Asset::Animation::tram_doors_opened);
 		anim->layers[1].play(Asset::Animation::tram_doors_open);
+		get<Audio>()->post_event(AK::EVENTS::PLAY_TRAM_OPEN);
 	}
 	else
 	{
 		body->set_collision_masks(CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionDroneIgnore & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric); // enable collision
 		anim->layers[0].animation = AssetNull;
 		anim->layers[1].play(Asset::Animation::tram_doors_close);
+		get<Audio>()->post_event(AK::EVENTS::PLAY_TRAM_CLOSE);
 	}
 }
 

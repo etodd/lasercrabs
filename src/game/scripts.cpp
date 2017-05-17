@@ -788,7 +788,11 @@ namespace tutorial
 	{
 		// sparks on broken door
 		if (mersenne::randf_co() < u.time.delta / 0.5f)
-			spawn_sparks(data->sparks.ref()->to_world(Vec3(-1.5f + mersenne::randf_co() * 3.0f, 0, 0)), Quat::look(Vec3(0, -1, 0)));
+		{
+			Vec3 pos = data->sparks.ref()->to_world(Vec3(-1.5f + mersenne::randf_co() * 3.0f, 0, 0));
+			spawn_sparks(pos, Quat::look(Vec3(0, -1, 0)));
+			Audio::post_global_event(AK::EVENTS::PLAY_TRAM_SPARK, pos);
+		}
 
 		// check if the player has spawned
 		if (!data->player.ref() && PlayerControlHuman::list.count() > 0)

@@ -1820,15 +1820,27 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 								body->btBody->setActivationState(ISLAND_SLEEPING);
 						}
 
-						if (frame_next && t->has<Target>())
+						if (frame_next)
 						{
-							Vec3 abs_pos_last;
-							Quat abs_rot_last;
-							transform_absolute(frame_last, index, &abs_pos_last, &abs_rot_last);
-							Vec3 abs_pos_next;
-							Quat abs_rot_next;
-							transform_absolute(*frame_next, index, &abs_pos_next, &abs_rot_next);
-							t->get<Target>()->net_velocity = t->get<Target>()->net_velocity * 0.9f + ((abs_pos_next - abs_pos_last) / NET_TICK_RATE) * 0.1f;
+							// calculate client-side velocity for components that need it
+							if (t->has<Target>())
+							{
+								Vec3 abs_pos_last;
+								Quat abs_rot_last;
+								transform_absolute(frame_last, index, &abs_pos_last, &abs_rot_last);
+								Vec3 abs_pos_next;
+								Quat abs_rot_next;
+								transform_absolute(*frame_next, index, &abs_pos_next, &abs_rot_next);
+								t->get<Target>()->net_velocity = t->get<Target>()->net_velocity * 0.9f + ((abs_pos_next - abs_pos_last) / NET_TICK_RATE) * 0.1f;
+							}
+							else if (t->has<TramRunner>())
+							{
+								Vec3 abs_pos_last;
+								transform_absolute(frame_last, index, &abs_pos_last);
+								Vec3 abs_pos_next;
+								transform_absolute(*frame_next, index, &abs_pos_next);
+								t->get<TramRunner>()->velocity = t->get<TramRunner>()->velocity * 0.9f + ((abs_pos_next - abs_pos_last) / NET_TICK_RATE).length() * 0.1f;
+							}
 						}
 					}
 				}

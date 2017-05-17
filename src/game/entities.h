@@ -163,7 +163,7 @@ struct Sensor : public ComponentType<Sensor>
 	static b8 can_see(AI::Team, const Vec3&, const Vec3&);
 	static Sensor* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 
-	static void update_all_client(const Update&);
+	static void update_client_all(const Update&);
 };
 
 struct Rocket : public ComponentType<Rocket>
@@ -180,6 +180,7 @@ struct Rocket : public ComponentType<Rocket>
 
 	Rocket();
 	void awake();
+	~Rocket();
 
 	void explode();
 	Vec3 velocity() const;
@@ -245,6 +246,7 @@ struct Turret : public ComponentType<Turret>
 	StaticArray<Vec3, 4> ingress_points; // points for AI minions to attack from
 	Ref<Entity> target;
 	AI::Team team;
+	b8 charging;
 
 	void awake();
 
@@ -383,6 +385,7 @@ struct Bolt : public ComponentType<Bolt>
 	b8 reflected;
 
 	void awake();
+	~Bolt();
 
 	void update_server(const Update&);
 	void hit_entity(Entity*, const Vec3&, const Vec3&);
@@ -397,6 +400,7 @@ struct ParticleEffect
 {
 	enum class Type : s8
 	{
+		Fizzle,
 		Impact,
 		Explosion,
 		Grenade,
@@ -414,6 +418,8 @@ struct GrenadeEntity : public Entity
 struct Grenade : public ComponentType<Grenade>
 {
 	static r32 particle_accumulator;
+	static void update_client_all(const Update&);
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
 	Vec3 velocity;
 	r32 timer;
@@ -429,7 +435,6 @@ struct Grenade : public ComponentType<Grenade>
 	void set_owner(PlayerManager*);
 
 	void update_server(const Update&);
-	static void update_client_all(const Update&);
 };
 
 struct Target : public ComponentType<Target>
@@ -563,7 +568,7 @@ struct TramRunner : public ComponentType<TramRunner>
 	s8 track;
 	b8 is_front; // front is toward the exit
 
-	void awake() {}
+	void awake();
 
 	void update_server(const Update&);
 	void update_client(const Update&);

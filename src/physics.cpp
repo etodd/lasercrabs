@@ -277,7 +277,7 @@ void RigidBody::set_ccd(b8 c)
 
 void RigidBody::set_ghost(b8 g)
 {
-	if (g != (flags & FlagGhost))
+	if (g != b8(flags & FlagGhost))
 	{
 		if (g)
 			flags |= FlagGhost;

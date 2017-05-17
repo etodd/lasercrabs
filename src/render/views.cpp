@@ -7,6 +7,8 @@
 #include "data/components.h"
 #include "game/team.h"
 #include "game/game.h"
+#include "game/audio.h"
+#include "asset/Wwise_IDs.h"
 
 namespace VI
 {
@@ -863,6 +865,37 @@ void Water::awake()
 			config.color.z = m->color.z;
 		if (config.color.w < 0.0f)
 			config.color.w = m->color.w;
+	}
+	get<Audio>()->post_event(AK::EVENTS::PLAY_WATER_LOOP);
+}
+
+void Water::update(const Update& u)
+{
+	if (Camera::list.count() > 0)
+	{
+		const Mesh* m = Loader::mesh(config.mesh);
+		Vec3 water_pos = get<Transform>()->absolute_pos();
+		Vec3 bmin = water_pos + m->bounds_min;
+		Vec3 bmax = water_pos + m->bounds_max;
+		r32 closest_distance_sq = FLT_MAX;
+		Vec3 closest_pos = water_pos;
+		for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
+		{
+			Vec3 p = i.item()->pos;
+			p.y = water_pos.y;
+			p.x = vi_max(p.x, bmin.x);
+			p.x = vi_min(p.x, bmax.x);
+			p.z = vi_max(p.z, bmin.z);
+			p.z = vi_min(p.z, bmax.z);
+
+			r32 distance_sq = (p - i.item()->pos).length_squared();
+			if (distance_sq < closest_distance_sq)
+			{
+				closest_distance_sq = distance_sq;
+				closest_pos = p;
+			}
+		}
+		get<Audio>()->offset = closest_pos - water_pos;
 	}
 }
 

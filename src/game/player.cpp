@@ -203,6 +203,7 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	angle_horizontal(),
 	angle_vertical(),
 	menu_state(),
+	kill_cam_rot(),
 	rumble(),
 	upgrade_menu_open(),
 	animation_time(),
@@ -245,7 +246,7 @@ void PlayerHuman::awake()
 
 		Quat rot;
 		Game::level.map_view.ref()->absolute(&camera->pos, &rot);
-		camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+		camera->rot = kill_cam_rot = Quat::look(rot * Vec3(0, -1, 0));
 	}
 }
 
@@ -612,6 +613,7 @@ void PlayerHuman::update(const Update& u)
 	{
 		case UIMode::PvpDefault:
 		{
+			kill_cam_rot = camera->rot;
 			if (get<PlayerManager>()->at_spawn_point())
 			{
 				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
@@ -727,11 +729,10 @@ void PlayerHuman::update(const Update& u)
 				{
 					// waiting for spawn timer; if something killed us, show the kill cam
 					Entity* k = killed_by.ref();
-					if (k && get<PlayerManager>()->spawn_timer < SPAWN_DELAY - 1.0f)
-					{
-						Quat target_rot = Quat::look(Vec3::normalize(k->get<Transform>()->absolute_pos() - camera->pos));
-						camera->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera->rot, target_rot);
-					}
+					if (k)
+						kill_cam_rot = Quat::look(Vec3::normalize(k->get<Transform>()->absolute_pos() - camera->pos));
+					if (get<PlayerManager>()->spawn_timer < SPAWN_DELAY - 1.0f)
+						camera->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera->rot, kill_cam_rot);
 				}
 				else
 				{
@@ -1962,7 +1963,6 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 			c->get<Drone>()->current_ability = Ability::None;
 			if (c->get<Drone>()->dash_start(msg.dir, msg.target))
 			{
-				c->get<Audio>()->post_event(c->local() ? AK::EVENTS::PLAY_DRONE_FLY_PLAYER : AK::EVENTS::PLAY_DRONE_FLY);
 				c->try_primary = false;
 				c->try_secondary = false;
 			}
@@ -1975,10 +1975,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 			{
 				c->try_primary = false;
 				if (msg.ability == Ability::None)
-				{
-					c->get<Audio>()->post_event(c->local() ? AK::EVENTS::PLAY_DRONE_FLY_PLAYER : AK::EVENTS::PLAY_DRONE_FLY);
 					c->try_secondary = false;
-				}
 				else
 					c->player.ref()->rumble_add(0.5f);
 			}
@@ -2028,7 +2025,6 @@ void PlayerControlHuman::drone_done_flying_or_dashing()
 {
 	camera_shake_timer = 0.0f; // stop screen shake
 	player.ref()->rumble_add(0.2f);
-	get<Audio>()->post_event(AK::EVENTS::STOP_DRONE_FLY);
 #if SERVER
 	if (!get<Health>()->invincible())
 	{
@@ -2312,9 +2308,7 @@ void PlayerControlHuman::awake()
 
 PlayerControlHuman::~PlayerControlHuman()
 {
-	if (has<Drone>())
-		get<Audio>()->post_event(AK::EVENTS::STOP_DRONE_FLY);
-	else
+	if (has<Parkour>())
 		get<Audio>()->post_event(AK::EVENTS::STOP_PARKOUR_ALL);
 }
 
@@ -2331,14 +2325,19 @@ void PlayerControlHuman::health_changed(const HealthEvent& e)
 
 void PlayerControlHuman::killed(Entity* killed_by)
 {
-	if (killed_by->has<Bolt>())
-		player.ref()->killed_by = killed_by->get<Bolt>()->owner.ref();
-	else if (killed_by->has<Grenade>())
-		player.ref()->killed_by = killed_by->get<Grenade>()->owner.ref()->instance.ref();
-	else if (killed_by->has<Rocket>())
-		player.ref()->killed_by = killed_by->get<Rocket>()->owner.ref()->instance.ref();
+	if (killed_by)
+	{
+		if (killed_by->has<Bolt>())
+			player.ref()->killed_by = killed_by->get<Bolt>()->owner.ref();
+		else if (killed_by->has<Grenade>())
+			player.ref()->killed_by = killed_by->get<Grenade>()->owner.ref()->instance.ref();
+		else if (killed_by->has<Rocket>())
+			player.ref()->killed_by = killed_by->get<Rocket>()->owner.ref()->instance.ref();
+		else
+			player.ref()->killed_by = killed_by;
+	}
 	else
-		player.ref()->killed_by = killed_by;
+		player.ref()->killed_by = nullptr;
 }
 
 void PlayerControlHuman::drone_reflecting(const DroneReflectEvent& e)
@@ -2637,6 +2636,7 @@ void player_confirm_tram_interactable(s8 gamepad)
 				// skip sudoku
 				i.item()->interactable.ref()->interact();
 				i.item()->get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+				i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 			}
 			break;
 		}
@@ -3143,6 +3143,7 @@ void PlayerControlHuman::update(const Update& u)
 								{
 									interactable.ref()->interact();
 									get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+									get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 									break;
 								}
 								case ZoneState::Friendly:
@@ -3171,6 +3172,7 @@ void PlayerControlHuman::update(const Update& u)
 								// go right ahead
 								interactable.ref()->interact();
 								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+								get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 							}
 							else if (Game::save.zones[Game::level.id] == ZoneState::Locked
 								&& (Game::save.zones[target_level] == ZoneState::Locked || Game::save.zones[target_level] == ZoneState::GroupOwned))
@@ -3207,6 +3209,7 @@ void PlayerControlHuman::update(const Update& u)
 								{
 									interactable.ref()->interact();
 									get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+									get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 								}
 							}
 							break;
@@ -3246,11 +3249,14 @@ void PlayerControlHuman::update(const Update& u)
 
 				if (sudoku_active)
 				{
+					if (Game::edge_trigger(Game::real_time.total, UI::flash_function_slow))
+						Audio::post_global_event(AK::EVENTS::PLAY_SUDOKU_ALARM);
 					player.ref()->sudoku.update(u, gamepad, player.ref());
 					if (player.ref()->sudoku.complete() && player.ref()->sudoku.timer_animation == 0.0f)
 					{
 						interactable.ref()->interact();
 						get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+						get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 						sudoku_active = false;
 					}
 				}

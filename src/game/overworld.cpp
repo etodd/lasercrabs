@@ -1230,6 +1230,7 @@ void hide_complete()
 		data.camera = nullptr;
 	}
 	data.state = data.state_next = State::Hidden;
+	Audio::post_global_event(AK::EVENTS::STOP_AMBIENCE_OVERWORLD);
 }
 
 void deploy_done()
@@ -2006,6 +2007,7 @@ void show_complete()
 		{
 			data.camera->flag(CameraFlagColors, false);
 			data.camera->mask = 0;
+			Audio::post_global_event(AK::EVENTS::PLAY_AMBIENCE_OVERWORLD);
 		}
 	}
 

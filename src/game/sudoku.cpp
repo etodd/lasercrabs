@@ -9,6 +9,8 @@
 #include "console.h"
 #include "net_serialize.h" // for popcount
 #include "noise.h"
+#include "audio.h"
+#include "asset/Wwise_IDs.h"
 
 namespace VI
 {
@@ -216,6 +218,7 @@ void sudoku_mark_solved(Sudoku* s, s8 index, PlayerHuman* player)
 		s->solved = s16(-1); // solve the last number automatically
 		s->timer_animation = SUDOKU_ANIMATION_TIME;
 		player->rumble_add(0.5f);
+		Audio::post_global_event(AK::EVENTS::PLAY_SUDOKU_WIN);
 	}
 }
 
@@ -279,7 +282,11 @@ void Sudoku::update(const Update& u, s8 gamepad, PlayerHuman* player)
 		flash_timer = vi_max(0.0f, flash_timer - Game::real_time.delta);
 
 	if (timer_animation > 0.0f)
+	{
+		if (Game::edge_trigger(timer_animation, 16.0f / SUDOKU_ANIMATION_TIME, UI::flash_function))
+			Audio::post_global_event(AK::EVENTS::PLAY_SUDOKU_TILE);
 		timer_animation = vi_max(0.0f, timer_animation - Game::real_time.delta);
+	}
 	else if (timer_error > 0.0f)
 		timer_error = vi_max(0.0f, timer_error - Game::real_time.delta);
 	else if (!complete())
@@ -318,8 +325,17 @@ void Sudoku::update(const Update& u, s8 gamepad, PlayerHuman* player)
 		s32 y = current_pos / 4;
 		if (!Console::visible)
 		{
-			x += UI::input_delta_horizontal(u, gamepad);
-			y += UI::input_delta_vertical(u, gamepad);
+			b8 move = false;
+			s32 delta = UI::input_delta_horizontal(u, gamepad);
+			if (delta != 0)
+				move = true;
+			x += delta;
+			delta = UI::input_delta_vertical(u, gamepad);
+			if (delta != 0)
+				move = true;
+			y += delta;
+			if (move)
+				Audio::post_global_event(AK::EVENTS::PLAY_SUDOKU_MOVE);
 		}
 		x = vi_max(0, vi_min(3, x));
 		y = vi_max(0, vi_min(3, y));
@@ -332,6 +348,7 @@ void Sudoku::update(const Update& u, s8 gamepad, PlayerHuman* player)
 			if (state[current_pos] == current_value)
 			{
 				// player got it right, insert it
+				Audio::post_global_event(AK::EVENTS::PLAY_SUDOKU_CORRECT);
 				sudoku_mark_solved(this, current_pos, player);
 				current_value = sudoku_get_free_number(*this);
 				player->rumble_add(0.2f);
@@ -339,6 +356,7 @@ void Sudoku::update(const Update& u, s8 gamepad, PlayerHuman* player)
 			else
 			{
 				// player got it wrong; maybe take away a number
+				Audio::post_global_event(AK::EVENTS::PLAY_SUDOKU_INCORRECT);
 				if (mersenne::randf_co() > 0.5f && solved != 0)
 				{
 					StaticArray<s32, 16> indices;
@@ -350,6 +368,7 @@ void Sudoku::update(const Update& u, s8 gamepad, PlayerHuman* player)
 					solved &= ~(1 << indices[mersenne::rand() % indices.length]);
 					timer_error = SUDOKU_ERROR_TIME;
 					player->rumble_add(1.0f);
+					Audio::post_global_event(AK::EVENTS::PLAY_SUDOKU_ERROR);
 				}
 			}
 		}

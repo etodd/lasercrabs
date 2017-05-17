@@ -110,6 +110,7 @@ struct Water : public ComponentType<Water>
 
 	Water(AssetID = AssetNull);
 	void awake();
+	void update(const Update&);
 	void draw_hollow(const RenderParams&);
 	b8 contains(const Vec3&) const;
 };

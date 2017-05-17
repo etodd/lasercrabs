@@ -61,17 +61,23 @@ struct Minion : public ComponentType<Minion>
 	r32 target_scan_timer;
 	Ref<PlayerManager> owner;
 	s8 path_index;
+	b8 charging;
 
 	void awake();
+	~Minion();
+
+	// animation callbacks
+	void footstep();
+	void melee_started();
+	void melee_damage();
+
 	Vec3 head_pos() const;
 	Vec3 hand_pos() const;
 	Vec3 aim_pos() const;
 	b8 headshot_test(const Vec3&, const Vec3&);
 	void hit_by(const TargetEvent& e);
 	void fire(const Vec3&);
-	void melee_damage();
 	void killed(Entity*);
-	void footstep();
 	void update_server(const Update&);
 	void team(AI::Team);
 

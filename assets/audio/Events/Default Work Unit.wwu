@@ -232,7 +232,7 @@
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_Grenade_Bounce" ID="{006AC922-1DC9-4FF5-99C2-836020227099}">
+						<Event Name="Play_Grenade_Arm" ID="{006AC922-1DC9-4FF5-99C2-836020227099}">
 							<ChildrenList>
 								<Action Name="Play" ID="{A51204CE-D455-4400-B804-E28B980CAB6E}" ShortID="47563534" Type="Play" Scope="One" Global="false">
 									<ElementList>
@@ -267,24 +267,23 @@
 						</Event>
 						<Event Name="Play_Turret_Charge" ID="{7C218435-CC3A-4F80-B956-152F226AE2BB}"/>
 						<Event Name="Stop_Turret_Charge" ID="{2EAE6447-AB75-4EAE-966B-A71048579772}"/>
-						<Event Name="Play_Minion_Charge" ID="{D2FC5A1A-206B-4022-849A-4B6EB717BAB2}"/>
+						<Event Name="Play_Minion_Charge" ID="{D2FC5A1A-206B-4022-849A-4B6EB717BAB2}">
+							<ChildrenList>
+								<Action Name="Play" ID="{BEB82C35-DAB6-4EBB-A855-DD8DE1DF0B2F}" ShortID="425163432" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{5ABEFE58-3584-45CB-8ECD-5E637FB74BF9}" Global="false">
+											<ObjectRef Name="mover_loop" ID="{6782133E-3212-481C-B0CF-4AE91C7DACF1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
 						<Event Name="Play_Minion_Melee" ID="{CA5B3381-F27D-4D16-8924-F66ED5BE1E38}">
 							<ChildrenList>
 								<Action Name="Play" ID="{8047D5DF-2237-4F9C-A62E-8DAF64B102F3}" ShortID="727376254" Type="Play" Scope="One" Global="false">
 									<ElementList>
 										<Element ID="{EB4650FD-C223-4C4F-8D41-B77C899A052A}" Global="false">
 											<ObjectRef Name="Laser" ID="{175AA597-3979-4154-B623-5A28EFE0EEE6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Element>
-									</ElementList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Bolt_Hit" ID="{E0E81AD0-24EC-4735-901C-4DE164B17AA3}">
-							<ChildrenList>
-								<Action Name="Play" ID="{4D19EAF3-F552-4F33-871F-89E34F8A39DD}" ShortID="222043984" Type="Play" Scope="One" Global="false">
-									<ElementList>
-										<Element ID="{8FEBA6C4-9570-4FAE-98CA-1942ECB80781}" Global="false">
-											<ObjectRef Name="Hurt" ID="{46CEBDF0-82A8-47E5-996C-692A78EFEBB9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Element>
 									</ElementList>
 								</Action>
@@ -334,17 +333,6 @@
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_Rocket_Hit" ID="{4FF97E1B-FEDF-4BDA-9211-3AA079482E5B}">
-							<ChildrenList>
-								<Action Name="Play" ID="{83D157EA-1AB8-4711-BB07-7846F22CD563}" ShortID="39196738" Type="Play" Scope="One" Global="false">
-									<ElementList>
-										<Element ID="{AA939561-0D2A-40D6-A16A-07676E4C1024}" Global="false">
-											<ObjectRef Name="Explosions" ID="{C6C242DC-96E5-4994-90AB-F2C88D1EA10A}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Element>
-									</ElementList>
-								</Action>
-							</ChildrenList>
-						</Event>
 						<Event Name="Play_Rocket_Fly" ID="{D52CC67E-76D5-43BC-A8B3-41C127986EBE}"/>
 						<Event Name="Stop_Rocket_Fly" ID="{532C8D36-AB48-4142-8EA9-47BFCF0115AB}"/>
 						<Event Name="Play_Drone_Damage_Large" ID="{30243919-A2F6-48D2-B80D-C07CFF0C764F}">
@@ -386,17 +374,6 @@
 						</Event>
 						<Event Name="Play_Force_Field_Loop" ID="{166CECA6-FDA1-4E82-AF9A-0C8EB8EA072E}"/>
 						<Event Name="Stop_Force_Field_Loop" ID="{22A00904-D95C-4259-864B-24CDDCAFFAE5}"/>
-						<Event Name="Play_Force_Field_Explode" ID="{5F75E9D9-DE04-457F-9491-8506A7166C11}">
-							<ChildrenList>
-								<Action Name="Play" ID="{DB76B87B-98EF-4802-A46F-58750E6489A7}" ShortID="332686532" Type="Play" Scope="One" Global="false">
-									<ElementList>
-										<Element ID="{847783CC-6730-48FE-868C-9E6AFCA25903}" Global="false">
-											<ObjectRef Name="Explosions" ID="{C6C242DC-96E5-4994-90AB-F2C88D1EA10A}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Element>
-									</ElementList>
-								</Action>
-							</ChildrenList>
-						</Event>
 						<Event Name="Play_Drone_Reflect" ID="{9FDC2348-ED24-4D06-842F-6B846F8A11A0}">
 							<ChildrenList>
 								<Action Name="Play" ID="{7AA5CCCD-5E5D-4255-813E-4F8030E951D0}" ShortID="91310363" Type="Play" Scope="One" Global="false">
@@ -419,7 +396,17 @@
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_Water_Loop" ID="{D8B5B134-F94F-4257-826F-931BD1D6EFBF}"/>
+						<Event Name="Play_Water_Loop" ID="{D8B5B134-F94F-4257-826F-931BD1D6EFBF}">
+							<ChildrenList>
+								<Action Name="Play" ID="{B0D58FF9-9D4B-46EF-B7BE-58C738204089}" ShortID="606562639" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{BABDEF4A-6F7E-4463-8A1B-DB274E6FA429}" Global="false">
+											<ObjectRef Name="mover_loop" ID="{6782133E-3212-481C-B0CF-4AE91C7DACF1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
 						<Event Name="Play_Parkour_Mantle" ID="{F493ABC2-8104-4A65-900F-E300107E7019}"/>
 						<Event Name="Play_Parkour_Topout" ID="{2BB47BCB-D5D7-4C97-AA69-3974BE92380D}"/>
 						<Event Name="Play_Parkour_Slide" ID="{2C8B90FF-219F-48DD-AABE-E6247A72387C}"/>
@@ -593,6 +580,43 @@
 								</Action>
 							</ChildrenList>
 						</Event>
+						<Event Name="Play_Decoy_Spawn" ID="{34E57DCE-73B3-460F-A925-4B79CAA9D540}">
+							<ChildrenList>
+								<Action Name="Play" ID="{001B2405-78A2-4BCA-966E-8EF0EEE3D87F}" ShortID="455776366" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{73D7F499-9382-4686-AF92-7874F4F1494E}" Global="false">
+											<ObjectRef Name="Launch" ID="{D84AAC65-C3AA-4562-915C-831BA8301AB5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Stop_Minion_Charge" ID="{710C8F6D-A6DE-485F-9733-8B4DF86EB768}">
+							<ChildrenList>
+								<Action Name="Stop" ID="{4D117EF5-71DC-4919-A6A0-C429D33B5C20}" ShortID="933227515" Type="Stop" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{6F91E0AC-8AC5-4678-90A5-8BB381451461}" Global="false">
+											<ObjectRef Name="mover_loop" ID="{6782133E-3212-481C-B0CF-4AE91C7DACF1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_Fizzle" ID="{A178C8DF-0EAD-4DCB-9CA6-40B1450CF6AC}"/>
+						<Event Name="Stop_Parkour_Slide" ID="{8588E130-B849-4454-AA70-05E0BDE13952}"/>
+						<Event Name="Play_Sniper_Impact" ID="{4A6BFFA7-1A23-4DDD-B729-7929AC30A4F6}">
+							<ChildrenList>
+								<Action Name="Play" ID="{60DADF12-DC86-45C1-940F-D7F5A6D82043}" ShortID="2392266" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{88415F43-5CE2-4C35-9BDE-73A7BBF1EB95}" Global="false">
+											<ObjectRef Name="Hurt" ID="{46CEBDF0-82A8-47E5-996C-692A78EFEBB9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_Tram_Spark" ID="{429DC99F-7AD1-4688-8154-3B950FCBD2E9}"/>
+						<Event Name="Play_Parkour_Climb" ID="{D6C93F1C-824D-4D72-B267-BA62ADC469EE}"/>
 					</ChildrenList>
 				</Folder>
 				<Folder Name="dialogue" ID="{04E54C47-F0F5-451B-8777-7B7C24045653}" ShortID="896672305">
@@ -1241,6 +1265,17 @@
 								</Action>
 							</ChildrenList>
 						</Event>
+						<Event Name="Play_Sudoku_Move" ID="{D80D10DC-7D59-40E8-9D49-D16401A21501}">
+							<ChildrenList>
+								<Action Name="Play" ID="{F89BE7CE-137B-40A2-97DB-6463FA9FC203}" ShortID="504865836" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{B9990536-CD57-44A5-A363-3CB4CB3B579F}" Global="false">
+											<ObjectRef Name="Console_Key" ID="{875D41B3-6735-47FB-9F38-2541F81678DC}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
 					</ChildrenList>
 				</Folder>
 				<Event Name="Stop_All" ID="{07D81830-164C-4236-BA40-35B363A62413}">
@@ -1267,6 +1302,7 @@
 				<Folder Name="ambience" ID="{2A218224-0260-4B5A-B301-E7B4A03F801F}" ShortID="1052573815">
 					<ChildrenList>
 						<Event Name="Play_Ambience_Overworld" ID="{68C04B79-3779-4AB7-9747-8AFE2577EF60}"/>
+						<Event Name="Stop_Ambience_Overworld" ID="{0BDA8CC0-EF7C-45C0-ADF4-02CAC8BD8D38}"/>
 					</ChildrenList>
 				</Folder>
 			</ChildrenList>

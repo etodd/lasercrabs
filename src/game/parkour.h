@@ -74,6 +74,9 @@ struct Parkour : public ComponentType<Parkour>
 	void awake();
 	~Parkour();
 
+	void footstep();
+	void climb_sound();
+
 	void killed(Entity*);
 	void land(r32);
 	void lessen_gravity();
@@ -83,7 +86,6 @@ struct Parkour : public ComponentType<Parkour>
 	b8 try_parkour(b8 = false);
 	Vec3 head_pos() const;
 	void head_to_object_space(Vec3*, Quat*) const;
-	void footstep();
 	b8 try_wall_run(WallRunState, const Vec3&);
 	void wall_run_up_add_velocity(const Vec3&, const Vec3&);
 	void wall_jump(r32, const Vec3&, const btRigidBody*);

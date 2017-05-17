@@ -79,7 +79,14 @@ void Minion::awake()
 	Animator* animator = get<Animator>();
 	link<&Minion::footstep>(animator->trigger(Asset::Animation::character_walk, 0.0f));
 	link<&Minion::footstep>(animator->trigger(Asset::Animation::character_walk, 0.5f));
+	link<&Minion::melee_started>(animator->trigger(Asset::Animation::character_melee, 0.0f));
 	link<&Minion::melee_damage>(animator->trigger(Asset::Animation::character_melee, 0.875f));
+}
+
+Minion::~Minion()
+{
+	if (charging)
+		get<Audio>()->post_event(AK::EVENTS::STOP_MINION_CHARGE);
 }
 
 void Minion::team(AI::Team t)
@@ -129,6 +136,11 @@ s32 Minion::count(AI::TeamMask mask)
 void Minion::footstep()
 {
 	Audio::post_global_event(AK::EVENTS::PLAY_FOOTSTEP, get<Walker>()->base_pos());
+}
+
+void Minion::melee_started()
+{
+	get<Audio>()->post_event(AK::EVENTS::PLAY_MINION_MELEE);
 }
 
 void Minion::melee_damage()
@@ -736,7 +748,9 @@ void Minion::update_client_all(const Update& u)
 		particle_accumulator -= interval;
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->get<Animator>()->layers[0].animation == Asset::Animation::character_aim)
+			const Animator::Layer& layer = i.item()->get<Animator>()->layers[0];
+			b8 charging_now = layer.animation == Asset::Animation::character_aim;
+			if (charging_now)
 			{
 				Vec3 pos = i.item()->hand_pos();
 
@@ -748,6 +762,15 @@ void Minion::update_client_all(const Update& u)
 					offset * -3.5f,
 					0
 				);
+			}
+
+			if (i.item()->charging != charging_now)
+			{
+				if (charging_now)
+					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_MINION_CHARGE);
+				else
+					i.item()->get<Audio>()->post_event(AK::EVENTS::STOP_MINION_CHARGE);
+				i.item()->charging = charging_now;
 			}
 		}
 	}

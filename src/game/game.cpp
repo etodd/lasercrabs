@@ -508,7 +508,7 @@ void Game::update(const Update& update_in)
 		for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		Battery::update_all(u);
-		Sensor::update_all_client(u);
+		Sensor::update_client_all(u);
 		ForceField::update_all(u);
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
@@ -536,6 +536,9 @@ void Game::update(const Update& update_in)
 		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 			i.item()->update_late(u);
 
+		for (auto i = Water::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+
 		for (s32 i = 0; i < updates.length; i++)
 			(*updates[i])(u);
 
@@ -545,9 +548,9 @@ void Game::update(const Update& update_in)
 
 	Console::update(u);
 
-	Audio::update();
-
 	World::flush();
+
+	Audio::update();
 
 #if !SERVER
 	Menu::update_end(u);
@@ -560,6 +563,16 @@ void Game::term()
 {
 	Net::term();
 	Audio::term();
+}
+
+b8 Game::edge_trigger(r32 time, b8(*fn)(r32))
+{
+	return fn(time) != fn(time - real_time.delta);
+}
+
+b8 Game::edge_trigger(r32 time, r32 speed, b8(*fn)(r32, r32))
+{
+	return fn(time, speed) != fn(time - real_time.delta, speed);
 }
 
 // return true if this entity's transform needs synced over the network

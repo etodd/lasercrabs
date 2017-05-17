@@ -18,10 +18,10 @@ namespace AK
         static const AkUniqueID PLAY_BATTERY_LOOP = 2192484874U;
         static const AkUniqueID PLAY_BATTERY_RESET = 229884389U;
         static const AkUniqueID PLAY_BOLT_FLY = 3681448993U;
-        static const AkUniqueID PLAY_BOLT_HIT = 3830770409U;
         static const AkUniqueID PLAY_BOLT_SPAWN = 778399531U;
         static const AkUniqueID PLAY_CONSOLE_KEY = 3924749205U;
         static const AkUniqueID PLAY_DANGER_BEEP = 2900456178U;
+        static const AkUniqueID PLAY_DECOY_SPAWN = 5924194U;
         static const AkUniqueID PLAY_DIALOG_ACCEPT = 1443824949U;
         static const AkUniqueID PLAY_DIALOG_ALERT = 563220021U;
         static const AkUniqueID PLAY_DIALOG_CANCEL = 2779886783U;
@@ -42,13 +42,13 @@ namespace AK
         static const AkUniqueID PLAY_DRONE_REFLECT = 263311222U;
         static const AkUniqueID PLAY_DRONE_REFLECT_PLAYER = 4029101858U;
         static const AkUniqueID PLAY_EXPLOSION = 4030404899U;
+        static const AkUniqueID PLAY_FIZZLE = 3890314848U;
         static const AkUniqueID PLAY_FOOTSTEP = 1602358412U;
-        static const AkUniqueID PLAY_FORCE_FIELD_EXPLODE = 3785762600U;
         static const AkUniqueID PLAY_FORCE_FIELD_LOOP = 427547487U;
         static const AkUniqueID PLAY_FORCE_FIELD_SPAWN = 1877727510U;
+        static const AkUniqueID PLAY_GRENADE_ARM = 1073857507U;
         static const AkUniqueID PLAY_GRENADE_ATTACH = 2813332440U;
         static const AkUniqueID PLAY_GRENADE_BEEP = 4011376411U;
-        static const AkUniqueID PLAY_GRENADE_BOUNCE = 4124026091U;
         static const AkUniqueID PLAY_GRENADE_SPAWN = 3303071516U;
         static const AkUniqueID PLAY_HOBO1 = 1792555033U;
         static const AkUniqueID PLAY_HOBO2 = 1792555034U;
@@ -98,6 +98,7 @@ namespace AK
         static const AkUniqueID PLAY_OVERWORLD_MOVE = 3749213116U;
         static const AkUniqueID PLAY_OVERWORLD_SELECT = 2566488799U;
         static const AkUniqueID PLAY_OVERWORLD_SHOW = 3935148276U;
+        static const AkUniqueID PLAY_PARKOUR_CLIMB = 1530104406U;
         static const AkUniqueID PLAY_PARKOUR_COLLECTIBLE_PICKUP = 1377678954U;
         static const AkUniqueID PLAY_PARKOUR_INTERACT = 3428809693U;
         static const AkUniqueID PLAY_PARKOUR_JUMP = 3928088679U;
@@ -109,7 +110,6 @@ namespace AK
         static const AkUniqueID PLAY_PARKOUR_TOPOUT = 1638007016U;
         static const AkUniqueID PLAY_PARKOUR_WIND = 2240612133U;
         static const AkUniqueID PLAY_ROCKET_FLY = 155446896U;
-        static const AkUniqueID PLAY_ROCKET_HIT = 5433884U;
         static const AkUniqueID PLAY_ROCKET_LAUNCH = 3072389188U;
         static const AkUniqueID PLAY_ROCKET_SPAWN = 529848546U;
         static const AkUniqueID PLAY_SAILOR_COME_HERE = 273568754U;
@@ -118,11 +118,13 @@ namespace AK
         static const AkUniqueID PLAY_SENSOR_PING = 3989478699U;
         static const AkUniqueID PLAY_SENSOR_SPAWN = 2220123776U;
         static const AkUniqueID PLAY_SNIPER_FIRE = 3954156574U;
+        static const AkUniqueID PLAY_SNIPER_IMPACT = 2393598820U;
         static const AkUniqueID PLAY_SNIPER_WHIFF = 1643495180U;
         static const AkUniqueID PLAY_SUDOKU_ALARM = 3719465271U;
         static const AkUniqueID PLAY_SUDOKU_CORRECT = 2602273106U;
         static const AkUniqueID PLAY_SUDOKU_ERROR = 1665233402U;
         static const AkUniqueID PLAY_SUDOKU_INCORRECT = 1103728033U;
+        static const AkUniqueID PLAY_SUDOKU_MOVE = 1427607319U;
         static const AkUniqueID PLAY_SUDOKU_TILE = 416338036U;
         static const AkUniqueID PLAY_SUDOKU_WIN = 2903939810U;
         static const AkUniqueID PLAY_TERMINAL_CLOSE = 616859755U;
@@ -130,6 +132,7 @@ namespace AK
         static const AkUniqueID PLAY_TRAM_CLOSE = 1649854579U;
         static const AkUniqueID PLAY_TRAM_LOOP = 1447001723U;
         static const AkUniqueID PLAY_TRAM_OPEN = 339879557U;
+        static const AkUniqueID PLAY_TRAM_SPARK = 2915748392U;
         static const AkUniqueID PLAY_TRAM_START = 1747554651U;
         static const AkUniqueID PLAY_TRAM_STOP = 1163875129U;
         static const AkUniqueID PLAY_TRANSITION_IN = 1430076675U;
@@ -140,11 +143,14 @@ namespace AK
         static const AkUniqueID PLAY_ZOOM_OUT = 1819052470U;
         static const AkUniqueID STOP = 788884573U;
         static const AkUniqueID STOP_ALL = 452547817U;
+        static const AkUniqueID STOP_AMBIENCE_OVERWORLD = 623666463U;
         static const AkUniqueID STOP_BOLT_FLY = 3892531647U;
         static const AkUniqueID STOP_DIALOGUE = 288905442U;
         static const AkUniqueID STOP_DRONE_FLY = 1174721996U;
         static const AkUniqueID STOP_FORCE_FIELD_LOOP = 1907392129U;
+        static const AkUniqueID STOP_MINION_CHARGE = 1499790205U;
         static const AkUniqueID STOP_PARKOUR_ALL = 405246226U;
+        static const AkUniqueID STOP_PARKOUR_SLIDE = 3858061116U;
         static const AkUniqueID STOP_ROCKET_FLY = 3517201926U;
         static const AkUniqueID STOP_TURRET_CHARGE = 625456941U;
     } // namespace EVENTS

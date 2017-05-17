@@ -58,6 +58,7 @@ namespace VI
 {
 
 StaticArray<ID, 32> Audio::dialogue_callbacks;
+Array<AkGameObjectID> Audio::unregister_queue;
 r32 Audio::dialogue_volume;
 
 #if SERVER
@@ -194,23 +195,22 @@ void Audio::term()
 
 void Audio::update()
 {
-	for (auto i = Audio::list.iterator(); !i.is_last(); i.next())
+	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		Transform* transform = i.item()->get<Transform>();
-		if (transform)
-		{
-			Vec3 pos;
-			Quat rot;
-			transform->absolute(&pos, &rot);
+		Vec3 pos = i.item()->offset;
+		Quat rot = Quat::identity;
+		i.item()->get<Transform>()->to_world(&pos, &rot);
 
-			AkSoundPosition sound_position;
-			sound_position.SetPosition(pos.x, pos.y, pos.z);
-			Vec3 forward = rot * Vec3(0, 0, -1.0f);
-			Vec3 up = rot * Vec3(0, 1.0f, 0.0f);
-			sound_position.SetOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
-			AK::SoundEngine::SetPosition(transform->entity_id, sound_position);
-		}
+		AkSoundPosition sound_position;
+		sound_position.SetPosition(pos.x, pos.y, pos.z);
+		Vec3 forward = rot * Vec3(0, 0, -1.0f);
+		Vec3 up = rot * Vec3(0, 1.0f, 0.0f);
+		sound_position.SetOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
+		AK::SoundEngine::SetPosition(i.item()->entity_id, sound_position);
 	}
+	for (s32 i = 0; i < unregister_queue.length; i++)
+		AK::SoundEngine::UnregisterGameObj(unregister_queue[i]);
+	unregister_queue.length = 0;
 	AK::SoundEngine::RenderAudio();
 }
 
@@ -237,7 +237,7 @@ void Audio::post_global_event(AkUniqueID event_id, const Vec3& pos)
 
 void Audio::post_global_event(AkUniqueID event_id, const Vec3& pos, const Quat& orientation)
 {
-	const AkGameObjectID id = MAX_ENTITIES + 1;
+	AkGameObjectID id = MAX_ENTITIES + 1;
 	AK::SoundEngine::RegisterGameObj(id);
 	AK::SoundEngine::SetActiveListeners(id, 0b01111); // All listeners
 
@@ -285,7 +285,7 @@ void Audio::awake()
 
 Audio::~Audio()
 {
-	AK::SoundEngine::UnregisterGameObj(entity_id);
+	unregister_queue.add(entity_id);
 }
 
 void Audio::post_event(AkUniqueID event_id)

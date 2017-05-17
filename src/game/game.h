@@ -159,6 +159,8 @@ namespace VI
 		static void draw_override(const RenderParams&);
 		static void term();
 
+		static b8 edge_trigger(r32, b8(*)(r32));
+		static b8 edge_trigger(r32, r32, b8(*)(r32, r32));
 		static b8 net_transform_filter(const Entity*, Mode);
 	};
 

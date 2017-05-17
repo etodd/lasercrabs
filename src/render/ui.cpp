@@ -1148,14 +1148,24 @@ void UI::sprite(const RenderParams& p, s32 texture, const Rect2& r, const Vec4& 
 	}
 }
 
-b8 UI::flash_function(r32 time)
-{
-	return (b8)((s32)(time * 16.0f) % 2);
-}
-
 b8 UI::flash_function_slow(r32 time)
 {
-	return (b8)((s32)(time * 4.0f) % 4);
+	return flash_function_slow(time, 4.0f);
+}
+
+b8 UI::flash_function_slow(r32 time, r32 speed)
+{
+	return b8(s32(time * speed) % 4);
+}
+
+b8 UI::flash_function(r32 time)
+{
+	return flash_function(time, 16.0f);
+}
+
+b8 UI::flash_function(r32 time, r32 speed)
+{
+	return b8(s32(time * speed) % 2);
 }
 
 // projects a 3D point into screen space, limiting it to stay onscreen

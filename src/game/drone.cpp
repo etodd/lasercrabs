@@ -274,8 +274,18 @@ void particle_trail(const Vec3& start, const Vec3& dir, r32 distance, r32 interv
 	}
 }
 
-void client_hit_effects(Drone* drone, Entity* target)
+enum class DroneHitType
 {
+	Target,
+	Reflection,
+	count,
+};
+
+void client_hit_effects(Drone* drone, Entity* target, DroneHitType type)
+{
+	if (type == DroneHitType::Reflection)
+		drone->get<Audio>()->post_event(drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_REFLECT_PLAYER : AK::EVENTS::PLAY_DRONE_REFLECT);
+
 	Vec3 pos = drone->get<Transform>()->absolute_pos();
 
 	Quat rot = Quat::look(Vec3::normalize(drone->velocity));
@@ -308,6 +318,7 @@ void sniper_hit_effects(const Drone::Hit& hit)
 			Vec4(1, 1, 1, 1)
 		);
 	}
+	Audio::post_global_event(AK::EVENTS::PLAY_SNIPER_IMPACT, hit.pos);
 }
 
 b8 players_on_same_client(const Entity* a, const Entity* b)
@@ -393,7 +404,11 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
 					drone->get<Transform>()->absolute_rot(Quat::look(dir));
 
-					drone->get<Audio>()->post_event(drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_LAUNCH_PLAYER : AK::EVENTS::PLAY_DRONE_LAUNCH);
+					{
+						b8 local = drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local();
+						drone->get<Audio>()->post_event(local ? AK::EVENTS::PLAY_DRONE_LAUNCH_PLAYER : AK::EVENTS::PLAY_DRONE_LAUNCH);
+						drone->get<Audio>()->post_event(local ? AK::EVENTS::PLAY_DRONE_FLY_PLAYER : AK::EVENTS::PLAY_DRONE_FLY);
+					}
 
 					if (flag != DroneNet::FlyFlag::CancelExisting)
 						drone->cooldown_setup();
@@ -434,7 +449,11 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 				drone->particle_accumulator = 0;
 
-				drone->get<Audio>()->post_event(drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_LAUNCH_PLAYER : AK::EVENTS::PLAY_DRONE_LAUNCH);
+				{
+					b8 local = drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local();
+					drone->get<Audio>()->post_event(local ? AK::EVENTS::PLAY_DRONE_LAUNCH_PLAYER : AK::EVENTS::PLAY_DRONE_LAUNCH);
+					drone->get<Audio>()->post_event(local ? AK::EVENTS::PLAY_DRONE_FLY_PLAYER : AK::EVENTS::PLAY_DRONE_FLY);
+				}
 			}
 
 			break;
@@ -463,7 +482,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_ref(p, target);
 
 			if (apply_msg)
-				client_hit_effects(drone, target.ref());
+				client_hit_effects(drone, target.ref(), DroneHitType::Target);
 
 			// damage messages
 
@@ -637,7 +656,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						}
 					}
 
-					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
+					Audio::post_global_event(AK::EVENTS::PLAY_ROCKET_SPAWN, pos);
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
@@ -698,6 +717,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				case Ability::Sniper:
 				{
+					drone->get<Audio>()->post_event(AK::EVENTS::PLAY_SNIPER_FIRE);
+
 					drone->hit_targets.length = 0;
 
 					Vec3 pos = drone->get<Transform>()->absolute_pos();
@@ -716,6 +737,17 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							sniper_hit_effects(hits.hits[hits.index_end]);
 					}
 
+					// whiff sfx
+					r32 closest_projected_camera_distance = distance;
+					for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
+					{
+						r32 projected_camera_distance = (i.item()->pos - ray_start).dot(dir_normalized);
+						if (projected_camera_distance > 0.0f && projected_camera_distance < closest_projected_camera_distance)
+							closest_projected_camera_distance = projected_camera_distance;
+					}
+					if (closest_projected_camera_distance < distance)
+						Audio::post_global_event(AK::EVENTS::PLAY_SNIPER_WHIFF, ray_start + dir_normalized * closest_projected_camera_distance);
+
 					// effects
 					particle_trail(ray_start, dir_normalized, distance);
 
@@ -731,6 +763,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				case Ability::Decoy:
 				{
+					Audio::post_global_event(AK::EVENTS::PLAY_DECOY_SPAWN, pos);
+
 					if (Game::level.local)
 						Net::finalize(World::create<DecoyEntity>(manager, parent->get<Transform>(), pos, rot));
 
@@ -742,6 +776,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				case Ability::Grenade:
 				{
+					drone->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_SPAWN);
 					if (Game::level.local)
 					{
 						Vec3 dir_adjusted = dir_normalized;
@@ -861,7 +896,10 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				case Ability::ActiveArmor:
 				{
 					if (drone)
+					{
 						drone->get<Health>()->invincible_timer = vi_max(drone->get<Health>()->invincible_timer, ACTIVE_ARMOR_TIME);
+						drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
+					}
 					break;
 				}
 				default:
@@ -881,7 +919,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			Ref<Entity> reflected_off;
 			serialize_ref(p, reflected_off);
 			if (apply_msg)
-				client_hit_effects(drone, reflected_off.ref());
+				client_hit_effects(drone, reflected_off.ref(), DroneHitType::Reflection);
 			break;
 		}
 		default:
@@ -898,6 +936,7 @@ void Drone::finish_flying_dashing_common()
 	get<Animator>()->layers[0].animation = AssetNull;
 
 	get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_LAND_PLAYER : AK::EVENTS::PLAY_DRONE_LAND);
+	get<Audio>()->post_event(AK::EVENTS::STOP_DRONE_FLY);
 	attach_time = Game::time.total;
 	dash_timer = 0.0f;
 	dash_combo = false;
@@ -1020,7 +1059,7 @@ b8 Drone::hit_target(Entity* target)
 	{
 		// target hit events are synced across the network
 		// so just spawn some particles if needed, but don't do anything else
-		client_hit_effects(this, target);
+		client_hit_effects(this, target, DroneHitType::Target);
 		return true;
 	}
 
@@ -1564,7 +1603,7 @@ void drone_reflection_execute(Drone* a, Entity* reflected_off, const Vec3& dir)
 		{
 			// client-side prediction
 			vi_assert(a->has<PlayerControlHuman>() && a->get<PlayerControlHuman>()->local());
-			client_hit_effects(a, reflected_off);
+			client_hit_effects(a, reflected_off, DroneHitType::Reflection);
 		}
 	}
 

@@ -1,9 +1,12 @@
 #pragma once
 
 #include "data/entity.h"
+#include "lmath.h"
+
 #if SERVER
 #include <AK/SoundEngine/Common/AkTypes.h>
 #else
+
 #if _WIN32
 #include <AK/StreamManager/Win32/AkDefaultIOHookBlocking.h>
 #elif defined(__APPLE__)
@@ -15,6 +18,7 @@
 #endif
 #include <AK/SoundEngine/Common/AkCommonDefs.h>
 #include <AK/SoundEngine/Common/AkCallback.h>
+
 #endif
 
 namespace VI
@@ -33,6 +37,7 @@ struct Audio : ComponentType<Audio>
 
 	static r32 dialogue_volume;
 	static StaticArray<ID, 32> dialogue_callbacks; // poll this and empty it every frame; ID is entity ID
+	static Array<AkGameObjectID> unregister_queue;
 	static b8 init();
 	static void term();
 	static void update();
@@ -45,7 +50,7 @@ struct Audio : ComponentType<Audio>
 	static void listener_update(u32, const Vec3&, const Quat&);
 	static AkUniqueID get_id(const char*);
 
-	b8 registered;
+	Vec3 offset;
 
 	void awake();
 	~Audio();

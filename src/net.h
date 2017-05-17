@@ -46,6 +46,7 @@ enum class MessageType : s8
 	Interactable,
 	ClientSetup,
 	Bolt,
+	Grenade,
 	EntityName,
 	InitSave,
 	InitDone,

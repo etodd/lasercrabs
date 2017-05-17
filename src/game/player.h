@@ -69,6 +69,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	UIMenu menu;
 	UIScroll score_summary_scroll;
 	UIText msg_text;
+	Quat kill_cam_rot;
 	r32 msg_timer;
 	r32 animation_time;
 	r32 select_spawn_timer;

@@ -19,19 +19,19 @@ namespace VI
 {
 
 #define COMPONENTS() \
-COMPONENT_TYPE(0,  Transform) \
-COMPONENT_TYPE(1,  RigidBody) \
-COMPONENT_TYPE(2,  View) \
-COMPONENT_TYPE(3,  Animator) \
-COMPONENT_TYPE(4,  AIAgent) \
-COMPONENT_TYPE(5,  Drone) \
-COMPONENT_TYPE(6,  Shield) \
-COMPONENT_TYPE(7,  PlayerControlAI) \
-COMPONENT_TYPE(8,  PlayerControlHuman) \
-COMPONENT_TYPE(9,  PlayerCommon) \
-COMPONENT_TYPE(10, Minion) \
-COMPONENT_TYPE(11, Turret) \
-COMPONENT_TYPE(12, Audio) \
+COMPONENT_TYPE(0,  Audio) \
+COMPONENT_TYPE(1,  Transform) \
+COMPONENT_TYPE(2,  RigidBody) \
+COMPONENT_TYPE(3,  View) \
+COMPONENT_TYPE(4,  Animator) \
+COMPONENT_TYPE(5,  AIAgent) \
+COMPONENT_TYPE(6,  Drone) \
+COMPONENT_TYPE(7,  Shield) \
+COMPONENT_TYPE(8,  PlayerControlAI) \
+COMPONENT_TYPE(9,  PlayerControlHuman) \
+COMPONENT_TYPE(10, PlayerCommon) \
+COMPONENT_TYPE(11, Minion) \
+COMPONENT_TYPE(12, Turret) \
 COMPONENT_TYPE(13, Health) \
 COMPONENT_TYPE(14, PointLight) \
 COMPONENT_TYPE(15, SpotLight) \

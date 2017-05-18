@@ -3894,6 +3894,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 				net_error();
 			break;
 		}
+		case MessageType::Grenade:
+		{
+			if (!Grenade::net_msg(p, MessageSource::Remote))
+				net_error();
+			break;
+		}
 		case MessageType::Health:
 		{
 			if (!Health::net_msg(p))

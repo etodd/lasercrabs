@@ -620,6 +620,9 @@ do\
 							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 							break;
 						}
+						default:
+							vi_assert(false);
+							break;
 					}
 
 					switch (filter)
@@ -636,6 +639,9 @@ do\
 							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 							break;
 						}
+						default:
+							vi_assert(false);
+							break;
 					}
 
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, compare == RenderTextureCompare::RefToTexture ? GL_COMPARE_REF_TO_TEXTURE : GL_NONE);
@@ -669,6 +675,9 @@ do\
 						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 						break;
 					}
+					default:
+						vi_assert(false);
+						break;
 				}
 
 				switch (filter)
@@ -685,6 +694,9 @@ do\
 						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 						break;
 					}
+					default:
+						vi_assert(false);
+						break;
 				}
 
 				glGenerateMipmap(GL_TEXTURE_2D);
@@ -1046,6 +1058,9 @@ do\
 						break;
 					case RenderFillMode::Point:
 						glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+						break;
+					default:
+						vi_assert(false);
 						break;
 				}
 				debug_check();

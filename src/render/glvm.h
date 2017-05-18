@@ -185,9 +185,12 @@ inline size_t render_data_type_size(RenderDataType type)
 			return sizeof(Mat4);
 		case RenderDataType::Texture:
 			return sizeof(s32);
+		default:
+		{
+			vi_assert(false);
+			return 0;
+		}
 	}
-	vi_assert(false);
-	return 0;
 }
 
 }

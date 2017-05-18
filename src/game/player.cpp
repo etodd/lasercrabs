@@ -2063,12 +2063,19 @@ void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerCo
 
 	b8 show;
 
+	b8 in_range;
+
 	if (type == PlayerControlHuman::TargetIndicator::Type::DroneOutOfRange)
+	{
+		in_range = false;
 		show = true; // show even out of range
+	}
 	else
 	{
+		show = true;
+
 		r32 range = p->get<Drone>()->range();
-		b8 in_range = (target->absolute_pos() - me).length_squared() < range * range;
+		in_range = (target->absolute_pos() - me).length_squared() < range * range;
 		if (!in_range)
 		{
 			// out of range; some indicators just disappear; others change
@@ -2083,10 +2090,15 @@ void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerCo
 
 	if (show)
 	{
-		// calculate target intersection trajectory
-		Vec3 intersection;
-		if (p->get<Drone>()->predict_intersection(target, nullptr, &intersection, p->get<Drone>()->target_prediction_speed()))
-			p->target_indicators.add({ intersection, target->velocity(), type });
+		if (in_range)
+		{
+			// calculate target intersection trajectory
+			Vec3 intersection;
+			if (p->get<Drone>()->predict_intersection(target, nullptr, &intersection, p->get<Drone>()->target_prediction_speed()))
+				p->target_indicators.add({ intersection, target->velocity(), type });
+		}
+		else // too far away; just show the target's actual position
+			p->target_indicators.add({ target->absolute_pos(), target->velocity(), type });
 	}
 }
 
@@ -2195,7 +2207,7 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 	// force fields
 	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team != team)
+		if (i.item()->team != team && !(i.item()->flags & ForceField::FlagPermanent))
 			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::ForceField);
 	}
 }
@@ -3623,18 +3635,21 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		// force field battery bars
 		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 		{
-			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-			if ((pos - me).length_squared() < range * range)
+			if (!(i.item()->flags & ForceField::FlagPermanent))
 			{
-				Vec2 p;
-				if (UI::project(params, pos, &p))
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+				if ((pos - me).length_squared() < range * range)
 				{
-					Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
-					Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-					UI::box(params, bar, UI::color_background);
-					const Vec4& color = Team::ui_color(team, i.item()->team);
-					UI::border(params, bar, 2, color);
-					UI::box(params, { bar.pos, Vec2(bar.size.x * (i.item()->remaining_lifetime / FORCE_FIELD_LIFETIME), bar.size.y) }, color);
+					Vec2 p;
+					if (UI::project(params, pos, &p))
+					{
+						Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
+						Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+						UI::box(params, bar, UI::color_background);
+						const Vec4& color = Team::ui_color(team, i.item()->team);
+						UI::border(params, bar, 2, color);
+						UI::box(params, { bar.pos, Vec2(bar.size.x * (i.item()->remaining_lifetime / FORCE_FIELD_LIFETIME), bar.size.y) }, color);
+					}
 				}
 			}
 		}

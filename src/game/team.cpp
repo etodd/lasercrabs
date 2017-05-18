@@ -761,6 +761,12 @@ b8 Team::net_msg(Net::StreamRead* p)
 						World::remove_deferred(i.item()->entity());
 				}
 				// teams are not synced over the network, so set them on both client and server
+				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+					i.item()->set_team(team_winner);
+				for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
+					i.item()->set_team(team_winner);
+				for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+					i.item()->set_team(team_winner);
 				for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 					i.item()->team(team_winner);
 				for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
@@ -838,14 +844,19 @@ void Team::update_all_server(const Update& u)
 				ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
 				World::remove_deferred(i.item()->entity());
 			}
+
 			for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 			{
-				Vec3 pos;
-				Quat rot;
-				i.item()->get<Transform>()->absolute(&pos, &rot);
-				ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
-				World::remove_deferred(i.item()->entity());
+				if (!(i.item()->flags & ForceField::FlagPermanent))
+				{
+					Vec3 pos;
+					Quat rot;
+					i.item()->get<Transform>()->absolute(&pos, &rot);
+					ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+					World::remove_deferred(i.item()->entity());
+				}
 			}
+
 			for (auto i = Decoy::list.iterator(); !i.is_last(); i.next())
 			{
 				Vec3 pos;

@@ -627,8 +627,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		ForceField* c = e->get<ForceField>();
 		serialize_r32(p, c->remaining_lifetime);
 		serialize_ref(p, c->field);
-		serialize_ref(p, c->owner);
 		serialize_s8(p, c->team);
+		serialize_s8(p, c->flags);
 	}
 
 	if (e->has<Water>())

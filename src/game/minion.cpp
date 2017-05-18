@@ -282,7 +282,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
 		ForceField* field = i.item();
-		if (field->team != team)
+		if (field->team != team && !(field->flags & ForceField::FlagPermanent))
 		{
 			Vec3 item_pos = field->get<Transform>()->absolute_pos();
 			if (me->can_see(field->entity()))
@@ -460,7 +460,7 @@ Entity* visible_target(Minion* me, AI::Team team)
 	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
 		ForceField* field = i.item();
-		if (field->team != team)
+		if (field->team != team && !(field->flags & ForceField::FlagPermanent))
 		{
 			if (me->can_see(field->entity()))
 				return field->entity();

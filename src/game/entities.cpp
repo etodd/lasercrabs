@@ -664,7 +664,7 @@ void Battery::update_all(const Update& u)
 
 	// clear powered state for all force fields; we're going to update this flag
 	for (auto field = ForceField::list.iterator(); !field.is_last(); field.next())
-		field.item()->powered = false;
+		field.item()->flags &= ~ForceField::FlagPowered;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
@@ -684,7 +684,7 @@ void Battery::update_all(const Update& u)
 				{
 					if (force_fields.length < force_fields.capacity())
 						force_fields.add(field_pos);
-					field.item()->powered = true;
+					field.item()->flags |= ForceField::FlagPowered;
 				}
 			}
 		}
@@ -1276,6 +1276,8 @@ RocketEntity::RocketEntity(PlayerManager* owner, Transform* parent, const Vec3& 
 	Rocket* rocket = create<Rocket>();
 	rocket->owner = owner;
 
+	create<Audio>();
+
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
 
 	View* model = create<View>();
@@ -1379,6 +1381,13 @@ void CoreModule::awake()
 	link_arg<Entity*, &CoreModule::killed>(get<Health>()->killed);
 }
 
+// not synced over network
+void CoreModule::set_team(AI::Team t)
+{
+	team = t;
+	get<View>()->team = s8(t);
+}
+
 s32 CoreModule::count(AI::TeamMask mask)
 {
 	s32 count = 0;
@@ -1442,6 +1451,14 @@ void Turret::awake()
 	link_arg<const TargetEvent&, &Turret::hit_by>(get<Target>()->target_hit);
 }
 
+// not synced over network
+void Turret::set_team(AI::Team t)
+{
+	team = t;
+	get<View>()->team = s8(t);
+	get<PointLight>()->team = s8(t);
+}
+
 void Turret::hit_by(const TargetEvent& e)
 {
 	get<Health>()->damage(e.hit_by, 5);
@@ -1474,6 +1491,16 @@ void Turret::killed(Entity* by)
 		Quat rot;
 		get<Transform>()->absolute(&pos, &rot);
 		ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+
+		if (list.count() <= 1)
+		{
+			// core is vulnerable; remove permanent ForceField protecting it
+			for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->flags & ForceField::FlagPermanent)
+					i.item()->destroy();
+			}
+		}
 
 		World::remove_deferred(entity());
 	}
@@ -1667,7 +1694,7 @@ u32 ForceField::hash(AI::Team my_team, const Vec3& pos)
 }
 
 ForceField::ForceField()
-	: team(AI::TeamNone), owner(), remaining_lifetime(FORCE_FIELD_LIFETIME), powered()
+	: team(AI::TeamNone), remaining_lifetime(FORCE_FIELD_LIFETIME), flags()
 {
 }
 
@@ -1683,6 +1710,15 @@ ForceField::~ForceField()
 	if (Game::level.local && field.ref())
 		World::remove_deferred(field.ref());
 	get<Audio>()->post_event(AK::EVENTS::STOP_FORCE_FIELD_LOOP);
+}
+
+// not synced over network
+void ForceField::set_team(AI::Team t)
+{
+	team = t;
+	get<View>()->team = s8(t);
+	field.ref()->get<View>()->team = s8(t);
+	field.ref()->get<RigidBody>()->set_collision_masks(CollisionGroup(1 << (8 + team)), CollisionDroneIgnore);
 }
 
 void ForceField::hit_by(const TargetEvent& e)
@@ -1751,9 +1787,12 @@ void ForceField::update_all(const Update& u)
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		i.item()->remaining_lifetime -= u.time.delta * (i.item()->powered ? 0.25f : 1.0f);
-		if (Game::level.local && i.item()->remaining_lifetime < 0.0f)
-			i.item()->destroy();
+		if (!(i.item()->flags & FlagPermanent))
+		{
+			i.item()->remaining_lifetime -= u.time.delta * ((i.item()->flags & FlagPowered) ? 0.25f : 1.0f);
+			if (Game::level.local && i.item()->remaining_lifetime < 0.0f)
+				i.item()->destroy();
+		}
 	}
 }
 
@@ -1768,7 +1807,7 @@ void ForceField::destroy()
 }
 
 #define FORCE_FIELD_BASE_RADIUS 0.385f
-ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const Quat& abs_rot, PlayerManager* m)
+ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const Quat& abs_rot, AI::Team team, ForceField::Type type)
 {
 	Transform* transform = create<Transform>();
 	transform->absolute(abs_pos, abs_rot);
@@ -1776,12 +1815,11 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 
 	create<Audio>();
 
-	AI::Team team = m->team.ref()->team();
-
 	// destroy any overlapping friendly force field
 	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team == team
+			&& !(i.item()->flags & ForceField::FlagPermanent)
 			&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < FORCE_FIELD_RADIUS * 2.0f * FORCE_FIELD_RADIUS * 2.0f)
 		{
 			i.item()->destroy();
@@ -1789,7 +1827,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 	}
 
 	View* model = create<View>();
-	model->team = (s8)m->team.ref()->team();
+	model->team = team;
 	model->mesh = Asset::Mesh::force_field_base;
 	model->shader = Asset::Shader::standard;
 
@@ -1799,13 +1837,14 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 
 	ForceField* field = create<ForceField>();
 	field->team = team;
-	field->owner = m;
+	if (type == ForceField::Type::Permanent)
+		field->flags |= ForceField::FlagPermanent;
 
 	Entity* f = World::create<Empty>();
 	f->get<Transform>()->absolute_pos(abs_pos);
 
 	View* view = f->add<View>();
-	view->team = (s8)team;
+	view->team = s8(team);
 	view->mesh = Asset::Mesh::force_field_sphere;
 	view->shader = Asset::Shader::fresnel;
 	view->alpha();
@@ -1983,15 +2022,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 				damage = 0;
 		}
 		if (hit_object->has<Drone>())
-		{
-			damage = BOLT_DRONE_DAMAGE;
-			if (hit_object->get<Drone>()->state() != Drone::State::Crawl)
-			{
-				// don't do damage, but also don't reflect
-				damage = 0;
-				team = hit_object->get<AIAgent>()->team;
-			}
-		}
+			damage = BOLT_DRONE_DAMAGE; // damage drones even if they are flying or dashing
 		if (hit_object->get<Health>()->invincible())
 		{
 			damage = 0;
@@ -2239,20 +2270,27 @@ void Grenade::explode()
 	Vec3 me = get<Transform>()->absolute_pos();
 	ParticleEffect::spawn(ParticleEffect::Type::Grenade, me, Quat::look(Vec3(0, 1, 0))); // also handles physics impulses
 
+	AI::Team my_team = team();
+	u32 my_hash = ForceField::hash(my_team, me);
+
 	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 	{
 		if (!i.item()->invincible())
 		{
-			Vec3 to_item = i.item()->get<Transform>()->absolute_pos() - me;
-			r32 distance = to_item.length();
-			to_item /= distance;
-			if (i.item()->has<Shield>())
+			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+			if (ForceField::hash(my_team, pos) == my_hash)
 			{
-				if (distance < GRENADE_RANGE * 0.66f)
-					i.item()->damage(entity(), 1);
+				Vec3 to_item = pos - me;
+				r32 distance = to_item.length();
+				to_item /= distance;
+				if (i.item()->has<Shield>())
+				{
+					if (distance < GRENADE_RANGE * 0.66f)
+						i.item()->damage(entity(), 1);
+				}
+				else if (distance < GRENADE_RANGE && !i.item()->has<Battery>())
+					i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 5 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1));
 			}
-			else if (distance < GRENADE_RANGE && !i.item()->has<Battery>())
-				i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 5 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1));
 		}
 	}
 
@@ -2710,13 +2748,13 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack, 
 	Vec3 start_pos = pos;
 	Vec3 end = start_pos + dir_normalized * max_distance;
 	btCollisionWorld::ClosestRayResultCallback ray_callback(start_pos, end);
-	Physics::raycast(&ray_callback, btBroadphaseProxy::AllFilter);
+	Physics::raycast(&ray_callback, btBroadphaseProxy::AllFilter & ~CollisionAllTeamsForceField);
 	if (ray_callback.hasHit())
 	{
 		Vec3 end2 = start_pos + dir_normalized * -max_distance;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback2(start_pos, end2);
-		Physics::raycast(&ray_callback2, btBroadphaseProxy::AllFilter);
+		Physics::raycast(&ray_callback2, btBroadphaseProxy::AllFilter & ~CollisionAllTeamsForceField);
 
 		if (!attach_end || ray_callback2.hasHit())
 		{

@@ -1611,6 +1611,18 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					entity = World::alloc<CoreModuleEntity>(team, nullptr, absolute_pos, absolute_rot);
 			}
 		}
+		else if (cJSON_HasObjectItem(element, "ForceField"))
+		{
+			if (level.type == GameType::Assault)
+			{
+				AI::Team team = AI::Team(Json::get_s32(element, "team"));
+				if (Team::list.count() > s32(team))
+				{
+					absolute_pos += absolute_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
+					entity = World::alloc<ForceFieldEntity>(nullptr, absolute_pos, absolute_rot, team, ForceField::Type::Permanent);
+				}
+			}
+		}
 		else if (cJSON_HasObjectItem(element, "PlayerTrigger"))
 		{
 			entity = World::alloc<Empty>();
@@ -1683,13 +1695,11 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				AI::Team team;
 				if (session.type == SessionType::Story)
 				{
-					// starts out owned by player if the zone is friendly
-					s32 default_team_index;
-					if (save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned)
-						default_team_index = mersenne::randf_cc() < 0.8f ? 0 : 1;
+					if ((save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) // defending; enemy might have already captured some batteries
+						&& mersenne::randf_cc() < 0.2f) // only some batteries though, not all
+						team = team_lookup(level.team_lookup, Json::get_s32(element, "team", 1));
 					else
-						default_team_index = 1;
-					team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
+						team = AI::TeamNone;
 				}
 				else
 					team = AI::TeamNone;

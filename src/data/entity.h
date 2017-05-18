@@ -199,7 +199,9 @@ template<typename T, typename... Args> T* Entity::create(Args... args)
 	component_mask |= T::component_mask;
 	components[T::family] = item->id();
 	item->revision++;
+	Revision r = item->revision;
 	new (item) T(args...);
+	item->revision = r;
 	item->entity_id = id();
 	return item;
 }

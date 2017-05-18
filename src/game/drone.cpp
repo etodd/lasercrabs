@@ -489,7 +489,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (target.ref()->has<Shield>())
 			{
 				// check if we can damage them
-				if (target.ref()->get<Health>()->invincible() || (target.ref()->has<Drone>() && target.ref()->get<Drone>()->state() != Drone::State::Crawl))
+				if (target.ref()->get<Health>()->invincible() || (target.ref()->has<Drone>() && target.ref()->get<Drone>()->state() != State::Crawl && drone->state() != State::Crawl))
 				{
 					// we didn't hurt them
 					if (Game::level.local)
@@ -707,7 +707,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, npos);
 
 					if (Game::level.local)
-						Net::finalize(World::create<ForceFieldEntity>(parent->get<Transform>(), npos, rot, manager));
+						Net::finalize(World::create<ForceFieldEntity>(parent->get<Transform>(), npos, rot, drone->get<AIAgent>()->team));
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
@@ -730,7 +730,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						distance = drone->movement_raycast(ray_start, ray_end);
 					else
 					{
-						Drone::Hits hits;
+						Hits hits;
 						drone->raycast(RaycastMode::Default, ray_start, ray_end, nullptr, &hits);
 						distance = hits.fraction_end * drone->range();
 						if (hits.index_end != -1)
@@ -2473,7 +2473,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 
 				if (!already_hit)
 				{
-					if ((hit.entity.ref()->has<Drone>() && hit.entity.ref()->get<Drone>()->state() != Drone::State::Crawl) // it's flying or dashing; always bounce off
+					if ((hit.entity.ref()->has<Drone>() && hit.entity.ref()->get<Drone>()->state() != Drone::State::Crawl && state() != State::Crawl) // it's flying or dashing; always bounce off
 						|| hit.entity.ref()->get<Health>()->invincible()) // it's invincible; always bounce off
 						stop = true;
 					else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()))
@@ -2529,7 +2529,7 @@ r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 					do_reflect = hit_target(hit.entity.ref())
 						&& s != State::Crawl
 						&& (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()) // will they still be alive after we hit them? if so, reflect
-							|| ((hit.entity.ref()->has<Drone>() && hit.entity.ref()->get<Drone>()->state() != State::Crawl) || hit.entity.ref()->get<Health>()->invincible()));
+							|| ((hit.entity.ref()->has<Drone>() && hit.entity.ref()->get<Drone>()->state() != State::Crawl && s != State::Crawl) || hit.entity.ref()->get<Health>()->invincible()));
 				}
 				else
 				{

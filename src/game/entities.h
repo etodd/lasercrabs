@@ -227,6 +227,7 @@ struct CoreModule : public ComponentType<CoreModule>
 	void awake();
 	void killed(Entity*);
 	void destroy();
+	void set_team(AI::Team);
 };
 
 struct TurretEntity : public Entity
@@ -255,6 +256,7 @@ struct Turret : public ComponentType<Turret>
 	void check_target();
 	b8 can_see(Entity*) const;
 	void hit_by(const TargetEvent&);
+	void set_team(AI::Team);
 };
 
 struct ForceField : public ComponentType<ForceField>
@@ -266,11 +268,23 @@ struct ForceField : public ComponentType<ForceField>
 	static ForceField* closest(AI::TeamMask, const Vec3&, r32*);
 	static u32 hash(AI::Team, const Vec3&);
 
+	enum Flags
+	{
+		FlagPowered = 1 << 0,
+		FlagPermanent = 1 << 1,
+	};
+
+	enum class Type
+	{
+		Normal,
+		Permanent,
+		count,
+	};
+
 	r32 remaining_lifetime;
 	Ref<Entity> field;
-	Ref<PlayerManager> owner;
 	AI::Team team;
-	b8 powered;
+	s8 flags;
 
 	ForceField();
 	void awake();
@@ -278,12 +292,13 @@ struct ForceField : public ComponentType<ForceField>
 	void hit_by(const TargetEvent&);
 	void killed(Entity*);
 	void destroy();
+	void set_team(AI::Team);
 	b8 contains(const Vec3&) const;
 };
 
 struct ForceFieldEntity : public Entity
 {
-	ForceFieldEntity(Transform*, const Vec3&, const Quat&, PlayerManager*);
+	ForceFieldEntity(Transform*, const Vec3&, const Quat&, AI::Team, ForceField::Type = ForceField::Type::Normal);
 };
 
 struct AICue : public ComponentType<AICue>

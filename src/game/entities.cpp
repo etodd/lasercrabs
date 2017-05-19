@@ -677,7 +677,7 @@ void Battery::update_all(const Update& u)
 		StaticArray<Vec3, 10> force_fields;
 		for (auto field = ForceField::list.iterator(); !field.is_last(); field.next())
 		{
-			if (field.item()->team == i.item()->team)
+			if (field.item()->team == i.item()->team && !(field.item()->flags & ForceField::FlagPermanent))
 			{
 				Vec3 field_pos = field.item()->get<Transform>()->absolute_pos();
 				if ((field_pos - control_point_pos).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS)

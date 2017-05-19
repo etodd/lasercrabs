@@ -3993,6 +3993,7 @@ b8 msg_process(StreamRead* p, MessageSource src)
 b8 msg_finalize(StreamWrite* p)
 {
 	using Stream = StreamRead;
+	p->align();
 	p->flush();
 	StreamRead r;
 	memcpy(&r, p, sizeof(StreamRead));

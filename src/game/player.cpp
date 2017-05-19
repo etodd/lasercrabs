@@ -415,6 +415,7 @@ struct Message
 	enum class Type : s8
 	{
 		Dash,
+		DashCombo,
 		Go,
 		Reflect,
 		UpgradeStart,
@@ -438,6 +439,7 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 
 	// position/dir
 	if (msg->type == Message::Type::Dash
+		|| msg->type == Message::Type::DashCombo
 		|| msg->type == Message::Type::Go
 		|| msg->type == Message::Type::Reflect)
 	{
@@ -449,7 +451,7 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 		serialize_r32_range(p, msg->dir.z, -1.0f, 1.0f, 16);
 	}
 
-	if (msg->type == Message::Type::Dash)
+	if (msg->type == Message::Type::DashCombo)
 		serialize_position(p, &msg->target, Net::Resolution::High);
 	else
 		msg->target = Vec3::zero;
@@ -1961,6 +1963,16 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		case PlayerControlHumanNet::Message::Type::Dash:
 		{
 			c->get<Drone>()->current_ability = Ability::None;
+			if (c->get<Drone>()->dash_start(msg.dir, c->get<Transform>()->absolute_pos())) // HACK: set target to current position so that it is not used
+			{
+				c->try_primary = false;
+				c->try_secondary = false;
+			}
+			break;
+		}
+		case PlayerControlHumanNet::Message::Type::DashCombo:
+		{
+			c->get<Drone>()->current_ability = Ability::None;
 			if (c->get<Drone>()->dash_start(msg.dir, msg.target))
 			{
 				c->try_primary = false;
@@ -2612,10 +2624,11 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 			r32 tolerance_pos;
 			r32 tolerance_rot;
 			remote_position(&tolerance_pos, &tolerance_rot);
-			if ((remote_abs_pos - abs_pos).length_squared() < tolerance_pos * tolerance_pos)
-				t->absolute_pos(remote_abs_pos);
-			if (Quat::angle(remote_abs_rot, abs_rot) < tolerance_rot)
-				t->absolute_rot(remote_abs_rot);
+			if ((remote_abs_pos - abs_pos).length_squared() < tolerance_pos * tolerance_pos
+				&& Quat::angle(remote_abs_rot, abs_rot) < tolerance_rot)
+			{
+				t->absolute(remote_abs_pos, remote_abs_rot);
+			}
 		}
 	}
 }
@@ -2971,7 +2984,7 @@ void PlayerControlHuman::update(const Update& u)
 									if (hit_entity->has<Target>())
 										reticle.type = ReticleType::DashTarget;
 									else if (!(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
-										reticle.type = ReticleType::Dash;
+										reticle.type = ReticleType::DashCombo;
 								}
 							}
 							else if (hit_entity->has<Target>())
@@ -2982,12 +2995,10 @@ void PlayerControlHuman::update(const Update& u)
 								// and sometimes that shot can't actually be taken.
 								// so we need to check for this case and turn it into a dash if we can.
 
-								// raycast again, ignoring moving objects
-								RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-								Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~CollisionShield & ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
-
-								Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
-								if (detach_dir.dot(wall_normal) > -dot_tolerance && reticle.normal.dot(wall_normal) > 1.0f - dot_tolerance)
+								// check if they're in range and close enough to our wall
+								Vec3 to_target = hit_entity->get<Target>()->absolute_pos() - me;
+								if (to_target.length_squared() < DRONE_DASH_DISTANCE * DRONE_DASH_DISTANCE
+									&& fabsf(to_target.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < DRONE_SHIELD_RADIUS)
 									reticle.type = ReticleType::Dash;
 							}
 						}
@@ -3048,15 +3059,20 @@ void PlayerControlHuman::update(const Update& u)
 			else
 			{
 				// we're aiming at something
-				if (try_primary)
+				if (try_primary && camera_shake_timer < 0.3f) // don't go anywhere if the camera is shaking wildly
 				{
 					PlayerControlHumanNet::Message msg;
 					msg.dir = Vec3::normalize(reticle.pos - get<Transform>()->absolute_pos());
 					get<Transform>()->absolute(&msg.pos, &msg.rot);
-					if (reticle.type == ReticleType::Dash || reticle.type == ReticleType::DashTarget)
+					if (reticle.type == ReticleType::DashCombo || reticle.type == ReticleType::DashTarget)
+					{
+						msg.type = PlayerControlHumanNet::Message::Type::DashCombo;
+						msg.target = reticle.pos;
+						PlayerControlHumanNet::send(this, &msg);
+					}
+					else if (reticle.type == ReticleType::Dash)
 					{
 						msg.type = PlayerControlHumanNet::Message::Type::Dash;
-						msg.target = reticle.pos;
 						PlayerControlHumanNet::send(this, &msg);
 					}
 					else

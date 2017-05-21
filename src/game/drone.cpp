@@ -761,19 +761,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					break;
 				}
-				case Ability::Decoy:
-				{
-					Audio::post_global_event(AK::EVENTS::PLAY_DECOY_SPAWN, pos);
-
-					if (Game::level.local)
-						Net::finalize(World::create<DecoyEntity>(manager, parent->get<Transform>(), pos, rot));
-
-					// effects
-					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					EffectLight::add(pos + rot * Vec3(0, 0, DRONE_RADIUS), 8.0f, 1.5f, EffectLight::Type::Shockwave);
-
-					break;
-				}
 				case Ability::Grenade:
 				{
 					drone->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_SPAWN);
@@ -1052,8 +1039,8 @@ b8 Drone::hit_target(Entity* target)
 	if (hit_targets.length < hit_targets.capacity())
 		hit_targets.add(target);
 
-	if (current_ability == Ability::None && get<Health>()->invincible() && (target->has<Drone>() || target->has<Decoy>()))
-		get<Health>()->invincible_timer = 0.0f; // damaging a Drone cancels our invincibility
+	if (current_ability == Ability::None && get<Health>()->invincible() && target->has<Shield>())
+		get<Health>()->invincible_timer = 0.0f; // damaging a Shield cancels our invincibility
 
 	if (!Game::level.local) // then we are a local player on a client
 	{

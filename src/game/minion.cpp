@@ -392,16 +392,6 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 
 Entity* visible_target(Minion* me, AI::Team team)
 {
-	for (auto i = Decoy::list.iterator(); !i.is_last(); i.next())
-	{
-		Decoy* drone = i.item();
-		if (drone->get<AIAgent>()->team != team)
-		{
-			if (me->can_see(drone->entity(), true))
-				return drone->entity();
-		}
-	}
-
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
 		PlayerCommon* player = i.item();
@@ -887,10 +877,6 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 				limit_vision_cone = false;
 		}
 	}
-
-	// if we're targeting a decoy, always go for the decoy
-	if (target->has<Decoy>())
-		limit_vision_cone = false;
 
 	if (distance_squared < MINION_VISION_RANGE * MINION_VISION_RANGE)
 	{

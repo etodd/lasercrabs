@@ -288,7 +288,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| ForceField::component_mask
 		| Drone::component_mask
 		| Shield::component_mask
-		| Decoy::component_mask
 		| Audio::component_mask
 		| Team::component_mask
 		| PlayerHuman::component_mask
@@ -444,12 +443,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, a->cooldown, 0, DRONE_COOLDOWN, 8);
 		serialize_int(p, Ability, a->current_ability, 0, s32(Ability::count) + 1);
 		serialize_int(p, s8, a->charges, 0, DRONE_CHARGES);
-	}
-
-	if (e->has<Decoy>())
-	{
-		Decoy* d = e->get<Decoy>();
-		serialize_ref(p, d->owner);
 	}
 
 	if (e->has<Minion>())

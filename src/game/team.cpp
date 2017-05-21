@@ -68,12 +68,6 @@ AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 		false,
 	},
 	{
-		Asset::Mesh::icon_drone,
-		20,
-		AbilityInfo::Type::Build,
-		false,
-	},
-	{
 		Asset::Mesh::icon_force_field,
 		40,
 		AbilityInfo::Type::Build,
@@ -123,12 +117,6 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::sensor,
 		strings::description_sensor,
 		Asset::Mesh::icon_sensor,
-		50,
-	},
-	{
-		strings::decoy,
-		strings::description_decoy,
-		Asset::Mesh::icon_drone,
 		50,
 	},
 	{
@@ -380,20 +368,11 @@ void update_stealth_state(PlayerManager* player, AIAgent* a, Entity* visibility[
 
 void update_visibility(const Update& u)
 {
-	// determine which drones and decoys are seen by which teams
+	// determine which drones are seen by which teams
 	// and update their stealth state
 	Entity* visibility[MAX_PLAYERS][MAX_PLAYERS] = {};
 	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 	{
-		for (auto i = Decoy::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->owner.ref() == player.item())
-			{
-				update_visibility_sensor(visibility, player.item(), i.item()->entity());
-				update_stealth_state(player.item(), i.item()->get<AIAgent>(), visibility);
-			}
-		}
-
 		Entity* player_entity = player.item()->instance.ref();
 		if (player_entity && player_entity->has<Drone>())
 		{
@@ -428,116 +407,19 @@ void update_visibility(const Update& u)
 
 			PlayerManager::Visibility detected = { nullptr, PlayerManager::Visibility::Type::Direct };
 
-			// if j_decoy is at all visible, it will be detected first
-
-			for (auto j_decoy = Decoy::list.iterator(); !j_decoy.is_last(); j_decoy.next())
-			{
-				if (j_decoy.item()->owner.ref() == j.item() && !j_decoy.item()->get<AIAgent>()->stealth)
-				{
-					// i_entity detecting j_decoy
-					r32 distance;
-					if (visibility_check(i_entity, j_decoy.item()->entity(), &distance)
-						&& distance < i_range)
-					{
-						detected.entity = j_decoy.item()->entity();
-						detected.type = PlayerManager::Visibility::Type::Direct;
-						break;
-					}
-
-					// i_decoy detecting j_decoy
-					if (!detected.entity.ref())
-					{
-						for (auto i_decoy = Decoy::list.iterator(); !i_decoy.is_last(); i_decoy.next())
-						{
-							if (i_decoy.item()->owner.ref() == i.item())
-							{
-								if (visibility_check(i_decoy.item()->entity(), j_decoy.item()->entity(), &distance)
-									&& distance < DRONE_MAX_DISTANCE)
-								{
-									detected.entity = j_decoy.item()->entity();
-									detected.type = PlayerManager::Visibility::Type::Direct;
-								}
-							}
-						}
-					}
-				}
-			}
-
 			Entity* j_actual_entity = j.item()->instance.ref();
 			if (j_actual_entity && !j_actual_entity->get<AIAgent>()->stealth)
 			{
 				// i_entity detecting j_actual_entity
+				r32 distance;
+				if ((visibility_check(i_entity, j_actual_entity, &distance)
+					&& distance < i_range))
+				{
+					detected.entity = j_actual_entity;
+					detected.type = PlayerManager::Visibility::Type::Direct;
+				}
+
 				if (!detected.entity.ref())
-				{
-					r32 distance;
-					if ((visibility_check(i_entity, j_actual_entity, &distance)
-						&& distance < i_range))
-					{
-						detected.entity = j_actual_entity;
-						detected.type = PlayerManager::Visibility::Type::Direct;
-					}
-				}
-
-				// i_decoy detecting j_actual_entity
-				if (!detected.entity.ref())
-				{
-					for (auto i_decoy = Decoy::list.iterator(); !i_decoy.is_last(); i_decoy.next())
-					{
-						if (i_decoy.item()->owner.ref() == i.item())
-						{
-							r32 distance;
-							if (visibility_check(i_decoy.item()->entity(), j_actual_entity, &distance)
-								&& distance < DRONE_MAX_DISTANCE)
-							{
-								detected.entity = j_actual_entity;
-								detected.type = PlayerManager::Visibility::Type::Direct;
-								break;
-							}
-						}
-					}
-				}
-			}
-
-			if (!detected.entity.ref())
-			{
-				for (auto j_decoy = Decoy::list.iterator(); !j_decoy.is_last(); j_decoy.next())
-				{
-					if (j_decoy.item()->owner.ref() == j.item() && !j_decoy.item()->get<AIAgent>()->stealth)
-					{
-						// i turrets detecting j_decoy
-						for (auto t = Turret::list.iterator(); !t.is_last(); t.next())
-						{
-							if (t.item()->team == i_team->team() && t.item()->target.ref() == j_decoy.item()->entity())
-							{
-								detected.entity = j_decoy.item()->entity();
-								detected.type = PlayerManager::Visibility::Type::Indirect;
-								break;
-							}
-						}
-
-						// i minions detecting j_decoy
-						if (!detected.entity.ref())
-						{
-							for (auto m = Minion::list.iterator(); !m.is_last(); m.next())
-							{
-								if (m.item()->get<AIAgent>()->team == i_team->team() && m.item()->goal.entity.ref() == j_decoy.item()->entity())
-								{
-									detected.entity = j_decoy.item()->entity();
-									detected.type = PlayerManager::Visibility::Type::Indirect;
-									break;
-								}
-							}
-						}
-
-						if (detected.entity.ref())
-							break;
-					}
-				}
-			}
-
-			if (!detected.entity.ref())
-			{
-				if (j_actual_entity && !j_actual_entity->get<AIAgent>()->stealth)
 				{
 					// i turrets detecting j_actual_entity
 					for (auto t = Turret::list.iterator(); !t.is_last(); t.next())
@@ -599,7 +481,7 @@ void update_visibility(const Update& u)
 							team->track(player.item(), detected_entity);
 					}
 				}
-				else if (detected_entity->has<Decoy>() || detected_entity->get<Drone>()->state() == Drone::State::Crawl)
+				else if (detected_entity->get<Drone>()->state() == Drone::State::Crawl)
 				{
 					// not tracking yet; insert new track entry
 					// (only start tracking if the Drone is attached to a wall; don't start tracking if Drone is mid-air)
@@ -855,15 +737,6 @@ void Team::update_all_server(const Update& u)
 					ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
 					World::remove_deferred(i.item()->entity());
 				}
-			}
-
-			for (auto i = Decoy::list.iterator(); !i.is_last(); i.next())
-			{
-				Vec3 pos;
-				Quat rot;
-				i.item()->get<Transform>()->absolute(&pos, &rot);
-				ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
-				World::remove_deferred(i.item()->entity());
 			}
 
 			TeamNet::send_game_over(w);

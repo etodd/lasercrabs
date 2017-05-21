@@ -501,7 +501,7 @@ void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 	if (e->has<AIAgent>())
 	{
 		_team = e->get<AIAgent>()->team;
-		if (e->has<Drone>() || e->has<Decoy>())
+		if (e->has<Drone>())
 		{
 			s8 shield = e->get<Health>()->shield;
 			if (_team == query_team)

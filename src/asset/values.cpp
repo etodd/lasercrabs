@@ -241,6 +241,10 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/overworld_Cube_044.msh",
 	"assets/lvl/overworld_Pyramid.msh",
 	"assets/lvl/overworld_water.msh",
+	"assets/lvl/test_Cube.msh",
+	"assets/lvl/test_Cube_000_proxy.msh",
+	"assets/lvl/test_Cube_000_proxy_1.msh",
+	"assets/lvl/test_Cube_1.msh",
 	0,
 };
 
@@ -482,6 +486,10 @@ const char* AssetLookup::Mesh::names[] =
 	"overworld_Cube_044",
 	"overworld_Pyramid",
 	"overworld_water",
+	"test_Cube",
+	"test_Cube_000_proxy",
+	"test_Cube_000_proxy_1",
+	"test_Cube_1",
 	0,
 };
 
@@ -854,6 +862,7 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/Media_Tower.lvl",
 	"assets/lvl/Port_District.lvl",
 	"assets/lvl/overworld.lvl",
+	"assets/lvl/test.lvl",
 	0,
 };
 
@@ -867,6 +876,7 @@ const char* AssetLookup::Level::names[] =
 	"Media Tower",
 	"Port District",
 	"overworld",
+	"test",
 	0,
 };
 
@@ -880,6 +890,7 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/Media_Tower.nav",
 	"assets/lvl/Port_District.nav",
 	"assets/lvl/overworld.nav",
+	"assets/lvl/test.nav",
 	0,
 };
 
@@ -893,6 +904,7 @@ const char* AssetLookup::NavMesh::names[] =
 	"Media Tower",
 	"Port District",
 	"overworld",
+	"test",
 	0,
 };
 
@@ -949,7 +961,6 @@ const char* AssetLookup::String::names[] =
 	"core_vulnerable",
 	"danger",
 	"deaths",
-	"decoy",
 	"defeat",
 	"defend",
 	"defending",
@@ -959,7 +970,6 @@ const char* AssetLookup::String::names[] =
 	"deploying",
 	"description_active_armor",
 	"description_bolter",
-	"description_decoy",
 	"description_force_field",
 	"description_grenade",
 	"description_minion",

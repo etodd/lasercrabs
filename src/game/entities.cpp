@@ -1295,63 +1295,6 @@ RocketEntity::RocketEntity(PlayerManager* owner, Transform* parent, const Vec3& 
 	light->color = Vec3(1.0f);
 }
 
-DecoyEntity::DecoyEntity(PlayerManager* owner, Transform* parent, const Vec3& pos, const Quat& rot)
-{
-	AI::Team team = owner->team.ref()->team();
-	Transform* transform = create<Transform>();
-	transform->parent = parent;
-	transform->absolute(pos + rot * Vec3(0, 0, DRONE_RADIUS), rot);
-	create<AIAgent>()->team = team;
-
-	create<Health>(DRONE_HEALTH, DRONE_HEALTH, DRONE_SHIELD, DRONE_SHIELD);
-
-	SkinnedModel* model = create<SkinnedModel>();
-	model->mesh = Asset::Mesh::drone;
-	model->shader = Asset::Shader::armature;
-	model->team = s8(team);
-
-	Animator* anim = create<Animator>();
-	anim->armature = Asset::Armature::drone;
-	anim->layers[0].behavior = Animator::Behavior::Loop;
-	anim->layers[0].play(Asset::Animation::drone_idle);
-
-	create<Target>();
-
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(DRONE_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault);
-
-	create<Decoy>()->owner = owner;
-
-	create<Shield>();
-
-	create<Audio>();
-}
-
-void Decoy::awake()
-{
-	link_arg<Entity*, &Decoy::killed>(get<Health>()->killed);
-}
-
-AI::Team Decoy::team() const
-{
-	return owner.ref() ? owner.ref()->team.ref()->team() : AI::TeamNone;
-}
-
-void Decoy::killed(Entity*)
-{
-	if (Game::level.local)
-		destroy();
-}
-
-void Decoy::destroy()
-{
-	vi_assert(Game::level.local);
-	Vec3 pos;
-	Quat rot;
-	get<Transform>()->absolute(&pos, &rot);
-	ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
-	World::remove_deferred(entity());
-}
-
 CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3& pos, const Quat& rot)
 {
 	Transform* transform = create<Transform>();
@@ -2202,7 +2145,6 @@ template<typename T> b8 grenade_trigger_filter(T* e, AI::Team team)
 		|| (e->template has<ForceField>() && e->template get<ForceField>()->team != team)
 		|| (e->template has<Rocket>() && e->template get<Rocket>()->team() != team)
 		|| (e->template has<Sensor>() && !e->template has<Battery>() && e->template get<Sensor>()->team != team)
-		|| (e->template has<Decoy>() && e->template get<Decoy>()->team() != team)
 		|| (e->template has<Turret>() && e->template get<Turret>()->team != team)
 		|| (e->template has<CoreModule>() && e->template get<CoreModule>()->team != team);
 }

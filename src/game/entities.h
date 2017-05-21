@@ -197,22 +197,6 @@ struct RocketEntity : public Entity
 	RocketEntity(PlayerManager*, Transform*, const Vec3&, const Quat&, AI::Team);
 };
 
-struct DecoyEntity : public Entity
-{
-	DecoyEntity(PlayerManager*, Transform*, const Vec3&, const Quat&);
-};
-
-struct Decoy : public ComponentType<Decoy>
-{
-	Ref<PlayerManager> owner;
-
-	void awake();
-
-	void killed(Entity*);
-	void destroy();
-	AI::Team team() const;
-};
-
 struct CoreModuleEntity : public Entity
 {
 	CoreModuleEntity(AI::Team, Transform*, const Vec3&, const Quat&);

@@ -1196,7 +1196,7 @@ b8 Parkour::try_jump(r32 rotation)
 					if (ray_callback.hasHit())
 					{
 						Vec3 wall_normal = ray_callback.m_hitNormalWorld;
-						const btRigidBody* support_body = dynamic_cast<const btRigidBody*>(ray_callback.m_collisionObject);
+						const btRigidBody* support_body = (const btRigidBody*)(ray_callback.m_collisionObject);
 						wall_jump(rotation, wall_normal, support_body);
 						did_jump = true;
 						break;
@@ -1422,7 +1422,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 
 		Vec3 wall_normal = ray_callback.m_hitNormalWorld;
 
-		const btRigidBody* support_body = dynamic_cast<const btRigidBody*>(ray_callback.m_collisionObject);
+		const btRigidBody* support_body = (const btRigidBody*)(ray_callback.m_collisionObject);
 		Vec3 support_velocity = Walker::get_support_velocity(ray_callback.m_hitPointWorld, support_body);
 
 		// if we are running on a new wall, we need to add velocity

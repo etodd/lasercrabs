@@ -139,7 +139,7 @@ Vec3 Walker::get_support_velocity(const Vec3& absolute_pos, const btCollisionObj
 	Vec3 support_velocity = Vec3::zero;
 	if (support)
 	{
-		const btRigidBody* support_body = dynamic_cast<const btRigidBody*>(support);
+		const btRigidBody* support_body = (const btRigidBody*)(support);
 		support_velocity = support_body->getLinearVelocity()
 			+ Vec3(support_body->getAngularVelocity()).cross(absolute_pos - Vec3(support_body->getCenterOfMassPosition()));
 	}

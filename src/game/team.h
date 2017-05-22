@@ -93,7 +93,6 @@ struct Team : public ComponentType<Team>
 	static b8 net_msg(Net::StreamRead*);
 	static void transition_mode(Game::Mode);
 	static void draw_ui(const RenderParams&);
-	static void launch_rockets();
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{

@@ -62,7 +62,7 @@ struct UIText
 	UIText();
 };
 
-#define UI_SCROLL_MAX 7
+#define UI_SCROLL_MAX 8
 struct UIScroll
 {
 	s32 pos;

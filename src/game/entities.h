@@ -166,37 +166,6 @@ struct Sensor : public ComponentType<Sensor>
 	static void update_client_all(const Update&);
 };
 
-struct Rocket : public ComponentType<Rocket>
-{
-	static r32 particle_accumulator;
-	r32 remaining_lifetime;
-	Ref<Entity> target;
-	Ref<PlayerManager> owner;
-
-	static Rocket* inbound(Entity*);
-	static Rocket* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
-	static void update_client_all(const Update&);
-	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
-
-	Rocket();
-	void awake();
-	~Rocket();
-
-	void explode();
-	Vec3 velocity() const;
-	AI::Team team() const;
-	void set_owner(PlayerManager*);
-	void killed(Entity*);
-	void hit_by(const TargetEvent&);
-	void update_server(const Update&);
-	void launch(Entity*);
-};
-
-struct RocketEntity : public Entity
-{
-	RocketEntity(PlayerManager*, Transform*, const Vec3&, const Quat&, AI::Team);
-};
-
 struct CoreModuleEntity : public Entity
 {
 	CoreModuleEntity(AI::Team, Transform*, const Vec3&, const Quat&);
@@ -289,9 +258,8 @@ struct AICue : public ComponentType<AICue>
 {
 	enum Type
 	{
-		Sensor = 1,
-		Rocket = 1 << 1,
-		Snipe = 1 << 2,
+		Sensor = 1 << 0,
+		Snipe = 1 << 1,
 	};
 
 	typedef s32 TypeMask;
@@ -363,8 +331,9 @@ struct Bolt : public ComponentType<Bolt>
 {
 	enum class Type : s8
 	{
-		Normal,
-		Player,
+		Minion,
+		Turret,
+		Drone,
 		count,
 	};
 

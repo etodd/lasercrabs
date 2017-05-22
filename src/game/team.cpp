@@ -74,12 +74,6 @@ AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 		false,
 	},
 	{
-		Asset::Mesh::icon_rocket,
-		10,
-		AbilityInfo::Type::Build,
-		false,
-	},
-	{
 		Asset::Mesh::icon_sniper,
 		10,
 		AbilityInfo::Type::Shoot,
@@ -123,12 +117,6 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::force_field,
 		strings::description_force_field,
 		Asset::Mesh::icon_force_field,
-		120,
-	},
-	{
-		strings::rocket,
-		strings::description_rocket,
-		Asset::Mesh::icon_rocket,
 		120,
 	},
 	{
@@ -639,8 +627,6 @@ b8 Team::net_msg(Net::StreamRead* p)
 				{
 					for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 						i.item()->set_team(team_winner); // these are synced over the network, so must do them only on the server
-					for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-						World::remove_deferred(i.item()->entity());
 				}
 				// teams are not synced over the network, so set them on both client and server
 				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
@@ -780,58 +766,6 @@ void Team::update_all_server(const Update& u)
 	}
 
 	update_visibility(u);
-
-	launch_rockets();
-}
-
-void Team::launch_rockets()
-{
-	// launch any rockets if necessary
-	if (game_over)
-		return;
-
-	for (auto t = Team::list.iterator(); !t.is_last(); t.next())
-	{
-		Team* team = t.item();
-
-		for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
-		{
-			AI::Team player_team = player.item()->team.ref()->team();
-			if (team->team() == player_team)
-				continue;
-
-			// launch a rocket at this player if the conditions are right
-			const Team::SensorTrack& track = team->player_tracks[player.index];
-			for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
-			{
-				if (rocket.item()->team() == team->team() // it belongs to our team
-					&& rocket.item()->get<Transform>()->parent.ref()) // it's waiting to be fired
-				{
-					Entity* detected_entity = nullptr; // we're tracking the player, or the owner is alive and can see the player
-					if (track.tracking)
-						detected_entity = track.entity.ref();
-					else
-					{
-						Entity* e = PlayerManager::visibility[PlayerManager::visibility_hash(rocket.item()->owner.ref(), player.item())].entity.ref();
-						if (e && (!e->has<Drone>() || e->get<Drone>()->state() == Drone::State::Crawl)) // only launch rockets at decoys or drones that are crawling; this prevents rockets from launching and immediately losing their target
-							detected_entity = e;
-					}
-
-					if (detected_entity && !Rocket::inbound(detected_entity))
-					{
-						Vec3 target_pos = detected_entity->get<Transform>()->absolute_pos();
-						Vec3 rocket_pos = rocket.item()->get<Transform>()->absolute_pos();
-						if ((rocket_pos - target_pos).length_squared() < ROCKET_RANGE * ROCKET_RANGE // it's in range
-							&& ForceField::hash(team->team(), rocket_pos) == ForceField::hash(team->team(), target_pos)) // no force fields in the way
-						{
-							rocket.item()->launch(detected_entity);
-							break;
-						}
-					}
-				}
-			}
-		}
-	}
 }
 
 void Team::transition_mode(Game::Mode m)
@@ -1137,8 +1071,6 @@ PlayerManager* PlayerManager::owner(Entity* e)
 		return e->get<Minion>()->owner.ref();
 	else if (e->has<Bolt>())
 		return e->get<Bolt>()->player.ref();
-	else if (e->has<Rocket>())
-		return e->get<Rocket>()->owner.ref();
 	else if (e->has<Grenade>())
 		return e->get<Grenade>()->owner.ref();
 	return nullptr;
@@ -1175,8 +1107,6 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 				reward = ENERGY_MINION_KILL;
 			else if (e->has<Grenade>())
 				reward = ENERGY_GRENADE_DESTROY;
-			else if (e->has<Rocket>())
-				reward = ENERGY_ROCKET_DESTROY;
 			else if (e->has<ForceField>())
 				reward = ENERGY_FORCE_FIELD_DESTROY;
 			else if (e->has<Sensor>())

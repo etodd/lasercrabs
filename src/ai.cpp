@@ -485,7 +485,6 @@ ComponentMask entity_mask = Sensor::component_mask
 	| Drone::component_mask
 	| Minion::component_mask
 	| Battery::component_mask
-	| Rocket::component_mask
 	| ForceField::component_mask
 	| Bolt::component_mask
 	| Grenade::component_mask
@@ -534,15 +533,6 @@ void entity_info(Entity* e, Team query_team, Team* team, s8* type)
 	{
 		_team = e->get<Sensor>()->team;
 		_type = _team == query_team ? RecordedLife::EntitySensorFriend : RecordedLife::EntitySensorEnemy;
-	}
-	else if (e->has<Rocket>())
-	{
-		_team = e->get<Rocket>()->team();
-		b8 attached = e->get<Transform>()->parent.ref();
-		if (_team == query_team)
-			_type = attached ? RecordedLife::EntityRocketFriendAttached : RecordedLife::EntityRocketFriendDetached;
-		else
-			_type = attached ? RecordedLife::EntityRocketEnemyAttached : RecordedLife::EntityRocketEnemyDetached;
 	}
 	else if (e->has<ForceField>())
 	{

@@ -53,7 +53,6 @@ enum class MessageType : s8
 	LoadingDone,
 	TimeSync,
 	Tram,
-	Rocket,
 	Turret,
 	TransitionLevel,
 	Overworld,

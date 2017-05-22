@@ -480,8 +480,6 @@ void Game::update(const Update& update_in)
 				i.item()->update(u);
 			for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
-			for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-				i.item()->update_server(u);
 			for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
 			for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
@@ -496,7 +494,6 @@ void Game::update(const Update& update_in)
 		Turret::update_client_all(u);
 		Minion::update_client_all(u);
 		Grenade::update_client_all(u);
-		Rocket::update_client_all(u);
 		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
 		{
 			if (level.local || (i.item()->has<PlayerControlHuman>() && i.item()->get<PlayerControlHuman>()->local()))
@@ -587,7 +584,6 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 	(
 		Drone::component_mask
 		| Bolt::component_mask
-		| Rocket::component_mask
 		| Minion::component_mask
 		| Grenade::component_mask
 		| TramRunner::component_mask
@@ -1728,9 +1724,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		{
 			const char* type = Json::get_string(element, "AICue");
 			AICue::Type t;
-			if (strcmp(type, "rocket") == 0)
-				t = AICue::Type::Rocket;
-			else if (strcmp(type, "snipe") == 0)
+			if (strcmp(type, "snipe") == 0)
 				t = AICue::Type::Snipe;
 			else
 				t = AICue::Type::Sensor;

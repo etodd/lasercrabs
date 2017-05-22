@@ -429,6 +429,8 @@ b8 Health::invincible() const
 {
 	if (has<CoreModule>())
 		return invincible_timer > 0.0f || Turret::list.count() > 0 || !Game::level.has_feature(Game::FeatureLevel::TutorialAll) || Game::level.mode != Game::Mode::Pvp;
+	else if (has<ForceField>())
+		return invincible_timer > 0.0f || (get<ForceField>()->flags & ForceField::FlagPermanent);
 	else
 		return invincible_timer > 0.0f;
 }
@@ -443,7 +445,7 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 	model->mesh = Asset::Mesh::battery;
 	model->shader = Asset::Shader::standard;
 
-	create<AICue>(AICue::Type::Sensor | AICue::Type::Rocket);
+	create<AICue>(AICue::Type::Sensor);
 
 	PointLight* light = create<PointLight>();
 	light->type = PointLight::Type::Override;
@@ -814,6 +816,7 @@ void SpawnPoint::update_server_all(const Update& u)
 	const r32 minion_spawn_interval = 8.0f;
 	const r32 minion_group_interval = minion_spawn_interval * 14.0f; // must be a multiple of minion_spawn_interval
 	if (Game::level.mode == Game::Mode::Pvp
+		&& Game::level.type == GameType::Assault
 		&& Game::level.has_feature(Game::FeatureLevel::TutorialAll)
 		&& !Team::game_over)
 	{
@@ -1004,295 +1007,6 @@ AICue* AICue::in_range(AICue::TypeMask mask, const Vec3& pos, r32 radius, s32* c
 		*count = c;
 
 	return closest;
-}
-
-void Rocket::awake()
-{
-	get<Health>()->killed.link<Rocket, Entity*, &Rocket::killed>(this);
-	get<Target>()->target_hit.link<Rocket, const TargetEvent&, &Rocket::hit_by>(this);
-}
-
-Rocket::~Rocket()
-{
-	get<Audio>()->post_event(AK::EVENTS::STOP_ROCKET_FLY);
-}
-
-void Rocket::killed(Entity* e)
-{
-	PlayerManager::entity_killed_by(entity(), e);
-	if (Game::level.local)
-		explode();
-}
-
-void Rocket::hit_by(const TargetEvent& e)
-{
-	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
-}
-
-namespace RocketNet
-{
-	b8 send_launch(Rocket* r, Entity* target)
-	{
-		using Stream = Net::StreamWrite;
-
-		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Rocket);
-		{
-			Ref<Rocket> ref = r;
-			serialize_ref(p, ref);
-		}
-		{
-			Ref<Entity> ref = target;
-			serialize_ref(p, ref);
-		}
-		Net::msg_finalize(p);
-
-		return true;
-	}
-}
-
-b8 Rocket::net_msg(Net::StreamRead* p, Net::MessageSource src)
-{
-	using Stream = Net::StreamRead;
-	Ref<Rocket> rocket;
-	serialize_ref(p, rocket);
-	Ref<Entity> target;
-	serialize_ref(p, target);
-	Rocket* r = rocket.ref();
-	if (r)
-	{
-		r->target = target;
-		r->get<PointLight>()->radius = 10.0f;
-		r->get<Audio>()->post_event(AK::EVENTS::PLAY_ROCKET_FLY);
-		Audio::post_global_event(AK::EVENTS::PLAY_ROCKET_LAUNCH, r->get<Transform>()->absolute_pos());
-	}
-	return true;
-}
-
-void Rocket::launch(Entity* t)
-{
-	vi_assert(Game::level.local && !target.ref() && get<Transform>()->parent.ref());
-	RocketNet::send_launch(this, t);
-	get<Transform>()->reparent(nullptr);
-}
-
-Rocket* Rocket::inbound(Entity* target)
-{
-	if (target->has<AIAgent>() && target->get<AIAgent>()->stealth)
-		return nullptr;
-
-	for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
-	{
-		if (rocket.item()->target.ref() == target)
-			return rocket.item();
-	}
-	return nullptr;
-}
-
-Rocket* Rocket::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
-{
-	Rocket* closest = nullptr;
-	r32 closest_distance = FLT_MAX;
-
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (AI::match(i.item()->team(), mask))
-		{
-			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
-			if (d < closest_distance)
-			{
-				closest = i.item();
-				closest_distance = d;
-			}
-		}
-	}
-
-	if (distance)
-	{
-		if (closest)
-			*distance = sqrtf(closest_distance);
-		else
-			*distance = FLT_MAX;
-	}
-
-	return closest;
-}
-
-Rocket::Rocket()
-	: target(),
-	owner(),
-	remaining_lifetime(15.0f)
-{
-}
-
-void Rocket::set_owner(PlayerManager* m)
-{
-	// not synced over network
-	owner = m;
-	get<View>()->team = m ? s8(m->team.ref()->team()) : AI::TeamNone;
-}
-
-AI::Team Rocket::team() const
-{
-	return owner.ref() ? owner.ref()->team.ref()->team() : AI::TeamNone;
-}
-
-void Rocket::explode()
-{
-	vi_assert(Game::level.local);
-	Vec3 pos;
-	Quat rot;
-	get<Transform>()->absolute(&pos, &rot);
-	ParticleEffect::spawn(ParticleEffect::Type::Impact, pos, get<Transform>()->parent.ref() ? rot : rot.inverse());
-
-	World::remove_deferred(entity());
-}
-
-Vec3 Rocket::velocity() const
-{
-	return get<Transform>()->rot * Vec3(0, 0, ROCKET_SPEED);
-}
-
-void Rocket::update_server(const Update& u)
-{
-	if (!get<Transform>()->parent.ref())
-	{
-		remaining_lifetime -= u.time.delta;
-		if (remaining_lifetime < 0.0f)
-		{
-			explode();
-			return;
-		}
-
-		// we're in flight
-		if (target.ref() && (!target.ref()->has<AIAgent>() || !target.ref()->get<AIAgent>()->stealth))
-		{
-			// aim toward target
-			Vec3 target_pos;
-			if (!target.ref()->get<Target>()->predict_intersection(get<Transform>()->pos, ROCKET_SPEED, nullptr, &target_pos))
-				target_pos = target.ref()->get<Transform>()->absolute_pos();
-			Vec3 to_target = target_pos - get<Transform>()->pos;
-			r32 distance = to_target.length();
-			to_target /= distance;
-			Quat target_rot = Quat::look(to_target);
-
-			const r32 whisker_length = 3.0f;
-			const s32 whisker_count = 4;
-			static const Vec3 whiskers[whisker_count] =
-			{
-				Vec3(0, 0, 1.0f) * whisker_length,
-				Vec3(0, 0.7f, 1.0f) * whisker_length,
-				Vec3(-1.0f, -0.7f, 1.0f) * whisker_length,
-				Vec3(1.0f, -0.7f, 1.0f) * whisker_length,
-			};
-
-			if (distance > 5.0f)
-			{
-				// avoid walls
-				for (s32 i = 0; i < whisker_count; i++)
-				{
-					btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, get<Transform>()->pos + get<Transform>()->rot * whiskers[i]);
-					Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionDroneIgnore & ~CollisionShield);
-					if (ray_callback.hasHit())
-					{
-						// avoid the obstacle
-						Vec3 wall_normal = ray_callback.m_hitNormalWorld;
-
-						Vec3 dir_flattened = to_target - (wall_normal * wall_normal.dot(to_target));
-						if (dir_flattened.length_squared() < 0.00001f)
-							dir_flattened = -wall_normal; // we are headed smack into the wall; nowhere to go, just try to turn around
-
-						target_rot = Quat::look(dir_flattened);
-						break;
-					}
-				}
-			}
-
-			r32 angle = Quat::angle(get<Transform>()->rot, target_rot);
-			if (angle > 0)
-				get<Transform>()->rot = Quat::slerp(vi_min(1.0f, 5.0f * u.time.delta), get<Transform>()->rot, target_rot);
-		}
-
-		Vec3 next_pos = get<Transform>()->pos + velocity() * u.time.delta;
-
-		btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, next_pos + get<Transform>()->rot * Vec3(0, 0, 0.1f));
-		Physics::raycast(&ray_callback, ~Team::force_field_mask(team()) & ~CollisionDroneIgnore);
-		if (ray_callback.hasHit())
-		{
-			// we hit something
-			Entity* hit = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-
-			b8 die = true;
-
-			if (hit->has<Health>())
-			{
-				AI::Team entity_team;
-				AI::entity_info(hit, team(), &entity_team);
-				if (entity_team == team()) // fly through friendlies
-					die = false;
-				else
-					hit->get<Health>()->damage(entity(), hit->has<Turret>() ? 4 : 1); // do damage
-			}
-
-			if (die)
-			{
-				explode();
-				return;
-			}
-		}
-		else // keep flying
-			get<Transform>()->pos = next_pos;
-	}
-}
-
-r32 Rocket::particle_accumulator;
-void Rocket::update_client_all(const Update& u)
-{
-	particle_accumulator += u.time.delta;
-	const r32 interval = 0.07f;
-	if (particle_accumulator > interval)
-	{
-		particle_accumulator = fmodf(particle_accumulator, interval);
-		for (auto i = list.iterator(); !i.is_last(); i.next())
-		{
-			if (!i.item()->get<Transform>()->parent.ref())
-			{
-				Particles::tracers.add
-				(
-					i.item()->get<Transform>()->pos,
-					Vec3::zero,
-					0
-				);
-			}
-		}
-	}
-}
-
-RocketEntity::RocketEntity(PlayerManager* owner, Transform* parent, const Vec3& pos, const Quat& rot, AI::Team team)
-{
-	Transform* transform = create<Transform>();
-	transform->parent = parent;
-	transform->absolute(pos + rot * Vec3(0, 0, 0.11f), rot);
-
-	Rocket* rocket = create<Rocket>();
-	rocket->owner = owner;
-
-	create<Audio>();
-
-	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
-
-	View* model = create<View>();
-	model->mesh = Asset::Mesh::rocket_pod;
-	model->color = Team::color_enemy;
-	model->team = s8(team);
-	model->shader = Asset::Shader::standard;
-
-	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.2f, 0.4f, 0.4f), 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield);
-
-	create<Target>();
-
-	PointLight* light = create<PointLight>();
-	light->radius = 0.0f;
-	light->color = Vec3(1.0f);
 }
 
 CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3& pos, const Quat& rot)
@@ -1564,7 +1278,7 @@ void Turret::update_server(const Update& u)
 		if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, BOLT_SPEED, nullptr, &aim_pos))
 			aim_pos = target.ref()->get<Transform>()->absolute_pos();
 		gun_pos += Vec3::normalize(aim_pos - gun_pos) * TURRET_RADIUS;
-		Net::finalize(World::create<BoltEntity>(team, nullptr, entity(), Bolt::Type::Normal, gun_pos, aim_pos - gun_pos));
+		Net::finalize(World::create<BoltEntity>(team, nullptr, entity(), Bolt::Type::Turret, gun_pos, aim_pos - gun_pos));
 		cooldown += TURRET_COOLDOWN;
 	}
 }
@@ -1805,10 +1519,6 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 #define TELEPORTER_RADIUS 0.5f
 #define BOLT_THICKNESS 0.05f
 #define BOLT_MAX_LIFETIME (DRONE_MAX_DISTANCE * 0.99f) / BOLT_SPEED
-#define BOLT_NORMAL_DAMAGE 1
-#define BOLT_PLAYER_DAMAGE 3
-#define BOLT_DRONE_DAMAGE 1
-#define BOLT_REFLECT_DAMAGE 4
 BoltEntity::BoltEntity(AI::Team team, PlayerManager* player, Entity* owner, Bolt::Type type, const Vec3& abs_pos, const Vec3& velocity)
 {
 	Vec3 dir = Vec3::normalize(velocity);
@@ -1957,24 +1667,32 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 	if (hit_object->has<Health>())
 	{
 		basis = Vec3::normalize(velocity);
-		s8 damage = type == Type::Player ? BOLT_PLAYER_DAMAGE : BOLT_NORMAL_DAMAGE;
+		s8 damage = 1;
+		if (type == Type::Drone && !hit_object->has<Turret>() && !hit_object->has<Drone>())
+			damage = 3;
+		else if (type == Type::Minion && hit_object->has<Turret>())
+			damage = 2;
+
+		if (hit_object->has<Drone>() && type != Type::Drone // this is a minion or turret shooting at a drone
+			&& hit_object->get<Drone>()->state() != Drone::State::Crawl) // the drone is flying or dashing; it's invincible to minions and turrets
+			damage = 0;
+
 		if (hit_object->has<Parkour>()) // player is invincible while rolling and sliding
 		{
 			Parkour::State state = hit_object->get<Parkour>()->fsm.current;
 			if (state == Parkour::State::Roll || state == Parkour::State::Slide)
 				damage = 0;
 		}
-		if (hit_object->has<Drone>())
-			damage = BOLT_DRONE_DAMAGE; // damage drones even if they are flying or dashing
+
 		if (hit_object->get<Health>()->invincible())
 		{
 			damage = 0;
 			do_reflect = true;
-			AI::entity_info(hit_object, team, &team);
+			AI::entity_info(hit_object, team, &team); // switch team
 		}
 
 		if (reflected)
-			damage += BOLT_REFLECT_DAMAGE;
+			damage += 4;
 
 		if (damage > 0)
 			hit_object->get<Health>()->damage(entity(), damage);
@@ -2143,7 +1861,6 @@ template<typename T> b8 grenade_trigger_filter(T* e, AI::Team team)
 {
 	return (e->template has<AIAgent>() && e->template get<AIAgent>()->team != team && !e->template get<AIAgent>()->stealth)
 		|| (e->template has<ForceField>() && e->template get<ForceField>()->team != team)
-		|| (e->template has<Rocket>() && e->template get<Rocket>()->team() != team)
 		|| (e->template has<Sensor>() && !e->template has<Battery>() && e->template get<Sensor>()->team != team)
 		|| (e->template has<Turret>() && e->template get<Turret>()->team != team)
 		|| (e->template has<CoreModule>() && e->template get<CoreModule>()->team != team);
@@ -2338,8 +2055,6 @@ Vec3 Target::velocity() const
 {
 	if (has<Drone>())
 		return get<Drone>()->velocity;
-	else if (has<Rocket>())
-		return get<Rocket>()->velocity();
 	else if (Game::level.local)
 	{
 		if (has<Parkour>() && !get<PlayerControlHuman>()->local())

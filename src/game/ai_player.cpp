@@ -846,15 +846,6 @@ s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
 		}
 	}
 
-	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-	{
-		if (AI::match(i.item()->team(), mask)
-			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
-		{
-			score += 1;
-		}
-	}
-
 	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 	{
 		if (AI::match(i.item()->team, mask)

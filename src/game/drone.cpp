@@ -583,87 +583,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					break;
 				}
-				case Ability::Rocket:
-				{
-					// spawn a rocket pod
-					if (Game::level.local)
-					{
-						Entity* rocket = World::create<RocketEntity>(manager, parent->get<Transform>(), pos, rot, drone->get<AIAgent>()->team);
-						Net::finalize(rocket);
-
-						// rocket base
-						Entity* base = World::create<Prop>(Asset::Mesh::rocket_base);
-						base->get<Transform>()->absolute(pos, rot);
-						base->get<Transform>()->reparent(parent->get<Transform>());
-						base->get<View>()->team = s8(drone->get<AIAgent>()->team);
-						Net::finalize(base);
-
-						// first check if it should launch at a drone
-						Team::launch_rockets();
-
-						if (rocket->get<Transform>()->parent.ref()) // still hasn't launched
-						{
-							// try to launch it at turrets and core modules
-
-							AI::Team team_mine = drone->get<AIAgent>()->team;
-							u32 force_field_hash_mine = ForceField::hash(team_mine, pos);
-							if (Turret::list.count() > 0)
-							{
-								// launch at turrets
-								for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-								{
-									if (i.item()->team != team_mine)
-									{
-										Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
-										if ((turret_pos - pos).length_squared() < TURRET_VIEW_RANGE * TURRET_VIEW_RANGE
-											&& force_field_hash_mine == ForceField::hash(team_mine, turret_pos))
-										{
-											RaycastCallbackExcept ray_callback(pos, turret_pos, rocket);
-											Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~Team::force_field_mask(team_mine));
-											if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == i.item()->entity_id)
-											{
-												// launch at this turret
-												rocket->get<Rocket>()->launch(i.item()->entity());
-												break;
-											}
-										}
-									}
-								}
-							}
-							else
-							{
-								// launch at core modules
-								for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
-								{
-									if (i.item()->team != team_mine)
-									{
-										Vec3 core_pos = i.item()->get<Transform>()->absolute_pos();
-										if ((core_pos - pos).length_squared() < TURRET_VIEW_RANGE * TURRET_VIEW_RANGE
-											&& force_field_hash_mine == ForceField::hash(team_mine, core_pos))
-										{
-											RaycastCallbackExcept ray_callback(pos, core_pos, rocket);
-											Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionWalker & ~Team::force_field_mask(team_mine));
-											if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == i.item()->entity_id)
-											{
-												// launch at this core
-												rocket->get<Rocket>()->launch(i.item()->entity());
-												break;
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-
-					Audio::post_global_event(AK::EVENTS::PLAY_ROCKET_SPAWN, pos);
-
-					// effects
-					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					EffectLight::add(pos + rot * Vec3(0, 0, DRONE_RADIUS), 8.0f, 1.5f, EffectLight::Type::Shockwave);
-
-					break;
-				}
 				case Ability::Minion:
 				{
 					// spawn a minion
@@ -855,7 +774,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 									break;
 							}
 
-							Entity* bolt = World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), Bolt::Type::Player, pos_bolt, dir_normalized);
+							Entity* bolt = World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), Bolt::Type::Drone, pos_bolt, dir_normalized);
 							Net::finalize(bolt);
 							if (closest_hit_entity) // we hit something, register it instantly
 								bolt->get<Bolt>()->hit_entity(closest_hit_entity, closest_hit, closest_hit_normal);
@@ -863,7 +782,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						else
 						{
 							// not a remote player; no lag compensation needed
-							Net::finalize(World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), Bolt::Type::Player, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
+							Net::finalize(World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), Bolt::Type::Drone, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
 						}
 					}
 					else

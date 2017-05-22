@@ -1792,20 +1792,6 @@ Entity* PlayerCommon::incoming_attacker() const
 		}
 	}
 
-	// check incoming rockets
-	if (!get<AIAgent>()->stealth)
-	{
-		Rocket* rocket = Rocket::inbound(entity());
-		if (rocket)
-		{
-			// only worry about it if the rocket can actually see us
-			btCollisionWorld::ClosestRayResultCallback ray_callback(me, rocket->get<Transform>()->absolute_pos());
-			Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionShield);
-			if (!ray_callback.hasHit())
-				return rocket->entity();
-		}
-	}
-
 	return nullptr;
 }
 
@@ -2202,13 +2188,6 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 		player_add_target_indicator(p, i.item()->get<Target>(), type);
 	}
 
-	// rockets
-	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->team() != team)
-			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Rocket);
-	}
-
 	// grenades
 	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 	{
@@ -2355,8 +2334,6 @@ void PlayerControlHuman::killed(Entity* killed_by)
 			player.ref()->killed_by = killed_by->get<Bolt>()->owner.ref();
 		else if (killed_by->has<Grenade>())
 			player.ref()->killed_by = killed_by->get<Grenade>()->owner.ref()->instance.ref();
-		else if (killed_by->has<Rocket>())
-			player.ref()->killed_by = killed_by->get<Rocket>()->owner.ref()->instance.ref();
 		else
 			player.ref()->killed_by = killed_by;
 	}
@@ -3585,7 +3562,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				break;
 			}
 			case TargetIndicator::Type::Sensor:
-			case TargetIndicator::Type::Rocket:
 			case TargetIndicator::Type::ForceField:
 			case TargetIndicator::Type::Grenade:
 			{
@@ -3667,31 +3643,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 						UI::box(params, { bar.pos, Vec2(bar.size.x * (i.item()->remaining_lifetime / FORCE_FIELD_LIFETIME), bar.size.y) }, color);
 					}
 				}
-			}
-		}
-
-		// highlight enemy rockets
-		for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->target.ref() == entity())
-			{
-				enemy_visible = true;
-
-				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-				UI::indicator(params, pos, Team::ui_color_enemy, true);
-
-				UIText text;
-				text.color = Team::ui_color_enemy;
-				text.text(player.ref()->gamepad, _(strings::rocket_incoming));
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				text.size = text_size;
-				Vec2 p;
-				UI::is_onscreen(params, pos, &p);
-				p.y += text_size * 2.0f * UI::scale;
-				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
-				if (UI::flash_function(Game::real_time.total))
-					text.draw(params, p);
 			}
 		}
 

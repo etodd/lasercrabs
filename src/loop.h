@@ -92,18 +92,18 @@ Mat4 relative_shadow_vp(const Camera& main_camera, const Camera& shadow_camera)
 void render_shadows(LoopSync* sync, s32 fbo, const Camera& main_camera, const Camera& shadow_camera)
 {
 	// render shadows
-	sync->write<RenderOp>(RenderOp::BindFramebuffer);
+	sync->write(RenderOp::BindFramebuffer);
 	sync->write<AssetID>(fbo);
 
 	RenderParams shadow_render_params;
 	shadow_render_params.sync = sync;
 
-	sync->write<RenderOp>(RenderOp::Viewport);
+	sync->write(RenderOp::Viewport);
 	sync->write<Rect2>(shadow_camera.viewport);
 
-	sync->write<RenderOp>(RenderOp::Clear);
-	sync->write<b8>(false); // don't clear color
-	sync->write<b8>(true); // clear depth
+	sync->write(RenderOp::Clear);
+	sync->write(false); // don't clear color
+	sync->write(true); // clear depth
 
 	shadow_render_params.camera = &shadow_camera;
 	shadow_render_params.view = shadow_camera.view();
@@ -187,14 +187,14 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 	sync->write(Asset::Uniform::normal_buffer);
 	sync->write(RenderDataType::Texture);
 	sync->write<s32>(1);
-	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+	sync->write(RenderTextureType::Texture2D);
 	sync->write<AssetID>(g_normal_buffer);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::depth_buffer);
 	sync->write(RenderDataType::Texture);
 	sync->write<s32>(1);
-	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+	sync->write(RenderTextureType::Texture2D);
 	sync->write<AssetID>(g_depth_buffer);
 
 	sync->write(RenderOp::Uniform);
@@ -244,10 +244,10 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 {
 	LoopSync* sync = render_params.sync;
 
-	sync->write<RenderOp>(RenderOp::BlendMode);
-	sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
-	sync->write<RenderOp>(RenderOp::CullMode);
-	sync->write<RenderCullMode>(RenderCullMode::Back);
+	sync->write(RenderOp::BlendMode);
+	sync->write(RenderBlendMode::Opaque);
+	sync->write(RenderOp::CullMode);
+	sync->write(RenderCullMode::Back);
 
 	for (auto i = SpotLight::list.iterator(); !i.is_last(); i.next())
 	{
@@ -255,7 +255,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 		if (!(light->mask & render_params.camera->mask))
 			continue;
 
-		if (light->team != (s8)AI::TeamNone && !((1 << light->team) & team_mask))
+		if (light->team != s8(AI::TeamNone) && !((1 << light->team) & team_mask))
 			continue;
 
 		if (light->color.length_squared() == 0.0f || light->fov == 0.0f || light->radius == 0.0f)
@@ -278,9 +278,9 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 
 		{
 			sync->write(RenderOp::DepthMask);
-			sync->write<b8>(true);
+			sync->write(true);
 			sync->write(RenderOp::DepthTest);
-			sync->write<b8>(true);
+			sync->write(true);
 
 			Camera shadow_camera;
 			shadow_camera.viewport =
@@ -295,20 +295,20 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 			light_vp = relative_shadow_vp(*render_params.camera, shadow_camera);
 
 			sync->write(RenderOp::DepthMask);
-			sync->write<b8>(false);
+			sync->write(false);
 			sync->write(RenderOp::DepthTest);
-			sync->write<b8>(false);
+			sync->write(false);
 		}
 
-		sync->write<RenderOp>(RenderOp::BindFramebuffer);
+		sync->write(RenderOp::BindFramebuffer);
 		sync->write<AssetID>(fbo);
 
-		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(blend_mode);
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::Front);
+		sync->write(RenderOp::BlendMode);
+		sync->write(blend_mode);
+		sync->write(RenderOp::CullMode);
+		sync->write(RenderCullMode::Front);
 
-		sync->write<RenderOp>(RenderOp::Viewport);
+		sync->write(RenderOp::Viewport);
 		sync->write<Rect2>(render_params.camera->viewport);
 
 		Loader::shader_permanent(Asset::Shader::spot_light);
@@ -338,7 +338,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 		sync->write(Asset::Uniform::normal_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(g_normal_buffer);
 
 		sync->write(RenderOp::Uniform);
@@ -396,7 +396,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 		sync->write(Asset::Uniform::shadow_map);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(shadow_buffer[0]);
 
 		sync->write(RenderOp::Uniform);
@@ -425,10 +425,10 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 		sync->write(RenderPrimitiveMode::Triangles);
 		sync->write(Asset::Mesh::cone);
 
-		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::Back);
+		sync->write(RenderOp::BlendMode);
+		sync->write(RenderBlendMode::Opaque);
+		sync->write(RenderOp::CullMode);
+		sync->write(RenderCullMode::Back);
 	}
 }
 
@@ -499,17 +499,17 @@ void draw(LoopSync* sync, const Camera* camera)
 
 	UI::update(render_params);
 
-	sync->write<RenderOp>(RenderOp::Viewport);
+	sync->write(RenderOp::Viewport);
 	sync->write<Rect2>({ camera->viewport.pos, camera->viewport.size });
 
 	// fill G buffer
 	{
-		sync->write<RenderOp>(RenderOp::BindFramebuffer);
+		sync->write(RenderOp::BindFramebuffer);
 		sync->write<AssetID>(g_fbo);
 
 		sync->write(RenderOp::Clear);
-		sync->write<b8>(true); // clear color
-		sync->write<b8>(true); // clear depth
+		sync->write(true); // clear color
+		sync->write(true); // clear depth
 
 		Game::draw_opaque(render_params);
 	}
@@ -518,17 +518,17 @@ void draw(LoopSync* sync, const Camera* camera)
 	if (!render_params.camera->flag(CameraFlagColors))
 	{
 		sync->write(RenderOp::DepthTest);
-		sync->write<b8>(false);
+		sync->write(false);
 		sync->write(RenderOp::DepthMask);
-		sync->write<b8>(false);
+		sync->write(false);
 
-		sync->write<RenderOp>(RenderOp::BindFramebuffer);
+		sync->write(RenderOp::BindFramebuffer);
 		sync->write<AssetID>(g_albedo_fbo);
 
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::Front);
-		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(RenderBlendMode::AlphaDestination);
+		sync->write(RenderOp::CullMode);
+		sync->write(RenderCullMode::Front);
+		sync->write(RenderOp::BlendMode);
+		sync->write(RenderBlendMode::AlphaDestination);
 
 		if (camera->team == (s8)-1)
 		{
@@ -546,13 +546,13 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		Game::draw_override(render_params);
 
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::Back);
+		sync->write(RenderOp::CullMode);
+		sync->write(RenderCullMode::Back);
 
 		sync->write(RenderOp::DepthMask);
-		sync->write<b8>(true);
+		sync->write(true);
 		sync->write(RenderOp::DepthTest);
-		sync->write<b8>(true);
+		sync->write(true);
 	}
 
 	// regular lighting
@@ -658,19 +658,19 @@ void draw(LoopSync* sync, const Camera* camera)
 					detail_light_vp = relative_shadow_vp(*render_params.camera, shadow_camera);
 				}
 
-				sync->write<RenderOp>(RenderOp::Viewport);
+				sync->write(RenderOp::Viewport);
 				sync->write<Rect2>(camera->viewport);
 			}
 
-			sync->write<RenderOp>(RenderOp::BlendMode);
-			sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
+			sync->write(RenderOp::BlendMode);
+			sync->write(RenderBlendMode::Opaque);
 
-			sync->write<RenderOp>(RenderOp::BindFramebuffer);
+			sync->write(RenderOp::BindFramebuffer);
 			sync->write<AssetID>(lighting_fbo);
 
 			sync->write(RenderOp::Clear);
-			sync->write<b8>(true); // clear color
-			sync->write<b8>(true); // clear depth
+			sync->write(true); // clear color
+			sync->write(true); // clear depth
 
 			Loader::shader_permanent(Asset::Shader::global_light);
 
@@ -727,7 +727,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(Asset::Uniform::shadow_map);
 				sync->write(RenderDataType::Texture);
 				sync->write<s32>(1);
-				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+				sync->write(RenderTextureType::Texture2D);
 				sync->write<AssetID>(shadow_buffer[2]);
 
 				sync->write(RenderOp::Uniform);
@@ -740,7 +740,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(Asset::Uniform::detail_shadow_map);
 				sync->write(RenderDataType::Texture);
 				sync->write<s32>(1);
-				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+				sync->write(RenderTextureType::Texture2D);
 				sync->write<AssetID>(shadow_buffer[0]);
 
 				if (render_params.camera->far_plane > SHADOW_MAP_CASCADE_TRI_THRESHOLD)
@@ -801,7 +801,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(Asset::Uniform::cloud_map);
 				sync->write(RenderDataType::Texture);
 				sync->write<s32>(1);
-				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+				sync->write(RenderTextureType::Texture2D);
 				sync->write<AssetID>(Asset::Texture::clouds);
 
 				if (cloud_shadow)
@@ -853,14 +853,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::normal_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
-			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+			sync->write(RenderTextureType::Texture2D);
 			sync->write<AssetID>(g_normal_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
-			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+			sync->write(RenderTextureType::Texture2D);
 			sync->write<AssetID>(g_depth_buffer);
 
 			sync->write(RenderOp::Uniform);
@@ -882,10 +882,10 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		{
 			// point lights
-			sync->write<RenderOp>(RenderOp::CullMode);
-			sync->write<RenderCullMode>(RenderCullMode::Front);
-			sync->write<RenderOp>(RenderOp::BlendMode);
-			sync->write<RenderBlendMode>(RenderBlendMode::Additive);
+			sync->write(RenderOp::CullMode);
+			sync->write(RenderCullMode::Front);
+			sync->write(RenderOp::BlendMode);
+			sync->write(RenderBlendMode::Additive);
 
 			render_point_lights(render_params, s32(PointLight::Type::Normal) | s32(PointLight::Type::Shockwave), inv_buffer_size, -1);
 		}
@@ -908,8 +908,8 @@ void draw(LoopSync* sync, const Camera* camera)
 		// downsample
 		{
 			sync->write(RenderOp::Clear);
-			sync->write<b8>(true); // clear color
-			sync->write<b8>(true); // clear depth
+			sync->write(true); // clear color
+			sync->write(true); // clear depth
 
 			Loader::shader_permanent(Asset::Shader::ssao_downsample);
 			sync->write(RenderOp::Shader);
@@ -920,14 +920,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::normal_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
-			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+			sync->write(RenderTextureType::Texture2D);
 			sync->write<AssetID>(g_normal_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
-			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+			sync->write(RenderTextureType::Texture2D);
 			sync->write<AssetID>(g_depth_buffer);
 
 			sync->write(RenderOp::Uniform);
@@ -955,7 +955,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::normal_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
-			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+			sync->write(RenderTextureType::Texture2D);
 			sync->write<AssetID>(half_buffer1);
 
 			sync->write(RenderOp::Uniform);
@@ -970,7 +970,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::noise_sampler);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
-			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+			sync->write(RenderTextureType::Texture2D);
 			sync->write<AssetID>(Asset::Texture::noise);
 
 			sync->write(RenderOp::Uniform);
@@ -1039,14 +1039,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::color_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
-			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+			sync->write(RenderTextureType::Texture2D);
 			sync->write<AssetID>(half_buffer2);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
-			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+			sync->write(RenderTextureType::Texture2D);
 			sync->write<AssetID>(half_depth_buffer);
 
 			sync->write(RenderOp::Mesh);
@@ -1080,22 +1080,22 @@ void draw(LoopSync* sync, const Camera* camera)
 
 	// post processing
 
-	sync->write<RenderOp>(RenderOp::Viewport);
+	sync->write(RenderOp::Viewport);
 	sync->write<Rect2>(camera->viewport);
 
 	// composite
 	{
-		sync->write<RenderOp>(RenderOp::BindFramebuffer);
+		sync->write(RenderOp::BindFramebuffer);
 		sync->write<AssetID>(color2_fbo);
 
 		sync->write(RenderOp::DepthMask);
-		sync->write<b8>(true);
+		sync->write(true);
 		sync->write(RenderOp::DepthTest);
-		sync->write<b8>(true);
+		sync->write(true);
 
 		sync->write(RenderOp::Clear);
-		sync->write<b8>(true); // clear color
-		sync->write<b8>(true); // clear depth
+		sync->write(true); // clear color
+		sync->write(true); // clear depth
 
 		Loader::shader_permanent(Asset::Shader::composite);
 		sync->write(RenderOp::Shader);
@@ -1137,28 +1137,28 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::ssao_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(half_buffer2);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::lighting_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(lighting_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(g_albedo_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::depth_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(g_depth_buffer);
 
 		sync->write(RenderOp::Mesh);
@@ -1168,32 +1168,32 @@ void draw(LoopSync* sync, const Camera* camera)
 
 	// alpha components
 	{
-		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(RenderBlendMode::Alpha);
+		sync->write(RenderOp::BlendMode);
+		sync->write(RenderBlendMode::Alpha);
 
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::None);
+		sync->write(RenderOp::CullMode);
+		sync->write(RenderCullMode::None);
 
 		sync->write(RenderOp::DepthMask);
-		sync->write<b8>(false);
+		sync->write(false);
 
-		sync->write<RenderOp>(RenderOp::DepthTest);
-		sync->write<b8>(true);
+		sync->write(RenderOp::DepthTest);
+		sync->write(true);
 
 		render_params.depth_buffer = color2_depth_buffer;
 
 		Game::draw_alpha(render_params);
 
-		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(RenderBlendMode::Additive);
+		sync->write(RenderOp::BlendMode);
+		sync->write(RenderBlendMode::Additive);
 
 		Game::draw_additive(render_params);
 
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::Back);
+		sync->write(RenderOp::CullMode);
+		sync->write(RenderCullMode::Back);
 
-		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
+		sync->write(RenderOp::BlendMode);
+		sync->write(RenderBlendMode::Opaque);
 	}
 
 	// scene is in color2 at this point
@@ -1203,8 +1203,8 @@ void draw(LoopSync* sync, const Camera* camera)
 		if (!Settings::antialiasing)
 			draw_edges(render_params); // draw edges directly on scene
 
-		sync->write<RenderOp>(RenderOp::DepthTest);
-		sync->write<b8>(false);
+		sync->write(RenderOp::DepthTest);
+		sync->write(false);
 
 		// render into UI buffer, blit to color1, overlay on top of color2
 		sync->write(RenderOp::BindFramebuffer);
@@ -1220,7 +1220,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write(RenderOp::Clear);
 		sync->write(true);
-		sync->write<b8>(Settings::antialiasing);
+		sync->write(Settings::antialiasing);
 
 		// copy depth buffer
 		if (Settings::antialiasing)
@@ -1236,14 +1236,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
-			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+			sync->write(RenderTextureType::Texture2D);
 			sync->write<AssetID>(g_depth_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::normal_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
-			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+			sync->write(RenderTextureType::Texture2D);
 			sync->write<AssetID>(g_normal_buffer);
 
 			sync->write(RenderOp::Uniform);
@@ -1262,8 +1262,8 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(false);
 		}
 
-		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(RenderBlendMode::Alpha);
+		sync->write(RenderOp::BlendMode);
+		sync->write(RenderBlendMode::Alpha);
 
 		if (Settings::antialiasing)
 			draw_edges(render_params);
@@ -1296,7 +1296,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::color_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
-			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+			sync->write(RenderTextureType::Texture2D);
 			sync->write<AssetID>(color1_buffer);
 
 			sync->write(RenderOp::Mesh);
@@ -1312,11 +1312,11 @@ void draw(LoopSync* sync, const Camera* camera)
 	// bloom
 	{
 		// downsample
-		sync->write<RenderOp>(RenderOp::BindFramebuffer);
+		sync->write(RenderOp::BindFramebuffer);
 		sync->write<AssetID>(half_fbo1);
 
-		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
+		sync->write(RenderOp::BlendMode);
+		sync->write(RenderBlendMode::Opaque);
 
 		sync->write(RenderOp::Viewport);
 		sync->write<Rect2>(half_viewport);
@@ -1330,7 +1330,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(color2_buffer);
 
 		sync->write(RenderOp::Uniform);
@@ -1356,7 +1356,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(half_buffer1);
 
 		sync->write(RenderOp::Uniform);
@@ -1370,14 +1370,14 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Game::screen_quad.mesh);
 
 		// blur y
-		sync->write<RenderOp>(RenderOp::BindFramebuffer);
+		sync->write(RenderOp::BindFramebuffer);
 		sync->write<AssetID>(half_fbo2);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(half_buffer1);
 
 		sync->write(RenderOp::Uniform);
@@ -1408,7 +1408,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(color2_buffer);
 
 		sync->write(RenderOp::Mesh);
@@ -1429,7 +1429,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(half_buffer2);
 
 		sync->write(RenderOp::Mesh);
@@ -1472,14 +1472,14 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::depth_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(g_depth_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::normal_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(g_normal_buffer);
 
 		sync->write(RenderOp::Uniform);
@@ -1502,8 +1502,8 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Game::screen_quad.mesh);
 	}
 
-	sync->write<RenderOp>(RenderOp::BlendMode);
-	sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
+	sync->write(RenderOp::BlendMode);
+	sync->write(RenderBlendMode::Opaque);
 
 #if DEBUG && DEBUG_RENDER
 	// Debug render buffers

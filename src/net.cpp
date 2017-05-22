@@ -284,7 +284,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Grenade::component_mask
 		| Battery::component_mask
 		| Sensor::component_mask
-		| Rocket::component_mask
 		| ForceField::component_mask
 		| Drone::component_mask
 		| Shield::component_mask
@@ -606,13 +605,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		Sensor* s = e->get<Sensor>();
 		serialize_s8(p, s->team);
-	}
-
-	if (e->has<Rocket>())
-	{
-		Rocket* r = e->get<Rocket>();
-		serialize_ref(p, r->target);
-		serialize_ref(p, r->owner);
 	}
 
 	if (e->has<ForceField>())
@@ -3941,12 +3933,6 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Tram:
 		{
 			if (!Tram::net_msg(p, src))
-				net_error();
-			break;
-		}
-		case MessageType::Rocket:
-		{
-			if (!Rocket::net_msg(p, src))
 				net_error();
 			break;
 		}

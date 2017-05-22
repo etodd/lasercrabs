@@ -180,7 +180,6 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 			BatteryFriendly,
 			BatteryOutOfRange,
 			Sensor,
-			Rocket,
 			ForceField,
 			Grenade,
 			Turret,

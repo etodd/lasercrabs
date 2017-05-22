@@ -69,7 +69,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 	},
 	{
 		Asset::Mesh::icon_force_field,
-		40,
+		80,
 		AbilityInfo::Type::Build,
 		false,
 	},
@@ -883,6 +883,68 @@ s32 PlayerManager::visibility_hash(const PlayerManager* drone_a, const PlayerMan
 	return drone_a->id() * MAX_PLAYERS + drone_b->id();
 }
 
+namespace PlayerManagerNet
+{
+	enum class Message : s8
+	{
+		CanSpawn,
+		ScoreAccept,
+		SpawnSelect,
+		UpgradeCompleted,
+		count,
+	};
+
+	b8 send(PlayerManager* m, Message msg)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		serialize_enum(p, Message, msg);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 upgrade_completed(PlayerManager* m, Upgrade u)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			Message msg = Message::UpgradeCompleted;
+			serialize_enum(p, Message, msg);
+		}
+		serialize_enum(p, Upgrade, u);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 spawn_select(PlayerManager* m, SpawnPoint* point)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			Message msg = Message::SpawnSelect;
+			serialize_enum(p, Message, msg);
+		}
+		{
+			Ref<SpawnPoint> ref = point;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
 b8 PlayerManager::upgrade_start(Upgrade u)
 {
 	s16 cost = upgrade_cost(u);
@@ -915,7 +977,7 @@ void PlayerManager::upgrade_complete()
 		abilities[ability_count()] = Ability(u);
 	}
 
-	upgrade_completed.fire(u);
+	PlayerManagerNet::upgrade_completed(this, u);
 }
 
 s16 PlayerManager::upgrade_cost(Upgrade u) const
@@ -1198,50 +1260,6 @@ b8 PlayerManager::is_local() const
 	return false;
 }
 
-namespace PlayerManagerNet
-{
-	enum class Message : s8
-	{
-		CanSpawn,
-		ScoreAccept,
-		SpawnSelect,
-		count,
-	};
-
-	b8 send(PlayerManager* m, Message msg)
-	{
-		using Stream = Net::StreamWrite;
-		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
-		{
-			Ref<PlayerManager> ref = m;
-			serialize_ref(p, ref);
-		}
-		serialize_enum(p, Message, msg);
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 spawn_select(PlayerManager* m, SpawnPoint* point)
-	{
-		using Stream = Net::StreamWrite;
-		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
-		{
-			Ref<PlayerManager> ref = m;
-			serialize_ref(p, ref);
-		}
-		{
-			Message msg = Message::SpawnSelect;
-			serialize_enum(p, Message, msg);
-		}
-		{
-			Ref<SpawnPoint> ref = point;
-			serialize_ref(p, ref);
-		}
-		Net::msg_finalize(p);
-		return true;
-	}
-}
-
 void PlayerManager::set_can_spawn()
 {
 	PlayerManagerNet::send(this, PlayerManagerNet::Message::CanSpawn);
@@ -1303,6 +1321,14 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSour
 			case PlayerManagerNet::Message::ScoreAccept:
 			{
 				m->score_accepted = true;
+				break;
+			}
+			case PlayerManagerNet::Message::UpgradeCompleted:
+			{
+				Upgrade u;
+				serialize_enum(p, Upgrade, u);
+				if (!Game::level.local || src == Net::MessageSource::Loopback)
+					m->upgrade_completed.fire(u);
 				break;
 			}
 			default:

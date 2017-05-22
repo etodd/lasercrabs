@@ -311,30 +311,6 @@
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_Rocket_Spawn" ID="{1967538C-7535-4B1C-A0A2-5884756F12BA}">
-							<ChildrenList>
-								<Action Name="Play" ID="{16ED6553-E805-4C47-9997-F749180FCB47}" ShortID="234052500" Type="Play" Scope="One" Global="false">
-									<ElementList>
-										<Element ID="{F84A2561-1304-465E-9CED-119626155DA7}" Global="false">
-											<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Element>
-									</ElementList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Rocket_Launch" ID="{9E7BD38E-06EE-4ED9-A1D8-31FE6EFF1908}">
-							<ChildrenList>
-								<Action Name="Play" ID="{CA8D7D4C-B3B3-429F-A274-D2732D02D3FE}" ShortID="748230730" Type="Play" Scope="One" Global="false">
-									<ElementList>
-										<Element ID="{D66D5720-E57F-4175-ADEB-D39AA2F53D7D}" Global="false">
-											<ObjectRef Name="Launch" ID="{D84AAC65-C3AA-4562-915C-831BA8301AB5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Element>
-									</ElementList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Rocket_Fly" ID="{D52CC67E-76D5-43BC-A8B3-41C127986EBE}"/>
-						<Event Name="Stop_Rocket_Fly" ID="{532C8D36-AB48-4142-8EA9-47BFCF0115AB}"/>
 						<Event Name="Play_Drone_Damage_Large" ID="{30243919-A2F6-48D2-B80D-C07CFF0C764F}">
 							<ChildrenList>
 								<Action Name="Play" ID="{6F2A6268-5593-4DD5-9C07-1179F8641D7E}" ShortID="491664764" Type="Play" Scope="One" Global="false">
@@ -575,17 +551,6 @@
 									<ElementList>
 										<Element ID="{AC66C648-DFD5-4D0A-8C5D-53FDA254128D}" Global="false">
 											<ObjectRef Name="Parkour_Wind" ID="{8998A440-9F0E-41AF-AA4F-D8914994F5A5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Element>
-									</ElementList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Decoy_Spawn" ID="{34E57DCE-73B3-460F-A925-4B79CAA9D540}">
-							<ChildrenList>
-								<Action Name="Play" ID="{001B2405-78A2-4BCA-966E-8EF0EEE3D87F}" ShortID="455776366" Type="Play" Scope="One" Global="false">
-									<ElementList>
-										<Element ID="{73D7F499-9382-4686-AF92-7874F4F1494E}" Global="false">
-											<ObjectRef Name="Launch" ID="{D84AAC65-C3AA-4562-915C-831BA8301AB5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Element>
 									</ElementList>
 								</Action>

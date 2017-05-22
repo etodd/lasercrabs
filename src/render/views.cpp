@@ -414,7 +414,7 @@ void SkyDecal::draw_alpha(const RenderParams& p)
 	sync->write<AssetID>(p.depth_buffer);
 
 	sync->write(RenderOp::DepthTest);
-	sync->write<b8>(false);
+	sync->write(false);
 
 	Loader::mesh_permanent(Asset::Mesh::sky_decal);
 	for (auto i = SkyDecal::list.iterator(); !i.is_last(); i.next())
@@ -459,7 +459,7 @@ void SkyDecal::draw_alpha(const RenderParams& p)
 	}
 
 	sync->write(RenderOp::DepthTest);
-	sync->write<b8>(true);
+	sync->write(true);
 }
 
 b8 Skybox::Config::valid() const
@@ -479,7 +479,7 @@ void Skybox::draw_alpha(const RenderParams& p)
 	RenderSync* sync = p.sync;
 
 	sync->write<RenderOp>(RenderOp::DepthTest);
-	sync->write<b8>(false);
+	sync->write(false);
 
 	sync->write(RenderOp::Shader);
 	sync->write(Game::level.skybox.shader);
@@ -610,7 +610,7 @@ void Skybox::draw_alpha(const RenderParams& p)
 	sync->write<AssetID>(Game::level.skybox.mesh);
 
 	sync->write<RenderOp>(RenderOp::DepthTest);
-	sync->write<b8>(true);
+	sync->write(true);
 }
 
 void Clouds::draw_alpha(const RenderParams& p)

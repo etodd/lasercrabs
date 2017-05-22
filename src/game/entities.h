@@ -93,7 +93,6 @@ struct Battery : public ComponentType<Battery>
 		r32 priority(Battery*);
 	};
 
-	static r32 power_particle_timer;
 	static r32 particle_accumulator;
 
 	static void update_all(const Update&);
@@ -212,6 +211,13 @@ struct Turret : public ComponentType<Turret>
 	void set_team(AI::Team);
 };
 
+struct ForceField;
+struct ForceFieldCollision : public ComponentType<ForceFieldCollision>
+{
+	Ref<ForceField> field;
+	void awake() {}
+};
+
 struct ForceField : public ComponentType<ForceField>
 {
 	static r32 particle_accumulator;
@@ -223,8 +229,7 @@ struct ForceField : public ComponentType<ForceField>
 
 	enum Flags
 	{
-		FlagPowered = 1 << 0,
-		FlagPermanent = 1 << 1,
+		FlagPermanent = 1 << 0,
 	};
 
 	enum class Type
@@ -234,8 +239,7 @@ struct ForceField : public ComponentType<ForceField>
 		count,
 	};
 
-	r32 remaining_lifetime;
-	Ref<Entity> field;
+	Ref<ForceFieldCollision> collision;
 	AI::Team team;
 	s8 flags;
 

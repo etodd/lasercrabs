@@ -950,6 +950,9 @@ Vec3 Drone::attach_point(r32 offset) const
 // returns true if it's a valid hit
 b8 Drone::hit_target(Entity* target)
 {
+	if (target->has<ForceFieldCollision>())
+		target = target->get<ForceFieldCollision>()->field.ref()->entity();
+
 	for (s32 i = 0; i < hit_targets.length; i++)
 	{
 		if (hit_targets[i].ref() == target)
@@ -2448,10 +2451,20 @@ r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 				if (do_reflect)
 					reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
 			}
-			else if (hit.type == Hit::Type::Inaccessible || hit.type == Hit::Type::ForceField)
+			else if (hit.type == Hit::Type::Inaccessible)
 			{
 				if (s == State::Fly)
 					reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
+			}
+			else if (hit.type == Hit::Type::ForceField)
+			{
+				if (s == State::Fly)
+				{
+					if (hit_target(hit.entity.ref()))
+						reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
+				}
+				else if (current_ability == Ability::Sniper)
+					hit_target(hit.entity.ref());
 			}
 			else if (hit.type == Hit::Type::Environment)
 			{

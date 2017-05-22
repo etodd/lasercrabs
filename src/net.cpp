@@ -285,6 +285,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Battery::component_mask
 		| Sensor::component_mask
 		| ForceField::component_mask
+		| ForceFieldCollision::component_mask
 		| Drone::component_mask
 		| Shield::component_mask
 		| Audio::component_mask
@@ -610,10 +611,15 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<ForceField>())
 	{
 		ForceField* c = e->get<ForceField>();
-		serialize_r32(p, c->remaining_lifetime);
-		serialize_ref(p, c->field);
+		serialize_ref(p, c->collision);
 		serialize_s8(p, c->team);
 		serialize_s8(p, c->flags);
+	}
+
+	if (e->has<ForceFieldCollision>())
+	{
+		ForceFieldCollision* c = e->get<ForceFieldCollision>();
+		serialize_ref(p, c->field);
 	}
 
 	if (e->has<Water>())

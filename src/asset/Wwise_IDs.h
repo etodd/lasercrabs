@@ -21,7 +21,6 @@ namespace AK
         static const AkUniqueID PLAY_BOLT_SPAWN = 778399531U;
         static const AkUniqueID PLAY_CONSOLE_KEY = 3924749205U;
         static const AkUniqueID PLAY_DANGER_BEEP = 2900456178U;
-        static const AkUniqueID PLAY_DECOY_SPAWN = 5924194U;
         static const AkUniqueID PLAY_DIALOG_ACCEPT = 1443824949U;
         static const AkUniqueID PLAY_DIALOG_ALERT = 563220021U;
         static const AkUniqueID PLAY_DIALOG_CANCEL = 2779886783U;
@@ -109,9 +108,6 @@ namespace AK
         static const AkUniqueID PLAY_PARKOUR_SLIDE = 3397163066U;
         static const AkUniqueID PLAY_PARKOUR_TOPOUT = 1638007016U;
         static const AkUniqueID PLAY_PARKOUR_WIND = 2240612133U;
-        static const AkUniqueID PLAY_ROCKET_FLY = 155446896U;
-        static const AkUniqueID PLAY_ROCKET_LAUNCH = 3072389188U;
-        static const AkUniqueID PLAY_ROCKET_SPAWN = 529848546U;
         static const AkUniqueID PLAY_SAILOR_COME_HERE = 273568754U;
         static const AkUniqueID PLAY_SAILOR_SPEECH_1 = 480483919U;
         static const AkUniqueID PLAY_SAILOR_SPEECH_2 = 480483916U;
@@ -151,7 +147,6 @@ namespace AK
         static const AkUniqueID STOP_MINION_CHARGE = 1499790205U;
         static const AkUniqueID STOP_PARKOUR_ALL = 405246226U;
         static const AkUniqueID STOP_PARKOUR_SLIDE = 3858061116U;
-        static const AkUniqueID STOP_ROCKET_FLY = 3517201926U;
         static const AkUniqueID STOP_TURRET_CHARGE = 625456941U;
     } // namespace EVENTS
 

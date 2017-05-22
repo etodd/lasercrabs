@@ -100,6 +100,8 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	UIMode ui_mode() const;
 	void upgrade_menu_show();
 	void upgrade_menu_hide();
+	void upgrade_completed(Upgrade);
+	Upgrade upgrade_selected() const;
 	void update(const Update&);
 	void update_late(const Update&);
 	void update_camera_rotation(const Update&);

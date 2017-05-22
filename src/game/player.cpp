@@ -226,6 +226,7 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 void PlayerHuman::awake()
 {
 	get<PlayerManager>()->spawn.link<PlayerHuman, const SpawnPosition&, &PlayerHuman::spawn>(this);
+	get<PlayerManager>()->upgrade_completed.link<PlayerHuman, Upgrade, &PlayerHuman::upgrade_completed>(this);
 
 	msg_text.size = text_size;
 	msg_text.anchor_x = UIText::Anchor::Center;
@@ -516,6 +517,18 @@ void PlayerHuman::upgrade_menu_hide()
 	if (upgrade_menu_open)
 		upgrade_last_visit_highest_available = get<PlayerManager>()->upgrade_highest_owned_or_available();
 	upgrade_menu_open = false;
+}
+
+void PlayerHuman::upgrade_completed(Upgrade u)
+{
+	if (upgrade_menu_open && menu.selected > 0)
+	{
+		// an upgrade was just removed from the menu
+		// shift selected menu item up one so the player is not surprised by what they currently have selected
+		Upgrade selected = upgrade_selected();
+		if (selected == Upgrade::None || s32(selected) > s32(u) + 1)
+			menu.selected = vi_max(0, menu.selected - 1);
+	}
 }
 
 void PlayerHuman::update(const Update& u)
@@ -1250,6 +1263,29 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	}
 }
 
+Upgrade PlayerHuman::upgrade_selected() const
+{
+	Upgrade upgrade = Upgrade::None;
+	{
+		// purchased upgrades are removed from the menu
+		// we have to figure out which one is selected
+		s32 index = 0;
+		for (s32 i = 0; i < s32(Upgrade::count); i++)
+		{
+			if (!get<PlayerManager>()->has_upgrade(Upgrade(i)))
+			{
+				if (index == menu.selected - 1)
+				{
+					upgrade = Upgrade(i);
+					break;
+				}
+				index++;
+			}
+		}
+	}
+	return upgrade;
+}
+
 void PlayerHuman::draw_ui(const RenderParams& params) const
 {
 	if (params.camera != camera
@@ -1363,24 +1399,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		if (menu.selected > 0)
 		{
 			// show details of currently highlighted upgrade
-			Upgrade upgrade = Upgrade::None;
-			{
-				// purchased upgrades are removed from the menu
-				// we have to figure out which one is selected
-				s32 index = 0;
-				for (s32 i = 0; i < s32(Upgrade::count); i++)
-				{
-					if (!get<PlayerManager>()->has_upgrade(Upgrade(i)))
-					{
-						if (index == menu.selected - 1)
-						{
-							upgrade = Upgrade(i);
-							break;
-						}
-						index++;
-					}
-				}
-			}
+			Upgrade upgrade = upgrade_selected();
 			vi_assert(upgrade != Upgrade::None);
 
 			if (get<PlayerManager>()->current_upgrade == Upgrade::None
@@ -2100,7 +2119,7 @@ void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerCo
 	}
 }
 
-// returns the actual detected entity, if any. could be the original player, or a decoy.
+// returns the actual detected entity, if any. could be the original player, or something else.
 Entity* player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visible, b8* tracking)
 {
 	// make sure we can see this guy
@@ -3624,7 +3643,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			}
 		}
 
-		// force field battery bars
+		// force field health bars
 		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 		{
 			if (!(i.item()->flags & ForceField::FlagPermanent))
@@ -3640,7 +3659,8 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 						UI::box(params, bar, UI::color_background);
 						const Vec4& color = Team::ui_color(team, i.item()->team);
 						UI::border(params, bar, 2, color);
-						UI::box(params, { bar.pos, Vec2(bar.size.x * (i.item()->remaining_lifetime / FORCE_FIELD_LIFETIME), bar.size.y) }, color);
+						Health* hp = i.item()->get<Health>();
+						UI::box(params, { bar.pos, Vec2(bar.size.x * (r32(hp->hp) / r32(hp->hp_max)), bar.size.y) }, color);
 					}
 				}
 			}

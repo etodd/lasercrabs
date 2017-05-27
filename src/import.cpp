@@ -947,7 +947,7 @@ b8 load_anim(const Armature& armature, const aiAnimation* in, Animation* out, co
 				Quat q = Quat(value.w, value.x, value.y, value.z);
 				Vec3 axis;
 				r32 angle;
-				q.to_angle_axis(angle, axis);
+				q.to_angle_axis(&angle, &axis);
 				Vec3 corrected_axis = Vec3(axis.y, axis.z, axis.x);
 				Quat corrected_q = Quat(angle, corrected_axis);
 				out_channel->rotations[j].value = corrected_q;
@@ -1097,7 +1097,7 @@ b8 build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 pare
 	Quat q = Quat(ai_rot.w, ai_rot.x, ai_rot.y, ai_rot.z);
 	Vec3 axis;
 	r32 angle;
-	q.to_angle_axis(angle, axis);
+	q.to_angle_axis(&angle, &axis);
 	Vec3 corrected_axis = Vec3(axis.y, axis.z, axis.x);
 	Quat rot = Quat(angle, corrected_axis);
 	Vec3 scale = Vec3(ai_scale.y, ai_scale.z, ai_scale.x);
@@ -1194,7 +1194,7 @@ b8 build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& mes
 			Quat q = Quat(ai_rotation.w, ai_rotation.x, ai_rotation.y, ai_rotation.z);
 			Vec3 axis;
 			r32 angle;
-			q.to_angle_axis(angle, axis);
+			q.to_angle_axis(&angle, &axis);
 			Vec3 corrected_axis = Vec3(axis.y, axis.z, axis.x);
 			armature.inverse_bind_pose[bone_index].make_transform(position, scale, Quat(angle, corrected_axis));
 		}

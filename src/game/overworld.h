@@ -52,7 +52,6 @@ void init(cJSON*);
 void update(const Update&);
 void draw_opaque(const RenderParams&);
 void draw_hollow(const RenderParams&);
-void draw_override(const RenderParams&);
 void draw_ui(const RenderParams&);
 void show(Camera*, State, Tab = Tab::Map);
 void clear();

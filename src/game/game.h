@@ -32,7 +32,7 @@ namespace VI
 	};
 
 #if DEBUG
-#define DEBUG_AI_CONTROL 0
+#define DEBUG_AI_CONTROL 1
 #endif
 
 	struct Game
@@ -51,8 +51,7 @@ namespace VI
 			Base,
 			Batteries,
 			Abilities,
-			AbilitiesDone,
-			TutorialAll,
+			Turrets,
 			All,
 			count,
 		};
@@ -156,7 +155,6 @@ namespace VI
 		static void draw_alpha(const RenderParams&);
 		static void draw_alpha_late(const RenderParams&);
 		static void draw_additive(const RenderParams&);
-		static void draw_override(const RenderParams&);
 		static void term();
 
 		static b8 edge_trigger(r32, b8(*)(r32));

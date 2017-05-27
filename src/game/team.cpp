@@ -584,16 +584,7 @@ b8 Team::net_msg(Net::StreamRead* p)
 			if (Game::level.mode == Game::Mode::Pvp)
 				Game::level.post_pvp = true; // we have played (or are playing) a PvP match on this level
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-			{
-				Camera* camera = i.item()->camera;
-				if (camera)
-				{
-					Quat rot;
-					Game::level.map_view.ref()->absolute(&camera->pos, &rot);
-					camera->rot = Quat::look(rot * Vec3(0, -1, 0));
-				}
-				i.item()->get<PlayerManager>()->can_spawn = Game::level.mode == Game::Mode::Parkour;
-			}
+				i.item()->game_mode_transitioning();
 			if (Game::level.local)
 			{
 				for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())

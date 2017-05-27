@@ -213,6 +213,7 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	selected_spawn(),
 	killed_by(),
 	select_spawn_timer(),
+	last_supported(),
 	energy_notification_accumulator(),
 #if SERVER
 	ai_record(),
@@ -533,14 +534,46 @@ void PlayerHuman::upgrade_completed(Upgrade u)
 
 void PlayerHuman::update(const Update& u)
 {
+	Entity* entity = get<PlayerManager>()->instance.ref();
+
+	// record parkour support
+	if (Game::level.local && Game::level.mode == Game::Mode::Parkour && entity)
+	{
+		btCollisionWorld::ClosestRayResultCallback ray_callback = entity->get<Walker>()->check_support();
+		if (ray_callback.hasHit())
+		{
+			const btRigidBody* bt_support = (const btRigidBody*)(ray_callback.m_collisionObject);
+			RigidBody* support = Entity::list.data[bt_support->getUserIndex()].get<RigidBody>();
+
+			Vec3 relative_position = support->get<Transform>()->to_local(entity->get<Transform>()->absolute_pos());
+			b8 record_support = false;
+			if (last_supported.length == 0)
+				record_support = true;
+			else
+			{
+				const SupportEntry& last_entry = last_supported[last_supported.length - 1];
+				if (last_entry.support.ref() != support || (last_entry.relative_position - relative_position).length_squared() > 2.0f * 2.0f)
+					record_support = true;
+			}
+
+			if (record_support)
+			{
+				if (last_supported.length == last_supported.capacity())
+					last_supported.remove_ordered(0);
+				SupportEntry* entry = last_supported.add();
+				entry->support = support;
+				entry->relative_position = relative_position;
+				entry->rotation = entity->get<Walker>()->target_rotation;
+			}
+		}
+	}
+
 	if (!local
 #if !SERVER
 		&& Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying
 #endif
 		)
 		return;
-
-	Entity* entity = get<PlayerManager>()->instance.ref();
 
 #if !SERVER
 	// if anyone hits a button, go back to the main menu
@@ -914,6 +947,18 @@ void PlayerHuman::ai_record_save()
 }
 #endif
 
+void PlayerHuman::game_mode_transitioning()
+{
+	if (camera)
+	{
+		Quat rot;
+		Game::level.map_view.ref()->absolute(&camera->pos, &rot);
+		camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+	}
+	get<PlayerManager>()->can_spawn = Game::level.mode == Game::Mode::Parkour;
+	last_supported.length = 0;
+}
+
 void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 {
 	killed_by = nullptr;
@@ -936,48 +981,72 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 	else
 	{
 		// spawn traceur
-		if (Game::save.zone_current_restore)
-		{
-			spawn_pos.angle = Game::save.zone_current_restore_rotation;
-			spawn_pos.pos = Game::save.zone_current_restore_position;
-		}
-		else if (Game::level.post_pvp)
-		{
-			// we have already played a PvP match on this level; we must be exiting PvP mode.
-			// spawn the player at the terminal.
-			get_interactable_standing_position(Game::level.terminal_interactable.ref()->get<Transform>(), &spawn_pos.pos, &spawn_pos.angle);
-		}
-		else
-		{
-			// we are entering a level. if we're entering by tram, spawn in the tram. otherwise spawn at the PlayerSpawn
 
-			s8 track = -1;
-			for (s32 i = 0; i < Game::level.tram_tracks.length; i++)
+		b8 spawned_at_last_supported = false;
+		if (last_supported.length > 0)
+		{
+			// restore last supported position
+			if (last_supported.length > 1) // don't spawn at the last supported location, but the one before that
+				last_supported.remove_ordered(last_supported.length - 1);
+			while (last_supported.length > 0) // try to spawn at last supported location
 			{
-				const Game::TramTrack& t = Game::level.tram_tracks[i];
-				if (t.level == Game::save.zone_last)
+				SupportEntry entry = last_supported[last_supported.length - 1];
+				last_supported.remove_ordered(last_supported.length - 1);
+				if (entry.support.ref())
 				{
-					track = s8(i);
+					spawn_pos.pos = entry.support.ref()->get<Transform>()->to_world(entry.relative_position);
+					spawn_pos.angle = entry.rotation;
+					spawned_at_last_supported = true;
 					break;
 				}
 			}
+		}
 
-			Tram* tram = Tram::by_track(track);
-
-			if (tram)
+		if (!spawned_at_last_supported)
+		{
+			if (Game::save.zone_current_restore)
 			{
-				// spawn in tram
-				Quat rot;
-				tram->get<Transform>()->absolute(&spawn_pos.pos, &rot);
-				spawn_pos.pos.y -= 1.0f;
-				Vec3 dir = rot * Vec3(0, 0, -1);
-				dir.y = 0.0f;
-				dir.normalize();
-				spawn_pos.angle = atan2f(dir.x, dir.z);
+				spawn_pos.angle = Game::save.zone_current_restore_rotation;
+				spawn_pos.pos = Game::save.zone_current_restore_position;
 			}
-			else // spawn at normal position
-				spawn_pos = normal_spawn_pos;
-			spawn_pos.pos.y += 1.0f;
+			else if (Game::level.post_pvp)
+			{
+				// we have already played a PvP match on this level; we must be exiting PvP mode.
+				// spawn the player at the terminal.
+				get_interactable_standing_position(Game::level.terminal_interactable.ref()->get<Transform>(), &spawn_pos.pos, &spawn_pos.angle);
+			}
+			else
+			{
+				// we are entering a level. if we're entering by tram, spawn in the tram. otherwise spawn at the PlayerSpawn
+
+				s8 track = -1;
+				for (s32 i = 0; i < Game::level.tram_tracks.length; i++)
+				{
+					const Game::TramTrack& t = Game::level.tram_tracks[i];
+					if (t.level == Game::save.zone_last)
+					{
+						track = s8(i);
+						break;
+					}
+				}
+
+				Tram* tram = Tram::by_track(track);
+
+				if (tram)
+				{
+					// spawn in tram
+					Quat rot;
+					tram->get<Transform>()->absolute(&spawn_pos.pos, &rot);
+					spawn_pos.pos.y -= 1.0f;
+					Vec3 dir = rot * Vec3(0, 0, -1);
+					dir.y = 0.0f;
+					dir.normalize();
+					spawn_pos.angle = atan2f(dir.x, dir.z);
+				}
+				else // spawn at normal position
+					spawn_pos = normal_spawn_pos;
+				spawn_pos.pos.y += 1.0f;
+			}
 		}
 
 		spawned = World::create<Traceur>(spawn_pos.pos, spawn_pos.angle, get<PlayerManager>()->team.ref()->team());
@@ -2178,7 +2247,7 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 		}
 	}
 
-	// energy pickups
+	// batteries
 	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 	{
 		PlayerControlHuman::TargetIndicator::Type type = i.item()->team == team
@@ -2195,16 +2264,19 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 	}
 
 	// turrets
-	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+	if (Game::level.has_feature(Game::FeatureLevel::Turrets))
 	{
-		PlayerControlHuman::TargetIndicator::Type type;
-		if (i.item()->target.ref() == p->entity())
-			type = PlayerControlHuman::TargetIndicator::Type::TurretAttacking;
-		else if (i.item()->team == team)
-			type = PlayerControlHuman::TargetIndicator::Type::TurretFriendly;
-		else
-			type = PlayerControlHuman::TargetIndicator::Type::Turret;
-		player_add_target_indicator(p, i.item()->get<Target>(), type);
+		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+		{
+			PlayerControlHuman::TargetIndicator::Type type;
+			if (i.item()->target.ref() == p->entity())
+				type = PlayerControlHuman::TargetIndicator::Type::TurretAttacking;
+			else if (i.item()->team == team)
+				type = PlayerControlHuman::TargetIndicator::Type::TurretFriendly;
+			else
+				type = PlayerControlHuman::TargetIndicator::Type::Turret;
+			player_add_target_indicator(p, i.item()->get<Target>(), type);
+		}
 	}
 
 	// grenades
@@ -2261,7 +2333,6 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 	: fov(fov_default),
 	try_primary(),
 	try_secondary(),
-	try_slide(),
 	camera_shake_timer(),
 	target_indicators(),
 	last_gamepad_input_time(),
@@ -2540,7 +2611,7 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 gamepad_rotati
 	}
 }
 
-Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot)
+Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot) const
 {
 	Vec3 movement = Vec3::zero;
 	if (movement_enabled())
@@ -2597,10 +2668,16 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 		// just trust the client, it's k
 		Vec3 abs_pos_last = last_pos;
 		get<Transform>()->pos = remote_control.pos;
-		get<Transform>()->rot = remote_control.rot;
+		get<Transform>()->rot = Quat::identity;
 		get<Transform>()->parent = remote_control.parent;
 		last_pos = get<Transform>()->absolute_pos();
 		get<Walker>()->absolute_pos(last_pos); // force rigid body
+		{
+			Vec3 forward = remote_control.rot * Vec3(0, 0, 1);
+			r32 angle = atan2f(forward.x, forward.z);
+			if (!std::isnan(angle)) // validate client rotation
+				get<Walker>()->target_rotation = angle;
+		}
 		get<Target>()->net_velocity = get<Target>()->net_velocity * 0.7f + ((last_pos - abs_pos_last) / NET_TICK_RATE) * 0.3f;
 	}
 	else if (input_enabled())
@@ -2627,6 +2704,20 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 			}
 		}
 	}
+}
+
+PlayerControlHuman::RemoteControl PlayerControlHuman::remote_control_get(const Update& u) const
+{
+	RemoteControl control;
+	control.movement = get_movement(u, get<PlayerCommon>()->look());
+	Transform* t = get<Transform>();
+	control.pos = t->pos;
+	if (has<Parkour>())
+		control.rot = Quat::euler(0, get<Walker>()->target_rotation, 0);
+	else
+		control.rot = t->rot;
+	control.parent = t->parent;
+	return control;
 }
 
 void PlayerControlHuman::camera_shake_update(const Update& u, Camera* camera)
@@ -3121,7 +3212,10 @@ void PlayerControlHuman::update(const Update& u)
 		if (local())
 		{
 			// start interaction
-			if (input_enabled() && !u.input->get(Controls::InteractSecondary, gamepad) && u.last_input->get(Controls::InteractSecondary, gamepad))
+			if (input_enabled()
+				&& get<Animator>()->layers[3].animation == AssetNull
+				&& !u.input->get(Controls::InteractSecondary, gamepad)
+				&& u.last_input->get(Controls::InteractSecondary, gamepad))
 			{
 				interactable = Interactable::closest(get<Transform>()->absolute_pos());
 				if (interactable.ref())
@@ -3147,13 +3241,8 @@ void PlayerControlHuman::update(const Update& u)
 											Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), DEFAULT_ASSAULT_DRONES, _(strings::drones));
 											interactable = nullptr;
 										}
-										else if (Game::save.resources[s32(Resource::HackKits)] < 1)
-										{
-											Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
-											interactable = nullptr;
-										}
 										else
-											Menu::dialog_with_cancel(gamepad, &player_confirm_terminal_interactable, &player_cancel_interactable, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES, 1);
+											Menu::dialog_with_cancel(gamepad, &player_confirm_terminal_interactable, &player_cancel_interactable, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES);
 									}
 									else
 									{
@@ -3211,7 +3300,7 @@ void PlayerControlHuman::update(const Update& u)
 								{
 									if (Game::save.resources[s32(Resource::HackKits)] > 0) // zone is unlocked, but need to hack this tram first
 									{
-										if (Game::level.id == Asset::Level::Port_District && s32(Game::level.feature_level) < s32(Game::FeatureLevel::TutorialAll))
+										if (Game::level.id == Asset::Level::Port_District && s32(Game::level.feature_level) < s32(Game::FeatureLevel::Turrets))
 										{
 											// player is about to skip tutorial
 											Menu::dialog(gamepad, &player_confirm_skip_tutorial, _(strings::confirm_skip_tutorial));
@@ -3331,7 +3420,6 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					try_secondary = false;
 					try_primary = false;
-					try_slide = false;
 				}
 			}
 
@@ -3351,27 +3439,6 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					try_secondary = false;
 					try_primary = false;
-					try_slide = false;
-				}
-			}
-
-			// slide button
-			b8 slide_pressed = movement_enabled() && u.input->get(Controls::Slide, gamepad);
-
-			get<Parkour>()->slide_continue = slide_pressed;
-
-			if (slide_pressed && !u.last_input->get(Controls::Slide, gamepad))
-				try_slide = true;
-			else if (!slide_pressed)
-				try_slide = false;
-
-			if (try_slide)
-			{
-				if (get<Parkour>()->try_slide())
-				{
-					try_secondary = false;
-					try_primary = false;
-					try_slide = false;
 				}
 			}
 
@@ -3419,8 +3486,7 @@ void PlayerControlHuman::update(const Update& u)
 						get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Vec3(0, 0, 1));
 				}
 			}
-			else if (parkour_state == Parkour::State::Slide
-				|| parkour_state == Parkour::State::Roll
+			else if (parkour_state == Parkour::State::Roll
 				|| parkour_state == Parkour::State::HardLanding
 				|| parkour_state == Parkour::State::Mantle
 				|| parkour_state == Parkour::State::Climb)
@@ -3604,7 +3670,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		if (Turret::list.count() > 0)
 		{
 			// turret health bars
-			if (Game::level.mode == Game::Mode::Pvp)
+			if (Game::level.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::Turrets))
 			{
 				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 				{

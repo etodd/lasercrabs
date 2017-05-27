@@ -56,6 +56,7 @@ namespace Overworld
 struct ZoneNode
 {
 	StaticArray<Vec3, ZONE_MAX_CHILDREN> children;
+	Quat rot;
 	AssetID id;
 	AssetID mesh;
 	s16 rewards[s32(Resource::count)];
@@ -570,8 +571,8 @@ void focus_camera(const Update& u, const Vec3& target_pos, const Quat& target_ro
 
 void focus_camera(const Update& u, const ZoneNode& zone)
 {
-	Vec3 target_pos = zone.pos() + global.camera_offset_pos;
-	focus_camera(u, target_pos, global.camera_offset_rot);
+	Vec3 target_pos = zone.pos() + zone.rot * global.camera_offset_pos;
+	focus_camera(u, target_pos, zone.rot * global.camera_offset_rot);
 }
 
 const ZoneNode* zone_node_get(AssetID id)
@@ -782,49 +783,6 @@ void zone_draw_mesh(const RenderParams& params, AssetID mesh, const Vec3& pos, c
 }
 
 #define BACKGROUND_COLOR Vec4(0.8f, 0.8f, 0.8f, 1)
-void zones_draw_override(const RenderParams& params)
-{
-	struct SortKey
-	{
-		r32 priority(const ZoneNode& n)
-		{
-			// sort farthest zones first
-			Vec3 camera_forward = data.camera_rot * Vec3(0, 0, 1);
-			return camera_forward.dot(n.pos() - data.camera_pos);
-		}
-	};
-
-	SortKey key;
-	PriorityQueue<ZoneNode, SortKey> zones(&key);
-
-	for (s32 i = 0; i < global.zones.length; i++)
-	{
-		const ZoneNode& zone = global.zones[i];
-		// flash if necessary
-		if (Game::session.type != SessionType::Story
-			|| Game::real_time.total > data.story.map.zones_change_time[zone.id] + 0.5f
-			|| UI::flash_function(Game::real_time.total))
-		{
-			zones.push(zone);
-		}
-	}
-
-	RenderSync* sync = params.sync;
-
-	sync->write(RenderOp::DepthTest);
-	sync->write<b8>(true);
-
-	while (zones.size() > 0)
-	{
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::Back);
-		const ZoneNode& zone = zones.pop();
-		zone_draw_mesh(params, zone.mesh, zone.pos(), Vec4(zone_color(zone), 1.0f));
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::Front);
-		zone_draw_mesh(params, zone.mesh, zone.pos(), BACKGROUND_COLOR);
-	}
-}
 
 // returns current zone node
 const ZoneNode* zones_draw(const RenderParams& params)
@@ -2200,6 +2158,20 @@ void draw_opaque(const RenderParams& params)
 			const WaterEntry& entry = global.waters[i];
 			Water::draw_opaque(params, entry.config, entry.pos, entry.rot);
 		}
+
+		RenderSync* sync = params.sync;
+
+		for (s32 i = 0; i < global.zones.length; i++)
+		{
+			const ZoneNode& zone = global.zones[i];
+			// flash if necessary
+			const Vec4& color = Game::session.type != SessionType::Story
+				|| Game::real_time.total > data.story.map.zones_change_time[zone.id] + 0.5f
+				|| UI::flash_function(Game::real_time.total)
+				? Vec4(zone_color(zone), 1.0f)
+				: BACKGROUND_COLOR;
+			zone_draw_mesh(params, zone.mesh, zone.pos(), color);
+		}
 	}
 }
 
@@ -2213,12 +2185,6 @@ void draw_hollow(const RenderParams& params)
 			Water::draw_hollow(params, entry.config, entry.pos, entry.rot);
 		}
 	}
-}
-
-void draw_override(const RenderParams& params)
-{
-	if (modal() && should_draw_zones())
-		zones_draw_override(params);
 }
 
 void draw_ui(const RenderParams& params)
@@ -2370,6 +2336,7 @@ void init(cJSON* level)
 						}
 					}
 					node->children.add(zone_pos);
+					node->rot = Json::get_quat(element, "rot");
 
 					node->id = level_id;
 

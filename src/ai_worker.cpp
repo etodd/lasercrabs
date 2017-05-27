@@ -8,9 +8,10 @@
 
 #define RECORD_VERSION 1
 
-#define DEBUG_AI 0
+#define DEBUG_WALK 0
+#define DEBUG_DRONE 1
 
-#if DEBUG_AI
+#if DEBUG_WALK || DEBUG_DRONE
 #include "platform/util.h"
 #endif
 
@@ -334,7 +335,7 @@ void drone_astar(DroneAllow rule, Team team, const DroneNavMeshNode& start_verte
 	if (start_vertex.equals(DRONE_NAV_MESH_NODE_NONE))
 		return;
 
-#if DEBUG_AI
+#if DEBUG_DRONE
 	r64 start_time = platform::time();
 #endif
 
@@ -356,7 +357,7 @@ void drone_astar(DroneAllow rule, Team team, const DroneNavMeshNode& start_verte
 		start_data->in_queue = true;
 		start_data->visited = false;
 
-#if DEBUG_AI
+#if DEBUG_DRONE
 		vi_debug("estimate: %f - %s", start_data->estimate_score, typeid(*scorer).name());
 #endif
 	}
@@ -460,8 +461,8 @@ void drone_astar(DroneAllow rule, Team team, const DroneNavMeshNode& start_verte
 			}
 		}
 	}
-#if DEBUG_AI
-	vi_debug("%d nodes in %fs - %s", path->length, (r32)(platform::time() - start_time), typeid(*scorer).name());
+#if DEBUG_DRONE
+	vi_debug("%d nodes in %fs - %s", path->length, r32(platform::time() - start_time), typeid(*scorer).name());
 #endif
 }
 
@@ -609,7 +610,7 @@ void loop()
 		{
 			case Op::Load:
 			{
-#if DEBUG_AI
+#if DEBUG_DRONE || DEBUG_WALK
 				vi_debug("Loading nav mesh...");
 				r32 start_time = platform::time();
 #endif
@@ -735,7 +736,7 @@ void loop()
 
 				if (data_length > 0)
 				{
-#if DEBUG_AI
+#if DEBUG_WALK || DEBUG_DRONE
 					vi_debug("%d bytes", data_length);
 #endif
 					TileCacheData tiles;
@@ -870,7 +871,7 @@ void loop()
 					astar_queue.reserve(vertex_count);
 				}
 
-#if DEBUG_AI
+#if DEBUG_WALK || DEBUG_DRONE
 				vi_debug("Done in %fs.", r32(platform::time() - start_time));
 #endif
 
@@ -924,7 +925,7 @@ void loop()
 			}
 			case Op::Pathfind:
 			{
-#if DEBUG_AI
+#if DEBUG_WALK
 				r64 start_time = platform::time();
 				vi_debug("Walk pathfind...");
 #endif
@@ -952,7 +953,7 @@ void loop()
 				sync_out.write(path);
 				sync_out.unlock();
 
-#if DEBUG_AI
+#if DEBUG_WALK
 				vi_debug("%d nodes in %fs", path.length, r32(platform::time() - start_time));
 #endif
 
@@ -960,7 +961,7 @@ void loop()
 			}
 			case Op::RandomPath:
 			{
-#if DEBUG_AI
+#if DEBUG_WALK
 				r64 start_time = platform::time();
 				vi_debug("Walk random path...");
 #endif
@@ -992,7 +993,7 @@ void loop()
 				sync_out.write(path);
 				sync_out.unlock();
 
-#if DEBUG_AI
+#if DEBUG_WALK
 				vi_debug("%d nodes in %fs", path.length, r32(platform::time() - start_time));
 #endif
 
@@ -1000,7 +1001,7 @@ void loop()
 			}
 			case Op::ClosestWalkPoint:
 			{
-#if DEBUG_AI
+#if DEBUG_WALK
 				r64 start_time = platform::time();
 				vi_debug("Walkable point query...");
 #endif
@@ -1020,7 +1021,7 @@ void loop()
 				sync_out.write(closest);
 				sync_out.unlock();
 
-#if DEBUG_AI
+#if DEBUG_WALK
 				vi_debug("Done in %fs", r32(platform::time() - start_time));
 #endif
 				break;

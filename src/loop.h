@@ -544,8 +544,6 @@ void draw(LoopSync* sync, const Camera* camera)
 			render_point_lights(render_params, s32(PointLight::Type::Override), inv_buffer_size, ~(1 << camera->team));
 		}
 
-		Game::draw_override(render_params);
-
 		sync->write(RenderOp::CullMode);
 		sync->write(RenderCullMode::Back);
 

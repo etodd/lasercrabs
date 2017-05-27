@@ -38,6 +38,8 @@ namespace VI
 
 #define JUMP_GRACE_PERIOD 0.3f
 
+#define TILE_CREATE_RADIUS 4.5f
+
 #define MIN_SLIDE_TIME 0.6f
 #define ANIMATION_SPEED_MULTIPLIER 2.0f
 
@@ -114,11 +116,7 @@ Parkour::~Parkour()
 void Parkour::killed(Entity*)
 {
 	if (Game::level.local)
-	{
-		Team::game_over = true;
 		World::remove_deferred(entity());
-		Game::schedule_load_level(Game::level.id, Game::Mode::Parkour, 2.0f);
-	}
 }
 
 void Parkour::land(r32 velocity_diff)
@@ -205,9 +203,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		}
 	}
 
-	Vec3 support_velocity = Vec3::zero;
-	if (wall)
-		support_velocity = Walker::get_support_velocity(absolute_wall_pos, wall->btBody);
+	Vec3 support_velocity = Walker::get_support_velocity(absolute_wall_pos, wall->btBody);
 
 	Vec3 horizontal_velocity_diff = velocity - support_velocity;
 	r32 vertical_velocity_diff = horizontal_velocity_diff.y;
@@ -224,7 +220,8 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		r32 wall_distance = WALKER_RADIUS * WALL_RUN_DISTANCE_RATIO;
 		get<Walker>()->absolute_pos(pos + absolute_wall_normal * (-p.distance(pos) + wall_distance));
 
-		last_support = wall;
+		if (wall)
+			last_support = wall;
 		last_support_wall_run_state = wall_run_state;
 		relative_wall_run_normal = relative_wall_normal;
 
@@ -259,6 +256,18 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos() + absolute_wall_normal * -wall_distance);
 			last_support_time = Game::time.total;
 		}
+	}
+
+	// spawn tiles
+	if (!exit_wallrun && wall_run_state != WallRunState::Forward)
+	{
+		Vec3 relative_wall_right = relative_wall_run_normal.cross(last_support.ref()->get<Transform>()->to_local_normal(Vec3(0, 1, 0)));
+		relative_wall_right.normalize();
+		Vec3 relative_wall_up = relative_wall_right.cross(relative_wall_run_normal);
+		relative_wall_up.normalize();
+
+		Vec3 spawn_offset = ((velocity - support_velocity) * 1.5f) + (absolute_wall_normal * -3.0f);
+		spawn_tiles(relative_wall_right, relative_wall_up, relative_wall_run_normal, spawn_offset);
 	}
 
 	return exit_wallrun;
@@ -568,6 +577,16 @@ Transform* parkour_get_rope(Parkour* parkour, ParkourRopeSearch search)
 	return nullptr;
 }
 
+b8 Parkour::TilePos::operator==(const Parkour::TilePos& other) const
+{
+	return x == other.x && y == other.y;
+}
+
+b8 Parkour::TilePos::operator!=(const Parkour::TilePos& other) const
+{
+	return x != other.x || y != other.y;
+}
+
 void Parkour::update(const Update& u)
 {
 	fsm.time += u.time.delta;
@@ -581,7 +600,6 @@ void Parkour::update(const Update& u)
 	// animation layers
 	// layer 0 = running, walking, wall-running
 	// layer 1 = mantle, land, hard landing, jump, wall-jump, roll
-	// layer 2 = slide
 
 	r32 lean_target = 0.0f;
 
@@ -740,9 +758,13 @@ void Parkour::update(const Update& u)
 			}
 			else // ran out of wall to run on
 			{
-				exit_wallrun = true;
 				if (wall_run_state == WallRunState::Forward)
+				{
+					exit_wallrun = true;
 					try_parkour(true); // do an extra broad raycast to make sure we hit the top if at all possible
+				}
+				else // keep going, generate a wall
+					exit_wallrun = wallrun(u, last_support.ref(), relative_support_pos, relative_wall_run_normal);
 			}
 		}
 
@@ -761,6 +783,9 @@ void Parkour::update(const Update& u)
 			if (get<Walker>()->support.ref()->get<RigidBody>()->collision_group & CollisionElectric)
 				ParkourNet::electrocuted(this);
 
+			can_double_jump = true;
+			tile_history.length = 0;
+
 			Animator::Layer* layer1 = &get<Animator>()->layers[1];
 			if (layer1->animation == Asset::Animation::character_jump1)
 				layer1->animation = AssetNull; // stop jump animations
@@ -775,7 +800,7 @@ void Parkour::update(const Update& u)
 			// we're falling
 			// check if there are any minions to squish
 			// if the player is holding the slide button, they don't have to be falling very fast at all to do damage
-			if (get<RigidBody>()->btBody->getLinearVelocity().getY() < (slide_continue ? LANDING_VELOCITY_LIGHT : LANDING_VELOCITY_HARD))
+			if (get<RigidBody>()->btBody->getLinearVelocity().getY() < LANDING_VELOCITY_LIGHT)
 			{
 				if (minions_do_damage(this, &minion_below))
 				{
@@ -788,7 +813,7 @@ void Parkour::update(const Update& u)
 			}
 		}
 	}
-	else if (fsm.current == State::Slide || fsm.current == State::Roll)
+	else if (fsm.current == State::Roll)
 	{
 		// check how fast we're going
 		Vec3 support_velocity = Walker::get_support_velocity(relative_support_pos, last_support.ref() ? last_support.ref()->btBody : nullptr);
@@ -796,20 +821,11 @@ void Parkour::update(const Update& u)
 		Vec3 relative_velocity = velocity - support_velocity;
 		Vec3 forward = Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1);
 		r32 relative_speed = relative_velocity.dot(forward);
-		b8 stop;
-		if (fsm.current == State::Slide)
-		{
-			get<Audio>()->param(AK::GAME_PARAMETERS::PARKOUR_SLIDE, LMath::clampf(relative_speed / MAX_SPEED, 0.0f, 1.0f));
-			stop = fsm.time > MIN_SLIDE_TIME && (!slide_continue || relative_speed < MIN_WALLRUN_SPEED);
-		}
-		else // rolling
-			stop = get<Animator>()->layers[1].animation != Asset::Animation::character_roll;
+		b8 stop = get<Animator>()->layers[1].animation != Asset::Animation::character_roll;
 
 		if (!stop)
 		{
-			// keep sliding/rolling
-			if (fsm.current == State::Slide) // do damping
-				relative_velocity -= Vec3::normalize(relative_velocity) * u.time.delta * 2.5f;
+			// keep rolling
 
 			// handle support
 			{
@@ -847,8 +863,6 @@ void Parkour::update(const Update& u)
 					// update relative support pos
 					relative_support_pos = last_support_transform->to_local(projected_support);
 				}
-				else if (fsm.current == State::Slide)
-					stop = true;
 			}
 
 			get<RigidBody>()->btBody->setLinearVelocity(support_velocity + relative_velocity);
@@ -859,15 +873,7 @@ void Parkour::update(const Update& u)
 		}
 
 		if (stop)
-		{
-			if (fsm.current == State::Slide)
-			{
-				get<Animator>()->layers[2].behavior = Animator::Behavior::Default;
-				get<Animator>()->layers[2].play(Asset::Animation::character_slide_end);
-				get<Audio>()->post_event(AK::EVENTS::STOP_PARKOUR_SLIDE);
-			}
 			fsm.transition(State::Normal);
-		}
 	}
 
 	// update animation
@@ -973,7 +979,7 @@ void Parkour::update(const Update& u)
 		// update collision filter
 		// don't collide with minions if we are sliding or rolling
 		RigidBody* body = get<RigidBody>();
-		b8 collide_with_minions = fsm.current != State::Roll && fsm.current != State::Slide;
+		b8 collide_with_minions = fsm.current != State::Roll;
 		if (collide_with_minions && !(body->collision_filter & CollisionWalker))
 			body->set_collision_masks(body->collision_group, body->collision_filter | CollisionWalker);
 		else if (!collide_with_minions && (body->collision_filter & CollisionWalker))
@@ -981,10 +987,9 @@ void Parkour::update(const Update& u)
 	}
 
 	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::HardLanding;
-	get<Walker>()->crouch(fsm.current == State::Slide);
 
 	{
-		if (fsm.current == State::Normal && Game::time.total - last_support_time > JUMP_GRACE_PERIOD)
+		if (fsm.current == State::Normal && Game::time.total - last_support_time > JUMP_GRACE_PERIOD * 2.0f)
 		{
 			// check for stuff to climb
 			Transform* r = parkour_get_rope(this, ParkourRopeSearch::Any);
@@ -1104,6 +1109,74 @@ void Parkour::update(const Update& u)
 	}
 }
 
+void Parkour::spawn_tiles(const Vec3& relative_wall_right, const Vec3& relative_wall_up, const Vec3& relative_wall_normal, const Vec3& spawn_offset)
+{
+	TilePos wall_coord =
+	{
+		s32(relative_support_pos.dot(relative_wall_right) * (1.0f / TILE_SIZE)),
+		s32(relative_support_pos.dot(relative_wall_up) * (1.0f / TILE_SIZE)),
+	};
+
+	bool new_wall_coord = true;
+	if (tile_history.length > 0)
+	{
+		for (s32 i = tile_history.length - 1; i >= 0; i--)
+		{
+			if (wall_coord == tile_history[i])
+			{
+				new_wall_coord = false;
+				break;
+			}
+		}
+	}
+
+	if (new_wall_coord)
+	{
+		r32 relative_wall_z = relative_support_pos.dot(relative_wall_normal) - 0.05f;
+
+		Vec3 absolute_wall_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_normal);
+		Quat absolute_wall_rot = Quat::look(absolute_wall_normal);
+
+		s32 i = 0;
+		for (s32 x = -s32(TILE_CREATE_RADIUS); x <= s32(TILE_CREATE_RADIUS); x++)
+		{
+			for (s32 y = -s32(TILE_CREATE_RADIUS); y <= s32(TILE_CREATE_RADIUS); y++)
+			{
+				if (Vec2(x, y).length_squared() < TILE_CREATE_RADIUS * TILE_CREATE_RADIUS)
+				{
+					b8 create = true;
+					for (s32 i = tile_history.length - 1; i >= 0; i--)
+					{
+						const TilePos& history_coord = tile_history[i];
+						if (Vec2(wall_coord.x + x - history_coord.x, wall_coord.y + y - history_coord.y).length_squared() < (TILE_CREATE_RADIUS + TILE_SIZE) * (TILE_CREATE_RADIUS + TILE_SIZE))
+						{
+							create = false;
+							break;
+						}
+					}
+
+					if (create && Tile::list.count() < MAX_ENTITIES)
+					{
+						Vec2 relative_tile_wall_coord = Vec2(wall_coord.x + x, wall_coord.y + y) * TILE_SIZE;
+						Vec3 relative_tile_pos = (relative_wall_right * relative_tile_wall_coord.x)
+							+ (relative_wall_up * relative_tile_wall_coord.y)
+							+ (relative_wall_normal * relative_wall_z);
+						Vec3 absolute_tile_pos = last_support.ref()->get<Transform>()->to_world(relative_tile_pos);
+
+						r32 anim_time = tile_history.length == 0 ? (0.03f + 0.01f * i) : 0.3f;
+						Tile::add(absolute_tile_pos, absolute_wall_rot, spawn_offset, last_support.ref()->get<Transform>(), anim_time);
+
+						i++;
+					}
+				}
+			}
+		}
+		if (tile_history.length == tile_history.capacity())
+			tile_history.remove_ordered(0);
+		tile_history.add(wall_coord);
+	}
+}
+
 void Parkour::pickup_animation_complete()
 {
 	// delete whatever we're holding
@@ -1206,6 +1279,45 @@ b8 Parkour::try_jump(r32 rotation)
 		}
 	}
 
+	if (!did_jump && can_double_jump)
+	{
+		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
+		if (velocity.y < 0.0f) // have to be going down to double jump
+		{
+			Vec3 spawn_offset = velocity * 1.5f;
+			spawn_offset.y = 5.0f;
+
+			Vec3 pos = get<Walker>()->base_pos();
+
+			Quat tile_rot = Quat::look(Vec3(0, 1, 0));
+			const r32 radius = TILE_CREATE_RADIUS - 2.0f;
+			s32 i = 0;
+			for (s32 x = -s32(TILE_CREATE_RADIUS); x <= s32(radius); x++)
+			{
+				for (s32 y = -s32(TILE_CREATE_RADIUS); y <= s32(radius); y++)
+				{
+					if (Vec2(x, y).length_squared() < radius * radius)
+					{
+						Tile::add(pos + Vec3(x, 0, y) * TILE_SIZE, tile_rot, spawn_offset, nullptr, 0.15f + 0.05f * i);
+						i++;
+					}
+				}
+			}
+
+			// override horizontal velocity based on current facing angle
+			Vec3 horizontal_velocity = velocity;
+			horizontal_velocity.y = 0.0f;
+			Vec3 new_velocity = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, horizontal_velocity.length());
+			new_velocity.y = velocity.y;
+			get<RigidBody>()->btBody->setLinearVelocity(new_velocity);
+
+			do_normal_jump();
+
+			can_double_jump = false;
+			did_jump = true;
+		}
+	}
+
 	if (did_jump)
 	{
 		get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_JUMP);
@@ -1250,7 +1362,7 @@ Vec3 mantle_samples[mantle_sample_count] =
 	Vec3(0.35f, 0, 1),
 };
 
-b8 Parkour::try_slide()
+b8 Parkour::try_roll()
 {
 	if (fsm.current == State::Normal)
 	{
@@ -1262,24 +1374,12 @@ b8 Parkour::try_slide()
 			Vec3 support_velocity = Walker::get_support_velocity(support_callback.m_hitPointWorld, support_callback.m_collisionObject);
 			Vec3 relative_velocity = velocity - support_velocity;
 
-			if (get<Walker>()->support.ref())
-			{
-				// already on ground
-				if (get<Walker>()->net_speed < MIN_WALLRUN_SPEED)
-					return false; // too slow
-				fsm.transition(State::Slide);
-				get<Animator>()->layers[2].play(Asset::Animation::character_slide);
-				get<Animator>()->layers[2].behavior = Animator::Behavior::Freeze;
-				get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_SLIDE);
-			}
-			else
-			{
-				if (relative_velocity.y > 1.0f)
-					return false; // need to be going down
-				fsm.transition(State::Roll);
-				get<Animator>()->layers[1].play(Asset::Animation::character_roll);
-				get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_ROLL);
-			}
+			if (get<Walker>()->support.ref() || relative_velocity.y > 1.0f) // need to be going down
+				return false;
+
+			fsm.transition(State::Roll);
+			get<Animator>()->layers[1].play(Asset::Animation::character_roll);
+			get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_ROLL);
 			velocity = support_velocity + (forward * (get<Walker>()->net_speed + 3.0f));
 			get<Walker>()->enabled = false;
 
@@ -1290,8 +1390,6 @@ b8 Parkour::try_slide()
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(support_callback.m_hitPointWorld);
 			relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(support_callback.m_hitNormalWorld);
 			last_support_time = Game::time.total;
-
-			slide_continue = true;
 
 			damage_minions.length = 0;
 			return true;

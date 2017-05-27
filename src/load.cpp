@@ -246,7 +246,6 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[s32(Controls::Scoreboard)] = input_binding(gamepad, "scoreboard", { Gamepad::Btn::Back, KeyCode::Tab, KeyCode::None, });
 		bindings->bindings[s32(Controls::Jump)] = input_binding(gamepad, "jump", { Gamepad::Btn::RightTrigger, KeyCode::Space, KeyCode::None, });
 		bindings->bindings[s32(Controls::Parkour)] = input_binding(gamepad, "parkour", { Gamepad::Btn::LeftTrigger, KeyCode::LShift, KeyCode::None, });
-		bindings->bindings[s32(Controls::Slide)] = input_binding(gamepad, "slide", { Gamepad::Btn::LeftShoulder, KeyCode::MouseLeft, KeyCode::E, });
 
 		// these bindings cannot be changed
 		bindings->bindings[s32(Controls::Start)] = { Gamepad::Btn::Start, KeyCode::Return, KeyCode::None, };
@@ -306,7 +305,6 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(gamepad, "scoreboard", input_binding_json(bindings->bindings[s32(Controls::Scoreboard)]));
 		cJSON_AddItemToObject(gamepad, "jump", input_binding_json(bindings->bindings[s32(Controls::Jump)]));
 		cJSON_AddItemToObject(gamepad, "parkour", input_binding_json(bindings->bindings[s32(Controls::Parkour)]));
-		cJSON_AddItemToObject(gamepad, "slide", input_binding_json(bindings->bindings[s32(Controls::Slide)]));
 		cJSON_AddItemToObject(gamepad, "invert_y", cJSON_CreateNumber(bindings->invert_y));
 		cJSON_AddItemToObject(gamepad, "sensitivity", cJSON_CreateNumber(bindings->sensitivity));
 		cJSON_AddItemToArray(gamepads, gamepad);

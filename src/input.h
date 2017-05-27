@@ -333,7 +333,6 @@ enum class Controls : s8
 	Scoreboard,
 	Jump,
 	Parkour,
-	Slide,
 	count,
 };
 

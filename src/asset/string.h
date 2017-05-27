@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 442;
+		const s32 count = 443;
 		const AssetID _continue = 0;
 		const AssetID ability_spawn_cost = 1;
 		const AssetID active_armor = 2;
@@ -433,24 +433,25 @@ namespace Asset
 		const AssetID tut_overworld = 421;
 		const AssetID tut_slide = 422;
 		const AssetID tut_start = 423;
-		const AssetID tut_upgrade = 424;
-		const AssetID tut_wallrun = 425;
-		const AssetID unknown = 426;
-		const AssetID upgrade_description = 427;
-		const AssetID upgrade_notification = 428;
-		const AssetID upgrading = 429;
-		const AssetID victory = 430;
-		const AssetID waiting = 431;
-		const AssetID wu_gang = 432;
-		const AssetID yes = 433;
-		const AssetID zone_already_captured = 434;
-		const AssetID zone_defense_expired = 435;
-		const AssetID zone_unlocked = 436;
-		const AssetID zones_captured = 437;
-		const AssetID zones_hostile = 438;
-		const AssetID zones_locked = 439;
-		const AssetID zones_under_attack = 440;
-		const AssetID zoom_toggle = 441;
+		const AssetID tut_turrets = 424;
+		const AssetID tut_upgrade = 425;
+		const AssetID tut_wallrun = 426;
+		const AssetID unknown = 427;
+		const AssetID upgrade_description = 428;
+		const AssetID upgrade_notification = 429;
+		const AssetID upgrading = 430;
+		const AssetID victory = 431;
+		const AssetID waiting = 432;
+		const AssetID wu_gang = 433;
+		const AssetID yes = 434;
+		const AssetID zone_already_captured = 435;
+		const AssetID zone_defense_expired = 436;
+		const AssetID zone_unlocked = 437;
+		const AssetID zones_captured = 438;
+		const AssetID zones_hostile = 439;
+		const AssetID zones_locked = 440;
+		const AssetID zones_under_attack = 441;
+		const AssetID zoom_toggle = 442;
 	}
 }
 

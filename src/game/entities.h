@@ -69,6 +69,7 @@ struct Shield : public ComponentType<Shield>
 
 	void update_client(const Update&);
 	void damaged(const HealthEvent&);
+	void set_team(AI::Team);
 };
 
 struct BatteryEntity : public Entity
@@ -601,6 +602,32 @@ struct Ascensions
 	static void update(const Update&);
 	static void draw_ui(const RenderParams&);
 	static void clear();
+};
+
+#define TILE_SIZE 0.5f
+struct Tile
+{
+	static PinArray<Tile, MAX_ENTITIES> list;
+	static Array<Mat4> instances;
+
+	static void add(const Vec3&, const Quat&, const Vec3&, Transform*, r32 = 0.3f);
+	static void draw_alpha(const RenderParams&);
+	static void clear();
+
+	Quat relative_start_rot;
+	Quat relative_target_rot;
+	Vec3 relative_start_pos;
+	Vec3 relative_target_pos;
+	r32 timer;
+	r32 anim_time;
+	Ref<Transform> parent;
+
+	ID id() const
+	{
+		return ID(this - &list.data[0]);
+	}
+	r32 scale() const;
+	void update(const Update&);
 };
 
 

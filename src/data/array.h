@@ -97,7 +97,7 @@ struct StaticArray
 		return &data[i];
 	}
 
-	T* insert(s32 i, T& t)
+	T* insert(s32 i, const T& t)
 	{
 		T* p = insert(i);
 		*p = t;

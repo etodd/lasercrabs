@@ -2942,12 +2942,7 @@ b8 packet_build_update(StreamWrite* p, const Update& u)
 		if (i.item()->local())
 		{
 			serialize_int(p, ID, i.index, 0, MAX_PLAYERS - 1);
-			PlayerControlHuman::RemoteControl control;
-			control.movement = i.item()->get_movement(u, i.item()->get<PlayerCommon>()->look());
-			Transform* t = i.item()->get<Transform>();
-			control.pos = t->pos;
-			control.rot = t->rot;
-			control.parent = t->parent;
+			PlayerControlHuman::RemoteControl control = i.item()->remote_control_get(u);
 			serialize_player_control(p, &control);
 		}
 	}

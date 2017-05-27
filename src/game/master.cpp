@@ -30,7 +30,7 @@ void Save::reset()
 	locke_index = -1;
 
 	strcpy(username, "etodd");
-	zones[Asset::Level::Dock] = ZoneState::GroupOwned;
+	zones[Asset::Level::Tier_0] = ZoneState::GroupOwned;
 
 	resources[s32(Resource::Energy)] = s16(ENERGY_INITIAL * 3.5f);
 }

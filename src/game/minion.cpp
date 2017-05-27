@@ -168,7 +168,7 @@ void Minion::melee_damage()
 				parkour->wall_run_state = Parkour::WallRunState::None;
 
 				Parkour::State state = parkour->fsm.current;
-				if (Game::level.local && state != Parkour::State::Roll && state != Parkour::State::Slide)
+				if (Game::level.local && state != Parkour::State::Roll)
 					i.item()->get<Health>()->damage(entity(), 1);
 			}
 			else
@@ -224,7 +224,7 @@ b8 Minion::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 
 Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 {
-	if (!Game::level.has_feature(Game::FeatureLevel::TutorialAll)) // in tutorial, don't chase after targets
+	if (!Game::level.has_feature(Game::FeatureLevel::All)) // in tutorial, don't chase after targets
 		return nullptr;
 
 	// if the target is in the wrong direction, add a cost to it
@@ -374,6 +374,9 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 
 Entity* visible_target(Minion* me, AI::Team team)
 {
+	if (!Game::level.has_feature(Game::FeatureLevel::All)) // in tutorial, don't chase after targets
+		return nullptr;
+
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
 		PlayerCommon* player = i.item();
@@ -764,7 +767,7 @@ void Minion::killed(Entity* killer)
 {
 	PlayerManager::entity_killed_by(entity(), killer);
 	get<Audio>()->post_event(AK::EVENTS::STOP);
-	Audio::post_global_event(killer->has<Drone>() ? AK::EVENTS::PLAY_MINION_HEADSHOT : AK::EVENTS::PLAY_MINION_DIE, head_pos());
+	Audio::post_global_event(killer && killer->has<Drone>() ? AK::EVENTS::PLAY_MINION_HEADSHOT : AK::EVENTS::PLAY_MINION_DIE, head_pos());
 
 	if (Game::level.local)
 	{

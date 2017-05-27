@@ -1113,17 +1113,17 @@ struct Quat
 	void from_rotation_matrix(const Mat3& kRot);
 	void to_rotation_matrix(Mat3& kRot) const;
 	void from_angle_axis(const r32& rfAngle, const Vec3& rkAxis);
-	void to_angle_axis(r32& rfAngle, Vec3& rkAxis) const;
-	void from_axes (const Vec3* akAxis);
-	void from_axes (const Vec3& xAxis, const Vec3& yAxis, const Vec3& zAxis);
-	void to_axes (Vec3* akAxis) const;
-	void to_axes (Vec3& xAxis, Vec3& yAxis, Vec3& zAxis) const;
+	void to_angle_axis(r32*, Vec3*) const;
+	void from_axes(const Vec3* akAxis);
+	void from_axes(const Vec3&, const Vec3&, const Vec3&);
+	void to_axes(Vec3*) const;
+	void to_axes(Vec3*, Vec3*, Vec3*) const;
 
-	Vec3 x_axis(void) const;
+	Vec3 x_axis() const;
 
-	Vec3 y_axis(void) const;
+	Vec3 y_axis() const;
 
-	Vec3 z_axis(void) const;
+	Vec3 z_axis() const;
 
 	Quat operator+ (const Quat& rkQ) const;
 	Quat operator- (const Quat& rkQ) const;

@@ -206,6 +206,13 @@ void Shield::awake()
 	}
 }
 
+// not synced over network
+void Shield::set_team(AI::Team team)
+{
+	inner.ref()->get<View>()->team = s8(team);
+	outer.ref()->get<View>()->team = s8(team);
+}
+
 Shield::~Shield()
 {
 	if (Game::level.local)
@@ -428,9 +435,11 @@ s8 Health::total() const
 b8 Health::invincible() const
 {
 	if (has<CoreModule>())
-		return invincible_timer > 0.0f || Turret::list.count() > 0 || !Game::level.has_feature(Game::FeatureLevel::TutorialAll) || Game::level.mode != Game::Mode::Pvp;
+		return invincible_timer > 0.0f || Turret::list.count() > 0 || Game::level.mode != Game::Mode::Pvp;
 	else if (has<ForceField>())
 		return invincible_timer > 0.0f || (get<ForceField>()->flags & ForceField::FlagPermanent);
+	else if (has<Turret>() && !Game::level.has_feature(Game::FeatureLevel::Turrets))
+		return true;
 	else
 		return invincible_timer > 0.0f;
 }
@@ -765,7 +774,7 @@ void SpawnPoint::update_server_all(const Update& u)
 	const r32 minion_group_interval = minion_spawn_interval * 14.0f; // must be a multiple of minion_spawn_interval
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::level.type == GameType::Assault
-		&& Game::level.has_feature(Game::FeatureLevel::TutorialAll)
+		&& Game::level.has_feature(Game::FeatureLevel::All)
 		&& !Team::game_over)
 	{
 		r32 t = Team::match_time - minion_initial_delay;
@@ -991,6 +1000,7 @@ void CoreModule::set_team(AI::Team t)
 {
 	team = t;
 	get<View>()->team = s8(t);
+	get<Shield>()->set_team(t);
 }
 
 s32 CoreModule::count(AI::TeamMask mask)
@@ -1212,11 +1222,14 @@ void Turret::update_server(const Update& u)
 	if (cooldown > 0.0f)
 		cooldown -= u.time.delta;
 
-	target_check_time -= u.time.delta;
-	if (target_check_time < 0.0f)
+	if (Game::level.has_feature(Game::FeatureLevel::All))
 	{
-		target_check_time += TURRET_TARGET_CHECK_TIME;
-		check_target();
+		target_check_time -= u.time.delta;
+		if (target_check_time < 0.0f)
+		{
+			target_check_time += TURRET_TARGET_CHECK_TIME;
+			check_target();
+		}
 	}
 
 	if (target.ref() && cooldown <= 0.0f)
@@ -1629,7 +1642,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 		if (hit_object->has<Parkour>()) // player is invincible while rolling and sliding
 		{
 			Parkour::State state = hit_object->get<Parkour>()->fsm.current;
-			if (state == Parkour::State::Roll || state == Parkour::State::Slide)
+			if (state == Parkour::State::Roll)
 				damage = 0;
 		}
 
@@ -2610,7 +2623,7 @@ void Collectible::give_rewards()
 			}
 			case Resource::Drones:
 			{
-				a = 8;
+				a = 5;
 				break;
 			}
 			default:
@@ -2877,10 +2890,7 @@ void TerminalInteractable::interacted(Interactable*)
 		else if (zone_state == ZoneState::Hostile)
 		{
 			if (Game::level.local)
-			{
-				Overworld::resource_change(Resource::HackKits, -1);
 				Overworld::resource_change(Resource::Drones, -DEFAULT_ASSAULT_DRONES);
-			}
 			TerminalEntity::close();
 		}
 	}
@@ -2891,7 +2901,6 @@ const r32 TRAM_SPEED_MAX = 10.0f;
 const r32 TRAM_WIDTH = TRAM_LENGTH * 0.5f;
 const r32 TRAM_HEIGHT = 2.54f;
 const r32 TRAM_ROPE_LENGTH = 4.0f;
-
 
 TramRunnerEntity::TramRunnerEntity(s8 track, b8 is_front)
 {
@@ -3484,5 +3493,114 @@ void Ascensions::clear()
 	timer = 40.0f + mersenne::randf_co() * 200.0f;
 	entries.length = 0;
 }
+
+PinArray<Tile, MAX_ENTITIES> Tile::list;
+Array<Mat4> Tile::instances;
+
+void Tile::add(const Vec3& target_pos, const Quat& target_rot, const Vec3& offset, Transform* parent, r32 anim_time)
+{
+	Tile* t = list.add();
+	t->relative_start_pos = target_pos + offset;
+	t->relative_start_rot = target_rot * Quat::euler(PI * 0.5f, PI * 0.5f, fmod((Game::time.total + (anim_time * 2.0f)) * 5.0f, PI * 2.0f));
+	t->relative_target_pos = target_pos;
+	t->relative_target_rot = target_rot;
+	if (parent)
+	{
+		parent->to_local(&t->relative_start_pos, &t->relative_start_rot);
+		parent->to_local(&t->relative_target_pos, &t->relative_target_rot);
+	}
+	t->parent = parent;
+	t->timer = 0.0f;
+	t->anim_time = anim_time;
+}
+
+void Tile::draw_alpha(const RenderParams& params)
+{
+	instances.length = 0;
+
+	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::plane);
+	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
+	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
+
+	{
+		for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
+		{
+			Tile* tile = i.item();
+			const r32 size = tile->scale();
+
+			r32 blend = vi_min(tile->timer / tile->anim_time, 1.0f);
+			Vec3 pos = Vec3::lerp(blend, tile->relative_start_pos, tile->relative_target_pos) + Vec3(sinf(blend * PI) * 0.25f);
+			Quat rot = Quat::slerp(blend, tile->relative_start_rot, tile->relative_target_rot);
+			if (tile->parent.ref())
+				tile->parent.ref()->to_world(&pos, &rot);
+
+			if (params.camera->visible_sphere(pos, size * f_radius))
+			{
+				Mat4* m = instances.add();
+				m->make_transform(pos, Vec3(size), rot);
+			}
+		}
+	}
+
+	if (instances.length == 0)
+		return;
+
+	Loader::shader_permanent(Asset::Shader::standard_instanced);
+
+	RenderSync* sync = params.sync;
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::standard_instanced);
+	sync->write(params.technique);
+
+	Mat4 vp = params.view_projection;
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::vp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(vp);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::v);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(params.view);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(Vec4(1, 1, 1, 0.5f));
+
+	sync->write(RenderOp::Instances);
+	sync->write(Asset::Mesh::plane);
+	sync->write(instances.length);
+	sync->write<Mat4>(instances.data, instances.length);
+}
+
+void Tile::clear()
+{
+	list.clear();
+}
+
+#define TILE_LIFE_TIME 6.0f
+#define TILE_ANIM_OUT_TIME 0.3f
+void Tile::update(const Update& u)
+{
+	timer += u.time.delta;
+	if (timer > TILE_LIFE_TIME)
+		list.remove(id());
+}
+
+r32 Tile::scale() const
+{
+	r32 blend;
+	if (timer < TILE_LIFE_TIME - TILE_ANIM_OUT_TIME)
+		blend = vi_min(timer / anim_time, 1.0f);
+	else
+		blend = Ease::quad_in(((timer - (TILE_LIFE_TIME - TILE_ANIM_OUT_TIME)) / TILE_ANIM_OUT_TIME), 1.0f, 0.0f);
+	return blend * TILE_SIZE;
+}
+
 
 }

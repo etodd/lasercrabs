@@ -48,6 +48,13 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		AI::Team team;
 	};
 
+	struct SupportEntry
+	{
+		Vec3 relative_position;
+		r32 rotation;
+		Ref<RigidBody> support;
+	};
+
 	static r32 danger;
 	static StaticArray<LogEntry, 4> logs;
 
@@ -70,6 +77,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	UIScroll score_summary_scroll;
 	UIText msg_text;
 	Quat kill_cam_rot;
+	StaticArray<SupportEntry, 4> last_supported;
 	r32 msg_timer;
 	r32 animation_time;
 	r32 select_spawn_timer;
@@ -109,6 +117,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void spawn(const SpawnPosition&);
 	void assault_status_display();
 	void energy_notify(s32);
+	void game_mode_transitioning();
 };
 
 struct PlayerCommon : public ComponentType<PlayerCommon>
@@ -219,7 +228,6 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	Ref<Interactable> interactable;
 	b8 try_secondary;
 	b8 try_primary;
-	b8 try_slide;
 	b8 sudoku_active;
 
 	PlayerControlHuman(PlayerHuman* = nullptr);
@@ -242,13 +250,14 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void parkour_landed(r32);
 	void hit_target(Entity*);
 	void remote_control_handle(const RemoteControl&);
+	RemoteControl remote_control_get(const Update&) const;
 
 	void update(const Update&);
 	void update_late(const Update&);
 	void draw_ui(const RenderParams&) const;
 
 	void update_camera_input(const Update&, r32 = 1.0f);
-	Vec3 get_movement(const Update&, const Quat&);
+	Vec3 get_movement(const Update&, const Quat&) const;
 	b8 input_enabled() const;
 	b8 movement_enabled() const;
 };

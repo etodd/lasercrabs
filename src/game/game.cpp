@@ -253,7 +253,7 @@ void Game::update(const Update& update_in)
 #if !SERVER
 			if (level.local
 				&& session.type == SessionType::Story
-				&& level.id == Asset::Level::Dock
+				&& level.id == Asset::Level::Tier_0
 				&& scheduled_load_level == Asset::Level::Port_District) // we're playing locally on the title screen; need to switch to a server
 			{
 				save.zone_last = level.id; // hack to ensure hand-off works correctly
@@ -494,6 +494,8 @@ void Game::update(const Update& update_in)
 		Turret::update_client_all(u);
 		Minion::update_client_all(u);
 		Grenade::update_client_all(u);
+		for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
 		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
 		{
 			if (level.local || (i.item()->has<PlayerControlHuman>() && i.item()->get<PlayerControlHuman>()->local()))
@@ -599,7 +601,6 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 #if SERVER
 
 void Game::draw_opaque(const RenderParams&) { }
-void Game::draw_override(const RenderParams&) { }
 void Game::draw_alpha(const RenderParams&) { }
 void Game::draw_hollow(const RenderParams&) { }
 void Game::draw_particles(const RenderParams&) { }
@@ -647,11 +648,6 @@ void Game::draw_opaque(const RenderParams& render_params)
 
 	if (render_params.technique == RenderTechnique::Shadow && !Overworld::modal())
 		Rope::draw(render_params);
-}
-
-void Game::draw_override(const RenderParams& params)
-{
-	Overworld::draw_override(params);
 }
 
 void Game::draw_alpha(const RenderParams& render_params)
@@ -832,6 +828,8 @@ void Game::draw_alpha(const RenderParams& render_params)
 	View::draw_alpha(render_params);
 
 	EffectLight::draw_alpha(render_params);
+
+	Tile::draw_alpha(render_params);
 	
 	Ascensions::draw_ui(render_params);
 
@@ -1171,6 +1169,7 @@ void Game::unload_level()
 
 	Overworld::clear();
 	Ascensions::clear();
+	Tile::clear();
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		Audio::listener_disable(i);
 
@@ -1423,7 +1422,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			level.rotation = Json::get_r32(element, "rotation");
 
 			// initialize teams
-			if (m != Mode::Special || level.id == Asset::Level::Dock)
+			if (m != Mode::Special || level.id == Asset::Level::Tier_0)
 			{
 				for (s32 i = 0; i < session.team_count; i++)
 				{
@@ -1554,6 +1553,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			{
 				Entity* turret = World::alloc<TurretEntity>(AI::Team(0));
 				turret->get<Transform>()->absolute(absolute_pos + absolute_rot * Vec3(0, 0, TURRET_HEIGHT), absolute_rot);
+				turret->get<Health>()->hp = Json::get_s32(element, "hp", TURRET_HEALTH);
 
 				cJSON* links = cJSON_GetObjectItem(element, "links");
 				cJSON* link = links->child;

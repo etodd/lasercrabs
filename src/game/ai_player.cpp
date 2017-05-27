@@ -33,7 +33,7 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 	config.interval_memory_update = 0.2f;
 	config.interval_low_level = 0.25f;
 	config.interval_high_level = 0.5f;
-	config.inaccuracy_min = PI * 0.001f;
+	config.inaccuracy_min = PI * 0.002f;
 	config.inaccuracy_range = PI * 0.01f;
 	config.aim_min_delay = 0.5f;
 	config.aim_timeout = 2.0f;
@@ -167,6 +167,7 @@ PlayerControlAI::PlayerControlAI(PlayerAI* p)
 	action_queue_key(),
 	action_queue(&action_queue_key),
 	random_look(0, 0, 1),
+	recent_failed_actions(),
 	reeval_timer(REEVAL_INTERVAL)
 {
 #if DEBUG_AI_CONTROL
@@ -311,7 +312,7 @@ void update_component_memory(PlayerControlAI* control, MemoryStatus (*filter)(co
 	}
 }
 
-Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target)
+Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target, r32 inaccuracy)
 {
 	PlayerCommon* common = get<PlayerCommon>();
 	Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
@@ -319,7 +320,8 @@ Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target)
 	const AI::Config& config = player.ref()->config;
 	r32 target_angle_horizontal;
 	{
-		target_angle_horizontal = LMath::closest_angle(atan2f(to_target.x, to_target.z), common->angle_horizontal);
+		r32 angle = atan2f(to_target.x, to_target.z);
+		target_angle_horizontal = LMath::closest_angle(angle + noise::sample3d(Vec3(Game::time.total, 0, 0)) * inaccuracy, common->angle_horizontal);
 
 		{
 			// make sure we don't try to turn through the wall
@@ -336,7 +338,8 @@ Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target)
 
 	r32 target_angle_vertical;
 	{
-		target_angle_vertical = LMath::closest_angle(atan2f(-to_target.y, Vec2(to_target.x, to_target.z).length()), common->angle_vertical);
+		r32 angle = atan2f(-to_target.y, Vec2(to_target.x, to_target.z).length());
+		target_angle_vertical = LMath::closest_angle(angle + noise::sample3d(Vec3(0, Game::time.total, 0)) * inaccuracy, common->angle_vertical);
 
 		{
 			// make sure we don't try to turn through the wall
@@ -361,6 +364,35 @@ Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target)
 	return Vec2(target_angle_horizontal, target_angle_vertical);
 }
 
+s32 danger(const PlayerControlAI* control)
+{
+	if (control->get<PlayerCommon>()->incoming_attacker())
+		return 3;
+
+	r32 closest_drone;
+	Drone::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_drone);
+
+	if (closest_drone < DRONE_MAX_DISTANCE * 0.5f)
+		return 2;
+
+	if (closest_drone < DRONE_MAX_DISTANCE)
+		return 1;
+
+	return 0;
+}
+
+b8 juke_needed(const PlayerControlAI* control)
+{
+	return !control->get<Drone>()->cooldown_can_shoot() && danger(control) > 1;
+}
+
+void juke(PlayerControlAI* control, const Update& u)
+{
+	// crawl randomly
+	r32 angle = (noise::sample3d(Vec3(Game::time.total * 0.5f)) + 1.0f) * PI;
+	control->get<Drone>()->crawl(control->get<Transform>()->absolute_rot() * Vec3(cosf(angle), sinf(angle), 0), u.time.delta);
+}
+
 void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, Target* target_entity)
 {
 	PlayerCommon* common = get<PlayerCommon>();
@@ -369,6 +401,9 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 
 	b8 only_crawling_dashing = false;
 
+	if (juke_needed(this))
+		juke(this, u);
+	else
 	{
 		// crawling
 
@@ -445,7 +480,7 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 		to_target /= distance_to_target;
 		Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
 
-		Vec2 target_angles = aim(u, to_target);
+		Vec2 target_angles = aim(u, to_target, inaccuracy);
 
 		if (can_shoot)
 		{
@@ -478,7 +513,7 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 
 // if tolerance is greater than 0, we need to land within that distance of the given target point
 // returns true as long as it's possible for us to eventually hit the goal
-b8 PlayerControlAI::go(const Update& u, const AI::DronePathNode& node_prev, const AI::DronePathNode& node, r32 tolerance)
+b8 PlayerControlAI::aim_and_shoot_location(const Update& u, const AI::DronePathNode& node_prev, const AI::DronePathNode& node, r32 tolerance)
 {
 	PlayerCommon* common = get<PlayerCommon>();
 
@@ -488,6 +523,9 @@ b8 PlayerControlAI::go(const Update& u, const AI::DronePathNode& node_prev, cons
 
 	Vec3 position_before_crawling = get<Transform>()->absolute_pos();
 
+	if (juke_needed(this))
+		juke(this, u);
+	else
 	{
 		// crawling
 
@@ -634,7 +672,7 @@ b8 PlayerControlAI::go(const Update& u, const AI::DronePathNode& node_prev, cons
 
 	if (can_shoot)
 	{
-		Vec2 target_angles = aim(u, to_target);
+		Vec2 target_angles = aim(u, to_target, 0.0f);
 
 		// cooldown is done; we can shoot.
 		// check if we're done aiming
@@ -690,23 +728,6 @@ b8 minion_filter(const PlayerControlAI* control, const Entity* e)
 {
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& !e->get<AIAgent>()->stealth;
-}
-
-s32 danger(const PlayerControlAI* control)
-{
-	if (control->get<PlayerCommon>()->incoming_attacker())
-		return 3;
-
-	r32 closest_drone;
-	Drone::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_drone);
-
-	if (closest_drone < DRONE_MAX_DISTANCE * 0.5f)
-		return 2;
-
-	if (closest_drone < DRONE_MAX_DISTANCE)
-		return 1;
-
-	return 0;
 }
 
 MemoryStatus minion_memory_filter(const PlayerControlAI* control, const Entity* e)
@@ -979,6 +1000,9 @@ void PlayerControlAI::actions_populate()
 		}
 	}
 
+	b8 added_battery = false;
+
+	// attack nearby entities
 	if (tag.nearby_entities
 		& ((1 << s32(AI::RecordedLife::EntityDroneEnemyShield1))
 			| (1 << s32(AI::RecordedLife::EntityDroneEnemyShield2))
@@ -1042,6 +1066,7 @@ void PlayerControlAI::actions_populate()
 						if (!battery_filter(this, entity))
 							continue;
 
+						added_battery = true;
 						if (entity_type == AI::RecordedLife::EntityBatteryEnemy)
 							priority -= 1;
 						break;
@@ -1067,11 +1092,43 @@ void PlayerControlAI::actions_populate()
 		}
 	}
 
+	// go after long-range batteries
+	if (!added_battery)
+	{
+		if (Battery::count(AI::TeamNone) > 0)
+		{
+			AI::RecordedLife::Action action;
+			action.type = AI::RecordedLife::Action::TypeAttack;
+			action.entity_type = AI::RecordedLife::EntityBatteryNeutral;
+			action_queue.push({ 1, action });
+		}
+		if (Battery::count(~(1 << my_team)) > 0)
+		{
+			AI::RecordedLife::Action action;
+			action.type = AI::RecordedLife::Action::TypeAttack;
+			action.entity_type = AI::RecordedLife::EntityBatteryEnemy;
+			action_queue.push({ 0, action });
+		}
+	}
+
 	// last resort: panic
 	{
 		AI::RecordedLife::Action action;
 		action.type = AI::RecordedLife::Action::TypeNone;
 		action_queue.push({ 4096, action });
+	}
+
+	for (s32 i = 0; i < recent_failed_actions.length; i++)
+	{
+		const FailedAction& failed = recent_failed_actions[i];
+		for (s32 j = 0; j < action_queue.heap.length; j++)
+		{
+			if (failed.timestamp > Game::time.total - 3.0f && action_queue.heap[j].action.fuzzy_equal(failed.action))
+			{
+				action_queue.remove(j);
+				break;
+			}
+		}
 	}
 }
 
@@ -1080,6 +1137,13 @@ void PlayerControlAI::action_done(b8 success)
 #if DEBUG_AI_CONTROL
 	vi_debug("Complete: %s", success ? "success" : "fail");
 #endif
+
+	if (!success)
+	{
+		if (recent_failed_actions.length == recent_failed_actions.capacity())
+			recent_failed_actions.remove(recent_failed_actions.length - 1);
+		recent_failed_actions.insert(0, { Game::time.total, current.action });
+	}
 
 	action_clear();
 	
@@ -1309,7 +1373,7 @@ void PlayerControlAI::update(const Update& u)
 
 				// look at next target
 				if (aim_timeout > config.aim_timeout
-					|| !go(u, path[path_index - 1], path[path_index], DRONE_RADIUS))
+					|| !aim_and_shoot_location(u, path[path_index - 1], path[path_index], DRONE_RADIUS))
 				{
 #if DEBUG_AI_CONTROL
 					vi_debug("Marking bad Drone adjacency");
@@ -1321,7 +1385,7 @@ void PlayerControlAI::update(const Update& u)
 			else
 			{
 				// look randomly
-				aim(u, random_look);
+				aim(u, random_look, inaccuracy);
 
 				if (current.action.type == AI::RecordedLife::Action::TypeNone)
 				{

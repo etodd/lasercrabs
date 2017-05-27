@@ -63,6 +63,12 @@ struct ActionEntryKey
 	}
 };
 
+struct FailedAction
+{
+	r32 timestamp;
+	AI::RecordedLife::Action action;
+};
+
 struct PlayerControlAI : public ComponentType<PlayerControlAI>
 {
 #if DEBUG_AI_CONTROL
@@ -70,6 +76,7 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 #endif
 
 	PriorityQueue<ActionEntry, ActionEntryKey> action_queue;
+	StaticArray<FailedAction, 4> recent_failed_actions;
 	ActionEntry current;
 	Vec3 target_pos;
 	Vec3 random_look;
@@ -100,9 +107,9 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	void upgrade_completed(Upgrade);
 	void update_memory();
 	void sniper_or_bolter_cancel();
-	Vec2 aim(const Update&, const Vec3&);
+	Vec2 aim(const Update&, const Vec3&, r32);
 	void aim_and_shoot_target(const Update&, const Vec3&, Target*);
-	b8 go(const Update&, const AI::DronePathNode&, const AI::DronePathNode&, r32);
+	b8 aim_and_shoot_location(const Update&, const AI::DronePathNode&, const AI::DronePathNode&, r32);
 	b8 in_range(const Vec3&, r32) const;
 	void set_path(const AI::DronePath&);
 	void drone_done_flying_or_dashing();

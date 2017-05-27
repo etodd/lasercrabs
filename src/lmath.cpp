@@ -1171,7 +1171,7 @@ void Quat::from_angle_axis(const r32& rfAngle, const Vec3& rkAxis)
 	z = fSin*rkAxis.z;
 }
 
-void Quat::to_angle_axis(r32& rfAngle, Vec3& rkAxis) const
+void Quat::to_angle_axis(r32* rfAngle, Vec3* rkAxis) const
 {
 	// The Quat representing the rotation is
 	//   q = cos(A/2)+sin(A/2)*(x*i+y*j+z*k)
@@ -1179,19 +1179,19 @@ void Quat::to_angle_axis(r32& rfAngle, Vec3& rkAxis) const
 	r32 fSqrLength = x*x+y*y+z*z;
 	if (fSqrLength > 0.0f)
 	{
-		rfAngle = 2.0f*acos(w);
+		*rfAngle = 2.0f*acos(w);
 		r32 fInvLength = 1.0f / sqrt(fSqrLength);
-		rkAxis.x = x*fInvLength;
-		rkAxis.y = y*fInvLength;
-		rkAxis.z = z*fInvLength;
+		rkAxis->x = x*fInvLength;
+		rkAxis->y = y*fInvLength;
+		rkAxis->z = z*fInvLength;
 	}
 	else
 	{
 		// angle is 0 (mod 2*pi), so any axis will do
-		rfAngle = r32(0.0);
-		rkAxis.x = 1.0;
-		rkAxis.y = 0.0;
-		rkAxis.z = 0.0;
+		*rfAngle = r32(0.0);
+		rkAxis->x = 1.0;
+		rkAxis->y = 0.0;
+		rkAxis->z = 0.0;
 	}
 }
 
@@ -1242,7 +1242,7 @@ void Quat::to_axes(Vec3* akAxis) const
 	}
 }
 
-Vec3 Quat::x_axis(void) const
+Vec3 Quat::x_axis() const
 {
 	//r32 fTx  = 2.0*x;
 	r32 fTy  = 2.0f*y;
@@ -1254,10 +1254,10 @@ Vec3 Quat::x_axis(void) const
 	r32 fTyy = fTy*y;
 	r32 fTzz = fTz*z;
 
-	return Vec3(1.0f-(fTyy+fTzz), fTxy+fTwz, fTxz-fTwy);
+	return Vec3(1.0f - (fTyy + fTzz), fTxy + fTwz, fTxz - fTwy);
 }
 
-Vec3 Quat::y_axis(void) const
+Vec3 Quat::y_axis() const
 {
 	r32 fTx  = 2.0f*x;
 	r32 fTy  = 2.0f*y;
@@ -1269,10 +1269,10 @@ Vec3 Quat::y_axis(void) const
 	r32 fTyz = fTz*y;
 	r32 fTzz = fTz*z;
 
-	return Vec3(fTxy-fTwz, 1.0f-(fTxx+fTzz), fTyz+fTwx);
+	return Vec3(fTxy - fTwz, 1.0f - (fTxx + fTzz), fTyz+fTwx);
 }
 
-Vec3 Quat::z_axis(void) const
+Vec3 Quat::z_axis() const
 {
 	r32 fTx  = 2.0f*x;
 	r32 fTy  = 2.0f*y;
@@ -1284,26 +1284,26 @@ Vec3 Quat::z_axis(void) const
 	r32 fTyy = fTy*y;
 	r32 fTyz = fTz*y;
 
-	return Vec3(fTxz+fTwy, fTyz-fTwx, 1.0f-(fTxx+fTyy));
+	return Vec3(fTxz + fTwy, fTyz - fTwx, 1.0f - (fTxx + fTyy));
 }
 
-void Quat::to_axes(Vec3& xaxis, Vec3& yaxis, Vec3& zaxis) const
+void Quat::to_axes(Vec3* xaxis, Vec3* yaxis, Vec3* zaxis) const
 {
 	Mat3 kRot;
 
 	to_rotation_matrix(kRot);
 
-	xaxis.x = kRot[0][0];
-	xaxis.y = kRot[1][0];
-	xaxis.z = kRot[2][0];
+	xaxis->x = kRot[0][0];
+	xaxis->y = kRot[1][0];
+	xaxis->z = kRot[2][0];
 
-	yaxis.x = kRot[0][1];
-	yaxis.y = kRot[1][1];
-	yaxis.z = kRot[2][1];
+	yaxis->x = kRot[0][1];
+	yaxis->y = kRot[1][1];
+	yaxis->z = kRot[2][1];
 
-	zaxis.x = kRot[0][2];
-	zaxis.y = kRot[1][2];
-	zaxis.z = kRot[2][2];
+	zaxis->x = kRot[0][2];
+	zaxis->y = kRot[1][2];
+	zaxis->z = kRot[2][2];
 }
 
 Quat Quat::operator+ (const Quat& rkQ) const
@@ -1503,7 +1503,7 @@ r32 Quat::angle(const Quat& a, const Quat& b)
 	Quat c = a.inverse() * b;
 	r32 angle;
 	Vec3 axis;
-	c.to_angle_axis(angle, axis);
+	c.to_angle_axis(&angle, &axis);
 	if (angle > PI)
 		angle = fabsf(angle - (PI * 2.0f));
 	return angle;

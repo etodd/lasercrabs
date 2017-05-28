@@ -799,8 +799,8 @@ void Parkour::update(const Update& u)
 		{
 			// we're falling
 			// check if there are any minions to squish
-			// if the player is holding the slide button, they don't have to be falling very fast at all to do damage
-			if (get<RigidBody>()->btBody->getLinearVelocity().getY() < LANDING_VELOCITY_LIGHT)
+			r32 velocity_y = get<RigidBody>()->btBody->getLinearVelocity().getY();
+			if (velocity_y < LANDING_VELOCITY_HARD)
 			{
 				if (minions_do_damage(this, &minion_below))
 				{
@@ -810,6 +810,8 @@ void Parkour::update(const Update& u)
 					get<Walker>()->speed = 0.0f;
 					get<Animator>()->layers[1].play(Asset::Animation::character_land_hard);
 				}
+				else
+					try_roll();
 			}
 		}
 	}

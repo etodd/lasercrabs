@@ -88,9 +88,9 @@ enum class Resource : s8
 enum class ZoneState : s8
 {
 	Locked,
-	Friendly,
-	GroupOwned,
-	Hostile,
+	ParkourUnlocked,
+	PvpFriendly,
+	PvpHostile,
 	count,
 };
 

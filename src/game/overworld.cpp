@@ -49,9 +49,9 @@ namespace Overworld
 #define OPACITY 0.8f
 #define STRING_BUFFER_SIZE 256
 #define BUY_TIME 1.0f
-#define ZONE_MAX_CHILDREN 12
 #define EVENT_INTERVAL_PER_ZONE (60.0f * 5.0f)
 #define EVENT_ODDS_PER_ZONE (1.0f / EVENT_INTERVAL_PER_ZONE) // an event will happen on average every X minutes per zone you own
+#define ZONE_MAX_CHILDREN 12
 
 struct ZoneNode
 {
@@ -62,6 +62,7 @@ struct ZoneNode
 	s16 rewards[s32(Resource::count)];
 	s8 size;
 	s8 max_teams;
+	b8 pvp;
 
 	inline Vec3 pos() const
 	{
@@ -597,7 +598,7 @@ s16 energy_increment_total()
 	{
 		const ZoneNode& zone = global.zones[i];
 		ZoneState zone_state = Game::save.zones[zone.id];
-		if (zone_state == ZoneState::Friendly)
+		if (zone_state == ZoneState::PvpFriendly)
 			result += energy_increment_zone(zone);
 	}
 	if (Game::save.group != Net::Master::Group::None)
@@ -677,15 +678,15 @@ Vec3 zone_color(const ZoneNode& zone)
 			{
 				return Vec3(0.25f);
 			}
-			case ZoneState::Friendly:
-			{
-				return Team::color_friend.xyz();
-			}
-			case ZoneState::GroupOwned:
+			case ZoneState::ParkourUnlocked:
 			{
 				return Vec3(1.0f);
 			}
-			case ZoneState::Hostile:
+			case ZoneState::PvpFriendly:
+			{
+				return Team::color_friend.xyz();
+			}
+			case ZoneState::PvpHostile:
 			{
 				return Team::color_enemy.xyz();
 			}
@@ -716,15 +717,15 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 			{
 				return UI::color_disabled;
 			}
-			case ZoneState::Friendly:
-			{
-				return Team::ui_color_friend;
-			}
-			case ZoneState::GroupOwned:
+			case ZoneState::ParkourUnlocked:
 			{
 				return UI::color_default;
 			}
-			case ZoneState::Hostile:
+			case ZoneState::PvpFriendly:
+			{
+				return Team::ui_color_friend;
+			}
+			case ZoneState::PvpHostile:
 			{
 				return Team::ui_color_enemy;
 			}
@@ -949,7 +950,7 @@ b8 zone_can_capture(AssetID zone_id)
 
 	switch (Game::save.zones[zone_id])
 	{
-		case ZoneState::Friendly:
+		case ZoneState::PvpFriendly:
 		{
 			// tolerate time differences on the server
 #if SERVER
@@ -958,7 +959,7 @@ b8 zone_can_capture(AssetID zone_id)
 			return zone_under_attack_timer() > 0.0f && zone_id == zone_under_attack();
 #endif
 		}
-		case ZoneState::Hostile:
+		case ZoneState::PvpHostile:
 		{
 			// tolerate time differences on the server
 #if SERVER
@@ -1087,10 +1088,10 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 				if (zone_node_get(zone) && zone_can_capture(zone))
 				{
 					if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES
-						&& (Game::save.zones[zone] == ZoneState::Friendly || Game::save.resources[s32(Resource::HackKits)] > 0))
+						&& (Game::save.zones[zone] == ZoneState::PvpFriendly || Game::save.resources[s32(Resource::HackKits)] > 0))
 					{
 						resource_change(Resource::Drones, -DEFAULT_ASSAULT_DRONES);
-						if (Game::save.zones[zone] != ZoneState::Friendly)
+						if (Game::save.zones[zone] != ZoneState::PvpFriendly)
 							resource_change(Resource::HackKits, -1);
 						go(zone);
 					}
@@ -1295,7 +1296,7 @@ void group_join(Net::Master::Group g)
 			if (g == Net::Master::Group::None)
 				zone_change(zone.id, ZoneState::Locked);
 			else
-				zone_change(zone.id, mersenne::randf_cc() > 0.7f ? ZoneState::Friendly : ZoneState::Hostile);
+				zone_change(zone.id, mersenne::randf_cc() > 0.7f ? ZoneState::PvpFriendly : ZoneState::PvpHostile);
 		}
 	}
 }
@@ -1306,14 +1307,14 @@ void capture_start(s8 gamepad)
 		&& Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
 	{
 		// one hack kit needed if we're attacking
-		if (Game::save.zones[data.zone_selected] == ZoneState::Friendly || Game::save.resources[s32(Resource::HackKits)] > 0)
+		if (Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly || Game::save.resources[s32(Resource::HackKits)] > 0)
 			deploy_start();
 	}
 }
 
 void zone_done(AssetID zone)
 {
-	if (Game::save.zones[zone] == ZoneState::Friendly)
+	if (Game::save.zones[zone] == ZoneState::PvpFriendly)
 	{
 		// we won
 		if (Game::level.local)
@@ -1336,6 +1337,18 @@ void zone_change(AssetID zone, ZoneState state)
 	OverworldNet::zone_change(zone, state);
 }
 
+b8 zone_is_pvp(AssetID zone_id)
+{
+	return zone_node_get(zone_id)->pvp;
+}
+
+void zone_rewards(AssetID zone_id, s16* rewards)
+{
+	const ZoneNode* z = zone_node_get(zone_id);
+	for (s32 i = 0; i < s32(Resource::count); i++)
+		rewards[i] = z->rewards[i];
+}
+
 b8 zone_filter_default(AssetID zone_id)
 {
 	return true;
@@ -1353,7 +1366,7 @@ b8 zone_filter_can_be_attacked(AssetID zone_id)
 
 b8 zone_filter_captured(AssetID zone_id)
 {
-	return Game::save.zones[zone_id] == ZoneState::Friendly;
+	return Game::save.zones[zone_id] == ZoneState::PvpFriendly;
 }
 
 void zone_statistics(s32* captured, s32* hostile, s32* locked, b8 (*filter)(AssetID) = &zone_filter_default)
@@ -1367,9 +1380,9 @@ void zone_statistics(s32* captured, s32* hostile, s32* locked, b8 (*filter)(Asse
 		if (filter(zone.id))
 		{
 			ZoneState state = Game::save.zones[zone.id];
-			if (state == ZoneState::Friendly)
+			if (state == ZoneState::PvpFriendly)
 				(*captured)++;
-			else if (state == ZoneState::Hostile)
+			else if (state == ZoneState::PvpHostile)
 				(*hostile)++;
 			else if (state == ZoneState::Locked)
 				(*locked)++;
@@ -1390,7 +1403,7 @@ void tab_map_update(const Update& u)
 		{
 			if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
 			{
-				if (Game::save.zones[data.zone_selected] == ZoneState::Friendly) // defending
+				if (Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly) // defending
 					Menu::dialog(0, &capture_start, _(strings::confirm_defend), DEFAULT_ASSAULT_DRONES);
 				else
 				{
@@ -1735,7 +1748,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		sprintf(buffer, _(strings::energy_generation), s32(energy_increment_zone(*zone)));
 		zone_stat_draw(p, rect, UIText::Anchor::Min, 1, buffer, UI::color_default);
 
-		if (zone_state == ZoneState::Hostile)
+		if (zone_state == ZoneState::PvpHostile)
 		{
 			// show potential rewards
 			b8 has_rewards = false;
@@ -1770,7 +1783,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			UIText text;
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 			text.color = UI::color_accent;
-			text.text(0, _(Game::save.zones[data.zone_selected] == ZoneState::Friendly ? strings::prompt_defend : strings::prompt_capture));
+			text.text(0, _(Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly ? strings::prompt_defend : strings::prompt_capture));
 
 			Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
 
@@ -2061,7 +2074,7 @@ void update(const Update& u)
 						&& Game::level.id != Game::session.zone_under_attack
 						&& data.timer_deploy == 0.0f
 						&& Game::scheduled_load_level == AssetNull) // if the player is deploying to this zone to contest it, don't set it to hostile; wait for the match outcome
-						zone_change(Game::session.zone_under_attack, ZoneState::Hostile);
+						zone_change(Game::session.zone_under_attack, ZoneState::PvpHostile);
 					Game::session.zone_under_attack = AssetNull;
 				}
 			}
@@ -2345,11 +2358,12 @@ void init(cJSON* level)
 					const char* mesh_ref = mesh_json->valuestring;
 					node->mesh = Loader::find_mesh(mesh_ref);
 
-					node->rewards[0] = (s16)Json::get_s32(element, "energy", 0);
-					node->rewards[1] = (s16)Json::get_s32(element, "hack_kits", 0);
-					node->rewards[2] = (s16)Json::get_s32(element, "drones", 0);
-					node->size = (s8)Json::get_s32(element, "size", 1);
-					node->max_teams = (s8)Json::get_s32(element, "max_teams", 2);
+					node->pvp = b8(Json::get_s32(element, "pvp"));
+					node->rewards[0] = s16(Json::get_s32(element, "energy", 0));
+					node->rewards[1] = s16(Json::get_s32(element, "hack_kits", 0));
+					node->rewards[2] = s16(Json::get_s32(element, "drones", 0));
+					node->size = s8(Json::get_s32(element, "size", 1));
+					node->max_teams = s8(Json::get_s32(element, "max_teams", 2));
 				}
 			}
 			else if (cJSON_HasObjectItem(element, "Prop"))

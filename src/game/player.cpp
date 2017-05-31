@@ -657,6 +657,9 @@ void PlayerHuman::update(const Update& u)
 		}
 	}
 
+	if (entity)
+		select_spawn_timer = vi_max(0.0f, select_spawn_timer - u.time.delta); // for letterbox animation
+
 	switch (ui_mode())
 	{
 		case UIMode::PvpDefault:
@@ -763,10 +766,10 @@ void PlayerHuman::update(const Update& u)
 #endif
 				}
 			}
-			else if (get<PlayerManager>()->respawns != 0)
+			else if (Game::level.mode == Game::Mode::Pvp && get<PlayerManager>()->respawns != 0)
 			{
 				// we're spawning
-				if (Game::level.mode == Game::Mode::Pvp && !get<PlayerManager>()->can_spawn)
+				if (!get<PlayerManager>()->can_spawn)
 				{
 					// player can't spawn yet; needs to solve sudoku
 					sudoku.update(u, gamepad, this);
@@ -1805,6 +1808,9 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 	}
 
+	if (get<PlayerManager>()->instance.ref() && select_spawn_timer > 0.0f)
+		Menu::draw_letterbox(params, select_spawn_timer, TRANSITION_TIME);
+
 	if (mode == UIMode::Pause) // pause menu always drawn on top
 		menu.draw_ui(params, Vec2(0, params.camera->viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
 }
@@ -2364,6 +2370,8 @@ void PlayerControlHuman::awake()
 		remote_control.parent = t->parent;
 	}
 
+	player.ref()->select_spawn_timer = TRANSITION_TIME * 0.5f; // for letterbox animation
+
 	link_arg<const HealthEvent&, &PlayerControlHuman::health_changed>(get<Health>()->changed);
 	link_arg<Entity*, &PlayerControlHuman::killed>(get<Health>()->killed);
 
@@ -2403,6 +2411,8 @@ PlayerControlHuman::~PlayerControlHuman()
 {
 	if (has<Parkour>())
 		get<Audio>()->post_event(AK::EVENTS::STOP_PARKOUR_ALL);
+	if (player.ref())
+		player.ref()->select_spawn_timer = 0.0f;
 }
 
 void PlayerControlHuman::health_changed(const HealthEvent& e)
@@ -2753,11 +2763,6 @@ void player_confirm_tram_interactable(s8 gamepad)
 			break;
 		}
 	}
-}
-
-void player_confirm_skip_tutorial(s8 gamepad)
-{
-	Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::hack_kits));
 }
 
 void player_confirm_terminal_interactable(s8 gamepad)
@@ -3226,7 +3231,7 @@ void PlayerControlHuman::update(const Update& u)
 						{
 							switch (Game::save.zones[Game::level.id])
 							{
-								case ZoneState::Hostile:
+								case ZoneState::PvpHostile:
 								{
 									if (Game::level.post_pvp || platform::timestamp() - Game::save.zone_lost_times[Game::level.id] < ZONE_LOST_COOLDOWN)
 									{
@@ -3252,6 +3257,11 @@ void PlayerControlHuman::update(const Update& u)
 									}
 									break;
 								}
+								case ZoneState::ParkourUnlocked:
+								{
+									vi_assert(false); // shouldn't be any terminals in parkour zones
+									break;
+								}
 								case ZoneState::Locked:
 								{
 									interactable.ref()->interact();
@@ -3259,8 +3269,7 @@ void PlayerControlHuman::update(const Update& u)
 									get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 									break;
 								}
-								case ZoneState::Friendly:
-								case ZoneState::GroupOwned:
+								case ZoneState::PvpFriendly:
 								{
 									// zone is already owned
 									player.ref()->msg(_(strings::zone_already_captured), false);
@@ -3280,50 +3289,26 @@ void PlayerControlHuman::update(const Update& u)
 							s8 track = s8(interactable.ref()->user_data);
 							AssetID target_level = Game::level.tram_tracks[track].level;
 							Tram* tram = Tram::by_track(track);
-							if (tram->doors_open() || Game::save.zones[target_level] == ZoneState::Friendly || Game::save.zones[target_level] == ZoneState::Hostile)
+							if (tram->doors_open()
+								|| Game::save.zones[target_level] == ZoneState::PvpFriendly
+								|| Game::save.zones[target_level] == ZoneState::PvpHostile
+								|| Game::save.zones[target_level] == ZoneState::ParkourUnlocked
+								|| Overworld::zone_is_pvp(target_level))
 							{
 								// go right ahead
 								interactable.ref()->interact();
 								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 								get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 							}
-							else if (Game::save.zones[Game::level.id] == ZoneState::Locked
-								&& (Game::save.zones[target_level] == ZoneState::Locked || Game::save.zones[target_level] == ZoneState::GroupOwned))
+							else if (Game::save.resources[s32(Resource::HackKits)] > 0) // ask if they want to hack it
 							{
-								// unlock terminal first
-								player.ref()->msg(_(strings::error_locked_zone), false);
+								Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::hack_kits));
 								interactable = nullptr;
 							}
-							else
+							else // not enough
 							{
-								if (Game::save.zones[target_level] == ZoneState::Locked)
-								{
-									if (Game::save.resources[s32(Resource::HackKits)] > 0) // zone is unlocked, but need to hack this tram first
-									{
-										if (Game::level.id == Asset::Level::Port_District && s32(Game::level.feature_level) < s32(Game::FeatureLevel::Turrets))
-										{
-											// player is about to skip tutorial
-											Menu::dialog(gamepad, &player_confirm_skip_tutorial, _(strings::confirm_skip_tutorial));
-											interactable = nullptr;
-										}
-										else
-										{
-											Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::hack_kits));
-											interactable = nullptr;
-										}
-									}
-									else // not enough
-									{
-										Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
-										interactable = nullptr;
-									}
-								}
-								else // no need to hack, just go
-								{
-									interactable.ref()->interact();
-									get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-									get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
-								}
+								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
+								interactable = nullptr;
 							}
 							break;
 						}
@@ -3900,17 +3885,17 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 									UIText text;
 									switch (Game::save.zones[zone])
 									{
-										case ZoneState::Friendly:
+										case ZoneState::PvpFriendly:
 										{
 											text.color = Team::ui_color_friend;
 											break;
 										}
-										case ZoneState::GroupOwned:
+										case ZoneState::ParkourUnlocked:
 										{
 											text.color = UI::color_default;
 											break;
 										}
-										case ZoneState::Hostile:
+										case ZoneState::PvpHostile:
 										{
 											text.color = Team::ui_color_enemy;
 											break;
@@ -4102,7 +4087,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
 		text.size = text_size;
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.7f);
+		Vec2 pos = viewport.size * Vec2(0.5f, 0.65f);
 		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 		text.draw(params, pos);
 	}

@@ -112,7 +112,7 @@ const btRigidBody* get_actual_support_body(const btRigidBody* object)
 		return object;
 }
 
-btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_distance)
+btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_distance) const
 {
 	Vec3 pos = get<Transform>()->absolute_pos();
 
@@ -132,6 +132,15 @@ btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_dista
 
 	// no hits
 	return btCollisionWorld::ClosestRayResultCallback(Vec3::zero, Vec3::zero);
+}
+
+RigidBody* Walker::get_support(r32 extra_distance) const
+{
+	btCollisionWorld::ClosestRayResultCallback ray_callback = check_support(extra_distance);
+	if (ray_callback.hasHit())
+		return Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+	else
+		return nullptr;
 }
 
 Vec3 Walker::get_support_velocity(const Vec3& absolute_pos, const btCollisionObject* support)

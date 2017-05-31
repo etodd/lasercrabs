@@ -146,7 +146,7 @@ void Team::awake_all()
 	{
 		if (Game::session.type == SessionType::Story
 			&& Game::level.mode == Game::Mode::Pvp
-			&& Game::save.zones[Game::level.id] == ZoneState::Friendly)
+			&& Game::save.zones[Game::level.id] == ZoneState::PvpFriendly)
 			match_time = 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f); // player is defending; AI attacker has been here for some time
 		else
 			match_time = 0.0f;
@@ -567,7 +567,19 @@ b8 Team::net_msg(Net::StreamRead* p)
 				team_add_score_summary_item(i.item(), i.item()->username);
 				team_add_score_summary_item(i.item(), _(strings::kills), i.item()->kills);
 				if (Game::session.type == SessionType::Story)
+				{
 					team_add_score_summary_item(i.item(), _(strings::leftover_energy), i.item()->energy);
+					if (i.item()->has<PlayerHuman>() && i.item()->team.equals(winner))
+					{
+						s16 rewards[s32(Resource::count)];
+						Overworld::zone_rewards(Game::level.id, rewards);
+						for (s32 j = 0; j < s32(Resource::count); j++)
+						{
+							if (rewards[j] > 0)
+								team_add_score_summary_item(i.item(), _(Overworld::resource_info[j].description), rewards[j]);
+						}
+					}
+				}
 				if (PlayerManager::list.count() > 2)
 					team_add_score_summary_item(i.item(), _(strings::deaths), i.item()->deaths);
 			}
@@ -730,10 +742,10 @@ void Team::update_all_server(const Update& u)
 
 				if (w == &Team::list[1]) // attackers won; the zone is going to change owners
 				{
-					if (Game::save.zones[Game::level.id] == ZoneState::Friendly) // player was defending
-						Overworld::zone_change(Game::level.id, ZoneState::Hostile);
+					if (Game::save.zones[Game::level.id] == ZoneState::PvpFriendly) // player was defending
+						Overworld::zone_change(Game::level.id, ZoneState::PvpHostile);
 					else // player was attacking
-						Overworld::zone_change(Game::level.id, ZoneState::Friendly);
+						Overworld::zone_change(Game::level.id, ZoneState::PvpFriendly);
 				}
 			}
 		}
@@ -798,7 +810,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	abilities{ Ability::None, Ability::None, Ability::None },
 	instance(),
 	spawn(),
-	can_spawn(Game::level.mode == Game::Mode::Parkour || Game::session.type != SessionType::Story || Game::save.zones[Game::level.id] == ZoneState::Friendly),
+	can_spawn(Game::level.mode == Game::Mode::Parkour || Game::session.type != SessionType::Story || Game::save.zones[Game::level.id] == ZoneState::PvpFriendly),
 	current_upgrade(Upgrade::None),
 	state_timer(),
 	upgrade_completed(),

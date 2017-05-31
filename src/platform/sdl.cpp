@@ -15,6 +15,7 @@
 #include <Windows.h>
 #endif
 #include <time.h>
+#include "lodepng/lodepng.h"
 
 namespace VI
 {
@@ -225,10 +226,52 @@ namespace VI
 		{
 			render(sync);
 
-			// Swap buffers
+			// swap buffers
 			SDL_GL_SwapWindow(window);
 
 			SDL_PumpEvents();
+
+#if DEBUG
+			// screenshot
+			if (sync->input.keys.get(s32(KeyCode::F11)) && !sdl_keys[s32(KeyCode::F11)])
+			{
+				s32 w = sync->input.width;
+				s32 h = sync->input.height;
+				std::vector<unsigned char> data;
+				data.resize(w * h * 4);
+
+				{
+					glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+					glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, &data[0]);
+					GLenum error;
+					if ((error = glGetError()) != GL_NO_ERROR)
+					{
+						vi_debug("GL error: %u", error);
+						vi_debug_break();
+					}
+				}
+
+				// flip image
+				{
+					vi_assert(h % 2 == 0);
+					s32 y2 = h - 1;
+					for (s32 y = 0; y < h / 2; y++)
+					{
+						for (s32 x = 0; x < w; x++)
+						{
+							u32* i = (u32*)(&data[(y * w + x) * 4]);
+							u32* j = (u32*)(&data[(y2 * w + x) * 4]);
+							u32 tmp = *i;
+							*i = *j;
+							*j = tmp;
+						}
+						y2--;
+					}
+				}
+
+				lodepng::encode("screen.png", data, w, h);
+			}
+#endif
 
 			sync->input.keys.clear();
 			for (s32 i = 0; i < s32(KeyCode::count); i++)

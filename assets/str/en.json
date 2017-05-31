@@ -6,7 +6,6 @@
 	"master_timeout": "Error contacting server.\nSome functionality may be limited.",
 	"hacking": "Cracking...",
 	"hack_complete": "Crack complete",
-	"error_locked_zone": "Error: unlock terminal first",
 	"error_inside_tram": "Error: map unavailable",
 	"error_zone_under_attack": "Error: zone under attack",
 	"multiplayer": "Multiplayer",
@@ -79,7 +78,6 @@
 	"confirm_spend": "Spend %d %s?",
 	"confirm_capture": "Spend %d drones to capture this zone?",
 	"confirm_defend": "Spend %d drones to defend this zone?",
-	"confirm_skip_tutorial": "You have not yet captured this zone. Move on without completing the tutorial?",
 	"confirm_quit": "Quit?",
 	"energy_generation": "Energy: +%d",
 	"energy_generation_total": "Total Energy Collection: +%d",
@@ -148,13 +146,13 @@ Capture the hanging battery.
 	"tut_capture": "Destroy the core modules to capture the zone.
 (5/5)",
 	"tut_overworld": "Press [{{Scoreboard}}] to open the map.",
+	"tut_done": "Return to the docks.",
 
 	"tut_climb_jump": "[{{Jump}}] to jump.
 [{{Parkour}}] to climb.
 (1/2)",
 	"tut_wallrun": "Run alongside the wall and hold [{{Parkour}}] to wall-run.
 (2/2)",
-	"tut_slide": "Run and hold [{{Slide}}] to slide.",
 
 	"left_joystick": "Left joystick",
 	"right_joystick": "Right joystick",

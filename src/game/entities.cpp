@@ -166,7 +166,7 @@ void Health::update_client(const Update& u)
 
 void Shield::awake()
 {
-	if (Game::level.local && !inner.ref())
+	if (Game::level.local && !inner.ref() && get<Health>()->shield_max > 0)
 	{
 		AI::Team team = has<CoreModule>() ? get<CoreModule>()->team : get<AIAgent>()->team;
 
@@ -209,18 +209,19 @@ void Shield::awake()
 // not synced over network
 void Shield::set_team(AI::Team team)
 {
-	inner.ref()->get<View>()->team = s8(team);
-	outer.ref()->get<View>()->team = s8(team);
+	if (inner.ref())
+	{
+		inner.ref()->get<View>()->team = s8(team);
+		outer.ref()->get<View>()->team = s8(team);
+	}
 }
 
 Shield::~Shield()
 {
-	if (Game::level.local)
+	if (Game::level.local && inner.ref())
 	{
-		if (inner.ref())
-			World::remove_deferred(inner.ref());
-		if (outer.ref())
-			World::remove_deferred(outer.ref());
+		World::remove_deferred(inner.ref());
+		World::remove_deferred(outer.ref());
 	}
 }
 
@@ -299,6 +300,9 @@ void apply_alpha_scale(View* v, const Update& u, const Vec3& offset_pos, r32 tar
 
 void Shield::update_client(const Update& u)
 {
+	if (!inner.ref())
+		return;
+
 	Vec3 offset_pos = has<SkinnedModel>() ? get<SkinnedModel>()->offset.translation() : get<View>()->offset.translation();
 	RenderMask mask = has<SkinnedModel>() ? get<SkinnedModel>()->mask : get<View>()->mask;
 
@@ -1049,6 +1053,7 @@ TurretEntity::TurretEntity(AI::Team team)
 	create<Target>();
 
 	create<Health>(TURRET_HEALTH, TURRET_HEALTH);
+	create<Shield>();
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionInaccessible & ~CollisionElectric & ~CollisionParkour & ~CollisionStatic & ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker, Asset::Mesh::turret_top);
 	body->set_restitution(0.75f);
@@ -1076,7 +1081,8 @@ void Turret::set_team(AI::Team t)
 
 void Turret::hit_by(const TargetEvent& e)
 {
-	get<Health>()->damage(e.hit_by, 5);
+	if (!get<Health>()->invincible())
+		get<Health>()->damage(e.hit_by, 5);
 }
 
 void Turret::killed(Entity* by)
@@ -2882,12 +2888,12 @@ void TerminalInteractable::interacted(Interactable*)
 		if (zone_state == ZoneState::Locked)
 		{
 			if (Game::level.local)
-				Overworld::zone_change(Game::level.id, ZoneState::Hostile);
+				Overworld::zone_change(Game::level.id, ZoneState::PvpHostile);
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 				i.item()->msg(_(strings::zone_unlocked), true);
 			TerminalEntity::open();
 		}
-		else if (zone_state == ZoneState::Hostile)
+		else if (zone_state == ZoneState::PvpHostile)
 		{
 			if (Game::level.local)
 				Overworld::resource_change(Resource::Drones, -DEFAULT_ASSAULT_DRONES);
@@ -3220,13 +3226,19 @@ b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 		{
 			case TramNet::Message::Entered:
 			{
-				if (ref.ref()->departing
-					&& ref.ref()->doors_open())
+				if (ref.ref()->departing && ref.ref()->doors_open())
 				{
 					ref.ref()->doors_open(false);
 					ref.ref()->get<Audio>()->post_event(AK::EVENTS::PLAY_TRAM_START);
 					if (Game::level.local)
 						TramRunner::go(ref.ref()->track(), 1.0f, TramRunner::State::Departing);
+				}
+				else if (ref.ref()->runner_a.ref()->state == TramRunner::State::Idle
+					&& !ref.ref()->doors_open())
+				{
+					// player spawned inside us and we're sitting still
+					// open the doors for them
+					TramNet::send(ref.ref(), TramNet::Message::DoorsOpen);
 				}
 				break;
 			}
@@ -3263,15 +3275,22 @@ b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 
 void Tram::player_entered(Entity* e)
 {
-	if (departing
-		&& doors_open()
-		&& e->has<Parkour>()
+	if (e->has<Parkour>()
 		&& e->get<PlayerControlHuman>()->local())
 	{
-		if (Overworld::zone_under_attack() == Game::level.tram_tracks[track()].level) // can't go there if it's under attack
-			e->get<PlayerControlHuman>()->player.ref()->msg(_(strings::error_zone_under_attack), false);
-		else
+		if (departing && doors_open())
+		{
+			if (Overworld::zone_under_attack() == Game::level.tram_tracks[track()].level) // can't go there if it's under attack
+				e->get<PlayerControlHuman>()->player.ref()->msg(_(strings::error_zone_under_attack), false);
+			else
+				TramNet::send(this, TramNet::Message::Entered);
+		}
+		else if (!doors_open() && e->get<Walker>()->get_support() == get<RigidBody>())
+		{
+			// player spawned inside us and we're sitting still
+			// open the doors for them
 			TramNet::send(this, TramNet::Message::Entered);
+		}
 	}
 }
 
@@ -3349,19 +3368,13 @@ void TramInteractableEntity::interacted(Interactable* i)
 	else
 	{
 		AssetID target_level = Game::level.tram_tracks[track].level;
-		if (Game::save.zones[Game::level.id] != ZoneState::Locked
-			|| Game::save.zones[target_level] != ZoneState::Locked)
+		if (Game::level.local && Game::save.zones[target_level] == ZoneState::Locked && !Overworld::zone_is_pvp(target_level))
 		{
-			if (Game::level.local && Game::save.zones[target_level] == ZoneState::Locked)
-				Overworld::resource_change(Resource::HackKits, -1);
-			tram->departing = true;
-			tram->doors_open(true);
+			Overworld::resource_change(Resource::HackKits, -1);
+			Overworld::zone_change(target_level, ZoneState::ParkourUnlocked);
 		}
-		else
-		{
-			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-				i.item()->msg(_(strings::error_locked_zone), false);
-		}
+		tram->departing = true;
+		tram->doors_open(true);
 	}
 }
 

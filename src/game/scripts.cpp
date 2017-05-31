@@ -290,22 +290,22 @@ void draw(const RenderParams& params)
 				}
 			}
 		}
-	}
 
-	if (data->text_tut != AssetNull && Game::real_time.total > data->text_tut_real_time)
-	{
-		UIText text;
-		text.wrap_width = MENU_ITEM_WIDTH;
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Max;
-		text.color = UI::color_accent;
-		text.text(params.camera->gamepad, _(data->text_tut));
-		UIMenu::text_clip(&text, data->text_tut_real_time, 80.0f);
-
+		if (data->text_tut != AssetNull && Game::real_time.total > data->text_tut_real_time)
 		{
-			Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.8f);
-			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-			text.draw(params, p);
+			UIText text;
+			text.wrap_width = MENU_ITEM_WIDTH;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Max;
+			text.color = UI::color_accent;
+			text.text(params.camera->gamepad, _(data->text_tut));
+			UIMenu::text_clip(&text, data->text_tut_real_time, 80.0f);
+
+			{
+				Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.8f);
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+				text.draw(params, p);
+			}
 		}
 	}
 }
@@ -408,40 +408,15 @@ namespace Scripts
 
 namespace scene
 {
-	struct Data
-	{
-		Camera* camera;
-	};
-	
-	static Data* data;
-
-	void cleanup()
-	{
-		delete data;
-		data = nullptr;
-	}
-
 	void init(const EntityFinder& entities)
 	{
-		if (Game::level.mode == Game::Mode::Special)
+		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		{
-			data = new Data();
-
-			data->camera = Camera::add(0);
-
-			data->camera->viewport =
-			{
-				Vec2(0, 0),
-				Vec2(Game::width, Game::height),
-			};
-			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : r32(data->camera->viewport.size.x) / r32(data->camera->viewport.size.y);
-			data->camera->perspective((40.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+			i.item()->get<PlayerManager>()->can_spawn = false;
 
 			Quat rot;
-			entities.find("map_view")->get<Transform>()->absolute(&data->camera->pos, &rot);
-			data->camera->rot = Quat::look(rot * Vec3(0, -1, 0));
-
-			Game::cleanups.add(cleanup);
+			entities.find("map_view")->get<Transform>()->absolute(&i.item()->camera->pos, &rot);
+			i.item()->camera->rot = Quat::look(rot * Vec3(0, -1, 0));
 		}
 	}
 }
@@ -772,6 +747,7 @@ namespace tutorial
 		Capture,
 		ZoneCaptured,
 		Overworld,
+		Return,
 		Done,
 		count,
 	};
@@ -840,8 +816,14 @@ namespace tutorial
 
 		if (data->state == TutorialState::Overworld && Overworld::active())
 		{
+			data->state = TutorialState::Return;
+			Actor::tut_clear();
+		}
+		else if (data->state == TutorialState::Return && !Overworld::active())
+		{
 			data->state = TutorialState::Done;
 			Actor::tut_clear();
+			Actor::tut(strings::tut_done);
 		}
 
 		if (data->state != TutorialState::ZoneCaptured && Team::game_over && Game::level.mode == Game::Mode::Pvp)

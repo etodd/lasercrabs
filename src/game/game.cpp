@@ -1140,10 +1140,10 @@ void Game::execute(const char* cmd)
 		const char* delimiter = strchr(cmd, ' ');
 		const char* zone_string = delimiter + 1;
 		AssetID id = Loader::find(zone_string, AssetLookup::Level::names);
-		Overworld::zone_change(id, ZoneState::Friendly);
+		Overworld::zone_change(id, ZoneState::PvpFriendly);
 	}
 	else if (strcmp(cmd, "unlock") == 0)
-		Overworld::zone_change(level.id, ZoneState::Hostile);
+		Overworld::zone_change(level.id, ZoneState::PvpHostile);
 	else
 		Overworld::execute(cmd);
 }
@@ -1361,7 +1361,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	}
 
 	// default team index for minions and other items that spawn in the level
-	s32 default_team_index = (save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) ? 0 : 1;
+	s32 default_team_index = save.zones[level.id] == ZoneState::PvpFriendly ? 0 : 1;
 
 	cJSON* element = json->child;
 	while (element)
@@ -1395,7 +1395,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				s32 offset;
 				if (session.type == SessionType::Story)
 				{
-					if (save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned)
+					if (save.zones[level.id] == ZoneState::PvpFriendly)
 						offset = 0; // put local player on team 0 (defenders)
 					else
 						offset = 1; // put local player on team 1 (attackers)
@@ -1453,7 +1453,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 						}
 
 						Entity* e = World::alloc<ContainerEntity>();
-						PlayerManager* manager = e->create<PlayerManager>(&Team::list[(s32)team], username);
+						PlayerManager* manager = e->create<PlayerManager>(&Team::list[s32(team)], username);
 
 						if (ai_test)
 						{
@@ -1475,8 +1475,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "StaticGeom"))
 		{
-			b8 alpha = (b8)Json::get_s32(element, "alpha");
-			b8 additive = (b8)Json::get_s32(element, "additive");
+			b8 alpha = b8(Json::get_s32(element, "alpha"));
+			b8 additive = b8(Json::get_s32(element, "additive"));
 			b8 no_parkour = cJSON_HasObjectItem(element, "noparkour");
 			b8 invisible = cJSON_HasObjectItem(element, "invisible");
 			AssetID texture = Loader::find(Json::get_string(element, "texture"), AssetLookup::Texture::names);
@@ -1669,7 +1669,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				if (ai_player_count > 1)
 				{
 					// 2v2 map
-					if ((save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) && (team_original == 1 || mersenne::randf_cc() < 0.5f))
+					if (save.zones[level.id] == ZoneState::PvpFriendly && (team_original == 1 || mersenne::randf_cc() < 0.5f))
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // enemy is attacking; they're there from the beginning
 					else
 						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
@@ -1677,7 +1677,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				else
 				{
 					// 1v1 map
-					if (save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned)
+					if (save.zones[level.id] == ZoneState::PvpFriendly)
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // player is defending, enemy is already there
 					else // player is attacking, eventually enemy will come to defend
 						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
@@ -1691,7 +1691,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				AI::Team team;
 				if (session.type == SessionType::Story)
 				{
-					if ((save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) // defending; enemy might have already captured some batteries
+					if (save.zones[level.id] == ZoneState::PvpFriendly // defending; enemy might have already captured some batteries
 						&& mersenne::randf_cc() < 0.2f) // only some batteries though, not all
 						team = team_lookup(level.team_lookup, Json::get_s32(element, "team", 1));
 					else

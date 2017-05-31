@@ -80,7 +80,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	StaticArray<SupportEntry, 4> last_supported;
 	r32 msg_timer;
 	r32 animation_time;
-	r32 select_spawn_timer;
+	r32 select_spawn_timer; // also used for spawn letterbox animation
 	r32 angle_horizontal;
 	r32 angle_vertical;
 	s32 spectate_index;

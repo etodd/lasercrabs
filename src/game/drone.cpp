@@ -2436,7 +2436,6 @@ r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 				{
 					// client-side prediction
 					do_reflect = hit_target(hit.entity.ref())
-						&& s != State::Crawl
 						&& (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()) // will they still be alive after we hit them? if so, reflect
 							|| ((hit.entity.ref()->has<Drone>() && hit.entity.ref()->get<Drone>()->state() != State::Crawl && s != State::Crawl) || hit.entity.ref()->get<Health>()->invincible()));
 				}
@@ -2444,11 +2443,12 @@ r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 				{
 					// server
 					do_reflect = hit_target(hit.entity.ref()) // go through them if we've already hit them once on this flight
-						&& s != State::Crawl
 						&& hit.entity.ref()
 						&& hit.entity.ref()->get<Health>()->total() > 0; // if we didn't destroy them, then bounce off
 				}
-				if (do_reflect)
+				if (do_reflect
+					&& i == hits.index_end // make sure this is the hit we thought we would stop on
+					&& s != State::Crawl) // make sure we're flying or dashing
 					reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
 			}
 			else if (hit.type == Hit::Type::Inaccessible)

@@ -46,6 +46,7 @@ struct Save
 	char username[MAX_USERNAME + 1];
 	b8 zone_current_restore;
 	b8 locke_spoken;
+	b8 extended_parkour;
 
 	Save();
 	void reset();
@@ -159,6 +160,7 @@ template<typename Stream> b8 serialize_save(Stream* p, Save* s)
 		s->username[username_length] = '\0';
 	serialize_bool(p, s->zone_current_restore);
 	serialize_bool(p, s->locke_spoken);
+	serialize_bool(p, s->extended_parkour);
 	return true;
 }
 

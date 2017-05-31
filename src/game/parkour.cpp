@@ -102,7 +102,7 @@ void Parkour::awake()
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_left, 0.0f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.5f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.0f));
-	link<&Parkour::pickup_animation_complete>(animator->trigger(Asset::Animation::character_pickup, 3.5f));
+	link<&Parkour::pickup_animation_complete>(animator->trigger(Asset::Animation::character_pickup, 2.5f));
 	link_arg<r32, &Parkour::land>(get<Walker>()->land);
 	link_arg<Entity*, &Parkour::killed>(get<Health>()->killed);
 	last_angle_horizontal = get<Walker>()->rotation;
@@ -259,7 +259,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 	}
 
 	// spawn tiles
-	if (!exit_wallrun && wall_run_state != WallRunState::Forward)
+	if (!exit_wallrun && wall_run_state != WallRunState::Forward && Game::save.extended_parkour)
 	{
 		Vec3 relative_wall_right = relative_wall_run_normal.cross(last_support.ref()->get<Transform>()->to_local_normal(Vec3(0, 1, 0)));
 		relative_wall_right.normalize();
@@ -763,8 +763,10 @@ void Parkour::update(const Update& u)
 					exit_wallrun = true;
 					try_parkour(true); // do an extra broad raycast to make sure we hit the top if at all possible
 				}
-				else // keep going, generate a wall
+				else if (Game::save.extended_parkour) // keep going, generate a wall
 					exit_wallrun = wallrun(u, last_support.ref(), relative_support_pos, relative_wall_run_normal);
+				else
+					exit_wallrun = true;
 			}
 		}
 
@@ -810,7 +812,7 @@ void Parkour::update(const Update& u)
 					get<Walker>()->speed = 0.0f;
 					get<Animator>()->layers[1].play(Asset::Animation::character_land_hard);
 				}
-				else
+				else if (Game::save.extended_parkour)
 					try_roll();
 			}
 		}
@@ -1281,7 +1283,7 @@ b8 Parkour::try_jump(r32 rotation)
 		}
 	}
 
-	if (!did_jump && can_double_jump)
+	if (!did_jump && can_double_jump && Game::save.extended_parkour)
 	{
 		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
 		if (velocity.y < 0.0f) // have to be going down to double jump
@@ -1382,7 +1384,7 @@ b8 Parkour::try_roll()
 			fsm.transition(State::Roll);
 			get<Animator>()->layers[1].play(Asset::Animation::character_roll);
 			get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_ROLL);
-			velocity = support_velocity + (forward * (get<Walker>()->net_speed + 3.0f));
+			velocity = support_velocity + forward * get<Walker>()->net_speed;
 			get<Walker>()->enabled = false;
 
 			get<RigidBody>()->btBody->setLinearVelocity(velocity);

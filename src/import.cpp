@@ -1953,6 +1953,9 @@ void consolidate_nav_geometry_mesh(Mesh* result, const Mesh& mesh, const Mat4& m
 
 void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, Manifest& manifest, cJSON* json, b8(*filter)(const Mesh*))
 {
+	if (cJSON_HasObjectItem(json->child, "nonav")) // map-level nonav directive prevents nav-mesh generation for the whole map
+		return;
+
 	static_meshes.import();
 
 	result->bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);

@@ -1140,10 +1140,19 @@ void Game::execute(const char* cmd)
 		const char* delimiter = strchr(cmd, ' ');
 		const char* zone_string = delimiter + 1;
 		AssetID id = Loader::find(zone_string, AssetLookup::Level::names);
-		Overworld::zone_change(id, ZoneState::PvpFriendly);
+		if (Overworld::zone_is_pvp(id))
+			Overworld::zone_change(id, ZoneState::PvpFriendly);
 	}
-	else if (strcmp(cmd, "unlock") == 0)
-		Overworld::zone_change(level.id, ZoneState::PvpHostile);
+	else if (strstr(cmd, "unlock ") == cmd)
+	{
+		const char* delimiter = strchr(cmd, ' ');
+		const char* zone_string = delimiter + 1;
+		AssetID id = Loader::find(zone_string, AssetLookup::Level::names);
+		if (Overworld::zone_is_pvp(id))
+			Overworld::zone_change(id, ZoneState::PvpHostile);
+		else
+			Overworld::zone_change(id, ZoneState::ParkourUnlocked);
+	}
 	else
 		Overworld::execute(cmd);
 }

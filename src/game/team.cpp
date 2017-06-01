@@ -1040,6 +1040,7 @@ s32 PlayerManager::ability_count() const
 
 void PlayerManager::add_energy(s32 c)
 {
+	vi_assert(Game::level.local);
 	energy = s16(vi_max(0, s32(energy) + c));
 }
 
@@ -1145,15 +1146,22 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 {
 	if (killer)
 	{
-		PlayerManager* enemy = owner(killer);
-		if (enemy && enemy != owner(e))
+		AI::Team team;
+		AI::entity_info(e, AI::TeamNone, &team);
+
+		AI::Team killer_team;
+		AI::entity_info(killer, AI::TeamNone, &killer_team);
+
+		if (killer_team != team)
 		{
+			PlayerManager* player = owner(e);
+			PlayerManager* killer_player = owner(killer);
+
 			s32 reward = 0;
+			b8 reward_share = false; // do all players on the team get the reward?
 
 			if (e->has<Drone>())
 			{
-				PlayerManager* player = e->get<PlayerCommon>()->manager.ref();
-
 				{
 					char buffer[512];
 					sprintf(buffer, _(strings::player_killed), player->username);
@@ -1162,7 +1170,8 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 
 				if (Game::level.local)
 				{
-					enemy->add_kills(1);
+					if (killer_player)
+						killer_player->add_kills(1);
 					player->add_deaths(1);
 				}
 
@@ -1177,13 +1186,28 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 			else if (e->has<Sensor>())
 				reward = ENERGY_SENSOR_DESTROY;
 			else if (e->has<Turret>())
+			{
 				reward = ENERGY_TURRET_DESTROY;
+				reward_share = true;
+			}
 			else if (e->has<CoreModule>())
+			{
 				reward = ENERGY_CORE_MODULE_DESTROY;
+				reward_share = true;
+			}
 			else
 				vi_assert(false);
 
-			enemy->add_energy_and_notify(reward);
+			if (reward_share)
+			{
+				for (auto i = list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->team.ref()->team() == killer_team)
+						i.item()->add_energy_and_notify(reward);
+				}
+			}
+			else if (killer_player)
+				killer_player->add_energy_and_notify(reward);
 		}
 	}
 }

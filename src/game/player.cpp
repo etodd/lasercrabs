@@ -1392,7 +1392,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = text_size;
-			Vec2 pos = vp.size * Vec2(0.5f, 0.15f);
+			Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
 			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 			text.draw(params, pos);
 		}
@@ -4052,7 +4052,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 			text.text(player.ref()->gamepad, _(strings::danger));
 
-			Vec2 pos = viewport.size * Vec2(0.5f, 0.2f);
+			Vec2 pos = viewport.size * Vec2(0.5f, 0.25f);
 
 			Rect2 box = text.rect(pos).outset(8 * UI::scale);
 			UI::box(params, box, UI::color_background);
@@ -4069,7 +4069,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			text.anchor_y = UIText::Anchor::Min;
 			text.text(player.ref()->gamepad, _(strings::shield_down));
 
-			Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
+			Vec2 pos = viewport.size * Vec2(0.5f, 0.65f);
 
 			Rect2 box = text.rect(pos).outset(8 * UI::scale);
 			UI::box(params, box, UI::color_background);
@@ -4087,7 +4087,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
 		text.size = text_size;
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.65f);
+		Vec2 pos = viewport.size * Vec2(0.5f, 0.7f);
 		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 		text.draw(params, pos);
 	}

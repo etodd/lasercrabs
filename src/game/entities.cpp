@@ -773,9 +773,9 @@ SpawnPosition SpawnPoint::spawn_position(PlayerManager* player) const
 void SpawnPoint::update_server_all(const Update& u)
 {
 	const s32 minion_group = 3;
-	const r32 minion_initial_delay = Game::session.type == SessionType::Story ? 45.0f : 30.0f;
+	const r32 minion_initial_delay = Game::session.type == SessionType::Story ? 45.0f : 20.0f;
 	const r32 minion_spawn_interval = 8.0f;
-	const r32 minion_group_interval = minion_spawn_interval * 14.0f; // must be a multiple of minion_spawn_interval
+	const r32 minion_group_interval = minion_spawn_interval * 13.0f; // must be a multiple of minion_spawn_interval
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::level.type == GameType::Assault
 		&& Game::level.has_feature(Game::FeatureLevel::All)
@@ -1082,7 +1082,7 @@ void Turret::set_team(AI::Team t)
 void Turret::hit_by(const TargetEvent& e)
 {
 	if (!get<Health>()->invincible())
-		get<Health>()->damage(e.hit_by, 5);
+		get<Health>()->damage(e.hit_by, 2);
 }
 
 void Turret::killed(Entity* by)

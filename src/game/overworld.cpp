@@ -62,7 +62,6 @@ struct ZoneNode
 	s16 rewards[s32(Resource::count)];
 	s8 size;
 	s8 max_teams;
-	b8 pvp;
 
 	inline Vec3 pos() const
 	{
@@ -625,11 +624,12 @@ void select_zone_update(const Update& u, b8 enable_movement)
 	if (enable_movement)
 	{
 		Vec2 movement = PlayerHuman::camera_topdown_movement(u, 0, data.camera);
-		if (movement.length_squared() > 0.0f)
+		r32 movement_amount = movement.length();
+		if (movement_amount > 0.0f)
 		{
+			movement /= movement_amount;
 			const ZoneNode* closest = nullptr;
 			r32 closest_dot = FLT_MAX;
-			r32 closest_normalized_dot = 0.6f;
 
 			for (s32 i = 0; i < zone->children.length; i++)
 			{
@@ -637,21 +637,20 @@ void select_zone_update(const Update& u, b8 enable_movement)
 				for (s32 j = 0; j < global.zones.length; j++)
 				{
 					const ZoneNode& candidate = global.zones[j];
-					if (&candidate == zone)
+					if (&candidate == zone
+						|| (data.state == State::SplitscreenSelectZone && !zone_splitscreen_can_deploy(candidate.id)))
 						continue;
 
 					for (s32 k = 0; k < candidate.children.length; k++)
 					{
 						const Vec3& candidate_pos = candidate.children[k];
-						Vec3 to_candidate = (candidate_pos - zone_pos);
+						Vec3 to_candidate = candidate_pos - zone_pos;
 						r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
 						r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
-						r32 mixed_dot = dot * vi_max(normalized_dot, 0.9f);
-						if (mixed_dot < closest_dot && normalized_dot > closest_normalized_dot)
+						if (dot < closest_dot && normalized_dot > 0.707f)
 						{
 							closest = &candidate;
-							closest_normalized_dot = vi_min(0.8f, normalized_dot);
-							closest_dot = vi_max(2.0f, mixed_dot);
+							closest_dot = dot;
 						}
 					}
 				}
@@ -738,7 +737,7 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 	}
 	else
 	{
-		if (splitscreen_team_count() <= zone.max_teams)
+		if (zone_splitscreen_can_deploy(zone.id))
 			return Team::ui_color_friend;
 		else
 			return UI::color_disabled;
@@ -1339,7 +1338,7 @@ void zone_change(AssetID zone, ZoneState state)
 
 b8 zone_is_pvp(AssetID zone_id)
 {
-	return zone_node_get(zone_id)->pvp;
+	return zone_node_get(zone_id)->max_teams > 0;
 }
 
 void zone_rewards(AssetID zone_id, s16* rewards)
@@ -1999,7 +1998,7 @@ void show_complete()
 	else
 	{
 		if (Game::save.zone_last == AssetNull)
-			data.zone_selected = Asset::Level::Crossing;
+			data.zone_selected = Asset::Level::Office;
 		else
 			data.zone_selected = Game::save.zone_last;
 	}
@@ -2163,7 +2162,7 @@ void draw_opaque(const RenderParams& params)
 			const PropEntry& entry = global.props[i];
 			Mat4 m;
 			m.make_transform(entry.pos, Vec3(1), entry.rot);
-			View::draw_mesh(params, entry.mesh, Asset::Shader::standard, AssetNull, m, BACKGROUND_COLOR);
+			View::draw_mesh(params, entry.mesh, Asset::Shader::standard, AssetNull, m, Loader::mesh(entry.mesh)->color);
 		}
 
 		for (s32 i = 0; i < global.waters.length; i++)
@@ -2358,7 +2357,6 @@ void init(cJSON* level)
 					const char* mesh_ref = mesh_json->valuestring;
 					node->mesh = Loader::find_mesh(mesh_ref);
 
-					node->pvp = b8(Json::get_s32(element, "pvp"));
 					node->rewards[0] = s16(Json::get_s32(element, "energy", 0));
 					node->rewards[1] = s16(Json::get_s32(element, "hack_kits", 0));
 					node->rewards[2] = s16(Json::get_s32(element, "drones", 0));

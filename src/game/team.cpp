@@ -1040,14 +1040,13 @@ s32 PlayerManager::ability_count() const
 
 void PlayerManager::add_energy(s32 c)
 {
-	vi_assert(Game::level.local);
-	energy = s16(vi_max(0, s32(energy) + c));
+	if (Game::level.local)
+		energy = s16(vi_max(0, s32(energy) + c));
 }
 
 void PlayerManager::add_energy_and_notify(s32 c)
 {
-	if (Game::level.local)
-		add_energy(c);
+	add_energy(c);
 	if (has<PlayerHuman>())
 		get<PlayerHuman>()->energy_notify(c);
 }

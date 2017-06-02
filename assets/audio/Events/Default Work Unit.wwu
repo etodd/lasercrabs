@@ -582,6 +582,7 @@
 						</Event>
 						<Event Name="Play_Tram_Spark" ID="{429DC99F-7AD1-4688-8154-3B950FCBD2E9}"/>
 						<Event Name="Play_Parkour_Climb" ID="{D6C93F1C-824D-4D72-B267-BA62ADC469EE}"/>
+						<Event Name="Play_Drone_Spawn" ID="{E224D9E5-4677-4789-8EF9-DB0E18AA0A61}"/>
 					</ChildrenList>
 				</Folder>
 				<Folder Name="dialogue" ID="{04E54C47-F0F5-451B-8777-7B7C24045653}" ShortID="896672305">

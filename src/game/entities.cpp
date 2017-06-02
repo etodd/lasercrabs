@@ -602,15 +602,17 @@ b8 Battery::net_msg(Net::StreamRead* p)
 	serialize_ref(p, caused_by);
 
 	Battery* pickup = ref.ref();
-	pickup->set_team_client(t);
-	pickup->reward_level = reward_level;
 	if (caused_by.ref() && caused_by.ref()->has<AIAgent>() && t == caused_by.ref()->get<AIAgent>()->team)
 	{
-		caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_energy_and_notify(pickup->reward());
+		if (pickup->team != t)
+			caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_energy_and_notify(pickup->reward());
 		pickup->get<Audio>()->post_event(AK::EVENTS::PLAY_BATTERY_CAPTURE);
 	}
 	else if (t == AI::TeamNone)
 		pickup->get<Audio>()->post_event(AK::EVENTS::PLAY_BATTERY_RESET);
+
+	pickup->reward_level = reward_level;
+	pickup->set_team_client(t);
 
 	return true;
 }
@@ -622,24 +624,20 @@ b8 Battery::set_team(AI::Team t, Entity* caused_by)
 	vi_assert(Game::level.local);
 
 	// must be neutral or owned by an enemy
+	get<Health>()->reset_hp();
 	if (t != team)
-	{
-		get<Health>()->reset_hp();
 		reward_level++;
 
-		using Stream = Net::StreamWrite;
-		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Battery);
-		Ref<Battery> ref = this;
-		serialize_ref(p, ref);
-		serialize_s8(p, t);
-		serialize_s16(p, reward_level);
-		Ref<Entity> caused_by_ref = caused_by;
-		serialize_ref(p, caused_by_ref);
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	return false;
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = Net::msg_new(Net::MessageType::Battery);
+	Ref<Battery> ref = this;
+	serialize_ref(p, ref);
+	serialize_s8(p, t);
+	serialize_s16(p, reward_level);
+	Ref<Entity> caused_by_ref = caused_by;
+	serialize_ref(p, caused_by_ref);
+	Net::msg_finalize(p);
+	return t != team;
 }
 
 r32 Battery::particle_accumulator;
@@ -795,10 +793,7 @@ void SpawnPoint::update_server_all(const Update& u)
 					{
 						SpawnPosition pos = i.item()->spawn_position();
 						Net::finalize(World::create<MinionEntity>(pos.pos + Vec3(0, 1, 0), Quat::euler(0, pos.angle, 0), i.item()->team, nullptr));
-
-						// effects
-						EffectLight::add(pos.pos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
-						Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos.pos);
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, pos.pos, Quat::look(Vec3(0, 1, 0)));
 					}
 				}
 			}
@@ -1674,7 +1669,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 	else
 		basis = normal;
 
-	ParticleEffect::spawn(ParticleEffect::Type::Impact, hit, Quat::look(basis));
+	ParticleEffect::spawn(hit_object->has<Health>() ? ParticleEffect::Type::ImpactLarge : ParticleEffect::Type::ImpactSmall, hit, Quat::look(basis));
 
 	if (do_reflect)
 	{
@@ -1729,10 +1724,14 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 		Audio::post_global_event(AK::EVENTS::PLAY_EXPLOSION, pos);
 		EffectLight::add(pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
 	}
-	else if (t == Type::Impact)
+	else if (t == Type::ImpactLarge || t == Type::ImpactSmall)
 		Audio::post_global_event(AK::EVENTS::PLAY_IMPACT, pos);
 	else if (t == Type::Fizzle)
 		Audio::post_global_event(AK::EVENTS::PLAY_FIZZLE, pos);
+	else if (t == Type::SpawnMinion)
+		Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
+	else if (t == Type::SpawnDrone)
+		Audio::post_global_event(AK::EVENTS::PLAY_DRONE_SPAWN, pos);
 
 	if (t == Type::Grenade)
 	{
@@ -1760,17 +1759,20 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 		}
 	}
 
-	if (t == Type::Impact)
+	if (t == Type::ImpactLarge || t == Type::SpawnMinion || t == Type::SpawnDrone)
 		EffectLight::add(pos, GRENADE_RANGE, 1.5f, EffectLight::Type::Shockwave);
 
-	for (s32 i = 0; i < 50; i++)
+	if (t != Type::SpawnMinion && t != Type::SpawnDrone && t != Type::ImpactSmall)
 	{
-		Particles::sparks.add
-		(
-			pos,
-			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-			Vec4(1, 1, 1, 1)
-		);
+		for (s32 i = 0; i < 50; i++)
+		{
+			Particles::sparks.add
+			(
+				pos,
+				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+				Vec4(1, 1, 1, 1)
+			);
+		}
 	}
 	return true;
 }

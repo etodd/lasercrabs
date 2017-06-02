@@ -40,6 +40,7 @@ namespace AK
         static const AkUniqueID PLAY_DRONE_LAUNCH_PLAYER = 2089398150U;
         static const AkUniqueID PLAY_DRONE_REFLECT = 263311222U;
         static const AkUniqueID PLAY_DRONE_REFLECT_PLAYER = 4029101858U;
+        static const AkUniqueID PLAY_DRONE_SPAWN = 1629787408U;
         static const AkUniqueID PLAY_EXPLOSION = 4030404899U;
         static const AkUniqueID PLAY_FIZZLE = 3890314848U;
         static const AkUniqueID PLAY_FOOTSTEP = 1602358412U;

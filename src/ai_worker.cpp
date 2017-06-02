@@ -9,7 +9,7 @@
 #define RECORD_VERSION 1
 
 #define DEBUG_WALK 0
-#define DEBUG_DRONE 1
+#define DEBUG_DRONE 0
 
 #if DEBUG_WALK || DEBUG_DRONE
 #include "platform/util.h"

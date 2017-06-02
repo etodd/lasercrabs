@@ -374,9 +374,12 @@ struct ParticleEffect
 	enum class Type : s8
 	{
 		Fizzle,
-		Impact,
+		ImpactLarge,
+		ImpactSmall,
 		Explosion,
 		Grenade,
+		SpawnDrone,
+		SpawnMinion,
 		count,
 	};
 	static b8 spawn(Type, const Vec3&, const Quat&);

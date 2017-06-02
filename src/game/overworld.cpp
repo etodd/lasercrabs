@@ -1997,6 +1997,7 @@ void show_complete()
 	}
 	else
 	{
+		Game::session.game_type = GameType::Deathmatch;
 		if (Game::save.zone_last == AssetNull)
 			data.zone_selected = Asset::Level::Office;
 		else
@@ -2412,24 +2413,6 @@ void init(cJSON* level)
 			element_id++;
 		}
 	}
-
-	if (Game::session.type == SessionType::Story)
-	{
-		r64 t = platform::timestamp();
-		r64 elapsed_time = t - Game::save.timestamp;
-		data.story.timestamp_last = t;
-
-		if (Game::level.local)
-		{
-			// energy increment
-			// this must be done before story_zone_done changes the energy increment amount
-			resource_change(Resource::Energy, vi_min(s32(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL), s32(elapsed_time / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total());
-		}
-	}
-	else if (Game::session.local_player_count() <= 1) // haven't selected teams yet
-		data.state = State::SplitscreenSelectOptions;
-	else
-		data.state = State::SplitscreenSelectZone; // already selected teams, go straight to level select; the player can always go back
 }
 
 }

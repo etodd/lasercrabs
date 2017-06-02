@@ -1075,6 +1075,8 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 		Game::save.zone_current_restore = false;
 		Game::level.post_pvp = false;
 	}
+	else
+		ParticleEffect::spawn(ParticleEffect::Type::SpawnDrone, spawn_pos.pos, Quat::look(Vec3(0, 1, 0)));
 
 	Net::finalize(spawned);
 }
@@ -1138,16 +1140,16 @@ r32 ability_draw(const RenderParams& params, const PlayerHuman* player, const Ve
 	return draw_icon_text(params, gamepad, pos, icon, string, *color);
 }
 
-r32 battery_timer_width()
+r32 match_timer_width()
 {
-	return text_size * 5 * UI::scale;
+	return text_size * 2.5f * UI::scale;
 }
 
-void battery_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Anchor anchor_x)
+void match_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Anchor anchor_x)
 {
 	r32 remaining = vi_max(0.0f, Game::level.time_limit - Team::match_time);
 
-	Vec2 box(battery_timer_width(), text_size * UI::scale);
+	Vec2 box(match_timer_width(), text_size * UI::scale);
 	r32 padding = 8.0f * UI::scale;
 
 	Vec2 p = pos;
@@ -1176,57 +1178,35 @@ void battery_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Anc
 		
 	UI::box(params, Rect2(p, box).outset(padding), UI::color_background);
 
-	Vec2 icon_pos = p + Vec2(0.75f, 0.5f) * text_size * UI::scale;
-
-	AssetID icon;
 	const Vec4* color;
-	if (remaining > Game::level.time_limit * 0.8f)
-	{
-		icon = Asset::Mesh::icon_battery_3;
+	if (remaining > Game::level.time_limit * 0.5f)
 		color = &UI::color_default;
-	}
-	else if (remaining > Game::level.time_limit * 0.6f)
-	{
-		icon = Asset::Mesh::icon_battery_2;
-		color = &UI::color_default;
-	}
-	else if (remaining > Game::level.time_limit * 0.4f)
-	{
-		icon = Asset::Mesh::icon_battery_1;
+	else if (remaining > Game::level.time_limit * 0.25f)
 		color = &UI::color_accent;
-	}
-	else if (remaining > 60.0f)
-	{
-		icon = Asset::Mesh::icon_battery_1;
-		color = &UI::color_alert;
-	}
 	else
-	{
-		icon = Asset::Mesh::icon_battery_0;
 		color = &UI::color_alert;
-	}
 
 	{
 		b8 draw;
-		if (remaining > Game::level.time_limit * 0.4f)
+		if (remaining > Game::level.time_limit * 0.2f)
 			draw = true;
-		else if (remaining > 60.0f)
+		else if (remaining > 30.0f)
 			draw = UI::flash_function_slow(Game::real_time.total);
 		else
 			draw = UI::flash_function(Game::real_time.total);
 		if (draw)
-			UI::mesh(params, icon, icon_pos, Vec2(text_size * UI::scale), *color);
+		{
+			s32 remaining_minutes = remaining / 60.0f;
+			s32 remaining_seconds = remaining - (remaining_minutes * 60.0f);
+
+			UIText text;
+			text.anchor_x = UIText::Anchor::Min;
+			text.anchor_y = UIText::Anchor::Min;
+			text.color = *color;
+			text.text(0, _(strings::timer), remaining_minutes, remaining_seconds);
+			text.draw(params, p);
+		}
 	}
-
-	s32 remaining_minutes = remaining / 60.0f;
-	s32 remaining_seconds = remaining - (remaining_minutes * 60.0f);
-
-	UIText text;
-	text.anchor_x = UIText::Anchor::Min;
-	text.anchor_y = UIText::Anchor::Center;
-	text.color = *color;
-	text.text(0, _(strings::timer), remaining_minutes, remaining_seconds);
-	text.draw(params, icon_pos + Vec2(text_size * UI::scale * 1.5f, 0));
 }
 
 enum class ScoreboardPosition : s8
@@ -1267,7 +1247,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	text.color = UI::color_default;
 
 	if (Game::level.mode == Game::Mode::Pvp)
-		battery_timer_draw(params, p, UIText::Anchor::Center);
+		match_timer_draw(params, p, UIText::Anchor::Center);
 	p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 
 	// "deploying..."
@@ -1442,7 +1422,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		// energy
 		char buffer[128];
 		sprintf(buffer, "%d", get<PlayerManager>()->energy);
-		Vec2 p = ui_anchor + Vec2(battery_timer_width() + text_size * UI::scale, (text_size + 16.0f) * -UI::scale);
+		Vec2 p = ui_anchor + Vec2(match_timer_width() + text_size * UI::scale, (text_size + 16.0f) * -UI::scale);
 		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_energy, buffer, UI::color_accent, text_size * 5 * UI::scale);
 
 		// battery counts
@@ -1620,7 +1600,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		if (winner == get<PlayerManager>()->team.ref()) // we won
 		{
 			text.color = UI::color_accent;
-			text.text(gamepad, _(strings::victory));
+			text.text(gamepad, _(Game::session.type == SessionType::Story ? strings::story_victory : strings::victory));
 		}
 		else if (!winner) // it's a draw
 		{
@@ -1630,7 +1610,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		else // we lost
 		{
 			text.color = UI::color_alert;
-			text.text(gamepad, _(strings::defeat));
+			text.text(gamepad, _(Game::session.type == SessionType::Story ? strings::story_defeat : strings::defeat));
 		}
 		UIMenu::text_clip(&text, Team::game_over_real_time, 20.0f);
 
@@ -1742,7 +1722,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 
 		if (mode == UIMode::PvpDefault || mode == UIMode::Upgrading) // show game timer
-			battery_timer_draw(params, ui_anchor + Vec2(0, (text_size + 16.0f) * -UI::scale), UIText::Anchor::Min);
+			match_timer_draw(params, ui_anchor + Vec2(0, (text_size + 16.0f) * -UI::scale), UIText::Anchor::Min);
 	}
 
 	// network error icon

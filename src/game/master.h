@@ -108,6 +108,7 @@ struct ServerState // represents the current state of a game server
 	s8 open_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
 	s8 team_count;
 	u8 time_limit_minutes;
+	b8 allow_abilities;
 	b8 equals(const ServerState&) const;
 	void make_story();
 };
@@ -122,6 +123,7 @@ template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)
 	serialize_s16(p, s->respawns);
 	serialize_s16(p, s->kill_limit);
 	serialize_u8(p, s->time_limit_minutes);
+	serialize_bool(p, s->allow_abilities);
 	return true;
 }
 

@@ -1636,6 +1636,9 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 		else if (type == Type::Minion && hit_object->has<Turret>())
 			damage = 2;
 
+		if (reflected)
+			damage += 4;
+
 		if (hit_object->has<Drone>() && type != Type::Drone // this is a minion or turret shooting at a drone
 			&& hit_object->get<Drone>()->state() != Drone::State::Crawl) // the drone is flying or dashing; it's invincible to minions and turrets
 			damage = 0;
@@ -1653,12 +1656,9 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 			do_reflect = true;
 			AI::entity_info(hit_object, team, &team); // switch team
 		}
-
-		if (reflected)
-			damage += 4;
-
-		if (damage > 0)
+		else if (damage > 0)
 			hit_object->get<Health>()->damage(entity(), damage);
+
 		if (hit_object->has<RigidBody>())
 		{
 			RigidBody* body = hit_object->get<RigidBody>();

@@ -68,9 +68,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static void clear();
 	static void camera_setup_drone(Entity*, Camera*, r32);
 
-#if SERVER
-	AI::RecordedLife ai_record;
-#endif
 	u64 uuid;
 	Camera* camera;
 	UIMenu menu;
@@ -83,8 +80,11 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	r32 select_spawn_timer; // also used for spawn letterbox animation
 	r32 angle_horizontal;
 	r32 angle_vertical;
-	s32 spectate_index;
 	r32 rumble;
+	s32 spectate_index;
+#if SERVER
+	u32 ai_record_id;
+#endif
 	Upgrade upgrade_last_visit_highest_available;
 	Menu::State menu_state;
 	Sudoku sudoku;
@@ -100,9 +100,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void awake();
 	~PlayerHuman();
 
-#if SERVER
-	void ai_record_save();
-#endif
 	void msg(const char*, b8);
 	void rumble_add(r32);
 	UIMode ui_mode() const;

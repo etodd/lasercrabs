@@ -47,7 +47,8 @@ b8 ServerState::equals(const ServerState& s) const
 	return level == s.level
 		&& session_type == s.session_type
 		&& open_slots == s.open_slots
-		&& team_count == s.team_count;
+		&& team_count == s.team_count
+		&& allow_abilities == s.allow_abilities;
 }
 
 void ServerState::make_story()
@@ -59,6 +60,7 @@ void ServerState::make_story()
 	time_limit_minutes = 8;
 	team_count = 2;
 	open_slots = 1;
+	allow_abilities = true;
 }
 
 SequenceID Messenger::outgoing_sequence_id(Sock::Address addr) const

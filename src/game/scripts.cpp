@@ -446,15 +446,19 @@ namespace title
 		Actor::Instance* sailor;
 		Vec3 camera_start_pos;
 		r32 transition_timer;
+		r32 wallrun_footstep_timer;
+		s32 wallrun_footstep_index;
 		Ref<Animator> character;
 		Ref<Transform> target_climb;
 		Ref<Transform> target_hack_kits;
 		Ref<Transform> target_wall_run;
 		Ref<Transform> ivory_ad_text;
 		Ref<Actor::Instance> ivory_ad_actor;
+		Ref<Actor::Instance> hobo_actor;
 		Ref<Entity> hobo;
 		TutorialState state;
 		b8 sailor_talked;
+		StaticArray<Ref<Transform>, 8> wallrun_footsteps;
 	};
 	
 	static Data* data;
@@ -532,12 +536,24 @@ namespace title
 
 	void hobo_done(Actor::Instance* hobo)
 	{
-		hobo->cue(AK::EVENTS::PLAY_HOBO1, Asset::Animation::hobo_idle, strings::hobo1);
-		hobo->cue(AK::EVENTS::PLAY_HOBO2, Asset::Animation::hobo_idle, strings::hobo2);
-		hobo->cue(AK::EVENTS::PLAY_HOBO3, Asset::Animation::hobo_idle, strings::hobo3);
-		hobo->cue(AK::EVENTS::PLAY_HOBO4, Asset::Animation::hobo_idle, strings::hobo4);
-		hobo->cue(AK::EVENTS::PLAY_HOBO5, Asset::Animation::hobo_idle, strings::hobo5);
-		hobo->cue(&hobo_done);
+		hobo->cue(AK::EVENTS::PLAY_HOBO01, Asset::Animation::hobo_idle, strings::hobo01);
+		hobo->cue(AK::EVENTS::PLAY_HOBO02, Asset::Animation::hobo_idle, strings::hobo02);
+		hobo->cue(AK::EVENTS::PLAY_HOBO03, Asset::Animation::hobo_idle, strings::hobo03);
+		hobo->cue(AK::EVENTS::PLAY_HOBO04, Asset::Animation::hobo_idle, strings::hobo04);
+		hobo->cue(AK::EVENTS::PLAY_HOBO05, Asset::Animation::hobo_idle, strings::hobo05);
+		hobo->cue(AK::EVENTS::PLAY_HOBO06, Asset::Animation::hobo_idle, strings::hobo06);
+		hobo->cue(AK::EVENTS::PLAY_HOBO07, Asset::Animation::hobo_idle, strings::hobo07);
+		hobo->cue(AK::EVENTS::PLAY_HOBO08, Asset::Animation::hobo_idle, strings::hobo08);
+		hobo->cue(AK::EVENTS::PLAY_HOBO09, Asset::Animation::hobo_idle, strings::hobo09);
+		hobo->cue(AK::EVENTS::PLAY_HOBO10, Asset::Animation::hobo_idle, strings::hobo10);
+		hobo->cue(&hobo_done, 4.0f);
+	}
+
+	void hobo_talk(Entity*)
+	{
+		Actor::Instance* hobo = data->hobo_actor.ref();
+		if (hobo->cues.length == 0)
+			hobo_done(hobo);
 	}
 
 	void ivory_ad_play(Entity*)
@@ -614,9 +630,18 @@ namespace title
 
 		if ((data->state == TutorialState::ClimbDone || data->state == TutorialState::WallRun)
 			&& !data->target_hack_kits.ref())
+			wallrun_success(); // player got the hack kits; done with this bit
+
+		if (data->state == TutorialState::WallRun)
 		{
-			// player got the hack kits; done with this bit
-			wallrun_success();
+			// spawn wallrun footstep shockwave effects
+			data->wallrun_footstep_timer -= u.time.delta;
+			if (data->wallrun_footstep_timer < 0.0f)
+			{
+				data->wallrun_footstep_timer += 2.0f / data->wallrun_footsteps.length;
+				data->wallrun_footstep_index = (data->wallrun_footstep_index + 1) % data->wallrun_footsteps.length;
+				EffectLight::add(data->wallrun_footsteps[data->wallrun_footstep_index].ref()->absolute_pos(), 1.0f, 1.0f, EffectLight::Type::Shockwave);
+			}
 		}
 
 		// ivory ad text
@@ -695,6 +720,15 @@ namespace title
 			entities.find("sailor_spotted_trigger")->get<PlayerTrigger>()->entered.link(&sailor_spotted);
 			entities.find("sailor_talk_trigger")->get<PlayerTrigger>()->entered.link(&sailor_talk);
 
+			data->wallrun_footsteps.add(entities.find("wallrun_footstep")->get<Transform>());
+			data->wallrun_footsteps.add(entities.find("wallrun_footstep.001")->get<Transform>());
+			data->wallrun_footsteps.add(entities.find("wallrun_footstep.002")->get<Transform>());
+			data->wallrun_footsteps.add(entities.find("wallrun_footstep.003")->get<Transform>());
+			data->wallrun_footsteps.add(entities.find("wallrun_footstep.004")->get<Transform>());
+			data->wallrun_footsteps.add(entities.find("wallrun_footstep.005")->get<Transform>());
+			data->wallrun_footsteps.add(entities.find("wallrun_footstep.006")->get<Transform>());
+			data->wallrun_footsteps.add(entities.find("wallrun_footstep.007")->get<Transform>());
+
 			Game::updates.add(update);
 			Game::draws.add(draw);
 
@@ -718,8 +752,8 @@ namespace title
 
 		Actor::init();
 		Loader::animation(Asset::Animation::hobo_idle);
-		Actor::Instance* hobo = Actor::add(data->hobo.ref(), Actor::Behavior::WaitForIdleAnimation, Asset::Bone::hobo_head);
-		hobo_done(hobo);
+		data->hobo_actor = Actor::add(data->hobo.ref(), Actor::Behavior::WaitForIdleAnimation, Asset::Bone::hobo_head);
+		entities.find("hobo_trigger")->get<PlayerTrigger>()->entered.link(&hobo_talk);
 
 		data->ivory_ad_actor = Actor::add(entities.find("ivory_ad"));
 	}

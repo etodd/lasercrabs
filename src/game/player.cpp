@@ -216,7 +216,7 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	last_supported(),
 	energy_notification_accumulator(),
 #if SERVER
-	ai_record(),
+	ai_record_id(),
 #endif
 	local(local)
 {
@@ -250,6 +250,10 @@ void PlayerHuman::awake()
 		Game::level.map_view.ref()->absolute(&camera->pos, &rot);
 		camera->rot = kill_cam_rot = Quat::look(rot * Vec3(0, -1, 0));
 	}
+
+#if SERVER
+	ai_record_id = AI::record_init(Game::level.team_lookup_reverse(get<PlayerManager>()->team.ref()->team()), get<PlayerManager>()->respawns);
+#endif
 }
 
 PlayerHuman::~PlayerHuman()
@@ -261,7 +265,8 @@ PlayerHuman::~PlayerHuman()
 		Audio::listener_disable(gamepad);
 	}
 #if SERVER
-	ai_record_save();
+	AI::record_close(ai_record_id);
+	ai_record_id = 0;
 #endif
 }
 
@@ -929,27 +934,6 @@ void get_interactable_standing_position(Transform* i, Vec3* pos, r32* angle)
 	pos->y += (WALKER_DEFAULT_CAPSULE_HEIGHT * 0.5f) + WALKER_SUPPORT_HEIGHT;
 }
 
-#if SERVER
-void PlayerHuman::ai_record_save()
-{
-	if (ai_record.action.length > 0)
-	{
-		// save AI record
-		char path[512];
-		Loader::ai_record_path(path, Game::level.id, Game::level.type);
-		FILE* f = fopen(path, "ab");
-		if (!f)
-		{
-			fprintf(stderr, "Can't open air file '%s'\n", path);
-			vi_assert(false);
-		}
-		ai_record.serialize(f, &AI::RecordedLife::custom_fwrite);
-		fclose(f);
-	}
-	ai_record.reset();
-}
-#endif
-
 void PlayerHuman::game_mode_transitioning()
 {
 	if (camera)
@@ -969,11 +953,6 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 	Entity* spawned;
 
 	SpawnPosition spawn_pos;
-
-#if SERVER
-	ai_record_save();
-	ai_record.reset(Game::level.team_lookup_reverse(get<PlayerManager>()->team.ref()->team()), get<PlayerManager>()->respawns);
-#endif
 
 	if (Game::level.mode == Game::Mode::Pvp)
 	{
@@ -1359,7 +1338,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		ui_anchor = vp.size * Vec2(0.9f, 0.1f) + Vec2(text_size * UI::scale * -14.0f, text_size * UI::scale * 0.5f);
 
 	// draw abilities
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::session.allow_abilities)
 	{
 		if (mode == UIMode::PvpDefault
 			&& get<PlayerManager>()->can_transition_state()
@@ -1417,6 +1396,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
+		&& Game::session.allow_abilities
 		&& (mode == UIMode::PvpDefault || mode == UIMode::Upgrading))
 	{
 		// energy
@@ -2105,7 +2085,7 @@ void PlayerControlHuman::drone_done_flying_or_dashing()
 		Quat rot;
 		get<Transform>()->absolute(&action.pos, &rot);
 		action.normal = rot * Vec3(0, 0, 1);
-		player.ref()->ai_record.add(ai_record_tag, action);
+		AI::record_add(player.ref()->ai_record_id, ai_record_tag, action);
 		ai_record_wait_timer = AI_RECORD_WAIT_TIME;
 	}
 	ai_record_tag.init(player.ref()->get<PlayerManager>());
@@ -2392,7 +2372,13 @@ PlayerControlHuman::~PlayerControlHuman()
 	if (has<Parkour>())
 		get<Audio>()->post_event(AK::EVENTS::STOP_PARKOUR_ALL);
 	if (player.ref())
+	{
 		player.ref()->select_spawn_timer = 0.0f;
+#if SERVER
+		AI::record_close(player.ref()->ai_record_id);
+		player.ref()->ai_record_id = AI::record_init(Game::level.team_lookup_reverse(player.ref()->get<PlayerManager>()->team.ref()->team()), player.ref()->get<PlayerManager>()->respawns);
+#endif
+	}
 }
 
 void PlayerControlHuman::health_changed(const HealthEvent& e)
@@ -2513,8 +2499,6 @@ void PlayerControlHuman::drone_detaching()
 			}
 		}
 	}
-
-	// todo: add AI record
 #endif
 }
 
@@ -3173,7 +3157,7 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					AI::RecordedLife::Action action;
 					action.type = AI::RecordedLife::Action::TypeWait;
-					player.ref()->ai_record.add(ai_record_tag, action);
+					AI::record_add(player.ref()->ai_record_id, ai_record_tag, action);
 				}
 				ai_record_tag.init(player.ref()->get<PlayerManager>());
 			}
@@ -3750,6 +3734,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 		// highlight upgrade point if there is an upgrade available
 		if (Game::level.has_feature(Game::FeatureLevel::Abilities)
+			&& Game::session.allow_abilities
 			&& (Game::level.has_feature(Game::FeatureLevel::All) || Game::level.feature_level == Game::FeatureLevel::Abilities) // disable prompt in tutorial after ability has been purchased
 			&& manager->upgrade_available() && manager->upgrade_highest_owned_or_available() != player.ref()->upgrade_last_visit_highest_available
 			&& !manager->at_spawn_point())

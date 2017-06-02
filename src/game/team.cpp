@@ -818,7 +818,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	kills(),
 	deaths()
 {
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::session.allow_abilities)
 	{
 		energy = ENERGY_INITIAL;
 		if (Game::session.type == SessionType::Story && Game::level.type == GameType::Assault && team->team() == 0)
@@ -863,6 +863,9 @@ b8 PlayerManager::ability_valid(Ability ability) const
 		return false;
 
 	if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
+		return false;
+
+	if (!Game::session.allow_abilities)
 		return false;
 
 	if (!can_transition_state())
@@ -1085,7 +1088,7 @@ PlayerManager::State PlayerManager::state() const
 
 b8 PlayerManager::can_transition_state() const
 {
-	if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
+	if (!Game::level.has_feature(Game::FeatureLevel::Abilities) || !Game::session.allow_abilities)
 		return false;
 
 	Entity* e = instance.ref();
@@ -1338,7 +1341,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSour
 						Quat rot;
 						ref.ref()->get<Transform>()->absolute(&action.pos, &rot);
 						action.normal = rot * Vec3(0, 0, 1);
-						m->get<PlayerHuman>()->ai_record.add(tag, action);
+						AI::record_add(m->get<PlayerHuman>()->ai_record_id, tag, action);
 					}
 #endif
 					internal_spawn_go(m, ref.ref());

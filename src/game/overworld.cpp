@@ -85,12 +85,55 @@ struct WaterEntry
 	Water::Config config;
 };
 
-enum class SplitscreenMode : s8
+struct SplitscreenConfig
 {
-	Custom,
-	Local,
-	Public,
-	count,
+	enum class Mode : s8
+	{
+		Custom,
+		Local,
+		Public,
+		count,
+	};
+
+	Mode mode = Mode::Custom;
+	GameType game_type = GameType::Deathmatch;
+	r32 time_limit = 8.0f * 60.0f;
+	s16 respawns = DEFAULT_ASSAULT_DRONES;
+	s16 kill_limit = DEFAULT_ASSAULT_DRONES;
+	b8 allow_abilities = true;
+
+	void apply()
+	{
+		switch (mode)
+		{
+			case Mode::Public:
+			{
+				Game::session.type = SessionType::Public;
+				break;
+			}
+			case Mode::Custom:
+			{
+				Game::session.type = SessionType::Custom;
+				break;
+			}
+			case Mode::Local:
+			{
+				Game::session.type = SessionType::Custom;
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+
+		Game::session.game_type = game_type;
+		Game::session.time_limit = time_limit;
+		Game::session.respawns = respawns;
+		Game::session.kill_limit = kill_limit;
+		Game::session.allow_abilities = allow_abilities;
+	}
 };
 
 struct DataGlobal
@@ -100,7 +143,7 @@ struct DataGlobal
 	Array<WaterEntry> waters;
 	Vec3 camera_offset_pos;
 	Quat camera_offset_rot;
-	SplitscreenMode splitscreen_mode;
+	SplitscreenConfig splitscreen;
 };
 DataGlobal global;
 
@@ -246,44 +289,48 @@ void splitscreen_select_options_update(const Update& u)
 		return;
 	}
 
+	if (data.splitscreen.menu.item(u, _(strings::_continue)))
+	{
+		global.splitscreen.apply();
+		data.state = State::SplitscreenSelectTeams;
+	}
+
 	// multiplayer type
 	{
 		AssetID value;
-		switch (global.splitscreen_mode)
+		switch (global.splitscreen.mode)
 		{
-			case SplitscreenMode::Public:
+			case SplitscreenConfig::Mode::Public:
 			{
-				Game::session.type = SessionType::Public;
 				value = strings::multiplayer_public;
 				break;
 			}
-			case SplitscreenMode::Custom:
+			case SplitscreenConfig::Mode::Custom:
 			{
-				Game::session.type = SessionType::Custom;
 				value = strings::multiplayer_custom;
 				break;
 			}
-			case SplitscreenMode::Local:
+			case SplitscreenConfig::Mode::Local:
 			{
-				Game::session.type = SessionType::Custom;
 				value = strings::multiplayer_local;
 				break;
 			}
 			default:
 			{
+				value = AssetNull;
 				vi_assert(false);
 				break;
 			}
 		}
-		UIMenu::enum_option(&global.splitscreen_mode, data.splitscreen.menu.slider_item(u, _(strings::multiplayer), _(value)));
+		UIMenu::enum_option(&global.splitscreen.mode, data.splitscreen.menu.slider_item(u, _(strings::multiplayer), _(value)));
 	}
 
-	if (global.splitscreen_mode != SplitscreenMode::Public)
+	if (global.splitscreen.mode != SplitscreenConfig::Mode::Public)
 	{
 		{
 			// game type
 			AssetID value;
-			switch (Game::session.game_type)
+			switch (global.splitscreen.game_type)
 			{
 				case GameType::Assault:
 				{
@@ -301,7 +348,7 @@ void splitscreen_select_options_update(const Update& u)
 					break;
 				}
 			}
-			UIMenu::enum_option(&Game::session.game_type, data.splitscreen.menu.slider_item(u, _(strings::game_type), _(value)));
+			UIMenu::enum_option(&global.splitscreen.game_type, data.splitscreen.menu.slider_item(u, _(strings::game_type), _(value)));
 		}
 
 		s32 delta;
@@ -309,7 +356,7 @@ void splitscreen_select_options_update(const Update& u)
 
 		{
 			// time limit
-			r32* time_limit = &Game::session.time_limit;
+			r32* time_limit = &global.splitscreen.time_limit;
 			sprintf(str, _(strings::timer), s32(*time_limit / 60.0f), 0);
 			delta = data.splitscreen.menu.slider_item(u, _(strings::time_limit), str);
 			if (delta < 0)
@@ -321,29 +368,34 @@ void splitscreen_select_options_update(const Update& u)
 		if (Game::session.game_type == GameType::Assault)
 		{
 			// respawns
-			s16* respawns = &Game::session.respawns;
+			s16* respawns = &global.splitscreen.respawns;
 			sprintf(str, "%hd", *respawns);
 			delta = data.splitscreen.menu.slider_item(u, _(strings::drones), str);
 			if (delta < 0)
-				*respawns = vi_max(1, (s32)(*respawns) - 1);
+				*respawns = vi_max(1, s32(*respawns) - 1);
 			else if (delta > 0)
-				*respawns = vi_min(100, (s32)(*respawns) + 1);
+				*respawns = vi_min(100, s32(*respawns) + 1);
 		}
 		else
 		{
 			// kill limit
-			s16* kill_limit = &Game::session.kill_limit;
+			s16* kill_limit = &global.splitscreen.kill_limit;
 			sprintf(str, "%hd", *kill_limit);
 			delta = data.splitscreen.menu.slider_item(u, _(strings::kill_limit), str);
 			if (delta < 0)
-				*kill_limit = vi_max(2, (s32)(*kill_limit) - 2);
+				*kill_limit = vi_max(2, s32(*kill_limit) - 2);
 			else if (delta > 0)
-				*kill_limit = vi_min(200, (s32)(*kill_limit) + 2);
+				*kill_limit = vi_min(200, s32(*kill_limit) + 2);
+		}
+
+		// allow abilities
+		{
+			b8* allow_abilities = &global.splitscreen.allow_abilities;
+			delta = data.splitscreen.menu.slider_item(u, _(strings::allow_abilities), _(*allow_abilities ? strings::yes : strings::no));
+			if (delta != 0)
+				*allow_abilities = !(*allow_abilities);
 		}
 	}
-
-	if (data.splitscreen.menu.item(u, _(strings::_continue)))
-		data.state = State::SplitscreenSelectTeams;
 
 	data.splitscreen.menu.end();
 }
@@ -1195,7 +1247,7 @@ void deploy_done()
 {
 	if (Game::session.type == SessionType::Story)
 		OverworldNet::capture_or_defend(data.zone_selected);
-	else if (global.splitscreen_mode == SplitscreenMode::Local)
+	else if (global.splitscreen.mode == SplitscreenConfig::Mode::Local)
 		go(data.zone_selected);
 	else
 	{
@@ -1970,6 +2022,7 @@ void show_complete()
 		new (&data) Data();
 		data.camera = c;
 		data.timer_transition = t;
+		data.splitscreen.menu.animation_time = Game::real_time.total;
 
 		data.camera_restore_data = *data.camera;
 
@@ -1997,7 +2050,6 @@ void show_complete()
 	}
 	else
 	{
-		Game::session.game_type = GameType::Deathmatch;
 		if (Game::save.zone_last == AssetNull)
 			data.zone_selected = Asset::Level::Office;
 		else

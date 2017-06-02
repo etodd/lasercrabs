@@ -38,6 +38,14 @@ dtQueryFilter default_query_filter = dtQueryFilter();
 const r32 default_search_extents[] = { 15, 30, 15 };
 Revision level_revision;
 Array<RecordedLife> records;
+char record_path[MAX_PATH_LENGTH];
+
+struct RecordedLifeEntry
+{
+	u32 id;
+	RecordedLife data;
+};
+Array<RecordedLifeEntry> records_in_progress;
 
 dtPolyRef get_poly(const Vec3& pos, const r32* search_extents)
 {
@@ -592,6 +600,30 @@ void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_
 	}
 }
 
+AI::RecordedLife* record_in_progress_by_id(u32 id)
+{
+	for (s32 i = 0; i < records_in_progress.length; i++)
+	{
+		if (records_in_progress[i].id == id)
+			return &records_in_progress[i].data;
+	}
+	return nullptr;
+}
+
+void record_in_progress_remove(u32 id)
+{
+	for (s32 i = 0; i < records_in_progress.length; i++)
+	{
+		if (records_in_progress[i].id == id)
+		{
+			records_in_progress[i].data.~RecordedLife();
+			records_in_progress.remove(i);
+			return;
+		}
+	}
+	vi_assert(false);
+}
+
 void loop()
 {
 	nav_mesh_query = dtAllocNavMeshQuery();
@@ -655,7 +687,6 @@ void loop()
 
 					// read records
 					{
-						char record_path[MAX_PATH_LENGTH];
 						s32 record_path_length;
 						sync_in.read(&record_path_length);
 						vi_assert(record_path_length < MAX_PATH_LENGTH);
@@ -1197,6 +1228,60 @@ void loop()
 				force_fields.resize(count);
 				sync_in.read(force_fields.data, force_fields.length);
 				sync_in.unlock();
+				break;
+			}
+			case Op::RecordInit:
+			{
+				u32 id;
+				AI::Team team;
+				s8 remaining_drones;
+				sync_in.read(&id);
+				sync_in.read(&team);
+				sync_in.read(&remaining_drones);
+				sync_in.unlock();
+
+				RecordedLifeEntry entry;
+				entry.id = id;
+				entry.data.reset(team, remaining_drones);
+				records_in_progress.add(entry);
+				break;
+			}
+			case Op::RecordAdd:
+			{
+				u32 id;
+				RecordedLife::Tag tag;
+				RecordedLife::Action action;
+				sync_in.read(&id);
+				sync_in.read(&tag);
+				sync_in.read(&action);
+				sync_in.unlock();
+				record_in_progress_by_id(id)->add(tag, action);
+				break;
+			}
+			case Op::RecordClose:
+			{
+				u32 id;
+				sync_in.read(&id);
+				sync_in.unlock();
+
+				if (id != 0) // 0 is an invalid record ID
+				{
+					RecordedLife* record = record_in_progress_by_id(id);
+
+					if (record->action.length > 0)
+					{
+						// save AI record
+						FILE* f = fopen(record_path, "ab");
+						if (!f)
+						{
+							fprintf(stderr, "Can't open air file '%s'\n", record_path);
+							vi_assert(false);
+						}
+						record->serialize(f, &RecordedLife::custom_fwrite);
+						fclose(f);
+					}
+					record_in_progress_remove(id);
+				}
 				break;
 			}
 			case Op::Quit:

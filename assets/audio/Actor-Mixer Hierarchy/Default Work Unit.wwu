@@ -1468,101 +1468,6 @@
 						</Reference>
 					</ReferenceList>
 					<ChildrenList>
-						<Sound Name="hobo1" ID="{EF7A5EE7-4D89-42F8-A1A3-B9FD7153320F}" ShortID="808348669" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="hobo1" ID="{D3F5420C-03E5-4CC4-81D0-7E730778E756}" ShortID="267547141">
-									<Language>SFX</Language>
-									<AudioFile>hobo1.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="hobo1" ID="{D3F5420C-03E5-4CC4-81D0-7E730778E756}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="hobo2" ID="{14A5406B-18F7-4AA0-B080-1DD34F371BED}" ShortID="923517779" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="hobo2" ID="{583EC3DB-96B6-4E05-A819-F636043A8709}" ShortID="763206242">
-									<Language>SFX</Language>
-									<AudioFile>hobo2.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="hobo2" ID="{583EC3DB-96B6-4E05-A819-F636043A8709}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="hobo3" ID="{D8783CF1-2EE0-4B35-BFDB-CB70C68E118F}" ShortID="677446234" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="hobo3" ID="{0C16C3E0-7702-4A23-8902-716F911C9482}" ShortID="796644226">
-									<Language>SFX</Language>
-									<AudioFile>hobo3.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="hobo3" ID="{0C16C3E0-7702-4A23-8902-716F911C9482}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="hobo4" ID="{2726616C-0F6F-4EFF-ABA7-2019053D6760}" ShortID="179609400" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="hobo4" ID="{569E83F8-5F29-49C8-B01F-C9AFE460438F}" ShortID="969520954">
-									<Language>SFX</Language>
-									<AudioFile>hobo4.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="hobo4" ID="{569E83F8-5F29-49C8-B01F-C9AFE460438F}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="hobo5" ID="{85DE5779-8B2C-438C-9337-D18CE29EA48B}" ShortID="68281729" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="hobo5" ID="{22B2E449-8D9C-4075-A84C-4CB463A460DA}" ShortID="950067535">
-									<Language>SFX</Language>
-									<AudioFile>hobo5.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="hobo5" ID="{22B2E449-8D9C-4075-A84C-4CB463A460DA}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
 						<Sound Name="ivory_ad1" ID="{37D4979A-D176-44D9-A746-A8650DF00CB7}" ShortID="475569122" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
@@ -2055,6 +1960,196 @@
 							</ChildrenList>
 							<ActiveSourceList>
 								<ActiveSource Name="locke7d" ID="{26FC1D36-324D-40A2-B847-776FA642417E}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="hobo01" ID="{AD7935D2-C731-43C7-B8B7-56DDAF58DBD1}" ShortID="274453593" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="hobo01" ID="{D6E495FB-49AB-4FF1-A7D0-902DF78546C6}" ShortID="769469240">
+									<Language>SFX</Language>
+									<AudioFile>hobo01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="hobo01" ID="{D6E495FB-49AB-4FF1-A7D0-902DF78546C6}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="hobo02" ID="{48A02F2C-601B-430F-9E05-265B52A704F7}" ShortID="750046077" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="hobo02" ID="{F85E19DD-44F5-4BB3-BE2E-C445C8DE8FC6}" ShortID="686755708">
+									<Language>SFX</Language>
+									<AudioFile>hobo02.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="hobo02" ID="{F85E19DD-44F5-4BB3-BE2E-C445C8DE8FC6}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="hobo03" ID="{C9BC228E-9F5E-4CDA-8478-56207272492A}" ShortID="650019088" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="hobo03" ID="{FA2AADDB-41B7-4E72-8D8D-D3513901E07B}" ShortID="814317539">
+									<Language>SFX</Language>
+									<AudioFile>hobo03.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="hobo03" ID="{FA2AADDB-41B7-4E72-8D8D-D3513901E07B}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="hobo04" ID="{E713A85D-A072-4117-B83C-375357A47762}" ShortID="959052307" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="hobo04" ID="{DE4E5491-E196-4E72-8C19-17E98A70DFB1}" ShortID="203504586">
+									<Language>SFX</Language>
+									<AudioFile>hobo04.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="hobo04" ID="{DE4E5491-E196-4E72-8C19-17E98A70DFB1}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="hobo05" ID="{57CA57C3-8502-4C57-8B1C-37829F7AB0C2}" ShortID="966806543" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="hobo05" ID="{72B8EB35-2370-4E29-8CA7-18E2DD9D8A42}" ShortID="974551940">
+									<Language>SFX</Language>
+									<AudioFile>hobo05.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="hobo05" ID="{72B8EB35-2370-4E29-8CA7-18E2DD9D8A42}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="hobo06" ID="{A0FF3FFD-E485-44F7-BF53-83DE50A7224D}" ShortID="9759816" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="hobo06" ID="{7BD5A8BE-E976-4239-A71D-C3D656181F37}" ShortID="518387542">
+									<Language>SFX</Language>
+									<AudioFile>hobo06.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="hobo06" ID="{7BD5A8BE-E976-4239-A71D-C3D656181F37}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="hobo07" ID="{FC38538F-AC93-4ACF-845B-E623AD80E22D}" ShortID="1066922079" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="hobo07" ID="{1E46A276-5B0F-44CF-8D4F-F48BAB6C1D6A}" ShortID="717375168">
+									<Language>SFX</Language>
+									<AudioFile>hobo07.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="hobo07" ID="{1E46A276-5B0F-44CF-8D4F-F48BAB6C1D6A}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="hobo08" ID="{AFE37A8D-D712-4054-B857-87FA1348EBBD}" ShortID="106589291" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="hobo08" ID="{32F38EB1-50FA-4DAF-AB19-44BFF18A3C27}" ShortID="191621992">
+									<Language>SFX</Language>
+									<AudioFile>hobo08.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="hobo08" ID="{32F38EB1-50FA-4DAF-AB19-44BFF18A3C27}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="hobo09" ID="{BF5E524C-6DEB-4012-8D7B-05A53F2DDC77}" ShortID="759559628" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="hobo09" ID="{78B319C5-B116-406F-991B-D5DA939F764F}" ShortID="964505526">
+									<Language>SFX</Language>
+									<AudioFile>hobo09.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="hobo09" ID="{78B319C5-B116-406F-991B-D5DA939F764F}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="hobo10" ID="{3E058752-F2CF-42EE-91FC-DAA7A7C33FAA}" ShortID="268400148" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="hobo10" ID="{1A45E92B-5452-400D-BC02-4058464E6652}" ShortID="761843828">
+									<Language>SFX</Language>
+									<AudioFile>hobo10.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="hobo10" ID="{1A45E92B-5452-400D-BC02-4058464E6652}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>

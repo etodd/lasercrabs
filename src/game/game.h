@@ -70,6 +70,7 @@ namespace VI
 			s16 kill_limit;
 			s8 player_slots;
 			s8 team_count;
+			b8 allow_abilities;
 
 			Session();
 			void reset();

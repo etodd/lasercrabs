@@ -93,7 +93,8 @@ Game::Session::Session()
 	time_limit(MATCH_TIME_DEFAULT),
 	game_type(GameType::Assault),
 	respawns(DEFAULT_ASSAULT_DRONES),
-	kill_limit(8)
+	kill_limit(DEFAULT_ASSAULT_DRONES),
+	allow_abilities(true)
 {
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 		local_player_uuids[i] = mersenne::rand_u64();

@@ -811,6 +811,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_int(p, s8, Game::session.team_count, 2, MAX_PLAYERS);
 	serialize_s16(p, Game::session.kill_limit);
 	serialize_s16(p, Game::session.respawns);
+	serialize_bool(p, Game::session.allow_abilities);
 	if (Stream::IsReading)
 	{
 		Game::level.finder.map.length = 0;
@@ -2056,6 +2057,7 @@ void server_state(Master::ServerState* s)
 	s->time_limit_minutes = u8(Game::level.time_limit / 60.0f);
 	s->kill_limit = Game::level.kill_limit;
 	s->respawns = Game::level.respawns;
+	s->allow_abilities = Game::session.allow_abilities;
 }
 
 b8 master_send_status_update()
@@ -2386,6 +2388,7 @@ b8 packet_handle_master(StreamRead* p)
 				Game::session.kill_limit = s.kill_limit;
 				Game::session.respawns = s.respawns;
 				Game::session.time_limit = r32(s.time_limit_minutes) * 60.0f;
+				Game::session.allow_abilities = s.allow_abilities;
 				if (s.session_type == SessionType::Story)
 				{
 					if (!Master::serialize_save(p, &Game::save))

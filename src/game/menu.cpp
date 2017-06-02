@@ -36,6 +36,8 @@ char dialog_string[MAX_GAMEPADS][255];
 r32 dialog_time_limit[MAX_GAMEPADS];
 Camera* camera_connecting;
 
+#define DIALOG_ANIM_TIME 0.25f
+
 // default callback
 void dialog_no_action(s8 gamepad)
 {
@@ -661,33 +663,40 @@ void draw(const RenderParams& params)
 		UIMenu::text_clip(&text, dialog_time[gamepad], 150.0f);
 		Vec2 pos = params.camera->viewport.size * 0.5f;
 		Rect2 text_rect = text.rect(pos).outset(padding);
-		UI::box(params, text_rect, UI::color_background);
-		text.draw(params, pos);
 
-		// accept
-		text.wrap_width = 0;
-		text.anchor_y = UIText::Anchor::Max;
-		text.anchor_x = UIText::Anchor::Min;
-		text.color = UI::color_accent;
-		text.clip = 0;
-		text.text(gamepad, dialog_time_limit[gamepad] > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(dialog_time_limit[gamepad]) + 1);
-		Vec2 prompt_pos = text_rect.pos + Vec2(padding, 0);
-		Rect2 prompt_rect = text.rect(prompt_pos).outset(padding);
-		prompt_rect.size.x = text_rect.size.x;
-		UI::box(params, prompt_rect, UI::color_background);
-		text.draw(params, prompt_pos);
-
-		if (dialog_callback[gamepad] != &dialog_no_action)
 		{
-			// cancel
-			text.anchor_x = UIText::Anchor::Max;
-			text.color = UI::color_alert;
-			text.clip = 0;
-			text.text(gamepad, _(strings::prompt_cancel));
-			text.draw(params, prompt_pos + Vec2(text_rect.size.x + padding * -2.0f, 0));
+			r32 prompt_height = (padding + UI_TEXT_SIZE_DEFAULT * UI::scale) * Ease::cubic_out<r32>(vi_min((Game::real_time.total - dialog_time[gamepad]) / DIALOG_ANIM_TIME, 1.0f));
+			text_rect.pos.y -= prompt_height;
+			text_rect.size.y += prompt_height;
 		}
 
-		UI::border(params, { prompt_rect.pos, prompt_rect.size + Vec2(0, text_rect.size.y - padding) }, 2.0f, UI::color_accent);
+		UI::box(params, text_rect, UI::color_background);
+		UI::border(params, text_rect, 2.0f, UI::color_accent);
+
+		text.draw(params, pos);
+
+		if (Game::real_time.total > dialog_time[gamepad] + DIALOG_ANIM_TIME)
+		{
+			// accept
+			text.wrap_width = 0;
+			text.anchor_y = UIText::Anchor::Min;
+			text.anchor_x = UIText::Anchor::Min;
+			text.color = UI::color_accent;
+			text.clip = 0;
+			text.text(gamepad, dialog_time_limit[gamepad] > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(dialog_time_limit[gamepad]) + 1);
+			Vec2 prompt_pos = text_rect.pos + Vec2(padding);
+			text.draw(params, prompt_pos);
+
+			if (dialog_callback[gamepad] != &dialog_no_action)
+			{
+				// cancel
+				text.anchor_x = UIText::Anchor::Max;
+				text.color = UI::color_alert;
+				text.clip = 0;
+				text.text(gamepad, _(strings::prompt_cancel));
+				text.draw(params, prompt_pos + Vec2(text_rect.size.x + padding * -2.0f, 0));
+			}
+		}
 	}
 }
 
@@ -1002,6 +1011,19 @@ void UIMenu::draw_ui(const RenderParams& params, const Vec2& origin, UIText::Anc
 		}
 	}
 
+	if (items.length > 0)
+	{
+		// draw background
+		r32 h = height() * Ease::cubic_out<r32>(vi_min((Game::real_time.total - animation_time) / 0.25f, 1.0f));
+		Rect2 rect =
+		{
+			Vec2(pos.x - MENU_ITEM_PADDING_LEFT, pos.y - h - MENU_ITEM_PADDING * 1.5f),
+			Vec2(MENU_ITEM_WIDTH, h + MENU_ITEM_PADDING * 3.0f)
+		};
+
+		UI::box(params, rect, UI::color_background);
+	}
+
 	Rect2 rect;
 	for (s32 i = 0; i < items.length; i++)
 	{
@@ -1024,7 +1046,6 @@ void UIMenu::draw_ui(const RenderParams& params, const Vec2& origin, UIText::Anc
 			scroll_started = true;
 		}
 
-		UI::box(params, rect, UI::color_background);
 		if (active[gamepad] == this && i == selected)
 			UI::box(params, { pos + Vec2(-MENU_ITEM_PADDING_LEFT, item.label.size * -UI::scale), Vec2(4 * UI::scale, item.label.size * UI::scale) }, UI::color_accent);
 

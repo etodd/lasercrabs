@@ -30,6 +30,7 @@ SyncRingBuffer<SYNC_OUT_SIZE> sync_out;
 b8 render_meshes_dirty;
 u32 callback_in_id = 1;
 u32 callback_out_id = 1;
+u32 record_id_current = 1;
 Revision level_revision;
 Revision level_revision_worker;
 
@@ -140,6 +141,44 @@ void update(const Update& u)
 	sync_out.unlock();
 }
 
+u32 record_init(AI::Team team, s8 remaining_drones)
+{
+	u32 id = record_id_current;
+	record_id_current++;
+	if (record_id_current == 0) // 0 is an invalid record ID
+		record_id_current = 1;
+	sync_in.lock();
+	sync_in.write(Op::RecordInit);
+	sync_in.write(id);
+	sync_in.write(team);
+	sync_in.write(remaining_drones);
+	sync_in.unlock();
+
+	return id;
+}
+
+void record_add(u32 id, const AI::RecordedLife::Tag& tag, const AI::RecordedLife::Action& action)
+{
+	vi_assert(id != 0);
+	sync_in.lock();
+	sync_in.write(Op::RecordAdd);
+	sync_in.write(id);
+	sync_in.write(tag);
+	sync_in.write(action);
+	sync_in.unlock();
+}
+
+void record_close(u32 id)
+{
+	if (id != 0)
+	{
+		sync_in.lock();
+		sync_in.write(Op::RecordClose);
+		sync_in.write(id);
+		sync_in.unlock();
+	}
+}
+
 b8 match(Team t, TeamMask m)
 {
 	if (m == TeamNone)
@@ -156,7 +195,7 @@ u32 obstacle_add(const Vec3& pos, r32 radius, r32 height)
 	{
 		if (!obstacles[i])
 		{
-			id = (u32)i;
+			id = u32(i);
 			found = true;
 			break;
 		}

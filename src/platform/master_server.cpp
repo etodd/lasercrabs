@@ -310,7 +310,8 @@ namespace Master
 					|| s.open_slots == 0
 					|| s.level >= Asset::Level::count
 					|| (s.session_type == SessionType::Story && s.open_slots != 1)
-					|| (s.session_type == SessionType::Story && s.team_count != 2))
+					|| (s.session_type == SessionType::Story && s.team_count != 2)
+					|| (s.session_type == SessionType::Story && !s.allow_abilities))
 					net_error();
 				if (node->state == Node::State::ClientConnecting)
 				{
@@ -614,6 +615,7 @@ namespace Master
 					multiplayer_state.kill_limit = 0;
 					multiplayer_state.respawns = 5;
 					multiplayer_state.time_limit_minutes = 8;
+					multiplayer_state.allow_abilities = true;
 
 					s32 server_allocs = vi_min(idle_servers, ((needed_multiplayer_slots - existing_multiplayer_slots) + MAX_PLAYERS - 1) / MAX_PLAYERS); // ceil divide
 					for (s32 i = 0; i < server_allocs; i++)

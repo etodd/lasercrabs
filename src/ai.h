@@ -32,6 +32,10 @@ namespace AI
 		ClosestWalkPoint,
 		UpdateState,
 		Quit,
+		RecordInit,
+		RecordAdd,
+		RecordClose,
+		count,
 	};
 
 	enum class Callback : s8
@@ -41,6 +45,7 @@ namespace AI
 		Point,
 		DronePoint,
 		Load,
+		count,
 	};
 
 	enum class DronePathfind : s8
@@ -50,6 +55,7 @@ namespace AI
 		Away,
 		Random,
 		Spawn,
+		count,
 	};
 
 	enum class DroneAllow : s8
@@ -97,6 +103,7 @@ namespace AI
 	extern SyncRingBuffer<SYNC_OUT_SIZE> sync_out;
 	extern u32 callback_in_id;
 	extern u32 callback_out_id;
+	extern u32 record_id_current;
 
 	b8 match(AI::Team, AI::TeamMask);
 	u32 obstacle_add(const Vec3&, r32, r32);
@@ -271,6 +278,10 @@ namespace AI
 		static size_t custom_fread(void*, size_t, size_t, FILE*);
 		void serialize(FILE*, size_t(*)(void*, size_t, size_t, FILE*));
 	};
+
+	u32 record_init(Team, s8);
+	void record_add(u32, const RecordedLife::Tag&, const RecordedLife::Action&);
+	void record_close(u32);
 }
 
 struct AIAgent : public ComponentType<AIAgent>

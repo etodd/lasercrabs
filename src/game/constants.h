@@ -109,6 +109,7 @@
 #define BOLT_SPEED 20.0f
 #define BOLT_LENGTH 0.5f
 #define BOLT_LIGHT_RADIUS 10.0f
+#define BOLTS_PER_DRONE_CHARGE 3
 
 #define BATTERY_RADIUS 0.55f
 

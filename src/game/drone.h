@@ -126,6 +126,7 @@ struct Drone : public ComponentType<Drone>
 	Link done_flying;
 	Link done_dashing;
 	s8 charges;
+	s8 bolter_charge_counter;
 	b8 dash_combo;
 	b8 reflection_source_remote;
 

@@ -1762,7 +1762,7 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 	if (t == Type::ImpactLarge || t == Type::SpawnMinion || t == Type::SpawnDrone)
 		EffectLight::add(pos, GRENADE_RANGE, 1.5f, EffectLight::Type::Shockwave);
 
-	if (t != Type::SpawnMinion && t != Type::SpawnDrone && t != Type::ImpactSmall)
+	if (t != Type::SpawnMinion && t != Type::SpawnDrone)
 	{
 		for (s32 i = 0; i < 50; i++)
 		{

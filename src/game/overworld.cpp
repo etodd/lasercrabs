@@ -1265,6 +1265,7 @@ void deploy_done()
 		s.open_slots = Game::session.local_player_count();
 		s.level = data.zone_selected;
 		s.time_limit_minutes = s8(Game::session.time_limit / 60.0f);
+		s.allow_abilities = Game::session.allow_abilities;
 		Net::Client::allocate_server(s);
 
 		clear();

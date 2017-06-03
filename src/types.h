@@ -53,9 +53,9 @@ const ID IDNull = ID(MAX_ENTITIES);
 
 enum class Ability : s8
 {
-	Minion,
 	Bolter,
 	ActiveArmor,
+	Minion,
 	Sensor,
 	ForceField,
 	Sniper,
@@ -66,9 +66,9 @@ enum class Ability : s8
 
 enum class Upgrade : s8
 {
-	Minion,
 	Bolter,
 	ActiveArmor,
+	Minion,
 	Sensor,
 	ForceField,
 	Sniper,

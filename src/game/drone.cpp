@@ -797,6 +797,12 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							drone->fake_bolts.remove_ordered(0);
 						}
 					}
+					drone->bolter_charge_counter++;
+					if (drone->bolter_charge_counter >= BOLTS_PER_DRONE_CHARGE)
+					{
+						drone->bolter_charge_counter = 0;
+						drone->cooldown_setup();
+					}
 					break;
 				}
 				case Ability::ActiveArmor:
@@ -904,7 +910,8 @@ Drone::Drone()
 	dash_target(),
 	remote_reflection_timer(),
 	reflection_source_remote(),
-	remote_reflection_entity()
+	remote_reflection_entity(),
+	bolter_charge_counter()
 {
 }
 
@@ -1947,8 +1954,12 @@ void Drone::update_server(const Update& u)
 	if (cooldown > 0.0f)
 	{
 		cooldown = vi_max(0.0f, cooldown - u.time.delta);
-		if (cooldown == 0.0f && Game::level.local)
-			charges = DRONE_CHARGES;
+		if (cooldown == 0.0f)
+		{
+			if (Game::level.local)
+				charges = DRONE_CHARGES;
+			bolter_charge_counter = 0;
+		}
 	}
 
 	if (s != Drone::State::Crawl)

@@ -44,21 +44,21 @@ r32 Team::match_time;
 AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 {
 	{
-		Asset::Mesh::icon_minion,
-		20,
-		AbilityInfo::Type::Build,
-		false,
-	},
-	{
 		Asset::Mesh::icon_bolter,
-		10,
+		0,
 		AbilityInfo::Type::Shoot,
 		true,
 	},
 	{
 		Asset::Mesh::icon_active_armor,
-		10,
+		0,
 		AbilityInfo::Type::Other,
+		false,
+	},
+	{
+		Asset::Mesh::icon_minion,
+		20,
+		AbilityInfo::Type::Build,
 		false,
 	},
 	{
@@ -75,7 +75,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 	},
 	{
 		Asset::Mesh::icon_sniper,
-		10,
+		0,
 		AbilityInfo::Type::Shoot,
 		false,
 	},
@@ -90,12 +90,6 @@ AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 {
 	{
-		strings::minion,
-		strings::description_minion,
-		Asset::Mesh::icon_minion,
-		40,
-	},
-	{
 		strings::bolter,
 		strings::description_bolter,
 		Asset::Mesh::icon_bolter,
@@ -105,6 +99,12 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::active_armor,
 		strings::description_active_armor,
 		Asset::Mesh::icon_active_armor,
+		40,
+	},
+	{
+		strings::minion,
+		strings::description_minion,
+		Asset::Mesh::icon_minion,
 		40,
 	},
 	{

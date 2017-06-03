@@ -3978,6 +3978,23 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::color_background);
 
 				username.draw(params, username_pos);
+
+				{
+					PlayerManager* other_manager = other_player.item()->manager.ref();
+					s32 ability_count = other_manager->ability_count();
+					if (ability_count > 0)
+					{
+						r32 item_size = text_size * UI::scale * 0.75f;
+						Vec2 p2 = username_pos + Vec2((ability_count * -0.5f + 0.5f) * item_size + ((ability_count - 1) * HP_BOX_SPACING * -0.5f), (text_size * UI::scale) + item_size);
+						UI::box(params, { Vec2(p2.x + item_size * -0.5f - HP_BOX_SPACING, p2.y + item_size * -0.5f - HP_BOX_SPACING), Vec2((ability_count * item_size) + ((ability_count + 1) * HP_BOX_SPACING), item_size + HP_BOX_SPACING * 2.0f) }, UI::color_background);
+						for (s32 i = 0; i < ability_count; i++)
+						{
+							const AbilityInfo& info = AbilityInfo::list[s32(other_manager->abilities[i])];
+							UI::mesh(params, info.icon, p2, Vec2(item_size), *color);
+							p2.x += item_size + HP_BOX_SPACING;
+						}
+					}
+				}
 			}
 		}
 	}
@@ -4134,7 +4151,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			s32 charges = get<Drone>()->charges;
 			if (charges == 0)
 				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * (get<Drone>()->cooldown / DRONE_COOLDOWN)) * UI::scale) }, spoke_width, UI::color_alert, PI);
-			else if (get<Drone>()->current_ability == Ability::None)
+			else
 			{
 				const Vec2 box_size = Vec2(10.0f) * UI::scale;
 				for (s32 i = 0; i < charges; i++)
@@ -4165,7 +4182,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (get<Drone>()->current_ability != Ability::None)
 			{
 				Ability a = get<Drone>()->current_ability;
-				Vec2 p = pos + Vec2(0, -48.0f * UI::scale);
+				Vec2 p = pos + Vec2(0, (-128.0f + text_size + 8.0f) * UI::scale);
 				UI::centered_box(params, { p, Vec2(34.0f * UI::scale) }, UI::color_background);
 				UI::mesh(params, AbilityInfo::list[s32(a)].icon, p, Vec2(18.0f * UI::scale), *color);
 
@@ -4188,7 +4205,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Max;
 				text.size = text_size;
-				p = pos + Vec2(0, -96.0f * UI::scale);
+				p = pos + Vec2(0, -128.0f * UI::scale);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
 				text.draw(params, p);
 			}

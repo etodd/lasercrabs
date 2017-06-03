@@ -2229,19 +2229,30 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Sensor);
 	}
 
-	// turrets
+	// turrets and core modules
 	if (Game::level.has_feature(Game::FeatureLevel::Turrets))
 	{
-		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+		if (Turret::list.count() > 0)
 		{
-			PlayerControlHuman::TargetIndicator::Type type;
-			if (i.item()->target.ref() == p->entity())
-				type = PlayerControlHuman::TargetIndicator::Type::TurretAttacking;
-			else if (i.item()->team == team)
-				type = PlayerControlHuman::TargetIndicator::Type::TurretFriendly;
-			else
-				type = PlayerControlHuman::TargetIndicator::Type::Turret;
-			player_add_target_indicator(p, i.item()->get<Target>(), type);
+			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+			{
+				PlayerControlHuman::TargetIndicator::Type type;
+				if (i.item()->target.ref() == p->entity())
+					type = PlayerControlHuman::TargetIndicator::Type::TurretAttacking;
+				else if (i.item()->team == team)
+					type = PlayerControlHuman::TargetIndicator::Type::TurretFriendly;
+				else
+					type = PlayerControlHuman::TargetIndicator::Type::Turret;
+				player_add_target_indicator(p, i.item()->get<Target>(), type);
+			}
+		}
+		else
+		{
+			for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->team != team)
+					player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::CoreModule);
+			}
 		}
 	}
 
@@ -3575,6 +3586,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				break;
 			}
 			case TargetIndicator::Type::Turret:
+			case TargetIndicator::Type::CoreModule:
 			{
 				UI::indicator(params, indicator.pos, Team::ui_color_enemy, true);
 				break;
@@ -3647,14 +3659,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 						}
 					}
 				}
-			}
-		}
-		else
-		{
-			for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
-			{
-				if (!i.item()->get<Health>()->invincible())
-					UI::indicator(params, i.item()->get<Transform>()->absolute_pos(), Team::ui_color(i.item()->team, my_team), true);
 			}
 		}
 

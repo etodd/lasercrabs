@@ -15,8 +15,8 @@ namespace Asset
 		const AssetID Media_Tower = 3;
 		const AssetID Office = 4;
 		const AssetID Port_District = 5;
-		const AssetID Tier_0 = 6;
-		const AssetID Tier_1 = 7;
+		const AssetID Tier_0A = 6;
+		const AssetID Tier_1A = 7;
 		const AssetID overworld = 8;
 	}
 }

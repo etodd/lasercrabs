@@ -255,7 +255,7 @@ void Game::update(const Update& update_in)
 #if !SERVER
 			if (level.local
 				&& session.type == SessionType::Story
-				&& level.id == Asset::Level::Tier_0
+				&& level.id == Asset::Level::Tier_0A
 				&& scheduled_load_level == Asset::Level::Port_District) // we're playing locally on the title screen; need to switch to a server
 			{
 				save.zone_last = level.id; // hack to ensure hand-off works correctly
@@ -1431,7 +1431,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			level.rotation = Json::get_r32(element, "rotation");
 
 			// initialize teams
-			if (m != Mode::Special || level.id == Asset::Level::Tier_0)
+			if (m != Mode::Special || level.id == Asset::Level::Tier_0A)
 			{
 				for (s32 i = 0; i < session.team_count; i++)
 				{

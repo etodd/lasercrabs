@@ -484,7 +484,7 @@ void update(const Update& u)
 		}
 	}
 
-	if (Game::level.id == Asset::Level::Tier_0 && Game::level.mode == Game::Mode::Special)
+	if (Game::level.id == Asset::Level::Tier_0A && Game::level.mode == Game::Mode::Special)
 		title_menu(u, 0, &main_menu, &main_menu_state);
 	else if (Overworld::active())
 	{
@@ -554,7 +554,7 @@ void title()
 	clear();
 	Game::session.reset();
 	Game::save.reset();
-	Game::schedule_load_level(Asset::Level::Tier_0, Game::Mode::Special);
+	Game::schedule_load_level(Asset::Level::Tier_0A, Game::Mode::Special);
 }
 
 void draw(const RenderParams& params)
@@ -599,7 +599,7 @@ void draw(const RenderParams& params)
 
 	if (main_menu_state != State::Hidden)
 	{
-		if (Game::level.id == Asset::Level::Tier_0 && Game::level.mode == Game::Mode::Special)
+		if (Game::level.id == Asset::Level::Tier_0A && Game::level.mode == Game::Mode::Special)
 		{
 			main_menu.draw_ui(params, Vec2(viewport.size.x * 0.5f, viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f), UIText::Anchor::Center, UIText::Anchor::Max);
 #if !SERVER

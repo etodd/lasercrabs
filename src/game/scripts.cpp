@@ -707,7 +707,7 @@ namespace title
 		else if (Game::level.local)
 			World::remove(entities.find("character"));
 
-		if ((Game::save.zone_last == AssetNull || Game::save.zone_last == Asset::Level::Tier_0)
+		if ((Game::save.zone_last == AssetNull || Game::save.zone_last == Asset::Level::Tier_0A)
 			&& entities.find("hack_kits"))
 		{
 			data->target_climb = entities.find("target_climb")->get<Transform>();
@@ -924,6 +924,7 @@ namespace tutorial
 		
 		data->crawl_target = entities.find("crawl_target")->get<Transform>();
 		entities.find("crawl_trigger")->get<PlayerTrigger>()->entered.link(&crawl_complete);
+		entities.find("crawl_trigger2")->get<PlayerTrigger>()->entered.link(&crawl_complete);
 
 		Game::level.feature_level = Game::FeatureLevel::Base;
 

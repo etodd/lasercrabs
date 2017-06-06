@@ -847,7 +847,7 @@ void PlayerHuman::update(const Update& u)
 					// move camera to focus on selected spawn point
 					{
 						Quat target_rot = Quat::look(Game::level.map_view.ref()->absolute_rot() * Vec3(0, -1, 0));
-						Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.skybox.far_plane * -0.6f);
+						Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.skybox.far_plane * -0.5f);
 						camera->pos += (target_pos - camera->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
 						camera->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera->rot, target_rot);
 					}

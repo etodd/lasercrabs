@@ -344,7 +344,7 @@ void update_stealth_state(PlayerManager* player, AIAgent* a, Entity* visibility[
 		// check if any enemy sensors can see us
 		for (auto t = Team::list.iterator(); !t.is_last(); t.next())
 		{
-			if (t.item()->team() != a->team && visibility[player->id()][t.index] == a->entity())
+			if (t.item()->team() != a->team && t.item()->player_tracks[player->id()].entity.ref() == a->entity())
 			{
 				stealth_enabled = false;
 				break;

@@ -873,6 +873,7 @@ void loop()
 						fread(&drone_nav_mesh.chunk_size, sizeof(r32), 1, f);
 						fread(&drone_nav_mesh.vmin, sizeof(Vec3), 1, f);
 						fread(&drone_nav_mesh.size, sizeof(Chunks<DroneNavMeshChunk>::Coord), 1, f);
+						fread(&drone_nav_mesh.has_normals_adjacency, sizeof(b8), 1, f);
 						drone_nav_mesh.resize();
 
 						for (s32 i = 0; i < drone_nav_mesh.chunks.length; i++)
@@ -882,10 +883,13 @@ void loop()
 							fread(&vertex_count, sizeof(s32), 1, f);
 							chunk->vertices.resize(vertex_count);
 							fread(chunk->vertices.data, sizeof(Vec3), vertex_count, f);
-							chunk->normals.resize(vertex_count);
-							fread(chunk->normals.data, sizeof(Vec3), vertex_count, f);
-							chunk->adjacency.resize(vertex_count);
-							fread(chunk->adjacency.data, sizeof(DroneNavMeshAdjacency), vertex_count, f);
+							if (drone_nav_mesh.has_normals_adjacency)
+							{
+								chunk->normals.resize(vertex_count);
+								fread(chunk->normals.data, sizeof(Vec3), vertex_count, f);
+								chunk->adjacency.resize(vertex_count);
+								fread(chunk->adjacency.data, sizeof(DroneNavMeshAdjacency), vertex_count, f);
+							}
 						}
 					}
 				}
@@ -1072,6 +1076,7 @@ void loop()
 			}
 			case Op::DronePathfind:
 			{
+				vi_assert(drone_nav_mesh.has_normals_adjacency);
 				DronePathfind type;
 				DroneAllow rule;
 				Team team;
@@ -1182,6 +1187,7 @@ void loop()
 			}
 			case Op::DroneClosestPoint:
 			{
+				vi_assert(drone_nav_mesh.has_normals_adjacency);
 				LinkEntryArg<DronePathNode> callback;
 				sync_in.read(&callback);
 				AI::Team team;
@@ -1212,6 +1218,7 @@ void loop()
 			}
 			case Op::DroneMarkAdjacencyBad:
 			{
+				vi_assert(drone_nav_mesh.has_normals_adjacency);
 				DroneNavMeshNode a;
 				sync_in.read(&a);
 				DroneNavMeshNode b;

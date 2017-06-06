@@ -305,6 +305,7 @@ struct DroneNavMeshChunk
 
 struct DroneNavMesh : Chunks<DroneNavMeshChunk>
 {
+	b8 has_normals_adjacency; // does it have normals and adjacency, or just vertices?
 };
 
 template<typename T>

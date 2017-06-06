@@ -668,12 +668,12 @@ void Battery::update_all(const Update& u)
 
 s16 Battery::reward() const
 {
-	return s16(vi_max(1, vi_min(8, s32(reward_level))) * 10);
+	return s16(vi_max(1, vi_min(5, s32(reward_level / 2) + 1)) * 10);
 }
 
 s16 Battery::increment() const
 {
-	return s16(vi_max(1, vi_min(8, s32(reward_level))) * 2);
+	return 5;
 }
 
 SpawnPointEntity::SpawnPointEntity(AI::Team team, b8 visible)
@@ -1628,10 +1628,8 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 		s8 damage = 1;
 		if (type == Type::Drone)
 		{
-			if (hit_object->has<ForceField>())
+			if (!hit_object->has<Turret>() && !hit_object->has<Drone>() && !hit_object->has<ForceField>())
 				damage = 2;
-			else if (!hit_object->has<Turret>() && !hit_object->has<Drone>())
-				damage = 3;
 		}
 		else if (type == Type::Minion && hit_object->has<Turret>())
 			damage = 2;
@@ -1653,10 +1651,14 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 		if (hit_object->get<Health>()->invincible())
 		{
 			damage = 0;
-			do_reflect = true;
-			AI::entity_info(hit_object, team, &team); // switch team
+			if (hit_object->has<Shield>())
+			{
+				do_reflect = true;
+				AI::entity_info(hit_object, team, &team); // switch team
+			}
 		}
-		else if (damage > 0)
+
+		if (damage > 0)
 			hit_object->get<Health>()->damage(entity(), damage);
 
 		if (hit_object->has<RigidBody>())
@@ -3235,7 +3237,8 @@ b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 					if (Game::level.local)
 						TramRunner::go(ref.ref()->track(), 1.0f, TramRunner::State::Departing);
 				}
-				else if (ref.ref()->runner_a.ref()->state == TramRunner::State::Idle
+				else if (Game::level.local
+					&& ref.ref()->runner_a.ref()->state == TramRunner::State::Idle
 					&& !ref.ref()->doors_open())
 				{
 					// player spawned inside us and we're sitting still

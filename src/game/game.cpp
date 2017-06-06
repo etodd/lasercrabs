@@ -48,9 +48,8 @@
 #include <dirent.h>
 
 #if DEBUG
-	#define DEBUG_NAV_MESH 0
-	#define DEBUG_AI_PATH 0
-	#define DEBUG_DRONE_NAV_MESH 0
+	#define DEBUG_WALK_NAV_MESH 0
+	#define DEBUG_WALK_AI_PATH 0
 	#define DEBUG_DRONE_AI_PATH 0
 	#define DEBUG_PHYSICS 0
 #endif
@@ -152,10 +151,12 @@ b8 Game::init(LoopSync* sync)
 			break;
 	}
 
+	AI::init();
+
 	World::init();
 
 	{
-		cJSON* overworld_level = Loader::level(Asset::Level::overworld, GameType::Assault, false);
+		cJSON* overworld_level = Loader::level(Asset::Level::overworld);
 		Overworld::init(overworld_level);
 		Loader::level_free(overworld_level);
 	}
@@ -660,15 +661,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 		Clouds::draw_alpha(render_params);
 	}
 
-#if DEBUG_NAV_MESH
-	AI::debug_draw_nav_mesh(render_params);
-#endif
-
-#if DEBUG_DRONE_NAV_MESH
-	AI::debug_draw_drone_nav_mesh(render_params);
-#endif
-
-#if DEBUG_AI_PATH
+#if DEBUG_WALK_AI_PATH
 	{
 		UIText text;
 		text.color = UI::color_accent;
@@ -863,6 +856,12 @@ void Game::draw_hollow(const RenderParams& render_params)
 
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_hollow(render_params);
+
+#if DEBUG_WALK_NAV_MESH
+	AI::debug_draw_nav_mesh(render_params);
+#endif
+
+	AI::draw_hollow(render_params);
 }
 
 void Game::draw_particles(const RenderParams& render_params)
@@ -1304,7 +1303,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	level.kill_limit = session.kill_limit;
 	level.type = session.game_type;
 
-	cJSON* json = Loader::level(l, level.type, true);
+	cJSON* json = Loader::level(l);
 
 	level.mode = m;
 	level.id = l;
@@ -2087,6 +2086,8 @@ void Game::awake_all()
 		Script::list[level.scripts[i]].function(level.finder);
 
 	Team::awake_all();
+
+	Loader::nav_mesh(level.id, level.type);
 }
 
 

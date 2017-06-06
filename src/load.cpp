@@ -959,29 +959,31 @@ const char* nav_mesh_path(AssetID id)
 		return mod_nav_paths[id - Loader::compiled_level_count];
 }
 
-cJSON* Loader::level(AssetID id, GameType game_type, b8 load_nav)
+cJSON* Loader::level(AssetID id)
 {
-	if (id == AssetNull)
-	{
-		AI::load(AssetNull, nullptr, nullptr);
-		return 0;
-	}
-
-	if (load_nav)
-	{
-		char record_path[MAX_PATH_LENGTH];
-		ai_record_path(record_path, id, game_type);
-		AI::load(id, nav_mesh_path(id), record_path);
-	}
-	else
-		AI::load(AssetNull, nullptr, nullptr);
-	
 	return Json::load(level_path(id));
 }
 
 void Loader::level_free(cJSON* json)
 {
 	Json::json_free((cJSON*)json);
+}
+
+void Loader::nav_mesh(AssetID id, GameType game_type)
+{
+	if (id == AssetNull)
+		AI::load(AssetNull, nullptr, nullptr);
+	else
+	{
+		char record_path[MAX_PATH_LENGTH];
+		ai_record_path(record_path, id, game_type);
+		AI::load(id, nav_mesh_path(id), record_path);
+	}
+}
+
+void Loader::nav_mesh_free()
+{
+	AI::load(AssetNull, nullptr, nullptr);
 }
 
 b8 Loader::soundbank(AssetID id)
@@ -1036,6 +1038,8 @@ void Loader::soundbank_free(AssetID id)
 
 void Loader::transients_free()
 {
+	nav_mesh_free();
+
 	for (AssetID i = 0; i < meshes.length; i++)
 	{
 		if (meshes[i].type == AssetTransient)

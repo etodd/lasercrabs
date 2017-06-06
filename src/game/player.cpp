@@ -1404,18 +1404,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		sprintf(buffer, "%d", get<PlayerManager>()->energy);
 		Vec2 p = ui_anchor + Vec2(match_timer_width() + text_size * UI::scale, (text_size + 16.0f) * -UI::scale);
 		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_energy, buffer, UI::color_accent, text_size * 5 * UI::scale);
-
-		// battery counts
-		AI::Team my_team = get<PlayerManager>()->team.ref()->team();
-		p.x += text_size * 5 * UI::scale;
-		sprintf(buffer, "%d", Battery::count(1 << s32(my_team)));
-		draw_icon_text(params, gamepad, p, AssetNull, buffer, Team::ui_color_friend, text_size * 1.5f * UI::scale);
-		p.x += text_size * 1.5f * UI::scale;
-		sprintf(buffer, "%d", Battery::count(AI::TeamNone));
-		draw_icon_text(params, gamepad, p, AssetNull, buffer, UI::color_accent, text_size * 1.5f * UI::scale);
-		p.x += text_size * 1.5f * UI::scale;
-		sprintf(buffer, "%d", Battery::count(~(1 << s32(my_team))));
-		draw_icon_text(params, gamepad, p, AssetNull, buffer, Team::ui_color_enemy, text_size * 1.5f * UI::scale);
 	}
 
 	if (mode == UIMode::PvpDefault)

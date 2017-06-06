@@ -91,8 +91,11 @@ struct Loader
 	static const Font* font_permanent(AssetID);
 	static void font_free(AssetID);
 
-	static cJSON* level(AssetID, GameType, b8);
+	static cJSON* level(AssetID);
 	static void level_free(cJSON*);
+
+	static void nav_mesh(AssetID, GameType);
+	static void nav_mesh_free();
 
 	static b8 soundbank(AssetID);
 	static b8 soundbank_permanent(AssetID);

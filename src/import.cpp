@@ -2052,17 +2052,13 @@ b8 default_filter(const Mesh* m)
 const r32 grid_spacing = 1.5f;
 const r32 inv_grid_spacing = 1.0f / grid_spacing;
 
-inline r32 sign(const Vec2& p1, const Vec2& p2, const Vec2& p3)
+inline b8 point_in_tri(const Vec2& p, const Vec2& p0, const Vec2& p1, const Vec2& p2)
 {
-	return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
-}
-
-inline b8 point_in_tri(const Vec2& pt, const Vec2& v1, const Vec2& v2, const Vec2& v3)
-{
-	b8 b1 = sign(pt, v1, v2) < 0.0f;
-	b8 b2 = sign(pt, v2, v3) < 0.0f;
-	b8 b3 = sign(pt, v3, v1) < 0.0f;
-	return b1 == b2 && b1 == b3;
+	r32 a = 0.5f * (-p1.y * p2.x + p0.y * (-p1.x + p2.x) + p0.x * (p1.y - p2.y) + p1.x * p2.y);
+    r32 sign = a < 0.0f ? -1.0f : 1.0f;
+    r32 s = sign * (p0.y * p2.x - p0.x * p2.y + (p2.y - p0.y) * p.x + (p0.x - p2.x) * p.y);
+    r32 t = sign * (p0.x * p1.y - p0.y * p1.x + (p0.y - p1.y) * p.x + (p1.x - p0.x) * p.y);
+    return s > 0.0f && t > 0.0f && (s + t) < 2.0f * a * sign;
 }
 
 // v1 is at the bottom, v2 and v3 flush with the top
@@ -2078,15 +2074,15 @@ void rasterize_top_flat_triangle(DroneNavMesh* out, const Vec3& normal, const Ve
 		invslope2 = tmp;
 	}
 
-	s32 min_x = (s32)(vi_min(v1.x, vi_min(v2.x, v3.x)) * inv_grid_spacing);
-	s32 max_x = (s32)(vi_max(v1.x, vi_max(v2.x, v3.x)) * inv_grid_spacing) + 1;
+	s32 min_x = s32(vi_min(v1.x, vi_min(v2.x, v3.x)) * inv_grid_spacing);
+	s32 max_x = s32(vi_max(v1.x, vi_max(v2.x, v3.x)) * inv_grid_spacing) + 1;
 
 	r32 curx1 = v1.x;
 	r32 curx2 = v1.x;
 
-	for (s32 y = (s32)(v1.y * inv_grid_spacing); y <= (s32)(v2.y * inv_grid_spacing) + 1; y++)
+	for (s32 y = s32(v1.y * inv_grid_spacing); y <= s32(v2.y * inv_grid_spacing) + 1; y++)
 	{
-		for (s32 x = vi_max(min_x, (s32)(curx1 * inv_grid_spacing)) - 1; x <= vi_min(max_x, (s32)(curx2 * inv_grid_spacing)) + 1; x++)
+		for (s32 x = vi_max(min_x, s32(curx1 * inv_grid_spacing)) - 1; x <= vi_min(max_x, s32(curx2 * inv_grid_spacing)) + 1; x++)
 		{
 			Vec2 p(x * grid_spacing, y * grid_spacing);
 			if (point_in_tri(p, v1, v2, v3))
@@ -2115,17 +2111,17 @@ void rasterize_bottom_flat_triangle(DroneNavMesh* out, const Vec3& normal, const
 		invslope2 = tmp;
 	}
 
-	s32 min_x = (s32)(vi_min(v1.x, vi_min(v2.x, v3.x)) * inv_grid_spacing);
-	s32 max_x = (s32)(vi_max(v1.x, vi_max(v2.x, v3.x)) * inv_grid_spacing) + 1;
+	s32 min_x = s32(vi_min(v1.x, vi_min(v2.x, v3.x)) * inv_grid_spacing);
+	s32 max_x = s32(vi_max(v1.x, vi_max(v2.x, v3.x)) * inv_grid_spacing) + 1;
 
 	r32 curx1 = v3.x;
 	r32 curx2 = v3.x;
 
-	for (s32 y = (s32)(v3.y * inv_grid_spacing); y >= (s32)(v1.y * inv_grid_spacing) - 1; y--)
+	for (s32 y = s32(v3.y * inv_grid_spacing); y >= s32(v1.y * inv_grid_spacing) - 1; y--)
 	{
 		curx1 -= invslope1;
 		curx2 -= invslope2;
-		for (s32 x = vi_max(min_x, (s32)(curx1 * inv_grid_spacing)) - 1; x <= vi_min(max_x, (s32)(curx2 * inv_grid_spacing)) + 1; x++)
+		for (s32 x = vi_max(min_x, s32(curx1 * inv_grid_spacing)) - 1; x <= vi_min(max_x, s32(curx2 * inv_grid_spacing)) + 1; x++)
 		{
 			Vec2 p(x * grid_spacing, y * grid_spacing);
 			if (point_in_tri(p, v1, v2, v3))
@@ -2285,7 +2281,7 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 		Mesh accessible;
 		consolidate_nav_geometry(&accessible, meshes, manifest, json, is_accessible);
 
-		printf("Consolidating accessible surfaces done: %fs\n", platform::time() - timer);
+		printf("Consolidated accessible surfaces: %fs\n", platform::time() - timer);
 		timer = platform::time();
 
 		out->resize(accessible.bounds_min, accessible.bounds_max, chunk_size);
@@ -2308,7 +2304,7 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 
 			Vec3 u, v;
 
-			if (normal.y > 0.999f || normal.y < -0.999f)
+			if (normal.y > 0.9999999f || normal.y < -0.9999999f)
 			{
 				u = Vec3(1, 0, 0);
 				v = Vec3(0, 0, 1);
@@ -2384,12 +2380,12 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 			}
 		}
 
-		printf("Rasterizing accessible surfaces done: %fs\n", platform::time() - timer);
+		printf("Rasterized accessible surfaces: %fs\n", platform::time() - timer);
 		timer = platform::time();
 
 		chunk_mesh<Array<Vec3>, &chunk_handle_tris>(accessible, &accessible_chunked, chunk_size, chunk_padding);
 
-		printf("Chunking accessible surfaces done: %fs\n", platform::time() - timer);
+		printf("Chunked accessible surfaces: %fs\n", platform::time() - timer);
 		timer = platform::time();
 	}
 
@@ -2399,12 +2395,12 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 		Mesh inaccessible;
 		consolidate_nav_geometry(&inaccessible, meshes, manifest, json, is_inaccessible);
 
-		printf("Consolidating inaccessible surfaces done: %fs\n", platform::time() - timer);
+		printf("Consolidated inaccessible surfaces: %fs\n", platform::time() - timer);
 		timer = platform::time();
 
 		chunk_mesh<Array<Vec3>, &chunk_handle_tris>(inaccessible, &inaccessible_chunked, chunk_size, chunk_padding);
 
-		printf("Chunking inaccessible surfaces done: %fs\n", platform::time() - timer);
+		printf("Chunked inaccessible surfaces: %fs\n", platform::time() - timer);
 		timer = platform::time();
 	}
 
@@ -2421,7 +2417,7 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 				DroneNavMeshNode vertex_node = { s16(chunk_index), s16(vertex_index) };
 				const Vec3& vertex_normal = chunk->normals[vertex_index];
 				const Vec3 vertex_surface = chunk->vertices[vertex_index];
-				const Vec3 a = vertex_surface + vertex_normal * 0.001f;
+				const Vec3 a = vertex_surface + vertex_normal * 0.01f;
 				const Vec3 b = vertex_surface + vertex_normal * (DRONE_RADIUS + 0.02f);
 				if (drone_raycast(inaccessible_chunked, a, b)
 					|| drone_raycast(accessible_chunked, a, b))
@@ -2434,7 +2430,7 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 				}
 			}
 		}
-		printf("Removing %d bad vertices done: %fs\n", vertex_removals, platform::time() - timer);
+		printf("Removed %d bad vertices: %fs\n", vertex_removals, platform::time() - timer);
 		timer = platform::time();
 	}
 	
@@ -2676,7 +2672,7 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 		}
 	}
 
-	printf("Building adjacency graph done: %fs\n", platform::time() - timer);
+	printf("Built adjacency graph: %fs\n", platform::time() - timer);
 	timer = platform::time();
 
 	// count orphans
@@ -2721,7 +2717,7 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 		}
 	}
 
-	printf("Orphan cleaning done: %fs\n", platform::time() - timer);
+	printf("Cleaned orphans: %fs\n", platform::time() - timer);
 }
 
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)

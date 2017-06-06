@@ -33,6 +33,13 @@ u32 callback_out_id = 1;
 u32 record_id_current = 1;
 Revision level_revision;
 Revision level_revision_worker;
+AssetID drone_render_mesh = AssetNull;
+
+void init()
+{
+	drone_render_mesh = Loader::dynamic_mesh_permanent(1);
+	Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
+}
 
 void loop()
 {
@@ -129,6 +136,35 @@ void update(const Update& u)
 			case Callback::Load:
 			{
 				sync_out.read(&level_revision_worker);
+
+				Array<Vec3> vertices;
+
+				{
+					s32 vertex_count;
+					sync_out.read(&vertex_count);
+
+					vertices.resize(vertex_count);
+					sync_out.read(vertices.data, vertices.length);
+				}
+
+				Array<s32> indices;
+				for (s32 i = 0; i < vertices.length; i++)
+					indices.add(i);
+
+				RenderSync* sync = Loader::swapper->get();;
+
+				sync->write(RenderOp::UpdateAttribBuffers);
+				sync->write(drone_render_mesh);
+
+				sync->write<s32>(vertices.length);
+				sync->write<Vec3>(vertices.data, vertices.length);
+
+				sync->write(RenderOp::UpdateIndexBuffer);
+				sync->write(drone_render_mesh);
+
+				sync->write<s32>(indices.length);
+				sync->write<s32>(indices.data, indices.length);
+
 				break;
 			}
 			default:
@@ -350,7 +386,6 @@ void drone_mark_adjacency_bad(DroneNavMeshNode a, DroneNavMeshNode b)
 
 #if DEBUG
 AssetID render_mesh = AssetNull;
-AssetID drone_render_mesh = AssetNull;
 void refresh_nav_render_meshes(const RenderParams& params)
 {
 	if (!render_meshes_dirty)
@@ -364,9 +399,6 @@ void refresh_nav_render_meshes(const RenderParams& params)
 		render_mesh = Loader::dynamic_mesh_permanent(1);
 		Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
 		Loader::shader_permanent(Asset::Shader::flat);
-
-		drone_render_mesh = Loader::dynamic_mesh_permanent(1);
-		Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
 	}
 
 	Array<Vec3> vertices;
@@ -419,50 +451,6 @@ void refresh_nav_render_meshes(const RenderParams& params)
 		params.sync->write<s32>(indices.data, indices.length);
 	}
 
-	vertices.length = 0;
-	indices.length = 0;
-
-	// drone nav mesh
-	{
-		s32 vertex_count = 0;
-		for (s32 chunk_index = 0; chunk_index < Worker::drone_nav_mesh.chunks.length; chunk_index++)
-		{
-			const DroneNavMeshChunk& chunk = Worker::drone_nav_mesh.chunks[chunk_index];
-
-			for (s32 i = 0; i < chunk.vertices.length; i++)
-				vertices.add(chunk.vertices[i]);
-
-			for (s32 i = 0; i < chunk.adjacency.length; i++)
-			{
-				const DroneNavMeshAdjacency& adjacency = chunk.adjacency[i];
-				for (s32 j = 0; j < adjacency.neighbors.length; j++)
-				{
-					const DroneNavMeshNode& neighbor = adjacency.neighbors[j];
-					indices.add(vertex_count + i);
-
-					s32 neighbor_chunk_vertex_index = 0;
-					for (s32 k = 0; k < neighbor.chunk; k++)
-						neighbor_chunk_vertex_index += Worker::drone_nav_mesh.chunks[k].vertices.length;
-					indices.add(neighbor_chunk_vertex_index + neighbor.vertex);
-				}
-			}
-
-			vertex_count += chunk.vertices.length;
-		}
-
-		params.sync->write(RenderOp::UpdateAttribBuffers);
-		params.sync->write(drone_render_mesh);
-
-		params.sync->write<s32>(vertices.length);
-		params.sync->write<Vec3>(vertices.data, vertices.length);
-
-		params.sync->write(RenderOp::UpdateIndexBuffer);
-		params.sync->write(drone_render_mesh);
-
-		params.sync->write<s32>(indices.length);
-		params.sync->write<s32>(indices.data, indices.length);
-	}
-
 	sync_in.unlock();
 
 	render_meshes_dirty = false;
@@ -473,6 +461,8 @@ void render_helper(const RenderParams& params, AssetID m, RenderPrimitiveMode pr
 	if (m == AssetNull)
 		return;
 
+	Loader::shader_permanent(Asset::Shader::flat);
+
 	params.sync->write(RenderOp::Shader);
 	params.sync->write(Asset::Shader::flat);
 	params.sync->write(params.technique);
@@ -481,20 +471,16 @@ void render_helper(const RenderParams& params, AssetID m, RenderPrimitiveMode pr
 	params.sync->write(Asset::Uniform::diffuse_color);
 	params.sync->write(RenderDataType::Vec4);
 	params.sync->write<s32>(1);
-	params.sync->write(Vec4(0, 1, 0, 0.5f));
-
-	Mat4 mvp = params.view_projection;
+	params.sync->write(Vec4(1, 1, 1, 0.75f));
 
 	params.sync->write(RenderOp::Uniform);
 	params.sync->write(Asset::Uniform::mvp);
 	params.sync->write(RenderDataType::Mat4);
 	params.sync->write<s32>(1);
-	params.sync->write<Mat4>(mvp);
+	params.sync->write<Mat4>(params.view_projection);
 
 	params.sync->write(RenderOp::FillMode);
 	params.sync->write(fill_mode);
-	params.sync->write(RenderOp::PointSize);
-	params.sync->write<r32>(4 * UI::scale);
 	params.sync->write(RenderOp::LineWidth);
 	params.sync->write<r32>(1 * UI::scale);
 
@@ -512,10 +498,70 @@ void debug_draw_nav_mesh(const RenderParams& params)
 	render_helper(params, render_mesh, RenderPrimitiveMode::Triangles, RenderFillMode::Point);
 }
 
-void debug_draw_drone_nav_mesh(const RenderParams& params)
+void draw_hollow(const RenderParams& params)
 {
-	refresh_nav_render_meshes(params);
-	render_helper(params, drone_render_mesh, RenderPrimitiveMode::Lines, RenderFillMode::Line);
+	Loader::shader_permanent(Asset::Shader::nav_dots);
+
+	params.sync->write(RenderOp::Shader);
+	params.sync->write(Asset::Shader::nav_dots);
+	params.sync->write(params.technique);
+
+	params.sync->write(RenderOp::Uniform);
+	params.sync->write(Asset::Uniform::diffuse_color);
+	params.sync->write(RenderDataType::Vec4);
+	params.sync->write<s32>(1);
+	params.sync->write(Vec4(1, 1, 1, 0.75f));
+
+	params.sync->write(RenderOp::Uniform);
+	params.sync->write(Asset::Uniform::mv);
+	params.sync->write(RenderDataType::Mat4);
+	params.sync->write<s32>(1);
+	params.sync->write<Mat4>(params.view);
+
+	params.sync->write(RenderOp::Uniform);
+	params.sync->write(Asset::Uniform::p);
+	params.sync->write(RenderDataType::Mat4);
+	params.sync->write<s32>(1);
+	params.sync->write<Mat4>(params.camera->projection);
+
+	{
+		Vec3 center;
+		r32 range;
+		if (params.camera->range > 0.0f)
+		{
+			range = params.camera->range;
+			center = params.camera->range_center;
+		}
+		else
+		{
+			range = DRONE_MAX_DISTANCE;
+			center = Vec3::zero;
+		}
+
+		params.sync->write(RenderOp::Uniform);
+		params.sync->write(Asset::Uniform::range);
+		params.sync->write(RenderDataType::R32);
+		params.sync->write<s32>(1);
+		params.sync->write<r32>(range * 2.0f);
+
+		params.sync->write(RenderOp::Uniform);
+		params.sync->write(Asset::Uniform::range_center);
+		params.sync->write(RenderDataType::Vec3);
+		params.sync->write<s32>(1);
+		params.sync->write(center);
+	}
+
+	params.sync->write(RenderOp::FillMode);
+	params.sync->write(RenderFillMode::Point);
+	params.sync->write(RenderOp::PointSize);
+	params.sync->write<r32>(4 * UI::scale);
+
+	params.sync->write(RenderOp::Mesh);
+	params.sync->write(RenderPrimitiveMode::Points);
+	params.sync->write(drone_render_mesh);
+
+	params.sync->write(RenderOp::FillMode);
+	params.sync->write(RenderFillMode::Fill);
 }
 
 #endif

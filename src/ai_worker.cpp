@@ -35,7 +35,7 @@ FastLZCompressor nav_tile_compressor;
 NavMeshProcess nav_tile_mesh_process;
 dtNavMeshQuery* nav_mesh_query = nullptr;
 dtQueryFilter default_query_filter = dtQueryFilter();
-const r32 default_search_extents[] = { 15, 30, 15 };
+const r32 default_search_extents[] = { 15, 10, 15 };
 Revision level_revision;
 Array<RecordedLife> records;
 char record_path[MAX_PATH_LENGTH];
@@ -908,11 +908,24 @@ void loop()
 
 				{
 					level_revision++;
+
+					Array<Vec3> vertices;
+					for (s32 chunk_index = 0; chunk_index < drone_nav_mesh.chunks.length; chunk_index++)
+					{
+						const DroneNavMeshChunk& chunk = drone_nav_mesh.chunks[chunk_index];
+
+						for (s32 i = 0; i < chunk.vertices.length; i++)
+							vertices.add(chunk.vertices[i]);
+					}
+
 					sync_out.lock();
 					sync_out.write(Callback::Load);
 					sync_out.write(level_revision);
+					sync_out.write<s32>(vertices.length);
+					sync_out.write(vertices.data, vertices.length);
 					sync_out.unlock();
 				}
+
 				break;
 			}
 			case Op::ObstacleAdd:

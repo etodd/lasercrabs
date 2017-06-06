@@ -14,8 +14,8 @@ namespace VI
 {
 
 struct AIAgent;
-struct RenderParams;
 struct PlayerManager;
+struct RenderParams;
 
 namespace AI
 {
@@ -116,11 +116,12 @@ namespace AI
 	u32 closest_walk_point(const Vec3&, const LinkEntryArg<const Vec3&>&);
 	u32 drone_random_path(DroneAllow, AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const DroneResult&>&);
 	void load(AssetID, const char*, const char*);
+	void init();
 	void loop();
 	void quit();
 	void update(const Update&);
 	void debug_draw_nav_mesh(const RenderParams&);
-	void debug_draw_drone_nav_mesh(const RenderParams&);
+	void draw_hollow(const RenderParams&);
 
 	b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);
 

@@ -721,7 +721,7 @@ do\
 				s32 code_length = *(sync->read<s32>());
 				const char* code = sync->read<char>(code_length);
 
-				for (s32 i = 0; i < (s32)RenderTechnique::count; i++)
+				for (s32 i = 0; i < s32(RenderTechnique::count); i++)
 				{
 					b8 success = compile_shader(TechniquePrefixes::all[i], code, code_length, &GLData::shaders[id][i].handle);
 					vi_assert(success);
@@ -737,7 +737,7 @@ do\
 			case RenderOp::FreeShader:
 			{
 				AssetID id = *(sync->read<AssetID>());
-				for (s32 i = 0; i < (s32)RenderTechnique::count; i++)
+				for (s32 i = 0; i < s32(RenderTechnique::count); i++)
 					glDeleteProgram(GLData::shaders[id][i].handle);
 				debug_check();
 				break;
@@ -786,7 +786,7 @@ do\
 					GLData::current_shader_asset = shader_asset;
 					GLData::current_shader_technique = technique;
 					GLData::samplers.length = 0;
-					GLuint program_id = GLData::shaders[shader_asset][(s32)technique].handle;
+					GLuint program_id = GLData::shaders[shader_asset][s32(technique)].handle;
 					glUseProgram(program_id);
 					debug_check();
 				}
@@ -796,7 +796,7 @@ do\
 			{
 				AssetID uniform_asset = *(sync->read<AssetID>());
 
-				GLuint uniform_id = GLData::shaders[GLData::current_shader_asset][(s32)GLData::current_shader_technique].uniforms[uniform_asset];
+				GLuint uniform_id = GLData::shaders[GLData::current_shader_asset][s32(GLData::current_shader_technique)].uniforms[uniform_asset];
 				RenderDataType uniform_type = *(sync->read<RenderDataType>());
 				s32 uniform_count = *(sync->read<s32>());
 

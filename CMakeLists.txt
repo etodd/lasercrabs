@@ -304,6 +304,7 @@ set(SRC
 	assets/shader/armature.glsl
 	assets/shader/composite.glsl
 	assets/shader/flat.glsl
+	assets/shader/nav_dots.glsl
 	assets/shader/flat_texture.glsl
 	assets/shader/fresnel.glsl
 	assets/shader/water.glsl

@@ -771,10 +771,9 @@ namespace tutorial
 {
 	enum class TutorialState : s8
 	{
-		ParkourStart,
-		ParkourSlide,
-		ParkourDone,
-		Start,
+		None,
+		Crawl,
+		Battery,
 		Upgrade,
 		Ability,
 		Turrets,
@@ -791,13 +790,14 @@ namespace tutorial
 		TutorialState state;
 		Ref<Entity> player;
 		Ref<Entity> battery;
+		Ref<Transform> crawl_target;
 	};
 
 	Data* data;
 
 	void drone_target_hit(Entity* e)
 	{
-		if (data->state == TutorialState::Start && e == data->battery.ref())
+		if ((data->state == TutorialState::Crawl || data->state == TutorialState::Battery) && e == data->battery.ref())
 		{
 			data->state = TutorialState::Upgrade;
 			Actor::tut(strings::tut_upgrade);
@@ -818,23 +818,38 @@ namespace tutorial
 		}
 	}
 
+	void crawl_complete(Entity*)
+	{
+		if (data->state == TutorialState::Crawl)
+		{
+			data->state = TutorialState::Battery;
+			Actor::tut(strings::tut_battery);
+			Game::level.feature_level = Game::FeatureLevel::Batteries;
+		}
+	}
+
+	void draw(const RenderParams& params)
+	{
+		if (data->state == TutorialState::Crawl)
+			UI::indicator(params, data->crawl_target.ref()->absolute_pos(), UI::color_accent, true);
+	}
+
 	void update(const Update& u)
 	{
 		// check if the player has spawned
 		if (!data->player.ref() && PlayerControlHuman::list.count() > 0)
 		{
 			Entity* player = PlayerControlHuman::list.iterator().item()->entity();
+			data->player = player;
 			if (player->has<Drone>())
 			{
-				data->player = player;
 				player->get<Drone>()->ability_spawned.link(&ability_spawned);
 				player->get<Drone>()->hit.link(&drone_target_hit);
 
-				if (s32(data->state) <= s32(TutorialState::Start))
+				if (s32(data->state) <= s32(TutorialState::Crawl))
 				{
-					data->state = TutorialState::Start;
-					Actor::tut(strings::tut_start);
-					Game::level.feature_level = Game::FeatureLevel::Batteries;
+					data->state = TutorialState::Crawl;
+					Actor::tut(strings::tut_crawl);
 				}
 			}
 			else
@@ -906,15 +921,14 @@ namespace tutorial
 		data = new Data();
 
 		data->battery = entities.find("battery");
+		
+		data->crawl_target = entities.find("crawl_target")->get<Transform>();
+		entities.find("crawl_trigger")->get<PlayerTrigger>()->entered.link(&crawl_complete);
 
-		if (Game::level.mode == Game::Mode::Pvp)
-			data->state = TutorialState::Start;
-		else
-			data->state = TutorialState::ParkourStart;
-
-		Game::level.feature_level = Game::FeatureLevel::Batteries;
+		Game::level.feature_level = Game::FeatureLevel::Base;
 
 		Game::updates.add(&update);
+		Game::draws.insert(0, &draw);
 		Game::cleanups.add(&cleanup);
 	}
 }

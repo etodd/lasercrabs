@@ -2123,6 +2123,10 @@ void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerCo
 				type = PlayerControlHuman::TargetIndicator::Type::BatteryOutOfRange;
 			else if (type == PlayerControlHuman::TargetIndicator::Type::Turret)
 				type = PlayerControlHuman::TargetIndicator::Type::TurretOutOfRange;
+			else if (type == PlayerControlHuman::TargetIndicator::Type::CoreModule)
+			{
+				// show core modules even if out of range
+			}
 			else
 				show = false; // don't show this indicator because it's out of range
 		}
@@ -2202,12 +2206,15 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 	}
 
 	// batteries
-	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
+	if (Game::level.has_feature(Game::FeatureLevel::Batteries))
 	{
-		PlayerControlHuman::TargetIndicator::Type type = i.item()->team == team
-			? PlayerControlHuman::TargetIndicator::Type::BatteryFriendly
-			: PlayerControlHuman::TargetIndicator::Type::Battery;
-		player_add_target_indicator(p, i.item()->get<Target>(), type);
+		for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
+		{
+			PlayerControlHuman::TargetIndicator::Type type = i.item()->team == team
+				? PlayerControlHuman::TargetIndicator::Type::BatteryFriendly
+				: PlayerControlHuman::TargetIndicator::Type::Battery;
+			player_add_target_indicator(p, i.item()->get<Target>(), type);
+		}
 	}
 
 	// sensors
@@ -4043,7 +4050,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			text.anchor_y = UIText::Anchor::Min;
 			text.text(player.ref()->gamepad, _(strings::shield_down));
 
-			Vec2 pos = viewport.size * Vec2(0.5f, 0.65f);
+			Vec2 pos = viewport.size * Vec2(0.5f, 0.625f);
 
 			Rect2 box = text.rect(pos).outset(8 * UI::scale);
 			UI::box(params, box, UI::color_background);
@@ -4061,7 +4068,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
 		text.size = text_size;
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.7f);
+		Vec2 pos = viewport.size * Vec2(0.5f, 0.675f);
 		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 		text.draw(params, pos);
 	}

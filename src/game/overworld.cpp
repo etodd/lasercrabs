@@ -697,12 +697,14 @@ void select_zone_update(const Update& u, b8 enable_movement)
 					{
 						const Vec3& candidate_pos = candidate.children[k];
 						Vec3 to_candidate = candidate_pos - zone_pos;
-						r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
-						r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
-						if (dot < closest_dot && normalized_dot > 0.707f)
+						if (movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z))) > 0.707f)
 						{
-							closest = &candidate;
-							closest_dot = dot;
+							r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
+							if (dot < closest_dot)
+							{
+								closest = &candidate;
+								closest_dot = dot;
+							}
 						}
 					}
 				}

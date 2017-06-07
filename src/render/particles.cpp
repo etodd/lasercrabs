@@ -633,6 +633,13 @@ Sparks Particles::sparks
 	Vec3(0.0f, -12.0f, 0.0f)
 );
 
+Sparks Particles::sparks_small
+(
+	Vec2(0.07f, 0.005f),
+	0.3f,
+	Vec3(0.0f, -30.0f, 0.0f)
+);
+
 StandardParticleSystem Particles::tracers
 (
 	3, 3,

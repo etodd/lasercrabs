@@ -1220,14 +1220,9 @@ template<typename Stream> b8 serialize_transform(Stream* p, TransformState* tran
 
 template<typename Stream> b8 serialize_minion(Stream* p, MinionState* state, const MinionState* base)
 {
+	serialize_r32_range(p, state->rotation, -PI, PI, 8);
+
 	b8 b;
-
-	if (Stream::IsWriting)
-		b = !base || fabsf(state->rotation - base->rotation) > PI * 2.0f / 256.0f;
-	serialize_bool(p, b);
-	if (b)
-		serialize_r32_range(p, state->rotation, -PI, PI, 8);
-
 	if (Stream::IsWriting)
 		b = !base || state->animation != base->animation;
 	serialize_bool(p, b);
@@ -1371,14 +1366,7 @@ b8 equal_states_minion(const StateFrame* frame_a, const StateFrame* frame_b, s32
 	{
 		b8 a_active = frame_a->minions_active.get(index);
 		b8 b_active = frame_b->minions_active.get(index);
-		if (!a_active && !b_active)
-			return true;
-		const MinionState& a = frame_a->minions[index];
-		const MinionState& b = frame_b->minions[index];
-		return a_active == b_active
-			&& fabsf(a.rotation - b.rotation) < 0.001f
-			&& fabsf(a.animation_time - b.animation_time) < 0.001f
-			&& a.animation == b.animation;
+		return !a_active && !b_active;
 	}
 	else
 		return !frame_a && frame_b->minions_active.get(index);

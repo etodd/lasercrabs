@@ -924,7 +924,6 @@ namespace tutorial
 		
 		data->crawl_target = entities.find("crawl_target")->get<Transform>();
 		entities.find("crawl_trigger")->get<PlayerTrigger>()->entered.link(&crawl_complete);
-		entities.find("crawl_trigger2")->get<PlayerTrigger>()->entered.link(&crawl_complete);
 
 		Game::level.feature_level = Game::FeatureLevel::Base;
 

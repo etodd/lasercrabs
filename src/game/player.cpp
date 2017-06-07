@@ -815,7 +815,6 @@ void PlayerHuman::update(const Update& u)
 						{
 							SpawnPoint* closest = nullptr;
 							r32 closest_dot = FLT_MAX;
-							r32 closest_normalized_dot = 0.4f;
 
 							Vec3 spawn_pos = selected_spawn.ref()->get<Transform>()->absolute_pos();
 							for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
@@ -826,14 +825,14 @@ void PlayerHuman::update(const Update& u)
 
 								Vec3 candidate_pos = candidate->get<Transform>()->absolute_pos();
 								Vec3 to_candidate = candidate_pos - spawn_pos;
-								r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
-								r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
-								r32 mixed_dot = dot * vi_max(normalized_dot, 0.9f);
-								if (mixed_dot < closest_dot && normalized_dot > closest_normalized_dot)
+								if (movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z))) > 0.707f)
 								{
-									closest = candidate;
-									closest_normalized_dot = vi_min(0.8f, normalized_dot);
-									closest_dot = vi_max(2.0f, mixed_dot);
+									r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
+									if (dot < closest_dot)
+									{
+										closest = candidate;
+										closest_dot = dot;
+									}
 								}
 							}
 							if (closest)
@@ -3482,22 +3481,19 @@ void PlayerControlHuman::update_late(const Update& u)
 			camera->range = 0.0f;
 		}
 
-		/*
-		// todo: third-person
-		if (Game::state.third_person)
-			camera_pos = get<Transform>()->absolute_pos() + look_quat * Vec3(0, 1, -7);
-		else
-		*/
 		{
+			// camera bone affects rotation only
+			Quat camera_animation = Quat::euler(PI * -0.5f, 0, 0);
+			get<Animator>()->bone_transform(Asset::Bone::character_camera, nullptr, &camera_animation);
+			camera->rot = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Quat::euler(0, PI * 0.5f, 0) * camera_animation * Quat::euler(0, PI * -0.5f, 0);
+
 			camera->pos = Vec3(0, 0, 0.1f);
 			Quat q = Quat::identity;
 			get<Parkour>()->head_to_object_space(&camera->pos, &q);
 			camera->pos = get<Transform>()->to_world(camera->pos);
 
-			// camera bone affects rotation only
-			Quat camera_animation = Quat::euler(PI * -0.5f, 0, 0);
-			get<Animator>()->bone_transform(Asset::Bone::character_camera, nullptr, &camera_animation);
-			camera->rot = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Quat::euler(0, PI * 0.5f, 0) * camera_animation * Quat::euler(0, PI * -0.5f, 0);
+			// third-person
+			// camera->pos = get<Transform>()->absolute_pos() + camera->rot * Vec3(0, 1, -2);
 		}
 
 		// wind sound and camera shake at high speed

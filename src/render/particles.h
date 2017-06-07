@@ -95,6 +95,7 @@ struct SkyboxParticleSystem : public StandardParticleSystem
 struct Particles
 {
 	static Sparks sparks;
+	static Sparks sparks_small;
 	static Rain rain[Camera::max_cameras];
 	static StandardParticleSystem tracers;
 	static SkyboxParticleSystem tracers_skybox;

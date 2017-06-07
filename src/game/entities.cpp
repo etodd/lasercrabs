@@ -673,7 +673,7 @@ s16 Battery::reward() const
 
 s16 Battery::increment() const
 {
-	return 5;
+	return 4;
 }
 
 SpawnPointEntity::SpawnPointEntity(AI::Team team, b8 visible)

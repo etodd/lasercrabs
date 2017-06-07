@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Animation
 	{
-		const s32 count = 52;
+		const s32 count = 53;
 		const AssetID character_aim = 0;
 		const AssetID character_climb_down = 1;
 		const AssetID character_climb_up = 2;
@@ -39,28 +39,29 @@ namespace Asset
 		const AssetID character_wall_run_left = 27;
 		const AssetID character_wall_run_right = 28;
 		const AssetID character_wall_run_straight = 29;
-		const AssetID drone_dash = 30;
-		const AssetID drone_fly = 31;
-		const AssetID drone_idle = 32;
-		const AssetID hobo_idle = 33;
-		const AssetID interactable_disabled = 34;
-		const AssetID interactable_enabled = 35;
-		const AssetID interactable_interact = 36;
-		const AssetID interactable_interact_disable = 37;
-		const AssetID locke_gesture_both_arms = 38;
-		const AssetID locke_gesture_one_hand = 39;
-		const AssetID locke_gesture_one_hand_short = 40;
-		const AssetID locke_idle = 41;
-		const AssetID locke_shift_weight = 42;
-		const AssetID sailor_close_door = 43;
-		const AssetID sailor_talk = 44;
-		const AssetID sailor_wait = 45;
-		const AssetID terminal_close = 46;
-		const AssetID terminal_open = 47;
-		const AssetID terminal_opened = 48;
-		const AssetID tram_doors_close = 49;
-		const AssetID tram_doors_open = 50;
-		const AssetID tram_doors_opened = 51;
+		const AssetID character_wall_slide = 30;
+		const AssetID drone_dash = 31;
+		const AssetID drone_fly = 32;
+		const AssetID drone_idle = 33;
+		const AssetID hobo_idle = 34;
+		const AssetID interactable_disabled = 35;
+		const AssetID interactable_enabled = 36;
+		const AssetID interactable_interact = 37;
+		const AssetID interactable_interact_disable = 38;
+		const AssetID locke_gesture_both_arms = 39;
+		const AssetID locke_gesture_one_hand = 40;
+		const AssetID locke_gesture_one_hand_short = 41;
+		const AssetID locke_idle = 42;
+		const AssetID locke_shift_weight = 43;
+		const AssetID sailor_close_door = 44;
+		const AssetID sailor_talk = 45;
+		const AssetID sailor_wait = 46;
+		const AssetID terminal_close = 47;
+		const AssetID terminal_open = 48;
+		const AssetID terminal_opened = 49;
+		const AssetID tram_doors_close = 50;
+		const AssetID tram_doors_open = 51;
+		const AssetID tram_doors_opened = 52;
 	}
 }
 

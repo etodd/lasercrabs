@@ -179,6 +179,75 @@ void Parkour::climb_sound()
 		get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_CLIMB);
 }
 
+enum class ParkourHand
+{
+	Left,
+	Right,
+	Both,
+	count,
+};
+
+void parkour_sparks(Parkour* parkour, const Update& u, ParkourHand hand, r32 amount)
+{
+	static r32 particle_accumulator = 0.0f;
+	static const AssetID claws[6] =
+	{
+		Asset::Bone::character_claw1_L,
+		Asset::Bone::character_claw2_L,
+		Asset::Bone::character_claw3_L,
+		Asset::Bone::character_claw1_R,
+		Asset::Bone::character_claw2_R,
+		Asset::Bone::character_claw3_R,
+	};
+	s32 claw_offset;
+	s32 claw_count;
+	Quat rot;
+	switch (hand)
+	{
+		case ParkourHand::Left:
+		{
+			claw_offset = 0;
+			claw_count = 3;
+			rot = Quat::euler(0, parkour->get<Walker>()->rotation + PI * -0.5f, 0);
+			break;
+		}
+		case ParkourHand::Right:
+		{
+			claw_offset = 3;
+			claw_count = 3;
+			rot = Quat::euler(0, parkour->get<Walker>()->rotation + PI * 0.5f, 0);
+			break;
+		}
+		case ParkourHand::Both:
+		{
+			claw_offset = 0;
+			claw_count = 6;
+			rot = Quat::euler(0, parkour->get<Walker>()->rotation + PI, 0);
+			break;
+		}
+	}
+
+	particle_accumulator += u.time.delta;
+	const r32 interval = 0.025f / vi_max(0.005f, claw_count * amount); // emit more particles when more claws are active
+	while (particle_accumulator > interval)
+	{
+		Vec3 p(0.085f, 0.0f, 0.15f);
+		parkour->get<Animator>()->to_world(claws[claw_offset + mersenne::rand() % claw_count], &p);
+
+		Particles::sparks_small.add
+		(
+			p,
+			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 2.0f,
+			Vec4(1, 1, 1, 1)
+		);
+
+		if (mersenne::randf_cc() < 0.15f)
+			EffectLight::add(p, 1.0f, 0.15f, EffectLight::Type::Spark, nullptr);
+
+		particle_accumulator -= interval;
+	}
+}
+
 b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_pos, const Vec3& relative_wall_normal)
 {
 	b8 exit_wallrun = false;
@@ -241,12 +310,36 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 			get<Walker>()->target_rotation = atan2(forward.x, forward.z);
 		}
 
-		// update animation speed
-		Animator::Layer* layer = &get<Animator>()->layers[0];
-		if (wall_run_state == WallRunState::Forward)
-			layer->speed = vi_max(0.0f, ANIMATION_SPEED_MULTIPLIER * (vertical_velocity_diff / get<Walker>()->speed));
-		else
-			layer->speed = ANIMATION_SPEED_MULTIPLIER * (horizontal_velocity_diff.length() / get<Walker>()->speed);
+		// animation stuff
+		{
+			Animator::Layer* layer0 = &get<Animator>()->layers[0];
+			if (wall_run_state == WallRunState::Forward)
+			{
+				r32 amount = ANIMATION_SPEED_MULTIPLIER * (vertical_velocity_diff / get<Walker>()->speed);
+				layer0->speed = vi_max(0.0f, amount);
+				amount = vi_min(fabsf(amount), 1.0f);
+				if (amount > 0.25f)
+					parkour_sparks(this, u, ParkourHand::Both, amount);
+				if (layer0->speed > 0.0f)
+					layer0->play(Asset::Animation::character_wall_run_straight);
+				else
+					layer0->play(Asset::Animation::character_wall_slide); // going down
+			}
+			else
+			{
+				layer0->speed = ANIMATION_SPEED_MULTIPLIER * (horizontal_velocity_diff.length() / get<Walker>()->speed);
+				if (wall_run_state == WallRunState::Left)
+				{
+					layer0->play(Asset::Animation::character_wall_run_left);
+					parkour_sparks(this, u, ParkourHand::Left, layer0->speed);
+				}
+				else if (wall_run_state == WallRunState::Right)
+				{
+					layer0->play(Asset::Animation::character_wall_run_right);
+					parkour_sparks(this, u, ParkourHand::Right, layer0->speed);
+				}
+			}
+		}
 
 		// try to climb stuff while we're wall-running
 		if (try_parkour())
@@ -887,13 +980,7 @@ void Parkour::update(const Update& u)
 	Animator::Layer* layer0 = &get<Animator>()->layers[0];
 	if (fsm.current == State::WallRun)
 	{
-		// speed already set
-		if (wall_run_state == WallRunState::Left)
-			layer0->play(Asset::Animation::character_wall_run_left);
-		else if (wall_run_state == WallRunState::Right)
-			layer0->play(Asset::Animation::character_wall_run_right);
-		else
-			layer0->play(Asset::Animation::character_wall_run_straight);
+		// animation already handled by wallrun()
 	}
 	else if (fsm.current == State::Climb)
 	{

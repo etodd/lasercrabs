@@ -500,6 +500,9 @@ void debug_draw_nav_mesh(const RenderParams& params)
 
 void draw_hollow(const RenderParams& params)
 {
+	if (!(params.camera->mask & RENDER_MASK_DEFAULT))
+		return;
+
 	Loader::shader_permanent(Asset::Shader::nav_dots);
 
 	params.sync->write(RenderOp::Shader);

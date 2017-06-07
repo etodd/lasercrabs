@@ -74,7 +74,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	UIScroll score_summary_scroll;
 	UIText msg_text;
 	Quat kill_cam_rot;
-	StaticArray<SupportEntry, 4> last_supported;
+	StaticArray<SupportEntry, 24> last_supported;
 	r32 msg_timer;
 	r32 animation_time;
 	r32 select_spawn_timer; // also used for spawn letterbox animation

@@ -187,8 +187,16 @@ Vec2 PlayerHuman::camera_topdown_movement(const Update& u, s8 gamepad, Camera* c
 	{
 		// transitioning from one zone to another
 		movement /= movement_amount; // normalize
-		Vec3 movement3d = camera->rot * Vec3(-movement.x, 0, -movement.y);
+		Vec3 movement3d = camera->rot * Vec3(-movement.x, -movement.y, 0);
+
+		// raycast against the +y plane
+		Vec3 ray = camera->rot * Vec3(0, 0, 1);
+		r32 d = -movement3d.y / ray.y;
+		movement3d += ray * d;
+
 		movement = Vec2(movement3d.x, movement3d.z);
+		movement.normalize();
+		movement *= movement_amount;
 	}
 
 	return movement;
@@ -811,8 +819,10 @@ void PlayerHuman::update(const Update& u)
 							selected_spawn = SpawnPoint::closest(1 << s32(my_team), camera->pos);
 
 						Vec2 movement = camera_topdown_movement(u, gamepad, camera);
-						if (movement.length_squared() > 0.0f)
+						r32 movement_amount = movement.length();
+						if (movement_amount > 0.0f)
 						{
+							movement /= movement_amount;
 							SpawnPoint* closest = nullptr;
 							r32 closest_dot = FLT_MAX;
 
@@ -947,8 +957,6 @@ void PlayerHuman::game_mode_transitioning()
 
 void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 {
-	killed_by = nullptr;
-
 	Entity* spawned;
 
 	SpawnPosition spawn_pos;
@@ -967,8 +975,14 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 		if (last_supported.length > 0)
 		{
 			// restore last supported position
-			if (last_supported.length > 1) // don't spawn at the last supported location, but the one before that
-				last_supported.remove_ordered(last_supported.length - 1);
+			s32 backtrack = killed_by.ref() ? 10 : 1; // if we were killed by something specific, backtrack farther than if we just fell to our death
+			for (s32 i = 0; i < backtrack; i++)
+			{
+				if (last_supported.length > 1)
+					last_supported.remove_ordered(last_supported.length - 1);
+				else
+					break;
+			}
 			while (last_supported.length > 0) // try to spawn at last supported location
 			{
 				SupportEntry entry = last_supported[last_supported.length - 1];
@@ -1055,6 +1069,8 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 	}
 	else
 		ParticleEffect::spawn(ParticleEffect::Type::SpawnDrone, spawn_pos.pos, Quat::look(Vec3(0, 1, 0)));
+
+	killed_by = nullptr;
 
 	Net::finalize(spawned);
 }

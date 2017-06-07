@@ -371,7 +371,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			}
 			if (menu->item(u, _(strings::quit)))
 			{
-				if (Game::session.type == SessionType::Story)
+				if (Game::session.type == SessionType::Story || Game::level.id == Asset::Level::overworld)
 					dialog(gamepad, &quit_to_title, _(strings::confirm_quit));
 				else
 					dialog(gamepad, &quit_to_overworld, _(strings::confirm_quit));

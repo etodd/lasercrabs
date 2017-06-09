@@ -5,12 +5,6 @@
 #include "data/animator.h"
 #include "game/team.h"
 
-#define DEBUG_SKIN 0
-
-#if DEBUG_SKIN
-#include "render/views.h"
-#endif
-
 namespace VI
 {
 
@@ -273,18 +267,6 @@ void SkinnedModel::draw(const RenderParams& params, ObstructingBehavior b)
 		sync->write(RenderPrimitiveMode::Triangles);
 		sync->write(mesh_actual);
 	}
-
-#if DEBUG_SKIN
-	for (s32 i = 0; i < bones.length; i++)
-	{
-		Mat4 bone_transform = bones[i] * m;
-		Vec3 pos;
-		Vec3 scale;
-		Quat rot;
-		bone_transform.decomposition(pos, scale, rot);
-		Cube::draw(params, pos, false, Vec3(0.02f), rot);
-	}
-#endif
 }
 
 }

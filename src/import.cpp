@@ -1111,7 +1111,6 @@ b8 build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 pare
 			current_bone_index = *counter;
 
 			std::string name = node->mName.C_Str();
-			std::string parent_name = node->mParent->mName.C_Str();
 
 			b8 valid = true;
 			BodyEntry::Type type;

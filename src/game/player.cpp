@@ -2177,7 +2177,6 @@ Entity* player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player
 	else
 	{
 		const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(me->manager.ref(), other_player->manager.ref())];
-		Entity* visible_entity = visibility.entity.ref();
 		*visible = visibility.type == PlayerManager::Visibility::Type::Direct && visibility.entity.ref();
 
 		if (track.tracking)
@@ -3437,8 +3436,6 @@ void PlayerControlHuman::update(const Update& u)
 
 			if (parkour_state == Parkour::State::WallRun)
 			{
-				Parkour::WallRunState state = get<Parkour>()->wall_run_state;
-
 				Vec3 wall_normal = get<Parkour>()->last_support.ref()->get<Transform>()->to_world_normal(get<Parkour>()->relative_wall_run_normal);
 
 				Vec3 forward = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Vec3(0, 0, 1);

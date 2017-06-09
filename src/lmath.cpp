@@ -198,22 +198,16 @@ const Mat4 Mat4::identity(
 		0, 0, 1, 0,
 		0, 0, 0, 1);
 
-Plane::Plane()
+Plane::Plane() : normal(Vec3::zero), d()
 {
-	normal = Vec3::zero;
-	d = 0.0;
 }
 
-Plane::Plane(const Plane& rhs)
+Plane::Plane(const Plane& rhs) : normal(rhs.normal), d(rhs.d)
 {
-	normal = rhs.normal;
-	d = rhs.d;
 }
 
-Plane::Plane(const Vec3& rkNormal, r32 fConstant)
+Plane::Plane(const Vec3& rkNormal, r32 d) : normal(rkNormal), d(d)
 {
-	normal = rkNormal;
-	d = -fConstant;
 }
 
 Plane::Plane(r32 a, r32 b, r32 c, r32 _d)

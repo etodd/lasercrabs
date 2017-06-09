@@ -405,8 +405,8 @@ const Mesh* Loader::mesh_instanced(AssetID id)
 	Mesh* m = (Mesh*)mesh(id);
 	if (m && !m->instanced)
 	{
-		RenderSync* sync = swapper->get();
 #if !SERVER
+		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::AllocInstances);
 		sync->write<AssetID>(id);
 #endif

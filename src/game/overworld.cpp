@@ -800,8 +800,7 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 
 void zone_draw_mesh(const RenderParams& params, AssetID mesh, const Vec3& pos, const Vec4& color)
 {
-	const Mesh* mesh_data = Loader::mesh_permanent(mesh);
-
+	Loader::mesh_permanent(mesh);
 	Loader::shader(Asset::Shader::standard_flat);
 
 	RenderSync* sync = params.sync;
@@ -1320,7 +1319,7 @@ void deploy_update(const Update& u)
 
 void deploy_draw(const RenderParams& params)
 {
-	const ZoneNode* current_zone = zones_draw(params);
+	zones_draw(params);
 
 	// show "loading..."
 	Menu::progress_infinite(params, _(strings::deploying), params.camera->viewport.size * Vec2(0.5f, 0.2f));
@@ -2226,8 +2225,6 @@ void draw_opaque(const RenderParams& params)
 			const WaterEntry& entry = global.waters[i];
 			Water::draw_opaque(params, entry.config, entry.pos, entry.rot);
 		}
-
-		RenderSync* sync = params.sync;
 
 		for (s32 i = 0; i < global.zones.length; i++)
 		{

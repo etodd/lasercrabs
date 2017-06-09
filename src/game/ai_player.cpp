@@ -295,7 +295,6 @@ void update_component_memory(PlayerControlAI* control, MemoryStatus (*filter)(co
 
 		if (!limit_range || control->in_range(m->pos, range))
 		{
-			MemoryStatus status = MemoryStatus::Keep;
 			if ((!limit_range || control->in_range(entity->get<Transform>()->absolute_pos(), range))
 				&& filter(control, entity) == MemoryStatus::Forget)
 			{

@@ -1102,49 +1102,6 @@ void Water::draw_hollow(const RenderParams& params)
 	}
 }
 
-void Cube::draw(const RenderParams& params, const Vec3& pos, const b8 alpha, const Vec3& scale, const Quat& rot, const Vec4& color)
-{
-	const Mesh* mesh = Loader::mesh_permanent(Asset::Mesh::cube);
-	Loader::shader_permanent(Asset::Shader::flat);
-
-	Vec3 radius = mesh->bounds_radius * scale;
-	if (!params.camera->visible_sphere(pos, vi_max(radius.x, vi_max(radius.y, radius.z))))
-		return;
-
-	RenderSync* sync = params.sync;
-	sync->write(RenderOp::Shader);
-	sync->write(alpha ? Asset::Shader::flat : Asset::Shader::standard);
-	sync->write(params.technique);
-
-	Mat4 m;
-	m.make_transform(pos, scale, rot);
-	Mat4 mvp = m * params.view_projection;
-
-	sync->write(RenderOp::Uniform);
-	sync->write(Asset::Uniform::mvp);
-	sync->write(RenderDataType::Mat4);
-	sync->write<s32>(1);
-	sync->write<Mat4>(mvp);
-
-	sync->write(RenderOp::Uniform);
-	sync->write(Asset::Uniform::diffuse_color);
-	sync->write(RenderDataType::Vec4);
-	sync->write<s32>(1);
-	sync->write<Vec4>(color);
-
-	if (params.flags & RenderFlagEdges)
-	{
-		sync->write(RenderOp::MeshEdges);
-		sync->write(Asset::Mesh::cube);
-	}
-	else
-	{
-		sync->write(RenderOp::Mesh);
-		sync->write(RenderPrimitiveMode::Triangles);
-		sync->write(Asset::Mesh::cube);
-	}
-}
-
 ScreenQuad::ScreenQuad()
 	: mesh(AssetNull)
 {

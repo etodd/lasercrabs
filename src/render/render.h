@@ -19,11 +19,6 @@ enum class AlphaMode : s8
 	count,
 };
 
-struct Frustum
-{
-	Plane planes[6];
-};
-
 #define RENDER_MASK_SHADOW ((RenderMask)(1 << 15))
 #define RENDER_MASK_DEFAULT ((RenderMask)-1)
 #define RENDER_CLIP_PLANE_MAX 4

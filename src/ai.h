@@ -96,8 +96,8 @@ namespace AI
 
 	typedef SensorState ForceFieldState;
 
-	static const s32 SYNC_IN_SIZE = 512 * 1024;
-	static const s32 SYNC_OUT_SIZE = 512 * 1024;
+	static const s32 SYNC_IN_SIZE = 256 * 1024;
+	static const s32 SYNC_OUT_SIZE = 2048 * 1024;
 	extern Array<b8> obstacles;
 	extern SyncRingBuffer<SYNC_IN_SIZE> sync_in;
 	extern SyncRingBuffer<SYNC_OUT_SIZE> sync_out;

@@ -2454,7 +2454,7 @@ void EffectLight::remove(EffectLight* s)
 void EffectLight::draw_alpha(const RenderParams& params)
 {
 	// "Light" and "Wave" type shockwaves get rendered in loop.h, not here
-	const Mesh* mesh = Loader::mesh_permanent(Asset::Mesh::sphere_highres);
+	Loader::mesh_permanent(Asset::Mesh::sphere_highres);
 	Loader::shader_permanent(Asset::Shader::fresnel);
 
 	RenderSync* sync = params.sync;

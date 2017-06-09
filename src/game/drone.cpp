@@ -495,10 +495,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					if (Game::level.local)
 					{
 						if (target.ref()->get<Health>()->invincible() && target.ref()->get<Health>()->invincible_timer <= ACTIVE_ARMOR_TIME) // they were invincible; they should damage us
-						{
-							s8 damage = s8(vi_max(1, s32(target.ref()->get<Health>()->invincible_timer * (3.1f / ACTIVE_ARMOR_TIME))));
-							drone->get<Health>()->damage(target.ref(), damage);
-						}
+							drone->get<Health>()->damage(target.ref(), DRONE_HEALTH + DRONE_SHIELD);
 					}
 
 					if (drone->has<PlayerControlHuman>())

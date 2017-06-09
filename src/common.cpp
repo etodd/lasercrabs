@@ -31,7 +31,7 @@ ContainerEntity::ContainerEntity()
 
 Prop::Prop(AssetID mesh_id, AssetID armature, AssetID animation)
 {
-	Transform* transform = create<Transform>();
+	create<Transform>();
 	if (armature == AssetNull)
 	{
 		View* model = create<View>();
@@ -57,7 +57,7 @@ StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& ab
 	View* model = create<View>(mesh_id);
 	model->shader = Asset::Shader::culled;
 
-	const Mesh* mesh = Loader::mesh(model->mesh);
+	Loader::mesh(model->mesh);
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | group, ~CollisionStatic & mask, mesh_id, flags);
 	body->set_restitution(0.75f);

@@ -1368,8 +1368,7 @@ b8 equal_states_minion(const StateFrame* frame_a, const StateFrame* frame_b, s32
 		b8 b_active = frame_b->minions_active.get(index);
 		return !a_active && !b_active;
 	}
-	else
-		return !frame_a && frame_b->minions_active.get(index);
+	return false;
 }
 
 b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)

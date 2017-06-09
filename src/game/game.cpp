@@ -1477,9 +1477,11 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			}
 		}
 		else if (Json::get_s32(element, "min_players") > PlayerManager::list.count() + ai_player_count
-			|| Json::get_s32(element, "min_teams") > Team::list.count())
+			|| Json::get_s32(element, "max_players", MAX_PLAYERS) < PlayerManager::list.count() + ai_player_count
+			|| Json::get_s32(element, "min_teams") > Team::list.count()
+			|| Json::get_s32(element, "max_teams", MAX_PLAYERS) < Team::list.count())
 		{
-			// not enough players or teams
+			// not enough players or teams, or too many
 			// don't spawn the entity
 		}
 		else if (cJSON_HasObjectItem(element, "StaticGeom"))

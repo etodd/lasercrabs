@@ -289,8 +289,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		r32 wall_distance = WALKER_RADIUS * WALL_RUN_DISTANCE_RATIO;
 		get<Walker>()->absolute_pos(pos + absolute_wall_normal * (-p.distance(pos) + wall_distance));
 
-		if (wall)
-			last_support = wall;
+		last_support = wall;
 		last_support_wall_run_state = wall_run_state;
 		relative_wall_run_normal = relative_wall_normal;
 

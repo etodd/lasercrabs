@@ -12,7 +12,7 @@ namespace VI
 {
 
 Ragdoll::Ragdoll()
-	: bodies(), timer(5.0f)
+	: bodies(), timer(5.0f), impulse_type()
 {
 }
 

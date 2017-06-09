@@ -566,7 +566,6 @@ void NavMeshProcess::process(struct dtNavMeshCreateParams* params, u8* polyAreas
 void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_poly, Path* path)
 {
 	dtPolyRef path_polys[AI_MAX_PATH_LENGTH];
-	dtPolyRef path_parents[AI_MAX_PATH_LENGTH];
 	u8 path_straight_flags[AI_MAX_PATH_LENGTH];
 	dtPolyRef path_straight_polys[AI_MAX_PATH_LENGTH];
 	s32 path_poly_count;
@@ -590,7 +589,7 @@ void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_
 		nav_mesh_query->findStraightPath
 		(
 			(const r32*)(&a), (const r32*)(&end), path_polys, path_poly_count,
-			(r32*)path->data, path_straight_flags,
+			(r32*)(path->data), path_straight_flags,
 			path_straight_polys, &path_length, AI_MAX_PATH_LENGTH, 0
 		);
 		path->length = u16(path_length);

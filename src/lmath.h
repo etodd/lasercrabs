@@ -589,12 +589,6 @@ struct Vec3
 	}
 };
 
-struct Ray
-{
-	Vec3 dir;
-	Vec3 pos;
-};
-
 struct Vec4
 {
 	r32 x, y, z, w;

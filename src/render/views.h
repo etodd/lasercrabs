@@ -121,11 +121,6 @@ struct SkyPattern
 	static void draw_hollow(const RenderParams&);
 };
 
-struct Cube
-{
-	static void draw(const RenderParams&, const Vec3&, const b8 = false, const Vec3& = Vec3(1), const Quat& = Quat::identity, const Vec4& = Vec4(1));
-};
-
 struct ScreenQuad
 {
 	ScreenQuad();

@@ -66,7 +66,7 @@ Family World::families = 42;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \
-template<> ComponentMask ComponentType<TYPE>::component_mask = (ComponentMask)1 << (INDEX); \
+template<> ComponentMask ComponentType<TYPE>::component_mask = ComponentMask(1) << (INDEX); \
 template<> PinArray<TYPE, MAX_ENTITIES> ComponentType<TYPE>::list; \
 template<> ComponentPool<TYPE> ComponentType<TYPE>::pool;
 

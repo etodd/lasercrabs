@@ -498,6 +498,8 @@ void debug_draw_nav_mesh(const RenderParams& params)
 	render_helper(params, render_mesh, RenderPrimitiveMode::Triangles, RenderFillMode::Point);
 }
 
+#endif
+
 void draw_hollow(const RenderParams& params)
 {
 	if (!(params.camera->mask & RENDER_MASK_DEFAULT))
@@ -566,8 +568,6 @@ void draw_hollow(const RenderParams& params)
 	params.sync->write(RenderOp::FillMode);
 	params.sync->write(RenderFillMode::Fill);
 }
-
-#endif
 
 ComponentMask entity_mask = Sensor::component_mask
 	| Drone::component_mask

@@ -15,6 +15,7 @@ set(IMPORT_INCLUDES
 	external/bullet/src
 	src
 	external/assimp/include
+	${CMAKE_CURRENT_BINARY_DIR}/external/assimp/include
 )
 
 if (WIN32)
@@ -618,6 +619,7 @@ if (NOT PLAYSTATION)
 	target_include_directories(assimp PRIVATE
 		external/assimp/include
 		external/assimp/code/BoostWorkaround
+		${CMAKE_CURRENT_BINARY_DIR}/external/assimp/include
 		${ZLIB_INCLUDE_DIR}
 	)
 

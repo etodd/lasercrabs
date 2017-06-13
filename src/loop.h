@@ -32,7 +32,7 @@ namespace Loop
 {
 
 #define SHADOW_MAP_CASCADES 3
-#define SHADOW_MAP_CASCADE_TRI_THRESHOLD 300.0f // if the far plane is farther than this, then we need three shadow map cascades
+#define SHADOW_MAP_CASCADE_TRI_THRESHOLD 110.0f // if the far plane is farther than this, then we need three shadow map cascades
 
 const s32 shadow_map_size[s32(Settings::ShadowQuality::count)][SHADOW_MAP_CASCADES] =
 {

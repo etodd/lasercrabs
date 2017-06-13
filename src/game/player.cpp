@@ -2408,7 +2408,8 @@ void PlayerControlHuman::health_changed(const HealthEvent& e)
 	{
 		if (has<Drone>()) // de-scope when damaged
 			try_secondary = false;
-		camera_shake(total < -1 ? 1.0f : 0.7f);
+		if (has<Drone>() || e.source.ref()) // no rumble if you just fall in parkour mode
+			camera_shake(total < -1 ? 1.0f : 0.7f);
 	}
 }
 
@@ -3274,15 +3275,18 @@ void PlayerControlHuman::update(const Update& u)
 							AssetID target_level = Game::level.tram_tracks[track].level;
 							Tram* tram = Tram::by_track(track);
 							if (tram->doors_open()
-								|| Game::save.zones[target_level] == ZoneState::PvpFriendly
-								|| Game::save.zones[target_level] == ZoneState::PvpHostile
 								|| Game::save.zones[target_level] == ZoneState::ParkourUnlocked
-								|| Overworld::zone_is_pvp(target_level))
+								|| Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES) // if it's a PvP zone, we need x drones to capture it
 							{
 								// go right ahead
 								interactable.ref()->interact();
 								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 								get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
+							}
+							else if (Overworld::zone_is_pvp(target_level))
+							{
+								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_drones), DEFAULT_ASSAULT_DRONES);
+								interactable = nullptr;
 							}
 							else if (Game::save.resources[s32(Resource::HackKits)] > 0) // ask if they want to hack it
 							{
@@ -3885,6 +3889,33 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 										}
 									}
 									text.text(player.ref()->gamepad, Loader::level_name(zone));
+									text.anchor_x = UIText::Anchor::Center;
+									text.anchor_y = UIText::Anchor::Center;
+									text.size = text_size * 0.75f;
+									UI::box(params, text.rect(p).outset(4.0f * UI::scale), UI::color_background);
+									text.draw(params, p);
+								}
+							}
+						}
+					}
+
+					// highlight shop
+					if (Game::level.shop.ref())
+					{
+						Vec3 pos = Game::level.shop.ref()->get<Transform>()->absolute_pos();
+						Vec3 to_shop = pos - params.camera->pos;
+						r32 distance = to_shop.length();
+						if (distance > 8.0f)
+						{
+							to_shop /= distance;
+							if (to_shop.dot(look_dir) > 0.92f)
+							{
+								Vec2 p;
+								if (UI::project(params, pos + Vec3(0, 3, 0), &p))
+								{
+									UIText text;
+									text.color = UI::color_default;
+									text.text(player.ref()->gamepad, _(strings::shop));
 									text.anchor_x = UIText::Anchor::Center;
 									text.anchor_y = UIText::Anchor::Center;
 									text.size = text_size * 0.75f;

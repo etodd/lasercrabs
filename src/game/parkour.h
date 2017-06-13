@@ -14,7 +14,7 @@ struct Traceur : public Entity
 };
 
 #define LANDING_VELOCITY_LIGHT 5.0f * -1.25f
-#define LANDING_VELOCITY_HARD 5.0f * -3.0f
+#define LANDING_VELOCITY_HARD 5.0f * -3.25f
 
 namespace Net
 {

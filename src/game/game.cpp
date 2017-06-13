@@ -1984,6 +1984,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			if (session.type == SessionType::Story)
 			{
 				entity = World::alloc<ShopEntity>();
+				level.shop = entity;
 
 				{
 					Entity* i = World::alloc<ShopInteractable>();

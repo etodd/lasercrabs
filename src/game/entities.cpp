@@ -2628,7 +2628,7 @@ void Collectible::give_rewards()
 			}
 			case Resource::Energy:
 			{
-				a = 1000;
+				a = 100;
 				break;
 			}
 			case Resource::Drones:

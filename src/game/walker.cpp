@@ -204,8 +204,8 @@ void Walker::update(const Update& u)
 
 			Vec3 support_normal = ray_callback.m_hitNormalWorld;
 
-			// Calculate our expected vertical velocity (if we're running up a ramp for example)
-			// If our actual velocity is higher than that, we must be jumping,
+			// calculate our expected vertical velocity (if we're running up a ramp for example)
+			// if our actual velocity is higher than that, we must be jumping,
 			// so don't glue the player to the ground
 			Vec3 velocity_flattened = velocity - support_normal * velocity.dot(support_normal);
 
@@ -213,8 +213,10 @@ void Walker::update(const Update& u)
 
 			if (velocity_diff < expected_vertical_speed + 3.5f)
 			{
+#if !SERVER
 				if (velocity_diff < expected_vertical_speed - 0.5f)
 					land.fire(velocity_diff - expected_vertical_speed);
+#endif
 
 				{
 					r32 target_y = ray_callback.m_hitPointWorld.y() + WALKER_SUPPORT_HEIGHT + capsule_height() * 0.5f;

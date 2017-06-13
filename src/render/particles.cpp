@@ -369,6 +369,7 @@ Rain::Rain(const Vec2& size, const Vec3& velocity)
 
 void Rain::clear()
 {
+	ParticleSystem::clear();
 	camera_last_pos = Vec3(FLT_MAX);
 	raycast_grid_index = -1; // this marks that the raycast grid should be completely refreshed
 }

@@ -113,6 +113,109 @@ Parkour::~Parkour()
 	pickup_animation_complete(); // delete anything we're holding
 }
 
+namespace ParkourNet
+{
+	enum Message
+	{
+		Pickup,
+		StateSync,
+		Kill,
+		Electrocuted,
+		FallDamage,
+		count,
+	};
+
+	b8 pickup(Parkour* parkour, Collectible* collectible)
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Parkour);
+		{
+			Message m = Message::Pickup;
+			serialize_enum(p, Message, m);
+		}
+		{
+			Ref<Parkour> ref = parkour;
+			serialize_ref(p, ref);
+		}
+		{
+			Ref<Collectible> ref = collectible;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 sync_state(Parkour* parkour)
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Parkour);
+		{
+			Message m = Message::StateSync;
+			serialize_enum(p, Message, m);
+		}
+		{
+			Ref<Parkour> ref = parkour;
+			serialize_ref(p, ref);
+		}
+		serialize_enum(p, Parkour::State, parkour->fsm.current);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 kill(Parkour* parkour, Minion* minion)
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Parkour);
+		{
+			Message m = Message::Kill;
+			serialize_enum(p, Message, m);
+		}
+		{
+			Ref<Parkour> ref = parkour;
+			serialize_ref(p, ref);
+		}
+		{
+			Ref<Minion> ref = minion;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 electrocuted(Parkour* parkour)
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Parkour);
+		{
+			Message m = Message::Electrocuted;
+			serialize_enum(p, Message, m);
+		}
+		{
+			Ref<Parkour> ref = parkour;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 fall_damage(Parkour* parkour, s8 damage)
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Parkour);
+		{
+			Message m = Message::FallDamage;
+			serialize_enum(p, Message, m);
+		}
+		{
+			Ref<Parkour> ref = parkour;
+			serialize_ref(p, ref);
+		}
+		serialize_int(p, s8, damage, 0, DRONE_HEALTH + PARKOUR_SHIELD);
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
 void Parkour::killed(Entity*)
 {
 	if (Game::level.local)
@@ -133,6 +236,9 @@ void Parkour::land(r32 velocity_diff)
 				get<Walker>()->speed = 0.0f;
 				get<Animator>()->layers[1].play(Asset::Animation::character_land_hard);
 				get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_LAND_HARD);
+				s8 damage = vi_min(s8((LANDING_VELOCITY_HARD - velocity_diff) * 0.5f), s8(DRONE_HEALTH + PARKOUR_SHIELD));
+				if (damage > 0)
+					ParkourNet::fall_damage(this, damage);
 			}
 			else // light landing
 			{
@@ -218,7 +324,7 @@ void parkour_sparks(Parkour* parkour, const Update& u, ParkourHand hand, r32 amo
 			rot = Quat::euler(0, parkour->get<Walker>()->rotation + PI * 0.5f, 0);
 			break;
 		}
-		case ParkourHand::Both:
+		default:
 		{
 			claw_offset = 0;
 			claw_count = 6;
@@ -365,91 +471,6 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 	return exit_wallrun;
 }
 
-namespace ParkourNet
-{
-	enum Message
-	{
-		Pickup,
-		StateSync,
-		Kill,
-		Electrocuted,
-		count,
-	};
-
-	b8 pickup(Parkour* parkour, Collectible* collectible)
-	{
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Parkour);
-		{
-			Message m = Message::Pickup;
-			serialize_enum(p, Message, m);
-		}
-		{
-			Ref<Parkour> ref = parkour;
-			serialize_ref(p, ref);
-		}
-		{
-			Ref<Collectible> ref = collectible;
-			serialize_ref(p, ref);
-		}
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 sync_state(Parkour* parkour)
-	{
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Parkour);
-		{
-			Message m = Message::StateSync;
-			serialize_enum(p, Message, m);
-		}
-		{
-			Ref<Parkour> ref = parkour;
-			serialize_ref(p, ref);
-		}
-		serialize_enum(p, Parkour::State, parkour->fsm.current);
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 kill(Parkour* parkour, Minion* minion)
-	{
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Parkour);
-		{
-			Message m = Message::Kill;
-			serialize_enum(p, Message, m);
-		}
-		{
-			Ref<Parkour> ref = parkour;
-			serialize_ref(p, ref);
-		}
-		{
-			Ref<Minion> ref = minion;
-			serialize_ref(p, ref);
-		}
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 electrocuted(Parkour* parkour)
-	{
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Parkour);
-		{
-			Message m = Message::Electrocuted;
-			serialize_enum(p, Message, m);
-		}
-		{
-			Ref<Parkour> ref = parkour;
-			serialize_ref(p, ref);
-		}
-		Net::msg_finalize(p);
-		return true;
-	}
-}
-
 b8 minion_in_front_strict(Parkour* parkour, Minion* minion)
 {
 	Vec3 minion_pos = minion->get<Walker>()->base_pos();
@@ -594,6 +615,14 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				spawn_sparks(parkour.ref()->get<Walker>()->base_pos(), Quat::look(Vec3(0, 1, 0)));
 				if (Game::level.local)
 					parkour.ref()->get<Health>()->kill(nullptr);
+				break;
+			}
+			case ParkourNet::Message::FallDamage:
+			{
+				s8 damage;
+				serialize_int(p, s8, damage, 0, DRONE_HEALTH + PARKOUR_SHIELD);
+				if (Game::level.local)
+					parkour.ref()->get<Health>()->damage(nullptr, damage);
 				break;
 			}
 			default:

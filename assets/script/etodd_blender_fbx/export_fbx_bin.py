@@ -2228,7 +2228,8 @@ def fbx_data_from_scene(scene, settings):
                     if mod.show_render:
                         use_org_data = False
             if not use_org_data:
-                tmp_me = ob.to_mesh(scene, apply_modifiers=True, settings='RENDER')
+                tmp_me = ob.to_mesh(scene, apply_modifiers=True,
+                                    settings='RENDER' if settings.use_mesh_modifiers_render else 'PREVIEW')
                 data_meshes[ob_obj] = (get_blenderID_key(tmp_me), tmp_me, True)
             # Re-enable temporary disabled modifiers.
             for mod, show_render in tmp_mods:
@@ -2915,6 +2916,7 @@ def save_single(operator, scene, filepath="",
                 context_objects=None,
                 object_types=None,
                 use_mesh_modifiers=True,
+                use_mesh_modifiers_render=True,
                 mesh_smooth_type='FACE',
                 use_armature_deform_only=False,
                 bake_anim=True,
@@ -2985,7 +2987,7 @@ def save_single(operator, scene, filepath="",
     settings = FBXExportSettings(
         operator.report, (axis_up, axis_forward), global_matrix, global_scale, apply_unit_scale,
         bake_space_transform, global_matrix_inv, global_matrix_inv_transposed,
-        context_objects, object_types, use_mesh_modifiers,
+        context_objects, object_types, use_mesh_modifiers, use_mesh_modifiers_render,
         mesh_smooth_type, use_mesh_edges, use_tspace,
         armature_nodetype, use_armature_deform_only,
         add_leaf_bones, bone_correction_matrix, bone_correction_matrix_inv,
@@ -3056,6 +3058,7 @@ def defaults_unity3d():
 
         "object_types": {'ARMATURE', 'EMPTY', 'MESH', 'OTHER'},
         "use_mesh_modifiers": True,
+        "use_mesh_modifiers_render": True,
         "use_mesh_edges": False,
         "mesh_smooth_type": 'FACE',
         "use_tspace": False,  # XXX Why? Unity is expected to support tspace import...

@@ -78,6 +78,10 @@ Game::Session Game::session;
 b8 Game::cancel_event_eaten[] = {};
 ScreenQuad Game::screen_quad;
 
+#if !SERVER
+b8 Game::attract_mode;
+#endif
+
 Game::Session::Session()
 	:
 #if SERVER
@@ -171,6 +175,7 @@ b8 Game::init(LoopSync* sync)
 		DIR* dir = opendir(replay_dir);
 		if (dir)
 		{
+			attract_mode = true;
 			struct dirent* entry;
 			while ((entry = readdir(dir)))
 			{
@@ -310,7 +315,7 @@ void Game::update(const Update& update_in)
 
 #if !SERVER
 	// trigger attract mode
-	if (Net::Client::replay_file_count() > 0 && Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying)
+	if (attract_mode && Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying)
 	{
 		inactive_timer += u.time.delta;
 		if (update_in.input->keys.any()
@@ -333,9 +338,14 @@ void Game::update(const Update& update_in)
 		}
 		if (inactive_timer > 60.0f)
 		{
-			unload_level();
-			save.reset();
-			Net::Client::replay();
+			if (Net::Client::replay_file_count() > 0)
+			{
+				unload_level();
+				save.reset();
+				Net::Client::replay();
+			}
+			else if (level.id != Asset::Level::Tier_0A || level.mode != Mode::Special)
+				Menu::title();
 			inactive_timer = 0.0f;
 		}
 	}

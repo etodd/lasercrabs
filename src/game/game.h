@@ -127,22 +127,23 @@ namespace VI
 
 		static Gamepad::Type ui_gamepad_types[MAX_GAMEPADS];
 
-		static GameTime time;
-		static GameTime real_time;
-		static r32 inactive_timer;
-		static ScreenQuad screen_quad;
 		static Array<UpdateFunction> updates;
 		static Array<DrawFunction> draws;
 		static Array<CleanupFunction> cleanups;
+		static ScreenQuad screen_quad;
+		static GameTime time;
+		static GameTime real_time;
+		static r32 inactive_timer;
 		static r32 physics_timestep;
-		static AssetID scheduled_load_level;
-		static AssetID scheduled_dialog;
-		static Mode scheduled_mode;
 		static r32 schedule_timer;
-		static b8 cancel_event_eaten[MAX_GAMEPADS];
-		static b8 quit;
 		static s32 width;
 		static s32 height;
+		static Mode scheduled_mode;
+		static AssetID scheduled_load_level;
+		static AssetID scheduled_dialog;
+		static b8 cancel_event_eaten[MAX_GAMEPADS];
+		static b8 attract_mode;
+		static b8 quit;
 
 		static b8 init(LoopSync*);
 		static void execute(const char*);

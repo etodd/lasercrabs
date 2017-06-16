@@ -23,6 +23,7 @@ namespace Settings
 	s32 width;
 	s32 height;
 	s32 framerate_limit;
+	s32 secret;
 	u8 sfx;
 	u8 music;
 	b8 fullscreen;
@@ -31,8 +32,8 @@ namespace Settings
 	b8 antialiasing;
 	b8 waypoints;
 	b8 scan_lines;
+	b8 record;
 	char master_server[MAX_PATH_LENGTH];
-	s32 secret;
 }
 
 Array<Loader::Entry<Mesh> > Loader::meshes;
@@ -226,6 +227,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	Settings::antialiasing = b8(Json::get_s32(json, "antialiasing", 1));
 	Settings::waypoints = b8(Json::get_s32(json, "waypoints", 1));
 	Settings::scan_lines = b8(Json::get_s32(json, "scan_lines", 1));
+	Settings::record = b8(Json::get_s32(json, "record", 0));
 
 	cJSON* gamepads = json ? cJSON_GetObjectItem(json, "gamepads") : nullptr;
 	cJSON* gamepad = gamepads ? gamepads->child : nullptr;
@@ -283,6 +285,7 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "antialiasing", s32(Settings::antialiasing));
 	cJSON_AddNumberToObject(json, "waypoints", s32(Settings::waypoints));
 	cJSON_AddNumberToObject(json, "scan_lines", s32(Settings::scan_lines));
+	cJSON_AddNumberToObject(json, "record", s32(Settings::record));
 
 	cJSON* gamepads = cJSON_CreateArray();
 	cJSON_AddItemToObject(json, "gamepads", gamepads);

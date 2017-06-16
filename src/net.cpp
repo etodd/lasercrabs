@@ -931,10 +931,20 @@ Ack msg_history_ack(const MessageHistory& history)
 	return ack;
 }
 
+#if SERVER
+namespace Server
+{
+	void packet_sent(const StreamWrite&, const Sock::Address&);
+}
+#endif
+
 void packet_send(const StreamWrite& p, const Sock::Address& address)
 {
 	Sock::udp_send(&sock, address, p.data.data, p.bytes_written());
 	state_common.bandwidth_out_counter += p.bytes_written();
+#if SERVER
+	Server::packet_sent(p, address);
+#endif
 }
 
 // consolidate msgs_out into msgs_out_history
@@ -1953,6 +1963,21 @@ const StateFrame* state_frame_next(const StateHistory& history, const StateFrame
 	return nullptr;
 }
 
+void replay_filename_generate(char* filename)
+{
+	while (true)
+	{
+		sprintf(filename, "rec/%u.rec", mersenne::rand());
+
+		// check for file's existence
+		FILE* f = fopen(filename, "rb");
+		if (f)
+			fclose(f);
+		else
+			break;
+	}
+}
+
 #if SERVER
 
 namespace Server
@@ -1985,12 +2010,14 @@ b8 msg_process(StreamRead*, Client*, SequenceID);
 
 struct StateServer
 {
+	FILE* replay_file;
 	Array<Client> clients;
 	Array<Ref<Entity>> finalize_children_queue;
 	Mode mode;
 	r32 time_sync_timer;
 	r32 master_timer;
 	r32 idle_timer = NET_SERVER_IDLE_TIME;
+	Sock::Address replay_address;
 };
 StateServer state_server;
 
@@ -2033,6 +2060,16 @@ ID client_id(const PlayerHuman* player)
 		return ID(client - &state_server.clients[0]);
 	else
 		return IDNull;
+}
+
+void packet_sent(const StreamWrite& p, const Sock::Address& address)
+{
+	if (state_server.replay_file && address.equals(state_server.replay_address))
+	{
+		s16 size = p.bytes_written();
+		fwrite(&size, sizeof(s16), 1, state_server.replay_file);
+		fwrite(p.data.data, sizeof(s8), s32(size), state_server.replay_file);
+	}
 }
 
 void server_state(Master::ServerState* s)
@@ -2251,6 +2288,14 @@ void update(const Update& u, r32 dt)
 
 void handle_client_disconnect(Client* c)
 {
+	if (c->address.equals(state_server.replay_address))
+	{
+		if (state_server.replay_file)
+			fclose(state_server.replay_file);
+
+		new (&state_server.replay_address) Sock::Address();
+	}
+
 	for (s32 i = 0; i < c->players.length; i++)
 	{
 		PlayerHuman* player = c->players[i].ref();
@@ -2443,6 +2488,16 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					client->address = address;
 					client->first_load_sequence = state_common.local_sequence_id;
 					vi_debug("Client %s:%hd starting on sequence %d", Sock::host_to_str(address.host), address.port, s32(client->first_load_sequence));
+
+					if (Settings::record && Game::session.type != SessionType::Story && !state_server.replay_file)
+					{
+						state_server.replay_address = address;
+
+						char filename[MAX_PATH_LENGTH];
+						replay_filename_generate(filename);
+						vi_debug("Recording gameplay to '%s'.", filename);
+						state_server.replay_file = fopen(filename, "wb");
+					}
 
 					// serialize out map data
 					{
@@ -2774,6 +2829,9 @@ void reset()
 	for (s32 i = 0; i < state_server.clients.length; i++)
 		packet_send(p, state_server.clients[i].address);
 
+	if (state_server.replay_file)
+		fclose(state_server.replay_file);
+
 	state_server.~StateServer();
 	new (&state_server) StateServer();
 }
@@ -2807,7 +2865,6 @@ namespace Client
 {
 
 MasterError master_error;
-b8 record;
 r32 master_ping_timer;
 Array<std::array<char, MAX_PATH_LENGTH> > replay_files;
 s32 replay_file_index;
@@ -3106,7 +3163,7 @@ void connect(Sock::Address addr)
 	state_client.server_address = addr;
 	state_client.timeout = 0.0f;
 	state_client.mode = Mode::Connecting;
-	if (record && Game::session.type != SessionType::Story)
+	if (Settings::record && Game::session.type != SessionType::Story)
 	{
 		state_client.replay_mode = ReplayMode::Recording;
 		if (state_client.replay_file)
@@ -3114,18 +3171,7 @@ void connect(Sock::Address addr)
 
 		// generate a filename for this replay
 		char filename[MAX_PATH_LENGTH];
-		while (true)
-		{
-			sprintf(filename, "rec/%u.rec", mersenne::rand());
-
-			// check for file's existence
-			FILE* f = fopen(filename, "rb");
-			if (f)
-				fclose(f);
-			else
-				break;
-		}
-
+		replay_filename_generate(filename);
 		vi_debug("Recording gameplay to '%s'.", filename);
 		replay_file_add(filename);
 		state_client.replay_file = fopen(filename, "wb");
@@ -3141,12 +3187,6 @@ void connect(const char* ip, u16 port)
 
 void replay(const char* filename)
 {
-	Game::level.local = false;
-	Game::schedule_timer = 0.0f;
-	Sock::get_address(&state_client.server_address, "127.0.0.1", 3495);
-	state_client.timeout = 0.0f;
-	state_client.mode = Mode::Connecting;
-	state_client.replay_mode = ReplayMode::Replaying;
 	if (state_client.replay_file)
 		fclose(state_client.replay_file);
 	if (!filename)
@@ -3156,6 +3196,15 @@ void replay(const char* filename)
 		replay_file_index = (replay_file_index + 1) % replay_files.length;
 	}
 	state_client.replay_file = fopen(filename, "rb");
+	if (state_client.replay_file)
+	{
+		Game::level.local = false;
+		Game::schedule_timer = 0.0f;
+		state_client.timeout = 0.0f;
+		state_client.mode = Mode::Connecting;
+		Sock::get_address(&state_client.server_address, "127.0.0.1", 3495);
+		state_client.replay_mode = ReplayMode::Replaying;
+	}
 }
 
 b8 allocate_server(const Master::ServerState& server_state)

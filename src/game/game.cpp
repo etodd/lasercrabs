@@ -164,14 +164,13 @@ b8 Game::init(LoopSync* sync)
 	if (!Net::init())
 		return false;
 
-#if !SERVER
 	// replay files
+#if !SERVER
 	{
 		const char* replay_dir = "rec/";
 		DIR* dir = opendir(replay_dir);
 		if (dir)
 		{
-			Net::Client::record = true;
 			struct dirent* entry;
 			while ((entry = readdir(dir)))
 			{

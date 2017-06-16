@@ -132,6 +132,7 @@ namespace Server
 		count,
 	};
 
+
 	Mode mode();
 	void transition_level();
 	void level_unloading();
@@ -174,7 +175,6 @@ namespace Client
 	Mode mode();
 	
 	extern MasterError master_error;
-	extern b8 record;
 
 	void connect(Sock::Address);
 	void connect(const char*, u16);

@@ -628,8 +628,13 @@ b8 Team::net_msg(Net::StreamRead* p)
 				// winner takes all
 				if (Game::level.local)
 				{
+					// this stuff is synced over the network, so must do it only on the server
 					for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
-						i.item()->set_team(team_winner); // these are synced over the network, so must do them only on the server
+						i.item()->set_team(team_winner);
+					for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+						World::remove_deferred(i.item()->entity());
+					for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+						World::remove_deferred(i.item()->entity());
 				}
 				// teams are not synced over the network, so set them on both client and server
 				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
@@ -638,10 +643,6 @@ b8 Team::net_msg(Net::StreamRead* p)
 					i.item()->set_team(team_winner);
 				for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
 					i.item()->set_team(team_winner);
-				for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
-					i.item()->team(team_winner);
-				for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
-					i.item()->set_owner(nullptr);
 				for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 					i.item()->set_team(team_winner);
 				TerminalEntity::open();

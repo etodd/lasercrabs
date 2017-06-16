@@ -47,6 +47,14 @@ struct Parkour : public ComponentType<Parkour>
 		count,
 	};
 
+	enum class MantleAttempt
+	{
+		Normal,
+		Extra,
+		Force,
+		count,
+	};
+
 	struct TilePos
 	{
 		s32 x;
@@ -91,7 +99,7 @@ struct Parkour : public ComponentType<Parkour>
 	b8 try_roll();
 	b8 try_jump(r32);
 	void do_normal_jump();
-	b8 try_parkour(b8 = false);
+	b8 try_parkour(MantleAttempt = MantleAttempt::Normal);
 	Vec3 head_pos() const;
 	void head_to_object_space(Vec3*, Quat*) const;
 	void spawn_tiles(const Vec3&, const Vec3&, const Vec3&, const Vec3&);

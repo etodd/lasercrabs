@@ -324,11 +324,16 @@ void parkour_sparks(Parkour* parkour, const Update& u, ParkourHand hand, r32 amo
 			rot = Quat::euler(0, parkour->get<Walker>()->rotation + PI * 0.5f, 0);
 			break;
 		}
-		default:
+		case ParkourHand::Both:
 		{
 			claw_offset = 0;
 			claw_count = 6;
 			rot = Quat::euler(0, parkour->get<Walker>()->rotation + PI, 0);
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
 			break;
 		}
 	}
@@ -447,7 +452,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		}
 
 		// try to climb stuff while we're wall-running
-		if (try_parkour())
+		if (try_parkour(MantleAttempt::Extra))
 			exit_wallrun = true;
 		else
 		{
@@ -882,7 +887,7 @@ void Parkour::update(const Update& u)
 				if (wall_run_state == WallRunState::Forward)
 				{
 					exit_wallrun = true;
-					try_parkour(true); // do an extra broad raycast to make sure we hit the top if at all possible
+					try_parkour(MantleAttempt::Force); // do an extra broad raycast to make sure we hit the top if at all possible
 				}
 				else if (Game::save.extended_parkour) // keep going, generate a wall
 					exit_wallrun = wallrun(u, last_support.ref(), relative_support_pos, relative_wall_run_normal);
@@ -1530,7 +1535,7 @@ struct RayCallbackDefaultConstructor : public btCollisionWorld::ClosestRayResult
 };
 
 // if force is true, we'll raycast farther downward when trying to mantle, to make sure we find something.
-b8 Parkour::try_parkour(b8 force)
+b8 Parkour::try_parkour(MantleAttempt attempt)
 {
 	Quat rot = Quat::euler(0, get<Walker>()->rotation, 0);
 
@@ -1558,7 +1563,32 @@ b8 Parkour::try_parkour(b8 force)
 			Vec3 dir_offset = rot * (mantle_samples[i] * WALKER_RADIUS * RAYCAST_RADIUS_RATIO);
 
 			Vec3 ray_start = pos + Vec3(dir_offset.x, 1.3f, dir_offset.z);
-			Vec3 ray_end = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * -0.25f + (force ? -WALKER_SUPPORT_HEIGHT - 0.5f : 0.0f), dir_offset.z);
+
+			r32 extra_raycast;
+			switch (attempt)
+			{
+				case MantleAttempt::Normal:
+				{
+					extra_raycast = 0.0f;
+					break;
+				}
+				case MantleAttempt::Extra:
+				{
+					extra_raycast = -WALKER_SUPPORT_HEIGHT;
+					break;
+				}
+				case MantleAttempt::Force:
+				{
+					extra_raycast = -WALKER_SUPPORT_HEIGHT - 0.5f;
+					break;
+				}
+				default:
+				{
+					vi_assert(false);
+					break;
+				}
+			}
+			Vec3 ray_end = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * -0.25f + extra_raycast, dir_offset.z);
 
 			RayCallbackDefaultConstructor ray_callback(ray_start, ray_end);
 			Physics::raycast(&ray_callback, CollisionParkour);
@@ -1676,9 +1706,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 			if (velocity_flattened.dot(forward) < 0.0f)
 				return false;
 
-			r32 speed = get<Walker>()->net_speed;
-			if (speed < MIN_WALLRUN_SPEED + 1.0f)
-				return false;
+			r32 speed = vi_max(get<Walker>()->net_speed, MIN_WALLRUN_SPEED + 1.0f);
 
 			velocity_flattened *= (speed * 1.1f) / velocity_flattened.length();
 

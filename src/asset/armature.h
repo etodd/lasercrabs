@@ -24,7 +24,7 @@ namespace Asset
 	}
 	namespace Bone
 	{
-		const s32 count = 363;
+		const s32 count = 365;
 		const AssetID character_camera = 0;
 		const AssetID character_claw1_L = 9;
 		const AssetID character_claw1_R = 15;
@@ -172,6 +172,8 @@ namespace Asset
 		const AssetID meursault_calf_r = 49;
 		const AssetID meursault_clavicle_l = 4;
 		const AssetID meursault_clavicle_r = 23;
+		const AssetID meursault_crossbow = 52;
+		const AssetID meursault_drill = 53;
 		const AssetID meursault_foot_l = 46;
 		const AssetID meursault_foot_r = 50;
 		const AssetID meursault_hand_l = 7;

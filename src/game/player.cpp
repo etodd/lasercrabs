@@ -594,7 +594,12 @@ void PlayerHuman::update(const Update& u)
 	{
 		if (Game::scheduled_load_level == AssetNull
 			&& ((gamepad == 0 && u.input->keys.any()) || u.input->gamepads[gamepad].btns))
-			Menu::title();
+		{
+			if (Game::session.type == SessionType::Story)
+				Menu::title();
+			else
+				Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
+		}
 	}
 	else // no rumble when replaying
 #endif

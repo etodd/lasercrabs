@@ -100,39 +100,102 @@ struct SplitscreenConfig
 	r32 time_limit = 8.0f * 60.0f;
 	s16 respawns = DEFAULT_ASSAULT_DRONES;
 	s16 kill_limit = DEFAULT_ASSAULT_DRONES;
+	AI::Team local_player_config[MAX_GAMEPADS] = { 0, AI::TeamNone, AI::TeamNone, AI::TeamNone, };
 	b8 allow_abilities = true;
 
-	void apply()
+	SessionType session_type() const
 	{
 		switch (mode)
 		{
 			case Mode::Public:
-			{
-				Game::session.type = SessionType::Public;
-				break;
-			}
+				return SessionType::Public;
 			case Mode::Custom:
-			{
-				Game::session.type = SessionType::Custom;
-				break;
-			}
+				return SessionType::Custom;
 			case Mode::Local:
-			{
-				Game::session.type = SessionType::Custom;
-				break;
-			}
+				return SessionType::Custom;
 			default:
 			{
 				vi_assert(false);
-				break;
+				return SessionType::count;
 			}
 		}
+	}
 
+	void team_counts(s32* team_counts) const
+	{
+		for (s32 i = 0; i < MAX_PLAYERS; i++)
+			team_counts[i] = 0;
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		{
+			AI::Team team = local_player_config[i];
+			if (team != AI::TeamNone)
+				team_counts[s32(team)]++;
+		}
+	}
+
+	s32 team_count() const
+	{
+		s32 player_count = 0;
+		s32 counts[MAX_PLAYERS];
+		team_counts(counts);
+		s32 teams_with_players = 0;
+		for (s32 i = 0; i < MAX_PLAYERS; i++)
+		{
+			if (counts[i] > 0)
+				teams_with_players++;
+		}
+		return teams_with_players;
+	}
+
+	b8 teams_are_valid() const
+	{
+		return session_type() == SessionType::Public || team_count() > 1;
+	}
+
+	s32 local_player_count() const
+	{
+		s32 count = 0;
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		{
+			if (local_player_config[i] != AI::TeamNone)
+				count++;
+		}
+		return count;
+	}
+
+	void apply()
+	{
+		Game::session.type = session_type();
 		Game::session.game_type = game_type;
 		Game::session.time_limit = time_limit;
 		Game::session.respawns = respawns;
 		Game::session.kill_limit = kill_limit;
 		Game::session.allow_abilities = allow_abilities;
+		Game::session.team_count = vi_max(2, team_count());
+		memcpy(&Game::session.local_player_config, local_player_config, sizeof(local_player_config));
+	}
+
+	void consolidate_teams()
+	{
+		s32 team_count[MAX_PLAYERS];
+		team_counts(team_count);
+
+		AI::Team team_lookup[MAX_PLAYERS];
+		AI::Team current_team = 0;
+		for (s32 i = 0; i < MAX_PLAYERS; i++)
+		{
+			if (team_count[i] > 0)
+			{
+				team_lookup[i] = current_team;
+				current_team++;
+			}
+		}
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		{
+			AI::Team team = local_player_config[i];
+			if (team != AI::TeamNone)
+				local_player_config[i] = team_lookup[team];
+		}
 	}
 };
 
@@ -201,67 +264,13 @@ struct Data
 
 Data data = Data();
 
-void splitscreen_team_counts(s32* team_counts)
-{
-	for (s32 i = 0; i < MAX_PLAYERS; i++)
-		team_counts[i] = 0;
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
-	{
-		AI::Team team = Game::session.local_player_config[i];
-		if (team != AI::TeamNone)
-			team_counts[s32(team)]++;
-	}
-}
-
-s32 splitscreen_team_count()
-{
-	s32 player_count = 0;
-	s32 team_counts[MAX_PLAYERS];
-	splitscreen_team_counts(team_counts);
-	s32 teams_with_players = 0;
-	for (s32 i = 0; i < MAX_PLAYERS; i++)
-	{
-		if (team_counts[i] > 0)
-			teams_with_players++;
-	}
-	return teams_with_players;
-}
-
-b8 splitscreen_teams_are_valid()
-{
-	return Game::session.type == SessionType::Public || splitscreen_team_count() > 1;
-}
-
 void deploy_start()
 {
 	if (Game::session.type == SessionType::Story)
 		Game::session.team_count = 2;
 	else
-	{
-		Game::session.team_count = vi_max(2, splitscreen_team_count());
+		global.splitscreen.consolidate_teams();
 
-		// consolidate teams
-
-		s32 team_counts[MAX_PLAYERS];
-		splitscreen_team_counts(team_counts);
-
-		AI::Team team_lookup[MAX_PLAYERS];
-		AI::Team current_team = 0;
-		for (s32 i = 0; i < MAX_PLAYERS; i++)
-		{
-			if (team_counts[i] > 0)
-			{
-				team_lookup[i] = current_team;
-				current_team++;
-			}
-		}
-		for (s32 i = 0; i < MAX_GAMEPADS; i++)
-		{
-			AI::Team team = Game::session.local_player_config[i];
-			if (team != AI::TeamNone)
-				Game::session.local_player_config[i] = team_lookup[team];
-		}
-	}
 	data.state = Game::session.type == SessionType::Story ? State::Deploying : State::SplitscreenDeploying;
 	data.timer_deploy = DEPLOY_TIME;
 	Audio::post_global_event(AK::EVENTS::PLAY_OVERWORLD_DEPLOY_START);
@@ -290,10 +299,7 @@ void splitscreen_select_options_update(const Update& u)
 	}
 
 	if (data.splitscreen.menu.item(u, _(strings::_continue)))
-	{
-		global.splitscreen.apply();
 		data.state = State::SplitscreenSelectTeams;
-	}
 
 	// multiplayer type
 	{
@@ -415,7 +421,7 @@ void splitscreen_select_teams_update(const Update& u)
 
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		AI::Team* team = &Game::session.local_player_config[i];
+		AI::Team* team = &global.splitscreen.local_player_config[i];
 		if (u.input->gamepads[i].type != Gamepad::Type::None || i == 0) // player is active
 		{
 			// handle D-pad
@@ -470,7 +476,7 @@ void splitscreen_select_teams_update(const Update& u)
 
 	if (u.last_input->get(Controls::Interact, 0)
 		&& !u.input->get(Controls::Interact, 0)
-		&& splitscreen_teams_are_valid())
+		&& global.splitscreen.teams_are_valid())
 	{
 		if (Game::session.type == SessionType::Public)
 		{
@@ -548,7 +554,7 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 	Vec2 pos = center + Vec2(0, main_view_size.y * 0.5f - (48.0f * UI::scale * SCALE_MULTIPLIER));
 
 	// prompt
-	if (splitscreen_teams_are_valid())
+	if (global.splitscreen.teams_are_valid())
 	{
 		text.text(0, _(strings::prompt_splitscreen_ready));
 		text.draw(params, pos);
@@ -578,7 +584,7 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 	{
 		pos.y -= 64.0f * UI::scale * SCALE_MULTIPLIER;
 
-		AI::Team team = Game::session.local_player_config[i];
+		AI::Team team = global.splitscreen.local_player_config[i];
 
 		const Vec4* color;
 		r32 x_offset;
@@ -660,7 +666,7 @@ s16 energy_increment_total()
 b8 zone_splitscreen_can_deploy(AssetID z)
 {
 	const ZoneNode* zone = zone_node_get(z);
-	return zone && splitscreen_team_count() <= zone->max_teams;
+	return zone && global.splitscreen.team_count() <= zone->max_teams;
 }
 
 void select_zone_update(const Update& u, b8 enable_movement)
@@ -752,7 +758,7 @@ Vec3 zone_color(const ZoneNode& zone)
 	}
 	else
 	{
-		if (splitscreen_team_count() <= zone.max_teams)
+		if (global.splitscreen.team_count() <= zone.max_teams)
 			return Team::color_friend.xyz();
 		else
 			return Vec3(0.25f);
@@ -969,7 +975,7 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 		text.color = UI::color_accent;
 		text.size *= SCALE_MULTIPLIER;
 
-		s32 player_count = Game::session.local_player_count();
+		s32 player_count = global.splitscreen.local_player_count();
 		const r32 gamepad_spacing = 128.0f * UI::scale * SCALE_MULTIPLIER;
 		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.1f) + Vec2(gamepad_spacing * (player_count - 1) * -0.5f, 0);
 
@@ -983,7 +989,7 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 
 		for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		{
-			AI::Team team = Game::session.local_player_config[i];
+			AI::Team team = global.splitscreen.local_player_config[i];
 			if (team != AI::TeamNone)
 			{
 				text.text(0, _(team_labels[s32(team)]));
@@ -1248,28 +1254,33 @@ void deploy_done()
 {
 	if (Game::session.type == SessionType::Story)
 		OverworldNet::capture_or_defend(data.zone_selected);
-	else if (global.splitscreen.mode == SplitscreenConfig::Mode::Local)
-		go(data.zone_selected);
 	else
 	{
+		// multiplayer
 #if SERVER
 		vi_assert(false);
 #else
-		Game::unload_level();
-		Game::save.reset();
-		Net::Master::ServerState s;
-		s.session_type = Game::session.type;
-		s.game_type = Game::session.game_type;
-		s.kill_limit = Game::session.kill_limit;
-		s.respawns = Game::session.respawns;
-		s.team_count = Game::session.team_count;
-		s.open_slots = Game::session.local_player_count();
-		s.level = data.zone_selected;
-		s.time_limit_minutes = s8(Game::session.time_limit / 60.0f);
-		s.allow_abilities = Game::session.allow_abilities;
-		Net::Client::allocate_server(s);
+		global.splitscreen.apply();
+		if (global.splitscreen.mode == SplitscreenConfig::Mode::Local)
+			go(data.zone_selected);
+		else
+		{
+			Game::unload_level();
+			Game::save.reset();
+			Net::Master::ServerState s;
+			s.session_type = global.splitscreen.session_type();
+			s.game_type = global.splitscreen.game_type;
+			s.kill_limit = global.splitscreen.kill_limit;
+			s.respawns = global.splitscreen.respawns;
+			s.team_count = s8(global.splitscreen.team_count());
+			s.open_slots = s8(global.splitscreen.local_player_count());
+			s.level = data.zone_selected;
+			s.time_limit_minutes = s8(global.splitscreen.time_limit / 60.0f);
+			s.allow_abilities = global.splitscreen.allow_abilities;
+			Net::Client::allocate_server(s);
 
-		clear();
+			clear();
+		}
 #endif
 	}
 }
@@ -2092,7 +2103,7 @@ void update(const Update& u)
 
 		if (Game::session.type == SessionType::Story)
 			vi_assert(false);
-		else if (Game::session.local_player_count() > 1)
+		else if (global.splitscreen.local_player_count() > 1)
 			show(c, State::SplitscreenSelectZone);
 		else
 			show(c, State::SplitscreenSelectOptions);

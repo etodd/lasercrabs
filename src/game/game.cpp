@@ -336,7 +336,7 @@ void Game::update(const Update& update_in)
 				}
 			}
 		}
-		if (inactive_timer > 60.0f)
+		if (inactive_timer > 60.0f && Game::scheduled_load_level == AssetNull)
 		{
 			if (Net::Client::replay_file_count() > 0)
 			{
@@ -344,8 +344,14 @@ void Game::update(const Update& update_in)
 				save.reset();
 				Net::Client::replay();
 			}
-			else if (level.id != Asset::Level::Tier_0A || level.mode != Mode::Special)
-				Menu::title();
+			else if ((level.id != Asset::Level::Tier_0A && level.id != Asset::Level::overworld)
+				|| level.mode != Mode::Special)
+			{
+				if (Game::session.type == SessionType::Story)
+					Menu::title();
+				else
+					Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
+			}
 			inactive_timer = 0.0f;
 		}
 	}

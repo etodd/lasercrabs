@@ -152,10 +152,12 @@ struct TileCacheCell
 
 struct TileCacheData
 {
+	Array<TileCacheCell> cells;
 	Vec3 min;
 	s32 width;
 	s32 height;
-	Array<TileCacheCell> cells;
+
+	TileCacheData();
 	void free();
 	~TileCacheData();
 };

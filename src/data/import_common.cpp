@@ -168,14 +168,10 @@ namespace Json
 	}
 }
 
-void TileCacheData::free()
+TileCacheData::TileCacheData()
+	: cells(), min(), width(), height()
 {
-	for (s32 i = 0; i < cells.length; i++)
-	{
-		TileCacheCell& cell = cells[i];
-		for (s32 j = 0; j < cell.layers.length; j++)
-			dtFree(cell.layers[j].data);
-	}
+
 }
 
 TileCacheData::~TileCacheData()
@@ -184,6 +180,16 @@ TileCacheData::~TileCacheData()
 	{
 		TileCacheCell& cell = cells[i];
 		cell.~TileCacheCell();
+	}
+}
+
+void TileCacheData::free()
+{
+	for (s32 i = 0; i < cells.length; i++)
+	{
+		TileCacheCell& cell = cells[i];
+		for (s32 j = 0; j < cell.layers.length; j++)
+			dtFree(cell.layers[j].data);
 	}
 }
 

@@ -3281,7 +3281,7 @@ void PlayerControlHuman::update(const Update& u)
 							Tram* tram = Tram::by_track(track);
 							if (tram->doors_open()
 								|| Game::save.zones[target_level] == ZoneState::ParkourUnlocked
-								|| Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES) // if it's a PvP zone, we need x drones to capture it
+								|| (Overworld::zone_is_pvp(target_level) && Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)) // if it's a PvP zone, we need x drones to capture it
 							{
 								// go right ahead
 								interactable.ref()->interact();

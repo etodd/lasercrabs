@@ -771,11 +771,12 @@ SpawnPosition SpawnPoint::spawn_position(PlayerManager* player) const
 void SpawnPoint::update_server_all(const Update& u)
 {
 	const s32 minion_group = 3;
-	const r32 minion_initial_delay = Game::session.type == SessionType::Story ? 45.0f : 20.0f;
+	const r32 minion_initial_delay =
+		Game::session.type == SessionType::Story ? 45.0f
+		: (Game::session.game_type == GameType::Deathmatch ? 90.0f : 20.0f);
 	const r32 minion_spawn_interval = 8.0f;
 	const r32 minion_group_interval = minion_spawn_interval * 13.0f; // must be a multiple of minion_spawn_interval
 	if (Game::level.mode == Game::Mode::Pvp
-		&& Game::level.type == GameType::Assault
 		&& Game::level.has_feature(Game::FeatureLevel::All)
 		&& !Team::game_over)
 	{

@@ -1,12 +1,29 @@
-//////////////////////////////////////////////////////////////////////
-//
-// AkPlatformFuncs.h 
-//
-// Audiokinetic platform-dependent functions definition.
-//
-// Copyright (c) 2006 Audiokinetic Inc. / All Rights Reserved
-//
-//////////////////////////////////////////////////////////////////////
+/*******************************************************************************
+The content of this file includes portions of the AUDIOKINETIC Wwise Technology
+released in source code form as part of the SDK installer package.
+
+Commercial License Usage
+
+Licensees holding valid commercial licenses to the AUDIOKINETIC Wwise Technology
+may use this file in accordance with the end user license agreement provided 
+with the software or, alternatively, in accordance with the terms contained in a
+written agreement between you and Audiokinetic Inc.
+
+Apache License Usage
+
+Alternatively, this file may be used under the Apache License, Version 2.0 (the 
+"Apache License"); you may not use this file except in compliance with the 
+Apache License. You may obtain a copy of the Apache License at 
+http://www.apache.org/licenses/LICENSE-2.0.
+
+Unless required by applicable law or agreed to in writing, software distributed
+under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
+OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
+the specific language governing permissions and limitations under the License.
+
+  Version: v2016.2.4  Build: 6097
+  Copyright (c) 2006-2017 Audiokinetic Inc.
+*******************************************************************************/
 
 #pragma once
 
@@ -103,39 +120,67 @@ namespace AKPLATFORM
     // ------------------------------------------------------------------
 
 	/// Platform Independent Helper
-	inline AkInt32 AkInterlockedIncrement( AkInt32 * pValue )
+	inline AkInt32 AkInterlockedIncrement( AkAtomic32 * pValue )
 	{
+#ifdef AK_USE_STD_ATOMIC
+        return __c11_atomic_fetch_add( pValue,1,__ATOMIC_SEQ_CST );
+#else
 		return OSAtomicIncrement32( pValue );
+#endif
 	}
 
 	/// Platform Independent Helper
-	inline AkInt32 AkInterlockedDecrement( AkInt32 * pValue )
+	inline AkInt32 AkInterlockedDecrement( AkAtomic32 * pValue )
 	{
+#ifdef AK_USE_STD_ATOMIC
+        return __c11_atomic_fetch_sub( pValue,1,__ATOMIC_SEQ_CST );
+#else
 		return OSAtomicDecrement32( pValue );
+#endif
 	}
 
-	inline bool AkInterlockedCompareExchange( volatile AkInt32* io_pDest, AkInt32 in_newValue, AkInt32 in_expectedOldVal )
+	inline bool AkInterlockedCompareExchange( volatile AkAtomic32* io_pDest, AkInt32 in_newValue, AkInt32 in_expectedOldVal )
 	{
+#ifdef AK_USE_STD_ATOMIC
+        return __c11_atomic_compare_exchange_strong( io_pDest, &in_expectedOldVal, in_newValue, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST );
+#else
 		return OSAtomicCompareAndSwapInt(in_expectedOldVal, in_newValue, io_pDest);
+#endif
 	}
 
-	inline bool AkInterlockedCompareExchange( volatile AkInt64* io_pDest, AkInt64 in_newValue, AkInt64 in_expectedOldVal )
+	inline bool AkInterlockedCompareExchange( volatile AkAtomic64* io_pDest, AkInt64 in_newValue, AkInt64 in_expectedOldVal )
 	{
+#ifdef AK_USE_STD_ATOMIC
+        return __c11_atomic_compare_exchange_strong( io_pDest, &in_expectedOldVal, in_newValue, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST );
+#else
 		return OSAtomicCompareAndSwap64(in_expectedOldVal, in_newValue, io_pDest);
+#endif
 	}
 
-	inline bool AkInterlockedCompareExchange( volatile AkIntPtr* io_pDest, AkIntPtr in_newValue, AkIntPtr in_expectedOldVal )
+	inline bool AkInterlockedCompareExchange( volatile AkAtomicPtr* io_pDest, AkIntPtr in_newValue, AkIntPtr in_expectedOldVal )
 	{
-#ifndef AK_IOS
+#ifdef AK_USE_STD_ATOMIC
+	#ifndef AK_IOS
+		if (sizeof(io_pDest) == 8)
+			return AkInterlockedCompareExchange( (volatile AkAtomic64*)io_pDest, (AkInt64)in_newValue, (AkInt64)in_expectedOldVal );
+	#endif // #ifndef AK_IOS
+		return AkInterlockedCompareExchange( (volatile AkAtomic32*)io_pDest, (AkInt32)in_newValue, (AkInt32)in_expectedOldVal );
+#else
+	#ifndef AK_IOS
 		if (sizeof(io_pDest) == 8)
 			return OSAtomicCompareAndSwap64(( AkInt64)in_expectedOldVal, (AkInt64)in_newValue, (volatile AkInt64*)io_pDest);
-#endif // #ifndef AK_IOS
+	#endif // #ifndef AK_IOS
 		return OSAtomicCompareAndSwapInt((AkInt32)in_expectedOldVal, (AkInt32)in_newValue, (AkInt32*)io_pDest);
+#endif
 	}
 
 	inline void AkMemoryBarrier()
 	{
+#ifdef AK_USE_STD_ATOMIC
+        atomic_thread_fence( __ATOMIC_SEQ_CST );
+#else
 		OSMemoryBarrier();
+#endif
 	}
 	
     // Time functions

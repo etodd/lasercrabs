@@ -1,3 +1,18 @@
+/*******************************************************************************
+The content of this file includes portions of the AUDIOKINETIC Wwise Technology
+released in source code form as part of the SDK installer package.
+
+Commercial License Usage
+
+Licensees holding valid commercial licenses to the AUDIOKINETIC Wwise Technology
+may use this file in accordance with the end user license agreement provided 
+with the software or, alternatively, in accordance with the terms contained in a
+written agreement between you and Audiokinetic Inc.
+
+  Version: v2016.2.4  Build: 6098
+  Copyright (c) 2006-2017 Audiokinetic Inc.
+*******************************************************************************/
+
 //////////////////////////////////////////////////////////////////////
 //
 // AkDeviceDeferredLinedUp.h
@@ -5,9 +20,8 @@
 // Win32 Deferred Scheduler Device implementation.
 // Requests to low-level are sent in a lined-up fashion.
 //
-// Copyright (c) 2006 Audiokinetic Inc. / All Rights Reserved
-//
 //////////////////////////////////////////////////////////////////////
+
 #ifndef _AK_DEVICE_DEFERRED_LINEDUP_H_
 #define _AK_DEVICE_DEFERRED_LINEDUP_H_
 

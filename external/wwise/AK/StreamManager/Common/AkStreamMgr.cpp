@@ -1,11 +1,24 @@
+/*******************************************************************************
+The content of this file includes portions of the AUDIOKINETIC Wwise Technology
+released in source code form as part of the SDK installer package.
+
+Commercial License Usage
+
+Licensees holding valid commercial licenses to the AUDIOKINETIC Wwise Technology
+may use this file in accordance with the end user license agreement provided 
+with the software or, alternatively, in accordance with the terms contained in a
+written agreement between you and Audiokinetic Inc.
+
+  Version: v2016.2.4  Build: 6098
+  Copyright (c) 2006-2017 Audiokinetic Inc.
+*******************************************************************************/
+
 //////////////////////////////////////////////////////////////////////
 //
 // AkStreamMgr.cpp
 //
 // Stream manager Windows-specific implementation:
 // Device factory.
-//
-// Copyright (c) 2006 Audiokinetic Inc. / All Rights Reserved
 //
 //////////////////////////////////////////////////////////////////////
 
@@ -1161,21 +1174,28 @@ AKRESULT CAkStreamMgr::GetBufferStatusForPinnedFile( AkFileID in_fileID , AkReal
 
 		CAkAutoStmBase* pAutoStream = static_cast<CAkAutoStmBase*>(pData->pStream);
 		
-		AkUInt32 uCachingBufferSize = pAutoStream->GetNominalBuffering();
-		AkStreamInfo stmInfo;
-		pAutoStream->GetInfo(stmInfo);
-		if (stmInfo.uSize != 0)
-			uCachingBufferSize = AkMin(uCachingBufferSize, stmInfo.uSize);
+		AkUInt32 uBufferedBytes = 0;
+		res = pAutoStream->QueryBufferingStatus(uBufferedBytes);
 
-		AkUInt32 uBufferedBytes = pAutoStream->GetVirtualBufferingSize();
+		if (res != AK_Fail)
+		{
+			AkUInt32 uCachingBufferSize = pAutoStream->GetNominalBuffering();
+			if (uCachingBufferSize > 0)
+			{
+				AkStreamInfo stmInfo;
+				pAutoStream->GetInfo(stmInfo);
+				if (stmInfo.uSize != 0)
+					uCachingBufferSize = (AkUInt32)AkMin(uCachingBufferSize, stmInfo.uSize);
 
-		out_fPercentBuffered = ((AkReal32)uBufferedBytes / (AkReal32)uCachingBufferSize) * 100.f;
-		out_bCacheFull = ( uBufferedBytes < uCachingBufferSize ) && 
-						 ( (uCachingBufferSize - uBufferedBytes) > pAutoStream->GetDevice()->RemainingCachePinnedBytes() );
-		res = AK_Success;
+				out_fPercentBuffered = ((AkReal32)uBufferedBytes / (AkReal32)uCachingBufferSize) * 100.f;
+
+				out_bCacheFull = (uBufferedBytes < uCachingBufferSize) &&
+					((uCachingBufferSize - uBufferedBytes) > pAutoStream->GetDevice()->RemainingCachePinnedBytes());
+			}
+		}
 	}
 
-	return res;
+	return res != AK_Fail ? AK_Success : AK_Fail;
 }
 
 // ID overload.

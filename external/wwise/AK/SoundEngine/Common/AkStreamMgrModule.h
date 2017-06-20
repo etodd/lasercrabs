@@ -1,8 +1,29 @@
-//////////////////////////////////////////////////////////////////////
-//
-// Copyright (c) 2006 Audiokinetic Inc. / All Rights Reserved
-//
-//////////////////////////////////////////////////////////////////////
+/*******************************************************************************
+The content of this file includes portions of the AUDIOKINETIC Wwise Technology
+released in source code form as part of the SDK installer package.
+
+Commercial License Usage
+
+Licensees holding valid commercial licenses to the AUDIOKINETIC Wwise Technology
+may use this file in accordance with the end user license agreement provided 
+with the software or, alternatively, in accordance with the terms contained in a
+written agreement between you and Audiokinetic Inc.
+
+Apache License Usage
+
+Alternatively, this file may be used under the Apache License, Version 2.0 (the 
+"Apache License"); you may not use this file except in compliance with the 
+Apache License. You may obtain a copy of the Apache License at 
+http://www.apache.org/licenses/LICENSE-2.0.
+
+Unless required by applicable law or agreed to in writing, software distributed
+under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
+OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
+the specific language governing permissions and limitations under the License.
+
+  Version: v2016.2.4  Build: 6098
+  Copyright (c) 2006-2017 Audiokinetic Inc.
+*******************************************************************************/
 
 /// \file 
 /// Audiokinetic's implementation-specific definitions and factory of 
@@ -340,8 +361,7 @@ namespace AK
 			/// you don't do anything special in Cancel(), leave it to true. This will reduce the amount of useless calls.
 			/// If you set it to false, Cancel() will be called again for each remaining pending transfer that need to be cancelled. 
 			/// - If io_bCancelAllTransfersForThisFile is not set, Cancel() is only called for a subset of pending 
-			///	transfers for this file. The return value is ignored; Cancel() will be called for each transfer that should
-			///	be cancelled.
+			///	transfers for this file. You must not set it to true, as Cancel() needs to be called explicitly for each transfer that should be cancelled.
 			/// \warning
 			/// - The calling thread holds the stream's lock. You may call the callback function directly from here
 			/// (if you can guarantee that the I/O buffer will not be accessed in the meantime), but you must not wait here 
@@ -353,6 +373,9 @@ namespace AK
 			/// the transfer was found and dequeued. On the other hand, if you choose not to do anything in Cancel(), the lock only protects 
 			/// your list between Read()/Write() and your worker thread's routine, and since the device I/O thread does not hold the 
 			/// stream's lock while calling Read()/Write(), your worker thread may therefore hold it while calling back transfers.
+			/// - A race condition exists when cancelling all transfers (io_bCancelAllTransfersForThisFile is true) directly from within this hook. 
+			/// If you handle the io_bCancelAllTransfersForThisFile == true case, you need to defer calling the completion callback to later 
+			/// (from your usual I/O completion thread, for example). This will be fixed in a future version of Wwise.
 			virtual void Cancel(
 				AkFileDesc &		in_fileDesc,			///< File descriptor.
 				AkAsyncIOTransferInfo & io_transferInfo,	///< Transfer info to cancel.

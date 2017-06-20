@@ -1,3 +1,18 @@
+/*******************************************************************************
+The content of this file includes portions of the AUDIOKINETIC Wwise Technology
+released in source code form as part of the SDK installer package.
+
+Commercial License Usage
+
+Licensees holding valid commercial licenses to the AUDIOKINETIC Wwise Technology
+may use this file in accordance with the end user license agreement provided 
+with the software or, alternatively, in accordance with the terms contained in a
+written agreement between you and Audiokinetic Inc.
+
+  Version: v2016.2.4  Build: 6098
+  Copyright (c) 2006-2017 Audiokinetic Inc.
+*******************************************************************************/
+
 //////////////////////////////////////////////////////////////////////
 //
 // AkStreamMgr.h
@@ -6,9 +21,8 @@
 // Device factory.
 // Platform-specific scheduling strategy.
 //
-// Copyright (c) 2006 Audiokinetic Inc. / All Rights Reserved
-//
 //////////////////////////////////////////////////////////////////////
+
 #ifndef _AK_STREAM_MGR_H_
 #define _AK_STREAM_MGR_H_
 
@@ -281,7 +295,7 @@ namespace StreamMgr
 			return AKPLATFORM::AkInterlockedIncrement( &m_iNextStreamID );
 		}
 
-		static AkInt32  m_iNextStreamID;
+		static AkAtomic32  m_iNextStreamID;
     #endif
 
 	protected:

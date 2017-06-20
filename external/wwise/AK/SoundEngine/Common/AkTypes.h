@@ -1,8 +1,29 @@
-//////////////////////////////////////////////////////////////////////
-//
-// Copyright (c) 2006 Audiokinetic Inc. / All Rights Reserved
-//
-//////////////////////////////////////////////////////////////////////
+/*******************************************************************************
+The content of this file includes portions of the AUDIOKINETIC Wwise Technology
+released in source code form as part of the SDK installer package.
+
+Commercial License Usage
+
+Licensees holding valid commercial licenses to the AUDIOKINETIC Wwise Technology
+may use this file in accordance with the end user license agreement provided 
+with the software or, alternatively, in accordance with the terms contained in a
+written agreement between you and Audiokinetic Inc.
+
+Apache License Usage
+
+Alternatively, this file may be used under the Apache License, Version 2.0 (the 
+"Apache License"); you may not use this file except in compliance with the 
+Apache License. You may obtain a copy of the Apache License at 
+http://www.apache.org/licenses/LICENSE-2.0.
+
+Unless required by applicable law or agreed to in writing, software distributed
+under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
+OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
+the specific language governing permissions and limitations under the License.
+
+  Version: v2016.2.4  Build: 6098
+  Copyright (c) 2006-2017 Audiokinetic Inc.
+*******************************************************************************/
 
 // AkTypes.h
 
@@ -27,6 +48,21 @@
 	#else
 		#define NULL    ((void *)0)
 	#endif
+#endif
+
+#ifdef AK_USE_STD_ATOMIC
+	// Apple, starting with iOS 10 and MacOS 10.12 is enforcing the type of objects on which we use Atomic Operations.
+	#include <stdatomic.h>
+
+	typedef _Atomic(AkInt32)	AkAtomic32;			///< Signed 32-bit integer - Atomic Declaration
+	typedef _Atomic(AkInt64)	AkAtomic64;			///< Signed 64-bit integer - Atomic Declaration
+	typedef _Atomic(AkUInt32)	AkAtomicU32;		///< Unsigned 32-bit integer - Atomic Declaration
+	typedef _Atomic(AkIntPtr)	AkAtomicPtr;		///< Signed platform sized integer - Atomic Declaration
+#else
+	typedef AkInt32				AkAtomic32;			///< Signed 32-bit integer - Atomic Declaration
+	typedef AkInt64				AkAtomic64;			///< Signed 64-bit integer - Atomic Declaration
+	typedef AkUInt32			AkAtomicU32;		///< Unsigned 32-bit integer - Atomic Declaration
+	typedef AkIntPtr			AkAtomicPtr;		///< Signed platform sized integer - Atomic Declaration
 #endif
 
 typedef AkUInt32		AkUniqueID;			 		///< Unique 32-bit ID
@@ -58,6 +94,8 @@ typedef AkUInt32		AkTriggerID;		 		///< Trigger ID
 typedef AkUInt32		AkArgumentValueID;			///< Argument value ID
 typedef AkUInt32		AkChannelMask;				///< Channel mask (similar to WAVE_FORMAT_EXTENSIBLE). Bit values are defined in AkSpeakerConfig.h.
 typedef AkUInt32		AkModulatorID;				///< Modulator ID
+typedef AkUInt32		AkAcousticTextureID;		///< Acoustic Texture ID
+typedef AkUInt32		AkDiffuseReverberatorID;	///< Acoustic Diffuser ID
 
 // Constants.
 static const AkPluginID					AK_INVALID_PLUGINID					= (AkPluginID)-1;		///< Invalid FX ID
@@ -88,7 +126,7 @@ static const AkPriority					AK_DEFAULT_BANK_IO_PRIORITY			= AK_DEFAULT_PRIORITY;
 static const AkReal32					AK_DEFAULT_BANK_THROUGHPUT			= 1*1024*1024/1000.f;	///<  Default bank load throughput (1 Mb/ms)
 
 // Bank version
-static const AkUInt32					AK_SOUNDBANK_VERSION =				118;					///<  Version of the soundbank reader
+static const AkUInt32					AK_SOUNDBANK_VERSION =				120;					///<  Version of the soundbank reader
 
 /// Standard function call result.
 enum AKRESULT
@@ -663,12 +701,14 @@ namespace AK
 #define AKCODECID_PROFILERCAPTURE		(14)	///< Profiler capture file (.prof) as written through AK::SoundEngine::StartProfilerCapture
 #define AKCODECID_ANALYSISFILE			(15)	///< Analysis file
 #define AKCODECID_MIDI					(16)	///< MIDI file
+#define AKCODECID_OPUS                  (17)    ///< Opus encoding
 
 //The following are internally defined
 #define	AK_WAVE_FORMAT_VAG				0xFFFB
 #define	AK_WAVE_FORMAT_AT9				0xFFFC
 #define	AK_WAVE_FORMAT_VORBIS  			0xFFFF
 #define	AK_WAVE_FORMAT_AAC				0xAAC0
+#define AK_WAVE_FORMAT_OPUS             0x3039
 #define WAVE_FORMAT_XMA2				0x166
 
 class IAkSoftwareCodec;

@@ -1,10 +1,23 @@
+/*******************************************************************************
+The content of this file includes portions of the AUDIOKINETIC Wwise Technology
+released in source code form as part of the SDK installer package.
+
+Commercial License Usage
+
+Licensees holding valid commercial licenses to the AUDIOKINETIC Wwise Technology
+may use this file in accordance with the end user license agreement provided 
+with the software or, alternatively, in accordance with the terms contained in a
+written agreement between you and Audiokinetic Inc.
+
+  Version: v2016.2.4  Build: 6098
+  Copyright (c) 2006-2017 Audiokinetic Inc.
+*******************************************************************************/
+
 //////////////////////////////////////////////////////////////////////
 //
 // AkTransferDeferred.cpp
 //
 // Transfer object used by the deferred lined-up device.
-//
-// Copyright (c) 2006 Audiokinetic Inc. / All Rights Reserved
 //
 //////////////////////////////////////////////////////////////////////
 
@@ -32,7 +45,7 @@ void CAkStmMemViewDeferred::Update( AKRESULT in_eResult, bool in_bRequiredLowLev
 void CAkStmMemViewDeferred::Cancel(
 	IAkIOHookDeferred * in_pLowLevelHook, 
 	bool in_bCallLowLevelIO, 
-	bool in_bAllCancelled 
+	bool & io_bAllCancelled 
 	)
 {
 	CAkLowLevelTransferDeferred * pLowLevelTransfer = NULL;
@@ -54,7 +67,13 @@ void CAkStmMemViewDeferred::Cancel(
 			{
 				// Need to proceed with cancellation. Untag mem block while still locked.
 				pDevice->OnLowLevelTransferCancelled( m_pBlock );
-				pLowLevelTransfer->Cancel(in_pLowLevelHook, in_bCallLowLevelIO, in_bAllCancelled);
+				bool bAllCancelled = io_bAllCancelled;
+				pLowLevelTransfer->Cancel(in_pLowLevelHook, in_bCallLowLevelIO, io_bAllCancelled);
+				if (io_bAllCancelled && !bAllCancelled)
+				{
+					AKASSERT(!"Illegal for low-level IO to change io_bAllCancelled from false to true");
+					io_bAllCancelled = false;
+				}
 			}
 		}
 	}

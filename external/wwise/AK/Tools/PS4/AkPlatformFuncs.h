@@ -1,18 +1,33 @@
-//////////////////////////////////////////////////////////////////////
-//
-// AkPlatformFuncs.h
-//
-// Audiokinetic platform-dependent functions definition - PS4
-//
-// Copyright (c) 2010 Audiokinetic Inc. / All Rights Reserved
-//
-//////////////////////////////////////////////////////////////////////
+/*******************************************************************************
+The content of this file includes portions of the AUDIOKINETIC Wwise Technology
+released in source code form as part of the SDK installer package.
+
+Commercial License Usage
+
+Licensees holding valid commercial licenses to the AUDIOKINETIC Wwise Technology
+may use this file in accordance with the end user license agreement provided 
+with the software or, alternatively, in accordance with the terms contained in a
+written agreement between you and Audiokinetic Inc.
+
+Apache License Usage
+
+Alternatively, this file may be used under the Apache License, Version 2.0 (the 
+"Apache License"); you may not use this file except in compliance with the 
+Apache License. You may obtain a copy of the Apache License at 
+http://www.apache.org/licenses/LICENSE-2.0.
+
+Unless required by applicable law or agreed to in writing, software distributed
+under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
+OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
+the specific language governing permissions and limitations under the License.
+
+  Version: v2016.2.4  Build: 6097
+  Copyright (c) 2006-2017 Audiokinetic Inc.
+*******************************************************************************/
 
 #ifndef _AK_PLATFORM_FUNCS_H_
 #define _AK_PLATFORM_FUNCS_H_
 
-// balary todo: clean up includes
-// clean up slashed, backslashes
 #include <AK/SoundEngine/Common/AkTypes.h>
 #include <AK/Tools/Common/AkAssert.h>
 #include <sce_atomic.h>
@@ -167,23 +182,23 @@ namespace AKPLATFORM
     // ------------------------------------------------------------------
 
 	/// Platform Independent Helper
-	AkForceInline AkInt32 AkInterlockedIncrement( AkInt32 * pValue )
+	AkForceInline AkInt32 AkInterlockedIncrement(AkAtomic32 * pValue)
 	{
 		return sceAtomicIncrement32( (volatile SceInt32 *) pValue ) + 1;
 	}
 
 	/// Platform Independent Helper
-	AkForceInline AkInt32 AkInterlockedDecrement( AkInt32 * pValue )
+	AkForceInline AkInt32 AkInterlockedDecrement(AkAtomic32 * pValue)
 	{
 		return sceAtomicDecrement32( (volatile SceInt32 *) pValue ) - 1;
 	}
 
-	AkForceInline bool AkInterlockedCompareExchange( volatile AkInt64* io_pDest, AkInt64 in_newValue, AkInt64 in_expectedOldVal )
+	AkForceInline bool AkInterlockedCompareExchange(volatile AkAtomic64* io_pDest, AkInt64 in_newValue, AkInt64 in_expectedOldVal)
 	{
 		return sceAtomicCompareAndSwap64(io_pDest, in_expectedOldVal, in_newValue) == in_expectedOldVal;
 	}
 
-	AkForceInline bool AkInterlockedCompareExchange( volatile AkInt32* io_pDest, AkInt32 in_newValue, AkInt32 in_expectedOldVal )
+	AkForceInline bool AkInterlockedCompareExchange(volatile AkAtomic32* io_pDest, AkInt32 in_newValue, AkInt32 in_expectedOldVal)
 	{
 		return sceAtomicCompareAndSwap32(io_pDest, in_expectedOldVal, in_newValue) == in_expectedOldVal;
 	}
@@ -520,6 +535,13 @@ namespace AKPLATFORM
 #ifdef AK_ENABLE_INSTRUMENT
 
 #include <perf.h>
+#include <sdk_version.h>
+#if SCE_ORBIS_SDK_VERSION >= 0x04500000
+	#include <razorcpu.h>
+	#ifndef SCE_RAZOR_MARKER_DISABLE_HUD
+		#define SCE_RAZOR_MARKER_DISABLE_HUD 0
+	#endif
+#endif
 
 class AkInstrumentScope
 {

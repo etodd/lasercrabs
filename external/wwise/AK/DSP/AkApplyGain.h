@@ -1,8 +1,29 @@
-//////////////////////////////////////////////////////////////////////
-//
-// Copyright (c) 2006 Audiokinetic Inc. / All Rights Reserved
-//
-//////////////////////////////////////////////////////////////////////
+/*******************************************************************************
+The content of this file includes portions of the AUDIOKINETIC Wwise Technology
+released in source code form as part of the SDK installer package.
+
+Commercial License Usage
+
+Licensees holding valid commercial licenses to the AUDIOKINETIC Wwise Technology
+may use this file in accordance with the end user license agreement provided 
+with the software or, alternatively, in accordance with the terms contained in a
+written agreement between you and Audiokinetic Inc.
+
+Apache License Usage
+
+Alternatively, this file may be used under the Apache License, Version 2.0 (the 
+"Apache License"); you may not use this file except in compliance with the 
+Apache License. You may obtain a copy of the Apache License at 
+http://www.apache.org/licenses/LICENSE-2.0.
+
+Unless required by applicable law or agreed to in writing, software distributed
+under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
+OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
+the specific language governing permissions and limitations under the License.
+
+  Version: v2016.2.4  Build: 6098
+  Copyright (c) 2006-2017 Audiokinetic Inc.
+*******************************************************************************/
 
 // Accumulate (+=) signal into output buffer
 // To be used on mono signals, create as many instances as there are channels if need be
@@ -35,42 +56,48 @@ namespace AK
 
 #ifdef AKSIMD_V4F32_SUPPORTED
 			const AkUInt32 uNumVecIter = in_uNumFrames/4;
-			CAkVectorValueRamp vGainRamp;
-			AKSIMD_V4F32 vfGain = vGainRamp.Setup(in_fCurGain,in_fTargetGain,uNumVecIter*4);	
-			const AkSampleType * const pfVecEnd = io_pfBuffer + uNumVecIter*4;
-			while ( pfBuf < pfVecEnd )
+			if(uNumVecIter)
 			{
-				AKSIMD_V4F32 vfIn = AKSIMD_LOAD_V4F32((AKSIMD_F32*)pfBuf);
-				AKSIMD_V4F32 vfOut = AKSIMD_MUL_V4F32( vfIn, vfGain );
-				AKSIMD_STORE_V4F32( (AKSIMD_F32*)pfBuf, vfOut );
-				vfGain = vGainRamp.Tick();
-				pfBuf+=4;
+				CAkVectorValueRamp vGainRamp;
+				AKSIMD_V4F32 vfGain = vGainRamp.Setup(in_fCurGain,in_fTargetGain,uNumVecIter*4);	
+				const AkSampleType * const pfVecEnd = io_pfBuffer + uNumVecIter*4;
+				while ( pfBuf < pfVecEnd )
+				{
+					AKSIMD_V4F32 vfIn = AKSIMD_LOAD_V4F32((AKSIMD_F32*)pfBuf);
+					AKSIMD_V4F32 vfOut = AKSIMD_MUL_V4F32( vfIn, vfGain );
+					AKSIMD_STORE_V4F32( (AKSIMD_F32*)pfBuf, vfOut );
+					vfGain = vGainRamp.Tick();
+					pfBuf+=4;
+				}
 			}
 #elif defined (AKSIMD_V2F32_SUPPORTED)
 			// Unroll 4 times x v2.
 			const AkUInt32 uNumVecIter = in_uNumFrames/8;
-			CAkVectorValueRampV2 vGainRamp;
-			AKSIMD_V2F32 vfGain = vGainRamp.Setup(in_fCurGain,in_fTargetGain,uNumVecIter*8);	
-			const AkSampleType * const AK_RESTRICT pfVecEnd = io_pfBuffer + uNumVecIter*8;
-			while ( pfBuf < pfVecEnd )
+			if(uNumVecIter)
 			{
-				AKSIMD_V2F32 vfIn1 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 0 );
-				AKSIMD_V2F32 vfIn2 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 8 );
-				AKSIMD_V2F32 vfIn3 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 16 );
-				AKSIMD_V2F32 vfIn4 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 24 );
-				AKSIMD_V2F32 vfOut1 = AKSIMD_MUL_V2F32( vfIn1, vfGain );
-				vfGain = vGainRamp.Tick();
-				AKSIMD_V2F32 vfOut2 = AKSIMD_MUL_V2F32( vfIn2, vfGain );
-				vfGain = vGainRamp.Tick();
-				AKSIMD_V2F32 vfOut3 = AKSIMD_MUL_V2F32( vfIn3, vfGain );
-				vfGain = vGainRamp.Tick();
-				AKSIMD_V2F32 vfOut4 = AKSIMD_MUL_V2F32( vfIn4, vfGain );
-				vfGain = vGainRamp.Tick();
-				AKSIMD_STORE_V2F32_OFFSET( pfBuf, 0, vfOut1 );
-				AKSIMD_STORE_V2F32_OFFSET( pfBuf, 8, vfOut2 );
-				AKSIMD_STORE_V2F32_OFFSET( pfBuf, 16, vfOut3 );
-				AKSIMD_STORE_V2F32_OFFSET( pfBuf, 24, vfOut4 );
-				pfBuf+=8;
+				CAkVectorValueRampV2 vGainRamp;
+				AKSIMD_V2F32 vfGain = vGainRamp.Setup(in_fCurGain,in_fTargetGain,uNumVecIter*8);	
+				const AkSampleType * const AK_RESTRICT pfVecEnd = io_pfBuffer + uNumVecIter*8;
+				while ( pfBuf < pfVecEnd )
+				{
+					AKSIMD_V2F32 vfIn1 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 0 );
+					AKSIMD_V2F32 vfIn2 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 8 );
+					AKSIMD_V2F32 vfIn3 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 16 );
+					AKSIMD_V2F32 vfIn4 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 24 );
+					AKSIMD_V2F32 vfOut1 = AKSIMD_MUL_V2F32( vfIn1, vfGain );
+					vfGain = vGainRamp.Tick();
+					AKSIMD_V2F32 vfOut2 = AKSIMD_MUL_V2F32( vfIn2, vfGain );
+					vfGain = vGainRamp.Tick();
+					AKSIMD_V2F32 vfOut3 = AKSIMD_MUL_V2F32( vfIn3, vfGain );
+					vfGain = vGainRamp.Tick();
+					AKSIMD_V2F32 vfOut4 = AKSIMD_MUL_V2F32( vfIn4, vfGain );
+					vfGain = vGainRamp.Tick();
+					AKSIMD_STORE_V2F32_OFFSET( pfBuf, 0, vfOut1 );
+					AKSIMD_STORE_V2F32_OFFSET( pfBuf, 8, vfOut2 );
+					AKSIMD_STORE_V2F32_OFFSET( pfBuf, 16, vfOut3 );
+					AKSIMD_STORE_V2F32_OFFSET( pfBuf, 24, vfOut4 );
+					pfBuf+=8;
+				}
 			}
 			/*
 			const AkUInt32 uNumVecIter = in_uNumFrames/2;
@@ -90,12 +117,12 @@ namespace AK
 			if ( pfBuf < pfEnd )
 			{
 				const AkReal32 fInc = (in_fTargetGain - in_fCurGain) / in_uNumFrames;
-				while ( pfBuf < pfEnd )
+				do
 				{
 					*pfBuf = (AkSampleType)(*pfBuf * in_fCurGain);
 					in_fCurGain += fInc;
 					pfBuf++;
-				}
+				}while ( pfBuf < pfEnd );
 			}
 
 		}
@@ -114,41 +141,47 @@ namespace AK
 
 #ifdef AKSIMD_V4F32_SUPPORTED
 			const AkUInt32 uNumVecIter = in_uNumFrames/4;
-			CAkVectorValueRamp vGainRamp;
-			AKSIMD_V4F32 vfGain = vGainRamp.Setup(in_fCurGain,in_fTargetGain,uNumVecIter*4);	
-			const AkSampleType * const pfVecEnd = in_pfBufferIn + uNumVecIter*4;
-			while ( pfInBuf < pfVecEnd )
+			if(uNumVecIter)
 			{
-				AKSIMD_V4F32 vfIn = AKSIMD_LOAD_V4F32((AKSIMD_F32*)pfInBuf);
-				AKSIMD_V4F32 vfOut = AKSIMD_MUL_V4F32( vfIn, vfGain );
-				AKSIMD_STORE_V4F32( (AKSIMD_F32*)pfOutBuf, vfOut );
-				vfGain = vGainRamp.Tick();
-				pfInBuf+=4;
-				pfOutBuf+=4;
+				CAkVectorValueRamp vGainRamp;
+				AKSIMD_V4F32 vfGain = vGainRamp.Setup(in_fCurGain,in_fTargetGain,uNumVecIter*4);	
+				const AkSampleType * const pfVecEnd = in_pfBufferIn + uNumVecIter*4;
+				while ( pfInBuf < pfVecEnd )
+				{
+					AKSIMD_V4F32 vfIn = AKSIMD_LOAD_V4F32((AKSIMD_F32*)pfInBuf);
+					AKSIMD_V4F32 vfOut = AKSIMD_MUL_V4F32( vfIn, vfGain );
+					AKSIMD_STORE_V4F32( (AKSIMD_F32*)pfOutBuf, vfOut );
+					vfGain = vGainRamp.Tick();
+					pfInBuf+=4;
+					pfOutBuf+=4;
+				}
 			}
 #elif defined (AKSIMD_V2F32_SUPPORTED)
 			const AkUInt32 uNumVecIter = in_uNumFrames/2;
-			CAkVectorValueRampV2 vGainRamp;
-			f32x2 vfGain = vGainRamp.Setup(in_fCurGain,in_fTargetGain,uNumVecIter*2);	
-			const AkSampleType * const pfVecEnd = in_pfBufferIn + uNumVecIter*2;
-			while ( pfInBuf < pfVecEnd )
+			if(uNumVecIter)
 			{
-				AKSIMD_V2F32 vfIn = AKSIMD_LOAD_V2F32_OFFSET( pfInBuf, 0 );
-				AKSIMD_V2F32 vfOut = AKSIMD_MUL_V2F32( vfIn, vfGain );
-				AKSIMD_STORE_V2F32_OFFSET( pfOutBuf, 0, vfOut );
-				vfGain = vGainRamp.Tick();
-				pfInBuf+=2;
-				pfOutBuf+=2;
+				CAkVectorValueRampV2 vGainRamp;
+				f32x2 vfGain = vGainRamp.Setup(in_fCurGain,in_fTargetGain,uNumVecIter*2);	
+				const AkSampleType * const pfVecEnd = in_pfBufferIn + uNumVecIter*2;
+				while ( pfInBuf < pfVecEnd )
+				{
+					AKSIMD_V2F32 vfIn = AKSIMD_LOAD_V2F32_OFFSET( pfInBuf, 0 );
+					AKSIMD_V2F32 vfOut = AKSIMD_MUL_V2F32( vfIn, vfGain );
+					AKSIMD_STORE_V2F32_OFFSET( pfOutBuf, 0, vfOut );
+					vfGain = vGainRamp.Tick();
+					pfInBuf+=2;
+					pfOutBuf+=2;
+				}
 			}
 #endif
 			if ( pfInBuf < pfEnd )
 			{
 				const AkReal32 fInc = (in_fTargetGain - in_fCurGain) / in_uNumFrames;
-				while ( pfInBuf < pfEnd )
+				do
 				{
 					*pfOutBuf++ = (AkSampleType)(*pfInBuf++ * in_fCurGain);
 					in_fCurGain += fInc;
-				}
+				}while ( pfInBuf < pfEnd );
 			}
 		}	
 
@@ -165,35 +198,41 @@ namespace AK
 
 #ifdef AKSIMD_V4F32_SUPPORTED
 				const AkUInt32 uNumVecIter = in_uNumFrames/4;
-				const AkSampleType * const pfVecEnd = io_pfBuffer + uNumVecIter*4;
-				const AKSIMD_V4F32 vfGain = AKSIMD_LOAD1_V4F32( in_fGain );
-				while ( pfBuf < pfVecEnd )
+				if(uNumVecIter)
 				{
-					AKSIMD_V4F32 vfIn = AKSIMD_LOAD_V4F32((AKSIMD_F32*)pfBuf);
-					AKSIMD_V4F32 vfOut = AKSIMD_MUL_V4F32( vfIn, vfGain );
-					AKSIMD_STORE_V4F32( (AKSIMD_F32*)pfBuf, vfOut );
-					pfBuf+=4;
+					const AkSampleType * const pfVecEnd = io_pfBuffer + uNumVecIter*4;
+					const AKSIMD_V4F32 vfGain = AKSIMD_LOAD1_V4F32( in_fGain );
+					while ( pfBuf < pfVecEnd )
+					{
+						AKSIMD_V4F32 vfIn = AKSIMD_LOAD_V4F32((AKSIMD_F32*)pfBuf);
+						AKSIMD_V4F32 vfOut = AKSIMD_MUL_V4F32( vfIn, vfGain );
+						AKSIMD_STORE_V4F32( (AKSIMD_F32*)pfBuf, vfOut );
+						pfBuf+=4;
+					}
 				}
 #elif defined (AKSIMD_V2F32_SUPPORTED)
 				// Unroll 4 times x 2 floats
 				const AkUInt32 uNumVecIter = in_uNumFrames/8;
-				AKSIMD_V2F32 vfGain = __PS_FDUP( in_fGain );
-				const AkSampleType * const pfVecEnd = io_pfBuffer + uNumVecIter*8;
-				while ( pfBuf < pfVecEnd )
+				if( uNumVecIter)
 				{
-					AKSIMD_V2F32 vfIn1 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 0 );
-					AKSIMD_V2F32 vfIn2 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 8 );
-					AKSIMD_V2F32 vfIn3 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 16 );
-					AKSIMD_V2F32 vfIn4 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 24 );
-					AKSIMD_V2F32 vfOut1 = AKSIMD_MUL_V2F32( vfIn1, vfGain );
-					AKSIMD_V2F32 vfOut2 = AKSIMD_MUL_V2F32( vfIn2, vfGain );
-					AKSIMD_V2F32 vfOut3 = AKSIMD_MUL_V2F32( vfIn3, vfGain );
-					AKSIMD_V2F32 vfOut4 = AKSIMD_MUL_V2F32( vfIn4, vfGain );
-					AKSIMD_STORE_V2F32_OFFSET( pfBuf, 0, vfOut1 );
-					AKSIMD_STORE_V2F32_OFFSET( pfBuf, 8, vfOut2 );
-					AKSIMD_STORE_V2F32_OFFSET( pfBuf, 16, vfOut3 );
-					AKSIMD_STORE_V2F32_OFFSET( pfBuf, 24, vfOut4 );
-					pfBuf+=8;
+					AKSIMD_V2F32 vfGain = __PS_FDUP( in_fGain );
+					const AkSampleType * const pfVecEnd = io_pfBuffer + uNumVecIter*8;
+					while ( pfBuf < pfVecEnd )
+					{
+						AKSIMD_V2F32 vfIn1 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 0 );
+						AKSIMD_V2F32 vfIn2 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 8 );
+						AKSIMD_V2F32 vfIn3 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 16 );
+						AKSIMD_V2F32 vfIn4 = AKSIMD_LOAD_V2F32_OFFSET( pfBuf, 24 );
+						AKSIMD_V2F32 vfOut1 = AKSIMD_MUL_V2F32( vfIn1, vfGain );
+						AKSIMD_V2F32 vfOut2 = AKSIMD_MUL_V2F32( vfIn2, vfGain );
+						AKSIMD_V2F32 vfOut3 = AKSIMD_MUL_V2F32( vfIn3, vfGain );
+						AKSIMD_V2F32 vfOut4 = AKSIMD_MUL_V2F32( vfIn4, vfGain );
+						AKSIMD_STORE_V2F32_OFFSET( pfBuf, 0, vfOut1 );
+						AKSIMD_STORE_V2F32_OFFSET( pfBuf, 8, vfOut2 );
+						AKSIMD_STORE_V2F32_OFFSET( pfBuf, 16, vfOut3 );
+						AKSIMD_STORE_V2F32_OFFSET( pfBuf, 24, vfOut4 );
+						pfBuf+=8;
+					}
 				}
 				/*
 				const AkUInt32 uNumVecIter = in_uNumFrames/2;
@@ -228,38 +267,44 @@ namespace AK
 			const AkSampleType * const pfEnd = in_pfBufferIn + in_uNumFrames;
 
 #ifdef AKSIMD_V4F32_SUPPORTED
-			const AkUInt32 uNumVecIter = in_uNumFrames/4;			
-			const AkSampleType * const pfVecEnd = in_pfBufferIn + uNumVecIter*4;
-			const AKSIMD_V4F32 vfGain = AKSIMD_LOAD1_V4F32( in_fGain );
-			while ( pfInBuf < pfVecEnd )
+			const AkUInt32 uNumVecIter = in_uNumFrames/4;
+			if( uNumVecIter)
 			{
-				AKSIMD_V4F32 vfIn = AKSIMD_LOAD_V4F32((AKSIMD_F32*)pfInBuf);
-				AKSIMD_V4F32 vfOut = AKSIMD_MUL_V4F32( vfIn, vfGain );
-				AKSIMD_STORE_V4F32( (AKSIMD_F32*)pfOutBuf, vfOut );
-				pfInBuf+=4;
-				pfOutBuf+=4;
+				const AkSampleType * const pfVecEnd = in_pfBufferIn + uNumVecIter*4;
+				const AKSIMD_V4F32 vfGain = AKSIMD_LOAD1_V4F32( in_fGain );
+				while ( pfInBuf < pfVecEnd )
+				{
+					AKSIMD_V4F32 vfIn = AKSIMD_LOAD_V4F32((AKSIMD_F32*)pfInBuf);
+					AKSIMD_V4F32 vfOut = AKSIMD_MUL_V4F32( vfIn, vfGain );
+					AKSIMD_STORE_V4F32( (AKSIMD_F32*)pfOutBuf, vfOut );
+					pfInBuf+=4;
+					pfOutBuf+=4;
+				}
 			}
 #elif defined (AKSIMD_V2F32_SUPPORTED)
 			// Unroll 4 times x 2 floats
 			const AkUInt32 uNumVecIter = in_uNumFrames/8;
-			const AkSampleType * const pfVecEnd = in_pfBufferIn + uNumVecIter*8;
-			AKSIMD_V2F32 vfGain = __PS_FDUP( in_fGain );
-			while ( pfInBuf < pfVecEnd )
+			if( uNumVecIter)
 			{
-				AKSIMD_V2F32 vfIn1 = AKSIMD_LOAD_V2F32_OFFSET( pfInBuf, 0 );
-				AKSIMD_V2F32 vfIn2 = AKSIMD_LOAD_V2F32_OFFSET( pfInBuf, 8 );
-				AKSIMD_V2F32 vfIn3 = AKSIMD_LOAD_V2F32_OFFSET( pfInBuf, 16 );
-				AKSIMD_V2F32 vfIn4 = AKSIMD_LOAD_V2F32_OFFSET( pfInBuf, 24 );
-				pfInBuf+=8;
-				AKSIMD_V2F32 vfOut1 = AKSIMD_MUL_V2F32( vfIn1, vfGain );
-				AKSIMD_V2F32 vfOut2 = AKSIMD_MUL_V2F32( vfIn2, vfGain );
-				AKSIMD_V2F32 vfOut3 = AKSIMD_MUL_V2F32( vfIn3, vfGain );
-				AKSIMD_V2F32 vfOut4 = AKSIMD_MUL_V2F32( vfIn4, vfGain );
-				AKSIMD_STORE_V2F32_OFFSET( pfOutBuf, 0, vfOut1 );
-				AKSIMD_STORE_V2F32_OFFSET( pfOutBuf, 8, vfOut2 );
-				AKSIMD_STORE_V2F32_OFFSET( pfOutBuf, 16, vfOut3 );
-				AKSIMD_STORE_V2F32_OFFSET( pfOutBuf, 24, vfOut4 );
-				pfOutBuf+=8;
+				const AkSampleType * const pfVecEnd = in_pfBufferIn + uNumVecIter*8;
+				AKSIMD_V2F32 vfGain = __PS_FDUP( in_fGain );
+				while ( pfInBuf < pfVecEnd )
+				{
+					AKSIMD_V2F32 vfIn1 = AKSIMD_LOAD_V2F32_OFFSET( pfInBuf, 0 );
+					AKSIMD_V2F32 vfIn2 = AKSIMD_LOAD_V2F32_OFFSET( pfInBuf, 8 );
+					AKSIMD_V2F32 vfIn3 = AKSIMD_LOAD_V2F32_OFFSET( pfInBuf, 16 );
+					AKSIMD_V2F32 vfIn4 = AKSIMD_LOAD_V2F32_OFFSET( pfInBuf, 24 );
+					pfInBuf+=8;
+					AKSIMD_V2F32 vfOut1 = AKSIMD_MUL_V2F32( vfIn1, vfGain );
+					AKSIMD_V2F32 vfOut2 = AKSIMD_MUL_V2F32( vfIn2, vfGain );
+					AKSIMD_V2F32 vfOut3 = AKSIMD_MUL_V2F32( vfIn3, vfGain );
+					AKSIMD_V2F32 vfOut4 = AKSIMD_MUL_V2F32( vfIn4, vfGain );
+					AKSIMD_STORE_V2F32_OFFSET( pfOutBuf, 0, vfOut1 );
+					AKSIMD_STORE_V2F32_OFFSET( pfOutBuf, 8, vfOut2 );
+					AKSIMD_STORE_V2F32_OFFSET( pfOutBuf, 16, vfOut3 );
+					AKSIMD_STORE_V2F32_OFFSET( pfOutBuf, 24, vfOut4 );
+					pfOutBuf+=8;
+				}
 			}
 			/*
 			const AkUInt32 uNumVecIter = in_uNumFrames/2;

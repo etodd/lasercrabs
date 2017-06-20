@@ -33,7 +33,6 @@ struct Parkour : public ComponentType<Parkour>
 		Mantle,
 		HardLanding,
 		WallRun,
-		Roll,
 		Climb,
 		count,
 	};
@@ -96,7 +95,6 @@ struct Parkour : public ComponentType<Parkour>
 	void killed(Entity*);
 	void land(r32);
 	void lessen_gravity();
-	b8 try_roll();
 	b8 try_jump(r32);
 	void do_normal_jump();
 	b8 try_parkour(MantleAttempt = MantleAttempt::Normal);

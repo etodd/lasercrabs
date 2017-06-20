@@ -1222,7 +1222,7 @@
 						</Reference>
 					</ReferenceList>
 					<ChildrenList>
-						<Sound Name="sailor_come_here" ID="{69317E16-58C3-4C9A-9958-55545F7A58F9}" ShortID="451144538" Type="SoundFX">
+						<Sound Name="dada01" ID="{D56A62DE-1F42-44F8-8C5E-C200346507FB}" ShortID="271997561" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -1232,16 +1232,16 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="sailor_come_here" ID="{AD8D3330-9FE6-4A1E-8B10-BEC871B819F1}" ShortID="591679914">
+								<AudioFileSource Name="dada01" ID="{E933253F-920A-47D3-AEEB-1EDDAE645E77}" ShortID="362691282">
 									<Language>SFX</Language>
-									<AudioFile>sailor_come_here.wav</AudioFile>
+									<AudioFile>dada01.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="sailor_come_here" ID="{AD8D3330-9FE6-4A1E-8B10-BEC871B819F1}" Platform="Linked"/>
+								<ActiveSource Name="dada01" ID="{E933253F-920A-47D3-AEEB-1EDDAE645E77}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="sailor_speech_1" ID="{70257F28-180F-47F9-ACBB-B023E29C77CE}" ShortID="813251664" Type="SoundFX">
+						<Sound Name="dada02" ID="{775FEE3D-8EE5-4D5E-A200-BB71D6BDA254}" ShortID="586484710" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -1251,16 +1251,16 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="sailor_speech_1" ID="{4B0179A6-DEAA-43C9-A9F4-71001AA100FE}" ShortID="38551102">
+								<AudioFileSource Name="dada02" ID="{4B6E1C1A-27D4-4028-9001-3C8977457C28}" ShortID="376129175">
 									<Language>SFX</Language>
-									<AudioFile>sailor_speech_1.wav</AudioFile>
+									<AudioFile>dada02.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="sailor_speech_1" ID="{4B0179A6-DEAA-43C9-A9F4-71001AA100FE}" Platform="Linked"/>
+								<ActiveSource Name="dada02" ID="{4B6E1C1A-27D4-4028-9001-3C8977457C28}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="sailor_speech_2" ID="{48FA60BF-D9A4-4E28-9992-0416B82F9810}" ShortID="516561070" Type="SoundFX">
+						<Sound Name="dada03" ID="{A1F94ACF-A647-4EA5-AAB0-2F17CA43F7A2}" ShortID="1023473503" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -1270,13 +1270,13 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="sailor_speech_2" ID="{20E19837-617D-4864-AD69-07C0C6C45883}" ShortID="493075335">
+								<AudioFileSource Name="dada03" ID="{373ACCAA-FF82-494F-AE14-8520A146D27B}" ShortID="219678509">
 									<Language>SFX</Language>
-									<AudioFile>sailor_speech_2.wav</AudioFile>
+									<AudioFile>dada03.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="sailor_speech_2" ID="{20E19837-617D-4864-AD69-07C0C6C45883}" Platform="Linked"/>
+								<ActiveSource Name="dada03" ID="{373ACCAA-FF82-494F-AE14-8520A146D27B}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>
@@ -1468,500 +1468,6 @@
 						</Reference>
 					</ReferenceList>
 					<ChildrenList>
-						<Sound Name="ivory_ad1" ID="{37D4979A-D176-44D9-A746-A8650DF00CB7}" ShortID="475569122" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="ivory_ad1" ID="{AC23556E-459A-462A-AE99-EEABFEA99EC7}" ShortID="370203292">
-									<Language>SFX</Language>
-									<AudioFile>ivory_ad1.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="ivory_ad1" ID="{AC23556E-459A-462A-AE99-EEABFEA99EC7}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="ivory_ad2" ID="{9DD39B4D-CBC3-4D6A-8ECC-45995F1A3B97}" ShortID="53043918" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="ivory_ad2" ID="{5E90214C-8BED-4B10-B814-FBB1D5D70EF5}" ShortID="837905047">
-									<Language>SFX</Language>
-									<AudioFile>ivory_ad2.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="ivory_ad2" ID="{5E90214C-8BED-4B10-B814-FBB1D5D70EF5}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="ivory_ad3" ID="{C0992C88-BA78-4AB6-B843-54ACA1494522}" ShortID="768326397" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="ivory_ad3" ID="{ED5933BA-8E7E-4BD1-B21D-E89720DE924D}" ShortID="970679080">
-									<Language>SFX</Language>
-									<AudioFile>ivory_ad3.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="ivory_ad3" ID="{ED5933BA-8E7E-4BD1-B21D-E89720DE924D}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke1a" ID="{E34B5163-B465-44D5-BAD5-FE8D416CA315}" ShortID="724598566" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke1a" ID="{FAB7E9C1-6F0D-4503-8F31-6EE2177CDE96}" ShortID="710216777">
-									<Language>SFX</Language>
-									<AudioFile>locke1a.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke1a" ID="{FAB7E9C1-6F0D-4503-8F31-6EE2177CDE96}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke1b" ID="{A687A2C7-6EBA-462B-8545-557A19939F80}" ShortID="962707429" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke1b" ID="{963231B3-0FCE-4A9E-A3E9-0BBCA1CEC096}" ShortID="634316146">
-									<Language>SFX</Language>
-									<AudioFile>locke1b.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke1b" ID="{963231B3-0FCE-4A9E-A3E9-0BBCA1CEC096}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke2a" ID="{21DDFA48-5C71-4FFD-A9F8-A925931DE908}" ShortID="736451499" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke2a" ID="{0756D8D1-2B66-4374-9DC1-984BA3F7AC9F}" ShortID="561681042">
-									<Language>SFX</Language>
-									<AudioFile>locke2a.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke2a" ID="{0756D8D1-2B66-4374-9DC1-984BA3F7AC9F}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke2b" ID="{BB573E72-B62F-4130-AC23-9A2B83AEE4E6}" ShortID="334432482" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke2b" ID="{9ABCC92F-BBD3-41DF-9D89-713996222747}" ShortID="1029318939">
-									<Language>SFX</Language>
-									<AudioFile>locke2b.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke2b" ID="{9ABCC92F-BBD3-41DF-9D89-713996222747}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke2c" ID="{3D24DAB0-4CF3-4373-A72C-0CBFD7AE690A}" ShortID="620140319" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke2c" ID="{075E9453-B43C-480D-93B9-7CEB314B5D5C}" ShortID="152275526">
-									<Language>SFX</Language>
-									<AudioFile>locke2c.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke2c" ID="{075E9453-B43C-480D-93B9-7CEB314B5D5C}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke3a" ID="{FD375DE5-9579-4555-98A8-B6B155EA8889}" ShortID="479251182" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke3a" ID="{1D00EBFA-B79D-49B4-8780-F5328D2DD06F}" ShortID="106178275">
-									<Language>SFX</Language>
-									<AudioFile>locke3a.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke3a" ID="{1D00EBFA-B79D-49B4-8780-F5328D2DD06F}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke3b" ID="{E9ED63AB-457F-4F7F-A5FF-F592E3D5AFEA}" ShortID="260746869" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke3b" ID="{CC873775-B671-4908-82FF-D71F66E080DD}" ShortID="5609854">
-									<Language>SFX</Language>
-									<AudioFile>locke3b.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke3b" ID="{CC873775-B671-4908-82FF-D71F66E080DD}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke3c" ID="{A5B66168-DB4F-47C4-9043-B822A98819C3}" ShortID="772242224" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke3c" ID="{A165D027-FC8A-41CC-B4F2-1D073EC807A1}" ShortID="108750460">
-									<Language>SFX</Language>
-									<AudioFile>locke3c.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke3c" ID="{A165D027-FC8A-41CC-B4F2-1D073EC807A1}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke3d" ID="{52FB184B-67F9-47CB-ABA4-2A45C65E9B8F}" ShortID="92176847" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke3d" ID="{BA9078D1-7F75-41E9-AEC7-3E857C5AB3D4}" ShortID="494091465">
-									<Language>SFX</Language>
-									<AudioFile>locke3d.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke3d" ID="{BA9078D1-7F75-41E9-AEC7-3E857C5AB3D4}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke4a" ID="{83559CEA-24A4-40DC-99B2-F78909FAA512}" ShortID="330668354" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke4a" ID="{B9966A5E-684F-4B72-9415-D109F846DFF0}" ShortID="233510665">
-									<Language>SFX</Language>
-									<AudioFile>locke4a.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke4a" ID="{B9966A5E-684F-4B72-9415-D109F846DFF0}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke4b" ID="{D8EB79B6-89C2-428D-9802-D023B3B2DC8C}" ShortID="405562273" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke4b" ID="{DC950E66-7908-4B04-9FC3-E63FFECA3AA2}" ShortID="493924123">
-									<Language>SFX</Language>
-									<AudioFile>locke4b.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke4b" ID="{DC950E66-7908-4B04-9FC3-E63FFECA3AA2}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke4c" ID="{BF408A0A-1985-42F3-AFF7-DB9545D233D7}" ShortID="714769036" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke4c" ID="{A199C922-02C8-49D4-8B72-0327AB229869}" ShortID="1062284425">
-									<Language>SFX</Language>
-									<AudioFile>locke4c.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke4c" ID="{A199C922-02C8-49D4-8B72-0327AB229869}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke5a" ID="{A5AB1D70-0382-4574-94D5-60699FF9DDEA}" ShortID="655640603" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke5a" ID="{B3063788-2292-4034-A6BD-FC0D521534BA}" ShortID="198385414">
-									<Language>SFX</Language>
-									<AudioFile>locke5a.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke5a" ID="{B3063788-2292-4034-A6BD-FC0D521534BA}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke5b" ID="{8C430AD1-F6D5-4F07-B4BC-5A1A4BC12F32}" ShortID="525822851" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke5b" ID="{5AA20FE5-AD8D-46D2-B4B6-0FC57004813E}" ShortID="686254741">
-									<Language>SFX</Language>
-									<AudioFile>locke5b.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke5b" ID="{5AA20FE5-AD8D-46D2-B4B6-0FC57004813E}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke5c" ID="{96197FF5-53F9-4574-B5E4-19999E32266F}" ShortID="255460932" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke5c" ID="{DA4DD60F-0030-4039-BB87-5BB49C5C93E8}" ShortID="218356668">
-									<Language>SFX</Language>
-									<AudioFile>locke5c.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke5c" ID="{DA4DD60F-0030-4039-BB87-5BB49C5C93E8}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke5d" ID="{1431519C-75C3-4D65-A73F-D26C9B5950FB}" ShortID="792515528" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke5d" ID="{C8B935BE-BB86-4473-8FE6-F34875B86542}" ShortID="1031931158">
-									<Language>SFX</Language>
-									<AudioFile>locke5d.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke5d" ID="{C8B935BE-BB86-4473-8FE6-F34875B86542}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke6a" ID="{8B75249F-3849-4E11-9CB4-C70BF7971518}" ShortID="474380084" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke6a" ID="{1BC27830-FDD5-499E-9AFB-1B6BC90982FA}" ShortID="1015630063">
-									<Language>SFX</Language>
-									<AudioFile>locke6a.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke6a" ID="{1BC27830-FDD5-499E-9AFB-1B6BC90982FA}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke6b" ID="{3107DDBE-F3AC-4FB7-A1BB-A1D2B84514B1}" ShortID="1001975034" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke6b" ID="{BE20130C-3135-47FE-B9B6-BB4769F647E3}" ShortID="873647219">
-									<Language>SFX</Language>
-									<AudioFile>locke6b.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke6b" ID="{BE20130C-3135-47FE-B9B6-BB4769F647E3}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke6c" ID="{C4AFA303-BB3A-4BFA-A311-BF3D78402716}" ShortID="961757968" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke6c" ID="{791529B3-3DF6-4A85-9A0B-3F34A9A52164}" ShortID="255575237">
-									<Language>SFX</Language>
-									<AudioFile>locke6c.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke6c" ID="{791529B3-3DF6-4A85-9A0B-3F34A9A52164}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke7a" ID="{5DC98D13-1233-40C4-B7D9-C9570F7C56BE}" ShortID="327107691" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke7a" ID="{DEFEFA20-02D6-42D3-A157-7EB401D42DCA}" ShortID="728955350">
-									<Language>SFX</Language>
-									<AudioFile>locke7a.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke7a" ID="{DEFEFA20-02D6-42D3-A157-7EB401D42DCA}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke7b" ID="{72FD9BFE-EB92-4097-B0EF-A1C351E18C29}" ShortID="352242721" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke7b" ID="{E989B11E-E3F8-4D80-8C1D-0E8822EE8811}" ShortID="670480680">
-									<Language>SFX</Language>
-									<AudioFile>locke7b.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke7b" ID="{E989B11E-E3F8-4D80-8C1D-0E8822EE8811}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke7c" ID="{57EE3929-FB72-49FA-8E15-84C938CBD958}" ShortID="395447081" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke7c" ID="{7ADF8880-12B2-4F7A-8D56-239FA5ECAA5C}" ShortID="209893699">
-									<Language>SFX</Language>
-									<AudioFile>locke7c.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke7c" ID="{7ADF8880-12B2-4F7A-8D56-239FA5ECAA5C}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="locke7d" ID="{0914BE2B-9FAC-4AC7-ADE4-54540DBCDB89}" ShortID="775494309" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="locke7d" ID="{26FC1D36-324D-40A2-B847-776FA642417E}" ShortID="811622397">
-									<Language>SFX</Language>
-									<AudioFile>locke7d.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="locke7d" ID="{26FC1D36-324D-40A2-B847-776FA642417E}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
 						<Sound Name="hobo01" ID="{AD7935D2-C731-43C7-B8B7-56DDAF58DBD1}" ShortID="274453593" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
@@ -2150,6 +1656,899 @@
 							</ChildrenList>
 							<ActiveSourceList>
 								<ActiveSource Name="hobo10" ID="{1A45E92B-5452-400D-BC02-4058464E6652}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="ivory_ad01" ID="{9BAE4380-1614-490D-A524-A3D33D9B2CD8}" ShortID="422612323" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="ivory_ad01" ID="{DEBB6A0A-3C12-4DEB-87A5-D969436C05E9}" ShortID="362975992">
+									<Language>SFX</Language>
+									<AudioFile>ivory_ad01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="ivory_ad01" ID="{DEBB6A0A-3C12-4DEB-87A5-D969436C05E9}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="ivory_ad02" ID="{4A8A327B-B2A5-4E97-A36B-8D55AC3877F8}" ShortID="877786264" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="ivory_ad02" ID="{A071F069-5DF3-4719-A157-3069E2573867}" ShortID="888318615">
+									<Language>SFX</Language>
+									<AudioFile>ivory_ad02.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="ivory_ad02" ID="{A071F069-5DF3-4719-A157-3069E2573867}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="ivory_ad03" ID="{BE04138F-B15A-431B-83C8-B7AD5281804E}" ShortID="568300170" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="ivory_ad03" ID="{20F922AB-77AD-4894-9788-3EDE064D1F97}" ShortID="445763459">
+									<Language>SFX</Language>
+									<AudioFile>ivory_ad03.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="ivory_ad03" ID="{20F922AB-77AD-4894-9788-3EDE064D1F97}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="ivory_ad04" ID="{B8DE9FF4-FEFD-4E3C-8665-289580B1D72D}" ShortID="983198345" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="ivory_ad04" ID="{8E41B3C8-1045-4110-A3E5-20655DF1B707}" ShortID="466854866">
+									<Language>SFX</Language>
+									<AudioFile>ivory_ad04.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="ivory_ad04" ID="{8E41B3C8-1045-4110-A3E5-20655DF1B707}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="ivory_ad05" ID="{83A48111-8BB9-4777-A146-E9468E783D4D}" ShortID="72915800" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="ivory_ad05" ID="{893532F8-A4A4-4877-8321-62DC4FEFADD5}" ShortID="700120139">
+									<Language>SFX</Language>
+									<AudioFile>ivory_ad05.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="ivory_ad05" ID="{893532F8-A4A4-4877-8321-62DC4FEFADD5}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_a01" ID="{7CB79A5A-26BF-4E26-9ECD-3DA0178A1DA5}" ShortID="549563186" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_a01" ID="{0EA1A20A-7EA1-4778-B8F8-0485CAC566F7}" ShortID="901423244">
+									<Language>SFX</Language>
+									<AudioFile>locke_a01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_a01" ID="{0EA1A20A-7EA1-4778-B8F8-0485CAC566F7}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_b01" ID="{FA80F760-3B10-49A0-A4F0-C855DCF927C9}" ShortID="25820631" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_b01" ID="{A6B02602-C767-4275-9699-A1534CD8B9E2}" ShortID="478603230">
+									<Language>SFX</Language>
+									<AudioFile>locke_b01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_b01" ID="{A6B02602-C767-4275-9699-A1534CD8B9E2}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_b02" ID="{13786CA2-3A44-4EA6-8DE4-839A1C46457F}" ShortID="991374622" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_b02" ID="{E3CC054F-9BC2-4227-97AF-73553E505C35}" ShortID="907493671">
+									<Language>SFX</Language>
+									<AudioFile>locke_b02.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_b02" ID="{E3CC054F-9BC2-4227-97AF-73553E505C35}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_c01" ID="{1392D915-156C-43F7-B484-1C6DD1BEF513}" ShortID="97288161" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_c01" ID="{49B5D439-9425-4686-A015-D604C3205140}" ShortID="698427763">
+									<Language>SFX</Language>
+									<AudioFile>locke_c01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_c01" ID="{49B5D439-9425-4686-A015-D604C3205140}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_c02" ID="{DD0BEFE2-1364-4DEF-B0E9-92478EF6C8A5}" ShortID="203853617" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_c02" ID="{C02059C1-2B1E-47AE-8FFC-D9729AC15970}" ShortID="488956874">
+									<Language>SFX</Language>
+									<AudioFile>locke_c02.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_c02" ID="{C02059C1-2B1E-47AE-8FFC-D9729AC15970}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_c03" ID="{8285CE40-8497-478C-AE9F-B853D106B64A}" ShortID="406903659" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_c03" ID="{07029870-7320-4F1C-B821-CCD0E069B9DA}" ShortID="829741764">
+									<Language>SFX</Language>
+									<AudioFile>locke_c03.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_c03" ID="{07029870-7320-4F1C-B821-CCD0E069B9DA}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_d01" ID="{494D47BC-EF5B-43E2-966A-542DB3FDD024}" ShortID="414686085" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_d01" ID="{C95D7B12-93F3-4649-AA64-00F841A4A3DD}" ShortID="548946535">
+									<Language>SFX</Language>
+									<AudioFile>locke_d01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_d01" ID="{C95D7B12-93F3-4649-AA64-00F841A4A3DD}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_d02" ID="{6C2C7516-671B-4B50-9C62-F12D0D5FBAB4}" ShortID="847296550" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_d02" ID="{AAAC1637-7CC1-4C7E-9D55-0BFF67CF1AF2}" ShortID="862506427">
+									<Language>SFX</Language>
+									<AudioFile>locke_d02.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_d02" ID="{AAAC1637-7CC1-4C7E-9D55-0BFF67CF1AF2}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_d03" ID="{B261F053-DE66-4D8C-BF85-969ECC386AEE}" ShortID="628252365" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_d03" ID="{D4997C7A-7C74-4917-9241-904A2B4204CA}" ShortID="36576537">
+									<Language>SFX</Language>
+									<AudioFile>locke_d03.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_d03" ID="{D4997C7A-7C74-4917-9241-904A2B4204CA}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_d04" ID="{F79164EC-1A60-4CD5-B536-603C354037BC}" ShortID="391342700" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_d04" ID="{B528BDFC-1193-4A5B-B704-F121A96F9369}" ShortID="756194231">
+									<Language>SFX</Language>
+									<AudioFile>locke_d04.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_d04" ID="{B528BDFC-1193-4A5B-B704-F121A96F9369}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_e01" ID="{3623F558-6AC2-41BA-BFE2-79D1AC61A1B3}" ShortID="791584972" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_e01" ID="{F67EBC5A-8FA3-4FB7-B30B-BB64FC251936}" ShortID="475283778">
+									<Language>SFX</Language>
+									<AudioFile>locke_e01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_e01" ID="{F67EBC5A-8FA3-4FB7-B30B-BB64FC251936}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_e02" ID="{ABFD2B81-E3BE-47D8-B859-71E35F8FBBA9}" ShortID="703681264" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_e02" ID="{E8B04307-C2D3-4363-9039-FB2A2C00942F}" ShortID="370722052">
+									<Language>SFX</Language>
+									<AudioFile>locke_e02.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_e02" ID="{E8B04307-C2D3-4363-9039-FB2A2C00942F}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_e03" ID="{E540C43F-78E1-45F3-A350-3CB581C1FEEF}" ShortID="846421595" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_e03" ID="{856ABAD6-140F-4D20-852C-AC240EC41371}" ShortID="55524885">
+									<Language>SFX</Language>
+									<AudioFile>locke_e03.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_e03" ID="{856ABAD6-140F-4D20-852C-AC240EC41371}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_f01" ID="{102ADEA6-52B2-499C-AE17-EB1FFED6E506}" ShortID="73154907" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_f01" ID="{F1515CCF-89C7-4D96-B916-E2366FCE05C0}" ShortID="42988198">
+									<Language>SFX</Language>
+									<AudioFile>locke_f01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_f01" ID="{F1515CCF-89C7-4D96-B916-E2366FCE05C0}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_f02" ID="{262971F1-5592-43A8-B273-81F826C4415C}" ShortID="666627375" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_f02" ID="{98BEB9D4-749A-4808-ADF7-D4DA5996A330}" ShortID="203862681">
+									<Language>SFX</Language>
+									<AudioFile>locke_f02.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_f02" ID="{98BEB9D4-749A-4808-ADF7-D4DA5996A330}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_f03" ID="{2F2EA9F2-68B4-458C-B255-5DD8C8484B6C}" ShortID="698805949" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_f03" ID="{15F78392-2AB4-48C8-9881-7A2D6068B69D}" ShortID="667969008">
+									<Language>SFX</Language>
+									<AudioFile>locke_f03.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_f03" ID="{15F78392-2AB4-48C8-9881-7A2D6068B69D}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_f04" ID="{0ECCFE3F-84DE-41FF-A3B3-655F437AB12D}" ShortID="138026184" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_f04" ID="{BDE7638B-0BA3-4F49-A23F-9B738CCCC2BA}" ShortID="802122566">
+									<Language>SFX</Language>
+									<AudioFile>locke_f04.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_f04" ID="{BDE7638B-0BA3-4F49-A23F-9B738CCCC2BA}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_f05" ID="{85F89C8C-BF6C-42CB-959B-90E5B390BEA6}" ShortID="1063917850" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_f05" ID="{9DD6AEAE-6D06-4C5F-9911-3D3946189C81}" ShortID="472079254">
+									<Language>SFX</Language>
+									<AudioFile>locke_f05.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_f05" ID="{9DD6AEAE-6D06-4C5F-9911-3D3946189C81}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_g01" ID="{1957C483-EBB8-46F0-9EB9-B22094B5186B}" ShortID="696859387" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_g01" ID="{CA13DF5F-1333-4749-86A9-2FC29E6BAD43}" ShortID="1038286840">
+									<Language>SFX</Language>
+									<AudioFile>locke_g01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_g01" ID="{CA13DF5F-1333-4749-86A9-2FC29E6BAD43}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_g02" ID="{4CB3647F-C782-4F0C-A0BD-F1DC42B9444F}" ShortID="340927843" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_g02" ID="{6EFED026-3962-406C-9C1B-10FFDDE3EE09}" ShortID="588324817">
+									<Language>SFX</Language>
+									<AudioFile>locke_g02.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_g02" ID="{6EFED026-3962-406C-9C1B-10FFDDE3EE09}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_g03" ID="{CBE5CBBB-7A26-4377-8B45-E8AB4F42E139}" ShortID="444042575" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_g03" ID="{A635929D-2D79-475F-BFAA-7821FF6B9469}" ShortID="1048871536">
+									<Language>SFX</Language>
+									<AudioFile>locke_g03.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_g03" ID="{A635929D-2D79-475F-BFAA-7821FF6B9469}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_h01" ID="{1EC9E41C-8763-45D3-B838-B3CD6A547DB4}" ShortID="727594259" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_h01" ID="{21AF7725-C940-4953-A5B8-B765EB12DAF2}" ShortID="92116935">
+									<Language>SFX</Language>
+									<AudioFile>locke_h01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_h01" ID="{21AF7725-C940-4953-A5B8-B765EB12DAF2}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_h02" ID="{D954D83E-0E74-4AB3-B814-5BFC5E7B62A4}" ShortID="926154868" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_h02" ID="{040CC66C-9FEA-4A01-B3B1-172BF5380E9F}" ShortID="916849319">
+									<Language>SFX</Language>
+									<AudioFile>locke_h02.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_h02" ID="{040CC66C-9FEA-4A01-B3B1-172BF5380E9F}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_h03" ID="{134D8051-1462-403C-AF32-958AA4C6145B}" ShortID="801130129" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_h03" ID="{115E7710-81A6-44D4-82BB-A77773DCD8C1}" ShortID="800809817">
+									<Language>SFX</Language>
+									<AudioFile>locke_h03.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_h03" ID="{115E7710-81A6-44D4-82BB-A77773DCD8C1}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="locke_h04" ID="{E2670139-9DC2-4CF4-A86D-DD531400B7DD}" ShortID="442408660" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="locke_h04" ID="{46A04175-E24A-497E-9180-63977A1911B5}" ShortID="1009329531">
+									<Language>SFX</Language>
+									<AudioFile>locke_h04.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="locke_h04" ID="{46A04175-E24A-497E-9180-63977A1911B5}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a01" ID="{75BFD765-776D-498F-A9CB-AB7C1C27916C}" ShortID="341247213" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a01" ID="{5DA05B92-3B6D-45A5-8381-8810ECC7B557}" ShortID="177279122">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a01" ID="{5DA05B92-3B6D-45A5-8381-8810ECC7B557}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a02" ID="{079B6F49-D920-4CB6-BAFC-BA2823E79C2A}" ShortID="480484186" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a02" ID="{36602AD0-5621-439B-8EE6-118DEC45ABAC}" ShortID="936348690">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a02.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a02" ID="{36602AD0-5621-439B-8EE6-118DEC45ABAC}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a03" ID="{D925D455-9CB0-42D3-9DB6-3B68B72ADBBF}" ShortID="862783740" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a03" ID="{8D3BDF6B-0626-4D7F-9925-4EB195F7874F}" ShortID="34136007">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a03.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a03" ID="{8D3BDF6B-0626-4D7F-9925-4EB195F7874F}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a04" ID="{0A7C77A5-3C65-41D3-A176-A8878FA7D79E}" ShortID="846670290" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a04" ID="{0E76A139-F069-494D-AE95-4C7F53BD9E69}" ShortID="409929019">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a04.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a04" ID="{0E76A139-F069-494D-AE95-4C7F53BD9E69}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a05" ID="{C5CC1D42-E338-42E3-A202-C758154C685E}" ShortID="902951731" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a05" ID="{626B8D76-304A-4168-9813-7EB25212ABF0}" ShortID="378505284">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a05.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a05" ID="{626B8D76-304A-4168-9813-7EB25212ABF0}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a06" ID="{9F68D286-5BB4-4ECA-9B0F-D25248A5F7D6}" ShortID="545246192" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a06" ID="{F20E2F9F-207D-42C7-AE3F-AEF3383BEB11}" ShortID="166277048">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a06.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a06" ID="{F20E2F9F-207D-42C7-AE3F-AEF3383BEB11}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a07" ID="{C34778C8-DF4D-4FA0-A1CE-B45F70E23A86}" ShortID="684039081" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a07" ID="{4D312555-BD24-442B-9235-15CD4F31D376}" ShortID="583044120">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a07.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a07" ID="{4D312555-BD24-442B-9235-15CD4F31D376}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a08" ID="{1662DFE4-3215-44D4-BA54-312B9F1E81EF}" ShortID="44619191" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a08" ID="{4C810A1E-C47C-4BF5-90B5-A2AB0D0C3289}" ShortID="519681529">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a08.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a08" ID="{4C810A1E-C47C-4BF5-90B5-A2AB0D0C3289}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a09" ID="{C31F42A7-F029-4780-9E8A-AEA1392CCC6F}" ShortID="122979082" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a09" ID="{FB63D176-39C5-46F3-B38E-3E9A827D6AAE}" ShortID="314870905">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a09.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a09" ID="{FB63D176-39C5-46F3-B38E-3E9A827D6AAE}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a10" ID="{4C792144-77C7-4542-9C66-290953629760}" ShortID="403404631" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a10" ID="{F0DF50CD-20E2-48B5-8AF6-66C00BAD5EAC}" ShortID="152026655">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a10.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a10" ID="{F0DF50CD-20E2-48B5-8AF6-66C00BAD5EAC}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a11" ID="{E2B3EEC4-9868-4A32-B07D-42655CD836EB}" ShortID="216420466" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a11" ID="{A1A1C1F5-92B9-4786-B5C9-9F6CD3AC68CB}" ShortID="827030473">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a11.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a11" ID="{A1A1C1F5-92B9-4786-B5C9-9F6CD3AC68CB}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a12" ID="{985665A1-6E87-48DD-83E3-C39FC7E56E09}" ShortID="692908455" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a12" ID="{DCA19920-7D64-4D8A-A303-DB4993F753EC}" ShortID="442416216">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a12.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a12" ID="{DCA19920-7D64-4D8A-A303-DB4993F753EC}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a13" ID="{3B1177EE-6C93-4FCF-8FDC-1A63864D3503}" ShortID="503330463" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a13" ID="{89768DA9-0166-4D06-8066-1921019AD678}" ShortID="427805045">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a13.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a13" ID="{89768DA9-0166-4D06-8066-1921019AD678}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a14" ID="{6BDC0526-5FDD-47CE-9DED-29BE6BABAC22}" ShortID="206956471" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a14" ID="{427FBB28-064A-45B4-98DC-1B68EFF88FF5}" ShortID="1064769240">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a14.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a14" ID="{427FBB28-064A-45B4-98DC-1B68EFF88FF5}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a15" ID="{0A38DFBC-7E86-46C7-8107-5295F6942ACE}" ShortID="822055502" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a15" ID="{C2650B60-5F52-4ABF-AF50-81B655C6A59F}" ShortID="1016420365">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a15.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a15" ID="{C2650B60-5F52-4ABF-AF50-81B655C6A59F}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a16" ID="{E3961AC8-FCBE-4418-8BE2-F1CE02D07D19}" ShortID="769620406" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a16" ID="{C64DFED4-8159-4251-A6C2-A16FBDBDB477}" ShortID="575503233">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a16.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a16" ID="{C64DFED4-8159-4251-A6C2-A16FBDBDB477}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="meursault_a17" ID="{D54E453D-8AEE-447F-AC7F-06AB525FFF34}" ShortID="792296618" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_a17" ID="{CE8A612B-FDAE-40DC-87DD-9E3FA1FADF6F}" ShortID="851804099">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a17.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_a17" ID="{CE8A612B-FDAE-40DC-87DD-9E3FA1FADF6F}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>

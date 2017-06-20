@@ -1642,13 +1642,6 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 			&& hit_object->get<Drone>()->state() != Drone::State::Crawl) // the drone is flying or dashing; it's invincible to minions and turrets
 			damage = 0;
 
-		if (hit_object->has<Parkour>()) // player is invincible while rolling and sliding
-		{
-			Parkour::State state = hit_object->get<Parkour>()->fsm.current;
-			if (state == Parkour::State::Roll)
-				damage = 0;
-		}
-
 		if (hit_object->get<Health>()->invincible())
 		{
 			damage = 0;

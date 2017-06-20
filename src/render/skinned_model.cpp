@@ -17,6 +17,7 @@ SkinnedModel::SkinnedModel()
 	mesh_shadow(AssetNull),
 	shader(AssetNull),
 	texture(AssetNull),
+	radius(),
 	offset(Mat4::identity),
 	color(-1, -1, -1, -1),
 	mask(RENDER_MASK_DEFAULT),
@@ -37,6 +38,8 @@ void SkinnedModel::awake()
 			color.z = m->color.z;
 		if (color.w < 0.0f)
 			color.w = m->color.w;
+		if (radius == 0.0f)
+			radius = m->bounds_radius;
 	}
 	Loader::shader(shader);
 	Loader::texture(texture);
@@ -159,13 +162,16 @@ void SkinnedModel::draw(const RenderParams& params, ObstructingBehavior b)
 	m = offset * m;
 
 	AssetID mesh_actual = (params.technique != RenderTechnique::Shadow || (params.flags & RenderFlagEdges)) || mesh_shadow == AssetNull ? mesh : mesh_shadow;
+	Loader::mesh(mesh_actual);
 
 	b8 alpha_override = false;
 
-	const Mesh* mesh_data = Loader::mesh(mesh_actual);
 	{
-		Vec3 radius = (offset * Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
-		r32 max_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
+		r32 max_radius;
+		{
+			Vec3 r = (offset * Vec4(radius, radius, radius, 1)).xyz();
+			max_radius = vi_max(r.x, vi_max(r.y, r.z));
+		}
 		if (!params.camera->visible_sphere(m.translation(), max_radius))
 			return;
 		

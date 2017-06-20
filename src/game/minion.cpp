@@ -167,8 +167,7 @@ void Minion::melee_damage()
 				parkour->last_support_time = Game::time.total;
 				parkour->wall_run_state = Parkour::WallRunState::None;
 
-				Parkour::State state = parkour->fsm.current;
-				if (Game::level.local && state != Parkour::State::Roll)
+				if (Game::level.local)
 					i.item()->get<Health>()->damage(entity(), 1);
 			}
 			else

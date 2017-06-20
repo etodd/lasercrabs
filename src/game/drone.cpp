@@ -2010,6 +2010,7 @@ void Drone::update_server(const Update& u)
 			if (remote_reflection_timer == 0.0f)
 			{
 				// time's up, we have to do something
+				vi_assert(remote_reflection_dir.length_squared() > 0.0f);
 				if (reflection_source_remote)
 				{
 					// the remote told us about this reflection. go ahead and do it even though we never detected the hit locally
@@ -2019,7 +2020,6 @@ void Drone::update_server(const Update& u)
 				else
 				{
 					// we detected the hit locally, but the client never acknowledged it. ignore the reflection and keep going straight.
-					vi_assert(remote_reflection_dir.length_squared() > 0.0f);
 					velocity = remote_reflection_dir; // restore original velocity
 				}
 				Vec3 position = get<Transform>()->absolute_pos();

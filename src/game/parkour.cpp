@@ -57,6 +57,7 @@ Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 	model->mesh_shadow = Asset::Mesh::parkour;
 	model->mesh = Asset::Mesh::parkour_headless;
 	model->team = s8(team);
+	model->radius = 20.0f;
 
 	create<Audio>();
 	
@@ -119,7 +120,6 @@ namespace ParkourNet
 	{
 		Pickup,
 		StateSync,
-		Kill,
 		Electrocuted,
 		FallDamage,
 		count,
@@ -158,26 +158,6 @@ namespace ParkourNet
 			serialize_ref(p, ref);
 		}
 		serialize_enum(p, Parkour::State, parkour->fsm.current);
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 kill(Parkour* parkour, Minion* minion)
-	{
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Parkour);
-		{
-			Message m = Message::Kill;
-			serialize_enum(p, Message, m);
-		}
-		{
-			Ref<Parkour> ref = parkour;
-			serialize_ref(p, ref);
-		}
-		{
-			Ref<Minion> ref = minion;
-			serialize_ref(p, ref);
-		}
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -476,83 +456,6 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 	return exit_wallrun;
 }
 
-b8 minion_in_front_strict(Parkour* parkour, Minion* minion)
-{
-	Vec3 minion_pos = minion->get<Walker>()->base_pos();
-	Vec3 to_minion = minion_pos - parkour->get<Walker>()->base_pos();
-	Vec3 forward = Quat::euler(0, parkour->get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1);
-	return fabsf(to_minion.y) < WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT
-		&& forward.dot(to_minion) < WALKER_RADIUS * 2.5f
-		&& forward.dot(Vec3::normalize(to_minion)) > 0.5f;
-}
-
-// check on the server if we can damage this minion
-// this check is very forgiving to prevent player frustration
-b8 minion_can_damage_forgiving(Parkour* parkour, Minion* minion)
-{
-	Vec3 minion_pos = minion->get<Walker>()->base_pos();
-	Vec3 to_minion = minion_pos - parkour->get<Walker>()->base_pos();
-	const r32 radius = (WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT) * 3.0f;
-	return to_minion.length_squared() < radius * radius;
-}
-
-b8 minion_below(Parkour* parkour, Minion* minion)
-{
-	Vec3 minion_pos = minion->get<Walker>()->base_pos();
-	Vec3 to_minion = minion_pos - parkour->get<Walker>()->base_pos();
-	if (to_minion.y < 0.0f && to_minion.y > -2.0f * (WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT))
-	{
-		to_minion.y = 0.0f;
-		const r32 radius = WALKER_RADIUS * 2.5f;
-		if (to_minion.length_squared() < radius * radius)
-			return true;
-	}
-	return false;
-}
-
-b8 minions_do_damage(Parkour* parkour, b8(*minion_filter)(Parkour*, Minion*))
-{
-	b8 did_damage = false;
-	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
-	{
-		b8 already_damaged = false;
-		for (s32 j = 0; j < parkour->damage_minions.length; j++)
-		{
-			if (i.item() == parkour->damage_minions[j].ref())
-			{
-				already_damaged = true;
-				break;
-			}
-		}
-
-		if (!already_damaged && minion_filter(parkour, i.item()))
-		{
-			ParkourNet::kill(parkour, i.item());
-			parkour->damage_minions.add(i.item());
-
-			parkour->get<PlayerControlHuman>()->player.ref()->rumble_add(0.5f);
-
-			Vec3 base_pos = parkour->get<Walker>()->base_pos();
-
-			// sparks
-			Vec3 p = base_pos + Vec3(0, (WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT) * 0.5f, 0);
-			Quat rot = Quat::look(i.item()->get<Walker>()->base_pos() - base_pos);
-			for (s32 i = 0; i < 50; i++)
-			{
-				Particles::sparks.add
-				(
-					p,
-					rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-					Vec4(1, 1, 1, 1)
-				);
-			}
-
-			did_damage = true;
-		}
-	}
-	return did_damage;
-}
-
 void parkour_set_collectible_position(Animator* parkour, Transform* collectible)
 {
 	collectible->pos = Vec3(0.04f, 0, 0);
@@ -600,18 +503,6 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					parkour.ref()->fsm.last = old_value;
 					parkour.ref()->fsm.time = 0.0f;
-				}
-				break;
-			}
-			case ParkourNet::Message::Kill:
-			{
-				Ref<Minion> minion;
-				serialize_ref(p, minion);
-				if (minion.ref()
-					&& (src == Net::MessageSource::Remote || Game::level.local)
-					&& minion_can_damage_forgiving(parkour.ref(), minion.ref()))
-				{
-					minion.ref()->get<Health>()->kill(parkour.ref()->entity());
 				}
 				break;
 			}
@@ -725,7 +616,7 @@ void Parkour::update(const Update& u)
 
 	// animation layers
 	// layer 0 = running, walking, wall-running
-	// layer 1 = mantle, land, hard landing, jump, wall-jump, roll
+	// layer 1 = mantle, land, hard landing, jump, wall-jump
 
 	r32 lean_target = 0.0f;
 
@@ -923,87 +814,6 @@ void Parkour::update(const Update& u)
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos());
 			lean_target = get<Walker>()->net_speed * angular_velocity * (0.75f / 180.0f) / vi_max(0.0001f, u.time.delta);
 		}
-		else
-		{
-			// we're falling
-			// check if there are any minions to squish
-			r32 velocity_y = get<RigidBody>()->btBody->getLinearVelocity().getY();
-			if (velocity_y < LANDING_VELOCITY_HARD)
-			{
-				if (minions_do_damage(this, &minion_below))
-				{
-					// hard landing
-					fsm.transition(State::HardLanding);
-					get<Walker>()->max_speed = 0.0f;
-					get<Walker>()->speed = 0.0f;
-					get<Animator>()->layers[1].play(Asset::Animation::character_land_hard);
-				}
-				else if (Game::save.extended_parkour)
-					try_roll();
-			}
-		}
-	}
-	else if (fsm.current == State::Roll)
-	{
-		// check how fast we're going
-		Vec3 support_velocity = Walker::get_support_velocity(relative_support_pos, last_support.ref() ? last_support.ref()->btBody : nullptr);
-		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
-		Vec3 relative_velocity = velocity - support_velocity;
-		Vec3 forward = Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1);
-		r32 relative_speed = relative_velocity.dot(forward);
-		b8 stop = get<Animator>()->layers[1].animation != Asset::Animation::character_roll;
-
-		if (!stop)
-		{
-			// keep rolling
-
-			// handle support
-			{
-				btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support();
-				// we still have support; update our position relative to it
-				if (support_callback.hasHit())
-				{
-					last_support = Entity::list[support_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
-					last_support_wall_run_state = WallRunState::None;
-					relative_support_pos = last_support.ref()->get<Transform>()->to_local(support_callback.m_hitPointWorld);
-					relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(support_callback.m_hitNormalWorld);
-					last_support_time = Game::time.total;
-				}
-
-				Transform* last_support_transform = last_support.ref()->get<Transform>();
-
-				Vec3 base_pos = get<Transform>()->absolute_pos();
-				r32 base_offset = get<Walker>()->capsule_height() * 0.5f; // don't include support height
-				base_pos.y -= base_offset;
-				Vec3 absolute_support_pos = last_support_transform->to_world(relative_support_pos);
-
-				if (support_callback.hasHit() || Game::time.total - last_support_time < 0.25f)
-				{
-					Vec3 support_normal = last_support_transform->to_world_normal(relative_wall_run_normal);
-					Vec3 support_diff = base_pos - absolute_support_pos;
-					r32 support_diff_normal = support_diff.dot(support_normal);
-					Vec3 projected_support = base_pos - (support_diff_normal * support_normal);
-					if (support_diff_normal < 0.0f)
-					{
-						get<Walker>()->absolute_pos(projected_support + Vec3(0, base_offset, 0));
-						r32 velocity_normal = relative_velocity.dot(support_normal);
-						relative_velocity -= support_normal * (velocity_normal * support_normal);
-					}
-
-					// update relative support pos
-					relative_support_pos = last_support_transform->to_local(projected_support);
-				}
-			}
-
-			get<RigidBody>()->btBody->setLinearVelocity(support_velocity + relative_velocity);
-
-			// check for minions in front of us
-			if (get<Walker>()->net_speed > MIN_ATTACK_SPEED)
-				minions_do_damage(this, minion_in_front_strict);
-		}
-
-		if (stop)
-			fsm.transition(State::Normal);
 	}
 
 	// update animation
@@ -1097,17 +907,6 @@ void Parkour::update(const Update& u)
 		// floating in space
 		layer0->play(Asset::Animation::character_fall);
 		layer0->speed = 1.0f;
-	}
-
-	{
-		// update collision filter
-		// don't collide with minions if we are sliding or rolling
-		RigidBody* body = get<RigidBody>();
-		b8 collide_with_minions = fsm.current != State::Roll;
-		if (collide_with_minions && !(body->collision_filter & CollisionWalker))
-			body->set_collision_masks(body->collision_group, body->collision_filter | CollisionWalker);
-		else if (!collide_with_minions && (body->collision_filter & CollisionWalker))
-			body->set_collision_masks(body->collision_group, body->collision_filter & ~CollisionWalker);
 	}
 
 	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::HardLanding;
@@ -1485,42 +1284,6 @@ Vec3 mantle_samples[mantle_sample_count] =
 	Vec3(-0.35f, 0, 1),
 	Vec3(0.35f, 0, 1),
 };
-
-b8 Parkour::try_roll()
-{
-	if (fsm.current == State::Normal)
-	{
-		btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support(get<Walker>()->capsule_height() * 0.75f);
-		if (support_callback.hasHit() && support_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & CollisionParkour)
-		{
-			Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
-			Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
-			Vec3 support_velocity = Walker::get_support_velocity(support_callback.m_hitPointWorld, support_callback.m_collisionObject);
-			Vec3 relative_velocity = velocity - support_velocity;
-
-			if (get<Walker>()->support.ref() || relative_velocity.y > 1.0f) // need to be going down
-				return false;
-
-			fsm.transition(State::Roll);
-			get<Animator>()->layers[1].play(Asset::Animation::character_roll);
-			get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_ROLL);
-			velocity = support_velocity + forward * get<Walker>()->net_speed;
-			get<Walker>()->enabled = false;
-
-			get<RigidBody>()->btBody->setLinearVelocity(velocity);
-
-			last_support = Entity::list[support_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
-			last_support_wall_run_state = WallRunState::None;
-			relative_support_pos = last_support.ref()->get<Transform>()->to_local(support_callback.m_hitPointWorld);
-			relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(support_callback.m_hitNormalWorld);
-			last_support_time = Game::time.total;
-
-			damage_minions.length = 0;
-			return true;
-		}
-	}
-	return false;
-}
 
 // i hate you OOP
 struct RayCallbackDefaultConstructor : public btCollisionWorld::ClosestRayResultCallback

@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Animation
 	{
-		const s32 count = 52;
+		const s32 count = 54;
 		const AssetID character_aim = 0;
 		const AssetID character_climb_down = 1;
 		const AssetID character_climb_up = 2;
@@ -22,8 +22,8 @@ namespace Asset
 		const AssetID character_land_hard = 10;
 		const AssetID character_mantle = 11;
 		const AssetID character_melee = 12;
-		const AssetID character_pickup = 13;
-		const AssetID character_roll = 14;
+		const AssetID character_meursault_intro = 13;
+		const AssetID character_pickup = 14;
 		const AssetID character_run = 15;
 		const AssetID character_run_backward = 16;
 		const AssetID character_run_left = 17;
@@ -39,28 +39,30 @@ namespace Asset
 		const AssetID character_wall_run_right = 27;
 		const AssetID character_wall_run_straight = 28;
 		const AssetID character_wall_slide = 29;
-		const AssetID drone_dash = 30;
-		const AssetID drone_fly = 31;
-		const AssetID drone_idle = 32;
-		const AssetID hobo_idle = 33;
-		const AssetID interactable_disabled = 34;
-		const AssetID interactable_enabled = 35;
-		const AssetID interactable_interact = 36;
-		const AssetID interactable_interact_disable = 37;
-		const AssetID locke_gesture_both_arms = 38;
-		const AssetID locke_gesture_one_hand = 39;
-		const AssetID locke_gesture_one_hand_short = 40;
-		const AssetID locke_idle = 41;
-		const AssetID locke_shift_weight = 42;
-		const AssetID sailor_close_door = 43;
-		const AssetID sailor_talk = 44;
-		const AssetID sailor_wait = 45;
-		const AssetID terminal_close = 46;
-		const AssetID terminal_open = 47;
-		const AssetID terminal_opened = 48;
-		const AssetID tram_doors_close = 49;
-		const AssetID tram_doors_open = 50;
-		const AssetID tram_doors_opened = 51;
+		const AssetID dada_close_door = 30;
+		const AssetID dada_talk = 31;
+		const AssetID dada_wait = 32;
+		const AssetID drone_dash = 33;
+		const AssetID drone_fly = 34;
+		const AssetID drone_idle = 35;
+		const AssetID hobo_idle = 36;
+		const AssetID interactable_disabled = 37;
+		const AssetID interactable_enabled = 38;
+		const AssetID interactable_interact = 39;
+		const AssetID interactable_interact_disable = 40;
+		const AssetID locke_gesture_both_arms = 41;
+		const AssetID locke_gesture_one_hand = 42;
+		const AssetID locke_gesture_one_hand_short = 43;
+		const AssetID locke_idle = 44;
+		const AssetID locke_shift_weight = 45;
+		const AssetID meursault_intro = 46;
+		const AssetID meursault_wait = 47;
+		const AssetID terminal_close = 48;
+		const AssetID terminal_open = 49;
+		const AssetID terminal_opened = 50;
+		const AssetID tram_doors_close = 51;
+		const AssetID tram_doors_open = 52;
+		const AssetID tram_doors_opened = 53;
 	}
 }
 

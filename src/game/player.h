@@ -223,7 +223,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	r32 last_gamepad_input_time;
 	r32 gamepad_rotation_speed;
 	Ref<PlayerHuman> player;
-	Ref<Interactable> interactable;
+	Ref<Entity> anim_base;
 	b8 try_secondary;
 	b8 try_primary;
 	b8 sudoku_active;
@@ -242,6 +242,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void interact_animation_callback();
 	const PositionEntry* remote_position(r32* = nullptr, r32* = nullptr) const;
 
+	void cinematic(Entity*, AssetID);
 	void drone_detaching();
 	void drone_done_flying_or_dashing();
 	void drone_reflecting(const DroneReflectEvent&);

@@ -1798,8 +1798,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		{
 			const char* name = Json::get_string(element, "Prop");
 
-			b8 alpha = (b8)Json::get_s32(element, "alpha");
-			b8 additive = (b8)Json::get_s32(element, "additive");
+			b8 alpha = b8(Json::get_s32(element, "alpha"));
+			b8 additive = b8(Json::get_s32(element, "additive"));
 			r32 scale = Json::get_r32(element, "scale", 1.0f);
 			const char* armature = Json::get_string(element, "armature");
 			const char* animation = Json::get_string(element, "animation");
@@ -1877,6 +1877,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					if (additive)
 						entity->get<SkinnedModel>()->additive();
 					entity->get<SkinnedModel>()->offset.scale(Vec3(scale));
+					if (cJSON_HasObjectItem(element, "radius"))
+						entity->get<SkinnedModel>()->radius = Json::get_r32(element, "radius");
 				}
 			}
 

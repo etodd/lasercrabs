@@ -18,7 +18,7 @@ try:
 	export_fbx_bin.save(DummyOperator(), bpy.context, filepath=fbx_out,
 		axis_forward = '-Z',
 		axis_up = 'Y',
-		object_types = {'EMPTY', 'CAMERA', 'LAMP', 'ARMATURE', 'MESH', 'OTHER'},
+		object_types = { 'EMPTY', 'CAMERA', 'LAMP', 'ARMATURE', 'MESH', 'OTHER' },
 		bake_anim = True,
 		bake_anim_use_all_bones = False,
 		use_armature_deform_only = False,

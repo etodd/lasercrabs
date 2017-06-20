@@ -18,6 +18,7 @@ struct SkinnedModel : public ComponentType<SkinnedModel>
 
 	Mat4 offset;
 	Vec4 color;
+	r32 radius;
 	AssetID mesh;
 	AssetID mesh_shadow;
 	AssetID shader;

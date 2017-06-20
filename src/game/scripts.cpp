@@ -46,10 +46,10 @@ struct Cue
 	b8 loop;
 };
 
-enum class Behavior : s8
+enum class IdleBehavior : s8
 {
-	WaitForIdleAnimation,
-	InterruptIdleAnimation,
+	Wait,
+	Interrupt,
 	count,
 };
 
@@ -59,7 +59,7 @@ struct Instance
 
 	StaticArray<Cue, 32> cues;
 	r32 last_cue_real_time;
-	Behavior behavior;
+	IdleBehavior idle_behavior;
 	Ref<Entity> model;
 	Ref<Transform> collision;
 	AssetID text;
@@ -77,7 +77,7 @@ struct Instance
 	Instance()
 		: cues(),
 		last_cue_real_time(),
-		behavior(),
+		idle_behavior(),
 		model(),
 		collision(),
 		text(AssetNull),
@@ -90,7 +90,7 @@ struct Instance
 
 	void cue(AkUniqueID sound, AssetID animation, AssetID text = AssetNull, b8 loop = true, r32 delay = 0.3f)
 	{
-		if (behavior == Behavior::InterruptIdleAnimation && model.ref()->has<Animator>() && cues.length == 0)
+		if (idle_behavior == IdleBehavior::Interrupt && model.ref()->has<Animator>() && cues.length == 0)
 			interrupt_idle_animation = true;
 
 		Cue* c = cues.add();
@@ -104,7 +104,7 @@ struct Instance
 
 	void cue(Callback callback, r32 delay = 0.3f)
 	{
-		if (behavior == Behavior::InterruptIdleAnimation && model.ref()->has<Animator>() && cues.length == 0)
+		if (idle_behavior == IdleBehavior::Interrupt && model.ref()->has<Animator>() && cues.length == 0)
 			interrupt_idle_animation = true;
 
 		Cue* c = cues.add();
@@ -196,7 +196,11 @@ void update(const Update& u)
 			else
 				layer = nullptr;
 
-			if ((!layer || layer->animation == AssetNull || layer->behavior == Animator::Behavior::Loop || layer->time == Loader::animation(layer->animation)->duration || instance->interrupt_idle_animation)
+			if ((!layer
+				|| layer->animation == AssetNull
+				|| layer->behavior == Animator::Behavior::Loop
+				|| layer->time == Loader::animation(layer->animation)->duration
+				|| instance->interrupt_idle_animation)
 				&& instance->sound_done
 				&& instance->cues.length > 0)
 			{
@@ -214,8 +218,11 @@ void update(const Update& u)
 						instance->text = cue->text;
 						if (layer)
 						{
-							layer->behavior = cue->loop ? Animator::Behavior::Loop : Animator::Behavior::Freeze;
-							layer->play(cue->animation);
+							if (cue->animation != AssetNull)
+							{
+								layer->behavior = cue->loop ? Animator::Behavior::Loop : Animator::Behavior::Freeze;
+								layer->play(cue->animation);
+							}
 						}
 						else
 							vi_assert(cue->animation == AssetNull);
@@ -322,7 +329,7 @@ void init()
 	}
 }
 
-Instance* add(Entity* model, Behavior behavior = Behavior::WaitForIdleAnimation, AssetID head_bone = AssetNull)
+Instance* add(Entity* model, AssetID head_bone = AssetNull, IdleBehavior idle_behavior = IdleBehavior::Wait)
 {
 	init();
 
@@ -330,7 +337,7 @@ Instance* add(Entity* model, Behavior behavior = Behavior::WaitForIdleAnimation,
 	new (i) Instance();
 
 	i->revision++;
-	i->behavior = behavior;
+	i->idle_behavior = idle_behavior;
 	i->model = model;
 	i->head_bone = head_bone;
 	i->sound_done = true;
@@ -431,8 +438,8 @@ namespace title
 	enum class TutorialState : s8
 	{
 		Start,
-		SailorSpotted,
-		SailorTalking,
+		DadaSpotted,
+		DadaTalking,
 		Climb,
 		ClimbDone,
 		WallRun,
@@ -443,7 +450,7 @@ namespace title
 	struct Data
 	{
 		Camera* camera;
-		Actor::Instance* sailor;
+		Actor::Instance* dada;
 		Vec3 camera_start_pos;
 		r32 transition_timer;
 		r32 wallrun_footstep_timer;
@@ -457,7 +464,7 @@ namespace title
 		Ref<Actor::Instance> hobo_actor;
 		Ref<Entity> hobo;
 		TutorialState state;
-		b8 sailor_talked;
+		b8 dada_talked;
 		StaticArray<Ref<Transform>, 8> wallrun_footsteps;
 	};
 	
@@ -472,8 +479,8 @@ namespace title
 	void climb_success(Entity*)
 	{
 		if (data->state == TutorialState::Start
-			|| data->state == TutorialState::SailorSpotted
-			|| data->state == TutorialState::SailorTalking
+			|| data->state == TutorialState::DadaSpotted
+			|| data->state == TutorialState::DadaTalking
 			|| data->state == TutorialState::Climb)
 		{
 			Actor::tut_clear();
@@ -499,38 +506,38 @@ namespace title
 		}
 	}
 
-	void sailor_spotted(Entity*)
+	void dada_spotted(Entity*)
 	{
 		if (data->state == TutorialState::Start)
 		{
-			data->state = TutorialState::SailorSpotted;
-			data->sailor->cue(AK::EVENTS::PLAY_SAILOR_COME_HERE, Asset::Animation::sailor_wait, strings::sailor_come_here);
+			data->state = TutorialState::DadaSpotted;
+			data->dada->cue(AK::EVENTS::PLAY_DADA01, Asset::Animation::dada_wait, strings::dada01);
 		}
 	}
 
-	void sailor_done(Actor::Instance*)
+	void dada_done(Actor::Instance*)
 	{
-		if (data->state == TutorialState::SailorTalking)
+		if (data->state == TutorialState::DadaTalking)
 		{
 			data->state = TutorialState::Climb;
 			Actor::tut(strings::tut_climb_jump);
 		}
 	}
 
-	void sailor_talk(Entity*)
+	void dada_talk(Entity*)
 	{
-		if (data->state == TutorialState::SailorSpotted)
-			data->state = TutorialState::SailorTalking;
+		if (data->state == TutorialState::DadaSpotted)
+			data->state = TutorialState::DadaTalking;
 
-		if (!data->sailor_talked)
+		if (!data->dada_talked)
 		{
-			data->sailor_talked = true;
-			data->sailor->highlight = false;
-			data->sailor->cue(AK::EVENTS::PLAY_SAILOR_SPEECH_1, Asset::Animation::sailor_talk, strings::sailor_speech_1);
-			data->sailor->cue(AK::EVENTS::PLAY_SAILOR_SPEECH_2, Asset::Animation::sailor_talk, strings::sailor_speech_2);
-			data->sailor->cue(AK_InvalidID, Asset::Animation::sailor_close_door, AssetNull, false);
-			data->sailor->cue(&sailor_done);
-			data->sailor->cue(&Actor::done, 0.0f);
+			data->dada_talked = true;
+			data->dada->highlight = false;
+			data->dada->cue(AK::EVENTS::PLAY_DADA02, Asset::Animation::dada_talk, strings::dada02);
+			data->dada->cue(AK::EVENTS::PLAY_DADA03, Asset::Animation::dada_talk, strings::dada03);
+			data->dada->cue(AK_InvalidID, Asset::Animation::dada_close_door, AssetNull, false);
+			data->dada->cue(&dada_done);
+			data->dada->cue(&Actor::done, 0.0f);
 		}
 	}
 
@@ -560,9 +567,11 @@ namespace title
 	{
 		if (data->ivory_ad_actor.ref()->cues.length == 0)
 		{
-			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD1, AssetNull, strings::ivory_ad1);
-			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD2, AssetNull, strings::ivory_ad2);
-			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD3, AssetNull, strings::ivory_ad3);
+			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD01, AssetNull, strings::ivory_ad01);
+			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD02, AssetNull, strings::ivory_ad02);
+			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD03, AssetNull, strings::ivory_ad03);
+			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD04, AssetNull, strings::ivory_ad04);
+			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD05, AssetNull, strings::ivory_ad05);
 		}
 	}
 
@@ -588,7 +597,7 @@ namespace title
 				data->camera = nullptr;
 				World::remove(data->character.ref()->entity());
 				Game::level.mode = Game::Mode::Parkour;
-				data->sailor->highlight = true;
+				data->dada->highlight = true;
 				for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 				{
 					i.item()->get<PlayerManager>()->can_spawn = true;
@@ -717,8 +726,8 @@ namespace title
 			entities.find("climb_trigger1")->get<PlayerTrigger>()->entered.link(&climb_success);
 			entities.find("climb_trigger2")->get<PlayerTrigger>()->entered.link(&climb_success);
 			entities.find("wallrun_trigger")->get<PlayerTrigger>()->entered.link(&wallrun_start);
-			entities.find("sailor_spotted_trigger")->get<PlayerTrigger>()->entered.link(&sailor_spotted);
-			entities.find("sailor_talk_trigger")->get<PlayerTrigger>()->entered.link(&sailor_talk);
+			entities.find("dada_spotted_trigger")->get<PlayerTrigger>()->entered.link(&dada_spotted);
+			entities.find("dada_talk_trigger")->get<PlayerTrigger>()->entered.link(&dada_talk);
 
 			data->wallrun_footsteps.add(entities.find("wallrun_footstep")->get<Transform>());
 			data->wallrun_footsteps.add(entities.find("wallrun_footstep.001")->get<Transform>());
@@ -732,18 +741,18 @@ namespace title
 			Game::updates.add(update);
 			Game::draws.add(draw);
 
-			data->sailor = Actor::add(entities.find("sailor"), Actor::Behavior::WaitForIdleAnimation, Asset::Bone::sailor_head);
-			Loader::animation(Asset::Animation::sailor_close_door);
-			Loader::animation(Asset::Animation::sailor_wait);
-			Loader::animation(Asset::Animation::sailor_talk);
+			data->dada = Actor::add(entities.find("dada"), Asset::Bone::dada_head);
+			Loader::animation(Asset::Animation::dada_close_door);
+			Loader::animation(Asset::Animation::dada_wait);
+			Loader::animation(Asset::Animation::dada_talk);
 			if (Game::level.mode != Game::Mode::Special)
-				data->sailor->highlight = true;
+				data->dada->highlight = true;
 		}
 		else
 		{
-			Animator* sailor = entities.find("sailor")->get<Animator>();
-			sailor->layers[0].behavior = Animator::Behavior::Freeze;
-			sailor->layers[0].play(Asset::Animation::sailor_close_door);
+			Animator* dada = entities.find("dada")->get<Animator>();
+			dada->layers[0].behavior = Animator::Behavior::Freeze;
+			dada->layers[0].play(Asset::Animation::dada_close_door);
 		}
 
 		entities.find("ivory_ad_trigger")->get<PlayerTrigger>()->entered.link(&ivory_ad_play);
@@ -752,7 +761,7 @@ namespace title
 
 		Actor::init();
 		Loader::animation(Asset::Animation::hobo_idle);
-		data->hobo_actor = Actor::add(data->hobo.ref(), Actor::Behavior::WaitForIdleAnimation, Asset::Bone::hobo_head);
+		data->hobo_actor = Actor::add(data->hobo.ref(), Asset::Bone::hobo_head);
 		entities.find("hobo_trigger")->get<PlayerTrigger>()->entered.link(&hobo_talk);
 
 		data->ivory_ad_actor = Actor::add(entities.find("ivory_ad"));
@@ -971,8 +980,8 @@ namespace locke
 			if (!Game::save.locke_spoken)
 			{
 				Game::save.locke_index++; // locke_index starts at -1
-				if (Game::save.locke_index == 7)
-					Game::save.locke_index = 1; // skip the first one, which is the intro to Locke
+				if (Game::save.locke_index == 8)
+					Game::save.locke_index = 2; // skip the first two
 			}
 			Game::save.locke_spoken = true;
 			data->spoken = true;
@@ -980,53 +989,59 @@ namespace locke
 			{
 				case 0:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE1A, Asset::Animation::locke_gesture_one_hand_short, strings::locke1a, false);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE1B, Asset::Animation::locke_shift_weight, strings::locke1b, false);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_A01, Asset::Animation::locke_gesture_one_hand_short, strings::locke_a01, false);
 					break;
 				}
 				case 1:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE2A, Asset::Animation::locke_idle, strings::locke2a);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE2B, Asset::Animation::locke_idle, strings::locke2b);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE2C, Asset::Animation::locke_idle, strings::locke2c);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_B01, Asset::Animation::locke_gesture_one_hand_short, strings::locke_b01, false);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_B02, Asset::Animation::locke_shift_weight, strings::locke_b02, false);
 					break;
 				}
 				case 2:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE3A, Asset::Animation::locke_idle, strings::locke3a);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE3B, Asset::Animation::locke_idle, strings::locke3b);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE3C, Asset::Animation::locke_idle, strings::locke3c);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE3D, Asset::Animation::locke_idle, strings::locke3d);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_C01, Asset::Animation::locke_idle, strings::locke_c01);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_C02, Asset::Animation::locke_idle, strings::locke_c02);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_C03, Asset::Animation::locke_idle, strings::locke_c03);
 					break;
 				}
 				case 3:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE4A, Asset::Animation::locke_idle, strings::locke4a);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE4B, Asset::Animation::locke_idle, strings::locke4b);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE4C, Asset::Animation::locke_idle, strings::locke4c);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_D01, Asset::Animation::locke_idle, strings::locke_d01);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_D02, Asset::Animation::locke_idle, strings::locke_d02);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_D03, Asset::Animation::locke_idle, strings::locke_d03);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_D04, Asset::Animation::locke_idle, strings::locke_d04);
 					break;
 				}
 				case 4:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE5A, Asset::Animation::locke_idle, strings::locke5a);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE5B, Asset::Animation::locke_idle, strings::locke5b);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE5C, Asset::Animation::locke_idle, strings::locke5c);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE5D, Asset::Animation::locke_idle, strings::locke5d);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_E01, Asset::Animation::locke_idle, strings::locke_e01);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_E02, Asset::Animation::locke_idle, strings::locke_e02);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_E03, Asset::Animation::locke_idle, strings::locke_e03);
 					break;
 				}
 				case 5:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE6A, Asset::Animation::locke_idle, strings::locke6a);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE6B, Asset::Animation::locke_idle, strings::locke6b);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE6C, Asset::Animation::locke_idle, strings::locke6c);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_F01, Asset::Animation::locke_idle, strings::locke_f01);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_F02, Asset::Animation::locke_idle, strings::locke_f02);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_F03, Asset::Animation::locke_idle, strings::locke_f03);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_F04, Asset::Animation::locke_idle, strings::locke_f04);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_F05, Asset::Animation::locke_idle, strings::locke_f05);
 					break;
 				}
 				case 6:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE7A, Asset::Animation::locke_idle, strings::locke7a);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE7B, Asset::Animation::locke_idle, strings::locke7b);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE7C, Asset::Animation::locke_idle, strings::locke7c);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE7D, Asset::Animation::locke_idle, strings::locke7d);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_G01, Asset::Animation::locke_idle, strings::locke_g01);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_G02, Asset::Animation::locke_idle, strings::locke_g02);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_G03, Asset::Animation::locke_idle, strings::locke_g03);
+					break;
+				}
+				case 7:
+				{
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_H01, Asset::Animation::locke_idle, strings::locke_h01);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_H02, Asset::Animation::locke_idle, strings::locke_h02);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_H03, Asset::Animation::locke_idle, strings::locke_h03);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_H04, Asset::Animation::locke_idle, strings::locke_h04);
 					break;
 				}
 				default:
@@ -1050,7 +1065,7 @@ namespace locke
 		data = new Data();
 		Entity* locke = entities.find("locke");
 		locke->get<PlayerTrigger>()->entered.link(&trigger);
-		data->locke = Actor::add(locke, Actor::Behavior::InterruptIdleAnimation, Asset::Bone::locke_head);
+		data->locke = Actor::add(locke, Asset::Bone::locke_head, Actor::IdleBehavior::Interrupt);
 		Loader::animation(Asset::Animation::locke_gesture_both_arms);
 		Loader::animation(Asset::Animation::locke_gesture_one_hand);
 		Loader::animation(Asset::Animation::locke_gesture_one_hand_short);
@@ -1058,6 +1073,65 @@ namespace locke
 		Loader::animation(Asset::Animation::locke_shift_weight);
 		Game::updates.add(&update);
 		Game::cleanups.add(&cleanup);
+	}
+}
+
+namespace tier_1a
+{
+	struct Data
+	{
+		Actor::Instance* meursault;
+		Ref<Entity> anim_base;
+		b8 anim_played;
+	};
+	Data* data;
+
+	void cleanup()
+	{
+		delete data;
+		data = nullptr;
+	}
+
+	void trigger(Entity* player)
+	{
+		if (!data->anim_played)
+		{
+			data->anim_played = true;
+
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A01, Asset::Animation::meursault_intro, strings::meursault_a01, false);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A02, AssetNull, strings::meursault_a02);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A03, AssetNull, strings::meursault_a03);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A04, AssetNull, strings::meursault_a04);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A05, AssetNull, strings::meursault_a05);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A06, AssetNull, strings::meursault_a06);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A07, AssetNull, strings::meursault_a07);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A08, AssetNull, strings::meursault_a08);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A09, AssetNull, strings::meursault_a09);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A10, AssetNull, strings::meursault_a10);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A11, AssetNull, strings::meursault_a11);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A12, AssetNull, strings::meursault_a12);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A13, AssetNull, strings::meursault_a13);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A14, AssetNull, strings::meursault_a14);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A15, AssetNull, strings::meursault_a15);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A16, AssetNull, strings::meursault_a16);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A17, AssetNull, strings::meursault_a17);
+
+			player->get<PlayerControlHuman>()->cinematic(data->anim_base.ref(), Asset::Animation::character_meursault_intro);
+		}
+	}
+
+	void init(const EntityFinder& entities)
+	{
+		data = new Data();
+		Game::cleanups.add(&cleanup);
+
+		data->meursault = Actor::add(entities.find("meursault"), Asset::Bone::meursault_head);
+
+		entities.find("trigger")->get<PlayerTrigger>()->entered.link(&trigger);
+		data->anim_base = entities.find("player_anim");
+
+		Loader::animation(Asset::Animation::character_meursault_intro);
+		Loader::animation(Asset::Animation::meursault_intro);
 	}
 }
 
@@ -1070,6 +1144,7 @@ Script Script::list[] =
 	{ "tutorial", Scripts::tutorial::init },
 	{ "title", Scripts::title::init },
 	{ "locke", Scripts::locke::init },
+	{ "tier_1a", Scripts::tier_1a::init },
 	{ 0, 0, },
 };
 s32 Script::count; // set in Game::init

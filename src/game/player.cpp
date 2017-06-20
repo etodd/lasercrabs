@@ -948,6 +948,20 @@ void get_interactable_standing_position(Transform* i, Vec3* pos, r32* angle)
 	pos->y += (WALKER_DEFAULT_CAPSULE_HEIGHT * 0.5f) + WALKER_SUPPORT_HEIGHT;
 }
 
+void get_standing_position(Transform* i, Vec3* pos, r32* angle)
+{
+	Vec3 i_pos;
+	Quat i_rot;
+	i->absolute(&i_pos, &i_rot);
+	Vec3 dir = i_rot * Vec3(1, 0, 0);
+	dir.y = 0.0f;
+	dir.normalize();
+	if (angle)
+		*angle = atan2f(dir.x, dir.z);
+	*pos = i_pos;
+	pos->y += (WALKER_DEFAULT_CAPSULE_HEIGHT * 0.5f) + WALKER_SUPPORT_HEIGHT;
+}
+
 void PlayerHuman::game_mode_transitioning()
 {
 	if (camera)
@@ -1066,7 +1080,7 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 		{
 			// player is getting out of the terminal
 			spawned->get<Animator>()->layers[3].set(Asset::Animation::character_terminal_exit, 0.0f); // bypass animation blending
-			spawned->get<PlayerControlHuman>()->interactable = Game::level.terminal_interactable.ref()->get<Interactable>();
+			spawned->get<PlayerControlHuman>()->anim_base = Game::level.terminal_interactable.ref();
 		}
 
 		Game::save.zone_current_restore = false;
@@ -2331,7 +2345,7 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 	remote_control(),
 	player(p),
 	position_history(),
-	interactable(),
+	anim_base(),
 #if SERVER
 	ai_record_tag(),
 	ai_record_wait_timer(AI_RECORD_WAIT_TIME),
@@ -2464,7 +2478,7 @@ void PlayerControlHuman::terminal_enter_animation_callback()
 
 void PlayerControlHuman::interact_animation_callback()
 {
-	interactable = nullptr;
+	anim_base = nullptr;
 }
 
 void PlayerControlHuman::hit_target(Entity* target)
@@ -2552,7 +2566,7 @@ b8 PlayerControlHuman::input_enabled() const
 		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)
 		&& !Team::game_over
 		&& !Menu::dialog_active(player.ref()->gamepad)
-		&& !interactable.ref();
+		&& !anim_base.ref();
 }
 
 b8 PlayerControlHuman::movement_enabled() const
@@ -2742,14 +2756,18 @@ void player_confirm_tram_interactable(s8 gamepad)
 		if (player->gamepad == gamepad)
 		{
 			vi_assert(Game::save.resources[s32(Resource::HackKits)] > 0);
-			i.item()->interactable = Interactable::closest(i.item()->get<Transform>()->absolute_pos());
-			if (i.item()->interactable.ref())
+			Interactable* interactable = Interactable::closest(i.item()->get<Transform>()->absolute_pos());
+			if (interactable)
 			{
+				i.item()->anim_base = interactable->entity();
+
 				// skip sudoku
-				i.item()->interactable.ref()->interact();
+				interactable->interact();
 				i.item()->get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 				i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 			}
+			else
+				i.item()->anim_base = nullptr;
 			break;
 		}
 	}
@@ -2775,7 +2793,7 @@ void player_cancel_interactable(s8 gamepad)
 		PlayerHuman* player = i.item()->player.ref();
 		if (player->gamepad == gamepad)
 		{
-			i.item()->interactable = nullptr;
+			i.item()->anim_base = nullptr;
 			break;
 		}
 	}
@@ -3212,10 +3230,11 @@ void PlayerControlHuman::update(const Update& u)
 				&& !u.input->get(Controls::InteractSecondary, gamepad)
 				&& u.last_input->get(Controls::InteractSecondary, gamepad))
 			{
-				interactable = Interactable::closest(get<Transform>()->absolute_pos());
-				if (interactable.ref())
+				Interactable* interactable = Interactable::closest(get<Transform>()->absolute_pos());
+				if (interactable)
 				{
-					switch (interactable.ref()->type)
+					anim_base = interactable->entity();
+					switch (interactable->type)
 					{
 						case Interactable::Type::Terminal:
 						{
@@ -3227,14 +3246,14 @@ void PlayerControlHuman::update(const Update& u)
 									{
 										// terminal is temporarily locked, must leave and come back
 										player.ref()->msg(_(strings::terminal_locked), false);
-										interactable = nullptr;
+										anim_base = nullptr;
 									}
 									else if (Game::level.max_teams <= 2 || Game::save.group != Net::Master::Group::None) // if the map requires more than two players, you must be in a group
 									{
 										if (Game::save.resources[s32(Resource::Drones)] < DEFAULT_ASSAULT_DRONES)
 										{
 											Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), DEFAULT_ASSAULT_DRONES, _(strings::drones));
-											interactable = nullptr;
+											anim_base = nullptr;
 										}
 										else
 											Menu::dialog_with_cancel(gamepad, &player_confirm_terminal_interactable, &player_cancel_interactable, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES);
@@ -3243,7 +3262,7 @@ void PlayerControlHuman::update(const Update& u)
 									{
 										// must be in a group
 										player.ref()->msg(_(strings::group_required), false);
-										interactable = nullptr;
+										anim_base = nullptr;
 									}
 									break;
 								}
@@ -3254,7 +3273,7 @@ void PlayerControlHuman::update(const Update& u)
 								}
 								case ZoneState::Locked:
 								{
-									interactable.ref()->interact();
+									interactable->interact();
 									get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 									get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 									break;
@@ -3263,7 +3282,7 @@ void PlayerControlHuman::update(const Update& u)
 								{
 									// zone is already owned
 									player.ref()->msg(_(strings::zone_already_captured), false);
-									interactable = nullptr;
+									anim_base = nullptr;
 									break;
 								}
 								default:
@@ -3276,7 +3295,7 @@ void PlayerControlHuman::update(const Update& u)
 						}
 						case Interactable::Type::Tram: // tram interactable
 						{
-							s8 track = s8(interactable.ref()->user_data);
+							s8 track = s8(interactable->user_data);
 							AssetID target_level = Game::level.tram_tracks[track].level;
 							Tram* tram = Tram::by_track(track);
 							if (tram->doors_open()
@@ -3284,31 +3303,31 @@ void PlayerControlHuman::update(const Update& u)
 								|| (Overworld::zone_is_pvp(target_level) && Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)) // if it's a PvP zone, we need x drones to capture it
 							{
 								// go right ahead
-								interactable.ref()->interact();
+								interactable->interact();
 								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 								get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 							}
 							else if (Overworld::zone_is_pvp(target_level))
 							{
 								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_drones), DEFAULT_ASSAULT_DRONES);
-								interactable = nullptr;
+								anim_base = nullptr;
 							}
 							else if (Game::save.resources[s32(Resource::HackKits)] > 0) // ask if they want to hack it
 							{
 								Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::hack_kits));
-								interactable = nullptr;
+								anim_base = nullptr;
 							}
 							else // not enough
 							{
 								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
-								interactable = nullptr;
+								anim_base = nullptr;
 							}
 							break;
 						}
 						case Interactable::Type::Shop:
 						{
 							Overworld::show(player.ref()->camera, Overworld::State::StoryModeOverlay, Overworld::Tab::Inventory);
-							interactable = nullptr;
+							anim_base = nullptr;
 							break;
 						}
 						default:
@@ -3318,37 +3337,44 @@ void PlayerControlHuman::update(const Update& u)
 						}
 					}
 				}
+				else
+					anim_base = nullptr;
 			}
 
-			if (interactable.ref())
+			if (anim_base.ref())
 			{
-				// position player directly in front of the interactable
+				// an animation is playing
+				// position player where they need to be
+				// if anim_base is an interactable, place the player directly in front of it
 
-				// desired rotation / position
-				Vec3 target_pos;
-				r32 target_angle;
-				get_interactable_standing_position(interactable.ref()->get<Transform>(), &target_pos, &target_angle);
-
-				r32 angle = fabsf(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, target_angle));
-				get<PlayerCommon>()->angle_horizontal = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / angle) * u.time.delta), get<PlayerCommon>()->angle_horizontal, LMath::closest_angle(target_angle, get<PlayerCommon>()->angle_horizontal));
-				get<PlayerCommon>()->angle_vertical = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / fabsf(get<PlayerCommon>()->angle_vertical)) * u.time.delta), get<PlayerCommon>()->angle_vertical, -arm_angle_offset);
-
-				Vec3 abs_pos = get<Transform>()->absolute_pos();
-				r32 distance = (abs_pos - target_pos).length();
-				if (distance > 0.0f)
-					get<Walker>()->absolute_pos(Vec3::lerp(vi_min(1.0f, (INTERACT_LERP_TRANSLATION_SPEED / distance) * u.time.delta), abs_pos, target_pos));
-
-				if (sudoku_active)
+				if (get<Animator>()->layers[3].animation == AssetNull)
+					anim_base = nullptr; // animation done
+				else
 				{
-					if (Game::edge_trigger(Game::real_time.total, UI::flash_function_slow))
-						Audio::post_global_event(AK::EVENTS::PLAY_SUDOKU_ALARM);
-					player.ref()->sudoku.update(u, gamepad, player.ref());
-					if (player.ref()->sudoku.complete() && player.ref()->sudoku.timer_animation == 0.0f)
+					// desired rotation / position
+					Vec3 target_pos;
+					r32 target_angle;
+					if (anim_base.ref()->has<Interactable>())
 					{
-						interactable.ref()->interact();
-						get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-						get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
-						sudoku_active = false;
+						get_interactable_standing_position(anim_base.ref()->get<Transform>(), &target_pos, &target_angle);
+
+						// lerp to interactable
+						r32 angle = fabsf(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, target_angle));
+						get<PlayerCommon>()->angle_horizontal = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / angle) * u.time.delta), get<PlayerCommon>()->angle_horizontal, LMath::closest_angle(target_angle, get<PlayerCommon>()->angle_horizontal));
+						get<PlayerCommon>()->angle_vertical = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / fabsf(get<PlayerCommon>()->angle_vertical)) * u.time.delta), get<PlayerCommon>()->angle_vertical, -arm_angle_offset);
+
+						Vec3 abs_pos = get<Transform>()->absolute_pos();
+						r32 distance = (abs_pos - target_pos).length();
+						if (distance > 0.0f)
+							get<Walker>()->absolute_pos(Vec3::lerp(vi_min(1.0f, (INTERACT_LERP_TRANSLATION_SPEED / distance) * u.time.delta), abs_pos, target_pos));
+					}
+					else
+					{
+						get_standing_position(anim_base.ref()->get<Transform>(), &target_pos, &target_angle);
+						// instantly teleport
+						get<Walker>()->absolute_pos(target_pos);
+						get<PlayerCommon>()->angle_horizontal = target_angle;
+						get<PlayerCommon>()->angle_vertical = 0.0f;
 					}
 				}
 			}
@@ -3450,11 +3476,11 @@ void PlayerControlHuman::update(const Update& u)
 				Vec3 forward = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Vec3(0, 0, 1);
 
 				if (get<Parkour>()->wall_run_state == Parkour::WallRunState::Forward)
-					get<PlayerCommon>()->clamp_rotation(-wall_normal); // Make sure we're always facing the wall
+					get<PlayerCommon>()->clamp_rotation(-wall_normal); // make sure we're always facing the wall
 				else
 				{
-					// We're running along the wall
-					// Make sure we can't look backward
+					// we're running along the wall
+					// make sure we can't look backward
 					get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1));
 					if (get<Parkour>()->wall_run_state == Parkour::WallRunState::Left)
 						get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation + PI * -0.5f, 0) * Vec3(0, 0, 1));
@@ -3462,8 +3488,7 @@ void PlayerControlHuman::update(const Update& u)
 						get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Vec3(0, 0, 1));
 				}
 			}
-			else if (parkour_state == Parkour::State::Roll
-				|| parkour_state == Parkour::State::HardLanding
+			else if (parkour_state == Parkour::State::HardLanding
 				|| parkour_state == Parkour::State::Mantle
 				|| parkour_state == Parkour::State::Climb)
 			{
@@ -3482,6 +3507,27 @@ void PlayerControlHuman::update(const Update& u)
 			}
 		}
 	}
+}
+
+void PlayerControlHuman::cinematic(Entity* basis, AssetID anim)
+{
+	vi_assert(has<Parkour>());
+
+	get<Animator>()->layers[3].set(anim, 0.0f);
+
+	Vec3 target_pos;
+	r32 target_angle;
+	if (basis->has<Interactable>())
+		get_interactable_standing_position(basis->get<Transform>(), &target_pos, &target_angle);
+	else
+		get_standing_position(basis->get<Transform>(), &target_pos, &target_angle);
+
+	get<PlayerCommon>()->angle_horizontal = get<Parkour>()->last_angle_horizontal = get<Walker>()->rotation = get<Walker>()->target_rotation = target_angle;
+	get<PlayerCommon>()->angle_vertical = 0.0f;
+	get<Parkour>()->lean = 0.0f;
+	get<Walker>()->absolute_pos(target_pos);
+
+	anim_base = basis;
 }
 
 void PlayerControlHuman::update_late(const Update& u)
@@ -3515,7 +3561,7 @@ void PlayerControlHuman::update_late(const Update& u)
 			camera->pos = get<Transform>()->to_world(camera->pos);
 
 			// third-person
-			// camera->pos = get<Transform>()->absolute_pos() + camera->rot * Vec3(0, 1, -2);
+			//camera->pos += camera->rot * Vec3(0, 0, -2);
 		}
 
 		// wind sound and camera shake at high speed
@@ -3777,172 +3823,167 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	{
 		// parkour mode
 
-		if (sudoku_active) // sudoku
-			player.ref()->sudoku.draw(params, player.ref()->gamepad);
-		else
+		Interactable* closest_interactable = Interactable::closest(get<Transform>()->absolute_pos());
+
+		if (closest_interactable || get<Animator>()->layers[3].animation == Asset::Animation::character_pickup)
 		{
-			Interactable* closest_interactable = Interactable::closest(get<Transform>()->absolute_pos());
-
-			if (closest_interactable || get<Animator>()->layers[3].animation == Asset::Animation::character_pickup)
+			// draw resources
+			const Vec2 panel_size(MENU_ITEM_WIDTH * 0.3f, MENU_ITEM_PADDING * 2.0f + UI_TEXT_SIZE_DEFAULT * UI::scale);
+			Vec2 pos(viewport.size.x * 0.9f, viewport.size.y * 0.1f);
+			UIText text;
+			text.anchor_y = UIText::Anchor::Center;
+			text.anchor_x = UIText::Anchor::Max;
+			text.size = UI_TEXT_SIZE_DEFAULT;
+			for (s32 i = s32(Resource::count) - 1; i >= 0; i--)
 			{
-				// draw resources
-				const Vec2 panel_size(MENU_ITEM_WIDTH * 0.3f, MENU_ITEM_PADDING * 2.0f + UI_TEXT_SIZE_DEFAULT * UI::scale);
-				Vec2 pos(viewport.size.x * 0.9f, viewport.size.y * 0.1f);
-				UIText text;
-				text.anchor_y = UIText::Anchor::Center;
-				text.anchor_x = UIText::Anchor::Max;
-				text.size = UI_TEXT_SIZE_DEFAULT;
-				for (s32 i = s32(Resource::count) - 1; i >= 0; i--)
+				UI::box(params, { pos + Vec2(-panel_size.x, 0), panel_size }, UI::color_background);
+
+				r32 icon_size = (UI_TEXT_SIZE_DEFAULT + 2.0f) * UI::scale;
+
+				const Overworld::ResourceInfo& info = Overworld::resource_info[i];
+
+				b8 blink = Game::real_time.total - Overworld::resource_change_time(Resource(i)) < 0.5f;
+				b8 draw = !blink || UI::flash_function(Game::real_time.total);
+
+				if (draw)
 				{
-					UI::box(params, { pos + Vec2(-panel_size.x, 0), panel_size }, UI::color_background);
-
-					r32 icon_size = (UI_TEXT_SIZE_DEFAULT + 2.0f) * UI::scale;
-
-					const Overworld::ResourceInfo& info = Overworld::resource_info[i];
-
-					b8 blink = Game::real_time.total - Overworld::resource_change_time(Resource(i)) < 0.5f;
-					b8 draw = !blink || UI::flash_function(Game::real_time.total);
-
-					if (draw)
-					{
-						const Vec4& color = blink
-							?  UI::color_default
-							: (Game::save.resources[i] == 0 ? UI::color_alert : UI::color_accent);
-						UI::mesh(params, info.icon, pos + Vec2(-panel_size.x + MENU_ITEM_PADDING + icon_size * 0.5f, panel_size.y * 0.5f), Vec2(icon_size), color);
-						text.color = color;
-						text.text(player.ref()->gamepad, "%d", Game::save.resources[i]);
-						text.draw(params, pos + Vec2(-MENU_ITEM_PADDING, panel_size.y * 0.5f));
-					}
-
-					pos.y += panel_size.y;
+					const Vec4& color = blink
+						?  UI::color_default
+						: (Game::save.resources[i] == 0 ? UI::color_alert : UI::color_accent);
+					UI::mesh(params, info.icon, pos + Vec2(-panel_size.x + MENU_ITEM_PADDING + icon_size * 0.5f, panel_size.y * 0.5f), Vec2(icon_size), color);
+					text.color = color;
+					text.text(player.ref()->gamepad, "%d", Game::save.resources[i]);
+					text.draw(params, pos + Vec2(-MENU_ITEM_PADDING, panel_size.y * 0.5f));
 				}
+
+				pos.y += panel_size.y;
+			}
+		}
+
+		if (input_enabled())
+		{
+			// interact prompt
+			if (closest_interactable)
+			{
+				UIText text;
+				text.color = UI::color_accent;
+				text.text(player.ref()->gamepad, _(strings::prompt_interact));
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				text.size = text_size;
+				Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
+				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+				text.draw(params, pos);
 			}
 
-			if (input_enabled())
+			if (Settings::waypoints)
 			{
-				// interact prompt
-				if (closest_interactable)
+				// highlight terminal location
+				if (!closest_interactable && Game::save.zones[Game::level.id] == ZoneState::Locked)
 				{
-					UIText text;
-					text.color = UI::color_accent;
-					text.text(player.ref()->gamepad, _(strings::prompt_interact));
-					text.anchor_x = UIText::Anchor::Center;
-					text.anchor_y = UIText::Anchor::Center;
-					text.size = text_size;
-					Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
-					UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-					text.draw(params, pos);
+					Entity* terminal = Game::level.terminal.ref();
+					if (terminal)
+						UI::indicator(params, terminal->get<Transform>()->absolute_pos(), UI::color_default, true);
 				}
 
-				if (Settings::waypoints)
+				// highlight trams
+				Vec3 look_dir = params.camera->rot * Vec3(0, 0, 1);
+				for (auto i = Tram::list.iterator(); !i.is_last(); i.next())
 				{
-					// highlight terminal location
-					if (!closest_interactable && Game::save.zones[Game::level.id] == ZoneState::Locked)
+					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+					Vec3 to_tram = pos - params.camera->pos;
+					r32 distance = to_tram.length();
+					if (distance > 8.0f)
 					{
-						Entity* terminal = Game::level.terminal.ref();
-						if (terminal)
-							UI::indicator(params, terminal->get<Transform>()->absolute_pos(), UI::color_default, true);
-					}
-
-					// highlight trams
-					Vec3 look_dir = params.camera->rot * Vec3(0, 0, 1);
-					for (auto i = Tram::list.iterator(); !i.is_last(); i.next())
-					{
-						Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-						Vec3 to_tram = pos - params.camera->pos;
-						r32 distance = to_tram.length();
-						if (distance > 8.0f)
+						to_tram /= distance;
+						if (to_tram.dot(look_dir) > 0.92f)
 						{
-							to_tram /= distance;
-							if (to_tram.dot(look_dir) > 0.92f)
+							Vec2 p;
+							if (UI::project(params, pos + Vec3(0, 3, 0), &p))
 							{
-								Vec2 p;
-								if (UI::project(params, pos + Vec3(0, 3, 0), &p))
+								AssetID zone = Game::level.tram_tracks[i.item()->track()].level;
+
+								if (zone == AssetNull)
+									continue;
+
+								UIText text;
+								switch (Game::save.zones[zone])
 								{
-									AssetID zone = Game::level.tram_tracks[i.item()->track()].level;
-
-									if (zone == AssetNull)
-										continue;
-
-									UIText text;
-									switch (Game::save.zones[zone])
+									case ZoneState::PvpFriendly:
 									{
-										case ZoneState::PvpFriendly:
-										{
-											text.color = Team::ui_color_friend;
-											break;
-										}
-										case ZoneState::ParkourUnlocked:
-										{
-											text.color = UI::color_default;
-											break;
-										}
-										case ZoneState::PvpHostile:
-										{
-											text.color = Team::ui_color_enemy;
-											break;
-										}
-										case ZoneState::Locked:
-										{
-											text.color = UI::color_disabled;
-											break;
-										}
-										default:
-										{
-											vi_assert(false);
-											break;
-										}
+										text.color = Team::ui_color_friend;
+										break;
 									}
-									text.text(player.ref()->gamepad, Loader::level_name(zone));
-									text.anchor_x = UIText::Anchor::Center;
-									text.anchor_y = UIText::Anchor::Center;
-									text.size = text_size * 0.75f;
-									UI::box(params, text.rect(p).outset(4.0f * UI::scale), UI::color_background);
-									text.draw(params, p);
+									case ZoneState::ParkourUnlocked:
+									{
+										text.color = UI::color_default;
+										break;
+									}
+									case ZoneState::PvpHostile:
+									{
+										text.color = Team::ui_color_enemy;
+										break;
+									}
+									case ZoneState::Locked:
+									{
+										text.color = UI::color_disabled;
+										break;
+									}
+									default:
+									{
+										vi_assert(false);
+										break;
+									}
 								}
+								text.text(player.ref()->gamepad, Loader::level_name(zone));
+								text.anchor_x = UIText::Anchor::Center;
+								text.anchor_y = UIText::Anchor::Center;
+								text.size = text_size * 0.75f;
+								UI::box(params, text.rect(p).outset(4.0f * UI::scale), UI::color_background);
+								text.draw(params, p);
 							}
 						}
 					}
+				}
 
-					// highlight shop
-					if (Game::level.shop.ref())
+				// highlight shop
+				if (Game::level.shop.ref())
+				{
+					Vec3 pos = Game::level.shop.ref()->get<Transform>()->absolute_pos();
+					Vec3 to_shop = pos - params.camera->pos;
+					r32 distance = to_shop.length();
+					if (distance > 8.0f)
 					{
-						Vec3 pos = Game::level.shop.ref()->get<Transform>()->absolute_pos();
-						Vec3 to_shop = pos - params.camera->pos;
-						r32 distance = to_shop.length();
-						if (distance > 8.0f)
+						to_shop /= distance;
+						if (to_shop.dot(look_dir) > 0.92f)
 						{
-							to_shop /= distance;
-							if (to_shop.dot(look_dir) > 0.92f)
+							Vec2 p;
+							if (UI::project(params, pos + Vec3(0, 3, 0), &p))
 							{
-								Vec2 p;
-								if (UI::project(params, pos + Vec3(0, 3, 0), &p))
-								{
-									UIText text;
-									text.color = UI::color_default;
-									text.text(player.ref()->gamepad, _(strings::shop));
-									text.anchor_x = UIText::Anchor::Center;
-									text.anchor_y = UIText::Anchor::Center;
-									text.size = text_size * 0.75f;
-									UI::box(params, text.rect(p).outset(4.0f * UI::scale), UI::color_background);
-									text.draw(params, p);
-								}
+								UIText text;
+								text.color = UI::color_default;
+								text.text(player.ref()->gamepad, _(strings::shop));
+								text.anchor_x = UIText::Anchor::Center;
+								text.anchor_y = UIText::Anchor::Center;
+								text.size = text_size * 0.75f;
+								UI::box(params, text.rect(p).outset(4.0f * UI::scale), UI::color_background);
+								text.draw(params, p);
 							}
 						}
 					}
+				}
 
-					if (get<Parkour>()->fsm.current == Parkour::State::Climb)
-					{
-						// show climb controls
-						UIText text;
-						text.color = UI::color_accent;
-						text.text(player.ref()->gamepad, "{{ClimbingMovement}}");
-						text.anchor_x = UIText::Anchor::Center;
-						text.anchor_y = UIText::Anchor::Center;
-						Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.1f);
-						UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-						text.draw(params, pos);
-					}
+				if (get<Parkour>()->fsm.current == Parkour::State::Climb)
+				{
+					// show climb controls
+					UIText text;
+					text.color = UI::color_accent;
+					text.text(player.ref()->gamepad, "{{ClimbingMovement}}");
+					text.anchor_x = UIText::Anchor::Center;
+					text.anchor_y = UIText::Anchor::Center;
+					Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.1f);
+					UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+					text.draw(params, pos);
 				}
 			}
 		}

@@ -38,8 +38,6 @@ void SkinnedModel::awake()
 			color.z = m->color.z;
 		if (color.w < 0.0f)
 			color.w = m->color.w;
-		if (radius == 0.0f)
-			radius = m->bounds_radius;
 	}
 	Loader::shader(shader);
 	Loader::texture(texture);
@@ -162,15 +160,16 @@ void SkinnedModel::draw(const RenderParams& params, ObstructingBehavior b)
 	m = offset * m;
 
 	AssetID mesh_actual = (params.technique != RenderTechnique::Shadow || (params.flags & RenderFlagEdges)) || mesh_shadow == AssetNull ? mesh : mesh_shadow;
-	Loader::mesh(mesh_actual);
 
 	b8 alpha_override = false;
 
 	{
 		r32 max_radius;
 		{
-			Vec3 r = (offset * Vec4(radius, radius, radius, 1)).xyz();
-			max_radius = vi_max(r.x, vi_max(r.y, r.z));
+			const Mesh* mesh_data = Loader::mesh(mesh_actual);
+			r32 r = radius == 0.0f ? mesh_data->bounds_radius : radius;
+			Vec3 r3d = (offset * Vec4(r, r, r, 1)).xyz();
+			max_radius = vi_max(r3d.x, vi_max(r3d.y, r3d.z));
 		}
 		if (!params.camera->visible_sphere(m.translation(), max_radius))
 			return;

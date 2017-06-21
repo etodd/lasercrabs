@@ -153,10 +153,8 @@
 	"tut_done": "Return to the docks.",
 
 	"tut_climb_jump": "[{{Jump}}] to jump.
-[{{Parkour}}] to climb.
-(1/2)",
-	"tut_wallrun": "Run alongside the wall and hold [{{Parkour}}] to wall-run.
-(2/2)",
+[{{Parkour}}] to climb.",
+	"tut_wallrun": "Run alongside the wall and hold [{{Parkour}}] to wall-run.",
 
 	"left_joystick": "Left joystick",
 	"right_joystick": "Right joystick",

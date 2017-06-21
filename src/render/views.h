@@ -14,6 +14,7 @@ struct View : public ComponentType<View>
 
 	Mat4 offset;
 	Vec4 color;
+	r32 radius;
 	RenderMask mask;
 	AssetID mesh;
 	AssetID mesh_shadow;
@@ -27,7 +28,7 @@ struct View : public ComponentType<View>
 	typedef b8 Filter(const RenderParams&, const View*);
 	static void draw_filtered(const RenderParams&, Filter*);
 
-	static void draw_mesh(const RenderParams&, AssetID, AssetID, AssetID, const Mat4&, const Vec4&);
+	static void draw_mesh(const RenderParams&, AssetID, AssetID, AssetID, const Mat4&, const Vec4&, r32 = 0.0f);
 
 	View();
 	View(AssetID);

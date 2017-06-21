@@ -24,7 +24,8 @@ View::View(AssetID m)
 	offset(Mat4::identity),
 	color(-1, -1, -1, -1),
 	mask(RENDER_MASK_DEFAULT),
-	team(s8(AI::TeamNone))
+	team(s8(AI::TeamNone)),
+	radius()
 {
 }
 
@@ -36,7 +37,8 @@ View::View()
 	offset(Mat4::identity),
 	color(-1, -1, -1, -1),
 	mask(RENDER_MASK_DEFAULT),
-	team(s8(AI::TeamNone))
+	team(s8(AI::TeamNone)),
+	radius()
 {
 }
 
@@ -136,7 +138,7 @@ void View::alpha_mode(AlphaMode m)
 	}
 }
 
-void View::draw_mesh(const RenderParams& params, AssetID mesh, AssetID shader, AssetID texture, const Mat4& m, const Vec4& color)
+void View::draw_mesh(const RenderParams& params, AssetID mesh, AssetID shader, AssetID texture, const Mat4& m, const Vec4& color, r32 radius)
 {
 	if (mesh == AssetNull || shader == AssetNull)
 		return;
@@ -146,8 +148,9 @@ void View::draw_mesh(const RenderParams& params, AssetID mesh, AssetID shader, A
 	{
 		Mat3 scale;
 		m.extract_mat3(scale);
-		Vec3 radius = scale * Vec3(mesh_data->bounds_radius);
-		if (!params.camera->visible_sphere(m.translation(), vi_max(radius.x, vi_max(radius.y, radius.z))))
+		r32 r = radius == 0.0f ? mesh_data->bounds_radius : radius;
+		Vec3 r3d = scale * Vec3(r);
+		if (!params.camera->visible_sphere(m.translation(), vi_max(r3d.x, vi_max(r3d.y, r3d.z))))
 			return;
 	}
 
@@ -216,8 +219,9 @@ void View::draw(const RenderParams& params) const
 	m = offset * m;
 
 	{
-		Vec3 radius = (offset * Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 1)).xyz();
-		if (!params.camera->visible_sphere(m.translation(), vi_max(radius.x, vi_max(radius.y, radius.z))))
+		r32 r = radius == 0.0f ? mesh_data->bounds_radius : radius;
+		Vec3 r3d = (offset * Vec4(r, r, r, 1)).xyz();
+		if (!params.camera->visible_sphere(m.translation(), vi_max(r3d.x, vi_max(r3d.y, r3d.z))))
 			return;
 	}
 

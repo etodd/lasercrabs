@@ -1364,8 +1364,7 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 	r32 time = 0.0f;
 	while (time < max_time)
 	{
-		r32 time_next = time + NET_TICK_RATE * 0.1f;
-		Vec3 next_pos = pos + dir_flattened * DRONE_DASH_SPEED * time_next;
+		Vec3 next_pos = pos + dir_flattened * DRONE_DASH_SPEED * time;
 
 		// check if we still have wall to dash on
 		Vec3 wall_ray_start = next_pos + wall_normal * DRONE_RADIUS;
@@ -1382,8 +1381,6 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 		else
 			break; // no more wall
 
-		time = time_next;
-
 		// check if we can hit the target now
 		Vec3 target_dir = Vec3::normalize(target - next_pos);
 		Vec3 final_pos;
@@ -1394,11 +1391,29 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 			combo = true;
 			break;
 		}
+
+		time += NET_TICK_RATE * 0.1f;
 	}
 
-	dash_combo = combo;
-	dash_target = target;
-	DroneNet::start_dashing(this, dir_normalized, time);
+	if (combo && time <= DRONE_DASH_TIME / r32(1 << 16))
+	{
+		// don't dash; just start flying
+		{
+			Net::StateFrame* state_frame = nullptr;
+			Net::StateFrame state_frame_data;
+			if (net_state_frame(&state_frame_data))
+				state_frame = &state_frame_data;
+			if (!could_shoot(pos, dir, nullptr, nullptr, state_frame))
+				return false;
+		}
+		DroneNet::start_flying(this, dir_normalized, DroneNet::FlyFlag::None);
+	}
+	else
+	{
+		dash_combo = combo;
+		dash_target = target;
+		DroneNet::start_dashing(this, dir_normalized, time);
+	}
 
 	return true;
 }
@@ -1555,29 +1570,39 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 		r32 random_range = 0.0f;
 		r32 best_score = DRONE_MAX_DISTANCE;
 		const r32 goal_distance = DRONE_MAX_DISTANCE * 0.25f;
+
+		// if we're bouncing off a target (a drone most likely), we can bounce backward through the target.
+		// otherwise, if it's a force field or something, we don't want to bounce through it
+		b8 allow_reflect_against_normal = entity->has<Target>();
+
 		for (s32 i = 0; i < REFLECTION_TRIES; i++)
 		{
 			Vec3 candidate_dir = target_quat * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * random_range, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * random_range, 0) * Vec3(1, 0, 0));
-			Vec3 next_hit;
-			if (can_shoot(candidate_dir, &next_hit, nullptr, state_frame))
+			if (allow_reflect_against_normal || candidate_dir.dot(normal) > 0.0f)
 			{
-				r32 distance = (next_hit - hit).length();
-				r32 score = fabsf(distance - goal_distance);
-
-				if (score < best_score)
+				Vec3 next_hit;
+				if (can_shoot(candidate_dir, &next_hit, nullptr, state_frame))
 				{
-					new_dir = candidate_dir;
-					best_score = score;
-				}
+					r32 distance = (next_hit - hit).length();
+					r32 score = fabsf(distance - goal_distance);
 
-				if (distance > goal_distance && score < DRONE_MAX_DISTANCE * 0.4f)
-				{
-					new_dir = candidate_dir;
-					best_score = score;
-					break;
+					if (score < best_score)
+					{
+						new_dir = candidate_dir;
+						best_score = score;
+					}
+
+					if (distance > goal_distance && score < DRONE_MAX_DISTANCE * 0.4f)
+					{
+						new_dir = candidate_dir;
+						best_score = score;
+						break;
+					}
 				}
+				random_range += PI / r32(REFLECTION_TRIES);
 			}
-			random_range += PI / r32(REFLECTION_TRIES);
+			else
+				i--; // candidate dir was against the normal; try again
 		}
 	}
 

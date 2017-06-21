@@ -441,9 +441,8 @@ namespace title
 		DadaSpotted,
 		DadaTalking,
 		Climb,
-		ClimbDone,
-		WallRun,
-		WallRunDone,
+		HackKits,
+		Done,
 		count,
 	};
 
@@ -453,19 +452,15 @@ namespace title
 		Actor::Instance* dada;
 		Vec3 camera_start_pos;
 		r32 transition_timer;
-		r32 wallrun_footstep_timer;
-		s32 wallrun_footstep_index;
 		Ref<Animator> character;
 		Ref<Transform> target_climb;
 		Ref<Transform> target_hack_kits;
-		Ref<Transform> target_wall_run;
 		Ref<Transform> ivory_ad_text;
 		Ref<Actor::Instance> ivory_ad_actor;
 		Ref<Actor::Instance> hobo_actor;
 		Ref<Entity> hobo;
 		TutorialState state;
 		b8 dada_talked;
-		StaticArray<Ref<Transform>, 8> wallrun_footsteps;
 	};
 	
 	static Data* data;
@@ -484,26 +479,14 @@ namespace title
 			|| data->state == TutorialState::Climb)
 		{
 			Actor::tut_clear();
-			data->state = TutorialState::ClimbDone;
+			data->state = TutorialState::HackKits;
 		}
 	}
 
-	void wallrun_start(Entity*)
+	void hack_kits_success()
 	{
-		if (data->state == TutorialState::ClimbDone)
-		{
-			Actor::tut(strings::tut_wallrun);
-			data->state = TutorialState::WallRun;
-		}
-	}
-
-	void wallrun_success()
-	{
-		if (data->state == TutorialState::ClimbDone || data->state == TutorialState::WallRun)
-		{
-			Actor::tut_clear();
-			data->state = TutorialState::WallRunDone;
-		}
+		if (data->state == TutorialState::HackKits)
+			data->state = TutorialState::Done;
 	}
 
 	void dada_spotted(Entity*)
@@ -637,22 +620,6 @@ namespace title
 			}
 		}
 
-		if ((data->state == TutorialState::ClimbDone || data->state == TutorialState::WallRun)
-			&& !data->target_hack_kits.ref())
-			wallrun_success(); // player got the hack kits; done with this bit
-
-		if (data->state == TutorialState::WallRun)
-		{
-			// spawn wallrun footstep shockwave effects
-			data->wallrun_footstep_timer -= u.time.delta;
-			if (data->wallrun_footstep_timer < 0.0f)
-			{
-				data->wallrun_footstep_timer += 2.0f / data->wallrun_footsteps.length;
-				data->wallrun_footstep_index = (data->wallrun_footstep_index + 1) % data->wallrun_footsteps.length;
-				EffectLight::add(data->wallrun_footsteps[data->wallrun_footstep_index].ref()->absolute_pos(), 1.0f, 1.0f, EffectLight::Type::Shockwave);
-			}
-		}
-
 		// ivory ad text
 		data->ivory_ad_text.ref()->rot *= Quat::euler(0, u.time.delta * 0.2f, 0);
 	}
@@ -675,9 +642,7 @@ namespace title
 		{
 			if (data->state == TutorialState::Climb)
 				UI::indicator(p, data->target_climb.ref()->absolute_pos(), UI::color_accent, true);
-			else if (data->state == TutorialState::ClimbDone)
-				UI::indicator(p, data->target_wall_run.ref()->absolute_pos(), UI::color_accent, true);
-			else if (data->state == TutorialState::WallRun)
+			else if (data->state == TutorialState::HackKits)
 				UI::indicator(p, data->target_hack_kits.ref()->absolute_pos(), UI::color_accent, true);
 		}
 
@@ -721,22 +686,11 @@ namespace title
 		{
 			data->target_climb = entities.find("target_climb")->get<Transform>();
 			data->target_hack_kits = entities.find("hack_kits")->get<Transform>();
-			data->target_hack_kits.ref()->get<Collectible>()->collected.link(&wallrun_success);
-			data->target_wall_run = entities.find("wallrun_target")->get<Transform>();
+			data->target_hack_kits.ref()->get<Collectible>()->collected.link(&hack_kits_success);
 			entities.find("climb_trigger1")->get<PlayerTrigger>()->entered.link(&climb_success);
 			entities.find("climb_trigger2")->get<PlayerTrigger>()->entered.link(&climb_success);
-			entities.find("wallrun_trigger")->get<PlayerTrigger>()->entered.link(&wallrun_start);
 			entities.find("dada_spotted_trigger")->get<PlayerTrigger>()->entered.link(&dada_spotted);
 			entities.find("dada_talk_trigger")->get<PlayerTrigger>()->entered.link(&dada_talk);
-
-			data->wallrun_footsteps.add(entities.find("wallrun_footstep")->get<Transform>());
-			data->wallrun_footsteps.add(entities.find("wallrun_footstep.001")->get<Transform>());
-			data->wallrun_footsteps.add(entities.find("wallrun_footstep.002")->get<Transform>());
-			data->wallrun_footsteps.add(entities.find("wallrun_footstep.003")->get<Transform>());
-			data->wallrun_footsteps.add(entities.find("wallrun_footstep.004")->get<Transform>());
-			data->wallrun_footsteps.add(entities.find("wallrun_footstep.005")->get<Transform>());
-			data->wallrun_footsteps.add(entities.find("wallrun_footstep.006")->get<Transform>());
-			data->wallrun_footsteps.add(entities.find("wallrun_footstep.007")->get<Transform>());
 
 			Game::updates.add(update);
 			Game::draws.add(draw);
@@ -781,6 +735,8 @@ namespace tutorial
 	enum class TutorialState : s8
 	{
 		None,
+		WallRun,
+		WallRunDone,
 		Crawl,
 		Battery,
 		Upgrade,
@@ -796,13 +752,34 @@ namespace tutorial
 
 	struct Data
 	{
+		r32 wallrun_footstep_timer;
+		s32 wallrun_footstep_index;
 		TutorialState state;
 		Ref<Entity> player;
 		Ref<Entity> battery;
 		Ref<Transform> crawl_target;
+		StaticArray<Ref<Transform>, 8> wallrun_footsteps;
 	};
 
 	Data* data;
+
+	void wallrun_start(Entity*)
+	{
+		if (Game::level.mode == Game::Mode::Parkour && data->state == TutorialState::None)
+		{
+			Actor::tut(strings::tut_wallrun);
+			data->state = TutorialState::WallRun;
+		}
+	}
+
+	void wallrun_success(Entity*)
+	{
+		if (data->state == TutorialState::WallRun)
+		{
+			Actor::tut_clear();
+			data->state = TutorialState::WallRunDone;
+		}
+	}
 
 	void drone_target_hit(Entity* e)
 	{
@@ -872,7 +849,19 @@ namespace tutorial
 			}
 		}
 
-		if (data->state == TutorialState::Overworld && Overworld::active())
+
+		if (data->state == TutorialState::WallRun)
+		{
+			// spawn wallrun footstep shockwave effects
+			data->wallrun_footstep_timer -= u.time.delta;
+			if (data->wallrun_footstep_timer < 0.0f)
+			{
+				data->wallrun_footstep_timer += 2.0f / data->wallrun_footsteps.length;
+				data->wallrun_footstep_index = (data->wallrun_footstep_index + 1) % data->wallrun_footsteps.length;
+				EffectLight::add(data->wallrun_footsteps[data->wallrun_footstep_index].ref()->absolute_pos(), 1.0f, 1.0f, EffectLight::Type::Shockwave);
+			}
+		}
+		else if (data->state == TutorialState::Overworld && Overworld::active())
 		{
 			data->state = TutorialState::Return;
 			Actor::tut_clear();
@@ -930,9 +919,20 @@ namespace tutorial
 		data = new Data();
 
 		data->battery = entities.find("battery");
-		
+
+		data->wallrun_footsteps.add(entities.find("wallrun_footstep")->get<Transform>());
+		data->wallrun_footsteps.add(entities.find("wallrun_footstep.001")->get<Transform>());
+		data->wallrun_footsteps.add(entities.find("wallrun_footstep.002")->get<Transform>());
+		data->wallrun_footsteps.add(entities.find("wallrun_footstep.003")->get<Transform>());
+		data->wallrun_footsteps.add(entities.find("wallrun_footstep.004")->get<Transform>());
+		data->wallrun_footsteps.add(entities.find("wallrun_footstep.005")->get<Transform>());
+		data->wallrun_footsteps.add(entities.find("wallrun_footstep.006")->get<Transform>());
+		data->wallrun_footsteps.add(entities.find("wallrun_footstep.007")->get<Transform>());
+
 		data->crawl_target = entities.find("crawl_target")->get<Transform>();
 		entities.find("crawl_trigger")->get<PlayerTrigger>()->entered.link(&crawl_complete);
+		entities.find("wallrun_trigger")->get<PlayerTrigger>()->entered.link(&wallrun_start);
+		entities.find("wallrun_success")->get<PlayerTrigger>()->entered.link(&wallrun_success);
 
 		Game::level.feature_level = Game::FeatureLevel::Base;
 

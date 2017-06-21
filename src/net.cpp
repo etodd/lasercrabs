@@ -192,6 +192,7 @@ template<typename Stream, typename View> b8 serialize_view_skinnedmodel(Stream* 
 	serialize_r32_range(p, v->color.y, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, v->color.z, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, v->color.w, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, v->radius, 0.0f, 20.0f, 8);
 	serialize_s16(p, v->mask);
 	serialize_s16(p, v->mesh);
 	serialize_s16(p, v->mesh_shadow);

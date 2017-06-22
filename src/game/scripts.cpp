@@ -36,6 +36,20 @@ struct Instance;
 
 typedef void (*Callback)(Instance*);
 
+enum class Loop : s8
+{
+	No,
+	Yes,
+	count,
+};
+
+enum class Overlap : s8
+{
+	No,
+	Yes,
+	count,
+};
+
 struct Cue
 {
 	Callback callback;
@@ -43,7 +57,8 @@ struct Cue
 	AkUniqueID sound = AK_InvalidID;
 	AssetID animation = AssetNull;
 	AssetID text = AssetNull;
-	b8 loop;
+	Loop loop;
+	Overlap overlap;
 };
 
 enum class IdleBehavior : s8
@@ -67,7 +82,7 @@ struct Instance
 	Revision revision;
 	b8 highlight;
 	b8 sound_done;
-	b8 interrupt_idle_animation;
+	b8 overlap_animation;
 
 	inline ID id() const
 	{
@@ -84,14 +99,14 @@ struct Instance
 		head_bone(AssetNull),
 		highlight(),
 		sound_done(),
-		interrupt_idle_animation()
+		overlap_animation()
 	{
 	}
 
-	void cue(AkUniqueID sound, AssetID animation, AssetID text = AssetNull, b8 loop = true, r32 delay = 0.3f)
+	void cue(AkUniqueID sound, AssetID animation, AssetID text = AssetNull, Loop loop = Loop::Yes, Overlap overlap = Overlap::No, r32 delay = 0.3f)
 	{
 		if (idle_behavior == IdleBehavior::Interrupt && model.ref()->has<Animator>() && cues.length == 0)
-			interrupt_idle_animation = true;
+			overlap_animation = true;
 
 		Cue* c = cues.add();
 		new (c) Cue();
@@ -99,13 +114,14 @@ struct Instance
 		c->animation = animation;
 		c->delay = delay;
 		c->loop = loop;
+		c->overlap = overlap;
 		c->text = text;
 	}
 
 	void cue(Callback callback, r32 delay = 0.3f)
 	{
 		if (idle_behavior == IdleBehavior::Interrupt && model.ref()->has<Animator>() && cues.length == 0)
-			interrupt_idle_animation = true;
+			overlap_animation = true;
 
 		Cue* c = cues.add();
 		new (c) Cue();
@@ -200,7 +216,7 @@ void update(const Update& u)
 				|| layer->animation == AssetNull
 				|| layer->behavior == Animator::Behavior::Loop
 				|| layer->time == Loader::animation(layer->animation)->duration
-				|| instance->interrupt_idle_animation)
+				|| instance->overlap_animation)
 				&& instance->sound_done
 				&& instance->cues.length > 0)
 			{
@@ -209,7 +225,6 @@ void update(const Update& u)
 					cue->delay -= u.time.delta;
 				else
 				{
-					instance->interrupt_idle_animation = false;
 					if (cue->callback)
 						cue->callback(instance);
 					else
@@ -220,7 +235,8 @@ void update(const Update& u)
 						{
 							if (cue->animation != AssetNull)
 							{
-								layer->behavior = cue->loop ? Animator::Behavior::Loop : Animator::Behavior::Freeze;
+								instance->overlap_animation = cue->overlap == Overlap::Yes ? true : false;
+								layer->behavior = cue->loop == Loop::Yes ? Animator::Behavior::Loop : Animator::Behavior::Freeze;
 								layer->play(cue->animation);
 							}
 						}
@@ -430,7 +446,6 @@ namespace scene
 
 namespace title
 {
-	b8 first_show = true;
 	const r32 start_fov = 40.0f * PI * 0.5f / 180.0f;
 	const r32 end_fov = 70.0f * PI * 0.5f / 180.0f;
 	const r32 total_transition = TRANSITION_TIME + 0.5f;
@@ -518,7 +533,7 @@ namespace title
 			data->dada->highlight = false;
 			data->dada->cue(AK::EVENTS::PLAY_DADA02, Asset::Animation::dada_talk, strings::dada02);
 			data->dada->cue(AK::EVENTS::PLAY_DADA03, Asset::Animation::dada_talk, strings::dada03);
-			data->dada->cue(AK_InvalidID, Asset::Animation::dada_close_door, AssetNull, false);
+			data->dada->cue(AK_InvalidID, Asset::Animation::dada_close_door, AssetNull, Actor::Loop::No);
 			data->dada->cue(&dada_done);
 			data->dada->cue(&Actor::done, 0.0f);
 		}
@@ -593,30 +608,22 @@ namespace title
 			if (Game::level.mode == Game::Mode::Special && Menu::main_menu_state == Menu::State::Hidden && Game::scheduled_load_level == AssetNull)
 			{
 				b8 show = false;
-				if (first_show) // wait for the user to hit a button before showing the menu
+				if (u.last_input->keys.any() && !u.input->keys.any())
+					show = true;
+				else
 				{
-					if (u.last_input->keys.any() && !u.input->keys.any())
-						show = true;
-					else
+					for (s32 i = 0; i < MAX_GAMEPADS; i++)
 					{
-						for (s32 i = 0; i < MAX_GAMEPADS; i++)
+						if (u.last_input->gamepads[i].btns && !u.input->gamepads[i].btns)
 						{
-							if (u.last_input->gamepads[i].btns && !u.input->gamepads[i].btns)
-							{
-								show = true;
-								break;
-							}
+							show = true;
+							break;
 						}
 					}
 				}
-				else // we've seen this title screen before; show the menu right away
-					show = true;
 
 				if (show)
-				{
-					first_show = false;
 					Menu::show();
-				}
 			}
 		}
 
@@ -989,13 +996,13 @@ namespace locke
 			{
 				case 0:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_A01, Asset::Animation::locke_gesture_one_hand_short, strings::locke_a01, false);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_A01, Asset::Animation::locke_gesture_one_hand_short, strings::locke_a01, Actor::Loop::No);
 					break;
 				}
 				case 1:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_B01, Asset::Animation::locke_gesture_one_hand_short, strings::locke_b01, false);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_B02, Asset::Animation::locke_shift_weight, strings::locke_b02, false);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_B01, Asset::Animation::locke_gesture_one_hand_short, strings::locke_b01, Actor::Loop::No);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_B02, Asset::Animation::locke_shift_weight, strings::locke_b02, Actor::Loop::No);
 					break;
 				}
 				case 2:
@@ -1098,8 +1105,9 @@ namespace tier_1a
 		{
 			data->anim_played = true;
 
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A01, Asset::Animation::meursault_intro, strings::meursault_a01, false);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A02, AssetNull, strings::meursault_a02);
+			data->meursault->cue(AK_InvalidID, Asset::Animation::meursault_intro, AssetNull, Actor::Loop::No, Actor::Overlap::Yes);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A01, AssetNull, strings::meursault_a01, Actor::Loop::No, Actor::Overlap::No, 4.9f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A02, AssetNull, strings::meursault_a02, Actor::Loop::No, Actor::Overlap::No, 3.6f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A03, AssetNull, strings::meursault_a03);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A04, AssetNull, strings::meursault_a04);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A05, AssetNull, strings::meursault_a05);
@@ -1114,7 +1122,6 @@ namespace tier_1a
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A14, AssetNull, strings::meursault_a14);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A15, AssetNull, strings::meursault_a15);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A16, AssetNull, strings::meursault_a16);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A17, AssetNull, strings::meursault_a17);
 
 			player->get<PlayerControlHuman>()->cinematic(data->anim_base.ref(), Asset::Animation::character_meursault_intro);
 		}

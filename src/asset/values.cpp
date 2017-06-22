@@ -1285,7 +1285,6 @@ const char* AssetLookup::String::names[] =
 	"meursault_a14",
 	"meursault_a15",
 	"meursault_a16",
-	"meursault_a17",
 	"minion",
 	"multiplayer",
 	"multiplayer_custom",

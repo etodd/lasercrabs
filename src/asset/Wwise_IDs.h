@@ -115,7 +115,6 @@ namespace AK
         static const AkUniqueID PLAY_MEURSAULT_A14 = 784055853U;
         static const AkUniqueID PLAY_MEURSAULT_A15 = 784055852U;
         static const AkUniqueID PLAY_MEURSAULT_A16 = 784055855U;
-        static const AkUniqueID PLAY_MEURSAULT_A17 = 784055854U;
         static const AkUniqueID PLAY_MINION_CHARGE = 1161618039U;
         static const AkUniqueID PLAY_MINION_DIE = 677003823U;
         static const AkUniqueID PLAY_MINION_HEADSHOT = 3502276269U;

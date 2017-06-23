@@ -568,6 +568,7 @@ struct Tram : public ComponentType<Tram>
 	Ref<TramRunner> runner_b;
 	Ref<Entity> doors;
 	b8 departing;
+	b8 arrive_only;
 
 	b8 doors_open() const;
 	void doors_open(b8);

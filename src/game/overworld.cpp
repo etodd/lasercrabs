@@ -1146,11 +1146,11 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 				if (zone_node_get(zone) && zone_can_capture(zone))
 				{
 					if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES
-						&& (Game::save.zones[zone] == ZoneState::PvpFriendly || Game::save.resources[s32(Resource::HackKits)] > 0))
+						&& (Game::save.zones[zone] == ZoneState::PvpFriendly || Game::save.resources[s32(Resource::AccessKeys)] > 0))
 					{
 						resource_change(Resource::Drones, -DEFAULT_ASSAULT_DRONES);
 						if (Game::save.zones[zone] != ZoneState::PvpFriendly)
-							resource_change(Resource::HackKits, -1);
+							resource_change(Resource::AccessKeys, -1);
 						go(zone);
 					}
 				}
@@ -1370,8 +1370,8 @@ void capture_start(s8 gamepad)
 	if (zone_can_capture(data.zone_selected)
 		&& Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
 	{
-		// one hack kit needed if we're attacking
-		if (Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly || Game::save.resources[s32(Resource::HackKits)] > 0)
+		// one access key needed if we're attacking
+		if (Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly || Game::save.resources[s32(Resource::AccessKeys)] > 0)
 			deploy_start();
 	}
 }
@@ -1472,10 +1472,10 @@ void tab_map_update(const Update& u)
 				else
 				{
 					// attacking
-					if (Game::save.resources[s32(Resource::HackKits)] > 0)
+					if (Game::save.resources[s32(Resource::AccessKeys)] > 0)
 						Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES, 1);
 					else
-						Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
+						Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::access_keys));
 				}
 			}
 			else
@@ -1492,8 +1492,8 @@ ResourceInfo resource_info[s32(Resource::count)] =
 		0,
 	},
 	{
-		Asset::Mesh::icon_hack_kit,
-		strings::hack_kits,
+		Asset::Mesh::icon_access_key,
+		strings::access_keys,
 		200,
 	},
 	{
@@ -2422,7 +2422,7 @@ void init(cJSON* level)
 					node->mesh = Loader::find_mesh(mesh_ref);
 
 					node->rewards[0] = s16(Json::get_s32(element, "energy", 0));
-					node->rewards[1] = s16(Json::get_s32(element, "hack_kits", 0));
+					node->rewards[1] = s16(Json::get_s32(element, "access_keys", 0));
 					node->rewards[2] = s16(Json::get_s32(element, "drones", 0));
 					node->size = s8(Json::get_s32(element, "size", 1));
 					node->max_teams = s8(Json::get_s32(element, "max_teams", 2));

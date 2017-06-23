@@ -6,6 +6,7 @@ namespace VI
 
 const char* AssetLookup::Mesh::values[] =
 {
+	"assets/access_key.msh",
 	"assets/actor_collision.msh",
 	"assets/battery.msh",
 	"assets/character.msh",
@@ -23,8 +24,8 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/force_field_sphere.msh",
 	"assets/grenade_attached.msh",
 	"assets/grenade_detached.msh",
-	"assets/hack_kit.msh",
 	"assets/hobo.msh",
+	"assets/icon_access_key.msh",
 	"assets/icon_active_armor.msh",
 	"assets/icon_bolter.msh",
 	"assets/icon_close.msh",
@@ -33,7 +34,6 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/icon_force_field.msh",
 	"assets/icon_gamepad.msh",
 	"assets/icon_grenade.msh",
-	"assets/icon_hack_kit.msh",
 	"assets/icon_minion.msh",
 	"assets/icon_network_error.msh",
 	"assets/icon_select.msh",
@@ -244,6 +244,7 @@ const char* AssetLookup::Mesh::values[] =
 
 const char* AssetLookup::Mesh::names[] =
 {
+	"access_key",
 	"actor_collision",
 	"battery",
 	"character",
@@ -261,8 +262,8 @@ const char* AssetLookup::Mesh::names[] =
 	"force_field_sphere",
 	"grenade_attached",
 	"grenade_detached",
-	"hack_kit",
 	"hobo",
+	"icon_access_key",
 	"icon_active_armor",
 	"icon_bolter",
 	"icon_close",
@@ -271,7 +272,6 @@ const char* AssetLookup::Mesh::names[] =
 	"icon_force_field",
 	"icon_gamepad",
 	"icon_grenade",
-	"icon_hack_kit",
 	"icon_minion",
 	"icon_network_error",
 	"icon_select",
@@ -907,6 +907,7 @@ const char* AssetLookup::String::names[] =
 {
 	"_continue",
 	"ability_spawn_cost",
+	"access_keys",
 	"active_armor",
 	"alarm",
 	"allow_abilities",
@@ -992,7 +993,6 @@ const char* AssetLookup::String::names[] =
 	"grenade_incoming",
 	"group_required",
 	"hack_complete",
-	"hack_kits",
 	"hacking",
 	"hobo01",
 	"hobo02",
@@ -1309,11 +1309,9 @@ const char* AssetLookup::String::names[] =
 	"prompt_buy_more",
 	"prompt_cancel",
 	"prompt_cancel_ability",
-	"prompt_cancel_hack",
 	"prompt_capture",
 	"prompt_defend",
 	"prompt_deploy",
-	"prompt_hack",
 	"prompt_interact",
 	"prompt_splitscreen",
 	"prompt_splitscreen_ready",
@@ -1368,6 +1366,7 @@ const char* AssetLookup::String::names[] =
 	"yes",
 	"zone_already_captured",
 	"zone_defense_expired",
+	"zone_unavailable",
 	"zone_unlocked",
 	"zones_captured",
 	"zones_hostile",

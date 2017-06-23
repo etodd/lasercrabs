@@ -456,7 +456,7 @@ namespace title
 		DadaSpotted,
 		DadaTalking,
 		Climb,
-		HackKits,
+		AccessKey,
 		Done,
 		count,
 	};
@@ -469,7 +469,7 @@ namespace title
 		r32 transition_timer;
 		Ref<Animator> character;
 		Ref<Transform> target_climb;
-		Ref<Transform> target_hack_kits;
+		Ref<Transform> target_drones;
 		Ref<Transform> ivory_ad_text;
 		Ref<Actor::Instance> ivory_ad_actor;
 		Ref<Actor::Instance> hobo_actor;
@@ -494,13 +494,13 @@ namespace title
 			|| data->state == TutorialState::Climb)
 		{
 			Actor::tut_clear();
-			data->state = TutorialState::HackKits;
+			data->state = TutorialState::AccessKey;
 		}
 	}
 
-	void hack_kits_success()
+	void drones_success()
 	{
-		if (data->state == TutorialState::HackKits)
+		if (data->state == TutorialState::AccessKey)
 			data->state = TutorialState::Done;
 	}
 
@@ -649,8 +649,8 @@ namespace title
 		{
 			if (data->state == TutorialState::Climb)
 				UI::indicator(p, data->target_climb.ref()->absolute_pos(), UI::color_accent, true);
-			else if (data->state == TutorialState::HackKits)
-				UI::indicator(p, data->target_hack_kits.ref()->absolute_pos(), UI::color_accent, true);
+			else if (data->state == TutorialState::AccessKey)
+				UI::indicator(p, data->target_drones.ref()->absolute_pos(), UI::color_accent, true);
 		}
 
 		if (data->transition_timer > 0.0f && data->transition_timer < TRANSITION_TIME)
@@ -689,11 +689,11 @@ namespace title
 			World::remove(entities.find("character"));
 
 		if ((Game::save.zone_last == AssetNull || Game::save.zone_last == Asset::Level::Tier_0A)
-			&& entities.find("hack_kits"))
+			&& entities.find("drones"))
 		{
 			data->target_climb = entities.find("target_climb")->get<Transform>();
-			data->target_hack_kits = entities.find("hack_kits")->get<Transform>();
-			data->target_hack_kits.ref()->get<Collectible>()->collected.link(&hack_kits_success);
+			data->target_drones = entities.find("drones")->get<Transform>();
+			data->target_drones.ref()->get<Collectible>()->collected.link(&drones_success);
 			entities.find("climb_trigger1")->get<PlayerTrigger>()->entered.link(&climb_success);
 			entities.find("climb_trigger2")->get<PlayerTrigger>()->entered.link(&climb_success);
 			entities.find("dada_spotted_trigger")->get<PlayerTrigger>()->entered.link(&dada_spotted);

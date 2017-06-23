@@ -56,7 +56,7 @@
 	"prompt_back": "[{{Cancel}}] Back",
 	"energy": "Energy",
 	"energy_added": "+%d energy",
-	"hack_kits": "Crack kits",
+	"access_keys": "Access keys",
 	"drones": "Drones",
 	"capture_bonus": "Capture bonus:",
 	"unknown": "Unknown",
@@ -70,8 +70,6 @@
 	"drones_remaining": "Drones remaining",
 	"prompt_deploy": "[{{Interact}}] Deploy",
 	"prompt_interact": "[{{InteractSecondary}}] Interact",
-	"prompt_hack": "[{{Interact}}] Crack",
-	"prompt_cancel_hack": "[{{Interact}}] Cancel Crack",
 	"prompt_accept": "[{{Interact}}] Accept",
 	"prompt_buy": "Spend %d energy for %d %s?",
 	"prompt_buy_more": "[{{Interact}}] Buy more",
@@ -411,6 +409,7 @@
 
 	"prompt_zone_defend": "%s under attack. [{{Scoreboard}}] to defend. (%d)",
 
+	"zone_unavailable": "Zone unavailable",
 	"zone_unlocked": "Zone unlocked",
 	"leftover_energy": "Energy surplus",
 	"kills": "Kills",

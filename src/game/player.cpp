@@ -2755,7 +2755,7 @@ void player_confirm_tram_interactable(s8 gamepad)
 		PlayerHuman* player = i.item()->player.ref();
 		if (player->gamepad == gamepad)
 		{
-			vi_assert(Game::save.resources[s32(Resource::HackKits)] > 0);
+			vi_assert(Game::save.resources[s32(Resource::AccessKeys)] > 0);
 			Interactable* interactable = Interactable::closest(i.item()->get<Transform>()->absolute_pos());
 			if (interactable)
 			{
@@ -3298,28 +3298,35 @@ void PlayerControlHuman::update(const Update& u)
 							s8 track = s8(interactable->user_data);
 							AssetID target_level = Game::level.tram_tracks[track].level;
 							Tram* tram = Tram::by_track(track);
-							if (tram->doors_open()
-								|| Game::save.zones[target_level] == ZoneState::ParkourUnlocked
-								|| (Overworld::zone_is_pvp(target_level) && Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)) // if it's a PvP zone, we need x drones to capture it
+							if (tram->doors_open() // if the tram doors are open, we can always close them
+								|| (!tram->arrive_only && target_level != AssetNull // if the target zone doesn't exist, or if the tram is for arrivals only, nothing else matters, we can't do anything
+									&& (Game::save.zones[target_level] == ZoneState::ParkourUnlocked // if we've already unlocked it, go ahead
+									|| (Overworld::zone_is_pvp(target_level) && Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)))) // if it's a PvP zone, we need x drones to capture it
 							{
 								// go right ahead
 								interactable->interact();
 								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 								get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 							}
+							else if (tram->arrive_only || target_level == AssetNull)
+							{
+								// can't leave
+								player.ref()->msg(_(strings::zone_unavailable), false);
+								anim_base = nullptr;
+							}
 							else if (Overworld::zone_is_pvp(target_level))
 							{
 								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_drones), DEFAULT_ASSAULT_DRONES);
 								anim_base = nullptr;
 							}
-							else if (Game::save.resources[s32(Resource::HackKits)] > 0) // ask if they want to hack it
+							else if (Game::save.resources[s32(Resource::AccessKeys)] > 0) // ask if they want to use a key
 							{
-								Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::hack_kits));
+								Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::access_keys));
 								anim_base = nullptr;
 							}
 							else // not enough
 							{
-								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
+								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::access_keys));
 								anim_base = nullptr;
 							}
 							break;
@@ -3890,6 +3897,9 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				Vec3 look_dir = params.camera->rot * Vec3(0, 0, 1);
 				for (auto i = Tram::list.iterator(); !i.is_last(); i.next())
 				{
+					if (i.item()->arrive_only)
+						continue;
+
 					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 					Vec3 to_tram = pos - params.camera->pos;
 					r32 distance = to_tram.length();
@@ -3915,6 +3925,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 										break;
 									}
 									case ZoneState::ParkourUnlocked:
+									case ZoneState::Locked:
 									{
 										text.color = UI::color_default;
 										break;
@@ -3922,11 +3933,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 									case ZoneState::PvpHostile:
 									{
 										text.color = Team::ui_color_enemy;
-										break;
-									}
-									case ZoneState::Locked:
-									{
-										text.color = UI::color_disabled;
 										break;
 									}
 									default:

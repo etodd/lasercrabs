@@ -80,7 +80,7 @@ enum class Upgrade : s8
 enum class Resource : s8
 {
 	Energy,
-	HackKits,
+	AccessKeys,
 	Drones,
 	count,
 };

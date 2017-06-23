@@ -2576,11 +2576,11 @@ CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)
 	c->amount = amount;
 	switch (type)
 	{
-		case Resource::HackKits:
+		case Resource::AccessKeys:
 		case Resource::Energy:
 		{
 			// simple models
-			View* v = create<View>(type == Resource::HackKits ? Asset::Mesh::hack_kit : Asset::Mesh::energy);
+			View* v = create<View>(type == Resource::AccessKeys ? Asset::Mesh::access_key : Asset::Mesh::energy);
 			v->shader = Asset::Shader::standard;
 			v->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
 			break;
@@ -2615,7 +2615,7 @@ void Collectible::give_rewards()
 	{
 		switch (type)
 		{
-			case Resource::HackKits:
+			case Resource::AccessKeys:
 			{
 				a = 1;
 				break;
@@ -3369,7 +3369,7 @@ void TramInteractableEntity::interacted(Interactable* i)
 		AssetID target_level = Game::level.tram_tracks[track].level;
 		if (Game::level.local && Game::save.zones[target_level] == ZoneState::Locked && !Overworld::zone_is_pvp(target_level))
 		{
-			Overworld::resource_change(Resource::HackKits, -1);
+			Overworld::resource_change(Resource::AccessKeys, -1);
 			Overworld::zone_change(target_level, ZoneState::ParkourUnlocked);
 		}
 		tram->departing = true;

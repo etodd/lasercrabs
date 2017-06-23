@@ -1950,6 +1950,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			Entity* runner_a = World::create<TramRunnerEntity>(track, false);
 			Entity* runner_b = World::create<TramRunnerEntity>(track, true);
 			entity = World::alloc<TramEntity>(runner_a->get<TramRunner>(), runner_b->get<TramRunner>());
+			if (Json::get_s32(element, "arrive_only"))
+				entity->get<Tram>()->arrive_only = true;
 		}
 		else if (cJSON_HasObjectItem(element, "Interactable"))
 		{
@@ -1986,8 +1988,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				{
 					const char* type_str = Json::get_string(element, "Collectible");
 					Resource type;
-					if (strcmp(type_str, "HackKits") == 0)
-						type = Resource::HackKits;
+					if (strcmp(type_str, "AccessKeys") == 0)
+						type = Resource::AccessKeys;
 					else if (strcmp(type_str, "Drones") == 0)
 						type = Resource::Drones;
 					else

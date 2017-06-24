@@ -1503,6 +1503,9 @@ ResourceInfo resource_info[s32(Resource::count)] =
 	},
 };
 
+StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS> directional_lights;
+Vec3 ambient_color;
+
 void resource_buy(s8 gamepad)
 {
 	data.story.inventory.timer_buy = BUY_TIME;
@@ -2427,6 +2430,18 @@ void init(cJSON* level)
 					node->size = s8(Json::get_s32(element, "size", 1));
 					node->max_teams = s8(Json::get_s32(element, "max_teams", 2));
 				}
+			}
+			else if (cJSON_HasObjectItem(element, "World"))
+			{
+				ambient_color = Json::get_vec3(element, "ambient_color");
+			}
+			else if (cJSON_HasObjectItem(element, "DirectionalLight"))
+			{
+				DirectionalLight light;
+				light.color = Json::get_vec3(element, "color");
+				light.shadowed = b8(Json::get_s32(element, "shadowed"));
+				light.rot = Json::get_quat(element, "rot");
+				directional_lights.add(light);
 			}
 			else if (cJSON_HasObjectItem(element, "Prop"))
 			{

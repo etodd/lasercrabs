@@ -320,7 +320,7 @@ b8 StreamRead::align()
 		if (value != 0)
 		{
 			vi_debug("Packet alignment: aligning %d bits, expected 0, got 0x%x", 8 - remainder_bits, value);
-			return false;
+			return bytes_read() == bytes_total; // HACK: if we're at the end of the packet, don't worry about the error
 		}
 	}
 	return true;

@@ -207,9 +207,4 @@ SpotLight::SpotLight()
 {
 }
 
-DirectionalLight::DirectionalLight()
-	: color(), shadowed()
-{
-}
-
 }

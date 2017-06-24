@@ -25,7 +25,7 @@ uniform sampler2D normal_buffer;
 uniform sampler2D depth_buffer;
 uniform mat4 p;
 
-const int max_lights = 3;
+const int max_lights = 4;
 uniform vec3 light_color[max_lights];
 uniform vec3 light_direction[max_lights];
 uniform mat4 v;

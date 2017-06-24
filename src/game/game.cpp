@@ -140,6 +140,22 @@ AI::Team Game::Level::team_lookup_reverse(AI::Team t) const
 	return AI::TeamNone;
 }
 
+const StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS>&  Game::Level::directional_lights_get() const
+{
+	if (Overworld::active())
+		return Overworld::directional_lights;
+	else
+		return directional_lights;
+}
+
+const Vec3& Game::Level::ambient_color_get() const
+{
+	if (Overworld::active())
+		return Overworld::ambient_color;
+	else
+		return ambient_color;
+}
+
 Array<UpdateFunction> Game::updates;
 Array<DrawFunction> Game::draws;
 Array<CleanupFunction> Game::cleanups;
@@ -1219,7 +1235,7 @@ void Game::unload_level()
 
 	level.skybox.far_plane = 1.0f;
 	level.skybox.color = Vec3::zero;
-	level.skybox.ambient_color = Vec3::zero;
+	level.ambient_color = Vec3::zero;
 	level.skybox.shader = AssetNull;
 	level.skybox.texture = AssetNull;
 	level.skybox.mesh = AssetNull;
@@ -1440,7 +1456,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			level.skybox.shader = Asset::Shader::skybox;
 			level.skybox.mesh = Asset::Mesh::skybox;
 			level.skybox.color = Json::get_vec3(element, "skybox_color");
-			level.skybox.ambient_color = Json::get_vec3(element, "ambient_color");
+			level.ambient_color = Json::get_vec3(element, "ambient_color");
 
 			level.min_y = Json::get_r32(element, "min_y", -20.0f);
 			level.rotation = Json::get_r32(element, "rotation");
@@ -1669,10 +1685,11 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "DirectionalLight"))
 		{
-			entity = World::alloc<Empty>();
-			DirectionalLight* light = entity->create<DirectionalLight>();
-			light->color = Json::get_vec3(element, "color");
-			light->shadowed = Json::get_s32(element, "shadowed");
+			DirectionalLight light;
+			light.color = Json::get_vec3(element, "color");
+			light.shadowed = b8(Json::get_s32(element, "shadowed"));
+			light.rot = absolute_rot;
+			level.directional_lights.add(light);
 		}
 		else if (cJSON_HasObjectItem(element, "Cloud"))
 		{

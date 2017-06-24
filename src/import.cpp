@@ -2761,7 +2761,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		}
 
 #if BUILD_NAV_MESHES
-		// Parse the scene graph
+		// parse the scene graph
 		cJSON* json = Json::load(asset_out_path.c_str());
 
 		TileCacheData nav_tiles;
@@ -3266,7 +3266,7 @@ s32 proc(s32 argc, char* argv[])
 		state.rebuild = true;
 
 	{
-		// Import textures, models, fonts
+		// import textures, models, fonts
 		DIR* dir = opendir(asset_in_folder);
 		if (!dir)
 		{
@@ -3277,7 +3277,7 @@ s32 proc(s32 argc, char* argv[])
 		while ((entry = readdir(dir)))
 		{
 			if (entry->d_type != DT_REG)
-				continue; // Not a file
+				continue; // not a file
 
 			std::string asset_in_path = asset_in_folder + std::string(entry->d_name);
 
@@ -3302,7 +3302,7 @@ s32 proc(s32 argc, char* argv[])
 		return exit_error();
 
 	{
-		// Import shaders
+		// import shaders
 		DIR* dir = opendir(shader_in_folder);
 		if (!dir)
 		{
@@ -3425,7 +3425,7 @@ s32 proc(s32 argc, char* argv[])
 #endif
 
 	{
-		// Import levels
+		// import levels
 		DIR* dir = opendir(level_in_folder);
 		if (!dir)
 		{
@@ -3436,7 +3436,7 @@ s32 proc(s32 argc, char* argv[])
 		while ((entry = readdir(dir)))
 		{
 			if (entry->d_type != DT_REG)
-				continue; // Not a file
+				continue; // not a file
 
 			std::string asset_in_path = level_in_folder + std::string(entry->d_name);
 
@@ -3580,7 +3580,7 @@ s32 proc(s32 argc, char* argv[])
 				return exit_error();
 
 			write_asset_header(f, "Level", state.manifest.levels);
-			// No need to write nav meshes. There's always one nav mesh per level.
+			// no need to write nav meshes. There's always one nav mesh per level.
 
 			close_asset_header(f);
 		}

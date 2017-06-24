@@ -557,40 +557,36 @@ void draw(LoopSync* sync, const Camera* camera)
 	{
 		{
 			// global light (directional and player lights)
-			const s32 max_lights = 3;
-			Vec3 colors[max_lights] = {};
-			Vec3 directions[max_lights] = {};
-			Vec3 abs_directions[max_lights] = {};
-			b8 shadowed = false;
-			s32 j = 0;
-			for (auto i = DirectionalLight::list.iterator(); !i.is_last(); i.next())
-			{
-				DirectionalLight* light = i.item();
+			const StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS>& lights = Game::level.directional_lights_get();
 
-				colors[j] = render_params.camera->flag(CameraFlagColors) ? light->color : LMath::desaturate(light->color);
-				abs_directions[j] = light->get<Transform>()->absolute_rot() * Vec3(0, 1, 0);
-				directions[j] = (render_params.view * Vec4(abs_directions[j], 0)).xyz();
-				if (Settings::shadow_quality != Settings::ShadowQuality::Off && light->shadowed)
+			Vec3 colors[MAX_DIRECTIONAL_LIGHTS] = {};
+			Vec3 directions[MAX_DIRECTIONAL_LIGHTS] = {};
+			Vec3 abs_directions[MAX_DIRECTIONAL_LIGHTS] = {};
+			b8 shadowed = false;
+			for (s32 i = 0; i < lights.length; i++)
+			{
+				const DirectionalLight& light = lights[i];
+
+				colors[i] = render_params.camera->flag(CameraFlagColors) ? light.color : LMath::desaturate(light.color);
+				abs_directions[i] = light.rot * Vec3(0, 1, 0);
+				directions[i] = (render_params.view * Vec4(abs_directions[i], 0)).xyz();
+				if (Settings::shadow_quality != Settings::ShadowQuality::Off && light.shadowed)
 				{
-					if (j > 0 && !shadowed)
+					if (i > 0 && !shadowed)
 					{
 						Vec3 tmp;
 						tmp = colors[0];
-						colors[0] = colors[j];
-						colors[j] = tmp;
+						colors[0] = colors[i];
+						colors[i] = tmp;
 						tmp = directions[0];
-						directions[0] = directions[j];
-						directions[j] = tmp;
+						directions[0] = directions[i];
+						directions[i] = tmp;
 						tmp = abs_directions[0];
-						abs_directions[0] = abs_directions[j];
-						abs_directions[j] = tmp;
+						abs_directions[0] = abs_directions[i];
+						abs_directions[i] = tmp;
 					}
 					shadowed = true;
 				}
-
-				j++;
-				if (j >= max_lights)
-					break;
 			}
 
 			Mat4 detail_light_vp;
@@ -864,14 +860,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::light_color);
 			sync->write(RenderDataType::Vec3);
-			sync->write<s32>(max_lights);
-			sync->write<Vec3>(colors, max_lights);
+			sync->write<s32>(MAX_DIRECTIONAL_LIGHTS);
+			sync->write<Vec3>(colors, MAX_DIRECTIONAL_LIGHTS);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::light_direction);
 			sync->write(RenderDataType::Vec3);
-			sync->write<s32>(max_lights);
-			sync->write<Vec3>(directions, max_lights);
+			sync->write<s32>(MAX_DIRECTIONAL_LIGHTS);
+			sync->write<Vec3>(directions, MAX_DIRECTIONAL_LIGHTS);
 
 			sync->write(RenderOp::Mesh);
 			sync->write(RenderPrimitiveMode::Triangles);
@@ -1127,9 +1123,9 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
 		if (camera->flag(CameraFlagColors))
-			sync->write<Vec3>(Game::level.skybox.ambient_color);
+			sync->write<Vec3>(Game::level.ambient_color_get());
 		else
-			sync->write<Vec3>(LMath::desaturate(Game::level.skybox.ambient_color));
+			sync->write<Vec3>(LMath::desaturate(Game::level.ambient_color_get()));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::ssao_buffer);

@@ -94,6 +94,8 @@ namespace VI
 			EntityFinder finder;
 			StaticArray<TramTrack, 3> tram_tracks;
 			StaticArray<AI::Config, MAX_PLAYERS> ai_config;
+			StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS> directional_lights;
+			Vec3 ambient_color;
 			r32 time_limit;
 			r32 min_y;
 			r32 rotation;
@@ -119,6 +121,8 @@ namespace VI
 
 			b8 has_feature(FeatureLevel) const;
 			AI::Team team_lookup_reverse(AI::Team) const;
+			const StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS>& directional_lights_get() const;
+			const Vec3& ambient_color_get() const;
 		};
 
 		static Session session;

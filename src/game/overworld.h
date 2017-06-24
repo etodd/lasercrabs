@@ -1,5 +1,6 @@
 #pragma once
 #include "types.h"
+#include "render/render.h"
 
 struct cJSON;
 
@@ -7,8 +8,6 @@ namespace VI
 {
 
 struct EntityFinder;
-struct RenderParams;
-struct Camera;
 
 namespace Net
 {
@@ -46,6 +45,8 @@ enum class Tab : s8
 };
 
 extern ResourceInfo resource_info[s32(Resource::count)];
+extern StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS> directional_lights;
+extern Vec3 ambient_color;
 
 b8 net_msg(Net::StreamRead*, Net::MessageSource);
 void init(cJSON*);

@@ -22,6 +22,14 @@ enum class AlphaMode : s8
 #define RENDER_MASK_SHADOW ((RenderMask)(1 << 15))
 #define RENDER_MASK_DEFAULT ((RenderMask)-1)
 #define RENDER_CLIP_PLANE_MAX 4
+#define MAX_DIRECTIONAL_LIGHTS 4
+
+struct DirectionalLight
+{
+	Quat rot;
+	Vec3 color;
+	b8 shadowed;
+};
 
 // material indices
 // these are alpha values stored in the g-buffer

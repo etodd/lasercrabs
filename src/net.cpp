@@ -267,7 +267,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| View::component_mask
 		| Animator::component_mask
 		| Rope::component_mask
-		| DirectionalLight::component_mask
 		| SpawnPoint::component_mask
 		| SkyDecal::component_mask
 		| AIAgent::component_mask
@@ -636,15 +635,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_asset(p, w->config.texture, Loader::static_texture_count);
 	}
 
-	if (e->has<DirectionalLight>())
-	{
-		DirectionalLight* d = e->get<DirectionalLight>();
-		serialize_r32_range(p, d->color.x, 0.0f, 1.0f, 8);
-		serialize_r32_range(p, d->color.y, 0.0f, 1.0f, 8);
-		serialize_r32_range(p, d->color.z, 0.0f, 1.0f, 8);
-		serialize_bool(p, d->shadowed);
-	}
-
 	if (e->has<SkyDecal>())
 	{
 		SkyDecal* d = e->get<SkyDecal>();
@@ -773,10 +763,22 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_r32_range(p, Game::level.skybox.color.x, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.color.y, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.color.z, 0.0f, 1.0f, 8);
-	serialize_r32_range(p, Game::level.skybox.ambient_color.x, 0.0f, 1.0f, 8);
-	serialize_r32_range(p, Game::level.skybox.ambient_color.y, 0.0f, 1.0f, 8);
-	serialize_r32_range(p, Game::level.skybox.ambient_color.z, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, Game::level.ambient_color.x, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, Game::level.ambient_color.y, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, Game::level.ambient_color.z, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.rain, 0.0f, 1.0f, 8);
+
+	serialize_int(p, u16, Game::level.directional_lights.length, 0, Game::level.directional_lights.capacity());
+	for (s32 i = 0; i < Game::level.directional_lights.length; i++)
+	{
+		DirectionalLight* d = &Game::level.directional_lights[i];
+		serialize_r32_range(p, d->color.x, 0.0f, 1.0f, 8);
+		serialize_r32_range(p, d->color.y, 0.0f, 1.0f, 8);
+		serialize_r32_range(p, d->color.z, 0.0f, 1.0f, 8);
+		if (!serialize_quat(p, &d->rot, Net::Resolution::Medium))
+			net_error();
+		serialize_bool(p, d->shadowed);
+	}
 
 	serialize_int(p, u16, Game::level.clouds.length, 0, Game::level.clouds.capacity());
 	for (s32 i = 0; i < Game::level.clouds.length; i++)

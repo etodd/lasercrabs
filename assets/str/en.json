@@ -148,7 +148,7 @@
 	"tut_capture": "Destroy the core modules to capture the zone.
 (6/6)",
 	"tut_overworld": "Press [{{Scoreboard}}] to open the map.",
-	"tut_done": "Return to the docks.",
+	"tut_done": "You earned an Access Key. Return to the docks.",
 
 	"tut_climb_jump": "[{{Jump}}] to jump.
 [{{Parkour}}] to climb.",
@@ -411,7 +411,8 @@
 
 	"zone_unavailable": "Zone unavailable",
 	"zone_unlocked": "Zone unlocked",
-	"leftover_energy": "Energy surplus",
+	"energy_surplus": "Energy surplus",
+	"drone_surplus": "Drone surplus",
 	"kills": "Kills",
 	"deaths": "Deaths",
 	"story_victory": "Zone Captured",

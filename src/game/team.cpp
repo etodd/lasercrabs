@@ -560,10 +560,10 @@ b8 Team::net_msg(Net::StreamRead* p)
 				i.item()->score_accepted = false;
 				AI::Team team = i.item()->team.ref()->team();
 				team_add_score_summary_item(i.item(), i.item()->username);
-				team_add_score_summary_item(i.item(), _(strings::kills), i.item()->kills);
 				if (Game::session.type == SessionType::Story)
 				{
-					team_add_score_summary_item(i.item(), _(strings::leftover_energy), i.item()->energy);
+					team_add_score_summary_item(i.item(), _(strings::drone_surplus), i.item()->respawns);
+					team_add_score_summary_item(i.item(), _(strings::energy_surplus), i.item()->energy);
 					if (i.item()->has<PlayerHuman>() && i.item()->team.equals(winner))
 					{
 						s16 rewards[s32(Resource::count)];
@@ -575,8 +575,11 @@ b8 Team::net_msg(Net::StreamRead* p)
 						}
 					}
 				}
-				if (PlayerManager::list.count() > 2)
+				else
+				{
+					team_add_score_summary_item(i.item(), _(strings::kills), i.item()->kills);
 					team_add_score_summary_item(i.item(), _(strings::deaths), i.item()->deaths);
+				}
 			}
 			break;
 		}
@@ -1231,9 +1234,10 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
 {
 	vi_assert(Game::level.local);
-	if (m->respawns != -1 && Game::level.has_feature(Game::FeatureLevel::All)) // infinite respawns in the tutorial
+	if (m->respawns != -1 && Game::level.mode == Game::Mode::Pvp)
 	{
-		if (Game::level.mode == Game::Mode::Pvp)
+		if (Game::level.has_feature(Game::FeatureLevel::All)
+			|| m->respawns >= DEFAULT_ASSAULT_DRONES - 1) // in the tutorial, you can only lose two drones
 			m->respawns--;
 	}
 	if (m->respawns != 0)

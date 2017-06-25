@@ -1466,7 +1466,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 			// make sure we're facing the same way as we'll be moving
 			Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
 			if (velocity_flattened.dot(forward) < 0.0f)
-				return false;
+				velocity_flattened *= -1.0f;
 
 			r32 speed = vi_max(get<Walker>()->net_speed, MIN_WALLRUN_SPEED + 1.0f);
 

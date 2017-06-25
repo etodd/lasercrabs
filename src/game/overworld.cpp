@@ -1166,7 +1166,7 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (Game::level.local == (src == Net::MessageSource::Loopback))
 			{
 				Game::session.zone_under_attack = zone;
-				Game::session.zone_under_attack_timer = ZONE_UNDER_ATTACK_TIME;
+				Game::session.zone_under_attack_timer = zone == AssetNull ? 0.0f : ZONE_UNDER_ATTACK_TIME;
 			}
 			break;
 		}

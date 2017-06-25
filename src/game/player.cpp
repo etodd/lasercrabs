@@ -1771,23 +1771,20 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	}
 
 	// overworld notifications
-	if (Game::level.mode == Game::Mode::Parkour)
+	if (Game::level.mode == Game::Mode::Parkour && Overworld::zone_under_attack() != AssetNull)
 	{
+		UIText text;
+		text.anchor_x = UIText::Anchor::Max;
+		text.anchor_y = UIText::Anchor::Min;
+		text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+		text.color = UI::color_alert;
 		r32 timer = Overworld::zone_under_attack_timer();
+		text.text(gamepad, _(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), s32(ceilf(timer)));
+		UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_THRESHOLD - timer, 80.0f);
+
 		Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 5.0f);
-		if (timer > 0.0f)
-		{
-			UIText text;
-			text.anchor_x = UIText::Anchor::Max;
-			text.anchor_y = UIText::Anchor::Min;
-			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
-			text.color = UI::color_alert;
-			text.text(gamepad, _(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), s32(ceilf(timer)));
-			UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_THRESHOLD - timer, 80.0f);
-			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-			text.draw(params, p);
-			p.y += text.bounds().y + MENU_ITEM_PADDING;
-		}
+		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+		text.draw(params, p);
 	}
 
 	if (get<PlayerManager>()->instance.ref() && select_spawn_timer > 0.0f)
@@ -3354,7 +3351,11 @@ void PlayerControlHuman::update(const Update& u)
 				// position player where they need to be
 				// if anim_base is an interactable, place the player directly in front of it
 
-				if (get<Animator>()->layers[3].animation == AssetNull)
+				if (Menu::dialog_active(gamepad))
+				{
+					// wait for the dialog
+				}
+				else if (get<Animator>()->layers[3].animation == AssetNull)
 					anim_base = nullptr; // animation done
 				else
 				{
@@ -3925,9 +3926,16 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 										break;
 									}
 									case ZoneState::ParkourUnlocked:
-									case ZoneState::Locked:
 									{
 										text.color = UI::color_default;
+										break;
+									}
+									case ZoneState::Locked:
+									{
+										if (Overworld::zone_is_pvp(zone))
+											text.color = Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES ? UI::color_default : UI::color_disabled;
+										else
+											text.color = Game::save.resources[s32(Resource::AccessKeys)] > 0 ? UI::color_default : UI::color_disabled;
 										break;
 									}
 									case ZoneState::PvpHostile:

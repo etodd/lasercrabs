@@ -46,6 +46,7 @@
 #include "team.h"
 #include "load.h"
 #include <dirent.h>
+#include "settings.h"
 
 #if DEBUG
 	#define DEBUG_WALK_NAV_MESH 0
@@ -892,7 +893,8 @@ void Game::draw_hollow(const RenderParams& render_params)
 	AI::debug_draw_nav_mesh(render_params);
 #endif
 
-	AI::draw_hollow(render_params);
+	if (Settings::antialiasing)
+		AI::draw_hollow(render_params);
 }
 
 void Game::draw_particles(const RenderParams& render_params)

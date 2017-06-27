@@ -7,6 +7,28 @@
 namespace VI
 {
 
+enum class Controls : s8
+{
+	Forward,
+	Backward,
+	Left,
+	Right,
+	Primary,
+	Zoom,
+	Ability1,
+	Ability2,
+	Ability3,
+	Start,
+	Cancel,
+	Pause,
+	Interact,
+	InteractSecondary,
+	Scoreboard,
+	Jump,
+	Parkour,
+	count,
+};
+
 enum class KeyCode : s16
 {
 	None = SDL_SCANCODE_UNKNOWN,
@@ -251,15 +273,6 @@ enum class KeyCode : s16
 	count,
 };
 
-namespace Input
-{
-	void load_strings();
-
-	void dead_zone(r32*, r32*, r32 = 0.1f);
-	void dead_zone_cross(r32*, r32*, r32 = 0.1f);
-	r32 dead_zone(r32, r32 = UI_JOYSTICK_DEAD_ZONE);
-};
-
 struct Gamepad
 {
 	enum class Type : s8
@@ -303,6 +316,17 @@ struct Gamepad
 	Type type;
 };
 
+namespace Input
+{
+	void load_strings();
+
+	void dead_zone(r32*, r32*, r32 = 0.1f);
+	void dead_zone_cross(r32*, r32*, r32 = 0.1f);
+	r32 dead_zone(r32, r32 = UI_JOYSTICK_DEAD_ZONE);
+	const char* control_string(Controls);
+	b8 control_customizable(Controls, Gamepad::Type);
+};
+
 #define MAX_GAMEPADS 4
 
 struct InputBinding
@@ -312,28 +336,6 @@ struct InputBinding
 	KeyCode key2;
 	const char* string(Gamepad::Type) const;
 	b8 overlaps(const InputBinding&) const;
-};
-
-enum class Controls : s8
-{
-	Forward,
-	Backward,
-	Left,
-	Right,
-	Primary,
-	Zoom,
-	Ability1,
-	Ability2,
-	Ability3,
-	Start,
-	Cancel,
-	Pause,
-	Interact,
-	InteractSecondary,
-	Scoreboard,
-	Jump,
-	Parkour,
-	count,
 };
 
 struct InputState

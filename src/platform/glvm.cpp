@@ -573,20 +573,21 @@ do\
 				RenderTextureWrap wrap = *(sync->read<RenderTextureWrap>());
 				RenderTextureFilter filter = *(sync->read<RenderTextureFilter>());
 				RenderTextureCompare compare = *(sync->read<RenderTextureCompare>());
-				if (GLData::textures[id].width != width
-					|| GLData::textures[id].height != height
-					|| type != GLData::textures[id].type
-					|| wrap != GLData::textures[id].wrap
-					|| filter != GLData::textures[id].filter
-					|| compare != GLData::textures[id].compare)
+				GLData::Texture* entry = &GLData::textures[id];
+				if (width != entry->width 
+					|| height != entry->height
+					|| type != entry->type
+					|| wrap != entry->wrap
+					|| filter != entry->filter
+					|| compare != entry->compare)
 				{
-					glBindTexture(type == RenderDynamicTextureType::ColorMultisample || type == RenderDynamicTextureType::DepthMultisample ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D, GLData::textures[id].handle);
-					GLData::textures[id].width = width;
-					GLData::textures[id].height = height;
-					GLData::textures[id].type = type;
-					GLData::textures[id].wrap = wrap;
-					GLData::textures[id].filter = filter;
-					GLData::textures[id].compare = compare;
+					glBindTexture(type == RenderDynamicTextureType::ColorMultisample || type == RenderDynamicTextureType::DepthMultisample ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D, entry->handle);
+					entry->width = width;
+					entry->height = height;
+					entry->type = type;
+					entry->wrap = wrap;
+					entry->filter = filter;
+					entry->compare = compare;
 					switch (type)
 					{
 						case RenderDynamicTextureType::ColorMultisample:
@@ -1163,8 +1164,11 @@ do\
 					debug_check();
 				}
 
-				vi_assert(color_buffer_index <= 4);
-				glDrawBuffers(color_buffer_index, color_buffers);
+				if (color_buffer_index > 0)
+				{
+					vi_assert(color_buffer_index <= 4);
+					glDrawBuffers(color_buffer_index, color_buffers);
+				}
 
 				GLenum framebuffer_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 				vi_assert(framebuffer_status == GL_FRAMEBUFFER_COMPLETE);

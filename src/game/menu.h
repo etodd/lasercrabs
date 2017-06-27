@@ -41,11 +41,11 @@ struct UIMenu
 		*t = T(value_new);
 	}
 
-	char selected;
-	StaticArray<Item, 10> items;
-	s8 gamepad;
+	Array<Item> items;
 	r32 animation_time;
 	UIScroll scroll;
+	s8 selected;
+	s8 gamepad;
 
 	UIMenu();
 	void clear();
@@ -70,6 +70,8 @@ enum class State : s8
 	Hidden,
 	Visible,
 	Settings,
+	SettingsControlsKeyboard,
+	SettingsControlsGamepad,
 	SettingsGraphics,
 	count,
 };

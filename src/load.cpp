@@ -32,6 +32,7 @@ namespace Settings
 	b8 antialiasing;
 	b8 waypoints;
 	b8 scan_lines;
+	b8 ssao;
 	b8 record;
 	char master_server[MAX_PATH_LENGTH];
 }
@@ -58,7 +59,7 @@ s32 Loader::armature_count;
 s32 Loader::animation_count;
 
 #define config_filename "config.txt"
-#define config_version 1
+#define config_version 2
 #define mod_manifest_filename "mod.json"
 #if DEBUG
 	#define default_master_server "127.0.0.1"
@@ -225,6 +226,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	Settings::shadow_quality = Settings::ShadowQuality(vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", s32(Settings::ShadowQuality::High)), s32(Settings::ShadowQuality::count - 1))));
 	Settings::volumetric_lighting = b8(Json::get_s32(json, "volumetric_lighting", 1));
 	Settings::antialiasing = b8(Json::get_s32(json, "antialiasing", 1));
+	Settings::ssao = b8(Json::get_s32(json, "ssao", 1));
 	Settings::waypoints = b8(Json::get_s32(json, "waypoints", 1));
 	Settings::scan_lines = b8(Json::get_s32(json, "scan_lines", 1));
 	Settings::record = b8(Json::get_s32(json, "record", 0));
@@ -238,13 +240,12 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[s32(Controls::Forward)] = input_binding(gamepad, "forward", { Gamepad::Btn::DUp, KeyCode::W, KeyCode::Up, });
 		bindings->bindings[s32(Controls::Left)] = input_binding(gamepad, "left", { Gamepad::Btn::DLeft, KeyCode::A, KeyCode::Left, });
 		bindings->bindings[s32(Controls::Right)] = input_binding(gamepad, "right", { Gamepad::Btn::DRight, KeyCode::D, KeyCode::Right, });
-		bindings->bindings[s32(Controls::Primary)] = input_binding(gamepad, "primary", { Gamepad::Btn::RightTrigger, KeyCode::MouseLeft, KeyCode::E, });
-		bindings->bindings[s32(Controls::Zoom)] = input_binding(gamepad, "zoom", { Gamepad::Btn::LeftTrigger, KeyCode::MouseRight, KeyCode::Q, });
+		bindings->bindings[s32(Controls::Primary)] = input_binding(gamepad, "primary", { Gamepad::Btn::RightTrigger, KeyCode::MouseLeft, KeyCode::None, });
+		bindings->bindings[s32(Controls::Zoom)] = input_binding(gamepad, "zoom", { Gamepad::Btn::LeftTrigger, KeyCode::MouseRight, KeyCode::None, });
 		bindings->bindings[s32(Controls::Ability1)] = input_binding(gamepad, "ability1", { Gamepad::Btn::X, KeyCode::D1, KeyCode::None, });
 		bindings->bindings[s32(Controls::Ability2)] = input_binding(gamepad, "ability2", { Gamepad::Btn::Y, KeyCode::D2, KeyCode::None, });
 		bindings->bindings[s32(Controls::Ability3)] = input_binding(gamepad, "ability3", { Gamepad::Btn::B, KeyCode::D3, KeyCode::None, });
-		bindings->bindings[s32(Controls::Interact)] = input_binding(gamepad, "interact", { Gamepad::Btn::A, KeyCode::Space, KeyCode::Return, });
-		bindings->bindings[s32(Controls::InteractSecondary)] = input_binding(gamepad, "interact_secondary", { Gamepad::Btn::A, KeyCode::F, KeyCode::None, });
+		bindings->bindings[s32(Controls::InteractSecondary)] = input_binding(gamepad, "interact", { Gamepad::Btn::A, KeyCode::F, KeyCode::None, });
 		bindings->bindings[s32(Controls::Scoreboard)] = input_binding(gamepad, "scoreboard", { Gamepad::Btn::Back, KeyCode::Tab, KeyCode::None, });
 		bindings->bindings[s32(Controls::Jump)] = input_binding(gamepad, "jump", { Gamepad::Btn::RightTrigger, KeyCode::Space, KeyCode::None, });
 		bindings->bindings[s32(Controls::Parkour)] = input_binding(gamepad, "parkour", { Gamepad::Btn::LeftTrigger, KeyCode::LShift, KeyCode::None, });
@@ -253,6 +254,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[s32(Controls::Start)] = { Gamepad::Btn::Start, KeyCode::Return, KeyCode::None, };
 		bindings->bindings[s32(Controls::Cancel)] = { Gamepad::Btn::B, KeyCode::Escape, KeyCode::None, };
 		bindings->bindings[s32(Controls::Pause)] = { Gamepad::Btn::Start, KeyCode::Escape, KeyCode::None, };
+		bindings->bindings[s32(Controls::Interact)] = { Gamepad::Btn::A, KeyCode::Space, KeyCode::Return, };
 
 		bindings->invert_y = Json::get_s32(gamepad, "invert_y", 0);
 		bindings->zoom_toggle = Json::get_s32(gamepad, "zoom_toggle", 0);
@@ -284,6 +286,7 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "shadow_quality", s32(Settings::shadow_quality));
 	cJSON_AddNumberToObject(json, "volumetric_lighting", s32(Settings::volumetric_lighting));
 	cJSON_AddNumberToObject(json, "antialiasing", s32(Settings::antialiasing));
+	cJSON_AddNumberToObject(json, "ssao", s32(Settings::ssao));
 	cJSON_AddNumberToObject(json, "waypoints", s32(Settings::waypoints));
 	cJSON_AddNumberToObject(json, "scan_lines", s32(Settings::scan_lines));
 	cJSON_AddNumberToObject(json, "record", s32(Settings::record));
@@ -304,8 +307,7 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(gamepad, "ability1", input_binding_json(bindings->bindings[s32(Controls::Ability1)]));
 		cJSON_AddItemToObject(gamepad, "ability2", input_binding_json(bindings->bindings[s32(Controls::Ability2)]));
 		cJSON_AddItemToObject(gamepad, "ability3", input_binding_json(bindings->bindings[s32(Controls::Ability3)]));
-		cJSON_AddItemToObject(gamepad, "interact", input_binding_json(bindings->bindings[s32(Controls::Interact)]));
-		cJSON_AddItemToObject(gamepad, "interact_secondary", input_binding_json(bindings->bindings[s32(Controls::InteractSecondary)]));
+		cJSON_AddItemToObject(gamepad, "interact", input_binding_json(bindings->bindings[s32(Controls::InteractSecondary)]));
 		cJSON_AddItemToObject(gamepad, "scoreboard", input_binding_json(bindings->bindings[s32(Controls::Scoreboard)]));
 		cJSON_AddItemToObject(gamepad, "jump", input_binding_json(bindings->bindings[s32(Controls::Jump)]));
 		cJSON_AddItemToObject(gamepad, "parkour", input_binding_json(bindings->bindings[s32(Controls::Parkour)]));
@@ -714,8 +716,19 @@ AssetID Loader::dynamic_texture(s32 width, s32 height, RenderDynamicTextureType 
 	RenderSync* sync = swapper->get();
 	sync->write(RenderOp::AllocTexture);
 	sync->write<AssetID>(index);
+	if (width > 0 && height > 0)
+		dynamic_texture_redefine(index, width, height, type, wrap, filter, compare);
+#endif
+
+	return index;
+}
+
+void Loader::dynamic_texture_redefine(AssetID id, s32 width, s32 height, RenderDynamicTextureType type, RenderTextureWrap wrap, RenderTextureFilter filter, RenderTextureCompare compare)
+{
+#if !SERVER
+	RenderSync* sync = swapper->get();
 	sync->write(RenderOp::DynamicTexture);
-	sync->write<AssetID>(index);
+	sync->write<AssetID>(id);
 	sync->write<s32>(width);
 	sync->write<s32>(height);
 	sync->write<RenderDynamicTextureType>(type);
@@ -723,8 +736,6 @@ AssetID Loader::dynamic_texture(s32 width, s32 height, RenderDynamicTextureType 
 	sync->write<RenderTextureFilter>(filter);
 	sync->write<RenderTextureCompare>(compare);
 #endif
-
-	return index;
 }
 
 AssetID Loader::dynamic_texture_permanent(s32 width, s32 height, RenderDynamicTextureType type, RenderTextureWrap wrap, RenderTextureFilter filter, RenderTextureCompare compare)

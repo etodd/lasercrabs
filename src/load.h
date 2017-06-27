@@ -74,8 +74,9 @@ struct Loader
 	static void texture_permanent(AssetID, RenderTextureWrap = RenderTextureWrap::Repeat, RenderTextureFilter = RenderTextureFilter::Linear);
 	static void texture_free(AssetID);
 
-	static AssetID dynamic_texture(s32, s32, RenderDynamicTextureType, RenderTextureWrap = RenderTextureWrap::Clamp, RenderTextureFilter = RenderTextureFilter::Nearest, RenderTextureCompare = RenderTextureCompare::None);
-	static AssetID dynamic_texture_permanent(s32, s32, RenderDynamicTextureType, RenderTextureWrap = RenderTextureWrap::Clamp, RenderTextureFilter = RenderTextureFilter::Nearest, RenderTextureCompare = RenderTextureCompare::None);
+	static AssetID dynamic_texture(s32 = 0, s32 = 0, RenderDynamicTextureType = RenderDynamicTextureType::Color, RenderTextureWrap = RenderTextureWrap::Clamp, RenderTextureFilter = RenderTextureFilter::Nearest, RenderTextureCompare = RenderTextureCompare::None);
+	static AssetID dynamic_texture_permanent(s32 = 0, s32 = 0, RenderDynamicTextureType = RenderDynamicTextureType::Color, RenderTextureWrap = RenderTextureWrap::Clamp, RenderTextureFilter = RenderTextureFilter::Nearest, RenderTextureCompare = RenderTextureCompare::None);
+	static void dynamic_texture_redefine(AssetID, s32, s32, RenderDynamicTextureType, RenderTextureWrap = RenderTextureWrap::Clamp, RenderTextureFilter = RenderTextureFilter::Nearest, RenderTextureCompare = RenderTextureCompare::None);
 	static void dynamic_texture_free(AssetID);
 
 	static AssetID framebuffer(s32);

@@ -15,6 +15,7 @@ namespace Input
 const char* key_strings[s32(KeyCode::count)];
 const char* btn_strings_xbox[s32(Gamepad::Btn::count)];
 const char* btn_strings_playstation[s32(Gamepad::Btn::count)];
+const char* control_strings[s32(Controls::count)];
 
 void load_strings()
 {
@@ -253,6 +254,10 @@ void load_strings()
 	btn_strings_xbox[s32(Gamepad::Btn::Start)] = _(strings::btn_Start);
 	btn_strings_xbox[s32(Gamepad::Btn::LeftTrigger)] = _(strings::btn_LeftTrigger);
 	btn_strings_xbox[s32(Gamepad::Btn::RightTrigger)] = _(strings::btn_RightTrigger);
+	btn_strings_xbox[s32(Gamepad::Btn::DDown)] = _(strings::btn_DDown);
+	btn_strings_xbox[s32(Gamepad::Btn::DUp)] = _(strings::btn_DUp);
+	btn_strings_xbox[s32(Gamepad::Btn::DLeft)] = _(strings::btn_DLeft);
+	btn_strings_xbox[s32(Gamepad::Btn::DRight)] = _(strings::btn_DRight);
 	btn_strings_xbox[s32(Gamepad::Btn::None)] = _(strings::btn_None);
 
 	btn_strings_playstation[s32(Gamepad::Btn::LeftShoulder)] = _(strings::btn_ps4_LeftShoulder);
@@ -267,7 +272,25 @@ void load_strings()
 	btn_strings_playstation[s32(Gamepad::Btn::Start)] = _(strings::btn_ps4_Start);
 	btn_strings_playstation[s32(Gamepad::Btn::LeftTrigger)] = _(strings::btn_ps4_LeftTrigger);
 	btn_strings_playstation[s32(Gamepad::Btn::RightTrigger)] = _(strings::btn_ps4_RightTrigger);
+	btn_strings_xbox[s32(Gamepad::Btn::DDown)] = _(strings::btn_ps4_DDown);
+	btn_strings_xbox[s32(Gamepad::Btn::DUp)] = _(strings::btn_ps4_DUp);
+	btn_strings_xbox[s32(Gamepad::Btn::DLeft)] = _(strings::btn_ps4_DLeft);
+	btn_strings_xbox[s32(Gamepad::Btn::DRight)] = _(strings::btn_ps4_DRight);
 	btn_strings_playstation[s32(Gamepad::Btn::None)] = _(strings::btn_None);
+
+	control_strings[s32(Controls::Forward)] = _(strings::forward);
+	control_strings[s32(Controls::Backward)] = _(strings::backward);
+	control_strings[s32(Controls::Left)] = _(strings::left);
+	control_strings[s32(Controls::Right)] = _(strings::right);
+	control_strings[s32(Controls::Primary)] = _(strings::primary);
+	control_strings[s32(Controls::Zoom)] = _(strings::zoom);
+	control_strings[s32(Controls::Ability1)] = _(strings::ability1);
+	control_strings[s32(Controls::Ability2)] = _(strings::ability2);
+	control_strings[s32(Controls::Ability3)] = _(strings::ability3);
+	control_strings[s32(Controls::InteractSecondary)] = _(strings::interact);
+	control_strings[s32(Controls::Scoreboard)] = _(strings::scoreboard);
+	control_strings[s32(Controls::Jump)] = _(strings::jump);
+	control_strings[s32(Controls::Parkour)] = _(strings::parkour);
 }
 
 void dead_zone(r32* x, r32* y, r32 threshold)
@@ -299,6 +322,31 @@ r32 dead_zone(r32 x, r32 threshold)
 		return 0.0f;
 	else
 		return (x - threshold) / (1.0f - threshold);
+}
+
+const char* control_string(Controls c)
+{
+	return control_strings[s32(c)];
+}
+
+b8 control_customizable(Controls c, Gamepad::Type type)
+{
+	if (c == Controls::Cancel
+		|| c == Controls::Pause
+		|| c == Controls::Start
+		|| c == Controls::Interact)
+		return false;
+
+	if (type != Gamepad::Type::None
+		&& (c == Controls::Forward
+			|| c == Controls::Backward
+			|| c == Controls::Left
+			|| c == Controls::Right))
+	{
+		return false;
+	}
+
+	return true;
 }
 
 }

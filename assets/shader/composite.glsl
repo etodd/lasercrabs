@@ -29,7 +29,9 @@ uniform vec3 ambient_color;
 uniform sampler2D color_buffer;
 uniform sampler2D lighting_buffer;
 uniform sampler2D depth_buffer;
+#ifdef SHADOW // SSAO
 uniform sampler2D ssao_buffer;
+#endif
 uniform mat4 p;
 uniform float range;
 uniform vec3 range_center;
@@ -40,7 +42,11 @@ void main()
 {
 	vec4 color = texture(color_buffer, uv);
 	vec4 lighting = texture(lighting_buffer, uv);
+#ifdef SHADOW // SSAO
 	lighting.rgb += ambient_color * texture(ssao_buffer, uv).x;
+#else
+	lighting.rgb += ambient_color;
+#endif
 	vec3 lighting_color = color.rgb * lighting.rgb;
 	vec3 final_color;
 	float clip_depth = texture(depth_buffer, uv).x;

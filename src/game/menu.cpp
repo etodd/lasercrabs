@@ -35,6 +35,8 @@ r32 dialog_time[MAX_GAMEPADS];
 char dialog_string[MAX_GAMEPADS][255];
 r32 dialog_time_limit[MAX_GAMEPADS];
 Camera* camera_connecting;
+Controls currently_editing_control = Controls::count;
+b8 currently_editing_control_enable_input; // should we be listening for any and all button presses to apply to the control binding we're currently editing?
 
 #define DIALOG_ANIM_TIME 0.25f
 
@@ -44,6 +46,7 @@ void dialog_no_action(s8 gamepad)
 }
 
 State settings(const Update&, s8, UIMenu*);
+b8 settings_controls(const Update&, s8, UIMenu*, Gamepad::Type);
 b8 settings_graphics(const Update&, s8, UIMenu*);
 
 #if SERVER
@@ -59,6 +62,7 @@ void refresh_variables(const InputState&) {}
 void pause_menu(const Update&, s8, UIMenu*, State*) {}
 void draw_letterbox(const RenderParams&, r32, r32) {}
 State settings(const Update&, s8, UIMenu*) { return State::Settings; }
+b8 settings_controls(const Update&, s8, UIMenu*, Gamepad::Type) { return true; }
 b8 settings_graphics(const Update&, s8, UIMenu*) { return true; }
 void progress_spinner(const RenderParams&, const Vec2&, r32) {}
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&) {}
@@ -325,7 +329,10 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			}
 			if (menu->item(u, _(strings::settings)))
 			{
-				*state = State::Settings;
+				if (gamepad == 0)
+					*state = State::Settings;
+				else
+					*state = State::SettingsControlsGamepad; // other players don't have any other settings
 				menu->animate();
 			}
 			if (menu->item(u, _(strings::exit)))
@@ -339,6 +346,27 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			if (s != *state)
 			{
 				*state = s;
+				menu->animate();
+			}
+			break;
+		}
+		case State::SettingsControlsKeyboard:
+		{
+			if (!settings_controls(u, gamepad, menu, Gamepad::Type::None))
+			{
+				*state = State::Settings;
+				menu->animate();
+			}
+			break;
+		}
+		case State::SettingsControlsGamepad:
+		{
+			if (!settings_controls(u, gamepad, menu, u.input->gamepads[gamepad].type))
+			{
+				if (gamepad == 0)
+					*state = State::Settings;
+				else // other players don't have any other settings
+					*state = State::Visible;
 				menu->animate();
 			}
 			break;
@@ -380,7 +408,10 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 				*state = State::Hidden;
 			if (menu->item(u, _(strings::settings)))
 			{
-				*state = State::Settings;
+				if (gamepad == 0)
+					*state = State::Settings;
+				else
+					*state = State::SettingsControlsGamepad; // other players don't have any other settings
 				menu->animate();
 			}
 			if (menu->item(u, _(strings::quit)))
@@ -399,6 +430,27 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			if (s != *state)
 			{
 				*state = s;
+				menu->animate();
+			}
+			break;
+		}
+		case State::SettingsControlsKeyboard:
+		{
+			if (!settings_controls(u, gamepad, menu, Gamepad::Type::None))
+			{
+				*state = State::Settings;
+				menu->animate();
+			}
+			break;
+		}
+		case State::SettingsControlsGamepad:
+		{
+			if (!settings_controls(u, gamepad, menu, u.input->gamepads[gamepad].type))
+			{
+				if (gamepad == 0)
+					*state = State::Settings;
+				else
+					*state = State::Visible; // other players don't have any other settings
 				menu->animate();
 			}
 			break;
@@ -744,6 +796,73 @@ State settings(const Update& u, s8 gamepad, UIMenu* menu)
 	char str[128];
 	s32 delta;
 
+	if ((gamepad > 0 || u.input->gamepads[0].type != Gamepad::Type::None) && menu->item(u, _(strings::settings_controls_gamepad)))
+	{
+		menu->end();
+		return State::SettingsControlsGamepad;
+	}
+
+	if (gamepad == 0)
+	{
+#if !defined(__ORBIS__)
+		if (menu->item(u, _(strings::settings_controls_keyboard)))
+		{
+			menu->end();
+			return State::SettingsControlsKeyboard;
+		}
+#endif
+
+		if (menu->item(u, _(strings::settings_graphics)))
+		{
+			menu->end();
+			return State::SettingsGraphics;
+		}
+
+		{
+			sprintf(str, "%d", Settings::sfx);
+			delta = menu->slider_item(u, _(strings::sfx), str);
+			if (delta < 0)
+				Settings::sfx = vi_max(0, Settings::sfx - 10);
+			else if (delta > 0)
+				Settings::sfx = vi_min(100, Settings::sfx + 10);
+			if (delta != 0)
+				Audio::global_param(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER);
+		}
+
+		{
+			sprintf(str, "%d", Settings::music);
+			delta = menu->slider_item(u, _(strings::music), str);
+			if (delta < 0)
+				Settings::music = vi_max(0, Settings::music - 10);
+			else if (delta > 0)
+				Settings::music = vi_min(100, Settings::music + 10);
+			if (delta != 0)
+				Audio::global_param(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER);
+		}
+	}
+
+	menu->end();
+
+	if (exit)
+	{
+		Game::cancel_event_eaten[gamepad] = true;
+		menu->end();
+		Loader::settings_save();
+		return State::Visible;
+	}
+
+	return State::Settings;
+}
+
+// returns true if this menu should remain open
+b8 settings_controls(const Update& u, s8 gamepad, UIMenu* menu, Gamepad::Type gamepad_type)
+{
+	menu->start(u, gamepad, currently_editing_control == Controls::count);
+	b8 exit = menu->item(u, _(strings::back)) || (currently_editing_control == Controls::count && !Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
+
+	char str[128];
+	s32 delta;
+
 	{
 		u8* sensitivity = &Settings::gamepads[gamepad].sensitivity;
 		sprintf(str, "%u", *sensitivity);
@@ -770,6 +889,7 @@ State settings(const Update& u, s8 gamepad, UIMenu* menu)
 			*zoom_toggle = !(*zoom_toggle);
 	}
 
+	if (gamepad_type != Gamepad::Type::None)
 	{
 		b8* rumble = &Settings::gamepads[gamepad].rumble;
 		sprintf(str, "%s", _(*rumble ? strings::on : strings::off));
@@ -778,34 +898,84 @@ State settings(const Update& u, s8 gamepad, UIMenu* menu)
 			*rumble = !(*rumble);
 	}
 
-	if (gamepad == 0)
+	for (s32 i = 0; i < s32(Controls::count); i++)
 	{
+		if (Input::control_customizable(Controls(i), gamepad_type))
 		{
-			sprintf(str, "%d", Settings::sfx);
-			delta = menu->slider_item(u, _(strings::sfx), str);
-			if (delta < 0)
-				Settings::sfx = vi_max(0, Settings::sfx - 10);
-			else if (delta > 0)
-				Settings::sfx = vi_min(100, Settings::sfx + 10);
-			if (delta != 0)
-				Audio::global_param(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER);
-		}
+			InputBinding* binding = &Settings::gamepads[gamepad].bindings[i];
 
-		{
-			sprintf(str, "%d", Settings::music);
-			delta = menu->slider_item(u, _(strings::music), str);
-			if (delta < 0)
-				Settings::music = vi_max(0, Settings::music - 10);
-			else if (delta > 0)
-				Settings::music = vi_min(100, Settings::music + 10);
-			if (delta != 0)
-				Audio::global_param(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER);
-		}
+			const char* string;
+			b8 disabled;
+			if (currently_editing_control == Controls::count)
+			{
+				disabled = false;
+				string = binding->string(gamepad_type);
+			}
+			else
+			{
+				// currently editing one of the bindings
+				if (currently_editing_control == Controls(i))
+				{
+					disabled = false;
+					string = nullptr;
+				}
+				else
+				{
+					disabled = true;
+					string = binding->string(gamepad_type);
+				}
+			}
 
-		if (menu->item(u, _(strings::settings_graphics)))
-		{
-			menu->end();
-			return State::SettingsGraphics;
+			b8 selected = menu->item(u, Input::control_string(Controls(i)), string, disabled);
+
+			if (currently_editing_control == Controls::count)
+			{
+				if (selected)
+				{
+					currently_editing_control = Controls(i);
+					currently_editing_control_enable_input = false; // wait for the player to release keys
+				}
+			}
+			else if (currently_editing_control == Controls(i))
+			{
+				if (gamepad_type == Gamepad::Type::None)
+				{
+					if (currently_editing_control_enable_input)
+					{
+						if (u.last_input->keys.any() && !u.input->keys.any())
+						{
+							binding->key1 = KeyCode(u.last_input->keys.start);
+							currently_editing_control = Controls::count;
+							currently_editing_control_enable_input = false;
+						}
+					}
+					else if (!u.last_input->keys.any())
+						currently_editing_control_enable_input = true;
+				}
+				else
+				{
+					if (currently_editing_control_enable_input)
+					{
+						if (u.last_input->gamepads[gamepad].btns && !u.input->gamepads[gamepad].btns)
+						{
+							s32 btns = u.last_input->gamepads[gamepad].btns;
+							for (s32 j = 0; j < s32(Gamepad::Btn::count); j++)
+							{
+								if (btns & (1 << j))
+								{
+									binding->btn = Gamepad::Btn(j);
+									break;
+								}
+							}
+							currently_editing_control = Controls::count;
+							currently_editing_control_enable_input = false;
+							Game::cancel_event_eaten[gamepad] = true;
+						}
+					}
+					else if (!u.last_input->gamepads[gamepad].btns)
+						currently_editing_control_enable_input = true;
+				}
+			}
 		}
 	}
 
@@ -813,13 +983,13 @@ State settings(const Update& u, s8 gamepad, UIMenu* menu)
 
 	if (exit)
 	{
+		currently_editing_control = Controls::count;
+		currently_editing_control_enable_input = false;
 		Game::cancel_event_eaten[gamepad] = true;
-		menu->end();
-		Loader::settings_save();
-		return State::Visible;
+		return false;
 	}
-
-	return State::Settings;
+	else
+		return true;
 }
 
 // returns true if this menu should remain open
@@ -895,6 +1065,14 @@ b8 settings_graphics(const Update& u, s8 gamepad, UIMenu* menu)
 	}
 
 	{
+		b8* ssao = &Settings::ssao;
+		sprintf(str, "%s", _(*ssao ? strings::on : strings::off));
+		delta = menu->slider_item(u, _(strings::ssao), str);
+		if (delta != 0)
+			*ssao = !(*ssao);
+	}
+
+	{
 		b8* scan_lines = &Settings::scan_lines;
 		sprintf(str, "%s", _(*scan_lines ? strings::on : strings::off));
 		delta = menu->slider_item(u, _(strings::scan_lines), str);
@@ -907,8 +1085,6 @@ b8 settings_graphics(const Update& u, s8 gamepad, UIMenu* menu)
 	if (exit)
 	{
 		Game::cancel_event_eaten[gamepad] = true;
-		menu->end();
-		Loader::settings_save();
 		return false;
 	}
 
@@ -1004,7 +1180,7 @@ b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disab
 	if (selected == items.length - 1
 		&& !u.input->get(Controls::Interact, gamepad)
 		&& u.last_input->get(Controls::Interact, gamepad)
-		&& Game::time.total > 0.5f
+		&& Game::time.total > 0.35f
 		&& !Console::visible
 		&& !disabled)
 	{
@@ -1054,7 +1230,7 @@ void UIMenu::end()
 
 r32 UIMenu::height() const
 {
-	return (vi_min(items.length, u16(UI_SCROLL_MAX)) * MENU_ITEM_HEIGHT) - MENU_ITEM_PADDING * 2.0f;
+	return (vi_min(items.length, UI_SCROLL_MAX) * MENU_ITEM_HEIGHT) - MENU_ITEM_PADDING * 2.0f;
 }
 
 void UIMenu::text_clip_timer(UIText* text, r32 timer, r32 speed)

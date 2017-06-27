@@ -1279,6 +1279,131 @@
 								<ActiveSource Name="dada03" ID="{373ACCAA-FF82-494F-AE14-8520A146D27B}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
+						<Sound Name="ivory_ad01" ID="{9BAE4380-1614-490D-A524-A3D33D9B2CD8}" ShortID="422612323" Type="SoundFX">
+							<PropertyList>
+								<Property Name="PositioningType" Type="int16" Value="1"/>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Attenuation">
+									<ObjectRef Name="Atten15" ID="{66FF368F-246F-423C-AD7C-4B99890C0E5F}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+								</Reference>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Dialogue" ID="{E8A73A5E-056C-46B8-875C-9658C99452FC}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="ivory_ad01" ID="{DEBB6A0A-3C12-4DEB-87A5-D969436C05E9}" ShortID="362975992">
+									<Language>SFX</Language>
+									<AudioFile>ivory_ad01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="ivory_ad01" ID="{DEBB6A0A-3C12-4DEB-87A5-D969436C05E9}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="ivory_ad02" ID="{4A8A327B-B2A5-4E97-A36B-8D55AC3877F8}" ShortID="877786264" Type="SoundFX">
+							<PropertyList>
+								<Property Name="PositioningType" Type="int16" Value="1"/>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Attenuation">
+									<ObjectRef Name="Atten15" ID="{66FF368F-246F-423C-AD7C-4B99890C0E5F}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+								</Reference>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Dialogue" ID="{E8A73A5E-056C-46B8-875C-9658C99452FC}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="ivory_ad02" ID="{A071F069-5DF3-4719-A157-3069E2573867}" ShortID="888318615">
+									<Language>SFX</Language>
+									<AudioFile>ivory_ad02.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="ivory_ad02" ID="{A071F069-5DF3-4719-A157-3069E2573867}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="ivory_ad05" ID="{83A48111-8BB9-4777-A146-E9468E783D4D}" ShortID="72915800" Type="SoundFX">
+							<PropertyList>
+								<Property Name="PositioningType" Type="int16" Value="1"/>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Attenuation">
+									<ObjectRef Name="Atten15" ID="{66FF368F-246F-423C-AD7C-4B99890C0E5F}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+								</Reference>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Dialogue" ID="{E8A73A5E-056C-46B8-875C-9658C99452FC}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="ivory_ad05" ID="{893532F8-A4A4-4877-8321-62DC4FEFADD5}" ShortID="700120139">
+									<Language>SFX</Language>
+									<AudioFile>ivory_ad05.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="ivory_ad05" ID="{893532F8-A4A4-4877-8321-62DC4FEFADD5}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="ivory_ad04" ID="{B8DE9FF4-FEFD-4E3C-8665-289580B1D72D}" ShortID="983198345" Type="SoundFX">
+							<PropertyList>
+								<Property Name="PositioningType" Type="int16" Value="1"/>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Attenuation">
+									<ObjectRef Name="Atten15" ID="{66FF368F-246F-423C-AD7C-4B99890C0E5F}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+								</Reference>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Dialogue" ID="{E8A73A5E-056C-46B8-875C-9658C99452FC}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="ivory_ad04" ID="{8E41B3C8-1045-4110-A3E5-20655DF1B707}" ShortID="466854866">
+									<Language>SFX</Language>
+									<AudioFile>ivory_ad04.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="ivory_ad04" ID="{8E41B3C8-1045-4110-A3E5-20655DF1B707}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="ivory_ad03" ID="{BE04138F-B15A-431B-83C8-B7AD5281804E}" ShortID="568300170" Type="SoundFX">
+							<PropertyList>
+								<Property Name="PositioningType" Type="int16" Value="1"/>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Attenuation">
+									<ObjectRef Name="Atten15" ID="{66FF368F-246F-423C-AD7C-4B99890C0E5F}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+								</Reference>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Dialogue" ID="{E8A73A5E-056C-46B8-875C-9658C99452FC}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="ivory_ad03" ID="{20F922AB-77AD-4894-9788-3EDE064D1F97}" ShortID="445763459">
+									<Language>SFX</Language>
+									<AudioFile>ivory_ad03.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="ivory_ad03" ID="{20F922AB-77AD-4894-9788-3EDE064D1F97}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
 					</ChildrenList>
 				</ActorMixer>
 				<RandomSequenceContainer Name="Stealth" ID="{77FCA54A-32F4-4758-AA82-FF3D73302182}" ShortID="267480379">
@@ -1656,101 +1781,6 @@
 							</ChildrenList>
 							<ActiveSourceList>
 								<ActiveSource Name="hobo10" ID="{1A45E92B-5452-400D-BC02-4058464E6652}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="ivory_ad01" ID="{9BAE4380-1614-490D-A524-A3D33D9B2CD8}" ShortID="422612323" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="ivory_ad01" ID="{DEBB6A0A-3C12-4DEB-87A5-D969436C05E9}" ShortID="362975992">
-									<Language>SFX</Language>
-									<AudioFile>ivory_ad01.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="ivory_ad01" ID="{DEBB6A0A-3C12-4DEB-87A5-D969436C05E9}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="ivory_ad02" ID="{4A8A327B-B2A5-4E97-A36B-8D55AC3877F8}" ShortID="877786264" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="ivory_ad02" ID="{A071F069-5DF3-4719-A157-3069E2573867}" ShortID="888318615">
-									<Language>SFX</Language>
-									<AudioFile>ivory_ad02.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="ivory_ad02" ID="{A071F069-5DF3-4719-A157-3069E2573867}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="ivory_ad03" ID="{BE04138F-B15A-431B-83C8-B7AD5281804E}" ShortID="568300170" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="ivory_ad03" ID="{20F922AB-77AD-4894-9788-3EDE064D1F97}" ShortID="445763459">
-									<Language>SFX</Language>
-									<AudioFile>ivory_ad03.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="ivory_ad03" ID="{20F922AB-77AD-4894-9788-3EDE064D1F97}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="ivory_ad04" ID="{B8DE9FF4-FEFD-4E3C-8665-289580B1D72D}" ShortID="983198345" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="ivory_ad04" ID="{8E41B3C8-1045-4110-A3E5-20655DF1B707}" ShortID="466854866">
-									<Language>SFX</Language>
-									<AudioFile>ivory_ad04.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="ivory_ad04" ID="{8E41B3C8-1045-4110-A3E5-20655DF1B707}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="ivory_ad05" ID="{83A48111-8BB9-4777-A146-E9468E783D4D}" ShortID="72915800" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="ivory_ad05" ID="{893532F8-A4A4-4877-8321-62DC4FEFADD5}" ShortID="700120139">
-									<Language>SFX</Language>
-									<AudioFile>ivory_ad05.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="ivory_ad05" ID="{893532F8-A4A4-4877-8321-62DC4FEFADD5}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="locke_a01" ID="{7CB79A5A-26BF-4E26-9ECD-3DA0178A1DA5}" ShortID="549563186" Type="SoundFX">

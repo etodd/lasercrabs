@@ -119,7 +119,7 @@ template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)
 	serialize_enum(p, SessionType, s->session_type);
 	serialize_s16(p, s->level);
 	serialize_int(p, s8, s->open_slots, 0, MAX_PLAYERS);
-	serialize_int(p, s8, s->team_count, 2, MAX_PLAYERS);
+	serialize_int(p, s8, s->team_count, 0, MAX_TEAMS);
 	serialize_s16(p, s->respawns);
 	serialize_s16(p, s->kill_limit);
 	serialize_u8(p, s->time_limit_minutes);

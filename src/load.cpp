@@ -216,7 +216,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	default_fullscreen = 1;
 #endif
 	Settings::fullscreen = b8(Json::get_s32(json, "fullscreen", default_fullscreen));
-	Settings::vsync = b8(Json::get_s32(json, "vsync", 1));
+	Settings::vsync = b8(Json::get_s32(json, "vsync", 0));
 	Settings::sfx = u8(Json::get_s32(json, "sfx", 100));
 	Settings::music = u8(Json::get_s32(json, "music", 100));
 	s32 default_framerate_limit;

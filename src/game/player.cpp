@@ -1089,8 +1089,6 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 	else
 		ParticleEffect::spawn(ParticleEffect::Type::SpawnDrone, spawn_pos.pos, Quat::look(Vec3(0, 1, 0)));
 
-	killed_by = nullptr;
-
 	Net::finalize(spawned);
 }
 
@@ -2366,6 +2364,7 @@ void PlayerControlHuman::awake()
 		remote_control.parent = t->parent;
 	}
 
+	player.ref()->killed_by = nullptr;
 	player.ref()->select_spawn_timer = TRANSITION_TIME * 0.5f; // for letterbox animation
 
 	link_arg<const HealthEvent&, &PlayerControlHuman::health_changed>(get<Health>()->changed);
@@ -3541,7 +3540,7 @@ void PlayerControlHuman::cinematic(Entity* basis, AssetID anim)
 void PlayerControlHuman::update_late(const Update& u)
 {
 	if (has<Parkour>()
-		&& !Overworld::active()
+		&& !Overworld::modal()
 		&& local())
 	{
 		Camera* camera = player.ref()->camera;

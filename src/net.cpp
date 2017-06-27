@@ -805,7 +805,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_ref(p, Game::level.terminal);
 	serialize_ref(p, Game::level.terminal_interactable);
 	serialize_ref(p, Game::level.shop);
-	serialize_int(p, s32, Game::level.max_teams, 0, MAX_PLAYERS);
+	serialize_int(p, s32, Game::level.max_teams, 0, MAX_TEAMS);
 	serialize_int(p, s32, Game::level.tram_tracks.length, 0, Game::level.tram_tracks.capacity());
 	for (s32 i = 0; i < Game::level.tram_tracks.length; i++)
 		serialize_s16(p, Game::level.tram_tracks[i].level);
@@ -813,7 +813,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	for (s32 i = 0; i < Game::level.scripts.length; i++)
 		serialize_int(p, AssetID, Game::level.scripts[i], 0, Script::count);
 	serialize_int(p, s8, Game::session.player_slots, 1, MAX_PLAYERS);
-	serialize_int(p, s8, Game::session.team_count, 2, MAX_PLAYERS);
+	serialize_int(p, s8, Game::session.team_count, 2, MAX_TEAMS);
 	serialize_s16(p, Game::session.kill_limit);
 	serialize_s16(p, Game::session.respawns);
 	serialize_bool(p, Game::session.allow_abilities);
@@ -2746,7 +2746,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 					for (s32 i = 0; i < local_players; i++)
 					{
 						AI::Team team;
-						serialize_int(p, AI::Team, team, 0, MAX_PLAYERS - 1);
+						serialize_int(p, AI::Team, team, 0, MAX_TEAMS - 1);
 						s8 gamepad;
 						serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
 
@@ -3329,7 +3329,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 						{
 							if (Game::session.local_player_config[i] != AI::TeamNone)
 							{
-								serialize_int(p2, AI::Team, Game::session.local_player_config[i], 0, MAX_PLAYERS - 1); // team
+								serialize_int(p2, AI::Team, Game::session.local_player_config[i], 0, MAX_TEAMS - 1); // team
 								serialize_int(p2, s32, i, 0, MAX_GAMEPADS - 1); // gamepad
 								serialize_u64(p2, Game::session.local_player_uuids[i]); // uuid
 							}

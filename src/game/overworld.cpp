@@ -123,7 +123,7 @@ struct SplitscreenConfig
 
 	void team_counts(s32* team_counts) const
 	{
-		for (s32 i = 0; i < MAX_PLAYERS; i++)
+		for (s32 i = 0; i < MAX_TEAMS; i++)
 			team_counts[i] = 0;
 		for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		{
@@ -136,10 +136,10 @@ struct SplitscreenConfig
 	s32 team_count() const
 	{
 		s32 player_count = 0;
-		s32 counts[MAX_PLAYERS];
+		s32 counts[MAX_TEAMS];
 		team_counts(counts);
 		s32 teams_with_players = 0;
-		for (s32 i = 0; i < MAX_PLAYERS; i++)
+		for (s32 i = 0; i < MAX_TEAMS; i++)
 		{
 			if (counts[i] > 0)
 				teams_with_players++;
@@ -177,12 +177,12 @@ struct SplitscreenConfig
 
 	void consolidate_teams()
 	{
-		s32 team_count[MAX_PLAYERS];
+		s32 team_count[MAX_TEAMS];
 		team_counts(team_count);
 
-		AI::Team team_lookup[MAX_PLAYERS];
+		AI::Team team_lookup[MAX_TEAMS];
 		AI::Team current_team = 0;
-		for (s32 i = 0; i < MAX_PLAYERS; i++)
+		for (s32 i = 0; i < MAX_TEAMS; i++)
 		{
 			if (team_count[i] > 0)
 			{
@@ -463,7 +463,7 @@ void splitscreen_select_teams_update(const Update& u)
 					*team = 0;
 					Audio::post_global_event(AK::EVENTS::PLAY_MENU_ALTER);
 				}
-				else if (*team < MAX_PLAYERS - 1)
+				else if (*team < MAX_TEAMS - 1)
 				{
 					*team += 1;
 					Audio::post_global_event(AK::EVENTS::PLAY_MENU_ALTER);
@@ -645,7 +645,7 @@ const ZoneNode* zone_node_get(AssetID id)
 
 s16 energy_increment_zone(const ZoneNode& zone)
 {
-	return zone.size * (zone.max_teams == MAX_PLAYERS ? 200 : 10);
+	return zone.size * (zone.max_teams == MAX_TEAMS ? 200 : 10);
 }
 
 s16 energy_increment_total()
@@ -979,7 +979,7 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 		const r32 gamepad_spacing = 128.0f * UI::scale * SCALE_MULTIPLIER;
 		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.1f) + Vec2(gamepad_spacing * (player_count - 1) * -0.5f, 0);
 
-		AssetID team_labels[MAX_PLAYERS] =
+		AssetID team_labels[MAX_TEAMS] =
 		{
 			strings::team_a,
 			strings::team_b,
@@ -1494,7 +1494,7 @@ ResourceInfo resource_info[s32(Resource::count)] =
 	{
 		Asset::Mesh::icon_access_key,
 		strings::access_keys,
-		200,
+		800,
 	},
 	{
 		Asset::Mesh::icon_drone,

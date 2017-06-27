@@ -983,6 +983,7 @@ b8 settings_controls(const Update& u, s8 gamepad, UIMenu* menu, Gamepad::Type ga
 
 	if (exit)
 	{
+		refresh_variables(*u.input);
 		currently_editing_control = Controls::count;
 		currently_editing_control_enable_input = false;
 		Game::cancel_event_eaten[gamepad] = true;

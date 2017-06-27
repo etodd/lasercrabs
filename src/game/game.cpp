@@ -100,7 +100,7 @@ Game::Session::Session()
 	kill_limit(DEFAULT_ASSAULT_DRONES),
 	allow_abilities(true)
 {
-	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		local_player_uuids[i] = mersenne::rand_u64();
 }
 
@@ -133,7 +133,7 @@ b8 Game::Level::has_feature(FeatureLevel f) const
 
 AI::Team Game::Level::team_lookup_reverse(AI::Team t) const
 {
-	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	for (s32 i = 0; i < MAX_TEAMS; i++)
 	{
 		if (team_lookup[i] == t)
 			return AI::Team(i);
@@ -143,7 +143,7 @@ AI::Team Game::Level::team_lookup_reverse(AI::Team t) const
 
 const StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS>&  Game::Level::directional_lights_get() const
 {
-	if (Overworld::active())
+	if (Overworld::modal())
 		return Overworld::directional_lights;
 	else
 		return directional_lights;
@@ -151,7 +151,7 @@ const StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS>&  Game::Level::direc
 
 const Vec3& Game::Level::ambient_color_get() const
 {
-	if (Overworld::active())
+	if (Overworld::modal())
 		return Overworld::ambient_color;
 	else
 		return ambient_color;
@@ -1292,7 +1292,7 @@ struct RopeEntry
 
 AI::Team team_lookup(const AI::Team* table, s32 i)
 {
-	return table[vi_max(0, vi_min(MAX_PLAYERS, i))];
+	return table[vi_max(0, vi_min(MAX_TEAMS - 1, i))];
 }
 
 void Game::load_level(AssetID l, Mode m, b8 ai_test)
@@ -1448,7 +1448,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					b8 lock_teams = Json::get_s32(element, "lock_teams");
 					offset = lock_teams ? 0 : mersenne::rand() % session.team_count;
 				}
-				for (s32 i = 0; i < MAX_PLAYERS; i++)
+				for (s32 i = 0; i < MAX_TEAMS; i++)
 					level.team_lookup[i] = AI::Team((offset + i) % session.team_count);
 			}
 
@@ -1512,7 +1512,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		else if (Json::get_s32(element, "min_players") > PlayerManager::list.count() + ai_player_count
 			|| Json::get_s32(element, "max_players", MAX_PLAYERS) < PlayerManager::list.count() + ai_player_count
 			|| Json::get_s32(element, "min_teams") > Team::list.count()
-			|| Json::get_s32(element, "max_teams", MAX_PLAYERS) < Team::list.count())
+			|| Json::get_s32(element, "max_teams", MAX_TEAMS) < Team::list.count())
 		{
 			// not enough players or teams, or too many
 			// don't spawn the entity

@@ -1,8 +1,9 @@
 #pragma once
 
-// NOTE: this is also the max number of teams
+#define MAX_PLAYERS 8
+
 // if you change this, make sure to allocate more physics categories for each team's force field
-#define MAX_PLAYERS 4
+#define MAX_TEAMS 4
 
 #define GAME_VERSION 1
 
@@ -84,7 +85,7 @@
 #define DRONE_SHIELD_VIEW_RATIO 0.6f
 
 #define TURRET_HEIGHT 3.5f
-#define TURRET_HEALTH 60
+#define TURRET_HEALTH 40
 #define TURRET_VIEW_RANGE DRONE_MAX_DISTANCE
 
 #define MAX_BONE_WEIGHTS 4

@@ -74,6 +74,7 @@ struct Instance
 
 	StaticArray<Cue, 32> cues;
 	r32 last_cue_real_time;
+	r32 dialogue_radius;
 	IdleBehavior idle_behavior;
 	Ref<Entity> model;
 	Ref<Transform> collision;
@@ -93,6 +94,7 @@ struct Instance
 		: cues(),
 		last_cue_real_time(),
 		idle_behavior(),
+		dialogue_radius(8.0f),
 		model(),
 		collision(),
 		text(AssetNull),
@@ -294,7 +296,7 @@ void draw(const RenderParams& params)
 				UI::indicator(params, actor_pos + Vec3(0, -0.4f, 0), UI::color_accent, true);
 
 			if (instance.text != AssetNull
-				&& (instance.highlight || (actor_pos - params.camera->pos).length_squared() < 8.0f * 8.0f))
+				&& (instance.highlight || instance.dialogue_radius == 0.0f || (actor_pos - params.camera->pos).length_squared() < instance.dialogue_radius * instance.dialogue_radius))
 			{
 				UIText text;
 				text.font = Asset::Font::pt_sans;
@@ -726,6 +728,7 @@ namespace title
 		entities.find("hobo_trigger")->get<PlayerTrigger>()->entered.link(&hobo_talk);
 
 		data->ivory_ad_actor = Actor::add(entities.find("ivory_ad"));
+		data->ivory_ad_actor.ref()->dialogue_radius = 0.0f;
 	}
 
 	void play()

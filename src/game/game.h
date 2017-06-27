@@ -114,7 +114,7 @@ namespace VI
 			Ref<Entity> shop;
 			s16 respawns;
 			s16 kill_limit;
-			AI::Team team_lookup[MAX_PLAYERS];
+			AI::Team team_lookup[MAX_TEAMS];
 			b8 local = true;
 			b8 continue_match_after_death;
 			b8 post_pvp; // true if we've already played a PvP match on this level

@@ -12,6 +12,7 @@ namespace Settings
 		u8 sensitivity;
 		b8 invert_y;
 		b8 zoom_toggle;
+		b8 rumble;
 		r32 effective_sensitivity() const
 		{
 			return r32(sensitivity) * 0.01f;

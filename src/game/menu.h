@@ -69,7 +69,8 @@ enum class State : s8
 {
 	Hidden,
 	Visible,
-	Options,
+	Settings,
+	SettingsGraphics,
 	count,
 };
 

@@ -154,8 +154,8 @@ b8 Audio::init()
 
 	AK::SoundEngine::RegisterBusMeteringCallback(AK::BUSSES::DIALOGUE, Audio::dialogue_volume_callback, (AkMeteringFlags)AK_EnableBusMeter_Peak);
 
-	global_param(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) / 100.0f);
-	global_param(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) / 100.0f);
+	global_param(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER);
+	global_param(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER);
 
 	return true;
 }

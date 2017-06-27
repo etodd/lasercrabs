@@ -36,23 +36,24 @@ namespace Loop
 
 const s32 shadow_map_size[s32(Settings::ShadowQuality::count)][SHADOW_MAP_CASCADES] =
 {
-	{
-		512, // detail
-		512, // detail level 2
-		512, // global
+	{ // Off
+		0, // detail
+		0, // detail level 2
+		0, // global
 	},
-	{
+	{ // Medium
 		1024, // detail
 		1024, // detail level 2
 		1024, // global
 	},
-	{
+	{ // High
 		2048, // detail
 		2048, // detail level 2
 		2048, // global
 	},
 };
 
+Settings::ShadowQuality shadow_quality_current = Settings::ShadowQuality::Off;
 AssetID g_albedo_buffer;
 AssetID g_normal_buffer;
 AssetID g_depth_buffer;
@@ -458,8 +459,41 @@ void draw_edges(const RenderParams& render_params)
 	sync->write(false);
 }
 
+void shadow_quality_apply()
+{
+	if (shadow_quality_current != Settings::shadow_quality)
+	{
+		// free old buffers
+		if (shadow_quality_current != Settings::ShadowQuality::Off)
+		{
+			for (s32 i = 0; i < SHADOW_MAP_CASCADES; i++)
+			{
+				Loader::dynamic_texture_free(shadow_buffer[i]);
+				shadow_buffer[i] = AssetNull;
+				Loader::framebuffer_free(shadow_fbo[i]);
+				shadow_fbo[i] = AssetNull;
+			}
+		}
+
+		// alloc new buffers
+		if (Settings::shadow_quality != Settings::ShadowQuality::Off)
+		{
+			for (s32 i = 0; i < SHADOW_MAP_CASCADES; i++)
+			{
+				shadow_buffer[i] = Loader::dynamic_texture_permanent(shadow_map_size[s32(Settings::shadow_quality)][i], shadow_map_size[s32(Settings::shadow_quality)][i], RenderDynamicTextureType::Depth, RenderTextureWrap::Clamp, RenderTextureFilter::Linear, RenderTextureCompare::RefToTexture);
+				shadow_fbo[i] = Loader::framebuffer_permanent(1);
+				Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, shadow_buffer[i]);
+			}
+		}
+
+		shadow_quality_current = Settings::shadow_quality;
+	}
+}
+
 void draw(LoopSync* sync, const Camera* camera)
 {
+	shadow_quality_apply();
+
 	RenderParams render_params;
 	render_params.sync = sync;
 
@@ -1571,12 +1605,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 	lighting_fbo = Loader::framebuffer_permanent(1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, lighting_buffer);
 
-	for (s32 i = 0; i < SHADOW_MAP_CASCADES; i++)
-	{
-		shadow_buffer[i] = Loader::dynamic_texture_permanent(shadow_map_size[s32(Settings::shadow_quality)][i], shadow_map_size[s32(Settings::shadow_quality)][i], RenderDynamicTextureType::Depth, RenderTextureWrap::Clamp, RenderTextureFilter::Linear, RenderTextureCompare::RefToTexture);
-		shadow_fbo[i] = Loader::framebuffer_permanent(1);
-		Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, shadow_buffer[i]);
-	}
+	shadow_quality_apply();
 
 	half_buffer1 = Loader::dynamic_texture_permanent(sync_render->input.width / 2, sync_render->input.height / 2, RenderDynamicTextureType::Color);
 	half_depth_buffer = Loader::dynamic_texture_permanent(sync_render->input.width / 2, sync_render->input.height / 2, RenderDynamicTextureType::Depth);

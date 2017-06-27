@@ -257,6 +257,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->invert_y = Json::get_s32(gamepad, "invert_y", 0);
 		bindings->zoom_toggle = Json::get_s32(gamepad, "zoom_toggle", 0);
 		bindings->sensitivity = u8(Json::get_s32(gamepad, "sensitivity", 100));
+		bindings->rumble = b8(Json::get_s32(gamepad, "rumble", 1));
 		gamepad = gamepad ? gamepad->next : nullptr;
 	}
 
@@ -310,6 +311,7 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(gamepad, "parkour", input_binding_json(bindings->bindings[s32(Controls::Parkour)]));
 		cJSON_AddItemToObject(gamepad, "invert_y", cJSON_CreateNumber(bindings->invert_y));
 		cJSON_AddItemToObject(gamepad, "sensitivity", cJSON_CreateNumber(bindings->sensitivity));
+		cJSON_AddItemToObject(gamepad, "rumble", cJSON_CreateNumber(bindings->rumble));
 		cJSON_AddItemToArray(gamepads, gamepad);
 	}
 

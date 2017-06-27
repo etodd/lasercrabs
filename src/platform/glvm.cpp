@@ -709,6 +709,7 @@ do\
 				AssetID id = *(sync->read<AssetID>());
 				glDeleteTextures(1, &GLData::textures[id].handle);
 				debug_check();
+				GLData::textures[id].handle = 0;
 				break;
 			}
 			case RenderOp::LoadShader:
@@ -1101,6 +1102,8 @@ do\
 				glGenFramebuffers(1, &GLData::framebuffers[id]);
 				glBindFramebuffer(GL_FRAMEBUFFER, GLData::framebuffers[id]);
 
+				debug_check();
+
 				s32 attachments = *(sync->read<s32>());
 
 				GLenum color_buffers[4];
@@ -1157,6 +1160,7 @@ do\
 							vi_assert(false);
 							break;
 					}
+					debug_check();
 				}
 
 				vi_assert(color_buffer_index <= 4);

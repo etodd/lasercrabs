@@ -605,7 +605,7 @@ void PlayerHuman::update(const Update& u)
 #endif
 	if (rumble > 0.0f)
 	{
-		u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
+		u.input->gamepads[gamepad].rumble = Settings::gamepads[gamepad].rumble ? vi_min(1.0f, rumble) : 0.0f;
 		rumble = vi_max(0.0f, rumble - u.time.delta);
 	}
 

@@ -43,6 +43,9 @@ void dialog_no_action(s8 gamepad)
 {
 }
 
+State settings(const Update&, s8, UIMenu*);
+b8 settings_graphics(const Update&, s8, UIMenu*);
+
 #if SERVER
 
 void init(const InputState&) {}
@@ -55,7 +58,8 @@ void show() {}
 void refresh_variables(const InputState&) {}
 void pause_menu(const Update&, s8, UIMenu*, State*) {}
 void draw_letterbox(const RenderParams&, r32, r32) {}
-b8 options(const Update&, s8, UIMenu*) { return true; }
+State settings(const Update&, s8, UIMenu*) { return State::Settings; }
+b8 settings_graphics(const Update&, s8, UIMenu*) { return true; }
 void progress_spinner(const RenderParams&, const Vec2&, r32) {}
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&) {}
 void progress_infinite(const RenderParams&, const char*, const Vec2&) {}
@@ -319,9 +323,9 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 				Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
 				clear();
 			}
-			if (menu->item(u, _(strings::options)))
+			if (menu->item(u, _(strings::settings)))
 			{
-				*state = State::Options;
+				*state = State::Settings;
 				menu->animate();
 			}
 			if (menu->item(u, _(strings::exit)))
@@ -329,11 +333,21 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			menu->end();
 			break;
 		}
-		case State::Options:
+		case State::Settings:
 		{
-			if (!options(u, 0, menu))
+			State s = settings(u, 0, menu);
+			if (s != *state)
 			{
-				*state = State::Visible;
+				*state = s;
+				menu->animate();
+			}
+			break;
+		}
+		case State::SettingsGraphics:
+		{
+			if (!settings_graphics(u, gamepad, menu))
+			{
+				*state = State::Settings;
 				menu->animate();
 			}
 			break;
@@ -364,9 +378,9 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			menu->start(u, gamepad);
 			if (menu->item(u, _(strings::close)))
 				*state = State::Hidden;
-			if (menu->item(u, _(strings::options)))
+			if (menu->item(u, _(strings::settings)))
 			{
-				*state = State::Options;
+				*state = State::Settings;
 				menu->animate();
 			}
 			if (menu->item(u, _(strings::quit)))
@@ -379,11 +393,21 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			menu->end();
 			break;
 		}
-		case State::Options:
+		case State::Settings:
 		{
-			if (!options(u, gamepad, menu))
+			State s = settings(u, gamepad, menu);
+			if (s != *state)
 			{
-				*state = State::Visible;
+				*state = s;
+				menu->animate();
+			}
+			break;
+		}
+		case State::SettingsGraphics:
+		{
+			if (!settings_graphics(u, gamepad, menu))
+			{
+				*state = State::Settings;
 				menu->animate();
 			}
 			break;
@@ -711,8 +735,8 @@ void draw_letterbox(const RenderParams& params, r32 t, r32 total)
 	UI::box(params, { Vec2(0, vp.size.y - size), Vec2(vp.size.x, size) }, UI::color_background);
 }
 
-// returns true if options menu is still open
-b8 options(const Update& u, s8 gamepad, UIMenu* menu)
+// returns next state the menu should be in
+State settings(const Update& u, s8 gamepad, UIMenu* menu)
 {
 	menu->start(u, gamepad);
 	b8 exit = menu->item(u, _(strings::back)) || (!Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
@@ -740,32 +764,142 @@ b8 options(const Update& u, s8 gamepad, UIMenu* menu)
 
 	{
 		b8* zoom_toggle = &Settings::gamepads[gamepad].zoom_toggle;
-		sprintf(str, "%s", _(*zoom_toggle ? strings::yes : strings::no));
+		sprintf(str, "%s", _(*zoom_toggle ? strings::on : strings::off));
 		delta = menu->slider_item(u, _(strings::zoom_toggle), str);
 		if (delta != 0)
 			*zoom_toggle = !(*zoom_toggle);
 	}
 
 	{
-		sprintf(str, "%d", Settings::sfx);
-		delta = menu->slider_item(u, _(strings::sfx), str);
-		if (delta < 0)
-			Settings::sfx = vi_max(0, Settings::sfx - 10);
-		else if (delta > 0)
-			Settings::sfx = vi_min(100, Settings::sfx + 10);
+		b8* rumble = &Settings::gamepads[gamepad].rumble;
+		sprintf(str, "%s", _(*rumble ? strings::on : strings::off));
+		delta = menu->slider_item(u, _(strings::rumble), str);
 		if (delta != 0)
-			Audio::global_param(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) / 100.0f);
+			*rumble = !(*rumble);
+	}
+
+	if (gamepad == 0)
+	{
+		{
+			sprintf(str, "%d", Settings::sfx);
+			delta = menu->slider_item(u, _(strings::sfx), str);
+			if (delta < 0)
+				Settings::sfx = vi_max(0, Settings::sfx - 10);
+			else if (delta > 0)
+				Settings::sfx = vi_min(100, Settings::sfx + 10);
+			if (delta != 0)
+				Audio::global_param(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER);
+		}
+
+		{
+			sprintf(str, "%d", Settings::music);
+			delta = menu->slider_item(u, _(strings::music), str);
+			if (delta < 0)
+				Settings::music = vi_max(0, Settings::music - 10);
+			else if (delta > 0)
+				Settings::music = vi_min(100, Settings::music + 10);
+			if (delta != 0)
+				Audio::global_param(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER);
+		}
+
+		if (menu->item(u, _(strings::settings_graphics)))
+		{
+			menu->end();
+			return State::SettingsGraphics;
+		}
+	}
+
+	menu->end();
+
+	if (exit)
+	{
+		Game::cancel_event_eaten[gamepad] = true;
+		menu->end();
+		Loader::settings_save();
+		return State::Visible;
+	}
+
+	return State::Settings;
+}
+
+// returns true if this menu should remain open
+b8 settings_graphics(const Update& u, s8 gamepad, UIMenu* menu)
+{
+	menu->start(u, gamepad);
+	b8 exit = menu->item(u, _(strings::back)) || (!Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
+
+	char str[128];
+	s32 delta;
+
+	{
+		b8* waypoints = &Settings::waypoints;
+		sprintf(str, "%s", _(*waypoints ? strings::on : strings::off));
+		delta = menu->slider_item(u, _(strings::waypoints), str);
+		if (delta != 0)
+			*waypoints = !(*waypoints);
 	}
 
 	{
-		sprintf(str, "%d", Settings::music);
-		delta = menu->slider_item(u, _(strings::music), str);
+		s32* fps = &Settings::framerate_limit;
+		sprintf(str, "%d", *fps);
+		delta = menu->slider_item(u, _(strings::framerate_limit), str);
 		if (delta < 0)
-			Settings::music = vi_max(0, Settings::music - 10);
+			*fps = vi_max(10, (*fps) - 10);
 		else if (delta > 0)
-			Settings::music = vi_min(100, Settings::music + 10);
+			*fps = vi_min(500, (*fps) + 10);
+	}
+
+	{
+		AssetID value;
+		switch (Settings::shadow_quality)
+		{
+			case Settings::ShadowQuality::Off:
+			{
+				value = strings::off;
+				break;
+			}
+			case Settings::ShadowQuality::Medium:
+			{
+				value = strings::medium;
+				break;
+			}
+			case Settings::ShadowQuality::High:
+			{
+				value = strings::high;
+				break;
+			}
+			default:
+			{
+				value = AssetNull;
+				vi_assert(false);
+				break;
+			}
+		}
+		UIMenu::enum_option(&Settings::shadow_quality, menu->slider_item(u, _(strings::shadow_quality), _(value)));
+	}
+
+	{
+		b8* volumetric_lighting = &Settings::volumetric_lighting;
+		sprintf(str, "%s", _(*volumetric_lighting ? strings::on : strings::off));
+		delta = menu->slider_item(u, _(strings::volumetric_lighting), str);
 		if (delta != 0)
-			Audio::global_param(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) / 100.0f);
+			*volumetric_lighting = !(*volumetric_lighting);
+	}
+
+	{
+		b8* antialiasing = &Settings::antialiasing;
+		sprintf(str, "%s", _(*antialiasing ? strings::on : strings::off));
+		delta = menu->slider_item(u, _(strings::antialiasing), str);
+		if (delta != 0)
+			*antialiasing = !(*antialiasing);
+	}
+
+	{
+		b8* scan_lines = &Settings::scan_lines;
+		sprintf(str, "%s", _(*scan_lines ? strings::on : strings::off));
+		delta = menu->slider_item(u, _(strings::scan_lines), str);
+		if (delta != 0)
+			*scan_lines = !(*scan_lines);
 	}
 
 	menu->end();

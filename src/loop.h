@@ -54,6 +54,8 @@ const s32 shadow_map_size[s32(Settings::ShadowQuality::count)][SHADOW_MAP_CASCAD
 };
 
 Settings::ShadowQuality shadow_quality_current = Settings::ShadowQuality::count;
+s32 resolution_current_width;
+s32 resolution_current_height;
 AssetID g_albedo_buffer;
 AssetID g_normal_buffer;
 AssetID g_depth_buffer;
@@ -1536,6 +1538,32 @@ void draw(LoopSync* sync, const Camera* camera)
 	sync->write(true);
 }
 
+void resolution_apply(s32 width, s32 height)
+{
+	if (width != resolution_current_width || height != resolution_current_height)
+	{
+		Loader::dynamic_texture_redefine(g_albedo_buffer, width, height, RenderDynamicTextureType::Color);
+		Loader::dynamic_texture_redefine(g_normal_buffer, width, height, RenderDynamicTextureType::Color);
+		Loader::dynamic_texture_redefine(g_depth_buffer, width, height, RenderDynamicTextureType::Depth);
+
+		Loader::dynamic_texture_redefine(ui_buffer, width, height, RenderDynamicTextureType::ColorMultisample);
+		Loader::dynamic_texture_redefine(ui_depth_buffer, width, height, RenderDynamicTextureType::DepthMultisample);
+
+		Loader::dynamic_texture_redefine(color1_buffer, width, height, RenderDynamicTextureType::Color);
+		Loader::dynamic_texture_redefine(color2_buffer, width, height, RenderDynamicTextureType::Color);
+		Loader::dynamic_texture_redefine(color2_depth_buffer, width, height, RenderDynamicTextureType::Depth);
+
+		Loader::dynamic_texture_redefine(lighting_buffer, width, height, RenderDynamicTextureType::Color);
+
+		Loader::dynamic_texture_redefine(half_buffer1, width / 2, height / 2, RenderDynamicTextureType::Color);
+		Loader::dynamic_texture_redefine(half_depth_buffer, width / 2, height / 2, RenderDynamicTextureType::Depth);
+		Loader::dynamic_texture_redefine(half_buffer2, width / 2, height / 2, RenderDynamicTextureType::Color, RenderTextureWrap::Clamp, RenderTextureFilter::Linear);
+
+		resolution_current_width = width;
+		resolution_current_height = height;
+	}
+}
+
 void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 {
 	mersenne::srand(platform::timestamp());
@@ -1551,9 +1579,28 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 		exit(-1);
 	}
 
-	g_albedo_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Color);
-	g_normal_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Color);
-	g_depth_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Depth);
+	g_albedo_buffer = Loader::dynamic_texture_permanent();
+	g_normal_buffer = Loader::dynamic_texture_permanent();
+	g_depth_buffer = Loader::dynamic_texture_permanent();
+
+	ui_buffer = Loader::dynamic_texture_permanent();
+	ui_depth_buffer = Loader::dynamic_texture_permanent();
+
+	color1_buffer = Loader::dynamic_texture_permanent();
+	color2_buffer = Loader::dynamic_texture_permanent();
+	color2_depth_buffer = Loader::dynamic_texture_permanent();
+
+	lighting_buffer = Loader::dynamic_texture_permanent();
+
+	for (s32 i = 0; i < SHADOW_MAP_CASCADES; i++)
+		shadow_buffer[i] = Loader::dynamic_texture_permanent();
+
+	half_buffer1 = Loader::dynamic_texture_permanent();
+	half_depth_buffer = Loader::dynamic_texture_permanent();
+	half_buffer2 = Loader::dynamic_texture_permanent();
+
+	resolution_apply(sync_render->input.width, sync_render->input.height);
+	shadow_quality_apply();
 
 	g_fbo = Loader::framebuffer_permanent(3);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, g_albedo_buffer);
@@ -1564,46 +1611,30 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, g_albedo_buffer);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, g_depth_buffer);
 
-	ui_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::ColorMultisample);
-	ui_depth_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::DepthMultisample);
 	ui_fbo = Loader::framebuffer_permanent(2);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, ui_buffer);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, ui_depth_buffer);
 
-	color1_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Color);
 	color1_fbo = Loader::framebuffer_permanent(1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, color1_buffer);
 
-	color2_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Color);
-	color2_depth_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Depth);
 	color2_fbo = Loader::framebuffer_permanent(2);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, color2_buffer);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, color2_depth_buffer);
 
-	lighting_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Color);
 	lighting_fbo = Loader::framebuffer_permanent(1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, lighting_buffer);
 
+	for (s32 i = 0; i < SHADOW_MAP_CASCADES; i++)
 	{
-		for (s32 i = 0; i < SHADOW_MAP_CASCADES; i++)
-			shadow_buffer[i] = Loader::dynamic_texture_permanent();
-
-		shadow_quality_apply();
-
-		for (s32 i = 0; i < SHADOW_MAP_CASCADES; i++)
-		{
-			shadow_fbo[i] = Loader::framebuffer_permanent(1);
-			Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, shadow_buffer[i]);
-		}
+		shadow_fbo[i] = Loader::framebuffer_permanent(1);
+		Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, shadow_buffer[i]);
 	}
 
-	half_buffer1 = Loader::dynamic_texture_permanent(sync_render->input.width / 2, sync_render->input.height / 2, RenderDynamicTextureType::Color);
-	half_depth_buffer = Loader::dynamic_texture_permanent(sync_render->input.width / 2, sync_render->input.height / 2, RenderDynamicTextureType::Depth);
 	half_fbo1 = Loader::framebuffer_permanent(2);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, half_buffer1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, half_depth_buffer);
 
-	half_buffer2 = Loader::dynamic_texture_permanent(sync_render->input.width / 2, sync_render->input.height / 2, RenderDynamicTextureType::Color, RenderTextureWrap::Clamp, RenderTextureFilter::Linear);
 	half_fbo2 = Loader::framebuffer_permanent(1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, half_buffer2);
 
@@ -1663,6 +1694,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 		swapper_physics->done<SwapType_Write>();
 
 #if !SERVER
+		resolution_apply(sync_render->input.width, sync_render->input.height);
 		shadow_quality_apply();
 
 		sync_render->write(RenderOp::Clear);

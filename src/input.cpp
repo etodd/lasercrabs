@@ -17,6 +17,48 @@ const char* btn_strings_xbox[s32(Gamepad::Btn::count)];
 const char* btn_strings_playstation[s32(Gamepad::Btn::count)];
 const char* control_strings[s32(Controls::count)];
 
+const char* control_setting_names[s32(Controls::count)] =
+{
+	"forward",
+	"backward",
+	"left",
+	"right",
+	"primary",
+	"zoom",
+	"ability1",
+	"ability2",
+	"ability3",
+	nullptr, // Start; can't be modified
+	nullptr, // Cancel; can't be modified
+	nullptr, // Pause; can't be modified
+	nullptr, // Interact; can't be modified
+	"interact",
+	"scoreboard",
+	"jump",
+	"parkour",
+};
+
+InputBinding control_defaults[s32(Controls::count)] =
+{
+	{ Gamepad::Btn::DUp, KeyCode::W, KeyCode::Up, }, // Forward
+	{ Gamepad::Btn::DDown, KeyCode::S, KeyCode::Down, }, // Backward
+	{ Gamepad::Btn::DLeft, KeyCode::A, KeyCode::Left, }, // Left
+	{ Gamepad::Btn::DRight, KeyCode::D, KeyCode::Right, }, // Right
+	{ Gamepad::Btn::RightTrigger, KeyCode::MouseLeft, KeyCode::None, }, // Primary
+	{ Gamepad::Btn::LeftTrigger, KeyCode::MouseRight, KeyCode::None, }, // Zoom
+	{ Gamepad::Btn::X, KeyCode::D1, KeyCode::None, }, // Ability1
+	{ Gamepad::Btn::Y, KeyCode::D2, KeyCode::None, }, // Ability2
+	{ Gamepad::Btn::B, KeyCode::D3, KeyCode::None, }, // Ability3
+	{ Gamepad::Btn::Start, KeyCode::Return, KeyCode::None, }, // Start
+	{ Gamepad::Btn::B, KeyCode::Escape, KeyCode::None, }, // Cancel
+	{ Gamepad::Btn::Start, KeyCode::Escape, KeyCode::None, }, // Pause
+	{ Gamepad::Btn::A, KeyCode::Space, KeyCode::Return, }, // Interact
+	{ Gamepad::Btn::A, KeyCode::F, KeyCode::None, }, // InteractSecondary
+	{ Gamepad::Btn::Back, KeyCode::Tab, KeyCode::None, }, // Scoreboard
+	{ Gamepad::Btn::RightTrigger, KeyCode::Space, KeyCode::None, }, // Jump
+	{ Gamepad::Btn::LeftTrigger, KeyCode::LShift, KeyCode::None, }, // Parkour
+};
+
 void load_strings()
 {
 	key_strings[s32(KeyCode::None)] = _(strings::key_None);

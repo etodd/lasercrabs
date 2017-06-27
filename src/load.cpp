@@ -169,28 +169,31 @@ InputBinding input_binding(cJSON* parent, const char* key, const InputBinding& d
 		return default_value;
 
 	InputBinding binding;
-	binding.key1 = KeyCode(Json::get_s32(json, "key1", s32(default_value.key1)));
+	binding.key1 = KeyCode(Json::get_s32(json, "key", s32(default_value.key1)));
 	if (s32(binding.key1) < 0 || s32(binding.key1) >= s32(KeyCode::count))
 		binding.key1 = default_value.key1;
-	binding.key2 = KeyCode(Json::get_s32(json, "key2", s32(default_value.key2)));
-	if (s32(binding.key2) < 0 || s32(binding.key2) >= s32(KeyCode::count))
-		binding.key2 = default_value.key2;
+	binding.key2 = default_value.key2;
 	binding.btn = Gamepad::Btn(Json::get_s32(json, "btn", s32(default_value.btn)));
 	if (s32(binding.btn) < 0 || s32(binding.btn) >= s32(Gamepad::Btn::count))
 		binding.btn = Gamepad::Btn(default_value.btn);
 	return binding;
 }
 
-cJSON* input_binding_json(const InputBinding& binding)
+cJSON* input_binding_json(const InputBinding& binding, const InputBinding& default_value)
 {
-	cJSON* json = cJSON_CreateObject();
-	if (binding.key1 != KeyCode::None)
-		cJSON_AddNumberToObject(json, "key1", s32(binding.key1));
-	if (binding.key2 != KeyCode::None)
-		cJSON_AddNumberToObject(json, "key2", s32(binding.key2));
-	if (binding.btn != Gamepad::Btn::None)
-		cJSON_AddNumberToObject(json, "btn", s32(binding.btn));
-	return json;
+	b8 key_modified = binding.key1 != KeyCode::None && binding.key1 != default_value.key1;
+	b8 btn_modified = binding.btn != Gamepad::Btn::None && binding.btn != default_value.btn;
+	if (key_modified || btn_modified)
+	{
+		cJSON* json = cJSON_CreateObject();
+		if (key_modified)
+			cJSON_AddNumberToObject(json, "key", s32(binding.key1));
+		if (btn_modified)
+			cJSON_AddNumberToObject(json, "btn", s32(binding.btn));
+		return json;
+	}
+	else
+		return nullptr;
 }
 
 void Loader::settings_load(s32 default_width, s32 default_height)
@@ -236,25 +239,14 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
 		Settings::Gamepad* bindings = &Settings::gamepads[i];
-		bindings->bindings[s32(Controls::Backward)] = input_binding(gamepad, "backward", { Gamepad::Btn::DDown, KeyCode::S, KeyCode::Down, });
-		bindings->bindings[s32(Controls::Forward)] = input_binding(gamepad, "forward", { Gamepad::Btn::DUp, KeyCode::W, KeyCode::Up, });
-		bindings->bindings[s32(Controls::Left)] = input_binding(gamepad, "left", { Gamepad::Btn::DLeft, KeyCode::A, KeyCode::Left, });
-		bindings->bindings[s32(Controls::Right)] = input_binding(gamepad, "right", { Gamepad::Btn::DRight, KeyCode::D, KeyCode::Right, });
-		bindings->bindings[s32(Controls::Primary)] = input_binding(gamepad, "primary", { Gamepad::Btn::RightTrigger, KeyCode::MouseLeft, KeyCode::None, });
-		bindings->bindings[s32(Controls::Zoom)] = input_binding(gamepad, "zoom", { Gamepad::Btn::LeftTrigger, KeyCode::MouseRight, KeyCode::None, });
-		bindings->bindings[s32(Controls::Ability1)] = input_binding(gamepad, "ability1", { Gamepad::Btn::X, KeyCode::D1, KeyCode::None, });
-		bindings->bindings[s32(Controls::Ability2)] = input_binding(gamepad, "ability2", { Gamepad::Btn::Y, KeyCode::D2, KeyCode::None, });
-		bindings->bindings[s32(Controls::Ability3)] = input_binding(gamepad, "ability3", { Gamepad::Btn::B, KeyCode::D3, KeyCode::None, });
-		bindings->bindings[s32(Controls::InteractSecondary)] = input_binding(gamepad, "interact", { Gamepad::Btn::A, KeyCode::F, KeyCode::None, });
-		bindings->bindings[s32(Controls::Scoreboard)] = input_binding(gamepad, "scoreboard", { Gamepad::Btn::Back, KeyCode::Tab, KeyCode::None, });
-		bindings->bindings[s32(Controls::Jump)] = input_binding(gamepad, "jump", { Gamepad::Btn::RightTrigger, KeyCode::Space, KeyCode::None, });
-		bindings->bindings[s32(Controls::Parkour)] = input_binding(gamepad, "parkour", { Gamepad::Btn::LeftTrigger, KeyCode::LShift, KeyCode::None, });
-
-		// these bindings cannot be changed
-		bindings->bindings[s32(Controls::Start)] = { Gamepad::Btn::Start, KeyCode::Return, KeyCode::None, };
-		bindings->bindings[s32(Controls::Cancel)] = { Gamepad::Btn::B, KeyCode::Escape, KeyCode::None, };
-		bindings->bindings[s32(Controls::Pause)] = { Gamepad::Btn::Start, KeyCode::Escape, KeyCode::None, };
-		bindings->bindings[s32(Controls::Interact)] = { Gamepad::Btn::A, KeyCode::Space, KeyCode::Return, };
+		for (s32 j = 0; j < s32(Controls::count); j++)
+		{
+			const char* name = Input::control_setting_names[j];
+			if (name)
+				bindings->bindings[j] = input_binding(gamepad, name, Input::control_defaults[j]);
+			else // no setting name; this binding cannot be changed
+				bindings->bindings[j] = Input::control_defaults[j];
+		}
 
 		bindings->invert_y = Json::get_s32(gamepad, "invert_y", 0);
 		bindings->zoom_toggle = Json::get_s32(gamepad, "zoom_toggle", 0);
@@ -276,20 +268,26 @@ void Loader::settings_save()
 {
 	cJSON* json = cJSON_CreateObject();
 	cJSON_AddNumberToObject(json, "version", config_version);
+	cJSON_AddNumberToObject(json, "framerate_limit", Settings::framerate_limit);
+	cJSON_AddNumberToObject(json, "record", s32(Settings::record));
+
+	// only save master server setting if it is not the default
+	if (strncmp(Settings::master_server, default_master_server, MAX_PATH_LENGTH - 1) != 0)
+		cJSON_AddStringToObject(json, "master_server", Settings::master_server);
+
+#if !SERVER
 	cJSON_AddNumberToObject(json, "width", Settings::width);
 	cJSON_AddNumberToObject(json, "height", Settings::height);
 	cJSON_AddNumberToObject(json, "fullscreen", Settings::fullscreen);
 	cJSON_AddNumberToObject(json, "vsync", Settings::vsync);
 	cJSON_AddNumberToObject(json, "sfx", Settings::sfx);
 	cJSON_AddNumberToObject(json, "music", Settings::music);
-	cJSON_AddNumberToObject(json, "framerate_limit", Settings::framerate_limit);
 	cJSON_AddNumberToObject(json, "shadow_quality", s32(Settings::shadow_quality));
 	cJSON_AddNumberToObject(json, "volumetric_lighting", s32(Settings::volumetric_lighting));
 	cJSON_AddNumberToObject(json, "antialiasing", s32(Settings::antialiasing));
 	cJSON_AddNumberToObject(json, "ssao", s32(Settings::ssao));
 	cJSON_AddNumberToObject(json, "waypoints", s32(Settings::waypoints));
 	cJSON_AddNumberToObject(json, "scan_lines", s32(Settings::scan_lines));
-	cJSON_AddNumberToObject(json, "record", s32(Settings::record));
 
 	cJSON* gamepads = cJSON_CreateArray();
 	cJSON_AddItemToObject(json, "gamepads", gamepads);
@@ -298,28 +296,22 @@ void Loader::settings_save()
 	{
 		Settings::Gamepad* bindings = &Settings::gamepads[i];
 		cJSON* gamepad = cJSON_CreateObject();
-		cJSON_AddItemToObject(gamepad, "backward", input_binding_json(bindings->bindings[s32(Controls::Backward)]));
-		cJSON_AddItemToObject(gamepad, "forward", input_binding_json(bindings->bindings[s32(Controls::Forward)]));
-		cJSON_AddItemToObject(gamepad, "left", input_binding_json(bindings->bindings[s32(Controls::Left)]));
-		cJSON_AddItemToObject(gamepad, "right", input_binding_json(bindings->bindings[s32(Controls::Right)]));
-		cJSON_AddItemToObject(gamepad, "primary", input_binding_json(bindings->bindings[s32(Controls::Primary)]));
-		cJSON_AddItemToObject(gamepad, "zoom", input_binding_json(bindings->bindings[s32(Controls::Zoom)]));
-		cJSON_AddItemToObject(gamepad, "ability1", input_binding_json(bindings->bindings[s32(Controls::Ability1)]));
-		cJSON_AddItemToObject(gamepad, "ability2", input_binding_json(bindings->bindings[s32(Controls::Ability2)]));
-		cJSON_AddItemToObject(gamepad, "ability3", input_binding_json(bindings->bindings[s32(Controls::Ability3)]));
-		cJSON_AddItemToObject(gamepad, "interact", input_binding_json(bindings->bindings[s32(Controls::InteractSecondary)]));
-		cJSON_AddItemToObject(gamepad, "scoreboard", input_binding_json(bindings->bindings[s32(Controls::Scoreboard)]));
-		cJSON_AddItemToObject(gamepad, "jump", input_binding_json(bindings->bindings[s32(Controls::Jump)]));
-		cJSON_AddItemToObject(gamepad, "parkour", input_binding_json(bindings->bindings[s32(Controls::Parkour)]));
+		for (s32 j = 0; j < s32(Controls::count); j++)
+		{
+			const char* name = Input::control_setting_names[j];
+			if (name)
+			{
+				cJSON* json = input_binding_json(bindings->bindings[j], Input::control_defaults[j]);
+				if (json)
+					cJSON_AddItemToObject(gamepad, name, json);
+			}
+		}
 		cJSON_AddItemToObject(gamepad, "invert_y", cJSON_CreateNumber(bindings->invert_y));
 		cJSON_AddItemToObject(gamepad, "sensitivity", cJSON_CreateNumber(bindings->sensitivity));
 		cJSON_AddItemToObject(gamepad, "rumble", cJSON_CreateNumber(bindings->rumble));
 		cJSON_AddItemToArray(gamepads, gamepad);
 	}
-
-	// only save master server setting if it is not the default
-	if (strncmp(Settings::master_server, default_master_server, MAX_PATH_LENGTH - 1) != 0)
-		cJSON_AddStringToObject(json, "master_server", Settings::master_server);
+#endif
 
 	char path[MAX_PATH_LENGTH];
 	user_data_path(path, config_filename);

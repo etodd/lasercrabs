@@ -316,17 +316,6 @@ struct Gamepad
 	Type type;
 };
 
-namespace Input
-{
-	void load_strings();
-
-	void dead_zone(r32*, r32*, r32 = 0.1f);
-	void dead_zone_cross(r32*, r32*, r32 = 0.1f);
-	r32 dead_zone(r32, r32 = UI_JOYSTICK_DEAD_ZONE);
-	const char* control_string(Controls);
-	b8 control_customizable(Controls, Gamepad::Type);
-};
-
 #define MAX_GAMEPADS 4
 
 struct InputBinding
@@ -349,6 +338,20 @@ struct InputState
 	b8 focus;
 
 	b8 get(Controls, s32) const;
+};
+
+namespace Input
+{
+	void load_strings();
+
+	void dead_zone(r32*, r32*, r32 = 0.1f);
+	void dead_zone_cross(r32*, r32*, r32 = 0.1f);
+	r32 dead_zone(r32, r32 = UI_JOYSTICK_DEAD_ZONE);
+	const char* control_string(Controls);
+	b8 control_customizable(Controls, Gamepad::Type);
+
+	extern const char* control_setting_names[s32(Controls::count)];
+	extern InputBinding control_defaults[s32(Controls::count)];
 };
 
 }

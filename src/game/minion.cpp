@@ -821,7 +821,8 @@ void Minion::killed(Entity* killer)
 
 b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 {
-	if (target->has<AIAgent>() && target->get<AIAgent>()->stealth)
+	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth)
+		|| (target->has<Drone>() && target->get<Drone>()->state() != Drone::State::Crawl))
 		return false;
 
 	Vec3 pos = get<Minion>()->aim_pos();
@@ -841,7 +842,7 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 			else
 			{
 				PlayerManager* manager = target->get<PlayerCommon>()->manager.ref();
-				if (Team::list[(s32)get<AIAgent>()->team].player_tracks[manager->id()].tracking)
+				if (Team::list[s32(get<AIAgent>()->team)].player_tracks[manager->id()].tracking)
 					limit_vision_cone = false;
 			}
 		}

@@ -340,9 +340,9 @@ namespace VI
 					gamepad->right_y = r32(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY)) / 32767.0f;
 					gamepad->left_trigger = r32(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT)) / 32767.0f;
 					gamepad->right_trigger = r32(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) / 32767.0f;
-					if (gamepad->left_trigger > 0.5f)
+					if (gamepad->left_trigger > 0.1f)
 						gamepad->btns |= 1 << s32(Gamepad::Btn::LeftTrigger);
-					if (gamepad->right_trigger > 0.5f)
+					if (gamepad->right_trigger > 0.1f)
 						gamepad->btns |= 1 << s32(Gamepad::Btn::RightTrigger);
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER))
 						gamepad->btns |= 1 << s32(Gamepad::Btn::LeftShoulder);

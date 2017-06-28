@@ -123,13 +123,13 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::sniper,
 		strings::description_sniper,
 		Asset::Mesh::icon_sniper,
-		250,
+		300,
 	},
 	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
-		250,
+		300,
 	},
 };
 

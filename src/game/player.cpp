@@ -50,11 +50,10 @@ namespace VI
 #define fov_sniper (fov_default * 0.25f)
 #define zoom_speed_multiplier 0.25f
 #define zoom_speed_multiplier_sniper 0.15f
-#define zoom_speed (1.0f / 0.1f)
+#define zoom_speed (1.0f / 0.15f)
 #define speed_mouse (0.05f / 60.0f)
 #define speed_joystick 5.0f
-#define gamepad_rotation_acceleration (1.0f / 0.2f)
-#define attach_speed 5.0f
+#define gamepad_rotation_acceleration (1.0f / 0.4f)
 #define rotation_speed 20.0f
 #define msg_time 0.75f
 #define text_size 16.0f
@@ -85,7 +84,6 @@ void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, r32 offset)
 	{
 		abs_wall_normal = drone_rot * Vec3(0, 0, 1);
 		camera->pos += abs_wall_normal * 0.5f;
-		camera->pos.y += 0.5f - vi_min((r32)fabsf(abs_wall_normal.y), 0.5f);
 	}
 	else
 		abs_wall_normal = camera->rot * Vec3(0, 0, 1);
@@ -2917,7 +2915,27 @@ void PlayerControlHuman::update(const Update& u)
 					try_secondary = false;
 				}
 
-				r32 fov_target = try_secondary ? (get<Drone>()->current_ability == Ability::Sniper ? fov_sniper : fov_zoom) : fov_default;
+				r32 zoom_amount;
+				if (Settings::gamepads[gamepad].zoom_toggle)
+					zoom_amount = try_secondary ? 1.0f : 0.0f;
+				else
+				{
+					// analog zoom
+					if (try_secondary)
+					{
+						Gamepad::Btn zoom_btn = Settings::gamepads[gamepad].bindings[s32(Controls::Zoom)].btn;
+						if (zoom_btn == Gamepad::Btn::LeftTrigger && u.input->gamepads[gamepad].left_trigger > 0.0f)
+							zoom_amount = u.input->gamepads[gamepad].left_trigger;
+						else if (zoom_btn == Gamepad::Btn::RightTrigger && u.input->gamepads[gamepad].right_trigger > 0.0f)
+							zoom_amount = u.input->gamepads[gamepad].right_trigger;
+						else
+							zoom_amount = 1.0f;
+					}
+					else
+						zoom_amount = 0.0f;
+				}
+
+				r32 fov_target = LMath::lerpf(zoom_amount, fov_default, (get<Drone>()->current_ability == Ability::Sniper ? fov_sniper : fov_zoom));
 
 				if (fov < fov_target)
 					fov = vi_min(fov + zoom_speed * sinf(fov) * u.time.delta, fov_target);
@@ -3155,7 +3173,7 @@ void PlayerControlHuman::update(const Update& u)
 			else
 			{
 				// we're aiming at something
-				if (try_primary && camera_shake_timer < 0.3f) // don't go anywhere if the camera is shaking wildly
+				if (try_primary && camera_shake_timer < 0.1f) // don't go anywhere if the camera is shaking wildly
 				{
 					PlayerControlHumanNet::Message msg;
 					msg.dir = Vec3::normalize(reticle.pos - get<Transform>()->absolute_pos());

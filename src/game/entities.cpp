@@ -666,14 +666,23 @@ void Battery::update_all(const Update& u)
 	}
 }
 
+// instant reward for capturing the battery
 s16 Battery::reward() const
 {
-	return s16(vi_max(1, vi_min(5, s32(reward_level / 2) + 1)) * 10);
+	return s16(vi_max(1, vi_min(10, s32(reward_level / 2) + 1)) * 5);
 }
 
+// applied to every player on the owning team every ENERGY_INCREMENT_INTERVAL seconds
 s16 Battery::increment() const
 {
-	return 4;
+	s32 multiplier;
+	if (PlayerManager::list.count() >= 6)
+		multiplier = 2;
+	else if (PlayerManager::list.count() > 2)
+		multiplier = 3;
+	else
+		multiplier = 5;
+	return s16(vi_max(1, vi_min(5, s32(reward_level / 2) + 1)) * multiplier);
 }
 
 SpawnPointEntity::SpawnPointEntity(AI::Team team, b8 visible)
@@ -1156,7 +1165,8 @@ b8 Turret::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 b8 Turret::can_see(Entity* target) const
 {
-	if (target->has<AIAgent>() && target->get<AIAgent>()->stealth)
+	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth)
+		|| (target->has<Drone>() && target->get<Drone>()->state() != Drone::State::Crawl))
 		return false;
 
 	Vec3 pos = get<Transform>()->absolute_pos();
@@ -1236,13 +1246,18 @@ void Turret::update_server(const Update& u)
 
 	if (target.ref() && cooldown <= 0.0f)
 	{
-		Vec3 gun_pos = get<Transform>()->absolute_pos();
-		Vec3 aim_pos;
-		if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, BOLT_SPEED, nullptr, &aim_pos))
-			aim_pos = target.ref()->get<Transform>()->absolute_pos();
-		gun_pos += Vec3::normalize(aim_pos - gun_pos) * TURRET_RADIUS;
-		Net::finalize(World::create<BoltEntity>(team, nullptr, entity(), Bolt::Type::Turret, gun_pos, aim_pos - gun_pos));
-		cooldown += TURRET_COOLDOWN;
+		if (can_see(target.ref()))
+		{
+			Vec3 gun_pos = get<Transform>()->absolute_pos();
+			Vec3 aim_pos;
+			if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, BOLT_SPEED, nullptr, &aim_pos))
+				aim_pos = target.ref()->get<Transform>()->absolute_pos();
+			gun_pos += Vec3::normalize(aim_pos - gun_pos) * TURRET_RADIUS;
+			Net::finalize(World::create<BoltEntity>(team, nullptr, entity(), Bolt::Type::Turret, gun_pos, aim_pos - gun_pos));
+			cooldown += TURRET_COOLDOWN;
+		}
+		else
+			target_check_time = 0.0f;
 	}
 }
 

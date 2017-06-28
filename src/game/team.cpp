@@ -300,7 +300,7 @@ b8 visibility_check(Entity* i, Entity* j, r32* distance)
 }
 
 // determine which sensors can see the given player
-void update_visibility_sensor(Entity* visibility[][MAX_PLAYERS], PlayerManager* player, Entity* player_entity)
+void update_visibility_sensor(Entity* visibility[][MAX_TEAMS], PlayerManager* player, Entity* player_entity)
 {
 	Quat player_rot;
 	Vec3 player_pos;
@@ -320,7 +320,7 @@ void update_visibility_sensor(Entity* visibility[][MAX_PLAYERS], PlayerManager* 
 	}
 }
 
-void update_stealth_state(PlayerManager* player, AIAgent* a, Entity* visibility[][MAX_PLAYERS])
+void update_stealth_state(PlayerManager* player, AIAgent* a, Entity* visibility[][MAX_TEAMS])
 {
 	Quat player_rot;
 	Vec3 player_pos;
@@ -353,7 +353,7 @@ void update_visibility(const Update& u)
 {
 	// determine which drones are seen by which teams
 	// and update their stealth state
-	Entity* visibility[MAX_PLAYERS][MAX_PLAYERS] = {};
+	Entity* visibility[MAX_PLAYERS][MAX_TEAMS] = {};
 	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 	{
 		Entity* player_entity = player.item()->instance.ref();

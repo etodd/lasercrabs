@@ -53,7 +53,7 @@ endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-deprecated-register -Wno-deprecated-declarations")
-	set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG=1 -g")
+	set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG=1 -g -O0")
 	set(CMAKE_CXX_FLAGS_RELEASE "-DAK_OPTIMIZED=1")
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 	set(CMAKE_C_FLAGS "/Zi /MP")

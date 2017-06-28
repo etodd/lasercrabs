@@ -502,7 +502,35 @@ void update(const Update& u)
 		{
 			case Net::Client::MasterError::None:
 			{
-				Game::scheduled_dialog = strings::connection_failed;
+				switch (Net::Client::disconnect_reason)
+				{
+					case Net::DisconnectReason::Timeout:
+					case Net::DisconnectReason::SequenceGap:
+					{
+						Game::scheduled_dialog = strings::connection_failed;
+						break;
+					}
+					case Net::DisconnectReason::ServerFull:
+					{
+						Game::scheduled_dialog = strings::server_full;
+						break;
+					}
+					case Net::DisconnectReason::ServerResetting:
+					{
+						Game::scheduled_dialog = strings::server_resetting;
+						break;
+					}
+					case Net::DisconnectReason::WrongVersion:
+					{
+						Game::scheduled_dialog = strings::need_upgrade;
+						break;
+					}
+					default:
+					{
+						vi_assert(false);
+						break;
+					}
+				}
 				break;
 			}
 			case Net::Client::MasterError::WrongVersion:

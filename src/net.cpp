@@ -2192,7 +2192,7 @@ b8 packet_build_init(StreamWrite* p, Client* client)
 	return true;
 }
 
-b8 packet_build_disconnect(StreamWrite* p)
+b8 packet_build_disconnect(StreamWrite* p, DisconnectReason reason)
 {
 	using Stream = StreamWrite;
 	packet_init(p);
@@ -2556,7 +2556,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				{
 					// server is full
 					StreamWrite p;
-					packet_build_disconnect(&p);
+					packet_build_disconnect(&p, DisconnectReason::ServerFull);
 					packet_send(p, address);
 				}
 			}
@@ -2564,7 +2564,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			{
 				// wrong version
 				StreamWrite p;
-				packet_build_disconnect(&p);
+				packet_build_disconnect(&p, DisconnectReason::WrongVersion);
 				packet_send(p, address);
 			}
 			break;
@@ -2787,7 +2787,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 				{
 					// server is full
 					StreamWrite p;
-					packet_build_disconnect(&p);
+					packet_build_disconnect(&p, DisconnectReason::ServerFull);
 					packet_send(p, client->address);
 					handle_client_disconnect(client);
 				}
@@ -2829,7 +2829,7 @@ Mode mode()
 void reset()
 {
 	StreamWrite p;
-	packet_build_disconnect(&p);
+	packet_build_disconnect(&p, DisconnectReason::ServerResetting);
 	for (s32 i = 0; i < state_server.clients.length; i++)
 		packet_send(p, state_server.clients[i].address);
 
@@ -2869,6 +2869,7 @@ namespace Client
 {
 
 MasterError master_error;
+DisconnectReason disconnect_reason;
 r32 master_ping_timer;
 Array<std::array<char, MAX_PATH_LENGTH> > replay_files;
 s32 replay_file_index;
@@ -3065,8 +3066,9 @@ void update(const Update& u, r32 dt)
 	}
 }
 
-void handle_server_disconnect()
+void handle_server_disconnect(DisconnectReason reason)
 {
+	disconnect_reason = reason;
 	state_client.mode = Mode::Disconnected;
 	if (state_client.replay_mode == ReplayMode::Replaying)
 	{
@@ -3138,7 +3140,7 @@ void tick(const Update& u, r32 dt)
 			if (state_client.timeout > NET_TIMEOUT)
 			{
 				vi_debug("Connection to %s:%hd timed out.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
-				handle_server_disconnect();
+				handle_server_disconnect(DisconnectReason::Timeout);
 			}
 			else
 			{
@@ -3374,7 +3376,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			{
 				// we missed a packet that we'll never be able to recover
 				vi_debug("Lost connection to %s:%hd due to sequence gap. Local seq: %d. Remote seq: %d.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port, s32(processed_msg_frame.sequence_id), s32(msg_sequence_id));
-				handle_server_disconnect();
+				handle_server_disconnect(DisconnectReason::SequenceGap);
 				return false;
 			}
 
@@ -3391,7 +3393,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				if ((base_sequence_id == NET_SEQUENCE_INVALID) != (base == nullptr))
 				{
 					vi_debug("Lost connection to %s:%hd due to missing state frame delta compression basis seq %d. Current seq: %d", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port, s32(base_sequence_id), s32(frame.sequence_id));
-					handle_server_disconnect();
+					handle_server_disconnect(DisconnectReason::SequenceGap);
 					return false;
 				}
 
@@ -3421,8 +3423,10 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		}
 		case ServerPacket::Disconnect:
 		{
-			vi_debug("Connection closed by %s:%hd.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
-			handle_server_disconnect();
+			DisconnectReason reason;
+			serialize_enum(p, DisconnectReason, reason);
+			vi_debug("Connection closed by %s:%hd. Reason: %d", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port, s32(reason));
+			handle_server_disconnect(reason);
 			break;
 		}
 		default:
@@ -3728,7 +3732,7 @@ void update_start(const Update& u)
 			}
 
 			if (!packet_successfully_read)
-				Client::handle_server_disconnect();
+				Client::handle_server_disconnect(DisconnectReason::SequenceGap);
 			Client::state_client.tick_timer = fmodf(Client::state_client.tick_timer, NET_TICK_RATE);
 		}
 	}

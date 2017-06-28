@@ -120,10 +120,20 @@ void finalize_child(Entity*);
 b8 remove(Entity*);
 extern b8 show_stats;
 
+enum class DisconnectReason : s8
+{
+	Timeout,
+	SequenceGap,
+	ServerResetting,
+	ServerFull,
+	WrongVersion,
+	count,
+};
+
 #if SERVER
 namespace Server
 {
-	enum Mode
+	enum class Mode : s8
 	{
 		Idle,
 		Loading,
@@ -175,6 +185,7 @@ namespace Client
 	Mode mode();
 	
 	extern MasterError master_error;
+	extern DisconnectReason disconnect_reason;
 
 	void connect(Sock::Address);
 	void connect(const char*, u16);

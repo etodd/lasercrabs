@@ -57,13 +57,13 @@ Camera::Camera(s8 gamepad)
 	gamepad(gamepad),
 	team(-1)
 {
-	revision++;
 }
 
 Camera* Camera::add(s8 gamepad)
 {
 	Camera* c = list.add();
 	new (c) Camera(gamepad);
+	c->revision++;
 	return c;
 }
 
@@ -71,17 +71,7 @@ void Camera::remove()
 {
 	this->~Camera();
 	list.remove(id());
-}
-
-s32 Camera::active_count()
-{
-	s32 count = 0;
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->flag(CameraFlagActive))
-			count++;
-	}
-	return count;
+	revision++;
 }
 
 Mat4 Camera::view() const
@@ -105,12 +95,6 @@ void Camera::orthographic(r32 width, r32 height, r32 near, r32 far)
 	projection = Mat4::orthographic(width, height, near, far);
 	projection_inverse = projection.inverse();
 	update_frustum();
-}
-
-Camera::~Camera()
-{
-	flag(CameraFlagActive, false);
-	revision++;
 }
 
 b8 Camera::visible_sphere(const Vec3& sphere_pos, r32 sphere_radius) const

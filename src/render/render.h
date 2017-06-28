@@ -65,7 +65,6 @@ struct Camera
 
 	static ViewportBlueprint* viewport_blueprints[4];
 
-	static s32 active_count();
 	static Camera* add(s8);
 
 	Mat4 projection;
@@ -88,7 +87,6 @@ struct Camera
 	s8 gamepad;
 
 	Camera(s8 = 0);
-	~Camera();
 
 	void remove();
 

@@ -120,7 +120,7 @@ PlayerHuman* PlayerHuman::player_for_camera(const Camera* camera)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->camera == camera)
+		if (i.item()->camera.ref() == camera)
 			return i.item();
 	}
 	return nullptr;
@@ -248,13 +248,13 @@ void PlayerHuman::awake()
 		Audio::listener_enable(gamepad);
 
 		camera = Camera::add(gamepad);
-		camera->team = s8(get<PlayerManager>()->team.ref()->team());
-		camera->mask = 1 << camera->team;
-		camera->flag(CameraFlagColors, false);
+		camera.ref()->team = s8(get<PlayerManager>()->team.ref()->team());
+		camera.ref()->mask = 1 << camera.ref()->team;
+		camera.ref()->flag(CameraFlagColors, false);
 
 		Quat rot;
-		Game::level.map_view.ref()->absolute(&camera->pos, &rot);
-		camera->rot = kill_cam_rot = Quat::look(rot * Vec3(0, -1, 0));
+		Game::level.map_view.ref()->absolute(&camera.ref()->pos, &rot);
+		camera.ref()->rot = kill_cam_rot = Quat::look(rot * Vec3(0, -1, 0));
 	}
 
 #if SERVER
@@ -264,9 +264,9 @@ void PlayerHuman::awake()
 
 PlayerHuman::~PlayerHuman()
 {
-	if (camera)
+	if (camera.ref())
 	{
-		camera->remove();
+		camera.ref()->remove();
 		camera = nullptr;
 		Audio::listener_disable(gamepad);
 	}
@@ -405,7 +405,7 @@ void PlayerHuman::update_camera_rotation(const Update& u)
 	if (angle_vertical > PI * 0.495f)
 		angle_vertical = PI * 0.495f;
 
-	camera->rot = Quat::euler(0, angle_horizontal, angle_vertical);
+	camera.ref()->rot = Quat::euler(0, angle_horizontal, angle_vertical);
 }
 
 Entity* live_player_get(s32 index)
@@ -618,7 +618,7 @@ void PlayerHuman::update(const Update& u)
 		Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
 		Camera::ViewportBlueprint* blueprint = &viewports[count_local_before(this)];
 
-		camera->viewport =
+		camera.ref()->viewport =
 		{
 			Vec2(s32(blueprint->x * r32(u.input->width)), s32(blueprint->y * r32(u.input->height))),
 			Vec2(s32(blueprint->w * r32(u.input->width)), s32(blueprint->h * r32(u.input->height))),
@@ -626,16 +626,16 @@ void PlayerHuman::update(const Update& u)
 
 		if (!entity)
 		{
-			r32 aspect = camera->viewport.size.y == 0 ? 1.0f : camera->viewport.size.x / camera->viewport.size.y;
-			camera->perspective(fov_map_view, aspect, 1.0f, Game::level.skybox.far_plane);
-			camera->range = 0;
+			r32 aspect = camera.ref()->viewport.size.y == 0 ? 1.0f : camera.ref()->viewport.size.x / camera.ref()->viewport.size.y;
+			camera.ref()->perspective(fov_map_view, aspect, 1.0f, Game::level.skybox.far_plane);
+			camera.ref()->range = 0;
 			if (get<PlayerManager>()->spawn_timer == 0.0f)
 			{
-				camera->cull_range = 0;
-				camera->flag(CameraFlagCullBehindWall, false);
-				camera->flag(CameraFlagFog, true);
+				camera.ref()->cull_range = 0;
+				camera.ref()->flag(CameraFlagCullBehindWall, false);
+				camera.ref()->flag(CameraFlagFog, true);
 			}
-			camera->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour);
+			camera.ref()->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour);
 			upgrade_menu_hide();
 		}
 	}
@@ -680,7 +680,7 @@ void PlayerHuman::update(const Update& u)
 	{
 		case UIMode::PvpDefault:
 		{
-			kill_cam_rot = camera->rot;
+			kill_cam_rot = camera.ref()->rot;
 			if (get<PlayerManager>()->at_spawn_point())
 			{
 				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
@@ -755,28 +755,28 @@ void PlayerHuman::update(const Update& u)
 				// noclip
 				update_camera_rotation(u);
 
-				r32 aspect = camera->viewport.size.y == 0 ? 1 : r32(camera->viewport.size.x) / r32(camera->viewport.size.y);
-				camera->perspective(fov_map_view, aspect, 0.02f, Game::level.skybox.far_plane);
-				camera->range = 0;
-				camera->cull_range = 0;
+				r32 aspect = camera.ref()->viewport.size.y == 0 ? 1 : camera.ref()->viewport.size.x / camera.ref()->viewport.size.y;
+				camera.ref()->perspective(fov_map_view, aspect, 0.02f, Game::level.skybox.far_plane);
+				camera.ref()->range = 0;
+				camera.ref()->cull_range = 0;
 
 				if (!Console::visible)
 				{
 					r32 speed = u.input->keys.get(s32(KeyCode::LShift)) ? 24.0f : 4.0f;
 					if (u.input->get(Controls::Forward, gamepad))
-						camera->pos += camera->rot * Vec3(0, 0, 1) * u.time.delta * speed;
+						camera.ref()->pos += camera.ref()->rot * Vec3(0, 0, 1) * u.time.delta * speed;
 					if (u.input->get(Controls::Backward, gamepad))
-						camera->pos += camera->rot * Vec3(0, 0, -1) * u.time.delta * speed;
+						camera.ref()->pos += camera.ref()->rot * Vec3(0, 0, -1) * u.time.delta * speed;
 					if (u.input->get(Controls::Right, gamepad))
-						camera->pos += camera->rot * Vec3(-1, 0, 0) * u.time.delta * speed;
+						camera.ref()->pos += camera.ref()->rot * Vec3(-1, 0, 0) * u.time.delta * speed;
 					if (u.input->get(Controls::Left, gamepad))
-						camera->pos += camera->rot * Vec3(1, 0, 0) * u.time.delta * speed;
+						camera.ref()->pos += camera.ref()->rot * Vec3(1, 0, 0) * u.time.delta * speed;
 
 #if DEBUG
 					if (Game::level.local && u.input->keys.get(s32(KeyCode::MouseLeft)) && !u.last_input->keys.get(s32(KeyCode::MouseLeft)))
 					{
-						Entity* box = World::create<PhysicsEntity>(Asset::Mesh::cube, camera->pos, camera->rot, RigidBody::Type::Box, Vec3(0.25f, 0.25f, 0.5f), 1.0f, CollisionDefault, ~CollisionDroneIgnore);
-						box->get<RigidBody>()->btBody->setLinearVelocity(camera->rot * Vec3(0, 0, 15));
+						Entity* box = World::create<PhysicsEntity>(Asset::Mesh::cube, camera.ref()->pos, camera.ref()->rot, RigidBody::Type::Box, Vec3(0.25f, 0.25f, 0.5f), 1.0f, CollisionDefault, ~CollisionDroneIgnore);
+						box->get<RigidBody>()->btBody->setLinearVelocity(camera.ref()->rot * Vec3(0, 0, 15));
 						Net::finalize(box);
 					}
 #endif
@@ -797,9 +797,9 @@ void PlayerHuman::update(const Update& u)
 					// waiting for spawn timer; if something killed us, show the kill cam
 					Entity* k = killed_by.ref();
 					if (k)
-						kill_cam_rot = Quat::look(Vec3::normalize(k->get<Transform>()->absolute_pos() - camera->pos));
+						kill_cam_rot = Quat::look(Vec3::normalize(k->get<Transform>()->absolute_pos() - camera.ref()->pos));
 					if (get<PlayerManager>()->spawn_timer < SPAWN_DELAY - 1.0f)
-						camera->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera->rot, kill_cam_rot);
+						camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, kill_cam_rot);
 				}
 				else
 				{
@@ -819,9 +819,9 @@ void PlayerHuman::update(const Update& u)
 					else
 					{
 						if (!selected_spawn.ref() || selected_spawn.ref()->team != my_team)
-							selected_spawn = SpawnPoint::closest(1 << s32(my_team), camera->pos);
+							selected_spawn = SpawnPoint::closest(1 << s32(my_team), camera.ref()->pos);
 
-						Vec2 movement = camera_topdown_movement(u, gamepad, camera);
+						Vec2 movement = camera_topdown_movement(u, gamepad, camera.ref());
 						r32 movement_amount = movement.length();
 						if (movement_amount > 0.0f)
 						{
@@ -860,8 +860,8 @@ void PlayerHuman::update(const Update& u)
 					{
 						Quat target_rot = Quat::look(Game::level.map_view.ref()->absolute_rot() * Vec3(0, -1, 0));
 						Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.skybox.far_plane * -0.5f);
-						camera->pos += (target_pos - camera->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
-						camera->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera->rot, target_rot);
+						camera.ref()->pos += (target_pos - camera.ref()->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
+						camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, target_rot);
 					}
 				}
 			}
@@ -870,8 +870,8 @@ void PlayerHuman::update(const Update& u)
 				// we're dead but others still playing; spectate
 				update_camera_rotation(u);
 
-				r32 aspect = camera->viewport.size.y == 0 ? 1 : r32(camera->viewport.size.x) / r32(camera->viewport.size.y);
-				camera->perspective(fov_default, aspect, 0.02f, Game::level.skybox.far_plane);
+				r32 aspect = camera.ref()->viewport.size.y == 0 ? 1 : camera.ref()->viewport.size.x / camera.ref()->viewport.size.y;
+				camera.ref()->perspective(fov_default, aspect, 0.02f, Game::level.skybox.far_plane);
 
 				if (PlayerCommon::list.count() > 0)
 				{
@@ -884,14 +884,14 @@ void PlayerHuman::update(const Update& u)
 					Entity* spectating = live_player_get(spectate_index);
 
 					if (spectating)
-						camera_setup_drone(spectating, camera, 6.0f);
+						camera_setup_drone(spectating, camera.ref(), 6.0f);
 				}
 			}
 			break;
 		}
 		case UIMode::GameOver:
 		{
-			camera->range = 0;
+			camera.ref()->range = 0;
 			if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY)
 			{
 				// update score summary scroll
@@ -922,13 +922,13 @@ void PlayerHuman::update_late(const Update& u)
 		Entity* e = get<PlayerManager>()->instance.ref();
 		if (e)
 		{
-			camera->rot = Quat::euler(0.0f, PI * 0.25f, PI * 0.25f);
-			camera_setup_drone(e, camera, 8.0f);
+			camera.ref()->rot = Quat::euler(0.0f, PI * 0.25f, PI * 0.25f);
+			camera_setup_drone(e, camera.ref(), 8.0f);
 		}
 	}
 	
-	if (camera)
-		Audio::listener_update(gamepad, camera->pos, camera->rot);
+	if (camera.ref())
+		Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
 #endif
 }
 
@@ -962,11 +962,11 @@ void get_standing_position(Transform* i, Vec3* pos, r32* angle)
 
 void PlayerHuman::game_mode_transitioning()
 {
-	if (camera)
+	if (camera.ref())
 	{
 		Quat rot;
-		Game::level.map_view.ref()->absolute(&camera->pos, &rot);
-		camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+		Game::level.map_view.ref()->absolute(&camera.ref()->pos, &rot);
+		camera.ref()->rot = Quat::look(rot * Vec3(0, -1, 0));
 	}
 	get<PlayerManager>()->can_spawn = Game::level.mode == Game::Mode::Parkour;
 	last_supported.length = 0;
@@ -1349,7 +1349,7 @@ Upgrade PlayerHuman::upgrade_selected() const
 
 void PlayerHuman::draw_ui(const RenderParams& params) const
 {
-	if (params.camera != camera
+	if (params.camera != camera.ref()
 		|| Overworld::active()
 		|| Game::level.continue_match_after_death
 		|| !local)
@@ -2886,7 +2886,7 @@ void PlayerControlHuman::update(const Update& u)
 				}
 			}
 
-			Camera* camera = player.ref()->camera;
+			Camera* camera = player.ref()->camera.ref();
 			{
 				// zoom
 				b8 zoom_pressed = u.input->get(Controls::Zoom, gamepad);
@@ -2945,7 +2945,7 @@ void PlayerControlHuman::update(const Update& u)
 
 			// update camera projection
 			{
-				r32 aspect = camera->viewport.size.y == 0 ? 1 : r32(camera->viewport.size.x) / r32(camera->viewport.size.y);
+				r32 aspect = camera->viewport.size.y == 0 ? 1 : camera->viewport.size.x / camera->viewport.size.y;
 				camera->perspective(fov, aspect, 0.005f, Game::level.skybox.far_plane);
 			}
 
@@ -3347,7 +3347,7 @@ void PlayerControlHuman::update(const Update& u)
 						}
 						case Interactable::Type::Shop:
 						{
-							Overworld::show(player.ref()->camera, Overworld::State::StoryModeOverlay, Overworld::Tab::Inventory);
+							Overworld::show(player.ref()->camera.ref(), Overworld::State::StoryModeOverlay, Overworld::Tab::Inventory);
 							anim_base = nullptr;
 							break;
 						}
@@ -3421,7 +3421,7 @@ void PlayerControlHuman::update(const Update& u)
 				if (Tram::player_inside(entity()))
 					player.ref()->msg(_(strings::error_inside_tram), false);
 				else
-					Overworld::show(player.ref()->camera, Overworld::State::StoryMode);
+					Overworld::show(player.ref()->camera.ref(), Overworld::State::StoryMode);
 			}
 		
 			// set movement unless we're climbing up and down
@@ -3561,7 +3561,7 @@ void PlayerControlHuman::update_late(const Update& u)
 		&& !Overworld::modal()
 		&& local())
 	{
-		Camera* camera = player.ref()->camera;
+		Camera* camera = player.ref()->camera.ref();
 
 		{
 			r32 aspect = camera->viewport.size.y == 0 ? 1 : camera->viewport.size.x / camera->viewport.size.y;
@@ -3609,7 +3609,7 @@ void PlayerControlHuman::update_late(const Update& u)
 void PlayerControlHuman::draw_ui(const RenderParams& params) const
 {
 	if (params.technique != RenderTechnique::Default
-		|| params.camera != player.ref()->camera
+		|| params.camera != player.ref()->camera.ref()
 		|| Overworld::active()
 		|| Team::game_over)
 		return;

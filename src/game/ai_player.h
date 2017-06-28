@@ -72,7 +72,7 @@ struct FailedAction
 struct PlayerControlAI : public ComponentType<PlayerControlAI>
 {
 #if DEBUG_AI_CONTROL
-	Camera* camera;
+	Ref<Camera> camera;
 #endif
 
 	PriorityQueue<ActionEntry, ActionEntryKey> action_queue;

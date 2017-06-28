@@ -180,10 +180,10 @@ PlayerControlAI::PlayerControlAI(PlayerAI* p)
 void PlayerControlAI::awake()
 {
 #if DEBUG_AI_CONTROL
-	camera->flag(CameraFlagFog, false);
-	camera->team = s8(get<AIAgent>()->team);
-	camera->mask = 1 << camera->team;
-	camera->range = DRONE_MAX_DISTANCE;
+	camera.ref()->flag(CameraFlagFog, false);
+	camera.ref()->team = s8(get<AIAgent>()->team);
+	camera.ref()->mask = 1 << camera.ref()->team;
+	camera.ref()->range = DRONE_MAX_DISTANCE;
 #endif
 	link<&PlayerControlAI::drone_done_flying_or_dashing>(get<Drone>()->done_flying);
 	link<&PlayerControlAI::drone_done_flying_or_dashing>(get<Drone>()->done_dashing);
@@ -203,7 +203,7 @@ b8 PlayerControlAI::in_range(const Vec3& p, r32 range) const
 PlayerControlAI::~PlayerControlAI()
 {
 #if DEBUG_AI_CONTROL
-	camera->remove();
+	camera.ref()->remove();
 #endif
 }
 
@@ -1411,15 +1411,15 @@ void PlayerControlAI::update(const Update& u)
 	Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
 	Camera::ViewportBlueprint* blueprint = &viewports[PlayerHuman::count_local() + player.id];
 
-	camera->viewport =
+	camera.ref()->viewport =
 	{
 		Vec2(s32(blueprint->x * r32(u.input->width)), s32(blueprint->y * r32(u.input->height))),
 		Vec2(s32(blueprint->w * r32(u.input->width)), s32(blueprint->h * r32(u.input->height))),
 	};
-	r32 aspect = camera->viewport.size.y == 0 ? 1 : r32(camera->viewport.size.x) / r32(camera->viewport.size.y);
-	camera->perspective(80.0f * PI * 0.5f / 180.0f, aspect, 0.02f, Game::level.skybox.far_plane);
-	camera->rot = Quat::euler(0.0f, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
-	PlayerHuman::camera_setup_drone(entity(), camera, DRONE_THIRD_PERSON_OFFSET);
+	r32 aspect = camera.ref()->viewport.size.y == 0 ? 1 : camera.ref()->viewport.size.x / camera.ref()->viewport.size.y;
+	camera.ref()->perspective(80.0f * PI * 0.5f / 180.0f, aspect, 0.02f, Game::level.skybox.far_plane);
+	camera.ref()->rot = Quat::euler(0.0f, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
+	PlayerHuman::camera_setup_drone(entity(), camera.ref(), DRONE_THIRD_PERSON_OFFSET);
 #endif
 }
 

@@ -431,21 +431,6 @@ namespace Scripts
 {
 
 
-namespace scene
-{
-	void init(const EntityFinder& entities)
-	{
-		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-		{
-			i.item()->get<PlayerManager>()->can_spawn = false;
-
-			Quat rot;
-			entities.find("map_view")->get<Transform>()->absolute(&i.item()->camera->pos, &rot);
-			i.item()->camera->rot = Quat::look(rot * Vec3(0, -1, 0));
-		}
-	}
-}
-
 namespace title
 {
 	const r32 start_fov = 40.0f * PI * 0.5f / 180.0f;
@@ -465,7 +450,7 @@ namespace title
 
 	struct Data
 	{
-		Camera* camera;
+		Ref<Camera> camera;
 		Actor::Instance* dada;
 		Vec3 camera_start_pos;
 		r32 transition_timer;
@@ -579,21 +564,21 @@ namespace title
 	{
 		if (data->transition_timer > 0.0f)
 		{
-			if (data->camera)
+			if (data->camera.ref())
 			{
 				Vec3 head_pos = Vec3::zero;
 				data->character.ref()->to_world(Asset::Bone::character_head, &head_pos);
 				r32 blend = vi_min(1.0f, total_transition - data->transition_timer);
-				data->camera->pos = Vec3::lerp(blend, data->camera_start_pos, head_pos);
-				r32 aspect = data->camera->viewport.size.y == 0 ? 1 : r32(data->camera->viewport.size.x) / r32(data->camera->viewport.size.y);
-				data->camera->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), aspect, 0.1f, Game::level.skybox.far_plane);
+				data->camera.ref()->pos = Vec3::lerp(blend, data->camera_start_pos, head_pos);
+				r32 aspect = data->camera.ref()->viewport.size.y == 0 ? 1 : data->camera.ref()->viewport.size.x / data->camera.ref()->viewport.size.y;
+				data->camera.ref()->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), aspect, 0.1f, Game::level.skybox.far_plane);
 			}
 			r32 old_timer = data->transition_timer;
 			data->transition_timer = vi_max(0.0f, data->transition_timer - Game::real_time.delta);
 			if (data->transition_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
 			{
 				Audio::post_global_event(AK::EVENTS::PLAY_TRANSITION_IN);
-				data->camera->remove();
+				data->camera.ref()->remove();
 				data->camera = nullptr;
 				World::remove(data->character.ref()->entity());
 				Game::level.mode = Game::Mode::Parkour;
@@ -601,7 +586,7 @@ namespace title
 				for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 				{
 					i.item()->get<PlayerManager>()->can_spawn = true;
-					i.item()->camera->flag(CameraFlagActive, true);
+					i.item()->camera.ref()->flag(CameraFlagActive, true);
 				}
 			}
 		}
@@ -669,23 +654,23 @@ namespace title
 		{
 			data->camera = Camera::add(0);
 
-			data->camera->viewport =
+			data->camera.ref()->viewport =
 			{
 				Vec2(0, 0),
 				Vec2(Game::width, Game::height),
 			};
-			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : data->camera->viewport.size.x / data->camera->viewport.size.y;
-			data->camera->perspective(start_fov, aspect, 0.1f, Game::level.skybox.far_plane);
+			r32 aspect = data->camera.ref()->viewport.size.y == 0 ? 1 : data->camera.ref()->viewport.size.x / data->camera.ref()->viewport.size.y;
+			data->camera.ref()->perspective(start_fov, aspect, 0.1f, Game::level.skybox.far_plane);
 
 			Quat rot;
 			entities.find("map_view")->get<Transform>()->absolute(&data->camera_start_pos, &rot);
-			data->camera->pos = data->camera_start_pos;
-			data->camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+			data->camera.ref()->pos = data->camera_start_pos;
+			data->camera.ref()->rot = Quat::look(rot * Vec3(0, -1, 0));
 
 			data->character = entities.find("character")->get<Animator>();
 
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-				i.item()->camera->flag(CameraFlagActive, false);
+				i.item()->camera.ref()->flag(CameraFlagActive, false);
 		}
 		else if (Game::level.local)
 			World::remove(entities.find("character"));
@@ -1150,7 +1135,6 @@ namespace tier_1a
 
 Script Script::list[] =
 {
-	{ "scene", Scripts::scene::init },
 	{ "tutorial", Scripts::tutorial::init },
 	{ "title", Scripts::title::init },
 	{ "locke", Scripts::locke::init },

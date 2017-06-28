@@ -69,7 +69,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static void camera_setup_drone(Entity*, Camera*, r32);
 
 	u64 uuid;
-	Camera* camera;
 	UIMenu menu;
 	UIScroll score_summary_scroll;
 	UIText msg_text;
@@ -91,6 +90,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	s16 energy_notification_accumulator;
 	Ref<SpawnPoint> selected_spawn;
 	Ref<Entity> killed_by;
+	Ref<Camera> camera;
 	s8 gamepad;
 	b8 msg_good;
 	b8 upgrade_menu_open;

@@ -249,7 +249,7 @@ struct Data
 		UIMenu menu;
 	};
 
-	Camera* camera;
+	Ref<Camera> camera;
 	Camera camera_restore_data;
 	Quat camera_rot;
 	Vec3 camera_pos;
@@ -681,7 +681,7 @@ void select_zone_update(const Update& u, b8 enable_movement)
 	// movement
 	if (enable_movement)
 	{
-		Vec2 movement = PlayerHuman::camera_topdown_movement(u, 0, data.camera);
+		Vec2 movement = PlayerHuman::camera_topdown_movement(u, 0, data.camera.ref());
 		r32 movement_amount = movement.length();
 		if (movement_amount > 0.0f)
 		{
@@ -1241,9 +1241,9 @@ void hide()
 void hide_complete()
 {
 	Particles::clear();
-	if (data.camera)
+	if (data.camera.ref())
 	{
-		memcpy(data.camera, &data.camera_restore_data, sizeof(Camera));
+		memcpy(data.camera.ref(), &data.camera_restore_data, sizeof(Camera));
 		data.camera = nullptr;
 	}
 	data.state = data.state_next = State::Hidden;
@@ -2032,7 +2032,7 @@ void show_complete()
 
 	Particles::clear();
 	{
-		Camera* c = data.camera;
+		Camera* c = data.camera.ref();
 		r32 t = data.timer_transition;
 		data.~Data();
 		new (&data) Data();
@@ -2040,12 +2040,12 @@ void show_complete()
 		data.timer_transition = t;
 		data.splitscreen.menu.animation_time = Game::real_time.total;
 
-		data.camera_restore_data = *data.camera;
+		data.camera_restore_data = *data.camera.ref();
 
 		if (state_next != State::StoryModeOverlay) // if we're going to be modal, we need to mess with the camera.
 		{
-			data.camera->flag(CameraFlagColors, false);
-			data.camera->mask = 0;
+			data.camera.ref()->flag(CameraFlagColors, false);
+			data.camera.ref()->mask = 0;
 			Audio::post_global_event(AK::EVENTS::PLAY_AMBIENCE_OVERWORLD);
 		}
 	}
@@ -2200,8 +2200,8 @@ void update(const Update& u)
 
 		if (modal())
 		{
-			data.camera->pos = data.camera_pos;
-			data.camera->rot = data.camera_rot;
+			data.camera.ref()->pos = data.camera_pos;
+			data.camera.ref()->rot = data.camera_rot;
 		}
 
 		// pause
@@ -2268,7 +2268,7 @@ void draw_hollow(const RenderParams& params)
 
 void draw_ui(const RenderParams& params)
 {
-	if (active() && params.camera == data.camera)
+	if (active() && params.camera == data.camera.ref())
 	{
 		switch (data.state)
 		{

@@ -34,6 +34,7 @@ namespace Settings
 	extern b8 volumetric_lighting;
 	extern b8 antialiasing;
 	extern b8 waypoints;
+	extern b8 subtitles;
 	extern b8 scan_lines;
 	extern b8 record;
 	extern b8 ssao;

@@ -32,6 +32,7 @@ namespace Settings
 	b8 antialiasing;
 	b8 waypoints;
 	b8 scan_lines;
+	b8 subtitles;
 	b8 ssao;
 	b8 record;
 	char master_server[MAX_PATH_LENGTH];
@@ -230,6 +231,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	Settings::volumetric_lighting = b8(Json::get_s32(json, "volumetric_lighting", 1));
 	Settings::antialiasing = b8(Json::get_s32(json, "antialiasing", 1));
 	Settings::ssao = b8(Json::get_s32(json, "ssao", 1));
+	Settings::subtitles = b8(Json::get_s32(json, "subtitles", 1));
 	Settings::waypoints = b8(Json::get_s32(json, "waypoints", 1));
 	Settings::scan_lines = b8(Json::get_s32(json, "scan_lines", 1));
 	Settings::record = b8(Json::get_s32(json, "record", 0));
@@ -286,6 +288,7 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "volumetric_lighting", s32(Settings::volumetric_lighting));
 	cJSON_AddNumberToObject(json, "antialiasing", s32(Settings::antialiasing));
 	cJSON_AddNumberToObject(json, "ssao", s32(Settings::ssao));
+	cJSON_AddNumberToObject(json, "subtitles", s32(Settings::subtitles));
 	cJSON_AddNumberToObject(json, "waypoints", s32(Settings::waypoints));
 	cJSON_AddNumberToObject(json, "scan_lines", s32(Settings::scan_lines));
 

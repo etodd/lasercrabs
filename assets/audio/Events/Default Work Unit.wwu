@@ -1240,6 +1240,17 @@
 								</Action>
 							</ChildrenList>
 						</Event>
+						<Event Name="Play_meursault_arrow" ID="{53DF5E93-449E-4EF1-ADCB-98663D807D42}">
+							<ChildrenList>
+								<Action Name="Play" ID="{D94C5D6B-DAFE-4420-A4CA-C594BB30C773}" ShortID="293731796" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{E45C6115-B057-4565-BCEA-CC6152B4C9EA}" Global="false">
+											<ObjectRef Name="meursault_arrow" ID="{915EB3DF-0113-4408-8210-4C0EFE2F58F5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
 					</ChildrenList>
 				</Folder>
 				<Folder Name="music" ID="{2510DC71-3D30-487C-882E-3E0AD65BD055}" ShortID="408702147">

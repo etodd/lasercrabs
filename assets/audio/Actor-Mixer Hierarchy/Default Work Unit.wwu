@@ -2562,6 +2562,25 @@
 								<ActiveSource Name="meursault_a16" ID="{C64DFED4-8159-4251-A6C2-A16FBDBDB477}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
+						<Sound Name="meursault_arrow" ID="{915EB3DF-0113-4408-8210-4C0EFE2F58F5}" ShortID="956421484" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="meursault_arrow" ID="{6A4E8F8B-3547-4014-8341-97999320C5D2}" ShortID="944919477">
+									<Language>SFX</Language>
+									<AudioFile>meursault_arrow.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="meursault_arrow" ID="{6A4E8F8B-3547-4014-8341-97999320C5D2}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
 					</ChildrenList>
 				</ActorMixer>
 				<RandomSequenceContainer Name="Fly_Player" ID="{205BD6BD-40AF-4662-82C7-9EA923635F1E}" ShortID="175303669">

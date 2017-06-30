@@ -1036,6 +1036,14 @@ b8 settings_graphics(const Update& u, s8 gamepad, UIMenu* menu)
 	}
 
 	{
+		b8* subtitles = &Settings::subtitles;
+		sprintf(str, "%s", _(*subtitles ? strings::on : strings::off));
+		delta = menu->slider_item(u, _(strings::subtitles), str);
+		if (delta != 0)
+			*subtitles = !(*subtitles);
+	}
+
+	{
 		s32* fps = &Settings::framerate_limit;
 		sprintf(str, "%d", *fps);
 		delta = menu->slider_item(u, _(strings::framerate_limit), str);

@@ -23,6 +23,7 @@
 #include "load.h"
 #include "data/components.h"
 #include "drone.h"
+#include "settings.h"
 
 namespace VI
 {
@@ -283,19 +284,20 @@ void draw(const RenderParams& params)
 		{
 			const Instance& instance = *i.item();
 
-			if (!instance.model.ref())
-				continue;
-
 			Vec3 actor_pos = Vec3::zero;
-			if (instance.head_bone == AssetNull)
-				actor_pos = instance.model.ref()->get<Transform>()->absolute_pos();
-			else
-				instance.model.ref()->get<Animator>()->to_world(instance.head_bone, &actor_pos);
+			if (instance.model.ref())
+			{
+				if (instance.head_bone == AssetNull)
+					actor_pos = instance.model.ref()->get<Transform>()->absolute_pos();
+				else
+					instance.model.ref()->get<Animator>()->to_world(instance.head_bone, &actor_pos);
 
-			if (instance.highlight)
-				UI::indicator(params, actor_pos + Vec3(0, -0.4f, 0), UI::color_accent, true);
+				if (Settings::waypoints && instance.highlight)
+					UI::indicator(params, actor_pos + Vec3(0, -0.4f, 0), UI::color_accent, true);
+			}
 
-			if (instance.text != AssetNull
+			if (Settings::subtitles
+				&& instance.text != AssetNull
 				&& (instance.highlight || instance.dialogue_radius == 0.0f || (actor_pos - params.camera->pos).length_squared() < instance.dialogue_radius * instance.dialogue_radius))
 			{
 				UIText text;
@@ -1089,30 +1091,32 @@ namespace tier_1a
 
 	void trigger(Entity* player)
 	{
+#if !SERVER
 		if (!data->anim_played)
 		{
 			data->anim_played = true;
 
-			data->meursault->cue(AK_InvalidID, Asset::Animation::meursault_intro, AssetNull, Actor::Loop::No, Actor::Overlap::Yes);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A01, AssetNull, strings::meursault_a01, Actor::Loop::No, Actor::Overlap::No, 4.9f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_ARROW, Asset::Animation::meursault_intro, strings::meursault_arrow, Actor::Loop::No, Actor::Overlap::Yes);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A01, AssetNull, strings::meursault_a01, Actor::Loop::No, Actor::Overlap::No, 3.6f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A02, AssetNull, strings::meursault_a02, Actor::Loop::No, Actor::Overlap::No, 3.6f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A03, AssetNull, strings::meursault_a03);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A04, AssetNull, strings::meursault_a04);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A05, AssetNull, strings::meursault_a05);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A06, AssetNull, strings::meursault_a06);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A07, AssetNull, strings::meursault_a07);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A08, AssetNull, strings::meursault_a08);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A09, AssetNull, strings::meursault_a09);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A10, AssetNull, strings::meursault_a10);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A11, AssetNull, strings::meursault_a11);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A12, AssetNull, strings::meursault_a12);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A13, AssetNull, strings::meursault_a13);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A14, AssetNull, strings::meursault_a14);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A15, AssetNull, strings::meursault_a15);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A16, AssetNull, strings::meursault_a16);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A03, AssetNull, strings::meursault_a03, Actor::Loop::No, Actor::Overlap::No, 5.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A04, AssetNull, strings::meursault_a04, Actor::Loop::No, Actor::Overlap::No, 4.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A05, AssetNull, strings::meursault_a05, Actor::Loop::No, Actor::Overlap::No, 2.5f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A06, AssetNull, strings::meursault_a06, Actor::Loop::No, Actor::Overlap::No, 1.5f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A07, AssetNull, strings::meursault_a07, Actor::Loop::No, Actor::Overlap::No, 1.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A08, AssetNull, strings::meursault_a08, Actor::Loop::No, Actor::Overlap::No, 1.5f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A09, AssetNull, strings::meursault_a09, Actor::Loop::No, Actor::Overlap::No, 1.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A10, AssetNull, strings::meursault_a10, Actor::Loop::No, Actor::Overlap::No, 1.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A11, AssetNull, strings::meursault_a11, Actor::Loop::No, Actor::Overlap::No, 5.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A12, AssetNull, strings::meursault_a12, Actor::Loop::No, Actor::Overlap::No, 2.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A13, AssetNull, strings::meursault_a13, Actor::Loop::No, Actor::Overlap::No, 1.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A14, AssetNull, strings::meursault_a14, Actor::Loop::No, Actor::Overlap::No, 3.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A15, AssetNull, strings::meursault_a15, Actor::Loop::No, Actor::Overlap::No, 1.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A16, AssetNull, strings::meursault_a16, Actor::Loop::No, Actor::Overlap::No, 2.0f);
 
 			player->get<PlayerControlHuman>()->cinematic(data->anim_base.ref(), Asset::Animation::character_meursault_intro);
 		}
+#endif
 	}
 
 	void init(const EntityFinder& entities)
@@ -1125,8 +1129,10 @@ namespace tier_1a
 		entities.find("trigger")->get<PlayerTrigger>()->entered.link(&trigger);
 		data->anim_base = entities.find("player_anim");
 
+#if !SERVER
 		Loader::animation(Asset::Animation::character_meursault_intro);
 		Loader::animation(Asset::Animation::meursault_intro);
+#endif
 	}
 }
 

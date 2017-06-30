@@ -11,7 +11,7 @@ separate threads for physics, rendering, AI, and game logic
 - Content pipeline supporting .blend, .glsl, .otf, .png
 - Create levels, models, animations, and ragdoll rigs in Blender
 - Deferred rendering, cascaded shadow maps, edge detection, bloom, SSAO, weather effects
-- Geometry-based UI system
+- Geometry-based font rendering and UI system
 - UDP client-server network architecture with master server
 - Localization support
 - Keyboard/mouse/gamepad support via SDL
@@ -21,25 +21,20 @@ separate threads for physics, rendering, AI, and game logic
 - Almost all dependencies are open source GitHub submodules
 - Builds and runs on Win/Mac/Linux
 
-Is this good code?
-------------------
-
-It's alright. It uses templates too often. Otherwise not too bad.
-
 Windows quickstart
 ------------------
 
 1. Clone the repository and pull down the submodules. Don't worry about the `src/platforms/ps` submodule. You will need [Git LFS](https://git-lfs.github.com/).
-2. Install [Visual Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
+2. Install [Visual Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx) 2017.
 3. Install the [DirectX SDK](https://www.microsoft.com/en-us/download/confirmation.aspx?id=6812)
 4. Install [CMake](http://www.cmake.org/download/)
-5. Ensure [Blender](http://blender.org) is installed and
+5. Ensure [Blender](http://blender.org) 2.78c is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm)
-6. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI`
+6. Ensure [Wwise](https://www.audiokinetic.com/) 2016.2.4 build 6098 is installed and `WwiseCLI`
 is available on the path
 7. Run `setup-win.bat`
 8. Open `build/deceiver.sln` in Visual Studio
-9. Set the `deceiver` project as the default startup project
+9. Set the `deceiver`, `deceiversrv`, and `deceivermaster` projects to startup by default
 10. Hit F5 to run the game
 
 Linux quickstart
@@ -59,9 +54,9 @@ Mac quickstart
 
 1. Clone the repository and pull down the submodules. Don't worry about the `src/platforms/ps` submodule. You will need [Git LFS](https://git-lfs.github.com/).
 2. Install [Homebrew](http://brew.sh/)
-3. Ensure [Blender](http://blender.org) is installed and
+3. Ensure [Blender](http://blender.org) 2.78c is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm)
-4. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI.sh`
+4. Ensure [Wwise](https://www.audiokinetic.com/) 2016.2.4 build 6098 is installed and `WwiseCLI.sh`
 is available on the path
 5. Wwise might have trouble generating soundbanks the first time. You might
 need to delete any cache files and open the project manually in Wwise first.

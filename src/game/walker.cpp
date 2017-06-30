@@ -215,7 +215,10 @@ void Walker::update(const Update& u)
 			{
 #if !SERVER
 				if (velocity_diff < expected_vertical_speed - 0.5f)
+				{
 					land.fire(velocity_diff - expected_vertical_speed);
+					velocity = body->getLinearVelocity(); // event handlers may modify velocity
+				}
 #endif
 
 				{

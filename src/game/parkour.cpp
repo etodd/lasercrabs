@@ -211,8 +211,8 @@ void Parkour::land(r32 velocity_diff)
 			{
 				// hard landing
 				fsm.transition(State::HardLanding);
-				get<Walker>()->max_speed = 0.0f;
-				get<Walker>()->speed = 0.0f;
+				get<Walker>()->max_speed = get<Walker>()->speed = get<Walker>()->net_speed = 0.0f;
+				get<RigidBody>()->btBody->setLinearVelocity(Vec3(0, get<RigidBody>()->btBody->getLinearVelocity().getY(), 0));
 				get<Animator>()->layers[1].play(Asset::Animation::character_land_hard);
 				get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_LAND_HARD);
 				s8 damage = vi_min(s8((LANDING_VELOCITY_HARD - velocity_diff) * 0.5f), s8(DRONE_HEALTH + PARKOUR_SHIELD));

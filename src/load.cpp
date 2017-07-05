@@ -271,7 +271,8 @@ void Loader::settings_save()
 	cJSON* json = cJSON_CreateObject();
 	cJSON_AddNumberToObject(json, "version", config_version);
 	cJSON_AddNumberToObject(json, "framerate_limit", Settings::framerate_limit);
-	cJSON_AddNumberToObject(json, "record", s32(Settings::record));
+	if (Settings::record)
+		cJSON_AddNumberToObject(json, "record", 1);
 
 	// only save master server setting if it is not the default
 	if (strncmp(Settings::master_server, default_master_server, MAX_PATH_LENGTH - 1) != 0)

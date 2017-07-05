@@ -353,7 +353,7 @@ void Game::update(const Update& update_in)
 				}
 			}
 		}
-		if (inactive_timer > 60.0f && Game::scheduled_load_level == AssetNull)
+		if (inactive_timer > 45.0f && Game::scheduled_load_level == AssetNull)
 		{
 			if (Net::Client::replay_file_count() > 0)
 			{

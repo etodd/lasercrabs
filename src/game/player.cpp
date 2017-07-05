@@ -76,29 +76,58 @@ r32 hp_width(u8 hp, s8 shield, r32 scale = 1.0f)
 
 void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, r32 offset)
 {
-	Quat drone_rot = e->get<Drone>()->lerped_rotation;
-	Vec3 center = e->get<Drone>()->center_lerped();
-	camera->pos = center + camera->rot * Vec3(0, 0, -offset);
+	Quat lerped_rot = e->get<Drone>()->lerped_rotation;
+	Vec3 lerped_pos = e->get<Drone>()->center_lerped();
+	Quat abs_rot;
+	Vec3 abs_pos;
+	e->get<Transform>()->absolute(&abs_pos, &abs_rot);
+
+	Vec3 abs_offset = camera->rot * Vec3(0, 0, -offset);
+	camera->pos = lerped_pos + abs_offset;
+	Vec3 camera_pos_final = abs_pos + abs_offset;
 	Vec3 abs_wall_normal;
-	if (e->get<Transform>()->parent.ref())
+
+	b8 attached = e->get<Transform>()->parent.ref();
+	if (attached)
 	{
-		abs_wall_normal = drone_rot * Vec3(0, 0, 1);
-		camera->pos += abs_wall_normal * 0.5f;
+		abs_wall_normal = abs_rot * Vec3(0, 0, 1);
+		camera->pos += lerped_rot * Vec3(0, 0, 0.5f);
+		camera_pos_final += abs_wall_normal * 0.5f;
 	}
 	else
 		abs_wall_normal = camera->rot * Vec3(0, 0, 1);
 
 	Quat rot_inverse = camera->rot.inverse();
 
+	camera->range_center = rot_inverse * (abs_pos - camera->pos);
 	camera->range = e->get<Drone>()->range();
-	camera->range_center = rot_inverse * (center - camera->pos);
-	camera->cull_center = Vec3(0, 0, offset + DRONE_SHIELD_RADIUS);
-	Vec3 wall_normal_viewspace = rot_inverse * abs_wall_normal;
-	camera->clip_planes[0].redefine(wall_normal_viewspace, camera->range_center + wall_normal_viewspace * -DRONE_RADIUS);
-	camera->flag(CameraFlagCullBehindWall, abs_wall_normal.dot(camera->pos - center) < -DRONE_RADIUS + 0.02f); // camera is behind wall; set clip plane to wall
-	camera->cull_range = camera->range_center.length();
 	camera->flag(CameraFlagColors, false);
 	camera->flag(CameraFlagFog, false);
+
+	Vec3 wall_normal_viewspace = rot_inverse * abs_wall_normal;
+	camera->clip_planes[0].redefine(wall_normal_viewspace, camera->range_center + wall_normal_viewspace * -DRONE_RADIUS);
+	camera->flag(CameraFlagCullBehindWall, abs_wall_normal.dot(camera_pos_final - abs_pos) < -DRONE_RADIUS + 0.02f); // camera is behind wall; set clip plane to wall
+	camera->cull_range = camera->range_center.length();
+
+	if (attached)
+		camera->cull_center = Vec3(0, 0, offset + DRONE_SHIELD_RADIUS);
+	else
+	{
+		// blend cull radius down to zero as we fly away from the wall
+		r32 t = Game::time.total - e->get<Drone>()->attach_time;
+		const r32 blend_time = 0.1f;
+		if (t < blend_time)
+		{
+			r32 blend = 1.0f - (t / blend_time);
+			camera->cull_range *= blend;
+			camera->cull_center = Vec3(0, 0, offset);
+		}
+		else
+		{
+			camera->cull_range = 0.0f;
+			camera->flag(CameraFlagCullBehindWall, false);
+		}
+	}
 }
 
 s32 PlayerHuman::count_local()
@@ -623,27 +652,36 @@ void PlayerHuman::update(const Update& u)
 			Vec2(s32(blueprint->x * r32(u.input->width)), s32(blueprint->y * r32(u.input->height))),
 			Vec2(s32(blueprint->w * r32(u.input->width)), s32(blueprint->h * r32(u.input->height))),
 		};
+		camera.ref()->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour);
 
-		if (!entity)
+		if (entity)
+			camera.ref()->flag(CameraFlagActive, true);
+		else
 		{
-			r32 aspect = camera.ref()->viewport.size.y == 0 ? 1.0f : camera.ref()->viewport.size.x / camera.ref()->viewport.size.y;
-			camera.ref()->perspective(fov_map_view, aspect, 1.0f, Game::level.skybox.far_plane);
-			camera.ref()->range = 0;
-			if (get<PlayerManager>()->spawn_timer == 0.0f)
+			if (Game::level.mode == Game::Mode::Pvp)
 			{
-				camera.ref()->cull_range = 0;
-				camera.ref()->flag(CameraFlagCullBehindWall, false);
-				camera.ref()->flag(CameraFlagFog, true);
+				r32 aspect = camera.ref()->viewport.size.y == 0 ? 1.0f : camera.ref()->viewport.size.x / camera.ref()->viewport.size.y;
+				camera.ref()->perspective(fov_map_view, aspect, 1.0f, Game::level.skybox.far_plane);
+				camera.ref()->range = 0;
+				if (get<PlayerManager>()->spawn_timer == 0.0f)
+				{
+					camera.ref()->cull_range = 0;
+					camera.ref()->flag(CameraFlagCullBehindWall, false);
+					camera.ref()->flag(CameraFlagFog, true);
+				}
+				upgrade_menu_hide();
 			}
-			camera.ref()->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour);
-			upgrade_menu_hide();
+			else
+				camera.ref()->flag(CameraFlagActive, false);
 		}
 	}
 
 	msg_timer = vi_max(0.0f, msg_timer - Game::real_time.delta);
 
 	// after this point, it's all input-related stuff
-	if (Console::visible || Overworld::active()
+	if (Console::visible
+		|| Overworld::active()
+		|| Game::level.mode == Game::Mode::Special
 #if !SERVER
 		|| Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying
 #endif
@@ -724,7 +762,8 @@ void PlayerHuman::update(const Update& u)
 						b8 can_upgrade = !upgrade_in_progress
 							&& get<PlayerManager>()->upgrade_available(upgrade)
 							&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade)
-							&& (AbilityInfo::list[i].type != AbilityInfo::Type::Other || Game::level.has_feature(Game::FeatureLevel::All)); // don't allow Other ability upgrades in tutorial
+							&& (Game::level.has_feature(Game::FeatureLevel::All) || !get<PlayerManager>()->upgrades) // only allow one ability upgrade in tutorial
+							&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type != AbilityInfo::Type::Other); // don't allow Other ability upgrades in tutorial
 						if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
 						{
 							PlayerControlHumanNet::Message msg;
@@ -923,7 +962,7 @@ void PlayerHuman::update_late(const Update& u)
 		if (e)
 		{
 			camera.ref()->rot = Quat::euler(0.0f, PI * 0.25f, PI * 0.25f);
-			camera_setup_drone(e, camera.ref(), 8.0f);
+			camera_setup_drone(e, camera.ref(), 6.0f);
 		}
 	}
 	
@@ -2044,7 +2083,11 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 				if (msg.ability == Ability::None)
 					c->try_secondary = false;
 				else
-					c->player.ref()->rumble_add(0.5f);
+				{
+					const AbilityInfo& info = AbilityInfo::list[s32(msg.ability)];
+					if (!info.rapid_fire)
+						c->player.ref()->rumble_add(0.5f);
+				}
 			}
 
 			break;
@@ -2091,7 +2134,6 @@ s32 PlayerControlHuman::count_local()
 void PlayerControlHuman::drone_done_flying_or_dashing()
 {
 	camera_shake_timer = 0.0f; // stop screen shake
-	player.ref()->rumble_add(0.2f);
 #if SERVER
 	if (!get<Health>()->invincible())
 	{

@@ -1314,9 +1314,12 @@ void Drone::ensure_detached()
 	hit_targets.length = 0;
 	remote_reflection_timer = 0.0f;
 
-	attach_time = Game::time.total;
+	if (get<Transform>()->parent.ref())
+	{
+		attach_time = Game::time.total;
+		get<Transform>()->reparent(nullptr);
+	}
 
-	get<Transform>()->reparent(nullptr);
 	get<SkinnedModel>()->offset = Mat4::identity;
 
 	for (s32 i = 0; i < DRONE_LEGS; i++)

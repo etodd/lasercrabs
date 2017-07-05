@@ -866,7 +866,6 @@ namespace tutorial
 		else if (data->state == TutorialState::Return && !Overworld::active())
 		{
 			data->state = TutorialState::Done;
-			Actor::tut_clear();
 			Actor::tut(strings::tut_done);
 		}
 
@@ -879,15 +878,16 @@ namespace tutorial
 		{
 			if (PlayerHuman::list.count() > 0)
 			{
-				PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-				for (s32 i = 0; i < s32(Upgrade::count); i++)
+				PlayerHuman* human = PlayerHuman::list.iterator().item();
+				PlayerManager* manager = human->get<PlayerManager>();
+				if (manager->upgrades)
 				{
-					if (manager->has_upgrade(Upgrade(i)))
+					Actor::tut_clear();
+					if (human->ui_mode() != PlayerHuman::UIMode::Upgrading)
 					{
 						data->state = TutorialState::Ability;
-						Actor::tut(strings::tut_ability);
+						Actor::tut(strings::tut_ability, 0.5f);
 						Game::level.feature_level = Game::FeatureLevel::Abilities;
-						break;
 					}
 				}
 			}

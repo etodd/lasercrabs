@@ -62,6 +62,8 @@ struct Drone : public ComponentType<Drone>
 		Ref<const Transform> parent;
 	};
 
+	static const r32 cooldown_thresholds[DRONE_CHARGES];
+
 	struct Hit
 	{
 		enum class Type : s8
@@ -172,7 +174,7 @@ struct Drone : public ComponentType<Drone>
 	b8 direction_is_toward_attached_wall(const Vec3&) const;
 	b8 can_shoot(const Vec3&, Vec3* = nullptr, b8* = nullptr, const Net::StateFrame* = nullptr) const;
 	b8 can_shoot(const Target*, Vec3* = nullptr, r32 = DRONE_FLY_SPEED, const Net::StateFrame* = nullptr) const;
-	b8 could_shoot(const Vec3&, const Vec3&, Vec3* = nullptr, b8* = nullptr, const Net::StateFrame* = nullptr) const;
+	b8 could_shoot(const Vec3&, const Vec3&, Vec3* = nullptr, Vec3* = nullptr, b8* = nullptr, const Net::StateFrame* = nullptr) const;
 	b8 can_spawn(Ability, const Vec3&, Vec3* = nullptr, Vec3* = nullptr, RigidBody** = nullptr, b8* = nullptr) const;
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr, r32 = DRONE_FLY_SPEED) const; // shoot or dash

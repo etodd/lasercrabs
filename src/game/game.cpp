@@ -336,7 +336,8 @@ void Game::update(const Update& update_in)
 	{
 		inactive_timer += u.time.delta;
 		if (update_in.input->keys.any()
-			|| update_in.input->cursor_x != 0 || update_in.input->cursor_y != 0)
+			|| update_in.input->cursor_x != 0 || update_in.input->cursor_y != 0
+			|| (PlayerControlHuman::list.count() > 0 && PlayerControlHuman::list.iterator().item()->cinematic_active()))
 			inactive_timer = 0.0f;
 		else
 		{
@@ -353,7 +354,7 @@ void Game::update(const Update& update_in)
 				}
 			}
 		}
-		if (inactive_timer > 45.0f && Game::scheduled_load_level == AssetNull)
+		if (inactive_timer > 60.0f && Game::scheduled_load_level == AssetNull)
 		{
 			if (Net::Client::replay_file_count() > 0)
 			{

@@ -232,7 +232,6 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void awake();
 	~PlayerControlHuman();
 
-	r32 look_speed() const;
 	b8 local() const;
 	void health_changed(const HealthEvent&);
 	void killed(Entity*);
@@ -243,6 +242,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	const PositionEntry* remote_position(r32* = nullptr, r32* = nullptr) const;
 
 	void cinematic(Entity*, AssetID);
+	b8 cinematic_active() const;
 	void drone_detaching();
 	void drone_done_flying_or_dashing();
 	void drone_reflecting(const DroneReflectEvent&);
@@ -255,7 +255,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void update_late(const Update&);
 	void draw_ui(const RenderParams&) const;
 
-	void update_camera_input(const Update&, r32 = 1.0f);
+	void update_camera_input(const Update&, r32 = 1.0f, r32 = 1.0f);
 	Vec3 get_movement(const Update&, const Quat&) const;
 	b8 input_enabled() const;
 	b8 movement_enabled() const;

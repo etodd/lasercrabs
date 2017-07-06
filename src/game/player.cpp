@@ -54,7 +54,7 @@ namespace VI
 #define speed_mouse (0.05f / 60.0f)
 #define speed_joystick 5.0f
 #define gamepad_rotation_acceleration (1.0f / 0.4f)
-#define rotation_speed 20.0f
+#define attach_lerp_speed 30.0f
 #define msg_time 0.75f
 #define text_size 16.0f
 #define camera_shake_time 0.7f
@@ -1910,7 +1910,7 @@ void PlayerCommon::update(const Update& u)
 		Quat rot = get<Transform>()->absolute_rot();
 		r32 angle = Quat::angle(attach_quat, rot);
 		if (angle > 0)
-			attach_quat = Quat::slerp(vi_min(1.0f, rotation_speed * u.time.delta), attach_quat, rot);
+			attach_quat = Quat::slerp(vi_min(1.0f, attach_lerp_speed * u.time.delta), attach_quat, rot);
 	}
 }
 
@@ -1940,8 +1940,8 @@ void PlayerCommon::drone_done_flying()
 	Quat absolute_rot = get<Transform>()->absolute_rot();
 	Vec3 wall_normal = absolute_rot * Vec3(0, 0, 1);
 
-	// If we are spawning on to a flat floor, set attach_quat immediately
-	// This preserves the camera rotation set by the PlayerSpawn
+	// if we are spawning on to a flat floor, set attach_quat immediately
+	// this preserves the camera rotation set by the PlayerSpawn
 	if (Vec3::normalize(get<Drone>()->velocity).y == -1.0f && wall_normal.y > 0.9f)
 		attach_quat = absolute_rot;
 	else
@@ -2588,16 +2588,8 @@ void PlayerControlHuman::camera_shake(r32 amount) // amount ranges from 0 to 1
 b8 PlayerControlHuman::input_enabled() const
 {
 	PlayerHuman::UIMode ui_mode = player.ref()->ui_mode();
-	if (has<Parkour>())
-	{
-		// disable input if we're playing an animation on layer 3
-		// however we can still move while picking things up
-		AssetID anim = get<Animator>()->layers[3].animation;
-		if (anim != AssetNull && anim != Asset::Animation::character_pickup)
-			return false;
-	}
-
 	return !Console::visible
+		&& !cinematic_active()
 		&& !Overworld::active()
 		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)
 		&& !Team::game_over
@@ -2609,23 +2601,14 @@ b8 PlayerControlHuman::movement_enabled() const
 {
 	return input_enabled() && get<PlayerCommon>()->movement_enabled();
 }
-
-r32 PlayerControlHuman::look_speed() const
-{
-	if (has<Drone>() && try_secondary)
-		return get<Drone>()->current_ability == Ability::Sniper ? zoom_speed_multiplier_sniper : zoom_speed_multiplier;
-	else
-		return 1.0f;
-}
-
-void PlayerControlHuman::update_camera_input(const Update& u, r32 gamepad_rotation_multiplier)
+void PlayerControlHuman::update_camera_input(const Update& u, r32 overall_rotation_multiplier, r32 gamepad_rotation_multiplier)
 {
 	if (input_enabled())
 	{
 		s32 gamepad = player.ref()->gamepad;
 		if (gamepad == 0)
 		{
-			r32 s = look_speed() * speed_mouse * Settings::gamepads[gamepad].effective_sensitivity();
+			r32 s = overall_rotation_multiplier * speed_mouse * Settings::gamepads[gamepad].effective_sensitivity();
 			get<PlayerCommon>()->angle_horizontal -= r32(u.input->cursor_x) * s;
 			get<PlayerCommon>()->angle_vertical += r32(u.input->cursor_y) * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
 		}
@@ -2638,7 +2621,7 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 gamepad_rotati
 				u.input->gamepads[gamepad].right_y * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f)
 			);
 			Input::dead_zone(&adjustment.x, &adjustment.y);
-			adjustment *= look_speed() * speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::time.delta * gamepad_rotation_multiplier;
+			adjustment *= overall_rotation_multiplier * speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::time.delta * gamepad_rotation_multiplier;
 			r32 adjustment_length = adjustment.length();
 			if (adjustment_length > 0.0f)
 			{
@@ -2871,6 +2854,30 @@ const PlayerControlHuman::PositionEntry* PlayerControlHuman::remote_position(r32
 	return position;
 }
 
+// 0 to 1
+r32 zoom_amount_get(PlayerControlHuman* player, const Update& u)
+{
+	s8 gamepad = player->player.ref()->gamepad;
+	if (Settings::gamepads[gamepad].zoom_toggle)
+		return player->try_secondary ? 1.0f : 0.0f;
+	else
+	{
+		// analog zoom
+		if (player->try_secondary)
+		{
+			Gamepad::Btn zoom_btn = Settings::gamepads[gamepad].bindings[s32(Controls::Zoom)].btn;
+			if (zoom_btn == Gamepad::Btn::LeftTrigger && u.input->gamepads[gamepad].left_trigger > 0.0f)
+				return u.input->gamepads[gamepad].left_trigger;
+			else if (zoom_btn == Gamepad::Btn::RightTrigger && u.input->gamepads[gamepad].right_trigger > 0.0f)
+				return u.input->gamepads[gamepad].right_trigger;
+			else
+				return 1.0f;
+		}
+		else
+			return 0.0f;
+	}
+}
+
 void PlayerControlHuman::update(const Update& u)
 {
 	s32 gamepad = player.ref()->gamepad;
@@ -2929,6 +2936,9 @@ void PlayerControlHuman::update(const Update& u)
 			}
 
 			Camera* camera = player.ref()->camera.ref();
+
+			r32 zoom_amount = zoom_amount_get(this, u);
+
 			{
 				// zoom
 				b8 zoom_pressed = u.input->get(Controls::Zoom, gamepad);
@@ -2957,26 +2967,6 @@ void PlayerControlHuman::update(const Update& u)
 					try_secondary = false;
 				}
 
-				r32 zoom_amount;
-				if (Settings::gamepads[gamepad].zoom_toggle)
-					zoom_amount = try_secondary ? 1.0f : 0.0f;
-				else
-				{
-					// analog zoom
-					if (try_secondary)
-					{
-						Gamepad::Btn zoom_btn = Settings::gamepads[gamepad].bindings[s32(Controls::Zoom)].btn;
-						if (zoom_btn == Gamepad::Btn::LeftTrigger && u.input->gamepads[gamepad].left_trigger > 0.0f)
-							zoom_amount = u.input->gamepads[gamepad].left_trigger;
-						else if (zoom_btn == Gamepad::Btn::RightTrigger && u.input->gamepads[gamepad].right_trigger > 0.0f)
-							zoom_amount = u.input->gamepads[gamepad].right_trigger;
-						else
-							zoom_amount = 1.0f;
-					}
-					else
-						zoom_amount = 0.0f;
-				}
-
 				r32 fov_target = LMath::lerpf(zoom_amount, fov_default, (get<Drone>()->current_ability == Ability::Sniper ? fov_sniper : fov_zoom));
 
 				if (fov < fov_target)
@@ -2998,6 +2988,8 @@ void PlayerControlHuman::update(const Update& u)
 			{
 				r32 gamepad_rotation_multiplier = 1.0f;
 
+				r32 look_speed = LMath::lerpf(zoom_amount, 1.0f, get<Drone>()->current_ability == Ability::Sniper ? zoom_speed_multiplier_sniper : zoom_speed_multiplier);
+
 				if (input_enabled() && u.input->gamepads[gamepad].type != Gamepad::Type::None)
 				{
 					// gamepad aim assist
@@ -3017,7 +3009,8 @@ void PlayerControlHuman::update(const Update& u)
 
 						Vec3 to_indicator = indicator.pos - camera->pos;
 						r32 indicator_distance = to_indicator.length();
-						if (indicator_distance > DRONE_THIRD_PERSON_OFFSET && indicator_distance < reticle_distance + 2.5f)
+						if (indicator_distance > DRONE_THIRD_PERSON_OFFSET + DRONE_SHIELD_RADIUS * 2.0f
+							&& indicator_distance < reticle_distance + 2.5f)
 						{
 							to_indicator /= indicator_distance;
 							if (to_indicator.dot(to_reticle) > 0.99f)
@@ -3039,8 +3032,8 @@ void PlayerControlHuman::update(const Update& u)
 										}
 										Vec3 me_predicted = me + my_velocity;
 
-										if (indicator.velocity.length_squared() > DRONE_CRAWL_SPEED * 1.5f * DRONE_CRAWL_SPEED * 1.5f) // enemy moving too fast
-											break;
+										if (indicator.velocity.length_squared() > DRONE_DASH_SPEED * 0.5f * DRONE_DASH_SPEED * 0.5f) // enemy moving too fast
+											continue;
 
 										Vec3 target_predicted = indicator.pos + indicator.velocity * u.time.delta;
 										Vec3 predicted_ray = Vec3::normalize(target_predicted - me_predicted);
@@ -3056,11 +3049,15 @@ void PlayerControlHuman::update(const Update& u)
 									}
 
 									Vec2 adjustment(LMath::angle_to(current_offset.x, predicted_offset.x), LMath::angle_to(current_offset.y, predicted_offset.y));
+
+									r32 max_adjustment = look_speed * 0.5f * speed_joystick * u.time.delta;
+
 									if (current_offset.x > 0 == adjustment.x > 0 // only adjust if it's an adjustment toward the target
 										&& fabsf(get<PlayerCommon>()->angle_vertical) < PI * 0.4f) // only adjust if we're not looking straight up or down
-										get<PlayerCommon>()->angle_horizontal = LMath::angle_range(get<PlayerCommon>()->angle_horizontal + adjustment.x);
+										get<PlayerCommon>()->angle_horizontal = LMath::angle_range(get<PlayerCommon>()->angle_horizontal + vi_max(-max_adjustment, vi_min(max_adjustment, adjustment.x)));
+
 									if (current_offset.y > 0 == adjustment.y > 0) // only adjust if it's an adjustment toward the target
-										get<PlayerCommon>()->angle_vertical = LMath::angle_range(get<PlayerCommon>()->angle_vertical + adjustment.y);
+										get<PlayerCommon>()->angle_vertical = LMath::angle_range(get<PlayerCommon>()->angle_vertical + vi_max(-max_adjustment, vi_min(max_adjustment, adjustment.y)));
 								}
 
 								break;
@@ -3069,8 +3066,7 @@ void PlayerControlHuman::update(const Update& u)
 					}
 				}
 
-				// look
-				update_camera_input(u, gamepad_rotation_multiplier);
+				update_camera_input(u, look_speed, gamepad_rotation_multiplier);
 				get<PlayerCommon>()->clamp_rotation(get<PlayerCommon>()->attach_quat * Vec3(0, 0, 1), 0.5f);
 				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 
@@ -3595,6 +3591,14 @@ void PlayerControlHuman::cinematic(Entity* basis, AssetID anim)
 	get<Walker>()->absolute_pos(target_pos);
 
 	anim_base = basis;
+}
+
+b8 PlayerControlHuman::cinematic_active() const
+{
+	// cinematic is active if we're playing an animation on layer 3
+	// however, the collectible pickup animation also runs on layer 3 and it's not a cinematic
+	AssetID anim = get<Animator>()->layers[3].animation;
+	return anim != AssetNull && anim != Asset::Animation::character_pickup;
 }
 
 void PlayerControlHuman::update_late(const Update& u)
@@ -4308,7 +4312,10 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		{
 			s32 charges = get<Drone>()->charges;
 			if (charges == 0)
-				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * (get<Drone>()->cooldown / DRONE_COOLDOWN)) * UI::scale) }, spoke_width, UI::color_alert, PI);
+			{
+				r32 cooldown_scale = (get<Drone>()->cooldown - Drone::cooldown_thresholds[0]) / (DRONE_COOLDOWN - Drone::cooldown_thresholds[0]);
+				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * cooldown_scale) * UI::scale) }, spoke_width, UI::color_alert, PI);
+			}
 			else
 			{
 				const Vec2 box_size = Vec2(10.0f) * UI::scale;

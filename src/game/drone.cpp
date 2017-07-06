@@ -35,6 +35,8 @@ namespace VI
 #define DRONE_MIN_LEG_BLEND_SPEED (DRONE_LEG_BLEND_SPEED * 0.1f)
 #define DRONE_REFLECTION_TIME_TOLERANCE 0.1f
 
+const r32 Drone::cooldown_thresholds[DRONE_CHARGES] = { DRONE_COOLDOWN * 0.4f, DRONE_COOLDOWN * 0.1f, 0.0f, };
+
 DroneRaycastCallback::DroneRaycastCallback(const Vec3& a, const Vec3& b, const Entity* drone)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
 {
@@ -506,6 +508,14 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					// we hurt them
 					if (Game::level.local) // if we're a client, this has already been handled by the server
 						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref()));
+
+					if (drone->has<PlayerControlHuman>() && drone->state() != State::Crawl)
+					{
+						// if the target got killed, we'll get a notification about the energy reward
+						// but if it was only damaged, we need to let the player know
+						if (target.ref()->get<Health>()->hp > 0) // target is still around
+							drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::target_damaged), true);
+					}
 				}
 			}
 			break;
@@ -1124,10 +1134,10 @@ b8 Drone::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net:
 	if (state() == Drone::State::Crawl && direction_is_toward_attached_wall(dir))
 		return false;
 
-	return could_shoot(get<Transform>()->absolute_pos(), dir, final_pos, hit_target, state_frame);
+	return could_shoot(get<Transform>()->absolute_pos(), dir, final_pos, nullptr, hit_target, state_frame);
 }
 
-b8 Drone::could_shoot(const Vec3& trace_start, const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::StateFrame* state_frame) const
+b8 Drone::could_shoot(const Vec3& trace_start, const Vec3& dir, Vec3* final_pos, Vec3* final_normal, b8* hit_target, const Net::StateFrame* state_frame) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
 
@@ -1204,6 +1214,8 @@ b8 Drone::could_shoot(const Vec3& trace_start, const Vec3& dir, Vec3* final_pos,
 		{
 			if (final_pos)
 				*final_pos = hits.hits[hits.index_end].pos;
+			if (final_normal)
+				*final_normal = hits.hits[hits.index_end].normal;
 			if (hit_target)
 				*hit_target = hit_target_value;
 			return true;
@@ -1344,14 +1356,10 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 	Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 	Vec3 dir_normalized = Vec3::normalize(dir);
 	Vec3 pos = get<Transform>()->absolute_pos();
-	Vec3 wall_pos = pos + wall_normal * -DRONE_RADIUS;
-	
+
+	// determine how long we'll be dashing, and whether it will be a combo
+	r32 time = 0.0f;
 	b8 combo = false;
-
-	// check if the target is behind the wall we're currently attached to
-	b8 behind_wall = Vec3::normalize(target - wall_pos).dot(wall_normal) < -0.05f;
-
-	// determine how long we'll be dashing
 
 	Vec3 dir_flattened = dir_normalized - wall_normal * wall_normal.dot(dir_normalized);
 
@@ -1363,11 +1371,14 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 		if (ray_callback.hasHit())
 			max_time = ray_callback.m_closestHitFraction * DRONE_DASH_TIME;
 	}
-
-	r32 time = 0.0f;
+	Vec3 next_pos = pos;
 	while (time < max_time)
 	{
-		Vec3 next_pos = pos + dir_flattened * DRONE_DASH_SPEED * time;
+		const r32 time_increment = NET_TICK_RATE * 0.1f;
+
+		// recalculate dir_flattened in case wall_normal has changed as we've been dashing
+		dir_flattened = dir_normalized - wall_normal * wall_normal.dot(dir_normalized);
+		next_pos += dir_flattened * DRONE_DASH_SPEED * time_increment;
 
 		// check if we still have wall to dash on
 		Vec3 wall_ray_start = next_pos + wall_normal * DRONE_RADIUS;
@@ -1377,8 +1388,10 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 		if (ray_callback.hasHit())
 		{
 			Vec3 other_wall_normal = ray_callback.m_hitNormalWorld;
-			if (other_wall_normal.dot(wall_normal) < 0.99f
-				|| (ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
+			if (other_wall_normal.dot(wall_normal) > 0.707f
+				&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
+				wall_normal = other_wall_normal; // allow the drone to keep dashing around the corner
+			else
 				break; // no more wall
 		}
 		else
@@ -1387,15 +1400,16 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 		// check if we can hit the target now
 		Vec3 target_dir = Vec3::normalize(target - next_pos);
 		Vec3 final_pos;
-		if (behind_wall
-			&& could_shoot(next_pos, target_dir, &final_pos)
-			&& (final_pos - target).dot(target_dir) > DRONE_RADIUS * -2.0f)
+		Vec3 final_normal;
+		if (could_shoot(next_pos, target_dir, &final_pos, &final_normal)
+			&& (final_pos - target).dot(target_dir) > DRONE_RADIUS * -2.0f
+			&& (next_pos - final_pos).dot(final_normal) > DRONE_RADIUS * 2.0f)
 		{
 			combo = true;
 			break;
 		}
 
-		time += NET_TICK_RATE * 0.1f;
+		time += time_increment;
 	}
 
 	if (combo && time <= DRONE_DASH_TIME / r32(1 << 16))
@@ -1406,7 +1420,7 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 			Net::StateFrame state_frame_data;
 			if (net_state_frame(&state_frame_data))
 				state_frame = &state_frame_data;
-			if (!could_shoot(pos, dir, nullptr, nullptr, state_frame))
+			if (!could_shoot(pos, dir, nullptr, nullptr, nullptr, state_frame))
 				return false;
 		}
 		DroneNet::start_flying(this, dir_normalized, DroneNet::FlyFlag::None);
@@ -1540,7 +1554,7 @@ void drone_reflection_execute(Drone* a, Entity* reflected_off, const Vec3& dir)
 
 	DroneReflectEvent e;
 	e.entity = reflected_off;
-	e.new_velocity = dir * DRONE_DASH_SPEED;
+	e.new_velocity = dir * DRONE_FLY_SPEED;
 	a->reflecting.fire(e);
 	a->get<Transform>()->rot = Quat::look(Vec3::normalize(e.new_velocity));
 	a->velocity = e.new_velocity;
@@ -1728,9 +1742,6 @@ void Drone::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, r32 
 // return true if we actually switched to the other wall
 b8 Drone::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultCallback& ray_callback)
 {
-	if (state() == State::Dash) // don't dash around corners
-		return false;
-
 	// check to make sure that our movement direction won't get flipped if we switch walls.
 	// this prevents jittering back and forth between walls all the time.
 	// also, don't crawl onto inaccessible surfaces.
@@ -1879,8 +1890,7 @@ void Drone::crawl(const Vec3& dir_raw, r32 dt)
 
 				// check to make sure that our movement direction won't get flipped if we switch walls.
 				// this prevents jittering back and forth between walls all the time.
-				if (state() != State::Dash // don't dash around corners
-					&& dir_normalized.dot(wall_normal) < 0.05f
+				if (dir_normalized.dot(wall_normal) < 0.05f
 					&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
 				{
 					// transition to the other wall
@@ -1978,12 +1988,20 @@ void Drone::update_server(const Update& u)
 
 	if (cooldown > 0.0f)
 	{
+		r32 cooldown_last = cooldown;
 		cooldown = vi_max(0.0f, cooldown - u.time.delta);
-		if (cooldown == 0.0f)
+		for (s32 i = 0; i < DRONE_CHARGES; i++)
 		{
-			if (Game::level.local)
-				charges = DRONE_CHARGES;
-			bolter_charge_counter = 0;
+			if (charges < DRONE_CHARGES && cooldown <= cooldown_thresholds[i])
+			{
+				if (cooldown_last > cooldown_thresholds[i])
+				{
+					// we just crossed the threshold this frame
+					if (Game::level.local)
+						charges++;
+					bolter_charge_counter = 0;
+				}
+			}
 		}
 	}
 

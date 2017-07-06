@@ -498,15 +498,10 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 			}
 			else
 			{
-				if (lined_up && get<Drone>()->can_shoot(look_dir))
-				{
-					// reset timer for rapid-fire bolter shots
-					// if we are actually moving, drone_detaching() will overwrite this to 0
-					aim_timer = config.aim_min_delay - (0.2f + mersenne::randf_co() * 0.1f);
-
-					if (get<Drone>()->go(look_dir))
-						target_shot_at = true;
-				}
+				if (lined_up
+					&& get<Drone>()->can_shoot(look_dir)
+					&& get<Drone>()->go(look_dir))
+					target_shot_at = true;
 			}
 		}
 	}

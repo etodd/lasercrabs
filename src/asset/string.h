@@ -477,7 +477,7 @@ namespace Asset
 		const AssetID subtitles = 465;
 		const AssetID tab_inventory = 466;
 		const AssetID tab_map = 467;
-		const AssetID target_shield_down = 468;
+		const AssetID target_damaged = 468;
 		const AssetID team_a = 469;
 		const AssetID team_b = 470;
 		const AssetID team_c = 471;

@@ -121,7 +121,7 @@
 	"zones_under_attack": "Under attack: %d",
 	"binding": "[%s]",
 	"shield_down": "Shield down",
-	"target_shield_down": "Target shield down",
+	"target_damaged": "Target damaged",
 	"prompt_cancel": "[{{Cancel}}] Cancel",
 	"prompt_cancel_ability": "[%s] Cancel",
 	"ability_spawn_cost": "-%d energy",

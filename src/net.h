@@ -56,6 +56,7 @@ enum class MessageType : s8
 	Turret,
 	TransitionLevel,
 	Overworld,
+	Script,
 #if DEBUG
 	DebugCommand,
 #endif

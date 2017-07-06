@@ -1080,6 +1080,7 @@ namespace tier_1a
 		Actor::Instance* meursault;
 		Ref<Entity> anim_base;
 		b8 anim_played;
+		b8 drones_given;
 	};
 	Data* data;
 
@@ -1087,6 +1088,31 @@ namespace tier_1a
 	{
 		delete data;
 		data = nullptr;
+	}
+
+	b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
+	{
+		using Stream = Net::StreamRead;
+		if (!data->drones_given)
+		{
+			if (Game::level.local)
+				Overworld::resource_change(Resource::Drones, 2);
+			data->drones_given = true;
+		}
+		return true;
+	}
+
+	b8 give_drones()
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Script::net_msg_new(net_msg);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	void give_drones_animation_callback(Actor::Instance*)
+	{
+		give_drones();
 	}
 
 	void trigger(Entity* player)
@@ -1111,6 +1137,7 @@ namespace tier_1a
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A12, AssetNull, strings::meursault_a12, Actor::Loop::No, Actor::Overlap::No, 2.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A13, AssetNull, strings::meursault_a13, Actor::Loop::No, Actor::Overlap::No, 1.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A14, AssetNull, strings::meursault_a14, Actor::Loop::No, Actor::Overlap::No, 3.0f);
+			data->meursault->cue(&give_drones_animation_callback, 0.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A15, AssetNull, strings::meursault_a15, Actor::Loop::No, Actor::Overlap::No, 1.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A16, AssetNull, strings::meursault_a16, Actor::Loop::No, Actor::Overlap::No, 2.0f);
 
@@ -1141,12 +1168,43 @@ namespace tier_1a
 
 Script Script::list[] =
 {
-	{ "tutorial", Scripts::tutorial::init },
-	{ "title", Scripts::title::init },
-	{ "locke", Scripts::locke::init },
-	{ "tier_1a", Scripts::tier_1a::init },
+	{ "tutorial", Scripts::tutorial::init, nullptr, },
+	{ "title", Scripts::title::init, nullptr, },
+	{ "locke", Scripts::locke::init, nullptr, },
+	{ "tier_1a", Scripts::tier_1a::init, Scripts::tier_1a::net_msg, },
 	{ 0, 0, },
 };
 s32 Script::count; // set in Game::init
+
+Net::StreamWrite* Script::net_msg_new(NetMsgFunction callback)
+{
+	using Stream = Net::StreamWrite;
+
+	s32 script_id = -1;
+	for (s32 i = 0; i < count; i++)
+	{
+		if (list[i].net_callback == callback)
+		{
+			script_id = i;
+			break;
+		}
+	}
+	vi_assert(script_id != -1);
+
+	Stream* p = Net::msg_new(Net::MessageType::Script);
+	serialize_int(p, s32, script_id, 0, count);
+	return p;
+}
+
+b8 Script::net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+	s32 script_id;
+	serialize_int(p, s32, script_id, 0, count);
+	const Script& script = list[script_id];
+	if (!script.net_callback || !script.net_callback(p, src))
+		net_error();
+	return true;
+}
 
 }

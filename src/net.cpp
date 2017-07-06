@@ -2800,6 +2800,12 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 				net_error();
 			break;
 		}
+		case MessageType::Script:
+		{
+			if (!Script::net_msg(p, MessageSource::Remote))
+				net_error();
+			break;
+		}
 #if DEBUG
 		case MessageType::DebugCommand:
 		{
@@ -3994,6 +4000,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Overworld:
 		{
 			if (!Overworld::net_msg(p, src))
+				net_error();
+			break;
+		}
+		case MessageType::Script:
+		{
+			if (!Script::net_msg(p, src))
 				net_error();
 			break;
 		}

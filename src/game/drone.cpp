@@ -1374,11 +1374,8 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 	Vec3 next_pos = pos;
 	while (time < max_time)
 	{
-		const r32 time_increment = NET_TICK_RATE * 0.1f;
-
 		// recalculate dir_flattened in case wall_normal has changed as we've been dashing
 		dir_flattened = dir_normalized - wall_normal * wall_normal.dot(dir_normalized);
-		next_pos += dir_flattened * DRONE_DASH_SPEED * time_increment;
 
 		// check if we still have wall to dash on
 		Vec3 wall_ray_start = next_pos + wall_normal * DRONE_RADIUS;
@@ -1409,6 +1406,8 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 			break;
 		}
 
+		const r32 time_increment = NET_TICK_RATE * 0.1f;
+		next_pos += dir_flattened * DRONE_DASH_SPEED * time_increment;
 		time += time_increment;
 	}
 

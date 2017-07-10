@@ -1176,6 +1176,13 @@ Script Script::list[] =
 };
 s32 Script::count; // set in Game::init
 
+b8 net_msg_init(Net::StreamWrite* p, s32 script_id)
+{
+	using Stream = Net::StreamWrite;
+	serialize_int(p, s32, script_id, 0, Script::count);
+	return true;
+}
+
 Net::StreamWrite* Script::net_msg_new(NetMsgFunction callback)
 {
 	using Stream = Net::StreamWrite;
@@ -1192,7 +1199,7 @@ Net::StreamWrite* Script::net_msg_new(NetMsgFunction callback)
 	vi_assert(script_id != -1);
 
 	Stream* p = Net::msg_new(Net::MessageType::Script);
-	serialize_int(p, s32, script_id, 0, count);
+	net_msg_init(p, script_id);
 	return p;
 }
 

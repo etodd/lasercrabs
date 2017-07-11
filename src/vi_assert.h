@@ -1,6 +1,6 @@
 #pragma once
 
-// Stolen from https://github.com/gpakosz/Assert
+// stolen from https://github.com/gpakosz/Assert
 #if defined(_WIN32)
 #  define vi_debug_break() __debugbreak()
 #elif defined(__ORBIS__)
@@ -17,18 +17,12 @@
 #endif
 
 #if DEBUG
-
 #define vi_debug(fmt, ...) fprintf(stderr, "%s:%d: " fmt "\n", __func__, __LINE__, __VA_ARGS__)
+#else
+#define vi_debug(fmt, ...) ((void)0)
+#endif
 
 inline void vi_assert(bool x)
 {
 	if (!x) { vi_debug_break(); }
 }
-
-#else
-
-#define vi_debug(fmt, ...) ((void)0)
-
-#define vi_assert(x) ((void)0)
-
-#endif

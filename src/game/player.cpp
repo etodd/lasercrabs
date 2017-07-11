@@ -719,7 +719,7 @@ void PlayerHuman::update(const Update& u)
 		case UIMode::PvpDefault:
 		{
 			kill_cam_rot = camera.ref()->rot;
-			if (get<PlayerManager>()->at_spawn_point())
+			if (get<PlayerManager>()->at_spawn_point() && get<PlayerManager>()->energy > 0)
 			{
 				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 					upgrade_menu_show();
@@ -1411,7 +1411,8 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	{
 		if (mode == UIMode::PvpDefault
 			&& get<PlayerManager>()->can_transition_state()
-			&& get<PlayerManager>()->at_spawn_point())
+			&& get<PlayerManager>()->at_spawn_point()
+			&& get<PlayerManager>()->energy > 0)
 		{
 			// "upgrade!" prompt
 			UIText text;

@@ -682,7 +682,7 @@ s16 Battery::increment() const
 		multiplier = 3;
 	else
 		multiplier = 5;
-	return s16(vi_max(1, vi_min(5, s32(reward_level / 2) + 1)) * multiplier);
+	return s16(vi_max(1, vi_min(4, s32(reward_level / 2) + 1)) * multiplier);
 }
 
 SpawnPointEntity::SpawnPointEntity(AI::Team team, b8 visible)
@@ -1248,7 +1248,7 @@ void Turret::update_server(const Update& u)
 		{
 			Vec3 gun_pos = get<Transform>()->absolute_pos();
 			Vec3 aim_pos;
-			if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, BOLT_SPEED, nullptr, &aim_pos))
+			if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, BOLT_SPEED_DEFAULT, nullptr, &aim_pos))
 				aim_pos = target.ref()->get<Transform>()->absolute_pos();
 			gun_pos += Vec3::normalize(aim_pos - gun_pos) * TURRET_RADIUS;
 			Net::finalize(World::create<BoltEntity>(team, nullptr, entity(), Bolt::Type::Turret, gun_pos, aim_pos - gun_pos));
@@ -1485,9 +1485,13 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 	field->collision = collision;
 }
 
+r32 Bolt::speed(Type t)
+{
+	return t == Type::Drone ? BOLT_SPEED_DRONE : BOLT_SPEED_DEFAULT;
+}
+
 #define TELEPORTER_RADIUS 0.5f
 #define BOLT_THICKNESS 0.05f
-#define BOLT_MAX_LIFETIME (DRONE_MAX_DISTANCE * 0.99f) / BOLT_SPEED
 BoltEntity::BoltEntity(AI::Team team, PlayerManager* player, Entity* owner, Bolt::Type type, const Vec3& abs_pos, const Vec3& velocity)
 {
 	Vec3 dir = Vec3::normalize(velocity);
@@ -1501,18 +1505,20 @@ BoltEntity::BoltEntity(AI::Team team, PlayerManager* player, Entity* owner, Bolt
 
 	create<Audio>();
 
+	r32 speed = Bolt::speed(type);
+
 	Bolt* b = create<Bolt>();
-	b->remaining_lifetime = BOLT_MAX_LIFETIME;
+	b->remaining_lifetime = (DRONE_MAX_DISTANCE * 0.99f) / speed;
 	b->team = team;
 	b->owner = owner;
 	b->player = player;
-	b->velocity = dir * BOLT_SPEED;
+	b->velocity = dir * speed;
 	b->type = type;
 }
 
 namespace BoltNet
 {
-	b8 change_team(Bolt* b, AI::Team team)
+	b8 change_team(Bolt* b, AI::Team team, PlayerManager* player, Entity* owner)
 	{
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Bolt);
@@ -1521,6 +1527,14 @@ namespace BoltNet
 			serialize_ref(p, ref);
 		}
 		serialize_s8(p, team);
+		{
+			Ref<PlayerManager> ref = player;
+			serialize_ref(p, ref);
+		}
+		{
+			Ref<Entity> ref = owner;
+			serialize_ref(p, ref);
+		}
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -1534,6 +1548,8 @@ b8 Bolt::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	if (ref.ref())
 	{
 		serialize_s8(p, ref.ref()->team);
+		serialize_ref(p, ref.ref()->player);
+		serialize_ref(p, ref.ref()->owner);
 		ref.ref()->reflected = true;
 	}
 	return true;
@@ -1630,7 +1646,7 @@ s16 Bolt::raycast_mask(AI::Team team)
 
 void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 {
-	b8 do_reflect = false;
+	b8 destroy = true;
 
 	if (hit_object->has<ForceFieldCollision>())
 		hit_object = hit_object->get<ForceFieldCollision>()->field.ref()->entity();
@@ -1660,8 +1676,23 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 			damage = 0;
 			if (hit_object->has<Shield>())
 			{
-				do_reflect = true;
-				AI::entity_info(hit_object, team, &team); // switch team
+				// reflect
+				destroy = false;
+
+				Transform* transform = get<Transform>();
+				Vec3 dir;
+				if (owner.ref())
+					dir = Vec3::normalize(owner.ref()->get<Transform>()->absolute_pos() - transform->absolute_pos());
+				else
+					dir = Vec3::normalize(velocity) * -1.0f;
+				velocity = dir * 2.0f * speed(type);
+				remaining_lifetime = (DRONE_MAX_DISTANCE * 0.99f) / (2.0f * speed(type));
+				transform->absolute_rot(Quat::look(dir));
+				transform->absolute_pos(transform->absolute_pos() + dir * BOLT_LENGTH);
+
+				AI::Team reflect_team;
+				AI::entity_info(hit_object, team, &reflect_team);
+				BoltNet::change_team(this, reflect_team, PlayerManager::owner(hit_object), hit_object);
 			}
 		}
 
@@ -1680,21 +1711,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 
 	ParticleEffect::spawn(hit_object->has<Health>() ? ParticleEffect::Type::ImpactLarge : ParticleEffect::Type::ImpactSmall, hit, Quat::look(basis));
 
-	if (do_reflect)
-	{
-		BoltNet::change_team(this, team);
-		remaining_lifetime = BOLT_MAX_LIFETIME;
-		Transform* transform = get<Transform>();
-		Vec3 dir;
-		if (owner.ref())
-			dir = Vec3::normalize(owner.ref()->get<Transform>()->absolute_pos() - transform->absolute_pos());
-		else
-			dir = Vec3::normalize(velocity) * -1.0f;
-		velocity = dir * 2.0f * BOLT_SPEED;
-		transform->absolute_rot(Quat::look(dir));
-		transform->absolute_pos(transform->absolute_pos() + dir * BOLT_LENGTH);
-	}
-	else
+	if (destroy)
 		World::remove(entity());
 }
 
@@ -2572,7 +2589,7 @@ void EffectLight::update(const Update& u)
 	if (timer > duration)
 		remove(this);
 	else if (type == Type::Bolt)
-		pos += rot * Vec3(0, 0, u.time.delta * BOLT_SPEED);
+		pos += rot * Vec3(0, 0, u.time.delta * BOLT_SPEED_DRONE);
 }
 
 CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)

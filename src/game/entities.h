@@ -344,6 +344,7 @@ struct Bolt : public ComponentType<Bolt>
 
 	static r32 particle_accumulator;
 
+	static r32 speed(Type);
 	static s16 raycast_mask(AI::Team);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void update_client_all(const Update&);

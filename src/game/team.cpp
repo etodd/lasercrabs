@@ -57,19 +57,19 @@ AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 	},
 	{
 		Asset::Mesh::icon_minion,
-		20,
+		25,
 		AbilityInfo::Type::Build,
 		false,
 	},
 	{
 		Asset::Mesh::icon_sensor,
-		20,
+		25,
 		AbilityInfo::Type::Build,
 		false,
 	},
 	{
 		Asset::Mesh::icon_force_field,
-		80,
+		100,
 		AbilityInfo::Type::Build,
 		false,
 	},
@@ -81,7 +81,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 	},
 	{
 		Asset::Mesh::icon_grenade,
-		20,
+		25,
 		AbilityInfo::Type::Shoot,
 		false,
 	},
@@ -117,7 +117,7 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::force_field,
 		strings::description_force_field,
 		Asset::Mesh::icon_force_field,
-		250,
+		200,
 	},
 	{
 		strings::sniper,

@@ -728,7 +728,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 								const r32 SIMULATION_STEP = NET_TICK_RATE;
 								Net::StateFrame state_frame;
 								Net::state_frame_by_timestamp(&state_frame, timestamp);
-								Vec3 pos_bolt_next = pos_bolt + dir_normalized * (BOLT_SPEED * SIMULATION_STEP);
+								Vec3 pos_bolt_next = pos_bolt + dir_normalized * (BOLT_SPEED_DRONE * SIMULATION_STEP);
 								Vec3 pos_bolt_next_ray = pos_bolt_next + dir_normalized * BOLT_LENGTH;
 
 								r32 closest_hit_distance_sq = FLT_MAX;
@@ -1449,7 +1449,7 @@ r32 Drone::target_prediction_speed() const
 		}
 		case Ability::Bolter:
 		{
-			return BOLT_SPEED;
+			return BOLT_SPEED_DRONE;
 		}
 		default:
 		{
@@ -2015,6 +2015,10 @@ void Drone::update_server(const Update& u)
 
 		Vec3 position = get<Transform>()->absolute_pos();
 		Vec3 next_position;
+
+		if (btVector3(velocity).fuzzyZero()) // HACK. why does this happen
+			velocity = get<Transform>()->absolute_rot() * Vec3(0, 0, s == State::Dash ? DRONE_DASH_SPEED : DRONE_FLY_SPEED);
+
 		if (s == State::Dash)
 		{
 			crawl(velocity, vi_min(dash_timer, u.time.delta));
@@ -2035,7 +2039,6 @@ void Drone::update_server(const Update& u)
 			get<Transform>()->absolute_pos(next_position);
 		}
 
-		if (!btVector3(velocity).fuzzyZero())
 		{
 			Vec3 dir = Vec3::normalize(velocity);
 			Vec3 ray_start = position + dir * -DRONE_RADIUS;

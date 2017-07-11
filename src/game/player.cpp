@@ -110,7 +110,7 @@ void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, r32 offset)
 	camera->cull_range = camera->range_center.length();
 
 	if (attached)
-		camera->cull_center = Vec3(0, 0, offset + DRONE_SHIELD_RADIUS);
+		camera->cull_center = Vec3(0, 0, offset);
 	else
 	{
 		// blend cull radius down to zero as we fly away from the wall
@@ -3068,7 +3068,7 @@ void PlayerControlHuman::update(const Update& u)
 				}
 
 				update_camera_input(u, look_speed, gamepad_rotation_multiplier);
-				get<PlayerCommon>()->clamp_rotation(get<PlayerCommon>()->attach_quat * Vec3(0, 0, 1), 0.5f);
+				get<PlayerCommon>()->clamp_rotation(get<PlayerCommon>()->attach_quat * Vec3(0, 0, 1), 0.707f);
 				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 
 				// crawling
@@ -3103,7 +3103,7 @@ void PlayerControlHuman::update(const Update& u)
 
 				if (movement_enabled())
 				{
-					Vec3 trace_end = trace_start + trace_dir * (DRONE_SNIPE_DISTANCE + DRONE_THIRD_PERSON_OFFSET);
+					Vec3 trace_end = trace_start + trace_dir * DRONE_SNIPE_DISTANCE;
 					RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
 					Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
 
@@ -3185,7 +3185,7 @@ void PlayerControlHuman::update(const Update& u)
 				}
 				else
 				{
-					reticle.pos = trace_start + trace_dir * DRONE_THIRD_PERSON_OFFSET;
+					reticle.pos = trace_start + trace_dir * DRONE_SNIPE_DISTANCE;
 					reticle.normal = -trace_dir;
 				}
 			}

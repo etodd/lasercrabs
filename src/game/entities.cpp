@@ -2111,13 +2111,13 @@ b8 Target::predict_intersection(const Vec3& from, r32 speed, const Net::StateFra
 		pos += rot * local_offset; // todo possibly: rewind local_offset as well?
 
 		Net::StateFrame state_frame_last;
-		Net::state_frame_by_timestamp(&state_frame_last, state_frame->timestamp - NET_TICK_RATE);
+		Net::state_frame_by_timestamp(&state_frame_last, state_frame->timestamp - Net::tick_rate());
 		Vec3 pos_last;
 		Quat rot_last;
 		Net::transform_absolute(state_frame_last, get<Transform>()->id(), &pos_last, &rot_last);
 		pos_last += rot_last * local_offset;
 
-		v = (pos - pos_last) / NET_TICK_RATE;
+		v = (pos - pos_last) / Net::tick_rate();
 	}
 	else
 	{

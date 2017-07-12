@@ -1048,7 +1048,7 @@ b8 settings_graphics(const Update& u, s8 gamepad, UIMenu* menu)
 		sprintf(str, "%d", *fps);
 		delta = menu->slider_item(u, _(strings::framerate_limit), str);
 		if (delta < 0)
-			*fps = vi_max(10, (*fps) - 10);
+			*fps = vi_max(30, (*fps) - 10);
 		else if (delta > 0)
 			*fps = vi_min(500, (*fps) + 10);
 	}

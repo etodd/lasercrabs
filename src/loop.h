@@ -18,6 +18,7 @@
 #include "settings.h"
 #include "game/team.h"
 #include "game/entities.h"
+#include "net.h"
 
 #if DEBUG
 	#define DEBUG_RENDER 0
@@ -1660,14 +1661,14 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 		{
 			// limit framerate
 
-			r32 framerate_limit;
+			r32 dt_limit;
 #if SERVER
-			framerate_limit = Settings::framerate_limit;
+			dt_limit = Net::tick_rate();
 #else
-			framerate_limit = u.input->focus ? Settings::framerate_limit : 30;
+			dt_limit = u.input->focus ? (1.0f / r32(Settings::framerate_limit)) : (1.0f / 30.0f);
 #endif
 
-			r32 delay = (1.0f / framerate_limit) - time_update;
+			r32 delay = dt_limit - time_update;
 			if (delay > 0)
 				platform::sleep(delay);
 		}

@@ -857,7 +857,8 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	upgrade_completed(),
 	respawns(Game::level.respawns),
 	kills(),
-	deaths()
+	deaths(),
+	ability_purchase_times()
 {
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::session.allow_abilities)
 	{
@@ -955,7 +956,7 @@ namespace PlayerManagerNet
 		return true;
 	}
 
-	b8 upgrade_completed(PlayerManager* m, Upgrade u)
+	b8 upgrade_completed(PlayerManager* m, s32 index, Upgrade u)
 	{
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
@@ -967,6 +968,7 @@ namespace PlayerManagerNet
 			Message msg = Message::UpgradeCompleted;
 			serialize_enum(p, Message, msg);
 		}
+		serialize_int(p, s32, index, 0, MAX_ABILITIES - 1);
 		serialize_enum(p, Upgrade, u);
 		Net::msg_finalize(p);
 		return true;
@@ -1080,10 +1082,17 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSour
 			}
 			case PlayerManagerNet::Message::UpgradeCompleted:
 			{
+				s32 index;
+				serialize_int(p, s32, index, 0, MAX_ABILITIES - 1);
 				Upgrade u;
 				serialize_enum(p, Upgrade, u);
 				if (!Game::level.local || src == Net::MessageSource::Loopback)
+				{
+					m->upgrades |= 1 << s32(u);
+					m->abilities[index] = Ability(u);
+					m->ability_purchase_times[index] = Game::time.total;
 					m->upgrade_completed.fire(u);
+				}
 				break;
 			}
 			case PlayerManagerNet::Message::UpdateCounts:
@@ -1136,15 +1145,7 @@ void PlayerManager::upgrade_complete()
 
 	vi_assert(!has_upgrade(u));
 
-	upgrades |= 1 << s32(u);
-
-	if (s32(u) < s32(Ability::count))
-	{
-		// it's an ability
-		abilities[ability_count()] = Ability(u);
-	}
-
-	PlayerManagerNet::upgrade_completed(this, u);
+	PlayerManagerNet::upgrade_completed(this, ability_count(), u);
 }
 
 s16 PlayerManager::upgrade_cost(Upgrade u) const

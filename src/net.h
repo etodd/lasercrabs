@@ -83,10 +83,8 @@ struct PlayerManagerState
 {
 	r32 spawn_timer;
 	r32 state_timer;
-	s32 upgrades;
 	Ref<Entity> instance;
 	s16 energy;
-	Ability abilities[MAX_ABILITIES] = { Ability::None, Ability::None, Ability::None };
 	Upgrade current_upgrade = Upgrade::None;
 	b8 active;
 };
@@ -111,6 +109,7 @@ struct StateFrame
 };
 
 b8 init();
+r32 tick_rate();
 void update_start(const Update&);
 void update_end(const Update&);
 void finalize(Entity*);

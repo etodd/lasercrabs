@@ -69,7 +69,7 @@ namespace VI
 		while (true)
 		{
 			r64 time = platform::time();
-			sync->time.total = (r32)(time - start_time);
+			sync->time.total = r32(time - start_time);
 			sync->time.delta = vi_min(r32(time - last_time), 0.25f);
 			last_time = time;
 

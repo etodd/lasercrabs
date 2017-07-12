@@ -768,7 +768,7 @@ void Minion::killed(Entity* killer)
 	get<Audio>()->post_event(AK::EVENTS::STOP);
 	Audio::post_global_event(killer && killer->has<Drone>() ? AK::EVENTS::PLAY_MINION_HEADSHOT : AK::EVENTS::PLAY_MINION_DIE, head_pos());
 
-	if (Game::level.local)
+	if (Game::level.local && Ragdoll::list.count() < 8) // limit ragdolls
 	{
 		Entity* ragdoll = World::create<Empty>();
 		ragdoll->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());

@@ -1035,7 +1035,7 @@ MessageFrame* msg_frame_advance(MessageHistory* history, MessageFrameState* proc
 			SequenceID next_sequence = sequence_advance(processed_msg_frame->sequence_id, 1);
 			MessageFrame* next_frame = msg_frame_by_sequence(history, next_sequence);
 			if (next_frame
-				&& (frame->timestamp <= timestamp - NET_TICK_RATE || next_frame->timestamp <= timestamp))
+				&& (frame->timestamp <= timestamp - tick_rate() || next_frame->timestamp <= timestamp))
 			{
 				processed_msg_frame->sequence_id = next_sequence;
 				return next_frame;
@@ -1269,21 +1269,6 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 		serialize_r32_range(p, state->state_timer, 0, 10.0f, 10);
 
 	if (Stream::IsWriting)
-		b = !base || state->upgrades != base->upgrades;
-	serialize_bool(p, b);
-	if (b)
-		serialize_bits(p, s32, state->upgrades, s32(Upgrade::count));
-
-	for (s32 i = 0; i < MAX_ABILITIES; i++)
-	{
-		if (Stream::IsWriting)
-			b = !base || state->abilities[i] != base->abilities[i];
-		serialize_bool(p, b);
-		if (b)
-			serialize_int(p, Ability, state->abilities[i], 0, s32(Ability::count) + 1); // necessary because Ability::None = Ability::count
-	}
-
-	if (Stream::IsWriting)
 		b = !base || state->current_upgrade != base->current_upgrade;
 	serialize_bool(p, b);
 	if (b)
@@ -1370,22 +1355,12 @@ b8 equal_states_minion(const StateFrame* frame_a, const StateFrame* frame_b, s32
 
 b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
 {
-	if (a.spawn_timer != b.spawn_timer
-		|| a.state_timer != b.state_timer
-		|| a.upgrades != b.upgrades
-		|| a.current_upgrade != b.current_upgrade
-		|| !a.instance.equals(b.instance)
-		|| a.energy != b.energy
-		|| a.active != b.active)
-		return false;
-
-	for (s32 i = 0; i < MAX_ABILITIES; i++)
-	{
-		if (a.abilities[i] != b.abilities[i])
-			return false;
-	}
-
-	return true;
+	return a.spawn_timer == b.spawn_timer
+		&& a.state_timer == b.state_timer
+		&& a.current_upgrade == b.current_upgrade
+		&& !a.instance.equals(b.instance)
+		&& a.energy == b.energy
+		&& a.active == b.active;
 }
 
 
@@ -1581,8 +1556,6 @@ void state_frame_build(StateFrame* frame)
 		PlayerManagerState* state = &frame->players[i.index];
 		state->spawn_timer = i.item()->spawn_timer;
 		state->state_timer = i.item()->state_timer;
-		state->upgrades = i.item()->upgrades;
-		memcpy(state->abilities, i.item()->abilities, sizeof(state->abilities));
 		state->current_upgrade = i.item()->current_upgrade;
 		state->instance = i.item()->instance;
 		state->energy = i.item()->energy;
@@ -1711,11 +1684,11 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 		*player = last;
 		if (player->active)
 		{
-			if (fabsf(last.spawn_timer - next.spawn_timer) > NET_TICK_RATE * 5.0f)
+			if (fabsf(last.spawn_timer - next.spawn_timer) > tick_rate() * 5.0f)
 				player->spawn_timer = next.spawn_timer;
 			else
 				player->spawn_timer = LMath::lerpf(blend, last.spawn_timer, next.spawn_timer);
-			if (fabsf(last.state_timer - next.state_timer) > NET_TICK_RATE * 5.0f)
+			if (fabsf(last.state_timer - next.state_timer) > tick_rate() * 5.0f)
 				player->state_timer = next.state_timer;
 			else
 				player->state_timer = LMath::lerpf(blend, last.state_timer, next.state_timer);
@@ -1737,10 +1710,10 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 
 			minion->rotation = LMath::angle_range(LMath::lerpf(blend, last.rotation, LMath::closest_angle(last.rotation, next.rotation)));
 			minion->animation = last.animation;
-			if (last.animation == next.animation && fabsf(next.animation_time - last.animation_time) < NET_TICK_RATE * 10.0f)
+			if (last.animation == next.animation && fabsf(next.animation_time - last.animation_time) < tick_rate() * 10.0f)
 				minion->animation_time = LMath::lerpf(blend, last.animation_time, next.animation_time);
 			else
-				minion->animation_time = last.animation_time + blend * NET_TICK_RATE;
+				minion->animation_time = last.animation_time + blend * tick_rate();
 
 			index = b.minions_active.next(index);
 		}
@@ -1801,7 +1774,7 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 								Vec3 abs_pos_next;
 								Quat abs_rot_next;
 								transform_absolute(*frame_next, index, &abs_pos_next, &abs_rot_next);
-								t->get<Target>()->net_velocity = t->get<Target>()->net_velocity * 0.9f + ((abs_pos_next - abs_pos_last) / NET_TICK_RATE) * 0.1f;
+								t->get<Target>()->net_velocity = t->get<Target>()->net_velocity * 0.9f + ((abs_pos_next - abs_pos_last) / tick_rate()) * 0.1f;
 							}
 							else if (t->has<TramRunner>())
 							{
@@ -1809,7 +1782,7 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 								transform_absolute(frame_last, index, &abs_pos_last);
 								Vec3 abs_pos_next;
 								transform_absolute(*frame_next, index, &abs_pos_next);
-								t->get<TramRunner>()->velocity = t->get<TramRunner>()->velocity * 0.9f + ((abs_pos_next - abs_pos_last) / NET_TICK_RATE).length() * 0.1f;
+								t->get<TramRunner>()->velocity = t->get<TramRunner>()->velocity * 0.9f + ((abs_pos_next - abs_pos_last) / tick_rate()).length() * 0.1f;
 							}
 						}
 					}
@@ -1829,8 +1802,6 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			PlayerManager* s = &PlayerManager::list[i];
 			s->spawn_timer = state.spawn_timer;
 			s->state_timer = state.state_timer;
-			s->upgrades = state.upgrades;
-			memcpy(s->abilities, state.abilities, sizeof(s->abilities));
 			s->current_upgrade = state.current_upgrade;
 			s->instance = state.instance;
 			s->energy = state.energy;
@@ -3550,7 +3521,7 @@ void reset()
 b8 lagging()
 {
 	return state_client.mode == Mode::Disconnected
-		|| (state_client.msgs_in_history.msg_frames.length > 0 && state_common.timestamp - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > NET_TICK_RATE * 5.0f);
+		|| (state_client.msgs_in_history.msg_frames.length > 0 && state_common.timestamp - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > tick_rate() * 5.0f);
 }
 
 Sock::Address server_address()
@@ -3575,6 +3546,11 @@ b8 execute(const char* string)
 }
 
 #endif
+
+r32 tick_rate()
+{
+	return Game::level.mode == Game::Mode::Pvp ? (1.0f / 60.0f) : (1.0f / 30.0f);
+}
 
 b8 init()
 {
@@ -3690,7 +3666,7 @@ void update_start(const Update& u)
 	if (Client::state_client.replay_mode == Client::ReplayMode::Replaying)
 	{
 		Client::state_client.tick_timer += dt;
-		if (Client::state_client.tick_timer > NET_TICK_RATE)
+		if (Client::state_client.tick_timer > tick_rate())
 		{
 			s16 size;
 			b8 packet_successfully_read = false;
@@ -3712,7 +3688,7 @@ void update_start(const Update& u)
 
 			if (!packet_successfully_read)
 				Client::handle_server_disconnect(DisconnectReason::SequenceGap);
-			Client::state_client.tick_timer = fmodf(Client::state_client.tick_timer, NET_TICK_RATE);
+			Client::state_client.tick_timer = fmodf(Client::state_client.tick_timer, tick_rate());
 		}
 	}
 #endif
@@ -3790,12 +3766,12 @@ void update_end(const Update& u)
 	else
 	{
 		Client::state_client.tick_timer += dt;
-		if (Client::state_client.tick_timer > NET_TICK_RATE)
+		if (Client::state_client.tick_timer > tick_rate())
 		{
-			Client::tick(u, vi_max(dt, NET_TICK_RATE));
+			Client::tick(u, vi_max(dt, tick_rate()));
 			// we're not going to send more than one packet per frame
 			// so make sure the tick timer never gets out of control
-			Client::state_client.tick_timer = fmodf(Client::state_client.tick_timer, NET_TICK_RATE);
+			Client::state_client.tick_timer = fmodf(Client::state_client.tick_timer, tick_rate());
 		}
 	}
 #endif

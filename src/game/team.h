@@ -152,6 +152,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 
 	r32 spawn_timer;
 	r32 state_timer;
+	r32 ability_purchase_times[MAX_ABILITIES];
 	s32 upgrades;
 	LinkArg<const SpawnPosition&> spawn;
 	LinkArg<Upgrade> upgrade_completed;

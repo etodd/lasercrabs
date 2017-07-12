@@ -1122,7 +1122,7 @@ namespace tier_1a
 		{
 			data->anim_played = true;
 
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_ARROW, Asset::Animation::meursault_intro, strings::meursault_arrow, Actor::Loop::No, Actor::Overlap::Yes);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_ARROW, Asset::Animation::meursault_intro, strings::meursault_arrow, Actor::Loop::No, Actor::Overlap::Yes, 0.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A01, AssetNull, strings::meursault_a01, Actor::Loop::No, Actor::Overlap::No, 3.6f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A02, AssetNull, strings::meursault_a02, Actor::Loop::No, Actor::Overlap::No, 3.6f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A03, AssetNull, strings::meursault_a03, Actor::Loop::No, Actor::Overlap::No, 5.0f);
@@ -1151,7 +1151,7 @@ namespace tier_1a
 		data = new Data();
 		Game::cleanups.add(&cleanup);
 
-		data->meursault = Actor::add(entities.find("meursault"), Asset::Bone::meursault_head);
+		data->meursault = Actor::add(entities.find("meursault"), Asset::Bone::meursault_head, Actor::IdleBehavior::Interrupt);
 
 		entities.find("trigger")->get<PlayerTrigger>()->entered.link(&trigger);
 		data->anim_base = entities.find("player_anim");

@@ -725,7 +725,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 							while (timestamp < Net::timestamp())
 							{
-								const r32 SIMULATION_STEP = NET_TICK_RATE;
+								const r32 SIMULATION_STEP = Net::tick_rate();
 								Net::StateFrame state_frame;
 								Net::state_frame_by_timestamp(&state_frame, timestamp);
 								Vec3 pos_bolt_next = pos_bolt + dir_normalized * (BOLT_SPEED_DRONE * SIMULATION_STEP);
@@ -1406,7 +1406,7 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 			break;
 		}
 
-		const r32 time_increment = NET_TICK_RATE * 0.1f;
+		const r32 time_increment = Net::tick_rate() * 0.1f;
 		next_pos += dir_flattened * DRONE_DASH_SPEED * time_increment;
 		time += time_increment;
 	}

@@ -1172,21 +1172,23 @@ r32 draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, Asse
 	return total_width + padding * 2.0f;
 }
 
-r32 ability_draw(const RenderParams& params, const PlayerHuman* player, const Vec2& pos, Ability ability, AssetID icon, s8 gamepad, Controls binding)
+r32 ability_draw(const RenderParams& params, const PlayerManager* manager, const Vec2& pos, s8 gamepad, s32 index, Controls binding)
 {
 	char string[255];
 
-	s16 cost = AbilityInfo::list[s32(ability)].spawn_cost;
+	Ability ability = manager->abilities[index];
+
 	sprintf(string, "%s", Settings::gamepads[gamepad].bindings[s32(binding)].string(Game::ui_gamepad_types[gamepad]));
 	const Vec4* color;
-	PlayerManager* manager = player->get<PlayerManager>();
-	if (!manager->ability_valid(ability) || !manager->instance.ref()->get<PlayerCommon>()->movement_enabled())
+	if (Game::time.total - manager->ability_purchase_times[index] < msg_time)
+		color = UI::flash_function(Game::time.total) ? &UI::color_default : &UI::color_background;
+	else if (!manager->ability_valid(ability) || !manager->instance.ref()->get<PlayerCommon>()->movement_enabled())
 		color = params.sync->input.get(binding, gamepad) ? &UI::color_disabled : &UI::color_alert;
 	else if (manager->instance.ref()->get<Drone>()->current_ability == ability)
 		color = &UI::color_default;
 	else
 		color = &UI::color_accent;
-	return draw_icon_text(params, gamepad, pos, icon, string, *color);
+	return draw_icon_text(params, gamepad, pos, AbilityInfo::list[s32(ability)].icon, string, *color);
 }
 
 r32 match_timer_width()
@@ -1471,32 +1473,18 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 			Vec2 pos = ui_anchor;
 			// ability 1
+			if (get<PlayerManager>()->abilities[0] != Ability::None)
 			{
-				Ability ability = get<PlayerManager>()->abilities[0];
-				if (ability != Ability::None)
-				{
-					const AbilityInfo& info = AbilityInfo::list[s32(ability)];
-					pos.x += ability_draw(params, this, pos, ability, info.icon, gamepad, Controls::Ability1);
-				}
-			}
+				pos.x += ability_draw(params, get<PlayerManager>(), pos, gamepad, 0, Controls::Ability1);
 
-			// ability 2
-			{
-				Ability ability = get<PlayerManager>()->abilities[1];
-				if (ability != Ability::None)
+				// ability 2
+				if (get<PlayerManager>()->abilities[1] != Ability::None)
 				{
-					const AbilityInfo& info = AbilityInfo::list[s32(ability)];
-					pos.x += ability_draw(params, this, pos, ability, info.icon, gamepad, Controls::Ability2);
-				}
-			}
+					pos.x += ability_draw(params, get<PlayerManager>(), pos, gamepad, 1, Controls::Ability2);
 
-			// ability 3
-			{
-				Ability ability = get<PlayerManager>()->abilities[2];
-				if (ability != Ability::None)
-				{
-					const AbilityInfo& info = AbilityInfo::list[s32(ability)];
-					pos.x += ability_draw(params, this, pos, ability, info.icon, gamepad, Controls::Ability3);
+					// ability 3
+					if (get<PlayerManager>()->abilities[2] != Ability::None)
+						pos.x += ability_draw(params, get<PlayerManager>(), pos, gamepad, 2, Controls::Ability3);
 				}
 			}
 		}
@@ -2757,7 +2745,7 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 			if (!std::isnan(angle)) // validate client rotation
 				get<Walker>()->target_rotation = angle;
 		}
-		get<Target>()->net_velocity = get<Target>()->net_velocity * 0.7f + ((last_pos - abs_pos_last) / NET_TICK_RATE) * 0.3f;
+		get<Target>()->net_velocity = get<Target>()->net_velocity * 0.7f + ((last_pos - abs_pos_last) / Net::tick_rate()) * 0.3f;
 	}
 	else if (input_enabled())
 	{
@@ -2928,7 +2916,7 @@ void PlayerControlHuman::update(const Update& u)
 {
 	s32 gamepad = player.ref()->gamepad;
 
-	if (position_history.length == 0 || Game::real_time.total > position_history[position_history.length - 1].timestamp + NET_TICK_RATE * 0.5f)
+	if (position_history.length == 0 || Game::real_time.total > position_history[position_history.length - 1].timestamp + Net::tick_rate() * 0.5f)
 	{
 		// save our position history
 		if (position_history.length == 60)

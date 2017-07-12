@@ -1301,24 +1301,6 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 	if (b)
 		serialize_s16(p, state->energy);
 
-	if (Stream::IsWriting)
-		b = !base || state->kills != base->kills;
-	serialize_bool(p, b);
-	if (b)
-		serialize_s16(p, state->kills);
-
-	if (Stream::IsWriting)
-		b = !base || state->deaths != base->deaths;
-	serialize_bool(p, b);
-	if (b)
-		serialize_s16(p, state->deaths);
-
-	if (Stream::IsWriting)
-		b = !base || state->respawns != base->respawns;
-	serialize_bool(p, b);
-	if (b)
-		serialize_s16(p, state->respawns);
-
 	return true;
 }
 
@@ -1394,9 +1376,6 @@ b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
 		|| a.current_upgrade != b.current_upgrade
 		|| !a.instance.equals(b.instance)
 		|| a.energy != b.energy
-		|| a.kills != b.kills
-		|| a.deaths != b.deaths
-		|| a.respawns != b.respawns
 		|| a.active != b.active)
 		return false;
 
@@ -1607,9 +1586,6 @@ void state_frame_build(StateFrame* frame)
 		state->current_upgrade = i.item()->current_upgrade;
 		state->instance = i.item()->instance;
 		state->energy = i.item()->energy;
-		state->kills = i.item()->kills;
-		state->deaths = i.item()->deaths;
-		state->respawns = i.item()->respawns;
 		state->active = true;
 	}
 
@@ -1858,9 +1834,6 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			s->current_upgrade = state.current_upgrade;
 			s->instance = state.instance;
 			s->energy = state.energy;
-			s->kills = state.kills;
-			s->deaths = state.deaths;
-			s->respawns = state.respawns;
 		}
 	}
 
@@ -3948,7 +3921,7 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		}
 		case MessageType::Team:
 		{
-			if (!Team::net_msg(p))
+			if (!Team::net_msg(p, src))
 				net_error();
 			break;
 		}

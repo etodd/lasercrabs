@@ -168,11 +168,39 @@ struct SplitscreenConfig
 		Game::session.type = session_type();
 		Game::session.game_type = game_type;
 		Game::session.time_limit = time_limit;
-		Game::session.respawns = respawns;
-		Game::session.kill_limit = kill_limit;
+		if (game_type == GameType::Assault)
+		{
+			Game::session.respawns = respawns;
+			Game::session.kill_limit = 0;
+		}
+		else
+		{
+			Game::session.respawns = -1;
+			Game::session.kill_limit = kill_limit;
+		}
 		Game::session.allow_abilities = allow_abilities;
 		Game::session.team_count = vi_max(2, team_count());
 		memcpy(&Game::session.local_player_config, local_player_config, sizeof(local_player_config));
+	}
+
+	void server_state(Net::Master::ServerState* s) const
+	{
+		s->session_type = session_type();
+		s->game_type = game_type;
+		if (game_type == GameType::Assault)
+		{
+			s->respawns = respawns;
+			s->kill_limit = 0;
+		}
+		else // deathmatch
+		{
+			s->respawns = -1;
+			s->kill_limit = kill_limit;
+		}
+		s->team_count = s8(team_count());
+		s->open_slots = s8(local_player_count());
+		s->time_limit_minutes = s8(time_limit / 60.0f);
+		s->allow_abilities = allow_abilities;
 	}
 
 	void consolidate_teams()
@@ -371,7 +399,7 @@ void splitscreen_select_options_update(const Update& u)
 				*time_limit = vi_min(254.0f * 60.0f, *time_limit + 120.0f);
 		}
 
-		if (Game::session.game_type == GameType::Assault)
+		if (global.splitscreen.game_type == GameType::Assault)
 		{
 			// respawns
 			s16* respawns = &global.splitscreen.respawns;
@@ -478,7 +506,7 @@ void splitscreen_select_teams_update(const Update& u)
 		&& !u.input->get(Controls::Interact, 0)
 		&& global.splitscreen.teams_are_valid())
 	{
-		if (Game::session.type == SessionType::Public)
+		if (global.splitscreen.session_type() == SessionType::Public)
 		{
 			deploy_start();
 			deploy_done();
@@ -1267,16 +1295,10 @@ void deploy_done()
 		{
 			Game::unload_level();
 			Game::save.reset();
+
 			Net::Master::ServerState s;
-			s.session_type = global.splitscreen.session_type();
-			s.game_type = global.splitscreen.game_type;
-			s.kill_limit = global.splitscreen.kill_limit;
-			s.respawns = global.splitscreen.respawns;
-			s.team_count = s8(global.splitscreen.team_count());
-			s.open_slots = s8(global.splitscreen.local_player_count());
+			global.splitscreen.server_state(&s);
 			s.level = data.zone_selected;
-			s.time_limit_minutes = s8(global.splitscreen.time_limit / 60.0f);
-			s.allow_abilities = global.splitscreen.allow_abilities;
 			Net::Client::allocate_server(s);
 
 			clear();

@@ -195,6 +195,8 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 			TurretFriendly,
 			TurretOutOfRange,
 			CoreModule,
+			CoreModuleFriendly,
+			CoreModuleOutOfRange,
 			count,
 		};
 

@@ -1132,18 +1132,19 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 void PlayerHuman::assault_status_display()
 {
 	AI::Team team = get<PlayerManager>()->team.ref()->team();
+	char buffer[512];
+	b8 good;
 	if (Turret::list.count() > 0)
 	{
-		b8 good = team == 0;
-		char buffer[512];
+		good = team == 0;
 		sprintf(buffer, _(strings::turrets_remaining), Turret::list.count());
-		msg(buffer, good);
 	}
 	else
 	{
-		b8 good = team != 0;
-		msg(_(strings::core_vulnerable), good);
+		good = team != 0;
+		sprintf(buffer, _(strings::core_modules_remaining), CoreModule::list.count());
 	}
+	msg(buffer, good);
 }
 
 r32 draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, AssetID icon, char* string, const Vec4& color, r32 total_width = 0.0f)
@@ -1335,29 +1336,66 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	AI::Team team = team_mine;
 	while (true)
 	{
-		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		if (Game::level.type == GameType::Deathmatch)
 		{
-			if (i.item()->team.ref()->team() == team)
+			const Team& team_ref = Team::list[team];
+
+			text.wrap_width = wrap;
+			text.anchor_x = UIText::Anchor::Min;
+			text.color = Team::ui_color(manager->team.ref()->team(), team);
+			if (team_ref.player_count() == 1)
 			{
-				text.wrap_width = wrap;
-				text.anchor_x = UIText::Anchor::Min;
-				text.color = Team::ui_color(manager->team.ref()->team(), i.item()->team.ref()->team());
-				text.text_raw(0, i.item()->username);
-				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-				text.draw(params, p);
+				// use the only player's username
+				PlayerManager* player = nullptr;
+				for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->team.ref()->team() == team)
+					{
+						player = i.item();
+						break;
+					}
+				}
+				text.text_raw(0, player->username);
+			}
+			else
+			{
+				// use the team name
+				static const AssetID team_names[MAX_TEAMS] = { strings::team_a, strings::team_b, strings::team_c, strings::team_d };
+				text.text_raw(0, _(team_names[team]));
+			}
+			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+			text.draw(params, p);
 
-				text.anchor_x = UIText::Anchor::Max;
-				text.wrap_width = 0;
-				if (Game::level.type == GameType::Deathmatch)
-					text.text(0, "%d", s32(i.item()->kills));
-				else
+			text.anchor_x = UIText::Anchor::Max;
+			text.wrap_width = 0;
+			text.text(0, "%d", s32(team_ref.kills));
+			text.draw(params, p + Vec2(wrap, 0));
+
+			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+		}
+		else
+		{
+			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->team.ref()->team() == team)
+				{
+					text.wrap_width = wrap;
+					text.anchor_x = UIText::Anchor::Min;
+					text.color = Team::ui_color(manager->team.ref()->team(), i.item()->team.ref()->team());
+					text.text_raw(0, i.item()->username);
+					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+					text.draw(params, p);
+
+					text.anchor_x = UIText::Anchor::Max;
+					text.wrap_width = 0;
 					text.text(0, "%d", s32(i.item()->respawns) + (i.item()->instance.ref() ? 1 : 0));
-				text.draw(params, p + Vec2(wrap, 0));
+					text.draw(params, p + Vec2(wrap, 0));
 
-				p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+				}
 			}
 		}
-		team = AI::Team(s32(team) + 1 % Team::list.count());
+		team = AI::Team((s32(team) + 1) % Team::list.count());
 		if (team == team_mine)
 			break;
 	}
@@ -2194,6 +2232,9 @@ void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerCo
 			else if (type == PlayerControlHuman::TargetIndicator::Type::Turret)
 				type = PlayerControlHuman::TargetIndicator::Type::TurretOutOfRange;
 			else if (type == PlayerControlHuman::TargetIndicator::Type::CoreModule)
+				type = PlayerControlHuman::TargetIndicator::Type::CoreModuleOutOfRange;
+			else if (type == PlayerControlHuman::TargetIndicator::Type::TurretFriendly
+				|| type == PlayerControlHuman::TargetIndicator::Type::CoreModuleFriendly)
 			{
 				// show core modules even if out of range
 			}
@@ -2314,8 +2355,12 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 		{
 			for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
 			{
-				if (i.item()->team != team)
-					player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::CoreModule);
+				PlayerControlHuman::TargetIndicator::Type type;
+				if (i.item()->team == team)
+					type = PlayerControlHuman::TargetIndicator::Type::CoreModuleFriendly;
+				else
+					type = PlayerControlHuman::TargetIndicator::Type::CoreModule;
+				player_add_target_indicator(p, i.item()->get<Target>(), type);
 			}
 		}
 	}
@@ -3005,7 +3050,9 @@ void PlayerControlHuman::update(const Update& u)
 							|| indicator.type == TargetIndicator::Type::BatteryFriendly
 							|| indicator.type == TargetIndicator::Type::DroneOutOfRange
 							|| indicator.type == TargetIndicator::Type::TurretFriendly
-							|| indicator.type == TargetIndicator::Type::TurretOutOfRange)
+							|| indicator.type == TargetIndicator::Type::CoreModuleFriendly
+							|| indicator.type == TargetIndicator::Type::TurretOutOfRange
+							|| indicator.type == TargetIndicator::Type::CoreModuleOutOfRange)
 							continue;
 
 						Vec3 to_indicator = indicator.pos - camera->pos;
@@ -3723,11 +3770,13 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				break;
 			}
 			case TargetIndicator::Type::TurretFriendly:
+			case TargetIndicator::Type::CoreModuleFriendly:
 			{
 				UI::indicator(params, indicator.pos, Team::ui_color_friend, false);
 				break;
 			}
 			case TargetIndicator::Type::TurretOutOfRange:
+			case TargetIndicator::Type::CoreModuleOutOfRange:
 			{
 				UI::indicator(params, indicator.pos, Team::ui_color_enemy, false);
 				break;
@@ -3768,7 +3817,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				{
 					Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
 
-					if ((turret_pos - me).length_squared() < range * range)
+					if (i.item()->team == my_team || (turret_pos - me).length_squared() < range * range)
 					{
 						Vec2 p;
 						if (UI::project(params, turret_pos, &p))

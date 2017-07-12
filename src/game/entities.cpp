@@ -1023,7 +1023,23 @@ s32 CoreModule::count(AI::TeamMask mask)
 
 void CoreModule::killed(Entity* e)
 {
+	if (list.count() > 1)
+	{
+		// let everyone know what happened
+		char buffer[512];
+		sprintf(buffer, _(strings::core_modules_remaining), list.count() - 1);
+
+		PlayerHuman::log_add(buffer, 0);
+		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+		{
+			// it's a good thing if you're not on the defending team
+			b8 good = i.item()->get<PlayerManager>()->team.ref()->team() != 0;
+			i.item()->msg(buffer, good);
+		}
+	}
+
 	PlayerManager::entity_killed_by(entity(), e);
+
 	if (Game::level.local)
 		destroy();
 }
@@ -1857,14 +1873,20 @@ namespace GrenadeNet
 	}
 }
 
-template<typename T> b8 grenade_trigger_filter(T* e, AI::Team team)
+b8 grenade_trigger_filter(Entity* e, AI::Team team)
 {
-	return (e->template has<AIAgent>() && e->template get<AIAgent>()->team != team && !e->template get<AIAgent>()->stealth)
-		|| (e->template has<ForceField>() && e->template get<ForceField>()->team != team)
-		|| (e->template has<ForceFieldCollision>() && e->template get<ForceFieldCollision>()->field.ref()->team != team)
-		|| (e->template has<Sensor>() && !e->template has<Battery>() && e->template get<Sensor>()->team != team)
-		|| (e->template has<Turret>() && e->template get<Turret>()->team != team)
-		|| (e->template has<CoreModule>() && e->template get<CoreModule>()->team != team);
+	return (e->has<AIAgent>() && e->get<AIAgent>()->team != team && !e->get<AIAgent>()->stealth)
+		|| (e->has<ForceField>() && e->get<ForceField>()->team != team)
+		|| (e->has<ForceFieldCollision>() && e->get<ForceFieldCollision>()->field.ref()->team != team)
+		|| (e->has<Sensor>() && !e->has<Battery>() && e->get<Sensor>()->team != team)
+		|| (e->has<Turret>() && e->get<Turret>()->team != team)
+		|| (e->has<CoreModule>() && e->get<CoreModule>()->team != team);
+}
+
+b8 grenade_hit_filter(Entity* e, AI::Team team)
+{
+	return grenade_trigger_filter(e, team)
+		|| (e->has<AIAgent>() && e->get<AIAgent>()->team != team); // don't care if the AIAgent is stealthed or not
 }
 
 void Grenade::update_server(const Update& u)
@@ -1896,7 +1918,7 @@ void Grenade::update_server(const Update& u)
 			if (ray_callback.hasHit())
 			{
 				Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-				if (grenade_trigger_filter(e, team()))
+				if (grenade_hit_filter(e, team()))
 					explode();
 				else
 				{
@@ -1947,7 +1969,11 @@ void Grenade::explode()
 
 				if (i.item()->has<Shield>())
 				{
-					if (distance < GRENADE_RANGE * 0.66f)
+					if (distance < GRENADE_RANGE * 0.25f)
+						i.item()->damage(entity(), 3);
+					else if (distance < GRENADE_RANGE * 0.5f)
+						i.item()->damage(entity(), 2);
+					else if (distance < GRENADE_RANGE)
 						i.item()->damage(entity(), 1);
 				}
 				else if (distance < GRENADE_RANGE && !i.item()->has<Battery>())
@@ -2011,7 +2037,7 @@ void Grenade::update_client_all(const Update& u)
 			b8 countdown = false;
 			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 			{
-				if (grenade_trigger_filter(i.item(), my_team))
+				if (grenade_trigger_filter(i.item()->entity(), my_team))
 				{
 					r32 distance = (i.item()->get<Transform>()->absolute_pos() - me).length();
 					if (i.item()->has<ForceField>())

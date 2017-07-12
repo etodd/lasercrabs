@@ -73,7 +73,7 @@ void main()
 	{
 		// in front of wall
 		vec3 p2 = pos_viewspace - cull_center;
-		if (p2.z / length(p2) < -0.707106781186547f) // inside view cone
+		if (p2.z < -(p2.x * p2.x + p2.y * p2.y)) // inside view cone
 			discard;
 	}
 	else

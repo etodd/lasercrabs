@@ -965,6 +965,7 @@ const char* AssetLookup::String::names[] =
 	"connecting",
 	"connection_failed",
 	"contacting_master",
+	"core_modules_remaining",
 	"core_vulnerable",
 	"dada01",
 	"dada02",

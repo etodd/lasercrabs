@@ -26,6 +26,11 @@ namespace VI
 {
 
 
+namespace TeamNet
+{
+	b8 update_kills(Team*);
+}
+
 const Vec4 Team::color_friend = Vec4(0.15f, 0.45f, 0.7f, MATERIAL_NO_OVERRIDE);
 const Vec4 Team::color_enemy = Vec4(1.0f, 0.3f, 0.4f, MATERIAL_NO_OVERRIDE);
 
@@ -133,11 +138,6 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 	},
 };
 
-Team::Team()
-	: player_tracks()
-{
-}
-
 void Team::awake_all()
 {
 	game_over = false;
@@ -233,15 +233,11 @@ s32 Team::player_count() const
 	return count;
 }
 
-s16 Team::kills() const
+void Team::add_kills(s32 k)
 {
-	s16 kills = 0;
-	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->team.ref() == this)
-			kills += i.item()->kills;
-	}
-	return kills;
+	vi_assert(Game::level.local);
+	kills += k;
+	TeamNet::update_kills(this);
 }
 
 s16 Team::increment() const
@@ -261,7 +257,7 @@ Team* Team::with_most_kills()
 	Team* result = nullptr;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		s16 kills = i.item()->kills();
+		s16 kills = i.item()->kills;
 		if (kills == highest_kills)
 			result = nullptr;
 		else if (kills > highest_kills)
@@ -496,6 +492,7 @@ namespace TeamNet
 	{
 		GameOver,
 		TransitionMode,
+		UpdateKills,
 		count,
 	};
 
@@ -527,6 +524,23 @@ namespace TeamNet
 		Net::msg_finalize(p);
 		return true;
 	}
+
+	b8 update_kills(Team* t)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Team);
+		{
+			Message type = Message::UpdateKills;
+			serialize_enum(p, Message, type);
+		}
+		{
+			Ref<Team> ref = t;
+			serialize_ref(p, ref);
+		}
+		serialize_s16(p, t->kills);
+		Net::msg_finalize(p);
+		return true;
+	}
 }
 
 void team_add_score_summary_item(PlayerManager* player, const char* label, s32 amount = -1)
@@ -539,7 +553,7 @@ void team_add_score_summary_item(PlayerManager* player, const char* label, s32 a
 	item->label[511] = '\0';
 }
 
-b8 Team::net_msg(Net::StreamRead* p)
+b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
 
@@ -649,6 +663,16 @@ b8 Team::net_msg(Net::StreamRead* p)
 			}
 			break;
 		}
+		case TeamNet::Message::UpdateKills:
+		{
+			Ref<Team> t;
+			serialize_ref(p, t);
+			s16 kills;
+			serialize_s16(p, kills);
+			if (!Game::level.local || src == Net::MessageSource::Loopback)
+				t.ref()->kills = kills;
+			break;
+		}
 		default:
 		{
 			vi_assert(false);
@@ -678,7 +702,7 @@ void Team::update_all_server(const Update& u)
 			&& (match_time > Game::level.time_limit
 			|| (Game::level.has_feature(Game::FeatureLevel::All) && Team::teams_with_active_players() <= 1)
 			|| (Game::level.type == GameType::Assault && CoreModule::count(1 << 0) == 0)
-			|| (Game::level.type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills() >= Game::level.kill_limit)))
+			|| (Game::level.type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::level.kill_limit)))
 		{
 			// determine the winner, if any
 			Team* w = nullptr;
@@ -914,6 +938,7 @@ namespace PlayerManagerNet
 		ScoreAccept,
 		SpawnSelect,
 		UpgradeCompleted,
+		UpdateCounts,
 		count,
 	};
 
@@ -966,6 +991,125 @@ namespace PlayerManagerNet
 		Net::msg_finalize(p);
 		return true;
 	}
+
+	b8 update_counts(PlayerManager* m)
+	{
+		using Stream = Net::StreamWrite;
+		vi_assert(Game::level.local);
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			Message msg = Message::UpdateCounts;
+			serialize_enum(p, Message, msg);
+		}
+		serialize_s16(p, m->kills);
+		serialize_s16(p, m->deaths);
+		serialize_s16(p, m->respawns);
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
+void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
+{
+	vi_assert(Game::level.local);
+	if (m->respawns != -1 && Game::level.mode == Game::Mode::Pvp)
+	{
+		if (Game::level.has_feature(Game::FeatureLevel::All)
+			|| m->respawns >= DEFAULT_ASSAULT_DRONES - 1) // in the tutorial, you can only lose two drones
+		{
+			m->respawns--;
+			PlayerManagerNet::update_counts(m);
+		}
+	}
+	if (m->respawns != 0)
+		m->spawn_timer = SPAWN_DELAY;
+	m->spawn.fire(point->spawn_position(m));
+}
+
+b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+	PlayerManagerNet::Message msg;
+	serialize_enum(p, PlayerManagerNet::Message, msg);
+	if (src != Net::MessageSource::Invalid)
+	{
+		switch (msg)
+		{
+			case PlayerManagerNet::Message::CanSpawn:
+			{
+				m->can_spawn = true;
+				break;
+			}
+			case PlayerManagerNet::Message::SpawnSelect:
+			{
+				Ref<SpawnPoint> ref;
+				serialize_ref(p, ref);
+				if (Game::level.local
+					&& !Team::game_over
+					&& m->spawn_timer == 0.0f
+					&& m->respawns != 0
+					&& !m->instance.ref()
+					&& m->can_spawn
+					&& ref.ref() && ref.ref()->team == m->team.ref()->team())
+				{
+#if SERVER
+					if (m->has<PlayerHuman>())
+					{
+						AI::RecordedLife::Tag tag;
+						tag.init(m);
+
+						AI::RecordedLife::Action action;
+						action.type = AI::RecordedLife::Action::TypeSpawn;
+						Quat rot;
+						ref.ref()->get<Transform>()->absolute(&action.pos, &rot);
+						action.normal = rot * Vec3(0, 0, 1);
+						AI::record_add(m->get<PlayerHuman>()->ai_record_id, tag, action);
+					}
+#endif
+					internal_spawn_go(m, ref.ref());
+				}
+			}
+			case PlayerManagerNet::Message::ScoreAccept:
+			{
+				m->score_accepted = true;
+				break;
+			}
+			case PlayerManagerNet::Message::UpgradeCompleted:
+			{
+				Upgrade u;
+				serialize_enum(p, Upgrade, u);
+				if (!Game::level.local || src == Net::MessageSource::Loopback)
+					m->upgrade_completed.fire(u);
+				break;
+			}
+			case PlayerManagerNet::Message::UpdateCounts:
+			{
+				s16 kills;
+				s16 deaths;
+				s16 respawns;
+				serialize_s16(p, kills);
+				serialize_s16(p, deaths);
+				serialize_s16(p, respawns);
+				if (!Game::level.local || src == Net::MessageSource::Loopback) // server does not accept these messages from clients
+				{
+					m->kills = kills;
+					m->deaths = deaths;
+					m->respawns = respawns;
+				}
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+	}
+	return true;
 }
 
 b8 PlayerManager::upgrade_start(Upgrade u)
@@ -1073,12 +1217,16 @@ void PlayerManager::add_energy_and_notify(s32 c)
 
 void PlayerManager::add_kills(s32 k)
 {
+	vi_assert(Game::level.local);
 	kills += k;
+	PlayerManagerNet::update_counts(this);
 }
 
 void PlayerManager::add_deaths(s32 d)
 {
+	vi_assert(Game::level.local);
 	deaths += d;
+	PlayerManagerNet::update_counts(this);
 }
 
 b8 PlayerManager::at_spawn_point() const
@@ -1191,6 +1339,7 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 				{
 					if (killer_player)
 						killer_player->add_kills(1);
+					Team::list[killer_team].add_kills(1);
 					player->add_deaths(1);
 				}
 
@@ -1229,20 +1378,6 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 				killer_player->add_energy_and_notify(reward);
 		}
 	}
-}
-
-void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
-{
-	vi_assert(Game::level.local);
-	if (m->respawns != -1 && Game::level.mode == Game::Mode::Pvp)
-	{
-		if (Game::level.has_feature(Game::FeatureLevel::All)
-			|| m->respawns >= DEFAULT_ASSAULT_DRONES - 1) // in the tutorial, you can only lose two drones
-			m->respawns--;
-	}
-	if (m->respawns != 0)
-		m->spawn_timer = SPAWN_DELAY;
-	m->spawn.fire(point->spawn_position(m));
 }
 
 void PlayerManager::update_server(const Update& u)
@@ -1320,72 +1455,6 @@ void PlayerManager::score_accept()
 void PlayerManager::spawn_select(SpawnPoint* point)
 {
 	PlayerManagerNet::spawn_select(this, point);
-}
-
-b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSource src)
-{
-	using Stream = Net::StreamRead;
-	PlayerManagerNet::Message msg;
-	serialize_enum(p, PlayerManagerNet::Message, msg);
-	if (src != Net::MessageSource::Invalid)
-	{
-		switch (msg)
-		{
-			case PlayerManagerNet::Message::CanSpawn:
-			{
-				m->can_spawn = true;
-				break;
-			}
-			case PlayerManagerNet::Message::SpawnSelect:
-			{
-				Ref<SpawnPoint> ref;
-				serialize_ref(p, ref);
-				if (Game::level.local
-					&& !Team::game_over
-					&& m->spawn_timer == 0.0f
-					&& m->respawns != 0
-					&& !m->instance.ref()
-					&& m->can_spawn
-					&& ref.ref() && ref.ref()->team == m->team.ref()->team())
-				{
-#if SERVER
-					if (m->has<PlayerHuman>())
-					{
-						AI::RecordedLife::Tag tag;
-						tag.init(m);
-
-						AI::RecordedLife::Action action;
-						action.type = AI::RecordedLife::Action::TypeSpawn;
-						Quat rot;
-						ref.ref()->get<Transform>()->absolute(&action.pos, &rot);
-						action.normal = rot * Vec3(0, 0, 1);
-						AI::record_add(m->get<PlayerHuman>()->ai_record_id, tag, action);
-					}
-#endif
-					internal_spawn_go(m, ref.ref());
-				}
-			}
-			case PlayerManagerNet::Message::ScoreAccept:
-			{
-				m->score_accepted = true;
-				break;
-			}
-			case PlayerManagerNet::Message::UpgradeCompleted:
-			{
-				Upgrade u;
-				serialize_enum(p, Upgrade, u);
-				if (!Game::level.local || src == Net::MessageSource::Loopback)
-					m->upgrade_completed.fire(u);
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
-		}
-	}
-	return true;
 }
 
 

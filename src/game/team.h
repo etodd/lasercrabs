@@ -56,8 +56,8 @@ struct Team : public ComponentType<Team>
 {
 	struct SensorTrack
 	{
-		Ref<Entity> entity;
 		r32 timer;
+		Ref<Entity> entity;
 		b8 tracking;
 	};
 
@@ -90,7 +90,7 @@ struct Team : public ComponentType<Team>
 	static void update_all_client_only(const Update&);
 	static s32 teams_with_active_players();
 	static Team* with_most_kills();
-	static b8 net_msg(Net::StreamRead*);
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void transition_mode(Game::Mode);
 	static void draw_ui(const RenderParams&);
 
@@ -105,24 +105,24 @@ struct Team : public ComponentType<Team>
 	}
 
 	SensorTrack player_tracks[MAX_PLAYERS];
+	s16 kills;
 
-	Team();
 	void awake() {}
 	b8 has_active_player() const;
 	void track(PlayerManager*, Entity*);
 	s32 player_count() const;
-	s16 kills() const;
 	s16 increment() const;
+	void add_kills(s32);
 
 	inline AI::Team team() const
 	{
-		return (AI::Team)id();
+		return AI::Team(id());
 	}
 };
 
 struct PlayerManager : public ComponentType<PlayerManager>
 {
-	enum State
+	enum State : s8
 	{
 		Default,
 		Upgrading,
@@ -153,8 +153,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	r32 spawn_timer;
 	r32 state_timer;
 	s32 upgrades;
-	Ability abilities[MAX_ABILITIES];
-	Upgrade current_upgrade;
 	LinkArg<const SpawnPosition&> spawn;
 	LinkArg<Upgrade> upgrade_completed;
 	Ref<Team> team;
@@ -164,6 +162,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s16 deaths;
 	s16 respawns;
 	char username[MAX_USERNAME + 1]; // +1 for null terminator
+	Ability abilities[MAX_ABILITIES];
+	Upgrade current_upgrade;
 	b8 score_accepted;
 	b8 can_spawn;
 

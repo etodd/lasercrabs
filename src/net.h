@@ -67,9 +67,9 @@ struct TransformState
 {
 	Vec3 pos;
 	Quat rot;
-	Resolution resolution;
 	Ref<Transform> parent;
 	Revision revision;
+	Resolution resolution;
 };
 
 struct MinionState
@@ -84,13 +84,10 @@ struct PlayerManagerState
 	r32 spawn_timer;
 	r32 state_timer;
 	s32 upgrades;
-	Ability abilities[MAX_ABILITIES] = { Ability::None, Ability::None, Ability::None };
-	Upgrade current_upgrade = Upgrade::None;
 	Ref<Entity> instance;
 	s16 energy;
-	s16 kills;
-	s16 deaths;
-	s16 respawns;
+	Ability abilities[MAX_ABILITIES] = { Ability::None, Ability::None, Ability::None };
+	Upgrade current_upgrade = Upgrade::None;
 	b8 active;
 };
 

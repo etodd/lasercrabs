@@ -1856,6 +1856,34 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		menu.draw_ui(params, Vec2(0, params.camera->viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
 }
 
+void PlayerHuman::draw_alpha(const RenderParams& params) const
+{
+	if (ui_mode() == UIMode::Dead
+		&& get<PlayerManager>()->can_spawn
+		&& get<PlayerManager>()->spawn_timer > 0.0f)
+	{
+		Entity* k = killed_by.ref();
+		if (k)
+		{
+			RenderSync* sync = params.sync;
+			sync->write(RenderOp::DepthFunc);
+			sync->write(RenderDepthFunc::Greater);
+
+			{
+				RenderParams p = params;
+				p.flags |= RenderFlagAlphaOverride;
+				if (k->has<View>())
+					k->get<View>()->draw(p);
+				else if (k->has<SkinnedModel>())
+					k->get<SkinnedModel>()->draw(p);
+			}
+
+			sync->write(RenderOp::DepthFunc);
+			sync->write(RenderDepthFunc::Less);
+		}
+	}
+}
+
 PlayerCommon::PlayerCommon(PlayerManager* m)
 	: angle_horizontal(),
 	angle_vertical(),

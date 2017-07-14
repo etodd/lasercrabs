@@ -129,6 +129,7 @@ struct GLData
 	static RenderColorMask color_mask;
 	static b8 depth_mask;
 	static b8 depth_test;
+	static RenderDepthFunc depth_func;
 	static RenderCullMode cull_mode;
 	static RenderFillMode fill_mode;
 	static RenderBlendMode blend_mode;
@@ -159,6 +160,7 @@ Array<AssetID> GLData::uniform_names;
 RenderColorMask GLData::color_mask = RENDER_COLOR_MASK_DEFAULT;
 b8 GLData::depth_mask = true;
 b8 GLData::depth_test = true;
+RenderDepthFunc GLData::depth_func = RenderDepthFunc::Less;
 RenderCullMode GLData::cull_mode = RenderCullMode::Back;
 RenderFillMode GLData::fill_mode = RenderFillMode::Fill;
 RenderBlendMode GLData::blend_mode = RenderBlendMode::Opaque;
@@ -764,6 +766,40 @@ do\
 					glEnable(GL_DEPTH_TEST);
 				else
 					glDisable(GL_DEPTH_TEST);
+				debug_check();
+				break;
+			}
+			case RenderOp::DepthFunc:
+			{
+				RenderDepthFunc func = GLData::depth_func = *sync->read<RenderDepthFunc>();
+				switch (func)
+				{
+					case RenderDepthFunc::Never:
+					{
+						glDepthFunc(GL_NEVER);
+						break;
+					}
+					case RenderDepthFunc::Less:
+					{
+						glDepthFunc(GL_LESS);
+						break;
+					}
+					case RenderDepthFunc::Greater:
+					{
+						glDepthFunc(GL_GREATER);
+						break;
+					}
+					case RenderDepthFunc::Equal:
+					{
+						glDepthFunc(GL_EQUAL);
+						break;
+					}
+					default:
+					{
+						vi_assert(false);
+						break;
+					}
+				}
 				debug_check();
 				break;
 			}

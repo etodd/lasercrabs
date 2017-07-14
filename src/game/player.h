@@ -111,6 +111,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void update_late(const Update&);
 	void update_camera_rotation(const Update&);
 	void draw_ui(const RenderParams&) const;
+	void draw_alpha(const RenderParams&) const;
 	void spawn(const SpawnPosition&);
 	void assault_status_display();
 	void energy_notify(s32);

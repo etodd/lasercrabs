@@ -128,6 +128,7 @@ enum RenderFlags
 {
 	RenderFlagEdges = 1 << 0,
 	RenderFlagBackFace = 1 << 1,
+	RenderFlagAlphaOverride = 1 << 2,
 };
 
 struct RenderParams

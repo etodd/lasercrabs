@@ -34,7 +34,7 @@ struct Console
 
 	static void init();
 	static void update(const Update&);
-	static void draw(const RenderParams&);
+	static void draw_ui(const RenderParams&);
 	static void log(const char*, ...);
 	static void update_log();
 	static void debug(const char*, ...);

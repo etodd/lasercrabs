@@ -256,26 +256,32 @@ void View::draw(const RenderParams& params) const
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
 
-	if (team == s8(AI::TeamNone))
 	{
-		if (params.camera->flag(CameraFlagColors))
-			sync->write<Vec4>(color);
-		else if (color.w == MATERIAL_INACCESSIBLE || (params.flags & RenderFlagBackFace))
-			sync->write<Vec4>(PVP_INACCESSIBLE);
-		else if (color.w == MATERIAL_NO_OVERRIDE)
-			sync->write<Vec4>(PVP_ACCESSIBLE_NO_OVERRIDE);
+		Vec4 color_final;
+		if (team == s8(AI::TeamNone))
+		{
+			if (params.camera->flag(CameraFlagColors))
+				color_final = color;
+			else if (color.w == MATERIAL_INACCESSIBLE || (params.flags & RenderFlagBackFace))
+				color_final = PVP_INACCESSIBLE;
+			else if (color.w == MATERIAL_NO_OVERRIDE)
+				color_final = PVP_ACCESSIBLE_NO_OVERRIDE;
+			else
+				color_final = PVP_ACCESSIBLE;
+		}
 		else
-			sync->write<Vec4>(PVP_ACCESSIBLE);
-	}
-	else
-	{
-		const Vec4& team_color = Team::color(AI::Team(team), AI::Team(params.camera->team));
-		if (list_alpha.get(id()) || list_additive.get(id()))
-			sync->write<Vec4>(Vec4(team_color.xyz(), color.w));
-		else if (params.flags & RenderFlagBackFace)
-			sync->write<Vec4>(PVP_INACCESSIBLE);
-		else
-			sync->write<Vec4>(team_color);
+		{
+			const Vec4& team_color = Team::color(AI::Team(team), AI::Team(params.camera->team));
+			if (params.flags & RenderFlagBackFace)
+				color_final = PVP_INACCESSIBLE;
+			else if (list_alpha.get(id()) || list_additive.get(id()))
+				color_final = Vec4(team_color.xyz(), color.w);
+			else
+				color_final = team_color;
+		}
+		if (params.flags & RenderFlagAlphaOverride)
+			color_final.w = 0.7f;
+		sync->write(color_final);
 	}
 
 	if (shader_actual == Asset::Shader::culled)

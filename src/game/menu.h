@@ -84,7 +84,7 @@ void init(const InputState&);
 void update(const Update&);
 void update_end(const Update&);
 void clear();
-void draw(const RenderParams&);
+void draw_ui(const RenderParams&);
 void title();
 void show();
 void refresh_variables(const InputState&);

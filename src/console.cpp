@@ -309,7 +309,7 @@ void Console::debug(const char* format, ...)
 	debug_buffer[debug_buffer.length - 1] = '\0';
 }
 
-void Console::draw(const RenderParams& p)
+void Console::draw_ui(const RenderParams& p)
 {
 	const Rect2& vp = p.camera->viewport;
 	r32 padding = 6.0f * UI::scale;

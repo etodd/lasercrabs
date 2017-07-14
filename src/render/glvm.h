@@ -29,6 +29,7 @@ enum class RenderOp : s8
 	ColorMask,
 	DepthMask,
 	DepthTest,
+	DepthFunc,
 	Shader,
 	Uniform,
 	Mesh,
@@ -123,6 +124,15 @@ enum class RenderFillMode : s8
 	Fill,
 	Line,
 	Point,
+	count,
+};
+
+enum RenderDepthFunc : s8
+{
+	Never,
+	Less,
+	Greater,
+	Equal,
 	count,
 };
 

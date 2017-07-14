@@ -55,7 +55,7 @@ void init(const InputState&) {}
 void update(const Update&) {}
 void update_end(const Update&) {}
 void clear() {}
-void draw(const RenderParams&) {}
+void draw_ui(const RenderParams&) {}
 void title() {}
 void show() {}
 void refresh_variables(const InputState&) {}
@@ -658,7 +658,7 @@ void title()
 	Game::schedule_load_level(Asset::Level::Tier_0A, Game::Mode::Special);
 }
 
-void draw(const RenderParams& params)
+void draw_ui(const RenderParams& params)
 {
 	if (params.technique != RenderTechnique::Default)
 		return;

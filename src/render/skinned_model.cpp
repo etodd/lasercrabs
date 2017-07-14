@@ -161,7 +161,7 @@ void SkinnedModel::draw(const RenderParams& params, ObstructingBehavior b)
 
 	AssetID mesh_actual = (params.technique != RenderTechnique::Shadow || (params.flags & RenderFlagEdges)) || mesh_shadow == AssetNull ? mesh : mesh_shadow;
 
-	b8 alpha_override = false;
+	b8 alpha_override = params.flags & RenderFlagAlphaOverride;
 
 	{
 		r32 max_radius;

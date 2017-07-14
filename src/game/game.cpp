@@ -857,6 +857,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 	EffectLight::draw_alpha(render_params);
 
 	Tile::draw_alpha(render_params);
+
+	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+		i.item()->draw_alpha(render_params);
 	
 	Ascensions::draw_ui(render_params);
 
@@ -873,12 +876,12 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	Team::draw_ui(render_params);
 
-	Menu::draw(render_params);
+	Menu::draw_ui(render_params);
 
 	if (schedule_timer > 0.0f && schedule_timer < TRANSITION_TIME)
 		Menu::draw_letterbox(render_params, schedule_timer, TRANSITION_TIME);
 
-	Console::draw(render_params);
+	Console::draw_ui(render_params);
 }
 
 void Game::draw_hollow(const RenderParams& render_params)

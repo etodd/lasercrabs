@@ -2819,8 +2819,6 @@ void player_confirm_tram_interactable(s8 gamepad)
 				i.item()->get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 				i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 			}
-			else
-				i.item()->anim_base = nullptr;
 			break;
 		}
 	}
@@ -2830,10 +2828,14 @@ void player_confirm_terminal_interactable(s8 gamepad)
 {
 	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 	{
-		PlayerHuman* player = i.item()->player.ref();
-		if (player->gamepad == gamepad)
+		if (i.item()->player.ref()->gamepad == gamepad)
 		{
-			i.item()->get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
+			Interactable* interactable = Interactable::closest(i.item()->get<Transform>()->absolute_pos());
+			if (interactable && interactable->type == Interactable::Type::Terminal)
+			{
+				i.item()->anim_base = interactable->entity();
+				i.item()->get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
+			}
 			break;
 		}
 	}
@@ -2841,15 +2843,6 @@ void player_confirm_terminal_interactable(s8 gamepad)
 
 void player_cancel_interactable(s8 gamepad)
 {
-	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
-	{
-		PlayerHuman* player = i.item()->player.ref();
-		if (player->gamepad == gamepad)
-		{
-			i.item()->anim_base = nullptr;
-			break;
-		}
-	}
 }
 
 const PlayerControlHuman::PositionEntry* PlayerControlHuman::remote_position(r32* tolerance_pos, r32* tolerance_rot) const
@@ -3321,7 +3314,6 @@ void PlayerControlHuman::update(const Update& u)
 				Interactable* interactable = Interactable::closest(get<Transform>()->absolute_pos());
 				if (interactable)
 				{
-					anim_base = interactable->entity();
 					switch (interactable->type)
 					{
 						case Interactable::Type::Terminal:
@@ -3334,14 +3326,12 @@ void PlayerControlHuman::update(const Update& u)
 									{
 										// terminal is temporarily locked, must leave and come back
 										player.ref()->msg(_(strings::terminal_locked), false);
-										anim_base = nullptr;
 									}
 									else if (Game::level.max_teams <= 2 || Game::save.group != Net::Master::Group::None) // if the map requires more than two players, you must be in a group
 									{
 										if (Game::save.resources[s32(Resource::Drones)] < DEFAULT_ASSAULT_DRONES)
 										{
 											Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), DEFAULT_ASSAULT_DRONES, _(strings::drones));
-											anim_base = nullptr;
 										}
 										else
 											Menu::dialog_with_cancel(gamepad, &player_confirm_terminal_interactable, &player_cancel_interactable, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES);
@@ -3350,7 +3340,6 @@ void PlayerControlHuman::update(const Update& u)
 									{
 										// must be in a group
 										player.ref()->msg(_(strings::group_required), false);
-										anim_base = nullptr;
 									}
 									break;
 								}
@@ -3364,13 +3353,13 @@ void PlayerControlHuman::update(const Update& u)
 									interactable->interact();
 									get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 									get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
+									anim_base = interactable->entity();
 									break;
 								}
 								case ZoneState::PvpFriendly:
 								{
 									// zone is already owned
 									player.ref()->msg(_(strings::zone_already_captured), false);
-									anim_base = nullptr;
 									break;
 								}
 								default:
@@ -3395,34 +3384,21 @@ void PlayerControlHuman::update(const Update& u)
 								interactable->interact();
 								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 								get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
+								anim_base = interactable->entity();
 							}
-							else if (tram->arrive_only || target_level == AssetNull)
-							{
-								// can't leave
+							else if (tram->arrive_only || target_level == AssetNull) // can't leave
 								player.ref()->msg(_(strings::zone_unavailable), false);
-								anim_base = nullptr;
-							}
 							else if (Overworld::zone_is_pvp(target_level))
-							{
 								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_drones), DEFAULT_ASSAULT_DRONES);
-								anim_base = nullptr;
-							}
 							else if (Game::save.resources[s32(Resource::AccessKeys)] > 0) // ask if they want to use a key
-							{
 								Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::access_keys));
-								anim_base = nullptr;
-							}
 							else // not enough
-							{
 								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::access_keys));
-								anim_base = nullptr;
-							}
 							break;
 						}
 						case Interactable::Type::Shop:
 						{
 							Overworld::show(player.ref()->camera.ref(), Overworld::State::StoryModeOverlay, Overworld::Tab::Inventory);
-							anim_base = nullptr;
 							break;
 						}
 						default:
@@ -3432,8 +3408,6 @@ void PlayerControlHuman::update(const Update& u)
 						}
 					}
 				}
-				else
-					anim_base = nullptr;
 			}
 
 			if (anim_base.ref())
@@ -3442,11 +3416,7 @@ void PlayerControlHuman::update(const Update& u)
 				// position player where they need to be
 				// if anim_base is an interactable, place the player directly in front of it
 
-				if (Menu::dialog_active(gamepad))
-				{
-					// wait for the dialog
-				}
-				else if (get<Animator>()->layers[3].animation == AssetNull)
+				if (get<Animator>()->layers[3].animation == AssetNull)
 					anim_base = nullptr; // animation done
 				else
 				{

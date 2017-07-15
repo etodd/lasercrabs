@@ -1130,17 +1130,6 @@
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_meursault_a16" ID="{9DFA65A7-B461-4FB9-83B2-BA4241BDCCEC}">
-							<ChildrenList>
-								<Action Name="Play" ID="{BD5E552D-D0DA-4BC5-A674-4BC96119054E}" ShortID="682149605" Type="Play" Scope="One" Global="false">
-									<ElementList>
-										<Element ID="{831BD543-72B2-4AB3-A64A-F1BBAC686539}" Global="false">
-											<ObjectRef Name="meursault_a16" ID="{E3961AC8-FCBE-4418-8BE2-F1CE02D07D19}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Element>
-									</ElementList>
-								</Action>
-							</ChildrenList>
-						</Event>
 						<Event Name="Play_meursault_a04" ID="{C4B35F6B-04EA-428A-900B-4E52CA253C1B}">
 							<ChildrenList>
 								<Action Name="Play" ID="{1F4CED71-CF2E-40DF-8305-735665F96291}" ShortID="791823347" Type="Play" Scope="One" Global="false">

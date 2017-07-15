@@ -1129,17 +1129,16 @@ namespace tier_1a
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A04, AssetNull, strings::meursault_a04, Actor::Loop::No, Actor::Overlap::No, 4.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A05, AssetNull, strings::meursault_a05, Actor::Loop::No, Actor::Overlap::No, 2.5f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A06, AssetNull, strings::meursault_a06, Actor::Loop::No, Actor::Overlap::No, 1.5f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A07, AssetNull, strings::meursault_a07, Actor::Loop::No, Actor::Overlap::No, 1.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A08, AssetNull, strings::meursault_a08, Actor::Loop::No, Actor::Overlap::No, 1.5f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A07, AssetNull, strings::meursault_a07, Actor::Loop::No, Actor::Overlap::No, 2.8f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A08, AssetNull, strings::meursault_a08, Actor::Loop::No, Actor::Overlap::No, 1.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A09, AssetNull, strings::meursault_a09, Actor::Loop::No, Actor::Overlap::No, 1.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A10, AssetNull, strings::meursault_a10, Actor::Loop::No, Actor::Overlap::No, 1.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A11, AssetNull, strings::meursault_a11, Actor::Loop::No, Actor::Overlap::No, 5.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A12, AssetNull, strings::meursault_a12, Actor::Loop::No, Actor::Overlap::No, 2.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A13, AssetNull, strings::meursault_a13, Actor::Loop::No, Actor::Overlap::No, 1.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A14, AssetNull, strings::meursault_a14, Actor::Loop::No, Actor::Overlap::No, 3.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A10, AssetNull, strings::meursault_a10, Actor::Loop::No, Actor::Overlap::No, 5.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A11, AssetNull, strings::meursault_a11, Actor::Loop::No, Actor::Overlap::No, 2.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A12, AssetNull, strings::meursault_a12, Actor::Loop::No, Actor::Overlap::No, 1.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A13, AssetNull, strings::meursault_a13, Actor::Loop::No, Actor::Overlap::No, 3.0f);
 			data->meursault->cue(&give_drones_animation_callback, 0.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A15, AssetNull, strings::meursault_a15, Actor::Loop::No, Actor::Overlap::No, 1.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A16, AssetNull, strings::meursault_a16, Actor::Loop::No, Actor::Overlap::No, 2.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A14, AssetNull, strings::meursault_a14, Actor::Loop::No, Actor::Overlap::No, 1.0f);
+			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A15, AssetNull, strings::meursault_a15, Actor::Loop::No, Actor::Overlap::No, 2.0f);
 
 			player->get<PlayerControlHuman>()->cinematic(data->anim_base.ref(), Asset::Animation::character_meursault_intro);
 		}

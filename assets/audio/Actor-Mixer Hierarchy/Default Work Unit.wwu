@@ -2543,25 +2543,6 @@
 								<ActiveSource Name="meursault_a15" ID="{C2650B60-5F52-4ABF-AF50-81B655C6A59F}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="meursault_a16" ID="{E3961AC8-FCBE-4418-8BE2-F1CE02D07D19}" ShortID="769620406" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="meursault_a16" ID="{C64DFED4-8159-4251-A6C2-A16FBDBDB477}" ShortID="575503233">
-									<Language>SFX</Language>
-									<AudioFile>meursault_a16.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="meursault_a16" ID="{C64DFED4-8159-4251-A6C2-A16FBDBDB477}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
 						<Sound Name="meursault_arrow" ID="{915EB3DF-0113-4408-8210-4C0EFE2F58F5}" ShortID="956421484" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">

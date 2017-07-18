@@ -531,6 +531,8 @@ void Game::update(const Update& update_in)
 		Grenade::update_client_all(u);
 		for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
+		for (auto i = UpgradeStation::list.iterator(); !i.is_last(); i.next())
+			i.item()->update_client(u);
 		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
 		{
 			if (level.local || (i.item()->has<PlayerControlHuman>() && i.item()->get<PlayerControlHuman>()->local()))
@@ -697,7 +699,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 #if DEBUG_WALK_AI_PATH
 	{
 		UIText text;
-		text.color = UI::color_accent;
+		text.color = UI::color_accent();
 		for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 		{
 			Minion* minion = i.item();
@@ -1645,6 +1647,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 			if (Team::list.count() > s32(team))
 				entity = World::alloc<SpawnPointEntity>(team, Json::get_s32(element, "visible", 1));
+			else
+				entity = World::alloc<StaticGeom>(Asset::Mesh::spawn_collision, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 		}
 		else if (cJSON_HasObjectItem(element, "CoreModule"))
 		{

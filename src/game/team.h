@@ -96,7 +96,7 @@ struct Team : public ComponentType<Team>
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{
-		return them == AI::TeamNone ? UI::color_accent : (me == them ? ui_color_friend : ui_color_enemy);
+		return them == AI::TeamNone ? UI::color_accent() : (me == them ? ui_color_friend : ui_color_enemy);
 	}
 
 	static inline const Vec4& color(AI::Team me, AI::Team them)
@@ -189,7 +189,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void add_energy_and_notify(s32);
 	void add_kills(s32);
 	void add_deaths(s32);
-	b8 at_spawn_point() const;
 	void update_server(const Update&);
 	void update_client(const Update&);
 	void score_accept();

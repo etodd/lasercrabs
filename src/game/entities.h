@@ -143,6 +143,39 @@ struct SpawnPoint : public ComponentType<SpawnPoint>
 	SpawnPosition spawn_position(PlayerManager* = nullptr) const;
 };
 
+struct Drone;
+struct UpgradeStation : public ComponentType<UpgradeStation>
+{
+	enum class Mode : s8
+	{
+		Deactivating,
+		Activating,
+		count,
+	};
+
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
+	static UpgradeStation* drone_at(const Drone*);
+	static UpgradeStation* drone_inside(const Drone*);
+	static UpgradeStation* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+
+	r32 timer;
+	Ref<SpawnPoint> spawn_point;
+	Ref<Drone> drone;
+	Mode mode;
+
+	void awake() {}
+	void update_client(const Update&);
+	void drone_enter(Drone*);
+	void drone_exit();
+	void transform(Vec3*, Quat*) const;
+	Quat rotation() const;
+};
+
+struct UpgradeStationEntity : public Entity
+{
+	UpgradeStationEntity(SpawnPoint*);
+};
+
 struct SensorEntity : public Entity
 {
 	SensorEntity(AI::Team, const Vec3&, const Quat&);

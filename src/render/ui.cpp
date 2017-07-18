@@ -4,6 +4,8 @@
 #include "render/render.h"
 #include "strings.h"
 #include "asset/font.h"
+#include "game/game.h"
+#include "game/overworld.h"
 
 namespace VI
 {
@@ -503,7 +505,7 @@ void UIScroll::start(const RenderParams& params, const Vec2& p) const
 	{
 		Vec2 p2 = p + Vec2(0, 16.0f * UI::scale);
 		UI::centered_box(params, { p2, Vec2(32.0f * UI::scale) }, UI::color_background);
-		UI::triangle(params, { p2, Vec2(16.0f * UI::scale) }, UI::color_accent);
+		UI::triangle(params, { p2, Vec2(16.0f * UI::scale) }, UI::color_accent());
 	}
 }
 
@@ -513,7 +515,7 @@ void UIScroll::end(const RenderParams& params, const Vec2& p) const
 	{
 		Vec2 p2 = p + Vec2(0, -16.0f * UI::scale);
 		UI::centered_box(params, { p2, Vec2(32.0f * UI::scale) }, UI::color_background);
-		UI::triangle(params, { p2, Vec2(16.0f * UI::scale) }, UI::color_accent, PI);
+		UI::triangle(params, { p2, Vec2(16.0f * UI::scale) }, UI::color_accent(), PI);
 	}
 }
 
@@ -523,10 +525,26 @@ b8 UIScroll::item(s32 i) const
 }
 
 const Vec4 UI::color_default = Vec4(1, 1, 1, 1);
-const Vec4 UI::color_alert = Vec4(1.0f, 0.4f, 0.4f, 1);
-const Vec4 UI::color_accent = Vec4(1.0f, 0.95f, 0.35f, 1);
+const Vec4& UI::color_alert()
+{
+	static const Vec4 alert_pvp = Vec4(1.0f, 0.4f, 0.4f, 1);
+	static const Vec4 alert_normal = Vec4(1.0f, 0.6f, 0.6f, 1);
+	return Game::level.mode == Game::Mode::Pvp || Overworld::modal() ? alert_pvp : alert_normal;
+}
+const Vec4& UI::color_accent()
+{
+	static const Vec4 accent_pvp = Vec4(1.0f, 0.95f, 0.35f, 1);
+	static const Vec4 accent_normal = Vec4(0.5f, 0.9f, 1.0f, 1);
+	return Game::level.mode == Game::Mode::Pvp || Overworld::modal() ? accent_pvp : accent_normal;
+}
 const Vec4 UI::color_background = Vec4(0, 0, 0, 1);
-const Vec4 UI::color_disabled = Vec4(0.5f, 0.5f, 0.5f, 1);
+const Vec4& UI::color_disabled()
+{
+	static const Vec4 disabled_pvp = Vec4(0.5f, 0.5f, 0.5f, 1);
+	static const Vec4 disabled_normal = Vec4(0.75f, 0.75f, 0.75f, 1);
+	return Game::level.mode == Game::Mode::Pvp || Overworld::modal() ? disabled_pvp : disabled_normal;
+}
+
 r32 UI::scale = 1.0f;
 AssetID UI::mesh_id = AssetNull;
 AssetID UI::texture_mesh_id = AssetNull;

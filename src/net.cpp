@@ -268,6 +268,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Animator::component_mask
 		| Rope::component_mask
 		| SpawnPoint::component_mask
+		| UpgradeStation::component_mask
 		| SkyDecal::component_mask
 		| AIAgent::component_mask
 		| Health::component_mask
@@ -513,6 +514,14 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		SpawnPoint* s = e->get<SpawnPoint>();
 		serialize_s8(p, s->team);
+	}
+
+	if (e->has<UpgradeStation>())
+	{
+		UpgradeStation* u = e->get<UpgradeStation>();
+		serialize_ref(p, u->spawn_point);
+		serialize_ref(p, u->drone);
+		serialize_enum(p, UpgradeStation::Mode, u->mode);
 	}
 
 	if (e->has<Walker>())
@@ -2664,6 +2673,12 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 				net_error();
 			break;
 		}
+		case MessageType::UpgradeStation:
+		{
+			if (!UpgradeStation::net_msg(p, MessageSource::Remote))
+				net_error();
+			break;
+		}
 		case MessageType::ClientSetup:
 		{
 			// create players
@@ -3922,6 +3937,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Bolt:
 		{
 			if (!Bolt::net_msg(p, src))
+				net_error();
+			break;
+		}
+		case MessageType::UpgradeStation:
+		{
+			if (!UpgradeStation::net_msg(p, src))
 				net_error();
 			break;
 		}

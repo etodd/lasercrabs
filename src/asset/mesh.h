@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const s32 count = 64;
+		const s32 count = 66;
 		const AssetID access_key = 0;
 		const AssetID actor_collision = 1;
 		const AssetID battery = 2;
@@ -57,22 +57,24 @@ namespace Asset
 		const AssetID sky_decal = 45;
 		const AssetID sky_pattern = 46;
 		const AssetID skybox = 47;
-		const AssetID spawn = 48;
-		const AssetID sphere = 49;
-		const AssetID sphere_highres = 50;
-		const AssetID support = 51;
-		const AssetID support2 = 52;
-		const AssetID terminal = 53;
-		const AssetID terminal_collision = 54;
-		const AssetID tram_collision = 55;
-		const AssetID tram_collision_door = 56;
-		const AssetID tram_doors = 57;
-		const AssetID tram_mesh = 58;
-		const AssetID tram_mesh_1 = 59;
-		const AssetID tram_runner = 60;
-		const AssetID tri_tube = 61;
-		const AssetID turret_base = 62;
-		const AssetID turret_top = 63;
+		const AssetID spawn_collision = 48;
+		const AssetID spawn_main = 49;
+		const AssetID spawn_upgrade_station = 50;
+		const AssetID sphere = 51;
+		const AssetID sphere_highres = 52;
+		const AssetID support = 53;
+		const AssetID support2 = 54;
+		const AssetID terminal = 55;
+		const AssetID terminal_collision = 56;
+		const AssetID tram_collision = 57;
+		const AssetID tram_collision_door = 58;
+		const AssetID tram_doors = 59;
+		const AssetID tram_mesh = 60;
+		const AssetID tram_mesh_1 = 61;
+		const AssetID tram_runner = 62;
+		const AssetID tri_tube = 63;
+		const AssetID turret_base = 64;
+		const AssetID turret_top = 65;
 	}
 }
 

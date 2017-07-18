@@ -240,7 +240,6 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	menu_state(),
 	kill_cam_rot(),
 	rumble(),
-	upgrade_menu_open(),
 	animation_time(),
 	upgrade_last_visit_highest_available(Upgrade::None),
 	score_summary_scroll(),
@@ -315,27 +314,32 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 	if (menu_state != Menu::State::Hidden)
 		return UIMode::Pause;
 	else if (Team::game_over)
-		return UIMode::GameOver;
-	else if (get<PlayerManager>()->instance.ref())
+		return UIMode::PvpGameOver;
+	else
 	{
-		if (upgrade_menu_open)
-			return UIMode::Upgrading;
-		else
+		Entity* entity = get<PlayerManager>()->instance.ref();
+		if (entity)
 		{
-			if (get<PlayerManager>()->instance.ref()->has<Drone>())
-				return UIMode::PvpDefault;
+			if (entity->has<Drone>())
+			{
+				UpgradeStation* station = UpgradeStation::drone_inside(entity->get<Drone>());
+				if (station && station->mode != UpgradeStation::Mode::Deactivating)
+					return UIMode::PvpUpgrading;
+				else
+					return UIMode::PvpDefault;
+			}
 			else
 				return UIMode::ParkourDefault;
 		}
+		else
+			return UIMode::Dead;
 	}
-	else
-		return UIMode::Dead;
 }
 
 void PlayerHuman::msg(const char* msg, b8 good)
 {
 	msg_text.text(gamepad, msg);
-	msg_text.color = good ? UI::color_accent : UI::color_alert;
+	msg_text.color = good ? UI::color_accent() : UI::color_alert();
 	msg_timer = msg_time;
 	msg_good = good;
 }
@@ -545,24 +549,38 @@ b8 send(PlayerControlHuman* c, Message* msg)
 
 void PlayerHuman::upgrade_menu_show()
 {
-	upgrade_menu_open = true;
-	menu.animate();
-	animation_time = Game::real_time.total;
 	Entity* instance = get<PlayerManager>()->instance.ref();
-	if (instance)
-		instance->get<Drone>()->ability(Ability::None);
+	if (instance && !UpgradeStation::drone_inside(instance->get<Drone>()))
+	{
+		UpgradeStation* station = UpgradeStation::drone_at(instance->get<Drone>());
+		if (station)
+		{
+			instance->get<Drone>()->ability(Ability::None);
+			station->drone_enter(instance->get<Drone>());
+			menu.animate();
+			animation_time = Game::real_time.total;
+			upgrade_last_visit_highest_available = get<PlayerManager>()->upgrade_highest_owned_or_available();
+		}
+	}
 }
 
 void PlayerHuman::upgrade_menu_hide()
 {
-	if (upgrade_menu_open)
-		upgrade_last_visit_highest_available = get<PlayerManager>()->upgrade_highest_owned_or_available();
-	upgrade_menu_open = false;
+	Entity* instance = get<PlayerManager>()->instance.ref();
+	if (instance && get<PlayerManager>()->state() != PlayerManager::State::Upgrading)
+	{
+		UpgradeStation* station = UpgradeStation::drone_inside(instance->get<Drone>());
+		if (station && station->mode != UpgradeStation::Mode::Deactivating)
+		{
+			station->drone_exit();
+			upgrade_last_visit_highest_available = get<PlayerManager>()->upgrade_highest_owned_or_available();
+		}
+	}
 }
 
 void PlayerHuman::upgrade_completed(Upgrade u)
 {
-	if (upgrade_menu_open && menu.selected > 0)
+	if (ui_mode() == UIMode::PvpUpgrading && menu.selected > 0)
 	{
 		// an upgrade was just removed from the menu
 		// shift selected menu item up one so the player is not surprised by what they currently have selected
@@ -694,7 +712,7 @@ void PlayerHuman::update(const Update& u)
 			&& u.last_input->get(Controls::Pause, gamepad)
 			&& !u.input->get(Controls::Pause, gamepad)
 			&& !Game::cancel_event_eaten[gamepad]
-			&& !upgrade_menu_open
+			&& ui_mode() != UIMode::PvpUpgrading
 			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
 		{
 			Game::cancel_event_eaten[gamepad] = true;
@@ -719,7 +737,7 @@ void PlayerHuman::update(const Update& u)
 		case UIMode::PvpDefault:
 		{
 			kill_cam_rot = camera.ref()->rot;
-			if (get<PlayerManager>()->at_spawn_point() && get<PlayerManager>()->energy > 0)
+			if (UpgradeStation::drone_at(entity->get<Drone>()) && get<PlayerManager>()->energy > 0)
 			{
 				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 					upgrade_menu_show();
@@ -730,7 +748,7 @@ void PlayerHuman::update(const Update& u)
 		{
 			break;
 		}
-		case UIMode::Upgrading:
+		case UIMode::PvpUpgrading:
 		{
 			// upgrade menu
 			if (u.last_input->get(Controls::Cancel, gamepad)
@@ -740,7 +758,7 @@ void PlayerHuman::update(const Update& u)
 				Game::cancel_event_eaten[gamepad] = true;
 				upgrade_menu_hide();
 			}
-			else if (!get<PlayerManager>()->at_spawn_point())
+			else if (!UpgradeStation::drone_inside(entity->get<Drone>())) // we got kicked out of the upgrade station; probably by the server
 				upgrade_menu_hide();
 			else
 			{
@@ -750,7 +768,7 @@ void PlayerHuman::update(const Update& u)
 
 				menu.start(u, gamepad);
 
-				if (menu.item(u, _(strings::close), nullptr, false, Asset::Mesh::icon_close))
+				if (menu.item(u, _(strings::close), nullptr, upgrade_in_progress, Asset::Mesh::icon_close))
 					upgrade_menu_hide();
 
 				for (s32 i = 0; i < s32(Upgrade::count); i++)
@@ -928,7 +946,7 @@ void PlayerHuman::update(const Update& u)
 			}
 			break;
 		}
-		case UIMode::GameOver:
+		case UIMode::PvpGameOver:
 		{
 			camera.ref()->range = 0;
 			if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY)
@@ -1186,11 +1204,11 @@ r32 ability_draw(const RenderParams& params, const PlayerManager* manager, const
 	if (Game::time.total - manager->ability_purchase_times[index] < msg_time)
 		color = UI::flash_function(Game::time.total) ? &UI::color_default : &UI::color_background;
 	else if (!manager->ability_valid(ability) || !manager->instance.ref()->get<PlayerCommon>()->movement_enabled())
-		color = params.sync->input.get(binding, gamepad) ? &UI::color_disabled : &UI::color_alert;
+		color = params.sync->input.get(binding, gamepad) ? &UI::color_disabled() : &UI::color_alert();
 	else if (manager->instance.ref()->get<Drone>()->current_ability == ability)
 		color = &UI::color_default;
 	else
-		color = &UI::color_accent;
+		color = &UI::color_accent();
 	return draw_icon_text(params, gamepad, pos, AbilityInfo::list[s32(ability)].icon, string, *color);
 }
 
@@ -1236,9 +1254,9 @@ void match_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Ancho
 	if (remaining > Game::level.time_limit * 0.5f)
 		color = &UI::color_default;
 	else if (remaining > Game::level.time_limit * 0.25f)
-		color = &UI::color_accent;
+		color = &UI::color_accent();
 	else
-		color = &UI::color_alert;
+		color = &UI::color_alert();
 
 	{
 		b8 draw;
@@ -1327,7 +1345,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	{
 		// show remaining drones label
 		text.text(0, _(strings::drones_remaining));
-		text.color = UI::color_accent;
+		text.color = UI::color_accent();
 		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -1454,12 +1472,12 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	{
 		if (mode == UIMode::PvpDefault
 			&& get<PlayerManager>()->can_transition_state()
-			&& get<PlayerManager>()->at_spawn_point()
+			&& UpgradeStation::drone_at(get<PlayerManager>()->instance.ref()->get<Drone>())
 			&& get<PlayerManager>()->energy > 0)
 		{
 			// "upgrade!" prompt
 			UIText text;
-			text.color = get<PlayerManager>()->upgrade_available() ? UI::color_accent : UI::color_disabled;
+			text.color = get<PlayerManager>()->upgrade_available() ? UI::color_accent() : UI::color_disabled();
 			text.text(gamepad, _(strings::prompt_upgrade));
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
@@ -1469,7 +1487,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.draw(params, pos);
 		}
 
-		if ((mode == UIMode::PvpDefault || mode == UIMode::Upgrading)
+		if ((mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrading)
 			&& get<PlayerManager>()->can_transition_state())
 		{
 			// draw abilities
@@ -1496,13 +1514,13 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
 		&& Game::session.allow_abilities
-		&& (mode == UIMode::PvpDefault || mode == UIMode::Upgrading))
+		&& (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrading))
 	{
 		// energy
 		char buffer[128];
 		sprintf(buffer, "%d", get<PlayerManager>()->energy);
 		Vec2 p = ui_anchor + Vec2(match_timer_width() + text_size * UI::scale, (text_size + 16.0f) * -UI::scale);
-		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_energy, buffer, UI::color_accent, text_size * 5 * UI::scale);
+		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_energy, buffer, UI::color_accent(), text_size * 5 * UI::scale);
 	}
 
 	if (mode == UIMode::PvpDefault)
@@ -1510,7 +1528,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		if (params.sync->input.get(Controls::Scoreboard, gamepad))
 			scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Center);
 	}
-	else if (mode == UIMode::Upgrading)
+	else if (mode == UIMode::PvpUpgrading)
 	{
 		Vec2 upgrade_menu_pos = vp.size * Vec2(0.5f, 0.6f);
 		menu.draw_ui(params, upgrade_menu_pos, UIText::Anchor::Center, UIText::Anchor::Center);
@@ -1528,7 +1546,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 				const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
 				UIText text;
-				text.color = UI::color_accent;
+				text.color = UI::color_accent();
 				text.size = text_size;
 				text.anchor_x = UIText::Anchor::Min;
 				text.anchor_y = UIText::Anchor::Max;
@@ -1561,14 +1579,14 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 						text.size = text_size * 1.5f;
 						text.anchor_x = UIText::Anchor::Center;
 						text.anchor_y = UIText::Anchor::Min;
-						text.color = UI::color_alert;
+						text.color = UI::color_alert();
 						text.text(gamepad, _(strings::alarm));
 
 						Vec2 pos = vp.size * Vec2(0.5f, 0.8f);
 						Rect2 rect = text.rect(pos).outset(MENU_ITEM_PADDING * 2.0f);
 						UI::box(params, rect, UI::color_background);
 						text.draw(params, pos);
-						UI::border(params, rect, 4.0f, UI::color_alert);
+						UI::border(params, rect, 4.0f, UI::color_alert());
 					}
 					sudoku.draw(params, gamepad);
 				}
@@ -1595,7 +1613,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 							Vec2 p;
 							if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
-								UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent, PI);
+								UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent(), PI);
 
 							if (Game::level.type == GameType::Assault)
 							{
@@ -1615,7 +1633,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 								UIText text;
 								text.anchor_x = UIText::Anchor::Center;
 								text.anchor_y = UIText::Anchor::Max;
-								text.color = UI::color_accent;
+								text.color = UI::color_accent();
 								text.text(gamepad, _(strings::prompt_deploy));
 								Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
 								UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
@@ -1645,7 +1663,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 					text.draw(params, pos);
 
 					// "spectating"
-					text.color = UI::color_accent;
+					text.color = UI::color_accent();
 					text.text(gamepad, _(strings::spectating));
 					pos = vp.size * Vec2(0.5f, 0.1f);
 					UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
@@ -1655,7 +1673,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 	}
 
-	if (mode == UIMode::GameOver && Game::level.mode == Game::Mode::Pvp)
+	if (mode == UIMode::PvpGameOver && Game::level.mode == Game::Mode::Pvp)
 	{
 		// show victory/defeat/draw message
 		UIText text;
@@ -1666,17 +1684,17 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		Team* winner = Team::winner.ref();
 		if (winner == get<PlayerManager>()->team.ref()) // we won
 		{
-			text.color = UI::color_accent;
+			text.color = UI::color_accent();
 			text.text(gamepad, _(Game::session.type == SessionType::Story ? strings::story_victory : strings::victory));
 		}
 		else if (!winner) // it's a draw
 		{
-			text.color = UI::color_alert;
+			text.color = UI::color_alert();
 			text.text(gamepad, _(strings::draw));
 		}
 		else // we lost
 		{
-			text.color = UI::color_alert;
+			text.color = UI::color_alert();
 			text.text(gamepad, _(Game::session.type == SessionType::Story ? strings::story_defeat : strings::defeat));
 		}
 		UIMenu::text_clip(&text, Team::game_over_real_time, 20.0f);
@@ -1705,7 +1723,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			for (s32 i = 0; i < Team::score_summary.length; i++)
 			{
 				const Team::ScoreSummaryItem& item = Team::score_summary[i];
-				text.color = item.player.ref() == get<PlayerManager>() ? UI::color_accent : Team::ui_color(team, item.team);
+				text.color = item.player.ref() == get<PlayerManager>() ? UI::color_accent() : Team::ui_color(team, item.team);
 
 				UIText amount = text;
 				amount.anchor_x = UIText::Anchor::Max;
@@ -1732,7 +1750,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			{
 				Vec2 p = vp.size * Vec2(0.5f, 0.2f);
 				text.wrap_width = 0;
-				text.color = UI::color_accent;
+				text.color = UI::color_accent();
 				text.text(gamepad, _(get<PlayerManager>()->score_accepted ? strings::waiting : strings::prompt_accept));
 				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 				text.draw(params, p);
@@ -1782,20 +1800,20 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
 				Rect2 bar = text.rect(pos).outset(MENU_ITEM_PADDING);
 				UI::box(params, bar, UI::color_background);
-				UI::border(params, bar, 2, UI::color_accent);
-				UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (get<PlayerManager>()->state_timer / total_time)), bar.size.y) }, UI::color_accent);
+				UI::border(params, bar, 2, UI::color_accent());
+				UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (get<PlayerManager>()->state_timer / total_time)), bar.size.y) }, UI::color_accent());
 				text.draw(params, pos);
 			}
 		}
 
-		if (mode == UIMode::PvpDefault || mode == UIMode::Upgrading) // show game timer
+		if (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrading) // show game timer
 			match_timer_draw(params, ui_anchor + Vec2(0, (text_size + 16.0f) * -UI::scale), UIText::Anchor::Min);
 	}
 
 	// network error icon
 #if !SERVER
 	if (!Game::level.local && Net::Client::lagging())
-		UI::mesh(params, Asset::Mesh::icon_network_error, vp.size * Vec2(0.9f, 0.5f), Vec2(text_size * 2.0f * UI::scale), UI::color_alert);
+		UI::mesh(params, Asset::Mesh::icon_network_error, vp.size * Vec2(0.9f, 0.5f), Vec2(text_size * 2.0f * UI::scale), UI::color_alert());
 #endif
 
 	// message
@@ -1842,7 +1860,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		text.anchor_x = UIText::Anchor::Max;
 		text.anchor_y = UIText::Anchor::Min;
 		text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
-		text.color = UI::color_alert;
+		text.color = UI::color_alert();
 		r32 timer = Overworld::zone_under_attack_timer();
 		text.text(gamepad, _(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), s32(ceilf(timer)));
 		UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_THRESHOLD - timer, 80.0f);
@@ -3164,6 +3182,11 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					Vec3 trace_end = trace_start + trace_dir * DRONE_SNIPE_DISTANCE;
 					RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
+					for (auto i = UpgradeStation::list.iterator(); !i.is_last(); i.next()) // ignore drones inside upgrade stations
+					{
+						if (i.item()->drone.ref())
+							ray_callback.ignore(i.item()->drone.ref()->entity());
+					}
 					Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
 
 					Ability ability = get<Drone>()->current_ability;
@@ -3718,17 +3741,17 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		{
 			case TargetIndicator::Type::DroneVisible:
 			{
-				UI::indicator(params, indicator.pos, UI::color_alert, false);
+				UI::indicator(params, indicator.pos, UI::color_alert(), false);
 				break;
 			}
 			case TargetIndicator::Type::DroneOutOfRange:
 			{
-				UI::indicator(params, indicator.pos, UI::color_alert, true);
+				UI::indicator(params, indicator.pos, UI::color_alert(), true);
 				break;
 			}
 			case TargetIndicator::Type::Battery:
 			{
-				UI::indicator(params, indicator.pos, UI::color_accent, true, 1.0f, PI);
+				UI::indicator(params, indicator.pos, UI::color_accent(), true, 1.0f, PI);
 				break;
 			}
 			case TargetIndicator::Type::BatteryFriendly:
@@ -3738,18 +3761,18 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			}
 			case TargetIndicator::Type::BatteryOutOfRange:
 			{
-				UI::indicator(params, indicator.pos, UI::color_accent, false, 1.0f, PI);
+				UI::indicator(params, indicator.pos, UI::color_accent(), false, 1.0f, PI);
 				break;
 			}
 			case TargetIndicator::Type::Minion:
 			{
-				UI::indicator(params, indicator.pos, UI::color_alert, false);
+				UI::indicator(params, indicator.pos, UI::color_alert(), false);
 				break;
 			}
 			case TargetIndicator::Type::MinionAttacking:
 			{
 				if (UI::flash_function(Game::time.total))
-					UI::indicator(params, indicator.pos, UI::color_alert, true);
+					UI::indicator(params, indicator.pos, UI::color_alert(), true);
 				break;
 			}
 			case TargetIndicator::Type::Turret:
@@ -3773,7 +3796,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			case TargetIndicator::Type::TurretAttacking:
 			{
 				if (UI::flash_function(Game::time.total))
-					UI::indicator(params, indicator.pos, UI::color_alert, true);
+					UI::indicator(params, indicator.pos, UI::color_alert(), true);
 				break;
 			}
 			case TargetIndicator::Type::Sensor:
@@ -3910,7 +3933,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			&& Game::session.allow_abilities
 			&& (Game::level.has_feature(Game::FeatureLevel::All) || Game::level.feature_level == Game::FeatureLevel::Abilities) // disable prompt in tutorial after ability has been purchased
 			&& manager->upgrade_available() && manager->upgrade_highest_owned_or_available() != player.ref()->upgrade_last_visit_highest_available
-			&& !manager->at_spawn_point())
+			&& !UpgradeStation::drone_at(get<Drone>()))
 		{
 			Vec3 pos = SpawnPoint::closest(1 << s32(get<AIAgent>()->team), get<Transform>()->absolute_pos())->get<Transform>()->absolute_pos();
 			UI::indicator(params, pos, Team::ui_color_friend, true);
@@ -3969,7 +3992,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				{
 					const Vec4& color = blink
 						?  UI::color_default
-						: (Game::save.resources[i] == 0 ? UI::color_alert : UI::color_accent);
+						: (Game::save.resources[i] == 0 ? UI::color_alert() : UI::color_accent());
 					UI::mesh(params, info.icon, pos + Vec2(-panel_size.x + MENU_ITEM_PADDING + icon_size * 0.5f, panel_size.y * 0.5f), Vec2(icon_size), color);
 					text.color = color;
 					text.text(player.ref()->gamepad, "%d", Game::save.resources[i]);
@@ -3986,7 +4009,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (closest_interactable)
 			{
 				UIText text;
-				text.color = UI::color_accent;
+				text.color = UI::color_accent();
 				text.text(player.ref()->gamepad, _(strings::prompt_interact));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
@@ -4045,9 +4068,9 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 									case ZoneState::Locked:
 									{
 										if (Overworld::zone_is_pvp(zone))
-											text.color = Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES ? UI::color_default : UI::color_disabled;
+											text.color = Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES ? UI::color_default : UI::color_disabled();
 										else
-											text.color = Game::save.resources[s32(Resource::AccessKeys)] > 0 ? UI::color_default : UI::color_disabled;
+											text.color = Game::save.resources[s32(Resource::AccessKeys)] > 0 ? UI::color_default : UI::color_disabled();
 										break;
 									}
 									case ZoneState::PvpHostile:
@@ -4103,7 +4126,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				{
 					// show climb controls
 					UIText text;
-					text.color = UI::color_accent;
+					text.color = UI::color_accent();
 					text.text(player.ref()->gamepad, "{{ClimbingMovement}}");
 					text.anchor_x = UIText::Anchor::Center;
 					text.anchor_y = UIText::Anchor::Center;
@@ -4222,12 +4245,12 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			// we're being attacked; flash the compass
 			b8 show = UI::flash_function(Game::real_time.total);
 			if (show)
-				UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert);
+				UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert());
 			if (show && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
 				Audio::post_global_event(AK::EVENTS::PLAY_DANGER_BEEP);
 		}
 		else if (enemy_visible && !get<AIAgent>()->stealth)
-			UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert);
+			UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert());
 	}
 
 	{
@@ -4239,7 +4262,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		{
 			UIText text;
 			text.size = 24.0f;
-			text.color = UI::color_alert;
+			text.color = UI::color_alert();
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Min;
 
@@ -4257,7 +4280,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		if (is_vulnerable)
 		{
 			UIText text;
-			text.color = UI::color_alert;
+			text.color = UI::color_alert();
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Min;
 			text.text(player.ref()->gamepad, _(strings::shield_down));
@@ -4275,7 +4298,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	if (get<AIAgent>()->stealth)
 	{
 		UIText text;
-		text.color = UI::color_accent;
+		text.color = UI::color_accent();
 		text.text(player.ref()->gamepad, _(strings::stealth));
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
@@ -4302,7 +4325,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				UI::box(params, box, UI::color_background);
 				if (UI::flash_function_slow(Game::real_time.total))
 				{
-					text.color = UI::color_alert;
+					text.color = UI::color_alert();
 					text.draw(params, pos);
 				}
 			}
@@ -4311,8 +4334,8 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				// draw bar
 				Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
 				UI::box(params, box, UI::color_background);
-				UI::border(params, box, 2, UI::color_alert);
-				UI::box(params, { box.pos, Vec2(box.size.x * detect_danger, box.size.y) }, UI::color_alert);
+				UI::border(params, box, 2, UI::color_alert());
+				UI::box(params, { box.pos, Vec2(box.size.x * detect_danger, box.size.y) }, UI::color_alert());
 
 				text.color = UI::color_background;
 				text.draw(params, pos);
@@ -4341,19 +4364,19 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		const Vec4* color;
 		if (reticle.type == ReticleType::Error || reticle.type == ReticleType::DashError)
 		{
-			color = &UI::color_disabled;
+			color = &UI::color_disabled();
 			reticle_valid = false;
 		}
 		else if (reticle.type != ReticleType::None
 			&& cooldown_can_go
 			&& (get<Drone>()->current_ability == Ability::None || player.ref()->get<PlayerManager>()->ability_valid(get<Drone>()->current_ability)))
 		{
-			color = &UI::color_accent;
+			color = &UI::color_accent();
 			reticle_valid = true;
 		}
 		else
 		{
-			color = &UI::color_alert;
+			color = &UI::color_alert();
 			reticle_valid = false;
 		}
 
@@ -4363,7 +4386,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (charges == 0)
 			{
 				r32 cooldown_scale = (get<Drone>()->cooldown - Drone::cooldown_thresholds[0]) / (DRONE_COOLDOWN - Drone::cooldown_thresholds[0]);
-				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * cooldown_scale) * UI::scale) }, spoke_width, UI::color_alert, PI);
+				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * cooldown_scale) * UI::scale) }, spoke_width, UI::color_alert(), PI);
 			}
 			else
 			{
@@ -4402,7 +4425,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 				// cancel prompt
 				UIText text;
-				text.color = UI::color_accent;
+				text.color = UI::color_accent();
 				Controls binding = Controls::count;
 				PlayerManager* manager = player.ref()->get<PlayerManager>();
 				for (s32 i = 0; i < manager->ability_count(); i++)
@@ -4428,7 +4451,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			{
 				Vec2 a;
 				if (UI::project(params, reticle.pos, &a))
-					UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Target || reticle.type == ReticleType::DashTarget ? UI::color_alert : *color, PI);
+					UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Target || reticle.type == ReticleType::DashTarget ? UI::color_alert() : *color, PI);
 			}
 		}
 	}

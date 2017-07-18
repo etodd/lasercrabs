@@ -328,7 +328,10 @@ void update_stealth_state(PlayerManager* player, AIAgent* a, Entity* visibility[
 	// and not detected by enemy sensors
 	// then we should be stealthed
 	b8 stealth_enabled = true;
-	if (!Sensor::can_see(a->team, player_pos, normal))
+	UpgradeStation* upgrade_station = UpgradeStation::drone_inside(a->get<Drone>());
+	if (upgrade_station && upgrade_station->timer == 0.0f) // always stealthed inside upgrade stations (but not while transitioning)
+		stealth_enabled = true;
+	else if (!Sensor::can_see(a->team, player_pos, normal))
 		stealth_enabled = false;
 	else
 	{
@@ -1156,7 +1159,7 @@ b8 PlayerManager::upgrade_start(Upgrade u)
 	if (can_transition_state()
 		&& upgrade_available(u)
 		&& energy >= cost
-		&& at_spawn_point())
+		&& UpgradeStation::drone_inside(instance.ref()->get<Drone>()))
 	{
 		current_upgrade = u;
 		state_timer = UPGRADE_TIME;
@@ -1262,20 +1265,6 @@ void PlayerManager::add_deaths(s32 d)
 void PlayerManager::set_instance(Entity* e)
 {
 	PlayerManagerNet::set_instance(this, e);
-}
-
-b8 PlayerManager::at_spawn_point() const
-{
-	if (!instance.ref())
-		return false;
-
-	for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->team == team.ref()->team() && i.item()->get<PlayerTrigger>()->is_triggered(instance.ref()))
-			return true;
-	}
-
-	return false;
 }
 
 PlayerManager::State PlayerManager::state() const

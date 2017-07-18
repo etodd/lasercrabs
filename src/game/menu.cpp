@@ -170,7 +170,7 @@ void dialog_with_time_limit(s8 gamepad, DialogCallback callback, r32 limit, cons
 
 void progress_spinner(const RenderParams& params, const Vec2& pos, r32 size)
 {
-	UI::triangle_border(params, { pos, Vec2(size * UI::scale) }, 9, UI::color_accent, Game::real_time.total * -12.0f);
+	UI::triangle_border(params, { pos, Vec2(size * UI::scale) }, 9, UI::color_accent(), Game::real_time.total * -12.0f);
 }
 
 void progress_bar(const RenderParams& params, const char* label, r32 percentage, const Vec2& pos)
@@ -184,8 +184,8 @@ void progress_bar(const RenderParams& params, const char* label, r32 percentage,
 	Rect2 bar = text.rect(pos).outset(16.0f * UI::scale);
 
 	UI::box(params, bar, UI::color_background);
-	UI::border(params, bar, 2, UI::color_accent);
-	UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, UI::color_accent);
+	UI::border(params, bar, 2, UI::color_accent());
+	UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, UI::color_accent());
 
 	text.draw(params, bar.pos + bar.size * 0.5f);
 
@@ -201,7 +201,7 @@ void progress_infinite(const RenderParams& params, const char* label, const Vec2
 {
 	UIText text;
 	text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-	text.color = UI::color_accent;
+	text.color = UI::color_accent();
 	text.text(0, label);
 
 	Vec2 pos = pos_overall + Vec2(24 * UI::scale, 0);
@@ -731,7 +731,7 @@ void draw_ui(const RenderParams& params)
 			if (error_string != AssetNull)
 			{
 				UIText text;
-				text.color = UI::color_alert;
+				text.color = UI::color_alert();
 				text.anchor_x = UIText::Anchor::Min;
 				text.anchor_y = UIText::Anchor::Center;
 				text.wrap_width = MENU_ITEM_WIDTH;
@@ -772,7 +772,7 @@ void draw_ui(const RenderParams& params)
 		}
 
 		UI::box(params, text_rect, UI::color_background);
-		UI::border(params, text_rect, 2.0f, UI::color_accent);
+		UI::border(params, text_rect, 2.0f, UI::color_accent());
 
 		text.draw(params, pos);
 
@@ -782,7 +782,7 @@ void draw_ui(const RenderParams& params)
 			text.wrap_width = 0;
 			text.anchor_y = UIText::Anchor::Min;
 			text.anchor_x = UIText::Anchor::Min;
-			text.color = UI::color_accent;
+			text.color = UI::color_accent();
 			text.clip = 0;
 			text.text(gamepad, dialog_time_limit[gamepad] > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(dialog_time_limit[gamepad]) + 1);
 			Vec2 prompt_pos = text_rect.pos + Vec2(padding);
@@ -792,7 +792,7 @@ void draw_ui(const RenderParams& params)
 			{
 				// cancel
 				text.anchor_x = UIText::Anchor::Max;
-				text.color = UI::color_alert;
+				text.color = UI::color_alert();
 				text.clip = 0;
 				text.text(gamepad, _(strings::prompt_cancel));
 				text.draw(params, prompt_pos + Vec2(text_rect.size.x + padding * -2.0f, 0));
@@ -1189,7 +1189,7 @@ b8 UIMenu::add_item(b8 slider, const char* string, const char* value, b8 disable
 	item->label.anchor_y = item->value.anchor_y = UIText::Anchor::Max;
 
 	b8 is_selected = active[gamepad] == this && selected == items.length - 1;
-	item->label.color = item->value.color = disabled ? UI::color_disabled : (is_selected ? UI::color_accent : UI::color_default);
+	item->label.color = item->value.color = disabled ? UI::color_disabled() : (is_selected ? UI::color_accent() : UI::color_default);
 	item->label.text(gamepad, string);
 	text_clip(&item->label, animation_time + (items.length - 1 - scroll.pos) * 0.1f, 100.0f);
 
@@ -1391,7 +1391,7 @@ void UIMenu::draw_ui(const RenderParams& params, const Vec2& origin, UIText::Anc
 		}
 
 		if (active[gamepad] == this && i == selected)
-			UI::box(params, { pos + Vec2(-MENU_ITEM_PADDING_LEFT, item.label.size * -UI::scale), Vec2(4 * UI::scale, item.label.size * UI::scale) }, UI::color_accent);
+			UI::box(params, { pos + Vec2(-MENU_ITEM_PADDING_LEFT, item.label.size * -UI::scale), Vec2(4 * UI::scale, item.label.size * UI::scale) }, UI::color_accent());
 
 		if (item.icon != AssetNull)
 			UI::mesh(params, item.icon, pos + Vec2(MENU_ITEM_PADDING_LEFT * -0.5f, MENU_ITEM_FONT_SIZE * -0.5f), Vec2(UI::scale * MENU_ITEM_FONT_SIZE), item.label.color);

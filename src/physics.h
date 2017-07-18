@@ -39,9 +39,11 @@ enum CollisionGroup
 
 struct RaycastCallbackExcept : btCollisionWorld::ClosestRayResultCallback
 {
+	Array<ID> additional_ids;
 	ID entity_id;
 	RaycastCallbackExcept(const Vec3& a, const Vec3& b, const Entity*);
 	virtual	btScalar addSingleResult(btCollisionWorld::LocalRayResult& rayResult, b8 normalInWorldSpace);
+	void ignore(const Entity*);
 };
 
 struct PhysicsSync

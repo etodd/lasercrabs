@@ -37,50 +37,6 @@ namespace VI
 
 const r32 Drone::cooldown_thresholds[DRONE_CHARGES] = { DRONE_COOLDOWN * 0.4f, DRONE_COOLDOWN * 0.1f, 0.0f, };
 
-DroneRaycastCallback::DroneRaycastCallback(const Vec3& a, const Vec3& b, const Entity* drone)
-	: btCollisionWorld::ClosestRayResultCallback(a, b)
-{
-	closest_target_hit_fraction = 2.0f;
-	entity_id = drone->id();
-}
-
-b8 DroneRaycastCallback::hit_target() const
-{
-	return closest_target_hit_fraction < 2.0f;
-}
-
-btScalar DroneRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& ray_result, b8 normalInWorldSpace)
-{
-	s32 collision_entity_id = ray_result.m_collisionObject->getUserIndex();
-	if (collision_entity_id == entity_id)
-		return m_closestHitFraction; // keep going
-
-	s16 filter_group = ray_result.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
-	if (filter_group & (CollisionWalker | CollisionShield | CollisionTarget))
-	{
-		Entity* entity = &Entity::list[collision_entity_id];
-		// if it's a minion, do an extra headshot test
-		if (!entity->has<Minion>() || entity->get<Minion>()->headshot_test(m_rayFromWorld, m_rayToWorld))
-		{
-			if (ray_result.m_hitFraction < closest_target_hit_fraction)
-			{
-				closest_target_hit_fraction = ray_result.m_hitFraction;
-				closest_target_hit_group = filter_group;
-			}
-			return m_closestHitFraction; // keep going
-		}
-	}
-
-	m_closestHitFraction = ray_result.m_hitFraction;
-	m_collisionObject = ray_result.m_collisionObject;
-	if (normalInWorldSpace)
-		m_hitNormalWorld = ray_result.m_hitNormalLocal;
-	else // need to transform normal into worldspace
-		m_hitNormalWorld = m_collisionObject->getWorldTransform().getBasis() * ray_result.m_hitNormalLocal;
-	m_hitPointWorld.setInterpolate3(m_rayFromWorld, m_rayToWorld, ray_result.m_hitFraction);
-	return ray_result.m_hitFraction;
-}
-
 namespace DroneNet
 {
 
@@ -1252,10 +1208,10 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	Vec3 trace_start = get<Transform>()->absolute_pos();
 	Vec3 trace_end = trace_start + trace_dir * range();
 
+	RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
+	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
 	if (AbilityInfo::list[s32(a)].type == AbilityInfo::Type::Shoot)
 	{
-		RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-		Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
 		if (ray_callback.hasHit())
 		{
 			Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
@@ -1279,9 +1235,7 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	}
 	else
 	{
-		DroneRaycastCallback ray_callback(trace_start, trace_end, entity());
-		Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
-
+		// build-type ability
 		b8 can_spawn = ray_callback.hasHit()
 			&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK);
 		if (can_spawn)
@@ -1944,17 +1898,30 @@ void Drone::set_footing(const s32 index, const Transform* parent, const Vec3& po
 	footing[index].pos = footing[index].parent.ref()->to_local(pos);
 }
 
-void Drone::update_offset()
+void Drone::get_offset(Mat4* mat, OffsetMode mode) const
 {
 	Quat offset_rot = lerped_rotation;
 	Vec3 offset_pos = lerped_pos;
+
+	if (mode == OffsetMode::WithUpgradeStation)
+	{
+		UpgradeStation* station = UpgradeStation::drone_inside(this);
+		if (station) // make it look like we're attached to this upgrade station
+			station->transform(&offset_pos, &offset_rot);
+	}
+
 	get<Transform>()->to_local(&offset_pos, &offset_rot);
-	get<SkinnedModel>()->offset.rotation(offset_rot);
 
 	if (state() != State::Crawl)
 		offset_pos = Vec3::zero;
 
-	get<SkinnedModel>()->offset.translation(offset_pos);
+	mat->rotation(offset_rot);
+	mat->translation(offset_pos);
+}
+
+void Drone::update_offset()
+{
+	get_offset(&get<SkinnedModel>()->offset);
 }
 
 void Drone::stealth(Entity* e, b8 enable)
@@ -2183,7 +2150,13 @@ void Drone::update_client(const Update& u)
 
 		// update footing
 
-		Mat4 inverse_offset = get<SkinnedModel>()->offset.inverse();
+		Mat4 inverse_offset;
+		{
+			// feet ignore upgrade station animation
+			Mat4 offset = Mat4::identity;
+			get_offset(&offset, OffsetMode::WithoutUpgradeStation);
+			inverse_offset = offset.inverse();
+		}
 
 		r32 leg_blend_speed = vi_max(DRONE_MIN_LEG_BLEND_SPEED, DRONE_LEG_BLEND_SPEED * (velocity.length() / DRONE_CRAWL_SPEED));
 
@@ -2385,7 +2358,8 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 	// check targets
 	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item() == get<Target>())
+		if (i.item() == get<Target>() // don't collide with self
+			|| (i.item()->has<Drone>() && UpgradeStation::drone_inside(i.item()->get<Drone>()))) // ignore drones inside upgrade stations
 			continue;
 
 		Vec3 p;

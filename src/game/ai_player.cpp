@@ -946,7 +946,7 @@ void PlayerControlAI::actions_populate()
 
 	AI::Team my_team = get<AIAgent>()->team;
 
-	if (manager->at_spawn_point())
+	if (UpgradeStation::drone_at(get<Drone>()))
 	{
 		for (s32 i = 0; i < MAX_ABILITIES; i++)
 		{
@@ -970,7 +970,7 @@ void PlayerControlAI::actions_populate()
 				// go to upgrade
 				AI::RecordedLife::Action action;
 				action.type = AI::RecordedLife::Action::TypeMove;
-				action.pos = SpawnPoint::closest(1 << s32(my_team), get<Transform>()->absolute_pos())->get<Transform>()->absolute_pos();
+				action.pos = UpgradeStation::closest(1 << s32(my_team), get<Transform>()->absolute_pos())->get<Transform>()->absolute_pos();
 				action.normal = Vec3(0, 1, 0);
 				action_queue.push({ 0, action });
 			}
@@ -1134,6 +1134,13 @@ void PlayerControlAI::action_done(b8 success)
 	vi_debug("Complete: %s", success ? "success" : "fail");
 #endif
 
+	if (current.action.type == AI::RecordedLife::Action::TypeUpgrade)
+	{
+		UpgradeStation* upgrade_station = UpgradeStation::drone_inside(get<Drone>());
+		if (upgrade_station)
+			upgrade_station->drone_exit();
+	}
+
 	if (!success)
 	{
 		if (recent_failed_actions.length == recent_failed_actions.capacity())
@@ -1183,9 +1190,15 @@ void PlayerControlAI::action_execute(const ActionEntry& a)
 		}
 		case AI::RecordedLife::Action::TypeUpgrade:
 		{
-			if (!get<PlayerCommon>()->manager.ref()->at_spawn_point()
-				|| !get<PlayerCommon>()->manager.ref()->upgrade_start(Upgrade(current.action.upgrade)))
+			UpgradeStation* upgrade_station = UpgradeStation::drone_at(get<Drone>());
+			if (!upgrade_station)
 				action_done(false); // fail
+			else
+			{
+				upgrade_station->drone_enter(get<Drone>());
+				if (!get<PlayerCommon>()->manager.ref()->upgrade_start(Upgrade(current.action.upgrade)))
+					action_done(false); // fail
+			}
 			break;
 		}
 		case AI::RecordedLife::Action::TypeAttack:
@@ -1326,9 +1339,9 @@ void PlayerControlAI::update(const Update& u)
 				}
 				else
 				{
-					// the only other kind of target we can have is a spawn point
-					vi_assert(target.ref()->has<SpawnPoint>());
-					if ((target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->absolute_pos()).length_squared() < SPAWN_POINT_RADIUS * SPAWN_POINT_RADIUS)
+					// the only other kind of target we can have is an upgrade station
+					vi_assert(target.ref()->has<UpgradeStation>());
+					if ((target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->absolute_pos()).length_squared() < UPGRADE_STATION_RADIUS * UPGRADE_STATION_RADIUS)
 						action_done(true);
 				}
 			}

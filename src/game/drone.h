@@ -25,19 +25,6 @@ namespace Net
 	struct StateFrame;
 }
 
-// If we raycast through a Minion's head, keep going.
-struct DroneRaycastCallback : btCollisionWorld::ClosestRayResultCallback
-{
-	r32 closest_target_hit_fraction;
-	s16 closest_target_hit_group;
-	b8 hit_target() const;
-	ID entity_id;
-
-	DroneRaycastCallback(const Vec3&, const Vec3&, const Entity*);
-
-	btScalar addSingleResult(btCollisionWorld::LocalRayResult&, b8);
-};
-
 struct DroneReflectEvent
 {
 	Entity* entity;
@@ -158,6 +145,15 @@ struct Drone : public ComponentType<Drone>
 	b8 transfer_wall(const Vec3&, const btCollisionWorld::ClosestRayResultCallback&);
 	void move(const Vec3&, const Quat&, const ID);
 	void crawl(const Vec3&, r32);
+
+	enum class OffsetMode : s8
+	{
+		WithUpgradeStation,
+		WithoutUpgradeStation,
+		count,
+	};
+
+	void get_offset(Mat4*, OffsetMode = OffsetMode::WithUpgradeStation) const;
 	void update_offset();
 
 	void handle_remote_reflection(Entity*, const Vec3&, const Vec3&);

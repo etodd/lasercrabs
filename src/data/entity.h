@@ -50,7 +50,7 @@ template<typename T> struct Ref
 		if (id == IDNull)
 			return nullptr;
 		T* target = &T::list[id];
-		return target->revision == revision ? target : nullptr;
+		return T::list.active(id) && target->revision == revision ? target : nullptr;
 	}
 
 	inline b8 equals(const Ref<T>& other) const

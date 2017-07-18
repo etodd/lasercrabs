@@ -47,6 +47,7 @@ enum class MessageType : s8
 	ClientSetup,
 	Bolt,
 	Grenade,
+	UpgradeStation,
 	EntityName,
 	InitSave,
 	InitDone,

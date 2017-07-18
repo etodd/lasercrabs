@@ -571,13 +571,13 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 	{
 		Vec2 bottom_left = center + (main_view_size * -0.5f);
 		Vec4 background_color = Vec4(UI::color_background.xyz(), OPACITY);
-		tab_draw_common(params, _(strings::prompt_splitscreen), bottom_left, main_view_size.x, UI::color_accent, background_color);
+		tab_draw_common(params, _(strings::prompt_splitscreen), bottom_left, main_view_size.x, UI::color_accent(), background_color);
 	}
 
 	UIText text;
 	text.anchor_x = UIText::Anchor::Center;
 	text.anchor_y = UIText::Anchor::Max;
-	text.color = UI::color_accent;
+	text.color = UI::color_accent();
 	text.wrap_width = main_view_size.x - 48.0f * UI::scale * SCALE_MULTIPLIER;
 	Vec2 pos = center + Vec2(0, main_view_size.y * 0.5f - (48.0f * UI::scale * SCALE_MULTIPLIER));
 
@@ -618,7 +618,7 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 		r32 x_offset;
 		if (i > 0 && params.sync->input.gamepads[i].type == Gamepad::Type::None)
 		{
-			color = &UI::color_disabled;
+			color = &UI::color_disabled();
 			x_offset = team_offset * -2.0f;
 		}
 		else if (team == AI::TeamNone)
@@ -628,7 +628,7 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 		}
 		else
 		{
-			color = &UI::color_accent;
+			color = &UI::color_accent();
 			x_offset = ((r32)team - 1.0f) * team_offset;
 		}
 
@@ -802,7 +802,7 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 		{
 			case ZoneState::Locked:
 			{
-				return UI::color_disabled;
+				return UI::color_disabled();
 			}
 			case ZoneState::ParkourUnlocked:
 			{
@@ -828,7 +828,7 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 		if (zone_splitscreen_can_deploy(zone.id))
 			return Team::ui_color_friend;
 		else
-			return UI::color_disabled;
+			return UI::color_disabled();
 	}
 }
 
@@ -886,21 +886,21 @@ const ZoneNode* zones_draw(const RenderParams& params)
 		const ZoneNode* current_zone = zone_node_get(Game::level.id);
 		Vec2 p;
 		if (current_zone && UI::project(params, current_zone->pos(), &p))
-			UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent, PI);
+			UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent(), PI);
 
 		// highlight selected zone
 		if (selected_zone)
 		{
 			Vec2 p;
 			if (UI::project(params, selected_zone->pos(), &p))
-				UI::triangle_border(params, { p, Vec2(48.0f * UI::scale) }, BORDER * 2.0f, UI::color_accent, PI);
+				UI::triangle_border(params, { p, Vec2(48.0f * UI::scale) }, BORDER * 2.0f, UI::color_accent(), PI);
 
 			// cooldown timer
 			r64 lost_timer = ZONE_LOST_COOLDOWN - (platform::timestamp() - Game::save.zone_lost_times[selected_zone->id]);
 			if (lost_timer > 0.0f)
 			{
 				UIText text;
-				text.color = UI::color_alert;
+				text.color = UI::color_alert();
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Min;
 
@@ -927,16 +927,16 @@ const ZoneNode* zones_draw(const RenderParams& params)
 			if (UI::is_onscreen(params, under_attack->pos(), &p))
 			{
 				if (UI::flash_function(Game::real_time.total))
-					UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_alert, PI);
+					UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_alert(), PI);
 			}
 			else
 			{
 				if (UI::flash_function(Game::real_time.total))
-					UI::indicator(params, under_attack->pos(), UI::color_alert, true, 1.0f, PI);
+					UI::indicator(params, under_attack->pos(), UI::color_alert(), true, 1.0f, PI);
 			}
 
 			UIText text;
-			text.color = UI::color_alert;
+			text.color = UI::color_alert();
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Min;
 			r32 time = zone_under_attack_timer();
@@ -1000,7 +1000,7 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 		UIText text;
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Min;
-		text.color = UI::color_accent;
+		text.color = UI::color_accent();
 		text.size *= SCALE_MULTIPLIER;
 
 		s32 player_count = global.splitscreen.local_player_count();
@@ -1022,7 +1022,7 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 			{
 				text.text(0, _(team_labels[s32(team)]));
 				text.draw(params, pos + Vec2(0, 32.0f * UI::scale * SCALE_MULTIPLIER));
-				draw_gamepad_icon(params, pos, i, UI::color_accent, SCALE_MULTIPLIER);
+				draw_gamepad_icon(params, pos, i, UI::color_accent(), SCALE_MULTIPLIER);
 				pos.x += gamepad_spacing;
 			}
 		}
@@ -1684,10 +1684,10 @@ Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, cons
 				draw = false; // don't draw the tab at all
 		}
 		else
-			color = &UI::color_accent;
+			color = &UI::color_accent();
 	}
 	else
-		color = &UI::color_disabled;
+		color = &UI::color_disabled();
 
 	const Vec2 main_view_size = MAIN_VIEW_SIZE;
 	const Vec2 tab_size = TAB_SIZE;
@@ -1795,7 +1795,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 
 		// member of group "x"
 		sprintf(buffer, _(strings::member_of_group), _(group_name[s32(Game::save.group)]));
-		zone_stat_draw(p, rect, UIText::Anchor::Max, index++, buffer, UI::color_accent);
+		zone_stat_draw(p, rect, UIText::Anchor::Max, index++, buffer, UI::color_accent());
 
 		if (story.tab != Tab::Map)
 		{
@@ -1806,10 +1806,10 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			zone_statistics(&captured, &hostile, &locked);
 
 			sprintf(buffer, _(strings::zones_captured), captured);
-			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, Game::save.group == Net::Master::Group::None ? Team::ui_color_friend : UI::color_accent);
+			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, Game::save.group == Net::Master::Group::None ? Team::ui_color_friend : UI::color_accent());
 
 			sprintf(buffer, _(strings::zones_hostile), hostile);
-			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, UI::color_alert);
+			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, UI::color_alert());
 
 			sprintf(buffer, _(strings::zones_locked), locked);
 			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, UI::color_default);
@@ -1819,7 +1819,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		if (zone_under_attack() != AssetNull)
 		{
 			sprintf(buffer, _(strings::zones_under_attack), 1);
-			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, UI::color_alert, UI::flash_function_slow(Game::real_time.total)); // flash text
+			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, UI::color_alert(), UI::flash_function_slow(Game::real_time.total)); // flash text
 		}
 	}
 
@@ -1852,7 +1852,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 
 			if (has_rewards)
 			{
-				zone_stat_draw(p, rect, UIText::Anchor::Min, 2, _(strings::capture_bonus), UI::color_accent);
+				zone_stat_draw(p, rect, UIText::Anchor::Min, 2, _(strings::capture_bonus), UI::color_accent());
 				s32 index = 3;
 				for (s32 i = 0; i < s32(Resource::count); i++)
 				{
@@ -1871,7 +1871,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		{
 			UIText text;
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-			text.color = UI::color_accent;
+			text.color = UI::color_accent();
 			text.text(0, _(Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly ? strings::prompt_defend : strings::prompt_capture));
 
 			Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
@@ -1898,7 +1898,7 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 
 		UI::box(p, { pos, panel_size }, UI::color_background);
 		if (selected)
-			UI::border(p, Rect2(pos, panel_size).outset(BORDER * -UI::scale), BORDER, UI::color_accent);
+			UI::border(p, Rect2(pos, panel_size).outset(BORDER * -UI::scale), BORDER, UI::color_accent());
 
 		r32 icon_size = 18.0f * SCALE_MULTIPLIER * UI::scale;
 
@@ -1909,13 +1909,13 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 
 		const Vec4* color;
 		if (flash)
-			color = &UI::color_accent;
+			color = &UI::color_accent();
 		else if (selected && data.inventory.mode == Data::Inventory::Mode::Buy && Game::save.resources[s32(Resource::Energy)] < data.inventory.buy_quantity * info.cost)
-			color = &UI::color_alert; // not enough energy to buy
+			color = &UI::color_alert(); // not enough energy to buy
 		else if (selected)
-			color = &UI::color_accent;
+			color = &UI::color_accent();
 		else if (Game::save.resources[i] == 0)
-			color = &UI::color_alert;
+			color = &UI::color_alert();
 		else
 			color = &UI::color_default;
 
@@ -2066,6 +2066,7 @@ void show_complete()
 
 		if (state_next != State::StoryModeOverlay) // if we're going to be modal, we need to mess with the camera.
 		{
+			data.camera.ref()->flag(CameraFlagColors, false);
 			data.camera.ref()->mask = 0;
 			Audio::post_global_event(AK::EVENTS::PLAY_AMBIENCE_OVERWORLD);
 		}
@@ -2088,7 +2089,7 @@ void show_complete()
 	else
 	{
 		if (Game::save.zone_last == AssetNull)
-			data.zone_selected = Asset::Level::Office;
+			data.zone_selected = Asset::Level::Crossing;
 		else
 			data.zone_selected = Game::save.zone_last;
 	}

@@ -92,10 +92,10 @@ struct UI
 	};
 
 	static const Vec4 color_default;
-	static const Vec4 color_alert;
-	static const Vec4 color_accent;
+	static const Vec4& color_alert();
+	static const Vec4& color_accent();
 	static const Vec4 color_background;
-	static const Vec4 color_disabled;
+	static const Vec4& color_disabled();
 	static r32 scale;
 	static AssetID mesh_id;
 	static AssetID texture_mesh_id;

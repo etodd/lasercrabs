@@ -689,10 +689,13 @@ SpawnPointEntity::SpawnPointEntity(AI::Team team, b8 visible)
 {
 	create<Transform>();
 
+	SpawnPoint* sp = create<SpawnPoint>();
+	sp->team = team;
+
 	if (visible)
 	{
 		View* view = create<View>();
-		view->mesh = Asset::Mesh::spawn;
+		view->mesh = Asset::Mesh::spawn_main;
 		view->shader = Asset::Shader::culled;
 		view->team = s8(team);
 
@@ -700,11 +703,13 @@ SpawnPointEntity::SpawnPointEntity(AI::Team team, b8 visible)
 		light->offset.z = 2.0f;
 		light->radius = 12.0f;
 		light->team = s8(team);
+
+		Entity* upgrade_station = World::create<UpgradeStationEntity>(sp);
+		upgrade_station->get<Transform>()->parent = get<Transform>();
+		Net::finalize_child(upgrade_station);
+
+		create<RigidBody>(RigidBody::Type::Mesh, Vec3(1.0f), 0.0f, CollisionStatic | CollisionParkour, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::spawn_collision);
 	}
-
-	create<PlayerTrigger>()->radius = SPAWN_POINT_RADIUS;
-
-	create<SpawnPoint>()->team = team;
 }
 
 void SpawnPoint::set_team(AI::Team t)
@@ -807,6 +812,219 @@ void SpawnPoint::update_server_all(const Update& u)
 			}
 		}
 	}
+}
+
+namespace UpgradeStationNet
+{
+	b8 set_drone(UpgradeStation* u, Drone* d)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::UpgradeStation);
+
+		{
+			Ref<UpgradeStation> ref = u;
+			serialize_ref(p, ref);
+		}
+
+		{
+			Ref<Drone> ref = d;
+			serialize_ref(p, ref);
+		}
+
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
+#define UPGRADE_STATION_ANIM_TIME 0.5f
+b8 UpgradeStation::net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+	Ref<UpgradeStation> ref;
+	serialize_ref(p, ref);
+	Ref<Drone> drone;
+	serialize_ref(p, drone);
+
+	UpgradeStation* u = ref.ref();
+	if (u)
+	{
+		Drone* d = drone.ref();
+		if ((!u->drone.ref() && d
+			&& d->state() == Drone::State::Crawl)
+			|| (u->drone.ref() && !d))
+		{
+#if SERVER
+			if (src == Net::MessageSource::Remote)
+			{
+				// repeat this message to all clients, including ourselves
+				// we will process the message in the `else` statement below
+				UpgradeStationNet::set_drone(u, d);
+			}
+			else
+#endif
+			{
+				if (d)
+				{
+					if (ref.ref()->drone.ref() != d)
+					{
+						ref.ref()->drone = d;
+						ref.ref()->timer = UPGRADE_STATION_ANIM_TIME - ref.ref()->timer;
+						ref.ref()->mode = Mode::Activating;
+					}
+				}
+				else if (ref.ref()->mode == Mode::Activating)
+				{
+					ref.ref()->timer = UPGRADE_STATION_ANIM_TIME - ref.ref()->timer;
+					ref.ref()->mode = Mode::Deactivating;
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+// returns the upgrade station the given drone is in range of, if any
+UpgradeStation* UpgradeStation::drone_at(const Drone* drone)
+{
+	if (!drone)
+		return false;
+
+	AI::Team team = drone->get<AIAgent>()->team;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->spawn_point.ref()->team == team && i.item()->get<PlayerTrigger>()->is_triggered(drone->entity()))
+			return i.item();
+	}
+
+	return nullptr;
+}
+
+// returns the upgrade station the given drone is currently inside, if any
+UpgradeStation* UpgradeStation::drone_inside(const Drone* drone)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->drone.ref() == drone)
+			return i.item();
+	}
+	return nullptr;
+}
+
+UpgradeStation* UpgradeStation::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
+{
+	UpgradeStation* closest = nullptr;
+	r32 closest_distance = FLT_MAX;
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->spawn_point.ref()->team, mask))
+		{
+			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
+			if (d < closest_distance)
+			{
+				closest = i.item();
+				closest_distance = d;
+			}
+		}
+	}
+
+	if (distance)
+	{
+		if (closest)
+			*distance = sqrtf(closest_distance);
+		else
+			*distance = FLT_MAX;
+	}
+
+	return closest;
+}
+
+#define UPGRADE_STATION_OFFSET Vec3(0, 0, -0.2f)
+void UpgradeStation::update_client(const Update& u)
+{
+	if (mode == Mode::Activating && !drone.ref())
+	{
+		// drone disappeared on us; flip back over automatically
+		mode = Mode::Deactivating;
+		timer = UPGRADE_STATION_ANIM_TIME;
+	}
+
+	if (timer > 0.0f)
+	{
+		timer = vi_max(0.0f, timer - u.time.delta);
+		if (timer == 0.0f && mode == Mode::Deactivating)
+			drone = nullptr;
+	}
+
+	if (drone.ref() && mode != Mode::Deactivating)
+		get<View>()->team = drone.ref()->get<AIAgent>()->team;
+	else
+		get<View>()->team = AI::TeamNone;
+
+	if (timer == 0.0f)
+	{
+		get<View>()->mesh = Asset::Mesh::spawn_collision;
+		get<View>()->offset = Mat4::identity;
+	}
+	else
+	{
+		get<View>()->mesh = Asset::Mesh::spawn_upgrade_station;
+		get<View>()->offset.make_transform(timer > 0.0f ? UPGRADE_STATION_OFFSET : Vec3::zero, Vec3(1.0f), rotation());
+	}
+}
+
+Quat UpgradeStation::rotation() const
+{
+	r32 blend = timer / UPGRADE_STATION_ANIM_TIME;
+	if (mode == Mode::Activating)
+		blend = Ease::quad_out<r32>(1.0f - blend);
+	else
+		blend = Ease::quad_in<r32>(blend);
+	return Quat::euler(0, blend * PI, 0);
+}
+
+void UpgradeStation::transform(Vec3* pos, Quat* rot) const
+{
+	get<Transform>()->to_local(pos, rot);
+
+	*pos -= UPGRADE_STATION_OFFSET;
+
+	Quat my_rot = rotation();
+
+	*pos = my_rot * *pos;
+	*rot = my_rot * *rot;
+
+	*pos += UPGRADE_STATION_OFFSET;
+
+	get<Transform>()->to_world(pos, rot);
+}
+
+void UpgradeStation::drone_enter(Drone* d)
+{
+	UpgradeStationNet::set_drone(this, d);
+}
+
+void UpgradeStation::drone_exit()
+{
+	if (drone.ref())
+		UpgradeStationNet::set_drone(this, nullptr);
+}
+
+UpgradeStationEntity::UpgradeStationEntity(SpawnPoint* p)
+{
+	create<Transform>();
+
+	create<PlayerTrigger>()->radius = UPGRADE_STATION_RADIUS;
+
+	UpgradeStation* u = create<UpgradeStation>();
+	u->spawn_point = p;
+
+	View* view = create<View>();
+	view->mesh = Asset::Mesh::spawn_collision;
+	view->shader = Asset::Shader::culled;
+	view->team = AI::TeamNone;
+	view->color.w = MATERIAL_NO_OVERRIDE;
 }
 
 SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_rot)
@@ -1613,7 +1831,8 @@ void Bolt::update_server(const Update& u)
 		if (ray_callback.m_hitFractions[i] < closest_fraction)
 		{
 			Entity* e = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-			if (!e->has<AIAgent>() || e->get<AIAgent>()->team != team)
+			if (!e->has<AIAgent>() || e->get<AIAgent>()->team != team
+				&& (!e->has<Drone>() || !UpgradeStation::drone_inside(e->get<Drone>()))) // ignore drones inside upgrade stations
 			{
 				closest_entity = e;
 				closest_fraction = ray_callback.m_hitFractions[i];
@@ -1918,7 +2137,11 @@ void Grenade::update_server(const Update& u)
 			if (ray_callback.hasHit())
 			{
 				Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-				if (grenade_hit_filter(e, team()))
+				if (e->has<Drone>() && UpgradeStation::drone_inside(e->get<Drone>()))
+				{
+					// keep going
+				}
+				else if (grenade_hit_filter(e, team()))
 					explode();
 				else
 				{
@@ -1957,7 +2180,7 @@ void Grenade::explode()
 
 	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 	{
-		if (!i.item()->invincible())
+		if (!i.item()->invincible() && (!i.item()->has<Drone>() || !UpgradeStation::drone_inside(i.item()->get<Drone>())))
 		{
 			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 			if (i.item()->has<ForceField>() || ForceField::hash(my_team, pos) == my_hash)
@@ -3546,7 +3769,7 @@ void Ascensions::draw_ui(const RenderParams& params)
 					username.size = 16.0f;
 					username.anchor_x = UIText::Anchor::Center;
 					username.anchor_y = UIText::Anchor::Min;
-					username.color = UI::color_accent;
+					username.color = UI::color_accent();
 					username.text_raw(params.camera->gamepad, entries[i].username);
 					UI::box(params, username.rect(p).outset(8.0f * UI::scale), UI::color_background);
 					username.draw(params, p);

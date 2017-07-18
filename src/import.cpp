@@ -657,6 +657,7 @@ struct StaticMeshes
 	Mesh terminal;
 	Mesh interactable;
 	Mesh turret_base;
+	Mesh spawn_collision;
 	Map<Mesh> meshes;
 
 	void import()
@@ -666,6 +667,7 @@ struct StaticMeshes
 			Mesh::read(&terminal, ASSET_OUT_FOLDER"terminal_collision.msh");
 			Mesh::read(&interactable, ASSET_OUT_FOLDER"interactable_collision.msh");
 			Mesh::read(&turret_base, ASSET_OUT_FOLDER"turret_base.msh");
+			Mesh::read(&spawn_collision, ASSET_OUT_FOLDER"spawn_collision.msh");
 		}
 	}
 
@@ -2018,6 +2020,11 @@ void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, Manifest& manifes
 		{
 			if (!filter || filter(&static_meshes.turret_base))
 				consolidate_nav_geometry_mesh(result, static_meshes.turret_base, mat);
+		}
+		else if (cJSON_HasObjectItem(element, "SpawnPoint") && Json::get_s32(element, "visible", 1))
+		{
+			if (!filter || filter(&static_meshes.spawn_collision))
+				consolidate_nav_geometry_mesh(result, static_meshes.spawn_collision, mat);
 		}
 
 		element = element->next;

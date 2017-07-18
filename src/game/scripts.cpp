@@ -293,7 +293,7 @@ void draw(const RenderParams& params)
 					instance.model.ref()->get<Animator>()->to_world(instance.head_bone, &actor_pos);
 
 				if (Settings::waypoints && instance.highlight)
-					UI::indicator(params, actor_pos + Vec3(0, -0.4f, 0), UI::color_accent, true);
+					UI::indicator(params, actor_pos + Vec3(0, -0.4f, 0), UI::color_accent(), true);
 			}
 
 			if (Settings::subtitles
@@ -324,7 +324,7 @@ void draw(const RenderParams& params)
 			text.wrap_width = MENU_ITEM_WIDTH;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Max;
-			text.color = UI::color_accent;
+			text.color = UI::color_accent();
 			text.text(params.camera->gamepad, _(data->text_tut));
 			UIMenu::text_clip(&text, data->text_tut_real_time, 80.0f);
 
@@ -617,9 +617,6 @@ namespace Docks
 					Menu::show();
 			}
 		}
-
-		// ivory ad text
-		data->ivory_ad_text.ref()->rot *= Quat::euler(0, u.time.delta * 0.2f, 0);
 	}
 
 	void draw(const RenderParams& p)
@@ -627,7 +624,7 @@ namespace Docks
 		if (Game::level.mode == Game::Mode::Special && Menu::main_menu_state == Menu::State::Hidden && Game::scheduled_load_level == AssetNull && data->transition_timer == 0.0f)
 		{
 			UIText text;
-			text.color = UI::color_accent;
+			text.color = UI::color_accent();
 			text.text(0, "[{{Start}}]");
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
@@ -646,6 +643,9 @@ namespace Docks
 		r32 t = u.time.total * (1.0f / 5.0f);
 		data->barge.ref()->absolute_pos(data->barge_base_pos + Vec3(0, sinf(t) * 0.2f, 0));
 		data->barge.ref()->absolute_rot(data->barge_base_rot * Quat::euler(cosf(t) * 0.02f, 0, 0));
+
+		// ivory ad text
+		data->ivory_ad_text.ref()->rot *= Quat::euler(0, u.time.delta * 0.2f, 0);
 	}
 
 	void init(const EntityFinder& entities)
@@ -821,7 +821,7 @@ namespace tutorial
 	void draw(const RenderParams& params)
 	{
 		if (data->state == TutorialState::Crawl)
-			UI::indicator(params, data->crawl_target.ref()->absolute_pos(), UI::color_accent, true);
+			UI::indicator(params, data->crawl_target.ref()->absolute_pos(), UI::color_accent(), true);
 	}
 
 	void update(const Update& u)
@@ -890,7 +890,7 @@ namespace tutorial
 				if (manager->upgrades)
 				{
 					Actor::tut_clear();
-					if (human->ui_mode() != PlayerHuman::UIMode::Upgrading)
+					if (human->ui_mode() != PlayerHuman::UIMode::PvpUpgrading)
 					{
 						data->state = TutorialState::Ability;
 						Actor::tut(strings::tut_ability, 0.5f);

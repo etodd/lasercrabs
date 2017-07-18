@@ -437,11 +437,11 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 			{
 				if (UI::flash_function(Game::real_time.total))
 				{
-					text.color = UI::color_accent;
+					text.color = UI::color_accent();
 					text.text(gamepad, "%d", s32(state[index]) + 1);
 					text.draw(params, p);
 
-					UI::centered_border(params, { p, cell_size }, 4.0f, UI::color_accent);
+					UI::centered_border(params, { p, cell_size }, 4.0f, UI::color_accent());
 				}
 			}
 			else
@@ -452,8 +452,8 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 					// draw existing number
 					// fade out number when player is hovering over it
 					text.color = hovering
-						? UI::color_disabled
-						: (timer_error > 0.0f ? UI::color_alert : UI::color_accent);
+						? UI::color_disabled()
+						: (timer_error > 0.0f ? UI::color_alert() : UI::color_accent());
 					text.text(gamepad, "%d", s32(state[index]) + 1);
 					text.draw(params, p);
 				}
@@ -462,7 +462,7 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 				{
 					b8 pressed = !Console::visible && params.sync->input.get(Controls::Interact, gamepad);
 
-					const Vec4& color = already_solved || pressed || timer_error > 0.0f ? UI::color_alert : UI::color_default;
+					const Vec4& color = already_solved || pressed || timer_error > 0.0f ? UI::color_alert() : UI::color_default;
 
 					UI::centered_border(params, { p, cell_size }, 4.0f, color);
 
@@ -484,7 +484,7 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 				text.text(gamepad, _(strings::hack_complete));
 				Vec2 pos = params.camera->viewport.size * 0.5f;
 				UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
-				text.color = UI::color_accent;
+				text.color = UI::color_accent();
 				text.draw(params, pos);
 			}
 		}
@@ -495,10 +495,10 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 			Vec2 pos = params.camera->viewport.size * 0.5f + Vec2(0, cell_spacing.y * 2.5f);
 			Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
 			UI::box(params, box, UI::color_background);
-			UI::border(params, box, 4, UI::color_accent);
+			UI::border(params, box, 4, UI::color_accent());
 
 			r32 progress = (r32(solved_count()) + (timer / SUDOKU_AUTO_SOLVE_TIME)) / 16.0f;
-			UI::box(params, { box.pos, Vec2(box.size.x * progress, box.size.y) }, UI::color_accent);
+			UI::box(params, { box.pos, Vec2(box.size.x * progress, box.size.y) }, UI::color_accent());
 
 			text.color = UI::color_background;
 			text.draw(params, pos);
@@ -506,7 +506,7 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 			pos = params.camera->viewport.size * 0.5f + Vec2(0, cell_spacing.y * -2.5f);
 			text.text(gamepad, _(strings::prompt_sudoku_place));
 			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-			text.color = UI::color_accent;
+			text.color = UI::color_accent();
 			text.draw(params, pos);
 		}
 	}

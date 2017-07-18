@@ -36,8 +36,8 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		ParkourDefault,
 		Pause,
 		Dead,
-		Upgrading,
-		GameOver,
+		PvpUpgrading,
+		PvpGameOver,
 		count,
 	};
 
@@ -93,7 +93,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	Ref<Camera> camera;
 	s8 gamepad;
 	b8 msg_good;
-	b8 upgrade_menu_open;
 	b8 local;
 	
 	PlayerHuman(b8 = false, s8 = 0);

@@ -59,15 +59,28 @@ void Physics::sync_dynamic()
 }
 
 RaycastCallbackExcept::RaycastCallbackExcept(const Vec3& a, const Vec3& b, const Entity* entity)
-	: btCollisionWorld::ClosestRayResultCallback(a, b)
+	: btCollisionWorld::ClosestRayResultCallback(a, b),
+	additional_ids(),
+	entity_id(entity->id())
 {
-	entity_id = entity->id();
+}
+
+void RaycastCallbackExcept::ignore(const Entity* e)
+{
+	additional_ids.add(e->id());
 }
 
 btScalar RaycastCallbackExcept::addSingleResult(btCollisionWorld::LocalRayResult& rayResult, b8 normalInWorldSpace)
 {
-	if (rayResult.m_collisionObject->getUserIndex() == entity_id)
+	ID id = ID(rayResult.m_collisionObject->getUserIndex());
+	if (id == entity_id)
 		return m_closestHitFraction; // ignore
+
+	for (s32 i = 0; i < additional_ids.length; i++)
+	{
+		if (id == additional_ids[i])
+			return m_closestHitFraction; // ignore
+	}
 
 	m_closestHitFraction = rayResult.m_hitFraction;
 	m_collisionObject = rayResult.m_collisionObject;

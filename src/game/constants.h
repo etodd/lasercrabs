@@ -29,6 +29,7 @@
 #define MATCH_TIME_DEFAULT (60.0f * 8.0f)
 
 #define SPAWN_POINT_RADIUS 3.5f
+#define UPGRADE_STATION_RADIUS 0.5f
 
 #define UPGRADE_TIME 1.5f
 

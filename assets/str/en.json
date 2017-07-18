@@ -169,8 +169,8 @@
 	"tut_overworld": "Press [{{Scoreboard}}] to open the map.",
 	"tut_done": "You earned an Access Key. Return to the docks.",
 
-	"tut_climb_jump": "[{{Jump}}] to jump.
-[{{Parkour}}] to climb.",
+	"tut_climb": "[{{Parkour}}] to climb.",
+	"tut_jump": "[{{Jump}}] to jump.",
 	"tut_wallrun": "Run alongside the wall and hold [{{Parkour}}] to wall-run.",
 
 	"forward": "Forward",
@@ -467,7 +467,7 @@
 
 	"dada01": "[Dada] Hey! Over here.",
 	"dada02": "[Dada] Once you're ashore, find Seven. Tell her I sent you. She owes me a favor. She'll help you get to The Horn.",
-	"dada03": "[Dada] I had someone leave some drones for you in the cargo. Go!",
+	"dada03": "[Dada] I had someone leave some drones for you. Go!",
 
 	"hobo01": "[Hobo] \"Can you tell us how long we have?\"",
 	"hobo02": "[Hobo] \"Oh, hard to say. Couple weeks maybe.\"",
@@ -532,9 +532,9 @@
 	"meursault_a10": "[Meursault] That sound hurt my ears a little.",
 	"meursault_a11": "[Meursault] You'll probably run into Seven if you haven't already. She might like you. Or not.",
 	"meursault_a12": "[Meursault] Probably not, with those damn hooks you've got there.",
-	"meursault_a13": "[Meursault] Serum'll wear off soon. Here's some drones. Can't stand 'em myself.",
-	"meursault_a14": "[Meursault] I can help you get to The Horn.",
-	"meursault_a15": "[Meursault] Nah. Don't feel like it.",
+	"meursault_a13": "[Meursault] Serum'll wear off soon.",
+	"meursault_a14": "[Meursault] Here's a drone I found. Can't stand 'em myself.",
+	"meursault_a15": "[Meursault] We'll be in touch.",
 
 	"yes": "Yes",
 	"no": "No",

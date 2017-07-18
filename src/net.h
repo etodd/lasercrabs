@@ -83,7 +83,6 @@ struct PlayerManagerState
 {
 	r32 spawn_timer;
 	r32 state_timer;
-	Ref<Entity> instance;
 	s16 energy;
 	Upgrade current_upgrade = Upgrade::None;
 	b8 active;

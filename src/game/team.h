@@ -172,6 +172,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void awake();
 	~PlayerManager();
 
+	void set_instance(Entity*);
 	void spawn_select(SpawnPoint*);
 	State state() const;
 	b8 can_transition_state() const;

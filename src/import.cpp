@@ -1961,14 +1961,16 @@ void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, Manifest& manifes
 	cJSON* element = json->child;
 	while (element)
 	{
-		Vec3 pos = Json::get_vec3(element, "pos");
-		Quat rot = Json::get_quat(element, "rot");
 		Mat4 mat;
-		mat.make_transform(pos, Vec3(1, 1, 1), rot);
+		{
+			Vec3 pos = Json::get_vec3(element, "pos");
+			Quat rot = Json::get_quat(element, "rot");
+			mat.make_transform(pos, Vec3(1, 1, 1), rot);
+		}
 
-		s32 parent = cJSON_GetObjectItem(element, "parent")->valueint;
+		s32 parent = Json::get_s32(element, "parent", -1);
 		if (parent != -1)
-			mat = transforms[parent] * mat;
+			mat = mat * transforms[parent];
 
 		transforms.add(mat);
 

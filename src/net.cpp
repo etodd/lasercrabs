@@ -1275,12 +1275,6 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 		serialize_int(p, Upgrade, state->current_upgrade, 0, s32(Upgrade::count) + 1); // necessary because Upgrade::None = Upgrade::count
 
 	if (Stream::IsWriting)
-		b = !base || !state->instance.equals(base->instance);
-	serialize_bool(p, b);
-	if (b)
-		serialize_ref(p, state->instance);
-
-	if (Stream::IsWriting)
 		b = !base || state->energy != base->energy;
 	serialize_bool(p, b);
 	if (b)
@@ -1358,7 +1352,6 @@ b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
 	return a.spawn_timer == b.spawn_timer
 		&& a.state_timer == b.state_timer
 		&& a.current_upgrade == b.current_upgrade
-		&& !a.instance.equals(b.instance)
 		&& a.energy == b.energy
 		&& a.active == b.active;
 }
@@ -1557,7 +1550,6 @@ void state_frame_build(StateFrame* frame)
 		state->spawn_timer = i.item()->spawn_timer;
 		state->state_timer = i.item()->state_timer;
 		state->current_upgrade = i.item()->current_upgrade;
-		state->instance = i.item()->instance;
 		state->energy = i.item()->energy;
 		state->active = true;
 	}
@@ -1803,7 +1795,6 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			s->spawn_timer = state.spawn_timer;
 			s->state_timer = state.state_timer;
 			s->current_upgrade = state.current_upgrade;
-			s->instance = state.instance;
 			s->energy = state.energy;
 		}
 	}

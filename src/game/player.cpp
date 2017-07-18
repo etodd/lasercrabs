@@ -652,7 +652,7 @@ void PlayerHuman::update(const Update& u)
 			Vec2(s32(blueprint->x * r32(u.input->width)), s32(blueprint->y * r32(u.input->height))),
 			Vec2(s32(blueprint->w * r32(u.input->width)), s32(blueprint->h * r32(u.input->height))),
 		};
-		camera.ref()->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour);
+		camera.ref()->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour && !Overworld::modal());
 
 		if (entity)
 			camera.ref()->flag(CameraFlagActive, true);
@@ -1071,13 +1071,16 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 				// we are entering a level. if we're entering by tram, spawn in the tram. otherwise spawn at the PlayerSpawn
 
 				s8 track = -1;
-				for (s32 i = 0; i < Game::level.tram_tracks.length; i++)
+				if (Game::save.zone_last != AssetNull)
 				{
-					const Game::TramTrack& t = Game::level.tram_tracks[i];
-					if (t.level == Game::save.zone_last)
+					for (s32 i = 0; i < Game::level.tram_tracks.length; i++)
 					{
-						track = s8(i);
-						break;
+						const Game::TramTrack& t = Game::level.tram_tracks[i];
+						if (t.level == Game::save.zone_last)
+						{
+							track = s8(i);
+							break;
+						}
 					}
 				}
 
@@ -1107,8 +1110,6 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 	PlayerCommon* common = spawned->add<PlayerCommon>(get<PlayerManager>());
 	common->angle_horizontal = spawn_pos.angle;
 
-	get<PlayerManager>()->instance = spawned;
-
 	spawned->add<PlayerControlHuman>(this);
 
 	if (Game::level.mode == Game::Mode::Parkour)
@@ -1127,6 +1128,8 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 		ParticleEffect::spawn(ParticleEffect::Type::SpawnDrone, spawn_pos.pos, Quat::look(Vec3(0, 1, 0)));
 
 	Net::finalize(spawned);
+
+	get<PlayerManager>()->set_instance(spawned);
 }
 
 void PlayerHuman::assault_status_display()
@@ -3932,7 +3935,17 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 		Interactable* closest_interactable = Interactable::closest(get<Transform>()->absolute_pos());
 
-		if (closest_interactable || get<Animator>()->layers[3].animation == Asset::Animation::character_pickup)
+		b8 resource_changed = false;
+		for (s32 i = 0; i < s32(Resource::count); i++)
+		{
+			if (Game::real_time.total - Overworld::resource_change_time(Resource(i)) < 2.0f)
+			{
+				resource_changed = true;
+				break;
+			}
+		}
+
+		if (closest_interactable || resource_changed)
 		{
 			// draw resources
 			const Vec2 panel_size(MENU_ITEM_WIDTH * 0.3f, MENU_ITEM_PADDING * 2.0f + UI_TEXT_SIZE_DEFAULT * UI::scale);

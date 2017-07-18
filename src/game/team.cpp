@@ -940,6 +940,7 @@ namespace PlayerManagerNet
 		SpawnSelect,
 		UpgradeCompleted,
 		UpdateCounts,
+		SetInstance,
 		count,
 	};
 
@@ -988,6 +989,26 @@ namespace PlayerManagerNet
 		}
 		{
 			Ref<SpawnPoint> ref = point;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 set_instance(PlayerManager* m, Entity* e)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			Message msg = Message::SetInstance;
+			serialize_enum(p, Message, msg);
+		}
+		{
+			Ref<Entity> ref = e;
 			serialize_ref(p, ref);
 		}
 		Net::msg_finalize(p);
@@ -1111,6 +1132,14 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSour
 				}
 				break;
 			}
+			case PlayerManagerNet::Message::SetInstance:
+			{
+				Ref<Entity> i;
+				serialize_ref(p, i);
+				if (!Game::level.local || src == Net::MessageSource::Loopback)
+					m->instance = i;
+				break;
+			}
 			default:
 			{
 				vi_assert(false);
@@ -1228,6 +1257,11 @@ void PlayerManager::add_deaths(s32 d)
 	vi_assert(Game::level.local);
 	deaths += d;
 	PlayerManagerNet::update_counts(this);
+}
+
+void PlayerManager::set_instance(Entity* e)
+{
+	PlayerManagerNet::set_instance(this, e);
 }
 
 b8 PlayerManager::at_spawn_point() const

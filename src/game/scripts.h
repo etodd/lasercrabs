@@ -25,7 +25,7 @@ struct Script
 namespace Scripts
 {
 
-namespace title
+namespace Docks
 {
 	void play();
 }

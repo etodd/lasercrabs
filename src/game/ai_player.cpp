@@ -110,10 +110,10 @@ void ai_player_spawn(const Vec3& pos, const Quat& rot, PlayerAI* player)
 
 	e->add<PlayerCommon>(player->manager.ref());
 
-	player->manager.ref()->instance = e;
-
 	e->add<PlayerControlAI>(player);
 	Net::finalize(e);
+
+	player->manager.ref()->set_instance(e);
 
 	ParticleEffect::spawn(ParticleEffect::Type::SpawnDrone, pos, Quat::look(Vec3(0, 1, 0)));
 }

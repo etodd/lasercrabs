@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 509;
+		const s32 count = 510;
 		const AssetID _continue = 0;
 		const AssetID ability1 = 1;
 		const AssetID ability2 = 2;
@@ -491,33 +491,34 @@ namespace Asset
 		const AssetID tut_ability = 479;
 		const AssetID tut_battery = 480;
 		const AssetID tut_capture = 481;
-		const AssetID tut_climb_jump = 482;
+		const AssetID tut_climb = 482;
 		const AssetID tut_crawl = 483;
 		const AssetID tut_done = 484;
-		const AssetID tut_overworld = 485;
-		const AssetID tut_turrets = 486;
-		const AssetID tut_upgrade = 487;
-		const AssetID tut_wallrun = 488;
-		const AssetID unknown = 489;
-		const AssetID upgrade_description = 490;
-		const AssetID upgrade_notification = 491;
-		const AssetID upgrading = 492;
-		const AssetID victory = 493;
-		const AssetID volumetric_lighting = 494;
-		const AssetID waiting = 495;
-		const AssetID waypoints = 496;
-		const AssetID wu_gang = 497;
-		const AssetID yes = 498;
-		const AssetID zone_already_captured = 499;
-		const AssetID zone_defense_expired = 500;
-		const AssetID zone_unavailable = 501;
-		const AssetID zone_unlocked = 502;
-		const AssetID zones_captured = 503;
-		const AssetID zones_hostile = 504;
-		const AssetID zones_locked = 505;
-		const AssetID zones_under_attack = 506;
-		const AssetID zoom = 507;
-		const AssetID zoom_toggle = 508;
+		const AssetID tut_jump = 485;
+		const AssetID tut_overworld = 486;
+		const AssetID tut_turrets = 487;
+		const AssetID tut_upgrade = 488;
+		const AssetID tut_wallrun = 489;
+		const AssetID unknown = 490;
+		const AssetID upgrade_description = 491;
+		const AssetID upgrade_notification = 492;
+		const AssetID upgrading = 493;
+		const AssetID victory = 494;
+		const AssetID volumetric_lighting = 495;
+		const AssetID waiting = 496;
+		const AssetID waypoints = 497;
+		const AssetID wu_gang = 498;
+		const AssetID yes = 499;
+		const AssetID zone_already_captured = 500;
+		const AssetID zone_defense_expired = 501;
+		const AssetID zone_unavailable = 502;
+		const AssetID zone_unlocked = 503;
+		const AssetID zones_captured = 504;
+		const AssetID zones_hostile = 505;
+		const AssetID zones_locked = 506;
+		const AssetID zones_under_attack = 507;
+		const AssetID zoom = 508;
+		const AssetID zoom_toggle = 509;
 	}
 }
 

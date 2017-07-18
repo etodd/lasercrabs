@@ -276,7 +276,7 @@ void Game::update(const Update& update_in)
 #if !SERVER
 			if (level.local
 				&& session.type == SessionType::Story
-				&& level.id == Asset::Level::Tier_0A
+				&& level.id == Asset::Level::Docks
 				&& scheduled_load_level == Asset::Level::Port_District) // we're playing locally on the title screen; need to switch to a server
 			{
 				save.zone_last = level.id; // hack to ensure hand-off works correctly
@@ -362,7 +362,7 @@ void Game::update(const Update& update_in)
 				save.reset();
 				Net::Client::replay();
 			}
-			else if ((level.id != Asset::Level::Tier_0A && level.id != Asset::Level::overworld)
+			else if ((level.id != Asset::Level::Docks && level.id != Asset::Level::overworld)
 				|| level.mode != Mode::Special)
 			{
 				if (Game::session.type == SessionType::Story)
@@ -1329,7 +1329,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 	Physics::btWorld->setGravity(btVector3(0, -13.0f, 0));
 
-	Array<Transform*> transforms;
+	Array<Ref<Transform>> transforms;
 
 	Array<RopeEntry> ropes;
 
@@ -1425,7 +1425,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			absolute_rot = rot;
 
 			if (parent != -1)
-				transforms[parent]->to_world(&absolute_pos, &absolute_rot);
+				transforms[parent].ref()->to_world(&absolute_pos, &absolute_rot);
 		}
 
 		if (cJSON_HasObjectItem(element, "World"))
@@ -1468,7 +1468,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			level.rotation = Json::get_r32(element, "rotation");
 
 			// initialize teams
-			if (m != Mode::Special || level.id == Asset::Level::Tier_0A)
+			if (m != Mode::Special || level.id == Asset::Level::Docks)
 			{
 				for (s32 i = 0; i < session.team_count; i++)
 				{

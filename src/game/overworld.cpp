@@ -2066,7 +2066,6 @@ void show_complete()
 
 		if (state_next != State::StoryModeOverlay) // if we're going to be modal, we need to mess with the camera.
 		{
-			data.camera.ref()->flag(CameraFlagColors, false);
 			data.camera.ref()->mask = 0;
 			Audio::post_global_event(AK::EVENTS::PLAY_AMBIENCE_OVERWORLD);
 		}

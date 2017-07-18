@@ -30,7 +30,7 @@ void Save::reset()
 	locke_index = -1;
 
 	strcpy(username, "etodd");
-	zones[Asset::Level::Tier_0A] = ZoneState::ParkourUnlocked;
+	zones[Asset::Level::Docks] = ZoneState::ParkourUnlocked;
 
 	resources[s32(Resource::Energy)] = s16(ENERGY_INITIAL * 3.5f);
 }

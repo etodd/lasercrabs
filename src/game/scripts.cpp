@@ -433,7 +433,7 @@ namespace Scripts
 {
 
 
-namespace title
+namespace Docks
 {
 	const r32 start_fov = 40.0f * PI * 0.5f / 180.0f;
 	const r32 end_fov = 70.0f * PI * 0.5f / 180.0f;
@@ -444,8 +444,8 @@ namespace title
 		Start,
 		DadaSpotted,
 		DadaTalking,
+		Jump,
 		Climb,
-		AccessKey,
 		Done,
 		count,
 	};
@@ -454,15 +454,16 @@ namespace title
 	{
 		Ref<Camera> camera;
 		Actor::Instance* dada;
+		Quat barge_base_rot;
+		Vec3 barge_base_pos;
 		Vec3 camera_start_pos;
 		r32 transition_timer;
 		Ref<Animator> character;
-		Ref<Transform> target_climb;
-		Ref<Transform> target_drones;
 		Ref<Transform> ivory_ad_text;
 		Ref<Actor::Instance> ivory_ad_actor;
 		Ref<Actor::Instance> hobo_actor;
 		Ref<Entity> hobo;
+		Ref<Transform> barge;
 		TutorialState state;
 		b8 dada_talked;
 	};
@@ -475,22 +476,33 @@ namespace title
 		data = nullptr;
 	}
 
-	void climb_success(Entity*)
+	void jump_trigger(Entity*)
 	{
 		if (data->state == TutorialState::Start
 			|| data->state == TutorialState::DadaSpotted
-			|| data->state == TutorialState::DadaTalking
-			|| data->state == TutorialState::Climb)
+			|| data->state == TutorialState::DadaTalking)
 		{
-			Actor::tut_clear();
-			data->state = TutorialState::AccessKey;
+			data->state = TutorialState::Jump;
+			Actor::tut(strings::tut_jump, 0.0f);
 		}
 	}
 
-	void drones_success()
+	void climb_trigger(Entity*)
 	{
-		if (data->state == TutorialState::AccessKey)
+		if (data->state == TutorialState::Jump)
+		{
+			data->state = TutorialState::Climb;
+			Actor::tut(strings::tut_climb, 0.0f);
+		}
+	}
+
+	void climb_success_trigger(Entity*)
+	{
+		if (data->state == TutorialState::Climb)
+		{
 			data->state = TutorialState::Done;
+			Actor::tut_clear();
+		}
 	}
 
 	void dada_spotted(Entity*)
@@ -499,15 +511,6 @@ namespace title
 		{
 			data->state = TutorialState::DadaSpotted;
 			data->dada->cue(AK::EVENTS::PLAY_DADA01, Asset::Animation::dada_wait, strings::dada01);
-		}
-	}
-
-	void dada_done(Actor::Instance*)
-	{
-		if (data->state == TutorialState::DadaTalking)
-		{
-			data->state = TutorialState::Climb;
-			Actor::tut(strings::tut_climb_jump);
 		}
 	}
 
@@ -523,7 +526,6 @@ namespace title
 			data->dada->cue(AK::EVENTS::PLAY_DADA02, Asset::Animation::dada_talk, strings::dada02);
 			data->dada->cue(AK::EVENTS::PLAY_DADA03, Asset::Animation::dada_talk, strings::dada03);
 			data->dada->cue(AK_InvalidID, Asset::Animation::dada_close_door, AssetNull, Actor::Loop::No);
-			data->dada->cue(&dada_done);
 			data->dada->cue(&Actor::done, 0.0f);
 		}
 	}
@@ -562,7 +564,7 @@ namespace title
 		}
 	}
 
-	void update(const Update& u)
+	void update_title(const Update& u)
 	{
 		if (data->transition_timer > 0.0f)
 		{
@@ -634,16 +636,16 @@ namespace title
 			text.draw(p, pos);
 		}
 
-		if (!Overworld::active())
-		{
-			if (data->state == TutorialState::Climb)
-				UI::indicator(p, data->target_climb.ref()->absolute_pos(), UI::color_accent, true);
-			else if (data->state == TutorialState::AccessKey)
-				UI::indicator(p, data->target_drones.ref()->absolute_pos(), UI::color_accent, true);
-		}
-
 		if (data->transition_timer > 0.0f && data->transition_timer < TRANSITION_TIME)
 			Menu::draw_letterbox(p, data->transition_timer, TRANSITION_TIME);
+	}
+
+	void update(const Update& u)
+	{
+		// bob the barge
+		r32 t = u.time.total * (1.0f / 5.0f);
+		data->barge.ref()->absolute_pos(data->barge_base_pos + Vec3(0, sinf(t) * 0.2f, 0));
+		data->barge.ref()->absolute_rot(data->barge_base_rot * Quat::euler(cosf(t) * 0.02f, 0, 0));
 	}
 
 	void init(const EntityFinder& entities)
@@ -677,18 +679,18 @@ namespace title
 		else if (Game::level.local)
 			World::remove(entities.find("character"));
 
-		if ((Game::save.zone_last == AssetNull || Game::save.zone_last == Asset::Level::Tier_0A)
+		if ((Game::save.zone_last == AssetNull || Game::save.zone_last == Asset::Level::Docks)
 			&& entities.find("drones"))
 		{
-			data->target_climb = entities.find("target_climb")->get<Transform>();
-			data->target_drones = entities.find("drones")->get<Transform>();
-			data->target_drones.ref()->get<Collectible>()->collected.link(&drones_success);
-			entities.find("climb_trigger1")->get<PlayerTrigger>()->entered.link(&climb_success);
-			entities.find("climb_trigger2")->get<PlayerTrigger>()->entered.link(&climb_success);
+			entities.find("jump_trigger")->get<PlayerTrigger>()->entered.link(&jump_trigger);
+			entities.find("climb_trigger")->get<PlayerTrigger>()->entered.link(&climb_trigger);
+			entities.find("climb_trigger2")->get<PlayerTrigger>()->entered.link(&climb_trigger);
+			entities.find("climb_success_trigger")->get<PlayerTrigger>()->entered.link(&climb_success_trigger);
+			entities.find("climb_success_trigger2")->get<PlayerTrigger>()->entered.link(&climb_success_trigger);
 			entities.find("dada_spotted_trigger")->get<PlayerTrigger>()->entered.link(&dada_spotted);
 			entities.find("dada_talk_trigger")->get<PlayerTrigger>()->entered.link(&dada_talk);
 
-			Game::updates.add(update);
+			Game::updates.add(update_title);
 			Game::draws.add(draw);
 
 			data->dada = Actor::add(entities.find("dada"), Asset::Bone::dada_head);
@@ -716,6 +718,11 @@ namespace title
 
 		data->ivory_ad_actor = Actor::add(entities.find("ivory_ad"));
 		data->ivory_ad_actor.ref()->dialogue_radius = 0.0f;
+
+		data->barge = entities.find("barge")->get<Transform>();
+		data->barge.ref()->absolute(&data->barge_base_pos, &data->barge_base_rot);
+
+		Game::updates.add(update);
 	}
 
 	void play()
@@ -764,7 +771,7 @@ namespace tutorial
 	{
 		if (Game::level.mode == Game::Mode::Parkour && data->state == TutorialState::None)
 		{
-			Actor::tut(strings::tut_wallrun);
+			Actor::tut(strings::tut_wallrun, 0.0f);
 			data->state = TutorialState::WallRun;
 		}
 	}
@@ -1136,8 +1143,8 @@ namespace tier_1a
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A11, AssetNull, strings::meursault_a11, Actor::Loop::No, Actor::Overlap::No, 2.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A12, AssetNull, strings::meursault_a12, Actor::Loop::No, Actor::Overlap::No, 1.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A13, AssetNull, strings::meursault_a13, Actor::Loop::No, Actor::Overlap::No, 3.0f);
-			data->meursault->cue(&give_drones_animation_callback, 0.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A14, AssetNull, strings::meursault_a14, Actor::Loop::No, Actor::Overlap::No, 1.0f);
+			data->meursault->cue(&give_drones_animation_callback, 0.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A15, AssetNull, strings::meursault_a15, Actor::Loop::No, Actor::Overlap::No, 2.0f);
 
 			player->get<PlayerControlHuman>()->cinematic(data->anim_base.ref(), Asset::Animation::character_meursault_intro);
@@ -1168,7 +1175,7 @@ namespace tier_1a
 Script Script::list[] =
 {
 	{ "tutorial", Scripts::tutorial::init, nullptr, },
-	{ "title", Scripts::title::init, nullptr, },
+	{ "Docks", Scripts::Docks::init, nullptr, },
 	{ "locke", Scripts::locke::init, nullptr, },
 	{ "tier_1a", Scripts::tier_1a::init, Scripts::tier_1a::net_msg, },
 	{ 0, 0, },

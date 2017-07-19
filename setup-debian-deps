@@ -2,4 +2,4 @@
 set -e
 set -o pipefail
 
-sudo apt-get install clang lldb-3.5 cmake make libx11-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxrandr-dev libxext-dev libxmu-dev libxinerama-dev libxcursor-dev blender
+sudo apt-get install clang lldb-3.5 cmake make libx11-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxrandr-dev libxext-dev libxmu-dev libxinerama-dev libxcursor-dev blender libssl-dev

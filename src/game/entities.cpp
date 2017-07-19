@@ -888,7 +888,7 @@ b8 UpgradeStation::net_msg(Net::StreamRead* p, Net::MessageSource src)
 UpgradeStation* UpgradeStation::drone_at(const Drone* drone)
 {
 	if (!drone)
-		return false;
+		return nullptr;
 
 	AI::Team team = drone->get<AIAgent>()->team;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -1831,7 +1831,7 @@ void Bolt::update_server(const Update& u)
 		if (ray_callback.m_hitFractions[i] < closest_fraction)
 		{
 			Entity* e = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-			if (!e->has<AIAgent>() || e->get<AIAgent>()->team != team
+			if ((!e->has<AIAgent>() || e->get<AIAgent>()->team != team)
 				&& (!e->has<Drone>() || !UpgradeStation::drone_inside(e->get<Drone>()))) // ignore drones inside upgrade stations
 			{
 				closest_entity = e;

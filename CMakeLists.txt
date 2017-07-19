@@ -2,45 +2,6 @@
 cmake_minimum_required (VERSION 2.6)
 project (deceiver)
 
-## includes
-
-set(ZLIB_INCLUDE_DIR
-	${CMAKE_CURRENT_SOURCE_DIR}/external/assimp/contrib/zlib
-	${CMAKE_CURRENT_BINARY_DIR}/external/assimp/contrib/zlib
-)
-
-set(IMPORT_INCLUDES
-	external
-	${SDL2_BINARY_DIR}/include
-	external/bullet/src
-	src
-	external/assimp/include
-	${CMAKE_CURRENT_BINARY_DIR}/external/assimp/include
-)
-
-if (WIN32)
-	set(IMPORT_INCLUDES ${IMPORT_INCLUDES} external/dirent)
-endif(WIN32)
-
-set(ALL_INCLUDES
-	external
-	src
-	${ZLIB_INCLUDE_DIR}
-)
-
-if (WIN32)
-	set(ALL_INCLUDES ${ALL_INCLUDES} external/dirent)
-endif(WIN32)
-
-set(SERVER_CLIENT_INCLUDES
-	${ALL_INCLUDES}
-	external/bullet/src
-)
-
-string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
-configure_file(.includes.in .includes)
-configure_file(.exrc.in ${CMAKE_CURRENT_SOURCE_DIR}/.exrc)
-
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/lvl)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/str)
@@ -185,6 +146,7 @@ add_library(mersenne STATIC
 	external/mersenne/mersenne-twister.h
 )
 
+## cJSON
 add_library(cJSON STATIC
 	external/cjson/cJSON.h
 	external/cjson/cJSON.c
@@ -192,7 +154,63 @@ add_library(cJSON STATIC
 	external/cjson/cJSON_Utils.h
 )
 
-## Source
+## cURL
+set(BUILD_CURL_EXE OFF CACHE BOOL "" FORCE)
+set(CURL_STATICLIB ON CACHE BOOL "" FORCE)
+set(HTTP_ONLY ON CACHE BOOL "" FORCE)
+set(ENABLE_MANUAL OFF CACHE BOOL "" FORCE)
+set(CMAKE_USE_LIBSSH2 OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+if (WIN32)
+	set(CURL_STATIC_CRT ON CACHE BOOL "" FORCE)
+	set(CMAKE_USE_WINSSL ON CACHE BOOL "" FORCE)
+endif (WIN32)
+add_subdirectory(external/curl)
+set_target_properties(html pdf opts-html opts-pdf PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
+add_definitions(-DCURL_STATICLIB)
+
+## includes
+
+set(ZLIB_INCLUDE_DIR
+	${CMAKE_CURRENT_SOURCE_DIR}/external/assimp/contrib/zlib
+	${CMAKE_CURRENT_BINARY_DIR}/external/assimp/contrib/zlib
+)
+
+set(IMPORT_INCLUDES
+	external
+	${SDL2_BINARY_DIR}/include
+	external/bullet/src
+	src
+	external/assimp/include
+	${CMAKE_CURRENT_BINARY_DIR}/external/assimp/include
+)
+
+if (WIN32)
+	set(IMPORT_INCLUDES ${IMPORT_INCLUDES} external/dirent)
+endif(WIN32)
+
+set(ALL_INCLUDES
+	external
+	src
+	${ZLIB_INCLUDE_DIR}
+)
+
+if (WIN32)
+	set(ALL_INCLUDES ${ALL_INCLUDES} external/dirent)
+endif(WIN32)
+
+set(SERVER_CLIENT_INCLUDES
+	${ALL_INCLUDES}
+	external/bullet/src
+	external/curl/include
+	${CMAKE_CURRENT_BINARY_DIR}/external/curl/include/curl
+)
+
+string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
+configure_file(.includes.in .includes)
+configure_file(.exrc.in ${CMAKE_CURRENT_SOURCE_DIR}/.exrc)
+
+## source
 
 set(SRC 
 	CMakeLists.txt
@@ -410,6 +428,7 @@ if (SERVER)
 		cJSON
 		mersenne
 		zlibstatic
+		libcurl
 	)
 
 	if (APPLE)
@@ -482,6 +501,7 @@ if (CLIENT)
 		lodepng
 		wwise_integration
 		zlibstatic
+		libcurl
 	)
 
 	if (APPLE)

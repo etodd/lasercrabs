@@ -31,3 +31,6 @@
 [submodule "src/platform/ps"]
 	path = src/platform/ps
 	url = git@bitbucket.org:etodd/yearning_ps.git
+[submodule "external/curl"]
+	path = external/curl
+	url = git@github.com:etodd/curl.git

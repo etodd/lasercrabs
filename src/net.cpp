@@ -30,6 +30,7 @@
 #include "load.h"
 #include "settings.h"
 #include "curl/curl.h"
+#include <string>
 
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0

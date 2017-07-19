@@ -16,7 +16,7 @@ else
     exit 1
 fi
 
-brew install cmake pkg-config
+brew install cmake pkg-config openssl
 git submodule update --init --recursive
 mkdir -p build
 cd build

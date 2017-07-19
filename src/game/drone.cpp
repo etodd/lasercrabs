@@ -452,7 +452,10 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					// we didn't hurt them
 					if (Game::level.local)
 					{
-						if (target.ref()->get<Health>()->invincible() && target.ref()->get<Health>()->invincible_timer <= ACTIVE_ARMOR_TIME) // they were invincible; they should damage us
+						if (target.ref()->get<Health>()->invincible()
+							&& target.ref()->has<AIAgent>()
+							&& target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team
+							&& target.ref()->get<Health>()->invincible_timer <= ACTIVE_ARMOR_TIME) // they were invincible; they should damage us
 							drone->get<Health>()->damage(target.ref(), DRONE_HEALTH + DRONE_SHIELD);
 					}
 

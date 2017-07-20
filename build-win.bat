@@ -1,4 +1,3 @@
-@echo off
 rm -rf final
 mkdir final
 cd final
@@ -13,5 +12,4 @@ cp build/gamecontrollerdb.txt final
 cp .itch-win.toml final/.itch.toml
 cp language.txt final
 cp shipme.txt final/readme.txt
-butler push ./final etodd/deceiver:win
 pause

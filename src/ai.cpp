@@ -271,12 +271,12 @@ void load(AssetID id, const char* filename, const char* record_filename)
 	sync_in.write(Op::Load);
 	sync_in.write(id);
 	s32 length = filename ? strlen(filename) : 0;
-	vi_assert(length < MAX_PATH_LENGTH);
+	vi_assert(length <= MAX_PATH_LENGTH);
 	sync_in.write(length);
 	if (length > 0)
 		sync_in.write(filename, length);
 	length = record_filename ? strlen(record_filename) : 0;
-	vi_assert(length < MAX_PATH_LENGTH);
+	vi_assert(length <= MAX_PATH_LENGTH);
 	sync_in.write(length);
 	if (length > 0)
 		sync_in.write(record_filename, length);

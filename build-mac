@@ -13,4 +13,3 @@ cp build/gamecontrollerdb.txt final
 cp .itch-mac.toml final/.itch.toml
 cp language.txt final
 cp shipme.txt final/readme.txt
-butler push ./final etodd/deceiver:mac

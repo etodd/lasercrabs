@@ -43,7 +43,6 @@ struct Save
 	AssetID zone_last;
 	AssetID zone_current;
 	AssetID zone_overworld;
-	char username[MAX_USERNAME + 1];
 	b8 zone_current_restore;
 	b8 locke_spoken;
 	b8 extended_parkour;
@@ -153,13 +152,6 @@ template<typename Stream> b8 serialize_save(Stream* p, Save* s)
 	serialize_s16(p, s->zone_last);
 	serialize_s16(p, s->zone_current);
 	serialize_s16(p, s->zone_overworld);
-	s32 username_length;
-	if (Stream::IsWriting)
-		username_length = strlen(s->username);
-	serialize_int(p, s32, username_length, 0, MAX_USERNAME);
-	serialize_bytes(p, (u8*)s->username, username_length);
-	if (Stream::IsReading)
-		s->username[username_length] = '\0';
 	serialize_bool(p, s->zone_current_restore);
 	serialize_bool(p, s->locke_spoken);
 	serialize_bool(p, s->extended_parkour);

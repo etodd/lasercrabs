@@ -38,7 +38,7 @@ dtQueryFilter default_query_filter = dtQueryFilter();
 const r32 default_search_extents[] = { 15, 10, 15 };
 Revision level_revision;
 Array<RecordedLife> records;
-char record_path[MAX_PATH_LENGTH];
+char record_path[MAX_PATH_LENGTH + 1];
 
 struct RecordedLifeEntry
 {
@@ -677,10 +677,10 @@ void loop()
 				s32 data_length = 0;
 				{
 					// nav mesh path
-					char path[MAX_PATH_LENGTH];
+					char path[MAX_PATH_LENGTH + 1];
 					s32 path_length;
 					sync_in.read(&path_length);
-					vi_assert(path_length < MAX_PATH_LENGTH);
+					vi_assert(path_length <= MAX_PATH_LENGTH);
 					sync_in.read(path, path_length);
 					path[path_length] = '\0';
 
@@ -688,7 +688,7 @@ void loop()
 					{
 						s32 record_path_length;
 						sync_in.read(&record_path_length);
-						vi_assert(record_path_length < MAX_PATH_LENGTH);
+						vi_assert(record_path_length <= MAX_PATH_LENGTH);
 						sync_in.read(record_path, record_path_length);
 						record_path[record_path_length] = '\0';
 						sync_in.unlock();

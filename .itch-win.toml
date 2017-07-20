@@ -4,3 +4,5 @@ name = "vcredist-2015-x64"
 [[actions]]
 name = "play"
 path = "deceiver.exe"
+scope = "profile:me"
+sandbox = true

@@ -147,6 +147,7 @@ namespace VI
 		static b8 cancel_event_eaten[MAX_GAMEPADS];
 		static b8 attract_mode;
 		static b8 quit;
+		static char itch_api_key[MAX_PATH_LENGTH + 1];
 
 		static b8 init(LoopSync*);
 		static void execute(const char*);

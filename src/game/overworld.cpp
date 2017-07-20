@@ -386,7 +386,7 @@ void splitscreen_select_options_update(const Update& u)
 		}
 
 		s32 delta;
-		char str[MAX_PATH_LENGTH];
+		char str[MAX_PATH_LENGTH + 1];
 
 		{
 			// time limit

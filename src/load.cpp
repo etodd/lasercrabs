@@ -24,6 +24,8 @@ namespace Settings
 	s32 height;
 	s32 framerate_limit;
 	s32 secret;
+	char master_server[MAX_PATH_LENGTH + 1];
+	char username[MAX_USERNAME + 1];
 	u8 sfx;
 	u8 music;
 	b8 fullscreen;
@@ -35,7 +37,6 @@ namespace Settings
 	b8 subtitles;
 	b8 ssao;
 	b8 record;
-	char master_server[MAX_PATH_LENGTH];
 }
 
 Array<Loader::Entry<Mesh> > Loader::meshes;
@@ -199,7 +200,7 @@ cJSON* input_binding_json(const InputBinding& binding, const InputBinding& defau
 
 void Loader::settings_load(s32 default_width, s32 default_height)
 {
-	char path[MAX_PATH_LENGTH];
+	char path[MAX_PATH_LENGTH + 1];
 	user_data_path(path, config_filename);
 	cJSON* json = Json::load(path);
 	if (Json::get_s32(json, "version") != config_version)
@@ -221,7 +222,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	Settings::sfx = u8(Json::get_s32(json, "sfx", 100));
 	Settings::music = u8(Json::get_s32(json, "music", 100));
 	Settings::framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", 300));
-	Settings::shadow_quality = Settings::ShadowQuality(vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", s32(Settings::ShadowQuality::High)), s32(Settings::ShadowQuality::count - 1))));
+	Settings::shadow_quality = Settings::ShadowQuality(vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", s32(Settings::ShadowQuality::High)), s32(Settings::ShadowQuality::count) - 1)));
 	Settings::volumetric_lighting = b8(Json::get_s32(json, "volumetric_lighting", 1));
 	Settings::antialiasing = b8(Json::get_s32(json, "antialiasing", 1));
 	Settings::ssao = b8(Json::get_s32(json, "ssao", 1));
@@ -251,7 +252,8 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		gamepad = gamepad ? gamepad->next : nullptr;
 	}
 
-	strncpy(Settings::master_server, Json::get_string(json, "master_server", default_master_server), MAX_PATH_LENGTH - 1);
+	strncpy(Settings::master_server, Json::get_string(json, "master_server", default_master_server), MAX_PATH_LENGTH);
+	strncpy(Settings::username, Json::get_string(json, "username", "Anonymous"), MAX_USERNAME);
 	Settings::secret = Json::get_s32(json, "secret");
 
 	if (json)
@@ -268,7 +270,7 @@ void Loader::settings_save()
 		cJSON_AddNumberToObject(json, "record", 1);
 
 	// only save master server setting if it is not the default
-	if (strncmp(Settings::master_server, default_master_server, MAX_PATH_LENGTH - 1) != 0)
+	if (strncmp(Settings::master_server, default_master_server, MAX_PATH_LENGTH) != 0)
 		cJSON_AddStringToObject(json, "master_server", Settings::master_server);
 
 #if !SERVER
@@ -311,7 +313,7 @@ void Loader::settings_save()
 	}
 #endif
 
-	char path[MAX_PATH_LENGTH];
+	char path[MAX_PATH_LENGTH + 1];
 	user_data_path(path, config_filename);
 
 	Json::save(json, path);
@@ -981,7 +983,7 @@ void Loader::nav_mesh(AssetID id, GameType game_type)
 		AI::load(AssetNull, nullptr, nullptr);
 	else
 	{
-		char record_path[MAX_PATH_LENGTH];
+		char record_path[MAX_PATH_LENGTH + 1];
 		ai_record_path(record_path, id, game_type);
 		AI::load(id, nav_mesh_path(id), record_path);
 	}
@@ -1176,7 +1178,7 @@ const char* Loader::mesh_path(AssetID mesh)
 
 void Loader::user_data_path(char* path, const char* filename)
 {
-	vi_assert(strlen(Loader::data_directory) + strlen(filename) < MAX_PATH_LENGTH);
+	vi_assert(strlen(Loader::data_directory) + strlen(filename) <= MAX_PATH_LENGTH);
 	sprintf(path, "%s%s", Loader::data_directory, filename);
 }
 
@@ -1201,8 +1203,8 @@ void Loader::ai_record_path(char* path, AssetID level, GameType type)
 			break;
 		}
 	}
-	char clean_level_name[MAX_PATH_LENGTH];
-	strncpy(clean_level_name, level_name(level), MAX_PATH_LENGTH - 1);
+	char clean_level_name[MAX_PATH_LENGTH + 1];
+	strncpy(clean_level_name, level_name(level), MAX_PATH_LENGTH);
 	clean_name(clean_level_name);
 	sprintf(path, "air/%s_%s.air", clean_level_name, type_str);
 }

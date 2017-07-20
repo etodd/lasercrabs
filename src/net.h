@@ -117,6 +117,8 @@ void finalize_child(Entity*);
 b8 remove(Entity*);
 extern b8 show_stats;
 
+typedef void HttpCallback(s32, const char*);
+
 enum class DisconnectReason : s8
 {
 	Timeout,
@@ -190,7 +192,6 @@ namespace Client
 	void replay_file_add(const char*);
 	s32 replay_file_count();
 	b8 allocate_server(const Master::ServerState&);
-
 	b8 lagging();
 
 	ReplayMode replay_mode();
@@ -204,6 +205,7 @@ namespace Client
 void term();
 void reset();
 
+void http_get(const char*, HttpCallback* = nullptr, const char* = nullptr);
 StreamWrite* msg_new(MessageType);
 StreamWrite* msg_new_local(MessageType);
 b8 msg_finalize(StreamWrite*);

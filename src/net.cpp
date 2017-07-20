@@ -49,37 +49,6 @@ namespace VI
 namespace Net
 {
 
-void test()
-{
-	auto curl = curl_easy_init();
-	if (curl)
-	{
-		curl_easy_setopt(curl, CURLOPT_URL, "https://itch.io/");
-		curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
-		curl_easy_setopt(curl, CURLOPT_USERPWD, "user:pass");
-		curl_easy_setopt(curl, CURLOPT_USERAGENT, "curl/7.54.1");
-		curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 50L);
-		curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
-		
-		std::string response_string;
-		std::string header_string;
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, nullptr);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_string);
-		curl_easy_setopt(curl, CURLOPT_HEADERDATA, &header_string);
-		
-		char* url;
-		long response_code;
-		double elapsed;
-		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &elapsed);
-		curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &url);
-		
-		curl_easy_perform(curl);
-		curl_easy_cleanup(curl);
-		curl = NULL;
-	}
-}
-
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
 b8 show_stats;
@@ -152,9 +121,25 @@ struct MessageFrameState
 typedef StaticArray<SequenceHistoryEntry, NET_SEQUENCE_RESEND_BUFFER> SequenceHistory;
 typedef Array<StreamWrite> MessageBuffer;
 
+struct HttpRequest
+{
+	HttpCallback* callback;
+	CURL* curl;
+	struct curl_slist* request_headers;
+	Array<char> data;
+
+	~HttpRequest()
+	{
+		if (request_headers)
+			curl_slist_free_all(request_headers);
+	}
+};
+
 // server/client data
 struct StateCommon
 {
+	CURLM* curl_multi;
+	PinArray<HttpRequest, 16> http_requests; // up to 16 active at a time
 	MessageHistory msgs_out_history;
 	MessageBuffer msgs_out;
 	SequenceID local_sequence_id;
@@ -2475,7 +2460,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					{
 						state_server.replay_address = address;
 
-						char filename[MAX_PATH_LENGTH];
+						char filename[MAX_PATH_LENGTH + 1];
 						replay_filename_generate(filename);
 						vi_debug("Recording gameplay to '%s'.", filename);
 						state_server.replay_file = fopen(filename, "wb");
@@ -2861,13 +2846,13 @@ namespace Client
 MasterError master_error;
 DisconnectReason disconnect_reason;
 r32 master_ping_timer;
-Array<std::array<char, MAX_PATH_LENGTH> > replay_files;
+Array<std::array<char, MAX_PATH_LENGTH + 1> > replay_files;
 s32 replay_file_index;
 
 void replay_file_add(const char* filename)
 {
-	std::array<char, MAX_PATH_LENGTH>* entry = replay_files.add();
-	strncpy(entry->data(), filename, MAX_PATH_LENGTH - 1);
+	std::array<char, MAX_PATH_LENGTH + 1>* entry = replay_files.add();
+	strncpy(entry->data(), filename, MAX_PATH_LENGTH);
 }
 
 s32 replay_file_count()
@@ -3166,7 +3151,7 @@ void connect(Sock::Address addr)
 			fclose(state_client.replay_file);
 
 		// generate a filename for this replay
-		char filename[MAX_PATH_LENGTH];
+		char filename[MAX_PATH_LENGTH + 1];
 		replay_filename_generate(filename);
 		vi_debug("Recording gameplay to '%s'.", filename);
 		replay_file_add(filename);
@@ -3313,9 +3298,9 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 						using Stream = StreamWrite;
 						StreamWrite* p2 = msg_new(MessageType::ClientSetup);
 						s32 local_players = Game::session.local_player_count();
-						s32 username_length = strlen(Game::save.username);
+						s32 username_length = strlen(Settings::username);
 						serialize_int(p2, s32, username_length, 0, MAX_USERNAME);
-						serialize_bytes(p2, (u8*)Game::save.username, username_length);
+						serialize_bytes(p2, (u8*)Settings::username, username_length);
 						serialize_int(p2, s32, local_players, 1, MAX_GAMEPADS);
 						for (s32 i = 0; i < MAX_GAMEPADS; i++)
 						{
@@ -3597,6 +3582,11 @@ b8 init()
 	if (Sock::init())
 		return false;
 
+	if (curl_global_init(CURL_GLOBAL_SSL)) // no need for CURL_GLOBAL_WIN32 as Sock::init() initializes Win32 socket libs
+		return false;
+
+	state_common.curl_multi = curl_multi_init();
+
 #if SERVER
 	return Server::init();
 #else
@@ -3775,6 +3765,39 @@ void update_start(const Update& u)
 	}
 #endif
 
+	{
+		s32 _; // never used
+		curl_multi_perform(state_common.curl_multi, &_);
+
+		while (CURLMsg* msg = curl_multi_info_read(state_common.curl_multi, &_))
+		{
+			if (msg->msg == CURLMSG_DONE)
+			{
+				CURL* curl = msg->easy_handle;
+				curl_multi_remove_handle(state_common.curl_multi, curl);
+				HttpRequest* request = nullptr;
+				for (auto i = state_common.http_requests.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->curl == curl)
+					{
+						request = i.item();
+						break;
+					}
+				}
+				vi_assert(request);
+				if (request->callback)
+				{
+					s32 response_code;
+					curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+					request->callback(response_code, &request->data[0]);
+				}
+				request->~HttpRequest();
+				state_common.http_requests.remove(request - &state_common.http_requests[0]);
+				curl_easy_cleanup(curl);
+			}
+		}
+	}
+
 #if SERVER
 	Server::update(u, dt);
 #else
@@ -3817,9 +3840,49 @@ void update_end(const Update& u)
 #endif
 }
 
+size_t http_write_callback(void* data, size_t size, size_t count, void* userdata)
+{
+	HttpRequest* request = (HttpRequest*)userdata;
+	size_t total = size * count;
+	s32 offset = request->data.length;
+	request->data.resize(request->data.length + s32(total));
+	memcpy(&request->data[offset], data, total);
+	return total;
+}
+
+void http_get(const char* url, HttpCallback* callback, const char* header)
+{
+	HttpRequest* request = state_common.http_requests.add();
+	new (request) HttpRequest();
+	request->callback = callback;
+
+	request->curl = curl_easy_init();
+	curl_easy_setopt(request->curl, CURLOPT_URL, url);
+	curl_easy_setopt(request->curl, CURLOPT_NOPROGRESS, 1);
+	curl_easy_setopt(request->curl, CURLOPT_WRITEFUNCTION, &http_write_callback);
+	curl_easy_setopt(request->curl, CURLOPT_WRITEDATA, request);
+
+	if (header)
+	{
+		request->request_headers = curl_slist_append(request->request_headers, header);
+		curl_easy_setopt(request->curl, CURLOPT_HTTPHEADER, request->request_headers);
+	}
+
+	curl_multi_add_handle(state_common.curl_multi, request->curl);
+}
+
 void term()
 {
 	reset();
+	for (auto i = state_common.http_requests.iterator(); !i.is_last(); i.next())
+	{
+		curl_multi_remove_handle(state_common.curl_multi, i.item()->curl);
+		curl_easy_cleanup(i.item()->curl);
+		i.item()->~HttpRequest();
+		state_common.http_requests.remove(i.index);
+	}
+	curl_multi_cleanup(state_common.curl_multi);
+	curl_global_cleanup();
 	Sock::close(&sock);
 }
 

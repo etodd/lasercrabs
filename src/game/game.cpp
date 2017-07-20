@@ -67,6 +67,7 @@ GameTime Game::time;
 GameTime Game::real_time;
 r32 Game::physics_timestep;
 r32 Game::inactive_timer;
+char Game::itch_api_key[MAX_PATH_LENGTH + 1];
 
 Gamepad::Type Game::ui_gamepad_types[MAX_GAMEPADS] = { };
 AssetID Game::scheduled_load_level = AssetNull;
@@ -161,6 +162,13 @@ Array<UpdateFunction> Game::updates;
 Array<DrawFunction> Game::draws;
 Array<CleanupFunction> Game::cleanups;
 
+void itch_auth_callback(s32 code, const char* data)
+{
+	FILE* f = fopen("itch.txt", "w");
+	fwrite(data, sizeof(char), strlen(data), f);
+	fclose(f);
+}
+
 b8 Game::init(LoopSync* sync)
 {
 	// count scripts
@@ -185,8 +193,16 @@ b8 Game::init(LoopSync* sync)
 	if (!Net::init())
 		return false;
 
-	// replay files
 #if !SERVER
+
+	if (itch_api_key[0])
+	{
+		char header[MAX_PATH_LENGTH + 1];
+		snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", itch_api_key);
+		Net::http_get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header);
+	}
+
+	// replay files
 	{
 		const char* replay_dir = "rec/";
 		DIR* dir = opendir(replay_dir);
@@ -199,8 +215,8 @@ b8 Game::init(LoopSync* sync)
 				if (entry->d_type != DT_REG)
 					continue; // not a file
 
-				char filename[MAX_PATH_LENGTH];
-				sprintf(filename, "%s%s", replay_dir, entry->d_name);
+				char filename[MAX_PATH_LENGTH + 1];
+				snprintf(filename, MAX_PATH_LENGTH, "%s%s", replay_dir, entry->d_name);
 				Net::Client::replay_file_add(filename);
 			}
 			closedir(dir);
@@ -1000,7 +1016,7 @@ void Game::execute(const char* cmd)
 			filename = delimiter + 1;
 		else
 			filename = nullptr;
-		if (!filename || strlen(filename) < MAX_PATH_LENGTH)
+		if (!filename || strlen(filename) <= MAX_PATH_LENGTH)
 		{
 			unload_level();
 			save.reset();
@@ -1484,19 +1500,23 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					{
 						AI::Team team = team_lookup(level.team_lookup, s32(session.local_player_config[i]));
 
-						char username[MAX_USERNAME + 64] = {};
+						char username[MAX_USERNAME + 1] = {};
 						if (ai_test)
 							strncpy(username, Usernames::all[mersenne::rand_u32() % Usernames::count], MAX_USERNAME);
 						else
 						{
 							if (level.local && session.type != SessionType::Story)
-								sprintf(username, _(strings::player), i + 1);
+								snprintf(username, MAX_USERNAME, _(strings::player), i + 1);
 							else
 							{
 								if (i == 0)
-									sprintf(username, "%s", save.username);
+									strncpy(username, Settings::username, MAX_USERNAME);
 								else
-									sprintf(username, "%s [%d]", save.username, i + 1);
+								{
+									char username_truncated[MAX_USERNAME];
+									strncpy(username_truncated, Settings::username, MAX_USERNAME - 4);
+									snprintf(username, MAX_USERNAME, "%s [%d]", username_truncated, i + 1);
+								}
 							}
 						}
 

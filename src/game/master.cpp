@@ -29,7 +29,6 @@ void Save::reset()
 	zone_overworld = AssetNull;
 	locke_index = -1;
 
-	strcpy(username, "etodd");
 	zones[Asset::Level::Docks] = ZoneState::ParkourUnlocked;
 
 	resources[s32(Resource::Energy)] = s16(ENERGY_INITIAL * 3.5f);

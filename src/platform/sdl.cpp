@@ -93,6 +93,12 @@ namespace VI
 
 	s32 proc()
 	{
+		{
+			const char* itch_api_key = getenv("ITCHIO_API_KEY");
+			if (itch_api_key)
+				strncpy(Game::itch_api_key, itch_api_key, MAX_PATH_LENGTH);
+		}
+
 #if _WIN32
 		SetProcessDPIAware();
 #endif

@@ -5,4 +5,3 @@ name = "vcredist-2015-x64"
 name = "play"
 path = "deceiver.exe"
 scope = "profile:me"
-sandbox = true

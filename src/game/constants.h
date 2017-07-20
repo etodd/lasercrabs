@@ -133,6 +133,7 @@
 #define ZONE_LOST_COOLDOWN (3.0f * 60.0f)
 
 #define MAX_PATH_LENGTH 1024
+#define MAX_AUTH_KEY 255
 #define AI_MAX_PATH_LENGTH 64
 
 #define AI_RECORD_WAIT_TIME 1.0f

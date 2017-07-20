@@ -117,7 +117,7 @@ void finalize_child(Entity*);
 b8 remove(Entity*);
 extern b8 show_stats;
 
-typedef void HttpCallback(s32, const char*);
+typedef void HttpCallback(s32, const char*, void*);
 
 enum class DisconnectReason : s8
 {
@@ -126,6 +126,15 @@ enum class DisconnectReason : s8
 	ServerResetting,
 	ServerFull,
 	WrongVersion,
+	AuthFailed,
+	count,
+};
+
+enum class AuthType : s8
+{
+	None,
+	Itch,
+	Steam,
 	count,
 };
 
@@ -205,7 +214,7 @@ namespace Client
 void term();
 void reset();
 
-void http_get(const char*, HttpCallback* = nullptr, const char* = nullptr);
+void http_get(const char*, HttpCallback* = nullptr, const char* = nullptr, void* = nullptr);
 StreamWrite* msg_new(MessageType);
 StreamWrite* msg_new_local(MessageType);
 b8 msg_finalize(StreamWrite*);

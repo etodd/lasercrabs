@@ -30,7 +30,7 @@
 #include "load.h"
 #include "settings.h"
 #include "curl/curl.h"
-#include <string>
+#include "cjson/cJSON.h"
 
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0
@@ -49,10 +49,9 @@ namespace VI
 namespace Net
 {
 
-// borrows heavily from https://github.com/networkprotocol/libyojimbo
-
 b8 show_stats;
-Sock::Handle sock;
+
+// borrows heavily from https://github.com/networkprotocol/libyojimbo
 
 struct MessageFrame // container for the amount of messages that can come in a single frame
 {
@@ -126,6 +125,7 @@ struct HttpRequest
 	HttpCallback* callback;
 	CURL* curl;
 	struct curl_slist* request_headers;
+	void* user_data;
 	Array<char> data;
 
 	~HttpRequest()
@@ -138,8 +138,6 @@ struct HttpRequest
 // server/client data
 struct StateCommon
 {
-	CURLM* curl_multi;
-	PinArray<HttpRequest, 16> http_requests; // up to 16 active at a time
 	MessageHistory msgs_out_history;
 	MessageBuffer msgs_out;
 	SequenceID local_sequence_id;
@@ -151,25 +149,33 @@ struct StateCommon
 	r32 timestamp;
 };
 StateCommon state_common;
-Master::Messenger state_master;
-Sock::Address master_addr;
+
+struct StatePersistent
+{
+	Sock::Handle sock;
+	CURLM* curl_multi;
+	PinArray<HttpRequest, 16> http_requests; // up to 16 active at a time
+	Master::Messenger master;
+	Sock::Address master_addr;
+};
+StatePersistent state_persistent;
 
 b8 master_send(Master::Message msg)
 {
 	using Stream = StreamWrite;
 	StreamWrite p;
 	packet_init(&p);
-	state_master.add_header(&p, master_addr, msg);
+	state_persistent.master.add_header(&p, state_persistent.master_addr, msg);
 	packet_finalize(&p);
-	state_master.send(p, state_common.timestamp, master_addr, &sock);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
 	return true;
 }
 
 void master_init()
 {
-	Sock::get_address(&master_addr, Settings::master_server, 3497);
+	Sock::get_address(&state_persistent.master_addr, Settings::master_server, 3497);
 	master_send(Master::Message::Disconnect);
-	state_master.reset();
+	state_persistent.master.reset();
 }
 
 b8 msg_process(StreamRead*, MessageSource);
@@ -972,7 +978,7 @@ namespace Server
 
 void packet_send(const StreamWrite& p, const Sock::Address& address)
 {
-	Sock::udp_send(&sock, address, p.data.data, p.bytes_written());
+	Sock::udp_send(&state_persistent.sock, address, p.data.data, p.bytes_written());
 	state_common.bandwidth_out_counter += p.bytes_written();
 #if SERVER
 	Server::packet_sent(p, address);
@@ -1969,6 +1975,8 @@ struct Client
 	SequenceID first_load_sequence;
 	// when a client connects, we add them to our list, but set connected to false.
 	// as soon as they send us an Update packet, we set connected to true.
+	char auth_key[MAX_AUTH_KEY + 1];
+	AuthType auth_type;
 	b8 connected;
 	b8 loading_done;
 };
@@ -2057,7 +2065,7 @@ b8 master_send_status_update()
 	using Stream = StreamWrite;
 	StreamWrite p;
 	packet_init(&p);
-	state_master.add_header(&p, master_addr, Master::Message::ServerStatusUpdate);
+	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ServerStatusUpdate);
 	serialize_s32(&p, Settings::secret);
 	b8 active = state_server.mode != Mode::Idle;
 	serialize_bool(&p, active);
@@ -2067,7 +2075,7 @@ b8 master_send_status_update()
 		net_error();
 
 	packet_finalize(&p);
-	state_master.send(p, state_common.timestamp, master_addr, &sock);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
 
 	state_server.master_timer = 0.0f;
 
@@ -2076,7 +2084,7 @@ b8 master_send_status_update()
 
 b8 init()
 {
-	if (Sock::udp_open(&sock, 3494, true))
+	if (Sock::udp_open(&state_persistent.sock, 3494, true))
 	{
 		printf("%s\n", Sock::get_error());
 		return false;
@@ -2084,7 +2092,7 @@ b8 init()
 
 	master_init();
 	master_send(Master::Message::Disconnect);
-	state_master.reset();
+	state_persistent.master.reset();
 
 	return true;
 }
@@ -2161,6 +2169,7 @@ b8 packet_build_disconnect(StreamWrite* p, DisconnectReason reason)
 	packet_init(p);
 	ServerPacket type = ServerPacket::Disconnect;
 	serialize_enum(p, ServerPacket, type);
+	serialize_enum(p, DisconnectReason, reason);
 	packet_finalize(p);
 	return true;
 }
@@ -2306,7 +2315,7 @@ void tick(const Update& u, r32 dt)
 	state_server.master_timer += dt;
 	if (state_server.master_timer > NET_MASTER_STATUS_INTERVAL)
 		master_send_status_update();
-	state_master.update(state_common.timestamp, &sock, 4);
+	state_persistent.master.update(state_common.timestamp, &state_persistent.sock, 4);
 
 	StateFrame* frame = nullptr;
 
@@ -2360,7 +2369,7 @@ b8 packet_handle_master(StreamRead* p)
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	Master::Message type;
 	serialize_enum(p, Master::Message, type);
-	if (!state_master.received(type, seq, master_addr, &sock))
+	if (!state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.sock))
 		return false; // out of order
 
 	switch (type)
@@ -2371,7 +2380,7 @@ b8 packet_handle_master(StreamRead* p)
 		}
 		case Master::Message::Disconnect:
 		{
-			state_master.reset();
+			state_persistent.master.reset();
 			break;
 		}
 		case Master::Message::ServerLoad:
@@ -2415,9 +2424,73 @@ b8 packet_handle_master(StreamRead* p)
 	return true;
 }
 
+void itch_auth_fail(void* user_data)
+{
+	Sock::Address addr = *reinterpret_cast<Sock::Address*>(&user_data);
+
+	for (s32 i = 0; i < state_server.clients.length; i++)
+	{
+		Client* client = &state_server.clients[i];
+		if (client->address.equals(addr))
+		{
+			StreamWrite p;
+			packet_build_disconnect(&p, DisconnectReason::AuthFailed);
+			packet_send(p, client->address);
+			handle_client_disconnect(client);
+		}
+	}
+}
+
+void itch_download_key_callback(s32 code, const char* data, void* user_data)
+{
+	b8 success = false;
+	if (code == 200)
+	{
+		cJSON* json = cJSON_Parse(data);
+		if (json)
+		{
+			if (cJSON_HasObjectItem(json, "download_key"))
+				success = true;
+			Json::json_free(json);
+		}
+	}
+
+	if (!success)
+		itch_auth_fail(user_data);
+}
+
+void itch_auth_callback(s32 code, const char* data, void* user_data)
+{
+	b8 success = false;
+	if (code == 200)
+	{
+		cJSON* json = cJSON_Parse(data);
+		if (json)
+		{
+			cJSON* user = cJSON_GetObjectItem(json, "user");
+			if (user)
+			{
+				cJSON* id = cJSON_GetObjectItem(user, "id");
+				if (id)
+				{
+					success = true;
+
+					char url[MAX_PATH_LENGTH + 1] = {};
+					snprintf(url, MAX_PATH_LENGTH, "https://itch.io/api/1/%s/game/65651/download_keys?user_id=%d", Settings::itch_api_key, id->valueint);
+					Net::http_get(url, &itch_download_key_callback, nullptr, user_data);
+				}
+			}
+			Json::json_free(json);
+		}
+	}
+
+	if (!success)
+		itch_auth_fail(user_data);
+}
+
 b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
-	if (address.equals(master_addr))
+	if (address.equals(state_persistent.master_addr))
 		return packet_handle_master(p);
 
 	Client* client = nullptr;
@@ -2703,13 +2776,57 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 			// create players
 			if (client->players.length == 0)
 			{
+				serialize_enum(p, AuthType, client->auth_type);
+
+				s32 auth_key_length;
+				serialize_int(p, s32, auth_key_length, 0, MAX_AUTH_KEY);
+				serialize_bytes(p, (u8*)client->auth_key, auth_key_length);
+				client->auth_key[auth_key_length] = '\0';
+
 				char username[MAX_USERNAME + 1];
 				s32 username_length;
 				serialize_int(p, s32, username_length, 0, MAX_USERNAME);
 				serialize_bytes(p, (u8*)username, username_length);
 				username[username_length] = '\0';
+
 				s32 local_players;
 				serialize_int(p, s32, local_players, 1, MAX_GAMEPADS);
+
+#if !DEBUG
+				// auth
+				switch (client->auth_type)
+				{
+					case AuthType::None:
+						break;
+					case AuthType::Itch:
+					{
+						char header[MAX_PATH_LENGTH + 1] = {};
+						snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", client->auth_key);
+						Net::http_get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header, *reinterpret_cast<void**>(&client->address));
+						break;
+					}
+					case AuthType::Steam:
+					{
+						// todo: Steam auth
+						break;
+					}
+					default:
+					{
+						vi_assert(false);
+						break;
+					}
+				}
+
+				if (client->auth_type == AuthType::None) // require some kind of auth in production
+				{
+					StreamWrite p;
+					packet_build_disconnect(&p, DisconnectReason::AuthFailed);
+					packet_send(p, client->address);
+					handle_client_disconnect(client);
+					return false;
+				}
+				else
+#endif
 				if (local_players <= MAX_PLAYERS - PlayerManager::list.count())
 				{
 					for (s32 i = 0; i < local_players; i++)
@@ -2759,6 +2876,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 					packet_build_disconnect(&p, DisconnectReason::ServerFull);
 					packet_send(p, client->address);
 					handle_client_disconnect(client);
+					return false;
 				}
 			}
 			break;
@@ -2885,9 +3003,9 @@ StateClient state_client;
 
 b8 init()
 {
-	if (Sock::udp_open(&sock, 3495, true))
+	if (Sock::udp_open(&state_persistent.sock, 3495, true))
 	{
-		if (Sock::udp_open(&sock, 3496, true))
+		if (Sock::udp_open(&state_persistent.sock, 3496, true))
 		{
 			printf("%s\n", Sock::get_error());
 			return false;
@@ -2987,7 +3105,7 @@ void update(const Update& u, r32 dt)
 		if (master_ping_timer == 0.0f)
 		{
 			if (state_client.mode == Mode::Disconnected)
-				state_master.reset();
+				state_persistent.master.reset();
 			master_error = MasterError::Timeout;
 		}
 	}
@@ -3061,6 +3179,8 @@ void handle_server_disconnect(DisconnectReason reason)
 		Game::unload_level();
 		connect(addr);
 	}
+	else
+		Game::unload_level();
 }
 
 b8 master_send_server_request()
@@ -3068,7 +3188,7 @@ b8 master_send_server_request()
 	using Stream = StreamWrite;
 	StreamWrite p;
 	packet_init(&p);
-	state_master.add_header(&p, master_addr, Master::Message::ClientRequestServer);
+	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ClientRequestServer);
 	if (!serialize_server_state(&p, &state_client.requested_server_state))
 		net_error();
 	if (state_client.requested_server_state.session_type == SessionType::Story)
@@ -3077,7 +3197,7 @@ b8 master_send_server_request()
 			net_error();
 	}
 	packet_finalize(&p);
-	state_master.send(p, state_common.timestamp, master_addr, &sock);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
 	return true;
 }
 
@@ -3198,7 +3318,7 @@ b8 allocate_server(const Master::ServerState& server_state)
 	state_client.requested_server_state = server_state;
 
 	master_send(Master::Message::Disconnect);
-	state_master.reset();
+	state_persistent.master.reset();
 	master_ping_timer = 0.0f;
 
 	master_send_server_request();
@@ -3222,7 +3342,7 @@ b8 packet_handle_master(StreamRead* p)
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	Master::Message type;
 	serialize_enum(p, Master::Message, type);
-	if (!state_master.received(type, seq, master_addr, &sock))
+	if (!state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.sock))
 		return false; // out of order
 	master_ping_timer = 0.0f;
 	master_error = MasterError::None;
@@ -3234,7 +3354,7 @@ b8 packet_handle_master(StreamRead* p)
 		}
 		case Master::Message::Disconnect:
 		{
-			state_master.reset();
+			state_persistent.master.reset();
 			state_client.mode = Mode::Disconnected;
 			break;
 		}
@@ -3245,7 +3365,7 @@ b8 packet_handle_master(StreamRead* p)
 			serialize_u16(p, addr.port);
 			connect(addr);
 			master_send(Master::Message::Disconnect);
-			state_master.reset();
+			state_persistent.master.reset();
 			break;
 		}
 		case Master::Message::WrongVersion:
@@ -3266,7 +3386,7 @@ b8 packet_handle_master(StreamRead* p)
 b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
 	using Stream = StreamRead;
-	if (address.equals(master_addr) && (state_client.mode == Mode::ContactingMaster || master_ping_timer > 0.0f))
+	if (address.equals(state_persistent.master_addr) && (state_client.mode == Mode::ContactingMaster || master_ping_timer > 0.0f))
 		return packet_handle_master(p);
 	else if (state_client.mode == Mode::Disconnected
 		|| state_client.mode == Mode::ContactingMaster
@@ -3297,10 +3417,17 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					{
 						using Stream = StreamWrite;
 						StreamWrite* p2 = msg_new(MessageType::ClientSetup);
-						s32 local_players = Game::session.local_player_count();
+
+						serialize_enum(p2, AuthType, Game::auth_type);
+						s32 auth_key_length = strlen(Game::auth_key);
+						serialize_int(p2, s32, auth_key_length, 0, MAX_AUTH_KEY);
+						serialize_bytes(p2, (u8*)Game::auth_key, auth_key_length);
+
 						s32 username_length = strlen(Settings::username);
 						serialize_int(p2, s32, username_length, 0, MAX_USERNAME);
 						serialize_bytes(p2, (u8*)Settings::username, username_length);
+
+						s32 local_players = Game::session.local_player_count();
 						serialize_int(p2, s32, local_players, 1, MAX_GAMEPADS);
 						for (s32 i = 0; i < MAX_GAMEPADS; i++)
 						{
@@ -3585,7 +3712,7 @@ b8 init()
 	if (curl_global_init(CURL_GLOBAL_SSL)) // no need for CURL_GLOBAL_WIN32 as Sock::init() initializes Win32 socket libs
 		return false;
 
-	state_common.curl_multi = curl_multi_init();
+	state_persistent.curl_multi = curl_multi_init();
 
 #if SERVER
 	return Server::init();
@@ -3726,7 +3853,7 @@ void update_start(const Update& u)
 	while (true)
 	{
 		PacketEntry entry(state_common.timestamp);
-		s32 bytes_received = Sock::udp_receive(&sock, &entry.address, entry.packet.data.data, NET_MAX_PACKET_SIZE);
+		s32 bytes_received = Sock::udp_receive(&state_persistent.sock, &entry.address, entry.packet.data.data, NET_MAX_PACKET_SIZE);
 		entry.packet.resize_bytes(bytes_received);
 		if (bytes_received > 0)
 		{
@@ -3767,16 +3894,16 @@ void update_start(const Update& u)
 
 	{
 		s32 _; // never used
-		curl_multi_perform(state_common.curl_multi, &_);
+		curl_multi_perform(state_persistent.curl_multi, &_);
 
-		while (CURLMsg* msg = curl_multi_info_read(state_common.curl_multi, &_))
+		while (CURLMsg* msg = curl_multi_info_read(state_persistent.curl_multi, &_))
 		{
 			if (msg->msg == CURLMSG_DONE)
 			{
 				CURL* curl = msg->easy_handle;
-				curl_multi_remove_handle(state_common.curl_multi, curl);
+				curl_multi_remove_handle(state_persistent.curl_multi, curl);
 				HttpRequest* request = nullptr;
-				for (auto i = state_common.http_requests.iterator(); !i.is_last(); i.next())
+				for (auto i = state_persistent.http_requests.iterator(); !i.is_last(); i.next())
 				{
 					if (i.item()->curl == curl)
 					{
@@ -3789,10 +3916,10 @@ void update_start(const Update& u)
 				{
 					s32 response_code;
 					curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-					request->callback(response_code, &request->data[0]);
+					request->callback(response_code, &request->data[0], request->user_data);
 				}
 				request->~HttpRequest();
-				state_common.http_requests.remove(request - &state_common.http_requests[0]);
+				state_persistent.http_requests.remove(request - &state_persistent.http_requests[0]);
 				curl_easy_cleanup(curl);
 			}
 		}
@@ -3822,7 +3949,7 @@ void update_end(const Update& u)
 	Server::tick(u, dt);
 #else
 	if (Client::state_client.mode == Client::Mode::ContactingMaster || Client::master_ping_timer > 0.0f)
-		state_master.update(state_common.timestamp, &sock, 4);
+		state_persistent.master.update(state_common.timestamp, &state_persistent.sock, 4);
 
 	if (Game::level.local || Client::state_client.replay_mode == Client::ReplayMode::Replaying)
 		state_common.msgs_out.length = 0; // clear out message queue because we're never going to send these
@@ -3850,11 +3977,12 @@ size_t http_write_callback(void* data, size_t size, size_t count, void* userdata
 	return total;
 }
 
-void http_get(const char* url, HttpCallback* callback, const char* header)
+void http_get(const char* url, HttpCallback* callback, const char* header, void* user_data)
 {
-	HttpRequest* request = state_common.http_requests.add();
+	HttpRequest* request = state_persistent.http_requests.add();
 	new (request) HttpRequest();
 	request->callback = callback;
+	request->user_data = user_data;
 
 	request->curl = curl_easy_init();
 	curl_easy_setopt(request->curl, CURLOPT_URL, url);
@@ -3868,22 +3996,22 @@ void http_get(const char* url, HttpCallback* callback, const char* header)
 		curl_easy_setopt(request->curl, CURLOPT_HTTPHEADER, request->request_headers);
 	}
 
-	curl_multi_add_handle(state_common.curl_multi, request->curl);
+	curl_multi_add_handle(state_persistent.curl_multi, request->curl);
 }
 
 void term()
 {
 	reset();
-	for (auto i = state_common.http_requests.iterator(); !i.is_last(); i.next())
+	for (auto i = state_persistent.http_requests.iterator(); !i.is_last(); i.next())
 	{
-		curl_multi_remove_handle(state_common.curl_multi, i.item()->curl);
+		curl_multi_remove_handle(state_persistent.curl_multi, i.item()->curl);
 		curl_easy_cleanup(i.item()->curl);
 		i.item()->~HttpRequest();
-		state_common.http_requests.remove(i.index);
+		state_persistent.http_requests.remove(i.index);
 	}
-	curl_multi_cleanup(state_common.curl_multi);
+	curl_multi_cleanup(state_persistent.curl_multi);
 	curl_global_cleanup();
-	Sock::close(&sock);
+	Sock::close(&state_persistent.sock);
 }
 
 // unload net state (for example when switching levels)

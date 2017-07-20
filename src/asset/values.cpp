@@ -991,6 +991,7 @@ const char* AssetLookup::String::names[] =
 	"antialiasing",
 	"attack",
 	"attacking",
+	"auth_failed",
 	"back",
 	"backward",
 	"binding",

@@ -29,6 +29,7 @@ namespace Settings
 	extern s32 secret;
 	extern char master_server[MAX_PATH_LENGTH + 1];
 	extern char username[MAX_USERNAME + 1];
+	extern char itch_api_key[MAX_AUTH_KEY + 1];
 	extern u8 sfx;
 	extern u8 music;
 	extern ShadowQuality shadow_quality;

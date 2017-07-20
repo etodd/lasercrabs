@@ -67,7 +67,8 @@ GameTime Game::time;
 GameTime Game::real_time;
 r32 Game::physics_timestep;
 r32 Game::inactive_timer;
-char Game::itch_api_key[MAX_PATH_LENGTH + 1];
+Net::AuthType Game::auth_type;
+char Game::auth_key[MAX_AUTH_KEY + 1];
 
 Gamepad::Type Game::ui_gamepad_types[MAX_GAMEPADS] = { };
 AssetID Game::scheduled_load_level = AssetNull;
@@ -162,11 +163,35 @@ Array<UpdateFunction> Game::updates;
 Array<DrawFunction> Game::draws;
 Array<CleanupFunction> Game::cleanups;
 
-void itch_auth_callback(s32 code, const char* data)
+void itch_auth_callback(s32 code, const char* data, void* user_data)
 {
-	FILE* f = fopen("itch.txt", "w");
-	fwrite(data, sizeof(char), strlen(data), f);
-	fclose(f);
+	b8 success = false;
+	if (code == 200)
+	{
+		cJSON* json = cJSON_Parse(data);
+		if (json)
+		{
+			cJSON* user = cJSON_GetObjectItem(json, "user");
+			if (user)
+			{
+				cJSON* username = cJSON_GetObjectItem(user, "username");
+				if (username)
+				{
+					success = true;
+					if (strncmp(Settings::username, username->valuestring, MAX_USERNAME))
+					{
+						memset(Settings::username, 0, sizeof(Settings::username));
+						strncpy(Settings::username, username->valuestring, MAX_USERNAME);
+						Loader::settings_save();
+					}
+				}
+			}
+			Json::json_free(json);
+		}
+	}
+
+	if (!success)
+		fprintf(stderr, "Itch authentication failed. Response code %d: %s\n", code, data);
 }
 
 b8 Game::init(LoopSync* sync)
@@ -195,11 +220,27 @@ b8 Game::init(LoopSync* sync)
 
 #if !SERVER
 
-	if (itch_api_key[0])
+	switch (auth_type)
 	{
-		char header[MAX_PATH_LENGTH + 1];
-		snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", itch_api_key);
-		Net::http_get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header);
+		case Net::AuthType::None:
+			break;
+		case Net::AuthType::Itch:
+		{
+			char header[MAX_PATH_LENGTH + 1] = {};
+			snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", auth_key);
+			Net::http_get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header);
+			break;
+		}
+		case Net::AuthType::Steam:
+		{
+			// todo: pull Steam username
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
 	}
 
 	// replay files
@@ -1513,7 +1554,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 									strncpy(username, Settings::username, MAX_USERNAME);
 								else
 								{
-									char username_truncated[MAX_USERNAME];
+									char username_truncated[MAX_USERNAME] = {};
 									strncpy(username_truncated, Settings::username, MAX_USERNAME - 4);
 									snprintf(username, MAX_USERNAME, "%s [%d]", username_truncated, i + 1);
 								}

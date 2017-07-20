@@ -26,6 +26,7 @@ namespace Settings
 	s32 secret;
 	char master_server[MAX_PATH_LENGTH + 1];
 	char username[MAX_USERNAME + 1];
+	char itch_api_key[MAX_AUTH_KEY + 1];
 	u8 sfx;
 	u8 music;
 	b8 fullscreen;
@@ -254,6 +255,9 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 
 	strncpy(Settings::master_server, Json::get_string(json, "master_server", default_master_server), MAX_PATH_LENGTH);
 	strncpy(Settings::username, Json::get_string(json, "username", "Anonymous"), MAX_USERNAME);
+#if SERVER
+	strncpy(Settings::itch_api_key, Json::get_string(json, "itch_api_key"), MAX_AUTH_KEY);
+#endif
 	Settings::secret = Json::get_s32(json, "secret");
 
 	if (json)
@@ -273,7 +277,10 @@ void Loader::settings_save()
 	if (strncmp(Settings::master_server, default_master_server, MAX_PATH_LENGTH) != 0)
 		cJSON_AddStringToObject(json, "master_server", Settings::master_server);
 
-#if !SERVER
+#if SERVER
+	cJSON_AddStringToObject(json, "itch_api_key", Settings::itch_api_key);
+#else
+	cJSON_AddStringToObject(json, "username", Settings::username);
 	cJSON_AddNumberToObject(json, "framerate_limit", Settings::framerate_limit);
 	cJSON_AddNumberToObject(json, "width", Settings::width);
 	cJSON_AddNumberToObject(json, "height", Settings::height);

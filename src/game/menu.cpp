@@ -525,6 +525,11 @@ void update(const Update& u)
 						Game::scheduled_dialog = strings::need_upgrade;
 						break;
 					}
+					case Net::DisconnectReason::AuthFailed:
+					{
+						Game::scheduled_dialog = strings::auth_failed;
+						break;
+					}
 					default:
 					{
 						vi_assert(false);

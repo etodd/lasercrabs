@@ -246,9 +246,12 @@ void RigidBody::awake()
 RigidBody::~RigidBody()
 {
 	remove_all_constraints();
-	Physics::btWorld->removeRigidBody(btBody);
-	delete btBody;
-	delete btShape;
+	if (btBody)
+	{
+		Physics::btWorld->removeRigidBody(btBody);
+		delete btBody;
+		delete btShape;
+	}
 	if (btMesh)
 		delete btMesh;
 }

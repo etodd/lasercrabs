@@ -96,7 +96,10 @@ namespace VI
 		{
 			const char* itch_api_key = getenv("ITCHIO_API_KEY");
 			if (itch_api_key)
-				strncpy(Game::itch_api_key, itch_api_key, MAX_PATH_LENGTH);
+			{
+				Game::auth_type = Net::AuthType::Itch;
+				strncpy(Game::auth_key, itch_api_key, MAX_AUTH_KEY);
+			}
 		}
 
 #if _WIN32

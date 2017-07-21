@@ -78,8 +78,6 @@ set(BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/bullet)
 include(${CMAKE_CURRENT_BINARY_DIR}/external/bullet/BulletConfig.cmake)
 
-include_directories()
-
 ## lodepng
 if (CLIENT)
 add_library(lodepng STATIC external/lodepng/lodepng.cpp)
@@ -206,6 +204,8 @@ set(ALL_INCLUDES
 	external
 	src
 	${ZLIB_INCLUDE_DIR}
+	external/curl/include
+	${CMAKE_CURRENT_BINARY_DIR}/external/curl/include/curl
 )
 
 if (WIN32)
@@ -215,8 +215,6 @@ endif(WIN32)
 set(SERVER_CLIENT_INCLUDES
 	${ALL_INCLUDES}
 	external/bullet/src
-	external/curl/include
-	${CMAKE_CURRENT_BINARY_DIR}/external/curl/include/curl
 )
 
 string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
@@ -390,7 +388,14 @@ function(enable_unity_build UB_SUFFIX SOURCE_VARIABLE_NAME)
 endfunction(enable_unity_build)
 
 if (SERVER)
-	# server
+
+	## sqlite
+	add_library(sqlite STATIC
+		external/sqlite/sqlite3.h
+		external/sqlite/sqlite3.c
+	)
+
+	## server
 	set(SRC_SERVER
 		${SRC}
 		src/platform/server.cpp
@@ -398,7 +403,7 @@ if (SERVER)
 	#enable_unity_build(deceiversrv SRC_SERVER)
 	add_executable(deceiversrv ${SRC_SERVER})
 
-	# master
+	## master
 	set(SRC_MASTER
 		src/data/array.h
 		src/data/pin_array.h
@@ -415,6 +420,8 @@ if (SERVER)
 		src/game/constants.h
 		src/asset/level.h
 		src/platform/master_server.cpp
+		src/http.h
+		src/http.cpp
 	)
 	#enable_unity_build(deceivermaster SRC_MASTER)
 	add_executable(deceivermaster
@@ -441,7 +448,6 @@ if (SERVER)
 		cJSON
 		mersenne
 		zlibstatic
-		libcurl
 	)
 
 	if (APPLE)
@@ -458,12 +464,15 @@ if (SERVER)
 	target_link_libraries(deceivermaster
 		zlibstatic
 		cJSON
+		sqlite
+		libcurl
+		mersenne
 	)
 
 endif()
 
 if (CLIENT)
-	# client
+	## client
 	if (PLAYSTATION)
 		set(SRC_PLAYSTATION
 			${SRC}
@@ -475,6 +484,8 @@ if (CLIENT)
 	else()
 		set(SRC_CLIENT
 			${SRC}
+			src/http.h
+			src/http.cpp
 			src/platform/glvm.cpp
 			src/platform/sdl.cpp
 		)

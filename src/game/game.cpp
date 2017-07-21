@@ -48,6 +48,10 @@
 #include <dirent.h>
 #include "settings.h"
 
+#if !SERVER
+#include "http.h"
+#endif
+
 #if DEBUG
 	#define DEBUG_WALK_NAV_MESH 0
 	#define DEBUG_WALK_AI_PATH 0
@@ -67,8 +71,9 @@ GameTime Game::time;
 GameTime Game::real_time;
 r32 Game::physics_timestep;
 r32 Game::inactive_timer;
-Net::AuthType Game::auth_type;
+Net::Master::AuthType Game::auth_type;
 char Game::auth_key[MAX_AUTH_KEY + 1];
+Net::Master::UserKey Game::user_key;
 
 Gamepad::Type Game::ui_gamepad_types[MAX_GAMEPADS] = { };
 AssetID Game::scheduled_load_level = AssetNull;
@@ -219,19 +224,21 @@ b8 Game::init(LoopSync* sync)
 		return false;
 
 #if !SERVER
+	if (!Net::Http::init())
+		return false;
 
 	switch (auth_type)
 	{
-		case Net::AuthType::None:
+		case Net::Master::AuthType::None:
 			break;
-		case Net::AuthType::Itch:
+		case Net::Master::AuthType::Itch:
 		{
 			char header[MAX_PATH_LENGTH + 1] = {};
 			snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", auth_key);
-			Net::http_get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header);
+			Net::Http::get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header);
 			break;
 		}
-		case Net::AuthType::Steam:
+		case Net::Master::AuthType::Steam:
 		{
 			// todo: pull Steam username
 			break;
@@ -338,10 +345,7 @@ void Game::update(const Update& update_in)
 			{
 				save.zone_last = level.id; // hack to ensure hand-off works correctly
 				unload_level();
-				Net::Master::ServerState s;
-				s.make_story();
-				s.level = scheduled_load_level;
-				Net::Client::allocate_server(s);
+				Net::Client::request_server(0); // 0 = story mode
 				scheduled_load_level = AssetNull;
 			}
 			else
@@ -386,6 +390,9 @@ void Game::update(const Update& update_in)
 	}
 
 	Net::update_start(u);
+#if !SERVER
+	Net::Http::update();
+#endif
 
 #if !SERVER
 	// trigger attract mode
@@ -655,6 +662,9 @@ void Game::update(const Update& update_in)
 void Game::term()
 {
 	Net::term();
+#if !SERVER
+	Net::Http::term();
+#endif
 	Audio::term();
 }
 
@@ -1074,10 +1084,8 @@ void Game::execute(const char* cmd)
 		{
 			unload_level();
 			save.reset();
-			Net::Master::ServerState s;
-			s.make_story();
-			s.level = level;
-			Net::Client::allocate_server(s);
+			save.zone_current = level;
+			Net::Client::request_server(0); // 0 = story mode
 		}
 	}
 #endif

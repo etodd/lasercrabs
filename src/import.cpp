@@ -15,6 +15,11 @@
 #include <array>
 #include "mersenne/mersenne-twister.h"
 #include "platform/util.h"
+#if _WIN32
+#include "windows.h"
+#else
+#include <sys/stat.h>
+#endif
 
 #if !LINUX
 #include <glew/include/GL/glew.h>
@@ -51,6 +56,153 @@ namespace platform
 	{
 		std::this_thread::sleep_for(std::chrono::milliseconds(s64(time * 1000.0f)));
 	}
+
+#if _WIN32
+	s64 filetime_to_posix(FILETIME ft)
+	{
+		// takes the last modified date
+		LARGE_INTEGER date, adjust;
+		date.HighPart = ft.dwHighDateTime;
+		date.LowPart = ft.dwLowDateTime;
+
+		// 100-nanoseconds = milliseconds * 10000
+		adjust.QuadPart = 11644473600000 * 10000;
+
+		// removes the diff between 1970 and 1601
+		date.QuadPart -= adjust.QuadPart;
+
+		// converts back from 100-nanoseconds to seconds
+		return date.QuadPart / 10000000;
+	}
+
+	s64 filemtime(const std::string& file)
+	{
+		WIN32_FIND_DATA FindFileData;
+		HANDLE handle = FindFirstFile(file.c_str(), &FindFileData);
+		if (handle == INVALID_HANDLE_VALUE)
+			return 0;
+		else
+		{
+			FindClose(handle);
+			return filetime_to_posix(FindFileData.ftLastWriteTime);
+		}
+	}
+
+	b8 run_cmd(const std::string& cmd)
+	{
+		PROCESS_INFORMATION piProcInfo; 
+		STARTUPINFO siStartInfo;
+
+		// Set up members of the PROCESS_INFORMATION structure. 
+
+		ZeroMemory(&piProcInfo, sizeof(PROCESS_INFORMATION));
+
+		// Set up members of the STARTUPINFO structure. 
+		// This structure specifies the STDIN and STDOUT handles for redirection.
+
+		ZeroMemory(&siStartInfo, sizeof(STARTUPINFO));
+		siStartInfo.cb = sizeof(STARTUPINFO); 
+
+		SECURITY_ATTRIBUTES security_attributes;
+		security_attributes.nLength = sizeof(SECURITY_ATTRIBUTES);
+		security_attributes.bInheritHandle = true;
+		security_attributes.lpSecurityDescriptor = 0;
+
+		HANDLE stdin_read, stdin_write;
+		if (!CreatePipe(&stdin_read, &stdin_write, &security_attributes, 0))
+			return false;
+		siStartInfo.hStdInput = stdin_read;
+
+		if (!SetHandleInformation(stdin_write, HANDLE_FLAG_INHERIT, 0))
+			return false;
+
+		HANDLE stderr_read, stderr_write;
+
+		if (!CreatePipe(&stderr_read, &stderr_write, &security_attributes, 0))
+			return false;
+
+		if (!SetHandleInformation(stderr_read, HANDLE_FLAG_INHERIT, 0))
+			return false;
+
+		siStartInfo.hStdError = stderr_write;
+
+		siStartInfo.hStdOutput = NULL;
+
+		siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
+
+		// Create the child process. 
+
+		
+		if (!CreateProcess(NULL,
+			const_cast<char*>(cmd.c_str()),     // command line 
+			NULL,          // process security attributes 
+			NULL,          // primary thread security attributes 
+			TRUE,          // handles are inherited 
+			NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,             // creation flags 
+			NULL,          // use parent's environment 
+			NULL,          // use parent's current directory 
+			&siStartInfo,  // STARTUPINFO pointer 
+			&piProcInfo))  // receives PROCESS_INFORMATION 
+		{
+			return false;
+		}
+
+		if (WaitForSingleObject(piProcInfo.hProcess, INFINITE) == WAIT_FAILED)
+			return false;
+
+		DWORD exit_code;
+
+		b8 success;
+		if (GetExitCodeProcess(piProcInfo.hProcess, &exit_code))
+		{
+			success = exit_code == 0;
+			if (!success)
+			{
+				// Copy child stderr to our stderr
+				DWORD dwRead, dwWritten; 
+				const s32 BUFSIZE = 4096;
+				CHAR chBuf[BUFSIZE]; 
+				BOOL bSuccess = FALSE;
+				HANDLE hParentStdErr = GetStdHandle(STD_ERROR_HANDLE);
+
+				for (;;) 
+				{ 
+					bSuccess = ReadFile(stderr_read, chBuf, BUFSIZE, &dwRead, NULL);
+					if (!bSuccess || dwRead == 0)
+						break;
+
+					bSuccess = WriteFile(hParentStdErr, chBuf, dwRead, &dwWritten, NULL);
+					if (!bSuccess)
+						break;
+				}
+			}
+		}
+		else
+			success = false;
+
+		CloseHandle(stdin_read);
+		CloseHandle(stdin_write);
+		CloseHandle(stderr_read);
+		CloseHandle(stderr_write);
+		CloseHandle(piProcInfo.hProcess);
+		CloseHandle(piProcInfo.hThread);
+
+		return success;
+	}
+#else
+	s64 filemtime(const std::string& file)
+	{
+		struct stat st;
+		if (stat(file.c_str(), &st))
+			return 0;
+		return st.st_mtime;
+	}
+
+	b8 run_cmd(const std::string& cmd)
+	{
+		return system(cmd.c_str()) == 0;
+	}
+#endif
 
 }
 
@@ -436,155 +588,6 @@ std::string get_asset_name(const std::string& filename)
 	return filename.substr(start, end - start);
 }
 
-#if defined WIN32
-#include "windows.h"
-s64 filetime_to_posix(FILETIME ft)
-{
-	// takes the last modified date
-	LARGE_INTEGER date, adjust;
-	date.HighPart = ft.dwHighDateTime;
-	date.LowPart = ft.dwLowDateTime;
-
-	// 100-nanoseconds = milliseconds * 10000
-	adjust.QuadPart = 11644473600000 * 10000;
-
-	// removes the diff between 1970 and 1601
-	date.QuadPart -= adjust.QuadPart;
-
-	// converts back from 100-nanoseconds to seconds
-	return date.QuadPart / 10000000;
-}
-
-s64 filemtime(const std::string& file)
-{
-	WIN32_FIND_DATA FindFileData;
-	HANDLE handle = FindFirstFile(file.c_str(), &FindFileData);
-	if (handle == INVALID_HANDLE_VALUE)
-		return 0;
-	else
-	{
-		FindClose(handle);
-		return filetime_to_posix(FindFileData.ftLastWriteTime);
-	}
-}
-
-b8 run_cmd(const std::string& cmd)
-{
-	PROCESS_INFORMATION piProcInfo; 
-	STARTUPINFO siStartInfo;
-
-	// Set up members of the PROCESS_INFORMATION structure. 
-
-	ZeroMemory(&piProcInfo, sizeof(PROCESS_INFORMATION));
-
-	// Set up members of the STARTUPINFO structure. 
-	// This structure specifies the STDIN and STDOUT handles for redirection.
-
-	ZeroMemory(&siStartInfo, sizeof(STARTUPINFO));
-	siStartInfo.cb = sizeof(STARTUPINFO); 
-
-	SECURITY_ATTRIBUTES security_attributes;
-	security_attributes.nLength = sizeof(SECURITY_ATTRIBUTES);
-	security_attributes.bInheritHandle = true;
-	security_attributes.lpSecurityDescriptor = 0;
-
-	HANDLE stdin_read, stdin_write;
-	if (!CreatePipe(&stdin_read, &stdin_write, &security_attributes, 0))
-		return false;
-	siStartInfo.hStdInput = stdin_read;
-
-	if (!SetHandleInformation(stdin_write, HANDLE_FLAG_INHERIT, 0))
-		return false;
-
-	HANDLE stderr_read, stderr_write;
-
-	if (!CreatePipe(&stderr_read, &stderr_write, &security_attributes, 0))
-		return false;
-
-	if (!SetHandleInformation(stderr_read, HANDLE_FLAG_INHERIT, 0))
-		return false;
-
-	siStartInfo.hStdError = stderr_write;
-
-	siStartInfo.hStdOutput = NULL;
-
-	siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
-
-	// Create the child process. 
-
-	
-	if (!CreateProcess(NULL,
-		const_cast<char*>(cmd.c_str()),     // command line 
-		NULL,          // process security attributes 
-		NULL,          // primary thread security attributes 
-		TRUE,          // handles are inherited 
-		NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,             // creation flags 
-		NULL,          // use parent's environment 
-		NULL,          // use parent's current directory 
-		&siStartInfo,  // STARTUPINFO pointer 
-		&piProcInfo))  // receives PROCESS_INFORMATION 
-	{
-		return false;
-	}
-
-	if (WaitForSingleObject(piProcInfo.hProcess, INFINITE) == WAIT_FAILED)
-		return false;
-
-	DWORD exit_code;
-
-	b8 success;
-	if (GetExitCodeProcess(piProcInfo.hProcess, &exit_code))
-	{
-		success = exit_code == 0;
-		if (!success)
-		{
-			// Copy child stderr to our stderr
-			DWORD dwRead, dwWritten; 
-			const s32 BUFSIZE = 4096;
-			CHAR chBuf[BUFSIZE]; 
-			BOOL bSuccess = FALSE;
-			HANDLE hParentStdErr = GetStdHandle(STD_ERROR_HANDLE);
-
-			for (;;) 
-			{ 
-				bSuccess = ReadFile(stderr_read, chBuf, BUFSIZE, &dwRead, NULL);
-				if (!bSuccess || dwRead == 0)
-					break;
-
-				bSuccess = WriteFile(hParentStdErr, chBuf, dwRead, &dwWritten, NULL);
-				if (!bSuccess)
-					break;
-			}
-		}
-	}
-	else
-		success = false;
-
-	CloseHandle(stdin_read);
-	CloseHandle(stdin_write);
-	CloseHandle(stderr_read);
-	CloseHandle(stderr_write);
-	CloseHandle(piProcInfo.hProcess);
-	CloseHandle(piProcInfo.hThread);
-
-	return success;
-}
-#else
-#include <sys/stat.h>
-s64 filemtime(const std::string& file)
-{
-	struct stat st;
-	if (stat(file.c_str(), &st))
-		return 0;
-	return st.st_mtime;
-}
-
-b8 run_cmd(const std::string& cmd)
-{
-	return system(cmd.c_str()) == 0;
-}
-#endif
-
 b8 cp(const std::string& from, const std::string& to)
 {
 	char buf[4096];
@@ -614,7 +617,7 @@ s64 asset_mtime(const Map<std::string>& map, const std::string& asset_name)
 	if (entry == map.end())
 		return 0;
 	else
-		return filemtime(entry->second);
+		return platform::filemtime(entry->second);
 }
 
 s64 asset_mtime(const Map2<std::string>& map, const std::string& asset_name)
@@ -627,7 +630,7 @@ s64 asset_mtime(const Map2<std::string>& map, const std::string& asset_name)
 		s64 mtime = LLONG_MAX;
 		for (auto i = entry->second.begin(); i != entry->second.end(); i++)
 		{
-			s64 t = filemtime(i->second);
+			s64 t = platform::filemtime(i->second);
 			mtime = t < mtime ? t : mtime;
 		}
 		return mtime;
@@ -1237,7 +1240,7 @@ const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, cons
 	cmdbuilder << "\"" << asset_intermediate_path << "\"";
 	std::string cmd = cmdbuilder.str();
 
-	if (!run_cmd(cmd))
+	if (!platform::run_cmd(cmd))
 	{
 		fprintf(stderr, "Error: Failed to export Blender model %s to FBX.\n", asset_in_path.c_str());
 		fprintf(stderr, "Command: %s.\n", cmd.c_str());
@@ -1330,7 +1333,7 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 	clean_name(clean_asset_name);
 	std::string asset_out_path = out_folder + clean_asset_name + mesh_out_extension;
 
-	s64 mtime = filemtime(asset_in_path);
+	s64 mtime = platform::filemtime(asset_in_path);
 	if (force_rebuild
 		|| state.rebuild
 		|| mtime > asset_mtime(state.cached_manifest.meshes, asset_name)
@@ -1574,7 +1577,7 @@ b8 import_level_meshes(ImporterState& state, const std::string& asset_in_path, c
 	std::string clean_asset_name = asset_name;
 	clean_name(clean_asset_name);
 
-	s64 mtime = filemtime(asset_in_path);
+	s64 mtime = platform::filemtime(asset_in_path);
 	if (force_rebuild
 		|| state.rebuild
 		|| mtime > asset_mtime(state.cached_manifest.level_meshes, asset_name))
@@ -2740,7 +2743,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 	std::string asset_out_path = out_folder + clean_asset_name + level_out_extension;
 	std::string nav_mesh_out_path = out_folder + clean_asset_name + nav_mesh_out_extension;
 
-	s64 mtime = filemtime(asset_in_path);
+	s64 mtime = platform::filemtime(asset_in_path);
 	b8 rebuild = state.rebuild
 		|| mtime > asset_mtime(state.cached_manifest.levels, asset_name)
 		|| mtime > asset_mtime(state.cached_manifest.nav_meshes, asset_name);
@@ -2761,7 +2764,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		cmdbuilder << "\"" << asset_out_path << "\"";
 		std::string cmd = cmdbuilder.str();
 
-		if (!run_cmd(cmd))
+		if (!platform::run_cmd(cmd))
 		{
 			fprintf(stderr, "Error: Failed to export %s to lvl.\n", asset_in_path.c_str());
 			fprintf(stderr, "Command: %s.\n", cmd.c_str());
@@ -2861,7 +2864,7 @@ b8 import_copy(ImporterState& state, Map<std::string>& manifest, const std::stri
 	clean_name(clean_asset_name);
 	std::string asset_out_path = out_folder + clean_asset_name + extension;
 	map_add(manifest, asset_name, asset_out_path);
-	s64 mtime = filemtime(asset_in_path);
+	s64 mtime = platform::filemtime(asset_in_path);
 	if (state.rebuild
 		|| mtime > asset_mtime(manifest, asset_name))
 	{
@@ -2883,7 +2886,7 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 	clean_name(clean_asset_name);
 	std::string asset_out_path = out_folder + clean_asset_name + shader_extension;
 	map_add(state.manifest.shaders, asset_name, asset_out_path);
-	s64 mtime = filemtime(asset_in_path);
+	s64 mtime = platform::filemtime(asset_in_path);
 	if (state.rebuild
 		|| mtime > asset_mtime(state.cached_manifest.shaders, asset_name))
 	{
@@ -3007,7 +3010,7 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 
 	map_add(state.manifest.fonts, asset_name, asset_out_path);
 
-	s64 mtime = filemtime(asset_in_path);
+	s64 mtime = platform::filemtime(asset_in_path);
 	if (state.rebuild
 		|| mtime > asset_mtime(state.cached_manifest.fonts, asset_name))
 	{
@@ -3021,7 +3024,7 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 		cmdbuilder << "\"" << asset_in_path << "\" \"" << asset_intermediate_path << "\"";
 		std::string cmd = cmdbuilder.str();
 
-		if (!run_cmd(cmd))
+		if (!platform::run_cmd(cmd))
 		{
 			fprintf(stderr, "Error: Failed to export TTF font %s to FBX.\n", asset_in_path.c_str());
 			fprintf(stderr, "Command: %s.\n", cmd.c_str());
@@ -3120,7 +3123,7 @@ s32 mod_proc()
 
 	ImporterState state;
 	state.mod = true;
-	state.manifest_mtime = filemtime(manifest_path);
+	state.manifest_mtime = platform::filemtime(manifest_path);
 
 	if (!manifest_read(manifest_path, state.cached_manifest))
 		state.rebuild = true;
@@ -3157,7 +3160,7 @@ s32 mod_proc()
 			return exit_error();
 	}
 
-	if (state.rebuild || update_manifest || filemtime(mod_manifest_path) < state.manifest_mtime)
+	if (state.rebuild || update_manifest || platform::filemtime(mod_manifest_path) < state.manifest_mtime)
 	{
 		cJSON* mod_manifest = cJSON_CreateObject();
 
@@ -3269,7 +3272,7 @@ s32 proc(s32 argc, char* argv[])
 	}
 
 	ImporterState state;
-	state.manifest_mtime = filemtime(manifest_path);
+	state.manifest_mtime = platform::filemtime(manifest_path);
 
 	if (!manifest_read(manifest_path, state.cached_manifest))
 		state.rebuild = true;
@@ -3364,14 +3367,14 @@ s32 proc(s32 argc, char* argv[])
 	if (state.error)
 		return exit_error();
 
-	if (filemtime(wwise_project_path) > 0)
+	if (platform::filemtime(wwise_project_path) > 0)
 	{
 		// wwise build
 		std::ostringstream cmdbuilder;
 		b8 success;
 #if _WIN32
 		cmdbuilder << "WwiseCLI \"" << wwise_project_path << "\" -GenerateSoundBanks";
-		success = run_cmd(cmdbuilder.str());
+		success = platform::run_cmd(cmdbuilder.str());
 #elif defined(__APPLE__)
 		cmdbuilder << "WwiseCLI.sh \"" << wwise_project_path << "\" -GenerateSoundBanks";
 		success = run_cmd(cmdbuilder.str());
@@ -3416,9 +3419,9 @@ s32 proc(s32 argc, char* argv[])
 #if !LINUX
 	{
 		// copy Wwise header
-		s64 mtime = filemtime(wwise_header_in_path);
+		s64 mtime = platform::filemtime(wwise_header_in_path);
 		if (state.rebuild
-			|| mtime > filemtime(wwise_header_out_path))
+			|| mtime > platform::filemtime(wwise_header_out_path))
 		{
 			printf("%s\n", wwise_header_out_path);
 			if (!cp(wwise_header_in_path, wwise_header_out_path))
@@ -3485,7 +3488,7 @@ s32 proc(s32 argc, char* argv[])
 
 		if (state.rebuild
 			|| !maps_equal2(state.manifest.meshes, state.cached_manifest.meshes)
-			|| filemtime(mesh_header_path) == 0)
+			|| platform::filemtime(mesh_header_path) == 0)
 		{
 			printf("%s\n", mesh_header_path);
 			FILE* f = open_asset_header(mesh_header_path);
@@ -3497,7 +3500,7 @@ s32 proc(s32 argc, char* argv[])
 
 		if (state.rebuild
 			|| !maps_equal2(state.manifest.animations, state.cached_manifest.animations)
-			|| filemtime(animation_header_path) == 0)
+			|| platform::filemtime(animation_header_path) == 0)
 		{
 			printf("%s\n", animation_header_path);
 			FILE* f = open_asset_header(animation_header_path);
@@ -3510,7 +3513,7 @@ s32 proc(s32 argc, char* argv[])
 		if (state.rebuild
 			|| !maps_equal2(state.manifest.armatures, state.cached_manifest.armatures)
 			|| !maps_equal2(state.manifest.bones, state.cached_manifest.bones)
-			|| filemtime(armature_header_path) == 0)
+			|| platform::filemtime(armature_header_path) == 0)
 		{
 			printf("%s\n", armature_header_path);
 			FILE* f = open_asset_header(armature_header_path);
@@ -3525,7 +3528,7 @@ s32 proc(s32 argc, char* argv[])
 
 		if (state.rebuild
 			|| !maps_equal(state.manifest.textures, state.cached_manifest.textures)
-			|| filemtime(texture_header_path) == 0)
+			|| platform::filemtime(texture_header_path) == 0)
 		{
 			printf("%s\n", texture_header_path);
 			FILE* f = open_asset_header(texture_header_path);
@@ -3539,7 +3542,7 @@ s32 proc(s32 argc, char* argv[])
 #if !LINUX
 		if (state.rebuild
 			|| !maps_equal(state.manifest.soundbanks, state.cached_manifest.soundbanks)
-			|| filemtime(soundbank_header_path) == 0)
+			|| platform::filemtime(soundbank_header_path) == 0)
 		{
 			printf("%s\n", soundbank_header_path);
 			FILE* f = open_asset_header(soundbank_header_path);
@@ -3553,7 +3556,7 @@ s32 proc(s32 argc, char* argv[])
 		if (state.rebuild
 			|| !maps_equal2(state.manifest.uniforms, state.cached_manifest.uniforms)
 			|| !maps_equal(state.manifest.shaders, state.cached_manifest.shaders)
-			|| filemtime(shader_header_path) == 0)
+			|| platform::filemtime(shader_header_path) == 0)
 		{
 			printf("%s\n", shader_header_path);
 			FILE* f = open_asset_header(shader_header_path);
@@ -3568,7 +3571,7 @@ s32 proc(s32 argc, char* argv[])
 
 		if (state.rebuild
 			|| !maps_equal(state.manifest.fonts, state.cached_manifest.fonts)
-			|| filemtime(font_header_path) == 0)
+			|| platform::filemtime(font_header_path) == 0)
 		{
 			printf("%s\n", font_header_path);
 			FILE* f = open_asset_header(font_header_path);
@@ -3581,7 +3584,7 @@ s32 proc(s32 argc, char* argv[])
 
 		if (state.rebuild
 			|| !maps_equal(state.manifest.levels, state.cached_manifest.levels)
-			|| filemtime(level_header_path) == 0)
+			|| platform::filemtime(level_header_path) == 0)
 		{
 			printf("%s\n", level_header_path);
 			FILE* f = open_asset_header(level_header_path);
@@ -3596,7 +3599,7 @@ s32 proc(s32 argc, char* argv[])
 
 		if (state.rebuild
 			|| !maps_equal2(state.manifest.strings, state.cached_manifest.strings)
-			|| filemtime(string_header_path) == 0)
+			|| platform::filemtime(string_header_path) == 0)
 		{
 			printf("%s\n", string_header_path);
 			FILE* f = open_asset_header(string_header_path);
@@ -3608,7 +3611,7 @@ s32 proc(s32 argc, char* argv[])
 		}
 
 #if !LINUX
-		if (state.rebuild || update_manifest || filemtime(asset_src_path) < state.manifest_mtime)
+		if (state.rebuild || update_manifest || platform::filemtime(asset_src_path) < state.manifest_mtime)
 		{
 			printf("%s\n", asset_src_path);
 			FILE* f = fopen(asset_src_path, "w+");

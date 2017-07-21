@@ -183,26 +183,6 @@ struct SplitscreenConfig
 		memcpy(&Game::session.local_player_config, local_player_config, sizeof(local_player_config));
 	}
 
-	void server_state(Net::Master::ServerState* s) const
-	{
-		s->session_type = session_type();
-		s->game_type = game_type;
-		if (game_type == GameType::Assault)
-		{
-			s->respawns = respawns;
-			s->kill_limit = 0;
-		}
-		else // deathmatch
-		{
-			s->respawns = -1;
-			s->kill_limit = kill_limit;
-		}
-		s->team_count = s8(team_count());
-		s->open_slots = s8(local_player_count());
-		s->time_limit_minutes = s8(time_limit / 60.0f);
-		s->allow_abilities = allow_abilities;
-	}
-
 	void consolidate_teams()
 	{
 		s32 team_count[MAX_TEAMS];
@@ -1296,10 +1276,7 @@ void deploy_done()
 			Game::unload_level();
 			Game::save.reset();
 
-			Net::Master::ServerState s;
-			global.splitscreen.server_state(&s);
-			s.level = data.zone_selected;
-			Net::Client::allocate_server(s);
+			Net::Client::request_server(1); // todo: redesign this whole thing
 
 			clear();
 		}

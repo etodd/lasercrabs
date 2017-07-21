@@ -43,23 +43,9 @@ Messenger::Peer::Peer()
 
 b8 ServerState::equals(const ServerState& s) const
 {
-	return level == s.level
-		&& session_type == s.session_type
-		&& open_slots == s.open_slots
-		&& team_count == s.team_count
-		&& allow_abilities == s.allow_abilities;
-}
-
-void ServerState::make_story()
-{
-	session_type = SessionType::Story;
-	game_type = GameType::Assault;
-	kill_limit = 0;
-	respawns = 5;
-	time_limit_minutes = 8;
-	team_count = 2;
-	open_slots = 1;
-	allow_abilities = true;
+	return id == s.id
+		&& level == s.level
+		&& open_slots == s.open_slots;
 }
 
 SequenceID Messenger::outgoing_sequence_id(Sock::Address addr) const

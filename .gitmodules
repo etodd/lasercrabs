@@ -34,3 +34,6 @@
 [submodule "external/curl"]
 	path = external/curl
 	url = git@github.com:etodd/curl.git
+[submodule "external/sqlite"]
+	path = external/sqlite
+	url = git@github.com:etodd/sqlite-amalgamation.git

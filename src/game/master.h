@@ -15,6 +15,26 @@ namespace Net
 namespace Master
 {
 
+// master server gives this to clients to authenticate further requests to the master server and game servers
+struct UserKey
+{
+	u32 id;
+	u32 token;
+	b8 equals(const UserKey& other) const
+	{
+		return id == other.id && token == other.token;
+	}
+};
+
+// type of authentication used to obtain a user key from the master server
+enum class AuthType : s8
+{
+	None,
+	Itch,
+	Steam,
+	count,
+};
+
 struct CollectibleEntry
 {
 	AssetID zone;
@@ -54,11 +74,13 @@ struct Save
 enum class Message : s8
 {
 	Ack,
-	Ping, // client checking if master is present
+	Auth, // client logging in to master
+	AuthResponse, // master responding to client with auth info
 	ServerStatusUpdate, // game server telling master what it's up to
 	ServerLoad, // master telling a server to load a certain level
+	ExpectClient, // master telling a server to expect a certain client to connect to it
 	ClientConnect, // master telling a client to connect to a game server
-	ClientRequestServer, // a client requesting the master to allocate it a game server
+	ClientRequestServer, // a client requesting to connect to a virtual server; master will allocate it if necessary
 	WrongVersion, // master telling a server or client that it needs to upgrade
 	Disconnect,
 	count,
@@ -99,30 +121,46 @@ struct Messenger
 
 struct ServerState // represents the current state of a game server
 {
-	SessionType session_type;
-	GameType game_type;
+	u32 id; // the virtual server configuration currently active on this game server; 0 if it's story mode
 	AssetID level;
-	s16 kill_limit;
-	s16 respawns;
 	s8 open_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
-	s8 team_count;
-	u8 time_limit_minutes;
-	b8 allow_abilities;
 	b8 equals(const ServerState&) const;
-	void make_story();
 };
 
 template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)
 {
-	serialize_enum(p, GameType, s->game_type);
-	serialize_enum(p, SessionType, s->session_type);
+	serialize_u32(p, s->id);
 	serialize_s16(p, s->level);
 	serialize_int(p, s8, s->open_slots, 0, MAX_PLAYERS);
-	serialize_int(p, s8, s->team_count, 0, MAX_TEAMS);
-	serialize_s16(p, s->respawns);
-	serialize_s16(p, s->kill_limit);
-	serialize_u8(p, s->time_limit_minutes);
-	serialize_bool(p, s->allow_abilities);
+	return true;
+}
+
+struct ServerConfig
+{
+	u32 id;
+	AssetID level;
+	s16 kill_limit;
+	s16 respawns;
+	SessionType session_type;
+	GameType game_type;
+	s8 open_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
+	s8 team_count;
+	u8 time_limit_minutes;
+	b8 allow_abilities;
+};
+
+template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
+{
+	serialize_u32(p, c->id);
+	serialize_enum(p, GameType, c->game_type);
+	serialize_enum(p, SessionType, c->session_type);
+	serialize_s16(p, c->level);
+	serialize_int(p, s8, c->open_slots, 0, MAX_PLAYERS);
+	serialize_int(p, s8, c->team_count, 0, MAX_TEAMS);
+	serialize_s16(p, c->respawns);
+	serialize_s16(p, c->kill_limit);
+	serialize_u8(p, c->time_limit_minutes);
+	serialize_bool(p, c->allow_abilities);
 	return true;
 }
 

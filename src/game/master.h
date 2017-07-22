@@ -124,7 +124,6 @@ struct ServerState // represents the current state of a game server
 	u32 id; // the virtual server configuration currently active on this game server; 0 if it's story mode
 	AssetID level;
 	s8 open_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
-	b8 equals(const ServerState&) const;
 };
 
 template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)

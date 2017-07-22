@@ -28,7 +28,8 @@ struct Request
 };
 
 b8 init();
-void get(const char*, Callback* = nullptr, const char* = nullptr, void* = nullptr);
+Request* get(const char*, Callback* = nullptr, const char* = nullptr, void* = nullptr);
+Request* request_for_user_data(void*);
 void update();
 void term();
 

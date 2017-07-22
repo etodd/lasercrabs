@@ -89,12 +89,13 @@ namespace Net
 namespace Master
 {
 
-#define MASTER_AUDIT_INTERVAL 1.25 // remove inactive nodes every x seconds
-#define MASTER_MATCH_INTERVAL 0.5 // run matchmaking searches every x seconds
+#define MASTER_AUDIT_INTERVAL 1.12 // remove inactive nodes every x seconds
+#define MASTER_MATCH_INTERVAL 0.25 // run matchmaking searches every x seconds
 #define MASTER_INACTIVE_THRESHOLD 7.0 // remove node if it's inactive for x seconds
 #define MASTER_CLIENT_CONNECTION_TIMEOUT 8.0 // clients have x seconds to connect to a server once we tell them to
 #define MASTER_SETTINGS_FILE "config.txt"
-#define TOKEN_TIMEOUT 86400
+#define MASTER_TOKEN_TIMEOUT (86400 * 2)
+#define MASTER_SERVER_LOAD_TIMEOUT 8.0
 
 	namespace Settings
 	{
@@ -102,6 +103,8 @@ namespace Master
 		u32 public_ip;
 		char itch_api_key[MAX_AUTH_KEY + 1];
 	}
+
+	r64 timestamp;
 
 	struct Node // could be a server or client
 	{
@@ -119,10 +122,20 @@ namespace Master
 
 		Save* save;
 		r64 last_message_timestamp;
+		r64 state_change_timestamp;
 		UserKey user_key;
 		Sock::Address addr;
 		ServerState server_state;
 		State state;
+
+		void transition(State s)
+		{
+			if (s != state)
+			{
+				state = s;
+				state_change_timestamp = timestamp;
+			}
+		}
 	};
 
 	struct ClientConnection
@@ -142,7 +155,6 @@ namespace Master
 	Array<Sock::Address> servers_loading;
 	u32 localhost_ip;
 	sqlite3* db;
-	r64 timestamp;
 
 	sqlite3_stmt* db_query(const char* sql)
 	{
@@ -259,7 +271,7 @@ namespace Master
 			{
 				Node* client = node_for_address(connection.client);
 				if (client)
-					client->state = Node::State::ClientWaiting;
+					client->transition(Node::State::ClientWaiting);
 				clients_connecting.remove(i);
 				i--;
 			}
@@ -458,11 +470,45 @@ namespace Master
 	{
 		using Stream = StreamWrite;
 
+		b8 is_admin = false;
+		if (server->server_state.id != 0) // 0 = story mode
+		{
+			// this is a custom VirtualServer; find out if the user is an admin of it
+			sqlite3_stmt* stmt = db_query("select is_admin from UserServer where user_id=? and server_id=? limit 1;");
+			db_bind_int(stmt, 0, user->id);
+			db_bind_int(stmt, 1, server->server_state.id);
+			if (db_step(stmt))
+			{
+				is_admin = b8(db_column_int(stmt, 0));
+
+				// update existing linkage
+				{
+					sqlite3_stmt* stmt = db_query("update UserServer set timestamp=? where user_id=? and server_id=?;");
+					db_bind_int(stmt, 0, platform::timestamp());
+					db_bind_int(stmt, 1, user->id);
+					db_bind_int(stmt, 2, server->server_state.id);
+					db_exec(stmt);
+				}
+			}
+			else
+			{
+				// add new linkage
+				sqlite3_stmt* stmt = db_query("insert into UserServer (timestamp, user_id, server_id, is_admin) values (?, ?, ?, ?);");
+				db_bind_int(stmt, 0, platform::timestamp());
+				db_bind_int(stmt, 1, user->id);
+				db_bind_int(stmt, 2, server->server_state.id);
+				db_bind_int(stmt, 3, 0);
+				db_exec(stmt);
+			}
+			db_finalize(stmt);
+		}
+
 		StreamWrite p;
 		packet_init(&p);
 		messenger.add_header(&p, server->addr, Message::ExpectClient);
 		serialize_u32(&p, user->id);
 		serialize_u32(&p, user->token);
+		serialize_bool(&p, is_admin);
 		packet_finalize(&p);
 		messenger.send(p, timestamp, server->addr, &sock);
 		return true;
@@ -475,16 +521,13 @@ namespace Master
 		ServerConfig config;
 		client_desired_server_config(client, &config);
 
-		server->state = Node::State::ServerLoading;
+		server->transition(Node::State::ServerLoading);
 		server->server_state.id = config.id;
 		server->server_state.level = config.level;
 
 		StreamWrite p;
 		packet_init(&p);
 		messenger.add_header(&p, server->addr, Message::ServerLoad);
-
-		serialize_u32(&p, client->user_key.id);
-		serialize_u32(&p, client->user_key.token);
 
 		if (!serialize_server_config(&p, &config))
 			net_error();
@@ -542,8 +585,17 @@ namespace Master
 		return server->server_state.open_slots - server_client_slots_connecting(server);
 	}
 
-	void server_update_state(Node* server, const ServerState& s)
+	void server_update_state(Node* server, const ServerState& s, b8 active)
 	{
+		if (server->state == Node::State::Invalid)
+		{
+			// add to server list
+			vi_debug("Server %s:%hd connected.", Sock::host_to_str(server->addr.host), server->addr.port);
+			servers.add(server->addr);
+		}
+
+		server->transition(active ? Node::State::ServerActive : Node::State::ServerIdle);
+
 		s8 original_open_slots = server->server_state.open_slots;
 		server->server_state = s;
 		s8 clients_connecting_count = server_client_slots_connecting(server);
@@ -562,19 +614,29 @@ namespace Master
 		}
 	}
 
-	b8 check_user_key(StreamRead* p, UserKey* key)
+	b8 check_user_key(StreamRead* p, Node* node)
 	{
 		using Stream = Net::StreamRead;
-		serialize_u32(p, key->id);
-		serialize_u32(p, key->token);
+		UserKey key;
+		serialize_u32(p, key.id);
+		serialize_u32(p, key.token);
 
-		sqlite3_stmt* stmt = db_query("select token, token_timestamp from User where id=? limit 1;");
-		db_bind_int(stmt, 0, key->id);
-		if (db_step(stmt))
+		if (node->user_key.equals(key)) // already authenticated
+			return true;
+		else if (node->user_key.id == 0 && node->user_key.token == 0) // user hasn't been authenticated yet
 		{
-			s64 token = db_column_int(stmt, 0);
-			s64 token_timestamp = db_column_int(stmt, 1);
-			return u32(token) == key->token && platform::timestamp() - token_timestamp < TOKEN_TIMEOUT;
+			sqlite3_stmt* stmt = db_query("select token, token_timestamp from User where id=? limit 1;");
+			db_bind_int(stmt, 0, key.id);
+			if (db_step(stmt))
+			{
+				s64 token = db_column_int(stmt, 0);
+				s64 token_timestamp = db_column_int(stmt, 1);
+				if (u32(token) == key.token && platform::timestamp() - token_timestamp < MASTER_TOKEN_TIMEOUT)
+				{
+					node->user_key = key;
+					return true;
+				}
+			}
 		}
 
 		return false;
@@ -620,7 +682,7 @@ namespace Master
 		connection->client = client->addr;
 		connection->slots = client->server_state.open_slots;
 
-		client->state = Node::State::ClientConnecting;
+		client->transition(Node::State::ClientConnecting);
 	}
 
 	void client_connect_to_existing_server(Node* client, Node* server)
@@ -682,9 +744,13 @@ namespace Master
 						break;
 					case Master::AuthType::Itch:
 					{
-						char header[MAX_PATH_LENGTH + 1] = {};
-						snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", auth_key);
-						Http::get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header, *reinterpret_cast<void**>(&node->addr));
+						void* user_data = *reinterpret_cast<void**>(&node->addr);
+						if (!Http::request_for_user_data(user_data)) // make sure we're not already trying to authenticate this user
+						{
+							char header[MAX_PATH_LENGTH + 1] = {};
+							snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", auth_key);
+							Http::get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header, user_data);
+						}
 						break;
 					}
 					case Master::AuthType::Steam:
@@ -703,12 +769,8 @@ namespace Master
 			}
 			case Message::ClientRequestServer:
 			{
-				{
-					UserKey user;
-					if (!check_user_key(p, &user))
-						return false;
-					node->user_key = user;
-				}
+				if (!check_user_key(p, node))
+					return false;
 
 				u32 requested_server_id;
 				serialize_u32(p, requested_server_id);
@@ -740,7 +802,7 @@ namespace Master
 					{
 						// add to client waiting list
 						clients_waiting.add(node->addr);
-						node->state = Node::State::ClientWaiting;
+						node->transition(Node::State::ClientWaiting);
 					}
 				}
 				else // invalid state transition
@@ -760,32 +822,32 @@ namespace Master
 					net_error();
 				if (node->state == Node::State::ServerLoading)
 				{
-					if (s.equals(node->server_state) && active) // done loading
+					if (node->state_change_timestamp > timestamp - MASTER_SERVER_LOAD_TIMEOUT)
 					{
-						server_update_state(node, s);
-						node->state = Node::State::ServerActive;
-						
-						// tell clients to connect to this server
-						for (s32 i = 0; i < clients_connecting.length; i++)
+						if (active && s.id == node->server_state.id && s.level == node->server_state.level) // done loading
 						{
-							const ClientConnection& connection = clients_connecting[i];
-							if (connection.server.equals(node->addr))
-								send_client_connect(node->addr, connection.client);
+							server_update_state(node, s, active);
+
+							// tell clients to connect to this server
+							for (s32 i = 0; i < clients_connecting.length; i++)
+							{
+								const ClientConnection& connection = clients_connecting[i];
+								if (connection.server.equals(node->addr))
+									send_client_connect(node->addr, connection.client);
+							}
 						}
+					}
+					else
+					{
+						// load timed out
+						server_update_state(node, s, active);
 					}
 				}
 				else if (node->state == Node::State::Invalid
 					|| node->state == Node::State::ServerActive
 					|| node->state == Node::State::ServerIdle)
 				{
-					server_update_state(node, s);
-					if (node->state == Node::State::Invalid)
-					{
-						// add to server list
-						vi_debug("Server %s:%hd connected.", Sock::host_to_str(addr.host), addr.port);
-						servers.add(node->addr);
-					}
-					node->state = active ? Node::State::ServerActive : Node::State::ServerIdle;
+					server_update_state(node, s, active);
 				}
 				break;
 			}
@@ -914,7 +976,7 @@ namespace Master
 						Node* client = node_for_address(c.client);
 						if (client && client->state == Node::State::ClientConnecting)
 						{
-							client->state = Node::State::ClientWaiting; // give up connecting, go back to matchmaking
+							client->transition(Node::State::ClientWaiting); // give up connecting, go back to matchmaking
 							clients_waiting.add(client->addr);
 						}
 

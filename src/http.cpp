@@ -22,7 +22,7 @@ Request::~Request()
 struct State
 {
 	CURLM* curl_multi;
-	PinArray<Request, 32> requests; // up to N requests active at a time
+	PinArray<Request, 1024> requests; // up to N requests active at a time
 };
 State state;
 
@@ -83,7 +83,7 @@ void update()
 	}
 }
 
-void get(const char* url, Callback* callback, const char* header, void* user_data)
+Request* get(const char* url, Callback* callback, const char* header, void* user_data)
 {
 	Request* request = state.requests.add();
 	new (request) Request();
@@ -103,6 +103,18 @@ void get(const char* url, Callback* callback, const char* header, void* user_dat
 	}
 
 	curl_multi_add_handle(state.curl_multi, request->curl);
+
+	return request;
+}
+
+Request* request_for_user_data(void* user_data)
+{
+	for (auto i = state.requests.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->user_data == user_data)
+			return i.item();
+	}
+	return nullptr;
 }
 
 void term()

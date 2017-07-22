@@ -41,13 +41,6 @@ Messenger::Peer::Peer()
 
 }
 
-b8 ServerState::equals(const ServerState& s) const
-{
-	return id == s.id
-		&& level == s.level
-		&& open_slots == s.open_slots;
-}
-
 SequenceID Messenger::outgoing_sequence_id(Sock::Address addr) const
 {
 	auto i = sequence_ids.find(addr);

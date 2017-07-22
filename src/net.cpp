@@ -40,7 +40,7 @@
 #define DEBUG_PACKET_LOSS_AMOUNT 0.05f
 
 #define MASTER_AUTH_TIMEOUT 8.0f
-#define NET_EXPECTED_CLIENT_TIMEOUT 5.0f
+#define NET_EXPECTED_CLIENT_TIMEOUT 30.0f
 
 namespace VI
 {
@@ -1944,6 +1944,7 @@ struct Client
 	Sock::Address address;
 	r32 timeout;
 	r32 rtt = 0.5f;
+	r32 auth_timeout = 8.0f; // we allow a client to connect for a certain amount of time before hearing from the master server that the client is okay
 	Master::UserKey user_key;
 	Ack ack = { u32(-1), NET_SEQUENCE_INVALID }; // most recent ack we've received from the client
 	Ack ack_load = { u32(-1), NET_SEQUENCE_INVALID }; // most recent ack for load messages we've received from the client
@@ -1961,12 +1962,14 @@ struct Client
 	// as soon as they send us an Update packet, we set connected to true.
 	b8 connected;
 	b8 loading_done;
+	b8 is_admin;
 };
 
 struct ExpectedClient
 {
 	r32 timestamp;
 	Master::UserKey user_key;
+	b8 is_admin;
 };
 
 b8 msg_process(StreamRead*, Client*, SequenceID);
@@ -2228,6 +2231,31 @@ b8 packet_build_update(StreamWrite* p, Client* client, StateFrame* frame)
 	return true;
 }
 
+void handle_client_disconnect(Client* c)
+{
+	if (c->address.equals(state_server.replay_address))
+	{
+		if (state_server.replay_file)
+			fclose(state_server.replay_file);
+
+		new (&state_server.replay_address) Sock::Address();
+	}
+
+	for (s32 i = 0; i < c->players.length; i++)
+	{
+		PlayerHuman* player = c->players[i].ref();
+		if (player)
+		{
+			Entity* instance = player->get<PlayerManager>()->instance.ref();
+			if (instance)
+				World::remove_deferred(instance);
+			World::remove_deferred(player->entity());
+		}
+	}
+	state_server.clients.remove(c - &state_server.clients[0]);
+	master_send_status_update();
+}
+
 void update(const Update& u, r32 dt)
 {
 	// prune ExpectedClients that have timed out
@@ -2254,32 +2282,20 @@ void update(const Update& u, r32 dt)
 					break;
 			}
 		}
-	}
-}
 
-void handle_client_disconnect(Client* c)
-{
-	if (c->address.equals(state_server.replay_address))
-	{
-		if (state_server.replay_file)
-			fclose(state_server.replay_file);
-
-		new (&state_server.replay_address) Sock::Address();
-	}
-
-	for (s32 i = 0; i < c->players.length; i++)
-	{
-		PlayerHuman* player = c->players[i].ref();
-		if (player)
+		if (client->auth_timeout > 0.0f) // master server hasn't authenticated this client yet
 		{
-			Entity* instance = player->get<PlayerManager>()->instance.ref();
-			if (instance)
-				World::remove_deferred(instance);
-			World::remove_deferred(player->entity());
+			client->auth_timeout = vi_max(0.0f, client->auth_timeout - dt);
+			if (client->auth_timeout == 0.0f)
+			{
+				// didn't expect this client
+				StreamWrite p;
+				packet_build_disconnect(&p, DisconnectReason::AuthFailed);
+				packet_send(p, client->address);
+				handle_client_disconnect(client);
+			}
 		}
 	}
-	state_server.clients.remove(c - &state_server.clients[0]);
-	master_send_status_update();
 }
 
 void tick(const Update& u, r32 dt)
@@ -2353,26 +2369,6 @@ b8 client_connected(StreamRead* p, Client* client)
 	return true;
 }
 
-void expect_client(const Master::UserKey& key)
-{
-	ExpectedClient* entry = nullptr;
-	for (s32 i = 0; i < state_server.expected_clients.length; i++)
-	{
-		ExpectedClient* c = &state_server.expected_clients[i];
-		if (c->user_key.id == key.id)
-		{
-			entry = c;
-			break;
-		}
-	}
-
-	if (!entry)
-		entry = state_server.expected_clients.add();
-
-	entry->timestamp = state_common.timestamp;
-	entry->user_key = key;
-}
-
 b8 packet_handle_master(StreamRead* p)
 {
 	using Stream = StreamRead;
@@ -2400,13 +2396,6 @@ b8 packet_handle_master(StreamRead* p)
 		}
 		case Master::Message::ServerLoad:
 		{
-			{
-				Master::UserKey key;
-				serialize_u32(p, key.id);
-				serialize_u32(p, key.token);
-				expect_client(key);
-			}
-
 			Master::ServerConfig config;
 			if (!serialize_server_config(p, &config))
 				net_error();
@@ -2433,7 +2422,44 @@ b8 packet_handle_master(StreamRead* p)
 			Master::UserKey key;
 			serialize_u32(p, key.id);
 			serialize_u32(p, key.token);
-			expect_client(key);
+			b8 is_admin;
+			serialize_bool(p, is_admin);
+
+			// first, check if the client already connected
+			b8 already_connected = false;
+			for (s32 i = 0; i < state_server.clients.length; i++)
+			{
+				Client* client = &state_server.clients[i];
+				if (key.equals(client->user_key))
+				{
+					client->auth_timeout = 0.0f;
+					client->is_admin = is_admin;
+					already_connected = true;
+					break;
+				}
+			}
+
+			if (!already_connected)
+			{
+				// client hasn't connected yet; save the entry in expected_clients for when they do connect
+				ExpectedClient* entry = nullptr;
+				for (s32 i = 0; i < state_server.expected_clients.length; i++)
+				{
+					ExpectedClient* c = &state_server.expected_clients[i];
+					if (c->user_key.id == key.id)
+					{
+						entry = c;
+						break;
+					}
+				}
+
+				if (!entry)
+					entry = state_server.expected_clients.add();
+
+				entry->timestamp = state_common.timestamp;
+				entry->user_key = key;
+				entry->is_admin = is_admin;
+			}
 			break;
 		}
 		case Master::Message::WrongVersion:
@@ -2763,76 +2789,65 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 				s32 local_players;
 				serialize_int(p, s32, local_players, 1, MAX_GAMEPADS);
 
-				b8 expected = false;
 				for (s32 i = 0; i < state_server.expected_clients.length; i++)
 				{
-					const Master::UserKey& expected_client = state_server.expected_clients[i].user_key;
-					if (expected_client.equals(client->user_key))
+					const ExpectedClient& expected_client = state_server.expected_clients[i];
+					if (expected_client.user_key.equals(client->user_key))
 					{
-						expected = true;
+						client->auth_timeout = 0.0f;
+						client->is_admin = expected_client.is_admin;
+						state_server.expected_clients.remove(i);
 						break;
 					}
 				}
 
-				if (expected)
+				if (local_players <= MAX_PLAYERS - PlayerManager::list.count())
 				{
-					if (local_players <= MAX_PLAYERS - PlayerManager::list.count())
+					for (s32 i = 0; i < local_players; i++)
 					{
-						for (s32 i = 0; i < local_players; i++)
+						AI::Team team;
+						serialize_int(p, AI::Team, team, 0, MAX_TEAMS - 1);
+						s8 gamepad;
+						serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
+
+						Team* team_ref = nullptr;
+						if (Game::session.type == SessionType::Public)
 						{
-							AI::Team team;
-							serialize_int(p, AI::Team, team, 0, MAX_TEAMS - 1);
-							s8 gamepad;
-							serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
-
-							Team* team_ref = nullptr;
-							if (Game::session.type == SessionType::Public)
+							// public match; assign players evenly
+							s32 least_players = MAX_PLAYERS + 1;
+							for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 							{
-								// public match; assign players evenly
-								s32 least_players = MAX_PLAYERS + 1;
-								for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+								s32 player_count = i.item()->player_count();
+								if (player_count < least_players)
 								{
-									s32 player_count = i.item()->player_count();
-									if (player_count < least_players)
-									{
-										least_players = player_count;
-										team_ref = i.item();
-									}
+									least_players = player_count;
+									team_ref = i.item();
 								}
-								vi_assert(team_ref);
 							}
-							else // custom match, assign player to whichever team they want
-								team_ref = &Team::list[Game::level.team_lookup[s32(team)]];
-
-							Entity* e = World::create<ContainerEntity>();
-							PlayerManager* manager = e->add<PlayerManager>(team_ref);
-							if (gamepad == 0)
-								sprintf(manager->username, "%s", username);
-							else
-								sprintf(manager->username, "%s [%d]", username, s32(gamepad + 1));
-							PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
-							serialize_u64(p, player->uuid);
-							player->local = false;
-							client->players.add(player);
-							finalize(e);
+							vi_assert(team_ref);
 						}
-						master_send_status_update();
+						else // custom match, assign player to whichever team they want
+							team_ref = &Team::list[Game::level.team_lookup[s32(team)]];
+
+						Entity* e = World::create<ContainerEntity>();
+						PlayerManager* manager = e->add<PlayerManager>(team_ref);
+						if (gamepad == 0)
+							sprintf(manager->username, "%s", username);
+						else
+							sprintf(manager->username, "%s [%d]", username, s32(gamepad + 1));
+						PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
+						serialize_u64(p, player->uuid);
+						player->local = false;
+						client->players.add(player);
+						finalize(e);
 					}
-					else
-					{
-						// server is full
-						StreamWrite p;
-						packet_build_disconnect(&p, DisconnectReason::ServerFull);
-						packet_send(p, client->address);
-						handle_client_disconnect(client);
-						return false;
-					}
+					master_send_status_update();
 				}
 				else
 				{
-					// didn't expect this client
+					// server is full
 					StreamWrite p;
-					packet_build_disconnect(&p, DisconnectReason::AuthFailed);
+					packet_build_disconnect(&p, DisconnectReason::ServerFull);
 					packet_send(p, client->address);
 					handle_client_disconnect(client);
 					return false;

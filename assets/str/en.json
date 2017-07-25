@@ -73,7 +73,6 @@
 	"team_d": "Team D",
 	"spectating": "Spectating",
 	"back": "Back",
-	"prompt_back": "[{{Cancel}}] Back",
 	"energy": "Energy",
 	"energy_added": "+%d energy",
 	"access_keys": "Access keys",
@@ -91,8 +90,13 @@
 	"prompt_deploy": "[{{Interact}}] Deploy",
 	"prompt_interact": "[{{InteractSecondary}}] Interact",
 	"prompt_accept": "[{{Interact}}] Accept",
+	"prompt_accept_text": "[{{UIAcceptText}}] Accept",
 	"prompt_buy": "Spend %d energy for %d %s?",
 	"prompt_buy_more": "[{{Interact}}] Buy more",
+	"prompt_back": "[{{Cancel}}] Back",
+	"prompt_select": "[{{Interact}}] Select",
+	"prompt_create_entry": "[{{UIContextAction}}] Create new",
+	"creating_entry": "Creating server config...",
 	"confirm_spend": "Spend %d %s?",
 	"confirm_capture": "Spend %d drones to capture this zone?",
 	"confirm_defend": "Spend %d drones to defend this zone?",
@@ -150,6 +154,9 @@
 
 	"tab_map": "Map",
 	"tab_inventory": "Inventory",
+	"tab_browse": "Browse",
+	"tab_recent": "Recent",
+	"tab_mine": "Mine",
 	"shop": "Shop",
 
 	"tut_crawl": "Climb out of the spawn area.
@@ -187,6 +194,9 @@
 	"scoreboard": "Scoreboard",
 	"jump": "Jump",
 	"parkour": "Parkour",
+	"ui_context_action": "UI context action",
+	"tab_left": "Tab left",
+	"tab_right": "Tab right",
 
 	"left_joystick": "Left joystick",
 	"right_joystick": "Right joystick",
@@ -450,6 +460,7 @@
 	"btn_ps4_None": "None",
 
 	"prompt_zone_defend": "%s under attack. [{{Scoreboard}}] to defend. (%d)",
+	"prompt_name": "Enter name:",
 
 	"zone_unavailable": "Zone unavailable",
 	"zone_unlocked": "Zone unlocked",

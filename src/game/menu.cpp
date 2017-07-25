@@ -277,6 +277,10 @@ void refresh_variables(const InputState& input)
 		UIText::variable_add(i, "Scoreboard", gamepad.bindings[s32(Controls::Scoreboard)].string(type));
 		UIText::variable_add(i, "Jump", gamepad.bindings[s32(Controls::Jump)].string(type));
 		UIText::variable_add(i, "Parkour", gamepad.bindings[s32(Controls::Parkour)].string(type));
+		UIText::variable_add(i, "UIContextAction", gamepad.bindings[s32(Controls::UIContextAction)].string(type));
+		UIText::variable_add(i, "UIAcceptText", gamepad.bindings[s32(Controls::UIAcceptText)].string(type));
+		UIText::variable_add(i, "TabLeft", gamepad.bindings[s32(Controls::TabLeft)].string(type));
+		UIText::variable_add(i, "TabRight", gamepad.bindings[s32(Controls::TabRight)].string(type));
 	}
 }
 
@@ -322,8 +326,8 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			{
 				Game::save.reset();
 				Game::session.reset();
-				Game::session.type = SessionType::Custom;
-				Game::session.game_type = GameType::Assault;
+				Game::session.type = SessionType::Multiplayer;
+				Game::session.config.game_type = GameType::Assault;
 				Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
 				clear();
 			}

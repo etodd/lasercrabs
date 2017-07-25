@@ -784,14 +784,15 @@ SpawnPosition SpawnPoint::spawn_position(PlayerManager* player) const
 
 void SpawnPoint::update_server_all(const Update& u)
 {
-	const s32 minion_group = 3;
-	const r32 minion_initial_delay = Game::session.type == SessionType::Story || Game::session.game_type == GameType::Deathmatch ? 45.0f : 20.0f;
-	const r32 minion_spawn_interval = 8.0f;
-	const r32 minion_group_interval = minion_spawn_interval * 13.0f; // must be a multiple of minion_spawn_interval
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::level.has_feature(Game::FeatureLevel::All)
-		&& !Team::game_over)
+		&& !Team::game_over
+		&& Game::session.config.allow_minions)
 	{
+		const s32 minion_group = 3;
+		const r32 minion_initial_delay = Game::session.type == SessionType::Story || Game::session.config.game_type == GameType::Deathmatch ? 45.0f : 20.0f;
+		const r32 minion_spawn_interval = 8.0f;
+		const r32 minion_group_interval = minion_spawn_interval * 13.0f; // must be a multiple of minion_spawn_interval
 		r32 t = Team::match_time - minion_initial_delay;
 		if (t > 0.0f)
 		{
@@ -870,12 +871,14 @@ b8 UpgradeStation::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						ref.ref()->drone = d;
 						ref.ref()->timer = UPGRADE_STATION_ANIM_TIME - ref.ref()->timer;
 						ref.ref()->mode = Mode::Activating;
+						ref.ref()->get<Audio>()->post_event(AK::EVENTS::PLAY_UPGRADE_STATION_ENTER);
 					}
 				}
 				else if (ref.ref()->mode == Mode::Activating)
 				{
 					ref.ref()->timer = UPGRADE_STATION_ANIM_TIME - ref.ref()->timer;
 					ref.ref()->mode = Mode::Deactivating;
+					ref.ref()->get<Audio>()->post_event(AK::EVENTS::PLAY_UPGRADE_STATION_EXIT);
 				}
 			}
 		}
@@ -1014,6 +1017,7 @@ void UpgradeStation::drone_exit()
 UpgradeStationEntity::UpgradeStationEntity(SpawnPoint* p)
 {
 	create<Transform>();
+	create<Audio>();
 
 	create<PlayerTrigger>()->radius = UPGRADE_STATION_RADIUS;
 

@@ -41,6 +41,7 @@ struct Update
 	InputState* input;
 	const InputState* last_input;
 	GameTime time;
+	GameTime real_time;
 };
 
 typedef s16 RenderMask;
@@ -50,6 +51,14 @@ const AssetID AssetNull = AssetID(-1);
 
 typedef s16 ID;
 const ID IDNull = ID(MAX_ENTITIES);
+
+enum class ServerListType : s8
+{
+	Browse,
+	Recent,
+	Mine,
+	count,
+};
 
 enum class Ability : s8
 {
@@ -104,8 +113,7 @@ enum class GameType : s8
 enum class SessionType : s8
 {
 	Story,
-	Public,
-	Custom,
+	Multiplayer,
 	count,
 };
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render/ui.h"
+#include "input.h"
 
 namespace VI
 {
@@ -15,7 +16,7 @@ struct Console
 		s32 length;
 		char string[255];
 	};
-	static Array<char> command;
+	static TextField field;
 	static Array<char> debug_buffer;
 	static Array<Log> logs;
 	static b8 visible;
@@ -27,10 +28,6 @@ struct Console
 	static r32 fps_accumulator;
 	static r32 longest_frame_time;
 	static b8 fps_visible;
-	static char shift_map[127];
-	static char normal_map[127];
-	static r32 repeat_start_time;
-	static r32 repeat_last_time;
 
 	static void init();
 	static void update(const Update&);
@@ -39,5 +36,6 @@ struct Console
 	static void update_log();
 	static void debug(const char*, ...);
 };
+
 
 }

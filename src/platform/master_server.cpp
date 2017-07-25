@@ -281,20 +281,7 @@ namespace Master
 	void client_desired_server_config(Node* client, ServerConfig* config)
 	{
 		config->id = client->server_state.id;
-		config->level = client->server_state.level;
-		if (client->save)
-		{
-			vi_assert(config->id == 0);
-			config->game_type = GameType::Assault;
-			config->session_type = SessionType::Story;
-			config->kill_limit = 0;
-			config->respawns = DEFAULT_ASSAULT_DRONES;
-			config->open_slots = 1;
-			config->team_count = 2;
-			config->time_limit_minutes = 7;
-			config->allow_abilities = true;
-		}
-		else
+		if (config->id != 0)
 		{
 			// todo: pull server config from database
 		}
@@ -473,7 +460,7 @@ namespace Master
 		b8 is_admin = false;
 		if (server->server_state.id != 0) // 0 = story mode
 		{
-			// this is a custom VirtualServer; find out if the user is an admin of it
+			// this is a custom ServerConfig; find out if the user is an admin of it
 			sqlite3_stmt* stmt = db_query("select is_admin from UserServer where user_id=? and server_id=? limit 1;");
 			db_bind_int(stmt, 0, user->id);
 			db_bind_int(stmt, 1, server->server_state.id);
@@ -518,29 +505,138 @@ namespace Master
 	{
 		using Stream = StreamWrite;
 
-		ServerConfig config;
-		client_desired_server_config(client, &config);
-
 		server->transition(Node::State::ServerLoading);
-		server->server_state.id = config.id;
-		server->server_state.level = config.level;
+		server->server_state.id = client->server_state.id;
+		server->server_state.level = client->server_state.level;
 
 		StreamWrite p;
 		packet_init(&p);
 		messenger.add_header(&p, server->addr, Message::ServerLoad);
+		
+		serialize_u32(&p, client->server_state.id);
 
-		if (!serialize_server_config(&p, &config))
-			net_error();
-
-		vi_assert(b8(client->save) == (config.id == 0));
+		vi_assert(b8(client->save) == (client->server_state.id == 0));
 		if (client->save)
 		{
 			if (!serialize_save(&p, client->save))
 				net_error();
 		}
+		else
+		{
+			ServerConfig config;
+			client_desired_server_config(client, &config);
+			if (!serialize_server_config(&p, &config))
+				net_error();
+		}
 
 		packet_finalize(&p);
 		messenger.send(p, timestamp, server->addr, &sock);
+		return true;
+	}
+
+	b8 send_server_config_created(Node* client, u32 config_id, u32 request_id)
+	{
+		using Stream = StreamWrite;
+		StreamWrite p;
+		packet_init(&p);
+		messenger.add_header(&p, client->addr, Message::ServerConfigCreated);
+		serialize_u32(&p, config_id);
+		serialize_u32(&p, request_id);
+		packet_finalize(&p);
+		messenger.send(p, timestamp, client->addr, &sock);
+		return true;
+	}
+
+	sqlite3_stmt* server_list_query(Node* client, ServerListType type, s32 offset)
+	{
+		sqlite3_stmt* stmt;
+		switch (type)
+		{
+			case ServerListType::Browse:
+			{
+				stmt = db_query("select id, name from ServerConfig limit ?,24");
+				db_bind_int(stmt, 0, offset);
+				break;
+			}
+			case ServerListType::Recent:
+			{
+				stmt = db_query("select ServerConfig.id, ServerConfig.name from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id where UserServer.user_id=? order by UserServer.timestamp desc limit ?,24");
+				db_bind_int(stmt, 0, client->user_key.id);
+				db_bind_int(stmt, 1, offset);
+				break;
+			}
+			case ServerListType::Mine:
+			{
+				stmt = db_query("select ServerConfig.id, ServerConfig.name from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id where UserServer.user_id=? and UserServer.is_admin=1 order by UserServer.timestamp desc limit ?,24");
+				db_bind_int(stmt, 0, client->user_key.id);
+				db_bind_int(stmt, 1, offset);
+				break;
+			}
+			default:
+				vi_assert(false);
+				break;
+		}
+
+		return stmt;
+	}
+
+	b8 send_server_list_fragment(Node* client, ServerListType type, sqlite3_stmt* stmt, s32* offset, b8* done)
+	{
+		using Stream = Net::StreamWrite;
+
+		Net::StreamWrite p;
+		packet_init(&p);
+		messenger.add_header(&p, client->addr, Message::ServerList);
+
+		serialize_enum(&p, ServerListType, type);
+
+		*done = false;
+		s32 count = 0;
+		while (true)
+		{
+			if (!db_step(stmt))
+			{
+				*done = true;
+				break;
+			}
+			serialize_s32(&p, *offset);
+
+			u32 id = db_column_int(stmt, 0);
+			serialize_u32(&p, id);
+
+			const unsigned char* name = db_column_text(stmt, 1);
+			s32 name_length = strlen((const char*)name);
+			serialize_int(&p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
+			serialize_bytes(&p, (u8*)name, name_length);
+			*offset++;
+
+			if (count == MAX_SERVER_LIST)
+				break;
+			count++;
+		}
+
+		{
+			s32 index = -1;
+			serialize_s32(&p, index); // done
+		}
+
+		packet_finalize(&p);
+		messenger.send(p, timestamp, client->addr, &sock);
+		return true;
+	}
+
+	b8 send_server_list(Node* client, ServerListType type, s32 offset)
+	{
+		offset = vi_max(offset - 12, 0);
+		sqlite3_stmt* stmt = server_list_query(client, type, offset);
+		while (true)
+		{
+			b8 done;
+			send_server_list_fragment(client, type, stmt, &offset, &done);
+			if (done)
+				break;
+		}
+		db_finalize(stmt);
 		return true;
 	}
 
@@ -582,7 +678,7 @@ namespace Master
 		vi_assert(server->state == Node::State::ServerLoading
 			|| server->state == Node::State::ServerActive
 			|| server->state == Node::State::ServerIdle);
-		return server->server_state.open_slots - server_client_slots_connecting(server);
+		return server->server_state.player_slots - server_client_slots_connecting(server);
 	}
 
 	void server_update_state(Node* server, const ServerState& s, b8 active)
@@ -596,21 +692,21 @@ namespace Master
 
 		server->transition(active ? Node::State::ServerActive : Node::State::ServerIdle);
 
-		s8 original_open_slots = server->server_state.open_slots;
+		s8 original_open_slots = server->server_state.player_slots;
 		server->server_state = s;
 		s8 clients_connecting_count = server_client_slots_connecting(server);
 		if (clients_connecting_count > 0)
 		{
 			// there are clients trying to connect to this server
 			// check if the server has registered that these clients have connected
-			if (s.open_slots <= server->server_state.open_slots - clients_connecting_count)
+			if (s.player_slots <= server->server_state.player_slots - clients_connecting_count)
 			{
 				// the clients have connected, all's well
 				// remove ClientConnection records
 				server_remove_clients_connecting(server);
 			}
 			else // clients have not connected yet, maintain old slot count
-				server->server_state.open_slots = original_open_slots;
+				server->server_state.player_slots = original_open_slots;
 		}
 	}
 
@@ -680,7 +776,7 @@ namespace Master
 		connection->timestamp = timestamp;
 		connection->server = server->addr;
 		connection->client = client->addr;
-		connection->slots = client->server_state.open_slots;
+		connection->slots = client->server_state.player_slots;
 
 		client->transition(Node::State::ClientConnecting);
 	}
@@ -809,6 +905,55 @@ namespace Master
 					net_error();
 				break;
 			}
+			case Message::ClientCreateServerConfig:
+			{
+				if (!check_user_key(p, node))
+					return false;
+
+				u32 request_id;
+				serialize_u32(p, request_id);
+				s32 name_length;
+				serialize_int(p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
+				char name[MAX_SERVER_CONFIG_NAME + 1] = {};
+				serialize_bytes(p, (u8*)name, name_length);
+
+				u32 config_id;
+				{
+					// create config in db
+					sqlite3_stmt* stmt = db_query("insert into ServerConfig (creator_id, name) values (?, ?);");
+					db_bind_int(stmt, 0, node->user_key.id);
+					db_bind_text(stmt, 1, name);
+					config_id = db_exec(stmt);
+				}
+
+				{
+					// create UserServer linkage in db
+					sqlite3_stmt* stmt = db_query("insert into UserServer (user_id, server_id, timestamp, is_admin) values (?, ?, ?, 1);");
+					db_bind_int(stmt, 0, node->user_key.id);
+					db_bind_int(stmt, 1, config_id);
+					db_bind_int(stmt, 2, platform::timestamp());
+					db_exec(stmt);
+				}
+
+				send_server_config_created(node, config_id, request_id);
+
+				break;
+			}
+			case Message::ClientRequestServerList:
+			{
+				if (!check_user_key(p, node))
+					return false;
+
+				ServerListType type;
+				serialize_enum(p, ServerListType, type);
+				s32 offset;
+				serialize_s32(p, offset);
+				if (offset < 0)
+					return false;
+
+				send_server_list(node, type, offset);
+				break;
+			}
 			case Message::ServerStatusUpdate:
 			{
 				s32 secret;
@@ -899,8 +1044,8 @@ namespace Master
 			if (init_db)
 			{
 				db_exec("create table User (id integer primary key autoincrement, token integer not null, token_timestamp integer not null, itch_id integer, steam_id integer, username varchar(256) not null, unique(itch_id), unique(steam_id));");
-				db_exec("create table VirtualServer (id integer primary key autoincrement, name text not null, config text not null);");
-				db_exec("create table UserServer (user_id not null, server_id not null, timestamp integer not null, is_admin boolean not null, foreign key (user_id) references User(id), foreign key (server_id) references Server(id));");
+				db_exec("create table ServerConfig (id integer primary key autoincrement, creator_id integer not null, name text not null, config text, foreign key (creator_id) references User(id));");
+				db_exec("create table UserServer (user_id not null, server_id not null, timestamp integer not null, is_admin boolean not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id));");
 			}
 		}
 
@@ -986,7 +1131,7 @@ namespace Master
 							// since there are clients connecting to this server, we've been ignoring its updates telling us how many open slots it has
 							// we need to manually update the open slot count until the server gives us a fresh count
 							// don't try to fill these slots until the server tells us for sure they're available
-							server->server_state.open_slots -= c.slots;
+							server->server_state.player_slots -= c.slots;
 						}
 
 						clients_connecting.remove(i);
@@ -1028,7 +1173,7 @@ namespace Master
 					Node* server = client_requested_server(client);
 					if (server)
 					{
-						if (server_open_slots(server) >= client->server_state.open_slots)
+						if (server_open_slots(server) >= client->server_state.player_slots)
 						{
 							client_connect_to_existing_server(client, server);
 							i--; // client has been removed from clients_waiting

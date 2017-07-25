@@ -37,6 +37,8 @@ namespace Overworld
 {
 
 #define DEPLOY_TIME 1.0f
+#define TAB_ANIMATION_TIME 0.3f
+#define SERVER_LIST_REFRESH_INTERVAL 4.0f
 
 #define SCALE_MULTIPLIER (UI::scale < 1.0f ? 0.5f : 1.0f)
 #define PADDING (16.0f * UI::scale * SCALE_MULTIPLIER)
@@ -85,138 +87,26 @@ struct WaterEntry
 	Water::Config config;
 };
 
-struct SplitscreenConfig
-{
-	enum class Mode : s8
-	{
-		Custom,
-		Local,
-		Public,
-		count,
-	};
-
-	Mode mode = Mode::Custom;
-	GameType game_type = GameType::Deathmatch;
-	r32 time_limit = 8.0f * 60.0f;
-	s16 respawns = DEFAULT_ASSAULT_DRONES;
-	s16 kill_limit = DEFAULT_ASSAULT_DRONES;
-	AI::Team local_player_config[MAX_GAMEPADS] = { 0, AI::TeamNone, AI::TeamNone, AI::TeamNone, };
-	b8 allow_abilities = true;
-
-	SessionType session_type() const
-	{
-		switch (mode)
-		{
-			case Mode::Public:
-				return SessionType::Public;
-			case Mode::Custom:
-				return SessionType::Custom;
-			case Mode::Local:
-				return SessionType::Custom;
-			default:
-			{
-				vi_assert(false);
-				return SessionType::count;
-			}
-		}
-	}
-
-	void team_counts(s32* team_counts) const
-	{
-		for (s32 i = 0; i < MAX_TEAMS; i++)
-			team_counts[i] = 0;
-		for (s32 i = 0; i < MAX_GAMEPADS; i++)
-		{
-			AI::Team team = local_player_config[i];
-			if (team != AI::TeamNone)
-				team_counts[s32(team)]++;
-		}
-	}
-
-	s32 team_count() const
-	{
-		s32 player_count = 0;
-		s32 counts[MAX_TEAMS];
-		team_counts(counts);
-		s32 teams_with_players = 0;
-		for (s32 i = 0; i < MAX_TEAMS; i++)
-		{
-			if (counts[i] > 0)
-				teams_with_players++;
-		}
-		return teams_with_players;
-	}
-
-	b8 teams_are_valid() const
-	{
-		return session_type() == SessionType::Public || team_count() > 1;
-	}
-
-	s32 local_player_count() const
-	{
-		s32 count = 0;
-		for (s32 i = 0; i < MAX_GAMEPADS; i++)
-		{
-			if (local_player_config[i] != AI::TeamNone)
-				count++;
-		}
-		return count;
-	}
-
-	void apply()
-	{
-		Game::session.type = session_type();
-		Game::session.game_type = game_type;
-		Game::session.time_limit = time_limit;
-		if (game_type == GameType::Assault)
-		{
-			Game::session.respawns = respawns;
-			Game::session.kill_limit = 0;
-		}
-		else
-		{
-			Game::session.respawns = -1;
-			Game::session.kill_limit = kill_limit;
-		}
-		Game::session.allow_abilities = allow_abilities;
-		Game::session.team_count = vi_max(2, team_count());
-		memcpy(&Game::session.local_player_config, local_player_config, sizeof(local_player_config));
-	}
-
-	void consolidate_teams()
-	{
-		s32 team_count[MAX_TEAMS];
-		team_counts(team_count);
-
-		AI::Team team_lookup[MAX_TEAMS];
-		AI::Team current_team = 0;
-		for (s32 i = 0; i < MAX_TEAMS; i++)
-		{
-			if (team_count[i] > 0)
-			{
-				team_lookup[i] = current_team;
-				current_team++;
-			}
-		}
-		for (s32 i = 0; i < MAX_GAMEPADS; i++)
-		{
-			AI::Team team = local_player_config[i];
-			if (team != AI::TeamNone)
-				local_player_config[i] = team_lookup[team];
-		}
-	}
-};
-
 struct DataGlobal
 {
+	struct Multiplayer
+	{
+		s8 local_player_mask = 1;
+		ServerListType tab;
+		ServerListType tab_previous;
+	};
+
 	StaticArray<ZoneNode, MAX_ZONES> zones;
 	Array<PropEntry> props;
 	Array<WaterEntry> waters;
 	Vec3 camera_offset_pos;
 	Quat camera_offset_rot;
-	SplitscreenConfig splitscreen;
+
+	Multiplayer multiplayer;
 };
 DataGlobal global;
+
+const AssetID multiplayer_tab_names[s32(ServerListType::count)] = { strings::tab_browse, strings::tab_recent, strings::tab_mine, };
 
 struct Data
 {
@@ -241,20 +131,49 @@ struct Data
 		r32 zones_change_time[MAX_ZONES];
 	};
 
+	struct Multiplayer
+	{
+		enum class State : s8
+		{
+			Browse,
+			ViewEntry,
+			CreateEntry,
+			EditEntry,
+			count,
+		};
+
+		struct ServerList
+		{
+			struct Entry
+			{
+				u32 id;
+				char name[MAX_SERVER_CONFIG_NAME + 1];
+			};
+
+			Array<Entry> entries;
+			s32 selected_index;
+		};
+
+		ServerList server_lists[s32(ServerListType::count)];
+		UIMenu menu;
+		UIScroll scroll;
+		TextField text_field;
+		r32 tab_timer = TAB_ANIMATION_TIME;
+		r32 state_transition_time;
+		r32 server_list_refresh_timer = SERVER_LIST_REFRESH_INTERVAL;
+		u32 active_request_id;
+		u32 server_config_id;
+		State state;
+	};
+
 	struct StoryMode
 	{
 		r64 timestamp_last;
-		Tab tab;
-		Tab tab_previous;
-		r32 tab_timer;
-		r32 mode_transition_time;
+		StoryTab tab;
+		StoryTab tab_previous;
+		r32 tab_timer = TAB_ANIMATION_TIME;
 		Inventory inventory;
 		Map map;
-	};
-
-	struct Splitscreen
-	{
-		UIMenu menu;
 	};
 
 	Ref<Camera> camera;
@@ -266,7 +185,7 @@ struct Data
 	State state;
 	State state_next;
 	StoryMode story;
-	Splitscreen splitscreen;
+	Multiplayer multiplayer;
 	AssetID zone_selected = AssetNull;
 };
 
@@ -274,24 +193,200 @@ Data data = Data();
 
 void deploy_start()
 {
-	if (Game::session.type == SessionType::Story)
-		Game::session.team_count = 2;
-	else
-		global.splitscreen.consolidate_teams();
-
-	data.state = Game::session.type == SessionType::Story ? State::Deploying : State::SplitscreenDeploying;
+	vi_assert(Game::session.type == SessionType::Story);
+	data.state = State::StoryModeDeploying;
 	data.timer_deploy = DEPLOY_TIME;
 	Audio::post_global_event(AK::EVENTS::PLAY_OVERWORLD_DEPLOY_START);
 }
 
 void deploy_done();
 
-void splitscreen_select_options_update(const Update& u)
+b8 multiplayer_can_switch_tab()
+{
+	return data.multiplayer.state == Data::Multiplayer::State::Browse;
+}
+
+void multiplayer_state_transition(Data::Multiplayer::State state)
+{
+	data.multiplayer.state = state;
+	data.multiplayer.state_transition_time = Game::real_time.total;
+}
+
+void multiplayer_browse_update(const Update& u)
+{
+	if (u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0))
+	{
+		multiplayer_state_transition(Data::Multiplayer::State::CreateEntry);
+		return;
+	}
+
+	data.multiplayer.server_list_refresh_timer -= u.time.delta;
+	if (data.multiplayer.server_list_refresh_timer < 0.0f)
+	{
+		data.multiplayer.server_list_refresh_timer += SERVER_LIST_REFRESH_INTERVAL;
+
+#if !SERVER
+		Net::Client::master_request_server_list(global.multiplayer.tab, data.multiplayer.server_lists[s32(global.multiplayer.tab)].selected_index);
+#endif
+	}
+}
+
+void master_server_list_entry(ServerListType type, s32 index, u32 id, const char* name)
+{
+	if (active()
+		&& data.state == State::Multiplayer)
+	{
+		Data::Multiplayer::ServerList* list = &data.multiplayer.server_lists[s32(type)];
+		if (index >= list->entries.length)
+			list->entries.resize(index + 1);
+		Data::Multiplayer::ServerList::Entry* entry = &list->entries.data[index];
+		entry->id = id;
+		strcpy(entry->name, name);
+	}
+}
+
+void multiplayer_create_entry_update(const Update& u)
+{
+	if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
+		&& !Game::cancel_event_eaten[0])
+	{
+		if (data.multiplayer.active_request_id) // no request active
+		{
+			data.multiplayer.active_request_id = 0; // cancel active request
+#if !SERVER
+			Net::Client::master_cancel_outgoing();
+#endif
+		}
+		else
+		{
+			multiplayer_state_transition(Data::Multiplayer::State::Browse);
+			Game::cancel_event_eaten[0] = true;
+			return;
+		}
+	}
+
+	if (!data.multiplayer.active_request_id)
+	{
+		data.multiplayer.text_field.update(u, 0, MAX_SERVER_CONFIG_NAME);
+
+		if (u.last_input->get(Controls::UIAcceptText, 0) && !u.input->get(Controls::UIAcceptText, 0))
+		{
+			data.multiplayer.active_request_id = vi_max(u32(1), u32(mersenne::rand()));
+#if !SERVER
+			Net::Client::master_create_server_config(data.multiplayer.text_field.value.data, data.multiplayer.active_request_id);
+#endif
+		}
+	}
+}
+
+void master_server_config_created(u32 id, u32 request_id)
+{
+	if (active()
+		&& data.state == State::Multiplayer
+		&& data.multiplayer.state == Data::Multiplayer::State::CreateEntry
+		&& data.multiplayer.active_request_id == request_id)
+	{
+		multiplayer_state_transition(Data::Multiplayer::State::EditEntry);
+		data.multiplayer.server_config_id = id;
+		data.multiplayer.active_request_id = 0;
+	}
+}
+
+void multiplayer_edit_entry_update(const Update& u)
+{
+	/*
+	data.multiplayer.menu.start(u, 0);
+	if (data.multiplayer.menu.item(u, _(strings::back)))
+	{
+		Menu::title();
+		return;
+	}
+
+	{
+		// game type
+		AssetID value;
+		switch (global.multiplayer.game_type)
+		{
+			case GameType::Assault:
+			{
+				value = strings::game_type_assault;
+				break;
+			}
+			case GameType::Deathmatch:
+			{
+				value = strings::game_type_deathmatch;
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+		UIMenu::enum_option(&global.multiplayer.game_type, data.multiplayer.menu.slider_item(u, _(strings::game_type), _(value)));
+	}
+
+	s32 delta;
+	char str[MAX_PATH_LENGTH + 1];
+
+	{
+		// time limit
+		s8* time_limit = &global.multiplayer.time_limit;
+		sprintf(str, _(strings::timer), s32(*time_limit), 0);
+		delta = data.multiplayer.menu.slider_item(u, _(strings::time_limit), str);
+		if (delta < 0)
+			*time_limit = vi_max(2, *time_limit - 2);
+		else if (delta > 0)
+			*time_limit = vi_min(254, *time_limit + 2);
+	}
+
+	if (global.multiplayer.game_type == GameType::Assault)
+	{
+		// respawns
+		s16* respawns = &global.multiplayer.respawns;
+		sprintf(str, "%hd", *respawns);
+		delta = data.multiplayer.menu.slider_item(u, _(strings::drones), str);
+		if (delta < 0)
+			*respawns = vi_max(1, s32(*respawns) - 1);
+		else if (delta > 0)
+			*respawns = vi_min(100, s32(*respawns) + 1);
+	}
+	else
+	{
+		// kill limit
+		s16* kill_limit = &global.multiplayer.kill_limit;
+		sprintf(str, "%hd", *kill_limit);
+		delta = data.multiplayer.menu.slider_item(u, _(strings::kill_limit), str);
+		if (delta < 0)
+			*kill_limit = vi_max(2, s32(*kill_limit) - 2);
+		else if (delta > 0)
+			*kill_limit = vi_min(200, s32(*kill_limit) + 2);
+	}
+
+	// allow abilities
+	{
+		b8* allow_abilities = &global.multiplayer.allow_abilities;
+		delta = data.multiplayer.menu.slider_item(u, _(strings::allow_abilities), _(*allow_abilities ? strings::yes : strings::no));
+		if (delta != 0)
+			*allow_abilities = !(*allow_abilities);
+	}
+
+	data.multiplayer.menu.end();
+	*/
+}
+
+void multiplayer_view_entry_update(const Update& u)
+{
+
+}
+
+void multiplayer_update(const Update& u)
 {
 	if (Menu::main_menu_state != Menu::State::Hidden || Game::scheduled_load_level != AssetNull)
 		return;
 
-	if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
+	if (data.multiplayer.state == Data::Multiplayer::State::Browse
+		&& u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
 		&& !Game::cancel_event_eaten[0])
 	{
 		Menu::title();
@@ -299,225 +394,80 @@ void splitscreen_select_options_update(const Update& u)
 		return;
 	}
 
-	data.splitscreen.menu.start(u, 0);
-	if (data.splitscreen.menu.item(u, _(strings::back)))
+	data.multiplayer.tab_timer = vi_max(0.0f, data.multiplayer.tab_timer - u.time.delta);
+	if (multiplayer_can_switch_tab())
 	{
-		Menu::title();
-		return;
-	}
-
-	if (data.splitscreen.menu.item(u, _(strings::_continue)))
-		data.state = State::SplitscreenSelectTeams;
-
-	// multiplayer type
-	{
-		AssetID value;
-		switch (global.splitscreen.mode)
+		if (u.last_input->get(Controls::TabLeft, 0) && !u.input->get(Controls::TabLeft, 0))
 		{
-			case SplitscreenConfig::Mode::Public:
-			{
-				value = strings::multiplayer_public;
-				break;
-			}
-			case SplitscreenConfig::Mode::Custom:
-			{
-				value = strings::multiplayer_custom;
-				break;
-			}
-			case SplitscreenConfig::Mode::Local:
-			{
-				value = strings::multiplayer_local;
-				break;
-			}
-			default:
-			{
-				value = AssetNull;
-				vi_assert(false);
-				break;
-			}
+			global.multiplayer.tab_previous = global.multiplayer.tab;
+			global.multiplayer.tab = ServerListType(vi_max(0, s32(global.multiplayer.tab) - 1));
+			if (global.multiplayer.tab != global.multiplayer.tab_previous)
+				data.multiplayer.tab_timer = TAB_ANIMATION_TIME;
 		}
-		UIMenu::enum_option(&global.splitscreen.mode, data.splitscreen.menu.slider_item(u, _(strings::multiplayer), _(value)));
-	}
-
-	if (global.splitscreen.mode != SplitscreenConfig::Mode::Public)
-	{
+		if (u.last_input->get(Controls::TabRight, 0) && !u.input->get(Controls::TabRight, 0))
 		{
-			// game type
-			AssetID value;
-			switch (global.splitscreen.game_type)
-			{
-				case GameType::Assault:
-				{
-					value = strings::game_type_assault;
-					break;
-				}
-				case GameType::Deathmatch:
-				{
-					value = strings::game_type_deathmatch;
-					break;
-				}
-				default:
-				{
-					vi_assert(false);
-					break;
-				}
-			}
-			UIMenu::enum_option(&global.splitscreen.game_type, data.splitscreen.menu.slider_item(u, _(strings::game_type), _(value)));
-		}
-
-		s32 delta;
-		char str[MAX_PATH_LENGTH + 1];
-
-		{
-			// time limit
-			r32* time_limit = &global.splitscreen.time_limit;
-			sprintf(str, _(strings::timer), s32(*time_limit / 60.0f), 0);
-			delta = data.splitscreen.menu.slider_item(u, _(strings::time_limit), str);
-			if (delta < 0)
-				*time_limit = vi_max(120.0f, *time_limit - 120.0f);
-			else if (delta > 0)
-				*time_limit = vi_min(254.0f * 60.0f, *time_limit + 120.0f);
-		}
-
-		if (global.splitscreen.game_type == GameType::Assault)
-		{
-			// respawns
-			s16* respawns = &global.splitscreen.respawns;
-			sprintf(str, "%hd", *respawns);
-			delta = data.splitscreen.menu.slider_item(u, _(strings::drones), str);
-			if (delta < 0)
-				*respawns = vi_max(1, s32(*respawns) - 1);
-			else if (delta > 0)
-				*respawns = vi_min(100, s32(*respawns) + 1);
-		}
-		else
-		{
-			// kill limit
-			s16* kill_limit = &global.splitscreen.kill_limit;
-			sprintf(str, "%hd", *kill_limit);
-			delta = data.splitscreen.menu.slider_item(u, _(strings::kill_limit), str);
-			if (delta < 0)
-				*kill_limit = vi_max(2, s32(*kill_limit) - 2);
-			else if (delta > 0)
-				*kill_limit = vi_min(200, s32(*kill_limit) + 2);
-		}
-
-		// allow abilities
-		{
-			b8* allow_abilities = &global.splitscreen.allow_abilities;
-			delta = data.splitscreen.menu.slider_item(u, _(strings::allow_abilities), _(*allow_abilities ? strings::yes : strings::no));
-			if (delta != 0)
-				*allow_abilities = !(*allow_abilities);
+			global.multiplayer.tab_previous = global.multiplayer.tab;
+			global.multiplayer.tab = ServerListType(vi_min(s32(ServerListType::count) - 1, s32(global.multiplayer.tab) + 1));
+			if (global.multiplayer.tab != global.multiplayer.tab_previous)
+				data.multiplayer.tab_timer = TAB_ANIMATION_TIME;
 		}
 	}
 
-	data.splitscreen.menu.end();
-}
-
-void splitscreen_select_teams_update(const Update& u)
-{
-	if (UIMenu::active[0])
-		return;
-
-	if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
-		&& !Game::cancel_event_eaten[0] && Game::scheduled_load_level == AssetNull)
+	switch (data.multiplayer.state)
 	{
-		data.state = State::SplitscreenSelectOptions;
-		Game::cancel_event_eaten[0] = true;
-		return;
-	}
-
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
-	{
-		AI::Team* team = &global.splitscreen.local_player_config[i];
-		if (u.input->gamepads[i].type != Gamepad::Type::None || i == 0) // player is active
+		case Data::Multiplayer::State::Browse:
 		{
-			// handle D-pad
-			s32 delta = UI::input_delta_horizontal(u, i);
-
-			if (u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i) && !Game::cancel_event_eaten[i])
-			{
-				if (i > 0) // player 0 must stay in
-				{
-					*team = AI::TeamNone;
-					Audio::post_global_event(AK::EVENTS::PLAY_MENU_ALTER);
-					Game::cancel_event_eaten[i] = true;
-				}
-			}
-			else if (delta < 0)
-			{
-				if (*team == AI::TeamNone)
-				{
-					// we're already all the way to the left
-				}
-				else if (*team == 0)
-				{
-					if (i > 0) // player 0 must stay in
-					{
-						*team = AI::TeamNone;
-						Audio::post_global_event(AK::EVENTS::PLAY_MENU_ALTER);
-					}
-				}
-				else
-				{
-					(*team) -= 1;
-					Audio::post_global_event(AK::EVENTS::PLAY_MENU_ALTER);
-				}
-			}
-			else if (delta > 0)
-			{
-				if (*team == AI::TeamNone)
-				{
-					*team = 0;
-					Audio::post_global_event(AK::EVENTS::PLAY_MENU_ALTER);
-				}
-				else if (*team < MAX_TEAMS - 1)
-				{
-					*team += 1;
-					Audio::post_global_event(AK::EVENTS::PLAY_MENU_ALTER);
-				}
-			}
+			multiplayer_browse_update(u);
+			break;
 		}
-		else // controller is gone
-			*team = AI::TeamNone;
-	}
-
-	if (u.last_input->get(Controls::Interact, 0)
-		&& !u.input->get(Controls::Interact, 0)
-		&& global.splitscreen.teams_are_valid())
-	{
-		if (global.splitscreen.session_type() == SessionType::Public)
+		case Data::Multiplayer::State::CreateEntry:
 		{
-			deploy_start();
-			deploy_done();
+			multiplayer_create_entry_update(u);
+			break;
 		}
-		else
-			data.state = State::SplitscreenSelectZone;
+		case Data::Multiplayer::State::ViewEntry:
+		{
+			multiplayer_view_entry_update(u);
+			break;
+		}
+		case Data::Multiplayer::State::EditEntry:
+		{
+			multiplayer_edit_entry_update(u);
+			break;
+		}
+		default:
+			vi_assert(false);
+			break;
 	}
 }
 
-void tab_draw_common(const RenderParams& p, const char* label, const Vec2& pos, r32 width, const Vec4& color, const Vec4& background_color, const Vec4& text_color = UI::color_background)
+void tab_draw_label(const RenderParams& p, const char* label, const Vec2& pos, const Vec4& color, const Vec4& text_color = UI::color_background)
 {
-	// body
-	Vec2 size(width, MAIN_VIEW_SIZE.y);
+	UI::box(p, { pos, TAB_SIZE }, color);
+
+	UIText text;
+	text.anchor_x = UIText::Anchor::Min;
+	text.anchor_y = UIText::Anchor::Min;
+	text.color = text_color;
+	text.text(0, label);
+	text.draw(p, pos + Vec2(PADDING));
+}
+
+void tab_draw_body(const RenderParams& p, const Vec2& pos, r32 width, const Vec4& color, const Vec4& background_color)
+{
+	if (width > 0.0f)
 	{
+		Vec2 size(width, MAIN_VIEW_SIZE.y);
 		if (background_color.w > 0.0f)
 			UI::box(p, { pos, size }, background_color);
 		UI::border(p, { pos, size }, BORDER, color);
 	}
+}
 
-	// label
-	{
-		Vec2 tab_pos = pos + Vec2(0, size.y);
-		UI::box(p, { tab_pos, TAB_SIZE }, color);
-
-		UIText text;
-		text.anchor_x = UIText::Anchor::Min;
-		text.anchor_y = UIText::Anchor::Min;
-		text.color = text_color;
-		text.text(0, label);
-		text.draw(p, tab_pos + Vec2(PADDING));
-	}
+void tab_draw(const RenderParams& p, const char* label, const Vec2& pos, r32 width, const Vec4& color, const Vec4& background_color, const Vec4& text_color = UI::color_background)
+{
+	tab_draw_body(p, pos, width, color, background_color);
+	tab_draw_label(p, label, pos + Vec2(0, MAIN_VIEW_SIZE.y), color, text_color);
 }
 
 void draw_gamepad_icon(const RenderParams& p, const Vec2& pos, s32 index, const Vec4& color, r32 scale = 1.0f)
@@ -532,87 +482,292 @@ void draw_gamepad_icon(const RenderParams& p, const Vec2& pos, s32 index, const 
 	text.draw(p, pos);
 }
 
-void splitscreen_select_options_draw(const RenderParams& params)
+void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 {
-	if (Menu::main_menu_state == Menu::State::Hidden)
+	Vec2 panel_size(rect.size.x, PADDING * 2.0f + TEXT_SIZE * UI::scale);
+	Vec2 top_bar_size(panel_size.x, panel_size.y * 1.5f);
+	Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
+
+	// top bar
 	{
-		const Rect2& viewport = params.camera->viewport;
-		data.splitscreen.menu.draw_ui(params, Vec2(viewport.size.x * 0.5f, viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f), UIText::Anchor::Center, UIText::Anchor::Max);
-	}
-}
+		UI::box(params, { pos, top_bar_size }, UI::color_background);
 
-void splitscreen_select_teams_draw(const RenderParams& params)
-{
-	const Rect2& vp = params.camera->viewport;
-	const Vec2 main_view_size = MAIN_VIEW_SIZE;
-	const Vec2 tab_size = TAB_SIZE;
-
-	Vec2 center = vp.size * 0.5f;
-	{
-		Vec2 bottom_left = center + (main_view_size * -0.5f);
-		Vec4 background_color = Vec4(UI::color_background.xyz(), OPACITY);
-		tab_draw_common(params, _(strings::prompt_splitscreen), bottom_left, main_view_size.x, UI::color_accent(), background_color);
-	}
-
-	UIText text;
-	text.anchor_x = UIText::Anchor::Center;
-	text.anchor_y = UIText::Anchor::Max;
-	text.color = UI::color_accent();
-	text.wrap_width = main_view_size.x - 48.0f * UI::scale * SCALE_MULTIPLIER;
-	Vec2 pos = center + Vec2(0, main_view_size.y * 0.5f - (48.0f * UI::scale * SCALE_MULTIPLIER));
-
-	// prompt
-	if (global.splitscreen.teams_are_valid())
-	{
-		text.text(0, _(strings::prompt_splitscreen_ready));
-		text.draw(params, pos);
-	}
-
-	pos.y -= 48.0f * UI::scale * SCALE_MULTIPLIER;
-
-	// draw team labels
-	const r32 team_offset = 128.0f * UI::scale * SCALE_MULTIPLIER;
-	text.wrap_width = 0;
-	text.text(0, _(strings::team_a));
-	text.draw(params, pos + Vec2(team_offset * -1.0f, 0));
-	text.text(0, _(strings::team_b));
-	text.draw(params, pos + Vec2(0, 0));
-	text.text(0, _(strings::team_c));
-	text.draw(params, pos + Vec2(team_offset * 1.0f, 0));
-	text.text(0, _(strings::team_d));
-	text.draw(params, pos + Vec2(team_offset * 2.0f, 0));
-
-	// set up text for gamepad number labels
-	text.color = UI::color_background;
-	text.wrap_width = 0;
-	text.anchor_x = UIText::Anchor::Center;
-	text.anchor_y = UIText::Anchor::Center;
-
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
-	{
-		pos.y -= 64.0f * UI::scale * SCALE_MULTIPLIER;
-
-		AI::Team team = global.splitscreen.local_player_config[i];
-
-		const Vec4* color;
-		r32 x_offset;
-		if (i > 0 && params.sync->input.gamepads[i].type == Gamepad::Type::None)
+		UIText text;
+		text.size = TEXT_SIZE;
+		text.anchor_y = UIText::Anchor::Center;
+		text.text(0, "%s    %s", _(strings::prompt_select), _(strings::prompt_create_entry), _(strings::prompt_back));
+		UIMenu::text_clip(&text, data.multiplayer.state_transition_time, 100.0f);
+		text.color = UI::color_default;
+		if (Game::ui_gamepad_types[0] == Gamepad::Type::None)
 		{
-			color = &UI::color_disabled();
-			x_offset = team_offset * -2.0f;
-		}
-		else if (team == AI::TeamNone)
-		{
-			color = &UI::color_default;
-			x_offset = team_offset * -2.0f;
+			text.anchor_x = UIText::Anchor::Min;
+			text.draw(params, pos + Vec2(PADDING, top_bar_size.y * 0.5f));
 		}
 		else
 		{
-			color = &UI::color_accent();
-			x_offset = ((r32)team - 1.0f) * team_offset;
+			text.anchor_x = UIText::Anchor::Max;
+			text.draw(params, pos + Vec2(top_bar_size.x - PADDING, top_bar_size.y * 0.5f));
 		}
 
-		draw_gamepad_icon(params, pos + Vec2(x_offset, 0), i, *color, SCALE_MULTIPLIER);
+		pos.y -= panel_size.y + PADDING * 2.0f;
+	}
+
+	// server list
+	{
+		UIText text;
+		text.size = TEXT_SIZE;
+		text.anchor_x = UIText::Anchor::Min;
+		text.anchor_y = UIText::Anchor::Center;
+		text.font = Asset::Font::pt_sans;
+		text.clip = 80;
+
+		const Data::Multiplayer::ServerList& list = data.multiplayer.server_lists[s32(global.multiplayer.tab)];
+		data.multiplayer.scroll.start(params, pos + Vec2(panel_size.x * 0.5f, panel_size.y));
+		for (s32 i = 0; i < list.entries.length; i++)
+		{
+			if (!data.multiplayer.scroll.item(i))
+				continue;
+
+			const Data::Multiplayer::ServerList::Entry& entry = list.entries[i];
+			b8 selected = i == list.selected_index;
+
+			UI::box(params, { pos, panel_size }, UI::color_background);
+
+			if (selected)
+				UI::border(params, Rect2(pos, panel_size).outset(-2.0f * UI::scale), 2.0f, UI::color_accent());
+
+			text.color = selected ? UI::color_accent() : UI::color_alert();
+			text.text_raw(0, entry.name, UITextFlagSingleLine);
+			text.draw(params, pos + Vec2(panel_size.x * 0.1f, panel_size.y * 0.5f));
+
+			pos.y -= panel_size.y;
+		}
+		data.multiplayer.scroll.end(params, pos + Vec2(panel_size.x * 0.5f, panel_size.y));
+	}
+}
+
+void multiplayer_create_entry_draw(const RenderParams& params, const Rect2& rect)
+{
+	if (data.multiplayer.active_request_id)
+		Menu::progress_infinite(params, _(strings::creating_entry), rect.pos + rect.size * 0.5f);
+	else
+	{
+		Vec2 field_size(rect.size.x + PADDING * -4.0f, MENU_ITEM_HEIGHT);
+		Rect2 field_rect =
+		{
+			rect.pos + (rect.size * 0.5f) + (field_size * -0.5f),
+			field_size
+		};
+
+		UIText text;
+		text.size = TEXT_SIZE;
+		text.anchor_x = UIText::Anchor::Min;
+		text.anchor_y = UIText::Anchor::Min;
+
+		{
+			// prompt
+			text.color = UI::color_default;
+			text.text(0, _(strings::prompt_name));
+			UIMenu::text_clip(&text, data.multiplayer.state_transition_time, 100.0f);
+			text.draw(params, field_rect.pos + Vec2(0, field_rect.size.y + PADDING));
+			text.clip = 0;
+
+			// accept/cancel control prompts
+
+			// accept
+			Rect2 controls_rect = field_rect;
+			controls_rect.pos.y -= MENU_ITEM_HEIGHT + PADDING;
+
+			text.wrap_width = 0;
+			text.anchor_y = UIText::Anchor::Min;
+			text.anchor_x = UIText::Anchor::Min;
+			text.color = UI::color_accent();
+			text.text(0, _(strings::prompt_accept_text));
+			Vec2 prompt_pos = controls_rect.pos + Vec2(PADDING);
+			text.draw(params, prompt_pos);
+
+			// cancel
+			text.anchor_x = UIText::Anchor::Max;
+			text.color = UI::color_alert();
+			text.clip = 0;
+			text.text(0, _(strings::prompt_cancel));
+			text.draw(params, prompt_pos + Vec2(controls_rect.size.x + PADDING * -2.0f, 0));
+		}
+
+		{
+			// text field
+			UI::box(params, field_rect, UI::color_background);
+			UI::border(params, field_rect, 2.0f, UI::color_accent());
+
+			text.font = Asset::Font::pt_sans;
+			text.size = TEXT_SIZE;
+			text.anchor_x = UIText::Anchor::Min;
+			Loader::font(text.font);
+			text.color = UI::color_default;
+			Array<char>* value = &data.multiplayer.text_field.value;
+			if (value->length > 64 + 1) // truncate
+			{
+				const char* start = value->data;
+				while (start < &value->data[value->length - 64])
+					start = Font::codepoint_next(start);
+				text.text_raw(0, start, UITextFlagSingleLine);
+			}
+			else
+				text.text_raw(0, value->data, UITextFlagSingleLine);
+			text.draw(params, field_rect.pos + Vec2(PADDING * 0.8125f));
+		}
+	}
+}
+
+void multiplayer_edit_entry_draw(const RenderParams& params, const Rect2& rect)
+{
+	//data.multiplayer.menu.draw_ui(params, Vec2(vp.size.x * 0.5f, vp.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f), UIText::Anchor::Center, UIText::Anchor::Max);
+}
+
+void multiplayer_view_entry_draw(const RenderParams& params, const Rect2& rect)
+{
+
+}
+
+void multiplayer_draw(const RenderParams& params)
+{
+	if (Menu::main_menu_state == Menu::State::Hidden)
+	{
+		const Rect2& vp = params.camera->viewport;
+		Vec2 center = vp.size * 0.5f;
+		Vec2 tab_size = TAB_SIZE;
+		Rect2 rect =
+		{
+			center + MAIN_VIEW_SIZE * -0.5f + Vec2(0, -tab_size.y),
+			MAIN_VIEW_SIZE,
+		};
+
+		// left/right tab control prompt
+		if (multiplayer_can_switch_tab())
+		{
+			UIText text;
+			text.size = TEXT_SIZE;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Min;
+			text.color = UI::color_default;
+			text.text(0, "[{{TabLeft}}]");
+
+			Vec2 pos = rect.pos + Vec2(tab_size.x * 0.5f, rect.size.y + tab_size.y * 1.5f);
+			UI::box(params, text.rect(pos).outset(PADDING), UI::color_background);
+			text.draw(params, pos);
+
+			pos.x += rect.size.x - tab_size.x;
+			text.text(0, "[{{TabRight}}]");
+			UI::box(params, text.rect(pos).outset(PADDING), UI::color_background);
+			text.draw(params, pos);
+		}
+
+		// tab labels
+		{
+			Vec2 pos = rect.pos + Vec2(0, rect.size.y);
+			for (s32 i = 0; i < s32(ServerListType::count); i++)
+			{
+				const Vec4* color;
+				if (ServerListType(i) == global.multiplayer.tab)
+				{
+					if (data.multiplayer.tab_timer > 0.0f)
+						color = UI::flash_function(Game::real_time.total) ? &UI::color_default : &UI::color_disabled();
+					else
+						color = &UI::color_accent();
+				}
+				else
+					color = &UI::color_disabled();
+
+				tab_draw_label(params, _(multiplayer_tab_names[i]), pos, *color);
+				pos.x += tab_size.x + PADDING;
+			}
+		}
+
+		// main tab body
+		{
+			r32 main_offset;
+			r32 main_width;
+			const Vec4* main_color;
+
+			// animate new tab in
+			if (data.multiplayer.tab_timer > 0.0f)
+			{
+				main_color = UI::flash_function(Game::real_time.total) ? &UI::color_default : &UI::color_disabled();
+
+				r32 blend = Ease::cubic_out<r32>(1.0f - vi_min(1.0f, data.multiplayer.tab_timer / TAB_ANIMATION_TIME));
+				main_width = blend * rect.size.x;
+
+				if (s32(global.multiplayer.tab) > s32(global.multiplayer.tab_previous))
+					main_offset = (1.0f - blend) * rect.size.x; // tab comes in from the right
+				else
+					main_offset = 0.0f; // tab comes in from the left
+			}
+			else
+			{
+				// no animation
+				main_color = &UI::color_accent();
+				main_offset = 0.0f;
+				main_width = rect.size.x;
+			}
+			tab_draw_body(params, rect.pos + Vec2(main_offset, 0), main_width, *main_color, Vec4(UI::color_background.xyz(), OPACITY));
+		}
+
+		// content
+		if (data.multiplayer.tab_timer == 0.0f)
+		{
+			Rect2 rect_padded =
+			{
+				rect.pos + Vec2(PADDING),
+				rect.size + Vec2(PADDING * -2.0f),
+			};
+			switch (data.multiplayer.state)
+			{
+				case Data::Multiplayer::State::Browse:
+				{
+					multiplayer_browse_draw(params, rect_padded);
+					break;
+				}
+				case Data::Multiplayer::State::CreateEntry:
+				{
+					multiplayer_create_entry_draw(params, rect_padded);
+					break;
+				}
+				case Data::Multiplayer::State::ViewEntry:
+				{
+					multiplayer_view_entry_draw(params, rect_padded);
+					break;
+				}
+				case Data::Multiplayer::State::EditEntry:
+				{
+					multiplayer_edit_entry_draw(params, rect_padded);
+					break;
+				}
+				default:
+					vi_assert(false);
+					break;
+			}
+		}
+
+		// gamepads
+		{
+			s32 gamepad_count = 1;
+			for (s32 i = 1; i < MAX_GAMEPADS; i++)
+			{
+				if (params.sync->input.gamepads[i].type != Gamepad::Type::None)
+					gamepad_count = i + 1;
+			}
+
+			if (gamepad_count > 1)
+			{
+				const r32 gamepad_spacing = 128.0f * UI::scale * SCALE_MULTIPLIER;
+				Vec2 pos = vp.size * Vec2(0.5f, 0.1f) + Vec2(gamepad_spacing * (gamepad_count - 1) * -0.5f, 0);
+				for (s32 i = 0; i < gamepad_count; i++)
+				{
+					draw_gamepad_icon(params, pos, i, (global.multiplayer.local_player_mask & (1 << i)) ? UI::color_accent() : UI::color_disabled(), SCALE_MULTIPLIER);
+					pos.x += gamepad_spacing;
+				}
+			}
+		}
 	}
 }
 
@@ -671,12 +826,6 @@ s16 energy_increment_total()
 	return result;
 }
 
-b8 zone_splitscreen_can_deploy(AssetID z)
-{
-	const ZoneNode* zone = zone_node_get(z);
-	return zone && global.splitscreen.team_count() <= zone->max_teams;
-}
-
 void select_zone_update(const Update& u, b8 enable_movement)
 {
 	if (UIMenu::active[0])
@@ -703,8 +852,7 @@ void select_zone_update(const Update& u, b8 enable_movement)
 				for (s32 j = 0; j < global.zones.length; j++)
 				{
 					const ZoneNode& candidate = global.zones[j];
-					if (&candidate == zone
-						|| (data.state == State::SplitscreenSelectZone && !zone_splitscreen_can_deploy(candidate.id)))
+					if (&candidate == zone)
 						continue;
 
 					for (s32 k = 0; k < candidate.children.length; k++)
@@ -765,50 +913,36 @@ Vec3 zone_color(const ZoneNode& zone)
 		}
 	}
 	else
-	{
-		if (global.splitscreen.team_count() <= zone.max_teams)
-			return Team::color_friend.xyz();
-		else
-			return Vec3(0.25f);
-	}
+		return Team::color_friend.xyz();
 }
 
 const Vec4& zone_ui_color(const ZoneNode& zone)
 {
-	if (Game::session.type == SessionType::Story)
+	vi_assert(Game::session.type == SessionType::Story);
+	ZoneState zone_state = Game::save.zones[zone.id];
+	switch (zone_state)
 	{
-		ZoneState zone_state = Game::save.zones[zone.id];
-		switch (zone_state)
+		case ZoneState::Locked:
 		{
-			case ZoneState::Locked:
-			{
-				return UI::color_disabled();
-			}
-			case ZoneState::ParkourUnlocked:
-			{
-				return UI::color_default;
-			}
-			case ZoneState::PvpFriendly:
-			{
-				return Team::ui_color_friend;
-			}
-			case ZoneState::PvpHostile:
-			{
-				return Team::ui_color_enemy;
-			}
-			default:
-			{
-				vi_assert(false);
-				return UI::color_default;
-			}
-		}
-	}
-	else
-	{
-		if (zone_splitscreen_can_deploy(zone.id))
-			return Team::ui_color_friend;
-		else
 			return UI::color_disabled();
+		}
+		case ZoneState::ParkourUnlocked:
+		{
+			return UI::color_default;
+		}
+		case ZoneState::PvpFriendly:
+		{
+			return Team::ui_color_friend;
+		}
+		case ZoneState::PvpHostile:
+		{
+			return Team::ui_color_enemy;
+		}
+		default:
+		{
+			vi_assert(false);
+			return UI::color_default;
+		}
 	}
 }
 
@@ -854,76 +988,41 @@ void zone_draw_mesh(const RenderParams& params, AssetID mesh, const Vec3& pos, c
 // returns current zone node
 const ZoneNode* zones_draw(const RenderParams& params)
 {
+	vi_assert(Game::session.type == SessionType::Story);
+
 	if (data.timer_deploy > 0.0f || Game::scheduled_load_level != AssetNull)
 		return nullptr;
 
 	// highlight zone locations
 	const ZoneNode* selected_zone = zone_node_get(data.zone_selected);
 
-	if (Game::session.type == SessionType::Story)
+	// "you are here"
+	const ZoneNode* current_zone = zone_node_get(Game::level.id);
+	Vec2 p;
+	if (current_zone && UI::project(params, current_zone->pos(), &p))
+		UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent(), PI);
+
+	// highlight selected zone
+	if (selected_zone)
 	{
-		// "you are here"
-		const ZoneNode* current_zone = zone_node_get(Game::level.id);
 		Vec2 p;
-		if (current_zone && UI::project(params, current_zone->pos(), &p))
-			UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent(), PI);
+		if (UI::project(params, selected_zone->pos(), &p))
+			UI::triangle_border(params, { p, Vec2(48.0f * UI::scale) }, BORDER * 2.0f, UI::color_accent(), PI);
 
-		// highlight selected zone
-		if (selected_zone)
+		// cooldown timer
+		r64 lost_timer = ZONE_LOST_COOLDOWN - (platform::timestamp() - Game::save.zone_lost_times[selected_zone->id]);
+		if (lost_timer > 0.0f)
 		{
-			Vec2 p;
-			if (UI::project(params, selected_zone->pos(), &p))
-				UI::triangle_border(params, { p, Vec2(48.0f * UI::scale) }, BORDER * 2.0f, UI::color_accent(), PI);
-
-			// cooldown timer
-			r64 lost_timer = ZONE_LOST_COOLDOWN - (platform::timestamp() - Game::save.zone_lost_times[selected_zone->id]);
-			if (lost_timer > 0.0f)
-			{
-				UIText text;
-				text.color = UI::color_alert();
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Min;
-
-				{
-					s32 remaining_minutes = lost_timer / 60.0;
-					s32 remaining_seconds = lost_timer - (remaining_minutes * 60.0);
-					text.text(0, _(strings::timer), remaining_minutes, remaining_seconds);
-				}
-
-				{
-					Vec2 text_pos = p;
-					text_pos.y += 32.0f * UI::scale;
-					UI::box(params, text.rect(text_pos).outset(8.0f * UI::scale), UI::color_background);
-					text.draw(params, text_pos);
-				}
-			}
-		}
-
-		// zone under attack
-		const ZoneNode* under_attack = zone_node_get(zone_under_attack());
-		if (under_attack)
-		{
-			Vec2 p;
-			if (UI::is_onscreen(params, under_attack->pos(), &p))
-			{
-				if (UI::flash_function(Game::real_time.total))
-					UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_alert(), PI);
-			}
-			else
-			{
-				if (UI::flash_function(Game::real_time.total))
-					UI::indicator(params, under_attack->pos(), UI::color_alert(), true, 1.0f, PI);
-			}
-
 			UIText text;
 			text.color = UI::color_alert();
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Min;
-			r32 time = zone_under_attack_timer();
-			if (time > 0.0f)
-				text.text(0, "%d", s32(ceilf(time)));
-			else
-				text.text(0, _(strings::zone_defense_expired));
+
+			{
+				s32 remaining_minutes = lost_timer / 60.0;
+				s32 remaining_seconds = lost_timer - (remaining_minutes * 60.0);
+				text.text(0, _(strings::timer), remaining_minutes, remaining_seconds);
+			}
 
 			{
 				Vec2 text_pos = p;
@@ -933,80 +1032,42 @@ const ZoneNode* zones_draw(const RenderParams& params)
 			}
 		}
 	}
-	else
-	{
-		// not story mode
 
-		// draw selected zone name
-		if (selected_zone)
+	// zone under attack
+	const ZoneNode* under_attack = zone_node_get(zone_under_attack());
+	if (under_attack)
+	{
+		Vec2 p;
+		if (UI::is_onscreen(params, under_attack->pos(), &p))
 		{
-			Vec2 p;
-			if (UI::project(params, selected_zone->pos(), &p))
-			{
-				UIText text;
-				text.color = zone_ui_color(*selected_zone);
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Min;
-				text.text_raw(0, AssetLookup::Level::names[selected_zone->id]);
-				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
-				text.draw(params, p);
-			}
+			if (UI::flash_function(Game::real_time.total))
+				UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_alert(), PI);
+		}
+		else
+		{
+			if (UI::flash_function(Game::real_time.total))
+				UI::indicator(params, under_attack->pos(), UI::color_alert(), true, 1.0f, PI);
+		}
+
+		UIText text;
+		text.color = UI::color_alert();
+		text.anchor_x = UIText::Anchor::Center;
+		text.anchor_y = UIText::Anchor::Min;
+		r32 time = zone_under_attack_timer();
+		if (time > 0.0f)
+			text.text(0, "%d", s32(ceilf(time)));
+		else
+			text.text(0, _(strings::zone_defense_expired));
+
+		{
+			Vec2 text_pos = p;
+			text_pos.y += 32.0f * UI::scale;
+			UI::box(params, text.rect(text_pos).outset(8.0f * UI::scale), UI::color_background);
+			text.draw(params, text_pos);
 		}
 	}
 
 	return selected_zone;
-}
-
-void splitscreen_select_zone_draw(const RenderParams& params)
-{
-	const ZoneNode* zone = zones_draw(params);
-
-	// press [x] to deploy
-	{
-		UIText text;
-		text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-		text.color = zone_ui_color(*zone);
-		text.text(0, "%s\n%s", _(strings::prompt_deploy), _(strings::prompt_back));
-
-		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.25f);
-
-		UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
-
-		text.draw(params, pos);
-	}
-
-	// draw teams
-	{
-		UIText text;
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Min;
-		text.color = UI::color_accent();
-		text.size *= SCALE_MULTIPLIER;
-
-		s32 player_count = global.splitscreen.local_player_count();
-		const r32 gamepad_spacing = 128.0f * UI::scale * SCALE_MULTIPLIER;
-		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.1f) + Vec2(gamepad_spacing * (player_count - 1) * -0.5f, 0);
-
-		AssetID team_labels[MAX_TEAMS] =
-		{
-			strings::team_a,
-			strings::team_b,
-			strings::team_c,
-			strings::team_d,
-		};
-
-		for (s32 i = 0; i < MAX_GAMEPADS; i++)
-		{
-			AI::Team team = global.splitscreen.local_player_config[i];
-			if (team != AI::TeamNone)
-			{
-				text.text(0, _(team_labels[s32(team)]));
-				text.draw(params, pos + Vec2(0, 32.0f * UI::scale * SCALE_MULTIPLIER));
-				draw_gamepad_icon(params, pos, i, UI::color_accent(), SCALE_MULTIPLIER);
-				pos.x += gamepad_spacing;
-			}
-		}
-	}
 }
 
 b8 zone_can_capture(AssetID zone_id)
@@ -1260,28 +1321,8 @@ void hide_complete()
 
 void deploy_done()
 {
-	if (Game::session.type == SessionType::Story)
-		OverworldNet::capture_or_defend(data.zone_selected);
-	else
-	{
-		// multiplayer
-#if SERVER
-		vi_assert(false);
-#else
-		global.splitscreen.apply();
-		if (global.splitscreen.mode == SplitscreenConfig::Mode::Local)
-			go(data.zone_selected);
-		else
-		{
-			Game::unload_level();
-			Game::save.reset();
-
-			Net::Client::request_server(1); // todo: redesign this whole thing
-
-			clear();
-		}
-#endif
-	}
+	vi_assert(Game::session.type == SessionType::Story);
+	OverworldNet::capture_or_defend(data.zone_selected);
 }
 
 void deploy_update(const Update& u)
@@ -1344,8 +1385,6 @@ b8 enable_input()
 		&& story.inventory.timer_buy == 0.0f
 		&& !Menu::dialog_active(0);
 }
-
-#define TAB_ANIMATION_TIME 0.3f
 
 void group_join(Net::Master::Group g)
 {
@@ -1455,7 +1494,7 @@ void zone_statistics(s32* captured, s32* hostile, s32* locked, b8 (*filter)(Asse
 
 void tab_map_update(const Update& u)
 {
-	if (data.story.tab == Tab::Map && data.story.tab_timer > TAB_ANIMATION_TIME)
+	if (data.story.tab == StoryTab::Map && data.story.tab_timer > TAB_ANIMATION_TIME)
 	{
 		select_zone_update(u, enable_input()); // only enable movement if enable_input()
 
@@ -1529,7 +1568,7 @@ void tab_inventory_update(const Update& u)
 		}
 	}
 
-	if (data.story.tab == Tab::Inventory && enable_input())
+	if (data.story.tab == StoryTab::Inventory && enable_input())
 	{
 		// handle input
 		switch (inventory->mode)
@@ -1577,7 +1616,7 @@ void tab_inventory_update(const Update& u)
 		}
 	}
 
-	if (data.story.tab != Tab::Inventory)
+	if (data.story.tab != StoryTab::Inventory)
 	{
 		// minimized view; reset
 		inventory->mode = Data::Inventory::Mode::Normal;
@@ -1629,11 +1668,7 @@ void story_mode_update(const Update& u)
 	if (UIMenu::active[0])
 		return;
 
-	data.story.tab_timer += u.time.delta;
-
-	// start the mode transition animation when we first open any tab
-	if (data.story.tab_timer > TAB_ANIMATION_TIME && data.story.tab_timer - Game::real_time.delta <= TAB_ANIMATION_TIME)
-		data.story.mode_transition_time = Game::real_time.total;
+	data.story.tab_timer = vi_max(0.0f, data.story.tab_timer - u.time.delta);
 
 	tab_map_update(u);
 	tab_inventory_update(u);
@@ -1645,7 +1680,7 @@ Vec2 get_panel_size(const Rect2& rect)
 }
 
 // the lower left corner of the tab box starts at `pos`
-Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, const char* label, Vec2* pos, b8 flash = false)
+Rect2 tab_story_draw(const RenderParams& p, const Data::StoryMode& data, StoryTab tab, const char* label, Vec2* pos, b8 flash = false)
 {
 	b8 draw = true;
 
@@ -1653,7 +1688,7 @@ Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, cons
 	if (data.tab == tab && !Menu::dialog_callback[0])
 	{
 		// flash the tab when it is selected
-		if (data.tab_timer < TAB_ANIMATION_TIME)
+		if (data.tab_timer > 0.0f)
 		{
 			if (UI::flash_function(Game::real_time.total))
 				color = &UI::color_default;
@@ -1673,14 +1708,14 @@ Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, cons
 	r32 current_width = data.tab == tab ? main_view_size.x : tab_size.x;
 	r32 previous_width = data.tab_previous == tab ? main_view_size.x : tab_size.x;
 	// then blend between the two widths for a nice animation
-	r32 blend = Ease::cubic_out(vi_min(1.0f, data.tab_timer / TAB_ANIMATION_TIME), 0.0f, 1.0f);
+	r32 blend = Ease::cubic_out(1.0f - vi_min(1.0f, data.tab_timer / TAB_ANIMATION_TIME), 0.0f, 1.0f);
 	r32 width = LMath::lerpf(blend, previous_width, current_width);
 
 	if (draw)
 	{
 		// if we're minimized, fill in the background
 		const Vec4& background_color = data.tab == tab ? Vec4(0, 0, 0, 0) : Vec4(UI::color_background.xyz(), OPACITY);
-		tab_draw_common(p, label, *pos, width, *color, background_color, flash && !UI::flash_function(Game::real_time.total) ? Vec4(0, 0, 0, 0) : UI::color_background);
+		tab_draw(p, label, *pos, width, *color, background_color, flash && !UI::flash_function(Game::real_time.total) ? Vec4(0, 0, 0, 0) : UI::color_background);
 	}
 
 	Rect2 result = { *pos, { width, main_view_size.y } };
@@ -1750,7 +1785,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		// total energy increment
 		{
 			const char* label;
-			if (story.tab == Tab::Map)
+			if (story.tab == StoryTab::Map)
 				label = _(Game::save.group == Net::Master::Group::None ? strings::energy_generation_total : strings::energy_generation_group);
 			else
 				label = "+%d";
@@ -1758,7 +1793,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			Rect2 zone_stat_rect = zone_stat_draw(p, rect, UIText::Anchor::Max, index++, buffer, UI::color_default);
 
 			// energy increment timer
-			r32 icon_size = TEXT_SIZE * 1.5f * UI::scale * (story.tab == Tab::Map ? 1.0f : 0.75f);
+			r32 icon_size = TEXT_SIZE * 1.5f * UI::scale * (story.tab == StoryTab::Map ? 1.0f : 0.75f);
 			r64 t = platform::timestamp();
 			UI::triangle_percentage
 			(
@@ -1774,7 +1809,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		sprintf(buffer, _(strings::member_of_group), _(group_name[s32(Game::save.group)]));
 		zone_stat_draw(p, rect, UIText::Anchor::Max, index++, buffer, UI::color_accent());
 
-		if (story.tab != Tab::Map)
+		if (story.tab != StoryTab::Map)
 		{
 			// statistics
 			s32 captured;
@@ -1800,7 +1835,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		}
 	}
 
-	if (story.tab == Tab::Map)
+	if (story.tab == StoryTab::Map)
 	{
 		zones_draw(p);
 
@@ -1871,7 +1906,7 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 	Vec2 pos = rect.pos + Vec2(0, rect.size.y - panel_size.y);
 	for (s32 i = 0; i < s32(Resource::count); i++)
 	{
-		b8 selected = data.tab == Tab::Inventory && data.inventory.resource_selected == (Resource)i && !Menu::dialog_active(0);
+		b8 selected = data.tab == StoryTab::Inventory && data.inventory.resource_selected == (Resource)i && !Menu::dialog_active(0);
 
 		UI::box(p, { pos, panel_size }, UI::color_background);
 		if (selected)
@@ -1902,7 +1937,7 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 		UIText text;
 		text.anchor_y = UIText::Anchor::Center;
 		text.color = *color;
-		text.size = TEXT_SIZE * (data.tab == Tab::Inventory ? 1.0f : 0.75f);
+		text.size = TEXT_SIZE * (data.tab == StoryTab::Inventory ? 1.0f : 0.75f);
 		if (draw)
 		{
 			// current amount
@@ -1910,7 +1945,7 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 			text.text(0, "%d", Game::save.resources[i]);
 			text.draw(p, pos + Vec2(panel_size.x - PADDING, panel_size.y * 0.5f));
 
-			if (data.tab == Tab::Inventory)
+			if (data.tab == StoryTab::Inventory)
 			{
 				text.anchor_x = UIText::Anchor::Min;
 				text.text(0, _(info.description));
@@ -1959,7 +1994,7 @@ void tab_inventory_draw(const RenderParams& p, const Data::StoryMode& data, cons
 {
 	inventory_items_draw(p, data, rect);
 
-	if (data.tab == Tab::Inventory && data.tab_timer > TAB_ANIMATION_TIME)
+	if (data.tab == StoryTab::Inventory && data.tab_timer == 0.0f)
 	{
 		if (data.inventory.timer_buy > 0.0f)
 			Menu::progress_bar(p, _(strings::buying), 1.0f - (data.inventory.timer_buy / BUY_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
@@ -1982,52 +2017,27 @@ void story_mode_draw(const RenderParams& p)
 
 	Vec2 pos = bottom_left;
 	{
-		Rect2 rect = tab_draw(p, data.story, Tab::Map, _(strings::tab_map), &pos).outset(-PADDING);
-		if (data.story.tab_timer > TAB_ANIMATION_TIME)
+		Rect2 rect = tab_story_draw(p, data.story, StoryTab::Map, _(strings::tab_map), &pos).outset(-PADDING);
+		if (data.story.tab_timer == 0.0f)
 			tab_map_draw(p, data.story, rect);
 	}
 	{
-		Rect2 rect = tab_draw(p, data.story, Tab::Inventory, _(strings::tab_inventory), &pos).outset(-PADDING);
-		if (data.story.tab_timer > TAB_ANIMATION_TIME)
+		Rect2 rect = tab_story_draw(p, data.story, StoryTab::Inventory, _(strings::tab_inventory), &pos).outset(-PADDING);
+		if (data.story.tab_timer == 0.0f)
 			tab_inventory_draw(p, data.story, rect);
 	}
 }
 
 b8 should_draw_zones()
 {
-	return data.state == State::SplitscreenSelectZone
-		|| data.state == State::SplitscreenDeploying
-		|| data.state == State::Deploying
-		|| (data.state == State::StoryMode && data.story.tab == Tab::Map && data.story.tab_timer > TAB_ANIMATION_TIME);
-}
-
-void splitscreen_select_zone_update(const Update& u)
-{
-	if (Menu::main_menu_state != Menu::State::Hidden)
-		return;
-
-	// cancel
-	if (Game::session.type != SessionType::Story
-		&& !Game::cancel_event_eaten[0]
-		&& u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
-	{
-		data.state = State::SplitscreenSelectTeams;
-		Game::cancel_event_eaten[0] = true;
-		return;
-	}
-
-	select_zone_update(u, true);
-
-	// deploy button
-	if (zone_splitscreen_can_deploy(data.zone_selected)
-		&& u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-		deploy_start();
+	return data.state == State::StoryModeDeploying
+		|| (data.state == State::StoryMode && data.story.tab == StoryTab::Map && data.story.tab_timer == 0.0f);
 }
 
 void show_complete()
 {
 	State state_next = data.state_next;
-	Tab tab_next = data.story.tab;
+	StoryTab tab_next = data.story.tab;
 
 	Particles::clear();
 	{
@@ -2037,7 +2047,7 @@ void show_complete()
 		new (&data) Data();
 		data.camera = c;
 		data.timer_transition = t;
-		data.splitscreen.menu.animation_time = Game::real_time.total;
+		data.multiplayer.menu.animation_time = Game::real_time.total;
 
 		data.camera_restore_data = *data.camera.ref();
 
@@ -2061,7 +2071,7 @@ void show_complete()
 		else
 			data.zone_selected = Game::session.zone_under_attack;
 
-		data.story.tab_previous = Tab((s32(data.story.tab) + 1) % s32(Tab::count));
+		data.story.tab_previous = StoryTab((s32(data.story.tab) + 1) % s32(StoryTab::count));
 	}
 	else
 	{
@@ -2105,10 +2115,8 @@ void update(const Update& u)
 
 		if (Game::session.type == SessionType::Story)
 			vi_assert(false);
-		else if (global.splitscreen.local_player_count() > 1)
-			show(c, State::SplitscreenSelectZone);
 		else
-			show(c, State::SplitscreenSelectOptions);
+			show(c, State::Multiplayer);
 
 		show_complete();
 		data.timer_transition = 0.0f;
@@ -2163,29 +2171,18 @@ void update(const Update& u)
 	{
 		switch (data.state)
 		{
+			case State::Multiplayer:
+			{
+				multiplayer_update(u);
+				break;
+			}
 			case State::StoryMode:
 			case State::StoryModeOverlay:
 			{
 				story_mode_update(u);
 				break;
 			}
-			case State::SplitscreenSelectOptions:
-			{
-				splitscreen_select_options_update(u);
-				break;
-			}
-			case State::SplitscreenSelectTeams:
-			{
-				splitscreen_select_teams_update(u);
-				break;
-			}
-			case State::SplitscreenSelectZone:
-			{
-				splitscreen_select_zone_update(u);
-				break;
-			}
-			case State::Deploying:
-			case State::SplitscreenDeploying:
+			case State::StoryModeDeploying:
 			{
 				deploy_update(u);
 				break;
@@ -2271,14 +2268,9 @@ void draw_ui(const RenderParams& params)
 	{
 		switch (data.state)
 		{
-			case State::SplitscreenSelectOptions:
+			case State::Multiplayer:
 			{
-				splitscreen_select_options_draw(params);
-				break;
-			}
-			case State::SplitscreenSelectTeams:
-			{
-				splitscreen_select_teams_draw(params);
+				multiplayer_draw(params);
 				break;
 			}
 			case State::StoryMode:
@@ -2287,13 +2279,7 @@ void draw_ui(const RenderParams& params)
 				story_mode_draw(params);
 				break;
 			}
-			case State::SplitscreenSelectZone:
-			{
-				splitscreen_select_zone_draw(params);
-				break;
-			}
-			case State::Deploying:
-			case State::SplitscreenDeploying:
+			case State::StoryModeDeploying:
 			{
 				deploy_draw(params);
 				break;
@@ -2311,7 +2297,7 @@ void draw_ui(const RenderParams& params)
 		Menu::draw_letterbox(params, data.timer_transition, TRANSITION_TIME);
 }
 
-void show(Camera* camera, State state, Tab tab)
+void show(Camera* camera, State state, StoryTab tab)
 {
 	if (data.timer_transition == 0.0f)
 	{

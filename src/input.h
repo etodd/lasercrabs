@@ -26,6 +26,10 @@ enum class Controls : s8
 	Scoreboard,
 	Jump,
 	Parkour,
+	UIContextAction,
+	UIAcceptText,
+	TabLeft,
+	TabRight,
 	count,
 };
 
@@ -342,7 +346,7 @@ struct InputState
 
 namespace Input
 {
-	void load_strings();
+	void init(); // strings must be already loaded before calling this
 
 	void dead_zone(r32*, r32*, r32 = 0.1f);
 	void dead_zone_cross(r32*, r32*, r32 = 0.1f);
@@ -352,6 +356,20 @@ namespace Input
 
 	extern const char* control_setting_names[s32(Controls::count)];
 	extern InputBinding control_defaults[s32(Controls::count)];
+};
+
+struct TextField
+{
+	static char shift_map[127];
+	static char normal_map[127];
+
+	Array<char> value;
+	StaticArray<KeyCode, 16> ignored_keys;
+	r32 repeat_start_time;
+	r32 repeat_last_time;
+
+	TextField();
+	b8 update(const Update&, s32 = 0, s32 = 0);
 };
 
 }

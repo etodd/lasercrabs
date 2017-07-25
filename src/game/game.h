@@ -60,16 +60,11 @@ namespace VI
 			AI::Team local_player_config[MAX_GAMEPADS];
 			u64 local_player_uuids[MAX_GAMEPADS];
 			r32 time_scale;
-			r32 time_limit;
 			r32 zone_under_attack_timer;
-			SessionType type;
-			GameType game_type;
+			Net::Master::ServerConfig config;
 			AssetID zone_under_attack = AssetNull;
-			s16 respawns;
-			s16 kill_limit;
-			s8 player_slots;
-			s8 team_count;
-			b8 allow_abilities;
+			s8 local_player_mask;
+			SessionType type;
 
 			Session();
 			void reset();
@@ -95,13 +90,11 @@ namespace VI
 			StaticArray<AI::Config, MAX_PLAYERS> ai_config;
 			StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS> directional_lights;
 			Vec3 ambient_color;
-			r32 time_limit;
 			r32 min_y;
 			r32 rotation;
 			r32 rain;
 			s32 max_teams;
 			FeatureLevel feature_level;
-			GameType type;
 			Mode mode;
 			Skybox::Config skybox;
 			StaticArray<Clouds::Config, 4> clouds;
@@ -111,8 +104,6 @@ namespace VI
 			Ref<Entity> terminal;
 			Ref<Entity> terminal_interactable;
 			Ref<Entity> shop;
-			s16 respawns;
-			s16 kill_limit;
 			AI::Team team_lookup[MAX_TEAMS];
 			b8 local = true;
 			b8 continue_match_after_death;

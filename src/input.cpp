@@ -36,6 +36,10 @@ const char* control_setting_names[s32(Controls::count)] =
 	"scoreboard",
 	"jump",
 	"parkour",
+	"ui_context_action",
+	nullptr, // UIAcceptText; can't be modified
+	"tab_left",
+	"tab_right",
 };
 
 InputBinding control_defaults[s32(Controls::count)] =
@@ -57,9 +61,13 @@ InputBinding control_defaults[s32(Controls::count)] =
 	{ Gamepad::Btn::Back, KeyCode::Tab, KeyCode::None, }, // Scoreboard
 	{ Gamepad::Btn::RightTrigger, KeyCode::Space, KeyCode::None, }, // Jump
 	{ Gamepad::Btn::LeftTrigger, KeyCode::LShift, KeyCode::None, }, // Parkour
+	{ Gamepad::Btn::X, KeyCode::F, KeyCode::None, }, // UIContextAction
+	{ Gamepad::Btn::X, KeyCode::Return, KeyCode::None, }, // UIAcceptText
+	{ Gamepad::Btn::LeftShoulder, KeyCode::Q, KeyCode::None, }, // TabLeft
+	{ Gamepad::Btn::RightShoulder, KeyCode::E, KeyCode::None, }, // TabRight
 };
 
-void load_strings()
+void init()
 {
 	key_strings[s32(KeyCode::None)] = _(strings::key_None);
 	key_strings[s32(KeyCode::Return)] = _(strings::key_Return);
@@ -333,6 +341,64 @@ void load_strings()
 	control_strings[s32(Controls::Scoreboard)] = _(strings::scoreboard);
 	control_strings[s32(Controls::Jump)] = _(strings::jump);
 	control_strings[s32(Controls::Parkour)] = _(strings::parkour);
+	control_strings[s32(Controls::UIContextAction)] = _(strings::ui_context_action);
+	control_strings[s32(Controls::TabLeft)] = _(strings::tab_left);
+	control_strings[s32(Controls::TabRight)] = _(strings::tab_right);
+
+	TextField::normal_map[s32(KeyCode::D0)] = '0';
+	TextField::normal_map[s32(KeyCode::D1)] = '1';
+	TextField::normal_map[s32(KeyCode::D2)] = '2';
+	TextField::normal_map[s32(KeyCode::D3)] = '3';
+	TextField::normal_map[s32(KeyCode::D4)] = '4';
+	TextField::normal_map[s32(KeyCode::D5)] = '5';
+	TextField::normal_map[s32(KeyCode::D6)] = '6';
+	TextField::normal_map[s32(KeyCode::D7)] = '7';
+	TextField::normal_map[s32(KeyCode::D8)] = '8';
+	TextField::normal_map[s32(KeyCode::D9)] = '9';
+	TextField::shift_map[s32(KeyCode::D0)] = ')';
+	TextField::shift_map[s32(KeyCode::D1)] = '!';
+	TextField::shift_map[s32(KeyCode::D2)] = '@';
+	TextField::shift_map[s32(KeyCode::D3)] = '#';
+	TextField::shift_map[s32(KeyCode::D4)] = '$';
+	TextField::shift_map[s32(KeyCode::D5)] = '%';
+	TextField::shift_map[s32(KeyCode::D6)] = '^';
+	TextField::shift_map[s32(KeyCode::D7)] = '&';
+	TextField::shift_map[s32(KeyCode::D8)] = '*';
+	TextField::shift_map[s32(KeyCode::D9)] = '(';
+
+	TextField::normal_map[s32(KeyCode::Space)] = ' ';
+	TextField::shift_map[s32(KeyCode::Space)] = ' ';
+
+	TextField::normal_map[s32(KeyCode::Apostrophe)] = '\'';
+	TextField::shift_map[s32(KeyCode::Apostrophe)] = '"';
+
+	TextField::normal_map[s32(KeyCode::Minus)] = '-';
+	TextField::normal_map[s32(KeyCode::Equals)] = '=';
+	TextField::normal_map[s32(KeyCode::LeftBracket)] = '[';
+	TextField::normal_map[s32(KeyCode::RightBracket)] = ']';
+	TextField::normal_map[s32(KeyCode::Comma)] = ',';
+	TextField::normal_map[s32(KeyCode::Period)] = '.';
+	TextField::normal_map[s32(KeyCode::Slash)] = '/';
+	TextField::normal_map[s32(KeyCode::Grave)] = '`';
+	TextField::normal_map[s32(KeyCode::Semicolon)] = ';';
+	TextField::normal_map[s32(KeyCode::Backslash)] = '\\';
+	TextField::shift_map[s32(KeyCode::Minus)] = '_';
+	TextField::shift_map[s32(KeyCode::Equals)] = '+';
+	TextField::shift_map[s32(KeyCode::LeftBracket)] = '{';
+	TextField::shift_map[s32(KeyCode::RightBracket)] = '}';
+	TextField::shift_map[s32(KeyCode::Comma)] = '<';
+	TextField::shift_map[s32(KeyCode::Period)] = '>';
+	TextField::shift_map[s32(KeyCode::Slash)] = '?';
+	TextField::shift_map[s32(KeyCode::Grave)] = '~';
+	TextField::shift_map[s32(KeyCode::Semicolon)] = ':';
+	TextField::shift_map[s32(KeyCode::Backslash)] = '|';
+
+	for (s32 i = 0; i <= (s32)KeyCode::Z - (s32)KeyCode::A; i++)
+	{
+		TextField::normal_map[s32(KeyCode::A) + i] = 'a' + i;
+		TextField::shift_map[s32(KeyCode::A) + i] = 'A' + i;
+	}
+
 }
 
 void dead_zone(r32* x, r32* y, r32 threshold)
@@ -432,6 +498,102 @@ b8 InputState::get(Controls c, s32 gamepad) const
 	return (gamepad == 0 && (keys.get(s32(binding.key1)) || (binding.key2 != KeyCode::None && keys.get(s32(binding.key2))))) // keys
 		|| (gamepads[gamepad].btns & (1 << s32(binding.btn))); // gamepad buttons
 #endif
+}
+
+char TextField::shift_map[127] = {};
+char TextField::normal_map[127] = {};
+
+#define TEXT_FIELD_REPEAT_DELAY 0.2f
+#define TEXT_FIELD_REPEAT_INTERVAL 0.03f
+
+TextField::TextField()
+	: value(1, 1),
+	ignored_keys(),
+	repeat_start_time(),
+	repeat_last_time()
+{
+
+}
+
+b8 TextField::update(const Update& u, s32 first_editable_index, s32 max_length)
+{
+	b8 changed = false;
+
+	b8 shift = u.input->keys.get(s32(KeyCode::LShift))
+		|| u.input->keys.get(s32(KeyCode::RShift));
+	b8 any_key_pressed = u.input->keys.any();
+	if (max_length == 0 || value.length < max_length - sizeof(u32)) // make sure we have room even for a big ol' UTF-8 character
+	{
+		for (s32 i = u.input->keys.start; i < u.input->keys.end && i < 127; i = u.input->keys.next(i))
+		{
+			b8 ignore_key = false;
+			for (s32 j = 0; j < ignored_keys.length; j++)
+			{
+				if (i == s32(ignored_keys[j]))
+				{
+					ignore_key = true;
+					break;
+				}
+			}
+			if (ignore_key)
+				continue;
+
+			char c = shift ? shift_map[i] : normal_map[i];
+			if (!c)
+				continue;
+
+			b8 add = false;
+			if (!u.last_input->keys.get(i))
+			{
+				repeat_start_time = u.real_time.total;
+				add = true;
+			}
+			else if (u.real_time.total - repeat_start_time > TEXT_FIELD_REPEAT_DELAY
+				&& u.real_time.total - repeat_last_time > TEXT_FIELD_REPEAT_INTERVAL)
+			{
+				repeat_last_time = u.real_time.total;
+				add = true;
+			}
+
+			if (add)
+			{
+				value[value.length - 1] = c;
+				value.add(0);
+				changed = true;
+				break;
+			}
+		}
+	}
+
+	if (value.length > first_editable_index + 1 && u.input->keys.get(s32(KeyCode::Backspace)))
+	{
+		any_key_pressed = true;
+
+		b8 remove = false;
+		if (!u.last_input->keys.get(s32(KeyCode::Backspace)))
+		{
+			repeat_start_time = u.real_time.total;
+			remove = true;
+		}
+		else if (u.real_time.total - repeat_start_time > TEXT_FIELD_REPEAT_DELAY
+			&& u.real_time.total - repeat_last_time > TEXT_FIELD_REPEAT_INTERVAL)
+		{
+			repeat_last_time = u.real_time.total;
+			remove = true;
+		}
+
+		if (remove)
+		{
+			value.remove(value.length - 1);
+			value[value.length - 1] = '\0';
+			changed = true;
+		}
+	}
+
+	if (!any_key_pressed)
+		repeat_start_time = 0.0f;
+
+	return changed;
 }
 
 

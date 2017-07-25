@@ -1219,7 +1219,7 @@ r32 match_timer_width()
 
 void match_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Anchor anchor_x)
 {
-	r32 remaining = vi_max(0.0f, Game::level.time_limit - Team::match_time);
+	r32 remaining = vi_max(0.0f, Game::session.config.time_limit() - Team::match_time);
 
 	Vec2 box(match_timer_width(), text_size * UI::scale);
 	r32 padding = 8.0f * UI::scale;
@@ -1251,16 +1251,16 @@ void match_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Ancho
 	UI::box(params, Rect2(p, box).outset(padding), UI::color_background);
 
 	const Vec4* color;
-	if (remaining > Game::level.time_limit * 0.5f)
+	if (remaining > Game::session.config.time_limit() * 0.5f)
 		color = &UI::color_default;
-	else if (remaining > Game::level.time_limit * 0.25f)
+	else if (remaining > Game::session.config.time_limit() * 0.25f)
 		color = &UI::color_accent();
 	else
 		color = &UI::color_alert();
 
 	{
 		b8 draw;
-		if (remaining > Game::level.time_limit * 0.2f)
+		if (remaining > Game::session.config.time_limit() * 0.2f)
 			draw = true;
 		else if (remaining > 30.0f)
 			draw = UI::flash_function_slow(Game::real_time.total);
@@ -1326,7 +1326,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	if (!manager->instance.ref() && manager->respawns != 0)
 	{
 		AssetID string;
-		if (Game::level.type == GameType::Assault)
+		if (Game::session.config.game_type == GameType::Assault)
 		{
 			if (manager->team.ref()->team() == 0)
 				string = strings::deploy_timer_defender;
@@ -1341,7 +1341,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 	}
 
-	if (Game::level.type == GameType::Assault)
+	if (Game::session.config.game_type == GameType::Assault)
 	{
 		// show remaining drones label
 		text.text(0, _(strings::drones_remaining));
@@ -1359,7 +1359,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	AI::Team team = team_mine;
 	while (true)
 	{
-		if (Game::level.type == GameType::Deathmatch)
+		if (Game::session.config.game_type == GameType::Deathmatch)
 		{
 			const Team& team_ref = Team::list[team];
 
@@ -1468,7 +1468,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		ui_anchor = vp.size * Vec2(0.9f, 0.1f) + Vec2(text_size * UI::scale * -14.0f, text_size * UI::scale * 0.5f);
 
 	// draw abilities
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::session.allow_abilities)
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::session.config.allow_abilities)
 	{
 		if (mode == UIMode::PvpDefault
 			&& get<PlayerManager>()->can_transition_state()
@@ -1513,7 +1513,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& Game::session.allow_abilities
+		&& Game::session.config.allow_abilities
 		&& (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrading))
 	{
 		// energy
@@ -1615,7 +1615,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 							if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
 								UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent(), PI);
 
-							if (Game::level.type == GameType::Assault)
+							if (Game::session.config.game_type == GameType::Assault)
 							{
 								// attacking/defending
 								UIText text;
@@ -2504,9 +2504,9 @@ void PlayerControlHuman::awake()
 
 		if (!Team::game_over && Game::level.has_feature(Game::FeatureLevel::All))
 		{
-			if (Game::level.type == GameType::Assault)
+			if (Game::session.config.game_type == GameType::Assault)
 				player.ref()->assault_status_display();
-			else if (Game::level.type == GameType::Deathmatch)
+			else if (Game::session.config.game_type == GameType::Deathmatch)
 			{
 				if (player.ref()->get<PlayerManager>()->deaths == 0)
 					player.ref()->msg(_(strings::attack), true);
@@ -3452,7 +3452,7 @@ void PlayerControlHuman::update(const Update& u)
 						}
 						case Interactable::Type::Shop:
 						{
-							Overworld::show(player.ref()->camera.ref(), Overworld::State::StoryModeOverlay, Overworld::Tab::Inventory);
+							Overworld::show(player.ref()->camera.ref(), Overworld::State::StoryModeOverlay, Overworld::StoryTab::Inventory);
 							break;
 						}
 						default:
@@ -3930,7 +3930,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 		// highlight upgrade point if there is an upgrade available
 		if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-			&& Game::session.allow_abilities
+			&& Game::session.config.allow_abilities
 			&& (Game::level.has_feature(Game::FeatureLevel::All) || Game::level.feature_level == Game::FeatureLevel::Abilities) // disable prompt in tutorial after ability has been purchased
 			&& manager->upgrade_available() && manager->upgrade_highest_owned_or_available() != player.ref()->upgrade_last_visit_highest_available
 			&& !UpgradeStation::drone_at(get<Drone>()))

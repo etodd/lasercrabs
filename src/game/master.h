@@ -81,6 +81,10 @@ enum class Message : s8
 	ExpectClient, // master telling a server to expect a certain client to connect to it
 	ClientConnect, // master telling a client to connect to a game server
 	ClientRequestServer, // a client requesting to connect to a virtual server; master will allocate it if necessary
+	ClientRequestServerList, // a client requesting a server list from the master
+	ServerList, // master responding to a client with a server list
+	ClientCreateServerConfig, // a client telling the master server to create a new server config
+	ServerConfigCreated, // master telling a client their config was created
 	WrongVersion, // master telling a server or client that it needs to upgrade
 	Disconnect,
 	count,
@@ -123,43 +127,70 @@ struct ServerState // represents the current state of a game server
 {
 	u32 id; // the virtual server configuration currently active on this game server; 0 if it's story mode
 	AssetID level;
-	s8 open_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
+	s8 player_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
 };
 
 template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)
 {
 	serialize_u32(p, s->id);
 	serialize_s16(p, s->level);
-	serialize_int(p, s8, s->open_slots, 0, MAX_PLAYERS);
+	serialize_int(p, s8, s->player_slots, 0, MAX_PLAYERS);
 	return true;
 }
+
+#define MAX_SERVER_CONFIG_NAME 127
+#define MAX_SERVER_LIST 8
 
 struct ServerConfig
 {
 	u32 id;
-	AssetID level;
-	s16 kill_limit;
-	s16 respawns;
+	StaticArray<AssetID, 32> levels;
+	s16 kill_limit = DEFAULT_ASSAULT_DRONES;
+	s16 respawns = DEFAULT_ASSAULT_DRONES;
 	SessionType session_type;
-	GameType game_type;
-	s8 open_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
-	s8 team_count;
-	u8 time_limit_minutes;
-	b8 allow_abilities;
+	GameType game_type = GameType::Assault;
+	s16 allow_abilities = 0xffff;
+	s16 start_abilities;
+	s8 max_players = 1;
+	s8 team_count = 2;
+	u8 time_limit_minutes = 6;
+	char name[MAX_SERVER_CONFIG_NAME + 1];
+	b8 allow_minions;
+	b8 is_private;
+
+	r32 time_limit() const
+	{
+		return r32(time_limit_minutes) * 60.0f;
+	}
 };
 
 template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 {
 	serialize_u32(p, c->id);
-	serialize_enum(p, GameType, c->game_type);
-	serialize_enum(p, SessionType, c->session_type);
-	serialize_s16(p, c->level);
-	serialize_int(p, s8, c->open_slots, 0, MAX_PLAYERS);
-	serialize_int(p, s8, c->team_count, 0, MAX_TEAMS);
-	serialize_s16(p, c->respawns);
-	serialize_s16(p, c->kill_limit);
-	serialize_u8(p, c->time_limit_minutes);
-	serialize_bool(p, c->allow_abilities);
+	if (c->id != 0) // 0 = story mode
+	{
+		serialize_enum(p, GameType, c->game_type);
+		serialize_enum(p, SessionType, c->session_type);
+		serialize_int(p, u16, c->levels.length, 0, c->levels.capacity());
+		for (s32 i = 0; i < c->levels.length; i++)
+			serialize_s16(p, c->levels[i]);
+		serialize_int(p, s8, c->max_players, 1, MAX_PLAYERS);
+		serialize_int(p, s8, c->team_count, 2, MAX_TEAMS);
+		serialize_s16(p, c->respawns);
+		serialize_s16(p, c->kill_limit);
+		serialize_s16(p, c->allow_abilities);
+		serialize_s16(p, c->start_abilities);
+		serialize_u8(p, c->time_limit_minutes);
+		s32 name_length;
+		if (Stream::IsWriting)
+			name_length = strlen(c->name);
+		serialize_int(p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
+		serialize_bytes(p, (u8*)c->name, name_length);
+		if (Stream::IsReading)
+			c->name[name_length] = '\0';
+		serialize_bool(p, c->allow_minions);
+		serialize_bool(p, c->is_private);
+	}
 	return true;
 }
 

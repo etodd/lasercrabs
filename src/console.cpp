@@ -7,7 +7,7 @@
 namespace VI
 {
 
-Array<char> Console::command;
+TextField Console::field;
 Array<char> Console::debug_buffer;
 Array<Console::Log> Console::logs;
 UIText Console::text;
@@ -19,13 +19,7 @@ s32 Console::fps_count = 0;
 r32 Console::fps_accumulator = 0;
 r32 Console::longest_frame_time = 0;
 b8 Console::visible = false;
-char Console::shift_map[127];
-char Console::normal_map[127];
-r32 Console::repeat_start_time = 0.0f;
-r32 Console::repeat_last_time = 0.0f;
 
-#define REPEAT_DELAY 0.2f
-#define REPEAT_INTERVAL 0.03f
 #define LOG_TIME 8.0f
 
 #define font_asset Asset::Font::pt_sans
@@ -47,67 +41,10 @@ void Console::init()
 
 	debug_buffer.resize(1);
 
-	command.resize(2);
-	command[0] = '$';
-
-	memset(normal_map, 0, sizeof(normal_map));
-	memset(shift_map, 0, sizeof(shift_map));
-
-	normal_map[s32(KeyCode::D0)] = '0';
-	normal_map[s32(KeyCode::D1)] = '1';
-	normal_map[s32(KeyCode::D2)] = '2';
-	normal_map[s32(KeyCode::D3)] = '3';
-	normal_map[s32(KeyCode::D4)] = '4';
-	normal_map[s32(KeyCode::D5)] = '5';
-	normal_map[s32(KeyCode::D6)] = '6';
-	normal_map[s32(KeyCode::D7)] = '7';
-	normal_map[s32(KeyCode::D8)] = '8';
-	normal_map[s32(KeyCode::D9)] = '9';
-	shift_map[s32(KeyCode::D0)] = ')';
-	shift_map[s32(KeyCode::D1)] = '!';
-	shift_map[s32(KeyCode::D2)] = '@';
-	shift_map[s32(KeyCode::D3)] = '#';
-	shift_map[s32(KeyCode::D4)] = '$';
-	shift_map[s32(KeyCode::D5)] = '%';
-	shift_map[s32(KeyCode::D6)] = '^';
-	shift_map[s32(KeyCode::D7)] = '&';
-	shift_map[s32(KeyCode::D8)] = '*';
-	shift_map[s32(KeyCode::D9)] = '(';
-
-	normal_map[s32(KeyCode::Space)] = ' ';
-	shift_map[s32(KeyCode::Space)] = ' ';
-
-	normal_map[s32(KeyCode::Apostrophe)] = '\'';
-	shift_map[s32(KeyCode::Apostrophe)] = '"';
-
-	normal_map[s32(KeyCode::Minus)] = '-';
-	normal_map[s32(KeyCode::Equals)] = '=';
-	normal_map[s32(KeyCode::LeftBracket)] = '[';
-	normal_map[s32(KeyCode::RightBracket)] = ']';
-	normal_map[s32(KeyCode::Comma)] = ',';
-	normal_map[s32(KeyCode::Period)] = '.';
-	normal_map[s32(KeyCode::Slash)] = '/';
-	normal_map[s32(KeyCode::Grave)] = '`';
-	normal_map[s32(KeyCode::Semicolon)] = ';';
-	normal_map[s32(KeyCode::Backslash)] = '\\';
-	shift_map[s32(KeyCode::Minus)] = '_';
-	shift_map[s32(KeyCode::Equals)] = '+';
-	shift_map[s32(KeyCode::LeftBracket)] = '{';
-	shift_map[s32(KeyCode::RightBracket)] = '}';
-	shift_map[s32(KeyCode::Comma)] = '<';
-	shift_map[s32(KeyCode::Period)] = '>';
-	shift_map[s32(KeyCode::Slash)] = '?';
-	shift_map[s32(KeyCode::Grave)] = '~';
-	shift_map[s32(KeyCode::Semicolon)] = ':';
-	shift_map[s32(KeyCode::Backslash)] = '|';
-
-	for (s32 i = 0; i <= (s32)KeyCode::Z - (s32)KeyCode::A; i++)
-	{
-		normal_map[(s32)KeyCode::A + i] = 'a' + i;
-		shift_map[(s32)KeyCode::A + i] = 'A' + i;
-	}
-
-	text.text(0, command.data);
+	field.value.resize(2);
+	field.value[0] = '$';
+	field.ignored_keys.add(KeyCode::Grave);
+	text.text(0, field.value.data);
 }
 
 void Console::update(const Update& u)
@@ -133,90 +70,27 @@ void Console::update(const Update& u)
 
 	if (visible)
 	{
-		const Font* font = Loader::font_permanent(font_asset);
-		b8 update = false;
-		b8 shift = u.input->keys.get(s32(KeyCode::LShift))
-			|| u.input->keys.get(s32(KeyCode::RShift));
-		b8 any_key_pressed = u.input->keys.any();
-		for (s32 i = u.input->keys.start; i < u.input->keys.end; i = u.input->keys.next(i))
-		{
-			if (i == s32(KeyCode::Grave))
-				continue;
-
-			char c = shift ? shift_map[i] : normal_map[i];
-			if (!c)
-				continue;
-
-			b8 add = false;
-			if (!u.last_input->keys.get(i))
-			{
-				repeat_start_time = Game::real_time.total;
-				add = true;
-			}
-			else if (Game::real_time.total - repeat_start_time > REPEAT_DELAY &&
-				Game::real_time.total - repeat_last_time > REPEAT_INTERVAL)
-			{
-				repeat_last_time = Game::real_time.total;
-				add = true;
-			}
-
-			if (add)
-			{
-				command[command.length - 1] = c;
-				command.add(0);
-				update = true;
-				break;
-			}
-		}
-
-		if (command.length > 2 && u.input->keys.get(s32(KeyCode::Backspace)))
-		{
-			any_key_pressed = true;
-
-			b8 remove = false;
-			if (!u.last_input->keys.get(s32(KeyCode::Backspace)))
-			{
-				repeat_start_time = Game::real_time.total;
-				remove = true;
-			}
-			else if (Game::real_time.total - repeat_start_time > REPEAT_DELAY &&
-				Game::real_time.total - repeat_last_time > REPEAT_INTERVAL)
-			{
-				repeat_last_time = Game::real_time.total;
-				remove = true;
-			}
-
-			if (remove)
-			{
-				command.remove(command.length - 1);
-				command[command.length - 1] = '\0';
-				update = true;
-			}
-		}
-
-		if (!any_key_pressed)
-			repeat_start_time = 0.0f;
-
+		b8 update = field.update(u, 1);
 		if (!u.input->keys.get(s32(KeyCode::Return)) && u.last_input->keys.get(s32(KeyCode::Return)))
 		{
 			visible = false;
 
-			if (strcmp(&command[1], "fps") == 0)
+			if (strcmp(&field.value[1], "fps") == 0)
 			{
 				fps_visible = !fps_visible;
 				fps_count = 0;
 				fps_accumulator = 0.0f;
 			}
 			else
-				Game::execute(&command[1]);
+				Game::execute(&field.value[1]);
 
-			command.resize(2);
-			command[1] = '\0';
+			field.value.resize(2);
+			field.value[1] = '\0';
 			update = true;
 		}
 
 		if (update)
-			text.text(0, command.data);
+			text.text(0, field.value.data);
 	}
 
 	debug_text.text(0, debug_buffer.data);

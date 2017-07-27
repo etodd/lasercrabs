@@ -160,6 +160,8 @@ namespace AK
         static const AkUniqueID PLAY_TRANSITION_IN = 1430076675U;
         static const AkUniqueID PLAY_TRANSITION_OUT = 1264068862U;
         static const AkUniqueID PLAY_TURRET_CHARGE = 3393910755U;
+        static const AkUniqueID PLAY_UPGRADE_STATION_ENTER = 3699445748U;
+        static const AkUniqueID PLAY_UPGRADE_STATION_EXIT = 214429910U;
         static const AkUniqueID PLAY_WATER_LOOP = 1564978696U;
         static const AkUniqueID PLAY_ZOOM_IN = 2626091291U;
         static const AkUniqueID PLAY_ZOOM_OUT = 1819052470U;

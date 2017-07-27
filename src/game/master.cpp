@@ -78,6 +78,7 @@ b8 Messenger::add_header(StreamWrite* p, Sock::Address addr, Message type)
 
 void Messenger::send(const StreamWrite& p, r64 timestamp, Sock::Address addr, Sock::Handle* sock)
 {
+	last_sent_timestamp = timestamp;
 	SequenceID seq = outgoing_sequence_id(addr);
 
 	OutgoingPacket* packet = outgoing.add();
@@ -123,7 +124,7 @@ b8 messenger_send_ack(SequenceID seq, Sock::Address addr, Sock::Handle* sock)
 }
 
 // returns true if the packet is in order and should be processed
-b8 Messenger::received(Message type, SequenceID seq, Sock::Address addr, Sock::Handle* sock)
+void Messenger::received(Message type, SequenceID seq, Sock::Address addr, Sock::Handle* sock)
 {
 	if (type == Message::Ack)
 	{
@@ -138,44 +139,17 @@ b8 Messenger::received(Message type, SequenceID seq, Sock::Address addr, Sock::H
 				break;
 			}
 		}
-		return true;
 	}
 	else if (type != Message::Disconnect)
 	{
 		// when we receive any kind of message other than an ack, we must send an ack back
 
-		messenger_send_ack(seq, addr, sock);
-
-		// check if sequence is more recent
-		auto i = sequence_ids.find(addr);
-		if (i == sequence_ids.end())
-		{
-			// haven't received a message from this address yet
-			Peer peer;
-			peer.incoming_seq = seq;
-			sequence_ids[addr] = peer;
-		}
-		else
-		{
-			// compare against previous messages
-			if (sequence_more_recent(seq, i->second.incoming_seq))
-				i->second.incoming_seq = seq; // update most recent sequence
-			else
-			{
-				// packet is out of order
-#if DEBUG_MSG
-				vi_debug("Discarding out-of-order seq %d message %d from %s:%hd", s32(seq), s32(type), Sock::host_to_str(addr.host), addr.port);
-#endif
-				return false;
-			}
-		}
-
 #if DEBUG_MSG
 		vi_debug("Received seq %d message %d from %s:%hd", s32(seq), s32(type), Sock::host_to_str(addr.host), addr.port);
 #endif
 
+		messenger_send_ack(seq, addr, sock);
 	}
-	return true; // packet is in order; process it
 }
 
 void Messenger::update(r64 timestamp, Sock::Handle* sock, s32 max_outgoing)

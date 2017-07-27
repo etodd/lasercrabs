@@ -680,7 +680,7 @@ void RecordedLife::Tag::init(const PlayerManager* manager)
 	upgrades = manager->upgrades;
 
 	AI::Team my_team = manager->team.ref()->team();
-	time_remaining = vi_min(255, vi_max(0, s32((Game::level.time_limit - Game::time.total) * 0.5f)));
+	time_remaining = vi_min(255, vi_max(0, s32((Game::session.config.time_limit() - Game::time.total) * 0.5f)));
 
 	enemy_upgrades = 0;
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())

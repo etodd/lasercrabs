@@ -7,6 +7,7 @@
 #include "lodepng/lodepng.h"
 #endif
 #include "cjson/cJSON.h"
+#include "data/json.h"
 #include "ai.h"
 #include "settings.h"
 

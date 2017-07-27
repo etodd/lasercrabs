@@ -95,7 +95,6 @@ namespace VI
 	{
 		{
 			const char* itch_api_key = getenv("ITCHIO_API_KEY");
-			itch_api_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJnaWQiOjY1NjUxLCJzY29wZXMiOlsicHJvZmlsZTptZSJdLCJ1aWQiOjEwOTIsImV4cCI6MTUwMTE3MjU1MH0.YJZ6A0ndrEc7vzdMUEcFeIrJVyKeGZflwPLhC3VhZeE";
 			if (itch_api_key)
 			{
 				Game::auth_type = Net::Master::AuthType::Itch;

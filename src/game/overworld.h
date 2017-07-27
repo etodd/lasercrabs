@@ -1,6 +1,7 @@
 #pragma once
 #include "types.h"
 #include "render/render.h"
+#include "master.h"
 
 struct cJSON;
 
@@ -27,17 +28,14 @@ struct ResourceInfo
 enum class State : s8
 {
 	Hidden,
-	SplitscreenSelectOptions,
-	SplitscreenSelectTeams,
-	SplitscreenSelectZone,
-	SplitscreenDeploying,
+	Multiplayer,
 	StoryMode,
 	StoryModeOverlay,
-	Deploying,
+	StoryModeDeploying,
 	count,
 };
 
-enum class Tab : s8
+enum class StoryTab : s8
 {
 	Map,
 	Inventory,
@@ -54,7 +52,7 @@ void update(const Update&);
 void draw_opaque(const RenderParams&);
 void draw_hollow(const RenderParams&);
 void draw_ui(const RenderParams&);
-void show(Camera*, State, Tab = Tab::Map);
+void show(Camera*, State, StoryTab = StoryTab::Map);
 void clear();
 void execute(const char*);
 void zone_done(AssetID);
@@ -67,6 +65,9 @@ AssetID zone_under_attack();
 r32 zone_under_attack_timer();
 void resource_change(Resource, s16);
 r32 resource_change_time(Resource);
+void master_server_list_entry(ServerListType, s32, const Net::Master::ServerListEntry&);
+void master_server_config_saved(u32, u32);
+void master_server_details_response(const Net::Master::ServerDetails&, u32);
 
 }
 

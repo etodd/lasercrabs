@@ -76,12 +76,22 @@ enum class Message : s8
 	Ack,
 	Auth, // client logging in to master
 	AuthResponse, // master responding to client with auth info
+	ReauthRequired, // master telling client to try the whole authentication process again
 	ServerStatusUpdate, // game server telling master what it's up to
 	ServerLoad, // master telling a server to load a certain level
 	ExpectClient, // master telling a server to expect a certain client to connect to it
 	ClientConnect, // master telling a client to connect to a game server
 	ClientRequestServer, // a client requesting to connect to a virtual server; master will allocate it if necessary
+	ClientRequestServerDetails, // a client requesting to connect to a virtual server; master will allocate it if necessary
+	RequestServerConfig, // a client or server requesting ServerConfig data from the master
+	ClientRequestServerList, // a client requesting a server list from the master
+	ServerList, // master responding to a client with a server list
+	ClientSaveServerConfig, // a client telling the master server to create or update a server config
+	ServerConfig, // master responding to a client or server with ServerConfig data
+	ServerDetails, // master responding to a client with ServerDetails data
+	ServerConfigSaved, // master telling a client their config was created
 	WrongVersion, // master telling a server or client that it needs to upgrade
+	Keepalive,
 	Disconnect,
 	count,
 };
@@ -103,6 +113,7 @@ struct Messenger
 		Sock::Address addr;
 	};
 
+	r64 last_sent_timestamp;
 	Array<OutgoingPacket> outgoing; // unordered, unacked messages
 	std::unordered_map<Sock::Address, Peer> sequence_ids;
 
@@ -116,50 +127,148 @@ struct Messenger
 
 	// these assume packets have already been checksummed and compressed
 	void send(const StreamWrite&, r64, Sock::Address, Sock::Handle*);
-	b8 received(Message, SequenceID, Sock::Address, Sock::Handle*); // returns true if the packet is in order and should be processed
+	void received(Message, SequenceID, Sock::Address, Sock::Handle*);
 };
 
 struct ServerState // represents the current state of a game server
 {
 	u32 id; // the virtual server configuration currently active on this game server; 0 if it's story mode
 	AssetID level;
-	s8 open_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
+	s8 player_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
 };
 
 template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)
 {
 	serialize_u32(p, s->id);
 	serialize_s16(p, s->level);
-	serialize_int(p, s8, s->open_slots, 0, MAX_PLAYERS);
+	serialize_int(p, s8, s->player_slots, 0, MAX_PLAYERS);
+	return true;
+}
+
+#define MAX_SERVER_CONFIG_NAME 127
+#define MAX_SERVER_LIST 8
+
+struct ServerListEntry
+{
+	ServerState server_state;
+	Sock::Address addr;
+	char name[MAX_SERVER_CONFIG_NAME + 1];
+	s8 max_players;
+	s8 team_count;
+	GameType game_type;
+};
+
+template<typename Stream> b8 serialize_server_list_entry(Stream* p, ServerListEntry* s)
+{
+	if (!serialize_server_state(p, &s->server_state))
+		net_error();
+
+	if (s->server_state.level != AssetNull)
+	{
+		serialize_u32(p, s->addr.host);
+		serialize_u16(p, s->addr.port);
+	}
+	else if (Stream::IsReading)
+		s->addr = {};
+
+	{
+		s32 name_length;
+		if (Stream::IsWriting)
+			name_length = strlen((const char*)s->name);
+		serialize_int(p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
+		serialize_bytes(p, (u8*)s->name, name_length);
+		if (Stream::IsReading)
+			s->name[name_length] = '\0';
+	}
+
+	serialize_enum(p, GameType, s->game_type);
+	serialize_int(p, s8, s->max_players, 2, MAX_PLAYERS);
+	serialize_int(p, s8, s->team_count, 2, MAX_TEAMS);
+
 	return true;
 }
 
 struct ServerConfig
 {
 	u32 id;
-	AssetID level;
-	s16 kill_limit;
-	s16 respawns;
-	SessionType session_type;
-	GameType game_type;
-	s8 open_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
-	s8 team_count;
-	u8 time_limit_minutes;
-	b8 allow_abilities;
+	StaticArray<AssetID, 32> levels;
+	s16 kill_limit = DEFAULT_ASSAULT_DRONES;
+	s16 respawns = DEFAULT_ASSAULT_DRONES;
+	s16 allow_upgrades = 0xffff;
+	s16 start_energy = ENERGY_INITIAL;
+	GameType game_type = GameType::Assault;
+	StaticArray<Upgrade, 3> start_upgrades;
+	s8 max_players = 1;
+	s8 team_count = 2;
+	s8 drone_shield = DRONE_SHIELD;
+	u8 time_limit_minutes = 6;
+	char name[MAX_SERVER_CONFIG_NAME + 1];
+	b8 enable_minions = true;
+	b8 is_private;
+
+	r32 time_limit() const
+	{
+		return r32(time_limit_minutes) * 60.0f;
+	}
 };
 
 template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 {
 	serialize_u32(p, c->id);
-	serialize_enum(p, GameType, c->game_type);
-	serialize_enum(p, SessionType, c->session_type);
-	serialize_s16(p, c->level);
-	serialize_int(p, s8, c->open_slots, 0, MAX_PLAYERS);
-	serialize_int(p, s8, c->team_count, 0, MAX_TEAMS);
-	serialize_s16(p, c->respawns);
-	serialize_s16(p, c->kill_limit);
-	serialize_u8(p, c->time_limit_minutes);
-	serialize_bool(p, c->allow_abilities);
+	if (c->id != 0) // 0 = story mode
+	{
+		serialize_enum(p, GameType, c->game_type);
+		serialize_int(p, u16, c->levels.length, 1, c->levels.capacity());
+		for (s32 i = 0; i < c->levels.length; i++)
+			serialize_s16(p, c->levels[i]);
+		serialize_int(p, s8, c->max_players, 1, MAX_PLAYERS);
+		serialize_int(p, s8, c->team_count, 2, MAX_TEAMS);
+		serialize_s16(p, c->respawns);
+		serialize_s16(p, c->kill_limit);
+		serialize_s16(p, c->allow_upgrades);
+		serialize_int(p, s16, c->start_energy, 0, MAX_START_ENERGY);
+		serialize_int(p, s8, c->drone_shield, 0, DRONE_SHIELD);
+		serialize_int(p, u16, c->start_upgrades.length, 0, c->start_upgrades.capacity());
+		for (s32 i = 0; i < c->start_upgrades.length; i++)
+			serialize_enum(p, Upgrade, c->start_upgrades[i]);
+		serialize_u8(p, c->time_limit_minutes);
+		s32 name_length;
+		if (Stream::IsWriting)
+			name_length = strlen(c->name);
+		serialize_int(p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
+		serialize_bytes(p, (u8*)c->name, name_length);
+		if (Stream::IsReading)
+			c->name[name_length] = '\0';
+		serialize_bool(p, c->enable_minions);
+		serialize_bool(p, c->is_private);
+	}
+	return true;
+}
+
+struct ServerDetails
+{
+	ServerConfig config;
+	ServerState state;
+	Sock::Address addr;
+	b8 is_admin;
+};
+
+template<typename Stream> b8 serialize_server_details(Stream* p, ServerDetails* d)
+{
+	if (!serialize_server_config(p, &d->config))
+		net_error();
+
+	if (!serialize_server_state(p, &d->state))
+		net_error();
+
+	if (d->state.level != AssetNull)
+	{
+		serialize_u32(p, d->addr.host);
+		serialize_u16(p, d->addr.port);
+	}
+
+	serialize_bool(p, d->is_admin);
+
 	return true;
 }
 

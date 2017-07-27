@@ -47,6 +47,7 @@
 #include "load.h"
 #include <dirent.h>
 #include "settings.h"
+#include "data/json.h"
 
 #if !SERVER
 #include "http.h"
@@ -91,21 +92,14 @@ b8 Game::attract_mode;
 #endif
 
 Game::Session::Session()
-	:
+	: type(SessionType::Story),
 #if SERVER
-	local_player_config{ AI::TeamNone, AI::TeamNone, AI::TeamNone, AI::TeamNone },
+	local_player_mask(),
 #else
-	local_player_config{ 0, AI::TeamNone, AI::TeamNone, AI::TeamNone },
+	local_player_mask(1),
 #endif
-	type(SessionType::Story),
-	player_slots(1),
-	team_count(2),
-	time_scale(1.0f),
-	time_limit(MATCH_TIME_DEFAULT),
-	game_type(GameType::Assault),
-	respawns(DEFAULT_ASSAULT_DRONES),
-	kill_limit(DEFAULT_ASSAULT_DRONES),
-	allow_abilities(true)
+	config(),
+	time_scale(1.0f)
 {
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		local_player_uuids[i] = mersenne::rand_u64();
@@ -118,13 +112,7 @@ r32 Game::Session::effective_time_scale() const
 
 s32 Game::Session::local_player_count() const
 {
-	s32 count = 0;
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
-	{
-		if (local_player_config[i] != AI::TeamNone)
-			count++;
-	}
-	return count;
+	return Net::popcount(u32(local_player_mask));
 }
 
 void Game::Session::reset()
@@ -233,6 +221,9 @@ b8 Game::init(LoopSync* sync)
 			break;
 		case Net::Master::AuthType::Itch:
 		{
+#if DEBUG
+			vi_debug("Itch auth key: %s", auth_key);
+#endif
 			char header[MAX_PATH_LENGTH + 1] = {};
 			snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", auth_key);
 			Net::Http::get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header);
@@ -301,7 +292,7 @@ b8 Game::init(LoopSync* sync)
 			}
 		}
 
-		Input::load_strings(); // loads localized strings for input bindings
+		Input::init(); // loads localized strings for input bindings. plus other stuff
 
 		// don't free the JSON objects; we'll read strings directly from them
 	}
@@ -317,6 +308,11 @@ b8 Game::init(LoopSync* sync)
 #endif
 
 	return true;
+}
+
+void Game::auth_failed()
+{
+	Menu::dialog(0, &Menu::dialog_no_action, _(strings::auth_failed_permanently));
 }
 
 void Game::update(const Update& update_in)
@@ -344,8 +340,9 @@ void Game::update(const Update& update_in)
 				&& scheduled_load_level == Asset::Level::Port_District) // we're playing locally on the title screen; need to switch to a server
 			{
 				save.zone_last = level.id; // hack to ensure hand-off works correctly
+				save.zone_current = scheduled_load_level;
 				unload_level();
-				Net::Client::request_server(0); // 0 = story mode
+				Net::Client::master_request_server(0); // 0 = story mode
 				scheduled_load_level = AssetNull;
 			}
 			else
@@ -373,6 +370,7 @@ void Game::update(const Update& update_in)
 
 	Update u = update_in;
 	u.time = time;
+	u.real_time = update_in.time;
 
 	if (update_game)
 	{
@@ -1018,12 +1016,12 @@ void game_end_cheat(b8 win)
 				return;
 		}
 
-		if (Game::level.type == GameType::Deathmatch)
-			player->kills = Game::level.kill_limit;
-		else if (Game::level.type == GameType::Assault)
+		if (Game::session.config.game_type == GameType::Deathmatch)
+			player->kills = Game::session.config.kill_limit;
+		else if (Game::session.config.game_type == GameType::Assault)
 		{
 			if (player->team.ref()->team() == 0) // defending
-				Team::match_time = Game::level.time_limit;
+				Team::match_time = Game::session.config.time_limit();
 			else // attacking
 			{
 				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
@@ -1085,7 +1083,7 @@ void Game::execute(const char* cmd)
 			unload_level();
 			save.reset();
 			save.zone_current = level;
-			Net::Client::request_server(0); // 0 = story mode
+			Net::Client::master_request_server(0); // 0 = story mode
 		}
 	}
 #endif
@@ -1402,11 +1400,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 	Array<LevelLink<SpawnPoint>> spawn_links;
 
-	level.time_limit = session.time_limit;
-	level.respawns = session.respawns;
-	level.kill_limit = session.kill_limit;
-	level.type = session.game_type;
-
 	cJSON* json = Loader::level(l);
 
 	level.mode = m;
@@ -1517,10 +1510,10 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				{
 					// shuffle teams and make sure they're packed in the array starting at 0
 					b8 lock_teams = Json::get_s32(element, "lock_teams");
-					offset = lock_teams ? 0 : mersenne::rand() % session.team_count;
+					offset = lock_teams ? 0 : mersenne::rand() % session.config.team_count;
 				}
 				for (s32 i = 0; i < MAX_TEAMS; i++)
-					level.team_lookup[i] = AI::Team((offset + i) % session.team_count);
+					level.team_lookup[i] = AI::Team((offset + i) % session.config.team_count);
 			}
 
 			level.skybox.far_plane = Json::get_r32(element, "far_plane", 100.0f);
@@ -1537,7 +1530,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			// initialize teams
 			if (m != Mode::Special || level.id == Asset::Level::Docks)
 			{
-				for (s32 i = 0; i < session.team_count; i++)
+				for (s32 i = 0; i < session.config.team_count; i++)
 				{
 					Entity* e = World::alloc<ContainerEntity>(); // team entities get awoken and finalized at the end of load_level()
 					e->create<Team>();
@@ -1545,9 +1538,9 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 				for (s32 i = 0; i < MAX_GAMEPADS; i++)
 				{
-					if (session.local_player_config[i] != AI::TeamNone)
+					if (session.local_player_mask & (1 << i))
 					{
-						AI::Team team = team_lookup(level.team_lookup, s32(session.local_player_config[i]));
+						AI::Team team = team_lookup(level.team_lookup, i % session.config.team_count);
 
 						char username[MAX_USERNAME + 1] = {};
 						if (ai_test)
@@ -1668,7 +1661,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			entity = World::alloc<StaticGeom>(Asset::Mesh::turret_base, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 			entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 
-			if (level.type == GameType::Assault)
+			if (session.config.game_type == GameType::Assault)
 			{
 				Entity* turret = World::alloc<TurretEntity>(AI::Team(0));
 				turret->get<Transform>()->absolute(absolute_pos + absolute_rot * Vec3(0, 0, TURRET_HEIGHT), absolute_rot);
@@ -1721,7 +1714,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "CoreModule"))
 		{
-			if (level.type == GameType::Assault)
+			if (session.config.game_type == GameType::Assault)
 			{
 				AI::Team team = AI::Team(Json::get_s32(element, "team"));
 				if (Team::list.count() > s32(team))
@@ -1730,7 +1723,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "ForceField"))
 		{
-			if (level.type == GameType::Assault)
+			if (session.config.game_type == GameType::Assault)
 			{
 				AI::Team team = AI::Team(Json::get_s32(element, "team"));
 				if (Team::list.count() > s32(team))
@@ -2205,7 +2198,7 @@ void Game::awake_all()
 
 	Team::awake_all();
 
-	Loader::nav_mesh(level.id, level.type);
+	Loader::nav_mesh(level.id, session.config.game_type);
 }
 
 

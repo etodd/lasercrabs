@@ -238,6 +238,8 @@ set(SRC
 	src/data/ragdoll.h
 	src/data/ragdoll.cpp
 	src/data/priority_queue.h
+	src/data/json.h
+	src/data/json.cpp
 	src/render/render.h
 	src/render/render.cpp
 	src/render/views.h
@@ -408,6 +410,8 @@ if (SERVER)
 		src/data/array.h
 		src/data/pin_array.h
 		src/data/priority_queue.h
+		src/data/json.h
+		src/data/json.cpp
 		src/net_serialize.h
 		src/net_serialize.cpp
 		src/vi_assert.h
@@ -689,6 +693,8 @@ if (NOT PLAYSTATION)
 		src/lmath.h
 		src/lmath.cpp
 		src/import.cpp
+		src/data/json.h
+		src/data/json.cpp
 		${GLVM_IMPORT}
 	)
 	#enable_unity_build(import SRC_IMPORT)

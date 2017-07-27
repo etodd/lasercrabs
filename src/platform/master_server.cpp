@@ -17,6 +17,7 @@
 #include "sqlite/sqlite3.h"
 #include "http.h"
 #include "mersenne/mersenne-twister.h"
+#include "data/json.h"
 
 namespace VI
 {
@@ -91,11 +92,11 @@ namespace Master
 
 #define MASTER_AUDIT_INTERVAL 1.12 // remove inactive nodes every x seconds
 #define MASTER_MATCH_INTERVAL 0.25 // run matchmaking searches every x seconds
-#define MASTER_INACTIVE_THRESHOLD 7.0 // remove node if it's inactive for x seconds
-#define MASTER_CLIENT_CONNECTION_TIMEOUT 8.0 // clients have x seconds to connect to a server once we tell them to
+#define MASTER_INACTIVE_THRESHOLD 10.0 // remove node if it's inactive for x seconds
+#define MASTER_CLIENT_CONNECTION_TIMEOUT 10.0 // clients have x seconds to connect to a server once we tell them to
 #define MASTER_SETTINGS_FILE "config.txt"
 #define MASTER_TOKEN_TIMEOUT (86400 * 2)
-#define MASTER_SERVER_LOAD_TIMEOUT 8.0
+#define MASTER_SERVER_LOAD_TIMEOUT 10.0
 
 	namespace Settings
 	{
@@ -147,6 +148,7 @@ namespace Master
 	};
 
 	std::unordered_map<Sock::Address, Node> nodes;
+	std::unordered_map<u32, Sock::Address> server_config_map;
 	Sock::Handle sock;
 	Messenger messenger;
 	Array<Sock::Address> servers;
@@ -178,7 +180,7 @@ namespace Master
 
 	void db_bind_text(sqlite3_stmt* stmt, s32 index, const char* text)
 	{
-		if (sqlite3_bind_text(stmt, index + 1, text, -1, SQLITE_STATIC))
+		if (sqlite3_bind_text(stmt, index + 1, text, -1, SQLITE_TRANSIENT))
 		{
 			fprintf(stderr, "SQL: Could not bind text at index %d.\nError: %s", index, sqlite3_errmsg(db));
 			vi_assert(false);
@@ -261,6 +263,34 @@ namespace Master
 			return &i->second;
 	}
 
+	Node* server_for_config_id(u32 id)
+	{
+		auto i = server_config_map.find(id);
+		if (i == server_config_map.end())
+			return nullptr;
+		else
+			return node_for_address(i->second);
+	}
+
+	void server_state_for_config_id(u32 id, s8 max_players, ServerState* state, Sock::Address* addr = nullptr)
+	{
+		Node* server = server_for_config_id(id);
+		if (server) // a server is running this config
+		{
+			*state = server->server_state;
+			if (addr)
+				*addr = server->addr;
+		}
+		else // config is not running on any server
+		{
+			state->id = id;
+			state->player_slots = max_players;
+			state->level = AssetNull;
+			if (addr)
+				*addr = {};
+		}
+	}
+
 	void server_remove_clients_connecting(Node* server)
 	{
 		// reset any clients trying to connect to this server
@@ -278,26 +308,127 @@ namespace Master
 		}
 	}
 
-	void client_desired_server_config(Node* client, ServerConfig* config)
+	void server_config_parse(const char* text, ServerConfig* config)
 	{
-		config->id = client->server_state.id;
-		config->level = client->server_state.level;
-		if (client->save)
+		// id, name, game_type, team_count, and is_private are stored in DB row, not here
+
+		cJSON* json = cJSON_Parse(text);
+
 		{
-			vi_assert(config->id == 0);
-			config->game_type = GameType::Assault;
-			config->session_type = SessionType::Story;
-			config->kill_limit = 0;
-			config->respawns = DEFAULT_ASSAULT_DRONES;
-			config->open_slots = 1;
-			config->team_count = 2;
-			config->time_limit_minutes = 7;
-			config->allow_abilities = true;
+			cJSON* levels = cJSON_GetObjectItem(json, "levels");
+			cJSON* level = levels->child;
+			while (level)
+			{
+				config->levels.add(level->valueint);
+				level = level->next;
+			}
+		}
+		config->kill_limit = s16(Json::get_s32(json, "kill_limit", DEFAULT_ASSAULT_DRONES));
+		config->respawns = s16(Json::get_s32(json, "respawns", DEFAULT_ASSAULT_DRONES));
+		config->allow_upgrades = s16(Json::get_s32(json, "allow_upgrades", 0xffff));
+		{
+			cJSON* start_upgrades = cJSON_GetObjectItem(json, "start_upgrades");
+			cJSON* u = start_upgrades->child;
+			while (u)
+			{
+				config->start_upgrades.add(Upgrade(u->valueint));
+				u = u->next;
+			}
+		}
+		config->max_players = s16(Json::get_s32(json, "max_players", 4));
+		config->time_limit_minutes = s8(Json::get_s32(json, "time_limit_minutes", 6));
+		config->enable_minions = b8(Json::get_s32(json, "enable_minions", 1));
+		config->drone_shield = s8(Json::get_s32(json, "drone_shield", DRONE_SHIELD));
+		config->start_energy = b8(Json::get_s32(json, "start_energy"));
+		cJSON_Delete(json);
+	}
+
+	// caller must free() the returned string
+	char* server_config_stringify(const ServerConfig& config)
+	{
+		// id, name, game_type, team_count, and is_private are stored in DB row, not here
+
+		cJSON* json = cJSON_CreateObject();
+
+		{
+			cJSON* levels = cJSON_CreateArray();
+			cJSON_AddItemToObject(json, "levels", levels);
+			for (s32 i = 0; i < config.levels.length; i++)
+				cJSON_AddItemToArray(levels, cJSON_CreateNumber(config.levels[i]));
+		}
+		cJSON_AddNumberToObject(json, "kill_limit", config.kill_limit);
+		cJSON_AddNumberToObject(json, "respawns", config.respawns);
+		cJSON_AddNumberToObject(json, "allow_upgrades", config.allow_upgrades);
+		{
+			cJSON* start_upgrades = cJSON_CreateArray();
+			cJSON_AddItemToObject(json, "start_upgrades", start_upgrades);
+			for (s32 i = 0; i < config.start_upgrades.length; i++)
+				cJSON_AddItemToArray(start_upgrades, cJSON_CreateNumber(s32(config.start_upgrades[i])));
+		}
+		cJSON_AddNumberToObject(json, "max_players", config.max_players);
+		cJSON_AddNumberToObject(json, "time_limit_minutes", config.time_limit_minutes);
+		cJSON_AddNumberToObject(json, "enable_minions", config.enable_minions);
+		cJSON_AddNumberToObject(json, "drone_shield", config.drone_shield);
+		cJSON_AddNumberToObject(json, "start_energy", config.start_energy);
+
+		char* result = cJSON_Print(json);
+		cJSON_Delete(json);
+		return result; // caller must free() it
+	}
+
+	b8 server_config_get(u32 id, ServerConfig* config)
+	{
+		config->id = id;
+		vi_assert(id > 0);
+		sqlite3_stmt* stmt = db_query("select name, config, max_players, team_count, game_type, is_private from ServerConfig where id=?;");
+		db_bind_int(stmt, 0, id);
+		b8 found = false;
+		if (db_step(stmt))
+		{
+			memset(config->name, 0, sizeof(config->name));
+			strncpy(config->name, (const char*)db_column_text(stmt, 0), MAX_SERVER_CONFIG_NAME);
+			server_config_parse((const char*)db_column_text(stmt, 1), config);
+			config->max_players = db_column_int(stmt, 2);
+			config->team_count = db_column_int(stmt, 3);
+			config->game_type = GameType(db_column_int(stmt, 4));
+			config->is_private = b8(db_column_int(stmt, 5));
+			found = true;
+		}
+		db_finalize(stmt);
+		return found;
+	}
+
+	b8 user_is_admin(u32 user_id, u32 config_id)
+	{
+		sqlite3_stmt* stmt = db_query("select is_admin from UserServer where user_id=? and server_id=? limit 1;");
+		db_bind_int(stmt, 0, user_id);
+		db_bind_int(stmt, 1, config_id);
+		if (db_step(stmt))
+			return b8(db_column_int(stmt, 0));
+		else
+			return false;
+	}
+
+	b8 server_details_get(u32 config_id, u32 user_id, ServerDetails* details)
+	{
+		if (server_config_get(config_id, &details->config))
+		{
+			server_state_for_config_id(config_id, details->config.max_players, &details->state, &details->addr);
+			details->is_admin = user_is_admin(user_id, config_id);
+			return true;
+		}
+		return false;
+	}
+
+	b8 client_desired_server_config(Node* client, ServerConfig* config)
+	{
+		if (client->server_state.id == 0)
+		{
+			config->id = 0; // story mode
+			return true;
 		}
 		else
-		{
-			// todo: pull server config from database
-		}
+			return server_config_get(client->server_state.id, config);
 	}
 
 	b8 send_auth_response(Sock::Address addr, UserKey* key)
@@ -314,6 +445,17 @@ namespace Master
 			serialize_u32(&p, key->id);
 			serialize_u32(&p, key->token);
 		}
+		packet_finalize(&p);
+		messenger.send(p, timestamp, addr, &sock);
+		return true;
+	}
+
+	b8 send_reauth_required(Sock::Address addr)
+	{
+		using Stream = StreamWrite;
+		StreamWrite p;
+		packet_init(&p);
+		messenger.add_header(&p, addr, Message::ReauthRequired);
 		packet_finalize(&p);
 		messenger.send(p, timestamp, addr, &sock);
 		return true;
@@ -433,6 +575,9 @@ namespace Master
 		{
 			// it's a server; remove from the server list
 			vi_debug("Server %s:%hd disconnected.", Sock::host_to_str(addr.host), addr.port);
+			if (node->server_state.id)
+				server_config_map.erase(node->server_state.id);
+
 			for (s32 i = 0; i < servers.length; i++)
 			{
 				if (servers[i].equals(addr))
@@ -466,42 +611,55 @@ namespace Master
 		messenger.remove(addr);
 	}
 
+	// returns true if the user is an admin of the given server
+	b8 update_user_server_linkage(u32 user_id, u32 server_id, b8 make_admin = false)
+	{
+		b8 is_admin = false;
+
+		// this is a custom ServerConfig; find out if the user is an admin of it
+		sqlite3_stmt* stmt = db_query("select is_admin from UserServer where user_id=? and server_id=? limit 1;");
+		db_bind_int(stmt, 0, user_id);
+		db_bind_int(stmt, 1, server_id);
+		if (db_step(stmt))
+		{
+			is_admin = b8(db_column_int(stmt, 0));
+			if (make_admin)
+				is_admin = true;
+
+			// update existing linkage
+			{
+				sqlite3_stmt* stmt = db_query("update UserServer set timestamp=?, is_admin=? where user_id=? and server_id=?;");
+				db_bind_int(stmt, 0, platform::timestamp());
+				db_bind_int(stmt, 1, is_admin);
+				db_bind_int(stmt, 2, user_id);
+				db_bind_int(stmt, 3, server_id);
+				db_exec(stmt);
+			}
+		}
+		else
+		{
+			// add new linkage
+			if (make_admin)
+				is_admin = true;
+			sqlite3_stmt* stmt = db_query("insert into UserServer (timestamp, user_id, server_id, is_admin) values (?, ?, ?, ?);");
+			db_bind_int(stmt, 0, platform::timestamp());
+			db_bind_int(stmt, 1, user_id);
+			db_bind_int(stmt, 2, server_id);
+			db_bind_int(stmt, 3, is_admin);
+			db_exec(stmt);
+		}
+		db_finalize(stmt);
+
+		return is_admin;
+	}
+
 	b8 send_server_expect_client(Node* server, UserKey* user)
 	{
 		using Stream = StreamWrite;
 
 		b8 is_admin = false;
 		if (server->server_state.id != 0) // 0 = story mode
-		{
-			// this is a custom VirtualServer; find out if the user is an admin of it
-			sqlite3_stmt* stmt = db_query("select is_admin from UserServer where user_id=? and server_id=? limit 1;");
-			db_bind_int(stmt, 0, user->id);
-			db_bind_int(stmt, 1, server->server_state.id);
-			if (db_step(stmt))
-			{
-				is_admin = b8(db_column_int(stmt, 0));
-
-				// update existing linkage
-				{
-					sqlite3_stmt* stmt = db_query("update UserServer set timestamp=? where user_id=? and server_id=?;");
-					db_bind_int(stmt, 0, platform::timestamp());
-					db_bind_int(stmt, 1, user->id);
-					db_bind_int(stmt, 2, server->server_state.id);
-					db_exec(stmt);
-				}
-			}
-			else
-			{
-				// add new linkage
-				sqlite3_stmt* stmt = db_query("insert into UserServer (timestamp, user_id, server_id, is_admin) values (?, ?, ?, ?);");
-				db_bind_int(stmt, 0, platform::timestamp());
-				db_bind_int(stmt, 1, user->id);
-				db_bind_int(stmt, 2, server->server_state.id);
-				db_bind_int(stmt, 3, 0);
-				db_exec(stmt);
-			}
-			db_finalize(stmt);
-		}
+			is_admin = update_user_server_linkage(user->id, server->server_state.id);
 
 		StreamWrite p;
 		packet_init(&p);
@@ -518,18 +676,21 @@ namespace Master
 	{
 		using Stream = StreamWrite;
 
-		ServerConfig config;
-		client_desired_server_config(client, &config);
-
 		server->transition(Node::State::ServerLoading);
-		server->server_state.id = config.id;
-		server->server_state.level = config.level;
+		server->server_state.id = client->server_state.id;
+		server->server_state.level = client->server_state.level;
 
 		StreamWrite p;
 		packet_init(&p);
 		messenger.add_header(&p, server->addr, Message::ServerLoad);
-
-		if (!serialize_server_config(&p, &config))
+		
+		ServerConfig config;
+		if (client_desired_server_config(client, &config))
+		{
+			if (!serialize_server_config(&p, &config))
+				net_error();
+		}
+		else
 			net_error();
 
 		vi_assert(b8(client->save) == (config.id == 0));
@@ -541,6 +702,158 @@ namespace Master
 
 		packet_finalize(&p);
 		messenger.send(p, timestamp, server->addr, &sock);
+		return true;
+	}
+
+	b8 send_server_config_saved(Node* client, u32 config_id, u32 request_id)
+	{
+		using Stream = StreamWrite;
+		StreamWrite p;
+		packet_init(&p);
+		messenger.add_header(&p, client->addr, Message::ServerConfigSaved);
+		serialize_u32(&p, config_id);
+		serialize_u32(&p, request_id);
+		packet_finalize(&p);
+		messenger.send(p, timestamp, client->addr, &sock);
+		return true;
+	}
+
+	b8 send_server_config(const Sock::Address& addr, const ServerConfig& config, u32 request_id)
+	{
+		using Stream = StreamWrite;
+		StreamWrite p;
+		packet_init(&p);
+		messenger.add_header(&p, addr, Message::ServerConfig);
+
+		serialize_u32(&p, request_id);
+
+		{
+			ServerConfig c = config;
+			if (!serialize_server_config(&p, &c))
+				net_error();
+		}
+
+		packet_finalize(&p);
+		messenger.send(p, timestamp, addr, &sock);
+		return true;
+	}
+
+	b8 send_server_details(const Sock::Address& addr, const ServerDetails& details, u32 request_id)
+	{
+		using Stream = StreamWrite;
+		StreamWrite p;
+		packet_init(&p);
+		messenger.add_header(&p, addr, Message::ServerDetails);
+
+		serialize_u32(&p, request_id);
+
+		{
+			ServerDetails d = details;
+			if (!serialize_server_details(&p, &d))
+				net_error();
+		}
+
+		packet_finalize(&p);
+		messenger.send(p, timestamp, addr, &sock);
+		return true;
+	}
+
+	sqlite3_stmt* server_list_query(Node* client, ServerListType type, s32 offset)
+	{
+		sqlite3_stmt* stmt;
+		switch (type)
+		{
+			case ServerListType::Browse:
+			{
+				stmt = db_query("select id, name, max_players, team_count, game_type from ServerConfig where is_private=0 limit ?,24");
+				db_bind_int(stmt, 0, offset);
+				break;
+			}
+			case ServerListType::Recent:
+			{
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id where UserServer.user_id=? order by UserServer.timestamp desc limit ?,24");
+				db_bind_int(stmt, 0, client->user_key.id);
+				db_bind_int(stmt, 1, offset);
+				break;
+			}
+			case ServerListType::Mine:
+			{
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id where UserServer.user_id=? and UserServer.is_admin=1 order by UserServer.timestamp desc limit ?,24");
+				db_bind_int(stmt, 0, client->user_key.id);
+				db_bind_int(stmt, 1, offset);
+				break;
+			}
+			default:
+				vi_assert(false);
+				break;
+		}
+
+		return stmt;
+	}
+
+	b8 send_server_list_fragment(Node* client, ServerListType type, sqlite3_stmt* stmt, s32* offset, b8* done)
+	{
+		using Stream = Net::StreamWrite;
+
+		Net::StreamWrite p;
+		packet_init(&p);
+		messenger.add_header(&p, client->addr, Message::ServerList);
+
+		serialize_enum(&p, ServerListType, type);
+
+		*done = false;
+		s32 count = 0;
+		while (true)
+		{
+			if (!db_step(stmt))
+			{
+				*done = true;
+				break;
+			}
+			serialize_s32(&p, *offset);
+
+			ServerListEntry entry;
+
+			u32 id = db_column_int(stmt, 0);
+			strncpy(entry.name, (const char*)db_column_text(stmt, 1), MAX_SERVER_CONFIG_NAME);
+			entry.max_players = db_column_int(stmt, 2);
+			entry.team_count = db_column_int(stmt, 3);
+			entry.game_type = GameType(db_column_int(stmt, 4));
+
+			server_state_for_config_id(id, entry.max_players, &entry.server_state, &entry.addr);
+
+			if (!serialize_server_list_entry(&p, &entry))
+				net_error();
+
+			(*offset)++;
+
+			if (count == MAX_SERVER_LIST)
+				break;
+			count++;
+		}
+
+		{
+			s32 index = -1;
+			serialize_s32(&p, index); // done
+		}
+
+		packet_finalize(&p);
+		messenger.send(p, timestamp, client->addr, &sock);
+		return true;
+	}
+
+	b8 send_server_list(Node* client, ServerListType type, s32 offset)
+	{
+		offset = vi_max(offset - 12, 0);
+		sqlite3_stmt* stmt = server_list_query(client, type, offset);
+		while (true)
+		{
+			b8 done;
+			send_server_list_fragment(client, type, stmt, &offset, &done);
+			if (done)
+				break;
+		}
+		db_finalize(stmt);
 		return true;
 	}
 
@@ -582,10 +895,10 @@ namespace Master
 		vi_assert(server->state == Node::State::ServerLoading
 			|| server->state == Node::State::ServerActive
 			|| server->state == Node::State::ServerIdle);
-		return server->server_state.open_slots - server_client_slots_connecting(server);
+		return server->server_state.player_slots - server_client_slots_connecting(server);
 	}
 
-	void server_update_state(Node* server, const ServerState& s, b8 active)
+	void server_update_state(Node* server, const ServerState& s)
 	{
 		if (server->state == Node::State::Invalid)
 		{
@@ -594,23 +907,32 @@ namespace Master
 			servers.add(server->addr);
 		}
 
-		server->transition(active ? Node::State::ServerActive : Node::State::ServerIdle);
+		server->transition(s.level == AssetNull ? Node::State::ServerIdle : Node::State::ServerActive);
 
-		s8 original_open_slots = server->server_state.open_slots;
+		if (server->server_state.id && s.level == AssetNull)
+			server_config_map.erase(server->server_state.id);
+
+		if (s.id)
+		{
+			vi_assert(s.level != AssetNull);
+			server_config_map[s.id] = server->addr;
+		}
+
+		s8 original_open_slots = server->server_state.player_slots;
 		server->server_state = s;
 		s8 clients_connecting_count = server_client_slots_connecting(server);
 		if (clients_connecting_count > 0)
 		{
 			// there are clients trying to connect to this server
 			// check if the server has registered that these clients have connected
-			if (s.open_slots <= server->server_state.open_slots - clients_connecting_count)
+			if (s.player_slots <= server->server_state.player_slots - clients_connecting_count)
 			{
 				// the clients have connected, all's well
 				// remove ClientConnection records
 				server_remove_clients_connecting(server);
 			}
 			else // clients have not connected yet, maintain old slot count
-				server->server_state.open_slots = original_open_slots;
+				server->server_state.player_slots = original_open_slots;
 		}
 	}
 
@@ -621,24 +943,28 @@ namespace Master
 		serialize_u32(p, key.id);
 		serialize_u32(p, key.token);
 
-		if (node->user_key.equals(key)) // already authenticated
-			return true;
-		else if (node->user_key.id == 0 && node->user_key.token == 0) // user hasn't been authenticated yet
+		if (key.id != 0)
 		{
-			sqlite3_stmt* stmt = db_query("select token, token_timestamp from User where id=? limit 1;");
-			db_bind_int(stmt, 0, key.id);
-			if (db_step(stmt))
+			if (node->user_key.equals(key)) // already authenticated
+				return true;
+			else if (node->user_key.id == 0 && node->user_key.token == 0) // user hasn't been authenticated yet
 			{
-				s64 token = db_column_int(stmt, 0);
-				s64 token_timestamp = db_column_int(stmt, 1);
-				if (u32(token) == key.token && platform::timestamp() - token_timestamp < MASTER_TOKEN_TIMEOUT)
+				sqlite3_stmt* stmt = db_query("select token, token_timestamp from User where id=? limit 1;");
+				db_bind_int(stmt, 0, key.id);
+				if (db_step(stmt))
 				{
-					node->user_key = key;
-					return true;
+					s64 token = db_column_int(stmt, 0);
+					s64 token_timestamp = db_column_int(stmt, 1);
+					if (u32(token) == key.token && platform::timestamp() - token_timestamp < MASTER_TOKEN_TIMEOUT)
+					{
+						node->user_key = key;
+						return true;
+					}
 				}
 			}
 		}
 
+		send_reauth_required(node->addr);
 		return false;
 	}
 
@@ -647,13 +973,8 @@ namespace Master
 		// if the user is requesting to connect to a virtual server that is already active, they can connect immediately
 		if (!client->save)
 		{
-			// check live nodes and see if any of them are running the given virtual server config
-			for (s32 i = 0; i < servers.length; i++)
-			{
-				Node* server = node_for_address(servers[i]);
-				if (server->server_state.id == client->server_state.id)
-					return server;
-			}
+			vi_assert(client->server_state.id);
+			return server_for_config_id(client->server_state.id);
 		}
 
 		return nullptr;
@@ -680,7 +1001,7 @@ namespace Master
 		connection->timestamp = timestamp;
 		connection->server = server->addr;
 		connection->client = client->addr;
-		connection->slots = client->server_state.open_slots;
+		connection->slots = client->server_state.player_slots;
 
 		client->transition(Node::State::ClientConnecting);
 	}
@@ -713,8 +1034,7 @@ namespace Master
 		serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 		Message type;
 		serialize_enum(p, Message, type);
-		if (!messenger.received(type, seq, addr, &sock))
-			return false; // out of order
+		messenger.received(type, seq, addr, &sock);
 
 		Node* node = node_add_or_get(addr);
 		node->last_message_timestamp = timestamp;
@@ -722,6 +1042,7 @@ namespace Master
 		switch (type)
 		{
 			case Message::Ack:
+			case Message::Keepalive:
 			{
 				break;
 			}
@@ -794,6 +1115,17 @@ namespace Master
 							net_error();
 						}
 					}
+					else
+					{
+						// check if requested config exists
+						sqlite3_stmt* stmt = db_query("select count(1) from ServerConfig where id=? limit 1;");
+						db_bind_int(stmt, 0, requested_server_id);
+						db_step(stmt);
+						s64 count = db_column_int(stmt, 0);
+						db_finalize(stmt);
+						if (count == 0)
+							net_error();
+					}
 					node->server_state.id = requested_server_id;
 					if (node->save)
 						node->server_state.level = node->save->zone_current;
@@ -809,14 +1141,130 @@ namespace Master
 					net_error();
 				break;
 			}
+			case Message::RequestServerConfig:
+			{
+				if (!check_user_key(p, node))
+					return false;
+
+				u32 request_id;
+				serialize_u32(p, request_id);
+
+				u32 config_id;
+				serialize_u32(p, config_id);
+
+				if (config_id == 0) // story mode
+					net_error();
+				else
+				{
+					ServerConfig config;
+					if (server_config_get(config_id, &config))
+						send_server_config(node->addr, config, request_id);
+					else
+						net_error();
+				}
+
+				break;
+			}
+			case Message::ClientRequestServerDetails:
+			{
+				if (!check_user_key(p, node))
+					return false;
+
+				u32 request_id;
+				serialize_u32(p, request_id);
+
+				u32 config_id;
+				serialize_u32(p, config_id);
+
+				if (config_id == 0) // story mode
+					net_error();
+				else
+				{
+					ServerDetails details;
+					if (server_details_get(config_id, node->user_key.id, &details))
+						send_server_details(node->addr, details, request_id);
+					else
+						net_error();
+				}
+
+				break;
+			}
+			case Message::ClientSaveServerConfig:
+			{
+				if (!check_user_key(p, node))
+					return false;
+
+				u32 request_id;
+				serialize_u32(p, request_id);
+				b8 create_new;
+				serialize_bool(p, create_new);
+				ServerConfig config;
+				if (!serialize_server_config(p, &config))
+					net_error();
+
+				u32 config_id;
+				if (create_new)
+				{
+					// create config in db
+					sqlite3_stmt* stmt = db_query("insert into ServerConfig (creator_id, name, config, max_players, team_count, game_type, is_private) values (?, ?, ?, ?, ?, ?, ?);");
+					db_bind_int(stmt, 0, node->user_key.id);
+					db_bind_text(stmt, 1, config.name);
+					char* json = server_config_stringify(config);
+					db_bind_text(stmt, 2, json);
+					free(json);
+					db_bind_int(stmt, 3, config.max_players);
+					db_bind_int(stmt, 4, config.team_count);
+					db_bind_int(stmt, 5, config.is_private);
+					db_bind_int(stmt, 6, s32(config.game_type));
+					config_id = db_exec(stmt);
+				}
+				else
+				{
+					// updating an existing config
+					// check if the user actually has privileges to edit it
+					if (!user_is_admin(node->user_key.id, config.id))
+						net_error();
+					sqlite3_stmt* stmt = db_query("update ServerConfig set name=?, config=?, max_players=?, team_count=?, game_type=?, is_private=? where id=?;");
+					db_bind_text(stmt, 0, config.name);
+					char* json = server_config_stringify(config);
+					db_bind_text(stmt, 1, json);
+					free(json);
+					db_bind_int(stmt, 2, config.max_players);
+					db_bind_int(stmt, 3, config.team_count);
+					db_bind_int(stmt, 4, s32(config.game_type));
+					db_bind_int(stmt, 5, config.is_private);
+					db_bind_int(stmt, 6, config.id);
+					db_exec(stmt);
+					config_id = config.id;
+				}
+
+				update_user_server_linkage(node->user_key.id, config_id, true); // true = make them an admin
+
+				send_server_config_saved(node, config_id, request_id);
+
+				break;
+			}
+			case Message::ClientRequestServerList:
+			{
+				if (!check_user_key(p, node))
+					return false;
+
+				ServerListType type;
+				serialize_enum(p, ServerListType, type);
+				s32 offset;
+				serialize_s32(p, offset);
+				if (offset < 0)
+					return false;
+
+				send_server_list(node, type, offset);
+				break;
+			}
 			case Message::ServerStatusUpdate:
 			{
 				s32 secret;
 				serialize_s32(p, secret);
 				if (secret != Settings::secret)
 					net_error();
-				b8 active;
-				serialize_bool(p, active);
 				ServerState s;
 				if (!serialize_server_state(p, &s))
 					net_error();
@@ -824,9 +1272,9 @@ namespace Master
 				{
 					if (node->state_change_timestamp > timestamp - MASTER_SERVER_LOAD_TIMEOUT)
 					{
-						if (active && s.id == node->server_state.id && s.level == node->server_state.level) // done loading
+						if (s.id == node->server_state.id) // done loading
 						{
-							server_update_state(node, s, active);
+							server_update_state(node, s);
 
 							// tell clients to connect to this server
 							for (s32 i = 0; i < clients_connecting.length; i++)
@@ -840,14 +1288,14 @@ namespace Master
 					else
 					{
 						// load timed out
-						server_update_state(node, s, active);
+						server_update_state(node, s);
 					}
 				}
 				else if (node->state == Node::State::Invalid
 					|| node->state == Node::State::ServerActive
 					|| node->state == Node::State::ServerIdle)
 				{
-					server_update_state(node, s, active);
+					server_update_state(node, s);
 				}
 				break;
 			}
@@ -899,8 +1347,8 @@ namespace Master
 			if (init_db)
 			{
 				db_exec("create table User (id integer primary key autoincrement, token integer not null, token_timestamp integer not null, itch_id integer, steam_id integer, username varchar(256) not null, unique(itch_id), unique(steam_id));");
-				db_exec("create table VirtualServer (id integer primary key autoincrement, name text not null, config text not null);");
-				db_exec("create table UserServer (user_id not null, server_id not null, timestamp integer not null, is_admin boolean not null, foreign key (user_id) references User(id), foreign key (server_id) references Server(id));");
+				db_exec("create table ServerConfig (id integer primary key autoincrement, creator_id integer not null, name text not null, config text, max_players integer not null, team_count integer not null, game_type integer not null, is_private boolean not null, foreign key (creator_id) references User(id));");
+				db_exec("create table UserServer (user_id not null, server_id not null, timestamp integer not null, is_admin boolean not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id));");
 			}
 		}
 
@@ -921,11 +1369,7 @@ namespace Master
 				cJSON* json = cJSON_Parse(data);
 				if (json)
 				{
-					{
-						cJSON* secret = cJSON_GetObjectItem(json, "secret");
-						if (secret)
-							Settings::secret = secret->valueint;
-					}
+					Settings::secret = Json::get_s32(json, "secret");
 					{
 						cJSON* public_ip = cJSON_GetObjectItem(json, "public_ip");
 						if (public_ip)
@@ -986,7 +1430,7 @@ namespace Master
 							// since there are clients connecting to this server, we've been ignoring its updates telling us how many open slots it has
 							// we need to manually update the open slot count until the server gives us a fresh count
 							// don't try to fill these slots until the server tells us for sure they're available
-							server->server_state.open_slots -= c.slots;
+							server->server_state.player_slots -= c.slots;
 						}
 
 						clients_connecting.remove(i);
@@ -1028,7 +1472,7 @@ namespace Master
 					Node* server = client_requested_server(client);
 					if (server)
 					{
-						if (server_open_slots(server) >= client->server_state.open_slots)
+						if (server_open_slots(server) >= client->server_state.player_slots)
 						{
 							client_connect_to_existing_server(client, server);
 							i--; // client has been removed from clients_waiting

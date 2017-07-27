@@ -73,7 +73,9 @@ struct UIScroll
 	void scroll_into_view(s32);
 	void start(const RenderParams&, const Vec2&) const;
 	void end(const RenderParams&, const Vec2&) const;
-	b8 item(s32) const;
+	s32 top() const;
+	s32 bottom(s32) const;
+	b8 visible(s32) const;
 };
 
 struct LoopSync;

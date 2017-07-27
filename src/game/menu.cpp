@@ -277,6 +277,10 @@ void refresh_variables(const InputState& input)
 		UIText::variable_add(i, "Scoreboard", gamepad.bindings[s32(Controls::Scoreboard)].string(type));
 		UIText::variable_add(i, "Jump", gamepad.bindings[s32(Controls::Jump)].string(type));
 		UIText::variable_add(i, "Parkour", gamepad.bindings[s32(Controls::Parkour)].string(type));
+		UIText::variable_add(i, "UIContextAction", gamepad.bindings[s32(Controls::UIContextAction)].string(type));
+		UIText::variable_add(i, "UIAcceptText", gamepad.bindings[s32(Controls::UIAcceptText)].string(type));
+		UIText::variable_add(i, "TabLeft", gamepad.bindings[s32(Controls::TabLeft)].string(type));
+		UIText::variable_add(i, "TabRight", gamepad.bindings[s32(Controls::TabRight)].string(type));
 	}
 }
 
@@ -322,8 +326,8 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			{
 				Game::save.reset();
 				Game::session.reset();
-				Game::session.type = SessionType::Custom;
-				Game::session.game_type = GameType::Assault;
+				Game::session.type = SessionType::Multiplayer;
+				Game::session.config.game_type = GameType::Assault;
 				Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
 				clear();
 			}
@@ -1201,7 +1205,7 @@ b8 UIMenu::add_item(b8 slider, const char* string, const char* value, b8 disable
 	item->value.anchor_x = UIText::Anchor::Center;
 	item->value.text(gamepad, value);
 
-	if (!scroll.item(items.length - 1)) // this item is not visible
+	if (!scroll.visible(items.length - 1))
 		return false;
 
 	return true;
@@ -1272,13 +1276,17 @@ r32 UIMenu::height() const
 	return (vi_min(items.length, UI_SCROLL_MAX) * MENU_ITEM_HEIGHT) - MENU_ITEM_PADDING * 2.0f;
 }
 
-void UIMenu::text_clip_timer(UIText* text, r32 timer, r32 speed)
+void UIMenu::text_clip_timer(UIText* text, r32 timer, r32 speed, s32 max)
 {
 	r32 clip = timer * speed;
 	text->clip = vi_max(1, s32(clip));
+	if (max > 0)
+		text->clip = vi_min(text->clip, max);
 		
 	s32 mod = speed < 40.0f ? 1 : (speed < 100.0f ? 2 : 3);
-	if (text->clip % mod == 0
+		
+	if ((text->clip < max || max == 0)
+		&& text->clip % mod == 0
 		&& s32(clip - Game::real_time.delta * speed) < s32(clip)
 		&& text->clipped()
 		&& text->rendered_string[text->clip] != ' '
@@ -1289,19 +1297,17 @@ void UIMenu::text_clip_timer(UIText* text, r32 timer, r32 speed)
 	}
 }
 
-void UIMenu::text_clip(UIText* text, r32 start_time, r32 speed)
+void UIMenu::text_clip(UIText* text, r32 start_time, r32 speed, s32 max)
 {
-	text_clip_timer(text, Game::real_time.total - start_time, speed);
+	text_clip_timer(text, Game::real_time.total - start_time, speed, max);
 }
 
 const UIMenu::Item* UIMenu::last_visible_item() const
 {
-	for (s32 i = items.length - 1; i >= 0; i--)
-	{
-		if (scroll.item(i))
-			return &items[i];
-	}
-	return nullptr;
+	if (items.length > 0)
+		return &items[scroll.bottom(items.length) - 1];
+	else
+		return nullptr;
 }
 
 void UIMenu::draw_ui(const RenderParams& params, const Vec2& origin, UIText::Anchor anchor_x, UIText::Anchor anchor_y) const
@@ -1374,11 +1380,8 @@ void UIMenu::draw_ui(const RenderParams& params, const Vec2& origin, UIText::Anc
 	}
 
 	Rect2 rect;
-	for (s32 i = 0; i < items.length; i++)
+	for (s32 i = scroll.top(); i < scroll.bottom(items.length); i++)
 	{
-		if (!scroll.item(i))
-			continue;
-
 		const Item& item = items[i];
 
 		{

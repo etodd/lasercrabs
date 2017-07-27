@@ -519,9 +519,19 @@ void UIScroll::end(const RenderParams& params, const Vec2& p) const
 	}
 }
 
-b8 UIScroll::item(s32 i) const
+s32 UIScroll::top() const
 {
-	return pos <= i && i < pos + UI_SCROLL_MAX;
+	return pos;
+}
+
+s32 UIScroll::bottom(s32 items) const
+{
+	return vi_min(items, pos + UI_SCROLL_MAX);
+}
+
+b8 UIScroll::visible(s32 i) const
+{
+	return i >= pos && i < pos + UI_SCROLL_MAX;
 }
 
 const Vec4 UI::color_default = Vec4(1, 1, 1, 1);

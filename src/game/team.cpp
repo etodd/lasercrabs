@@ -700,12 +700,12 @@ void Team::update_all_server(const Update& u)
 
 	if (!game_over)
 	{
-		Team* team_with_most_kills = Game::level.type == GameType::Deathmatch ? with_most_kills() : nullptr;
+		Team* team_with_most_kills = Game::session.config.game_type == GameType::Deathmatch ? with_most_kills() : nullptr;
 		if (!Game::level.continue_match_after_death
-			&& (match_time > Game::level.time_limit
+			&& (match_time > Game::session.config.time_limit()
 			|| (Game::level.has_feature(Game::FeatureLevel::All) && Team::teams_with_active_players() <= 1)
-			|| (Game::level.type == GameType::Assault && CoreModule::count(1 << 0) == 0)
-			|| (Game::level.type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::level.kill_limit)))
+			|| (Game::session.config.game_type == GameType::Assault && CoreModule::count(1 << 0) == 0)
+			|| (Game::session.config.game_type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::session.config.kill_limit)))
 		{
 			// determine the winner, if any
 			Team* w = nullptr;
@@ -722,9 +722,9 @@ void Team::update_all_server(const Update& u)
 
 			if (teams_with_players == 1)
 				w = team_with_player;
-			else if (Game::level.type == GameType::Deathmatch)
+			else if (Game::session.config.game_type == GameType::Deathmatch)
 				w = team_with_most_kills;
-			else if (Game::level.type == GameType::Assault)
+			else if (Game::session.config.game_type == GameType::Assault)
 			{
 				if (CoreModule::count(1 << 0) == 0)
 					w = &list[1]; // attackers win
@@ -827,7 +827,7 @@ void Team::update_all_client_only(const Update& u)
 
 	if (game_over
 		&& Game::scheduled_load_level == AssetNull
-		&& (Game::session.type == SessionType::Public || Game::session.type == SessionType::Custom))
+		&& Game::session.type == SessionType::Multiplayer)
 	{
 		// wait for everyone to accept scores, then quit to overworld
 		b8 score_accepted = true;
@@ -858,19 +858,30 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	current_upgrade(Upgrade::None),
 	state_timer(),
 	upgrade_completed(),
-	respawns(Game::level.respawns),
+	respawns(Game::session.config.respawns),
 	kills(),
 	deaths(),
 	ability_purchase_times()
 {
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::session.allow_abilities)
 	{
-		energy = ENERGY_INITIAL;
-		if (Game::session.type == SessionType::Story && Game::level.type == GameType::Assault && team->team() == 0)
-			energy += s32(Team::match_time / ENERGY_INCREMENT_INTERVAL) * (ENERGY_DEFAULT_INCREMENT * s32(Battery::list.count() * 0.75f));
+		const StaticArray<Upgrade, MAX_ABILITIES>& start_upgrades = Game::session.config.start_upgrades;
+		for (s32 i = 0; i < start_upgrades.length; i++)
+		{
+			Upgrade upgrade = start_upgrades[i];
+			upgrades |= 1 << s32(upgrade);
+			abilities[i] = Ability(upgrade);
+		}
 	}
-	else
-		energy = 0;
+
+	energy = Game::session.config.start_energy;
+
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
+		&& Game::session.config.allow_upgrades
+		&& Game::session.type == SessionType::Story
+		&& Game::session.config.game_type == GameType::Assault
+		&& team->team() == 0)
+		energy += s32(Team::match_time / ENERGY_INCREMENT_INTERVAL) * (ENERGY_DEFAULT_INCREMENT * s32(Battery::list.count() * 0.75f));
+
 	if (u)
 		strncpy(username, u, MAX_USERNAME);
 	else
@@ -908,9 +919,6 @@ b8 PlayerManager::ability_valid(Ability ability) const
 		return false;
 
 	if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
-		return false;
-
-	if (!Game::session.allow_abilities)
 		return false;
 
 	if (!can_transition_state())
@@ -1209,7 +1217,9 @@ b8 PlayerManager::upgrade_available(Upgrade u) const
 	{
 		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{
-			if (!has_upgrade(Upgrade(i)) && energy >= upgrade_cost(Upgrade(i)))
+			if (!has_upgrade(Upgrade(i))
+				&& Game::session.config.allow_upgrades & (1 << i)
+				&& energy >= upgrade_cost(Upgrade(i)))
 			{
 				if (i >= s32(Ability::count) || ability_count() < MAX_ABILITIES)
 					return true; // either it's not an ability, or it is an ability and we have enough room for it
@@ -1219,8 +1229,10 @@ b8 PlayerManager::upgrade_available(Upgrade u) const
 	}
 	else
 	{
-		// make sure that either it's not an ability, or it is an ability and we have enough room for it
-		return !has_upgrade(u) && (s32(u) >= s32(Ability::count) || ability_count() < MAX_ABILITIES);
+		// make sure that the upgrade is allowed, and either it's not an ability, or it is an ability and we have enough room for it
+		return !has_upgrade(u)
+			&& Game::session.config.allow_upgrades & (1 << s32(u))
+			&& (s32(u) >= s32(Ability::count) || ability_count() < MAX_ABILITIES);
 	}
 }
 
@@ -1277,7 +1289,7 @@ PlayerManager::State PlayerManager::state() const
 
 b8 PlayerManager::can_transition_state() const
 {
-	if (!Game::level.has_feature(Game::FeatureLevel::Abilities) || !Game::session.allow_abilities)
+	if (!Game::level.has_feature(Game::FeatureLevel::Abilities) || !Game::session.config.allow_upgrades)
 		return false;
 
 	Entity* e = instance.ref();

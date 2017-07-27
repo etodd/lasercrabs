@@ -30,6 +30,7 @@
 #include "load.h"
 #include "settings.h"
 #include "cjson/cJSON.h"
+#include <array>
 
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0
@@ -770,7 +771,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 template<typename Stream> b8 serialize_init_packet(Stream* p)
 {
 	serialize_enum(p, Game::FeatureLevel, Game::level.feature_level);
-	serialize_r32(p, Game::level.time_limit);
 	serialize_r32_range(p, Game::level.rotation, -2.0f * PI, 2.0f * PI, 16);
 	serialize_r32_range(p, Game::level.min_y, -128, 128, 8);
 	serialize_r32(p, Game::level.skybox.far_plane);
@@ -812,10 +812,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 		serialize_r32_range(p, cloud->shadow, 0.0f, 1.0f, 8);
 	}
 	serialize_s16(p, Game::level.id);
-	serialize_s16(p, Game::level.kill_limit);
-	serialize_s16(p, Game::level.respawns);
 	serialize_enum(p, Game::Mode, Game::level.mode);
-	serialize_enum(p, GameType, Game::level.type);
 	serialize_enum(p, SessionType, Game::session.type);
 	serialize_bool(p, Game::level.post_pvp);
 	serialize_ref(p, Game::level.map_view);
@@ -829,17 +826,10 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_int(p, u16, Game::level.scripts.length, 0, Game::level.scripts.capacity());
 	for (s32 i = 0; i < Game::level.scripts.length; i++)
 		serialize_int(p, AssetID, Game::level.scripts[i], 0, Script::count);
-	serialize_int(p, s8, Game::session.player_slots, 1, MAX_PLAYERS);
-	serialize_int(p, s8, Game::session.team_count, 2, MAX_TEAMS);
-	serialize_s16(p, Game::session.kill_limit);
-	serialize_s16(p, Game::session.respawns);
-	serialize_bool(p, Game::session.allow_abilities);
+	if (!Master::serialize_server_config(p, &Game::session.config))
+		net_error();
 	if (Stream::IsReading)
-	{
 		Game::level.finder.map.length = 0;
-		Game::session.game_type = Game::level.type;
-		Game::session.time_limit = Game::level.time_limit;
-	}
 	return true;
 }
 
@@ -1984,7 +1974,6 @@ struct StateServer
 	r32 time_sync_timer;
 	r32 master_timer;
 	r32 idle_timer = NET_SERVER_IDLE_TIME;
-	u32 id;
 	Sock::Address replay_address;
 };
 StateServer state_server;
@@ -2042,9 +2031,12 @@ void packet_sent(const StreamWrite& p, const Sock::Address& address)
 
 void server_state(Master::ServerState* s)
 {
-	s->id = state_server.id;
 	s->level = Game::level.id;
-	s->open_slots = s8(vi_max(0, Game::session.player_slots - PlayerManager::list.count()));
+	if (s->level == AssetNull)
+		s->id = 0;
+	else
+		s->id = Game::session.config.id;
+	s->player_slots = s8(vi_max(0, Game::session.config.max_players - PlayerManager::list.count()));
 }
 
 b8 master_send_status_update()
@@ -2054,8 +2046,6 @@ b8 master_send_status_update()
 	packet_init(&p);
 	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ServerStatusUpdate);
 	serialize_s32(&p, Settings::secret);
-	b8 active = state_server.mode != Mode::Idle;
-	serialize_bool(&p, active);
 	Master::ServerState s;
 	server_state(&s);
 	if (!serialize_server_state(&p, &s))
@@ -2121,7 +2111,7 @@ b8 sync_time()
 {
 	using Stream = StreamWrite;
 	StreamWrite* p = msg_new(MessageType::TimeSync);
-	serialize_r32_range(p, Team::match_time, 0, Game::level.time_limit, 16);
+	serialize_r32_range(p, Team::match_time, 0, Game::session.config.time_limit(), 16);
 	serialize_r32_range(p, Game::session.time_scale, 0, 1, 8);
 	s32 players = PlayerHuman::list.count();
 	serialize_int(p, s32, players, 0, MAX_PLAYERS);
@@ -2283,6 +2273,7 @@ void update(const Update& u, r32 dt)
 			}
 		}
 
+#if !DEBUG
 		if (client->auth_timeout > 0.0f) // master server hasn't authenticated this client yet
 		{
 			client->auth_timeout = vi_max(0.0f, client->auth_timeout - dt);
@@ -2295,6 +2286,7 @@ void update(const Update& u, r32 dt)
 				handle_client_disconnect(client);
 			}
 		}
+#endif
 	}
 }
 
@@ -2315,7 +2307,6 @@ void tick(const Update& u, r32 dt)
 			if (state_server.idle_timer < 0.0f)
 			{
 				state_server.mode = Mode::Idle;
-				Game::session.player_slots = 0;
 				Game::unload_level();
 			}
 		}
@@ -2380,12 +2371,12 @@ b8 packet_handle_master(StreamRead* p)
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	Master::Message type;
 	serialize_enum(p, Master::Message, type);
-	if (!state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.sock))
-		return false; // out of order
+	state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.sock);
 
 	switch (type)
 	{
 		case Master::Message::Ack:
+		case Master::Message::Keepalive:
 		{
 			break;
 		}
@@ -2396,25 +2387,22 @@ b8 packet_handle_master(StreamRead* p)
 		}
 		case Master::Message::ServerLoad:
 		{
-			Master::ServerConfig config;
-			if (!serialize_server_config(p, &config))
+			if (!Master::serialize_server_config(p, &Game::session.config))
 				net_error();
 
-			state_server.id = config.id;
-			Game::session.team_count = config.team_count;
-			Game::session.player_slots = config.open_slots;
-			Game::session.type = config.session_type;
-			Game::session.game_type = config.game_type;
-			Game::session.kill_limit = config.kill_limit;
-			Game::session.respawns = config.respawns;
-			Game::session.time_limit = r32(config.time_limit_minutes) * 60.0f;
-			Game::session.allow_abilities = config.allow_abilities;
-			if (config.session_type == SessionType::Story)
+			if (Game::session.config.id == 0)
 			{
+				Game::session.type = SessionType::Story;
 				if (!Master::serialize_save(p, &Game::save))
 					net_error();
+				Game::load_level(Game::save.zone_current, Game::Mode::Parkour);
 			}
-			Game::load_level(config.level, config.session_type == SessionType::Story ? Game::Mode::Parkour : Game::Mode::Pvp);
+			else
+			{
+				Game::session.type = SessionType::Multiplayer;
+				vi_assert(Game::session.config.levels.length > 0);
+				Game::load_level(Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length], Game::Mode::Pvp);
+			}
 			break;
 		}
 		case Master::Message::ExpectClient:
@@ -2509,7 +2497,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			{
 				if (!client
 					&& (state_server.mode == Mode::Active || state_server.mode == Mode::Waiting)
-					&& Game::session.player_slots > PlayerManager::list.count())
+					&& Game::session.config.max_players > PlayerManager::list.count())
 				{
 					client = state_server.clients.add();
 					client_index = state_server.clients.length - 1;
@@ -2805,36 +2793,46 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 				{
 					for (s32 i = 0; i < local_players; i++)
 					{
-						AI::Team team;
-						serialize_int(p, AI::Team, team, 0, MAX_TEAMS - 1);
 						s8 gamepad;
 						serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
 
 						Team* team_ref = nullptr;
-						if (Game::session.type == SessionType::Public)
+						switch (Game::session.type)
 						{
-							// public match; assign players evenly
-							s32 least_players = MAX_PLAYERS + 1;
-							for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+							case SessionType::Multiplayer:
 							{
-								s32 player_count = i.item()->player_count();
-								if (player_count < least_players)
+								// assign players evenly
+								s32 least_players = MAX_PLAYERS + 1;
+								for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 								{
-									least_players = player_count;
-									team_ref = i.item();
+									s32 player_count = i.item()->player_count();
+									if (player_count < least_players)
+									{
+										least_players = player_count;
+										team_ref = i.item();
+									}
 								}
+								vi_assert(team_ref);
+								break;
 							}
-							vi_assert(team_ref);
+							case SessionType::Story:
+								team_ref = &Team::list[1];
+								break;
+							default:
+								vi_assert(false);
+								break;
 						}
-						else // custom match, assign player to whichever team they want
-							team_ref = &Team::list[Game::level.team_lookup[s32(team)]];
 
 						Entity* e = World::create<ContainerEntity>();
 						PlayerManager* manager = e->add<PlayerManager>(team_ref);
 						if (gamepad == 0)
 							sprintf(manager->username, "%s", username);
 						else
-							sprintf(manager->username, "%s [%d]", username, s32(gamepad + 1));
+						{
+							char username_truncated[MAX_USERNAME] = {};
+							strncpy(username_truncated, Settings::username, MAX_USERNAME - 4);
+							snprintf(username, MAX_USERNAME, "%s [%d]", username_truncated, s32(gamepad + 1));
+						}
 						PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
 						serialize_u64(p, player->uuid);
 						player->local = false;
@@ -2988,6 +2986,68 @@ b8 master_send_auth()
 	packet_finalize(&p);
 	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
 	return true;
+}
+
+b8 master_save_server_config(const Master::ServerConfig& config, u32 request_id)
+{
+	using Stream = StreamWrite;
+	StreamWrite p;
+	packet_init(&p);
+	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ClientSaveServerConfig);
+	serialize_u32(&p, Game::user_key.id);
+	serialize_u32(&p, Game::user_key.token);
+	serialize_u32(&p, request_id);
+	b8 creating = config.id == 0;
+	serialize_bool(&p, creating);
+	Master::ServerConfig c = config;
+	if (creating)
+		c.id = u32(-1);
+	if (!Master::serialize_server_config(&p, &c))
+		net_error();
+	packet_finalize(&p);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	return true;
+}
+
+b8 master_request_server_details(u32 config_id, u32 request_id)
+{
+	using Stream = StreamWrite;
+	StreamWrite p;
+	packet_init(&p);
+	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ClientRequestServerDetails);
+	serialize_u32(&p, Game::user_key.id);
+	serialize_u32(&p, Game::user_key.token);
+	serialize_u32(&p, request_id);
+	serialize_u32(&p, config_id);
+	packet_finalize(&p);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	return true;
+}
+
+void master_keepalive()
+{
+	if (state_common.timestamp - state_persistent.master.last_sent_timestamp > 2.0f)
+		master_send(Master::Message::Keepalive);
+}
+
+b8 master_request_server_list(ServerListType type, s32 offset)
+{
+	using Stream = StreamWrite;
+	StreamWrite p;
+	packet_init(&p);
+	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ClientRequestServerList);
+	serialize_u32(&p, Game::user_key.id);
+	serialize_u32(&p, Game::user_key.token);
+	serialize_enum(&p, ServerListType, type);
+	serialize_s32(&p, offset);
+	packet_finalize(&p);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	return true;
+}
+
+void master_cancel_outgoing()
+{
+	state_persistent.master.reset();
 }
 
 b8 init()
@@ -3191,6 +3251,24 @@ b8 master_send_server_request()
 	return true;
 }
 
+b8 master_request_server(u32 id)
+{
+	Game::level.local = false;
+	Game::schedule_timer = 0.0f;
+
+	state_client.timeout = 0.0f;
+	state_client.mode = Mode::ContactingMaster;
+	state_client.requested_server_id = id;
+
+	master_send(Master::Message::Disconnect);
+	state_persistent.master.reset();
+	master_auth_timer = 0.0f;
+
+	master_send_server_request();
+
+	return true;
+}
+
 void tick(const Update& u, r32 dt)
 {
 	switch (state_client.mode)
@@ -3298,24 +3376,6 @@ void replay(const char* filename)
 	}
 }
 
-b8 request_server(u32 id)
-{
-	Game::level.local = false;
-	Game::schedule_timer = 0.0f;
-
-	state_client.timeout = 0.0f;
-	state_client.mode = Mode::ContactingMaster;
-	state_client.requested_server_id = id;
-
-	master_send(Master::Message::Disconnect);
-	state_persistent.master.reset();
-	master_auth_timer = 0.0f;
-
-	master_send_server_request();
-
-	return true;
-}
-
 Mode mode()
 {
 	return state_client.mode;
@@ -3332,8 +3392,7 @@ b8 packet_handle_master(StreamRead* p)
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	Master::Message type;
 	serialize_enum(p, Master::Message, type);
-	if (!state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.sock))
-		return false; // out of order
+	state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.sock);
 	master_auth_timer = 0.0f;
 	master_error = MasterError::None;
 	switch (type)
@@ -3351,6 +3410,14 @@ b8 packet_handle_master(StreamRead* p)
 				serialize_u32(p, Game::user_key.id);
 				serialize_u32(p, Game::user_key.token);
 			}
+			else
+				Game::auth_failed();
+			break;
+		}
+		case Master::Message::ReauthRequired:
+		{
+			vi_debug("%s", "Reauthenticating...");
+			master_send_auth();
 			break;
 		}
 		case Master::Message::Disconnect:
@@ -3373,6 +3440,46 @@ b8 packet_handle_master(StreamRead* p)
 		{
 			master_error = MasterError::WrongVersion;
 			state_client.mode = Mode::Disconnected;
+			break;
+		}
+		case Master::Message::ServerConfigSaved:
+		{
+			u32 id;
+			serialize_u32(p, id);
+			u32 request_id;
+			serialize_u32(p, request_id);
+			Overworld::master_server_config_saved(id, request_id);
+			break;
+		}
+		case Master::Message::ServerDetails:
+		{
+			u32 request_id;
+			serialize_u32(p, request_id);
+
+			Master::ServerDetails details;
+			if (!Master::serialize_server_details(p, &details))
+				net_error();
+
+			Overworld::master_server_details_response(details, request_id);
+			break;
+		}
+		case Master::Message::ServerList:
+		{
+			ServerListType type;
+			serialize_enum(p, ServerListType, type);
+			while (true)
+			{
+				s32 index;
+				serialize_s32(p, index);
+				if (index < 0)
+					break;
+
+				Master::ServerListEntry entry;
+				if (!Master::serialize_server_list_entry(p, &entry))
+					net_error();
+
+				Overworld::master_server_list_entry(type, index, entry);
+			}
 			break;
 		}
 		default:
@@ -3430,9 +3537,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 						serialize_int(p2, s32, local_players, 1, MAX_GAMEPADS);
 						for (s32 i = 0; i < MAX_GAMEPADS; i++)
 						{
-							if (Game::session.local_player_config[i] != AI::TeamNone)
+							if (Game::session.local_player_mask & (1 << i))
 							{
-								serialize_int(p2, AI::Team, Game::session.local_player_config[i], 0, MAX_TEAMS - 1); // team
 								serialize_int(p2, s32, i, 0, MAX_GAMEPADS - 1); // gamepad
 								serialize_u64(p2, Game::session.local_player_uuids[i]); // uuid
 							}
@@ -3611,7 +3717,7 @@ b8 msg_process(StreamRead* p)
 		}
 		case MessageType::TimeSync:
 		{
-			serialize_r32_range(p, Team::match_time, 0, Game::level.time_limit, 16);
+			serialize_r32_range(p, Team::match_time, 0, Game::session.config.time_limit(), 16);
 			serialize_r32_range(p, Game::session.time_scale, 0, 1, 8);
 			s32 player_count;
 			serialize_int(p, s32, player_count, 0, MAX_PLAYERS);
@@ -3909,8 +4015,7 @@ void update_end(const Update& u)
 	// server always runs at 60 FPS
 	Server::tick(u, dt);
 #else
-	if (Client::state_client.mode == Client::Mode::ContactingMaster || Client::master_auth_timer > 0.0f)
-		state_persistent.master.update(state_common.timestamp, &state_persistent.sock, 4);
+	state_persistent.master.update(state_common.timestamp, &state_persistent.sock, 4);
 
 	if (Game::level.local || Client::state_client.replay_mode == Client::ReplayMode::Replaying)
 		state_common.msgs_out.length = 0; // clear out message queue because we're never going to send these

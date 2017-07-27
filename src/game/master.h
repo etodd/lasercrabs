@@ -81,11 +81,14 @@ enum class Message : s8
 	ExpectClient, // master telling a server to expect a certain client to connect to it
 	ClientConnect, // master telling a client to connect to a game server
 	ClientRequestServer, // a client requesting to connect to a virtual server; master will allocate it if necessary
+	RequestServerConfig, // a client or server requesting ServerConfig data from the master
 	ClientRequestServerList, // a client requesting a server list from the master
 	ServerList, // master responding to a client with a server list
 	ClientSaveServerConfig, // a client telling the master server to create or update a server config
+	ServerConfig, // master responding to a client or server with ServerConfig data
 	ServerConfigSaved, // master telling a client their config was created
 	WrongVersion, // master telling a server or client that it needs to upgrade
+	Keepalive,
 	Disconnect,
 	count,
 };
@@ -107,6 +110,7 @@ struct Messenger
 		Sock::Address addr;
 	};
 
+	r64 last_sent_timestamp;
 	Array<OutgoingPacket> outgoing; // unordered, unacked messages
 	std::unordered_map<Sock::Address, Peer> sequence_ids;
 
@@ -120,7 +124,7 @@ struct Messenger
 
 	// these assume packets have already been checksummed and compressed
 	void send(const StreamWrite&, r64, Sock::Address, Sock::Handle*);
-	b8 received(Message, SequenceID, Sock::Address, Sock::Handle*); // returns true if the packet is in order and should be processed
+	void received(Message, SequenceID, Sock::Address, Sock::Handle*);
 };
 
 struct ServerState // represents the current state of a game server
@@ -140,6 +144,46 @@ template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)
 
 #define MAX_SERVER_CONFIG_NAME 127
 #define MAX_SERVER_LIST 8
+
+struct ServerListEntry
+{
+	ServerState server_state;
+	Sock::Address addr;
+	char name[MAX_SERVER_CONFIG_NAME + 1];
+	s8 max_players;
+	s8 team_count;
+	GameType game_type;
+};
+
+template<typename Stream> b8 serialize_server_list_entry(Stream* p, ServerListEntry* s)
+{
+	if (!serialize_server_state(p, &s->server_state))
+		net_error();
+
+	if (s->server_state.level != AssetNull)
+	{
+		serialize_u32(p, s->addr.host);
+		serialize_u16(p, s->addr.port);
+	}
+	else if (Stream::IsReading)
+		s->addr = {};
+
+	{
+		s32 name_length;
+		if (Stream::IsWriting)
+			name_length = strlen((const char*)s->name);
+		serialize_int(p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
+		serialize_bytes(p, (u8*)s->name, name_length);
+		if (Stream::IsReading)
+			s->name[name_length] = '\0';
+	}
+
+	serialize_enum(p, GameType, s->game_type);
+	serialize_int(p, s8, s->max_players, 2, MAX_PLAYERS);
+	serialize_int(p, s8, s->team_count, 2, MAX_TEAMS);
+
+	return true;
+}
 
 struct ServerConfig
 {

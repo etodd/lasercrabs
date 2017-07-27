@@ -1276,13 +1276,17 @@ r32 UIMenu::height() const
 	return (vi_min(items.length, UI_SCROLL_MAX) * MENU_ITEM_HEIGHT) - MENU_ITEM_PADDING * 2.0f;
 }
 
-void UIMenu::text_clip_timer(UIText* text, r32 timer, r32 speed)
+void UIMenu::text_clip_timer(UIText* text, r32 timer, r32 speed, s32 max)
 {
 	r32 clip = timer * speed;
 	text->clip = vi_max(1, s32(clip));
+	if (max > 0)
+		text->clip = vi_min(text->clip, max);
 		
 	s32 mod = speed < 40.0f ? 1 : (speed < 100.0f ? 2 : 3);
-	if (text->clip % mod == 0
+		
+	if ((text->clip < max || max == 0)
+		&& text->clip % mod == 0
 		&& s32(clip - Game::real_time.delta * speed) < s32(clip)
 		&& text->clipped()
 		&& text->rendered_string[text->clip] != ' '
@@ -1293,9 +1297,9 @@ void UIMenu::text_clip_timer(UIText* text, r32 timer, r32 speed)
 	}
 }
 
-void UIMenu::text_clip(UIText* text, r32 start_time, r32 speed)
+void UIMenu::text_clip(UIText* text, r32 start_time, r32 speed, s32 max)
 {
-	text_clip_timer(text, Game::real_time.total - start_time, speed);
+	text_clip_timer(text, Game::real_time.total - start_time, speed, max);
 }
 
 const UIMenu::Item* UIMenu::last_visible_item() const

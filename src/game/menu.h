@@ -29,9 +29,9 @@ struct UIMenu
 		b8 slider;
 	};
 
-	static void text_clip_timer(UIText*, r32, r32);
-	static void text_clip(UIText*, r32, r32);
-	template<typename T> static void enum_option(T* t, s32 delta)
+	static void text_clip_timer(UIText*, r32, r32, s32 = 0);
+	static void text_clip(UIText*, r32, r32, s32 = 0);
+	template<typename T> static b8 enum_option(T* t, s32 delta)
 	{
 		s32 value_new = s32(*t) + delta;
 		if (value_new < 0)
@@ -39,6 +39,7 @@ struct UIMenu
 		else if (value_new >= s32(T::count))
 			value_new = 0;
 		*t = T(value_new);
+		return delta != 0;
 	}
 
 	Array<Item> items;

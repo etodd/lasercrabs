@@ -2371,12 +2371,12 @@ b8 packet_handle_master(StreamRead* p)
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	Master::Message type;
 	serialize_enum(p, Master::Message, type);
-	if (!state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.sock))
-		return false; // out of order
+	state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.sock);
 
 	switch (type)
 	{
 		case Master::Message::Ack:
+		case Master::Message::Keepalive:
 		{
 			break;
 		}
@@ -3001,6 +3001,27 @@ b8 master_save_server_config(const Master::ServerConfig& config, u32 request_id)
 	return true;
 }
 
+b8 master_request_server_config(u32 config_id, u32 request_id)
+{
+	using Stream = StreamWrite;
+	StreamWrite p;
+	packet_init(&p);
+	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::RequestServerConfig);
+	serialize_u32(&p, Game::user_key.id);
+	serialize_u32(&p, Game::user_key.token);
+	serialize_u32(&p, request_id);
+	serialize_u32(&p, config_id);
+	packet_finalize(&p);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	return true;
+}
+
+void master_keepalive()
+{
+	if (state_common.timestamp - state_persistent.master.last_sent_timestamp > 2.0f)
+		master_send(Master::Message::Keepalive);
+}
+
 b8 master_request_server_list(ServerListType type, s32 offset)
 {
 	using Stream = StreamWrite;
@@ -3363,8 +3384,7 @@ b8 packet_handle_master(StreamRead* p)
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	Master::Message type;
 	serialize_enum(p, Master::Message, type);
-	if (!state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.sock))
-		return false; // out of order
+	state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.sock);
 	master_auth_timer = 0.0f;
 	master_error = MasterError::None;
 	switch (type)
@@ -3415,6 +3435,30 @@ b8 packet_handle_master(StreamRead* p)
 			Overworld::master_server_config_saved(id, request_id);
 			break;
 		}
+		case Master::Message::ServerConfig:
+		{
+			u32 request_id;
+			serialize_u32(p, request_id);
+
+			Master::ServerConfig config;
+			if (!Master::serialize_server_config(p, &config))
+				net_error();
+
+			Master::ServerState state;
+			if (!Master::serialize_server_state(p, &state))
+				net_error();
+
+			Sock::Address addr;
+			if (state.level == AssetNull)
+				addr = {};
+			else
+			{
+				serialize_u32(p, addr.host);
+				serialize_u16(p, addr.port);
+			}
+			Overworld::master_server_config_response(config, state, addr, request_id);
+			break;
+		}
 		case Master::Message::ServerList:
 		{
 			ServerListType type;
@@ -3426,17 +3470,10 @@ b8 packet_handle_master(StreamRead* p)
 				if (index < 0)
 					break;
 
-				Overworld::ServerListEntry entry;
-				serialize_u32(p, entry.id);
-				s32 name_length;
-				serialize_int(p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
-				serialize_bytes(p, (u8*)entry.name, name_length);
-				entry.name[name_length] = '\0';
-				serialize_int(p, u8, entry.max_players, 2, MAX_PLAYERS);
-				serialize_int(p, u8, entry.open_slots, 0, MAX_PLAYERS);
-				serialize_s16(p, entry.level);
-				serialize_int(p, u8, entry.team_count, 2, MAX_TEAMS);
-				serialize_enum(p, GameType, entry.game_type);
+				Master::ServerListEntry entry;
+				if (!Master::serialize_server_list_entry(p, &entry))
+					net_error();
+
 				Overworld::master_server_list_entry(type, index, entry);
 			}
 			break;

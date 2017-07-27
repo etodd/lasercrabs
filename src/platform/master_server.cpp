@@ -92,11 +92,11 @@ namespace Master
 
 #define MASTER_AUDIT_INTERVAL 1.12 // remove inactive nodes every x seconds
 #define MASTER_MATCH_INTERVAL 0.25 // run matchmaking searches every x seconds
-#define MASTER_INACTIVE_THRESHOLD 7.0 // remove node if it's inactive for x seconds
-#define MASTER_CLIENT_CONNECTION_TIMEOUT 8.0 // clients have x seconds to connect to a server once we tell them to
+#define MASTER_INACTIVE_THRESHOLD 10.0 // remove node if it's inactive for x seconds
+#define MASTER_CLIENT_CONNECTION_TIMEOUT 10.0 // clients have x seconds to connect to a server once we tell them to
 #define MASTER_SETTINGS_FILE "config.txt"
 #define MASTER_TOKEN_TIMEOUT (86400 * 2)
-#define MASTER_SERVER_LOAD_TIMEOUT 8.0
+#define MASTER_SERVER_LOAD_TIMEOUT 10.0
 
 	namespace Settings
 	{
@@ -272,6 +272,25 @@ namespace Master
 			return node_for_address(i->second);
 	}
 
+	void server_state_for_config_id(u32 id, s8 max_players, ServerState* state, Sock::Address* addr = nullptr)
+	{
+		Node* server = server_for_config_id(id);
+		if (server) // a server is running this config
+		{
+			*state = server->server_state;
+			if (addr)
+				*addr = server->addr;
+		}
+		else // config is not running on any server
+		{
+			state->id = id;
+			state->player_slots = max_players;
+			state->level = AssetNull;
+			if (addr)
+				*addr = {};
+		}
+	}
+
 	void server_remove_clients_connecting(Node* server)
 	{
 		// reset any clients trying to connect to this server
@@ -361,17 +380,18 @@ namespace Master
 	{
 		config->id = id;
 		vi_assert(id > 0);
-		sqlite3_stmt* stmt = db_query("select id, name, config, max_players, team_count, game_type, is_private from ServerConfig where id=?;");
+		sqlite3_stmt* stmt = db_query("select name, config, max_players, team_count, game_type, is_private from ServerConfig where id=?;");
+		db_bind_int(stmt, 0, id);
 		b8 found = false;
 		if (db_step(stmt))
 		{
 			memset(config->name, 0, sizeof(config->name));
-			strncpy(config->name, (const char*)db_column_text(stmt, 1), MAX_SERVER_CONFIG_NAME);
-			config->max_players = db_column_int(stmt, 3);
-			config->team_count = db_column_int(stmt, 4);
-			config->game_type = GameType(db_column_int(stmt, 5));
-			config->is_private = b8(db_column_int(stmt, 6));
-			server_config_parse((const char*)db_column_text(stmt, 2), config);
+			strncpy(config->name, (const char*)db_column_text(stmt, 0), MAX_SERVER_CONFIG_NAME);
+			server_config_parse((const char*)db_column_text(stmt, 1), config);
+			config->max_players = db_column_int(stmt, 2);
+			config->team_count = db_column_int(stmt, 3);
+			config->game_type = GameType(db_column_int(stmt, 4));
+			config->is_private = b8(db_column_int(stmt, 5));
 			found = true;
 		}
 		db_finalize(stmt);
@@ -680,6 +700,39 @@ namespace Master
 		return true;
 	}
 
+	b8 send_server_config(const Sock::Address& addr, const ServerConfig& config, const ServerState& state, const Sock::Address& server_addr, u32 request_id)
+	{
+		using Stream = StreamWrite;
+		StreamWrite p;
+		packet_init(&p);
+		messenger.add_header(&p, addr, Message::ServerConfig);
+
+		serialize_u32(&p, request_id);
+
+		{
+			ServerConfig c = config;
+			if (!serialize_server_config(&p, &c))
+				net_error();
+		}
+
+		{
+			ServerState s = state;
+			if (!serialize_server_state(&p, &s))
+				net_error();
+		}
+
+		if (state.level != AssetNull)
+		{
+			Sock::Address a = server_addr;
+			serialize_u32(&p, a.host);
+			serialize_u16(&p, a.port);
+		}
+
+		packet_finalize(&p);
+		messenger.send(p, timestamp, addr, &sock);
+		return true;
+	}
+
 	sqlite3_stmt* server_list_query(Node* client, ServerListType type, s32 offset)
 	{
 		sqlite3_stmt* stmt;
@@ -734,37 +787,19 @@ namespace Master
 			}
 			serialize_s32(&p, *offset);
 
+			ServerListEntry entry;
+
 			u32 id = db_column_int(stmt, 0);
-			serialize_u32(&p, id);
+			strncpy(entry.name, (const char*)db_column_text(stmt, 1), MAX_SERVER_CONFIG_NAME);
+			entry.max_players = db_column_int(stmt, 2);
+			entry.team_count = db_column_int(stmt, 3);
+			entry.game_type = GameType(db_column_int(stmt, 4));
 
-			{
-				const unsigned char* name = db_column_text(stmt, 1);
-				s32 name_length = strlen((const char*)name);
-				serialize_int(&p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
-				serialize_bytes(&p, (u8*)name, name_length);
-			}
+			server_state_for_config_id(id, entry.max_players, &entry.server_state, &entry.addr);
 
-			{
-				s32 max_players = db_column_int(stmt, 2);
-				serialize_int(&p, s32, max_players, 2, MAX_PLAYERS);
+			if (!serialize_server_list_entry(&p, &entry))
+				net_error();
 
-				Node* server = server_for_config_id(id);
-
-				s32 open_slots = server ? server->server_state.player_slots : max_players;
-				serialize_int(&p, s32, open_slots, 0, MAX_PLAYERS);
-
-				s32 level = server ? server->server_state.level : AssetNull;
-				serialize_s16(&p, level);
-			}
-
-			{
-				s32 team_count = db_column_int(stmt, 3);
-				serialize_int(&p, s32, team_count, 2, MAX_TEAMS);
-			}
-			{
-				GameType type = GameType(db_column_int(stmt, 4));
-				serialize_enum(&p, GameType, type);
-			}
 			(*offset)++;
 
 			if (count == MAX_SERVER_LIST)
@@ -970,8 +1005,7 @@ namespace Master
 		serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 		Message type;
 		serialize_enum(p, Message, type);
-		if (!messenger.received(type, seq, addr, &sock))
-			return false; // out of order
+		messenger.received(type, seq, addr, &sock);
 
 		Node* node = node_add_or_get(addr);
 		node->last_message_timestamp = timestamp;
@@ -979,6 +1013,7 @@ namespace Master
 		switch (type)
 		{
 			case Message::Ack:
+			case Message::Keepalive:
 			{
 				break;
 			}
@@ -1075,6 +1110,35 @@ namespace Master
 				}
 				else // invalid state transition
 					net_error();
+				break;
+			}
+			case Message::RequestServerConfig:
+			{
+				if (!check_user_key(p, node))
+					return false;
+
+				u32 request_id;
+				serialize_u32(p, request_id);
+
+				u32 config_id;
+				serialize_u32(p, config_id);
+
+				if (config_id == 0) // story mode
+					net_error();
+				else
+				{
+					ServerConfig config;
+					if (server_config_get(config_id, &config))
+					{
+						ServerState state;
+						Sock::Address server_addr;
+						server_state_for_config_id(config_id, config.max_players, &state, &server_addr);
+						send_server_config(node->addr, config, state, server_addr, request_id);
+					}
+					else
+						net_error();
+				}
+
 				break;
 			}
 			case Message::ClientSaveServerConfig:

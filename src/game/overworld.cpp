@@ -1208,7 +1208,7 @@ void multiplayer_edit_entry_draw(const RenderParams& params, const Rect2& rect)
 				}
 				UIMenu::text_clip(&text, data.multiplayer.state_transition_time, 100.0f, 28);
 
-				Vec2 pos(vp.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, vp.size.y * 0.75f + MENU_ITEM_HEIGHT * -1.5f);
+				Vec2 pos(vp.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, vp.size.y * 0.75f + MENU_ITEM_HEIGHT * -0.5f);
 
 				{
 					Vec2 text_pos = pos + Vec2(PADDING, 0);

@@ -203,7 +203,13 @@ void Team::transition_next()
 	}
 	else
 	{
-		// todo: map rotation
+#if SERVER
+		Net::Server::transition_level();
+#endif
+		AssetID next_zone = Game::level.id;
+		while (Game::session.config.levels.length > 0 && next_zone == Game::level.id)
+			next_zone = Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length];
+		Game::schedule_load_level(next_zone, Game::Mode::Pvp);
 	}
 }
 
@@ -824,24 +830,6 @@ void Team::update_all_client_only(const Update& u)
 		return;
 
 	update_visibility(u);
-
-	if (game_over
-		&& Game::scheduled_load_level == AssetNull
-		&& Game::session.type == SessionType::Multiplayer)
-	{
-		// wait for everyone to accept scores, then quit to overworld
-		b8 score_accepted = true;
-		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->is_local() && !i.item()->score_accepted)
-			{
-				score_accepted = false;
-				break;
-			}
-		}
-		if (score_accepted)
-			Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
-	}
 }
 
 PlayerManager::Visibility PlayerManager::visibility[MAX_PLAYERS * MAX_PLAYERS];

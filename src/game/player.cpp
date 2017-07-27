@@ -2939,12 +2939,20 @@ r32 zoom_amount_get(PlayerControlHuman* player, const Update& u)
 		if (player->try_secondary)
 		{
 			Gamepad::Btn zoom_btn = Settings::gamepads[gamepad].bindings[s32(Controls::Zoom)].btn;
-			if (zoom_btn == Gamepad::Btn::LeftTrigger && u.input->gamepads[gamepad].left_trigger > 0.0f)
-				return u.input->gamepads[gamepad].left_trigger;
-			else if (zoom_btn == Gamepad::Btn::RightTrigger && u.input->gamepads[gamepad].right_trigger > 0.0f)
-				return u.input->gamepads[gamepad].right_trigger;
+			r32 t;
+			if (zoom_btn == Gamepad::Btn::LeftTrigger)
+				t = u.input->gamepads[gamepad].left_trigger;
+			else if (zoom_btn == Gamepad::Btn::RightTrigger)
+				t = u.input->gamepads[gamepad].right_trigger;
 			else
+				t = 1.0f;
+
+			if (t > 0.95f)
 				return 1.0f;
+			else if (t > 0.0f)
+				return 0.5f;
+			else
+				return 0.0f;
 		}
 		else
 			return 0.0f;

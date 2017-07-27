@@ -1975,6 +1975,7 @@ struct StateServer
 	r32 master_timer;
 	r32 idle_timer = NET_SERVER_IDLE_TIME;
 	Sock::Address replay_address;
+	b8 transitioning_level;
 };
 StateServer state_server;
 
@@ -2078,6 +2079,7 @@ b8 init()
 void transition_level()
 {
 	msg_finalize(msg_new(MessageType::TransitionLevel));
+	state_server.transitioning_level = true;
 }
 
 // disable entity messages while we're unloading the level
@@ -2901,8 +2903,27 @@ void reset()
 	if (state_server.replay_file)
 		fclose(state_server.replay_file);
 
+	Array<ExpectedClient> expected_clients;
+	if (state_server.transitioning_level)
+	{
+		// transition expected_clients over
+		for (s32 i = 0; i < state_server.expected_clients.length; i++)
+			expected_clients.add(state_server.expected_clients[i]);
+
+		for (s32 i = 0; i < state_server.clients.length; i++)
+		{
+			ExpectedClient* expected_client = expected_clients.add();
+			expected_client->timestamp = 0.0f;
+			expected_client->user_key = state_server.clients[i].user_key;
+			expected_client->is_admin = state_server.clients[i].is_admin;
+		}
+	}
+
 	state_server.~StateServer();
 	new (&state_server) StateServer();
+
+	for (s32 i = 0; i < expected_clients.length; i++)
+		state_server.expected_clients.add(expected_clients[i]);
 }
 
 // this is meant for external consumption in the game code.

@@ -1205,7 +1205,7 @@ b8 UIMenu::add_item(b8 slider, const char* string, const char* value, b8 disable
 	item->value.anchor_x = UIText::Anchor::Center;
 	item->value.text(gamepad, value);
 
-	if (!scroll.item(items.length - 1)) // this item is not visible
+	if (!scroll.visible(items.length - 1))
 		return false;
 
 	return true;
@@ -1304,12 +1304,10 @@ void UIMenu::text_clip(UIText* text, r32 start_time, r32 speed, s32 max)
 
 const UIMenu::Item* UIMenu::last_visible_item() const
 {
-	for (s32 i = items.length - 1; i >= 0; i--)
-	{
-		if (scroll.item(i))
-			return &items[i];
-	}
-	return nullptr;
+	if (items.length > 0)
+		return &items[scroll.bottom(items.length) - 1];
+	else
+		return nullptr;
 }
 
 void UIMenu::draw_ui(const RenderParams& params, const Vec2& origin, UIText::Anchor anchor_x, UIText::Anchor anchor_y) const
@@ -1382,11 +1380,8 @@ void UIMenu::draw_ui(const RenderParams& params, const Vec2& origin, UIText::Anc
 	}
 
 	Rect2 rect;
-	for (s32 i = 0; i < items.length; i++)
+	for (s32 i = scroll.top(); i < scroll.bottom(items.length); i++)
 	{
-		if (!scroll.item(i))
-			continue;
-
 		const Item& item = items[i];
 
 		{

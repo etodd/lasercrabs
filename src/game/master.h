@@ -76,16 +76,19 @@ enum class Message : s8
 	Ack,
 	Auth, // client logging in to master
 	AuthResponse, // master responding to client with auth info
+	ReauthRequired, // master telling client to try the whole authentication process again
 	ServerStatusUpdate, // game server telling master what it's up to
 	ServerLoad, // master telling a server to load a certain level
 	ExpectClient, // master telling a server to expect a certain client to connect to it
 	ClientConnect, // master telling a client to connect to a game server
 	ClientRequestServer, // a client requesting to connect to a virtual server; master will allocate it if necessary
+	ClientRequestServerDetails, // a client requesting to connect to a virtual server; master will allocate it if necessary
 	RequestServerConfig, // a client or server requesting ServerConfig data from the master
 	ClientRequestServerList, // a client requesting a server list from the master
 	ServerList, // master responding to a client with a server list
 	ClientSaveServerConfig, // a client telling the master server to create or update a server config
 	ServerConfig, // master responding to a client or server with ServerConfig data
+	ServerDetails, // master responding to a client with ServerDetails data
 	ServerConfigSaved, // master telling a client their config was created
 	WrongVersion, // master telling a server or client that it needs to upgrade
 	Keepalive,
@@ -239,6 +242,33 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		serialize_bool(p, c->enable_minions);
 		serialize_bool(p, c->is_private);
 	}
+	return true;
+}
+
+struct ServerDetails
+{
+	ServerConfig config;
+	ServerState state;
+	Sock::Address addr;
+	b8 is_admin;
+};
+
+template<typename Stream> b8 serialize_server_details(Stream* p, ServerDetails* d)
+{
+	if (!serialize_server_config(p, &d->config))
+		net_error();
+
+	if (!serialize_server_state(p, &d->state))
+		net_error();
+
+	if (d->state.level != AssetNull)
+	{
+		serialize_u32(p, d->addr.host);
+		serialize_u16(p, d->addr.port);
+	}
+
+	serialize_bool(p, d->is_admin);
+
 	return true;
 }
 

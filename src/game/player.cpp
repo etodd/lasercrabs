@@ -1720,7 +1720,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 			score_summary_scroll.start(params, p + Vec2(0, MENU_ITEM_PADDING));
 			AI::Team team = get<PlayerManager>()->team.ref()->team();
-			for (s32 i = 0; i < Team::score_summary.length; i++)
+			for (s32 i = score_summary_scroll.top(); i < score_summary_scroll.bottom(Team::score_summary.length); i++)
 			{
 				const Team::ScoreSummaryItem& item = Team::score_summary[i];
 				text.color = item.player.ref() == get<PlayerManager>() ? UI::color_accent() : Team::ui_color(team, item.team);
@@ -1729,19 +1729,16 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				amount.anchor_x = UIText::Anchor::Max;
 				amount.wrap_width = 0;
 
-				if (score_summary_scroll.item(i))
+				text.text_raw(gamepad, item.label);
+				UIMenu::text_clip(&text, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + r32(vi_min(i, 6)) * -5.0f);
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+				text.draw(params, p);
+				if (item.amount != -1)
 				{
-					text.text_raw(gamepad, item.label);
-					UIMenu::text_clip(&text, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + r32(vi_min(i, 6)) * -5.0f);
-					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-					text.draw(params, p);
-					if (item.amount != -1)
-					{
-						amount.text(gamepad, "%d", item.amount);
-						amount.draw(params, p + Vec2(MENU_ITEM_WIDTH * 0.5f - MENU_ITEM_PADDING, 0));
-					}
-					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+					amount.text(gamepad, "%d", item.amount);
+					amount.draw(params, p + Vec2(MENU_ITEM_WIDTH * 0.5f - MENU_ITEM_PADDING, 0));
 				}
+				p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 			}
 			score_summary_scroll.end(params, p + Vec2(0, MENU_ITEM_PADDING));
 

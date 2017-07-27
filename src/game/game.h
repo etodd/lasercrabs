@@ -57,7 +57,6 @@ namespace VI
 
 		struct Session
 		{
-			AI::Team local_player_config[MAX_GAMEPADS];
 			u64 local_player_uuids[MAX_GAMEPADS];
 			r32 time_scale;
 			r32 zone_under_attack_timer;
@@ -155,6 +154,7 @@ namespace VI
 		static void draw_alpha(const RenderParams&);
 		static void draw_alpha_late(const RenderParams&);
 		static void draw_additive(const RenderParams&);
+		static void auth_failed();
 		static void term();
 
 		static b8 edge_trigger(r32, b8(*)(r32));

@@ -191,13 +191,13 @@ namespace Client
 	void replay(const char* = nullptr);
 	void replay_file_add(const char*);
 	s32 replay_file_count();
-	b8 request_server(u32);
 	b8 lagging();
+	b8 master_request_server(u32);
 	b8 master_save_server_config(const Master::ServerConfig&, u32);
 	b8 master_request_server_list(ServerListType, s32);
 	void master_keepalive();
 	void master_cancel_outgoing();
-	b8 master_request_server_config(u32, u32);
+	b8 master_request_server_details(u32, u32);
 
 	ReplayMode replay_mode();
 

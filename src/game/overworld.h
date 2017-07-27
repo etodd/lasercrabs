@@ -67,7 +67,7 @@ void resource_change(Resource, s16);
 r32 resource_change_time(Resource);
 void master_server_list_entry(ServerListType, s32, const Net::Master::ServerListEntry&);
 void master_server_config_saved(u32, u32);
-void master_server_config_response(const Net::Master::ServerConfig&, const Net::Master::ServerState&, const Sock::Address&, u32);
+void master_server_details_response(const Net::Master::ServerDetails&, u32);
 
 }
 

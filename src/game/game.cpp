@@ -92,13 +92,12 @@ b8 Game::attract_mode;
 #endif
 
 Game::Session::Session()
-	: local_player_config{ AI::TeamNone, AI::TeamNone, AI::TeamNone, AI::TeamNone },
+	: type(SessionType::Story),
 #if SERVER
 	local_player_mask(),
 #else
 	local_player_mask(1),
 #endif
-	type(SessionType::Story),
 	config(),
 	time_scale(1.0f)
 {
@@ -222,6 +221,9 @@ b8 Game::init(LoopSync* sync)
 			break;
 		case Net::Master::AuthType::Itch:
 		{
+#if DEBUG
+			vi_debug("Itch auth key: %s", auth_key);
+#endif
 			char header[MAX_PATH_LENGTH + 1] = {};
 			snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", auth_key);
 			Net::Http::get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header);
@@ -308,6 +310,11 @@ b8 Game::init(LoopSync* sync)
 	return true;
 }
 
+void Game::auth_failed()
+{
+	Menu::dialog(0, &Menu::dialog_no_action, _(strings::auth_failed_permanently));
+}
+
 void Game::update(const Update& update_in)
 {
 	width = update_in.input->width;
@@ -335,7 +342,7 @@ void Game::update(const Update& update_in)
 				save.zone_last = level.id; // hack to ensure hand-off works correctly
 				save.zone_current = scheduled_load_level;
 				unload_level();
-				Net::Client::request_server(0); // 0 = story mode
+				Net::Client::master_request_server(0); // 0 = story mode
 				scheduled_load_level = AssetNull;
 			}
 			else
@@ -1076,7 +1083,7 @@ void Game::execute(const char* cmd)
 			unload_level();
 			save.reset();
 			save.zone_current = level;
-			Net::Client::request_server(0); // 0 = story mode
+			Net::Client::master_request_server(0); // 0 = story mode
 		}
 	}
 #endif
@@ -1533,12 +1540,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				{
 					if (session.local_player_mask & (1 << i))
 					{
-						s32 team_raw_index;
-						if (session.local_player_config[i] == AI::TeamNone)
-							team_raw_index = i % session.config.team_count;
-						else
-							team_raw_index = s32(session.local_player_config[i]);
-						AI::Team team = team_lookup(level.team_lookup, team_raw_index);
+						AI::Team team = team_lookup(level.team_lookup, i % session.config.team_count);
 
 						char username[MAX_USERNAME + 1] = {};
 						if (ai_test)

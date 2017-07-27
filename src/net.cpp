@@ -1974,7 +1974,6 @@ struct StateServer
 	r32 time_sync_timer;
 	r32 master_timer;
 	r32 idle_timer = NET_SERVER_IDLE_TIME;
-	u32 id;
 	Sock::Address replay_address;
 };
 StateServer state_server;
@@ -2032,8 +2031,11 @@ void packet_sent(const StreamWrite& p, const Sock::Address& address)
 
 void server_state(Master::ServerState* s)
 {
-	s->id = state_server.id;
 	s->level = Game::level.id;
+	if (s->level == AssetNull)
+		s->id = 0;
+	else
+		s->id = Game::session.config.id;
 	s->player_slots = s8(vi_max(0, Game::session.config.max_players - PlayerManager::list.count()));
 }
 
@@ -2044,8 +2046,6 @@ b8 master_send_status_update()
 	packet_init(&p);
 	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ServerStatusUpdate);
 	serialize_s32(&p, Settings::secret);
-	b8 active = state_server.mode != Mode::Idle;
-	serialize_bool(&p, active);
 	Master::ServerState s;
 	server_state(&s);
 	if (!serialize_server_state(&p, &s))
@@ -2387,23 +2387,21 @@ b8 packet_handle_master(StreamRead* p)
 		}
 		case Master::Message::ServerLoad:
 		{
-			u32 id;
-			serialize_u32(p, id);
+			if (!Master::serialize_server_config(p, &Game::session.config))
+				net_error();
 
-			state_server.id = id;
-
-			if (state_server.id == 0)
+			if (Game::session.config.id == 0)
 			{
+				Game::session.type = SessionType::Story;
 				if (!Master::serialize_save(p, &Game::save))
 					net_error();
 				Game::load_level(Game::save.zone_current, Game::Mode::Parkour);
 			}
 			else
 			{
-				if (!Master::serialize_server_config(p, &Game::session.config))
-					net_error();
+				Game::session.type = SessionType::Multiplayer;
 				vi_assert(Game::session.config.levels.length > 0);
-				Game::load_level(Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length], Game::Mode::Parkour);
+				Game::load_level(Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length], Game::Mode::Pvp);
 			}
 			break;
 		}
@@ -2795,36 +2793,46 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 				{
 					for (s32 i = 0; i < local_players; i++)
 					{
-						AI::Team team;
-						serialize_int(p, AI::Team, team, 0, MAX_TEAMS - 1);
 						s8 gamepad;
 						serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
 
 						Team* team_ref = nullptr;
-						if (Game::session.type == SessionType::Multiplayer)
+						switch (Game::session.type)
 						{
-							// assign players evenly
-							s32 least_players = MAX_PLAYERS + 1;
-							for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+							case SessionType::Multiplayer:
 							{
-								s32 player_count = i.item()->player_count();
-								if (player_count < least_players)
+								// assign players evenly
+								s32 least_players = MAX_PLAYERS + 1;
+								for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 								{
-									least_players = player_count;
-									team_ref = i.item();
+									s32 player_count = i.item()->player_count();
+									if (player_count < least_players)
+									{
+										least_players = player_count;
+										team_ref = i.item();
+									}
 								}
+								vi_assert(team_ref);
+								break;
 							}
-							vi_assert(team_ref);
+							case SessionType::Story:
+								team_ref = &Team::list[1];
+								break;
+							default:
+								vi_assert(false);
+								break;
 						}
-						else // custom match, assign player to whichever team they want
-							team_ref = &Team::list[Game::level.team_lookup[s32(team)]];
 
 						Entity* e = World::create<ContainerEntity>();
 						PlayerManager* manager = e->add<PlayerManager>(team_ref);
 						if (gamepad == 0)
 							sprintf(manager->username, "%s", username);
 						else
-							sprintf(manager->username, "%s [%d]", username, s32(gamepad + 1));
+						{
+							char username_truncated[MAX_USERNAME] = {};
+							strncpy(username_truncated, Settings::username, MAX_USERNAME - 4);
+							snprintf(username, MAX_USERNAME, "%s [%d]", username_truncated, s32(gamepad + 1));
+						}
 						PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
 						serialize_u64(p, player->uuid);
 						player->local = false;
@@ -3001,12 +3009,12 @@ b8 master_save_server_config(const Master::ServerConfig& config, u32 request_id)
 	return true;
 }
 
-b8 master_request_server_config(u32 config_id, u32 request_id)
+b8 master_request_server_details(u32 config_id, u32 request_id)
 {
 	using Stream = StreamWrite;
 	StreamWrite p;
 	packet_init(&p);
-	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::RequestServerConfig);
+	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ClientRequestServerDetails);
 	serialize_u32(&p, Game::user_key.id);
 	serialize_u32(&p, Game::user_key.token);
 	serialize_u32(&p, request_id);
@@ -3243,6 +3251,24 @@ b8 master_send_server_request()
 	return true;
 }
 
+b8 master_request_server(u32 id)
+{
+	Game::level.local = false;
+	Game::schedule_timer = 0.0f;
+
+	state_client.timeout = 0.0f;
+	state_client.mode = Mode::ContactingMaster;
+	state_client.requested_server_id = id;
+
+	master_send(Master::Message::Disconnect);
+	state_persistent.master.reset();
+	master_auth_timer = 0.0f;
+
+	master_send_server_request();
+
+	return true;
+}
+
 void tick(const Update& u, r32 dt)
 {
 	switch (state_client.mode)
@@ -3350,24 +3376,6 @@ void replay(const char* filename)
 	}
 }
 
-b8 request_server(u32 id)
-{
-	Game::level.local = false;
-	Game::schedule_timer = 0.0f;
-
-	state_client.timeout = 0.0f;
-	state_client.mode = Mode::ContactingMaster;
-	state_client.requested_server_id = id;
-
-	master_send(Master::Message::Disconnect);
-	state_persistent.master.reset();
-	master_auth_timer = 0.0f;
-
-	master_send_server_request();
-
-	return true;
-}
-
 Mode mode()
 {
 	return state_client.mode;
@@ -3402,6 +3410,14 @@ b8 packet_handle_master(StreamRead* p)
 				serialize_u32(p, Game::user_key.id);
 				serialize_u32(p, Game::user_key.token);
 			}
+			else
+				Game::auth_failed();
+			break;
+		}
+		case Master::Message::ReauthRequired:
+		{
+			vi_debug("%s", "Reauthenticating...");
+			master_send_auth();
 			break;
 		}
 		case Master::Message::Disconnect:
@@ -3435,28 +3451,16 @@ b8 packet_handle_master(StreamRead* p)
 			Overworld::master_server_config_saved(id, request_id);
 			break;
 		}
-		case Master::Message::ServerConfig:
+		case Master::Message::ServerDetails:
 		{
 			u32 request_id;
 			serialize_u32(p, request_id);
 
-			Master::ServerConfig config;
-			if (!Master::serialize_server_config(p, &config))
+			Master::ServerDetails details;
+			if (!Master::serialize_server_details(p, &details))
 				net_error();
 
-			Master::ServerState state;
-			if (!Master::serialize_server_state(p, &state))
-				net_error();
-
-			Sock::Address addr;
-			if (state.level == AssetNull)
-				addr = {};
-			else
-			{
-				serialize_u32(p, addr.host);
-				serialize_u16(p, addr.port);
-			}
-			Overworld::master_server_config_response(config, state, addr, request_id);
+			Overworld::master_server_details_response(details, request_id);
 			break;
 		}
 		case Master::Message::ServerList:
@@ -3535,7 +3539,6 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 						{
 							if (Game::session.local_player_mask & (1 << i))
 							{
-								serialize_int(p2, AI::Team, Game::session.local_player_config[i], -1, MAX_TEAMS - 1); // team
 								serialize_int(p2, s32, i, 0, MAX_GAMEPADS - 1); // gamepad
 								serialize_u64(p2, Game::session.local_player_uuids[i]); // uuid
 							}
@@ -4012,8 +4015,7 @@ void update_end(const Update& u)
 	// server always runs at 60 FPS
 	Server::tick(u, dt);
 #else
-	if (Client::state_client.mode == Client::Mode::ContactingMaster || Client::master_auth_timer > 0.0f)
-		state_persistent.master.update(state_common.timestamp, &state_persistent.sock, 4);
+	state_persistent.master.update(state_common.timestamp, &state_persistent.sock, 4);
 
 	if (Game::level.local || Client::state_client.replay_mode == Client::ReplayMode::Replaying)
 		state_common.msgs_out.length = 0; // clear out message queue because we're never going to send these

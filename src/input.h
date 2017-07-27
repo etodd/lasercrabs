@@ -370,6 +370,7 @@ struct TextField
 
 	TextField();
 	b8 update(const Update&, s32 = 0, s32 = 0);
+	void set(const char*);
 };
 
 }

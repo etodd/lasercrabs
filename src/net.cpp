@@ -30,6 +30,7 @@
 #include "load.h"
 #include "settings.h"
 #include "cjson/cJSON.h"
+#include <array>
 
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0
@@ -770,7 +771,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 template<typename Stream> b8 serialize_init_packet(Stream* p)
 {
 	serialize_enum(p, Game::FeatureLevel, Game::level.feature_level);
-	serialize_s8(p, Game::session.config.time_limit_minutes);
 	serialize_r32_range(p, Game::level.rotation, -2.0f * PI, 2.0f * PI, 16);
 	serialize_r32_range(p, Game::level.min_y, -128, 128, 8);
 	serialize_r32(p, Game::level.skybox.far_plane);
@@ -813,7 +813,6 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	}
 	serialize_s16(p, Game::level.id);
 	serialize_enum(p, Game::Mode, Game::level.mode);
-	serialize_enum(p, GameType, Game::session.config.game_type);
 	serialize_enum(p, SessionType, Game::session.type);
 	serialize_bool(p, Game::level.post_pvp);
 	serialize_ref(p, Game::level.map_view);
@@ -827,11 +826,8 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_int(p, u16, Game::level.scripts.length, 0, Game::level.scripts.capacity());
 	for (s32 i = 0; i < Game::level.scripts.length; i++)
 		serialize_int(p, AssetID, Game::level.scripts[i], 0, Script::count);
-	serialize_int(p, s8, Game::session.config.max_players, 1, MAX_PLAYERS);
-	serialize_int(p, s8, Game::session.config.team_count, 2, MAX_TEAMS);
-	serialize_s16(p, Game::session.config.kill_limit);
-	serialize_s16(p, Game::session.config.respawns);
-	serialize_bool(p, Game::session.config.allow_abilities);
+	if (!Master::serialize_server_config(p, &Game::session.config))
+		net_error();
 	if (Stream::IsReading)
 		Game::level.finder.map.length = 0;
 	return true;
@@ -2984,18 +2980,22 @@ b8 master_send_auth()
 	return true;
 }
 
-b8 master_create_server_config(const char* name, u32 request_id)
+b8 master_save_server_config(const Master::ServerConfig& config, u32 request_id)
 {
 	using Stream = StreamWrite;
 	StreamWrite p;
 	packet_init(&p);
-	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ClientCreateServerConfig);
+	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ClientSaveServerConfig);
 	serialize_u32(&p, Game::user_key.id);
 	serialize_u32(&p, Game::user_key.token);
 	serialize_u32(&p, request_id);
-	s32 name_length = strlen(name);
-	serialize_int(&p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
-	serialize_bytes(&p, (u8*)name, name_length);
+	b8 creating = config.id == 0;
+	serialize_bool(&p, creating);
+	Master::ServerConfig c = config;
+	if (creating)
+		c.id = u32(-1);
+	if (!Master::serialize_server_config(&p, &c))
+		net_error();
 	packet_finalize(&p);
 	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
 	return true;
@@ -3018,7 +3018,7 @@ b8 master_request_server_list(ServerListType type, s32 offset)
 
 void master_cancel_outgoing()
 {
-	state_persistent.master.outgoing.length = 0;
+	state_persistent.master.reset();
 }
 
 b8 init()
@@ -3406,13 +3406,13 @@ b8 packet_handle_master(StreamRead* p)
 			state_client.mode = Mode::Disconnected;
 			break;
 		}
-		case Master::Message::ServerConfigCreated:
+		case Master::Message::ServerConfigSaved:
 		{
 			u32 id;
 			serialize_u32(p, id);
 			u32 request_id;
 			serialize_u32(p, request_id);
-			Overworld::master_server_config_created(id, request_id);
+			Overworld::master_server_config_saved(id, request_id);
 			break;
 		}
 		case Master::Message::ServerList:
@@ -3426,13 +3426,18 @@ b8 packet_handle_master(StreamRead* p)
 				if (index < 0)
 					break;
 
-				u32 id;
-				serialize_u32(p, id);
-				char name[MAX_SERVER_CONFIG_NAME + 1] = {};
+				Overworld::ServerListEntry entry;
+				serialize_u32(p, entry.id);
 				s32 name_length;
 				serialize_int(p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
-				serialize_bytes(p, (u8*)name, name_length);
-				Overworld::master_server_list_entry(type, index, id, name);
+				serialize_bytes(p, (u8*)entry.name, name_length);
+				entry.name[name_length] = '\0';
+				serialize_int(p, u8, entry.max_players, 2, MAX_PLAYERS);
+				serialize_int(p, u8, entry.open_slots, 0, MAX_PLAYERS);
+				serialize_s16(p, entry.level);
+				serialize_int(p, u8, entry.team_count, 2, MAX_TEAMS);
+				serialize_enum(p, GameType, entry.game_type);
+				Overworld::master_server_list_entry(type, index, entry);
 			}
 			break;
 		}

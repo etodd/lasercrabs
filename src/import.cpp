@@ -33,6 +33,7 @@
 #include "recast/Recast/Include/Recast.h"
 #include "render/glvm.h"
 #include "cjson/cJSON.h"
+#include "data/json.h"
 
 namespace VI
 {

@@ -1468,7 +1468,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		ui_anchor = vp.size * Vec2(0.9f, 0.1f) + Vec2(text_size * UI::scale * -14.0f, text_size * UI::scale * 0.5f);
 
 	// draw abilities
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::session.config.allow_abilities)
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::session.config.allow_upgrades)
 	{
 		if (mode == UIMode::PvpDefault
 			&& get<PlayerManager>()->can_transition_state()
@@ -1513,7 +1513,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& Game::session.config.allow_abilities
+		&& Game::session.config.allow_upgrades
 		&& (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrading))
 	{
 		// energy
@@ -3930,7 +3930,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 		// highlight upgrade point if there is an upgrade available
 		if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-			&& Game::session.config.allow_abilities
+			&& Game::session.config.allow_upgrades
 			&& (Game::level.has_feature(Game::FeatureLevel::All) || Game::level.feature_level == Game::FeatureLevel::Abilities) // disable prompt in tutorial after ability has been purchased
 			&& manager->upgrade_available() && manager->upgrade_highest_owned_or_available() != player.ref()->upgrade_last_visit_highest_available
 			&& !UpgradeStation::drone_at(get<Drone>()))
@@ -4235,7 +4235,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 	const Health* health = get<Health>();
 
-	b8 is_vulnerable = !get<AIAgent>()->stealth && !get<Health>()->invincible() && health->hp == 1 && health->shield == 0;
+	b8 is_vulnerable = !get<AIAgent>()->stealth && !get<Health>()->invincible() && health->hp == 1 && health->shield == 0 && Game::session.config.drone_shield > 0;
 
 	// compass
 	{

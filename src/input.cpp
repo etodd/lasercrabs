@@ -62,7 +62,7 @@ InputBinding control_defaults[s32(Controls::count)] =
 	{ Gamepad::Btn::RightTrigger, KeyCode::Space, KeyCode::None, }, // Jump
 	{ Gamepad::Btn::LeftTrigger, KeyCode::LShift, KeyCode::None, }, // Parkour
 	{ Gamepad::Btn::X, KeyCode::F, KeyCode::None, }, // UIContextAction
-	{ Gamepad::Btn::X, KeyCode::Return, KeyCode::None, }, // UIAcceptText
+	{ Gamepad::Btn::A, KeyCode::Return, KeyCode::None, }, // UIAcceptText
 	{ Gamepad::Btn::LeftShoulder, KeyCode::Q, KeyCode::None, }, // TabLeft
 	{ Gamepad::Btn::RightShoulder, KeyCode::E, KeyCode::None, }, // TabRight
 };
@@ -513,6 +513,13 @@ TextField::TextField()
 	repeat_last_time()
 {
 
+}
+
+void TextField::set(const char* v)
+{
+	value.resize(strlen(v) + 1);
+	memcpy(value.data, v, value.length - 1);
+	value[value.length - 1] = '\0';
 }
 
 b8 TextField::update(const Update& u, s32 first_editable_index, s32 max_length)

@@ -47,6 +47,7 @@
 #include "load.h"
 #include <dirent.h>
 #include "settings.h"
+#include "data/json.h"
 
 #if !SERVER
 #include "http.h"

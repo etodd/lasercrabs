@@ -863,14 +863,25 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	deaths(),
 	ability_purchase_times()
 {
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::session.config.allow_abilities)
 	{
-		energy = ENERGY_INITIAL;
-		if (Game::session.type == SessionType::Story && Game::session.config.game_type == GameType::Assault && team->team() == 0)
-			energy += s32(Team::match_time / ENERGY_INCREMENT_INTERVAL) * (ENERGY_DEFAULT_INCREMENT * s32(Battery::list.count() * 0.75f));
+		const StaticArray<Upgrade, MAX_ABILITIES>& start_upgrades = Game::session.config.start_upgrades;
+		for (s32 i = 0; i < start_upgrades.length; i++)
+		{
+			Upgrade upgrade = start_upgrades[i];
+			upgrades |= 1 << s32(upgrade);
+			abilities[i] = Ability(upgrade);
+		}
 	}
-	else
-		energy = 0;
+
+	energy = Game::session.config.start_energy;
+
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
+		&& Game::session.config.allow_upgrades
+		&& Game::session.type == SessionType::Story
+		&& Game::session.config.game_type == GameType::Assault
+		&& team->team() == 0)
+		energy += s32(Team::match_time / ENERGY_INCREMENT_INTERVAL) * (ENERGY_DEFAULT_INCREMENT * s32(Battery::list.count() * 0.75f));
+
 	if (u)
 		strncpy(username, u, MAX_USERNAME);
 	else
@@ -908,9 +919,6 @@ b8 PlayerManager::ability_valid(Ability ability) const
 		return false;
 
 	if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
-		return false;
-
-	if (!Game::session.config.allow_abilities)
 		return false;
 
 	if (!can_transition_state())
@@ -1209,7 +1217,9 @@ b8 PlayerManager::upgrade_available(Upgrade u) const
 	{
 		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{
-			if (!has_upgrade(Upgrade(i)) && energy >= upgrade_cost(Upgrade(i)))
+			if (!has_upgrade(Upgrade(i))
+				&& Game::session.config.allow_upgrades & (1 << i)
+				&& energy >= upgrade_cost(Upgrade(i)))
 			{
 				if (i >= s32(Ability::count) || ability_count() < MAX_ABILITIES)
 					return true; // either it's not an ability, or it is an ability and we have enough room for it
@@ -1219,8 +1229,10 @@ b8 PlayerManager::upgrade_available(Upgrade u) const
 	}
 	else
 	{
-		// make sure that either it's not an ability, or it is an ability and we have enough room for it
-		return !has_upgrade(u) && (s32(u) >= s32(Ability::count) || ability_count() < MAX_ABILITIES);
+		// make sure that the upgrade is allowed, and either it's not an ability, or it is an ability and we have enough room for it
+		return !has_upgrade(u)
+			&& Game::session.config.allow_upgrades & (1 << s32(u))
+			&& (s32(u) >= s32(Ability::count) || ability_count() < MAX_ABILITIES);
 	}
 }
 
@@ -1277,7 +1289,7 @@ PlayerManager::State PlayerManager::state() const
 
 b8 PlayerManager::can_transition_state() const
 {
-	if (!Game::level.has_feature(Game::FeatureLevel::Abilities) || !Game::session.config.allow_abilities)
+	if (!Game::level.has_feature(Game::FeatureLevel::Abilities) || !Game::session.config.allow_upgrades)
 		return false;
 
 	Entity* e = instance.ref();

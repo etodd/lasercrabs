@@ -28,6 +28,7 @@
 #include "data/components.h"
 #include "ease.h"
 #include "net.h"
+#include "data/json.h"
 
 namespace VI
 {
@@ -136,34 +137,48 @@ struct Data
 		enum class State : s8
 		{
 			Browse,
-			ViewEntry,
-			CreateEntry,
-			EditEntry,
+			EntryView,
+			EntryEdit,
+			count,
+		};
+
+		enum class RequestType : s8
+		{
+			EntryGet,
+			EntryEditOrCreate,
+			count,
+		};
+
+		enum class EditMode : s8
+		{
+			Main,
+			Name,
+			Levels,
+			AddLevel,
+			AllowedUpgrades,
+			StartUpgrades,
+			AddStartUpgrade,
 			count,
 		};
 
 		struct ServerList
 		{
-			struct Entry
-			{
-				u32 id;
-				char name[MAX_SERVER_CONFIG_NAME + 1];
-			};
-
-			Array<Entry> entries;
-			s32 selected_index;
+			Array<ServerListEntry> entries;
+			s32 selected;
 		};
 
 		ServerList server_lists[s32(ServerListType::count)];
-		UIMenu menu;
-		UIScroll scroll;
+		UIMenu menu[s32(EditMode::count)];
 		TextField text_field;
+		UIScroll scroll[s32(EditMode::count)];
 		r32 tab_timer = TAB_ANIMATION_TIME;
 		r32 state_transition_time;
-		r32 server_list_refresh_timer = SERVER_LIST_REFRESH_INTERVAL;
-		u32 active_request_id;
-		u32 server_config_id;
+		r32 server_list_refresh_timer;
+		u32 active_config_request_id;
+		Net::Master::ServerConfig active_config;
+		RequestType active_config_request_type;
 		State state;
+		EditMode active_config_edit_mode;
 	};
 
 	struct StoryMode
@@ -210,13 +225,34 @@ void multiplayer_state_transition(Data::Multiplayer::State state)
 {
 	data.multiplayer.state = state;
 	data.multiplayer.state_transition_time = Game::real_time.total;
+	data.multiplayer.menu[0].animation_time = Game::real_time.total;
+}
+
+void multiplayer_edit_mode_transition(Data::Multiplayer::EditMode mode)
+{
+	data.multiplayer.active_config_edit_mode = mode;
+	data.multiplayer.state_transition_time = Game::real_time.total;
+	data.multiplayer.menu[s32(mode)].animation_time = Game::real_time.total;
+}
+
+void multiplayer_switch_tab(ServerListType type)
+{
+	global.multiplayer.tab_previous = global.multiplayer.tab;
+	global.multiplayer.tab = type;
+	if (global.multiplayer.tab != global.multiplayer.tab_previous)
+	{
+		data.multiplayer.tab_timer = TAB_ANIMATION_TIME;
+		data.multiplayer.server_list_refresh_timer = 0.0f;
+	}
 }
 
 void multiplayer_browse_update(const Update& u)
 {
 	if (u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0))
 	{
-		multiplayer_state_transition(Data::Multiplayer::State::CreateEntry);
+		new (&data.multiplayer.active_config) Net::Master::ServerConfig();
+		multiplayer_switch_tab(ServerListType::Mine);
+		multiplayer_state_transition(Data::Multiplayer::State::EntryEdit);
 		return;
 	}
 
@@ -226,12 +262,12 @@ void multiplayer_browse_update(const Update& u)
 		data.multiplayer.server_list_refresh_timer += SERVER_LIST_REFRESH_INTERVAL;
 
 #if !SERVER
-		Net::Client::master_request_server_list(global.multiplayer.tab, data.multiplayer.server_lists[s32(global.multiplayer.tab)].selected_index);
+		Net::Client::master_request_server_list(global.multiplayer.tab, data.multiplayer.server_lists[s32(global.multiplayer.tab)].selected);
 #endif
 	}
 }
 
-void master_server_list_entry(ServerListType type, s32 index, u32 id, const char* name)
+void master_server_list_entry(ServerListType type, s32 index, const ServerListEntry& entry)
 {
 	if (active()
 		&& data.state == State::Multiplayer)
@@ -239,140 +275,421 @@ void master_server_list_entry(ServerListType type, s32 index, u32 id, const char
 		Data::Multiplayer::ServerList* list = &data.multiplayer.server_lists[s32(type)];
 		if (index >= list->entries.length)
 			list->entries.resize(index + 1);
-		Data::Multiplayer::ServerList::Entry* entry = &list->entries.data[index];
-		entry->id = id;
-		strcpy(entry->name, name);
-	}
-}
-
-void multiplayer_create_entry_update(const Update& u)
-{
-	if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
-		&& !Game::cancel_event_eaten[0])
-	{
-		if (data.multiplayer.active_request_id) // no request active
-		{
-			data.multiplayer.active_request_id = 0; // cancel active request
-#if !SERVER
-			Net::Client::master_cancel_outgoing();
-#endif
-		}
-		else
-		{
-			multiplayer_state_transition(Data::Multiplayer::State::Browse);
-			Game::cancel_event_eaten[0] = true;
-			return;
-		}
-	}
-
-	if (!data.multiplayer.active_request_id)
-	{
-		data.multiplayer.text_field.update(u, 0, MAX_SERVER_CONFIG_NAME);
-
-		if (u.last_input->get(Controls::UIAcceptText, 0) && !u.input->get(Controls::UIAcceptText, 0))
-		{
-			data.multiplayer.active_request_id = vi_max(u32(1), u32(mersenne::rand()));
-#if !SERVER
-			Net::Client::master_create_server_config(data.multiplayer.text_field.value.data, data.multiplayer.active_request_id);
-#endif
-		}
-	}
-}
-
-void master_server_config_created(u32 id, u32 request_id)
-{
-	if (active()
-		&& data.state == State::Multiplayer
-		&& data.multiplayer.state == Data::Multiplayer::State::CreateEntry
-		&& data.multiplayer.active_request_id == request_id)
-	{
-		multiplayer_state_transition(Data::Multiplayer::State::EditEntry);
-		data.multiplayer.server_config_id = id;
-		data.multiplayer.active_request_id = 0;
+		list->entries.data[index] = entry;
 	}
 }
 
 void multiplayer_edit_entry_update(const Update& u)
 {
-	/*
-	data.multiplayer.menu.start(u, 0);
-	if (data.multiplayer.menu.item(u, _(strings::back)))
-	{
-		Menu::title();
-		return;
-	}
+	b8 cancel = u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
+		&& !Game::cancel_event_eaten[0];
 
+	if (data.multiplayer.active_config_request_id)
 	{
-		// game type
-		AssetID value;
-		switch (global.multiplayer.game_type)
+		if (cancel)
 		{
-			case GameType::Assault:
-			{
-				value = strings::game_type_assault;
-				break;
-			}
-			case GameType::Deathmatch:
-			{
-				value = strings::game_type_deathmatch;
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
+			data.multiplayer.active_config_request_id = 0; // cancel active request
+			Game::cancel_event_eaten[0] = true;
+#if !SERVER
+			Net::Client::master_cancel_outgoing();
+#endif
 		}
-		UIMenu::enum_option(&global.multiplayer.game_type, data.multiplayer.menu.slider_item(u, _(strings::game_type), _(value)));
-	}
-
-	s32 delta;
-	char str[MAX_PATH_LENGTH + 1];
-
-	{
-		// time limit
-		s8* time_limit = &global.multiplayer.time_limit;
-		sprintf(str, _(strings::timer), s32(*time_limit), 0);
-		delta = data.multiplayer.menu.slider_item(u, _(strings::time_limit), str);
-		if (delta < 0)
-			*time_limit = vi_max(2, *time_limit - 2);
-		else if (delta > 0)
-			*time_limit = vi_min(254, *time_limit + 2);
-	}
-
-	if (global.multiplayer.game_type == GameType::Assault)
-	{
-		// respawns
-		s16* respawns = &global.multiplayer.respawns;
-		sprintf(str, "%hd", *respawns);
-		delta = data.multiplayer.menu.slider_item(u, _(strings::drones), str);
-		if (delta < 0)
-			*respawns = vi_max(1, s32(*respawns) - 1);
-		else if (delta > 0)
-			*respawns = vi_min(100, s32(*respawns) + 1);
 	}
 	else
 	{
-		// kill limit
-		s16* kill_limit = &global.multiplayer.kill_limit;
-		sprintf(str, "%hd", *kill_limit);
-		delta = data.multiplayer.menu.slider_item(u, _(strings::kill_limit), str);
-		if (delta < 0)
-			*kill_limit = vi_max(2, s32(*kill_limit) - 2);
-		else if (delta > 0)
-			*kill_limit = vi_min(200, s32(*kill_limit) + 2);
-	}
+		Net::Master::ServerConfig* config = &data.multiplayer.active_config;
+		UIMenu* menu = &data.multiplayer.menu[s32(data.multiplayer.active_config_edit_mode)];
+		switch (data.multiplayer.active_config_edit_mode)
+		{
+			case Data::Multiplayer::EditMode::Name:
+			{
+				data.multiplayer.text_field.update(u, 0, MAX_SERVER_CONFIG_NAME);
+				if (cancel)
+				{
+					data.multiplayer.text_field.set("");
+					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Main);
+					Game::cancel_event_eaten[0] = true;
+					menu->end();
+					return;
+				}
+				else if (u.last_input->get(Controls::UIAcceptText, 0) && !u.input->get(Controls::UIAcceptText, 0))
+				{
+					strncpy(config->name, data.multiplayer.text_field.value.data, MAX_SERVER_CONFIG_NAME);
+					data.multiplayer.text_field.set("");
+					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Main);
+					menu->end();
+					return;
+				}
+				break;
+			}
+			case Data::Multiplayer::EditMode::Main:
+			{
+				menu->start(u, 0);
 
-	// allow abilities
+				if (cancel || menu->item(u, _(strings::cancel), nullptr, false, Asset::Mesh::icon_close))
+				{
+					multiplayer_state_transition(Data::Multiplayer::State::Browse);
+					Game::cancel_event_eaten[0] = true;
+					menu->end();
+					return;
+				}
+
+				if (menu->item(u, _(strings::save), nullptr, false, Asset::Mesh::icon_arrow))
+				{
+					const Net::Master::ServerConfig& config = data.multiplayer.active_config;
+					if (config.levels.length == 0)
+						Menu::dialog(0, &Menu::dialog_no_action, _(strings::error_no_levels));
+					else if (strlen(config.name) == 0)
+						Menu::dialog(0, &Menu::dialog_no_action, _(strings::error_no_name));
+					else
+					{
+						data.multiplayer.active_config_request_id = vi_max(u32(1), u32(mersenne::rand()));
+						data.multiplayer.active_config_request_type = Data::Multiplayer::RequestType::EntryEditOrCreate;
+#if !SERVER
+						Net::Client::master_save_server_config(data.multiplayer.active_config, data.multiplayer.active_config_request_id);
+#endif
+					}
+				}
+
+				// todo: edit name
+				if (menu->item(u, _(strings::edit_name)))
+				{
+					data.multiplayer.text_field.set(data.multiplayer.active_config.name);
+					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Name);
+					menu->end();
+					return;
+				}
+
+				s32 delta;
+				char str[MAX_PATH_LENGTH + 1];
+
+				// private
+				{
+					b8* is_private = &config->is_private;
+					delta = menu->slider_item(u, _(strings::is_private), _(*is_private ? strings::yes : strings::no));
+					if (delta != 0)
+						*is_private = !(*is_private);
+				}
+
+				{
+					// game type
+					AssetID value;
+					switch (config->game_type)
+					{
+						case GameType::Assault:
+						{
+							value = strings::game_type_assault;
+							break;
+						}
+						case GameType::Deathmatch:
+						{
+							value = strings::game_type_deathmatch;
+							break;
+						}
+						default:
+						{
+							vi_assert(false);
+							break;
+						}
+					}
+					UIMenu::enum_option(&config->game_type, menu->slider_item(u, _(strings::game_type), _(value)));
+				}
+
+				// levels
+				{
+					sprintf(str, "%d", s32(config->levels.length));
+					if (menu->item(u, _(strings::levels), str))
+					{
+						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Levels);
+						menu->end();
+						return;
+					}
+				}
+
+				if (config->game_type == GameType::Assault)
+				{
+					// respawns
+					s16* respawns = &config->respawns;
+					sprintf(str, "%hd", *respawns);
+					delta = menu->slider_item(u, _(strings::drones), str);
+					if (delta < 0)
+						*respawns = vi_max(1, s32(*respawns) - 1);
+					else if (delta > 0)
+						*respawns = vi_min(100, s32(*respawns) + 1);
+				}
+				else
+				{
+					// kill limit
+					s16* kill_limit = &config->kill_limit;
+					sprintf(str, "%hd", *kill_limit);
+					delta = menu->slider_item(u, _(strings::kill_limit), str);
+					if (delta < 0)
+						*kill_limit = vi_max(2, s32(*kill_limit) - 2);
+					else if (delta > 0)
+						*kill_limit = vi_min(200, s32(*kill_limit) + 2);
+				}
+
+				{
+					// time limit
+					u8* time_limit = &config->time_limit_minutes;
+					sprintf(str, _(strings::timer), s32(*time_limit), 0);
+					delta = menu->slider_item(u, _(strings::time_limit), str);
+					*time_limit = vi_max(2, vi_min(254, (*time_limit) + (delta * 2)));
+				}
+
+				{
+					// max players
+					s8* max_players = &config->max_players;
+					sprintf(str, "%hhd", *max_players);
+					delta = menu->slider_item(u, _(strings::max_players), str);
+					*max_players = vi_max(2, vi_min(MAX_PLAYERS, *max_players + delta));
+				}
+
+				{
+					// team count
+					s8* team_count = &config->team_count;
+					sprintf(str, "%hhd", *team_count);
+					delta = menu->slider_item(u, _(strings::team_count), str);
+					*team_count = vi_max(2, vi_min(MAX_TEAMS, *team_count + delta));
+				}
+
+				{
+					// drone shield
+					s8* drone_shield = &config->drone_shield;
+					sprintf(str, "%d", s32(*drone_shield), 0);
+					delta = menu->slider_item(u, _(strings::drone_shield), str);
+					*drone_shield = vi_max(0, vi_min(DRONE_SHIELD, (*drone_shield) + delta));
+				}
+
+				{
+					// start energy
+					s16* start_energy = &config->start_energy;
+					sprintf(str, "%d", s32(*start_energy), 0);
+					delta = menu->slider_item(u, _(strings::start_energy), str);
+					*start_energy = vi_max(0, vi_min(MAX_START_ENERGY, (*start_energy) + (delta * 100)));
+				}
+
+				// enable minions
+				{
+					b8* enable_minions = &config->enable_minions;
+					delta = menu->slider_item(u, _(strings::enable_minions), _(*enable_minions ? strings::on : strings::off));
+					if (delta != 0)
+						*enable_minions = !(*enable_minions);
+				}
+
+				// allowed upgrades
+				{
+					sprintf(str, "%d", s32(Net::popcount(0x0ffff & config->allow_upgrades)));
+					if (menu->item(u, _(strings::allow_upgrades), str))
+					{
+						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::AllowedUpgrades);
+						menu->end();
+						return;
+					}
+				}
+
+				// start upgrades
+				{
+					sprintf(str, "%d", s32(config->start_upgrades.length));
+					if (menu->item(u, _(strings::start_upgrades), str))
+					{
+						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::StartUpgrades);
+						menu->end();
+						return;
+					}
+				}
+
+				menu->end();
+				break;
+			}
+			case Data::Multiplayer::EditMode::Levels:
+			{
+				menu->start(u, 0);
+
+				if (cancel || menu->item(u, _(strings::back)))
+				{
+					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Main);
+					Game::cancel_event_eaten[0] = true;
+					menu->end();
+					return;
+				}
+
+				for (s32 i = 0; i < config->levels.length; i++)
+				{
+					if (menu->item(u, Loader::level_name(config->levels[i]), nullptr, false, Asset::Mesh::icon_close))
+					{
+						config->levels.remove_ordered(i);
+						i--;
+					}
+				}
+
+				if (config->levels.length < config->levels.capacity())
+				{
+					if (menu->item(u, _(strings::add_level)))
+					{
+						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::AddLevel);
+						menu->end();
+						return;
+					}
+				}
+
+				menu->end();
+				break;
+			}
+			case Data::Multiplayer::EditMode::AddLevel:
+			{
+				menu->start(u, 0);
+
+				if (cancel || menu->item(u, _(strings::back)))
+				{
+					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Levels);
+					Game::cancel_event_eaten[0] = true;
+					menu->end();
+					return;
+				}
+
+				for (s32 i = 0; i < Asset::Level::count; i++)
+				{
+					if (Overworld::zone_is_pvp(AssetID(i)) && i != Asset::Level::Port_District)
+					{
+						b8 already_added = false;
+						for (s32 j = 0; j < config->levels.length; j++)
+						{
+							if (config->levels[j] == AssetID(i))
+							{
+								already_added = true;
+								break;
+							}
+						}
+
+						if (!already_added && menu->item(u, Loader::level_name(i)))
+						{
+							config->levels.add(i);
+							multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Levels);
+							menu->end();
+						}
+					}
+				}
+
+				menu->end();
+				break;
+			}
+			case Data::Multiplayer::EditMode::StartUpgrades:
+			{
+				menu->start(u, 0);
+
+				if (cancel || menu->item(u, _(strings::back)))
+				{
+					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Main);
+					Game::cancel_event_eaten[0] = true;
+					menu->end();
+					return;
+				}
+
+				for (s32 i = 0; i < config->start_upgrades.length; i++)
+				{
+					Upgrade upgrade = config->start_upgrades[i];
+					if (menu->item(u, _(UpgradeInfo::list[s32(upgrade)].name), nullptr, false, Asset::Mesh::icon_close))
+					{
+						config->start_upgrades.remove_ordered(i);
+						i--;
+					}
+				}
+
+				if (config->start_upgrades.length < config->start_upgrades.capacity())
+				{
+					if (menu->item(u, _(strings::add_start_upgrade)))
+					{
+						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::AddStartUpgrade);
+						menu->end();
+						return;
+					}
+				}
+
+				menu->end();
+				break;
+			}
+			case Data::Multiplayer::EditMode::AddStartUpgrade:
+			{
+				menu->start(u, 0);
+
+				if (cancel || menu->item(u, _(strings::back)))
+				{
+					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::StartUpgrades);
+					Game::cancel_event_eaten[0] = true;
+					menu->end();
+					return;
+				}
+
+				for (s32 i = 0; i < s32(Upgrade::count); i++)
+				{
+					b8 already_added = false;
+					for (s32 j = 0; j < config->start_upgrades.length; j++)
+					{
+						if (config->start_upgrades[j] == Upgrade(i))
+						{
+							already_added = true;
+							break;
+						}
+					}
+
+					if (!already_added && menu->item(u, _(UpgradeInfo::list[i].name)))
+					{
+						config->start_upgrades.add(Upgrade(i));
+						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::StartUpgrades);
+						menu->end();
+					}
+				}
+
+				menu->end();
+				break;
+			}
+			case Data::Multiplayer::EditMode::AllowedUpgrades:
+			{
+				menu->start(u, 0);
+
+				if (cancel || menu->item(u, _(strings::back)))
+				{
+					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Main);
+					Game::cancel_event_eaten[0] = true;
+					menu->end();
+					return;
+				}
+
+				s16* allow_upgrades = &config->allow_upgrades;
+				for (s32 i = 0; i < s32(Ability::count); i++)
+				{
+					b8 value = (*allow_upgrades) & (1 << i);
+					if (menu->slider_item(u, _(UpgradeInfo::list[i].name), _(value ? strings::yes : strings::no)))
+					{
+						value = !value;
+						if (value)
+							*allow_upgrades = (*allow_upgrades) | (1 << i);
+						else
+							*allow_upgrades = (*allow_upgrades) & ~(1 << i);
+					}
+				}
+
+				menu->end();
+				break;
+			}
+			default:
+				vi_assert(false);
+				break;
+		}
+	}
+}
+
+void master_server_config_saved(u32 id, u32 request_id)
+{
+	if (active()
+		&& data.state == State::Multiplayer
+		&& data.multiplayer.state == Data::Multiplayer::State::EntryEdit
+		&& data.multiplayer.active_config_request_id == request_id)
 	{
-		b8* allow_abilities = &global.multiplayer.allow_abilities;
-		delta = data.multiplayer.menu.slider_item(u, _(strings::allow_abilities), _(*allow_abilities ? strings::yes : strings::no));
-		if (delta != 0)
-			*allow_abilities = !(*allow_abilities);
+		data.multiplayer.active_config.id = id;
+		data.multiplayer.active_config_request_id = 0;
 	}
-
-	data.multiplayer.menu.end();
-	*/
 }
 
 void multiplayer_view_entry_update(const Update& u)
@@ -394,50 +711,43 @@ void multiplayer_update(const Update& u)
 		return;
 	}
 
-	data.multiplayer.tab_timer = vi_max(0.0f, data.multiplayer.tab_timer - u.time.delta);
 	if (multiplayer_can_switch_tab())
 	{
 		if (u.last_input->get(Controls::TabLeft, 0) && !u.input->get(Controls::TabLeft, 0))
-		{
-			global.multiplayer.tab_previous = global.multiplayer.tab;
-			global.multiplayer.tab = ServerListType(vi_max(0, s32(global.multiplayer.tab) - 1));
-			if (global.multiplayer.tab != global.multiplayer.tab_previous)
-				data.multiplayer.tab_timer = TAB_ANIMATION_TIME;
-		}
+			multiplayer_switch_tab(ServerListType(vi_max(0, s32(global.multiplayer.tab) - 1)));
 		if (u.last_input->get(Controls::TabRight, 0) && !u.input->get(Controls::TabRight, 0))
-		{
-			global.multiplayer.tab_previous = global.multiplayer.tab;
-			global.multiplayer.tab = ServerListType(vi_min(s32(ServerListType::count) - 1, s32(global.multiplayer.tab) + 1));
-			if (global.multiplayer.tab != global.multiplayer.tab_previous)
-				data.multiplayer.tab_timer = TAB_ANIMATION_TIME;
-		}
+			multiplayer_switch_tab(ServerListType(vi_min(s32(ServerListType::count) - 1, s32(global.multiplayer.tab) + 1)));
 	}
 
-	switch (data.multiplayer.state)
+	if (data.multiplayer.tab_timer > 0.0f)
 	{
-		case Data::Multiplayer::State::Browse:
+		data.multiplayer.tab_timer = vi_max(0.0f, data.multiplayer.tab_timer - u.time.delta);
+		if (data.multiplayer.tab_timer == 0.0f)
+			data.multiplayer.menu[s32(data.multiplayer.active_config_edit_mode)].animation_time = Game::real_time.total;
+	}
+	else
+	{
+		switch (data.multiplayer.state)
 		{
-			multiplayer_browse_update(u);
-			break;
+			case Data::Multiplayer::State::Browse:
+			{
+				multiplayer_browse_update(u);
+				break;
+			}
+			case Data::Multiplayer::State::EntryEdit:
+			{
+				multiplayer_edit_entry_update(u);
+				break;
+			}
+			case Data::Multiplayer::State::EntryView:
+			{
+				multiplayer_view_entry_update(u);
+				break;
+			}
+			default:
+				vi_assert(false);
+				break;
 		}
-		case Data::Multiplayer::State::CreateEntry:
-		{
-			multiplayer_create_entry_update(u);
-			break;
-		}
-		case Data::Multiplayer::State::ViewEntry:
-		{
-			multiplayer_view_entry_update(u);
-			break;
-		}
-		case Data::Multiplayer::State::EditEntry:
-		{
-			multiplayer_edit_entry_update(u);
-			break;
-		}
-		default:
-			vi_assert(false);
-			break;
 	}
 }
 
@@ -522,14 +832,15 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 		text.clip = 80;
 
 		const Data::Multiplayer::ServerList& list = data.multiplayer.server_lists[s32(global.multiplayer.tab)];
-		data.multiplayer.scroll.start(params, pos + Vec2(panel_size.x * 0.5f, panel_size.y));
+		UIScroll* scroll = &data.multiplayer.scroll[s32(data.multiplayer.active_config_edit_mode)];
+		scroll->start(params, pos + Vec2(panel_size.x * 0.5f, panel_size.y));
 		for (s32 i = 0; i < list.entries.length; i++)
 		{
-			if (!data.multiplayer.scroll.item(i))
+			if (!scroll->item(i))
 				continue;
 
-			const Data::Multiplayer::ServerList::Entry& entry = list.entries[i];
-			b8 selected = i == list.selected_index;
+			const ServerListEntry& entry = list.entries[i];
+			b8 selected = i == list.selected;
 
 			UI::box(params, { pos, panel_size }, UI::color_background);
 
@@ -542,86 +853,173 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 
 			pos.y -= panel_size.y;
 		}
-		data.multiplayer.scroll.end(params, pos + Vec2(panel_size.x * 0.5f, panel_size.y));
-	}
-}
-
-void multiplayer_create_entry_draw(const RenderParams& params, const Rect2& rect)
-{
-	if (data.multiplayer.active_request_id)
-		Menu::progress_infinite(params, _(strings::creating_entry), rect.pos + rect.size * 0.5f);
-	else
-	{
-		Vec2 field_size(rect.size.x + PADDING * -4.0f, MENU_ITEM_HEIGHT);
-		Rect2 field_rect =
-		{
-			rect.pos + (rect.size * 0.5f) + (field_size * -0.5f),
-			field_size
-		};
-
-		UIText text;
-		text.size = TEXT_SIZE;
-		text.anchor_x = UIText::Anchor::Min;
-		text.anchor_y = UIText::Anchor::Min;
-
-		{
-			// prompt
-			text.color = UI::color_default;
-			text.text(0, _(strings::prompt_name));
-			UIMenu::text_clip(&text, data.multiplayer.state_transition_time, 100.0f);
-			text.draw(params, field_rect.pos + Vec2(0, field_rect.size.y + PADDING));
-			text.clip = 0;
-
-			// accept/cancel control prompts
-
-			// accept
-			Rect2 controls_rect = field_rect;
-			controls_rect.pos.y -= MENU_ITEM_HEIGHT + PADDING;
-
-			text.wrap_width = 0;
-			text.anchor_y = UIText::Anchor::Min;
-			text.anchor_x = UIText::Anchor::Min;
-			text.color = UI::color_accent();
-			text.text(0, _(strings::prompt_accept_text));
-			Vec2 prompt_pos = controls_rect.pos + Vec2(PADDING);
-			text.draw(params, prompt_pos);
-
-			// cancel
-			text.anchor_x = UIText::Anchor::Max;
-			text.color = UI::color_alert();
-			text.clip = 0;
-			text.text(0, _(strings::prompt_cancel));
-			text.draw(params, prompt_pos + Vec2(controls_rect.size.x + PADDING * -2.0f, 0));
-		}
-
-		{
-			// text field
-			UI::box(params, field_rect, UI::color_background);
-			UI::border(params, field_rect, 2.0f, UI::color_accent());
-
-			text.font = Asset::Font::pt_sans;
-			text.size = TEXT_SIZE;
-			text.anchor_x = UIText::Anchor::Min;
-			Loader::font(text.font);
-			text.color = UI::color_default;
-			Array<char>* value = &data.multiplayer.text_field.value;
-			if (value->length > 64 + 1) // truncate
-			{
-				const char* start = value->data;
-				while (start < &value->data[value->length - 64])
-					start = Font::codepoint_next(start);
-				text.text_raw(0, start, UITextFlagSingleLine);
-			}
-			else
-				text.text_raw(0, value->data, UITextFlagSingleLine);
-			text.draw(params, field_rect.pos + Vec2(PADDING * 0.8125f));
-		}
+		scroll->end(params, pos + Vec2(panel_size.x * 0.5f, panel_size.y));
 	}
 }
 
 void multiplayer_edit_entry_draw(const RenderParams& params, const Rect2& rect)
 {
-	//data.multiplayer.menu.draw_ui(params, Vec2(vp.size.x * 0.5f, vp.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f), UIText::Anchor::Center, UIText::Anchor::Max);
+	if (data.multiplayer.active_config_request_id)
+	{
+		AssetID str;
+		switch (data.multiplayer.active_config_request_type)
+		{
+			case Data::Multiplayer::RequestType::EntryEditOrCreate:
+				str = strings::saving_entry;
+				break;
+			case Data::Multiplayer::RequestType::EntryGet:
+				str = strings::loading;
+				break;
+			default:
+				str = AssetNull;
+				vi_assert(false);
+				break;
+		}
+		Menu::progress_infinite(params, _(str), rect.pos + rect.size * 0.5f);
+	}
+	else
+	{
+		switch (data.multiplayer.active_config_edit_mode)
+		{
+			case Data::Multiplayer::EditMode::Name:
+			{
+				Vec2 field_size(rect.size.x + PADDING * -4.0f, MENU_ITEM_HEIGHT);
+				Rect2 field_rect =
+				{
+					rect.pos + (rect.size * 0.5f) + (field_size * -0.5f),
+					field_size
+				};
+
+				UIText text;
+				text.size = TEXT_SIZE;
+				text.anchor_x = UIText::Anchor::Min;
+				text.anchor_y = UIText::Anchor::Min;
+
+				{
+					// prompt
+					text.color = UI::color_default;
+					text.text(0, _(strings::prompt_name));
+					UIMenu::text_clip(&text, data.multiplayer.state_transition_time, 100.0f);
+					text.draw(params, field_rect.pos + Vec2(0, field_rect.size.y + PADDING));
+					text.clip = 0;
+
+					// accept/cancel control prompts
+
+					// accept
+					Rect2 controls_rect = field_rect;
+					controls_rect.pos.y -= MENU_ITEM_HEIGHT + PADDING;
+
+					text.wrap_width = 0;
+					text.anchor_y = UIText::Anchor::Min;
+					text.anchor_x = UIText::Anchor::Min;
+					text.color = UI::color_accent();
+					text.text(0, _(strings::prompt_accept_text));
+					Vec2 prompt_pos = controls_rect.pos + Vec2(PADDING);
+					text.draw(params, prompt_pos);
+
+					// cancel
+					text.anchor_x = UIText::Anchor::Max;
+					text.color = UI::color_alert();
+					text.clip = 0;
+					text.text(0, _(strings::prompt_cancel));
+					text.draw(params, prompt_pos + Vec2(controls_rect.size.x + PADDING * -2.0f, 0));
+				}
+
+				{
+					// text field
+					UI::box(params, field_rect, UI::color_background);
+					UI::border(params, field_rect, 2.0f, UI::color_accent());
+
+					text.font = Asset::Font::pt_sans;
+					text.size = TEXT_SIZE;
+					text.anchor_x = UIText::Anchor::Min;
+					Loader::font(text.font);
+					text.color = UI::color_default;
+					Array<char>* value = &data.multiplayer.text_field.value;
+					if (value->length > 64 + 1) // truncate
+					{
+						const char* start = value->data;
+						while (start < &value->data[value->length - 64])
+							start = Font::codepoint_next(start);
+						text.text_raw(0, start, UITextFlagSingleLine);
+					}
+					else
+						text.text_raw(0, value->data, UITextFlagSingleLine);
+					text.draw(params, field_rect.pos + Vec2(PADDING * 0.8125f));
+				}
+				break;
+			}
+			case Data::Multiplayer::EditMode::Levels:
+			case Data::Multiplayer::EditMode::AddLevel:
+			case Data::Multiplayer::EditMode::Main:
+			case Data::Multiplayer::EditMode::AllowedUpgrades:
+			case Data::Multiplayer::EditMode::StartUpgrades:
+			case Data::Multiplayer::EditMode::AddStartUpgrade:
+			{
+				// prompt
+				UIText text;
+				text.anchor_x = UIText::Anchor::Min;
+				text.anchor_y = UIText::Anchor::Min;
+				text.color = UI::color_default;
+				text.wrap_width = MENU_ITEM_WIDTH + (PADDING * -2.0f);
+				switch (data.multiplayer.active_config_edit_mode)
+				{
+					case Data::Multiplayer::EditMode::Levels:
+					{
+						text.text(0, _(strings::levels));
+						break;
+					}
+					case Data::Multiplayer::EditMode::AddLevel:
+					{
+						text.text(0, _(strings::add_level));
+						break;
+					}
+					case Data::Multiplayer::EditMode::Main:
+					{
+						if (data.multiplayer.active_config.name[0] == '\0')
+							text.text(0, _(strings::create_entry));
+						else
+							text.text_raw(0, data.multiplayer.active_config.name);
+						break;
+					}
+					case Data::Multiplayer::EditMode::AllowedUpgrades:
+					{
+						text.text(0, _(strings::allow_upgrades));
+						break;
+					}
+					case Data::Multiplayer::EditMode::StartUpgrades:
+					{
+						text.text(0, _(strings::start_upgrades));
+						break;
+					}
+					case Data::Multiplayer::EditMode::AddStartUpgrade:
+					{
+						text.text(0, _(strings::add_start_upgrade));
+						break;
+					}
+					default:
+						vi_assert(false);
+						break;
+				}
+				UIMenu::text_clip(&text, data.multiplayer.state_transition_time, 100.0f);
+
+				{
+					const Rect2& vp = params.camera->viewport;
+					Vec2 pos(vp.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, vp.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f);
+					{
+						Vec2 text_pos = pos + Vec2(PADDING, PADDING * 4.0f);
+						UI::box(params, text.rect(text_pos).outset(PADDING), UI::color_background);
+						text.draw(params, text_pos);
+					}
+					data.multiplayer.menu[s32(data.multiplayer.active_config_edit_mode)].draw_ui(params, pos, UIText::Anchor::Min, UIText::Anchor::Max);
+				}
+				break;
+			}
+			default:
+				vi_assert(false);
+				break;
+		}
+	}
 }
 
 void multiplayer_view_entry_draw(const RenderParams& params, const Rect2& rect)
@@ -727,19 +1125,14 @@ void multiplayer_draw(const RenderParams& params)
 					multiplayer_browse_draw(params, rect_padded);
 					break;
 				}
-				case Data::Multiplayer::State::CreateEntry:
-				{
-					multiplayer_create_entry_draw(params, rect_padded);
-					break;
-				}
-				case Data::Multiplayer::State::ViewEntry:
-				{
-					multiplayer_view_entry_draw(params, rect_padded);
-					break;
-				}
-				case Data::Multiplayer::State::EditEntry:
+				case Data::Multiplayer::State::EntryEdit:
 				{
 					multiplayer_edit_entry_draw(params, rect_padded);
+					break;
+				}
+				case Data::Multiplayer::State::EntryView:
+				{
+					multiplayer_view_entry_draw(params, rect_padded);
 					break;
 				}
 				default:
@@ -1441,7 +1834,8 @@ void zone_change(AssetID zone, ZoneState state)
 
 b8 zone_is_pvp(AssetID zone_id)
 {
-	return zone_node_get(zone_id)->max_teams > 0;
+	const ZoneNode* z = zone_node_get(zone_id);
+	return z && z->max_teams > 0;
 }
 
 void zone_rewards(AssetID zone_id, s16* rewards)
@@ -2047,7 +2441,6 @@ void show_complete()
 		new (&data) Data();
 		data.camera = c;
 		data.timer_transition = t;
-		data.multiplayer.menu.animation_time = Game::real_time.total;
 
 		data.camera_restore_data = *data.camera.ref();
 

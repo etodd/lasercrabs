@@ -28,6 +28,7 @@ namespace Net
 namespace Master
 {
 	struct ServerState;
+	struct ServerConfig;
 };
 
 enum class MessageType : s8
@@ -192,7 +193,7 @@ namespace Client
 	s32 replay_file_count();
 	b8 request_server(u32);
 	b8 lagging();
-	b8 master_create_server_config(const char*, u32);
+	b8 master_save_server_config(const Master::ServerConfig&, u32);
 	b8 master_request_server_list(ServerListType, s32);
 	void master_cancel_outgoing();
 

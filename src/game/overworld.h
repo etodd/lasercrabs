@@ -1,6 +1,7 @@
 #pragma once
 #include "types.h"
 #include "render/render.h"
+#include "master.h"
 
 struct cJSON;
 
@@ -41,6 +42,17 @@ enum class StoryTab : s8
 	count,
 };
 
+struct ServerListEntry
+{
+	u32 id;
+	AssetID level;
+	char name[MAX_SERVER_CONFIG_NAME + 1];
+	s8 max_players;
+	s8 open_slots;
+	s8 team_count;
+	GameType game_type;
+};
+
 extern ResourceInfo resource_info[s32(Resource::count)];
 extern StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS> directional_lights;
 extern Vec3 ambient_color;
@@ -64,8 +76,8 @@ AssetID zone_under_attack();
 r32 zone_under_attack_timer();
 void resource_change(Resource, s16);
 r32 resource_change_time(Resource);
-void master_server_list_entry(ServerListType, s32, u32, const char*);
-void master_server_config_created(u32, u32);
+void master_server_list_entry(ServerListType, s32, const ServerListEntry&);
+void master_server_config_saved(u32, u32);
 
 }
 

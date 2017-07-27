@@ -989,7 +989,7 @@ void PlayerControlAI::actions_populate()
 				action.type = AI::RecordedLife::Action::TypeRunAway;
 				action.pos = i.item()->get<Transform>()->absolute_pos();
 				s8 priority = -1;
-				priority -= DRONE_SHIELD - get<Health>()->shield;
+				priority -= Game::session.config.drone_shield - get<Health>()->shield;
 				action_queue.push({ priority, action });
 				break;
 			}
@@ -1043,7 +1043,7 @@ void PlayerControlAI::actions_populate()
 						else if (entity_type == AI::RecordedLife::EntityDroneEnemyShield1)
 							priority -= 3;
 
-						priority -= (DRONE_SHIELD - tag.shield);
+						priority -= (Game::session.config.drone_shield - tag.shield);
 
 						break;
 					}
@@ -1053,7 +1053,7 @@ void PlayerControlAI::actions_populate()
 							continue;
 
 						priority -= 1;
-						priority -= (DRONE_SHIELD - tag.shield);
+						priority -= (Game::session.config.drone_shield - tag.shield);
 						break;
 					}
 					case AI::RecordedLife::EntityBatteryEnemy:

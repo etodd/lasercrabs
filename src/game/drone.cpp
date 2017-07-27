@@ -456,7 +456,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							&& target.ref()->has<AIAgent>()
 							&& target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team
 							&& target.ref()->get<Health>()->invincible_timer <= ACTIVE_ARMOR_TIME) // they were invincible; they should damage us
-							drone->get<Health>()->damage(target.ref(), DRONE_HEALTH + DRONE_SHIELD);
+							drone->get<Health>()->damage(target.ref(), DRONE_HEALTH + Game::session.config.drone_shield);
 					}
 
 					if (drone->has<PlayerControlHuman>())

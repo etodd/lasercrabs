@@ -83,8 +83,8 @@ enum class Message : s8
 	ClientRequestServer, // a client requesting to connect to a virtual server; master will allocate it if necessary
 	ClientRequestServerList, // a client requesting a server list from the master
 	ServerList, // master responding to a client with a server list
-	ClientCreateServerConfig, // a client telling the master server to create a new server config
-	ServerConfigCreated, // master telling a client their config was created
+	ClientSaveServerConfig, // a client telling the master server to create or update a server config
+	ServerConfigSaved, // master telling a client their config was created
 	WrongVersion, // master telling a server or client that it needs to upgrade
 	Disconnect,
 	count,
@@ -147,15 +147,16 @@ struct ServerConfig
 	StaticArray<AssetID, 32> levels;
 	s16 kill_limit = DEFAULT_ASSAULT_DRONES;
 	s16 respawns = DEFAULT_ASSAULT_DRONES;
-	SessionType session_type;
+	s16 allow_upgrades = 0xffff;
+	s16 start_energy = ENERGY_INITIAL;
 	GameType game_type = GameType::Assault;
-	s16 allow_abilities = 0xffff;
-	s16 start_abilities;
+	StaticArray<Upgrade, 3> start_upgrades;
 	s8 max_players = 1;
 	s8 team_count = 2;
+	s8 drone_shield = DRONE_SHIELD;
 	u8 time_limit_minutes = 6;
 	char name[MAX_SERVER_CONFIG_NAME + 1];
-	b8 allow_minions;
+	b8 enable_minions = true;
 	b8 is_private;
 
 	r32 time_limit() const
@@ -170,16 +171,19 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 	if (c->id != 0) // 0 = story mode
 	{
 		serialize_enum(p, GameType, c->game_type);
-		serialize_enum(p, SessionType, c->session_type);
-		serialize_int(p, u16, c->levels.length, 0, c->levels.capacity());
+		serialize_int(p, u16, c->levels.length, 1, c->levels.capacity());
 		for (s32 i = 0; i < c->levels.length; i++)
 			serialize_s16(p, c->levels[i]);
 		serialize_int(p, s8, c->max_players, 1, MAX_PLAYERS);
 		serialize_int(p, s8, c->team_count, 2, MAX_TEAMS);
 		serialize_s16(p, c->respawns);
 		serialize_s16(p, c->kill_limit);
-		serialize_s16(p, c->allow_abilities);
-		serialize_s16(p, c->start_abilities);
+		serialize_s16(p, c->allow_upgrades);
+		serialize_int(p, s16, c->start_energy, 0, MAX_START_ENERGY);
+		serialize_int(p, s8, c->drone_shield, 0, DRONE_SHIELD);
+		serialize_int(p, u16, c->start_upgrades.length, 0, c->start_upgrades.capacity());
+		for (s32 i = 0; i < c->start_upgrades.length; i++)
+			serialize_enum(p, Upgrade, c->start_upgrades[i]);
 		serialize_u8(p, c->time_limit_minutes);
 		s32 name_length;
 		if (Stream::IsWriting)
@@ -188,7 +192,7 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		serialize_bytes(p, (u8*)c->name, name_length);
 		if (Stream::IsReading)
 			c->name[name_length] = '\0';
-		serialize_bool(p, c->allow_minions);
+		serialize_bool(p, c->enable_minions);
 		serialize_bool(p, c->is_private);
 	}
 	return true;

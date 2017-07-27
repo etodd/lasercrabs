@@ -43,7 +43,7 @@ DroneEntity::DroneEntity(AI::Team team)
 	create<Transform>();
 	create<Drone>();
 	create<AIAgent>()->team = team;
-	create<Health>(DRONE_HEALTH, DRONE_HEALTH, DRONE_SHIELD, DRONE_SHIELD)->invincible_timer = DRONE_INVINCIBLE_TIME;
+	create<Health>(DRONE_HEALTH, DRONE_HEALTH, Game::session.config.drone_shield, Game::session.config.drone_shield)->invincible_timer = DRONE_INVINCIBLE_TIME;
 	create<Shield>();
 
 	SkinnedModel* model = create<SkinnedModel>();
@@ -787,7 +787,7 @@ void SpawnPoint::update_server_all(const Update& u)
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::level.has_feature(Game::FeatureLevel::All)
 		&& !Team::game_over
-		&& Game::session.config.allow_minions)
+		&& Game::session.config.enable_minions)
 	{
 		const s32 minion_group = 3;
 		const r32 minion_initial_delay = Game::session.type == SessionType::Story || Game::session.config.game_type == GameType::Deathmatch ? 45.0f : 20.0f;

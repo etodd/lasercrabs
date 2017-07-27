@@ -74,7 +74,7 @@ void update()
 			{
 				s32 response_code;
 				curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-				request->callback(response_code, &request->data[0], request->user_data);
+				request->callback(response_code, request->data.length > 0 ? &request->data[0] : nullptr, request->user_data);
 			}
 			request->~Request();
 			state.requests.remove(request - &state.requests[0]);

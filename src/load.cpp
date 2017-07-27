@@ -256,7 +256,11 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	strncpy(Settings::master_server, Json::get_string(json, "master_server", default_master_server), MAX_PATH_LENGTH);
 	strncpy(Settings::username, Json::get_string(json, "username", "Anonymous"), MAX_USERNAME);
 #if SERVER
-	strncpy(Settings::itch_api_key, Json::get_string(json, "itch_api_key"), MAX_AUTH_KEY);
+	{
+			const char* itch_api_key = Json::get_string(json, "itch_api_key");
+			if (itch_api_key)
+				strncpy(Settings::itch_api_key, itch_api_key, MAX_AUTH_KEY);
+	}
 #endif
 	Settings::secret = Json::get_s32(json, "secret");
 

@@ -164,7 +164,7 @@
 
 	"tab_map": "Map",
 	"tab_inventory": "Inventory",
-	"tab_browse": "Browse",
+	"tab_top": "Top",
 	"tab_recent": "Recent",
 	"tab_mine": "Mine",
 	"shop": "Shop",
@@ -172,10 +172,11 @@
 	"is_private": "Private",
 	"enable_minions": "Minions",
 	"max_players": "Max players",
+	"player_count": "%d/%d players",
 	"team_count": "Teams",
 	"drone_shield": "Drone shield",
 	"start_energy": "Starting energy",
-	"levels": "Maps",
+	"levels": "Map rotation",
 	"add_level": "Add map",
 	"allow_upgrades": "Allowed upgrades",
 	"start_upgrades": "Start upgrades",
@@ -183,6 +184,7 @@
 	"edit_name": "Edit name",
 	"error_no_name": "Please provide a name for this server.",
 	"error_no_levels": "Please select one or more maps for this server.",
+	"ping": "%dms",
 
 	"tut_crawl": "Climb out of the spawn area.
 [{{Primary}}] to launch.

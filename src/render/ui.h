@@ -94,6 +94,7 @@ struct UI
 	};
 
 	static const Vec4 color_default;
+	static const Vec4 color_good;
 	static const Vec4& color_alert();
 	static const Vec4& color_accent();
 	static const Vec4 color_background;

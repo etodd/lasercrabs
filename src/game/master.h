@@ -222,7 +222,10 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		for (s32 i = 0; i < c->levels.length; i++)
 			serialize_s16(p, c->levels[i]);
 		serialize_int(p, s8, c->max_players, 1, MAX_PLAYERS);
-		serialize_int(p, s8, c->team_count, 2, MAX_TEAMS);
+		if (c->game_type == GameType::Assault)
+			c->team_count = 2;
+		else
+			serialize_int(p, s8, c->team_count, 2, MAX_TEAMS);
 		serialize_s16(p, c->respawns);
 		serialize_s16(p, c->kill_limit);
 		serialize_s16(p, c->allow_upgrades);

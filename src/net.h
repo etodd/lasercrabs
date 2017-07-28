@@ -198,6 +198,7 @@ namespace Client
 	void master_keepalive();
 	void master_cancel_outgoing();
 	b8 master_request_server_details(u32, u32);
+	b8 ping(const Sock::Address&, u32);
 
 	ReplayMode replay_mode();
 

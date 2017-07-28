@@ -535,6 +535,7 @@ b8 UIScroll::visible(s32 i) const
 }
 
 const Vec4 UI::color_default = Vec4(1, 1, 1, 1);
+const Vec4 UI::color_good = Vec4(0, 1, 0, 1);
 const Vec4& UI::color_alert()
 {
 	static const Vec4 alert_pvp = Vec4(1.0f, 0.4f, 0.4f, 1);

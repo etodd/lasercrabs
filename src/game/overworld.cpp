@@ -39,7 +39,7 @@ namespace Overworld
 
 #define DEPLOY_TIME 1.0f
 #define TAB_ANIMATION_TIME 0.3f
-#define SERVER_LIST_REFRESH_INTERVAL 4.0f
+#define REFRESH_INTERVAL 5.0f
 
 #define SCALE_MULTIPLIER (UI::scale < 1.0f ? 0.5f : 1.0f)
 #define PADDING (16.0f * UI::scale * SCALE_MULTIPLIER)
@@ -107,7 +107,7 @@ struct DataGlobal
 };
 DataGlobal global;
 
-const AssetID multiplayer_tab_names[s32(ServerListType::count)] = { strings::tab_browse, strings::tab_recent, strings::tab_mine, };
+const AssetID multiplayer_tab_names[s32(ServerListType::count)] = { strings::tab_top, strings::tab_recent, strings::tab_mine, };
 
 struct Data
 {
@@ -168,6 +168,14 @@ struct Data
 			s32 selected;
 		};
 
+		struct PingData
+		{
+			r32 last_sent_time;
+			r32 rtt;
+			u32 last_sent_token;
+		};
+
+		std::unordered_map<Sock::Address, PingData> ping;
 		ServerList server_lists[s32(ServerListType::count)];
 		UIMenu menu[s32(EditMode::count)];
 		TextField text_field;
@@ -284,11 +292,51 @@ void multiplayer_browse_update(const Update& u)
 	data.multiplayer.refresh_timer -= u.time.delta;
 	if (data.multiplayer.refresh_timer < 0.0f)
 	{
-		data.multiplayer.refresh_timer += SERVER_LIST_REFRESH_INTERVAL;
+		data.multiplayer.refresh_timer += REFRESH_INTERVAL;
 
 #if !SERVER
 		Net::Client::master_request_server_list(global.multiplayer.tab, server_list->selected);
 #endif
+	}
+}
+
+r32 ping(const Sock::Address& addr)
+{
+	auto i = data.multiplayer.ping.find(addr);
+	if (i == data.multiplayer.ping.end())
+		return -1.0f;
+	else
+		return i->second.rtt;
+}
+
+void ping_send(const Sock::Address& addr)
+{
+	Data::Multiplayer::PingData* ping;
+	auto i = data.multiplayer.ping.find(addr);
+	if (i == data.multiplayer.ping.end())
+	{
+		auto i = data.multiplayer.ping.insert(std::pair<Sock::Address, Data::Multiplayer::PingData>(addr, Data::Multiplayer::PingData()));
+		ping = &i.first->second;
+		ping->rtt = -1.0f;
+	}
+	else
+		ping = &i->second;
+	ping->last_sent_token = u32(mersenne::rand());
+	ping->last_sent_time = Game::real_time.total;
+
+#if !SERVER
+	Net::Client::ping(addr, ping->last_sent_token);
+#endif
+}
+
+void ping_response(const Sock::Address& addr, u32 token)
+{
+	auto i = data.multiplayer.ping.find(addr);
+	if (i != data.multiplayer.ping.end())
+	{
+		Data::Multiplayer::PingData* ping = &i->second;
+		if (ping->last_sent_token == token)
+			ping->rtt = Game::real_time.total - ping->last_sent_time;
 	}
 }
 
@@ -301,10 +349,11 @@ void master_server_list_entry(ServerListType type, s32 index, const Net::Master:
 		if (index >= list->entries.length)
 			list->entries.resize(index + 1);
 		list->entries.data[index] = entry;
+		ping_send(entry.addr);
 	}
 }
 
-void multiplayer_edit_entry_cancel(s8 gamepad = 0)
+void multiplayer_entry_edit_cancel(s8 gamepad = 0)
 {
 	if (data.multiplayer.active_server.config.id) // we were editing a config that actually exists; switch to EntryView mode
 		multiplayer_state_transition(Data::Multiplayer::State::EntryView);
@@ -319,7 +368,7 @@ void multiplayer_request_setup(Data::Multiplayer::RequestType type)
 	data.multiplayer.request_type = type;
 }
 
-void multiplayer_edit_entry_update(const Update& u)
+void multiplayer_entry_edit_update(const Update& u)
 {
 	b8 cancel = u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
 		&& !Game::cancel_event_eaten[0];
@@ -372,10 +421,10 @@ void multiplayer_edit_entry_update(const Update& u)
 				{
 					Game::cancel_event_eaten[0] = true;
 					if (data.multiplayer.active_server_dirty)
-						Menu::dialog(0, &multiplayer_edit_entry_cancel, _(strings::confirm_entry_cancel));
+						Menu::dialog(0, &multiplayer_entry_edit_cancel, _(strings::confirm_entry_cancel));
 					else
 					{
-						multiplayer_edit_entry_cancel();
+						multiplayer_entry_edit_cancel();
 						menu->end();
 						return;
 					}
@@ -513,9 +562,12 @@ void multiplayer_edit_entry_update(const Update& u)
 
 				{
 					// team count
+					if (config->game_type == GameType::Assault)
+						config->team_count = 2;
+
 					s8* team_count = &config->team_count;
 					sprintf(str, "%hhd", *team_count);
-					delta = menu->slider_item(u, _(strings::team_count), str);
+					delta = menu->slider_item(u, _(strings::team_count), str, config->game_type == GameType::Assault);
 					*team_count = vi_max(2, vi_min(MAX_TEAMS, *team_count + delta));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
@@ -785,10 +837,12 @@ void master_server_details_response(const Net::Master::ServerDetails& details, u
 		data.multiplayer.active_server = details;
 		data.multiplayer.request_id = 0;
 		data.multiplayer.active_server_dirty = true;
+		if (details.state.level != AssetNull) // a server is running this config
+			ping_send(details.addr);
 	}
 }
 
-void multiplayer_view_entry_update(const Update& u)
+void multiplayer_entry_view_update(const Update& u)
 {
 	b8 cancel = u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
 		&& !Game::cancel_event_eaten[0];
@@ -832,7 +886,7 @@ void multiplayer_view_entry_update(const Update& u)
 		data.multiplayer.refresh_timer -= u.time.delta;
 		if (data.multiplayer.refresh_timer < 0.0f)
 		{
-			data.multiplayer.refresh_timer += SERVER_LIST_REFRESH_INTERVAL;
+			data.multiplayer.refresh_timer += REFRESH_INTERVAL;
 
 			multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigGet);
 #if !SERVER
@@ -885,13 +939,13 @@ void multiplayer_update(const Update& u)
 			}
 			case Data::Multiplayer::State::EntryEdit:
 			{
-				multiplayer_edit_entry_update(u);
+				multiplayer_entry_edit_update(u);
 				return;
 				break;
 			}
 			case Data::Multiplayer::State::EntryView:
 			{
-				multiplayer_view_entry_update(u);
+				multiplayer_entry_view_update(u);
 				break;
 			}
 			default:
@@ -978,6 +1032,75 @@ void multiplayer_top_bar_draw(const RenderParams& params, const Vec2& pos, const
 	}
 }
 
+void game_type_string(UIText* text, GameType type, s8 team_count, s8 max_players)
+{
+	AssetID teams_type;
+	switch (team_count)
+	{
+		case 2:
+		{
+			if (max_players == 2)
+				teams_type = strings::teams_type_1v1;
+			else
+				teams_type = strings::teams_type_team;
+			break;
+		}
+		case 3:
+		{
+			if (max_players == 3)
+				teams_type = strings::teams_type_free_for_all;
+			else
+				teams_type = strings::teams_type_cutthroat;
+			break;
+		}
+		case 4:
+		{
+			if (max_players == 4)
+				teams_type = strings::teams_type_free_for_all;
+			else
+				teams_type = strings::teams_type_team;
+			break;
+		}
+		default:
+		{
+			teams_type = AssetNull;
+			vi_assert(false);
+			break;
+		}
+	}
+	AssetID game_type;
+	switch (type)
+	{
+		case GameType::Assault:
+		{
+			game_type = strings::game_type_assault;
+			break;
+		}
+		case GameType::Deathmatch:
+		{
+			game_type = strings::game_type_deathmatch;
+			break;
+		}
+		default:
+		{
+			game_type = AssetNull;
+			vi_assert(false);
+			break;
+		}
+	}
+	text->text(0, "%s %s", _(teams_type), _(game_type));
+}
+
+const Vec4& ping_color(r32 p)
+{
+	if (p < 0.1f)
+		return UI::color_good;
+	else if (p < 0.2f)
+		return UI::color_accent();
+	else
+		return UI::color_alert();
+}
+
 void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 {
 	Vec2 panel_size(rect.size.x, PADDING * 2.0f + TEXT_SIZE * UI::scale);
@@ -1011,76 +1134,36 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 
 			text.color = selected ? UI::color_accent() : UI::color_default;
 			text.text_raw(0, entry.name, UITextFlagSingleLine);
-			text.draw(params, pos + Vec2(panel_size.x * 0.05f, panel_size.y * 0.5f));
+			text.draw(params, pos + Vec2(PADDING, panel_size.y * 0.5f));
 
 			if (entry.server_state.level != AssetNull)
 			{
 				text.text_raw(0, Loader::level_name(entry.server_state.level));
-				text.draw(params, pos + Vec2(panel_size.x * 0.6f, panel_size.y * 0.5f));
+				text.draw(params, pos + Vec2(panel_size.x * 0.5f, panel_size.y * 0.5f));
 			}
 
 			{
-				AssetID teams_type;
-				switch (entry.team_count)
-				{
-					case 2:
-					{
-						if (entry.max_players == 2)
-							teams_type = strings::teams_type_1v1;
-						else
-							teams_type = strings::teams_type_team;
-						break;
-					}
-					case 3:
-					{
-						if (entry.max_players == 3)
-							teams_type = strings::teams_type_free_for_all;
-						else
-							teams_type = strings::teams_type_cutthroat;
-						break;
-					}
-					case 4:
-					{
-						if (entry.max_players == 4)
-							teams_type = strings::teams_type_free_for_all;
-						else
-							teams_type = strings::teams_type_team;
-						break;
-					}
-					default:
-					{
-						teams_type = AssetNull;
-						vi_assert(false);
-						break;
-					}
-				}
-				AssetID game_type;
-				switch (entry.game_type)
-				{
-					case GameType::Assault:
-					{
-						game_type = strings::game_type_assault;
-						break;
-					}
-					case GameType::Deathmatch:
-					{
-						game_type = strings::game_type_deathmatch;
-						break;
-					}
-					default:
-					{
-						game_type = AssetNull;
-						vi_assert(false);
-						break;
-					}
-				}
-				text.text(0, "%s %s", _(teams_type), _(game_type));
-				text.draw(params, pos + Vec2(panel_size.x * 0.75f, panel_size.y * 0.5f));
+				game_type_string(&text, entry.game_type, entry.team_count, entry.max_players);
+				text.draw(params, pos + Vec2(panel_size.x * 0.7f, panel_size.y * 0.5f));
 			}
 
 			{
+				if (!selected)
+					text.color = UI::color_default;
 				text.text(0, "%d/%d", s32(entry.max_players - entry.server_state.player_slots), s32(entry.max_players));
-				text.draw(params, pos + Vec2(panel_size.x * 0.95f, panel_size.y * 0.5f));
+				text.draw(params, pos + Vec2(panel_size.x * 0.85f, panel_size.y * 0.5f));
+			}
+
+			if (entry.server_state.level != AssetNull) // there's a server running this config
+			{
+				r32 p = ping(entry.addr);
+				if (p > 0.0f)
+				{
+					if (!selected)
+						text.color = ping_color(p);
+					text.text(0, _(strings::ping), s32(p * 1000.0f));
+					text.draw(params, pos + Vec2(panel_size.x * 0.9f, panel_size.y * 0.5f));
+				}
 			}
 
 			pos.y -= panel_size.y;
@@ -1089,7 +1172,7 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 	}
 }
 
-void multiplayer_edit_entry_draw(const RenderParams& params, const Rect2& rect)
+void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 {
 	if (data.multiplayer.request_id)
 	{
@@ -1272,7 +1355,7 @@ void multiplayer_edit_entry_draw(const RenderParams& params, const Rect2& rect)
 	}
 }
 
-void multiplayer_view_entry_draw(const RenderParams& params, const Rect2& rect)
+void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 {
 	if (data.multiplayer.request_id && !data.multiplayer.active_server_dirty) // don't have any config data yet
 	{
@@ -1281,13 +1364,198 @@ void multiplayer_view_entry_draw(const RenderParams& params, const Rect2& rect)
 	}
 	else
 	{
-		Vec2 panel_size(rect.size.x, PADDING * 2.0f + TEXT_SIZE * UI::scale);
-		Vec2 top_bar_size(panel_size.x, panel_size.y * 1.5f);
+		Vec2 panel_size(((rect.size.x + PADDING * -2.0f) / 3.0f) + PADDING * -2.0f, PADDING + TEXT_SIZE * UI::scale);
+		Vec2 top_bar_size(rect.size.x, panel_size.y * 1.5f);
 		Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
 
 		multiplayer_top_bar_draw(params, pos, top_bar_size);
+		pos += Vec2(PADDING, PADDING * -2.0f);
 
-		pos.y -= panel_size.y + PADDING * 1.5f;
+		const Net::Master::ServerDetails& details = data.multiplayer.active_server;
+
+		UIText text;
+		text.anchor_x = UIText::Anchor::Min;
+		text.anchor_y = UIText::Anchor::Max;
+		text.color = UI::color_default;
+		text.size = MENU_ITEM_FONT_SIZE;
+		text.font = Asset::Font::pt_sans;
+		text.wrap(rect.size.x + PADDING * -2.0f);
+		text.text_raw(0, details.config.name);
+
+		{
+			Rect2 r = text.rect(pos).outset(PADDING);
+			UI::box(params, r, UI::color_background);
+			text.draw(params, pos);
+			pos.y = r.pos.y + PADDING * -2.0f;
+		}
+
+		text.font = Asset::Font::lowpoly;
+		text.size = TEXT_SIZE;
+		text.wrap_width = 0;
+
+		Vec2 top = pos;
+
+		UIText value = text;
+		value.anchor_x = UIText::Anchor::Max;
+
+		// column 1
+		{
+			s32 rows = (details.state.level == AssetNull ? 0 : 2) + 6;
+			UI::box(params, { pos + Vec2(-PADDING, panel_size.y * -rows), Vec2(panel_size.x + PADDING * 2.0f, panel_size.y * rows + PADDING) }, UI::color_background);
+
+			if (details.state.level != AssetNull)
+			{
+				// level name
+				text.color = UI::color_accent();
+				text.text(0, Loader::level_name(details.state.level));
+				text.draw(params, pos);
+				text.color = UI::color_default;
+				pos.y -= panel_size.y;
+
+				// players
+				text.text(0, _(strings::player_count), s32(details.config.max_players - details.state.player_slots), s32(details.config.max_players));
+				text.draw(params, pos);
+
+				// ping
+				r32 p = ping(details.addr);
+				if (p > 0.0f)
+				{
+					value.color = ping_color(p);
+					value.text(0, _(strings::ping), s32(p * 1000.0f));
+					value.draw(params, pos + Vec2(panel_size.x, 0));
+					value.color = UI::color_default;
+				}
+				pos.y -= panel_size.y;
+			}
+
+			// game type
+			game_type_string(&text, details.config.game_type, details.config.team_count, details.config.max_players);
+			text.draw(params, pos);
+			pos.y -= panel_size.y;
+
+			// time limit
+			text.text(0, _(strings::time_limit));
+			text.draw(params, pos);
+			value.text(0, "%d:00", s32(details.config.time_limit_minutes));
+			value.draw(params, pos + Vec2(panel_size.x, 0));
+			pos.y -= panel_size.y;
+
+			// kill limit
+			if (details.config.game_type == GameType::Deathmatch)
+			{
+				text.text(0, _(strings::kill_limit));
+				text.draw(params, pos);
+				value.text(0, "%d", s32(details.config.kill_limit));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+			}
+			else
+			{
+				// respawns
+				text.text(0, _(strings::drones));
+				text.draw(params, pos);
+				value.text(0, "%d", s32(details.config.respawns));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+			}
+
+			// drone shield
+			text.text(0, _(strings::drone_shield));
+			text.draw(params, pos);
+			value.text(0, "%d", s32(details.config.drone_shield));
+			value.draw(params, pos + Vec2(panel_size.x, 0));
+			pos.y -= panel_size.y;
+
+			// enable minions
+			text.text(0, _(strings::enable_minions));
+			text.draw(params, pos);
+			value.text(0, "%d", s32(details.config.enable_minions));
+			value.draw(params, pos + Vec2(panel_size.x, 0));
+			pos.y -= panel_size.y;
+
+			// start energy
+			text.text(0, _(strings::start_energy));
+			text.draw(params, pos);
+			value.text(0, "%d", s32(details.config.start_energy));
+			value.draw(params, pos + Vec2(panel_size.x, 0));
+			pos.y -= panel_size.y;
+
+		}
+
+		// column 2
+		pos = top + Vec2(panel_size.x + PADDING * 3.0f, 0);
+		{
+			s32 rows = 1 + details.config.levels.length;
+			UI::box(params, { pos + Vec2(-PADDING, panel_size.y * -rows), Vec2(panel_size.x + PADDING * 2.0f, panel_size.y * rows + PADDING) }, UI::color_background);
+
+			// levels
+			if (details.config.levels.length > 0)
+				text.color = UI::color_accent();
+			text.text(0, _(strings::levels));
+			text.draw(params, pos);
+			text.color = UI::color_default;
+			if (details.config.levels.length == 0)
+			{
+				value.text(0, _(strings::none));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+			}
+			else
+			{
+				pos.y -= panel_size.y;
+				for (s32 i = 0; i < details.config.levels.length; i++)
+				{
+					text.text_raw(0, Loader::level_name(details.config.levels[i]));
+					text.draw(params, pos);
+					pos.y -= panel_size.y;
+				}
+			}
+		}
+
+		// column 3
+		pos = top + Vec2((panel_size.x + PADDING * 3.0f) * 2.0f, 0);
+		{
+			s32 rows = vi_max(1, s32(details.config.start_upgrades.length)) + 1 + s32(Upgrade::count);
+			UI::box(params, { pos + Vec2(-PADDING, panel_size.y * -rows), Vec2(panel_size.x + PADDING * 2.0f, panel_size.y * rows + PADDING) }, UI::color_background);
+
+			// start upgrades
+			if (details.config.start_upgrades.length > 0)
+				text.color = UI::color_accent();
+			text.text(0, _(strings::start_upgrades));
+			text.draw(params, pos);
+			text.color = UI::color_default;
+			if (details.config.start_upgrades.length == 0)
+			{
+				value.text(0, _(strings::none));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+			}
+			else
+			{
+				pos.y -= panel_size.y;
+				for (s32 i = 0; i < details.config.start_upgrades.length; i++)
+				{
+					text.text(0, _(UpgradeInfo::list[s32(details.config.start_upgrades[i])].name));
+					text.draw(params, pos);
+					pos.y -= panel_size.y;
+				}
+			}
+
+			// allow upgrades
+			text.color = UI::color_accent();
+			text.text(0, _(strings::allow_upgrades));
+			text.draw(params, pos);
+			pos.y -= panel_size.y;
+			text.color = UI::color_default;
+			for (s32 i = 0; i < s32(Upgrade::count); i++)
+			{
+				text.text(0, _(UpgradeInfo::list[i].name));
+				text.draw(params, pos);
+				value.text(0, _((details.config.allow_upgrades & (1 << i)) ? strings::on : strings::off));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+			}
+		}
 	}
 }
 
@@ -1391,12 +1659,12 @@ void multiplayer_draw(const RenderParams& params)
 				}
 				case Data::Multiplayer::State::EntryEdit:
 				{
-					multiplayer_edit_entry_draw(params, rect_padded);
+					multiplayer_entry_edit_draw(params, rect_padded);
 					break;
 				}
 				case Data::Multiplayer::State::EntryView:
 				{
-					multiplayer_view_entry_draw(params, rect_padded);
+					multiplayer_entry_view_draw(params, rect_padded);
 					break;
 				}
 				default:

@@ -54,7 +54,7 @@ const ID IDNull = ID(MAX_ENTITIES);
 
 enum class ServerListType : s8
 {
-	Browse,
+	Top,
 	Recent,
 	Mine,
 	count,

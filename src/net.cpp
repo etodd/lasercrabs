@@ -76,6 +76,7 @@ enum class ClientPacket : s8
 	Connect,
 	Update,
 	Disconnect,
+	Ping,
 	count,
 };
 
@@ -84,6 +85,7 @@ enum class ServerPacket : s8
 	Init,
 	Update,
 	Disconnect,
+	PingResponse,
 	count,
 };
 
@@ -143,6 +145,22 @@ struct StatePersistent
 	Sock::Address master_addr;
 };
 StatePersistent state_persistent;
+
+#if SERVER
+namespace Server
+{
+	void packet_sent(const StreamWrite&, const Sock::Address&);
+}
+#endif
+
+void packet_send(const StreamWrite& p, const Sock::Address& address)
+{
+	Sock::udp_send(&state_persistent.sock, address, p.data.data, p.bytes_written());
+	state_common.bandwidth_out_counter += p.bytes_written();
+#if SERVER
+	Server::packet_sent(p, address);
+#endif
+}
 
 b8 master_send(Master::Message msg)
 {
@@ -940,22 +958,6 @@ Ack msg_history_ack(const MessageHistory& history)
 		}
 	}
 	return ack;
-}
-
-#if SERVER
-namespace Server
-{
-	void packet_sent(const StreamWrite&, const Sock::Address&);
-}
-#endif
-
-void packet_send(const StreamWrite& p, const Sock::Address& address)
-{
-	Sock::udp_send(&state_persistent.sock, address, p.data.data, p.bytes_written());
-	state_common.bandwidth_out_counter += p.bytes_written();
-#if SERVER
-	Server::packet_sent(p, address);
-#endif
 }
 
 // consolidate msgs_out into msgs_out_history
@@ -2142,6 +2144,17 @@ b8 packet_build_init(StreamWrite* p, Client* client)
 	return true;
 }
 
+b8 packet_build_ping_response(StreamWrite* p, u32 token)
+{
+	using Stream = StreamWrite;
+	packet_init(p);
+	ServerPacket type = ServerPacket::PingResponse;
+	serialize_enum(p, ServerPacket, type);
+	serialize_u32(p, token);
+	packet_finalize(p);
+	return true;
+}
+
 b8 packet_build_disconnect(StreamWrite* p, DisconnectReason reason)
 {
 	using Stream = StreamWrite;
@@ -2660,6 +2673,17 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 
 			break;
 		}
+		case ClientPacket::Ping:
+		{
+			u32 token;
+			serialize_u32(p, token);
+			{
+				StreamWrite p;
+				packet_build_ping_response(&p, token);
+				packet_send(p, address);
+			}
+			break;
+		}
 		case ClientPacket::Disconnect:
 		{
 			if (!client) // unknown client; ignore
@@ -3069,6 +3093,21 @@ b8 master_request_server_list(ServerListType type, s32 offset)
 void master_cancel_outgoing()
 {
 	state_persistent.master.reset();
+}
+
+b8 ping(const Sock::Address& addr, u32 token)
+{
+	using Stream = StreamWrite;
+	StreamWrite p;
+	packet_init(&p);
+	{
+		ClientPacket type = ClientPacket::Ping;
+		serialize_enum(&p, ClientPacket, type);
+	}
+	serialize_u32(&p, token);
+	packet_finalize(&p);
+	packet_send(p, addr);
+	return true;
 }
 
 b8 init()
@@ -3514,9 +3553,21 @@ b8 packet_handle_master(StreamRead* p)
 
 b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
-	using Stream = StreamRead;
 	if (address.equals(state_persistent.master_addr))
 		return packet_handle_master(p);
+
+	using Stream = StreamRead;
+
+	ServerPacket type;
+	serialize_enum(p, ServerPacket, type);
+
+	if (type == ServerPacket::PingResponse)
+	{
+		u32 token;
+		serialize_u32(p, token);
+		Overworld::ping_response(address, token);
+		return true;
+	}
 	else if (state_client.mode == Mode::Disconnected
 		|| state_client.mode == Mode::ContactingMaster
 		|| !address.equals(state_client.server_address))
@@ -3525,8 +3576,6 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		return false;
 	}
 
-	ServerPacket type;
-	serialize_enum(p, ServerPacket, type);
 	switch (type)
 	{
 		case ServerPacket::Init:

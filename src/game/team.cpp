@@ -207,7 +207,7 @@ void Team::transition_next()
 		Net::Server::transition_level();
 #endif
 		AssetID next_zone = Game::level.id;
-		while (Game::session.config.levels.length > 0 && next_zone == Game::level.id)
+		while (Game::session.config.levels.length > 1 && next_zone == Game::level.id)
 			next_zone = Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length];
 		Game::schedule_load_level(next_zone, Game::Mode::Pvp);
 	}

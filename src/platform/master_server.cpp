@@ -763,7 +763,7 @@ namespace Master
 		sqlite3_stmt* stmt;
 		switch (type)
 		{
-			case ServerListType::Browse:
+			case ServerListType::Top:
 			{
 				stmt = db_query("select id, name, max_players, team_count, game_type from ServerConfig where is_private=0 limit ?,24");
 				db_bind_int(stmt, 0, offset);

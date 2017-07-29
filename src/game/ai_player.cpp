@@ -56,7 +56,7 @@ PlayerAI::PlayerAI(PlayerManager* m, const AI::Config& config)
 
 void PlayerAI::update(const Update& u)
 {
-	if (Team::game_over)
+	if (Team::match_state == Team::MatchState::Done)
 	{
 		if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY
 			&& mersenne::randf_co() < u.time.delta / 6.0f)
@@ -1293,7 +1293,7 @@ b8 action_can_interrupt(s8 type)
 
 void PlayerControlAI::update(const Update& u)
 {
-	if (get<Drone>()->state() == Drone::State::Crawl && !Team::game_over)
+	if (get<Drone>()->state() == Drone::State::Crawl && Team::match_state == Team::MatchState::Active)
 	{
 		const AI::Config& config = player.ref()->config;
 

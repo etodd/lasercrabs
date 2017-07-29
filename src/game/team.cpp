@@ -39,12 +39,12 @@ const Vec4 Team::ui_color_enemy = Vec4(1.0f, 0.4f, 0.4f, 1);
 
 r32 Team::control_point_timer;
 r32 Team::game_over_real_time;
-b8 Team::game_over;
 Ref<Team> Team::winner;
 Game::Mode Team::transition_mode_scheduled = Game::Mode::None;
 StaticArray<Team::ScoreSummaryItem, MAX_PLAYERS * PLAYER_SCORE_SUMMARY_ITEMS> Team::score_summary;
 r32 Team::transition_timer;
 r32 Team::match_time;
+Team::MatchState Team::match_state;
 
 AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 {
@@ -140,7 +140,7 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 
 void Team::awake_all()
 {
-	game_over = false;
+	match_state = Game::session.type == SessionType::Story ? MatchState::Active : MatchState::Waiting;
 	game_over_real_time = 0.0f;
 	if (Game::level.local) // if we're a client, the netcode manages this
 	{
@@ -499,20 +499,22 @@ namespace TeamNet
 {
 	enum Message
 	{
-		GameOver,
+		MatchState,
 		TransitionMode,
 		UpdateKills,
 		count,
 	};
 
-	b8 send_game_over(Team* w)
+	b8 send_match_state(Team::MatchState s, Team* w = nullptr)
 	{
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Team);
 		{
-			Message type = Message::GameOver;
+			Message type = Message::MatchState;
 			serialize_enum(p, Message, type);
 		}
+		serialize_enum(p, Team::MatchState, s);
+		if (s == Team::MatchState::Done)
 		{
 			Ref<Team> ref = w;
 			serialize_ref(p, ref);
@@ -552,6 +554,12 @@ namespace TeamNet
 	}
 }
 
+void Team::match_start()
+{
+	vi_assert(Game::level.local && match_state == MatchState::Waiting);
+	TeamNet::send_match_state(MatchState::Active);
+}
+
 void team_add_score_summary_item(PlayerManager* player, const char* label, s32 amount = -1)
 {
 	Team::ScoreSummaryItem* item = Team::score_summary.add();
@@ -571,46 +579,51 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 	switch (type)
 	{
-		case TeamNet::Message::GameOver:
+		case TeamNet::Message::MatchState:
 		{
-			serialize_ref(p, winner);
-			game_over = true;
-			game_over_real_time = Game::real_time.total;
-
-			score_summary.length = 0;
-			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			serialize_enum(p, MatchState, match_state);
+			if (match_state == MatchState::Done)
 			{
-				i.item()->score_accepted = false;
-				AI::Team team = i.item()->team.ref()->team();
-				team_add_score_summary_item(i.item(), i.item()->username);
-				if (Game::session.type == SessionType::Story)
+				serialize_ref(p, winner);
+				game_over_real_time = Game::real_time.total;
+
+				score_summary.length = 0;
+				for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 				{
-					team_add_score_summary_item(i.item(), _(strings::drone_surplus), i.item()->respawns);
-					team_add_score_summary_item(i.item(), _(strings::energy_surplus), i.item()->energy);
-					if (i.item()->has<PlayerHuman>() && i.item()->team.equals(winner))
+					i.item()->score_accepted = false;
+					AI::Team team = i.item()->team.ref()->team();
+					team_add_score_summary_item(i.item(), i.item()->username);
+					if (Game::session.type == SessionType::Story)
 					{
-						s16 rewards[s32(Resource::count)];
-						Overworld::zone_rewards(Game::level.id, rewards);
-						for (s32 j = 0; j < s32(Resource::count); j++)
+						team_add_score_summary_item(i.item(), _(strings::drone_surplus), i.item()->respawns);
+						team_add_score_summary_item(i.item(), _(strings::energy_surplus), i.item()->energy);
+						if (i.item()->has<PlayerHuman>() && i.item()->team.equals(winner))
 						{
-							if (rewards[j] > 0)
-								team_add_score_summary_item(i.item(), _(Overworld::resource_info[j].description), rewards[j]);
+							s16 rewards[s32(Resource::count)];
+							Overworld::zone_rewards(Game::level.id, rewards);
+							for (s32 j = 0; j < s32(Resource::count); j++)
+							{
+								if (rewards[j] > 0)
+									team_add_score_summary_item(i.item(), _(Overworld::resource_info[j].description), rewards[j]);
+							}
 						}
 					}
-				}
-				else
-				{
-					team_add_score_summary_item(i.item(), _(strings::kills), i.item()->kills);
-					team_add_score_summary_item(i.item(), _(strings::deaths), i.item()->deaths);
+					else
+					{
+						team_add_score_summary_item(i.item(), _(strings::kills), i.item()->kills);
+						team_add_score_summary_item(i.item(), _(strings::deaths), i.item()->deaths);
+					}
 				}
 			}
+			else if (match_state == Team::MatchState::Active)
+				match_time = 0.0f;
 			break;
 		}
 		case TeamNet::Message::TransitionMode:
 		{
 			Game::Mode mode_old = Game::level.mode;
 			serialize_enum(p, Game::Mode, Game::level.mode);
-			game_over = false;
+			match_state = MatchState::Active;
 			transition_timer = TRANSITION_TIME * 0.5f;
 			Audio::post_global_event(AK::EVENTS::PLAY_TRANSITION_IN);
 			match_time = 0.0f;
@@ -704,7 +717,7 @@ void Team::update_all_server(const Update& u)
 	if (Game::level.mode != Game::Mode::Pvp)
 		return;
 
-	if (!game_over)
+	if (match_state == MatchState::Active)
 	{
 		Team* team_with_most_kills = Game::session.config.game_type == GameType::Deathmatch ? with_most_kills() : nullptr;
 		if (!Game::level.continue_match_after_death
@@ -760,7 +773,7 @@ void Team::update_all_server(const Update& u)
 				}
 			}
 
-			TeamNet::send_game_over(w);
+			TeamNet::send_match_state(MatchState::Done, w);
 
 			if (Game::session.type == SessionType::Story)
 			{
@@ -783,7 +796,7 @@ void Team::update_all_server(const Update& u)
 		}
 	}
 
-	if (game_over && Game::scheduled_load_level == AssetNull && transition_mode_scheduled == Game::Mode::None)
+	if (match_state == MatchState::Done && Game::scheduled_load_level == AssetNull && transition_mode_scheduled == Game::Mode::None)
 	{
 		// wait for all local players to accept scores
 		b8 score_accepted = true;
@@ -836,7 +849,7 @@ PlayerManager::Visibility PlayerManager::visibility[MAX_PLAYERS * MAX_PLAYERS];
 
 PlayerManager::PlayerManager(Team* team, const char* u)
 	: spawn_timer((Game::session.type == SessionType::Story && team->team() == 1) ? 0 : SPAWN_DELAY), // defenders in story mode get to spawn instantly
-	score_accepted(Team::game_over),
+	score_accepted(Team::match_state == Team::MatchState::Done),
 	team(team),
 	upgrades(0),
 	abilities{ Ability::None, Ability::None, Ability::None },
@@ -1071,7 +1084,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSour
 				Ref<SpawnPoint> ref;
 				serialize_ref(p, ref);
 				if (Game::level.local
-					&& !Team::game_over
+					&& Team::match_state == Team::MatchState::Active
 					&& m->spawn_timer == 0.0f
 					&& m->respawns != 0
 					&& !m->instance.ref()
@@ -1408,7 +1421,7 @@ void PlayerManager::update_server(const Update& u)
 {
 	if (can_spawn
 		&& !instance.ref()
-		&& !Team::game_over
+		&& Team::match_state == Team::MatchState::Active
 		&& !Game::level.continue_match_after_death)
 	{
 		if (Game::level.mode == Game::Mode::Pvp)

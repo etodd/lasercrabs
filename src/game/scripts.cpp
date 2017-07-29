@@ -876,7 +876,7 @@ namespace tutorial
 			Actor::tut(strings::tut_done);
 		}
 
-		if (data->state != TutorialState::ZoneCaptured && Team::game_over && Game::level.mode == Game::Mode::Pvp)
+		if (data->state != TutorialState::ZoneCaptured && Team::match_state == Team::MatchState::Done && Game::level.mode == Game::Mode::Pvp)
 		{
 			data->state = TutorialState::ZoneCaptured;
 			Actor::tut_clear();

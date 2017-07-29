@@ -313,7 +313,7 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 {
 	if (menu_state != Menu::State::Hidden)
 		return UIMode::Pause;
-	else if (Team::game_over)
+	else if (Team::match_state == Team::MatchState::Done)
 		return UIMode::PvpGameOver;
 	else
 	{
@@ -1318,7 +1318,8 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	text.anchor_y = UIText::Anchor::Max;
 	text.color = UI::color_default;
 
-	if (Game::level.mode == Game::Mode::Pvp)
+	if (Game::level.mode == Game::Mode::Pvp
+		&& Team::match_state == Team::MatchState::Active)
 		match_timer_draw(params, p, UIText::Anchor::Center);
 	p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 
@@ -1326,15 +1327,20 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	if (!manager->instance.ref() && manager->respawns != 0)
 	{
 		AssetID string;
-		if (Game::session.config.game_type == GameType::Assault)
+		if (Team::match_state == Team::MatchState::Active)
 		{
-			if (manager->team.ref()->team() == 0)
-				string = strings::deploy_timer_defender;
+			if (Game::session.config.game_type == GameType::Assault)
+			{
+				if (manager->team.ref()->team() == 0)
+					string = strings::deploy_timer_defender;
+				else
+					string = strings::deploy_timer_attacker;
+			}
 			else
-				string = strings::deploy_timer_attacker;
+				string = strings::deploy_timer;
 		}
 		else
-			string = strings::deploy_timer;
+			string = strings::waiting;
 		text.text(0, _(string), s32(manager->spawn_timer + 1));
 		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
@@ -2499,7 +2505,7 @@ void PlayerControlHuman::awake()
 		link_arg<const DroneReflectEvent&, &PlayerControlHuman::drone_reflecting>(get<Drone>()->reflecting);
 		link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Drone>()->hit);
 
-		if (!Team::game_over && Game::level.has_feature(Game::FeatureLevel::All))
+		if (Team::match_state == Team::MatchState::Done && Game::level.has_feature(Game::FeatureLevel::All))
 		{
 			if (Game::session.config.game_type == GameType::Assault)
 				player.ref()->assault_status_display();
@@ -2672,7 +2678,7 @@ b8 PlayerControlHuman::input_enabled() const
 		&& !cinematic_active()
 		&& !Overworld::active()
 		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)
-		&& !Team::game_over
+		&& Team::match_state == Team::MatchState::Active
 		&& !Menu::dialog_active(player.ref()->gamepad)
 		&& !anim_base.ref();
 }
@@ -3722,7 +3728,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	if (params.technique != RenderTechnique::Default
 		|| params.camera != player.ref()->camera.ref()
 		|| Overworld::active()
-		|| Team::game_over)
+		|| Team::match_state == Team::MatchState::Done)
 		return;
 
 	const Rect2& viewport = params.camera->viewport;

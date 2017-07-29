@@ -54,6 +54,14 @@ struct UpgradeInfo
 
 struct Team : public ComponentType<Team>
 {
+	enum class MatchState : s8
+	{
+		Waiting,
+		Active,
+		Done,
+		count,
+	};
+
 	struct SensorTrack
 	{
 		r32 timer;
@@ -78,9 +86,9 @@ struct Team : public ComponentType<Team>
 	static r32 game_over_real_time;
 	static r32 transition_timer;
 	static r32 match_time;
-	static b8 game_over;
 	static Ref<Team> winner;
 	static Game::Mode transition_mode_scheduled;
+	static MatchState match_state;
 
 	static void awake_all();
 	static void transition_next();
@@ -93,6 +101,7 @@ struct Team : public ComponentType<Team>
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void transition_mode(Game::Mode);
 	static void draw_ui(const RenderParams&);
+	static void match_start();
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{

@@ -375,7 +375,8 @@ void Game::update(const Update& update_in)
 	if (update_game)
 	{
 		time.total += time.delta;
-		Team::match_time += time.delta;
+		if (Team::match_state == Team::MatchState::Active)
+			Team::match_time += time.delta;
 		ParticleSystem::time = time.total;
 		for (s32 i = 0; i < ParticleSystem::list.length; i++)
 			ParticleSystem::list[i]->update(u);
@@ -545,7 +546,7 @@ void Game::update(const Update& update_in)
 		if (level.local)
 		{
 			SpawnPoint::update_server_all(u);
-			if (session.type == SessionType::Story && level.mode == Mode::Pvp && !Team::game_over)
+			if (session.type == SessionType::Story && level.mode == Mode::Pvp && Team::match_state == Team::MatchState::Active)
 			{
 				// spawn AI players
 				for (s32 i = 0; i < level.ai_config.length; i++)

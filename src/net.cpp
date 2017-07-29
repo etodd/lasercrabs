@@ -789,6 +789,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 template<typename Stream> b8 serialize_init_packet(Stream* p)
 {
 	serialize_enum(p, Game::FeatureLevel, Game::level.feature_level);
+	serialize_enum(p, Team::MatchState, Team::match_state);
 	serialize_r32_range(p, Game::level.rotation, -2.0f * PI, 2.0f * PI, 16);
 	serialize_r32_range(p, Game::level.min_y, -128, 128, 8);
 	serialize_r32(p, Game::level.skybox.far_plane);
@@ -2740,6 +2741,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 				&& (Team::teams_with_active_players() > 1 || Game::session.type == SessionType::Story))
 			{
 				state_server.mode = Mode::Active;
+				Team::match_start();
 				sync_time();
 			}
 			break;

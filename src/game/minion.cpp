@@ -585,7 +585,7 @@ void Minion::update_server(const Update& u)
 						if (fabsf(LMath::angle_to(get<Walker>()->target_rotation, get<Walker>()->rotation)) < PI * 0.05f // make sure we're looking at the target
 							&& target_timer > MINION_ATTACK_TIME * 0.25f // give some reaction time
 							&& anim_layer->animation != Asset::Animation::character_melee
-							&& !Team::game_over)
+							&& Team::match_state == Team::MatchState::Active)
 						{
 							if (g->has<Parkour>() && (aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
 							{

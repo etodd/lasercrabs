@@ -786,7 +786,7 @@ void SpawnPoint::update_server_all(const Update& u)
 {
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::level.has_feature(Game::FeatureLevel::All)
-		&& !Team::game_over
+		&& Team::match_state == Team::MatchState::Active
 		&& Game::session.config.enable_minions)
 	{
 		const s32 minion_group = 3;

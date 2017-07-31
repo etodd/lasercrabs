@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -31,6 +31,7 @@ the specific language governing permissions and limitations under the License.
 #pragma once
 
 #include <AK/SoundEngine/Common/AkTypes.h>
+#include <AK/SoundEngine/Common/AkSimd.h>
 #include <AK/SoundEngine/Common/AkSpeakerVolumes.h>
 #include <AK/SoundEngine/Common/IAkPluginMemAlloc.h>
 #include <AK/Tools/Common/AkArray.h>
@@ -38,6 +39,7 @@ the specific language governing permissions and limitations under the License.
 
 #include <math.h>
 #include <stdio.h>
+#include <float.h>
 
 //#define AKVBAP_DEBUG 1
 //#define AKPORTALS_DEBUG
@@ -190,10 +192,10 @@ class Ak3DVector
 public:
 	//-----------------------------------------------------------
 	// Constructor/Destructor functions
-	Ak3DVector():
-	X(0.f),
-	Y(0.f),
-	Z(0.f)
+	Ak3DVector() :
+		X(0.f),
+		Y(0.f),
+		Z(0.f)
 	{}
 
 	Ak3DVector(
@@ -211,7 +213,31 @@ public:
 		Y = b.Y;
 		Z = b.Z;
 	}
-	~Ak3DVector(){}
+	explicit Ak3DVector(const AKSIMD_V4F32& in_v4f32)
+	{
+		X = AKSIMD_GETELEMENT_V4F32(in_v4f32, 0);
+		Y = AKSIMD_GETELEMENT_V4F32(in_v4f32, 1);
+		Z = AKSIMD_GETELEMENT_V4F32(in_v4f32, 2);
+	}
+	AkForceInline AKSIMD_V4F32 PointV4F32() const
+	{
+		AKSIMD_V4F32 v4f32;
+		AKSIMD_GETELEMENT_V4F32(v4f32, 0) = X;
+		AKSIMD_GETELEMENT_V4F32(v4f32, 1) = Y;
+		AKSIMD_GETELEMENT_V4F32(v4f32, 2) = Z;
+		AKSIMD_GETELEMENT_V4F32(v4f32, 3) = 1.f;
+		return v4f32;
+	}
+	AkForceInline AKSIMD_V4F32 VectorV4F32() const
+	{
+		AKSIMD_V4F32 v4f32;
+		AKSIMD_GETELEMENT_V4F32(v4f32, 0) = X;
+		AKSIMD_GETELEMENT_V4F32(v4f32, 1) = Y;
+		AKSIMD_GETELEMENT_V4F32(v4f32, 2) = Z;
+		AKSIMD_GETELEMENT_V4F32(v4f32, 3) = 0.f;
+		return v4f32;
+	}
+	~Ak3DVector() {}
 
 	void Zero()
 	{
@@ -223,7 +249,17 @@ public:
 
 	//-----------------------------------------------------------
 	// Basic vector operators
-	Ak3DVector operator=(const Ak3DVector& b)
+	AkForceInline bool operator==(const Ak3DVector& b) const
+	{
+		return X == b.X && Y == b.Y && Z == b.Z;
+	}
+
+	AkForceInline bool operator!=(const Ak3DVector& b) const
+	{
+		return X != b.X || Y != b.Y || Z != b.Z;
+	}
+
+	AkForceInline Ak3DVector operator=(const Ak3DVector& b)
 	{
 		X = b.X;
 		Y = b.Y;
@@ -241,27 +277,27 @@ public:
 		return *this;
 	}
 
-	bool operator<(const Ak3DVector& b) const
+	AkForceInline bool operator<(const Ak3DVector& b) const
 	{
 		return X < b.X && Y < b.Y && Z < b.Z;
 	}
 
-	bool operator<=(const Ak3DVector& b) const
+	AkForceInline bool operator<=(const Ak3DVector& b) const
 	{
 		return X <= b.X && Y <= b.Y && Z <= b.Z;
 	}
 
-	bool operator>(const Ak3DVector b) const
+	AkForceInline bool operator>(const Ak3DVector b) const
 	{
 		return X > b.X && Y > b.Y && Z > b.Z;
 	}
 
-	bool operator>=(const Ak3DVector& b) const
+	AkForceInline bool operator>=(const Ak3DVector& b) const
 	{
 		return X >= b.X && Y >= b.Y && Z >= b.Z;
 	}
 
-	Ak3DVector operator*=(const AkReal32 f)
+	AkForceInline Ak3DVector operator*=(const AkReal32 f)
 	{
 		X = X * f;
 		Y = Y * f;
@@ -270,7 +306,7 @@ public:
 		return *this;
 	}
 
-	Ak3DVector operator/=(const AkReal32 f)
+	AkForceInline Ak3DVector operator/=(const AkReal32 f)
 	{
 		AkReal32 oneoverf = 1.f / f;
 		X = X * oneoverf;
@@ -291,7 +327,7 @@ public:
 		return v;
 	}
 
-	Ak3DVector operator*(const AkReal32 f) const
+	AkForceInline Ak3DVector operator*(const AkReal32 f) const
 	{
 		Ak3DVector v;
 
@@ -325,7 +361,18 @@ public:
 		return v;
 	}
 
-	Ak3DVector operator+(const Ak3DVector& b) const
+	AkForceInline Ak3DVector operator-(const AkReal32 f) const
+	{
+		Ak3DVector v;
+
+		v.X = X - f;
+		v.Y = Y - f;
+		v.Z = Z - f;
+
+		return v;
+	}
+
+	AkForceInline Ak3DVector operator+(const Ak3DVector& b) const
 	{
 		Ak3DVector v;
 
@@ -336,7 +383,7 @@ public:
 		return v;
 	}
 
-	Ak3DVector operator-(const Ak3DVector& b) const
+	AkForceInline Ak3DVector operator-(const Ak3DVector& b) const
 	{
 		Ak3DVector v;
 
@@ -347,7 +394,7 @@ public:
 		return v;
 	}
 
-	operator AkVector()
+	AkForceInline operator AkVector()
 	{
 		AkVector v;
 		v.X = X; v.Y = Y; v.Z = Z;
@@ -356,7 +403,7 @@ public:
 	}
 
 
-	static Ak3DVector Min(const Ak3DVector& A, const Ak3DVector& B)
+	AkForceInline static Ak3DVector Min(const Ak3DVector& A, const Ak3DVector& B)
 	{
 		Ak3DVector min;
 
@@ -367,7 +414,7 @@ public:
 		return min;
 	}
 
-	static Ak3DVector Max(const Ak3DVector& A, const Ak3DVector& B)
+	AkForceInline static Ak3DVector Max(const Ak3DVector& A, const Ak3DVector& B)
 	{
 		Ak3DVector max;
 
@@ -393,12 +440,12 @@ public:
 
 	AkForceInline Ak3DVector SphericalToCartesian(
 		const AkReal32				azimuth,
-		const AkReal32				elevation )
+		const AkReal32				elevation)
 	{
 		AkReal32 cosElevation = cosf(elevation);
 		X = cosf(azimuth) *	cosElevation;
 		Y = sinf(azimuth) *	cosElevation;
-		Z =					sinf(elevation);
+		Z = sinf(elevation);
 
 		return *this;
 	}
@@ -410,7 +457,7 @@ public:
 		const Ak3DVector &			c)
 	{
 		return	(a.X*b.Y*c.Z + a.Y*b.Z*c.X + a.Z*b.X*c.Y) -
-				(a.Z*b.Y*c.X + a.Y*b.X*c.Z + a.X*b.Z*c.Y);
+			(a.Z*b.Y*c.X + a.Y*b.X*c.Z + a.X*b.Z*c.Y);
 	}
 
 	// Convert a vector to a different base
@@ -430,9 +477,9 @@ public:
 		}
 
 		// http://mathworld.wolfram.com/MatrixInverse.html
-		Ak3DVector invA = Ak3DVector(	B.Y*C.Z - B.Z*C.Y,		A.Z*C.Y-A.Y*C.Z,		A.Y*B.Z-A.Z*B.Y		);
-		Ak3DVector invB = Ak3DVector(	B.Z*C.X - B.X*C.Z,		A.X*C.Z-A.Z*C.X,		A.Z*B.X-A.X*B.Z		);
-		Ak3DVector invC = Ak3DVector(	B.X*C.Y - B.Y*C.X,		A.Y*C.X-A.X*C.Y,		A.X*B.Y-A.Y*B.X		);
+		Ak3DVector invA = Ak3DVector(B.Y*C.Z - B.Z*C.Y, A.Z*C.Y - A.Y*C.Z, A.Y*B.Z - A.Z*B.Y);
+		Ak3DVector invB = Ak3DVector(B.Z*C.X - B.X*C.Z, A.X*C.Z - A.Z*C.X, A.Z*B.X - A.X*B.Z);
+		Ak3DVector invC = Ak3DVector(B.X*C.Y - B.Y*C.X, A.Y*C.X - A.X*C.Y, A.X*B.Y - A.Y*B.X);
 
 		AkReal32 oneover_d = 1.f / d;
 		invA *= oneover_d;
@@ -440,16 +487,16 @@ public:
 		invC *= oneover_d;
 
 		// Project coordinates using a vector to matrix multiplication
-		v.X = X * invA.X	+ Y * invB.X	+ Z * invC.X;
-		v.Y = X * invA.Y	+ Y * invB.Y	+ Z * invC.Y;
-		v.Z = X * invA.Z	+ Y * invB.Z	+ Z * invC.Z;
+		v.X = X * invA.X + Y * invB.X + Z * invC.X;
+		v.Y = X * invA.Y + Y * invB.Y + Z * invC.Y;
+		v.Z = X * invA.Z + Y * invB.Z + Z * invC.Z;
 
 		// v /= v.Length();
 
 		return v;
 	}
 
-	void Normalize()
+	AkForceInline void Normalize()
 	{
 		AkReal32 l = Length();
 		//AKASSERT(l != 0.0f);
@@ -462,28 +509,28 @@ public:
 		Z /= l;
 	}
 
-	AkReal32 L2_Norm() const
+	AkForceInline AkReal32 L2_Norm() const
 	{
 		return sqrtf(X*X + Y*Y + Z*Z);
 	}
 
-	AkReal32 DotProduct(const Ak3DVector& v2) const
+	AkForceInline AkReal32 DotProduct(const Ak3DVector& v2) const
 	{
 		return X*v2.X + Y*v2.Y + Z*v2.Z;
 	}
 
-	AkReal32 Dot(const Ak3DVector& v2) const
+	AkForceInline AkReal32 Dot(const Ak3DVector& v2) const
 	{
 		return DotProduct(v2);
 	}
 
-	Ak3DVector Cross(const Ak3DVector& v) const
+	AkForceInline Ak3DVector Cross(const Ak3DVector& v) const
 	{
 		Ak3DVector uxv;
 		const Ak3DVector& u = *this;
 
 		uxv.X = u.Y*v.Z - u.Z*v.Y;
-		uxv.Y = u.X*v.Z - u.Z*v.X;
+		uxv.Y = u.Z*v.X - u.X*v.Z;
 		uxv.Z = u.X*v.Y - u.Y*v.X;
 
 		return uxv;
@@ -491,7 +538,7 @@ public:
 	//
 	AkForceInline AkReal32 Length() const
 	{
-		return sqrtf(X*X+Y*Y+Z*Z);
+		return sqrtf(X*X + Y*Y + Z*Z);
 	}
 
 	AkForceInline AkReal32 LengthSquared() const
@@ -506,6 +553,15 @@ public:
 		return X >= -POSITIVE_TEST_EPSILON &&
 			Y >= -POSITIVE_TEST_EPSILON &&
 			Z >= -POSITIVE_TEST_EPSILON;
+	}
+
+	AkForceInline Ak3DVector Abs() const
+	{
+		Ak3DVector abs = *this;
+		abs.X = (AkReal32)fabs(abs.X);
+		abs.Y = (AkReal32)fabs(abs.Y);
+		abs.Z = (AkReal32)fabs(abs.Z);
+		return abs;
 	}
 
 	AkReal32						X;
@@ -1201,8 +1257,8 @@ private:
 struct AkBoundingBox
 {
 	AkBoundingBox() :
-		m_Min(Ak3DVector(100000.f, 100000.f, 100000.f)),
-		m_Max(Ak3DVector(-100000.f, -100000.f, -100000.f))
+		m_Min(Ak3DVector(FLT_MAX, FLT_MAX, FLT_MAX)),
+		m_Max(Ak3DVector(-FLT_MAX, -FLT_MAX, -FLT_MAX))
 	{}
 
 	void Update(
@@ -1228,20 +1284,37 @@ struct AkBoundingBox
 			m_Max.Z = in_point.Z;
 	}
 
-	bool IsWithin(
+	AkForceInline bool IsWithin(
 		const Ak3DVector &		in_Point
 		) const
 	{
 		return in_Point >= m_Min && in_Point <= m_Max;
 	}
 
-	bool IsWithin(
+	AkForceInline bool IsWithin(
 		const AkBoundingBox &	in_BB
 		) const
 	{
 		return (m_Min.X <= in_BB.m_Max.X && m_Max.X >= in_BB.m_Min.X) &&
 			(m_Min.Y <= in_BB.m_Max.Y && m_Max.Y >= in_BB.m_Min.Y) &&
 			(m_Min.Z <= in_BB.m_Max.Z && m_Max.Z >= in_BB.m_Min.Z);
+	}
+
+	AkBoundingBox Intersect(
+		const AkBoundingBox &	in_BB
+	) const
+	{
+		AkBoundingBox result;
+		
+		result.m_Max.X = AkMin(m_Max.X, in_BB.m_Max.X);
+		result.m_Max.Y = AkMin(m_Max.Y, in_BB.m_Max.Y);
+		result.m_Max.Z = AkMin(m_Max.Z, in_BB.m_Max.Z);
+
+		result.m_Min.X = AkMax(m_Min.X, in_BB.m_Min.X);
+		result.m_Min.Y = AkMax(m_Min.Y, in_BB.m_Min.Y);
+		result.m_Min.Z = AkMax(m_Min.Z, in_BB.m_Min.Z);
+		
+		return result;
 	}
 
 	// returns acos(in_fAngle)
@@ -1253,6 +1326,11 @@ struct AkBoundingBox
 		return acosf(in_fAngle);
 	}
 
+	AkForceInline bool IsEmpty() const
+	{
+		return (m_Min.X >= m_Max.X) || (m_Min.Y >= m_Max.Y) || (m_Min.Z >= m_Max.Z);
+	}
+
 	Ak3DVector						m_Min;
 	Ak3DVector						m_Max;
 };
@@ -1262,10 +1340,6 @@ class AkBox
 public:
 	AkBox()
 	{
-		m_Center = Ak3DVector();
-		m_Size = Ak3DVector();
-		m_Front = Ak3DVector();
-		m_Up = Ak3DVector();
 	}
 
 	~AkBox()
@@ -1274,89 +1348,44 @@ public:
 
 	void Init(
 		const Ak3DVector &		in_center,
-		const Ak3DVector &		in_size,
+		const Ak3DVector &		in_extent,
 		const Ak3DVector &		in_Front,
-		const Ak3DVector &		in_Up )
+		const Ak3DVector &		in_Up)
 	{
+		AKASSERT(fabs(in_Front.Length() - 1.f) < 0.001 && fabs(in_Up.Length() - 1.f) < 0.001);//Must be unit vectors.
+		AKASSERT(fabs(in_Front.Dot(in_Up) - 0.f) < 0.001); //Must be orthogonal.
+
 		m_Center = in_center;
-		m_Size = in_size;
+		m_Extent = in_extent;
 
-		m_Front = in_Front,
-		m_Up = in_Up;
-	}
-
-	void UpdateBoundingBox(
-		const Ak3DVector &		in_point
-		)
-	{
-		m_BB.Update(in_point);
-	}
-
-	bool IsPointInBoundingBox(
-		const Ak3DVector &		in_Point
-		) const
-	{
-		return m_BB.IsWithin(in_Point);
-	}
-
-	AkBoundingBox GetBoundingBox() const { return m_BB; }
-
-	bool IsBoxInBoundingBox(
-		const AkBox &		in_Box
-		) const
-	{
-		return (m_BB.IsWithin(in_Box.GetBoundingBox()));
+		m_Z = in_Front,
+		m_Y = in_Up;
+		m_X = m_Z.Cross(m_Y);
 	}
 
 	bool IsPointInBox(
 		const Ak3DVector &		in_Point
 		) const
 	{
-		// Check bounding box
-		if (IsPointInBoundingBox(in_Point))
-		{
-			/*
-			// http://stackoverflow.com/questions/21037241/how-to-determine-a-point-is-inside-or-outside-a-cube
-			down vote
-			1. Pick Any One Out of Four Diagonals Of Cube
-			2. Check Your Point is within the range of diagonal points.
-			example. you picked diagonal having start(0,9,1) and end(10,3,-1)
-
-			So for P1(5,6,0)
-			P.x (5) > Start.x(0) & P.x(5) < End.x(10)
-			P.y (6) < Start.x(9) & P.y(6) > End.x(3)
-			P.z (0) < Start.x(1) & P.z(0) > End.x(-1)
-
-			P1 is inside
-
-			for P2(5,6,6)
-			P.x (5) > Start.x(0) & P.x(5) < End.x(10)
-			P.y (6) < Start.x(9) & P.y(6) > End.x(3)
-			P.z (6) > Start.x(1) & P.z(6) > End.x(-1) <-- Not Within Range
-			*/
-		}
-		else
-		{
-			return false;
-		}
-
-		return true;
+		Ak3DVector pt = in_Point - m_Center;
+		return	fabs(pt.Dot(m_X)) <= m_Extent.X && fabs(pt.Dot(m_Y)) <= m_Extent.Y && fabs(pt.Dot(m_Z)) <= m_Extent.Z;
 	}
 
-	Ak3DVector GetSize() const { return m_Size; }
+	Ak3DVector GetSize() const { return m_Extent*2.f; }
 	Ak3DVector GetCenter() const { return m_Center; }
 
-	Ak3DVector GetUx() const { return m_Front; }
-	Ak3DVector GetUy() const { return m_Up; }
-	Ak3DVector GetUz() const { return m_Front.Cross(m_Up); }
+	Ak3DVector GetUx() const { return m_X; }
+	Ak3DVector GetUy() const { return m_Y; }
+	Ak3DVector GetUz() const { return m_Z; }
 
-	Ak3DVector GetFront() const { return m_Front; }
-	Ak3DVector GetUp() const { return m_Up; }
-	Ak3DVector GetSide() const { return m_Front.Cross(m_Up); }
+	Ak3DVector GetFront() const { return m_Z; }
+	Ak3DVector GetUp() const { return m_Y; }
+	Ak3DVector GetSide() const { return m_X; }
 
 	AkReal32 GetVolume() const
 	{
-		return m_Size.X * m_Size.Y * m_Size.Z;
+		Ak3DVector size = GetSize();
+		return size.X * size.Y * size.Z;
 	}
 
 	bool SeparatingAxisExists(
@@ -1368,13 +1397,13 @@ public:
 		const AkBox& A = *this;
 		Ak3DVector T = B.GetCenter() - A.GetCenter();
 
-		AkReal32 WA = A.GetSize().X / 2.f;
-		AkReal32 HA = A.GetSize().Y / 2.f;
-		AkReal32 DA = A.GetSize().Z / 2.f;
+		AkReal32 WA = A.m_Extent.X;
+		AkReal32 HA = A.m_Extent.Y;
+		AkReal32 DA = A.m_Extent.Z;
 
-		AkReal32 WB = B.GetSize().X / 2.f;
-		AkReal32 HB = B.GetSize().Y / 2.f;
-		AkReal32 DB = B.GetSize().Z / 2.f;
+		AkReal32 WB = B.m_Extent.X;
+		AkReal32 HB = B.m_Extent.Y;
+		AkReal32 DB = B.m_Extent.Z;
 
 		Ak3DVector Ax = A.GetUx();
 		Ak3DVector Ay = A.GetUy();
@@ -1383,9 +1412,6 @@ public:
 		Ak3DVector Bx = B.GetUx();
 		Ak3DVector By = B.GetUy();
 		Ak3DVector Bz = B.GetUz();
-
-		Ax.Normalize(); Ay.Normalize(); Az.Normalize();
-		Bx.Normalize(); By.Normalize(); Bz.Normalize();
 
 		/*
 		| T • L | > | (WA*Ax) • L | + | (HA*Ay) • L | + |(DA*Az) • L | +
@@ -1404,12 +1430,27 @@ public:
 		return left > right;
 	}
 
+	void UpdateBoundingBox(AkBoundingBox& out_aabb) const
+	{
+		Ak3DVector x = m_X * m_Extent.X;
+		out_aabb.Update(m_Center + x);
+		out_aabb.Update(m_Center - x);
+		Ak3DVector y = m_Y * m_Extent.Y;
+		out_aabb.Update(m_Center + y);
+		out_aabb.Update(m_Center - y);
+		Ak3DVector Z = m_Z * m_Extent.Z;
+		out_aabb.Update(m_Center + Z);
+		out_aabb.Update(m_Center - Z);
+	}
+
+
 private:
 
 	Ak3DVector						m_Center;
-	Ak3DVector						m_Size;
-	AkBoundingBox					m_BB;
+	Ak3DVector						m_Extent;
 
-	Ak3DVector						m_Front;
-	Ak3DVector						m_Up;
+	//Orthonormal Axes
+	Ak3DVector						m_X;
+	Ak3DVector						m_Y;
+	Ak3DVector						m_Z;
 };

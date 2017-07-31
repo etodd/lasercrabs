@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6097
+  Version: v2017.1.0  Build: 6301
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -46,16 +46,16 @@ the specific language governing permissions and limitations under the License.
 		#define AKSIMD_V4F32_SUPPORTED
 	#endif
 
-	#if __LP64__
+	#if defined __LP64__
 		#define AK_CPU_ARM_64
-	#endif // #if __LP64__
+	#endif // #if defined __LP64__
 #elif (TARGET_OS_IPHONE || TARGET_OS_TV) && TARGET_OS_SIMULATOR
 	#define AK_IOS									///< Compiling for iOS or tvOS (iPhone, iPad, iPod, Apple TV...)
-	#if __LP64__
+	#if defined __LP64__
 		#define AK_CPU_X86_64
 	#else
-		#define AK_CPU_X86								///< Compiling for 32-bit x86 CPU
-	#endif // #if __LP64__
+		#define AK_CPU_X86							///< Compiling for 32-bit x86 CPU
+	#endif // #if defined __LP64__
 #elif !TARGET_OS_EMBEDDED
 	#define AK_MAC_OS_X								///< Compiling for Mac OS X
 	#define AKSIMD_V4F32_SUPPORTED

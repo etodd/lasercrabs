@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -88,6 +88,16 @@ namespace AK
 			// Current state
 			AkUInt32 uReserved;		///< Reserved memory (in bytes)
 			AkUInt32 uUsed;			///< Used memory (in bytes)
+		};
+
+
+		/// Memory management debug tools.  When specified in Init, each memory allocation will have a extra tag that can be verified periodically.
+		/// Enabling this will use a lot of CPU and additional memory.  This should not be enabled unless required by Audiokinetic's support.  These are enabled in Debug configuration only.
+		enum DebugFlags
+		{
+			CheckOverwriteAtFree = 1,	///< Performs a for buffer overflow when an allocation is freed.
+			CheckOverwritePerFrame = 2,	///< Performs a check for buffer overflow once per audio frame
+			CheckOverwritePerVoice = 4, ///< Performs a check for buffer overflow once per audio voice			
 		};
 
 		/// Query whether the Memory Manager has been sucessfully initialized.
@@ -345,6 +355,15 @@ namespace AK
 		AK_EXTERNAPIFUNC( AkUInt32, StopProfileThreadUsage ) (
 			AkMemPoolId in_PoolId	///< Pool to profile
 			);
+
+
+		/// Debugging method that verifies if buffer overflow occurred in a specific pool.
+		/// Called at various moments depending on the DebugFlags set in AkMemSettings.
+		/// In the default implementation it is not called in Release otherwise will assert if overrun found.
+		/// Implementation is not mendatory if the MemoryMgr is overriden.
+		AK_EXTERNAPIFUNC(void, CheckForOverwrite) (
+			AkUInt32 in_uPoolID
+			);		
 
 		//@}
     }

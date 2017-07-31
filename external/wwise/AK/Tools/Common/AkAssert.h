@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -41,40 +41,20 @@ the specific language governing permissions and limitations under the License.
 
 	#if defined( AK_ENABLE_ASSERTS )
 
-		#if defined( __SPU__ )
+		#ifndef AK_ASSERT_HOOK
+			AK_CALLBACK( void, AkAssertHook)( 
+									const char * in_pszExpression,	///< Expression
+									const char * in_pszFileName,	///< File Name
+									int in_lineNumber				///< Line Number
+									);
+			#define AK_ASSERT_HOOK
+		#endif
 
-			#if defined ( _DEBUG )
-				// Note: No assert hook on SPU
-				#include "spu_printf.h"
-				#include "libsn_spu.h"
-				#define AKASSERT(Condition)																\
-					if ( !(Condition) )																	\
-					{																					\
-						spu_printf( "Assertion triggered in file %s at line %d\n", __FILE__, __LINE__ );\
-						/*snPause();*/																	\
-					}																	
-			#else
-				#define AKASSERT(Condition)
-			#endif
+		extern AKSOUNDENGINE_API AkAssertHook g_pAssertHook;
 
-		#else // defined( __SPU__ )
+		// These platforms use a built-in g_pAssertHook (and do not fall back to the regular assert macro)
+		#define AKASSERT(Condition) ((Condition) ? ((void) 0) : g_pAssertHook( #Condition, __FILE__, __LINE__) )
 
-			#ifndef AK_ASSERT_HOOK
-				AK_CALLBACK( void, AkAssertHook)( 
-										const char * in_pszExpression,	///< Expression
-										const char * in_pszFileName,	///< File Name
-										int in_lineNumber				///< Line Number
-										);
-				#define AK_ASSERT_HOOK
-			#endif
-
-			extern AKSOUNDENGINE_API AkAssertHook g_pAssertHook;
-
-			// These platforms use a built-in g_pAssertHook (and do not fall back to the regular assert macro)
-			#define AKASSERT(Condition) ((Condition) ? ((void) 0) : g_pAssertHook( #Condition, __FILE__, __LINE__) )
-
-
-		#endif // defined( __SPU__ )
 
 		#define AKVERIFY AKASSERT
 

@@ -9,7 +9,7 @@ may use this file in accordance with the end user license agreement provided
 with the software or, alternatively, in accordance with the terms contained in a
 written agreement between you and Audiokinetic Inc.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -47,7 +47,7 @@ namespace StreamMgr
 	//		 Client threads are blocked using a conditional variable
 	//		 and signaling it for a specific thread (sys_cond_signal_to).
     //-----------------------------------------------------------------------------
-	class CAkClientThreadAware : public CAkObject
+	class CAkClientThreadAware
 	{
     public:
 
@@ -90,7 +90,7 @@ namespace StreamMgr
     //       implemented by derived classes according to how they communicate with
     //       the Low-Level IO.
     //-----------------------------------------------------------------------------
-    class CAkIOThread : public CAkObject
+    class CAkIOThread
     {
     public:
 

@@ -21,26 +21,20 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
-// AuroPannerMixerFactory.h
+#pragma once
 
 /// \file
 /// Registers the Auro Panner plugin automatically.
 /// This file should be included once in a .CPP (not a .h, really).  The simple inclusion of this file and the linking of the library is enough to use the plugin.
 /// <b>WARNING</b>: Include this file only if you wish to link statically with the plugins.  Dynamic Libaries (DLL, so, etc) are automatically detected and do not need this include file.
 /// <br><b>Wwise effect name:</b>  Auro Panner
-/// <br><b>Library file:</b> AuroPanner.lib
+/// <br><b>Library file:</b> AuroPannerMixer.lib
 
-#ifndef _AUROPANNERMIXERFACTORY_H_
-#define _AUROPANNERMIXERFACTORY_H_
-
-#if (defined AK_WIN && (!defined( AK_USE_METRO_API ) || _MSC_VER >= 1900)) || defined AK_PS4 || defined AK_XBOXONE  || defined AK_ANDROID || defined AK_NX
-
+#if !(defined AK_VITA)
 AK_STATIC_LINK_PLUGIN(AuroPannerMixer)
 AK_STATIC_LINK_PLUGIN(AuroPannerMixerAttachment)
 #endif
-#endif // _AUROPANNERMIXERFACTORY_H_
-

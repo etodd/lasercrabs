@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -39,29 +39,7 @@ the specific language governing permissions and limitations under the License.
 
 #include <AK/SoundEngine/Common/AkTypes.h>
 #include <AK/Tools/Common/AkPlatformFuncs.h>
-
-// Multi-channel volumes/mix.
-// ------------------------------------------------
-
-// Platform-specific section.
-//----------------------------------------------------------------------------------------------------
-
-#if defined( AK_XBOX360 )
-
-	#include <AK/SoundEngine/Platforms/XBox360/AkSpeakerVolumes.h>
-
-#elif defined (AK_PS3)
-
-	#include <AK/SoundEngine/Platforms/PS3/AkSpeakerVolumes.h>
-	
-#else
-
-	#include <AK/SoundEngine/Platforms/Generic/AkSpeakerVolumes.h>
-
-#endif
-
-// Cross-platform section.
-//----------------------------------------------------------------------------------------------------
+#include <AK/SoundEngine/Platforms/Generic/AkSpeakerVolumes.h>
 
 namespace AK
 {

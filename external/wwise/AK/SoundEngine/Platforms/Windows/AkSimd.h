@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -36,6 +36,7 @@ the specific language governing permissions and limitations under the License.
 	#define AKSIMD_GETELEMENT_V4I32( __vName, __num__ )			(__vName).m128i_i32[(__num__)]	///< Retrieve scalar element from vector.
 	#define AKSIMD_GETELEMENT_V4F32( __vName, __num__ )			(__vName).m128_f32[(__num__)]	///< Retrieve scalar element from vector.
 	#define AKSIMD_GETELEMENT_V2F32( __vName, __num__ )			(__vName).m64_f32[(__num__)]	///< Retrieve scalar element from vector.
+	#define AKSIMD_GETELEMENT_V2I64( __vName, __num__ )			(__vName).m128i_i64[(__num__)]	///< Retrieve scalar element from vector.
 	
 	#include <AK/SoundEngine/Platforms/SSE/AkSimd.h>
 #endif
@@ -44,6 +45,7 @@ the specific language governing permissions and limitations under the License.
 	#define AKSIMD_GETELEMENT_V4I32( __vName, __num__ )			(__vName).n128_i32[(__num__)]	///< Retrieve scalar element from vector.
 	#define AKSIMD_GETELEMENT_V4F32( __vName, __num__ )			(__vName).n128_f32[(__num__)]	///< Retrieve scalar element from vector.
 	#define AKSIMD_GETELEMENT_V2F32( __vName, __num__ )			(__vName).n64_f32[(__num__)]	///< Retrieve scalar element from vector.
+	#define AKSIMD_GETELEMENT_V2I64( __vName, __num__ )			(__vName).n128i_i64[(__num__)]	///< Retrieve scalar element from vector.
 	
 	#define AKSIMD_DECLARE_V4F32_TYPE							DirectX::XMVECTORF32
 	#define AKSIMD_DECLARE_V4F32( _x, _a, _b, _c, _d )			AKSIMD_DECLARE_V4F32_TYPE _x = { _a, _b, _c, _d }

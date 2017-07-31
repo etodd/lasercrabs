@@ -98,6 +98,8 @@ if (WIN32)
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Win/Release/AkStreamMgr
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Win/Debug/AkVorbisDecoder
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Win/Release/AkVorbisDecoder
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/Win/Debug/AkSpatialAudio
+		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Win/Release/AkSpatialAudio
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Win/Debug/CommunicationCentral
 	)
 elseif (APPLE)
@@ -112,6 +114,8 @@ elseif (APPLE)
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkStreamMgr.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libAkVorbisDecoder.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkVorbisDecoder.a
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libAkSpatialAudio.a
+		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkSpatialAudio.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libCommunicationCentral.a
 	)
 elseif (PLAYSTATION)
@@ -127,6 +131,8 @@ elseif (PLAYSTATION)
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkStreamMgr.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkVorbisDecoder.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkVorbisDecoder.a
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkSpatialAudio.a
+		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkSpatialAudio.a
 	)
 else() # Linux
 	target_link_libraries(wwise_integration
@@ -140,6 +146,8 @@ else() # Linux
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkStreamMgr.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkVorbisDecoder.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkVorbisDecoder.a
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkSpatialAudio.a
+		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkSpatialAudio.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libCommunicationCentral.a
 	)
 endif()

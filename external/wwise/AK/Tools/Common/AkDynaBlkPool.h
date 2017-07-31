@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -65,7 +65,7 @@ the specific language governing permissions and limitations under the License.
 #endif
 
 template  < typename T, AkUInt32 uPoolChunkSize, class TAlloc = ArrayPoolDefault>
-class AkDynaBlkPool
+class AkDynaBlkPool: public TAlloc
 {
 	enum { kChunkMemoryBytes = sizeof(T)*uPoolChunkSize };
 
@@ -103,8 +103,39 @@ public:
 	T* New()
 	{
 		T* ptr = Alloc();
-		if (ptr)
-			AkPlacementNew(ptr) T;
+		if (ptr) AkPlacementNew(ptr) T;
+		return ptr;
+	}
+
+	template<typename A1>
+	T* New(A1 a1)
+	{
+		T* ptr = Alloc();
+		if (ptr) AkPlacementNew(ptr) T(a1);
+		return ptr;
+	}
+
+	template<typename A1, typename A2>
+	T* New(A1 a1, A2 a2)
+	{
+		T* ptr = Alloc();
+		if (ptr) AkPlacementNew(ptr) T(a1, a2);
+		return ptr;
+	}
+
+	template<typename A1, typename A2, typename A3>
+	T* New(A1 a1, A2 a2, A3 a3)
+	{
+		T* ptr = Alloc();
+		if (ptr) AkPlacementNew(ptr) T(a1, a2, a3);
+		return ptr;
+	}
+
+	template<typename A1, typename A2, typename A3, typename A4>
+	T* New(A1 a1, A2 a2, A3 a3, A4 a4)
+	{
+		T* ptr = Alloc();
+		if (ptr) AkPlacementNew(ptr) T(a1,a2,a3,a4);
 		return ptr;
 	}
 

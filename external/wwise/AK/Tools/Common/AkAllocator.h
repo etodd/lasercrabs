@@ -21,20 +21,66 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
-// IOSONOProximityMixerFactory.h
+// AkAllocator.h
 
-/// \file
-/// Registers the IOSONO plugin automatically.
-/// This file should be included once in a .CPP (not a .h, really).  The simple inclusion of this file and the linking of the library is enough to use the plugin.
-/// <b>WARNING</b>: Include this file only if you wish to link statically with the plugins.  Dynamic Libaries (DLL, so, etc) are automatically detected and do not need this include file.
-/// <br><b>Wwise effect name:</b>  IOSONO Proximity
-/// <br><b>Library file:</b> IOSONOProximityMixer.lib
-#if (defined AK_WIN && !defined AK_USE_METRO_API) || defined AK_PS4 || defined AK_XBOXONE
-AK_STATIC_LINK_PLUGIN(IOSONOProximityMixer)
-AK_STATIC_LINK_PLUGIN(IOSONOProximityFXAttachment)
-#endif
+#ifndef _AK_TOOLS_COMMON_AKALLOCATOR_H
+#define _AK_TOOLS_COMMON_AKALLOCATOR_H
 
+#include <AK/SoundEngine/Common/IAkPluginMemAlloc.h>
+
+namespace AK
+{
+	// Audiokinetic Wwise namespace
+	namespace Wwise
+	{
+		class Mallocator
+			: public AK::IAkPluginMemAlloc
+		{
+		public:
+			virtual void* Malloc(size_t in_uSize)
+			{
+				return malloc(in_uSize);
+			}
+
+			virtual void Free(void* in_pMemAddress)
+			{
+				free(in_pMemAddress);
+			}
+		};
+
+		template<typename T>
+		class SafeAllocator
+		{
+		public:
+			SafeAllocator(AK::IAkPluginMemAlloc* in_pAlloc)
+				: m_pAlloc(in_pAlloc),
+				  m_pPtr(nullptr)
+			{
+			}
+
+			~SafeAllocator()
+			{
+				if (m_pPtr)
+				{
+					m_pAlloc->Free(m_pPtr);
+				}
+			}
+
+			T* operator->() { return m_pPtr; }
+			T& operator*() { return *m_pPtr; }
+
+			explicit operator bool() const { return m_pPtr != nullptr; }
+			operator T*&() { return m_pPtr; }
+
+		private:
+			AK::IAkPluginMemAlloc* m_pAlloc;
+			T* m_pPtr;
+		};
+	}
+}
+
+#endif // _AK_TOOLS_COMMON_AKALLOCATOR_H

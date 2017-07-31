@@ -9,7 +9,7 @@ may use this file in accordance with the end user license agreement provided
 with the software or, alternatively, in accordance with the terms contained in a
 written agreement between you and Audiokinetic Inc.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 //////////////////////////////////////////////////////////////////////
@@ -88,7 +88,7 @@ public:
 			dwFlags |= FILE_FLAG_OVERLAPPED;
 
 		// Create the file handle.
-#if defined(AK_USE_METRO_API) && !defined(AK_XBOXONE) // Xbox One can use "normal" IO
+#if defined(AK_USE_UWP_API) && !defined(AK_XBOXONE) // Xbox One can use "normal" IO
 		out_hFile = ::CreateFile2( 
 			in_pszFilename,
 			dwAccessMode,
@@ -163,7 +163,7 @@ public:
 		AKASSERT( in_uSizeToRead % s_uRequiredBlockSize == 0 
 			&& in_uPosition % s_uRequiredBlockSize == 0 );
 
-#ifdef AK_USE_METRO_API
+#ifdef AK_USE_UWP_API
 		LARGE_INTEGER uPosition;
 		uPosition.QuadPart = in_uPosition;
 		if ( SetFilePointerEx( in_hFile, uPosition, NULL, FILE_BEGIN ) == FALSE )
@@ -183,7 +183,7 @@ public:
 	static AKRESULT CheckDirectoryExists( const AkOSChar* in_pszBasePath )
 	{
 		DWORD fileAttributes = INVALID_FILE_ATTRIBUTES;
-#ifdef AK_USE_METRO_API
+#ifdef AK_USE_UWP_API
 		WIN32_FILE_ATTRIBUTE_DATA    fileInfo;
 		if( GetFileAttributesEx(in_pszBasePath, GetFileExInfoStandard, &fileInfo ) )
 		{

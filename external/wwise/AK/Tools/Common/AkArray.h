@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -30,6 +30,7 @@ the specific language governing permissions and limitations under the License.
 
 #include <AK/Tools/Common/AkObject.h>
 #include <AK/Tools/Common/AkAssert.h>
+#include <AK/Tools/Common/AkPlatformFuncs.h>
 
 #define AK_DEFINE_ARRAY_POOL( _name_, _poolID_ )	\
 struct _name_										\
@@ -46,31 +47,80 @@ AK_DEFINE_ARRAY_POOL( _ArrayPoolLEngineDefault, g_LEngineDefaultPoolId )
 template <class U_POOL>
 struct AkArrayAllocatorNoAlign
 {
-	static AkForceInline void * Alloc( size_t in_uSize )
+	AkForceInline void * Alloc( size_t in_uSize )
 	{
 		return AK::MemoryMgr::Malloc( U_POOL::Get(), in_uSize );
 	}
 
-	static AkForceInline void Free( void * in_pAddress )
+	AkForceInline void Free( void * in_pAddress )
 	{
 		AK::MemoryMgr::Free( U_POOL::Get(), in_pAddress );
+	}
+
+	AkForceInline void TransferMem(void *& io_pDest, AkArrayAllocatorNoAlign<U_POOL> in_srcAlloc, void * in_pSrc ) 
+	{
+		io_pDest = in_pSrc;
 	}
 };
 
 template <class U_POOL>
 struct AkArrayAllocatorAlignedSimd
 {
-	static AkForceInline void * Alloc( size_t in_uSize )
+	AkForceInline void * Alloc( size_t in_uSize )
 	{
 		return AK::MemoryMgr::Malign( U_POOL::Get(), in_uSize, AK_SIMD_ALIGNMENT );
 	}
 
-	static AkForceInline void Free( void * in_pAddress )
+	AkForceInline void Free( void * in_pAddress )
 	{
 		AK::MemoryMgr::Falign( U_POOL::Get(), in_pAddress );
 	}
+
+	AkForceInline void TransferMem(void *& io_pDest, AkArrayAllocatorAlignedSimd<U_POOL> in_srcAlloc, void * in_pSrc ) 
+	{
+		io_pDest = in_pSrc;
+	}
+
 };
 
+// AkHybridAllocator
+//	Attempts to allocate from a small buffer of size uBufferSizeBytes, which is contained within the array type.  Useful if the array is expected to contain a small number of elements.
+//	If the array grows to a larger size than uBufferSizeBytes, the the memory is allocated from the default memory pool.
+//	NOTE: only use with types that are trivially copyable.
+template< AkUInt32 uBufferSizeBytes, AkUInt8 uAlignmentSize = AK_OS_STRUCT_ALIGN>
+struct AkHybridAllocator
+{
+	static const AkUInt32 _uBufferSizeBytes = uBufferSizeBytes;
+
+	AkForceInline void * Alloc(size_t in_uSize)
+	{
+		if (in_uSize <= uBufferSizeBytes)
+			return (void *)&m_buffer;
+		else
+			return AK::MemoryMgr::Malign(g_DefaultPoolId, in_uSize, uAlignmentSize);
+	}
+
+	AkForceInline void Free(void * in_pAddress)
+	{
+		if (&m_buffer != in_pAddress)
+			AK::MemoryMgr::Falign(g_DefaultPoolId, in_pAddress);
+	}
+
+	AkForceInline void TransferMem(void *& io_pDest, AkHybridAllocator<uBufferSizeBytes, uAlignmentSize>& in_srcAlloc, void * in_pSrc)
+	{
+		if (&in_srcAlloc.m_buffer == in_pSrc)
+		{
+			AKPLATFORM::AkMemCpy(m_buffer, in_srcAlloc.m_buffer, uBufferSizeBytes);
+			io_pDest = m_buffer;
+		}
+		else
+		{
+			io_pDest = in_pSrc;
+		}
+	}
+	
+	AK_ALIGN(char m_buffer[uBufferSizeBytes], uAlignmentSize);
+};
 
 template <class T>
 struct AkAssignmentMovePolicy
@@ -423,7 +473,7 @@ public:
 	}
 
 	/// Operator [], return a reference to the specified index.
-    T& operator[](unsigned int uiIndex) const
+	AkForceInline T& operator[](unsigned int uiIndex) const
     {
         AKASSERT( m_pItems );
         AKASSERT( uiIndex < Length() );
@@ -487,7 +537,7 @@ public:
 
 		size_t cItems = Length();
 
-		if ( m_pItems ) 
+		if ( m_pItems && m_pItems != pNewItems /*AkHybridAllocator may serve up same memory*/ ) 
 		{
 			for ( size_t i = 0; i < cItems; ++i )
 			{
@@ -540,10 +590,9 @@ public:
 
 	void Transfer(AkArray<T,ARG_T,TAlloc,TGrowBy,TMovePolicy>& in_rSource)
 	{
-		if (m_pItems)
-			Term();
+		Term();
 
-		m_pItems = in_rSource.m_pItems;
+		TAlloc::TransferMem( (void*&)m_pItems, in_rSource, (void*)in_rSource.m_pItems );
 		m_uLength = in_rSource.m_uLength;
 		m_ulReserved = in_rSource.m_ulReserved;
 
@@ -552,11 +601,25 @@ public:
 		in_rSource.m_ulReserved = 0;
 	}
 
+	AKRESULT Copy(const AkArray<T, ARG_T, TAlloc, TGrowBy, TMovePolicy>& in_rSource)
+	{
+		Term();
+
+		if (Resize(in_rSource.Length()))
+		{
+			for (AkUInt32 i = 0; i < in_rSource.Length(); ++i)
+				m_pItems[i] = in_rSource.m_pItems[i];
+			return AK_Success;
+		}
+		return AK_Fail;
+	}
+
 protected:
 
 	T *         m_pItems;		///< pointer to the beginning of the array.
 	AkUInt32    m_uLength;		///< number of items in the array.
 	AkUInt32	m_ulReserved;	///< how many we can have at most (currently allocated).
 };
+
 
 #endif

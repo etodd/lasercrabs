@@ -9,7 +9,7 @@ may use this file in accordance with the end user license agreement provided
 with the software or, alternatively, in accordance with the terms contained in a
 written agreement between you and Audiokinetic Inc.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -65,7 +65,7 @@ void CAkClientThreadAware::SetBlockedStatus()
 	}
 	else
 	{
-#ifdef AK_USE_METRO_API
+#ifdef AK_USE_UWP_API
 		m_hBlockEvent = ::CreateEventEx( nullptr, nullptr, CREATE_EVENT_MANUAL_RESET, STANDARD_RIGHTS_ALL|EVENT_MODIFY_STATE );
 #else
         // Note. Event is manual reset in case IO thread had time to execute IO before we block on it.
@@ -119,7 +119,7 @@ AKRESULT CAkIOThread::Init(
     )
 {
     // Create scheduler semaphore.
-#ifdef AK_USE_METRO_API
+#ifdef AK_USE_UWP_API
 		m_hStdSem = ::CreateEventEx( nullptr, nullptr, CREATE_EVENT_MANUAL_RESET, STANDARD_RIGHTS_ALL|EVENT_MODIFY_STATE );
 		m_hAutoSem = ::CreateEventEx( nullptr, nullptr, CREATE_EVENT_MANUAL_RESET, STANDARD_RIGHTS_ALL|EVENT_MODIFY_STATE );
 		m_hIOThreadStopEvent = ::CreateEventEx( nullptr, nullptr, CREATE_EVENT_MANUAL_RESET, STANDARD_RIGHTS_ALL|EVENT_MODIFY_STATE );
@@ -183,7 +183,7 @@ void CAkIOThread::Term()
         // Wait until thread stops.
         if ( m_hIOThread )
         {
-#ifdef AK_USE_METRO_API
+#ifdef AK_USE_UWP_API
 			DWORD dwWait = ::WaitForSingleObjectEx( m_hIOThread, INFINITE, FALSE );  // 3 secs.
 #else
 			DWORD dwWait = ::WaitForSingleObject( m_hIOThread, INFINITE );  // 3 secs.
@@ -280,11 +280,7 @@ AK_DECLARE_THREAD_ROUTINE( CAkIOThread::IOSchedThread )
 			else
 			{
 				// Sleep in alertable state, to let a chance for pending transfers to complete.
-#ifdef AK_USE_THREAD_EMULATION
-				AK::ThreadEmulation::SleepEx( 100, TRUE );
-#else
 				::SleepEx( 100, TRUE );
-#endif
 			}
             break;
         case WAIT_TIMEOUT:      // Idle throughput
@@ -434,7 +430,7 @@ void CAkIOThread::WaitForIOCompletion(
 	AKASSERT( in_pWaitingTask->BlockEvent() );
 	// Note: in_pWaitingTask->IsBlocked() can be false if SignalIOCompleted() was called before we arrived here.
 	// It is OK, since the event remains signaled for the call to WaitForSingleObject() just below, which is going to pass through.
-#ifdef AK_USE_METRO_API
+#ifdef AK_USE_UWP_API
 	DWORD dwWaitResult = ::WaitForSingleObjectEx( in_pWaitingTask->BlockEvent(), INFINITE, FALSE );
 	AKASSERT( dwWaitResult == WAIT_OBJECT_0 );
 #else

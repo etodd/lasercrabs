@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -52,7 +52,6 @@ namespace MotionEngine
 		AkUInt32 in_iDeviceID,			///< Device ID, must be one of the currently supported devices. 
 		void* in_pDevice = NULL,		///< PS4: PS4 Device handle, returned by scePadOpen. 
 										///< Windows: Windows Direct Input Device reference for DirectInput. NULL to use XInput. 
-										///< WiiU: Use AK_MOTION_WIIMOTE_DEVICE to add a Wiimote or AK_MOTION_DRC_DEVICE to add a DRC device. 
 										///< XboxOne: Use IGamepad::Id. 
 										///< Motion plugins: see plugin vendor documentation.
 										///< Keep NULL for all other device types.										
@@ -75,8 +74,8 @@ namespace MotionEngine
 	/// - \ref integrating_elements_motion
 	/// - \ref soundengine_listeners 
 	AK_EXTERNAPIFUNC( void, SetPlayerListener )(
-		AkUInt8 in_iPlayerID,					///< Player ID, between 0 and 3
-		AkUInt8 in_iListener					///< Listener ID, between 0 and 7
+		AkUInt8 in_iPlayerID,				///< Player ID, between 0 and 3
+		AkGameObjectID in_uListenerID		///< Listener game object ID
 		);
 
 	/// Set the master volume for a player.  All devices assigned to this player will be affected by this volume.

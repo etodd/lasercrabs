@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -46,7 +46,7 @@ struct MapStruct
 //	 on the data that you are referencing.  For example if you wanted to to use an AkArray type.
 // NOTE: AllocData() and FreeData() must be explicitly called, or else pData can be manually Alloc'd/Free'd.
 template < typename T_KEY, typename T_DATA, class T_ALLOC = ArrayPoolDefault >
-struct AkKeyDataPtrStruct
+struct AkKeyDataPtrStruct: public T_ALLOC
 {
 	AkKeyDataPtrStruct(): pData(NULL) {}
 	AkKeyDataPtrStruct(T_KEY in_key): key(in_key), pData(NULL) {}

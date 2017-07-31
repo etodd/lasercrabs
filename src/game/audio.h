@@ -2,6 +2,7 @@
 
 #include "data/entity.h"
 #include "lmath.h"
+#include "constants.h"
 
 #if SERVER
 #include <AK/SoundEngine/Common/AkTypes.h>
@@ -45,10 +46,13 @@ struct Audio : ComponentType<Audio>
 	static void post_global_event(AkUniqueID, const Vec3&);
 	static void post_global_event(AkUniqueID, const Vec3&, const Quat&);
 	static void global_param(AkRtpcID, AkRtpcValue);
-	static void listener_enable(u32);
-	static void listener_disable(u32);
-	static void listener_update(u32, const Vec3&, const Quat&);
+	static void listener_list_update();
+	static void listener_enable(s8);
+	static void listener_disable(s8);
+	static void listener_update(s8, const Vec3&, const Quat&);
 	static AkUniqueID get_id(const char*);
+	static AkGameObjectID listener_id(s8);
+	static s8 listener_mask;
 
 	Vec3 offset;
 

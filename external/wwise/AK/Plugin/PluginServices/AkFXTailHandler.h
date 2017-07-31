@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
  
@@ -89,67 +89,6 @@ public:
 			uTailFramesRemaining = AKFXTAILHANDLER_NOTINTAIL;
 		}
 	}
-
-#ifdef __SPU__
-	/// Interface for handling one channel at a time (neccessary when channels are processed sequentially on SPU)
-
-	/// Recompute target fx tail length has necessary.
-	AkForceInline void HandleTailChannelPre( AKRESULT in_eAudioBufferState, AkUInt32 in_uTotalTailFrames )
-	{
-		bool bPreStop = in_eAudioBufferState == AK_NoMoreData;
-		if ( bPreStop )
-		{	
-			// Tail not yet finished processing
-			if ( uTailFramesRemaining > 0 )
-			{
-				// Not previously in tail, compute tail time
-				if ( uTailFramesRemaining == AKFXTAILHANDLER_NOTINTAIL )
-				{
-					uTailFramesRemaining = in_uTotalTailFrames;
-					uTotalTailFrames	 = in_uTotalTailFrames;
-				}
-				// Tail time changed, augment if necessary but preserve where we are so that effect will 
-				// still finish when constanly changing this based on RTPC parameters
-				else if ( in_uTotalTailFrames > uTotalTailFrames )
-				{
-					AkUInt32 uFramesElapsed = uTotalTailFrames - uTailFramesRemaining;
-					uTailFramesRemaining = in_uTotalTailFrames - uFramesElapsed;
-					uTotalTailFrames	 = in_uTotalTailFrames;
-				}
-			}
-		}
-		else
-		{
-			// Reset tail mode for next time if exits tail mode (on bus only)
-			uTailFramesRemaining = AKFXTAILHANDLER_NOTINTAIL;
-		}
-	}
-	
-	/// Zero pads given channel data (local storage address).
-	AkForceInline void HandleTailChannel( AkAudioBuffer * in_pAudioBuffer, AkReal32 * io_pfChannelData )
-	{
-		bool bPreStop = in_pAudioBuffer->eState == AK_NoMoreData;
-		if ( bPreStop && (uTailFramesRemaining > 0) )
-		{	
-			// Always full buffers while in tail
-			AkUInt32 uNumTailFrames = (AkUInt32)(in_pAudioBuffer->MaxFrames()-in_pAudioBuffer->uValidFrames); 
-			AkZeroMemLarge( io_pfChannelData + in_pAudioBuffer->uValidFrames, uNumTailFrames * sizeof(AkReal32) );
-			in_pAudioBuffer->uValidFrames = in_pAudioBuffer->MaxFrames();
-		}
-	}
-
-	/// Determine when done and adjust return code appropriately.
-	AkForceInline void HandleTailChannelPost( AkAudioBuffer * io_pBuffer )
-	{
-		bool bPreStop = io_pBuffer->eState == AK_NoMoreData;
-		if ( bPreStop && (uTailFramesRemaining > 0) )
-		{		
-			uTailFramesRemaining -= AkMin( uTailFramesRemaining, (AkUInt32)(io_pBuffer->MaxFrames()-io_pBuffer->uValidFrames) ); 
-			if ( uTailFramesRemaining > 0 )
-				io_pBuffer->eState = AK_DataReady;	
-		}
-	}
-#endif
 
 protected:
 

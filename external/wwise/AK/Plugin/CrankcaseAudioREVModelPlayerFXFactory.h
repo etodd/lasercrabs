@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -33,7 +33,6 @@ the specific language governing permissions and limitations under the License.
 /// <br><b>Wwise plugin name:</b>  CrankcaseAudio REV
 /// <br><b>Library file:</b> CrankcaseAudioREVModelPlayerFX.lib
 
-
-#if ( defined( AK_WIN ) && (!defined( AK_USE_METRO_API ) || _MSC_VER >= 1900)) || defined AK_PS4 || defined AK_XBOXONE || defined AK_XBOX360 || defined AK_ANDROID || defined AK_APPLE || defined AK_LINUX || defined AK_NX
+#if !defined AK_VITA
 AK_STATIC_LINK_PLUGIN(CrankcaseAudioREVModelPlayerFX)
 #endif

@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -83,13 +83,12 @@ struct AkFileSystemFlags
 	AkFileSystemFlags()
 		: uCacheID( AK_INVALID_FILE_ID ) {}
 
-	AkFileSystemFlags( AkUInt32 in_uCompanyID, AkUInt32 in_uCodecID, AkUInt32 in_uCustomParamSize, void * in_pCustomParam, bool in_bIsLanguageSpecific, bool in_bIsFromRSX, AkFileID in_uCacheID )
+	AkFileSystemFlags( AkUInt32 in_uCompanyID, AkUInt32 in_uCodecID, AkUInt32 in_uCustomParamSize, void * in_pCustomParam, bool in_bIsLanguageSpecific, AkFileID in_uCacheID )
 		: uCompanyID( in_uCompanyID )
 		, uCodecID( in_uCodecID )
 		, uCustomParamSize( in_uCustomParamSize )
 		, pCustomParam( in_pCustomParam )
 		, bIsLanguageSpecific( in_bIsLanguageSpecific )
-		, bIsFromRSX( in_bIsFromRSX )
 		, uCacheID( in_uCacheID ) 
 		, uNumBytesPrefetch( 0 ) {}
 
@@ -98,7 +97,6 @@ struct AkFileSystemFlags
     AkUInt32            uCustomParamSize;   ///< Size of the custom parameter
     void *              pCustomParam;       ///< Custom parameter
     bool                bIsLanguageSpecific;///< True when the file location depends on language
-	bool				bIsFromRSX;			///< True if the "RSX" option is checked in the sound's streaming properties
 	bool                bIsAutomaticStream;	///< True when the file is opened to be used as an automatic stream. Note that you don't need to set it. 
 											///< If you pass an AkFileSystemFlags to IAkStreamMgr CreateStd|Auto(), it will be set internally to the correct value.
 	AkFileID			uCacheID;			///< Cache ID for caching system used by automatic streams. The user is responsible for guaranteeing unicity of IDs. 
@@ -745,7 +743,7 @@ namespace AK
 		/// Start streaming the first "in_pFSFlags->uNumBytesPrefetch" bytes of the file with id "in_fileID" into cache.  The stream will be scheduled only after
 		/// all regular streams (not file caching streams) are serviced.  The file will stay cached until either the UnpinFileInCache is called,
 		/// or the limit as set by uMaxCachePinnedBytes is reached and another higher priority file (in_uPriority) needs the space.  
-		/// /remarks PinFileInCache()/UnpinFileInCache()/UpdateCachingPriority() are typically not used directly, but instead used via the AK::SoundEngine::PinEventInStreamCache() API. 
+		/// \remarks PinFileInCache()/UnpinFileInCache()/UpdateCachingPriority() are typically not used directly, but instead used via the AK::SoundEngine::PinEventInStreamCache() API. 
 		///		Using PinFileInCache() directly does not allow users to take advantage of sound bank data.  The file and the number of bytes they wish to cache must be explicitly specified.
 		/// 
 		/// \sa
@@ -762,7 +760,7 @@ namespace AK
 		/// Un-pin a file that has been previouly pinned into cache.  This function must be called once for every call to PinFileInCache() with the same file id.
 		/// The file may still remain in stream cache after this is called, until the memory is reused by the streaming memory manager in accordance with to its 
 		/// cache management algorithm.
-		/// /remarks PinFileInCache()/UnpinFileInCache()/UpdateCachingPriority() are typically not used directly, but instead used via the AK::SoundEngine::PinEventInStreamCache() API. 
+		/// \remarks PinFileInCache()/UnpinFileInCache()/UpdateCachingPriority() are typically not used directly, but instead used via the AK::SoundEngine::PinEventInStreamCache() API. 
 		///		Using UnpinFileInCache() directly does not allow users to take advantage of sound bank data.  The file must be explicitly specified.
 		/// \sa
 		/// - \ref streamingdevicemanager
@@ -775,7 +773,7 @@ namespace AK
 		
 		/// Update the priority of the caching stream.  Higher priority streams will be serviced before lower priority caching streams, and will be more likely to stay in 
 		/// memory if the cache pin limit as set by "uMaxCachePinnedBytes" is reached.
-		/// /remarks PinFileInCache()/UnpinFileInCache()/UpdateCachingPriority() are typically not used directly, but instead used via the AK::SoundEngine::PinEventInStreamCache() API. 
+		/// \remarks PinFileInCache()/UnpinFileInCache()/UpdateCachingPriority() are typically not used directly, but instead used via the AK::SoundEngine::PinEventInStreamCache() API. 
 		///		Using UpdateCachingPriority() directly does not allow users to take advantage of sound bank data.  The file must be explicitly specified.
 		/// \sa
 		/// - \ref streamingdevicemanager

@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6097
+  Version: v2017.1.0  Build: 6301
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -289,6 +289,14 @@ static AKSIMD_V4F32 AKSIMD_COMPLEXMUL_SSE3( const AKSIMD_V4F32 vCIn1, const AKSI
 /// Adds the four integer values of a and b
 #define AKSIMD_ADD_V4I32( a, b ) _mm_add_epi32( a, b )
 
+#define AKSIMD_CMPLT_V4I32( a, b ) _mm_cmplt_epi32(a,b)
+#define AKSIMD_CMPGT_V4I32( a, b ) _mm_cmpgt_epi32(a,b)
+#define AKSIMD_XOR_V4I32( a, b ) _mm_xor_si128(a,b)
+#define AKSIMD_XOR_V4F32( a, b ) _mm_xor_ps(a,b)
+#define AKSIMD_SUB_V4I32( a, b ) _mm_sub_epi32(a,b)
+
+/// Multiplies the low 16bits of a by b and stores it in V4I32 (no overflow)
+#define AKSIMD_MULLO16_V4I32( a , b) _mm_mullo_epi16(a, b)
 //@}
 ////////////////////////////////////////////////////////////////////////
 
@@ -339,6 +347,8 @@ static AkForceInline AKSIMD_V4F32 AKSIMD_VSEL_V4F32( AKSIMD_V4F32 vA, AKSIMD_V4F
 #define AKSIMD_SEL_GTEZ_V4F32( __a__, __b__, __c__ ) AKSIMD_VSEL_V4F32( (__c__), (__b__), AKSIMD_GTEQ_V4F32( __a__, _mm_set1_ps(0) ) )
 
 #define AKSIMD_SPLAT_V4F32(var, idx) AKSIMD_SHUFFLE_V4F32(var,var, AKSIMD_SHUFFLE(idx,idx,idx,idx))
+
+#define AKSIMD_MASK_V4F32( __a__ ) _mm_movemask_ps( __a__ )
 
 //@}
 ////////////////////////////////////////////////////////////////////////

@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -35,7 +35,7 @@ the specific language governing permissions and limitations under the License.
 
 #include <AK/SoundEngine/Common/AkTypes.h>
 
-#if defined( AK_CPU_ARM_NEON ) || ( ( defined( AK_CPU_X86 ) || defined( AK_CPU_X86_64 ) ) && !defined(AK_IOS) ) || defined( AK_WIIU )
+#if defined( AK_CPU_ARM_NEON ) || ( ( defined( AK_CPU_X86 ) || defined( AK_CPU_X86_64 ) ) && !defined(AK_IOS) )
 
 	#define AKSIMD_SPEAKER_VOLUME
 
@@ -53,11 +53,12 @@ namespace SpeakerVolumes
 	namespace Vector
 	{
 #ifdef AKSIMD_V4F32_SUPPORTED
-#define SIZEOF_AKSIMD_V4F32		16	
+#define SIZEOF_AKSIMD_V4F32		16
+#define SIZEOF_AKSIMD_F32		4	
 		/// Compute size (in number of v4 elements) required for given number of channels in vector.
 		AkForceInline AkUInt32 GetNumV4F32( AkUInt32 in_uNumChannels )
 		{
-			return ( in_uNumChannels + ( SIZEOF_AKSIMD_V4F32 / 4 ) - 1 ) >> 2;
+			return (in_uNumChannels + SIZEOF_AKSIMD_F32 - 1) >> 2;
 		}
 
 		/// Compute size (in number of elements/floats) required for given number of channels in vector.

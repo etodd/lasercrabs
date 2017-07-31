@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -47,28 +47,28 @@ namespace AK
 /// Type of callback. Used as a bitfield in methods AK::SoundEngine::PostEvent() and AK::SoundEngine::DynamicSequence::Open().
 enum AkCallbackType
 {
-	AK_EndOfEvent					= 0x0001,	///< Callback triggered when reaching the end of an event.
-	AK_EndOfDynamicSequenceItem		= 0x0002,	///< Callback triggered when reaching the end of a dynamic sequence item.
-	AK_Marker						= 0x0004,	///< Callback triggered when encountering a marker during playback.
-	AK_Duration						= 0x0008,	///< Callback triggered when the duration of the sound is known by the sound engine.
+	AK_EndOfEvent					= 0x0001,	///< Callback triggered when reaching the end of an event. AkCallbackInfo can be cast to AkEventCallbackInfo.
+	AK_EndOfDynamicSequenceItem		= 0x0002,	///< Callback triggered when reaching the end of a dynamic sequence item. AkCallbackInfo can be cast to AkDynamicSequenceItemCallbackInfo.
+	AK_Marker						= 0x0004,	///< Callback triggered when encountering a marker during playback. AkCallbackInfo can be cast to AkMarkerCallbackInfo.
+	AK_Duration						= 0x0008,	///< Callback triggered when the duration of the sound is known by the sound engine. AkCallbackInfo can be cast to AkDurationCallbackInfo.
 
-	AK_SpeakerVolumeMatrix			= 0x0010,   ///< Callback triggered at each frame, letting the client modify the speaker volume matrix
+	AK_SpeakerVolumeMatrix			= 0x0010,   ///< Callback triggered at each frame, letting the client modify the speaker volume matrix. AkCallbackInfo can be cast to AkSpeakerVolumeMatrixCallbackInfo.
 
-	AK_Starvation					= 0x0020,	///< Callback triggered when playback skips a frame due to stream starvation.
+	AK_Starvation					= 0x0020,	///< Callback triggered when playback skips a frame due to stream starvation. AkCallbackInfo can be cast to AkEventCallbackInfo.
 
-	AK_MusicPlaylistSelect			= 0x0040,	///< Callback triggered when music playlist container must select the next item to play.
-	AK_MusicPlayStarted				= 0x0080,	///< Callback triggered when a "Play" or "Seek" command has been executed ("Seek" commands are issued from AK::SoundEngine::SeekOnEvent()). Applies to objects of the Interactive-Music Hierarchy only.
+	AK_MusicPlaylistSelect			= 0x0040,	///< Callback triggered when music playlist container must select the next item to play. AkCallbackInfo can be cast to AkMusicPlaylistCallbackInfo.
+	AK_MusicPlayStarted				= 0x0080,	///< Callback triggered when a "Play" or "Seek" command has been executed ("Seek" commands are issued from AK::SoundEngine::SeekOnEvent()). Applies to objects of the Interactive-Music Hierarchy only. AkCallbackInfo can be cast to AkEventCallbackInfo.
 
-	AK_MusicSyncBeat				= 0x0100,	///< Enable notifications on Music Beat.
-	AK_MusicSyncBar					= 0x0200,	///< Enable notifications on Music Bar.
-	AK_MusicSyncEntry				= 0x0400,	///< Enable notifications on Music Entry Cue.
-	AK_MusicSyncExit				= 0x0800,	///< Enable notifications on Music Exit Cue.
-	AK_MusicSyncGrid				= 0x1000,	///< Enable notifications on Music Grid.
-	AK_MusicSyncUserCue				= 0x2000,	///< Enable notifications on Music Custom Cue.
-	AK_MusicSyncPoint				= 0x4000,	///< Enable notifications on Music switch transition synchronization point.
+	AK_MusicSyncBeat				= 0x0100,	///< Enable notifications on Music Beat. AkCallbackInfo can be cast to AkMusicSyncCallbackInfo.
+	AK_MusicSyncBar					= 0x0200,	///< Enable notifications on Music Bar. AkCallbackInfo can be cast to AkMusicSyncCallbackInfo.
+	AK_MusicSyncEntry				= 0x0400,	///< Enable notifications on Music Entry Cue. AkCallbackInfo can be cast to AkMusicSyncCallbackInfo.
+	AK_MusicSyncExit				= 0x0800,	///< Enable notifications on Music Exit Cue. AkCallbackInfo can be cast to AkMusicSyncCallbackInfo.
+	AK_MusicSyncGrid				= 0x1000,	///< Enable notifications on Music Grid. AkCallbackInfo can be cast to AkMusicSyncCallbackInfo.
+	AK_MusicSyncUserCue				= 0x2000,	///< Enable notifications on Music Custom Cue. AkCallbackInfo can be cast to AkMusicSyncCallbackInfo.
+	AK_MusicSyncPoint				= 0x4000,	///< Enable notifications on Music switch transition synchronization point. AkCallbackInfo can be cast to AkMusicSyncCallbackInfo.
 	AK_MusicSyncAll					= 0x7f00,	///< Use this flag if you want to receive all notifications concerning AK_MusicSync registration.
 
-	AK_MIDIEvent					= 0x10000,	///< Enable notifications for MIDI events.
+	AK_MIDIEvent					= 0x10000,	///< Enable notifications for MIDI events. AkCallbackInfo can be cast to AkMIDIEventCallbackInfo.
 
 	AK_CallbackBits					= 0xfffff,	///< Bitmask for all callback types.
 
@@ -78,7 +78,7 @@ enum AkCallbackType
 	AK_EnableGetSourceStreamBuffering = 0x400000	///< Enable stream buffering information for use by AK::SoundEngine::GetSourceStreamBuffering(). 
 };
 
-/// Callback information structure used as base for all notifications handled by AkCallbackFunc.
+/// Callback information structure used as base for all notifications handled by \ref AkCallbackFunc.
 /// \sa 
 /// - AK::SoundEngine::PostEvent()
 /// - \ref soundengine_events
@@ -88,7 +88,7 @@ struct AkCallbackInfo
 	AkGameObjectID	gameObjID;		///< Game object ID
 };
 
-/// Callback information structure corresponding to AK_EndOfEvent, AK_MusicPlayStarted and AK_Starvation.
+/// Callback information structure corresponding to \ref AK_EndOfEvent, \ref AK_MusicPlayStarted and \ref AK_Starvation.
 /// \sa 
 /// - AK::SoundEngine::PostEvent()
 /// - \ref soundengine_events
@@ -98,7 +98,7 @@ struct AkEventCallbackInfo : public AkCallbackInfo
 	AkUniqueID		eventID;		///< Unique ID of Event, passed to PostEvent()
 };
 
-/// Callback information structure corresponding to AK_MidiEvent
+/// Callback information structure corresponding to \ref AK_MidiEvent
 /// \sa 
 /// - AK::SoundEngine::PostEvent()
 /// - \ref soundengine_events
@@ -108,7 +108,7 @@ struct AkMIDIEventCallbackInfo : public AkEventCallbackInfo
 };
 
 
-/// Callback information structure corresponding to AK_Marker.
+/// Callback information structure corresponding to \ref AK_Marker.
 /// \sa 
 /// - AK::SoundEngine::PostEvent()
 /// - \ref soundengine_events
@@ -120,7 +120,7 @@ struct AkMarkerCallbackInfo : public AkEventCallbackInfo
 	const char*	strLabel;			///< Label of the marker, read from the file
 };
 
-/// Callback information structure corresponding to AK_Duration.
+/// Callback information structure corresponding to \ref AK_Duration.
 /// \sa 
 /// - AK::SoundEngine::PostEvent()
 /// - \ref soundengine_events
@@ -133,7 +133,7 @@ struct AkDurationCallbackInfo : public AkEventCallbackInfo
 	bool		bStreaming;				///< True if source is streaming, false otherwise.
 };
 
-/// Callback information structure corresponding to AK_EndOfDynamicSequenceItem.
+/// Callback information structure corresponding to \ref AK_EndOfDynamicSequenceItem.
 /// \sa 
 /// - AK::SoundEngine::PostEvent()
 /// - AK::SoundEngine::DynamicSequence::Open()
@@ -145,7 +145,7 @@ struct AkDynamicSequenceItemCallbackInfo : public AkCallbackInfo
 	void*		pCustomInfo;		///< Custom info passed to the DynamicSequence::Open function
 };
 
-/// Callback information structure corresponding to AK_SpeakerVolumeMatrix, and passed to callbacks registered in RegisterBusVolumeCallback()
+/// Callback information structure corresponding to \ref AK_SpeakerVolumeMatrix, and passed to callbacks registered in RegisterBusVolumeCallback()
 /// or PostEvent() with AK_SpeakerVolumeMatrix. These callbacks are called at every audio frame for every connection from an input (voice
 /// or bus) to an output bus (standard or auxiliary), at the point when an input signal is about to be mixed into a mixing bus, but just before 
 /// having been scaled in accordance to volumes authored in Wwise. The volumes are passed via this structure as pointers because they can be modified
@@ -171,7 +171,7 @@ struct AkSpeakerVolumeMatrixCallbackInfo : public AkEventCallbackInfo
 	AK::IAkMixerPluginContext * pMixerContext;	///< Output mixing bus context. Use it to access a few useful panning and mixing services, as well as the ID of the output bus. NULL if pContext is the master audio bus.
 };
 
-/// Callback information structure corresponding to AK_MusicPlaylistSelect.
+/// Callback information structure corresponding to \ref AK_MusicPlaylistSelect.
 /// Called when a music playlist container must select its next item to play.
 /// The members uPlaylistSelection and uPlaylistItemDone are set by the sound
 /// engine before the callback function call.  They are set to the next item
@@ -203,7 +203,7 @@ struct AkSegmentInfo
 	AkReal32		fGridOffset;			///< Grid offset in seconds.
 };
 
-/// Callback information structure corresponding to AK_MusicSync*.
+/// Callback information structure corresponding to \ref AK_MusicSyncEntry, \ref AK_MusicSyncBeat, \ref AK_MusicSyncBar, \ref AK_MusicSyncExit, \ref AK_MusicSyncGrid, \ref AK_MusicSyncPoint and \ref AK_MusicSyncUserCue.
 /// If you need the Tempo, you can compute it using the fBeatDuration
 /// Tempo (beats per minute) = 60/fBeatDuration
 /// \sa 
@@ -214,7 +214,7 @@ struct AkMusicSyncCallbackInfo : public AkCallbackInfo
 {
 	AkPlayingID playingID;			///< Playing ID of Event, returned by PostEvent()
 	AkSegmentInfo segmentInfo;		///< Segment information corresponding to the segment triggering this callback.
-	AkCallbackType musicSyncType;	///< Would be either AK_MusicSyncEntry, AK_MusicSyncBeat, AK_MusicSyncBar, AK_MusicSyncExit, AK_MusicSyncGrid, AK_MusicSyncPoint or AK_MusicSyncUserCue.
+	AkCallbackType musicSyncType;	///< Would be either \ref AK_MusicSyncEntry, \ref AK_MusicSyncBeat, \ref AK_MusicSyncBar, \ref AK_MusicSyncExit, \ref AK_MusicSyncGrid, \ref AK_MusicSyncPoint or \ref AK_MusicSyncUserCue.
 	char *	 pszUserCueName;		///< Cue name (UTF-8 string). Set for notifications AK_MusicSyncUserCue. NULL if cue has no name.
 };
 
@@ -223,7 +223,7 @@ struct AkMusicSyncCallbackInfo : public AkCallbackInfo
 /// \param in_pCallbackInfo Pointer to structure containing callback information. This pointer is invalidated as soon as the callback function returns.
 /// \remarks An event is considered completed once all of its actions have been executed and all the playbacks in this events are terminated.
 /// \remarks This callback is executed from the audio processing thread. The processing time in the callback function should be minimal. Having too much processing time could result in slowing down the audio processing.
-/// \remarks Before waiting on an AK_EndOfEvent, make sure that the event is going to end. 
+/// \remarks Before waiting on an \ref AK_EndOfEvent, make sure that the event is going to end. 
 /// Some events can be continuously playing or infinitely looping, and the callback will not occur unless a specific stop event is sent to terminate the event.
 /// \sa 
 /// - AK::SoundEngine::PostEvent()
@@ -276,7 +276,7 @@ AK_CALLBACK( void, AkBusMeteringCallbackFunc )(
 /// - AK_Fail: Load or unload failed for any other reason. (Most likely small allocation failure)
 /// \param in_memPoolId ID of the memory pool in which the bank was explicitly loaded/unloaded. 
 /// AK_DEFAULT_POOL_ID is returned whenever this callback is issued from an implicit bank load (PrepareEvent(), PrepareGameSyncs()), 
-/// the bank memory was managed internally, an error occurred, or in the case of.
+/// the bank memory was managed internally, or an error occurred.
 /// \param in_pCookie Optional cookie that was passed to the bank request.
 /// \remarks This callback is executed from the bank thread. The processing time in the callback function should be minimal. Having too much processing time could slow down the bank loading process.
 /// \sa 
@@ -301,15 +301,16 @@ enum AkGlobalCallbackLocation
 	AkGlobalCallbackLocation_Begin = (1 << 1),	///< Start of audio processing. The number of frames about to be rendered depends on the sink/end-point and can be zero.
 
 		AkGlobalCallbackLocation_PreProcessMessageQueueForRender = (1 << 2),	///< Start of frame rendering, before having processed game messages.
-		AkGlobalCallbackLocation_BeginRender = (1 << 3),	///< Start of frame rendering, after having processed game messages.
-		AkGlobalCallbackLocation_EndRender = (1 << 4),		///< End of frame rendering.
+		AkGlobalCallbackLocation_PostMessagesProcessed = (1 << 3),				///< After one or more messages have been processed, but before updating game object and listener positions internally.
+		AkGlobalCallbackLocation_BeginRender = (1 << 4),	///< Start of frame rendering, after having processed game messages.
+		AkGlobalCallbackLocation_EndRender = (1 << 5),		///< End of frame rendering.
 
-	AkGlobalCallbackLocation_End = (1 << 5),		///< End of audio processing.
+	AkGlobalCallbackLocation_End = (1 << 6),		///< End of audio processing.
 
-	AkGlobalCallbackLocation_Term = (1 << 6),		///< Sound engine termination.
+	AkGlobalCallbackLocation_Term = (1 << 7),		///< Sound engine termination.
 
 	// IMPORTANT: Keep in sync with number of locations.
-	AkGlobalCallbackLocation_Num = 7				///< Total number of global callback locations.
+	AkGlobalCallbackLocation_Num = 8				///< Total number of global callback locations.
 };
 
 /// Callback prototype used for global callback registration.

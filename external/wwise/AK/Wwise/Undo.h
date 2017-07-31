@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -32,7 +32,7 @@ the specific language governing permissions and limitations under the License.
 
 #ifdef _DEBUG
 #define UNDO_EVENT_DEBUG_INFO
-#endif // UNIT_TEST
+#endif // _DEBUG
 
 namespace AK
 {

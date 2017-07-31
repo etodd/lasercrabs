@@ -9,7 +9,7 @@ may use this file in accordance with the end user license agreement provided
 with the software or, alternatively, in accordance with the terms contained in a
 written agreement between you and Audiokinetic Inc.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -27,6 +27,7 @@ written agreement between you and Audiokinetic Inc.
 #include "AkIOThread.h"
 #include <AK/Tools/Common/AkAutoLock.h>
 #include <AK/Tools/Common/AkLock.h>
+#include <AK/Tools/Common/AkAutoLock.h>
 #include <AK/Tools/Common/AkArray.h>
 #include "AkStreamMgr.h"
 #include "AkIOMemMgr.h"
@@ -503,6 +504,7 @@ namespace StreamMgr
         // - Automatic streams are ready for I/O when they are Running and !EOF.
 		inline bool ReadyForIO()
 		{
+			AkAutoLock<CAkLock> status( m_lockStatus );
 			return m_bIsReadyForIO;
 		}
 
@@ -693,23 +695,23 @@ namespace StreamMgr
 
         AkPriority          m_priority;         // IO priority. Keeps last operation's priority.
 
-        AkUInt8				m_bIsAutoStm	:1; // Stream type.
-        AkUInt8				m_bIsWriteOp    :1; // Operation type (automatic streams are always reading).
-        AkUInt8				m_bHasReachedEof    :1; // True when file pointer reached eof.
-        AkUInt8				m_bIsToBeDestroyed  :1; // True when this stream is scheduled to be destroyed.
-        AkUInt8				m_bIsFileOpen	:1;	// False while Low-Level IO open is pending.
-		AkUInt8				m_bRequiresScheduling	:1; // Stream's own indicator saying if it counts in the scheduler semaphore.
-		AkUInt8				m_bIsCachingStream :1;	//Stream is used for locking data into the cache.	
+		bool				m_bIsAutoStm;	// Stream type.
+		bool				m_bIsWriteOp;	// Operation type (automatic streams are always reading).
+		bool				m_bHasReachedEof; // True when file pointer reached eof.
+		bool				m_bIsToBeDestroyed; // True when this stream is scheduled to be destroyed.
+		bool				m_bIsFileOpen;		// False while Low-Level IO open is pending.
+		bool				m_bRequiresScheduling; // Stream's own indicator saying if it counts in the scheduler semaphore.
+		bool				m_bIsCachingStream;	   //Stream is used for locking data into the cache.	
 	private:
-		AkUInt8				m_bIsReadyForIO	:1;	// True when task is in a state where it is ready for an I/O transfer (distinct from Deadline-based status).
+		bool				m_bIsReadyForIO;	// True when task is in a state where it is ready for an I/O transfer (distinct from Deadline-based status).
 	
 	protected:
         // Profiling.
 #ifndef AK_OPTIMIZED
-        AkUInt8				m_bIsNew        :1; // "New" flag.
-        AkUInt8				m_bIsProfileDestructionAllowed  :1; // True when profiler gave its approbation for destruction.
-		AkUInt8				m_bWasActive	:1;	// Set to true as soon as this task requires scheduling.
-		AkUInt8				m_bCanClearActiveProfile	:1;	// Set to true when this task is updated. When set, m_bWasActive is reset to "m_bRequiresScheduling" at next profiler pass.
+		bool				m_bIsNew; // "New" flag.
+        bool				m_bIsProfileDestructionAllowed; // True when profiler gave its approbation for destruction.
+		bool				m_bWasActive;	// Set to true as soon as this task requires scheduling.
+		bool				m_bCanClearActiveProfile;	// Set to true when this task is updated. When set, m_bWasActive is reset to "m_bRequiresScheduling" at next profiler pass.
 #endif
                                 
     };
@@ -874,8 +876,8 @@ namespace StreamMgr
         AkReal32            m_fDeadline;        // Deadline. Keeps last operation's deadline.
         
         // Operation info.
-        AkStmStatus         m_eStmStatus    :4; // Stream operation status. 5 values, avoid sign bit.
-		AkUInt32            m_bIsOpComplete	:1; // User request was completed.
+        AkStmStatus         m_eStmStatus;	 // Stream operation status.
+		bool				m_bIsOpComplete; // User request was completed.
     };
 
     //-----------------------------------------------------------------------------
@@ -1263,9 +1265,9 @@ namespace StreamMgr
 		AkUInt8				m_uMinNumBuffers;   // Specify a minimal number of buffers if you plan to own more than one buffer at a time, 0 or 1 otherwise.
 
         // Stream status.
-        AkUInt8            	m_bIsRunning    :1; // Running or paused.
-        AkUInt8           	m_bIOError      :1; // Stream encountered I/O error.
-		AkUInt8				m_bCachingReady	:1; // Caching stream is fully constructed and started.
+        bool            	m_bIsRunning;		// Running or paused.
+		bool           		m_bIOError;			// Stream encountered I/O error.
+		bool				m_bCachingReady;	// Caching stream is fully constructed and started.
     };
 }
 }

@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6097
+  Version: v2017.1.0  Build: 6301
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -62,7 +62,6 @@ enum AkAudioOutputType
 {
 	AkOutput_None = 0,		///< Used for uninitialized type, do not use.
 	AkOutput_Dummy,			///< Dummy output, simply eats the audio stream and outputs nothing.
-	AkOutput_MergeToMain,	///< This output will mix back its content to the main output, after the master mix.
 	AkOutput_Main,			///< Main output.  This cannot be used with AddSecondaryOutput, but can be used to query information about the main output (GetSpeakerConfiguration for example).	
 	AkOutput_Voice,			///< Use the PS4 voice channel.
 	AkOutput_Personal,		///< Use the Personal channel (headset).
@@ -75,7 +74,8 @@ enum AkAudioOutputType
 
 enum AkAudioOutputFlags
 {
-	AkAudioOutputFlags_OptionNotRecordable = 1 << 0 ///< This is an optional flag to tell that this output should not be recorded by the internal DVR.  OR-it with the other flags.
+	AkAudioOutputFlags_OptionNotRecordable = 1 << 0
+	///< This is an optional flag for PS4 and Xbox One to indicate this output should not be recorded by the internal DVR. "OR" it with the other flags. See the Background Music/DVR Demo in the Wwise Integration Demo for details on how to use this option.
 };
 
 namespace AK

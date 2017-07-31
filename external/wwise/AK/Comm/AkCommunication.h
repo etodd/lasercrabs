@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -52,7 +52,7 @@ struct AkCommSettings
 		szAppNetworkName[0] = 0;
 	}
 	AkUInt32	uPoolSize;		///< Size of the communication pool, in bytes. 
-#if defined(AK_3DS) || defined(AK_USE_NX_HTCS)
+#if defined(AK_USE_NX_HTCS)
 	AkThreadProperties threadProperties; ///< Communication & Connection threading properties (its default priority is AK_THREAD_PRIORITY_ABOVENORMAL)
 #endif
 

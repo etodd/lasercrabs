@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -114,11 +114,11 @@ namespace AK
 		/// Log message severity.
 		enum Severity
 		{
-			Severity_Success = -1,	/// operation was executed without errors or will not produce errors
-			Severity_Message,		/// not impacting the integrity of the current operation
-			Severity_Warning,		/// potentially impacting the integrity of the current operation
-			Severity_Error,			/// impacting the integrity of the current operation
-			Severity_FatalError,	/// impacting the completion of the current operation
+			Severity_Success = -1,	///< operation was executed without errors or will not produce errors
+			Severity_Message,		///< not impacting the integrity of the current operation
+			Severity_Warning,		///< potentially impacting the integrity of the current operation
+			Severity_Error,			///< impacting the integrity of the current operation
+			Severity_FatalError,	///< impacting the completion of the current operation
 					
 		};
 

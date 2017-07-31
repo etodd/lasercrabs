@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -60,11 +60,6 @@ namespace AK
 {
     extern AkReal32 g_fFreqRatio;
 }
-
-#ifdef AK_NACL
-#define sched_get_priority_max( _a ) 0
-#define sched_get_priority_min( _a ) 0
-#endif
 
 //-----------------------------------------------------------------------------
 // Defines for POSIX (Mac, iOS, Android)
@@ -201,7 +196,6 @@ namespace AKPLATFORM
 		
 		AKVERIFY(!pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE));
 		
-#ifndef AK_NACL		
 		// Try to set the thread policy
 		int sched_policy = in_threadProperties.uSchedPolicy;
 		if( pthread_attr_setschedpolicy( &attr, sched_policy )  )
@@ -225,7 +219,6 @@ namespace AKPLATFORM
 			schedParam.sched_priority = in_threadProperties.nPriority;
 			AKVERIFY( !pthread_attr_setschedparam( &attr, &schedParam ));
 		}
-#endif
 #ifdef AK_APPLE
 		int inherit;
 		pthread_attr_getinheritsched(&attr, &inherit );

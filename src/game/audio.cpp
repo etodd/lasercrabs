@@ -60,6 +60,7 @@ namespace VI
 StaticArray<ID, 32> Audio::dialogue_callbacks;
 Array<AkGameObjectID> Audio::unregister_queue;
 r32 Audio::dialogue_volume;
+s8 Audio::listener_mask;
 
 #if SERVER
 b8 Audio::init() { return true; }
@@ -70,9 +71,9 @@ b8 Audio::post_dialogue_event(AkUniqueID) { return true; }
 void Audio::post_global_event(AkUniqueID, const Vec3&) {}
 void Audio::post_global_event(AkUniqueID, const Vec3&, const Quat&) {}
 void Audio::global_param(AkRtpcID, AkRtpcValue) {}
-void Audio::listener_enable(u32) {}
-void Audio::listener_disable(u32) {}
-void Audio::listener_update(u32, const Vec3&, const Quat&) {}
+void Audio::listener_enable(s8) {}
+void Audio::listener_disable(s8) {}
+void Audio::listener_update(s8, const Vec3&, const Quat&) {}
 AkUniqueID Audio::get_id(const char*) { return 0; }
 
 void Audio::awake() {}
@@ -146,18 +147,24 @@ b8 Audio::init()
 	}
 #endif
 
-	// Game object for global events
+	// game object for global events
 	AK::SoundEngine::RegisterGameObj(MAX_ENTITIES);
 
-	for (s32 i = 0; i < 8; i++)
-		AK::SoundEngine::SetListenerPipeline(i, false, false); // Disable listener
+	// game objects for listeners
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		AK::SoundEngine::RegisterGameObj(listener_id(i));
 
-	AK::SoundEngine::RegisterBusMeteringCallback(AK::BUSSES::DIALOGUE, Audio::dialogue_volume_callback, (AkMeteringFlags)AK_EnableBusMeter_Peak);
+	AK::SoundEngine::RegisterBusMeteringCallback(AK::BUSSES::DIALOGUE, Audio::dialogue_volume_callback, AkMeteringFlags(AK_EnableBusMeter_Peak));
 
 	global_param(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER);
 	global_param(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER);
 
 	return true;
+}
+
+AkGameObjectID Audio::listener_id(s8 gamepad)
+{
+	return MAX_ENTITIES + 1 + gamepad;
 }
 
 // Wwise callbacks
@@ -239,7 +246,6 @@ void Audio::post_global_event(AkUniqueID event_id, const Vec3& pos, const Quat& 
 {
 	AkGameObjectID id = MAX_ENTITIES + 1;
 	AK::SoundEngine::RegisterGameObj(id);
-	AK::SoundEngine::SetActiveListeners(id, 0b01111); // All listeners
 
 	AkSoundPosition sound_position;
 	sound_position.SetPosition(pos.x, pos.y, pos.z);
@@ -257,30 +263,46 @@ void Audio::global_param(AkRtpcID id, AkRtpcValue value)
 	AK::SoundEngine::SetRTPCValue(id, value);
 }
 
-void Audio::listener_disable(u32 listener_id)
+void Audio::listener_list_update()
 {
-	AK::SoundEngine::SetListenerPipeline(listener_id, false, false);
+	AkGameObjectID listener_ids[MAX_GAMEPADS];
+	s32 count = 0;
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		if (listener_mask & (1 << i))
+		{
+			listener_ids[count] = listener_id(i);
+			count++;
+		}
+	}
+	AK::SoundEngine::SetDefaultListeners(listener_ids, count);
 }
 
-void Audio::listener_enable(u32 listener_id)
+void Audio::listener_disable(s8 gamepad)
 {
-	AK::SoundEngine::SetListenerPipeline(listener_id, true, false);
+	listener_mask &= ~(1 << gamepad);
+	listener_list_update();
 }
 
-void Audio::listener_update(u32 listener_id, const Vec3& pos, const Quat& rot)
+void Audio::listener_enable(s8 gamepad)
+{
+	listener_mask |= (1 << gamepad);
+	listener_list_update();
+}
+
+void Audio::listener_update(s8 gamepad, const Vec3& pos, const Quat& rot)
 {
 	AkListenerPosition listener_position;
 	listener_position.SetPosition(pos.x, pos.y, pos.z);
 	Vec3 forward = rot * Vec3(0, 0, -1);
 	Vec3 up = rot * Vec3(0, 1, 0);
 	listener_position.SetOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
-	AK::SoundEngine::SetListenerPosition(listener_position, listener_id);
+	AK::SoundEngine::SetPosition(listener_id(gamepad), listener_position);
 }
 
 void Audio::awake()
 {
 	AK::SoundEngine::RegisterGameObj(entity_id);
-	AK::SoundEngine::SetActiveListeners(entity_id, 0b01111); // All listeners
 }
 
 Audio::~Audio()

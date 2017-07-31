@@ -9,7 +9,7 @@ may use this file in accordance with the end user license agreement provided
 with the software or, alternatively, in accordance with the terms contained in a
 written agreement between you and Audiokinetic Inc.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -111,25 +111,16 @@ AKRESULT CAkIOThread::Init(
 		pthread_mutexattr_t mutex_attr;
 		AKVERIFY(! pthread_mutexattr_init( &mutex_attr ));
 		
-#ifndef AK_NACL
 		pthread_condattr_t cond_attr;
 		AKVERIFY(! pthread_condattr_init( &cond_attr ));
-#endif
 
 		if ( pthread_mutex_init( &m_mutexBlockingIO, &mutex_attr ) != 0 )
 			return AK_Fail;
-#ifndef AK_NACL
 		if ( pthread_cond_init( &m_condBlockingIODone, &cond_attr ) != 0 )
 			return AK_Fail;
-#else
-		if ( pthread_cond_init( &m_condBlockingIODone, NULL ) != 0 )
-			return AK_Fail;
-#endif
 		
 		AKVERIFY(! pthread_mutexattr_destroy(&mutex_attr));
-#ifndef AK_NACL
 		AKVERIFY(! pthread_condattr_destroy(&cond_attr));
-#endif
 	}
 
 	// Create scheduler semaphore.
@@ -139,25 +130,16 @@ AKRESULT CAkIOThread::Init(
 		AKVERIFY(!pthread_mutexattr_init( &mutex_attr ));
 		
 		AKVERIFY(!pthread_mutexattr_settype( &mutex_attr, PTHREAD_MUTEX_RECURSIVE ));
-#ifndef AK_NACL
 		pthread_condattr_t cond_attr;
 		AKVERIFY(!pthread_condattr_init( &cond_attr ));
-#endif
 		if ( pthread_mutex_init( &m_mutexPendingStmsSem, &mutex_attr ) != 0 )
 			return AK_Fail;
 		
-#ifndef AK_NACL
 		if ( pthread_cond_init( &m_condAreTasksPending, &cond_attr ) != 0 )
 			return AK_Fail;
-#else
-		if ( pthread_cond_init( &m_condAreTasksPending, NULL ) != 0 )
-			return AK_Fail;
-#endif
 		
 		AKVERIFY(! pthread_mutexattr_destroy(&mutex_attr));
-#ifndef AK_NACL
 		AKVERIFY(! pthread_condattr_destroy(&cond_attr));
-#endif
 	}
 
 	m_cPendingStdStms	= 0;

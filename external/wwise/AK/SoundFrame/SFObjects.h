@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -361,7 +361,7 @@ namespace AK
 		public:
 			/// Invalid Game Object ID used to set global information in the sound engine.
 			/// \sa AK_INVALID_GAME_OBJECT
-			static const AkGameObjectID s_InvalidGameObject = (unsigned int)(~0);
+			static const AkGameObjectID s_InvalidGameObject = (AkGameObjectID)(~0);
 
 			/// Wwise Game Object ID used to access the default Wwise game object
 			static const AkGameObjectID s_WwiseGameObject = 0;

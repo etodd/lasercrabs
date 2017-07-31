@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -110,13 +110,14 @@ namespace AK
 			/// @name Listeners
 			//@{
 
-			/// Get a game object's active listeners.
+			/// Get a game object's listeners.  
 			/// \return AK_Success if succeeded, or AK_IDNotFound if the game object was not registered
 			/// \sa 
 			/// - \ref soundengine_listeners_multi_assignobjects
-			AK_EXTERNAPIFUNC( AKRESULT, GetActiveListeners )(
-				AkGameObjectID in_GameObjectID,				///< Game object identifier
-				AkUInt32& out_ruListenerMask				///< Bitmask representing the active listeners (LSB = Listener 0, set to 1 means active)
+			AK_EXTERNAPIFUNC( AKRESULT, GetListeners )(
+				AkGameObjectID in_GameObjectID,				///< Source game object identifier
+				AkGameObjectID* out_ListenerObjectIDs,		///< Pointer to an array of AkGameObjectID's.  Will be populated with the IDs of the listeners of in_GameObjectID. Pass NULL to querry the size required.
+				AkUInt32& oi_uNumListeners					///< Pass in the the available number of elements in the array 'out_ListenerObjectIDs'. After return, the number of valid elements filled in the array.
 				);
 
 			/// Get a listener's position.
@@ -124,7 +125,7 @@ namespace AK
 			/// \sa 
 			/// - \ref soundengine_listeners_settingpos
 			AK_EXTERNAPIFUNC( AKRESULT, GetListenerPosition )( 
-				AkUInt32 in_uIndex, 						///< Listener index (0: first listener, 7: 8th listener)
+				AkGameObjectID in_uIndex, 						///< Listener index (0: first listener, 7: 8th listener)
 				AkListenerPosition& out_rPosition			///< Position set
 				);
 
@@ -327,7 +328,8 @@ namespace AK
 			/// - \ref soundengine_environments_id_vs_string
 			/// \return AK_Success if succeeded, or AK_IDNotFound if the game object was not registered
 			AK_EXTERNAPIFUNC( AKRESULT, GetGameObjectDryLevelValue )( 
-				AkGameObjectID		in_gameObjectID,		///< Associated game object ID
+				AkGameObjectID		in_EmitterID,			///< Associated emitter game object ID
+				AkGameObjectID		in_ListenerID,			///< Associated listener game object ID
 				AkReal32&			out_rfControlValue		///< Dry level control value, ranging from 0.0f to 1.0f
 															///< (0.0f stands for 0% dry, while 1.0f stands for 100% dry)
 				);
@@ -338,8 +340,8 @@ namespace AK
 			/// - \ref soundengine_environments
 			/// \return AK_Success if succeeded, AK_IDNotFound if the game object was not registered
 			AK_EXTERNAPIFUNC( AKRESULT, GetObjectObstructionAndOcclusion )(  
-				AkGameObjectID in_ObjectID,			///< Associated game object ID
-				AkUInt32 in_uListener,				///< Listener index (0: first listener, 7: 8th listener)
+				AkGameObjectID in_EmitterID,			///< Associated game object ID
+				AkGameObjectID in_ListenerID,			///< Listener object ID
 				AkReal32& out_rfObstructionLevel,		///< ObstructionLevel: [0.0f..1.0f]
 				AkReal32& out_rfOcclusionLevel			///< OcclusionLevel: [0.0f..1.0f]
 				);

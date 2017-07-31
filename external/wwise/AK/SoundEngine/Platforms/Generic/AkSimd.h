@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -49,11 +49,12 @@ typedef struct { AkReal32 m_data[2]; } AKSIMD_V2F32;		///< Vector of 2 32-bit fl
 typedef struct { AkReal32 m_data[4]; } AKSIMD_V4F32;		///< Vector of 4 32-bit floats
 typedef AKSIMD_V4UI32	AKSIMD_V4COND;						///< Vector of 4 comparison results
 
-
-typedef struct { AkInt32 m_data[4]; }  __attribute__((__packed__)) AKSIMD_V4I32_UNALIGNED;		///< Unaligned Vector of 4 32-bit signed integers
-typedef struct { AkUInt32 m_data[4]; } __attribute__((__packed__)) AKSIMD_V4UI32_UNALIGNED;		///< Unaligned Vector of 4 32-bit signed integers
-typedef struct { AkReal32 m_data[2]; } __attribute__((__packed__)) AKSIMD_V2F32_UNALIGNED;		///< Unaligned Vector of 2 32-bit floats
-typedef struct { AkReal32 m_data[4]; } __attribute__((__packed__)) AKSIMD_V4F32_UNALIGNED;		///< Unaligned Vector of 4 32-bit floats
+#pragma pack(push,1)
+typedef struct { AkInt32 m_data[4]; }  AKSIMD_V4I32_UNALIGNED;		///< Unaligned Vector of 4 32-bit signed integers
+typedef struct { AkUInt32 m_data[4]; } AKSIMD_V4UI32_UNALIGNED;		///< Unaligned Vector of 4 32-bit signed integers
+typedef struct { AkReal32 m_data[2]; } AKSIMD_V2F32_UNALIGNED;		///< Unaligned Vector of 2 32-bit floats
+typedef struct { AkReal32 m_data[4]; } AKSIMD_V4F32_UNALIGNED;		///< Unaligned Vector of 4 32-bit floats
+#pragma pack(pop)
 
 //@}
 ////////////////////////////////////////////////////////////////////////
@@ -275,6 +276,17 @@ AkForceInline AKSIMD_V4UI32 AKSIMD_CMPLE_V4F32( const AKSIMD_V4F32& in_vec1, con
 	return vector;
 }
 
+AkForceInline AKSIMD_V4F32 AKSIMD_XOR_V4F32( const AKSIMD_V4F32& in_vec1, const AKSIMD_V4F32& in_vec2 )
+{
+	AKSIMD_V4F32 vector;
+	
+	vector.m_data[0] = (AkReal32)(((AkUInt32)in_vec1.m_data[0]) ^ ((AkUInt32)in_vec2.m_data[0]));
+	vector.m_data[1] = (AkReal32)(((AkUInt32)in_vec1.m_data[1]) ^ ((AkUInt32)in_vec2.m_data[1]));
+	vector.m_data[2] = (AkReal32)(((AkUInt32)in_vec1.m_data[2]) ^ ((AkUInt32)in_vec2.m_data[2]));
+	vector.m_data[3] = (AkReal32)(((AkUInt32)in_vec1.m_data[3]) ^ ((AkUInt32)in_vec2.m_data[3]));
+	
+	return vector;
+}
 
 AkForceInline AKSIMD_V4I32 AKSIMD_SHIFTLEFT_V4I32( AKSIMD_V4I32 in_vector, int in_shiftBy)
 {
@@ -341,6 +353,18 @@ AkForceInline AKSIMD_V4F32 AKSIMD_ADD_V4F32( const AKSIMD_V4F32& in_vec1, const 
 	vector.m_data[1] = in_vec1.m_data[1] + in_vec2.m_data[1];
 	vector.m_data[2] = in_vec1.m_data[2] + in_vec2.m_data[2];
 	vector.m_data[3] = in_vec1.m_data[3] + in_vec2.m_data[3];
+	
+	return vector;
+}
+
+AkForceInline AKSIMD_V4F32 AKSIMD_DIV_V4F32( const AKSIMD_V4F32& in_vec1, const AKSIMD_V4F32& in_vec2 ) 
+{
+	AKSIMD_V4F32 vector;
+	
+	vector.m_data[0] = in_vec1.m_data[0] / in_vec2.m_data[0];
+	vector.m_data[1] = in_vec1.m_data[1] / in_vec2.m_data[1];
+	vector.m_data[2] = in_vec1.m_data[2] / in_vec2.m_data[2];
+	vector.m_data[3] = in_vec1.m_data[3] / in_vec2.m_data[3];
 	
 	return vector;
 }
@@ -663,6 +687,9 @@ AkForceInline AKSIMD_V4I32 AKSIMD_PACKS_V4I32( const AKSIMD_V4I32& in_vec1, cons
 /// Swap the 2 lower floats with the 2 higher floats.	
 #define AKSIMD_SHUFFLE_CDAB( __a__ ) AKSIMD_SHUFFLE_V4F32( (__a__), (__a__), AKSIMD_SHUFFLE(1,0,3,2));
 
+/// Barrel-shift all floats by one.
+#define AKSIMD_SHUFFLE_BCDA( __a__ ) AKSIMD_SHUFFLE_V4F32( (__a__), (__a__), AKSIMD_SHUFFLE(0,3,2,1))
+
  /// Duplicates the odd items into the even items (d c b a -> d d b b )
 #define AKSIMD_DUP_ODD(__vv) AKSIMD_SHUFFLE_V4F32(__vv, __vv, AKSIMD_SHUFFLE(3,3,1,1))
 
@@ -710,6 +737,13 @@ static AkForceInline AKSIMD_V4F32 AKSIMD_COMPLEXMUL( const AKSIMD_V4F32 vCIn1, c
 }
 
 #define AKSIMD_SPLAT_V4F32(var, idx) AKSIMD_SHUFFLE_V4F32(var,var, AKSIMD_SHUFFLE(idx,idx,idx,idx))
+
+#define AK_SIGN_BIT( val ) (((AkUInt32)val) >> 31)
+
+static AkForceInline int AKSIMD_MASK_V4F32( const AKSIMD_V4F32& in_vec )
+{
+	return AK_SIGN_BIT(in_vec.m_data[0]) | AK_SIGN_BIT(in_vec.m_data[1]) << 1 | AK_SIGN_BIT(in_vec.m_data[2]) << 2 |  AK_SIGN_BIT(in_vec.m_data[3]) << 3;
+}
 
 #endif //_AKSIMD_GENERIC_H_
 

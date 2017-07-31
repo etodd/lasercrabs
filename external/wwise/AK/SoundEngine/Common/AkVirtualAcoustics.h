@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -36,113 +36,31 @@ struct AkAcousticTexture
 
 	//Constructor
 	AkAcousticTexture(
-		AkUInt32					in_ID,
-		AkUInt16					in_OnOffBand1,
-		AkUInt16					in_OnOffBand2,
-		AkUInt16					in_OnOffBand3,
-		AkUInt16					in_FilterTypeBand1,
-		AkUInt16					in_FilterTypeBand2,
-		AkUInt16					in_FilterTypeBand3,
-		AkReal32					in_FrequencyBand1,
-		AkReal32					in_FrequencyBand2,
-		AkReal32					in_FrequencyBand3,
-		AkReal32					in_QFactorBand1,
-		AkReal32					in_QFactorBand2,
-		AkReal32					in_QFactorBand3,
-		AkReal32					in_GainBand1,
-		AkReal32					in_GainBand2,
-		AkReal32					in_GainBand3,
-		AkReal32					in_OutputGain) :
-		ID(in_ID),
-		OnOffBand1(in_OnOffBand1 != 0),
-		OnOffBand2(in_OnOffBand2 != 0),
-		OnOffBand3(in_OnOffBand3 != 0),
-		FilterTypeBand1(in_FilterTypeBand1),
-		FilterTypeBand2(in_FilterTypeBand2),
-		FilterTypeBand3(in_FilterTypeBand3),
-		FrequencyBand1(in_FrequencyBand1),
-		FrequencyBand2(in_FrequencyBand2),
-		FrequencyBand3(in_FrequencyBand3),
-		QFactorBand1(in_QFactorBand1),
-		QFactorBand2(in_QFactorBand2),
-		QFactorBand3(in_QFactorBand3), 
-		GainBand1(in_GainBand1),
-		GainBand2(in_GainBand2),
-		GainBand3(in_GainBand3),
-		OutputGain(in_OutputGain)
+		AkUInt32					in_ID, 
+		AkReal32					in_fAbsorptionOffset,
+		AkReal32					in_fAbsorptionLow,
+		AkReal32					in_fAbsorptionMidLow,
+		AkReal32					in_fAbsorptionMidHigh,
+		AkReal32					in_fAbsorptionHigh,
+		AkReal32					in_fScattering) 
+	:ID(in_ID)
+	,fAbsorptionOffset(in_fAbsorptionOffset)
+	,fAbsorptionLow(in_fAbsorptionLow)
+	,fAbsorptionMidLow(in_fAbsorptionMidLow)
+	,fAbsorptionMidHigh(in_fAbsorptionMidHigh)
+	,fAbsorptionHigh(in_fAbsorptionHigh)
+	,fScattering(in_fScattering)
 	{
 	}
 
 	AkUInt32						ID;
 
-	bool							OnOffBand1;
-	bool							OnOffBand2;
-	bool							OnOffBand3;
-
-	AkUInt16						FilterTypeBand1;
-	AkUInt16						FilterTypeBand2;
-	AkUInt16						FilterTypeBand3;
-
-	AkReal32						FrequencyBand1;
-	AkReal32						FrequencyBand2;
-	AkReal32						FrequencyBand3;
-
-	AkReal32						QFactorBand1;
-	AkReal32						QFactorBand2;
-	AkReal32						QFactorBand3;
-	
-	AkReal32						GainBand1;
-	AkReal32						GainBand2;
-	AkReal32						GainBand3;
-	
-	AkReal32						OutputGain;
-};
-
-
-struct AkDiffuseReverberator
-{
-	AkDiffuseReverberator(){}
-
-	//Constructor
-	AkDiffuseReverberator(
-		AkUInt32					in_ID,
-		AkReal32					in_Time,
-		AkReal32					in_HFRatio,
-		AkReal32					in_DryLevel,
-		AkReal32					in_WetLevel,
-		AkReal32					in_Spread,
-		AkReal32					in_Density,
-		AkUInt32					in_Quality,
-		AkReal32					in_Diffusion,
-		AkReal32					in_Scale):
-		ID(in_ID),
-		Time(in_Time),
-		HFRatio(in_HFRatio),
-		DryLevel(in_DryLevel),
-		WetLevel(in_WetLevel),
-		Spread(in_Spread),
-		Density(in_Density),
-		Quality(in_Quality),
-		Diffusion(in_Diffusion),
-		Scale(in_Scale)
-	{
-	}
-
-
-	AkUInt32						ID;
-	AkReal32						Time;
-	AkReal32						HFRatio;
-	AkReal32						DryLevel;
-
-	AkReal32						WetLevel;
-	AkReal32						Spread;
-	AkReal32						Density;
-
-	AkUInt32						Quality;
-	AkReal32						Diffusion;
-	AkReal32						Scale;
-
-
+	AkReal32						fAbsorptionOffset;
+	AkReal32						fAbsorptionLow;
+	AkReal32						fAbsorptionMidLow;
+	AkReal32						fAbsorptionMidHigh;
+	AkReal32						fAbsorptionHigh;
+	AkReal32						fScattering;
 };
 
 #endif

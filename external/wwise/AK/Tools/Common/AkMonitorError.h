@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -66,8 +66,8 @@ namespace AK
 
 			ErrorCode_VorbisDecodeError,
 			ErrorCode_AACDecodeError,
-
-			ErrorCode_xWMACreateDecoderFailed,
+			
+			ErrorCode_xWMACreateDecoderFailed,//Deprecated, keep in place for legacy maintenance.
 
 			ErrorCode_ATRAC9CreateDecoderFailed,
 			ErrorCode_ATRAC9CreateDecoderFailedChShortage,
@@ -130,7 +130,12 @@ namespace AK
 			ErrorCode_SeekAfterEof,
 
 			ErrorCode_UnknownGameObject,
+			ErrorCode_UnknownEmitter, 
+			ErrorCode_UnknownListener, 
+			ErrorCode_GameObjectIsNotListener,
+			ErrorCode_GameObjectIsNotEmitter,
 			ErrorCode_UnknownGameObjectEvent,
+			ErrorCode_GameObjectIsNotEmitterEvent,
 
 			ErrorCode_ExternalSourceNotResolved,
 			ErrorCode_FileFormatMismatch,
@@ -297,7 +302,7 @@ namespace AK
 
 			AKTEXT("Plug-in not registered"), // ErrorCode_PluginNotRegistered,
 			AKTEXT("Codec plug-in not registered"), // ErrorCode_CodecNotRegistered,
-			AKTEXT("Plug-in version doesn't match sound engine version.  Check your build setup"), //ErrorCode_PluginVersionMismatch
+			AKTEXT("Plug-in version doesn't match sound engine version.  Please ensure the plug-in is compatible with this version of Wwise"), //ErrorCode_PluginVersionMismatch
 
 			AKTEXT("Event ID not found"), // ErrorCode_EventIDNotFound,
 
@@ -323,7 +328,14 @@ namespace AK
 			AKTEXT("Seeking after end of file. Playback will stop"), // ErrorCode_SeekAfterEof
 
 			AKTEXT("Unknown game object ID. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownGameObject,
-			AKTEXT("Unknown game object ID on event. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownGameObjectEvent
+
+			AKTEXT("Unknown emitter game object ID. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownEmitter,
+			AKTEXT("Unknown listener game object ID. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownListener,
+			AKTEXT("The requested game object is not a listener."), // ErrorCode_GameObjectIsNotListener,
+			AKTEXT("The requested game object is not an emitter."), // ErrorCode_GameObjectIsNotEmitter,
+			
+			AKTEXT("Unknown emitter game object ID on event. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownGameObjectEvent
+			AKTEXT("The requested game object for an event was not registered as an emitter. Make sure the game object is registered as an emitter before using it to post an event."), // ErrorCode_GameObjectIsNotEmitterEvent
 
 			AKTEXT("External source missing from PostEvent call"), // ErrorCode_ExternalSourceNotResolved
 			AKTEXT("Source file is of different format than expected"), //ErrorCode_FileFormatMismatch

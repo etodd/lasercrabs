@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -63,7 +63,7 @@ struct AkAudioFormat
 	AkChannelConfig channelConfig;	///< Channel configuration.
 
 	AkUInt32	uBitsPerSample	:6; ///< Number of bits per sample.
-	AkUInt32	uBlockAlign		:10;///< Number of bytes per sample frame. 
+	AkUInt32	uBlockAlign		:10;///< Number of bytes per sample frame. (For example a 5.1 PCM 16bit should have a uBlockAlign equal to 6(5.1 channels)*2(16 bits per sample) = 12.
 	AkUInt32	uTypeID			:2; ///< Data type ID (AkDataTypeID). 
 	AkUInt32	uInterleaveID	:1; ///< Interleave ID (AkDataInterleaveID). 
 	
@@ -165,6 +165,19 @@ struct AkAudioFormat
 	}
 };
 
+enum AkSourceChannelOrdering
+{
+	SourceChannelOrdering_Standard = 0, // SMPTE L-R-C-LFE-RL-RR-RC-SL-SR-HL-HR-HC-HRL-HRR-HRC-T
+	// or ACN ordering + SN3D norm
+
+	SourceChannelOrdering_Film,	// L/C/R/Ls/Rs/Lfe
+	SourceChannelOrdering_FuMa
+};
+
+#define AK_MAKE_CHANNELCONFIGOVERRIDE(_config,_order)	((AkInt64)_config.Serialize()|((AkInt64)_order<<32))
+#define AK_GET_CHANNELCONFIGOVERRIDE_CONFIG(_over)		(_over&UINT_MAX)
+#define AK_GET_CHANNELCONFIGOVERRIDE_ORDERING(_over)	((AkSourceChannelOrdering)(_over>>32))
+
 // Build a 32 bit class identifier based on the Plug-in type,
 // CompanyID and PluginID.
 //
@@ -232,11 +245,7 @@ namespace AK
 /// \sa
 /// - \ref iaksourceeffect_init
 /// - \ref iakmonadiceffect_init
-#if defined AK_WII_FAMILY_HW || defined(AK_3DS)
-typedef AkInt16 AkSampleType;	///< Audio sample data type (Wii-specific: 16 bit signed integer)
-#else
 typedef AkReal32 AkSampleType;	///< Audio sample data type (32 bit floating point)
-#endif
 
 /// Audio buffer structure including the address of an audio buffer, the number of valid frames inside, 
 /// and the maximum number of frames the audio buffer can hold.
@@ -255,11 +264,7 @@ public:
 	/// Clear data pointer.
 	AkForceInline void ClearData()
 	{
-#if !defined(AK_WII_FAMILY_HW) && !defined(AK_3DS)
 		pData = NULL;
-#else
-		arData[0] = arData[1] = NULL;		
-#endif
 	}
 
 	/// Clear members.
@@ -296,7 +301,6 @@ public:
 	/// initial handshaking.
 	/// \sa 
 	/// - \ref fx_audiobuffer_struct
-#if !defined(AK_3DS) && !defined(AK_WII_FAMILY_HW)
 	AkForceInline void * GetInterleavedData()
 	{ 
 		return pData; 
@@ -310,7 +314,6 @@ public:
 		uValidFrames = in_uValidFrames; 
 		channelConfig = in_channelConfig; 
 	}
-#endif
 	//@}
 
 	/// \name Deinterleaved interface
@@ -319,11 +322,7 @@ public:
 	/// Check if buffer has samples attached to it.
 	AkForceInline bool HasData() 
 	{
-#if !defined(AK_WII_FAMILY_HW) && !defined(AK_3DS)
 		return ( NULL != pData ); 
-#else
-		return ( NULL != arData[0] );
-#endif
 	}
 
 	/// Convert a channel, identified by a single channel bit, to a buffer index used in GetChannel() below, for a given channel config.
@@ -365,11 +364,7 @@ public:
 		)
 	{
 		AKASSERT( in_uIndex < NumChannels() );
-#if defined (AK_WII_FAMILY_HW) || defined(AK_3DS)
-		return (AkSampleType*)arData[in_uIndex];
-#else
 		return (AkSampleType*)((AkUInt8*)(pData) + ( in_uIndex * sizeof(AkSampleType) * MaxFrames() ));
-#endif
 	}
 
 	/// Get the buffer of the LFE.
@@ -401,7 +396,6 @@ public:
 		}
 	}
 
-#if !defined(AK_3DS) && !defined(AK_WII_FAMILY_HW)
 	/// Attach deinterleaved data where channels are contiguous in memory. Allocation is performed outside.
 	AkForceInline void AttachContiguousDeinterleavedData( void * in_pData, AkUInt16 in_uMaxFrames, AkUInt16 in_uValidFrames, AkChannelConfig in_channelConfig )
 	{ 
@@ -417,9 +411,8 @@ public:
 		pData = NULL;
 		return pDataOld;
 	}
-#endif
 
-#if defined(_DEBUG) && !defined(AK_WII_FAMILY_HW)
+#if defined(_DEBUG)
 	bool CheckValidSamples()
 	{
 		// Zero out all channels.
@@ -444,44 +437,18 @@ public:
 	}
 #endif
 
-#ifdef AK_PS3
-	/// Access to contiguous channels for DMA transfers on SPUs (PS3 specific).
-	/// \remarks On the PS3, deinterleaved channels are guaranteed to be contiguous
-	/// in memory to allow one-shot DMA transfers.
-	AkForceInline void * GetDataStartDMA()
-	{
-		return pData;
-	}
-#endif
-
-#ifdef __SPU__
-	/// Construct AkAudioBuffer on SPU from data obtained through explicit DMAs.
-	/// \remarks Address provided should point to a contiguous memory space for all deinterleaved channels.
-	AkForceInline void CreateFromDMA( void * in_pData, AkUInt16 in_uMaxFrames, AkUInt16 in_uValidFrames, AkChannelConfig in_channelConfig, AKRESULT in_eState )
-	{ 
-		pData = in_pData; 
-		uMaxFrames = in_uMaxFrames; 
-		uValidFrames = in_uValidFrames; 
-		channelConfig = in_channelConfig; 
-		eState = in_eState;
-	}
-#endif
 	//@}
 
-#if !defined(AK_3DS) && !defined(AK_WII_FAMILY_HW)
 	void RelocateMedia( AkUInt8* in_pNewMedia,  AkUInt8* in_pOldMedia )
 	{
 		AkUIntPtr uMemoryOffset = (AkUIntPtr)in_pNewMedia - (AkUIntPtr)in_pOldMedia;
 		pData = (void*) (((AkUIntPtr)pData) + uMemoryOffset);
 	}
-#endif
 
 protected:
-#if defined (AK_WII_FAMILY_HW) || defined(AK_3DS)
-	void *			arData[AK_VOICE_MAX_NUM_CHANNELS];	///< Array of audio buffers for each channel (Wii-specific implementation).
-#else
+
 	void *			pData;				///< Start of the audio buffer.
-#endif
+
 	AkChannelConfig	channelConfig;		///< Channel config.
 public:	
 	AKRESULT		eState;				///< Execution status	

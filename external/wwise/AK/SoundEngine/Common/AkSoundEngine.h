@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -48,29 +48,14 @@ the specific language governing permissions and limitations under the License.
 #elif defined (AK_IOS)
 #include <AK/SoundEngine/Platforms/iOS/AkiOSSoundEngine.h>
 
-#elif defined (AK_XBOX360)
-#include <AK/SoundEngine/Platforms/XBox360/AkXBox360SoundEngine.h>
-
 #elif defined (AK_XBOXONE)
 #include <AK/SoundEngine/Platforms/XboxOne/AkXboxOneSoundEngine.h>
-
-#elif defined (__PPU__) || defined (__SPU__)
-#include <AK/SoundEngine/Platforms/PS3/AkPs3SoundEngine.h>
-
-#elif defined (AK_WII_FAMILY)
-#include <AK/SoundEngine/Platforms/WiiFamily/AkWiiSoundEngine.h>
 
 #elif defined (AK_VITA)
 #include <AK/SoundEngine/Platforms/Vita/AkVitaSoundEngine.h>
 
-#elif defined( AK_3DS )
-#include <AK/SoundEngine/Platforms/3DS/Ak3DSSoundEngine.h>
-
 #elif defined( AK_ANDROID )
 #include <AK/SoundEngine/Platforms/Android/AkAndroidSoundEngine.h>
-
-#elif defined( AK_NACL )
-#include <AK/SoundEngine/Platforms/nacl/AkNaclSoundEngine.h>
 
 #elif defined (AK_PS4)
 #include <AK/SoundEngine/Platforms/PS4/AkPS4SoundEngine.h>
@@ -132,7 +117,9 @@ struct AkOutputSettings
 									///< leave this field to its default value (AK_INVALID_UNIQUE_ID).
 									///< Typical usage: AkInitSettings.eOutputSettings.audioDeviceShareset = AK::SoundEngine::GetIDFromString("InsertYourAudioDeviceSharesetNameHere");
 									///< \ref AK::SoundEngine::GetIDFromString()
-									///< \ref audio_device_plugins
+									///< \ref soundengine_plugins_audiodevices
+
+	AkBusHierarchyFlags outputHierarchy; ///< Flags to enable or disable the output of the primary and secondary bus hierarchies for the output device.
 };
 
 /// Platform-independent initialization settings of the sound engine
@@ -152,7 +139,7 @@ struct AkInitSettings
 	AkMemPoolId			uPrepareEventMemoryPoolID;	///< Memory pool where data allocated by AK::SoundEngine::PrepareEvent() and AK::SoundEngine::PrepareGameSyncs() will be done. 
 	bool				bEnableGameSyncPreparation;	///< Set to true to enable AK::SoundEngine::PrepareGameSync usage.
 	AkUInt32			uContinuousPlaybackLookAhead;	///< Number of quanta ahead when continuous containers should instantiate a new voice before which next sounds should start playing. This look-ahead time allows I/O to occur, and is especially useful to reduce the latency of continuous containers with trigger rate or sample-accurate transitions. 
-													///< Default is 1 audio quantum, also known as an audio frame. Its size is equal to AkInitSettings::uNumSamplesPerFrame / AkPlatformInitSettings::uSampleRate. For many platforms, such as PS3 and Xbox 360, the default values - which can be overridden - are respectively 1,024 samples and 48 kHz. This gives a default 21.3 ms for an audio quantum, which is adequate if you have a RAM-based streaming device that completes transfers within 20 ms. With 1 look-ahead quantum, voices spawned by continuous containers are more likely to be ready when they are required to play, thereby improving the overall precision of sound scheduling. If your device completes transfers in 30 ms instead, you might consider increasing this value to 2 because it will grant new voices 2 audio quanta (~43 ms) to fetch data. 
+													///< Default is 1 audio quantum, also known as an audio frame. Its size is equal to AkInitSettings::uNumSamplesPerFrame / AkPlatformInitSettings::uSampleRate. For many platforms the default values - which can be overridden - are respectively 1,024 samples and 48 kHz. This gives a default 21.3 ms for an audio quantum, which is adequate if you have a RAM-based streaming device that completes transfers within 20 ms. With 1 look-ahead quantum, voices spawned by continuous containers are more likely to be ready when they are required to play, thereby improving the overall precision of sound scheduling. If your device completes transfers in 30 ms instead, you might consider increasing this value to 2 because it will grant new voices 2 audio quanta (~43 ms) to fetch data. 
 
 	AkUInt32			uNumSamplesPerFrame;		///< Number of samples per audio frame (256, 512, 1024, or 2048).
 
@@ -163,7 +150,7 @@ struct AkInitSettings
 	AkUInt32			uMaxHardwareTimeoutMs;		///< Amount of time to wait for HW devices to trigger an audio interrupt. If there is no interrupt after that time, the sound engine will revert to  silent mode and continue operating until the HW finally comes back. Default value: 2000 (2 seconds)
 
 	bool				bUseSoundBankMgrThread;		///< Use a separate thread for loading sound banks. Allows asynchronous operations.
-	bool				bUseLEngineThread;			///< Use a separate thread for processing audio. If set to false, audio processing will occur in RenderAudio(). Ignored on Vita, Wii U, and Xbox 360 platforms. \ref goingfurther_eventmgrthread
+	bool				bUseLEngineThread;			///< Use a separate thread for processing audio. If set to false, audio processing will occur in RenderAudio(). Ignored on Vita. \ref goingfurther_eventmgrthread
 
 	AkBackgroundMusicChangeCallbackFunc BGMCallback; ///< Application-defined audio source change event callback function.
 	void*				BGMCallbackCookie;			///< Application-defined user data for the audio source change event callback function.
@@ -236,9 +223,6 @@ namespace AK
 		/// - AK::SoundEngine::Term()
 		/// - AK::SoundEngine::GetDefaultInitSettings()
 		/// - AK::SoundEngine::GetDefaultPlatformInitSettings()
-		/// \if WiiU
-		/// - \ref soundengine_WiiURequirements_Initialization
-		/// \endif 
         AK_EXTERNAPIFUNC( AKRESULT, Init )(
             AkInitSettings *			in_pSettings,   		///< Initialization settings (can be NULL, to use the default values)
             AkPlatformInitSettings *	in_pPlatformSettings  	///< Platform-specific settings (can be NULL, to use the default values)
@@ -659,7 +643,8 @@ namespace AK
 			AkPlayingID	in_PlayingID = AK_INVALID_PLAYING_ID///< Optional (advanced users only) Specify the playing ID to target with the event. Will Cause active actions in this event to target an existing Playing ID. Let it be AK_INVALID_PLAYING_ID or do not specify any for normal playback.
 	        );
 
-		
+		// If you modify AkActionOnEventType, don't forget to modify WAAPI validation schema accordingly.
+
 		/// AkActionOnEventType
 		/// \sa
 		/// - AK::SoundEngine::ExecuteActionOnEvent()
@@ -739,13 +724,13 @@ namespace AK
 		/// Start streaming the first part of all streamed files referenced by an event into a cache buffer.  Caching streams are serviced when no other streams require the 
 		/// available bandwidth. The files will remain cached until UnpinEventInStreamCache is called, or a higher priority pinned file needs the space and the limit set by 
 		/// uMaxCachePinnedBytes is exceeded.  
-		/// /remarks The amount of data from the start of the file that will be pinned to cache is determined by the prefetch size.  The prefetch size is set via the authoring tool and stored in the sound banks.  
-		/// /remarks It is possible to override the prefetch size stored in the sound bank via the low level IO.  For more information see AK::StreamMgr::IAkFileLocationResolver::Open() and AkFileSystemFlags.
-		/// /remarks If this function is called additional times with the same event, then the priority of the caching streams are updated.  Note however that priority is passed down to the stream manager 
+		/// \remarks The amount of data from the start of the file that will be pinned to cache is determined by the prefetch size.  The prefetch size is set via the authoring tool and stored in the sound banks.  
+		/// \remarks It is possible to override the prefetch size stored in the sound bank via the low level IO.  For more information see AK::StreamMgr::IAkFileLocationResolver::Open() and AkFileSystemFlags.
+		/// \remarks If this function is called additional times with the same event, then the priority of the caching streams are updated.  Note however that priority is passed down to the stream manager 
 		///	on a file-by-file basis, and if another event is pinned to cache that references the same file but with a different priority, then the first priority will be updated with the most recent value.
-		/// /remarks If the event references files that are chosen based on a state group (via a switch container), all files in all states will be cached. Those in the current active state
+		/// \remarks If the event references files that are chosen based on a state group (via a switch container), all files in all states will be cached. Those in the current active state
 		/// will get cached with active priority, while all other files will get cached with inactive priority.
-		/// /remarks in_uInactivePriority is only relevant for events that reference switch containers that are assigned to state groups.  This parameter is ignored for all other events, including events that only reference
+		/// \remarks in_uInactivePriority is only relevant for events that reference switch containers that are assigned to state groups.  This parameter is ignored for all other events, including events that only reference
 		/// switch containers that are assigned to switch groups.  Files that are chosen based on a switch group have a different switch value per game object, and are all effectively considered active by the pin-to-cache system.
 		/// \sa
 		/// - AK::SoundEngine::GetBufferStatusForPinnedEvent
@@ -762,13 +747,13 @@ namespace AK
 		/// Start streaming the first part of all streamed files referenced by an event into a cache buffer.  Caching streams are serviced when no other streams require the 
 		/// available bandwidth. The files will remain cached until UnpinEventInStreamCache is called, or a higher priority pinned file needs the space and the limit set by 
 		/// uMaxCachePinnedBytes is exceeded.  
-		/// /remarks The amount of data from the start of the file that will be pinned to cache is determined by the prefetch size.  The prefetch size is set via the authoring tool and stored in the sound banks.  
-		/// /remarks It is possible to override the prefetch size stored in the sound bank via the low level IO.  For more information see AK::StreamMgr::IAkFileLocationResolver::Open() and AkFileSystemFlags.
-		/// /remarks If this function is called additional times with the same event, then the priority of the caching streams are updated.  Note however that priority is passed down to the stream manager 
+		/// \remarks The amount of data from the start of the file that will be pinned to cache is determined by the prefetch size.  The prefetch size is set via the authoring tool and stored in the sound banks.  
+		/// \remarks It is possible to override the prefetch size stored in the sound bank via the low level IO.  For more information see AK::StreamMgr::IAkFileLocationResolver::Open() and AkFileSystemFlags.
+		/// \remarks If this function is called additional times with the same event, then the priority of the caching streams are updated.  Note however that priority is passed down to the stream manager 
 		///	on a file-by-file basis, and if another event is pinned to cache that references the same file but with a different priority, then the first priority will be updated with the most recent value.
-		/// /remarks If the event references files that are chosen based on a state group (via a switch container), all files in all states will be cached. Those in the current active state
+		/// \remarks If the event references files that are chosen based on a state group (via a switch container), all files in all states will be cached. Those in the current active state
 		/// will get cached with active priority, while all other files will get cached with inactive priority.
-		/// /remarks in_uInactivePriority is only relevant for events that reference switch containers that are assigned to state groups.  This parameter is ignored for all other events, including events that only reference
+		/// \remarks in_uInactivePriority is only relevant for events that reference switch containers that are assigned to state groups.  This parameter is ignored for all other events, including events that only reference
 		/// switch containers that are assigned to switch groups.  Files that are chosen based on a switch group have a different switch value per game object, and are all effectively considered active by the pin-to-cache system.
 		/// \sa
 		/// - AK::SoundEngine::GetBufferStatusForPinnedEvent
@@ -785,13 +770,13 @@ namespace AK
 		/// Start streaming the first part of all streamed files referenced by an event into a cache buffer.  Caching streams are serviced when no other streams require the 
 		/// available bandwidth. The files will remain cached until UnpinEventInStreamCache is called, or a higher priority pinned file needs the space and the limit set by 
 		/// uMaxCachePinnedBytes is exceeded.  
-		/// /remarks The amount of data from the start of the file that will be pinned to cache is determined by the prefetch size.  The prefetch size is set via the authoring tool and stored in the sound banks.  
-		/// /remarks It is possible to override the prefetch size stored in the sound bank via the low level IO.  For more information see AK::StreamMgr::IAkFileLocationResolver::Open() and AkFileSystemFlags.
-		/// /remarks If this function is called additional times with the same event, then the priority of the caching streams are updated.  Note however that priority is passed down to the stream manager 
+		/// \remarks The amount of data from the start of the file that will be pinned to cache is determined by the prefetch size.  The prefetch size is set via the authoring tool and stored in the sound banks.  
+		/// \remarks It is possible to override the prefetch size stored in the sound bank via the low level IO.  For more information see AK::StreamMgr::IAkFileLocationResolver::Open() and AkFileSystemFlags.
+		/// \remarks If this function is called additional times with the same event, then the priority of the caching streams are updated.  Note however that priority is passed down to the stream manager 
 		/// on a file-by-file basis, and if another event is pinned to cache that references the same file but with a different priority, then the first priority will be updated with the most recent value.
-		/// /remarks If the event references files that are chosen based on a state group (via a switch container), all files in all states will be cached. Those in the current active state
+		/// \remarks If the event references files that are chosen based on a state group (via a switch container), all files in all states will be cached. Those in the current active state
 		/// will get cached with active priority, while all other files will get cached with inactive priority.
-		/// /remarks in_uInactivePriority is only relevant for events that reference switch containers that are assigned to state groups.  This parameter is ignored for all other events, including events that only reference
+		/// \remarks in_uInactivePriority is only relevant for events that reference switch containers that are assigned to state groups.  This parameter is ignored for all other events, including events that only reference
 		/// switch containers that are assigned to switch groups.  Files that are chosen based on a switch group have a different switch value per game object, and are all effectively considered active by the pin-to-cache system.
 		/// \sa
 		/// - AK::SoundEngine::GetBufferStatusForPinnedEvent
@@ -836,7 +821,7 @@ namespace AK
 		/// Return information about an event that was requested to be pinned into cache via AK::SoundEngine::PinEventInStreamCache().
 		/// Retrieves the smallest buffer fill-percentage for each file referenced by the event, and whether 
 		/// the cache-pinned memory limit is preventing any of the files from filling up their buffer.
-		/// /remarks To set the limit for the maximum number of bytes that can be pinned to cache, see AkDeviceSettings 
+		/// \remarks To set the limit for the maximum number of bytes that can be pinned to cache, see AkDeviceSettings 
 		/// \sa
 		/// - AK::SoundEngine::PinEventInStreamCache
 		/// - AK::SoundEngine::UnpinEventInStreamCache
@@ -850,7 +835,7 @@ namespace AK
 		/// Return information about an event that was requested to be pinned into cache via AK::SoundEngine::PinEventInStreamCache().
 		/// Retrieves the smallest buffer fill-percentage for each file referenced by the event, and whether 
 		/// the cache-pinned memory limit is preventing any of the files from filling up their buffer.
-		/// /remarks To set the limit for the maximum number of bytes that can be pinned to cache, see AkDeviceSettings 
+		/// \remarks To set the limit for the maximum number of bytes that can be pinned to cache, see AkDeviceSettings 
 		/// \sa
 		/// - AK::SoundEngine::PinEventInStreamCache
 		/// - AK::SoundEngine::UnpinEventInStreamCache
@@ -865,7 +850,7 @@ namespace AK
 		/// Return information about an event that was requested to be pinned into cache via AK::SoundEngine::PinEventInStreamCache().
 		/// Retrieves the smallest buffer fill-percentage for each file referenced by the event, and whether 
 		/// the cache-pinned memory limit is preventing any of the files from filling up their buffer.
-		/// /remarks To set the limit for the maximum number of bytes that can be pinned to cache, see AkDeviceSettings 
+		/// \remarks To set the limit for the maximum number of bytes that can be pinned to cache, see AkDeviceSettings 
 		/// \sa
 		/// - AK::SoundEngine::PinEventInStreamCache
 		/// - AK::SoundEngine::UnpinEventInStreamCache
@@ -1211,6 +1196,13 @@ namespace AK
 			void * in_pCookie 							///< Callback cookie to be cancelled
 			);
 
+		/// Cancel all event callbacks associated with a specific game object.\n
+		/// \sa 
+		/// - AK::SoundEngine::PostEvent()
+		AK_EXTERNAPIFUNC( void, CancelEventCallbackGameObject )(
+			AkGameObjectID in_gameObjectID 				///< ID of the game object to be cancelled
+			);
+
 		/// Cancel all event callbacks for a specific playing ID.
 		/// \sa 
 		/// - AK::SoundEngine::PostEvent()
@@ -1247,6 +1239,10 @@ namespace AK
 		///		When you call this function from your thread, you therefore query the position that was updated in the previous audio frame.
 		///		If in_bExtrapolate is true (default), the returned position is extrapolated using the elapsed time since last 
 		///		sound engine update and the source's playback rate.
+		/// - If 0 is passed in for the number of entries (*in_pcPositions == 0) then only the number of positions will be returned and the
+		///     position array (out_puPositions) will not be updated.
+		/// - The io_pcPositions pointer must be non-NULL.
+		///     out_puPositions may be NULL if *io_pcPositions == 0, otherwise it must be non-NULL.
 		/// \return AK_Success if successful.
 		///			It returns AK_InvalidParameter if the provided pointers are not valid.
 		///			It returns AK_Fail if the playing ID is invalid (not playing yet, or finished playing).
@@ -1320,15 +1316,21 @@ namespace AK
 		//@}
 
 
-		/// Send custom game data to a plugin.
+		/// Send custom game data to a plugin that resides on a bus (insert effect or mixer plugin).
 		/// Data will be copied and stored into a separate list.
 		/// Previous entry is deleted when a new one is sent.
 		/// Set the data pointer to NULL to clear item from the list.
+		/// \aknote The plugin type and ID is passed and matched with plugins set on the desired bus. 
+		/// This means that you cannot send different data to various instances of the plugin on a same bus.\endaknote
+		/// \return AK_Success if data was sent successfully.
 		AK_EXTERNAPIFUNC( AKRESULT, SendPluginCustomGameData ) (
-			AkUniqueID in_busID,		///< Bus ID
-			AkUInt32 in_uFXIndex,		///< FX index, use AK_MIXER_FX_SLOT for mixer plugin
-			const void* in_pData,		///< The data blob
-			AkUInt32 in_uSizeInBytes	///< Size of data
+			AkUniqueID in_busID,			///< Bus ID
+			AkGameObjectID in_busObjectID,	///< Bus Object ID. Pass AK_INVALID_GAME_OBJECT to send custom data on global scope. Game object scope supersedes global scope, as with RTPCs. 
+			AkPluginType in_eType,			///< Plug-in type (for example, source or effect)
+			AkUInt32 in_uCompanyID,		///< Company identifier (as declared in the plug-in description XML file)
+			AkUInt32 in_uPluginID,			///< Plug-in identifier (as declared in the plug-in description XML file)
+			const void* in_pData,			///< The data blob
+			AkUInt32 in_uSizeInBytes		///< Size of data
 			);
 		//@}
 
@@ -1346,9 +1348,8 @@ namespace AK
 		/// - AK::SoundEngine::UnregisterGameObj()
 		/// - AK::SoundEngine::UnregisterAllGameObj()
 		/// - \ref concept_gameobjects
-        AK_EXTERNAPIFUNC( AKRESULT, RegisterGameObj )(
-	        AkGameObjectID in_gameObjectID,				///< ID of the game object to be registered			
-			AkUInt32 in_uListenerMask = 0x01			///< Bitmask representing the active listeners (LSB = Listener 0, set to 1 means active)
+		AK_EXTERNAPIFUNC(AKRESULT, RegisterGameObj)(
+			AkGameObjectID in_gameObjectID								///< ID of the game object to be registered			
 	        );
 
 		/// Register a game object.
@@ -1362,9 +1363,8 @@ namespace AK
 		/// - AK::SoundEngine::UnregisterAllGameObj()
 		/// - \ref concept_gameobjects
         AK_EXTERNAPIFUNC( AKRESULT, RegisterGameObj )(
-	        AkGameObjectID in_gameObjectID,				///< ID of the game object to be registered
-			const char * in_pszObjName,					///< Name of the game object (for monitoring purpose)
-			AkUInt32 in_uListenerMask = 0x01			///< Bitmask representing the active listeners (LSB = Listener 0, set to 1 means active)
+	        AkGameObjectID in_gameObjectID,							///< ID of the game object to be registered
+			const char * in_pszObjName								///< Name of the game object (for monitoring purpose)
 	        );
 
         /// Unregister a game object.
@@ -1385,19 +1385,22 @@ namespace AK
 	        											/// AK_INVALID_GAME_OBJECT to unregister all game objects.
 	        );
 
-        /// Unregister all game objects.
-		/// \return Always returns AK_Success
-		/// \remark Registering a game object twice does nothing. Unregistering it once unregisters it no 
-		///			matter how many times it has been registered. Unregistering a game object while it is 
-		///			in use is allowed, but the control over the parameters of this game object is lost.
-		///			For example, if a sound associated with this game object is a 3D moving sound, it will 
-		///			stop moving once the game object is unregistered, and there will be no way to recover 
-		///			the control over this game object.
-		/// \sa 
-		/// - AK::SoundEngine::RegisterGameObj()
-		/// - AK::SoundEngine::UnregisterGameObj()
-		/// - \ref concept_gameobjects
-        AK_EXTERNAPIFUNC( AKRESULT, UnregisterAllGameObj )();
+    /// Unregister all game objects, or all game objects with a particular matching set of property flags.
+	/// This function to can be used to unregister all game objects.  
+	/// \return
+	/// - AK_Success if successful
+	/// \remark Registering a game object twice does nothing. Unregistering it once unregisters it no 
+	///			matter how many times it has been registered. Unregistering a game object while it is 
+	///			in use is allowed, but the control over the parameters of this game object is lost.
+	///			For example, if a sound associated with this game object is a 3D moving sound, it will 
+	///			stop moving once the game object is unregistered, and there will be no way to recover 
+	///			the control over this game object.
+	/// \sa 
+	/// - AK::SoundEngine::RegisterGameObj()
+	/// - AK::SoundEngine::UnregisterGameObj()
+	/// - \ref concept_gameobjects
+    AK_EXTERNAPIFUNC( AKRESULT, UnregisterAllGameObj )(
+		);
 
        	/// Set the position of a game object.
 		/// \warning The object's orientation vector (in_Position.Orientation) must be normalized.
@@ -1407,14 +1410,14 @@ namespace AK
 		/// \sa 
 		/// - \ref soundengine_3dpositions
         AK_EXTERNAPIFUNC( AKRESULT, SetPosition )( 
-			AkGameObjectID in_GameObjectID,		///< Game object identifier
+			AkGameObjectID in_GameObjectID,		///< Game Object identifier
 			const AkSoundPosition & in_Position	///< Position to set; in_Position.Orientation must be normalized.
 		    );
 
 		/// Set multiple positions to a single game object.
-		/// Setting multiple position on a single game object is a way to simulate multiple emission sources while using the resources of only one voice.
+		/// Setting multiple positions on a single game object is a way to simulate multiple emission sources while using the resources of only one voice.
 		/// This can be used to simulate wall openings, area sounds, or multiple objects emitting the same sound in the same area.
-		/// \aknote Calling AK::SoundEngine::SetMultiplePositions() with only one position is the same than calling AK::SoundEngine::SetPosition() \endaknote
+		/// \aknote Calling AK::SoundEngine::SetMultiplePositions() with only one position is the same as calling AK::SoundEngine::SetPosition() \endaknote
 		/// \return 
 		/// - AK_Success when successful
 		/// - AK_InvalidParameter if parameters are not valid.
@@ -1423,16 +1426,16 @@ namespace AK
 		/// - \ref soundengine_3dpositions_multiplepos
 		/// - \ref AK::SoundEngine::MultiPositionType
         AK_EXTERNAPIFUNC( AKRESULT, SetMultiplePositions )( 
-			AkGameObjectID in_GameObjectID,						///< Game object identifier.
+			AkGameObjectID in_GameObjectID,						///< Game Object identifier.
 			const AkSoundPosition * in_pPositions,				///< Array of positions to apply.
 			AkUInt16 in_NumPositions,							///< Number of positions specified in the provided array.
 			MultiPositionType in_eMultiPositionType = MultiPositionType_MultiDirections ///< \ref AK::SoundEngine::MultiPositionType
 		    );
 
 		/// Set multiple positions to a single game object, with flexible assignment of input channels.
-		/// Setting multiple position on a single game object is a way to simulate multiple emission sources while using the resources of only one voice.
+		/// Setting multiple positions on a single game object is a way to simulate multiple emission sources while using the resources of only one voice.
 		/// This can be used to simulate wall openings, area sounds, or multiple objects emitting the same sound in the same area.
-		/// \aknote Calling AK::SoundEngine::SetMultiplePositions() with only one position is the same than calling AK::SoundEngine::SetPosition() \endaknote
+		/// \aknote Calling AK::SoundEngine::SetMultiplePositions() with only one position is the same as calling AK::SoundEngine::SetPosition() \endaknote
 		/// \return 
 		/// - AK_Success when successful
 		/// - AK_InvalidParameter if parameters are not valid.
@@ -1441,30 +1444,20 @@ namespace AK
 		/// - \ref soundengine_3dpositions_multiplepos
 		/// - \ref AK::SoundEngine::MultiPositionType
         AK_EXTERNAPIFUNC( AKRESULT, SetMultiplePositions )( 
-			AkGameObjectID in_GameObjectID,						///< Game object identifier.
-			const AkChannelEmitter * in_pPositions,				///< Array of positions to apply.
+			AkGameObjectID in_GameObjectID,						///< Game Object identifier.
+			const AkChannelEmitter * in_pPositions,			///< Array of positions to apply.
 			AkUInt16 in_NumPositions,							///< Number of positions specified in the provided array.
 			MultiPositionType in_eMultiPositionType = MultiPositionType_MultiDirections ///< \ref AK::SoundEngine::MultiPositionType
 		    );
 
-        /// Set the scaling factor of a game object.
-		/// Modify the attenuation computations on this game object to simulate sounds with a a larger or smaller area of effect.
+        /// Set the scaling factor of a Game Object.
+		/// Modify the attenuation computations on this Game Object to simulate sounds with a larger or smaller area of effect.
 		/// \return 
 		/// - AK_Success when successful
 		/// - AK_InvalidParameter if the scaling factor specified was 0 or negative.
-		AK_EXTERNAPIFUNC( AKRESULT, SetAttenuationScalingFactor )(
+		AK_EXTERNAPIFUNC( AKRESULT, SetScalingFactor )(
 			AkGameObjectID in_GameObjectID,				///< Game object identifier
 			AkReal32 in_fAttenuationScalingFactor		///< Scaling Factor, 1 means 100%, 0.5 means 50%, 2 means 200%, and so on.
-			);
-
-        /// Set the scaling factor for a listener.
-		/// A larger factor means that the listener will hear sounds with less attenuation based on distance.
-		/// \return 
-		/// - AK_Success when successful
-		/// - AK_InvalidParameter if the scaling factor specified was 0 or negative.
-		AK_EXTERNAPIFUNC( AKRESULT, SetListenerScalingFactor )(
-			AkUInt32 in_uListenerIndex,				///< ListenerIndex
-			AkReal32 in_fListenerScalingFactor		///< Scaling Factor, 1 means 100%, 0.5 means 50%, 2 means 200%, and so on.
 			);
 
         //@}
@@ -1678,7 +1671,7 @@ namespace AK
 		/// will result in audio playback without applying the said effect. If an unregistered source plug-in is used by an event's audio objects, 
 		/// posting the event will fail.
 		/// - The memory must be aligned on platform-specific AK_BANK_PLATFORM_DATA_ALIGNMENT bytes (see AkTypes.h).
-		/// - (Xbox360 only): If the bank may contain XMA in memory data, the memory must be allocated using the Physical memory allocator.
+		/// - (XboxOne only): If the bank may contain XMA in memory data, the memory must be allocated using the Physical memory allocator.
 		/// - Requesting to load a bank in a different memory pool than where the bank was previously loaded must be done only
 		/// after receiving confirmation by the callback that the bank was completely unloaded or by using synchronous versions
 		/// of the UnloadBank function.
@@ -1732,7 +1725,7 @@ namespace AK
 		/// will result in audio playback without applying the said effect. If an unregistered source plug-in is used by an event's audio objects, 
 		/// posting the event will fail.
 		/// - The memory must be aligned on platform-specific AK_BANK_PLATFORM_DATA_ALIGNMENT bytes (see AkTypes.h).
-		/// - (Xbox360 only): If the bank may contain XMA in memory data, the memory must be allocated using the Physical memory allocator.
+		/// - (XboxOne only): If the bank may contain XMA in memory data, the memory must be allocated using the Physical memory allocator.
 		/// - Requesting to load a bank in a different memory pool than where the bank was previously loaded must be done only
 		/// after receiving confirmation by the callback that the bank was completely unloaded or by using synchronous versions
 		/// of the UnloadBank function.
@@ -1752,7 +1745,7 @@ namespace AK
 			AkBankID &          out_bankID				///< Returned bank ID
 			);
 
-		/// Synchronously decode Vorbis-encoded media in a SoundBank.  \if PS3 \aknote \e DecodeBank() is not available on PS3. \endaknote \endif
+		/// Synchronously decode Vorbis-encoded media in a SoundBank.
 		AK_EXTERNAPIFUNC( AKRESULT, DecodeBank )(
 			const void *		in_pInMemoryBankPtr,	///< Pointer to the in-memory bank to decode (pointer is not stored in sound engine, memory can be released after return)
 			AkUInt32			in_uInMemoryBankSize,	///< Size of the in-memory bank to decode
@@ -1935,7 +1928,7 @@ namespace AK
 		/// will result in audio playback without applying the said effect. If an unregistered source plug-in is used by an event's audio objects, 
 		/// posting the event will fail.
 		/// - The memory must be aligned on platform-specific AK_BANK_PLATFORM_DATA_ALIGNMENT bytes (see AkTypes.h).
-		/// - (Xbox360 only): If the bank may contain XMA in memory data, the memory must be allocated using the Physical memory allocator.
+		/// - (XboxOne only): If the bank may contain XMA in memory data, the memory must be allocated using the Physical memory allocator.
 		/// - Requesting to load a bank in a different memory pool than where the bank was previously loaded must be done only
 		/// after receiving confirmation by the callback that the bank was completely unloaded or by using synchronous versions
 		/// of the UnloadBank function.
@@ -1983,7 +1976,7 @@ namespace AK
 		/// will result in audio playback without applying the said effect. If an unregistered source plug-in is used by an event's audio objects, 
 		/// posting the event will fail.
 		/// - The memory must be aligned on platform-specific AK_BANK_PLATFORM_DATA_ALIGNMENT bytes (see AkTypes.h).
-		/// - (Xbox360 only): If the bank may contain XMA in memory data, the memory must be allocated using the Physical memory allocator.
+		/// - (XboxOne only): If the bank may contain XMA in memory data, the memory must be allocated using the Physical memory allocator.
 		/// - Requesting to load a bank in a different memory pool than where the bank was previously loaded must be done only
 		/// after receiving confirmation by the callback that the bank was completely unloaded or by using synchronous versions
 		/// of the UnloadBank function.
@@ -2150,7 +2143,7 @@ namespace AK
 		{
 			Preparation_Load,	///< \c PrepareEvent() will load required information to play the specified event.
 			Preparation_Unload,	///< \c PrepareEvent() will unload required information to play the specified event.
-			Preparation_LoadAndDecode ///< Vorbis media is decoded when loading, and an uncompressed PCM version is used for playback. \if PS3 \aknote \e Preparation_LoadAndDecode is not available on PS3. \endaknote \endif
+			Preparation_LoadAndDecode ///< Vorbis media is decoded when loading, and an uncompressed PCM version is used for playback.
 		};
 
 		/// Parameter to be passed to AK::SoundEngine::PrepareBank().
@@ -2743,39 +2736,52 @@ namespace AK
 		/// @name Listeners
 		//@{
 
-		/// Set a game object's active listeners.
-		/// By default, all new game objects only have the listener 0 active.  Inactive listeners are not computed.
+		/// Set a single game object's active listeners.
+		/// By default, all new game objects have no active listeners, but this behavior can be overridden with \c SetDefaultListeners(). Inactive listeners are not computed.
 		/// \return Always returns AK_Success
 		/// \sa 
-		/// - \ref soundengine_listeners_multi_assignobjects
-		AK_EXTERNAPIFUNC( AKRESULT, SetActiveListeners )(
-			AkGameObjectID in_GameObjectID,				///< Game object identifier
-			AkUInt32 in_uListenerMask					///< Bitmask representing the active listeners (LSB = Listener 0, set to 1 means active)
+		/// - AK::SoundEngine::SetDefaultListeners
+		/// - \ref soundengine_listeners
+		AK_EXTERNAPIFUNC( AKRESULT, SetListeners )(
+			AkGameObjectID in_emitterGameObj,			///< Emitter game object.
+			const AkGameObjectID* in_pListenerGameObjs,	///< Array of listener game object IDs that will be activated for in_GameObj.  Game objects must have been previously registered.
+			AkUInt32 in_uNumListeners					///< Length of array
 			);
 
-		/// Set a listener's position.
+		/// Set the default active listeners for all subsequent game objects that are registered.
 		/// \return Always returns AK_Success
 		/// \sa 
-		/// - \ref soundengine_listeners_settingpos
-        AK_EXTERNAPIFUNC( AKRESULT, SetListenerPosition )( 
-			const AkListenerPosition & in_Position,		///< Position to set
-			AkUInt32 in_uIndex = 0 						///< Listener index (0: first listener, 7: 8th listener)
-		    );
+		/// - \ref soundengine_listeners
+		AK_EXTERNAPIFUNC(AKRESULT, SetDefaultListeners)(
+			const AkGameObjectID* in_pListenerObjs,	///< Array of listener game object IDs that will be activated for subsequent registrations.  Game objects must have been previously registered.
+			AkUInt32 in_uNumListeners				///< Length of array
+			);
+
+		/// Reset the listener associations to the default listener(s), as set by <tt>SetDefaultListeners</tt>. This will also reset per-listener gains that have been set using <tt>SetGameObjectOutputBusVolume</tt>.
+		/// \return Always returns AK_Success
+		/// \sa 
+		/// - AK::SoundEngine::SetListeners
+		/// - AK::SoundEngine::SetDefaultListeners
+		/// - AK::SoundEngine::SetGameObjectOutputBusVolume
+		/// - \ref soundengine_listeners
+		AK_EXTERNAPIFUNC(AKRESULT, ResetListenersToDefault)(
+			AkGameObjectID in_emitterGameObj	///< Emitter game object.
+			);
 
 		/// Set a listener's spatialization parameters. This let you define listener-specific 
 		/// volume offsets for each audio channel.
-		/// If in_bSpatialized is false, only in_pVolumeOffsets is used for this listener (3D positions 
-		/// have no effect on the speaker distribution). Otherwise, in_pVolumeOffsets is added to the speaker
+		/// If \c in_bSpatialized is false, only \c in_pVolumeOffsets is used for this listener (3D positions 
+		/// have no effect on the speaker distribution). Otherwise, \c in_pVolumeOffsets is added to the speaker
 		/// distribution computed for this listener.
-		/// Use helper functions of AK::SpeakerVolumes to manipulate the vector of volume offsets in_pVolumeOffsets.
+		/// Use helper functions of \c AK::SpeakerVolumes to manipulate the vector of volume offsets in_pVolumeOffsets.
 		/// 
 		/// If a sound is mixed into a bus that has a different speaker configuration than in_channelConfig,
 		/// standard up/downmix rules apply.
-		/// \return AK_Success if message was successfully posted to sound engine queue, AK_Fail otherwise.
+		/// \return \c AK_Success if message was successfully posted to sound engine queue, \c AK_Fail otherwise.
 		/// \sa 
 		/// - \ref soundengine_listeners_spatial
 		AK_EXTERNAPIFUNC( AKRESULT, SetListenerSpatialization )(
-			AkUInt32 in_uIndex,							///< Listener index (0: first listener, 7: 8th listener)
+			AkGameObjectID in_uListenerID,				///< Listener game object ID
 			bool in_bSpatialized,						///< Spatialization toggle (True : enable spatialization, False : disable spatialization)
 			AkChannelConfig in_channelConfig,			///< Channel configuration associated with volumes in_pVolumeOffsets. Ignored if in_pVolumeOffsets is NULL.
 			AK::SpeakerVolumes::VectorPtr in_pVolumeOffsets = NULL	///< Per-speaker volume offset, in dB. See AkSpeakerVolumes.h for how to manipulate this vector.
@@ -2784,14 +2790,14 @@ namespace AK
 		/// Set a listener's ability to listen to audio and motion events.
 		/// By default, all listeners are enabled for audio and disabled for motion.  
 		/// \aknote If your game doesn't use Motion, you should NOT need to use this function. 
-		/// This function isn't a global "activate" switch on the listeners.  Use SetActiveListeners properly to
+		/// This function isn't a global "activate" switch on the listeners.  Use SetListeners properly to
 		/// control which listeners are used in your game. \endaknote
 		/// \return Always returns AK_Success
 		/// \sa 
-		/// - \ref soundengine_listeners_multi_assignobjects
-		/// - AK::SoundEngine::SetActiveListeners
+		/// - \ref motion_player_management
+		/// - AK::SoundEngine::SetListeners
 		AK_EXTERNAPIFUNC( AKRESULT, SetListenerPipeline )(
-			AkUInt32 in_uIndex,						///< Listener index (0: first listener, 7: 8th listener)
+			AkGameObjectID in_uListenerID,			///< Listener game object ID
 			bool in_bAudio,							///< True=Listens to audio events (by default it is true)
 			bool in_bMotion							///< True=Listens to motion events (by default it is false)
 			);
@@ -2809,8 +2815,6 @@ namespace AK
 		/// Game object scope supersedes global scope. Game parameter values set on global scope are applied to all 
 		/// game objects that not yet registered, or already registered but not overridden with a value on game object scope.
 		/// To set a game parameter value on global scope, pass AK_INVALID_GAME_OBJECT as the game object. 
-		/// Note that busses ignore RTPCs when they are applied on game object scope. Thus, you may only change bus 
-		/// or bus plugins properties by calling this function with AK_INVALID_GAME_OBJECT.
 		/// With this function, you may also change the value of a game parameter over time. To do so, specify a non-zero 
 		/// value for in_uValueChangeDuration. At each audio frame, the game parameter value will be updated internally 
 		/// according to the interpolation curve. If you call SetRTPCValue() with in_uValueChangeDuration = 0 in the 
@@ -2837,8 +2841,6 @@ namespace AK
 		/// Game object scope supersedes global scope. Game parameter values set on global scope are applied to all 
 		/// game objects that not yet registered, or already registered but not overridden with a value on game object scope.
 		/// To set a game parameter value on global scope, pass AK_INVALID_GAME_OBJECT as the game object. 
-		/// Note that busses ignore RTPCs when they are applied on game object scope. Thus, you may only change bus 
-		/// or bus plugins properties by calling this function with AK_INVALID_GAME_OBJECT.
 		/// With this function, you may also change the value of a game parameter over time. To do so, specify a non-zero 
 		/// value for in_uValueChangeDuration. At each audio frame, the game parameter value will be updated internally 
 		/// according to the interpolation curve. If you call SetRTPCValue() with in_uValueChangeDuration = 0 in the 
@@ -2867,8 +2869,6 @@ namespace AK
 		/// Game object scope supersedes global scope. Game parameter values set on global scope are applied to all 
 		/// game objects that not yet registered, or already registered but not overridden with a value on game object scope.
 		/// To set a game parameter value on global scope, pass AK_INVALID_GAME_OBJECT as the game object. 
-		/// Note that busses ignore RTPCs when they are applied on game object scope. Thus, you may only change bus 
-		/// or bus plugins properties by calling this function with AK_INVALID_GAME_OBJECT.
 		/// With this function, you may also change the value of a game parameter over time. To do so, specify a non-zero 
 		/// value for in_uValueChangeDuration. At each audio frame, the game parameter value will be updated internally 
 		/// according to the interpolation curve. If you call SetRTPCValue() with in_uValueChangeDuration = 0 in the 
@@ -2894,8 +2894,6 @@ namespace AK
 		/// Set the value of a real-time parameter control (by ID).
 		/// With this function, you may set a game parameter value on playing id scope. 
 		/// Playing id scope supersedes both game object scope and global scope. 
-		/// Note that busses ignore RTPCs when they are applied on playing id scope. Thus, you may only change bus 
-		/// or bus plugins properties by calling SetRTPCValue() with AK_INVALID_GAME_OBJECT.
 		/// With this function, you may also change the value of a game parameter over time. To do so, specify a non-zero 
 		/// value for in_uValueChangeDuration. At each audio frame, the game parameter value will be updated internally 
 		/// according to the interpolation curve. If you call SetRTPCValueByPlayingID() with in_uValueChangeDuration = 0 in the 
@@ -2920,8 +2918,6 @@ namespace AK
 		/// Set the value of a real-time parameter control (by Unicode string name).
 		/// With this function, you may set a game parameter value on playing id scope. 
 		/// Playing id scope supersedes both game object scope and global scope. 
-		/// Note that busses ignore RTPCs when they are applied on playing id scope. Thus, you may only change bus 
-		/// or bus plugins properties by calling SetRTPCValue() with AK_INVALID_GAME_OBJECT.
 		/// With this function, you may also change the value of a game parameter over time. To do so, specify a non-zero 
 		/// value for in_uValueChangeDuration. At each audio frame, the game parameter value will be updated internally 
 		/// according to the interpolation curve. If you call SetRTPCValueByPlayingID() with in_uValueChangeDuration = 0 in the 
@@ -2946,8 +2942,6 @@ namespace AK
 		/// Set the value of a real-time parameter control (by string name).
 		/// With this function, you may set a game parameter value on playing id scope. 
 		/// Playing id scope supersedes both game object scope and global scope. 
-		/// Note that busses ignore RTPCs when they are applied on playing id scope. Thus, you may only change bus 
-		/// or bus plugins properties by calling SetRTPCValue() with AK_INVALID_GAME_OBJECT.
 		/// With this function, you may also change the value of a game parameter over time. To do so, specify a non-zero 
 		/// value for in_uValueChangeDuration. At each audio frame, the game parameter value will be updated internally 
 		/// according to the interpolation curve. If you call SetRTPCValueByPlayingID() with in_uValueChangeDuration = 0 in the 
@@ -3235,7 +3229,8 @@ namespace AK
 		/// - \ref soundengine_environments_id_vs_string
 		/// \return Always returns AK_Success
 		AK_EXTERNAPIFUNC( AKRESULT, SetGameObjectOutputBusVolume )( 
-			AkGameObjectID		in_gameObjectID,		///< Associated game object ID
+			AkGameObjectID		in_emitterObjID,		///< Associated emitter game object ID
+			AkGameObjectID		in_listenerObjID,		///< Associated listener game object ID
 			AkReal32			in_fControlValue		///< A multiplier where 0 means silence and 1 means no change. 
 														///< (Therefore, values between 0 and 1 will attenuate the sound, and values greater than 1 will amplify it.)
 			);
@@ -3376,17 +3371,35 @@ namespace AK
 			AkChannelConfig in_channelConfig			///< Desired channel configuration. An invalid configuration (from default constructor) means "as parent".
 			);
 
-		/// Set a game object's obstruction and occlusion levels.
+		/// Set a game object's obstruction and occlusion levels. If SetMultiplePositions were used, values are set for all positions.
 		/// This function is used to affect how an object should be heard by a specific listener.
 		/// \sa 
 		/// - \ref soundengine_obsocc
 		/// - \ref soundengine_environments
 		/// \return Always returns AK_Success
 		AK_EXTERNAPIFUNC( AKRESULT, SetObjectObstructionAndOcclusion )(  
-			AkGameObjectID in_ObjectID,			///< Associated game object ID
-			AkUInt32 in_uListener,				///< Listener index (0: first listener, 7: 8th listener)
+			AkGameObjectID in_EmitterID,		///< Emitter game object ID
+			AkGameObjectID in_ListenerID,		///< Listener game object ID
 			AkReal32 in_fObstructionLevel,		///< ObstructionLevel: [0.0f..1.0f]
 			AkReal32 in_fOcclusionLevel			///< OcclusionLevel: [0.0f..1.0f]
+			);
+
+		/// Set a game object's obstruction and occlusion level for each positions defined by SetMultiplePositions.
+		/// This function differs from SetObjectObstructionAndOcclusion as a list of obstruction/occlusion pair is provided
+		/// and each obstruction/occlusion pair will affect the corresponding position defined at the same index.
+		/// \aknote In the case the number of obstruction/occlusion pairs is smaller than the number of positions, remaining positions' 
+		/// obstrucion/occlusion values are set to 0.0. \endaknote
+		/// \sa
+		/// - \ref soundengine_obsocc
+		/// - \ref soundengine_environments
+		/// \return AK_Success if occlusion/obstruction values are successfully stored for this emitter
+		AK_EXTERNAPIFUNC( AKRESULT, SetMultipleObstructionAndOcclusion )(
+			AkGameObjectID in_EmitterID,										///< Emitter game object ID
+			AkGameObjectID in_uListenerID,										///< Listener game object ID
+			AkObstructionOcclusionValues* in_fObstructionOcclusionValues,		///< Array of obstruction/occlusion pairs to apply
+																				///< ObstructionLevel: [0.0f..1.0f]
+																				///< OcclusionLevel: [0.0f..1.0f]
+			AkUInt32 in_uNumOcclusionObstruction								///< Number of obstruction/occlusion pairs specified in the provided array
 			);
 
 		/// Save the playback history of container structures.
@@ -3480,25 +3493,24 @@ namespace AK
 		//@{
 
 		/// Adds a secondary output to the system.  Use this to add controller-attached headphones or speakers.  You can attach multiple devices to the same "player" if needed.		
-		/// Secondary output feature is supported only on WiiU (Controller-speaker), PS4 (Controller-speaker & BGM), XboxOne (Controller-headphone & BGM).  Other platforms will return Ak_NotImplemented.
+		/// Secondary output feature is supported only on PS4 (Controller-speaker & BGM), XboxOne (Controller-headphone & BGM).  Other platforms will return Ak_NotImplemented.
 		/// \sa integrating_secondary_outputs
 		/// \return 
-		/// - AK_NotImplemented: Feature not supported on this platforms (all platforms except WiiU, PS4 and XBoxOne)
+		/// - AK_NotImplemented: Feature not supported on this platforms (all platforms except PS4 and XBoxOne)
 		/// - AK_InvalidParameter: Out of range parameters or unsupported parameter combinations (see parameter list below).
 		/// - AK_Success: Parameters are valid.
 		AK_EXTERNAPIFUNC( AKRESULT, AddSecondaryOutput )(
 			AkUInt32 in_iOutputID,			///< Device identifier, when multiple devices of the same type are possible.
-											///< - WiiU Controller-Speakers: 0 to 3 for Remotes, 0 for DRC.
 											///< - PS4 Controller-Speakers: UserID as returned from sceUserServiceGetLoginUserIdList
 											///< - XBoxOne Controller-Headphones: Use the AK::GetDeviceID function to get the ID from an IMMDevice.  Find the player's device with the WASAPI API (IMMDeviceEnumerator, see Microsoft documentation) or use AK::GetDeviceIDFromName.
 											///< - XBoxOne & PS4 BGM outputs: use 0.
 											///< - Audio device plugins: use 0 to X
 			AkAudioOutputType in_iDeviceType,	///< Device Type, must be one of the currently supported devices types.  See AkAudioOutputType.
-											///< - WiiU (Controller-speaker): Use AkOutput_DRC or AkOutput_Remote
 											///< - PS4: Use AkOutput_PAD, AkOutput_Personal, AkOutput_BGM, AkOutput_BGM_NonRecordable
 											///< - XboxOne Use AkOutput_BGM, AkOutput_BGM_NonRecordable, AkOutput_Personal
 											///< - If you are using an Audio Device plug-in, you must specify AkOutput_Plugin.
-			AkUInt32 in_uListenerMask,		///< Listener(s) to attach to this device.  Everything heard by these listeners will be sent to this output.  This is a bitmask.  Avoid using listener 0, usually reserved for the main TV output.
+			const AkGameObjectID* in_pListenerIDs,///< - Listener(s) to attach to this device.  Everything heard by these listeners will be sent to this output.  Avoid using listenerID 0, usually reserved for the main TV output.
+			AkUInt32 in_uNumListeners,		///< - The number of elements in the in_pListenerIDs array.
 			AkUInt32 in_uOutputFlags = 0,	///< Optional Flags that will be passed to the secondary output creation, OR-it to pass many flags.
 											///< \sa AkAudioOutputFlags
 			AkUniqueID in_audioDeviceShareset = AK_INVALID_UNIQUE_ID ///< Unique ID of a custom audio device to be used. 
@@ -3530,7 +3542,6 @@ namespace AK
 		/// - Android: Call for APP_CMD_PAUSE
 		/// - iOS: Don't call.  All audio interrupts are handled internally.
 		/// - XBoxOne: Use when entering constrained mode or suspended mode (see ResourceAvailability in XboxOne documentation).
-		/// - WiiU: Do not use. See \c SetProcessMode().
 		/// \sa \ref WakeupFromSuspend
 		AK_EXTERNAPIFUNC( AKRESULT, Suspend )(
 			bool in_bRenderAnyway = false /// If set to true, audio processing will still occur, but not outputted.  When set to false, no audio will be processed at all, even upon reception of RenderAudio().
@@ -3540,7 +3551,6 @@ namespace AK
 		/// - Android: Call for APP_CMD_RESUME
 		/// - iOS: Don't call.  All audio interrupts are handled internally.		
 		/// - XBoxOne: Use when the game is back to Full resources (see ResourceAvailability in XboxOne documentation).
-		/// - WiiU: Do not use. See \c SetProcessMode().
 		AK_EXTERNAPIFUNC( AKRESULT, WakeupFromSuspend )(); 
 
 		/// Obtain the current audio output buffer tick. This corresponds to the number of buffers produced by

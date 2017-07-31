@@ -21,7 +21,7 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2016.2.4  Build: 6098
+  Version: v2017.1.0  Build: 6302
   Copyright (c) 2006-2017 Audiokinetic Inc.
 *******************************************************************************/
 
@@ -36,14 +36,6 @@ the specific language governing permissions and limitations under the License.
 #include <AK/SoundEngine/Common/AkTypes.h>
 #include <AK/Tools/Common/AkPlatformFuncs.h>
 
-/// Sound quality option
-/// (available in the PC version only)
-enum AkSoundQuality
-{
-	AkSoundQuality_High,	///< High quality (48 kHz sampling rate, default value)
-	AkSoundQuality_Low,		///< Reduced quality (24 kHz sampling rate)
-};
-
 ///< API used for audio output
 ///< Use with AkPlatformInitSettings to select the API used for audio output.  
 ///< Use AkAPI_Default, it will select the more appropriate API depending on the computer's capabilities.  Other values should be used for testing purposes.
@@ -56,24 +48,34 @@ enum AkAudioAPI
 	AkAPI_Default = AkAPI_Wasapi | AkAPI_XAudio2 | AkAPI_DirectSound,	///< Default value, will select the more appropriate API (XAudio2 is the default)	
 };
 
+///< Used with \ref AK::GetWindowsDeviceName to specify the device state mask.
+enum AkAudioDeviceState
+{
+	AkDeviceState_Active = 1 << 0,	   ///< The audio device is active That is, the audio adapter that connects to the endpont device is present and enabled.
+	AkDeviceState_Disabled = 1 << 1,   ///< The audio device is disabled.
+	AkDeviceState_NotPresent = 1 << 2, ///< The audio device is not present because the audio adapter that connects to the endpoint device has been removed from the system.
+	AkDeviceState_Unplugged = 1 << 3,  ///< The audio device is unplugged.
+	AkDeviceState_All = AkDeviceState_Active | AkDeviceState_Disabled | AkDeviceState_NotPresent | AkDeviceState_Unplugged, ///< Includes audio devices in all states.
+};
+
 ///< Used with \ref AK::SoundEngine::AddSecondaryOutput to specify the type of secondary output.
 enum AkAudioOutputType
 {
 	AkOutput_None = 0,		///< Used for uninitialized type, do not use.
 	AkOutput_Dummy,			///< Dummy output, simply eats the audio stream and outputs nothing.
-	AkOutput_MergeToMain,	///< This output will mix back its content to the main output, after the master mix.
 	AkOutput_Main,			///< Main output.  This cannot be used with AddSecondaryOutput, but can be used to query information about the main output (GetSpeakerConfiguration for example).	
 	AkOutput_Secondary,		///< Adds an output linked to the hardware device specified  (See AddSecondaryOutput).
 	AkOutput_NumBuiltInOutputs,		///< Do not use.
 	AkOutput_Plugin			///< Specify if using Audio Device Plugin Sink.
 };
 
+struct IXAudio2;
+
 /// Platform specific initialization settings
 /// \sa AK::SoundEngine::Init
 /// \sa AK::SoundEngine::GetDefaultPlatformInitSettings
 /// - \ref soundengine_initialization_advanced_soundengine_using_memory_threshold
 
-struct IXAudio2;
 struct AkPlatformInitSettings
 {
     // Direct sound.
@@ -95,7 +97,9 @@ struct AkPlatformInitSettings
 
 	// Voices.
 	AkUInt16            uNumRefillsInVoice;		///< Number of refill buffers in voice buffer. 2 == double-buffered, defaults to 4.
-	AkSoundQuality		eAudioQuality;			///< Quality of audio processing, default = AkSoundQuality_High.
+
+	AkUInt32			uSampleRate;			///< Sampling Rate. Default is 48000 Hz. Use 24000hz for low quality. Any positive reasonable sample rate is supported. However be careful setting a custom value. Using an odd or really low sample rate may result in malfunctionning sound engine.
+
 
 	AkAudioAPI			eAudioAPI;				///< Main audio API to use. Leave to AkAPI_Default for the default sink (default value).
 												///< If a valid audioDeviceShareset plug-in is provided, the AkAudioAPI will be Ignored.
@@ -144,8 +148,9 @@ namespace AK
 	/// \note CoInitialize must have been called for the calling thread.  See Microsoft's documentation about CoInitialize for more details.
 	/// \return The name of the device at the "index" specified.  The pointer is valid until the next call to GetWindowsDeviceName.
 	AK_EXTERNAPIFUNC(const wchar_t*, GetWindowsDeviceName) (
-		AkInt32 index,			///< Index of the device in the array.  -1 to get information on the default device.
-		AkUInt32 &out_uDeviceID	///< Device ID for Wwise.  This is the same as what is returned from AK::GetDeviceID and AK::GetDeviceIDFromName.  Use it to specify the main device in AkPlatformInitSettings.idAudioDevice or in AK::SoundEngine::AddSecondaryOutput. 
+		AkInt32 index,			 ///< Index of the device in the array.  -1 to get information on the default device.
+		AkUInt32 &out_uDeviceID, ///< Device ID for Wwise.  This is the same as what is returned from AK::GetDeviceID and AK::GetDeviceIDFromName.  Use it to specify the main device in AkPlatformInitSettings.idAudioDevice or in AK::SoundEngine::AddSecondaryOutput. 
+		AkAudioDeviceState uDeviceStateMask = AkDeviceState_All ///< Optional bitmask used to filter the device based on their state.
 		);
 };
 

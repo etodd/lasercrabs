@@ -185,7 +185,7 @@ void Health::update_server(const Update& u)
 		if (regen_timer < SHIELD_REGEN_TIME)
 		{
 			const r32 regen_interval = SHIELD_REGEN_TIME / r32(shield_max);
-			if ((s32)(old_timer / regen_interval) != (s32)(regen_timer / regen_interval))
+			if (s32(old_timer / regen_interval) != s32(regen_timer / regen_interval))
 			{
 				HealthEvent e =
 				{
@@ -204,8 +204,24 @@ void Health::update_server(const Update& u)
 		entry->delay -= u.time.delta;
 		if (entry->delay < 0.0f) // IT'S TIME
 		{
-			if (can_take_damage() && entry->source.ref())
-				health_internal_apply_damage(this, entry->source.ref(), entry->damage);
+			Entity* src = entry->source.ref();
+			if (src)
+			{
+				if (src->has<Bolt>())
+				{
+					if (src->get<Bolt>()->can_damage(entity()))
+					{
+						health_internal_apply_damage(this, src, entry->damage);
+						World::remove_deferred(src);
+					}
+					else
+						src->get<Bolt>()->reflect(entity());
+				}
+				else if (can_take_damage())
+					health_internal_apply_damage(this, src, entry->damage);
+				else if (active_armor() && src->has<Drone>() && entry->type != BufferedDamage::Type::Sniper) // kill 'em
+					src->get<Health>()->damage(entity(), DRONE_HEALTH + Game::session.config.drone_shield);
+			}
 			damage_buffer.remove(i);
 			i--;
 		}
@@ -410,24 +426,37 @@ void Shield::update_client(const Update& u)
 	}
 }
 
-void Health::damage(Entity* e, s8 damage)
+b8 Health::damage_buffer_required(const Entity* src) const
+{
+#if SERVER
+	return has<PlayerControlHuman>() && !get<PlayerControlHuman>()->local() // we are a remote player
+		&& (!src->has<PlayerControlHuman>() || !PlayerHuman::players_on_same_client(entity(), src)); // the attacker is remote from the player
+#else
+	return false;
+#endif
+}
+
+void Health::damage(Entity* src, s8 damage)
 {
 	vi_assert(Game::level.local);
 	vi_assert(can_take_damage());
 	if (hp > 0 && damage > 0)
 	{
-		if (has<PlayerControlHuman>() && !get<PlayerControlHuman>()->local() // we are a remote player
-			&& (!e->has<PlayerControlHuman>() || !PlayerHuman::players_on_same_client(entity(), e))) // the attacker is remote from the player
+		if (damage_buffer_required(src))
 		{
 			// do damage buffering
 			BufferedDamage entry;
-			entry.source = e;
+			entry.source = src;
 			entry.damage = damage;
 			entry.delay = Net::rtt(get<PlayerControlHuman>()->player.ref()) + Net::tick_rate();
+			if (src->has<Drone>() && src->get<Drone>()->current_ability == Ability::Sniper)
+				entry.type = BufferedDamage::Type::Sniper;
+			else
+				entry.type = BufferedDamage::Type::Other;
 			damage_buffer.add(entry);
 		}
 		else // apply damage immediately
-			health_internal_apply_damage(this, e, damage);
+			health_internal_apply_damage(this, src, damage);
 	}
 }
 
@@ -1799,7 +1828,7 @@ BoltEntity::BoltEntity(AI::Team team, PlayerManager* player, Entity* owner, Bolt
 
 namespace BoltNet
 {
-	b8 change_team(Bolt* b, AI::Team team, PlayerManager* player, Entity* owner)
+	b8 change_team(Bolt* b, AI::Team team, PlayerManager* player, const Entity* owner)
 	{
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Bolt);
@@ -1813,7 +1842,7 @@ namespace BoltNet
 			serialize_ref(p, ref);
 		}
 		{
-			Ref<Entity> ref = owner;
+			Ref<Entity> ref = (Entity*)(owner);
 			serialize_ref(p, ref);
 		}
 		Net::msg_finalize(p);
@@ -1848,8 +1877,16 @@ Bolt::~Bolt()
 	get<Audio>()->post_event(AK::EVENTS::STOP_BOLT_FLY);
 }
 
+b8 Bolt::visible() const
+{
+	return velocity.length_squared() > 0.0f;
+}
+
 void Bolt::update_server(const Update& u)
 {
+	if (!visible()) // waiting for damage buffer
+		return;
+
 	Vec3 pos = get<Transform>()->absolute_pos();
 
 	remaining_lifetime -= u.time.delta;
@@ -1926,6 +1963,34 @@ s16 Bolt::raycast_mask(AI::Team team)
 	return ~Team::force_field_mask(team);
 }
 
+b8 Bolt::can_damage(const Entity* e) const
+{
+	return e->has<Health>()
+		&& e->get<Health>()->can_take_damage()
+		&& (!e->has<Drone>() // not a drone; we can always damage them
+			|| type == Type::Drone // this is a minion or turret shooting at a drone
+			|| e->get<Drone>()->state() == Drone::State::Crawl); // the drone is flying or dashing; it's invincible to minions and turrets
+}
+
+void Bolt::reflect(const Entity* hit_object)
+{
+	vi_assert(Game::level.local);
+	Transform* transform = get<Transform>();
+	Vec3 dir;
+	if (owner.ref())
+		dir = Vec3::normalize(owner.ref()->get<Transform>()->absolute_pos() - transform->absolute_pos());
+	else
+		dir = transform->absolute_rot() * Vec3(0, 0, -1.0f);
+	velocity = dir * 2.0f * speed(type);
+	remaining_lifetime = (DRONE_MAX_DISTANCE * 0.99f) / (2.0f * speed(type));
+	transform->absolute_rot(Quat::look(dir));
+	transform->absolute_pos(transform->absolute_pos() + dir * BOLT_LENGTH);
+
+	AI::Team reflect_team;
+	AI::entity_info(hit_object, team, &reflect_team);
+	BoltNet::change_team(this, reflect_team, PlayerManager::owner(hit_object), hit_object);
+}
+
 void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 {
 	b8 destroy = true;
@@ -1949,8 +2014,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 		if (reflected)
 			damage += 4;
 
-		if (hit_object->has<Drone>() && type != Type::Drone // this is a minion or turret shooting at a drone
-			&& hit_object->get<Drone>()->state() != Drone::State::Crawl) // the drone is flying or dashing; it's invincible to minions and turrets
+		if (!can_damage(hit_object))
 			damage = 0;
 
 		if (hit_object->get<Health>()->active_armor())
@@ -1960,26 +2024,20 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 			{
 				// reflect
 				destroy = false;
-
-				Transform* transform = get<Transform>();
-				Vec3 dir;
-				if (owner.ref())
-					dir = Vec3::normalize(owner.ref()->get<Transform>()->absolute_pos() - transform->absolute_pos());
-				else
-					dir = Vec3::normalize(velocity) * -1.0f;
-				velocity = dir * 2.0f * speed(type);
-				remaining_lifetime = (DRONE_MAX_DISTANCE * 0.99f) / (2.0f * speed(type));
-				transform->absolute_rot(Quat::look(dir));
-				transform->absolute_pos(transform->absolute_pos() + dir * BOLT_LENGTH);
-
-				AI::Team reflect_team;
-				AI::entity_info(hit_object, team, &reflect_team);
-				BoltNet::change_team(this, reflect_team, PlayerManager::owner(hit_object), hit_object);
+				reflect(hit_object);
 			}
 		}
 
 		if (damage > 0)
+		{
+			if (hit_object->get<Health>()->damage_buffer_required(entity()))
+			{
+				// wait for damage buffer
+				destroy = false;
+				velocity = Vec3::zero;
+			}
 			hit_object->get<Health>()->damage(entity(), damage);
+		}
 
 		if (hit_object->has<RigidBody>())
 		{
@@ -2549,7 +2607,8 @@ void Rope::draw(const RenderParams& params)
 			Mat4 m;
 			i.item()->get<Transform>()->mat(&m);
 			m = offset * m;
-			if (params.camera->visible_sphere(m.translation(), BOLT_LENGTH * f_radius))
+			if (i.item()->visible() // if the bolt is waiting for damage buffering, don't draw it
+				&& params.camera->visible_sphere(m.translation(), BOLT_LENGTH * f_radius))
 			{
 				m.scale(scale);
 				instances.add(m);

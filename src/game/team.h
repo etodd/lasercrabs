@@ -156,7 +156,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 
 	static void update_all(const Update&);
 	static b8 net_msg(Net::StreamRead*, PlayerManager*, Net::MessageSource);
-	static PlayerManager* owner(Entity*);
+	static PlayerManager* owner(const Entity*);
 	static void entity_killed_by(Entity*, Entity*);
 
 	r32 spawn_timer;

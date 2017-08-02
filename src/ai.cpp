@@ -580,7 +580,7 @@ ComponentMask entity_mask = Sensor::component_mask
 	| Turret::component_mask
 	| CoreModule::component_mask;
 
-void entity_info(Entity* e, Team query_team, Team* team, s8* type)
+void entity_info(const Entity* e, Team query_team, Team* team, s8* type)
 {
 	Team _team;
 	s8 _type;

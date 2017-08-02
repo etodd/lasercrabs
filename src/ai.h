@@ -169,7 +169,7 @@ namespace AI
 	}
 
 	extern ComponentMask entity_mask;
-	void entity_info(Entity*, AI::Team, AI::Team*, s8* = nullptr);
+	void entity_info(const Entity*, AI::Team, AI::Team*, s8* = nullptr);
 
 	struct RecordedLife
 	{

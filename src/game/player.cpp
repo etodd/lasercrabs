@@ -3945,7 +3945,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		// highlight incoming bolts
 		for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->team != my_team)
+			if (i.item()->team != my_team && i.item()->visible())
 			{
 				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 				Vec3 diff = me - pos;

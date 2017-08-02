@@ -34,9 +34,17 @@ struct Health : public ComponentType<Health>
 {
 	struct BufferedDamage
 	{
+		enum class Type : s8
+		{
+			Sniper,
+			Other,
+			count,
+		};
+
 		r32 delay;
 		Ref<Entity> source;
 		s8 damage;
+		Type type;
 	};
 
 	static b8 net_msg(Net::StreamRead*);
@@ -53,6 +61,7 @@ struct Health : public ComponentType<Health>
 
 	Health(s8 = 0, s8 = 0, s8 = 0, s8 = 0);
 
+	b8 damage_buffer_required(const Entity*) const;
 	void update_server(const Update&);
 	void update_client(const Update&);
 	void awake() {}
@@ -403,6 +412,9 @@ struct Bolt : public ComponentType<Bolt>
 	void awake();
 	~Bolt();
 
+	b8 visible() const; // bolts are invisible and essentially inert while they are waiting for damage buffer
+	void reflect(const Entity*);
+	b8 can_damage(const Entity*) const;
 	void update_server(const Update&);
 	void hit_entity(Entity*, const Vec3&, const Vec3&);
 };

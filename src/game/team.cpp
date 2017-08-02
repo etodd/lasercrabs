@@ -1334,7 +1334,7 @@ void PlayerManager::update_all(const Update& u)
 	}
 }
 
-PlayerManager* PlayerManager::owner(Entity* e)
+PlayerManager* PlayerManager::owner(const Entity* e)
 {
 	if (e->has<PlayerCommon>())
 		return e->get<PlayerCommon>()->manager.ref();

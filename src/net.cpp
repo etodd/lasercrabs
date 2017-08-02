@@ -2853,14 +2853,13 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 
 						Entity* e = World::create<ContainerEntity>();
 						PlayerManager* manager = e->add<PlayerManager>(team_ref);
-						if (gamepad == 0)
-							sprintf(manager->username, "%s", username);
-						else
+						if (gamepad > 0)
 						{
 							char username_truncated[MAX_USERNAME] = {};
-							strncpy(username_truncated, Settings::username, MAX_USERNAME - 4);
+							strncpy(username_truncated, username, MAX_USERNAME - 4);
 							snprintf(username, MAX_USERNAME, "%s [%d]", username_truncated, s32(gamepad + 1));
 						}
+						strncpy(manager->username, username, MAX_USERNAME);
 						PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
 						serialize_u64(p, player->uuid);
 						player->local = false;

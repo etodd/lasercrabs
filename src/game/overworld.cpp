@@ -910,6 +910,26 @@ void multiplayer_update(const Update& u)
 		return;
 	}
 
+	for (s32 i = 1; i < MAX_GAMEPADS; i++)
+	{
+		if (u.input->gamepads[i].type == Gamepad::Type::None)
+			global.multiplayer.local_player_mask &= ~(1 << i);
+		else
+		{
+			b8 player_active = global.multiplayer.local_player_mask & (1 << i);
+			if (!player_active
+				&& u.last_input->get(Controls::Interact, i) && !u.input->get(Controls::Interact, i))
+			{
+				global.multiplayer.local_player_mask |= 1 << i;
+			}
+			else if (player_active
+				&& u.last_input->get(Controls::Cancel, i) && !u.input->get(Controls::Cancel, i))
+			{
+				global.multiplayer.local_player_mask &= ~(1 << i);
+			}
+		}
+	}
+
 #if !SERVER
 	Net::Client::master_keepalive();
 #endif
@@ -1091,16 +1111,6 @@ void game_type_string(UIText* text, GameType type, s8 team_count, s8 max_players
 	text->text(0, "%s %s", _(teams_type), _(game_type));
 }
 
-const Vec4& ping_color(r32 p)
-{
-	if (p < 0.1f)
-		return UI::color_good;
-	else if (p < 0.2f)
-		return UI::color_accent();
-	else
-		return UI::color_alert();
-}
-
 void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 {
 	Vec2 panel_size(rect.size.x, PADDING * 2.0f + TEXT_SIZE * UI::scale);
@@ -1160,7 +1170,7 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 				if (p > 0.0f)
 				{
 					if (!selected)
-						text.color = ping_color(p);
+						text.color = UI::color_ping(p);
 					text.text(0, _(strings::ping), s32(p * 1000.0f));
 					text.draw(params, pos + Vec2(panel_size.x * 0.9f, panel_size.y * 0.5f));
 				}
@@ -1420,7 +1430,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 				r32 p = ping(details.addr);
 				if (p > 0.0f)
 				{
-					value.color = ping_color(p);
+					value.color = UI::color_ping(p);
 					value.text(0, _(strings::ping), s32(p * 1000.0f));
 					value.draw(params, pos + Vec2(panel_size.x, 0));
 					value.color = UI::color_default;

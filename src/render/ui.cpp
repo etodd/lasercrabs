@@ -535,7 +535,6 @@ b8 UIScroll::visible(s32 i) const
 }
 
 const Vec4 UI::color_default = Vec4(1, 1, 1, 1);
-const Vec4 UI::color_good = Vec4(0, 1, 0, 1);
 const Vec4& UI::color_alert()
 {
 	static const Vec4 alert_pvp = Vec4(1.0f, 0.4f, 0.4f, 1);
@@ -554,6 +553,16 @@ const Vec4& UI::color_disabled()
 	static const Vec4 disabled_pvp = Vec4(0.5f, 0.5f, 0.5f, 1);
 	static const Vec4 disabled_normal = Vec4(0.75f, 0.75f, 0.75f, 1);
 	return Game::level.mode == Game::Mode::Pvp || Overworld::modal() ? disabled_pvp : disabled_normal;
+}
+
+const Vec4& UI::color_ping(r32 p)
+{
+	if (p < 0.1f)
+		return color_default;
+	else if (p < 0.2f)
+		return color_accent();
+	else
+		return color_alert();
 }
 
 r32 UI::scale = 1.0f;

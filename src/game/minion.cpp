@@ -145,36 +145,46 @@ void Minion::melee_started()
 
 void Minion::melee_damage()
 {
+	AI::Team my_team = get<AIAgent>()->team;
 	Vec3 me = get<Transform>()->absolute_pos();
 	Vec3 forward = get<Walker>()->forward();
 
 	b8 did_damage = false;
-	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+	for (auto i = AIAgent::list.iterator(); !i.is_last(); i.next())
 	{
-		Vec3 to_target = i.item()->get<Transform>()->absolute_pos() - me;
-		r32 distance = to_target.length();
-		if (distance < MINION_MELEE_RANGE
-			&& forward.dot(to_target / distance) > 0.707f)
+		if (i.item()->team != my_team)
 		{
-			did_damage = true;
-			if (i.item()->has<Parkour>())
+			Vec3 to_target = i.item()->get<Transform>()->absolute_pos() - me;
+			r32 distance = to_target.length();
+			if (distance < MINION_MELEE_RANGE
+				&& forward.dot(to_target / distance) > 0.707f)
 			{
-				Vec3 v = Vec3::normalize(to_target);
-				v.y = 0.6f;
-				i.item()->get<RigidBody>()->btBody->setLinearVelocity(v * 7.0f);
-				Parkour* parkour = i.item()->get<Parkour>();
-				parkour->last_support = i.item()->get<Walker>()->support = nullptr;
-				parkour->last_support_time = Game::time.total;
-				parkour->wall_run_state = Parkour::WallRunState::None;
+				if (i.item()->has<Walker>())
+				{
+					Vec3 v = Vec3::normalize(to_target);
+					v.y = 0.6f;
+					i.item()->get<RigidBody>()->btBody->setLinearVelocity(v * 7.0f);
+				}
 
-				if (Game::level.local)
-					i.item()->get<Health>()->damage(entity(), 1);
-			}
-			else
-			{
-				// drone
-				if (Game::level.local)
-					i.item()->get<Health>()->damage(entity(), 1);
+				if (i.item()->has<Parkour>())
+				{
+					Parkour* parkour = i.item()->get<Parkour>();
+					parkour->last_support = i.item()->get<Walker>()->support = nullptr;
+					parkour->last_support_time = Game::time.total;
+					parkour->wall_run_state = Parkour::WallRunState::None;
+
+					if (Game::level.local)
+						i.item()->get<Health>()->damage(entity(), 1);
+
+					did_damage = true;
+				}
+				else if (i.item()->has<Health>())
+				{
+					if (Game::level.local)
+						i.item()->get<Health>()->damage(entity(), 1);
+
+					did_damage = true;
+				}
 			}
 		}
 	}
@@ -587,7 +597,7 @@ void Minion::update_server(const Update& u)
 							&& anim_layer->animation != Asset::Animation::character_melee
 							&& Team::match_state == Team::MatchState::Active)
 						{
-							if (g->has<Parkour>() && (aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
+							if ((aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
 							{
 								anim_layer->speed = 1.0f;
 								anim_layer->behavior = Animator::Behavior::Default;

@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const s32 count = 67;
+		const s32 count = 68;
 		const AssetID access_key = 0;
 		const AssetID actor_collision = 1;
 		const AssetID battery = 2;
@@ -52,30 +52,31 @@ namespace Asset
 		const AssetID parkour_headless = 40;
 		const AssetID plane = 41;
 		const AssetID rope_base = 42;
-		const AssetID seven = 43;
-		const AssetID shop = 44;
-		const AssetID shop_collision = 45;
-		const AssetID sky_decal = 46;
-		const AssetID sky_pattern = 47;
-		const AssetID skybox = 48;
-		const AssetID spawn_collision = 49;
-		const AssetID spawn_main = 50;
-		const AssetID spawn_upgrade_station = 51;
-		const AssetID sphere = 52;
-		const AssetID sphere_highres = 53;
-		const AssetID support = 54;
-		const AssetID support2 = 55;
-		const AssetID terminal = 56;
-		const AssetID terminal_collision = 57;
-		const AssetID tram_collision = 58;
-		const AssetID tram_collision_door = 59;
-		const AssetID tram_doors = 60;
-		const AssetID tram_mesh = 61;
-		const AssetID tram_mesh_1 = 62;
-		const AssetID tram_runner = 63;
-		const AssetID tri_tube = 64;
-		const AssetID turret_base = 65;
-		const AssetID turret_top = 66;
+		const AssetID samsa = 43;
+		const AssetID seven = 44;
+		const AssetID shop = 45;
+		const AssetID shop_collision = 46;
+		const AssetID sky_decal = 47;
+		const AssetID sky_pattern = 48;
+		const AssetID skybox = 49;
+		const AssetID spawn_collision = 50;
+		const AssetID spawn_main = 51;
+		const AssetID spawn_upgrade_station = 52;
+		const AssetID sphere = 53;
+		const AssetID sphere_highres = 54;
+		const AssetID support = 55;
+		const AssetID support2 = 56;
+		const AssetID terminal = 57;
+		const AssetID terminal_collision = 58;
+		const AssetID tram_collision = 59;
+		const AssetID tram_collision_door = 60;
+		const AssetID tram_doors = 61;
+		const AssetID tram_mesh = 62;
+		const AssetID tram_mesh_1 = 63;
+		const AssetID tram_runner = 64;
+		const AssetID tri_tube = 65;
+		const AssetID turret_base = 66;
+		const AssetID turret_top = 67;
 	}
 }
 

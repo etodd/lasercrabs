@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Armature
 	{
-		const s32 count = 12;
+		const s32 count = 13;
 		const AssetID character = 0;
 		const AssetID dada = 1;
 		const AssetID drone = 2;
@@ -18,13 +18,14 @@ namespace Asset
 		const AssetID meursault = 6;
 		const AssetID parkour = 7;
 		const AssetID parkour_headless = 8;
-		const AssetID seven = 9;
-		const AssetID terminal = 10;
-		const AssetID tram_doors = 11;
+		const AssetID samsa = 9;
+		const AssetID seven = 10;
+		const AssetID terminal = 11;
+		const AssetID tram_doors = 12;
 	}
 	namespace Bone
 	{
-		const s32 count = 366;
+		const s32 count = 387;
 		const AssetID character_camera = 0;
 		const AssetID character_claw1_L = 9;
 		const AssetID character_claw1_R = 15;
@@ -323,6 +324,27 @@ namespace Asset
 		const AssetID parkour_thigh_R = 21;
 		const AssetID parkour_upper_arm_L = 6;
 		const AssetID parkour_upper_arm_R = 12;
+		const AssetID samsa_antenna1 = 6;
+		const AssetID samsa_antenna2 = 7;
+		const AssetID samsa_antenna3 = 8;
+		const AssetID samsa_antenna4 = 9;
+		const AssetID samsa_antenna5 = 10;
+		const AssetID samsa_antenna6 = 11;
+		const AssetID samsa_back1 = 17;
+		const AssetID samsa_back2 = 18;
+		const AssetID samsa_back3 = 19;
+		const AssetID samsa_eyelid_bottom = 15;
+		const AssetID samsa_eyelid_top = 16;
+		const AssetID samsa_head = 14;
+		const AssetID samsa_leg_front_l = 0;
+		const AssetID samsa_leg_front_r = 1;
+		const AssetID samsa_leg_rear_l = 2;
+		const AssetID samsa_leg_rear_r = 3;
+		const AssetID samsa_neck = 13;
+		const AssetID samsa_projector = 20;
+		const AssetID samsa_torso = 4;
+		const AssetID samsa_wing_l = 5;
+		const AssetID samsa_wing_r = 12;
 		const AssetID seven_ball_l = 48;
 		const AssetID seven_ball_r = 52;
 		const AssetID seven_calf_l = 46;

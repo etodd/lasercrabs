@@ -1080,7 +1080,27 @@ namespace locke
 	}
 }
 
-namespace tier_1a
+namespace tier_1
+{
+	struct Data
+	{
+	};
+	Data* data;
+
+	void cleanup()
+	{
+		delete data;
+		data = nullptr;
+	}
+
+	void init(const EntityFinder& entities)
+	{
+		data = new Data();
+		Game::cleanups.add(&cleanup);
+	}
+}
+
+namespace tier_2
 {
 	struct Data
 	{
@@ -1177,7 +1197,8 @@ Script Script::list[] =
 	{ "tutorial", Scripts::tutorial::init, nullptr, },
 	{ "Docks", Scripts::Docks::init, nullptr, },
 	{ "locke", Scripts::locke::init, nullptr, },
-	{ "tier_1a", Scripts::tier_1a::init, Scripts::tier_1a::net_msg, },
+	{ "tier_1", Scripts::tier_1::init, nullptr },
+	{ "tier_2", Scripts::tier_2::init, Scripts::tier_2::net_msg, },
 	{ 0, 0, },
 };
 s32 Script::count; // set in Game::init

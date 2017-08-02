@@ -556,8 +556,9 @@ namespace TeamNet
 
 void Team::match_start()
 {
-	vi_assert(Game::level.local && match_state == MatchState::Waiting);
-	TeamNet::send_match_state(MatchState::Active);
+	vi_assert(Game::level.local && (match_state == MatchState::Waiting || match_state == MatchState::Active));
+	if (match_state == MatchState::Waiting)
+		TeamNet::send_match_state(MatchState::Active);
 }
 
 void team_add_score_summary_item(PlayerManager* player, const char* label, s32 amount = -1)
@@ -1050,7 +1051,7 @@ namespace PlayerManagerNet
 
 void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
 {
-	vi_assert(Game::level.local);
+	vi_assert(Game::level.local && point);
 	if (m->respawns != -1 && Game::level.mode == Game::Mode::Pvp)
 	{
 		if (Game::level.has_feature(Game::FeatureLevel::All)

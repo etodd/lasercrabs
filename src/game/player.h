@@ -95,6 +95,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	s8 gamepad;
 	b8 msg_good;
 	b8 local;
+	b8 upgrade_menu_open;
 	
 	PlayerHuman(b8 = false, s8 = 0);
 	void awake();
@@ -105,6 +106,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	UIMode ui_mode() const;
 	void upgrade_menu_show();
 	void upgrade_menu_hide();
+	void upgrade_station_try_exit();
 	void upgrade_completed(Upgrade);
 	Upgrade upgrade_selected() const;
 	void update(const Update&);

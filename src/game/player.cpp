@@ -258,6 +258,7 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	selected_spawn(),
 	killed_by(),
 	select_spawn_timer(),
+	upgrade_menu_open(),
 	last_supported(),
 	energy_notification_accumulator(),
 #if SERVER
@@ -568,14 +569,26 @@ void PlayerHuman::upgrade_menu_show()
 		{
 			instance->get<Drone>()->ability(Ability::None);
 			station->drone_enter(instance->get<Drone>());
-			menu.animate();
-			animation_time = Game::real_time.total;
-			upgrade_last_visit_highest_available = get<PlayerManager>()->upgrade_highest_owned_or_available();
 		}
+	}
+
+	if (UpgradeStation::drone_inside(instance->get<Drone>()))
+	{
+		animation_time = Game::real_time.total;
+		menu.animate();
+		menu.selected = 0;
+		upgrade_menu_open = true;
+		upgrade_last_visit_highest_available = get<PlayerManager>()->upgrade_highest_owned_or_available();
 	}
 }
 
 void PlayerHuman::upgrade_menu_hide()
+{
+	upgrade_menu_open = false;
+	upgrade_station_try_exit();
+}
+
+void PlayerHuman::upgrade_station_try_exit()
 {
 	Entity* instance = get<PlayerManager>()->instance.ref();
 	if (instance && get<PlayerManager>()->state() != PlayerManager::State::Upgrading)
@@ -591,7 +604,7 @@ void PlayerHuman::upgrade_menu_hide()
 
 void PlayerHuman::upgrade_completed(Upgrade u)
 {
-	if (ui_mode() == UIMode::PvpUpgrading && menu.selected > 0)
+	if (upgrade_menu_open && menu.selected > 0)
 	{
 		// an upgrade was just removed from the menu
 		// shift selected menu item up one so the player is not surprised by what they currently have selected
@@ -723,7 +736,7 @@ void PlayerHuman::update(const Update& u)
 			&& u.last_input->get(Controls::Pause, gamepad)
 			&& !u.input->get(Controls::Pause, gamepad)
 			&& !Game::cancel_event_eaten[gamepad]
-			&& ui_mode() != UIMode::PvpUpgrading
+			&& !upgrade_menu_open
 			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
 		{
 			Game::cancel_event_eaten[gamepad] = true;
@@ -761,53 +774,64 @@ void PlayerHuman::update(const Update& u)
 		}
 		case UIMode::PvpUpgrading:
 		{
-			// upgrade menu
-			if (u.last_input->get(Controls::Cancel, gamepad)
-				&& !u.input->get(Controls::Cancel, gamepad)
-				&& !Game::cancel_event_eaten[gamepad])
+			if (upgrade_menu_open)
 			{
-				Game::cancel_event_eaten[gamepad] = true;
-				upgrade_menu_hide();
-			}
-			else if (!UpgradeStation::drone_inside(entity->get<Drone>())) // we got kicked out of the upgrade station; probably by the server
-				upgrade_menu_hide();
-			else
-			{
-				b8 upgrade_in_progress = !get<PlayerManager>()->can_transition_state();
-
-				s8 last_selected = menu.selected;
-
-				menu.start(u, gamepad);
-
-				if (menu.item(u, _(strings::close), nullptr, upgrade_in_progress, Asset::Mesh::icon_close))
-					upgrade_menu_hide();
-
-				for (s32 i = 0; i < s32(Upgrade::count); i++)
+				// upgrade menu
+				if (u.last_input->get(Controls::Cancel, gamepad)
+					&& !u.input->get(Controls::Cancel, gamepad)
+					&& !Game::cancel_event_eaten[gamepad])
 				{
-					Upgrade upgrade = Upgrade(i);
-					if (!get<PlayerManager>()->has_upgrade(upgrade))
+					Game::cancel_event_eaten[gamepad] = true;
+					upgrade_menu_hide();
+				}
+				else if (!UpgradeStation::drone_inside(entity->get<Drone>())) // we got kicked out of the upgrade station; probably by the server
+					upgrade_menu_hide();
+				else
+				{
+					b8 upgrade_in_progress = !get<PlayerManager>()->can_transition_state();
+
+					s8 last_selected = menu.selected;
+
+					menu.start(u, gamepad);
+
+					if (menu.item(u, _(strings::close), nullptr, upgrade_in_progress, Asset::Mesh::icon_close))
+						upgrade_menu_hide();
+
+					for (s32 i = 0; i < s32(Upgrade::count); i++)
 					{
-						const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
-						b8 can_upgrade = !upgrade_in_progress
-							&& get<PlayerManager>()->upgrade_available(upgrade)
-							&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade)
-							&& (Game::level.has_feature(Game::FeatureLevel::All) || !get<PlayerManager>()->upgrades) // only allow one ability upgrade in tutorial
-							&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type != AbilityInfo::Type::Other); // don't allow Other ability upgrades in tutorial
-						if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
+						Upgrade upgrade = Upgrade(i);
+						if (!get<PlayerManager>()->has_upgrade(upgrade))
 						{
-							PlayerControlHumanNet::Message msg;
-							msg.type = PlayerControlHumanNet::Message::Type::UpgradeStart;
-							msg.upgrade = upgrade;
-							PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
+							const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
+							b8 can_upgrade = !upgrade_in_progress
+								&& get<PlayerManager>()->upgrade_available(upgrade)
+								&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade)
+								&& (Game::level.has_feature(Game::FeatureLevel::All) || !get<PlayerManager>()->upgrades) // only allow one ability upgrade in tutorial
+								&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type != AbilityInfo::Type::Other); // don't allow Other ability upgrades in tutorial
+							if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
+							{
+								PlayerControlHumanNet::Message msg;
+								msg.type = PlayerControlHumanNet::Message::Type::UpgradeStart;
+								msg.upgrade = upgrade;
+								PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
+							}
 						}
 					}
+
+					menu.end();
+
+					if (menu.selected != last_selected
+						|| upgrade_in_progress) // once the upgrade is done, animate the new ability description
+						animation_time = Game::real_time.total;
 				}
-
-				menu.end();
-
-				if (menu.selected != last_selected
-					|| upgrade_in_progress) // once the upgrade is done, animate the new ability description
-					animation_time = Game::real_time.total;
+			}
+			else
+			{
+				// upgrade menu closed, but we're still in the upgrade station
+				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+					upgrade_menu_show();
+				else
+					upgrade_station_try_exit();
 			}
 			break;
 		}
@@ -1561,34 +1585,37 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	}
 	else if (mode == UIMode::PvpUpgrading)
 	{
-		Vec2 upgrade_menu_pos = vp.size * Vec2(0.5f, 0.6f);
-		menu.draw_ui(params, upgrade_menu_pos, UIText::Anchor::Center, UIText::Anchor::Center);
-
-		if (menu.selected > 0)
+		if (upgrade_menu_open)
 		{
-			// show details of currently highlighted upgrade
-			Upgrade upgrade = upgrade_selected();
-			vi_assert(upgrade != Upgrade::None);
+			Vec2 upgrade_menu_pos = vp.size * Vec2(0.5f, 0.6f);
+			menu.draw_ui(params, upgrade_menu_pos, UIText::Anchor::Center, UIText::Anchor::Center);
 
-			if (get<PlayerManager>()->current_upgrade == Upgrade::None
-				&& get<PlayerManager>()->upgrade_available(upgrade))
+			if (menu.selected > 0)
 			{
-				r32 padding = 8.0f * UI::scale;
+				// show details of currently highlighted upgrade
+				Upgrade upgrade = upgrade_selected();
+				vi_assert(upgrade != Upgrade::None);
 
-				const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
-				UIText text;
-				text.color = UI::color_accent();
-				text.size = text_size;
-				text.anchor_x = UIText::Anchor::Min;
-				text.anchor_y = UIText::Anchor::Max;
-				text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
-				s16 cost = get<PlayerManager>()->upgrade_cost(upgrade);
-				text.text(gamepad, _(strings::upgrade_description), cost, _(info.description));
-				UIMenu::text_clip(&text, animation_time, 150.0f);
+				if (get<PlayerManager>()->current_upgrade == Upgrade::None
+					&& get<PlayerManager>()->upgrade_available(upgrade))
+				{
+					r32 padding = 8.0f * UI::scale;
 
-				Vec2 pos = upgrade_menu_pos + Vec2(MENU_ITEM_WIDTH * -0.5f + padding, menu.height() * -0.5f - padding * 7.0f);
-				UI::box(params, text.rect(pos).outset(padding), UI::color_background);
-				text.draw(params, pos);
+					const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
+					UIText text;
+					text.color = UI::color_accent();
+					text.size = text_size;
+					text.anchor_x = UIText::Anchor::Min;
+					text.anchor_y = UIText::Anchor::Max;
+					text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
+					s16 cost = get<PlayerManager>()->upgrade_cost(upgrade);
+					text.text(gamepad, _(strings::upgrade_description), cost, _(info.description));
+					UIMenu::text_clip(&text, animation_time, 150.0f);
+
+					Vec2 pos = upgrade_menu_pos + Vec2(MENU_ITEM_WIDTH * -0.5f + padding, menu.height() * -0.5f - padding * 7.0f);
+					UI::box(params, text.rect(pos).outset(padding), UI::color_background);
+					text.draw(params, pos);
+				}
 			}
 		}
 	}
@@ -2969,7 +2996,11 @@ r32 zoom_amount_get(PlayerControlHuman* player, const Update& u)
 		// analog zoom
 		if (player->try_secondary)
 		{
-			Gamepad::Btn zoom_btn = Settings::gamepads[gamepad].bindings[s32(Controls::Zoom)].btn;
+			const InputBinding& binding = Settings::gamepads[gamepad].bindings[s32(Controls::Zoom)];
+			if (u.input->keys.get(s32(binding.key1)) || u.input->keys.get(s32(binding.key2)))
+				return 1.0f;
+
+			Gamepad::Btn zoom_btn = binding.btn;
 			r32 t;
 			if (zoom_btn == Gamepad::Btn::LeftTrigger)
 				t = u.input->gamepads[gamepad].left_trigger;

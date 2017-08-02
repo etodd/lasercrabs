@@ -105,11 +105,12 @@ struct SpawnPoint;
 
 struct Battery : public ComponentType<Battery>
 {
-	struct Key
+	struct Comparator
 	{
 		Vec3 me;
 		b8 closest_first;
-		r32 priority(Battery*);
+		r32 priority(const Ref<Battery>&);
+		s32 compare(const Ref<Battery>&, const Ref<Battery>&);
 	};
 
 	static r32 particle_accumulator;

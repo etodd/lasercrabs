@@ -226,4 +226,45 @@ struct Array
 	}
 };
 
+namespace Quicksort
+{
+
+	template<typename T> void swap(T* a, T* b)
+	{
+		T tmp = *a;
+		*a = *b;
+		*b = tmp;
+	}
+
+	template<typename T, typename Comparator> s32 partition(T* a, s32 start, s32 end, Comparator* comparator)
+	{
+		const T& x = a[start];
+		s32 i = start;
+		for (s32 j = start + 1; j < end; j++)
+		{
+			if (comparator->compare(a[j], x) <= 0)
+			{
+				i++;
+				swap(&a[i], &a[j]);
+			}
+		}
+
+		if (i != start)
+			swap(&a[i], &a[start]);
+		return i;
+	}
+
+	template<typename T, typename Comparator> void sort(T* a, s32 start, s32 end, Comparator* comparator)
+	{
+		if (start < end)
+		{
+			s32 r = partition(a, start, end, comparator);
+			sort(a, start, r, comparator);
+			sort(a, r + 1, end, comparator);
+		}
+	}
+
+}
+
+
 }

@@ -566,11 +566,6 @@ void Battery::killed(Entity* e)
 		set_team(AI::TeamNone, e);
 }
 
-r32 Battery::Key::priority(Battery* p)
-{
-	return (p->get<Transform>()->absolute_pos() - me).length_squared() * (closest_first ? 1.0f : -1.0f);
-}
-
 Battery* Battery::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
 	Battery* closest = nullptr;
@@ -611,22 +606,37 @@ s32 Battery::count(AI::TeamMask m)
 	return count;
 }
 
+r32 Battery::Comparator::priority(const Ref<Battery>& p)
+{
+	return (p.ref()->get<Transform>()->absolute_pos() - me).length_squared() * (closest_first ? 1.0f : -1.0f);
+}
+
+s32 Battery::Comparator::compare(const Ref<Battery>& a, const Ref<Battery>& b)
+{
+	r32 pa = priority(a);
+	r32 pb = priority(b);
+	if (pa > pb)
+		return 1;
+	else if (pa == pb)
+		return 0;
+	else
+		return -1;
+}
+
 void Battery::sort_all(const Vec3& pos, Array<Ref<Battery>>* result, b8 closest_first, AI::TeamMask mask)
 {
-	Key key;
+	Comparator key;
 	key.me = pos;
 	key.closest_first = closest_first;
-	PriorityQueue<Battery*, Key> pickups(&key);
+	result->length = 0;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (AI::match(i.item()->team, mask))
-			pickups.push(i.item());
+			result->add(i.item());
 	}
 
-	result->length = 0;
-	while (pickups.size() > 0)
-		result->add(pickups.pop());
+	Quicksort::sort<Ref<Battery>, Comparator>(result->data, 0, result->length, &key);
 }
 
 void Battery::awake()

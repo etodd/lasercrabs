@@ -53,6 +53,11 @@ struct Drone : public ComponentType<Drone>
 
 	struct Hit
 	{
+		struct Comparator
+		{
+			s32 compare(const Hit&, const Hit&);
+		};
+
 		enum class Type : s8
 		{
 			Environment,
@@ -60,6 +65,7 @@ struct Drone : public ComponentType<Drone>
 			ForceField,
 			Shield,
 			Target,
+			None, // empty space; used as the final hit entry if no hit was registered
 			count,
 		};
 
@@ -175,8 +181,8 @@ struct Drone : public ComponentType<Drone>
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr, r32 = DRONE_FLY_SPEED) const; // shoot or dash
 
-	void raycast(RaycastMode, const Vec3&, const Vec3&, const Net::StateFrame*, Hits*) const;
-	r32 movement_raycast(const Vec3&, const Vec3&);
+	void raycast(RaycastMode, const Vec3&, const Vec3&, const Net::StateFrame*, Hits*, s32 = 0, Entity* = nullptr) const;
+	void movement_raycast(const Vec3&, const Vec3&, Hits* = nullptr);
 
 	void update_server(const Update&);
 	void update_client(const Update&);

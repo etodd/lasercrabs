@@ -214,8 +214,12 @@ b8 reflection_effects(Drone* a, Entity* reflected_off)
 
 }
 
-void particle_trail(const Vec3& start, const Vec3& dir, r32 distance, r32 interval = 2.0f)
+r32 particle_trail(const Vec3& start, const Vec3& end, r32 offset = 0.0f)
 {
+	Vec3 dir = end - start;
+	r32 distance = dir.length();
+	dir /= distance;
+	const r32 interval = 2.0f;
 	s32 particle_count = distance / interval;
 	Vec3 interval_pos = dir * interval;
 	Vec3 pos = start;
@@ -227,9 +231,10 @@ void particle_trail(const Vec3& start, const Vec3& dir, r32 distance, r32 interv
 			pos,
 			Vec3::zero,
 			0,
-			vi_min(0.25f, i * 0.05f)
+			vi_min(0.25f, offset + i * 0.05f)
 		);
 	}
+	return offset + particle_count * 0.05f;
 }
 
 enum class DroneHitType
@@ -533,7 +538,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
 
 					// effects
-					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+					particle_trail(my_pos, pos);
 					EffectLight::add(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH), 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 					break;
@@ -567,7 +572,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					}
 
 					// effects
-					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+					particle_trail(my_pos, pos);
 					EffectLight::add(npos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 					Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
@@ -584,7 +589,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						Net::finalize(World::create<ForceFieldEntity>(parent->get<Transform>(), npos, rot, drone->get<AIAgent>()->team));
 
 					// effects
-					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+					particle_trail(my_pos, pos);
 					EffectLight::add(npos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 					break;
@@ -599,31 +604,58 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					Vec3 ray_start = pos + dir_normalized * -DRONE_RADIUS;
 					Vec3 ray_end = pos + dir_normalized * drone->range();
 					drone->velocity = dir_normalized * DRONE_FLY_SPEED;
-					r32 distance;
+					Hits hits;
 					if (Game::level.local)
-						distance = drone->movement_raycast(ray_start, ray_end);
+						drone->movement_raycast(ray_start, ray_end, &hits);
 					else
 					{
-						Hits hits;
 						drone->raycast(RaycastMode::Default, ray_start, ray_end, nullptr, &hits);
-						distance = hits.fraction_end * drone->range();
-						if (hits.index_end != -1)
-							sniper_hit_effects(hits.hits[hits.index_end]);
+						for (s32 i = 0; i < hits.hits.length; i++)
+							sniper_hit_effects(hits.hits[i]);
 					}
 
 					// whiff sfx
-					r32 closest_projected_camera_distance = distance;
-					for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
 					{
-						r32 projected_camera_distance = (i.item()->pos - ray_start).dot(dir_normalized);
-						if (projected_camera_distance > 0.0f && projected_camera_distance < closest_projected_camera_distance)
-							closest_projected_camera_distance = projected_camera_distance;
+						Vec3 closest_position = ray_start;
+						r32 closest_distance = FLT_MAX;
+						for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
+						{
+							Vec3 line_start = ray_start;
+							for (s32 j = 0; j < hits.hits.length; j++)
+							{
+								const Hit& hit = hits.hits[j];
+								Vec3 line = hit.pos - line_start;
+								r32 line_length = line.length();
+								Vec3 line_normalized = line / line_length;
+								r32 t = vi_min((i.item()->pos - line_start).dot(line_normalized), line_length);
+								if (t > 0.0f)
+								{
+									Vec3 pos = line_start + line_normalized * t;
+									r32 distance = (pos - i.item()->pos).length_squared();
+									if (distance < closest_distance)
+									{
+										closest_distance = distance;
+										closest_position = pos;
+									}
+								}
+
+								line_start = hit.pos;
+							}
+						}
+						Audio::post_global_event(AK::EVENTS::PLAY_SNIPER_WHIFF, closest_position);
 					}
-					if (closest_projected_camera_distance < distance)
-						Audio::post_global_event(AK::EVENTS::PLAY_SNIPER_WHIFF, ray_start + dir_normalized * closest_projected_camera_distance);
 
 					// effects
-					particle_trail(ray_start, dir_normalized, distance);
+					{
+						Vec3 line_start = ray_start;
+						r32 offset = 0.0f;
+						for (s32 i = 0; i < hits.hits.length; i++)
+						{
+							const Vec3& p = hits.hits[i].pos;
+							offset = particle_trail(line_start, p, offset);
+							line_start = p;
+						}
+					}
 
 					// everyone instantly knows where we are
 					AI::Team team = drone->get<AIAgent>()->team;
@@ -874,6 +906,7 @@ void Drone::awake()
 {
 	get<Animator>()->layers[0].behavior = Animator::Behavior::Loop;
 	link_arg<Entity*, &Drone::killed>(get<Health>()->killed);
+	lerped_pos = get<Transform>()->absolute_pos();
 }
 
 Drone::~Drone()
@@ -2287,7 +2320,17 @@ void Drone::update_client(const Update& u)
 	}
 }
 
-void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, const Net::StateFrame* state_frame, Hits* result) const
+s32 Drone::Hit::Comparator::compare(const Hit& a, const Hit& b)
+{
+	if (a.fraction > b.fraction)
+		return 1;
+	else if (a.fraction == b.fraction)
+		return 0;
+	else
+		return -1;
+}
+
+void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, const Net::StateFrame* state_frame, Hits* result, s32 recursion_level, Entity* ignore) const
 {
 	r32 distance_total = (ray_end - ray_start).length();
 
@@ -2351,6 +2394,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item() == get<Target>() // don't collide with self
+			|| i.item()->entity() == ignore // don't collide with ignored entity
 			|| (i.item()->has<Drone>() && UpgradeStation::drone_inside(i.item()->get<Drone>()))) // ignore drones inside upgrade stations
 			continue;
 
@@ -2425,9 +2469,78 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 			}
 		}
 	}
+
+	if (current_ability == Ability::Sniper && result->index_end == -1) // it went off into space
+	{
+		Hit hit;
+		hit.fraction = FLT_MAX;
+		hit.entity = nullptr;
+		hit.normal = Vec3::zero;
+		hit.pos = ray_end;
+		hit.type = Hit::Type::None;
+		result->hits.add(hit);
+	}
+
+	if (mode == RaycastMode::Default
+		&& recursion_level < 5
+		&& current_ability == Ability::Sniper
+		&& result->index_end != -1)
+	{
+		const Hit& hit_end = result->hits[result->index_end];
+		if (hit_end.type == Hit::Type::ForceField
+			|| hit_end.type == Hit::Type::Shield
+			|| hit_end.type == Hit::Type::Inaccessible)
+		{
+			// reflect off of it
+			Vec3 dir = Vec3::normalize((ray_end - ray_start).reflect(hit_end.normal));
+
+			Entity* ignore;
+			if (hit_end.type == Hit::Type::Shield)
+				ignore = hit_end.entity.ref();
+			else
+				ignore = nullptr;
+
+			Hits hits2;
+			raycast(mode, hit_end.pos + dir * DRONE_RADIUS, hit_end.pos + dir * DRONE_SNIPE_DISTANCE, state_frame, &hits2, recursion_level + 1, ignore);
+			if (hits2.hits.length < result->hits.capacity() - result->hits.length)
+			{
+				// append hits2 to result->hits
+
+				// first, remove any hits that were past fraction_end
+				for (s32 i = 0; i < result->hits.length; i++)
+				{
+					if (result->hits[i].fraction > result->fraction_end)
+					{
+						result->hits.remove(i);
+						i--;
+					}
+				}
+
+				if (hits2.index_end == -1)
+				{
+					result->index_end = -1;
+					result->fraction_end = FLT_MAX;
+				}
+				else
+				{
+					result->index_end = result->hits.length + hits2.index_end;
+					result->fraction_end = 1.0f + hits2.fraction_end;
+				}
+				for (s32 i = 0; i < hits2.hits.length; i++)
+				{
+					Hit hit = hits2.hits[i];
+					hit.fraction += 1.0f;
+					result->hits.add(hit);
+				}
+			}
+		}
+	}
+
+	Hit::Comparator comparator;
+	Quicksort::sort<Hit, Hit::Comparator>(result->hits.data, 0, result->hits.length, &comparator);
 }
 
-r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
+void Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* hits_out)
 {
 	State s = state();
 
@@ -2445,7 +2558,7 @@ r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 		const Hit& hit = hits.hits[i];
 		if (i == hits.index_end || hit.fraction < hits.fraction_end)
 		{
-			if (current_ability == Ability::Sniper)
+			if (current_ability == Ability::Sniper && hit.type != Hit::Type::None)
 				sniper_hit_effects(hit);
 
 			if (hit.type == Hit::Type::Target)
@@ -2504,7 +2617,8 @@ r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 		}
 	}
 
-	return hits.fraction_end * (ray_end - ray_start).length();
+	if (hits_out)
+		*hits_out = hits;
 }
 
 }

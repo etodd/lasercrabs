@@ -140,10 +140,10 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 
 void Team::awake_all()
 {
-	match_state = Game::session.type == SessionType::Story ? MatchState::Active : MatchState::Waiting;
 	game_over_real_time = 0.0f;
 	if (Game::level.local) // if we're a client, the netcode manages this
 	{
+		match_state = Game::session.type == SessionType::Story ? MatchState::Active : MatchState::Waiting;
 		if (Game::session.type == SessionType::Story
 			&& Game::level.mode == Game::Mode::Pvp
 			&& Game::save.zones[Game::level.id] == ZoneState::PvpFriendly)
@@ -933,7 +933,7 @@ b8 PlayerManager::ability_valid(Ability ability) const
 	if (energy < info.spawn_cost)
 		return false;
 
-	if (ability == Ability::ActiveArmor && instance.ref()->get<Health>()->invincible())
+	if (ability == Ability::ActiveArmor && instance.ref()->get<Health>()->active_armor())
 		return false;
 
 	return true;

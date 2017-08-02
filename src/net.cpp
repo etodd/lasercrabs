@@ -489,7 +489,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<Health>())
 	{
 		Health* h = e->get<Health>();
-		serialize_r32_range(p, h->invincible_timer, 0, 5, 8);
+		serialize_r32_range(p, h->active_armor_timer, 0, 5, 8);
 		serialize_r32_range(p, h->regen_timer, 0, 10, 8);
 		serialize_s8(p, h->shield);
 		serialize_s8(p, h->shield_max);

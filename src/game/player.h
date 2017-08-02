@@ -59,6 +59,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static StaticArray<LogEntry, 4> logs;
 
 	static Vec2 camera_topdown_movement(const Update&, s8, Camera*);
+	static b8 players_on_same_client(const Entity*, const Entity*);
 
 	static void update_all(const Update&);
 	static s32 count_local();

@@ -279,24 +279,13 @@ void sniper_hit_effects(const Drone::Hit& hit)
 	Audio::post_global_event(AK::EVENTS::PLAY_SNIPER_IMPACT, hit.pos);
 }
 
-b8 players_on_same_client(const Entity* a, const Entity* b)
-{
-#if SERVER
-	return a->has<PlayerControlHuman>()
-		&& b->has<PlayerControlHuman>()
-		&& Net::Server::client_id(a->get<PlayerControlHuman>()->player.ref()) == Net::Server::client_id(b->get<PlayerControlHuman>()->player.ref());
-#else
-	return true;
-#endif
-}
-
 s32 impact_damage(const Drone* drone, const Entity* target_drone)
 {
 	Net::StateFrame state_frame;
 
 	Vec3 target_pos;
 
-	if (!players_on_same_client(drone->entity(), target_drone) && drone->net_state_frame(&state_frame))
+	if (!PlayerHuman::players_on_same_client(drone->entity(), target_drone) && drone->net_state_frame(&state_frame))
 	{
 		Vec3 pos;
 		Quat rot;
@@ -447,34 +436,34 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (target.ref()->has<Shield>())
 			{
 				// check if we can damage them
-				if (target.ref()->get<Health>()->invincible() || (target.ref()->has<Drone>() && target.ref()->get<Drone>()->state() != State::Crawl && drone->state() != State::Crawl))
+				if (target.ref()->get<Health>()->can_take_damage())
+				{
+					// we hurt them
+					if (drone->has<PlayerControlHuman>())
+					{
+						// if the target got killed, we'll get a notification about the energy reward
+						// but if it was only damaged, we need to let the player know
+						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::target_damaged), true);
+					}
+
+					if (Game::level.local) // if we're a client, this has already been handled by the server
+						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref()));
+				}
+				else
 				{
 					// we didn't hurt them
 					if (Game::level.local)
 					{
-						if (target.ref()->get<Health>()->invincible()
+						// check if they had active armor on and so should damage us
+						if (drone->state() != State::Crawl
+							&& target.ref()->get<Health>()->active_armor()
 							&& target.ref()->has<AIAgent>()
-							&& target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team
-							&& target.ref()->get<Health>()->invincible_timer <= ACTIVE_ARMOR_TIME) // they were invincible; they should damage us
+							&& target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team)
 							drone->get<Health>()->damage(target.ref(), DRONE_HEALTH + Game::session.config.drone_shield);
 					}
 
 					if (drone->has<PlayerControlHuman>())
 						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
-				}
-				else
-				{
-					// we hurt them
-					if (Game::level.local) // if we're a client, this has already been handled by the server
-						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref()));
-
-					if (drone->has<PlayerControlHuman>() && drone->state() != State::Crawl)
-					{
-						// if the target got killed, we'll get a notification about the energy reward
-						// but if it was only damaged, we need to let the player know
-						if (target.ref()->get<Health>()->hp > 0) // target is still around
-							drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::target_damaged), true);
-					}
 				}
 			}
 			break;
@@ -775,7 +764,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					if (drone)
 					{
-						drone->get<Health>()->invincible_timer = vi_max(drone->get<Health>()->invincible_timer, ACTIVE_ARMOR_TIME);
+						drone->get<Health>()->active_armor_timer = vi_max(drone->get<Health>()->active_armor_timer, ACTIVE_ARMOR_TIME);
 						drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
 					}
 					break;
@@ -934,8 +923,8 @@ b8 Drone::hit_target(Entity* target)
 	if (hit_targets.length < hit_targets.capacity())
 		hit_targets.add(target);
 
-	if (current_ability == Ability::None && get<Health>()->invincible() && target->has<Shield>())
-		get<Health>()->invincible_timer = 0.0f; // damaging a Shield cancels our invincibility
+	if (current_ability == Ability::None && get<Health>()->active_armor() && (target->has<Shield>() || target->has<ForceField>()))
+		get<Health>()->active_armor_timer = 0.0f; // damaging a Shield cancels our invincibility
 
 	if (!Game::level.local) // then we are a local player on a client
 	{
@@ -1454,7 +1443,7 @@ b8 Drone::go(const Vec3& dir)
 		if (Game::level.local)
 			DroneNet::ability_spawn(this, dir_normalized, a);
 		else if (a == Ability::ActiveArmor)
-			get<Health>()->invincible_timer = ACTIVE_ARMOR_TIME; // client-side prediction; show invincibility sparkles instantly
+			get<Health>()->active_armor_timer = ACTIVE_ARMOR_TIME; // client-side prediction; show invincibility sparkles instantly
 		else if (a == Ability::Bolter)
 		{
 			// client-side prediction; create fake bolt
@@ -2367,7 +2356,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 
 		Vec3 p;
 		// do rewinding, unless we're checking collisions between two players on the same client
-		if (state_frame && !players_on_same_client(entity(), i.item()->entity()))
+		if (state_frame && !PlayerHuman::players_on_same_client(entity(), i.item()->entity()))
 		{
 			Vec3 pos;
 			Quat rot;
@@ -2415,8 +2404,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 
 				if (!already_hit)
 				{
-					if ((hit.entity.ref()->has<Drone>() && hit.entity.ref()->get<Drone>()->state() != Drone::State::Crawl && state() != State::Crawl) // it's flying or dashing; always bounce off
-						|| hit.entity.ref()->get<Health>()->invincible()) // it's invincible; always bounce off
+					if (!hit.entity.ref()->get<Health>()->can_take_damage()) // it's invincible; always bounce off
 						stop = true;
 					else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()))
 						stop = true; // it has health or shield to spare; we'll bounce off
@@ -2464,22 +2452,10 @@ r32 Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 				hit_target(hit.entity.ref());
 			else if (hit.type == Hit::Type::Shield)
 			{
-				b8 do_reflect;
-				if (!Game::level.local && has<PlayerControlHuman>() && get<PlayerControlHuman>()->local())
-				{
-					// client-side prediction
-					do_reflect = hit_target(hit.entity.ref())
-						&& (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()) // will they still be alive after we hit them? if so, reflect
-							|| ((hit.entity.ref()->has<Drone>() && hit.entity.ref()->get<Drone>()->state() != State::Crawl && s != State::Crawl) || hit.entity.ref()->get<Health>()->invincible()));
-				}
-				else
-				{
-					// server
-					do_reflect = hit_target(hit.entity.ref()) // go through them if we've already hit them once on this flight
-						&& hit.entity.ref()
-						&& hit.entity.ref()->get<Health>()->total() > 0; // if we didn't destroy them, then bounce off
-				}
-				if (do_reflect
+				b8 target_will_still_be_alive = hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()) // will they still be alive after we hit them? if so, reflect
+					|| !hit.entity.ref()->get<Health>()->can_take_damage();
+				if (hit_target(hit.entity.ref())
+					&& target_will_still_be_alive
 					&& i == hits.index_end // make sure this is the hit we thought we would stop on
 					&& s != State::Crawl) // make sure we're flying or dashing
 					reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);

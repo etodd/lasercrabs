@@ -43,7 +43,7 @@ DroneEntity::DroneEntity(AI::Team team)
 	create<Transform>();
 	create<Drone>();
 	create<AIAgent>()->team = team;
-	create<Health>(DRONE_HEALTH, DRONE_HEALTH, Game::session.config.drone_shield, Game::session.config.drone_shield)->invincible_timer = DRONE_INVINCIBLE_TIME;
+	create<Health>(DRONE_HEALTH, DRONE_HEALTH, Game::session.config.drone_shield, Game::session.config.drone_shield)->active_armor_timer = DRONE_INVINCIBLE_TIME;
 	create<Shield>();
 
 	SkinnedModel* model = create<SkinnedModel>();
@@ -120,7 +120,7 @@ b8 Health::net_msg(Net::StreamRead* p)
 }
 
 // only called on server
-b8 send_health_event(Health* h, HealthEvent* e)
+b8 health_send_event(Health* h, HealthEvent* e)
 {
 	using Stream = Net::StreamWrite;
 	Net::StreamWrite* p = Net::msg_new(Net::MessageType::Health);
@@ -134,6 +134,46 @@ b8 send_health_event(Health* h, HealthEvent* e)
 	Net::msg_finalize(p);
 
 	return true;
+}
+
+void health_internal_apply_damage(Health* h, Entity* e, s8 damage)
+{
+	vi_assert(Game::level.local);
+	vi_assert(h->can_take_damage());
+
+	s8 shield_value = h->shield;
+
+	if (h->has<Drone>() && h->get<Drone>()->current_ability == Ability::Sniper) // shield is down while sniping
+		shield_value = 0;
+
+	s8 damage_accumulator = damage;
+	s8 damage_shield;
+	if (damage_accumulator > shield_value)
+	{
+		damage_shield = shield_value;
+		damage_accumulator -= shield_value;
+	}
+	else
+	{
+		damage_shield = damage_accumulator;
+		damage_accumulator = 0;
+	}
+
+	s8 damage_hp;
+	if (damage_accumulator > h->hp)
+		damage_hp = h->hp;
+	else
+		damage_hp = damage_accumulator;
+
+	h->regen_timer = SHIELD_REGEN_TIME + SHIELD_REGEN_DELAY;
+
+	HealthEvent ev =
+	{
+		e,
+		s8(-damage_hp),
+		s8(-damage_shield),
+	};
+	health_send_event(h, &ev);
 }
 
 void Health::update_server(const Update& u)
@@ -153,15 +193,28 @@ void Health::update_server(const Update& u)
 					0,
 					1,
 				};
-				send_health_event(this, &e);
+				health_send_event(this, &e);
 			}
+		}
+	}
+
+	for (s32 i = 0; i < damage_buffer.length; i++)
+	{
+		BufferedDamage* entry = &damage_buffer[i];
+		entry->delay -= u.time.delta;
+		if (entry->delay < 0.0f) // IT'S TIME
+		{
+			if (can_take_damage() && entry->source.ref())
+				health_internal_apply_damage(this, entry->source.ref(), entry->damage);
+			damage_buffer.remove(i);
+			i--;
 		}
 	}
 }
 
 void Health::update_client(const Update& u)
 {
-	invincible_timer = vi_max(0.0f, invincible_timer - u.time.delta);
+	active_armor_timer = vi_max(0.0f, active_armor_timer - u.time.delta);
 }
 
 void Shield::awake()
@@ -239,7 +292,7 @@ void Shield::update_client_all(const Update& u)
 
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->get<Health>()->invincible())
+			if (i.item()->get<Health>()->active_armor())
 			{
 				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 				for (s32 j = 0; j < particles; j++)
@@ -360,42 +413,21 @@ void Shield::update_client(const Update& u)
 void Health::damage(Entity* e, s8 damage)
 {
 	vi_assert(Game::level.local);
-	vi_assert(!invincible());
+	vi_assert(can_take_damage());
 	if (hp > 0 && damage > 0)
 	{
-		s8 shield_value = shield;
-
-		if (has<Drone>() && get<Drone>()->current_ability == Ability::Sniper) // shield is down while sniping
-			shield_value = 0;
-
-		s8 damage_accumulator = damage;
-		s8 damage_shield;
-		if (damage_accumulator > shield_value)
+		if (has<PlayerControlHuman>() && !get<PlayerControlHuman>()->local() // we are a remote player
+			&& (!e->has<PlayerControlHuman>() || !PlayerHuman::players_on_same_client(entity(), e))) // the attacker is remote from the player
 		{
-			damage_shield = shield_value;
-			damage_accumulator -= shield_value;
+			// do damage buffering
+			BufferedDamage entry;
+			entry.source = e;
+			entry.damage = damage;
+			entry.delay = Net::rtt(get<PlayerControlHuman>()->player.ref()) + Net::tick_rate();
+			damage_buffer.add(entry);
 		}
-		else
-		{
-			damage_shield = damage_accumulator;
-			damage_accumulator = 0;
-		}
-
-		s8 damage_hp;
-		if (damage_accumulator > hp)
-			damage_hp = hp;
-		else
-			damage_hp = damage_accumulator;
-
-		regen_timer = SHIELD_REGEN_TIME + SHIELD_REGEN_DELAY;
-
-		HealthEvent ev =
-		{
-			e,
-			s8(-damage_hp),
-			s8(-damage_shield),
-		};
-		send_health_event(this, &ev);
+		else // apply damage immediately
+			health_internal_apply_damage(this, e, damage);
 	}
 }
 
@@ -427,7 +459,7 @@ void Health::add(s8 amount)
 			amount,
 			0,
 		};
-		send_health_event(this, &e);
+		health_send_event(this, &e);
 	}
 }
 
@@ -436,16 +468,27 @@ s8 Health::total() const
 	return hp + shield;
 }
 
-b8 Health::invincible() const
+b8 Health::active_armor() const
 {
 	if (has<CoreModule>())
-		return invincible_timer > 0.0f || Turret::list.count() > 0 || Game::level.mode != Game::Mode::Pvp;
+		return active_armor_timer > 0.0f || Turret::list.count() > 0 || Game::level.mode != Game::Mode::Pvp;
 	else if (has<ForceField>())
-		return invincible_timer > 0.0f || (get<ForceField>()->flags & ForceField::FlagPermanent);
+		return active_armor_timer > 0.0f || (get<ForceField>()->flags & ForceField::FlagPermanent);
 	else if (has<Turret>() && !Game::level.has_feature(Game::FeatureLevel::Turrets))
 		return true;
 	else
-		return invincible_timer > 0.0f;
+		return active_armor_timer > 0.0f;
+}
+
+b8 Health::can_take_damage() const
+{
+	if (active_armor())
+		return false;
+
+	if (has<Drone>())
+		return get<Drone>()->state() == Drone::State::Crawl && !UpgradeStation::drone_inside(get<Drone>());
+	else
+		return true;
 }
 
 BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
@@ -1322,7 +1365,7 @@ void Turret::set_team(AI::Team t)
 
 void Turret::hit_by(const TargetEvent& e)
 {
-	if (!get<Health>()->invincible())
+	if (get<Health>()->can_take_damage())
 		get<Health>()->damage(e.hit_by, 2);
 }
 
@@ -1910,7 +1953,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 			&& hit_object->get<Drone>()->state() != Drone::State::Crawl) // the drone is flying or dashing; it's invincible to minions and turrets
 			damage = 0;
 
-		if (hit_object->get<Health>()->invincible())
+		if (hit_object->get<Health>()->active_armor())
 		{
 			damage = 0;
 			if (hit_object->has<Shield>())
@@ -2184,7 +2227,7 @@ void Grenade::explode()
 
 	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 	{
-		if (!i.item()->invincible() && (!i.item()->has<Drone>() || !UpgradeStation::drone_inside(i.item()->get<Drone>())))
+		if (i.item()->can_take_damage())
 		{
 			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 			if (i.item()->has<ForceField>() || ForceField::hash(my_team, pos) == my_hash)

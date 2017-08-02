@@ -769,7 +769,6 @@ b8 drone_find_filter(const PlayerControlAI* control, const Entity* e)
 {
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& !e->get<AIAgent>()->stealth
-		&& !e->get<Health>()->invincible()
 		&& (e->get<Health>()->shield <= control->get<Health>()->shield);
 }
 
@@ -778,7 +777,7 @@ b8 drone_react_filter(const PlayerControlAI* control, const Entity* e)
 	if (!drone_find_filter(control, e))
 		return false;
 
-	if (e->get<Health>()->invincible() && mersenne::randf_co() > 0.5f)
+	if (!e->get<Health>()->can_take_damage() && mersenne::randf_co() > 0.5f)
 		return false;
 
 	return !e->has<Drone>() || e->get<Drone>()->state() == Drone::State::Crawl;

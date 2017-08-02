@@ -130,6 +130,17 @@ void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, r32 offset)
 	}
 }
 
+b8 PlayerHuman::players_on_same_client(const Entity* a, const Entity* b)
+{
+#if SERVER
+	return a->has<PlayerControlHuman>()
+		&& b->has<PlayerControlHuman>()
+		&& Net::Server::client_id(a->get<PlayerControlHuman>()->player.ref()) == Net::Server::client_id(b->get<PlayerControlHuman>()->player.ref());
+#else
+	return true;
+#endif
+}
+
 s32 PlayerHuman::count_local()
 {
 	s32 count = 0;
@@ -1311,17 +1322,18 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 		}
 	}
 
-	UIText text;
-	text.size = text_size;
-	r32 wrap = text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
-	text.anchor_x = UIText::Anchor::Center;
-	text.anchor_y = UIText::Anchor::Max;
-	text.color = UI::color_default;
-
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Team::match_state == Team::MatchState::Active)
 		match_timer_draw(params, p, UIText::Anchor::Center);
-	p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+
+	UIText text;
+	text.size = text_size;
+	r32 width = MENU_ITEM_WIDTH * 1.25f;
+	text.anchor_x = UIText::Anchor::Min;
+	text.anchor_y = UIText::Anchor::Min;
+	text.color = UI::color_default;
+	p.y += text.bounds().y + MENU_ITEM_PADDING * -3.0f;
+	p.x += width * -0.5f;
 
 	// "deploying..."
 	if (!manager->instance.ref() && manager->respawns != 0)
@@ -1342,7 +1354,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 		else
 			string = strings::waiting;
 		text.text(0, _(string), s32(manager->spawn_timer + 1));
-		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+		UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 	}
@@ -1352,13 +1364,10 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 		// show remaining drones label
 		text.text(0, _(strings::drones_remaining));
 		text.color = UI::color_accent();
-		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+		UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 	}
-
-	// show player list
-	p.x += wrap * -0.5f;
 
 	// sort by team
 	AI::Team team_mine = manager->team.ref()->team();
@@ -1369,13 +1378,12 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 		{
 			const Team& team_ref = Team::list[team];
 
-			text.wrap_width = wrap;
 			text.anchor_x = UIText::Anchor::Min;
 			text.color = Team::ui_color(manager->team.ref()->team(), team);
+			PlayerManager* player = nullptr;
 			if (team_ref.player_count() == 1)
 			{
 				// use the only player's username
-				PlayerManager* player = nullptr;
 				for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 				{
 					if (i.item()->team.ref()->team() == team)
@@ -1392,13 +1400,22 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 				static const AssetID team_names[MAX_TEAMS] = { strings::team_a, strings::team_b, strings::team_c, strings::team_d };
 				text.text_raw(0, _(team_names[team]));
 			}
-			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+			UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, p);
 
+			// ping
+			if (!Game::level.local && player && player->has<PlayerHuman>()) // todo: fake ping for ai players
+			{
+				r32 rtt = Net::rtt(player->get<PlayerHuman>());
+				text.anchor_x = UIText::Anchor::Max;
+				text.color = UI::color_ping(rtt);
+				text.text(0, _(strings::ping), s32(rtt * 1000.0f));
+				text.draw(params, p + Vec2(width * 0.75f, 0));
+			}
+
 			text.anchor_x = UIText::Anchor::Max;
-			text.wrap_width = 0;
 			text.text(0, "%d", s32(team_ref.kills));
-			text.draw(params, p + Vec2(wrap, 0));
+			text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
 
 			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 		}
@@ -1408,17 +1425,25 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 			{
 				if (i.item()->team.ref()->team() == team)
 				{
-					text.wrap_width = wrap;
 					text.anchor_x = UIText::Anchor::Min;
 					text.color = Team::ui_color(manager->team.ref()->team(), i.item()->team.ref()->team());
 					text.text_raw(0, i.item()->username);
-					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+					UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
 					text.draw(params, p);
+
+					if (!Game::level.local && i.item()->has<PlayerHuman>()) // todo: fake ping for ai players
+					{
+						r32 rtt = Net::rtt(i.item()->get<PlayerHuman>());
+						text.anchor_x = UIText::Anchor::Min;
+						text.color = UI::color_ping(rtt);
+						text.text(0, _(strings::ping), s32(rtt * 1000.0f));
+						text.draw(params, p + Vec2(width * 0.75f, 0));
+					}
 
 					text.anchor_x = UIText::Anchor::Max;
 					text.wrap_width = 0;
 					text.text(0, "%d", s32(i.item()->respawns) + (i.item()->instance.ref() ? 1 : 0));
-					text.draw(params, p + Vec2(wrap, 0));
+					text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
 
 					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 				}
@@ -2214,7 +2239,7 @@ void PlayerControlHuman::drone_done_flying_or_dashing()
 {
 	camera_shake_timer = 0.0f; // stop screen shake
 #if SERVER
-	if (!get<Health>()->invincible())
+	if (get<Health>()->can_take_damage())
 	{
 		AI::RecordedLife::Action action;
 		action.type = AI::RecordedLife::Action::TypeMove;
@@ -3343,7 +3368,7 @@ void PlayerControlHuman::update(const Update& u)
 			if (ai_record_wait_timer < 0.0f)
 			{
 				ai_record_wait_timer += AI_RECORD_WAIT_TIME;
-				if (!get<Health>()->invincible())
+				if (get<Health>()->can_take_damage())
 				{
 					AI::RecordedLife::Action action;
 					action.type = AI::RecordedLife::Action::TypeWait;
@@ -4246,7 +4271,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 	const Health* health = get<Health>();
 
-	b8 is_vulnerable = !get<AIAgent>()->stealth && !get<Health>()->invincible() && health->hp == 1 && health->shield == 0 && Game::session.config.drone_shield > 0;
+	b8 is_vulnerable = !get<AIAgent>()->stealth && get<Health>()->can_take_damage() && health->hp == 1 && health->shield == 0 && Game::session.config.drone_shield > 0;
 
 	// compass
 	{

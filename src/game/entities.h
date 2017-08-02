@@ -32,10 +32,18 @@ struct HealthEvent
 
 struct Health : public ComponentType<Health>
 {
+	struct BufferedDamage
+	{
+		r32 delay;
+		Ref<Entity> source;
+		s8 damage;
+	};
+
 	static b8 net_msg(Net::StreamRead*);
 
-	r32 invincible_timer;
+	r32 active_armor_timer;
 	r32 regen_timer;
+	Array<BufferedDamage> damage_buffer;
 	LinkArg<const HealthEvent&> changed;
 	LinkArg<Entity*> killed;
 	s8 shield;
@@ -54,7 +62,8 @@ struct Health : public ComponentType<Health>
 	void kill(Entity*);
 	void add(s8);
 	s8 total() const;
-	b8 invincible() const;
+	b8 active_armor() const;
+	b8 can_take_damage() const;
 };
 
 struct Shield : public ComponentType<Shield>

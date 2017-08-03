@@ -21,8 +21,7 @@ namespace Settings
 {
 	Gamepad gamepads[MAX_GAMEPADS];
 	ShadowQuality shadow_quality;
-	s32 width;
-	s32 height;
+	s32 display_mode_index;
 	s32 framerate_limit;
 	s32 secret;
 	char master_server[MAX_PATH_LENGTH + 1];
@@ -39,6 +38,11 @@ namespace Settings
 	b8 subtitles;
 	b8 ssao;
 	b8 record;
+
+	const DisplayMode& display()
+	{
+		return Loader::display_modes[display_mode_index];
+	}
 }
 
 Array<Loader::Entry<Mesh> > Loader::meshes;
@@ -53,6 +57,7 @@ Array<Loader::Entry<s8> > Loader::framebuffers;
 #if !SERVER
 Array<Loader::Entry<AkBankID> > Loader::soundbanks;
 #endif
+Array<DisplayMode> Loader::display_modes;
 
 s32 Loader::compiled_level_count;
 s32 Loader::compiled_static_mesh_count;
@@ -200,7 +205,7 @@ cJSON* input_binding_json(const InputBinding& binding, const InputBinding& defau
 		return nullptr;
 }
 
-void Loader::settings_load(s32 default_width, s32 default_height)
+void Loader::settings_load(const Array<DisplayMode>& modes)
 {
 	char path[MAX_PATH_LENGTH + 1];
 	user_data_path(path, config_filename);
@@ -211,8 +216,40 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		json = nullptr;
 	}
 
-	Settings::width = Json::get_s32(json, "width", default_width);
-	Settings::height = Json::get_s32(json, "height", default_height);
+	// resolution
+	{
+		{
+			DisplayMode largest = {};
+			for (s32 i = 0; i < modes.length; i++)
+			{
+				const DisplayMode& mode = modes[i];
+				display_modes.add(mode);
+				if (mode.width * mode.height > largest.width * largest.height)
+				{
+					largest = mode;
+					Settings::display_mode_index = i;
+				}
+			}
+		}
+
+		DisplayMode saved_display_mode =
+		{
+			Json::get_s32(json, "width"),
+			Json::get_s32(json, "height"),
+		};
+
+		// check if saved resolution is actually valid
+		for (s32 i = 0; i < modes.length; i++)
+		{
+			const DisplayMode& mode = modes[i];
+			if (mode.width == saved_display_mode.width && mode.height == saved_display_mode.height)
+			{
+				Settings::display_mode_index = i;
+				break;
+			}
+		}
+	}
+
 	s32 default_fullscreen;
 #if _WIN32
 	default_fullscreen = 0;
@@ -287,8 +324,8 @@ void Loader::settings_save()
 #else
 	cJSON_AddStringToObject(json, "username", Settings::username);
 	cJSON_AddNumberToObject(json, "framerate_limit", Settings::framerate_limit);
-	cJSON_AddNumberToObject(json, "width", Settings::width);
-	cJSON_AddNumberToObject(json, "height", Settings::height);
+	cJSON_AddNumberToObject(json, "width", Settings::display().width);
+	cJSON_AddNumberToObject(json, "height", Settings::display().height);
 	cJSON_AddNumberToObject(json, "fullscreen", Settings::fullscreen);
 	cJSON_AddNumberToObject(json, "vsync", Settings::vsync);
 	cJSON_AddNumberToObject(json, "sfx", Settings::sfx);

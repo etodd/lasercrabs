@@ -91,6 +91,15 @@ namespace VI
 		}
 	}
 
+	s32 vsync_set(b8 vsync)
+	{
+		if (SDL_GL_SetSwapInterval(vsync ? 1 : 0) != 0)
+		{
+			fprintf(stderr, "Failed to set OpenGL swap interval: %s\n", SDL_GetError());
+			return -1;
+		}
+	}
+
 	s32 proc()
 	{
 		{
@@ -110,7 +119,7 @@ namespace VI
 		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
 #endif
 
-		// Initialize SDL
+		// initialize SDL
 		if (SDL_Init(
 			SDL_INIT_VIDEO
 			| SDL_INIT_EVENTS
@@ -134,9 +143,28 @@ namespace VI
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
 
 		{
-			SDL_DisplayMode display;
-			SDL_GetDesktopDisplayMode(0, &display);
-			Loader::settings_load(display.w, display.h);
+			Array<DisplayMode> modes;
+			for (s32 i = SDL_GetNumDisplayModes(0) - 1; i >= 0; i--)
+			{
+				SDL_DisplayMode mode;
+				SDL_GetDisplayMode(0, i, &mode);
+
+				// check for duplicates; could have multiple display modes with same resolution but different refresh rate
+				b8 unique = true;
+				for (s32 j = 0; j < modes.length; j++)
+				{
+					const DisplayMode& other = modes[j];
+					if (other.width == mode.w && other.height == mode.h)
+					{
+						unique = false;
+						break;
+					}
+				}
+				
+				if (unique)
+					modes.add({ mode.w, mode.h });
+			}
+			Loader::settings_load(modes);
 		}
 
 		if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0)
@@ -150,7 +178,7 @@ namespace VI
 			"Deceiver",
 			0,
 			0,
-			Settings::width, Settings::height,
+			Settings::display().width, Settings::display().height,
 			SDL_WINDOW_OPENGL
 			| SDL_WINDOW_SHOWN
 			| SDL_WINDOW_INPUT_GRABBED
@@ -165,7 +193,7 @@ namespace VI
 		SDL_SetWindowGrab(window, SDL_TRUE);
 #endif
 
-		// Open a window and create its OpenGL context
+		// open a window and create its OpenGL context
 		if (!window)
 		{
 			fprintf(stderr, "Failed to open SDL window. Most likely your GPU is out of date! %s\n", SDL_GetError());
@@ -180,14 +208,11 @@ namespace VI
 			return -1;
 		}
 
-		if (SDL_GL_SetSwapInterval(Settings::vsync ? 1 : 0) != 0)
-		{
-			fprintf(stderr, "Failed to set OpenGL swap interval: %s\n", SDL_GetError());
+		if (vsync_set(Settings::vsync))
 			return -1;
-		}
 
 		{
-			glewExperimental = true; // Needed for core profile
+			glewExperimental = true; // needed for core profile
 
 			GLenum glew_result = glewInit();
 			if (glew_result != GLEW_OK)
@@ -197,11 +222,15 @@ namespace VI
 			}
 		}
 
-		glGetError(); // Clear initial error caused by GLEW
+		DisplayMode resolution_current = Settings::display();
+		b8 resolution_current_fullscreen = Settings::fullscreen;
+		b8 resolution_current_vsync = Settings::vsync;
+
+		glGetError(); // clear initial error caused by GLEW
 
 		render_init();
 
-		// Launch threads
+		// launch threads
 
 		Sync<LoopSync> render_sync;
 
@@ -233,6 +262,50 @@ namespace VI
 
 		while (true)
 		{
+			{
+				// display mode
+				const DisplayMode& desired = sync->display_mode;
+				if (desired.width != 0) // we're getting actual valid data from the update thread
+				{
+					if (sync->fullscreen != resolution_current_fullscreen)
+					{
+						if (SDL_SetWindowFullscreen(window, sync->fullscreen ? SDL_WINDOW_FULLSCREEN : 0))
+						{
+							fprintf(stderr, "Failed to set fullscreen mode: %s\n", SDL_GetError());
+							return -1;
+						}
+						resolution_current_fullscreen = sync->fullscreen;
+					}
+
+					if (sync->vsync != resolution_current_vsync)
+					{
+						if (vsync_set(sync->vsync))
+							return -1;
+						resolution_current_vsync = sync->vsync;
+					}
+
+					if (desired.width != resolution_current.width || desired.height != resolution_current.height)
+					{
+						SDL_DisplayMode new_mode = {};
+						for (s32 i = 0; i < SDL_GetNumDisplayModes(0); i++)
+						{
+							SDL_DisplayMode m;
+							SDL_GetDisplayMode(0, i, &m);
+							if (m.w == desired.width && m.h == desired.height && m.refresh_rate > new_mode.refresh_rate)
+								new_mode = m;
+						}
+
+						vi_assert(new_mode.w == desired.width && new_mode.h == desired.height);
+						if (sync->fullscreen)
+							SDL_SetWindowDisplayMode(window, &new_mode);
+						else
+							SDL_SetWindowSize(window, new_mode.w, new_mode.h);
+
+						resolution_current = desired;
+					}
+				}
+			}
+
 			render(sync);
 
 			// swap buffers
@@ -244,8 +317,8 @@ namespace VI
 			// screenshot
 			if (sync->input.keys.get(s32(KeyCode::F11)) && !sdl_keys[s32(KeyCode::F11)])
 			{
-				s32 w = sync->input.width;
-				s32 h = sync->input.height;
+				s32 w = Settings::display().width;
+				s32 h = Settings::display().height;
 				std::vector<unsigned char> data;
 				data.resize(w * h * 4);
 
@@ -387,8 +460,6 @@ namespace VI
 					active_gamepads++;
 				}
 			}
-
-			SDL_GetWindowSize(window, &sync->input.width, &sync->input.height);
 
 			r64 time = (SDL_GetTicks() / 1000.0);
 			sync->time.total = r32(time);

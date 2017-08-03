@@ -1,8 +1,10 @@
 #pragma once
 #include "input.h"
+#include "render/render.h"
 
 namespace VI
 {
+
 
 namespace Settings
 {
@@ -24,8 +26,6 @@ namespace Settings
 	// defined in load.cpp
 	extern Gamepad gamepads[MAX_GAMEPADS];
 	extern s32 framerate_limit;
-	extern s32 width;
-	extern s32 height;
 	extern s32 secret;
 	extern char master_server[MAX_PATH_LENGTH + 1];
 	extern char username[MAX_USERNAME + 1];
@@ -42,6 +42,9 @@ namespace Settings
 	extern b8 scan_lines;
 	extern b8 record;
 	extern b8 ssao;
+	extern s32 display_mode_index;
+
+	const DisplayMode& display();
 };
 
 

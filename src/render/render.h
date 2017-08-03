@@ -10,6 +10,12 @@ namespace VI
 {
 
 
+struct DisplayMode
+{
+	s32 width;
+	s32 height;
+};
+
 enum class AlphaMode : s8
 {
 	Opaque,
@@ -103,7 +109,7 @@ struct Camera
 			flags &= ~flag;
 	}
 
-	void perspective(r32, r32, r32, r32);
+	void perspective(r32, r32, r32);
 	void orthographic(r32, r32, r32, r32);
 	b8 visible_sphere(const Vec3&, r32) const;
 	void update_frustum();
@@ -120,6 +126,9 @@ struct LoopSync : RenderSync
 	b8 quit;
 	GameTime time;
 	InputState input;
+	DisplayMode display_mode;
+	b8 vsync;
+	b8 fullscreen;
 };
 
 typedef Sync<LoopSync>::Swapper LoopSwapper;

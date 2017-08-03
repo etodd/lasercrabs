@@ -129,8 +129,6 @@ namespace VI
 		static r32 inactive_timer;
 		static r32 physics_timestep;
 		static r32 schedule_timer;
-		static s32 width;
-		static s32 height;
 		static Mode scheduled_mode;
 		static AssetID scheduled_load_level;
 		static AssetID scheduled_dialog;

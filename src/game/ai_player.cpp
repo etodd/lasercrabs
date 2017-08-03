@@ -1418,10 +1418,11 @@ void PlayerControlAI::update(const Update& u)
 	Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
 	Camera::ViewportBlueprint* blueprint = &viewports[PlayerHuman::count_local() + player.id];
 
+	const DisplayMode& display = Settings::display();
 	camera.ref()->viewport =
 	{
-		Vec2(s32(blueprint->x * r32(u.input->width)), s32(blueprint->y * r32(u.input->height))),
-		Vec2(s32(blueprint->w * r32(u.input->width)), s32(blueprint->h * r32(u.input->height))),
+		Vec2(s32(blueprint->x * r32(display.width)), s32(blueprint->y * r32(display.height))),
+		Vec2(s32(blueprint->w * r32(display.width)), s32(blueprint->h * r32(display.height))),
 	};
 	r32 aspect = camera.ref()->viewport.size.y == 0 ? 1 : camera.ref()->viewport.size.x / camera.ref()->viewport.size.y;
 	camera.ref()->perspective(80.0f * PI * 0.5f / 180.0f, aspect, 0.02f, Game::level.skybox.far_plane);

@@ -66,8 +66,6 @@ namespace VI
 {
 
 b8 Game::quit = false;
-s32 Game::width;
-s32 Game::height;
 GameTime Game::time;
 GameTime Game::real_time;
 r32 Game::physics_timestep;
@@ -317,9 +315,6 @@ void Game::auth_failed()
 
 void Game::update(const Update& update_in)
 {
-	width = update_in.input->width;
-	height = update_in.input->height;
-
 	real_time = update_in.time;
 	time.delta = update_in.time.delta * session.effective_time_scale();
 

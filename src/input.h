@@ -337,8 +337,6 @@ struct InputState
 	Gamepad gamepads[MAX_GAMEPADS];
 	s32 cursor_x;
 	s32 cursor_y;
-	s32 width;
-	s32 height;
 	b8 focus;
 
 	b8 get(Controls, s32) const;

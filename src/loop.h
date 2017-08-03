@@ -55,8 +55,7 @@ const s32 shadow_map_size[s32(Settings::ShadowQuality::count)][SHADOW_MAP_CASCAD
 };
 
 Settings::ShadowQuality shadow_quality_current = Settings::ShadowQuality::count;
-s32 resolution_current_width;
-s32 resolution_current_height;
+DisplayMode resolution_current;
 AssetID g_albedo_buffer;
 AssetID g_normal_buffer;
 AssetID g_depth_buffer;
@@ -292,7 +291,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 				Vec2(0, 0),
 				Vec2(shadow_map_size[s32(Settings::shadow_quality)][0], shadow_map_size[s32(Settings::shadow_quality)][0]),
 			};
-			shadow_camera.perspective(light->fov, 1.0f, 0.1f, light->radius);
+			shadow_camera.perspective(light->fov, 0.1f, light->radius);
 			shadow_camera.pos = abs_pos;
 			shadow_camera.rot = abs_rot;
 			render_shadows(sync, shadow_fbo[0], *render_params.camera, shadow_camera);
@@ -495,14 +494,14 @@ void draw(LoopSync* sync, const Camera* camera)
 
 	const Vec3* frustum = render_params.camera->frustum_rays;
 
-	Vec2 buffer_size(sync->input.width, sync->input.height);
+	Vec2 buffer_size(Settings::display().width, Settings::display().height);
 	Vec2 inv_buffer_size = 1.0f / buffer_size;
 	Vec2 inv_half_buffer_size = inv_buffer_size * 2.0f;
 
 	Rect2 screen_quad_uv =
 	{
-		camera->viewport.pos / Vec2(sync->input.width, sync->input.height),
-		camera->viewport.size / Vec2(sync->input.width, sync->input.height),
+		camera->viewport.pos / Vec2(Settings::display().width, Settings::display().height),
+		camera->viewport.size / Vec2(Settings::display().width, Settings::display().height),
 	};
 	Game::screen_quad.set
 	(
@@ -1539,30 +1538,29 @@ void draw(LoopSync* sync, const Camera* camera)
 	sync->write(true);
 }
 
-void resolution_apply(s32 width, s32 height)
+void resolution_apply(const DisplayMode& mode)
 {
-	if (width != resolution_current_width || height != resolution_current_height)
+	if (mode.width != resolution_current.width || mode.height != resolution_current.height)
 	{
-		Loader::dynamic_texture_redefine(g_albedo_buffer, width, height, RenderDynamicTextureType::Color);
-		Loader::dynamic_texture_redefine(g_normal_buffer, width, height, RenderDynamicTextureType::Color);
-		Loader::dynamic_texture_redefine(g_depth_buffer, width, height, RenderDynamicTextureType::Depth);
+		Loader::dynamic_texture_redefine(g_albedo_buffer, mode.width, mode.height, RenderDynamicTextureType::Color);
+		Loader::dynamic_texture_redefine(g_normal_buffer, mode.width, mode.height, RenderDynamicTextureType::Color);
+		Loader::dynamic_texture_redefine(g_depth_buffer, mode.width, mode.height, RenderDynamicTextureType::Depth);
 
-		Loader::dynamic_texture_redefine(ui_buffer, width, height, RenderDynamicTextureType::ColorMultisample);
-		Loader::dynamic_texture_redefine(ui_depth_buffer, width, height, RenderDynamicTextureType::DepthMultisample);
+		Loader::dynamic_texture_redefine(ui_buffer, mode.width, mode.height, RenderDynamicTextureType::ColorMultisample);
+		Loader::dynamic_texture_redefine(ui_depth_buffer, mode.width, mode.height, RenderDynamicTextureType::DepthMultisample);
 
-		Loader::dynamic_texture_redefine(color1_buffer, width, height, RenderDynamicTextureType::Color);
-		Loader::dynamic_texture_redefine(color2_buffer, width, height, RenderDynamicTextureType::Color);
-		Loader::dynamic_texture_redefine(color2_depth_buffer, width, height, RenderDynamicTextureType::Depth);
+		Loader::dynamic_texture_redefine(color1_buffer, mode.width, mode.height, RenderDynamicTextureType::Color);
+		Loader::dynamic_texture_redefine(color2_buffer, mode.width, mode.height, RenderDynamicTextureType::Color);
+		Loader::dynamic_texture_redefine(color2_depth_buffer, mode.width, mode.height, RenderDynamicTextureType::Depth);
 
-		Loader::dynamic_texture_redefine(lighting_buffer, width, height, RenderDynamicTextureType::Color);
+		Loader::dynamic_texture_redefine(lighting_buffer, mode.width, mode.height, RenderDynamicTextureType::Color);
 
-		Loader::dynamic_texture_redefine(half_buffer1, width / 2, height / 2, RenderDynamicTextureType::Color);
-		Loader::dynamic_texture_redefine(half_depth_buffer, width / 2, height / 2, RenderDynamicTextureType::Depth);
-		Loader::dynamic_texture_redefine(half_buffer2, width / 2, height / 2, RenderDynamicTextureType::Color, RenderTextureWrap::Clamp, RenderTextureFilter::Linear);
-
-		resolution_current_width = width;
-		resolution_current_height = height;
+		Loader::dynamic_texture_redefine(half_buffer1, mode.width / 2, mode.height / 2, RenderDynamicTextureType::Color);
+		Loader::dynamic_texture_redefine(half_depth_buffer, mode.width / 2, mode.height / 2, RenderDynamicTextureType::Depth);
+		Loader::dynamic_texture_redefine(half_buffer2, mode.width / 2, mode.height / 2, RenderDynamicTextureType::Color, RenderTextureWrap::Clamp, RenderTextureFilter::Linear);
 	}
+
+	resolution_current = mode;
 }
 
 void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
@@ -1600,7 +1598,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 	half_depth_buffer = Loader::dynamic_texture_permanent();
 	half_buffer2 = Loader::dynamic_texture_permanent();
 
-	resolution_apply(sync_render->input.width, sync_render->input.height);
+	resolution_apply(Settings::display());
 	shadow_quality_apply();
 
 	g_fbo = Loader::framebuffer_permanent(3);
@@ -1695,7 +1693,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 		swapper_physics->done<SwapType_Write>();
 
 #if !SERVER
-		resolution_apply(sync_render->input.width, sync_render->input.height);
+		resolution_apply(Settings::display());
 		shadow_quality_apply();
 
 		sync_render->write(RenderOp::Clear);
@@ -1710,6 +1708,9 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 #endif
 
 		sync_render->quit |= Game::quit;
+		sync_render->display_mode = Settings::display();
+		sync_render->fullscreen = Settings::fullscreen;
+		sync_render->vsync = Settings::vsync;
 
 		memcpy(&last_input, &sync_render->input, sizeof(last_input));
 

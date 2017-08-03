@@ -6,6 +6,7 @@
 #include "asset/font.h"
 #include "game/game.h"
 #include "game/overworld.h"
+#include "settings.h"
 
 namespace VI
 {
@@ -990,7 +991,7 @@ void UI::init(LoopSync* sync)
 	sync->write<s32>(6);
 	sync->write(indices, 6);
 
-	scale = get_scale(sync->input.width, sync->input.height);
+	scale = get_scale(Settings::display().width, Settings::display().height);
 }
 
 r32 UI::get_scale(s32 width, s32 height)

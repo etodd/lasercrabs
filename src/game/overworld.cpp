@@ -2200,7 +2200,8 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 			{
 				Game::save.resources[s32(r)] += delta;
 				vi_assert(Game::save.resources[s32(r)] >= 0);
-				data.story.inventory.resource_change_time[s32(r)] = Game::real_time.total;
+				if (r != Resource::Energy)
+					data.story.inventory.resource_change_time[s32(r)] = Game::real_time.total;
 			}
 			break;
 		}
@@ -3039,13 +3040,6 @@ void update(const Update& u)
 		&& Game::scheduled_load_level == AssetNull)
 	{
 		Camera* c = Camera::add(0);
-		c->viewport =
-		{
-			Vec2(0, 0),
-			Vec2(u.input->width, u.input->height),
-		};
-		r32 aspect = c->viewport.size.y == 0 ? 1 : (r32)c->viewport.size.x / (r32)c->viewport.size.y;
-		c->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
 		data.timer_transition = 0.0f;
 
 		if (Game::session.type == SessionType::Story)
@@ -3055,6 +3049,17 @@ void update(const Update& u)
 
 		show_complete();
 		data.timer_transition = 0.0f;
+	}
+
+	if (Camera* c = data.camera.ref())
+	{
+		const DisplayMode& display = Settings::display();
+		c->viewport =
+		{
+			Vec2(0, 0),
+			Vec2(display.width, display.height),
+		};
+		c->perspective((80.0f * PI * 0.5f / 180.0f), 0.1f, Game::level.skybox.far_plane);
 	}
 
 	if (data.timer_transition > 0.0f)

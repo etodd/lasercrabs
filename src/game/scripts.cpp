@@ -566,17 +566,23 @@ namespace Docks
 
 	void update_title(const Update& u)
 	{
+		if (data->camera.ref())
+		{
+			Vec3 head_pos = Vec3::zero;
+			data->character.ref()->to_world(Asset::Bone::character_head, &head_pos);
+			r32 blend = data->transition_timer > 0.0f ? vi_min(1.0f, total_transition - data->transition_timer) : 0.0f;
+			data->camera.ref()->pos = Vec3::lerp(blend, data->camera_start_pos, head_pos);
+
+			data->camera.ref()->viewport =
+			{
+				Vec2(0, 0),
+				Vec2(Settings::display().width, Settings::display().height),
+			};
+			data->camera.ref()->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), 0.1f, Game::level.skybox.far_plane);
+		}
+
 		if (data->transition_timer > 0.0f)
 		{
-			if (data->camera.ref())
-			{
-				Vec3 head_pos = Vec3::zero;
-				data->character.ref()->to_world(Asset::Bone::character_head, &head_pos);
-				r32 blend = vi_min(1.0f, total_transition - data->transition_timer);
-				data->camera.ref()->pos = Vec3::lerp(blend, data->camera_start_pos, head_pos);
-				r32 aspect = data->camera.ref()->viewport.size.y == 0 ? 1 : data->camera.ref()->viewport.size.x / data->camera.ref()->viewport.size.y;
-				data->camera.ref()->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), aspect, 0.1f, Game::level.skybox.far_plane);
-			}
 			r32 old_timer = data->transition_timer;
 			data->transition_timer = vi_max(0.0f, data->transition_timer - Game::real_time.delta);
 			if (data->transition_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
@@ -657,14 +663,6 @@ namespace Docks
 		if (Game::level.mode == Game::Mode::Special)
 		{
 			data->camera = Camera::add(0);
-
-			data->camera.ref()->viewport =
-			{
-				Vec2(0, 0),
-				Vec2(Game::width, Game::height),
-			};
-			r32 aspect = data->camera.ref()->viewport.size.y == 0 ? 1 : data->camera.ref()->viewport.size.x / data->camera.ref()->viewport.size.y;
-			data->camera.ref()->perspective(start_fov, aspect, 0.1f, Game::level.skybox.far_plane);
 
 			Quat rot;
 			entities.find("map_view")->get<Transform>()->absolute(&data->camera_start_pos, &rot);

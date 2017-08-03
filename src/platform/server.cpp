@@ -36,12 +36,20 @@ namespace VI
 			std::this_thread::sleep_for(std::chrono::milliseconds((s64)(time * 1000.0f)));
 		}
 
+		void display_mode(s32 width, s32 height, b8 fullscreen, b8 vsync)
+		{
+		}
+
 	}
 
 	s32 proc()
 	{
 		Loader::data_directory = ""; // todo
-		Loader::settings_load(0, 0);
+		{
+			Array<DisplayMode> modes;
+			modes.add({ 0, 0 });
+			Loader::settings_load(modes);
+		}
 
 		// Launch threads
 

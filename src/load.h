@@ -6,6 +6,7 @@
 #if !SERVER
 #include <AK/SoundEngine/Common/AkTypes.h>
 #endif
+#include "settings.h"
 
 struct cJSON;
 
@@ -46,6 +47,7 @@ struct Loader
 	static Array<Entry<s8> > dynamic_meshes; // nothing actually stored
 	static Array<Entry<s8> > dynamic_textures; // nothing actually stored
 	static Array<Entry<s8> > framebuffers; // nothing actually stored
+	static Array<DisplayMode> display_modes;
 #if !SERVER
 	static Array<Entry<AkBankID> > soundbanks;
 #endif
@@ -102,7 +104,7 @@ struct Loader
 	static b8 soundbank_permanent(AssetID);
 	static void soundbank_free(AssetID);
 	
-	static void settings_load(s32, s32);
+	static void settings_load(const Array<DisplayMode>&);
 	static void settings_save();
 
 	static void transients_free();

@@ -9,6 +9,7 @@
 #include "game/game.h"
 #include "game/audio.h"
 #include "asset/Wwise_IDs.h"
+#include "settings.h"
 
 namespace VI
 {
@@ -402,7 +403,7 @@ void SkyDecal::draw_alpha(const RenderParams& p)
 	sync->write<s32>(1);
 	sync->write<r32>(p.camera->far_plane * 0.75f);
 
-	Vec2 inv_buffer_size = Vec2(1.0f / r32(p.sync->input.width), 1.0f / r32(p.sync->input.height));
+	Vec2 inv_buffer_size = Vec2(1.0f / r32(Settings::display().width), 1.0f / r32(Settings::display().height));
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::uv_offset);
@@ -558,7 +559,7 @@ void Skybox::draw_alpha(const RenderParams& p)
 	sync->write<s32>(1);
 	sync->write<s32>(p.camera->flag(CameraFlagFog));
 
-	Vec2 inv_buffer_size = Vec2(1.0f / r32(p.sync->input.width), 1.0f / r32(p.sync->input.height));
+	Vec2 inv_buffer_size = Vec2(1.0f / r32(Settings::display().width), 1.0f / r32(Settings::display().height));
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::uv_offset);
@@ -706,7 +707,7 @@ void Clouds::draw_alpha(const RenderParams& p)
 		sync->write<s32>(1);
 		sync->write<r32>((config.height - p.camera->pos.y) / p.camera->far_plane);
 
-		Vec2 inv_buffer_size = Vec2(1.0f / r32(p.sync->input.width), 1.0f / r32(p.sync->input.height));
+		Vec2 inv_buffer_size = Vec2(1.0f / r32(Settings::display().width), 1.0f / r32(Settings::display().height));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::uv_offset);

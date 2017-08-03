@@ -689,10 +689,11 @@ void PlayerHuman::update(const Update& u)
 		Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
 		Camera::ViewportBlueprint* blueprint = &viewports[count_local_before(this)];
 
+		const DisplayMode& display = Settings::display();
 		camera.ref()->viewport =
 		{
-			Vec2(s32(blueprint->x * r32(u.input->width)), s32(blueprint->y * r32(u.input->height))),
-			Vec2(s32(blueprint->w * r32(u.input->width)), s32(blueprint->h * r32(u.input->height))),
+			Vec2(s32(blueprint->x * r32(display.width)), s32(blueprint->y * r32(display.height))),
+			Vec2(s32(blueprint->w * r32(display.width)), s32(blueprint->h * r32(display.height))),
 		};
 		camera.ref()->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour && !Overworld::modal());
 
@@ -702,8 +703,7 @@ void PlayerHuman::update(const Update& u)
 		{
 			if (Game::level.mode == Game::Mode::Pvp)
 			{
-				r32 aspect = camera.ref()->viewport.size.y == 0 ? 1.0f : camera.ref()->viewport.size.x / camera.ref()->viewport.size.y;
-				camera.ref()->perspective(fov_map_view, aspect, 1.0f, Game::level.skybox.far_plane);
+				camera.ref()->perspective(fov_map_view, 1.0f, Game::level.skybox.far_plane);
 				camera.ref()->range = 0;
 				if (get<PlayerManager>()->spawn_timer == 0.0f)
 				{
@@ -847,8 +847,7 @@ void PlayerHuman::update(const Update& u)
 				// noclip
 				update_camera_rotation(u);
 
-				r32 aspect = camera.ref()->viewport.size.y == 0 ? 1 : camera.ref()->viewport.size.x / camera.ref()->viewport.size.y;
-				camera.ref()->perspective(fov_map_view, aspect, 0.02f, Game::level.skybox.far_plane);
+				camera.ref()->perspective(fov_map_view, 0.02f, Game::level.skybox.far_plane);
 				camera.ref()->range = 0;
 				camera.ref()->cull_range = 0;
 
@@ -962,8 +961,7 @@ void PlayerHuman::update(const Update& u)
 				// we're dead but others still playing; spectate
 				update_camera_rotation(u);
 
-				r32 aspect = camera.ref()->viewport.size.y == 0 ? 1 : camera.ref()->viewport.size.x / camera.ref()->viewport.size.y;
-				camera.ref()->perspective(fov_default, aspect, 0.02f, Game::level.skybox.far_plane);
+				camera.ref()->perspective(fov_default, 0.02f, Game::level.skybox.far_plane);
 
 				if (PlayerCommon::list.count() > 0)
 				{
@@ -3119,10 +3117,7 @@ void PlayerControlHuman::update(const Update& u)
 			}
 
 			// update camera projection
-			{
-				r32 aspect = camera->viewport.size.y == 0 ? 1 : camera->viewport.size.x / camera->viewport.size.y;
-				camera->perspective(fov, aspect, 0.005f, Game::level.skybox.far_plane);
-			}
+			camera->perspective(fov, 0.005f, Game::level.skybox.far_plane);
 
 			// collect target indicators
 			player_collect_target_indicators(this);
@@ -3737,8 +3732,7 @@ void PlayerControlHuman::update_late(const Update& u)
 		Camera* camera = player.ref()->camera.ref();
 
 		{
-			r32 aspect = camera->viewport.size.y == 0 ? 1 : camera->viewport.size.x / camera->viewport.size.y;
-			camera->perspective(fov_default, aspect, 0.02f, Game::level.skybox.far_plane);
+			camera->perspective(fov_default, 0.02f, Game::level.skybox.far_plane);
 			camera->clip_planes[0] = Plane();
 			camera->cull_range = 0.0f;
 			camera->flag(CameraFlagCullBehindWall, false);

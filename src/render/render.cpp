@@ -79,11 +79,11 @@ Mat4 Camera::view() const
 	return Mat4::look(pos, rot * Vec3(0, 0, 1), rot * Vec3(0, 1, 0));
 }
 
-void Camera::perspective(r32 fov, r32 aspect, r32 near, r32 far)
+void Camera::perspective(r32 fov, r32 near, r32 far)
 {
 	near_plane = near;
 	far_plane = far;
-	projection = Mat4::perspective(fov, aspect, near, far);
+	projection = Mat4::perspective(fov, viewport.size.y > 0.0f ? viewport.size.x / viewport.size.y : 1.0f, near, far);
 	projection_inverse = projection.inverse();
 	update_frustum();
 }

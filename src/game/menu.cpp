@@ -37,6 +37,12 @@ r32 dialog_time_limit[MAX_GAMEPADS];
 Ref<Camera> camera_connecting;
 Controls currently_editing_control = Controls::count;
 b8 currently_editing_control_enable_input; // should we be listening for any and all button presses to apply to the control binding we're currently editing?
+s32 display_mode_index;
+b8 display_mode_fullscreen;
+b8 display_mode_vsync;
+s32 display_mode_index_last;
+b8 display_mode_fullscreen_last;
+b8 display_mode_vsync_last;
 
 #define DIALOG_ANIM_TIME 0.25f
 
@@ -69,7 +75,7 @@ void progress_bar(const RenderParams&, const char*, r32, const Vec2&) {}
 void progress_infinite(const RenderParams&, const char*, const Vec2&) {}
 void dialog(s8, DialogCallback, const char*, ...) {}
 void dialog_with_cancel(s8, DialogCallback, DialogCallback, const char*, ...) {}
-void dialog_with_time_limit(s8, DialogCallback, r32, const char*, ...) {}
+void dialog_with_time_limit(s8, DialogCallback, DialogCallback, r32, const char*, ...) {}
 b8 dialog_active(s8) { return false; }
 
 #else
@@ -144,7 +150,7 @@ void dialog_with_cancel(s8 gamepad, DialogCallback callback, DialogCallback canc
 	dialog_time_limit[gamepad] = 0.0f;
 }
 
-void dialog_with_time_limit(s8 gamepad, DialogCallback callback, r32 limit, const char* format, ...)
+void dialog_with_time_limit(s8 gamepad, DialogCallback callback, DialogCallback callback_cancel, r32 limit, const char* format, ...)
 {
 	Audio::post_global_event(AK::EVENTS::PLAY_DIALOG_SHOW);
 
@@ -163,7 +169,7 @@ void dialog_with_time_limit(s8 gamepad, DialogCallback callback, r32 limit, cons
 	va_end(args);
 
 	dialog_callback[gamepad] = callback;
-	dialog_cancel_callback[gamepad] = nullptr;
+	dialog_cancel_callback[gamepad] = callback_cancel;
 	dialog_time[gamepad] = Game::real_time.total;
 	dialog_time_limit[gamepad] = limit;
 }
@@ -289,6 +295,8 @@ void init(const InputState& input)
 	refresh_variables(input);
 
 	title();
+
+	display_mode_index = Settings::display_mode_index;
 }
 
 void clear()
@@ -568,7 +576,15 @@ void update(const Update& u)
 		{
 			dialog_time_limit[i] = vi_max(0.0f, dialog_time_limit[i] - u.time.delta);
 			if (dialog_time_limit[i] == 0.0f)
-				dialog_callback[i] = nullptr; // cancel
+			{
+				// cancel
+				Audio::post_global_event(AK::EVENTS::PLAY_DIALOG_CANCEL);
+				DialogCallback c = dialog_cancel_callback[i];
+				dialog_callback[i] = nullptr;
+				dialog_cancel_callback[i] = nullptr;
+				if (c)
+					c(i);
+			}
 		}
 
 		// dialog buttons
@@ -581,6 +597,7 @@ void update(const Update& u)
 				DialogCallback callback = dialog_callback[i];
 				dialog_callback[i] = nullptr;
 				dialog_cancel_callback[i] = nullptr;
+				dialog_time_limit[i] = 0.0f;
 				callback(s8(i));
 			}
 			else if (!Game::cancel_event_eaten[i] && u.last_input->get(Controls::Cancel, i) && !u.input->get(Controls::Cancel, i))
@@ -590,6 +607,7 @@ void update(const Update& u)
 				DialogCallback cancel_callback = dialog_cancel_callback[i];
 				dialog_callback[i] = nullptr;
 				dialog_cancel_callback[i] = nullptr;
+				dialog_time_limit[i] = 0.0f;
 				Game::cancel_event_eaten[i] = true;
 				if (cancel_callback)
 					cancel_callback(s8(i));
@@ -636,13 +654,13 @@ void update_end(const Update& u)
 		{
 			camera_connecting = Camera::add(0);
 
+			const DisplayMode& display = Settings::display();
 			camera_connecting.ref()->viewport =
 			{
 				Vec2::zero,
-				Vec2(u.input->width, u.input->height),
+				Vec2(display.width, display.height),
 			};
-			r32 aspect = camera_connecting.ref()->viewport.size.y == 0 ? 1 : camera_connecting.ref()->viewport.size.x / camera_connecting.ref()->viewport.size.y;
-			camera_connecting.ref()->perspective((60.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+			camera_connecting.ref()->perspective((60.0f * PI * 0.5f / 180.0f), 0.1f, Game::level.skybox.far_plane);
 			camera_connecting.ref()->mask = 0; // don't display anything; entities will be popping in over the network
 		}
 		else if (!camera_needed && camera_connecting.ref())
@@ -1027,34 +1045,73 @@ b8 settings_controls(const Update& u, s8 gamepad, UIMenu* menu, Gamepad::Type ga
 		return true;
 }
 
+void settings_graphics_cancel(s8)
+{
+	Settings::display_mode_index = display_mode_index = display_mode_index_last;
+	Settings::fullscreen = display_mode_fullscreen = display_mode_fullscreen_last;
+	Settings::vsync = display_mode_vsync = display_mode_vsync_last;
+}
+
+void settings_graphics_apply(s8)
+{
+	display_mode_index_last = display_mode_index;
+	display_mode_fullscreen_last = display_mode_fullscreen;
+	display_mode_vsync_last = display_mode_vsync;
+}
+
 // returns true if this menu should remain open
 b8 settings_graphics(const Update& u, s8 gamepad, UIMenu* menu)
 {
 	menu->start(u, gamepad);
 	b8 exit = menu->item(u, _(strings::back)) || (!Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
 
-	char str[128];
+	const s32 MAX_ITEM = 128;
+	char str[MAX_ITEM + 1];
+	str[MAX_ITEM] = '\0';
 	s32 delta;
+
+#if !defined(__ORBIS__)
+	{
+		const DisplayMode& mode = Loader::display_modes[display_mode_index];
+		snprintf(str, MAX_ITEM, "%dx%d", mode.width, mode.height);
+		delta = menu->slider_item(u, _(strings::resolution), str);
+		display_mode_index += delta;
+		if (display_mode_index < 0)
+			display_mode_index = Loader::display_modes.length - 1;
+		else if (display_mode_index >= Loader::display_modes.length)
+			display_mode_index = 0;
+	}
+
+	{
+		delta = menu->slider_item(u, _(strings::fullscreen), _(display_mode_fullscreen ? strings::on : strings::off));
+		if (delta != 0)
+			display_mode_fullscreen = !display_mode_fullscreen;
+	}
+
+	{
+		delta = menu->slider_item(u, _(strings::vsync), _(display_mode_vsync ? strings::on : strings::off));
+		if (delta != 0)
+			display_mode_vsync = !display_mode_vsync;
+	}
+#endif
 
 	{
 		b8* waypoints = &Settings::waypoints;
-		sprintf(str, "%s", _(*waypoints ? strings::on : strings::off));
-		delta = menu->slider_item(u, _(strings::waypoints), str);
+		delta = menu->slider_item(u, _(strings::waypoints), _(*waypoints ? strings::on : strings::off));
 		if (delta != 0)
 			*waypoints = !(*waypoints);
 	}
 
 	{
 		b8* subtitles = &Settings::subtitles;
-		sprintf(str, "%s", _(*subtitles ? strings::on : strings::off));
-		delta = menu->slider_item(u, _(strings::subtitles), str);
+		delta = menu->slider_item(u, _(strings::subtitles), _(*subtitles ? strings::on : strings::off));
 		if (delta != 0)
 			*subtitles = !(*subtitles);
 	}
 
 	{
 		s32* fps = &Settings::framerate_limit;
-		sprintf(str, "%d", *fps);
+		snprintf(str, MAX_ITEM, "%d", *fps);
 		delta = menu->slider_item(u, _(strings::framerate_limit), str);
 		if (delta < 0)
 			*fps = vi_max(30, (*fps) - 10);
@@ -1093,32 +1150,28 @@ b8 settings_graphics(const Update& u, s8 gamepad, UIMenu* menu)
 
 	{
 		b8* volumetric_lighting = &Settings::volumetric_lighting;
-		sprintf(str, "%s", _(*volumetric_lighting ? strings::on : strings::off));
-		delta = menu->slider_item(u, _(strings::volumetric_lighting), str);
+		delta = menu->slider_item(u, _(strings::volumetric_lighting), _(*volumetric_lighting ? strings::on : strings::off));
 		if (delta != 0)
 			*volumetric_lighting = !(*volumetric_lighting);
 	}
 
 	{
 		b8* antialiasing = &Settings::antialiasing;
-		sprintf(str, "%s", _(*antialiasing ? strings::on : strings::off));
-		delta = menu->slider_item(u, _(strings::antialiasing), str);
+		delta = menu->slider_item(u, _(strings::antialiasing), _(*antialiasing ? strings::on : strings::off));
 		if (delta != 0)
 			*antialiasing = !(*antialiasing);
 	}
 
 	{
 		b8* ssao = &Settings::ssao;
-		sprintf(str, "%s", _(*ssao ? strings::on : strings::off));
-		delta = menu->slider_item(u, _(strings::ssao), str);
+		delta = menu->slider_item(u, _(strings::ssao), _(*ssao ? strings::on : strings::off));
 		if (delta != 0)
 			*ssao = !(*ssao);
 	}
 
 	{
 		b8* scan_lines = &Settings::scan_lines;
-		sprintf(str, "%s", _(*scan_lines ? strings::on : strings::off));
-		delta = menu->slider_item(u, _(strings::scan_lines), str);
+		delta = menu->slider_item(u, _(strings::scan_lines), _(*scan_lines ? strings::on : strings::off));
 		if (delta != 0)
 			*scan_lines = !(*scan_lines);
 	}
@@ -1128,6 +1181,15 @@ b8 settings_graphics(const Update& u, s8 gamepad, UIMenu* menu)
 	if (exit)
 	{
 		Game::cancel_event_eaten[gamepad] = true;
+		if (display_mode_index != Settings::display_mode_index
+			|| display_mode_fullscreen != Settings::fullscreen
+			|| display_mode_vsync != Settings::vsync)
+		{
+			Settings::display_mode_index = display_mode_index;
+			Settings::fullscreen = display_mode_fullscreen;
+			Settings::vsync = display_mode_vsync;
+			dialog_with_time_limit(gamepad, settings_graphics_apply, settings_graphics_cancel, 10.0f, _(strings::prompt_resolution_apply));
+		}
 		return false;
 	}
 

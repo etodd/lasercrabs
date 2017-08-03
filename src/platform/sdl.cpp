@@ -189,10 +189,6 @@ namespace VI
 			| (Settings::fullscreen ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_BORDERLESS)
 		);
 
-#if defined(__APPLE__)
-		SDL_SetWindowGrab(window, SDL_TRUE);
-#endif
-
 		// open a window and create its OpenGL context
 		if (!window)
 		{
@@ -200,6 +196,10 @@ namespace VI
 			SDL_Quit();
 			return -1;
 		}
+
+#if defined(__APPLE__)
+		SDL_SetWindowGrab(window, SDL_TRUE);
+#endif
 
 		SDL_GLContext context = SDL_GL_CreateContext(window);
 		if (!context)

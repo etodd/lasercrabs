@@ -340,6 +340,7 @@ namespace Master
 		config->enable_minions = b8(Json::get_s32(json, "enable_minions", 1));
 		config->drone_shield = s8(Json::get_s32(json, "drone_shield", DRONE_SHIELD));
 		config->start_energy = b8(Json::get_s32(json, "start_energy"));
+		config->fill_bots = b8(Json::get_s32(json, "fill_bots"));
 		cJSON_Delete(json);
 	}
 
@@ -370,6 +371,7 @@ namespace Master
 		cJSON_AddNumberToObject(json, "enable_minions", config.enable_minions);
 		cJSON_AddNumberToObject(json, "drone_shield", config.drone_shield);
 		cJSON_AddNumberToObject(json, "start_energy", config.start_energy);
+		cJSON_AddNumberToObject(json, "fill_bots", config.fill_bots);
 
 		char* result = cJSON_Print(json);
 		cJSON_Delete(json);

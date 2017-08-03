@@ -573,6 +573,17 @@ void multiplayer_entry_edit_update(const Update& u)
 						data.multiplayer.active_server_dirty = true;
 				}
 
+				// bots
+				{
+					b8* fill_bots = &config->fill_bots;
+					delta = menu->slider_item(u, _(strings::fill_bots), _(*fill_bots ? strings::on : strings::off));
+					if (delta)
+					{
+						*fill_bots = !(*fill_bots);
+						data.multiplayer.active_server_dirty = true;
+					}
+				}
+
 				{
 					// drone shield
 					s8* drone_shield = &config->drone_shield;
@@ -1410,7 +1421,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 		// column 1
 		{
-			s32 rows = (details.state.level == AssetNull ? 0 : 2) + 6;
+			s32 rows = (details.state.level == AssetNull ? 0 : 2) + 7;
 			UI::box(params, { pos + Vec2(-PADDING, panel_size.y * -rows), Vec2(panel_size.x + PADDING * 2.0f, panel_size.y * rows + PADDING) }, UI::color_background);
 
 			if (details.state.level != AssetNull)
@@ -1490,6 +1501,12 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 
+			// bots
+			text.text(0, _(strings::fill_bots));
+			text.draw(params, pos);
+			value.text(0, _(details.config.fill_bots ? strings::on : strings::off));
+			value.draw(params, pos + Vec2(panel_size.x, 0));
+			pos.y -= panel_size.y;
 		}
 
 		// column 2

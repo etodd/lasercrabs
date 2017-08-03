@@ -32,8 +32,8 @@
 #include "cjson/cJSON.h"
 #include <array>
 
-#define DEBUG_MSG 0
-#define DEBUG_ENTITY 0
+#define DEBUG_MSG 1
+#define DEBUG_ENTITY 1
 #define DEBUG_TRANSFORMS 0
 #define DEBUG_LAG 0
 #define DEBUG_LAG_AMOUNT 0.1f
@@ -2517,11 +2517,13 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		{
 			s16 game_version;
 			serialize_s16(p, game_version);
+			s32 local_players;
+			serialize_int(p, s32, local_players, 1, MAX_GAMEPADS);
 			if (game_version == GAME_VERSION)
 			{
 				if (!client
 					&& (state_server.mode == Mode::Active || state_server.mode == Mode::Waiting)
-					&& Game::session.config.max_players > PlayerManager::list.count())
+					&& Game::session.config.max_players >= PlayerHuman::list.count() + local_players)
 				{
 					client = state_server.clients.add();
 					client_index = state_server.clients.length - 1;
@@ -2712,6 +2714,24 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 	return true;
 }
 
+// remove bots to make room for new human players if necessary
+void remove_bots_if_necessary(s32 players)
+{
+	s32 open_slots = Game::session.config.max_players - PlayerManager::list.count();
+	s32 bots_to_remove = vi_min(PlayerAI::list.count(), players - open_slots);
+	while (bots_to_remove > 0)
+	{
+		PlayerAI* ai_player = PlayerAI::list.iterator().item();
+		PlayerManager* player = ai_player->manager.ref();
+		Entity* instance = player->instance.ref();
+		if (instance)
+			World::remove(instance);
+		World::remove(player->entity());
+		PlayerAI::list.remove(ai_player->id());
+		bots_to_remove--;
+	}
+}
+
 // server function for processing messages
 b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 {
@@ -2825,7 +2845,10 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 					}
 				}
 
-				if (local_players <= MAX_PLAYERS - PlayerManager::list.count())
+				if (Game::session.type == SessionType::Multiplayer)
+					remove_bots_if_necessary(local_players);
+
+				if (local_players <= Game::session.config.max_players - PlayerManager::list.count())
 				{
 					for (s32 i = 0; i < local_players; i++)
 					{
@@ -2838,16 +2861,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 							case SessionType::Multiplayer:
 							{
 								// assign players evenly
-								s32 least_players = MAX_PLAYERS + 1;
-								for (auto i = Team::list.iterator(); !i.is_last(); i.next())
-								{
-									s32 player_count = i.item()->player_count();
-									if (player_count < least_players)
-									{
-										least_players = player_count;
-										team_ref = i.item();
-									}
-								}
+								team_ref = Team::team_with_least_players();
 								vi_assert(team_ref);
 								break;
 							}
@@ -3150,6 +3164,8 @@ b8 packet_build_connect(StreamWrite* p)
 	serialize_enum(p, ClientPacket, type);
 	s16 version = GAME_VERSION;
 	serialize_s16(p, version);
+	s32 local_players = Game::session.local_player_count();;
+	serialize_int(p, s32, local_players, 1, MAX_GAMEPADS);
 
 	packet_finalize(p);
 	return true;

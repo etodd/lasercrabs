@@ -205,6 +205,7 @@ struct ServerConfig
 	char name[MAX_SERVER_CONFIG_NAME + 1];
 	b8 enable_minions = true;
 	b8 is_private;
+	b8 fill_bots;
 
 	r32 time_limit() const
 	{
@@ -244,6 +245,7 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 			c->name[name_length] = '\0';
 		serialize_bool(p, c->enable_minions);
 		serialize_bool(p, c->is_private);
+		serialize_bool(p, c->fill_bots);
 	}
 	return true;
 }

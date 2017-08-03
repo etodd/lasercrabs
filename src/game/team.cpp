@@ -19,6 +19,7 @@
 #include "ai_player.h"
 #include "overworld.h"
 #include "player.h"
+#include "common.h"
 
 #define ENERGY_FLASH_TIME 0.5f
 
@@ -166,6 +167,22 @@ s32 Team::teams_with_active_players()
 			t++;
 	}
 	return t;
+}
+
+Team* Team::team_with_least_players()
+{
+	Team* result = nullptr;
+	s32 least_players = MAX_PLAYERS + 1;
+	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+	{
+		s32 player_count = i.item()->player_count();
+		if (player_count < least_players)
+		{
+			least_players = player_count;
+			result = i.item();
+		}
+	}
+	return result;
 }
 
 b8 Team::has_active_player() const
@@ -717,6 +734,26 @@ void Team::update_all_server(const Update& u)
 
 	if (Game::level.mode != Game::Mode::Pvp)
 		return;
+
+	// fill bots
+	if (Game::session.config.fill_bots
+		&& (match_state == MatchState::Waiting || match_state == MatchState::Active)
+		&& PlayerHuman::list.count() > 0)
+	{
+		while (PlayerManager::list.count() < Game::session.config.max_players)
+		{
+			Entity* e = World::create<ContainerEntity>();
+			char username[MAX_USERNAME + 1] = {};
+			snprintf(username, MAX_USERNAME, "Bot %03d", mersenne::rand() % 1000);
+			Team* team = team_with_least_players();
+			vi_assert(team);
+			AI::Config config = PlayerAI::generate_config(team->team(), 0.0f);
+			PlayerManager* manager = e->add<PlayerManager>(team, username);
+			PlayerAI* player = PlayerAI::list.add();
+			new (player) PlayerAI(manager, config);
+			Net::finalize(e);
+		}
+	}
 
 	if (match_state == MatchState::Active)
 	{

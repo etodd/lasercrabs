@@ -505,6 +505,8 @@ void Game::update(const Update& update_in)
 
 	AI::update(u);
 
+	Team::update(u);
+
 	if (update_game)
 	{
 		Physics::sync_dynamic();
@@ -532,12 +534,9 @@ void Game::update(const Update& update_in)
 
 		Physics::sync_static();
 
-		AI::update(u);
-
-		Team::update(u);
-
 		PlayerManager::update_all(u);
 		PlayerHuman::update_all(u);
+
 		if (level.local)
 		{
 			SpawnPoint::update_server_all(u);

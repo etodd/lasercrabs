@@ -1053,6 +1053,7 @@ const char* AssetLookup::String::names[] =
 	"error_no_name",
 	"error_zone_under_attack",
 	"exit",
+	"fill_bots",
 	"force_field",
 	"forward",
 	"framerate_limit",

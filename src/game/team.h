@@ -102,6 +102,7 @@ struct Team : public ComponentType<Team>
 	static void transition_mode(Game::Mode);
 	static void draw_ui(const RenderParams&);
 	static void match_start();
+	static Team* team_with_least_players();
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{

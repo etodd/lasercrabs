@@ -2430,7 +2430,7 @@ void zone_statistics(s32* captured, s32* hostile, s32* locked, b8 (*filter)(Asse
 
 void tab_map_update(const Update& u)
 {
-	if (data.story.tab == StoryTab::Map && data.story.tab_timer > TAB_ANIMATION_TIME)
+	if (data.story.tab == StoryTab::Map && data.story.tab_timer == 0.0f)
 	{
 		select_zone_update(u, enable_input()); // only enable movement if enable_input()
 

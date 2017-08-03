@@ -464,7 +464,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							&& target.ref()->get<Health>()->active_armor()
 							&& target.ref()->has<AIAgent>()
 							&& target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team)
-							drone->get<Health>()->damage(target.ref(), DRONE_HEALTH + Game::session.config.drone_shield);
+							drone->get<Health>()->kill(target.ref());
 					}
 
 					if (drone->has<PlayerControlHuman>())
@@ -610,7 +610,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					else
 					{
 						drone->raycast(RaycastMode::Default, ray_start, ray_end, nullptr, &hits);
-						for (s32 i = 0; i < hits.hits.length; i++)
+						for (s32 i = 0; i < hits.index_end + 1; i++)
 							sniper_hit_effects(hits.hits[i]);
 					}
 
@@ -621,7 +621,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
 						{
 							Vec3 line_start = ray_start;
-							for (s32 j = 0; j < hits.hits.length; j++)
+							for (s32 j = 0; j < hits.index_end + 1; j++)
 							{
 								const Hit& hit = hits.hits[j];
 								Vec3 line = hit.pos - line_start;
@@ -649,7 +649,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					{
 						Vec3 line_start = ray_start;
 						r32 offset = 0.0f;
-						for (s32 i = 0; i < hits.hits.length; i++)
+						for (s32 i = 0; i < hits.index_end + 1; i++)
 						{
 							const Vec3& p = hits.hits[i].pos;
 							offset = particle_trail(line_start, p, offset);
@@ -1140,63 +1140,58 @@ b8 Drone::could_shoot(const Vec3& trace_start, const Vec3& dir, Vec3* final_pos,
 	raycast(RaycastMode::IgnoreForceFields, trace_start, trace_end, state_frame, &hits);
 
 	r32 r = range();
-	const Hit* environment_hit = nullptr;
 	b8 allow_further_end = false; // allow drone to shoot if we're aiming at an enemy drone in range but the backing behind it is out of range
 	b8 hit_target_value = false;
-	for (s32 i = 0; i < hits.hits.length; i++)
+	for (s32 i = 0; i < hits.index_end + 1; i++)
 	{
 		const Hit& hit = hits.hits[i];
-		if (hit.type == Hit::Type::Environment || hit.type == Hit::Type::ForceField)
-			environment_hit = &hit;
 		if (hit.fraction * DRONE_SNIPE_DISTANCE < r)
 		{
 			if (hit.type == Hit::Type::Shield)
 			{
 				allow_further_end = true;
-				if (hit.fraction <= hits.fraction_end)
-					hit_target_value = true;
+				hit_target_value = true;
 			}
-			else if (hit.type == Hit::Type::Target && hit.fraction <= hits.fraction_end)
+			else if (hit.type == Hit::Type::Target)
 				hit_target_value = true;
 		}
 	}
 
-	if (environment_hit)
+	const Hit& final_hit = hits.hits[hits.hits.length - 1];
+
+	if (!allow_further_end || !hit_target_value)
 	{
-		// need to check that the environment hit is within range
-		// however if we are shooting at an Drone, we can tolerate further environment hits
-		b8 can_shoot = false;
-		if (allow_further_end || environment_hit->fraction * DRONE_SNIPE_DISTANCE < r)
-			can_shoot = true;
-		else
+		// check drone target predictions
+		r32 end_distance_sq = vi_min(r * r, final_hit.fraction * DRONE_SNIPE_DISTANCE * final_hit.fraction * DRONE_SNIPE_DISTANCE);
+		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			// check drone target predictions
-			r32 end_distance_sq = vi_min(r * r, hits.fraction_end * DRONE_SNIPE_DISTANCE * hits.fraction_end * DRONE_SNIPE_DISTANCE);
-			for (auto i = list.iterator(); !i.is_last(); i.next())
+			if (i.item() != this && (i.item()->get<Target>()->absolute_pos() - trace_start).length_squared() > DRONE_SHIELD_RADIUS * 2.0f * DRONE_SHIELD_RADIUS * 2.0f)
 			{
-				if (i.item() != this && (i.item()->get<Target>()->absolute_pos() - trace_start).length_squared() > DRONE_SHIELD_RADIUS * 2.0f * DRONE_SHIELD_RADIUS * 2.0f)
+				Vec3 intersection;
+				if (predict_intersection(i.item()->get<Target>(), state_frame, &intersection, target_prediction_speed()))
 				{
-					Vec3 intersection;
-					if (predict_intersection(i.item()->get<Target>(), state_frame, &intersection, target_prediction_speed()))
+					if ((intersection - trace_start).length_squared() <= end_distance_sq
+						&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, DRONE_SHIELD_RADIUS))
 					{
-						if ((intersection - trace_start).length_squared() <= end_distance_sq
-							&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, DRONE_SHIELD_RADIUS))
-						{
-							can_shoot = true;
-							hit_target_value = true;
-							break;
-						}
+						allow_further_end = true;
+						hit_target_value = true;
+						break;
 					}
 				}
 			}
 		}
+	}
 
-		if (can_shoot)
+	if (final_hit.type == Hit::Type::Environment)
+	{
+		// need to check that the environment hit is within range
+		// however if we are shooting at a Drone, we can tolerate further environment hits
+		if (allow_further_end || final_hit.fraction * DRONE_SNIPE_DISTANCE < r)
 		{
 			if (final_pos)
-				*final_pos = hits.hits[hits.index_end].pos;
+				*final_pos = final_hit.pos;
 			if (final_normal)
-				*final_normal = hits.hits[hits.index_end].normal;
+				*final_normal = final_hit.normal;
 			if (hit_target)
 				*hit_target = hit_target_value;
 			return true;
@@ -1566,14 +1561,14 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 		r32 best_score = DRONE_MAX_DISTANCE;
 		const r32 goal_distance = DRONE_MAX_DISTANCE * 0.25f;
 
-		// if we're bouncing off a target (a drone most likely), we can bounce backward through the target.
-		// otherwise, if it's a force field or something, we don't want to bounce through it
-		b8 allow_reflect_against_normal = entity->has<Target>();
+		// if we're bouncing off a Shield, we can bounce backward through the target.
+		// otherwise, it's probably an inaccessible surface or a force field, so we don't want to bounce through it
+		b8 allow_reflect_against_normal = entity->has<Shield>();
 
 		for (s32 i = 0; i < REFLECTION_TRIES; i++)
 		{
 			Vec3 candidate_dir = target_quat * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * random_range, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * random_range, 0) * Vec3(1, 0, 0));
-			if (allow_reflect_against_normal || candidate_dir.dot(normal) > 0.0f)
+			if (allow_reflect_against_normal || candidate_dir.dot(normal) > 0.05f)
 			{
 				Vec3 next_hit;
 				if (can_shoot(candidate_dir, &next_hit, nullptr, state_frame))
@@ -2424,67 +2419,67 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 		}
 	}
 
+	// sort collisions
+	Hit::Comparator comparator;
+	Quicksort::sort<Hit, Hit::Comparator>(result->hits.data, 0, result->hits.length, &comparator);
+
 	// determine which collision is the one we stop at
-	result->fraction_end = 1.0f;
-	result->index_end = -1;
+	result->index_end = -1; // do we need to add a Hit::Type::None to the end of the hit list?
 	for (s32 i = 0; i < result->hits.length; i++)
 	{
 		const Hit& hit = result->hits[i];
-		if (hit.fraction < result->fraction_end)
+
+		b8 stop = false;
+		if (hit.type == Hit::Type::Shield)
 		{
-			b8 stop = false;
-			if (hit.type == Hit::Type::Shield)
+			// if we've already hit this shield once, we must ignore it
+			b8 already_hit = false;
+			for (s32 i = 0; i < hit_targets.length; i++)
 			{
-				// if we've already hit this shield once, we must ignore it
-				b8 already_hit = false;
-				for (s32 i = 0; i < hit_targets.length; i++)
+				if (hit_targets[i].equals(hit.entity))
 				{
-					if (hit_targets[i].equals(hit.entity))
-					{
-						already_hit = true;
-						break;
-					}
-				}
-
-				if (!already_hit)
-				{
-					if (!hit.entity.ref()->get<Health>()->can_take_damage()) // it's invincible; always bounce off
-						stop = true;
-					else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()))
-						stop = true; // it has health or shield to spare; we'll bounce off
+					already_hit = true;
+					break;
 				}
 			}
-			else if (hit.type == Hit::Type::Target)
-			{
-				// go through it, don't stop
-			}
-			else
-				stop = true; // we can't go through it
 
-			if (stop)
+			if (!already_hit)
 			{
-				// stop raycast here
-				result->fraction_end = hit.fraction;
-				result->index_end = i;
+				if (!hit.entity.ref()->get<Health>()->can_take_damage()) // it's invincible; always bounce off
+					stop = true;
+				else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()))
+					stop = true; // it has health or shield to spare; we'll bounce off
 			}
+		}
+		else if (hit.type == Hit::Type::Target)
+		{
+			// go through it, don't stop
+		}
+		else
+			stop = true; // we can't go through it
+
+		if (stop)
+		{
+			// stop raycast here
+			result->index_end = i;
+			break;
 		}
 	}
 
-	if (current_ability == Ability::Sniper && result->index_end == -1) // it went off into space
+	if (result->index_end == -1)
 	{
 		Hit hit;
-		hit.fraction = FLT_MAX;
+		hit.fraction = 1.0f;
 		hit.entity = nullptr;
 		hit.normal = Vec3::zero;
 		hit.pos = ray_end;
 		hit.type = Hit::Type::None;
 		result->hits.add(hit);
+		result->index_end = result->hits.length - 1;
 	}
-
-	if (mode == RaycastMode::Default
+	else if (mode == RaycastMode::Default
 		&& recursion_level < 5
-		&& current_ability == Ability::Sniper
-		&& result->index_end != -1)
+		&& current_ability == Ability::Sniper)
 	{
 		const Hit& hit_end = result->hits[result->index_end];
 		if (hit_end.type == Hit::Type::ForceField
@@ -2506,26 +2501,10 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 			{
 				// append hits2 to result->hits
 
-				// first, remove any hits that were past fraction_end
-				for (s32 i = 0; i < result->hits.length; i++)
-				{
-					if (result->hits[i].fraction > result->fraction_end)
-					{
-						result->hits.remove(i);
-						i--;
-					}
-				}
+				// remove any hits after index_end
+				result->hits.length = result->index_end + 1;
+				result->index_end = result->hits.length + hits2.index_end;
 
-				if (hits2.index_end == -1)
-				{
-					result->index_end = -1;
-					result->fraction_end = FLT_MAX;
-				}
-				else
-				{
-					result->index_end = result->hits.length + hits2.index_end;
-					result->fraction_end = 1.0f + hits2.fraction_end;
-				}
 				for (s32 i = 0; i < hits2.hits.length; i++)
 				{
 					Hit hit = hits2.hits[i];
@@ -2535,9 +2514,6 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 			}
 		}
 	}
-
-	Hit::Comparator comparator;
-	Quicksort::sort<Hit, Hit::Comparator>(result->hits.data, 0, result->hits.length, &comparator);
 }
 
 void Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* hits_out)
@@ -2553,66 +2529,59 @@ void Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* h
 	raycast(RaycastMode::Default, ray_start, ray_end, state_frame, &hits);
 
 	// handle collisions
-	for (s32 i = 0; i < hits.hits.length; i++)
+	for (s32 i = 0; i < hits.index_end + 1; i++)
 	{
 		const Hit& hit = hits.hits[i];
-		if (i == hits.index_end || hit.fraction < hits.fraction_end)
+		if (current_ability == Ability::Sniper && hit.type != Hit::Type::None)
+			sniper_hit_effects(hit);
+
+		if (hit.type == Hit::Type::Target)
+			hit_target(hit.entity.ref());
+		else if (hit.type == Hit::Type::Shield)
 		{
-			if (current_ability == Ability::Sniper && hit.type != Hit::Type::None)
-				sniper_hit_effects(hit);
+			b8 target_will_still_be_alive = hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()) // will they still be alive after we hit them? if so, reflect
+				|| !hit.entity.ref()->get<Health>()->can_take_damage();
+			if (hit_target(hit.entity.ref())
+				&& target_will_still_be_alive
+				&& i == hits.index_end // make sure this is the hit we thought we would stop on
+				&& s != State::Crawl) // make sure we're flying or dashing
+				reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
+		}
+		else if (hit.type == Hit::Type::Inaccessible)
+		{
+			if (s == State::Fly)
+				reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
+		}
+		else if (hit.type == Hit::Type::ForceField)
+		{
+			hit_target(hit.entity.ref());
+			if (s == State::Fly)
+				reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
+		}
+		else if (hit.type == Hit::Type::Environment)
+		{
+			vi_assert(i == hits.index_end); // no more hits should come after we hit an environment surface
+			if (s == State::Fly)
+			{
+				// we hit a normal surface; attach to it
 
-			if (hit.type == Hit::Type::Target)
-				hit_target(hit.entity.ref());
-			else if (hit.type == Hit::Type::Shield)
-			{
-				b8 target_will_still_be_alive = hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()) // will they still be alive after we hit them? if so, reflect
-					|| !hit.entity.ref()->get<Health>()->can_take_damage();
-				if (hit_target(hit.entity.ref())
-					&& target_will_still_be_alive
-					&& i == hits.index_end // make sure this is the hit we thought we would stop on
-					&& s != State::Crawl) // make sure we're flying or dashing
-					reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
-			}
-			else if (hit.type == Hit::Type::Inaccessible)
-			{
-				if (s == State::Fly)
-					reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
-			}
-			else if (hit.type == Hit::Type::ForceField)
-			{
-				if (s == State::Fly)
+				Vec3 point = hit.pos;
+				// check for obstacles
 				{
-					if (hit_target(hit.entity.ref()))
-						reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
-				}
-				else if (current_ability == Ability::Sniper)
-					hit_target(hit.entity.ref());
-			}
-			else if (hit.type == Hit::Type::Environment)
-			{
-				vi_assert(i == hits.index_end); // no more hits should come after we hit an environment surface
-				if (s == State::Fly)
-				{
-					// we hit a normal surface; attach to it
-
-					Vec3 point = hit.pos;
-					// check for obstacles
+					btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(hit.pos, hit.pos + hit.normal * (DRONE_RADIUS * 1.1f));
+					Physics::raycast(&obstacle_ray_callback, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
+					if (obstacle_ray_callback.hasHit())
 					{
-						btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(hit.pos, hit.pos + hit.normal * (DRONE_RADIUS * 1.1f));
-						Physics::raycast(&obstacle_ray_callback, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
-						if (obstacle_ray_callback.hasHit())
-						{
-							// push us away from the obstacle
-							Vec3 obstacle_normal_flattened = obstacle_ray_callback.m_hitNormalWorld - hit.normal * hit.normal.dot(obstacle_ray_callback.m_hitNormalWorld);
-							point += obstacle_normal_flattened * DRONE_RADIUS;
-						}
+						// push us away from the obstacle
+						Vec3 obstacle_normal_flattened = obstacle_ray_callback.m_hitNormalWorld - hit.normal * hit.normal.dot(obstacle_ray_callback.m_hitNormalWorld);
+						point += obstacle_normal_flattened * DRONE_RADIUS;
 					}
-
-					get<Transform>()->parent = hit.entity.ref()->get<Transform>();
-					get<Transform>()->absolute(point + hit.normal * DRONE_RADIUS, Quat::look(hit.normal));
-
-					DroneNet::finish_flying(this);
 				}
+
+				get<Transform>()->parent = hit.entity.ref()->get<Transform>();
+				get<Transform>()->absolute(point + hit.normal * DRONE_RADIUS, Quat::look(hit.normal));
+
+				DroneNet::finish_flying(this);
 			}
 		}
 	}

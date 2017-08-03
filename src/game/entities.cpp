@@ -139,7 +139,6 @@ b8 health_send_event(Health* h, HealthEvent* e)
 void health_internal_apply_damage(Health* h, Entity* e, s8 damage)
 {
 	vi_assert(Game::level.local);
-	vi_assert(h->can_take_damage());
 
 	s8 shield_value = h->shield;
 
@@ -460,9 +459,11 @@ void Health::damage(Entity* src, s8 damage)
 	}
 }
 
-void Health::take_shield()
+void Health::damage_force(Entity* src, s8 damage)
 {
-	damage(nullptr, shield);
+	vi_assert(Game::level.local);
+	if (hp > 0 && damage > 0)
+		health_internal_apply_damage(this, src, damage);
 }
 
 void Health::reset_hp()
@@ -471,9 +472,10 @@ void Health::reset_hp()
 		add(hp_max - hp);
 }
 
+// bypasses all invincibility calculations and damage buffering
 void Health::kill(Entity* e)
 {
-	damage(e, hp_max + shield_max);
+	damage_force(e, hp + shield);
 }
 
 void Health::add(s8 amount)

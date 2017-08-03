@@ -794,7 +794,7 @@ void PlayerHuman::update(const Update& u)
 
 					menu.start(u, gamepad);
 
-					if (menu.item(u, _(strings::close), nullptr, upgrade_in_progress, Asset::Mesh::icon_close))
+					if (menu.item(u, _(strings::close), nullptr, false, Asset::Mesh::icon_close))
 						upgrade_menu_hide();
 
 					for (s32 i = 0; i < s32(Upgrade::count); i++)

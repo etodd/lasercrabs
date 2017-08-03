@@ -79,8 +79,7 @@ struct Drone : public ComponentType<Drone>
 	struct Hits
 	{
 		StaticArray<Hit, 32> hits;
-		r32 fraction_end;
-		s32 index_end;
+		s8 index_end;
 	};
 
 	enum class RaycastMode : s8

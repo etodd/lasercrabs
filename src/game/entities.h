@@ -66,7 +66,7 @@ struct Health : public ComponentType<Health>
 	void update_client(const Update&);
 	void awake() {}
 	void damage(Entity*, s8);
-	void take_shield();
+	void damage_force(Entity*, s8);
 	void reset_hp();
 	void kill(Entity*);
 	void add(s8);

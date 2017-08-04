@@ -539,13 +539,13 @@ const Vec4 UI::color_default = Vec4(1, 1, 1, 1);
 const Vec4& UI::color_alert()
 {
 	static const Vec4 alert_pvp = Vec4(1.0f, 0.4f, 0.4f, 1);
-	static const Vec4 alert_normal = Vec4(1.0f, 0.6f, 0.6f, 1);
+	static const Vec4 alert_normal = Vec4(1.0f, 0.5f, 0.8f, 1);
 	return Game::level.mode == Game::Mode::Pvp || Overworld::modal() ? alert_pvp : alert_normal;
 }
 const Vec4& UI::color_accent()
 {
 	static const Vec4 accent_pvp = Vec4(1.0f, 0.95f, 0.35f, 1);
-	static const Vec4 accent_normal = Vec4(0.5f, 0.9f, 1.0f, 1);
+	static const Vec4 accent_normal = Vec4(52.0f / 255.0f, 237.0f / 255.0f, 255.0f / 255.0f, 1);
 	return Game::level.mode == Game::Mode::Pvp || Overworld::modal() ? accent_pvp : accent_normal;
 }
 const Vec4 UI::color_background = Vec4(0, 0, 0, 1);
@@ -1115,7 +1115,7 @@ void UI::draw(const RenderParams& p)
 	texture_blits.length = 0;
 }
 
-// Instantly draw a texture
+// instantly draw a texture
 void UI::texture(const RenderParams& p, s32 texture, const Rect2& r, const Vec4& color, const Rect2& uv, const AssetID shader)
 {
 	Vec2 screen = p.camera->viewport.size * 0.5f;

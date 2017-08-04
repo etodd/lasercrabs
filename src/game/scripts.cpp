@@ -24,6 +24,7 @@
 #include "data/components.h"
 #include "drone.h"
 #include "settings.h"
+#include "asset/texture.h"
 
 namespace VI
 {
@@ -627,16 +628,32 @@ namespace Docks
 
 	void draw(const RenderParams& p)
 	{
-		if (Game::level.mode == Game::Mode::Special && Menu::main_menu_state == Menu::State::Hidden && Game::scheduled_load_level == AssetNull && data->transition_timer == 0.0f)
+		Loader::texture(Asset::Texture::logo);
+
+		if (Game::level.mode == Game::Mode::Special && Game::scheduled_load_level == AssetNull && data->transition_timer == 0.0f)
 		{
-			UIText text;
-			text.color = UI::color_accent();
-			text.text(0, "[{{Start}}]");
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			Vec2 pos = p.camera->viewport.size * Vec2(0.5f, 0.1f);
-			UI::box(p, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-			text.draw(p, pos);
+			Rect2 logo_rect;
+			if (Menu::main_menu_state == Menu::State::Hidden)
+			{
+				UIText text;
+				text.color = UI::color_accent();
+				text.text(0, "[{{Start}}]");
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				Vec2 pos = p.camera->viewport.size * Vec2(0.5f, 0.1f);
+				UI::box(p, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+				text.draw(p, pos);
+
+				Vec2 size(p.camera->viewport.size.x * 0.25f);
+				logo_rect = { p.camera->viewport.size * 0.5f + size * Vec2(-0.5f, -0.5f), size };
+			}
+			else
+			{
+				Vec2 menu_pos(p.camera->viewport.size.x * 0.5f, p.camera->viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f);
+				Vec2 size((MENU_ITEM_WIDTH + MENU_ITEM_PADDING * -2.0f) * 0.3f);
+				logo_rect = { menu_pos + size * Vec2(-0.5f, 0.0f) + Vec2(0.0f, MENU_ITEM_PADDING * 3.0f), size };
+			}
+			UI::sprite(p, Asset::Texture::logo, { logo_rect.pos + logo_rect.size * 0.5f, logo_rect.size });
 		}
 
 		if (data->transition_timer > 0.0f && data->transition_timer < TRANSITION_TIME)

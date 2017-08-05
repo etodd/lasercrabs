@@ -1623,7 +1623,7 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 		// locally controlled; bounce instantly
 		drone_reflection_execute(this, entity, new_dir);
 		if (!Game::level.local && has<PlayerControlHuman>())
-			remote_reflection_timer = Net::rtt(get<PlayerControlHuman>()->player.ref()) + NET_INTERPOLATION_DELAY + DRONE_REFLECTION_TIME_TOLERANCE;
+			remote_reflection_timer = Net::rtt(get<PlayerControlHuman>()->player.ref()) + Net::interpolation_delay() + DRONE_REFLECTION_TIME_TOLERANCE;
 	}
 }
 

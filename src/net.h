@@ -111,6 +111,7 @@ struct StateFrame
 
 b8 init();
 r32 tick_rate();
+r32 interpolation_delay();
 void update_start(const Update&);
 void update_end(const Update&);
 void finalize(Entity*);

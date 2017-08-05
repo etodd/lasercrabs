@@ -3273,7 +3273,7 @@ void update(const Update& u, r32 dt)
 	if (Game::level.local)
 		return;
 
-	r32 interpolation_time = state_common.timestamp - NET_INTERPOLATION_DELAY;
+	r32 interpolation_time = state_common.timestamp - interpolation_delay();
 
 	const StateFrame* frame = state_frame_by_timestamp(state_common.state_history, interpolation_time);
 	if (frame)
@@ -3920,6 +3920,11 @@ b8 execute(const char* string)
 r32 tick_rate()
 {
 	return Game::level.mode == Game::Mode::Pvp ? (1.0f / 60.0f) : (1.0f / 30.0f);
+}
+
+r32 interpolation_delay()
+{
+	return (tick_rate() * 4.0f) + 0.02f;
 }
 
 b8 init()

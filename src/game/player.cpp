@@ -2242,7 +2242,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 
 #if SERVER
 		// update RTT based on the sequence number
-		c->rtt = Net::Server::rtt(c->player.ref(), seq) + NET_INTERPOLATION_DELAY;
+		c->rtt = Net::Server::rtt(c->player.ref(), seq) + Net::interpolation_delay();
 #endif
 	}
 
@@ -2594,7 +2594,7 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 void PlayerControlHuman::awake()
 {
 #if SERVER
-	rtt = Net::rtt(player.ref()) + NET_INTERPOLATION_DELAY;
+	rtt = Net::rtt(player.ref()) + Net::interpolation_delay();
 #endif
 
 	if (player.ref()->local && !Game::level.local)
@@ -3456,7 +3456,7 @@ void PlayerControlHuman::update(const Update& u)
 			// if we are crawling, update the RTT every frame
 			// if we're dashing or flying, the RTT is set based on the sequence number of the command we received
 			if (get<Drone>()->state() == Drone::State::Crawl)
-				rtt = Net::rtt(player.ref()) + NET_INTERPOLATION_DELAY;
+				rtt = Net::rtt(player.ref()) + Net::interpolation_delay();
 
 			ai_record_wait_timer -= u.time.delta;
 			if (ai_record_wait_timer < 0.0f)

@@ -447,7 +447,7 @@ void Health::damage(Entity* src, s8 damage)
 			BufferedDamage entry;
 			entry.source = src;
 			entry.damage = damage;
-			entry.delay = Net::rtt(get<PlayerControlHuman>()->player.ref()) + Net::tick_rate();
+			entry.delay = Net::rtt(get<PlayerControlHuman>()->player.ref()) + Net::interpolation_delay();
 			if (src->has<Drone>() && src->get<Drone>()->current_ability == Ability::Sniper)
 				entry.type = BufferedDamage::Type::Sniper;
 			else

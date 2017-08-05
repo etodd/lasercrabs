@@ -630,7 +630,10 @@ namespace Docks
 	{
 		Loader::texture(Asset::Texture::logo);
 
-		if (Game::level.mode == Game::Mode::Special && Game::scheduled_load_level == AssetNull && data->transition_timer == 0.0f)
+		if (Game::level.mode == Game::Mode::Special
+			&& Game::scheduled_load_level == AssetNull
+			&& data->transition_timer == 0.0f
+			&& !Menu::dialog_active(0))
 		{
 			Rect2 logo_rect;
 			if (Menu::main_menu_state == Menu::State::Hidden)

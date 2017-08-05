@@ -370,7 +370,8 @@ void Game::update(const Update& update_in)
 	if (update_game)
 	{
 		time.total += time.delta;
-		if (Team::match_state == Team::MatchState::Active)
+		if (Team::match_state == Team::MatchState::TeamSelect
+			|| Team::match_state == Team::MatchState::Active)
 			Team::match_time += time.delta;
 		ParticleSystem::time = time.total;
 		for (s32 i = 0; i < ParticleSystem::list.length; i++)

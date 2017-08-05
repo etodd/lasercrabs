@@ -43,6 +43,7 @@ b8 display_mode_vsync;
 s32 display_mode_index_last;
 b8 display_mode_fullscreen_last;
 b8 display_mode_vsync_last;
+Ref<PlayerManager> teams_selected_player[MAX_GAMEPADS] = {};
 
 #define DIALOG_ANIM_TIME 0.25f
 
@@ -54,6 +55,7 @@ void dialog_no_action(s8 gamepad)
 State settings(const Update&, s8, UIMenu*);
 b8 settings_controls(const Update&, s8, UIMenu*, Gamepad::Type);
 b8 settings_graphics(const Update&, s8, UIMenu*);
+b8 maps(const Update&, s8, UIMenu*);
 
 #if SERVER
 
@@ -68,6 +70,9 @@ void refresh_variables(const InputState&) {}
 void pause_menu(const Update&, s8, UIMenu*, State*) {}
 void draw_letterbox(const RenderParams&, r32, r32) {}
 State settings(const Update&, s8, UIMenu*) { return State::Settings; }
+b8 maps(const Update&, s8, UIMenu*) { return true; }
+void teams_select_match_start_init(PlayerHuman*) {}
+b8 teams(const Update&, s8, UIMenu*, TeamSelectMode) { return true; }
 b8 settings_controls(const Update&, s8, UIMenu*, Gamepad::Type) { return true; }
 b8 settings_graphics(const Update&, s8, UIMenu*) { return true; }
 void progress_spinner(const RenderParams&, const Vec2&, r32) {}
@@ -416,8 +421,25 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 		case State::Visible:
 		{
 			menu->start(u, gamepad);
-			if (menu->item(u, _(strings::close)))
+			if (menu->item(u, _(strings::resume)))
 				*state = State::Hidden;
+			if (Game::session.type == SessionType::Multiplayer && Game::level.mode == Game::Mode::Pvp)
+			{
+				if (menu->item(u, _(strings::teams)))
+				{
+					*state = State::Teams;
+					teams_selected_player[gamepad] = nullptr;
+					menu->animate();
+				}
+				if (PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>()->is_admin)
+				{
+					if (menu->item(u, _(strings::levels)))
+					{
+						*state = State::Maps;
+						menu->animate();
+					}
+				}
+			}
 			if (menu->item(u, _(strings::settings)))
 			{
 				if (gamepad == 0)
@@ -434,6 +456,24 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 					dialog(gamepad, &quit_to_overworld, _(strings::confirm_quit));
 			}
 			menu->end();
+			break;
+		}
+		case State::Maps:
+		{
+			if (!maps(u, gamepad, menu))
+			{
+				*state = State::Visible;
+				menu->animate();
+			}
+			break;
+		}
+		case State::Teams:
+		{
+			if (!teams(u, gamepad, menu, TeamSelectMode::Normal))
+			{
+				*state = State::Visible;
+				menu->animate();
+			}
 			break;
 		}
 		case State::Settings:
@@ -1195,6 +1235,114 @@ b8 settings_graphics(const Update& u, s8 gamepad, UIMenu* menu)
 
 	return true;
 }
+
+// returns true if map menu should stay open
+b8 maps(const Update& u, s8 gamepad, UIMenu* menu)
+{
+	menu->start(u, gamepad);
+	b8 exit = menu->item(u, _(strings::back)) || (!Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
+
+	menu->end();
+
+	if (exit)
+	{
+		Game::cancel_event_eaten[gamepad] = true;
+		menu->end();
+		return false;
+	}
+
+	return true;
+}
+
+const char* team_string(AI::Team team)
+{
+	static const AssetID lookup[MAX_TEAMS] =
+	{
+		strings::team_switch_a,
+		strings::team_switch_b,
+		strings::team_switch_c,
+		strings::team_switch_d,
+	};
+	return _(lookup[team]);
+}
+
+void teams_select_match_start_init(PlayerHuman* player)
+{
+	PlayerManager* manager = player->get<PlayerManager>();
+	teams_selected_player[player->gamepad] = manager;
+	manager->team_schedule(manager->team.ref()->team());
+}
+
+// returns true if the team menu should stay open
+b8 teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
+{
+	PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+	PlayerManager* selected = teams_selected_player[gamepad].ref();
+
+	b8 exit = !Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad);
+
+	menu->start(u, gamepad, mode == TeamSelectMode::Normal && !selected); // can select different players in Normal mode when no player is selected
+	
+	if (mode == TeamSelectMode::Normal && menu->item(u, _(strings::back)))
+		exit = true;
+
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		const char* value = team_string(i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled);
+		b8 disabled = (selected && i.item() != selected) || (i.item() != me && !me->is_admin && mode != TeamSelectMode::MatchStart);
+		AssetID icon = i.item()->can_spawn ? Asset::Mesh::icon_checkmark : AssetNull;
+		if (i.item() == selected)
+		{
+			// player selected; we can switch their team
+			menu->selected = menu->items.length; // make sure the menu knows which player we have selected, in case players change
+			s32 delta = menu->slider_item(u, i.item()->username, value, disabled, icon);
+			if (i.item()->team_scheduled != AI::TeamNone)
+			{
+				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+				{
+					i.item()->set_can_spawn(true);
+					teams_selected_player[gamepad] = nullptr;
+				}
+				else if (delta != 0)
+				{
+					AI::Team team_new = i.item()->team_scheduled + delta;
+					if (team_new < 0)
+						team_new = Team::list.count() - 1;
+					else if (team_new >= Team::list.count())
+						team_new = 0;
+					i.item()->team_schedule(team_new);
+				}
+			}
+		}
+		else if (menu->item(u, i.item()->username, value, disabled, icon))
+		{
+			if (i.item() == me || mode == TeamSelectMode::Normal)
+			{
+				// we are selecting this player
+				teams_selected_player[gamepad] = i.item();
+				i.item()->team_schedule(i.item()->team.ref()->team());
+				if (Team::match_state == Team::MatchState::Waiting)
+					i.item()->set_can_spawn(false);
+			}
+		}
+	}
+
+	menu->end();
+
+	if (exit)
+	{
+		Game::cancel_event_eaten[gamepad] = true;
+		if (selected)
+		{
+			selected->team_schedule(AI::TeamNone);
+			teams_selected_player[gamepad] = nullptr;
+		}
+		else
+			return false;
+	}
+
+	return true; // stay open
+}
 #endif
 
 }
@@ -1227,7 +1375,7 @@ void UIMenu::start(const Update& u, s8 g, b8 input)
 
 	gamepad = g;
 
-	if (Console::visible || !input || Menu::dialog_active(gamepad))
+	if (Console::visible || Menu::dialog_active(gamepad))
 		return;
 
 	if (active[g])
@@ -1237,6 +1385,9 @@ void UIMenu::start(const Update& u, s8 g, b8 input)
 	}
 	else
 		active[g] = this;
+
+	if (!input)
+		return;
 
 	s32 delta = UI::input_delta_vertical(u, gamepad);
 	if (delta != 0)

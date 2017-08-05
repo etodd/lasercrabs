@@ -199,6 +199,7 @@ struct ServerConfig
 	GameType game_type = GameType::Assault;
 	StaticArray<Upgrade, 3> start_upgrades;
 	s8 max_players = 1;
+	s8 min_players = 2;
 	s8 team_count = 2;
 	s8 drone_shield = DRONE_SHIELD;
 	u8 time_limit_minutes = 6;
@@ -223,6 +224,7 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		for (s32 i = 0; i < c->levels.length; i++)
 			serialize_s16(p, c->levels[i]);
 		serialize_int(p, s8, c->max_players, 1, MAX_PLAYERS);
+		serialize_int(p, s8, c->min_players, 1, MAX_PLAYERS);
 		if (c->game_type == GameType::Assault)
 			c->team_count = 2;
 		else

@@ -40,6 +40,18 @@ template<s16 size> struct Bitmask
 		return i;
 	}
 
+	inline s32 prev(s32 i) const
+	{
+		i--;
+		while (i >= start)
+		{
+			if (get(i))
+				break;
+			i--;
+		}
+		return i;
+	}
+
 	void clear()
 	{
 		start = size;
@@ -108,9 +120,19 @@ struct PinArray
 			index = array->mask.next(index);
 		}
 
+		inline void prev()
+		{
+			index = array->mask.prev(index);
+		}
+
 		inline b8 is_last() const
 		{
 			return index >= array->mask.end;
+		}
+
+		inline b8 is_first() const
+		{
+			return index < array->mask.start;
 		}
 
 		inline T* item() const
@@ -144,13 +166,13 @@ struct PinArray
 		return size - free_list.length;
 	}
 
-	inline T operator [] (const s32 i) const
+	inline T operator [] (s32 i) const
 	{
 		vi_assert(i >= 0 && i < size);
 		return data.data[i];
 	}
 
-	inline T& operator [] (const s32 i)
+	inline T& operator [] (s32 i)
 	{
 		vi_assert(i >= 0 && i < size);
 		return data.data[i];
@@ -160,6 +182,14 @@ struct PinArray
 	{
 		Iterator i;
 		i.index = mask.start;
+		i.array = this;
+		return i;
+	}
+
+	Iterator iterator_end()
+	{
+		Iterator i;
+		i.index = mask.end - 1;
 		i.array = this;
 		return i;
 	}

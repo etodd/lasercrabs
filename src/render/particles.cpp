@@ -18,12 +18,19 @@ ParticleSystem::ParticleSystem(s32 vertices_per_particle, s32 indices_per_partic
 	: lifetime(lifetime),
 	shader(shader),
 	texture(texture),
-	vertices_per_particle(vertices_per_particle),
-	indices_per_particle(indices_per_particle),
+#if SERVER
+	positions(),
+	velocities(),
+	births(),
+	params(),
+#else
 	positions(MAX_VERTICES, MAX_VERTICES),
 	velocities(MAX_VERTICES, MAX_VERTICES),
 	births(MAX_VERTICES, MAX_VERTICES),
-	params(MAX_VERTICES, MAX_VERTICES)
+	params(MAX_VERTICES, MAX_VERTICES),
+#endif
+	vertices_per_particle(vertices_per_particle),
+	indices_per_particle(indices_per_particle)
 {
 	list.add(this);
 }

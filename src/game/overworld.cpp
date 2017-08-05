@@ -561,13 +561,23 @@ void multiplayer_entry_edit_update(const Update& u)
 				}
 
 				{
+					// min players
+					s8* min_players = &config->min_players;
+					sprintf(str, "%hhd", *min_players);
+					delta = menu->slider_item(u, _(strings::min_players), str);
+					*min_players = vi_max(1, vi_min(MAX_PLAYERS, *min_players + delta));
+					if (delta)
+						data.multiplayer.active_server_dirty = true;
+				}
+
+				{
 					// team count
 					if (config->game_type == GameType::Assault)
 						config->team_count = 2;
 
 					s8* team_count = &config->team_count;
 					sprintf(str, "%hhd", *team_count);
-					delta = menu->slider_item(u, _(strings::team_count), str, config->game_type == GameType::Assault);
+					delta = menu->slider_item(u, _(strings::teams), str, config->game_type == GameType::Assault);
 					*team_count = vi_max(2, vi_min(MAX_TEAMS, *team_count + delta));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
@@ -1421,10 +1431,21 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 		// column 1
 		{
-			s32 rows = (details.state.level == AssetNull ? 0 : 2) + 7;
+			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 7;
 			UI::box(params, { pos + Vec2(-PADDING, panel_size.y * -rows), Vec2(panel_size.x + PADDING * 2.0f, panel_size.y * rows + PADDING) }, UI::color_background);
 
-			if (details.state.level != AssetNull)
+			if (details.state.level == AssetNull)
+			{
+				// max players
+				text.color = UI::color_default;
+				text.text(0, _(strings::max_players));
+				text.draw(params, pos);
+				value.color = UI::color_default;
+				value.text(0, "%d", s32(details.config.max_players));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+			}
+			else
 			{
 				// level name
 				text.color = UI::color_accent();

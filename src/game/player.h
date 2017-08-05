@@ -65,6 +65,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static s32 count_local();
 	static s32 count_local_before(PlayerHuman*);
 	static PlayerHuman* player_for_camera(const Camera*);
+	static PlayerHuman* player_for_gamepad(s8);
 	static void log_add(const char*, AI::Team = AI::TeamNone);
 	static void clear();
 	static void camera_setup_drone(Entity*, Camera*, r32);
@@ -117,6 +118,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void spawn(const SpawnPosition&);
 	void assault_status_display();
 	void energy_notify(s32);
+	void team_set(AI::Team);
 	void game_mode_transitioning();
 };
 

@@ -32,8 +32,8 @@
 #include "cjson/cJSON.h"
 #include <array>
 
-#define DEBUG_MSG 1
-#define DEBUG_ENTITY 1
+#define DEBUG_MSG 0
+#define DEBUG_ENTITY 0
 #define DEBUG_TRANSFORMS 0
 #define DEBUG_LAG 0
 #define DEBUG_LAG_AMOUNT 0.1f
@@ -728,6 +728,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		if (Stream::IsReading)
 			m->username[username_length] = '\0';
 		serialize_bool(p, m->can_spawn);
+		serialize_bool(p, m->is_admin);
 	}
 
 	if (e->has<PlayerCommon>())
@@ -2116,7 +2117,7 @@ void level_loading()
 void level_loaded()
 {
 	vi_assert(state_server.mode == Mode::Loading);
-	state_server.mode = Mode::Waiting;
+	state_server.mode = Mode::Active;
 	master_send_status_update();
 }
 
@@ -2446,6 +2447,15 @@ b8 packet_handle_master(StreamRead* p)
 				{
 					client->auth_timeout = 0.0f;
 					client->is_admin = is_admin;
+					if (is_admin)
+					{
+						// let the client's player know they're an admin
+						for (s32 i = 0; i < client->players.length; i++)
+						{
+							if (client->players[i].ref()->gamepad == 0)
+								client->players[i].ref()->get<PlayerManager>()->make_admin();
+						}
+					}
 					already_connected = true;
 					break;
 				}
@@ -2522,7 +2532,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			if (game_version == GAME_VERSION)
 			{
 				if (!client
-					&& (state_server.mode == Mode::Active || state_server.mode == Mode::Waiting)
+					&& state_server.mode == Mode::Active
 					&& Game::session.config.max_players >= PlayerHuman::list.count() + local_players)
 				{
 					client = state_server.clients.add();
@@ -2764,14 +2774,6 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 					i--;
 				}
 			}
-
-			if (state_server.mode == Mode::Waiting
-				&& (Team::teams_with_active_players() > 1 || Game::session.type == SessionType::Story))
-			{
-				state_server.mode = Mode::Active;
-				Team::match_start();
-				sync_time();
-			}
 			break;
 		}
 		case MessageType::PlayerControlHuman:
@@ -2787,8 +2789,14 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 		{
 			Ref<PlayerManager> m;
 			serialize_ref(p, m);
-			b8 valid = m.ref() && client_owns(client, m.ref()->entity());
-			if (!PlayerManager::net_msg(p, m.ref(), valid ? MessageSource::Remote : MessageSource::Invalid))
+
+			PlayerManager::Message msg;
+			serialize_enum(p, PlayerManager::Message, msg);
+
+			b8 valid = m.ref()
+				&& (client_owns(client, m.ref()->entity())
+					|| (client->is_admin && (msg == PlayerManager::Message::TeamSchedule || msg == PlayerManager::Message::CanSpawn)));
+			if (!PlayerManager::net_msg(p, m.ref(), msg, valid ? MessageSource::Remote : MessageSource::Invalid))
 				net_error();
 			break;
 		}
@@ -2861,7 +2869,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 							case SessionType::Multiplayer:
 							{
 								// assign players evenly
-								team_ref = Team::team_with_least_players();
+								team_ref = Team::with_least_players();
 								vi_assert(team_ref);
 								break;
 							}
@@ -2883,6 +2891,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 						}
 						strncpy(manager->username, username, MAX_USERNAME);
 						PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
+						manager->is_admin = client->is_admin && gamepad == 0;
 						serialize_u64(p, player->uuid);
 						player->local = false;
 						client->players.add(player);
@@ -4257,7 +4266,9 @@ b8 msg_process(StreamRead* p, MessageSource src)
 			vi_assert(src == MessageSource::Loopback || !Game::level.local); // Server::msg_process handles this on the server
 			Ref<PlayerManager> m;
 			serialize_ref(p, m);
-			if (!PlayerManager::net_msg(p, m.ref(), src))
+			PlayerManager::Message msg;
+			serialize_enum(p, PlayerManager::Message, msg);
+			if (!PlayerManager::net_msg(p, m.ref(), msg, src))
 				net_error();
 			break;
 		}

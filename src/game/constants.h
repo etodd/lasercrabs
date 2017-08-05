@@ -32,6 +32,7 @@
 #define UPGRADE_STATION_RADIUS 0.5f
 
 #define UPGRADE_TIME 1.5f
+#define TEAM_SELECT_TIME 30.0f
 
 #define ACTIVE_ARMOR_TIME 0.75f
 

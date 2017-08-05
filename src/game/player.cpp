@@ -166,6 +166,16 @@ PlayerHuman* PlayerHuman::player_for_camera(const Camera* camera)
 	return nullptr;
 }
 
+PlayerHuman* PlayerHuman::player_for_gamepad(s8 gamepad)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->gamepad == gamepad)
+			return i.item();
+	}
+	return nullptr;
+}
+
 s32 PlayerHuman::count_local_before(PlayerHuman* h)
 {
 	s32 count = 0;
@@ -300,6 +310,15 @@ void PlayerHuman::awake()
 #if SERVER
 	ai_record_id = AI::record_init(Game::level.team_lookup_reverse(get<PlayerManager>()->team.ref()->team()), get<PlayerManager>()->respawns);
 #endif
+
+	if (!get<PlayerManager>()->can_spawn
+		&& Game::session.type == SessionType::Multiplayer
+		&& (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
+		&& !Game::level.local
+		&& local)
+	{
+		Menu::teams_select_match_start_init(this);
+	}
 }
 
 PlayerHuman::~PlayerHuman()
@@ -314,6 +333,16 @@ PlayerHuman::~PlayerHuman()
 	AI::record_close(ai_record_id);
 	ai_record_id = 0;
 #endif
+}
+
+void PlayerHuman::team_set(AI::Team t)
+{
+	Camera* c = camera.ref();
+	if (c)
+	{
+		c->team = t;
+		c->mask = 1 << t;
+	}
 }
 
 void PlayerHuman::rumble_add(r32 r)
@@ -730,29 +759,6 @@ void PlayerHuman::update(const Update& u)
 		)
 		return;
 
-	// close/open pause menu if needed
-	{
-		if (Game::time.total > 0.5f
-			&& u.last_input->get(Controls::Pause, gamepad)
-			&& !u.input->get(Controls::Pause, gamepad)
-			&& !Game::cancel_event_eaten[gamepad]
-			&& !upgrade_menu_open
-			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
-		{
-			Game::cancel_event_eaten[gamepad] = true;
-			menu_state = (menu_state == Menu::State::Hidden) ? Menu::State::Visible : Menu::State::Hidden;
-			menu.animate();
-		}
-		else if (menu_state == Menu::State::Visible
-			&& u.last_input->get(Controls::Cancel, gamepad)
-			&& !u.input->get(Controls::Cancel, gamepad)
-			&& !Game::cancel_event_eaten[gamepad])
-		{
-			Game::cancel_event_eaten[gamepad] = true;
-			menu_state = Menu::State::Hidden;
-		}
-	}
-
 	if (entity)
 		select_spawn_timer = vi_max(0.0f, select_spawn_timer - u.time.delta); // for letterbox animation
 
@@ -873,10 +879,20 @@ void PlayerHuman::update(const Update& u)
 #endif
 				}
 			}
+			else if (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
+			{
+				// show team switcher
+				if (!Menu::teams(u, gamepad, &menu, Menu::TeamSelectMode::MatchStart))
+				{
+					// user hit escape
+					// make sure the cancel event is not eaten, so that our pause/unpause code below works
+					Game::cancel_event_eaten[gamepad] = false;
+				}
+			}
 			else if (Game::level.mode == Game::Mode::Pvp && get<PlayerManager>()->respawns != 0)
 			{
 				// we're spawning
-				if (!get<PlayerManager>()->can_spawn)
+				if (Game::session.type == SessionType::Story && !get<PlayerManager>()->can_spawn)
 				{
 					// player can't spawn yet; needs to solve sudoku
 					sudoku.update(u, gamepad, this);
@@ -1000,6 +1016,29 @@ void PlayerHuman::update(const Update& u)
 		{
 			vi_assert(false);
 			break;
+		}
+	}
+
+	// close/open pause menu if needed
+	{
+		if (Game::time.total > 0.5f
+			&& u.last_input->get(Controls::Pause, gamepad)
+			&& !u.input->get(Controls::Pause, gamepad)
+			&& !Game::cancel_event_eaten[gamepad]
+			&& !upgrade_menu_open
+			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
+		{
+			Game::cancel_event_eaten[gamepad] = true;
+			menu_state = (menu_state == Menu::State::Hidden) ? Menu::State::Visible : Menu::State::Hidden;
+			menu.animate();
+		}
+		else if (menu_state == Menu::State::Visible
+			&& u.last_input->get(Controls::Cancel, gamepad)
+			&& !u.input->get(Controls::Cancel, gamepad)
+			&& !Game::cancel_event_eaten[gamepad])
+		{
+			Game::cancel_event_eaten[gamepad] = true;
+			menu_state = Menu::State::Hidden;
 		}
 	}
 }
@@ -1621,8 +1660,34 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	{
 		if (Game::level.mode == Game::Mode::Pvp)
 		{
-			// if we haven't spawned yet, then show the player list
-			if (get<PlayerManager>()->respawns != 0)
+			if (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
+			{
+				Vec2 p(params.camera->viewport.size * Vec2(0.5f, 0.75f));
+				{
+					UIText text;
+					text.size = text_size;
+					text.anchor_x = UIText::Anchor::Min;
+					text.anchor_y = UIText::Anchor::Min;
+					text.color = UI::color_default;
+					text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+					p.y += text.bounds().y + MENU_ITEM_PADDING * -3.0f;
+					p.x += MENU_ITEM_WIDTH * -0.5f;
+
+					if (Team::match_state == Team::MatchState::TeamSelect)
+						text.text(0, _(strings::waiting_timer), s32(TEAM_SELECT_TIME - Team::match_time));
+					else // waiting for players to connect
+						text.text(0, _(strings::waiting_players), Game::session.config.min_players - PlayerHuman::list.count());
+
+					{
+						Vec2 p2 = p + Vec2(MENU_ITEM_PADDING, 0);
+						UI::box(params, text.rect(p2).outset(MENU_ITEM_PADDING), UI::color_background);
+						text.draw(params, p2);
+					}
+					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+				}
+				menu.draw_ui(params, p, UIText::Anchor::Min, UIText::Anchor::Max);
+			}
+			else if (get<PlayerManager>()->respawns != 0) // if we haven't spawned yet, then show the player list
 			{
 				if (!get<PlayerManager>()->can_spawn)
 				{
@@ -1872,7 +1937,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	// message
 	if (msg_timer > 0.0f)
 	{
-		r32 last_timer = msg_timer;
 		b8 flash = UI::flash_function(Game::real_time.total);
 		b8 last_flash = UI::flash_function(Game::real_time.total - Game::real_time.delta);
 		if (flash)
@@ -3561,6 +3625,7 @@ void PlayerControlHuman::update(const Update& u)
 						get<PlayerCommon>()->angle_horizontal = target_angle;
 						get<PlayerCommon>()->angle_vertical = 0.0f;
 					}
+					get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);
 				}
 			}
 

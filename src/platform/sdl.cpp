@@ -98,6 +98,7 @@ namespace VI
 			fprintf(stderr, "Failed to set OpenGL swap interval: %s\n", SDL_GetError());
 			return -1;
 		}
+		return 0;
 	}
 
 	s32 proc()

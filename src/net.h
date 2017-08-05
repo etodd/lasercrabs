@@ -136,7 +136,6 @@ namespace Server
 	{
 		Idle,
 		Loading,
-		Waiting,
 		Active,
 		count,
 	};
@@ -218,6 +217,7 @@ r32 rtt(const PlayerHuman*);
 b8 state_frame_by_timestamp(StateFrame*, r32);
 void transform_absolute(const StateFrame&, s32, Vec3*, Quat* = nullptr);
 r32 timestamp();
+b8 player_is_admin(const PlayerHuman*);
 
 }
 

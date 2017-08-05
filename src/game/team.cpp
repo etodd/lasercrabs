@@ -169,7 +169,7 @@ s32 Team::teams_with_active_players()
 	return t;
 }
 
-Team* Team::team_with_least_players()
+Team* Team::with_least_players(s32* player_count)
 {
 	Team* result = nullptr;
 	s32 least_players = MAX_PLAYERS + 1;
@@ -181,6 +181,13 @@ Team* Team::team_with_least_players()
 			least_players = player_count;
 			result = i.item();
 		}
+	}
+	if (player_count)
+	{
+		if (result)
+			*player_count = least_players;
+		else
+			*player_count = 0;
 	}
 	return result;
 }
@@ -573,9 +580,26 @@ namespace TeamNet
 
 void Team::match_start()
 {
-	vi_assert(Game::level.local && (match_state == MatchState::Waiting || match_state == MatchState::Active));
-	if (match_state == MatchState::Waiting)
+	vi_assert(Game::level.local && (match_state == MatchState::Waiting || match_state == MatchState::Active || match_state == MatchState::TeamSelect));
+	if (match_state != MatchState::Active)
+	{
 		TeamNet::send_match_state(MatchState::Active);
+#if SERVER
+		Net::Server::sync_time();
+#endif
+	}
+}
+
+void Team::match_team_select()
+{
+	vi_assert(Game::level.local && (match_state == MatchState::Waiting || match_state == MatchState::TeamSelect));
+	if (match_state != MatchState::TeamSelect)
+	{
+		TeamNet::send_match_state(MatchState::TeamSelect);
+#if SERVER
+		Net::Server::sync_time();
+#endif
+	}
 }
 
 void team_add_score_summary_item(PlayerManager* player, const char* label, s32 amount = -1)
@@ -633,7 +657,7 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					}
 				}
 			}
-			else if (match_state == Team::MatchState::Active)
+			else if (match_state == Team::MatchState::Active || match_state == Team::MatchState::TeamSelect)
 				match_time = 0.0f;
 			break;
 		}
@@ -723,8 +747,124 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	return true;
 }
 
+void team_stats(s32* team_counts, AI::Team* smallest_team, AI::Team* largest_team)
+{
+	s32 smallest_count = MAX_PLAYERS;
+	s32 largest_count = 0;
+	*smallest_team = 0;
+	*largest_team = 0;
+	for (s32 i = 0; i < MAX_TEAMS; i++)
+	{
+		if (team_counts[i] < smallest_count)
+		{
+			*smallest_team = i;
+			smallest_count = team_counts[i];
+		}
+		if (team_counts[i] > largest_count)
+		{
+			*largest_team = i;
+			largest_count = team_counts[i];
+		}
+	}
+}
+
+namespace PlayerManagerNet
+{
+	b8 team_switch(PlayerManager*, AI::Team);
+	b8 can_spawn(PlayerManager*, b8);
+}
+
 void Team::update_all_server(const Update& u)
 {
+	if (match_state == MatchState::Waiting)
+	{
+		if (Game::session.type == SessionType::Story)
+		{
+			if (PlayerHuman::list.count() > 0)
+				match_start();
+		}
+		else
+		{
+			if (PlayerHuman::list.count() >= Game::session.config.min_players)
+				match_team_select();
+		}
+	}
+
+	if (match_state == MatchState::TeamSelect
+		&& Game::level.mode == Game::Mode::Pvp)
+	{
+		if (match_time > TEAM_SELECT_TIME)
+		{
+			// force match to start
+			s32 team_counts[MAX_TEAMS] = {};
+			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			{
+				AI::Team team = i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled;
+				team_counts[team]++;
+			}
+
+			AI::Team largest_team;
+			AI::Team smallest_team;
+			team_stats(team_counts, &smallest_team, &largest_team);
+			while (team_counts[largest_team] > team_counts[smallest_team] + 1)
+			{
+				// move a player from the largest team to the smallest
+				PlayerManager* victim = nullptr;
+				for (auto i = PlayerManager::list.iterator_end(); !i.is_first(); i.prev())
+				{
+					AI::Team team = i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled;
+					if (team == largest_team)
+					{
+						if (!victim || !i.item()->has<PlayerHuman>()) // bots get moved first
+							victim = i.item();
+						break;
+					}
+				}
+				vi_assert(victim);
+				team_counts[largest_team]--;
+				team_counts[smallest_team]++;
+				victim->team_scheduled = smallest_team;
+				team_stats(team_counts, &smallest_team, &largest_team);
+			}
+
+			// apply team changes
+			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->team_scheduled != AI::TeamNone)
+					PlayerManagerNet::team_switch(i.item(), i.item()->team_scheduled);
+				if (!i.item()->can_spawn)
+					PlayerManagerNet::can_spawn(i.item(), true);
+			}
+
+			match_start();
+		}
+		else if (teams_with_active_players() > 1)
+		{
+			b8 can_spawn = true;
+			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			{
+				if (!i.item()->can_spawn)
+				{
+					can_spawn = false;
+					break;
+				}
+			}
+			if (can_spawn)
+			{
+				s32 least_players = MAX_PLAYERS;
+				s32 most_players = 0;
+				for (auto i = list.iterator(); !i.is_last(); i.next())
+				{
+					s32 players = i.item()->player_count();
+					least_players = vi_min(least_players, players);
+					most_players = vi_max(most_players, players);
+				}
+				if (most_players <= least_players + 1)
+					match_start();
+			}
+		}
+	}
+
 	if (transition_mode_scheduled != Game::Mode::None)
 	{
 		Game::Mode m = transition_mode_scheduled;
@@ -737,7 +877,7 @@ void Team::update_all_server(const Update& u)
 
 	// fill bots
 	if (Game::session.config.fill_bots
-		&& (match_state == MatchState::Waiting || match_state == MatchState::Active)
+		&& (match_state == MatchState::Waiting || match_state == MatchState::TeamSelect || match_state == MatchState::Active)
 		&& PlayerHuman::list.count() > 0)
 	{
 		while (PlayerManager::list.count() < Game::session.config.max_players)
@@ -745,7 +885,7 @@ void Team::update_all_server(const Update& u)
 			Entity* e = World::create<ContainerEntity>();
 			char username[MAX_USERNAME + 1] = {};
 			snprintf(username, MAX_USERNAME, "Bot %03d", mersenne::rand() % 1000);
-			Team* team = team_with_least_players();
+			Team* team = with_least_players();
 			vi_assert(team);
 			AI::Config config = PlayerAI::generate_config(team->team(), 0.0f);
 			PlayerManager* manager = e->add<PlayerManager>(team, username);
@@ -760,7 +900,7 @@ void Team::update_all_server(const Update& u)
 		Team* team_with_most_kills = Game::session.config.game_type == GameType::Deathmatch ? with_most_kills() : nullptr;
 		if (!Game::level.continue_match_after_death
 			&& (match_time > Game::session.config.time_limit()
-			|| (Game::level.has_feature(Game::FeatureLevel::All) && Team::teams_with_active_players() <= 1)
+			|| (Game::level.has_feature(Game::FeatureLevel::All) && teams_with_active_players() <= 1)
 			|| (Game::session.config.game_type == GameType::Assault && CoreModule::count(1 << 0) == 0)
 			|| (Game::session.config.game_type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::session.config.kill_limit)))
 		{
@@ -893,14 +1033,16 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	abilities{ Ability::None, Ability::None, Ability::None },
 	instance(),
 	spawn(),
-	can_spawn(Game::level.mode == Game::Mode::Parkour || Game::session.type != SessionType::Story || Game::save.zones[Game::level.id] == ZoneState::PvpFriendly),
+	can_spawn(Game::level.mode == Game::Mode::Parkour || Game::save.zones[Game::level.id] == ZoneState::PvpFriendly),
 	current_upgrade(Upgrade::None),
 	state_timer(),
 	upgrade_completed(),
 	respawns(Game::session.config.respawns),
 	kills(),
 	deaths(),
-	ability_purchase_times()
+	ability_purchase_times(),
+	team_scheduled(AI::TeamNone),
+	is_admin()
 {
 	{
 		const StaticArray<Upgrade, MAX_ABILITIES>& start_upgrades = Game::session.config.start_upgrades;
@@ -983,18 +1125,7 @@ s32 PlayerManager::visibility_hash(const PlayerManager* drone_a, const PlayerMan
 
 namespace PlayerManagerNet
 {
-	enum class Message : s8
-	{
-		CanSpawn,
-		ScoreAccept,
-		SpawnSelect,
-		UpgradeCompleted,
-		UpdateCounts,
-		SetInstance,
-		count,
-	};
-
-	b8 send(PlayerManager* m, Message msg)
+	b8 send(PlayerManager* m, PlayerManager::Message msg)
 	{
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
@@ -1002,7 +1133,58 @@ namespace PlayerManagerNet
 			Ref<PlayerManager> ref = m;
 			serialize_ref(p, ref);
 		}
-		serialize_enum(p, Message, msg);
+		serialize_enum(p, PlayerManager::Message, msg);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 can_spawn(PlayerManager* m, b8 value)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::CanSpawn;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		serialize_bool(p, value);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 team_schedule(PlayerManager* m, AI::Team t)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::TeamSchedule;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		serialize_s8(p, t);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 team_switch(PlayerManager* m, AI::Team t)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::TeamSwitch;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		serialize_s8(p, t);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -1016,8 +1198,8 @@ namespace PlayerManagerNet
 			serialize_ref(p, ref);
 		}
 		{
-			Message msg = Message::UpgradeCompleted;
-			serialize_enum(p, Message, msg);
+			PlayerManager::Message msg = PlayerManager::Message::UpgradeCompleted;
+			serialize_enum(p, PlayerManager::Message, msg);
 		}
 		serialize_int(p, s32, index, 0, MAX_ABILITIES - 1);
 		serialize_enum(p, Upgrade, u);
@@ -1034,8 +1216,8 @@ namespace PlayerManagerNet
 			serialize_ref(p, ref);
 		}
 		{
-			Message msg = Message::SpawnSelect;
-			serialize_enum(p, Message, msg);
+			PlayerManager::Message msg = PlayerManager::Message::SpawnSelect;
+			serialize_enum(p, PlayerManager::Message, msg);
 		}
 		{
 			Ref<SpawnPoint> ref = point;
@@ -1054,12 +1236,28 @@ namespace PlayerManagerNet
 			serialize_ref(p, ref);
 		}
 		{
-			Message msg = Message::SetInstance;
-			serialize_enum(p, Message, msg);
+			PlayerManager::Message msg = PlayerManager::Message::SetInstance;
+			serialize_enum(p, PlayerManager::Message, msg);
 		}
 		{
 			Ref<Entity> ref = e;
 			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 make_admin(PlayerManager* m)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::MakeAdmin;
+			serialize_enum(p, PlayerManager::Message, msg);
 		}
 		Net::msg_finalize(p);
 		return true;
@@ -1075,8 +1273,8 @@ namespace PlayerManagerNet
 			serialize_ref(p, ref);
 		}
 		{
-			Message msg = Message::UpdateCounts;
-			serialize_enum(p, Message, msg);
+			PlayerManager::Message msg = PlayerManager::Message::UpdateCounts;
+			serialize_enum(p, PlayerManager::Message, msg);
 		}
 		serialize_s16(p, m->kills);
 		serialize_s16(p, m->deaths);
@@ -1103,21 +1301,89 @@ void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
 	m->spawn.fire(point->spawn_position(m));
 }
 
-b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSource src)
+b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
-	PlayerManagerNet::Message msg;
-	serialize_enum(p, PlayerManagerNet::Message, msg);
 	if (src != Net::MessageSource::Invalid)
 	{
 		switch (msg)
 		{
-			case PlayerManagerNet::Message::CanSpawn:
+			case Message::CanSpawn:
 			{
-				m->can_spawn = true;
+				b8 value;
+				serialize_bool(p, value);
+
+				if (!Game::level.local || src == Net::MessageSource::Loopback)
+					m->can_spawn = value;
+
+				if (Game::level.local
+					&& src == Net::MessageSource::Remote
+					&& (value || Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)) // once the match starts, can_spawn can not go false
+				{
+					if (value && m->team_scheduled != AI::TeamNone)
+					{
+						b8 valid;
+						if (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
+							valid = true;
+						else if (m->team_scheduled == m->team.ref()->team())
+							valid = true;
+						else
+						{
+							// make sure teams will still be even
+							s32 least_players;
+							Team::with_least_players(&least_players);
+							if (least_players == m->team.ref()->player_count())
+								least_players--; // this team would also be losing a player
+							valid = Team::list[m->team_scheduled].player_count() + 1 <= least_players + 1;
+						}
+
+						if (valid) // actually switch teams
+						{
+							PlayerManagerNet::team_switch(m, m->team_scheduled);
+							if (!m->can_spawn)
+								PlayerManagerNet::can_spawn(m, value); // repeat to all clients
+						}
+						else
+							PlayerManagerNet::team_switch(m, m->team.ref()->team()); // keep their same team (clears team_scheduled)
+					}
+					else
+						PlayerManagerNet::can_spawn(m, value); // repeat to all clients
+				}
 				break;
 			}
-			case PlayerManagerNet::Message::SpawnSelect:
+			case Message::TeamSchedule:
+			{
+				AI::Team t;
+				serialize_s8(p, t);
+				if (Team::match_state != Team::MatchState::Done
+					&& (Game::level.local || src == Net::MessageSource::Remote)
+					&& (t == AI::TeamNone || (t >= 0 && t < Team::list.count())))
+				{
+					if (Game::level.local && src == Net::MessageSource::Remote) // repeat it to all clients
+						PlayerManagerNet::team_schedule(m, t);
+					else
+						m->team_scheduled = t;
+				}
+				break;
+			}
+			case Message::TeamSwitch:
+			{
+				AI::Team t;
+				serialize_s8(p, t);
+				if (!Game::level.local || src == Net::MessageSource::Loopback)
+				{
+					if (Game::level.local
+						&& m->team.ref()->team() != t
+						&& m->instance.ref())
+						m->instance.ref()->get<Health>()->kill(nullptr);
+					m->team = &Team::list[t];
+					m->team_scheduled = AI::TeamNone;
+					if (m->has<PlayerHuman>())
+						m->get<PlayerHuman>()->team_set(t);
+				}
+				break;
+			}
+			case Message::SpawnSelect:
 			{
 				Ref<SpawnPoint> ref;
 				serialize_ref(p, ref);
@@ -1146,12 +1412,12 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSour
 					internal_spawn_go(m, ref.ref());
 				}
 			}
-			case PlayerManagerNet::Message::ScoreAccept:
+			case Message::ScoreAccept:
 			{
 				m->score_accepted = true;
 				break;
 			}
-			case PlayerManagerNet::Message::UpgradeCompleted:
+			case Message::UpgradeCompleted:
 			{
 				s32 index;
 				serialize_int(p, s32, index, 0, MAX_ABILITIES - 1);
@@ -1166,7 +1432,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSour
 				}
 				break;
 			}
-			case PlayerManagerNet::Message::UpdateCounts:
+			case Message::UpdateCounts:
 			{
 				s16 kills;
 				s16 deaths;
@@ -1182,12 +1448,18 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSour
 				}
 				break;
 			}
-			case PlayerManagerNet::Message::SetInstance:
+			case Message::SetInstance:
 			{
 				Ref<Entity> i;
 				serialize_ref(p, i);
 				if (!Game::level.local || src == Net::MessageSource::Loopback)
 					m->instance = i;
+				break;
+			}
+			case Message::MakeAdmin:
+			{
+				if (!Game::level.local || src == Net::MessageSource::Loopback)
+					m->is_admin = true;
 				break;
 			}
 			default:
@@ -1315,7 +1587,14 @@ void PlayerManager::add_deaths(s32 d)
 
 void PlayerManager::set_instance(Entity* e)
 {
+	vi_assert(Game::level.local);
 	PlayerManagerNet::set_instance(this, e);
+}
+
+void PlayerManager::make_admin()
+{
+	vi_assert(Game::level.local);
+	PlayerManagerNet::make_admin(this);
 }
 
 PlayerManager::State PlayerManager::state() const
@@ -1367,7 +1646,6 @@ void PlayerManager::update_all(const Update& u)
 	{
 		if (Game::level.local)
 			i.item()->update_server(u);
-		i.item()->update_client(u);
 	}
 }
 
@@ -1503,10 +1781,6 @@ void PlayerManager::update_server(const Update& u)
 	}
 }
 
-void PlayerManager::update_client(const Update& u)
-{
-}
-
 b8 PlayerManager::is_local() const
 {
 	for (auto j = PlayerHuman::list.iterator(); !j.is_last(); j.next())
@@ -1517,14 +1791,20 @@ b8 PlayerManager::is_local() const
 	return false;
 }
 
-void PlayerManager::set_can_spawn()
+void PlayerManager::set_can_spawn(b8 value)
 {
-	PlayerManagerNet::send(this, PlayerManagerNet::Message::CanSpawn);
+	vi_assert(value || Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect); // once match starts, can_spawn can't go false
+	PlayerManagerNet::can_spawn(this, value);
+}
+
+void PlayerManager::team_schedule(AI::Team t)
+{
+	PlayerManagerNet::team_schedule(this, t);
 }
 
 void PlayerManager::score_accept()
 {
-	PlayerManagerNet::send(this, PlayerManagerNet::Message::ScoreAccept);
+	PlayerManagerNet::send(this, PlayerManager::Message::ScoreAccept);
 }
 
 void PlayerManager::spawn_select(SpawnPoint* point)

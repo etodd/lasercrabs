@@ -335,7 +335,8 @@ namespace Master
 				u = u->next;
 			}
 		}
-		config->max_players = s16(Json::get_s32(json, "max_players", 4));
+		config->max_players = s8(Json::get_s32(json, "max_players", 4));
+		config->min_players = s8(Json::get_s32(json, "min_players", 2));
 		config->time_limit_minutes = s8(Json::get_s32(json, "time_limit_minutes", 6));
 		config->enable_minions = b8(Json::get_s32(json, "enable_minions", 1));
 		config->drone_shield = s8(Json::get_s32(json, "drone_shield", DRONE_SHIELD));
@@ -367,6 +368,7 @@ namespace Master
 				cJSON_AddItemToArray(start_upgrades, cJSON_CreateNumber(s32(config.start_upgrades[i])));
 		}
 		cJSON_AddNumberToObject(json, "max_players", config.max_players);
+		cJSON_AddNumberToObject(json, "min_players", config.min_players);
 		cJSON_AddNumberToObject(json, "time_limit_minutes", config.time_limit_minutes);
 		cJSON_AddNumberToObject(json, "enable_minions", config.enable_minions);
 		cJSON_AddNumberToObject(json, "drone_shield", config.drone_shield);

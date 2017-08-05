@@ -9,6 +9,7 @@ namespace VI
 {
 
 struct RenderParams;
+struct PlayerHuman;
 
 #define MENU_ITEM_WIDTH (400.0f * UI::scale)
 #define MENU_ITEM_FONT_SIZE 18.0f
@@ -70,10 +71,19 @@ enum class State : s8
 {
 	Hidden,
 	Visible,
+	Maps,
+	Teams,
 	Settings,
 	SettingsControlsKeyboard,
 	SettingsControlsGamepad,
 	SettingsGraphics,
+	count,
+};
+
+enum class TeamSelectMode : s8
+{
+	Normal,
+	MatchStart,
 	count,
 };
 
@@ -90,7 +100,8 @@ void title();
 void show();
 void refresh_variables(const InputState&);
 void pause_menu(const Update&, s8, UIMenu*, State*);
-b8 options(const Update&, s8, UIMenu*);
+void teams_select_match_start_init(PlayerHuman*);
+b8 teams(const Update&, s8, UIMenu*, TeamSelectMode);
 void progress_spinner(const RenderParams&, const Vec2&, r32 = 20.0f);
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&);
 void progress_infinite(const RenderParams&, const char*, const Vec2&);

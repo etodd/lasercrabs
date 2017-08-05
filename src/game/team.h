@@ -57,6 +57,7 @@ struct Team : public ComponentType<Team>
 	enum class MatchState : s8
 	{
 		Waiting,
+		TeamSelect,
 		Active,
 		Done,
 		count,
@@ -98,11 +99,12 @@ struct Team : public ComponentType<Team>
 	static void update_all_client_only(const Update&);
 	static s32 teams_with_active_players();
 	static Team* with_most_kills();
+	static Team* with_least_players(s32* = nullptr);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void transition_mode(Game::Mode);
 	static void draw_ui(const RenderParams&);
 	static void match_start();
-	static Team* team_with_least_players();
+	static void match_team_select();
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{
@@ -139,6 +141,20 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		count,
 	};
 
+	enum class Message : s8
+	{
+		CanSpawn,
+		ScoreAccept,
+		SpawnSelect,
+		UpgradeCompleted,
+		UpdateCounts,
+		SetInstance,
+		MakeAdmin,
+		TeamSchedule,
+		TeamSwitch,
+		count,
+	};
+
 	struct Visibility
 	{
 		enum class Type : s8
@@ -156,7 +172,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	static Visibility visibility[MAX_PLAYERS * MAX_PLAYERS];
 
 	static void update_all(const Update&);
-	static b8 net_msg(Net::StreamRead*, PlayerManager*, Net::MessageSource);
+	static b8 net_msg(Net::StreamRead*, PlayerManager*, Message, Net::MessageSource);
 	static PlayerManager* owner(const Entity*);
 	static void entity_killed_by(Entity*, Entity*);
 
@@ -175,13 +191,16 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	char username[MAX_USERNAME + 1]; // +1 for null terminator
 	Ability abilities[MAX_ABILITIES];
 	Upgrade current_upgrade;
+	AI::Team team_scheduled;
 	b8 score_accepted;
 	b8 can_spawn;
+	b8 is_admin;
 
 	PlayerManager(Team* = nullptr, const char* = nullptr);
 	void awake();
 	~PlayerManager();
 
+	void make_admin();
 	void set_instance(Entity*);
 	void spawn_select(SpawnPoint*);
 	State state() const;
@@ -200,9 +219,9 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void add_kills(s32);
 	void add_deaths(s32);
 	void update_server(const Update&);
-	void update_client(const Update&);
 	void score_accept();
-	void set_can_spawn();
+	void set_can_spawn(b8 = true);
+	void team_schedule(AI::Team);
 };
 
 

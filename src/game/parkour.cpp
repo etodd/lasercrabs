@@ -1244,6 +1244,7 @@ b8 Parkour::try_jump(r32 rotation)
 	{
 		get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_JUMP);
 		fsm.transition(State::Normal);
+		footstep();
 	}
 
 	return did_jump;

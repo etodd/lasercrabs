@@ -1674,7 +1674,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 					p.x += MENU_ITEM_WIDTH * -0.5f;
 
 					if (Team::match_state == Team::MatchState::TeamSelect)
-						text.text(0, _(strings::waiting_timer), s32(TEAM_SELECT_TIME - Team::match_time));
+						text.text(0, _(Game::level.local ? strings::team_select : strings::team_select_timer), vi_max(0, s32(TEAM_SELECT_TIME - Team::match_time)));
 					else // waiting for players to connect
 						text.text(0, _(strings::waiting_players), Game::session.config.min_players - PlayerHuman::list.count());
 
@@ -1950,25 +1950,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 	}
 
-	// logs
-	{
-		UIText text;
-		text.anchor_x = UIText::Anchor::Max;
-		text.anchor_y = UIText::Anchor::Max;
-		text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
-		Vec2 p = params.camera->viewport.size + Vec2(MENU_ITEM_PADDING * -5.0f);
-		AI::Team my_team = get<PlayerManager>()->team.ref()->team();
-		for (s32 i = 0; i < logs.length; i++)
-		{
-			const LogEntry& entry = logs[i];
-			text.color = Team::ui_color(my_team, entry.team);
-			text.text_raw(gamepad, entry.text);
-			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-			UIMenu::text_clip(&text, entry.timestamp, 80.0f);
-			text.draw(params, p);
-			p.y -= (text.size * UI::scale) + MENU_ITEM_PADDING * 2.0f;
-		}
-	}
+	draw_logs(params, get<PlayerManager>()->team.ref()->team(), gamepad);
 
 	// overworld notifications
 	if (Game::level.mode == Game::Mode::Parkour && Overworld::zone_under_attack() != AssetNull)
@@ -1992,6 +1974,25 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 	if (mode == UIMode::Pause) // pause menu always drawn on top
 		menu.draw_ui(params, Vec2(0, params.camera->viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
+}
+
+void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gamepad)
+{
+	UIText text;
+	text.anchor_x = UIText::Anchor::Max;
+	text.anchor_y = UIText::Anchor::Max;
+	text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+	Vec2 p = params.camera->viewport.size + Vec2(MENU_ITEM_PADDING * -5.0f);
+	for (s32 i = 0; i < logs.length; i++)
+	{
+		const LogEntry& entry = logs[i];
+		text.color = Team::ui_color(my_team, entry.team);
+		text.text_raw(gamepad, entry.text);
+		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+		UIMenu::text_clip(&text, entry.timestamp, 80.0f);
+		text.draw(params, p);
+		p.y -= (text.size * UI::scale) + MENU_ITEM_PADDING * 2.0f;
+	}
 }
 
 void PlayerHuman::draw_alpha(const RenderParams& params) const
@@ -2675,7 +2676,10 @@ void PlayerControlHuman::killed(Entity* killed_by)
 		if (killed_by->has<Bolt>())
 			player.ref()->killed_by = killed_by->get<Bolt>()->owner.ref();
 		else if (killed_by->has<Grenade>())
-			player.ref()->killed_by = killed_by->get<Grenade>()->owner.ref()->instance.ref();
+		{
+			PlayerManager* owner = killed_by->get<Grenade>()->owner.ref();
+			player.ref()->killed_by = owner ? owner->instance.ref() : nullptr;
+		}
 		else
 			player.ref()->killed_by = killed_by;
 	}

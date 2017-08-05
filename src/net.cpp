@@ -2430,6 +2430,15 @@ b8 packet_handle_master(StreamRead* p)
 			}
 			break;
 		}
+		case Master::Message::ServerConfig:
+		{
+			u32 request_id;
+			serialize_u32(p, request_id); // not used
+			if (!Master::serialize_server_config(p, &Game::level.config_scheduled))
+				net_error();
+			Game::level.config_scheduled_apply = true;
+			break;
+		}
 		case Master::Message::ExpectClient:
 		{
 			Master::UserKey key;

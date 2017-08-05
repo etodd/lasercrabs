@@ -88,6 +88,7 @@ namespace VI
 			StaticArray<TramTrack, 3> tram_tracks;
 			StaticArray<AI::Config, MAX_PLAYERS> ai_config;
 			StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS> directional_lights;
+			Net::Master::ServerConfig config_scheduled;
 			Vec3 ambient_color;
 			r32 min_y;
 			r32 rotation;
@@ -106,6 +107,7 @@ namespace VI
 			AI::Team team_lookup[MAX_TEAMS];
 			b8 local = true;
 			b8 continue_match_after_death;
+			b8 config_scheduled_apply; // true if we have a scheduled ServerConfig we need to apply on the next level transition
 			b8 post_pvp; // true if we've already played a PvP match on this level
 
 			b8 has_feature(FeatureLevel) const;

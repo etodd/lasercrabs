@@ -230,6 +230,11 @@ void Team::transition_next()
 #if SERVER
 		Net::Server::transition_level();
 #endif
+		if (Game::level.config_scheduled_apply)
+		{
+			Game::session.config = Game::level.config_scheduled;
+			Game::level.config_scheduled_apply = false;
+		}
 		AssetID next_zone = Game::level.id;
 		while (Game::session.config.levels.length > 1 && next_zone == Game::level.id)
 			next_zone = Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length];
@@ -793,7 +798,7 @@ void Team::update_all_server(const Update& u)
 	if (match_state == MatchState::TeamSelect
 		&& Game::level.mode == Game::Mode::Pvp)
 	{
-		if (match_time > TEAM_SELECT_TIME)
+		if (Game::level.local && match_time > TEAM_SELECT_TIME)
 		{
 			// force match to start
 			s32 team_counts[MAX_TEAMS] = {};
@@ -1380,6 +1385,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 					m->team_scheduled = AI::TeamNone;
 					if (m->has<PlayerHuman>())
 						m->get<PlayerHuman>()->team_set(t);
+					m->clear_ownership();
 				}
 				break;
 			}
@@ -1660,6 +1666,27 @@ PlayerManager* PlayerManager::owner(const Entity* e)
 	else if (e->has<Grenade>())
 		return e->get<Grenade>()->owner.ref();
 	return nullptr;
+}
+
+void PlayerManager::clear_ownership()
+{
+	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->owner.ref() == this)
+			i.item()->owner = nullptr;
+	}
+
+	for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->player.ref() == this)
+			i.item()->player = nullptr;
+	}
+
+	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->owner.ref() == this)
+			i.item()->set_owner(nullptr);
+	}
 }
 
 void PlayerManager::entity_killed_by(Entity* e, Entity* killer)

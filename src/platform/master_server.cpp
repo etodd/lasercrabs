@@ -722,7 +722,7 @@ namespace Master
 		return true;
 	}
 
-	b8 send_server_config(const Sock::Address& addr, const ServerConfig& config, u32 request_id)
+	b8 send_server_config(const Sock::Address& addr, const ServerConfig& config, u32 request_id = 0)
 	{
 		using Stream = StreamWrite;
 		StreamWrite p;
@@ -1243,6 +1243,10 @@ namespace Master
 				}
 
 				update_user_server_linkage(node->user_key.id, config_id, true); // true = make them an admin
+
+				Node* server = server_for_config_id(config_id);
+				if (server)
+					send_server_config(server->addr, config);
 
 				send_server_config_saved(node, config_id, request_id);
 

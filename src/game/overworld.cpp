@@ -431,7 +431,8 @@ void multiplayer_entry_edit_update(const Update& u)
 				}
 
 				// save
-				if (menu->item(u, _(strings::save), nullptr, false, Asset::Mesh::icon_arrow))
+				if (menu->item(u, _(strings::save), nullptr, false, Asset::Mesh::icon_arrow)
+					|| (u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0)))
 				{
 					if (config->levels.length == 0)
 						Menu::dialog(0, &Menu::dialog_no_action, _(strings::error_no_levels));
@@ -513,12 +514,12 @@ void multiplayer_entry_edit_update(const Update& u)
 					delta = menu->slider_item(u, _(strings::drones), str);
 					if (delta < 0)
 					{
-						*respawns = vi_max(1, s32(*respawns) - 1);
+						*respawns = vi_max(1, s32(*respawns) - 2);
 						data.multiplayer.active_server_dirty = true;
 					}
 					else if (delta > 0)
 					{
-						*respawns = vi_min(100, s32(*respawns) + 1);
+						*respawns = vi_min(1000, s32(*respawns) + 2);
 						data.multiplayer.active_server_dirty = true;
 					}
 				}
@@ -530,12 +531,12 @@ void multiplayer_entry_edit_update(const Update& u)
 					delta = menu->slider_item(u, _(strings::kill_limit), str);
 					if (delta < 0)
 					{
-						*kill_limit = vi_max(2, s32(*kill_limit) - 2);
+						*kill_limit = vi_max(1, s32(*kill_limit) - 2);
 						data.multiplayer.active_server_dirty = true;
 					}
 					else if (delta > 0)
 					{
-						*kill_limit = vi_min(200, s32(*kill_limit) + 2);
+						*kill_limit = vi_min(1000, s32(*kill_limit) + 2);
 						data.multiplayer.active_server_dirty = true;
 					}
 				}
@@ -840,7 +841,7 @@ void master_server_config_saved(u32 id, u32 request_id)
 		&& data.multiplayer.state == Data::Multiplayer::State::EntryEdit
 		&& data.multiplayer.request_id == request_id)
 	{
-		Menu::dialog(0, &Menu::dialog_no_action, _(strings::entry_saved));
+		PlayerHuman::log_add(_(strings::entry_saved));
 		data.multiplayer.server_lists[s32(ServerListType::Mine)].selected = 0;
 		data.multiplayer.active_server.config.id = id;
 		data.multiplayer.active_server_dirty = false;
@@ -893,7 +894,7 @@ void multiplayer_entry_view_update(const Update& u)
 			multiplayer_state_transition(Data::Multiplayer::State::EntryEdit);
 			return;
 		}
-		else if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+		else if (u.input->get(Controls::Interact, 0) && !u.last_input->get(Controls::Interact, 0))
 		{
 			u32 id = data.multiplayer.active_server.config.id;
 			Game::unload_level();
@@ -1051,10 +1052,15 @@ void multiplayer_top_bar_draw(const RenderParams& params, const Vec2& pos, const
 			text.text(0, "%s    %s    %s", _(strings::prompt_select), _(strings::prompt_entry_create), _(strings::prompt_back));
 			break;
 		case Data::Multiplayer::State::EntryView:
+		{
 			if (data.multiplayer.active_server.is_admin)
 				text.text(0, "%s    %s    %s", _(strings::prompt_connect), _(strings::prompt_entry_edit), _(strings::prompt_back));
 			else
 				text.text(0, "%s    %s", _(strings::prompt_connect), _(strings::prompt_back));
+			break;
+		}
+		case Data::Multiplayer::State::EntryEdit:
+			text.text(0, "%s    %s", _(strings::prompt_entry_save), _(strings::prompt_back));
 			break;
 		default:
 			vi_assert(false);
@@ -1305,6 +1311,14 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 			case Data::Multiplayer::EditMode::AddStartUpgrade:
 			{
 				const Rect2& vp = params.camera->viewport;
+				
+				Vec2 panel_size(((rect.size.x + PADDING * -2.0f) / 3.0f) + PADDING * -2.0f, PADDING + TEXT_SIZE * UI::scale);
+				Vec2 top_bar_size(rect.size.x, panel_size.y * 1.5f);
+				Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
+
+				multiplayer_top_bar_draw(params, pos, top_bar_size);
+				pos.y -= PADDING;
+				pos.x = vp.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f;
 
 				// top header
 				UIText text;
@@ -1321,8 +1335,6 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 					text.text_raw(0, data.multiplayer.active_server.config.name, UITextFlagSingleLine);
 				}
 				UIMenu::text_clip(&text, data.multiplayer.state_transition_time, 100.0f, 28);
-
-				Vec2 pos(vp.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, vp.size.y * 0.75f + MENU_ITEM_HEIGHT * -0.5f);
 
 				{
 					Vec2 text_pos = pos + Vec2(PADDING, 0);
@@ -1741,6 +1753,9 @@ void multiplayer_draw(const RenderParams& params)
 				}
 			}
 		}
+
+		// logs
+		PlayerHuman::draw_logs(params, AI::TeamNone, 0);
 	}
 }
 

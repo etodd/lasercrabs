@@ -69,6 +69,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static void log_add(const char*, AI::Team = AI::TeamNone);
 	static void clear();
 	static void camera_setup_drone(Entity*, Camera*, r32);
+	static void draw_logs(const RenderParams&, AI::Team, s8);
 
 	u64 uuid;
 	UIMenu menu;

@@ -229,8 +229,8 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 			c->team_count = 2;
 		else
 			serialize_int(p, s8, c->team_count, 2, MAX_TEAMS);
-		serialize_s16(p, c->respawns);
-		serialize_s16(p, c->kill_limit);
+		serialize_int(p, s16, c->respawns, 1, 1000);
+		serialize_int(p, s16, c->kill_limit, 0, 1000);
 		serialize_s16(p, c->allow_upgrades);
 		serialize_int(p, s16, c->start_energy, 0, MAX_START_ENERGY);
 		serialize_int(p, s8, c->drone_shield, 0, DRONE_SHIELD);

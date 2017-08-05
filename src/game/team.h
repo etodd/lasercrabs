@@ -203,6 +203,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void make_admin();
 	void set_instance(Entity*);
 	void spawn_select(SpawnPoint*);
+	void clear_ownership();
 	State state() const;
 	b8 can_transition_state() const;
 	b8 has_upgrade(Upgrade) const;

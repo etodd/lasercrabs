@@ -336,9 +336,9 @@ void Shield::damaged(const HealthEvent& e)
 {
 	s8 total = e.hp + e.shield;
 	if (total < -1)
-		get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_DAMAGE_LARGE_PLAYER : AK::EVENTS::PLAY_DRONE_DAMAGE_LARGE);
+		get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_DAMAGE_LARGE);
 	else if (total < 0)
-		get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_DAMAGE_SMALL_PLAYER : AK::EVENTS::PLAY_DRONE_DAMAGE_SMALL);
+		get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_DAMAGE_SMALL);
 }
 
 void apply_alpha_scale(View* v, const Update& u, const Vec3& offset_pos, r32 target_alpha, r32 target_scale, r32 scale_speed_multiplier)

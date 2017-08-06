@@ -2877,9 +2877,18 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 						{
 							case SessionType::Multiplayer:
 							{
-								// assign players evenly
-								team_ref = Team::with_least_players();
-								vi_assert(team_ref);
+								// distribute players evenly
+								// assign player randomly to one of the teams with the smallest number of players
+								StaticArray<Team*, MAX_TEAMS> smallest_teams;
+								s32 least_players;
+								Team::with_least_players(&least_players);
+								for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+								{
+									if (i.item()->player_count() == least_players)
+										smallest_teams.add(i.item());
+								}
+								vi_assert(smallest_teams.length > 0);
+								team_ref = smallest_teams[mersenne::rand() % smallest_teams.length];
 								break;
 							}
 							case SessionType::Story:

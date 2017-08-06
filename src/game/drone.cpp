@@ -247,7 +247,7 @@ enum class DroneHitType
 void client_hit_effects(Drone* drone, Entity* target, DroneHitType type)
 {
 	if (type == DroneHitType::Reflection)
-		drone->get<Audio>()->post_event(drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_REFLECT_PLAYER : AK::EVENTS::PLAY_DRONE_REFLECT);
+		drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_REFLECT);
 
 	Vec3 pos = drone->get<Transform>()->absolute_pos();
 
@@ -356,11 +356,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
 					drone->get<Transform>()->absolute_rot(Quat::look(dir));
 
-					{
-						b8 local = drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local();
-						drone->get<Audio>()->post_event(local ? AK::EVENTS::PLAY_DRONE_LAUNCH_PLAYER : AK::EVENTS::PLAY_DRONE_LAUNCH);
-						drone->get<Audio>()->post_event(local ? AK::EVENTS::PLAY_DRONE_FLY_PLAYER : AK::EVENTS::PLAY_DRONE_FLY);
-					}
+					drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_LAUNCH);
+					drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_FLY);
 
 					if (flag != DroneNet::FlyFlag::CancelExisting)
 						drone->cooldown_setup();
@@ -401,11 +398,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 				drone->particle_accumulator = 0;
 
-				{
-					b8 local = drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local();
-					drone->get<Audio>()->post_event(local ? AK::EVENTS::PLAY_DRONE_LAUNCH_PLAYER : AK::EVENTS::PLAY_DRONE_LAUNCH);
-					drone->get<Audio>()->post_event(local ? AK::EVENTS::PLAY_DRONE_FLY_PLAYER : AK::EVENTS::PLAY_DRONE_FLY);
-				}
+				drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_LAUNCH);
+				drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_FLY);
 			}
 
 			break;
@@ -834,7 +828,7 @@ void Drone::finish_flying_dashing_common()
 {
 	get<Animator>()->layers[0].animation = AssetNull;
 
-	get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_LAND_PLAYER : AK::EVENTS::PLAY_DRONE_LAND);
+	get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_LAND);
 	get<Audio>()->post_event(AK::EVENTS::STOP_DRONE_FLY);
 	attach_time = Game::time.total;
 	dash_timer = 0.0f;
@@ -2109,14 +2103,43 @@ void Drone::update_client_all(const Update& u)
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		Vec3 pos = i.item()->lerped_pos;
+		r32 speed;
 		if (i.item()->state() == State::Crawl)
+		{
 			i.item()->velocity = i.item()->velocity * 0.9f + ((pos - i.item()->last_pos) / vi_max(0.0001f, u.time.delta)) * 0.1f;
+			speed = vi_max(0.0f, vi_min(1.0f, i.item()->velocity.length() / DRONE_CRAWL_SPEED));
+		}
+		else
+			speed = 0.0f;
+		i.item()->get<Audio>()->param(AK::GAME_PARAMETERS::DRONE_SPEED, speed);
 		i.item()->last_pos = pos;
 	}
 }
 
 void Drone::update_client(const Update& u)
 {
+	// update audio perspective
+	{
+		r32 perspective;
+		if (has<PlayerControlHuman>() && get<PlayerControlHuman>()->local()) // we're a local player
+			perspective = 0.5f;
+		else
+		{
+			// not a local player; assume we're an ally, unless we find out we're enemies with one of the local players
+			perspective = 0;
+			AI::Team my_team = get<AIAgent>()->team;
+			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->local && i.item()->get<PlayerManager>()->team.ref()->team() != my_team)
+				{
+					perspective = 1;
+					break;
+				}
+			}
+		}
+		get<Audio>()->param(AK::GAME_PARAMETERS::PERSPECTIVE, perspective);
+	}
+
 	State s = state();
 
 	if (s == Drone::State::Crawl)
@@ -2260,7 +2283,7 @@ void Drone::update_client(const Update& u)
 					target_leg_space = Vec3::lerp(footing[i].blend, last_target_leg_space, target_leg_space);
 					if (footing[i].blend == 1.0f && Game::real_time.total - last_footstep > 0.07f)
 					{
-						get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_DRONE_FOOTSTEP_PLAYER : AK::EVENTS::PLAY_DRONE_FOOTSTEP);
+						get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_FOOTSTEP);
 						last_footstep = Game::real_time.total;
 					}
 				}

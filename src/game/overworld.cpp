@@ -579,7 +579,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					s8* team_count = &config->team_count;
 					sprintf(str, "%hhd", *team_count);
 					delta = menu->slider_item(u, _(strings::teams), str, config->game_type == GameType::Assault);
-					*team_count = vi_max(2, vi_min(MAX_TEAMS, *team_count + delta));
+					*team_count = s8(vi_max(2, vi_min(s32(config->max_players), *team_count + delta)));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
 				}

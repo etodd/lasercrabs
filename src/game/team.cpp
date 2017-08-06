@@ -798,7 +798,10 @@ void Team::update_all_server(const Update& u)
 	if (match_state == MatchState::TeamSelect
 		&& Game::level.mode == Game::Mode::Pvp)
 	{
-		if (Game::level.local && match_time > TEAM_SELECT_TIME)
+		if ((Game::level.local && match_time > TEAM_SELECT_TIME)
+			|| (Game::session.config.game_type == GameType::Deathmatch
+				&& Game::session.config.max_players == Game::session.config.team_count // FFA
+				&& teams_with_active_players() > 1))
 		{
 			// force match to start
 			s32 team_counts[MAX_TEAMS] = {};

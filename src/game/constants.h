@@ -11,7 +11,7 @@
 
 #define MAX_BONES 72
 
-#define VOLUME_MULTIPLIER 0.0f // 0.01f
+#define VOLUME_MULTIPLIER 0.01f
 
 #define UI_JOYSTICK_DEAD_ZONE 0.5f
 #define SPAWN_DELAY 5.0f

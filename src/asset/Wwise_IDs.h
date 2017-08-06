@@ -30,19 +30,12 @@ namespace AK
         static const AkUniqueID PLAY_DIALOG_SHOW = 501056458U;
         static const AkUniqueID PLAY_DRONE_ACTIVE_ARMOR = 3053445653U;
         static const AkUniqueID PLAY_DRONE_DAMAGE_LARGE = 3263000172U;
-        static const AkUniqueID PLAY_DRONE_DAMAGE_LARGE_PLAYER = 2972104740U;
         static const AkUniqueID PLAY_DRONE_DAMAGE_SMALL = 2008200180U;
-        static const AkUniqueID PLAY_DRONE_DAMAGE_SMALL_PLAYER = 122596332U;
         static const AkUniqueID PLAY_DRONE_FLY = 1666286318U;
-        static const AkUniqueID PLAY_DRONE_FLY_PLAYER = 3890029306U;
         static const AkUniqueID PLAY_DRONE_FOOTSTEP = 2572319737U;
-        static const AkUniqueID PLAY_DRONE_FOOTSTEP_PLAYER = 826911035U;
         static const AkUniqueID PLAY_DRONE_LAND = 3991978332U;
-        static const AkUniqueID PLAY_DRONE_LAND_PLAYER = 1726145204U;
         static const AkUniqueID PLAY_DRONE_LAUNCH = 4028025562U;
-        static const AkUniqueID PLAY_DRONE_LAUNCH_PLAYER = 2089398150U;
         static const AkUniqueID PLAY_DRONE_REFLECT = 263311222U;
-        static const AkUniqueID PLAY_DRONE_REFLECT_PLAYER = 4029101858U;
         static const AkUniqueID PLAY_DRONE_SPAWN = 1629787408U;
         static const AkUniqueID PLAY_EXPLOSION = 4030404899U;
         static const AkUniqueID PLAY_FIZZLE = 3890314848U;
@@ -160,6 +153,7 @@ namespace AK
         static const AkUniqueID PLAY_TRANSITION_IN = 1430076675U;
         static const AkUniqueID PLAY_TRANSITION_OUT = 1264068862U;
         static const AkUniqueID PLAY_TURRET_CHARGE = 3393910755U;
+        static const AkUniqueID PLAY_UI_SHIELD_DOWN_BEEP = 2330506306U;
         static const AkUniqueID PLAY_UPGRADE_STATION_ENTER = 3699445748U;
         static const AkUniqueID PLAY_UPGRADE_STATION_EXIT = 214429910U;
         static const AkUniqueID PLAY_WATER_LOOP = 1564978696U;
@@ -181,8 +175,10 @@ namespace AK
     namespace GAME_PARAMETERS
     {
         static const AkUniqueID DANGER = 4174463524U;
+        static const AkUniqueID DRONE_SPEED = 1382379429U;
         static const AkUniqueID PARKOUR_SLIDE = 2866705659U;
         static const AkUniqueID PARKOUR_WIND = 2655675174U;
+        static const AkUniqueID PERSPECTIVE = 3838734001U;
         static const AkUniqueID TRAM_LOOP = 2421357802U;
         static const AkUniqueID VOLUME_MUSIC = 3891337659U;
         static const AkUniqueID VOLUME_SFX = 3673881719U;
@@ -197,10 +193,13 @@ namespace AK
     namespace BUSSES
     {
         static const AkUniqueID DIALOGUE = 3930136735U;
+        static const AkUniqueID DRONE = 2739838641U;
+        static const AkUniqueID DRONE_LOCOMOTION = 812076015U;
         static const AkUniqueID MASTER_AUDIO_BUS = 3803692087U;
         static const AkUniqueID MASTER_SECONDARY_BUS = 805203703U;
         static const AkUniqueID MUSIC = 3991942870U;
         static const AkUniqueID SFX = 393239870U;
+        static const AkUniqueID UI = 1551306167U;
     } // namespace BUSSES
 
 }// namespace AK

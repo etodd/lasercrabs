@@ -164,7 +164,7 @@ b8 Audio::init()
 
 AkGameObjectID Audio::listener_id(s8 gamepad)
 {
-	return MAX_ENTITIES + 1 + gamepad;
+	return MAX_ENTITIES + 2 + gamepad;
 }
 
 // Wwise callbacks

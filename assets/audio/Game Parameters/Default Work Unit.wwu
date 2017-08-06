@@ -39,6 +39,25 @@
 						<Property Name="Max" Type="Real64" Value="1"/>
 					</PropertyList>
 				</GameParameter>
+				<Folder Name="Drone" ID="{DBE234F0-D420-4B1E-8BAD-0E018D9CEE07}" ShortID="807528089">
+					<ChildrenList>
+						<GameParameter Name="Perspective" ID="{ECB87B1E-057D-46B4-9B66-B6EBBE249A3E}">
+							<Comment>0= ally,0.5 = self, 1 = enemy
+
+</Comment>
+							<PropertyList>
+								<Property Name="InitialValue" Type="Real64" Value="0.5"/>
+								<Property Name="Max" Type="Real64" Value="1"/>
+							</PropertyList>
+						</GameParameter>
+						<GameParameter Name="Drone_Speed" ID="{2A872154-8E2F-422B-B045-3731805BB183}">
+							<PropertyList>
+								<Property Name="InitialValue" Type="Real64" Value="0"/>
+								<Property Name="Max" Type="Real64" Value="1"/>
+							</PropertyList>
+						</GameParameter>
+					</ChildrenList>
+				</Folder>
 			</ChildrenList>
 		</WorkUnit>
 	</GameParameters>

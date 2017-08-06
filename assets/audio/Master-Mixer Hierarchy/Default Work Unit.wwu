@@ -102,6 +102,35 @@
 										</Reference>
 									</ReferenceList>
 								</Bus>
+								<Bus Name="Drone" ID="{F2897FA2-9BDE-4F5A-A381-DC57C38A7A00}">
+									<PropertyList>
+										<Property Name="DivergenceCenter" Type="int32">
+											<ValueList>
+												<Value>100</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
+									<ChildrenList>
+										<Bus Name="Drone_Locomotion" ID="{9C0E445F-3FE8-4DF7-8574-C491DDCBEFAA}">
+											<PropertyList>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+										</Bus>
+									</ChildrenList>
+								</Bus>
+								<Bus Name="UI" ID="{3ECCDB42-2C41-40BC-9EED-68EB2EF11F5C}">
+									<PropertyList>
+										<Property Name="DivergenceCenter" Type="int32">
+											<ValueList>
+												<Value>100</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
+								</Bus>
 							</ChildrenList>
 						</Bus>
 					</ChildrenList>

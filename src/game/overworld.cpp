@@ -598,7 +598,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				{
 					// drone shield
 					s8* drone_shield = &config->drone_shield;
-					sprintf(str, "%d", s32(*drone_shield), 0);
+					sprintf(str, "%d", s32(*drone_shield));
 					delta = menu->slider_item(u, _(strings::drone_shield), str);
 					*drone_shield = vi_max(0, vi_min(DRONE_SHIELD, (*drone_shield) + delta));
 					if (delta)

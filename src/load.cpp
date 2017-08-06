@@ -70,11 +70,7 @@ s32 Loader::animation_count;
 #define config_filename "config.txt"
 #define config_version 2
 #define mod_manifest_filename "mod.json"
-#if DEBUG
-	#define default_master_server "127.0.0.1"
-#else
-	#define default_master_server "104.236.204.240"
-#endif
+#define default_master_server "104.236.204.240"
 
 Array<const char*> mod_level_names;
 Array<const char*> mod_level_paths;

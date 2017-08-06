@@ -460,6 +460,7 @@ if (SERVER)
 	elseif (WIN32)
 	else()
 		target_link_libraries(deceiversrv "-lpthread")
+		target_link_libraries(deceivermaster "-lpthread")
 	endif()
 
 	target_compile_definitions(deceiversrv PRIVATE -DSERVER=1)

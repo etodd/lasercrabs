@@ -5,7 +5,6 @@ cd final
 mkdir mod
 cd ..
 cp build/deceiver final
-cp build/import final
 cp -R build/assets/ final/assets
 cp -R assets/script/ final/script
 rm -rf final/script/etodd_blender_fbx/__pycache__

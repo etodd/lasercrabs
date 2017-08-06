@@ -608,7 +608,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				{
 					// start energy
 					s16* start_energy = &config->start_energy;
-					sprintf(str, "%d", s32(*start_energy), 0);
+					sprintf(str, "%d", s32(*start_energy));
 					delta = menu->slider_item(u, _(strings::start_energy), str);
 					*start_energy = vi_max(0, vi_min(MAX_START_ENERGY, (*start_energy) + (delta * 100)));
 					if (delta)

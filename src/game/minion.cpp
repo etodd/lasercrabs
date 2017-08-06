@@ -180,7 +180,7 @@ void Minion::melee_damage()
 				}
 				else if (i.item()->has<Health>())
 				{
-					if (Game::level.local)
+					if (Game::level.local && i.item()->get<Health>()->can_take_damage())
 						i.item()->get<Health>()->damage(entity(), 1);
 
 					did_damage = true;

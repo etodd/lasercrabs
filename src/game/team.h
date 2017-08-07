@@ -105,6 +105,8 @@ struct Team : public ComponentType<Team>
 	static void draw_ui(const RenderParams&);
 	static void match_start();
 	static void match_team_select();
+	static AssetID name_selector(AI::Team);
+	static AssetID name_long(AI::Team);
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{

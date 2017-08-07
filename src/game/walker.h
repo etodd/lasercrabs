@@ -26,14 +26,12 @@ struct Walker : public ComponentType<Walker>
 		rotation_speed,
 		net_speed,
 		net_speed_timer;
-	u32 obstacle_id;
 	Ref<RigidBody> support;
 	LinkArg<r32> land;
 	b8 auto_rotate;
 	b8 enabled;
 
 	Walker(r32 = 0.0f);
-	~Walker();
 	void awake();
 	b8 slide(Vec2*, const Vec3&);
 	btCollisionWorld::ClosestRayResultCallback check_support(r32 = 0.0f) const;
@@ -42,6 +40,7 @@ struct Walker : public ComponentType<Walker>
 	Vec3 base_pos() const;
 	void absolute_pos(const Vec3&);
 	Vec3 forward() const;
+	Vec3 right() const;
 	r32 capsule_height() const;
 	void crouch(b8);
 

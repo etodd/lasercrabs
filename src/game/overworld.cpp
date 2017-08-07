@@ -1523,7 +1523,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			// enable minions
 			text.text(0, _(strings::enable_minions));
 			text.draw(params, pos);
-			value.text(0, "%d", s32(details.config.enable_minions));
+			value.text(0, _(details.config.enable_minions ? strings::on : strings::off));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 

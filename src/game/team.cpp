@@ -35,7 +35,7 @@ namespace TeamNet
 const Vec4 Team::color_friend = Vec4(0.15f, 0.45f, 0.7f, MATERIAL_NO_OVERRIDE);
 const Vec4 Team::color_enemy = Vec4(1.0f, 0.3f, 0.4f, MATERIAL_NO_OVERRIDE);
 
-const Vec4 Team::ui_color_friend = Vec4(0.35f, 0.85f, 1.0f, 1);
+const Vec4 Team::ui_color_friend = Vec4(52.0f / 255.0f, 237.0f / 255.0f, 255.0f / 255.0f, 1);
 const Vec4 Team::ui_color_enemy = Vec4(1.0f, 0.4f, 0.4f, 1);
 
 r32 Team::control_point_timer;
@@ -46,6 +46,46 @@ StaticArray<Team::ScoreSummaryItem, MAX_PLAYERS * PLAYER_SCORE_SUMMARY_ITEMS> Te
 r32 Team::transition_timer;
 r32 Team::match_time;
 Team::MatchState Team::match_state;
+
+AssetID Team::name_selector(AI::Team t)
+{
+	if (Game::session.config.game_type == GameType::Assault)
+	{
+		vi_assert(t < 2);
+		return t == 0 ? strings::defend : strings::attack;
+	}
+	else
+	{
+		static const AssetID lookup[MAX_TEAMS] =
+		{
+			strings::team_select_a,
+			strings::team_select_b,
+			strings::team_select_c,
+			strings::team_select_d,
+		};
+		return lookup[t];
+	}
+}
+
+AssetID Team::name_long(AI::Team t)
+{
+	if (Game::session.config.game_type == GameType::Assault)
+	{
+		vi_assert(t < 2);
+		return t == 0 ? strings::defend : strings::attack;
+	}
+	else
+	{
+		static const AssetID lookup[MAX_TEAMS] =
+		{
+			strings::team_a,
+			strings::team_b,
+			strings::team_c,
+			strings::team_d,
+		};
+		return lookup[t];
+	}
+}
 
 AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 {
@@ -75,7 +115,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 	},
 	{
 		Asset::Mesh::icon_force_field,
-		100,
+		150,
 		AbilityInfo::Type::Build,
 		false,
 	},

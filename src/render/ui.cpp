@@ -540,20 +540,20 @@ const Vec4& UI::color_alert()
 {
 	static const Vec4 alert_pvp = Vec4(1.0f, 0.4f, 0.4f, 1);
 	static const Vec4 alert_normal = Vec4(1.0f, 0.5f, 0.8f, 1);
-	return Game::level.mode == Game::Mode::Pvp || Overworld::modal() ? alert_pvp : alert_normal;
+	return (Game::level.mode == Game::Mode::Pvp || Overworld::modal()) ? alert_pvp : alert_normal;
 }
 const Vec4& UI::color_accent()
 {
 	static const Vec4 accent_pvp = Vec4(1.0f, 0.95f, 0.35f, 1);
 	static const Vec4 accent_normal = Vec4(52.0f / 255.0f, 237.0f / 255.0f, 255.0f / 255.0f, 1);
-	return Game::level.mode == Game::Mode::Pvp || Overworld::modal() ? accent_pvp : accent_normal;
+	return (Game::level.mode == Game::Mode::Pvp || Overworld::modal()) ? accent_pvp : accent_normal;
 }
 const Vec4 UI::color_background = Vec4(0, 0, 0, 1);
 const Vec4& UI::color_disabled()
 {
 	static const Vec4 disabled_pvp = Vec4(0.5f, 0.5f, 0.5f, 1);
 	static const Vec4 disabled_normal = Vec4(0.75f, 0.75f, 0.75f, 1);
-	return Game::level.mode == Game::Mode::Pvp || Overworld::modal() ? disabled_pvp : disabled_normal;
+	return (Game::level.mode == Game::Mode::Pvp || Overworld::modal()) ? disabled_pvp : disabled_normal;
 }
 
 const Vec4& UI::color_ping(r32 p)

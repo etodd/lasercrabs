@@ -34,9 +34,10 @@ def add(obj, parent_index = -1):
 		pos = obj.matrix_local.translation
 		axis, angle = obj.matrix_local.to_quaternion().to_axis_angle()
 		rot = mathutils.Quaternion(mathutils.Vector([axis.y, axis.z, axis.x]), angle)
+		scale = obj.scale
 		node['pos'] = [pos.y, pos.z, pos.x]
 		node['rot'] = [rot.w, rot.x, rot.y, rot.z]
-		node['scale'] = obj.scale.x
+		node['scale'] = [scale.y, scale.z, scale.x]
 
 	for key in obj.keys():
 		if key not in IGNORE_PROPS:

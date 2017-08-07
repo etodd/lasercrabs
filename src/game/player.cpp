@@ -1399,22 +1399,15 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	// "deploying..."
 	if (!manager->instance.ref() && manager->respawns != 0)
 	{
-		AssetID string;
 		if (Team::match_state == Team::MatchState::Active)
 		{
 			if (Game::session.config.game_type == GameType::Assault)
-			{
-				if (manager->team.ref()->team() == 0)
-					string = strings::deploy_timer_defender;
-				else
-					string = strings::deploy_timer_attacker;
-			}
+				text.text(0, _(strings::deploy_timer_assault), _(Team::name_long(manager->team.ref()->team())), s32(manager->spawn_timer + 1));
 			else
-				string = strings::deploy_timer;
+				text.text(0, _(strings::deploy_timer), s32(manager->spawn_timer + 1));
 		}
 		else
-			string = strings::waiting;
-		text.text(0, _(string), s32(manager->spawn_timer + 1));
+			text.text(0, _(strings::waiting));
 		UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -1458,8 +1451,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 			else
 			{
 				// use the team name
-				static const AssetID team_names[MAX_TEAMS] = { strings::team_a, strings::team_b, strings::team_c, strings::team_d };
-				text.text_raw(0, _(team_names[team]));
+				text.text_raw(0, _(Team::name_long(team)));
 			}
 			UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, p);
@@ -1743,7 +1735,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 								text.anchor_x = UIText::Anchor::Center;
 								text.anchor_y = UIText::Anchor::Min;
 								text.color = UI::color_default;
-								text.text(gamepad, _(my_team == 0 ? strings::turrets_remaining_defending : strings::turrets_remaining_attacking), Turret::list.count());
+								text.text(gamepad, _(strings::turrets_remaining_spawning), _(my_team == 0 ? strings::defend : strings::attack), Turret::list.count());
 								Vec2 pos = vp.size * Vec2(0.5f, 0.25f);
 								UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
 								text.draw(params, pos);
@@ -3977,7 +3969,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 						{
 							if (UI::flash_function(Game::time.total))
 								UI::indicator(params, turret_pos, Team::ui_color_enemy, true);
-							enemy_dangerous_visible = true;
+							enemy_visible = true;
 						}
 					}
 				}

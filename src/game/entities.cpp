@@ -1492,6 +1492,10 @@ b8 Turret::can_see(Entity* target) const
 	Vec3 pos = get<Transform>()->absolute_pos();
 
 	Vec3 target_pos = target->has<Target>() ? target->get<Target>()->absolute_pos() : target->get<Transform>()->absolute_pos();
+
+	if (!target->has<ForceField>() && ForceField::hash(team, pos) != ForceField::hash(team, target_pos))
+		return false;
+
 	Vec3 to_target = target_pos - pos;
 	float distance_to_target = to_target.length();
 	if (distance_to_target < TURRET_VIEW_RANGE)
@@ -1800,7 +1804,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 
 	CollisionGroup team_group = CollisionGroup(1 << (8 + team));
 
-	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_group, CollisionDroneIgnore, view->mesh);
+	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_group, CollisionDroneIgnore | CollisionTarget, view->mesh);
 
 	Net::finalize_child(f);
 

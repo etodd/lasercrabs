@@ -1256,18 +1256,6 @@ b8 maps(const Update& u, s8 gamepad, UIMenu* menu)
 	return true;
 }
 
-const char* team_string(AI::Team team)
-{
-	static const AssetID lookup[MAX_TEAMS] =
-	{
-		strings::team_switch_a,
-		strings::team_switch_b,
-		strings::team_switch_c,
-		strings::team_switch_d,
-	};
-	return _(lookup[team]);
-}
-
 void teams_select_match_start_init(PlayerHuman* player)
 {
 	PlayerManager* manager = player->get<PlayerManager>();
@@ -1290,7 +1278,7 @@ b8 teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
-		const char* value = team_string(i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled);
+		const char* value = _(Team::name_selector(i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled));
 		b8 disabled = (selected && i.item() != selected) || (i.item() != me && !me->is_admin && mode != TeamSelectMode::MatchStart);
 		AssetID icon = i.item()->can_spawn ? Asset::Mesh::icon_checkmark : AssetNull;
 		if (i.item() == selected)

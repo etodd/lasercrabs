@@ -1016,6 +1016,8 @@ void loop()
 				sync_in.read(&start);
 				Vec3 patrol_point;
 				sync_in.read(&patrol_point);
+				AI::Team team;
+				sync_in.read(&team);
 				r32 range;
 				sync_in.read(&range);
 				LinkEntryArg<Path> callback;
@@ -1025,13 +1027,24 @@ void loop()
 				dtPolyRef start_poly = get_poly(start, default_search_extents);
 				dtPolyRef patrol_point_poly = get_poly(patrol_point, default_search_extents);
 
+				u32 hash_start = force_field_hash(team, start);
+
 				Vec3 end;
 				dtPolyRef end_poly;
-				nav_mesh_query->findRandomPointAroundCircle(patrol_point_poly, (r32*)&patrol_point, range * (0.5f + mersenne::randf_co() * 0.5f), &default_query_filter, mersenne::randf_co, &end_poly, (r32*)&end);
+				b8 valid = false;
+				{
+					s32 tries = 0;
+					do
+					{
+						nav_mesh_query->findRandomPointAroundCircle(patrol_point_poly, (r32*)&patrol_point, range * (0.5f + mersenne::randf_co() * 0.5f), &default_query_filter, mersenne::randf_co, &end_poly, (r32*)&end);
+						valid = force_field_hash(team, end) == hash_start;
+						tries++;
+					} while (!valid && tries < 20);
+				}
 
 				Path path;
 
-				if (start_poly && end_poly)
+				if (start_poly && end_poly && valid)
 					pathfind(start, end, start_poly, end_poly, &path);
 
 				sync_out.lock();

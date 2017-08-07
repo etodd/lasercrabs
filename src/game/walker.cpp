@@ -5,6 +5,7 @@
 #include "game.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "console.h"
+#include "team.h"
 
 namespace VI
 {
@@ -32,7 +33,6 @@ Walker::Walker(r32 rot)
 	rotation_speed(8.0f),
 	auto_rotate(true),
 	enabled(true),
-	obstacle_id(u32(-1)),
 	land(),
 	net_speed_timer(),
 	net_speed()
@@ -48,14 +48,8 @@ void Walker::awake()
 	if (has<RigidBody>())
 		body = get<RigidBody>(); // RigidBody will already be awake because it comes first in the component list
 	else
-		body = entity()->add<RigidBody>(RigidBody::Type::CapsuleY, Vec3(WALKER_RADIUS, WALKER_HEIGHT, 0), 1.5f, CollisionWalker, ~CollisionShield);
+		body = entity()->add<RigidBody>(RigidBody::Type::CapsuleY, Vec3(WALKER_RADIUS, WALKER_HEIGHT, 0), 1.5f, CollisionWalker, ~CollisionShield & ~Team::force_field_mask(get<AIAgent>()->team));
 	walker_set_rigid_body_props(body->btBody);
-}
-
-Walker::~Walker()
-{
-	if (obstacle_id != u32(-1))
-		AI::obstacle_remove(obstacle_id);
 }
 
 const s32 num_corners = 5;
@@ -74,7 +68,7 @@ b8 Walker::slide(Vec2* movement, const Vec3& wall_ray)
 	Vec3 ray_start = get<Transform>()->absolute_pos();
 	Vec3 ray_end = ray_start + wall_ray * (WALKER_RADIUS + 0.25f);
 	btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAllTeamsForceField);
+	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~Team::force_field_mask(get<AIAgent>()->team));
 	if (ray_callback.hasHit()
 		&& Vec3(ray_callback.m_hitNormalWorld).dot(Vec3(movement->x, 0, movement->y)) < 0.0f)
 	{
@@ -122,7 +116,7 @@ btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_dista
 		Vec3 ray_end = ray_start + Vec3(0, (capsule_height() * -0.5f) + (WALKER_SUPPORT_HEIGHT * -1.5f) - extra_distance, 0);
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-		Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAllTeamsForceField);
+		Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~Team::force_field_mask(get<AIAgent>()->team));
 		if (ray_callback.hasHit())
 		{
 			ray_callback.m_collisionObject = get_actual_support_body((const btRigidBody*)(ray_callback.m_collisionObject));
@@ -328,14 +322,6 @@ void Walker::update(const Update& u)
 		body->setLinearVelocity(velocity + adjustment);
 	}
 
-	if (net_speed > 0.1f && obstacle_id != u32(-1))
-	{
-		AI::obstacle_remove(obstacle_id);
-		obstacle_id = (u32)-1;
-	}
-	else if (net_speed < 0.1f && obstacle_id == u32(-1))
-		obstacle_id = AI::obstacle_add(base_pos(), WALKER_RADIUS * 2.0f, capsule_height() + WALKER_SUPPORT_HEIGHT);
-
 	// handle rotation
 
 	target_rotation = LMath::closest_angle(target_rotation, rotation);
@@ -361,6 +347,11 @@ Vec3 Walker::base_pos() const
 Vec3 Walker::forward() const
 {
 	return Quat::euler(0, rotation, 0) * Vec3(0, 0, 1);
+}
+
+Vec3 Walker::right() const
+{
+	return Quat::euler(0, rotation, 0) * Vec3(-1, 0, 0);
 }
 
 r32 Walker::capsule_height() const

@@ -1222,9 +1222,13 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	Vec3 trace_start = get<Transform>()->absolute_pos();
 	Vec3 trace_end = trace_start + trace_dir * range();
 
+	AbilityInfo::Type type = AbilityInfo::list[s32(a)].type;
 	RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
-	if (AbilityInfo::list[s32(a)].type == AbilityInfo::Type::Shoot)
+	s16 force_field_mask = type == AbilityInfo::Type::Build
+		? ~ally_force_field_mask() // only ignore friendly force fields; we don't want to build something on a force field
+		: ~CollisionAllTeamsForceField; // ignore all force fields
+	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionTarget & force_field_mask);
+	if (type == AbilityInfo::Type::Shoot)
 	{
 		if (ray_callback.hasHit())
 		{

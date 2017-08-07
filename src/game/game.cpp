@@ -1313,6 +1313,18 @@ AI::Team team_lookup(const AI::Team* table, s32 i)
 	return table[vi_max(0, vi_min(MAX_TEAMS - 1, i))];
 }
 
+cJSON* json_entity_by_name(cJSON* json, const char* name)
+{
+	cJSON* i = json->child;
+	while (i)
+	{
+		if (strcmp(cJSON_GetObjectItem(i, "name")->valuestring, name) == 0)
+			return i;
+		i = i->next;
+	}
+	return nullptr;
+}
+
 void Game::load_level(AssetID l, Mode m, b8 ai_test)
 {
 	vi_debug("Loading level %d", s32(l));
@@ -1348,6 +1360,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	Array<RopeEntry> ropes;
 
 	Array<LevelLink<SpawnPoint>> spawn_links;
+	Array<LevelLink<Entity>> entity_links;
 
 	cJSON* json = Loader::level(l);
 
@@ -1607,40 +1620,51 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "Turret"))
 		{
-			entity = World::alloc<StaticGeom>(Asset::Mesh::turret_base, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
-			entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
+			Entity* base = World::alloc<StaticGeom>(Asset::Mesh::turret_base, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+			base->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 
 			if (session.config.game_type == GameType::Assault)
 			{
-				Entity* turret = World::alloc<TurretEntity>(AI::Team(0));
-				turret->get<Transform>()->absolute(absolute_pos + absolute_rot * Vec3(0, 0, TURRET_HEIGHT), absolute_rot);
-				turret->get<Health>()->hp = Json::get_s32(element, "hp", TURRET_HEALTH);
+				World::awake(base);
+
+				absolute_pos += absolute_rot * Vec3(0, 0, TURRET_HEIGHT);
+				entity = World::alloc<TurretEntity>(AI::Team(0));
+				entity->get<Health>()->hp = Json::get_s32(element, "hp", TURRET_HEALTH);
 
 				cJSON* links = cJSON_GetObjectItem(element, "links");
 				cJSON* link = links->child;
 				while (link)
 				{
-					const char* ingress_entity_name = link->valuestring;
-
-					// look up ingress point
-					cJSON* i = json->child;
-					b8 found = false;
-					while (i)
-					{
-						if (strcmp(cJSON_GetObjectItem(i, "name")->valuestring, ingress_entity_name) == 0)
-						{
-							turret->get<Turret>()->ingress_points.add(Json::get_vec3(i, "pos"));
-							found = true;
-							break;
-						}
-						i = i->next;
-					}
-					vi_assert(found);
-
+					cJSON* linked_entity = json_entity_by_name(json, link->valuestring);
+					vi_assert(linked_entity);
+					if (cJSON_GetObjectItem(linked_entity, "IngressPoint"))
+						entity->get<Turret>()->ingress_points.add(Json::get_vec3(linked_entity, "pos"));
 					link = link->next;
 				}
-
-				World::awake(turret);
+			}
+			else
+				entity = base;
+		}
+		else if (cJSON_HasObjectItem(element, "PathZone"))
+		{
+			AI::PathZone* path_zone = level.path_zones.add();
+			path_zone->pos = absolute_pos;
+			path_zone->radius = Json::get_vec3(element, "scale");
+			cJSON* links = cJSON_GetObjectItem(element, "links");
+			cJSON* link = links->child;
+			while (link)
+			{
+				cJSON* linked_entity = json_entity_by_name(json, link->valuestring);
+				vi_assert(linked_entity);
+				if (cJSON_GetObjectItem(linked_entity, "ChokePoint"))
+					path_zone->choke_point = Json::get_vec3(linked_entity, "pos");
+				else // it's a target for this path zone
+				{
+					LevelLink<Entity>* target_link = entity_links.add();
+					target_link->ref = path_zone->targets.add();
+					target_link->target_name = cJSON_GetObjectItem(linked_entity, "name")->valuestring;
+				}
+				link = link->next;
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "Minion"))
@@ -1686,7 +1710,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		{
 			entity = World::alloc<Empty>();
 			PlayerTrigger* trigger = entity->create<PlayerTrigger>();
-			trigger->radius = Json::get_r32(element, "scale", 1.0f);
+			trigger->radius = Json::get_vec3(element, "scale", Vec3(1)).x;
 		}
 		else if (cJSON_HasObjectItem(element, "PointLight"))
 		{
@@ -1838,7 +1862,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 			b8 alpha = b8(Json::get_s32(element, "alpha"));
 			b8 additive = b8(Json::get_s32(element, "additive"));
-			r32 scale = Json::get_r32(element, "scale", 1.0f);
+			Vec3 scale = Json::get_vec3(element, "scale", Vec3(1));
 			const char* armature = Json::get_string(element, "armature");
 			const char* animation = Json::get_string(element, "animation");
 			const char* shader_name = Json::get_string(element, "shader");
@@ -1889,7 +1913,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 						entity->get<View>()->alpha();
 					if (additive)
 						entity->get<View>()->additive();
-					entity->get<View>()->offset.scale(Vec3(scale));
+					entity->get<View>()->offset.scale(scale);
 				}
 				else
 				{
@@ -1914,7 +1938,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 						entity->get<SkinnedModel>()->alpha();
 					if (additive)
 						entity->get<SkinnedModel>()->additive();
-					entity->get<SkinnedModel>()->offset.scale(Vec3(scale));
+					entity->get<SkinnedModel>()->offset.scale(scale);
 					if (cJSON_HasObjectItem(element, "radius"))
 						entity->get<SkinnedModel>()->radius = Json::get_r32(element, "radius");
 				}
@@ -1958,7 +1982,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 						m->get<View>()->alpha();
 					if (additive)
 						m->get<View>()->additive();
-					m->get<View>()->offset.scale(Vec3(scale));
+					m->get<View>()->offset.scale(scale);
 
 					if (entity)
 					{
@@ -2112,6 +2136,12 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	{
 		LevelLink<SpawnPoint>* link = &spawn_links[i];
 		*link->ref = level.finder.find(link->target_name)->get<SpawnPoint>();
+	}
+
+	for (s32 i = 0; i < entity_links.length; i++)
+	{
+		LevelLink<Entity>* link = &entity_links[i];
+		*link->ref = level.finder.find(link->target_name);
 	}
 
 	{

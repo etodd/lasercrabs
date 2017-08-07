@@ -285,7 +285,7 @@ void load(AssetID id, const char* filename, const char* record_filename)
 	render_meshes_dirty = true;
 }
 
-u32 random_path(const Vec3& pos, const Vec3& patrol_point, r32 range, const LinkEntryArg<const Result&>& callback)
+u32 random_path(const Vec3& pos, const Vec3& patrol_point, AI::Team team, r32 range, const LinkEntryArg<const Result&>& callback)
 {
 	u32 id = callback_in_id;
 	callback_in_id++;
@@ -294,6 +294,7 @@ u32 random_path(const Vec3& pos, const Vec3& patrol_point, r32 range, const Link
 	sync_in.write(Op::RandomPath);
 	sync_in.write(pos);
 	sync_in.write(patrol_point);
+	sync_in.write(team);
 	sync_in.write(range);
 	sync_in.write(callback);
 	sync_in.unlock();
@@ -382,6 +383,27 @@ void drone_mark_adjacency_bad(DroneNavMeshNode a, DroneNavMeshNode b)
 	sync_in.write(a);
 	sync_in.write(b);
 	sync_in.unlock();
+}
+
+const PathZone* PathZone::get(const Vec3& pos, const Entity* target)
+{
+	for (s32 i = 0; i < Game::level.path_zones.length; i++)
+	{
+		const PathZone& zone = Game::level.path_zones[i];
+		Vec3 min = zone.pos - zone.radius;
+		Vec3 max = zone.pos + zone.radius;
+		if (pos.x > min.x && pos.x < max.x
+			&& pos.y > min.y && pos.y < max.y
+			&& pos.z > min.z && pos.z < max.z)
+		{
+			for (s32 j = 0; j < zone.targets.length; j++)
+			{
+				if (zone.targets[j].ref() == target)
+					return &zone;
+			}
+		}
+	}
+	return nullptr;
 }
 
 #if DEBUG

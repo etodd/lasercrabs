@@ -50,7 +50,7 @@ struct Minion : public ComponentType<Minion>
 	static Minion* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static s32 count(AI::TeamMask);
 	static void update_client_all(const Update&);
-	static Vec3 goal_position(const Goal&, const Vec3&);
+	static Vec3 goal_path_position(const Goal&, const Vec3&);
 
 	PathRequest path_request;
 	Goal goal;
@@ -73,7 +73,7 @@ struct Minion : public ComponentType<Minion>
 
 	Vec3 head_pos() const;
 	Vec3 hand_pos() const;
-	Vec3 aim_pos() const;
+	Vec3 aim_pos(r32) const;
 	b8 headshot_test(const Vec3&, const Vec3&);
 	void hit_by(const TargetEvent& e);
 	void fire(const Vec3&);

@@ -84,6 +84,7 @@ namespace VI
 
 		struct Level
 		{
+			StaticArray<AI::PathZone, 16> path_zones;
 			EntityFinder finder;
 			StaticArray<TramTrack, 3> tram_tracks;
 			StaticArray<AI::Config, MAX_PLAYERS> ai_config;

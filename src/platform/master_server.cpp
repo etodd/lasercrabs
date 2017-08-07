@@ -435,7 +435,7 @@ namespace Master
 			return server_config_get(client->server_state.id, config);
 	}
 
-	b8 send_auth_response(Sock::Address addr, UserKey* key)
+	b8 send_auth_response(Sock::Address addr, UserKey* key, const char* username)
 	{
 		using Stream = StreamWrite;
 		StreamWrite p;
@@ -448,6 +448,9 @@ namespace Master
 		{
 			serialize_u32(&p, key->id);
 			serialize_u32(&p, key->token);
+			s32 username_length = vi_min(MAX_USERNAME, s32(strlen(username)));
+			serialize_int(&p, s32, username_length, 0, MAX_USERNAME);
+			serialize_bytes(&p, (u8*)username, username_length);
 		}
 		packet_finalize(&p);
 		messenger.send(p, timestamp, addr, &sock);
@@ -506,10 +509,10 @@ namespace Master
 				}
 				db_finalize(stmt);
 
-				send_auth_response(addr, &key);
+				send_auth_response(addr, &key, username);
 			}
 			else
-				send_auth_response(addr, nullptr);
+				send_auth_response(addr, nullptr, nullptr);
 		}
 	}
 

@@ -3378,7 +3378,7 @@ s32 proc(s32 argc, char* argv[])
 		success = platform::run_cmd(cmdbuilder.str());
 #elif defined(__APPLE__)
 		cmdbuilder << "WwiseCLI.sh \"" << wwise_project_path << "\" -GenerateSoundBanks";
-		success = run_cmd(cmdbuilder.str());
+		success = platform::run_cmd(cmdbuilder.str());
 #else
 		success = true;
 #endif

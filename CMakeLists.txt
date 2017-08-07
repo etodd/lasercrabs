@@ -204,8 +204,6 @@ set(ALL_INCLUDES
 	external
 	src
 	${ZLIB_INCLUDE_DIR}
-	external/curl/include
-	${CMAKE_CURRENT_BINARY_DIR}/external/curl/include/curl
 )
 
 if (WIN32)
@@ -439,6 +437,8 @@ if (SERVER)
 
 	target_include_directories(deceivermaster PRIVATE
 		${ALL_INCLUDES}
+		external/curl/include
+		${CMAKE_CURRENT_BINARY_DIR}/external/curl/include/curl
 	)
 
 	target_link_libraries(deceiversrv
@@ -532,7 +532,6 @@ if (CLIENT)
 		lodepng
 		wwise_integration
 		zlibstatic
-		libcurl
 	)
 
 	if (APPLE)

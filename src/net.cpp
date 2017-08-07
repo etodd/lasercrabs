@@ -3521,6 +3521,17 @@ b8 packet_handle_master(StreamRead* p)
 			{
 				serialize_u32(p, Game::user_key.id);
 				serialize_u32(p, Game::user_key.token);
+				s32 username_length;
+				serialize_int(p2, s32, username_length, 0, MAX_USERNAME);
+				char username[MAX_USERNAME + 1];
+				serialize_bytes(p2, (u8*)username, username_length);
+				username[username_length] = '\0';
+				if (strncmp(Settings::username, username, MAX_USERNAME))
+				{
+					memset(Settings::username, 0, sizeof(Settings::username));
+					strncpy(Settings::username, username->valuestring, MAX_USERNAME);
+					Loader::settings_save();
+				}
 			}
 			else
 				Game::auth_failed();

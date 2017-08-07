@@ -7,7 +7,7 @@
 
 #define GAME_VERSION 1
 
-#define MAX_USERNAME 255
+#define MAX_USERNAME 79
 
 #define MAX_BONES 72
 

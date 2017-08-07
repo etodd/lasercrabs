@@ -16,6 +16,8 @@ namespace Http
 
 typedef void Callback(s32, const char*, void*);
 
+extern char ca_path[MAX_PATH_LENGTH + 1];
+
 struct Request
 {
 	Callback* callback;
@@ -23,6 +25,7 @@ struct Request
 	curl_slist* request_headers;
 	void* user_data;
 	Array<char> data;
+	char error[256];
 
 	~Request();
 };

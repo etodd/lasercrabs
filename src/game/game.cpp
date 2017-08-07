@@ -49,10 +49,6 @@
 #include "settings.h"
 #include "data/json.h"
 
-#if !SERVER
-#include "http.h"
-#endif
-
 #if DEBUG
 	#define DEBUG_WALK_NAV_MESH 0
 	#define DEBUG_WALK_AI_PATH 0
@@ -154,37 +150,6 @@ Array<UpdateFunction> Game::updates;
 Array<DrawFunction> Game::draws;
 Array<CleanupFunction> Game::cleanups;
 
-void itch_auth_callback(s32 code, const char* data, void* user_data)
-{
-	b8 success = false;
-	if (code == 200)
-	{
-		cJSON* json = cJSON_Parse(data);
-		if (json)
-		{
-			cJSON* user = cJSON_GetObjectItem(json, "user");
-			if (user)
-			{
-				cJSON* username = cJSON_GetObjectItem(user, "username");
-				if (username)
-				{
-					success = true;
-					if (strncmp(Settings::username, username->valuestring, MAX_USERNAME))
-					{
-						memset(Settings::username, 0, sizeof(Settings::username));
-						strncpy(Settings::username, username->valuestring, MAX_USERNAME);
-						Loader::settings_save();
-					}
-				}
-			}
-			Json::json_free(json);
-		}
-	}
-
-	if (!success)
-		fprintf(stderr, "Itch authentication failed. Response code %d: %s\n", code, data);
-}
-
 b8 Game::init(LoopSync* sync)
 {
 	// count scripts
@@ -210,9 +175,6 @@ b8 Game::init(LoopSync* sync)
 		return false;
 
 #if !SERVER
-	if (!Net::Http::init())
-		return false;
-
 	switch (auth_type)
 	{
 		case Net::Master::AuthType::None:
@@ -222,9 +184,6 @@ b8 Game::init(LoopSync* sync)
 #if DEBUG
 			vi_debug("Itch auth key: %s", auth_key);
 #endif
-			char header[MAX_PATH_LENGTH + 1] = {};
-			snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", auth_key);
-			Net::Http::get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header);
 			break;
 		}
 		case Net::Master::AuthType::Steam:
@@ -385,9 +344,6 @@ void Game::update(const Update& update_in)
 	}
 
 	Net::update_start(u);
-#if !SERVER
-	Net::Http::update();
-#endif
 
 #if !SERVER
 	// trigger attract mode
@@ -656,9 +612,6 @@ void Game::update(const Update& update_in)
 void Game::term()
 {
 	Net::term();
-#if !SERVER
-	Net::Http::term();
-#endif
 	Audio::term();
 }
 

@@ -1063,6 +1063,7 @@ namespace Master
 				serialize_int(p, s32, auth_key_length, 0, MAX_AUTH_KEY);
 				char auth_key[MAX_AUTH_KEY + 1];
 				serialize_bytes(p, (u8*)auth_key, auth_key_length);
+				auth_key[auth_key_length] = '\0';
 				switch (auth_type)
 				{
 					case Master::AuthType::None:
@@ -1390,9 +1391,14 @@ namespace Master
 							Settings::public_ip = localhost_ip;
 					}
 					{
-						cJSON* itch_api_key = cJSON_GetObjectItem(json, "itch_api_key");
+						const char* itch_api_key = Json::get_string(json, "itch_api_key");
 						if (itch_api_key)
-							strncpy(Settings::itch_api_key, itch_api_key->valuestring, MAX_AUTH_KEY);
+							strncpy(Settings::itch_api_key, itch_api_key, MAX_AUTH_KEY);
+					}
+					{
+						const char* ca_path = Json::get_string(json, "ca_path");
+						if (ca_path)
+							strncpy(Http::ca_path, ca_path, MAX_PATH_LENGTH);
 					}
 					cJSON_Delete(json);
 				}

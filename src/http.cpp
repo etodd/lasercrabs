@@ -2,6 +2,7 @@
 #include "curl/curl.h"
 #include "data/pin_array.h"
 #include <new>
+#include "settings.h"
 
 namespace VI
 {
@@ -12,6 +13,10 @@ namespace Net
 namespace Http
 {
 
+
+#define DEBUG_HTTP 0
+
+char ca_path[MAX_PATH_LENGTH + 1];
 
 Request::~Request()
 {
@@ -70,12 +75,20 @@ void update()
 				}
 			}
 			vi_assert(request);
-			if (request->callback)
+			s32 response_code;
+			curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+			const char* response = request->data.length > 0 ? &request->data[0] : nullptr;
+#if DEBUG_HTTP
 			{
-				s32 response_code;
-				curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-				request->callback(response_code, request->data.length > 0 ? &request->data[0] : nullptr, request->user_data);
+				char *url = NULL;
+				curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &url);
+				vi_debug("HTTP response - %s - code %d: %s", url, response_code, response);
+				if (request->error[0])
+					vi_debug("HTTP error: %s", request->error);
 			}
+#endif
+			if (request->callback)
+				request->callback(response_code, response, request->user_data);
 			request->~Request();
 			state.requests.remove(request - &state.requests[0]);
 			curl_easy_cleanup(curl);
@@ -95,12 +108,20 @@ Request* get(const char* url, Callback* callback, const char* header, void* user
 	curl_easy_setopt(request->curl, CURLOPT_NOPROGRESS, 1);
 	curl_easy_setopt(request->curl, CURLOPT_WRITEFUNCTION, &write_callback);
 	curl_easy_setopt(request->curl, CURLOPT_WRITEDATA, request);
+	curl_easy_setopt(request->curl, CURLOPT_ERRORBUFFER, request->error);
+	if (ca_path[0])
+		curl_easy_setopt(request->curl, CURLOPT_CAPATH, ca_path);
 
 	if (header)
 	{
 		request->request_headers = curl_slist_append(request->request_headers, header);
 		curl_easy_setopt(request->curl, CURLOPT_HTTPHEADER, request->request_headers);
 	}
+
+#if DEBUG_HTTP
+	curl_easy_setopt(request->curl, CURLOPT_VERBOSE, 1L);
+	vi_debug("HTTP GET: %s %s", url, header);
+#endif
 
 	curl_multi_add_handle(state.curl_multi, request->curl);
 

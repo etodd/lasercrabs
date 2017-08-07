@@ -489,8 +489,6 @@ if (CLIENT)
 	else()
 		set(SRC_CLIENT
 			${SRC}
-			src/http.h
-			src/http.cpp
 			src/platform/glvm.cpp
 			src/platform/sdl.cpp
 		)

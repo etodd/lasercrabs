@@ -2,4 +2,3 @@
 name = "play"
 path = "deceiver"
 scope = "profile:me"
-sandbox = true

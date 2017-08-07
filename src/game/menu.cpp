@@ -768,50 +768,52 @@ void draw_ui(const RenderParams& params)
 	if (main_menu_state != State::Hidden)
 	{
 		if (Game::level.id == Asset::Level::Docks && Game::level.mode == Game::Mode::Special)
-		{
 			main_menu.draw_ui(params, Vec2(viewport.size.x * 0.5f, viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f), UIText::Anchor::Center, UIText::Anchor::Max);
-#if !SERVER
-			AssetID error_string = AssetNull;
-			switch (Net::Client::master_error)
-			{
-				case Net::Client::MasterError::None:
-				{
-					break;
-				}
-				case Net::Client::MasterError::WrongVersion:
-				{
-					error_string = strings::need_upgrade;
-					break;
-				}
-				case Net::Client::MasterError::Timeout:
-				{
-					error_string = strings::master_timeout;
-					break;
-				}
-				default:
-				{
-					vi_assert(false);
-					break;
-				}
-			}
-
-			if (error_string != AssetNull)
-			{
-				UIText text;
-				text.color = UI::color_alert();
-				text.anchor_x = UIText::Anchor::Min;
-				text.anchor_y = UIText::Anchor::Center;
-				text.wrap_width = MENU_ITEM_WIDTH;
-				text.text(0, _(error_string));
-				Vec2 pos = params.camera->viewport.size * Vec2(0.1f, 0.1f);
-				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-				text.draw(params, pos);
-			}
-#endif
-		}
 		else
 			main_menu.draw_ui(params, Vec2(0, viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
 	}
+
+#if !SERVER
+	if (Game::level.mode == Game::Mode::Special && (main_menu_state != State::Hidden || Overworld::modal()))
+	{
+		AssetID error_string = AssetNull;
+		switch (Net::Client::master_error)
+		{
+			case Net::Client::MasterError::None:
+			{
+				break;
+			}
+			case Net::Client::MasterError::WrongVersion:
+			{
+				error_string = strings::need_upgrade;
+				break;
+			}
+			case Net::Client::MasterError::Timeout:
+			{
+				error_string = strings::master_timeout;
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+
+		if (error_string != AssetNull)
+		{
+			UIText text;
+			text.color = UI::color_alert();
+			text.anchor_x = UIText::Anchor::Min;
+			text.anchor_y = UIText::Anchor::Center;
+			text.wrap_width = MENU_ITEM_WIDTH;
+			text.text(0, _(error_string));
+			Vec2 pos = params.camera->viewport.size * Vec2(0.1f, 0.1f);
+			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+			text.draw(params, pos);
+		}
+	}
+#endif
 
 	// draw dialog box
 	s32 gamepad = 0;

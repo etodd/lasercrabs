@@ -2298,7 +2298,6 @@ void update(const Update& u, r32 dt)
 			}
 		}
 
-#if !DEBUG
 		if (client->auth_timeout > 0.0f) // master server hasn't authenticated this client yet
 		{
 			client->auth_timeout = vi_max(0.0f, client->auth_timeout - dt);
@@ -2311,7 +2310,6 @@ void update(const Update& u, r32 dt)
 				handle_client_disconnect(client);
 			}
 		}
-#endif
 	}
 }
 

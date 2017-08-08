@@ -1762,7 +1762,8 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 				{
 					if (killer_player)
 						killer_player->add_kills(1);
-					Team::list[killer_team].add_kills(1);
+					if (killer_team != AI::TeamNone)
+						Team::list[killer_team].add_kills(1);
 					player->add_deaths(1);
 				}
 

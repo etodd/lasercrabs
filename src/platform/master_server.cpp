@@ -101,7 +101,6 @@ namespace Master
 	namespace Settings
 	{
 		s32 secret;
-		Sock::Host public_ip;
 		char itch_api_key[MAX_AUTH_KEY + 1];
 	}
 
@@ -126,6 +125,8 @@ namespace Master
 		r64 state_change_timestamp;
 		UserKey user_key;
 		Sock::Address addr;
+		Sock::Address public_ipv4;
+		Sock::Address public_ipv6;
 		ServerState server_state;
 		State state;
 
@@ -155,7 +156,6 @@ namespace Master
 	Array<u64> clients_waiting;
 	Array<ClientConnection> clients_connecting;
 	Array<u64> servers_loading;
-	Sock::Host localhost_ip;
 	sqlite3* db;
 
 	sqlite3_stmt* db_query(const char* sql)
@@ -185,6 +185,11 @@ namespace Master
 			fprintf(stderr, "SQL: Could not bind text at index %d.\nError: %s", index, sqlite3_errmsg(db));
 			vi_assert(false);
 		}
+	}
+
+	Sock::Address server_public_ip(Node* server, Sock::Host::Type type)
+	{
+		return type == Sock::Host::Type::IPv4 ? server->public_ipv4 : server->public_ipv6;
 	}
 
 	b8 db_step(sqlite3_stmt* stmt)
@@ -278,14 +283,14 @@ namespace Master
 			return node_for_address(i->second);
 	}
 
-	void server_state_for_config_id(u32 id, s8 max_players, ServerState* state, Sock::Address* addr = nullptr)
+	void server_state_for_config_id(u32 id, s8 max_players, ServerState* state, Sock::Host::Type addr_type = Sock::Host::Type::IPv4, Sock::Address* addr = nullptr)
 	{
 		Node* server = server_for_config_id(id);
 		if (server) // a server is running this config
 		{
 			*state = server->server_state;
 			if (addr)
-				*addr = server->addr;
+				*addr = server_public_ip(server, addr_type);
 		}
 		else // config is not running on any server
 		{
@@ -419,11 +424,11 @@ namespace Master
 			return false;
 	}
 
-	b8 server_details_get(u32 config_id, u32 user_id, ServerDetails* details)
+	b8 server_details_get(u32 config_id, u32 user_id, ServerDetails* details, Sock::Host::Type addr_type)
 	{
 		if (server_config_get(config_id, &details->config))
 		{
-			server_state_for_config_id(config_id, details->config.max_players, &details->state, &details->addr);
+			server_state_for_config_id(config_id, details->config.max_players, &details->state, addr_type, &details->addr);
 			details->is_admin = user_is_admin(user_id, config_id);
 			return true;
 		}
@@ -586,7 +591,7 @@ namespace Master
 		{
 			// it's a server; remove from the server list
 			{
-				char addr_str[MAX_ADDRESS_STRING];
+				char addr_str[NET_MAX_ADDRESS];
 				addr.str(addr_str);
 				vi_debug("Server %s disconnected.", addr_str);
 			}
@@ -814,9 +819,9 @@ namespace Master
 
 	b8 send_server_list_fragment(Node* client, ServerListType type, sqlite3_stmt* stmt, s32* offset, b8* done)
 	{
-		using Stream = Net::StreamWrite;
+		using Stream = StreamWrite;
 
-		Net::StreamWrite p;
+		StreamWrite p;
 		packet_init(&p);
 		messenger.add_header(&p, client->addr, Message::ServerList);
 
@@ -841,7 +846,7 @@ namespace Master
 			entry.team_count = db_column_int(stmt, 3);
 			entry.game_type = GameType(db_column_int(stmt, 4));
 
-			server_state_for_config_id(id, entry.max_players, &entry.server_state, &entry.addr);
+			server_state_for_config_id(id, entry.max_players, &entry.server_state, client->addr.host.type, &entry.addr);
 
 			if (!serialize_server_list_entry(&p, &entry))
 				net_error();
@@ -878,19 +883,14 @@ namespace Master
 		return true;
 	}
 
-	b8 send_client_connect(Sock::Address server_addr, const Sock::Address& addr)
+	b8 send_client_connect(Node* server, const Sock::Address& addr)
 	{
 		using Stream = StreamWrite;
 		StreamWrite p;
 		packet_init(&p);
 		messenger.add_header(&p, addr, Message::ClientConnect);
 
-		// if the server is running on localhost, send the public IP rather than a useless 127.0.0.1 address
-		if (server_addr.host.equals(localhost_ip))
-			server_addr.host = Settings::public_ip;
-		else
-			server_addr.host = server_addr.host;
-
+		Sock::Address server_addr = addr.host.type == Sock::Host::Type::IPv4 ? server->public_ipv4 : server->public_ipv6;
 		if (!Sock::Address::serialize(&p, &server_addr))
 			net_error();
 
@@ -924,7 +924,7 @@ namespace Master
 		if (server->state == Node::State::Invalid)
 		{
 			// add to server list
-			char addr_str[MAX_ADDRESS_STRING];
+			char addr_str[NET_MAX_ADDRESS];
 			server->addr.str(addr_str);
 			vi_debug("Server %s connected.", addr_str);
 			servers.add(server->addr.hash());
@@ -961,7 +961,7 @@ namespace Master
 
 	b8 check_user_key(StreamRead* p, Node* node)
 	{
-		using Stream = Net::StreamRead;
+		using Stream = StreamRead;
 		UserKey key;
 		serialize_u32(p, key.id);
 		serialize_u32(p, key.token);
@@ -1032,7 +1032,7 @@ namespace Master
 	void client_connect_to_existing_server(Node* client, Node* server)
 	{
 		send_server_expect_client(server, &client->user_key);
-		send_client_connect(server->addr, client->addr);
+		send_client_connect(server, client->addr);
 		client_queue_join(server, client);
 	}
 
@@ -1205,7 +1205,7 @@ namespace Master
 				else
 				{
 					ServerDetails details;
-					if (server_details_get(config_id, node->user_key.id, &details))
+					if (server_details_get(config_id, node->user_key.id, &details, node->addr.host.type))
 						send_server_details(node->addr, details, request_id);
 					else
 						net_error();
@@ -1296,6 +1296,10 @@ namespace Master
 				ServerState s;
 				if (!serialize_server_state(p, &s))
 					net_error();
+				if (!Sock::Address::serialize(p, &node->public_ipv4))
+					net_error();
+				if (!Sock::Address::serialize(p, &node->public_ipv6))
+					net_error();
 				if (node->state == Node::State::ServerLoading)
 				{
 					if (node->state_change_timestamp > timestamp - MASTER_SERVER_LOAD_TIMEOUT)
@@ -1309,7 +1313,7 @@ namespace Master
 							{
 								const ClientConnection& connection = clients_connecting[i];
 								if (connection.server.equals(node->addr))
-									send_client_connect(node->addr, connection.client);
+									send_client_connect(node, connection.client);
 							}
 						}
 					}
@@ -1344,21 +1348,14 @@ namespace Master
 		if (Sock::init())
 			return 1;
 
-		if (Sock::udp_open(&sock, 3497))
+		if (Sock::udp_open(&sock, NET_MASTER_PORT))
 		{
 			fprintf(stderr, "%s\n", Sock::get_error());
 			return 1;
 		}
 
-		if (!Net::Http::init())
+		if (!Http::init())
 			return 1;
-
-		// get localhost address
-		{
-			Sock::Address addr;
-			Sock::get_address(&addr, "127.0.0.1", 3494);
-			localhost_ip = addr.host;
-		}
 
 		// open sqlite database
 		{
@@ -1399,17 +1396,6 @@ namespace Master
 				{
 					Settings::secret = Json::get_s32(json, "secret");
 					{
-						cJSON* public_ip = cJSON_GetObjectItem(json, "public_ip");
-						if (public_ip)
-						{
-							Sock::Address addr;
-							Sock::get_address(&addr, public_ip->valuestring, 3494);
-							Settings::public_ip = addr.host;
-						}
-						else
-							Settings::public_ip = localhost_ip;
-					}
-					{
 						const char* itch_api_key = Json::get_string(json, "itch_api_key");
 						if (itch_api_key)
 							strncpy(Settings::itch_api_key, itch_api_key, MAX_AUTH_KEY);
@@ -1439,7 +1425,7 @@ namespace Master
 				last_update = t;
 			}
 
-			Net::Http::update();
+			Http::update();
 			messenger.update(timestamp, &sock);
 
 			// remove timed out client connection attempts
@@ -1554,7 +1540,7 @@ namespace Master
 
 		sqlite3_close(db);
 
-		Net::Http::term();
+		Http::term();
 
 		return 0;
 	}

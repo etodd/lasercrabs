@@ -123,21 +123,21 @@ u64 Address::hash() const
 
 void Address::str(char* out) const
 {
-	char buffer[MAX_ADDRESS_STRING];
+	char buffer[NET_MAX_ADDRESS];
 	switch (host.type)
 	{
 		case Host::Type::IPv4:
 		{
 			struct in_addr in;
 			in.s_addr = host.ipv4;
-			inet_ntop(AF_INET, &in, buffer, MAX_ADDRESS_STRING);
+			inet_ntop(AF_INET, &in, buffer, NET_MAX_ADDRESS);
 			break;
 		}
 		case Host::Type::IPv6:
 		{
 			struct in6_addr in;
 			memcpy(&in, host.ipv6, sizeof(in));
-			inet_ntop(AF_INET6, &in, buffer, MAX_ADDRESS_STRING);
+			inet_ntop(AF_INET6, &in, buffer, NET_MAX_ADDRESS);
 			break;
 		}
 		default:
@@ -147,10 +147,9 @@ void Address::str(char* out) const
 	sprintf(out, "%s:%hu", buffer, ntohs(port));
 }
 
-s32 get_address(Address* address, const char* host, u16 port)
+s32 Sock::Address::get(Address* address, const char* host, u16 port)
 {
 	memset(address, 0, sizeof(*address));
-	address->port = htons(port);
 	if (host)
 	{
 		struct addrinfo hints;
@@ -162,20 +161,26 @@ s32 get_address(Address* address, const char* host, u16 port)
 
 		struct addrinfo* result;
 
-		if (getaddrinfo(host, nullptr, &hints, &result) || !result)
+		char port_str[8] = {};
+		sprintf(port_str, "%hu", port);
+		if (getaddrinfo(host, port_str, &hints, &result) || !result)
 			return error("getaddrinfo failed");
 
 		if (result->ai_addr->sa_family == AF_INET6)
 		{
 			address->host.type = Host::Type::IPv6;
 			struct sockaddr_in6* ipv6 = (struct sockaddr_in6*)(result->ai_addr);
+			address->host.scope_id = ipv6->sin6_scope_id;
+			address->port = ipv6->sin6_port;
 			memcpy(address->host.ipv6, &ipv6->sin6_addr, sizeof(address->host.ipv6));
 		}
 		else // ipv4
 		{
 			vi_assert(result->ai_addr->sa_family == AF_INET);
 			address->host.type = Host::Type::IPv4;
+			address->host.scope_id = 0;
 			struct sockaddr_in* ipv4 = (struct sockaddr_in*)(result->ai_addr);
+			address->port = ipv4->sin_port;
 			memcpy(&address->host.ipv4, &ipv4->sin_addr, sizeof(address->host.ipv4));
 		}
 
@@ -218,8 +223,31 @@ s32 socket_bind(u64* handle, u16 port, s32 family)
 		if (getaddrinfo(nullptr, port_str, &hints, &addr_list) || !addr_list)
 			return error("getaddrinfo failed");
 
+		{
+			char buffer[NET_MAX_ADDRESS];
+			u16 port;
+			if (family == AF_INET)
+			{
+				struct sockaddr_in* addr = (struct sockaddr_in*)(addr_list->ai_addr);
+				port = addr->sin_port;
+				inet_ntop(AF_INET, &addr->sin_addr, buffer, NET_MAX_ADDRESS);
+			}
+			else // ipv6
+			{
+				struct sockaddr_in6* addr = (struct sockaddr_in6*)(addr_list->ai_addr);
+				port = addr->sin6_port;
+				inet_ntop(AF_INET6, &addr->sin6_addr, buffer, NET_MAX_ADDRESS);
+			}
+			vi_debug("Binding to %s:%hu...", buffer, ntohs(port));
+		}
+
 		if (bind(*handle, addr_list->ai_addr, addr_list->ai_addrlen))
+		{
+			vi_debug("%s", "Bind failed.");
 			return error("Failed to bind socket");
+		}
+		else
+			vi_debug("%s", "Bind succeeded.");
 
 		freeaddrinfo(addr_list);
 	}
@@ -242,10 +270,13 @@ s32 socket_bind(u64* handle, u16 port, s32 family)
 s32 udp_open(Handle* sock, u32 port)
 {
 	if (socket_bind(&sock->ipv4, port, AF_INET))
-		return -1;
+		sock->ipv4 = 0;
 	if (socket_bind(&sock->ipv6, port, AF_INET6))
+		sock->ipv6 = 0;
+	if (sock->ipv4 || sock->ipv6)
+		return 0;
+	else
 		return -1;
-	return 0;
 }
 
 void close(Handle* socket)
@@ -274,10 +305,10 @@ void close(Handle* socket)
 
 s32 udp_send(Handle* socket, const Address& destination, const void* data, s32 size)
 {
-	struct sockaddr address;
-	u64 handle;
-	size_t addr_length;
+	struct sockaddr_storage address;
 	memset(&address, 0, sizeof(address));
+	u64 handle = 0;
+	size_t addr_length = 0;
 	switch (destination.host.type)
 	{
 		case Host::Type::IPv4:
@@ -295,6 +326,7 @@ s32 udp_send(Handle* socket, const Address& destination, const void* data, s32 s
 			struct sockaddr_in6* ipv6 = (struct sockaddr_in6*)(&address);
 			ipv6->sin6_family = AF_INET6;
 			ipv6->sin6_port = destination.port;
+			ipv6->sin6_scope_id = destination.host.scope_id;
 			memcpy(&ipv6->sin6_addr, &destination.host.ipv6, sizeof(ipv6->sin6_addr));
 			handle = socket->ipv6;
 			addr_length = sizeof(struct sockaddr_in6);
@@ -305,9 +337,13 @@ s32 udp_send(Handle* socket, const Address& destination, const void* data, s32 s
 			break;
 	}
 
-	s32 sent_bytes = sendto(handle, (const char*)data, size, 0, (const struct sockaddr*)&address, addr_length);
-	if (sent_bytes != size)
-		return error("Failed to send data");
+	vi_assert(handle);
+
+	{
+		s32 sent_bytes = sendto(handle, (const char*)data, size, 0, (const struct sockaddr*)&address, addr_length);
+		if (sent_bytes != size)
+			return error("Failed to send data");
+	}
 
 	return 0;
 }
@@ -318,22 +354,31 @@ s32 udp_receive(Handle* socket, Address* sender, void* data, s32 size)
 	typedef s32 socklen_t;
 #endif
 
-	struct sockaddr from;
-	socklen_t from_length = sizeof(from);
+	struct sockaddr_storage from;
+	socklen_t from_length = sizeof(struct sockaddr_storage);
 
-	s32 received_bytes = recvfrom(socket->ipv4, (char*)data, size, 0, &from, &from_length);
+	s32 received_bytes = 0;
+	if (socket->ipv4)
+		received_bytes = recvfrom(socket->ipv4, (char*)data, size, 0, (sockaddr*)&from, &from_length);
+
 	if (received_bytes <= 0)
 	{
-		received_bytes = recvfrom(socket->ipv6, (char*)data, size, 0, &from, &from_length);
-		if (received_bytes <= 0)
+		if (socket->ipv6)
+		{
+			received_bytes = recvfrom(socket->ipv6, (char*)data, size, 0, (sockaddr*)&from, &from_length);
+			if (received_bytes <= 0)
+				return 0;
+		}
+		else
 			return 0;
 	}
 
-	if (from.sa_family == AF_INET6)
+	if (from.ss_family == AF_INET6)
 	{
 		sender->host.type = Host::Type::IPv6;
 		const struct sockaddr_in6* ipv6 = (const struct sockaddr_in6*)(&from);
 		memcpy(sender->host.ipv6, &ipv6->sin6_addr, sizeof(ipv6->sin6_addr));
+		sender->host.scope_id = ipv6->sin6_scope_id;
 		sender->port = ipv6->sin6_port;
 	}
 	else
@@ -341,6 +386,7 @@ s32 udp_receive(Handle* socket, Address* sender, void* data, s32 size)
 		sender->host.type = Host::Type::IPv4;
 		const struct sockaddr_in* ipv4 = (const struct sockaddr_in*)(&from);
 		sender->host.ipv4 = ipv4->sin_addr.s_addr;
+		sender->host.scope_id = 0;
 		sender->port = ipv4->sin_port;
 	}
 

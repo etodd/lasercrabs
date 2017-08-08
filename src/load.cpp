@@ -23,10 +23,17 @@ namespace Settings
 	ShadowQuality shadow_quality;
 	s32 display_mode_index;
 	s32 framerate_limit;
+#if SERVER
 	s32 secret;
+#endif
 	char master_server[MAX_PATH_LENGTH + 1];
 	char username[MAX_USERNAME + 1];
+#if SERVER
 	char itch_api_key[MAX_AUTH_KEY + 1];
+	char public_ipv4[NET_MAX_ADDRESS];
+	char public_ipv6[NET_MAX_ADDRESS];
+	u16 port;
+#endif
 	u8 sfx;
 	u8 music;
 	b8 fullscreen;
@@ -291,12 +298,15 @@ void Loader::settings_load(const Array<DisplayMode>& modes)
 	strncpy(Settings::username, Json::get_string(json, "username", "Anonymous"), MAX_USERNAME);
 #if SERVER
 	{
-			const char* itch_api_key = Json::get_string(json, "itch_api_key");
-			if (itch_api_key)
-				strncpy(Settings::itch_api_key, itch_api_key, MAX_AUTH_KEY);
+		const char* itch_api_key = Json::get_string(json, "itch_api_key");
+		if (itch_api_key)
+			strncpy(Settings::itch_api_key, itch_api_key, MAX_AUTH_KEY);
 	}
-#endif
 	Settings::secret = Json::get_s32(json, "secret");
+	strncpy(Settings::public_ipv4, Json::get_string(json, "public_ipv4", ""), NET_MAX_ADDRESS);
+	strncpy(Settings::public_ipv6, Json::get_string(json, "public_ipv6", ""), NET_MAX_ADDRESS);
+	Settings::port = u16(Json::get_s32(json, "port", 3494));
+#endif
 
 	if (json)
 		Json::json_free(json);

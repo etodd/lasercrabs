@@ -1,6 +1,7 @@
 #pragma once
 #include "input.h"
 #include "render/render.h"
+#include "platform/sock.h"
 
 namespace VI
 {
@@ -26,10 +27,17 @@ namespace Settings
 	// defined in load.cpp
 	extern Gamepad gamepads[MAX_GAMEPADS];
 	extern s32 framerate_limit;
+#if SERVER
 	extern s32 secret;
+#endif
 	extern char master_server[MAX_PATH_LENGTH + 1];
 	extern char username[MAX_USERNAME + 1];
+#if SERVER
 	extern char itch_api_key[MAX_AUTH_KEY + 1];
+	extern char public_ipv4[NET_MAX_ADDRESS];
+	extern char public_ipv6[NET_MAX_ADDRESS];
+	extern u16 port;
+#endif
 	extern u8 sfx;
 	extern u8 music;
 	extern ShadowQuality shadow_quality;

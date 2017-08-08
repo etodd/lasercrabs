@@ -181,7 +181,7 @@ struct Drone : public ComponentType<Drone>
 	b8 can_hit(const Target*, Vec3* = nullptr, r32 = DRONE_FLY_SPEED) const; // shoot or dash
 
 	void raycast(RaycastMode, const Vec3&, const Vec3&, const Net::StateFrame*, Hits*, s32 = 0, Entity* = nullptr) const;
-	void movement_raycast(const Vec3&, const Vec3&, Hits* = nullptr);
+	void movement_raycast(const Vec3&, const Vec3&, Hits* = nullptr, const Net::StateFrame* = nullptr);
 
 	void update_server(const Update&);
 	void update_client(const Update&);

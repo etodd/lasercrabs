@@ -175,9 +175,14 @@ b8 master_send(Master::Message msg)
 
 void master_init()
 {
-	Sock::get_address(&state_persistent.master_addr, Settings::master_server, 3497);
+	Sock::Address::get(&state_persistent.master_addr, Settings::master_server, NET_MASTER_PORT);
 	master_send(Master::Message::Disconnect);
 	state_persistent.master.reset();
+	{
+		char buffer[NET_MAX_ADDRESS];
+		state_persistent.master_addr.str(buffer);
+		vi_debug("Connecting to master server at %s...", buffer);
+	}
 }
 
 b8 msg_process(StreamRead*, MessageSource);
@@ -1991,6 +1996,13 @@ struct StateServer
 };
 StateServer state_server;
 
+struct StateServerPersistent
+{
+	Sock::Address public_ipv4;
+	Sock::Address public_ipv6;
+};
+StateServerPersistent state_server_persistent;
+
 b8 client_owns(Client* c, Entity* e)
 {
 	PlayerHuman* player = nullptr;
@@ -2064,6 +2076,12 @@ b8 master_send_status_update()
 	if (!serialize_server_state(&p, &s))
 		net_error();
 
+	if (!Sock::Address::serialize(&p, &state_server_persistent.public_ipv4))
+		net_error();
+
+	if (!Sock::Address::serialize(&p, &state_server_persistent.public_ipv6))
+		net_error();
+
 	packet_finalize(&p);
 	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
 
@@ -2074,7 +2092,7 @@ b8 master_send_status_update()
 
 b8 init()
 {
-	if (Sock::udp_open(&state_persistent.sock, 3494))
+	if (Sock::udp_open(&state_persistent.sock, Settings::port))
 	{
 		printf("%s\n", Sock::get_error());
 		return false;
@@ -2083,6 +2101,12 @@ b8 init()
 	master_init();
 	master_send(Master::Message::Disconnect);
 	state_persistent.master.reset();
+
+	if (Settings::public_ipv4[0])
+		Sock::Address::get(&state_server_persistent.public_ipv4, Settings::public_ipv4, Settings::port);
+
+	if (Settings::public_ipv6[0])
+		Sock::Address::get(&state_server_persistent.public_ipv6, Settings::public_ipv6, Settings::port);
 
 	return true;
 }
@@ -2362,7 +2386,7 @@ void tick(const Update& u, r32 dt)
 		if (client->timeout > NET_TIMEOUT)
 		{
 			{
-				char addr[MAX_ADDRESS_STRING];
+				char addr[NET_MAX_ADDRESS];
 				client->address.str(addr);
 				vi_debug("Client %s timed out.", addr);
 			}
@@ -2552,7 +2576,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					client->address = address;
 					client->first_load_sequence = state_common.local_sequence_id;
 					{
-						char str[MAX_ADDRESS_STRING];
+						char str[NET_MAX_ADDRESS];
 						address.str(str);
 						vi_debug("Client %s starting on sequence %d", str, s32(client->first_load_sequence));
 					}
@@ -2653,7 +2677,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				if (abs(sequence_relative_to(sequence_id, client->processed_msg_frame.sequence_id)) > NET_MAX_SEQUENCE_GAP)
 				{
 					// we missed a packet that we'll never be able to recover
-					char str[MAX_ADDRESS_STRING];
+					char str[NET_MAX_ADDRESS];
 					client->address.str(str);
 					vi_debug("Client %s timed out.", str);
 					handle_client_disconnect(client);
@@ -2679,7 +2703,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			client->timeout = 0.0f;
 			if (!client->connected)
 			{
-				char str[MAX_ADDRESS_STRING];
+				char str[NET_MAX_ADDRESS];
 				client->address.str(str);
 				vi_debug("Client %s connected.", str);
 				client->connected = true;
@@ -2728,7 +2752,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		{
 			if (!client) // unknown client; ignore
 				return false;
-			char str[MAX_ADDRESS_STRING];
+			char str[NET_MAX_ADDRESS];
 			address.str(str);
 			vi_debug("Client %s disconnected.", str);
 			handle_client_disconnect(client);
@@ -2784,7 +2808,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 		{
 			client->loading_done = true;
 			{
-				char str[MAX_ADDRESS_STRING];
+				char str[NET_MAX_ADDRESS];
 				client->address.str(str);
 				vi_debug("Client %s finished loading.", str);
 			}
@@ -3178,13 +3202,10 @@ b8 ping(const Sock::Address& addr, u32 token)
 
 b8 init()
 {
-	if (Sock::udp_open(&state_persistent.sock, 3495))
+	if (Sock::udp_open(&state_persistent.sock))
 	{
-		if (Sock::udp_open(&state_persistent.sock, 3496))
-		{
-			printf("%s\n", Sock::get_error());
-			return false;
-		}
+		printf("%s\n", Sock::get_error());
+		return false;
 	}
 
 	master_init();
@@ -3418,7 +3439,7 @@ void tick(const Update& u, r32 dt)
 		case Mode::Connecting:
 		{
 			state_client.timeout += dt;
-			char str[MAX_ADDRESS_STRING];
+			char str[NET_MAX_ADDRESS];
 			state_client.server_address.str(str);
 			vi_debug("Connecting to %s...", str);
 			StreamWrite p;
@@ -3432,7 +3453,7 @@ void tick(const Update& u, r32 dt)
 			state_client.timeout += dt;
 			if (state_client.timeout > NET_TIMEOUT)
 			{
-				char str[MAX_ADDRESS_STRING];
+				char str[NET_MAX_ADDRESS];
 				state_client.server_address.str(str);
 				vi_debug("Connection to %s timed out.", str);
 				handle_server_disconnect(DisconnectReason::Timeout);
@@ -3482,7 +3503,7 @@ void connect(Sock::Address addr)
 void connect(const char* ip, u16 port)
 {
 	Sock::Address addr;
-	Sock::get_address(&addr, ip, port);
+	Sock::Address::get(&addr, ip, port);
 	connect(addr);
 }
 
@@ -3503,7 +3524,7 @@ void replay(const char* filename)
 		Game::schedule_timer = 0.0f;
 		state_client.timeout = 0.0f;
 		state_client.mode = Mode::Connecting;
-		Sock::get_address(&state_client.server_address, "127.0.0.1", 3495);
+		Sock::Address::get(&state_client.server_address, "127.0.0.1", 3495);
 		state_client.replay_mode = ReplayMode::Replaying;
 	}
 }
@@ -3735,7 +3756,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			if (abs(sequence_relative_to(processed_msg_frame.sequence_id, msg_sequence_id)) > NET_MAX_SEQUENCE_GAP)
 			{
 				// we missed a packet that we'll never be able to recover
-				char str[MAX_ADDRESS_STRING];
+				char str[NET_MAX_ADDRESS];
 				state_client.server_address.str(str);
 				vi_debug("Lost connection to %s due to sequence gap. Local seq: %d. Remote seq: %d.", str, s32(processed_msg_frame.sequence_id), s32(msg_sequence_id));
 				handle_server_disconnect(DisconnectReason::SequenceGap);
@@ -3754,7 +3775,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				// make sure the server says we have a base state frame if and only if we actually have it
 				if ((base_sequence_id == NET_SEQUENCE_INVALID) != (base == nullptr))
 				{
-					char str[MAX_ADDRESS_STRING];
+					char str[NET_MAX_ADDRESS];
 					state_client.server_address.str(str);
 					vi_debug("Lost connection to %s due to missing state frame delta compression basis seq %d. Current seq: %d", str, s32(base_sequence_id), s32(frame.sequence_id));
 					handle_server_disconnect(DisconnectReason::SequenceGap);
@@ -3789,7 +3810,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		{
 			DisconnectReason reason;
 			serialize_enum(p, DisconnectReason, reason);
-			char str[MAX_ADDRESS_STRING];
+			char str[NET_MAX_ADDRESS];
 			state_client.server_address.str(str);
 			vi_debug("Connection closed by %s. Reason: %d", str, s32(reason));
 			handle_server_disconnect(reason);

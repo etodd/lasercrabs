@@ -1151,6 +1151,11 @@ b8 Drone::could_shoot(const Vec3& trace_start, const Vec3& dir, Vec3* final_pos,
 		}
 	}
 
+#if SERVER
+	if (state_frame)
+		allow_further_end = true; // be more lenient on server to prevent glitching
+#endif
+
 	const Hit& final_hit = hits.hits[hits.hits.length - 1];
 
 	if (!allow_further_end || !hit_target_value)
@@ -1532,15 +1537,36 @@ void drone_reflection_execute(Drone* a, Entity* reflected_off, const Vec3& dir)
 	a->remote_reflection_timer = 0.0f;
 }
 
+void drone_fast_forward(Drone* d, r32 amount)
+{
+	r32 timestamp = Net::timestamp() - amount;
+	const r32 SIMULATION_STEP = Net::tick_rate();
+	while (timestamp < Net::timestamp() && d->remote_reflection_timer == 0.0f)
+	{
+		Vec3 position = d->get<Transform>()->absolute_pos();
+		Vec3 next_position = position + d->velocity * SIMULATION_STEP;
+		d->get<Transform>()->absolute_pos(next_position);
+
+		Vec3 dir = Vec3::normalize(d->velocity);
+		Vec3 ray_start = position + dir * -DRONE_RADIUS;
+		Vec3 ray_end = next_position + dir * DRONE_RADIUS;
+
+		Net::StateFrame state_frame;
+		Net::state_frame_by_timestamp(&state_frame, timestamp);
+		d->movement_raycast(ray_start, ray_end, nullptr, &state_frame);
+
+		timestamp += SIMULATION_STEP;
+	}
+}
+
 void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net::StateFrame* state_frame)
 {
 	vi_assert(velocity.length_squared() > 0.0f);
 
 	// it's possible to reflect off a shield while we are dashing (still parented to an object)
 	// so we need to make sure we're not dashing anymore
-	Vec3 reflection_pos = hit + normal * DRONE_RADIUS * 0.5f;
 	get<Transform>()->parent = nullptr;
-	get<Transform>()->absolute_pos(reflection_pos);
+	get<Transform>()->absolute_pos(hit);
 
 	// the actual direction we end up going
 	Vec3 new_dir;
@@ -1603,13 +1629,15 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 			// so go the direction they told us to
 			vi_assert(reflection_source_remote);
 			get<Transform>()->absolute_pos(remote_reflection_pos);
+			r32 fast_forward = DRONE_REFLECTION_TIME_TOLERANCE - remote_reflection_timer;
 			drone_reflection_execute(this, entity, remote_reflection_dir);
+			drone_fast_forward(this, fast_forward);
 		}
 		else
 		{
 			// store our reflection result and wait for the remote to tell us which way to go
 			// if we don't hear from them in a certain amount of time, forget anything happened
-			remote_reflection_pos = reflection_pos;
+			remote_reflection_pos = hit;
 			remote_reflection_timer = DRONE_REFLECTION_TIME_TOLERANCE;
 			remote_reflection_entity = entity;
 			reflection_source_remote = false; // this hit was detected locally
@@ -2043,6 +2071,8 @@ void Drone::update_server(const Update& u)
 			if (remote_reflection_timer <= 0.0f)
 			{
 				// time's up, we have to do something
+				r32 fast_forward = DRONE_REFLECTION_TIME_TOLERANCE - remote_reflection_timer;
+
 				if (reflection_source_remote)
 				{
 					// the remote told us about this reflection. go ahead and do it even though we never detected the hit locally
@@ -2055,15 +2085,10 @@ void Drone::update_server(const Update& u)
 					// we detected the hit locally, but the client never acknowledged it. ignore the reflection and keep going straight.
 					velocity = get<Transform>()->absolute_rot() * Vec3(0, 0, DRONE_FLY_SPEED); // restore original velocity
 				}
-				Vec3 position = get<Transform>()->absolute_pos();
-				Vec3 next_position = position + velocity * (DRONE_REFLECTION_TIME_TOLERANCE - remote_reflection_timer);
-				get<Transform>()->absolute_pos(next_position);
-				Vec3 dir = Vec3::normalize(velocity);
-				Vec3 ray_start = position + dir * -DRONE_RADIUS;
-				Vec3 ray_end = next_position + dir * DRONE_RADIUS;
-				movement_raycast(ray_start, ray_end);
 
+				// fast forward back on track
 				remote_reflection_timer = 0.0f;
+				drone_fast_forward(this, fast_forward);
 			}
 		}
 	}
@@ -2545,14 +2570,16 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 	}
 }
 
-void Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* hits_out)
+void Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* hits_out, const Net::StateFrame* state_frame)
 {
 	State s = state();
 
-	const Net::StateFrame* state_frame = nullptr;
 	Net::StateFrame state_frame_data;
-	if (net_state_frame(&state_frame_data))
-		state_frame = &state_frame_data;
+	if (!state_frame)
+	{
+		if (net_state_frame(&state_frame_data))
+			state_frame = &state_frame_data;
+	}
 
 	Hits hits;
 	raycast(RaycastMode::Default, ray_start, ray_end, state_frame, &hits);

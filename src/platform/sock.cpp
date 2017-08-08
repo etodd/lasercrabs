@@ -149,7 +149,7 @@ void Address::str(char* out) const
 
 s32 get_address(Address* address, const char* host, u16 port)
 {
-	memset(address, 0, sizeof(address));
+	memset(address, 0, sizeof(*address));
 	address->port = htons(port);
 	if (host)
 	{
@@ -226,8 +226,8 @@ s32 socket_bind(u64* handle, u16 port, s32 family)
 
 	// set the socket to non-blocking
 	{
-#ifdef _WIN32
 		unsigned long non_blocking = 1;
+#ifdef _WIN32
 		if (ioctlsocket(*handle, FIONBIO, &non_blocking) != 0)
 			return error("Failed to set socket to non-blocking");
 #else

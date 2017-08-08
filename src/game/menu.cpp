@@ -1311,7 +1311,7 @@ b8 teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 				// we are selecting this player
 				teams_selected_player[gamepad] = i.item();
 				i.item()->team_schedule(i.item()->team.ref()->team());
-				if (Team::match_state == Team::MatchState::Waiting)
+				if (Team::match_state == Team::MatchState::TeamSelect)
 					i.item()->set_can_spawn(false);
 			}
 		}

@@ -1609,7 +1609,6 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 		{
 			// store our reflection result and wait for the remote to tell us which way to go
 			// if we don't hear from them in a certain amount of time, forget anything happened
-			remote_reflection_dir = velocity; // HACK: not normalized. this will be restored to the velocity variable if the client does not acknowledge the hit
 			remote_reflection_pos = reflection_pos;
 			remote_reflection_timer = DRONE_REFLECTION_TIME_TOLERANCE;
 			remote_reflection_entity = entity;
@@ -2040,29 +2039,31 @@ void Drone::update_server(const Update& u)
 			remote_reflection_timer = 0.0f; // cancel
 		else
 		{
-			remote_reflection_timer = vi_max(0.0f, remote_reflection_timer - u.time.delta);
-			if (remote_reflection_timer == 0.0f)
+			remote_reflection_timer = remote_reflection_timer - u.time.delta;
+			if (remote_reflection_timer <= 0.0f)
 			{
 				// time's up, we have to do something
-				vi_assert(remote_reflection_dir.length_squared() > 0.0f);
 				if (reflection_source_remote)
 				{
 					// the remote told us about this reflection. go ahead and do it even though we never detected the hit locally
+					vi_assert(remote_reflection_dir.length_squared() > 0.0f);
 					get<Transform>()->absolute_pos(remote_reflection_pos);
 					drone_reflection_execute(this, remote_reflection_entity.ref(), remote_reflection_dir);
 				}
 				else
 				{
 					// we detected the hit locally, but the client never acknowledged it. ignore the reflection and keep going straight.
-					velocity = remote_reflection_dir; // restore original velocity
+					velocity = get<Transform>()->absolute_rot() * Vec3(0, 0, DRONE_FLY_SPEED); // restore original velocity
 				}
 				Vec3 position = get<Transform>()->absolute_pos();
-				Vec3 next_position = position + velocity * DRONE_REFLECTION_TIME_TOLERANCE;
+				Vec3 next_position = position + velocity * (DRONE_REFLECTION_TIME_TOLERANCE - remote_reflection_timer);
 				get<Transform>()->absolute_pos(next_position);
 				Vec3 dir = Vec3::normalize(velocity);
 				Vec3 ray_start = position + dir * -DRONE_RADIUS;
 				Vec3 ray_end = next_position + dir * DRONE_RADIUS;
 				movement_raycast(ray_start, ray_end);
+
+				remote_reflection_timer = 0.0f;
 			}
 		}
 	}

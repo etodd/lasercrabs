@@ -219,7 +219,7 @@ void Health::update_server(const Update& u)
 				else if (can_take_damage())
 					health_internal_apply_damage(this, src, entry->damage);
 				else if (active_armor() && src->has<Drone>() && entry->type != BufferedDamage::Type::Sniper) // kill 'em
-					src->get<Health>()->damage(entity(), DRONE_HEALTH + Game::session.config.drone_shield);
+					src->get<Health>()->kill(entity());
 			}
 			damage_buffer.remove(i);
 			i--;
@@ -447,7 +447,7 @@ void Health::damage(Entity* src, s8 damage)
 			BufferedDamage entry;
 			entry.source = src;
 			entry.damage = damage;
-			entry.delay = Net::rtt(get<PlayerControlHuman>()->player.ref()) + Net::interpolation_delay();
+			entry.delay = Net::rtt(get<PlayerControlHuman>()->player.ref()) + Net::tick_rate();
 			if (src->has<Drone>() && src->get<Drone>()->current_ability == Ability::Sniper)
 				entry.type = BufferedDamage::Type::Sniper;
 			else

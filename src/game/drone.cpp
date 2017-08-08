@@ -1601,6 +1601,7 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 		{
 			// the remote already told us about the reflection
 			// so go the direction they told us to
+			vi_assert(reflection_source_remote);
 			get<Transform>()->absolute_pos(remote_reflection_pos);
 			drone_reflection_execute(this, entity, remote_reflection_dir);
 		}
@@ -2001,7 +2002,7 @@ void Drone::update_server(const Update& u)
 		Vec3 position = get<Transform>()->absolute_pos();
 		Vec3 next_position;
 
-		if (btVector3(velocity).fuzzyZero()) // HACK. why does this happen
+		if (btVector3(velocity).fuzzyZero() && remote_reflection_timer == 0.0f) // HACK. why does this happen
 			velocity = get<Transform>()->absolute_rot() * Vec3(0, 0, s == State::Dash ? DRONE_DASH_SPEED : DRONE_FLY_SPEED);
 
 		if (s == State::Dash)

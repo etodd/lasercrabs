@@ -41,16 +41,16 @@ Messenger::Peer::Peer()
 
 }
 
-SequenceID Messenger::outgoing_sequence_id(Sock::Address addr) const
+SequenceID Messenger::outgoing_sequence_id(const Sock::Address& addr) const
 {
-	auto i = sequence_ids.find(addr);
+	auto i = sequence_ids.find(addr.hash());
 	if (i == sequence_ids.end())
 		return 0;
 	else
 		return i->second.outgoing_seq;
 }
 
-b8 Messenger::has_unacked_outgoing_messages(Sock::Address addr) const
+b8 Messenger::has_unacked_outgoing_messages(const Sock::Address& addr) const
 {
 	for (s32 i = 0; i < outgoing.length; i++)
 	{
@@ -60,7 +60,7 @@ b8 Messenger::has_unacked_outgoing_messages(Sock::Address addr) const
 	return false;
 }
 
-b8 Messenger::add_header(StreamWrite* p, Sock::Address addr, Message type)
+b8 Messenger::add_header(StreamWrite* p, const Sock::Address& addr, Message type)
 {
 	using Stream = StreamWrite;
 	SequenceID seq = outgoing_sequence_id(addr);
@@ -76,7 +76,7 @@ b8 Messenger::add_header(StreamWrite* p, Sock::Address addr, Message type)
 	return true;
 }
 
-void Messenger::send(const StreamWrite& p, r64 timestamp, Sock::Address addr, Sock::Handle* sock)
+void Messenger::send(const StreamWrite& p, r64 timestamp, const Sock::Address& addr, Sock::Handle* sock)
 {
 	last_sent_timestamp = timestamp;
 	SequenceID seq = outgoing_sequence_id(addr);
@@ -89,13 +89,14 @@ void Messenger::send(const StreamWrite& p, r64 timestamp, Sock::Address addr, So
 
 	SequenceID seq_next = sequence_advance(seq, 1);
 	{
-		auto i = sequence_ids.find(addr);
+		u64 hash = addr.hash();
+		auto i = sequence_ids.find(hash);
 		if (i == sequence_ids.end())
 		{
 			// haven't sent a message to this address yet
 			Peer peer;
 			peer.outgoing_seq = seq_next;
-			sequence_ids[addr] = peer;
+			sequence_ids[hash] = peer;
 		}
 		else // update existing sequence ID
 			i->second.outgoing_seq = seq_next;
@@ -124,7 +125,7 @@ b8 messenger_send_ack(SequenceID seq, Sock::Address addr, Sock::Handle* sock)
 }
 
 // returns true if the packet is in order and should be processed
-void Messenger::received(Message type, SequenceID seq, Sock::Address addr, Sock::Handle* sock)
+void Messenger::received(Message type, SequenceID seq, const Sock::Address& addr, Sock::Handle* sock)
 {
 	if (type == Message::Ack)
 	{
@@ -183,7 +184,7 @@ void Messenger::reset()
 	sequence_ids.clear();
 }
 
-void Messenger::remove(Sock::Address addr)
+void Messenger::remove(const Sock::Address& addr)
 {
 #if DEBUG_MSG
 	vi_debug("Removing peer %s:%hd", Sock::host_to_str(addr.host), addr.port);
@@ -196,7 +197,7 @@ void Messenger::remove(Sock::Address addr)
 			i--;
 		}
 	}
-	sequence_ids.erase(addr);
+	sequence_ids.erase(addr.hash());
 }
 
 }

@@ -1,6 +1,6 @@
 #pragma once
 #include "types.h"
-#include <functional>
+#include "net_serialize.h"
 
 namespace VI
 {
@@ -8,53 +8,78 @@ namespace VI
 namespace Sock
 {
 
+#define MAX_ADDRESS_STRING 66
+
+struct Host
+{
+	enum class Type : s8
+	{
+		IPv4,
+		IPv6,
+		count,
+	};
+
+	union
+	{
+		u32 ipv4;
+		char ipv6[16];
+	};
+	Type type;
+
+	b8 equals(const Host&) const;
+};
 
 struct Address
 {
-	u32 host;
+	template<typename Stream> static b8 serialize(Stream* p, Address* a)
+	{
+		serialize_enum(p, Host::Type, a->host.type);
+		switch (a->host.type)
+		{
+			case Host::Type::IPv4:
+				serialize_u32(p, a->host.ipv4);
+				break;
+			case Host::Type::IPv6:
+				serialize_bytes(p, (u8*)a->host.ipv6, 16);
+				break;
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+		serialize_u16(p, a->port);
+		return true;
+	}
+
+	Host host;
 	u16 port;
 
 	b8 equals(const Address&) const;
 	b8 operator==(const Address&) const;
+	void str(char*) const; // needs MAX_ADDRESS_STRING space
+	u64 hash() const;
 };
 
 struct Handle
 {
-	u64 handle;
-	s32 non_blocking;
-	s32 ready;
+	u64 ipv4;
+	u64 ipv6;
 };
 
 const char* get_error(void);
 s32 init(void);
 void netshutdown(void);
 s32 get_address(Address*, const char*, u16);
-const char* host_to_str(u32);
 
 void close(Handle*);
 
-s32 udp_open(Handle*, u32, u32);
-s32 udp_send(Handle*, Address, const void*, s32);
+s32 udp_open(Handle*, u32);
+s32 udp_send(Handle*, const Address&, const void*, s32);
 s32 udp_receive(Handle*, Address*, void*, s32);
 
 
 }
 
 
-}
-
-
-namespace std
-{
-	using namespace VI;
-	template <> struct hash<Sock::Address>
-	{
-		std::size_t operator()(const Sock::Address& addr) const
-		{
-			size_t result = 17;
-			result = result * 31 + std::hash<u32>()(addr.host);
-			result = result * 31 + std::hash<u16>()(addr.port);
-			return result;
-		}
-	};
 }

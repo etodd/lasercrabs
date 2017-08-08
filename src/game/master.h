@@ -115,19 +115,19 @@ struct Messenger
 
 	r64 last_sent_timestamp;
 	Array<OutgoingPacket> outgoing; // unordered, unacked messages
-	std::unordered_map<Sock::Address, Peer> sequence_ids;
+	std::unordered_map<u64, Peer> sequence_ids;
 
-	SequenceID outgoing_sequence_id(Sock::Address) const;
-	b8 has_unacked_outgoing_messages(Sock::Address) const;
+	SequenceID outgoing_sequence_id(const Sock::Address&) const;
+	b8 has_unacked_outgoing_messages(const Sock::Address&) const;
 
-	b8 add_header(StreamWrite*, Sock::Address, Message);
+	b8 add_header(StreamWrite*, const Sock::Address&, Message);
 	void update(r64, Sock::Handle*, s32 = 0);
-	void remove(Sock::Address);
+	void remove(const Sock::Address&);
 	void reset();
 
 	// these assume packets have already been checksummed and compressed
-	void send(const StreamWrite&, r64, Sock::Address, Sock::Handle*);
-	void received(Message, SequenceID, Sock::Address, Sock::Handle*);
+	void send(const StreamWrite&, r64, const Sock::Address&, Sock::Handle*);
+	void received(Message, SequenceID, const Sock::Address&, Sock::Handle*);
 };
 
 struct ServerState // represents the current state of a game server
@@ -165,8 +165,8 @@ template<typename Stream> b8 serialize_server_list_entry(Stream* p, ServerListEn
 
 	if (s->server_state.level != AssetNull)
 	{
-		serialize_u32(p, s->addr.host);
-		serialize_u16(p, s->addr.port);
+		if (!Sock::Address::serialize(p, &s->addr))
+			net_error();
 	}
 	else if (Stream::IsReading)
 		s->addr = {};
@@ -271,8 +271,8 @@ template<typename Stream> b8 serialize_server_details(Stream* p, ServerDetails* 
 
 	if (d->state.level != AssetNull)
 	{
-		serialize_u32(p, d->addr.host);
-		serialize_u16(p, d->addr.port);
+		if (!Sock::Address::serialize(p, &d->addr))
+			net_error();
 	}
 
 	serialize_bool(p, d->is_admin);

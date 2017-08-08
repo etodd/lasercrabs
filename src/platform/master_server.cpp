@@ -101,7 +101,7 @@ namespace Master
 	namespace Settings
 	{
 		s32 secret;
-		u32 public_ip;
+		Sock::Host public_ip;
 		char itch_api_key[MAX_AUTH_KEY + 1];
 	}
 
@@ -147,15 +147,15 @@ namespace Master
 		s8 slots;
 	};
 
-	std::unordered_map<Sock::Address, Node> nodes;
+	std::unordered_map<u64, Node> nodes;
 	std::unordered_map<u32, Sock::Address> server_config_map;
 	Sock::Handle sock;
 	Messenger messenger;
-	Array<Sock::Address> servers;
-	Array<Sock::Address> clients_waiting;
+	Array<u64> servers;
+	Array<u64> clients_waiting;
 	Array<ClientConnection> clients_connecting;
-	Array<Sock::Address> servers_loading;
-	u32 localhost_ip;
+	Array<u64> servers_loading;
+	Sock::Host localhost_ip;
 	sqlite3* db;
 
 	sqlite3_stmt* db_query(const char* sql)
@@ -239,13 +239,14 @@ namespace Master
 		}
 	}
 
-	Node* node_add_or_get(Sock::Address addr)
+	Node* node_add_or_get(const Sock::Address& addr)
 	{
-		auto i = nodes.find(addr);
+		u64 hash = addr.hash();
+		auto i = nodes.find(hash);
 		Node* n;
 		if (i == nodes.end())
 		{
-			auto i = nodes.insert(std::pair<Sock::Address, Node>(addr, Node()));
+			auto i = nodes.insert(std::pair<u64, Node>(hash, Node()));
 			n = &i.first->second;
 			n->addr = addr;
 		}
@@ -254,13 +255,18 @@ namespace Master
 		return n;
 	}
 
-	Node* node_for_address(Sock::Address addr)
+	Node* node_for_hash(u64 hash)
 	{
-		auto i = nodes.find(addr);
+		auto i = nodes.find(hash);
 		if (i == nodes.end())
 			return nullptr;
 		else
 			return &i->second;
+	}
+
+	Node* node_for_address(const Sock::Address& addr)
+	{
+		return node_for_hash(addr.hash());
 	}
 
 	Node* server_for_config_id(u32 id)
@@ -435,7 +441,7 @@ namespace Master
 			return server_config_get(client->server_state.id, config);
 	}
 
-	b8 send_auth_response(Sock::Address addr, UserKey* key, const char* username)
+	b8 send_auth_response(const Sock::Address& addr, UserKey* key, const char* username)
 	{
 		using Stream = StreamWrite;
 		StreamWrite p;
@@ -457,7 +463,7 @@ namespace Master
 		return true;
 	}
 
-	b8 send_reauth_required(Sock::Address addr)
+	b8 send_reauth_required(const Sock::Address& addr)
 	{
 		using Stream = StreamWrite;
 		StreamWrite p;
@@ -468,11 +474,9 @@ namespace Master
 		return true;
 	}
 
-	void itch_auth_result(void* user_data, b8 success, s64 itch_id, const char* username)
+	void itch_auth_result(u64 addr_hash, b8 success, s64 itch_id, const char* username)
 	{
-		Sock::Address addr = *reinterpret_cast<Sock::Address*>(&user_data);
-
-		Node* node = node_for_address(addr);
+		Node* node = node_for_hash(addr_hash);
 		if (node)
 		{
 			if (success)
@@ -509,14 +513,14 @@ namespace Master
 				}
 				db_finalize(stmt);
 
-				send_auth_response(addr, &key, username);
+				send_auth_response(node->addr, &key, username);
 			}
 			else
-				send_auth_response(addr, nullptr, nullptr);
+				send_auth_response(node->addr, nullptr, nullptr);
 		}
 	}
 
-	void itch_download_key_callback(s32 code, const char* data, void* user_data)
+	void itch_download_key_callback(s32 code, const char* data, u64 user_data)
 	{
 		b8 success = false;
 		if (code == 200)
@@ -544,7 +548,7 @@ namespace Master
 			itch_auth_result(user_data, false, 0, nullptr);
 	}
 
-	void itch_auth_callback(s32 code, const char* data, void* user_data)
+	void itch_auth_callback(s32 code, const char* data, u64 user_data)
 	{
 		b8 success = false;
 		if (code == 200)
@@ -573,7 +577,7 @@ namespace Master
 			itch_auth_result(user_data, false, 0, nullptr);
 	}
 
-	void disconnected(Sock::Address addr)
+	void disconnected(const Sock::Address& addr)
 	{
 		Node* node = node_for_address(addr);
 		if (node->state == Node::State::ServerActive
@@ -581,16 +585,23 @@ namespace Master
 			|| node->state == Node::State::ServerIdle)
 		{
 			// it's a server; remove from the server list
-			vi_debug("Server %s:%hd disconnected.", Sock::host_to_str(addr.host), addr.port);
+			{
+				char addr_str[MAX_ADDRESS_STRING];
+				addr.str(addr_str);
+				vi_debug("Server %s disconnected.", addr_str);
+			}
 			if (node->server_state.id)
 				server_config_map.erase(node->server_state.id);
 
-			for (s32 i = 0; i < servers.length; i++)
 			{
-				if (servers[i].equals(addr))
+				u64 hash = addr.hash();
+				for (s32 i = 0; i < servers.length; i++)
 				{
-					servers.remove(i);
-					i--;
+					if (servers[i] == hash)
+					{
+						servers.remove(i);
+						i--;
+					}
 				}
 			}
 
@@ -600,12 +611,15 @@ namespace Master
 		else if (node->state == Node::State::ClientWaiting)
 		{
 			// it's a client waiting for a server; remove it from the wait list
-			for (s32 i = 0; i < clients_waiting.length; i++)
 			{
-				if (clients_waiting[i].equals(addr))
+				u64 hash = addr.hash();
+				for (s32 i = 0; i < clients_waiting.length; i++)
 				{
-					clients_waiting.remove(i);
-					i--;
+					if (clients_waiting[i] == hash)
+					{
+						clients_waiting.remove(i);
+						i--;
+					}
 				}
 			}
 			if (node->save)
@@ -614,7 +628,7 @@ namespace Master
 				node->save = nullptr;
 			}
 		}
-		nodes.erase(addr);
+		nodes.erase(addr.hash());
 		messenger.remove(addr);
 	}
 
@@ -864,7 +878,7 @@ namespace Master
 		return true;
 	}
 
-	b8 send_client_connect(Sock::Address server_addr, Sock::Address addr)
+	b8 send_client_connect(Sock::Address server_addr, const Sock::Address& addr)
 	{
 		using Stream = StreamWrite;
 		StreamWrite p;
@@ -872,14 +886,14 @@ namespace Master
 		messenger.add_header(&p, addr, Message::ClientConnect);
 
 		// if the server is running on localhost, send the public IP rather than a useless 127.0.0.1 address
-		u32 host;
-		if (server_addr.host == localhost_ip)
-			host = Settings::public_ip;
+		if (server_addr.host.equals(localhost_ip))
+			server_addr.host = Settings::public_ip;
 		else
-			host = server_addr.host;
+			server_addr.host = server_addr.host;
 
-		serialize_u32(&p, host);
-		serialize_u16(&p, server_addr.port);
+		if (!Sock::Address::serialize(&p, &server_addr))
+			net_error();
+
 		packet_finalize(&p);
 		messenger.send(p, timestamp, addr, &sock);
 		return true;
@@ -910,8 +924,10 @@ namespace Master
 		if (server->state == Node::State::Invalid)
 		{
 			// add to server list
-			vi_debug("Server %s:%hd connected.", Sock::host_to_str(server->addr.host), server->addr.port);
-			servers.add(server->addr);
+			char addr_str[MAX_ADDRESS_STRING];
+			server->addr.str(addr_str);
+			vi_debug("Server %s connected.", addr_str);
+			servers.add(server->addr.hash());
 		}
 
 		server->transition(s.level == AssetNull ? Node::State::ServerIdle : Node::State::ServerActive);
@@ -991,7 +1007,7 @@ namespace Master
 	{
 		for (s32 i = 0; i < clients_waiting.length; i++)
 		{
-			if (clients_waiting[i].equals(client->addr))
+			if (clients_waiting[i] == client->addr.hash())
 			{
 				clients_waiting.remove(i);
 				break;
@@ -1020,7 +1036,7 @@ namespace Master
 		client_queue_join(server, client);
 	}
 
-	b8 packet_handle(StreamRead* p, Sock::Address addr)
+	b8 packet_handle(StreamRead* p, const Sock::Address& addr)
 	{
 		using Stream = StreamRead;
 		{
@@ -1073,12 +1089,12 @@ namespace Master
 						break;
 					case Master::AuthType::Itch:
 					{
-						void* user_data = *reinterpret_cast<void**>(&node->addr);
-						if (!Http::request_for_user_data(user_data)) // make sure we're not already trying to authenticate this user
+						u64 hash = node->addr.hash();
+						if (!Http::request_for_user_data(hash)) // make sure we're not already trying to authenticate this user
 						{
 							char header[MAX_PATH_LENGTH + 1] = {};
 							snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", auth_key);
-							Http::get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header, user_data);
+							Http::get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header, hash);
 						}
 						break;
 					}
@@ -1141,7 +1157,7 @@ namespace Master
 					if (node->state != Node::State::ClientWaiting)
 					{
 						// add to client waiting list
-						clients_waiting.add(node->addr);
+						clients_waiting.add(node->addr.hash());
 						node->transition(Node::State::ClientWaiting);
 					}
 				}
@@ -1328,7 +1344,7 @@ namespace Master
 		if (Sock::init())
 			return 1;
 
-		if (Sock::udp_open(&sock, 3497, true))
+		if (Sock::udp_open(&sock, 3497))
 		{
 			fprintf(stderr, "%s\n", Sock::get_error());
 			return 1;
@@ -1438,7 +1454,7 @@ namespace Master
 						if (client && client->state == Node::State::ClientConnecting)
 						{
 							client->transition(Node::State::ClientWaiting); // give up connecting, go back to matchmaking
-							clients_waiting.add(client->addr);
+							clients_waiting.add(client->addr.hash());
 						}
 
 						Node* server = node_for_address(c.server);
@@ -1464,7 +1480,7 @@ namespace Master
 				for (auto i = nodes.begin(); i != nodes.end(); i++)
 				{
 					if (i->second.last_message_timestamp < threshold)
-						removals.add(i->first);
+						removals.add(i->second.addr);
 				}
 				for (s32 i = 0; i < removals.length; i++)
 					disconnected(removals[i]);
@@ -1478,14 +1494,14 @@ namespace Master
 				s32 idle_servers = 0;
 				for (s32 i = 0; i < servers.length; i++)
 				{
-					Node* server = node_for_address(servers[i]);
+					Node* server = node_for_hash(servers[i]);
 					if (server->state == Node::State::ServerIdle)
 						idle_servers++;
 				}
 
 				for (s32 i = 0; i < clients_waiting.length; i++)
 				{
-					Node* client = node_add_or_get(clients_waiting[i]);
+					Node* client = node_for_hash(clients_waiting[i]);
 					Node* server = client_requested_server(client);
 					if (server)
 					{
@@ -1501,7 +1517,7 @@ namespace Master
 						Node* idle_server = nullptr;
 						for (s32 i = 0; i < servers.length; i++)
 						{
-							Node* server = node_for_address(servers[i]);
+							Node* server = node_for_hash(servers[i]);
 							if (server->state == Node::State::ServerIdle)
 							{
 								idle_server = server;

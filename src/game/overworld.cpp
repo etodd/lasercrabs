@@ -175,7 +175,7 @@ struct Data
 			u32 last_sent_token;
 		};
 
-		std::unordered_map<Sock::Address, PingData> ping;
+		std::unordered_map<u64, PingData> ping;
 		ServerList server_lists[s32(ServerListType::count)];
 		UIMenu menu[s32(EditMode::count)];
 		TextField text_field;
@@ -302,7 +302,7 @@ void multiplayer_browse_update(const Update& u)
 
 r32 ping(const Sock::Address& addr)
 {
-	auto i = data.multiplayer.ping.find(addr);
+	auto i = data.multiplayer.ping.find(addr.hash());
 	if (i == data.multiplayer.ping.end())
 		return -1.0f;
 	else
@@ -311,11 +311,12 @@ r32 ping(const Sock::Address& addr)
 
 void ping_send(const Sock::Address& addr)
 {
+	u64 hash = addr.hash();
 	Data::Multiplayer::PingData* ping;
-	auto i = data.multiplayer.ping.find(addr);
+	auto i = data.multiplayer.ping.find(hash);
 	if (i == data.multiplayer.ping.end())
 	{
-		auto i = data.multiplayer.ping.insert(std::pair<Sock::Address, Data::Multiplayer::PingData>(addr, Data::Multiplayer::PingData()));
+		auto i = data.multiplayer.ping.insert(std::pair<u64, Data::Multiplayer::PingData>(hash, Data::Multiplayer::PingData()));
 		ping = &i.first->second;
 		ping->rtt = -1.0f;
 	}
@@ -331,7 +332,7 @@ void ping_send(const Sock::Address& addr)
 
 void ping_response(const Sock::Address& addr, u32 token)
 {
-	auto i = data.multiplayer.ping.find(addr);
+	auto i = data.multiplayer.ping.find(addr.hash());
 	if (i != data.multiplayer.ping.end())
 	{
 		Data::Multiplayer::PingData* ping = &i->second;

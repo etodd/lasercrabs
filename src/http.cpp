@@ -44,9 +44,9 @@ b8 init()
 		return false;
 }
 
-size_t write_callback(void* data, size_t size, size_t count, void* userdata)
+size_t write_callback(void* data, size_t size, size_t count, void* user_data)
 {
-	Request* request = (Request*)userdata;
+	Request* request = (Request*)(user_data);
 	size_t total = size * count;
 	s32 offset = request->data.length;
 	request->data.resize(request->data.length + s32(total));
@@ -96,7 +96,7 @@ void update()
 	}
 }
 
-Request* get(const char* url, Callback* callback, const char* header, void* user_data)
+Request* get(const char* url, Callback* callback, const char* header, u64 user_data)
 {
 	Request* request = state.requests.add();
 	new (request) Request();
@@ -128,7 +128,7 @@ Request* get(const char* url, Callback* callback, const char* header, void* user
 	return request;
 }
 
-Request* request_for_user_data(void* user_data)
+Request* request_for_user_data(u64 user_data)
 {
 	for (auto i = state.requests.iterator(); !i.is_last(); i.next())
 	{

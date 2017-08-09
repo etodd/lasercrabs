@@ -702,8 +702,7 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					}
 				}
 			}
-			else if (match_state == Team::MatchState::Active || match_state == Team::MatchState::TeamSelect)
-				match_time = 0.0f;
+			match_time = 0.0f;
 			break;
 		}
 		case TeamNet::Message::TransitionMode:
@@ -1026,12 +1025,15 @@ void Team::update_all_server(const Update& u)
 	{
 		// wait for all local players to accept scores
 		b8 score_accepted = true;
-		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+		if (Game::real_time.total - game_over_real_time < SCORE_SUMMARY_ACCEPT_TIME) // automatically move on after 30 seconds
 		{
-			if (!i.item()->get<PlayerManager>()->score_accepted)
+			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 			{
-				score_accepted = false;
-				break;
+				if (!i.item()->get<PlayerManager>()->score_accepted)
+				{
+					score_accepted = false;
+					break;
+				}
 			}
 		}
 

@@ -395,7 +395,7 @@ namespace Master
 	{
 		config->id = id;
 		vi_assert(id > 0);
-		sqlite3_stmt* stmt = db_query("select name, config, max_players, team_count, game_type, is_private from ServerConfig where id=?;");
+		sqlite3_stmt* stmt = db_query("select name, config, max_players, team_count, game_type, creator_id, is_private from ServerConfig where id=?;");
 		db_bind_int(stmt, 0, id);
 		b8 found = false;
 		if (db_step(stmt))
@@ -406,7 +406,8 @@ namespace Master
 			config->max_players = db_column_int(stmt, 2);
 			config->team_count = db_column_int(stmt, 3);
 			config->game_type = GameType(db_column_int(stmt, 4));
-			config->is_private = b8(db_column_int(stmt, 5));
+			config->creator_id = db_column_int(stmt, 5);
+			config->is_private = b8(db_column_int(stmt, 6));
 			found = true;
 		}
 		db_finalize(stmt);
@@ -424,12 +425,23 @@ namespace Master
 			return false;
 	}
 
+	void username_get(u32 user_id, char* username)
+	{
+		sqlite3_stmt* stmt = db_query("select username from User where id=? limit 1;");
+		db_bind_int(stmt, 0, user_id);
+		if (db_step(stmt))
+			strncpy(username, (const char*)db_column_text(stmt, 0), MAX_USERNAME);
+		else
+			username[0] = '\0';
+	}
+
 	b8 server_details_get(u32 config_id, u32 user_id, ServerDetails* details, Sock::Host::Type addr_type)
 	{
 		if (server_config_get(config_id, &details->config))
 		{
 			server_state_for_config_id(config_id, details->config.max_players, &details->state, addr_type, &details->addr);
 			details->is_admin = user_is_admin(user_id, config_id);
+			username_get(user_id, details->creator_username);
 			return true;
 		}
 		return false;
@@ -791,20 +803,20 @@ namespace Master
 		{
 			case ServerListType::Top:
 			{
-				stmt = db_query("select id, name, max_players, team_count, game_type from ServerConfig where is_private=0 limit ?,24");
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig left join User on User.id=ServerConfig.creator_id where ServerConfig.is_private=0 limit ?,24");
 				db_bind_int(stmt, 0, offset);
 				break;
 			}
 			case ServerListType::Recent:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id where UserServer.user_id=? order by UserServer.timestamp desc limit ?,24");
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? order by UserServer.timestamp desc limit ?,24");
 				db_bind_int(stmt, 0, client->user_key.id);
 				db_bind_int(stmt, 1, offset);
 				break;
 			}
 			case ServerListType::Mine:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id where UserServer.user_id=? and UserServer.is_admin=1 order by UserServer.timestamp desc limit ?,24");
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.is_admin=1 order by UserServer.timestamp desc limit ?,24");
 				db_bind_int(stmt, 0, client->user_key.id);
 				db_bind_int(stmt, 1, offset);
 				break;
@@ -841,10 +853,13 @@ namespace Master
 			ServerListEntry entry;
 
 			u32 id = db_column_int(stmt, 0);
+			memset(entry.name, 0, sizeof(entry.name));
 			strncpy(entry.name, (const char*)db_column_text(stmt, 1), MAX_SERVER_CONFIG_NAME);
-			entry.max_players = db_column_int(stmt, 2);
-			entry.team_count = db_column_int(stmt, 3);
-			entry.game_type = GameType(db_column_int(stmt, 4));
+			memset(entry.creator_username, 0, sizeof(entry.creator_username));
+			strncpy(entry.creator_username, (const char*)db_column_text(stmt, 2), MAX_USERNAME);
+			entry.max_players = db_column_int(stmt, 3);
+			entry.team_count = db_column_int(stmt, 4);
+			entry.game_type = GameType(db_column_int(stmt, 5));
 
 			server_state_for_config_id(id, entry.max_players, &entry.server_state, client->addr.host.type, &entry.addr);
 

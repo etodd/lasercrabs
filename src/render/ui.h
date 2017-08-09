@@ -9,6 +9,7 @@ namespace VI
 
 
 #define UI_TEXT_SIZE_DEFAULT 16.0f
+#define UI_TEXT_MAX 512
 
 struct RenderParams;
 
@@ -39,7 +40,7 @@ struct UIText
 		Max,
 		count,
 	};
-	char rendered_string[1024];
+	char rendered_string[UI_TEXT_MAX];
 	Vec4 color;
 	AssetID font;
 	r32 size;

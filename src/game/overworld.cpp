@@ -226,6 +226,7 @@ void deploy_start()
 }
 
 void deploy_done();
+const ZoneNode* zone_node_get(AssetID);
 
 b8 multiplayer_can_switch_tab()
 {
@@ -580,7 +581,12 @@ void multiplayer_entry_edit_update(const Update& u)
 					s8* team_count = &config->team_count;
 					sprintf(str, "%hhd", *team_count);
 					delta = menu->slider_item(u, _(strings::teams), str, config->game_type == GameType::Assault);
-					*team_count = s8(vi_max(2, vi_min(s32(config->max_players), *team_count + delta)));
+
+					s32 max_teams = vi_min(s32(config->max_players), MAX_TEAMS);
+					for (s32 i = 0; i < config->levels.length; i++)
+						max_teams = vi_min(max_teams, s32(zone_node_get(config->levels[i])->max_teams));
+
+					*team_count = s8(vi_max(2, vi_min(max_teams, *team_count + delta)));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
 				}
@@ -1156,7 +1162,6 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 		text.anchor_x = UIText::Anchor::Min;
 		text.anchor_y = UIText::Anchor::Center;
 		text.font = Asset::Font::pt_sans;
-		text.clip = 48;
 
 		const Data::Multiplayer::ServerList& list = data.multiplayer.server_lists[s32(global.multiplayer.tab)];
 		list.scroll.start(params, pos + Vec2(panel_size.x * 0.5f, panel_size.y));
@@ -1171,13 +1176,19 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 				UI::border(params, Rect2(pos, panel_size).outset(-2.0f * UI::scale), 2.0f, UI::color_accent());
 
 			text.color = selected ? UI::color_accent() : UI::color_default;
+			text.clip = 48;
 			text.text_raw(0, entry.name, UITextFlagSingleLine);
 			text.draw(params, pos + Vec2(PADDING, panel_size.y * 0.5f));
+
+			text.clip = 18;
+			text.text_raw(0, entry.creator_username, UITextFlagSingleLine);
+			text.draw(params, pos + Vec2(panel_size.x * 0.4f, panel_size.y * 0.5f));
+			text.clip = 0;
 
 			if (entry.server_state.level != AssetNull)
 			{
 				text.text_raw(0, Loader::level_name(entry.server_state.level));
-				text.draw(params, pos + Vec2(panel_size.x * 0.5f, panel_size.y * 0.5f));
+				text.draw(params, pos + Vec2(panel_size.x * 0.55f, panel_size.y * 0.5f));
 			}
 
 			{
@@ -1424,7 +1435,11 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 		text.size = MENU_ITEM_FONT_SIZE;
 		text.font = Asset::Font::pt_sans;
 		text.wrap(rect.size.x + PADDING * -2.0f);
-		text.text_raw(0, details.config.name);
+		{
+			char buffer[UI_TEXT_MAX];
+			snprintf(buffer, UI_TEXT_MAX - 1, _(strings::map_by), details.config.name, details.creator_username);
+			text.text_raw(0, buffer);
+		}
 
 		{
 			Rect2 r = text.rect(pos).outset(PADDING);

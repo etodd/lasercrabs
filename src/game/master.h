@@ -153,6 +153,7 @@ struct ServerListEntry
 	ServerState server_state;
 	Sock::Address addr;
 	char name[MAX_SERVER_CONFIG_NAME + 1];
+	char creator_username[MAX_USERNAME + 1];
 	s8 max_players;
 	s8 team_count;
 	GameType game_type;
@@ -181,6 +182,16 @@ template<typename Stream> b8 serialize_server_list_entry(Stream* p, ServerListEn
 			s->name[name_length] = '\0';
 	}
 
+	{
+		s32 creator_length;
+		if (Stream::IsWriting)
+			creator_length = strlen((const char*)s->creator_username);
+		serialize_int(p, s32, creator_length, 0, MAX_USERNAME);
+		serialize_bytes(p, (u8*)s->creator_username, creator_length);
+		if (Stream::IsReading)
+			s->creator_username[creator_length] = '\0';
+	}
+
 	serialize_enum(p, GameType, s->game_type);
 	serialize_int(p, s8, s->max_players, 2, MAX_PLAYERS);
 	serialize_int(p, s8, s->team_count, 2, MAX_TEAMS);
@@ -191,6 +202,7 @@ template<typename Stream> b8 serialize_server_list_entry(Stream* p, ServerListEn
 struct ServerConfig
 {
 	u32 id;
+	u32 creator_id;
 	StaticArray<AssetID, 32> levels;
 	s16 kill_limit = DEFAULT_ASSAULT_DRONES;
 	s16 respawns = DEFAULT_ASSAULT_DRONES;
@@ -231,6 +243,7 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 			serialize_int(p, s8, c->team_count, 2, MAX_TEAMS);
 		c->team_count = vi_min(c->team_count, c->max_players);
 		serialize_int(p, s16, c->respawns, 1, 1000);
+		serialize_u32(p, c->creator_id);
 		serialize_int(p, s16, c->kill_limit, 0, 1000);
 		serialize_s16(p, c->allow_upgrades);
 		serialize_int(p, s16, c->start_energy, 0, MAX_START_ENERGY);
@@ -258,6 +271,7 @@ struct ServerDetails
 	ServerConfig config;
 	ServerState state;
 	Sock::Address addr;
+	char creator_username[MAX_USERNAME + 1];
 	b8 is_admin;
 };
 
@@ -273,6 +287,16 @@ template<typename Stream> b8 serialize_server_details(Stream* p, ServerDetails* 
 	{
 		if (!Sock::Address::serialize(p, &d->addr))
 			net_error();
+	}
+
+	{
+		s32 creator_username_length;
+		if (Stream::IsWriting)
+			creator_username_length = strlen(d->creator_username);
+		serialize_int(p, s32, creator_username_length, 0, MAX_USERNAME);
+		serialize_bytes(p, (u8*)d->creator_username, creator_username_length);
+		if (Stream::IsReading)
+			d->creator_username[creator_username_length] = '\0';
 	}
 
 	serialize_bool(p, d->is_admin);

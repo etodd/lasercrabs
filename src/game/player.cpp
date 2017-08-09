@@ -1291,7 +1291,26 @@ r32 match_timer_width()
 
 void match_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Anchor anchor_x)
 {
-	r32 remaining = vi_max(0.0f, Game::session.config.time_limit() - Team::match_time);
+	r32 time_limit;
+	switch (Team::match_state)
+	{
+		case Team::MatchState::Waiting:
+			vi_assert(false);
+			break;
+		case Team::MatchState::TeamSelect:
+			time_limit = TEAM_SELECT_TIME;
+			break;
+		case Team::MatchState::Active:
+			time_limit = Game::session.config.time_limit();
+			break;
+		case Team::MatchState::Done:
+			time_limit = SCORE_SUMMARY_ACCEPT_TIME;
+			break;
+		default:
+			vi_assert(false);
+			break;
+	}
+	r32 remaining = vi_max(0.0f, time_limit - Team::match_time);
 
 	Vec2 box(match_timer_width(), text_size * UI::scale);
 	r32 padding = 8.0f * UI::scale;
@@ -1322,22 +1341,31 @@ void match_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Ancho
 		
 	UI::box(params, Rect2(p, box).outset(padding), UI::color_background);
 
-	const Vec4* color;
-	if (remaining > Game::session.config.time_limit() * 0.5f)
-		color = &UI::color_default;
-	else if (remaining > Game::session.config.time_limit() * 0.25f)
-		color = &UI::color_accent();
-	else
-		color = &UI::color_alert();
-
 	{
+		const Vec4* color;
 		b8 draw;
-		if (remaining > Game::session.config.time_limit() * 0.2f)
-			draw = true;
-		else if (remaining > 30.0f)
-			draw = UI::flash_function_slow(Game::real_time.total);
+		if (Team::match_state == Team::MatchState::Active)
+		{
+			if (remaining > Game::session.config.time_limit() * 0.5f)
+				color = &UI::color_default;
+			else if (remaining > Game::session.config.time_limit() * 0.25f)
+				color = &UI::color_accent();
+			else
+				color = &UI::color_alert();
+
+			if (remaining > Game::session.config.time_limit() * 0.2f)
+				draw = true;
+			else if (remaining > 30.0f)
+				draw = UI::flash_function_slow(Game::real_time.total);
+			else
+				draw = UI::flash_function(Game::real_time.total);
+		}
 		else
-			draw = UI::flash_function(Game::real_time.total);
+		{
+			color = &UI::color_default;
+			draw = true;
+		}
+
 		if (draw)
 		{
 			s32 remaining_minutes = remaining / 60.0f;
@@ -1384,7 +1412,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	}
 
 	if (Game::level.mode == Game::Mode::Pvp
-		&& Team::match_state == Team::MatchState::Active)
+		&& Team::match_state != Team::MatchState::Waiting)
 		match_timer_draw(params, p, UIText::Anchor::Center);
 
 	UIText text;
@@ -1735,7 +1763,21 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 								text.anchor_x = UIText::Anchor::Center;
 								text.anchor_y = UIText::Anchor::Min;
 								text.color = UI::color_default;
-								text.text(gamepad, _(strings::turrets_remaining_spawning), _(my_team == 0 ? strings::defend : strings::attack), Turret::list.count());
+								{
+									AssetID str;
+									s32 count;
+									if (Turret::list.count() > 0)
+									{
+										str = strings::turrets_remaining_spawning;
+										count = Turret::list.count();
+									}
+									else
+									{
+										str = strings::core_modules_remaining_spawning;
+										count = CoreModule::list.count();
+									}
+									text.text(gamepad, _(str), _(my_team == 0 ? strings::defend : strings::attack), count);
+								}
 								Vec2 pos = vp.size * Vec2(0.5f, 0.25f);
 								UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
 								text.draw(params, pos);
@@ -1830,6 +1872,8 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.anchor_y = UIText::Anchor::Max;
 
 			Vec2 p = title_pos + Vec2(0, -2.0f * (MENU_ITEM_HEIGHT + MENU_ITEM_PADDING));
+
+			match_timer_draw(params, p + Vec2(0, MENU_ITEM_HEIGHT), UIText::Anchor::Center);
 
 			score_summary_scroll.start(params, p + Vec2(0, MENU_ITEM_PADDING));
 			AI::Team team = get<PlayerManager>()->team.ref()->team();

@@ -25,6 +25,7 @@
 	"turrets_remaining": "%d turrets remaining",
 	"turrets_remaining_spawning": "%s - %d turrets remaining",
 	"core_modules_remaining": "%d core modules remaining",
+  "core_modules_remaining_spawning": "%s - %d core modules remaining",
 	"core_vulnerable": "Core vulnerable",
 	"game_type_deathmatch": "DM",
 	"time_limit": "Time limit",
@@ -171,6 +172,7 @@
 	"active_armor": "Active Armor",
 	"description_active_armor": "Deflect all incoming damage back at enemies.",
 
+  "map_by": "%s - by %s",
 	"tab_map": "Map",
 	"tab_inventory": "Inventory",
 	"tab_top": "Top",

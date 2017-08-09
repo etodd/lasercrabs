@@ -428,7 +428,9 @@ void Shield::update_client(const Update& u)
 b8 Health::damage_buffer_required(const Entity* src) const
 {
 #if SERVER
-	return has<PlayerControlHuman>() && !get<PlayerControlHuman>()->local() // we are a remote player
+	return has<PlayerControlHuman>()
+		&& !get<PlayerControlHuman>()->local() // we are a remote player
+		&& src
 		&& (!src->has<PlayerControlHuman>() || !PlayerHuman::players_on_same_client(entity(), src)); // the attacker is remote from the player
 #else
 	return false;

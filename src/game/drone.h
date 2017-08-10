@@ -88,6 +88,15 @@ struct Drone : public ComponentType<Drone>
 		IgnoreForceFields,
 	};
 
+	struct Reflection
+	{
+		Vec3 pos;
+		Vec3 dir;
+		r32 timer;
+		Ref<Entity> entity;
+		Net::MessageSource src;
+	};
+
 	static r32 particle_accumulator;
 
 	static Drone* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
@@ -95,21 +104,18 @@ struct Drone : public ComponentType<Drone>
 	static void stealth(Entity*, b8);
 	static void update_client_all(const Update&);
 
+	Array<Reflection> reflections;
 	Quat lerped_rotation;
 	Vec3 velocity;
 	Vec3 lerped_pos;
 	Vec3 last_pos;
-	Vec3 remote_reflection_pos;
-	Vec3 remote_reflection_dir;
 	Vec3 dash_target;
 	r32 attach_time;
 	r32 cooldown; // remaining cooldown time
 	r32 last_footstep;
 	r32 dash_timer;
-	r32 remote_reflection_timer;
 	Ability current_ability;
 	Footing footing[DRONE_LEGS];
-	Ref<Entity> remote_reflection_entity;
 	StaticArray<Ref<Entity>, 8> hit_targets;
 	StaticArray<Ref<EffectLight>, 4> fake_bolts;
 	LinkArg<const DroneReflectEvent&> reflecting;
@@ -122,7 +128,6 @@ struct Drone : public ComponentType<Drone>
 	s8 charges;
 	s8 bolter_charge_counter;
 	b8 dash_combo;
-	b8 reflection_source_remote;
 
 	Drone();
 	void awake();

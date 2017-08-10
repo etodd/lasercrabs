@@ -2148,7 +2148,8 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 {
 	if (ui_mode() == UIMode::Dead
 		&& get<PlayerManager>()->can_spawn
-		&& get<PlayerManager>()->spawn_timer > 0.0f)
+		&& get<PlayerManager>()->spawn_timer > 0.0f
+		&& params.camera == camera.ref())
 	{
 		Entity* k = killed_by.ref();
 		if (k)
@@ -2444,7 +2445,10 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		case PlayerControlHumanNet::Message::Type::Reflect:
 		{
 			if (src == Net::MessageSource::Remote)
+			{
+				vi_assert(Game::level.local); // server should not send reflect messages to client
 				c->get<Drone>()->handle_remote_reflection(msg.entity.ref(), msg.pos, msg.dir);
+			}
 			break;
 		}
 		case PlayerControlHumanNet::Message::Type::AbilitySelect:
@@ -2533,12 +2537,16 @@ void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerCo
 			// out of range; some indicators just disappear; others change
 			if (type == PlayerControlHuman::TargetIndicator::Type::Battery)
 				type = PlayerControlHuman::TargetIndicator::Type::BatteryOutOfRange;
+			else if (type == PlayerControlHuman::TargetIndicator::Type::BatteryEnemy)
+				type = PlayerControlHuman::TargetIndicator::Type::BatteryEnemyOutOfRange;
+			else if (type == PlayerControlHuman::TargetIndicator::Type::BatteryFriendly)
+				type = PlayerControlHuman::TargetIndicator::Type::BatteryFriendlyOutOfRange;
 			else if (type == PlayerControlHuman::TargetIndicator::Type::Turret)
 				type = PlayerControlHuman::TargetIndicator::Type::TurretOutOfRange;
-			else if (type == PlayerControlHuman::TargetIndicator::Type::CoreModule)
-				type = PlayerControlHuman::TargetIndicator::Type::CoreModuleOutOfRange;
 			else if (type == PlayerControlHuman::TargetIndicator::Type::TurretFriendly)
 				type = PlayerControlHuman::TargetIndicator::Type::TurretFriendlyOutOfRange;
+			else if (type == PlayerControlHuman::TargetIndicator::Type::CoreModule)
+				type = PlayerControlHuman::TargetIndicator::Type::CoreModuleOutOfRange;
 			else if (type == PlayerControlHuman::TargetIndicator::Type::CoreModuleFriendly)
 				type = PlayerControlHuman::TargetIndicator::Type::CoreModuleFriendlyOutOfRange;
 			else
@@ -2610,12 +2618,7 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->get<AIAgent>()->team != team)
-		{
-			PlayerControlHuman::TargetIndicator::Type type = i.item()->goal.entity.ref() == p->entity()
-				? PlayerControlHuman::TargetIndicator::Type::MinionAttacking
-				: PlayerControlHuman::TargetIndicator::Type::Minion;
-			player_add_target_indicator(p, i.item()->get<Target>(), type);
-		}
+			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Minion);
 	}
 
 	// batteries
@@ -2625,7 +2628,7 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 		{
 			PlayerControlHuman::TargetIndicator::Type type = i.item()->team == team
 				? PlayerControlHuman::TargetIndicator::Type::BatteryFriendly
-				: PlayerControlHuman::TargetIndicator::Type::Battery;
+				: (i.item()->team == AI::TeamNone ? PlayerControlHuman::TargetIndicator::Type::Battery : PlayerControlHuman::TargetIndicator::Type::BatteryEnemy);
 			player_add_target_indicator(p, i.item()->get<Target>(), type);
 		}
 	}
@@ -3354,10 +3357,11 @@ void PlayerControlHuman::update(const Update& u)
 					{
 						const TargetIndicator indicator = target_indicators[i];
 
-						if (indicator.type == TargetIndicator::Type::BatteryOutOfRange
+						if (indicator.type == TargetIndicator::Type::DroneOutOfRange
+							|| indicator.type == TargetIndicator::Type::BatteryOutOfRange
 							|| indicator.type == TargetIndicator::Type::BatteryFriendly
 							|| indicator.type == TargetIndicator::Type::BatteryFriendlyOutOfRange
-							|| indicator.type == TargetIndicator::Type::DroneOutOfRange
+							|| indicator.type == TargetIndicator::Type::BatteryEnemyOutOfRange
 							|| indicator.type == TargetIndicator::Type::TurretOutOfRange
 							|| indicator.type == TargetIndicator::Type::TurretFriendly
 							|| indicator.type == TargetIndicator::Type::TurretFriendlyOutOfRange
@@ -4024,36 +4028,31 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			case TargetIndicator::Type::DroneVisible:
 				UI::indicator(params, indicator.pos, UI::color_alert(), false);
 				break;
+			case TargetIndicator::Type::Battery:
+				UI::indicator(params, indicator.pos, UI::color_accent(), false, 1.0f, PI);
+				break;
+			case TargetIndicator::Type::BatteryEnemy:
+				UI::indicator(params, indicator.pos, Team::ui_color_enemy, false, 1.0f, PI);
+				break;
+			case TargetIndicator::Type::BatteryOutOfRange:
+			case TargetIndicator::Type::BatteryEnemyOutOfRange:
 			case TargetIndicator::Type::BatteryFriendlyOutOfRange:
 			{
 				Vec2 p;
 				if (UI::project(params, indicator.pos, &p))
-					UI::mesh(params, Asset::Mesh::icon_battery, p, size, Team::ui_color_friend);
-				break;
-			}
-			case TargetIndicator::Type::Battery:
-				UI::indicator(params, indicator.pos, Team::ui_color_enemy, true, 1.0f, PI);
-				break;
-			case TargetIndicator::Type::BatteryOutOfRange:
-			{
-				Vec2 p;
-				if (UI::project(params, indicator.pos, &p))
-					UI::mesh(params, Asset::Mesh::icon_battery, p, size, Team::ui_color_enemy);
+				{
+					const Vec4& color = indicator.type == TargetIndicator::Type::BatteryOutOfRange
+						? UI::color_accent()
+						: (indicator.type == TargetIndicator::Type::BatteryFriendlyOutOfRange ? Team::ui_color_friend : Team::ui_color_enemy);
+					UI::mesh(params, Asset::Mesh::icon_battery, p, size, color);
+				}
 				break;
 			}
 			case TargetIndicator::Type::Minion:
-				UI::indicator(params, indicator.pos, UI::color_alert(), false);
-				break;
-			case TargetIndicator::Type::MinionAttacking:
-			{
-				if (UI::flash_function(Game::time.total))
-					UI::indicator(params, indicator.pos, UI::color_alert(), true);
-				break;
-			}
 			case TargetIndicator::Type::Turret:
 			case TargetIndicator::Type::CoreModule:
 			{
-				UI::indicator(params, indicator.pos, Team::ui_color_enemy, true);
+				UI::indicator(params, indicator.pos, Team::ui_color_enemy, false);
 				break;
 			}
 			case TargetIndicator::Type::TurretAttacking:

@@ -35,6 +35,8 @@ namespace VI
 #define DRONE_MIN_LEG_BLEND_SPEED (DRONE_LEG_BLEND_SPEED * 0.1f)
 #define DRONE_REFLECTION_TIME_TOLERANCE 0.1f
 
+#define DEBUG_REFLECTIONS 1
+
 const r32 Drone::cooldown_thresholds[DRONE_CHARGES] = { DRONE_COOLDOWN * 0.4f, DRONE_COOLDOWN * 0.1f, 0.0f, };
 
 namespace DroneNet
@@ -386,7 +388,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				drone->dash_timer = dash_time;
 
 				drone->hit_targets.length = 0;
-				drone->remote_reflection_timer = 0.0f;
 
 				drone->attach_time = Game::time.total;
 				drone->cooldown_setup();
@@ -834,7 +835,7 @@ void Drone::finish_flying_dashing_common()
 	dash_timer = 0.0f;
 	dash_combo = false;
 
-	remote_reflection_timer = 0.0f;
+	reflections.length = 0.0f;
 
 	velocity = Vec3::zero;
 	get<Transform>()->absolute(&lerped_pos, &lerped_rotation);
@@ -889,9 +890,7 @@ Drone::Drone()
 	fake_bolts(),
 	ability_spawned(),
 	dash_target(),
-	remote_reflection_timer(),
-	reflection_source_remote(),
-	remote_reflection_entity(),
+	reflections(),
 	bolter_charge_counter()
 {
 }
@@ -1309,7 +1308,6 @@ void Drone::cooldown_setup()
 void Drone::ensure_detached()
 {
 	hit_targets.length = 0;
-	remote_reflection_timer = 0.0f;
 
 	if (get<Transform>()->parent.ref())
 	{
@@ -1513,56 +1511,103 @@ b8 Drone::go(const Vec3& dir)
 
 #define REFLECTION_TRIES 32 // try x raycasts. if they all fail, just shoot off into space.
 
-void drone_reflection_execute(Drone* a, Entity* reflected_off, const Vec3& dir)
+// removes the first reflection in the queue and executes it
+void drone_reflection_execute(Drone* d)
 {
+	const Drone::Reflection& reflection = d->reflections[0];
+#if DEBUG_REFLECTIONS
+	vi_debug("%f executing %s reflection", Game::real_time.total, reflection.src == Net::MessageSource::Loopback ? "local" : "remote");
+#endif
+
 	{
-		r32 l = dir.length_squared();
+		r32 l = reflection.dir.length_squared();
 		vi_assert(l > 0.98f * 0.98f && l < 1.02f * 1.02f);
 	}
-	a->get<Transform>()->reparent(nullptr);
-	a->dash_timer = 0.0f;
-	a->dash_combo = false;
-	a->get<Animator>()->layers[0].animation = Asset::Animation::drone_fly;
+	d->get<Transform>()->reparent(nullptr);
+	d->get<Transform>()->absolute_pos(reflection.pos);
+	d->dash_timer = 0.0f;
+	d->dash_combo = false;
+	d->get<Animator>()->layers[0].animation = Asset::Animation::drone_fly;
 
+	Entity* reflected_off = reflection.entity.ref();
 	if (!reflected_off || !reflected_off->has<Target>()) // target hit effects are handled separately
 	{
 		if (Game::level.local)
-			DroneNet::reflection_effects(a, reflected_off); // let everyone know we're doing reflection effects
+			DroneNet::reflection_effects(d, reflected_off); // let everyone know we're doing reflection effects
 		else
 		{
 			// client-side prediction
-			vi_assert(a->has<PlayerControlHuman>() && a->get<PlayerControlHuman>()->local());
-			client_hit_effects(a, reflected_off, DroneHitType::Reflection);
+			vi_assert(d->has<PlayerControlHuman>() && d->get<PlayerControlHuman>()->local());
+			client_hit_effects(d, reflected_off, DroneHitType::Reflection);
 		}
 	}
 
 	DroneReflectEvent e;
 	e.entity = reflected_off;
-	e.new_velocity = dir * DRONE_FLY_SPEED;
-	a->reflecting.fire(e);
-	a->get<Transform>()->rot = Quat::look(Vec3::normalize(e.new_velocity));
-	a->velocity = e.new_velocity;
-	a->remote_reflection_timer = 0.0f;
+	e.new_velocity = reflection.dir * DRONE_FLY_SPEED;
+	d->reflecting.fire(e);
+	d->get<Transform>()->rot = Quat::look(Vec3::normalize(e.new_velocity));
+	d->velocity = e.new_velocity;
+
+	d->reflections.remove_ordered(0);
+}
+
+void drone_dash_fly_simulate(Drone* d, r32 dt, Net::StateFrame* state_frame = nullptr)
+{
+	Drone::State s = d->state();
+
+	Vec3 position = d->get<Transform>()->absolute_pos();
+	Vec3 next_position;
+
+	if (btVector3(d->velocity).fuzzyZero() && d->reflections.length == 0) // HACK. why does this happen
+		d->velocity = d->get<Transform>()->absolute_rot() * Vec3(0, 0, s == Drone::State::Dash ? DRONE_DASH_SPEED : DRONE_FLY_SPEED);
+
+	if (s == Drone::State::Dash)
+	{
+		d->crawl(d->velocity, vi_min(d->dash_timer, dt));
+		next_position = d->get<Transform>()->absolute_pos();
+		if (d->velocity.length_squared() > 0.0f)
+			d->dash_timer = vi_max(0.0f, d->dash_timer - dt);
+		if (d->dash_timer == 0.0f)
+		{
+			if (d->dash_combo)
+				DroneNet::start_flying(d, d->dash_target - next_position, DroneNet::FlyFlag::CancelExisting);
+			else
+				DroneNet::finish_dashing(d);
+			return;
+		}
+	}
+	else
+	{
+		next_position = position + d->velocity * dt;
+		d->get<Transform>()->absolute_pos(next_position);
+	}
+
+	{
+		Vec3 dir = Vec3::normalize(d->velocity);
+		Vec3 ray_start = position + dir * -DRONE_RADIUS;
+		Vec3 ray_end = next_position + dir * DRONE_RADIUS;
+		d->movement_raycast(ray_start, ray_end, nullptr, state_frame);
+	}
 }
 
 void drone_fast_forward(Drone* d, r32 amount)
 {
+	vi_assert(Game::level.local && d->state() != Drone::State::Crawl && d->velocity.length_squared() > 0.0f);
+#if DEBUG_REFLECTIONS
+	vi_debug("%f fast-forwarding %fs", Game::real_time.total, amount);
+#endif
+
 	r32 timestamp = Net::timestamp() - amount;
 	const r32 SIMULATION_STEP = Net::tick_rate();
-	while (timestamp < Net::timestamp() && d->remote_reflection_timer == 0.0f)
+	s32 reflection_count = d->reflections.length;
+	while (timestamp < Net::timestamp()
+		&& d->reflections.length == reflection_count
+		&& d->state() != Drone::State::Crawl) // stop if we reflect off anything; movement_raycast will have handled fast-forwarding from that point
 	{
-		Vec3 position = d->get<Transform>()->absolute_pos();
-		Vec3 next_position = position + d->velocity * SIMULATION_STEP;
-		d->get<Transform>()->absolute_pos(next_position);
-
-		Vec3 dir = Vec3::normalize(d->velocity);
-		Vec3 ray_start = position + dir * -DRONE_RADIUS;
-		Vec3 ray_end = next_position + dir * DRONE_RADIUS;
-
 		Net::StateFrame state_frame;
 		Net::state_frame_by_timestamp(&state_frame, timestamp);
-		d->movement_raycast(ray_start, ray_end, nullptr, &state_frame);
-
+		drone_dash_fly_simulate(d, SIMULATION_STEP, &state_frame);
 		timestamp += SIMULATION_STEP;
 	}
 }
@@ -1628,76 +1673,97 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 		}
 	}
 
-	if (state_frame)
+	if (!state_frame // this drone is locally controlled
+		|| reflections.length == 0) // or we're a server and this drone is remote controlled, but the remote has not told us about this reflection yet
 	{
-		// this drone is being controlled by a remote
-		if (remote_reflection_timer > 0.0f)
+		Reflection* reflection = reflections.add();
+		reflection->pos = hit;
+		reflection->timer = DRONE_REFLECTION_TIME_TOLERANCE;
+		reflection->entity = entity;
+		reflection->src = Net::MessageSource::Loopback; // this hit was detected locally
+		reflection->dir = new_dir;
+
+		if (state_frame)
 		{
-			// the remote already told us about the reflection
-			// so go the direction they told us to
-			vi_assert(reflection_source_remote);
-			get<Transform>()->absolute_pos(remote_reflection_pos);
-			r32 fast_forward = DRONE_REFLECTION_TIME_TOLERANCE - remote_reflection_timer;
-			drone_reflection_execute(this, entity, remote_reflection_dir);
-			drone_fast_forward(this, fast_forward);
-		}
-		else
-		{
+#if DEBUG_REFLECTIONS
+			vi_debug("%f detected local reflection, waiting for remote...", Game::real_time.total);
+#endif
+			vi_assert(reflections.length == 1);
 			// store our reflection result and wait for the remote to tell us which way to go
 			// if we don't hear from them in a certain amount of time, forget anything happened
-			remote_reflection_pos = hit;
-			remote_reflection_timer = DRONE_REFLECTION_TIME_TOLERANCE;
-			remote_reflection_entity = entity;
-			reflection_source_remote = false; // this hit was detected locally
 			velocity = Vec3::zero;
 		}
 	}
-	else
+
+	if (!state_frame // locally controlled; reflect instantly
+		|| reflections[0].src == Net::MessageSource::Remote) // remotely controlled, but the remote already told us about this reflection
 	{
-		// locally controlled; bounce instantly
-		drone_reflection_execute(this, entity, new_dir);
-		if (!Game::level.local && has<PlayerControlHuman>())
-			remote_reflection_timer = Net::rtt(get<PlayerControlHuman>()->player.ref()) + Net::interpolation_delay() + DRONE_REFLECTION_TIME_TOLERANCE;
+		const Reflection& reflection = reflections[0];
+
+#if DEBUG_REFLECTIONS
+		if (state_frame)
+			vi_debug("%f local confirmed remote reflection %fs later, executing", Game::real_time.total, DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer);
+		else
+			vi_debug("%f executing local reflection", Game::real_time.total);
+#endif
+
+		// if we have a state frame, we're on the server and this is a remote drone
+		// so reflections should only come from the remote
+		// if we're locally controlled, reflections should only come from us
+		vi_assert(b8(state_frame) == (reflection.src == Net::MessageSource::Remote));
+
+		r32 fast_forward = DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer;
+		drone_reflection_execute(this);
+		if (state_frame) // only need to fast forward on server
+			drone_fast_forward(this, fast_forward);
 	}
 }
 
 void Drone::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos, const Vec3& reflection_dir)
 {
-	if (reflection_dir.length() == 0.0f)
+	if (reflection_dir.length() == 0.0f || state() == State::Crawl)
 		return;
 
-	vi_assert(Game::level.local);
+	vi_assert(Game::level.local); // reflect messages only go from client to server
 
 	Vec3 reflection_dir_normalized = Vec3::normalize(reflection_dir);
 
 	// we're a server; the client is notifying us that it did a reflection
 
 	// check if they're roughly where we think they should be
-	if ((get<Transform>()->absolute_pos() - reflection_pos).length() < DRONE_SHIELD_RADIUS * 6.0f)
+	if ((get<Transform>()->absolute_pos() - reflection_pos).length() < DRONE_SHIELD_RADIUS * 10.0f)
 	{
-		if (remote_reflection_timer == 0.0f)
+		if (reflections.length == 0 || reflections[0].src == Net::MessageSource::Remote)
 		{
 			// we haven't reflected off anything on the server yet; save this info and wait for us to hit something
-			remote_reflection_dir = reflection_dir_normalized;
-			remote_reflection_pos = reflection_pos;
-			remote_reflection_timer = DRONE_REFLECTION_TIME_TOLERANCE;
-			remote_reflection_entity = entity;
-			reflection_source_remote = true; // this hit came from the remote
+#if DEBUG_REFLECTIONS
+			vi_debug("%f received remote reflection, waiting for confirmation", Game::real_time.total);
+#endif
+			Reflection* reflection = reflections.add();
+			reflection->dir = reflection_dir_normalized;
+			reflection->pos = reflection_pos;
+			reflection->timer = DRONE_REFLECTION_TIME_TOLERANCE;
+			reflection->entity = entity;
+			reflection->src = Net::MessageSource::Remote;
 		}
 		else
 		{
 			// we HAVE already detected a reflection off something; let's do it now
-			r32 original_timer = remote_reflection_timer;
+			Reflection* reflection = &reflections[0];
+			r32 original_timer = reflection->timer;
+#if DEBUG_REFLECTIONS
+			vi_debug("%f remote confirmed local reflection %fs later, executing", Game::real_time.total, DRONE_REFLECTION_TIME_TOLERANCE - original_timer);
+#endif
+			// replace local reflection data with remote data
+			reflection->dir = reflection_dir_normalized;
+			reflection->pos = reflection_pos;
+			reflection->entity = entity;
+			reflection->src = Net::MessageSource::Remote;
 
-			get<Transform>()->absolute_pos(reflection_pos);
-			drone_reflection_execute(this, remote_reflection_entity.ref(), reflection_dir_normalized);
+			drone_reflection_execute(this); // automatically removes the reflection from the queue
 
 			// fast forward the amount of time we've been sitting here waiting for the client to acknowledge the reflection
-			Vec3 dir = velocity * (DRONE_REFLECTION_TIME_TOLERANCE - original_timer);
-			Vec3 old_pos = get<Transform>()->absolute_pos();
-			Vec3 new_pos = old_pos + dir;
-			get<Transform>()->absolute_pos(new_pos);
-			movement_raycast(old_pos + Vec3::normalize(dir) * -DRONE_RADIUS, new_pos);
+			drone_fast_forward(this, DRONE_REFLECTION_TIME_TOLERANCE - original_timer);
 		}
 	}
 	else
@@ -2034,74 +2100,51 @@ void Drone::update_server(const Update& u)
 			return;
 		}
 
-		Vec3 position = get<Transform>()->absolute_pos();
-		Vec3 next_position;
-
-		if (btVector3(velocity).fuzzyZero() && remote_reflection_timer == 0.0f) // HACK. why does this happen
-			velocity = get<Transform>()->absolute_rot() * Vec3(0, 0, s == State::Dash ? DRONE_DASH_SPEED : DRONE_FLY_SPEED);
-
-		if (s == State::Dash)
-		{
-			crawl(velocity, vi_min(dash_timer, u.time.delta));
-			next_position = get<Transform>()->absolute_pos();
-			dash_timer = vi_max(0.0f, dash_timer - u.time.delta);
-			if (dash_timer == 0.0f)
-			{
-				if (dash_combo)
-					DroneNet::start_flying(this, dash_target - next_position, DroneNet::FlyFlag::CancelExisting);
-				else
-					DroneNet::finish_dashing(this);
-				return;
-			}
-		}
-		else
-		{
-			next_position = position + velocity * u.time.delta;
-			get<Transform>()->absolute_pos(next_position);
-		}
-
-		{
-			Vec3 dir = Vec3::normalize(velocity);
-			Vec3 ray_start = position + dir * -DRONE_RADIUS;
-			Vec3 ray_end = next_position + dir * DRONE_RADIUS;
-			movement_raycast(ray_start, ray_end);
-		}
+		drone_dash_fly_simulate(this, u.time.delta);
 	}
 
 #if SERVER
-	if (remote_reflection_timer > 0.0f)
+	for (s32 i = 0; i < reflections.length; i++)
+		reflections[i].timer -= u.time.delta;
+
+	while (reflections.length > 0 && reflections[0].timer <= 0.0f)
 	{
-		if (s == Drone::State::Crawl)
-			remote_reflection_timer = 0.0f; // cancel
+		// time's up on this reflection, we have to do something
+		if (state() == State::Crawl)
+		{
+#if DEBUG_REFLECTIONS
+			vi_debug("%f remote reflection timed out, discarding due to invalid Drone state (Crawl)", Game::real_time.total);
+#endif
+			reflections.remove_ordered(0);
+		}
 		else
 		{
-			remote_reflection_timer = remote_reflection_timer - u.time.delta;
-			if (remote_reflection_timer <= 0.0f)
+			const Reflection& reflection = reflections[0];
+			r32 fast_forward = DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer;
+
+			if (reflection.src == Net::MessageSource::Remote) // the remote told us about this reflection. go ahead and do it even though we never detected the hit locally
 			{
-				// time's up, we have to do something
-				r32 fast_forward = DRONE_REFLECTION_TIME_TOLERANCE - remote_reflection_timer;
-
-				if (reflection_source_remote)
-				{
-					// the remote told us about this reflection. go ahead and do it even though we never detected the hit locally
-					vi_assert(remote_reflection_dir.length_squared() > 0.0f);
-					get<Transform>()->absolute_pos(remote_reflection_pos);
-					drone_reflection_execute(this, remote_reflection_entity.ref(), remote_reflection_dir);
-				}
-				else
-				{
-					// we detected the hit locally, but the client never acknowledged it. ignore the reflection and keep going straight.
-					velocity = get<Transform>()->absolute_rot() * Vec3(0, 0, DRONE_FLY_SPEED); // restore original velocity
-				}
-
-				// fast forward back on track
-				remote_reflection_timer = 0.0f;
-				drone_fast_forward(this, fast_forward);
+#if DEBUG_REFLECTIONS
+				vi_debug("%f remote reflection timed out without confirmation, executing anyway", Game::real_time.total);
+#endif
+				drone_reflection_execute(this); // automatically removes the reflection
 			}
+			else // we detected the hit locally, but the client never acknowledged it. ignore the reflection and keep going straight.
+			{
+#if DEBUG_REFLECTIONS
+				vi_debug("%f remote never confirmed local reflection, continuing as normal", Game::real_time.total);
+#endif
+				velocity = get<Transform>()->absolute_rot() * Vec3(0, 0, state() == State::Dash ? DRONE_DASH_SPEED : DRONE_FLY_SPEED); // restore original velocity
+				reflections.remove_ordered(0);
+			}
+
+			// fast forward whatever amount of time we've been sitting here waiting on this reflection
+			drone_fast_forward(this, fast_forward);
 		}
 	}
 #else
-	remote_reflection_timer = vi_max(0.0f, remote_reflection_timer - u.time.delta);
+	// client
+	vi_assert(reflections.length == 0);
 #endif
 }
 

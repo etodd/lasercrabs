@@ -44,8 +44,9 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	struct LogEntry
 	{
 		r32 timestamp;
-		char text[512];
-		AI::Team team;
+		char text[UI_TEXT_MAX + 1];
+		AI::TeamMask mask_show;
+		AI::TeamMask mask_good;
 	};
 
 	struct SupportEntry
@@ -55,8 +56,31 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		Ref<RigidBody> support;
 	};
 
+	struct Notification
+	{
+		enum class Type : s8
+		{
+			DroneDestroyed,
+			TurretUnderAttack,
+			TurretDestroyed,
+			ForceFieldUnderAttack,
+			ForceFieldDestroyed,
+			BatteryUnderAttack,
+			BatteryLost,
+			count,
+		};
+
+		Vec3 pos;
+		r32 timer;
+		Ref<Transform> transform;
+		AI::Team team;
+		Type type;
+	};
+
 	static r32 danger;
-	static StaticArray<LogEntry, 4> logs;
+	static Array<LogEntry> logs;
+	static Array<Notification> notifications;
+	static b8 notification(Entity*, AI::Team, Notification::Type);
 
 	static Vec2 camera_topdown_movement(const Update&, s8, Camera*);
 	static b8 players_on_same_client(const Entity*, const Entity*);
@@ -66,17 +90,17 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static s32 count_local_before(PlayerHuman*);
 	static PlayerHuman* player_for_camera(const Camera*);
 	static PlayerHuman* player_for_gamepad(s8);
-	static void log_add(const char*, AI::Team = AI::TeamNone);
+	static void log_add(const char*, AI::TeamMask = AI::TeamNone, AI::TeamMask = AI::TeamMask(-1));
 	static void clear();
 	static void camera_setup_drone(Entity*, Camera*, r32);
 	static void draw_logs(const RenderParams&, AI::Team, s8);
 
+	Array<SupportEntry> last_supported;
 	u64 uuid;
 	UIMenu menu;
 	UIScroll score_summary_scroll;
 	UIText msg_text;
 	Quat kill_cam_rot;
-	StaticArray<SupportEntry, 24> last_supported;
 	r32 msg_timer;
 	r32 animation_time;
 	r32 select_spawn_timer; // also used for spawn letterbox animation
@@ -191,17 +215,20 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 			Minion,
 			MinionAttacking,
 			Battery,
-			BatteryFriendly,
 			BatteryOutOfRange,
+			BatteryFriendly,
+			BatteryFriendlyOutOfRange,
 			Sensor,
 			ForceField,
 			Grenade,
 			Turret,
 			TurretAttacking,
-			TurretFriendly,
 			TurretOutOfRange,
+			TurretFriendly,
+			TurretFriendlyOutOfRange,
 			CoreModule,
 			CoreModuleFriendly,
+			CoreModuleFriendlyOutOfRange,
 			CoreModuleOutOfRange,
 			count,
 		};

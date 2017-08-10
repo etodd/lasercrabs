@@ -131,7 +131,7 @@ namespace Net
 namespace AI
 {
 	typedef s8 Team;
-	typedef s32 TeamMask;
+	typedef s8 TeamMask;
 
 	const Team TeamNone = -1;
 

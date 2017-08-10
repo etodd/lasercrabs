@@ -129,6 +129,7 @@ struct Battery : public ComponentType<Battery>
 	void awake();
 	~Battery();
 
+	void health_changed(const HealthEvent&);
 	s16 reward() const;
 	s16 increment() const;
 	void killed(Entity*);
@@ -256,6 +257,7 @@ struct Turret : public ComponentType<Turret>
 
 	void awake();
 
+	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 	void update_server(const Update&);
 	void check_target();
@@ -300,6 +302,7 @@ struct ForceField : public ComponentType<ForceField>
 	void awake();
 	~ForceField();
 	void hit_by(const TargetEvent&);
+	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 	void destroy();
 	void set_team(AI::Team);

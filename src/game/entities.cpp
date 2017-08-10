@@ -564,6 +564,15 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 	battery->light = e;
 }
 
+void Battery::health_changed(const HealthEvent& e)
+{
+	if (team != AI::TeamNone && e.hp + e.shield < 0 && get<Health>()->hp > 0)
+	{
+		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::BatteryUnderAttack))
+			PlayerHuman::log_add(_(strings::battery_under_attack), AI::TeamNone, 1 << team);
+	}
+}
+
 void Battery::killed(Entity* e)
 {
 	if (Game::level.local)
@@ -647,6 +656,7 @@ void Battery::awake()
 {
 	link_arg<const TargetEvent&, &Battery::hit>(get<Target>()->target_hit);
 	link_arg<Entity*, &Battery::killed>(get<Health>()->killed);
+	link_arg<const HealthEvent&, &Battery::health_changed>(get<Health>()->changed);
 	set_team_client(team);
 	get<Audio>()->post_event(AK::EVENTS::PLAY_BATTERY_LOOP);
 }
@@ -667,6 +677,13 @@ void Battery::hit(const TargetEvent& e)
 
 void Battery::set_team_client(AI::Team t)
 {
+	if (team != AI::TeamNone && team != t)
+	{
+		// notify team that they lost this battery
+		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::BatteryLost))
+			PlayerHuman::log_add(_(strings::battery_lost), AI::TeamNone, 1 << team);
+	}
+
 	team = t;
 	get<View>()->team = s8(t);
 	get<PointLight>()->team = s8(t);
@@ -1337,7 +1354,7 @@ void CoreModule::killed(Entity* e)
 		char buffer[512];
 		sprintf(buffer, _(strings::core_modules_remaining), list.count() - 1);
 
-		PlayerHuman::log_add(buffer, 0);
+		PlayerHuman::log_add(buffer);
 		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		{
 			// it's a good thing if you're not on the defending team
@@ -1395,6 +1412,7 @@ void Turret::awake()
 {
 	target_check_time = mersenne::randf_oo() * TURRET_TARGET_CHECK_TIME;
 	link_arg<Entity*, &Turret::killed>(get<Health>()->killed);
+	link_arg<const HealthEvent&, &Turret::health_changed>(get<Health>()->changed);
 	link_arg<const TargetEvent&, &Turret::hit_by>(get<Target>()->target_hit);
 }
 
@@ -1412,6 +1430,15 @@ void Turret::hit_by(const TargetEvent& e)
 		get<Health>()->damage(e.hit_by, 2);
 }
 
+void Turret::health_changed(const HealthEvent& e)
+{
+	if (e.hp + e.shield < 0 && get<Health>()->hp > 0)
+	{
+		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::TurretUnderAttack))
+			PlayerHuman::log_add(_(strings::turret_under_attack), AI::TeamNone, 1 << team);
+	}
+}
+
 void Turret::killed(Entity* by)
 {
 	PlayerManager::entity_killed_by(entity(), by);
@@ -1424,7 +1451,8 @@ void Turret::killed(Entity* by)
 		else
 			strcpy(buffer, _(strings::core_vulnerable));
 
-		PlayerHuman::log_add(buffer, 0);
+		PlayerHuman::log_add(buffer);
+
 		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		{
 			// it's a good thing if you're not on the defending team
@@ -1432,6 +1460,8 @@ void Turret::killed(Entity* by)
 			i.item()->msg(buffer, good);
 		}
 	}
+
+	PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::TurretDestroyed);
 
 	if (Game::level.local)
 	{
@@ -1663,6 +1693,7 @@ void ForceField::awake()
 {
 	link_arg<const TargetEvent&, &ForceField::hit_by>(get<Target>()->target_hit);
 	link_arg<Entity*, &ForceField::killed>(get<Health>()->killed);
+	link_arg<const HealthEvent&, &ForceField::health_changed>(get<Health>()->changed);
 	get<Audio>()->post_event(AK::EVENTS::PLAY_FORCE_FIELD_LOOP);
 }
 
@@ -1688,8 +1719,20 @@ void ForceField::hit_by(const TargetEvent& e)
 		get<Health>()->damage(e.hit_by, 3);
 }
 
+void ForceField::health_changed(const HealthEvent& e)
+{
+	if (e.hp + e.shield < 0
+		&& get<Health>()->hp > 0
+		&& PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::ForceFieldUnderAttack))
+	{
+		PlayerHuman::log_add(_(strings::force_field_under_attack), AI::TeamNone, 1 << team);
+	}
+}
+
 void ForceField::killed(Entity* e)
 {
+	PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::ForceFieldDestroyed);
+	PlayerHuman::log_add(_(strings::force_field_destroyed), AI::TeamNone, 1 << team);
 	PlayerManager::entity_killed_by(entity(), e);
 	if (Game::level.local)
 		World::remove_deferred(entity());
@@ -3857,7 +3900,7 @@ void Ascensions::update(const Update& u)
 			{
 				char msg[512];
 				sprintf(msg, _(strings::player_ascended), e->username);
-				PlayerHuman::log_add(msg, AI::TeamNone);
+				PlayerHuman::log_add(msg);
 			}
 		}
 	}

@@ -1000,7 +1000,15 @@ b8 Drone::predict_intersection(const Target* target, const Net::StateFrame* stat
 
 void Drone::killed(Entity* e)
 {
-	// killed; notify everyone
+	// notify everyone
+	{
+		char buffer[512];
+		sprintf(buffer, _(strings::player_killed), get<PlayerCommon>()->manager.ref()->username);
+		PlayerHuman::log_add(buffer, 1 << get<AIAgent>()->team);
+
+		PlayerHuman::notification(entity(), get<AIAgent>()->team, PlayerHuman::Notification::Type::DroneDestroyed);
+	}
+
 	PlayerManager::entity_killed_by(entity(), e);
 
 	if (Game::level.local)

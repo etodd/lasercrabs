@@ -1125,7 +1125,7 @@ void PlayerManager::awake()
 	{
 		char log[512];
 		sprintf(log, _(strings::player_joined), username);
-		PlayerHuman::log_add(log, team.ref()->team());
+		PlayerHuman::log_add(log, 1 << team.ref()->team());
 	}
 }
 
@@ -1135,7 +1135,7 @@ PlayerManager::~PlayerManager()
 	{
 		char log[512];
 		sprintf(log, _(strings::player_left), username);
-		PlayerHuman::log_add(log, team.ref()->team());
+		PlayerHuman::log_add(log, 1 << team.ref()->team());
 	}
 }
 
@@ -1754,12 +1754,6 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 
 			if (e->has<Drone>())
 			{
-				{
-					char buffer[512];
-					sprintf(buffer, _(strings::player_killed), player->username);
-					PlayerHuman::log_add(buffer, e->get<AIAgent>()->team);
-				}
-
 				if (Game::level.local)
 				{
 					if (killer_player)

@@ -1436,8 +1436,8 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 		text.font = Asset::Font::pt_sans;
 		text.wrap(rect.size.x + PADDING * -2.0f);
 		{
-			char buffer[UI_TEXT_MAX];
-			snprintf(buffer, UI_TEXT_MAX - 1, _(strings::map_by), details.config.name, details.creator_username);
+			char buffer[UI_TEXT_MAX + 1];
+			snprintf(buffer, UI_TEXT_MAX, _(strings::map_by), details.config.name, details.creator_username);
 			text.text_raw(0, buffer);
 		}
 

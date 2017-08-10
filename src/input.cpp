@@ -439,10 +439,7 @@ const char* control_string(Controls c)
 
 b8 control_customizable(Controls c, Gamepad::Type type)
 {
-	if (c == Controls::Cancel
-		|| c == Controls::Pause
-		|| c == Controls::Start
-		|| c == Controls::Interact)
+	if (!control_setting_names[s32(c)])
 		return false;
 
 	if (type != Gamepad::Type::None

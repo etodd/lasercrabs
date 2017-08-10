@@ -189,7 +189,10 @@ namespace Master
 
 	Sock::Address server_public_ip(Node* server, Sock::Host::Type type)
 	{
-		return type == Sock::Host::Type::IPv4 ? server->public_ipv4 : server->public_ipv6;
+		if (type == Sock::Host::Type::IPv4) // prefer ipv4
+			return server->public_ipv4.port ? server->public_ipv4 : server->public_ipv6;
+		else // prefer ipv6
+			return server->public_ipv6.port ? server->public_ipv6 : server->public_ipv4;
 	}
 
 	b8 db_step(sqlite3_stmt* stmt)

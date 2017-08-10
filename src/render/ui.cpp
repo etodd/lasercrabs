@@ -482,7 +482,7 @@ void UIScroll::update(const Update& u, s32 item_count, s32 gamepad)
 		pos += UI::input_delta_vertical(u, gamepad);
 
 		// keep within range
-		pos = vi_max(0, vi_min(count - UI_SCROLL_MAX, pos));
+		pos = vi_max(0, vi_min(count - size, pos));
 	}
 }
 
@@ -491,13 +491,13 @@ void UIScroll::update_menu(s32 item_count)
 	count = item_count;
 
 	// keep within range
-	pos = vi_max(0, vi_min(count - UI_SCROLL_MAX, pos));
+	pos = vi_max(0, vi_min(count - size, pos));
 }
 
 void UIScroll::scroll_into_view(s32 i)
 {
 	pos = vi_min(i, pos);
-	pos = vi_max(i + 1 - UI_SCROLL_MAX, pos);
+	pos = vi_max(i + 1 - size, pos);
 }
 
 void UIScroll::start(const RenderParams& params, const Vec2& p) const
@@ -512,7 +512,7 @@ void UIScroll::start(const RenderParams& params, const Vec2& p) const
 
 void UIScroll::end(const RenderParams& params, const Vec2& p) const
 {
-	if (pos + UI_SCROLL_MAX < count)
+	if (pos + size < count)
 	{
 		Vec2 p2 = p + Vec2(0, -16.0f * UI::scale);
 		UI::centered_box(params, { p2, Vec2(32.0f * UI::scale) }, UI::color_background);
@@ -527,12 +527,12 @@ s32 UIScroll::top() const
 
 s32 UIScroll::bottom(s32 items) const
 {
-	return vi_min(items, pos + UI_SCROLL_MAX);
+	return vi_min(items, pos + size);
 }
 
 b8 UIScroll::visible(s32 i) const
 {
-	return i >= pos && i < pos + UI_SCROLL_MAX;
+	return i >= pos && i < pos + size;
 }
 
 const Vec4 UI::color_default = Vec4(1, 1, 1, 1);

@@ -1685,7 +1685,10 @@ u32 ForceField::hash(AI::Team my_team, const Vec3& pos)
 }
 
 ForceField::ForceField()
-	: team(AI::TeamNone), flags()
+	: team(AI::TeamNone),
+	flags(),
+	collision(),
+	obstacle_id(-1)
 {
 }
 
@@ -1695,6 +1698,7 @@ void ForceField::awake()
 	link_arg<Entity*, &ForceField::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &ForceField::health_changed>(get<Health>()->changed);
 	get<Audio>()->post_event(AK::EVENTS::PLAY_FORCE_FIELD_LOOP);
+	obstacle_id = AI::obstacle_add(get<Transform>()->to_world(Vec3(0, 0, FORCE_FIELD_BASE_OFFSET * -0.5f)) + Vec3(0, FORCE_FIELD_BASE_OFFSET * -0.5f, 0), FORCE_FIELD_BASE_OFFSET * 0.5f, FORCE_FIELD_BASE_OFFSET);
 }
 
 ForceField::~ForceField()
@@ -1702,6 +1706,13 @@ ForceField::~ForceField()
 	if (Game::level.local && collision.ref())
 		World::remove_deferred(collision.ref()->entity());
 	get<Audio>()->post_event(AK::EVENTS::STOP_FORCE_FIELD_LOOP);
+	if (obstacle_id != u32(-1))
+		AI::obstacle_remove(obstacle_id);
+}
+
+Vec3 ForceField::base_pos() const
+{
+	return get<Transform>()->to_world(Vec3(0, 0, -FORCE_FIELD_BASE_OFFSET));
 }
 
 // not synced over network
@@ -1827,7 +1838,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 
 	create<Target>();
 	create<Health>(FORCE_FIELD_HEALTH, FORCE_FIELD_HEALTH);
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(FORCE_FIELD_BASE_RADIUS), 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionStatic & ~CollisionShield & ~CollisionParkour & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionElectric);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(FORCE_FIELD_BASE_RADIUS), 0.0f, CollisionTarget, ~CollisionStatic & ~CollisionShield & ~CollisionParkour & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionElectric);
 
 	ForceField* field = create<ForceField>();
 	field->team = team;

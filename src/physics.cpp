@@ -162,6 +162,8 @@ void RigidBody::awake()
 			| CollisionAllTeamsForceField
 			| CollisionParkour
 			| CollisionElectric
+			| CollisionWalker
+			| CollisionTarget
 		);
 	}
 	else

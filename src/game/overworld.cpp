@@ -164,7 +164,7 @@ struct Data
 		struct ServerList
 		{
 			Array<Net::Master::ServerListEntry> entries;
-			UIScroll scroll;
+			UIScroll scroll = { 0, 0, 12 };
 			s32 selected;
 		};
 
@@ -1147,7 +1147,7 @@ void game_type_string(UIText* text, GameType type, s8 team_count, s8 max_players
 
 void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 {
-	Vec2 panel_size(rect.size.x, PADDING * 2.0f + TEXT_SIZE * UI::scale);
+	Vec2 panel_size(rect.size.x, PADDING + TEXT_SIZE * UI::scale);
 	Vec2 top_bar_size(panel_size.x, panel_size.y * 1.5f);
 	Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
 
@@ -1158,7 +1158,7 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 	// server list
 	{
 		UIText text;
-		text.size = TEXT_SIZE;
+		text.size = TEXT_SIZE * 0.85f;
 		text.anchor_x = UIText::Anchor::Min;
 		text.anchor_y = UIText::Anchor::Center;
 		text.font = Asset::Font::pt_sans;
@@ -1182,25 +1182,25 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 
 			text.clip = 18;
 			text.text_raw(0, entry.creator_username, UITextFlagSingleLine);
-			text.draw(params, pos + Vec2(panel_size.x * 0.4f, panel_size.y * 0.5f));
+			text.draw(params, pos + Vec2(panel_size.x * 0.5f, panel_size.y * 0.5f));
 			text.clip = 0;
 
 			if (entry.server_state.level != AssetNull)
 			{
 				text.text_raw(0, Loader::level_name(entry.server_state.level));
-				text.draw(params, pos + Vec2(panel_size.x * 0.55f, panel_size.y * 0.5f));
+				text.draw(params, pos + Vec2(panel_size.x * 0.65f, panel_size.y * 0.5f));
 			}
 
 			{
 				game_type_string(&text, entry.game_type, entry.team_count, entry.max_players);
-				text.draw(params, pos + Vec2(panel_size.x * 0.7f, panel_size.y * 0.5f));
+				text.draw(params, pos + Vec2(panel_size.x * 0.75f, panel_size.y * 0.5f));
 			}
 
 			{
 				if (!selected)
 					text.color = UI::color_default;
 				text.text(0, "%d/%d", s32(entry.max_players - entry.server_state.player_slots), s32(entry.max_players));
-				text.draw(params, pos + Vec2(panel_size.x * 0.85f, panel_size.y * 0.5f));
+				text.draw(params, pos + Vec2(panel_size.x * 0.9f, panel_size.y * 0.5f));
 			}
 
 			if (entry.server_state.level != AssetNull) // there's a server running this config
@@ -1211,7 +1211,7 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 					if (!selected)
 						text.color = UI::color_ping(p);
 					text.text(0, _(strings::ping), s32(p * 1000.0f));
-					text.draw(params, pos + Vec2(panel_size.x * 0.9f, panel_size.y * 0.5f));
+					text.draw(params, pos + Vec2(panel_size.x * 0.95f, panel_size.y * 0.5f));
 				}
 			}
 

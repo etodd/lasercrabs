@@ -1974,6 +1974,12 @@ struct Client
 
 struct ExpectedClient
 {
+	struct TeamEntry
+	{
+		u64 uuid;
+		AI::Team team;
+	};
+	StaticArray<TeamEntry, MAX_GAMEPADS> teams;
 	r32 timestamp;
 	Master::UserKey user_key;
 	b8 is_admin;
@@ -2511,7 +2517,10 @@ b8 packet_handle_master(StreamRead* p)
 				}
 
 				if (!entry)
+				{
 					entry = state_server.expected_clients.add();
+					new (entry) ExpectedClient();
+				}
 
 				entry->timestamp = state_common.timestamp;
 				entry->user_key = key;
@@ -2890,6 +2899,8 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 				s32 local_players;
 				serialize_int(p, s32, local_players, 1, MAX_GAMEPADS);
 
+				StaticArray<ExpectedClient::TeamEntry, MAX_GAMEPADS> teams;
+
 				for (s32 i = 0; i < state_server.expected_clients.length; i++)
 				{
 					const ExpectedClient& expected_client = state_server.expected_clients[i];
@@ -2897,6 +2908,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 					{
 						client->auth_timeout = 0.0f;
 						client->is_admin = expected_client.is_admin;
+						teams = expected_client.teams;
 						state_server.expected_clients.remove(i);
 						break;
 					}
@@ -2911,24 +2923,42 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 					{
 						s8 gamepad;
 						serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
+						u64 uuid;
+						serialize_u64(p, uuid);
 
 						Team* team_ref = nullptr;
+
 						switch (Game::session.type)
 						{
 							case SessionType::Multiplayer:
 							{
-								// distribute players evenly
-								// assign player randomly to one of the teams with the smallest number of players
-								StaticArray<Team*, MAX_TEAMS> smallest_teams;
-								s32 least_players;
-								Team::with_least_players(&least_players);
-								for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+								// remember previous teams, and rotate them
+								for (s32 j = 0; j < teams.length; j++)
 								{
-									if (i.item()->player_count() == least_players)
-										smallest_teams.add(i.item());
+									const ExpectedClient::TeamEntry& entry = teams[j];
+									if (entry.uuid == uuid)
+									{
+										if (entry.team != AI::TeamNone)
+											team_ref = &Team::list[(entry.team + 1) % Team::list.count()];
+										break;
+									}
 								}
-								vi_assert(smallest_teams.length > 0);
-								team_ref = smallest_teams[mersenne::rand() % smallest_teams.length];
+
+								if (!team_ref)
+								{
+									// distribute players evenly
+									// assign player randomly to one of the teams with the smallest number of players
+									StaticArray<Team*, MAX_TEAMS> smallest_teams;
+									s32 least_players;
+									Team::with_least_players(&least_players);
+									for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+									{
+										if (i.item()->player_count() == least_players)
+											smallest_teams.add(i.item());
+									}
+									vi_assert(smallest_teams.length > 0);
+									team_ref = smallest_teams[mersenne::rand() % smallest_teams.length];
+								}
 								break;
 							}
 							case SessionType::Story:
@@ -2943,14 +2973,14 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 						PlayerManager* manager = e->add<PlayerManager>(team_ref);
 						if (gamepad > 0)
 						{
-							char username_truncated[MAX_USERNAME] = {};
+							char username_truncated[MAX_USERNAME + 1] = {};
 							strncpy(username_truncated, username, MAX_USERNAME - 4);
 							snprintf(username, MAX_USERNAME, "%s [%d]", username_truncated, s32(gamepad + 1));
 						}
 						strncpy(manager->username, username, MAX_USERNAME);
 						PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
 						manager->is_admin = client->is_admin && gamepad == 0;
-						serialize_u64(p, player->uuid);
+						player->uuid = uuid;
 						player->local = false;
 						client->players.add(player);
 						finalize(e);
@@ -3026,10 +3056,17 @@ void reset()
 
 		for (s32 i = 0; i < state_server.clients.length; i++)
 		{
-			ExpectedClient* expected_client = expected_clients.add();
-			expected_client->timestamp = 0.0f;
-			expected_client->user_key = state_server.clients[i].user_key;
-			expected_client->is_admin = state_server.clients[i].is_admin;
+			const Client& client = state_server.clients[i];
+			ExpectedClient expected_client;
+			expected_client.timestamp = 0.0f;
+			expected_client.user_key = client.user_key;
+			expected_client.is_admin = client.is_admin;
+			for (s32 j = 0; j < client.players.length; j++)
+			{
+				const PlayerHuman* player = client.players[j].ref();
+				expected_client.teams.add({ player->uuid, player->get<PlayerManager>()->team.ref()->team() });
+			}
+			expected_clients.add(expected_client);
 		}
 	}
 

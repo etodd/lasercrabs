@@ -337,8 +337,7 @@ s32 udp_send(Handle* socket, const Address& destination, const void* data, s32 s
 			break;
 	}
 
-	vi_assert(handle);
-
+	if (handle) // do we actually have a socket open for the desired protocol?
 	{
 		s32 sent_bytes = sendto(handle, (const char*)data, size, 0, (const struct sockaddr*)&address, addr_length);
 		if (sent_bytes != size)

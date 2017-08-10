@@ -63,11 +63,11 @@ struct UIText
 	UIText();
 };
 
-#define UI_SCROLL_MAX 8
 struct UIScroll
 {
 	s32 pos;
 	s32 count;
+	s32 size = 8;
 
 	void update(const Update&, s32, s32 = -1); // for non-menu things
 	void update_menu(s32); // for menus

@@ -1476,7 +1476,7 @@ void UIMenu::end()
 
 r32 UIMenu::height() const
 {
-	return (vi_min(items.length, UI_SCROLL_MAX) * MENU_ITEM_HEIGHT) - MENU_ITEM_PADDING * 2.0f;
+	return (vi_min(items.length, scroll.size) * MENU_ITEM_HEIGHT) - MENU_ITEM_PADDING * 2.0f;
 }
 
 void UIMenu::text_clip_timer(UIText* text, r32 timer, r32 speed, s32 max)

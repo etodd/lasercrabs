@@ -294,6 +294,7 @@ struct ForceField : public ComponentType<ForceField>
 		count,
 	};
 
+	u32 obstacle_id;
 	Ref<ForceFieldCollision> collision;
 	AI::Team team;
 	s8 flags;
@@ -307,6 +308,7 @@ struct ForceField : public ComponentType<ForceField>
 	void destroy();
 	void set_team(AI::Team);
 	b8 contains(const Vec3&) const;
+	Vec3 base_pos() const;
 };
 
 struct ForceFieldEntity : public Entity

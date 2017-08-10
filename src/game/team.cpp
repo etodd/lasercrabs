@@ -818,6 +818,55 @@ namespace PlayerManagerNet
 	b8 can_spawn(PlayerManager*, b8);
 }
 
+void team_balance(b8 move_humans)
+{
+	s32 team_counts[MAX_TEAMS] = {};
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		AI::Team team = i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled;
+		team_counts[team]++;
+	}
+
+	AI::Team largest_team;
+	AI::Team smallest_team;
+	team_stats(team_counts, &smallest_team, &largest_team);
+	while (team_counts[largest_team] > team_counts[smallest_team] + 1)
+	{
+		// move a player from the largest team to the smallest
+		PlayerManager* victim = nullptr;
+		for (auto i = PlayerManager::list.iterator_end(); !i.is_first(); i.prev())
+		{
+			AI::Team team = i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled;
+			if (team == largest_team)
+			{
+				if ((move_humans && !victim) || !i.item()->has<PlayerHuman>()) // bots get moved first
+					victim = i.item();
+				break;
+			}
+		}
+		if (victim)
+		{
+			team_counts[largest_team]--;
+			team_counts[smallest_team]++;
+			victim->team_scheduled = smallest_team;
+			team_stats(team_counts, &smallest_team, &largest_team);
+		}
+		else if (move_humans) // we should be able to balance teams if we're allowed to move humans
+			vi_assert(false);
+		else
+			break; // impossible to balance by only moving bots
+	}
+
+	// apply team changes
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team_scheduled != AI::TeamNone)
+			PlayerManagerNet::team_switch(i.item(), i.item()->team_scheduled);
+		if (!i.item()->can_spawn)
+			PlayerManagerNet::can_spawn(i.item(), true);
+	}
+}
+
 void Team::update_all_server(const Update& u)
 {
 	if (match_state == MatchState::Waiting)
@@ -843,50 +892,12 @@ void Team::update_all_server(const Update& u)
 				&& teams_with_active_players() > 1))
 		{
 			// force match to start
-			s32 team_counts[MAX_TEAMS] = {};
-			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-			{
-				AI::Team team = i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled;
-				team_counts[team]++;
-			}
-
-			AI::Team largest_team;
-			AI::Team smallest_team;
-			team_stats(team_counts, &smallest_team, &largest_team);
-			while (team_counts[largest_team] > team_counts[smallest_team] + 1)
-			{
-				// move a player from the largest team to the smallest
-				PlayerManager* victim = nullptr;
-				for (auto i = PlayerManager::list.iterator_end(); !i.is_first(); i.prev())
-				{
-					AI::Team team = i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled;
-					if (team == largest_team)
-					{
-						if (!victim || !i.item()->has<PlayerHuman>()) // bots get moved first
-							victim = i.item();
-						break;
-					}
-				}
-				vi_assert(victim);
-				team_counts[largest_team]--;
-				team_counts[smallest_team]++;
-				victim->team_scheduled = smallest_team;
-				team_stats(team_counts, &smallest_team, &largest_team);
-			}
-
-			// apply team changes
-			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->team_scheduled != AI::TeamNone)
-					PlayerManagerNet::team_switch(i.item(), i.item()->team_scheduled);
-				if (!i.item()->can_spawn)
-					PlayerManagerNet::can_spawn(i.item(), true);
-			}
-
+			team_balance(true);
 			match_start();
 		}
-		else if (teams_with_active_players() > 1)
+		else
 		{
+			// check if we can start
 			b8 can_spawn = true;
 			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 			{
@@ -896,18 +907,24 @@ void Team::update_all_server(const Update& u)
 					break;
 				}
 			}
+
 			if (can_spawn)
 			{
-				s32 least_players = MAX_PLAYERS;
-				s32 most_players = 0;
-				for (auto i = list.iterator(); !i.is_last(); i.next())
+				team_balance(false); // move bots around (not humans) to try and balance teams
+
+				if (teams_with_active_players() > 1)
 				{
-					s32 players = i.item()->player_count();
-					least_players = vi_min(least_players, players);
-					most_players = vi_max(most_players, players);
+					s32 least_players = MAX_PLAYERS;
+					s32 most_players = 0;
+					for (auto i = list.iterator(); !i.is_last(); i.next())
+					{
+						s32 players = i.item()->player_count();
+						least_players = vi_min(least_players, players);
+						most_players = vi_max(most_players, players);
+					}
+					if (most_players <= least_players + 1)
+						match_start();
 				}
-				if (most_players <= least_players + 1)
-					match_start();
 			}
 		}
 	}

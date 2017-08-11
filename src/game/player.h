@@ -44,9 +44,11 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	struct LogEntry
 	{
 		r32 timestamp;
-		char text[UI_TEXT_MAX + 1];
-		AI::TeamMask mask_show;
-		AI::TeamMask mask_good;
+		char a[UI_TEXT_MAX + 1];
+		char b[UI_TEXT_MAX + 1];
+		AI::TeamMask mask;
+		AI::TeamMask a_team;
+		AI::TeamMask b_team;
 	};
 
 	struct SupportEntry
@@ -90,7 +92,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static s32 count_local_before(PlayerHuman*);
 	static PlayerHuman* player_for_camera(const Camera*);
 	static PlayerHuman* player_for_gamepad(s8);
-	static void log_add(const char*, AI::TeamMask = AI::TeamNone, AI::TeamMask = AI::TeamMask(-1));
+	static void log_add(const char*, AI::Team = AI::TeamNone, AI::TeamMask = AI::TeamAll, const char* = nullptr, AI::Team = AI::TeamNone);
 	static void clear();
 	static void camera_setup_drone(Entity*, Camera*, r32);
 	static void draw_logs(const RenderParams&, AI::Team, s8);

@@ -935,7 +935,6 @@ void loop()
 			{
 				u32 id;
 				sync_in.read(&id);
-				u32 recast_id;
 				Vec3 pos;
 				sync_in.read(&pos);
 				r32 radius;
@@ -944,13 +943,15 @@ void loop()
 				sync_in.read(&height);
 				sync_in.unlock();
 
+				if (s32(id) > obstacle_recast_ids.length - 1)
+				{
+					obstacle_recast_ids.resize(id + 1);
+					obstacle_recast_ids[id] = -1;
+				}
+
 				if (nav_tile_cache)
 				{
-					if ((s32)id > obstacle_recast_ids.length - 1)
-						obstacle_recast_ids.resize(id + 1);
-					dtStatus status = nav_tile_cache->addObstacle((r32*)&pos, radius, height, &recast_id);
-					obstacle_recast_ids[id] = recast_id;
-
+					nav_tile_cache->addObstacle((r32*)(&pos), radius, height, &obstacle_recast_ids[id]);
 					nav_tile_cache->update(0.0f, nav_mesh); // todo: batch obstacle API calls together
 				}
 				break;
@@ -964,9 +965,11 @@ void loop()
 				if (nav_tile_cache)
 				{
 					u32 recast_id = obstacle_recast_ids[id];
-					nav_tile_cache->removeObstacle(recast_id);
-
-					nav_tile_cache->update(0.0f, nav_mesh); // todo: batch obstacle API calls together
+					if (recast_id != -1)
+					{
+						nav_tile_cache->removeObstacle(recast_id);
+						nav_tile_cache->update(0.0f, nav_mesh); // todo: batch obstacle API calls together
+					}
 				}
 				break;
 			}

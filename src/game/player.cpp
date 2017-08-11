@@ -62,7 +62,7 @@ namespace VI
 
 #define NOTIFICATION_TIME_HIDDEN 4.0f
 #define NOTIFICATION_TIME (6.0f + NOTIFICATION_TIME_HIDDEN)
-#define LOG_TIME 3.0f
+#define LOG_TIME 4.0f
 #define INTERACT_TIME 2.5f
 #define INTERACT_LERP_ROTATION_SPEED 5.0f
 #define INTERACT_LERP_TRANSLATION_SPEED 5.0f
@@ -490,13 +490,18 @@ void PlayerHuman::update_all(const Update& u)
 	}
 }
 
-void PlayerHuman::log_add(const char* msg, AI::TeamMask mask_good, AI::TeamMask mask_show)
+void PlayerHuman::log_add(const char* a, AI::Team a_team, AI::TeamMask mask, const char* b, AI::Team b_team)
 {
 	PlayerHuman::LogEntry* entry = logs.add();
 	entry->timestamp = Game::real_time.total;
-	entry->mask_good = mask_good;
-	entry->mask_show = mask_show;
-	strncpy(entry->text, msg, UI_TEXT_MAX);
+	entry->mask = mask;
+	entry->a_team = a_team;
+	entry->b_team = b_team;
+	strncpy(entry->a, a, UI_TEXT_MAX);
+	if (b)
+		strncpy(entry->b, b, UI_TEXT_MAX);
+	else
+		entry->b[0] = '\0';
 }
 
 void PlayerHuman::clear()
@@ -2117,27 +2122,69 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		menu.draw_ui(params, Vec2(0, params.camera->viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
 }
 
+void uitext_truncate(UIText* text, s8 gamepad, const char* str)
+{
+	const s32 truncated_length = 17;
+	if (strlen(str) > truncated_length)
+	{
+		char truncated[truncated_length + 1] = {};
+		strncpy(truncated, str, truncated_length - 3);
+		truncated[truncated_length - 3] = '.';
+		truncated[truncated_length - 2] = '.';
+		truncated[truncated_length - 1] = '.';
+		text->text_raw(gamepad, truncated);
+	}
+	else
+		text->text_raw(gamepad, str);
+}
+
 void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gamepad)
 {
 	UIText text;
 	text.anchor_x = UIText::Anchor::Max;
 	text.anchor_y = UIText::Anchor::Max;
-	text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 	Vec2 p = params.camera->viewport.size + Vec2(MENU_ITEM_PADDING * -5.0f);
 	s32 count = 0;
+	r32 wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 	for (s32 i = 0; i < logs.length && count < 4; i++)
 	{
 		const LogEntry& entry = logs[i];
-		if (AI::match(my_team, entry.mask_show))
+		if (AI::match(my_team, entry.mask))
 		{
-			if (entry.mask_good == AI::TeamNone)
+			text.wrap_width = wrap_width;
+			if (entry.a_team == AI::TeamNone)
 				text.color = UI::color_accent();
 			else
-				text.color = AI::match(my_team, entry.mask_good) ? Team::ui_color_friend : Team::ui_color_enemy;
-			text.text_raw(gamepad, entry.text);
+				text.color = my_team == entry.a_team ? Team::ui_color_friend : Team::ui_color_enemy;
+
+			if (entry.b[0])
+				uitext_truncate(&text, gamepad, entry.a); // "a killed b" format
+			else
+				text.text_raw(gamepad, entry.a);
+
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 			UIMenu::text_clip(&text, entry.timestamp, 80.0f);
 			text.draw(params, p);
+
+			if (entry.b[0])
+			{
+				// "a killed b" format
+				text.wrap_width = 0;
+				text.anchor_x = UIText::Anchor::Center;
+				text.color = UI::color_default;
+				text.clip = 0;
+				text.text_raw(gamepad, "->");
+				text.draw(params, p + Vec2(wrap_width * -0.5f, 0));
+
+				text.anchor_x = UIText::Anchor::Max;
+				if (entry.b_team == AI::TeamNone)
+					text.color = UI::color_accent();
+				else
+					text.color = my_team == entry.b_team ? Team::ui_color_friend : Team::ui_color_enemy;
+				uitext_truncate(&text, gamepad, entry.b);
+				UIMenu::text_clip(&text, entry.timestamp, 80.0f);
+				text.draw(params, p);
+			}
 			p.y -= (text.size * UI::scale) + MENU_ITEM_PADDING * 2.0f;
 			count++;
 		}

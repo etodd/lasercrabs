@@ -553,7 +553,7 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 
 	model->offset.scale(Vec3(BATTERY_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(BATTERY_RADIUS), 0.1f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(BATTERY_RADIUS), 0.1f, CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker);
 	body->set_damping(0.5f, 0.5f);
 	body->set_ccd(true);
 
@@ -1160,7 +1160,7 @@ SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_r
 
 	create<Target>();
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 0.0f, CollisionTarget, ~CollisionShield);
 }
 
 Sensor::Sensor(AI::Team t)
@@ -1399,7 +1399,7 @@ TurretEntity::TurretEntity(AI::Team team)
 	create<Health>(TURRET_HEALTH, TURRET_HEALTH);
 	create<Shield>();
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionInaccessible & ~CollisionElectric & ~CollisionParkour & ~CollisionStatic & ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker, Asset::Mesh::turret_top);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionInaccessible & ~CollisionElectric & ~CollisionParkour & ~CollisionStatic & ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker, Asset::Mesh::turret_top);
 	body->set_restitution(0.75f);
 
 	PointLight* light = create<PointLight>();
@@ -1698,7 +1698,8 @@ void ForceField::awake()
 	link_arg<Entity*, &ForceField::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &ForceField::health_changed>(get<Health>()->changed);
 	get<Audio>()->post_event(AK::EVENTS::PLAY_FORCE_FIELD_LOOP);
-	obstacle_id = AI::obstacle_add(get<Transform>()->to_world(Vec3(0, 0, FORCE_FIELD_BASE_OFFSET * -0.5f)) + Vec3(0, FORCE_FIELD_BASE_OFFSET * -0.5f, 0), FORCE_FIELD_BASE_OFFSET * 0.5f, FORCE_FIELD_BASE_OFFSET);
+	if (Game::level.local)
+		obstacle_id = AI::obstacle_add(get<Transform>()->to_world(Vec3(0, 0, FORCE_FIELD_BASE_OFFSET * -0.5f)) + Vec3(0, FORCE_FIELD_BASE_OFFSET * -0.5f, 0), FORCE_FIELD_BASE_OFFSET * 0.5f, FORCE_FIELD_BASE_OFFSET);
 }
 
 ForceField::~ForceField()
@@ -1860,7 +1861,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 
 	CollisionGroup team_group = CollisionGroup(1 << (8 + team));
 
-	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_group, CollisionDroneIgnore | CollisionTarget, view->mesh);
+	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_group, CollisionTarget, view->mesh);
 
 	Net::finalize_child(f);
 
@@ -2226,7 +2227,7 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	g->owner = owner;
 	g->velocity = Vec3::normalize(velocity) * GRENADE_LAUNCH_SPEED;
 
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionDroneIgnore | CollisionTarget, ~CollisionShield);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionTarget, ~CollisionShield & ~CollisionParkour & ~CollisionElectric & ~CollisionStatic & ~CollisionInaccessible & ~CollisionAllTeamsForceField);
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::grenade_detached;

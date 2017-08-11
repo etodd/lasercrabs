@@ -133,6 +133,7 @@ namespace AI
 	typedef s8 Team;
 	typedef s8 TeamMask;
 
+	const TeamMask TeamAll = 0b1111;
 	const Team TeamNone = -1;
 
 	struct Config

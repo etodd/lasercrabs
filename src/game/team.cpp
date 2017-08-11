@@ -1780,6 +1780,35 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 					player->add_deaths(1);
 				}
 
+				{
+					// log message
+					const char* killer_str = nullptr;
+
+					{
+						Entity* logged_killer = killer;
+						if (killer->has<Bolt>())
+							logged_killer = killer->get<Bolt>()->owner.ref();
+
+						if (logged_killer)
+						{
+							if (logged_killer->has<Minion>())
+								killer_str = _(strings::minion);
+							else if (logged_killer->has<Turret>())
+								killer_str = _(strings::turret);
+						}
+
+						if (!killer_str)
+						{
+							if (killer_player)
+								killer_str = killer_player->username;
+							else
+								killer_str = player->username;
+						}
+					}
+
+					PlayerHuman::log_add(killer_str, killer_team, AI::TeamAll, player->username, team);
+				}
+
 				reward = ENERGY_DRONE_DESTROY;
 			}
 			else if (e->has<Minion>())

@@ -439,13 +439,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				if (target.ref()->get<Health>()->can_take_damage())
 				{
 					// we hurt them
-					if (drone->has<PlayerControlHuman>())
-					{
-						// if the target got killed, we'll get a notification about the energy reward
-						// but if it was only damaged, we need to let the player know
-						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::target_damaged), true);
-					}
-
 					if (Game::level.local) // if we're a client, this has already been handled by the server
 						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref()));
 				}
@@ -461,9 +454,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							&& target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team)
 							drone->get<Health>()->kill(target.ref());
 					}
-
-					if (drone->has<PlayerControlHuman>())
-						drone->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
 				}
 			}
 			break;
@@ -999,14 +989,7 @@ b8 Drone::predict_intersection(const Target* target, const Net::StateFrame* stat
 
 void Drone::killed(Entity* e)
 {
-	// notify everyone
-	{
-		char buffer[512];
-		sprintf(buffer, _(strings::player_killed), get<PlayerCommon>()->manager.ref()->username);
-		PlayerHuman::log_add(buffer, 1 << get<AIAgent>()->team);
-
-		PlayerHuman::notification(entity(), get<AIAgent>()->team, PlayerHuman::Notification::Type::DroneDestroyed);
-	}
+	PlayerHuman::notification(entity(), get<AIAgent>()->team, PlayerHuman::Notification::Type::DroneDestroyed);
 
 	PlayerManager::entity_killed_by(entity(), e);
 

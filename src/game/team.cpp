@@ -1104,7 +1104,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	current_upgrade(Upgrade::None),
 	state_timer(),
 	upgrade_completed(),
-	respawns(Game::session.config.respawns),
+	respawns(Game::session.config.game_type == GameType::Deathmatch ? -1 : Game::session.config.respawns),
 	kills(),
 	deaths(),
 	ability_purchase_times(),

@@ -221,7 +221,7 @@ r32 particle_trail(const Vec3& start, const Vec3& end, r32 offset = 0.0f)
 	Vec3 dir = end - start;
 	r32 distance = dir.length();
 	dir /= distance;
-	const r32 interval = 2.0f;
+	const r32 interval = 1.0f;
 	s32 particle_count = distance / interval;
 	Vec3 interval_pos = dir * interval;
 	Vec3 pos = start;
@@ -2137,7 +2137,7 @@ void Drone::update_client_all(const Update& u)
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 		i.item()->update_client(u);
 
-	const r32 particle_interval = 0.05f;
+	const r32 particle_interval = 0.025f;
 	particle_accumulator += u.time.delta;
 	while (particle_accumulator > particle_interval)
 	{
@@ -2149,16 +2149,12 @@ void Drone::update_client_all(const Update& u)
 				// emit particles
 				// but don't start until the drone has cleared the camera radius
 				// we do this so that the particles don't block the camera
-				r32 particle_start_delay = DRONE_THIRD_PERSON_OFFSET / i.item()->velocity.length();
-				if (u.time.total - particle_accumulator > i.item()->attach_time + particle_start_delay)
-				{
-					Particles::tracers.add
-					(
-						Vec3::lerp((particle_accumulator - particle_start_delay) / vi_max(0.0001f, u.time.delta), i.item()->last_pos, i.item()->lerped_pos),
-						Vec3::zero,
-						0
-					);
-				}
+				Particles::tracers.add
+				(
+					Vec3::lerp(particle_accumulator / vi_max(0.0001f, u.time.delta), i.item()->last_pos, i.item()->lerped_pos),
+					Vec3::zero,
+					0
+				);
 			}
 		}
 	}
@@ -2510,6 +2506,16 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 	// sort collisions
 	Hit::Comparator comparator;
 	Quicksort::sort<Hit, Hit::Comparator>(result->hits.data, 0, result->hits.length, &comparator);
+
+	// make sure we don't hit anything after hitting the environment
+	for (s32 i = 0; i < result->hits.length; i++)
+	{
+		if (result->hits[i].type == Hit::Type::Environment)
+		{
+			result->hits.length = i + 1;
+			break;
+		}
+	}
 
 	// determine which collision is the one we stop at
 	result->index_end = -1; // do we need to add a Hit::Type::None to the end of the hit list?

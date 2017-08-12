@@ -152,6 +152,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		UpdateCounts,
 		SetInstance,
 		MakeAdmin,
+		Kick,
 		TeamSchedule,
 		TeamSwitch,
 		count,
@@ -217,6 +218,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	Upgrade upgrade_highest_owned_or_available() const;
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
 	s16 upgrade_cost(Upgrade) const;
+	void kick(PlayerManager*);
 	void add_energy(s32);
 	void add_energy_and_notify(s32);
 	void add_kills(s32);

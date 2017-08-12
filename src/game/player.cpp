@@ -76,16 +76,32 @@ r32 hp_width(u8 hp, s8 shield, r32 scale = 1.0f)
 	return scale * ((shield + (hp - 1)) * (box_size.x + HP_BOX_SPACING) - HP_BOX_SPACING);
 }
 
-void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, r32 offset)
+void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, Vec3* camera_center, r32* smoothness, r32 offset)
 {
 	Quat lerped_rot = e->get<Drone>()->lerped_rotation;
-	Vec3 lerped_pos = e->get<Drone>()->center_lerped();
 	Quat abs_rot;
 	Vec3 abs_pos;
 	e->get<Transform>()->absolute(&abs_pos, &abs_rot);
 
+	Vec3 final_camera_center;
+	{
+		Vec3 lerped_pos = e->get<Drone>()->center_lerped();
+		if (camera_center)
+		{
+			if (e->get<Drone>()->state() == Drone::State::Crawl)
+				*smoothness = vi_max(0.0f, *smoothness - Game::time.delta);
+			else
+				*smoothness = 1.0f;
+
+			*camera_center += (lerped_pos - *camera_center) * vi_min(1.0f, LMath::lerpf(Ease::cubic_in_out<r32>(*smoothness), 250.0f, 4.0f) * Game::time.delta);
+			final_camera_center = *camera_center;
+		}
+		else
+			final_camera_center = lerped_pos;
+	}
+
 	Vec3 abs_offset = camera->rot * Vec3(0, 0, -offset);
-	camera->pos = lerped_pos + abs_offset;
+	camera->pos = final_camera_center + abs_offset;
 	Vec3 camera_pos_final = abs_pos + abs_offset;
 	Vec3 abs_wall_normal;
 
@@ -172,7 +188,7 @@ PlayerHuman* PlayerHuman::player_for_gamepad(s8 gamepad)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->gamepad == gamepad)
+		if (i.item()->local && i.item()->gamepad == gamepad)
 			return i.item();
 	}
 	return nullptr;
@@ -262,6 +278,8 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	angle_vertical(),
 	menu_state(),
 	kill_cam_rot(),
+	camera_center(),
+	camera_smoothness(),
 	rumble(),
 	animation_time(),
 	upgrade_last_visit_highest_available(Upgrade::None),
@@ -332,6 +350,7 @@ PlayerHuman::~PlayerHuman()
 		Audio::listener_disable(gamepad);
 	}
 #if SERVER
+	Net::Server::player_deleting(this);
 	AI::record_close(ai_record_id);
 	ai_record_id = 0;
 #endif
@@ -1043,7 +1062,7 @@ void PlayerHuman::update(const Update& u)
 					Entity* spectating = live_player_get(spectate_index);
 
 					if (spectating)
-						camera_setup_drone(spectating, camera.ref(), 6.0f);
+						camera_setup_drone(spectating, camera.ref(), &camera_center, &camera_smoothness, 6.0f);
 				}
 			}
 			break;
@@ -1105,7 +1124,7 @@ void PlayerHuman::update_late(const Update& u)
 		if (e)
 		{
 			camera.ref()->rot = Quat::euler(0.0f, PI * 0.25f, PI * 0.25f);
-			camera_setup_drone(e, camera.ref(), 6.0f);
+			camera_setup_drone(e, camera.ref(), &camera_center, &camera_smoothness, 6.0f);
 		}
 	}
 	
@@ -2196,8 +2215,8 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 		if (k)
 		{
 			RenderSync* sync = params.sync;
-			sync->write(RenderOp::DepthFunc);
-			sync->write(RenderDepthFunc::Greater);
+			sync->write(RenderOp::DepthTest);
+			sync->write(false);
 
 			{
 				RenderParams p = params;
@@ -2208,8 +2227,8 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 					k->get<SkinnedModel>()->draw(p);
 			}
 
-			sync->write(RenderOp::DepthFunc);
-			sync->write(RenderDepthFunc::Less);
+			sync->write(RenderOp::DepthTest);
+			sync->write(true);
 		}
 	}
 }
@@ -2602,10 +2621,10 @@ void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerCo
 			// calculate target intersection trajectory
 			Vec3 intersection;
 			if (p->get<Drone>()->predict_intersection(target, nullptr, &intersection, p->get<Drone>()->target_prediction_speed()))
-				p->target_indicators.add({ intersection, target->velocity(), type });
+				p->target_indicators.add({ intersection, target->velocity(), target, type });
 		}
 		else // just show the target's actual position
-			p->target_indicators.add({ target->absolute_pos(), target->velocity(), type });
+			p->target_indicators.add({ target->absolute_pos(), target->velocity(), target, type });
 	}
 }
 
@@ -2822,6 +2841,9 @@ void PlayerControlHuman::awake()
 					player.ref()->msg(_(strings::attack), true);
 			}
 		}
+
+		player.ref()->camera_center = get<Drone>()->center_lerped();
+		player.ref()->camera_smoothness = 0.0f;
 	}
 	else
 	{
@@ -3494,7 +3516,7 @@ void PlayerControlHuman::update(const Update& u)
 
 			camera_shake_update(u, camera);
 
-			PlayerHuman::camera_setup_drone(entity(), camera, DRONE_THIRD_PERSON_OFFSET);
+			PlayerHuman::camera_setup_drone(entity(), camera, &player.ref()->camera_center, &player.ref()->camera_smoothness, DRONE_THIRD_PERSON_OFFSET);
 
 			// reticle
 			{
@@ -3507,21 +3529,58 @@ void PlayerControlHuman::update(const Update& u)
 				if (movement_enabled())
 				{
 					Vec3 trace_end = trace_start + trace_dir * DRONE_SNIPE_DISTANCE;
-					RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-					for (auto i = UpgradeStation::list.iterator(); !i.is_last(); i.next()) // ignore drones inside upgrade stations
+
+					struct RayHit
 					{
-						if (i.item()->drone.ref())
-							ray_callback.ignore(i.item()->drone.ref()->entity());
+						Entity* entity;
+						Vec3 pos;
+						Vec3 normal;
+						b8 hit;
+					};
+
+					RayHit ray_callback;
+
+					{
+						RaycastCallbackExcept physics_ray_callback(trace_start, trace_end, entity());
+						for (auto i = UpgradeStation::list.iterator(); !i.is_last(); i.next()) // ignore drones inside upgrade stations
+						{
+							if (i.item()->drone.ref())
+								physics_ray_callback.ignore(i.item()->drone.ref()->entity());
+						}
+						Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
+
+						ray_callback.hit = physics_ray_callback.hasHit();
+						ray_callback.pos = physics_ray_callback.m_hitPointWorld;
+						ray_callback.normal = physics_ray_callback.m_hitNormalWorld;
+						if (ray_callback.hit)
+							ray_callback.entity = &Entity::list[physics_ray_callback.m_collisionObject->getUserIndex()];
 					}
-					Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
 
 					Ability ability = get<Drone>()->current_ability;
 
-					if (ray_callback.hasHit())
+					if (ability == Ability::None)
 					{
-						reticle.pos = ray_callback.m_hitPointWorld;
-						reticle.normal = ray_callback.m_hitNormalWorld;
-						Entity* hit_entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+						// check drone target predictions
+						for (s32 i = 0; i < target_indicators.length; i++)
+						{
+							const TargetIndicator& indicator = target_indicators[i];
+							Vec3 intersection;
+							if (indicator.type == TargetIndicator::Type::DroneVisible
+								&& LMath::ray_sphere_intersect(trace_start, trace_end, indicator.pos, DRONE_SHIELD_RADIUS, &intersection)
+								&& (!ray_callback.hit || (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared()))
+							{
+								ray_callback.hit = true;
+								ray_callback.pos = intersection;
+								ray_callback.normal = Vec3::normalize(intersection - indicator.pos);
+								ray_callback.entity = indicator.target.ref()->entity();
+							}
+						}
+					}
+
+					if (ray_callback.hit)
+					{
+						reticle.pos = ray_callback.pos;
+						reticle.normal = ray_callback.normal;
 						Vec3 detach_dir = reticle.pos - me;
 						r32 distance = detach_dir.length();
 						detach_dir /= distance;
@@ -3540,15 +3599,15 @@ void PlayerControlHuman::update(const Update& u)
 							else if (get<Drone>()->direction_is_toward_attached_wall(detach_dir))
 							{
 								r32 range = get<Drone>()->range();
-								if ((Vec3(ray_callback.m_hitPointWorld) - me).length_squared() < range * range)
+								if ((ray_callback.pos - me).length_squared() < range * range)
 								{
-									if (hit_entity->has<Target>())
+									if (ray_callback.entity->has<Target>())
 										reticle.type = ReticleType::DashTarget;
-									else if (!(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
+									else if (!(ray_callback.entity->get<RigidBody>()->collision_group & DRONE_INACCESSIBLE_MASK))
 										reticle.type = ReticleType::DashCombo;
 								}
 							}
-							else if (hit_entity->has<Target>())
+							else if (ray_callback.entity->has<Target>())
 							{
 								// when you're aiming at a target that is attached to the same surface you are,
 								// sometimes the point you're aiming at is actually away from the wall,
@@ -3557,7 +3616,7 @@ void PlayerControlHuman::update(const Update& u)
 								// so we need to check for this case and turn it into a dash if we can.
 
 								// check if they're in range and close enough to our wall
-								Vec3 to_target = hit_entity->get<Target>()->absolute_pos() - me;
+								Vec3 to_target = ray_callback.entity->get<Target>()->absolute_pos() - me;
 								if (to_target.length_squared() < DRONE_DASH_DISTANCE * DRONE_DASH_DISTANCE
 									&& fabsf(to_target.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < DRONE_SHIELD_RADIUS)
 									reticle.type = ReticleType::Dash;
@@ -3575,7 +3634,7 @@ void PlayerControlHuman::update(const Update& u)
 									if (hit_target)
 										reticle.type = ReticleType::Target;
 								}
-								else if ((hit - Vec3(ray_callback.m_hitPointWorld)).length_squared() < DRONE_RADIUS * DRONE_RADIUS)
+								else if ((hit - ray_callback.pos).length_squared() < DRONE_RADIUS * DRONE_RADIUS)
 									reticle.type = ReticleType::Normal;
 							}
 						}
@@ -3587,7 +3646,7 @@ void PlayerControlHuman::update(const Update& u)
 						if (ability != Ability::None
 							&& get<Drone>()->can_spawn(ability, trace_dir)) // spawning an ability
 						{
-							reticle.type = ReticleType::Target;
+							reticle.type = ReticleType::Normal;
 						}
 					}
 				}

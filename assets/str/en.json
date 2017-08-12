@@ -118,6 +118,9 @@
 	"prompt_connect": "[{{Interact}}] Connect",
 	"prompt_entry_edit": "[{{UIContextAction}}] Edit",
 	"prompt_entry_save": "[{{UIContextAction}}] Save",
+	"prompt_kick": "[{{UIContextAction}}] Kick",
+	"confirm_kick": "Kick %s?",
+	"kicked": "You were kicked!",
 	"entry_create": "Create new server",
 	"entry_saving": "Saving server config...",
 	"entry_saved": "Saved changes.",
@@ -174,6 +177,7 @@
 	"description_bolter": "Rapid-fire projectile weapon.",
 	"active_armor": "Active Armor",
 	"description_active_armor": "Deflect all incoming damage back at enemies.",
+	"player_kicked": "%s kicked!",
 
 	"map_by": "%s - by %s",
 	"tab_map": "Map",

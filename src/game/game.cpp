@@ -1512,7 +1512,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 								if (i > 0)
 								{
 									char number[5] = {};
-									snprintf(number, 4, " [%d]", i + 1);
+									snprintf(number, 5, " [%d]", i + 1);
 									Font::truncate(username, MAX_USERNAME, number, Font::EllipsisMode::Always);
 								}
 							}

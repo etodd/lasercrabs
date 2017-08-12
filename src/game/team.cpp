@@ -791,13 +791,13 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	return true;
 }
 
-void team_stats(s32* team_counts, AI::Team* smallest_team, AI::Team* largest_team)
+void team_stats(s32* team_counts, s32 team_count, AI::Team* smallest_team, AI::Team* largest_team)
 {
 	s32 smallest_count = MAX_PLAYERS;
 	s32 largest_count = 0;
 	*smallest_team = 0;
 	*largest_team = 0;
-	for (s32 i = 0; i < MAX_TEAMS; i++)
+	for (s32 i = 0; i < team_count; i++)
 	{
 		if (team_counts[i] < smallest_count)
 		{
@@ -829,7 +829,7 @@ void team_balance(b8 move_humans)
 
 	AI::Team largest_team;
 	AI::Team smallest_team;
-	team_stats(team_counts, &smallest_team, &largest_team);
+	team_stats(team_counts, Team::list.count(), &smallest_team, &largest_team);
 	while (team_counts[largest_team] > team_counts[smallest_team] + 1)
 	{
 		// move a player from the largest team to the smallest
@@ -849,7 +849,7 @@ void team_balance(b8 move_humans)
 			team_counts[largest_team]--;
 			team_counts[smallest_team]++;
 			victim->team_scheduled = smallest_team;
-			team_stats(team_counts, &smallest_team, &largest_team);
+			team_stats(team_counts, Team::list.count(), &smallest_team, &largest_team);
 		}
 		else if (move_humans) // we should be able to balance teams if we're allowed to move humans
 			vi_assert(false);
@@ -1330,6 +1330,26 @@ namespace PlayerManagerNet
 		return true;
 	}
 
+	b8 kick(PlayerManager* kicker, PlayerManager* kickee)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = kicker;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::Kick;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		{
+			Ref<PlayerManager> ref = kickee;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+
 	b8 update_counts(PlayerManager* m)
 	{
 		using Stream = Net::StreamWrite;
@@ -1371,170 +1391,256 @@ void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
 b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
-	if (src != Net::MessageSource::Invalid)
+
+	if (src == Net::MessageSource::Invalid)
+		net_error();
+
+	switch (msg)
 	{
-		switch (msg)
+		case Message::CanSpawn:
 		{
-			case Message::CanSpawn:
+			b8 value;
+			serialize_bool(p, value);
+
+			if (!m)
+				return true;
+
+			if (!Game::level.local || src == Net::MessageSource::Loopback)
+				m->can_spawn = value;
+
+			if (Game::level.local
+				&& src == Net::MessageSource::Remote
+				&& (value || Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)) // once the match starts, can_spawn can not go false
 			{
-				b8 value;
-				serialize_bool(p, value);
-
-				if (!Game::level.local || src == Net::MessageSource::Loopback)
-					m->can_spawn = value;
-
-				if (Game::level.local
-					&& src == Net::MessageSource::Remote
-					&& (value || Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)) // once the match starts, can_spawn can not go false
+				if (value && m->team_scheduled != AI::TeamNone)
 				{
-					if (value && m->team_scheduled != AI::TeamNone)
+					b8 valid;
+					if (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
+						valid = true;
+					else if (m->team_scheduled == m->team.ref()->team())
+						valid = true;
+					else
 					{
-						b8 valid;
-						if (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
-							valid = true;
-						else if (m->team_scheduled == m->team.ref()->team())
-							valid = true;
-						else
-						{
-							// make sure teams will still be even
-							s32 least_players;
-							Team::with_least_players(&least_players);
-							if (least_players == m->team.ref()->player_count())
-								least_players--; // this team would also be losing a player
-							valid = Team::list[m->team_scheduled].player_count() + 1 <= least_players + 1;
-						}
+						// make sure teams will still be even
+						s32 least_players;
+						Team::with_least_players(&least_players);
+						if (least_players == m->team.ref()->player_count())
+							least_players--; // this team would also be losing a player
+						valid = Team::list[m->team_scheduled].player_count() + 1 <= least_players + 1;
+					}
 
-						if (valid) // actually switch teams
-						{
-							PlayerManagerNet::team_switch(m, m->team_scheduled);
-							if (!m->can_spawn)
-								PlayerManagerNet::can_spawn(m, value); // repeat to all clients
-						}
-						else
-							PlayerManagerNet::team_switch(m, m->team.ref()->team()); // keep their same team (clears team_scheduled)
+					if (valid) // actually switch teams
+					{
+						PlayerManagerNet::team_switch(m, m->team_scheduled);
+						if (!m->can_spawn)
+							PlayerManagerNet::can_spawn(m, value); // repeat to all clients
 					}
 					else
-						PlayerManagerNet::can_spawn(m, value); // repeat to all clients
+						PlayerManagerNet::team_switch(m, m->team.ref()->team()); // keep their same team (clears team_scheduled)
 				}
-				break;
+				else
+					PlayerManagerNet::can_spawn(m, value); // repeat to all clients
 			}
-			case Message::TeamSchedule:
+			break;
+		}
+		case Message::TeamSchedule:
+		{
+			AI::Team t;
+			serialize_s8(p, t);
+
+			if (!m)
+				return true;
+
+			if (Team::match_state != Team::MatchState::Done
+				&& (Game::level.local || src == Net::MessageSource::Remote)
+				&& (t == AI::TeamNone || (t >= 0 && t < Team::list.count())))
 			{
-				AI::Team t;
-				serialize_s8(p, t);
-				if (Team::match_state != Team::MatchState::Done
-					&& (Game::level.local || src == Net::MessageSource::Remote)
-					&& (t == AI::TeamNone || (t >= 0 && t < Team::list.count())))
-				{
-					if (Game::level.local && src == Net::MessageSource::Remote) // repeat it to all clients
-						PlayerManagerNet::team_schedule(m, t);
-					else
-						m->team_scheduled = t;
-				}
-				break;
+				if (Game::level.local && src == Net::MessageSource::Remote) // repeat it to all clients
+					PlayerManagerNet::team_schedule(m, t);
+				else
+					m->team_scheduled = t;
 			}
-			case Message::TeamSwitch:
+			break;
+		}
+		case Message::TeamSwitch:
+		{
+			AI::Team t;
+			serialize_s8(p, t);
+
+			if (!m)
+				return true;
+
+			if (!Game::level.local || src == Net::MessageSource::Loopback)
 			{
-				AI::Team t;
-				serialize_s8(p, t);
-				if (!Game::level.local || src == Net::MessageSource::Loopback)
-				{
-					if (Game::level.local
-						&& m->team.ref()->team() != t
-						&& m->instance.ref())
-						m->instance.ref()->get<Health>()->kill(nullptr);
-					m->team = &Team::list[t];
-					m->team_scheduled = AI::TeamNone;
-					if (m->has<PlayerHuman>())
-						m->get<PlayerHuman>()->team_set(t);
-					m->clear_ownership();
-				}
-				break;
-			}
-			case Message::SpawnSelect:
-			{
-				Ref<SpawnPoint> ref;
-				serialize_ref(p, ref);
 				if (Game::level.local
-					&& Team::match_state == Team::MatchState::Active
-					&& m->spawn_timer == 0.0f
-					&& m->respawns != 0
-					&& !m->instance.ref()
-					&& m->can_spawn
-					&& ref.ref() && ref.ref()->team == m->team.ref()->team())
+					&& m->team.ref()->team() != t
+					&& m->instance.ref())
+					m->instance.ref()->get<Health>()->kill(nullptr);
+				m->team = &Team::list[t];
+				m->team_scheduled = AI::TeamNone;
+				if (m->has<PlayerHuman>())
+					m->get<PlayerHuman>()->team_set(t);
+				m->clear_ownership();
+			}
+			break;
+		}
+		case Message::SpawnSelect:
+		{
+			Ref<SpawnPoint> ref;
+			serialize_ref(p, ref);
+
+			if (!m)
+				return true;
+
+			if (Game::level.local
+				&& Team::match_state == Team::MatchState::Active
+				&& m->spawn_timer == 0.0f
+				&& m->respawns != 0
+				&& !m->instance.ref()
+				&& m->can_spawn
+				&& ref.ref() && ref.ref()->team == m->team.ref()->team())
+			{
+#if SERVER
+				if (m->has<PlayerHuman>())
+				{
+					AI::RecordedLife::Tag tag;
+					tag.init(m);
+
+					AI::RecordedLife::Action action;
+					action.type = AI::RecordedLife::Action::TypeSpawn;
+					Quat rot;
+					ref.ref()->get<Transform>()->absolute(&action.pos, &rot);
+					action.normal = rot * Vec3(0, 0, 1);
+					AI::record_add(m->get<PlayerHuman>()->ai_record_id, tag, action);
+				}
+#endif
+				internal_spawn_go(m, ref.ref());
+			}
+		}
+		case Message::ScoreAccept:
+		{
+			if (!m)
+				return true;
+			m->score_accepted = true;
+			break;
+		}
+		case Message::UpgradeCompleted:
+		{
+			s32 index;
+			serialize_int(p, s32, index, 0, MAX_ABILITIES - 1);
+			Upgrade u;
+			serialize_enum(p, Upgrade, u);
+
+			if (!m)
+				return true;
+
+			if (!Game::level.local || src == Net::MessageSource::Loopback)
+			{
+				m->upgrades |= 1 << s32(u);
+				m->abilities[index] = Ability(u);
+				m->ability_purchase_times[index] = Game::time.total;
+				m->upgrade_completed.fire(u);
+			}
+			break;
+		}
+		case Message::UpdateCounts:
+		{
+			s16 kills;
+			s16 deaths;
+			s16 respawns;
+			serialize_s16(p, kills);
+			serialize_s16(p, deaths);
+			serialize_s16(p, respawns);
+
+			if (!m)
+				return true;
+		
+			if (!Game::level.local || src == Net::MessageSource::Loopback) // server does not accept these messages from clients
+			{
+				m->kills = kills;
+				m->deaths = deaths;
+				m->respawns = respawns;
+			}
+			break;
+		}
+		case Message::SetInstance:
+		{
+			Ref<Entity> i;
+			serialize_ref(p, i);
+
+			if (!m)
+				return true;
+
+			if (!Game::level.local || src == Net::MessageSource::Loopback)
+				m->instance = i;
+			break;
+		}
+		case Message::MakeAdmin:
+		{
+			if (!m)
+				return true;
+
+			if (!Game::level.local || src == Net::MessageSource::Loopback)
+				m->is_admin = true;
+			break;
+		}
+		case Message::Kick:
+		{
+			Ref<PlayerManager> kickee;
+			serialize_ref(p, kickee);
+
+			if (!m)
+				return true;
+
+			if (!m->is_admin || m == kickee.ref())
+				net_error();
+
+			if (Game::level.local)
+			{
+				if (src == Net::MessageSource::Remote)
+				{
+					if (kickee.ref() && kickee.ref()->has<PlayerHuman>())
+						PlayerManagerNet::kick(m, kickee.ref()); // repeat for other clients and ourselves
+				}
+				else // loopback
 				{
 #if SERVER
-					if (m->has<PlayerHuman>())
-					{
-						AI::RecordedLife::Tag tag;
-						tag.init(m);
-
-						AI::RecordedLife::Action action;
-						action.type = AI::RecordedLife::Action::TypeSpawn;
-						Quat rot;
-						ref.ref()->get<Transform>()->absolute(&action.pos, &rot);
-						action.normal = rot * Vec3(0, 0, 1);
-						AI::record_add(m->get<PlayerHuman>()->ai_record_id, tag, action);
-					}
+					ID client_id = Net::Server::client_id(kickee.ref()->get<PlayerHuman>());
 #endif
-					internal_spawn_go(m, ref.ref());
+					Entity* instance = kickee.ref()->instance.ref();
+					if (instance)
+						World::remove_deferred(instance);
+					World::remove_deferred(kickee.ref()->entity());
+#if SERVER
+					b8 client_has_other_players = false;
+					for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+					{
+						if (i.item() != kickee.ref()->get<PlayerHuman>() && Net::Server::client_id(i.item()) == client_id)
+						{
+							client_has_other_players = true;
+							break;
+						}
+					}
+
+					if (!client_has_other_players)
+						Net::Server::client_force_disconnect(client_id, Net::DisconnectReason::Kicked);
+	#endif
 				}
 			}
-			case Message::ScoreAccept:
+
+			if (Game::level.local == (src == Net::MessageSource::Loopback))
 			{
-				m->score_accepted = true;
-				break;
+				// display notification
+				char buffer[UI_TEXT_MAX];
+				snprintf(buffer, UI_TEXT_MAX, _(strings::player_kicked), kickee.ref()->username);
+				PlayerHuman::log_add(buffer, kickee.ref()->team.ref()->team(), AI::TeamAll);
 			}
-			case Message::UpgradeCompleted:
-			{
-				s32 index;
-				serialize_int(p, s32, index, 0, MAX_ABILITIES - 1);
-				Upgrade u;
-				serialize_enum(p, Upgrade, u);
-				if (!Game::level.local || src == Net::MessageSource::Loopback)
-				{
-					m->upgrades |= 1 << s32(u);
-					m->abilities[index] = Ability(u);
-					m->ability_purchase_times[index] = Game::time.total;
-					m->upgrade_completed.fire(u);
-				}
-				break;
-			}
-			case Message::UpdateCounts:
-			{
-				s16 kills;
-				s16 deaths;
-				s16 respawns;
-				serialize_s16(p, kills);
-				serialize_s16(p, deaths);
-				serialize_s16(p, respawns);
-				if (!Game::level.local || src == Net::MessageSource::Loopback) // server does not accept these messages from clients
-				{
-					m->kills = kills;
-					m->deaths = deaths;
-					m->respawns = respawns;
-				}
-				break;
-			}
-			case Message::SetInstance:
-			{
-				Ref<Entity> i;
-				serialize_ref(p, i);
-				if (!Game::level.local || src == Net::MessageSource::Loopback)
-					m->instance = i;
-				break;
-			}
-			case Message::MakeAdmin:
-			{
-				if (!Game::level.local || src == Net::MessageSource::Loopback)
-					m->is_admin = true;
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
 		}
 	}
 	return true;
@@ -1663,6 +1769,12 @@ void PlayerManager::make_admin()
 {
 	vi_assert(Game::level.local);
 	PlayerManagerNet::make_admin(this);
+}
+
+void PlayerManager::kick(PlayerManager* kickee)
+{
+	vi_assert(is_admin && kickee != this);
+	PlayerManagerNet::kick(this, kickee);
 }
 
 PlayerManager::State PlayerManager::state() const

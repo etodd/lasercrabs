@@ -127,6 +127,7 @@ enum class DisconnectReason : s8
 	ServerFull,
 	WrongVersion,
 	AuthFailed,
+	Kicked,
 	count,
 };
 
@@ -151,6 +152,8 @@ namespace Server
 	b8 sync_time();
 	r32 rtt(const PlayerHuman*, SequenceID);
 	ID client_id(const PlayerHuman*);
+	void player_deleting(const PlayerHuman*);
+	void client_force_disconnect(ID, DisconnectReason);
 }
 #else
 namespace Client

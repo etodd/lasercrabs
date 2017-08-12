@@ -24,10 +24,18 @@ struct UIMenu
 
 	struct Item
 	{
+		enum class Type : s8
+		{
+			Button,
+			Slider,
+			Text,
+			count,
+		};
+
 		AssetID icon;
 		UIText label;
 		UIText value;
-		b8 slider;
+		Type type;
 	};
 
 	static void text_clip_timer(UIText*, r32, r32, s32 = 0);
@@ -55,8 +63,9 @@ struct UIMenu
 	r32 height() const;
 	void start(const Update&, s8, b8 = true);
 	const Item* last_visible_item() const;
-	b8 add_item(b8, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
+	b8 add_item(Item::Type, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	b8 item(const Update&, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
+	b8 text(const Update&, const char*, const char* = nullptr, b8 = true, AssetID = AssetNull);
 	s32 slider_item(const Update&, const char*, const char*, b8 = false, AssetID = AssetNull);
 	void draw_ui(const RenderParams&, const Vec2&, UIText::Anchor, UIText::Anchor) const;
 	void end();

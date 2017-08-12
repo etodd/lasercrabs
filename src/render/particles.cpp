@@ -655,7 +655,8 @@ StandardParticleSystem Particles::tracers
 	Vec2(0.0f),
 	3.0f,
 	Vec3::zero,
-	Vec4(1, 1, 1, 1)
+	Vec4(1, 1, 1, 1),
+	Asset::Shader::particle_limited_size
 );
 
 const Vec2 rain_size(0.01f, 0.5f);

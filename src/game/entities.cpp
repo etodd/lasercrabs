@@ -2007,7 +2007,7 @@ void Bolt::update_server(const Update& u)
 r32 Bolt::particle_accumulator;
 void Bolt::update_client_all(const Update& u)
 {
-	const r32 particle_interval = 0.05f;
+	const r32 particle_interval = 0.025f;
 	particle_accumulator += u.time.delta;
 	while (particle_accumulator > particle_interval)
 	{
@@ -2404,7 +2404,7 @@ r32 Grenade::particle_accumulator;
 void Grenade::update_client_all(const Update& u)
 {
 	// normal particles
-	const r32 interval = 0.1f;
+	const r32 interval = 0.05f;
 	particle_accumulator += u.time.delta;
 	while (particle_accumulator > interval)
 	{

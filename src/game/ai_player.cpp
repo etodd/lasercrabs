@@ -1427,7 +1427,7 @@ void PlayerControlAI::update(const Update& u)
 	r32 aspect = camera.ref()->viewport.size.y == 0 ? 1 : camera.ref()->viewport.size.x / camera.ref()->viewport.size.y;
 	camera.ref()->perspective(80.0f * PI * 0.5f / 180.0f, aspect, 0.02f, Game::level.skybox.far_plane);
 	camera.ref()->rot = Quat::euler(0.0f, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
-	PlayerHuman::camera_setup_drone(entity(), camera.ref(), DRONE_THIRD_PERSON_OFFSET);
+	PlayerHuman::camera_setup_drone(entity(), camera.ref(), nullptr, nullptr, DRONE_THIRD_PERSON_OFFSET);
 #endif
 }
 

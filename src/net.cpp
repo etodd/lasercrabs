@@ -2344,6 +2344,15 @@ void update(const Update& u, r32 dt)
 	}
 }
 
+void client_force_disconnect(ID id, DisconnectReason reason)
+{
+	Client* client = &state_server.clients[id];
+	StreamWrite p;
+	packet_build_disconnect(&p, reason);
+	packet_send(p, client->address);
+	handle_client_disconnect(client);
+}
+
 void tick(const Update& u, r32 dt)
 {
 	if (state_server.mode == Mode::Active)
@@ -2741,7 +2750,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 
 				serialize_player_control(p, &control);
 
-				if (most_recent && client_owns(client, c->entity()))
+				if (most_recent && PlayerControlHuman::list.active(id) && client_owns(client, c->entity()))
 					c->remote_control_handle(control);
 			}
 
@@ -2852,9 +2861,9 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 			PlayerManager::Message msg;
 			serialize_enum(p, PlayerManager::Message, msg);
 
-			b8 valid = m.ref()
-				&& (client_owns(client, m.ref()->entity())
-					|| (client->is_admin && (msg == PlayerManager::Message::TeamSchedule || msg == PlayerManager::Message::CanSpawn)));
+			b8 valid = !m.ref()
+				|| client_owns(client, m.ref()->entity())
+				|| (client->is_admin && (msg == PlayerManager::Message::TeamSchedule || msg == PlayerManager::Message::CanSpawn));
 			if (!PlayerManager::net_msg(p, m.ref(), msg, valid ? MessageSource::Remote : MessageSource::Invalid))
 				net_error();
 			break;
@@ -2976,7 +2985,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 						if (gamepad > 0)
 						{
 							char number[5] = {};
-							snprintf(number, 4, " [%d]", s32(gamepad + 1));
+							snprintf(number, 5, " [%d]", s32(gamepad + 1));
 							Font::truncate(manager->username, MAX_USERNAME, number, Font::EllipsisMode::Always);
 						}
 						PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
@@ -3076,6 +3085,22 @@ void reset()
 
 	for (s32 i = 0; i < expected_clients.length; i++)
 		state_server.expected_clients.add(expected_clients[i]);
+}
+
+void player_deleting(const PlayerHuman* player)
+{
+	Server::Client* client = Server::client_for_player(player);
+	if (client)
+	{
+		for (s32 i = 0; i < client->players.length; i++)
+		{
+			if (client->players[i].ref() == player)
+			{
+				client->players.remove(i);
+				i--;
+			}
+		}
+	}
 }
 
 // this is meant for external consumption in the game code.

@@ -558,35 +558,26 @@ void update(const Update& u)
 				{
 					case Net::DisconnectReason::Timeout:
 					case Net::DisconnectReason::SequenceGap:
-					{
 						Game::scheduled_dialog = strings::connection_failed;
 						break;
-					}
 					case Net::DisconnectReason::ServerFull:
-					{
 						Game::scheduled_dialog = strings::server_full;
 						break;
-					}
 					case Net::DisconnectReason::ServerResetting:
-					{
 						Game::scheduled_dialog = strings::server_resetting;
 						break;
-					}
 					case Net::DisconnectReason::WrongVersion:
-					{
 						Game::scheduled_dialog = strings::need_upgrade;
 						break;
-					}
 					case Net::DisconnectReason::AuthFailed:
-					{
 						Game::scheduled_dialog = strings::auth_failed;
 						break;
-					}
+					case Net::DisconnectReason::Kicked:
+						Game::scheduled_dialog = strings::kicked;
+						break;
 					default:
-					{
 						vi_assert(false);
 						break;
-					}
 				}
 				break;
 			}
@@ -1263,6 +1254,21 @@ void teams_select_match_start_init(PlayerHuman* player)
 	manager->team_schedule(manager->team.ref()->team());
 }
 
+void teams_kick_player(s8 gamepad)
+{
+	PlayerManager* player = teams_selected_player[gamepad].ref();
+	if (player)
+	{
+		PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+		me->kick(player);
+	}
+}
+
+void teams_kick_cancel(s8 gamepad)
+{
+	teams_selected_player[gamepad] = nullptr;
+}
+
 // returns true if the team menu should stay open
 b8 teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 {
@@ -1276,11 +1282,23 @@ b8 teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 	if (mode == TeamSelectMode::Normal && menu->item(u, _(strings::back)))
 		exit = true;
 
+	if (me->is_admin)
+		menu->text(u, _(strings::prompt_kick));
+
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
 		const char* value = _(Team::name_selector(i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled));
 		b8 disabled = (selected && i.item() != selected) || (i.item() != me && !me->is_admin && mode != TeamSelectMode::MatchStart);
 		AssetID icon = i.item()->can_spawn ? Asset::Mesh::icon_checkmark : AssetNull;
+
+		if (menu->selected == menu->items.length && me->is_admin && me != i.item() && i.item()->has<PlayerHuman>()
+			&& !u.input->get(Controls::UIContextAction, gamepad) && u.last_input->get(Controls::UIContextAction, gamepad))
+		{
+			// kick 'em!
+			teams_selected_player[gamepad] = i.item();
+			Menu::dialog_with_cancel(gamepad, &teams_kick_player, &teams_kick_cancel, _(strings::confirm_kick), i.item()->username);
+		}
+
 		if (i.item() == selected)
 		{
 			// player selected; we can switch their team
@@ -1387,11 +1405,11 @@ void UIMenu::start(const Update& u, s8 g, b8 input)
 	}
 }
 
-b8 UIMenu::add_item(b8 slider, const char* string, const char* value, b8 disabled, AssetID icon)
+b8 UIMenu::add_item(Item::Type type, const char* string, const char* value, b8 disabled, AssetID icon)
 {
 	Item* item = items.add();
 	item->icon = icon;
-	item->slider = slider;
+	item->type = type;
 	item->label.size = item->value.size = MENU_ITEM_FONT_SIZE;
 	if (value)
 		item->label.wrap_width = MENU_ITEM_VALUE_OFFSET - MENU_ITEM_PADDING - MENU_ITEM_PADDING_LEFT;
@@ -1414,10 +1432,26 @@ b8 UIMenu::add_item(b8 slider, const char* string, const char* value, b8 disable
 	return true;
 }
 
+b8 UIMenu::text(const Update& u, const char* string, const char* value, b8 disabled, AssetID icon)
+{
+	if (selected == items.length)
+	{
+		// this item can never be selected
+		s32 delta = UI::input_delta_vertical(u, gamepad);
+		if (delta == 0)
+			delta = items.length > 0 ? -1 : 1;
+		selected += delta;
+	}
+
+	if (!add_item(Item::Type::Text, string, value, disabled, icon))
+		return false;
+	return true;
+}
+
 // render a single menu item and increment the position for the next item
 b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disabled, AssetID icon)
 {
-	if (!add_item(false, string, value, disabled, icon))
+	if (!add_item(Item::Type::Button, string, value, disabled, icon))
 		return false;
 
 	if (Console::visible || active[gamepad] != this || Menu::dialog_active(gamepad))
@@ -1439,7 +1473,7 @@ b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disab
 
 s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b8 disabled, AssetID icon)
 {
-	if (!add_item(true, label, value, disabled, icon))
+	if (!add_item(Item::Type::Slider, label, value, disabled, icon))
 		return 0;
 
 	if (Console::visible || active[gamepad] != this)
@@ -1470,6 +1504,13 @@ void UIMenu::end()
 		selected = items.length - 1;
 	if (selected >= items.length)
 		selected = 0;
+
+	// make sure we don't have a text item selected
+	if (items.length > 0)
+	{
+		while (selected > 0 && items[selected].type == Item::Type::Text)
+			selected--;
+	}
 
 	scroll.scroll_into_view(selected);
 }
@@ -1614,7 +1655,7 @@ void UIMenu::draw_ui(const RenderParams& params, const Vec2& origin, UIText::Anc
 		{
 			if (item.value.has_text())
 				item.value.draw(params, pos + Vec2(MENU_ITEM_VALUE_OFFSET, 0));
-			if (item.slider)
+			if (item.type == Item::Type::Slider)
 			{
 				Rect2 down_rect = rect;
 				{

@@ -37,6 +37,7 @@ void main()
 	}
 
 	float size = (dt < fade_in ? max(0.0, dt / fade_in) : 1.0) * (in_param.y + (in_param.z - in_param.y) * (dt / lifetime));
+	size = min(size / projected.w, 0.025) * projected.w;
 	projected.xy += rotation * ((in_uv * 2.0) - 1.0) * size * p[1][1] * viewport_scale;
 
 	gl_Position = projected;

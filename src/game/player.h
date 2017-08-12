@@ -94,7 +94,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static PlayerHuman* player_for_gamepad(s8);
 	static void log_add(const char*, AI::Team = AI::TeamNone, AI::TeamMask = AI::TeamAll, const char* = nullptr, AI::Team = AI::TeamNone);
 	static void clear();
-	static void camera_setup_drone(Entity*, Camera*, r32);
+	static void camera_setup_drone(Entity*, Camera*, Vec3*, r32*, r32);
 	static void draw_logs(const RenderParams&, AI::Team, s8);
 
 	Array<SupportEntry> last_supported;
@@ -103,6 +103,8 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	UIScroll score_summary_scroll;
 	UIText msg_text;
 	Quat kill_cam_rot;
+	Vec3 camera_center;
+	r32 camera_smoothness;
 	r32 msg_timer;
 	r32 animation_time;
 	r32 select_spawn_timer; // also used for spawn letterbox animation
@@ -238,6 +240,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 		Vec3 pos;
 		Vec3 velocity;
+		Ref<Target> target;
 		Type type;
 	};
 

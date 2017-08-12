@@ -329,6 +329,7 @@ set(SRC
 	src/game/sudoku.cpp
 	external/sdl_controllers/gamecontrollerdb.txt
 	assets/shader/particle_standard.glsl
+	assets/shader/particle_limited_size.glsl
 	assets/shader/particle_eased.glsl
 	assets/shader/particle_textured.glsl
 	assets/shader/particle_spark.glsl

@@ -134,6 +134,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void msg(const char*, b8);
 	void rumble_add(r32);
 	UIMode ui_mode() const;
+	Vec2 ui_anchor(const RenderParams&) const;
 	void upgrade_menu_show();
 	void upgrade_menu_hide();
 	void upgrade_station_try_exit();

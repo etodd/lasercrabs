@@ -56,7 +56,6 @@ namespace VI
 #define gamepad_rotation_acceleration (1.0f / 0.4f)
 #define attach_lerp_speed 30.0f
 #define msg_time 0.75f
-#define text_size 16.0f
 #define camera_shake_time 0.7f
 #define arm_angle_offset -0.2f
 
@@ -67,7 +66,7 @@ namespace VI
 #define INTERACT_LERP_ROTATION_SPEED 5.0f
 #define INTERACT_LERP_TRANSLATION_SPEED 5.0f
 
-#define HP_BOX_SIZE (Vec2(text_size) * UI::scale)
+#define HP_BOX_SIZE (Vec2(UI_TEXT_SIZE_DEFAULT) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
 
 r32 hp_width(u8 hp, s8 shield, r32 scale = 1.0f)
@@ -305,7 +304,6 @@ void PlayerHuman::awake()
 	get<PlayerManager>()->spawn.link<PlayerHuman, const SpawnPosition&, &PlayerHuman::spawn>(this);
 	get<PlayerManager>()->upgrade_completed.link<PlayerHuman, Upgrade, &PlayerHuman::upgrade_completed>(this);
 
-	msg_text.size = text_size;
 	msg_text.anchor_x = UIText::Anchor::Center;
 	msg_text.anchor_y = UIText::Anchor::Center;
 
@@ -396,6 +394,11 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 		else
 			return UIMode::Dead;
 	}
+}
+
+Vec2 PlayerHuman::ui_anchor(const RenderParams& params) const
+{
+	return params.camera->viewport.size * Vec2(0.5f, 0.1f) + Vec2(UI_TEXT_SIZE_DEFAULT * UI::scale * 6.0f, UI_TEXT_SIZE_DEFAULT * UI::scale * 0.5f);
 }
 
 // return true if we actually display the notification
@@ -1314,12 +1317,11 @@ void PlayerHuman::assault_status_display()
 
 r32 draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, AssetID icon, char* string, const Vec4& color, r32 total_width = 0.0f)
 {
-	r32 icon_size = text_size * UI::scale;
+	r32 icon_size = UI_TEXT_SIZE_DEFAULT * UI::scale;
 	r32 padding = 8 * UI::scale;
 
 	UIText text;
 	text.color = color;
-	text.size = text_size;
 	text.anchor_x = UIText::Anchor::Min;
 	text.anchor_y = UIText::Anchor::Center;
 	text.text(gamepad, string);
@@ -1358,7 +1360,7 @@ r32 ability_draw(const RenderParams& params, const PlayerManager* manager, const
 
 r32 match_timer_width()
 {
-	return text_size * 2.5f * UI::scale;
+	return UI_TEXT_SIZE_DEFAULT * 2.5f * UI::scale;
 }
 
 void match_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Anchor anchor_x)
@@ -1384,7 +1386,7 @@ void match_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Ancho
 	}
 	r32 remaining = vi_max(0.0f, time_limit - Team::match_time);
 
-	Vec2 box(match_timer_width(), text_size * UI::scale);
+	Vec2 box(match_timer_width(), UI_TEXT_SIZE_DEFAULT * UI::scale);
 	r32 padding = 8.0f * UI::scale;
 
 	Vec2 p = pos;
@@ -1488,7 +1490,6 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 		match_timer_draw(params, p, UIText::Anchor::Center);
 
 	UIText text;
-	text.size = text_size;
 	r32 width = MENU_ITEM_WIDTH * 1.25f;
 	text.anchor_x = UIText::Anchor::Min;
 	text.anchor_y = UIText::Anchor::Min;
@@ -1698,12 +1699,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 	}
 
-	Vec2 ui_anchor;
-	if (Game::ui_gamepad_types[gamepad] == Gamepad::Type::None) // left side
-		ui_anchor = vp.size * Vec2(0.1f, 0.1f) + Vec2(0, text_size * UI::scale * 0.5f);
-	else // right side
-		ui_anchor = vp.size * Vec2(0.9f, 0.1f) + Vec2(text_size * UI::scale * -14.0f, text_size * UI::scale * 0.5f);
-
 	// draw abilities
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::session.config.allow_upgrades)
 	{
@@ -1718,7 +1713,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.text(gamepad, _(strings::prompt_upgrade));
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
-			text.size = text_size;
 			Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
 			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 			text.draw(params, pos);
@@ -1729,7 +1723,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		{
 			// draw abilities
 
-			Vec2 pos = ui_anchor;
+			Vec2 pos = ui_anchor(params);
 			// ability 1
 			if (get<PlayerManager>()->abilities[0] != Ability::None)
 			{
@@ -1756,8 +1750,8 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		// energy
 		char buffer[128];
 		sprintf(buffer, "%d", get<PlayerManager>()->energy);
-		Vec2 p = ui_anchor + Vec2(match_timer_width() + text_size * UI::scale, (text_size + 16.0f) * -UI::scale);
-		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_energy, buffer, UI::color_accent(), text_size * 5 * UI::scale);
+		Vec2 p = ui_anchor(params) + Vec2(match_timer_width() + UI_TEXT_SIZE_DEFAULT * UI::scale, (UI_TEXT_SIZE_DEFAULT + 16.0f) * -UI::scale);
+		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_energy, buffer, UI::color_accent(), UI_TEXT_SIZE_DEFAULT * 5 * UI::scale);
 	}
 
 	if (mode == UIMode::PvpDefault)
@@ -1786,7 +1780,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 					const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
 					UIText text;
 					text.color = UI::color_accent();
-					text.size = text_size;
 					text.anchor_x = UIText::Anchor::Min;
 					text.anchor_y = UIText::Anchor::Max;
 					text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
@@ -1810,7 +1803,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				Vec2 p(params.camera->viewport.size * Vec2(0.5f, 0.75f));
 				{
 					UIText text;
-					text.size = text_size;
 					text.anchor_x = UIText::Anchor::Min;
 					text.anchor_y = UIText::Anchor::Min;
 					text.color = UI::color_default;
@@ -1842,7 +1834,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 						// alarm!
 
 						UIText text;
-						text.size = text_size * 1.5f;
+						text.size = UI_TEXT_SIZE_DEFAULT * 1.5f;
 						text.anchor_x = UIText::Anchor::Center;
 						text.anchor_y = UIText::Anchor::Min;
 						text.color = UI::color_alert();
@@ -1935,7 +1927,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				if (spectating)
 				{
 					UIText text;
-					text.size = text_size;
 					text.anchor_x = UIText::Anchor::Center;
 					text.anchor_y = UIText::Anchor::Max;
 
@@ -1995,7 +1986,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			// score summary screen
 
 			UIText text;
-			text.size = text_size;
 			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Max;
@@ -2090,13 +2080,13 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 
 		if (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrading) // show game timer
-			match_timer_draw(params, ui_anchor + Vec2(0, (text_size + 16.0f) * -UI::scale), UIText::Anchor::Min);
+			match_timer_draw(params, ui_anchor(params) + Vec2(0, (UI_TEXT_SIZE_DEFAULT + 16.0f) * -UI::scale), UIText::Anchor::Min);
 	}
 
 	// network error icon
 #if !SERVER
 	if (!Game::level.local && Net::Client::lagging())
-		UI::mesh(params, Asset::Mesh::icon_network_error, vp.size * Vec2(0.9f, 0.5f), Vec2(text_size * 2.0f * UI::scale), UI::color_alert());
+		UI::mesh(params, Asset::Mesh::icon_network_error, vp.size * Vec2(0.9f, 0.5f), Vec2(UI_TEXT_SIZE_DEFAULT * 2.0f * UI::scale), UI::color_alert());
 #endif
 
 	// message
@@ -4275,10 +4265,9 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					text.text(player.ref()->gamepad, _(strings::grenade_incoming));
 					text.anchor_x = UIText::Anchor::Center;
 					text.anchor_y = UIText::Anchor::Center;
-					text.size = text_size;
 					Vec2 p;
 					UI::is_onscreen(params, pos, &p);
-					p.y += text_size * 2.0f * UI::scale;
+					p.y += UI_TEXT_SIZE_DEFAULT * 2.0f * UI::scale;
 					UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
 					if (UI::flash_function(Game::real_time.total))
 						text.draw(params, p);
@@ -4323,10 +4312,9 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			text.text(player.ref()->gamepad, _(strings::upgrade_notification));
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
-			text.size = text_size;
 			Vec2 p;
 			UI::is_onscreen(params, pos, &p);
-			p.y += text_size * 2.0f * UI::scale;
+			p.y += UI_TEXT_SIZE_DEFAULT * 2.0f * UI::scale;
 			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
 			if (UI::flash_function_slow(Game::real_time.total))
 				text.draw(params, p);
@@ -4393,7 +4381,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				text.text(player.ref()->gamepad, _(strings::prompt_interact));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
-				text.size = text_size;
 				Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
 				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 				text.draw(params, pos);
@@ -4467,7 +4454,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 								text.text(player.ref()->gamepad, Loader::level_name(zone));
 								text.anchor_x = UIText::Anchor::Center;
 								text.anchor_y = UIText::Anchor::Center;
-								text.size = text_size * 0.75f;
+								text.size = UI_TEXT_SIZE_DEFAULT * 0.75f;
 								UI::box(params, text.rect(p).outset(4.0f * UI::scale), UI::color_background);
 								text.draw(params, p);
 							}
@@ -4494,7 +4481,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 								text.text(player.ref()->gamepad, _(strings::shop));
 								text.anchor_x = UIText::Anchor::Center;
 								text.anchor_y = UIText::Anchor::Center;
-								text.size = text_size * 0.75f;
+								text.size = UI_TEXT_SIZE_DEFAULT * 0.75f;
 								UI::box(params, text.rect(p).outset(4.0f * UI::scale), UI::color_background);
 								text.draw(params, p);
 							}
@@ -4580,10 +4567,9 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (draw)
 			{
 				Vec2 username_pos = p;
-				username_pos.y += text_size * UI::scale;
+				username_pos.y += UI_TEXT_SIZE_DEFAULT * UI::scale;
 
 				UIText username;
-				username.size = text_size;
 				username.anchor_x = UIText::Anchor::Center;
 				username.anchor_y = UIText::Anchor::Min;
 				username.color = *color;
@@ -4598,8 +4584,8 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					s32 ability_count = other_manager->ability_count();
 					if (ability_count > 0)
 					{
-						r32 item_size = text_size * UI::scale * 0.75f;
-						Vec2 p2 = username_pos + Vec2((ability_count * -0.5f + 0.5f) * item_size + ((ability_count - 1) * HP_BOX_SPACING * -0.5f), (text_size * UI::scale) + item_size);
+						r32 item_size = UI_TEXT_SIZE_DEFAULT * UI::scale * 0.75f;
+						Vec2 p2 = username_pos + Vec2((ability_count * -0.5f + 0.5f) * item_size + ((ability_count - 1) * HP_BOX_SPACING * -0.5f), (UI_TEXT_SIZE_DEFAULT * UI::scale) + item_size);
 						UI::box(params, { Vec2(p2.x + item_size * -0.5f - HP_BOX_SPACING, p2.y + item_size * -0.5f - HP_BOX_SPACING), Vec2((ability_count * item_size) + ((ability_count + 1) * HP_BOX_SPACING), item_size + HP_BOX_SPACING * 2.0f) }, UI::color_background);
 						for (s32 i = 0; i < ability_count; i++)
 						{
@@ -4613,114 +4599,74 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		}
 	}
 
-	const Health* health = get<Health>();
-
-	b8 is_vulnerable = !get<AIAgent>()->stealth && get<Health>()->can_take_damage() && health->hp == 1 && health->shield == 0 && Game::session.config.drone_shield > 0;
-
-	// compass
 	{
-		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
-		if (is_vulnerable && get<PlayerCommon>()->incoming_attacker())
-		{
-			// we're being attacked; flash the compass
-			b8 show = UI::flash_function(Game::real_time.total);
-			if (show)
-				UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert());
-			if (show && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
-				Audio::post_global_event(AK::EVENTS::PLAY_DANGER_BEEP);
-		}
-		else if (enemy_visible && !get<AIAgent>()->stealth)
-			UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert());
-	}
+		const Health* health = get<Health>();
 
-	{
-		// danger indicator
+		b8 is_vulnerable = !get<AIAgent>()->stealth && get<Health>()->can_take_damage() && health->hp == 1 && health->shield == 0 && Game::session.config.drone_shield > 0;
 
-		b8 danger = enemy_visible && (enemy_dangerous_visible || is_vulnerable) && !get<AIAgent>()->stealth;
+		Vec2 ui_anchor = player.ref()->ui_anchor(params);
+		ui_anchor.y = params.camera->viewport.size.y * 0.5f + UI_TEXT_SIZE_DEFAULT * -4.0f;
 
-		if (danger)
-		{
-			UIText text;
-			text.size = 24.0f;
-			text.color = UI::color_alert();
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Min;
-
-			text.text(player.ref()->gamepad, _(strings::danger));
-
-			Vec2 pos = viewport.size * Vec2(0.5f, 0.25f);
-
-			Rect2 box = text.rect(pos).outset(8 * UI::scale);
-			UI::box(params, box, UI::color_background);
-			if (is_vulnerable ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total))
-				text.draw(params, pos);
-		}
-
-		// shield indicator
-		if (is_vulnerable)
-		{
-			UIText text;
-			text.color = UI::color_alert();
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Min;
-			text.text(player.ref()->gamepad, _(strings::shield_down));
-
-			Vec2 pos = viewport.size * Vec2(0.5f, 0.625f);
-
-			Rect2 box = text.rect(pos).outset(8 * UI::scale);
-			UI::box(params, box, UI::color_background);
-			if (danger ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total))
-				text.draw(params, pos);
-		}
-	}
-
-	// stealth indicator
-	if (get<AIAgent>()->stealth)
-	{
 		UIText text;
-		text.color = UI::color_accent();
-		text.text(player.ref()->gamepad, _(strings::stealth));
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Center;
-		text.size = text_size;
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.675f);
-		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-		text.draw(params, pos);
-	}
+		text.anchor_x = UIText::Anchor::Min;
+		text.anchor_y = UIText::Anchor::Max;
 
-	// detect danger
-	{
-		r32 detect_danger = get<PlayerCommon>()->detect_danger();
-		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.3f) + Vec2(0.0f, -32.0f * UI::scale);
-		if (detect_danger > 0.0f)
 		{
-			UIText text;
-			text.size = 18.0f;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			text.text(player.ref()->gamepad, _(strings::enemy_tracking));
-			if (detect_danger == 1.0f)
+			b8 danger = enemy_visible && (enemy_dangerous_visible || is_vulnerable) && !get<AIAgent>()->stealth;
+
+			if (get<AIAgent>()->stealth)
 			{
-				Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
-				UI::box(params, box, UI::color_background);
-				if (UI::flash_function_slow(Game::real_time.total))
-				{
-					text.color = UI::color_alert();
-					text.draw(params, pos);
-				}
+				// stealth indicator
+				text.color = Team::ui_color_friend;
+				text.text(player.ref()->gamepad, _(strings::stealth));
+				UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
+				text.draw(params, ui_anchor);
 			}
-			else
+			else if (danger && (is_vulnerable ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total)))
 			{
-				// draw bar
-				Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
-				UI::box(params, box, UI::color_background);
-				UI::border(params, box, 2, UI::color_alert());
-				UI::box(params, { box.pos, Vec2(box.size.x * detect_danger, box.size.y) }, UI::color_alert());
+				// danger indicator
+				text.color = UI::color_alert();
+				text.text(player.ref()->gamepad, _(strings::danger));
+				UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
+				text.draw(params, ui_anchor);
+			}
+			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
 
-				text.color = UI::color_background;
-				text.draw(params, pos);
+			// shield indicator
+			if (is_vulnerable && (danger ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total)))
+			{
+				text.color = UI::color_alert();
+				text.text(player.ref()->gamepad, _(strings::shield_down));
+				UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
+				text.draw(params, ui_anchor);
+			}
+			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
+		}
 
-				// todo: sound
+		// detect danger
+		{
+			r32 detect_danger = get<PlayerCommon>()->detect_danger();
+			if (detect_danger > 0.0f)
+			{
+				text.text(player.ref()->gamepad, _(strings::enemy_tracking));
+				Rect2 box = text.rect(ui_anchor).outset(8 * UI::scale);
+				if (detect_danger == 1.0f)
+				{
+					if (UI::flash_function_slow(Game::real_time.total))
+					{
+						UI::box(params, box, UI::color_background);
+						text.color = UI::color_alert();
+						text.draw(params, ui_anchor);
+					}
+				}
+				else
+				{
+					// draw bar
+					UI::box(params, box, UI::color_background);
+					UI::box(params, { box.pos, Vec2(box.size.x * detect_danger, box.size.y) }, UI::color_alert());
+					text.color = UI::color_background;
+					text.draw(params, ui_anchor);
+				}
 			}
 		}
 	}
@@ -4799,7 +4745,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (get<Drone>()->current_ability != Ability::None)
 			{
 				Ability a = get<Drone>()->current_ability;
-				Vec2 p = pos + Vec2(0, (-128.0f + text_size + 8.0f) * UI::scale);
+				Vec2 p = pos + Vec2(0, (-128.0f + UI_TEXT_SIZE_DEFAULT + 8.0f) * UI::scale);
 				UI::centered_box(params, { p, Vec2(34.0f * UI::scale) }, UI::color_background);
 				UI::mesh(params, AbilityInfo::list[s32(a)].icon, p, Vec2(18.0f * UI::scale), *color);
 
@@ -4821,7 +4767,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				text.text(player.ref()->gamepad, _(strings::prompt_cancel_ability), Settings::gamepads[player.ref()->gamepad].bindings[s32(binding)].string(Game::ui_gamepad_types[player.ref()->gamepad]));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Max;
-				text.size = text_size;
 				p = pos + Vec2(0, -128.0f * UI::scale);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
 				text.draw(params, p);

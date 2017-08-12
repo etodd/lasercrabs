@@ -56,6 +56,38 @@ s32 Font::codepoint(const char* s)
 		return 0xff & s[0]; // 1 byte utf8 codepoint otherwise
 }
 
+void Font::truncate(char* str, s32 length, const char* ellipsis, EllipsisMode mode)
+{
+	s32 length_str = strlen(str);
+	if (length_str > length || mode == EllipsisMode::Always)
+	{
+		// find last utf-8 codepoint before length
+		if (length_str > length)
+		{
+			const char* cutoff = str;
+			while (true)
+			{
+				const char* next = codepoint_next(cutoff);
+				if (next - str > length)
+				{
+					// str is longer than length; cut at last codepoint
+					length = cutoff - str;
+					break;
+				}
+				else
+					cutoff = next;
+			}
+		}
+
+		if (ellipsis)
+		{
+			s32 length_ellipsis = strlen(ellipsis);
+			strcpy(&str[vi_min(length_str, length - length_ellipsis)], ellipsis);
+		}
+		str[length] = '\0';
+	}
+}
+
 const char* Font::codepoint_next(const char* s)
 {
 	if (0xf0 == (0xf8 & s[0]))

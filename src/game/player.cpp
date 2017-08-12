@@ -2122,22 +2122,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		menu.draw_ui(params, Vec2(0, params.camera->viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
 }
 
-void uitext_truncate(UIText* text, s8 gamepad, const char* str)
-{
-	const s32 truncated_length = 17;
-	if (strlen(str) > truncated_length)
-	{
-		char truncated[truncated_length + 1] = {};
-		strncpy(truncated, str, truncated_length - 3);
-		truncated[truncated_length - 3] = '.';
-		truncated[truncated_length - 2] = '.';
-		truncated[truncated_length - 1] = '.';
-		text->text_raw(gamepad, truncated);
-	}
-	else
-		text->text_raw(gamepad, str);
-}
-
 void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gamepad)
 {
 	UIText text;
@@ -2158,7 +2142,12 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 				text.color = my_team == entry.a_team ? Team::ui_color_friend : Team::ui_color_enemy;
 
 			if (entry.b[0])
-				uitext_truncate(&text, gamepad, entry.a); // "a killed b" format
+			{
+				char buffer[MAX_USERNAME + 1] = {};
+				strncpy(buffer, entry.a, MAX_USERNAME);
+				Font::truncate(buffer, 17, "...");
+				text.text_raw(0, buffer);
+			}
 			else
 				text.text_raw(gamepad, entry.a);
 
@@ -2181,7 +2170,12 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 					text.color = UI::color_accent();
 				else
 					text.color = my_team == entry.b_team ? Team::ui_color_friend : Team::ui_color_enemy;
-				uitext_truncate(&text, gamepad, entry.b);
+				{
+					char buffer[MAX_USERNAME + 1] = {};
+					strncpy(buffer, entry.b, MAX_USERNAME);
+					Font::truncate(buffer, 17, "...");
+					text.text_raw(0, buffer);
+				}
 				UIMenu::text_clip(&text, entry.timestamp, 80.0f);
 				text.draw(params, p);
 			}

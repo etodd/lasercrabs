@@ -31,6 +31,7 @@
 #include "settings.h"
 #include "cjson/cJSON.h"
 #include <array>
+#include "data/import_common.h"
 
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0
@@ -2971,13 +2972,13 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 
 						Entity* e = World::create<ContainerEntity>();
 						PlayerManager* manager = e->add<PlayerManager>(team_ref);
+						strncpy(manager->username, username, MAX_USERNAME);
 						if (gamepad > 0)
 						{
-							char username_truncated[MAX_USERNAME + 1] = {};
-							strncpy(username_truncated, username, MAX_USERNAME - 4);
-							snprintf(username, MAX_USERNAME, "%s [%d]", username_truncated, s32(gamepad + 1));
+							char number[5] = {};
+							snprintf(number, 4, " [%d]", s32(gamepad + 1));
+							Font::truncate(manager->username, MAX_USERNAME, number, Font::EllipsisMode::Always);
 						}
-						strncpy(manager->username, username, MAX_USERNAME);
 						PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
 						manager->is_admin = client->is_admin && gamepad == 0;
 						player->uuid = uuid;

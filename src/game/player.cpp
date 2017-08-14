@@ -443,13 +443,9 @@ void PlayerHuman::msg(const char* msg, b8 good)
 
 void PlayerHuman::energy_notify(s32 change)
 {
-	if (msg_timer == 0.0f)
-		energy_notification_accumulator = 0;
-	energy_notification_accumulator += s16(change);
-
 	{
-		char buffer[512];
-		sprintf(buffer, _(strings::energy_added), energy_notification_accumulator);
+		char buffer[UI_TEXT_MAX + 1];
+		sprintf(buffer, _(strings::energy_added), s16(change) + energy_notification_accumulator);
 		msg(buffer, true);
 	}
 }
@@ -801,7 +797,7 @@ void PlayerHuman::update(const Update& u)
 		};
 		camera.ref()->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour && !Overworld::modal());
 
-		if (entity)
+		if (entity || Game::level.continue_match_after_death)
 			camera.ref()->flag(CameraFlagActive, true);
 		else
 		{
@@ -822,7 +818,12 @@ void PlayerHuman::update(const Update& u)
 		}
 	}
 
-	msg_timer = vi_max(0.0f, msg_timer - Game::real_time.delta);
+	if (msg_timer > 0.0f)
+	{
+		msg_timer = vi_max(0.0f, msg_timer - Game::real_time.delta);
+		if (msg_timer == 0.0f)
+			energy_notification_accumulator = 0;
+	}
 
 	// after this point, it's all input-related stuff
 	if (Console::visible
@@ -2041,7 +2042,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			{
 				r32 total_time;
 				AssetID string;
-				s16 cost;
 
 				switch (manager_state)
 				{
@@ -2050,8 +2050,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 						// getting an upgrade
 						string = strings::upgrading;
 
-						const UpgradeInfo& info = UpgradeInfo::list[s32(get<PlayerManager>()->current_upgrade)];
-						cost = info.cost;
 						total_time = UPGRADE_TIME;
 						break;
 					}
@@ -2069,7 +2067,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				text.color = UI::color_background;
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
-				text.text(gamepad, _(string), s32(cost));
+				text.text(gamepad, _(string));
 				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
 				Rect2 bar = text.rect(pos).outset(MENU_ITEM_PADDING);
 				UI::box(params, bar, UI::color_background);
@@ -2433,17 +2431,29 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 
 	if (src == Net::MessageSource::Remote)
 	{
-		// make sure we are where the remote thinks we are when we start processing this message
-		r32 dist_sq = (c->get<Transform>()->absolute_pos() - msg.pos).length_squared();
-		r32 tolerance_pos;
-		c->remote_position(&tolerance_pos);
-		if (dist_sq < tolerance_pos * tolerance_pos)
-			c->get<Transform>()->absolute(msg.pos, msg.rot);
-
 #if SERVER
 		// update RTT based on the sequence number
 		c->rtt = Net::Server::rtt(c->player.ref(), seq) + Net::interpolation_delay();
 #endif
+
+		if (msg.type == PlayerControlHumanNet::Message::Type::Dash
+			|| msg.type == PlayerControlHumanNet::Message::Type::DashCombo
+			|| msg.type == PlayerControlHumanNet::Message::Type::Go)
+		{
+			// make sure we are where the remote thinks we are when we start processing this message
+			r32 dist_sq = (c->get<Transform>()->absolute_pos() - msg.pos).length_squared();
+			r32 tolerance_pos;
+			c->remote_position(&tolerance_pos);
+			if (dist_sq < tolerance_pos * tolerance_pos)
+				c->get<Transform>()->absolute(msg.pos, msg.rot);
+			else
+			{
+#if DEBUG_NET_SYNC
+				vi_debug_break();
+#endif
+				return true;
+			}
+		}
 	}
 
 	switch (msg.type)
@@ -3097,10 +3107,7 @@ b8 PlayerControlHuman::local() const
 
 void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteControl& control)
 {
-#if !SERVER
-	vi_assert(false); // this should only get called on the server
-#endif
-
+#if SERVER
 	remote_control = control;
 
 	if (has<Parkour>())
@@ -3141,10 +3148,25 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 			if ((remote_abs_pos - abs_pos).length_squared() < tolerance_pos * tolerance_pos
 				&& Quat::angle(remote_abs_rot, abs_rot) < tolerance_rot)
 			{
+				t->parent = remote_control.parent;
 				t->absolute(remote_abs_pos, remote_abs_rot);
 			}
+#if DEBUG_NET_SYNC
+			else
+				vi_debug
+				(
+					"Rejected sync. Remote pos: %f %f %f local pos: %f %f %f remote rot: %f %f %f %f local rot: %f %f %f %f",
+					remote_abs_pos.x, remote_abs_pos.y, remote_abs_pos.z,
+					abs_pos.x, abs_pos.y, abs_pos.z,
+					remote_abs_rot.w, remote_abs_rot.x, remote_abs_rot.y, remote_abs_rot.z,
+					abs_rot.w, abs_rot.x, abs_rot.y, abs_rot.z
+				);
+#endif
 		}
 	}
+#else
+	vi_assert(false); // this should only get called on the server
+#endif
 }
 
 PlayerControlHuman::RemoteControl PlayerControlHuman::remote_control_get(const Update& u) const

@@ -1168,21 +1168,21 @@ void Quat::from_angle_axis(const r32& rfAngle, const Vec3& rkAxis)
 void Quat::to_angle_axis(r32* rfAngle, Vec3* rkAxis) const
 {
 	// The Quat representing the rotation is
-	//   q = cos(A/2)+sin(A/2)*(x*i+y*j+z*k)
+	// q = cos(A / 2) + sin(A / 2) * (x*i + y*j + z*k)
 
-	r32 fSqrLength = x*x+y*y+z*z;
-	if (fSqrLength > 0.0f)
+	r32 length = sqrtf(x * x + y * y + z * z);
+	if (length > 0.0f)
 	{
-		*rfAngle = 2.0f*acos(w);
-		r32 fInvLength = 1.0f / sqrt(fSqrLength);
-		rkAxis->x = x*fInvLength;
-		rkAxis->y = y*fInvLength;
-		rkAxis->z = z*fInvLength;
+		*rfAngle = 2.0f * acosf(w);
+		r32 length_inv = 1.0f / length;
+		rkAxis->x = x * length;
+		rkAxis->y = y * length;
+		rkAxis->z = z * length;
 	}
 	else
 	{
 		// angle is 0 (mod 2*pi), so any axis will do
-		*rfAngle = r32(0.0);
+		*rfAngle = 0.0f;
 		rkAxis->x = 1.0;
 		rkAxis->y = 0.0;
 		rkAxis->z = 0.0;
@@ -1495,6 +1495,7 @@ Quat Quat::euler(r32 roll, r32 yaw, r32 pitch)
 r32 Quat::angle(const Quat& a, const Quat& b)
 {
 	Quat c = a.inverse() * b;
+	c.normalize();
 	r32 angle;
 	Vec3 axis;
 	c.to_angle_axis(&angle, &axis);

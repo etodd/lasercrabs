@@ -34,8 +34,10 @@ namespace VI
 #define DRONE_LEG_BLEND_SPEED (1.0f / 0.03f)
 #define DRONE_MIN_LEG_BLEND_SPEED (DRONE_LEG_BLEND_SPEED * 0.1f)
 #define DRONE_REFLECTION_TIME_TOLERANCE 0.1f
+#define DRONE_REFLECTION_POSITION_TOLERANCE (DRONE_SHIELD_RADIUS * 10.0f)
 
 #define DEBUG_REFLECTIONS 0
+#define DEBUG_NET_SYNC 0
 
 const r32 Drone::cooldown_thresholds[DRONE_CHARGES] = { DRONE_COOLDOWN * 0.4f, DRONE_COOLDOWN * 0.1f, 0.0f, };
 
@@ -1314,7 +1316,12 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 		// add some forgiveness
 		if (dash_timer > DRONE_REFLECTION_TIME_TOLERANCE)
 #endif
+		{
+#if DEBUG_NET_SYNC
+			vi_debug_break();
+#endif
 			return false;
+		}
 	}
 	else if (state() == State::Fly || current_ability != Ability::None)
 		return false;
@@ -1386,7 +1393,13 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 			if (net_state_frame(&state_frame_data))
 				state_frame = &state_frame_data;
 			if (!could_shoot(pos, dir, nullptr, nullptr, nullptr, state_frame))
+			{
+#if DEBUG_NET_SYNC && SERVER
+				if (has<PlayerControlHuman>())
+					vi_debug_break();
+#endif
 				return false;
+			}
 		}
 		DroneNet::start_flying(this, dir_normalized, DroneNet::FlyFlag::None);
 	}
@@ -1436,7 +1449,13 @@ b8 Drone::go(const Vec3& dir)
 		current_ability = Ability::None;
 
 	if (!cooldown_can_shoot())
+	{
+#if DEBUG_NET_SYNC
+		if (has<PlayerControlHuman>())
+			vi_debug_break();
+#endif
 		return false;
+	}
 
 	Vec3 dir_normalized = Vec3::normalize(dir);
 
@@ -1448,17 +1467,35 @@ b8 Drone::go(const Vec3& dir)
 			if (net_state_frame(&state_frame_data))
 				state_frame = &state_frame_data;
 			if (!can_shoot(dir, nullptr, nullptr, state_frame))
+			{
+#if DEBUG_NET_SYNC
+				if (has<PlayerControlHuman>())
+					vi_debug_break();
+#endif
 				return false;
+			}
 		}
 		DroneNet::start_flying(this, dir_normalized, DroneNet::FlyFlag::None);
 	}
 	else
 	{
 		if (!get<PlayerCommon>()->manager.ref()->ability_valid(a))
+		{
+#if DEBUG_NET_SYNC
+			if (has<PlayerControlHuman>())
+				vi_debug_break();
+#endif
 			return false;
+		}
 
 		if (!can_spawn(a, dir_normalized))
+		{
+#if DEBUG_NET_SYNC
+			if (has<PlayerControlHuman>())
+				vi_debug_break();
+#endif
 			return false;
+		}
 
 		if (Game::level.local)
 			DroneNet::ability_spawn(this, dir_normalized, a);
@@ -1498,9 +1535,6 @@ b8 Drone::go(const Vec3& dir)
 void drone_reflection_execute(Drone* d)
 {
 	const Drone::Reflection& reflection = d->reflections[0];
-#if DEBUG_REFLECTIONS
-	vi_debug("%f executing %s reflection", Game::real_time.total, reflection.src == Net::MessageSource::Loopback ? "local" : "remote");
-#endif
 
 	{
 		r32 l = reflection.dir.length_squared();
@@ -1683,12 +1717,24 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 	{
 		const Reflection& reflection = reflections[0];
 
-#if DEBUG_REFLECTIONS
+		b8 valid;
 		if (state_frame)
-			vi_debug("%f local confirmed remote reflection %fs later, executing", Game::real_time.total, DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer);
-		else
-			vi_debug("%f executing local reflection", Game::real_time.total);
+		{
+			if ((reflection.pos - hit).length_squared() < DRONE_REFLECTION_POSITION_TOLERANCE * DRONE_REFLECTION_POSITION_TOLERANCE)
+			{
+				valid = true;
+#if DEBUG_REFLECTIONS
+				vi_debug("%f local confirmed remote reflection %fs later, executing", Game::real_time.total, DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer);
 #endif
+			}
+			else
+			{
+				valid = false;
+				vi_debug("%s", "Remote attempted to force an invalid drone reflection. Ignoring.");
+			}
+		}
+		else
+			valid = true;
 
 		// if we have a state frame, we're on the server and this is a remote drone
 		// so reflections should only come from the remote
@@ -1696,7 +1742,10 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 		vi_assert(b8(state_frame) == (reflection.src == Net::MessageSource::Remote));
 
 		r32 fast_forward = DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer;
-		drone_reflection_execute(this);
+		if (valid)
+			drone_reflection_execute(this);
+		else
+			reflections.remove_ordered(0); // ignore it
 		if (state_frame) // only need to fast forward on server
 			drone_fast_forward(this, fast_forward);
 	}
@@ -1704,8 +1753,21 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 
 void Drone::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos, const Vec3& reflection_dir)
 {
-	if (reflection_dir.length() == 0.0f || state() == State::Crawl)
+	if (reflection_dir.length() == 0.0f)
+	{
+#if DEBUG_REFLECTIONS
+		vi_debug("%s", "Rejected zero-length remote reflection.");
+#endif
 		return;
+	}
+
+	if (state() == State::Crawl)
+	{
+#if DEBUG_REFLECTIONS
+		vi_debug("%s", "Rejected remote reflection because local drone is in Crawl state.");
+#endif
+		return;
+	}
 
 	vi_assert(Game::level.local); // reflect messages only go from client to server
 
@@ -1713,26 +1775,27 @@ void Drone::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos,
 
 	// we're a server; the client is notifying us that it did a reflection
 
-	// check if they're roughly where we think they should be
-	if ((get<Transform>()->absolute_pos() - reflection_pos).length() < DRONE_SHIELD_RADIUS * 10.0f)
+	if (reflections.length == 0 || reflections[0].src == Net::MessageSource::Remote)
 	{
-		if (reflections.length == 0 || reflections[0].src == Net::MessageSource::Remote)
-		{
-			// we haven't reflected off anything on the server yet; save this info and wait for us to hit something
+		// we haven't reflected off anything on the server yet; save this info and wait for us to hit something
 #if DEBUG_REFLECTIONS
-			vi_debug("%f received remote reflection, waiting for confirmation", Game::real_time.total);
+		vi_debug("%f received remote reflection, waiting for confirmation", Game::real_time.total);
 #endif
-			Reflection* reflection = reflections.add();
-			reflection->dir = reflection_dir_normalized;
-			reflection->pos = reflection_pos;
-			reflection->timer = DRONE_REFLECTION_TIME_TOLERANCE;
-			reflection->entity = entity;
-			reflection->src = Net::MessageSource::Remote;
-		}
-		else
+		Reflection* reflection = reflections.add();
+		reflection->dir = reflection_dir_normalized;
+		reflection->pos = reflection_pos;
+		reflection->timer = DRONE_REFLECTION_TIME_TOLERANCE;
+		reflection->entity = entity;
+		reflection->src = Net::MessageSource::Remote;
+	}
+	else
+	{
+		// we HAVE already detected a reflection off something; let's do it now
+		Reflection* reflection = &reflections[0];
+
+		// check if they're roughly where we think they should be
+		if ((reflection->pos - reflection_pos).length_squared() < DRONE_REFLECTION_POSITION_TOLERANCE * DRONE_REFLECTION_POSITION_TOLERANCE)
 		{
-			// we HAVE already detected a reflection off something; let's do it now
-			Reflection* reflection = &reflections[0];
 			r32 original_timer = reflection->timer;
 #if DEBUG_REFLECTIONS
 			vi_debug("%f remote confirmed local reflection %fs later, executing", Game::real_time.total, DRONE_REFLECTION_TIME_TOLERANCE - original_timer);
@@ -1748,11 +1811,11 @@ void Drone::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos,
 			// fast forward the amount of time we've been sitting here waiting for the client to acknowledge the reflection
 			drone_fast_forward(this, DRONE_REFLECTION_TIME_TOLERANCE - original_timer);
 		}
-	}
-	else
-	{
-		// client is not where we think they should be. they might be hacking. don't reflect
-		vi_debug("%s", "Remote attempted to force an invalid drone reflection. Ignoring.");
+		else
+		{
+			// client is not where we think they should be. they might be hacking. don't reflect
+			vi_debug("%s", "Remote attempted to force an invalid drone reflection. Ignoring.");
+		}
 	}
 }
 

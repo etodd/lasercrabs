@@ -139,43 +139,43 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::bolter,
 		strings::description_bolter,
 		Asset::Mesh::icon_bolter,
-		100,
+		50,
 	},
 	{
 		strings::active_armor,
 		strings::description_active_armor,
 		Asset::Mesh::icon_active_armor,
-		100,
+		50,
 	},
 	{
 		strings::minion,
 		strings::description_minion,
 		Asset::Mesh::icon_minion,
-		100,
+		50,
 	},
 	{
 		strings::sensor,
 		strings::description_sensor,
 		Asset::Mesh::icon_sensor,
-		100,
+		50,
 	},
 	{
 		strings::force_field,
 		strings::description_force_field,
 		Asset::Mesh::icon_force_field,
-		200,
+		100,
 	},
 	{
 		strings::sniper,
 		strings::description_sniper,
 		Asset::Mesh::icon_sniper,
-		300,
+		150,
 	},
 	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
-		300,
+		150,
 	},
 };
 
@@ -1677,7 +1677,7 @@ s16 PlayerManager::upgrade_cost(Upgrade u) const
 {
 	vi_assert(u != Upgrade::None);
 	const UpgradeInfo& info = UpgradeInfo::list[s32(u)];
-	return info.cost;
+	return info.cost * (1 + ability_count());
 }
 
 Upgrade PlayerManager::upgrade_highest_owned_or_available() const

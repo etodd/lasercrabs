@@ -425,13 +425,15 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 				*state = State::Hidden;
 			if (Game::session.type == SessionType::Multiplayer && Game::level.mode == Game::Mode::Pvp)
 			{
-				if (menu->item(u, _(strings::teams)))
+				PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+				if ((me->is_admin || (Game::session.config.game_type == GameType::Assault || Game::session.config.max_players > Game::session.config.team_count))
+					&& menu->item(u, _(strings::teams)))
 				{
 					*state = State::Teams;
 					teams_selected_player[gamepad] = nullptr;
 					menu->animate();
 				}
-				if (PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>()->is_admin)
+				if (me->is_admin)
 				{
 					if (menu->item(u, _(strings::levels)))
 					{
@@ -1279,11 +1281,14 @@ b8 teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 
 	menu->start(u, gamepad, mode == TeamSelectMode::Normal && !selected); // can select different players in Normal mode when no player is selected
 	
-	if (mode == TeamSelectMode::Normal && menu->item(u, _(strings::back)))
-		exit = true;
+	if (mode == TeamSelectMode::Normal)
+	{
+		if (menu->item(u, _(strings::back)))
+			exit = true;
 
-	if (me->is_admin)
-		menu->text(u, _(strings::prompt_kick));
+		if (me->is_admin)
+			menu->text(u, _(strings::prompt_kick));
+	}
 
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
@@ -1324,7 +1329,8 @@ b8 teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 		}
 		else if (menu->item(u, i.item()->username, value, disabled, icon))
 		{
-			if (i.item() == me || mode == TeamSelectMode::Normal)
+			if ((i.item() == me || mode == TeamSelectMode::Normal)
+				&& (Game::session.config.game_type == GameType::Assault || Game::session.config.max_players > Game::session.config.team_count)) // disallow team switching in FFA
 			{
 				// we are selecting this player
 				teams_selected_player[gamepad] = i.item();

@@ -330,7 +330,13 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 		case State::Visible:
 		{
 			menu->start(u, 0);
-			if (menu->item(u, _(strings::play)))
+			b8 story_disabled;
+#if RELEASE_BUILD
+			story_disabled = true;
+#else
+			story_disabled = false;
+#endif;
+			if (menu->item(u, _(strings::play), nullptr, story_disabled))
 			{
 				Scripts::Docks::play();
 				clear();

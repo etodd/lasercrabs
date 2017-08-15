@@ -19,3 +19,4 @@ __pycache__
 /*.dir
 /x64/
 *.cache
+/src/asset/version.h

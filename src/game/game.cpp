@@ -48,6 +48,7 @@
 #include <dirent.h>
 #include "settings.h"
 #include "data/json.h"
+#include "asset/version.h"
 
 #if DEBUG
 	#define DEBUG_WALK_NAV_MESH 0
@@ -773,34 +774,34 @@ void Game::draw_alpha(const RenderParams& render_params)
 			AssetID mesh_id;
 			switch (body->type)
 			{
-				case RigidBody::Type::Box:
-					mesh_id = Asset::Mesh::cube;
-					radius = body->size;
-					color = Vec4(1, 0, 0, 1);
-					break;
-				case RigidBody::Type::Sphere:
-					mesh_id = Asset::Mesh::sphere;
-					radius = body->size;
-					color = Vec4(1, 0, 0, 1);
-					break;
-				case RigidBody::Type::CapsuleX:
-					// capsules: size.x = radius, size.y = height
-					mesh_id = Asset::Mesh::cube;
-					radius = Vec3((body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x, body->size.x);
-					color = Vec4(0, 1, 0, 1);
-					break;
-				case RigidBody::Type::CapsuleY:
-					mesh_id = Asset::Mesh::cube;
-					radius = Vec3(body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x);
-					color = Vec4(0, 1, 0, 1);
-					break;
-				case RigidBody::Type::CapsuleZ:
-					mesh_id = Asset::Mesh::cube;
-					radius = Vec3(body->size.x, body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f);
-					color = Vec4(0, 1, 0, 1);
-					break;
-				default:
-					continue;
+			case RigidBody::Type::Box:
+				mesh_id = Asset::Mesh::cube;
+				radius = body->size;
+				color = Vec4(1, 0, 0, 1);
+				break;
+			case RigidBody::Type::Sphere:
+				mesh_id = Asset::Mesh::sphere;
+				radius = body->size;
+				color = Vec4(1, 0, 0, 1);
+				break;
+			case RigidBody::Type::CapsuleX:
+				// capsules: size.x = radius, size.y = height
+				mesh_id = Asset::Mesh::cube;
+				radius = Vec3((body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x, body->size.x);
+				color = Vec4(0, 1, 0, 1);
+				break;
+			case RigidBody::Type::CapsuleY:
+				mesh_id = Asset::Mesh::cube;
+				radius = Vec3(body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x);
+				color = Vec4(0, 1, 0, 1);
+				break;
+			case RigidBody::Type::CapsuleZ:
+				mesh_id = Asset::Mesh::cube;
+				radius = Vec3(body->size.x, body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f);
+				color = Vec4(0, 1, 0, 1);
+				break;
+			default:
+				continue;
 			}
 
 			if (!render_params.camera->visible_sphere(transform.getOrigin(), vi_max(radius.x, vi_max(radius.y, radius.z))))
@@ -874,7 +875,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
-	
+
 	Ascensions::draw_ui(render_params);
 
 	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
@@ -895,7 +896,20 @@ void Game::draw_alpha(const RenderParams& render_params)
 	if (schedule_timer > 0.0f && schedule_timer < TRANSITION_TIME)
 		Menu::draw_letterbox(render_params, schedule_timer, TRANSITION_TIME);
 
-	Console::draw_ui(render_params);
+	if (render_params.camera->gamepad == 0)
+	{
+		Console::draw_ui(render_params);
+
+#if RELEASE_BUILD
+		// build id
+		{
+			UIText text;
+			text.font = Asset::Font::pt_sans;
+			text.text(0, "DECEIVER pre-alpha %s", BUILD_ID);
+			text.draw(render_params, Vec2::zero);
+		}
+#endif
+	}
 }
 
 void Game::draw_hollow(const RenderParams& render_params)
@@ -990,19 +1004,13 @@ void Game::execute(const char* cmd)
 			i.item()->sudoku.solve(i.item());
 	}
 #if !SERVER
-	else if (strstr(cmd, "conn") == cmd)
+	else if (strcmp(cmd, "friend") == 0)
 	{
-		// connect to server
-		const char* delimiter = strchr(cmd, ' ');
-		const char* host;
-		if (delimiter)
-			host = delimiter + 1;
-		else
-			host = "127.0.0.1";
-
-		unload_level();
-		save.reset();
-		Net::Client::connect(host, 3494);
+		if (level.id == Asset::Level::Docks && level.mode == Mode::Special)
+		{
+			Scripts::Docks::play();
+			Menu::clear();
+		}
 	}
 	else if (strstr(cmd, "replay") == cmd)
 	{

@@ -89,7 +89,7 @@ namespace platform
 		}
 	}
 
-	b8 run_cmd(const std::string& cmd)
+	b8 run_cmd(const std::string& cmd, char* output = nullptr, size_t output_max = 0)
 	{
 		PROCESS_INFORMATION piProcInfo; 
 		STARTUPINFO siStartInfo;
@@ -117,7 +117,7 @@ namespace platform
 		if (!SetHandleInformation(stdin_write, HANDLE_FLAG_INHERIT, 0))
 			return false;
 
-		HANDLE stderr_read, stderr_write;
+		HANDLE stderr_read, stderr_write, stdout_read, stdout_write;
 
 		if (!CreatePipe(&stderr_read, &stderr_write, &security_attributes, 0))
 			return false;
@@ -125,9 +125,12 @@ namespace platform
 		if (!SetHandleInformation(stderr_read, HANDLE_FLAG_INHERIT, 0))
 			return false;
 
+		if (!CreatePipe(&stdout_read, &stdout_write, &security_attributes, 0))
+			return false;
+
 		siStartInfo.hStdError = stderr_write;
 
-		siStartInfo.hStdOutput = NULL;
+		siStartInfo.hStdOutput = stdout_write;
 
 		siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
 
@@ -157,24 +160,36 @@ namespace platform
 		if (GetExitCodeProcess(piProcInfo.hProcess, &exit_code))
 		{
 			success = exit_code == 0;
-			if (!success)
+			if (success)
 			{
-				// Copy child stderr to our stderr
-				DWORD dwRead, dwWritten; 
-				const s32 BUFSIZE = 4096;
-				CHAR chBuf[BUFSIZE]; 
-				BOOL bSuccess = FALSE;
+				// copy child stdout to output if necessary
+				if (output)
+				{
+					DWORD read, written; 
+					if (!ReadFile(stdout_read, output, output_max, &read, NULL))
+						return false;
+				}
+			}
+			else
+			{
+				if (output)
+					output[0] = '\0';
+				// copy child stderr to our stderr
+				DWORD read, written; 
+				const s32 BUFFER_SIZE = 4096;
+				char buffer[BUFFER_SIZE]; 
 				HANDLE hParentStdErr = GetStdHandle(STD_ERROR_HANDLE);
 
-				for (;;) 
+				while (true)
 				{ 
-					bSuccess = ReadFile(stderr_read, chBuf, BUFSIZE, &dwRead, NULL);
-					if (!bSuccess || dwRead == 0)
+					if (!ReadFile(stderr_read, buffer, BUFFER_SIZE, &read, NULL))
+						return false;
+
+					if (read == 0)
 						break;
 
-					bSuccess = WriteFile(hParentStdErr, chBuf, dwRead, &dwWritten, NULL);
-					if (!bSuccess)
-						break;
+					if (!WriteFile(hParentStdErr, buffer, read, &written, NULL))
+						return false;
 				}
 			}
 		}
@@ -185,6 +200,8 @@ namespace platform
 		CloseHandle(stdin_write);
 		CloseHandle(stderr_read);
 		CloseHandle(stderr_write);
+		CloseHandle(stdout_read);
+		CloseHandle(stdout_write);
 		CloseHandle(piProcInfo.hProcess);
 		CloseHandle(piProcInfo.hThread);
 
@@ -199,9 +216,15 @@ namespace platform
 		return st.st_mtime;
 	}
 
-	b8 run_cmd(const std::string& cmd)
+	b8 run_cmd(const std::string& cmd, char* output = nullptr, size_t output_max = 0)
 	{
-		return system(cmd.c_str()) == 0;
+		FILE* f = popen(cmd.c_str(), "r");
+		if (output)
+		{
+			s32 read = fread(output, 1, output_max - 1, f);
+			output[read] = '\0';
+		}
+		return pclose(f) == 0;
 	}
 #endif
 
@@ -267,6 +290,7 @@ const char* font_header_path = ASSET_SRC_FOLDER"font.h";
 const char* level_header_path = ASSET_SRC_FOLDER"level.h";
 const char* wwise_header_out_path = ASSET_SRC_FOLDER"Wwise_IDs.h";
 const char* string_header_path = ASSET_SRC_FOLDER"string.h";
+const char* version_header_path = ASSET_SRC_FOLDER"version.h";
 
 const char* mod_folder = "mod/";
 const char* mod_manifest_path = "mod.json";
@@ -3609,6 +3633,46 @@ s32 proc(s32 argc, char* argv[])
 			
 			write_asset_header(f, "String", flattened_strings);
 			close_asset_header(f);
+		}
+
+		// version
+		{
+			char version[256];
+			if (!platform::run_cmd("git describe --always --dirty --tags", version, 256))
+				return exit_error();
+			{
+				char* version_end = (char*)(strchr(version, '\n'));
+				*version_end = '\0';
+			}
+
+			b8 recalc_version = state.rebuild || platform::filemtime(version_header_path) == 0;
+			if (!recalc_version)
+			{
+				char existing_version_buffer[256];
+				{
+					FILE* f = fopen(version_header_path, "r");
+					s32 read = fread(existing_version_buffer, 1, 255, f);
+					fclose(f);
+					existing_version_buffer[read] = '\0';
+				}
+
+				const char* existing_version = &existing_version_buffer[52];
+				{
+					char* existing_version_end = (char*)(strchr(existing_version, '\"'));
+					*existing_version_end = '\0';
+				}
+
+				if (strncmp(existing_version, version, 256))
+					recalc_version = true;
+			}
+
+			if (recalc_version)
+			{
+				printf("%s\n", version_header_path);
+				FILE* f = fopen(version_header_path, "w");
+				fprintf(f, "#pragma once\nnamespace VI { const char* BUILD_ID = \"%s\"; }", version);
+				fclose(f);
+			}
 		}
 
 #if !LINUX

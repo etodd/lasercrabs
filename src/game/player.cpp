@@ -1995,8 +1995,9 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 			Vec2 p = title_pos + Vec2(0, -2.0f * (MENU_ITEM_HEIGHT + MENU_ITEM_PADDING));
 
-			match_timer_draw(params, p + Vec2(0, MENU_ITEM_HEIGHT), UIText::Anchor::Center);
+			match_timer_draw(params, p + Vec2(0, MENU_ITEM_HEIGHT + MENU_ITEM_PADDING * 0.5f), UIText::Anchor::Center);
 
+			p.y -= MENU_ITEM_PADDING * 2.0f;
 			score_summary_scroll.start(params, p + Vec2(0, MENU_ITEM_PADDING));
 			AI::Team team = get<PlayerManager>()->team.ref()->team();
 			for (s32 i = score_summary_scroll.top(); i < score_summary_scroll.bottom(Team::score_summary.length); i++)

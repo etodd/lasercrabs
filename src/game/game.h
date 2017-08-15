@@ -7,6 +7,8 @@
 #include "constants.h"
 #include "master.h"
 
+#define RELEASE_BUILD 0
+
 namespace VI
 {
 

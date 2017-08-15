@@ -84,7 +84,7 @@ void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, Vec3* camera_cen
 
 	Vec3 final_camera_center;
 	{
-		Vec3 lerped_pos = e->get<Drone>()->center_lerped();
+		Vec3 lerped_pos = e->get<Drone>()->center_lerped() + lerped_rot * Vec3(0, 0, 0.5f);
 		if (camera_center)
 		{
 			if (e->get<Drone>()->state() == Drone::State::Crawl)
@@ -92,7 +92,11 @@ void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, Vec3* camera_cen
 			else
 				*smoothness = 1.0f;
 
-			*camera_center += (lerped_pos - *camera_center) * vi_min(1.0f, LMath::lerpf(Ease::cubic_in_out<r32>(*smoothness), 250.0f, 4.0f) * Game::time.delta);
+			if (*smoothness == 0.0f)
+				*camera_center = lerped_pos;
+			else
+				*camera_center += (lerped_pos - *camera_center) * vi_min(1.0f, LMath::lerpf(Ease::cubic_in_out<r32>(*smoothness), 250.0f, 4.0f) * Game::time.delta);
+
 			final_camera_center = *camera_center;
 		}
 		else
@@ -108,7 +112,6 @@ void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, Vec3* camera_cen
 	if (attached)
 	{
 		abs_wall_normal = abs_rot * Vec3(0, 0, 1);
-		camera->pos += lerped_rot * Vec3(0, 0, 0.5f);
 		camera_pos_final += abs_wall_normal * 0.5f;
 	}
 	else
@@ -443,11 +446,10 @@ void PlayerHuman::msg(const char* msg, b8 good)
 
 void PlayerHuman::energy_notify(s32 change)
 {
-	{
-		char buffer[UI_TEXT_MAX + 1];
-		sprintf(buffer, _(strings::energy_added), s16(change) + energy_notification_accumulator);
-		msg(buffer, true);
-	}
+	energy_notification_accumulator += s16(change);
+	char buffer[UI_TEXT_MAX + 1];
+	sprintf(buffer, _(strings::energy_added), s32(energy_notification_accumulator));
+	msg(buffer, true);
 }
 
 #define DANGER_RAMP_UP_TIME 2.0f
@@ -4639,7 +4641,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (get<AIAgent>()->stealth)
 			{
 				// stealth indicator
-				text.color = Team::ui_color_friend;
+				text.color = UI::color_accent();
 				text.text(player.ref()->gamepad, _(strings::stealth));
 				UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
 				text.draw(params, ui_anchor);

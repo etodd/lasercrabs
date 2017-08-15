@@ -2158,7 +2158,12 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 	if (!Net::serialize_quat(p, &rot, Net::Resolution::Low))
 		net_error();
 
-	if (t == Type::Grenade || t == Type::Explosion)
+	if (t == Type::Grenade)
+	{
+		Audio::post_global_event(AK::EVENTS::PLAY_EXPLOSION, pos);
+		EffectLight::add(pos, GRENADE_RANGE, 0.35f, EffectLight::Type::Alpha);
+	}
+	else if (t == Type::Explosion)
 	{
 		Audio::post_global_event(AK::EVENTS::PLAY_EXPLOSION, pos);
 		EffectLight::add(pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
@@ -2370,9 +2375,9 @@ void Grenade::explode()
 
 				if (i.item()->has<Shield>())
 				{
-					if (distance < GRENADE_RANGE * 0.25f)
+					if (distance < GRENADE_RANGE * 0.4f)
 						i.item()->damage(entity(), 3);
-					else if (distance < GRENADE_RANGE * 0.5f)
+					else if (distance < GRENADE_RANGE * 0.7f)
 						i.item()->damage(entity(), 2);
 					else if (distance < GRENADE_RANGE)
 						i.item()->damage(entity(), 1);

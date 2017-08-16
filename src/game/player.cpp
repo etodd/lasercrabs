@@ -3156,14 +3156,7 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 			}
 #if DEBUG_NET_SYNC
 			else
-				vi_debug
-				(
-					"Rejected sync. Remote pos: %f %f %f local pos: %f %f %f remote rot: %f %f %f %f local rot: %f %f %f %f",
-					remote_abs_pos.x, remote_abs_pos.y, remote_abs_pos.z,
-					abs_pos.x, abs_pos.y, abs_pos.z,
-					remote_abs_rot.w, remote_abs_rot.x, remote_abs_rot.y, remote_abs_rot.z,
-					abs_rot.w, abs_rot.x, abs_rot.y, abs_rot.z
-				);
+				vi_debug("%f rejected sync. distance: %f", Game::real_time.total, (remote_abs_pos - abs_pos).length());
 #endif
 		}
 	}
@@ -3712,9 +3705,12 @@ void PlayerControlHuman::update(const Update& u)
 					}
 					else
 					{
-						msg.type = PlayerControlHumanNet::Message::Type::Go;
 						msg.ability = get<Drone>()->current_ability;
-						PlayerControlHumanNet::send(this, &msg);
+						if (msg.ability == Ability::None || player.ref()->get<PlayerManager>()->ability_valid(msg.ability))
+						{
+							msg.type = PlayerControlHumanNet::Message::Type::Go;
+							PlayerControlHumanNet::send(this, &msg);
+						}
 					}
 				}
 			}

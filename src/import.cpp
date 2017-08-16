@@ -3638,7 +3638,7 @@ s32 proc(s32 argc, char* argv[])
 		// version
 		{
 			char version[256];
-			if (!platform::run_cmd("git describe --always --dirty --tags", version, 256))
+			if (!platform::run_cmd("git describe --always --tags", version, 256))
 				return exit_error();
 			{
 				char* version_end = (char*)(strchr(version, '\n'));

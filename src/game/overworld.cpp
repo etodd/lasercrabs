@@ -3081,7 +3081,7 @@ void show_complete()
 	else
 	{
 		if (Game::save.zone_last == AssetNull)
-			data.zone_selected = Asset::Level::Crossing;
+			data.zone_selected = Asset::Level::Office;
 		else
 			data.zone_selected = Game::save.zone_last;
 	}

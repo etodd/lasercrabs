@@ -184,7 +184,7 @@ void Team::awake_all()
 	game_over_real_time = 0.0f;
 	if (Game::level.local) // if we're a client, the netcode manages this
 	{
-		match_state = Game::session.type == SessionType::Story ? MatchState::Active : MatchState::Waiting;
+		match_state = MatchState::Waiting;
 		if (Game::session.type == SessionType::Story
 			&& Game::level.mode == Game::Mode::Pvp
 			&& Game::save.zones[Game::level.id] == ZoneState::PvpFriendly)
@@ -873,8 +873,15 @@ void Team::update_all_server(const Update& u)
 	{
 		if (Game::session.type == SessionType::Story)
 		{
-			if (PlayerHuman::list.count() > 0)
-				match_start();
+			// if any one player is ready, we can start
+			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->can_spawn)
+				{
+					match_start();
+					break;
+				}
+			}
 		}
 		else
 		{
@@ -1814,7 +1821,7 @@ void PlayerManager::update_all(const Update& u)
 				s32 index = s32((Team::match_time - u.time.delta) / interval_per_point);
 				while (index < s32(Team::match_time / interval_per_point))
 				{
-					// give points to players based on how many control points they own
+					// give points to players based on how many batteries they own
 					i.item()->add_energy(1);
 					index++;
 				}

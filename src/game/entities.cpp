@@ -893,9 +893,9 @@ void SpawnPoint::update_server_all(const Update& u)
 		&& Game::session.config.enable_minions)
 	{
 		const s32 minion_group = 3;
-		const r32 minion_initial_delay = Game::session.type == SessionType::Story || Game::session.config.game_type == GameType::Deathmatch ? 45.0f : 20.0f;
-		const r32 minion_spawn_interval = 8.0f;
-		const r32 minion_group_interval = minion_spawn_interval * 13.0f; // must be a multiple of minion_spawn_interval
+		const r32 minion_initial_delay = Game::session.config.game_type == GameType::Deathmatch ? 45.0f : 20.0f;
+		const r32 minion_spawn_interval = 10.0f;
+		const r32 minion_group_interval = minion_spawn_interval * 12.0f; // must be a multiple of minion_spawn_interval
 		r32 t = Team::match_time - minion_initial_delay;
 		if (t > 0.0f)
 		{
@@ -2373,17 +2373,18 @@ void Grenade::explode()
 				if (i.item()->has<ForceField>())
 					distance -= FORCE_FIELD_RADIUS;
 
-				if (i.item()->has<Shield>())
+				if (i.item()->has<Drone>())
 				{
-					if (distance < GRENADE_RANGE * 0.4f)
+					r32 multiplier = i.item()->get<AIAgent>()->team == my_team ? 0.5f : 1.0f;
+					if (distance < multiplier * GRENADE_RANGE * 0.4f)
 						i.item()->damage(entity(), 3);
-					else if (distance < GRENADE_RANGE * 0.7f)
+					else if (distance < multiplier * GRENADE_RANGE * 0.7f)
 						i.item()->damage(entity(), 2);
-					else if (distance < GRENADE_RANGE)
+					else if (distance < multiplier * GRENADE_RANGE)
 						i.item()->damage(entity(), 1);
 				}
 				else if (distance < GRENADE_RANGE && !i.item()->has<Battery>())
-					i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 5 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1));
+					i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 6 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1));
 			}
 		}
 	}

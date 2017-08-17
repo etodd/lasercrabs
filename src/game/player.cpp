@@ -957,7 +957,7 @@ void PlayerHuman::update(const Update& u)
 #endif
 				}
 			}
-			else if (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
+			else if (Game::session.type == SessionType::Multiplayer && (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect))
 			{
 				// show team switcher
 				if (!Menu::teams(u, gamepad, &menu, Menu::TeamSelectMode::MatchStart))
@@ -1044,7 +1044,7 @@ void PlayerHuman::update(const Update& u)
 					// move camera to focus on selected spawn point
 					{
 						Quat target_rot = Quat::look(Game::level.map_view.ref()->absolute_rot() * Vec3(0, -1, 0));
-						Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.skybox.far_plane * -0.5f);
+						Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.skybox.far_plane * -0.4f);
 						camera.ref()->pos += (target_pos - camera.ref()->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
 						camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, target_rot);
 					}
@@ -1801,8 +1801,9 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	{
 		if (Game::level.mode == Game::Mode::Pvp)
 		{
-			if (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
+			if (Game::session.type == SessionType::Multiplayer && (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect))
 			{
+				// waiting for players or selecting teams
 				Vec2 p(params.camera->viewport.size * Vec2(0.5f, 0.75f));
 				{
 					UIText text;
@@ -1829,29 +1830,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			}
 			else if (get<PlayerManager>()->respawns != 0) // if we haven't spawned yet, then show the player list
 			{
-				if (!get<PlayerManager>()->can_spawn)
-				{
-					// player can't spawn yet; needs to solve sudoku
-					if (UI::flash_function_slow(Game::real_time.total))
-					{
-						// alarm!
-
-						UIText text;
-						text.size = UI_TEXT_SIZE_DEFAULT * 1.5f;
-						text.anchor_x = UIText::Anchor::Center;
-						text.anchor_y = UIText::Anchor::Min;
-						text.color = UI::color_alert();
-						text.text(gamepad, _(strings::alarm));
-
-						Vec2 pos = vp.size * Vec2(0.5f, 0.8f);
-						Rect2 rect = text.rect(pos).outset(MENU_ITEM_PADDING * 2.0f);
-						UI::box(params, rect, UI::color_background);
-						text.draw(params, pos);
-						UI::border(params, rect, 4.0f, UI::color_alert());
-					}
-					sudoku.draw(params, gamepad);
-				}
-				else
+				if (get<PlayerManager>()->can_spawn)
 				{
 					if (get<PlayerManager>()->spawn_timer > 0.0f)
 						scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Bottom);
@@ -1920,6 +1899,28 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 							}
 						}
 					}
+				}
+				else
+				{
+					// player can't spawn yet; needs to solve sudoku
+					if (UI::flash_function_slow(Game::real_time.total))
+					{
+						// alarm!
+
+						UIText text;
+						text.size = UI_TEXT_SIZE_DEFAULT * 1.5f;
+						text.anchor_x = UIText::Anchor::Center;
+						text.anchor_y = UIText::Anchor::Min;
+						text.color = UI::color_alert();
+						text.text(gamepad, _(strings::alarm));
+
+						Vec2 pos = vp.size * Vec2(0.5f, 0.8f);
+						Rect2 rect = text.rect(pos).outset(MENU_ITEM_PADDING * 2.0f);
+						UI::box(params, rect, UI::color_background);
+						text.draw(params, pos);
+						UI::border(params, rect, 4.0f, UI::color_alert());
+					}
+					sudoku.draw(params, gamepad);
 				}
 			}
 			else

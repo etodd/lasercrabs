@@ -116,7 +116,7 @@ namespace LMath
 		if (delta > 0.0f)
 		{
 			r32 distance = (-b - sqrtf(delta)) / (2.0f * a);
-			if (distance < 1.0f)
+			if (distance >= 0.0f && distance < 1.0f)
 			{
 				if (intersection)
 					*intersection = ray_start + ray * distance;

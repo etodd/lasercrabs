@@ -3884,9 +3884,11 @@ void PlayerControlHuman::update(const Update& u)
 						get<PlayerCommon>()->angle_vertical = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / fabsf(get<PlayerCommon>()->angle_vertical)) * u.time.delta), get<PlayerCommon>()->angle_vertical, -arm_angle_offset);
 
 						Vec3 abs_pos = get<Transform>()->absolute_pos();
-						r32 distance = (abs_pos - target_pos).length();
+						Vec3 diff = target_pos - abs_pos;
+						r32 distance = diff.length();
 						if (distance > 0.0f)
-							get<Walker>()->absolute_pos(Vec3::lerp(vi_min(1.0f, (INTERACT_LERP_TRANSLATION_SPEED / distance) * u.time.delta), abs_pos, target_pos));
+							diff /= distance;
+						get<Walker>()->absolute_pos(abs_pos + diff * vi_min(distance, INTERACT_LERP_TRANSLATION_SPEED * u.time.delta));
 					}
 					else
 					{

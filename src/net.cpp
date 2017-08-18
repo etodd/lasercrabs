@@ -2468,7 +2468,7 @@ b8 packet_handle_master(StreamRead* p)
 			{
 				Game::session.type = SessionType::Multiplayer;
 				vi_assert(Game::session.config.levels.length > 0);
-				Game::load_level(Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length], Game::Mode::Pvp);
+				Game::load_level(Overworld::zone_id_for_uuid(Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length]), Game::Mode::Pvp);
 			}
 			break;
 		}

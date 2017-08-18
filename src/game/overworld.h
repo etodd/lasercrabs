@@ -57,6 +57,7 @@ void clear();
 void execute(const char*);
 void zone_done(AssetID);
 void zone_change(AssetID, ZoneState);
+AssetID zone_id_for_uuid(AssetID);
 b8 active(); // true if the overworld UI is being shown in any way
 b8 modal(); // true if the entire overworld scene is being shown
 b8 zone_is_pvp(AssetID);

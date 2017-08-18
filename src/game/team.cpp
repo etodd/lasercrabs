@@ -277,7 +277,7 @@ void Team::transition_next()
 		}
 		AssetID next_zone = Game::level.id;
 		while (Game::session.config.levels.length > 1 && next_zone == Game::level.id)
-			next_zone = Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length];
+			next_zone = Overworld::zone_id_for_uuid(Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length]);
 		Game::schedule_load_level(next_zone, Game::Mode::Pvp);
 	}
 }

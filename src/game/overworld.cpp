@@ -61,6 +61,7 @@ struct ZoneNode
 	StaticArray<Vec3, ZONE_MAX_CHILDREN> children;
 	Quat rot;
 	AssetID id;
+	AssetID uuid;
 	AssetID mesh;
 	s16 rewards[s32(Resource::count)];
 	s8 size;
@@ -226,7 +227,8 @@ void deploy_start()
 }
 
 void deploy_done();
-const ZoneNode* zone_node_get(AssetID);
+const ZoneNode* zone_node_by_id(AssetID);
+const ZoneNode* zone_node_by_uuid(AssetID);
 
 b8 multiplayer_can_switch_tab()
 {
@@ -584,7 +586,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 					s32 max_teams = vi_min(s32(config->max_players), MAX_TEAMS);
 					for (s32 i = 0; i < config->levels.length; i++)
-						max_teams = vi_min(max_teams, s32(zone_node_get(config->levels[i])->max_teams));
+						max_teams = vi_min(max_teams, s32(zone_node_by_uuid(config->levels[i])->max_teams));
 
 					*team_count = s8(vi_max(2, vi_min(max_teams, *team_count + delta)));
 					if (delta)
@@ -672,7 +674,8 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				for (s32 i = 0; i < config->levels.length; i++)
 				{
-					if (menu->item(u, Loader::level_name(config->levels[i]), nullptr, false, Asset::Mesh::icon_close))
+					const ZoneNode* node = zone_node_by_uuid(config->levels[i]);
+					if (menu->item(u, Loader::level_name(node->id), nullptr, false, Asset::Mesh::icon_close))
 					{
 						config->levels.remove_ordered(i);
 						data.multiplayer.active_server_dirty = true;
@@ -707,21 +710,23 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				for (s32 i = 0; i < Asset::Level::count; i++)
 				{
-					if (Overworld::zone_is_pvp(AssetID(i)) && i != Asset::Level::Port_District)
+					if (zone_is_pvp(AssetID(i)) && i != Asset::Level::Port_District)
 					{
+						const ZoneNode* node = zone_node_by_id(AssetID(i));
+
 						b8 already_added = false;
 						for (s32 j = 0; j < config->levels.length; j++)
 						{
-							if (config->levels[j] == AssetID(i))
+							if (config->levels[j] == node->uuid)
 							{
 								already_added = true;
 								break;
 							}
 						}
 
-						if (!already_added && menu->item(u, Loader::level_name(i)))
+						if (!already_added && menu->item(u, Loader::level_name(node->id)))
 						{
-							config->levels.add(i);
+							config->levels.add(node->uuid);
 							data.multiplayer.active_server_dirty = true;
 							multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Levels);
 							menu->end();
@@ -1581,7 +1586,8 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 				pos.y -= panel_size.y;
 				for (s32 i = 0; i < details.config.levels.length; i++)
 				{
-					text.text_raw(0, Loader::level_name(details.config.levels[i]));
+					const ZoneNode* node = zone_node_by_uuid(details.config.levels[i]);
+					text.text_raw(0, Loader::level_name(node->id));
 					text.draw(params, pos);
 					pos.y -= panel_size.y;
 				}
@@ -1800,7 +1806,7 @@ void focus_camera(const Update& u, const ZoneNode& zone)
 	focus_camera(u, target_pos, zone.rot * global.camera_offset_rot);
 }
 
-const ZoneNode* zone_node_get(AssetID id)
+const ZoneNode* zone_node_by_id(AssetID id)
 {
 	for (s32 i = 0; i < global.zones.length; i++)
 	{
@@ -1808,6 +1814,21 @@ const ZoneNode* zone_node_get(AssetID id)
 			return &global.zones[i];
 	}
 	return nullptr;
+}
+
+const ZoneNode* zone_node_by_uuid(AssetID uuid)
+{
+	for (s32 i = 0; i < global.zones.length; i++)
+	{
+		if (global.zones[i].uuid == uuid)
+			return &global.zones[i];
+	}
+	return nullptr;
+}
+
+AssetID zone_id_for_uuid(AssetID uuid)
+{
+	return zone_node_by_uuid(uuid)->id;
 }
 
 s16 energy_increment_zone(const ZoneNode& zone)
@@ -1835,7 +1856,7 @@ void select_zone_update(const Update& u, b8 enable_movement)
 	if (UIMenu::active[0])
 		return;
 
-	const ZoneNode* zone = zone_node_get(data.zone_selected);
+	const ZoneNode* zone = zone_node_by_id(data.zone_selected);
 	if (!zone)
 		return;
 
@@ -1998,10 +2019,10 @@ const ZoneNode* zones_draw(const RenderParams& params)
 		return nullptr;
 
 	// highlight zone locations
-	const ZoneNode* selected_zone = zone_node_get(data.zone_selected);
+	const ZoneNode* selected_zone = zone_node_by_id(data.zone_selected);
 
 	// "you are here"
-	const ZoneNode* current_zone = zone_node_get(Game::level.id);
+	const ZoneNode* current_zone = zone_node_by_id(Game::level.id);
 	Vec2 p;
 	if (current_zone && UI::project(params, current_zone->pos(), &p))
 		UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent(), PI);
@@ -2038,7 +2059,7 @@ const ZoneNode* zones_draw(const RenderParams& params)
 	}
 
 	// zone under attack
-	const ZoneNode* under_attack = zone_node_get(zone_under_attack());
+	const ZoneNode* under_attack = zone_node_by_id(zone_under_attack());
 	if (under_attack)
 	{
 		Vec2 p;
@@ -2216,7 +2237,7 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 			// only server accepts CaptureOrDefend messages
 			if (Game::level.local && Game::session.type == SessionType::Story)
 			{
-				if (zone_node_get(zone) && zone_can_capture(zone))
+				if (zone_node_by_id(zone) && zone_can_capture(zone))
 				{
 					if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES
 						&& (Game::save.zones[zone] == ZoneState::PvpFriendly || Game::save.resources[s32(Resource::AccessKeys)] > 0))
@@ -2332,7 +2353,7 @@ void deploy_done()
 
 void deploy_update(const Update& u)
 {
-	const ZoneNode& zone = *zone_node_get(data.zone_selected);
+	const ZoneNode& zone = *zone_node_by_id(data.zone_selected);
 	focus_camera(u, zone);
 
 	// must use Game::real_time because Game::time is paused when overworld is active
@@ -2345,7 +2366,7 @@ void deploy_update(const Update& u)
 		// particles
 		r32 t = old_timer;
 		const r32 particle_interval = 0.015f;
-		const ZoneNode* zone = zone_node_get(data.zone_selected);
+		const ZoneNode* zone = zone_node_by_id(data.zone_selected);
 		while (s32(t / particle_interval) > s32(data.timer_deploy / particle_interval))
 		{
 			r32 particle_blend = (t - 0.5f) / 0.5f;
@@ -2426,7 +2447,7 @@ void zone_done(AssetID zone)
 		// we won
 		if (Game::level.local)
 		{
-			const ZoneNode* z = zone_node_get(zone);
+			const ZoneNode* z = zone_node_by_id(zone);
 			for (s32 i = 0; i < s32(Resource::count); i++)
 				resource_change(Resource(i), z->rewards[i]);
 		}
@@ -2446,13 +2467,13 @@ void zone_change(AssetID zone, ZoneState state)
 
 b8 zone_is_pvp(AssetID zone_id)
 {
-	const ZoneNode* z = zone_node_get(zone_id);
+	const ZoneNode* z = zone_node_by_id(zone_id);
 	return z && z->max_teams > 0;
 }
 
 void zone_rewards(AssetID zone_id, s16* rewards)
 {
-	const ZoneNode* z = zone_node_get(zone_id);
+	const ZoneNode* z = zone_node_by_id(zone_id);
 	for (s32 i = 0; i < s32(Resource::count); i++)
 		rewards[i] = z->rewards[i];
 }
@@ -2849,7 +2870,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		ZoneState zone_state = Game::save.zones[data.zone_selected];
 
 		// show stats
-		const ZoneNode* zone = zone_node_get(data.zone_selected);
+		const ZoneNode* zone = zone_node_by_id(data.zone_selected);
 		zone_stat_draw(p, rect, UIText::Anchor::Min, 0, Loader::level_name(data.zone_selected), zone_ui_color(*zone));
 		char buffer[255];
 		sprintf(buffer, _(strings::energy_generation), s32(energy_increment_zone(*zone)));
@@ -3090,9 +3111,9 @@ void show_complete()
 	data.camera_rot = global.camera_offset_rot;
 
 	{
-		const ZoneNode* zone = zone_node_get(Game::save.zone_overworld);
+		const ZoneNode* zone = zone_node_by_id(Game::save.zone_overworld);
 		if (!zone)
-			zone = zone_node_get(Game::save.zone_last);
+			zone = zone_node_by_id(Game::save.zone_last);
 		if (zone)
 			data.camera_pos += zone->pos();
 	}
@@ -3412,6 +3433,7 @@ void init(cJSON* level)
 					node->rot = Json::get_quat(element, "rot");
 
 					node->id = level_id;
+					node->uuid = AssetID(Json::get_s32(element, "uuid"));
 
 					cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
 					cJSON* mesh_json = meshes->child;

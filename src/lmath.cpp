@@ -1,4 +1,5 @@
 #include "lmath.h"
+#include "vi_assert.h"
 
 namespace VI
 {
@@ -106,10 +107,19 @@ namespace LMath
 	{
 		Vec3 ray = ray_end - ray_start;
 		Vec3 sphere_to_ray_start = ray_start - sphere_pos;
+		r32 ray_start_distance_sq = sphere_to_ray_start.length_squared();
+		r32 sphere_radius_sq = sphere_radius * sphere_radius;
+		r32 dot = sphere_to_ray_start.dot(ray);
+		if (ray_start_distance_sq < sphere_radius_sq
+			&& dot < 0.0f)
+		{
+			ray *= -1.0f;
+			dot = sphere_to_ray_start.dot(ray);
+		}
 
 		r32 a = ray.length_squared();
-		r32 b = 2.0f * ray.dot(sphere_to_ray_start);
-		r32 c = sphere_to_ray_start.length_squared() - (sphere_radius * sphere_radius);
+		r32 b = 2.0f * dot;
+		r32 c = ray_start_distance_sq - (sphere_radius * sphere_radius);
 
 		r32 delta = (b * b) - 4.0f * a * c;
 

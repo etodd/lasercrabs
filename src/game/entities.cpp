@@ -56,7 +56,7 @@ DroneEntity::DroneEntity(AI::Team team)
 	anim->armature = Asset::Armature::drone;
 
 	create<Target>();
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(DRONE_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault, AssetNull);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(DRONE_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault);
 }
 
 Health::Health(s8 hp, s8 hp_max, s8 shield, s8 shield_max)

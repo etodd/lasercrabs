@@ -28,7 +28,7 @@ namespace VI
 {
 
 #define LERP_ROTATION_SPEED 10.0f
-#define LERP_TRANSLATION_SPEED 3.0f
+#define LERP_TRANSLATION_SPEED 4.0f
 #define MAX_FLIGHT_TIME 4.0f
 #define DRONE_LEG_LENGTH (0.277f - 0.101f)
 #define DRONE_LEG_BLEND_SPEED (1.0f / 0.03f)
@@ -288,27 +288,37 @@ void sniper_hit_effects(const Drone::Hit& hit)
 	Audio::post_global_event(AK::EVENTS::PLAY_SNIPER_IMPACT, hit.pos);
 }
 
-s32 impact_damage(const Drone* drone, const Entity* target_drone)
+s32 impact_damage(const Drone* drone, const Entity* target_shield)
 {
+	Vec3 ray_dir;
+	{
+		r32 speed = drone->velocity.length();
+		if (speed == 0.0f)
+			return 0;
+		else
+			ray_dir = drone->velocity / speed;
+	}
+
 	Net::StateFrame state_frame;
 
 	Vec3 target_pos;
 
-	if (!PlayerHuman::players_on_same_client(drone->entity(), target_drone) && drone->net_state_frame(&state_frame))
+	if (Game::net_transform_filter(target_shield, Game::level.mode)
+		&& !PlayerHuman::players_on_same_client(drone->entity(), target_shield)
+		&& drone->net_state_frame(&state_frame))
 	{
 		Vec3 pos;
 		Quat rot;
-		Net::transform_absolute(state_frame, target_drone->get<Transform>()->id(), &pos, &rot);
-		target_pos = pos + (rot * target_drone->get<Target>()->local_offset); // todo possibly: rewind local_offset as well?
+		Net::transform_absolute(state_frame, target_shield->get<Transform>()->id(), &pos, &rot);
+		target_pos = pos + (rot * target_shield->get<Target>()->local_offset); // todo possibly: rewind local_offset as well?
 	}
 	else
-		target_pos = target_drone->get<Target>()->absolute_pos();
+		target_pos = target_shield->get<Target>()->absolute_pos();
 
 	Vec3 ray_start = drone->get<Transform>()->absolute_pos();
-	Vec3 ray_dir = Vec3::normalize(drone->velocity);
 
 	Vec3 intersection;
-	if (LMath::ray_sphere_intersect(ray_start, ray_start + ray_dir * DRONE_MAX_DISTANCE, target_pos, DRONE_SHIELD_RADIUS, &intersection))
+	if (LMath::ray_sphere_intersect(ray_start, ray_start + ray_dir * drone->range(), target_pos, DRONE_SHIELD_RADIUS, &intersection))
 	{
 		r32 dot = Vec3::normalize(intersection - target_pos).dot(ray_dir);
 		if (dot < -0.95f)
@@ -357,6 +367,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					drone->dash_timer = 0.0f;
 					drone->velocity = dir * DRONE_FLY_SPEED;
 					drone->detaching.fire();
+					drone->hit_targets.length = 0;
 					drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
 					drone->get<Transform>()->absolute_rot(Quat::look(dir));
 
@@ -1222,7 +1233,7 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	s16 force_field_mask = type == AbilityInfo::Type::Build
 		? ~ally_force_field_mask() // only ignore friendly force fields; we don't want to build something on a force field
 		: ~CollisionAllTeamsForceField; // ignore all force fields
-	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionTarget & force_field_mask);
+	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & force_field_mask);
 	if (type == AbilityInfo::Type::Shoot)
 	{
 		if (ray_callback.hasHit())
@@ -1249,20 +1260,24 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	else
 	{
 		// build-type ability
-		b8 can_spawn = ray_callback.hasHit()
-			&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK);
-		if (can_spawn)
+		if (ray_callback.hasHit())
 		{
-			if (final_pos)
-				*final_pos = ray_callback.m_hitPointWorld;
-			if (final_normal)
-				*final_normal = ray_callback.m_hitNormalWorld;
-			if (hit_parent)
-				*hit_parent = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
-			if (hit_target)
-				*hit_target = false;
+			Entity* hit_entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+			if (!hit_entity->has<Target>()
+				&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
+			{
+				if (final_pos)
+					*final_pos = ray_callback.m_hitPointWorld;
+				if (final_normal)
+					*final_normal = ray_callback.m_hitNormalWorld;
+				if (hit_parent)
+					*hit_parent = hit_entity->get<RigidBody>();
+				if (hit_target)
+					*hit_target = false;
+				return true;
+			}
 		}
-		return can_spawn;
+		return false;
 	}
 }
 
@@ -1290,12 +1305,11 @@ void Drone::cooldown_setup()
 
 void Drone::ensure_detached()
 {
-	hit_targets.length = 0;
-
 	if (get<Transform>()->parent.ref())
 	{
 		attach_time = Game::time.total;
 		get<Transform>()->reparent(nullptr);
+		Vec3 p = get<Transform>()->absolute_pos();
 	}
 
 	get<SkinnedModel>()->offset = Mat4::identity;
@@ -1534,6 +1548,19 @@ void drone_reflection_execute(Drone* d)
 {
 	const Drone::Reflection& reflection = d->reflections[0];
 
+#if DEBUG_REFLECTIONS
+	vi_debug
+	(
+		"%f executing %s reflection at %fs (%f %f %f).",
+		Game::real_time.total,
+		reflection.src == Net::MessageSource::Loopback ? "local" : "remote",
+		Game::time.total - d->attach_time,
+		reflection.pos.x,
+		reflection.pos.y,
+		reflection.pos.z
+	);
+#endif
+
 	{
 		r32 l = reflection.dir.length_squared();
 		vi_assert(l > 0.98f * 0.98f && l < 1.02f * 1.02f);
@@ -1693,7 +1720,7 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 	{
 		Reflection* reflection = reflections.add();
 		reflection->pos = hit;
-		reflection->timer = DRONE_REFLECTION_TIME_TOLERANCE;
+		reflection->timer = DRONE_REFLECTION_TIME_TOLERANCE + Game::time.delta;
 		reflection->entity = entity;
 		reflection->src = Net::MessageSource::Loopback; // this hit was detected locally
 		reflection->dir = new_dir;
@@ -1701,7 +1728,15 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 		if (state_frame)
 		{
 #if DEBUG_REFLECTIONS
-			vi_debug("%f detected local reflection, waiting for remote...", Game::real_time.total);
+			vi_debug
+			(
+				"%f detected local reflection at %fs (%f %f %f), waiting for remote...",
+				Game::real_time.total,
+				Game::time.total - attach_time,
+				reflection->pos.x,
+				reflection->pos.y,
+				reflection->pos.z
+			);
 #endif
 			vi_assert(reflections.length == 1);
 			// store our reflection result and wait for the remote to tell us which way to go
@@ -1722,7 +1757,7 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 			{
 				valid = true;
 #if DEBUG_REFLECTIONS
-				vi_debug("%f local confirmed remote reflection %fs later, executing", Game::real_time.total, DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer);
+				vi_debug("%f local confirmed remote reflection %fs later, executing", Game::real_time.total, vi_max(0.0f, DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer));
 #endif
 			}
 			else
@@ -1739,7 +1774,7 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 		// if we're locally controlled, reflections should only come from us
 		vi_assert(b8(state_frame) == (reflection.src == Net::MessageSource::Remote));
 
-		r32 fast_forward = DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer;
+		r32 fast_forward = vi_max(0.0f, DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer);
 		if (valid)
 			drone_reflection_execute(this);
 		else
@@ -1796,7 +1831,7 @@ void Drone::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos,
 		{
 			r32 original_timer = reflection->timer;
 #if DEBUG_REFLECTIONS
-			vi_debug("%f remote confirmed local reflection %fs later, executing", Game::real_time.total, DRONE_REFLECTION_TIME_TOLERANCE - original_timer);
+			vi_debug("%f remote confirmed local reflection %fs later, executing", Game::real_time.total, vi_max(0.0f, DRONE_REFLECTION_TIME_TOLERANCE - original_timer));
 #endif
 			// replace local reflection data with remote data
 			reflection->dir = reflection_dir_normalized;
@@ -1807,7 +1842,7 @@ void Drone::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos,
 			drone_reflection_execute(this); // automatically removes the reflection from the queue
 
 			// fast forward the amount of time we've been sitting here waiting for the client to acknowledge the reflection
-			drone_fast_forward(this, DRONE_REFLECTION_TIME_TOLERANCE - original_timer);
+			drone_fast_forward(this, vi_max(0.0f, DRONE_REFLECTION_TIME_TOLERANCE - original_timer));
 		}
 		else
 		{
@@ -2155,7 +2190,7 @@ void Drone::update_server(const Update& u)
 	{
 		// time's up on this reflection, we have to do something
 		const Reflection& reflection = reflections[0];
-		r32 fast_forward = DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer;
+		r32 fast_forward = vi_max(0.0f, DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer);
 
 		if (reflection.src == Net::MessageSource::Remote) // the remote told us about this reflection. go ahead and do it even though we never detected the hit locally
 		{
@@ -2299,6 +2334,9 @@ void Drone::update_client(const Update& u)
 			// this means that we were flying or dashing, but we were interrupted. the animation is still playing.
 			// this probably happened because the server never started flying or dashing in the first place, while we did
 			// and now we're snapping back to the server's state
+#if DEBUG_NET_SYNC
+			vi_debug_break();
+#endif
 			finish_flying_dashing_common();
 			done_dashing.fire();
 		}
@@ -2437,6 +2475,9 @@ void Drone::update_client(const Update& u)
 		if (get<Animator>()->layers[0].animation == AssetNull)
 		{
 			// this means that we were crawling, but were interrupted.
+#if DEBUG_NET_SYNC
+			vi_debug_break();
+#endif
 			ensure_detached();
 		}
 
@@ -2530,7 +2571,9 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 
 		Vec3 p;
 		// do rewinding, unless we're checking collisions between two players on the same client
-		if (state_frame && !PlayerHuman::players_on_same_client(entity(), i.item()->entity()))
+		if (state_frame
+			&& Game::net_transform_filter(i.item()->entity(), Game::level.mode)
+			&& !PlayerHuman::players_on_same_client(entity(), i.item()->entity()))
 		{
 			Vec3 pos;
 			Quat rot;
@@ -2686,10 +2729,7 @@ void Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* h
 			hit_target(hit.entity.ref());
 		else if (hit.type == Hit::Type::Shield)
 		{
-			b8 target_will_still_be_alive = hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()) // will they still be alive after we hit them? if so, reflect
-				|| !hit.entity.ref()->get<Health>()->can_take_damage();
 			if (hit_target(hit.entity.ref())
-				&& target_will_still_be_alive
 				&& i == hits.index_end // make sure this is the hit we thought we would stop on
 				&& s != State::Crawl) // make sure we're flying or dashing
 				reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);

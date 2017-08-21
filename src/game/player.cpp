@@ -3251,17 +3251,17 @@ const PlayerControlHuman::PositionEntry* PlayerControlHuman::remote_position(r32
 		{
 			position = &entry;
 			// calculate tolerance based on velocity
-			const s32 radius = 4;
+			const s32 radius = 6;
 			for (s32 j = vi_max(0, i - radius); j < vi_min(s32(position_history.length), i + radius + 1); j++)
 			{
 				if (i != j)
 				{
 					tmp_tolerance_pos = vi_max(tmp_tolerance_pos, (position_history[i].pos - position_history[j].pos).length());
-					tmp_tolerance_rot = vi_max(tmp_tolerance_rot, Quat::angle(position_history[i].rot, position_history[j].rot));
+					tmp_tolerance_rot = vi_max(tmp_tolerance_rot, vi_max(tmp_tolerance_pos * 4.0f, Quat::angle(position_history[i].rot, position_history[j].rot)));
 				}
 			}
-			tmp_tolerance_pos *= 6.0f;
-			tmp_tolerance_rot *= 6.0f;
+			tmp_tolerance_pos *= 8.0f;
+			tmp_tolerance_rot *= 8.0f;
 			break;
 		}
 	}
@@ -3314,10 +3314,10 @@ void PlayerControlHuman::update(const Update& u)
 {
 	s32 gamepad = player.ref()->gamepad;
 
-	if (position_history.length == 0 || Game::real_time.total > position_history[position_history.length - 1].timestamp + Net::tick_rate() * 0.5f)
 	{
 		// save our position history
-		if (position_history.length == 60)
+		r32 cutoff = Game::real_time.total - (Net::rtt(player.ref()) * 2.0f) - Net::interpolation_delay();
+		while (position_history.length > 16 && position_history[0].timestamp < cutoff)
 			position_history.remove_ordered(0);
 		Transform* t = get<Transform>();
 		Vec3 abs_pos;
@@ -3356,6 +3356,9 @@ void PlayerControlHuman::update(const Update& u)
 						|| Quat::angle(position->rot, remote_abs_rot) > tolerance_rot)
 					{
 						// snap our position to the server's position
+#if DEBUG_NET_SYNC
+						vi_debug_break();
+#endif
 						position_history.length = 0;
 						Transform* t = get<Transform>();
 						t->pos = remote_control.pos;
@@ -3413,7 +3416,7 @@ void PlayerControlHuman::update(const Update& u)
 			// collect target indicators
 			player_collect_target_indicators(this);
 
-			if (get<Transform>()->parent.ref())
+			if (get<Transform>()->parent.ref()) // crawling or dashing
 			{
 				r32 gamepad_rotation_multiplier = 1.0f;
 
@@ -3513,7 +3516,7 @@ void PlayerControlHuman::update(const Update& u)
 
 				last_pos = get<Drone>()->center_lerped();
 			}
-			else
+			else // flying
 				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 
 			{
@@ -3567,7 +3570,7 @@ void PlayerControlHuman::update(const Update& u)
 
 					Ability ability = get<Drone>()->current_ability;
 
-					if (ability == Ability::None)
+					if (ability == Ability::None || AbilityInfo::list[s32(ability)].type == AbilityInfo::Type::Shoot)
 					{
 						// check drone target predictions
 						for (s32 i = 0; i < target_indicators.length; i++)
@@ -3861,47 +3864,6 @@ void PlayerControlHuman::update(const Update& u)
 				}
 			}
 
-			if (anim_base.ref())
-			{
-				// an animation is playing
-				// position player where they need to be
-				// if anim_base is an interactable, place the player directly in front of it
-
-				if (get<Animator>()->layers[3].animation == AssetNull)
-					anim_base = nullptr; // animation done
-				else
-				{
-					// desired rotation / position
-					Vec3 target_pos;
-					r32 target_angle;
-					if (anim_base.ref()->has<Interactable>())
-					{
-						get_interactable_standing_position(anim_base.ref()->get<Transform>(), &target_pos, &target_angle);
-
-						// lerp to interactable
-						r32 angle = fabsf(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, target_angle));
-						get<PlayerCommon>()->angle_horizontal = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / angle) * u.time.delta), get<PlayerCommon>()->angle_horizontal, LMath::closest_angle(target_angle, get<PlayerCommon>()->angle_horizontal));
-						get<PlayerCommon>()->angle_vertical = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / fabsf(get<PlayerCommon>()->angle_vertical)) * u.time.delta), get<PlayerCommon>()->angle_vertical, -arm_angle_offset);
-
-						Vec3 abs_pos = get<Transform>()->absolute_pos();
-						Vec3 diff = target_pos - abs_pos;
-						r32 distance = diff.length();
-						if (distance > 0.0f)
-							diff /= distance;
-						get<Walker>()->absolute_pos(abs_pos + diff * vi_min(distance, INTERACT_LERP_TRANSLATION_SPEED * u.time.delta));
-					}
-					else
-					{
-						get_standing_position(anim_base.ref()->get<Transform>(), &target_pos, &target_angle);
-						// instantly teleport
-						get<Walker>()->absolute_pos(target_pos);
-						get<PlayerCommon>()->angle_horizontal = target_angle;
-						get<PlayerCommon>()->angle_vertical = 0.0f;
-					}
-					get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);
-				}
-			}
-
 			update_camera_input(u);
 
 			if (get<Parkour>()->fsm.current == Parkour::State::Climb
@@ -4063,6 +4025,47 @@ b8 PlayerControlHuman::cinematic_active() const
 
 void PlayerControlHuman::update_late(const Update& u)
 {
+	if (anim_base.ref())
+	{
+		// an animation is playing
+		// position player where they need to be
+		// if anim_base is an interactable, place the player directly in front of it
+
+		if (get<Animator>()->layers[3].animation == AssetNull)
+			anim_base = nullptr; // animation done
+		else
+		{
+			// desired rotation / position
+			Vec3 target_pos;
+			r32 target_angle;
+			if (anim_base.ref()->has<Interactable>())
+			{
+				get_interactable_standing_position(anim_base.ref()->get<Transform>(), &target_pos, &target_angle);
+
+				// lerp to interactable
+				r32 angle = fabsf(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, target_angle));
+				get<PlayerCommon>()->angle_horizontal = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / angle) * u.time.delta), get<PlayerCommon>()->angle_horizontal, LMath::closest_angle(target_angle, get<PlayerCommon>()->angle_horizontal));
+				get<PlayerCommon>()->angle_vertical = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / fabsf(get<PlayerCommon>()->angle_vertical)) * u.time.delta), get<PlayerCommon>()->angle_vertical, -arm_angle_offset);
+
+				Vec3 abs_pos = get<Transform>()->absolute_pos();
+				Vec3 diff = target_pos - abs_pos;
+				r32 distance = diff.length();
+				if (distance > 0.0f)
+					diff /= distance;
+				get<Walker>()->absolute_pos(abs_pos + diff * vi_min(distance, INTERACT_LERP_TRANSLATION_SPEED * u.time.delta));
+			}
+			else
+			{
+				get_standing_position(anim_base.ref()->get<Transform>(), &target_pos, &target_angle);
+				// instantly teleport
+				get<Walker>()->absolute_pos(target_pos);
+				get<PlayerCommon>()->angle_horizontal = target_angle;
+				get<PlayerCommon>()->angle_vertical = 0.0f;
+			}
+			get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);
+		}
+	}
+
 	if (has<Parkour>()
 		&& !Overworld::modal()
 		&& local())

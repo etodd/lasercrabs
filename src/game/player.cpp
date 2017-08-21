@@ -64,7 +64,7 @@ namespace VI
 #define LOG_TIME 4.0f
 #define INTERACT_TIME 2.5f
 #define INTERACT_LERP_ROTATION_SPEED 5.0f
-#define INTERACT_LERP_TRANSLATION_SPEED 5.0f
+#define INTERACT_LERP_TRANSLATION_SPEED 10.0f
 
 #define HP_BOX_SIZE (Vec2(UI_TEXT_SIZE_DEFAULT) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
@@ -95,7 +95,7 @@ void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, Vec3* camera_cen
 			if (*smoothness == 0.0f)
 				*camera_center = lerped_pos;
 			else
-				*camera_center += (lerped_pos - *camera_center) * vi_min(1.0f, LMath::lerpf(Ease::cubic_in_out<r32>(*smoothness), 250.0f, 4.0f) * Game::time.delta);
+				*camera_center += (lerped_pos - *camera_center) * vi_min(1.0f, LMath::lerpf(Ease::cubic_in_out<r32>(*smoothness), 250.0f, 3.0f) * Game::time.delta);
 
 			final_camera_center = *camera_center;
 		}
@@ -760,10 +760,11 @@ void PlayerHuman::update(const Update& u)
 		return;
 
 #if !SERVER
-	// if anyone hits a button, go back to the main menu
 	if (Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
 	{
-		if (Game::scheduled_load_level == AssetNull
+		// if anyone hits a button, go back to the main menu
+		if (Settings::expo
+			&& Game::scheduled_load_level == AssetNull
 			&& ((gamepad == 0 && u.input->keys.any()) || u.input->gamepads[gamepad].btns))
 		{
 			if (Game::session.type == SessionType::Story)
@@ -799,7 +800,7 @@ void PlayerHuman::update(const Update& u)
 		};
 		camera.ref()->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour && !Overworld::modal());
 
-		if (entity || Game::level.continue_match_after_death)
+		if (entity || Game::level.noclip)
 			camera.ref()->flag(CameraFlagActive, true);
 		else
 		{
@@ -926,38 +927,7 @@ void PlayerHuman::update(const Update& u)
 		}
 		case UIMode::Dead:
 		{
-			if (Game::level.continue_match_after_death)
-			{
-				// noclip
-				update_camera_rotation(u);
-
-				camera.ref()->perspective(fov_map_view, 0.02f, Game::level.skybox.far_plane);
-				camera.ref()->range = 0;
-				camera.ref()->cull_range = 0;
-
-				if (!Console::visible)
-				{
-					r32 speed = u.input->keys.get(s32(KeyCode::LShift)) ? 24.0f : 4.0f;
-					if (u.input->get(Controls::Forward, gamepad))
-						camera.ref()->pos += camera.ref()->rot * Vec3(0, 0, 1) * u.time.delta * speed;
-					if (u.input->get(Controls::Backward, gamepad))
-						camera.ref()->pos += camera.ref()->rot * Vec3(0, 0, -1) * u.time.delta * speed;
-					if (u.input->get(Controls::Right, gamepad))
-						camera.ref()->pos += camera.ref()->rot * Vec3(-1, 0, 0) * u.time.delta * speed;
-					if (u.input->get(Controls::Left, gamepad))
-						camera.ref()->pos += camera.ref()->rot * Vec3(1, 0, 0) * u.time.delta * speed;
-
-#if DEBUG
-					if (Game::level.local && u.input->keys.get(s32(KeyCode::MouseLeft)) && !u.last_input->keys.get(s32(KeyCode::MouseLeft)))
-					{
-						Entity* box = World::create<PhysicsEntity>(Asset::Mesh::cube, camera.ref()->pos, camera.ref()->rot, RigidBody::Type::Box, Vec3(0.25f, 0.25f, 0.5f), 1.0f, CollisionDefault, ~CollisionDroneIgnore);
-						box->get<RigidBody>()->btBody->setLinearVelocity(camera.ref()->rot * Vec3(0, 0, 15));
-						Net::finalize(box);
-					}
-#endif
-				}
-			}
-			else if (Game::session.type == SessionType::Multiplayer && (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect))
+			if (Game::session.type == SessionType::Multiplayer && (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect))
 			{
 				// show team switcher
 				if (!Menu::teams(u, gamepad, &menu, Menu::TeamSelectMode::MatchStart))
@@ -1124,7 +1094,22 @@ void PlayerHuman::update(const Update& u)
 void PlayerHuman::update_late(const Update& u)
 {
 #if !SERVER
-	if (Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
+	if (Game::level.noclip)
+	{
+		// noclip
+		update_camera_rotation(u);
+
+		camera.ref()->perspective(fov_map_view, 0.02f, Game::level.skybox.far_plane);
+		camera.ref()->range = 0;
+		camera.ref()->cull_range = 0;
+
+		if (!Console::visible)
+		{
+			r32 speed = u.input->get(Controls::Parkour, gamepad) ? 24.0f : 4.0f;
+			camera.ref()->pos += (u.time.delta * speed) * PlayerControlHuman::get_movement(u, camera.ref()->rot, gamepad);
+		}
+	}
+	else if (Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
 	{
 		Entity* e = get<PlayerManager>()->instance.ref();
 		if (e)
@@ -1639,7 +1624,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 {
 	if (params.camera != camera.ref()
 		|| Overworld::active()
-		|| Game::level.continue_match_after_death
+		|| Game::level.noclip
 		|| !local)
 		return;
 
@@ -3066,41 +3051,36 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 overall_rotati
 	}
 }
 
-Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot) const
+Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot, s8 gamepad)
 {
 	Vec3 movement = Vec3::zero;
-	if (movement_enabled())
+	if (u.input->gamepads[gamepad].type == Gamepad::Type::None)
 	{
-		s32 gamepad = player.ref()->gamepad;
-		if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
-		{
-			Vec2 gamepad_movement(-u.input->gamepads[gamepad].left_x, -u.input->gamepads[gamepad].left_y);
-			if (has<Drone>())
-				Input::dead_zone(&gamepad_movement.x, &gamepad_movement.y);
-			else
-				Input::dead_zone_cross(&gamepad_movement.x, &gamepad_movement.y);
-			movement.x = gamepad_movement.x;
-			movement.z = gamepad_movement.y;
-		}
-
-		if (gamepad == 0)
-		{
-			if (u.input->get(Controls::Forward, 0))
-				movement += Vec3(0, 0, 1);
-			if (u.input->get(Controls::Backward, 0))
-				movement += Vec3(0, 0, -1);
-			if (u.input->get(Controls::Right, 0))
-				movement += Vec3(-1, 0, 0);
-			if (u.input->get(Controls::Left, 0))
-				movement += Vec3(1, 0, 0);
-		}
-
-		r32 length_squared = movement.length_squared();
-		if (length_squared > 1.0f)
-			movement /= sqrtf(length_squared);
-
-		movement = rot * movement;
+		if (u.input->get(Controls::Forward, gamepad))
+			movement += Vec3(0, 0, 1);
+		if (u.input->get(Controls::Backward, gamepad))
+			movement += Vec3(0, 0, -1);
+		if (u.input->get(Controls::Right, gamepad))
+			movement += Vec3(-1, 0, 0);
+		if (u.input->get(Controls::Left, gamepad))
+			movement += Vec3(1, 0, 0);
 	}
+	else
+	{
+		Vec2 gamepad_movement(-u.input->gamepads[gamepad].left_x, -u.input->gamepads[gamepad].left_y);
+		if (Game::level.mode == Game::Mode::Pvp)
+			Input::dead_zone(&gamepad_movement.x, &gamepad_movement.y);
+		else
+			Input::dead_zone_cross(&gamepad_movement.x, &gamepad_movement.y);
+		movement.x = gamepad_movement.x;
+		movement.z = gamepad_movement.y;
+	}
+
+	r32 length_squared = movement.length_squared();
+	if (length_squared > 1.0f)
+		movement /= sqrtf(length_squared);
+
+	movement = rot * movement;
 	return movement;
 }
 
@@ -3169,7 +3149,7 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 PlayerControlHuman::RemoteControl PlayerControlHuman::remote_control_get(const Update& u) const
 {
 	RemoteControl control;
-	control.movement = get_movement(u, get<PlayerCommon>()->look());
+	control.movement = movement_enabled() ? get_movement(u, get<PlayerCommon>()->look(), player.ref()->gamepad) : Vec3::zero;
 	Transform* t = get<Transform>();
 	control.pos = t->pos;
 	if (has<Parkour>())
@@ -3510,7 +3490,7 @@ void PlayerControlHuman::update(const Update& u)
 
 				// crawling
 				{
-					Vec3 movement = get_movement(u, get<PlayerCommon>()->look());
+					Vec3 movement = movement_enabled() ? get_movement(u, get<PlayerCommon>()->look(), gamepad) : Vec3::zero;
 					get<Drone>()->crawl(movement, u.time.delta);
 				}
 
@@ -3870,7 +3850,7 @@ void PlayerControlHuman::update(const Update& u)
 				&& input_enabled()
 				&& u.input->get(Controls::Parkour, gamepad))
 			{
-				Vec3 movement = get_movement(u, Quat::identity);
+				Vec3 movement = movement_enabled() ? get_movement(u, Quat::identity, gamepad) : Vec3::zero;
 				get<Parkour>()->climb_velocity = movement.z;
 			}
 			else
@@ -3887,7 +3867,7 @@ void PlayerControlHuman::update(const Update& u)
 			// set movement unless we're climbing up and down
 			if (!(get<Parkour>()->fsm.current == Parkour::State::Climb && u.input->get(Controls::Parkour, gamepad)))
 			{
-				Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, 0));
+				Vec3 movement = movement_enabled() ? get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, 0), gamepad) : Vec3::zero;
 				Vec2 dir = Vec2(movement.x, movement.z);
 				get<Walker>()->dir = dir;
 			}
@@ -4050,9 +4030,14 @@ void PlayerControlHuman::update_late(const Update& u)
 				Vec3 abs_pos = get<Transform>()->absolute_pos();
 				Vec3 diff = target_pos - abs_pos;
 				r32 distance = diff.length();
-				if (distance > 0.0f)
+				r32 max_correction_distance = INTERACT_LERP_TRANSLATION_SPEED * u.time.delta;
+				if (distance < max_correction_distance)
+					get<Walker>()->absolute_pos(target_pos);
+				else
+				{
 					diff /= distance;
-				get<Walker>()->absolute_pos(abs_pos + diff * vi_min(distance, INTERACT_LERP_TRANSLATION_SPEED * u.time.delta));
+					get<Walker>()->absolute_pos(abs_pos + diff * max_correction_distance);
+				}
 			}
 			else
 			{
@@ -4119,6 +4104,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	if (params.technique != RenderTechnique::Default
 		|| params.camera != player.ref()->camera.ref()
 		|| Overworld::active()
+		|| Game::level.noclip
 		|| Team::match_state == Team::MatchState::Done)
 		return;
 

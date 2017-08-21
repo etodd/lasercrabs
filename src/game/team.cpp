@@ -969,7 +969,7 @@ void Team::update_all_server(const Update& u)
 	if (match_state == MatchState::Active)
 	{
 		Team* team_with_most_kills = Game::session.config.game_type == GameType::Deathmatch ? with_most_kills() : nullptr;
-		if (!Game::level.continue_match_after_death
+		if (!Game::level.noclip
 			&& (match_time > Game::session.config.time_limit()
 			|| (Game::level.has_feature(Game::FeatureLevel::All) && teams_with_active_players() <= 1)
 			|| (Game::session.config.game_type == GameType::Assault && CoreModule::count(1 << 0) == 0)
@@ -1970,7 +1970,7 @@ void PlayerManager::update_server(const Update& u)
 	if (can_spawn
 		&& !instance.ref()
 		&& Team::match_state == Team::MatchState::Active
-		&& !Game::level.continue_match_after_death)
+		&& !Game::level.noclip)
 	{
 		if (Game::level.mode == Game::Mode::Pvp)
 		{

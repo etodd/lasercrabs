@@ -247,6 +247,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 	static b8 net_msg(Net::StreamRead*, PlayerControlHuman*, Net::MessageSource, Net::SequenceID);
 	static s32 count_local();
+	static Vec3 get_movement(const Update&, const Quat&, s8);
 
 	Array<TargetIndicator> target_indicators;
 	Array<PositionEntry> position_history;
@@ -298,7 +299,6 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void draw_ui(const RenderParams&) const;
 
 	void update_camera_input(const Update&, r32 = 1.0f, r32 = 1.0f);
-	Vec3 get_movement(const Update&, const Quat&) const;
 	b8 input_enabled() const;
 	b8 movement_enabled() const;
 };

@@ -7,7 +7,7 @@
 #include "constants.h"
 #include "master.h"
 
-#define RELEASE_BUILD 0
+#define RELEASE_BUILD 1
 
 namespace VI
 {
@@ -109,7 +109,7 @@ namespace VI
 			Ref<Entity> shop;
 			AI::Team team_lookup[MAX_TEAMS];
 			b8 local = true;
-			b8 continue_match_after_death;
+			b8 noclip;
 			b8 config_scheduled_apply; // true if we have a scheduled ServerConfig we need to apply on the next level transition
 			b8 post_pvp; // true if we've already played a PvP match on this level
 
@@ -138,7 +138,6 @@ namespace VI
 		static AssetID scheduled_load_level;
 		static AssetID scheduled_dialog;
 		static b8 cancel_event_eaten[MAX_GAMEPADS];
-		static b8 attract_mode;
 		static b8 quit;
 		static Net::Master::AuthType auth_type;
 		static char auth_key[MAX_AUTH_KEY + 1];

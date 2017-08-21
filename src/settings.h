@@ -50,6 +50,7 @@ namespace Settings
 	extern b8 scan_lines;
 	extern b8 record;
 	extern b8 ssao;
+	extern b8 expo;
 	extern s32 display_mode_index;
 
 	const DisplayMode& display();

@@ -3560,6 +3560,7 @@ void connect(Sock::Address addr)
 		vi_debug("Recording gameplay to '%s'.", filename);
 		replay_file_add(filename);
 		state_client.replay_file = fopen(filename, "wb");
+		vi_assert(state_client.replay_file);
 	}
 }
 

@@ -1658,6 +1658,8 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 {
 	vi_assert(velocity.length_squared() > 0.0f);
 
+	Vec3 last_pos = get<Transform>()->absolute_pos();
+
 	// it's possible to reflect off a shield while we are dashing (still parented to an object)
 	// so we need to make sure we're not dashing anymore
 	get<Transform>()->parent = nullptr;
@@ -1723,6 +1725,7 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 		reflection->timer = DRONE_REFLECTION_TIME_TOLERANCE + Game::time.delta;
 		reflection->entity = entity;
 		reflection->src = Net::MessageSource::Loopback; // this hit was detected locally
+		reflection->additional_fast_forward_time = Game::time.delta - (hit - last_pos).length() / velocity.length();
 		reflection->dir = new_dir;
 
 		if (state_frame)
@@ -1819,6 +1822,7 @@ void Drone::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos,
 		reflection->pos = reflection_pos;
 		reflection->timer = DRONE_REFLECTION_TIME_TOLERANCE;
 		reflection->entity = entity;
+		reflection->additional_fast_forward_time = 0.0f;
 		reflection->src = Net::MessageSource::Remote;
 	}
 	else
@@ -2190,7 +2194,7 @@ void Drone::update_server(const Update& u)
 	{
 		// time's up on this reflection, we have to do something
 		const Reflection& reflection = reflections[0];
-		r32 fast_forward = vi_max(0.0f, DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer);
+		r32 fast_forward = vi_max(0.0f, DRONE_REFLECTION_TIME_TOLERANCE - reflection.timer) + reflection.additional_fast_forward_time;
 
 		if (reflection.src == Net::MessageSource::Remote) // the remote told us about this reflection. go ahead and do it even though we never detected the hit locally
 		{
@@ -2268,7 +2272,7 @@ void Drone::update_client(const Update& u)
 	// update audio perspective
 	{
 		r32 perspective;
-		if (has<PlayerControlHuman>() && get<PlayerControlHuman>()->local()) // we're a local player
+		if (!Game::level.noclip && has<PlayerControlHuman>() && get<PlayerControlHuman>()->local()) // we're a local player
 			perspective = 0.5f;
 		else
 		{

@@ -82,10 +82,6 @@ Game::Session Game::session;
 b8 Game::cancel_event_eaten[] = {};
 ScreenQuad Game::screen_quad;
 
-#if !SERVER
-b8 Game::attract_mode;
-#endif
-
 Game::Session::Session()
 	: type(SessionType::Story),
 #if SERVER
@@ -205,7 +201,6 @@ b8 Game::init(LoopSync* sync)
 		DIR* dir = opendir(replay_dir);
 		if (dir)
 		{
-			attract_mode = true;
 			struct dirent* entry;
 			while ((entry = readdir(dir)))
 			{
@@ -346,7 +341,7 @@ void Game::update(const Update& update_in)
 
 #if !SERVER
 	// trigger attract mode
-	if (attract_mode && Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying)
+	if (Settings::expo && Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying)
 	{
 		inactive_timer += u.time.delta;
 		if (update_in.input->keys.any()
@@ -1003,6 +998,19 @@ void Game::execute(const char* cmd)
 		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 			i.item()->sudoku.solve(i.item());
 	}
+	else if (Game::level.mode == Game::Mode::Pvp && strcmp(cmd, "noclip") == 0)
+	{
+		level.noclip = !level.noclip;
+		if (Game::level.local && level.noclip)
+		{
+			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+			{
+				Entity* entity = i.item()->get<PlayerManager>()->instance.ref();
+				if (entity)
+					World::remove(entity);
+			}
+		}
+	}
 #if !SERVER
 	else if (strcmp(cmd, "friend") == 0)
 	{
@@ -1070,19 +1078,6 @@ void Game::execute(const char* cmd)
 	{
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 			i.item()->get<Health>()->kill(nullptr);
-	}
-	else if (strcmp(cmd, "noclip") == 0)
-	{
-		level.continue_match_after_death = !level.continue_match_after_death;
-		if (level.continue_match_after_death)
-		{
-			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-			{
-				Entity* entity = i.item()->get<PlayerManager>()->instance.ref();
-				if (entity)
-					World::remove(entity);
-			}
-		}
 	}
 	else if (strstr(cmd, "timescale ") == cmd)
 	{

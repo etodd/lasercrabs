@@ -93,6 +93,12 @@ struct Drone : public ComponentType<Drone>
 		Vec3 pos;
 		Vec3 dir;
 		r32 timer;
+
+		// when the server waits for a client to confirm a local reflection, but that confirmation never comes...
+		// the server fast-forwards as if nothing ever happened.
+		// this parameter represents the time within the actual frame where the drone reflection happened, which the drone would have travelled if it had not reflected
+		r32 additional_fast_forward_time;
+
 		Ref<Entity> entity;
 		Net::MessageSource src;
 	};

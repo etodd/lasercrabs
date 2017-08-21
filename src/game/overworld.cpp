@@ -372,6 +372,23 @@ void multiplayer_request_setup(Data::Multiplayer::RequestType type)
 	data.multiplayer.request_type = type;
 }
 
+void multiplayer_entry_save()
+{
+	vi_assert(data.multiplayer.state == Data::Multiplayer::State::EntryEdit);
+	const Net::Master::ServerConfig& config = data.multiplayer.active_server.config;
+	if (config.levels.length == 0)
+		Menu::dialog(0, &Menu::dialog_no_action, _(strings::error_no_levels));
+	else if (strlen(config.name) == 0)
+		Menu::dialog(0, &Menu::dialog_no_action, _(strings::error_no_name));
+	else
+	{
+		multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigSave);
+#if !SERVER
+		Net::Client::master_save_server_config(config, data.multiplayer.request_id);
+#endif
+	}
+}
+
 void multiplayer_entry_edit_update(const Update& u)
 {
 	b8 cancel = u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
@@ -390,7 +407,15 @@ void multiplayer_entry_edit_update(const Update& u)
 	}
 	else
 	{
+		if (data.multiplayer.edit_mode != Data::Multiplayer::EditMode::Name
+			&& u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0))
+		{
+			multiplayer_entry_save();
+			return;
+		}
+
 		Net::Master::ServerConfig* config = &data.multiplayer.active_server.config;
+
 		UIMenu* menu = &data.multiplayer.menu[s32(data.multiplayer.edit_mode)];
 		switch (data.multiplayer.edit_mode)
 		{
@@ -435,20 +460,11 @@ void multiplayer_entry_edit_update(const Update& u)
 				}
 
 				// save
-				if (menu->item(u, _(strings::save), nullptr, false, Asset::Mesh::icon_arrow)
-					|| (u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0)))
+				if (menu->item(u, _(strings::save), nullptr, false, Asset::Mesh::icon_arrow))
 				{
-					if (config->levels.length == 0)
-						Menu::dialog(0, &Menu::dialog_no_action, _(strings::error_no_levels));
-					else if (strlen(config->name) == 0)
-						Menu::dialog(0, &Menu::dialog_no_action, _(strings::error_no_name));
-					else
-					{
-						multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigSave);
-#if !SERVER
-						Net::Client::master_save_server_config(*config, data.multiplayer.request_id);
-#endif
-					}
+					multiplayer_entry_save();
+					menu->end();
+					return;
 				}
 
 				// edit name

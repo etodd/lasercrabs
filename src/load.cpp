@@ -45,6 +45,7 @@ namespace Settings
 	b8 subtitles;
 	b8 ssao;
 	b8 record;
+	b8 expo;
 
 	const DisplayMode& display()
 	{
@@ -272,6 +273,7 @@ void Loader::settings_load(const Array<DisplayMode>& modes)
 	Settings::waypoints = b8(Json::get_s32(json, "waypoints", 1));
 	Settings::scan_lines = b8(Json::get_s32(json, "scan_lines", 1));
 	Settings::record = b8(Json::get_s32(json, "record", 0));
+	Settings::expo = b8(Json::get_s32(json, "expo", 0));
 
 	cJSON* gamepads = json ? cJSON_GetObjectItem(json, "gamepads") : nullptr;
 	cJSON* gamepad = gamepads ? gamepads->child : nullptr;
@@ -320,6 +322,8 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "version", config_version);
 	if (Settings::record)
 		cJSON_AddNumberToObject(json, "record", 1);
+	if (Settings::expo)
+		cJSON_AddNumberToObject(json, "expo", 1);
 
 	// only save master server setting if it is not the default
 	if (strncmp(Settings::master_server, default_master_server, MAX_PATH_LENGTH) != 0)

@@ -368,7 +368,7 @@ void apply_alpha_scale(View* v, const Update& u, const Vec3& offset_pos, r32 tar
 
 void Shield::update_client(const Update& u)
 {
-	if (!inner.ref())
+	if (!inner.ref() || !outer.ref())
 		return;
 
 	Vec3 offset_pos = has<SkinnedModel>() ? get<SkinnedModel>()->offset.translation() : get<View>()->offset.translation();

@@ -3054,7 +3054,7 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 overall_rotati
 Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot, s8 gamepad)
 {
 	Vec3 movement = Vec3::zero;
-	if (u.input->gamepads[gamepad].type == Gamepad::Type::None)
+	if (Game::ui_gamepad_types[gamepad] == Gamepad::Type::None)
 	{
 		if (u.input->get(Controls::Forward, gamepad))
 			movement += Vec3(0, 0, 1);

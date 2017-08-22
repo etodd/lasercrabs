@@ -69,6 +69,7 @@ enum class Message : s8
 	DashStart,
 	DashDone,
 	HitTarget,
+	ChargeCount,
 	AbilitySelect,
 	AbilitySpawn,
 	ReflectionEffects,
@@ -99,6 +100,23 @@ b8 start_flying(Drone* a, Vec3 dir, FlyFlag flag)
 	serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
 	serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
 	serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
+	Net::msg_finalize(p);
+	return true;
+}
+
+b8 charge_count(Drone* a, s8 count)
+{
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
+	{
+		Ref<Drone> ref = a;
+		serialize_ref(p, ref);
+	}
+	{
+		Message t = Message::ChargeCount;
+		serialize_enum(p, Message, t);
+	}
+	serialize_int(p, s8, count, 0, DRONE_CHARGES);
 	Net::msg_finalize(p);
 	return true;
 }
@@ -458,6 +476,89 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 	}
 }
 
+void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone::Hits* hits = nullptr)
+{
+	drone->cooldown_setup();
+
+	drone->get<Audio>()->post_event(AK::EVENTS::PLAY_SNIPER_FIRE);
+
+	drone->hit_targets.length = 0;
+	Vec3 pos = drone->get<Transform>()->absolute_pos();
+	Vec3 ray_start = pos + dir_normalized * -DRONE_RADIUS;
+	Vec3 ray_end = pos + dir_normalized * drone->range();
+	drone->velocity = dir_normalized * DRONE_FLY_SPEED;
+
+	Drone::Hits hits_storage;
+	if (!hits)
+	{
+		drone->raycast(Drone::RaycastMode::Default, ray_start, ray_end, nullptr, &hits_storage);
+		hits = &hits_storage;
+	}
+	for (s32 i = 0; i < hits->index_end + 1; i++)
+		sniper_hit_effects(hits->hits[i]);
+
+	// whiff sfx
+	{
+		Vec3 closest_position = ray_start;
+		r32 closest_distance = FLT_MAX;
+		for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
+		{
+			Vec3 line_start = ray_start;
+			for (s32 j = 0; j < hits->index_end + 1; j++)
+			{
+				const Drone::Hit& hit = hits->hits[j];
+				Vec3 line = hit.pos - line_start;
+				r32 line_length = line.length();
+				Vec3 line_normalized = line / line_length;
+				r32 t = vi_min((i.item()->pos - line_start).dot(line_normalized), line_length);
+				if (t > 0.0f)
+				{
+					Vec3 pos = line_start + line_normalized * t;
+					r32 distance = (pos - i.item()->pos).length_squared();
+					if (distance < closest_distance)
+					{
+						closest_distance = distance;
+						closest_position = pos;
+					}
+				}
+
+				line_start = hit.pos;
+			}
+		}
+		Audio::post_global_event(AK::EVENTS::PLAY_SNIPER_WHIFF, closest_position);
+	}
+
+	// effects
+	{
+		Vec3 line_start = ray_start;
+		r32 offset = 0.0f;
+		for (s32 i = 0; i < hits->index_end + 1; i++)
+		{
+			const Vec3& p = hits->hits[i].pos;
+			offset = particle_trail(line_start, p, offset);
+			line_start = p;
+		}
+	}
+
+	// everyone instantly knows where we are
+	AI::Team team = drone->get<AIAgent>()->team;
+	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team() != team)
+			i.item()->track(drone->get<PlayerCommon>()->manager.ref(), drone->entity());
+	}
+}
+
+void drone_bolter_cooldown_setup(Drone* drone)
+{
+	drone->bolter_charge_counter++;
+	if (drone->bolter_charge_counter >= BOLTS_PER_DRONE_CHARGE)
+	{
+		drone->bolter_charge_counter = 0;
+		drone->cooldown_setup();
+	}
+}
+
 b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
@@ -600,6 +701,17 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			}
 			break;
 		}
+		case DroneNet::Message::ChargeCount:
+		{
+			s8 charges;
+			serialize_int(p, s8, charges, 0, DRONE_CHARGES);
+			if (apply_msg || !Game::level.local)
+			{
+				drone->charges = charges;
+				drone->bolter_charge_counter = 0; // hack; this will result in some de-syncs between client and server
+			}
+			break;
+		}
 		case DroneNet::Message::AbilitySelect:
 		{
 			Ability ability;
@@ -647,7 +759,9 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			manager->add_energy(-info.spawn_cost);
 
-			if (ability != Ability::Bolter && ability != Ability::Shotgun)
+			if (ability != Ability::Bolter
+				&& ability != Ability::Shotgun
+				&& ability != Ability::Sniper) // these weapons handle cooldowns manually
 				drone->cooldown_setup();
 
 			Vec3 my_pos;
@@ -723,75 +837,19 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				case Ability::Sniper:
 				{
-					drone->get<Audio>()->post_event(AK::EVENTS::PLAY_SNIPER_FIRE);
-
-					drone->hit_targets.length = 0;
-
-					Vec3 pos = drone->get<Transform>()->absolute_pos();
-					Vec3 ray_start = pos + dir_normalized * -DRONE_RADIUS;
-					Vec3 ray_end = pos + dir_normalized * drone->range();
-					drone->velocity = dir_normalized * DRONE_FLY_SPEED;
-					Hits hits;
 					if (Game::level.local)
+					{
+						drone->hit_targets.length = 0;
+						Vec3 pos = drone->get<Transform>()->absolute_pos();
+						Vec3 ray_start = pos + dir_normalized * -DRONE_RADIUS;
+						Vec3 ray_end = pos + dir_normalized * drone->range();
+						drone->velocity = dir_normalized * DRONE_FLY_SPEED;
+						Hits hits;
 						drone->movement_raycast(ray_start, ray_end, &hits);
-					else
-					{
-						drone->raycast(RaycastMode::Default, ray_start, ray_end, nullptr, &hits);
-						for (s32 i = 0; i < hits.index_end + 1; i++)
-							sniper_hit_effects(hits.hits[i]);
+						drone_sniper_effects(drone, dir_normalized, &hits);
 					}
-
-					// whiff sfx
-					{
-						Vec3 closest_position = ray_start;
-						r32 closest_distance = FLT_MAX;
-						for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
-						{
-							Vec3 line_start = ray_start;
-							for (s32 j = 0; j < hits.index_end + 1; j++)
-							{
-								const Hit& hit = hits.hits[j];
-								Vec3 line = hit.pos - line_start;
-								r32 line_length = line.length();
-								Vec3 line_normalized = line / line_length;
-								r32 t = vi_min((i.item()->pos - line_start).dot(line_normalized), line_length);
-								if (t > 0.0f)
-								{
-									Vec3 pos = line_start + line_normalized * t;
-									r32 distance = (pos - i.item()->pos).length_squared();
-									if (distance < closest_distance)
-									{
-										closest_distance = distance;
-										closest_position = pos;
-									}
-								}
-
-								line_start = hit.pos;
-							}
-						}
-						Audio::post_global_event(AK::EVENTS::PLAY_SNIPER_WHIFF, closest_position);
-					}
-
-					// effects
-					{
-						Vec3 line_start = ray_start;
-						r32 offset = 0.0f;
-						for (s32 i = 0; i < hits.index_end + 1; i++)
-						{
-							const Vec3& p = hits.hits[i].pos;
-							offset = particle_trail(line_start, p, offset);
-							line_start = p;
-						}
-					}
-
-					// everyone instantly knows where we are
-					AI::Team team = drone->get<AIAgent>()->team;
-					for (auto i = Team::list.iterator(); !i.is_last(); i.next())
-					{
-						if (i.item()->team() != team)
-							i.item()->track(drone->get<PlayerCommon>()->manager.ref(), drone->entity());
-					}
-
+					else if (!drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
+						drone_sniper_effects(drone, dir_normalized);
 					break;
 				}
 				case Ability::Grenade:
@@ -809,12 +867,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				case Ability::Bolter:
 				{
 					drone_bolt_spawn(drone, my_pos, dir_normalized, Bolt::Type::DroneBolter);
-					drone->bolter_charge_counter++;
-					if (drone->bolter_charge_counter >= BOLTS_PER_DRONE_CHARGE)
-					{
-						drone->bolter_charge_counter = 0;
-						drone->cooldown_setup();
-					}
+					if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
+						drone_bolter_cooldown_setup(drone);
 					break;
 				}
 				case Ability::Shotgun:
@@ -827,7 +881,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							Vec3 d = target_quat * drone_shotgun_dirs[i];
 							drone_bolt_spawn(drone, my_pos, d, Bolt::Type::DroneShotgun);
 						}
-						drone->cooldown_setup(DRONE_SHOTGUN_CHARGES);
+						if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
+							drone->cooldown_setup(DRONE_SHOTGUN_CHARGES);
 					}
 					break;
 				}
@@ -1329,13 +1384,12 @@ void Drone::ability(Ability a)
 
 void Drone::cooldown_setup(s8 amount)
 {
-	if (Game::level.local)
-	{
-		vi_assert(charges >= amount);
-		charges -= amount;
-	}
+	vi_assert(charges >= amount);
+	charges -= amount;
 
 #if SERVER
+	DroneNet::charge_count(this, charges);
+
 	if (has<PlayerControlHuman>())
 		cooldown = DRONE_COOLDOWN - get<PlayerControlHuman>()->rtt;
 	else
@@ -1551,6 +1605,8 @@ b8 Drone::go(const Vec3& dir)
 
 		if (Game::level.local)
 			DroneNet::ability_spawn(this, dir_normalized, a);
+		else if (a == Ability::Sniper) // client-side prediction; effects
+			drone_sniper_effects(this, dir_normalized);
 		else if (a == Ability::ActiveArmor)
 			get<Health>()->active_armor_timer = ACTIVE_ARMOR_TIME; // client-side prediction; show invincibility sparkles instantly
 		else if (a == Ability::Shotgun)
@@ -1573,6 +1629,7 @@ b8 Drone::go(const Vec3& dir)
 					)
 				);
 			}
+			cooldown_setup(DRONE_SHOTGUN_CHARGES);
 		}
 		else if (a == Ability::Bolter)
 		{
@@ -1589,6 +1646,7 @@ b8 Drone::go(const Vec3& dir)
 					Quat::look(dir_normalized)
 				)
 			);
+			drone_bolter_cooldown_setup(this);
 		}
 	}
 
@@ -2221,7 +2279,12 @@ void Drone::update_server(const Update& u)
 				{
 					// we just crossed the threshold this frame
 					if (Game::level.local)
+					{
 						charges++;
+#if SERVER
+						DroneNet::charge_count(this, charges);
+#endif
+					}
 					bolter_charge_counter = 0;
 				}
 			}

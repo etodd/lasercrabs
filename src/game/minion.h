@@ -10,9 +10,6 @@ namespace VI
 struct TargetEvent;
 struct PlayerManager;
 
-#define MINION_HEAD_RADIUS 0.3f
-#define MINION_ATTACK_TIME 2.0f
-
 struct MinionEntity : public Entity
 {
 	MinionEntity(const Vec3&, const Quat&, AI::Team, PlayerManager* = nullptr);

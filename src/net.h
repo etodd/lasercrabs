@@ -90,13 +90,6 @@ struct PlayerManagerState
 	b8 active;
 };
 
-struct DroneState
-{
-	Revision revision; // not synced over network; only stored on server
-	s8 charges;
-	b8 active;
-};
-
 struct StateFrame
 {
 	TransformState transforms[MAX_ENTITIES];
@@ -105,7 +98,6 @@ struct StateFrame
 	r32 timestamp;
 	Bitmask<MAX_ENTITIES> transforms_active;
 	Bitmask<MAX_ENTITIES> minions_active;
-	DroneState drones[MAX_PLAYERS];
 	SequenceID sequence_id;
 };
 

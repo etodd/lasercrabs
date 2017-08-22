@@ -1585,7 +1585,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 
 					text.anchor_x = UIText::Anchor::Max;
 					text.wrap_width = 0;
-					text.text(0, "%d", s32(i.item()->respawns) + (i.item()->instance.ref() ? 1 : 0));
+					text.text(0, "%d", vi_max(0, s32(i.item()->respawns) + (i.item()->instance.ref() ? 1 : 0) - 1));
 					text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
 
 					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -1746,9 +1746,10 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		{
 			if (get<PlayerManager>()->instance.ref())
 				respawns++;
+			respawns--;
 			p.x += UI_TEXT_SIZE_DEFAULT * 5 * UI::scale;
 			snprintf(buffer, 16, "%hd", respawns);
-			const Vec4& color = respawns > 2 ? UI::color_default : (respawns > 1 ? UI::color_accent() : UI::color_alert());
+			const Vec4& color = respawns > 1 ? UI::color_default : (respawns > 0 ? UI::color_accent() : UI::color_alert());
 			draw_icon_text(params, gamepad, p, Asset::Mesh::icon_drone, buffer, color, UI_TEXT_SIZE_DEFAULT * 4 * UI::scale);
 		}
 	}

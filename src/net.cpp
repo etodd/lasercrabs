@@ -1300,21 +1300,6 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 	return true;
 }
 
-template<typename Stream> b8 serialize_drone(Stream* p, DroneState* state, const DroneState* old)
-{
-	b8 b;
-
-	if (Stream::IsReading)
-		state->active = true;
-
-	if (Stream::IsWriting)
-		b = old && state->charges != old->charges;
-	serialize_bool(p, b);
-	if (b)
-		serialize_int(p, s8, state->charges, 0, DRONE_CHARGES);
-	return true;
-}
-
 b8 equal_states_transform(const TransformState& a, const TransformState& b)
 {
 	r32 tolerance_pos = 0.008f;
@@ -1373,13 +1358,6 @@ b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
 		&& a.active == b.active;
 }
 
-
-b8 equal_states_drone(const DroneState& a, const DroneState& b)
-{
-	return a.revision == b.revision
-		&& a.active == b.active
-		&& a.charges == b.charges;
-}
 
 template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame, const StateFrame* base)
 {
@@ -1472,21 +1450,6 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 		}
 	}
 
-	// drones
-	for (s32 i = 0; i < MAX_PLAYERS; i++)
-	{
-		DroneState* state = &frame->drones[i];
-		b8 serialize;
-		if (Stream::IsWriting)
-			serialize = state->active && base && !equal_states_drone(*state, base->drones[i]);
-		serialize_bool(p, serialize);
-		if (serialize)
-		{
-			if (!serialize_drone(p, state, base ? &base->drones[i] : nullptr))
-				net_error();
-		}
-	}
-
 	// minions
 	{
 		s32 changed_count;
@@ -1569,16 +1532,6 @@ void state_frame_build(StateFrame* frame)
 		state->current_upgrade = i.item()->current_upgrade;
 		state->energy = i.item()->energy;
 		state->active = true;
-	}
-
-	// drones
-	for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
-	{
-		vi_assert(i.index < MAX_PLAYERS);
-		DroneState* state = &frame->drones[i.index];
-		state->revision = i.item()->revision;
-		state->active = true;
-		state->charges = i.item()->charges;
 	}
 
 	// minions
@@ -1704,9 +1657,6 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 		}
 	}
 
-	// drones
-	memcpy(result->drones, a.drones, sizeof(result->drones));
-
 	// minions
 	{
 		result->minions_active = b.minions_active;
@@ -1821,17 +1771,6 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			s->state_timer = state.state_timer;
 			s->current_upgrade = state.current_upgrade;
 			s->energy = state.energy;
-		}
-	}
-
-	// drones
-	for (s32 i = 0; i < MAX_PLAYERS; i++)
-	{
-		const DroneState& state = frame.drones[i];
-		if (state.active)
-		{
-			Drone* a = &Drone::list[i];
-			a->charges = state.charges;
 		}
 	}
 

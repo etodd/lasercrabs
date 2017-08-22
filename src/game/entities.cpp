@@ -1885,9 +1885,12 @@ BoltEntity::BoltEntity(AI::Team team, PlayerManager* player, Entity* owner, Bolt
 	transform->absolute_pos(abs_pos);
 	transform->absolute_rot(Quat::look(dir));
 
-	PointLight* light = create<PointLight>();
-	light->radius = BOLT_LIGHT_RADIUS;
-	light->color = Vec3(1, 1, 1);
+	if (type != Bolt::Type::DroneShotgun)
+	{
+		PointLight* light = create<PointLight>();
+		light->radius = BOLT_LIGHT_RADIUS;
+		light->color = Vec3(1, 1, 1);
+	}
 
 	create<Audio>();
 
@@ -2044,7 +2047,7 @@ b8 Bolt::can_damage(const Entity* e) const
 	return e->has<Health>()
 		&& e->get<Health>()->can_take_damage()
 		&& (!e->has<Drone>() // not a drone; we can always damage them
-			|| type == Type::DroneBolter || type == Type::DroneShotgun // this is a minion or turret shooting at a drone
+			|| type == Type::DroneBolter || type == Type::DroneShotgun // we're a drone shooting at a drone; can always do damage
 			|| e->get<Drone>()->state() == Drone::State::Crawl); // the drone is flying or dashing; it's invincible to minions and turrets
 }
 
@@ -2154,7 +2157,14 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 	else
 		basis = normal;
 
-	ParticleEffect::spawn(hit_object->has<Health>() ? ParticleEffect::Type::ImpactLarge : ParticleEffect::Type::ImpactSmall, hit, Quat::look(basis));
+	{
+		ParticleEffect::Type particle_type;
+		if (hit_object->has<Health>() && type != Type::DroneShotgun)
+			particle_type = ParticleEffect::Type::ImpactLarge;
+		else
+			particle_type = ParticleEffect::Type::ImpactSmall;
+		ParticleEffect::spawn(particle_type, hit, Quat::look(basis));
+	}
 
 	if (destroy)
 		World::remove(entity());

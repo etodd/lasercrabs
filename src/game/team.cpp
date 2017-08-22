@@ -35,7 +35,7 @@ namespace TeamNet
 const Vec4 Team::color_friend = Vec4(0.15f, 0.45f, 0.7f, MATERIAL_NO_OVERRIDE);
 const Vec4 Team::color_enemy = Vec4(1.0f, 0.3f, 0.4f, MATERIAL_NO_OVERRIDE);
 
-const Vec4 Team::ui_color_friend = Vec4(52.0f / 255.0f, 237.0f / 255.0f, 255.0f / 255.0f, 1);
+const Vec4 Team::ui_color_friend = Vec4(0.35f, 0.85f, 1.0f, 1);
 const Vec4 Team::ui_color_enemy = Vec4(1.0f, 0.4f, 0.4f, 1);
 
 r32 Team::control_point_timer;
@@ -93,43 +93,41 @@ AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 		Asset::Mesh::icon_bolter,
 		0,
 		AbilityInfo::Type::Shoot,
-		true,
 	},
 	{
 		Asset::Mesh::icon_active_armor,
 		0,
 		AbilityInfo::Type::Other,
-		false,
 	},
 	{
 		Asset::Mesh::icon_minion,
 		25,
 		AbilityInfo::Type::Build,
-		false,
 	},
 	{
 		Asset::Mesh::icon_sensor,
 		25,
 		AbilityInfo::Type::Build,
-		false,
 	},
 	{
 		Asset::Mesh::icon_force_field,
-		150,
+		100,
 		AbilityInfo::Type::Build,
-		false,
+	},
+	{
+		Asset::Mesh::icon_shotgun,
+		0,
+		AbilityInfo::Type::Shoot,
 	},
 	{
 		Asset::Mesh::icon_sniper,
 		0,
 		AbilityInfo::Type::Shoot,
-		false,
 	},
 	{
 		Asset::Mesh::icon_grenade,
 		25,
 		AbilityInfo::Type::Shoot,
-		false,
 	},
 };
 
@@ -140,42 +138,63 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::description_bolter,
 		Asset::Mesh::icon_bolter,
 		50,
+		UpgradeInfo::Type::Ability,
 	},
 	{
 		strings::active_armor,
 		strings::description_active_armor,
 		Asset::Mesh::icon_active_armor,
 		50,
+		UpgradeInfo::Type::Ability,
 	},
 	{
 		strings::minion,
 		strings::description_minion,
 		Asset::Mesh::icon_minion,
 		50,
+		UpgradeInfo::Type::Ability,
 	},
 	{
 		strings::sensor,
 		strings::description_sensor,
 		Asset::Mesh::icon_sensor,
 		50,
+		UpgradeInfo::Type::Ability,
 	},
 	{
 		strings::force_field,
 		strings::description_force_field,
 		Asset::Mesh::icon_force_field,
 		100,
+		UpgradeInfo::Type::Ability,
+	},
+	{
+		strings::shotgun,
+		strings::description_shotgun,
+		Asset::Mesh::icon_shotgun,
+		100,
+		UpgradeInfo::Type::Ability,
 	},
 	{
 		strings::sniper,
 		strings::description_sniper,
 		Asset::Mesh::icon_sniper,
 		150,
+		UpgradeInfo::Type::Ability,
 	},
 	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
 		150,
+		UpgradeInfo::Type::Ability,
+	},
+	{
+		strings::extra_drone,
+		strings::description_extra_drone,
+		Asset::Mesh::icon_drone,
+		200,
+		UpgradeInfo::Type::Consumable,
 	},
 };
 
@@ -1123,8 +1142,11 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 		for (s32 i = 0; i < start_upgrades.length; i++)
 		{
 			Upgrade upgrade = start_upgrades[i];
-			upgrades |= 1 << s32(upgrade);
-			abilities[i] = Ability(upgrade);
+			if (UpgradeInfo::list[s32(upgrade)].type == UpgradeInfo::Type::Ability)
+			{
+				upgrades |= 1 << s32(upgrade);
+				abilities[i] = Ability(upgrade);
+			}
 		}
 	}
 
@@ -1187,6 +1209,14 @@ b8 PlayerManager::ability_valid(Ability ability) const
 		return false;
 
 	if (ability == Ability::ActiveArmor && instance.ref()->get<Health>()->active_armor())
+		return false;
+
+	if (ability == Ability::Shotgun)
+	{
+		if (instance.ref()->get<Drone>()->charges < DRONE_SHOTGUN_CHARGES)
+			return false;
+	}
+	else if (instance.ref()->get<Drone>()->charges < 1)
 		return false;
 
 	return true;
@@ -1543,9 +1573,19 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 
 			if (!Game::level.local || src == Net::MessageSource::Loopback)
 			{
-				m->upgrades |= 1 << s32(u);
-				m->abilities[index] = Ability(u);
-				m->ability_purchase_times[index] = Game::time.total;
+				if (UpgradeInfo::list[s32(u)].type == UpgradeInfo::Type::Ability)
+				{
+					m->upgrades |= 1 << s32(u);
+					m->abilities[index] = Ability(u);
+					m->ability_purchase_times[index] = Game::time.total;
+				}
+				else
+				{
+					if (u == Upgrade::ExtraDrone)
+						m->respawns++;
+					else
+						vi_assert(false);
+				}
 				m->upgrade_completed.fire(u);
 			}
 			break;
@@ -1684,7 +1724,10 @@ s16 PlayerManager::upgrade_cost(Upgrade u) const
 {
 	vi_assert(u != Upgrade::None);
 	const UpgradeInfo& info = UpgradeInfo::list[s32(u)];
-	return info.cost * (1 + ability_count());
+	if (info.type == UpgradeInfo::Type::Ability)
+		return info.cost * (1 + ability_count());
+	else
+		return info.cost;
 }
 
 Upgrade PlayerManager::upgrade_highest_owned_or_available() const
@@ -1709,12 +1752,15 @@ b8 PlayerManager::upgrade_available(Upgrade u) const
 	{
 		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{
-			if (!has_upgrade(Upgrade(i))
-				&& Game::session.config.allow_upgrades & (1 << i)
-				&& energy >= upgrade_cost(Upgrade(i)))
+			if (i != s32(Upgrade::ExtraDrone) || respawns != -1)
 			{
-				if (i >= s32(Ability::count) || ability_count() < MAX_ABILITIES)
-					return true; // either it's not an ability, or it is an ability and we have enough room for it
+				if (!has_upgrade(Upgrade(i))
+					&& Game::session.config.allow_upgrades & (1 << i)
+					&& energy >= upgrade_cost(Upgrade(i)))
+				{
+					if (i >= s32(Ability::count) || ability_count() < MAX_ABILITIES)
+						return true; // either it's not an ability, or it is an ability and we have enough room for it
+				}
 			}
 		}
 		return false;
@@ -1724,7 +1770,8 @@ b8 PlayerManager::upgrade_available(Upgrade u) const
 		// make sure that the upgrade is allowed, and either it's not an ability, or it is an ability and we have enough room for it
 		return !has_upgrade(u)
 			&& Game::session.config.allow_upgrades & (1 << s32(u))
-			&& (s32(u) >= s32(Ability::count) || ability_count() < MAX_ABILITIES);
+			&& (s32(u) >= s32(Ability::count) || ability_count() < MAX_ABILITIES)
+			&& (u != Upgrade::ExtraDrone || respawns != -1);
 	}
 }
 

@@ -1180,7 +1180,7 @@ void Sensor::awake()
 void Sensor::hit_by(const TargetEvent& e)
 {
 	vi_assert(!has<Battery>());
-	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
+	get<Health>()->kill(e.hit_by);
 }
 
 void Sensor::killed_by(Entity* e)
@@ -1413,7 +1413,6 @@ void Turret::awake()
 	target_check_time = mersenne::randf_oo() * TURRET_TARGET_CHECK_TIME;
 	link_arg<Entity*, &Turret::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &Turret::health_changed>(get<Health>()->changed);
-	link_arg<const TargetEvent&, &Turret::hit_by>(get<Target>()->target_hit);
 }
 
 // not synced over network
@@ -1422,12 +1421,6 @@ void Turret::set_team(AI::Team t)
 	team = t;
 	get<View>()->team = s8(t);
 	get<PointLight>()->team = s8(t);
-}
-
-void Turret::hit_by(const TargetEvent& e)
-{
-	if (get<Health>()->can_take_damage())
-		get<Health>()->damage(e.hit_by, 2);
 }
 
 void Turret::health_changed(const HealthEvent& e)
@@ -1606,7 +1599,7 @@ void Turret::update_server(const Update& u)
 		{
 			Vec3 gun_pos = get<Transform>()->absolute_pos();
 			Vec3 aim_pos;
-			if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, BOLT_SPEED_DEFAULT, nullptr, &aim_pos))
+			if (!target.ref()->has<Target>() || !target.ref()->get<Target>()->predict_intersection(gun_pos, BOLT_SPEED_TURRET, nullptr, &aim_pos))
 				aim_pos = target.ref()->get<Transform>()->absolute_pos();
 			gun_pos += Vec3::normalize(aim_pos - gun_pos) * TURRET_RADIUS;
 			Net::finalize(World::create<BoltEntity>(team, nullptr, entity(), Bolt::Type::Turret, gun_pos, aim_pos - gun_pos));
@@ -1727,8 +1720,8 @@ void ForceField::set_team(AI::Team t)
 
 void ForceField::hit_by(const TargetEvent& e)
 {
-	if (!(flags & FlagPermanent))
-		get<Health>()->damage(e.hit_by, 3);
+	if (!(flags & FlagPermanent) && get<Health>()->can_take_damage())
+		get<Health>()->damage(e.hit_by, 1);
 }
 
 void ForceField::health_changed(const HealthEvent& e)
@@ -1870,7 +1863,17 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 
 r32 Bolt::speed(Type t)
 {
-	return t == Type::Drone ? BOLT_SPEED_DRONE : BOLT_SPEED_DEFAULT;
+	if (t == Type::DroneBolter)
+		return BOLT_SPEED_DRONE_BOLTER;
+	else if (t == Type::DroneShotgun)
+		return BOLT_SPEED_DRONE_SHOTGUN;
+	else if (t == Type::Turret)
+		return BOLT_SPEED_TURRET;
+	else
+	{
+		vi_assert(t == Type::Minion);
+		return BOLT_SPEED_MINION;
+	}
 }
 
 #define TELEPORTER_RADIUS 0.5f
@@ -2041,7 +2044,7 @@ b8 Bolt::can_damage(const Entity* e) const
 	return e->has<Health>()
 		&& e->get<Health>()->can_take_damage()
 		&& (!e->has<Drone>() // not a drone; we can always damage them
-			|| type == Type::Drone // this is a minion or turret shooting at a drone
+			|| type == Type::DroneBolter || type == Type::DroneShotgun // this is a minion or turret shooting at a drone
 			|| e->get<Drone>()->state() == Drone::State::Crawl); // the drone is flying or dashing; it's invincible to minions and turrets
 }
 
@@ -2076,13 +2079,42 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 	{
 		basis = Vec3::normalize(velocity);
 		s8 damage = 1;
-		if (type == Type::Drone)
+		switch (type)
 		{
-			if (!hit_object->has<Turret>() && !hit_object->has<Drone>() && !hit_object->has<ForceField>())
-				damage = 2;
+			case Type::DroneBolter:
+			{
+				if (hit_object->has<Turret>() || hit_object->has<Drone>() || hit_object->has<ForceField>())
+					damage = 1;
+				else if (hit_object->has<Minion>())
+					damage = 3;
+				else
+					damage = 2;
+				break;
+			}
+			case Type::DroneShotgun:
+			{
+				if (hit_object->has<Minion>())
+					damage = 3;
+				else
+					damage = 1;
+				break;
+			}
+			case Type::Minion:
+			{
+				if (hit_object->has<Turret>())
+					damage = 2;
+				break;
+			}
+			case Type::Turret:
+			{
+				if (hit_object->has<Drone>())
+					damage = 2;
+				break;
+			}
+			default:
+				vi_assert(false);
+				break;
 		}
-		else if (type == Type::Minion && hit_object->has<Turret>())
-			damage = 2;
 
 		if (reflected)
 			damage += 4;
@@ -2477,7 +2509,7 @@ void Grenade::awake()
 
 void Grenade::hit_by(const TargetEvent& e)
 {
-	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
+	get<Health>()->kill(e.hit_by);
 }
 
 void Grenade::killed_by(Entity* e)
@@ -2697,7 +2729,8 @@ void Rope::draw(const RenderParams& params)
 		// fake bolts
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->type == EffectLight::Type::Bolt)
+			if (i.item()->type == EffectLight::Type::BoltDroneBolter
+				|| i.item()->type == EffectLight::Type::BoltDroneShotgun)
 			{
 				Mat4 m;
 				m.make_transform(i.item()->pos, scale, i.item()->rot);
@@ -2953,14 +2986,12 @@ r32 EffectLight::radius() const
 {
 	switch (type)
 	{
-		case Type::Bolt:
-		{
+		case Type::BoltDroneBolter:
 			return max_radius;
-		}
+		case Type::BoltDroneShotgun:
+			return 0.0f;
 		case Type::Shockwave:
-		{
 			return Ease::cubic_out(timer / duration, 0.0f, max_radius);
-		}
 		case Type::Spark:
 		{
 			r32 blend = Ease::cubic_in<r32>(timer / duration);
@@ -2983,7 +3014,8 @@ r32 EffectLight::opacity() const
 {
 	switch (type)
 	{
-		case Type::Bolt:
+		case Type::BoltDroneBolter:
+		case Type::BoltDroneShotgun:
 		{
 			return 1.0f;
 		}
@@ -3022,8 +3054,10 @@ void EffectLight::update(const Update& u)
 	timer += u.time.delta;
 	if (timer > duration)
 		remove(this);
-	else if (type == Type::Bolt)
-		pos += rot * Vec3(0, 0, u.time.delta * BOLT_SPEED_DRONE);
+	else if (type == Type::BoltDroneBolter)
+		pos += rot * Vec3(0, 0, u.time.delta * BOLT_SPEED_DRONE_BOLTER);
+	else if (type == Type::BoltDroneShotgun)
+		pos += rot * Vec3(0, 0, u.time.delta * BOLT_SPEED_DRONE_SHOTGUN);
 }
 
 CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)

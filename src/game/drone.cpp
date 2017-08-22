@@ -35,11 +35,29 @@ namespace VI
 #define DRONE_MIN_LEG_BLEND_SPEED (DRONE_LEG_BLEND_SPEED * 0.1f)
 #define DRONE_REFLECTION_TIME_TOLERANCE 0.1f
 #define DRONE_REFLECTION_POSITION_TOLERANCE (DRONE_SHIELD_RADIUS * 10.0f)
+#define DRONE_SHOTGUN_PELLETS 13
 
 #define DEBUG_REFLECTIONS 0
 #define DEBUG_NET_SYNC 0
 
 const r32 Drone::cooldown_thresholds[DRONE_CHARGES] = { DRONE_COOLDOWN * 0.4f, DRONE_COOLDOWN * 0.1f, 0.0f, };
+Vec3 drone_shotgun_dirs[DRONE_SHOTGUN_PELLETS];
+
+void Drone::init()
+{
+	drone_shotgun_dirs[0] = Vec3(0, 0, 1);
+	{
+		Vec3 d = Quat::euler(0.0f, 0.0f, PI * -0.02f) * Vec3(0, 0, 1);
+		for (s32 i = 0; i < 3; i++)
+			drone_shotgun_dirs[1 + i] = Quat::euler(r32(i) * (PI * 2.0f / 3.0f), 0.0f, 0.0f) * d;
+	}
+
+	{
+		Vec3 d = Quat::euler(0.0f, 0.0f, PI * 0.05f) * Vec3(0, 0, 1);
+		for (s32 i = 0; i < 9; i++)
+			drone_shotgun_dirs[4 + i] = Quat::euler(r32(i) * (PI * 2.0f / 9.0f), 0.0f, 0.0f) * d;
+	}
+}
 
 namespace DroneNet
 {
@@ -321,12 +339,123 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 	if (LMath::ray_sphere_intersect(ray_start, ray_start + ray_dir * drone->range(), target_pos, DRONE_SHIELD_RADIUS, &intersection))
 	{
 		r32 dot = Vec3::normalize(intersection - target_pos).dot(ray_dir);
-		if (dot < -0.95f)
+
+		b8 allow_direct_hit = drone->current_ability == Ability::Sniper ? true : !target_shield->has<Turret>();
+
+		if (dot < -0.95f && allow_direct_hit)
 			return 3;
 		else if (dot < -0.75f)
 			return 2;
 	}
 	return 1;
+}
+
+void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normalized, Bolt::Type type)
+{
+	if (Game::level.local)
+	{
+		PlayerManager* manager = drone->get<PlayerCommon>()->manager.ref();
+		if (manager->has<PlayerHuman>() && !manager->get<PlayerHuman>()->local)
+		{
+			// step 1. rewind the world to the point where the remote player fired
+			// step 2. step forward in increments of 1/60th of a second until we reach the present,
+			// checking for obstacles along the way.
+			// step 3. spawn the bolt at the final position
+			// step 4. if a target was hit, delete the bolt and apply any damage effects
+
+			Vec3 pos_bolt = my_pos + dir_normalized * DRONE_SHIELD_RADIUS;
+			r32 timestamp;
+#if SERVER
+			timestamp = Net::timestamp() - drone->get<PlayerControlHuman>()->rtt;
+#else
+			timestamp = Net::timestamp();
+#endif
+
+			Entity* closest_hit_entity = nullptr;
+			Vec3 closest_hit;
+			Vec3 closest_hit_normal;
+
+			while (timestamp < Net::timestamp())
+			{
+				const r32 SIMULATION_STEP = Net::tick_rate();
+				Net::StateFrame state_frame;
+				Net::state_frame_by_timestamp(&state_frame, timestamp);
+				Vec3 pos_bolt_next = pos_bolt + dir_normalized * (Bolt::speed(type) * SIMULATION_STEP);
+				Vec3 pos_bolt_next_ray = pos_bolt_next + dir_normalized * BOLT_LENGTH;
+
+				r32 closest_hit_distance_sq = FLT_MAX;
+
+				// check environment collisions
+				{
+					btCollisionWorld::ClosestRayResultCallback ray_callback(pos_bolt, pos_bolt_next_ray);
+					Physics::raycast(&ray_callback, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(drone->get<AIAgent>()->team)));
+					if (ray_callback.hasHit())
+					{
+						closest_hit = ray_callback.m_hitPointWorld;
+						closest_hit_normal = ray_callback.m_hitNormalWorld;
+						closest_hit_entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+						closest_hit_distance_sq = (closest_hit - pos_bolt).length_squared();
+					}
+				}
+
+				// check target collisions
+				for (auto i = Target::list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item() == drone->get<Target>())
+						continue;
+
+					Vec3 p;
+					{
+						Vec3 pos;
+						Quat rot;
+						Net::transform_absolute(state_frame, i.item()->get<Transform>()->id(), &pos, &rot);
+						p = pos + (rot * i.item()->local_offset); // todo possibly: rewind local_offset as well?
+					}
+
+					Vec3 intersection;
+					if (LMath::ray_sphere_intersect(pos_bolt, pos_bolt_next_ray, p, i.item()->radius(), &intersection))
+					{
+						r32 distance_sq = (intersection - pos_bolt).length_squared();
+						if (distance_sq < closest_hit_distance_sq)
+						{
+							closest_hit = intersection;
+							closest_hit_normal = Vec3::normalize(intersection - p);
+							closest_hit_entity = i.item()->entity();
+							closest_hit_distance_sq = distance_sq;
+						}
+					}
+				}
+				pos_bolt = pos_bolt_next;
+
+				timestamp += SIMULATION_STEP;
+
+				if (closest_hit_entity) // we hit something; stop simulating
+					break;
+			}
+
+			Entity* bolt = World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), type, pos_bolt, dir_normalized);
+			Net::finalize(bolt);
+			if (closest_hit_entity) // we hit something, register it instantly
+				bolt->get<Bolt>()->hit_entity(closest_hit_entity, closest_hit, closest_hit_normal);
+		}
+		else
+		{
+			// not a remote player; no lag compensation needed
+			Net::finalize(World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), type, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
+		}
+	}
+	else
+	{
+		// we're a client; if this is a local player who has already spawned a fake bolt for client-side prediction,
+		// we need to delete that fake bolt, since the server has spawned a real one.
+		if (drone->fake_bolts.length > 0)
+		{
+			EffectLight* bolt = drone->fake_bolts[0].ref();
+			if (bolt) // might have already been removed
+				EffectLight::remove(bolt);
+			drone->fake_bolts.remove_ordered(0);
+		}
+	}
 }
 
 b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
@@ -518,7 +647,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			manager->add_energy(-info.spawn_cost);
 
-			if (!info.rapid_fire)
+			if (ability != Ability::Bolter && ability != Ability::Shotgun)
 				drone->cooldown_setup();
 
 			Vec3 my_pos;
@@ -679,114 +808,26 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				case Ability::Bolter:
 				{
-					if (Game::level.local)
-					{
-						if (manager->has<PlayerHuman>() && !manager->get<PlayerHuman>()->local)
-						{
-							// step 1. rewind the world to the point where the remote player fired
-							// step 2. step forward in increments of 1/60th of a second until we reach the present,
-							// checking for obstacles along the way.
-							// step 3. spawn the bolt at the final position
-							// step 4. if a target was hit, delete the bolt and apply any damage effects
-
-							Vec3 pos_bolt = my_pos + dir_normalized * DRONE_SHIELD_RADIUS;
-							r32 timestamp;
-#if SERVER
-							timestamp = Net::timestamp() - drone->get<PlayerControlHuman>()->rtt;
-#else
-							timestamp = Net::timestamp();
-#endif
-
-							Entity* closest_hit_entity = nullptr;
-							Vec3 closest_hit;
-							Vec3 closest_hit_normal;
-
-							while (timestamp < Net::timestamp())
-							{
-								const r32 SIMULATION_STEP = Net::tick_rate();
-								Net::StateFrame state_frame;
-								Net::state_frame_by_timestamp(&state_frame, timestamp);
-								Vec3 pos_bolt_next = pos_bolt + dir_normalized * (BOLT_SPEED_DRONE * SIMULATION_STEP);
-								Vec3 pos_bolt_next_ray = pos_bolt_next + dir_normalized * BOLT_LENGTH;
-
-								r32 closest_hit_distance_sq = FLT_MAX;
-
-								// check environment collisions
-								{
-									btCollisionWorld::ClosestRayResultCallback ray_callback(pos_bolt, pos_bolt_next_ray);
-									Physics::raycast(&ray_callback, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(drone->get<AIAgent>()->team)));
-									if (ray_callback.hasHit())
-									{
-										closest_hit = ray_callback.m_hitPointWorld;
-										closest_hit_normal = ray_callback.m_hitNormalWorld;
-										closest_hit_entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-										closest_hit_distance_sq = (closest_hit - pos_bolt).length_squared();
-									}
-								}
-
-								// check target collisions
-								for (auto i = Target::list.iterator(); !i.is_last(); i.next())
-								{
-									if (i.item() == drone->get<Target>())
-										continue;
-
-									Vec3 p;
-									{
-										Vec3 pos;
-										Quat rot;
-										Net::transform_absolute(state_frame, i.item()->get<Transform>()->id(), &pos, &rot);
-										p = pos + (rot * i.item()->local_offset); // todo possibly: rewind local_offset as well?
-									}
-
-									Vec3 intersection;
-									if (LMath::ray_sphere_intersect(pos_bolt, pos_bolt_next_ray, p, i.item()->radius(), &intersection))
-									{
-										r32 distance_sq = (intersection - pos_bolt).length_squared();
-										if (distance_sq < closest_hit_distance_sq)
-										{
-											closest_hit = intersection;
-											closest_hit_normal = Vec3::normalize(intersection - p);
-											closest_hit_entity = i.item()->entity();
-											closest_hit_distance_sq = distance_sq;
-										}
-									}
-								}
-								pos_bolt = pos_bolt_next;
-
-								timestamp += SIMULATION_STEP;
-
-								if (closest_hit_entity) // we hit something; stop simulating
-									break;
-							}
-
-							Entity* bolt = World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), Bolt::Type::Drone, pos_bolt, dir_normalized);
-							Net::finalize(bolt);
-							if (closest_hit_entity) // we hit something, register it instantly
-								bolt->get<Bolt>()->hit_entity(closest_hit_entity, closest_hit, closest_hit_normal);
-						}
-						else
-						{
-							// not a remote player; no lag compensation needed
-							Net::finalize(World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), Bolt::Type::Drone, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
-						}
-					}
-					else
-					{
-						// we're a client; if this is a local player who has already spawned a fake bolt for client-side prediction,
-						// we need to delete that fake bolt, since the server has spawned a real one.
-						if (drone->fake_bolts.length > 0)
-						{
-							EffectLight* bolt = drone->fake_bolts[0].ref();
-							if (bolt) // might have already been removed
-								EffectLight::remove(bolt);
-							drone->fake_bolts.remove_ordered(0);
-						}
-					}
+					drone_bolt_spawn(drone, my_pos, dir_normalized, Bolt::Type::DroneBolter);
 					drone->bolter_charge_counter++;
 					if (drone->bolter_charge_counter >= BOLTS_PER_DRONE_CHARGE)
 					{
 						drone->bolter_charge_counter = 0;
 						drone->cooldown_setup();
+					}
+					break;
+				}
+				case Ability::Shotgun:
+				{
+					if (drone->charges >= DRONE_SHOTGUN_CHARGES)
+					{
+						Quat target_quat = Quat::look(dir_normalized);
+						for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
+						{
+							Vec3 d = target_quat * drone_shotgun_dirs[i];
+							drone_bolt_spawn(drone, my_pos, d, Bolt::Type::DroneShotgun);
+						}
+						drone->cooldown_setup(DRONE_SHOTGUN_CHARGES);
 					}
 					break;
 				}
@@ -806,7 +847,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 			}
 
-			if (!info.rapid_fire)
+			if (ability != Ability::Bolter)
 				drone->current_ability = Ability::None;
 			drone->ability_spawned.fire(ability);
 			break;
@@ -947,8 +988,7 @@ b8 Drone::hit_target(Entity* target)
 		if (hit_targets[i].ref() == target)
 			return false; // we've already hit this target once during this flight
 	}
-	if (hit_targets.length < hit_targets.capacity())
-		hit_targets.add(target);
+	hit_targets.add(target);
 
 	if (current_ability == Ability::None && get<Health>()->active_armor() && (target->has<Shield>() || target->has<ForceField>()))
 		get<Health>()->active_armor_timer = 0.0f; // damaging a Shield cancels our invincibility
@@ -1287,12 +1327,12 @@ void Drone::ability(Ability a)
 		DroneNet::ability_select(this, a);
 }
 
-void Drone::cooldown_setup()
+void Drone::cooldown_setup(s8 amount)
 {
 	if (Game::level.local)
 	{
-		vi_assert(charges > 0);
-		charges--;
+		vi_assert(charges >= amount);
+		charges -= amount;
 	}
 
 #if SERVER
@@ -1440,7 +1480,7 @@ r32 Drone::target_prediction_speed() const
 		}
 		case Ability::Bolter:
 		{
-			return BOLT_SPEED_DRONE;
+			return BOLT_SPEED_TURRET;
 		}
 		default:
 		{
@@ -1513,16 +1553,30 @@ b8 Drone::go(const Vec3& dir)
 			DroneNet::ability_spawn(this, dir_normalized, a);
 		else if (a == Ability::ActiveArmor)
 			get<Health>()->active_armor_timer = ACTIVE_ARMOR_TIME; // client-side prediction; show invincibility sparkles instantly
+		else if (a == Ability::Shotgun)
+		{
+			// client-side prediction; create fake bolts
+			Quat target_quat = Quat::look(dir_normalized);
+			for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
+			{
+				Vec3 d = target_quat * drone_shotgun_dirs[i];
+				fake_bolts.add
+				(
+					EffectLight::add
+					(
+						get<Transform>()->absolute_pos() + d * DRONE_SHIELD_RADIUS,
+						BOLT_LIGHT_RADIUS,
+						0.5f,
+						EffectLight::Type::BoltDroneShotgun,
+						nullptr,
+						Quat::look(d)
+					)
+				);
+			}
+		}
 		else if (a == Ability::Bolter)
 		{
 			// client-side prediction; create fake bolt
-			if (fake_bolts.length == fake_bolts.capacity())
-			{
-				EffectLight* bolt = fake_bolts[0].ref();
-				if (bolt) // might have already been removed
-					EffectLight::remove(bolt);
-				fake_bolts.remove_ordered(0);
-			}
 			fake_bolts.add
 			(
 				EffectLight::add
@@ -1530,7 +1584,7 @@ b8 Drone::go(const Vec3& dir)
 					get<Transform>()->absolute_pos() + dir_normalized * DRONE_SHIELD_RADIUS,
 					BOLT_LIGHT_RADIUS,
 					0.5f,
-					EffectLight::Type::Bolt,
+					EffectLight::Type::BoltDroneBolter,
 					nullptr,
 					Quat::look(dir_normalized)
 				)

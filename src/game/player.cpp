@@ -892,6 +892,7 @@ void PlayerHuman::update(const Update& u)
 								&& get<PlayerManager>()->upgrade_available(upgrade)
 								&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade)
 								&& (Game::level.has_feature(Game::FeatureLevel::All) || !get<PlayerManager>()->upgrades) // only allow one ability upgrade in tutorial
+								&& (Game::level.has_feature(Game::FeatureLevel::All) || UpgradeInfo::list[i].type == UpgradeInfo::Type::Ability) // only allow ability upgrades in tutorial
 								&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type != AbilityInfo::Type::Other); // don't allow Other ability upgrades in tutorial
 							if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
 							{
@@ -1736,10 +1737,20 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		&& (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrading))
 	{
 		// energy
-		char buffer[128];
-		sprintf(buffer, "%d", get<PlayerManager>()->energy);
+		char buffer[16];
+		snprintf(buffer, 16, "%hd", get<PlayerManager>()->energy);
 		Vec2 p = ui_anchor(params) + Vec2(match_timer_width() + UI_TEXT_SIZE_DEFAULT * UI::scale, (UI_TEXT_SIZE_DEFAULT + 16.0f) * -UI::scale);
 		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_energy, buffer, UI::color_accent(), UI_TEXT_SIZE_DEFAULT * 5 * UI::scale);
+		s16 respawns = get<PlayerManager>()->respawns;
+		if (respawns != -1)
+		{
+			if (get<PlayerManager>()->instance.ref())
+				respawns++;
+			p.x += UI_TEXT_SIZE_DEFAULT * 5 * UI::scale;
+			snprintf(buffer, 16, "%hd", respawns);
+			const Vec4& color = respawns > 2 ? UI::color_default : (respawns > 1 ? UI::color_accent() : UI::color_alert());
+			draw_icon_text(params, gamepad, p, Asset::Mesh::icon_drone, buffer, color, UI_TEXT_SIZE_DEFAULT * 4 * UI::scale);
+		}
 	}
 
 	if (mode == UIMode::PvpDefault)
@@ -2475,12 +2486,8 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 				c->try_primary = false;
 				if (msg.ability == Ability::None)
 					c->try_secondary = false;
-				else
-				{
-					const AbilityInfo& info = AbilityInfo::list[s32(msg.ability)];
-					if (!info.rapid_fire)
-						c->player.ref()->rumble_add(0.5f);
-				}
+				else if (msg.ability != Ability::Bolter)
+					c->player.ref()->rumble_add(0.5f);
 			}
 
 			break;

@@ -262,7 +262,6 @@ struct Turret : public ComponentType<Turret>
 	void update_server(const Update&);
 	void check_target();
 	b8 can_see(Entity*) const;
-	void hit_by(const TargetEvent&);
 	void set_team(AI::Team);
 };
 
@@ -339,7 +338,8 @@ struct EffectLight
 {
 	enum class Type : s8
 	{
-		Bolt,
+		BoltDroneBolter,
+		BoltDroneShotgun,
 		Spark,
 		Shockwave,
 		Alpha,
@@ -395,7 +395,8 @@ struct Bolt : public ComponentType<Bolt>
 	{
 		Minion,
 		Turret,
-		Drone,
+		DroneBolter,
+		DroneShotgun,
 		count,
 	};
 

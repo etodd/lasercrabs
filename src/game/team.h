@@ -38,16 +38,24 @@ struct AbilityInfo
 	AssetID icon;
 	s16 spawn_cost;
 	Type type;
-	b8 rapid_fire;
 };
 
 struct UpgradeInfo
 {
+	enum class Type : s8
+	{
+		Ability,
+		Consumable,
+		count,
+	};
+
+	static UpgradeInfo list[s32(Upgrade::count)];
+
 	AssetID name;
 	AssetID description;
 	AssetID icon;
 	s16 cost;
-	static UpgradeInfo list[s32(Upgrade::count)];
+	Type type;
 };
 
 #define PLAYER_SCORE_SUMMARY_ITEMS 4

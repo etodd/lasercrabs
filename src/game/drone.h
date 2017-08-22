@@ -109,6 +109,7 @@ struct Drone : public ComponentType<Drone>
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void stealth(Entity*, b8);
 	static void update_client_all(const Update&);
+	static void init();
 
 	Array<Reflection> reflections;
 	Quat lerped_rotation;
@@ -122,8 +123,8 @@ struct Drone : public ComponentType<Drone>
 	r32 dash_timer;
 	Ability current_ability;
 	Footing footing[DRONE_LEGS];
-	StaticArray<Ref<Entity>, 8> hit_targets;
-	StaticArray<Ref<EffectLight>, 4> fake_bolts;
+	Array<Ref<Entity>> hit_targets;
+	Array<Ref<EffectLight>> fake_bolts;
 	LinkArg<const DroneReflectEvent&> reflecting;
 	LinkArg<Entity*> hit;
 	LinkArg<Ability> ability_spawned;
@@ -145,7 +146,7 @@ struct Drone : public ComponentType<Drone>
 	b8 net_state_frame(Net::StateFrame*) const;
 
 	void ability(Ability);
-	void cooldown_setup();
+	void cooldown_setup(s8 = 1);
 	State state() const;
 	b8 dash_start(const Vec3&, const Vec3&);
 	b8 cooldown_can_shoot() const; // can we go?

@@ -165,6 +165,8 @@
 	"upgrade_description": "Cost: %d\n%s",
 	"sensor": "Sensor",
 	"description_sensor": "Detect enemy drones and create stealth fields for yourself.",
+	"shotgun": "Shotgun",
+	"description_shotgun": "Short-range wide-angle weapon. Requires two charges to fire.",
 	"sniper": "Sniper",
 	"description_sniper": "Hit targets at range, at the expense of increased vulnerability.",
 	"minion": "Minion",
@@ -178,6 +180,8 @@
 	"active_armor": "Active Armor",
 	"description_active_armor": "Deflect all incoming damage back at enemies.",
 	"player_kicked": "%s kicked!",
+	"extra_drone": "+1 Drone",
+	"description_extra_drone": "An extra drone.",
 
 	"map_by": "%s - by %s",
 	"tab_map": "Map",

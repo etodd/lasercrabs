@@ -28,7 +28,7 @@
 #define MINION_HEARING_RANGE 7.0f
 #define MINION_VISION_RANGE (DRONE_MAX_DISTANCE * 0.8f)
 #define MINION_MELEE_RANGE 2.5f
-#define HEALTH 5
+#define HEALTH 6
 #define PATH_RECALC_TIME 1.0f
 #define TARGET_SCAN_TIME 0.5f
 
@@ -624,7 +624,7 @@ void Minion::update_server(const Update& u)
 						// turn to and attack the target
 						Vec3 hand_pos = get<Minion>()->aim_pos(get<Walker>()->rotation);
 						Vec3 aim_pos;
-						if (!g->has<Target>() || !g->get<Target>()->predict_intersection(hand_pos, BOLT_SPEED_DEFAULT, nullptr, &aim_pos))
+						if (!g->has<Target>() || !g->get<Target>()->predict_intersection(hand_pos, BOLT_SPEED_MINION, nullptr, &aim_pos))
 							aim_pos = g->get<Transform>()->absolute_pos();
 						goal.pos = aim_pos;
 						turn_to(aim_pos);

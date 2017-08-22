@@ -67,6 +67,7 @@ enum class Ability : s8
 	Minion,
 	Sensor,
 	ForceField,
+	Shotgun,
 	Sniper,
 	Grenade,
 	count,
@@ -80,8 +81,10 @@ enum class Upgrade : s8
 	Minion,
 	Sensor,
 	ForceField,
+	Shotgun,
 	Sniper,
 	Grenade,
+	ExtraDrone,
 	count,
 	None = count,
 };

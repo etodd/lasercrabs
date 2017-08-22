@@ -260,6 +260,8 @@ b8 Game::init(LoopSync* sync)
 	Console::init();
 #endif
 
+	Drone::init();
+
 	return true;
 }
 

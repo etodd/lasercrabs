@@ -54,7 +54,6 @@ namespace VI
 #define speed_mouse (0.05f / 60.0f)
 #define speed_joystick 5.0f
 #define gamepad_rotation_acceleration (1.0f / 0.4f)
-#define attach_lerp_speed 30.0f
 #define msg_time 0.75f
 #define camera_shake_time 0.7f
 #define arm_angle_offset -0.2f
@@ -75,19 +74,23 @@ r32 hp_width(u8 hp, s8 shield, r32 scale = 1.0f)
 	return scale * ((shield + (hp - 1)) * (box_size.x + HP_BOX_SPACING) - HP_BOX_SPACING);
 }
 
-void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, Vec3* camera_center, r32* smoothness, r32 offset)
+Vec3 camera_center_get(Drone* d)
 {
-	Quat lerped_rot = e->get<Drone>()->lerped_rotation;
+	return d->center_lerped() + d->lerped_rotation * Vec3(0, 0, 0.5f);
+}
+
+void PlayerHuman::camera_setup_drone(Drone* drone, Camera* camera, Vec3* camera_center, r32* smoothness, r32 offset)
+{
 	Quat abs_rot;
 	Vec3 abs_pos;
-	e->get<Transform>()->absolute(&abs_pos, &abs_rot);
+	drone->get<Transform>()->absolute(&abs_pos, &abs_rot);
 
 	Vec3 final_camera_center;
 	{
-		Vec3 lerped_pos = e->get<Drone>()->center_lerped() + lerped_rot * Vec3(0, 0, 0.5f);
+		Vec3 lerped_pos = camera_center_get(drone);
 		if (camera_center)
 		{
-			if (e->get<Drone>()->state() == Drone::State::Crawl)
+			if (drone->state() == Drone::State::Crawl)
 				*smoothness = vi_max(0.0f, *smoothness - Game::time.delta);
 			else
 				*smoothness = 1.0f;
@@ -108,7 +111,7 @@ void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, Vec3* camera_cen
 	Vec3 camera_pos_final = abs_pos + abs_offset;
 	Vec3 abs_wall_normal;
 
-	b8 attached = e->get<Transform>()->parent.ref();
+	b8 attached = drone->get<Transform>()->parent.ref();
 	if (attached)
 	{
 		abs_wall_normal = abs_rot * Vec3(0, 0, 1);
@@ -120,7 +123,7 @@ void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, Vec3* camera_cen
 	Quat rot_inverse = camera->rot.inverse();
 
 	camera->range_center = rot_inverse * (abs_pos - camera->pos);
-	camera->range = e->get<Drone>()->range();
+	camera->range = drone->range();
 	camera->flag(CameraFlagColors, false);
 	camera->flag(CameraFlagFog, false);
 
@@ -134,7 +137,7 @@ void PlayerHuman::camera_setup_drone(Entity* e, Camera* camera, Vec3* camera_cen
 	else
 	{
 		// blend cull radius down to zero as we fly away from the wall
-		r32 t = Game::time.total - e->get<Drone>()->attach_time;
+		r32 t = Game::time.total - drone->attach_time;
 		const r32 blend_time = 0.1f;
 		if (t < blend_time)
 		{
@@ -720,7 +723,7 @@ void PlayerHuman::upgrade_completed(Upgrade u)
 void PlayerHuman::update(const Update& u)
 {
 #if SERVER
-	if (Game::session.type == SessionType::Multiplayer)
+	if (Game::session.type == SessionType::Multiplayer && get<PlayerManager>()->respawns != 0)
 	{
 		afk_timer -= Game::real_time.delta;
 		if (afk_timer < 0.0f)
@@ -1052,7 +1055,7 @@ void PlayerHuman::update(const Update& u)
 					Entity* spectating = live_player_get(spectate_index);
 
 					if (spectating)
-						camera_setup_drone(spectating, camera.ref(), &camera_center, &camera_smoothness, 6.0f);
+						camera_setup_drone(spectating->get<Drone>(), camera.ref(), &camera_center, &camera_smoothness, 6.0f);
 				}
 			}
 			break;
@@ -1129,7 +1132,7 @@ void PlayerHuman::update_late(const Update& u)
 		if (e)
 		{
 			camera.ref()->rot = Quat::euler(0.0f, PI * 0.25f, PI * 0.25f);
-			camera_setup_drone(e, camera.ref(), &camera_center, &camera_smoothness, 6.0f);
+			camera_setup_drone(e->get<Drone>(), camera.ref(), &camera_center, &camera_smoothness, 6.0f);
 		}
 	}
 	
@@ -2316,7 +2319,17 @@ void PlayerCommon::update(const Update& u)
 		Quat rot = get<Transform>()->absolute_rot();
 		r32 angle = Quat::angle(attach_quat, rot);
 		if (angle > 0)
-			attach_quat = Quat::slerp(vi_min(1.0f, attach_lerp_speed * u.time.delta), attach_quat, rot);
+		{
+			r32 speed = 10.0f;
+			if (has<PlayerControlHuman>())
+			{
+				// scale slerp speed based on how close the camera is to the drone
+				PlayerControlHuman* control = get<PlayerControlHuman>();
+				r32 camera_distance = (control->player.ref()->camera_center - camera_center_get(get<Drone>())).length();
+				speed *= vi_max(0.0f, 1.0f - (camera_distance / 8.0f));
+			}
+			attach_quat = Quat::slerp(vi_min(1.0f, speed * u.time.delta), attach_quat, rot);
+		}
 	}
 }
 
@@ -2346,43 +2359,33 @@ void PlayerCommon::drone_done_flying()
 	Quat absolute_rot = get<Transform>()->absolute_rot();
 	Vec3 wall_normal = absolute_rot * Vec3(0, 0, 1);
 
-	// if we are spawning on to a flat floor, set attach_quat immediately
-	// this preserves the camera rotation set by the PlayerSpawn
-	if (Vec3::normalize(get<Drone>()->velocity).y == -1.0f && wall_normal.y > 0.9f)
-		attach_quat = absolute_rot;
+	// set the attach quat to be perpendicular to the camera, so we can ease the camera gently away from the wall
+	Vec3 direction = look_dir();
+
+	Vec3 clamped;
+	if (direction.dot(wall_normal) == -1.0f)
+		clamped = wall_normal;
 	else
 	{
-		// we are attaching to a wall or something
-		// set the attach quat to be perpendicular to the camera, so we can ease the camera gently away from the wall
-		Vec3 direction = look_dir();
-
-		Vec3 up = Vec3::normalize(wall_normal.cross(direction));
-		Vec3 right = direction.cross(up);
-
-		// make sure the up and right vector aren't switched
-		if (fabsf(up.y) < fabsf(right.y))
+		clamped = Vec3::normalize(direction - wall_normal * wall_normal.dot(direction));
+		if (fabsf(wall_normal.y) > 0.707f)
 		{
-			Vec3 tmp = right;
-			right = up;
-			up = tmp;
+			Vec3 right = Vec3::normalize(direction.cross(Vec3(0, 1, 0)));
+			clamped = Vec3::normalize(clamped - right * clamped.dot(right));
 		}
 
-		// if the right vector is too vertical, force it to be more horizontal
+		// if the clamped vector is too vertical, force it to be more horizontal
 		const r32 threshold = fabsf(wall_normal.y) + 0.25f;
-		right.y = LMath::clampf(right.y, -threshold, threshold);
-		right.normalize();
-
-		if (right.dot(direction - wall_normal * direction.dot(wall_normal)) < 0.0f)
-			right *= -1.0f;
-
-		attach_quat = Quat::look(right);
+		clamped.y = LMath::clampf(clamped.y, -threshold, threshold);
+		clamped.normalize();
 	}
+
+	attach_quat = Quat::look(clamped);
 }
 
 void PlayerCommon::drone_detaching()
 {
-	Vec3 direction = Vec3::normalize(get<Drone>()->velocity);
-	attach_quat = Quat::look(direction);
+	attach_quat = Quat::look(Vec3::normalize(get<Drone>()->velocity));
 }
 
 void PlayerCommon::drone_reflecting(const DroneReflectEvent& e)
@@ -2392,10 +2395,7 @@ void PlayerCommon::drone_reflecting(const DroneReflectEvent& e)
 
 Vec3 PlayerCommon::look_dir() const
 {
-	if (has<PlayerControlHuman>()) // HACK for third-person camera
-		return Vec3::normalize(get<PlayerControlHuman>()->reticle.pos - get<Transform>()->absolute_pos());
-	else
-		return look() * Vec3(0, 0, 1);
+	return look() * Vec3(0, 0, 1);
 }
 
 Quat PlayerCommon::look() const
@@ -2405,15 +2405,15 @@ Quat PlayerCommon::look() const
 
 void PlayerCommon::clamp_rotation(const Vec3& direction, r32 dot_limit)
 {
-	Quat look_quat = Quat::euler(0.0f, angle_horizontal, angle_vertical);
-	Vec3 forward = look_quat * Vec3(0, 0, 1);
+	Vec3 forward = look_dir();
 
 	r32 dot = forward.dot(direction);
-	if (dot < -dot_limit)
+	while (dot < -dot_limit)
 	{
-		forward = Vec3::normalize(forward - (forward.dot(direction) + dot_limit) * direction);
-		angle_horizontal = atan2f(forward.x, forward.z);
+		forward = Vec3::normalize(forward - (dot + dot_limit) * direction);
 		angle_vertical = -asinf(forward.y);
+		angle_horizontal = atan2f(forward.x, forward.z);
+		dot = forward.dot(direction);
 	}
 }
 
@@ -3030,6 +3030,7 @@ b8 PlayerControlHuman::movement_enabled() const
 {
 	return input_enabled() && get<PlayerCommon>()->movement_enabled();
 }
+
 void PlayerControlHuman::update_camera_input(const Update& u, r32 overall_rotation_multiplier, r32 gamepad_rotation_multiplier)
 {
 	if (input_enabled())
@@ -3532,7 +3533,7 @@ void PlayerControlHuman::update(const Update& u)
 
 			camera_shake_update(u, camera);
 
-			PlayerHuman::camera_setup_drone(entity(), camera, &player.ref()->camera_center, &player.ref()->camera_smoothness, DRONE_THIRD_PERSON_OFFSET);
+			PlayerHuman::camera_setup_drone(get<Drone>(), camera, &player.ref()->camera_center, &player.ref()->camera_smoothness, DRONE_THIRD_PERSON_OFFSET);
 
 			// reticle
 			{

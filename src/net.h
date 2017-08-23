@@ -79,6 +79,7 @@ struct MinionState
 	r32 rotation;
 	r32 animation_time;
 	AssetID animation;
+	Revision revision;
 };
 
 struct PlayerManagerState

@@ -22,6 +22,7 @@ struct Target;
 struct DroneReflectEvent;
 struct SpawnPosition;
 struct SpawnPoint;
+struct Drone;
 
 namespace Net
 {
@@ -94,7 +95,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static PlayerHuman* player_for_gamepad(s8);
 	static void log_add(const char*, AI::Team = AI::TeamNone, AI::TeamMask = AI::TeamAll, const char* = nullptr, AI::Team = AI::TeamNone);
 	static void clear();
-	static void camera_setup_drone(Entity*, Camera*, Vec3*, r32*, r32);
+	static void camera_setup_drone(Drone*, Camera*, Vec3*, r32*, r32);
 	static void draw_logs(const RenderParams&, AI::Team, s8);
 
 	Array<SupportEntry> last_supported;

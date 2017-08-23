@@ -1252,9 +1252,20 @@ template<typename Stream> b8 serialize_transform(Stream* p, TransformState* tran
 
 template<typename Stream> b8 serialize_minion(Stream* p, MinionState* state, const MinionState* base)
 {
-	serialize_r32_range(p, state->rotation, -PI, PI, 8);
-
 	b8 b;
+
+	if (Stream::IsWriting)
+		b = !base || state->revision != base->revision;
+	serialize_bool(p, b);
+	if (b)
+		serialize_s16(p, state->revision);
+
+	if (Stream::IsWriting)
+		b = !base || state->rotation != base->rotation;
+	serialize_bool(p, b);
+	if (b)
+		serialize_r32_range(p, state->rotation, -PI, PI, 8);
+
 	if (Stream::IsWriting)
 		b = !base || state->animation != base->animation;
 	serialize_bool(p, b);
@@ -1523,7 +1534,9 @@ void state_frame_build(StateFrame* frame)
 	{
 		frame->minions_active.set(i.index, true);
 		MinionState* minion = &frame->minions[i.index];
-		minion->rotation = LMath::angle_range(i.item()->get<Walker>()->rotation);
+		minion->revision = i.item()->revision;
+		u32 quantized_rotation = u32(255.0f * (LMath::angle_range(i.item()->get<Walker>()->rotation) + PI) / (PI * 2.0f));
+		minion->rotation = -PI + r32(quantized_rotation) * (PI * 2.0f) / 255.0f;
 
 		const Animator::Layer& layer = i.item()->get<Animator>()->layers[0];
 		minion->animation = layer.animation;
@@ -1647,12 +1660,30 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 			const MinionState& last = a.minions[index];
 			const MinionState& next = b.minions[index];
 
-			minion->rotation = LMath::angle_range(LMath::lerpf(blend, last.rotation, LMath::closest_angle(last.rotation, next.rotation)));
-			minion->animation = last.animation;
-			if (last.animation == next.animation && fabsf(next.animation_time - last.animation_time) < tick_rate() * 10.0f)
-				minion->animation_time = LMath::lerpf(blend, last.animation_time, next.animation_time);
+			minion->revision = next.revision;
+			if (last.revision == next.revision)
+			{
+				minion->rotation = LMath::angle_range(LMath::lerpf(blend, last.rotation, LMath::closest_angle(next.rotation, last.rotation)));
+				minion->animation = last.animation;
+				if (last.animation == next.animation && fabsf(next.animation_time - last.animation_time) < tick_rate() * 10.0f)
+					minion->animation_time = LMath::lerpf(blend, last.animation_time, next.animation_time);
+				else
+				{
+					minion->animation_time = last.animation_time + blend * tick_rate();
+					r32 duration = minion->animation == AssetNull ? 0.0f : Loader::animation(minion->animation)->duration;
+					if (minion->animation_time > duration)
+					{
+						minion->animation = next.animation;
+						minion->animation_time = next.animation_time + minion->animation_time - duration;
+					}
+				}
+			}
 			else
-				minion->animation_time = last.animation_time + blend * tick_rate();
+			{
+				minion->rotation = next.rotation;
+				minion->animation = next.animation;
+				minion->animation_time = next.animation_time;
+			}
 
 			index = b.minions_active.next(index);
 		}

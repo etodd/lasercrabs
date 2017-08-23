@@ -442,7 +442,7 @@ void draw_edges(const RenderParams& render_params)
 	sync->write(RenderFillMode::Line);
 
 	sync->write(RenderOp::LineWidth);
-	sync->write(2.5f * UI::scale);
+	sync->write(vi_max(1.0f, 2.5f * UI::scale));
 
 	{
 		RenderParams p = render_params;

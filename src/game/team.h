@@ -227,11 +227,13 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
 	s16 upgrade_cost(Upgrade) const;
 	void kick(PlayerManager*);
+	void kick();
 	void add_energy(s32);
 	void add_energy_and_notify(s32);
 	void add_kills(s32);
 	void add_deaths(s32);
 	void update_server(const Update&);
+	void update_client_only(const Update&);
 	void score_accept();
 	void set_can_spawn(b8 = true);
 	void team_schedule(AI::Team);

@@ -160,7 +160,7 @@ struct SpawnPoint : public ComponentType<SpawnPoint>
 
 	void awake() {}
 	void set_team(AI::Team);
-	SpawnPosition spawn_position(PlayerManager* = nullptr) const;
+	SpawnPosition spawn_position() const;
 };
 
 struct Drone;

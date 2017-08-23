@@ -1280,18 +1280,6 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 		serialize_r32_range(p, state->spawn_timer, 0, SPAWN_DELAY, 8);
 
 	if (Stream::IsWriting)
-		b = !base || state->state_timer != base->state_timer;
-	serialize_bool(p, b);
-	if (b)
-		serialize_r32_range(p, state->state_timer, 0, 10.0f, 10);
-
-	if (Stream::IsWriting)
-		b = !base || state->current_upgrade != base->current_upgrade;
-	serialize_bool(p, b);
-	if (b)
-		serialize_int(p, Upgrade, state->current_upgrade, 0, s32(Upgrade::count) + 1); // necessary because Upgrade::None = Upgrade::count
-
-	if (Stream::IsWriting)
 		b = !base || state->energy != base->energy;
 	serialize_bool(p, b);
 	if (b)
@@ -1352,8 +1340,6 @@ b8 equal_states_minion(const StateFrame* frame_a, const StateFrame* frame_b, s32
 b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
 {
 	return a.spawn_timer == b.spawn_timer
-		&& a.state_timer == b.state_timer
-		&& a.current_upgrade == b.current_upgrade
 		&& a.energy == b.energy
 		&& a.active == b.active;
 }
@@ -1528,8 +1514,6 @@ void state_frame_build(StateFrame* frame)
 	{
 		PlayerManagerState* state = &frame->players[i.index];
 		state->spawn_timer = i.item()->spawn_timer;
-		state->state_timer = i.item()->state_timer;
-		state->current_upgrade = i.item()->current_upgrade;
 		state->energy = i.item()->energy;
 		state->active = true;
 	}
@@ -1650,10 +1634,6 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 				player->spawn_timer = next.spawn_timer;
 			else
 				player->spawn_timer = LMath::lerpf(blend, last.spawn_timer, next.spawn_timer);
-			if (fabsf(last.state_timer - next.state_timer) > tick_rate() * 5.0f)
-				player->state_timer = next.state_timer;
-			else
-				player->state_timer = LMath::lerpf(blend, last.state_timer, next.state_timer);
 		}
 	}
 
@@ -1768,8 +1748,6 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 		{
 			PlayerManager* s = &PlayerManager::list[i];
 			s->spawn_timer = state.spawn_timer;
-			s->state_timer = state.state_timer;
-			s->current_upgrade = state.current_upgrade;
 			s->energy = state.energy;
 		}
 	}

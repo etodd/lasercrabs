@@ -1422,7 +1422,7 @@ void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
 	}
 	if (m->respawns != 0)
 		m->spawn_timer = SPAWN_DELAY;
-	m->spawn.fire(point->spawn_position(m));
+	m->spawn.fire(point->spawn_position());
 }
 
 b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net::MessageSource src)
@@ -1573,6 +1573,8 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 
 			if (!Game::level.local || src == Net::MessageSource::Loopback)
 			{
+				m->current_upgrade = Upgrade::None;
+				m->state_timer = 0.0f;
 				if (UpgradeInfo::list[s32(u)].type == UpgradeInfo::Type::Ability)
 				{
 					m->upgrades |= 1 << s32(u);
@@ -1650,29 +1652,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 						PlayerManagerNet::kick(m, kickee.ref()); // repeat for other clients and ourselves
 				}
 				else // loopback
-				{
-#if SERVER
-					ID client_id = Net::Server::client_id(kickee.ref()->get<PlayerHuman>());
-#endif
-					Entity* instance = kickee.ref()->instance.ref();
-					if (instance)
-						World::remove_deferred(instance);
-					World::remove_deferred(kickee.ref()->entity());
-#if SERVER
-					b8 client_has_other_players = false;
-					for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-					{
-						if (i.item() != kickee.ref()->get<PlayerHuman>() && Net::Server::client_id(i.item()) == client_id)
-						{
-							client_has_other_players = true;
-							break;
-						}
-					}
-
-					if (!client_has_other_players)
-						Net::Server::client_force_disconnect(client_id, Net::DisconnectReason::Kicked);
-	#endif
-				}
+					kickee.ref()->kick();
 			}
 
 			if (Game::level.local == (src == Net::MessageSource::Loopback))
@@ -1693,6 +1673,37 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 	return true;
 }
 
+void PlayerManager::kick()
+{
+	vi_assert(Game::level.local);
+
+	{
+		Entity* i = instance.ref();
+		if (i)
+			World::remove_deferred(i);
+	}
+	World::remove_deferred(entity());
+
+#if SERVER
+	if (has<PlayerHuman>())
+	{
+		ID client_id = Net::Server::client_id(get<PlayerHuman>());
+		b8 client_has_other_players = false;
+		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item() != get<PlayerHuman>() && Net::Server::client_id(i.item()) == client_id)
+			{
+				client_has_other_players = true;
+				break;
+			}
+		}
+
+		if (!client_has_other_players)
+			Net::Server::client_force_disconnect(client_id, Net::DisconnectReason::Kicked);
+	}
+#endif
+}
+
 b8 PlayerManager::upgrade_start(Upgrade u)
 {
 	s16 cost = upgrade_cost(u);
@@ -1701,23 +1712,35 @@ b8 PlayerManager::upgrade_start(Upgrade u)
 		&& energy >= cost
 		&& UpgradeStation::drone_inside(instance.ref()->get<Drone>()))
 	{
-		current_upgrade = u;
-		state_timer = UPGRADE_TIME;
-		add_energy(-cost);
+		if (Game::level.local)
+		{
+			current_upgrade = u;
+
+			r32 rtt;
+			if (has<PlayerHuman>() && !get<PlayerHuman>()->local)
+				rtt = Net::rtt(get<PlayerHuman>());
+			else
+				rtt = 0.0f;
+			state_timer = UPGRADE_TIME - rtt;
+
+			add_energy(-cost);
+		}
+		else // client-side prediction
+		{
+			state_timer = UPGRADE_TIME;
+			current_upgrade = u;
+		}
 		return true;
 	}
-	return false;
+	else
+		return false;
 }
 
 void PlayerManager::upgrade_complete()
 {
-	Upgrade u = current_upgrade;
-	current_upgrade = Upgrade::None;
-	state_timer = 0.0f;
-
-	vi_assert(!has_upgrade(u));
-
-	PlayerManagerNet::upgrade_completed(this, ability_count(), u);
+	vi_assert(!has_upgrade(current_upgrade));
+	b8 is_ability = UpgradeInfo::list[s32(current_upgrade)].type == UpgradeInfo::Type::Ability;
+	PlayerManagerNet::upgrade_completed(this, is_ability ? ability_count() : 0, current_upgrade);
 }
 
 s16 PlayerManager::upgrade_cost(Upgrade u) const
@@ -1880,6 +1903,8 @@ void PlayerManager::update_all(const Update& u)
 	{
 		if (Game::level.local)
 			i.item()->update_server(u);
+		else
+			i.item()->update_client_only(u);
 	}
 }
 
@@ -2058,6 +2083,11 @@ void PlayerManager::update_server(const Update& u)
 			}
 		}
 	}
+}
+
+void PlayerManager::update_client_only(const Update& u)
+{
+	state_timer = vi_max(0.0f, state_timer - u.time.delta);
 }
 
 b8 PlayerManager::is_local() const

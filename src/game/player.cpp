@@ -294,6 +294,7 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	last_supported(),
 	energy_notification_accumulator(),
 #if SERVER
+	afk_timer(AFK_TIME),
 	ai_record_id(),
 #endif
 	local(local)
@@ -718,6 +719,18 @@ void PlayerHuman::upgrade_completed(Upgrade u)
 
 void PlayerHuman::update(const Update& u)
 {
+#if SERVER
+	if (Game::session.type == SessionType::Multiplayer)
+	{
+		afk_timer -= Game::real_time.delta;
+		if (afk_timer < 0.0f)
+		{
+			get<PlayerManager>()->kick();
+			return;
+		}
+	}
+#endif
+
 	Entity* entity = get<PlayerManager>()->instance.ref();
 
 	// record parkour support
@@ -1222,7 +1235,7 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 			}
 			else
 			{
-				// we are entering a level. if we're entering by tram, spawn in the tram. otherwise spawn at the PlayerSpawn
+				// we are entering a level. if we're entering by tram, spawn in the tram. otherwise spawn at the SpawnPoint
 
 				s8 track = -1;
 				if (Game::save.zone_last != AssetNull)
@@ -2435,6 +2448,8 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 #if SERVER
 		// update RTT based on the sequence number
 		c->rtt = Net::Server::rtt(c->player.ref(), seq) + Net::interpolation_delay();
+
+		c->player.ref()->afk_timer = AFK_TIME;
 #endif
 
 		if (msg.type == PlayerControlHumanNet::Message::Type::Dash
@@ -2494,11 +2509,8 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 			break;
 		}
 		case PlayerControlHumanNet::Message::Type::UpgradeStart:
-		{
-			if (Game::level.local)
-				c->get<PlayerCommon>()->manager.ref()->upgrade_start(msg.upgrade);
+			c->get<PlayerCommon>()->manager.ref()->upgrade_start(msg.upgrade);
 			break;
-		}
 		case PlayerControlHumanNet::Message::Type::Reflect:
 		{
 			if (src == Net::MessageSource::Remote)
@@ -2802,6 +2814,8 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 void PlayerControlHuman::awake()
 {
 #if SERVER
+	player.ref()->afk_timer = AFK_TIME;
+
 	rtt = Net::rtt(player.ref()) + Net::interpolation_delay();
 #endif
 
@@ -3101,6 +3115,8 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 {
 #if SERVER
 	remote_control = control;
+	if (control.movement.length_squared() > 0.0f)
+		player.ref()->afk_timer = AFK_TIME;
 
 	if (has<Parkour>())
 	{
@@ -4610,8 +4626,9 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 						UI::box(params, { Vec2(p2.x + item_size * -0.5f - HP_BOX_SPACING, p2.y + item_size * -0.5f - HP_BOX_SPACING), Vec2((ability_count * item_size) + ((ability_count + 1) * HP_BOX_SPACING), item_size + HP_BOX_SPACING * 2.0f) }, UI::color_background);
 						for (s32 i = 0; i < ability_count; i++)
 						{
-							const AbilityInfo& info = AbilityInfo::list[s32(other_manager->abilities[i])];
-							UI::mesh(params, info.icon, p2, Vec2(item_size), *color);
+							Ability ability = other_manager->abilities[i];
+							const AbilityInfo& info = AbilityInfo::list[s32(ability)];
+							UI::mesh(params, info.icon, p2, Vec2(item_size), ability == other_player.item()->get<Drone>()->current_ability ? UI::color_default : *color);
 							p2.x += item_size + HP_BOX_SPACING;
 						}
 					}

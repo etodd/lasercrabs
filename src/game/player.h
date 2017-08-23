@@ -110,6 +110,9 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	r32 select_spawn_timer; // also used for spawn letterbox animation
 	r32 angle_horizontal;
 	r32 angle_vertical;
+#if SERVER
+	r32 afk_timer;
+#endif
 	r32 rumble;
 	s32 spectate_index;
 #if SERVER

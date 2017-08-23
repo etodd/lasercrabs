@@ -872,7 +872,17 @@ SpawnPoint* SpawnPoint::first(AI::TeamMask mask)
 	return nullptr;
 }
 
-SpawnPosition SpawnPoint::spawn_position(PlayerManager* player) const
+b8 drone_can_spawn(const Vec3& pos)
+{
+	for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
+	{
+		if (LMath::ray_sphere_intersect(pos + Vec3(0, 1, 0), pos, i.item()->get<Target>()->absolute_pos(), DRONE_SHIELD_RADIUS))
+			return false;
+	}
+	return true;
+}
+
+SpawnPosition SpawnPoint::spawn_position() const
 {
 	SpawnPosition result;
 	Quat rot;
@@ -880,8 +890,14 @@ SpawnPosition SpawnPoint::spawn_position(PlayerManager* player) const
 	Vec3 dir = rot * Vec3(0, 1, 0);
 	result.angle = atan2f(dir.x, dir.z);
 
-	if (player && player->team.ref()->player_count() > 1)
-		result.pos += Quat::euler(0, result.angle + (player->id() * PI * 0.5f), 0) * Vec3(0, 0, SPAWN_POINT_RADIUS * 0.5f); // spawn it around the edges
+	s32 j = 0;
+	Vec3 p = result.pos;
+	while (!drone_can_spawn(p) && j < 4)
+	{
+		p = result.pos + Quat::euler(0, result.angle + (r32(j + 1) * PI * 0.5f), 0) * Vec3(0, 0, SPAWN_POINT_RADIUS * 0.5f);
+		j++;
+	}
+	result.pos = p;
 	return result;
 }
 

@@ -37,10 +37,10 @@ namespace VI
 {
 
 
-DroneEntity::DroneEntity(AI::Team team)
+DroneEntity::DroneEntity(AI::Team team, const Vec3& pos)
 {
 	create<Audio>();
-	create<Transform>();
+	create<Transform>()->pos = pos;
 	create<Drone>();
 	create<AIAgent>()->team = team;
 	create<Health>(DRONE_HEALTH, DRONE_HEALTH, Game::session.config.drone_shield, Game::session.config.drone_shield)->active_armor_timer = DRONE_INVINCIBLE_TIME;

@@ -95,7 +95,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static PlayerHuman* player_for_gamepad(s8);
 	static void log_add(const char*, AI::Team = AI::TeamNone, AI::TeamMask = AI::TeamAll, const char* = nullptr, AI::Team = AI::TeamNone);
 	static void clear();
-	static void camera_setup_drone(Drone*, Camera*, Vec3*, r32*, r32);
+	static void camera_setup_drone(Drone*, Camera*, Vec3*, r32);
 	static void draw_logs(const RenderParams&, AI::Team, s8);
 
 	Array<SupportEntry> last_supported;
@@ -105,7 +105,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	UIText msg_text;
 	Quat kill_cam_rot;
 	Vec3 camera_center;
-	r32 camera_smoothness;
 	r32 msg_timer;
 	r32 animation_time;
 	r32 select_spawn_timer; // also used for spawn letterbox animation
@@ -158,22 +157,17 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 
 struct PlayerCommon : public ComponentType<PlayerCommon>
 {
-	Quat attach_quat;
 	r32 angle_horizontal;
 	r32 angle_vertical;
 	Ref<PlayerManager> manager;
 
 	PlayerCommon(PlayerManager* = nullptr);
-	void awake();
+	void awake() {}
 
 	Entity* incoming_attacker() const;
 	Vec3 look_dir() const;
 	Quat look() const;
 	r32 detect_danger() const;
-	void update(const Update&);
-	void drone_detaching();
-	void drone_done_flying();
-	void drone_reflecting(const DroneReflectEvent&);
 	void clamp_rotation(const Vec3&, r32 = 0.0f);
 	b8 movement_enabled() const;
 };

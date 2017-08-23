@@ -9,8 +9,19 @@ namespace VI
 
 struct View : public ComponentType<View>
 {
+	struct DebugEntry
+	{
+		AssetID mesh;
+		Vec3 pos;
+		Quat rot;
+		Vec3 scale;
+	};
+
 	static Bitmask<MAX_ENTITIES> list_alpha;
 	static Bitmask<MAX_ENTITIES> list_additive;
+#if DEBUG
+	static Array<DebugEntry> debug_entries;
+#endif
 
 	Mat4 offset;
 	Vec4 color;
@@ -29,6 +40,10 @@ struct View : public ComponentType<View>
 	static void draw_filtered(const RenderParams&, Filter*);
 
 	static void draw_mesh(const RenderParams&, AssetID, AssetID, AssetID, const Mat4&, const Vec4&, r32 = 0.0f);
+
+#if DEBUG
+	static void debug(AssetID, const Vec3&, const Quat& = Quat::identity, const Vec3& = Vec3(1));
+#endif
 
 	View();
 	View(AssetID);

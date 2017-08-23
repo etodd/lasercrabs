@@ -103,7 +103,7 @@ void ai_player_spawn(const Vec3& pos, const Quat& rot, PlayerAI* player)
 	// HACK: clear links so we can respawn the entity and have room for more links
 	player->manager.ref()->upgrade_completed.entries.length = 0;
 
-	Entity* e = World::create<DroneEntity>(player->manager.ref()->team.ref()->team());
+	Entity* e = World::create<DroneEntity>(player->manager.ref()->team.ref()->team(), pos);
 
 	e->get<Transform>()->absolute(pos, rot);
 	e->get<Drone>()->velocity = rot * Vec3(0, 0, DRONE_FLY_SPEED);
@@ -316,7 +316,7 @@ void update_component_memory(PlayerControlAI* control, MemoryStatus (*filter)(co
 Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target, r32 inaccuracy)
 {
 	PlayerCommon* common = get<PlayerCommon>();
-	Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
+	Vec3 wall_normal = get<Drone>()->rotation_clamp();
 
 	const AI::Config& config = player.ref()->config;
 	r32 target_angle_horizontal;
@@ -479,7 +479,7 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 		Vec3 to_target = target - pos;
 		r32 distance_to_target = to_target.length();
 		to_target /= distance_to_target;
-		Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
+		Vec3 wall_normal = get<Drone>()->rotation_clamp();
 
 		Vec2 target_angles = aim(u, to_target, inaccuracy);
 
@@ -545,7 +545,7 @@ b8 PlayerControlAI::aim_and_shoot_location(const Update& u, const AI::DronePathN
 		// except if we're shooting at an enemy Drone and we're on the same surface as them, then crawl
 		if (can_move)
 		{
-			Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
+			Vec3 wall_normal = get<Drone>()->rotation_clamp();
 			Vec3 to_target_convex = (node.pos + node.normal * DRONE_RADIUS) - pos;
 			Vec3 to_target_crawl;
 			if (wall_normal.dot(to_target_convex) > 0.0f && node.normal.dot(wall_normal) < 0.9f)
@@ -1354,7 +1354,7 @@ void PlayerControlAI::update(const Update& u)
 
 		// new random look direction
 		if (s32(u.time.total * config.aim_speed * 0.3f) != s32((u.time.total - u.time.delta) * config.aim_speed * 0.3f))
-			random_look = get<PlayerCommon>()->attach_quat * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * PI * 1.2f, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * PI * 1.2f, 0) * Vec3(1, 0, 0));
+			random_look = get<Transform>()->absolute_rot() * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * PI * 1.2f, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * PI * 1.2f, 0) * Vec3(1, 0, 0));
 
 		b8 follow_path = true;
 

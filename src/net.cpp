@@ -740,7 +740,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<PlayerCommon>())
 	{
 		PlayerCommon* pc = e->get<PlayerCommon>();
-		serialize_quat(p, &pc->attach_quat, Resolution::High);
 		serialize_r32_range(p, pc->angle_horizontal, PI * -2.0f, PI * 2.0f, 16);
 		serialize_r32_range(p, pc->angle_vertical, -PI, PI, 16);
 		serialize_ref(p, pc->manager);

@@ -74,12 +74,7 @@ r32 hp_width(u8 hp, s8 shield, r32 scale = 1.0f)
 	return scale * ((shield + (hp - 1)) * (box_size.x + HP_BOX_SPACING) - HP_BOX_SPACING);
 }
 
-Vec3 camera_center_get(Drone* d)
-{
-	return d->center_lerped() + d->lerped_rotation * Vec3(0, 0, 0.5f);
-}
-
-void PlayerHuman::camera_setup_drone(Drone* drone, Camera* camera, Vec3* camera_center, r32* smoothness, r32 offset)
+void PlayerHuman::camera_setup_drone(Drone* drone, Camera* camera, Vec3* camera_center, r32 offset)
 {
 	Quat abs_rot;
 	Vec3 abs_pos;
@@ -87,18 +82,19 @@ void PlayerHuman::camera_setup_drone(Drone* drone, Camera* camera, Vec3* camera_
 
 	Vec3 final_camera_center;
 	{
-		Vec3 lerped_pos = camera_center_get(drone);
+		Vec3 lerped_pos = drone->camera_center();
 		if (camera_center)
 		{
+			r32 smoothness;
 			if (drone->state() == Drone::State::Crawl)
-				*smoothness = vi_max(0.0f, *smoothness - Game::time.delta);
+				smoothness = vi_max(0.0f, DRONE_CAMERA_SMOOTH_TIME - (Game::time.total - drone->attach_time));
 			else
-				*smoothness = 1.0f;
+				smoothness = 1.0f;
 
-			if (*smoothness == 0.0f)
+			if (smoothness == 0.0f)
 				*camera_center = lerped_pos;
 			else
-				*camera_center += (lerped_pos - *camera_center) * vi_min(1.0f, LMath::lerpf(Ease::cubic_in_out<r32>(*smoothness), 250.0f, 3.0f) * Game::time.delta);
+				*camera_center += (lerped_pos - *camera_center) * vi_min(1.0f, LMath::lerpf(Ease::cubic_in_out<r32>(smoothness), 250.0f, 3.0f) * Game::time.delta);
 
 			final_camera_center = *camera_center;
 		}
@@ -138,7 +134,7 @@ void PlayerHuman::camera_setup_drone(Drone* drone, Camera* camera, Vec3* camera_
 	{
 		// blend cull radius down to zero as we fly away from the wall
 		r32 t = Game::time.total - drone->attach_time;
-		const r32 blend_time = 0.1f;
+		const r32 blend_time = 0.25f;
 		if (t < blend_time)
 		{
 			r32 blend = 1.0f - (t / blend_time);
@@ -284,7 +280,6 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	menu_state(),
 	kill_cam_rot(),
 	camera_center(),
-	camera_smoothness(),
 	rumble(),
 	animation_time(),
 	upgrade_last_visit_highest_available(Upgrade::None),
@@ -1055,7 +1050,7 @@ void PlayerHuman::update(const Update& u)
 					Entity* spectating = live_player_get(spectate_index);
 
 					if (spectating)
-						camera_setup_drone(spectating->get<Drone>(), camera.ref(), &camera_center, &camera_smoothness, 6.0f);
+						camera_setup_drone(spectating->get<Drone>(), camera.ref(), &camera_center, 6.0f);
 				}
 			}
 			break;
@@ -1132,7 +1127,7 @@ void PlayerHuman::update_late(const Update& u)
 		if (e)
 		{
 			camera.ref()->rot = Quat::euler(0.0f, PI * 0.25f, PI * 0.25f);
-			camera_setup_drone(e->get<Drone>(), camera.ref(), &camera_center, &camera_smoothness, 6.0f);
+			camera_setup_drone(e->get<Drone>(), camera.ref(), &camera_center, 6.0f);
 		}
 	}
 	
@@ -1190,8 +1185,8 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 	if (Game::level.mode == Game::Mode::Pvp)
 	{
 		// spawn drone
-		spawned = World::create<DroneEntity>(get<PlayerManager>()->team.ref()->team());
 		spawn_pos = normal_spawn_pos;
+		spawned = World::create<DroneEntity>(get<PlayerManager>()->team.ref()->team(), spawn_pos.pos);
 	}
 	else
 	{
@@ -2241,20 +2236,8 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 PlayerCommon::PlayerCommon(PlayerManager* m)
 	: angle_horizontal(),
 	angle_vertical(),
-	attach_quat(Quat::identity),
 	manager(m)
 {
-}
-
-void PlayerCommon::awake()
-{
-	if (has<Drone>())
-	{
-		get<Health>()->hp_max = DRONE_HEALTH;
-		link<&PlayerCommon::drone_done_flying>(get<Drone>()->done_flying);
-		link<&PlayerCommon::drone_detaching>(get<Drone>()->detaching);
-		link_arg<const DroneReflectEvent&, &PlayerCommon::drone_reflecting>(get<Drone>()->reflecting);
-	}
 }
 
 b8 PlayerCommon::movement_enabled() const
@@ -2312,27 +2295,6 @@ Entity* PlayerCommon::incoming_attacker() const
 	return nullptr;
 }
 
-void PlayerCommon::update(const Update& u)
-{
-	if (has<Drone>())
-	{
-		Quat rot = get<Transform>()->absolute_rot();
-		r32 angle = Quat::angle(attach_quat, rot);
-		if (angle > 0)
-		{
-			r32 speed = 10.0f;
-			if (has<PlayerControlHuman>())
-			{
-				// scale slerp speed based on how close the camera is to the drone
-				PlayerControlHuman* control = get<PlayerControlHuman>();
-				r32 camera_distance = (control->player.ref()->camera_center - camera_center_get(get<Drone>())).length();
-				speed *= vi_max(0.0f, 1.0f - (camera_distance / 8.0f));
-			}
-			attach_quat = Quat::slerp(vi_min(1.0f, speed * u.time.delta), attach_quat, rot);
-		}
-	}
-}
-
 r32 PlayerCommon::detect_danger() const
 {
 	AI::Team my_team = get<AIAgent>()->team;
@@ -2354,45 +2316,6 @@ r32 PlayerCommon::detect_danger() const
 	return 0.0f;
 }
 
-void PlayerCommon::drone_done_flying()
-{
-	Quat absolute_rot = get<Transform>()->absolute_rot();
-	Vec3 wall_normal = absolute_rot * Vec3(0, 0, 1);
-
-	// set the attach quat to be perpendicular to the camera, so we can ease the camera gently away from the wall
-	Vec3 direction = look_dir();
-
-	Vec3 clamped;
-	if (direction.dot(wall_normal) == -1.0f)
-		clamped = wall_normal;
-	else
-	{
-		clamped = Vec3::normalize(direction - wall_normal * wall_normal.dot(direction));
-		if (fabsf(wall_normal.y) > 0.707f)
-		{
-			Vec3 right = Vec3::normalize(direction.cross(Vec3(0, 1, 0)));
-			clamped = Vec3::normalize(clamped - right * clamped.dot(right));
-		}
-
-		// if the clamped vector is too vertical, force it to be more horizontal
-		const r32 threshold = fabsf(wall_normal.y) + 0.25f;
-		clamped.y = LMath::clampf(clamped.y, -threshold, threshold);
-		clamped.normalize();
-	}
-
-	attach_quat = Quat::look(clamped);
-}
-
-void PlayerCommon::drone_detaching()
-{
-	attach_quat = Quat::look(Vec3::normalize(get<Drone>()->velocity));
-}
-
-void PlayerCommon::drone_reflecting(const DroneReflectEvent& e)
-{
-	attach_quat = Quat::look(Vec3::normalize(e.new_velocity));
-}
-
 Vec3 PlayerCommon::look_dir() const
 {
 	return look() * Vec3(0, 0, 1);
@@ -2408,7 +2331,7 @@ void PlayerCommon::clamp_rotation(const Vec3& direction, r32 dot_limit)
 	Vec3 forward = look_dir();
 
 	r32 dot = forward.dot(direction);
-	while (dot < -dot_limit)
+	while (dot < -dot_limit - 0.001f)
 	{
 		forward = Vec3::normalize(forward - (dot + dot_limit) * direction);
 		angle_vertical = -asinf(forward.y);
@@ -2854,7 +2777,6 @@ void PlayerControlHuman::awake()
 		}
 
 		player.ref()->camera_center = get<Drone>()->center_lerped();
-		player.ref()->camera_smoothness = 0.0f;
 	}
 	else
 	{
@@ -3510,7 +3432,10 @@ void PlayerControlHuman::update(const Update& u)
 				}
 
 				update_camera_input(u, look_speed, gamepad_rotation_multiplier);
-				get<PlayerCommon>()->clamp_rotation(get<PlayerCommon>()->attach_quat * Vec3(0, 0, 1), 0.707f);
+				{
+					r32 scale = vi_min(1.0f, (u.time.total - get<Drone>()->attach_time) / 0.5f);
+					get<PlayerCommon>()->clamp_rotation(get<Drone>()->rotation_clamp(), LMath::lerpf(Ease::cubic_in_out<r32>(scale), 1.0f, 0.707f));
+				}
 				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 
 				// crawling
@@ -3533,7 +3458,7 @@ void PlayerControlHuman::update(const Update& u)
 
 			camera_shake_update(u, camera);
 
-			PlayerHuman::camera_setup_drone(get<Drone>(), camera, &player.ref()->camera_center, &player.ref()->camera_smoothness, DRONE_THIRD_PERSON_OFFSET);
+			PlayerHuman::camera_setup_drone(get<Drone>(), camera, &player.ref()->camera_center, DRONE_THIRD_PERSON_OFFSET);
 
 			// reticle
 			{

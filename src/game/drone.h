@@ -117,6 +117,7 @@ struct Drone : public ComponentType<Drone>
 	Vec3 lerped_pos;
 	Vec3 last_pos;
 	Vec3 dash_target;
+	Vec3 rotation_clamp_vector;
 	r32 attach_time;
 	r32 cooldown; // remaining cooldown time
 	r32 last_footstep;
@@ -145,6 +146,8 @@ struct Drone : public ComponentType<Drone>
 
 	b8 net_state_frame(Net::StateFrame*) const;
 
+	Vec3 rotation_clamp() const;
+	Vec3 camera_center() const;
 	void ability(Ability);
 	void cooldown_setup(s8 = 1);
 	State state() const;

@@ -20,7 +20,7 @@ void spawn_sparks(const Vec3&, const Quat&, Transform* = nullptr);
 
 struct DroneEntity : public Entity
 {
-	DroneEntity(AI::Team);
+	DroneEntity(AI::Team, const Vec3&);
 };
 
 struct HealthEvent

@@ -16,6 +16,9 @@ namespace VI
 
 Bitmask<MAX_ENTITIES> View::list_alpha;
 Bitmask<MAX_ENTITIES> View::list_additive;
+#if DEBUG
+Array<View::DebugEntry> View::debug_entries;
+#endif
 
 View::View(AssetID m)
 	: mesh(m),
@@ -73,6 +76,16 @@ void View::draw_alpha(const RenderParams& params)
 		if (list_alpha.get(i.index) && (i.item()->mask & params.camera->mask))
 			i.item()->draw(params);
 	}
+
+#if DEBUG
+	Mat4 m;
+	for (s32 i = 0; i < debug_entries.length; i++)
+	{
+		const DebugEntry& entry = debug_entries[i];
+		m.make_transform(entry.pos, entry.scale, entry.rot);
+		draw_mesh(params, entry.mesh, Asset::Shader::flat, AssetNull, m, Vec4(1, 1, 1, 0.5f));
+	}
+#endif
 }
 
 void View::draw_filtered(const RenderParams& params, Filter* filter)
@@ -205,6 +218,17 @@ void View::draw_mesh(const RenderParams& params, AssetID mesh, AssetID shader, A
 		sync->write(mesh);
 	}
 }
+
+#if DEBUG
+void View::debug(AssetID mesh, const Vec3& pos, const Quat& rot, const Vec3& scale)
+{
+	DebugEntry* entry = debug_entries.add();
+	entry->mesh = mesh;
+	entry->pos = pos;
+	entry->rot = rot;
+	entry->scale = scale;
+}
+#endif
 
 void View::draw(const RenderParams& params) const
 {

@@ -588,6 +588,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
+			dir.normalize();
 
 			if (apply_msg)
 			{
@@ -596,6 +597,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					drone->dash_combo = false;
 					drone->dash_timer = 0.0f;
 					drone->velocity = dir * DRONE_FLY_SPEED;
+					drone->rotation_clamp_vector = dir;
+
 					drone->detaching.fire();
 					drone->hit_targets.length = 0;
 					drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
@@ -662,6 +665,39 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (apply_msg)
 			{
 				drone->finish_flying_dashing_common();
+
+				// rotation clamp
+				{
+					/*
+					Quat absolute_rot = drone->get<Transform>()->absolute_rot();
+					Vec3 wall_normal = absolute_rot * Vec3(0, 0, 1);
+
+					// set the rotation clamp to be perpendicular to the camera, so we can ease the camera gently away from the wall
+					Vec3 direction = drone->get<PlayerCommon>()->look_dir();
+
+					Vec3 clamped;
+					if (direction.dot(wall_normal) == -1.0f)
+						clamped = wall_normal;
+					else
+					{
+						clamped = Vec3::normalize(direction - wall_normal * wall_normal.dot(direction));
+						if (fabsf(wall_normal.y) > 0.707f)
+						{
+							Vec3 right = Vec3::normalize(direction.cross(Vec3(0, 1, 0)));
+							clamped = Vec3::normalize(clamped - right * clamped.dot(right));
+						}
+
+						// if the clamped vector is too vertical, force it to be more horizontal
+						const r32 threshold = fabsf(wall_normal.y) + 0.25f;
+						clamped.y = LMath::clampf(clamped.y, -threshold, threshold);
+						clamped.normalize();
+					}
+
+					drone->rotation_clamp_vector = clamped;
+					*/
+					drone->rotation_clamp_vector = drone->get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+				}
+
 				drone->done_flying.fire();
 			}
 			break;
@@ -976,6 +1012,7 @@ Drone::Drone()
 	dashing(),
 	dash_timer(),
 	dash_combo(),
+	rotation_clamp_vector(0, 1, 0),
 	attach_time(Game::time.total),
 	footing(),
 	last_footstep(),
@@ -1700,7 +1737,9 @@ void drone_reflection_execute(Drone* d)
 	e.entity = reflected_off;
 	e.new_velocity = reflection.dir * DRONE_FLY_SPEED;
 	d->reflecting.fire(e);
-	d->get<Transform>()->rot = Quat::look(Vec3::normalize(e.new_velocity));
+
+	d->rotation_clamp_vector = reflection.dir;
+	d->get<Transform>()->rot = Quat::look(reflection.dir);
 	d->velocity = e.new_velocity;
 
 	d->reflections.remove_ordered(0);
@@ -2384,6 +2423,20 @@ void Drone::update_client_all(const Update& u)
 	}
 }
 
+Vec3 Drone::rotation_clamp() const
+{
+	r32 length = rotation_clamp_vector.length();
+	if (length > 0.0f)
+		return rotation_clamp_vector / length;
+	else
+		return lerped_rotation * Vec3(0, 0, 1);
+}
+
+Vec3 Drone::camera_center() const
+{
+	return center_lerped() + lerped_rotation * Vec3(0, 0, 0.5f);
+}
+
 void Drone::update_client(const Update& u)
 {
 	// update audio perspective
@@ -2413,6 +2466,14 @@ void Drone::update_client(const Update& u)
 	if (s == Drone::State::Crawl)
 	{
 		// crawling
+
+		// rotation clamp
+		{
+			Vec3 target = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+			r32 distance = (target - rotation_clamp_vector).length();
+			if (distance > 0.0f)
+				rotation_clamp_vector = Vec3::lerp(vi_min(1.0f, (6.0f / distance) * u.time.delta), rotation_clamp_vector, target);
+		}
 
 		if (!get<AIAgent>()->stealth)
 			get<SkinnedModel>()->alpha_if_obstructing();

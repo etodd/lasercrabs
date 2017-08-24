@@ -896,6 +896,21 @@ void Minion::killed(Entity* killer)
 	}
 }
 
+b8 minion_vision_check(AI::Team team, const Vec3& start, const Vec3& end, Entity* target)
+{
+	btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
+	Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionElectric | CollisionAllTeamsForceField) & ~Team::force_field_mask(team));
+	if (ray_callback.hasHit())
+	{
+		Entity* hit = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+		if (hit->has<ForceFieldCollision>())
+			hit = hit->get<ForceFieldCollision>()->field.ref()->entity();
+		return target == hit;
+	}
+	else
+		return true;
+}
+
 b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 {
 	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth)
@@ -903,12 +918,13 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 		return false;
 
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
-	Vec3 pos = get<Minion>()->aim_pos(minion_angle_to(this, target_pos));
+	Vec3 head = head_pos();
+	Vec3 hand = aim_pos(minion_angle_to(this, target_pos));
 
-	if (!target->has<ForceField>() && ForceField::hash(get<AIAgent>()->team, get<Walker>()->base_pos()) != ForceField::hash(get<AIAgent>()->team, target_pos))
+	if (!target->has<ForceField>() && ForceField::hash(get<AIAgent>()->team, hand) != ForceField::hash(get<AIAgent>()->team, target_pos))
 		return false;
 
-	Vec3 diff = target_pos - pos;
+	Vec3 diff = target_pos - head;
 	r32 distance = diff.length() + (target->has<ForceField>() ? -FORCE_FIELD_RADIUS : 0);
 
 	// if we're targeting an drone that is flying or just flew recently,
@@ -942,16 +958,8 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 		{
 			if (!target->has<Parkour>() || fabsf(diff.y) < MINION_HEARING_RANGE)
 			{
-				btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-				Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionElectric | CollisionAllTeamsForceField) & ~Team::force_field_mask(get<AIAgent>()->team));
-				if (ray_callback.hasHit())
-				{
-					Entity* hit = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-					if (hit->has<ForceFieldCollision>())
-						hit = hit->get<ForceFieldCollision>()->field.ref()->entity();
-					return target == hit;
-				}
-				else
+				if (minion_vision_check(get<AIAgent>()->team, head, target_pos, target)
+					&& minion_vision_check(get<AIAgent>()->team, hand, target_pos, target))
 					return true;
 			}
 		}

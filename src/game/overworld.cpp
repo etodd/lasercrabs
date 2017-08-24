@@ -2568,7 +2568,7 @@ void tab_map_update(const Update& u)
 ResourceInfo resource_info[s32(Resource::count)] =
 {
 	{
-		Asset::Mesh::icon_energy,
+		Asset::Mesh::icon_battery,
 		strings::energy,
 		0,
 	},

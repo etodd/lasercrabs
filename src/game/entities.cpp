@@ -910,7 +910,7 @@ void SpawnPoint::update_server_all(const Update& u)
 	{
 		const s32 minion_group = 3;
 		const r32 minion_initial_delay = Game::session.config.game_type == GameType::Deathmatch ? 45.0f : 20.0f;
-		const r32 minion_spawn_interval = 10.0f;
+		const r32 minion_spawn_interval = 8.0f;
 		const r32 minion_group_interval = minion_spawn_interval * 12.0f; // must be a multiple of minion_spawn_interval
 		r32 t = Team::match_time - minion_initial_delay;
 		if (t > 0.0f)

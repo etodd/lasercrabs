@@ -360,9 +360,9 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 
 		b8 allow_direct_hit = drone->current_ability == Ability::Sniper ? true : !target_shield->has<Turret>();
 
-		if (dot < -0.95f && allow_direct_hit)
+		if (dot < -0.9f && allow_direct_hit)
 			return 3;
-		else if (dot < -0.75f)
+		else if (dot < -0.7f)
 			return 2;
 	}
 	return 1;
@@ -551,6 +551,7 @@ void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone:
 
 void drone_bolter_cooldown_setup(Drone* drone)
 {
+	drone->bolter_last_fired = Game::time.total;
 	drone->bolter_charge_counter++;
 	if (drone->bolter_charge_counter >= BOLTS_PER_DRONE_CHARGE)
 	{
@@ -1011,6 +1012,7 @@ Drone::Drone()
 	detaching(),
 	dashing(),
 	dash_timer(),
+	bolter_last_fired(),
 	dash_combo(),
 	rotation_clamp_vector(0, 1, 0),
 	attach_time(Game::time.total),
@@ -1622,7 +1624,8 @@ b8 Drone::go(const Vec3& dir)
 	}
 	else
 	{
-		if (!get<PlayerCommon>()->manager.ref()->ability_valid(a))
+		if (!get<PlayerCommon>()->manager.ref()->ability_valid(a)
+			|| (a == Ability::Bolter && !bolter_can_fire()))
 		{
 #if SERVER && DEBUG_NET_SYNC
 			if (has<PlayerControlHuman>())
@@ -2421,6 +2424,17 @@ void Drone::update_client_all(const Update& u)
 		i.item()->get<Audio>()->param(AK::GAME_PARAMETERS::DRONE_SPEED, speed);
 		i.item()->last_pos = pos;
 	}
+}
+
+b8 Drone::bolter_can_fire() const
+{
+	r32 interval;
+#if SERVER
+	interval = BOLTER_INTERVAL * 0.5f; // server-side forgiveness
+#else
+	interval = BOLTER_INTERVAL;
+#endif
+	return Game::time.total - bolter_last_fired > interval;
 }
 
 Vec3 Drone::rotation_clamp() const

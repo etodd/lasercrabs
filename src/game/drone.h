@@ -122,6 +122,7 @@ struct Drone : public ComponentType<Drone>
 	r32 cooldown; // remaining cooldown time
 	r32 last_footstep;
 	r32 dash_timer;
+	r32 bolter_last_fired;
 	Ability current_ability;
 	Footing footing[DRONE_LEGS];
 	Array<Ref<Entity>> hit_targets;
@@ -140,6 +141,8 @@ struct Drone : public ComponentType<Drone>
 	Drone();
 	void awake();
 	~Drone();
+
+	b8 bolter_can_fire() const;
 
 	r32 target_prediction_speed() const;
 	r32 range() const;

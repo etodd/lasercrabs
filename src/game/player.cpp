@@ -55,7 +55,7 @@ namespace VI
 #define speed_joystick 5.0f
 #define gamepad_rotation_acceleration (1.0f / 0.4f)
 #define msg_time 0.75f
-#define camera_shake_time 0.7f
+#define camera_shake_time 0.6f
 #define arm_angle_offset -0.2f
 
 #define NOTIFICATION_TIME_HIDDEN 4.0f
@@ -1744,7 +1744,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		char buffer[16];
 		snprintf(buffer, 16, "%hd", get<PlayerManager>()->energy);
 		Vec2 p = ui_anchor(params) + Vec2(match_timer_width() + UI_TEXT_SIZE_DEFAULT * UI::scale, (UI_TEXT_SIZE_DEFAULT + 16.0f) * -UI::scale);
-		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_energy, buffer, UI::color_accent(), UI_TEXT_SIZE_DEFAULT * 5 * UI::scale);
+		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_battery, buffer, UI::color_accent(), UI_TEXT_SIZE_DEFAULT * 5 * UI::scale);
 		s16 respawns = get<PlayerManager>()->respawns;
 		if (respawns != -1)
 		{
@@ -2299,12 +2299,14 @@ void PlayerCommon::clamp_rotation(const Vec3& direction, r32 dot_limit)
 	Vec3 forward = look_dir();
 
 	r32 dot = forward.dot(direction);
-	while (dot < -dot_limit - 0.001f)
+	s32 iterations = 0;
+	while (iterations < 10 && dot < -dot_limit - 0.002f)
 	{
 		forward = Vec3::normalize(forward - (dot + dot_limit) * direction);
 		angle_vertical = -asinf(forward.y);
 		angle_horizontal = atan2f(forward.x, forward.z);
 		dot = forward.dot(direction);
+		iterations++;
 	}
 }
 
@@ -2390,11 +2392,16 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 			c->get<Drone>()->current_ability = msg.ability;
 			if (c->get<Drone>()->go(msg.dir))
 			{
-				c->try_primary = false;
 				if (msg.ability == Ability::None)
+				{
+					c->try_primary = false;
 					c->try_secondary = false;
+				}
 				else if (msg.ability != Ability::Bolter)
+				{
+					c->try_primary = false;
 					c->player.ref()->rumble_add(0.5f);
+				}
 			}
 
 			break;
@@ -3081,7 +3088,7 @@ void PlayerControlHuman::camera_shake_update(const Update& u, Camera* camera)
 		camera_shake_timer -= u.time.delta;
 		if (!has<Drone>() || get<Drone>()->state() == Drone::State::Crawl)
 		{
-			r32 shake = (camera_shake_timer / camera_shake_time) * 0.3f;
+			r32 shake = (camera_shake_timer / camera_shake_time) * 0.2f;
 			r32 offset = Game::time.total * 10.0f;
 			camera->rot = camera->rot * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 67)) * shake, noise::sample3d(Vec3(offset + 137)) * shake);
 		}
@@ -3605,7 +3612,8 @@ void PlayerControlHuman::update(const Update& u)
 					else
 					{
 						msg.ability = get<Drone>()->current_ability;
-						if (msg.ability == Ability::None || player.ref()->get<PlayerManager>()->ability_valid(msg.ability))
+						if (msg.ability == Ability::None
+							|| (player.ref()->get<PlayerManager>()->ability_valid(msg.ability) && (msg.ability != Ability::Bolter || get<Drone>()->bolter_can_fire())))
 						{
 							msg.type = PlayerControlHumanNet::Message::Type::Go;
 							PlayerControlHumanNet::send(this, &msg);

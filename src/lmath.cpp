@@ -103,7 +103,7 @@ namespace LMath
 		return u + s * edge0 + t * edge1;
 	}
 
-	b8 ray_sphere_intersect(const Vec3& ray_start, const Vec3& ray_end, const Vec3& sphere_pos, r32 sphere_radius, Vec3* intersection)
+	b8 ray_sphere_intersect(const Vec3& ray_start, const Vec3& ray_end, const Vec3& sphere_pos, r32 sphere_radius, Vec3* intersection, RaySphereIntersection type)
 	{
 		Vec3 ray = ray_end - ray_start;
 		Vec3 sphere_to_ray_start = ray_start - sphere_pos;
@@ -129,7 +129,11 @@ namespace LMath
 			if (distance >= 0.0f && distance < 1.0f)
 			{
 				if (intersection)
+				{
+					if (type == RaySphereIntersection::BackFace)
+						distance = (-b + sqrtf(delta)) / (2.0f * a);
 					*intersection = ray_start + ray * distance;
+				}
 				return true;
 			}
 		}

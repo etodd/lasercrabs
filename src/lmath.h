@@ -1618,7 +1618,14 @@ namespace LMath
 			return angle_range(vi_max(angle - delta, closest_target));
 	}
 
-	b8 ray_sphere_intersect(const Vec3&, const Vec3&, const Vec3&, r32, Vec3* = nullptr);
+	enum class RaySphereIntersection : s8
+	{
+		FrontFace,
+		BackFace,
+		count,
+	};
+
+	b8 ray_sphere_intersect(const Vec3&, const Vec3&, const Vec3&, r32, Vec3* = nullptr, RaySphereIntersection = RaySphereIntersection::FrontFace);
 
 	Vec3 desaturate(const Vec3&);
 	Vec4 desaturate(const Vec4&);

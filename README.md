@@ -12,7 +12,9 @@ separate threads for physics, rendering, AI, and game logic
 - Create levels, models, animations, and ragdoll rigs in Blender
 - Deferred rendering, cascaded shadow maps, edge detection, bloom, SSAO, weather effects
 - Geometry-based font rendering and UI system
-- UDP client-server network architecture with master server
+- UDP client-server network architecture
+- Online user profile system via [sqlite](https://sqlite.org/)
+- Authentication through the [itch.io app](https://itch.io/app)
 - Localization support
 - Keyboard/mouse/gamepad support via SDL
 - Automatic navmesh generation with realtime mutations via Recast

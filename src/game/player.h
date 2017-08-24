@@ -160,7 +160,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	Ref<PlayerManager> manager;
 
 	PlayerCommon(PlayerManager* = nullptr);
-	void awake() {}
+	void awake();
 
 	Entity* incoming_attacker() const;
 	Vec3 look_dir() const;
@@ -168,6 +168,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	r32 detect_danger() const;
 	void clamp_rotation(const Vec3&, r32 = 0.0f);
 	b8 movement_enabled() const;
+	void health_changed(const HealthEvent&);
 };
 
 struct PlayerControlHuman : public ComponentType<PlayerControlHuman>

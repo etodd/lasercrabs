@@ -56,7 +56,6 @@ DroneEntity::DroneEntity(AI::Team team, const Vec3& pos)
 	anim->armature = Asset::Armature::drone;
 
 	create<Target>();
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(DRONE_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault);
 }
 
 Health::Health(s8 hp, s8 hp_max, s8 shield, s8 shield_max)
@@ -1329,8 +1328,6 @@ CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3&
 
 	create<Target>();
 
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(DRONE_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault);
-
 	create<CoreModule>()->team = team;
 
 	create<Shield>();
@@ -1414,9 +1411,6 @@ TurretEntity::TurretEntity(AI::Team team)
 
 	create<Health>(TURRET_HEALTH, TURRET_HEALTH);
 	create<Shield>();
-
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionInaccessible & ~CollisionElectric & ~CollisionParkour & ~CollisionStatic & ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker, Asset::Mesh::turret_top);
-	body->set_restitution(0.75f);
 
 	PointLight* light = create<PointLight>();
 	light->team = s8(team);
@@ -1993,7 +1987,8 @@ void Bolt::update_server(const Update& u)
 	}
 
 	Vec3 next_pos = pos + velocity * u.time.delta;
-	btCollisionWorld::AllHitsRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * BOLT_LENGTH);
+	Vec3 trace_end = next_pos + Vec3::normalize(velocity) * BOLT_LENGTH;
+	btCollisionWorld::AllHitsRayResultCallback ray_callback(pos, trace_end);
 
 	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
@@ -2010,8 +2005,7 @@ void Bolt::update_server(const Update& u)
 		if (ray_callback.m_hitFractions[i] < closest_fraction)
 		{
 			Entity* e = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-			if ((!e->has<AIAgent>() || e->get<AIAgent>()->team != team)
-				&& (!e->has<Drone>() || !UpgradeStation::drone_inside(e->get<Drone>()))) // ignore drones inside upgrade stations
+			if (!e->has<AIAgent>() || e->get<AIAgent>()->team != team)
 			{
 				closest_entity = e;
 				closest_fraction = ray_callback.m_hitFractions[i];
@@ -2020,6 +2014,30 @@ void Bolt::update_server(const Update& u)
 			}
 		}
 	}
+
+	// check shields
+	r32 total_distance = (trace_end - pos).length();
+	for (auto i = Shield::list.iterator(); !i.is_last(); i.next())
+	{
+		if ((!i.item()->has<AIAgent>() || i.item()->get<AIAgent>()->team != team)
+			&& (!i.item()->has<Drone>() || !UpgradeStation::drone_inside(i.item()->get<Drone>()))) // ignore drones inside upgrade stations
+		{
+			Vec3 shield_pos = i.item()->get<Target>()->absolute_pos();
+			Vec3 intersection;
+			if (LMath::ray_sphere_intersect(pos, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection))
+			{
+				r32 fraction = (intersection - pos).length() / total_distance;
+				if (fraction < closest_fraction)
+				{
+					closest_entity = i.item()->entity();
+					closest_fraction = fraction;
+					closest_point = intersection;
+					closest_normal = Vec3::normalize(intersection - shield_pos);
+				}
+			}
+		}
+	}
+
 	if (closest_entity)
 		hit_entity(closest_entity, closest_point, closest_normal);
 	else
@@ -2558,8 +2576,10 @@ Vec3 Target::velocity() const
 	{
 		if (has<Parkour>() && !get<PlayerControlHuman>()->local())
 			return net_velocity;
-		else
+		else if (has<RigidBody>())
 			return get<RigidBody>()->btBody->getInterpolationLinearVelocity();
+		else
+			return Vec3::zero;
 	}
 	else
 		return net_velocity;
@@ -2607,6 +2627,8 @@ r32 Target::radius() const
 		return MINION_HEAD_RADIUS;
 	else if (has<Turret>())
 		return TURRET_RADIUS;
+	else if (has<Shield>())
+		return DRONE_SHIELD_RADIUS;
 	else
 		return get<RigidBody>()->size.y;
 }

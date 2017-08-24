@@ -2208,6 +2208,34 @@ PlayerCommon::PlayerCommon(PlayerManager* m)
 {
 }
 
+void PlayerCommon::awake()
+{
+	link_arg<const HealthEvent&, &PlayerCommon::health_changed>(get<Health>()->changed);
+}
+
+void PlayerCommon::health_changed(const HealthEvent& e)
+{
+	if (e.hp + e.shield < 0 && e.source.ref())
+	{
+		Entity* src = e.source.ref();
+
+		PlayerManager* rewardee = nullptr;
+		if (src->has<PlayerCommon>())
+			rewardee = src->get<PlayerCommon>()->manager.ref();
+		else if (src->has<Bolt>())
+		{
+			Entity* owner = src->get<Bolt>()->owner.ref();
+			if (owner->has<PlayerCommon>())
+				rewardee = owner->get<PlayerCommon>()->manager.ref();
+		}
+		else if (src->has<Grenade>())
+			rewardee = src->get<Grenade>()->owner.ref();
+
+		if (rewardee && rewardee->team.ref() != manager.ref()->team.ref())
+			rewardee->add_energy_and_notify(s32(e.hp + e.shield) * -ENERGY_DRONE_DAMAGE);
+	}
+}
+
 b8 PlayerCommon::movement_enabled() const
 {
 	if (has<Drone>())
@@ -3468,6 +3496,24 @@ void PlayerControlHuman::update(const Update& u)
 						ray_callback.normal = physics_ray_callback.m_hitNormalWorld;
 						if (ray_callback.hit)
 							ray_callback.entity = &Entity::list[physics_ray_callback.m_collisionObject->getUserIndex()];
+
+						// check shields
+						for (auto i = Shield::list.iterator(); !i.is_last(); i.next())
+						{
+							if (i.item()->entity() != entity())
+							{
+								Vec3 shield_pos = i.item()->get<Target>()->absolute_pos();
+								Vec3 intersection;
+								if (LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection, LMath::RaySphereIntersection::BackFace)
+									&& (!ray_callback.hit || (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared()))
+								{
+									ray_callback.hit = true;
+									ray_callback.pos = intersection;
+									ray_callback.normal = Vec3::normalize(shield_pos - intersection);
+									ray_callback.entity = i.item()->entity();
+								}
+							}
+						}
 					}
 
 					Ability ability = get<Drone>()->current_ability;
@@ -3480,12 +3526,12 @@ void PlayerControlHuman::update(const Update& u)
 							const TargetIndicator& indicator = target_indicators[i];
 							Vec3 intersection;
 							if (indicator.type == TargetIndicator::Type::DroneVisible
-								&& LMath::ray_sphere_intersect(trace_start, trace_end, indicator.pos, DRONE_SHIELD_RADIUS, &intersection)
+								&& LMath::ray_sphere_intersect(trace_start, trace_end, indicator.pos, DRONE_SHIELD_RADIUS, &intersection, LMath::RaySphereIntersection::BackFace)
 								&& (!ray_callback.hit || (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared()))
 							{
 								ray_callback.hit = true;
 								ray_callback.pos = intersection;
-								ray_callback.normal = Vec3::normalize(intersection - indicator.pos);
+								ray_callback.normal = Vec3::normalize(indicator.pos - intersection);
 								ray_callback.entity = indicator.target.ref()->entity();
 							}
 						}

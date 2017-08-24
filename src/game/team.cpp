@@ -204,12 +204,7 @@ void Team::awake_all()
 	if (Game::level.local) // if we're a client, the netcode manages this
 	{
 		match_state = MatchState::Waiting;
-		if (Game::session.type == SessionType::Story
-			&& Game::level.mode == Game::Mode::Pvp
-			&& Game::save.zones[Game::level.id] == ZoneState::PvpFriendly)
-			match_time = 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f); // player is defending; AI attacker has been here for some time
-		else
-			match_time = 0.0f;
+		match_time = 0.0f;
 	}
 	winner = nullptr;
 	score_summary.length = 0;
@@ -890,23 +885,8 @@ void Team::update_all_server(const Update& u)
 {
 	if (match_state == MatchState::Waiting)
 	{
-		if (Game::session.type == SessionType::Story)
-		{
-			// if any one player is ready, we can start
-			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->can_spawn)
-				{
-					match_start();
-					break;
-				}
-			}
-		}
-		else
-		{
-			if (PlayerHuman::list.count() >= Game::session.config.min_players)
-				match_team_select();
-		}
+		if ((Game::session.type == SessionType::Story ? PlayerManager::list.count() : PlayerHuman::list.count()) >= Game::session.config.min_players)
+			match_team_select();
 	}
 
 	if (match_state == MatchState::TeamSelect
@@ -1126,7 +1106,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	abilities{ Ability::None, Ability::None, Ability::None },
 	instance(),
 	spawn(),
-	can_spawn(Game::level.mode == Game::Mode::Parkour || Game::save.zones[Game::level.id] == ZoneState::PvpFriendly),
+	can_spawn(Game::session.type == SessionType::Story),
 	current_upgrade(Upgrade::None),
 	state_timer(),
 	upgrade_completed(),
@@ -1171,7 +1151,7 @@ void PlayerManager::awake()
 	{
 		char log[512];
 		sprintf(log, _(strings::player_joined), username);
-		PlayerHuman::log_add(log, 1 << team.ref()->team());
+		PlayerHuman::log_add(log, team.ref()->team());
 	}
 }
 
@@ -1181,7 +1161,7 @@ PlayerManager::~PlayerManager()
 	{
 		char log[512];
 		sprintf(log, _(strings::player_left), username);
-		PlayerHuman::log_add(log, 1 << team.ref()->team());
+		PlayerHuman::log_add(log, team.ref()->team());
 	}
 }
 
@@ -1488,7 +1468,8 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			if (!m)
 				return true;
 
-			if (Team::match_state != Team::MatchState::Done
+			if (Game::session.type == SessionType::Multiplayer
+				&& Team::match_state != Team::MatchState::Done
 				&& (Game::level.local || src == Net::MessageSource::Remote)
 				&& (t == AI::TeamNone || (t >= 0 && t < Team::list.count())))
 			{

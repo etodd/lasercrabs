@@ -134,7 +134,7 @@ void PlayerHuman::camera_setup_drone(Drone* drone, Camera* camera, Vec3* camera_
 	{
 		// blend cull radius down to zero as we fly away from the wall
 		r32 t = Game::time.total - drone->attach_time;
-		const r32 blend_time = 0.25f;
+		const r32 blend_time = 0.2f;
 		if (t < blend_time)
 		{
 			r32 blend = 1.0f - (t / blend_time);
@@ -952,14 +952,7 @@ void PlayerHuman::update(const Update& u)
 			else if (Game::level.mode == Game::Mode::Pvp && get<PlayerManager>()->respawns != 0)
 			{
 				// we're spawning
-				if (Game::session.type == SessionType::Story && !get<PlayerManager>()->can_spawn)
-				{
-					// player can't spawn yet; needs to solve sudoku
-					sudoku.update(u, gamepad, this);
-					if (sudoku.complete() && sudoku.timer_animation == 0.0f)
-						get<PlayerManager>()->set_can_spawn();
-				}
-				else if (get<PlayerManager>()->spawn_timer > 0.0f)
+				if (get<PlayerManager>()->spawn_timer > 0.0f)
 				{
 					// waiting for spawn timer; if something killed us, show the kill cam
 					Entity* k = killed_by.ref();
@@ -1809,7 +1802,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	{
 		if (Game::level.mode == Game::Mode::Pvp)
 		{
-			if (Game::session.type == SessionType::Multiplayer && (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect))
+			if (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
 			{
 				// waiting for players or selecting teams
 				Vec2 p(params.camera->viewport.size * Vec2(0.5f, 0.75f));
@@ -1838,97 +1831,72 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			}
 			else if (get<PlayerManager>()->respawns != 0) // if we haven't spawned yet, then show the player list
 			{
-				if (get<PlayerManager>()->can_spawn)
-				{
-					if (get<PlayerManager>()->spawn_timer > 0.0f)
-						scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Bottom);
-					else
-					{
-						if (select_spawn_timer > 0.0f)
-						{
-							// spawning...
-							Menu::progress_infinite(params, _(strings::deploying), vp.size * Vec2(0.5f));
-						}
-						else
-						{
-							// select spawn point
-							AI::Team my_team = get<PlayerManager>()->team.ref()->team();
-							for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
-								UI::indicator(params, i.item()->get<Transform>()->absolute_pos(), Team::ui_color(my_team, i.item()->team), i.item()->team == my_team, 1.0f, PI);
-
-							for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-							{
-								Vec2 p;
-								if (UI::project(params, i.item()->get<Transform>()->absolute_pos(), &p))
-									UI::mesh(params, Asset::Mesh::icon_turret, p, Vec2(18.0f * UI::scale), Team::ui_color(my_team, i.item()->team));
-							}
-
-							Vec2 p;
-							if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
-								UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent(), PI);
-
-							if (Game::session.config.game_type == GameType::Assault)
-							{
-								// attacking/defending
-								UIText text;
-								text.anchor_x = UIText::Anchor::Center;
-								text.anchor_y = UIText::Anchor::Min;
-								text.color = UI::color_default;
-								{
-									AssetID str;
-									s32 count;
-									if (Turret::list.count() > 0)
-									{
-										str = strings::turrets_remaining_spawning;
-										count = Turret::list.count();
-									}
-									else
-									{
-										str = strings::core_modules_remaining_spawning;
-										count = CoreModule::list.count();
-									}
-									text.text(gamepad, _(str), _(my_team == 0 ? strings::defend : strings::attack), count);
-								}
-								Vec2 pos = vp.size * Vec2(0.5f, 0.25f);
-								UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
-								text.draw(params, pos);
-							}
-
-							{
-								// deploy prompt
-								UIText text;
-								text.anchor_x = UIText::Anchor::Center;
-								text.anchor_y = UIText::Anchor::Max;
-								text.color = UI::color_accent();
-								text.text(gamepad, _(strings::prompt_deploy));
-								Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
-								UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
-								text.draw(params, pos);
-							}
-						}
-					}
-				}
+				if (get<PlayerManager>()->spawn_timer > 0.0f)
+					scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Bottom);
 				else
 				{
-					// player can't spawn yet; needs to solve sudoku
-					if (UI::flash_function_slow(Game::real_time.total))
+					if (select_spawn_timer > 0.0f)
 					{
-						// alarm!
-
-						UIText text;
-						text.size = UI_TEXT_SIZE_DEFAULT * 1.5f;
-						text.anchor_x = UIText::Anchor::Center;
-						text.anchor_y = UIText::Anchor::Min;
-						text.color = UI::color_alert();
-						text.text(gamepad, _(strings::alarm));
-
-						Vec2 pos = vp.size * Vec2(0.5f, 0.8f);
-						Rect2 rect = text.rect(pos).outset(MENU_ITEM_PADDING * 2.0f);
-						UI::box(params, rect, UI::color_background);
-						text.draw(params, pos);
-						UI::border(params, rect, 4.0f, UI::color_alert());
+						// spawning...
+						Menu::progress_infinite(params, _(strings::deploying), vp.size * Vec2(0.5f));
 					}
-					sudoku.draw(params, gamepad);
+					else
+					{
+						// select spawn point
+						AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+						for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+							UI::indicator(params, i.item()->get<Transform>()->absolute_pos(), Team::ui_color(my_team, i.item()->team), i.item()->team == my_team, 1.0f, PI);
+
+						for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+						{
+							Vec2 p;
+							if (UI::project(params, i.item()->get<Transform>()->absolute_pos(), &p))
+								UI::mesh(params, Asset::Mesh::icon_turret, p, Vec2(18.0f * UI::scale), Team::ui_color(my_team, i.item()->team));
+						}
+
+						Vec2 p;
+						if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
+							UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent(), PI);
+
+						if (Game::session.config.game_type == GameType::Assault)
+						{
+							// attacking/defending
+							UIText text;
+							text.anchor_x = UIText::Anchor::Center;
+							text.anchor_y = UIText::Anchor::Min;
+							text.color = UI::color_default;
+							{
+								AssetID str;
+								s32 count;
+								if (Turret::list.count() > 0)
+								{
+									str = strings::turrets_remaining_spawning;
+									count = Turret::list.count();
+								}
+								else
+								{
+									str = strings::core_modules_remaining_spawning;
+									count = CoreModule::list.count();
+								}
+								text.text(gamepad, _(str), _(my_team == 0 ? strings::defend : strings::attack), count);
+							}
+							Vec2 pos = vp.size * Vec2(0.5f, 0.25f);
+							UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
+							text.draw(params, pos);
+						}
+
+						{
+							// deploy prompt
+							UIText text;
+							text.anchor_x = UIText::Anchor::Center;
+							text.anchor_y = UIText::Anchor::Max;
+							text.color = UI::color_accent();
+							text.text(gamepad, _(strings::prompt_deploy));
+							Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
+							UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
+							text.draw(params, pos);
+						}
+					}
 				}
 			}
 			else
@@ -2724,13 +2692,12 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 	remote_control(),
 	player(p),
 	position_history(),
-	anim_base(),
 #if SERVER
 	ai_record_tag(),
 	ai_record_wait_timer(AI_RECORD_WAIT_TIME),
 	rtt(),
 #endif
-	sudoku_active()
+	anim_base()
 {
 }
 
@@ -3133,8 +3100,6 @@ void player_confirm_tram_interactable(s8 gamepad)
 			if (interactable)
 			{
 				i.item()->anim_base = interactable->entity();
-
-				// skip sudoku
 				interactable->interact();
 				i.item()->get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 				i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);

@@ -1335,7 +1335,8 @@ b8 teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 		}
 		else if (menu->item(u, i.item()->username, value, disabled, icon))
 		{
-			if ((i.item() == me || mode == TeamSelectMode::Normal)
+			if (Game::session.type == SessionType::Multiplayer
+				&& (i.item() == me || mode == TeamSelectMode::Normal)
 				&& (Game::session.config.game_type == GameType::Assault || Game::session.config.max_players > Game::session.config.team_count)) // disallow team switching in FFA
 			{
 				// we are selecting this player

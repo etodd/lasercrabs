@@ -497,7 +497,7 @@ void Game::update(const Update& update_in)
 		if (level.local)
 		{
 			SpawnPoint::update_server_all(u);
-			if (session.type == SessionType::Story && level.mode == Mode::Pvp && Team::match_state == Team::MatchState::Active)
+			if (session.type == SessionType::Story && level.mode == Mode::Pvp && Team::match_state != Team::MatchState::Done)
 			{
 				// spawn AI players
 				for (s32 i = 0; i < level.ai_config.length; i++)
@@ -997,11 +997,6 @@ void Game::execute(const char* cmd)
 {
 	if (strcmp(cmd, "netstat") == 0)
 		Net::show_stats = !Net::show_stats;
-	else if (strcmp(cmd, "solve") == 0)
-	{
-		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-			i.item()->sudoku.solve(i.item());
-	}
 	else if (Game::level.mode == Game::Mode::Pvp && strcmp(cmd, "noclip") == 0)
 	{
 		level.noclip = !level.noclip;

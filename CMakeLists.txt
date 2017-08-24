@@ -325,8 +325,6 @@ set(SRC
 	src/game/usernames.cpp
 	src/game/parkour.h
 	src/game/parkour.cpp
-	src/game/sudoku.h
-	src/game/sudoku.cpp
 	external/sdl_controllers/gamecontrollerdb.txt
 	assets/shader/particle_standard.glsl
 	assets/shader/particle_limited_size.glsl

@@ -7,7 +7,6 @@
 #include "ai.h"
 #include "menu.h"
 #include "constants.h"
-#include "sudoku.h"
 
 namespace VI
 {
@@ -120,7 +119,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 #endif
 	Upgrade upgrade_last_visit_highest_available;
 	Menu::State menu_state;
-	Sudoku sudoku;
 	s16 energy_notification_accumulator;
 	Ref<SpawnPoint> selected_spawn;
 	Ref<Entity> killed_by;
@@ -267,7 +265,6 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	Ref<Entity> anim_base;
 	b8 try_secondary;
 	b8 try_primary;
-	b8 sudoku_active;
 
 	PlayerControlHuman(PlayerHuman* = nullptr);
 	void awake();

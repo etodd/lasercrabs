@@ -326,11 +326,14 @@ void sniper_hit_effects(const Drone::Hit& hit)
 
 s32 impact_damage(const Drone* drone, const Entity* target_shield)
 {
+	if (drone->state() == Drone::State::Crawl)
+		return 1;
+
 	Vec3 ray_dir;
 	{
 		r32 speed = drone->velocity.length();
 		if (speed == 0.0f)
-			return 0;
+			return 1;
 		else
 			ray_dir = drone->velocity / speed;
 	}
@@ -601,7 +604,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					drone->rotation_clamp_vector = dir;
 
 					drone->detaching.fire();
-					drone->hit_targets.length = 0;
 					drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
 					drone->get<Transform>()->absolute_rot(Quat::look(dir));
 
@@ -634,8 +636,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 				drone->dash_timer = dash_time;
 
-				drone->hit_targets.length = 0;
-
 				drone->attach_time = Game::time.total;
 				drone->cooldown_setup();
 
@@ -667,37 +667,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			{
 				drone->finish_flying_dashing_common();
 
-				// rotation clamp
-				{
-					/*
-					Quat absolute_rot = drone->get<Transform>()->absolute_rot();
-					Vec3 wall_normal = absolute_rot * Vec3(0, 0, 1);
-
-					// set the rotation clamp to be perpendicular to the camera, so we can ease the camera gently away from the wall
-					Vec3 direction = drone->get<PlayerCommon>()->look_dir();
-
-					Vec3 clamped;
-					if (direction.dot(wall_normal) == -1.0f)
-						clamped = wall_normal;
-					else
-					{
-						clamped = Vec3::normalize(direction - wall_normal * wall_normal.dot(direction));
-						if (fabsf(wall_normal.y) > 0.707f)
-						{
-							Vec3 right = Vec3::normalize(direction.cross(Vec3(0, 1, 0)));
-							clamped = Vec3::normalize(clamped - right * clamped.dot(right));
-						}
-
-						// if the clamped vector is too vertical, force it to be more horizontal
-						const r32 threshold = fabsf(wall_normal.y) + 0.25f;
-						clamped.y = LMath::clampf(clamped.y, -threshold, threshold);
-						clamped.normalize();
-					}
-
-					drone->rotation_clamp_vector = clamped;
-					*/
-					drone->rotation_clamp_vector = drone->get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
-				}
+				drone->rotation_clamp_vector = drone->get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 
 				drone->done_flying.fire();
 			}
@@ -968,6 +938,7 @@ void Drone::finish_flying_dashing_common()
 	get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_LAND);
 	get<Audio>()->post_event(AK::EVENTS::STOP_DRONE_FLY);
 	attach_time = Game::time.total;
+	hit_targets.length = 0;
 	dash_timer = 0.0f;
 	dash_combo = false;
 
@@ -1717,8 +1688,9 @@ void drone_reflection_execute(Drone* d)
 		r32 l = reflection.dir.length_squared();
 		vi_assert(l > 0.98f * 0.98f && l < 1.02f * 1.02f);
 	}
-	d->get<Transform>()->reparent(nullptr);
+	d->ensure_detached();
 	d->get<Transform>()->absolute_pos(reflection.pos);
+	d->attach_time = Game::time.total;
 	d->dash_timer = 0.0f;
 	d->dash_combo = false;
 	d->get<Animator>()->layers[0].animation = Asset::Animation::drone_fly;
@@ -1947,14 +1919,6 @@ void Drone::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos,
 	{
 #if DEBUG_REFLECTIONS
 		vi_debug("%s", "Rejected zero-length remote reflection.");
-#endif
-		return;
-	}
-
-	if (state() == State::Crawl)
-	{
-#if DEBUG_REFLECTIONS
-		vi_debug("%s", "Rejected remote reflection because local drone is in Crawl state.");
 #endif
 		return;
 	}
@@ -2305,6 +2269,22 @@ void Drone::stealth(Entity* e, b8 enable)
 	}
 }
 
+Vec3 target_position(Entity* me, const Net::StateFrame* state_frame, Target* target)
+{
+	// do rewinding, unless we're checking collisions between two players on the same client
+	if (state_frame
+		&& Game::net_transform_filter(target->entity(), Game::level.mode)
+		&& !PlayerHuman::players_on_same_client(me, target->entity()))
+	{
+		Vec3 pos;
+		Quat rot;
+		Net::transform_absolute(*state_frame, target->get<Transform>()->id(), &pos, &rot);
+		return pos + (rot * target->local_offset); // todo possibly: rewind local_offset as well?
+	}
+	else
+		return target->absolute_pos();
+}
+
 void Drone::update_server(const Update& u)
 {
 	State s = state();
@@ -2333,7 +2313,59 @@ void Drone::update_server(const Update& u)
 		}
 	}
 
-	if (s != Drone::State::Crawl)
+	if (s == Drone::State::Crawl)
+	{
+		r32 velocity_sq = velocity.length_squared();
+		if (velocity_sq > 0.0f)
+		{
+			// collision detection with other drones
+			Net::StateFrame* state_frame = nullptr;
+			Net::StateFrame state_frame_data;
+			if (net_state_frame(&state_frame_data))
+				state_frame = &state_frame_data;
+			AI::Team my_team = get<AIAgent>()->team;
+			Vec3 my_pos = get<Transform>()->absolute_pos();
+			b8 just_landed = u.time.total - attach_time < DRONE_REFLECTION_TIME_TOLERANCE;
+			for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item() == this // don't collide with self
+					|| i.item()->get<AIAgent>()->team == my_team // don't collide with teammates
+					|| UpgradeStation::drone_inside(i.item())) // ignore drones inside upgrade stations
+					continue;
+
+				Vec3 target_pos = target_position(entity(), state_frame, i.item()->get<Target>());
+				Vec3 diff = target_pos - my_pos;
+				r32 distance = diff.length_squared();
+				if (distance < (DRONE_SHIELD_RADIUS * 2.0f) * (DRONE_SHIELD_RADIUS * 2.0f))
+				{
+					if ((just_landed && attach_time > i.item()->attach_time)
+						|| i.item()->velocity.length_squared() <= velocity.length_squared())
+					{
+						distance = sqrtf(distance);
+						Vec3 normal;
+						Vec3 hit;
+						if (distance == 0.0f)
+						{
+							hit = target_pos;
+							normal = Vec3(0, 1, 0);
+						}
+						else
+						{
+							diff /= distance;
+							hit = target_pos - diff * DRONE_SHIELD_RADIUS;
+							normal = -diff;
+						}
+
+						velocity = diff;
+						hit_target(i.item()->entity());
+						reflect(i.item()->entity(), hit, normal, state_frame);
+						break;
+					}
+				}
+			}
+		}
+	}
+	else
 	{
 		// flying or dashing
 		if (Game::level.local && u.time.total - attach_time > MAX_FLIGHT_TIME)
@@ -2765,19 +2797,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 			|| (i.item()->has<Drone>() && UpgradeStation::drone_inside(i.item()->get<Drone>()))) // ignore drones inside upgrade stations
 			continue;
 
-		Vec3 p;
-		// do rewinding, unless we're checking collisions between two players on the same client
-		if (state_frame
-			&& Game::net_transform_filter(i.item()->entity(), Game::level.mode)
-			&& !PlayerHuman::players_on_same_client(entity(), i.item()->entity()))
-		{
-			Vec3 pos;
-			Quat rot;
-			Net::transform_absolute(*state_frame, i.item()->get<Transform>()->id(), &pos, &rot);
-			p = pos + (rot * i.item()->local_offset); // todo possibly: rewind local_offset as well?
-		}
-		else
-			p = i.item()->absolute_pos();
+		Vec3 p = target_position(entity(), state_frame, i.item());
 
 		Vec3 intersection;
 		if (LMath::ray_sphere_intersect(ray_start, ray_end, p, i.item()->radius(), &intersection))

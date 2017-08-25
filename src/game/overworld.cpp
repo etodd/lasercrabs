@@ -1325,18 +1325,8 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 					text.font = Asset::Font::pt_sans;
 					text.size = TEXT_SIZE;
 					text.anchor_x = UIText::Anchor::Min;
-					Loader::font(text.font);
 					text.color = UI::color_default;
-					Array<char>* value = &data.multiplayer.text_field.value;
-					if (value->length > 64 + 1) // truncate
-					{
-						const char* start = value->data;
-						while (start < &value->data[value->length - 64])
-							start = Font::codepoint_next(start);
-						text.text_raw(0, start, UITextFlagSingleLine);
-					}
-					else
-						text.text_raw(0, value->data, UITextFlagSingleLine);
+					data.multiplayer.text_field.get(&text, 64);
 					text.draw(params, field_rect.pos + Vec2(PADDING * 0.8125f));
 				}
 				break;

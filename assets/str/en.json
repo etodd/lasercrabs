@@ -246,6 +246,33 @@
 	"ui_context_action": "UI context action",
 	"tab_left": "Tab left",
 	"tab_right": "Tab right",
+	"emote1": "Emote 1",
+	"emote2": "Emote 2",
+	"emote3": "Emote 3",
+	"emote4": "Emote 4",
+
+	"emote_team1": "team1",
+	"emote_team2": "team2",
+	"emote_team3": "team3",
+	"emote_team4": "team4",
+
+	"emote_everyone1": "everyone1",
+	"emote_everyone2": "everyone2",
+	"emote_everyone3": "everyone3",
+	"emote_everyone4": "everyone4",
+
+	"emote_meta1": "meta1",
+	"emote_meta2": "meta2",
+	"emote_meta3": "meta3",
+	"emote_meta4": "meta4",
+
+	"emote_misc1": "misc1",
+	"emote_misc2": "misc2",
+	"emote_misc3": "misc3",
+	"emote_misc4": "misc4",
+
+	"chat_team": "Team chat",
+	"chat_all": "All chat",
 
 	"prompt_zone_defend": "%s under attack. [{{Scoreboard}}] to defend. (%d)",
 	"prompt_name": "Enter name:",

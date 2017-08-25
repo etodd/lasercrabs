@@ -305,6 +305,12 @@ void refresh_variables(const InputState& input)
 		UIText::variable_add(i, "UIAcceptText", gamepad.bindings[s32(Controls::UIAcceptText)].string(type));
 		UIText::variable_add(i, "TabLeft", gamepad.bindings[s32(Controls::TabLeft)].string(type));
 		UIText::variable_add(i, "TabRight", gamepad.bindings[s32(Controls::TabRight)].string(type));
+		UIText::variable_add(i, "Emote1", gamepad.bindings[s32(Controls::Emote1)].string(type));
+		UIText::variable_add(i, "Emote2", gamepad.bindings[s32(Controls::Emote2)].string(type));
+		UIText::variable_add(i, "Emote3", gamepad.bindings[s32(Controls::Emote3)].string(type));
+		UIText::variable_add(i, "Emote4", gamepad.bindings[s32(Controls::Emote4)].string(type));
+		UIText::variable_add(i, "ChatTeam", gamepad.bindings[s32(Controls::ChatTeam)].string(type));
+		UIText::variable_add(i, "ChatAll", gamepad.bindings[s32(Controls::ChatAll)].string(type));
 	}
 }
 

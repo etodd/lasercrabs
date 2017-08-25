@@ -41,6 +41,16 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		count,
 	};
 
+	enum class EmoteCategory : s8
+	{
+		Team,
+		Everyone,
+		Meta,
+		Misc,
+		count,
+		None = count,
+	};
+
 	struct LogEntry
 	{
 		r32 timestamp;
@@ -49,6 +59,23 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		AI::TeamMask mask;
 		AI::TeamMask a_team;
 		AI::TeamMask b_team;
+	};
+
+	struct ChatEntry
+	{
+		r32 timestamp;
+		char username[MAX_USERNAME + 1];
+		char msg[CHAT_MAX + 1];
+		AI::Team team;
+		AI::TeamMask mask;
+	};
+
+	enum class ChatFocus : s8
+	{
+		None,
+		Team,
+		All,
+		count,
 	};
 
 	struct SupportEntry
@@ -81,6 +108,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 
 	static r32 danger;
 	static Array<LogEntry> logs;
+	static Array<ChatEntry> chats;
 	static Array<Notification> notifications;
 	static b8 notification(Entity*, AI::Team, Notification::Type);
 
@@ -92,12 +120,14 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static s32 count_local_before(PlayerHuman*);
 	static PlayerHuman* player_for_camera(const Camera*);
 	static PlayerHuman* player_for_gamepad(s8);
+	static void chat_add(const char*, PlayerManager* player, AI::TeamMask = AI::TeamAll);
 	static void log_add(const char*, AI::Team = AI::TeamNone, AI::TeamMask = AI::TeamAll, const char* = nullptr, AI::Team = AI::TeamNone);
 	static void clear();
 	static void camera_setup_drone(Drone*, Camera*, Vec3*, r32);
 	static void draw_logs(const RenderParams&, AI::Team, s8);
 
 	Array<SupportEntry> last_supported;
+	TextField chat_field;
 	u64 uuid;
 	UIMenu menu;
 	UIScroll score_summary_scroll;
@@ -113,6 +143,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	r32 afk_timer;
 #endif
 	r32 rumble;
+	r32 emote_timer;
 	s32 spectate_index;
 #if SERVER
 	u32 ai_record_id;
@@ -123,7 +154,9 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	Ref<SpawnPoint> selected_spawn;
 	Ref<Entity> killed_by;
 	Ref<Camera> camera;
+	EmoteCategory emote_category;
 	s8 gamepad;
+	ChatFocus chat_focus;
 	b8 msg_good;
 	b8 local;
 	b8 upgrade_menu_open;
@@ -132,6 +165,8 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void awake();
 	~PlayerHuman();
 
+	void draw_chats(const RenderParams&) const;
+	b8 chat_emotes_enabled() const;
 	void msg(const char*, b8);
 	void rumble_add(r32);
 	UIMode ui_mode() const;

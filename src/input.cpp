@@ -5,6 +5,7 @@
 #include "ease.h"
 #include "settings.h"
 #include "render/ui.h"
+#include "data/import_common.h"
 
 namespace VI
 {
@@ -40,6 +41,12 @@ const char* control_setting_names[s32(Controls::count)] =
 	nullptr, // UIAcceptText; can't be modified
 	"tab_left",
 	"tab_right",
+	"emote1",
+	"emote2",
+	"emote3",
+	"emote4",
+	"chat_team",
+	"chat_all",
 };
 
 InputBinding control_defaults[s32(Controls::count)] =
@@ -65,6 +72,12 @@ InputBinding control_defaults[s32(Controls::count)] =
 	{ Gamepad::Btn::A, KeyCode::Return, KeyCode::None, }, // UIAcceptText
 	{ Gamepad::Btn::LeftShoulder, KeyCode::Q, KeyCode::None, }, // TabLeft
 	{ Gamepad::Btn::RightShoulder, KeyCode::E, KeyCode::None, }, // TabRight
+	{ Gamepad::Btn::DLeft, KeyCode::F1, KeyCode::None, }, // Emote1
+	{ Gamepad::Btn::DUp, KeyCode::F2, KeyCode::None, }, // Emote2
+	{ Gamepad::Btn::DRight, KeyCode::F3, KeyCode::None, }, // Emote3
+	{ Gamepad::Btn::DDown, KeyCode::F4, KeyCode::None, }, // Emote4
+	{ Gamepad::Btn::None, KeyCode::T, KeyCode::None, }, // ChatTeam
+	{ Gamepad::Btn::None, KeyCode::Y, KeyCode::None, }, // ChatAll
 };
 
 void init()
@@ -344,6 +357,12 @@ void init()
 	control_strings[s32(Controls::UIContextAction)] = _(strings::ui_context_action);
 	control_strings[s32(Controls::TabLeft)] = _(strings::tab_left);
 	control_strings[s32(Controls::TabRight)] = _(strings::tab_right);
+	control_strings[s32(Controls::Emote1)] = _(strings::emote1);
+	control_strings[s32(Controls::Emote2)] = _(strings::emote2);
+	control_strings[s32(Controls::Emote3)] = _(strings::emote3);
+	control_strings[s32(Controls::Emote4)] = _(strings::emote4);
+	control_strings[s32(Controls::ChatTeam)] = _(strings::chat_team);
+	control_strings[s32(Controls::ChatAll)] = _(strings::chat_all);
 
 	TextField::normal_map[s32(KeyCode::D0)] = '0';
 	TextField::normal_map[s32(KeyCode::D1)] = '1';
@@ -398,7 +417,6 @@ void init()
 		TextField::normal_map[s32(KeyCode::A) + i] = 'a' + i;
 		TextField::shift_map[s32(KeyCode::A) + i] = 'A' + i;
 	}
-
 }
 
 void dead_zone(r32* x, r32* y, r32 threshold)
@@ -446,7 +464,9 @@ b8 control_customizable(Controls c, Gamepad::Type type)
 		&& (c == Controls::Forward
 			|| c == Controls::Backward
 			|| c == Controls::Left
-			|| c == Controls::Right))
+			|| c == Controls::Right
+			|| c == Controls::ChatTeam
+			|| c == Controls::ChatAll))
 	{
 		return false;
 	}
@@ -517,6 +537,19 @@ void TextField::set(const char* v)
 	value.resize(strlen(v) + 1);
 	memcpy(value.data, v, value.length - 1);
 	value[value.length - 1] = '\0';
+}
+
+void TextField::get(UIText* text, s32 truncate) const
+{
+	if (truncate > 0 && value.length > truncate + 1) // truncate
+	{
+		const char* start = value.data;
+		while (start < &value.data[value.length - truncate])
+			start = Font::codepoint_next(start);
+		text->text_raw(0, start, UITextFlagSingleLine);
+	}
+	else
+		text->text_raw(0, value.data, UITextFlagSingleLine);
 }
 
 b8 TextField::update(const Update& u, s32 first_editable_index, s32 max_length)

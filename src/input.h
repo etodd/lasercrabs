@@ -7,6 +7,8 @@
 namespace VI
 {
 
+struct UIText;
+
 enum class Controls : s8
 {
 	Forward,
@@ -30,6 +32,12 @@ enum class Controls : s8
 	UIAcceptText,
 	TabLeft,
 	TabRight,
+	Emote1,
+	Emote2,
+	Emote3,
+	Emote4,
+	ChatTeam,
+	ChatAll,
 	count,
 };
 
@@ -369,6 +377,7 @@ struct TextField
 	TextField();
 	b8 update(const Update&, s32 = 0, s32 = 0);
 	void set(const char*);
+	void get(UIText*, s32 = 0) const;
 };
 
 }

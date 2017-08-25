@@ -14,6 +14,7 @@
 #include "asset/texture.h"
 #include "asset/animation.h"
 #include "asset/armature.h"
+#include "asset/font.h"
 #include "strings.h"
 #include "ease.h"
 #include "render/skinned_model.h"
@@ -61,9 +62,11 @@ namespace VI
 #define NOTIFICATION_TIME_HIDDEN 4.0f
 #define NOTIFICATION_TIME (6.0f + NOTIFICATION_TIME_HIDDEN)
 #define LOG_TIME 4.0f
+#define CHAT_TIME 10.0f
 #define INTERACT_TIME 2.5f
 #define INTERACT_LERP_ROTATION_SPEED 5.0f
 #define INTERACT_LERP_TRANSLATION_SPEED 10.0f
+#define EMOTE_TIMEOUT 3.0f
 
 #define HP_BOX_SIZE (Vec2(UI_TEXT_SIZE_DEFAULT) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
@@ -295,7 +298,10 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	afk_timer(AFK_TIME),
 	ai_record_id(),
 #endif
-	local(local)
+	local(local),
+	chat_field(),
+	emote_category(EmoteCategory::None),
+	chat_focus()
 {
 	menu.scroll.size = 10;
 	if (local)
@@ -457,6 +463,7 @@ void PlayerHuman::energy_notify(s32 change)
 #define DANGER_RAMP_DOWN_TIME 4.0f
 r32 PlayerHuman::danger;
 Array<PlayerHuman::LogEntry> PlayerHuman::logs;
+Array<PlayerHuman::ChatEntry> PlayerHuman::chats;
 Array<PlayerHuman::Notification> PlayerHuman::notifications;
 void PlayerHuman::update_all(const Update& u)
 {
@@ -495,6 +502,12 @@ void PlayerHuman::update_all(const Update& u)
 			logs.remove_ordered(i);
 	}
 
+	for (s32 i = chats.length - 1; i >= 0; i--)
+	{
+		if (chats[i].timestamp < Game::real_time.total - CHAT_TIME)
+			chats.remove_ordered(i);
+	}
+
 	for (s32 i = 0; i < notifications.length; i++)
 	{
 		Notification* n = &notifications[i];
@@ -508,6 +521,16 @@ void PlayerHuman::update_all(const Update& u)
 			i--;
 		}
 	}
+}
+
+void PlayerHuman::chat_add(const char* msg, PlayerManager* player, AI::TeamMask mask)
+{
+	PlayerHuman::ChatEntry* entry = chats.add();
+	entry->timestamp = Game::real_time.total;
+	entry->mask = mask;
+	entry->team = player->team.ref()->team();
+	strncpy(entry->username, player->username, MAX_USERNAME);
+	strncpy(entry->msg, msg, CHAT_MAX);
 }
 
 void PlayerHuman::log_add(const char* a, AI::Team a_team, AI::TeamMask mask, const char* b, AI::Team b_team)
@@ -716,6 +739,51 @@ void PlayerHuman::upgrade_completed(Upgrade u)
 	}
 }
 
+AssetID emote_strings[s32(PlayerHuman::EmoteCategory::count)][s32(PlayerHuman::EmoteCategory::count)] =
+{
+	{
+		strings::emote_team1,
+		strings::emote_team2,
+		strings::emote_team3,
+		strings::emote_team4,
+	},
+	{
+		strings::emote_everyone1,
+		strings::emote_everyone2,
+		strings::emote_everyone3,
+		strings::emote_everyone4,
+	},
+	{
+		strings::emote_meta1,
+		strings::emote_meta2,
+		strings::emote_meta3,
+		strings::emote_meta4,
+	},
+	{
+		strings::emote_misc1,
+		strings::emote_misc2,
+		strings::emote_misc3,
+		strings::emote_misc4,
+	},
+};
+
+const char* emote_binding_names[s32(PlayerHuman::EmoteCategory::count)] =
+{
+	"Emote1",
+	"Emote2",
+	"Emote3",
+	"Emote4",
+};
+
+b8 PlayerHuman::chat_emotes_enabled() const
+{
+	UIMode mode = ui_mode();
+	return mode == UIMode::PvpDefault
+		|| mode == UIMode::PvpUpgrading
+		|| mode == UIMode::Dead
+		|| mode == UIMode::PvpGameOver;
+}
+
 void PlayerHuman::update(const Update& u)
 {
 #if SERVER
@@ -853,7 +921,82 @@ void PlayerHuman::update(const Update& u)
 	if (entity)
 		select_spawn_timer = vi_max(0.0f, select_spawn_timer - u.time.delta); // for letterbox animation
 
-	switch (ui_mode())
+	UIMode mode = ui_mode();
+
+	// emotes
+	if (chat_emotes_enabled())
+	{
+		static Controls emote_bindings[s32(EmoteCategory::count)] =
+		{
+			Controls::Emote1,
+			Controls::Emote2,
+			Controls::Emote3,
+			Controls::Emote4,
+		};
+		for (s32 i = 0; i < s32(EmoteCategory::count); i++)
+		{
+			if (u.input->get(emote_bindings[i], gamepad) && !u.last_input->get(emote_bindings[i], gamepad))
+			{
+				if (emote_category == EmoteCategory::None)
+				{
+					emote_category = EmoteCategory(i);
+					emote_timer = EMOTE_TIMEOUT;
+				}
+				else
+				{
+					// category already chosen, send emote
+					AI::TeamMask mask = emote_category == EmoteCategory::Team ? AI::TeamMask(1 << get<PlayerManager>()->team.ref()->team()) : AI::TeamAll;
+					get<PlayerManager>()->chat(_(emote_strings[s32(emote_category)][i]), mask);
+					emote_category = EmoteCategory::None;
+					emote_timer = 0.0f;
+				}
+			}
+		}
+
+		// check if emote menu timed out
+		if (emote_timer > 0.0f)
+		{
+			emote_timer = vi_max(0.0f, emote_timer - u.time.delta);
+			if (emote_timer == 0.0f)
+				emote_category = EmoteCategory::None;
+		}
+
+		if (gamepad == 0)
+		{
+			if (chat_focus == ChatFocus::None)
+			{
+				if (u.last_input->get(Controls::ChatAll, 0)
+					&& !u.input->get(Controls::ChatAll, 0))
+					chat_focus = ChatFocus::All;
+				else if (u.last_input->get(Controls::ChatTeam, 0)
+					&& !u.input->get(Controls::ChatTeam, 0))
+					chat_focus = ChatFocus::Team;
+			}
+			else
+			{
+				if (u.last_input->get(Controls::Cancel, 0)
+					&& !u.input->get(Controls::Cancel, 0)
+					&& !Game::cancel_event_eaten[0])
+				{
+					chat_field.set("");
+					chat_focus = ChatFocus::None;
+					Game::cancel_event_eaten[0] = true;
+				}
+				else
+				{
+					chat_field.update(u, 0, CHAT_MAX);
+					if (u.input->get(Controls::UIAcceptText, 0) && !u.last_input->get(Controls::UIAcceptText, 0))
+					{
+						get<PlayerManager>()->chat(chat_field.value.data, chat_focus == ChatFocus::All ? AI::TeamAll : (1 << get<PlayerManager>()->team.ref()->team()));
+						chat_field.set("");
+						chat_focus = ChatFocus::None;
+					}
+				}
+			}
+		}
+	}
+
+	switch (mode)
 	{
 		case UIMode::PvpDefault:
 		{
@@ -1110,7 +1253,7 @@ void PlayerHuman::update_late(const Update& u)
 		camera.ref()->range = 0;
 		camera.ref()->cull_range = 0;
 
-		if (!Console::visible)
+		if (!Console::visible && chat_focus == ChatFocus::None)
 		{
 			r32 speed = u.input->get(Controls::Parkour, gamepad) ? 24.0f : 4.0f;
 			camera.ref()->pos += (u.time.delta * speed) * PlayerControlHuman::get_movement(u, camera.ref()->rot, gamepad);
@@ -1635,6 +1778,51 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 	UIMode mode = ui_mode();
 
+	// emote menu
+	if (emote_category != EmoteCategory::None && chat_emotes_enabled())
+	{
+		UIText text;
+		text.font = Asset::Font::pt_sans;
+		text.anchor_x = UIText::Anchor::Min;
+		text.anchor_y = UIText::Anchor::Max;
+		switch (emote_category)
+		{
+			case EmoteCategory::Team:
+				text.color = Team::ui_color_friend;
+				break;
+			case EmoteCategory::Everyone:
+				text.color = UI::color_accent();
+				break;
+			case EmoteCategory::Meta:
+				text.color = UI::color_default;
+				break;
+			case EmoteCategory::Misc:
+				text.color = Team::ui_color_friend;
+				break;
+			default:
+				vi_assert(false);
+				break;
+		}
+		text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+		Vec2 p = params.camera->viewport.size * Vec2(0, 0.5f) + Vec2(MENU_ITEM_PADDING * 5.0f, 0);
+		const r32 height_one_row = UI_TEXT_SIZE_DEFAULT * UI::scale + MENU_ITEM_PADDING;
+		const r32 height_total = MENU_ITEM_PADDING + s32(EmoteCategory::count) * height_one_row;
+		Rect2 box =
+		{
+			p + Vec2(-MENU_ITEM_PADDING, -height_total + MENU_ITEM_PADDING),
+			Vec2(MENU_ITEM_WIDTH, height_total),
+		};
+		UI::box(params, box, UI::color_background);
+		for (s32 i = 0; i < s32(EmoteCategory::count); i++)
+		{
+			char format[UI_TEXT_MAX];
+			snprintf(format, UI_TEXT_MAX, "[{{%s}}] %%s", emote_binding_names[i]);
+			text.text(gamepad, format, _(emote_strings[s32(emote_category)][i]));
+			text.draw(params, p);
+			p.y -= UI_TEXT_SIZE_DEFAULT * UI::scale + MENU_ITEM_PADDING;
+		}
+	}
+
 	if (Game::level.mode == Game::Mode::Pvp
 		&& (mode == UIMode::Dead || mode == UIMode::PvpDefault))
 	{
@@ -2079,7 +2267,11 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 	}
 
-	draw_logs(params, get<PlayerManager>()->team.ref()->team(), gamepad);
+	{
+		AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+		draw_chats(params);
+		draw_logs(params, my_team, gamepad);
+	}
 
 	// overworld notifications
 	if (Game::level.mode == Game::Mode::Parkour && Overworld::zone_under_attack() != AssetNull)
@@ -2105,15 +2297,79 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		menu.draw_ui(params, Vec2(0, params.camera->viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
 }
 
+void PlayerHuman::draw_chats(const RenderParams& params) const
+{
+	AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+
+	UIText text;
+	text.font = Asset::Font::pt_sans;
+	text.anchor_x = UIText::Anchor::Min;
+	text.anchor_y = UIText::Anchor::Min;
+	text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+
+	s32 count = 0;
+	r32 height = 0;
+	for (s32 i = chats.length - 1; i >= 0 && count < 4; i--)
+	{
+		const ChatEntry& entry = chats[i];
+		if (AI::match(my_team, entry.mask))
+		{
+			text.text(gamepad, "%s: %s", entry.username, entry.msg);
+			height += text.bounds().y + MENU_ITEM_PADDING;
+			count++;
+		}
+	}
+
+	Vec2 base_pos = params.camera->viewport.size * Vec2(0, 1) + Vec2(1, -1) * MENU_ITEM_PADDING * 5.0f;
+	if (count > 0)
+	{
+		base_pos.y -= height;
+		Vec2 p = base_pos;
+		UI::box(params, { p + Vec2(-MENU_ITEM_PADDING), Vec2(MENU_ITEM_WIDTH, height + MENU_ITEM_PADDING * 0.5f) }, UI::color_background);
+		for (s32 i = chats.length - 1; i >= 0 && count > 0; i--)
+		{
+			const ChatEntry& entry = chats[i];
+			if (AI::match(my_team, entry.mask))
+			{
+				text.color = Team::ui_color(my_team, entry.team);
+				text.text(gamepad, "%s: %s", entry.username, entry.msg);
+				text.draw(params, p);
+
+				p.y += (text.bounds().y * UI::scale) + MENU_ITEM_PADDING;
+				count--;
+			}
+		}
+	}
+
+	if (chat_focus != ChatFocus::None)
+	{
+		base_pos.y -= text.size * UI::scale + MENU_ITEM_PADDING * 4.0f;
+		chat_field.get(&text, 32);
+		UI::box(params, text.rect(base_pos).outset(MENU_ITEM_PADDING), UI::color_background);
+		text.color = UI::color_default;
+		text.draw(params, base_pos);
+	}
+}
+
 void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gamepad)
 {
 	UIText text;
 	text.anchor_x = UIText::Anchor::Max;
 	text.anchor_y = UIText::Anchor::Max;
-	Vec2 p = params.camera->viewport.size + Vec2(MENU_ITEM_PADDING * -5.0f);
+
 	s32 count = 0;
-	r32 wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 	for (s32 i = 0; i < logs.length && count < 4; i++)
+	{
+		if (AI::match(my_team, logs[i].mask))
+			count++;
+	}
+
+	Vec2 p = params.camera->viewport.size + Vec2(MENU_ITEM_PADDING * -5.0f);
+	r32 height = count * (text.size * UI::scale + MENU_ITEM_PADDING * 2.0f);
+	p.y -= height;
+	UI::box(params, { p + Vec2(-MENU_ITEM_WIDTH + MENU_ITEM_PADDING, MENU_ITEM_PADDING * -2.5f), Vec2(MENU_ITEM_WIDTH, height) }, UI::color_background);
+	r32 wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+	for (s32 i = logs.length - 1; i >= 0 && count > 0; i--)
 	{
 		const LogEntry& entry = logs[i];
 		if (AI::match(my_team, entry.mask))
@@ -2134,7 +2390,6 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 			else
 				text.text_raw(gamepad, entry.a);
 
-			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 			UIMenu::text_clip(&text, entry.timestamp, 80.0f);
 			text.draw(params, p);
 
@@ -2162,8 +2417,8 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 				UIMenu::text_clip(&text, entry.timestamp, 80.0f);
 				text.draw(params, p);
 			}
-			p.y -= (text.size * UI::scale) + MENU_ITEM_PADDING * 2.0f;
-			count++;
+			p.y += (text.size * UI::scale) + MENU_ITEM_PADDING * 2.0f;
+			count--;
 		}
 	}
 }
@@ -2938,6 +3193,7 @@ b8 PlayerControlHuman::input_enabled() const
 {
 	PlayerHuman::UIMode ui_mode = player.ref()->ui_mode();
 	return !Console::visible
+		&& player.ref()->chat_focus == PlayerHuman::ChatFocus::None
 		&& !cinematic_active()
 		&& !Overworld::active()
 		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)

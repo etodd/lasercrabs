@@ -1289,6 +1289,32 @@ namespace PlayerManagerNet
 		Net::msg_finalize(p);
 		return true;
 	}
+
+	b8 chat(PlayerManager* m, const char* text, AI::TeamMask mask)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::Chat;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+
+		serialize_s8(p, mask);
+
+		{
+			s32 text_length = strlen(text);
+			serialize_int(p, s32, text_length, 0, CHAT_MAX);
+			char* hack = const_cast<char*>(text);
+			serialize_bytes(p, (u8*)hack, text_length);
+		}
+
+		Net::msg_finalize(p);
+		return true;
+	}
 }
 
 void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
@@ -1548,6 +1574,32 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			}
 			break;
 		}
+		case Message::Chat:
+		{
+			AI::TeamMask mask;
+			serialize_s8(p, mask);
+
+			s32 text_length;
+			serialize_int(p, s32, text_length, 0, CHAT_MAX);
+			char text[CHAT_MAX + 1];
+			serialize_bytes(p, (u8*)text, text_length);
+			text[text_length] = '\0';
+
+			if (!m)
+				return true;
+
+			if (Game::level.local)
+			{
+				if (src == Net::MessageSource::Remote)
+					m->chat(text, mask); // repeat to everyone
+				else // loopback message
+					PlayerHuman::chat_add(text, m, mask);
+			}
+			else if (src == Net::MessageSource::Remote)
+				PlayerHuman::chat_add(text, m, mask);
+
+			break;
+		}
 		default:
 		{
 			vi_assert(false);
@@ -1555,6 +1607,11 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 		}
 	}
 	return true;
+}
+
+void PlayerManager::chat(const char* msg, AI::TeamMask mask)
+{
+	PlayerManagerNet::chat(this, msg, mask);
 }
 
 void PlayerManager::kick()

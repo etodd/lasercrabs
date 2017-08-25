@@ -166,8 +166,15 @@ struct Data
 		struct ServerList
 		{
 			Array<Net::Master::ServerListEntry> entries;
-			UIScroll scroll = { 0, 0, 12 };
+			UIScroll scroll;
 			s32 selected;
+
+			ServerList()
+				: entries(),
+				scroll(12),
+				selected()
+			{
+			}
 		};
 
 		struct PingData

@@ -67,7 +67,7 @@ struct UIScroll
 {
 	s32 pos;
 	s32 count;
-	s32 size = 8;
+	s32 size;
 
 	void update(const Update&, s32, s32 = -1); // for non-menu things
 	void update_menu(s32); // for menus
@@ -77,6 +77,11 @@ struct UIScroll
 	s32 top() const;
 	s32 bottom(s32) const;
 	b8 visible(s32) const;
+
+	UIScroll(s32 s = 8)
+		: pos(), count(), size(s)
+	{
+	}
 };
 
 struct LoopSync;

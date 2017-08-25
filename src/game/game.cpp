@@ -95,20 +95,15 @@ template<typename Stream> b8 serialize_save(Stream* p, Game::Save* s)
 		serialize_s16(p, s->collectibles[i].zone);
 		serialize_int(p, ID, s->collectibles[i].id, 0, MAX_ENTITIES - 1);
 	}
-	serialize_r32(p, s->zone_current_restore_position.x);
-	serialize_r32(p, s->zone_current_restore_position.y);
-	serialize_r32(p, s->zone_current_restore_position.z);
-	serialize_r32(p, s->zone_current_restore_rotation);
 	serialize_s32(p, s->locke_index);
 	for (s32 i = 0; i < MAX_ZONES; i++)
 		serialize_enum(p, ZoneState, s->zones[i]);
-	serialize_enum(p, Group, s->group);
+	serialize_enum(p, Game::Group, s->group);
 	for (s32 i = 0; i < s32(Resource::count); i++)
 		serialize_s16(p, s->resources[i]);
 	serialize_s16(p, s->zone_last);
 	serialize_s16(p, s->zone_current);
 	serialize_s16(p, s->zone_overworld);
-	serialize_bool(p, s->zone_current_restore);
 	serialize_bool(p, s->locke_spoken);
 	serialize_bool(p, s->extended_parkour);
 	return true;

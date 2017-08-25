@@ -674,7 +674,7 @@ namespace Master
 	s64 server_config_score(s64 plays, s64 last_played)
 	{
 		const s64 epoch = 1503678420LL;
-		return s64(log10(vi_max(1LL, plays))) + ((last_played - epoch) / 45000LL);
+		return s64(log10(vi_max(s64(1), plays))) + ((last_played - epoch) / 45000LL);
 	}
 
 	// returns the user's role in the given server

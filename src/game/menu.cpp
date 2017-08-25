@@ -366,7 +366,7 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 				story_disabled = true;
 #else
 				story_disabled = false;
-#endif;
+#endif
 				if (menu->item(u, _(strings::story), nullptr, story_disabled))
 				{
 					Scripts::Docks::play();

@@ -57,6 +57,18 @@ b8 settings_controls(const Update&, s8, UIMenu*, Gamepad::Type);
 b8 settings_graphics(const Update&, s8, UIMenu*);
 b8 maps(const Update&, s8, UIMenu*);
 
+AssetID region_string(Region region)
+{
+	static const AssetID region_strings[] =
+	{
+		strings::region_useast,
+		strings::region_uswest,
+		strings::region_europe,
+	};
+	vi_assert(s32(region) >= 0 && s32(region) < s32(Region::count));
+	return region_strings[s32(region)];
+}
+
 #if SERVER
 
 void init(const InputState&) {}
@@ -73,6 +85,7 @@ State settings(const Update&, s8, UIMenu*) { return State::Settings; }
 b8 maps(const Update&, s8, UIMenu*) { return true; }
 void teams_select_match_start_init(PlayerHuman*) {}
 b8 teams(const Update&, s8, UIMenu*, TeamSelectMode) { return true; }
+b8 choose_region(const Update&, s8, UIMenu*, AllowClose) { return false; }
 b8 settings_controls(const Update&, s8, UIMenu*, Gamepad::Type) { return true; }
 b8 settings_graphics(const Update&, s8, UIMenu*) { return true; }
 void progress_spinner(const RenderParams&, const Vec2&, r32) {}
@@ -329,38 +342,51 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 		}
 		case State::Visible:
 		{
-			menu->start(u, 0);
-			b8 story_disabled;
+			if (Settings::region == Region::Invalid)
+			{
+				// must choose a region first
+				if (!choose_region(u, 0, menu, AllowClose::No))
+				{
+					// done choosing a region
+					menu->clear();
+					menu->animate();
+				}
+			}
+			else
+			{
+				menu->start(u, 0);
+				b8 story_disabled;
 #if RELEASE_BUILD
-			story_disabled = true;
+				story_disabled = true;
 #else
-			story_disabled = false;
+				story_disabled = false;
 #endif;
-			if (menu->item(u, _(strings::story), nullptr, story_disabled))
-			{
-				Scripts::Docks::play();
-				clear();
+				if (menu->item(u, _(strings::story), nullptr, story_disabled))
+				{
+					Scripts::Docks::play();
+					clear();
+				}
+				if (menu->item(u, _(strings::multiplayer)))
+				{
+					Game::save.reset();
+					Game::session.reset();
+					Game::session.type = SessionType::Multiplayer;
+					Game::session.config.game_type = GameType::Assault;
+					Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
+					clear();
+				}
+				if (menu->item(u, _(strings::settings)))
+				{
+					if (gamepad == 0)
+						*state = State::Settings;
+					else
+						*state = State::SettingsControlsGamepad; // other players don't have any other settings
+					menu->animate();
+				}
+				if (menu->item(u, _(strings::exit)))
+					dialog(0, &exit, _(strings::confirm_quit));
+				menu->end();
 			}
-			if (menu->item(u, _(strings::multiplayer)))
-			{
-				Game::save.reset();
-				Game::session.reset();
-				Game::session.type = SessionType::Multiplayer;
-				Game::session.config.game_type = GameType::Assault;
-				Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
-				clear();
-			}
-			if (menu->item(u, _(strings::settings)))
-			{
-				if (gamepad == 0)
-					*state = State::Settings;
-				else
-					*state = State::SettingsControlsGamepad; // other players don't have any other settings
-				menu->animate();
-			}
-			if (menu->item(u, _(strings::exit)))
-				dialog(0, &exit, _(strings::confirm_quit));
-			menu->end();
 			break;
 		}
 		case State::Settings:
@@ -932,6 +958,8 @@ State settings(const Update& u, s8 gamepad, UIMenu* menu)
 			if (delta != 0)
 				Audio::global_param(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER);
 		}
+
+		UIMenu::enum_option(&Settings::region, menu->slider_item(u, _(strings::region), _(region_string(Settings::region))));
 	}
 
 	menu->end();
@@ -1363,6 +1391,38 @@ b8 teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 	}
 
 	return true; // stay open
+}
+
+// returns true if menu should stay open
+b8 choose_region(const Update& u, s8 gamepad, UIMenu* menu, AllowClose allow_close)
+{
+	menu->start(u, 0);
+
+	menu->text(u, _(strings::choose_region));
+
+	b8 cancel = u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
+		&& !Game::cancel_event_eaten[0];
+	if (allow_close == AllowClose::Yes && (cancel || menu->item(u, _(strings::back))))
+	{
+		Game::cancel_event_eaten[0] = true;
+		menu->end();
+		return false;
+	}
+
+	for (s32 i = 0; i < s32(Region::count); i++)
+	{
+		Region region = Region(i);
+		if (menu->item(u, _(region_string(region)), nullptr, region == Settings::region, region == Settings::region ? Asset::Mesh::icon_checkmark : AssetNull))
+		{
+			Settings::region = region;
+			Loader::settings_save();
+			menu->end();
+			return false;
+		}
+	}
+
+	menu->end();
+	return true;
 }
 #endif
 

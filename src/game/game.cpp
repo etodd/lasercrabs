@@ -126,7 +126,7 @@ void Game::Save::reset()
 	memset(this, 0, sizeof(*this));
 
 	zone_last = AssetNull;
-	zone_current = AssetNull;
+	zone_current = Asset::Level::Docks;
 	zone_overworld = AssetNull;
 	locke_index = -1;
 
@@ -1373,8 +1373,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		if (l != last_level && last_mode == Mode::Parkour)
 		{
 			save.zone_last = last_level;
-			if (!save.zone_current_restore)
-				save.locke_spoken = false;
+			save.locke_spoken = false;
 		}
 
 		save.zone_current = l;
@@ -1402,10 +1401,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	level.mode = m;
 	level.id = l;
 	level.local = true;
-	if (m == Mode::Pvp)
-		level.post_pvp = true;
-
-	if (save.zone_current_restore) // we are restoring the player's position in this map; must have happened after a PvP match
+	if (last_mode == Mode::Pvp)
 		level.post_pvp = true;
 
 	// count AI players

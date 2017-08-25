@@ -96,7 +96,6 @@ struct Team : public ComponentType<Team>
 	static r32 transition_timer;
 	static r32 match_time;
 	static Ref<Team> winner;
-	static Game::Mode transition_mode_scheduled;
 	static MatchState match_state;
 
 	static void awake_all();
@@ -109,7 +108,6 @@ struct Team : public ComponentType<Team>
 	static Team* with_most_kills();
 	static Team* with_least_players(s32* = nullptr);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
-	static void transition_mode(Game::Mode);
 	static void draw_ui(const RenderParams&);
 	static void match_start();
 	static void match_team_select();

@@ -66,6 +66,7 @@ enum class Region : s8
 	USWest,
 	Europe,
 	count,
+	Invalid = count,
 };
 
 enum class Ability : s8

@@ -41,7 +41,6 @@ const Vec4 Team::ui_color_enemy = Vec4(1.0f, 0.4f, 0.4f, 1);
 r32 Team::control_point_timer;
 r32 Team::game_over_real_time;
 Ref<Team> Team::winner;
-Game::Mode Team::transition_mode_scheduled = Game::Mode::None;
 StaticArray<Team::ScoreSummaryItem, MAX_PLAYERS * PLAYER_SCORE_SUMMARY_ITEMS> Team::score_summary;
 r32 Team::transition_timer;
 r32 Team::match_time;
@@ -269,18 +268,15 @@ void Team::transition_next()
 	vi_assert(Game::level.local);
 	if (Game::session.type == SessionType::Story)
 	{
-		if (Game::level.id == Game::save.zone_current)
-			transition_mode(Game::Mode::Parkour);
-		else
-		{
-			// we're playing a different zone than the one the player is currently on
-			// that must mean that we need to restore the position in that zone
-			vi_assert(Game::save.zone_current_restore);
-			Game::schedule_load_level(Game::save.zone_current, Game::Mode::Parkour);
-		}
+		Game::unload_level(); // disconnect any connected players
+#if !SERVER
+		Game::load_level(Game::save.zone_current, Game::Mode::Parkour);
+		Game::level.post_pvp = true;
+#endif
 	}
 	else
 	{
+		// multiplayer
 #if SERVER
 		Net::Server::transition_level();
 #endif
@@ -583,7 +579,6 @@ namespace TeamNet
 	enum Message
 	{
 		MatchState,
-		TransitionMode,
 		UpdateKills,
 		count,
 	};
@@ -602,19 +597,6 @@ namespace TeamNet
 			Ref<Team> ref = w;
 			serialize_ref(p, ref);
 		}
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 send_transition_mode(Game::Mode m)
-	{
-		using Stream = Net::StreamWrite;
-		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Team);
-		{
-			Message type = Message::TransitionMode;
-			serialize_enum(p, Message, type);
-		}
-		serialize_enum(p, Game::Mode, m);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -717,72 +699,6 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 			}
 			match_time = 0.0f;
-			break;
-		}
-		case TeamNet::Message::TransitionMode:
-		{
-			Game::Mode mode_old = Game::level.mode;
-			serialize_enum(p, Game::Mode, Game::level.mode);
-			match_state = MatchState::Active;
-			transition_timer = TRANSITION_TIME * 0.5f;
-			Audio::post_global_event(AK::EVENTS::PLAY_TRANSITION_IN);
-			match_time = 0.0f;
-			if (Game::level.mode == Game::Mode::Pvp)
-				Game::level.post_pvp = true; // we have played (or are playing) a PvP match on this level
-			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-				i.item()->game_mode_transitioning();
-			if (Game::level.local)
-			{
-				for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-					World::remove(i.item()->entity());
-				for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
-					World::remove(i.item()->manager.ref()->entity());
-				PlayerAI::list.clear();
-			}
-			else
-			{
-				// some physics entities change between dynamic/kinematic depending on whether they are controlled by the server or not
-				// which changes depending on the game mode
-				// so rebuild the entities that changed to make sure they're set up right
-				Bitmask<MAX_ENTITIES> transform_filter_before;
-				for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
-					transform_filter_before.set(i.index, Game::net_transform_filter(i.item()->entity(), mode_old));
-				for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
-				{
-					if (Game::net_transform_filter(i.item()->entity(), Game::level.mode) != transform_filter_before.get(i.index))
-						i.item()->rebuild();
-				}
-			}
-
-			if (Game::level.post_pvp && Game::level.mode == Game::Mode::Parkour)
-			{
-				// exiting pvp mode
-				vi_assert(Game::session.type == SessionType::Story);
-				AI::Team team_winner = winner.ref()->team();
-				// winner takes all
-				if (Game::level.local)
-				{
-					// this stuff is synced over the network, so must do it only on the server
-					for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
-						i.item()->set_team(team_winner);
-					for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
-						World::remove_deferred(i.item()->entity());
-					for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
-						World::remove_deferred(i.item()->entity());
-				}
-				// teams are not synced over the network, so set them on both client and server
-				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-					i.item()->set_team(team_winner);
-				for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
-					i.item()->set_team(team_winner);
-				for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
-					i.item()->set_team(team_winner);
-				for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
-					i.item()->set_team(team_winner);
-				TerminalEntity::open();
-
-				Overworld::zone_done(Game::level.id);
-			}
 			break;
 		}
 		case TeamNet::Message::UpdateKills:
@@ -935,13 +851,6 @@ void Team::update_all_server(const Update& u)
 		}
 	}
 
-	if (transition_mode_scheduled != Game::Mode::None)
-	{
-		Game::Mode m = transition_mode_scheduled;
-		transition_mode_scheduled = Game::Mode::None;
-		TeamNet::send_transition_mode(m);
-	}
-
 	if (Game::level.mode != Game::Mode::Pvp)
 		return;
 
@@ -1044,7 +953,7 @@ void Team::update_all_server(const Update& u)
 		}
 	}
 
-	if (match_state == MatchState::Done && Game::scheduled_load_level == AssetNull && transition_mode_scheduled == Game::Mode::None)
+	if (match_state == MatchState::Done && Game::scheduled_load_level == AssetNull)
 	{
 		// wait for all local players to accept scores
 		b8 score_accepted = true;
@@ -1065,12 +974,6 @@ void Team::update_all_server(const Update& u)
 	}
 
 	update_visibility(u);
-}
-
-void Team::transition_mode(Game::Mode m)
-{
-	vi_assert(Game::level.local);
-	transition_mode_scheduled = m;
 }
 
 void Team::draw_ui(const RenderParams& params)

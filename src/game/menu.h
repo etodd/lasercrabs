@@ -96,6 +96,13 @@ enum class TeamSelectMode : s8
 	count,
 };
 
+enum class AllowClose : s8
+{
+	No,
+	Yes,
+	count,
+};
+
 extern State main_menu_state;
 extern DialogCallback dialog_callback[MAX_GAMEPADS];
 extern DialogCallback dialog_cancel_callback[MAX_GAMEPADS];
@@ -111,6 +118,7 @@ void refresh_variables(const InputState&);
 void pause_menu(const Update&, s8, UIMenu*, State*);
 void teams_select_match_start_init(PlayerHuman*);
 b8 teams(const Update&, s8, UIMenu*, TeamSelectMode);
+b8 choose_region(const Update&, s8, UIMenu*, AllowClose);
 void progress_spinner(const RenderParams&, const Vec2&, r32 = 20.0f);
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&);
 void progress_infinite(const RenderParams&, const char*, const Vec2&);
@@ -120,6 +128,7 @@ void dialog_with_time_limit(s8, DialogCallback, DialogCallback, r32, const char*
 void dialog_no_action(s8);
 void draw_letterbox(const RenderParams&, r32, r32);
 b8 dialog_active(s8);
+AssetID region_string(Region);
 
 }
 

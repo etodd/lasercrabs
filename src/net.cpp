@@ -3367,7 +3367,14 @@ void handle_server_disconnect(DisconnectReason reason)
 		connect(addr);
 	}
 	else
+	{
 		Game::unload_level();
+		if (Game::session.type == SessionType::Story && reason == DisconnectReason::ServerResetting)
+		{
+			Game::load_level(Game::save.zone_current, Game::Mode::Parkour);
+			Game::level.post_pvp = true;
+		}
+	}
 }
 
 b8 master_send_server_request()

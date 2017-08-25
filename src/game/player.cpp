@@ -1215,14 +1215,9 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 
 		if (!spawned_at_last_supported)
 		{
-			if (Game::save.zone_current_restore)
+			if (Game::level.post_pvp)
 			{
-				spawn_pos.angle = Game::save.zone_current_restore_rotation;
-				spawn_pos.pos = Game::save.zone_current_restore_position;
-			}
-			else if (Game::level.post_pvp)
-			{
-				// we have already played a PvP match on this level; we must be exiting PvP mode.
+				// we have just played a PvP match; we must be exiting PvP mode.
 				// spawn the player at the terminal.
 				get_interactable_standing_position(Game::level.terminal_interactable.ref()->get<Transform>(), &spawn_pos.pos, &spawn_pos.angle);
 			}
@@ -1274,15 +1269,13 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 
 	if (Game::level.mode == Game::Mode::Parkour)
 	{
-		if (Game::level.post_pvp && !Game::save.zone_current_restore)
+		if (Game::level.post_pvp)
 		{
 			// player is getting out of the terminal
 			spawned->get<Animator>()->layers[3].set(Asset::Animation::character_terminal_exit, 0.0f); // bypass animation blending
 			spawned->get<PlayerControlHuman>()->anim_base = Game::level.terminal_interactable.ref();
+			Game::level.post_pvp = false;
 		}
-
-		Game::save.zone_current_restore = false;
-		Game::level.post_pvp = false;
 	}
 	else
 		ParticleEffect::spawn(ParticleEffect::Type::SpawnDrone, spawn_pos.pos, Quat::look(Vec3(0, 1, 0)));
@@ -3827,14 +3820,6 @@ void PlayerControlHuman::update(const Update& u)
 			}
 			else
 				get<Parkour>()->climb_velocity = 0.0f;
-
-			if (input_enabled() && u.last_input->get(Controls::Scoreboard, gamepad) && !u.input->get(Controls::Scoreboard, gamepad))
-			{
-				if (Tram::player_inside(entity()))
-					player.ref()->msg(_(strings::error_inside_tram), false);
-				else
-					Overworld::show(player.ref()->camera.ref(), Overworld::State::StoryMode);
-			}
 		
 			// set movement unless we're climbing up and down
 			if (!(get<Parkour>()->fsm.current == Parkour::State::Climb && u.input->get(Controls::Parkour, gamepad)))

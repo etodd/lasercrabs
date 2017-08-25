@@ -3380,7 +3380,7 @@ void TerminalEntity::close()
 void TerminalEntity::closed()
 {
 	if (Game::level.local)
-		Team::transition_mode(Game::Mode::Pvp);
+		Overworld::show(PlayerHuman::list.iterator().item()->camera.ref(), Overworld::State::StoryMode);
 }
 
 TerminalEntity::TerminalEntity()
@@ -3472,7 +3472,7 @@ TramRunnerEntity::TramRunnerEntity(s8 track, b8 is_front)
 
 	const Game::TramTrack& t = Game::level.tram_tracks[track];
 	r32 offset;
-	if (Game::save.zone_last == t.level && !Game::save.zone_current_restore)
+	if (Game::save.zone_last == t.level && !Game::level.post_pvp)
 	{
 		offset = t.points[t.points.length - 1].offset - TRAM_LENGTH;
 		r->velocity = -TRAM_SPEED_MAX;

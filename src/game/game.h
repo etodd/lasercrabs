@@ -103,8 +103,6 @@ struct Game
 		r64 timestamp;
 		r64 zone_lost_times[MAX_ZONES];
 		Array<CollectibleEntry> collectibles;
-		Vec3 zone_current_restore_position;
-		r32 zone_current_restore_rotation;
 		s32 locke_index;
 		ZoneState zones[MAX_ZONES];
 		Group group;
@@ -112,7 +110,6 @@ struct Game
 		AssetID zone_last;
 		AssetID zone_current;
 		AssetID zone_overworld;
-		b8 zone_current_restore;
 		b8 locke_spoken;
 		b8 extended_parkour;
 

@@ -397,18 +397,6 @@ void multiplayer_entry_save()
 	}
 }
 
-AssetID region_string(Region region)
-{
-	static const AssetID region_strings[] =
-	{
-		strings::region_useast,
-		strings::region_uswest,
-		strings::region_europe,
-	};
-	vi_assert(s32(region) >= 0 && s32(region) < s32(Region::count));
-	return region_strings[s32(region)];
-}
-
 AssetID game_type_string(GameType type)
 {
 	static const AssetID game_type_strings[] =
@@ -726,7 +714,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				{
 					// region
-					if (UIMenu::enum_option(&config->region, menu->slider_item(u, _(strings::region), _(region_string(config->region)))))
+					if (UIMenu::enum_option(&config->region, menu->slider_item(u, _(strings::region), _(Menu::region_string(config->region)))))
 						data.multiplayer.active_server_dirty = true;
 				}
 
@@ -1008,41 +996,14 @@ void multiplayer_entry_view_update(const Update& u)
 
 void multiplayer_change_region_update(const Update& u)
 {
-	b8 cancel = u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
-		&& !Game::cancel_event_eaten[0];
-
-	UIMenu* menu = &data.multiplayer.menu[0];
-
-	menu->start(u, 0);
-
-	if (cancel || menu->item(u, _(strings::back)))
+	if (!Menu::choose_region(u, 0, &data.multiplayer.menu[0], Menu::AllowClose::Yes))
 	{
+		Data::Multiplayer::ServerList* top = &data.multiplayer.server_lists[s32(ServerListType::Top)];
+		top->entries.length = 0;
+		top->selected = 0;
+
 		multiplayer_state_transition(Data::Multiplayer::State::Browse);
-		Game::cancel_event_eaten[0] = true;
-		menu->end();
-		return;
 	}
-
-	for (s32 i = 0; i < s32(Region::count); i++)
-	{
-		Region region = Region(i);
-		if (menu->item(u, _(region_string(region)), nullptr, region == Settings::region, region == Settings::region ? Asset::Mesh::icon_checkmark : AssetNull))
-		{
-			Settings::region = region;
-			Loader::settings_save();
-
-			Data::Multiplayer::ServerList* top = &data.multiplayer.server_lists[s32(ServerListType::Top)];
-			top->entries.length = 0;
-			top->selected = 0;
-
-			multiplayer_state_transition(Data::Multiplayer::State::Browse);
-
-			menu->end();
-			return;
-		}
-	}
-
-	menu->end();
 }
 
 void multiplayer_update(const Update& u)
@@ -1180,7 +1141,7 @@ void multiplayer_top_bar_draw(const RenderParams& params, const Vec2& pos, const
 	switch (data.multiplayer.state)
 	{
 		case Data::Multiplayer::State::Browse:
-			text.text(0, "%s    %s    %s (%s)    %s", _(strings::prompt_select), _(strings::prompt_entry_create), _(strings::prompt_region), _(region_string(Settings::region)), _(strings::prompt_back));
+			text.text(0, "%s    %s    %s (%s)    %s", _(strings::prompt_select), _(strings::prompt_entry_create), _(strings::prompt_region), _(Menu::region_string(Settings::region)), _(strings::prompt_back));
 			break;
 		case Data::Multiplayer::State::EntryView:
 		{
@@ -1856,13 +1817,6 @@ void multiplayer_draw(const RenderParams& params)
 void go(AssetID zone)
 {
 	vi_assert(Game::level.local);
-	if (Game::session.type == SessionType::Story)
-	{
-		PlayerControlHuman* player = PlayerControlHuman::list.iterator().item();
-		Game::save.zone_current_restore = true;
-		Game::save.zone_current_restore_position = player->get<Transform>()->absolute_pos();
-		Game::save.zone_current_restore_rotation = player->get<PlayerCommon>()->angle_horizontal;
-	}
 	Game::schedule_load_level(zone, Game::Mode::Pvp);
 }
 

@@ -267,7 +267,15 @@ void Loader::settings_load(const Array<DisplayMode>& modes)
 	Settings::music = u8(Json::get_s32(json, "music", 100));
 	Settings::framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", 300));
 	Settings::shadow_quality = Settings::ShadowQuality(vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", s32(Settings::ShadowQuality::High)), s32(Settings::ShadowQuality::count) - 1)));
-	Settings::region = Region(vi_max(0, vi_min(Json::get_s32(json, "region", s32(Region::USEast)), s32(Region::count) - 1)));
+	Settings::region = Region(Json::get_s32(json, "region", s32(Region::Invalid)));
+	if (s32(Settings::region) < 0 || s32(Settings::region) >= s32(Region::count))
+	{
+		Settings::region = Region::Invalid;
+#if SERVER
+		fprintf(stderr, "%s", "Valid region must be specified in config file.");
+		vi_assert(false);
+#endif
+	}
 	Settings::volumetric_lighting = b8(Json::get_s32(json, "volumetric_lighting", 1));
 	Settings::antialiasing = b8(Json::get_s32(json, "antialiasing", 1));
 	Settings::ssao = b8(Json::get_s32(json, "ssao", 1));

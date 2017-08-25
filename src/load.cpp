@@ -20,19 +20,20 @@ LoopSwapper* Loader::swapper;
 namespace Settings
 {
 	Gamepad gamepads[MAX_GAMEPADS];
-	ShadowQuality shadow_quality;
 	s32 display_mode_index;
 	s32 framerate_limit;
 #if SERVER
 	s32 secret;
+	u16 port;
 #endif
+	Region region;
+	ShadowQuality shadow_quality;
 	char master_server[MAX_PATH_LENGTH + 1];
 	char username[MAX_USERNAME + 1];
 #if SERVER
 	char itch_api_key[MAX_AUTH_KEY + 1];
 	char public_ipv4[NET_MAX_ADDRESS];
 	char public_ipv6[NET_MAX_ADDRESS];
-	u16 port;
 #endif
 	u8 sfx;
 	u8 music;
@@ -266,6 +267,7 @@ void Loader::settings_load(const Array<DisplayMode>& modes)
 	Settings::music = u8(Json::get_s32(json, "music", 100));
 	Settings::framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", 300));
 	Settings::shadow_quality = Settings::ShadowQuality(vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", s32(Settings::ShadowQuality::High)), s32(Settings::ShadowQuality::count) - 1)));
+	Settings::region = Region(vi_max(0, vi_min(Json::get_s32(json, "region", s32(Region::USEast)), s32(Region::count) - 1)));
 	Settings::volumetric_lighting = b8(Json::get_s32(json, "volumetric_lighting", 1));
 	Settings::antialiasing = b8(Json::get_s32(json, "antialiasing", 1));
 	Settings::ssao = b8(Json::get_s32(json, "ssao", 1));
@@ -341,6 +343,7 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "sfx", Settings::sfx);
 	cJSON_AddNumberToObject(json, "music", Settings::music);
 	cJSON_AddNumberToObject(json, "shadow_quality", s32(Settings::shadow_quality));
+	cJSON_AddNumberToObject(json, "region", s32(Settings::region));
 	cJSON_AddNumberToObject(json, "volumetric_lighting", s32(Settings::volumetric_lighting));
 	cJSON_AddNumberToObject(json, "antialiasing", s32(Settings::antialiasing));
 	cJSON_AddNumberToObject(json, "ssao", s32(Settings::ssao));

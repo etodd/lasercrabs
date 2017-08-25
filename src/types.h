@@ -60,6 +60,14 @@ enum class ServerListType : s8
 	count,
 };
 
+enum class Region : s8
+{
+	USEast,
+	USWest,
+	Europe,
+	count,
+};
+
 enum class Ability : s8
 {
 	Bolter,

@@ -18,6 +18,7 @@
 #include "http.h"
 #include "mersenne/mersenne-twister.h"
 #include "data/json.h"
+#include <cmath>
 
 namespace VI
 {
@@ -397,7 +398,7 @@ namespace Master
 	{
 		config->id = id;
 		vi_assert(id > 0);
-		sqlite3_stmt* stmt = db_query("select name, config, max_players, team_count, game_type, creator_id, is_private from ServerConfig where id=?;");
+		sqlite3_stmt* stmt = db_query("select name, config, max_players, team_count, game_type, creator_id, is_private, region from ServerConfig where id=?;");
 		db_bind_int(stmt, 0, id);
 		b8 found = false;
 		if (db_step(stmt))
@@ -410,6 +411,7 @@ namespace Master
 			config->game_type = GameType(db_column_int(stmt, 4));
 			config->creator_id = db_column_int(stmt, 5);
 			config->is_private = b8(db_column_int(stmt, 6));
+			config->region = Region(db_column_int(stmt, 7));
 			found = true;
 		}
 		db_finalize(stmt);
@@ -457,7 +459,9 @@ namespace Master
 	{
 		if (client->server_state.id == 0)
 		{
-			config->id = 0; // story mode
+			// story mode
+			config->id = 0;
+			config->region = client->server_state.region;
 			return true;
 		}
 		else
@@ -606,6 +610,14 @@ namespace Master
 			itch_auth_result(user_data, false, 0, nullptr);
 	}
 
+	void db_set_server_online(u32 id, b8 online)
+	{
+		sqlite3_stmt* stmt = db_query("update ServerConfig set online=? where id=?;");
+		db_bind_int(stmt, 0, online);
+		db_bind_int(stmt, 1, id);
+		db_exec(stmt);
+	}
+
 	void disconnected(const Sock::Address& addr)
 	{
 		Node* node = node_for_address(addr);
@@ -620,7 +632,10 @@ namespace Master
 				vi_debug("Server %s disconnected.", addr_str);
 			}
 			if (node->server_state.id)
+			{
+				db_set_server_online(node->server_state.id, false);
 				server_config_map.erase(node->server_state.id);
+			}
 
 			{
 				u64 hash = addr.hash();
@@ -656,44 +671,75 @@ namespace Master
 		messenger.remove(addr);
 	}
 
+	s64 server_config_score(s64 plays, s64 last_played)
+	{
+		const s64 epoch = 1503678420LL;
+		return s64(log10(vi_max(1LL, plays))) + ((last_played - epoch) / 45000LL);
+	}
+
 	// returns the user's role in the given server
 	Role update_user_server_linkage(u32 user_id, u32 server_id, Role assign_role = Role::None)
 	{
 		Role role = Role::None;
 
-		// this is a custom ServerConfig; find out if the user is an admin of it
-		sqlite3_stmt* stmt = db_query("select role from UserServer where user_id=? and server_id=? limit 1;");
-		db_bind_int(stmt, 0, user_id);
-		db_bind_int(stmt, 1, server_id);
-		if (db_step(stmt))
 		{
-			role = Role(db_column_int(stmt, 0));
-			if (assign_role != Role::None)
-				role = assign_role;
-
-			// update existing linkage
+			// this is a custom ServerConfig; find out if the user is an admin of it
+			sqlite3_stmt* stmt = db_query("select role from UserServer where user_id=? and server_id=? limit 1;");
+			db_bind_int(stmt, 0, user_id);
+			db_bind_int(stmt, 1, server_id);
+			if (db_step(stmt))
 			{
-				sqlite3_stmt* stmt = db_query("update UserServer set timestamp=?, role=? where user_id=? and server_id=?;");
+				role = Role(db_column_int(stmt, 0));
+				if (assign_role != Role::None)
+					role = assign_role;
+
+				// update existing linkage
+				{
+					sqlite3_stmt* stmt = db_query("update UserServer set timestamp=?, role=? where user_id=? and server_id=?;");
+					db_bind_int(stmt, 0, platform::timestamp());
+					db_bind_int(stmt, 1, s64(role));
+					db_bind_int(stmt, 2, user_id);
+					db_bind_int(stmt, 3, server_id);
+					db_exec(stmt);
+				}
+			}
+			else
+			{
+				// add new linkage
+				if (assign_role != Role::None)
+					role = assign_role;
+				sqlite3_stmt* stmt = db_query("insert into UserServer (timestamp, user_id, server_id, role) values (?, ?, ?, ?);");
 				db_bind_int(stmt, 0, platform::timestamp());
-				db_bind_int(stmt, 1, s64(role));
-				db_bind_int(stmt, 2, user_id);
-				db_bind_int(stmt, 3, server_id);
+				db_bind_int(stmt, 1, user_id);
+				db_bind_int(stmt, 2, server_id);
+				db_bind_int(stmt, 3, s64(role));
+				db_exec(stmt);
+			}
+			db_finalize(stmt);
+		}
+
+		if (assign_role == Role::None)
+		{
+			// the user is just playing on this server; update the server's play count and score
+			s64 plays;
+			{
+				sqlite3_stmt* stmt = db_query("select plays from ServerConfig where id=?;");
+				db_bind_int(stmt, 0, server_id);
+				{
+					b8 success = db_step(stmt);
+					vi_assert(success);
+				}
+				plays = db_column_int(stmt, 0) + 1;
+				db_finalize(stmt);
+			}
+
+			{
+				sqlite3_stmt* stmt = db_query("update ServerConfig set plays=?, score=? where id=?;");
+				db_bind_int(stmt, 0, plays);
+				db_bind_int(stmt, 0, server_config_score(plays, platform::timestamp()));
 				db_exec(stmt);
 			}
 		}
-		else
-		{
-			// add new linkage
-			if (assign_role != Role::None)
-				role = assign_role;
-			sqlite3_stmt* stmt = db_query("insert into UserServer (timestamp, user_id, server_id, role) values (?, ?, ?, ?);");
-			db_bind_int(stmt, 0, platform::timestamp());
-			db_bind_int(stmt, 1, user_id);
-			db_bind_int(stmt, 2, server_id);
-			db_bind_int(stmt, 3, s64(role));
-			db_exec(stmt);
-		}
-		db_finalize(stmt);
 
 		return role;
 	}
@@ -801,15 +847,16 @@ namespace Master
 		return true;
 	}
 
-	sqlite3_stmt* server_list_query(Node* client, ServerListType type, s32 offset)
+	sqlite3_stmt* server_list_query(Node* client, Region region, ServerListType type, s32 offset)
 	{
 		sqlite3_stmt* stmt;
 		switch (type)
 		{
 			case ServerListType::Top:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig left join User on User.id=ServerConfig.creator_id where ServerConfig.is_private=0 limit ?,24");
-				db_bind_int(stmt, 0, offset);
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig left join User on User.id=ServerConfig.creator_id where ServerConfig.is_private=0 and (ServerConfig.online=1 or ServerConfig.region=?) order by ServerConfig.online desc, ServerConfig.score desc limit ?,24");
+				db_bind_int(stmt, 0, s64(region));
+				db_bind_int(stmt, 1, offset);
 				break;
 			}
 			case ServerListType::Recent:
@@ -888,10 +935,10 @@ namespace Master
 		return true;
 	}
 
-	b8 send_server_list(Node* client, ServerListType type, s32 offset)
+	b8 send_server_list(Node* client, Region region, ServerListType type, s32 offset)
 	{
 		offset = vi_max(offset - 12, 0);
-		sqlite3_stmt* stmt = server_list_query(client, type, offset);
+		sqlite3_stmt* stmt = server_list_query(client, region, type, offset);
 		while (true)
 		{
 			b8 done;
@@ -953,11 +1000,15 @@ namespace Master
 		server->transition(s.level == AssetNull ? Node::State::ServerIdle : Node::State::ServerActive);
 
 		if (server->server_state.id && s.level == AssetNull)
+		{
+			db_set_server_online(server->server_state.id, false);
 			server_config_map.erase(server->server_state.id);
+		}
 
 		if (s.id)
 		{
 			vi_assert(s.level != AssetNull);
+			db_set_server_online(s.id, true);
 			server_config_map[s.id] = server->addr;
 		}
 
@@ -1143,24 +1194,30 @@ namespace Master
 					{
 						AssetID level;
 						serialize_s16(p, level);
+						Region region;
+						serialize_enum(p, Region, region);
 						if (level < 0 || level >= Asset::Level::count) // todo: verify it is a PvP map
 							net_error();
 						node->server_state.level = level;
+						node->server_state.region = region;
 					}
 					else
 					{
-						// check if requested config exists, and find out whether it is private
-						sqlite3_stmt* stmt = db_query("select is_private from ServerConfig where id=? limit 1;");
+						// check if requested config exists, and find out whether it is private and what region it should be launched in
+						sqlite3_stmt* stmt = db_query("select is_private, region from ServerConfig where id=? limit 1;");
 						db_bind_int(stmt, 0, requested_server_id);
 						if (db_step(stmt))
 						{
 							b8 is_private = b8(db_column_int(stmt, 0));
+							Region region = Region(db_column_int(stmt, 1));
 							db_finalize(stmt);
 
 							// check if user has privileges on this server
 							Role role = user_role(node->user_key.id, requested_server_id);
 							if (role == Role::Banned || (role == Role::None && is_private))
 								net_error();
+
+							node->server_state.region = region;
 						}
 						else // config doesn't exist
 						{
@@ -1246,7 +1303,7 @@ namespace Master
 				if (create_new)
 				{
 					// create config in db
-					sqlite3_stmt* stmt = db_query("insert into ServerConfig (creator_id, name, config, max_players, team_count, game_type, is_private) values (?, ?, ?, ?, ?, ?, ?);");
+					sqlite3_stmt* stmt = db_query("insert into ServerConfig (creator_id, name, config, max_players, team_count, game_type, is_private, online, region, plays, score) values (?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?);");
 					db_bind_int(stmt, 0, node->user_key.id);
 					db_bind_text(stmt, 1, config.name);
 					char* json = server_config_stringify(config);
@@ -1256,6 +1313,8 @@ namespace Master
 					db_bind_int(stmt, 4, config.team_count);
 					db_bind_int(stmt, 5, s64(config.game_type));
 					db_bind_int(stmt, 6, config.is_private);
+					db_bind_int(stmt, 7, s64(config.region));
+					db_bind_int(stmt, 8, server_config_score(0, platform::timestamp()));
 					config_id = db_exec(stmt);
 				}
 				else
@@ -1293,6 +1352,8 @@ namespace Master
 				if (!check_user_key(p, node))
 					return false;
 
+				Region region;
+				serialize_enum(p, Region, region);
 				ServerListType type;
 				serialize_enum(p, ServerListType, type);
 				s32 offset;
@@ -1300,7 +1361,7 @@ namespace Master
 				if (offset < 0)
 					return false;
 
-				send_server_list(node, type, offset);
+				send_server_list(node, region, type, offset);
 				break;
 			}
 			case Message::ServerStatusUpdate:
@@ -1388,9 +1449,10 @@ namespace Master
 			if (init_db)
 			{
 				db_exec("create table User (id integer primary key autoincrement, token integer not null, token_timestamp integer not null, itch_id integer, steam_id integer, username varchar(256) not null, banned boolean not null, unique(itch_id), unique(steam_id));");
-				db_exec("create table ServerConfig (id integer primary key autoincrement, creator_id integer not null, name text not null, config text, max_players integer not null, team_count integer not null, game_type integer not null, is_private boolean not null, foreign key (creator_id) references User(id));");
+				db_exec("create table ServerConfig (id integer primary key autoincrement, creator_id integer not null, name text not null, config text, max_players integer not null, team_count integer not null, game_type integer not null, is_private boolean not null, online boolean not null, region integer not null, plays integer not null, score integer not null, foreign key (creator_id) references User(id));");
 				db_exec("create table UserServer (user_id not null, server_id not null, timestamp integer not null, role integer not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id));");
 			}
+			db_exec("update ServerConfig set online=0;");
 		}
 
 		// load settings
@@ -1520,18 +1582,21 @@ namespace Master
 						for (s32 i = 0; i < servers.length; i++)
 						{
 							Node* server = node_for_hash(servers[i]);
-							if (server->state == Node::State::ServerIdle)
+							if (server->state == Node::State::ServerIdle && server->server_state.region == client->server_state.region)
 							{
 								idle_server = server;
 								break;
 							}
 						}
-						vi_assert(idle_server);
-						idle_servers--;
-						send_server_load(idle_server, client);
-						send_server_expect_client(idle_server, &client->user_key);
-						client_queue_join(idle_server, client);
-						i--; // client has been removed from clients_waiting
+
+						if (idle_server)
+						{
+							idle_servers--;
+							send_server_load(idle_server, client);
+							send_server_expect_client(idle_server, &client->user_key);
+							client_queue_join(idle_server, client);
+							i--; // client has been removed from clients_waiting
+						}
 					}
 				}
 			}

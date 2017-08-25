@@ -2016,6 +2016,7 @@ void server_state(Master::ServerState* s)
 	else
 		s->id = Game::session.config.id;
 	s->player_slots = s8(vi_max(0, Game::session.config.max_players - PlayerManager::list.count()));
+	s->region = Settings::region;
 }
 
 b8 master_send_status_update()
@@ -3160,6 +3161,7 @@ b8 master_request_server_list(ServerListType type, s32 offset)
 	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ClientRequestServerList);
 	serialize_u32(&p, Game::user_key.id);
 	serialize_u32(&p, Game::user_key.token);
+	serialize_enum(&p, Region, Settings::region);
 	serialize_enum(&p, ServerListType, type);
 	serialize_s32(&p, offset);
 	packet_finalize(&p);
@@ -3378,7 +3380,10 @@ b8 master_send_server_request()
 	serialize_u32(&p, Game::user_key.token);
 	serialize_u32(&p, state_client.requested_server_id);
 	if (state_client.requested_server_id == 0) // story mode
+	{
 		serialize_s16(&p, state_client.requested_level);
+		serialize_enum(&p, Region, Settings::region);
+	}
 	packet_finalize(&p);
 	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
 	return true;

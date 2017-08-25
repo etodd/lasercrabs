@@ -336,12 +336,12 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 #else
 			story_disabled = false;
 #endif;
-			if (menu->item(u, _(strings::play), nullptr, story_disabled))
+			if (menu->item(u, _(strings::story), nullptr, story_disabled))
 			{
 				Scripts::Docks::play();
 				clear();
 			}
-			if (menu->item(u, _(strings::splitscreen)))
+			if (menu->item(u, _(strings::multiplayer)))
 			{
 				Game::save.reset();
 				Game::session.reset();

@@ -108,6 +108,7 @@ struct ServerState // represents the current state of a game server
 	u32 id; // the virtual server configuration currently active on this game server; 0 if it's story mode
 	AssetID level;
 	s8 player_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
+	Region region;
 };
 
 template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)
@@ -115,6 +116,7 @@ template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)
 	serialize_u32(p, s->id);
 	serialize_s16(p, s->level);
 	serialize_int(p, s8, s->player_slots, 0, MAX_PLAYERS);
+	serialize_enum(p, Region, s->region);
 	return true;
 }
 
@@ -187,6 +189,7 @@ struct ServerConfig
 	s8 min_players = 2;
 	s8 team_count = 2;
 	s8 drone_shield = DRONE_SHIELD;
+	Region region;
 	u8 time_limit_minutes = 6;
 	char name[MAX_SERVER_CONFIG_NAME + 1];
 	b8 enable_minions = true;
@@ -226,6 +229,7 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 #endif
 		serialize_int(p, s16, c->start_energy, 0, MAX_START_ENERGY);
 		serialize_int(p, s8, c->drone_shield, 0, DRONE_SHIELD);
+		serialize_enum(p, Region, c->region);
 		serialize_int(p, u16, c->start_upgrades.length, 0, c->start_upgrades.capacity());
 		for (s32 i = 0; i < c->start_upgrades.length; i++)
 			serialize_enum(p, Upgrade, c->start_upgrades[i]);

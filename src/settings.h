@@ -27,6 +27,7 @@ namespace Settings
 	// defined in load.cpp
 	extern Gamepad gamepads[MAX_GAMEPADS];
 	extern s32 framerate_limit;
+	extern s32 display_mode_index;
 #if SERVER
 	extern s32 secret;
 #endif
@@ -41,6 +42,7 @@ namespace Settings
 	extern u8 sfx;
 	extern u8 music;
 	extern ShadowQuality shadow_quality;
+	extern Region region;
 	extern b8 fullscreen;
 	extern b8 vsync;
 	extern b8 volumetric_lighting;
@@ -51,7 +53,6 @@ namespace Settings
 	extern b8 record;
 	extern b8 ssao;
 	extern b8 expo;
-	extern s32 display_mode_index;
 
 	const DisplayMode& display();
 };

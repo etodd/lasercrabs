@@ -140,6 +140,7 @@ struct Data
 			Browse,
 			EntryView,
 			EntryEdit,
+			ChangeRegion,
 			count,
 		};
 
@@ -274,8 +275,15 @@ void multiplayer_browse_update(const Update& u)
 	if (u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0))
 	{
 		new (&data.multiplayer.active_server.config) Net::Master::ServerConfig();
+		data.multiplayer.active_server.config.region = Settings::region;
 		multiplayer_switch_tab(ServerListType::Mine);
 		multiplayer_state_transition(Data::Multiplayer::State::EntryEdit);
+		return;
+	}
+
+	if (u.last_input->get(Controls::Scoreboard, 0) && !u.input->get(Controls::Scoreboard, 0))
+	{
+		multiplayer_state_transition(Data::Multiplayer::State::ChangeRegion);
 		return;
 	}
 
@@ -389,6 +397,68 @@ void multiplayer_entry_save()
 	}
 }
 
+AssetID region_string(Region region)
+{
+	static const AssetID region_strings[] =
+	{
+		strings::region_useast,
+		strings::region_uswest,
+		strings::region_europe,
+	};
+	vi_assert(s32(region) >= 0 && s32(region) < s32(Region::count));
+	return region_strings[s32(region)];
+}
+
+AssetID game_type_string(GameType type)
+{
+	static const AssetID game_type_strings[] =
+	{
+		strings::game_type_assault,
+		strings::game_type_deathmatch,
+	};
+	vi_assert(s32(type) >= 0 && s32(type) < s32(GameType::count));
+	return game_type_strings[s32(type)];
+}
+
+void game_type_string(UIText* text, GameType type, s8 team_count, s8 max_players)
+{
+	AssetID teams_type;
+	switch (team_count)
+	{
+		case 2:
+		{
+			if (max_players == 2)
+				teams_type = strings::teams_type_1v1;
+			else
+				teams_type = strings::teams_type_team;
+			break;
+		}
+		case 3:
+		{
+			if (max_players == 3)
+				teams_type = strings::teams_type_free_for_all;
+			else
+				teams_type = strings::teams_type_cutthroat;
+			break;
+		}
+		case 4:
+		{
+			if (max_players == 4)
+				teams_type = strings::teams_type_free_for_all;
+			else
+				teams_type = strings::teams_type_team;
+			break;
+		}
+		default:
+		{
+			teams_type = AssetNull;
+			vi_assert(false);
+			break;
+		}
+	}
+	text->text(0, "%s %s", _(teams_type), _(game_type_string(type)));
+}
+
 void multiplayer_entry_edit_update(const Update& u)
 {
 	b8 cancel = u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
@@ -479,8 +549,8 @@ void multiplayer_entry_edit_update(const Update& u)
 				s32 delta;
 				char str[MAX_PATH_LENGTH + 1];
 
-				// private
 				{
+					// private
 					b8* is_private = &config->is_private;
 					delta = menu->slider_item(u, _(strings::is_private), _(*is_private ? strings::yes : strings::no));
 					if (delta != 0)
@@ -492,31 +562,12 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				{
 					// game type
-					AssetID value;
-					switch (config->game_type)
-					{
-						case GameType::Assault:
-						{
-							value = strings::game_type_assault;
-							break;
-						}
-						case GameType::Deathmatch:
-						{
-							value = strings::game_type_deathmatch;
-							break;
-						}
-						default:
-						{
-							vi_assert(false);
-							break;
-						}
-					}
-					if (UIMenu::enum_option(&config->game_type, menu->slider_item(u, _(strings::game_type), _(value))))
+					if (UIMenu::enum_option(&config->game_type, menu->slider_item(u, _(strings::game_type), _(game_type_string(config->game_type)))))
 						data.multiplayer.active_server_dirty = true;
 				}
 
-				// levels
 				{
+					// levels
 					sprintf(str, "%d", s32(config->levels.length));
 					if (menu->item(u, _(strings::levels), str))
 					{
@@ -609,8 +660,8 @@ void multiplayer_entry_edit_update(const Update& u)
 						data.multiplayer.active_server_dirty = true;
 				}
 
-				// bots
 				{
+					// bots
 					b8* fill_bots = &config->fill_bots;
 					delta = menu->slider_item(u, _(strings::fill_bots), _(*fill_bots ? strings::on : strings::off));
 					if (delta)
@@ -640,8 +691,8 @@ void multiplayer_entry_edit_update(const Update& u)
 						data.multiplayer.active_server_dirty = true;
 				}
 
-				// enable minions
 				{
+					// enable minions
 					b8* enable_minions = &config->enable_minions;
 					delta = menu->slider_item(u, _(strings::enable_minions), _(*enable_minions ? strings::on : strings::off));
 					if (delta)
@@ -651,8 +702,8 @@ void multiplayer_entry_edit_update(const Update& u)
 					}
 				}
 
-				// allowed upgrades
 				{
+					// allowed upgrades
 					sprintf(str, "%d", s32(Net::popcount(s16((1 << s32(Upgrade::count)) - 1) & config->allow_upgrades)));
 					if (menu->item(u, _(strings::allow_upgrades), str))
 					{
@@ -662,8 +713,8 @@ void multiplayer_entry_edit_update(const Update& u)
 					}
 				}
 
-				// start upgrades
 				{
+					// start upgrades
 					sprintf(str, "%d", s32(config->start_upgrades.length));
 					if (menu->item(u, _(strings::start_upgrades), str))
 					{
@@ -671,6 +722,12 @@ void multiplayer_entry_edit_update(const Update& u)
 						menu->end();
 						return;
 					}
+				}
+
+				{
+					// region
+					if (UIMenu::enum_option(&config->region, menu->slider_item(u, _(strings::region), _(region_string(config->region)))))
+						data.multiplayer.active_server_dirty = true;
 				}
 
 				menu->end();
@@ -949,6 +1006,45 @@ void multiplayer_entry_view_update(const Update& u)
 	}
 }
 
+void multiplayer_change_region_update(const Update& u)
+{
+	b8 cancel = u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
+		&& !Game::cancel_event_eaten[0];
+
+	UIMenu* menu = &data.multiplayer.menu[0];
+
+	menu->start(u, 0);
+
+	if (cancel || menu->item(u, _(strings::back)))
+	{
+		multiplayer_state_transition(Data::Multiplayer::State::Browse);
+		Game::cancel_event_eaten[0] = true;
+		menu->end();
+		return;
+	}
+
+	for (s32 i = 0; i < s32(Region::count); i++)
+	{
+		Region region = Region(i);
+		if (menu->item(u, _(region_string(region)), nullptr, region == Settings::region, region == Settings::region ? Asset::Mesh::icon_checkmark : AssetNull))
+		{
+			Settings::region = region;
+			Loader::settings_save();
+
+			Data::Multiplayer::ServerList* top = &data.multiplayer.server_lists[s32(ServerListType::Top)];
+			top->entries.length = 0;
+			top->selected = 0;
+
+			multiplayer_state_transition(Data::Multiplayer::State::Browse);
+
+			menu->end();
+			return;
+		}
+	}
+
+	menu->end();
+}
+
 void multiplayer_update(const Update& u)
 {
 	if (Menu::main_menu_state != Menu::State::Hidden || Game::scheduled_load_level != AssetNull)
@@ -1013,12 +1109,16 @@ void multiplayer_update(const Update& u)
 			case Data::Multiplayer::State::EntryEdit:
 			{
 				multiplayer_entry_edit_update(u);
-				return;
 				break;
 			}
 			case Data::Multiplayer::State::EntryView:
 			{
 				multiplayer_entry_view_update(u);
+				break;
+			}
+			case Data::Multiplayer::State::ChangeRegion:
+			{
+				multiplayer_change_region_update(u);
 				break;
 			}
 			default:
@@ -1080,7 +1180,7 @@ void multiplayer_top_bar_draw(const RenderParams& params, const Vec2& pos, const
 	switch (data.multiplayer.state)
 	{
 		case Data::Multiplayer::State::Browse:
-			text.text(0, "%s    %s    %s", _(strings::prompt_select), _(strings::prompt_entry_create), _(strings::prompt_back));
+			text.text(0, "%s    %s    %s (%s)    %s", _(strings::prompt_select), _(strings::prompt_entry_create), _(strings::prompt_region), _(region_string(Settings::region)), _(strings::prompt_back));
 			break;
 		case Data::Multiplayer::State::EntryView:
 		{
@@ -1108,65 +1208,6 @@ void multiplayer_top_bar_draw(const RenderParams& params, const Vec2& pos, const
 		text.anchor_x = UIText::Anchor::Max;
 		text.draw(params, pos + Vec2(top_bar_size.x - PADDING, top_bar_size.y * 0.5f));
 	}
-}
-
-void game_type_string(UIText* text, GameType type, s8 team_count, s8 max_players)
-{
-	AssetID teams_type;
-	switch (team_count)
-	{
-		case 2:
-		{
-			if (max_players == 2)
-				teams_type = strings::teams_type_1v1;
-			else
-				teams_type = strings::teams_type_team;
-			break;
-		}
-		case 3:
-		{
-			if (max_players == 3)
-				teams_type = strings::teams_type_free_for_all;
-			else
-				teams_type = strings::teams_type_cutthroat;
-			break;
-		}
-		case 4:
-		{
-			if (max_players == 4)
-				teams_type = strings::teams_type_free_for_all;
-			else
-				teams_type = strings::teams_type_team;
-			break;
-		}
-		default:
-		{
-			teams_type = AssetNull;
-			vi_assert(false);
-			break;
-		}
-	}
-	AssetID game_type;
-	switch (type)
-	{
-		case GameType::Assault:
-		{
-			game_type = strings::game_type_assault;
-			break;
-		}
-		case GameType::Deathmatch:
-		{
-			game_type = strings::game_type_deathmatch;
-			break;
-		}
-		default:
-		{
-			game_type = AssetNull;
-			vi_assert(false);
-			break;
-		}
-	}
-	text->text(0, "%s %s", _(teams_type), _(game_type));
 }
 
 void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
@@ -1662,6 +1703,11 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 	}
 }
 
+void multiplayer_change_region_draw(const RenderParams& params, const Rect2& rect)
+{
+	data.multiplayer.menu[0].draw_ui(params, rect.pos + rect.size * 0.5f, UIText::Anchor::Center, UIText::Anchor::Center);
+}
+
 void multiplayer_draw(const RenderParams& params)
 {
 	if (Menu::main_menu_state == Menu::State::Hidden)
@@ -1768,6 +1814,11 @@ void multiplayer_draw(const RenderParams& params)
 				case Data::Multiplayer::State::EntryView:
 				{
 					multiplayer_entry_view_draw(params, rect_padded);
+					break;
+				}
+				case Data::Multiplayer::State::ChangeRegion:
+				{
+					multiplayer_change_region_draw(params, rect_padded);
 					break;
 				}
 				default:

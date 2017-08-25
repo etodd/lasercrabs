@@ -1415,7 +1415,7 @@ TurretEntity::TurretEntity(AI::Team team)
 	PointLight* light = create<PointLight>();
 	light->team = s8(team);
 	light->type = PointLight::Type::Normal;
-	light->radius = TURRET_VIEW_RANGE * 0.5f;
+	light->radius = TURRET_RANGE * 0.5f;
 }
 
 void Turret::awake()
@@ -1533,7 +1533,7 @@ b8 Turret::can_see(Entity* target) const
 
 	Vec3 to_target = target_pos - pos;
 	float distance_to_target = to_target.length();
-	if (distance_to_target < TURRET_VIEW_RANGE)
+	if (distance_to_target < TURRET_RANGE)
 	{
 		RaycastCallbackExcept ray_callback(pos, target_pos, entity());
 		Physics::raycast(&ray_callback, ~Team::force_field_mask(team));
@@ -2131,9 +2131,13 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 			case Type::DroneShotgun:
 			{
 				if (hit_object->has<Minion>())
-					damage = 3;
-				else
+					damage = MINION_HEALTH;
+				else if (hit_object->has<Drone>() || hit_object->has<Turret>())
 					damage = 1;
+				else if (hit_object->has<ForceField>())
+					damage = mersenne::rand() % 3 > 0 ? 1 : 0; // expected value: 0.66
+				else
+					damage = 2;
 				break;
 			}
 			case Type::Minion:

@@ -42,20 +42,28 @@ namespace VI
 
 const r32 Drone::cooldown_thresholds[DRONE_CHARGES] = { DRONE_COOLDOWN * 0.4f, DRONE_COOLDOWN * 0.1f, 0.0f, };
 Vec3 drone_shotgun_dirs[DRONE_SHOTGUN_PELLETS];
+r32 drone_shotgun_offsets[DRONE_SHOTGUN_PELLETS];
 
 void Drone::init()
 {
 	drone_shotgun_dirs[0] = Vec3(0, 0, 1);
+	drone_shotgun_offsets[0] = DRONE_SHIELD_RADIUS;
 	{
 		Vec3 d = Quat::euler(0.0f, 0.0f, PI * -0.02f) * Vec3(0, 0, 1);
 		for (s32 i = 0; i < 3; i++)
+		{
 			drone_shotgun_dirs[1 + i] = Quat::euler(r32(i) * (PI * 2.0f / 3.0f), 0.0f, 0.0f) * d;
+			drone_shotgun_offsets[1 + i] = DRONE_SHIELD_RADIUS * 0.5f;
+		}
 	}
 
 	{
 		Vec3 d = Quat::euler(0.0f, 0.0f, PI * 0.05f) * Vec3(0, 0, 1);
 		for (s32 i = 0; i < 9; i++)
+		{
 			drone_shotgun_dirs[4 + i] = Quat::euler(r32(i) * (PI * 2.0f / 9.0f), 0.0f, 0.0f) * d;
+			drone_shotgun_offsets[4 + i] = 0.0f;
+		}
 	}
 }
 
@@ -886,7 +894,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
 						{
 							Vec3 d = target_quat * drone_shotgun_dirs[i];
-							drone_bolt_spawn(drone, my_pos, d, Bolt::Type::DroneShotgun);
+							drone_bolt_spawn(drone, my_pos + d * drone_shotgun_offsets[i], d, Bolt::Type::DroneShotgun);
 						}
 						if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
 							drone->cooldown_setup(DRONE_SHOTGUN_CHARGES);
@@ -2316,7 +2324,8 @@ void Drone::update_server(const Update& u)
 	if (s == Drone::State::Crawl)
 	{
 		r32 velocity_sq = velocity.length_squared();
-		if (velocity_sq > 0.0f)
+		b8 just_landed = u.time.total - attach_time < DRONE_REFLECTION_TIME_TOLERANCE;
+		if ((velocity_sq > 0.0f || just_landed) && !UpgradeStation::drone_inside(this))
 		{
 			// collision detection with other drones
 			Net::StateFrame* state_frame = nullptr;
@@ -2325,7 +2334,6 @@ void Drone::update_server(const Update& u)
 				state_frame = &state_frame_data;
 			AI::Team my_team = get<AIAgent>()->team;
 			Vec3 my_pos = get<Transform>()->absolute_pos();
-			b8 just_landed = u.time.total - attach_time < DRONE_REFLECTION_TIME_TOLERANCE;
 			for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
 			{
 				if (i.item() == this // don't collide with self
@@ -2338,8 +2346,10 @@ void Drone::update_server(const Update& u)
 				r32 distance = diff.length_squared();
 				if (distance < (DRONE_SHIELD_RADIUS * 2.0f) * (DRONE_SHIELD_RADIUS * 2.0f))
 				{
-					if ((just_landed && attach_time > i.item()->attach_time)
-						|| i.item()->velocity.length_squared() <= velocity.length_squared())
+					b8 enemy_just_landed = u.time.total - i.item()->attach_time < DRONE_REFLECTION_TIME_TOLERANCE;
+					if ((just_landed || enemy_just_landed)
+						? (attach_time > i.item()->attach_time) // if one of us just landed, then the one that landed first takes precedence
+						: (i.item()->velocity.length_squared() <= velocity.length_squared())) // if we're both just crawling around, the faster one takes precedence
 					{
 						distance = sqrtf(distance);
 						Vec3 normal;

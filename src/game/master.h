@@ -26,6 +26,15 @@ struct UserKey
 	}
 };
 
+enum class Role : s8
+{
+	None,
+	Banned,
+	Allowed,
+	Admin,
+	count,
+};
+
 // type of authentication used to obtain a user key from the master server
 enum class AuthType : s8
 {
@@ -33,42 +42,6 @@ enum class AuthType : s8
 	Itch,
 	Steam,
 	count,
-};
-
-struct CollectibleEntry
-{
-	AssetID zone;
-	ID id;
-};
-
-enum class Group : s8
-{
-	None,
-	WuGang,
-	Ephyra,
-	count,
-};
-
-struct Save
-{
-	r64 timestamp;
-	r64 zone_lost_times[MAX_ZONES];
-	Array<CollectibleEntry> collectibles;
-	Vec3 zone_current_restore_position;
-	r32 zone_current_restore_rotation;
-	s32 locke_index;
-	ZoneState zones[MAX_ZONES];
-	Group group;
-	s16 resources[s32(Resource::count)];
-	AssetID zone_last;
-	AssetID zone_current;
-	AssetID zone_overworld;
-	b8 zone_current_restore;
-	b8 locke_spoken;
-	b8 extended_parkour;
-
-	Save();
-	void reset();
 };
 
 enum class Message : s8
@@ -206,7 +179,7 @@ struct ServerConfig
 	StaticArray<AssetID, 32> levels;
 	s16 kill_limit = DEFAULT_ASSAULT_DRONES;
 	s16 respawns = DEFAULT_ASSAULT_DRONES;
-	s16 allow_upgrades = 0xffff;
+	s16 allow_upgrades = s16((1 << s32(Upgrade::count)) - 1);
 	s16 start_energy = ENERGY_INITIAL;
 	GameType game_type = GameType::Assault;
 	StaticArray<Upgrade, 3> start_upgrades;
@@ -246,6 +219,11 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		serialize_u32(p, c->creator_id);
 		serialize_int(p, s16, c->kill_limit, 0, 1000);
 		serialize_s16(p, c->allow_upgrades);
+#if SERVER
+		// disallow extra drone upgrade without actually storing that preference in the master server database
+		if (Stream::IsReading && c->game_type == GameType::Deathmatch)
+			c->allow_upgrades &= ~(1 << s32(Upgrade::ExtraDrone)); // can't purchase extra drones when you have infinite drones
+#endif
 		serialize_int(p, s16, c->start_energy, 0, MAX_START_ENERGY);
 		serialize_int(p, s8, c->drone_shield, 0, DRONE_SHIELD);
 		serialize_int(p, u16, c->start_upgrades.length, 0, c->start_upgrades.capacity());
@@ -301,38 +279,6 @@ template<typename Stream> b8 serialize_server_details(Stream* p, ServerDetails* 
 
 	serialize_bool(p, d->is_admin);
 
-	return true;
-}
-
-template<typename Stream> b8 serialize_save(Stream* p, Save* s)
-{
-	serialize_r64(p, s->timestamp);
-	for (s32 i = 0; i < MAX_ZONES; i++)
-		serialize_r64(p, s->zone_lost_times[i]);
-	serialize_s32(p, s->collectibles.length);
-	if (Stream::IsReading)
-		s->collectibles.resize(s->collectibles.length);
-	for (s32 i = 0; i < s->collectibles.length; i++)
-	{
-		serialize_s16(p, s->collectibles[i].zone);
-		serialize_int(p, ID, s->collectibles[i].id, 0, MAX_ENTITIES - 1);
-	}
-	serialize_r32(p, s->zone_current_restore_position.x);
-	serialize_r32(p, s->zone_current_restore_position.y);
-	serialize_r32(p, s->zone_current_restore_position.z);
-	serialize_r32(p, s->zone_current_restore_rotation);
-	serialize_s32(p, s->locke_index);
-	for (s32 i = 0; i < MAX_ZONES; i++)
-		serialize_enum(p, ZoneState, s->zones[i]);
-	serialize_enum(p, Group, s->group);
-	for (s32 i = 0; i < s32(Resource::count); i++)
-		serialize_s16(p, s->resources[i]);
-	serialize_s16(p, s->zone_last);
-	serialize_s16(p, s->zone_current);
-	serialize_s16(p, s->zone_overworld);
-	serialize_bool(p, s->zone_current_restore);
-	serialize_bool(p, s->locke_spoken);
-	serialize_bool(p, s->extended_parkour);
 	return true;
 }
 

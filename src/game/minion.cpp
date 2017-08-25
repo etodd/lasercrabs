@@ -25,10 +25,6 @@
 
 #define WALK_SPEED 2.5f
 #define ROTATION_SPEED 4.0f
-#define MINION_HEARING_RANGE 7.0f
-#define MINION_VISION_RANGE (DRONE_MAX_DISTANCE * 0.8f)
-#define MINION_MELEE_RANGE 2.5f
-#define HEALTH 6
 #define PATH_RECALC_TIME 1.0f
 #define TARGET_SCAN_TIME 0.5f
 
@@ -53,7 +49,7 @@ MinionEntity::MinionEntity(const Vec3& pos, const Quat& quat, AI::Team team, Pla
 
 	create<Audio>();
 
-	create<Health>(HEALTH, HEALTH);
+	create<Health>(MINION_HEALTH, MINION_HEALTH);
 	
 	Vec3 forward = quat * Vec3(0, 0, 1);
 

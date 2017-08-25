@@ -120,7 +120,6 @@ namespace Master
 			count,
 		};
 
-		Save* save;
 		r64 last_message_timestamp;
 		r64 state_change_timestamp;
 		UserKey user_key;
@@ -417,15 +416,15 @@ namespace Master
 		return found;
 	}
 
-	b8 user_is_admin(u32 user_id, u32 config_id)
+	Role user_role(u32 user_id, u32 config_id)
 	{
-		sqlite3_stmt* stmt = db_query("select is_admin from UserServer where user_id=? and server_id=? limit 1;");
+		sqlite3_stmt* stmt = db_query("select role from UserServer where user_id=? and server_id=? limit 1;");
 		db_bind_int(stmt, 0, user_id);
 		db_bind_int(stmt, 1, config_id);
 		if (db_step(stmt))
-			return b8(db_column_int(stmt, 0));
+			return Role(db_column_int(stmt, 0));
 		else
-			return false;
+			return Role::None;
 	}
 
 	void username_get(u32 user_id, char* username)
@@ -442,8 +441,12 @@ namespace Master
 	{
 		if (server_config_get(config_id, &details->config))
 		{
+			Role role = user_role(user_id, config_id);
+			if (role == Role::Banned || (role == Role::None && details->config.is_private))
+				return false;
+
+			details->is_admin = role == Role::Admin;
 			server_state_for_config_id(config_id, details->config.max_players, &details->state, addr_type, &details->addr);
-			details->is_admin = user_is_admin(user_id, config_id);
 			username_get(user_id, details->creator_username);
 			return true;
 		}
@@ -505,14 +508,17 @@ namespace Master
 				key.token = u32(mersenne::rand());
 
 				// save user in database
-				sqlite3_stmt* stmt = db_query("select id from User where itch_id=? limit 1;");
+				sqlite3_stmt* stmt = db_query("select id, banned from User where itch_id=? limit 1;");
 				db_bind_int(stmt, 0, itch_id);
 				if (db_step(stmt))
 				{
 					key.id = s32(db_column_int(stmt, 0));
-
-					// update existing user
+					b8 banned = b8(db_column_int(stmt, 1));
+					if (banned)
+						success = false;
+					else
 					{
+						// update existing user
 						sqlite3_stmt* stmt = db_query("update User set token=?, token_timestamp=?, username=? where itch_id=?;");
 						db_bind_int(stmt, 0, key.token);
 						db_bind_int(stmt, 1, platform::timestamp());
@@ -524,7 +530,7 @@ namespace Master
 				else
 				{
 					// insert new user
-					sqlite3_stmt* stmt = db_query("insert into User (token, token_timestamp, itch_id, username) values (?, ?, ?, ?);");
+					sqlite3_stmt* stmt = db_query("insert into User (token, token_timestamp, itch_id, username, banned) values (?, ?, ?, ?, 0);");
 					db_bind_int(stmt, 0, key.token);
 					db_bind_int(stmt, 1, platform::timestamp());
 					db_bind_int(stmt, 2, itch_id);
@@ -533,7 +539,10 @@ namespace Master
 				}
 				db_finalize(stmt);
 
-				send_auth_response(node->addr, &key, username);
+				if (success)
+					send_auth_response(node->addr, &key, username);
+				else
+					send_auth_response(node->addr, nullptr, nullptr);
 			}
 			else
 				send_auth_response(node->addr, nullptr, nullptr);
@@ -642,36 +651,31 @@ namespace Master
 					}
 				}
 			}
-			if (node->save)
-			{
-				delete node->save;
-				node->save = nullptr;
-			}
 		}
 		nodes.erase(addr.hash());
 		messenger.remove(addr);
 	}
 
-	// returns true if the user is an admin of the given server
-	b8 update_user_server_linkage(u32 user_id, u32 server_id, b8 make_admin = false)
+	// returns the user's role in the given server
+	Role update_user_server_linkage(u32 user_id, u32 server_id, Role assign_role = Role::None)
 	{
-		b8 is_admin = false;
+		Role role = Role::None;
 
 		// this is a custom ServerConfig; find out if the user is an admin of it
-		sqlite3_stmt* stmt = db_query("select is_admin from UserServer where user_id=? and server_id=? limit 1;");
+		sqlite3_stmt* stmt = db_query("select role from UserServer where user_id=? and server_id=? limit 1;");
 		db_bind_int(stmt, 0, user_id);
 		db_bind_int(stmt, 1, server_id);
 		if (db_step(stmt))
 		{
-			is_admin = b8(db_column_int(stmt, 0));
-			if (make_admin)
-				is_admin = true;
+			role = Role(db_column_int(stmt, 0));
+			if (assign_role != Role::None)
+				role = assign_role;
 
 			// update existing linkage
 			{
-				sqlite3_stmt* stmt = db_query("update UserServer set timestamp=?, is_admin=? where user_id=? and server_id=?;");
+				sqlite3_stmt* stmt = db_query("update UserServer set timestamp=?, role=? where user_id=? and server_id=?;");
 				db_bind_int(stmt, 0, platform::timestamp());
-				db_bind_int(stmt, 1, is_admin);
+				db_bind_int(stmt, 1, s64(role));
 				db_bind_int(stmt, 2, user_id);
 				db_bind_int(stmt, 3, server_id);
 				db_exec(stmt);
@@ -680,34 +684,37 @@ namespace Master
 		else
 		{
 			// add new linkage
-			if (make_admin)
-				is_admin = true;
-			sqlite3_stmt* stmt = db_query("insert into UserServer (timestamp, user_id, server_id, is_admin) values (?, ?, ?, ?);");
+			if (assign_role != Role::None)
+				role = assign_role;
+			sqlite3_stmt* stmt = db_query("insert into UserServer (timestamp, user_id, server_id, role) values (?, ?, ?, ?);");
 			db_bind_int(stmt, 0, platform::timestamp());
 			db_bind_int(stmt, 1, user_id);
 			db_bind_int(stmt, 2, server_id);
-			db_bind_int(stmt, 3, is_admin);
+			db_bind_int(stmt, 3, s64(role));
 			db_exec(stmt);
 		}
 		db_finalize(stmt);
 
-		return is_admin;
+		return role;
 	}
 
 	b8 send_server_expect_client(Node* server, UserKey* user)
 	{
 		using Stream = StreamWrite;
 
-		b8 is_admin = false;
+		Role role = Role::None;
 		if (server->server_state.id != 0) // 0 = story mode
-			is_admin = update_user_server_linkage(user->id, server->server_state.id);
+			role = update_user_server_linkage(user->id, server->server_state.id);
 
 		StreamWrite p;
 		packet_init(&p);
 		messenger.add_header(&p, server->addr, Message::ExpectClient);
 		serialize_u32(&p, user->id);
 		serialize_u32(&p, user->token);
-		serialize_bool(&p, is_admin);
+		{
+			b8 is_admin = role == Role::Admin;
+			serialize_bool(&p, is_admin);
+		}
 		packet_finalize(&p);
 		messenger.send(p, timestamp, server->addr, &sock);
 		return true;
@@ -730,16 +737,11 @@ namespace Master
 		{
 			if (!serialize_server_config(&p, &config))
 				net_error();
+			if (config.id == 0) // story mode
+				serialize_s16(&p, client->server_state.level); // desired level
 		}
 		else
 			net_error();
-
-		vi_assert(b8(client->save) == (config.id == 0));
-		if (client->save)
-		{
-			if (!serialize_save(&p, client->save))
-				net_error();
-		}
 
 		packet_finalize(&p);
 		messenger.send(p, timestamp, server->addr, &sock);
@@ -819,7 +821,7 @@ namespace Master
 			}
 			case ServerListType::Mine:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.is_admin=1 order by UserServer.timestamp desc limit ?,24");
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role>2 order by UserServer.timestamp desc limit ?,24");
 				db_bind_int(stmt, 0, client->user_key.id);
 				db_bind_int(stmt, 1, offset);
 				break;
@@ -1012,11 +1014,8 @@ namespace Master
 	Node* client_requested_server(Node* client)
 	{
 		// if the user is requesting to connect to a virtual server that is already active, they can connect immediately
-		if (!client->save)
-		{
-			vi_assert(client->server_state.id);
+		if (client->server_state.id)
 			return server_for_config_id(client->server_state.id);
-		}
 
 		return nullptr;
 	}
@@ -1030,12 +1029,6 @@ namespace Master
 				clients_waiting.remove(i);
 				break;
 			}
-		}
-
-		if (client->save)
-		{
-			delete client->save;
-			client->save = nullptr;
 		}
 
 		ClientConnection* connection = clients_connecting.add();
@@ -1148,29 +1141,34 @@ namespace Master
 				{
 					if (requested_server_id == 0) // story mode
 					{
-						if (!node->save)
-							node->save = new Save();
-						if (!serialize_save(p, node->save))
-						{
-							delete node->save;
-							node->save = nullptr;
+						AssetID level;
+						serialize_s16(p, level);
+						if (level < 0 || level >= Asset::Level::count) // todo: verify it is a PvP map
 							net_error();
-						}
+						node->server_state.level = level;
 					}
 					else
 					{
-						// check if requested config exists
-						sqlite3_stmt* stmt = db_query("select count(1) from ServerConfig where id=? limit 1;");
+						// check if requested config exists, and find out whether it is private
+						sqlite3_stmt* stmt = db_query("select is_private from ServerConfig where id=? limit 1;");
 						db_bind_int(stmt, 0, requested_server_id);
-						db_step(stmt);
-						s64 count = db_column_int(stmt, 0);
-						db_finalize(stmt);
-						if (count == 0)
+						if (db_step(stmt))
+						{
+							b8 is_private = b8(db_column_int(stmt, 0));
+							db_finalize(stmt);
+
+							// check if user has privileges on this server
+							Role role = user_role(node->user_key.id, requested_server_id);
+							if (role == Role::Banned || (role == Role::None && is_private))
+								net_error();
+						}
+						else // config doesn't exist
+						{
+							db_finalize(stmt);
 							net_error();
+						}
 					}
 					node->server_state.id = requested_server_id;
-					if (node->save)
-						node->server_state.level = node->save->zone_current;
 
 					if (node->state != Node::State::ClientWaiting)
 					{
@@ -1256,15 +1254,15 @@ namespace Master
 					free(json);
 					db_bind_int(stmt, 3, config.max_players);
 					db_bind_int(stmt, 4, config.team_count);
-					db_bind_int(stmt, 5, config.is_private);
-					db_bind_int(stmt, 6, s32(config.game_type));
+					db_bind_int(stmt, 5, s64(config.game_type));
+					db_bind_int(stmt, 6, config.is_private);
 					config_id = db_exec(stmt);
 				}
 				else
 				{
-					// updating an existing config
+					// update an existing config
 					// check if the user actually has privileges to edit it
-					if (!user_is_admin(node->user_key.id, config.id))
+					if (user_role(node->user_key.id, config.id) != Role::Admin)
 						net_error();
 					sqlite3_stmt* stmt = db_query("update ServerConfig set name=?, config=?, max_players=?, team_count=?, game_type=?, is_private=? where id=?;");
 					db_bind_text(stmt, 0, config.name);
@@ -1280,7 +1278,7 @@ namespace Master
 					config_id = config.id;
 				}
 
-				update_user_server_linkage(node->user_key.id, config_id, true); // true = make them an admin
+				update_user_server_linkage(node->user_key.id, config_id, Role::Admin); // make them an admin
 
 				Node* server = server_for_config_id(config_id);
 				if (server)
@@ -1389,9 +1387,9 @@ namespace Master
 
 			if (init_db)
 			{
-				db_exec("create table User (id integer primary key autoincrement, token integer not null, token_timestamp integer not null, itch_id integer, steam_id integer, username varchar(256) not null, unique(itch_id), unique(steam_id));");
+				db_exec("create table User (id integer primary key autoincrement, token integer not null, token_timestamp integer not null, itch_id integer, steam_id integer, username varchar(256) not null, banned boolean not null, unique(itch_id), unique(steam_id));");
 				db_exec("create table ServerConfig (id integer primary key autoincrement, creator_id integer not null, name text not null, config text, max_players integer not null, team_count integer not null, game_type integer not null, is_private boolean not null, foreign key (creator_id) references User(id));");
-				db_exec("create table UserServer (user_id not null, server_id not null, timestamp integer not null, is_admin boolean not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id));");
+				db_exec("create table UserServer (user_id not null, server_id not null, timestamp integer not null, role integer not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id));");
 			}
 		}
 

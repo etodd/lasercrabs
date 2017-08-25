@@ -2407,9 +2407,9 @@ b8 packet_handle_master(StreamRead* p)
 			if (Game::session.config.id == 0)
 			{
 				Game::session.type = SessionType::Story;
-				if (!Master::serialize_save(p, &Game::save))
-					net_error();
-				Game::load_level(Game::save.zone_current, Game::Mode::Parkour);
+				AssetID level;
+				serialize_s16(p, level);
+				Game::load_level(level, Game::Mode::Pvp);
 			}
 			else
 			{
@@ -2561,15 +2561,6 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					{
 						using Stream = StreamWrite;
 
-						// save data
-						if (Game::session.type == SessionType::Story)
-						{
-							StreamWrite* p = msg_new(&client->msgs_out_load, MessageType::InitSave);
-							if (!Master::serialize_save(p, &Game::save))
-								vi_assert(false);
-							msg_finalize(p);
-						}
-
 						// entity data
 						for (auto j = Entity::list.iterator(); !j.is_last(); j.next())
 						{
@@ -2578,21 +2569,6 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 							if (!serialize_entity(p, j.item()))
 								vi_assert(false);
 							msg_finalize(p);
-						}
-
-						// entity names
-						for (s32 i = 0; i < Game::level.finder.map.length; i++)
-						{
-							EntityFinder::NameEntry* entry = &Game::level.finder.map[i];
-							if (entry->entity.ref())
-							{
-								StreamWrite* p = msg_new(&client->msgs_out_load, MessageType::EntityName);
-								s32 length = strlen(entry->name);
-								serialize_int(p, s32, length, 0, 255);
-								serialize_bytes(p, (u8*)entry->name, length);
-								serialize_ref(p, entry->entity);
-								msg_finalize(p);
-							}
 						}
 
 						// done
@@ -3105,8 +3081,6 @@ struct StateClient
 	r32 server_rtt = 0.15f;
 	r32 rtts[MAX_PLAYERS];
 	u32 requested_server_id;
-	Mode mode;
-	ReplayMode replay_mode;
 	MessageHistory msgs_in_history; // messages we've received from the server
 	MessageHistory msgs_in_load_history; // load messages we've received from the server
 	Ack server_ack = { u32(-1), NET_SEQUENCE_INVALID }; // most recent ack we've received from the server
@@ -3114,6 +3088,9 @@ struct StateClient
 	SequenceHistory server_recently_resent; // sequences we recently resent to the server
 	MessageFrameState server_processed_msg_frame = { NET_SEQUENCE_INVALID, false }; // most recent sequence ID we've processed from the server
 	MessageFrameState server_processed_load_msg_frame = { NET_SEQUENCE_INVALID, false }; // most recent sequence ID of load messages we've processed from the server
+	AssetID requested_level;
+	Mode mode;
+	ReplayMode replay_mode;
 	b8 reconnect;
 };
 StateClient state_client;
@@ -3401,23 +3378,23 @@ b8 master_send_server_request()
 	serialize_u32(&p, Game::user_key.token);
 	serialize_u32(&p, state_client.requested_server_id);
 	if (state_client.requested_server_id == 0) // story mode
-	{
-		if (!Master::serialize_save(&p, &Game::save))
-			net_error();
-	}
+		serialize_s16(&p, state_client.requested_level);
 	packet_finalize(&p);
 	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
 	return true;
 }
 
-b8 master_request_server(u32 id)
+b8 master_request_server(u32 id, AssetID level)
 {
+	vi_assert((id == 0) == (level != AssetNull));
+
 	Game::level.local = false;
 	Game::schedule_timer = 0.0f;
 
 	state_client.timeout = 0.0f;
 	state_client.mode = Mode::ContactingMaster;
 	state_client.requested_server_id = id;
+	state_client.requested_level = level;
 
 	master_send(Master::Message::Disconnect);
 	state_persistent.master.reset();
@@ -3868,24 +3845,6 @@ b8 msg_process(StreamRead* p)
 			vi_debug("Deleting entity ID %d", s32(id));
 #endif
 			World::net_remove(&Entity::list[id]);
-			break;
-		}
-		case MessageType::EntityName:
-		{
-			vi_assert(state_client.mode == Mode::Loading);
-			s32 length;
-			serialize_int(p, s32, length, 0, 255);
-			EntityFinder::NameEntry* entry = Game::level.finder.map.add();
-			serialize_bytes(p, (u8*)(entry->name), length);
-			entry->name[length] = '\0';
-			serialize_ref(p, entry->entity);
-			break;
-		}
-		case MessageType::InitSave:
-		{
-			vi_assert(state_client.mode == Mode::Loading);
-			if (!Master::serialize_save(p, &Game::save))
-				net_error();
 			break;
 		}
 		case MessageType::InitDone:
@@ -4453,8 +4412,6 @@ b8 msg_finalize(StreamWrite* p)
 		&& type != MessageType::ClientSetup
 		&& type != MessageType::EntityCreate
 		&& type != MessageType::EntityRemove
-		&& type != MessageType::EntityName
-		&& type != MessageType::InitSave
 		&& type != MessageType::InitDone
 		&& type != MessageType::LoadingDone
 		&& type != MessageType::TimeSync

@@ -63,11 +63,11 @@ enum class ServerListType : s8
 enum class Ability : s8
 {
 	Bolter,
-	ActiveArmor,
-	Minion,
-	Sensor,
-	ForceField,
 	Shotgun,
+	ActiveArmor,
+	Sensor,
+	Minion,
+	ForceField,
 	Sniper,
 	Grenade,
 	count,
@@ -77,11 +77,11 @@ enum class Ability : s8
 enum class Upgrade : s8
 {
 	Bolter,
-	ActiveArmor,
-	Minion,
-	Sensor,
-	ForceField,
 	Shotgun,
+	ActiveArmor,
+	Sensor,
+	Minion,
+	ForceField,
 	Sniper,
 	Grenade,
 	ExtraDrone,

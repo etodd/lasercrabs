@@ -76,11 +76,64 @@ AssetID Game::scheduled_load_level = AssetNull;
 AssetID Game::scheduled_dialog = AssetNull;
 Game::Mode Game::scheduled_mode = Game::Mode::Pvp;
 r32 Game::schedule_timer;
-Net::Master::Save Game::save;
+Game::Save Game::save;
 Game::Level Game::level;
 Game::Session Game::session;
 b8 Game::cancel_event_eaten[] = {};
 ScreenQuad Game::screen_quad;
+
+template<typename Stream> b8 serialize_save(Stream* p, Game::Save* s)
+{
+	serialize_r64(p, s->timestamp);
+	for (s32 i = 0; i < MAX_ZONES; i++)
+		serialize_r64(p, s->zone_lost_times[i]);
+	serialize_s32(p, s->collectibles.length);
+	if (Stream::IsReading)
+		s->collectibles.resize(s->collectibles.length);
+	for (s32 i = 0; i < s->collectibles.length; i++)
+	{
+		serialize_s16(p, s->collectibles[i].zone);
+		serialize_int(p, ID, s->collectibles[i].id, 0, MAX_ENTITIES - 1);
+	}
+	serialize_r32(p, s->zone_current_restore_position.x);
+	serialize_r32(p, s->zone_current_restore_position.y);
+	serialize_r32(p, s->zone_current_restore_position.z);
+	serialize_r32(p, s->zone_current_restore_rotation);
+	serialize_s32(p, s->locke_index);
+	for (s32 i = 0; i < MAX_ZONES; i++)
+		serialize_enum(p, ZoneState, s->zones[i]);
+	serialize_enum(p, Group, s->group);
+	for (s32 i = 0; i < s32(Resource::count); i++)
+		serialize_s16(p, s->resources[i]);
+	serialize_s16(p, s->zone_last);
+	serialize_s16(p, s->zone_current);
+	serialize_s16(p, s->zone_overworld);
+	serialize_bool(p, s->zone_current_restore);
+	serialize_bool(p, s->locke_spoken);
+	serialize_bool(p, s->extended_parkour);
+	return true;
+}
+
+Game::Save::Save()
+{
+	reset();
+}
+
+void Game::Save::reset()
+{
+	this->~Save();
+
+	memset(this, 0, sizeof(*this));
+
+	zone_last = AssetNull;
+	zone_current = AssetNull;
+	zone_overworld = AssetNull;
+	locke_index = -1;
+
+	zones[Asset::Level::Docks] = ZoneState::ParkourUnlocked;
+
+	resources[s32(Resource::Energy)] = s16(ENERGY_INITIAL * 3.5f);
+}
 
 Game::Session::Session()
 	: type(SessionType::Story),
@@ -289,21 +342,7 @@ void Game::update(const Update& update_in)
 #endif
 		if (scheduled_load_level != AssetNull && schedule_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
 		{
-#if !SERVER
-			if (level.local
-				&& session.type == SessionType::Story
-				&& level.id == Asset::Level::Docks
-				&& scheduled_load_level == Asset::Level::Port_District) // we're playing locally on the title screen; need to switch to a server
-			{
-				save.zone_last = level.id; // hack to ensure hand-off works correctly
-				save.zone_current = scheduled_load_level;
-				unload_level();
-				Net::Client::master_request_server(0); // 0 = story mode
-				scheduled_load_level = AssetNull;
-			}
-			else
-#endif
-				load_level(scheduled_load_level, scheduled_mode);
+			load_level(scheduled_load_level, scheduled_mode);
 			if (scheduled_dialog != AssetNull)
 			{
 				Menu::dialog(0, &Menu::dialog_no_action, _(scheduled_dialog));
@@ -1044,8 +1083,7 @@ void Game::execute(const char* cmd)
 		{
 			unload_level();
 			save.reset();
-			save.zone_current = level;
-			Net::Client::master_request_server(0); // 0 = story mode
+			Net::Client::master_request_server(0, level); // 0 = story mode
 		}
 	}
 #endif
@@ -2034,7 +2072,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				ID id = ID(transforms.length);
 				for (s32 i = 0; i < save.collectibles.length; i++)
 				{
-					const Net::Master::CollectibleEntry& entry = save.collectibles[i];
+					const CollectibleEntry& entry = save.collectibles[i];
 					if (entry.zone == level.id && entry.id == id)
 					{
 						already_collected = true;

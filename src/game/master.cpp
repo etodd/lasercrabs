@@ -13,27 +13,6 @@ namespace Master
 #define DEBUG_MSG 0
 #define NET_MASTER_RESEND_INTERVAL 0.5
 
-Save::Save()
-{
-	reset();
-}
-
-void Save::reset()
-{
-	this->~Save();
-
-	memset(this, 0, sizeof(*this));
-
-	zone_last = AssetNull;
-	zone_current = AssetNull;
-	zone_overworld = AssetNull;
-	locke_index = -1;
-
-	zones[Asset::Level::Docks] = ZoneState::ParkourUnlocked;
-
-	resources[s32(Resource::Energy)] = s16(ENERGY_INITIAL * 3.5f);
-}
-
 Messenger::Peer::Peer()
 	: incoming_seq(NET_SEQUENCE_COUNT - 1),
 	outgoing_seq(0)

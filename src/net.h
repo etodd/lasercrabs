@@ -49,8 +49,6 @@ enum class MessageType : s8
 	Bolt,
 	Grenade,
 	UpgradeStation,
-	EntityName,
-	InitSave,
 	InitDone,
 	LoadingDone,
 	TimeSync,
@@ -186,7 +184,7 @@ namespace Client
 	void replay_file_add(const char*);
 	s32 replay_file_count();
 	b8 lagging();
-	b8 master_request_server(u32);
+	b8 master_request_server(u32, AssetID = AssetNull);
 	b8 master_save_server_config(const Master::ServerConfig&, u32);
 	b8 master_request_server_list(ServerListType, s32);
 	void master_keepalive();

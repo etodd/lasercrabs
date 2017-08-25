@@ -635,7 +635,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					s16* start_energy = &config->start_energy;
 					sprintf(str, "%d", s32(*start_energy));
 					delta = menu->slider_item(u, _(strings::start_energy), str);
-					*start_energy = vi_max(0, vi_min(MAX_START_ENERGY, (*start_energy) + (delta * 100)));
+					*start_energy = vi_max(0, vi_min(MAX_START_ENERGY, (*start_energy) + (delta * 50)));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
 				}
@@ -653,7 +653,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				// allowed upgrades
 				{
-					sprintf(str, "%d", s32(Net::popcount(0x0ffff & config->allow_upgrades)));
+					sprintf(str, "%d", s32(Net::popcount(s16((1 << s32(Upgrade::count)) - 1) & config->allow_upgrades)));
 					if (menu->item(u, _(strings::allow_upgrades), str))
 					{
 						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::AllowedUpgrades);
@@ -813,7 +813,10 @@ void multiplayer_entry_edit_update(const Update& u)
 						}
 					}
 
-					if (!already_added && menu->item(u, _(UpgradeInfo::list[i].name)))
+					const UpgradeInfo& info = UpgradeInfo::list[i];
+					if (!already_added
+						&& info.type != UpgradeInfo::Type::Consumable
+						&& menu->item(u, _(info.name)))
 					{
 						config->start_upgrades.add(Upgrade(i));
 						data.multiplayer.active_server_dirty = true;
@@ -838,7 +841,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				}
 
 				s16* allow_upgrades = &config->allow_upgrades;
-				for (s32 i = 0; i < s32(Ability::count); i++)
+				for (s32 i = 0; i < s32(Upgrade::count); i++)
 				{
 					b8 value = (*allow_upgrades) & (1 << i);
 					if (menu->slider_item(u, _(UpgradeInfo::list[i].name), _(value ? strings::yes : strings::no)))
@@ -1214,14 +1217,14 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 
 			{
 				game_type_string(&text, entry.game_type, entry.team_count, entry.max_players);
-				text.draw(params, pos + Vec2(panel_size.x * 0.75f, panel_size.y * 0.5f));
+				text.draw(params, pos + Vec2(panel_size.x * 0.79f, panel_size.y * 0.5f));
 			}
 
 			{
 				if (!selected)
 					text.color = UI::color_default;
 				text.text(0, "%d/%d", s32(entry.max_players - entry.server_state.player_slots), s32(entry.max_players));
-				text.draw(params, pos + Vec2(panel_size.x * 0.9f, panel_size.y * 0.5f));
+				text.draw(params, pos + Vec2(panel_size.x * 0.91f, panel_size.y * 0.5f));
 			}
 
 			if (entry.server_state.level != AssetNull) // there's a server running this config
@@ -1440,12 +1443,14 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 	}
 	else
 	{
-		Vec2 panel_size(((rect.size.x + PADDING * -2.0f) / 3.0f) + PADDING * -2.0f, PADDING + TEXT_SIZE * UI::scale);
+		const r32 text_size = TEXT_SIZE * 0.8f;
+		const r32 padding = PADDING * 0.8f;
+		Vec2 panel_size(((rect.size.x + padding * -2.0f) / 3.0f) + padding * -2.0f, padding + text_size * UI::scale);
 		Vec2 top_bar_size(rect.size.x, panel_size.y * 1.5f);
 		Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
 
 		multiplayer_top_bar_draw(params, pos, top_bar_size);
-		pos += Vec2(PADDING, PADDING * -2.0f);
+		pos += Vec2(padding, padding * -2.0f);
 
 		const Net::Master::ServerDetails& details = data.multiplayer.active_server;
 
@@ -1455,7 +1460,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 		text.color = UI::color_default;
 		text.size = MENU_ITEM_FONT_SIZE;
 		text.font = Asset::Font::pt_sans;
-		text.wrap(rect.size.x + PADDING * -2.0f);
+		text.wrap(rect.size.x + padding * -2.0f);
 		{
 			char buffer[UI_TEXT_MAX + 1];
 			snprintf(buffer, UI_TEXT_MAX, _(strings::map_by), details.config.name, details.creator_username);
@@ -1463,14 +1468,14 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 		}
 
 		{
-			Rect2 r = text.rect(pos).outset(PADDING);
+			Rect2 r = text.rect(pos).outset(padding);
 			UI::box(params, r, UI::color_background);
 			text.draw(params, pos);
-			pos.y = r.pos.y + PADDING * -2.0f;
+			pos.y = r.pos.y + padding * -2.0f;
 		}
 
 		text.font = Asset::Font::lowpoly;
-		text.size = TEXT_SIZE;
+		text.size = text_size;
 		text.wrap_width = 0;
 
 		Vec2 top = pos;
@@ -1481,7 +1486,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 		// column 1
 		{
 			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 7;
-			UI::box(params, { pos + Vec2(-PADDING, panel_size.y * -rows), Vec2(panel_size.x + PADDING * 2.0f, panel_size.y * rows + PADDING) }, UI::color_background);
+			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			if (details.state.level == AssetNull)
 			{
@@ -1580,10 +1585,10 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 		}
 
 		// column 2
-		pos = top + Vec2(panel_size.x + PADDING * 3.0f, 0);
+		pos = top + Vec2(panel_size.x + padding * 3.0f, 0);
 		{
 			s32 rows = 1 + details.config.levels.length;
-			UI::box(params, { pos + Vec2(-PADDING, panel_size.y * -rows), Vec2(panel_size.x + PADDING * 2.0f, panel_size.y * rows + PADDING) }, UI::color_background);
+			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			// levels
 			if (details.config.levels.length > 0)
@@ -1611,10 +1616,10 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 		}
 
 		// column 3
-		pos = top + Vec2((panel_size.x + PADDING * 3.0f) * 2.0f, 0);
+		pos = top + Vec2((panel_size.x + padding * 3.0f) * 2.0f, 0);
 		{
 			s32 rows = vi_max(1, s32(details.config.start_upgrades.length)) + 1 + s32(Upgrade::count);
-			UI::box(params, { pos + Vec2(-PADDING, panel_size.y * -rows), Vec2(panel_size.x + PADDING * 2.0f, panel_size.y * rows + PADDING) }, UI::color_background);
+			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			// start upgrades
 			if (details.config.start_upgrades.length > 0)
@@ -1862,7 +1867,7 @@ s16 energy_increment_total()
 		if (zone_state == ZoneState::PvpFriendly)
 			result += energy_increment_zone(zone);
 	}
-	if (Game::save.group != Net::Master::Group::None)
+	if (Game::save.group != Game::Group::None)
 		result = result / 8;
 	return result;
 }
@@ -2428,7 +2433,7 @@ b8 enable_input()
 		&& !Menu::dialog_active(0);
 }
 
-void group_join(Net::Master::Group g)
+void group_join(Game::Group g)
 {
 	// todo: redo this whole thing
 	Game::save.group = g;
@@ -2437,7 +2442,7 @@ void group_join(Net::Master::Group g)
 		const ZoneNode& zone = global.zones[i];
 		if (zone.max_teams > 2)
 		{
-			if (g == Net::Master::Group::None)
+			if (g == Game::Group::None)
 				zone_change(zone.id, ZoneState::Locked);
 			else
 				zone_change(zone.id, mersenne::randf_cc() > 0.7f ? ZoneState::PvpFriendly : ZoneState::PvpHostile);
@@ -2768,7 +2773,7 @@ Rect2 tab_story_draw(const RenderParams& p, const Data::StoryMode& data, StoryTa
 	return result;
 }
 
-AssetID group_name[s32(Net::Master::Group::count)] =
+AssetID group_name[s32(Game::Group::count)] =
 {
 	strings::none,
 	strings::wu_gang,
@@ -2829,7 +2834,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		{
 			const char* label;
 			if (story.tab == StoryTab::Map)
-				label = _(Game::save.group == Net::Master::Group::None ? strings::energy_generation_total : strings::energy_generation_group);
+				label = _(Game::save.group == Game::Group::None ? strings::energy_generation_total : strings::energy_generation_group);
 			else
 				label = "+%d";
 			sprintf(buffer, label, s32(energy_increment_total()));
@@ -2861,7 +2866,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			zone_statistics(&captured, &hostile, &locked);
 
 			sprintf(buffer, _(strings::zones_captured), captured);
-			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, Game::save.group == Net::Master::Group::None ? Team::ui_color_friend : UI::color_accent());
+			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, Game::save.group == Game::Group::None ? Team::ui_color_friend : UI::color_accent());
 
 			sprintf(buffer, _(strings::zones_hostile), hostile);
 			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, UI::color_alert());
@@ -3390,11 +3395,11 @@ void execute(const char* cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');
 		const char* group_string = delimiter + 1;
-		for (s32 i = 0; i < s32(Net::Master::Group::count); i++)
+		for (s32 i = 0; i < s32(Game::Group::count); i++)
 		{
 			if (strcmp(group_string, _(group_name[i])) == 0)
 			{
-				group_join(Net::Master::Group(i));
+				group_join(Game::Group(i));
 				break;
 			}
 		}

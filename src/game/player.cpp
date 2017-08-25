@@ -297,6 +297,7 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 #endif
 	local(local)
 {
+	menu.scroll.size = 10;
 	if (local)
 		uuid = Game::session.local_player_uuids[gamepad];
 }
@@ -896,7 +897,8 @@ void PlayerHuman::update(const Update& u)
 					for (s32 i = 0; i < s32(Upgrade::count); i++)
 					{
 						Upgrade upgrade = Upgrade(i);
-						if (!get<PlayerManager>()->has_upgrade(upgrade))
+						if ((Game::session.config.allow_upgrades & (1 << s32(upgrade)))
+							&& !get<PlayerManager>()->has_upgrade(upgrade))
 						{
 							const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
 							b8 can_upgrade = !upgrade_in_progress
@@ -1611,7 +1613,8 @@ Upgrade PlayerHuman::upgrade_selected() const
 		s32 index = 0;
 		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{
-			if (!get<PlayerManager>()->has_upgrade(Upgrade(i)))
+			if ((Game::session.config.allow_upgrades & (1 << i))
+				&& !get<PlayerManager>()->has_upgrade(Upgrade(i)))
 			{
 				if (index == menu.selected - 1)
 				{
@@ -2225,7 +2228,7 @@ void PlayerCommon::health_changed(const HealthEvent& e)
 		else if (src->has<Bolt>())
 		{
 			Entity* owner = src->get<Bolt>()->owner.ref();
-			if (owner->has<PlayerCommon>())
+			if (owner && owner->has<PlayerCommon>())
 				rewardee = owner->get<PlayerCommon>()->manager.ref();
 		}
 		else if (src->has<Grenade>())
@@ -3730,7 +3733,7 @@ void PlayerControlHuman::update(const Update& u)
 										// terminal is temporarily locked, must leave and come back
 										player.ref()->msg(_(strings::terminal_locked), false);
 									}
-									else if (Game::level.max_teams <= 2 || Game::save.group != Net::Master::Group::None) // if the map requires more than two players, you must be in a group
+									else if (Game::level.max_teams <= 2 || Game::save.group != Game::Group::None) // if the map requires more than two players, you must be in a group
 									{
 										if (Game::save.resources[s32(Resource::Drones)] < DEFAULT_ASSAULT_DRONES)
 										{

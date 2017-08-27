@@ -271,6 +271,8 @@ void Shield::awake()
 			Net::finalize_child(shield_entity);
 		}
 	}
+
+	link_arg<const HealthEvent&, &Shield::health_changed>(get<Health>()->changed);
 }
 
 // not synced over network
@@ -331,13 +333,19 @@ void Shield::update_client_all(const Update& u)
 		i.item()->update_client(u);
 }
 
-void Shield::damaged(const HealthEvent& e)
+void Shield::health_changed(const HealthEvent& e)
 {
-	s8 total = e.hp + e.shield;
-	if (total < -1)
+	if (e.shield < -1)
 		get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_DAMAGE_LARGE);
-	else if (total < 0)
+	else if (e.shield < 0)
 		get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_DAMAGE_SMALL);
+	else if (e.shield > 0)
+	{
+		if (get<Health>()->shield == 1)
+			get<Audio>()->post_event(AK::EVENTS::PLAY_SHIELD_RESTORE_INNER);
+		else if (get<Health>()->shield == 2)
+			get<Audio>()->post_event(AK::EVENTS::PLAY_SHIELD_RESTORE_OUTER);
+	}
 }
 
 void apply_alpha_scale(View* v, const Update& u, const Vec3& offset_pos, r32 target_alpha, r32 target_scale, r32 scale_speed_multiplier)
@@ -1069,6 +1077,7 @@ void UpgradeStation::update_client(const Update& u)
 		// drone disappeared on us; flip back over automatically
 		mode = Mode::Deactivating;
 		timer = UPGRADE_STATION_ANIM_TIME;
+		get<Audio>()->post_event(AK::EVENTS::PLAY_UPGRADE_STATION_EXIT);
 	}
 
 	if (timer > 0.0f)
@@ -1319,7 +1328,7 @@ CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3&
 	transform->parent = parent;
 	transform->absolute(pos + rot * Vec3(0, 0, DRONE_RADIUS), rot);
 
-	create<Health>(DRONE_HEALTH, DRONE_HEALTH, DRONE_SHIELD, DRONE_SHIELD);
+	create<Health>(DRONE_HEALTH, DRONE_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::core_module;
@@ -1958,7 +1967,25 @@ void Bolt::awake()
 {
 	last_pos = get<Transform>()->absolute_pos();
 	get<Audio>()->post_event(AK::EVENTS::PLAY_BOLT_FLY);
-	Audio::post_global_event(AK::EVENTS::PLAY_BOLT_SPAWN, last_pos);
+
+	if (!owner.ref()
+		|| !owner.ref()->has<PlayerControlHuman>()
+		|| !owner.ref()->get<PlayerControlHuman>()->local()) // local players have client-side prediction that plays the bolt sound
+	{
+		switch (type)
+		{
+			case Type::DroneBolter:
+			case Type::Minion:
+			case Type::Turret:
+				get<Audio>()->post_event(AK::EVENTS::PLAY_BOLT_SPAWN);
+				break;
+			case Type::DroneShotgun:
+				break;
+			default:
+				vi_assert(false);
+				break;
+		}
+	}
 }
 
 Bolt::~Bolt()

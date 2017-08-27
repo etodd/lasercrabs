@@ -353,7 +353,7 @@ namespace Master
 		config->min_players = s8(Json::get_s32(json, "min_players", 2));
 		config->time_limit_minutes = s8(Json::get_s32(json, "time_limit_minutes", 6));
 		config->enable_minions = b8(Json::get_s32(json, "enable_minions", 1));
-		config->drone_shield = s8(Json::get_s32(json, "drone_shield", DRONE_SHIELD));
+		config->drone_shield = s8(Json::get_s32(json, "drone_shield", DRONE_SHIELD_AMOUNT));
 		config->start_energy = b8(Json::get_s32(json, "start_energy"));
 		config->fill_bots = b8(Json::get_s32(json, "fill_bots"));
 		cJSON_Delete(json);

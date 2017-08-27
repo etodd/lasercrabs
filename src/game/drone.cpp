@@ -1653,6 +1653,7 @@ b8 Drone::go(const Vec3& dir)
 		else if (a == Ability::Bolter)
 		{
 			// client-side prediction; create fake bolt
+			get<Audio>()->post_event(AK::EVENTS::PLAY_BOLT_SPAWN);
 			fake_bolts.add
 			(
 				EffectLight::add
@@ -1720,6 +1721,7 @@ void drone_reflection_execute(Drone* d)
 	e.entity = reflected_off;
 	e.new_velocity = reflection.dir * DRONE_FLY_SPEED;
 	d->reflecting.fire(e);
+	d->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_REFLECT);
 
 	d->rotation_clamp_vector = reflection.dir;
 	d->get<Transform>()->rot = Quat::look(reflection.dir);

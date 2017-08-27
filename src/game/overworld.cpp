@@ -671,7 +671,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					s8* drone_shield = &config->drone_shield;
 					sprintf(str, "%d", s32(*drone_shield));
 					delta = menu->slider_item(u, _(strings::drone_shield), str);
-					*drone_shield = vi_max(0, vi_min(DRONE_SHIELD, (*drone_shield) + delta));
+					*drone_shield = vi_max(0, vi_min(DRONE_SHIELD_AMOUNT, (*drone_shield) + delta));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
 				}

@@ -18,12 +18,20 @@
 							<Position X="0" Y="3"/>
 						</Module>
 						<Module>
+							<ObjectRef Name="Drone_Footstep" ID="{E27AEB66-E171-426C-8B1C-047A9ABEA125}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+							<Position X="0" Y="4"/>
+						</Module>
+						<Module>
 							<ObjectRef Name="Play_Footstep" ID="{912A7768-2178-48E7-BCF7-F9F9EE2EADDE}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
 							<Position X="1" Y="1"/>
 						</Module>
 						<Module>
 							<ObjectRef Name="Play_Bolt_Spawn" ID="{D58B09F0-22C3-413D-A8F2-0F113D4C4F70}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
 							<Position X="1" Y="2"/>
+						</Module>
+						<Module>
+							<ObjectRef Name="Drone_Land" ID="{93ED167C-2E9C-424F-A847-B7D659EF3769}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+							<Position X="1" Y="4"/>
 						</Module>
 						<Module>
 							<ObjectRef Name="Play_Minion_Headshot" ID="{96CF21EF-E2BB-48CE-80B4-54E2FA6F3049}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
@@ -34,6 +42,10 @@
 							<Position X="2" Y="2"/>
 						</Module>
 						<Module>
+							<ObjectRef Name="Drone_Launch" ID="{D84AAC65-C3AA-4562-915C-831BA8301AB5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+							<Position X="2" Y="4"/>
+						</Module>
+						<Module>
 							<ObjectRef Name="Play_Drone_Damage_Small" ID="{7A7B24CA-E959-4808-A4A6-2801162BE918}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
 							<Position X="3" Y="1"/>
 						</Module>
@@ -41,14 +53,38 @@
 							<ObjectRef Name="Play_Music_01" ID="{C03573CE-9B2B-4870-BCA7-3F8D6DADB163}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
 							<Position X="3" Y="2"/>
 						</Module>
+						<Module>
+							<ObjectRef Name="Battery_Capture" ID="{61246997-0918-4CF2-AC2D-B7BF5BAB676C}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+							<Position X="3" Y="4"/>
+						</Module>
 					</ModuleList>
 					<RTPCValueList ShowAll="true">
+						<RTPCValue>
+							<GameParameterRef Name="Drone_Speed" ID="{2A872154-8E2F-422B-B045-3731805BB183}"/>
+							<Value>0</Value>
+						</RTPCValue>
 						<RTPCValue>
 							<GameParameterRef Name="Volume_Music" ID="{B1E54CCC-5EC7-4345-A62F-3A5A4F0365C8}"/>
 							<Value>0.84923928077455</Value>
 						</RTPCValue>
 						<RTPCValue>
+							<GameParameterRef Name="Parkour_Slide" ID="{6071C0CE-A3CA-461F-BDE3-5ADA06A81114}"/>
+							<Value>0</Value>
+						</RTPCValue>
+						<RTPCValue>
+							<GameParameterRef Name="Perspective" ID="{ECB87B1E-057D-46B4-9B66-B6EBBE249A3E}"/>
+							<Value>0.5</Value>
+						</RTPCValue>
+						<RTPCValue>
+							<GameParameterRef Name="Tram_Loop" ID="{4141EC43-09B5-47DC-90E6-E83292CD9ACD}"/>
+							<Value>0</Value>
+						</RTPCValue>
+						<RTPCValue>
 							<GameParameterRef Name="Danger" ID="{F2CF682D-D1A7-4B62-82F0-EB53B18EEC18}"/>
+							<Value>0</Value>
+						</RTPCValue>
+						<RTPCValue>
+							<GameParameterRef Name="Parkour_Wind" ID="{F6905F29-60EE-4D61-80E8-1CE93F7CC94F}"/>
 							<Value>0</Value>
 						</RTPCValue>
 						<RTPCValue>

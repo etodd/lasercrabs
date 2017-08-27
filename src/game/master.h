@@ -188,7 +188,7 @@ struct ServerConfig
 	s8 max_players = 1;
 	s8 min_players = 2;
 	s8 team_count = 2;
-	s8 drone_shield = DRONE_SHIELD;
+	s8 drone_shield = DRONE_SHIELD_AMOUNT;
 	Region region;
 	u8 time_limit_minutes = 6;
 	char name[MAX_SERVER_CONFIG_NAME + 1];
@@ -228,7 +228,7 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 			c->allow_upgrades &= ~(1 << s32(Upgrade::ExtraDrone)); // can't purchase extra drones when you have infinite drones
 #endif
 		serialize_int(p, s16, c->start_energy, 0, MAX_START_ENERGY);
-		serialize_int(p, s8, c->drone_shield, 0, DRONE_SHIELD);
+		serialize_int(p, s8, c->drone_shield, 0, DRONE_SHIELD_AMOUNT);
 		serialize_enum(p, Region, c->region);
 		serialize_int(p, u16, c->start_upgrades.length, 0, c->start_upgrades.capacity());
 		for (s32 i = 0; i < c->start_upgrades.length; i++)

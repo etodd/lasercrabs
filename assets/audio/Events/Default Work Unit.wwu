@@ -5,604 +5,269 @@
 			<ChildrenList>
 				<Folder Name="sfx" ID="{003FE422-C260-4F58-9678-D1A2EDD21545}" ShortID="905343941">
 					<ChildrenList>
-						<Event Name="Play_Minion_Headshot" ID="{96CF21EF-E2BB-48CE-80B4-54E2FA6F3049}">
-							<ChildrenList>
-								<Action Name="" ID="{2C171468-F148-4265-93E5-79036FD5C26C}" ShortID="177575733">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Headshot" ID="{BA569FB5-BFD6-4C20-9044-AD9AB68C0FD7}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Bolt_Spawn" ID="{D58B09F0-22C3-413D-A8F2-0F113D4C4F70}">
-							<ChildrenList>
-								<Action Name="" ID="{D3C6E1F2-64FE-44E5-850F-20A51546A678}" ShortID="829111211">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Laser" ID="{175AA597-3979-4154-B623-5A28EFE0EEE6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Footstep" ID="{912A7768-2178-48E7-BCF7-F9F9EE2EADDE}">
-							<ChildrenList>
-								<Action Name="" ID="{867FDA87-4015-411C-AA89-49B580BEEA38}" ShortID="606933759">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Footstep" ID="{8D83EC8D-7858-4B9E-8986-13A19750752B}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Drone_Damage_Small" ID="{7A7B24CA-E959-4808-A4A6-2801162BE918}">
-							<ChildrenList>
-								<Action Name="" ID="{06F3A2EF-EE7A-4589-BC77-9672048B9FA8}" ShortID="537887250">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Hurt" ID="{46CEBDF0-82A8-47E5-996C-692A78EFEBB9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Zoom_In" ID="{454EA34E-5D32-4F63-8880-39BA664837E4}">
-							<ChildrenList>
-								<Action Name="" ID="{388FB208-8C38-4749-A6DD-516C2AB64C83}" ShortID="65051056">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Zoom_In" ID="{BFCF049F-FB49-4EF8-BB36-0DB5752BF3F9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Zoom_Out" ID="{0A0B7F4E-0D2F-4826-AA5E-521F70FCD07B}">
-							<ChildrenList>
-								<Action Name="" ID="{44F82287-95B4-45AD-9B27-1FD72D030D3E}" ShortID="425197945">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Zoom_Out" ID="{DAB1BD25-85A5-43A4-9B47-3CEB0AE09255}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Stop_Drone_Fly" ID="{C535FDDC-7E3A-4286-AD18-154B17D2F61C}">
-							<ChildrenList>
-								<Action Name="" ID="{368F8AD2-D709-4C4D-B38A-5415D943F22F}" ShortID="911763260">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="2"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Fly" ID="{842508C5-3791-48A6-ADEB-DD596EF91B17}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-								<Action Name="" ID="{42AA9EFA-5211-44C0-8F08-3BA0007B2062}" ShortID="257874279">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="2"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Fly_Player" ID="{205BD6BD-40AF-4662-82C7-9EA923635F1E}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Drone_Fly" ID="{4614E46B-6FA6-4775-A36F-F984E13E0C64}">
-							<ChildrenList>
-								<Action Name="" ID="{22E374B2-3535-4AD3-A1E6-44234EF8D833}" ShortID="706496379">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Fly" ID="{842508C5-3791-48A6-ADEB-DD596EF91B17}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Parkour_Jump" ID="{D1181DC1-3636-4D9C-BC5E-6F4C155CDCDE}">
-							<ChildrenList>
-								<Action Name="" ID="{C30F91E5-730A-4E79-848D-01DE45481814}" ShortID="868806898">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Jump" ID="{463E9B1C-325F-4C2D-AC2B-C2F482485AD6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Minion_Spawn" ID="{044B13CF-0F99-492C-A510-E3055BD6B1EE}">
-							<ChildrenList>
-								<Action Name="" ID="{EF6BD803-2891-4A35-8300-E30843FA8FBF}" ShortID="569862728">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Sensor_Spawn" ID="{10DCE6B8-FAC1-4121-89FE-CF7AFB789028}">
-							<ChildrenList>
-								<Action Name="" ID="{C63320C0-72AE-4E35-89CF-3B83E27078DF}" ShortID="619182946">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Drone_Launch" ID="{D84AAC65-C3AA-4562-915C-831BA8301AB5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Grenade_Beep" ID="{2D163793-8E81-472D-99EB-864FE68A88A5}">
-							<ChildrenList>
-								<Action Name="" ID="{0CAAECA9-637F-4061-9DC0-833E128006B1}" ShortID="325039185">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Beep_Grenade" ID="{628C690A-1CE9-46C3-A5B4-1EE9975C34DD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Explosion" ID="{6F0DBF32-EE0B-45FC-9DEF-71F7FD036F6A}">
-							<ChildrenList>
-								<Action Name="" ID="{51EE7091-3A21-488C-B842-2C95600003DE}" ShortID="593962971">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Explosions" ID="{C6C242DC-96E5-4994-90AB-F2C88D1EA10A}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Grenade_Arm" ID="{006AC922-1DC9-4FF5-99C2-836020227099}">
-							<ChildrenList>
-								<Action Name="" ID="{A51204CE-D455-4400-B804-E28B980CAB6E}" ShortID="47563534">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Footstep" ID="{8D83EC8D-7858-4B9E-8986-13A19750752B}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Sensor_Ping" ID="{C4E6BF43-CC38-4E5D-8AD4-09031E41DDA1}">
-							<ChildrenList>
-								<Action Name="" ID="{3FE18BEA-ED8E-4B7D-BAB6-4195CCB668C3}" ShortID="454400929">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Beep_Grenade" ID="{628C690A-1CE9-46C3-A5B4-1EE9975C34DD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Minion_Die" ID="{655AFC70-201F-426F-9919-6E5DEE2E57E9}">
-							<ChildrenList>
-								<Action Name="" ID="{28C2E5A7-1898-49C0-9BC0-D91DB8CC04FA}" ShortID="819824158">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Headshot" ID="{BA569FB5-BFD6-4C20-9044-AD9AB68C0FD7}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Turret_Charge" ID="{7C218435-CC3A-4F80-B956-152F226AE2BB}"/>
-						<Event Name="Stop_Turret_Charge" ID="{2EAE6447-AB75-4EAE-966B-A71048579772}"/>
-						<Event Name="Play_Minion_Charge" ID="{D2FC5A1A-206B-4022-849A-4B6EB717BAB2}">
-							<ChildrenList>
-								<Action Name="" ID="{BEB82C35-DAB6-4EBB-A855-DD8DE1DF0B2F}" ShortID="425163432">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="mover_loop" ID="{6782133E-3212-481C-B0CF-4AE91C7DACF1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Minion_Melee" ID="{CA5B3381-F27D-4D16-8924-F66ED5BE1E38}">
-							<ChildrenList>
-								<Action Name="" ID="{8047D5DF-2237-4F9C-A62E-8DAF64B102F3}" ShortID="727376254">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Laser" ID="{175AA597-3979-4154-B623-5A28EFE0EEE6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Battery_Capture" ID="{FE57CB89-4720-43EF-AC7E-7E17D2FF0FC2}">
-							<ChildrenList>
-								<Action Name="" ID="{D0DEEBD3-3E04-4992-9978-C2CBB370B792}" ShortID="894589519">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Headshot" ID="{BA569FB5-BFD6-4C20-9044-AD9AB68C0FD7}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Battery_Reset" ID="{76DB62BF-CC10-45C3-80F6-FEA99D6DA648}">
-							<ChildrenList>
-								<Action Name="" ID="{F38E9EAF-2E55-4C43-9327-FC01B56C7985}" ShortID="783462743">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Beep_Grenade" ID="{628C690A-1CE9-46C3-A5B4-1EE9975C34DD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Drone_Damage_Large" ID="{30243919-A2F6-48D2-B80D-C07CFF0C764F}">
-							<ChildrenList>
-								<Action Name="" ID="{6F2A6268-5593-4DD5-9C07-1179F8641D7E}" ShortID="491664764">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Hurt" ID="{46CEBDF0-82A8-47E5-996C-692A78EFEBB9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Sniper_Fire" ID="{652748D1-B7B9-45FD-B9DE-157873464498}"/>
-						<Event Name="Play_Sniper_Whiff" ID="{59B84C5E-902B-44AF-81EC-1574F2D465B2}"/>
-						<Event Name="Play_Bolt_Fly" ID="{85E8A343-D3AF-4373-ADFA-6A1FD928FF77}"/>
-						<Event Name="Stop_Bolt_Fly" ID="{6D70DBC8-1070-4ABD-8CC5-FF825E166DE1}"/>
-						<Event Name="Play_Force_Field_Spawn" ID="{B08602A1-E104-4AFF-AE91-CF4732593D02}">
-							<ChildrenList>
-								<Action Name="" ID="{B597179D-84FE-46FC-A9F3-62E89BB1CF4D}" ShortID="824113239">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Force_Field_Loop" ID="{166CECA6-FDA1-4E82-AF9A-0C8EB8EA072E}"/>
-						<Event Name="Stop_Force_Field_Loop" ID="{22A00904-D95C-4259-864B-24CDDCAFFAE5}"/>
-						<Event Name="Play_Drone_Reflect" ID="{9FDC2348-ED24-4D06-842F-6B846F8A11A0}">
-							<ChildrenList>
-								<Action Name="" ID="{7AA5CCCD-5E5D-4255-813E-4F8030E951D0}" ShortID="91310363">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Hurt" ID="{46CEBDF0-82A8-47E5-996C-692A78EFEBB9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Water_Loop" ID="{D8B5B134-F94F-4257-826F-931BD1D6EFBF}">
-							<ChildrenList>
-								<Action Name="" ID="{B0D58FF9-9D4B-46EF-B7BE-58C738204089}" ShortID="606562639">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="mover_loop" ID="{6782133E-3212-481C-B0CF-4AE91C7DACF1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Parkour_Mantle" ID="{F493ABC2-8104-4A65-900F-E300107E7019}"/>
-						<Event Name="Play_Parkour_Topout" ID="{2BB47BCB-D5D7-4C97-AA69-3974BE92380D}"/>
-						<Event Name="Play_Parkour_Slide" ID="{2C8B90FF-219F-48DD-AABE-E6247A72387C}"/>
-						<Event Name="Play_Parkour_Roll" ID="{CE8EE5FB-A846-42A9-A487-4D4CDCFE5881}"/>
-						<Event Name="Play_Parkour_Land_Soft" ID="{9BDD5946-A039-428C-886A-3C3DE1AAAAEF}"/>
-						<Event Name="Play_Parkour_Land_Hard" ID="{024C2322-2321-46C7-B770-85FFAA1C424A}"/>
-						<Event Name="Play_Parkour_Collectible_Pickup" ID="{51CFD251-60EC-484B-8579-50DBDEC469B4}">
-							<ChildrenList>
-								<Action Name="" ID="{92955BC3-959B-41C1-891B-5AAA27049BD5}" ShortID="688702236">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Parkour_Interact" ID="{37A0FB82-599A-4B51-ACBB-B6CC81EFF93F}">
-							<ChildrenList>
-								<Action Name="" ID="{E3275B55-628F-41E6-BF8E-675A3CFC8514}" ShortID="202403467">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Terminal_Open" ID="{A2432DE0-A6DC-4A6E-99C1-2F6A85A757FA}">
-							<ChildrenList>
-								<Action Name="" ID="{B90FA806-4240-40C7-A9C3-FDD6AA9BB48D}" ShortID="150188932">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Start_Session" ID="{D21915AF-CC7D-43F7-AB3E-814AAD6FF594}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Terminal_Close" ID="{E34B4434-5C00-4A01-B0DE-F438DC3E7F16}">
-							<ChildrenList>
-								<Action Name="" ID="{BB974E5D-300E-459D-A1B6-787D3E22D768}" ShortID="69540115">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Start_Session" ID="{D21915AF-CC7D-43F7-AB3E-814AAD6FF594}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Tram_Open" ID="{37AEB283-B3E9-4C64-B7A7-97DF3A54870F}">
-							<ChildrenList>
-								<Action Name="" ID="{76A2CBA0-187D-4299-83F4-80C896109B7B}" ShortID="247448348">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Tram_Close" ID="{AE2AE18A-4789-4A35-AC15-604AF4D0723A}">
-							<ChildrenList>
-								<Action Name="" ID="{246D0AE0-5B93-461B-8189-8483EC8D6854}" ShortID="114373368">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="mover_stop" ID="{3E866ABF-46BC-43B0-8938-2A924DA19CB8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Tram_Loop" ID="{3C8F00CF-6EA0-447C-964D-0FF3FDB28E09}"/>
-						<Event Name="Play_Tram_Start" ID="{356ED879-2C80-497B-AFF1-49A43375EBF7}">
-							<ChildrenList>
-								<Action Name="" ID="{FD53B476-CE62-46BF-A8AD-325E195BB62A}" ShortID="265229325">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Tram_Stop" ID="{80B9F137-62E7-4ECF-99E6-B91AC01B6C50}">
-							<ChildrenList>
-								<Action Name="" ID="{F3DCE3BF-341D-4451-BCDA-C60073FB233E}" ShortID="373694478">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="mover_stop" ID="{3E866ABF-46BC-43B0-8938-2A924DA19CB8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Grenade_Attach" ID="{358F8B42-3992-4C84-8F90-B0123AEC07D5}">
-							<ChildrenList>
-								<Action Name="" ID="{A4715D82-A72B-4E92-971F-066005CA1488}" ShortID="487775122">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Drone_Land" ID="{93ED167C-2E9C-424F-A847-B7D659EF3769}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Grenade_Spawn" ID="{FDADDAFB-F240-4939-AB94-2F370CD381B7}">
-							<ChildrenList>
-								<Action Name="" ID="{21AE0D68-99E8-4C26-B0F1-4737F0C6BD60}" ShortID="751733000">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Drone_Launch" ID="{D84AAC65-C3AA-4562-915C-831BA8301AB5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Drone_Active_Armor" ID="{7BBEC775-C813-4244-9235-F695E5AB4761}">
-							<ChildrenList>
-								<Action Name="" ID="{BA894100-AE6F-44DC-970E-99BE1DBC6B27}" ShortID="742960595">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Laser" ID="{175AA597-3979-4154-B623-5A28EFE0EEE6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Battery_Loop" ID="{A00E5B7B-CAF7-4218-B614-163785E6A767}"/>
-						<Event Name="Play_Impact" ID="{78250974-113C-4624-AD30-0468BD7CCCF0}">
-							<ChildrenList>
-								<Action Name="" ID="{FB77B666-F301-4A68-8545-7E2D101AF82C}" ShortID="896767128">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Hurt" ID="{46CEBDF0-82A8-47E5-996C-692A78EFEBB9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Parkour_Wind" ID="{B9CBEF66-FCD7-452F-AC0E-DD2770A0155E}">
-							<ChildrenList>
-								<Action Name="" ID="{3EE1C63F-BA77-4969-B818-B5EEE12AD02B}" ShortID="415331658">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Parkour_Wind" ID="{8998A440-9F0E-41AF-AA4F-D8914994F5A5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Stop_Parkour_All" ID="{B6CC42D5-5F5E-4BBA-8CF2-9A986C68C2EC}">
-							<ChildrenList>
-								<Action Name="" ID="{D94C694F-9A58-4475-8676-400B3E9672E9}" ShortID="1057738642">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="2"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Parkour_Wind" ID="{8998A440-9F0E-41AF-AA4F-D8914994F5A5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Stop_Minion_Charge" ID="{710C8F6D-A6DE-485F-9733-8B4DF86EB768}">
-							<ChildrenList>
-								<Action Name="" ID="{4D117EF5-71DC-4919-A6A0-C429D33B5C20}" ShortID="933227515">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="2"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="mover_loop" ID="{6782133E-3212-481C-B0CF-4AE91C7DACF1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Fizzle" ID="{A178C8DF-0EAD-4DCB-9CA6-40B1450CF6AC}"/>
-						<Event Name="Stop_Parkour_Slide" ID="{8588E130-B849-4454-AA70-05E0BDE13952}"/>
-						<Event Name="Play_Sniper_Impact" ID="{4A6BFFA7-1A23-4DDD-B729-7929AC30A4F6}">
-							<ChildrenList>
-								<Action Name="" ID="{60DADF12-DC86-45C1-940F-D7F5A6D82043}" ShortID="2392266">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Hurt" ID="{46CEBDF0-82A8-47E5-996C-692A78EFEBB9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Tram_Spark" ID="{429DC99F-7AD1-4688-8154-3B950FCBD2E9}"/>
-						<Event Name="Play_Parkour_Climb" ID="{D6C93F1C-824D-4D72-B267-BA62ADC469EE}"/>
-						<Event Name="Play_Drone_Spawn" ID="{E224D9E5-4677-4789-8EF9-DB0E18AA0A61}"/>
-						<Event Name="Play_Upgrade_Station_Enter" ID="{EEFA8FE4-9C27-41CD-8FD8-0BEDA8FF65E8}"/>
-						<Event Name="Play_Upgrade_Station_Exit" ID="{E442B16E-5FC9-417E-A3C8-A5C021CC7210}"/>
 						<Folder Name="Drone" ID="{D2AECC30-978D-464E-ACD7-2CC132A75F94}" ShortID="770695772">
 							<ChildrenList>
-								<Event Name="Play_Drone_Launch" ID="{E515E0C5-7679-46C8-B458-736D6A90AB99}">
+								<Folder Name="Drone_Locomotion" ID="{D659DBE9-1756-4613-8770-AEE0CAB1711E}" ShortID="75369119">
 									<ChildrenList>
-										<Action Name="" ID="{2E6D4DA6-41A9-4A1F-9B71-827F42D6B4D0}" ShortID="531754976">
+										<Event Name="Play_Drone_Land" ID="{329B5A76-4FC9-4BAD-BE77-0DC8E2CD81A5}">
+											<ChildrenList>
+												<Action Name="" ID="{685B5AB3-8289-492C-B2BD-88388EC828C5}" ShortID="502715406">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+														<Property Name="FadeTime" Type="Real64" Value="0.1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Land" ID="{93ED167C-2E9C-424F-A847-B7D659EF3769}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+												<Action Name="" ID="{B24F448A-FE31-456B-9FCE-9B507A6C8094}" ShortID="484238686">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="2"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Launch" ID="{D84AAC65-C3AA-4562-915C-831BA8301AB5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
+										<Event Name="Play_Drone_Footstep" ID="{9AD0CCCD-E630-4B8F-8802-2DC5B8F56A22}">
+											<ChildrenList>
+												<Action Name="" ID="{E90F6585-D59C-4781-847D-A3D289A45F5E}" ShortID="518706445">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Footstep" ID="{E27AEB66-E171-426C-8B1C-047A9ABEA125}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
+										<Event Name="Play_Drone_Launch" ID="{E515E0C5-7679-46C8-B458-736D6A90AB99}">
+											<ChildrenList>
+												<Action Name="" ID="{2E6D4DA6-41A9-4A1F-9B71-827F42D6B4D0}" ShortID="531754976">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Launch" ID="{D84AAC65-C3AA-4562-915C-831BA8301AB5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+												<Action Name="" ID="{3CA32C97-90B2-4D53-838F-3C1CC2707408}" ShortID="120302412">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="2"/>
+														<Property Name="FadeTime" Type="Real64" Value="0.1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Land" ID="{93ED167C-2E9C-424F-A847-B7D659EF3769}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
+									</ChildrenList>
+								</Folder>
+								<Folder Name="Drone_Bolt" ID="{79A877B1-4059-4AE1-B7E9-488B3930AAE8}" ShortID="1010118964">
+									<ChildrenList>
+										<Event Name="Play_Bolt_Spawn" ID="{D58B09F0-22C3-413D-A8F2-0F113D4C4F70}">
+											<ChildrenList>
+												<Action Name="" ID="{D3C6E1F2-64FE-44E5-850F-20A51546A678}" ShortID="829111211">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Bolt_Fire" ID="{175AA597-3979-4154-B623-5A28EFE0EEE6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
+										<Event Name="Play_Bolt_Fly" ID="{85E8A343-D3AF-4373-ADFA-6A1FD928FF77}"/>
+									</ChildrenList>
+								</Folder>
+								<Folder Name="Drone_Damage" ID="{1FD1F71A-0632-4786-80B6-8C2E1A1B5D48}" ShortID="852233345">
+									<ChildrenList>
+										<Event Name="Play_Drone_Damage_Small" ID="{7A7B24CA-E959-4808-A4A6-2801162BE918}">
+											<ChildrenList>
+												<Action Name="" ID="{06F3A2EF-EE7A-4589-BC77-9672048B9FA8}" ShortID="537887250">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Damage_Small" ID="{35CC9A12-DBD9-4EC0-91A1-10C8C86EB468}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
+										<Event Name="Play_Drone_Damage_Large" ID="{30243919-A2F6-48D2-B80D-C07CFF0C764F}">
+											<ChildrenList>
+												<Action Name="" ID="{6F2A6268-5593-4DD5-9C07-1179F8641D7E}" ShortID="491664764">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Damage_Large" ID="{BFBF37A6-5E50-4A6D-9ACD-40E9E570F7BA}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
+									</ChildrenList>
+								</Folder>
+								<Folder Name="Drone_Shield" ID="{347E98D7-3494-4FE2-9F3C-A6B12D9B8BDC}" ShortID="866135396">
+									<ChildrenList>
+										<Event Name="Play_Shield_Restore_Outer" ID="{81F7EC8F-001C-42D0-8096-A128A0217524}">
+											<ChildrenList>
+												<Action Name="" ID="{76CDB116-3F84-4BC3-82BF-7129438438CB}" ShortID="873624584">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Shield_Restore_Outer" ID="{14D1A986-546F-408E-91DC-F4D732F133B3}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
+										<Event Name="Play_Shield_Restore_Inner" ID="{88FEF82A-C1A4-45D7-BB4A-07BD36C5FA93}">
+											<ChildrenList>
+												<Action Name="" ID="{9A32D312-7F0D-4117-B738-73EBF95E2C92}" ShortID="153203016">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Shield_Restore_Inner" ID="{A6D0F25E-0AC3-4246-9B3A-694DD8C19618}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
+									</ChildrenList>
+								</Folder>
+							</ChildrenList>
+						</Folder>
+						<Folder Name="Battery" ID="{3A110B07-A503-48DA-BEFA-72B5CCA363CA}" ShortID="73261771">
+							<ChildrenList>
+								<Event Name="Play_Battery_Capture" ID="{FE57CB89-4720-43EF-AC7E-7E17D2FF0FC2}">
+									<ChildrenList>
+										<Action Name="" ID="{D0DEEBD3-3E04-4992-9978-C2CBB370B792}" ShortID="894589519">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Battery_Capture" ID="{61246997-0918-4CF2-AC2D-B7BF5BAB676C}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Battery_Reset" ID="{76DB62BF-CC10-45C3-80F6-FEA99D6DA648}">
+									<ChildrenList>
+										<Action Name="" ID="{F38E9EAF-2E55-4C43-9327-FC01B56C7985}" ShortID="783462743">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Beep_Grenade" ID="{628C690A-1CE9-46C3-A5B4-1EE9975C34DD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Battery_Loop" ID="{A00E5B7B-CAF7-4218-B614-163785E6A767}"/>
+							</ChildrenList>
+						</Folder>
+						<Folder Name="toMove" ID="{40123C6B-5420-4AB9-AF80-413A82A15257}" ShortID="304977609">
+							<ChildrenList>
+								<Event Name="Play_Minion_Melee" ID="{CA5B3381-F27D-4D16-8924-F66ED5BE1E38}">
+									<ChildrenList>
+										<Action Name="" ID="{8047D5DF-2237-4F9C-A62E-8DAF64B102F3}" ShortID="727376254">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Drone_Bolt_Fire" ID="{175AA597-3979-4154-B623-5A28EFE0EEE6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Footstep" ID="{912A7768-2178-48E7-BCF7-F9F9EE2EADDE}">
+									<ChildrenList>
+										<Action Name="" ID="{867FDA87-4015-411C-AA89-49B580BEEA38}" ShortID="606933759">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Footstep" ID="{8D83EC8D-7858-4B9E-8986-13A19750752B}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Drone_Fly" ID="{4614E46B-6FA6-4775-A36F-F984E13E0C64}">
+									<ChildrenList>
+										<Action Name="" ID="{22E374B2-3535-4AD3-A1E6-44234EF8D833}" ShortID="706496379">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Fly" ID="{842508C5-3791-48A6-ADEB-DD596EF91B17}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Parkour_Jump" ID="{D1181DC1-3636-4D9C-BC5E-6F4C155CDCDE}">
+									<ChildrenList>
+										<Action Name="" ID="{C30F91E5-730A-4E79-848D-01DE45481814}" ShortID="868806898">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Jump" ID="{463E9B1C-325F-4C2D-AC2B-C2F482485AD6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Minion_Spawn" ID="{044B13CF-0F99-492C-A510-E3055BD6B1EE}">
+									<ChildrenList>
+										<Action Name="" ID="{EF6BD803-2891-4A35-8300-E30843FA8FBF}" ShortID="569862728">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Sensor_Spawn" ID="{10DCE6B8-FAC1-4121-89FE-CF7AFB789028}">
+									<ChildrenList>
+										<Action Name="" ID="{C63320C0-72AE-4E35-89CF-3B83E27078DF}" ShortID="619182946">
 											<PropertyList>
 												<Property Name="ActionType" Type="int16" Value="1"/>
 											</PropertyList>
@@ -612,10 +277,318 @@
 												</Reference>
 											</ReferenceList>
 										</Action>
-										<Action Name="" ID="{3CA32C97-90B2-4D53-838F-3C1CC2707408}" ShortID="120302412">
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Zoom_Out" ID="{0A0B7F4E-0D2F-4826-AA5E-521F70FCD07B}">
+									<ChildrenList>
+										<Action Name="" ID="{44F82287-95B4-45AD-9B27-1FD72D030D3E}" ShortID="425197945">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Zoom_Out" ID="{DAB1BD25-85A5-43A4-9B47-3CEB0AE09255}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Grenade_Beep" ID="{2D163793-8E81-472D-99EB-864FE68A88A5}">
+									<ChildrenList>
+										<Action Name="" ID="{0CAAECA9-637F-4061-9DC0-833E128006B1}" ShortID="325039185">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Beep_Grenade" ID="{628C690A-1CE9-46C3-A5B4-1EE9975C34DD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Zoom_In" ID="{454EA34E-5D32-4F63-8880-39BA664837E4}">
+									<ChildrenList>
+										<Action Name="" ID="{388FB208-8C38-4749-A6DD-516C2AB64C83}" ShortID="65051056">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Zoom_In" ID="{BFCF049F-FB49-4EF8-BB36-0DB5752BF3F9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Minion_Headshot" ID="{96CF21EF-E2BB-48CE-80B4-54E2FA6F3049}">
+									<ChildrenList>
+										<Action Name="" ID="{2C171468-F148-4265-93E5-79036FD5C26C}" ShortID="177575733">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Headshot" ID="{BA569FB5-BFD6-4C20-9044-AD9AB68C0FD7}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Stop_Drone_Fly" ID="{C535FDDC-7E3A-4286-AD18-154B17D2F61C}">
+									<ChildrenList>
+										<Action Name="" ID="{368F8AD2-D709-4C4D-B38A-5415D943F22F}" ShortID="911763260">
 											<PropertyList>
 												<Property Name="ActionType" Type="int16" Value="2"/>
-												<Property Name="FadeTime" Type="Real64" Value="0.1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Fly" ID="{842508C5-3791-48A6-ADEB-DD596EF91B17}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+										<Action Name="" ID="{42AA9EFA-5211-44C0-8F08-3BA0007B2062}" ShortID="257874279">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="2"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Fly_Player" ID="{205BD6BD-40AF-4662-82C7-9EA923635F1E}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Explosion" ID="{6F0DBF32-EE0B-45FC-9DEF-71F7FD036F6A}">
+									<ChildrenList>
+										<Action Name="" ID="{51EE7091-3A21-488C-B842-2C95600003DE}" ShortID="593962971">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Explosions" ID="{C6C242DC-96E5-4994-90AB-F2C88D1EA10A}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Grenade_Arm" ID="{006AC922-1DC9-4FF5-99C2-836020227099}">
+									<ChildrenList>
+										<Action Name="" ID="{A51204CE-D455-4400-B804-E28B980CAB6E}" ShortID="47563534">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Footstep" ID="{8D83EC8D-7858-4B9E-8986-13A19750752B}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Sensor_Ping" ID="{C4E6BF43-CC38-4E5D-8AD4-09031E41DDA1}">
+									<ChildrenList>
+										<Action Name="" ID="{3FE18BEA-ED8E-4B7D-BAB6-4195CCB668C3}" ShortID="454400929">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Beep_Grenade" ID="{628C690A-1CE9-46C3-A5B4-1EE9975C34DD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Turret_Charge" ID="{7C218435-CC3A-4F80-B956-152F226AE2BB}"/>
+								<Event Name="Play_Minion_Die" ID="{655AFC70-201F-426F-9919-6E5DEE2E57E9}">
+									<ChildrenList>
+										<Action Name="" ID="{28C2E5A7-1898-49C0-9BC0-D91DB8CC04FA}" ShortID="819824158">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Headshot" ID="{BA569FB5-BFD6-4C20-9044-AD9AB68C0FD7}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Stop_Turret_Charge" ID="{2EAE6447-AB75-4EAE-966B-A71048579772}"/>
+								<Event Name="Play_Minion_Charge" ID="{D2FC5A1A-206B-4022-849A-4B6EB717BAB2}">
+									<ChildrenList>
+										<Action Name="" ID="{BEB82C35-DAB6-4EBB-A855-DD8DE1DF0B2F}" ShortID="425163432">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="mover_loop" ID="{6782133E-3212-481C-B0CF-4AE91C7DACF1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Stop_Bolt_Fly" ID="{6D70DBC8-1070-4ABD-8CC5-FF825E166DE1}"/>
+								<Event Name="Play_Parkour_Collectible_Pickup" ID="{51CFD251-60EC-484B-8579-50DBDEC469B4}">
+									<ChildrenList>
+										<Action Name="" ID="{92955BC3-959B-41C1-891B-5AAA27049BD5}" ShortID="688702236">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Parkour_Slide" ID="{2C8B90FF-219F-48DD-AABE-E6247A72387C}"/>
+								<Event Name="Play_Parkour_Topout" ID="{2BB47BCB-D5D7-4C97-AA69-3974BE92380D}"/>
+								<Event Name="Play_Parkour_Mantle" ID="{F493ABC2-8104-4A65-900F-E300107E7019}"/>
+								<Event Name="Play_Tram_Close" ID="{AE2AE18A-4789-4A35-AC15-604AF4D0723A}">
+									<ChildrenList>
+										<Action Name="" ID="{246D0AE0-5B93-461B-8189-8483EC8D6854}" ShortID="114373368">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="mover_stop" ID="{3E866ABF-46BC-43B0-8938-2A924DA19CB8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Drone_Reflect" ID="{9FDC2348-ED24-4D06-842F-6B846F8A11A0}">
+									<ChildrenList>
+										<Action Name="" ID="{7AA5CCCD-5E5D-4255-813E-4F8030E951D0}" ShortID="91310363">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Hurt" ID="{46CEBDF0-82A8-47E5-996C-692A78EFEBB9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Tram_Loop" ID="{3C8F00CF-6EA0-447C-964D-0FF3FDB28E09}"/>
+								<Event Name="Play_Force_Field_Loop" ID="{166CECA6-FDA1-4E82-AF9A-0C8EB8EA072E}"/>
+								<Event Name="Play_Sniper_Whiff" ID="{59B84C5E-902B-44AF-81EC-1574F2D465B2}"/>
+								<Event Name="Play_Sniper_Fire" ID="{652748D1-B7B9-45FD-B9DE-157873464498}"/>
+								<Event Name="Play_Force_Field_Spawn" ID="{B08602A1-E104-4AFF-AE91-CF4732593D02}">
+									<ChildrenList>
+										<Action Name="" ID="{B597179D-84FE-46FC-A9F3-62E89BB1CF4D}" ShortID="824113239">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Parkour_Roll" ID="{CE8EE5FB-A846-42A9-A487-4D4CDCFE5881}"/>
+								<Event Name="Stop_Force_Field_Loop" ID="{22A00904-D95C-4259-864B-24CDDCAFFAE5}"/>
+								<Event Name="Play_Parkour_Land_Soft" ID="{9BDD5946-A039-428C-886A-3C3DE1AAAAEF}"/>
+								<Event Name="Play_Parkour_Land_Hard" ID="{024C2322-2321-46C7-B770-85FFAA1C424A}"/>
+								<Event Name="Play_Parkour_Interact" ID="{37A0FB82-599A-4B51-ACBB-B6CC81EFF93F}">
+									<ChildrenList>
+										<Action Name="" ID="{E3275B55-628F-41E6-BF8E-675A3CFC8514}" ShortID="202403467">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Terminal_Open" ID="{A2432DE0-A6DC-4A6E-99C1-2F6A85A757FA}">
+									<ChildrenList>
+										<Action Name="" ID="{B90FA806-4240-40C7-A9C3-FDD6AA9BB48D}" ShortID="150188932">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Start_Session" ID="{D21915AF-CC7D-43F7-AB3E-814AAD6FF594}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Terminal_Close" ID="{E34B4434-5C00-4A01-B0DE-F438DC3E7F16}">
+									<ChildrenList>
+										<Action Name="" ID="{BB974E5D-300E-459D-A1B6-787D3E22D768}" ShortID="69540115">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Start_Session" ID="{D21915AF-CC7D-43F7-AB3E-814AAD6FF594}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Water_Loop" ID="{D8B5B134-F94F-4257-826F-931BD1D6EFBF}">
+									<ChildrenList>
+										<Action Name="" ID="{B0D58FF9-9D4B-46EF-B7BE-58C738204089}" ShortID="606562639">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="mover_loop" ID="{6782133E-3212-481C-B0CF-4AE91C7DACF1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Tram_Open" ID="{37AEB283-B3E9-4C64-B7A7-97DF3A54870F}">
+									<ChildrenList>
+										<Action Name="" ID="{76A2CBA0-187D-4299-83F4-80C896109B7B}" ShortID="247448348">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Stop_Parkour_Slide" ID="{8588E130-B849-4454-AA70-05E0BDE13952}"/>
+								<Event Name="Play_Sniper_Impact" ID="{4A6BFFA7-1A23-4DDD-B729-7929AC30A4F6}">
+									<ChildrenList>
+										<Action Name="" ID="{60DADF12-DC86-45C1-940F-D7F5A6D82043}" ShortID="2392266">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Hurt" ID="{46CEBDF0-82A8-47E5-996C-692A78EFEBB9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Grenade_Attach" ID="{358F8B42-3992-4C84-8F90-B0123AEC07D5}">
+									<ChildrenList>
+										<Action Name="" ID="{A4715D82-A72B-4E92-971F-066005CA1488}" ShortID="487775122">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
 											</PropertyList>
 											<ReferenceList>
 												<Reference Name="Target">
@@ -625,22 +598,83 @@
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Drone_Land" ID="{329B5A76-4FC9-4BAD-BE77-0DC8E2CD81A5}">
+								<Event Name="Play_Impact" ID="{78250974-113C-4624-AD30-0468BD7CCCF0}">
 									<ChildrenList>
-										<Action Name="" ID="{685B5AB3-8289-492C-B2BD-88388EC828C5}" ShortID="502715406">
+										<Action Name="" ID="{FB77B666-F301-4A68-8545-7E2D101AF82C}" ShortID="896767128">
 											<PropertyList>
 												<Property Name="ActionType" Type="int16" Value="1"/>
-												<Property Name="FadeTime" Type="Real64" Value="0.1"/>
 											</PropertyList>
 											<ReferenceList>
 												<Reference Name="Target">
-													<ObjectRef Name="Drone_Land" ID="{93ED167C-2E9C-424F-A847-B7D659EF3769}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+													<ObjectRef Name="Hurt" ID="{46CEBDF0-82A8-47E5-996C-692A78EFEBB9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>
-										<Action Name="" ID="{B24F448A-FE31-456B-9FCE-9B507A6C8094}" ShortID="484238686">
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Drone_Spawn" ID="{E224D9E5-4677-4789-8EF9-DB0E18AA0A61}"/>
+								<Event Name="Play_Tram_Stop" ID="{80B9F137-62E7-4ECF-99E6-B91AC01B6C50}">
+									<ChildrenList>
+										<Action Name="" ID="{F3DCE3BF-341D-4451-BCDA-C60073FB233E}" ShortID="373694478">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="mover_stop" ID="{3E866ABF-46BC-43B0-8938-2A924DA19CB8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Tram_Start" ID="{356ED879-2C80-497B-AFF1-49A43375EBF7}">
+									<ChildrenList>
+										<Action Name="" ID="{FD53B476-CE62-46BF-A8AD-325E195BB62A}" ShortID="265229325">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Stop_Minion_Charge" ID="{710C8F6D-A6DE-485F-9733-8B4DF86EB768}">
+									<ChildrenList>
+										<Action Name="" ID="{4D117EF5-71DC-4919-A6A0-C429D33B5C20}" ShortID="933227515">
 											<PropertyList>
 												<Property Name="ActionType" Type="int16" Value="2"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="mover_loop" ID="{6782133E-3212-481C-B0CF-4AE91C7DACF1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Parkour_Wind" ID="{B9CBEF66-FCD7-452F-AC0E-DD2770A0155E}">
+									<ChildrenList>
+										<Action Name="" ID="{3EE1C63F-BA77-4969-B818-B5EEE12AD02B}" ShortID="415331658">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Parkour_Wind" ID="{8998A440-9F0E-41AF-AA4F-D8914994F5A5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Fizzle" ID="{A178C8DF-0EAD-4DCB-9CA6-40B1450CF6AC}"/>
+								<Event Name="Play_Grenade_Spawn" ID="{FDADDAFB-F240-4939-AB94-2F370CD381B7}">
+									<ChildrenList>
+										<Action Name="" ID="{21AE0D68-99E8-4C26-B0F1-4737F0C6BD60}" ShortID="751733000">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
 											</PropertyList>
 											<ReferenceList>
 												<Reference Name="Target">
@@ -650,15 +684,63 @@
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Drone_Footstep" ID="{9AD0CCCD-E630-4B8F-8802-2DC5B8F56A22}">
+								<Event Name="Play_Parkour_Climb" ID="{D6C93F1C-824D-4D72-B267-BA62ADC469EE}"/>
+								<Event Name="Stop_Parkour_All" ID="{B6CC42D5-5F5E-4BBA-8CF2-9A986C68C2EC}">
 									<ChildrenList>
-										<Action Name="" ID="{E90F6585-D59C-4781-847D-A3D289A45F5E}" ShortID="518706445">
+										<Action Name="" ID="{D94C694F-9A58-4475-8676-400B3E9672E9}" ShortID="1057738642">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="2"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Parkour_Wind" ID="{8998A440-9F0E-41AF-AA4F-D8914994F5A5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Tram_Spark" ID="{429DC99F-7AD1-4688-8154-3B950FCBD2E9}"/>
+								<Event Name="Play_Drone_Active_Armor" ID="{7BBEC775-C813-4244-9235-F695E5AB4761}">
+									<ChildrenList>
+										<Action Name="" ID="{BA894100-AE6F-44DC-970E-99BE1DBC6B27}" ShortID="742960595">
 											<PropertyList>
 												<Property Name="ActionType" Type="int16" Value="1"/>
 											</PropertyList>
 											<ReferenceList>
 												<Reference Name="Target">
-													<ObjectRef Name="Drone_Footstep" ID="{E27AEB66-E171-426C-8B1C-047A9ABEA125}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+													<ObjectRef Name="Drone_Bolt_Fire" ID="{175AA597-3979-4154-B623-5A28EFE0EEE6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+							</ChildrenList>
+						</Folder>
+						<Folder Name="UpgradeStation" ID="{D315141A-C891-4142-AA38-1A62C0CFBDB9}" ShortID="931062636">
+							<ChildrenList>
+								<Event Name="Play_Upgrade_Station_Enter" ID="{EEFA8FE4-9C27-41CD-8FD8-0BEDA8FF65E8}">
+									<ChildrenList>
+										<Action Name="" ID="{342223FB-3179-4B75-81E4-A8C26EFA9D3F}" ShortID="963151040">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="UpgradeStation_Enter" ID="{1458A4D2-CA18-4A3E-BCBC-A211DF878DFC}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Upgrade_Station_Exit" ID="{E442B16E-5FC9-417E-A3C8-A5C021CC7210}">
+									<ChildrenList>
+										<Action Name="" ID="{56855A73-9CA7-4D5E-9B86-93B90BB03B46}" ShortID="899673310">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="UpgradeStation_Exit" ID="{F93F4DD6-C690-4EB9-9995-7B087E7D58EC}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>

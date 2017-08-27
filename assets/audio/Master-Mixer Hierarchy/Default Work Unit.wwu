@@ -120,9 +120,45 @@
 												</Property>
 											</PropertyList>
 										</Bus>
+										<Bus Name="Drone_Bolt" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}">
+											<PropertyList>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+										</Bus>
+										<Bus Name="Drone_Damage" ID="{062633BD-A757-4FDE-90C8-744F7496BE36}">
+											<PropertyList>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+										</Bus>
+										<Bus Name="Drone_Shield" ID="{4FD89901-AE45-498C-AEE2-F944B87FF526}">
+											<PropertyList>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+										</Bus>
 									</ChildrenList>
 								</Bus>
 								<Bus Name="UI" ID="{3ECCDB42-2C41-40BC-9EED-68EB2EF11F5C}">
+									<PropertyList>
+										<Property Name="DivergenceCenter" Type="int32">
+											<ValueList>
+												<Value>100</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
+								</Bus>
+								<Bus Name="Battery" ID="{7183B393-A1E9-4ABA-A739-264E0BD53EA7}">
 									<PropertyList>
 										<Property Name="DivergenceCenter" Type="int32">
 											<ValueList>

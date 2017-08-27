@@ -86,7 +86,7 @@ struct Shield : public ComponentType<Shield>
 	~Shield();
 
 	void update_client(const Update&);
-	void damaged(const HealthEvent&);
+	void health_changed(const HealthEvent&);
 	void set_team(AI::Team);
 };
 

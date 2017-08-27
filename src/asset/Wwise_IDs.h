@@ -132,6 +132,8 @@ namespace AK
         static const AkUniqueID PLAY_PARKOUR_WIND = 2240612133U;
         static const AkUniqueID PLAY_SENSOR_PING = 3989478699U;
         static const AkUniqueID PLAY_SENSOR_SPAWN = 2220123776U;
+        static const AkUniqueID PLAY_SHIELD_RESTORE_INNER = 3921268631U;
+        static const AkUniqueID PLAY_SHIELD_RESTORE_OUTER = 3809385754U;
         static const AkUniqueID PLAY_SNIPER_FIRE = 3954156574U;
         static const AkUniqueID PLAY_SNIPER_IMPACT = 2393598820U;
         static const AkUniqueID PLAY_SNIPER_WHIFF = 1643495180U;
@@ -192,9 +194,13 @@ namespace AK
 
     namespace BUSSES
     {
+        static const AkUniqueID BATTERY = 2326215132U;
         static const AkUniqueID DIALOGUE = 3930136735U;
         static const AkUniqueID DRONE = 2739838641U;
+        static const AkUniqueID DRONE_BOLT = 1569685365U;
+        static const AkUniqueID DRONE_DAMAGE = 1489866471U;
         static const AkUniqueID DRONE_LOCOMOTION = 812076015U;
+        static const AkUniqueID DRONE_SHIELD = 3866882679U;
         static const AkUniqueID MASTER_AUDIO_BUS = 3803692087U;
         static const AkUniqueID MASTER_SECONDARY_BUS = 805203703U;
         static const AkUniqueID MUSIC = 3991942870U;

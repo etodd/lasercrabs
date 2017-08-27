@@ -202,7 +202,7 @@ void Team::awake_all()
 	game_over_real_time = 0.0f;
 	if (Game::level.local) // if we're a client, the netcode manages this
 	{
-		match_state = MatchState::Waiting;
+		match_state = Game::level.mode == Game::Mode::Pvp ? MatchState::Waiting : MatchState::Active;
 		match_time = 0.0f;
 	}
 	winner = nullptr;
@@ -1883,6 +1883,31 @@ void PlayerManager::clear_ownership()
 	}
 }
 
+void killer_name(Entity* killer, PlayerManager* killer_player, PlayerManager* player, char* result)
+{
+	result[0] = '\0';
+
+	Entity* logged_killer = killer;
+	if (killer->has<Bolt>())
+		logged_killer = killer->get<Bolt>()->owner.ref();
+
+	if (logged_killer)
+	{
+		if (logged_killer->has<Minion>())
+			strncpy(result, _(strings::minion), MAX_USERNAME);
+		else if (logged_killer->has<Turret>())
+			snprintf(result, MAX_USERNAME + 1, _(strings::turret_name), _(logged_killer->get<Turret>()->name()));
+	}
+
+	if (result[0] == '\0')
+	{
+		if (killer_player)
+			strncpy(result, killer_player->username, MAX_USERNAME);
+		else
+			strncpy(result, _(strings::minion), MAX_USERNAME);
+	}
+}
+
 void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 {
 	if (killer)
@@ -1914,29 +1939,8 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 
 				{
 					// log message
-					const char* killer_str = nullptr;
-
-					{
-						Entity* logged_killer = killer;
-						if (killer->has<Bolt>())
-							logged_killer = killer->get<Bolt>()->owner.ref();
-
-						if (logged_killer)
-						{
-							if (logged_killer->has<Minion>())
-								killer_str = _(strings::minion);
-							else if (logged_killer->has<Turret>())
-								killer_str = _(strings::turret);
-						}
-
-						if (!killer_str)
-						{
-							if (killer_player)
-								killer_str = killer_player->username;
-							else
-								killer_str = player->username;
-						}
-					}
+					char killer_str[MAX_USERNAME + 1];
+					killer_name(killer, killer_player, player, killer_str);
 
 					PlayerHuman::log_add(killer_str, killer_team, AI::TeamAll, player->username, team);
 				}
@@ -1955,6 +1959,15 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 			{
 				reward = ENERGY_TURRET_DESTROY;
 				reward_share = true;
+
+				// log message
+				char killer_str[MAX_USERNAME + 1];
+				killer_name(killer, killer_player, player, killer_str);
+
+				char name[MAX_USERNAME + 1];
+				snprintf(name, MAX_USERNAME, _(strings::turret_name), _(e->get<Turret>()->name()));
+
+				PlayerHuman::log_add(killer_str, killer_team, AI::TeamAll, name, team);
 			}
 			else if (e->has<CoreModule>())
 			{

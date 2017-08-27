@@ -257,6 +257,7 @@ struct Turret : public ComponentType<Turret>
 
 	void awake();
 
+	AssetID name() const;
 	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 	void update_server(const Update&);
@@ -400,6 +401,13 @@ struct Bolt : public ComponentType<Bolt>
 		count,
 	};
 
+	enum class ReflectionType : s8
+	{
+		Homing,
+		Simple,
+		count,
+	};
+
 	static r32 particle_accumulator;
 
 	static r32 speed(Type);
@@ -420,7 +428,7 @@ struct Bolt : public ComponentType<Bolt>
 	~Bolt();
 
 	b8 visible() const; // bolts are invisible and essentially inert while they are waiting for damage buffer
-	void reflect(const Entity*);
+	void reflect(const Entity*, ReflectionType = ReflectionType::Homing, const Vec3& = Vec3::zero);
 	b8 can_damage(const Entity*) const;
 	void update_server(const Update&);
 	void hit_entity(Entity*, const Vec3&, const Vec3&);

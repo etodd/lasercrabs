@@ -906,8 +906,13 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	Tile::draw_alpha(render_params);
 
-	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_alpha(render_params);
+	PlayerHuman* player_human = PlayerHuman::player_for_camera(render_params.camera);
+
+	if (player_human)
+	{
+		player_human->draw_alpha(render_params);
+		player_human->draw_ui_early(render_params);
+	}
 
 	Ascensions::draw_ui(render_params);
 
@@ -919,8 +924,8 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	Overworld::draw_ui(render_params);
 
-	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_ui(render_params);
+	if (player_human)
+		player_human->draw_ui(render_params);
 
 	Team::draw_ui(render_params);
 
@@ -1703,8 +1708,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_HasObjectItem(element, "SpawnPoint"))
 		{
 			AI::Team team = AI::Team(Json::get_s32(element, "team"));
-
-			if (Team::list.count() > s32(team))
+			if ((session.config.enable_batteries || cJSON_HasObjectItem(element, "team"))
+				&& Team::list.count() > s32(team))
 				entity = World::alloc<SpawnPointEntity>(team, Json::get_s32(element, "visible", 1));
 			else
 				entity = World::alloc<StaticGeom>(Asset::Mesh::spawn_collision, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
@@ -1798,7 +1803,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "Battery"))
 		{
-			if (level.has_feature(FeatureLevel::Batteries))
+			if (level.has_feature(FeatureLevel::Batteries) && session.config.enable_batteries)
 			{
 				AI::Team team;
 				if (session.type == SessionType::Story)

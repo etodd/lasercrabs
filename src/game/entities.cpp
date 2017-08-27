@@ -543,12 +543,15 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 
 	create<AICue>(AICue::Type::Sensor);
 
-	PointLight* light = create<PointLight>();
-	light->type = PointLight::Type::Override;
-	light->team = s8(team);
-	light->radius = (team == AI::TeamNone) ? 0.0f : SENSOR_RANGE;
+	if (Game::session.config.enable_battery_stealth)
+	{
+		PointLight* light = create<PointLight>();
+		light->type = PointLight::Type::Override;
+		light->team = s8(team);
+		light->radius = (team == AI::TeamNone) ? 0.0f : SENSOR_RANGE;
 
-	create<Sensor>()->team = team;
+		create<Sensor>()->team = team;
+	}
 
 	Target* target = create<Target>();
 
@@ -576,7 +579,11 @@ void Battery::health_changed(const HealthEvent& e)
 	if (team != AI::TeamNone && e.hp + e.shield < 0 && get<Health>()->hp > 0)
 	{
 		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::BatteryUnderAttack))
-			PlayerHuman::log_add(_(strings::battery_under_attack), AI::TeamNone, 1 << team);
+		{
+			char buffer[UI_TEXT_MAX];
+			snprintf(buffer, UI_TEXT_MAX, _(strings::battery_under_attack), s32(id()) + 1);
+			PlayerHuman::log_add(buffer, AI::TeamNone, 1 << team);
+		}
 	}
 }
 
@@ -686,16 +693,20 @@ void Battery::set_team_client(AI::Team t)
 {
 	if (team != AI::TeamNone && team != t)
 	{
-		// notify team that they lost this battery
-		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::BatteryLost))
-			PlayerHuman::log_add(_(strings::battery_lost), AI::TeamNone, 1 << team);
+		PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::BatteryLost); // notify team that they lost this battery
+		char buffer[UI_TEXT_MAX];
+		snprintf(buffer, UI_TEXT_MAX, _(strings::battery_lost), s32(id()) + 1);
+		PlayerHuman::log_add(buffer, AI::TeamNone, 1 << team);
 	}
 
 	team = t;
 	get<View>()->team = s8(t);
-	get<PointLight>()->team = s8(t);
-	get<PointLight>()->radius = (t == AI::TeamNone) ? 0.0f : SENSOR_RANGE;
-	get<Sensor>()->team = t;
+	if (has<Sensor>())
+	{
+		get<PointLight>()->team = s8(t);
+		get<PointLight>()->radius = (t == AI::TeamNone) ? 0.0f : SENSOR_RANGE;
+		get<Sensor>()->team = t;
+	}
 	spawn_point.ref()->set_team(t);
 }
 
@@ -1429,6 +1440,7 @@ TurretEntity::TurretEntity(AI::Team team)
 
 void Turret::awake()
 {
+	vi_assert(id() < MAX_TURRETS);
 	target_check_time = mersenne::randf_oo() * TURRET_TARGET_CHECK_TIME;
 	link_arg<Entity*, &Turret::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &Turret::health_changed>(get<Health>()->changed);
@@ -1442,12 +1454,30 @@ void Turret::set_team(AI::Team t)
 	get<PointLight>()->team = s8(t);
 }
 
+AssetID Turret::name() const
+{
+	static const AssetID names[MAX_TURRETS] =
+	{
+		strings::turret1,
+		strings::turret2,
+		strings::turret3,
+		strings::turret4,
+		strings::turret5,
+		strings::turret6,
+	};
+	return names[id()];
+}
+
 void Turret::health_changed(const HealthEvent& e)
 {
 	if (e.hp + e.shield < 0 && get<Health>()->hp > 0)
 	{
 		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::TurretUnderAttack))
-			PlayerHuman::log_add(_(strings::turret_under_attack), AI::TeamNone, 1 << team);
+		{
+			char buffer[UI_TEXT_MAX];
+			snprintf(buffer, UI_TEXT_MAX, _(strings::turret_under_attack), _(name()));
+			PlayerHuman::log_add(buffer, AI::TeamNone, 1 << team);
+		}
 	}
 }
 
@@ -1457,13 +1487,11 @@ void Turret::killed(Entity* by)
 
 	{
 		// let everyone know what happened
-		char buffer[512];
+		char buffer[UI_TEXT_MAX];
 		if (list.count() > 1)
-			sprintf(buffer, _(strings::turrets_remaining), list.count() - 1);
+			snprintf(buffer, UI_TEXT_MAX, _(strings::turrets_remaining), list.count() - 1);
 		else
 			strcpy(buffer, _(strings::core_vulnerable));
-
-		PlayerHuman::log_add(buffer);
 
 		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		{
@@ -2112,15 +2140,22 @@ b8 Bolt::can_damage(const Entity* e) const
 			|| e->get<Drone>()->state() == Drone::State::Crawl); // the drone is flying or dashing; it's invincible to minions and turrets
 }
 
-void Bolt::reflect(const Entity* hit_object)
+void Bolt::reflect(const Entity* hit_object, ReflectionType reflection_type, const Vec3& normal)
 {
 	vi_assert(Game::level.local);
 	Transform* transform = get<Transform>();
+
 	Vec3 dir;
-	if (owner.ref())
-		dir = Vec3::normalize(owner.ref()->get<Transform>()->absolute_pos() - transform->absolute_pos());
-	else
-		dir = transform->absolute_rot() * Vec3(0, 0, -1.0f);
+	if (reflection_type == ReflectionType::Homing)
+	{
+		if (owner.ref())
+			dir = Vec3::normalize(owner.ref()->get<Transform>()->absolute_pos() - transform->absolute_pos());
+		else
+			dir = transform->absolute_rot() * Vec3(0, 0, -1.0f);
+	}
+	else // simple reflection
+		dir = (transform->absolute_rot() * Vec3(0, 0, 1.0f)).reflect(normal);
+
 	velocity = dir * 2.0f * speed(type);
 	remaining_lifetime = (DRONE_MAX_DISTANCE * 0.99f) / (2.0f * speed(type));
 	transform->absolute_rot(Quat::look(dir));
@@ -2135,8 +2170,12 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 {
 	b8 destroy = true;
 
+	b8 hit_force_field_collision = false;
 	if (hit_object->has<ForceFieldCollision>())
+	{
 		hit_object = hit_object->get<ForceFieldCollision>()->field.ref()->entity();
+		hit_force_field_collision = true;
+	}
 
 	Vec3 basis;
 	if (hit_object->has<Health>())
@@ -2147,7 +2186,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 		{
 			case Type::DroneBolter:
 			{
-				if (hit_object->has<Turret>() || hit_object->has<Drone>() || hit_object->has<ForceField>())
+				if (hit_object->has<Turret>() || hit_object->has<Drone>() || hit_object->has<ForceField>() || hit_object->has<CoreModule>())
 					damage = 1;
 				else if (hit_object->has<Minion>())
 					damage = 3;
@@ -2159,7 +2198,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 			{
 				if (hit_object->has<Minion>())
 					damage = MINION_HEALTH;
-				else if (hit_object->has<Drone>() || hit_object->has<Turret>())
+				else if (hit_object->has<Drone>() || hit_object->has<Turret>() || hit_object->has<CoreModule>())
 					damage = 1;
 				else if (hit_object->has<ForceField>())
 					damage = mersenne::rand() % 3 > 0 ? 1 : 0; // expected value: 0.66
@@ -2190,7 +2229,15 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 		if (!can_damage(hit_object))
 			damage = 0;
 
-		if (hit_object->get<Health>()->active_armor())
+		if (hit_force_field_collision)
+		{
+			if (!reflected)
+			{
+				destroy = false;
+				reflect(hit_object, ReflectionType::Simple, normal);
+			}
+		}
+		else if (hit_object->get<Health>()->active_armor())
 		{
 			damage = 0;
 			if (hit_object->has<Shield>())

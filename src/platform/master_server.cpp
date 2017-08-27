@@ -353,6 +353,8 @@ namespace Master
 		config->min_players = s8(Json::get_s32(json, "min_players", 2));
 		config->time_limit_minutes = s8(Json::get_s32(json, "time_limit_minutes", 6));
 		config->enable_minions = b8(Json::get_s32(json, "enable_minions", 1));
+		config->enable_batteries = b8(Json::get_s32(json, "enable_batteries", 1));
+		config->enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", 1));
 		config->drone_shield = s8(Json::get_s32(json, "drone_shield", DRONE_SHIELD_AMOUNT));
 		config->start_energy = b8(Json::get_s32(json, "start_energy"));
 		config->fill_bots = b8(Json::get_s32(json, "fill_bots"));
@@ -385,6 +387,8 @@ namespace Master
 		cJSON_AddNumberToObject(json, "min_players", config.min_players);
 		cJSON_AddNumberToObject(json, "time_limit_minutes", config.time_limit_minutes);
 		cJSON_AddNumberToObject(json, "enable_minions", config.enable_minions);
+		cJSON_AddNumberToObject(json, "enable_batteries", config.enable_batteries);
+		cJSON_AddNumberToObject(json, "enable_battery_stealth", config.enable_battery_stealth);
 		cJSON_AddNumberToObject(json, "drone_shield", config.drone_shield);
 		cJSON_AddNumberToObject(json, "start_energy", config.start_energy);
 		cJSON_AddNumberToObject(json, "fill_bots", config.fill_bots);

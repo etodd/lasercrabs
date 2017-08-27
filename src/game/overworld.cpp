@@ -698,6 +698,28 @@ void multiplayer_entry_edit_update(const Update& u)
 				}
 
 				{
+					// enable batteries
+					b8* enable_batteries = &config->enable_batteries;
+					delta = menu->slider_item(u, _(strings::enable_batteries), _(*enable_batteries ? strings::on : strings::off));
+					if (delta)
+					{
+						*enable_batteries = !(*enable_batteries);
+						data.multiplayer.active_server_dirty = true;
+					}
+				}
+
+				{
+					// battery stealth
+					b8* enable_battery_stealth = &config->enable_battery_stealth;
+					delta = menu->slider_item(u, _(strings::enable_battery_stealth), _(*enable_battery_stealth ? strings::on : strings::off));
+					if (delta)
+					{
+						*enable_battery_stealth = !(*enable_battery_stealth);
+						data.multiplayer.active_server_dirty = true;
+					}
+				}
+
+				{
 					// allowed upgrades
 					sprintf(str, "%d", s32(Net::popcount(s16((1 << s32(Upgrade::count)) - 1) & config->allow_upgrades)));
 					if (menu->item(u, _(strings::allow_upgrades), str))
@@ -1484,7 +1506,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 		// column 1
 		{
-			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 7;
+			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 9;
 			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			if (details.state.level == AssetNull)
@@ -1554,6 +1576,13 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 				pos.y -= panel_size.y;
 			}
 
+			// bots
+			text.text(0, _(strings::fill_bots));
+			text.draw(params, pos);
+			value.text(0, _(details.config.fill_bots ? strings::on : strings::off));
+			value.draw(params, pos + Vec2(panel_size.x, 0));
+			pos.y -= panel_size.y;
+
 			// drone shield
 			text.text(0, _(strings::drone_shield));
 			text.draw(params, pos);
@@ -1568,17 +1597,24 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 
+			// enable batteries
+			text.text(0, _(strings::enable_batteries));
+			text.draw(params, pos);
+			value.text(0, _(details.config.enable_batteries ? strings::on : strings::off));
+			value.draw(params, pos + Vec2(panel_size.x, 0));
+			pos.y -= panel_size.y;
+
+			// battery stealth
+			text.text(0, _(strings::enable_battery_stealth));
+			text.draw(params, pos);
+			value.text(0, _(details.config.enable_battery_stealth ? strings::on : strings::off));
+			value.draw(params, pos + Vec2(panel_size.x, 0));
+			pos.y -= panel_size.y;
+
 			// start energy
 			text.text(0, _(strings::start_energy));
 			text.draw(params, pos);
 			value.text(0, "%d", s32(details.config.start_energy));
-			value.draw(params, pos + Vec2(panel_size.x, 0));
-			pos.y -= panel_size.y;
-
-			// bots
-			text.text(0, _(strings::fill_bots));
-			text.draw(params, pos);
-			value.text(0, _(details.config.fill_bots ? strings::on : strings::off));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 		}

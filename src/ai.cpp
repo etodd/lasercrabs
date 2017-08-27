@@ -631,7 +631,7 @@ void entity_info(const Entity* e, Team query_team, Team* team, s8* type)
 	}
 	else if (e->has<Battery>())
 	{
-		_team = e->get<Sensor>()->team;
+		_team = e->get<Battery>()->team;
 		if (_team == query_team)
 			_type = RecordedLife::EntityBatteryFriend;
 		else if (_team == TeamNone)

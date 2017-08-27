@@ -1764,6 +1764,128 @@ Upgrade PlayerHuman::upgrade_selected() const
 	return upgrade;
 }
 
+void PlayerHuman::draw_ui_early(const RenderParams& params) const
+{
+	UIMode mode = ui_mode();
+	if (params.camera == camera.ref()
+		&& !Overworld::active()
+		&& !Game::level.noclip
+		&& local
+		&& Game::level.mode == Game::Mode::Pvp
+		&& (mode == UIMode::Dead || mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrading))
+	{
+
+		AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+
+		// battery and turret names
+		{
+			UIText text;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.color = UI::color_background;
+
+			r32 range_sq;
+			Vec3 my_pos;
+			{
+				Entity* e = get<PlayerManager>()->instance.ref();
+				if (e)
+				{
+					my_pos = e->get<Transform>()->absolute_pos();
+					range_sq = e->get<Drone>()->range();
+					range_sq *= range_sq;
+				}
+				else
+				{
+					my_pos = Vec3::zero;
+					range_sq = 0.0f;
+				}
+			}
+
+			// turret names
+			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+			{
+				Vec3 pos = i.item()->get<Target>()->absolute_pos();
+				if ((pos - my_pos).length_squared() > range_sq)
+				{
+					Vec2 p;
+					if (UI::project(params, pos, &p))
+					{
+						UI::mesh(params, Asset::Mesh::icon_turret, p, Vec2(24.0f * UI::scale), UI::color_background);
+						text.color = Team::ui_color(my_team, i.item()->team);
+						text.text(0, _(i.item()->name()));
+						text.draw(params, p);
+					}
+				}
+			}
+
+			// battery names
+			for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
+			{
+				Vec3 pos = i.item()->get<Target>()->absolute_pos();
+				if ((pos - my_pos).length_squared() > range_sq)
+				{
+					Vec2 p;
+					if (UI::project(params, pos, &p))
+					{
+						UI::mesh(params, Asset::Mesh::icon_battery, p, Vec2(24.0f * UI::scale), UI::color_background);
+						text.color = Team::ui_color(my_team, i.item()->team);
+						text.text(0, "%d", s32(i.index) + 1);
+						text.draw(params, p);
+					}
+				}
+			}
+		}
+
+		// draw notifications
+		for (s32 i = 0; i < notifications.length; i++)
+		{
+			const Notification& n = notifications[i];
+			if (n.timer > NOTIFICATION_TIME_HIDDEN && n.team == my_team)
+			{
+				const Transform* transform = n.transform.ref();
+				Vec3 pos = transform ? transform->absolute_pos() : n.pos;
+				Vec2 p;
+				if (UI::project(params, pos, &p))
+				{
+					Vec2 size(18.0f * UI::scale);
+					switch (n.type)
+					{
+						case Notification::Type::DroneDestroyed:
+						case Notification::Type::TurretDestroyed:
+						case Notification::Type::ForceFieldDestroyed:
+							UI::mesh(params, Asset::Mesh::icon_close, p, size, UI::color_alert());
+							break;
+						case Notification::Type::BatteryLost:
+							UI::mesh(params, Asset::Mesh::icon_close, p + Vec2(0, 32.0f * UI::scale), size, UI::color_alert());
+							break;
+						case Notification::Type::TurretUnderAttack:
+						{
+							if (UI::flash_function_slow(Game::real_time.total))
+								UI::mesh(params, Asset::Mesh::icon_warning, p + Vec2(0, 56.0f * UI::scale), size, UI::color_accent());
+							break;
+						}
+						case Notification::Type::ForceFieldUnderAttack:
+						{
+							if (UI::flash_function_slow(Game::real_time.total))
+								UI::mesh(params, Asset::Mesh::icon_warning, p, size, UI::color_accent());
+							break;
+						}
+						case Notification::Type::BatteryUnderAttack:
+						{
+							if (UI::flash_function_slow(Game::real_time.total))
+								UI::mesh(params, Asset::Mesh::icon_warning, p + Vec2(0, 32.0f * UI::scale), size, UI::color_accent());
+							break;
+						}
+						default:
+							vi_assert(false);
+							break;
+					}
+				}
+			}
+		}
+	}
+}
+
 void PlayerHuman::draw_ui(const RenderParams& params) const
 {
 	if (params.camera != camera.ref()
@@ -1820,59 +1942,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.text(gamepad, format, _(emote_strings[s32(emote_category)][i]));
 			text.draw(params, p);
 			p.y -= UI_TEXT_SIZE_DEFAULT * UI::scale + MENU_ITEM_PADDING;
-		}
-	}
-
-	if (Game::level.mode == Game::Mode::Pvp
-		&& (mode == UIMode::Dead || mode == UIMode::PvpDefault))
-	{
-		// draw notifications
-		AI::Team my_team = get<PlayerManager>()->team.ref()->team();
-		for (s32 i = 0; i < notifications.length; i++)
-		{
-			const Notification& n = notifications[i];
-			if (n.timer > NOTIFICATION_TIME_HIDDEN && n.team == my_team)
-			{
-				const Transform* transform = n.transform.ref();
-				Vec3 pos = transform ? transform->absolute_pos() : n.pos;
-				Vec2 p;
-				if (UI::project(params, pos, &p))
-				{
-					Vec2 size(18.0f * UI::scale);
-					switch (n.type)
-					{
-						case Notification::Type::DroneDestroyed:
-						case Notification::Type::TurretDestroyed:
-						case Notification::Type::ForceFieldDestroyed:
-							UI::mesh(params, Asset::Mesh::icon_close, p, size, UI::color_alert());
-							break;
-						case Notification::Type::BatteryLost:
-							UI::mesh(params, Asset::Mesh::icon_close, p + Vec2(0, 24.0f * UI::scale), size, UI::color_alert());
-							break;
-						case Notification::Type::TurretUnderAttack:
-						{
-							if (UI::flash_function_slow(Game::real_time.total))
-								UI::mesh(params, Asset::Mesh::icon_warning, p + Vec2(0, 48.0f * UI::scale), size, UI::color_accent());
-							break;
-						}
-						case Notification::Type::ForceFieldUnderAttack:
-						{
-							if (UI::flash_function_slow(Game::real_time.total))
-								UI::mesh(params, Asset::Mesh::icon_warning, p, size, UI::color_accent());
-							break;
-						}
-						case Notification::Type::BatteryUnderAttack:
-						{
-							if (UI::flash_function_slow(Game::real_time.total))
-								UI::mesh(params, Asset::Mesh::icon_warning, p + Vec2(0, 24.0f * UI::scale), size, UI::color_accent());
-							break;
-						}
-						default:
-							vi_assert(false);
-							break;
-					}
-				}
-			}
 		}
 	}
 
@@ -2027,17 +2096,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 					else
 					{
 						// select spawn point
-						AI::Team my_team = get<PlayerManager>()->team.ref()->team();
-						for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
-							UI::indicator(params, i.item()->get<Transform>()->absolute_pos(), Team::ui_color(my_team, i.item()->team), i.item()->team == my_team, 1.0f, PI);
-
-						for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-						{
-							Vec2 p;
-							if (UI::project(params, i.item()->get<Transform>()->absolute_pos(), &p))
-								UI::mesh(params, Asset::Mesh::icon_turret, p, Vec2(18.0f * UI::scale), Team::ui_color(my_team, i.item()->team));
-						}
-
 						Vec2 p;
 						if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
 							UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent(), PI);
@@ -2062,7 +2120,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 									str = strings::core_modules_remaining_spawning;
 									count = CoreModule::list.count();
 								}
-								text.text(gamepad, _(str), _(my_team == 0 ? strings::defend : strings::attack), count);
+								text.text(gamepad, _(str), _(get<PlayerManager>()->team.ref()->team() == 0 ? strings::defend : strings::attack), count);
 							}
 							Vec2 pos = vp.size * Vec2(0.5f, 0.25f);
 							UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
@@ -4335,7 +4393,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 #endif
 
 	// target indicators
-	Vec2 size(18.0f * UI::scale);
+	Vec2 size(24.0f * UI::scale);
 	for (s32 i = 0; i < target_indicators.length; i++)
 	{
 		const TargetIndicator& indicator = target_indicators[i];
@@ -4350,20 +4408,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			case TargetIndicator::Type::BatteryEnemy:
 				UI::indicator(params, indicator.pos, Team::ui_color_enemy, false, 1.0f, PI);
 				break;
-			case TargetIndicator::Type::BatteryOutOfRange:
-			case TargetIndicator::Type::BatteryEnemyOutOfRange:
-			case TargetIndicator::Type::BatteryFriendlyOutOfRange:
-			{
-				Vec2 p;
-				if (UI::project(params, indicator.pos, &p))
-				{
-					const Vec4& color = indicator.type == TargetIndicator::Type::BatteryOutOfRange
-						? UI::color_accent()
-						: (indicator.type == TargetIndicator::Type::BatteryFriendlyOutOfRange ? Team::ui_color_friend : Team::ui_color_enemy);
-					UI::mesh(params, Asset::Mesh::icon_battery, p, size, color);
-				}
-				break;
-			}
 			case TargetIndicator::Type::Minion:
 			case TargetIndicator::Type::Turret:
 			case TargetIndicator::Type::CoreModule:
@@ -4375,14 +4419,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			{
 				if (UI::flash_function(Game::time.total))
 					UI::indicator(params, indicator.pos, UI::color_alert(), true);
-				break;
-			}
-			case TargetIndicator::Type::TurretOutOfRange:
-			case TargetIndicator::Type::TurretFriendlyOutOfRange:
-			{
-				Vec2 p;
-				if (UI::project(params, indicator.pos, &p))
-					UI::mesh(params, Asset::Mesh::icon_turret, p, size, indicator.type == TargetIndicator::Type::TurretOutOfRange ? Team::ui_color_enemy : Team::ui_color_friend);
 				break;
 			}
 			case TargetIndicator::Type::CoreModuleOutOfRange:
@@ -4400,6 +4436,11 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			case TargetIndicator::Type::Grenade:
 			case TargetIndicator::Type::TurretFriendly:
 			case TargetIndicator::Type::CoreModuleFriendly:
+			case TargetIndicator::Type::TurretOutOfRange:
+			case TargetIndicator::Type::TurretFriendlyOutOfRange:
+			case TargetIndicator::Type::BatteryOutOfRange:
+			case TargetIndicator::Type::BatteryEnemyOutOfRange:
+			case TargetIndicator::Type::BatteryFriendlyOutOfRange:
 				break;
 			default:
 			{
@@ -4416,35 +4457,33 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		Vec3 me = get<Transform>()->absolute_pos();
 
 		AI::Team my_team = get<AIAgent>()->team;
-		if (Turret::list.count() > 0)
+
+		// turret health bars
+		if (Game::level.mode == Game::Mode::Pvp && Turret::list.count() > 0 && Game::level.has_feature(Game::FeatureLevel::Turrets))
 		{
-			// turret health bars
-			if (Game::level.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::Turrets))
+			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 			{
-				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+				Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
+
+				if (i.item()->team == my_team || (turret_pos - me).length_squared() < range * range)
 				{
-					Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
-
-					if (i.item()->team == my_team || (turret_pos - me).length_squared() < range * range)
+					Vec2 p;
+					if (UI::project(params, turret_pos, &p))
 					{
-						Vec2 p;
-						if (UI::project(params, turret_pos, &p))
-						{
-							Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
-							Rect2 bar = { p + Vec2(0, 32.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-							UI::box(params, bar, UI::color_background);
-							const Vec4& color = Team::ui_color(team, i.item()->team);
-							UI::border(params, bar, 2, color);
-							Health* health = i.item()->get<Health>();
-							UI::box(params, { bar.pos, Vec2(bar.size.x * (r32(health->hp) / r32(health->hp_max)), bar.size.y) }, color);
-						}
+						Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
+						Rect2 bar = { p + Vec2(0, 32.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+						UI::box(params, bar, UI::color_background);
+						const Vec4& color = Team::ui_color(team, i.item()->team);
+						UI::border(params, bar, 2, color);
+						Health* health = i.item()->get<Health>();
+						UI::box(params, { bar.pos, Vec2(bar.size.x * (r32(health->hp) / r32(health->hp_max)), bar.size.y) }, color);
+					}
 
-						if (i.item()->target.ref() == entity())
-						{
-							if (UI::flash_function(Game::time.total))
-								UI::indicator(params, turret_pos, Team::ui_color_enemy, true);
-							enemy_visible = true;
-						}
+					if (i.item()->target.ref() == entity())
+					{
+						if (UI::flash_function(Game::time.total))
+							UI::indicator(params, turret_pos, Team::ui_color_enemy, true);
+						enemy_visible = true;
 					}
 				}
 			}

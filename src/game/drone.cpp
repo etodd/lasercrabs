@@ -1848,8 +1848,6 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 				}
 				random_range += PI / r32(REFLECTION_TRIES);
 			}
-			else
-				i--; // candidate dir was against the normal; try again
 		}
 	}
 

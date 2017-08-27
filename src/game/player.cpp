@@ -787,7 +787,7 @@ b8 PlayerHuman::chat_emotes_enabled() const
 void PlayerHuman::update(const Update& u)
 {
 #if SERVER
-	if (Game::session.type == SessionType::Multiplayer && get<PlayerManager>()->respawns != 0)
+	if (Game::session.type == SessionType::Multiplayer && get<PlayerManager>()->respawns != 0 && Team::match_state == Team::MatchState::Active)
 	{
 		afk_timer -= Game::real_time.delta;
 		if (afk_timer < 0.0f)

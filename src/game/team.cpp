@@ -1009,7 +1009,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	abilities{ Ability::None, Ability::None, Ability::None },
 	instance(),
 	spawn(),
-	can_spawn(Game::session.type == SessionType::Story),
+	can_spawn(Game::session.type == SessionType::Story || Team::match_state == Team::MatchState::Active),
 	current_upgrade(Upgrade::None),
 	state_timer(),
 	upgrade_completed(),

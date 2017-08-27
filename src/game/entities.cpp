@@ -335,10 +335,24 @@ void Shield::update_client_all(const Update& u)
 
 void Shield::health_changed(const HealthEvent& e)
 {
-	if (e.shield < -1)
-		get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_DAMAGE_LARGE);
-	else if (e.shield < 0)
-		get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_DAMAGE_SMALL);
+	if (e.shield < 0)
+	{
+		AkUniqueID event_id;
+		if (e.shield < -1)
+			event_id = AK::EVENTS::PLAY_DRONE_DAMAGE_LARGE;
+		else
+			event_id = AK::EVENTS::PLAY_DRONE_DAMAGE_SMALL;
+
+		Entity* src = e.source.ref();
+		if (src && src != entity() && has<PlayerControlHuman>() && get<PlayerControlHuman>()->local())
+		{
+			// spatialized damage sounds
+			Vec3 offset = Vec3::normalize(e.source.ref()->get<Transform>()->absolute_pos() - get<Transform>()->absolute_pos());
+			get<Audio>()->post_event_attached(event_id, offset * DRONE_SHIELD_RADIUS * 2.0f, 4.0f);
+		}
+		else
+			Audio::post_event_global(event_id, get<Transform>()->absolute_pos());
+	}
 	else if (e.shield > 0)
 	{
 		if (get<Health>()->shield == 1)
@@ -2314,22 +2328,22 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 
 	if (t == Type::Grenade)
 	{
-		Audio::post_global_event(AK::EVENTS::PLAY_EXPLOSION, pos);
+		Audio::post_event_global(AK::EVENTS::PLAY_EXPLOSION, pos);
 		EffectLight::add(pos, GRENADE_RANGE, 0.35f, EffectLight::Type::Alpha);
 	}
 	else if (t == Type::Explosion)
 	{
-		Audio::post_global_event(AK::EVENTS::PLAY_EXPLOSION, pos);
+		Audio::post_event_global(AK::EVENTS::PLAY_EXPLOSION, pos);
 		EffectLight::add(pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
 	}
 	else if (t == Type::ImpactLarge || t == Type::ImpactSmall)
-		Audio::post_global_event(AK::EVENTS::PLAY_IMPACT, pos);
+		Audio::post_event_global(AK::EVENTS::PLAY_IMPACT, pos);
 	else if (t == Type::Fizzle)
-		Audio::post_global_event(AK::EVENTS::PLAY_FIZZLE, pos);
+		Audio::post_event_global(AK::EVENTS::PLAY_FIZZLE, pos);
 	else if (t == Type::SpawnMinion)
-		Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
+		Audio::post_event_global(AK::EVENTS::PLAY_MINION_SPAWN, pos);
 	else if (t == Type::SpawnDrone)
-		Audio::post_global_event(AK::EVENTS::PLAY_DRONE_SPAWN, pos);
+		Audio::post_event_global(AK::EVENTS::PLAY_DRONE_SPAWN, pos);
 
 	if (t == Type::Grenade)
 	{

@@ -328,8 +328,6 @@ struct Gamepad
 	Type type;
 };
 
-#define MAX_GAMEPADS 4
-
 struct InputBinding
 {
 	Gamepad::Btn btn;

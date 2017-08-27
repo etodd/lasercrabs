@@ -123,7 +123,7 @@ b8 dialog_active(s8 gamepad)
 
 void dialog(s8 gamepad, DialogCallback callback, const char* format, ...)
 {
-	Audio::post_global_event(AK::EVENTS::PLAY_DIALOG_ALERT);
+	Audio::post_event_global(AK::EVENTS::PLAY_DIALOG_ALERT);
 	va_list args;
 	va_start(args, format);
 
@@ -146,7 +146,7 @@ void dialog(s8 gamepad, DialogCallback callback, const char* format, ...)
 
 void dialog_with_cancel(s8 gamepad, DialogCallback callback, DialogCallback cancel_callback, const char* format, ...)
 {
-	Audio::post_global_event(AK::EVENTS::PLAY_DIALOG_SHOW);
+	Audio::post_event_global(AK::EVENTS::PLAY_DIALOG_SHOW);
 
 	va_list args;
 	va_start(args, format);
@@ -170,7 +170,7 @@ void dialog_with_cancel(s8 gamepad, DialogCallback callback, DialogCallback canc
 
 void dialog_with_time_limit(s8 gamepad, DialogCallback callback, DialogCallback callback_cancel, r32 limit, const char* format, ...)
 {
-	Audio::post_global_event(AK::EVENTS::PLAY_DIALOG_SHOW);
+	Audio::post_event_global(AK::EVENTS::PLAY_DIALOG_SHOW);
 
 	va_list args;
 	va_start(args, format);
@@ -649,7 +649,7 @@ void update(const Update& u)
 			if (dialog_time_limit[i] == 0.0f)
 			{
 				// cancel
-				Audio::post_global_event(AK::EVENTS::PLAY_DIALOG_CANCEL);
+				Audio::post_event_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
 				DialogCallback c = dialog_cancel_callback[i];
 				dialog_callback[i] = nullptr;
 				dialog_cancel_callback[i] = nullptr;
@@ -664,7 +664,7 @@ void update(const Update& u)
 			if (u.last_input->get(Controls::Interact, i) && !u.input->get(Controls::Interact, i))
 			{
 				// accept
-				Audio::post_global_event(AK::EVENTS::PLAY_DIALOG_ACCEPT);
+				Audio::post_event_global(AK::EVENTS::PLAY_DIALOG_ACCEPT);
 				DialogCallback callback = dialog_callback[i];
 				dialog_callback[i] = nullptr;
 				dialog_cancel_callback[i] = nullptr;
@@ -674,7 +674,7 @@ void update(const Update& u)
 			else if (!Game::cancel_event_eaten[i] && u.last_input->get(Controls::Cancel, i) && !u.input->get(Controls::Cancel, i))
 			{
 				// cancel
-				Audio::post_global_event(AK::EVENTS::PLAY_DIALOG_CANCEL);
+				Audio::post_event_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
 				DialogCallback cancel_callback = dialog_cancel_callback[i];
 				dialog_callback[i] = nullptr;
 				dialog_cancel_callback[i] = nullptr;
@@ -951,7 +951,7 @@ State settings(const Update& u, s8 gamepad, UIMenu* menu)
 			else if (delta > 0)
 				Settings::sfx = vi_min(100, Settings::sfx + 10);
 			if (delta != 0)
-				Audio::global_param(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER);
+				Audio::param_global(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER);
 		}
 
 		{
@@ -962,7 +962,7 @@ State settings(const Update& u, s8 gamepad, UIMenu* menu)
 			else if (delta > 0)
 				Settings::music = vi_min(100, Settings::music + 10);
 			if (delta != 0)
-				Audio::global_param(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER);
+				Audio::param_global(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER);
 		}
 
 		UIMenu::enum_option(&Settings::region, menu->slider_item(u, _(strings::region), _(region_string(Settings::region))));
@@ -1479,7 +1479,7 @@ void UIMenu::start(const Update& u, s8 g, b8 input)
 	s32 delta = UI::input_delta_vertical(u, gamepad);
 	if (delta != 0)
 	{
-		Audio::post_global_event(AK::EVENTS::PLAY_MENU_MOVE);
+		Audio::post_event_global(AK::EVENTS::PLAY_MENU_MOVE);
 		selected += delta;
 	}
 }
@@ -1543,7 +1543,7 @@ b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disab
 		&& !Console::visible
 		&& !disabled)
 	{
-		Audio::post_global_event(AK::EVENTS::PLAY_MENU_SELECT);
+		Audio::post_event_global(AK::EVENTS::PLAY_MENU_SELECT);
 		return true;
 	}
 	
@@ -1566,9 +1566,9 @@ s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b
 	{
 		s32 delta = UI::input_delta_horizontal(u, gamepad);
 		if (delta < 0)
-			Audio::post_global_event(AK::EVENTS::PLAY_MENU_ALTER);
+			Audio::post_event_global(AK::EVENTS::PLAY_MENU_ALTER);
 		else if (delta > 0)
-			Audio::post_global_event(AK::EVENTS::PLAY_MENU_ALTER);
+			Audio::post_event_global(AK::EVENTS::PLAY_MENU_ALTER);
 		return delta;
 	}
 	
@@ -1616,7 +1616,7 @@ void UIMenu::text_clip_timer(UIText* text, r32 timer, r32 speed, s32 max)
 		&& text->rendered_string[text->clip] != '\t'
 		&& text->rendered_string[text->clip] != '\n')
 	{
-		Audio::post_global_event(AK::EVENTS::PLAY_CONSOLE_KEY);
+		Audio::post_event_global(AK::EVENTS::PLAY_CONSOLE_KEY);
 	}
 }
 

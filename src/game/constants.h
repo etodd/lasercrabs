@@ -2,6 +2,8 @@
 
 #define MAX_PLAYERS 8
 
+#define MAX_GAMEPADS 4
+
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 

@@ -251,7 +251,7 @@ void Parkour::footstep()
 	{
 		Vec3 base_pos = get<Walker>()->base_pos();
 
-		Audio::post_global_event(AK::EVENTS::PLAY_FOOTSTEP, base_pos);
+		Audio::post_event_global(AK::EVENTS::PLAY_FOOTSTEP, base_pos);
 
 		RigidBody* support = get<Walker>()->support.ref();
 		EffectLight::add(base_pos, 1.0f, 5.0f, EffectLight::Type::Shockwave, support ? support->get<Transform>() : nullptr);

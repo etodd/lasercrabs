@@ -131,7 +131,7 @@ s32 Minion::count(AI::TeamMask mask)
 
 void Minion::footstep()
 {
-	Audio::post_global_event(AK::EVENTS::PLAY_FOOTSTEP, get<Walker>()->base_pos());
+	Audio::post_event_global(AK::EVENTS::PLAY_FOOTSTEP, get<Walker>()->base_pos());
 }
 
 void Minion::melee_started()
@@ -839,7 +839,7 @@ void Minion::killed(Entity* killer)
 {
 	PlayerManager::entity_killed_by(entity(), killer);
 	get<Audio>()->post_event(AK::EVENTS::STOP);
-	Audio::post_global_event(killer && killer->has<Drone>() ? AK::EVENTS::PLAY_MINION_HEADSHOT : AK::EVENTS::PLAY_MINION_DIE, head_pos());
+	Audio::post_event_global(killer && killer->has<Drone>() ? AK::EVENTS::PLAY_MINION_HEADSHOT : AK::EVENTS::PLAY_MINION_DIE, head_pos());
 
 	if (Game::level.local && Ragdoll::list.count() < 8) // limit ragdolls
 	{

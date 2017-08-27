@@ -494,7 +494,7 @@ void PlayerHuman::update_all(const Update& u)
 	else
 		danger = vi_max(0.0f, danger - Game::real_time.delta / DANGER_RAMP_DOWN_TIME);
 
-	Audio::global_param(AK::GAME_PARAMETERS::DANGER, vi_min(danger, 1.0f));
+	Audio::param_global(AK::GAME_PARAMETERS::DANGER, vi_min(danger, 1.0f));
 
 	for (s32 i = logs.length - 1; i >= 0; i--)
 	{
@@ -2321,7 +2321,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			UI::box(params, box, UI::color_background);
 			msg_text.draw(params, pos);
 			if (!last_flash)
-				Audio::post_global_event(msg_good ? AK::EVENTS::PLAY_MESSAGE_BEEP_GOOD : AK::EVENTS::PLAY_MESSAGE_BEEP_BAD);
+				Audio::post_event_global(msg_good ? AK::EVENTS::PLAY_MESSAGE_BEEP_GOOD : AK::EVENTS::PLAY_MESSAGE_BEEP_BAD);
 		}
 	}
 

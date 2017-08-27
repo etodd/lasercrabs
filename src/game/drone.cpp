@@ -329,7 +329,7 @@ void sniper_hit_effects(const Drone::Hit& hit)
 			Vec4(1, 1, 1, 1)
 		);
 	}
-	Audio::post_global_event(AK::EVENTS::PLAY_SNIPER_IMPACT, hit.pos);
+	Audio::post_event_global(AK::EVENTS::PLAY_SNIPER_IMPACT, hit.pos);
 }
 
 s32 impact_damage(const Drone* drone, const Entity* target_shield)
@@ -536,7 +536,7 @@ void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone:
 				line_start = hit.pos;
 			}
 		}
-		Audio::post_global_event(AK::EVENTS::PLAY_SNIPER_WHIFF, closest_position);
+		Audio::post_event_global(AK::EVENTS::PLAY_SNIPER_WHIFF, closest_position);
 	}
 
 	// effects
@@ -791,7 +791,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					if (Game::level.local)
 						Net::finalize(World::create<SensorEntity>(manager->team.ref()->team(), pos + rot * Vec3(0, 0, SENSOR_RADIUS), rot));
 
-					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
+					Audio::post_event_global(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
 
 					// effects
 					particle_trail(my_pos, pos);
@@ -831,7 +831,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					particle_trail(my_pos, pos);
 					EffectLight::add(npos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
-					Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
+					Audio::post_event_global(AK::EVENTS::PLAY_MINION_SPAWN, npos);
 					break;
 				}
 				case Ability::ForceField:
@@ -839,7 +839,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					// spawn a force field
 					Vec3 npos = pos + rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
 
-					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, npos);
+					Audio::post_event_global(AK::EVENTS::PLAY_SENSOR_SPAWN, npos);
 
 					if (Game::level.local)
 						Net::finalize(World::create<ForceFieldEntity>(parent->get<Transform>(), npos, rot, drone->get<AIAgent>()->team));

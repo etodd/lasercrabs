@@ -231,7 +231,7 @@ void deploy_start()
 	vi_assert(Game::session.type == SessionType::Story);
 	data.state = State::StoryModeDeploying;
 	data.timer_deploy = DEPLOY_TIME;
-	Audio::post_global_event(AK::EVENTS::PLAY_OVERWORLD_DEPLOY_START);
+	Audio::post_event_global(AK::EVENTS::PLAY_OVERWORLD_DEPLOY_START);
 }
 
 void deploy_done();
@@ -1958,7 +1958,7 @@ void select_zone_update(const Update& u, b8 enable_movement)
 			if (closest)
 			{
 				data.zone_selected = closest->id;
-				Audio::post_global_event(AK::EVENTS::PLAY_OVERWORLD_MOVE);
+				Audio::post_event_global(AK::EVENTS::PLAY_OVERWORLD_MOVE);
 			}
 		}
 	}
@@ -2388,7 +2388,7 @@ void hide()
 	{
 		data.timer_transition = TRANSITION_TIME;
 		data.state_next = State::Hidden;
-		Audio::post_global_event(AK::EVENTS::PLAY_TRANSITION_OUT);
+		Audio::post_event_global(AK::EVENTS::PLAY_TRANSITION_OUT);
 	}
 }
 
@@ -2401,7 +2401,7 @@ void hide_complete()
 		data.camera = nullptr;
 	}
 	data.state = data.state_next = State::Hidden;
-	Audio::post_global_event(AK::EVENTS::STOP_AMBIENCE_OVERWORLD);
+	Audio::post_event_global(AK::EVENTS::STOP_AMBIENCE_OVERWORLD);
 }
 
 void deploy_done()
@@ -2446,7 +2446,7 @@ void deploy_update(const Update& u)
 		data.camera_pos += Vec3(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
 
 		if (old_timer >= 0.5f)
-			Audio::post_global_event(AK::EVENTS::PLAY_OVERWORLD_DEPLOY);
+			Audio::post_event_global(AK::EVENTS::PLAY_OVERWORLD_DEPLOY);
 	}
 
 	if (data.timer_deploy == 0.0f && old_timer > 0.0f)
@@ -3140,14 +3140,14 @@ void show_complete()
 		{
 			data.camera.ref()->flag(CameraFlagColors, false);
 			data.camera.ref()->mask = 0;
-			Audio::post_global_event(AK::EVENTS::PLAY_AMBIENCE_OVERWORLD);
+			Audio::post_event_global(AK::EVENTS::PLAY_AMBIENCE_OVERWORLD);
 		}
 	}
 
 	data.state = state_next;
 	data.story.tab = tab_next;
 	if (data.story.tab != data.story.tab_previous)
-		Audio::post_global_event(AK::EVENTS::PLAY_OVERWORLD_SHOW);
+		Audio::post_event_global(AK::EVENTS::PLAY_OVERWORLD_SHOW);
 
 	if (Game::session.type == SessionType::Story)
 	{
@@ -3217,7 +3217,7 @@ void update(const Update& u)
 		data.timer_transition = vi_max(0.0f, data.timer_transition - u.time.delta);
 		if (data.timer_transition < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
 		{
-			Audio::post_global_event(AK::EVENTS::PLAY_TRANSITION_IN);
+			Audio::post_event_global(AK::EVENTS::PLAY_TRANSITION_IN);
 			if (data.state_next == State::Hidden)
 				hide_complete();
 			else
@@ -3399,7 +3399,7 @@ void show(Camera* camera, State state, StoryTab tab)
 			hide_complete();
 		else // start transition
 		{
-			Audio::post_global_event(AK::EVENTS::PLAY_TRANSITION_OUT);
+			Audio::post_event_global(AK::EVENTS::PLAY_TRANSITION_OUT);
 			data.timer_transition = TRANSITION_TIME;
 		}
 	}

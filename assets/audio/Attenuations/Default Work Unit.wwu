@@ -3,9 +3,9 @@
 	<Attenuations>
 		<WorkUnit Name="Default Work Unit" ID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}" PersistMode="Standalone">
 			<ChildrenList>
-				<Attenuation Name="Atten40" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" ShortID="1058333233">
+				<Attenuation Name="Atten20" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" ShortID="1058333233">
 					<PropertyList>
-						<Property Name="RadiusMax" Type="Real64" Value="40"/>
+						<Property Name="RadiusMax" Type="Real64" Value="20"/>
 					</PropertyList>
 					<CurveUsageInfoList>
 						<VolumeDryUsage>
@@ -21,7 +21,7 @@
 											<Flags>5</Flags>
 										</Point>
 										<Point>
-											<XPos>40</XPos>
+											<XPos>20</XPos>
 											<YPos>-200</YPos>
 											<Flags>37</Flags>
 										</Point>
@@ -97,7 +97,7 @@
 				</Attenuation>
 				<Attenuation Name="Drone_Perspective_01" ID="{A382FC13-692F-413C-B3F3-537600DAC1C4}" ShortID="51572763">
 					<PropertyList>
-						<Property Name="RadiusMax" Type="Real64" Value="120"/>
+						<Property Name="RadiusMax" Type="Real64" Value="30"/>
 					</PropertyList>
 					<CurveUsageInfoList>
 						<VolumeDryUsage>
@@ -111,9 +111,10 @@
 											<XPos>0</XPos>
 											<YPos>0</YPos>
 											<Flags>5</Flags>
+											<SegmentShape>Log1</SegmentShape>
 										</Point>
 										<Point>
-											<XPos>120</XPos>
+											<XPos>30</XPos>
 											<YPos>-200</YPos>
 											<Flags>37</Flags>
 										</Point>
@@ -146,17 +147,17 @@
 											<Flags>5</Flags>
 										</Point>
 										<Point>
-											<XPos>5.99988</XPos>
+											<XPos>1.49997</XPos>
 											<YPos>100</YPos>
 											<Flags>0</Flags>
 										</Point>
 										<Point>
-											<XPos>6.00148</XPos>
+											<XPos>1.50117</XPos>
 											<YPos>0</YPos>
 											<Flags>0</Flags>
 										</Point>
 										<Point>
-											<XPos>120</XPos>
+											<XPos>30</XPos>
 											<YPos>0</YPos>
 											<Flags>37</Flags>
 										</Point>
@@ -237,6 +238,53 @@
 									</PointList>
 								</Curve>
 							</CurveUsageInfo>
+						</SpreadUsage>
+						<FocusUsage>
+							<CurveUsageInfo Platform="Linked" CurveToUse="None"/>
+						</FocusUsage>
+					</CurveUsageInfoList>
+				</Attenuation>
+				<Attenuation Name="Drone_Damage" ID="{32F77D40-C5C1-46B5-9B38-E970376362BB}" ShortID="66878556">
+					<PropertyList>
+						<Property Name="RadiusMax" Type="Real64" Value="20"/>
+					</PropertyList>
+					<CurveUsageInfoList>
+						<VolumeDryUsage>
+							<CurveUsageInfo Platform="Linked" CurveToUse="Custom">
+								<Curve Name="VolumeDry" ID="{649C8C3B-86CF-4CAD-ACE5-83330137BA53}">
+									<PropertyList>
+										<Property Name="Flags" Type="int32" Value="3"/>
+									</PropertyList>
+									<PointList>
+										<Point>
+											<XPos>0</XPos>
+											<YPos>0</YPos>
+											<Flags>5</Flags>
+											<SegmentShape>Exp2</SegmentShape>
+										</Point>
+										<Point>
+											<XPos>20</XPos>
+											<YPos>-200</YPos>
+											<Flags>37</Flags>
+										</Point>
+									</PointList>
+								</Curve>
+							</CurveUsageInfo>
+						</VolumeDryUsage>
+						<VolumeWetGameUsage>
+							<CurveUsageInfo Platform="Linked" CurveToUse="UseVolumeDry"/>
+						</VolumeWetGameUsage>
+						<VolumeWetUserUsage>
+							<CurveUsageInfo Platform="Linked" CurveToUse="UseVolumeDry"/>
+						</VolumeWetUserUsage>
+						<LowPassFilterUsage>
+							<CurveUsageInfo Platform="Linked" CurveToUse="None"/>
+						</LowPassFilterUsage>
+						<HighPassFilterUsage>
+							<CurveUsageInfo Platform="Linked" CurveToUse="None"/>
+						</HighPassFilterUsage>
+						<SpreadUsage>
+							<CurveUsageInfo Platform="Linked" CurveToUse="None"/>
 						</SpreadUsage>
 						<FocusUsage>
 							<CurveUsageInfo Platform="Linked" CurveToUse="None"/>

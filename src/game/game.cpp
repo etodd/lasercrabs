@@ -632,7 +632,7 @@ void Game::update(const Update& update_in)
 
 	World::flush();
 
-	Audio::update();
+	Audio::update_all(u);
 
 #if !SERVER
 	Menu::update_end(u);
@@ -1277,6 +1277,8 @@ void Game::unload_level()
 
 	Particles::clear();
 
+	Audio::clear();
+
 	Loader::transients_free();
 	updates.length = 0;
 	draws.length = 0;
@@ -1294,8 +1296,6 @@ void Game::unload_level()
 	level.skybox.shader = AssetNull;
 	level.skybox.texture = AssetNull;
 	level.skybox.mesh = AssetNull;
-
-	Audio::post_global_event(AK::EVENTS::STOP_ALL);
 
 	Menu::clear();
 

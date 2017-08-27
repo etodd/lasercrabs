@@ -163,7 +163,7 @@ void cleanup()
 	data = nullptr;
 	Instance::list.clear();
 
-	Audio::post_global_event(AK::EVENTS::STOP_DIALOGUE);
+	Audio::post_event_global(AK::EVENTS::STOP_DIALOGUE);
 	Audio::dialogue_callbacks.length = 0;
 }
 
@@ -588,7 +588,7 @@ namespace Docks
 			data->transition_timer = vi_max(0.0f, data->transition_timer - Game::real_time.delta);
 			if (data->transition_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
 			{
-				Audio::post_global_event(AK::EVENTS::PLAY_TRANSITION_IN);
+				Audio::post_event_global(AK::EVENTS::PLAY_TRANSITION_IN);
 				data->camera.ref()->remove();
 				data->camera = nullptr;
 				World::remove(data->character.ref()->entity());
@@ -748,7 +748,7 @@ namespace Docks
 		Game::save.reset();
 		Game::session.reset();
 		data->transition_timer = total_transition;
-		Audio::post_global_event(AK::EVENTS::PLAY_TRANSITION_OUT);
+		Audio::post_event_global(AK::EVENTS::PLAY_TRANSITION_OUT);
 	}
 }
 

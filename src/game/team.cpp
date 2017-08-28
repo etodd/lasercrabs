@@ -390,13 +390,16 @@ void update_visibility_sensor(Entity* visibility[][MAX_TEAMS], PlayerManager* pl
 	Vec3 normal = player_rot * Vec3(0, 0, 1);
 	for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
 	{
-		Entity** sensor_visibility = &visibility[player->id()][s32(sensor.item()->team)];
-		if (!(*sensor_visibility))
+		if (sensor.item()->team != AI::TeamNone)
 		{
-			Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
-			if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE
-				&& to_sensor.dot(normal) > 0.0f)
-				*sensor_visibility = player_entity;
+			Entity** sensor_visibility = &visibility[player->id()][s32(sensor.item()->team)];
+			if (!(*sensor_visibility))
+			{
+				Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
+				if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE
+					&& to_sensor.dot(normal) > 0.0f)
+					*sensor_visibility = player_entity;
+			}
 		}
 	}
 }

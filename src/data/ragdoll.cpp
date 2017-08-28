@@ -70,7 +70,7 @@ void Ragdoll::awake()
 	Vec3 mesh_offset_scale;
 	Quat mesh_offset_rot;
 	Vec3 mesh_offset_pos;
-	get<SkinnedModel>()->offset.decomposition(mesh_offset_pos, mesh_offset_scale, mesh_offset_rot);
+	get<SkinnedModel>()->offset.decomposition(&mesh_offset_pos, &mesh_offset_scale, &mesh_offset_rot);
 
 	const Armature* arm = Loader::armature(get<Animator>()->armature);
 	Array<Entity*> bone_bodies(arm->hierarchy.length, arm->hierarchy.length);

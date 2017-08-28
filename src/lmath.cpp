@@ -436,60 +436,57 @@ Mat3 Mat3::transpose() const
 	return kTranspose;
 }
 
-b8 Mat3::inverse(Mat3& rkInverse, r32 fTolerance) const
+b8 Mat3::inverse(Mat3* out, r32 tolerance) const
 {
 	// Invert a 3x3 using cofactors.  This is about 8 times faster than
 	// the Numerical Recipes code which uses Gaussian elimination.
 
-	rkInverse[0][0] = m[1][1]*m[2][2] - m[1][2]*m[2][1];
-	rkInverse[0][1] = m[0][2]*m[2][1] - m[0][1]*m[2][2];
-	rkInverse[0][2] = m[0][1]*m[1][2] - m[0][2]*m[1][1];
-	rkInverse[1][0] = m[1][2]*m[2][0] - m[1][0]*m[2][2];
-	rkInverse[1][1] = m[0][0]*m[2][2] - m[0][2]*m[2][0];
-	rkInverse[1][2] = m[0][2]*m[1][0] - m[0][0]*m[1][2];
-	rkInverse[2][0] = m[1][0]*m[2][1] - m[1][1]*m[2][0];
-	rkInverse[2][1] = m[0][1]*m[2][0] - m[0][0]*m[2][1];
-	rkInverse[2][2] = m[0][0]*m[1][1] - m[0][1]*m[1][0];
+	(*out)[0][0] = m[1][1] * m[2][2] - m[1][2] * m[2][1];
+	(*out)[0][1] = m[0][2] * m[2][1] - m[0][1] * m[2][2];
+	(*out)[0][2] = m[0][1] * m[1][2] - m[0][2] * m[1][1];
+	(*out)[1][0] = m[1][2] * m[2][0] - m[1][0] * m[2][2];
+	(*out)[1][1] = m[0][0] * m[2][2] - m[0][2] * m[2][0];
+	(*out)[1][2] = m[0][2] * m[1][0] - m[0][0] * m[1][2];
+	(*out)[2][0] = m[1][0] * m[2][1] - m[1][1] * m[2][0];
+	(*out)[2][1] = m[0][1] * m[2][0] - m[0][0] * m[2][1];
+	(*out)[2][2] = m[0][0] * m[1][1] - m[0][1] * m[1][0];
 
-	r32 fDet =
-		m[0][0]*rkInverse[0][0] +
-		m[0][1]*rkInverse[1][0]+
-		m[0][2]*rkInverse[2][0];
+	r32 det = m[0][0]*(*out)[0][0]
+		+ m[0][1]*(*out)[1][0]
+		+ m[0][2]*(*out)[2][0];
 
-	if (fabsf(fDet) <= fTolerance)
+	if (fabsf(det) <= tolerance)
 		return false;
 
-	r32 fInvDet = 1.0f/fDet;
+	r32 det_inv = 1.0f / det;
 	for (s32 iRow = 0; iRow < 3; iRow++)
 	{
 		for (s32 iCol = 0; iCol < 3; iCol++)
-			rkInverse[iRow][iCol] *= fInvDet;
+			(*out)[iRow][iCol] *= det_inv;
 	}
 
 	return true;
 }
 
-Mat3 Mat3::inverse(r32 fTolerance) const
+Mat3 Mat3::inverse(r32 tolerance) const
 {
-	Mat3 kInverse = Mat3::zero;
-	inverse(kInverse,fTolerance);
-	return kInverse;
+	Mat3 out = Mat3::zero;
+	inverse(&out, tolerance);
+	return out;
 }
 
 r32 Mat3::determinant() const
 {
-	r32 fCofactor00 = m[1][1]*m[2][2] - m[1][2]*m[2][1];
-	r32 fCofactor10 = m[1][2]*m[2][0] - m[1][0]*m[2][2];
-	r32 fCofactor20 = m[1][0]*m[2][1] - m[1][1]*m[2][0];
+	r32 cofactor00 = m[1][1] * m[2][2] - m[1][2] * m[2][1];
+	r32 cofactor10 = m[1][2] * m[2][0] - m[1][0] * m[2][2];
+	r32 cofactor20 = m[1][0] * m[2][1] - m[1][1] * m[2][0];
 
-	r32 fDet =
-		m[0][0]*fCofactor00 +
-		m[0][1]*fCofactor10 +
-		m[0][2]*fCofactor20;
+	r32 det = m[0][0] * cofactor00
+		+ m[0][1] * cofactor10
+		+ m[0][2] * cofactor20;
 
-	return fDet;
+	return det;
 }
-
 
 void Mat3::orthonormalize()
 {
@@ -504,7 +501,7 @@ void Mat3::orthonormalize()
 	// product of vectors A and B.
 
 	// compute q0
-	r32 fInvLength = 1.0f / sqrt(m[0][0]*m[0][0]
+	r32 fInvLength = 1.0f / sqrtf(m[0][0]*m[0][0]
 		+ m[1][0]*m[1][0] +
 		m[2][0]*m[2][0]);
 
@@ -522,7 +519,7 @@ void Mat3::orthonormalize()
 	m[1][1] -= fDot0*m[1][0];
 	m[2][1] -= fDot0*m[2][0];
 
-	fInvLength = 1.0f / sqrt(m[0][1]*m[0][1] +
+	fInvLength = 1.0f / sqrtf(m[0][1]*m[0][1] +
 		m[1][1]*m[1][1] +
 		m[2][1]*m[2][1]);
 
@@ -545,7 +542,7 @@ void Mat3::orthonormalize()
 	m[1][2] -= fDot0*m[1][0] + fDot1*m[1][1];
 	m[2][2] -= fDot0*m[2][0] + fDot1*m[2][1];
 
-	fInvLength = 1.0f / sqrt(m[0][2]*m[0][2] +
+	fInvLength = 1.0f / sqrtf(m[0][2]*m[0][2] +
 		m[1][2]*m[1][2] +
 		m[2][2]*m[2][2]);
 
@@ -554,9 +551,9 @@ void Mat3::orthonormalize()
 	m[2][2] *= fInvLength;
 }
 
-void Mat3::qdu_decomposition(Mat3& kQ, Vec3& kD, Vec3& kU) const
+void Mat3::qdu_decomposition(Mat3* pq, Vec3* pd, Vec3* pu) const
 {
-	// Factor M = QR = QDU where Q is orthogonal, D is diagonal,
+	// factor M = QR = QDU where Q is orthogonal, D is diagonal,
 	// and U is upper triangular with ones on its diagonal.  Algorithm uses
 	// Gram-Schmidt orthogonalization (the QR algorithm).
 	//
@@ -583,521 +580,74 @@ void Mat3::qdu_decomposition(Mat3& kQ, Vec3& kD, Vec3& kU) const
 	// D stores the three diagonal entries r00, r11, r22
 	// U stores the entries U[0] = u01, U[1] = u02, U[2] = u12
 
+	Mat3& q = *pq;
+	Vec3& d = *pd;
+	Vec3& u = *pu;
+
 	// build orthogonal matrix Q
-	r32 fInvLength = 1.0f / sqrt(m[0][0]*m[0][0] + m[1][0]*m[1][0] + m[2][0]*m[2][0]);
+	r32 fInvLength = 1.0f / sqrtf(m[0][0]*m[0][0] + m[1][0]*m[1][0] + m[2][0]*m[2][0]);
 
-	kQ[0][0] = m[0][0]*fInvLength;
-	kQ[1][0] = m[1][0]*fInvLength;
-	kQ[2][0] = m[2][0]*fInvLength;
+	q[0][0] = m[0][0]*fInvLength;
+	q[1][0] = m[1][0]*fInvLength;
+	q[2][0] = m[2][0]*fInvLength;
 
-	r32 fDot = kQ[0][0]*m[0][1] + kQ[1][0]*m[1][1] +
-		kQ[2][0]*m[2][1];
-	kQ[0][1] = m[0][1]-fDot*kQ[0][0];
-	kQ[1][1] = m[1][1]-fDot*kQ[1][0];
-	kQ[2][1] = m[2][1]-fDot*kQ[2][0];
-	fInvLength = 1.0f / sqrt(kQ[0][1]*kQ[0][1] + kQ[1][1]*kQ[1][1] + kQ[2][1]*kQ[2][1]);
+	r32 fDot = q[0][0]*m[0][1] + q[1][0]*m[1][1] +
+		q[2][0]*m[2][1];
+	q[0][1] = m[0][1]-fDot*q[0][0];
+	q[1][1] = m[1][1]-fDot*q[1][0];
+	q[2][1] = m[2][1]-fDot*q[2][0];
+	fInvLength = 1.0f / sqrtf(q[0][1]*q[0][1] + q[1][1]*q[1][1] + q[2][1]*q[2][1]);
 	
-	kQ[0][1] *= fInvLength;
-	kQ[1][1] *= fInvLength;
-	kQ[2][1] *= fInvLength;
+	q[0][1] *= fInvLength;
+	q[1][1] *= fInvLength;
+	q[2][1] *= fInvLength;
 
-	fDot = kQ[0][0]*m[0][2] + kQ[1][0]*m[1][2] + kQ[2][0]*m[2][2];
-	kQ[0][2] = m[0][2]-fDot*kQ[0][0];
-	kQ[1][2] = m[1][2]-fDot*kQ[1][0];
-	kQ[2][2] = m[2][2]-fDot*kQ[2][0];
-	fDot = kQ[0][1]*m[0][2] + kQ[1][1]*m[1][2] + kQ[2][1]*m[2][2];
-	kQ[0][2] -= fDot*kQ[0][1];
-	kQ[1][2] -= fDot*kQ[1][1];
-	kQ[2][2] -= fDot*kQ[2][1];
-	fInvLength = 1 / sqrt(kQ[0][2]*kQ[0][2] + kQ[1][2]*kQ[1][2] + kQ[2][2]*kQ[2][2]);
+	fDot = q[0][0]*m[0][2] + q[1][0]*m[1][2] + q[2][0]*m[2][2];
+	q[0][2] = m[0][2]-fDot*q[0][0];
+	q[1][2] = m[1][2]-fDot*q[1][0];
+	q[2][2] = m[2][2]-fDot*q[2][0];
+	fDot = q[0][1]*m[0][2] + q[1][1]*m[1][2] + q[2][1]*m[2][2];
+	q[0][2] -= fDot*q[0][1];
+	q[1][2] -= fDot*q[1][1];
+	q[2][2] -= fDot*q[2][1];
+	fInvLength = 1 / sqrtf(q[0][2]*q[0][2] + q[1][2]*q[1][2] + q[2][2]*q[2][2]);
 
-	kQ[0][2] *= fInvLength;
-	kQ[1][2] *= fInvLength;
-	kQ[2][2] *= fInvLength;
+	q[0][2] *= fInvLength;
+	q[1][2] *= fInvLength;
+	q[2][2] *= fInvLength;
 
 	// guarantee that orthogonal matrix has determinant 1 (no reflections)
-	r32 fDet = kQ[0][0]*kQ[1][1]*kQ[2][2] + kQ[0][1]*kQ[1][2]*kQ[2][0] +
-		kQ[0][2]*kQ[1][0]*kQ[2][1] - kQ[0][2]*kQ[1][1]*kQ[2][0] -
-		kQ[0][1]*kQ[1][0]*kQ[2][2] - kQ[0][0]*kQ[1][2]*kQ[2][1];
+	r32 fDet = q[0][0]*q[1][1]*q[2][2] + q[0][1]*q[1][2]*q[2][0] +
+		q[0][2]*q[1][0]*q[2][1] - q[0][2]*q[1][1]*q[2][0] -
+		q[0][1]*q[1][0]*q[2][2] - q[0][0]*q[1][2]*q[2][1];
 
 	if (fDet < 0.0)
 	{
 		for (s32 iRow = 0; iRow < 3; iRow++)
 			for (s32 iCol = 0; iCol < 3; iCol++)
-				kQ[iRow][iCol] = -kQ[iRow][iCol];
+				q[iRow][iCol] = -q[iRow][iCol];
 	}
 
 	// build "right" matrix R
-	Mat3 kR;
-	kR[0][0] = kQ[0][0]*m[0][0] + kQ[1][0]*m[1][0] + kQ[2][0]*m[2][0];
-	kR[0][1] = kQ[0][0]*m[0][1] + kQ[1][0]*m[1][1] + kQ[2][0]*m[2][1];
-	kR[1][1] = kQ[0][1]*m[0][1] + kQ[1][1]*m[1][1] + kQ[2][1]*m[2][1];
-	kR[0][2] = kQ[0][0]*m[0][2] + kQ[1][0]*m[1][2] + kQ[2][0]*m[2][2];
-	kR[1][2] = kQ[0][1]*m[0][2] + kQ[1][1]*m[1][2] + kQ[2][1]*m[2][2];
-	kR[2][2] = kQ[0][2]*m[0][2] + kQ[1][2]*m[1][2] + kQ[2][2]*m[2][2];
+	Mat3 r;
+	r[0][0] = q[0][0]*m[0][0] + q[1][0]*m[1][0] + q[2][0]*m[2][0];
+	r[0][1] = q[0][0]*m[0][1] + q[1][0]*m[1][1] + q[2][0]*m[2][1];
+	r[1][1] = q[0][1]*m[0][1] + q[1][1]*m[1][1] + q[2][1]*m[2][1];
+	r[0][2] = q[0][0]*m[0][2] + q[1][0]*m[1][2] + q[2][0]*m[2][2];
+	r[1][2] = q[0][1]*m[0][2] + q[1][1]*m[1][2] + q[2][1]*m[2][2];
+	r[2][2] = q[0][2]*m[0][2] + q[1][2]*m[1][2] + q[2][2]*m[2][2];
 
 	// the scaling component
-	kD[0] = kR[0][0];
-	kD[1] = kR[1][1];
-	kD[2] = kR[2][2];
+	d[0] = r[0][0];
+	d[1] = r[1][1];
+	d[2] = r[2][2];
 
 	// the shear component
-	r32 fInvD0 = 1.0f/kD[0];
-	kU[0] = kR[0][1]*fInvD0;
-	kU[1] = kR[0][2]*fInvD0;
-	kU[2] = kR[1][2]/kD[1];
+	r32 fInvD0 = 1.0f/d[0];
+	u[0] = r[0][1]*fInvD0;
+	u[1] = r[0][2]*fInvD0;
+	u[2] = r[1][2]/d[1];
 }
-
-void Mat3::to_angle_axis(Vec3& rkAxis, r32& rfr32s) const
-{
-	// Let (x,y,z) be the unit-length axis and let A be an angle of rotation.
-	// The rotation matrix is R = I + sin(A)*P + (1-cos(A))*P^2 where
-	// I is the identity and
-	//
-	//       +-        -+
-	//   P = |  0 -z +y |
-	//       | +z  0 -x |
-	//       | -y +x  0 |
-	//       +-        -+
-	//
-	// If A > 0, R represents a counterclockwise rotation about the axis in
-	// the sense of looking from the tip of the axis vector towards the
-	// origin.  Some algebra will show that
-	//
-	//   cos(A) = (trace(R)-1)/2  and  R - R^t = 2*sin(A)*P
-	//
-	// In the event that A = pi, R-R^t = 0 which prevents us from extracting
-	// the axis through P.  Instead note that R = I+2*P^2 when A = pi, so
-	// P^2 = (R-I)/2.  The diagonal entries of P^2 are x^2-1, y^2-1, and
-	// z^2-1.  We can solve these for axis (x,y,z).  Because the angle is pi,
-	// it does not matter which sign you choose on the square roots.
-
-	r32 fTrace = m[0][0] + m[1][1] + m[2][2];
-	r32 fCos = 0.5f*(fTrace-1.0f);
-	rfr32s = acos(fCos);  // in [0,PI]
-
-	if (rfr32s > r32(0.0))
-	{
-		if (rfr32s < r32(PI))
-		{
-			rkAxis.x = m[2][1]-m[1][2];
-			rkAxis.y = m[0][2]-m[2][0];
-			rkAxis.z = m[1][0]-m[0][1];
-			rkAxis.normalize();
-		}
-		else
-		{
-			// angle is PI
-			r32 fHalfInverse;
-			if (m[0][0] >= m[1][1])
-			{
-				// r00 >= r11
-				if (m[0][0] >= m[2][2])
-				{
-					// r00 is maximum diagonal term
-					rkAxis.x = 0.5f*sqrt(m[0][0] -
-						m[1][1] - m[2][2] + 1.0f);
-					fHalfInverse = 0.5f/rkAxis.x;
-					rkAxis.y = fHalfInverse*m[0][1];
-					rkAxis.z = fHalfInverse*m[0][2];
-				}
-				else
-				{
-					// r22 is maximum diagonal term
-					rkAxis.z = 0.5f*sqrt(m[2][2] -
-						m[0][0] - m[1][1] + 1.0f);
-					fHalfInverse = 0.5f/rkAxis.z;
-					rkAxis.x = fHalfInverse*m[0][2];
-					rkAxis.y = fHalfInverse*m[1][2];
-				}
-			}
-			else
-			{
-				// r11 > r00
-				if (m[1][1] >= m[2][2])
-				{
-					// r11 is maximum diagonal term
-					rkAxis.y = 0.5f*sqrt(m[1][1] -
-						m[0][0] - m[2][2] + 1.0f);
-					fHalfInverse  = 0.5f/rkAxis.y;
-					rkAxis.x = fHalfInverse*m[0][1];
-					rkAxis.z = fHalfInverse*m[1][2];
-				}
-				else
-				{
-					// r22 is maximum diagonal term
-					rkAxis.z = 0.5f*sqrt(m[2][2] -
-						m[0][0] - m[1][1] + 1.0f);
-					fHalfInverse = 0.5f/rkAxis.z;
-					rkAxis.x = fHalfInverse*m[0][2];
-					rkAxis.y = fHalfInverse*m[1][2];
-				}
-			}
-		}
-	}
-	else
-	{
-		// The angle is 0 and the matrix is the identity.  Any axis will
-		// work, so just use the x-axis.
-		rkAxis.x = 1.0;
-		rkAxis.y = 0.0;
-		rkAxis.z = 0.0;
-	}
-}
-
-void Mat3::from_angle_axis(const Vec3& rkAxis, const r32& fr32s)
-{
-	r32 fCos = cos(fr32s);
-	r32 fSin = sin(fr32s);
-	r32 fOneMinusCos = 1.0f-fCos;
-	r32 fX2 = rkAxis.x*rkAxis.x;
-	r32 fY2 = rkAxis.y*rkAxis.y;
-	r32 fZ2 = rkAxis.z*rkAxis.z;
-	r32 fXYM = rkAxis.x*rkAxis.y*fOneMinusCos;
-	r32 fXZM = rkAxis.x*rkAxis.z*fOneMinusCos;
-	r32 fYZM = rkAxis.y*rkAxis.z*fOneMinusCos;
-	r32 fXSin = rkAxis.x*fSin;
-	r32 fYSin = rkAxis.y*fSin;
-	r32 fZSin = rkAxis.z*fSin;
-
-	m[0][0] = fX2*fOneMinusCos+fCos;
-	m[0][1] = fXYM-fZSin;
-	m[0][2] = fXZM+fYSin;
-	m[1][0] = fXYM+fZSin;
-	m[1][1] = fY2*fOneMinusCos+fCos;
-	m[1][2] = fYZM-fXSin;
-	m[2][0] = fXZM-fYSin;
-	m[2][1] = fYZM+fXSin;
-	m[2][2] = fZ2*fOneMinusCos+fCos;
-}
-
-b8 Mat3::to_euler_angles_xyz(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
-{
-	// rot =  cy*cz          -cy*sz           sy
-	//        cz*sx*sy+cx*sz  cx*cz-sx*sy*sz -cy*sx
-	//       -cx*cz*sy+sx*sz  cz*sx+cx*sy*sz  cx*cy
-
-	rfPAngle = r32(asin(m[0][2]));
-	if (rfPAngle < r32(HALF_PI))
-	{
-		if (rfPAngle > r32(-HALF_PI))
-		{
-			rfYAngle = atan2f(-m[1][2],m[2][2]);
-			rfRAngle = atan2f(-m[0][1],m[0][0]);
-			return true;
-		}
-		else
-		{
-			// WARNING.  Not a unique solution.
-			r32 fRmY = atan2f(m[1][0],m[1][1]);
-			rfRAngle = r32(0.0);  // any angle works
-			rfYAngle = rfRAngle - fRmY;
-			return false;
-		}
-	}
-	else
-	{
-		// WARNING.  Not a unique solution.
-		r32 fRpY = atan2f(m[1][0],m[1][1]);
-		rfRAngle = r32(0.0);  // any angle works
-		rfYAngle = fRpY - rfRAngle;
-		return false;
-	}
-}
-
-b8 Mat3::to_euler_angles_xzy(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
-{
-	// rot =  cy*cz          -sz              cz*sy
-	//        sx*sy+cx*cy*sz  cx*cz          -cy*sx+cx*sy*sz
-	//       -cx*sy+cy*sx*sz  cz*sx           cx*cy+sx*sy*sz
-
-	rfPAngle = asin(-m[0][1]);
-	if (rfPAngle < r32(HALF_PI))
-	{
-		if (rfPAngle > r32(-HALF_PI))
-		{
-			rfYAngle = atan2f(m[2][1],m[1][1]);
-			rfRAngle = atan2f(m[0][2],m[0][0]);
-			return true;
-		}
-		else
-		{
-			// WARNING.  Not a unique solution.
-			r32 fRmY = atan2f(-m[2][0],m[2][2]);
-			rfRAngle = r32(0.0);  // any angle works
-			rfYAngle = rfRAngle - fRmY;
-			return false;
-		}
-	}
-	else
-	{
-		// WARNING.  Not a unique solution.
-		r32 fRpY = atan2f(-m[2][0],m[2][2]);
-		rfRAngle = r32(0.0);  // any angle works
-		rfYAngle = fRpY - rfRAngle;
-		return false;
-	}
-}
-
-b8 Mat3::to_euler_angles_yxz(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
-{
-	// rot =  cy*cz+sx*sy*sz  cz*sx*sy-cy*sz  cx*sy
-	//        cx*sz           cx*cz          -sx
-	//       -cz*sy+cy*sx*sz  cy*cz*sx+sy*sz  cx*cy
-
-	rfPAngle = asin(-m[1][2]);
-	if (rfPAngle < r32(HALF_PI))
-	{
-		if (rfPAngle > r32(-HALF_PI))
-		{
-			rfYAngle = atan2f(m[0][2],m[2][2]);
-			rfRAngle = atan2f(m[1][0],m[1][1]);
-			return true;
-		}
-		else
-		{
-			// WARNING.  Not a unique solution.
-			r32 fRmY = atan2f(-m[0][1],m[0][0]);
-			rfRAngle = r32(0.0);  // any angle works
-			rfYAngle = rfRAngle - fRmY;
-			return false;
-		}
-	}
-	else
-	{
-		// WARNING.  Not a unique solution.
-		r32 fRpY = atan2f(-m[0][1],m[0][0]);
-		rfRAngle = r32(0.0);  // any angle works
-		rfYAngle = fRpY - rfRAngle;
-		return false;
-	}
-}
-
-b8 Mat3::to_euler_angles_yzx(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
-{
-	// rot =  cy*cz           sx*sy-cx*cy*sz  cx*sy+cy*sx*sz
-	//        sz              cx*cz          -cz*sx
-	//       -cz*sy           cy*sx+cx*sy*sz  cx*cy-sx*sy*sz
-
-	rfPAngle = asin(m[1][0]);
-	if (rfPAngle < r32(HALF_PI))
-	{
-		if (rfPAngle > r32(-HALF_PI))
-		{
-			rfYAngle = atan2f(-m[2][0],m[0][0]);
-			rfRAngle = atan2f(-m[1][2],m[1][1]);
-			return true;
-		}
-		else
-		{
-			// WARNING.  Not a unique solution.
-			r32 fRmY = atan2f(m[2][1],m[2][2]);
-			rfRAngle = r32(0.0);  // any angle works
-			rfYAngle = rfRAngle - fRmY;
-			return false;
-		}
-	}
-	else
-	{
-		// WARNING.  Not a unique solution.
-		r32 fRpY = atan2f(m[2][1],m[2][2]);
-		rfRAngle = r32(0.0);  // any angle works
-		rfYAngle = fRpY - rfRAngle;
-		return false;
-	}
-}
-
-b8 Mat3::to_euler_angles_zxy(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
-{
-	// rot =  cy*cz-sx*sy*sz -cx*sz           cz*sy+cy*sx*sz
-	//        cz*sx*sy+cy*sz  cx*cz          -cy*cz*sx+sy*sz
-	//       -cx*sy           sx              cx*cy
-
-	rfPAngle = asin(m[2][1]);
-	if (rfPAngle < r32(HALF_PI))
-	{
-		if (rfPAngle > r32(-HALF_PI))
-		{
-			rfYAngle = atan2f(-m[0][1],m[1][1]);
-			rfRAngle = atan2f(-m[2][0],m[2][2]);
-			return true;
-		}
-		else
-		{
-			// WARNING.  Not a unique solution.
-			r32 fRmY = atan2f(m[0][2],m[0][0]);
-			rfRAngle = r32(0.0);  // any angle works
-			rfYAngle = rfRAngle - fRmY;
-			return false;
-		}
-	}
-	else
-	{
-		// WARNING.  Not a unique solution.
-		r32 fRpY = atan2f(m[0][2],m[0][0]);
-		rfRAngle = r32(0.0);  // any angle works
-		rfYAngle = fRpY - rfRAngle;
-		return false;
-	}
-}
-
-b8 Mat3::to_euler_angles_zyx(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
-{
-	// rot =  cy*cz           cz*sx*sy-cx*sz  cx*cz*sy+sx*sz
-	//        cy*sz           cx*cz+sx*sy*sz -cz*sx+cx*sy*sz
-	//       -sy              cy*sx           cx*cy
-
-	rfPAngle = asin(-m[2][0]);
-	if (rfPAngle < r32(HALF_PI))
-	{
-		if (rfPAngle > r32(-HALF_PI))
-		{
-			rfYAngle = atan2f(m[1][0],m[0][0]);
-			rfRAngle = atan2f(m[2][1],m[2][2]);
-			return true;
-		}
-		else
-		{
-			// WARNING.  Not a unique solution.
-			r32 fRmY = atan2f(-m[0][1],m[0][2]);
-			rfRAngle = r32(0.0);  // any angle works
-			rfYAngle = rfRAngle - fRmY;
-			return false;
-		}
-	}
-	else
-	{
-		// WARNING.  Not a unique solution.
-		r32 fRpY = atan2f(-m[0][1],m[0][2]);
-		rfRAngle = r32(0.0);  // any angle works
-		rfYAngle = fRpY - rfRAngle;
-		return false;
-	}
-}
-
-void Mat3::from_euler_angles_xyz(const r32& fYAngle, const r32& fPAngle, const r32& fRAngle)
-{
-	r32 fCos, fSin;
-
-	fCos = cos(fYAngle);
-	fSin = sin(fYAngle);
-	Mat3 kXMat(1.0,0.0,0.0,0.0,fCos,-fSin,0.0,fSin,fCos);
-
-	fCos = cos(fPAngle);
-	fSin = sin(fPAngle);
-	Mat3 kYMat(fCos,0.0,fSin,0.0,1.0,0.0,-fSin,0.0,fCos);
-
-	fCos = cos(fRAngle);
-	fSin = sin(fRAngle);
-	Mat3 kZMat(fCos,-fSin,0.0,fSin,fCos,0.0,0.0,0.0,1.0);
-
-	*this = kXMat*(kYMat*kZMat);
-}
-
-void Mat3::from_euler_angles_xzy(const r32& fYAngle, const r32& fPAngle, const r32& fRAngle)
-{
-	r32 fCos, fSin;
-
-	fCos = cos(fYAngle);
-	fSin = sin(fYAngle);
-	Mat3 kXMat(1.0,0.0,0.0,0.0,fCos,-fSin,0.0,fSin,fCos);
-
-	fCos = cos(fPAngle);
-	fSin = sin(fPAngle);
-	Mat3 kZMat(fCos,-fSin,0.0,fSin,fCos,0.0,0.0,0.0,1.0);
-
-	fCos = cos(fRAngle);
-	fSin = sin(fRAngle);
-	Mat3 kYMat(fCos,0.0,fSin,0.0,1.0,0.0,-fSin,0.0,fCos);
-
-	*this = kXMat*(kZMat*kYMat);
-}
-
-void Mat3::from_euler_angles_yxz(const r32& fYAngle, const r32& fPAngle, const r32& fRAngle)
-{
-	r32 fCos, fSin;
-
-	fCos = cos(fYAngle);
-	fSin = sin(fYAngle);
-	Mat3 kYMat(fCos,0.0,fSin,0.0,1.0,0.0,-fSin,0.0,fCos);
-
-	fCos = cos(fPAngle);
-	fSin = sin(fPAngle);
-	Mat3 kXMat(1.0,0.0,0.0,0.0,fCos,-fSin,0.0,fSin,fCos);
-
-	fCos = cos(fRAngle);
-	fSin = sin(fRAngle);
-	Mat3 kZMat(fCos,-fSin,0.0,fSin,fCos,0.0,0.0,0.0,1.0);
-
-	*this = kYMat*(kXMat*kZMat);
-}
-
-void Mat3::from_euler_angles_yzx(const r32& fYAngle, const r32& fPAngle, const r32& fRAngle)
-{
-	r32 fCos, fSin;
-
-	fCos = cos(fYAngle);
-	fSin = sin(fYAngle);
-	Mat3 kYMat(fCos,0.0,fSin,0.0,1.0,0.0,-fSin,0.0,fCos);
-
-	fCos = cos(fPAngle);
-	fSin = sin(fPAngle);
-	Mat3 kZMat(fCos,-fSin,0.0,fSin,fCos,0.0,0.0,0.0,1.0);
-
-	fCos = cos(fRAngle);
-	fSin = sin(fRAngle);
-	Mat3 kXMat(1.0,0.0,0.0,0.0,fCos,-fSin,0.0,fSin,fCos);
-
-	*this = kYMat*(kZMat*kXMat);
-}
-
-void Mat3::from_euler_angles_zxy(const r32& fYAngle, const r32& fPAngle, const r32& fRAngle)
-{
-	r32 fCos, fSin;
-
-	fCos = cos(fYAngle);
-	fSin = sin(fYAngle);
-	Mat3 kZMat(fCos,-fSin,0.0,fSin,fCos,0.0,0.0,0.0,1.0);
-
-	fCos = cos(fPAngle);
-	fSin = sin(fPAngle);
-	Mat3 kXMat(1.0,0.0,0.0,0.0,fCos,-fSin,0.0,fSin,fCos);
-
-	fCos = cos(fRAngle);
-	fSin = sin(fRAngle);
-	Mat3 kYMat(fCos,0.0,fSin,0.0,1.0,0.0,-fSin,0.0,fCos);
-
-	*this = kZMat*(kXMat*kYMat);
-}
-
-void Mat3::from_euler_angles_zyx(const r32& fYAngle, const r32& fPAngle, const r32& fRAngle)
-{
-	r32 fCos, fSin;
-
-	fCos = cos(fYAngle);
-	fSin = sin(fYAngle);
-	Mat3 kZMat(fCos,-fSin,0.0,fSin,fCos,0.0,0.0,0.0,1.0);
-
-	fCos = cos(fPAngle);
-	fSin = sin(fPAngle);
-	Mat3 kYMat(fCos,0.0,fSin,0.0,1.0,0.0,-fSin,0.0,fCos);
-
-	fCos = cos(fRAngle);
-	fSin = sin(fRAngle);
-	Mat3 kXMat(1.0,0.0,0.0,0.0,fCos,-fSin,0.0,fSin,fCos);
-
-	*this = kZMat*(kYMat*kXMat);
-}
-
-void Mat3::tensor_product(const Vec3& rkU, const Vec3& rkV, Mat3& rkProduct)
-{
-	for (s32 iRow = 0; iRow < 3; iRow++)
-	{
-		for (s32 iCol = 0; iCol < 3; iCol++)
-			rkProduct[iRow][iCol] = rkU[iRow]*rkV[iCol];
-	}
-}
-
 void Quat::from_rotation_matrix(const Mat3& kRot)
 {
 	// Algorithm in Ken Shoemake's article in 1987 SIGGRAPH course notes
@@ -1109,7 +659,7 @@ void Quat::from_rotation_matrix(const Mat3& kRot)
 	if (fTrace > 0.0)
 	{
 		// |w| > 1/2, may as well choose w > 1/2
-		fRoot = sqrt(fTrace + 1.0f);  // 2w
+		fRoot = sqrtf(fTrace + 1.0f);  // 2w
 		w = 0.5f*fRoot;
 		fRoot = 0.5f/fRoot;  // 1/(4w)
 		x = (kRot[1][2]-kRot[2][1])*fRoot;
@@ -1128,7 +678,7 @@ void Quat::from_rotation_matrix(const Mat3& kRot)
 		s32 j = s_iNext[i];
 		s32 k = s_iNext[j];
 
-		fRoot = sqrt(kRot[i][i]-kRot[j][j]-kRot[k][k] + 1.0f);
+		fRoot = sqrtf(kRot[i][i]-kRot[j][j]-kRot[k][k] + 1.0f);
 		r32* apkQuat[3] = { &x, &y, &z };
 		*apkQuat[i] = 0.5f*fRoot;
 		fRoot = 0.5f/fRoot;
@@ -1138,7 +688,7 @@ void Quat::from_rotation_matrix(const Mat3& kRot)
 	}
 }
 
-void Quat::to_rotation_matrix(Mat3& kRot) const
+void Quat::to_rotation_matrix(Mat3* out) const
 {
 	r32 fTx  = x+x;
 	r32 fTy  = y+y;
@@ -1153,33 +703,33 @@ void Quat::to_rotation_matrix(Mat3& kRot) const
 	r32 fTyz = fTz*y;
 	r32 fTzz = fTz*z;
 
-	kRot[0][0] = 1.0f-(fTyy+fTzz);
-	kRot[1][0] = fTxy-fTwz;
-	kRot[2][0] = fTxz+fTwy;
-	kRot[0][1] = fTxy+fTwz;
-	kRot[1][1] = 1.0f-(fTxx+fTzz);
-	kRot[2][1] = fTyz-fTwx;
-	kRot[0][2] = fTxz-fTwy;
-	kRot[1][2] = fTyz+fTwx;
-	kRot[2][2] = 1.0f-(fTxx+fTyy);
+	(*out)[0][0] = 1.0f-(fTyy+fTzz);
+	(*out)[1][0] = fTxy-fTwz;
+	(*out)[2][0] = fTxz+fTwy;
+	(*out)[0][1] = fTxy+fTwz;
+	(*out)[1][1] = 1.0f-(fTxx+fTzz);
+	(*out)[2][1] = fTyz-fTwx;
+	(*out)[0][2] = fTxz-fTwy;
+	(*out)[1][2] = fTyz+fTwx;
+	(*out)[2][2] = 1.0f-(fTxx+fTyy);
 }
 
-void Quat::from_angle_axis(const r32& rfAngle, const Vec3& rkAxis)
+void Quat::from_angle_axis(r32 angle, const Vec3& axis)
 {
 	// assert:  axis[] is unit length
 	//
 	// The Quat representing the rotation is
 	//   q = cos(A/2)+sin(A/2)*(x*i+y*j+z*k)
 
-	r32 fHalfAngle (0.5f*rfAngle);
-	r32 fSin = sin(fHalfAngle);
-	w = cos(fHalfAngle);
-	x = fSin*rkAxis.x;
-	y = fSin*rkAxis.y;
-	z = fSin*rkAxis.z;
+	r32 half_angle = 0.5f * angle;
+	r32 s = sinf(half_angle);
+	w = cosf(half_angle);
+	x = s * axis.x;
+	y = s * axis.y;
+	z = s * axis.z;
 }
 
-void Quat::to_angle_axis(r32* rfAngle, Vec3* rkAxis) const
+void Quat::to_angle_axis(r32* angle, Vec3* axis) const
 {
 	// The Quat representing the rotation is
 	// q = cos(A / 2) + sin(A / 2) * (x*i + y*j + z*k)
@@ -1187,23 +737,23 @@ void Quat::to_angle_axis(r32* rfAngle, Vec3* rkAxis) const
 	r32 length = sqrtf(x * x + y * y + z * z);
 	if (length > 0.0f)
 	{
-		*rfAngle = 2.0f * acosf(w);
+		*angle = 2.0f * acosf(w);
 		r32 length_inv = 1.0f / length;
-		rkAxis->x = x * length;
-		rkAxis->y = y * length;
-		rkAxis->z = z * length;
+		axis->x = x * length_inv;
+		axis->y = y * length_inv;
+		axis->z = z * length_inv;
 	}
 	else
 	{
 		// angle is 0 (mod 2*pi), so any axis will do
-		*rfAngle = 0.0f;
-		rkAxis->x = 1.0;
-		rkAxis->y = 0.0;
-		rkAxis->z = 0.0;
+		*angle = 0.0f;
+		axis->x = 1.0;
+		axis->y = 0.0;
+		axis->z = 0.0;
 	}
 }
 
-void Quat::from_axes(const Vec3* akAxis)
+void Quat::from_axes(const Vec3 akAxis[3])
 {
 	Mat3 kRot;
 
@@ -1236,17 +786,17 @@ void Quat::from_axes(const Vec3& xaxis, const Vec3& yaxis, const Vec3& zaxis)
 	from_rotation_matrix(kRot);
 }
 
-void Quat::to_axes(Vec3* akAxis) const
+void Quat::to_axes(Vec3* axes) const
 {
-	Mat3 kRot;
+	Mat3 mat;
 
-	to_rotation_matrix(kRot);
+	to_rotation_matrix(&mat);
 
 	for (s32 iCol = 0; iCol < 3; iCol++)
 	{
-		akAxis[iCol].x = kRot[0][iCol];
-		akAxis[iCol].y = kRot[1][iCol];
-		akAxis[iCol].z = kRot[2][iCol];
+		axes[iCol].x = mat[0][iCol];
+		axes[iCol].y = mat[1][iCol];
+		axes[iCol].z = mat[2][iCol];
 	}
 }
 
@@ -1297,21 +847,21 @@ Vec3 Quat::z_axis() const
 
 void Quat::to_axes(Vec3* xaxis, Vec3* yaxis, Vec3* zaxis) const
 {
-	Mat3 kRot;
+	Mat3 mat;
 
-	to_rotation_matrix(kRot);
+	to_rotation_matrix(&mat);
 
-	xaxis->x = kRot[0][0];
-	xaxis->y = kRot[1][0];
-	xaxis->z = kRot[2][0];
+	xaxis->x = mat[0][0];
+	xaxis->y = mat[1][0];
+	xaxis->z = mat[2][0];
 
-	yaxis->x = kRot[0][1];
-	yaxis->y = kRot[1][1];
-	yaxis->z = kRot[2][1];
+	yaxis->x = mat[0][1];
+	yaxis->y = mat[1][1];
+	yaxis->z = mat[2][1];
 
-	zaxis->x = kRot[0][2];
-	zaxis->y = kRot[1][2];
-	zaxis->z = kRot[2][2];
+	zaxis->x = mat[0][2];
+	zaxis->y = mat[1][2];
+	zaxis->z = mat[2][2];
 }
 
 Quat Quat::operator+ (const Quat& rkQ) const
@@ -1406,11 +956,11 @@ Quat Quat::exp() const
 	// exp(q) = cos(A)+sin(A)*(x*i+y*j+z*k).  If sin(A) is near zero,
 	// use exp(q) = cos(A)+A*(x*i+y*j+z*k) since A/sin(A) has limit 1.
 
-	r32 fAngle (sqrt(x*x+y*y+z*z));
-	r32 fSin = sin(fAngle);
+	r32 fAngle = sqrtf(x*x+y*y+z*z);
+	r32 fSin = sinf(fAngle);
 
 	Quat kResult;
-	kResult.w = cos(fAngle);
+	kResult.w = cosf(fAngle);
 
 	if (fabsf(fSin) >= epsilon)
 	{
@@ -1440,8 +990,8 @@ Quat Quat::log() const
 
 	if (fabsf(w) < 1.0)
 	{
-		r32 fAngle (acos(w));
-		r32 fSin = sin(fAngle);
+		r32 fAngle = acosf(w);
+		r32 fSin = sinf(fAngle);
 		if (fabsf(fSin) >= epsilon)
 		{
 			r32 fCoeff = fAngle/fSin;
@@ -1475,13 +1025,13 @@ Vec3 Quat::operator* (const Vec3& v) const
 
 Quat Quat::euler(r32 roll, r32 yaw, r32 pitch)
 {
-	// Assuming the angles are in radians.
-	r32 cy = cos(yaw * 0.5f);
-	r32 sy = sin(yaw * 0.5f);
-	r32 cr = cos(roll * 0.5f);
-	r32 sr = sin(roll * 0.5f);
-	r32 cp = cos(pitch * 0.5f);
-	r32 sp = sin(pitch * 0.5f);
+	// assuming the angles are in radians.
+	r32 cy = cosf(yaw * 0.5f);
+	r32 sy = sinf(yaw * 0.5f);
+	r32 cr = cosf(roll * 0.5f);
+	r32 sr = sinf(roll * 0.5f);
+	r32 cp = cosf(pitch * 0.5f);
+	r32 sp = sinf(pitch * 0.5f);
 	r32 cycr = cy*cr;
 	r32 sysr = sy*sr;
 
@@ -1562,16 +1112,16 @@ Quat Quat::slerp(r32 amount, const Quat& quaternion1, const Quat& quaternion2)
 Quat Quat::slerp_extra_spins(r32 fT, const Quat& rkP, const Quat& rkQ, s32 iExtraSpins)
 {
 	r32 fCos = rkP.dot(rkQ);
-	r32 fAngle (acos(fCos));
+	r32 fAngle = acosf(fCos);
 
 	if (fabsf(fAngle) < epsilon)
 		return rkP;
 
-	r32 fSin = sin(fAngle);
-	r32 fPhase (PI*iExtraSpins*fT);
-	r32 fInvSin = 1.0f/fSin;
-	r32 fCoeff0 = sin((1.0f-fT)*fAngle - fPhase)*fInvSin;
-	r32 fCoeff1 = sin(fT*fAngle + fPhase)*fInvSin;
+	r32 fSin = sinf(fAngle);
+	r32 fPhase = PI*iExtraSpins*fT;
+	r32 fInvSin = 1.0f / fSin;
+	r32 fCoeff0 = sinf((1.0f-fT)*fAngle - fPhase)*fInvSin;
+	r32 fCoeff1 = sinf(fT*fAngle + fPhase)*fInvSin;
 	return fCoeff0*rkP + fCoeff1*rkQ;
 }
 
@@ -1773,59 +1323,56 @@ Mat4 Mat4::inverse_affine(void) const
 
 void Mat4::make_transform(const Vec3& position, const Vec3& scale, const Quat& orientation)
 {
-	// Ordering:
-	//    1. Scale
-	//    2. Rotate
-	//    3. Translate
+	// ordering: scale, rotate, translate
 
 	Mat3 rot3x3;
-	orientation.to_rotation_matrix(rot3x3);
+	orientation.to_rotation_matrix(&rot3x3);
 
-	// Set up final matrix with scale, rotation and translation
+	// set up final matrix with scale, rotation and translation
 	m[0][0] = scale.x * rot3x3[0][0]; m[1][0] = scale.y * rot3x3[1][0]; m[2][0] = scale.z * rot3x3[2][0]; m[3][0] = position.x;
 	m[0][1] = scale.x * rot3x3[0][1]; m[1][1] = scale.y * rot3x3[1][1]; m[2][1] = scale.z * rot3x3[2][1]; m[3][1] = position.y;
 	m[0][2] = scale.x * rot3x3[0][2]; m[1][2] = scale.y * rot3x3[1][2]; m[2][2] = scale.z * rot3x3[2][2]; m[3][2] = position.z;
 
-	// No projection term
+	// no projection term
 	m[0][3] = 0; m[1][3] = 0; m[2][3] = 0; m[3][3] = 1;
 }
 
 void Mat4::make_inverse_transform(const Vec3& position, const Vec3& scale, const Quat& orientation)
 {
-	// Invert the parameters
+	// invert the parameters
 	Vec3 invTranslate = -position;
 	Vec3 invScale(1 / scale.x, 1 / scale.y, 1 / scale.z);
 	Quat invRot = orientation.inverse();
 
-	// Because we're inverting, order is translation, rotation, scale
-	// So make translation relative to scale & rotation
+	// because we're inverting, order is translation, rotation, scale
+	// so make translation relative to scale & rotation
 	invTranslate = invRot * invTranslate; // rotate
 	invTranslate *= invScale; // scale
 
-	// Next, make a 3x3 rotation matrix
+	// next, make a 3x3 rotation matrix
 	Mat3 rot3x3;
-	invRot.to_rotation_matrix(rot3x3);
+	invRot.to_rotation_matrix(&rot3x3);
 
-	// Set up final matrix with scale, rotation and translation
+	// set up final matrix with scale, rotation and translation
 	m[0][0] = invScale.x * rot3x3[0][0]; m[1][0] = invScale.x * rot3x3[1][0]; m[2][0] = invScale.x * rot3x3[2][0]; m[3][0] = invTranslate.x;
 	m[0][1] = invScale.y * rot3x3[0][1]; m[1][1] = invScale.y * rot3x3[1][1]; m[2][1] = invScale.y * rot3x3[2][1]; m[3][1] = invTranslate.y;
 	m[0][2] = invScale.z * rot3x3[0][2]; m[1][2] = invScale.z * rot3x3[1][2]; m[2][2] = invScale.z * rot3x3[2][2]; m[3][2] = invTranslate.z;        
 
-	// No projection term
+	// no projection term
 	m[0][3] = 0; m[1][3] = 0; m[2][3] = 0; m[3][3] = 1;
 }
 
-void Mat4::decomposition(Vec3& position, Vec3& scale, Quat& orientation) const
+void Mat4::decomposition(Vec3* position, Vec3* scale, Quat* orientation) const
 {
 	Mat3 m3x3;
 	extract_mat3(m3x3);
 
 	Mat3 matQ;
 	Vec3 vecU;
-	m3x3.qdu_decomposition(matQ, scale, vecU); 
+	m3x3.qdu_decomposition(&matQ, scale, &vecU); 
 
-	orientation = Quat(matQ);
-	position = Vec3(m[3][0], m[3][1], m[3][2]);
+	*orientation = Quat(matQ);
+	*position = Vec3(m[3][0], m[3][1], m[3][2]);
 }
 
 Mat4 Mat4::perspective(const r32 fov, const r32 aspect, const r32 near, const r32 far)
@@ -1835,7 +1382,7 @@ Mat4 Mat4::perspective(const r32 fov, const r32 aspect, const r32 near, const r3
 	r32 depth = far - near;
 	r32 inverse_depth = 1.0f / depth;
 
-	result[1][1] = 1.0f / tan(fov);
+	result[1][1] = 1.0f / tanf(fov);
 
 	result[0][0] = -1.0f * result[1][1] / aspect;
 	result[2][2] = far * inverse_depth;

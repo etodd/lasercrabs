@@ -415,7 +415,7 @@ void Animator::update_world_transforms()
 		Vec3 pos;
 		Quat quat;
 		Vec3 scale;
-		mat.decomposition(pos, scale, quat);
+		mat.decomposition(&pos, &scale, &quat);
 		Transform* t = binding.transform.ref();
 		if (t)
 			t->absolute(pos, quat);
@@ -439,7 +439,7 @@ void Animator::bind(const s32 bone, Transform* transform)
 	Vec3 pos;
 	Quat quat;
 	Vec3 scale;
-	mat.decomposition(pos, scale, quat);
+	mat.decomposition(&pos, &scale, &quat);
 	transform->absolute(pos, quat);
 }
 
@@ -463,7 +463,7 @@ void Animator::bone_transform(const s32 index, Vec3* pos, Quat* rot)
 	Vec3 bone_scale;
 	Vec3 bone_pos;
 	Quat bone_rot;
-	bones[index].decomposition(bone_pos, bone_scale, bone_rot);
+	bones[index].decomposition(&bone_pos, &bone_scale, &bone_rot);
 	if (rot)
 	{
 		*rot = bone_rot * *rot;

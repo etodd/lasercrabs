@@ -26,12 +26,12 @@ struct Vec2
 
 	static const Vec2 zero;
 
-	inline Vec2(const r32 fX, const r32 fY)
+	inline Vec2(r32 fX, r32 fY)
 		: x(fX), y(fY)
 	{
 	}
 
-	inline explicit Vec2(const r32 scaler)
+	inline explicit Vec2(r32 scaler)
 		: x(scaler), y(scaler)
 	{
 	}
@@ -53,12 +53,12 @@ struct Vec2
 	{
 	}
 
-	inline r32 operator [] (const s32 i) const
+	inline r32 operator [] (s32 i) const
 	{
 		return *(&x+i);
 	}
 
-	inline r32& operator [] (const s32 i)
+	inline r32& operator [] (s32 i)
 	{
 		return *(&x+i);
 	}
@@ -87,7 +87,7 @@ struct Vec2
 			y - rkVector.y);
 	}
 
-	inline Vec2 operator * (const r32 fScalar) const
+	inline Vec2 operator * (r32 fScalar) const
 	{
 		return Vec2(
 			x * fScalar,
@@ -101,7 +101,7 @@ struct Vec2
 			y * rhs.y);
 	}
 
-	inline Vec2 operator / (const r32 fScalar) const
+	inline Vec2 operator / (r32 fScalar) const
 	{
 		r32 fInv = 1.0f / fScalar;
 
@@ -127,14 +127,14 @@ struct Vec2
 		return Vec2(-x, -y);
 	}
 
-	inline friend Vec2 operator * (const r32 fScalar, const Vec2& rkVector)
+	inline friend Vec2 operator * (r32 fScalar, const Vec2& rkVector)
 	{
 		return Vec2(
 			fScalar * rkVector.x,
 			fScalar * rkVector.y);
 	}
 
-	inline friend Vec2 operator / (const r32 fScalar, const Vec2& rkVector)
+	inline friend Vec2 operator / (r32 fScalar, const Vec2& rkVector)
 	{
 		return Vec2(
 			fScalar / rkVector.x,
@@ -149,7 +149,7 @@ struct Vec2
 		return *this;
 	}
 
-	inline Vec2& operator += (const r32 fScaler)
+	inline Vec2& operator += (r32 fScaler)
 	{
 		x += fScaler;
 		y += fScaler;
@@ -165,7 +165,7 @@ struct Vec2
 		return *this;
 	}
 
-	inline Vec2& operator -= (const r32 fScaler)
+	inline Vec2& operator -= (r32 fScaler)
 	{
 		x -= fScaler;
 		y -= fScaler;
@@ -173,7 +173,7 @@ struct Vec2
 		return *this;
 	}
 
-	inline Vec2& operator *= (const r32 fScalar)
+	inline Vec2& operator *= (r32 fScalar)
 	{
 		x *= fScalar;
 		y *= fScalar;
@@ -189,7 +189,7 @@ struct Vec2
 		return *this;
 	}
 
-	inline Vec2& operator /= (const r32 fScalar)
+	inline Vec2& operator /= (r32 fScalar)
 	{
 		r32 fInv = 1.0f / fScalar;
 
@@ -294,12 +294,12 @@ struct Vec3
 
 	inline Vec3() : x(0), y(0), z(0) {}
 
-	inline Vec3(const Vec2& v, const r32 fZ)
+	inline Vec3(const Vec2& v, r32 fZ)
 		: x(v.x), y(v.y), z(fZ)
 	{
 	}
 
-	inline Vec3(const r32 fX, const r32 fY, const r32 fZ)
+	inline Vec3(r32 fX, r32 fY, r32 fZ)
 		: x(fX), y(fY), z(fZ)
 	{
 	}
@@ -330,19 +330,19 @@ struct Vec3
 	{
 	}
 
-	inline explicit Vec3(const r32 scaler)
+	inline explicit Vec3(r32 scaler)
 		: x(scaler)
 		, y(scaler)
 		, z(scaler)
 	{
 	}
 
-	inline r32 operator [] (const s32 i) const
+	inline r32 operator [] (s32 i) const
 	{
 		return *(&x + i);
 	}
 
-	inline r32& operator [] (const s32 i)
+	inline r32& operator [] (s32 i)
 	{
 		return *(&x + i);
 	}
@@ -373,7 +373,7 @@ struct Vec3
 			z - rkVector.z);
 	}
 
-	inline Vec3 operator * (const r32 fScalar) const
+	inline Vec3 operator * (r32 fScalar) const
 	{
 		return Vec3(
 			x * fScalar,
@@ -389,7 +389,7 @@ struct Vec3
 			z * rhs.z);
 	}
 
-	inline Vec3 operator / (const r32 fScalar) const
+	inline Vec3 operator / (r32 fScalar) const
 	{
 		r32 fInv = 1.0f / fScalar;
 
@@ -417,7 +417,7 @@ struct Vec3
 		return Vec3(-x, -y, -z);
 	}
 
-	inline friend Vec3 operator * (const r32 fScalar, const Vec3& rkVector)
+	inline friend Vec3 operator * (r32 fScalar, const Vec3& rkVector)
 	{
 		return Vec3(
 			fScalar * rkVector.x,
@@ -425,7 +425,7 @@ struct Vec3
 			fScalar * rkVector.z);
 	}
 
-	inline friend Vec3 operator / (const r32 fScalar, const Vec3& rkVector)
+	inline friend Vec3 operator / (r32 fScalar, const Vec3& rkVector)
 	{
 		return Vec3(
 			fScalar / rkVector.x,
@@ -433,7 +433,7 @@ struct Vec3
 			fScalar / rkVector.z);
 	}
 
-	inline friend Vec3 operator + (const Vec3& lhs, const r32 rhs)
+	inline friend Vec3 operator + (const Vec3& lhs, r32 rhs)
 	{
 		return Vec3(
 			lhs.x + rhs,
@@ -441,7 +441,7 @@ struct Vec3
 			lhs.z + rhs);
 	}
 
-	inline friend Vec3 operator + (const r32 lhs, const Vec3& rhs)
+	inline friend Vec3 operator + (r32 lhs, const Vec3& rhs)
 	{
 		return Vec3(
 			lhs + rhs.x,
@@ -449,7 +449,7 @@ struct Vec3
 			lhs + rhs.z);
 	}
 
-	inline friend Vec3 operator - (const Vec3& lhs, const r32 rhs)
+	inline friend Vec3 operator - (const Vec3& lhs, r32 rhs)
 	{
 		return Vec3(
 			lhs.x - rhs,
@@ -457,7 +457,7 @@ struct Vec3
 			lhs.z - rhs);
 	}
 
-	inline friend Vec3 operator - (const r32 lhs, const Vec3& rhs)
+	inline friend Vec3 operator - (r32 lhs, const Vec3& rhs)
 	{
 		return Vec3(
 			lhs - rhs.x,
@@ -475,7 +475,7 @@ struct Vec3
 		return *this;
 	}
 
-	inline Vec3& operator += (const r32 fScalar)
+	inline Vec3& operator += (r32 fScalar)
 	{
 		x += fScalar;
 		y += fScalar;
@@ -492,7 +492,7 @@ struct Vec3
 		return *this;
 	}
 
-	inline Vec3& operator -= (const r32 fScalar)
+	inline Vec3& operator -= (r32 fScalar)
 	{
 		x -= fScalar;
 		y -= fScalar;
@@ -500,7 +500,7 @@ struct Vec3
 		return *this;
 	}
 
-	inline Vec3& operator *= (const r32 fScalar)
+	inline Vec3& operator *= (r32 fScalar)
 	{
 		x *= fScalar;
 		y *= fScalar;
@@ -517,7 +517,7 @@ struct Vec3
 		return *this;
 	}
 
-	inline Vec3& operator /= (const r32 fScalar)
+	inline Vec3& operator /= (r32 fScalar)
 	{
 		r32 fInv = 1.0f / fScalar;
 
@@ -597,12 +597,12 @@ struct Vec4
 
 	inline Vec4() : x(0), y(0), z(0), w(0) {}
 
-	inline Vec4(const Vec3& v, const r32 fW)
+	inline Vec4(const Vec3& v, r32 fW)
 		: x(v.x), y(v.y), z(v.z), w(fW)
 	{
 	}
 
-	inline Vec4(const r32 fX, const r32 fY, const r32 fZ, const r32 fW)
+	inline Vec4(r32 fX, r32 fY, r32 fZ, r32 fW)
 		: x(fX), y(fY), z(fZ), w(fW)
 	{
 	}
@@ -628,7 +628,7 @@ struct Vec4
 	{
 	}
 
-	inline explicit Vec4(const r32 scaler)
+	inline explicit Vec4(r32 scaler)
 		: x(scaler)
 		, y(scaler)
 		, z(scaler)
@@ -641,17 +641,17 @@ struct Vec4
 	{
 	}
 
-	inline r32 operator [] (const s32 i) const
+	inline r32 operator [] (s32 i) const
 	{
 		return *(&x + i);
 	}
 
-	inline r32& operator [] (const s32 i)
+	inline r32& operator [] (s32 i)
 	{
 		return *(&x + i);
 	}
 
-	inline Vec4& operator = (const r32 fScalar)
+	inline Vec4& operator = (r32 fScalar)
 	{
 		x = fScalar;
 		y = fScalar;
@@ -709,7 +709,7 @@ struct Vec4
 			w - rkVector.w);
 	}
 
-	inline Vec4 operator * (const r32 fScalar) const
+	inline Vec4 operator * (r32 fScalar) const
 	{
 		return Vec4(
 			x * fScalar,
@@ -727,7 +727,7 @@ struct Vec4
 			rhs.w * w);
 	}
 
-	inline Vec4 operator / (const r32 fScalar) const
+	inline Vec4 operator / (r32 fScalar) const
 	{
 		r32 fInv = 1.0f / fScalar;
 
@@ -757,7 +757,7 @@ struct Vec4
 		return Vec4(-x, -y, -z, -w);
 	}
 
-	inline friend Vec4 operator * (const r32 fScalar, const Vec4& rkVector)
+	inline friend Vec4 operator * (r32 fScalar, const Vec4& rkVector)
 	{
 		return Vec4(
 			fScalar * rkVector.x,
@@ -766,7 +766,7 @@ struct Vec4
 			fScalar * rkVector.w);
 	}
 
-	inline friend Vec4 operator / (const r32 fScalar, const Vec4& rkVector)
+	inline friend Vec4 operator / (r32 fScalar, const Vec4& rkVector)
 	{
 		return Vec4(
 			fScalar / rkVector.x,
@@ -775,7 +775,7 @@ struct Vec4
 			fScalar / rkVector.w);
 	}
 
-	inline friend Vec4 operator + (const Vec4& lhs, const r32 rhs)
+	inline friend Vec4 operator + (const Vec4& lhs, r32 rhs)
 	{
 		return Vec4(
 			lhs.x + rhs,
@@ -784,7 +784,7 @@ struct Vec4
 			lhs.w + rhs);
 	}
 
-	inline friend Vec4 operator + (const r32 lhs, const Vec4& rhs)
+	inline friend Vec4 operator + (r32 lhs, const Vec4& rhs)
 	{
 		return Vec4(
 			lhs + rhs.x,
@@ -802,7 +802,7 @@ struct Vec4
 			lhs.w - rhs);
 	}
 
-	inline friend Vec4 operator - (const r32 lhs, const Vec4& rhs)
+	inline friend Vec4 operator - (r32 lhs, const Vec4& rhs)
 	{
 		return Vec4(
 			lhs - rhs.x,
@@ -832,7 +832,7 @@ struct Vec4
 		return *this;
 	}
 
-	inline Vec4& operator *= (const r32 fScalar)
+	inline Vec4& operator *= (r32 fScalar)
 	{
 		x *= fScalar;
 		y *= fScalar;
@@ -841,7 +841,7 @@ struct Vec4
 		return *this;
 	}
 
-	inline Vec4& operator += (const r32 fScalar)
+	inline Vec4& operator += (r32 fScalar)
 	{
 		x += fScalar;
 		y += fScalar;
@@ -850,7 +850,7 @@ struct Vec4
 		return *this;
 	}
 
-	inline Vec4& operator -= (const r32 fScalar)
+	inline Vec4& operator -= (r32 fScalar)
 	{
 		x -= fScalar;
 		y -= fScalar;
@@ -869,7 +869,7 @@ struct Vec4
 		return *this;
 	}
 
-	inline Vec4& operator /= (const r32 fScalar)
+	inline Vec4& operator /= (r32 fScalar)
 	{
 		r32 fInv = 1.0f / fScalar;
 
@@ -908,19 +908,19 @@ struct Plane
 	r32 d;
 
 	Plane();
-	Plane(const Plane& rhs);
-	Plane(const Vec3& rkNormal, r32 fConstant);
-	Plane(r32 a, r32 b, r32 c, r32 d);
-	Plane(const Vec3& rkNormal, const Vec3& rkPoint);
-	Plane(const Vec3& rkPoint0, const Vec3& rkPoint1, const Vec3& rkPoint2);
+	Plane(const Plane&);
+	Plane(const Vec3&, r32);
+	Plane(r32, r32, r32, r32);
+	Plane(const Vec3&, const Vec3&);
+	Plane(const Vec3&, const Vec3&, const Vec3&);
 
-	r32 distance(const Vec3& rkPoint) const;
+	r32 distance(const Vec3&) const;
 
-	void redefine(const Vec3& rkPoint0, const Vec3& rkPoint1, const Vec3& rkPoint2);
+	void redefine(const Vec3&, const Vec3&, const Vec3&);
 
-	void redefine(const Vec3& rkNormal, const Vec3& rkPoint);
+	void redefine(const Vec3&, const Vec3&);
 
-	Vec3 project(const Vec3& v) const;
+	Vec3 project(const Vec3&) const;
 
 	r32 normalize(void);
 
@@ -937,7 +937,7 @@ struct Plane
 
 struct Mat3
 {
-	/// Indexed by [row][col].
+	// indexed by [row][col].
 	r32 m[3][3];
 
 	static const Mat3 zero;
@@ -947,19 +947,19 @@ struct Mat3
 	{
 	}
 
-	inline explicit Mat3 (const r32 arr[3][3])
+	inline explicit Mat3(const r32 arr[3][3])
 	{
 		memcpy(m, arr, 9 * sizeof(r32));
 	}
 
-	inline Mat3 (const Mat3& rkMatrix)
+	inline Mat3(const Mat3& rkMatrix)
 	{
 		memcpy(m, rkMatrix.m, 9 * sizeof(r32));
 	}
 
-	Mat3 (r32 fEntry00, r32 fEntry01, r32 fEntry02,
-				r32 fEntry10, r32 fEntry11, r32 fEntry12,
-				r32 fEntry20, r32 fEntry21, r32 fEntry22)
+	Mat3(r32 fEntry00, r32 fEntry01, r32 fEntry02,
+		r32 fEntry10, r32 fEntry11, r32 fEntry12,
+		r32 fEntry20, r32 fEntry21, r32 fEntry22)
 	{
 		m[0][0] = fEntry00;
 		m[0][1] = fEntry01;
@@ -982,65 +982,45 @@ struct Mat3
 		return m[iRow];
 	}
 
-	Vec3 get_column (s32 iCol) const;
+	Vec3 get_column(s32 iCol) const;
 	void set_column(s32 iCol, const Vec3& vec);
 	void from_axes(const Vec3& xAxis, const Vec3& yAxis, const Vec3& zAxis);
 
-	inline Mat3& operator= (const Mat3& rkMatrix)
+	inline Mat3& operator= (const Mat3& other)
 	{
-		memcpy(m, rkMatrix.m, 9 * sizeof(r32));
+		memcpy(m, other.m, 9 * sizeof(r32));
 		return *this;
 	}
 
-	b8 operator== (const Mat3& rkMatrix) const;
+	b8 operator== (const Mat3&) const;
 
-	inline b8 operator!= (const Mat3& rkMatrix) const
+	inline b8 operator!= (const Mat3& other) const
 	{
-		return !operator==(rkMatrix);
+		return !operator==(other);
 	}
 
-	Mat3 operator+ (const Mat3& rkMatrix) const;
+	Mat3 operator+ (const Mat3&) const;
 
-	Mat3 operator- (const Mat3& rkMatrix) const;
+	Mat3 operator- (const Mat3&) const;
 
-	Mat3 operator* (const Mat3& rkMatrix) const;
+	Mat3 operator* (const Mat3&) const;
 	Mat3 operator- () const;
 
-	Vec3 operator* (const Vec3& rkVector) const;
+	Vec3 operator* (const Vec3&) const;
 
-	friend Vec3 operator* (const Vec3& rkVector, const Mat3& rkMatrix);
+	friend Vec3 operator* (const Vec3&, const Mat3&);
 
-	Mat3 operator* (r32 fScalar) const;
+	Mat3 operator* (r32) const;
 
-	friend Mat3 operator* (r32 fScalar, const Mat3& rkMatrix);
+	friend Mat3 operator* (r32, const Mat3&);
 
 	Mat3 transpose() const;
-	b8 inverse(Mat3& rkInverse, r32 fTolerance = 1e-06) const;
-	Mat3 inverse(r32 fTolerance = 1e-06) const;
+	b8 inverse(Mat3*, r32 = 1e-06f) const;
+	Mat3 inverse(r32 = 1e-06f) const;
 	r32 determinant() const;
 
 	void orthonormalize();
-
-	void qdu_decomposition(Mat3& rkQ, Vec3& rkD, Vec3& rkU) const;
-
-	void to_angle_axis(Vec3& rkAxis, r32& rfAngle) const;
-
-	void from_angle_axis(const Vec3& rkAxis, const r32& fr32s);
-
-	b8 to_euler_angles_xyz (r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const;
-	b8 to_euler_angles_xzy (r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const;
-	b8 to_euler_angles_yxz (r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const;
-	b8 to_euler_angles_yzx (r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const;
-	b8 to_euler_angles_zxy (r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const;
-	b8 to_euler_angles_zyx (r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const;
-	void from_euler_angles_xyz (const r32& fYAngle, const r32& fPAngle, const r32& fRAngle);
-	void from_euler_angles_xzy (const r32& fYAngle, const r32& fPAngle, const r32& fRAngle);
-	void from_euler_angles_yxz (const r32& fYAngle, const r32& fPAngle, const r32& fRAngle);
-	void from_euler_angles_yzx (const r32& fYAngle, const r32& fPAngle, const r32& fRAngle);
-	void from_euler_angles_zxy (const r32& fYAngle, const r32& fPAngle, const r32& fRAngle);
-	void from_euler_angles_zyx (const r32& fYAngle, const r32& fPAngle, const r32& fRAngle);
-
-	static void tensor_product (const Vec3& rkU, const Vec3& rkV, Mat3& rkProduct);
+	void qdu_decomposition(Mat3*, Vec3*, Vec3*) const;
 };
 
 struct Quat
@@ -1075,16 +1055,17 @@ struct Quat
 		this->from_rotation_matrix(rot);
 	}
 
-	inline Quat(const r32& rfAngle, const Vec3& rkAxis)
+	inline Quat(r32 angle, const Vec3& axis)
 	{
-		this->from_angle_axis(rfAngle, rkAxis);
+		this->from_angle_axis(angle, axis);
 	}
 
 	inline Quat(const Vec3& xaxis, const Vec3& yaxis, const Vec3& zaxis)
 	{
 		this->from_axes(xaxis, yaxis, zaxis);
 	}
-	inline Quat(const Vec3* akAxis)
+
+	inline Quat(const Vec3 akAxis[3])
 	{
 		this->from_axes(akAxis);
 	}
@@ -1094,21 +1075,21 @@ struct Quat
 		memcpy(&w, valptr, sizeof(r32)*4);
 	}
 
-	inline r32 operator [] (const s32 i) const
+	inline r32 operator [] (s32 i) const
 	{
 		return *(&w + i);
 	}
 
-	inline r32& operator [] (const s32 i)
+	inline r32& operator [] (s32 i)
 	{
 		return *(&w + i);
 	}
 
-	void from_rotation_matrix(const Mat3& kRot);
-	void to_rotation_matrix(Mat3& kRot) const;
-	void from_angle_axis(const r32& rfAngle, const Vec3& rkAxis);
+	void from_rotation_matrix(const Mat3&);
+	void to_rotation_matrix(Mat3*) const;
+	void from_angle_axis(r32, const Vec3&);
 	void to_angle_axis(r32*, Vec3*) const;
-	void from_axes(const Vec3* akAxis);
+	void from_axes(const Vec3[]);
 	void from_axes(const Vec3&, const Vec3&, const Vec3&);
 	void to_axes(Vec3*) const;
 	void to_axes(Vec3*, Vec3*, Vec3*) const;
@@ -1141,12 +1122,12 @@ struct Quat
 	r32 length() const;
 	r32 normalize(void); 
 	static Quat normalize(const Quat& q);
-	Quat inverse() const;  /// Apply to non-zero Quat
-	Quat unit_inverse() const;  /// Apply to unit-length Quat
+	Quat inverse() const;  // apply to non-zero Quat
+	Quat unit_inverse() const;  // apply to unit-length Quat
 	Quat exp() const;
 	Quat log() const;
 
-	/// Rotation of a vector by a Quat
+	// aotation of a vector by a Quat
 	Vec3 operator* (const Vec3& rkVector) const;
 
 	static Quat euler(r32 pitch, r32 yaw, r32 roll);
@@ -1159,10 +1140,10 @@ struct Quat
 
 	static Quat slerp_extra_spins(r32 fT, const Quat& rkP, const Quat& rkQ, s32 iExtraSpins);
 
-	/// Setup for spherical quadratic interpolation
+	// setup for spherical quadratic interpolation
 	static void intermediate(const Quat& rkQ0, const Quat& rkQ1, const Quat& rkQ2, Quat& rka, Quat& rkB);
 
-	/// Spherical quadratic interpolation
+	// spherical quadratic interpolation
 	static Quat squad(r32 fT, const Quat& rkP, const Quat& rkA, const Quat& rkB, const Quat& rkQ);
 
 	static Quat nlerp(r32 fT, const Quat& rkP, const Quat& rkQ, b8 shortestPath = false);
@@ -1170,7 +1151,7 @@ struct Quat
 
 struct Mat4
 {
-	/// Indexed by [row][col].
+	// indexed by [row][col].
 	union {
 		r32 m[4][4];
 		r32 _m[16];
@@ -1216,7 +1197,7 @@ struct Mat4
 	inline Mat4(const Quat& rot)
 	{
 		Mat3 m3x3;
-		rot.to_rotation_matrix(m3x3);
+		rot.to_rotation_matrix(&m3x3);
 		operator=(identity);
 		operator=(m3x3);
 	}
@@ -1393,7 +1374,7 @@ struct Mat4
 	inline void rotation(const Quat& q)
 	{
 		Mat3 r;
-		q.to_rotation_matrix(r);
+		q.to_rotation_matrix(&r);
 		operator=(r);
 	}
 
@@ -1509,15 +1490,15 @@ struct Mat4
 	r32 determinant() const;
 	Mat4 inverse() const;
 
-	static Mat4 perspective(const r32 fov, const r32 aspect, const r32 near, const r32 far);
-	static Mat4 orthographic(const r32 fov, const r32 aspect, const r32 near, const r32 far);
+	static Mat4 perspective(r32 fov, r32 aspect, r32 near, r32 far);
+	static Mat4 orthographic(r32 fov, r32 aspect, r32 near, r32 far);
 	static Mat4 look(const Vec3& eye, const Vec3& forward, const Vec3& up);
 
 	void make_transform(const Vec3& position, const Vec3& scale, const Quat& orientation);
 
 	void make_inverse_transform(const Vec3& position, const Vec3& scale, const Quat& orientation);
 
-	void decomposition(Vec3& position, Vec3& scale, Quat& orientation) const;
+	void decomposition(Vec3*, Vec3*, Quat*) const;
 
 	inline b8 is_affine(void) const
 	{

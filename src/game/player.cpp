@@ -3810,7 +3810,8 @@ void PlayerControlHuman::update(const Update& u)
 						// check shields
 						for (auto i = Shield::list.iterator(); !i.is_last(); i.next())
 						{
-							if (i.item()->entity() != entity())
+							if (i.item()->entity() != entity()
+								&& (!i.item()->has<Drone>() || !UpgradeStation::drone_inside(i.item()->get<Drone>())))
 							{
 								Vec3 shield_pos = i.item()->get<Target>()->absolute_pos();
 								Vec3 intersection;
@@ -3911,6 +3912,7 @@ void PlayerControlHuman::update(const Update& u)
 					}
 					else
 					{
+						// aiming at nothing
 						reticle.pos = trace_end;
 						reticle.normal = -trace_dir;
 						if (ability != Ability::None

@@ -1341,56 +1341,97 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	Vec3 trace_start = get<Transform>()->absolute_pos();
 	Vec3 trace_end = trace_start + trace_dir * range();
 
-	AbilityInfo::Type type = AbilityInfo::list[s32(a)].type;
-	RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-	s16 force_field_mask = type == AbilityInfo::Type::Build
-		? ~ally_force_field_mask() // only ignore friendly force fields; we don't want to build something on a force field
-		: ~CollisionAllTeamsForceField; // ignore all force fields
-	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & force_field_mask);
-	if (type == AbilityInfo::Type::Shoot)
+	struct RayHit
 	{
-		if (ray_callback.hasHit())
+		Entity* entity;
+		Vec3 pos;
+		b8 hit;
+	};
+
+	RayHit ray_callback;
+
+	AbilityInfo::Type type = AbilityInfo::list[s32(a)].type;
+
+	{
+		RaycastCallbackExcept physics_ray_callback(trace_start, trace_end, entity());
+		s16 force_field_mask = type == AbilityInfo::Type::Build
+			? ~ally_force_field_mask() // only ignore friendly force fields; we don't want to build something on a force field
+			: ~CollisionAllTeamsForceField; // ignore all force fields
+		Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & force_field_mask);
+
+		ray_callback.hit = physics_ray_callback.hasHit();
+		if (ray_callback.hit)
 		{
-			Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-			if (final_pos)
-				*final_pos = ray_callback.m_hitPointWorld;
-			if (hit_target)
-				*hit_target = e->has<Target>();
-			if (hit_parent)
-				*hit_parent = e->get<RigidBody>();
+			ray_callback.pos = physics_ray_callback.m_hitPointWorld;
+			ray_callback.entity = &Entity::list[physics_ray_callback.m_collisionObject->getUserIndex()];
 		}
-		else
+	}
+
+	// check shields
+	for (auto i = Shield::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->entity() != entity()
+			&& (!i.item()->has<Drone>() || !UpgradeStation::drone_inside(i.item()->get<Drone>())))
 		{
-			if (final_pos)
-				*final_pos = trace_end;
-			if (hit_target)
-				*hit_target = false;
-			if (hit_parent)
-				*hit_parent = nullptr;
+			{
+				// check actual position
+				Vec3 shield_pos = i.item()->get<Target>()->absolute_pos();
+				Vec3 intersection;
+				if (LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection, LMath::RaySphereIntersection::BackFace)
+					&& (!ray_callback.hit || (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared()))
+				{
+					ray_callback.hit = true;
+					ray_callback.pos = intersection;
+					ray_callback.entity = i.item()->entity();
+				}
+			}
+
+			if (type == AbilityInfo::Type::Shoot)
+			{
+				// check predicted intersection
+				Vec3 shield_pos;
+				if (predict_intersection(i.item()->get<Target>(), nullptr, &shield_pos, target_prediction_speed()))
+				{
+					Vec3 intersection;
+					if (LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection, LMath::RaySphereIntersection::BackFace)
+						&& (!ray_callback.hit || (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared()))
+					{
+						ray_callback.hit = true;
+						ray_callback.pos = intersection;
+						ray_callback.entity = i.item()->entity();
+					}
+				}
+			}
 		}
-		return true; // we can always spawn these abilities, even if we're aiming into space
+	}
+
+	if (ray_callback.hit)
+	{
+		if (final_pos)
+			*final_pos = ray_callback.pos;
+		if (hit_target)
+			*hit_target = ray_callback.entity->has<Target>();
+		if (hit_parent)
+			*hit_parent = ray_callback.entity->has<RigidBody>() ? ray_callback.entity->get<RigidBody>() : nullptr;
 	}
 	else
 	{
+		if (final_pos)
+			*final_pos = trace_end;
+		if (hit_target)
+			*hit_target = false;
+		if (hit_parent)
+			*hit_parent = nullptr;
+	}
+
+	if (type == AbilityInfo::Type::Shoot)
+		return true; // we can always spawn these abilities, even if we're aiming into space
+	else
+	{
 		// build-type ability
-		if (ray_callback.hasHit())
-		{
-			Entity* hit_entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-			if (!hit_entity->has<Target>()
-				&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
-			{
-				if (final_pos)
-					*final_pos = ray_callback.m_hitPointWorld;
-				if (final_normal)
-					*final_normal = ray_callback.m_hitNormalWorld;
-				if (hit_parent)
-					*hit_parent = hit_entity->get<RigidBody>();
-				if (hit_target)
-					*hit_target = false;
-				return true;
-			}
-		}
-		return false;
+		return ray_callback.hit
+			&& !ray_callback.entity->has<Target>()
+			&& !(ray_callback.entity->get<RigidBody>()->collision_group & DRONE_INACCESSIBLE_MASK);
 	}
 }
 
@@ -1547,17 +1588,13 @@ r32 Drone::target_prediction_speed() const
 	switch (current_ability)
 	{
 		case Ability::Sniper:
-		{
 			return 0.0f;
-		}
 		case Ability::Bolter:
-		{
-			return BOLT_SPEED_TURRET;
-		}
+			return BOLT_SPEED_DRONE_BOLTER;
+		case Ability::Shotgun:
+			return BOLT_SPEED_DRONE_SHOTGUN;
 		default:
-		{
 			return DRONE_FLY_SPEED;
-		}
 	}
 }
 

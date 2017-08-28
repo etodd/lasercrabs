@@ -795,7 +795,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 template<typename Stream> b8 serialize_init_packet(Stream* p)
 {
 	serialize_enum(p, Game::FeatureLevel, Game::level.feature_level);
-	serialize_enum(p, Team::MatchState, Team::match_state);
 	serialize_r32_range(p, Game::level.rotation, -2.0f * PI, 2.0f * PI, 16);
 	serialize_r32_range(p, Game::level.min_y, -128, 128, 8);
 	serialize_r32(p, Game::level.skybox.far_plane);
@@ -853,6 +852,8 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 		serialize_int(p, AssetID, Game::level.scripts[i], 0, Script::count);
 	if (!Master::serialize_server_config(p, &Game::session.config))
 		net_error();
+	serialize_r32_range(p, Team::match_time, 0, Game::session.config.time_limit(), 16);
+	serialize_enum(p, Team::MatchState, Team::match_state);
 	if (Stream::IsReading)
 		Game::level.finder.map.length = 0;
 	return true;

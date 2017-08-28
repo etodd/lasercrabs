@@ -112,7 +112,7 @@ b8 Health::net_msg(Net::StreamRead* p)
 	h->hp += e.hp;
 	h->shield += e.shield;
 	h->changed.fire(e);
-	if (h->hp == 0)
+	if (e.hp < 0 && h->hp == 0)
 		h->killed.fire(e.source.ref());
 
 	return true;
@@ -163,15 +163,18 @@ void health_internal_apply_damage(Health* h, Entity* e, s8 damage)
 	else
 		damage_hp = damage_accumulator;
 
-	h->regen_timer = SHIELD_REGEN_TIME + SHIELD_REGEN_DELAY;
-
-	HealthEvent ev =
+	if (damage_hp != 0 || damage_shield != 0)
 	{
-		e,
-		s8(-damage_hp),
-		s8(-damage_shield),
-	};
-	health_send_event(h, &ev);
+		h->regen_timer = SHIELD_REGEN_TIME + SHIELD_REGEN_DELAY;
+
+		HealthEvent ev =
+		{
+			e,
+			s8(-damage_hp),
+			s8(-damage_shield),
+		};
+		health_send_event(h, &ev);
+	}
 }
 
 void Health::update_server(const Update& u)

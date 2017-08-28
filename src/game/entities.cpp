@@ -1247,7 +1247,7 @@ void Sensor::update_client_all(const Update& u)
 {
 	r32 time = u.time.total;
 	r32 last_time = time - u.time.delta;
-	const r32 sensor_shockwave_interval = 3.0f;
+	const r32 sensor_shockwave_interval = 5.0f;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team != AI::TeamNone)
@@ -1364,6 +1364,7 @@ CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3&
 	model->team = s8(team);
 
 	create<Target>();
+	create<MinionTarget>();
 
 	create<CoreModule>()->team = team;
 
@@ -1436,6 +1437,7 @@ TurretEntity::TurretEntity(AI::Team team)
 {
 	create<Transform>();
 	create<Audio>();
+	create<MinionTarget>();
 
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::turret_top;
@@ -2178,9 +2180,13 @@ void Bolt::reflect(const Entity* hit_object, ReflectionType reflection_type, con
 	transform->absolute_rot(Quat::look(dir));
 	transform->absolute_pos(transform->absolute_pos() + dir * BOLT_LENGTH);
 
-	AI::Team reflect_team;
-	AI::entity_info(hit_object, team, &reflect_team);
-	BoltNet::change_team(this, reflect_team, PlayerManager::owner(hit_object), hit_object);
+	if (reflection_type == ReflectionType::Homing)
+	{
+		// change team
+		AI::Team reflect_team;
+		AI::entity_info(hit_object, team, &reflect_team);
+		BoltNet::change_team(this, reflect_team, PlayerManager::owner(hit_object), hit_object);
+	}
 }
 
 void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
@@ -2331,12 +2337,17 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 
 	if (t == Type::Grenade)
 	{
-		Audio::post_event_global(AK::EVENTS::PLAY_EXPLOSION, pos);
+		Audio::post_event_global(AK::EVENTS::PLAY_DRONE_GRENADE_EXPLO, pos);
 		EffectLight::add(pos, GRENADE_RANGE, 0.35f, EffectLight::Type::Alpha);
 	}
 	else if (t == Type::Explosion)
 	{
 		Audio::post_event_global(AK::EVENTS::PLAY_EXPLOSION, pos);
+		EffectLight::add(pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
+	}
+	else if (t == Type::DroneExplosion)
+	{
+		Audio::post_event_global(AK::EVENTS::PLAY_DRONE_DAMAGE_EXPLODE, pos);
 		EffectLight::add(pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
 	}
 	else if (t == Type::ImpactLarge || t == Type::ImpactSmall)
@@ -2608,9 +2619,6 @@ void Grenade::update_client_all(const Update& u)
 		if (i.item()->active)
 		{
 			Vec3 me = i.item()->get<Transform>()->absolute_pos();
-			const r32 interval = 3.0f;
-			if (s32(Game::time.total / interval) != s32((Game::time.total - u.time.delta) / interval))
-				EffectLight::add(me, GRENADE_RANGE, 1.5f, EffectLight::Type::Shockwave);
 			AI::Team my_team = i.item()->team();
 			b8 countdown = false;
 			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
@@ -2620,7 +2628,7 @@ void Grenade::update_client_all(const Update& u)
 					r32 distance = (i.item()->get<Transform>()->absolute_pos() - me).length();
 					if (i.item()->has<ForceField>())
 						distance -= FORCE_FIELD_RADIUS;
-					if (distance < GRENADE_RANGE)
+					if (distance < GRENADE_RANGE * 0.8f)
 					{
 						countdown = true;
 						break;
@@ -2629,13 +2637,22 @@ void Grenade::update_client_all(const Update& u)
 			}
 			if (countdown)
 			{
+				r32 timer_last = i.item()->timer;
 				i.item()->timer += u.time.delta;
-				r32 interval = LMath::lerpf(vi_min(1.0f, i.item()->timer / GRENADE_DELAY), 0.35f, 0.05f);
-				if (s32(i.item()->timer / interval) != s32((i.item()->timer - u.time.delta) / interval))
+				const r32 interval = 0.3f;
+				if (s32(Ease::cubic_in<r32>(i.item()->timer) / interval) != s32(Ease::cubic_in<r32>(timer_last) / interval))
 					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_BEEP);
 			}
 			else
+			{
 				i.item()->timer = 0.0f;
+				const r32 interval = 5.0f;
+				if (s32(Game::time.total / interval) != s32((Game::time.total - u.time.delta) / interval))
+				{
+					EffectLight::add(me, GRENADE_RANGE, 1.5f, EffectLight::Type::Shockwave);
+					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_BEEP);
+				}
+			}
 		}
 	}
 }

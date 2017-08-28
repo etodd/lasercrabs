@@ -1367,6 +1367,20 @@ cJSON* json_entity_by_name(cJSON* json, const char* name)
 	return nullptr;
 }
 
+void ingress_points_get(cJSON* json, cJSON* element, MinionTarget* target)
+{
+	cJSON* links = cJSON_GetObjectItem(element, "links");
+	cJSON* link = links->child;
+	while (link)
+	{
+		cJSON* linked_entity = json_entity_by_name(json, link->valuestring);
+		vi_assert(linked_entity);
+		if (cJSON_GetObjectItem(linked_entity, "IngressPoint"))
+			target->ingress_points.add(Json::get_vec3(linked_entity, "pos"));
+		link = link->next;
+	}
+}
+
 void Game::load_level(AssetID l, Mode m, b8 ai_test)
 {
 	vi_debug("Loading level %d", s32(l));
@@ -1669,17 +1683,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				absolute_pos += absolute_rot * Vec3(0, 0, TURRET_HEIGHT);
 				entity = World::alloc<TurretEntity>(AI::Team(0));
 				entity->get<Health>()->hp = Json::get_s32(element, "hp", TURRET_HEALTH);
-
-				cJSON* links = cJSON_GetObjectItem(element, "links");
-				cJSON* link = links->child;
-				while (link)
-				{
-					cJSON* linked_entity = json_entity_by_name(json, link->valuestring);
-					vi_assert(linked_entity);
-					if (cJSON_GetObjectItem(linked_entity, "IngressPoint"))
-						entity->get<Turret>()->ingress_points.add(Json::get_vec3(linked_entity, "pos"));
-					link = link->next;
-				}
+				ingress_points_get(json, element, entity->get<MinionTarget>());
 			}
 			else
 				entity = base;
@@ -1730,7 +1734,10 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			{
 				AI::Team team = AI::Team(Json::get_s32(element, "team"));
 				if (Team::list.count() > s32(team))
+				{
 					entity = World::alloc<CoreModuleEntity>(team, nullptr, absolute_pos, absolute_rot);
+					ingress_points_get(json, element, entity->get<MinionTarget>());
+				}
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "ForceField"))

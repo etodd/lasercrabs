@@ -15,6 +15,13 @@ struct MinionEntity : public Entity
 	MinionEntity(const Vec3&, const Quat&, AI::Team, PlayerManager* = nullptr);
 };
 
+struct MinionTarget : public ComponentType<MinionTarget>
+{
+	Array<Vec3> ingress_points; // points for AI minions to attack from
+
+	void awake() {}
+};
+
 struct Minion : public ComponentType<Minion>
 {
 	struct Goal

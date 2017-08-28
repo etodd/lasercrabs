@@ -508,13 +508,13 @@ Vec3 Minion::goal_path_position(const Goal& g, const Vec3& minion_pos)
 	{
 		Entity* e = g.entity.ref();
 		vi_assert(e);
-		if (e->has<Turret>())
+		if (e->has<MinionTarget>())
 		{
-			if (e->get<Turret>()->ingress_points.length > 0)
+			MinionTarget* t = e->get<MinionTarget>();
+			if (t->ingress_points.length > 0)
 			{
 				r32 closest_distance_sq = FLT_MAX;
 				Vec3 closest_point;
-				Turret* t = e->get<Turret>();
 				for (s32 i = 0; i < t->ingress_points.length; i++)
 				{
 					const Vec3& pos = t->ingress_points[i];
@@ -527,8 +527,10 @@ Vec3 Minion::goal_path_position(const Goal& g, const Vec3& minion_pos)
 				}
 				return closest_point;
 			}
-			else
+			else if (t->has<Turret>())
 				return e->get<Transform>()->to_world(Vec3(0, 0, -TURRET_HEIGHT));
+			else
+				return e->get<Transform>()->absolute_pos();
 		}
 		else
 			return g.pos; // last known position of the target

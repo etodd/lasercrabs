@@ -3114,16 +3114,21 @@
 										</RandomSequenceContainer>
 									</ChildrenList>
 								</ActorMixer>
-								<ActorMixer Name="Drone_Bolt" ID="{C3E81639-5C4B-41EF-8AB0-82E813BF3651}" ShortID="1068003053">
+								<ActorMixer Name="Drone_Weapon" ID="{C3E81639-5C4B-41EF-8AB0-82E813BF3651}" ShortID="1068003053">
 									<PropertyList>
 										<Property Name="OverrideOutput" Type="bool" Value="True"/>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-2</Value>
+											</ValueList>
+										</Property>
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Conversion">
 											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
 										</Reference>
 										<Reference Name="OutputBus">
-											<ObjectRef Name="Drone_Bolt" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+											<ObjectRef Name="Drone_Weapon" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
 										</Reference>
 									</ReferenceList>
 									<ChildrenList>
@@ -3362,6 +3367,632 @@
 												</Sound>
 											</ChildrenList>
 										</RandomSequenceContainer>
+										<RandomSequenceContainer Name="Drone_Shotgun_Fire" ID="{975758ED-0A0C-4AB7-9747-08089BC8B935}" ShortID="1066420451">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{1C93B7DF-A06D-4966-8F30-5D7ACAC13FEF}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="100"/>
+																	<Property Name="Min" Type="Real64" Value="-100"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="PositioningType" Type="int16" Value="1"/>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-3</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{BBA32D26-0F50-47F2-9DAE-7B204DC5A513}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Attenuation">
+													<ObjectRef Name="Atten20" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+												</Reference>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Drone_Shotgun_Fire_01_V_01" ID="{47E45812-2074-4DC6-9750-2DE75CBE34AB}" ShortID="328250996">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Shotgun_Fire_01_V_01" ID="{8D8FB130-0F70-43FB-B139-2F1B6E0040BE}" ShortID="1064672904">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Shotgun_Fire_01_V_01.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Shotgun_Fire_01_V_01" ID="{8D8FB130-0F70-43FB-B139-2F1B6E0040BE}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Drone_Shotgun_Fire_01_V_02" ID="{B9BDA8F6-C2E2-4481-8B7E-AAFC51274623}" ShortID="830979339">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Shotgun_Fire_01_V_02" ID="{A0482E5C-0305-457B-A402-2AFFB8C85C21}" ShortID="162299460">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Shotgun_Fire_01_V_02.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Shotgun_Fire_01_V_02" ID="{A0482E5C-0305-457B-A402-2AFFB8C85C21}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Drone_Shotgun_Fire_01_V_03" ID="{B2153A11-DFC6-4CAB-868F-9F7D7BF7A4C2}" ShortID="215052736">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Shotgun_Fire_01_V_03" ID="{1E11EBD9-9559-4CF3-84AE-264ABB686678}" ShortID="824598417">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Shotgun_Fire_01_V_03.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Shotgun_Fire_01_V_03" ID="{1E11EBD9-9559-4CF3-84AE-264ABB686678}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
+										<RandomSequenceContainer Name="Drone_Sniper_Fire" ID="{80E78AAE-FEEB-4A3A-8928-FD92219730AB}" ShortID="437889853">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{D320266E-ECB1-4253-950C-BFB3F3A5AD1F}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="100"/>
+																	<Property Name="Min" Type="Real64" Value="-100"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="PositioningType" Type="int16" Value="1"/>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-2</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{F5370020-C0F8-4CD8-A9B4-4963C7967C7F}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Attenuation">
+													<ObjectRef Name="Atten20" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+												</Reference>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Drone_Sniper_Fire_01_V_01" ID="{D31240C8-E803-469D-BECB-962ED4129A28}" ShortID="590392404">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Sniper_Fire_01_V_01" ID="{8AB2FC00-5141-4539-A9E2-3479BF42FB6D}" ShortID="555766903">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Sniper_Fire_01_V_01.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Sniper_Fire_01_V_01" ID="{8AB2FC00-5141-4539-A9E2-3479BF42FB6D}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Drone_Sniper_Fire_01_V_02" ID="{275DB5B6-5F57-44EF-BE2C-734E9EE5F0DA}" ShortID="5011569">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Sniper_Fire_01_V_02" ID="{83CC0AF6-260E-4A6B-83AA-71DAE8F05FA2}" ShortID="903284009">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Sniper_Fire_01_V_02.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Sniper_Fire_01_V_02" ID="{83CC0AF6-260E-4A6B-83AA-71DAE8F05FA2}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Drone_Sniper_Fire_01_V_03" ID="{E6F60B6E-007C-4AF2-BBE8-33116338C6DA}" ShortID="767448119">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Sniper_Fire_01_V_03" ID="{1639706C-3F52-4E0E-A8E8-12C681D28BB3}" ShortID="1042571776">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Sniper_Fire_01_V_03.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Sniper_Fire_01_V_03" ID="{1639706C-3F52-4E0E-A8E8-12C681D28BB3}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
+										<RandomSequenceContainer Name="Drone_Grenade_Fire" ID="{AA8B27FB-71E4-400E-950B-0A773F644F67}" ShortID="458290444">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{902D2856-D30B-4F5A-A34F-31F3C9EC4C81}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="100"/>
+																	<Property Name="Min" Type="Real64" Value="-100"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="PositioningType" Type="int16" Value="1"/>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-3</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{9C333C02-41A7-4C76-8483-DD0C4E51ACD4}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Attenuation">
+													<ObjectRef Name="Atten20" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+												</Reference>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Drone_Grenade_launch_01_V_1" ID="{3551FD9A-895C-4717-901E-B54D0043B83D}" ShortID="633211953">
+													<PropertyList>
+														<Property Name="BelowThresholdBehavior" Type="int16" Value="1"/>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Drone_Perspective_01" ID="{A382FC13-692F-413C-B3F3-537600DAC1C4}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Drone_Weapon" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Grenade_launch_01_V_1" ID="{D8A15BE7-85BC-4150-B73F-DEEAD8EE8FE2}" ShortID="325367659">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Grenade_launch_01_V_1.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Grenade_launch_01_V_1" ID="{D8A15BE7-85BC-4150-B73F-DEEAD8EE8FE2}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
+										<RandomSequenceContainer Name="Drone_Grenade_Arm" ID="{8F5F97D5-D067-4CC2-BCD5-A7CD7F48BC52}" ShortID="2743808">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{37CDEE16-BEA6-4561-9D3F-B9CF55BEDCD4}">
+																<PropertyList>
+																	<Property Name="Max" Type="Real64" Value="100"/>
+																	<Property Name="Min" Type="Real64" Value="-100"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="PositioningType" Type="int16" Value="1"/>
+												<Property Name="RandomAvoidRepeating" Type="bool" Value="False"/>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-8</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{267D55DE-AC49-4223-A7DA-338B6A1DF915}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Attenuation">
+													<ObjectRef Name="Atten20" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+												</Reference>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Drone_Grenade_Arm_01_V_1" ID="{85E03289-2CE3-4C5D-A6CB-E84904506CEF}" ShortID="662620914">
+													<PropertyList>
+														<Property Name="BelowThresholdBehavior" Type="int16" Value="1"/>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Drone_Perspective_01" ID="{A382FC13-692F-413C-B3F3-537600DAC1C4}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Drone_Weapon" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Grenade_Arm_01_V_1" ID="{1A829344-918B-4039-97C8-F9B6CC9FFF6E}" ShortID="560172898">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Grenade_Arm_01_V_1.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Grenade_Arm_01_V_1" ID="{1A829344-918B-4039-97C8-F9B6CC9FFF6E}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
+										<RandomSequenceContainer Name="Drone_Grenade_Attach" ID="{585B9D82-7ACB-45F6-B29E-E789DE653500}" ShortID="694718085">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{E9E8F500-CDD3-4D84-92B8-E66D1F42FF35}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="100"/>
+																	<Property Name="Min" Type="Real64" Value="-100"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="PositioningType" Type="int16" Value="1"/>
+												<Property Name="RandomAvoidRepeating" Type="bool" Value="False"/>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-8</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{645497DD-1DDC-4094-B29B-14AEBF6C0702}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Attenuation">
+													<ObjectRef Name="Atten20" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+												</Reference>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Drone_Grenade_Attach_01_V_1" ID="{B4ED13B5-378D-4584-88D0-EFC8703DF948}" ShortID="37886907">
+													<PropertyList>
+														<Property Name="BelowThresholdBehavior" Type="int16" Value="1"/>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Drone_Perspective_01" ID="{A382FC13-692F-413C-B3F3-537600DAC1C4}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Drone_Weapon" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Grenade_Attach_01_V_1" ID="{58994AB6-036F-4647-8498-0E5B5A845070}" ShortID="691808700">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Grenade_Attach_01_V_1.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Grenade_Attach_01_V_1" ID="{58994AB6-036F-4647-8498-0E5B5A845070}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
+										<RandomSequenceContainer Name="Drone_Grenade_Beep" ID="{3CF118F9-1D91-435B-8378-C281E99588C7}" ShortID="393607771">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{F1CF651D-D3E9-4750-BA64-E6E79131EC9E}">
+																<PropertyList>
+																	<Property Name="Max" Type="Real64" Value="100"/>
+																	<Property Name="Min" Type="Real64" Value="-100"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="PositioningType" Type="int16" Value="1"/>
+												<Property Name="RandomAvoidRepeating" Type="bool" Value="False"/>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-8</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{A1295A32-BB8D-4D99-A2B4-F7F185E3DA55}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Attenuation">
+													<ObjectRef Name="Atten20" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+												</Reference>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Drone_Grenade_Beep_01_V_1" ID="{C2C56161-16F9-4393-A1BD-913841286CEA}" ShortID="462916303">
+													<PropertyList>
+														<Property Name="BelowThresholdBehavior" Type="int16" Value="1"/>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Drone_Perspective_01" ID="{A382FC13-692F-413C-B3F3-537600DAC1C4}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Drone_Weapon" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Grenade_Beep_01_V_1" ID="{C9A69212-BD9B-4913-8AB4-F29CB3C960FF}" ShortID="983405783">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Grenade_Beep_01_V_1.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Grenade_Beep_01_V_1" ID="{C9A69212-BD9B-4913-8AB4-F29CB3C960FF}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
+										<RandomSequenceContainer Name="Drone_Grenade_Explo" ID="{433A7DED-6736-4CBD-9721-B1DA2C5A6841}" ShortID="573268463">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{ABE0FFF8-177D-4181-B099-45DC6595B2EE}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="100"/>
+																	<Property Name="Min" Type="Real64" Value="-100"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="PositioningType" Type="int16" Value="1"/>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-2</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{6750E63F-3A5E-4F4E-BF3B-0A3114E2EAC7}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Attenuation">
+													<ObjectRef Name="Atten20" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+												</Reference>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Drone_Grenade_Explo_01_V_02" ID="{BF50EED2-B528-4248-9DF2-0C6890380C94}" ShortID="220586270">
+													<PropertyList>
+														<Property Name="BelowThresholdBehavior" Type="int16" Value="1"/>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Drone_Perspective_01" ID="{A382FC13-692F-413C-B3F3-537600DAC1C4}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Drone_Weapon" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Grenade_Explo_01_V_02" ID="{33A09933-2267-413A-A812-DFEEABA30DD8}" ShortID="769023955">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Grenade_Explo_01_V_02.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Grenade_Explo_01_V_02" ID="{33A09933-2267-413A-A812-DFEEABA30DD8}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Drone_Grenade_Explo_01_V_01" ID="{6F621262-722D-48F5-BAA9-43D15A4C1D69}" ShortID="382269176">
+													<PropertyList>
+														<Property Name="BelowThresholdBehavior" Type="int16" Value="1"/>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Drone_Perspective_01" ID="{A382FC13-692F-413C-B3F3-537600DAC1C4}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Drone_Weapon" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Grenade_Explo_01_V_01" ID="{18FCFEF5-9E05-4122-BA7E-0CA1A2B78241}" ShortID="489916848">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Grenade_Explo_01_V_01.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Grenade_Explo_01_V_01" ID="{18FCFEF5-9E05-4122-BA7E-0CA1A2B78241}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Drone_Grenade_Explo_01_V_03" ID="{54C1238E-AEF0-4889-B1B4-1BCDBF23BDFA}" ShortID="776077545">
+													<PropertyList>
+														<Property Name="BelowThresholdBehavior" Type="int16" Value="1"/>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Drone_Perspective_01" ID="{A382FC13-692F-413C-B3F3-537600DAC1C4}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Drone_Weapon" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Grenade_Explo_01_V_03" ID="{668CCE65-B943-4D58-BAAF-6A53BE7E7BF4}" ShortID="66373281">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Grenade_Explo_01_V_03.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Grenade_Explo_01_V_03" ID="{668CCE65-B943-4D58-BAAF-6A53BE7E7BF4}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
 									</ChildrenList>
 								</ActorMixer>
 								<ActorMixer Name="Drone_Shield" ID="{4ECCCA00-8101-45FB-BC44-922EC21FDB10}" ShortID="382729958">
@@ -3462,11 +4093,6 @@
 										<Property Name="OverrideOutput" Type="bool" Value="True"/>
 										<Property Name="OverridePositioning" Type="bool" Value="True"/>
 										<Property Name="PositioningType" Type="int16" Value="1"/>
-										<Property Name="Volume" Type="Real64">
-											<ValueList>
-												<Value>-3</Value>
-											</ValueList>
-										</Property>
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Attenuation">
@@ -3484,7 +4110,7 @@
 											<PropertyList>
 												<Property Name="Volume" Type="Real64">
 													<ValueList>
-														<Value>-1</Value>
+														<Value>-6</Value>
 													</ValueList>
 												</Property>
 											</PropertyList>
@@ -3736,6 +4362,9 @@
 													</ModifierList>
 												</Property>
 												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-5</Value>
+													</ValueList>
 													<ModifierList>
 														<ModifierInfo>
 															<Modifier Name="" ID="{548B4E65-345A-4FBB-8ABD-6A1965403A30}">
@@ -3846,8 +4475,556 @@
 												</Sound>
 											</ChildrenList>
 										</RandomSequenceContainer>
+										<RandomSequenceContainer Name="Drone_Damage_Reflect" ID="{CB52CFD8-6EC8-4576-AA7D-B74F664B5522}" ShortID="399994069">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{6C01A057-77BC-4658-A665-AE8A02997FE1}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="50"/>
+																	<Property Name="Min" Type="Real64" Value="-200"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-6</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{640D7E1E-19C0-42B2-A88B-348AF505A192}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Min" Type="Real64" Value="-1"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Drone_Reflect_01_V_01" ID="{19B98D20-8FA9-4A11-9DF5-94A18C9BB2A8}" ShortID="467915749">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Reflect_01_V_01" ID="{AB65555C-98F4-4D2B-991F-3BB94DB60276}" ShortID="646872315">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Reflect_01_V_01.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Reflect_01_V_01" ID="{AB65555C-98F4-4D2B-991F-3BB94DB60276}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Drone_Reflect_01_V_02" ID="{11134EE8-2461-46AB-9573-2226D9C01F7B}" ShortID="638795161">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Reflect_01_V_02" ID="{E5F8BF07-924C-4BA5-B1A9-422A51CAAF23}" ShortID="328044689">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Reflect_01_V_02.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Reflect_01_V_02" ID="{E5F8BF07-924C-4BA5-B1A9-422A51CAAF23}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Drone_Reflect_01_V_03" ID="{E3B27351-CABE-4E9C-ADD2-9F1F0EBA48CE}" ShortID="977796286">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Reflect_01_V_03" ID="{17CB4EBF-9C83-43E1-8563-0D0FAC09604E}" ShortID="401199609">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Reflect_01_V_03.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Reflect_01_V_03" ID="{17CB4EBF-9C83-43E1-8563-0D0FAC09604E}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
+										<RandomSequenceContainer Name="Drone_Damage_Explode" ID="{6A0A91BE-A599-4C36-890F-492F86EDD245}" ShortID="960390371">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{471FE8B4-438D-4E01-B2D5-98EE3ADBEC6E}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="50"/>
+																	<Property Name="Min" Type="Real64" Value="-200"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="Volume" Type="Real64">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{DD517A51-9E0C-4119-B985-845F922271BC}">
+																<PropertyList>
+																	<Property Name="Min" Type="Real64" Value="-1"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Drone_drone_explode_01_V_01" ID="{6BB7A720-34EA-4692-8569-C98A32A23BDA}" ShortID="358336195">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_drone_explode_01_V_01" ID="{A1054204-8A97-4F97-B3C1-73A9E21D91B8}" ShortID="329034180">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_drone_explode_01_V_01.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_drone_explode_01_V_01" ID="{A1054204-8A97-4F97-B3C1-73A9E21D91B8}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Drone_drone_explode_01_V_02" ID="{CDA266D9-88EE-48BF-8276-FC527B46962A}" ShortID="412991374">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_drone_explode_01_V_02" ID="{4D58D8BA-CFD0-4032-9C89-75D571661831}" ShortID="890290760">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_drone_explode_01_V_02.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_drone_explode_01_V_02" ID="{4D58D8BA-CFD0-4032-9C89-75D571661831}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Drone_drone_explode_01_V_03" ID="{499F26C3-561A-4BC1-BECD-B43BECF86494}" ShortID="1066719226">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_drone_explode_01_V_03" ID="{E15B7E28-9FF5-4BFE-A91E-B5A899466F8D}" ShortID="763537808">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_drone_explode_01_V_03.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_drone_explode_01_V_03" ID="{E15B7E28-9FF5-4BFE-A91E-B5A899466F8D}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
 									</ChildrenList>
 								</ActorMixer>
+								<ActorMixer Name="Drone_Sensor" ID="{89043ACD-6F2A-46BD-962E-93B66C819ACF}" ShortID="118580530">
+									<PropertyList>
+										<Property Name="OverrideOutput" Type="bool" Value="True"/>
+										<Property Name="OverridePositioning" Type="bool" Value="True"/>
+										<Property Name="PositioningType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Attenuation">
+											<ObjectRef Name="Drone_Sensor" ID="{E49272F0-35F5-47D4-8B8C-0265B3BD8641}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+										</Reference>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Drone_Weapon" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<RandomSequenceContainer Name="Drone_Sensor" ID="{CD50FA34-9721-4B01-A553-305848B52118}" ShortID="74236733">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{1A4AE78B-C42F-4AA2-98D9-09A734BD157D}">
+																<PropertyList>
+																	<Property Name="Max" Type="Real64" Value="100"/>
+																	<Property Name="Min" Type="Real64" Value="-100"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="PositioningType" Type="int16" Value="1"/>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-10</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{D55A6033-1558-4E36-AEAF-02438B3DEA07}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Attenuation">
+													<ObjectRef Name="Atten20" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+												</Reference>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Drone_Sensor_Prin_01_V_1" ID="{D5C6F6F0-553F-4891-8B6C-82F7F190121F}" ShortID="209782785">
+													<PropertyList>
+														<Property Name="BelowThresholdBehavior" Type="int16" Value="1"/>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Drone_Sensor" ID="{E49272F0-35F5-47D4-8B8C-0265B3BD8641}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Drone_Weapon" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Drone_Sensor_Prin_01_V_1" ID="{DC0983A4-9751-4BC5-8F0D-B66204F0CF9B}" ShortID="1071229415">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Drone_Sensor_Prin_01_V_1.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Drone_Sensor_Prin_01_V_1" ID="{DC0983A4-9751-4BC5-8F0D-B66204F0CF9B}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
+									</ChildrenList>
+								</ActorMixer>
+							</ChildrenList>
+						</ActorMixer>
+						<ActorMixer Name="Minion" ID="{89577139-02FD-4162-A44A-B8AF2F7DCFC9}" ShortID="263941054">
+							<PropertyList>
+								<Property Name="PositioningType" Type="int16" Value="1"/>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Attenuation">
+									<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+								</Reference>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<RandomSequenceContainer Name="Minion_Melee_HandClose" ID="{6E3B86D4-7030-44E2-99D8-2EE44841BD9D}" ShortID="360759500">
+									<PropertyList>
+										<Property Name="Pitch" Type="int32">
+											<ModifierList>
+												<ModifierInfo>
+													<Modifier Name="" ID="{8FEB3BAF-84EC-429F-9DBE-F0AD82C4AC16}">
+														<PropertyList>
+															<Property Name="Enabled" Type="bool" Value="True"/>
+															<Property Name="Max" Type="Real64" Value="50"/>
+															<Property Name="Min" Type="Real64" Value="-50"/>
+														</PropertyList>
+													</Modifier>
+												</ModifierInfo>
+											</ModifierList>
+										</Property>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-12</Value>
+											</ValueList>
+											<ModifierList>
+												<ModifierInfo>
+													<Modifier Name="" ID="{B85E20AF-409D-4D09-A2E4-24ED16346FC4}">
+														<PropertyList>
+															<Property Name="Enabled" Type="bool" Value="True"/>
+															<Property Name="Min" Type="Real64" Value="-0.5"/>
+														</PropertyList>
+													</Modifier>
+												</ModifierInfo>
+											</ModifierList>
+										</Property>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="DEC_Minion_Melee_01_HandClose_V_1" ID="{BA62FA8A-B3C5-4C6E-BE86-94B25193A99A}" ShortID="249762578">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Minion_Melee_01_HandClose_V_1" ID="{BA620D75-AE89-428D-B783-BBC1EDA6F65D}" ShortID="709638621">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Minion_Melee_01_HandClose_V_1.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Minion_Melee_01_HandClose_V_1" ID="{BA620D75-AE89-428D-B783-BBC1EDA6F65D}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</RandomSequenceContainer>
+								<RandomSequenceContainer Name="Minion_Melee_HandOpen" ID="{A444224B-3798-4A9E-A84F-D4A95B91F648}" ShortID="645854597">
+									<PropertyList>
+										<Property Name="Pitch" Type="int32">
+											<ModifierList>
+												<ModifierInfo>
+													<Modifier Name="" ID="{78868EC4-E3C8-4D12-B98A-CE05628E811F}">
+														<PropertyList>
+															<Property Name="Enabled" Type="bool" Value="True"/>
+															<Property Name="Max" Type="Real64" Value="50"/>
+															<Property Name="Min" Type="Real64" Value="-50"/>
+														</PropertyList>
+													</Modifier>
+												</ModifierInfo>
+											</ModifierList>
+										</Property>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-12</Value>
+											</ValueList>
+											<ModifierList>
+												<ModifierInfo>
+													<Modifier Name="" ID="{A6285B93-A202-41B1-9B35-CE0CEBF13D67}">
+														<PropertyList>
+															<Property Name="Enabled" Type="bool" Value="True"/>
+															<Property Name="Min" Type="Real64" Value="-0.5"/>
+														</PropertyList>
+													</Modifier>
+												</ModifierInfo>
+											</ModifierList>
+										</Property>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="DEC_Minion_Melee_01_HandOpenV_1" ID="{CAA946A8-F9B2-4298-80C1-E7B800B57394}" ShortID="102896531">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Minion_Melee_01_HandOpenV_1" ID="{D4B705B0-D770-4C6B-BE32-87FF7BAAC633}" ShortID="535674316">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Minion_Melee_01_HandOpenV_1.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Minion_Melee_01_HandOpenV_1" ID="{D4B705B0-D770-4C6B-BE32-87FF7BAAC633}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</RandomSequenceContainer>
+								<RandomSequenceContainer Name="Minion_Melee_Pullback" ID="{198D571C-2DEC-47B6-99BA-7702AD785BC5}" ShortID="437123556">
+									<PropertyList>
+										<Property Name="Pitch" Type="int32">
+											<ModifierList>
+												<ModifierInfo>
+													<Modifier Name="" ID="{2C4B170A-BA07-4ED4-BFBC-815E13CF5811}">
+														<PropertyList>
+															<Property Name="Enabled" Type="bool" Value="True"/>
+															<Property Name="Max" Type="Real64" Value="50"/>
+															<Property Name="Min" Type="Real64" Value="-50"/>
+														</PropertyList>
+													</Modifier>
+												</ModifierInfo>
+											</ModifierList>
+										</Property>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-12</Value>
+											</ValueList>
+											<ModifierList>
+												<ModifierInfo>
+													<Modifier Name="" ID="{0AD9F6DE-97AE-44A5-AF49-C30D0FD53E9B}">
+														<PropertyList>
+															<Property Name="Enabled" Type="bool" Value="True"/>
+															<Property Name="Min" Type="Real64" Value="-0.5"/>
+														</PropertyList>
+													</Modifier>
+												</ModifierInfo>
+											</ModifierList>
+										</Property>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="DEC_Minion_Melee_01_Pullback_V_1" ID="{98FD4D39-8441-48DC-B4F6-D11575AE11C0}" ShortID="595509412">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Minion_Melee_01_Pullback_V_1" ID="{1464E3C0-19E4-49B4-BE63-ED70B9719BEA}" ShortID="40138581">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Minion_Melee_01_Pullback_V_1.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Minion_Melee_01_Pullback_V_1" ID="{1464E3C0-19E4-49B4-BE63-ED70B9719BEA}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</RandomSequenceContainer>
+								<RandomSequenceContainer Name="Minion_Melee_Thrust" ID="{42B6DEBA-0E13-477A-BB2D-0F68663D618E}" ShortID="354140494">
+									<PropertyList>
+										<Property Name="Pitch" Type="int32">
+											<ModifierList>
+												<ModifierInfo>
+													<Modifier Name="" ID="{859ED261-4DF5-415E-B1DA-F964A12213E9}">
+														<PropertyList>
+															<Property Name="Enabled" Type="bool" Value="True"/>
+															<Property Name="Max" Type="Real64" Value="50"/>
+															<Property Name="Min" Type="Real64" Value="-50"/>
+														</PropertyList>
+													</Modifier>
+												</ModifierInfo>
+											</ModifierList>
+										</Property>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-12</Value>
+											</ValueList>
+											<ModifierList>
+												<ModifierInfo>
+													<Modifier Name="" ID="{344F71C8-B7B3-4AC9-A971-AEEA215ACA3A}">
+														<PropertyList>
+															<Property Name="Enabled" Type="bool" Value="True"/>
+															<Property Name="Min" Type="Real64" Value="-0.5"/>
+														</PropertyList>
+													</Modifier>
+												</ModifierInfo>
+											</ModifierList>
+										</Property>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="DEC_Minion_Melee_01_Thrust_V_1" ID="{EF7D7A9E-D8DE-43AD-A119-5A607DABD203}" ShortID="210386339">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Minion_Melee_01_Thrust_V_1" ID="{E64E712D-E9FB-4726-A68D-DF8619282739}" ShortID="113464015">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Minion_Melee_01_Thrust_V_1.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Minion_Melee_01_Thrust_V_1" ID="{E64E712D-E9FB-4726-A68D-DF8619282739}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</RandomSequenceContainer>
 							</ChildrenList>
 						</ActorMixer>
 					</ChildrenList>

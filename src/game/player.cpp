@@ -2098,7 +2098,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 						// select spawn point
 						Vec2 p;
 						if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
-							UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent(), PI);
+							UI::triangle_border(params, { p, Vec2(28.0f * UI::scale) }, 6, UI::color_accent(), PI);
 
 						if (Game::session.config.game_type == GameType::Assault)
 						{

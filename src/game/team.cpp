@@ -927,26 +927,14 @@ void Team::update_all_server(const Update& u)
 					w = &list[0]; // defenders win
 			}
 
-			// remove entities
+			// remove player entities
 			for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 			{
 				Vec3 pos;
 				Quat rot;
 				i.item()->get<Transform>()->absolute(&pos, &rot);
-				ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+				ParticleEffect::spawn(ParticleEffect::Type::DroneExplosion, pos, rot);
 				World::remove_deferred(i.item()->entity());
-			}
-
-			for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
-			{
-				if (!(i.item()->flags & ForceField::FlagPermanent))
-				{
-					Vec3 pos;
-					Quat rot;
-					i.item()->get<Transform>()->absolute(&pos, &rot);
-					ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
-					World::remove_deferred(i.item()->entity());
-				}
 			}
 
 			TeamNet::send_match_state(MatchState::Done, w);
@@ -976,7 +964,7 @@ void Team::update_all_server(const Update& u)
 	{
 		// wait for all local players to accept scores
 		b8 score_accepted = true;
-		if (Game::real_time.total - game_over_real_time < SCORE_SUMMARY_ACCEPT_TIME) // automatically move on after 30 seconds
+		if (Game::real_time.total - game_over_real_time < SCORE_SUMMARY_ACCEPT_TIME) // automatically move on after 45 seconds
 		{
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 			{

@@ -120,7 +120,7 @@
 												</Property>
 											</PropertyList>
 										</Bus>
-										<Bus Name="Drone_Bolt" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}">
+										<Bus Name="Drone_Weapon" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}">
 											<PropertyList>
 												<Property Name="DivergenceCenter" Type="int32">
 													<ValueList>

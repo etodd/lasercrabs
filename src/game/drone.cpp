@@ -897,7 +897,10 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							drone_bolt_spawn(drone, my_pos + d * drone_shotgun_offsets[i], d, Bolt::Type::DroneShotgun);
 						}
 						if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
+						{
+							drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
 							drone->cooldown_setup(DRONE_SHOTGUN_CHARGES);
+						}
 					}
 					break;
 				}
@@ -1122,7 +1125,7 @@ void Drone::killed(Entity* e)
 		Vec3 pos;
 		Quat rot;
 		get<Transform>()->absolute(&pos, &rot);
-		ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+		ParticleEffect::spawn(ParticleEffect::Type::DroneExplosion, pos, rot);
 		World::remove_deferred(entity());
 	}
 }
@@ -1345,6 +1348,7 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	{
 		Entity* entity;
 		Vec3 pos;
+		Vec3 normal;
 		b8 hit;
 	};
 
@@ -1364,6 +1368,7 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 		{
 			ray_callback.pos = physics_ray_callback.m_hitPointWorld;
 			ray_callback.entity = &Entity::list[physics_ray_callback.m_collisionObject->getUserIndex()];
+			ray_callback.normal = physics_ray_callback.m_hitNormalWorld;
 		}
 	}
 
@@ -1382,6 +1387,12 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 				{
 					ray_callback.hit = true;
 					ray_callback.pos = intersection;
+					Vec3 diff = intersection - shield_pos;
+					r32 length = diff.length();
+					if (length > 0.0f)
+						ray_callback.normal = diff / length;
+					else
+						ray_callback.normal = Vec3(0, 1, 0);
 					ray_callback.entity = i.item()->entity();
 				}
 			}
@@ -1398,6 +1409,12 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 					{
 						ray_callback.hit = true;
 						ray_callback.pos = intersection;
+						Vec3 diff = intersection - shield_pos;
+						r32 length = diff.length();
+						if (length > 0.0f)
+							ray_callback.normal = diff / length;
+						else
+							ray_callback.normal = Vec3(0, 1, 0);
 						ray_callback.entity = i.item()->entity();
 					}
 				}
@@ -1409,6 +1426,8 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	{
 		if (final_pos)
 			*final_pos = ray_callback.pos;
+		if (final_normal)
+			*final_normal = ray_callback.normal;
 		if (hit_target)
 			*hit_target = ray_callback.entity->has<Target>();
 		if (hit_parent)
@@ -1418,6 +1437,8 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	{
 		if (final_pos)
 			*final_pos = trace_end;
+		if (final_normal)
+			*final_normal = Vec3::zero;
 		if (hit_target)
 			*hit_target = false;
 		if (hit_parent)
@@ -1668,6 +1689,7 @@ b8 Drone::go(const Vec3& dir)
 		else if (a == Ability::Shotgun)
 		{
 			// client-side prediction; create fake bolts
+			get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
 			Quat target_quat = Quat::look(dir_normalized);
 			for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
 			{

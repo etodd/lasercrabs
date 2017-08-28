@@ -16,6 +16,7 @@
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
 #include <AK/MusicEngine/Common/AkMusicEngine.h>
 #include <AK/Plugin/AkVorbisDecoderFactory.h>
+#include <AK/SpatialAudio/Common/AkSpatialAudio.h>
 #if DEBUG
 	#include <AK/Comm/AkCommunication.h>
 #endif

@@ -250,7 +250,6 @@ struct Turret : public ComponentType<Turret>
 
 	r32 cooldown;
 	r32 target_check_time;
-	Array<Vec3> ingress_points; // points for AI minions to attack from
 	Ref<Entity> target;
 	AI::Team team;
 	b8 charging;
@@ -447,6 +446,7 @@ struct ParticleEffect
 		ImpactLarge,
 		ImpactSmall,
 		Explosion,
+		DroneExplosion,
 		Grenade,
 		SpawnDrone,
 		SpawnMinion,

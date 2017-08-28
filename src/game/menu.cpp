@@ -44,6 +44,7 @@ s32 display_mode_index_last;
 b8 display_mode_fullscreen_last;
 b8 display_mode_vsync_last;
 Ref<PlayerManager> teams_selected_player[MAX_GAMEPADS] = {};
+AssetID maps_selected_map = AssetNull;
 
 #define DIALOG_ANIM_TIME 0.25f
 
@@ -476,6 +477,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 					if (menu->item(u, _(strings::levels)))
 					{
 						*state = State::Maps;
+						maps_selected_map = AssetNull;
 						menu->animate();
 					}
 				}
@@ -1271,18 +1273,61 @@ b8 settings_graphics(const Update& u, s8 gamepad, UIMenu* menu)
 	return true;
 }
 
+void maps_skip_map_cancel(s8 gamepad)
+{
+	maps_selected_map = AssetNull;
+}
+
+void maps_skip_map(s8 gamepad)
+{
+	PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+	me->map_skip(maps_selected_map);
+	maps_selected_map = AssetNull;
+}
+
 // returns true if map menu should stay open
 b8 maps(const Update& u, s8 gamepad, UIMenu* menu)
 {
 	menu->start(u, gamepad);
+
 	b8 exit = menu->item(u, _(strings::back)) || (!Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
+
+	menu->text(u, _(strings::prompt_skip_map));
+
+	PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+
+	for (AssetID level_id = 0; level_id < AssetID(Asset::Level::count); level_id++)
+	{
+		if (level_id == Asset::Level::Port_District || !Overworld::zone_is_pvp(level_id))
+			continue;
+
+		b8 in_rotation = false;
+		for (s32 j = 0; j < Game::session.config.levels.length; j++)
+		{
+			if (level_id == Overworld::zone_id_for_uuid(Game::session.config.levels[j]))
+			{
+				in_rotation = true;
+				break;
+			}
+		}
+
+		if (menu->selected == menu->items.length
+			&& !u.input->get(Controls::UIContextAction, gamepad) && u.last_input->get(Controls::UIContextAction, gamepad))
+		{
+			// prompt to switch instantly
+			maps_selected_map = level_id;
+			Menu::dialog_with_cancel(gamepad, &maps_skip_map, &maps_skip_map_cancel, _(strings::confirm_skip_map), Loader::level_name(level_id));
+		}
+
+		if (menu->item(u, Loader::level_name(level_id), nullptr, level_id == Game::level.multiplayer_level_scheduled, in_rotation ? Asset::Mesh::icon_checkmark : AssetNull))
+			me->map_schedule(level_id);
+	}
 
 	menu->end();
 
 	if (exit)
 	{
 		Game::cancel_event_eaten[gamepad] = true;
-		menu->end();
 		return false;
 	}
 

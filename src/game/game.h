@@ -136,6 +136,7 @@ struct Game
 		StaticArray<Clouds::Config, 4> clouds;
 		StaticArray<AssetID, 8> scripts;
 		AssetID id = AssetNull;
+		AssetID multiplayer_level_scheduled = AssetNull;
 		Ref<Transform> map_view;
 		Ref<Entity> terminal;
 		Ref<Entity> terminal_interactable;
@@ -150,6 +151,7 @@ struct Game
 		AI::Team team_lookup_reverse(AI::Team) const;
 		const StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS>& directional_lights_get() const;
 		const Vec3& ambient_color_get() const;
+		void multiplayer_level_schedule();
 	};
 
 	static Session session;

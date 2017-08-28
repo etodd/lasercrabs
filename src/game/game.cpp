@@ -165,6 +165,13 @@ b8 Game::Level::has_feature(FeatureLevel f) const
 	return s32(feature_level) >= s32(f);
 }
 
+void Game::Level::multiplayer_level_schedule()
+{
+	multiplayer_level_scheduled = id;
+	while (Game::session.config.levels.length > 1 && multiplayer_level_scheduled == id)
+		multiplayer_level_scheduled = Overworld::zone_id_for_uuid(Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length]);
+}
+
 AI::Team Game::Level::team_lookup_reverse(AI::Team t) const
 {
 	for (s32 i = 0; i < MAX_TEAMS; i++)
@@ -1403,6 +1410,9 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	level.local = true;
 	if (last_mode == Mode::Pvp)
 		level.post_pvp = true;
+
+	if (session.type == SessionType::Multiplayer)
+		level.multiplayer_level_schedule();
 
 	// count AI players
 	s32 ai_player_count = 0;

@@ -850,6 +850,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_int(p, u16, Game::level.scripts.length, 0, Game::level.scripts.capacity());
 	for (s32 i = 0; i < Game::level.scripts.length; i++)
 		serialize_int(p, AssetID, Game::level.scripts[i], 0, Script::count);
+	serialize_s16(p, Game::level.multiplayer_level_scheduled);
 	if (!Master::serialize_server_config(p, &Game::session.config))
 		net_error();
 	serialize_r32_range(p, Team::match_time, 0, Game::session.config.time_limit(), 16);

@@ -156,10 +156,8 @@ struct Data
 			Main,
 			Name,
 			Levels,
-			AddLevel,
 			AllowedUpgrades,
 			StartUpgrades,
-			AddStartUpgrade,
 			count,
 		};
 
@@ -762,64 +760,29 @@ void multiplayer_entry_edit_update(const Update& u)
 					return;
 				}
 
-				for (s32 i = 0; i < config->levels.length; i++)
-				{
-					const ZoneNode* node = zone_node_by_uuid(config->levels[i]);
-					if (menu->item(u, Loader::level_name(node->id), nullptr, false, Asset::Mesh::icon_close))
-					{
-						config->levels.remove_ordered(i);
-						data.multiplayer.active_server_dirty = true;
-						i--;
-					}
-				}
-
-				if (config->levels.length < config->levels.capacity())
-				{
-					if (menu->item(u, _(strings::add_level)))
-					{
-						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::AddLevel);
-						menu->end();
-						return;
-					}
-				}
-
-				menu->end();
-				break;
-			}
-			case Data::Multiplayer::EditMode::AddLevel:
-			{
-				menu->start(u, 0);
-
-				if (cancel || menu->item(u, _(strings::back)))
-				{
-					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Levels);
-					Game::cancel_event_eaten[0] = true;
-					menu->end();
-					return;
-				}
-
 				for (s32 i = 0; i < Asset::Level::count; i++)
 				{
 					if (zone_is_pvp(AssetID(i)) && i != Asset::Level::Port_District)
 					{
 						const ZoneNode* node = zone_node_by_id(AssetID(i));
 
-						b8 already_added = false;
+						s32 existing_index = -1;
 						for (s32 j = 0; j < config->levels.length; j++)
 						{
 							if (config->levels[j] == node->uuid)
 							{
-								already_added = true;
+								existing_index = j;
 								break;
 							}
 						}
 
-						if (!already_added && menu->item(u, Loader::level_name(node->id)))
+						if (menu->item(u, Loader::level_name(node->id), nullptr, false, existing_index == -1 ? AssetNull : Asset::Mesh::icon_checkmark))
 						{
-							config->levels.add(node->uuid);
+							if (existing_index == -1)
+								config->levels.add(node->uuid);
+							else
+								config->levels.remove(existing_index);
 							data.multiplayer.active_server_dirty = true;
-							multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Levels);
-							menu->end();
 						}
 					}
 				}
@@ -839,63 +802,30 @@ void multiplayer_entry_edit_update(const Update& u)
 					return;
 				}
 
-				for (s32 i = 0; i < config->start_upgrades.length; i++)
-				{
-					Upgrade upgrade = config->start_upgrades[i];
-					if (menu->item(u, _(UpgradeInfo::list[s32(upgrade)].name), nullptr, false, Asset::Mesh::icon_close))
-					{
-						config->start_upgrades.remove_ordered(i);
-						data.multiplayer.active_server_dirty = true;
-						i--;
-					}
-				}
-
-				if (config->start_upgrades.length < config->start_upgrades.capacity())
-				{
-					if (menu->item(u, _(strings::add_start_upgrade)))
-					{
-						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::AddStartUpgrade);
-						menu->end();
-						return;
-					}
-				}
-
-				menu->end();
-				break;
-			}
-			case Data::Multiplayer::EditMode::AddStartUpgrade:
-			{
-				menu->start(u, 0);
-
-				if (cancel || menu->item(u, _(strings::back)))
-				{
-					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::StartUpgrades);
-					Game::cancel_event_eaten[0] = true;
-					menu->end();
-					return;
-				}
-
 				for (s32 i = 0; i < s32(Upgrade::count); i++)
 				{
-					b8 already_added = false;
+					const UpgradeInfo& info = UpgradeInfo::list[i];
+					if (info.type == UpgradeInfo::Type::Consumable)
+						continue;
+
+					s32 existing_index = -1;
 					for (s32 j = 0; j < config->start_upgrades.length; j++)
 					{
 						if (config->start_upgrades[j] == Upgrade(i))
 						{
-							already_added = true;
+							existing_index = j;
 							break;
 						}
 					}
 
-					const UpgradeInfo& info = UpgradeInfo::list[i];
-					if (!already_added
-						&& info.type != UpgradeInfo::Type::Consumable
-						&& menu->item(u, _(info.name)))
+					b8 disabled = existing_index == -1 && config->start_upgrades.length == config->start_upgrades.capacity();
+					if (menu->item(u, _(info.name), nullptr, disabled, existing_index == -1 ? AssetNull : Asset::Mesh::icon_checkmark))
 					{
-						config->start_upgrades.add(Upgrade(i));
+						if (existing_index == -1)
+							config->start_upgrades.add(Upgrade(i));
+						else
+							config->start_upgrades.remove(existing_index);
 						data.multiplayer.active_server_dirty = true;
-						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::StartUpgrades);
-						menu->end();
 					}
 				}
 
@@ -918,7 +848,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				for (s32 i = 0; i < s32(Upgrade::count); i++)
 				{
 					b8 value = (*allow_upgrades) & (1 << i);
-					if (menu->slider_item(u, _(UpgradeInfo::list[i].name), _(value ? strings::yes : strings::no)))
+					if (menu->item(u, _(UpgradeInfo::list[i].name), nullptr, false, value ? Asset::Mesh::icon_checkmark : AssetNull))
 					{
 						data.multiplayer.active_server_dirty = true;
 						value = !value;
@@ -1361,11 +1291,9 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 				break;
 			}
 			case Data::Multiplayer::EditMode::Levels:
-			case Data::Multiplayer::EditMode::AddLevel:
 			case Data::Multiplayer::EditMode::Main:
 			case Data::Multiplayer::EditMode::AllowedUpgrades:
 			case Data::Multiplayer::EditMode::StartUpgrades:
-			case Data::Multiplayer::EditMode::AddStartUpgrade:
 			{
 				const Rect2& vp = params.camera->viewport;
 				
@@ -1407,30 +1335,14 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 					switch (data.multiplayer.edit_mode)
 					{
 						case Data::Multiplayer::EditMode::Levels:
-						{
 							text.text(0, _(strings::levels));
 							break;
-						}
-						case Data::Multiplayer::EditMode::AddLevel:
-						{
-							text.text(0, _(strings::add_level));
-							break;
-						}
 						case Data::Multiplayer::EditMode::AllowedUpgrades:
-						{
 							text.text(0, _(strings::allow_upgrades));
 							break;
-						}
 						case Data::Multiplayer::EditMode::StartUpgrades:
-						{
 							text.text(0, _(strings::start_upgrades));
 							break;
-						}
-						case Data::Multiplayer::EditMode::AddStartUpgrade:
-						{
-							text.text(0, _(strings::add_start_upgrade));
-							break;
-						}
 						default:
 							vi_assert(false);
 							break;

@@ -285,10 +285,10 @@ void Team::transition_next()
 			Game::session.config = Game::level.config_scheduled;
 			Game::level.config_scheduled_apply = false;
 		}
-		AssetID next_zone = Game::level.id;
-		while (Game::session.config.levels.length > 1 && next_zone == Game::level.id)
-			next_zone = Overworld::zone_id_for_uuid(Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length]);
-		Game::schedule_load_level(next_zone, Game::Mode::Pvp);
+
+		if (Game::level.multiplayer_level_scheduled == AssetNull)
+			Game::level.multiplayer_level_schedule();
+		Game::schedule_load_level(Game::level.multiplayer_level_scheduled, Game::Mode::Pvp);
 	}
 }
 
@@ -580,6 +580,7 @@ namespace TeamNet
 	{
 		MatchState,
 		UpdateKills,
+		MapSchedule,
 		count,
 	};
 
@@ -614,6 +615,19 @@ namespace TeamNet
 			serialize_ref(p, ref);
 		}
 		serialize_s16(p, t->kills);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 map_schedule(AssetID id)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Team);
+		{
+			Message type = Message::MapSchedule;
+			serialize_enum(p, Message, type);
+		}
+		serialize_s16(p, id);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -709,6 +723,11 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_s16(p, kills);
 			if (!Game::level.local || src == Net::MessageSource::Loopback)
 				t.ref()->kills = kills;
+			break;
+		}
+		case TeamNet::Message::MapSchedule:
+		{
+			serialize_s16(p, Game::level.multiplayer_level_scheduled);
 			break;
 		}
 		default:
@@ -1270,6 +1289,40 @@ namespace PlayerManagerNet
 		return true;
 	}
 
+	b8 map_schedule(PlayerManager* m, AssetID map)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::MapSchedule;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		serialize_s16(p, map);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 map_skip(PlayerManager* m, AssetID map)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::MapSkip;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		serialize_s16(p, map);
+		Net::msg_finalize(p);
+		return true;
+	}
+
 	b8 update_counts(PlayerManager* m)
 	{
 		using Stream = Net::StreamWrite;
@@ -1572,6 +1625,41 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 				snprintf(buffer, UI_TEXT_MAX, _(strings::player_kicked), kickee.ref()->username);
 				PlayerHuman::log_add(buffer, kickee.ref()->team.ref()->team(), AI::TeamAll);
 			}
+			break;
+		}
+		case Message::MapSchedule:
+		{
+			AssetID map;
+			serialize_s16(p, map);
+
+			if (!m)
+				return true;
+
+			if (!m->is_admin || map == Asset::Level::Port_District || (map != AssetNull && !Overworld::zone_is_pvp(map)))
+				net_error();
+
+			if (Game::level.local)
+				TeamNet::map_schedule(map);
+
+			break;
+		}
+		case Message::MapSkip:
+		{
+			AssetID map;
+			serialize_s16(p, map);
+
+			if (!m)
+				return true;
+
+			if (!m->is_admin || !Overworld::zone_is_pvp(map))
+				net_error();
+
+			if (Game::level.local)
+			{
+				Game::level.multiplayer_level_scheduled = map;
+				Team::transition_next();
+			}
+
 			break;
 		}
 		case Message::Chat:
@@ -2063,6 +2151,16 @@ void PlayerManager::set_can_spawn(b8 value)
 void PlayerManager::team_schedule(AI::Team t)
 {
 	PlayerManagerNet::team_schedule(this, t);
+}
+
+void PlayerManager::map_schedule(AssetID map)
+{
+	PlayerManagerNet::map_schedule(this, map);
+}
+
+void PlayerManager::map_skip(AssetID map)
+{
+	PlayerManagerNet::map_skip(this, map);
 }
 
 void PlayerManager::score_accept()

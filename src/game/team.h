@@ -161,6 +161,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		Kick,
 		TeamSchedule,
 		TeamSwitch,
+		MapSchedule,
+		MapSkip,
 		Chat,
 		count,
 	};
@@ -237,6 +239,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void set_can_spawn(b8 = true);
 	void team_schedule(AI::Team);
 	void chat(const char*, AI::TeamMask);
+	void map_schedule(AssetID);
+	void map_skip(AssetID);
 };
 
 

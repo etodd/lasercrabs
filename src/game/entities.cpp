@@ -2414,6 +2414,163 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 	return true;
 }
 
+Array<ShellCasing> ShellCasing::list;
+
+#define SHELL_CASING_LIFETIME 3.0f
+
+Vec3 shell_casing_size(ShellCasing::Type type)
+{
+	switch (type)
+	{
+		case ShellCasing::Type::Bolter:
+			return Vec3(0.04f, 0.04f, 0.06f);
+		case ShellCasing::Type::Shotgun:
+			return Vec3(0.06f, 0.06f, 0.08f);
+		case ShellCasing::Type::Sniper:
+			return Vec3(0.04f, 0.04f, 0.12f);
+		default:
+		{
+			vi_assert(false);
+			return Vec3::zero;
+			break;
+		}
+	}
+}
+
+void ShellCasing::spawn(const Vec3& pos, const Quat& rot, Type type)
+{
+	if (!Settings::shell_casings)
+		return;
+
+	ShellCasing* entry = list.add();
+	entry->type = type;
+	entry->pos = pos;
+	entry->rot = rot;
+	entry->timer = SHELL_CASING_LIFETIME;
+	Vec3 size = shell_casing_size(type);
+	entry->btShape = new btBoxShape(size);
+	btVector3 localInertia(0, 0, 0);
+	const r32 mass = 0.01f;
+	if (mass > 0.0f)
+		entry->btShape->calculateLocalInertia(mass, localInertia);
+
+	btRigidBody::btRigidBodyConstructionInfo info(mass, 0, entry->btShape, localInertia);
+
+	info.m_startWorldTransform = btTransform(entry->rot, entry->pos);
+	entry->btBody = new btRigidBody(info);
+	entry->btBody->setWorldTransform(btTransform(entry->rot, entry->pos));
+
+	entry->btBody->setRestitution(1.0f);
+	entry->btBody->setUserIndex(-1);
+	entry->btBody->setCcdMotionThreshold(size.x);
+	entry->btBody->setCcdSweptSphereRadius(size.z);
+
+	entry->btBody->setLinearVelocity(rot * Vec3(-0.707f * 4.0f, 0.707f * 4.0f, 0));
+
+	Physics::btWorld->addRigidBody(entry->btBody, CollisionDroneIgnore, CollisionStatic);
+}
+
+void ShellCasing::update_all(const Update& u)
+{
+	// rigid body transforms are synced in Physics::sync_dynamic()
+
+	if (list.length > 0)
+	{
+		if (Settings::shell_casings)
+		{
+			for (s32 i = 0; i < list.length; i++)
+			{
+				ShellCasing* s = &list[i];
+				s->timer -= u.time.delta;
+				if (s->timer < 0.0f)
+				{
+					s->cleanup();
+					list.remove(i);
+					i--;
+				}
+			}
+		}
+		else
+			clear();
+	}
+}
+
+void ShellCasing::clear()
+{
+	for (s32 i = 0; i < list.length; i++)
+		list[i].cleanup();
+	list.length = 0;
+}
+
+void ShellCasing::cleanup()
+{
+	Physics::btWorld->removeRigidBody(btBody);
+	delete btBody;
+	delete btShape;
+}
+
+Array<Mat4> ShellCasing::instances;
+void ShellCasing::draw_all(const RenderParams& params)
+{
+	if (!params.camera->mask || !Settings::shell_casings)
+		return;
+
+	instances.length = 0;
+
+	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::tri_tube);
+	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
+	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
+
+	for (s32 i = 0; i < list.length; i++)
+	{
+		const ShellCasing& s = list[i];
+		Mat4 m;
+		m.make_transform(s.pos, Vec3(1), s.rot);
+
+		Vec3 size = shell_casing_size(s.type);
+		if (params.camera->visible_sphere(m.translation(), size.z * f_radius))
+		{
+			m.scale(size);
+			instances.add(m);
+		}
+	}
+
+	if (instances.length == 0)
+		return;
+
+	Loader::shader_permanent(Asset::Shader::standard_instanced);
+
+	RenderSync* sync = params.sync;
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::standard_instanced);
+	sync->write(params.technique);
+
+	Mat4 vp = params.view_projection;
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::vp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(vp);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::v);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(params.view);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(Vec4(1, 1, 1, 1));
+
+	sync->write(RenderOp::Instances);
+	sync->write(Asset::Mesh::tri_tube);
+	sync->write(instances.length);
+	sync->write<Mat4>(instances.data, instances.length);
+}
+
 GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Vec3& velocity)
 {
 	Transform* transform = create<Transform>();
@@ -2862,7 +3019,7 @@ s32 PlayerTrigger::count() const
 Array<Mat4> Rope::instances;
 
 // draw rope segments and bolts
-void Rope::draw(const RenderParams& params)
+void Rope::draw_all(const RenderParams& params)
 {
 	if (!params.camera->mask)
 		return;
@@ -2877,7 +3034,7 @@ void Rope::draw(const RenderParams& params)
 	{
 		static const Vec3 scale = Vec3(ROPE_RADIUS, ROPE_RADIUS, ROPE_SEGMENT_LENGTH * 0.5f);
 
-		for (auto i = Rope::list.iterator(); !i.is_last(); i.next())
+		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
 			Mat4 m;
 			i.item()->get<Transform>()->mat(&m);

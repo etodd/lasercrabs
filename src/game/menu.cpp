@@ -1253,6 +1253,13 @@ b8 settings_graphics(const Update& u, s8 gamepad, UIMenu* menu)
 			*scan_lines = !(*scan_lines);
 	}
 
+	{
+		b8* shell_casings = &Settings::shell_casings;
+		delta = menu->slider_item(u, _(strings::shell_casings), _(*shell_casings ? strings::on : strings::off));
+		if (delta != 0)
+			*shell_casings = !(*shell_casings);
+	}
+
 	menu->end();
 
 	if (exit)

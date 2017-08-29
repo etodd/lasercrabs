@@ -2,6 +2,7 @@
 
 #include "data/entity.h"
 #include "ai.h"
+#include <bullet/src/btBulletDynamicsCommon.h>
 
 namespace VI
 {
@@ -381,7 +382,7 @@ struct Rope : public ComponentType<Rope>
 {
 	static Array<Mat4> instances;
 
-	static void draw(const RenderParams&);
+	static void draw_all(const RenderParams&);
 	static void spawn(const Vec3&, const Vec3&, r32, r32 = 0.0f, b8 = true);
 
 	void awake() {}
@@ -504,6 +505,34 @@ struct Target : public ComponentType<Target>
 	void hit(Entity*);
 	b8 predict_intersection(const Vec3&, r32, const Net::StateFrame*, Vec3*) const;
 	r32 radius() const;
+};
+
+struct ShellCasing
+{
+	enum class Type : s8
+	{
+		Bolter,
+		Shotgun,
+		Sniper,
+		count,
+	};
+
+	static Array<ShellCasing> list;
+	static Array<Mat4> instances;
+
+	static void spawn(const Vec3&, const Quat&, Type);
+	static void clear();
+	static void update_all(const Update&);
+	static void draw_all(const RenderParams&);
+
+	btRigidBody* btBody;
+	btBoxShape* btShape;
+	Quat rot;
+	Vec3 pos;
+	r32 timer;
+	Type type;
+
+	void cleanup();
 };
 
 struct Collectible : public ComponentType<Collectible>

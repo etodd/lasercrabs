@@ -1484,6 +1484,7 @@ const char* AssetLookup::String::names[] =
 	"settings_graphics",
 	"sfx",
 	"shadow_quality",
+	"shell_casings",
 	"shield",
 	"shield_down",
 	"shop",

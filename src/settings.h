@@ -53,6 +53,7 @@ namespace Settings
 	extern b8 record;
 	extern b8 ssao;
 	extern b8 expo;
+	extern b8 shell_casings;
 
 	const DisplayMode& display();
 };

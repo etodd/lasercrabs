@@ -509,6 +509,8 @@ void Game::update(const Update& update_in)
 	{
 		Physics::sync_dynamic();
 
+		ShellCasing::update_all(u);
+
 		for (auto i = Ragdoll::list.iterator(); !i.is_last(); i.next())
 		{
 			if (level.local)
@@ -736,8 +738,10 @@ void Game::draw_opaque(const RenderParams& render_params)
 
 	Overworld::draw_opaque(render_params);
 
+	ShellCasing::draw_all(render_params);
+
 	if (render_params.technique == RenderTechnique::Shadow && !Overworld::modal())
-		Rope::draw(render_params);
+		Rope::draw_all(render_params);
 }
 
 void Game::draw_alpha(const RenderParams& render_params)
@@ -977,7 +981,7 @@ void Game::draw_hollow(const RenderParams& render_params)
 void Game::draw_particles(const RenderParams& render_params)
 {
 	if (render_params.camera->mask && !Overworld::modal())
-		Rope::draw(render_params);
+		Rope::draw_all(render_params);
 
 	render_params.sync->write(RenderOp::CullMode);
 	render_params.sync->write(RenderCullMode::None);
@@ -1283,6 +1287,7 @@ void Game::unload_level()
 	PlayerHuman::clear(); // clear some random player-related stuff
 
 	Particles::clear();
+	ShellCasing::clear();
 
 	Audio::clear();
 

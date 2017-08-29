@@ -445,6 +445,7 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 
 void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone::Hits* hits = nullptr)
 {
+	ShellCasing::spawn(drone->get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Sniper);
 	drone->get<Audio>()->post_event(AK::EVENTS::PLAY_SNIPER_FIRE);
 
 	drone->hit_targets.length = 0;
@@ -884,7 +885,10 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					drone_bolt_spawn(drone, my_pos, dir_normalized, Bolt::Type::DroneBolter);
 					if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
+					{
+						ShellCasing::spawn(drone->get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Bolter);
 						drone_bolter_cooldown_setup(drone);
+					}
 					break;
 				}
 				case Ability::Shotgun:
@@ -900,6 +904,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
 						{
 							drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
+							ShellCasing::spawn(drone->get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Shotgun);
 							drone->cooldown_setup(DRONE_SHOTGUN_CHARGES);
 						}
 					}
@@ -1695,6 +1700,7 @@ b8 Drone::go(const Vec3& dir)
 				// create fake bolts
 				get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
 				Quat target_quat = Quat::look(dir_normalized);
+				ShellCasing::spawn(get<Transform>()->absolute_pos(), target_quat, ShellCasing::Type::Shotgun);
 				for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
 				{
 					Vec3 d = target_quat * drone_shotgun_dirs[i];
@@ -1719,6 +1725,7 @@ b8 Drone::go(const Vec3& dir)
 
 				// create fake bolt
 				get<Audio>()->post_event(AK::EVENTS::PLAY_BOLT_SPAWN);
+				ShellCasing::spawn(get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Bolter);
 				fake_bolts.add
 				(
 					EffectLight::add

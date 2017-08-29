@@ -2370,7 +2370,7 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 	for (s32 i = chats.length - 1; i >= 0 && count < 4; i--)
 	{
 		const ChatEntry& entry = chats[i];
-		if (AI::match(my_team, entry.mask))
+		if (my_team == AI::TeamNone || AI::match(my_team, entry.mask))
 		{
 			text.text(gamepad, "%s: %s", entry.username, entry.msg);
 			height += text.bounds().y + MENU_ITEM_PADDING;
@@ -2387,7 +2387,7 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 		for (s32 i = chats.length - 1; i >= 0 && count > 0; i--)
 		{
 			const ChatEntry& entry = chats[i];
-			if (AI::match(my_team, entry.mask))
+			if (my_team == AI::TeamNone || AI::match(my_team, entry.mask))
 			{
 				text.color = Team::ui_color(my_team, entry.team);
 				text.text(gamepad, "%s: %s", entry.username, entry.msg);
@@ -2418,7 +2418,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 	s32 count = 0;
 	for (s32 i = 0; i < logs.length && count < 4; i++)
 	{
-		if (AI::match(my_team, logs[i].mask))
+		if (my_team == AI::TeamNone || AI::match(my_team, logs[i].mask))
 			count++;
 	}
 
@@ -2430,7 +2430,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 	for (s32 i = logs.length - 1; i >= 0 && count > 0; i--)
 	{
 		const LogEntry& entry = logs[i];
-		if (AI::match(my_team, entry.mask))
+		if (my_team == AI::TeamNone || AI::match(my_team, entry.mask))
 		{
 			text.wrap_width = wrap_width;
 			if (entry.a_team == AI::TeamNone)

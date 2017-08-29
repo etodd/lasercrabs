@@ -56,6 +56,7 @@
 	"framerate_limit": "Framerate limit",
 	"volumetric_lighting": "Volumetric lighting",
 	"scan_lines": "Scan lines",
+	"shell_casings": "Shell casings",
 	"antialiasing": "Antialiasing",
 	"ssao": "Ambient occlusion",
 	"waypoints":  "Waypoints",

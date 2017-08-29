@@ -3,6 +3,7 @@
 #include "load.h"
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "game/game.h"
+#include "game/entities.h"
 
 namespace VI
 {
@@ -55,6 +56,14 @@ void Physics::sync_dynamic()
 			if (body->isActive() && !body->isStaticOrKinematicObject())
 				i.item()->get<Transform>()->set_bullet(body->getInterpolationWorldTransform());
 		}
+	}
+
+	for (s32 i = 0; i < ShellCasing::list.length; i++)
+	{
+		ShellCasing* s = &ShellCasing::list[i];
+		btTransform transform = s->btBody->getInterpolationWorldTransform();
+		s->pos = transform.getOrigin();
+		s->rot = transform.getRotation();
 	}
 }
 
@@ -275,15 +284,19 @@ void RigidBody::set_ccd(b8 c)
 	{
 		if (c)
 		{
+			r32 max_radius = 0.0f;
 			r32 min_radius = FLT_MAX;
 			if (size.x > 0.0f)
 				min_radius = vi_min(min_radius, size.x);
+			max_radius = vi_max(max_radius, size.x);
 			if (size.y > 0.0f)
 				min_radius = vi_min(min_radius, size.y);
+			max_radius = vi_max(max_radius, size.y);
 			if (size.z > 0.0f)
 				min_radius = vi_min(min_radius, size.z);
+			max_radius = vi_max(max_radius, size.z);
 			btBody->setCcdMotionThreshold(min_radius);
-			btBody->setCcdSweptSphereRadius(min_radius * 0.5f);
+			btBody->setCcdSweptSphereRadius(max_radius);
 		}
 		else
 		{

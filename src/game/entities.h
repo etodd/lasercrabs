@@ -409,10 +409,18 @@ struct Bolt : public ComponentType<Bolt>
 
 	static r32 particle_accumulator;
 
+	struct Hit
+	{
+		Entity* entity;
+		Vec3 point;
+		Vec3 normal;
+	};
+
 	static r32 speed(Type);
 	static s16 raycast_mask(AI::Team);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void update_client_all(const Update&);
+	static b8 raycast(const Vec3&, const Vec3&, s16, Hit*, Net::StateFrame* = nullptr);
 	
 	Vec3 velocity;
 	Vec3 last_pos;
@@ -429,8 +437,8 @@ struct Bolt : public ComponentType<Bolt>
 	b8 visible() const; // bolts are invisible and essentially inert while they are waiting for damage buffer
 	void reflect(const Entity*, ReflectionType = ReflectionType::Homing, const Vec3& = Vec3::zero);
 	b8 can_damage(const Entity*) const;
-	void update_server(const Update&);
-	void hit_entity(Entity*, const Vec3&, const Vec3&);
+	b8 simulate(r32, Hit* = nullptr, Net::StateFrame* = nullptr); // returns true if the bolt hit something
+	void hit_entity(const Hit&);
 };
 
 struct BoltEntity : public Entity
@@ -475,12 +483,13 @@ struct Grenade : public ComponentType<Grenade>
 	void awake();
 
 	void hit_by(const TargetEvent&);
+	void hit_entity(const Bolt::Hit&);
 	void killed_by(Entity*);
 	AI::Team team() const;
 	void explode();
 	void set_owner(PlayerManager*);
 
-	void update_server(const Update&);
+	b8 simulate(r32, Bolt::Hit* = nullptr, Net::StateFrame* = nullptr); // returns true if grenade hits something
 };
 
 struct Target : public ComponentType<Target>

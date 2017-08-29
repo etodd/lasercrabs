@@ -384,15 +384,17 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 	if (Game::level.local)
 	{
 		PlayerManager* manager = drone->get<PlayerCommon>()->manager.ref();
+
+		Entity* bolt_entity = World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), type, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized);
+
 		if (manager->has<PlayerHuman>() && !manager->get<PlayerHuman>()->local)
 		{
 			// step 1. rewind the world to the point where the remote player fired
 			// step 2. step forward in increments of 1/60th of a second until we reach the present,
 			// checking for obstacles along the way.
 			// step 3. spawn the bolt at the final position
-			// step 4. if a target was hit, delete the bolt and apply any damage effects
+			// step 4. if a target was hit, tell the bolt to register it
 
-			Vec3 pos_bolt = my_pos + dir_normalized * DRONE_SHIELD_RADIUS;
 			r32 timestamp;
 #if SERVER
 			timestamp = Net::timestamp() - drone->get<PlayerControlHuman>()->rtt;
@@ -400,77 +402,31 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 			timestamp = Net::timestamp();
 #endif
 
-			Entity* closest_hit_entity = nullptr;
-			Vec3 closest_hit;
-			Vec3 closest_hit_normal;
+			Bolt* bolt = bolt_entity->get<Bolt>();
+
+			Bolt::Hit hit = {};
 
 			while (timestamp < Net::timestamp())
 			{
 				const r32 SIMULATION_STEP = Net::tick_rate();
 				Net::StateFrame state_frame;
 				Net::state_frame_by_timestamp(&state_frame, timestamp);
-				Vec3 pos_bolt_next = pos_bolt + dir_normalized * (Bolt::speed(type) * SIMULATION_STEP);
-				Vec3 pos_bolt_next_ray = pos_bolt_next + dir_normalized * BOLT_LENGTH;
 
-				r32 closest_hit_distance_sq = FLT_MAX;
-
-				// check environment collisions
-				{
-					btCollisionWorld::ClosestRayResultCallback ray_callback(pos_bolt, pos_bolt_next_ray);
-					Physics::raycast(&ray_callback, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(drone->get<AIAgent>()->team)));
-					if (ray_callback.hasHit())
-					{
-						closest_hit = ray_callback.m_hitPointWorld;
-						closest_hit_normal = ray_callback.m_hitNormalWorld;
-						closest_hit_entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-						closest_hit_distance_sq = (closest_hit - pos_bolt).length_squared();
-					}
-				}
-
-				// check target collisions
-				for (auto i = Target::list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item() == drone->get<Target>())
-						continue;
-
-					Vec3 p;
-					{
-						Vec3 pos;
-						Quat rot;
-						Net::transform_absolute(state_frame, i.item()->get<Transform>()->id(), &pos, &rot);
-						p = pos + (rot * i.item()->local_offset); // todo possibly: rewind local_offset as well?
-					}
-
-					Vec3 intersection;
-					if (LMath::ray_sphere_intersect(pos_bolt, pos_bolt_next_ray, p, i.item()->radius(), &intersection))
-					{
-						r32 distance_sq = (intersection - pos_bolt).length_squared();
-						if (distance_sq < closest_hit_distance_sq)
-						{
-							closest_hit = intersection;
-							closest_hit_normal = Vec3::normalize(intersection - p);
-							closest_hit_entity = i.item()->entity();
-							closest_hit_distance_sq = distance_sq;
-						}
-					}
-				}
-				pos_bolt = pos_bolt_next;
+				if (bolt->simulate(SIMULATION_STEP, &hit, &state_frame))
+					break; // hit something
 
 				timestamp += SIMULATION_STEP;
-
-				if (closest_hit_entity) // we hit something; stop simulating
-					break;
 			}
 
-			Entity* bolt = World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), type, pos_bolt, dir_normalized);
-			Net::finalize(bolt);
-			if (closest_hit_entity) // we hit something, register it instantly
-				bolt->get<Bolt>()->hit_entity(closest_hit_entity, closest_hit, closest_hit_normal);
+			Net::finalize(bolt_entity);
+
+			if (hit.entity) // we hit something, register it instantly
+				bolt->hit_entity(hit);
 		}
 		else
 		{
 			// not a remote player; no lag compensation needed
-			Net::finalize(World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), type, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized));
+			Net::finalize(bolt_entity);
 		}
 	}
 	else
@@ -489,8 +445,6 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 
 void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone::Hits* hits = nullptr)
 {
-	drone->cooldown_setup();
-
 	drone->get<Audio>()->post_event(AK::EVENTS::PLAY_SNIPER_FIRE);
 
 	drone->hit_targets.length = 0;
@@ -774,9 +728,9 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			manager->add_energy(-info.spawn_cost);
 
-			if (ability != Ability::Bolter
-				&& ability != Ability::Shotgun
-				&& ability != Ability::Sniper) // these weapons handle cooldowns manually
+			if (ability != Ability::Bolter // bolter handles cooldowns manually
+				&& ability != Ability::Shotgun // so does shotgun
+				&& (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())) // only do cooldowns for remote drones or AI drones; local players will have already done this
 				drone->cooldown_setup();
 
 			Vec3 my_pos;
@@ -869,13 +823,60 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				case Ability::Grenade:
 				{
-					drone->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_SPAWN);
+					if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
+						drone->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_SPAWN);
+
 					if (Game::level.local)
 					{
 						Vec3 dir_adjusted = dir_normalized;
 						if (dir_adjusted.y > -0.25f)
 							dir_adjusted.y += 0.35f;
-						Net::finalize(World::create<GrenadeEntity>(manager, my_pos + dir_adjusted * (DRONE_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted));
+
+						PlayerManager* manager = drone->get<PlayerCommon>()->manager.ref();
+
+						Entity* grenade_entity = World::create<GrenadeEntity>(manager, my_pos + dir_adjusted * (DRONE_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted);
+
+						if (manager->has<PlayerHuman>() && !manager->get<PlayerHuman>()->local)
+						{
+							// step 1. rewind the world to the point where the remote player fired
+							// step 2. step forward in increments of 1/60th of a second until we reach the present,
+							// checking for obstacles along the way.
+							// step 3. spawn the grenade at the final position
+							// step 4. if a target was hit, tell the grenade to register it
+
+							r32 timestamp;
+#if SERVER
+							timestamp = Net::timestamp() - drone->get<PlayerControlHuman>()->rtt;
+#else
+							timestamp = Net::timestamp();
+#endif
+
+							Grenade* grenade = grenade_entity->get<Grenade>();
+
+							Bolt::Hit hit = {};
+
+							while (timestamp < Net::timestamp())
+							{
+								const r32 SIMULATION_STEP = Net::tick_rate();
+								Net::StateFrame state_frame;
+								Net::state_frame_by_timestamp(&state_frame, timestamp);
+
+								if (grenade->simulate(SIMULATION_STEP, &hit, &state_frame))
+									break; // hit something
+
+								timestamp += SIMULATION_STEP;
+							}
+
+							Net::finalize(grenade_entity);
+
+							if (hit.entity) // we hit something, register it instantly
+								grenade->hit_entity(hit);
+						}
+						else
+						{
+							// not a remote player; no lag compensation needed
+							Net::finalize(grenade_entity);
+						}
 					}
 					break;
 				}
@@ -909,7 +910,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					if (drone)
 					{
 						drone->get<Health>()->active_armor_timer = vi_max(drone->get<Health>()->active_armor_timer, ACTIVE_ARMOR_TIME);
-						drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
+						if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
+							drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
 					}
 					break;
 				}
@@ -1682,50 +1684,71 @@ b8 Drone::go(const Vec3& dir)
 
 		if (Game::level.local)
 			DroneNet::ability_spawn(this, dir_normalized, a);
-		else if (a == Ability::Sniper) // client-side prediction; effects
-			drone_sniper_effects(this, dir_normalized);
-		else if (a == Ability::ActiveArmor)
-			get<Health>()->active_armor_timer = ACTIVE_ARMOR_TIME; // client-side prediction; show invincibility sparkles instantly
-		else if (a == Ability::Shotgun)
+		else
 		{
-			// client-side prediction; create fake bolts
-			get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
-			Quat target_quat = Quat::look(dir_normalized);
-			for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
+			// client-side prediction
+
+			if (a == Ability::Shotgun)
 			{
-				Vec3 d = target_quat * drone_shotgun_dirs[i];
+				// shotgun handles cooldowns manually
+
+				// create fake bolts
+				get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
+				Quat target_quat = Quat::look(dir_normalized);
+				for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
+				{
+					Vec3 d = target_quat * drone_shotgun_dirs[i];
+					fake_bolts.add
+					(
+						EffectLight::add
+						(
+							get<Transform>()->absolute_pos() + d * DRONE_SHIELD_RADIUS,
+							BOLT_LIGHT_RADIUS,
+							0.5f,
+							EffectLight::Type::BoltDroneShotgun,
+							nullptr,
+							Quat::look(d)
+						)
+					);
+				}
+				cooldown_setup(DRONE_SHOTGUN_CHARGES);
+			}
+			else if (a == Ability::Bolter)
+			{
+				// bolter handles cooldowns manually
+
+				// create fake bolt
+				get<Audio>()->post_event(AK::EVENTS::PLAY_BOLT_SPAWN);
 				fake_bolts.add
 				(
 					EffectLight::add
 					(
-						get<Transform>()->absolute_pos() + d * DRONE_SHIELD_RADIUS,
+						get<Transform>()->absolute_pos() + dir_normalized * DRONE_SHIELD_RADIUS,
 						BOLT_LIGHT_RADIUS,
 						0.5f,
-						EffectLight::Type::BoltDroneShotgun,
+						EffectLight::Type::BoltDroneBolter,
 						nullptr,
-						Quat::look(d)
+						Quat::look(dir_normalized)
 					)
 				);
+				drone_bolter_cooldown_setup(this);
 			}
-			cooldown_setup(DRONE_SHOTGUN_CHARGES);
-		}
-		else if (a == Ability::Bolter)
-		{
-			// client-side prediction; create fake bolt
-			get<Audio>()->post_event(AK::EVENTS::PLAY_BOLT_SPAWN);
-			fake_bolts.add
-			(
-				EffectLight::add
-				(
-					get<Transform>()->absolute_pos() + dir_normalized * DRONE_SHIELD_RADIUS,
-					BOLT_LIGHT_RADIUS,
-					0.5f,
-					EffectLight::Type::BoltDroneBolter,
-					nullptr,
-					Quat::look(dir_normalized)
-				)
-			);
-			drone_bolter_cooldown_setup(this);
+			else
+			{
+				// all other abilities have normal cooldowns
+				if (a != Ability::None)
+					cooldown_setup();
+
+				if (a == Ability::Sniper)
+					drone_sniper_effects(this, dir_normalized);
+				else if (a == Ability::ActiveArmor)
+				{
+					get<Health>()->active_armor_timer = ACTIVE_ARMOR_TIME; // show invincibility sparkles instantly
+					get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
+				}
+				else if (a == Ability::Grenade)
+					get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_SPAWN);
+			}
 		}
 	}
 

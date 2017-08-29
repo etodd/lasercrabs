@@ -2045,77 +2045,86 @@ b8 Bolt::visible() const
 	return velocity.length_squared() > 0.0f;
 }
 
-void Bolt::update_server(const Update& u)
+b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, Hit* out_hit, Net::StateFrame* state_frame)
+{
+	out_hit->entity = nullptr;
+	r32 closest_hit_distance_sq = FLT_MAX;
+
+	{
+		btCollisionWorld::ClosestRayResultCallback ray_callback(trace_start, trace_end);
+		Physics::raycast(&ray_callback, mask);
+		if (ray_callback.hasHit())
+		{
+			out_hit->point = ray_callback.m_hitPointWorld;
+			out_hit->normal = ray_callback.m_hitNormalWorld;
+			out_hit->entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+			closest_hit_distance_sq = (out_hit->point - trace_start).length_squared();
+		}
+	}
+
+	// check target collisions
+	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
+	{
+		Vec3 p;
+		if (state_frame)
+		{
+			Vec3 pos;
+			Quat rot;
+			Net::transform_absolute(*state_frame, i.item()->get<Transform>()->id(), &pos, &rot);
+			p = pos + (rot * i.item()->local_offset); // todo possibly: rewind local_offset as well?
+		}
+		else
+			p = i.item()->absolute_pos();
+
+		Vec3 intersection;
+		if (LMath::ray_sphere_intersect(trace_start, trace_end, p, i.item()->radius(), &intersection))
+		{
+			r32 distance_sq = (intersection - trace_start).length_squared();
+			if (distance_sq < closest_hit_distance_sq)
+			{
+				out_hit->point = intersection;
+				out_hit->normal = Vec3::normalize(intersection - p);
+				out_hit->entity = i.item()->entity();
+				closest_hit_distance_sq = distance_sq;
+			}
+		}
+	}
+
+	return out_hit->entity;
+}
+
+// returns true if the bolt hit something
+b8 Bolt::simulate(r32 dt, Hit* out_hit, Net::StateFrame* state_frame)
 {
 	if (!visible()) // waiting for damage buffer
-		return;
+		return false;
 
 	Vec3 pos = get<Transform>()->absolute_pos();
 
-	remaining_lifetime -= u.time.delta;
-	if (remaining_lifetime < 0.0f)
+	remaining_lifetime -= dt;
+	if (!state_frame && remaining_lifetime < 0.0f)
 	{
 		ParticleEffect::spawn(ParticleEffect::Type::Fizzle, pos, Quat::look(Vec3::normalize(velocity)));
-		World::remove(entity());
-		return;
+		World::remove_deferred(entity());
+		return false;
 	}
 
-	Vec3 next_pos = pos + velocity * u.time.delta;
+	Vec3 next_pos = pos + velocity * dt;
 	Vec3 trace_end = next_pos + Vec3::normalize(velocity) * BOLT_LENGTH;
-	btCollisionWorld::AllHitsRayResultCallback ray_callback(pos, trace_end);
 
-	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-	ray_callback.m_collisionFilterMask = raycast_mask(team);
-	ray_callback.m_collisionFilterGroup = -1;
-	Physics::btWorld->rayTest(ray_callback.m_rayFromWorld, ray_callback.m_rayToWorld, ray_callback);
-
-	r32 closest_fraction = 2.0f;
-	Entity* closest_entity = nullptr;
-	Vec3 closest_point;
-	Vec3 closest_normal;
-	for (s32 i = 0; i < ray_callback.m_collisionObjects.size(); i++)
+	Hit hit;
+	if (raycast(pos, trace_end, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team)), &hit, state_frame))
 	{
-		if (ray_callback.m_hitFractions[i] < closest_fraction)
-		{
-			Entity* e = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-			if (!e->has<AIAgent>() || e->get<AIAgent>()->team != team)
-			{
-				closest_entity = e;
-				closest_fraction = ray_callback.m_hitFractions[i];
-				closest_point = ray_callback.m_hitPointWorld[i];
-				closest_normal = ray_callback.m_hitNormalWorld[i];
-			}
-		}
+		if (out_hit)
+			*out_hit = hit;
+		if (!state_frame) // if the server is fast-forward simulating us, we can't register the hit ourselves
+			hit_entity(hit);
+		return true;
 	}
-
-	// check shields
-	r32 total_distance = (trace_end - pos).length();
-	for (auto i = Shield::list.iterator(); !i.is_last(); i.next())
-	{
-		if ((!i.item()->has<AIAgent>() || i.item()->get<AIAgent>()->team != team)
-			&& (!i.item()->has<Drone>() || !UpgradeStation::drone_inside(i.item()->get<Drone>()))) // ignore drones inside upgrade stations
-		{
-			Vec3 shield_pos = i.item()->get<Target>()->absolute_pos();
-			Vec3 intersection;
-			if (LMath::ray_sphere_intersect(pos, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection))
-			{
-				r32 fraction = (intersection - pos).length() / total_distance;
-				if (fraction < closest_fraction)
-				{
-					closest_entity = i.item()->entity();
-					closest_fraction = fraction;
-					closest_point = intersection;
-					closest_normal = Vec3::normalize(intersection - shield_pos);
-				}
-			}
-		}
-	}
-
-	if (closest_entity)
-		hit_entity(closest_entity, closest_point, closest_normal);
 	else
 		get<Transform>()->absolute_pos(next_pos);
+
+	return false;
 }
 
 r32 Bolt::particle_accumulator;
@@ -2189,8 +2198,10 @@ void Bolt::reflect(const Entity* hit_object, ReflectionType reflection_type, con
 	}
 }
 
-void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
+void Bolt::hit_entity(const Hit& hit)
 {
+	Entity* hit_object = hit.entity;
+
 	b8 destroy = true;
 
 	b8 hit_force_field_collision = false;
@@ -2257,7 +2268,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 			if (!reflected)
 			{
 				destroy = false;
-				reflect(hit_object, ReflectionType::Simple, normal);
+				reflect(hit_object, ReflectionType::Simple, hit.normal);
 			}
 		}
 		else if (hit_object->get<Health>()->active_armor())
@@ -2290,7 +2301,7 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 		}
 	}
 	else
-		basis = normal;
+		basis = hit.normal;
 
 	{
 		ParticleEffect::Type particle_type;
@@ -2298,11 +2309,11 @@ void Bolt::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
 			particle_type = ParticleEffect::Type::ImpactLarge;
 		else
 			particle_type = ParticleEffect::Type::ImpactSmall;
-		ParticleEffect::spawn(particle_type, hit, Quat::look(basis));
+		ParticleEffect::spawn(particle_type, hit.point, Quat::look(basis));
 	}
 
 	if (destroy)
-		World::remove(entity());
+		World::remove_deferred(entity());
 }
 
 b8 ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot)
@@ -2473,23 +2484,26 @@ b8 grenade_hit_filter(Entity* e, AI::Team team)
 		|| (e->has<AIAgent>() && e->get<AIAgent>()->team != team); // don't care if the AIAgent is stealthed or not
 }
 
-void Grenade::update_server(const Update& u)
+// returns true if grenade hits something
+b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, Net::StateFrame* state_frame)
 {
+	vi_assert(Game::level.local);
 	Transform* t = get<Transform>();
 	if (!t->parent.ref())
 	{
 		Vec3 pos = t->absolute_pos();
 		Vec3 next_pos;
 		{
-			Vec3 half_accel = Physics::btWorld->getGravity() * u.time.delta * 0.5f;
+			Vec3 half_accel = Physics::btWorld->getGravity() * dt * 0.5f;
 			velocity += half_accel;
-			next_pos = pos + velocity * u.time.delta;
+			next_pos = pos + velocity * dt;
 			velocity += half_accel;
 		}
+
 		if (next_pos.y < Game::level.min_y)
 		{
 			World::remove_deferred(entity());
-			return;
+			return false;
 		}
 
 		if (!btVector3(next_pos - pos).fuzzyZero())
@@ -2497,41 +2511,49 @@ void Grenade::update_server(const Update& u)
 			Vec3 v = velocity;
 			if (v.length_squared() > 0.0f)
 				v.normalize();
-			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + v * GRENADE_RADIUS);
-			Physics::raycast(&ray_callback, ~Team::force_field_mask(team()) & ~CollisionDroneIgnore & ~CollisionTarget);
-			if (ray_callback.hasHit())
+
+			Bolt::Hit hit;
+			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team())), &hit, state_frame))
 			{
-				Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-				if (e->has<Drone>() && UpgradeStation::drone_inside(e->get<Drone>()))
-				{
-					// keep going
-				}
-				else if (grenade_hit_filter(e, team()))
-					explode();
-				else
-				{
-					if (active)
-					{
-						// attach
-						velocity = Vec3::zero;
-						t->parent = e->get<Transform>();
-						next_pos = ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * GRENADE_RADIUS * 1.1f;
-						t->absolute_rot(Quat::look(ray_callback.m_hitNormalWorld));
-					}
-					else
-					{
-						// bounce
-						velocity = velocity.reflect(ray_callback.m_hitNormalWorld) * 0.5f;
-						GrenadeNet::send_activate(this);
-					}
-				}
+				if (out_hit)
+					*out_hit = hit;
+
+				if (!state_frame) // if server is fast-forward simulating us, we can't register the hit ourselves
+					hit_entity(hit);
+
+				return true;
 			}
 		}
-		t->absolute_pos(next_pos);
+
+		t->pos = next_pos;
 	}
 
-	if (active && timer > GRENADE_DELAY)
+	if (!state_frame && active && timer > GRENADE_DELAY)
 		explode();
+
+	return false;
+}
+
+void Grenade::hit_entity(const Bolt::Hit& hit)
+{
+	if (grenade_hit_filter(hit.entity, team()))
+		explode();
+	else
+	{
+		if (active)
+		{
+			// attach
+			velocity = Vec3::zero;
+			get<Transform>()->parent = hit.entity->get<Transform>();
+			get<Transform>()->absolute(hit.point + hit.normal * GRENADE_RADIUS * 1.1f, Quat::look(hit.normal));
+		}
+		else
+		{
+			// bounce
+			velocity = velocity.reflect(hit.normal) * 0.5f;
+			GrenadeNet::send_activate(this);
+		}
+	}
 }
 
 void Grenade::explode()
@@ -2639,8 +2661,8 @@ void Grenade::update_client_all(const Update& u)
 			{
 				r32 timer_last = i.item()->timer;
 				i.item()->timer += u.time.delta;
-				const r32 interval = 0.3f;
-				if (s32(Ease::cubic_in<r32>(i.item()->timer) / interval) != s32(Ease::cubic_in<r32>(timer_last) / interval))
+				const r32 interval = 1.5f;
+				if (timer_last == 0.0f || s32(Ease::cubic_in<r32>(i.item()->timer) / interval) != s32(Ease::cubic_in<r32>(timer_last) / interval))
 					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_BEEP);
 			}
 			else

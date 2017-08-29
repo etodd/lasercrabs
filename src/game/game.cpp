@@ -569,13 +569,13 @@ void Game::update(const Update& update_in)
 			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 			for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
-				i.item()->update_server(u);
+				i.item()->simulate(u.time.delta);
 			for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
 			for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 			for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
-				i.item()->update_server(u);
+				i.item()->simulate(u.time.delta);
 		}
 
 		for (auto i = Health::list.iterator(); !i.is_last(); i.next())

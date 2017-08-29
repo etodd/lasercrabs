@@ -20,6 +20,8 @@
 #include "data/json.h"
 #include <cmath>
 
+#define OFFLINE_DEV 0
+
 namespace VI
 {
 
@@ -215,9 +217,9 @@ namespace Master
 		return sqlite3_column_int64(stmt, index);
 	}
 
-	const unsigned char* db_column_text(sqlite3_stmt* stmt, s32 index)
+	const char* db_column_text(sqlite3_stmt* stmt, s32 index)
 	{
-		return sqlite3_column_text(stmt, index);
+		return (const char*)sqlite3_column_text(stmt, index);
 	}
 
 	void db_finalize(sqlite3_stmt* stmt)
@@ -408,8 +410,8 @@ namespace Master
 		if (db_step(stmt))
 		{
 			memset(config->name, 0, sizeof(config->name));
-			strncpy(config->name, (const char*)db_column_text(stmt, 0), MAX_SERVER_CONFIG_NAME);
-			server_config_parse((const char*)db_column_text(stmt, 1), config);
+			strncpy(config->name, db_column_text(stmt, 0), MAX_SERVER_CONFIG_NAME);
+			server_config_parse(db_column_text(stmt, 1), config);
 			config->max_players = db_column_int(stmt, 2);
 			config->team_count = db_column_int(stmt, 3);
 			config->game_type = GameType(db_column_int(stmt, 4));
@@ -438,7 +440,7 @@ namespace Master
 		sqlite3_stmt* stmt = db_query("select username from User where id=? limit 1;");
 		db_bind_int(stmt, 0, user_id);
 		if (db_step(stmt))
-			strncpy(username, (const char*)db_column_text(stmt, 0), MAX_USERNAME);
+			strncpy(username, db_column_text(stmt, 0), MAX_USERNAME);
 		else
 			username[0] = '\0';
 	}
@@ -516,6 +518,7 @@ namespace Master
 				key.token = u32(mersenne::rand());
 
 				// save user in database
+
 				sqlite3_stmt* stmt = db_query("select id, banned from User where itch_id=? limit 1;");
 				db_bind_int(stmt, 0, itch_id);
 				if (db_step(stmt))
@@ -527,11 +530,11 @@ namespace Master
 					else
 					{
 						// update existing user
-						sqlite3_stmt* stmt = db_query("update User set token=?, token_timestamp=?, username=? where itch_id=?;");
+						sqlite3_stmt* stmt = db_query("update User set token=?, token_timestamp=?, username=? where id=?;");
 						db_bind_int(stmt, 0, key.token);
 						db_bind_int(stmt, 1, platform::timestamp());
 						db_bind_text(stmt, 2, username);
-						db_bind_int(stmt, 3, itch_id);
+						db_bind_int(stmt, 3, key.id);
 						db_exec(stmt);
 					}
 				}
@@ -548,12 +551,39 @@ namespace Master
 				db_finalize(stmt);
 
 				if (success)
+				{
 					send_auth_response(node->addr, &key, username);
-				else
-					send_auth_response(node->addr, nullptr, nullptr);
+					return;
+				}
 			}
 			else
+			{
+#if OFFLINE_DEV
+				// log in to the first user in the database
+				UserKey key;
+				key.token = u32(mersenne::rand());
+				sqlite3_stmt* stmt = db_query("select id, banned, username from User limit 1;");
+				if (db_step(stmt))
+				{
+					key.id = s32(db_column_int(stmt, 0));
+					b8 banned = b8(db_column_int(stmt, 1));
+					const char* username = db_column_text(stmt, 2);
+					if (!banned)
+					{
+						// update existing user
+						sqlite3_stmt* stmt = db_query("update User set token=?, token_timestamp=? where id=?;");
+						db_bind_int(stmt, 0, key.token);
+						db_bind_int(stmt, 1, platform::timestamp());
+						db_bind_int(stmt, 2, key.id);
+						db_exec(stmt);
+
+						send_auth_response(node->addr, &key, username);
+						return;
+					}
+				}
+#endif
 				send_auth_response(node->addr, nullptr, nullptr);
+			}
 		}
 	}
 
@@ -582,7 +612,7 @@ namespace Master
 		}
 
 		if (!success)
-			itch_auth_result(user_data, false, 0, nullptr);
+			itch_auth_result(user_data, false, 1, nullptr);
 	}
 
 	void itch_auth_callback(s32 code, const char* data, u64 user_data)
@@ -910,9 +940,9 @@ namespace Master
 
 			u32 id = db_column_int(stmt, 0);
 			memset(entry.name, 0, sizeof(entry.name));
-			strncpy(entry.name, (const char*)db_column_text(stmt, 1), MAX_SERVER_CONFIG_NAME);
+			strncpy(entry.name, db_column_text(stmt, 1), MAX_SERVER_CONFIG_NAME);
 			memset(entry.creator_username, 0, sizeof(entry.creator_username));
-			strncpy(entry.creator_username, (const char*)db_column_text(stmt, 2), MAX_USERNAME);
+			strncpy(entry.creator_username, db_column_text(stmt, 2), MAX_USERNAME);
 			entry.max_players = db_column_int(stmt, 3);
 			entry.team_count = db_column_int(stmt, 4);
 			entry.game_type = GameType(db_column_int(stmt, 5));

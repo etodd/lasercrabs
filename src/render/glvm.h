@@ -36,6 +36,7 @@ enum class RenderOp : s8
 	MeshEdges,
 	SubMesh,
 	Instances,
+	InstancesEdges,
 	Clear,
 	BlendMode,
 	CullMode,

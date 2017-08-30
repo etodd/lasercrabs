@@ -1741,7 +1741,7 @@ b8 PlayerManager::upgrade_start(Upgrade u)
 				rtt = Net::rtt(get<PlayerHuman>());
 			else
 				rtt = 0.0f;
-			state_timer = UPGRADE_TIME - rtt;
+			state_timer = UPGRADE_TIME - vi_min(NET_MAX_RTT_COMPENSATION, rtt) - Net::interpolation_delay();
 
 			add_energy(-cost);
 		}

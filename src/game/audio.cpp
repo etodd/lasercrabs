@@ -100,56 +100,76 @@ b8 Audio::init()
 		return false;
 	}
 
-	// Create the Stream Manager.
-	AkStreamMgrSettings stmSettings;
-	AK::StreamMgr::GetDefaultSettings(stmSettings);
-	AK::StreamMgr::Create(stmSettings);
-
-	// Create a streaming device with blocking low-level I/O handshaking.
-	AkDeviceSettings deviceSettings;
-	AK::StreamMgr::GetDefaultDeviceSettings(deviceSettings);
-	deviceSettings.uSchedulerTypeFlags = AK_SCHEDULER_BLOCKING;
-
-	// Init registers lowLevelIO as the File Location Resolver if it was not already defined, and creates a streaming device.
-	if (!wwise_io.Init(deviceSettings))
+	// create the Stream Manager.
 	{
-		fprintf(stderr, "Failed to create the Wwise streaming device and low-level IO system.\n");
-		return false;
+		AkStreamMgrSettings stream_settings;
+		AK::StreamMgr::GetDefaultSettings(stream_settings);
+		AK::StreamMgr::Create(stream_settings);
+	}
+
+	// create a streaming device with blocking low-level I/O handshaking.
+	{
+		AkDeviceSettings device_settings;
+		AK::StreamMgr::GetDefaultDeviceSettings(device_settings);
+		device_settings.uSchedulerTypeFlags = AK_SCHEDULER_BLOCKING;
+
+		// init registers lowLevelIO as the File Location Resolver if it was not already defined, and creates a streaming device.
+		if (!wwise_io.Init(device_settings))
+		{
+			fprintf(stderr, "Failed to create the Wwise streaming device and low-level IO system.\n");
+			return false;
+		}
 	}
 
 #if !_WIN32
 	wwise_io.SetBasePath("./");
 #endif
 	
-	AkInitSettings initSettings;
-	AkPlatformInitSettings platformInitSettings;
-	AK::SoundEngine::GetDefaultInitSettings(initSettings);
-	AK::SoundEngine::GetDefaultPlatformInitSettings(platformInitSettings);
-
-	if (AK::SoundEngine::Init(&initSettings, &platformInitSettings) != AK_Success)
 	{
-		fprintf(stderr, "Failed to initialize the Wwise sound engine.\n");
-		return false;
+		AkInitSettings init_settings;
+		AkPlatformInitSettings platform_init_settings;
+		AK::SoundEngine::GetDefaultInitSettings(init_settings);
+		AK::SoundEngine::GetDefaultPlatformInitSettings(platform_init_settings);
+
+		if (AK::SoundEngine::Init(&init_settings, &platform_init_settings) != AK_Success)
+		{
+			fprintf(stderr, "Failed to initialize the Wwise sound engine.\n");
+			return false;
+		}
 	}
 
-	AkMusicSettings musicInit;
-	AK::MusicEngine::GetDefaultInitSettings(musicInit);
-		
-	if (AK::MusicEngine::Init(&musicInit) != AK_Success)
 	{
-		fprintf(stderr, "Failed to initialize the Wwise music engine.\n");
-		return false;
+		AkMusicSettings music_settings;
+		AK::MusicEngine::GetDefaultInitSettings(music_settings);
+
+		if (AK::MusicEngine::Init(&music_settings) != AK_Success)
+		{
+			fprintf(stderr, "Failed to initialize the Wwise music engine.\n");
+			return false;
+		}
 	}
 
 #if DEBUG
-	AkCommSettings commSettings;
-	AK::Comm::GetDefaultInitSettings(commSettings);
-	if (AK::Comm::Init(commSettings) != AK_Success)
 	{
-		fprintf(stderr, "Failed to initialize Wwise communication.\n");
-		return false;
+		AkCommSettings comm_settings;
+		AK::Comm::GetDefaultInitSettings(comm_settings);
+		if (AK::Comm::Init(comm_settings) != AK_Success)
+		{
+			fprintf(stderr, "Failed to initialize Wwise communication.\n");
+			return false;
+		}
 	}
 #endif
+
+	{
+		AkSpatialAudioInitSettings spatial_settings;
+		spatial_settings.uPoolID = AK_DEFAULT_POOL_ID;
+		if (AK::SpatialAudio::Init(spatial_settings) != AK_Success)
+		{
+			fprintf(stderr, "Failed to initialize Wwise Spatial Audio.\n");
+			return false;
+		}
+	}
 
 	// game object for global events
 	AK::SoundEngine::RegisterGameObj(MAX_ENTITIES);
@@ -196,6 +216,7 @@ void Audio::term()
 #if DEBUG
 	AK::Comm::Term();
 #endif
+	AK::SpatialAudio::Term();
 	AK::MusicEngine::Term();
 	AK::SoundEngine::Term();
 	wwise_io.Term();

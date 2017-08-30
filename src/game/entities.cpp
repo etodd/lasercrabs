@@ -473,7 +473,7 @@ void Health::damage(Entity* src, s8 damage)
 			BufferedDamage entry;
 			entry.source = src;
 			entry.damage = damage;
-			entry.delay = Net::rtt(get<PlayerControlHuman>()->player.ref()) + Net::tick_rate();
+			entry.delay = vi_min(NET_MAX_RTT_COMPENSATION, Net::rtt(get<PlayerControlHuman>()->player.ref())) + Net::tick_rate();
 			if (src->has<Drone>() && src->get<Drone>()->current_ability == Ability::Sniper)
 				entry.type = BufferedDamage::Type::Sniper;
 			else
@@ -1973,7 +1973,7 @@ BoltEntity::BoltEntity(AI::Team team, PlayerManager* player, Entity* owner, Bolt
 
 namespace BoltNet
 {
-	b8 change_team(Bolt* b, AI::Team team, PlayerManager* player, const Entity* owner)
+	b8 reflect(Bolt* b)
 	{
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Bolt);
@@ -1981,9 +1981,25 @@ namespace BoltNet
 			Ref<Bolt> ref = b;
 			serialize_ref(p, ref);
 		}
+		b8 change_team = false;
+		serialize_bool(p, change_team);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 reflect(Bolt* b, AI::Team team, const PlayerManager* player, const Entity* owner)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Bolt);
+		{
+			Ref<Bolt> ref = b;
+			serialize_ref(p, ref);
+		}
+		b8 change_team = true;
+		serialize_bool(p, change_team);
 		serialize_s8(p, team);
 		{
-			Ref<PlayerManager> ref = player;
+			Ref<PlayerManager> ref = (PlayerManager*)player;
 			serialize_ref(p, ref);
 		}
 		{
@@ -1998,14 +2014,32 @@ namespace BoltNet
 b8 Bolt::net_msg(Net::StreamRead* p, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
+
 	Ref<Bolt> ref;
+	b8 change_team;
+	AI::Team team;
+	Ref<PlayerManager> player;
+	Ref<Entity> owner;
+
 	serialize_ref(p, ref);
+	serialize_bool(p, change_team);
+	if (change_team)
+	{
+		serialize_s8(p, team);
+		serialize_ref(p, player);
+		serialize_ref(p, owner);
+	}
+
 	if (ref.ref())
 	{
-		serialize_s8(p, ref.ref()->team);
-		serialize_ref(p, ref.ref()->player);
-		serialize_ref(p, ref.ref()->owner);
-		ref.ref()->reflected = true;
+		Audio::post_event_global(AK::EVENTS::PLAY_DRONE_REFLECT, ref.ref()->get<Transform>()->absolute_pos());
+		if (change_team)
+		{
+			ref.ref()->reflected = true;
+			ref.ref()->team = team;
+			ref.ref()->player = player;
+			ref.ref()->owner = owner;
+		}
 	}
 	return true;
 }
@@ -2194,8 +2228,10 @@ void Bolt::reflect(const Entity* hit_object, ReflectionType reflection_type, con
 		// change team
 		AI::Team reflect_team;
 		AI::entity_info(hit_object, team, &reflect_team);
-		BoltNet::change_team(this, reflect_team, PlayerManager::owner(hit_object), hit_object);
+		BoltNet::reflect(this, reflect_team, PlayerManager::owner(hit_object), hit_object);
 	}
+	else
+		BoltNet::reflect(this);
 }
 
 void Bolt::hit_entity(const Hit& hit)
@@ -2515,23 +2551,25 @@ void ShellCasing::draw_all(const RenderParams& params)
 	if (!params.camera->mask || !Settings::shell_casings)
 		return;
 
-	instances.length = 0;
-
 	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::tri_tube);
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
 
-	for (s32 i = 0; i < list.length; i++)
+	if (params.technique == RenderTechnique::Shadow)
 	{
-		const ShellCasing& s = list[i];
-		Mat4 m;
-		m.make_transform(s.pos, Vec3(1), s.rot);
-
-		Vec3 size = shell_casing_size(s.type);
-		if (params.camera->visible_sphere(m.translation(), size.z * f_radius))
+		instances.length = 0;
+		for (s32 i = 0; i < list.length; i++)
 		{
-			m.scale(size);
-			instances.add(m);
+			const ShellCasing& s = list[i];
+			Mat4 m;
+			m.make_transform(s.pos, Vec3(1), s.rot);
+
+			Vec3 size = shell_casing_size(s.type);
+			if (params.camera->visible_sphere(m.translation(), size.z * f_radius))
+			{
+				m.scale(size);
+				instances.add(m);
+			}
 		}
 	}
 
@@ -2565,7 +2603,7 @@ void ShellCasing::draw_all(const RenderParams& params)
 	sync->write<s32>(1);
 	sync->write<Vec4>(Vec4(1, 1, 1, 1));
 
-	sync->write(RenderOp::Instances);
+	sync->write(params.flags & RenderFlagEdges ? RenderOp::InstancesEdges : RenderOp::Instances);
 	sync->write(Asset::Mesh::tri_tube);
 	sync->write(instances.length);
 	sync->write<Mat4>(instances.data, instances.length);
@@ -3024,32 +3062,31 @@ void Rope::draw_all(const RenderParams& params)
 	if (!params.camera->mask)
 		return;
 
-	instances.length = 0;
-
 	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::tri_tube);
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
 
-	// ropes
+	if (params.technique == RenderTechnique::Shadow)
 	{
-		static const Vec3 scale = Vec3(ROPE_RADIUS, ROPE_RADIUS, ROPE_SEGMENT_LENGTH * 0.5f);
-
-		for (auto i = list.iterator(); !i.is_last(); i.next())
+		instances.length = 0;
+		// ropes
 		{
-			Mat4 m;
-			i.item()->get<Transform>()->mat(&m);
+			static const Vec3 scale = Vec3(ROPE_RADIUS, ROPE_RADIUS, ROPE_SEGMENT_LENGTH * 0.5f);
 
-			if (params.camera->visible_sphere(m.translation(), ROPE_SEGMENT_LENGTH * f_radius))
+			for (auto i = list.iterator(); !i.is_last(); i.next())
 			{
-				m.scale(scale);
-				instances.add(m);
+				Mat4 m;
+				i.item()->get<Transform>()->mat(&m);
+
+				if (params.camera->visible_sphere(m.translation(), ROPE_SEGMENT_LENGTH * f_radius))
+				{
+					m.scale(scale);
+					instances.add(m);
+				}
 			}
 		}
-	}
 
-	// bolts
-	if (!(params.camera->mask & RENDER_MASK_SHADOW)) // bolts don't cast shadows
-	{
+		// bolts
 		static const Vec3 scale = Vec3(BOLT_THICKNESS, BOLT_THICKNESS, BOLT_LENGTH * 0.5f);
 		static const Mat4 offset = Mat4::make_translation(0, 0, BOLT_LENGTH * 0.5f);
 		for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())

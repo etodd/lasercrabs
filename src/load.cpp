@@ -285,7 +285,11 @@ void Loader::settings_load(const Array<DisplayMode>& modes)
 	Settings::scan_lines = b8(Json::get_s32(json, "scan_lines", 1));
 	Settings::record = b8(Json::get_s32(json, "record", 0));
 	Settings::expo = b8(Json::get_s32(json, "expo", 0));
+#if SERVER
+	Settings::shell_casings = false;
+#else
 	Settings::shell_casings = b8(Json::get_s32(json, "shell_casings", 1));
+#endif
 
 	cJSON* gamepads = json ? cJSON_GetObjectItem(json, "gamepads") : nullptr;
 	cJSON* gamepad = gamepads ? gamepads->child : nullptr;
@@ -360,7 +364,7 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "subtitles", s32(Settings::subtitles));
 	cJSON_AddNumberToObject(json, "waypoints", s32(Settings::waypoints));
 	cJSON_AddNumberToObject(json, "scan_lines", s32(Settings::scan_lines));
-	cJSON_AddNumberToObject(json, "shell_casings", Settings::shell_casings);
+	cJSON_AddNumberToObject(json, "shell_casings", s32(Settings::shell_casings));
 
 	cJSON* gamepads = cJSON_CreateArray();
 	cJSON_AddItemToObject(json, "gamepads", gamepads);

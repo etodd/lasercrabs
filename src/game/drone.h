@@ -103,6 +103,13 @@ struct Drone : public ComponentType<Drone>
 		Net::MessageSource src;
 	};
 
+	enum class HitTargetType : s8
+	{
+		Raycast,
+		Repulsion,
+		count,
+	};
+
 	static r32 particle_accumulator;
 
 	static Drone* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
@@ -156,7 +163,7 @@ struct Drone : public ComponentType<Drone>
 	State state() const;
 	b8 dash_start(const Vec3&, const Vec3&);
 	b8 cooldown_can_shoot() const; // can we go?
-	b8 hit_target(Entity*); // called when we hit a target
+	b8 hit_target(Entity*, HitTargetType);
 	void killed(Entity*);
 
 	s16 ally_force_field_mask() const;

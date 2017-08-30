@@ -1017,6 +1017,30 @@ do\
 				debug_check();
 				break;
 			}
+			case RenderOp::InstancesEdges:
+			{
+				AssetID id = *(sync->read<AssetID>());
+				GLData::Mesh* mesh = &GLData::meshes[id];
+
+				s32 count = *(sync->read<s32>());
+
+				glBindBuffer(GL_ARRAY_BUFFER, mesh->instance_buffer);
+				glBufferData(GL_ARRAY_BUFFER, sizeof(Mat4) * count, sync->read<Mat4>(count), GL_DYNAMIC_DRAW);
+
+				glBindVertexArray(mesh->instance_array);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->edges_index_buffer);
+
+				glDrawElementsInstanced(
+					GL_LINES, // RenderPrimitiveMode::Lines
+					mesh->edges_index_count, // count
+					GL_UNSIGNED_INT, // type
+					(void*)0, // element array buffer offset
+					count
+				);
+				
+				debug_check();
+				break;
+			}
 			case RenderOp::BlendMode:
 			{
 				RenderBlendMode mode = GLData::blend_mode = *(sync->read<RenderBlendMode>());

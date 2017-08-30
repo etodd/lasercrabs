@@ -220,7 +220,7 @@ b8 finish_dashing(Drone* a)
 	return true;
 }
 
-b8 hit_target(Drone* a, Entity* target)
+b8 hit_target(Drone* a, Entity* target, Drone::HitTargetType type)
 {
 	using Stream = Net::StreamWrite;
 	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
@@ -236,6 +236,7 @@ b8 hit_target(Drone* a, Entity* target)
 		Ref<Entity> ref = target;
 		serialize_ref(p, ref);
 	}
+	serialize_enum(p, Drone::HitTargetType, type);
 	Net::msg_finalize(p);
 	return true;
 }
@@ -295,7 +296,7 @@ enum class DroneHitType
 void client_hit_effects(Drone* drone, Entity* target, DroneHitType type)
 {
 	if (type == DroneHitType::Reflection)
-		drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_REFLECT);
+		Audio::post_event_global(AK::EVENTS::PLAY_DRONE_REFLECT, drone->get<Transform>()->absolute_pos());
 
 	Vec3 pos = drone->get<Transform>()->absolute_pos();
 
@@ -332,9 +333,12 @@ void sniper_hit_effects(const Drone::Hit& hit)
 	Audio::post_event_global(AK::EVENTS::PLAY_SNIPER_IMPACT, hit.pos);
 }
 
-s32 impact_damage(const Drone* drone, const Entity* target_shield)
+s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTargetType type)
 {
-	if (drone->state() == Drone::State::Crawl)
+	if (target_shield->has<Drone>() && target_shield->get<AIAgent>()->team == drone->get<AIAgent>()->team)
+		return 0;
+
+	if (type == Drone::HitTargetType::Repulsion)
 		return 1;
 
 	Vec3 ray_dir;
@@ -397,7 +401,7 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 
 			r32 timestamp;
 #if SERVER
-			timestamp = Net::timestamp() - drone->get<PlayerControlHuman>()->rtt;
+			timestamp = Net::timestamp() - vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt);
 #else
 			timestamp = Net::timestamp();
 #endif
@@ -641,6 +645,9 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			Ref<Entity> target;
 			serialize_ref(p, target);
 
+			HitTargetType type;
+			serialize_enum(p, HitTargetType, type);
+
 			if (apply_msg)
 				client_hit_effects(drone, target.ref(), DroneHitType::Target);
 
@@ -653,7 +660,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					// we hurt them
 					if (Game::level.local) // if we're a client, this has already been handled by the server
-						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref()));
+						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref(), type));
 				}
 				else
 				{
@@ -847,7 +854,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 							r32 timestamp;
 #if SERVER
-							timestamp = Net::timestamp() - drone->get<PlayerControlHuman>()->rtt;
+							timestamp = Net::timestamp() - vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt);
 #else
 							timestamp = Net::timestamp();
 #endif
@@ -1061,7 +1068,7 @@ Vec3 Drone::attach_point(r32 offset) const
 }
 
 // returns true if it's a valid hit
-b8 Drone::hit_target(Entity* target)
+b8 Drone::hit_target(Entity* target, HitTargetType type)
 {
 	if (target->has<ForceFieldCollision>())
 		target = target->get<ForceFieldCollision>()->field.ref()->entity();
@@ -1084,7 +1091,7 @@ b8 Drone::hit_target(Entity* target)
 		return true;
 	}
 
-	DroneNet::hit_target(this, target);
+	DroneNet::hit_target(this, target, type);
 
 	if (target->has<Target>())
 	{
@@ -1215,7 +1222,7 @@ b8 Drone::net_state_frame(Net::StateFrame* state_frame) const
 	{
 		r32 timestamp;
 #if SERVER
-		timestamp = Net::timestamp() - get<PlayerControlHuman>()->rtt;
+		timestamp = Net::timestamp() - vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt);
 #else
 		// should never happen on client
 		timestamp = 0.0f;
@@ -1478,7 +1485,7 @@ void Drone::cooldown_setup(s8 amount)
 	DroneNet::charge_count(this, charges);
 
 	if (has<PlayerControlHuman>())
-		cooldown = DRONE_COOLDOWN - get<PlayerControlHuman>()->rtt;
+		cooldown = DRONE_COOLDOWN - vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt);
 	else
 #endif
 		cooldown = DRONE_COOLDOWN;
@@ -1810,7 +1817,6 @@ void drone_reflection_execute(Drone* d)
 	e.entity = reflected_off;
 	e.new_velocity = reflection.dir * DRONE_FLY_SPEED;
 	d->reflecting.fire(e);
-	d->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_REFLECT);
 
 	d->rotation_clamp_vector = reflection.dir;
 	d->get<Transform>()->rot = Quat::look(reflection.dir);
@@ -2456,7 +2462,7 @@ void Drone::update_server(const Update& u)
 						}
 
 						velocity = diff;
-						hit_target(i.item()->entity());
+						hit_target(i.item()->entity(), HitTargetType::Repulsion);
 						reflect(i.item()->entity(), hit, normal, state_frame);
 						break;
 					}
@@ -2950,7 +2956,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 			{
 				if (!hit.entity.ref()->get<Health>()->can_take_damage()) // it's invincible; always bounce off
 					stop = true;
-				else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()))
+				else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref(), HitTargetType::Raycast))
 					stop = true; // it has health or shield to spare; we'll bounce off
 			}
 		}
@@ -3041,10 +3047,10 @@ void Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* h
 			sniper_hit_effects(hit);
 
 		if (hit.type == Hit::Type::Target)
-			hit_target(hit.entity.ref());
+			hit_target(hit.entity.ref(), HitTargetType::Raycast);
 		else if (hit.type == Hit::Type::Shield)
 		{
-			if (hit_target(hit.entity.ref())
+			if (hit_target(hit.entity.ref(), HitTargetType::Raycast)
 				&& i == hits.index_end // make sure this is the hit we thought we would stop on
 				&& s != State::Crawl) // make sure we're flying or dashing
 				reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
@@ -3056,7 +3062,7 @@ void Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* h
 		}
 		else if (hit.type == Hit::Type::ForceField)
 		{
-			hit_target(hit.entity.ref());
+			hit_target(hit.entity.ref(), HitTargetType::Raycast);
 			if (s == State::Fly)
 				reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
 		}

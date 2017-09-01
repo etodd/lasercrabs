@@ -205,7 +205,6 @@ namespace AK
         static const AkUniqueID DRONE_LOCOMOTION = 812076015U;
         static const AkUniqueID DRONE_SHIELD = 3866882679U;
         static const AkUniqueID DRONE_WEAPON = 207691048U;
-        static const AkUniqueID EARLY_REFLECTIONS = 1752382405U;
         static const AkUniqueID MASTER_AUDIO_BUS = 3803692087U;
         static const AkUniqueID MASTER_SECONDARY_BUS = 805203703U;
         static const AkUniqueID MUSIC = 3991942870U;
@@ -215,7 +214,6 @@ namespace AK
 
     namespace AUX_BUSSES
     {
-        static const AkUniqueID REFLECT_DEFAULT = 2706078414U;
         static const AkUniqueID REVERB_DEFAULT = 873836703U;
     } // namespace AUX_BUSSES
 

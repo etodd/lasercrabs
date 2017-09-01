@@ -16,12 +16,9 @@
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
 #include <AK/MusicEngine/Common/AkMusicEngine.h>
 #include <AK/Plugin/AkVorbisDecoderFactory.h>
-#include <AK/Plugin/AkReflectFXFactory.h>
 #include <AK/Plugin/AkMeterFXFactory.h>
 #include <AK/Plugin/AkRoomVerbFXFactory.h>
 #include <AK/Plugin/AkDelayFXFactory.h>
-#include <AK/SpatialAudio/Common/AkSpatialAudio.h>
-#include <AK/Plugin/AkReflectGameData.h>
 #include "physics.h"
 #if DEBUG
 	#include <AK/Comm/AkCommunication.h>
@@ -181,16 +178,6 @@ b8 Audio::init()
 	}
 #endif
 
-	{
-		AkSpatialAudioInitSettings spatial_settings;
-		spatial_settings.uPoolID = AK_DEFAULT_POOL_ID;
-		if (AK::SpatialAudio::Init(spatial_settings) != AK_Success)
-		{
-			fprintf(stderr, "Failed to initialize Wwise Spatial Audio.\n");
-			return false;
-		}
-	}
-
 	// game object for global 2D events
 	AK::SoundEngine::RegisterGameObj(AUDIO_OFFSET_GLOBAL_2D);
 
@@ -236,7 +223,6 @@ void Audio::term()
 #if DEBUG
 	AK::Comm::Term();
 #endif
-	AK::SpatialAudio::Term();
 	AK::MusicEngine::Term();
 	AK::SoundEngine::Term();
 	wwise_io.Term();
@@ -260,21 +246,11 @@ void Audio::Entry::init(const Vec3& npos, Transform* nparent, Entry* parent_entr
 
 	AK::SoundEngine::RegisterGameObj(ak_id());
 
-	AkEmitterSettings settings;
-	settings.name = "emitter";
-	settings.reflectAuxBusID = AK::AUX_BUSSES::REFLECT_DEFAULT;
-	settings.reflectionsOrder = 1;
-	settings.reflectionsAuxBusGain = 1.0f;
-	settings.reflectionMaxPathLength = DRONE_MAX_DISTANCE;
-	settings.reflectorFilterMask = u32(-1);
-	settings.useImageSources = false;
-	AK::SpatialAudio::RegisterEmitter(ak_id(), settings);
-
 	AkAuxSendValue value;
 	value.auxBusID = AK::AUX_BUSSES::REVERB_DEFAULT;
 	value.fControlValue = 1.0f;
 	value.listenerID = AK_InvalidID;
-	AK::SpatialAudio::SetEmitterAuxSendValues(ak_id(), &value, 1);
+	AK::SoundEngine::SetGameObjectAuxSendValues(ak_id(), &value, 1);
 
 	if (parent_entry)
 	{
@@ -299,7 +275,6 @@ void Audio::Entry::init(const Vec3& npos, Transform* nparent, Entry* parent_entr
 
 void Audio::Entry::cleanup()
 {
-	AK::SpatialAudio::UnregisterEmitter(ak_id());
 	AK::SoundEngine::UnregisterGameObj(ak_id());
 }
 
@@ -308,7 +283,7 @@ void Audio::update_all(const Update& u)
 {
 	// update obstruction and occlusion of the first n entries that we haven't updated yet
 	{
-		s32 occlusion_updates = 4;
+		s32 occlusion_updates = 12;
 
 		for (auto i = Entry::list.iterator(); !i.is_last(); i.next())
 		{
@@ -356,7 +331,7 @@ void Audio::Entry::update_obstruction_occlusion()
 				{
 					obstruction_target[i] = 1.0f;
 					r32 path_distance = AI::audio_pathfind(ray_callback.m_rayFromWorld, ray_callback.m_rayToWorld);
-					occlusion_target[i] = vi_max(0.0f, vi_min(1.0f, (path_distance - distance) / (DRONE_MAX_DISTANCE * 0.5f)));
+					occlusion_target[i] = vi_max(0.0f, vi_min(1.0f, (path_distance - distance) / (DRONE_MAX_DISTANCE * 0.75f)));
 				}
 				else
 				{
@@ -467,7 +442,7 @@ void Audio::Entry::update(r32 dt)
 	if (parent.ref())
 		abs_pos = pos + parent.ref()->absolute_pos();
 
-	const r32 delta = dt * (1.0f / 0.35f); // takes X seconds to lerp to the new value
+	const r32 delta = dt * (1.0f / 0.3f); // takes X seconds to lerp to the new value
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
 		if (Audio::listener_mask & (1 << i))
@@ -487,7 +462,7 @@ void Audio::Entry::update(r32 dt)
 	AkSoundPosition sound_position;
 	sound_position.SetPosition(abs_pos.x, abs_pos.y, abs_pos.z);
 	sound_position.SetOrientation(0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f);
-	AK::SpatialAudio::SetEmitterPosition(ak_id(), sound_position);
+	AK::SoundEngine::SetPosition(ak_id(), sound_position);
 }
 
 Audio::Entry* Audio::Entry::by_ak_id(AkGameObjectID id)

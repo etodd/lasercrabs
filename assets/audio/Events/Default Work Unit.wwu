@@ -22,16 +22,6 @@
 														</Reference>
 													</ReferenceList>
 												</Action>
-												<Action Name="" ID="{B24F448A-FE31-456B-9FCE-9B507A6C8094}" ShortID="484238686">
-													<PropertyList>
-														<Property Name="ActionType" Type="int16" Value="2"/>
-													</PropertyList>
-													<ReferenceList>
-														<Reference Name="Target">
-															<ObjectRef Name="Drone_Launch" ID="{D84AAC65-C3AA-4562-915C-831BA8301AB5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-														</Reference>
-													</ReferenceList>
-												</Action>
 											</ChildrenList>
 										</Event>
 										<Event Name="Play_Drone_Footstep" ID="{9AD0CCCD-E630-4B8F-8802-2DC5B8F56A22}">

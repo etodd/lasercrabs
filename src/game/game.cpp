@@ -1613,10 +1613,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			b8 no_parkour = cJSON_HasObjectItem(element, "noparkour");
 			b8 invisible = cJSON_HasObjectItem(element, "invisible");
 			AssetID texture = Loader::find(Json::get_string(element, "texture"), AssetLookup::Texture::names);
-			b8 audio_reflector = !cJSON_HasObjectItem(element, "nonav");
 			s16 extra_collision = (cJSON_HasObjectItem(element, "electric") ? CollisionElectric : 0)
-				| (audio_reflector ? CollisionAudio : 0);
-			s8 flags = audio_reflector ? RigidBody::FlagAudioReflector : 0;
+				| (!cJSON_HasObjectItem(element, "nonav") ? CollisionAudio : 0);
 
 			cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
 			cJSON* json_mesh = meshes->child;
@@ -1635,18 +1633,18 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					{
 						// inaccessible
 						if (no_parkour) // no parkour material
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible | extra_collision, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, flags);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible | extra_collision, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 						else
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | CollisionInaccessible | extra_collision, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, flags);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | CollisionInaccessible | extra_collision, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 						m->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 					}
 					else
 					{
 						// accessible
 						if (no_parkour) // no parkour material
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, extra_collision, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, flags);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, extra_collision, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 						else
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | extra_collision, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, flags);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | extra_collision, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 					}
 
 					m->get<View>()->texture = texture;

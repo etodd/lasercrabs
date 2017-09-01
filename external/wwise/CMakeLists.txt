@@ -100,8 +100,6 @@ if (WIN32)
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Win/Release/AkVorbisDecoder
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Win/Debug/AkSpatialAudio
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Win/Release/AkSpatialAudio
-		debug ${CMAKE_CURRENT_SOURCE_DIR}/Win/Debug/AkReflectFX
-		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Win/Release/AkReflectFX
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Win/Debug/AkMeterFX
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Win/Release/AkMeterFX
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Win/Debug/AkRoomVerbFX
@@ -124,8 +122,6 @@ elseif (APPLE)
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkVorbisDecoder.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libAkSpatialAudio.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkSpatialAudio.a
-		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libAkReflectFX.a
-		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkReflectFX.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libMeterFX.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkMeterFX.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libAkRoomVerbFX.a
@@ -148,8 +144,6 @@ elseif (PLAYSTATION)
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkVorbisDecoder.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkSpatialAudio.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkSpatialAudio.a
-		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkReflectFX.a
-		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkReflectFX.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkMeterFX.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkMeterFX.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkRoomVerbFX.a
@@ -172,8 +166,6 @@ else() # Linux
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkVorbisDecoder.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkSpatialAudio.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkSpatialAudio.a
-		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkReflectFX.a
-		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkReflectFX.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkMeterFX.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkMeterFX.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkRoomVerbFX.a

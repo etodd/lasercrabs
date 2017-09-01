@@ -79,6 +79,7 @@ struct AudioPathfindScorer : AstarScorer
 	Vec3 end_pos;
 	r32 min_score;
 	DroneNavMeshNode end_vertex;
+	s32 iterations = 24;
 
 	virtual r32 score(const Vec3& pos)
 	{
@@ -87,7 +88,8 @@ struct AudioPathfindScorer : AstarScorer
 
 	virtual b8 done(DroneNavMeshNode v, const DroneNavMeshNodeData& data)
 	{
-		return data.travel_score > min_score || v.equals(end_vertex);
+		iterations--;
+		return iterations <= 0 || data.travel_score > min_score || v.equals(end_vertex);
 	}
 };
 
@@ -158,7 +160,7 @@ struct SpawnScorer : AstarScorer
 	virtual r32 score(const Vec3& pos)
 	{
 		// want a vertex that is in the desired direction from the start position
-		return 5.0f * (1.0f - dir.dot(pos - start_pos));
+		return 5.0f * vi_max(0.0f, 1.0f - dir.dot(pos - start_pos));
 	}
 
 	virtual b8 done(DroneNavMeshNode v, const DroneNavMeshNodeData& data)

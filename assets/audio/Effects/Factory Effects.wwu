@@ -910,7 +910,7 @@
 								</Effect>
 								<Effect Name="Hall_Medium" ID="{50286348-176A-4235-9E4C-CA5F73D87818}" PluginName="Wwise RoomVerb" CompanyID="0" PluginID="118" PluginType="3">
 									<PropertyList>
-										<Property Name="DecayTime" Type="Real32" Value="0.5"/>
+										<Property Name="DecayTime" Type="Real32" Value="0.9"/>
 										<Property Name="Density" Type="Real32" Value="1"/>
 										<Property Name="Diffusion" Type="Real32" Value="78"/>
 										<Property Name="ERLevel" Type="Real32" Value="-23"/>
@@ -921,9 +921,9 @@
 										<Property Name="Filter1InsertPos" Type="int32" Value="2"/>
 										<Property Name="HFDamping" Type="Real32" Value="7.6"/>
 										<Property Name="LFELevel" Type="Real32" Value="-58.3"/>
-										<Property Name="PreDelay" Type="Real32" Value="0"/>
+										<Property Name="PreDelay" Type="Real32" Value="18"/>
 										<Property Name="Quality" Type="int32" Value="16"/>
-										<Property Name="ReverbLevel" Type="Real32" Value="-26"/>
+										<Property Name="ReverbLevel" Type="Real32" Value="-23"/>
 										<Property Name="RoomShape" Type="Real32" Value="0"/>
 										<Property Name="RoomSize" Type="Real32" Value="38"/>
 										<Property Name="StereoWidth" Type="Real32" Value="0"/>

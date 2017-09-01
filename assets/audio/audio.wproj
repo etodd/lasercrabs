@@ -35,6 +35,7 @@
 						<Value Platform="Windows">256</Value>
 					</ValueList>
 				</Property>
+				<Property Name="LicenseKey" Type="string" Value="PHByb2plY3QgaWQ9IjI0OTYiIG1hc2s9IktQVVk3MzY3IiBlbmM9IjAiPjxsaWNlbnNlIGlkPSI0MSIgbmFtZT0iV3dpc2UgKExpbWl0ZWQgQ29tbWVyY2lhbCBMaWNlbnNlKSAoTGltaXRlZCB0byAyMDAgYXNzZXRzKSIgdHlwZT0iMiIgcGxhdGZvcm1zPSI0LDEwLDEyLDE0IiBleHBpcmVzPSIyMDE3LTEyLTAxIiBhc3NldHM9IjIwMCIgLz48bGljZW5zZSBpZD0iMjEiIG5hbWU9Ik1haW50ZW5hbmNlIiB0eXBlPSIyIiBwbGF0Zm9ybXM9IjQsMTAsMTIsMTQiIGV4cGlyZXM9IjIwMTctMTItMDEiICAvPjxsaWNlbnNlIGlkPSI0OSIgbmFtZT0iV3dpc2UgUmVmbGVjdCIgdHlwZT0iMSIgcGxhdGZvcm1zPSI0LDEwLDEyLDE0IiBleHBpcmVzPSIyMDE3LTEyLTAxIiAgLz48L3Byb2plY3Q+|zxDuDnpajg74QGObDcCYGnIuwyq2I4gaPEZX2yeDnyM4aIws7StZ6ESOwVK08UOlqa1TlqHpP0ZlerNIq1Ho9AWgszJyRIF9g61hhOSzwWkveKwX7JagxAzfzNvqnrquKrTkiBhXtFhFFkz7nz9hVc22fieinO8YS+YGL1SEdnmK0oqEfECp2zl/sx1y/yVAyAJFio8E31t04PqMm6eV9pjEi1JF2yvWACEbXgDg3XZOmuqbdDBqHW8tRxhObzVGx/2dkcRCJ9Wl6ufdiJsCvEWdijY3odke5slZAvDP8nhCDkk/TY79+e24g3rw76q7OOdZxj3hrxC2kIGOYRqmMg=="/>
 				<Property Name="SoundBankGenerateDefinitionFile" Type="bool" Value="False"/>
 				<Property Name="SoundBankGenerateHeaderFile" Type="bool" Value="True"/>
 				<Property Name="SoundBankGenerateMaxAttenuationInfo" Type="bool" Value="True"/>
@@ -3289,7 +3290,7 @@
 						</Property>
 					</PropertyList>
 				</SharedPropertyList>
-				<SharedPropertyList ClassName="ATRAC9" PluginType="1" CompanyID="0" PluginID="12">
+				<SharedPropertyList ClassName="" PluginType="1" CompanyID="0" PluginID="12">
 					<PropertyList>
 						<Property Name="BitRate" Type="int32">
 							<ValueList>
@@ -3367,7 +3368,7 @@
 						</Property>
 					</PropertyList>
 				</SharedPropertyList>
-				<SharedPropertyList ClassName="VAG" PluginType="1" CompanyID="0" PluginID="13">
+				<SharedPropertyList ClassName="" PluginType="1" CompanyID="0" PluginID="13">
 					<PropertyList>
 						<Property Name="CompressionMode" Type="int32">
 							<ValueList>
@@ -9639,7 +9640,7 @@
 						</Property>
 					</PropertyList>
 				</SharedPropertyList>
-				<SharedPropertyList ClassName="SCE Audio3d Object Panner" PluginType="6" CompanyID="0" PluginID="149">
+				<SharedPropertyList ClassName="" PluginType="6" CompanyID="0" PluginID="149">
 					<PropertyList>
 						<Property Name="Bypass object panning" Type="bool">
 							<ValueList>
@@ -9658,7 +9659,7 @@
 						</Property>
 					</PropertyList>
 				</SharedPropertyList>
-				<SharedPropertyList ClassName="AttachableMixerInput" PluginType="3" CompanyID="0" PluginID="150">
+				<SharedPropertyList ClassName="" PluginType="3" CompanyID="0" PluginID="150">
 					<PropertyList>
 						<Property Name="Bypass object panning" Type="bool">
 							<ValueList>
@@ -9672,7 +9673,7 @@
 						</Property>
 					</PropertyList>
 				</SharedPropertyList>
-				<SharedPropertyList ClassName="SCE Audio3d Bed Output" PluginType="7" CompanyID="0" PluginID="151">
+				<SharedPropertyList ClassName="" PluginType="7" CompanyID="0" PluginID="151">
 					<PropertyList>
 						<Property Name="ChannelConfig" Type="int32">
 							<ValueList>
@@ -9701,7 +9702,7 @@
 						</Property>
 					</PropertyList>
 				</SharedPropertyList>
-				<SharedPropertyList ClassName="SCE Audio3d Global Settings" PluginType="3" CompanyID="0" PluginID="165">
+				<SharedPropertyList ClassName="" PluginType="3" CompanyID="0" PluginID="165">
 					<PropertyList>
 						<Property Name="Inclusion" Type="bool">
 							<ValueList>
@@ -10515,7 +10516,7 @@
 									</Point>
 									<Point>
 										<XPos>100</XPos>
-										<YPos>-200</YPos>
+										<YPos>-4.34625</YPos>
 										<Flags>37</Flags>
 									</Point>
 								</PointList>
@@ -10536,7 +10537,7 @@
 									</Point>
 									<Point>
 										<XPos>100</XPos>
-										<YPos>100</YPos>
+										<YPos>46.06299</YPos>
 										<Flags>37</Flags>
 									</Point>
 								</PointList>
@@ -10599,7 +10600,7 @@
 									</Point>
 									<Point>
 										<XPos>100</XPos>
-										<YPos>100</YPos>
+										<YPos>70.07874</YPos>
 										<Flags>37</Flags>
 									</Point>
 								</PointList>

@@ -18,6 +18,13 @@
 #include "game/drone.h"
 #include "game/minion.h"
 
+#define DEBUG_AUDIO 0
+
+#if DEBUG_AUDIO
+#include "render/views.h"
+#include "asset/mesh.h"
+#endif
+
 namespace VI
 {
 
@@ -34,6 +41,18 @@ u32 record_id_current = 1;
 Revision level_revision;
 Revision level_revision_worker;
 AssetID drone_render_mesh = AssetNull;
+DroneNavMesh drone_nav_mesh;
+Worker::DroneNavMeshKey drone_nav_mesh_key;
+NavGameState nav_game_state;
+Worker::AstarQueue astar_queue(&drone_nav_mesh_key);
+Worker::DroneNavContext ctx =
+{
+	drone_nav_mesh,
+	&drone_nav_mesh_key,
+	nav_game_state,
+	&astar_queue,
+	0,
+};
 
 void init()
 {
@@ -63,20 +82,19 @@ void update(const Update& u)
 	{
 		sensor_timer += SENSOR_UPDATE_INTERVAL;
 
-		Array<SensorState> sensors;
+		NavGameState state;
 		for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
-			sensors.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
+			state.sensors.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
 
-		Array<ForceFieldState> force_fields;
 		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
-			force_fields.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
+			state.force_fields.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
 
 		sync_in.lock();
 		sync_in.write(Op::UpdateState);
-		sync_in.write(sensors.length);
-		sync_in.write(sensors.data, sensors.length);
-		sync_in.write(force_fields.length);
-		sync_in.write(force_fields.data, force_fields.length);
+		sync_in.write(state.sensors.length);
+		sync_in.write(state.sensors.data, state.sensors.length);
+		sync_in.write(state.force_fields.length);
+		sync_in.write(state.force_fields.data, state.force_fields.length);
 		sync_in.unlock();
 	}
 
@@ -136,35 +154,6 @@ void update(const Update& u)
 			case Callback::Load:
 			{
 				sync_out.read(&level_revision_worker);
-
-				Array<Vec3> vertices;
-
-				{
-					s32 vertex_count;
-					sync_out.read(&vertex_count);
-
-					vertices.resize(vertex_count);
-					sync_out.read(vertices.data, vertices.length);
-				}
-
-				Array<s32> indices;
-				for (s32 i = 0; i < vertices.length; i++)
-					indices.add(i);
-
-				RenderSync* sync = Loader::swapper->get();;
-
-				sync->write(RenderOp::UpdateAttribBuffers);
-				sync->write(drone_render_mesh);
-
-				sync->write<s32>(vertices.length);
-				sync->write<Vec3>(vertices.data, vertices.length);
-
-				sync->write(RenderOp::UpdateIndexBuffer);
-				sync->write(drone_render_mesh);
-
-				sync->write<s32>(indices.length);
-				sync->write<s32>(indices.data, indices.length);
-
 				break;
 			}
 			default:
@@ -282,6 +271,48 @@ void load(AssetID id, const char* filename, const char* record_filename)
 		sync_in.write(record_filename, length);
 	sync_in.unlock();
 	level_revision++;
+
+	drone_nav_mesh.~DroneNavMesh();
+	new (&drone_nav_mesh) DroneNavMesh();
+	drone_nav_mesh_key.~DroneNavMeshKey();
+	new (&drone_nav_mesh_key) Worker::DroneNavMeshKey();
+
+	if (filename)
+	{
+		FILE* f = fopen(filename, "rb");
+		drone_nav_mesh.read(f);
+		fclose(f);
+		drone_nav_mesh_key.resize(drone_nav_mesh);
+	}
+
+	{
+		Array<Vec3> vertices;
+		for (s32 chunk_index = 0; chunk_index < drone_nav_mesh.chunks.length; chunk_index++)
+		{
+			const DroneNavMeshChunk& chunk = drone_nav_mesh.chunks[chunk_index];
+			for (s32 i = 0; i < chunk.vertices.length; i++)
+				vertices.add(chunk.vertices[i]);
+		}
+
+		Array<s32> indices;
+		for (s32 i = 0; i < vertices.length; i++)
+			indices.add(i);
+
+		RenderSync* sync = Loader::swapper->get();;
+
+		sync->write(RenderOp::UpdateAttribBuffers);
+		sync->write(drone_render_mesh);
+
+		sync->write<s32>(vertices.length);
+		sync->write<Vec3>(vertices.data, vertices.length);
+
+		sync->write(RenderOp::UpdateIndexBuffer);
+		sync->write(drone_render_mesh);
+
+		sync->write<s32>(indices.length);
+		sync->write<s32>(indices.data, indices.length);
+	}
+
 	render_meshes_dirty = true;
 }
 
@@ -361,6 +392,30 @@ u32 drone_pathfind(DronePathfind type, DroneAllow rule, Team team, const Vec3& a
 	return id;
 }
 
+r32 audio_pathfind(const Vec3& a, const Vec3& b)
+{
+	DronePath path;
+	Worker::audio_pathfind(ctx, a, b, &path);
+
+#if DEBUG_AUDIO
+	for (s32 i = 0; i < path.length; i++)
+		View::debug(Asset::Mesh::cube, path[i].pos, Quat::identity, Vec3(0.05f));
+#endif
+
+	if (path.length == 2)
+		return (path[0].pos - a).length() + (path[1].pos - path[0].pos).length() + (b - path[1].pos).length();
+	else if (path.length > 2)
+	{
+		r32 distance = (path[1].pos - a).length();
+		for (s32 i = 1; i < path.length - 2; i++)
+			distance += (path[i].pos - path[i + 1].pos).length();
+		distance += (path[path.length - 2].pos - b).length();
+		return distance;
+	}
+	else
+		return 0.0f;
+}
+
 u32 drone_closest_point(const Vec3& pos, AI::Team team, const LinkEntryArg<const DronePathNode&>& callback)
 {
 	u32 id = callback_in_id;
@@ -383,6 +438,12 @@ void drone_mark_adjacency_bad(DroneNavMeshNode a, DroneNavMeshNode b)
 	sync_in.write(a);
 	sync_in.write(b);
 	sync_in.unlock();
+}
+
+void NavGameState::clear()
+{
+	sensors.length = 0;
+	force_fields.length = 0;
 }
 
 const PathZone* PathZone::get(const Vec3& pos, const Entity* target)

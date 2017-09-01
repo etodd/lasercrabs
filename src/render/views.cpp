@@ -7,7 +7,6 @@
 #include "data/components.h"
 #include "game/team.h"
 #include "game/game.h"
-#include "game/audio.h"
 #include "asset/Wwise_IDs.h"
 #include "settings.h"
 
@@ -901,11 +900,12 @@ void Water::awake()
 		if (config.color.w < 0.0f)
 			config.color.w = m->color.w;
 	}
-	get<Audio>()->post_event(AK::EVENTS::PLAY_WATER_LOOP);
 }
 
 void Water::update(const Update& u)
 {
+	// todo: audio
+	/*
 	if (Camera::list.count() > 0)
 	{
 		const Mesh* m = Loader::mesh(config.mesh);
@@ -930,8 +930,8 @@ void Water::update(const Update& u)
 				closest_pos = p;
 			}
 		}
-		get<Audio>()->offset = closest_pos - water_pos;
 	}
+	*/
 }
 
 void Water::draw_opaque(const RenderParams& params, const Config& cfg, const Vec3& pos, const Quat& rot)

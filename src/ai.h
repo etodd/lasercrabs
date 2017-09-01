@@ -9,6 +9,7 @@
 #include "recast/Detour/Include/DetourNavMesh.h"
 #include "recast/Detour/Include/DetourNavMeshQuery.h"
 #include "recast/DetourTileCache/Include/DetourTileCache.h"
+#include "data/priority_queue.h"
 
 namespace VI
 {
@@ -67,14 +68,47 @@ enum class DroneAllow : s8
 	All = Crawl | Shoot,
 };
 
+struct SensorState
+{
+	Vec3 pos;
+	AI::Team team;
+};
+
+typedef SensorState ForceFieldState;
+
+struct NavGameState
+{
+	Array<SensorState> sensors;
+	Array<ForceFieldState> force_fields;
+	void clear();
+};
+
 typedef StaticArray<Vec3, AI_MAX_PATH_LENGTH> Path;
 
 struct DronePathNode
 {
+	enum Flags
+	{
+		FlagCrawledFromParent = 1 << 0,
+	};
+
 	Vec3 pos;
 	Vec3 normal;
 	DroneNavMeshNode ref;
-	b8 crawl;
+	s8 flags;
+
+	inline void flag(Flags f, b8 v)
+	{
+		if (v)
+			flags |= f;
+		else
+			flags &= ~f;
+	}
+
+	inline b8 flag(Flags f) const
+	{
+		return flags & f;
+	}
 };
 typedef StaticArray<DronePathNode, AI_MAX_PATH_LENGTH> DronePath;
 
@@ -90,12 +124,6 @@ struct DroneResult
 	u32 id;
 };
 
-struct SensorState
-{
-	Vec3 pos;
-	AI::Team team;
-};
-
 // if an AI is inside a PathZone and wants to reach one of the targets associated with that zone,
 // it must pass through the choke point first.
 // this is used for path distance estimation.
@@ -109,10 +137,8 @@ struct PathZone
 	Vec3 choke_point;
 };
 
-typedef SensorState ForceFieldState;
-
 static const s32 SYNC_IN_SIZE = 256 * 1024;
-static const s32 SYNC_OUT_SIZE = 2048 * 1024;
+static const s32 SYNC_OUT_SIZE = 256 * 1024;
 extern Array<b8> obstacles;
 extern SyncRingBuffer<SYNC_IN_SIZE> sync_in;
 extern SyncRingBuffer<SYNC_OUT_SIZE> sync_out;
@@ -137,6 +163,7 @@ void quit();
 void update(const Update&);
 void debug_draw_nav_mesh(const RenderParams&);
 void draw_hollow(const RenderParams&);
+r32 audio_pathfind(const Vec3&, const Vec3&);
 
 b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);
 
@@ -149,13 +176,31 @@ namespace Worker
 
 	struct DroneNavMeshNodeData
 	{
+		enum Flags
+		{
+			FlagInQueue = (1 << 0),
+			FlagVisited = (1 << 1),
+			FlagCrawledFromParent = (1 << 2),
+		};
+
 		r32 travel_score;
 		r32 estimate_score;
 		r32 sensor_score;
 		DroneNavMeshNode parent;
-		b8 visited;
-		b8 in_queue;
-		b8 crawled_from_parent;
+		s8 flags;
+
+		inline void flag(Flags f, b8 v)
+		{
+			if (v)
+				flags |= f;
+			else
+				flags &= ~f;
+		}
+
+		inline b8 flag(Flags f) const
+		{
+			return flags & f;
+		}
 	};
 
 	struct DroneNavMeshKey
@@ -167,11 +212,25 @@ namespace Worker
 		DroneNavMeshNodeData& get(const DroneNavMeshNode&);
 	};
 
+	typedef PriorityQueue<DroneNavMeshNode, DroneNavMeshKey> AstarQueue;
+
+	struct DroneNavContext
+	{
+		const DroneNavMesh& mesh;
+		DroneNavMeshKey* key;
+		const NavGameState& game_state;
+		AstarQueue* astar_queue;
+		s8 flags;
+	};
+
+	enum DroneNavFlags
+	{
+		DroneNavFlagBias = (1 << 0),
+	};
+
 	const extern r32 default_search_extents[];
 
 	extern dtNavMesh* nav_mesh;
-	extern DroneNavMesh drone_nav_mesh;
-	extern DroneNavMeshKey drone_nav_mesh_key;
 	extern dtNavMeshQuery* nav_mesh_query;
 	extern dtTileCache* nav_tile_cache;
 	extern dtQueryFilter default_query_filter;
@@ -181,6 +240,8 @@ namespace Worker
 	extern NavMeshProcess nav_tile_mesh_process;
 
 	void loop();
+
+	void audio_pathfind(const DroneNavContext&, const Vec3&, const Vec3&, DronePath*);
 }
 
 extern ComponentMask entity_mask;

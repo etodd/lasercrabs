@@ -537,7 +537,7 @@ b8 PlayerControlAI::aim_and_shoot_location(const Update& u, const AI::DronePathN
 
 		Vec3 to_target = diff / distance_to_target;
 
-		if (get<Drone>()->current_ability == Ability::None && (node.crawl || get<Drone>()->direction_is_toward_attached_wall(to_target)))
+		if (get<Drone>()->current_ability == Ability::None && (node.flag(AI::DronePathNode::FlagCrawledFromParent) || get<Drone>()->direction_is_toward_attached_wall(to_target)))
 			only_crawling_dashing = true;
 
 		// crawling

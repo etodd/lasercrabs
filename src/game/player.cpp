@@ -1270,7 +1270,22 @@ void PlayerHuman::update_late(const Update& u)
 	}
 	
 	if (camera.ref())
-		Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
+	{
+		if (Game::level.noclip
+			|| (ui_mode() == UIMode::Dead && get<PlayerManager>()->respawns != 0)) // we're respawning
+			Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
+		else
+		{
+			// either we're alive, or we're spectating someone
+			// make sure the listener is in a valid place
+			btCollisionWorld::ClosestRayResultCallback ray_callback(camera_center, camera.ref()->pos);
+			Physics::raycast(&ray_callback, CollisionAudio);
+			if (ray_callback.hasHit())
+				Audio::listener_update(gamepad, ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * DRONE_RADIUS * 2.0f, camera.ref()->rot);
+			else
+				Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
+		}
+	}
 #endif
 }
 
@@ -2321,7 +2336,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			UI::box(params, box, UI::color_background);
 			msg_text.draw(params, pos);
 			if (!last_flash)
-				Audio::post_event_global(msg_good ? AK::EVENTS::PLAY_MESSAGE_BEEP_GOOD : AK::EVENTS::PLAY_MESSAGE_BEEP_BAD);
+				Audio::post_global(msg_good ? AK::EVENTS::PLAY_MESSAGE_BEEP_GOOD : AK::EVENTS::PLAY_MESSAGE_BEEP_BAD);
 		}
 	}
 
@@ -3096,7 +3111,7 @@ void PlayerControlHuman::awake()
 		link<&PlayerControlHuman::terminal_enter_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_enter, 2.5f));
 		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_interact, 3.8f));
 		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_exit, 4.0f));
-		get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_WIND);
+		get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_WIND);
 		get<Audio>()->param(AK::GAME_PARAMETERS::PARKOUR_WIND, 0.0f);
 	}
 }
@@ -3104,7 +3119,7 @@ void PlayerControlHuman::awake()
 PlayerControlHuman::~PlayerControlHuman()
 {
 	if (has<Parkour>())
-		get<Audio>()->post_event(AK::EVENTS::STOP_PARKOUR_ALL);
+		get<Audio>()->stop_all();
 	if (player.ref())
 	{
 		player.ref()->select_spawn_timer = 0.0f;
@@ -3447,7 +3462,7 @@ void player_confirm_tram_interactable(s8 gamepad)
 				i.item()->anim_base = interactable->entity();
 				interactable->interact();
 				i.item()->get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-				i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
+				i.item()->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 			}
 			break;
 		}
@@ -3623,19 +3638,19 @@ void PlayerControlHuman::update(const Update& u)
 						if (Settings::gamepads[gamepad].zoom_toggle)
 						{
 							try_secondary = !try_secondary;
-							get<Audio>()->post_event(try_secondary ? AK::EVENTS::PLAY_ZOOM_IN : AK::EVENTS::PLAY_ZOOM_OUT);
+							Audio::post_global(try_secondary ? AK::EVENTS::PLAY_ZOOM_IN : AK::EVENTS::PLAY_ZOOM_OUT);
 						}
 						else
 						{
 							try_secondary = true;
-							get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_IN);
+							Audio::post_global(AK::EVENTS::PLAY_ZOOM_IN);
 						}
 					}
 				}
 				else if (!Settings::gamepads[gamepad].zoom_toggle && !zoom_pressed)
 				{
 					if (try_secondary)
-						get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_OUT);
+						Audio::post_global(AK::EVENTS::PLAY_ZOOM_OUT);
 					try_secondary = false;
 				}
 
@@ -4067,7 +4082,7 @@ void PlayerControlHuman::update(const Update& u)
 								{
 									interactable->interact();
 									get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-									get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
+									Audio::post_global(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 									anim_base = interactable->entity();
 									break;
 								}
@@ -4098,7 +4113,7 @@ void PlayerControlHuman::update(const Update& u)
 								// go right ahead
 								interactable->interact();
 								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-								get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_INTERACT);
+								Audio::post_global(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 								anim_base = interactable->entity();
 							}
 							else if (tram->arrive_only || target_level == AssetNull) // can't leave

@@ -77,12 +77,18 @@ void Minion::awake()
 	link<&Minion::footstep>(animator->trigger(Asset::Animation::character_walk, 0.5f));
 	link<&Minion::melee_started>(animator->trigger(Asset::Animation::character_melee, 0.0f));
 	link<&Minion::melee_damage>(animator->trigger(Asset::Animation::character_melee, 0.875f));
+
+	get<Walker>()->awake();
+	get<Audio>()->offset(get<Walker>()->base_pos() - get<Transform>()->absolute_pos());
 }
 
 Minion::~Minion()
 {
 	if (charging)
-		get<Audio>()->post_event(AK::EVENTS::STOP_MINION_CHARGE);
+	{
+		get<Audio>()->stop(AK::EVENTS::STOP_MINION_CHARGE);
+		charging = false;
+	}
 }
 
 void Minion::team(AI::Team t)
@@ -131,12 +137,12 @@ s32 Minion::count(AI::TeamMask mask)
 
 void Minion::footstep()
 {
-	Audio::post_event_global(AK::EVENTS::PLAY_FOOTSTEP, get<Walker>()->base_pos());
+	get<Audio>()->post(AK::EVENTS::PLAY_FOOTSTEP);
 }
 
 void Minion::melee_started()
 {
-	get<Audio>()->post_event(AK::EVENTS::PLAY_MINION_MELEE);
+	get<Audio>()->post(AK::EVENTS::PLAY_MINION_MELEE);
 }
 
 void Minion::melee_damage()
@@ -811,9 +817,9 @@ void Minion::update_client_all(const Update& u)
 			if (i.item()->charging != charging_now)
 			{
 				if (charging_now)
-					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_MINION_CHARGE);
+					i.item()->get<Audio>()->post(AK::EVENTS::PLAY_MINION_CHARGE);
 				else
-					i.item()->get<Audio>()->post_event(AK::EVENTS::STOP_MINION_CHARGE);
+					i.item()->get<Audio>()->stop(AK::EVENTS::STOP_MINION_CHARGE);
 				i.item()->charging = charging_now;
 			}
 		}
@@ -840,8 +846,8 @@ void Minion::hit_by(const TargetEvent& e)
 void Minion::killed(Entity* killer)
 {
 	PlayerManager::entity_killed_by(entity(), killer);
-	get<Audio>()->post_event(AK::EVENTS::STOP);
-	Audio::post_event_global(killer && killer->has<Drone>() ? AK::EVENTS::PLAY_MINION_HEADSHOT : AK::EVENTS::PLAY_MINION_DIE, head_pos());
+	get<Audio>()->stop_all();
+	get<Audio>()->post_unattached(killer && killer->has<Drone>() ? AK::EVENTS::PLAY_MINION_HEADSHOT : AK::EVENTS::PLAY_MINION_DIE, head_pos() - get<Transform>()->absolute_pos());
 
 	if (Game::level.local && Ragdoll::list.count() < 8) // limit ragdolls
 	{

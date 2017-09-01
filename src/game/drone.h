@@ -147,7 +147,6 @@ struct Drone : public ComponentType<Drone>
 
 	Drone();
 	void awake();
-	~Drone();
 
 	b8 bolter_can_fire() const;
 

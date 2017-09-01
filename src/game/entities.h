@@ -433,7 +433,6 @@ struct Bolt : public ComponentType<Bolt>
 	b8 reflected;
 
 	void awake();
-	~Bolt();
 
 	b8 visible() const; // bolts are invisible and essentially inert while they are waiting for damage buffer
 	void reflect(const Entity*, ReflectionType = ReflectionType::Homing, const Vec3& = Vec3::zero);

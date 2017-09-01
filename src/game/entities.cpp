@@ -351,17 +351,17 @@ void Shield::health_changed(const HealthEvent& e)
 		{
 			// spatialized damage sounds
 			Vec3 offset = Vec3::normalize(e.source.ref()->get<Transform>()->absolute_pos() - get<Transform>()->absolute_pos());
-			get<Audio>()->post_event_attached(event_id, offset * DRONE_SHIELD_RADIUS * 2.0f, 4.0f);
+			get<Audio>()->post_offset(event_id, offset * DRONE_SHIELD_RADIUS * 2.0f);
 		}
 		else
-			Audio::post_event_global(event_id, get<Transform>()->absolute_pos());
+			get<Audio>()->post_unattached(event_id);
 	}
 	else if (e.shield > 0)
 	{
 		if (get<Health>()->shield == 1)
-			get<Audio>()->post_event(AK::EVENTS::PLAY_SHIELD_RESTORE_INNER);
+			get<Audio>()->post(AK::EVENTS::PLAY_SHIELD_RESTORE_INNER);
 		else if (get<Health>()->shield == 2)
-			get<Audio>()->post_event(AK::EVENTS::PLAY_SHIELD_RESTORE_OUTER);
+			get<Audio>()->post(AK::EVENTS::PLAY_SHIELD_RESTORE_OUTER);
 	}
 }
 
@@ -689,7 +689,7 @@ void Battery::awake()
 	link_arg<Entity*, &Battery::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &Battery::health_changed>(get<Health>()->changed);
 	set_team_client(team);
-	get<Audio>()->post_event(AK::EVENTS::PLAY_BATTERY_LOOP);
+	get<Audio>()->post(AK::EVENTS::PLAY_BATTERY_LOOP);
 }
 
 Battery::~Battery()
@@ -744,10 +744,10 @@ b8 Battery::net_msg(Net::StreamRead* p)
 	{
 		if (pickup->team != t)
 			caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_energy_and_notify(pickup->reward());
-		pickup->get<Audio>()->post_event(AK::EVENTS::PLAY_BATTERY_CAPTURE);
+		pickup->get<Audio>()->post(AK::EVENTS::PLAY_BATTERY_CAPTURE);
 	}
 	else if (t == AI::TeamNone)
-		pickup->get<Audio>()->post_event(AK::EVENTS::PLAY_BATTERY_RESET);
+		pickup->get<Audio>()->post(AK::EVENTS::PLAY_BATTERY_RESET);
 
 	pickup->reward_level = reward_level;
 	pickup->set_team_client(t);
@@ -846,7 +846,7 @@ SpawnPointEntity::SpawnPointEntity(AI::Team team, b8 visible)
 		upgrade_station->get<Transform>()->parent = get<Transform>();
 		Net::finalize_child(upgrade_station);
 
-		create<RigidBody>(RigidBody::Type::Mesh, Vec3(1.0f), 0.0f, CollisionStatic | CollisionParkour, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::spawn_collision);
+		create<RigidBody>(RigidBody::Type::Mesh, Vec3(1.0f), 0.0f, CollisionStatic | CollisionParkour, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::spawn_collision);
 	}
 }
 
@@ -1025,14 +1025,14 @@ b8 UpgradeStation::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						ref.ref()->drone = d;
 						ref.ref()->timer = UPGRADE_STATION_ANIM_TIME - ref.ref()->timer;
 						ref.ref()->mode = Mode::Activating;
-						ref.ref()->get<Audio>()->post_event(AK::EVENTS::PLAY_UPGRADE_STATION_ENTER);
+						ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_UPGRADE_STATION_ENTER);
 					}
 				}
 				else if (ref.ref()->mode == Mode::Activating)
 				{
 					ref.ref()->timer = UPGRADE_STATION_ANIM_TIME - ref.ref()->timer;
 					ref.ref()->mode = Mode::Deactivating;
-					ref.ref()->get<Audio>()->post_event(AK::EVENTS::PLAY_UPGRADE_STATION_EXIT);
+					ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_UPGRADE_STATION_EXIT);
 				}
 			}
 		}
@@ -1105,7 +1105,7 @@ void UpgradeStation::update_client(const Update& u)
 		// drone disappeared on us; flip back over automatically
 		mode = Mode::Deactivating;
 		timer = UPGRADE_STATION_ANIM_TIME;
-		get<Audio>()->post_event(AK::EVENTS::PLAY_UPGRADE_STATION_EXIT);
+		get<Audio>()->post(AK::EVENTS::PLAY_UPGRADE_STATION_EXIT);
 	}
 
 	if (timer > 0.0f)
@@ -1256,7 +1256,7 @@ void Sensor::update_client_all(const Update& u)
 			if (s32((time + offset) / sensor_shockwave_interval) != s32((last_time + offset) / sensor_shockwave_interval))
 			{
 				EffectLight::add(i.item()->get<Transform>()->absolute_pos(), 10.0f, 1.5f, EffectLight::Type::Shockwave);
-				i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_SENSOR_PING);
+				i.item()->get<Audio>()->post(AK::EVENTS::PLAY_SENSOR_PING);
 			}
 		}
 	}
@@ -1702,9 +1702,9 @@ void Turret::update_client_all(const Update& u)
 			if (has_target != i.item()->charging)
 			{
 				if (has_target)
-					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_TURRET_CHARGE);
+					i.item()->get<Audio>()->post(AK::EVENTS::PLAY_TURRET_CHARGE);
 				else
-					i.item()->get<Audio>()->post_event(AK::EVENTS::STOP_TURRET_CHARGE);
+					i.item()->get<Audio>()->stop(AK::EVENTS::STOP_TURRET_CHARGE);
 				i.item()->charging = has_target;
 			}
 		}
@@ -1756,7 +1756,7 @@ void ForceField::awake()
 	link_arg<const TargetEvent&, &ForceField::hit_by>(get<Target>()->target_hit);
 	link_arg<Entity*, &ForceField::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &ForceField::health_changed>(get<Health>()->changed);
-	get<Audio>()->post_event(AK::EVENTS::PLAY_FORCE_FIELD_LOOP);
+	get<Audio>()->post(AK::EVENTS::PLAY_FORCE_FIELD_LOOP);
 	if (Game::level.local)
 		obstacle_id = AI::obstacle_add(get<Transform>()->to_world(Vec3(0, 0, FORCE_FIELD_BASE_OFFSET * -0.5f)) + Vec3(0, FORCE_FIELD_BASE_OFFSET * -0.5f, 0), FORCE_FIELD_BASE_OFFSET * 0.5f, FORCE_FIELD_BASE_OFFSET);
 }
@@ -1765,7 +1765,7 @@ ForceField::~ForceField()
 {
 	if (Game::level.local && collision.ref())
 		World::remove_deferred(collision.ref()->entity());
-	get<Audio>()->post_event(AK::EVENTS::STOP_FORCE_FIELD_LOOP);
+	get<Audio>()->stop(AK::EVENTS::STOP_FORCE_FIELD_LOOP);
 	if (obstacle_id != u32(-1))
 		AI::obstacle_remove(obstacle_id);
 }
@@ -1898,7 +1898,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 
 	create<Target>();
 	create<Health>(FORCE_FIELD_HEALTH, FORCE_FIELD_HEALTH);
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(FORCE_FIELD_BASE_RADIUS), 0.0f, CollisionTarget, ~CollisionStatic & ~CollisionShield & ~CollisionParkour & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionElectric);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(FORCE_FIELD_BASE_RADIUS), 0.0f, CollisionTarget, ~CollisionStatic & ~CollisionAudio & ~CollisionShield & ~CollisionParkour & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionElectric);
 
 	ForceField* field = create<ForceField>();
 	field->team = team;
@@ -1957,8 +1957,6 @@ BoltEntity::BoltEntity(AI::Team team, PlayerManager* player, Entity* owner, Bolt
 		light->radius = BOLT_LIGHT_RADIUS;
 		light->color = Vec3(1, 1, 1);
 	}
-
-	create<Audio>();
 
 	r32 speed = Bolt::speed(type);
 
@@ -2032,7 +2030,7 @@ b8 Bolt::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 	if (ref.ref())
 	{
-		Audio::post_event_global(AK::EVENTS::PLAY_DRONE_REFLECT, ref.ref()->get<Transform>()->absolute_pos());
+		Audio::post_global(AK::EVENTS::PLAY_DRONE_REFLECT, ref.ref()->get<Transform>()->absolute_pos());
 		if (change_team)
 		{
 			ref.ref()->reflected = true;
@@ -2047,31 +2045,16 @@ b8 Bolt::net_msg(Net::StreamRead* p, Net::MessageSource src)
 void Bolt::awake()
 {
 	last_pos = get<Transform>()->absolute_pos();
-	get<Audio>()->post_event(AK::EVENTS::PLAY_BOLT_FLY);
 
-	if (!owner.ref()
-		|| !owner.ref()->has<PlayerControlHuman>()
-		|| !owner.ref()->get<PlayerControlHuman>()->local()) // local players have client-side prediction that plays the bolt sound
+	if (Game::level.local
+		|| !owner.ref()
+		|| owner.ref()->has<Minion>() || owner.ref()->has<Turret>())
 	{
-		switch (type)
-		{
-			case Type::DroneBolter:
-			case Type::Minion:
-			case Type::Turret:
-				get<Audio>()->post_event(AK::EVENTS::PLAY_BOLT_SPAWN);
-				break;
-			case Type::DroneShotgun:
-				break;
-			default:
-				vi_assert(false);
-				break;
-		}
+		if (owner.ref())
+			owner.ref()->get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
+		else
+			Audio::post_global(AK::EVENTS::PLAY_BOLT_SPAWN, last_pos);
 	}
-}
-
-Bolt::~Bolt()
-{
-	get<Audio>()->post_event(AK::EVENTS::STOP_BOLT_FLY);
 }
 
 b8 Bolt::visible() const
@@ -2384,27 +2367,24 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 
 	if (t == Type::Grenade)
 	{
-		Audio::post_event_global(AK::EVENTS::PLAY_DRONE_GRENADE_EXPLO, pos);
+		Audio::post_global(AK::EVENTS::PLAY_DRONE_GRENADE_EXPLO, pos);
 		EffectLight::add(pos, GRENADE_RANGE, 0.35f, EffectLight::Type::Alpha);
 	}
 	else if (t == Type::Explosion)
 	{
-		Audio::post_event_global(AK::EVENTS::PLAY_EXPLOSION, pos);
+		Audio::post_global(AK::EVENTS::PLAY_EXPLOSION, pos);
 		EffectLight::add(pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
 	}
 	else if (t == Type::DroneExplosion)
-	{
-		Audio::post_event_global(AK::EVENTS::PLAY_DRONE_DAMAGE_EXPLODE, pos);
 		EffectLight::add(pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
-	}
 	else if (t == Type::ImpactLarge || t == Type::ImpactSmall)
-		Audio::post_event_global(AK::EVENTS::PLAY_IMPACT, pos);
+		Audio::post_global(AK::EVENTS::PLAY_IMPACT, pos);
 	else if (t == Type::Fizzle)
-		Audio::post_event_global(AK::EVENTS::PLAY_FIZZLE, pos);
+		Audio::post_global(AK::EVENTS::PLAY_FIZZLE, pos);
 	else if (t == Type::SpawnMinion)
-		Audio::post_event_global(AK::EVENTS::PLAY_MINION_SPAWN, pos);
+		Audio::post_global(AK::EVENTS::PLAY_MINION_SPAWN, pos);
 	else if (t == Type::SpawnDrone)
-		Audio::post_event_global(AK::EVENTS::PLAY_DRONE_SPAWN, pos);
+		Audio::post_global(AK::EVENTS::PLAY_DRONE_SPAWN, pos);
 
 	if (t == Type::Grenade)
 	{
@@ -2601,7 +2581,7 @@ void ShellCasing::draw_all(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	sync->write<Vec4>(Vec4(1, 1, 1, 1));
+	sync->write<Vec4>(Vec4(1, 1, 1, MATERIAL_NO_OVERRIDE));
 
 	sync->write(params.flags & RenderFlagEdges ? RenderOp::InstancesEdges : RenderOp::Instances);
 	sync->write(Asset::Mesh::tri_tube);
@@ -2620,7 +2600,7 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	g->owner = owner;
 	g->velocity = Vec3::normalize(velocity) * GRENADE_LAUNCH_SPEED;
 
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionTarget, ~CollisionShield & ~CollisionParkour & ~CollisionElectric & ~CollisionStatic & ~CollisionInaccessible & ~CollisionAllTeamsForceField);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionTarget, ~CollisionShield & ~CollisionParkour & ~CollisionElectric & ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionAllTeamsForceField);
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::grenade_detached;
@@ -2641,7 +2621,7 @@ b8 Grenade::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	serialize_ref(p, ref);
 	if (ref.ref())
 	{
-		ref.ref()->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_ARM);
+		ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_ARM);
 		ref.ref()->active = true;
 	}
 
@@ -2823,7 +2803,7 @@ void Grenade::update_client_all(const Update& u)
 				if (v->mesh != Asset::Mesh::grenade_attached)
 				{
 					v->mesh = Asset::Mesh::grenade_attached;
-					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_ATTACH);
+					i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_ATTACH);
 				}
 			}
 			else
@@ -2858,7 +2838,7 @@ void Grenade::update_client_all(const Update& u)
 				i.item()->timer += u.time.delta;
 				const r32 interval = 1.5f;
 				if (timer_last == 0.0f || s32(Ease::cubic_in<r32>(i.item()->timer) / interval) != s32(Ease::cubic_in<r32>(timer_last) / interval))
-					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_BEEP);
+					i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_BEEP);
 			}
 			else
 			{
@@ -2867,7 +2847,7 @@ void Grenade::update_client_all(const Update& u)
 				if (s32(Game::time.total / interval) != s32((Game::time.total - u.time.delta) / interval))
 				{
 					EffectLight::add(me, GRENADE_RANGE, 1.5f, EffectLight::Type::Shockwave);
-					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_BEEP);
+					i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_BEEP);
 				}
 			}
 		}
@@ -3671,7 +3651,7 @@ ShopEntity::ShopEntity()
 	model->shader = Asset::Shader::standard;
 	model->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::shop_collision);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::shop_collision);
 	body->set_restitution(0.75f);
 }
 
@@ -3690,7 +3670,7 @@ void TerminalEntity::open()
 	Animator* animator = Game::level.terminal.ref()->get<Animator>();
 	animator->layers[0].play(Asset::Animation::terminal_opened);
 	animator->layers[1].play(Asset::Animation::terminal_open);
-	animator->get<Audio>()->post_event(AK::EVENTS::PLAY_TERMINAL_OPEN);
+	animator->get<Audio>()->post(AK::EVENTS::PLAY_TERMINAL_OPEN);
 }
 
 void TerminalEntity::close()
@@ -3698,7 +3678,7 @@ void TerminalEntity::close()
 	Animator* animator = Game::level.terminal.ref()->get<Animator>();
 	animator->layers[0].animation = AssetNull;
 	animator->layers[1].play(Asset::Animation::terminal_close);
-	animator->get<Audio>()->post_event(AK::EVENTS::PLAY_TERMINAL_CLOSE);
+	animator->get<Audio>()->post(AK::EVENTS::PLAY_TERMINAL_CLOSE);
 }
 
 void TerminalEntity::closed()
@@ -3726,7 +3706,7 @@ TerminalEntity::TerminalEntity()
 	anim->layers[1].blend_time = 0.0f;
 	anim->trigger(Asset::Animation::terminal_close, 1.33f).link(&closed);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::terminal_collision);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::terminal_collision);
 	body->set_restitution(0.75f);
 }
 
@@ -3786,7 +3766,7 @@ TramRunnerEntity::TramRunnerEntity(s8 track, b8 is_front)
 	View* model = create<View>(Asset::Mesh::tram_runner);
 	model->shader = Asset::Shader::standard;
 	model->color.w = MATERIAL_INACCESSIBLE;
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric, Asset::Mesh::tram_runner);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric, Asset::Mesh::tram_runner);
 	body->set_restitution(0.75f);
 	TramRunner* r = create<TramRunner>();
 	r->track = track;
@@ -3868,7 +3848,7 @@ namespace TramNet
 
 void TramRunner::awake()
 {
-	get<Audio>()->post_event(AK::EVENTS::PLAY_TRAM_LOOP);
+	get<Audio>()->post(AK::EVENTS::PLAY_TRAM_LOOP);
 	get<Audio>()->param(AK::GAME_PARAMETERS::TRAM_LOOP, 0.0f);
 }
 
@@ -3952,7 +3932,7 @@ void TramRunner::update_client(const Update& u)
 			);
 		}
 
-		get<Audio>()->post_event(AK::EVENTS::PLAY_TRAM_SPARK);
+		get<Audio>()->post(AK::EVENTS::PLAY_TRAM_SPARK);
 		EffectLight::add(pos + Vec3(0, -0.2f, 0), 3.0f, 0.25f, EffectLight::Type::Spark, get<Transform>());
 	}
 }
@@ -3962,7 +3942,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 	Transform* transform = create<Transform>();
 
 	const Mesh* mesh = Loader::mesh(Asset::Mesh::tram_mesh);
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionDroneIgnore, ~CollisionWalker & ~CollisionInaccessible & ~CollisionParkour & ~CollisionStatic & ~CollisionElectric);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionDroneIgnore, ~CollisionWalker & ~CollisionInaccessible & ~CollisionParkour & ~CollisionStatic & ~CollisionAudio & ~CollisionElectric);
 	body->set_restitution(0.75f);
 	body->set_damping(0.5f, 0.5f);
 
@@ -4008,7 +3988,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 		anim->layers[0].blend_time = 0.0f;
 		anim->layers[1].blend_time = 0.0f;
 
-		RigidBody* body = doors->create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionDroneIgnore & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric, Asset::Mesh::tram_collision_door);
+		RigidBody* body = doors->create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionDroneIgnore & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric, Asset::Mesh::tram_collision_door);
 		body->set_restitution(0.75f);
 		
 		doors->create<PlayerTrigger>()->radius = 8.0f; // trigger for exiting
@@ -4101,7 +4081,7 @@ b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 				if (ref.ref()->departing && ref.ref()->doors_open())
 				{
 					ref.ref()->doors_open(false);
-					ref.ref()->get<Audio>()->post_event(AK::EVENTS::PLAY_TRAM_START);
+					ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_TRAM_START);
 					if (Game::level.local)
 						TramRunner::go(ref.ref()->track(), 1.0f, TramRunner::State::Departing);
 				}
@@ -4131,7 +4111,7 @@ b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 			}
 			case TramNet::Message::Arrived:
 			{
-				ref.ref()->get<Audio>()->post_event(AK::EVENTS::PLAY_TRAM_STOP);
+				ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_TRAM_STOP);
 				ref.ref()->doors_open(true);
 				break;
 			}
@@ -4218,14 +4198,14 @@ void Tram::doors_open(b8 open)
 		body->set_collision_masks(CollisionStatic | CollisionInaccessible, 0); // disable collision
 		anim->layers[0].play(Asset::Animation::tram_doors_opened);
 		anim->layers[1].play(Asset::Animation::tram_doors_open);
-		get<Audio>()->post_event(AK::EVENTS::PLAY_TRAM_OPEN);
+		get<Audio>()->post(AK::EVENTS::PLAY_TRAM_OPEN);
 	}
 	else
 	{
-		body->set_collision_masks(CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionDroneIgnore & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric); // enable collision
+		body->set_collision_masks(CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionDroneIgnore & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric); // enable collision
 		anim->layers[0].animation = AssetNull;
 		anim->layers[1].play(Asset::Animation::tram_doors_close);
-		get<Audio>()->post_event(AK::EVENTS::PLAY_TRAM_CLOSE);
+		get<Audio>()->post(AK::EVENTS::PLAY_TRAM_CLOSE);
 	}
 }
 

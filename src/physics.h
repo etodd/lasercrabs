@@ -32,6 +32,7 @@ enum CollisionGroup
 	),
 	CollisionParkour = 1 << 12,
 	CollisionElectric = 1 << 13,
+	CollisionAudio = 1 << 14,
 };
 
 #define DRONE_PERMEABLE_MASK (CollisionTarget | CollisionShield | CollisionDroneIgnore)
@@ -124,6 +125,7 @@ struct RigidBody : public ComponentType<RigidBody>
 	static const s8 FlagContinuousCollisionDetection = 1 << 0;
 	static const s8 FlagHasConstraints = 1 << 1;
 	static const s8 FlagGhost = 1 << 2; // ghost rigidbodies still exist, but don't collide or move or affect constraints. Only servers have ghost objects. Clients always simulate everything.
+	static const s8 FlagAudioReflector = 1 << 3;
 
 	RigidBody(Type, const Vec3&, r32, s16, s16, AssetID = AssetNull, s8 = 0);
 	RigidBody();

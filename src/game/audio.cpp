@@ -16,10 +16,17 @@
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
 #include <AK/MusicEngine/Common/AkMusicEngine.h>
 #include <AK/Plugin/AkVorbisDecoderFactory.h>
+#include <AK/Plugin/AkReflectFXFactory.h>
+#include <AK/Plugin/AkMeterFXFactory.h>
+#include <AK/Plugin/AkRoomVerbFXFactory.h>
+#include <AK/Plugin/AkDelayFXFactory.h>
 #include <AK/SpatialAudio/Common/AkSpatialAudio.h>
+#include <AK/Plugin/AkReflectGameData.h>
+#include "physics.h"
 #if DEBUG
 	#include <AK/Comm/AkCommunication.h>
 #endif
+#include "ai.h"
 
 namespace AK
 {
@@ -59,19 +66,17 @@ namespace VI
 {
 
 StaticArray<ID, 32> Audio::dialogue_callbacks;
-Array<AkGameObjectID> Audio::unregister_queue;
 r32 Audio::dialogue_volume;
 s8 Audio::listener_mask;
-PinArray<Audio::Attachment, MAX_ENTITIES> Audio::Attachment::list;
+Vec3 Audio::listener_pos[MAX_GAMEPADS];
+PinArray<Audio::Entry, MAX_ENTITIES> Audio::Entry::list;
 
 #if SERVER
 b8 Audio::init() { return true; }
 void Audio::term() {}
 void Audio::update_all(const Update&) {}
-void Audio::post_event_global(AkUniqueID) {}
-b8 Audio::post_dialogue_event(AkUniqueID) { return true; }
-void Audio::post_event_global(AkUniqueID, const Vec3&) {}
-void Audio::post_event_global(AkUniqueID, const Vec3&, const Quat&) {}
+void Audio::post_global(AkUniqueID) {}
+Audio::Entry* Audio::post_global(AkUniqueID, const Vec3&) { return nullptr; }
 void Audio::param_global(AkRtpcID, AkRtpcValue) {}
 void Audio::listener_enable(s8) {}
 void Audio::listener_disable(s8) {}
@@ -79,11 +84,26 @@ void Audio::listener_update(s8, const Vec3&, const Quat&) {}
 AkUniqueID Audio::get_id(const char*) { return 0; }
 void Audio::clear() {}
 
+void Audio::Entry::init(const Vec3&, Transform*, Entry*) {}
+void Audio::Entry::cleanup() {}
+void Audio::Entry::update(r32) {}
+void Audio::Entry::update_obstruction_occlusion() {}
+void Audio::Entry::post(AkUniqueID) {}
+void Audio::Entry::stop(AkUniqueID) {}
+void Audio::Entry::stop_all() {}
+b8 Audio::Entry::post_dialogue(AkUniqueID) { return false; }
+void Audio::Entry::param(AkRtpcID, AkRtpcValue) {}
+
 void Audio::awake() {}
 Audio::~Audio() {}
-void Audio::post_event(AkUniqueID event_id) {}
-void Audio::post_event_attached(AkUniqueID, const Vec3&, r32) {}
-void Audio::param(AkRtpcID id, AkRtpcValue value) {}
+void Audio::post(AkUniqueID) {}
+Audio::Entry* Audio::post_unattached(AkUniqueID, const Vec3&) { return nullptr; }
+Audio::Entry* Audio::post_offset(AkUniqueID, const Vec3&) { return nullptr; }
+b8 Audio::post_dialogue(AkUniqueID) { return false; }
+void Audio::stop(AkUniqueID) {}
+void Audio::stop_all() {}
+void Audio::param(AkRtpcID, AkRtpcValue) {}
+void Audio::offset(const Vec3&) {}
 
 #else
 
@@ -171,8 +191,8 @@ b8 Audio::init()
 		}
 	}
 
-	// game object for global events
-	AK::SoundEngine::RegisterGameObj(MAX_ENTITIES);
+	// game object for global 2D events
+	AK::SoundEngine::RegisterGameObj(AUDIO_OFFSET_GLOBAL_2D);
 
 	// game objects for listeners
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
@@ -188,7 +208,7 @@ b8 Audio::init()
 
 AkGameObjectID Audio::listener_id(s8 gamepad)
 {
-	return MAX_ENTITIES + 2 + gamepad;
+	return AUDIO_OFFSET_LISTENERS + gamepad;
 }
 
 // Wwise callbacks
@@ -225,29 +245,133 @@ void Audio::term()
 	AK::MemoryMgr::Term();
 }
 
+#define MAX_IMAGE_SOURCES 4
+
+void Audio::Entry::init(const Vec3& npos, Transform* nparent, Entry* parent_entry)
+{
+	pos = npos;
+	parent = nparent;
+	if (nparent)
+		abs_pos = nparent->absolute_pos() + npos;
+	else
+		abs_pos = pos;
+	playing = 0;
+	keepalive = false;
+
+	AK::SoundEngine::RegisterGameObj(ak_id());
+
+	AkEmitterSettings settings;
+	settings.name = "emitter";
+	settings.reflectAuxBusID = AK::AUX_BUSSES::REFLECT_DEFAULT;
+	settings.reflectionsOrder = 1;
+	settings.reflectionsAuxBusGain = 1.0f;
+	settings.reflectionMaxPathLength = DRONE_MAX_DISTANCE;
+	settings.reflectorFilterMask = u32(-1);
+	settings.useImageSources = false;
+	AK::SpatialAudio::RegisterEmitter(ak_id(), settings);
+
+	AkAuxSendValue value;
+	value.auxBusID = AK::AUX_BUSSES::REVERB_DEFAULT;
+	value.fControlValue = 1.0f;
+	value.listenerID = AK_InvalidID;
+	AK::SpatialAudio::SetEmitterAuxSendValues(ak_id(), &value, 1);
+
+	if (parent_entry)
+	{
+		memcpy(obstruction, parent_entry->obstruction, sizeof(obstruction));
+		memcpy(obstruction_target, parent_entry->obstruction_target, sizeof(obstruction_target));
+		memcpy(occlusion, parent_entry->occlusion, sizeof(occlusion));
+		memcpy(occlusion_target, parent_entry->occlusion_target, sizeof(occlusion_target));
+		update();
+
+		obstruction_occlusion_frame = parent_entry->obstruction_occlusion_frame;
+	}
+	else
+	{
+		update_obstruction_occlusion();
+		memcpy(obstruction, obstruction_target, sizeof(obstruction));
+		memcpy(occlusion, occlusion_target, sizeof(occlusion));
+		update();
+
+		obstruction_occlusion_frame = Audio::obstruction_occlusion_frame;
+	}
+}
+
+void Audio::Entry::cleanup()
+{
+	AK::SpatialAudio::UnregisterEmitter(ak_id());
+	AK::SoundEngine::UnregisterGameObj(ak_id());
+}
+
+s16 Audio::obstruction_occlusion_frame;
 void Audio::update_all(const Update& u)
 {
-	for (auto i = list.iterator(); !i.is_last(); i.next())
+	// update obstruction and occlusion of the first n entries that we haven't updated yet
 	{
-		Vec3 pos = i.item()->offset;
-		Quat rot = Quat::identity;
-		i.item()->get<Transform>()->to_world(&pos, &rot);
+		s32 occlusion_updates = 4;
 
-		AkSoundPosition sound_position;
-		sound_position.SetPosition(pos.x, pos.y, pos.z);
-		Vec3 forward = rot * Vec3(0, 0, -1.0f);
-		Vec3 up = rot * Vec3(0, 1.0f, 0.0f);
-		sound_position.SetOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
-		AK::SoundEngine::SetPosition(i.item()->entity_id, sound_position);
+		for (auto i = Entry::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->keepalive || i.item()->playing > 0) // Audio component is keeping it alive, or something is playing on it
+			{
+				if (occlusion_updates > 0
+					&& i.item()->obstruction_occlusion_frame != obstruction_occlusion_frame)
+				{
+					i.item()->update_obstruction_occlusion();
+					occlusion_updates--;
+				}
+				i.item()->update(u.real_time.delta);
+			}
+			else
+			{
+				i.item()->cleanup();
+				Entry::list.remove(i.index);
+			}
+		}
+
+		if (occlusion_updates > 0) // we updated all entries
+			obstruction_occlusion_frame = (obstruction_occlusion_frame + 1) & s16((1 << 15) - 1); // increment to next frame so that all entries are marked as needing updated
 	}
 
-	for (auto i = Attachment::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u.time.delta);
-
-	for (s32 i = 0; i < unregister_queue.length; i++)
-		AK::SoundEngine::UnregisterGameObj(unregister_queue[i]);
-	unregister_queue.length = 0;
 	AK::SoundEngine::RenderAudio();
+}
+
+void Audio::Entry::update_obstruction_occlusion()
+{
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		if (listener_mask & (1 << i))
+		{
+			const Vec3& listener = listener_pos[i];
+
+			Vec3 dir = abs_pos - listener;
+			r32 distance = dir.length();
+			if (distance > 0.0f)
+			{
+				dir /= distance;
+
+				btCollisionWorld::ClosestRayResultCallback ray_callback(listener, listener + dir * vi_max(0.1f, distance - 0.5f));
+				Physics::raycast(&ray_callback, CollisionAudio);
+				if (ray_callback.hasHit())
+				{
+					obstruction_target[i] = 1.0f;
+					r32 path_distance = AI::audio_pathfind(ray_callback.m_rayFromWorld, ray_callback.m_rayToWorld);
+					occlusion_target[i] = vi_max(0.0f, vi_min(1.0f, (path_distance - distance) / (DRONE_MAX_DISTANCE * 0.5f)));
+				}
+				else
+				{
+					obstruction_target[i] = 0.0f;
+					occlusion_target[i] = 0.0f;
+				}
+			}
+			else
+			{
+				obstruction_target[i] = 0.0f;
+				occlusion_target[i] = 0.0f;
+			}
+		}
+	}
+	obstruction_occlusion_frame = Audio::obstruction_occlusion_frame;
 }
 
 AkUniqueID Audio::get_id(const char* str)
@@ -255,36 +379,22 @@ AkUniqueID Audio::get_id(const char* str)
 	return AK::SoundEngine::GetIDFromString(str);
 }
 
-void Audio::post_event_global(AkUniqueID event_id)
+void Audio::post_global(AkUniqueID event_id)
 {
-	AK::SoundEngine::PostEvent(event_id, MAX_ENTITIES);
+	AK::SoundEngine::PostEvent(event_id, AUDIO_OFFSET_GLOBAL_2D);
 }
 
-b8 Audio::post_dialogue_event(AkUniqueID event_id)
+b8 Audio::post_dialogue(AkUniqueID event_id)
 {
-	AkPlayingID id = AK::SoundEngine::PostEvent(event_id, entity_id, AkCallbackType::AK_EndOfEvent, &dialogue_done_callback);
-	return id != 0;
+	return Entry::list[entry_id].post_dialogue(event_id);
 }
 
-void Audio::post_event_global(AkUniqueID event_id, const Vec3& pos)
+Audio::Entry* Audio::post_global(AkUniqueID event_id, const Vec3& pos)
 {
-	post_event_global(event_id, pos, Quat::identity);
-}
-
-void Audio::post_event_global(AkUniqueID event_id, const Vec3& pos, const Quat& orientation)
-{
-	AkGameObjectID id = MAX_ENTITIES + 1;
-	AK::SoundEngine::RegisterGameObj(id);
-
-	AkSoundPosition sound_position;
-	sound_position.SetPosition(pos.x, pos.y, pos.z);
-	Vec3 forward = orientation * Vec3(0, 0, -1.0f);
-	Vec3 up = orientation * Vec3(0, 1.0f, 0.0f);
-	sound_position.SetOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
-	AK::SoundEngine::SetPosition(id, sound_position);
-
-	AK::SoundEngine::PostEvent(event_id, id);
-	AK::SoundEngine::UnregisterGameObj(id);
+	Entry* e = Entry::list.add();
+	e->init(pos, nullptr, nullptr);
+	e->post(event_id);
+	return e;
 }
 
 void Audio::param_global(AkRtpcID id, AkRtpcValue value)
@@ -321,6 +431,7 @@ void Audio::listener_enable(s8 gamepad)
 
 void Audio::listener_update(s8 gamepad, const Vec3& pos, const Quat& rot)
 {
+	listener_pos[gamepad] = pos;
 	AkListenerPosition listener_position;
 	listener_position.SetPosition(pos.x, pos.y, pos.z);
 	Vec3 forward = rot * Vec3(0, 0, -1);
@@ -331,74 +442,142 @@ void Audio::listener_update(s8 gamepad, const Vec3& pos, const Quat& rot)
 
 void Audio::awake()
 {
-	AK::SoundEngine::RegisterGameObj(entity_id);
+	Entry* e = Entry::list.add();
+	entry_id = e->id();
+	e->init(Vec3::zero, get<Transform>());
+	e->keepalive = true;
 }
 
 Audio::~Audio()
 {
-	unregister_queue.add(entity_id);
-}
-
-void Audio::post_event(AkUniqueID event_id)
-{
-	AK::SoundEngine::PostEvent(event_id, entity_id);
+	Entry::list[entry_id].keepalive = false;
 }
 
 void Audio::clear()
 {
-	Audio::post_event_global(AK::EVENTS::STOP_ALL);
-	for (auto i = Attachment::list.iterator(); !i.is_last(); i.next())
-		unregister_queue.add(i.item()->ak_id());
-	Attachment::list.clear();
+	Audio::post_global(AK::EVENTS::STOP_ALL);
 
-	for (s32 i = 0; i < unregister_queue.length; i++)
-		AK::SoundEngine::UnregisterGameObj(unregister_queue[i]);
-	unregister_queue.length = 0;
+	for (auto i = Entry::list.iterator(); !i.is_last(); i.next())
+		i.item()->cleanup();
+	Entry::list.clear();
 }
 
-void Audio::Attachment::update(r32 dt)
+void Audio::Entry::update(r32 dt)
 {
-	lifetime -= dt;
-	if (lifetime < 0.0f || !parent.ref())
+	if (parent.ref())
+		abs_pos = pos + parent.ref()->absolute_pos();
+
+	const r32 delta = dt * (1.0f / 0.35f); // takes X seconds to lerp to the new value
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		unregister_queue.add(ak_id());
-		list.remove(id());
+		if (Audio::listener_mask & (1 << i))
+		{
+			if (obstruction_target[i] > obstruction[i])
+				obstruction[i] = vi_min(obstruction_target[i], obstruction[i] + delta);
+			else
+				obstruction[i] = vi_max(obstruction_target[i], obstruction[i] - delta);
+			if (occlusion_target[i] > occlusion[i])
+				occlusion[i] = vi_min(occlusion_target[i], occlusion[i] + delta);
+			else
+				occlusion[i] = vi_max(occlusion_target[i], occlusion[i] - delta);
+			AK::SoundEngine::SetObjectObstructionAndOcclusion(ak_id(), Audio::listener_id(i), obstruction[i], occlusion[i]);
+		}
+	}
+
+	AkSoundPosition sound_position;
+	sound_position.SetPosition(abs_pos.x, abs_pos.y, abs_pos.z);
+	sound_position.SetOrientation(0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f);
+	AK::SpatialAudio::SetEmitterPosition(ak_id(), sound_position);
+}
+
+Audio::Entry* Audio::Entry::by_ak_id(AkGameObjectID id)
+{
+	return &list[id - AUDIO_OFFSET_ENTRIES];
+}
+
+#if !SERVER
+void Audio::event_done_callback(AkCallbackType type, AkCallbackInfo* info)
+{
+	Entry::by_ak_id(info->gameObjID)->playing--;
+}
+#endif
+
+void Audio::Entry::post(AkUniqueID event_id)
+{
+	AkPlayingID i = AK::SoundEngine::PostEvent(event_id, ak_id(), AkCallbackType::AK_EndOfEvent, &event_done_callback);
+	if (i != 0)
+		playing++;
+}
+
+void Audio::Entry::stop(AkUniqueID event_id)
+{
+	AK::SoundEngine::PostEvent(event_id, ak_id());
+	playing--;
+}
+
+void Audio::Entry::stop_all()
+{
+	AK::SoundEngine::PostEvent(AK::EVENTS::STOP, ak_id());
+	playing = 0;
+}
+
+b8 Audio::Entry::post_dialogue(AkUniqueID event_id)
+{
+	AkPlayingID i = AK::SoundEngine::PostEvent(event_id, ak_id(), AkCallbackType::AK_EndOfEvent, &dialogue_done_callback);
+	if (i != 0)
+	{
+		playing++;
+		return true;
 	}
 	else
-	{
-		Quat rot;
-		Vec3 pos;
-		parent.ref()->absolute(&pos, &rot);
-		pos += offset;
-
-		AkSoundPosition sound_position;
-		sound_position.SetPosition(pos.x, pos.y, pos.z);
-
-		Vec3 forward = rot * Vec3(0, 0, -1.0f);
-		Vec3 up = rot * Vec3(0, 1.0f, 0.0f);
-		sound_position.SetOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
-
-		AK::SoundEngine::SetPosition(ak_id(), sound_position);
-	}
+		return false;
 }
 
-void Audio::post_event_attached(AkUniqueID event_id, const Vec3& offset, r32 lifetime)
+void Audio::Entry::param(AkRtpcID id, AkRtpcValue value)
 {
-	Attachment* a = Attachment::list.add();
-	a->parent = get<Transform>();
-	a->lifetime = lifetime;
-	a->offset = offset;
-	
-	AK::SoundEngine::RegisterGameObj(a->ak_id());
+	AK::SoundEngine::SetRTPCValue(id, value, ak_id());
+}
 
-	a->update();
+void Audio::post(AkUniqueID event_id)
+{
+	Entry::list[entry_id].post(event_id);
+}
 
-	AK::SoundEngine::PostEvent(event_id, a->ak_id());
+void Audio::stop(AkUniqueID event_id)
+{
+	Entry::list[entry_id].stop(event_id);
+}
+
+void Audio::stop_all()
+{
+	Entry::list[entry_id].stop_all();
+}
+
+Audio::Entry* Audio::post_unattached(AkUniqueID event_id, const Vec3& pos)
+{
+	Entry* e = Entry::list.add();
+
+	e->init(pos + get<Transform>()->absolute_pos(), nullptr, &Entry::list[entry_id]);
+	e->post(event_id);
+	return e;
+}
+
+Audio::Entry* Audio::post_offset(AkUniqueID event_id, const Vec3& offset)
+{
+	Entry* e = Entry::list.add();
+	e->init(offset, get<Transform>(), &Entry::list[entry_id]);
+	e->post(event_id);
+	return e;
 }
 
 void Audio::param(AkRtpcID id, AkRtpcValue value)
 {
-	AK::SoundEngine::SetRTPCValue(id, value, entity_id);
+	Entry::list[entry_id].param(id, value);
+}
+
+void Audio::offset(const Vec3& offset)
+{
+	Entry::list[entry_id].pos = offset;
 }
 
 #endif

@@ -5,7 +5,7 @@
 			<ChildrenList>
 				<Attenuation Name="Atten20" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" ShortID="1058333233">
 					<PropertyList>
-						<Property Name="RadiusMax" Type="Real64" Value="20"/>
+						<Property Name="RadiusMax" Type="Real64" Value="35"/>
 					</PropertyList>
 					<CurveUsageInfoList>
 						<VolumeDryUsage>
@@ -21,7 +21,7 @@
 											<Flags>5</Flags>
 										</Point>
 										<Point>
-											<XPos>20</XPos>
+											<XPos>35</XPos>
 											<YPos>-200</YPos>
 											<Flags>37</Flags>
 										</Point>
@@ -51,7 +51,7 @@
 				</Attenuation>
 				<Attenuation Name="Atten15" ID="{66FF368F-246F-423C-AD7C-4B99890C0E5F}" ShortID="1017001815">
 					<PropertyList>
-						<Property Name="RadiusMax" Type="Real64" Value="15"/>
+						<Property Name="RadiusMax" Type="Real64" Value="20"/>
 					</PropertyList>
 					<CurveUsageInfoList>
 						<VolumeDryUsage>
@@ -67,7 +67,7 @@
 											<Flags>5</Flags>
 										</Point>
 										<Point>
-											<XPos>15</XPos>
+											<XPos>20</XPos>
 											<YPos>-200</YPos>
 											<Flags>37</Flags>
 										</Point>
@@ -172,7 +172,7 @@
 				</Attenuation>
 				<Attenuation Name="Battery" ID="{ACA583FA-CAB8-444D-A153-FF06FE64E2D0}" ShortID="403618400">
 					<PropertyList>
-						<Property Name="RadiusMax" Type="Real64" Value="50"/>
+						<Property Name="RadiusMax" Type="Real64" Value="70"/>
 					</PropertyList>
 					<CurveUsageInfoList>
 						<VolumeDryUsage>
@@ -188,7 +188,7 @@
 											<Flags>5</Flags>
 										</Point>
 										<Point>
-											<XPos>50</XPos>
+											<XPos>70</XPos>
 											<YPos>-200</YPos>
 											<Flags>37</Flags>
 										</Point>
@@ -221,17 +221,17 @@
 											<Flags>5</Flags>
 										</Point>
 										<Point>
-											<XPos>2.5</XPos>
+											<XPos>3.5</XPos>
 											<YPos>100</YPos>
 											<Flags>0</Flags>
 										</Point>
 										<Point>
-											<XPos>2.501</XPos>
+											<XPos>3.5014</XPos>
 											<YPos>0.26385</YPos>
 											<Flags>0</Flags>
 										</Point>
 										<Point>
-											<XPos>50</XPos>
+											<XPos>70</XPos>
 											<YPos>0</YPos>
 											<Flags>37</Flags>
 										</Point>
@@ -246,7 +246,7 @@
 				</Attenuation>
 				<Attenuation Name="Drone_Damage" ID="{32F77D40-C5C1-46B5-9B38-E970376362BB}" ShortID="66878556">
 					<PropertyList>
-						<Property Name="RadiusMax" Type="Real64" Value="10"/>
+						<Property Name="RadiusMax" Type="Real64" Value="20"/>
 					</PropertyList>
 					<CurveUsageInfoList>
 						<VolumeDryUsage>
@@ -263,7 +263,7 @@
 											<SegmentShape>Log1</SegmentShape>
 										</Point>
 										<Point>
-											<XPos>10</XPos>
+											<XPos>20</XPos>
 											<YPos>-200</YPos>
 											<Flags>37</Flags>
 										</Point>
@@ -293,7 +293,7 @@
 				</Attenuation>
 				<Attenuation Name="Drone_Sensor" ID="{E49272F0-35F5-47D4-8B8C-0265B3BD8641}" ShortID="514401156">
 					<PropertyList>
-						<Property Name="RadiusMax" Type="Real64" Value="25"/>
+						<Property Name="RadiusMax" Type="Real64" Value="40"/>
 					</PropertyList>
 					<CurveUsageInfoList>
 						<VolumeDryUsage>
@@ -309,7 +309,7 @@
 											<Flags>5</Flags>
 										</Point>
 										<Point>
-											<XPos>25</XPos>
+											<XPos>40</XPos>
 											<YPos>-200</YPos>
 											<Flags>37</Flags>
 										</Point>
@@ -339,7 +339,7 @@
 				</Attenuation>
 				<Attenuation Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" ShortID="817788911">
 					<PropertyList>
-						<Property Name="RadiusMax" Type="Real64" Value="20"/>
+						<Property Name="RadiusMax" Type="Real64" Value="30"/>
 					</PropertyList>
 					<CurveUsageInfoList>
 						<VolumeDryUsage>
@@ -355,7 +355,7 @@
 											<Flags>5</Flags>
 										</Point>
 										<Point>
-											<XPos>20</XPos>
+											<XPos>30</XPos>
 											<YPos>-200</YPos>
 											<Flags>37</Flags>
 										</Point>

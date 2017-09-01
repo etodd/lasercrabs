@@ -234,7 +234,7 @@ namespace platform
 
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
-const s32 version = 33;
+const s32 version = 34;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -2422,67 +2422,25 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 		timer = platform::time();
 	}
 
-	if (cJSON_HasObjectItem(json->child, "nonav")) // map-level nonav directive prevents nav-mesh generation for the whole map
-		out->has_normals_adjacency = false;
-	else
+	// chunk inaccessible mesh
+	ChunkedTris inaccessible_chunked;
 	{
-		out->has_normals_adjacency = true;
+		Mesh inaccessible;
+		consolidate_nav_geometry(&inaccessible, meshes, manifest, json, is_inaccessible);
 
-		// chunk inaccessible mesh
-		ChunkedTris inaccessible_chunked;
-		{
-			Mesh inaccessible;
-			consolidate_nav_geometry(&inaccessible, meshes, manifest, json, is_inaccessible);
+		printf("Consolidated inaccessible surfaces: %fs\n", platform::time() - timer);
+		timer = platform::time();
 
-			printf("Consolidated inaccessible surfaces: %fs\n", platform::time() - timer);
-			timer = platform::time();
+		chunk_mesh<Array<Vec3>, &chunk_handle_tris>(inaccessible, &inaccessible_chunked, chunk_size, chunk_padding);
 
-			chunk_mesh<Array<Vec3>, &chunk_handle_tris>(inaccessible, &inaccessible_chunked, chunk_size, chunk_padding);
+		printf("Chunked inaccessible surfaces: %fs\n", platform::time() - timer);
+		timer = platform::time();
+	}
 
-			printf("Chunked inaccessible surfaces: %fs\n", platform::time() - timer);
-			timer = platform::time();
-		}
-
-		{
-			// filter out bad nav graph vertices where there is an obstruction between the surface point
-			// and the Drone's actual location which is offset by DRONE_RADIUS
-			s32 vertex_removals = 0;
-			for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
-			{
-				DroneNavMeshChunk* chunk = &out->chunks[chunk_index];
-
-				for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
-				{
-					DroneNavMeshNode vertex_node = { s16(chunk_index), s16(vertex_index) };
-					const Vec3& vertex_normal = chunk->normals[vertex_index];
-					const Vec3 vertex_surface = chunk->vertices[vertex_index];
-					const Vec3 a = vertex_surface + vertex_normal * 0.01f;
-					const Vec3 b = vertex_surface + vertex_normal * (DRONE_RADIUS + 0.02f);
-					if (drone_raycast(inaccessible_chunked, a, b)
-						|| drone_raycast(accessible_chunked, a, b))
-					{
-						// remove vertex
-						vertex_removals++;
-						chunk->vertices.remove(vertex_index);
-						chunk->normals.remove(vertex_index);
-						vertex_index--;
-					}
-				}
-			}
-			printf("Removed %d bad vertices: %fs\n", vertex_removals, platform::time() - timer);
-			timer = platform::time();
-		}
-	
-		// build adjacency
-
-		for (s32 i = 0; i < out->chunks.length; i++)
-			out->chunks[i].adjacency.resize(out->chunks[i].vertices.length);
-
-		// how many vertices had overflowing adjacency buffers?
-		*adjacency_buffer_overflows = 0;
-
-		Array<DroneNavMeshNode> potential_neighbors;
-		Array<DroneNavMeshNode> potential_crawl_neighbors;
+	{
+		// filter out bad nav graph vertices where there is an obstruction between the surface point
+		// and the Drone's actual location which is offset by DRONE_RADIUS
+		s32 vertex_removals = 0;
 		for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
 		{
 			DroneNavMeshChunk* chunk = &out->chunks[chunk_index];
@@ -2492,179 +2450,249 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 				DroneNavMeshNode vertex_node = { s16(chunk_index), s16(vertex_index) };
 				const Vec3& vertex_normal = chunk->normals[vertex_index];
 				const Vec3 vertex_surface = chunk->vertices[vertex_index];
-				const Vec3 vertex = vertex_surface + vertex_normal * DRONE_RADIUS;
-				DroneNavMeshAdjacency* vertex_adjacency = &chunk->adjacency[vertex_index];
-
-				potential_neighbors.length = 0;
-				potential_crawl_neighbors.length = 0;
-
-				// visit neighbors
-				DroneNavMesh::Coord chunk_coord = out->coord(chunk_index);
-				s32 chunk_radius = (s32)ceilf(DRONE_MAX_DISTANCE / chunk_size);
-				for (s32 neighbor_chunk_x = vi_max(chunk_coord.x - chunk_radius + 1, 0); neighbor_chunk_x < vi_min(chunk_coord.x + chunk_radius, out->size.x); neighbor_chunk_x++)
+				const Vec3 a = vertex_surface + vertex_normal * 0.01f;
+				const Vec3 b = vertex_surface + vertex_normal * (DRONE_RADIUS + 0.02f);
+				if (drone_raycast(inaccessible_chunked, a, b)
+					|| drone_raycast(accessible_chunked, a, b))
 				{
-					for (s32 neighbor_chunk_y = vi_max(chunk_coord.y - chunk_radius + 1, 0); neighbor_chunk_y < vi_min(chunk_coord.y + chunk_radius, out->size.y); neighbor_chunk_y++)
+					// remove vertex
+					vertex_removals++;
+					chunk->vertices.remove(vertex_index);
+					chunk->normals.remove(vertex_index);
+					vertex_index--;
+				}
+			}
+		}
+		printf("Removed %d bad vertices: %fs\n", vertex_removals, platform::time() - timer);
+		timer = platform::time();
+	}
+
+	// build adjacency
+
+	for (s32 i = 0; i < out->chunks.length; i++)
+		out->chunks[i].adjacency.resize(out->chunks[i].vertices.length);
+
+	// how many vertices had overflowing adjacency buffers?
+	*adjacency_buffer_overflows = 0;
+
+	Array<DroneNavMeshNode> potential_neighbors;
+	Array<DroneNavMeshNode> potential_crawl_neighbors;
+	for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
+	{
+		DroneNavMeshChunk* chunk = &out->chunks[chunk_index];
+
+		for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
+		{
+			DroneNavMeshNode vertex_node = { s16(chunk_index), s16(vertex_index) };
+			const Vec3& vertex_normal = chunk->normals[vertex_index];
+			const Vec3 vertex_surface = chunk->vertices[vertex_index];
+			const Vec3 vertex = vertex_surface + vertex_normal * DRONE_RADIUS;
+			DroneNavMeshAdjacency* vertex_adjacency = &chunk->adjacency[vertex_index];
+
+			potential_neighbors.length = 0;
+			potential_crawl_neighbors.length = 0;
+
+			// visit neighbors
+			DroneNavMesh::Coord chunk_coord = out->coord(chunk_index);
+			s32 chunk_radius = (s32)ceilf(DRONE_MAX_DISTANCE / chunk_size);
+			for (s32 neighbor_chunk_x = vi_max(chunk_coord.x - chunk_radius + 1, 0); neighbor_chunk_x < vi_min(chunk_coord.x + chunk_radius, out->size.x); neighbor_chunk_x++)
+			{
+				for (s32 neighbor_chunk_y = vi_max(chunk_coord.y - chunk_radius + 1, 0); neighbor_chunk_y < vi_min(chunk_coord.y + chunk_radius, out->size.y); neighbor_chunk_y++)
+				{
+					for (s32 neighbor_chunk_z = vi_max(chunk_coord.z - chunk_radius + 1, 0); neighbor_chunk_z < vi_min(chunk_coord.z + chunk_radius, out->size.z); neighbor_chunk_z++)
 					{
-						for (s32 neighbor_chunk_z = vi_max(chunk_coord.z - chunk_radius + 1, 0); neighbor_chunk_z < vi_min(chunk_coord.z + chunk_radius, out->size.z); neighbor_chunk_z++)
+						DroneNavMesh::Coord neighbor_chunk_coord = { neighbor_chunk_x, neighbor_chunk_y, neighbor_chunk_z };
+
+						s32 neighbor_chunk_index = out->index(neighbor_chunk_coord);
+						DroneNavMeshChunk* neighbor_chunk = out->get(neighbor_chunk_coord);
+
+						for (s32 neighbor_index = 0; neighbor_index < neighbor_chunk->vertices.length; neighbor_index++)
 						{
-							DroneNavMesh::Coord neighbor_chunk_coord = { neighbor_chunk_x, neighbor_chunk_y, neighbor_chunk_z };
+							DroneNavMeshNode neighbor_node = { s16(neighbor_chunk_index), s16(neighbor_index) };
+							if (vertex_node.equals(neighbor_node)) // don't connect this vertex to itself
+								continue;
 
-							s32 neighbor_chunk_index = out->index(neighbor_chunk_coord);
-							DroneNavMeshChunk* neighbor_chunk = out->get(neighbor_chunk_coord);
+							const Vec3& neighbor = neighbor_chunk->vertices[neighbor_index];
 
-							for (s32 neighbor_index = 0; neighbor_index < neighbor_chunk->vertices.length; neighbor_index++)
+							Vec3 to_neighbor = neighbor - vertex;
+							if (vertex_normal.dot(to_neighbor) > 0.07f)
 							{
-								DroneNavMeshNode neighbor_node = { s16(neighbor_chunk_index), s16(neighbor_index) };
-								if (vertex_node.equals(neighbor_node)) // don't connect this vertex to itself
-									continue;
-
-								const Vec3& neighbor = neighbor_chunk->vertices[neighbor_index];
-
-								Vec3 to_neighbor = neighbor - vertex;
-								if (vertex_normal.dot(to_neighbor) > 0.07f)
+								// neighbor is in front of our surface; we might be able to shoot there
+								r32 distance_squared = to_neighbor.length_squared();
+								if (distance_squared < (DRONE_MAX_DISTANCE - DRONE_RADIUS) * (DRONE_MAX_DISTANCE - DRONE_RADIUS)
+									&& distance_squared > (DRONE_RADIUS * 2.0f) * (DRONE_RADIUS * 2.0f))
 								{
-									// neighbor is in front of our surface; we might be able to shoot there
-									r32 distance_squared = to_neighbor.length_squared();
-									if (distance_squared < (DRONE_MAX_DISTANCE - DRONE_RADIUS) * (DRONE_MAX_DISTANCE - DRONE_RADIUS)
-										&& distance_squared > (DRONE_RADIUS * 2.0f) * (DRONE_RADIUS * 2.0f))
+									to_neighbor /= sqrtf(distance_squared);
+									if (fabs(to_neighbor.y) < DRONE_VERTICAL_DOT_LIMIT) // can't shoot straight up or straight down
 									{
-										to_neighbor /= sqrtf(distance_squared);
-										if (fabs(to_neighbor.y) < DRONE_VERTICAL_DOT_LIMIT) // can't shoot straight up or straight down
-										{
-											const Vec3& normal_neighbor = neighbor_chunk->normals[neighbor_index];
-											if (normal_neighbor.dot(to_neighbor) < 0.0f)
-												potential_neighbors.add(neighbor_node);
-										}
+										const Vec3& normal_neighbor = neighbor_chunk->normals[neighbor_index];
+										if (normal_neighbor.dot(to_neighbor) < 0.0f)
+											potential_neighbors.add(neighbor_node);
 									}
 								}
-								else
-								{
-									// neighbor is co-planar or behind our surface; we might be able to crawl there
-									r32 distance_squared = to_neighbor.length_squared();
-									if (distance_squared < (grid_spacing * 1.5f) * (grid_spacing * 1.5f))
-										potential_crawl_neighbors.add(neighbor_node);
-								}
+							}
+							else
+							{
+								// neighbor is co-planar or behind our surface; we might be able to crawl there
+								r32 distance_squared = to_neighbor.length_squared();
+								if (distance_squared < (grid_spacing * 1.5f) * (grid_spacing * 1.5f))
+									potential_crawl_neighbors.add(neighbor_node);
 							}
 						}
 					}
 				}
+			}
 
+			{
+				// raycast to make sure we can actually get to the neighbor
+				for (s32 i = 0; i < potential_crawl_neighbors.length; i++)
 				{
-					// raycast to make sure we can actually get to the neighbor
-					for (s32 i = 0; i < potential_crawl_neighbors.length; i++)
+					const DroneNavMeshNode neighbor_index = potential_crawl_neighbors[i];
+					const Vec3& neighbor_normal = out->chunks[neighbor_index.chunk].normals[neighbor_index.vertex];
+					const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex] + neighbor_normal * DRONE_RADIUS;
+
+					b8 add_neighbor = true;
+
+					Vec3 to_neighbor = neighbor_vertex - vertex;
+
+					r32 neighbor_dot = to_neighbor.dot(vertex_normal);
+					if (neighbor_dot > 0.07f) // neighbor is in front of vertex surface
 					{
-						const DroneNavMeshNode neighbor_index = potential_crawl_neighbors[i];
-						const Vec3& neighbor_normal = out->chunks[neighbor_index.chunk].normals[neighbor_index.vertex];
-						const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex] + neighbor_normal * DRONE_RADIUS;
-
-						b8 add_neighbor = true;
-
-						Vec3 to_neighbor = neighbor_vertex - vertex;
-
-						r32 neighbor_dot = to_neighbor.dot(vertex_normal);
-						if (neighbor_dot > 0.07f) // neighbor is in front of vertex surface
+						if (drone_raycast(inaccessible_chunked, vertex, neighbor_vertex)
+							|| drone_raycast(accessible_chunked, vertex, neighbor_vertex))
+							add_neighbor = false;
+					}
+					else if (neighbor_dot > -0.07f) // neighbor is coplanar
+					{
+						if (drone_raycast(inaccessible_chunked, vertex, neighbor_vertex)
+							|| drone_raycast(accessible_chunked, vertex, neighbor_vertex))
+							add_neighbor = false;
+					}
+					else // neighbor is behind our surface
+					{
+						r32 normals_dot = neighbor_normal.dot(vertex_normal);
+						if (normals_dot < -0.495f)
+							add_neighbor = false; // angle is too sharp to go around the corner
+						else
 						{
-							if (drone_raycast(inaccessible_chunked, vertex, neighbor_vertex)
-								|| drone_raycast(accessible_chunked, vertex, neighbor_vertex))
+							// we're going around a corner
+
+							// calculate a line in the vertex plane pointing toward the neighbor plane
+							Vec3 line_to_neighbor_plane = neighbor_normal + (vertex_normal * -normals_dot);
+							// figure out how far along that line the neighbor plane is
+							r32 line_length = to_neighbor.dot(neighbor_normal) / line_to_neighbor_plane.dot(neighbor_normal);
+
+							// this line is the intersection between the two planes
+							Vec3 intersection_line_origin = vertex + line_to_neighbor_plane * line_length;
+							Vec3 intersection_line_dir = neighbor_normal.cross(vertex_normal);
+
+							// now we need to find the point on the intersection line that is closest to the to_neighbor line.
+							// as part of this process, we also find the point on the to_neighbor line that is closest.
+							// the two lines are:
+							// p = p0 + s*d0 // intersection_line
+							// p = p1 + t*d1 // to_neighbor
+							// the vector 'v' between the two closest points will be orthogonal to both lines, so:
+							// v = (p0 + s*d0) - (p1 + t*d1)
+							// v . d0 = 0
+							// v . d1 = 0
+							// we substitute and end up with a system of two equations:
+							// (d0.d0)*s + -(d1.d0)*t = p1.d0 - p0.d0
+							// (d0.d1)*s + -(d1.d1)*t = p1.d1 - p0.d1
+							// which can also be written as a matrix equation:
+							//   A                     X       B
+							// [ d0.d0  -(d1.d0) ]   [ s ]   [ p1.d0 - p0.d0 ]
+							// [ d0.d1  -(d1.d1) ] * [ t ] = [ p1.d1 - p0.d1 ]
+							// to find X:
+							// X = A^-1 * B
+							// so we need to find the inverse of matrix A.
+							// first let's define the matrix.
+							// A =    [ a  b ]
+							//        [ c  d ]
+							r32 a = intersection_line_dir.dot(intersection_line_dir); // d0.d0
+							r32 b = -to_neighbor.dot(intersection_line_dir); // -d1.d0
+							r32 c = -b; // d0.d1
+							r32 d = -to_neighbor.dot(to_neighbor); // -d1.d1
+							// now let's invert it.
+							// for 2x2 matrices, the inverse can be calculated like so:
+							// A^-1 = (1 / (ad - bc)) * [ d -b ]
+							//                          [ -c a ]
+							r32 inverse_determinant = 1.0f / ((a * d) - (b * c));
+							r32 a0 = inverse_determinant * d;
+							r32 b0 = inverse_determinant * -b;
+							//r32 c0 = inverse_determinant * -c; // unneeded
+							//r32 d0 = inverse_determinant * a;
+							// now we calculate B
+							// where B = [ e ]
+							//           [ f ]
+							r32 e = vertex.dot(intersection_line_dir) - intersection_line_origin.dot(intersection_line_dir); // p1.d0 - p0.d0
+							r32 f = vertex.dot(to_neighbor) - intersection_line_origin.dot(to_neighbor); // p1.d1 - p0.d1
+							// now we calculate X = A^-1 * B = [ a0  b0 ]   [ e ]
+							//                                 [ c0  d0 ] * [ f ]
+							r32 s = (a0 * e) + (b0 * f);
+							//r32 t = (c0 * e) + (d0 * f); // unneeded
+
+							// closest point on the intersection line
+							Vec3 intersection = intersection_line_origin + intersection_line_dir * s;
+
+							// check if the Drone will actually go the right direction if it tries to crawl toward the point
+							if ((intersection - vertex).dot(to_neighbor) < 0.0f)
 								add_neighbor = false;
-						}
-						else if (neighbor_dot > -0.07f) // neighbor is coplanar
-						{
-							if (drone_raycast(inaccessible_chunked, vertex, neighbor_vertex)
-								|| drone_raycast(accessible_chunked, vertex, neighbor_vertex))
-								add_neighbor = false;
-						}
-						else // neighbor is behind our surface
-						{
-							r32 normals_dot = neighbor_normal.dot(vertex_normal);
-							if (normals_dot < -0.495f)
-								add_neighbor = false; // angle is too sharp to go around the corner
 							else
 							{
-								// we're going around a corner
-
-								// calculate a line in the vertex plane pointing toward the neighbor plane
-								Vec3 line_to_neighbor_plane = neighbor_normal + (vertex_normal * -normals_dot);
-								// figure out how far along that line the neighbor plane is
-								r32 line_length = to_neighbor.dot(neighbor_normal) / line_to_neighbor_plane.dot(neighbor_normal);
-
-								// this line is the intersection between the two planes
-								Vec3 intersection_line_origin = vertex + line_to_neighbor_plane * line_length;
-								Vec3 intersection_line_dir = neighbor_normal.cross(vertex_normal);
-
-								// now we need to find the point on the intersection line that is closest to the to_neighbor line.
-								// as part of this process, we also find the point on the to_neighbor line that is closest.
-								// the two lines are:
-								// p = p0 + s*d0 // intersection_line
-								// p = p1 + t*d1 // to_neighbor
-								// the vector 'v' between the two closest points will be orthogonal to both lines, so:
-								// v = (p0 + s*d0) - (p1 + t*d1)
-								// v . d0 = 0
-								// v . d1 = 0
-								// we substitute and end up with a system of two equations:
-								// (d0.d0)*s + -(d1.d0)*t = p1.d0 - p0.d0
-								// (d0.d1)*s + -(d1.d1)*t = p1.d1 - p0.d1
-								// which can also be written as a matrix equation:
-								//   A                     X       B
-								// [ d0.d0  -(d1.d0) ]   [ s ]   [ p1.d0 - p0.d0 ]
-								// [ d0.d1  -(d1.d1) ] * [ t ] = [ p1.d1 - p0.d1 ]
-								// to find X:
-								// X = A^-1 * B
-								// so we need to find the inverse of matrix A.
-								// first let's define the matrix.
-								// A =    [ a  b ]
-								//        [ c  d ]
-								r32 a = intersection_line_dir.dot(intersection_line_dir); // d0.d0
-								r32 b = -to_neighbor.dot(intersection_line_dir); // -d1.d0
-								r32 c = -b; // d0.d1
-								r32 d = -to_neighbor.dot(to_neighbor); // -d1.d1
-								// now let's invert it.
-								// for 2x2 matrices, the inverse can be calculated like so:
-								// A^-1 = (1 / (ad - bc)) * [ d -b ]
-								//                          [ -c a ]
-								r32 inverse_determinant = 1.0f / ((a * d) - (b * c));
-								r32 a0 = inverse_determinant * d;
-								r32 b0 = inverse_determinant * -b;
-								//r32 c0 = inverse_determinant * -c; // unneeded
-								//r32 d0 = inverse_determinant * a;
-								// now we calculate B
-								// where B = [ e ]
-								//           [ f ]
-								r32 e = vertex.dot(intersection_line_dir) - intersection_line_origin.dot(intersection_line_dir); // p1.d0 - p0.d0
-								r32 f = vertex.dot(to_neighbor) - intersection_line_origin.dot(to_neighbor); // p1.d1 - p0.d1
-								// now we calculate X = A^-1 * B = [ a0  b0 ]   [ e ]
-								//                                 [ c0  d0 ] * [ f ]
-								r32 s = (a0 * e) + (b0 * f);
-								//r32 t = (c0 * e) + (d0 * f); // unneeded
-
-								// closest point on the intersection line
-								Vec3 intersection = intersection_line_origin + intersection_line_dir * s;
-
-								// check if the Drone will actually go the right direction if it tries to crawl toward the point
-								if ((intersection - vertex).dot(to_neighbor) < 0.0f)
-									add_neighbor = false;
-								else
+								// check vertex surface for obstacles
 								{
-									// check vertex surface for obstacles
-									{
-										if (drone_raycast(inaccessible_chunked, vertex, intersection)
-											|| drone_raycast(accessible_chunked, vertex, intersection))
-											add_neighbor = false;
-									}
-									// check neighbor surface for obstacles
-									{
-										if (drone_raycast(inaccessible_chunked, intersection, neighbor_vertex)
-											|| drone_raycast(accessible_chunked, intersection, neighbor_vertex))
-											add_neighbor = false;
-									}
+									if (drone_raycast(inaccessible_chunked, vertex, intersection)
+										|| drone_raycast(accessible_chunked, vertex, intersection))
+										add_neighbor = false;
+								}
+								// check neighbor surface for obstacles
+								{
+									if (drone_raycast(inaccessible_chunked, intersection, neighbor_vertex)
+										|| drone_raycast(accessible_chunked, intersection, neighbor_vertex))
+										add_neighbor = false;
 								}
 							}
 						}
+					}
 
-						if (add_neighbor)
+					if (add_neighbor)
+					{
+						vertex_adjacency->neighbors.add(neighbor_index);
+						vertex_adjacency->flag(vertex_adjacency->neighbors.length - 1, true); // set crawl flag
+						if (vertex_adjacency->neighbors.length == vertex_adjacency->neighbors.capacity())
+						{
+							(*adjacency_buffer_overflows)++;
+							break;
+						}
+					}
+				}
+			}
+
+			if (vertex_adjacency->neighbors.length < vertex_adjacency->neighbors.capacity())
+			{
+				// shuffle potential neighbors
+				for (s32 i = 0; i < potential_neighbors.length - 1; i++)
+				{
+					s32 j = i + mersenne::rand() % (potential_neighbors.length - i);
+					const DroneNavMeshNode tmp = potential_neighbors[i];
+					potential_neighbors[i] = potential_neighbors[j];
+					potential_neighbors[j] = tmp;
+				}
+
+				// raycast potential neighbors
+				for (s32 i = 0; i < potential_neighbors.length; i++)
+				{
+					const DroneNavMeshNode neighbor_index = potential_neighbors[i];
+					const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex];
+					if (!drone_raycast(inaccessible_chunked, vertex, neighbor_vertex))
+					{
+						const Vec3& neighbor_normal = out->chunks[neighbor_index.chunk].normals[neighbor_index.vertex];
+						b8 hit_close;
+						drone_raycast(accessible_chunked, vertex, neighbor_vertex, &neighbor_normal, &hit_close);
+						if (hit_close)
 						{
 							vertex_adjacency->neighbors.add(neighbor_index);
-							vertex_adjacency->flag(vertex_adjacency->neighbors.length - 1, true); // set crawl flag
+							vertex_adjacency->flag(vertex_adjacency->neighbors.length - 1, false); // clear crawl flag
 							if (vertex_adjacency->neighbors.length == vertex_adjacency->neighbors.capacity())
 							{
 								(*adjacency_buffer_overflows)++;
@@ -2673,91 +2701,56 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 						}
 					}
 				}
-
-				if (vertex_adjacency->neighbors.length < vertex_adjacency->neighbors.capacity())
-				{
-					// shuffle potential neighbors
-					for (s32 i = 0; i < potential_neighbors.length - 1; i++)
-					{
-						s32 j = i + mersenne::rand() % (potential_neighbors.length - i);
-						const DroneNavMeshNode tmp = potential_neighbors[i];
-						potential_neighbors[i] = potential_neighbors[j];
-						potential_neighbors[j] = tmp;
-					}
-
-					// raycast potential neighbors
-					for (s32 i = 0; i < potential_neighbors.length; i++)
-					{
-						const DroneNavMeshNode neighbor_index = potential_neighbors[i];
-						const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex];
-						if (!drone_raycast(inaccessible_chunked, vertex, neighbor_vertex))
-						{
-							const Vec3& neighbor_normal = out->chunks[neighbor_index.chunk].normals[neighbor_index.vertex];
-							b8 hit_close;
-							drone_raycast(accessible_chunked, vertex, neighbor_vertex, &neighbor_normal, &hit_close);
-							if (hit_close)
-							{
-								vertex_adjacency->neighbors.add(neighbor_index);
-								vertex_adjacency->flag(vertex_adjacency->neighbors.length - 1, false); // clear crawl flag
-								if (vertex_adjacency->neighbors.length == vertex_adjacency->neighbors.capacity())
-								{
-									(*adjacency_buffer_overflows)++;
-									break;
-								}
-							}
-						}
-					}
-				}
 			}
 		}
-
-		printf("Built adjacency graph: %fs\n", platform::time() - timer);
-		timer = platform::time();
-
-		// count orphans
-		*orphans = 0;
-		for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
-		{
-			DroneNavMeshChunk* chunk = &out->chunks[chunk_index];
-			s32 chunk_orphans = 0;
-			for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
-			{
-				if (chunk->adjacency[vertex_index].neighbors.length == 0)
-				{
-					chunk_orphans++;
-					(*orphans)++;
-				}
-			}
-
-			if (chunk_orphans > 0 && chunk_orphans == chunk->vertices.length)
-			{
-				// this chunk is all orphans; just remove them.
-				chunk->vertices.length = 0;
-				chunk->adjacency.length = 0;
-				chunk->normals.length = 0;
-
-				// make sure there are no incoming links to this chunk
-				for (s32 j = 0; j < out->chunks.length; j++)
-				{
-					DroneNavMeshChunk* c = &out->chunks[j];
-					for (s32 k = 0; k < c->adjacency.length; k++)
-					{
-						DroneNavMeshAdjacency* adjacency = &c->adjacency[k];
-						for (s32 l = 0; l < adjacency->neighbors.length; l++)
-						{
-							if (adjacency->neighbors[l].chunk == chunk_index)
-							{
-								adjacency->remove(l);
-								l--;
-							}
-						}
-					}
-				}
-			}
-		}
-
-		printf("Cleaned orphans: %fs\n", platform::time() - timer);
 	}
+
+	printf("Built adjacency graph: %fs\n", platform::time() - timer);
+	timer = platform::time();
+
+	// count orphans
+	*orphans = 0;
+	for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
+	{
+		DroneNavMeshChunk* chunk = &out->chunks[chunk_index];
+		s32 chunk_orphans = 0;
+		for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
+		{
+			if (chunk->adjacency[vertex_index].neighbors.length == 0)
+			{
+				chunk_orphans++;
+				(*orphans)++;
+			}
+		}
+
+		if (chunk_orphans > 0 && chunk_orphans == chunk->vertices.length)
+		{
+			// this chunk is all orphans; just remove them.
+			chunk->vertices.length = 0;
+			chunk->adjacency.length = 0;
+			chunk->normals.length = 0;
+
+			// make sure there are no incoming links to this chunk
+			for (s32 j = 0; j < out->chunks.length; j++)
+			{
+				DroneNavMeshChunk* c = &out->chunks[j];
+				for (s32 k = 0; k < c->adjacency.length; k++)
+				{
+					DroneNavMeshAdjacency* adjacency = &c->adjacency[k];
+					for (s32 l = 0; l < adjacency->neighbors.length; l++)
+					{
+						if (adjacency->neighbors[l].chunk == chunk_index)
+						{
+							adjacency->remove(l);
+							l--;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	printf("Cleaned orphans: %fs\n", platform::time() - timer);
 }
 
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
@@ -2836,6 +2829,22 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			return;
 		}
 
+		s32 total_vertices = 0;
+		fwrite(&drone_nav.chunk_size, sizeof(r32), 1, f);
+		fwrite(&drone_nav.vmin, sizeof(Vec3), 1, f);
+		fwrite(&drone_nav.size, sizeof(DroneNavMesh::Coord), 1, f);
+		for (s32 i = 0; i < drone_nav.chunks.length; i++)
+		{
+			const DroneNavMeshChunk& chunk = drone_nav.chunks[i];
+			fwrite(&chunk.vertices.length, sizeof(s32), 1, f);
+			fwrite(chunk.vertices.data, sizeof(Vec3), chunk.vertices.length, f);
+			fwrite(chunk.normals.data, sizeof(Vec3), chunk.normals.length, f);
+			fwrite(chunk.adjacency.data, sizeof(DroneNavMeshAdjacency), chunk.adjacency.length, f);
+			total_vertices += chunk.vertices.length;
+		}
+
+		printf("%s - Drone nav mesh - Chunks: %d Vertices: %d Adjacency buffer overflows: %d Orphans: %d\n", nav_mesh_out_path.c_str(), drone_nav.chunks.length, total_vertices, drone_adjacency_buffer_overflows, drone_orphans);
+
 		fwrite(&nav_tiles.min, sizeof(Vec3), 1, f);
 		fwrite(&nav_tiles.width, sizeof(s32), 1, f);
 		fwrite(&nav_tiles.height, sizeof(s32), 1, f);
@@ -2850,27 +2859,6 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 				fwrite(layer.data, sizeof(u8), layer.data_size, f);
 			}
 		}
-
-		s32 total_vertices = 0;
-		fwrite(&drone_nav.chunk_size, sizeof(r32), 1, f);
-		fwrite(&drone_nav.vmin, sizeof(Vec3), 1, f);
-		fwrite(&drone_nav.size, sizeof(DroneNavMesh::Coord), 1, f);
-		fwrite(&drone_nav.has_normals_adjacency, sizeof(b8), 1, f);
-		for (s32 i = 0; i < drone_nav.chunks.length; i++)
-		{
-			const DroneNavMeshChunk& chunk = drone_nav.chunks[i];
-			fwrite(&chunk.vertices.length, sizeof(s32), 1, f);
-			fwrite(chunk.vertices.data, sizeof(Vec3), chunk.vertices.length, f);
-			if (drone_nav.has_normals_adjacency)
-			{
-				vi_assert(chunk.vertices.length == chunk.normals.length && chunk.vertices.length == chunk.adjacency.length);
-				fwrite(chunk.normals.data, sizeof(Vec3), chunk.normals.length, f);
-				fwrite(chunk.adjacency.data, sizeof(DroneNavMeshAdjacency), chunk.adjacency.length, f);
-			}
-			total_vertices += chunk.vertices.length;
-		}
-
-		printf("%s - Drone nav mesh - Chunks: %d Vertices: %d Adjacency buffer overflows: %d Orphans: %d\n", nav_mesh_out_path.c_str(), drone_nav.chunks.length, total_vertices, drone_adjacency_buffer_overflows, drone_orphans);
 
 		fclose(f);
 

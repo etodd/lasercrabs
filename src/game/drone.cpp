@@ -295,8 +295,8 @@ enum class DroneHitType
 
 void client_hit_effects(Drone* drone, Entity* target, DroneHitType type)
 {
-	if (type == DroneHitType::Reflection)
-		Audio::post_event_global(AK::EVENTS::PLAY_DRONE_REFLECT, drone->get<Transform>()->absolute_pos());
+	if (type == DroneHitType::Reflection || (target && target->has<Shield>()))
+		drone->get<Audio>()->post_unattached(AK::EVENTS::PLAY_DRONE_REFLECT);
 
 	Vec3 pos = drone->get<Transform>()->absolute_pos();
 
@@ -330,7 +330,7 @@ void sniper_hit_effects(const Drone::Hit& hit)
 			Vec4(1, 1, 1, 1)
 		);
 	}
-	Audio::post_event_global(AK::EVENTS::PLAY_SNIPER_IMPACT, hit.pos);
+	Audio::post_global(AK::EVENTS::PLAY_SNIPER_IMPACT, hit.pos);
 }
 
 s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTargetType type)
@@ -450,7 +450,7 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone::Hits* hits = nullptr)
 {
 	ShellCasing::spawn(drone->get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Sniper);
-	drone->get<Audio>()->post_event(AK::EVENTS::PLAY_SNIPER_FIRE);
+	drone->get<Audio>()->post(AK::EVENTS::PLAY_SNIPER_FIRE);
 
 	drone->hit_targets.length = 0;
 	Vec3 pos = drone->get<Transform>()->absolute_pos();
@@ -495,7 +495,7 @@ void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone:
 				line_start = hit.pos;
 			}
 		}
-		Audio::post_event_global(AK::EVENTS::PLAY_SNIPER_WHIFF, closest_position);
+		Audio::post_global(AK::EVENTS::PLAY_SNIPER_WHIFF, closest_position);
 	}
 
 	// effects
@@ -574,8 +574,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
 					drone->get<Transform>()->absolute_rot(Quat::look(dir));
 
-					drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_LAUNCH);
-					drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_FLY);
+					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
 
 					if (flag != DroneNet::FlyFlag::CancelExisting)
 						drone->cooldown_setup();
@@ -613,8 +612,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 				drone->particle_accumulator = 0;
 
-				drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_LAUNCH);
-				drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_FLY);
+				drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
 			}
 
 			break;
@@ -753,7 +751,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					if (Game::level.local)
 						Net::finalize(World::create<SensorEntity>(manager->team.ref()->team(), pos + rot * Vec3(0, 0, SENSOR_RADIUS), rot));
 
-					Audio::post_event_global(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
+					Audio::post_global(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
 
 					// effects
 					particle_trail(my_pos, pos);
@@ -793,7 +791,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					particle_trail(my_pos, pos);
 					EffectLight::add(npos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
-					Audio::post_event_global(AK::EVENTS::PLAY_MINION_SPAWN, npos);
+					Audio::post_global(AK::EVENTS::PLAY_MINION_SPAWN, npos);
 					break;
 				}
 				case Ability::ForceField:
@@ -801,7 +799,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					// spawn a force field
 					Vec3 npos = pos + rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
 
-					Audio::post_event_global(AK::EVENTS::PLAY_SENSOR_SPAWN, npos);
+					Audio::post_global(AK::EVENTS::PLAY_SENSOR_SPAWN, npos);
 
 					if (Game::level.local)
 						Net::finalize(World::create<ForceFieldEntity>(parent->get<Transform>(), npos, rot, drone->get<AIAgent>()->team));
@@ -832,7 +830,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				case Ability::Grenade:
 				{
 					if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
-						drone->get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_SPAWN);
+						drone->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_SPAWN);
 
 					if (Game::level.local)
 					{
@@ -893,6 +891,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					drone_bolt_spawn(drone, my_pos, dir_normalized, Bolt::Type::DroneBolter);
 					if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
 					{
+						drone->get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
 						ShellCasing::spawn(drone->get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Bolter);
 						drone_bolter_cooldown_setup(drone);
 					}
@@ -910,7 +909,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						}
 						if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
 						{
-							drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
+							drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
 							ShellCasing::spawn(drone->get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Shotgun);
 							drone->cooldown_setup(DRONE_SHOTGUN_CHARGES);
 						}
@@ -923,7 +922,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					{
 						drone->get<Health>()->active_armor_timer = vi_max(drone->get<Health>()->active_armor_timer, ACTIVE_ARMOR_TIME);
 						if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
-							drone->get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
+							drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
 					}
 					break;
 				}
@@ -960,8 +959,7 @@ void Drone::finish_flying_dashing_common()
 {
 	get<Animator>()->layers[0].animation = AssetNull;
 
-	get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_LAND);
-	get<Audio>()->post_event(AK::EVENTS::STOP_DRONE_FLY);
+	get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAND);
 	attach_time = Game::time.total;
 	hit_targets.length = 0;
 	dash_timer = 0.0f;
@@ -1032,11 +1030,6 @@ void Drone::awake()
 	get<Animator>()->layers[0].behavior = Animator::Behavior::Loop;
 	link_arg<Entity*, &Drone::killed>(get<Health>()->killed);
 	lerped_pos = get<Transform>()->absolute_pos();
-}
-
-Drone::~Drone()
-{
-	get<Audio>()->post_event(AK::EVENTS::STOP_DRONE_FLY);
 }
 
 Drone::State Drone::state() const
@@ -1133,6 +1126,8 @@ void Drone::killed(Entity* e)
 	PlayerHuman::notification(entity(), get<AIAgent>()->team, PlayerHuman::Notification::Type::DroneDestroyed);
 
 	PlayerManager::entity_killed_by(entity(), e);
+
+	get<Audio>()->post(AK::EVENTS::PLAY_DRONE_DAMAGE_EXPLODE);
 
 	if (Game::level.local)
 	{
@@ -1705,7 +1700,7 @@ b8 Drone::go(const Vec3& dir)
 				// shotgun handles cooldowns manually
 
 				// create fake bolts
-				get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
+				get<Audio>()->post(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
 				Quat target_quat = Quat::look(dir_normalized);
 				ShellCasing::spawn(get<Transform>()->absolute_pos(), target_quat, ShellCasing::Type::Shotgun);
 				for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
@@ -1731,7 +1726,7 @@ b8 Drone::go(const Vec3& dir)
 				// bolter handles cooldowns manually
 
 				// create fake bolt
-				get<Audio>()->post_event(AK::EVENTS::PLAY_BOLT_SPAWN);
+				get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
 				ShellCasing::spawn(get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Bolter);
 				fake_bolts.add
 				(
@@ -1758,10 +1753,10 @@ b8 Drone::go(const Vec3& dir)
 				else if (a == Ability::ActiveArmor)
 				{
 					get<Health>()->active_armor_timer = ACTIVE_ARMOR_TIME; // show invincibility sparkles instantly
-					get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
+					get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
 				}
 				else if (a == Ability::Grenade)
-					get<Audio>()->post_event(AK::EVENTS::PLAY_GRENADE_SPAWN);
+					get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_SPAWN);
 			}
 		}
 	}
@@ -2766,7 +2761,7 @@ void Drone::update_client(const Update& u)
 					target_leg_space = Vec3::lerp(footing[i].blend, last_target_leg_space, target_leg_space);
 					if (footing[i].blend == 1.0f && Game::real_time.total - last_footstep > 0.07f)
 					{
-						get<Audio>()->post_event(AK::EVENTS::PLAY_DRONE_FOOTSTEP);
+						get<Audio>()->post(AK::EVENTS::PLAY_DRONE_FOOTSTEP);
 						last_footstep = Game::real_time.total;
 					}
 				}

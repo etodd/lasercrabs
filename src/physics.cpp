@@ -4,6 +4,11 @@
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "game/game.h"
 #include "game/entities.h"
+#if !SERVER
+#include "asset/Wwise_IDs.h"
+#include <AK/SpatialAudio/Common/AkSpatialAudio.h>
+#include <AK/SoundEngine/Common/AkSoundEngine.h>
+#endif
 
 namespace VI
 {
@@ -203,6 +208,36 @@ void RigidBody::awake()
 			const Mesh* mesh = Loader::mesh(mesh_id);
 			btMesh = new btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(s32), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
 			btShape = new btBvhTriangleMeshShape(btMesh, true, mesh->bounds_min, mesh->bounds_max);
+#if !SERVER
+			if ((flags & FlagAudioReflector))
+			{
+				AkAcousticTextureID texture_id = AK::SoundEngine::GetIDFromString("Default");
+				Vec3 pos;
+				Quat rot;
+				get<Transform>()->absolute(&pos, &rot);
+				Array<AkTriangle> tris;
+				for (s32 i = 0; i < mesh->indices.length; i += 3)
+				{
+					Vec3 v0 = mesh->vertices[mesh->indices[i]];
+					Vec3 v1 = mesh->vertices[mesh->indices[i + 1]];
+					Vec3 v2 = mesh->vertices[mesh->indices[i + 2]];
+					if ((v1 - v0).cross(v2 - v0).length_squared() > 0.01f)
+					{
+						AkTriangle* tri = tris.add();
+						v0 = pos + (rot * v0);
+						tri->point0 = { v0.x, v0.y, v0.z };
+						v1 = pos + (rot * v1);
+						tri->point1 = { v1.x, v1.y, v1.z };
+						v2 = pos + (rot * v2);
+						tri->point2 = { v2.x, v2.y, v2.z };
+						tri->reflectorChannelMask = AkUInt32(-1);
+						tri->strName = "tri";
+						tri->textureID = texture_id;
+					}
+				}
+				AK::SpatialAudio::AddGeometrySet(entity_id, tris.data, tris.length);
+			}
+#endif
 			break;
 		}
 		default:
@@ -259,6 +294,10 @@ RigidBody::~RigidBody()
 	remove_all_constraints();
 	if (btBody)
 	{
+#if !SERVER
+		if (flags & FlagAudioReflector && type == Type::Mesh)
+			AK::SpatialAudio::RemoveGeometrySet(entity_id);
+#endif
 		Physics::btWorld->removeRigidBody(btBody);
 		delete btBody;
 		delete btShape;
@@ -296,7 +335,7 @@ void RigidBody::set_ccd(b8 c)
 				min_radius = vi_min(min_radius, size.z);
 			max_radius = vi_max(max_radius, size.z);
 			btBody->setCcdMotionThreshold(min_radius);
-			btBody->setCcdSweptSphereRadius(max_radius);
+			btBody->setCcdSweptSphereRadius(vi_max(min_radius, max_radius * 0.5f));
 		}
 		else
 		{
@@ -354,6 +393,10 @@ void RigidBody::rebuild()
 	// delete body
 	if (btBody)
 	{
+#if !SERVER
+		if (flags & FlagAudioReflector && type == Type::Mesh)
+			AK::SpatialAudio::RemoveGeometrySet(entity_id);
+#endif
 		Physics::btWorld->removeRigidBody(btBody);
 		delete btBody;
 		delete btShape;

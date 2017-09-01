@@ -6,16 +6,8 @@
 				<SoundcasterSession Name="New Soundcaster Session" ID="{799CE862-452C-45BD-BDD4-716FED3E2E89}">
 					<ModuleList>
 						<Module>
-							<ObjectRef Name="Play_Drone_Fly" ID="{4614E46B-6FA6-4775-A36F-F984E13E0C64}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
-							<Position X="0" Y="1"/>
-						</Module>
-						<Module>
 							<ObjectRef Name="Play_Drone_Land" ID="{329B5A76-4FC9-4BAD-BE77-0DC8E2CD81A5}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
 							<Position X="0" Y="2"/>
-						</Module>
-						<Module>
-							<ObjectRef Name="Stop_Drone_Fly" ID="{C535FDDC-7E3A-4286-AD18-154B17D2F61C}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
-							<Position X="0" Y="3"/>
 						</Module>
 						<Module>
 							<ObjectRef Name="Drone_Footstep" ID="{E27AEB66-E171-426C-8B1C-047A9ABEA125}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>

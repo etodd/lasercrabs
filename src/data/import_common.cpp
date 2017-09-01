@@ -173,6 +173,29 @@ void DroneNavMeshAdjacency::flag(s32 i, b8 value)
 		flags &= ~((u64)1 << i);
 }
 
+void DroneNavMesh::read(FILE* f)
+{
+	fread(&chunk_size, sizeof(r32), 1, f);
+	fread(&vmin, sizeof(Vec3), 1, f);
+	fread(&size, sizeof(Chunks<DroneNavMeshChunk>::Coord), 1, f);
+	resize();
+
+	for (s32 i = 0; i < chunks.length; i++)
+	{
+		DroneNavMeshChunk* chunk = &chunks[i];
+		s32 vertex_count;
+		fread(&vertex_count, sizeof(s32), 1, f);
+		chunk->vertices.resize(vertex_count);
+		fread(chunk->vertices.data, sizeof(Vec3), vertex_count, f);
+
+		chunk->normals.resize(vertex_count);
+		fread(chunk->normals.data, sizeof(Vec3), vertex_count, f);
+
+		chunk->adjacency.resize(vertex_count);
+		fread(chunk->adjacency.data, sizeof(DroneNavMeshAdjacency), vertex_count, f);
+	}
+}
+
 Armature::Armature()
 	: hierarchy(), bind_pose(), inverse_bind_pose(), abs_bind_pose(), bodies()
 {

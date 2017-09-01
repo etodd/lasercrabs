@@ -214,7 +214,7 @@ void Parkour::land(r32 velocity_diff)
 				get<Walker>()->max_speed = get<Walker>()->speed = get<Walker>()->net_speed = 0.0f;
 				get<RigidBody>()->btBody->setLinearVelocity(Vec3(0, get<RigidBody>()->btBody->getLinearVelocity().getY(), 0));
 				get<Animator>()->layers[1].play(Asset::Animation::character_land_hard);
-				get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_LAND_HARD);
+				get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_HARD);
 				s8 damage = vi_min(s8((LANDING_VELOCITY_HARD - velocity_diff) * 0.5f), s8(DRONE_HEALTH + PARKOUR_SHIELD));
 				if (damage > 0)
 					ParkourNet::fall_damage(this, damage);
@@ -222,7 +222,7 @@ void Parkour::land(r32 velocity_diff)
 			else // light landing
 			{
 				get<Animator>()->layers[1].play(Asset::Animation::character_land);
-				get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_LAND_SOFT);
+				get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_SOFT);
 			}
 		}
 	}
@@ -251,7 +251,7 @@ void Parkour::footstep()
 	{
 		Vec3 base_pos = get<Walker>()->base_pos();
 
-		Audio::post_event_global(AK::EVENTS::PLAY_FOOTSTEP, base_pos);
+		Audio::post_global(AK::EVENTS::PLAY_FOOTSTEP, base_pos);
 
 		RigidBody* support = get<Walker>()->support.ref();
 		EffectLight::add(base_pos, 1.0f, 5.0f, EffectLight::Type::Shockwave, support ? support->get<Transform>() : nullptr);
@@ -261,7 +261,7 @@ void Parkour::footstep()
 void Parkour::climb_sound()
 {
 	if (fsm.current == State::Climb)
-		get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_CLIMB);
+		get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_CLIMB);
 }
 
 enum class ParkourHand
@@ -488,7 +488,7 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						collectible.ref()->get<Transform>()->parent = parkour.ref()->get<Transform>();
 						layer3->set(Asset::Animation::character_pickup, 0.0f); // bypass animation blending
 						parkour.ref()->get<Animator>()->update_world_transforms();
-						parkour.ref()->get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_COLLECTIBLE_PICKUP);
+						parkour.ref()->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_COLLECTIBLE_PICKUP);
 						parkour_set_collectible_position(parkour.ref()->get<Animator>(), collectible.ref()->get<Transform>());
 					}
 				}
@@ -1242,7 +1242,7 @@ b8 Parkour::try_jump(r32 rotation)
 
 	if (did_jump)
 	{
-		get<Audio>()->post_event(AK::EVENTS::PLAY_PARKOUR_JUMP);
+		get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_JUMP);
 		fsm.transition(State::Normal);
 		footstep();
 	}
@@ -1394,7 +1394,7 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 
 				get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);
 
-				get<Audio>()->post_event(top_out ? AK::EVENTS::PLAY_PARKOUR_TOPOUT : AK::EVENTS::PLAY_PARKOUR_MANTLE);
+				get<Audio>()->post(top_out ? AK::EVENTS::PLAY_PARKOUR_TOPOUT : AK::EVENTS::PLAY_PARKOUR_MANTLE);
 
 				return true;
 			}

@@ -3,7 +3,6 @@
 #include "recast/Recast/Include/Recast.h"
 #include "recast/Detour/Include/DetourNavMeshBuilder.h"
 #include "recast/Detour/Include/DetourCommon.h"
-#include "data/priority_queue.h"
 #include "mersenne/mersenne-twister.h"
 
 #define RECORD_VERSION 1
@@ -14,6 +13,11 @@
 #if DEBUG_WALK || DEBUG_DRONE
 #include "platform/util.h"
 #endif
+
+// bias toward longer shots
+#define DRONE_PATH_BIAS 4.0f
+// bias toward staying inside friendly areas
+#define DRONE_FRIENDLY_BIAS 8.0f
 
 namespace VI
 {
@@ -26,9 +30,6 @@ namespace Worker
 
 
 dtNavMesh* nav_mesh = nullptr;
-DroneNavMesh drone_nav_mesh;
-DroneNavMeshKey drone_nav_mesh_key;
-PriorityQueue<DroneNavMeshNode, DroneNavMeshKey> astar_queue(&drone_nav_mesh_key);
 dtTileCache* nav_tile_cache = nullptr;
 dtTileCacheAlloc nav_tile_allocator;
 FastLZCompressor nav_tile_compressor;
@@ -36,16 +37,6 @@ NavMeshProcess nav_tile_mesh_process;
 dtNavMeshQuery* nav_mesh_query = nullptr;
 dtQueryFilter default_query_filter = dtQueryFilter();
 const r32 default_search_extents[] = { 15, 10, 15 };
-Revision level_revision;
-Array<RecordedLife> records;
-char record_path[MAX_PATH_LENGTH + 1];
-
-struct RecordedLifeEntry
-{
-	u32 id;
-	RecordedLife data;
-};
-Array<RecordedLifeEntry> records_in_progress;
 
 dtPolyRef get_poly(const Vec3& pos, const r32* search_extents)
 {
@@ -76,15 +67,34 @@ struct PathfindScorer : AstarScorer
 		return (end_pos - pos).length();
 	}
 
-	virtual b8 done(DroneNavMeshNode v, const DroneNavMeshNodeData&)
+	virtual b8 done(DroneNavMeshNode v, const DroneNavMeshNodeData& data)
 	{
 		return v.equals(end_vertex);
+	}
+};
+
+struct AudioPathfindScorer : AstarScorer
+{
+	const DroneNavMesh* mesh;
+	Vec3 end_pos;
+	r32 min_score;
+	DroneNavMeshNode end_vertex;
+
+	virtual r32 score(const Vec3& pos)
+	{
+		return (end_pos - pos).length();
+	}
+
+	virtual b8 done(DroneNavMeshNode v, const DroneNavMeshNodeData& data)
+	{
+		return data.travel_score > min_score || v.equals(end_vertex);
 	}
 };
 
 // run away from an enemy
 struct AwayScorer : AstarScorer
 {
+	const DroneNavMesh* mesh;
 	DroneNavMeshNode start_vertex;
 	DroneNavMeshNode away_vertex;
 	Vec3 away_pos;
@@ -101,14 +111,14 @@ struct AwayScorer : AstarScorer
 		if (v.equals(start_vertex)) // we need to go somewhere other than here
 			return false;
 
-		if (data.sensor_score <= 8.0f) // inside a friendly sensor zone or force field
+		if (data.sensor_score <= DRONE_FRIENDLY_BIAS) // inside a friendly sensor zone or force field
 			return true;
 
-		const Vec3& vertex = drone_nav_mesh.chunks[v.chunk].vertices[v.vertex];
+		const Vec3& vertex = mesh->chunks[v.chunk].vertices[v.vertex];
 		if ((vertex - away_pos).length_squared() < minimum_distance * minimum_distance)
 			return false; // needs to be farther away
 
-		const DroneNavMeshAdjacency& adjacency = drone_nav_mesh.chunks[away_vertex.chunk].adjacency[away_vertex.vertex];
+		const DroneNavMeshAdjacency& adjacency = mesh->chunks[away_vertex.chunk].adjacency[away_vertex.vertex];
 		for (s32 i = 0; i < adjacency.neighbors.length; i++)
 		{
 			if (adjacency.neighbors[i].equals(v))
@@ -120,6 +130,7 @@ struct AwayScorer : AstarScorer
 
 struct RandomScorer : AstarScorer
 {
+	const DroneNavMesh* mesh;
 	Vec3 start_pos;
 	Vec3 goal;
 	r32 minimum_distance;
@@ -132,13 +143,14 @@ struct RandomScorer : AstarScorer
 
 	virtual b8 done(DroneNavMeshNode v, const DroneNavMeshNodeData& data)
 	{
-		return drone_nav_mesh.chunks[v.chunk].adjacency[v.vertex].neighbors.length == DRONE_NAV_MESH_ADJACENCY // end goal must be a highly accessible location
-			&& (start_pos - drone_nav_mesh.chunks[v.chunk].vertices[v.vertex]).length_squared() > (minimum_distance * minimum_distance);
+		return mesh->chunks[v.chunk].adjacency[v.vertex].neighbors.length == DRONE_NAV_MESH_ADJACENCY // end goal must be a highly accessible location
+			&& (start_pos - mesh->chunks[v.chunk].vertices[v.vertex]).length_squared() > (minimum_distance * minimum_distance);
 	}
 };
 
 struct SpawnScorer : AstarScorer
 {
+	const DroneNavMesh* mesh;
 	Vec3 start_pos;
 	Vec3 dir;
 	DroneNavMeshNode start_vertex;
@@ -155,16 +167,13 @@ struct SpawnScorer : AstarScorer
 	}
 };
 
-Array<SensorState> sensors;
-Array<ForceFieldState> force_fields;
-
 // describes which enemy force fields you are currently inside
-u32 force_field_hash(Team my_team, const Vec3& pos)
+u32 force_field_hash(const NavGameState& state, Team my_team, const Vec3& pos)
 {
 	u32 result = 0;
-	for (s32 i = 0; i < force_fields.length; i++)
+	for (s32 i = 0; i < state.force_fields.length; i++)
 	{
-		const ForceFieldState& field = force_fields[i];
+		const ForceFieldState& field = state.force_fields[i];
 		if (field.team != my_team && (pos - field.pos).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS)
 		{
 			if (result == 0)
@@ -175,31 +184,31 @@ u32 force_field_hash(Team my_team, const Vec3& pos)
 	return result;
 }
 
-b8 force_field_raycast(Team my_team, const Vec3& a, const Vec3& b)
+b8 force_field_raycast(const NavGameState& state, Team my_team, const Vec3& a, const Vec3& b)
 {
-	for (s32 i = 0; i < force_fields.length; i++)
+	for (s32 i = 0; i < state.force_fields.length; i++)
 	{
-		const ForceFieldState& field = force_fields[i];
+		const ForceFieldState& field = state.force_fields[i];
 		if (field.team != my_team && LMath::ray_sphere_intersect(a, b, field.pos, FORCE_FIELD_RADIUS))
 			return true;
 	}
 	return false;
 }
 
-r32 sensor_cost(Team team, const DroneNavMeshNode& node)
+r32 sensor_cost(const DroneNavMesh& mesh, const NavGameState& state, Team team, const DroneNavMeshNode& node)
 {
-	const Vec3& pos = drone_nav_mesh.chunks[node.chunk].vertices[node.vertex];
-	const Vec3& normal = drone_nav_mesh.chunks[node.chunk].normals[node.vertex];
+	const Vec3& pos = mesh.chunks[node.chunk].vertices[node.vertex];
+	const Vec3& normal = mesh.chunks[node.chunk].normals[node.vertex];
 	b8 in_friendly_zone = false;
 	b8 in_enemy_zone = false;
-	for (s32 i = 0; i < sensors.length; i++)
+	for (s32 i = 0; i < state.sensors.length; i++)
 	{
-		Vec3 to_sensor = sensors[i].pos - pos;
+		Vec3 to_sensor = state.sensors[i].pos - pos;
 		if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE)
 		{
 			if (normal.dot(to_sensor) > 0.0f)
 			{
-				if (sensors[i].team == team)
+				if (state.sensors[i].team == team)
 					in_friendly_zone = true;
 				else
 				{
@@ -217,13 +226,13 @@ r32 sensor_cost(Team team, const DroneNavMeshNode& node)
 	else if (in_friendly_zone)
 		sensor_cost = 0;
 	else
-		sensor_cost = 8.0f;
+		sensor_cost = DRONE_FRIENDLY_BIAS;
 
-	r32 force_field_cost = 8.0f;
+	r32 force_field_cost = DRONE_FRIENDLY_BIAS;
 
-	for (s32 i = 0; i < force_fields.length; i++)
+	for (s32 i = 0; i < state.force_fields.length; i++)
 	{
-		const ForceFieldState& field = force_fields[i];
+		const ForceFieldState& field = state.force_fields[i];
 		if (field.team == team)
 		{
 			Vec3 to_field = field.pos - pos;
@@ -238,25 +247,28 @@ r32 sensor_cost(Team team, const DroneNavMeshNode& node)
 	return sensor_cost + force_field_cost;
 }
 
-DroneNavMeshNode drone_closest_point(Team team, const Vec3& p, const Vec3& normal = Vec3::zero)
+DroneNavMeshNode drone_closest_point(const DroneNavMesh& mesh, const NavGameState& state, Team team, const Vec3& p, const Vec3& normal = Vec3::zero)
 {
-	DroneNavMesh::Coord chunk_coord = drone_nav_mesh.coord(p);
+	if (mesh.chunks.length == 0)
+		return DRONE_NAV_MESH_NODE_NONE;
+
+	DroneNavMesh::Coord chunk_coord = mesh.coord(p);
 	r32 closest_distance = FLT_MAX;
 	b8 found = false;
 	DroneNavMeshNode closest = DRONE_NAV_MESH_NODE_NONE;
 	b8 ignore_normals = normal.dot(normal) == 0.0f;
-	u32 desired_hash = force_field_hash(team, p);
-	s32 end_x = vi_min(vi_max(chunk_coord.x + 2, 1), drone_nav_mesh.size.x);
-	for (s32 chunk_x = vi_min(vi_max(chunk_coord.x - 1, 0), drone_nav_mesh.size.x - 1); chunk_x < end_x; chunk_x++)
+	u32 desired_hash = force_field_hash(state, team, p);
+	s32 end_x = vi_min(vi_max(chunk_coord.x + 2, 1), mesh.size.x);
+	for (s32 chunk_x = vi_min(vi_max(chunk_coord.x - 1, 0), mesh.size.x - 1); chunk_x < end_x; chunk_x++)
 	{
-		s32 end_y = vi_min(vi_max(chunk_coord.y + 2, 1), drone_nav_mesh.size.y);
-		for (s32 chunk_y = vi_min(vi_max(chunk_coord.y - 1, 0), drone_nav_mesh.size.y - 1); chunk_y < end_y; chunk_y++)
+		s32 end_y = vi_min(vi_max(chunk_coord.y + 2, 1), mesh.size.y);
+		for (s32 chunk_y = vi_min(vi_max(chunk_coord.y - 1, 0), mesh.size.y - 1); chunk_y < end_y; chunk_y++)
 		{
-			s32 end_z = vi_min(vi_max(chunk_coord.z + 2, 1), drone_nav_mesh.size.z);
-			for (s32 chunk_z = vi_min(vi_max(chunk_coord.z - 1, 0), drone_nav_mesh.size.z - 1); chunk_z < end_z; chunk_z++)
+			s32 end_z = vi_min(vi_max(chunk_coord.z + 2, 1), mesh.size.z);
+			for (s32 chunk_z = vi_min(vi_max(chunk_coord.z - 1, 0), mesh.size.z - 1); chunk_z < end_z; chunk_z++)
 			{
-				s32 chunk_index = drone_nav_mesh.index({ chunk_x, chunk_y, chunk_z });
-				const DroneNavMeshChunk& chunk = drone_nav_mesh.chunks[chunk_index];
+				s32 chunk_index = mesh.index({ chunk_x, chunk_y, chunk_z });
+				const DroneNavMeshChunk& chunk = mesh.chunks[chunk_index];
 				for (s32 vertex_index = 0; vertex_index < chunk.vertices.length; vertex_index++)
 				{
 					const DroneNavMeshAdjacency& adjacency = chunk.adjacency[vertex_index];
@@ -269,7 +281,7 @@ DroneNavMeshNode drone_closest_point(Team team, const Vec3& p, const Vec3& norma
 						{
 							r32 distance = to_vertex.length_squared();
 							if (distance < closest_distance
-								&& force_field_hash(team, vertex) == desired_hash)
+								&& force_field_hash(state, team, vertex) == desired_hash)
 							{
 								const Vec3& vertex_normal = chunk.normals[vertex_index];
 								if (ignore_normals || normal.dot(vertex_normal) > 0.8f) // make sure it's roughly facing the right way
@@ -294,19 +306,19 @@ DroneNavMeshNode drone_closest_point(Team team, const Vec3& p, const Vec3& norma
 }
 
 // can we hit the target from the given nav mesh node?
-b8 can_hit_from(DroneNavMeshNode start_vertex, const Vec3& target, r32 dot_threshold, r32* closest_dot = nullptr)
+b8 can_hit_from(const DroneNavMesh& mesh, DroneNavMeshNode start_vertex, const Vec3& target, r32 dot_threshold, r32* closest_dot = nullptr)
 {
-	const Vec3& start = drone_nav_mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
-	const Vec3& start_normal = drone_nav_mesh.chunks[start_vertex.chunk].normals[start_vertex.vertex];
+	const Vec3& start = mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
+	const Vec3& start_normal = mesh.chunks[start_vertex.chunk].normals[start_vertex.vertex];
 	Vec3 to_target = target - start;
 	r32 target_distance_squared = to_target.length_squared();
 	to_target /= sqrtf(target_distance_squared); // normalize
-	const DroneNavMeshAdjacency& start_adjacency = drone_nav_mesh.chunks[start_vertex.chunk].adjacency[start_vertex.vertex];
+	const DroneNavMeshAdjacency& start_adjacency = mesh.chunks[start_vertex.chunk].adjacency[start_vertex.vertex];
 
 	for (s32 i = 0; i < start_adjacency.neighbors.length; i++)
 	{
 		const DroneNavMeshNode adjacent_vertex = start_adjacency.neighbors[i];
-		const Vec3& adjacent = drone_nav_mesh.chunks[adjacent_vertex.chunk].vertices[adjacent_vertex.vertex];
+		const Vec3& adjacent = mesh.chunks[adjacent_vertex.chunk].vertices[adjacent_vertex.vertex];
 
 		Vec3 to_adjacent = adjacent - start;
 		if (to_adjacent.dot(start_normal) > 0.07f) // must not be a neighbor for crawling (co-planar or around a corner)
@@ -332,11 +344,11 @@ inline b8 drone_flags_match(b8 flags, DroneAllow mask)
 {
 	// true = crawl
 	// false = shoot
-	return (s32)mask & (s32)(flags ? DroneAllow::Crawl : DroneAllow::Shoot);
+	return s32(mask) & s32(flags ? DroneAllow::Crawl : DroneAllow::Shoot);
 }
 
 // A*
-void drone_astar(DroneAllow rule, Team team, const DroneNavMeshNode& start_vertex, AstarScorer* scorer, DronePath* path)
+void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const DroneNavMeshNode& start_vertex, AstarScorer* scorer, DronePath* path)
 {
 	path->length = 0;
 
@@ -347,39 +359,36 @@ void drone_astar(DroneAllow rule, Team team, const DroneNavMeshNode& start_verte
 	r64 start_time = platform::time();
 #endif
 
-	const Vec3& start_pos = drone_nav_mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
+	const Vec3& start_pos = ctx.mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
 
-	u32 start_field_hash = force_field_hash(team, start_pos);
-
-	drone_nav_mesh_key.reset();
-	astar_queue.clear();
-	astar_queue.push(start_vertex);
+	ctx.key->reset();
+	ctx.astar_queue->clear();
+	ctx.astar_queue->push(start_vertex);
 
 	{
-		DroneNavMeshNodeData* start_data = &drone_nav_mesh_key.get(start_vertex);
+		DroneNavMeshNodeData* start_data = &ctx.key->get(start_vertex);
 		start_data->travel_score = 0;
 		start_data->estimate_score = scorer->score(start_pos);
-		start_data->sensor_score = sensor_cost(team, start_vertex);
+		start_data->sensor_score = (ctx.flags & DroneNavFlagBias) ? sensor_cost(ctx.mesh, ctx.game_state, team, start_vertex) : 0;
 		start_data->parent = DRONE_NAV_MESH_NODE_NONE;
-		start_data->crawled_from_parent = true;
-		start_data->in_queue = true;
-		start_data->visited = false;
+		start_data->flags = DroneNavMeshNodeData::FlagCrawledFromParent
+			| DroneNavMeshNodeData::FlagInQueue;
 
 #if DEBUG_DRONE
 		vi_debug("estimate: %f - %s", start_data->estimate_score, typeid(*scorer).name());
 #endif
 	}
 
-	while (astar_queue.size() > 0)
+	while (ctx.astar_queue->size() > 0)
 	{
-		DroneNavMeshNode vertex_node = astar_queue.pop();
+		DroneNavMeshNode vertex_node = ctx.astar_queue->pop();
 
-		DroneNavMeshNodeData* vertex_data = &drone_nav_mesh_key.get(vertex_node);
+		DroneNavMeshNodeData* vertex_data = &ctx.key->get(vertex_node);
 
-		vertex_data->visited = true;
-		vertex_data->in_queue = false;
+		vertex_data->flag(DroneNavMeshNodeData::FlagVisited, true);
+		vertex_data->flag(DroneNavMeshNodeData::FlagInQueue, false);
 
-		const Vec3& vertex_pos = drone_nav_mesh.chunks[vertex_node.chunk].vertices[vertex_node.vertex];
+		const Vec3& vertex_pos = ctx.mesh.chunks[vertex_node.chunk].vertices[vertex_node.vertex];
 
 		if (scorer->done(vertex_node, *vertex_data))
 		{
@@ -389,14 +398,14 @@ void drone_astar(DroneAllow rule, Team team, const DroneNavMeshNode& start_verte
 			{
 				if (path->length == path->capacity())
 					path->remove(path->length - 1);
-				const DroneNavMeshNodeData& data = drone_nav_mesh_key.get(n);
+				const DroneNavMeshNodeData& data = ctx.key->get(n);
 				DronePathNode* node = path->insert(0);
 				*node =
 				{
-					drone_nav_mesh.chunks[n.chunk].vertices[n.vertex],
-					drone_nav_mesh.chunks[n.chunk].normals[n.vertex],
+					ctx.mesh.chunks[n.chunk].vertices[n.vertex],
+					ctx.mesh.chunks[n.chunk].normals[n.vertex],
 					n,
-					data.crawled_from_parent, // crawl flag
+					data.flag(DroneNavMeshNodeData::FlagCrawledFromParent) ? DronePathNode::FlagCrawledFromParent : 0,
 				};
 				if (n.equals(start_vertex))
 					break;
@@ -405,50 +414,50 @@ void drone_astar(DroneAllow rule, Team team, const DroneNavMeshNode& start_verte
 			break; // done!
 		}
 		
-		const DroneNavMeshAdjacency& adjacency = drone_nav_mesh.chunks[vertex_node.chunk].adjacency[vertex_node.vertex];
+		const DroneNavMeshAdjacency& adjacency = ctx.mesh.chunks[vertex_node.chunk].adjacency[vertex_node.vertex];
 		for (s32 i = 0; i < adjacency.neighbors.length; i++)
 		{
 			// visit neighbors
 			const DroneNavMeshNode adjacent_node = adjacency.neighbors[i];
-			DroneNavMeshNodeData* adjacent_data = &drone_nav_mesh_key.get(adjacent_node);
+			DroneNavMeshNodeData* adjacent_data = &ctx.key->get(adjacent_node);
 
-			if (!adjacent_data->visited)
+			if (!adjacent_data->flag(DroneNavMeshNodeData::FlagVisited))
 			{
 				// hasn't been visited yet
 
-				const Vec3& adjacent_pos = drone_nav_mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
+				const Vec3& adjacent_pos = ctx.mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
 
 				if (!drone_flags_match(adjacency.flag(i), rule)
-					|| force_field_raycast(team, vertex_pos, adjacent_pos))
+					|| force_field_raycast(ctx.game_state, team, vertex_pos, adjacent_pos))
 				{
 					// flags don't match or it's in a different force field
 					// therefore it's unreachable
-					adjacent_data->visited = true;
+					adjacent_data->flag(DroneNavMeshNodeData::FlagVisited, true);
 				}
 				else
 				{
 					r32 candidate_travel_score = vertex_data->travel_score
 						+ vertex_data->sensor_score
 						+ (adjacent_pos - vertex_pos).length()
-						+ 4.0f; // bias toward longer shots
+						+ ((ctx.flags & DroneNavFlagBias) ? DRONE_PATH_BIAS : 0); // bias toward longer shots
 
-					if (adjacent_data->in_queue)
+					if (adjacent_data->flag(DroneNavMeshNodeData::FlagInQueue))
 					{
 						// it's already in the queue
 						if (candidate_travel_score < adjacent_data->travel_score)
 						{
 							// this is a better path
 
-							adjacent_data->crawled_from_parent = adjacency.flag(i);
+							adjacent_data->flag(DroneNavMeshNodeData::FlagCrawledFromParent, adjacency.flag(i));
 							adjacent_data->parent = vertex_node;
 							adjacent_data->travel_score = candidate_travel_score;
 
 							// update its position in the queue due to the score change
-							for (s32 j = 0; j < astar_queue.size(); j++)
+							for (s32 j = 0; j < ctx.astar_queue->size(); j++)
 							{
-								if (astar_queue.heap[j].equals(adjacent_node))
+								if (ctx.astar_queue->heap[j].equals(adjacent_node))
 								{
-									astar_queue.update(j);
+									ctx.astar_queue->update(j);
 									break;
 								}
 							}
@@ -457,13 +466,13 @@ void drone_astar(DroneAllow rule, Team team, const DroneNavMeshNode& start_verte
 					else
 					{
 						// totally new node, not in queue yet
-						adjacent_data->crawled_from_parent = adjacency.flag(i);
+						adjacent_data->flag(DroneNavMeshNodeData::FlagCrawledFromParent, adjacency.flag(i));
 						adjacent_data->parent = vertex_node;
-						adjacent_data->sensor_score = sensor_cost(team, adjacent_node);
+						adjacent_data->sensor_score = (ctx.flags & DroneNavFlagBias) ? sensor_cost(ctx.mesh, ctx.game_state, team, adjacent_node) : 0;
 						adjacent_data->travel_score = candidate_travel_score;
 						adjacent_data->estimate_score = scorer->score(adjacent_pos);
-						adjacent_data->in_queue = true;
-						astar_queue.push(adjacent_node);
+						adjacent_data->flag(DroneNavMeshNodeData::FlagVisited, true);
+						ctx.astar_queue->push(adjacent_node);
 					}
 				}
 			}
@@ -475,34 +484,52 @@ void drone_astar(DroneAllow rule, Team team, const DroneNavMeshNode& start_verte
 }
 
 // find a path from vertex a to vertex b
-void drone_pathfind_internal(DroneAllow rule, Team team, const DroneNavMeshNode& start_vertex, const DroneNavMeshNode& end_vertex, DronePath* path)
+void drone_pathfind(const DroneNavContext& ctx, DroneAllow rule, Team team, const DroneNavMeshNode& start_vertex, const DroneNavMeshNode& end_vertex, DronePath* path)
 {
 	path->length = 0;
 	if (start_vertex.equals(DRONE_NAV_MESH_NODE_NONE) || end_vertex.equals(DRONE_NAV_MESH_NODE_NONE))
 		return;
 	PathfindScorer scorer;
 	scorer.end_vertex = end_vertex;
-	scorer.end_pos = drone_nav_mesh.chunks[end_vertex.chunk].vertices[end_vertex.vertex];
-	const Vec3& start_pos = drone_nav_mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
-	if (force_field_hash(team, start_pos) != force_field_hash(team, scorer.end_pos))
+	scorer.end_pos = ctx.mesh.chunks[end_vertex.chunk].vertices[end_vertex.vertex];
+	const Vec3& start_pos = ctx.mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
+	if (force_field_hash(ctx.game_state, team, start_pos) != force_field_hash(ctx.game_state, team, scorer.end_pos))
 		return; // in a different force field; unreachable
 	else
-		drone_astar(rule, team, start_vertex, &scorer, path);
+		drone_astar(ctx, rule, team, start_vertex, &scorer, path);
+}
+
+void audio_pathfind(const DroneNavContext& ctx, const Vec3& a, const Vec3& b, DronePath* path)
+{
+	path->length = 0;
+	DroneNavMeshNode target_closest_vertex = drone_closest_point(ctx.mesh, ctx.game_state, AI::TeamNone, b, Vec3::zero);
+	if (target_closest_vertex.equals(DRONE_NAV_MESH_NODE_NONE))
+		return;
+
+	DroneNavMeshNode start_vertex = drone_closest_point(ctx.mesh, ctx.game_state, AI::TeamNone, a, Vec3::zero);
+	if (start_vertex.equals(DRONE_NAV_MESH_NODE_NONE))
+		return;
+
+	AudioPathfindScorer scorer;
+	scorer.min_score = (a - b).length() + DRONE_MAX_DISTANCE * 2.0f;
+	scorer.end_vertex = target_closest_vertex;
+	scorer.end_pos = ctx.mesh.chunks[target_closest_vertex.chunk].vertices[target_closest_vertex.vertex];
+	drone_astar(ctx, DroneAllow::All, AI::TeamNone, start_vertex, &scorer, path);
 }
 
 // find a path using vertices as close as possible to the given points
 // find our way to a point from which we can shoot through the given target
-void drone_pathfind_hit(DroneAllow rule, Team team, const Vec3& start, const Vec3& start_normal, const Vec3& target, DronePath* path)
+void drone_pathfind_hit(const DroneNavContext& ctx, DroneAllow rule, Team team, const Vec3& start, const Vec3& start_normal, const Vec3& target, DronePath* path)
 {
 	path->length = 0;
-	if (force_field_hash(team, start) != force_field_hash(team, target))
+	if (force_field_hash(ctx.game_state, team, start) != force_field_hash(ctx.game_state, team, target))
 		return; // in a different force field; unreachable
 
-	DroneNavMeshNode target_closest_vertex = drone_closest_point(team, target, Vec3::zero);
+	DroneNavMeshNode target_closest_vertex = drone_closest_point(ctx.mesh, ctx.game_state, team, target, Vec3::zero);
 	if (target_closest_vertex.equals(DRONE_NAV_MESH_NODE_NONE))
 		return;
 
-	DroneNavMeshNode start_vertex = drone_closest_point(team, start, start_normal);
+	DroneNavMeshNode start_vertex = drone_closest_point(ctx.mesh, ctx.game_state, team, start, start_normal);
 	if (start_vertex.equals(DRONE_NAV_MESH_NODE_NONE))
 		return;
 
@@ -512,11 +539,11 @@ void drone_pathfind_hit(DroneAllow rule, Team team, const Vec3& start, const Vec
 	// if not, we'll have a path to another vertex where we can hopefully hit the target
 	// this prevents us from getting stuck at a point where we think we should be able to hit the target, but we actually can't
 
-	if (!target_closest_vertex.equals(start_vertex) && can_hit_from(target_closest_vertex, target, 0.999f))
-		drone_pathfind_internal(rule, team, start_vertex, target_closest_vertex, path);
+	if (!target_closest_vertex.equals(start_vertex) && can_hit_from(ctx.mesh, target_closest_vertex, target, 0.999f))
+		drone_pathfind(ctx, rule, team, start_vertex, target_closest_vertex, path);
 	else
 	{
-		const DroneNavMeshAdjacency& target_adjacency = drone_nav_mesh.chunks[target_closest_vertex.chunk].adjacency[target_closest_vertex.vertex];
+		const DroneNavMeshAdjacency& target_adjacency = ctx.mesh.chunks[target_closest_vertex.chunk].adjacency[target_closest_vertex.vertex];
 		r32 closest_distance = DRONE_MAX_DISTANCE;
 		r32 closest_dot = 0.7f;
 		DroneNavMeshNode closest_vertex;
@@ -525,10 +552,10 @@ void drone_pathfind_hit(DroneAllow rule, Team team, const Vec3& start, const Vec
 			const DroneNavMeshNode adjacent_vertex = target_adjacency.neighbors[i];
 			if (!adjacent_vertex.equals(start_vertex))
 			{
-				const Vec3& adjacent = drone_nav_mesh.chunks[adjacent_vertex.chunk].vertices[adjacent_vertex.vertex];
+				const Vec3& adjacent = ctx.mesh.chunks[adjacent_vertex.chunk].vertices[adjacent_vertex.vertex];
 				r32 distance = (adjacent - start).length_squared();
 				r32 dot = 0.0f;
-				can_hit_from(adjacent_vertex, target, 0.99f, &dot);
+				can_hit_from(ctx.mesh, adjacent_vertex, target, 0.99f, &dot);
 				if ((dot > 0.999f && distance > closest_distance) || (closest_dot < 0.999f && dot > closest_dot))
 				{
 					closest_distance = distance;
@@ -541,14 +568,14 @@ void drone_pathfind_hit(DroneAllow rule, Team team, const Vec3& start, const Vec
 			path->length = 0; // can't find a path to hit this thing
 		else
 		{
-			drone_pathfind_internal(rule, team, start_vertex, closest_vertex, path);
+			drone_pathfind(ctx, rule, team, start_vertex, closest_vertex, path);
 			if (path->length > 0 && path->length < path->capacity())
 			{
 				DronePathNode* node = path->add();
 				*node =
 				{
-					drone_nav_mesh.chunks[target_closest_vertex.chunk].vertices[target_closest_vertex.vertex],
-					drone_nav_mesh.chunks[target_closest_vertex.chunk].normals[target_closest_vertex.vertex],
+					ctx.mesh.chunks[target_closest_vertex.chunk].vertices[target_closest_vertex.vertex],
+					ctx.mesh.chunks[target_closest_vertex.chunk].normals[target_closest_vertex.vertex],
 					target_closest_vertex,
 					false, // crawl flag; we're shooting, so... no
 				};
@@ -599,6 +626,13 @@ void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_
 	}
 }
 
+struct RecordedLifeEntry
+{
+	u32 id;
+	RecordedLife data;
+};
+Array<RecordedLifeEntry> records_in_progress;
+
 AI::RecordedLife* record_in_progress_by_id(u32 id)
 {
 	for (s32 i = 0; i < records_in_progress.length; i++)
@@ -628,6 +662,22 @@ void loop()
 	nav_mesh_query = dtAllocNavMeshQuery();
 	default_query_filter.setIncludeFlags(u16(-1));
 	default_query_filter.setExcludeFlags(0);
+
+	DroneNavMesh drone_nav_mesh;
+	DroneNavMeshKey drone_nav_mesh_key;
+	NavGameState nav_game_state;
+	AstarQueue astar_queue(&drone_nav_mesh_key);
+	Revision level_revision = 0;
+	const DroneNavContext ctx =
+	{
+		drone_nav_mesh,
+		&drone_nav_mesh_key,
+		nav_game_state,
+		&astar_queue,
+		DroneNavFlagBias,
+	};
+	Array<RecordedLife> records;
+	char record_path[MAX_PATH_LENGTH + 1];
 
 	Array<u32> obstacle_recast_ids;
 
@@ -662,7 +712,7 @@ void loop()
 					drone_nav_mesh_key.~DroneNavMeshKey();
 					new (&drone_nav_mesh_key) DroneNavMeshKey();
 
-					sensors.length = 0;
+					nav_game_state.clear();
 
 					for (s32 i = 0; i < records.length; i++)
 						records[i].~RecordedLife();
@@ -769,6 +819,10 @@ void loop()
 #if DEBUG_WALK || DEBUG_DRONE
 					vi_debug("%d bytes", data_length);
 #endif
+					// drone nav mesh
+					drone_nav_mesh.read(f);
+					drone_nav_mesh_key.resize(drone_nav_mesh);
+
 					TileCacheData tiles;
 
 					{
@@ -787,7 +841,7 @@ void loop()
 							{
 								TileCacheLayer& layer = cell.layers[j];
 								fread(&layer.data_size, sizeof(s32), 1, f);
-								layer.data = (u8*)dtAlloc(layer.data_size, dtAllocHint::DT_ALLOC_PERM);
+								layer.data = (u8*)(dtAlloc(layer.data_size, dtAllocHint::DT_ALLOC_PERM));
 								fread(layer.data, sizeof(u8), layer.data_size, f);
 							}
 						}
@@ -805,8 +859,9 @@ void loop()
 						params.tileWidth = nav_tile_size * nav_resolution;
 						params.tileHeight = nav_tile_size * nav_resolution;
 
-						s32 tileBits = rcMin((s32)dtIlog2(dtNextPow2(tiles.width * tiles.height * nav_expected_layers_per_tile)), 14);
-						if (tileBits > 14) tileBits = 14;
+						s32 tileBits = rcMin(s32(dtIlog2(dtNextPow2(tiles.width * tiles.height * nav_expected_layers_per_tile))), 14);
+						if (tileBits > 14)
+							tileBits = 14;
 						s32 polyBits = 22 - tileBits;
 						params.maxTiles = 1 << tileBits;
 						params.maxPolys = 1 << polyBits;
@@ -866,37 +921,11 @@ void loop()
 						dtStatus status = nav_mesh_query->init(nav_mesh, 2048);
 						vi_assert(dtStatusSucceed(status));
 					}
-
-					// drone nav mesh
-					{
-						fread(&drone_nav_mesh.chunk_size, sizeof(r32), 1, f);
-						fread(&drone_nav_mesh.vmin, sizeof(Vec3), 1, f);
-						fread(&drone_nav_mesh.size, sizeof(Chunks<DroneNavMeshChunk>::Coord), 1, f);
-						fread(&drone_nav_mesh.has_normals_adjacency, sizeof(b8), 1, f);
-						drone_nav_mesh.resize();
-
-						for (s32 i = 0; i < drone_nav_mesh.chunks.length; i++)
-						{
-							DroneNavMeshChunk* chunk = &drone_nav_mesh.chunks[i];
-							s32 vertex_count;
-							fread(&vertex_count, sizeof(s32), 1, f);
-							chunk->vertices.resize(vertex_count);
-							fread(chunk->vertices.data, sizeof(Vec3), vertex_count, f);
-							if (drone_nav_mesh.has_normals_adjacency)
-							{
-								chunk->normals.resize(vertex_count);
-								fread(chunk->normals.data, sizeof(Vec3), vertex_count, f);
-								chunk->adjacency.resize(vertex_count);
-								fread(chunk->adjacency.data, sizeof(DroneNavMeshAdjacency), vertex_count, f);
-							}
-						}
-					}
 				}
 
 				if (f)
 					fclose(f);
 
-				drone_nav_mesh_key.resize(drone_nav_mesh);
 				{
 					// reserve space in the A* queue
 					s32 vertex_count = 0;
@@ -912,20 +941,9 @@ void loop()
 				{
 					level_revision++;
 
-					Array<Vec3> vertices;
-					for (s32 chunk_index = 0; chunk_index < drone_nav_mesh.chunks.length; chunk_index++)
-					{
-						const DroneNavMeshChunk& chunk = drone_nav_mesh.chunks[chunk_index];
-
-						for (s32 i = 0; i < chunk.vertices.length; i++)
-							vertices.add(chunk.vertices[i]);
-					}
-
 					sync_out.lock();
 					sync_out.write(Callback::Load);
 					sync_out.write(level_revision);
-					sync_out.write<s32>(vertices.length);
-					sync_out.write(vertices.data, vertices.length);
 					sync_out.unlock();
 				}
 
@@ -1030,7 +1048,7 @@ void loop()
 				dtPolyRef start_poly = get_poly(start, default_search_extents);
 				dtPolyRef patrol_point_poly = get_poly(patrol_point, default_search_extents);
 
-				u32 hash_start = force_field_hash(team, start);
+				u32 hash_start = force_field_hash(nav_game_state, team, start);
 
 				Vec3 end;
 				dtPolyRef end_poly;
@@ -1040,7 +1058,7 @@ void loop()
 					do
 					{
 						nav_mesh_query->findRandomPointAroundCircle(patrol_point_poly, (r32*)&patrol_point, range * (0.5f + mersenne::randf_co() * 0.5f), &default_query_filter, mersenne::randf_co, &end_poly, (r32*)&end);
-						valid = force_field_hash(team, end) == hash_start;
+						valid = force_field_hash(nav_game_state, team, end) == hash_start;
 						tries++;
 					} while (!valid && tries < 20);
 				}
@@ -1091,7 +1109,6 @@ void loop()
 			}
 			case Op::DronePathfind:
 			{
-				vi_assert(drone_nav_mesh.has_normals_adjacency);
 				DronePathfind type;
 				DroneAllow rule;
 				Team team;
@@ -1116,7 +1133,15 @@ void loop()
 						Vec3 end_normal;
 						sync_in.read(&end_normal);
 						sync_in.unlock();
-						drone_pathfind_internal(rule, team, drone_closest_point(team, start, start_normal), drone_closest_point(team, end, end_normal), &path);
+						drone_pathfind
+						(
+							ctx,
+							rule,
+							team,
+							drone_closest_point(drone_nav_mesh, nav_game_state, team, start, start_normal),
+							drone_closest_point(drone_nav_mesh, nav_game_state, team, end, end_normal),
+							&path
+						);
 						break;
 					}
 					case DronePathfind::Target:
@@ -1124,7 +1149,7 @@ void loop()
 						Vec3 end;
 						sync_in.read(&end);
 						sync_in.unlock();
-						drone_pathfind_hit(rule, team, start, start_normal, end, &path);
+						drone_pathfind_hit(ctx, rule, team, start, start_normal, end, &path);
 						break;
 					}
 					case DronePathfind::Spawn:
@@ -1134,11 +1159,12 @@ void loop()
 						sync_in.unlock();
 
 						SpawnScorer scorer;
+						scorer.mesh = &drone_nav_mesh;
 						scorer.dir = dir;
 						scorer.start_pos = start;
-						scorer.start_vertex = drone_closest_point(team, start, start_normal);
+						scorer.start_vertex = drone_closest_point(drone_nav_mesh, nav_game_state, team, start, start_normal);
 
-						drone_astar(rule, team, scorer.start_vertex, &scorer, &path);
+						drone_astar(ctx, rule, team, scorer.start_vertex, &scorer, &path);
 						
 						break;
 					}
@@ -1147,7 +1173,8 @@ void loop()
 						sync_in.unlock();
 
 						RandomScorer scorer;
-						scorer.start_vertex = drone_closest_point(team, start, start_normal);
+						scorer.mesh = &drone_nav_mesh;
+						scorer.start_vertex = drone_closest_point(drone_nav_mesh, nav_game_state, team, start, start_normal);
 						scorer.start_pos = start;
 						scorer.minimum_distance = rule == DroneAllow::Crawl ? DRONE_MAX_DISTANCE * 0.5f : DRONE_MAX_DISTANCE * 3.0f;
 						scorer.minimum_distance = vi_min(scorer.minimum_distance,
@@ -1160,7 +1187,7 @@ void loop()
 							mersenne::randf_co() * (drone_nav_mesh.size.z * drone_nav_mesh.chunk_size)
 						);
 
-						drone_astar(rule, team, scorer.start_vertex, &scorer, &path);
+						drone_astar(ctx, rule, team, scorer.start_vertex, &scorer, &path);
 
 						break;
 					}
@@ -1173,8 +1200,9 @@ void loop()
 						sync_in.unlock();
 
 						AwayScorer scorer;
-						scorer.start_vertex = drone_closest_point(team, start, start_normal);
-						scorer.away_vertex = drone_closest_point(team, away, away_normal);
+						scorer.mesh = &drone_nav_mesh;
+						scorer.start_vertex = drone_closest_point(drone_nav_mesh, nav_game_state, team, start, start_normal);
+						scorer.away_vertex = drone_closest_point(drone_nav_mesh, nav_game_state, team, away, away_normal);
 						if (!scorer.away_vertex.equals(DRONE_NAV_MESH_NODE_NONE))
 						{
 							scorer.away_pos = away;
@@ -1182,8 +1210,9 @@ void loop()
 							scorer.minimum_distance = vi_min(scorer.minimum_distance,
 								vi_min(drone_nav_mesh.size.x, drone_nav_mesh.size.z) * drone_nav_mesh.chunk_size * 0.5f);
 
-							drone_astar(rule, team, scorer.start_vertex, &scorer, &path);
+							drone_astar(ctx, rule, team, scorer.start_vertex, &scorer, &path);
 						}
+
 						break;
 					}
 					default:
@@ -1202,7 +1231,6 @@ void loop()
 			}
 			case Op::DroneClosestPoint:
 			{
-				vi_assert(drone_nav_mesh.has_normals_adjacency);
 				LinkEntryArg<DronePathNode> callback;
 				sync_in.read(&callback);
 				AI::Team team;
@@ -1212,7 +1240,7 @@ void loop()
 				sync_in.unlock();
 
 				DronePathNode result;
-				result.ref = drone_closest_point(team, search_pos);
+				result.ref = drone_closest_point(drone_nav_mesh, nav_game_state, team, search_pos);
 				if (result.ref.equals(DRONE_NAV_MESH_NODE_NONE))
 				{
 					result.pos = search_pos;
@@ -1233,7 +1261,6 @@ void loop()
 			}
 			case Op::DroneMarkAdjacencyBad:
 			{
-				vi_assert(drone_nav_mesh.has_normals_adjacency);
 				DroneNavMeshNode a;
 				sync_in.read(&a);
 				DroneNavMeshNode b;
@@ -1257,11 +1284,11 @@ void loop()
 			{
 				s32 count;
 				sync_in.read(&count);
-				sensors.resize(count);
-				sync_in.read(sensors.data, sensors.length);
+				nav_game_state.sensors.resize(count);
+				sync_in.read(nav_game_state.sensors.data, nav_game_state.sensors.length);
 				sync_in.read(&count);
-				force_fields.resize(count);
-				sync_in.read(force_fields.data, force_fields.length);
+				nav_game_state.force_fields.resize(count);
+				sync_in.read(nav_game_state.force_fields.data, nav_game_state.force_fields.length);
 				sync_in.unlock();
 				break;
 			}

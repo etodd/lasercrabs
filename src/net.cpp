@@ -4091,8 +4091,8 @@ void update_start(const Update& u)
 #if !SERVER
 	if (Client::state_client.replay_mode == Client::ReplayMode::Replaying)
 	{
-		Client::state_client.tick_timer += dt;
-		if (Client::state_client.tick_timer > tick_rate())
+		Client::state_client.tick_timer -= dt;
+		if (Client::state_client.tick_timer < 0.0f)
 		{
 			s16 size;
 			b8 packet_successfully_read = false;
@@ -4114,7 +4114,7 @@ void update_start(const Update& u)
 
 			if (!packet_successfully_read)
 				Client::handle_server_disconnect(DisconnectReason::SequenceGap);
-			Client::state_client.tick_timer = fmodf(Client::state_client.tick_timer, tick_rate());
+			Client::state_client.tick_timer = vi_max(0.0f, Client::state_client.tick_timer + tick_rate());
 		}
 	}
 #endif
@@ -4190,13 +4190,13 @@ void update_end(const Update& u)
 		state_common.msgs_out.length = 0; // clear out message queue because we're never going to send these
 	else
 	{
-		Client::state_client.tick_timer += dt;
-		if (Client::state_client.tick_timer > tick_rate())
+		Client::state_client.tick_timer -= dt;
+		if (Client::state_client.tick_timer < 0.0f)
 		{
 			Client::tick(u, vi_max(dt, tick_rate()));
 			// we're not going to send more than one packet per frame
 			// so make sure the tick timer never gets out of control
-			Client::state_client.tick_timer = fmodf(Client::state_client.tick_timer, tick_rate());
+			Client::state_client.tick_timer = vi_max(0.0f, Client::state_client.tick_timer + tick_rate());
 		}
 	}
 #endif

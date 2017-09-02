@@ -2187,7 +2187,7 @@ void Bolt::reflect(const Entity* hit_object, ReflectionType reflection_type, con
 	if (reflection_type == ReflectionType::Homing)
 	{
 		if (owner.ref())
-			dir = Vec3::normalize(owner.ref()->get<Transform>()->absolute_pos() - transform->absolute_pos());
+			dir = Vec3::normalize(owner.ref()->get<Target>()->absolute_pos() - transform->absolute_pos());
 		else
 			dir = transform->absolute_rot() * Vec3(0, 0, -1.0f);
 	}

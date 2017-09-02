@@ -815,6 +815,7 @@ void Minion::fire(const Vec3& target)
 r32 Minion::particle_accumulator;
 void Minion::update_client_all(const Update& u)
 {
+#if !SERVER
 	const r32 interval = 0.02f;
 	particle_accumulator += u.time.delta;
 	while (particle_accumulator > interval)
@@ -848,6 +849,7 @@ void Minion::update_client_all(const Update& u)
 			}
 		}
 	}
+#endif
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
@@ -962,7 +964,7 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 	{
 		if (target->has<Drone>())
 		{
-			if (distance < MINION_HEARING_RANGE && Game::time.total - target->get<Drone>()->attach_time < 1.0f) // we can hear the drone
+			if (distance < (Game::time.total - target->get<Drone>()->attach_time < 1.0f ? MINION_HEARING_RANGE : MINION_HEARING_RANGE * 0.5f)) // we can hear the drone
 				limit_vision_cone = false;
 			else
 			{

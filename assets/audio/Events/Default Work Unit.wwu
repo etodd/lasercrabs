@@ -370,20 +370,6 @@
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Minion_Spawn" ID="{044B13CF-0F99-492C-A510-E3055BD6B1EE}">
-									<ChildrenList>
-										<Action Name="" ID="{EF6BD803-2891-4A35-8300-E30843FA8FBF}" ShortID="569862728">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
 								<Event Name="Play_Sensor_Spawn" ID="{10DCE6B8-FAC1-4121-89FE-CF7AFB789028}">
 									<ChildrenList>
 										<Action Name="" ID="{C63320C0-72AE-4E35-89CF-3B83E27078DF}" ShortID="619182946">
@@ -426,20 +412,6 @@
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Minion_Headshot" ID="{96CF21EF-E2BB-48CE-80B4-54E2FA6F3049}">
-									<ChildrenList>
-										<Action Name="" ID="{2C171468-F148-4265-93E5-79036FD5C26C}" ShortID="177575733">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Headshot" ID="{BA569FB5-BFD6-4C20-9044-AD9AB68C0FD7}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
 								<Event Name="Play_Explosion" ID="{6F0DBF32-EE0B-45FC-9DEF-71F7FD036F6A}">
 									<ChildrenList>
 										<Action Name="" ID="{51EE7091-3A21-488C-B842-2C95600003DE}" ShortID="593962971">
@@ -455,35 +427,7 @@
 									</ChildrenList>
 								</Event>
 								<Event Name="Play_Turret_Charge" ID="{7C218435-CC3A-4F80-B956-152F226AE2BB}"/>
-								<Event Name="Play_Minion_Die" ID="{655AFC70-201F-426F-9919-6E5DEE2E57E9}">
-									<ChildrenList>
-										<Action Name="" ID="{28C2E5A7-1898-49C0-9BC0-D91DB8CC04FA}" ShortID="819824158">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Headshot" ID="{BA569FB5-BFD6-4C20-9044-AD9AB68C0FD7}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
 								<Event Name="Stop_Turret_Charge" ID="{2EAE6447-AB75-4EAE-966B-A71048579772}"/>
-								<Event Name="Play_Minion_Charge" ID="{D2FC5A1A-206B-4022-849A-4B6EB717BAB2}">
-									<ChildrenList>
-										<Action Name="" ID="{BEB82C35-DAB6-4EBB-A855-DD8DE1DF0B2F}" ShortID="425163432">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="mover_loop" ID="{6782133E-3212-481C-B0CF-4AE91C7DACF1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
 								<Event Name="Play_Parkour_Collectible_Pickup" ID="{51CFD251-60EC-484B-8579-50DBDEC469B4}">
 									<ChildrenList>
 										<Action Name="" ID="{92955BC3-959B-41C1-891B-5AAA27049BD5}" ShortID="688702236">
@@ -664,20 +608,6 @@
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Stop_Minion_Charge" ID="{710C8F6D-A6DE-485F-9733-8B4DF86EB768}">
-									<ChildrenList>
-										<Action Name="" ID="{4D117EF5-71DC-4919-A6A0-C429D33B5C20}" ShortID="933227515">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="2"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="mover_loop" ID="{6782133E-3212-481C-B0CF-4AE91C7DACF1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
 								<Event Name="Play_Parkour_Wind" ID="{B9CBEF66-FCD7-452F-AC0E-DD2770A0155E}">
 									<ChildrenList>
 										<Action Name="" ID="{3EE1C63F-BA77-4969-B818-B5EEE12AD02B}" ShortID="415331658">
@@ -810,6 +740,101 @@
 											<ReferenceList>
 												<Reference Name="Target">
 													<ObjectRef Name="Minion_Melee_Thrust" ID="{42B6DEBA-0E13-477A-BB2D-0F68663D618E}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Minion_Charge" ID="{D2FC5A1A-206B-4022-849A-4B6EB717BAB2}">
+									<ChildrenList>
+										<Action Name="" ID="{BEB82C35-DAB6-4EBB-A855-DD8DE1DF0B2F}" ShortID="425163432">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Minion_Weapon_Charge_Loop" ID="{1FFFC804-9212-48CD-A60E-F2A34F5C4D51}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Minion_Spawn" ID="{044B13CF-0F99-492C-A510-E3055BD6B1EE}">
+									<ChildrenList>
+										<Action Name="" ID="{EF6BD803-2891-4A35-8300-E30843FA8FBF}" ShortID="569862728">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Minion_Spawn" ID="{8B83B54D-29CC-4478-AF50-48F18AD1613D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Stop_Minion_Charge" ID="{710C8F6D-A6DE-485F-9733-8B4DF86EB768}">
+									<ChildrenList>
+										<Action Name="" ID="{4D117EF5-71DC-4919-A6A0-C429D33B5C20}" ShortID="933227515">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="2"/>
+												<Property Name="FadeTime" Type="Real64" Value="0.05"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Minion_Weapon_Charge_Loop" ID="{1FFFC804-9212-48CD-A60E-F2A34F5C4D51}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Minion_Weapon_Fire" ID="{919B4E4E-886D-4376-BFFE-20C1A21C5B48}">
+									<ChildrenList>
+										<Action Name="" ID="{3E1F6AE5-426A-43EB-B9EA-1CBC9DEF502E}" ShortID="632626617">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Minion_Weapon_Fire" ID="{F898E6DF-5214-4691-AB74-CC934A4C1305}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+										<Action Name="" ID="{A61E8E99-3577-4D88-A492-1312A4E790D6}" ShortID="310501042">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="41"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Stop_Minion_Charge" ID="{710C8F6D-A6DE-485F-9733-8B4DF86EB768}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Minion_Die" ID="{655AFC70-201F-426F-9919-6E5DEE2E57E9}">
+									<ChildrenList>
+										<Action Name="" ID="{28C2E5A7-1898-49C0-9BC0-D91DB8CC04FA}" ShortID="819824158">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Minion_Death" ID="{F8B0A297-2CD5-4FF4-9563-E0AB66269073}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Minion_Headshot" ID="{96CF21EF-E2BB-48CE-80B4-54E2FA6F3049}">
+									<ChildrenList>
+										<Action Name="" ID="{2C171468-F148-4265-93E5-79036FD5C26C}" ShortID="177575733">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Minion_Death_Headshot" ID="{957E239B-48BD-4F73-B72B-D26255CDD29A}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>

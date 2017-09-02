@@ -190,7 +190,44 @@
 												</Reference>
 											</ReferenceList>
 										</AuxBus>
+										<AuxBus Name="Reverb_Huge" ID="{1CBD7C8D-95BE-4367-A51C-D87F12C87F48}">
+											<PropertyList>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Effect0" CompanyID="4095" PluginID="65535" PluginType="15">
+													<ObjectRef Name="Space_Garage" ID="{1AF92D84-49DD-4BBC-8F29-6C6D10082B6E}" WorkUnitID="{E8613F7D-BAD3-45CD-A3ED-505576F31277}"/>
+												</Reference>
+											</ReferenceList>
+										</AuxBus>
+										<AuxBus Name="Reverb_Small" ID="{9B42A0DE-647B-4B0B-8244-1AC45C78531D}">
+											<PropertyList>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Effect0" CompanyID="4095" PluginID="65535" PluginType="15">
+													<ObjectRef Name="Church_Small_Wood" ID="{940CCB47-F031-4C6A-B0E6-726CAC418C02}" WorkUnitID="{E8613F7D-BAD3-45CD-A3ED-505576F31277}"/>
+												</Reference>
+											</ReferenceList>
+										</AuxBus>
 									</ChildrenList>
+								</Bus>
+								<Bus Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}">
+									<PropertyList>
+										<Property Name="DivergenceCenter" Type="int32">
+											<ValueList>
+												<Value>100</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
 								</Bus>
 							</ChildrenList>
 						</Bus>

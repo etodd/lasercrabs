@@ -73,7 +73,11 @@ struct Minion : public ComponentType<Minion>
 	// animation callbacks
 	void footstep();
 	void melee_started();
+	void melee_thrust();
+	void melee_hand_closed();
+	void melee_hand_open();
 	void melee_damage();
+	void fired();
 
 	Vec3 head_pos() const;
 	Vec3 hand_pos() const;

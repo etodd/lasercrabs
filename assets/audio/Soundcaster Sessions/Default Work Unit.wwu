@@ -1,53 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<WwiseDocument Type="WorkUnit" ID="{446B4819-1566-494F-8D50-3470FCB05102}" SchemaVersion="80">
+<WwiseDocument Type="WorkUnit" ID="{B563AFC0-965A-484E-8FCB-1ACA2F55DBDB}" SchemaVersion="80">
 	<SoundcasterSessions>
-		<WorkUnit Name="Default Work Unit" ID="{446B4819-1566-494F-8D50-3470FCB05102}" PersistMode="Standalone">
+		<WorkUnit Name="Default Work Unit" ID="{B563AFC0-965A-484E-8FCB-1ACA2F55DBDB}" PersistMode="Standalone">
 			<ChildrenList>
-				<SoundcasterSession Name="New Soundcaster Session" ID="{799CE862-452C-45BD-BDD4-716FED3E2E89}">
+				<SoundcasterSession Name="New Soundcaster Session" ID="{FFAE4C88-7B4C-4885-B719-2CB10B6E0E8B}">
 					<ModuleList>
 						<Module>
-							<ObjectRef Name="Play_Drone_Land" ID="{329B5A76-4FC9-4BAD-BE77-0DC8E2CD81A5}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
-							<Position X="0" Y="2"/>
+							<ObjectRef Name="Play_Minion_Weapon_Fire" ID="{919B4E4E-886D-4376-BFFE-20C1A21C5B48}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
+							<Position X="0" Y="0"/>
 						</Module>
 						<Module>
-							<ObjectRef Name="Drone_Footstep" ID="{E27AEB66-E171-426C-8B1C-047A9ABEA125}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-							<Position X="0" Y="4"/>
-						</Module>
-						<Module>
-							<ObjectRef Name="Play_Footstep" ID="{912A7768-2178-48E7-BCF7-F9F9EE2EADDE}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
-							<Position X="1" Y="1"/>
-						</Module>
-						<Module>
-							<ObjectRef Name="Play_Bolt_Spawn" ID="{D58B09F0-22C3-413D-A8F2-0F113D4C4F70}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
-							<Position X="1" Y="2"/>
-						</Module>
-						<Module>
-							<ObjectRef Name="Drone_Land" ID="{93ED167C-2E9C-424F-A847-B7D659EF3769}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-							<Position X="1" Y="4"/>
-						</Module>
-						<Module>
-							<ObjectRef Name="Play_Minion_Headshot" ID="{96CF21EF-E2BB-48CE-80B4-54E2FA6F3049}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
-							<Position X="2" Y="1"/>
-						</Module>
-						<Module>
-							<ObjectRef Name="Play_Drone_Launch" ID="{E515E0C5-7679-46C8-B458-736D6A90AB99}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
-							<Position X="2" Y="2"/>
-						</Module>
-						<Module>
-							<ObjectRef Name="Drone_Launch" ID="{D84AAC65-C3AA-4562-915C-831BA8301AB5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-							<Position X="2" Y="4"/>
-						</Module>
-						<Module>
-							<ObjectRef Name="Play_Drone_Damage_Small" ID="{7A7B24CA-E959-4808-A4A6-2801162BE918}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
-							<Position X="3" Y="1"/>
-						</Module>
-						<Module>
-							<ObjectRef Name="Play_Music_01" ID="{C03573CE-9B2B-4870-BCA7-3F8D6DADB163}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
-							<Position X="3" Y="2"/>
-						</Module>
-						<Module>
-							<ObjectRef Name="Battery_Capture" ID="{61246997-0918-4CF2-AC2D-B7BF5BAB676C}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-							<Position X="3" Y="4"/>
+							<ObjectRef Name="Play_Minion_Charge" ID="{D2FC5A1A-206B-4022-849A-4B6EB717BAB2}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
+							<Position X="0" Y="1"/>
 						</Module>
 					</ModuleList>
 					<RTPCValueList ShowAll="true">
@@ -57,7 +21,7 @@
 						</RTPCValue>
 						<RTPCValue>
 							<GameParameterRef Name="Volume_Music" ID="{B1E54CCC-5EC7-4345-A62F-3A5A4F0365C8}"/>
-							<Value>0.84923928077455</Value>
+							<Value>1</Value>
 						</RTPCValue>
 						<RTPCValue>
 							<GameParameterRef Name="Parkour_Slide" ID="{6071C0CE-A3CA-461F-BDE3-5ADA06A81114}"/>
@@ -70,6 +34,10 @@
 						<RTPCValue>
 							<GameParameterRef Name="Tram_Loop" ID="{4141EC43-09B5-47DC-90E6-E83292CD9ACD}"/>
 							<Value>0</Value>
+						</RTPCValue>
+						<RTPCValue>
+							<GameParameterRef Name="Minion_Weapon_Charge" ID="{3D691C56-7A0B-4B17-A031-05C582C8C697}"/>
+							<Value>1</Value>
 						</RTPCValue>
 						<RTPCValue>
 							<GameParameterRef Name="Danger" ID="{F2CF682D-D1A7-4B62-82F0-EB53B18EEC18}"/>

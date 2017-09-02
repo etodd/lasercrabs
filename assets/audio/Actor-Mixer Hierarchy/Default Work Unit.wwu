@@ -146,73 +146,6 @@
 						</Sound>
 					</ChildrenList>
 				</RandomSequenceContainer>
-				<RandomSequenceContainer Name="Headshot" ID="{BA569FB5-BFD6-4C20-9044-AD9AB68C0FD7}" ShortID="404145141">
-					<PropertyList>
-						<Property Name="Pitch" Type="int32">
-							<ModifierList>
-								<ModifierInfo>
-									<Modifier Name="" ID="{5716F55E-06A7-4717-9FD9-EE679EE356AA}">
-										<PropertyList>
-											<Property Name="Enabled" Type="bool" Value="True"/>
-											<Property Name="Max" Type="Real64" Value="300"/>
-											<Property Name="Min" Type="Real64" Value="-300"/>
-										</PropertyList>
-									</Modifier>
-								</ModifierInfo>
-							</ModifierList>
-						</Property>
-						<Property Name="PositioningType" Type="int16" Value="1"/>
-						<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
-						<Property Name="Volume" Type="Real64">
-							<ValueList>
-								<Value>5</Value>
-							</ValueList>
-							<ModifierList>
-								<ModifierInfo>
-									<Modifier Name="" ID="{D608DBD9-9EEA-46EB-9ABD-222CD6CA588A}">
-										<PropertyList>
-											<Property Name="Enabled" Type="bool" Value="True"/>
-											<Property Name="Max" Type="Real64" Value="1"/>
-											<Property Name="Min" Type="Real64" Value="-2"/>
-										</PropertyList>
-									</Modifier>
-								</ModifierInfo>
-							</ModifierList>
-						</Property>
-					</PropertyList>
-					<ReferenceList>
-						<Reference Name="Attenuation">
-							<ObjectRef Name="Atten20" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
-						</Reference>
-						<Reference Name="Conversion">
-							<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-						</Reference>
-						<Reference Name="OutputBus">
-							<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-						</Reference>
-					</ReferenceList>
-					<ChildrenList>
-						<Sound Name="RussianRobot_SFX_01_Headshot_01" ID="{B3BDAE88-CAD8-4979-B355-C231C5B325CA}" ShortID="414104961">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="RussianRobot_SFX_01_Headshot_01" ID="{5E44B8CA-25AD-4C90-B507-3E8C24D8D038}" ShortID="189355947">
-									<Language>SFX</Language>
-									<AudioFile>RussianRobot_SFX_01_Headshot_01.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="RussianRobot_SFX_01_Headshot_01" ID="{5E44B8CA-25AD-4C90-B507-3E8C24D8D038}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-					</ChildrenList>
-				</RandomSequenceContainer>
 				<RandomSequenceContainer Name="Hurt" ID="{46CEBDF0-82A8-47E5-996C-692A78EFEBB9}" ShortID="416024269">
 					<PropertyList>
 						<Property Name="Pitch" Type="int32">
@@ -4631,7 +4564,7 @@
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
 								</Reference>
 								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+									<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
@@ -4879,6 +4812,1085 @@
 										</Sound>
 									</ChildrenList>
 								</RandomSequenceContainer>
+								<RandomSequenceContainer Name="Minion_Spawn" ID="{8B83B54D-29CC-4478-AF50-48F18AD1613D}" ShortID="833920026">
+									<PropertyList>
+										<Property Name="Pitch" Type="int32">
+											<ModifierList>
+												<ModifierInfo>
+													<Modifier Name="" ID="{7E2FCA13-53F7-4142-9759-FCD9DA64561F}">
+														<PropertyList>
+															<Property Name="Enabled" Type="bool" Value="True"/>
+															<Property Name="Max" Type="Real64" Value="25"/>
+															<Property Name="Min" Type="Real64" Value="-25"/>
+														</PropertyList>
+													</Modifier>
+												</ModifierInfo>
+											</ModifierList>
+										</Property>
+										<Property Name="RandomAvoidRepeating" Type="bool" Value="False"/>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-12</Value>
+											</ValueList>
+											<ModifierList>
+												<ModifierInfo>
+													<Modifier Name="" ID="{D58FC81B-B412-46EA-B3CC-1F1C200EB1A9}">
+														<PropertyList>
+															<Property Name="Enabled" Type="bool" Value="True"/>
+															<Property Name="Min" Type="Real64" Value="-0.5"/>
+														</PropertyList>
+													</Modifier>
+												</ModifierInfo>
+											</ModifierList>
+										</Property>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="DEC_Minion_Spawn_01_V_1" ID="{759D7A8D-6A1E-4D2C-BFD8-73FE4183668F}" ShortID="244673520">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Minion_Spawn_01_V_1" ID="{D3D528D8-6842-4945-9449-56CCEC000602}" ShortID="472649485">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Minion_Spawn_01_V_1.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Minion_Spawn_01_V_1" ID="{D3D528D8-6842-4945-9449-56CCEC000602}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</RandomSequenceContainer>
+								<BlendContainer Name="Minion_Weapon_Charge_Loop" ID="{1FFFC804-9212-48CD-A60E-F2A34F5C4D51}" ShortID="598275945">
+									<PropertyList>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-14</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<RandomSequenceContainer Name="Minion_Weapon_Charge_Loop" ID="{A771478B-78F7-45D0-BACD-DB5AAD404C0B}" ShortID="50068533">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{C5A944C1-AE51-4673-8830-B1FFA2BFB33A}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="50"/>
+																	<Property Name="Min" Type="Real64" Value="-50"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+													<RTPCList>
+														<RTPC Name="" ID="{2FABAC3C-5F72-4F44-AD28-2822B6C1537D}" ShortID="985918565">
+															<ReferenceList>
+																<Reference Name="ControlInput">
+																	<ObjectRef Name="Minion_Weapon_Charge_Envelope" ID="{98961A3B-40C1-445A-B41B-37ABDDAD9CBF}" WorkUnitID="{6C9A9CB0-A13B-4A25-8720-801EEF63E875}"/>
+																</Reference>
+															</ReferenceList>
+															<Curve Name="" ID="{83948296-BA1F-495A-8904-2B74E090BF2D}">
+																<PropertyList>
+																	<Property Name="Flags" Type="int32" Value="65537"/>
+																</PropertyList>
+																<PointList>
+																	<Point>
+																		<XPos>0</XPos>
+																		<YPos>0</YPos>
+																		<Flags>21</Flags>
+																	</Point>
+																	<Point>
+																		<XPos>1</XPos>
+																		<YPos>2400</YPos>
+																		<Flags>53</Flags>
+																	</Point>
+																</PointList>
+															</Curve>
+														</RTPC>
+													</RTPCList>
+												</Property>
+												<Property Name="PlayMechanismLoop" Type="bool" Value="True"/>
+												<Property Name="PlayMechanismSpecialTransitions" Type="bool" Value="True"/>
+												<Property Name="PlayMechanismSpecialTransitionsValue" Type="Real64" Value="1.5"/>
+												<Property Name="PlayMechanismStepOrContinuous" Type="int16" Value="0"/>
+												<Property Name="PositioningType" Type="int16" Value="1"/>
+												<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-8</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{024A329E-D12C-4AFC-8234-8568604E1C0F}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Attenuation">
+													<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+												</Reference>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Minion_Weapon_Charge_Loop_01_V_02" ID="{135F6C89-832D-4391-A93D-0C102C7C09B4}" ShortID="177633995">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Weapon_Charge_Loop_01_V_02" ID="{886F77A7-A187-4D2F-B6C4-4B35956C3480}" ShortID="946704397">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Weapon_Charge_Loop_01_V_02.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Weapon_Charge_Loop_01_V_02" ID="{886F77A7-A187-4D2F-B6C4-4B35956C3480}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Minion_Weapon_Charge_Loop_01_V_01" ID="{15C3F46C-D7DC-464A-B2AB-EB064B50E0AE}" ShortID="923118939">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Weapon_Charge_Loop_01_V_01" ID="{B20F8C4E-4478-45D6-9BF3-E3970154DF77}" ShortID="797060819">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Weapon_Charge_Loop_01_V_01.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Weapon_Charge_Loop_01_V_01" ID="{B20F8C4E-4478-45D6-9BF3-E3970154DF77}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Minion_Weapon_Charge_Loop_01_V_03" ID="{1E2FBCDA-00CA-4B0C-9592-53CABD83DA01}" ShortID="108618753">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Weapon_Charge_Loop_01_V_03" ID="{3DB9D557-C92F-49D8-81E5-AF09FBDB4D16}" ShortID="794254733">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Weapon_Charge_Loop_01_V_03.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Weapon_Charge_Loop_01_V_03" ID="{3DB9D557-C92F-49D8-81E5-AF09FBDB4D16}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
+										<RandomSequenceContainer Name="Minion_Weapon_Charge_Start" ID="{85AE2F83-EE68-472C-BA89-A4E2B86FD922}" ShortID="387752214">
+											<PropertyList>
+												<Property Name="Lowpass" Type="int16">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{66C73B84-338A-42E9-85E8-44E74AA960A0}"/>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="Pitch" Type="int32">
+													<ValueList>
+														<Value>-1200</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{087CCD97-D40E-4891-A1E6-4447FD905ECB}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="100"/>
+																	<Property Name="Min" Type="Real64" Value="-100"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="PositioningType" Type="int16" Value="1"/>
+												<Property Name="RandomAvoidRepeating" Type="bool" Value="False"/>
+												<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+												<Property Name="Volume" Type="Real64">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{528B66F0-8FF4-4302-9344-A429B5F4D1CD}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Attenuation">
+													<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+												</Reference>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Minion_Weapon_Charge_Start_01_V_1" ID="{821CFCE4-8D59-4E65-83D3-ED65905C16D4}" ShortID="556924751">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Weapon_Charge_Start_01_V_1" ID="{87102852-D074-45CB-A4F1-5DBC7F7C8453}" ShortID="127013224">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Weapon_Charge_Start_01_V_1.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Weapon_Charge_Start_01_V_1" ID="{87102852-D074-45CB-A4F1-5DBC7F7C8453}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
+										<Sound Name="Minion_Weapon_Charge_Synth" ID="{0607B547-A3E6-4DBD-9FF9-D3CD98E8C76C}" ShortID="650241221">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{AD888D42-AFB7-4DCD-B575-CB4099B03A88}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="200"/>
+																	<Property Name="Min" Type="Real64" Value="-200"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+													<RTPCList>
+														<RTPC Name="" ID="{B7F86E1D-9502-4FF3-95D2-767FD8F5BFF4}" ShortID="534109663">
+															<ReferenceList>
+																<Reference Name="ControlInput">
+																	<ObjectRef Name="Minion_Weapon_Charge_Envelope" ID="{98961A3B-40C1-445A-B41B-37ABDDAD9CBF}" WorkUnitID="{6C9A9CB0-A13B-4A25-8720-801EEF63E875}"/>
+																</Reference>
+															</ReferenceList>
+															<Curve Name="" ID="{0BD42116-3919-4188-B332-C93EE2180E03}">
+																<PropertyList>
+																	<Property Name="Flags" Type="int32" Value="65537"/>
+																</PropertyList>
+																<PointList>
+																	<Point>
+																		<XPos>0</XPos>
+																		<YPos>0</YPos>
+																		<Flags>21</Flags>
+																	</Point>
+																	<Point>
+																		<XPos>1</XPos>
+																		<YPos>2400</YPos>
+																		<Flags>53</Flags>
+																	</Point>
+																</PointList>
+															</Curve>
+														</RTPC>
+													</RTPCList>
+												</Property>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-14</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<SourcePlugin Name="Wwise Synth One" ID="{D6CFEC15-8811-4033-BD35-E05C62F63872}" ShortID="24730636" PluginName="Wwise Synth One" CompanyID="0" PluginID="148">
+													<PropertyList>
+														<Property Name="BaseFrequency" Type="Real32" Value="100"/>
+														<Property Name="OutputLevel" Type="Real32">
+															<RTPCList>
+																<RTPC Name="" ID="{AA414FAA-985D-4807-9A9B-16F4A3B8822D}" ShortID="264988314">
+																	<ReferenceList>
+																		<Reference Name="ControlInput">
+																			<Custom>
+																				<ModulatorEnvelope Name="Modulator Envelope (Custom)" ID="{AB819BB8-66C2-4F05-B9D0-3BC5CCBFBB45}" ShortID="187110855"/>
+																			</Custom>
+																		</Reference>
+																	</ReferenceList>
+																	<Curve Name="" ID="{EFAAEF68-0080-4137-B8EC-1260707DDB88}">
+																		<PropertyList>
+																			<Property Name="Flags" Type="int32" Value="3"/>
+																		</PropertyList>
+																		<PointList>
+																			<Point>
+																				<XPos>0</XPos>
+																				<YPos>-96</YPos>
+																				<Flags>21</Flags>
+																			</Point>
+																			<Point>
+																				<XPos>1</XPos>
+																				<YPos>0</YPos>
+																				<Flags>53</Flags>
+																			</Point>
+																		</PointList>
+																	</Curve>
+																</RTPC>
+															</RTPCList>
+														</Property>
+													</PropertyList>
+													<Language>SFX</Language>
+												</SourcePlugin>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="Wwise Synth One" ID="{D6CFEC15-8811-4033-BD35-E05C62F63872}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</BlendContainer>
+								<RandomSequenceContainer Name="Minion_Weapon_Fire" ID="{F898E6DF-5214-4691-AB74-CC934A4C1305}" ShortID="196906302">
+									<PropertyList>
+										<Property Name="Pitch" Type="int32">
+											<ModifierList>
+												<ModifierInfo>
+													<Modifier Name="" ID="{3AE64337-001F-426A-AC3E-F94B6F30EA9F}">
+														<PropertyList>
+															<Property Name="Enabled" Type="bool" Value="True"/>
+															<Property Name="Max" Type="Real64" Value="50"/>
+															<Property Name="Min" Type="Real64" Value="-50"/>
+														</PropertyList>
+													</Modifier>
+												</ModifierInfo>
+											</ModifierList>
+										</Property>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-10</Value>
+											</ValueList>
+											<ModifierList>
+												<ModifierInfo>
+													<Modifier Name="" ID="{4FB62748-28AD-447F-B586-5F7DB153FB0B}">
+														<PropertyList>
+															<Property Name="Enabled" Type="bool" Value="True"/>
+															<Property Name="Min" Type="Real64" Value="-0.5"/>
+														</PropertyList>
+													</Modifier>
+												</ModifierInfo>
+											</ModifierList>
+										</Property>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="DEC_Minion_Weapon_Fire_01_V_01" ID="{90B4BCD9-B8ED-4E9C-85B7-A3F8E729F390}" ShortID="123729265">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Minion_Weapon_Fire_01_V_01" ID="{C379AD89-C4B0-4A48-BEF5-80F0C20D1474}" ShortID="542888105">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Minion_Weapon_Fire_01_V_01.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Minion_Weapon_Fire_01_V_01" ID="{C379AD89-C4B0-4A48-BEF5-80F0C20D1474}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_Minion_Weapon_Fire_01_V_02" ID="{817E833C-5409-4EBC-A7E1-A3C4F092CB5B}" ShortID="246911700">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Minion_Weapon_Fire_01_V_02" ID="{F937EBD8-BC2F-492B-AF45-693FC15E270E}" ShortID="765349828">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Minion_Weapon_Fire_01_V_02.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Minion_Weapon_Fire_01_V_02" ID="{F937EBD8-BC2F-492B-AF45-693FC15E270E}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_Minion_Weapon_Fire_01_V_03" ID="{3B93FB8B-96B4-4D10-8180-2E61E4B8D6F8}" ShortID="879257328">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Minion_Weapon_Fire_01_V_03" ID="{BA06FEAD-69E7-4BA5-AFF5-7C2474552993}" ShortID="10001588">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Minion_Weapon_Fire_01_V_03.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Minion_Weapon_Fire_01_V_03" ID="{BA06FEAD-69E7-4BA5-AFF5-7C2474552993}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</RandomSequenceContainer>
+								<BlendContainer Name="Minion_Death" ID="{F8B0A297-2CD5-4FF4-9563-E0AB66269073}" ShortID="634908998">
+									<PropertyList>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-8</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="DEC_Minion_Death_01_PowerDown_V_1" ID="{79702D31-3568-42DD-8A76-D382A6D50987}" ShortID="992235451">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{46184728-8735-4FB6-80EF-16B33B49D98C}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="300"/>
+																	<Property Name="Min" Type="Real64" Value="-300"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-8</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{22E0930B-05EB-4ED4-A6A2-780A63D0E581}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="0.5"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Minion_Death_01_PowerDown_V_1" ID="{129174E6-752B-48E5-8D18-B48B117BFDDA}" ShortID="413471975">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Minion_Death_01_PowerDown_V_1.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Minion_Death_01_PowerDown_V_1" ID="{129174E6-752B-48E5-8D18-B48B117BFDDA}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<RandomSequenceContainer Name="DEC_Minion_Death_01" ID="{598C3195-9590-40D1-9AFA-B7D12ACE3642}" ShortID="405838782">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{5E7BB445-5DAE-426C-ADD7-8483A4673FE6}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="300"/>
+																	<Property Name="Min" Type="Real64" Value="-300"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="Volume" Type="Real64">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{21EE3593-87D7-4C67-A57E-78801C9299F0}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="0.5"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Minion_Death_01_V_01" ID="{F0AB3FEC-73F8-4A15-AE7B-CB0478FCAC6F}" ShortID="203386776">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Death_01_V_01" ID="{A8F2EA64-5E62-48C4-A2E9-50CCE393735A}" ShortID="492860866">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Death_01_V_01.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Death_01_V_01" ID="{A8F2EA64-5E62-48C4-A2E9-50CCE393735A}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Minion_Death_01_V_02" ID="{3B83EEAC-DD43-4407-B1C5-D8A34E970E3A}" ShortID="620157938">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Death_01_V_02" ID="{4278DADD-189E-4E8C-8E6A-35FD074BAF8A}" ShortID="813335798">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Death_01_V_02.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Death_01_V_02" ID="{4278DADD-189E-4E8C-8E6A-35FD074BAF8A}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Minion_Death_01_V_03" ID="{325A5200-9A93-414E-994B-709FC1A2D878}" ShortID="432755524">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Death_01_V_03" ID="{F2EEE50A-43A2-4ED0-9B9A-3F2A47720CD4}" ShortID="925219005">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Death_01_V_03.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Death_01_V_03" ID="{F2EEE50A-43A2-4ED0-9B9A-3F2A47720CD4}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Minion_Death_01_V_04" ID="{81DAE77A-37B0-4B51-ADD3-F8C4C58AB11A}" ShortID="386860186">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Death_01_V_04" ID="{7691FD25-05B0-4293-B72D-7A7CBBD2CB88}" ShortID="269702537">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Death_01_V_04.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Death_01_V_04" ID="{7691FD25-05B0-4293-B72D-7A7CBBD2CB88}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Minion_Death_01_V_05" ID="{3D30A837-ECD1-4419-9813-F888EECBA8D3}" ShortID="709706740">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Death_01_V_05" ID="{9207A46A-09F1-48F2-B9ED-943CFF2E783B}" ShortID="287219869">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Death_01_V_05.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Death_01_V_05" ID="{9207A46A-09F1-48F2-B9ED-943CFF2E783B}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
+									</ChildrenList>
+								</BlendContainer>
+								<BlendContainer Name="Minion_Death_Headshot" ID="{957E239B-48BD-4F73-B72B-D26255CDD29A}" ShortID="25443140">
+									<PropertyList>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-6</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="DEC_Minion_Death_01_PowerDown_V_1" ID="{218EEB67-CC33-43DC-9F25-51587581767F}" ShortID="613674751">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{776873D4-A26F-4113-8C14-332984EE96C0}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="300"/>
+																	<Property Name="Min" Type="Real64" Value="-300"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-14</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{80110A30-B66F-49E9-9DF0-1C34349F6BAD}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="0.5"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Minion_Death_01_PowerDown_V_1" ID="{1D9A683D-FAD6-4759-A1A0-F17559CB03A2}" ShortID="667780484">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Minion_Death_01_PowerDown_V_1.wav</AudioFile>
+													<ConvertedFileIDList>
+														<File ID="413471975"/>
+													</ConvertedFileIDList>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Minion_Death_01_PowerDown_V_1" ID="{1D9A683D-FAD6-4759-A1A0-F17559CB03A2}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<RandomSequenceContainer Name="DEC_Minion_Death_01" ID="{732EF16A-7D44-45B0-896A-524C7F8AD24A}" ShortID="1015628551">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{9BD345B2-9603-4C4F-BBB9-0CAFBEEFB3F3}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="300"/>
+																	<Property Name="Min" Type="Real64" Value="-300"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-8</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{EEFAFB27-CEC9-4F2D-9061-E6CAC168439D}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="0.5"/>
+																	<Property Name="Min" Type="Real64" Value="-0.5"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Minion_Death_01_V_01" ID="{85729920-1431-4640-A809-5231FC8F86B9}" ShortID="805402745">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Death_01_V_01" ID="{297E013C-C824-40C2-8445-3FFA04482E53}" ShortID="481897002">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Death_01_V_01.wav</AudioFile>
+															<ConvertedFileIDList>
+																<File ID="492860866"/>
+															</ConvertedFileIDList>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Death_01_V_01" ID="{297E013C-C824-40C2-8445-3FFA04482E53}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Minion_Death_01_V_02" ID="{86047D1A-38E0-48E7-B97C-E9D8772F5990}" ShortID="780728163">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Death_01_V_02" ID="{F70D7C5D-4908-4F4F-967A-1C46AE1B3BB1}" ShortID="790668380">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Death_01_V_02.wav</AudioFile>
+															<ConvertedFileIDList>
+																<File ID="813335798"/>
+															</ConvertedFileIDList>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Death_01_V_02" ID="{F70D7C5D-4908-4F4F-967A-1C46AE1B3BB1}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Minion_Death_01_V_03" ID="{35D8E3E7-3035-4E26-9FD6-BF317A888C45}" ShortID="767956921">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Death_01_V_03" ID="{6D6D0ACB-D328-4FBF-8FD8-9458A186D688}" ShortID="331968316">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Death_01_V_03.wav</AudioFile>
+															<ConvertedFileIDList>
+																<File ID="925219005"/>
+															</ConvertedFileIDList>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Death_01_V_03" ID="{6D6D0ACB-D328-4FBF-8FD8-9458A186D688}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Minion_Death_01_V_04" ID="{7903BBCB-3DC6-4BD4-A7E0-27FA450C25B5}" ShortID="209510629">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Death_01_V_04" ID="{45F87BEE-6466-4C5A-A249-1D092828D3A3}" ShortID="998350498">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Death_01_V_04.wav</AudioFile>
+															<ConvertedFileIDList>
+																<File ID="269702537"/>
+															</ConvertedFileIDList>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Death_01_V_04" ID="{45F87BEE-6466-4C5A-A249-1D092828D3A3}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Minion_Death_01_V_05" ID="{F8267B57-7B2F-464B-BD5C-BA734359A336}" ShortID="257350909">
+													<PropertyList>
+														<Property Name="PositioningType" Type="int16" Value="1"/>
+														<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Attenuation">
+															<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+														</Reference>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Minion_Death_01_V_05" ID="{E1496E57-9104-4053-96E9-A7E139533C51}" ShortID="925707906">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Minion_Death_01_V_05.wav</AudioFile>
+															<ConvertedFileIDList>
+																<File ID="287219869"/>
+															</ConvertedFileIDList>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Minion_Death_01_V_05" ID="{E1496E57-9104-4053-96E9-A7E139533C51}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
+										<RandomSequenceContainer Name="Headshot" ID="{BA569FB5-BFD6-4C20-9044-AD9AB68C0FD7}" ShortID="404145141">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{5716F55E-06A7-4717-9FD9-EE679EE356AA}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="300"/>
+																	<Property Name="Min" Type="Real64" Value="-300"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="PositioningType" Type="int16" Value="1"/>
+												<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>5</Value>
+													</ValueList>
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{D608DBD9-9EEA-46EB-9ABD-222CD6CA588A}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="1"/>
+																	<Property Name="Min" Type="Real64" Value="-2"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Attenuation">
+													<ObjectRef Name="Minion" ID="{6D83E57C-EA5E-48D0-86C3-6C4D36CCE935}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+												</Reference>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="RussianRobot_SFX_01_Headshot_01" ID="{B3BDAE88-CAD8-4979-B355-C231C5B325CA}" ShortID="414104961">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="RussianRobot_SFX_01_Headshot_01" ID="{5E44B8CA-25AD-4C90-B507-3E8C24D8D038}" ShortID="189355947">
+															<Language>SFX</Language>
+															<AudioFile>RussianRobot_SFX_01_Headshot_01.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="RussianRobot_SFX_01_Headshot_01" ID="{5E44B8CA-25AD-4C90-B507-3E8C24D8D038}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
+									</ChildrenList>
+								</BlendContainer>
 							</ChildrenList>
 						</ActorMixer>
 					</ChildrenList>

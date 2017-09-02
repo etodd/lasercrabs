@@ -189,7 +189,8 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 			b8 trigger_after_old_time = time_last <= trigger->time;
 			b8 trigger_before_new_time = time >= trigger->time;
 			if (animation == trigger->animation &&
-				(((looped || trigger_after_old_time) && trigger_before_new_time) || (trigger_after_old_time && (looped || trigger_before_new_time))))
+				((((looped || trigger_after_old_time) && trigger_before_new_time) || (trigger_after_old_time && (looped || trigger_before_new_time)))
+					|| animation != last_frame_animation && trigger->time == 0.0f && time < (1.0f / 30.0f)))
 			{
 				trigger->link.fire();
 			}

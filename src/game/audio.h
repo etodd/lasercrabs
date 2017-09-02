@@ -30,6 +30,7 @@
 #define AUDIO_OFFSET_LISTENERS 2
 #define AUDIO_OFFSET_ENTRIES (2 + MAX_GAMEPADS - 1)
 #define AUDIO_OFFSET_GLOBAL_2D (2 + MAX_GAMEPADS + MAX_ENTITIES)
+#define MAX_REVERBS 3
 
 namespace VI
 {
@@ -52,6 +53,8 @@ struct Audio : ComponentType<Audio>
 		r32 obstruction_target[MAX_GAMEPADS];
 		r32 occlusion[MAX_GAMEPADS];
 		r32 occlusion_target[MAX_GAMEPADS];
+		r32 reverb[MAX_REVERBS];
+		r32 reverb_target[MAX_REVERBS];
 		Ref<Transform> parent;
 		s16 obstruction_occlusion_frame;
 		s8 playing;
@@ -71,7 +74,7 @@ struct Audio : ComponentType<Audio>
 		}
 
 		void update(r32 = 0.0f);
-		void update_obstruction_occlusion();
+		void update_reverb_obstruction_occlusion();
 		void post(AkUniqueID);
 		void stop(AkUniqueID);
 		void stop_all();

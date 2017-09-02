@@ -2046,15 +2046,8 @@ void Bolt::awake()
 {
 	last_pos = get<Transform>()->absolute_pos();
 
-	if (Game::level.local
-		|| !owner.ref()
-		|| owner.ref()->has<Minion>() || owner.ref()->has<Turret>())
-	{
-		if (owner.ref())
-			owner.ref()->get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
-		else
-			Audio::post_global(AK::EVENTS::PLAY_BOLT_SPAWN, last_pos);
-	}
+	if (owner.ref() && owner.ref()->has<Turret>())
+		owner.ref()->get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
 }
 
 b8 Bolt::visible() const

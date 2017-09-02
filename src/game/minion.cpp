@@ -76,7 +76,11 @@ void Minion::awake()
 	link<&Minion::footstep>(animator->trigger(Asset::Animation::character_walk, 0.0f));
 	link<&Minion::footstep>(animator->trigger(Asset::Animation::character_walk, 0.5f));
 	link<&Minion::melee_started>(animator->trigger(Asset::Animation::character_melee, 0.0f));
+	link<&Minion::melee_hand_closed>(animator->trigger(Asset::Animation::character_melee, 0.333f));
+	link<&Minion::melee_hand_open>(animator->trigger(Asset::Animation::character_melee, 1.875f));
+	link<&Minion::melee_thrust>(animator->trigger(Asset::Animation::character_melee, 0.75f));
 	link<&Minion::melee_damage>(animator->trigger(Asset::Animation::character_melee, 0.875f));
+	link<&Minion::fired>(animator->trigger(Asset::Animation::character_fire, 0.0f));
 
 	get<Walker>()->awake();
 	get<Audio>()->offset(get<Walker>()->base_pos() - get<Transform>()->absolute_pos());
@@ -142,7 +146,27 @@ void Minion::footstep()
 
 void Minion::melee_started()
 {
-	get<Audio>()->post(AK::EVENTS::PLAY_MINION_MELEE);
+	get<Audio>()->post(AK::EVENTS::PLAY_MINION_MELEE_PULLBACK);
+}
+
+void Minion::melee_hand_closed()
+{
+	get<Audio>()->post(AK::EVENTS::PLAY_MINION_MELEE_HANDCLOSE);
+}
+
+void Minion::melee_hand_open()
+{
+	get<Audio>()->post(AK::EVENTS::PLAY_MINION_MELEE_HANDOPEN);
+}
+
+void Minion::melee_thrust()
+{
+	get<Audio>()->post(AK::EVENTS::PLAY_MINION_MELEE_THRUST);
+}
+
+void Minion::fired()
+{
+	get<Audio>()->post(AK::EVENTS::PLAY_MINION_WEAPON_FIRE);
 }
 
 void Minion::melee_damage()

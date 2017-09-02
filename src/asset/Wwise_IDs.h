@@ -118,6 +118,7 @@ namespace AK
         static const AkUniqueID PLAY_MINION_MELEE_PULLBACK = 1742005112U;
         static const AkUniqueID PLAY_MINION_MELEE_THRUST = 438759358U;
         static const AkUniqueID PLAY_MINION_SPAWN = 4058052828U;
+        static const AkUniqueID PLAY_MINION_WEAPON_FIRE = 2006027670U;
         static const AkUniqueID PLAY_MUSIC_01 = 3709355747U;
         static const AkUniqueID PLAY_OVERWORLD_DEPLOY = 3291224810U;
         static const AkUniqueID PLAY_OVERWORLD_DEPLOY_START = 1917291515U;
@@ -181,6 +182,7 @@ namespace AK
     {
         static const AkUniqueID DANGER = 4174463524U;
         static const AkUniqueID DRONE_SPEED = 1382379429U;
+        static const AkUniqueID MINION_WEAPON_CHARGE = 691397373U;
         static const AkUniqueID PARKOUR_SLIDE = 2866705659U;
         static const AkUniqueID PARKOUR_WIND = 2655675174U;
         static const AkUniqueID PERSPECTIVE = 3838734001U;
@@ -207,6 +209,7 @@ namespace AK
         static const AkUniqueID DRONE_WEAPON = 207691048U;
         static const AkUniqueID MASTER_AUDIO_BUS = 3803692087U;
         static const AkUniqueID MASTER_SECONDARY_BUS = 805203703U;
+        static const AkUniqueID MINION = 2963829187U;
         static const AkUniqueID MUSIC = 3991942870U;
         static const AkUniqueID SFX = 393239870U;
         static const AkUniqueID UI = 1551306167U;
@@ -215,6 +218,8 @@ namespace AK
     namespace AUX_BUSSES
     {
         static const AkUniqueID REVERB_DEFAULT = 873836703U;
+        static const AkUniqueID REVERB_HUGE = 362420037U;
+        static const AkUniqueID REVERB_SMALL = 933527613U;
     } // namespace AUX_BUSSES
 
 }// namespace AK

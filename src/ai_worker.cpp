@@ -407,7 +407,7 @@ void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const D
 					ctx.mesh.chunks[n.chunk].vertices[n.vertex],
 					ctx.mesh.chunks[n.chunk].normals[n.vertex],
 					n,
-					data.flag(DroneNavMeshNodeData::FlagCrawledFromParent) ? DronePathNode::FlagCrawledFromParent : 0,
+					s8(data.flag(DroneNavMeshNodeData::FlagCrawledFromParent) ? DronePathNode::FlagCrawledFromParent : 0),
 				};
 				if (n.equals(start_vertex))
 					break;

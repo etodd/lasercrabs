@@ -25,7 +25,6 @@
 	#include <AK/Comm/AkCommunication.h>
 #endif
 #include "ai.h"
-#include "console.h"
 
 namespace AK
 {
@@ -379,8 +378,6 @@ void Audio::Entry::update(r32 dt)
 				occlusion[i] = vi_min(occlusion_target[i], occlusion[i] + delta);
 			else
 				occlusion[i] = vi_max(occlusion_target[i], occlusion[i] - delta);
-			if (obstruction_target[i] == 1.0f)
-				Console::debug("%.1f", occlusion_target[i]);
 			AK::SoundEngine::SetObjectObstructionAndOcclusion(ak_id(), Audio::listener_id(i), obstruction[i], occlusion[i]);
 		}
 	}

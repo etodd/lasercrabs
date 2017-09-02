@@ -155,6 +155,24 @@ void update(const Update& u)
 				sync_out.read(&level_revision_worker);
 				break;
 			}
+			case Callback::AudioPath:
+			{
+				Ref<Audio::Entry> entry;
+				s8 listener;
+				r32 path_length;
+				r32 straight_distance;
+				sync_out.read(&entry);
+				sync_out.read(&listener);
+				sync_out.read(&path_length);
+				sync_out.read(&straight_distance);
+				callback_out_id++;
+				if (level_revision == level_revision_worker) // prevent entity ID/revision collisions
+				{
+					if (entry.ref())
+						entry.ref()->pathfind_result(listener, path_length, straight_distance);
+				}
+				break;
+			}
 			default:
 			{
 				vi_assert(false);
@@ -391,42 +409,27 @@ u32 drone_pathfind(DronePathfind type, DroneAllow rule, Team team, const Vec3& a
 	return id;
 }
 
-#if DEBUG_AUDIO
-void audio_debug_line(const Vec3& a, const Vec3& b)
-{
-	Vec3 diff = b - a;
-	r32 distance = diff.length();
-	View::debug(Asset::Mesh::cube, a + diff * 0.5f, Quat::look(diff / distance), Vec3(0.05f, 0.05f, distance * 0.5f));
-}
-#else
-#define audio_debug_line(a, b) ((void)0)
-#endif
-
 r32 audio_pathfind(const Vec3& a, const Vec3& b)
 {
-	DronePath path;
-	Worker::audio_pathfind(ctx, a, b, &path);
+	return Worker::audio_pathfind(ctx, a, b);
+}
 
-	if (path.length == 2)
-	{
-		audio_debug_line(path[0].pos, path[1].pos);
-		return 0.5f * ((path[0].pos - a).length() + (b - path[1].pos).length()) + (path[1].pos - path[0].pos).length();
-	}
-	else if (path.length > 2)
-	{
-		audio_debug_line(path[0].pos, path[1].pos);
-		r32 distance = (path[1].pos - a).length();
-		for (s32 i = 1; i < path.length - 2; i++)
-		{
-			audio_debug_line(path[i].pos, path[i + 1].pos);
-			distance += (path[i].pos - path[i + 1].pos).length();
-		}
-		audio_debug_line(path[path.length - 2].pos, b);
-		distance += (path[path.length - 2].pos - b).length();
-		return distance;
-	}
-	else
-		return 0.5f;
+u32 audio_pathfind(const Vec3& a, const Vec3& b, Audio::Entry* entry, s8 listener, r32 straight_distance)
+{
+	u32 id = callback_in_id;
+	callback_in_id++;
+
+	sync_in.lock();
+	sync_in.write(Op::AudioPathfind);
+	Ref<Audio::Entry> ref = entry;
+	sync_in.write(ref);
+	sync_in.write(listener);
+	sync_in.write(a);
+	sync_in.write(b);
+	sync_in.write(straight_distance);
+	sync_in.unlock();
+	
+	return id;
 }
 
 u32 drone_closest_point(const Vec3& pos, AI::Team team, const LinkEntryArg<const DronePathNode&>& callback)

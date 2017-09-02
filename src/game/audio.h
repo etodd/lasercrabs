@@ -43,6 +43,13 @@ struct Audio : ComponentType<Audio>
 	// 3D positioned sound source
 	struct Entry
 	{
+		enum class UpdateType : s8
+		{
+			ReverbObstruction,
+			All,
+			count,
+		};
+
 		static PinArray<Entry, MAX_ENTITIES> list;
 
 		static Entry* by_ak_id(AkGameObjectID);
@@ -56,7 +63,8 @@ struct Audio : ComponentType<Audio>
 		r32 reverb[MAX_REVERBS];
 		r32 reverb_target[MAX_REVERBS];
 		Ref<Transform> parent;
-		s16 obstruction_occlusion_frame;
+		s16 spatialization_update_frame;
+		Revision revision;
 		s8 playing;
 		b8 keepalive;
 
@@ -74,7 +82,8 @@ struct Audio : ComponentType<Audio>
 		}
 
 		void update(r32 = 0.0f);
-		void update_reverb_obstruction_occlusion();
+		void update_spatialization(UpdateType);
+		void pathfind_result(s8, r32, r32);
 		void post(AkUniqueID);
 		void stop(AkUniqueID);
 		void stop_all();
@@ -94,7 +103,7 @@ struct Audio : ComponentType<Audio>
 	static Vec3 listener_pos[MAX_GAMEPADS];
 	static StaticArray<ID, 32> dialogue_callbacks; // poll this and empty it every frame; ID is entity ID
 
-	static s16 obstruction_occlusion_frame;
+	static s16 spatialization_update_frame;
 	static PinArray<Entry, MAX_ENTITIES> pool_entity;
 	static PinArray<Entry, MAX_ENTITIES> pool_global_3d;
 	static b8 init();

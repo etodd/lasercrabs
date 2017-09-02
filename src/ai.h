@@ -5,6 +5,7 @@
 #include "data/import_common.h"
 #include "sync.h"
 #include "game/constants.h"
+#include "game/audio.h"
 
 #include "recast/Detour/Include/DetourNavMesh.h"
 #include "recast/Detour/Include/DetourNavMeshQuery.h"
@@ -38,6 +39,7 @@ enum class Op : s8
 	RecordInit,
 	RecordAdd,
 	RecordClose,
+	AudioPathfind,
 	count,
 };
 
@@ -48,6 +50,7 @@ enum class Callback : s8
 	Point,
 	DronePoint,
 	Load,
+	AudioPath,
 	count,
 };
 
@@ -164,6 +167,7 @@ void update(const Update&);
 void debug_draw_nav_mesh(const RenderParams&);
 void draw_hollow(const RenderParams&);
 r32 audio_pathfind(const Vec3&, const Vec3&);
+u32 audio_pathfind(const Vec3&, const Vec3&, Audio::Entry*, s8, r32);
 
 b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);
 
@@ -241,7 +245,7 @@ namespace Worker
 
 	void loop();
 
-	void audio_pathfind(const DroneNavContext&, const Vec3&, const Vec3&, DronePath*);
+	r32 audio_pathfind(const DroneNavContext&, const Vec3&, const Vec3&);
 }
 
 extern ComponentMask entity_mask;

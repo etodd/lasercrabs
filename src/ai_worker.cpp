@@ -9,6 +9,7 @@
 
 #define DEBUG_WALK 0
 #define DEBUG_DRONE 0
+#define DEBUG_AUDIO 0
 
 #if DEBUG_WALK || DEBUG_DRONE
 #include "platform/util.h"
@@ -75,11 +76,12 @@ struct PathfindScorer : AstarScorer
 
 struct AudioPathfindScorer : AstarScorer
 {
-	const DroneNavMesh* mesh;
 	Vec3 end_pos;
 	r32 min_score;
 	DroneNavMeshNode end_vertex;
-	s32 iterations = 24;
+	s32 iterations;
+	r32 highest_travel_score;
+	r32 highest_total_score;
 
 	virtual r32 score(const Vec3& pos)
 	{
@@ -88,6 +90,11 @@ struct AudioPathfindScorer : AstarScorer
 
 	virtual b8 done(DroneNavMeshNode v, const DroneNavMeshNodeData& data)
 	{
+		if (data.travel_score > highest_travel_score)
+		{
+			highest_travel_score = data.travel_score;
+			highest_total_score = data.travel_score + data.estimate_score;
+		}
 		iterations--;
 		return iterations <= 0 || data.travel_score > min_score || v.equals(end_vertex);
 	}
@@ -357,7 +364,7 @@ void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const D
 	if (start_vertex.equals(DRONE_NAV_MESH_NODE_NONE))
 		return;
 
-#if DEBUG_DRONE
+#if DEBUG_DRONE || DEBUG_AUDIO
 	r64 start_time = platform::time();
 #endif
 
@@ -376,7 +383,7 @@ void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const D
 		start_data->flags = DroneNavMeshNodeData::FlagCrawledFromParent
 			| DroneNavMeshNodeData::FlagInQueue;
 
-#if DEBUG_DRONE
+#if DEBUG_DRONE || DEBUG_AUDIO
 		vi_debug("estimate: %f - %s", start_data->estimate_score, typeid(*scorer).name());
 #endif
 	}
@@ -480,7 +487,7 @@ void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const D
 			}
 		}
 	}
-#if DEBUG_DRONE
+#if DEBUG_DRONE || DEBUG_AUDIO
 	vi_debug("%d nodes in %fs - %s", path->length, r32(platform::time() - start_time), typeid(*scorer).name());
 #endif
 }
@@ -501,22 +508,51 @@ void drone_pathfind(const DroneNavContext& ctx, DroneAllow rule, Team team, cons
 		drone_astar(ctx, rule, team, start_vertex, &scorer, path);
 }
 
-void audio_pathfind(const DroneNavContext& ctx, const Vec3& a, const Vec3& b, DronePath* path)
+#if DEBUG_AUDIO_VISUALIZATION
+void audio_debug_line(const Vec3& a, const Vec3& b)
 {
-	path->length = 0;
+	Vec3 diff = b - a;
+	r32 distance = diff.length();
+	View::debug(Asset::Mesh::cube, a + diff * 0.5f, Quat::look(diff / distance), Vec3(0.05f, 0.05f, distance * 0.5f));
+}
+#endif
+
+r32 audio_pathfind(const DroneNavContext& ctx, const Vec3& a, const Vec3& b)
+{
 	DroneNavMeshNode target_closest_vertex = drone_closest_point(ctx.mesh, ctx.game_state, AI::TeamNone, b, Vec3::zero);
 	if (target_closest_vertex.equals(DRONE_NAV_MESH_NODE_NONE))
-		return;
+		return 0.0f;
 
 	DroneNavMeshNode start_vertex = drone_closest_point(ctx.mesh, ctx.game_state, AI::TeamNone, a, Vec3::zero);
 	if (start_vertex.equals(DRONE_NAV_MESH_NODE_NONE))
-		return;
+		return 0.0f;
 
 	AudioPathfindScorer scorer;
-	scorer.min_score = (a - b).length() + DRONE_MAX_DISTANCE * 2.0f;
+	scorer.min_score = (a - b).length() + DRONE_MAX_DISTANCE;
+	scorer.iterations = 24;
 	scorer.end_vertex = target_closest_vertex;
+	scorer.highest_travel_score = 0.0f;
+	scorer.highest_total_score = 0.0f;
 	scorer.end_pos = ctx.mesh.chunks[target_closest_vertex.chunk].vertices[target_closest_vertex.vertex];
-	drone_astar(ctx, DroneAllow::All, AI::TeamNone, start_vertex, &scorer, path);
+
+	DronePath path;
+	path.length = 0;
+
+	drone_astar(ctx, DroneAllow::All, AI::TeamNone, start_vertex, &scorer, &path);
+
+#if DEBUG_AUDIO_VISUALIZATION
+	if (path.length == 2)
+		audio_debug_line(path[0].pos, path[1].pos);
+	else if (path.length > 2)
+	{
+		audio_debug_line(path[0].pos, path[1].pos);
+		for (s32 i = 1; i < path.length - 2; i++)
+			audio_debug_line(path[i].pos, path[i + 1].pos);
+		audio_debug_line(path[path.length - 2].pos, b);
+	}
+#endif
+
+	return scorer.highest_total_score;
 }
 
 // find a path using vertices as close as possible to the given points
@@ -668,6 +704,7 @@ void loop()
 	DroneNavMesh drone_nav_mesh;
 	DroneNavMeshKey drone_nav_mesh_key;
 	NavGameState nav_game_state;
+	NavGameState nav_game_state_empty;
 	AstarQueue astar_queue(&drone_nav_mesh_key);
 	Revision level_revision = 0;
 	const DroneNavContext ctx =
@@ -677,6 +714,14 @@ void loop()
 		nav_game_state,
 		&astar_queue,
 		DroneNavFlagBias,
+	};
+	const DroneNavContext ctx_audio =
+	{
+		drone_nav_mesh,
+		&drone_nav_mesh_key,
+		nav_game_state_empty,
+		&astar_queue,
+		0,
 	};
 	Array<RecordedLife> records;
 	char record_path[MAX_PATH_LENGTH + 1];
@@ -693,7 +738,7 @@ void loop()
 		{
 			case Op::Load:
 			{
-#if DEBUG_DRONE || DEBUG_WALK
+#if DEBUG_DRONE || DEBUG_WALK || DEBUG_AUDIO
 				vi_debug("Loading nav mesh...");
 				r32 start_time = platform::time();
 #endif
@@ -818,7 +863,7 @@ void loop()
 
 				if (data_length > 0)
 				{
-#if DEBUG_WALK || DEBUG_DRONE
+#if DEBUG_WALK || DEBUG_DRONE || DEBUG_AUDIO
 					vi_debug("%d bytes", data_length);
 #endif
 					// drone nav mesh
@@ -936,7 +981,7 @@ void loop()
 					astar_queue.reserve(vertex_count);
 				}
 
-#if DEBUG_WALK || DEBUG_DRONE
+#if DEBUG_WALK || DEBUG_DRONE || DEBUG_AUDIO
 				vi_debug("Done in %fs.", r32(platform::time() - start_time));
 #endif
 
@@ -1346,6 +1391,31 @@ void loop()
 					}
 					record_in_progress_remove(id);
 				}
+				break;
+			}
+			case Op::AudioPathfind:
+			{
+				Ref<Audio::Entry> entry;
+				s8 listener;
+				Vec3 a;
+				Vec3 b;
+				r32 straight_distance;
+				sync_in.read(&entry);
+				sync_in.read(&listener);
+				sync_in.read(&a);
+				sync_in.read(&b);
+				sync_in.read(&straight_distance);
+				sync_in.unlock();
+
+				r32 path_length = audio_pathfind(ctx_audio, a, b);
+
+				sync_out.lock();
+				sync_out.write(Callback::AudioPath);
+				sync_out.write(entry);
+				sync_out.write(listener);
+				sync_out.write(path_length);
+				sync_out.write(straight_distance);
+				sync_out.unlock();
 				break;
 			}
 			case Op::Quit:

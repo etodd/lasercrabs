@@ -124,7 +124,7 @@ elseif (APPLE)
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkVorbisDecoder.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libAkSpatialAudio.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkSpatialAudio.a
-		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libMeterFX.a
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libAkMeterFX.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkMeterFX.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libAkRoomVerbFX.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkRoomVerbFX.a

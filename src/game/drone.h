@@ -160,7 +160,7 @@ struct Drone : public ComponentType<Drone>
 	void ability(Ability);
 	void cooldown_setup(s8 = 1);
 	State state() const;
-	b8 dash_start(const Vec3&, const Vec3&);
+	b8 dash_start(const Vec3&, const Vec3&, r32 = DRONE_DASH_TIME);
 	b8 cooldown_can_shoot() const; // can we go?
 	b8 hit_target(Entity*, HitTargetType);
 	void killed(Entity*);

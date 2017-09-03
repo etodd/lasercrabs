@@ -762,7 +762,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				for (s32 i = 0; i < Asset::Level::count; i++)
 				{
-					if (zone_is_pvp(AssetID(i)) && i != Asset::Level::Port_District)
+					if (i != Asset::Level::Port_District && zone_is_pvp(AssetID(i)) )
 					{
 						const ZoneNode* node = zone_node_by_id(AssetID(i));
 
@@ -776,7 +776,7 @@ void multiplayer_entry_edit_update(const Update& u)
 							}
 						}
 
-						if (menu->item(u, Loader::level_name(node->id), nullptr, false, existing_index == -1 ? AssetNull : Asset::Mesh::icon_checkmark))
+						if (menu->item(u, Loader::level_name(node->id), nullptr, zone_max_teams(AssetID(i)) < config->team_count, existing_index == -1 ? AssetNull : Asset::Mesh::icon_checkmark))
 						{
 							if (existing_index == -1)
 								config->levels.add(node->uuid);
@@ -2436,10 +2436,15 @@ void zone_change(AssetID zone, ZoneState state)
 	OverworldNet::zone_change(zone, state);
 }
 
-b8 zone_is_pvp(AssetID zone_id)
+s32 zone_max_teams(AssetID zone_id)
 {
 	const ZoneNode* z = zone_node_by_id(zone_id);
-	return z && z->max_teams > 0;
+	return z ? z->max_teams : 0;
+}
+
+b8 zone_is_pvp(AssetID zone_id)
+{
+	return zone_max_teams(zone_id) > 0;
 }
 
 void zone_rewards(AssetID zone_id, s16* rewards)

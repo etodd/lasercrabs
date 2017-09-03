@@ -1305,7 +1305,7 @@ b8 maps(const Update& u, s8 gamepad, UIMenu* menu)
 
 	for (AssetID level_id = 0; level_id < AssetID(Asset::Level::count); level_id++)
 	{
-		if (level_id == Asset::Level::Port_District || !Overworld::zone_is_pvp(level_id))
+		if (level_id == Asset::Level::Port_District || Overworld::zone_max_teams(level_id) < Game::session.config.team_count)
 			continue;
 
 		b8 in_rotation = false;

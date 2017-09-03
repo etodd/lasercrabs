@@ -49,7 +49,7 @@
 						</Reference>
 					</ReferenceList>
 					<ChildrenList>
-						<Sound Name="lemma_player_footstep_wood_01" ID="{764BF496-6C0B-4BD9-AA23-F55A39657780}" ShortID="334458834">
+						<Sound Name="metal-footsteps1" ID="{1576B5DF-0D78-46F6-8EEA-D12EE7A38029}" ShortID="134296563">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -59,16 +59,16 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="lemma_player_footstep_wood_01" ID="{11963E5C-1A72-4FEC-BCB6-AE0918AA6DBA}" ShortID="121870612">
+								<AudioFileSource Name="metal-footsteps1" ID="{C0D618BF-49C8-46E0-8E0A-38688C358C86}" ShortID="342309017">
 									<Language>SFX</Language>
-									<AudioFile>lemma_player_footstep_wood_01.wav</AudioFile>
+									<AudioFile>metal-footsteps1.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="lemma_player_footstep_wood_01" ID="{11963E5C-1A72-4FEC-BCB6-AE0918AA6DBA}" Platform="Linked"/>
+								<ActiveSource Name="metal-footsteps1" ID="{C0D618BF-49C8-46E0-8E0A-38688C358C86}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="lemma_player_footstep_wood_02" ID="{74DF895D-DDC0-4E6F-87E5-D83999BB3A22}" ShortID="588938309">
+						<Sound Name="metal-footsteps2" ID="{DB24C7FC-A4C4-452B-8987-1B49E70A579C}" ShortID="505223589">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -78,16 +78,16 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="lemma_player_footstep_wood_02" ID="{10AE5529-CF06-4F64-8E64-F20E9DD0B9C8}" ShortID="830671025">
+								<AudioFileSource Name="metal-footsteps2" ID="{9159B59D-6FF3-4AB4-BE25-5539161F4943}" ShortID="569547560">
 									<Language>SFX</Language>
-									<AudioFile>lemma_player_footstep_wood_02.wav</AudioFile>
+									<AudioFile>metal-footsteps2.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="lemma_player_footstep_wood_02" ID="{10AE5529-CF06-4F64-8E64-F20E9DD0B9C8}" Platform="Linked"/>
+								<ActiveSource Name="metal-footsteps2" ID="{9159B59D-6FF3-4AB4-BE25-5539161F4943}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="lemma_player_footstep_wood_03" ID="{0389D2A4-E15D-4FBE-9E00-0F3EEE2E0836}" ShortID="393500550">
+						<Sound Name="metal-footsteps3" ID="{5BEBA728-760D-474F-9D8F-AB3EE1B99C60}" ShortID="152166906">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -97,16 +97,16 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="lemma_player_footstep_wood_03" ID="{BD2CBB95-5F84-4A6A-974B-36DE09BA6984}" ShortID="849873759">
+								<AudioFileSource Name="metal-footsteps3" ID="{D14A5221-8C86-4FCB-B45B-968280FC4E8A}" ShortID="406247433">
 									<Language>SFX</Language>
-									<AudioFile>lemma_player_footstep_wood_03.wav</AudioFile>
+									<AudioFile>metal-footsteps3.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="lemma_player_footstep_wood_03" ID="{BD2CBB95-5F84-4A6A-974B-36DE09BA6984}" Platform="Linked"/>
+								<ActiveSource Name="metal-footsteps3" ID="{D14A5221-8C86-4FCB-B45B-968280FC4E8A}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="lemma_player_footstep_wood_04" ID="{0B857B82-20F9-4D2D-9217-97221AC13132}" ShortID="9623210">
+						<Sound Name="metal-footsteps4" ID="{9A383219-0AC2-4D5B-84BA-B109F2CC56A8}" ShortID="470712027">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -116,16 +116,16 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="lemma_player_footstep_wood_04" ID="{4FC16317-3B9B-4C3A-A409-9F9555CC6518}" ShortID="298252299">
+								<AudioFileSource Name="metal-footsteps4" ID="{209463BA-C451-4425-8D87-82A088C62E98}" ShortID="1049029807">
 									<Language>SFX</Language>
-									<AudioFile>lemma_player_footstep_wood_04.wav</AudioFile>
+									<AudioFile>metal-footsteps4.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="lemma_player_footstep_wood_04" ID="{4FC16317-3B9B-4C3A-A409-9F9555CC6518}" Platform="Linked"/>
+								<ActiveSource Name="metal-footsteps4" ID="{209463BA-C451-4425-8D87-82A088C62E98}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="lemma_player_footstep_wood_05" ID="{6F23CB92-234C-40A3-AF86-B9D6003A62BF}" ShortID="884375080">
+						<Sound Name="metal-footsteps5" ID="{565D97BF-ED30-4786-BA41-99D487FB6215}" ShortID="1041367575">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -135,13 +135,32 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="lemma_player_footstep_wood_05" ID="{F28FF9EB-71E0-43A6-8FA3-2C3EB1FD7D5F}" ShortID="442713358">
+								<AudioFileSource Name="metal-footsteps5" ID="{2A76116B-26A7-4AE3-9E05-277127A5D8F0}" ShortID="312023099">
 									<Language>SFX</Language>
-									<AudioFile>lemma_player_footstep_wood_05.wav</AudioFile>
+									<AudioFile>metal-footsteps5.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="lemma_player_footstep_wood_05" ID="{F28FF9EB-71E0-43A6-8FA3-2C3EB1FD7D5F}" Platform="Linked"/>
+								<ActiveSource Name="metal-footsteps5" ID="{2A76116B-26A7-4AE3-9E05-277127A5D8F0}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="metal-footsteps6" ID="{6AEE6E2C-5514-420C-9EE2-F580ECA2605C}" ShortID="58599600">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="metal-footsteps6" ID="{551A92EC-2ECE-49B5-8E73-F48AAC868165}" ShortID="657009157">
+									<Language>SFX</Language>
+									<AudioFile>metal-footsteps6.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="metal-footsteps6" ID="{551A92EC-2ECE-49B5-8E73-F48AAC868165}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>
@@ -2395,7 +2414,7 @@
 												</Property>
 												<Property Name="Volume" Type="Real64">
 													<ValueList>
-														<Value>-10</Value>
+														<Value>-16</Value>
 													</ValueList>
 													<RTPCList>
 														<RTPC Name="" ID="{8D140812-80F0-4891-BEA2-88F1CC76B3C9}" ShortID="658209306">
@@ -3779,6 +3798,87 @@
 												</Sound>
 											</ChildrenList>
 										</RandomSequenceContainer>
+										<RandomSequenceContainer Name="Drone_Weapon_Equip" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" ShortID="524296170">
+											<PropertyList>
+												<Property Name="Highpass" Type="int16">
+													<ValueList>
+														<Value>20</Value>
+													</ValueList>
+												</Property>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-12</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="UI" ID="{3ECCDB42-2C41-40BC-9EED-68EB2EF11F5C}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_Weapon_Equip_01_V_01" ID="{4F36B0FD-1EAE-4055-B833-1D394156FE88}" ShortID="866731795">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Weapon_Equip_01_V_01" ID="{7EF4D34A-10EB-4868-9460-BE64B84F6643}" ShortID="409903040">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Weapon_Equip_01_V_01.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Weapon_Equip_01_V_01" ID="{7EF4D34A-10EB-4868-9460-BE64B84F6643}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Weapon_Equip_01_V_02" ID="{319F1333-C193-4CE7-AC26-C301C96CD5CD}" ShortID="454693488">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Weapon_Equip_01_V_02" ID="{3FF9F104-57AE-483F-8435-9680F9E19160}" ShortID="137091278">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Weapon_Equip_01_V_02.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Weapon_Equip_01_V_02" ID="{3FF9F104-57AE-483F-8435-9680F9E19160}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_Weapon_Equip_01_V_03" ID="{1BC8471F-37CF-43E5-B4CE-895004EF3E43}" ShortID="248457951">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_Weapon_Equip_01_V_03" ID="{718B969E-509D-414F-A832-89E1D9DE03C2}" ShortID="906500913">
+															<Language>SFX</Language>
+															<AudioFile>DEC_Weapon_Equip_01_V_03.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_Weapon_Equip_01_V_03" ID="{718B969E-509D-414F-A832-89E1D9DE03C2}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
 									</ChildrenList>
 								</ActorMixer>
 								<ActorMixer Name="Drone_Shield" ID="{4ECCCA00-8101-45FB-BC44-922EC21FDB10}" ShortID="382729958">
@@ -4492,7 +4592,7 @@
 												<Property Name="PositioningType" Type="int16" Value="1"/>
 												<Property Name="Volume" Type="Real64">
 													<ValueList>
-														<Value>-10</Value>
+														<Value>-14</Value>
 													</ValueList>
 													<ModifierList>
 														<ModifierInfo>
@@ -4585,7 +4685,7 @@
 										</Property>
 										<Property Name="Volume" Type="Real64">
 											<ValueList>
-												<Value>-12</Value>
+												<Value>-16</Value>
 											</ValueList>
 											<ModifierList>
 												<ModifierInfo>
@@ -4646,7 +4746,7 @@
 										</Property>
 										<Property Name="Volume" Type="Real64">
 											<ValueList>
-												<Value>-12</Value>
+												<Value>-16</Value>
 											</ValueList>
 											<ModifierList>
 												<ModifierInfo>
@@ -4707,7 +4807,7 @@
 										</Property>
 										<Property Name="Volume" Type="Real64">
 											<ValueList>
-												<Value>-12</Value>
+												<Value>-13.5</Value>
 											</ValueList>
 											<ModifierList>
 												<ModifierInfo>
@@ -4830,7 +4930,7 @@
 										<Property Name="RandomAvoidRepeating" Type="bool" Value="False"/>
 										<Property Name="Volume" Type="Real64">
 											<ValueList>
-												<Value>-12</Value>
+												<Value>-9</Value>
 											</ValueList>
 											<ModifierList>
 												<ModifierInfo>

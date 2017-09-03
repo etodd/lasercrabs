@@ -28,6 +28,7 @@ namespace AK
         static const AkUniqueID PLAY_DIALOG_CANCEL = 2779886783U;
         static const AkUniqueID PLAY_DIALOG_SHOW = 501056458U;
         static const AkUniqueID PLAY_DRONE_ACTIVE_ARMOR = 3053445653U;
+        static const AkUniqueID PLAY_DRONE_BOLT_IMPACT = 1054437811U;
         static const AkUniqueID PLAY_DRONE_DAMAGE_EXPLODE = 3340920818U;
         static const AkUniqueID PLAY_DRONE_DAMAGE_LARGE = 3263000172U;
         static const AkUniqueID PLAY_DRONE_DAMAGE_SMALL = 2008200180U;
@@ -38,6 +39,7 @@ namespace AK
         static const AkUniqueID PLAY_DRONE_REFLECT = 263311222U;
         static const AkUniqueID PLAY_DRONE_SHOTGUN_FIRE = 1051822446U;
         static const AkUniqueID PLAY_DRONE_SPAWN = 1629787408U;
+        static const AkUniqueID PLAY_DRONE_WEAPON_EQUIP = 3950931494U;
         static const AkUniqueID PLAY_EXPLOSION = 4030404899U;
         static const AkUniqueID PLAY_FIZZLE = 3890314848U;
         static const AkUniqueID PLAY_FOOTSTEP = 1602358412U;
@@ -57,7 +59,6 @@ namespace AK
         static const AkUniqueID PLAY_HOBO08 = 1247825392U;
         static const AkUniqueID PLAY_HOBO09 = 1247825393U;
         static const AkUniqueID PLAY_HOBO10 = 1264602987U;
-        static const AkUniqueID PLAY_IMPACT = 2764105556U;
         static const AkUniqueID PLAY_IVORY_AD01 = 1856248770U;
         static const AkUniqueID PLAY_IVORY_AD02 = 1856248769U;
         static const AkUniqueID PLAY_IVORY_AD03 = 1856248768U;
@@ -112,7 +113,6 @@ namespace AK
         static const AkUniqueID PLAY_MINION_CHARGE = 1161618039U;
         static const AkUniqueID PLAY_MINION_DIE = 677003823U;
         static const AkUniqueID PLAY_MINION_HEADSHOT = 3502276269U;
-        static const AkUniqueID PLAY_MINION_MELEE = 1508699829U;
         static const AkUniqueID PLAY_MINION_MELEE_HANDCLOSE = 1681336885U;
         static const AkUniqueID PLAY_MINION_MELEE_HANDOPEN = 3002091487U;
         static const AkUniqueID PLAY_MINION_MELEE_PULLBACK = 1742005112U;
@@ -143,13 +143,6 @@ namespace AK
         static const AkUniqueID PLAY_SNIPER_FIRE = 3954156574U;
         static const AkUniqueID PLAY_SNIPER_IMPACT = 2393598820U;
         static const AkUniqueID PLAY_SNIPER_WHIFF = 1643495180U;
-        static const AkUniqueID PLAY_SUDOKU_ALARM = 3719465271U;
-        static const AkUniqueID PLAY_SUDOKU_CORRECT = 2602273106U;
-        static const AkUniqueID PLAY_SUDOKU_ERROR = 1665233402U;
-        static const AkUniqueID PLAY_SUDOKU_INCORRECT = 1103728033U;
-        static const AkUniqueID PLAY_SUDOKU_MOVE = 1427607319U;
-        static const AkUniqueID PLAY_SUDOKU_TILE = 416338036U;
-        static const AkUniqueID PLAY_SUDOKU_WIN = 2903939810U;
         static const AkUniqueID PLAY_TERMINAL_CLOSE = 616859755U;
         static const AkUniqueID PLAY_TERMINAL_OPEN = 2265088429U;
         static const AkUniqueID PLAY_TRAM_CLOSE = 1649854579U;

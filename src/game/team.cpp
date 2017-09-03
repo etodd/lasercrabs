@@ -1626,7 +1626,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			if (!m)
 				return true;
 
-			if (!m->is_admin || map == Asset::Level::Port_District || (map != AssetNull && !Overworld::zone_is_pvp(map)))
+			if (!m->is_admin || map == Asset::Level::Port_District || (map != AssetNull && Overworld::zone_max_teams(map) < Game::session.config.team_count))
 				net_error();
 
 			if (Game::level.local)
@@ -1642,7 +1642,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			if (!m)
 				return true;
 
-			if (!m->is_admin || !Overworld::zone_is_pvp(map))
+			if (!m->is_admin || Overworld::zone_max_teams(map) < Game::session.config.team_count)
 				net_error();
 
 			if (Game::level.local)

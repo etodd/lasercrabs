@@ -2612,6 +2612,23 @@ Entity* PlayerCommon::incoming_attacker() const
 		}
 	}
 
+	// check grenades
+	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team() != my_team)
+		{
+			Vec3 grenade_pos = i.item()->get<Transform>()->absolute_pos();
+			if ((grenade_pos - me).length_squared() < GRENADE_RANGE * GRENADE_RANGE)
+			{
+				// only worry about it if it can actually see us
+				btCollisionWorld::ClosestRayResultCallback ray_callback(me, grenade_pos);
+				Physics::raycast(&ray_callback, CollisionStatic);
+				if (!ray_callback.hasHit())
+					return i.item()->entity();
+			}
+		}
+	}
+
 	return nullptr;
 }
 
@@ -4923,6 +4940,21 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
 				text.draw(params, ui_anchor);
 			}
+
+			if (is_vulnerable)
+			{
+				if (danger)
+				{
+					if (UI::flash_function(Game::real_time.total) && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
+						Audio::post_global(AK::EVENTS::PLAY_UI_SHIELD_DOWN_BEEP);
+				}
+				else
+				{
+					if (UI::flash_function_slow(Game::real_time.total) && !UI::flash_function_slow(Game::real_time.total - Game::real_time.delta))
+						Audio::post_global(AK::EVENTS::PLAY_DANGER_BEEP);
+				}
+			}
+
 			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
 		}
 

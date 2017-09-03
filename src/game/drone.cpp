@@ -47,7 +47,7 @@ r32 drone_shotgun_offsets[DRONE_SHOTGUN_PELLETS];
 void Drone::init()
 {
 	drone_shotgun_dirs[0] = Vec3(0, 0, 1);
-	drone_shotgun_offsets[0] = DRONE_SHIELD_RADIUS;
+	drone_shotgun_offsets[0] = DRONE_SHIELD_RADIUS * 1.5f;
 	{
 		Vec3 d = Quat::euler(0.0f, 0.0f, PI * -0.02f) * Vec3(0, 0, 1);
 		for (s32 i = 0; i < 3; i++)
@@ -692,7 +692,11 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			Ability ability;
 			serialize_int(p, Ability, ability, 0, s32(Ability::count) + 1); // must be +1 for Ability::None
 			if (apply_msg && (ability == Ability::None || AbilityInfo::list[s32(ability)].type != AbilityInfo::Type::Other))
+			{
 				drone->current_ability = ability;
+				if (ability != Ability::None)
+					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_WEAPON_EQUIP);
+			}
 			break;
 		}
 		case DroneNet::Message::AbilitySpawn:
@@ -911,7 +915,9 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						{
 							drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
 							ShellCasing::spawn(drone->get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Shotgun);
-							drone->cooldown_setup(DRONE_SHOTGUN_CHARGES);
+							drone->cooldown_setup();
+							drone->current_ability = Ability::None; // HACK: make sure dash_start() knows it's okay to go
+							drone->dash_start(-dir_normalized, my_pos, DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
 						}
 					}
 					break;
@@ -1503,7 +1509,7 @@ void Drone::ensure_detached()
 	get<Animator>()->layers[0].animation = Asset::Animation::drone_fly;
 }
 
-b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
+b8 Drone::dash_start(const Vec3& dir, const Vec3& target, r32 max_time)
 {
 	if (state() == State::Dash)
 	{
@@ -1532,12 +1538,11 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 	Vec3 dir_flattened = dir_normalized - wall_normal * wall_normal.dot(dir_normalized);
 
 	// check for obstacles
-	r32 max_time = DRONE_DASH_TIME;
 	{
-		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, pos + dir_flattened * DRONE_DASH_DISTANCE);
+		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, pos + dir_flattened * DRONE_DASH_SPEED * max_time);
 		Physics::raycast(&ray_callback, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
 		if (ray_callback.hasHit())
-			max_time = ray_callback.m_closestHitFraction * DRONE_DASH_TIME;
+			max_time = ray_callback.m_closestHitFraction * max_time;
 	}
 	Vec3 next_pos = pos;
 	while (time < max_time)
@@ -1566,7 +1571,8 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 		Vec3 target_dir = Vec3::normalize(target - next_pos);
 		Vec3 final_pos;
 		Vec3 final_normal;
-		if (could_shoot(next_pos, target_dir, &final_pos, &final_normal)
+		if ((target - pos).length_squared() > 0.0f
+			&& could_shoot(next_pos, target_dir, &final_pos, &final_normal)
 			&& (final_pos - target).dot(target_dir) > DRONE_RADIUS * -2.0f
 			&& (next_pos - final_pos).dot(final_normal) > DRONE_RADIUS * 2.0f)
 		{
@@ -1600,6 +1606,7 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target)
 	}
 	else
 	{
+		time = vi_max(time, DRONE_DASH_TIME / r32(1 << 16));
 		dash_combo = combo;
 		dash_target = target;
 		DroneNet::start_dashing(this, dir_normalized, time);
@@ -1719,7 +1726,9 @@ b8 Drone::go(const Vec3& dir)
 						)
 					);
 				}
-				cooldown_setup(DRONE_SHOTGUN_CHARGES);
+				cooldown_setup();
+				current_ability = Ability::None; // HACK: make sure dash_start() knows it's okay to go
+				dash_start(-dir_normalized, get<Transform>()->absolute_pos(), DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
 			}
 			else if (a == Ability::Bolter)
 			{

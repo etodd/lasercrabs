@@ -2244,7 +2244,7 @@ void Bolt::hit_entity(const Hit& hit)
 			{
 				if (hit_object->has<Minion>())
 					damage = MINION_HEALTH;
-				else if (hit_object->has<Drone>() || hit_object->has<Turret>() || hit_object->has<CoreModule>())
+				else if (hit_object->has<Turret>() || hit_object->has<CoreModule>())
 					damage = 1;
 				else if (hit_object->has<ForceField>())
 					damage = mersenne::rand() % 3 > 0 ? 1 : 0; // expected value: 0.66
@@ -2371,7 +2371,7 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 	else if (t == Type::DroneExplosion)
 		EffectLight::add(pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
 	else if (t == Type::ImpactLarge || t == Type::ImpactSmall)
-		Audio::post_global(AK::EVENTS::PLAY_IMPACT, pos);
+		Audio::post_global(AK::EVENTS::PLAY_DRONE_BOLT_IMPACT, pos);
 	else if (t == Type::Fizzle)
 		Audio::post_global(AK::EVENTS::PLAY_FIZZLE, pos);
 	else if (t == Type::SpawnMinion)

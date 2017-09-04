@@ -614,7 +614,7 @@ void draw_hollow(const RenderParams& params)
 	params.sync->write(Asset::Uniform::diffuse_color);
 	params.sync->write(RenderDataType::Vec4);
 	params.sync->write<s32>(1);
-	params.sync->write(Vec4(1, 1, 1, 0.75f));
+	params.sync->write(Vec4(1, 1, 1, 0.4f));
 
 	params.sync->write(RenderOp::Uniform);
 	params.sync->write(Asset::Uniform::mv);
@@ -646,7 +646,7 @@ void draw_hollow(const RenderParams& params)
 		params.sync->write(Asset::Uniform::range);
 		params.sync->write(RenderDataType::R32);
 		params.sync->write<s32>(1);
-		params.sync->write<r32>(range * 3.0f);
+		params.sync->write<r32>(range * 2.0f);
 
 		params.sync->write(RenderOp::Uniform);
 		params.sync->write(Asset::Uniform::range_center);

@@ -382,7 +382,20 @@
 										<Event Name="Stop_Force_Field_Loop" ID="{22A00904-D95C-4259-864B-24CDDCAFFAE5}"/>
 									</ChildrenList>
 								</Folder>
-								<Event Name="Play_Drone_Spawn" ID="{E224D9E5-4677-4789-8EF9-DB0E18AA0A61}"/>
+								<Event Name="Play_Drone_Spawn" ID="{E224D9E5-4677-4789-8EF9-DB0E18AA0A61}">
+									<ChildrenList>
+										<Action Name="" ID="{5B75F9D5-9189-4D22-8327-8BA0543A1A9C}" ShortID="268964671">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Minion_Spawn" ID="{8B83B54D-29CC-4478-AF50-48F18AD1613D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
 							</ChildrenList>
 						</Folder>
 						<Folder Name="Battery" ID="{3A110B07-A503-48DA-BEFA-72B5CCA363CA}" ShortID="73261771">

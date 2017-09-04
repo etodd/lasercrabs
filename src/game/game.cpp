@@ -182,22 +182,6 @@ AI::Team Game::Level::team_lookup_reverse(AI::Team t) const
 	return AI::TeamNone;
 }
 
-const StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS>&  Game::Level::directional_lights_get() const
-{
-	if (Overworld::modal())
-		return Overworld::directional_lights;
-	else
-		return directional_lights;
-}
-
-const Vec3& Game::Level::ambient_color_get() const
-{
-	if (Overworld::modal())
-		return Overworld::ambient_color;
-	else
-		return ambient_color;
-}
-
 Array<UpdateFunction> Game::updates;
 Array<DrawFunction> Game::draws;
 Array<CleanupFunction> Game::cleanups;
@@ -357,7 +341,7 @@ void Game::update(const Update& update_in)
 #if SERVER
 	update_game = Net::Server::mode() == Net::Server::Mode::Active;
 #else
-	update_game = (!Overworld::modal() || level.id == Asset::Level::overworld) && (level.local || Net::Client::mode() == Net::Client::Mode::Connected);
+	update_game = level.local || Net::Client::mode() == Net::Client::Mode::Connected;
 #endif
 
 	if (update_game)
@@ -374,12 +358,6 @@ void Game::update(const Update& update_in)
 		time.total += time.delta;
 		Team::match_time += time.delta;
 		ParticleSystem::time = time.total;
-		for (s32 i = 0; i < ParticleSystem::list.length; i++)
-			ParticleSystem::list[i]->update(u);
-	}
-	else if (Overworld::modal()) // particles still work in overworld even though the rest of the world is paused
-	{
-		ParticleSystem::time += time.delta;
 		for (s32 i = 0; i < ParticleSystem::list.length; i++)
 			ParticleSystem::list[i]->update(u);
 	}
@@ -710,22 +688,36 @@ b8 view_filter_culled(const RenderParams& params, const View* v)
 
 void Game::draw_opaque(const RenderParams& render_params)
 {
+	b8 default_pass = render_params.technique == RenderTechnique::Default
+		&& !(render_params.flags & RenderFlagEdges);
+
+	if (render_params.flags & RenderFlagPolygonOffset)
+	{
+		render_params.sync->write(RenderOp::PolygonOffset);
+		render_params.sync->write(Vec2(1.0f));
+	}
+
 	View::draw_opaque(render_params);
 
 	Water::draw_opaque(render_params);
 
 	SkinnedModel::draw_opaque(render_params);
 
-	if (render_params.technique == RenderTechnique::Default
-		&& !(render_params.flags & RenderFlagEdges))
+	ShellCasing::draw_all(render_params);
+
+	if (render_params.technique == RenderTechnique::Shadow)
+		Rope::draw_all(render_params);
+
+	if (default_pass)
 	{
 		SkyPattern::draw_opaque(render_params);
 
 		// render back faces of culled geometry
-		if (render_params.camera->cull_range > 0.0f)
+		if (render_params.camera->cull_range > 0.0f && !(render_params.flags & RenderFlagPolygonOffset))
 		{
 			render_params.sync->write<RenderOp>(RenderOp::CullMode);
 			render_params.sync->write<RenderCullMode>(RenderCullMode::Front);
+
 			{
 				RenderParams p = render_params;
 				p.flags |= RenderFlagBackFace;
@@ -736,12 +728,11 @@ void Game::draw_opaque(const RenderParams& render_params)
 		}
 	}
 
-	Overworld::draw_opaque(render_params);
-
-	ShellCasing::draw_all(render_params);
-
-	if (render_params.technique == RenderTechnique::Shadow && !Overworld::modal())
-		Rope::draw_all(render_params);
+	if (render_params.flags & RenderFlagPolygonOffset)
+	{
+		render_params.sync->write(RenderOp::PolygonOffset);
+		render_params.sync->write(Vec2::zero);
+	}
 }
 
 void Game::draw_alpha(const RenderParams& render_params)
@@ -965,8 +956,6 @@ void Game::draw_hollow(const RenderParams& render_params)
 {
 	SkyPattern::draw_hollow(render_params);
 
-	Overworld::draw_hollow(render_params);
-
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_hollow(render_params);
 
@@ -980,7 +969,7 @@ void Game::draw_hollow(const RenderParams& render_params)
 
 void Game::draw_particles(const RenderParams& render_params)
 {
-	if (render_params.camera->mask && !Overworld::modal())
+	if (!(render_params.flags & RenderFlagEdges))
 		Rope::draw_all(render_params);
 
 	render_params.sync->write(RenderOp::CullMode);
@@ -1427,7 +1416,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	level.mode = m;
 	level.id = l;
 	level.local = true;
-	if (last_mode == Mode::Pvp)
+	if (last_mode == Mode::Pvp && m == Mode::Parkour)
 		level.post_pvp = true;
 
 	if (session.type == SessionType::Multiplayer)
@@ -1812,7 +1801,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					if (save.zones[level.id] == ZoneState::PvpFriendly && (team_original == 1 || mersenne::randf_cc() < 0.5f))
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // enemy is attacking; they're there from the beginning
 					else
-						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
+						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_TIME * 1.5f)));
 				}
 				else
 				{
@@ -1820,7 +1809,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					if (save.zones[level.id] == ZoneState::PvpFriendly)
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // player is defending, enemy is already there
 					else // player is attacking, eventually enemy will come to defend
-						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
+						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_TIME * 1.5f)));
 				}
 			}
 		}
@@ -2085,31 +2074,28 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "Collectible"))
 		{
-			if (session.type == SessionType::Story)
+			b8 already_collected = false;
+			ID id = ID(transforms.length);
+			for (s32 i = 0; i < save.collectibles.length; i++)
 			{
-				b8 already_collected = false;
-				ID id = ID(transforms.length);
-				for (s32 i = 0; i < save.collectibles.length; i++)
+				const CollectibleEntry& entry = save.collectibles[i];
+				if (entry.zone == level.id && entry.id == id)
 				{
-					const CollectibleEntry& entry = save.collectibles[i];
-					if (entry.zone == level.id && entry.id == id)
-					{
-						already_collected = true;
-						break;
-					}
+					already_collected = true;
+					break;
 				}
-				if (!already_collected)
-				{
-					const char* type_str = Json::get_string(element, "Collectible");
-					Resource type;
-					if (strcmp(type_str, "AccessKeys") == 0)
-						type = Resource::AccessKeys;
-					else if (strcmp(type_str, "Drones") == 0)
-						type = Resource::Drones;
-					else
-						type = Resource::Energy;
-					entity = World::alloc<CollectibleEntity>(id, type, s16(Json::get_s32(element, "amount")));
-				}
+			}
+			if (!already_collected)
+			{
+				const char* type_str = Json::get_string(element, "Collectible");
+				Resource type;
+				if (strcmp(type_str, "AccessKeys") == 0)
+					type = Resource::AccessKeys;
+				else if (strcmp(type_str, "Drones") == 0)
+					type = Resource::Drones;
+				else
+					type = Resource::Energy;
+				entity = World::alloc<CollectibleEntity>(id, type, s16(Json::get_s32(element, "amount")));
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "Shop"))

@@ -461,6 +461,35 @@ void draw_edges(const RenderParams& render_params)
 	sync->write(false);
 }
 
+void draw_alpha(const RenderParams& render_params)
+{
+	RenderSync* sync = render_params.sync;
+	sync->write(RenderOp::BlendMode);
+	sync->write(RenderBlendMode::Alpha);
+
+	sync->write(RenderOp::CullMode);
+	sync->write(RenderCullMode::None);
+
+	sync->write(RenderOp::DepthMask);
+	sync->write(false);
+
+	sync->write(RenderOp::DepthTest);
+	sync->write(true);
+
+	Game::draw_alpha(render_params);
+
+	sync->write(RenderOp::BlendMode);
+	sync->write(RenderBlendMode::Additive);
+
+	Game::draw_additive(render_params);
+
+	sync->write(RenderOp::CullMode);
+	sync->write(RenderCullMode::Back);
+
+	sync->write(RenderOp::BlendMode);
+	sync->write(RenderBlendMode::Alpha);
+}
+
 void shadow_quality_apply()
 {
 	if (shadow_quality_current != Settings::shadow_quality)
@@ -544,7 +573,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderOp::BlendMode);
 		sync->write(RenderBlendMode::AlphaDestination);
 
-		if (camera->team == (s8)-1)
+		if (camera->team == s8(-1))
 		{
 			// render all override lights
 			render_point_lights(render_params, s32(PointLight::Type::Override), inv_buffer_size, -1);
@@ -571,15 +600,13 @@ void draw(LoopSync* sync, const Camera* camera)
 	{
 		{
 			// global light (directional and player lights)
-			const StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS>& lights = Game::level.directional_lights_get();
-
 			Vec3 colors[MAX_DIRECTIONAL_LIGHTS] = {};
 			Vec3 directions[MAX_DIRECTIONAL_LIGHTS] = {};
 			Vec3 abs_directions[MAX_DIRECTIONAL_LIGHTS] = {};
 			b8 shadowed = false;
-			for (s32 i = 0; i < lights.length; i++)
+			for (s32 i = 0; i < Game::level.directional_lights.length; i++)
 			{
-				const DirectionalLight& light = lights[i];
+				const DirectionalLight& light = Game::level.directional_lights[i];
 
 				colors[i] = render_params.camera->flag(CameraFlagColors) ? light.color : LMath::desaturate(light.color);
 				abs_directions[i] = light.rot * Vec3(0, 1, 0);
@@ -1138,9 +1165,9 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
 		if (camera->flag(CameraFlagColors))
-			sync->write<Vec3>(Game::level.ambient_color_get());
+			sync->write<Vec3>(Game::level.ambient_color);
 		else
-			sync->write<Vec3>(LMath::desaturate(Game::level.ambient_color_get()));
+			sync->write<Vec3>(LMath::desaturate(Game::level.ambient_color));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::ssao_buffer);
@@ -1175,42 +1202,16 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Game::screen_quad.mesh);
 	}
 
-	// alpha components
-	{
-		sync->write(RenderOp::BlendMode);
-		sync->write(RenderBlendMode::Alpha);
-
-		sync->write(RenderOp::CullMode);
-		sync->write(RenderCullMode::None);
-
-		sync->write(RenderOp::DepthMask);
-		sync->write(false);
-
-		sync->write(RenderOp::DepthTest);
-		sync->write(true);
-
-		render_params.depth_buffer = color2_depth_buffer;
-
-		Game::draw_alpha(render_params);
-
-		sync->write(RenderOp::BlendMode);
-		sync->write(RenderBlendMode::Additive);
-
-		Game::draw_additive(render_params);
-
-		sync->write(RenderOp::CullMode);
-		sync->write(RenderCullMode::Back);
-
-		sync->write(RenderOp::BlendMode);
-		sync->write(RenderBlendMode::Opaque);
-	}
-
 	// scene is in color2 at this point
 
 	// edges and UI
 	{
 		if (!Settings::antialiasing)
+		{
+			render_params.depth_buffer = color2_depth_buffer;
+			draw_alpha(render_params);
 			draw_edges(render_params); // draw edges directly on scene
+		}
 
 		sync->write(RenderOp::DepthTest);
 		sync->write(false);
@@ -1231,68 +1232,111 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(true);
 		sync->write(Settings::antialiasing);
 
-		// copy depth buffer
 		if (Settings::antialiasing)
 		{
+			// restore depth buffer
 			sync->write(RenderOp::ColorMask);
 			sync->write<RenderColorMask>(0);
-			Loader::shader_permanent(Asset::Shader::blit_depth);
-			sync->write(RenderOp::Shader);
-			sync->write<AssetID>(Asset::Shader::blit_depth);
-			sync->write(RenderTechnique::Default);
 
-			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::depth_buffer);
-			sync->write(RenderDataType::Texture);
-			sync->write<s32>(1);
-			sync->write(RenderTextureType::Texture2D);
-			sync->write<AssetID>(g_depth_buffer);
-
-			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::normal_buffer);
-			sync->write(RenderDataType::Texture);
-			sync->write<s32>(1);
-			sync->write(RenderTextureType::Texture2D);
-			sync->write<AssetID>(g_normal_buffer);
-
-			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::inv_buffer_size);
-			sync->write(RenderDataType::Vec2);
-			sync->write<s32>(1);
-			sync->write<Vec2>(inv_buffer_size);
-
-			sync->write(RenderOp::Mesh);
-			sync->write(RenderPrimitiveMode::Triangles);
-			sync->write(Game::screen_quad.mesh);
+			{
+				RenderParams p = render_params;
+				p.flags |= RenderFlagPolygonOffset;
+				Game::draw_opaque(p);
+			}
 
 			sync->write(RenderOp::ColorMask);
 			sync->write<RenderColorMask>(RENDER_COLOR_MASK_DEFAULT);
 			sync->write(RenderOp::DepthMask);
 			sync->write(false);
-		}
 
-		sync->write(RenderOp::BlendMode);
-		sync->write(RenderBlendMode::Alpha);
+			// copy color2 to ui_fbo
+			{
+				Loader::shader_permanent(Asset::Shader::blit);
+				sync->write(RenderOp::Shader);
+				sync->write<AssetID>(Asset::Shader::blit);
+				sync->write(RenderTechnique::Default);
 
-		if (Settings::antialiasing)
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::color_buffer);
+				sync->write(RenderDataType::Texture);
+				sync->write<s32>(1);
+				sync->write(RenderTextureType::Texture2D);
+				sync->write<AssetID>(color2_buffer);
+
+				sync->write(RenderOp::Mesh);
+				sync->write(RenderPrimitiveMode::Triangles);
+				sync->write(Game::screen_quad.mesh);
+			}
+
+			sync->write(RenderOp::BlendMode);
+			sync->write(RenderBlendMode::Alpha);
+
+			render_params.depth_buffer = color2_depth_buffer;
+			draw_alpha(render_params);
 			draw_edges(render_params);
 
+			// stencil out back faces
+			if (render_params.camera->cull_range > 0.0f)
+			{
+				Loader::shader_permanent(Asset::Shader::stencil_back_faces);
+				sync->write(RenderOp::Shader);
+				sync->write<AssetID>(Asset::Shader::stencil_back_faces);
+				sync->write(RenderTechnique::Default);
+
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::normal_buffer);
+				sync->write(RenderDataType::Texture);
+				sync->write<s32>(1);
+				sync->write(RenderTextureType::Texture2D);
+				sync->write<AssetID>(g_normal_buffer);
+
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::inv_buffer_size);
+				sync->write(RenderDataType::Vec2);
+				sync->write<s32>(1);
+				sync->write<Vec2>(inv_buffer_size);
+
+				sync->write(RenderOp::Mesh);
+				sync->write(RenderPrimitiveMode::Triangles);
+				sync->write(Game::screen_quad.mesh);
+			}
+
+			Game::draw_alpha_late(render_params);
+		}
+		
 		UI::draw(render_params);
 
-		sync->write(RenderOp::BindFramebuffer);
-		sync->write(color1_fbo);
-
-		sync->write(RenderOp::Clear);
-		sync->write(true);
-		sync->write(false);
-
-		sync->write(RenderOp::BlitFramebuffer);
-		sync->write(ui_fbo);
-		sync->write(camera->viewport); // source
-		sync->write(camera->viewport); // destination
-
-		// overlay on to color2
+		if (Settings::antialiasing)
 		{
+			// blit to color2
+			sync->write(RenderOp::BindFramebuffer);
+			sync->write(color2_fbo);
+
+			sync->write(RenderOp::Clear);
+			sync->write(true);
+			sync->write(false);
+
+			sync->write(RenderOp::BlitFramebuffer);
+			sync->write(ui_fbo);
+			sync->write(camera->viewport); // source
+			sync->write(camera->viewport); // destination
+		}
+		else
+		{
+			// blit to color1
+			sync->write(RenderOp::BindFramebuffer);
+			sync->write(color1_fbo);
+
+			sync->write(RenderOp::Clear);
+			sync->write(true);
+			sync->write(false);
+
+			sync->write(RenderOp::BlitFramebuffer);
+			sync->write(ui_fbo);
+			sync->write(camera->viewport); // source
+			sync->write(camera->viewport); // destination
+
+			// overlay on to color2
 			sync->write(RenderOp::BindFramebuffer);
 			sync->write(color2_fbo);
 
@@ -1313,8 +1357,6 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Game::screen_quad.mesh);
 		}
 	}
-
-	Game::draw_alpha_late(render_params);
 
 	// scene is in color2
 

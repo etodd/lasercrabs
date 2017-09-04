@@ -1038,12 +1038,12 @@ void edge_add(const Array<Vec3>& vertices, const Array<Vec3>& normals, Array<s32
 				|| ((vu - vb).length_squared() == 0.0f && (vv - va).length_squared() == 0.0f))
 			{
 				// it's a highlighted edge, but it's already been added as part of a different face
-				found = true;
 				const Vec3& nu = normals[u];
 				if (nu.dot(na) > 0.999f) // face is coplanar; remove existing edge
 				{
 					indices->remove(j + 1);
 					indices->remove(j);
+					found = true;
 				}
 			}
 		}

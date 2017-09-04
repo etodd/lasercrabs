@@ -78,6 +78,7 @@ void update_end(const Update&) {}
 void clear() {}
 void draw_ui(const RenderParams&) {}
 void title() {}
+void title_menu(const Update& u, Camera* camera) {};
 void show() {}
 void refresh_variables(const InputState&) {}
 void pause_menu(const Update&, s8, UIMenu*, State*) {}
@@ -101,12 +102,16 @@ b8 dialog_active(s8) { return false; }
 
 State* quit_menu_state;
 
-void quit_to_overworld(s8 gamepad)
+void quit_multiplayer(s8 gamepad)
 {
-	Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
 	if (quit_menu_state)
 		*quit_menu_state = State::Hidden;
 	quit_menu_state = nullptr;
+
+	if (Game::level.id == Asset::Level::Docks)
+		Overworld::title();
+	else
+		Menu::title_multiplayer();
 }
 
 void quit_to_title(s8 gamepad)
@@ -339,109 +344,124 @@ void exit(s8 gamepad)
 	Game::quit = true;
 }
 
-void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
+void title_menu(const Update& u, Camera* camera)
 {
-	switch (*state)
+	switch (main_menu_state)
 	{
 		case State::Hidden:
-		{
 			break;
-		}
 		case State::Visible:
 		{
 			if (Settings::region == Region::Invalid)
 			{
 				// must choose a region first
-				if (!choose_region(u, 0, menu, AllowClose::No))
+				if (!choose_region(u, 0, &main_menu, AllowClose::No))
 				{
 					// done choosing a region
-					menu->clear();
-					menu->animate();
+					main_menu.clear();
+					main_menu.animate();
 				}
 			}
 			else
 			{
-				menu->start(u, 0);
+				main_menu.start(u, 0);
 				b8 story_disabled;
 #if RELEASE_BUILD
 				story_disabled = true;
 #else
 				story_disabled = false;
 #endif
-				if (menu->item(u, _(strings::story), nullptr, story_disabled))
+				if (main_menu.item(u, _(strings::story), nullptr, story_disabled))
 				{
 					Scripts::Docks::play();
 					clear();
 				}
-				if (menu->item(u, _(strings::multiplayer)))
+				if (main_menu.item(u, _(strings::multiplayer)))
 				{
 					Game::save.reset();
 					Game::session.reset();
 					Game::session.type = SessionType::Multiplayer;
 					Game::session.config.game_type = GameType::Assault;
-					Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
+					Overworld::show(camera, Overworld::State::Multiplayer);
 					clear();
 				}
-				if (menu->item(u, _(strings::settings)))
+				if (main_menu.item(u, _(strings::settings)))
 				{
-					if (gamepad == 0)
-						*state = State::Settings;
-					else
-						*state = State::SettingsControlsGamepad; // other players don't have any other settings
-					menu->animate();
+					main_menu_state = State::Settings;
+					main_menu.animate();
 				}
-				if (menu->item(u, _(strings::exit)))
+				if (main_menu.item(u, _(strings::discord)))
+					open_url("https://discord.gg/rHkXXhR");
+				if (main_menu.item(u, _(strings::twitter)))
+					open_url("https://twitter.com/DeceiverGame");
+				if (main_menu.item(u, _(strings::exit)))
 					dialog(0, &exit, _(strings::confirm_quit));
-				menu->end();
+				main_menu.end();
 			}
 			break;
 		}
 		case State::Settings:
 		{
-			State s = settings(u, 0, menu);
-			if (s != *state)
+			State s = settings(u, 0, &main_menu);
+			if (s != main_menu_state)
 			{
-				*state = s;
-				menu->animate();
+				main_menu_state = s;
+				main_menu.animate();
 			}
 			break;
 		}
 		case State::SettingsControlsKeyboard:
 		{
-			if (!settings_controls(u, gamepad, menu, Gamepad::Type::None))
+			if (!settings_controls(u, 0, &main_menu, Gamepad::Type::None))
 			{
-				*state = State::Settings;
-				menu->animate();
+				main_menu_state = State::Settings;
+				main_menu.animate();
 			}
 			break;
 		}
 		case State::SettingsControlsGamepad:
 		{
-			if (!settings_controls(u, gamepad, menu, u.input->gamepads[gamepad].type))
+			if (!settings_controls(u, 0, &main_menu, u.input->gamepads[0].type))
 			{
-				if (gamepad == 0)
-					*state = State::Settings;
-				else // other players don't have any other settings
-					*state = State::Visible;
-				menu->animate();
+				main_menu_state = State::Settings;
+				main_menu.animate();
 			}
 			break;
 		}
 		case State::SettingsGraphics:
 		{
-			if (!settings_graphics(u, gamepad, menu))
+			if (!settings_graphics(u, 0, &main_menu))
 			{
-				*state = State::Settings;
-				menu->animate();
+				main_menu_state = State::Settings;
+				main_menu.animate();
 			}
 			break;
 		}
 		default:
-		{
 			vi_assert(false);
 			break;
-		}
 	}
+}
+
+void open_url(const char* url)
+{
+#if _WIN32
+	// Windows
+	ShellExecute(0, 0, url, 0, 0 , SW_SHOW);
+#elif !defined(__APPLE__)
+	// Mac
+	char buffer[MAX_PATH_LENGTH];
+	sprintf(buffer, "open %s", url);
+	system(buffer);
+#elif defined(__ORBIS__)
+	// PS4
+	// todo
+#else
+	// Linux
+	char buffer[MAX_PATH_LENGTH];
+	sprintf(buffer, "xdg-open %s", url);
+	system(buffer);
+#endif
 }
 
 void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
@@ -492,10 +512,10 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			}
 			if (menu->item(u, _(strings::quit)))
 			{
-				if (Game::session.type == SessionType::Story || Game::level.id == Asset::Level::overworld)
+				if (Game::session.type == SessionType::Story)
 					dialog(gamepad, &quit_to_title, _(strings::confirm_quit));
 				else
-					dialog(gamepad, &quit_to_overworld, _(strings::confirm_quit));
+					dialog(gamepad, &quit_multiplayer, _(strings::confirm_quit));
 			}
 			menu->end();
 			break;
@@ -688,9 +708,7 @@ void update(const Update& u)
 		}
 	}
 
-	if (Game::level.id == Asset::Level::Docks && Game::level.mode == Game::Mode::Special)
-		title_menu(u, 0, &main_menu, &main_menu_state);
-	else if (Overworld::active())
+	if (Overworld::active())
 	{
 		// do pause menu
 		if (main_menu_state == State::Visible
@@ -758,6 +776,15 @@ void title()
 	Game::schedule_load_level(Asset::Level::Docks, Game::Mode::Special);
 }
 
+void title_multiplayer()
+{
+	clear();
+	Game::session.reset();
+	Game::session.type = SessionType::Multiplayer;
+	Game::save.reset();
+	Game::schedule_load_level(Asset::Level::Docks, Game::Mode::Special);
+}
+
 void draw_ui(const RenderParams& params)
 {
 	if (params.technique != RenderTechnique::Default)
@@ -807,7 +834,7 @@ void draw_ui(const RenderParams& params)
 	}
 
 #if !SERVER
-	if (Game::level.mode == Game::Mode::Special && (main_menu_state != State::Hidden || Overworld::modal()))
+	if (Game::level.mode == Game::Mode::Special && main_menu_state != State::Hidden)
 	{
 		AssetID error_string = AssetNull;
 		switch (Net::Client::master_error)
@@ -1550,7 +1577,7 @@ b8 UIMenu::add_item(Item::Type type, const char* string, const char* value, b8 d
 	item->label.anchor_y = item->value.anchor_y = UIText::Anchor::Max;
 
 	b8 is_selected = active[gamepad] == this && selected == items.length - 1;
-	item->label.color = item->value.color = disabled ? UI::color_disabled() : (is_selected ? UI::color_accent() : UI::color_default);
+	item->label.color = item->value.color = (disabled || active[gamepad] != this) ? UI::color_disabled() : (is_selected ? UI::color_accent() : UI::color_default);
 	item->label.text(gamepad, string);
 	text_clip(&item->label, animation_time + (items.length - 1 - scroll.pos) * 0.1f, 100.0f);
 

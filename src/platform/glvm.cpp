@@ -137,6 +137,7 @@ struct GLData
 	static r32 line_width;
 	static AssetID current_framebuffer;
 	static Rect2 viewport;
+	static Vec2 polygon_offset;
 
 	static Array<char> uniform_name_buffer;
 	static Array<AssetID> uniform_names;
@@ -166,6 +167,7 @@ RenderFillMode GLData::fill_mode = RenderFillMode::Fill;
 RenderBlendMode GLData::blend_mode = RenderBlendMode::Opaque;
 r32 GLData::point_size = 1.0f;
 r32 GLData::line_width = 1.0f;
+Vec2 GLData::polygon_offset = Vec2::zero;
 AssetID GLData::current_framebuffer = 0;
 Rect2 GLData::viewport = { Vec2::zero, Vec2::zero };
 
@@ -178,6 +180,10 @@ void render_init()
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_LINE_SMOOTH);
 	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+	glPolygonOffset(1.0f, 1.0f);
+	glDisable(GL_POLYGON_OFFSET_LINE);
+	glDisable(GL_POLYGON_OFFSET_FILL);
+	glDisable(GL_POLYGON_OFFSET_POINT);
 }
 
 void bind_attrib_pointers(Array<GLData::Mesh::Attrib>& attribs)
@@ -347,13 +353,6 @@ do\
 				GLData::uniform_names[id] = buffer_index;
 				GLData::uniform_name_buffer.resize(GLData::uniform_name_buffer.length + length + 1); // extra character - null-terminated string
 				memcpy(&GLData::uniform_name_buffer[buffer_index], name, length);
-				break;
-			}
-			case RenderOp::Viewport:
-			{
-				GLData::viewport = *sync->read<Rect2>();
-				glViewport(GLData::viewport.pos.x, GLData::viewport.pos.y, GLData::viewport.size.x, GLData::viewport.size.y);
-				debug_check();
 				break;
 			}
 			case RenderOp::AllocMesh:
@@ -746,63 +745,6 @@ do\
 				debug_check();
 				break;
 			}
-			case RenderOp::ColorMask:
-			{
-				GLData::color_mask = *sync->read<RenderColorMask>();
-				glColorMask(GLData::color_mask & (1 << 0), GLData::color_mask & (1 << 1), GLData::color_mask & (1 << 2), GLData::color_mask & (1 << 3));
-				debug_check();
-				break;
-			}
-			case RenderOp::DepthMask:
-			{
-				glDepthMask(GLData::depth_mask = *(sync->read<b8>()));
-				debug_check();
-				break;
-			}
-			case RenderOp::DepthTest:
-			{
-				b8 enable = GLData::depth_test = *(sync->read<b8>());
-				if (enable)
-					glEnable(GL_DEPTH_TEST);
-				else
-					glDisable(GL_DEPTH_TEST);
-				debug_check();
-				break;
-			}
-			case RenderOp::DepthFunc:
-			{
-				RenderDepthFunc func = GLData::depth_func = *sync->read<RenderDepthFunc>();
-				switch (func)
-				{
-					case RenderDepthFunc::Never:
-					{
-						glDepthFunc(GL_NEVER);
-						break;
-					}
-					case RenderDepthFunc::Less:
-					{
-						glDepthFunc(GL_LESS);
-						break;
-					}
-					case RenderDepthFunc::Greater:
-					{
-						glDepthFunc(GL_GREATER);
-						break;
-					}
-					case RenderDepthFunc::Equal:
-					{
-						glDepthFunc(GL_EQUAL);
-						break;
-					}
-					default:
-					{
-						vi_assert(false);
-						break;
-					}
-				}
-				debug_check();
-				break;
-			}
 			case RenderOp::Clear:
 			{
 				// clear the screen
@@ -1041,119 +983,6 @@ do\
 				debug_check();
 				break;
 			}
-			case RenderOp::BlendMode:
-			{
-				RenderBlendMode mode = GLData::blend_mode = *(sync->read<RenderBlendMode>());
-				switch (mode)
-				{
-					case RenderBlendMode::Opaque:
-					{
-						glDisablei(GL_BLEND, 0);
-						break;
-					}
-					case RenderBlendMode::Alpha:
-					{
-						glEnablei(GL_BLEND, 0);
-						glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-						break;
-					}
-					case RenderBlendMode::Additive:
-					{
-						glEnablei(GL_BLEND, 0);
-						glBlendFunci(0, GL_SRC_ALPHA, GL_ONE);
-						break;
-					}
-					case RenderBlendMode::AlphaDestination:
-					{
-						glEnablei(GL_BLEND, 0);
-						glBlendFuncSeparatei(0, GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ZERO, GL_ONE);
-						break;
-					}
-					case RenderBlendMode::Multiply:
-					{
-						glEnablei(GL_BLEND, 0);
-						glBlendFunci(0, GL_ZERO, GL_SRC_ALPHA);
-						break;
-					}
-					default:
-					{
-						vi_assert(false);
-						break;
-					}
-				}
-				debug_check();
-				break;
-			}
-			case RenderOp::CullMode:
-			{
-				RenderCullMode mode = GLData::cull_mode = *(sync->read<RenderCullMode>());
-				switch (mode)
-				{
-					case RenderCullMode::Back:
-						glEnable(GL_CULL_FACE);
-						glCullFace(GL_BACK);
-						break;
-					case RenderCullMode::Front:
-						glEnable(GL_CULL_FACE);
-						glCullFace(GL_FRONT);
-						break;
-					case RenderCullMode::None:
-						glDisable(GL_CULL_FACE);
-						break;
-					default:
-						vi_assert(false);
-						break;
-				}
-				debug_check();
-				break;
-			}
-			case RenderOp::FillMode:
-			{
-				RenderFillMode mode = GLData::fill_mode = *(sync->read<RenderFillMode>());
-				switch (mode)
-				{
-					case RenderFillMode::Fill:
-						glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-						break;
-					case RenderFillMode::Line:
-						glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-						break;
-					case RenderFillMode::Point:
-						glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
-						break;
-					default:
-						vi_assert(false);
-						break;
-				}
-				debug_check();
-				break;
-			}
-			case RenderOp::PointSize:
-			{
-				r32 size = GLData::point_size = *(sync->read<r32>());
-				glPointSize(size);
-				debug_check();
-				break;
-			}
-			case RenderOp::LineWidth:
-			{
-				r32 size = GLData::line_width = *(sync->read<r32>());
-				glLineWidth(size);
-#if DEBUG
-				if ((error = glGetError()) == GL_NO_ERROR
-					|| error == GL_INVALID_VALUE)
-				{
-					// fine; glLineWidth might not be supported
-					error = GL_NO_ERROR;
-				}
-				else
-				{
-					vi_debug("GL error: %u", error);\
-					vi_debug_break();\
-				}
-#endif
-				break;
-			}
 			case RenderOp::AllocFramebuffer:
 			{
 				AssetID id = *(sync->read<AssetID>());
@@ -1237,16 +1066,6 @@ do\
 				debug_check();
 				break;
 			}
-			case RenderOp::BindFramebuffer:
-			{
-				AssetID id = GLData::current_framebuffer = *(sync->read<AssetID>());
-				if (id == AssetNull)
-					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-				else
-					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, GLData::framebuffers[id]);
-				debug_check();
-				break;
-			}
 			case RenderOp::FreeFramebuffer:
 			{
 				AssetID id = *(sync->read<AssetID>());
@@ -1263,7 +1082,247 @@ do\
 				glBlitFramebuffer(src->pos.x, src->pos.y, src->pos.x + src->size.x, src->pos.y + src->size.y, dst->pos.x, dst->pos.y, dst->pos.x + dst->size.x, dst->pos.y + dst->size.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 				debug_check();
 				break;
-			};
+			}
+
+			// render states
+
+			case RenderOp::Viewport:
+			{
+				Rect2 vp = *sync->read<Rect2>();
+				if (vp.pos.x != GLData::viewport.pos.x
+					|| vp.pos.y != GLData::viewport.pos.y
+					|| vp.size.x != GLData::viewport.size.x
+					|| vp.size.y != GLData::viewport.size.y)
+				{
+					GLData::viewport = vp;
+					glViewport(vp.pos.x, vp.pos.y, vp.size.x, vp.size.y);
+					debug_check();
+				}
+				break;
+			}
+			case RenderOp::ColorMask:
+			{
+				RenderColorMask color_mask = *sync->read<RenderColorMask>();
+				if (GLData::color_mask != color_mask)
+				{
+					GLData::color_mask = color_mask;
+					glColorMask(color_mask & (1 << 0), color_mask & (1 << 1), color_mask & (1 << 2), color_mask & (1 << 3));
+				}
+				debug_check();
+				break;
+			}
+			case RenderOp::DepthMask:
+			{
+				b8 value = *(sync->read<b8>());
+				if (GLData::depth_mask != value)
+				{
+					GLData::depth_mask = value;
+					glDepthMask(value);
+				}
+				debug_check();
+				break;
+			}
+			case RenderOp::DepthTest:
+			{
+				b8 enable = *(sync->read<b8>());
+				if (GLData::depth_test != enable)
+				{
+					GLData::depth_test = enable;
+					if (enable)
+						glEnable(GL_DEPTH_TEST);
+					else
+						glDisable(GL_DEPTH_TEST);
+				}
+				debug_check();
+				break;
+			}
+			case RenderOp::DepthFunc:
+			{
+				RenderDepthFunc func = *sync->read<RenderDepthFunc>();
+				if (func != GLData::depth_func)
+				{
+					GLData::depth_func = func;
+					switch (func)
+					{
+						case RenderDepthFunc::Never:
+							glDepthFunc(GL_NEVER);
+							break;
+						case RenderDepthFunc::Less:
+							glDepthFunc(GL_LESS);
+							break;
+						case RenderDepthFunc::Greater:
+							glDepthFunc(GL_GREATER);
+							break;
+						case RenderDepthFunc::Equal:
+							glDepthFunc(GL_EQUAL);
+							break;
+						default:
+							vi_assert(false);
+							break;
+					}
+					debug_check();
+				}
+				break;
+			}
+			case RenderOp::BlendMode:
+			{
+				RenderBlendMode mode = *(sync->read<RenderBlendMode>());
+				if (mode != GLData::blend_mode)
+				{
+					GLData::blend_mode = mode;
+					switch (mode)
+					{
+						case RenderBlendMode::Opaque:
+							glDisablei(GL_BLEND, 0);
+							break;
+						case RenderBlendMode::Alpha:
+						{
+							glEnablei(GL_BLEND, 0);
+							glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+							break;
+						}
+						case RenderBlendMode::Additive:
+						{
+							glEnablei(GL_BLEND, 0);
+							glBlendFunci(0, GL_SRC_ALPHA, GL_ONE);
+							break;
+						}
+						case RenderBlendMode::AlphaDestination:
+						{
+							glEnablei(GL_BLEND, 0);
+							glBlendFuncSeparatei(0, GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ZERO, GL_ONE);
+							break;
+						}
+						case RenderBlendMode::Multiply:
+						{
+							glEnablei(GL_BLEND, 0);
+							glBlendFunci(0, GL_ZERO, GL_SRC_ALPHA);
+							break;
+						}
+						default:
+							vi_assert(false);
+							break;
+					}
+					debug_check();
+				}
+				break;
+			}
+			case RenderOp::CullMode:
+			{
+				RenderCullMode mode = *(sync->read<RenderCullMode>());
+				if (mode != GLData::cull_mode)
+				{
+					GLData::cull_mode = mode;
+					switch (mode)
+					{
+						case RenderCullMode::Back:
+							glEnable(GL_CULL_FACE);
+							glCullFace(GL_BACK);
+							break;
+						case RenderCullMode::Front:
+							glEnable(GL_CULL_FACE);
+							glCullFace(GL_FRONT);
+							break;
+						case RenderCullMode::None:
+							glDisable(GL_CULL_FACE);
+							break;
+						default:
+							vi_assert(false);
+							break;
+					}
+					debug_check();
+				}
+				break;
+			}
+			case RenderOp::FillMode:
+			{
+				RenderFillMode mode = *(sync->read<RenderFillMode>());
+				if (mode != GLData::fill_mode)
+				{
+					GLData::fill_mode = mode;
+					switch (mode)
+					{
+						case RenderFillMode::Fill:
+							glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+							break;
+						case RenderFillMode::Line:
+							glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+							break;
+						case RenderFillMode::Point:
+							glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+							break;
+						default:
+							vi_assert(false);
+							break;
+					}
+					debug_check();
+				}
+				break;
+			}
+			case RenderOp::PointSize:
+			{
+				r32 size = *(sync->read<r32>());
+				if (size != GLData::point_size)
+				{
+					GLData::point_size = size;
+					glPointSize(size);
+					debug_check();
+				}
+				break;
+			}
+			case RenderOp::LineWidth:
+			{
+				r32 size = *(sync->read<r32>());
+				if (size != GLData::line_width)
+				{
+					GLData::line_width = size;
+					glLineWidth(size);
+#if DEBUG
+					if ((error = glGetError()) == GL_NO_ERROR
+						|| error == GL_INVALID_VALUE)
+					{
+						// fine; glLineWidth might not be supported
+						error = GL_NO_ERROR;
+					}
+					else
+					{
+						vi_debug("GL error: %u", error); \
+							vi_debug_break(); \
+					}
+#endif
+				}
+				break;
+			}
+			case RenderOp::PolygonOffset:
+			{
+				Vec2 offset = *(sync->read<Vec2>());
+				if (offset.x != GLData::polygon_offset.x || offset.y != GLData::polygon_offset.y)
+				{
+					GLData::polygon_offset = offset;
+					if (offset.length_squared() > 0.0f)
+					{
+						glEnable(GL_POLYGON_OFFSET_FILL);
+						glPolygonOffset(offset.x, offset.y);
+					}
+					else
+						glDisable(GL_POLYGON_OFFSET_FILL);
+				}
+				break;
+			}
+			case RenderOp::BindFramebuffer:
+			{
+				AssetID id = *(sync->read<AssetID>());
+				if (id != GLData::current_framebuffer)
+				{
+					GLData::current_framebuffer = id;
+					if (id == AssetNull)
+						glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+					else
+						glBindFramebuffer(GL_DRAW_FRAMEBUFFER, GLData::framebuffers[id]);
+					debug_check();
+				}
+				break;
+			}
 			default:
 			{
 				vi_assert(false);

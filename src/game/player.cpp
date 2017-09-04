@@ -215,7 +215,7 @@ s32 PlayerHuman::count_local_before(PlayerHuman* h)
 	return count;
 }
 
-Vec2 PlayerHuman::camera_topdown_movement(const Update& u, s8 gamepad, Camera* camera)
+Vec2 PlayerHuman::camera_topdown_movement(const Update& u, s8 gamepad, const Quat& rotation)
 {
 	Vec2 movement(0, 0);
 
@@ -257,10 +257,10 @@ Vec2 PlayerHuman::camera_topdown_movement(const Update& u, s8 gamepad, Camera* c
 	{
 		// transitioning from one zone to another
 		movement /= movement_amount; // normalize
-		Vec3 movement3d = camera->rot * Vec3(-movement.x, -movement.y, 0);
+		Vec3 movement3d = rotation * Vec3(-movement.x, -movement.y, 0);
 
 		// raycast against the +y plane
-		Vec3 ray = camera->rot * Vec3(0, 0, 1);
+		Vec3 ray = rotation * Vec3(0, 0, 1);
 		r32 d = -movement3d.y / ray.y;
 		movement3d += ray * d;
 
@@ -742,10 +742,16 @@ void PlayerHuman::upgrade_completed(Upgrade u)
 AssetID emote_strings[s32(PlayerHuman::EmoteCategory::count)][s32(PlayerHuman::EmoteCategory::count)] =
 {
 	{
-		strings::emote_team1,
-		strings::emote_team2,
-		strings::emote_team3,
-		strings::emote_team4,
+		strings::emote_teama1,
+		strings::emote_teama2,
+		strings::emote_teama3,
+		strings::emote_teama4,
+	},
+	{
+		strings::emote_teamb1,
+		strings::emote_teamb2,
+		strings::emote_teamb3,
+		strings::emote_teamb4,
 	},
 	{
 		strings::emote_everyone1,
@@ -754,25 +760,11 @@ AssetID emote_strings[s32(PlayerHuman::EmoteCategory::count)][s32(PlayerHuman::E
 		strings::emote_everyone4,
 	},
 	{
-		strings::emote_meta1,
-		strings::emote_meta2,
-		strings::emote_meta3,
-		strings::emote_meta4,
-	},
-	{
 		strings::emote_misc1,
 		strings::emote_misc2,
 		strings::emote_misc3,
 		strings::emote_misc4,
 	},
-};
-
-const char* emote_binding_names[s32(PlayerHuman::EmoteCategory::count)] =
-{
-	"Emote1",
-	"Emote2",
-	"Emote3",
-	"Emote4",
 };
 
 b8 PlayerHuman::chat_emotes_enabled() const
@@ -878,7 +870,7 @@ void PlayerHuman::update(const Update& u)
 			Vec2(s32(blueprint->x * r32(display.width)), s32(blueprint->y * r32(display.height))),
 			Vec2(s32(blueprint->w * r32(display.width)), s32(blueprint->h * r32(display.height))),
 		};
-		camera.ref()->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour && !Overworld::modal());
+		camera.ref()->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour);
 
 		if (entity || Game::level.noclip)
 			camera.ref()->flag(CameraFlagActive, true);
@@ -945,7 +937,7 @@ void PlayerHuman::update(const Update& u)
 				else
 				{
 					// category already chosen, send emote
-					AI::TeamMask mask = emote_category == EmoteCategory::Team ? AI::TeamMask(1 << get<PlayerManager>()->team.ref()->team()) : AI::TeamAll;
+					AI::TeamMask mask = (emote_category == EmoteCategory::TeamA || emote_category == EmoteCategory::TeamB) ? AI::TeamMask(1 << get<PlayerManager>()->team.ref()->team()) : AI::TeamAll;
 					get<PlayerManager>()->chat(_(emote_strings[s32(emote_category)][i]), mask);
 					emote_category = EmoteCategory::None;
 					emote_timer = 0.0f;
@@ -967,31 +959,24 @@ void PlayerHuman::update(const Update& u)
 			{
 				if (u.last_input->get(Controls::ChatAll, 0)
 					&& !u.input->get(Controls::ChatAll, 0))
+				{
 					chat_focus = ChatFocus::All;
+					chat_field.set(_(strings::chat_all_prompt));
+				}
 				else if (u.last_input->get(Controls::ChatTeam, 0)
 					&& !u.input->get(Controls::ChatTeam, 0))
+				{
 					chat_focus = ChatFocus::Team;
+					chat_field.set(_(strings::chat_team_prompt));
+				}
 			}
-			else
+			else if (u.last_input->get(Controls::Cancel, 0)
+				&& !u.input->get(Controls::Cancel, 0)
+				&& !Game::cancel_event_eaten[0])
 			{
-				if (u.last_input->get(Controls::Cancel, 0)
-					&& !u.input->get(Controls::Cancel, 0)
-					&& !Game::cancel_event_eaten[0])
-				{
-					chat_field.set("");
-					chat_focus = ChatFocus::None;
-					Game::cancel_event_eaten[0] = true;
-				}
-				else
-				{
-					chat_field.update(u, 0, CHAT_MAX);
-					if (u.input->get(Controls::UIAcceptText, 0) && !u.last_input->get(Controls::UIAcceptText, 0))
-					{
-						get<PlayerManager>()->chat(chat_field.value.data, chat_focus == ChatFocus::All ? AI::TeamAll : (1 << get<PlayerManager>()->team.ref()->team()));
-						chat_field.set("");
-						chat_focus = ChatFocus::None;
-					}
-				}
+				chat_field.set("");
+				chat_focus = ChatFocus::None;
+				Game::cancel_event_eaten[0] = true;
 			}
 		}
 	}
@@ -1003,7 +988,7 @@ void PlayerHuman::update(const Update& u)
 			kill_cam_rot = camera.ref()->rot;
 			if (UpgradeStation::drone_at(entity->get<Drone>()) && get<PlayerManager>()->energy > 0)
 			{
-				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+				if (chat_focus == ChatFocus::None && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 					upgrade_menu_show();
 			}
 			break;
@@ -1032,7 +1017,7 @@ void PlayerHuman::update(const Update& u)
 
 					s8 last_selected = menu.selected;
 
-					menu.start(u, gamepad);
+					menu.start(u, gamepad, chat_focus == ChatFocus::None);
 
 					if (menu.item(u, _(strings::close), nullptr, false, Asset::Mesh::icon_close))
 						upgrade_menu_hide();
@@ -1045,6 +1030,7 @@ void PlayerHuman::update(const Update& u)
 						{
 							const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
 							b8 can_upgrade = !upgrade_in_progress
+								&& chat_focus == ChatFocus::None
 								&& get<PlayerManager>()->upgrade_available(upgrade)
 								&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade)
 								&& (Game::level.has_feature(Game::FeatureLevel::All) || !get<PlayerManager>()->upgrades) // only allow one ability upgrade in tutorial
@@ -1070,7 +1056,7 @@ void PlayerHuman::update(const Update& u)
 			else
 			{
 				// upgrade menu closed, but we're still in the upgrade station
-				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+				if (chat_focus == ChatFocus::None && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 					upgrade_menu_show();
 				else
 					upgrade_station_try_exit();
@@ -1126,7 +1112,7 @@ void PlayerHuman::update(const Update& u)
 						if (!selected_spawn.ref() || selected_spawn.ref()->team != my_team)
 							selected_spawn = SpawnPoint::closest(1 << s32(my_team), camera.ref()->pos);
 
-						Vec2 movement = camera_topdown_movement(u, gamepad, camera.ref());
+						Vec2 movement = camera_topdown_movement(u, gamepad, camera.ref()->rot);
 						r32 movement_amount = movement.length();
 						if (movement_amount > 0.0f)
 						{
@@ -1157,7 +1143,7 @@ void PlayerHuman::update(const Update& u)
 								selected_spawn = closest;
 						}
 
-						if (u.input->get(Controls::Interact, gamepad) && !u.last_input->get(Controls::Interact, gamepad))
+						if (chat_focus == ChatFocus::None && u.input->get(Controls::Interact, gamepad) && !u.last_input->get(Controls::Interact, gamepad))
 							select_spawn_timer = 1.0f;
 					}
 
@@ -1179,7 +1165,7 @@ void PlayerHuman::update(const Update& u)
 
 				if (PlayerCommon::list.count() > 0)
 				{
-					spectate_index += UI::input_delta_horizontal(u, gamepad);
+					spectate_index += chat_focus == ChatFocus::None ? UI::input_delta_horizontal(u, gamepad) : 0;
 					if (spectate_index < 0)
 						spectate_index = PlayerCommon::list.count() - 1;
 					else if (spectate_index >= PlayerCommon::list.count())
@@ -1204,7 +1190,7 @@ void PlayerHuman::update(const Update& u)
 				if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
 				{
 					// accept score summary
-					if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+					if (chat_focus == ChatFocus::None && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 						get<PlayerManager>()->score_accept();
 				}
 			}
@@ -1281,9 +1267,21 @@ void PlayerHuman::update_late(const Update& u)
 			btCollisionWorld::ClosestRayResultCallback ray_callback(camera_center, camera.ref()->pos);
 			Physics::raycast(&ray_callback, CollisionAudio);
 			if (ray_callback.hasHit())
-				Audio::listener_update(gamepad, ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * DRONE_RADIUS * 2.0f, camera.ref()->rot);
+				Audio::listener_update(gamepad, ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * DRONE_RADIUS, camera.ref()->rot);
 			else
 				Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
+		}
+	}
+
+	if (chat_focus != ChatFocus::None)
+	{
+		s32 prompt_length = strlen(_(chat_focus == ChatFocus::Team ? strings::chat_team_prompt : strings::chat_all_prompt));
+		chat_field.update(u, prompt_length, CHAT_MAX);
+		if (!u.input->get(Controls::UIAcceptText, 0) && u.last_input->get(Controls::UIAcceptText, 0))
+		{
+			get<PlayerManager>()->chat(&chat_field.value.data[prompt_length], chat_focus == ChatFocus::All ? AI::TeamAll : (1 << get<PlayerManager>()->team.ref()->team()));
+			chat_field.set("");
+			chat_focus = ChatFocus::None;
 		}
 	}
 #endif
@@ -1924,17 +1922,15 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		text.anchor_y = UIText::Anchor::Max;
 		switch (emote_category)
 		{
-			case EmoteCategory::Team:
+			case EmoteCategory::TeamA:
+			case EmoteCategory::TeamB:
 				text.color = Team::ui_color_friend;
 				break;
 			case EmoteCategory::Everyone:
 				text.color = UI::color_accent();
 				break;
-			case EmoteCategory::Meta:
-				text.color = UI::color_default;
-				break;
 			case EmoteCategory::Misc:
-				text.color = Team::ui_color_friend;
+				text.color = UI::color_default;
 				break;
 			default:
 				vi_assert(false);
@@ -1952,9 +1948,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		UI::box(params, box, UI::color_background);
 		for (s32 i = 0; i < s32(EmoteCategory::count); i++)
 		{
-			char format[UI_TEXT_MAX];
-			snprintf(format, UI_TEXT_MAX, "[{{%s}}] %%s", emote_binding_names[i]);
-			text.text(gamepad, format, _(emote_strings[s32(emote_category)][i]));
+			text.text(gamepad, "(%d) %s", i + 1, _(emote_strings[s32(emote_category)][i]));
 			text.draw(params, p);
 			p.y -= UI_TEXT_SIZE_DEFAULT * UI::scale + MENU_ITEM_PADDING;
 		}
@@ -2354,9 +2348,9 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		text.anchor_y = UIText::Anchor::Min;
 		text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 		text.color = UI::color_alert();
-		r32 timer = Overworld::zone_under_attack_timer();
+		r32 timer = Game::session.zone_under_attack_timer;
 		text.text(gamepad, _(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), s32(ceilf(timer)));
-		UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_THRESHOLD - timer, 80.0f);
+		UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_TIME - timer, 80.0f);
 
 		Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 5.0f);
 		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
@@ -2419,7 +2413,7 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 		base_pos.y -= text.size * UI::scale + MENU_ITEM_PADDING * 4.0f;
 		chat_field.get(&text, 32);
 		UI::box(params, text.rect(base_pos).outset(MENU_ITEM_PADDING), UI::color_background);
-		text.color = UI::color_default;
+		text.color = chat_focus == ChatFocus::Team ? Team::ui_color_friend : UI::color_default;
 		text.draw(params, base_pos);
 	}
 }
@@ -4069,25 +4063,15 @@ void PlayerControlHuman::update(const Update& u)
 							{
 								case ZoneState::PvpHostile:
 								{
-									if (Game::level.post_pvp || platform::timestamp() - Game::save.zone_lost_times[Game::level.id] < ZONE_LOST_COOLDOWN)
-									{
-										// terminal is temporarily locked, must leave and come back
-										player.ref()->msg(_(strings::terminal_locked), false);
-									}
-									else if (Game::level.max_teams <= 2 || Game::save.group != Game::Group::None) // if the map requires more than two players, you must be in a group
+									if (Game::level.max_teams <= 2 || Game::save.group != Game::Group::None) // if the map requires more than two players, you must be in a group
 									{
 										if (Game::save.resources[s32(Resource::Drones)] < DEFAULT_ASSAULT_DRONES)
-										{
 											Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), DEFAULT_ASSAULT_DRONES, _(strings::drones));
-										}
 										else
 											Menu::dialog_with_cancel(gamepad, &player_confirm_terminal_interactable, &player_cancel_interactable, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES);
 									}
-									else
-									{
-										// must be in a group
+									else // must be in a group
 										player.ref()->msg(_(strings::group_required), false);
-									}
 									break;
 								}
 								case ZoneState::ParkourUnlocked:
@@ -4356,9 +4340,7 @@ void PlayerControlHuman::update_late(const Update& u)
 		}
 	}
 
-	if (has<Parkour>()
-		&& !Overworld::modal()
-		&& local())
+	if (has<Parkour>() && local())
 	{
 		Camera* camera = player.ref()->camera.ref();
 

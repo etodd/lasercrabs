@@ -1351,7 +1351,7 @@ namespace PlayerManagerNet
 
 		{
 			s32 text_length = strlen(text);
-			serialize_int(p, s32, text_length, 0, CHAT_MAX);
+			serialize_int(p, s32, text_length, 1, CHAT_MAX);
 			char* hack = const_cast<char*>(text);
 			serialize_bytes(p, (u8*)hack, text_length);
 		}
@@ -1659,7 +1659,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			serialize_s8(p, mask);
 
 			s32 text_length;
-			serialize_int(p, s32, text_length, 0, CHAT_MAX);
+			serialize_int(p, s32, text_length, 1, CHAT_MAX);
 			char text[CHAT_MAX + 1];
 			serialize_bytes(p, (u8*)text, text_length);
 			text[text_length] = '\0';
@@ -1690,7 +1690,8 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 
 void PlayerManager::chat(const char* msg, AI::TeamMask mask)
 {
-	PlayerManagerNet::chat(this, msg, mask);
+	if (strlen(msg) > 0)
+		PlayerManagerNet::chat(this, msg, mask);
 }
 
 void PlayerManager::kick()

@@ -781,25 +781,22 @@ b8 Battery::set_team(AI::Team t, Entity* caused_by)
 r32 Battery::particle_accumulator;
 void Battery::update_all(const Update& u)
 {
-	if (!Overworld::modal())
+	// normal particles
+	const r32 interval = 0.1f;
+	particle_accumulator += u.time.delta;
+	while (particle_accumulator > interval)
 	{
-		// normal particles
-		const r32 interval = 0.1f;
-		particle_accumulator += u.time.delta;
-		while (particle_accumulator > interval)
+		particle_accumulator -= interval;
+		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			particle_accumulator -= interval;
-			for (auto i = list.iterator(); !i.is_last(); i.next())
-			{
-				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 
-				Particles::tracers.add
-				(
-					pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, mersenne::randf_co() * 0.6f),
-					Vec3::zero,
-					0
-				);
-			}
+			Particles::tracers.add
+			(
+				pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, mersenne::randf_co() * 0.6f),
+				Vec3::zero,
+				0
+			);
 		}
 	}
 }
@@ -2528,7 +2525,7 @@ void ShellCasing::draw_all(const RenderParams& params)
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
 
-	if (params.technique == RenderTechnique::Shadow)
+	if (params.technique == RenderTechnique::Shadow || Settings::shadow_quality == Settings::ShadowQuality::Off)
 	{
 		instances.length = 0;
 		for (s32 i = 0; i < list.length; i++)
@@ -3039,7 +3036,7 @@ void Rope::draw_all(const RenderParams& params)
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
 
-	if (params.technique == RenderTechnique::Shadow)
+	if (params.technique == RenderTechnique::Shadow || Settings::shadow_quality == Settings::ShadowQuality::Off)
 	{
 		instances.length = 0;
 		// ropes

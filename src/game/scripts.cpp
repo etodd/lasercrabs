@@ -273,7 +273,7 @@ void update(const Update& u)
 	Audio::dialogue_callbacks.length = 0;
 }
 
-void draw(const RenderParams& params)
+void draw_ui(const RenderParams& params)
 {
 	if (!data)
 		return;
@@ -345,7 +345,7 @@ void init()
 		data = new Data();
 		Game::cleanups.add(cleanup);
 		Game::updates.add(update);
-		Game::draws.add(draw);
+		Game::draws.add(draw_ui);
 	}
 }
 
@@ -579,6 +579,9 @@ namespace Docks
 				Vec2(Settings::display().width, Settings::display().height),
 			};
 			data->camera.ref()->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), 0.1f, Game::level.skybox.far_plane);
+
+			if (Game::level.mode == Game::Mode::Special && !Overworld::active() && !Overworld::transitioning())
+				Menu::title_menu(u, data->camera.ref());
 		}
 
 		if (data->transition_timer > 0.0f)
@@ -602,36 +605,49 @@ namespace Docks
 		}
 		else
 		{
-			if (Game::level.mode == Game::Mode::Special && Menu::main_menu_state == Menu::State::Hidden && Game::scheduled_load_level == AssetNull)
+			if (Game::level.mode == Game::Mode::Special
+				&& Menu::main_menu_state == Menu::State::Hidden
+				&& Game::scheduled_load_level == AssetNull
+				&& !Overworld::active() && !Overworld::transitioning())
 			{
-				b8 show = false;
-				if (u.last_input->keys.any() && !u.input->keys.any())
-					show = true;
+				if (Game::session.type == SessionType::Multiplayer)
+				{
+					Overworld::show(data->camera.ref(), Overworld::State::Multiplayer);
+					Overworld::skip_transition();
+				}
 				else
 				{
-					for (s32 i = 0; i < MAX_GAMEPADS; i++)
+					b8 show = false;
+					if (u.last_input->keys.any() && !u.input->keys.any())
+						show = true;
+					else
 					{
-						if (u.last_input->gamepads[i].btns && !u.input->gamepads[i].btns)
+						for (s32 i = 0; i < MAX_GAMEPADS; i++)
 						{
-							show = true;
-							break;
+							if (u.last_input->gamepads[i].btns && !u.input->gamepads[i].btns)
+							{
+								show = true;
+								break;
+							}
 						}
 					}
-				}
 
-				if (show)
-					Menu::show();
+					if (show)
+						Menu::show();
+				}
 			}
 		}
 	}
 
-	void draw(const RenderParams& p)
+	void draw_ui(const RenderParams& p)
 	{
 		Loader::texture(Asset::Texture::logo);
 
 		if (Game::level.mode == Game::Mode::Special
 			&& Game::scheduled_load_level == AssetNull
 			&& data->transition_timer == 0.0f
+			&& !Overworld::active()
+			&& Game::session.type == SessionType::Story
 			&& !Menu::dialog_active(0))
 		{
 			Rect2 logo_rect;
@@ -708,7 +724,7 @@ namespace Docks
 			entities.find("dada_talk_trigger")->get<PlayerTrigger>()->entered.link(&dada_talk);
 
 			Game::updates.add(update_title);
-			Game::draws.add(draw);
+			Game::draws.add(draw_ui);
 
 			data->dada = Actor::add(entities.find("dada"), Asset::Bone::dada_head);
 			Loader::animation(Asset::Animation::dada_close_door);
@@ -835,7 +851,7 @@ namespace tutorial
 		}
 	}
 
-	void draw(const RenderParams& params)
+	void draw_ui(const RenderParams& params)
 	{
 		if (data->state == TutorialState::Crawl)
 			UI::indicator(params, data->crawl_target.ref()->absolute_pos(), UI::color_accent(), true);
@@ -958,7 +974,7 @@ namespace tutorial
 		Game::level.feature_level = Game::FeatureLevel::Base;
 
 		Game::updates.add(&update);
-		Game::draws.insert(0, &draw);
+		Game::draws.insert(0, &draw_ui);
 		Game::cleanups.add(&cleanup);
 	}
 }

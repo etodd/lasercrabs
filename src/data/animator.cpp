@@ -148,7 +148,6 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 	{
 		time += dt * speed;
 
-		b8 looped = false;
 		if (time > anim->duration)
 		{
 			switch (behavior)
@@ -164,7 +163,6 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 				case Behavior::Loop:
 				{
 					time = fmodf(time, anim->duration);
-					looped = true;
 					break;
 				}
 				case Behavior::Freeze:
@@ -183,6 +181,8 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 		if (animation != last_frame_animation)
 			changing_animation(arm);
 
+		b8 looped = animation == last_frame_animation && time < 0.1f && time_last > time + 0.1f;
+
 		for (s32 i = 0; i < animator.triggers.length; i++)
 		{
 			const TriggerEntry* trigger = &animator.triggers[i];
@@ -190,7 +190,7 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 			b8 trigger_before_new_time = time >= trigger->time;
 			if (animation == trigger->animation &&
 				((((looped || trigger_after_old_time) && trigger_before_new_time) || (trigger_after_old_time && (looped || trigger_before_new_time)))
-					|| (animation != last_frame_animation && trigger->time == 0.0f && time < (1.0f / 30.0f))))
+					|| (animation != last_frame_animation && trigger->time == 0.0f && time < 0.1f)))
 			{
 				trigger->link.fire();
 			}

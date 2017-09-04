@@ -355,7 +355,7 @@ set(SRC
 	assets/shader/ssao_downsample.glsl
 	assets/shader/downsample.glsl
 	assets/shader/blit.glsl
-	assets/shader/blit_depth.glsl
+	assets/shader/stencil_back_faces.glsl
 	assets/shader/scan_lines.glsl
 	assets/shader/bloom_downsample.glsl
 	assets/shader/blur.glsl

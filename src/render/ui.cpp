@@ -540,20 +540,20 @@ const Vec4& UI::color_alert()
 {
 	static const Vec4 alert_pvp = Vec4(1.0f, 0.4f, 0.4f, 1);
 	static const Vec4 alert_normal = Vec4(1.0f, 0.5f, 0.8f, 1);
-	return (Game::level.mode == Game::Mode::Pvp || Overworld::modal()) ? alert_pvp : alert_normal;
+	return (Game::level.mode == Game::Mode::Pvp || Overworld::pvp_colors()) ? alert_pvp : alert_normal;
 }
 const Vec4& UI::color_accent()
 {
 	static const Vec4 accent_pvp = Vec4(1.0f, 0.95f, 0.35f, 1);
 	static const Vec4 accent_normal = Vec4(52.0f / 255.0f, 237.0f / 255.0f, 255.0f / 255.0f, 1);
-	return (Game::level.mode == Game::Mode::Pvp || Overworld::modal()) ? accent_pvp : accent_normal;
+	return (Game::level.mode == Game::Mode::Pvp || Overworld::pvp_colors()) ? accent_pvp : accent_normal;
 }
 const Vec4 UI::color_background = Vec4(0, 0, 0, 1);
 const Vec4& UI::color_disabled()
 {
 	static const Vec4 disabled_pvp = Vec4(0.5f, 0.5f, 0.5f, 1);
 	static const Vec4 disabled_normal = Vec4(0.75f, 0.75f, 0.75f, 1);
-	return (Game::level.mode == Game::Mode::Pvp || Overworld::modal()) ? disabled_pvp : disabled_normal;
+	return (Game::level.mode == Game::Mode::Pvp || Overworld::pvp_colors()) ? disabled_pvp : disabled_normal;
 }
 
 const Vec4& UI::color_ping(r32 p)
@@ -1023,33 +1023,8 @@ void UI::draw(const RenderParams& p)
 	}
 	debugs.length = 0;
 #endif
-	if (indices.length > 0)
-	{
-		p.sync->write(RenderOp::UpdateAttribBuffers);
-		p.sync->write(mesh_id);
-		p.sync->write<s32>(vertices.length);
-		p.sync->write(vertices.data, vertices.length);
-		p.sync->write(colors.data, colors.length);
 
-		p.sync->write(RenderOp::UpdateIndexBuffer);
-		p.sync->write(mesh_id);
-		p.sync->write<s32>(indices.length);
-		p.sync->write(indices.data, indices.length);
-
-		p.sync->write(RenderOp::Shader);
-		p.sync->write(Asset::Shader::ui);
-		p.sync->write(p.technique);
-
-		p.sync->write(RenderOp::Mesh);
-		p.sync->write(RenderPrimitiveMode::Triangles);
-		p.sync->write(mesh_id);
-
-		vertices.length = 0;
-		colors.length = 0;
-		indices.length = 0;
-	}
-
-	// Draw sprites
+	// draw sprites
 	for (s32 i = 0; i < texture_blits.length; i++)
 	{
 		const TextureBlit& tb = texture_blits[i];
@@ -1113,6 +1088,32 @@ void UI::draw(const RenderParams& p)
 		p.sync->write(texture_mesh_id);
 	}
 	texture_blits.length = 0;
+
+	if (indices.length > 0)
+	{
+		p.sync->write(RenderOp::UpdateAttribBuffers);
+		p.sync->write(mesh_id);
+		p.sync->write<s32>(vertices.length);
+		p.sync->write(vertices.data, vertices.length);
+		p.sync->write(colors.data, colors.length);
+
+		p.sync->write(RenderOp::UpdateIndexBuffer);
+		p.sync->write(mesh_id);
+		p.sync->write<s32>(indices.length);
+		p.sync->write(indices.data, indices.length);
+
+		p.sync->write(RenderOp::Shader);
+		p.sync->write(Asset::Shader::ui);
+		p.sync->write(p.technique);
+
+		p.sync->write(RenderOp::Mesh);
+		p.sync->write(RenderPrimitiveMode::Triangles);
+		p.sync->write(mesh_id);
+
+		vertices.length = 0;
+		colors.length = 0;
+		indices.length = 0;
+	}
 }
 
 // instantly draw a texture

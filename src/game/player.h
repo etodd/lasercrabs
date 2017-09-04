@@ -43,9 +43,9 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 
 	enum class EmoteCategory : s8
 	{
-		Team,
+		TeamA,
+		TeamB,
 		Everyone,
-		Meta,
 		Misc,
 		count,
 		None = count,
@@ -112,7 +112,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static Array<Notification> notifications;
 	static b8 notification(Entity*, AI::Team, Notification::Type);
 
-	static Vec2 camera_topdown_movement(const Update&, s8, Camera*);
+	static Vec2 camera_topdown_movement(const Update&, s8, const Quat&);
 	static b8 players_on_same_client(const Entity*, const Entity*);
 
 	static void update_all(const Update&);

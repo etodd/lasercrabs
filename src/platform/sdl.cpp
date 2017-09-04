@@ -268,16 +268,6 @@ namespace VI
 				const DisplayMode& desired = sync->display_mode;
 				if (desired.width != 0) // we're getting actual valid data from the update thread
 				{
-					if (sync->fullscreen != resolution_current_fullscreen)
-					{
-						if (SDL_SetWindowFullscreen(window, sync->fullscreen ? SDL_WINDOW_FULLSCREEN : 0))
-						{
-							fprintf(stderr, "Failed to set fullscreen mode: %s\n", SDL_GetError());
-							return -1;
-						}
-						resolution_current_fullscreen = sync->fullscreen;
-					}
-
 					if (sync->vsync != resolution_current_vsync)
 					{
 						if (vsync_set(sync->vsync))
@@ -300,9 +290,22 @@ namespace VI
 						if (sync->fullscreen)
 							SDL_SetWindowDisplayMode(window, &new_mode);
 						else
+						{
 							SDL_SetWindowSize(window, new_mode.w, new_mode.h);
+							SDL_SetWindowPosition(window, 0, 0);
+						}
 
 						resolution_current = desired;
+					}
+
+					if (sync->fullscreen != resolution_current_fullscreen)
+					{
+						if (SDL_SetWindowFullscreen(window, sync->fullscreen ? SDL_WINDOW_FULLSCREEN : 0))
+						{
+							fprintf(stderr, "Failed to set fullscreen mode: %s\n", SDL_GetError());
+							return -1;
+						}
+						resolution_current_fullscreen = sync->fullscreen;
 					}
 				}
 			}

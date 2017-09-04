@@ -190,7 +190,7 @@ struct ServerConfig
 	s8 team_count = 2;
 	s8 drone_shield = DRONE_SHIELD_AMOUNT;
 	Region region;
-	u8 time_limit_minutes = 6;
+	u8 time_limit_minutes = 10;
 	char name[MAX_SERVER_CONFIG_NAME + 1];
 	b8 enable_minions = true;
 	b8 enable_batteries = true;
@@ -235,7 +235,7 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		serialize_int(p, u16, c->start_upgrades.length, 0, c->start_upgrades.capacity());
 		for (s32 i = 0; i < c->start_upgrades.length; i++)
 			serialize_enum(p, Upgrade, c->start_upgrades[i]);
-		serialize_u8(p, c->time_limit_minutes);
+		serialize_int(p, u8, c->time_limit_minutes, 1, 254);
 		s32 name_length;
 		if (Stream::IsWriting)
 			name_length = strlen(c->name);

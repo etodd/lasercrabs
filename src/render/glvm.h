@@ -43,6 +43,7 @@ enum class RenderOp : s8
 	FillMode,
 	PointSize,
 	LineWidth,
+	PolygonOffset,
 	AllocFramebuffer,
 	BindFramebuffer,
 	FreeFramebuffer,

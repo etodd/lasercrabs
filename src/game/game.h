@@ -101,7 +101,6 @@ struct Game
 	struct Save
 	{
 		r64 timestamp;
-		r64 zone_lost_times[MAX_ZONES];
 		Array<CollectibleEntry> collectibles;
 		s32 locke_index;
 		ZoneState zones[MAX_ZONES];
@@ -149,8 +148,6 @@ struct Game
 
 		b8 has_feature(FeatureLevel) const;
 		AI::Team team_lookup_reverse(AI::Team) const;
-		const StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS>& directional_lights_get() const;
-		const Vec3& ambient_color_get() const;
 		void multiplayer_level_schedule();
 	};
 

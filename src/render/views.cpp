@@ -826,7 +826,7 @@ void SkyPattern::draw_hollow(const RenderParams& p)
 	sync->write(Asset::Shader::flat);
 	sync->write(p.technique);
 
-	Mat4 mvp = p.view * Mat4::make_scale(Vec3(p.camera->far_plane - 1.0f));
+	Mat4 mvp = p.view * Mat4::make_scale(Vec3(p.camera->far_plane * 0.95f));
 	mvp.translation(Vec3::zero);
 	mvp = mvp * p.camera->projection;
 

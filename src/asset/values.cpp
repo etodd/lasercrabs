@@ -23,6 +23,7 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/force_field_sphere.msh",
 	"assets/grenade_attached.msh",
 	"assets/grenade_detached.msh",
+	"assets/helvetica_scenario.msh",
 	"assets/hobo.msh",
 	"assets/icon_access_key.msh",
 	"assets/icon_active_armor.msh",
@@ -257,6 +258,7 @@ const char* AssetLookup::Mesh::names[] =
 	"force_field_sphere",
 	"grenade_attached",
 	"grenade_detached",
+	"helvetica_scenario",
 	"hobo",
 	"icon_access_key",
 	"icon_active_armor",
@@ -864,6 +866,7 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/Tier_1.lvl",
 	"assets/lvl/Tier_2.lvl",
 	"assets/lvl/overworld.lvl",
+	"assets/lvl/splash.lvl",
 	0,
 };
 
@@ -881,6 +884,7 @@ const char* AssetLookup::Level::names[] =
 	"Tier 1",
 	"Tier 2",
 	"overworld",
+	"splash",
 	0,
 };
 
@@ -898,6 +902,7 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/Tier_1.nav",
 	"assets/lvl/Tier_2.nav",
 	"assets/lvl/overworld.nav",
+	"assets/lvl/splash.nav",
 	0,
 };
 
@@ -915,6 +920,7 @@ const char* AssetLookup::NavMesh::names[] =
 	"Tier 1",
 	"Tier 2",
 	"overworld",
+	"splash",
 	0,
 };
 
@@ -1393,6 +1399,7 @@ const char* AssetLookup::String::names[] =
 	"player_joined",
 	"player_kicked",
 	"player_left",
+	"presents",
 	"primary",
 	"prompt_accept",
 	"prompt_accept_text",

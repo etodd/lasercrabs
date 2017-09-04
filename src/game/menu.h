@@ -113,6 +113,7 @@ void update_end(const Update&);
 void clear();
 void draw_ui(const RenderParams&);
 void title();
+void splash();
 void title_multiplayer();
 void show();
 void open_url(const char*);

@@ -432,6 +432,77 @@ AssetID Script::find(const char* name)
 namespace Scripts
 {
 
+b8 any_input(const Update& u)
+{
+	if (u.last_input->keys.any() && !u.input->keys.any())
+		return true;
+	else
+	{
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		{
+			if (u.last_input->gamepads[i].btns && !u.input->gamepads[i].btns)
+				return true;
+		}
+	}
+	return false;
+}
+
+namespace splash
+{
+
+	struct Data
+	{
+		r32 timer = 2.0f;
+		Ref<Camera> camera;
+	};
+	Data* data;
+
+	void update(const Update& u)
+	{
+		data->timer -= u.real_time.delta;
+
+		if (Game::schedule_timer == 0.0f
+			&& (data->timer < 0.0f || any_input(u)))
+			Menu::title();
+
+		data->camera.ref()->viewport =
+		{
+			Vec2(0, 0),
+			Vec2(Settings::display().width, Settings::display().height),
+		};
+		const r32 fov = 40.0f * PI * 0.5f / 180.0f;
+		data->camera.ref()->perspective(fov, 0.1f, Game::level.skybox.far_plane);
+	}
+
+	void draw_ui(const RenderParams& params)
+	{
+		if (params.camera == data->camera.ref())
+		{
+			const Rect2& vp = params.camera->viewport;
+			UI::mesh(params, Asset::Mesh::helvetica_scenario, vp.size * 0.5f, Vec2(vp.size.x * 0.25f));
+
+			UIText text;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Max;
+			text.text(0, _(strings::presents));
+			text.draw(params, vp.size * Vec2(0.5f, 0.4f));
+		}
+	}
+
+	void cleanup()
+	{
+		data->camera.ref()->remove();
+		delete data;
+	}
+
+	void init(const EntityFinder& entities)
+	{
+		data = new Data();
+		data->camera = Camera::add(0);
+		Game::draws.add(draw_ui);
+		Game::updates.add(update);
+	}
+}
 
 namespace Docks
 {
@@ -615,26 +686,8 @@ namespace Docks
 					Overworld::show(data->camera.ref(), Overworld::State::Multiplayer);
 					Overworld::skip_transition();
 				}
-				else
-				{
-					b8 show = false;
-					if (u.last_input->keys.any() && !u.input->keys.any())
-						show = true;
-					else
-					{
-						for (s32 i = 0; i < MAX_GAMEPADS; i++)
-						{
-							if (u.last_input->gamepads[i].btns && !u.input->gamepads[i].btns)
-							{
-								show = true;
-								break;
-							}
-						}
-					}
-
-					if (show)
-						Menu::show();
-				}
+				else if (any_input(u))
+					Menu::show();
 			}
 		}
 	}
@@ -1227,6 +1280,7 @@ namespace tier_2
 
 Script Script::list[] =
 {
+	{ "splash", Scripts::splash::init, nullptr, },
 	{ "tutorial", Scripts::tutorial::init, nullptr, },
 	{ "Docks", Scripts::Docks::init, nullptr, },
 	{ "locke", Scripts::locke::init, nullptr, },

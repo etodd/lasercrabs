@@ -78,6 +78,8 @@ void update_end(const Update&) {}
 void clear() {}
 void draw_ui(const RenderParams&) {}
 void title() {}
+void title_multiplayer() {}
+void splash() {}
 void title_menu(const Update& u, Camera* camera) {};
 void show() {}
 void refresh_variables(const InputState&) {}
@@ -323,8 +325,6 @@ void refresh_variables(const InputState& input)
 void init(const InputState& input)
 {
 	refresh_variables(input);
-
-	title();
 
 	display_mode_index = Settings::display_mode_index;
 }
@@ -783,6 +783,15 @@ void title_multiplayer()
 	Game::session.type = SessionType::Multiplayer;
 	Game::save.reset();
 	Game::schedule_load_level(Asset::Level::Docks, Game::Mode::Special);
+}
+
+void splash()
+{
+	clear();
+	Game::session.reset();
+	Game::session.type = SessionType::Multiplayer;
+	Game::save.reset();
+	Game::schedule_load_level(Asset::Level::splash, Game::Mode::Special);
 }
 
 void draw_ui(const RenderParams& params)

@@ -301,6 +301,8 @@ b8 Game::init(LoopSync* sync)
 
 	Drone::init();
 
+	Menu::splash();
+
 	return true;
 }
 

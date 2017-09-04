@@ -67,14 +67,14 @@ StaticArray<ID, 32> Audio::dialogue_callbacks;
 r32 Audio::dialogue_volume;
 s8 Audio::listener_mask;
 Vec3 Audio::listener_pos[MAX_GAMEPADS];
-PinArray<Audio::Entry, MAX_ENTITIES> Audio::Entry::list;
+PinArray<AudioEntry, MAX_ENTITIES> AudioEntry::list;
 
 #if SERVER
 b8 Audio::init() { return true; }
 void Audio::term() {}
 void Audio::update_all(const Update&) {}
 void Audio::post_global(AkUniqueID) {}
-Audio::Entry* Audio::post_global(AkUniqueID, const Vec3&) { return nullptr; }
+AudioEntry* Audio::post_global(AkUniqueID, const Vec3&) { return nullptr; }
 void Audio::param_global(AkRtpcID, AkRtpcValue) {}
 void Audio::listener_enable(s8) {}
 void Audio::listener_disable(s8) {}
@@ -82,22 +82,22 @@ void Audio::listener_update(s8, const Vec3&, const Quat&) {}
 AkUniqueID Audio::get_id(const char*) { return 0; }
 void Audio::clear() {}
 
-void Audio::Entry::init(const Vec3&, Transform*, Entry*) {}
-void Audio::Entry::cleanup() {}
-void Audio::Entry::update(r32) {}
-void Audio::Entry::update_spatialization(UpdateType) {}
-void Audio::Entry::post(AkUniqueID) {}
-void Audio::Entry::stop(AkUniqueID) {}
-void Audio::Entry::stop_all() {}
-void Audio::Entry::pathfind_result(s8, r32, r32) {}
-b8 Audio::Entry::post_dialogue(AkUniqueID) { return false; }
-void Audio::Entry::param(AkRtpcID, AkRtpcValue) {}
+void AudioEntry::init(const Vec3&, Transform*, AudioEntry*) {}
+void AudioEntry::cleanup() {}
+void AudioEntry::update(r32) {}
+void AudioEntry::update_spatialization(UpdateType) {}
+void AudioEntry::post(AkUniqueID) {}
+void AudioEntry::stop(AkUniqueID) {}
+void AudioEntry::stop_all() {}
+void AudioEntry::pathfind_result(s8, r32, r32) {}
+b8 AudioEntry::post_dialogue(AkUniqueID) { return false; }
+void AudioEntry::param(AkRtpcID, AkRtpcValue) {}
 
 void Audio::awake() {}
 Audio::~Audio() {}
 void Audio::post(AkUniqueID) {}
-Audio::Entry* Audio::post_unattached(AkUniqueID, const Vec3&) { return nullptr; }
-Audio::Entry* Audio::post_offset(AkUniqueID, const Vec3&) { return nullptr; }
+AudioEntry* Audio::post_unattached(AkUniqueID, const Vec3&) { return nullptr; }
+AudioEntry* Audio::post_offset(AkUniqueID, const Vec3&) { return nullptr; }
 b8 Audio::post_dialogue(AkUniqueID) { return false; }
 void Audio::stop(AkUniqueID) {}
 void Audio::stop_all() {}
@@ -187,7 +187,7 @@ b8 Audio::init()
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		AK::SoundEngine::RegisterGameObj(listener_id(i));
 
-	AK::SoundEngine::RegisterBusMeteringCallback(AK::BUSSES::DIALOGUE, Audio::dialogue_volume_callback, AkMeteringFlags(AK_EnableBusMeter_Peak));
+	AK::SoundEngine::RegisterBusMeteringCallback(AK::BUSSES::DIALOGUE, AudioEntry::dialogue_volume_callback, AkMeteringFlags(AK_EnableBusMeter_Peak));
 
 	param_global(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER);
 	param_global(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER);
@@ -201,23 +201,23 @@ AkGameObjectID Audio::listener_id(s8 gamepad)
 }
 
 // Wwise callbacks
-void Audio::dialogue_volume_callback(AK::IAkMetering* metering, AkChannelConfig channel_config, AkMeteringFlags flags)
+void AudioEntry::dialogue_volume_callback(AK::IAkMetering* metering, AkChannelConfig channel_config, AkMeteringFlags flags)
 {
 	r32 sum = 0.0f;
 	AK::SpeakerVolumes::ConstVectorPtr peak = metering->GetPeak();
 	for (s32 i = 0; i < channel_config.uNumChannels; i++)
 		sum += peak[i];
-	dialogue_volume = sum;
+	Audio::dialogue_volume = sum;
 }
 
-void Audio::dialogue_done_callback(AkCallbackType type, AkCallbackInfo* info)
+void AudioEntry::dialogue_done_callback(AkCallbackType type, AkCallbackInfo* info)
 {
 	// anyone paying attention to these should be polling them every frame;
 	// if they're not, we don't care which ones get dropped
-	if (dialogue_callbacks.length == dialogue_callbacks.capacity())
-		dialogue_callbacks.length--;
+	if (Audio::dialogue_callbacks.length == Audio::dialogue_callbacks.capacity())
+		Audio::dialogue_callbacks.length--;
 
-	dialogue_callbacks.add(ID(info->gameObjID));
+	Audio::dialogue_callbacks.add(ID(info->gameObjID));
 }
 
 void Audio::term()
@@ -235,7 +235,7 @@ void Audio::term()
 
 #define MAX_IMAGE_SOURCES 4
 
-void Audio::Entry::init(const Vec3& npos, Transform* nparent, Entry* parent_entry)
+void AudioEntry::init(const Vec3& npos, Transform* nparent, AudioEntry* parent_entry)
 {
 	revision++;
 	pos = npos;
@@ -280,18 +280,64 @@ AkAuxBusID reverb_aux_bus[MAX_REVERBS] =
 	AK::AUX_BUSSES::REVERB_HUGE,
 };
 
-void Audio::Entry::pathfind_result(s8 listener, r32 path_length, r32 straight_distance)
+void AudioEntry::pathfind_result(s8 listener, r32 path_length, r32 straight_distance)
 {
 	occlusion_target[listener] = vi_max(0.0f, vi_min(1.0f, 0.05f + (path_length - straight_distance) / (DRONE_MAX_DISTANCE * 0.4f)));
 }
 
-void Audio::Entry::update_spatialization(UpdateType type)
+void audio_reverb_raycast(const Vec3& abs_pos, r32 output[4])
+{
+	static const Vec3 raycasts[4] =
+	{
+		Vec3(0, 0, -1),
+		Vec3(0, 0, 1),
+		Vec3(-1, 0, 0),
+		Vec3(1, 0, 0),
+	};
+
+	const r32 raycast_length = 100.0f;
+	for (s32 i = 0; i < 4; i++)
+	{
+		btCollisionWorld::ClosestRayResultCallback ray_callback(abs_pos, abs_pos + raycasts[i] * raycast_length);
+		Physics::raycast(&ray_callback, CollisionAudio);
+		output[i] = (ray_callback.hasHit() ? ray_callback.m_closestHitFraction : 1.0f) * raycast_length;
+	}
+}
+
+void audio_reverb_calc(const Vec3& abs_pos, r32 output[MAX_REVERBS])
+{
+	s32 reverb_counts[MAX_REVERBS] = {};
+
+	for (s32 i = 0; i < MAX_REVERBS; i++)
+		output[i] = 0.0f;
+
+	r32 distances[4];
+	audio_reverb_raycast(abs_pos, distances);
+
+	r32 max_distance = 0.0f;
+	for (s32 i = 0; i < 4; i++)
+	{
+		max_distance = vi_max(max_distance, distances[i]);
+
+		// add send value to appropriate reverb aux bus based on distance
+		if (distances[i] < 10.0f)
+			output[0] = vi_min(1.0f, output[0] + 0.5f);
+
+		if (distances[i] > 50.0f)
+			output[2] = vi_min(1.0f, output[2] + 0.5f);
+	}
+
+	if (max_distance > 10.0f && max_distance < 50.0f)
+		output[1] = 1.0f;
+}
+
+void AudioEntry::update_spatialization(UpdateType type)
 {
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		if (listener_mask & (1 << i))
+		if (Audio::listener_mask & (1 << i))
 		{
-			const Vec3& listener = listener_pos[i];
+			const Vec3& listener = Audio::listener_pos[i];
 
 			Vec3 dir = abs_pos - listener;
 			r32 distance = dir.length();
@@ -323,44 +369,12 @@ void Audio::Entry::update_spatialization(UpdateType type)
 		}
 	}
 
-	static const Vec3 raycasts[4] =
-	{
-		Vec3(0, 0, -1),
-		Vec3(0, 0, 1),
-		Vec3(-1, 0, 0),
-		Vec3(1, 0, 0),
-	};
-
-	s32 reverb_counts[MAX_REVERBS] = {};
-
-	for (s32 i = 0; i < MAX_REVERBS; i++)
-		reverb_target[i] = 0.0f;
-
-	const r32 raycast_length = 100.0f;
-	r32 max_distance = 0.0f;
-	for (s32 i = 0; i < 4; i++)
-	{
-		btCollisionWorld::ClosestRayResultCallback ray_callback(abs_pos, abs_pos + raycasts[i] * raycast_length);
-		Physics::raycast(&ray_callback, CollisionAudio);
-		r32 distance = (ray_callback.hasHit() ? ray_callback.m_closestHitFraction : 1.0f) * raycast_length;
-
-		max_distance = vi_max(max_distance, distance);
-
-		// add send value to appropriate reverb aux bus based on distance
-		if (distance < 10.0f)
-			reverb_target[0] = vi_min(1.0f, reverb_target[0] + 0.5f);
-
-		if (distance > 50.0f)
-			reverb_target[2] = vi_min(1.0f, reverb_target[2] + 0.5f);
-	}
-
-	if (max_distance > 10.0f && max_distance < 50.0f)
-		reverb_target[1] = 1.0f;
+	audio_reverb_calc(abs_pos, reverb_target);
 
 	spatialization_update_frame = Audio::spatialization_update_frame;
 }
 
-void Audio::Entry::update(r32 dt)
+void AudioEntry::update(r32 dt)
 {
 	if (parent.ref())
 		abs_pos = pos + parent.ref()->absolute_pos();
@@ -412,39 +426,39 @@ void Audio::Entry::update(r32 dt)
 	AK::SoundEngine::SetPosition(ak_id(), sound_position);
 }
 
-Audio::Entry* Audio::Entry::by_ak_id(AkGameObjectID id)
+AudioEntry* AudioEntry::by_ak_id(AkGameObjectID id)
 {
 	return &list[id - AUDIO_OFFSET_ENTRIES];
 }
 
 #if !SERVER
-void Audio::event_done_callback(AkCallbackType type, AkCallbackInfo* info)
+void AudioEntry::event_done_callback(AkCallbackType type, AkCallbackInfo* info)
 {
-	Entry* entry = Entry::by_ak_id(info->gameObjID);
+	AudioEntry* entry = AudioEntry::by_ak_id(info->gameObjID);
 	entry->playing = vi_max(0, entry->playing - 1);
 }
 #endif
 
-void Audio::Entry::post(AkUniqueID event_id)
+void AudioEntry::post(AkUniqueID event_id)
 {
 	AkPlayingID i = AK::SoundEngine::PostEvent(event_id, ak_id(), AkCallbackType::AK_EndOfEvent, &event_done_callback);
 	if (i != 0)
 		playing++;
 }
 
-void Audio::Entry::stop(AkUniqueID event_id)
+void AudioEntry::stop(AkUniqueID event_id)
 {
 	AK::SoundEngine::PostEvent(event_id, ak_id());
 	playing = vi_max(0, playing - 1);
 }
 
-void Audio::Entry::stop_all()
+void AudioEntry::stop_all()
 {
 	AK::SoundEngine::PostEvent(AK::EVENTS::STOP, ak_id());
 	playing = 0;
 }
 
-b8 Audio::Entry::post_dialogue(AkUniqueID event_id)
+b8 AudioEntry::post_dialogue(AkUniqueID event_id)
 {
 	AkPlayingID i = AK::SoundEngine::PostEvent(event_id, ak_id(), AkCallbackType::AK_EndOfEvent, &dialogue_done_callback);
 	if (i != 0)
@@ -456,12 +470,12 @@ b8 Audio::Entry::post_dialogue(AkUniqueID event_id)
 		return false;
 }
 
-void Audio::Entry::param(AkRtpcID id, AkRtpcValue value)
+void AudioEntry::param(AkRtpcID id, AkRtpcValue value)
 {
 	AK::SoundEngine::SetRTPCValue(id, value, ak_id());
 }
 
-void Audio::Entry::cleanup()
+void AudioEntry::cleanup()
 {
 	revision++;
 	AK::SoundEngine::UnregisterGameObj(ak_id());
@@ -474,14 +488,14 @@ void Audio::update_all(const Update& u)
 	{
 		s32 spatialization_updates = 12 / vi_max(1, s32(Net::popcount(listener_mask)));
 
-		for (auto i = Entry::list.iterator(); !i.is_last(); i.next())
+		for (auto i = AudioEntry::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->keepalive || i.item()->playing > 0) // Audio component is keeping it alive, or something is playing on it
 			{
 				if (spatialization_updates > 0
 					&& i.item()->spatialization_update_frame != spatialization_update_frame)
 				{
-					i.item()->update_spatialization(Entry::UpdateType::ReverbObstruction);
+					i.item()->update_spatialization(AudioEntry::UpdateType::ReverbObstruction);
 					spatialization_updates--;
 				}
 				i.item()->update(u.real_time.delta);
@@ -489,12 +503,36 @@ void Audio::update_all(const Update& u)
 			else
 			{
 				i.item()->cleanup();
-				Entry::list.remove(i.index);
+				AudioEntry::list.remove(i.index);
 			}
 		}
 
 		if (spatialization_updates > 0) // we updated all entries
+		{
 			spatialization_update_frame = (spatialization_update_frame + 1) & s16((1 << 15) - 1); // increment to next frame so that all entries are marked as needing updated
+
+			// update ambience
+			r32 ambience = 0.0f;
+			for (s32 i = 0; i < MAX_GAMEPADS; i++)
+			{
+				if (listener_mask & (1 << i))
+				{
+					r32 distances[4];
+					audio_reverb_raycast(listener_pos[i], distances);
+
+					r32 a = 0.0f;
+					for (s32 i = 0; i < 4; i++)
+					{
+						if (distances[i] > 10.0f)
+							a = vi_min(1.0f, a + 0.34f);
+					}
+					ambience = vi_max(ambience, a);
+					if (ambience == 1.0f) // already at max
+						break;
+				}
+			}
+			param_global(AK::GAME_PARAMETERS::AMBIENCE, ambience);
+		}
 	}
 
 	AK::SoundEngine::RenderAudio();
@@ -512,12 +550,12 @@ void Audio::post_global(AkUniqueID event_id)
 
 b8 Audio::post_dialogue(AkUniqueID event_id)
 {
-	return Entry::list[entry_id].post_dialogue(event_id);
+	return AudioEntry::list[entry_id].post_dialogue(event_id);
 }
 
-Audio::Entry* Audio::post_global(AkUniqueID event_id, const Vec3& pos)
+AudioEntry* Audio::post_global(AkUniqueID event_id, const Vec3& pos)
 {
-	Entry* e = Entry::list.add();
+	AudioEntry* e = AudioEntry::list.add();
 	e->init(pos, nullptr, nullptr);
 	e->post(event_id);
 	return e;
@@ -568,7 +606,7 @@ void Audio::listener_update(s8 gamepad, const Vec3& pos, const Quat& rot)
 
 void Audio::awake()
 {
-	Entry* e = Entry::list.add();
+	AudioEntry* e = AudioEntry::list.add();
 	entry_id = e->id();
 	e->init(Vec3::zero, get<Transform>());
 	e->keepalive = true;
@@ -576,60 +614,60 @@ void Audio::awake()
 
 Audio::~Audio()
 {
-	Entry::list[entry_id].keepalive = false;
+	AudioEntry::list[entry_id].keepalive = false;
 }
 
 void Audio::clear()
 {
 	Audio::post_global(AK::EVENTS::STOP_ALL);
 
-	for (auto i = Entry::list.iterator(); !i.is_last(); i.next())
+	for (auto i = AudioEntry::list.iterator(); !i.is_last(); i.next())
 		i.item()->cleanup();
-	Entry::list.clear();
-	for (s32 i = 0; i < Entry::list.data.length; i++)
-		Entry::list[i].revision = 0;
+	AudioEntry::list.clear();
+	for (s32 i = 0; i < AudioEntry::list.data.length; i++)
+		AudioEntry::list[i].revision = 0;
 }
 
 void Audio::post(AkUniqueID event_id)
 {
-	Entry::list[entry_id].post(event_id);
+	AudioEntry::list[entry_id].post(event_id);
 }
 
 void Audio::stop(AkUniqueID event_id)
 {
-	Entry::list[entry_id].stop(event_id);
+	AudioEntry::list[entry_id].stop(event_id);
 }
 
 void Audio::stop_all()
 {
-	Entry::list[entry_id].stop_all();
+	AudioEntry::list[entry_id].stop_all();
 }
 
-Audio::Entry* Audio::post_unattached(AkUniqueID event_id, const Vec3& pos)
+AudioEntry* Audio::post_unattached(AkUniqueID event_id, const Vec3& pos)
 {
-	Entry* e = Entry::list.add();
+	AudioEntry* e = AudioEntry::list.add();
 
-	e->init(pos + get<Transform>()->absolute_pos(), nullptr, &Entry::list[entry_id]);
+	e->init(pos + get<Transform>()->absolute_pos(), nullptr, &AudioEntry::list[entry_id]);
 	e->post(event_id);
 	return e;
 }
 
-Audio::Entry* Audio::post_offset(AkUniqueID event_id, const Vec3& offset)
+AudioEntry* Audio::post_offset(AkUniqueID event_id, const Vec3& offset)
 {
-	Entry* e = Entry::list.add();
-	e->init(offset, get<Transform>(), &Entry::list[entry_id]);
+	AudioEntry* e = AudioEntry::list.add();
+	e->init(offset, get<Transform>(), &AudioEntry::list[entry_id]);
 	e->post(event_id);
 	return e;
 }
 
 void Audio::param(AkRtpcID id, AkRtpcValue value)
 {
-	Entry::list[entry_id].param(id, value);
+	AudioEntry::list[entry_id].param(id, value);
 }
 
 void Audio::offset(const Vec3& offset)
 {
-	Entry::list[entry_id].pos = offset;
+	AudioEntry::list[entry_id].pos = offset;
 }
 
 #endif

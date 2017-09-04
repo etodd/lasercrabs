@@ -157,7 +157,7 @@ void update(const Update& u)
 			}
 			case Callback::AudioPath:
 			{
-				Ref<Audio::Entry> entry;
+				Ref<AudioEntry> entry;
 				s8 listener;
 				r32 path_length;
 				r32 straight_distance;
@@ -414,14 +414,14 @@ r32 audio_pathfind(const Vec3& a, const Vec3& b)
 	return Worker::audio_pathfind(ctx, a, b);
 }
 
-u32 audio_pathfind(const Vec3& a, const Vec3& b, Audio::Entry* entry, s8 listener, r32 straight_distance)
+u32 audio_pathfind(const Vec3& a, const Vec3& b, AudioEntry* entry, s8 listener, r32 straight_distance)
 {
 	u32 id = callback_in_id;
 	callback_in_id++;
 
 	sync_in.lock();
 	sync_in.write(Op::AudioPathfind);
-	Ref<Audio::Entry> ref = entry;
+	Ref<AudioEntry> ref = entry;
 	sync_in.write(ref);
 	sync_in.write(listener);
 	sync_in.write(a);

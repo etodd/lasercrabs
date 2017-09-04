@@ -682,6 +682,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_int(p, s8, charges, 0, DRONE_CHARGES);
 			if (apply_msg || !Game::level.local)
 			{
+				if (charges > drone->charges)
+					drone->charge_restored.fire(charges);
 				drone->charges = charges;
 				drone->bolter_charge_counter = 0; // hack; this will result in some de-syncs between client and server
 			}

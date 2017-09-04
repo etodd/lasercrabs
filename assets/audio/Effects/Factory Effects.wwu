@@ -1507,8 +1507,8 @@
 										<Property Name="Filter3Freq" Type="Real32" Value="9290"/>
 										<Property Name="Filter3Gain" Type="Real32" Value="-24"/>
 										<Property Name="Filter3InsertPos" Type="int32" Value="2"/>
-										<Property Name="HFDamping" Type="Real32" Value="10"/>
-										<Property Name="PreDelay" Type="Real32" Value="200"/>
+										<Property Name="HFDamping" Type="Real32" Value="6"/>
+										<Property Name="PreDelay" Type="Real32" Value="100"/>
 										<Property Name="ReverbLevel" Type="Real32" Value="-30"/>
 										<Property Name="RoomShape" Type="Real32" Value="50"/>
 										<Property Name="RoomSize" Type="Real32" Value="38"/>

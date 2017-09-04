@@ -546,7 +546,7 @@
 											</PropertyList>
 											<ReferenceList>
 												<Reference Name="Target">
-													<ObjectRef Name="mover_loop" ID="{6782133E-3212-481C-B0CF-4AE91C7DACF1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+													<ObjectRef Name="water" ID="{AEA07151-6FEF-4E24-BB89-64608D66BD93}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>
@@ -822,6 +822,20 @@
 											<ReferenceList>
 												<Reference Name="Target">
 													<ObjectRef Name="Footstep" ID="{8D83EC8D-7858-4B9E-8986-13A19750752B}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Minion_Melee_Impact" ID="{CD1467B7-3163-4C14-B7CC-D911DA785D0F}">
+									<ChildrenList>
+										<Action Name="" ID="{5D4B5B28-F014-42B2-B014-2A0F5A39C169}" ShortID="80852418">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Drone_Bolt_Impact" ID="{E910E92A-2E85-486E-971C-266821CE1763}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>
@@ -1960,6 +1974,20 @@
 								</Action>
 							</ChildrenList>
 						</Event>
+						<Event Name="Play_Drone_Charge_Restore" ID="{99D5D2CB-1B6B-4183-9364-14C263EFEE56}">
+							<ChildrenList>
+								<Action Name="" ID="{E3EDB988-204D-45C5-9BC1-24581FA4031F}" ShortID="660682751">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="UI_Cooldown_Charge" ID="{1BA49282-81BE-4E52-9188-CEC4EE805A1D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
 					</ChildrenList>
 				</Folder>
 				<Event Name="Stop_All" ID="{07D81830-164C-4236-BA40-35B363A62413}">
@@ -1999,8 +2027,34 @@
 				</Event>
 				<Folder Name="ambience" ID="{2A218224-0260-4B5A-B301-E7B4A03F801F}" ShortID="1052573815">
 					<ChildrenList>
-						<Event Name="Play_Ambience_Overworld" ID="{68C04B79-3779-4AB7-9747-8AFE2577EF60}"/>
-						<Event Name="Stop_Ambience_Overworld" ID="{0BDA8CC0-EF7C-45C0-ADF4-02CAC8BD8D38}"/>
+						<Event Name="Play_AMB_Area_02" ID="{6B7055EE-5113-4759-8DFD-D8A270FF074E}">
+							<ChildrenList>
+								<Action Name="" ID="{0551389D-0E37-421A-B8D3-40EEFBC6B7A1}" ShortID="40853447">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="AMB_Area_02" ID="{408D2A62-05DE-4839-8585-3D191BBC4A47}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_AMB_Area_01" ID="{58523763-D468-4A35-A041-0DC121080D06}">
+							<ChildrenList>
+								<Action Name="" ID="{67CB2562-37BA-4806-B240-162A2230EFC9}" ShortID="265390769">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="AMB_Area_01" ID="{CD1D8AA8-48F6-49E9-9E12-4BAE6058910E}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
 					</ChildrenList>
 				</Folder>
 			</ChildrenList>

@@ -129,8 +129,6 @@ struct Game
 		r32 rotation;
 		r32 rain;
 		s32 max_teams;
-		FeatureLevel feature_level;
-		Mode mode;
 		Skybox::Config skybox;
 		StaticArray<Clouds::Config, 4> clouds;
 		StaticArray<AssetID, 8> scripts;
@@ -141,6 +139,9 @@ struct Game
 		Ref<Entity> terminal_interactable;
 		Ref<Entity> shop;
 		AI::Team team_lookup[MAX_TEAMS];
+		FeatureLevel feature_level;
+		Mode mode;
+		char ambience[MAX_AUDIO_EVENT_NAME + 1];
 		b8 local = true;
 		b8 noclip;
 		b8 config_scheduled_apply; // true if we have a scheduled ServerConfig we need to apply on the next level transition

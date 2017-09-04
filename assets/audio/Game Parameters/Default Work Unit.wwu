@@ -15,12 +15,6 @@
 						<Property Name="Max" Type="Real64" Value="1"/>
 					</PropertyList>
 				</GameParameter>
-				<GameParameter Name="Danger" ID="{F2CF682D-D1A7-4B62-82F0-EB53B18EEC18}">
-					<PropertyList>
-						<Property Name="InitialValue" Type="Real64" Value="0"/>
-						<Property Name="Max" Type="Real64" Value="1"/>
-					</PropertyList>
-				</GameParameter>
 				<GameParameter Name="Parkour_Slide" ID="{6071C0CE-A3CA-461F-BDE3-5ADA06A81114}">
 					<PropertyList>
 						<Property Name="InitialValue" Type="Real64" Value="0"/>
@@ -56,6 +50,12 @@
 								<Property Name="Max" Type="Real64" Value="1"/>
 							</PropertyList>
 						</GameParameter>
+						<GameParameter Name="CooldownCharge" ID="{DB9FE303-F172-4012-8D56-E04392A8FFFE}">
+							<PropertyList>
+								<Property Name="InitialValue" Type="Real64" Value="0"/>
+								<Property Name="Max" Type="Real64" Value="2"/>
+							</PropertyList>
+						</GameParameter>
 					</ChildrenList>
 				</Folder>
 				<Folder Name="Minion" ID="{E8FF3EC7-B525-4BDA-85C5-13F4376920E7}" ShortID="283844579">
@@ -68,6 +68,15 @@
 						</GameParameter>
 					</ChildrenList>
 				</Folder>
+				<GameParameter Name="Ambience" ID="{009637B5-397A-45CB-AC3E-1579D1CBD448}">
+					<PropertyList>
+						<Property Name="InitialValue" Type="Real64" Value="1"/>
+						<Property Name="Max" Type="Real64" Value="1"/>
+						<Property Name="RTPCRamping" Type="int16" Value="1"/>
+						<Property Name="SlewRateDown" Type="Real64" Value="1"/>
+						<Property Name="SlewRateUp" Type="Real64" Value="1"/>
+					</PropertyList>
+				</GameParameter>
 			</ChildrenList>
 		</WorkUnit>
 	</GameParameters>

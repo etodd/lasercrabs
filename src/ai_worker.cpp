@@ -1395,7 +1395,7 @@ void loop()
 			}
 			case Op::AudioPathfind:
 			{
-				Ref<Audio::Entry> entry;
+				Ref<AudioEntry> entry;
 				s8 listener;
 				Vec3 a;
 				Vec3 b;

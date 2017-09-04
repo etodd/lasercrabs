@@ -16,6 +16,10 @@
 					</ModuleList>
 					<RTPCValueList ShowAll="true">
 						<RTPCValue>
+							<GameParameterRef Name="CooldownCharge" ID="{DB9FE303-F172-4012-8D56-E04392A8FFFE}"/>
+							<Value>2</Value>
+						</RTPCValue>
+						<RTPCValue>
 							<GameParameterRef Name="Drone_Speed" ID="{2A872154-8E2F-422B-B045-3731805BB183}"/>
 							<Value>0</Value>
 						</RTPCValue>
@@ -38,10 +42,6 @@
 						<RTPCValue>
 							<GameParameterRef Name="Minion_Weapon_Charge" ID="{3D691C56-7A0B-4B17-A031-05C582C8C697}"/>
 							<Value>1</Value>
-						</RTPCValue>
-						<RTPCValue>
-							<GameParameterRef Name="Danger" ID="{F2CF682D-D1A7-4B62-82F0-EB53B18EEC18}"/>
-							<Value>0</Value>
 						</RTPCValue>
 						<RTPCValue>
 							<GameParameterRef Name="Parkour_Wind" ID="{F6905F29-60EE-4D61-80E8-1CE93F7CC94F}"/>

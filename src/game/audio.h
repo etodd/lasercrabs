@@ -38,64 +38,67 @@ namespace VI
 struct Vec3;
 struct Transform;
 
-struct Audio : ComponentType<Audio>
+// 3D positioned sound source
+struct AudioEntry
 {
-	// 3D positioned sound source
-	struct Entry
+	enum class UpdateType : s8
 	{
-		enum class UpdateType : s8
-		{
-			ReverbObstruction,
-			All,
-			count,
-		};
-
-		static PinArray<Entry, MAX_ENTITIES> list;
-
-		static Entry* by_ak_id(AkGameObjectID);
-
-		Vec3 abs_pos;
-		Vec3 pos;
-		r32 obstruction[MAX_GAMEPADS];
-		r32 obstruction_target[MAX_GAMEPADS];
-		r32 occlusion[MAX_GAMEPADS];
-		r32 occlusion_target[MAX_GAMEPADS];
-		r32 reverb[MAX_REVERBS];
-		r32 reverb_target[MAX_REVERBS];
-		Ref<Transform> parent;
-		s16 spatialization_update_frame;
-		Revision revision;
-		s8 playing;
-		b8 keepalive;
-
-		void init(const Vec3&, Transform*, Entry* = nullptr);
-		void cleanup();
-
-		inline ID id()
-		{
-			return ID(this - &list[0]);
-		}
-
-		inline AkGameObjectID ak_id()
-		{
-			return AUDIO_OFFSET_ENTRIES + id();
-		}
-
-		void update(r32 = 0.0f);
-		void update_spatialization(UpdateType);
-		void pathfind_result(s8, r32, r32);
-		void post(AkUniqueID);
-		void stop(AkUniqueID);
-		void stop_all();
-		b8 post_dialogue(AkUniqueID);
-		void param(AkRtpcID, AkRtpcValue);
+		ReverbObstruction,
+		All,
+		count,
 	};
 
+	static PinArray<AudioEntry, MAX_ENTITIES> list;
+
+	static AudioEntry* by_ak_id(AkGameObjectID);
+
 #if !SERVER
-	static CAkDefaultIOHookBlocking wwise_io;
 	static void dialogue_volume_callback(AK::IAkMetering*, AkChannelConfig, AkMeteringFlags);
 	static void dialogue_done_callback(AkCallbackType, AkCallbackInfo*);
 	static void event_done_callback(AkCallbackType, AkCallbackInfo*);
+#endif
+
+	Vec3 abs_pos;
+	Vec3 pos;
+	r32 obstruction[MAX_GAMEPADS];
+	r32 obstruction_target[MAX_GAMEPADS];
+	r32 occlusion[MAX_GAMEPADS];
+	r32 occlusion_target[MAX_GAMEPADS];
+	r32 reverb[MAX_REVERBS];
+	r32 reverb_target[MAX_REVERBS];
+	Ref<Transform> parent;
+	s16 spatialization_update_frame;
+	Revision revision;
+	s8 playing;
+	b8 keepalive;
+
+	void init(const Vec3&, Transform*, AudioEntry* = nullptr);
+	void cleanup();
+
+	inline ID id()
+	{
+		return ID(this - &list[0]);
+	}
+
+	inline AkGameObjectID ak_id()
+	{
+		return AUDIO_OFFSET_ENTRIES + id();
+	}
+
+	void update(r32 = 0.0f);
+	void update_spatialization(UpdateType);
+	void pathfind_result(s8, r32, r32);
+	void post(AkUniqueID);
+	void stop(AkUniqueID);
+	void stop_all();
+	b8 post_dialogue(AkUniqueID);
+	void param(AkRtpcID, AkRtpcValue);
+};
+
+struct Audio : ComponentType<Audio>
+{
+#if !SERVER
+	static CAkDefaultIOHookBlocking wwise_io;
 #endif
 
 	static r32 dialogue_volume;
@@ -104,13 +107,13 @@ struct Audio : ComponentType<Audio>
 	static StaticArray<ID, 32> dialogue_callbacks; // poll this and empty it every frame; ID is entity ID
 
 	static s16 spatialization_update_frame;
-	static PinArray<Entry, MAX_ENTITIES> pool_entity;
-	static PinArray<Entry, MAX_ENTITIES> pool_global_3d;
+	static PinArray<AudioEntry, MAX_ENTITIES> pool_entity;
+	static PinArray<AudioEntry, MAX_ENTITIES> pool_global_3d;
 	static b8 init();
 	static void term();
 	static void update_all(const Update&);
 	static void post_global(AkUniqueID);
-	static Entry* post_global(AkUniqueID, const Vec3&);
+	static AudioEntry* post_global(AkUniqueID, const Vec3&);
 	static void param_global(AkRtpcID, AkRtpcValue);
 	static void listener_list_update();
 	static void listener_enable(s8);
@@ -127,8 +130,8 @@ struct Audio : ComponentType<Audio>
 	void post(AkUniqueID);
 	void stop(AkUniqueID);
 	void stop_all();
-	Entry* post_unattached(AkUniqueID, const Vec3& = Vec3::zero);
-	Entry* post_offset(AkUniqueID, const Vec3&);
+	AudioEntry* post_unattached(AkUniqueID, const Vec3& = Vec3::zero);
+	AudioEntry* post_offset(AkUniqueID, const Vec3&);
 	b8 post_dialogue(AkUniqueID);
 	void param(AkRtpcID, AkRtpcValue);
 	void offset(const Vec3&);

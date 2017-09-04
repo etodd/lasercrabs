@@ -139,7 +139,7 @@ struct UI
 	static b8 flash_function_slow(r32);
 	static b8 flash_function_slow(r32, r32);
 	static b8 is_onscreen(const RenderParams&, const Vec3&, Vec2*, Vec2* = nullptr);
-	static void indicator(const RenderParams&, const Vec3&, const Vec4&, b8, r32 = 1.0f, r32 = 0.0f);
+	static Vec2 indicator(const RenderParams&, const Vec3&, const Vec4&, b8, r32 = 1.0f, r32 = 0.0f);
 
 #if DEBUG
 	static Array<Vec3> debugs;

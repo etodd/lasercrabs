@@ -7,6 +7,8 @@ namespace VI
 {
 
 
+struct AudioEntry;
+
 struct View : public ComponentType<View>
 {
 	struct DebugEntry
@@ -122,9 +124,11 @@ struct Water : public ComponentType<Water>
 
 	Config config;
 	RenderMask mask;
+	Ref<AudioEntry> audio;
 
 	Water(AssetID = AssetNull);
 	void awake();
+	~Water();
 	void update(const Update&);
 	void draw_hollow(const RenderParams&);
 	b8 contains(const Vec3&) const;

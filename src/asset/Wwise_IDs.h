@@ -13,7 +13,8 @@ namespace AK
 {
     namespace EVENTS
     {
-        static const AkUniqueID PLAY_AMBIENCE_OVERWORLD = 322972353U;
+        static const AkUniqueID PLAY_AMB_AREA_01 = 2012228648U;
+        static const AkUniqueID PLAY_AMB_AREA_02 = 2012228651U;
         static const AkUniqueID PLAY_BATTERY_CAPTURE = 2178381398U;
         static const AkUniqueID PLAY_BATTERY_LOOP = 2192484874U;
         static const AkUniqueID PLAY_BATTERY_RESET = 229884389U;
@@ -29,6 +30,7 @@ namespace AK
         static const AkUniqueID PLAY_DIALOG_SHOW = 501056458U;
         static const AkUniqueID PLAY_DRONE_ACTIVE_ARMOR = 3053445653U;
         static const AkUniqueID PLAY_DRONE_BOLT_IMPACT = 1054437811U;
+        static const AkUniqueID PLAY_DRONE_CHARGE_RESTORE = 3795179304U;
         static const AkUniqueID PLAY_DRONE_DAMAGE_EXPLODE = 3340920818U;
         static const AkUniqueID PLAY_DRONE_DAMAGE_LARGE = 3263000172U;
         static const AkUniqueID PLAY_DRONE_DAMAGE_SMALL = 2008200180U;
@@ -115,6 +117,7 @@ namespace AK
         static const AkUniqueID PLAY_MINION_HEADSHOT = 3502276269U;
         static const AkUniqueID PLAY_MINION_MELEE_HANDCLOSE = 1681336885U;
         static const AkUniqueID PLAY_MINION_MELEE_HANDOPEN = 3002091487U;
+        static const AkUniqueID PLAY_MINION_MELEE_IMPACT = 2858511862U;
         static const AkUniqueID PLAY_MINION_MELEE_PULLBACK = 1742005112U;
         static const AkUniqueID PLAY_MINION_MELEE_THRUST = 438759358U;
         static const AkUniqueID PLAY_MINION_SPAWN = 4058052828U;
@@ -162,7 +165,6 @@ namespace AK
         static const AkUniqueID PLAY_ZOOM_OUT = 1819052470U;
         static const AkUniqueID STOP = 788884573U;
         static const AkUniqueID STOP_ALL = 452547817U;
-        static const AkUniqueID STOP_AMBIENCE_OVERWORLD = 623666463U;
         static const AkUniqueID STOP_DIALOGUE = 288905442U;
         static const AkUniqueID STOP_FORCE_FIELD_LOOP = 1907392129U;
         static const AkUniqueID STOP_MINION_CHARGE = 1499790205U;
@@ -173,7 +175,8 @@ namespace AK
 
     namespace GAME_PARAMETERS
     {
-        static const AkUniqueID DANGER = 4174463524U;
+        static const AkUniqueID AMBIENCE = 85412153U;
+        static const AkUniqueID COOLDOWNCHARGE = 1079239790U;
         static const AkUniqueID DRONE_SPEED = 1382379429U;
         static const AkUniqueID MINION_WEAPON_CHARGE = 691397373U;
         static const AkUniqueID PARKOUR_SLIDE = 2866705659U;
@@ -192,6 +195,7 @@ namespace AK
 
     namespace BUSSES
     {
+        static const AkUniqueID AMBIENCE = 85412153U;
         static const AkUniqueID AUX_MASTER = 3134780610U;
         static const AkUniqueID BATTERY = 2326215132U;
         static const AkUniqueID DIALOGUE = 3930136735U;

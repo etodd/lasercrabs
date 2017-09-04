@@ -137,6 +137,7 @@ struct Drone : public ComponentType<Drone>
 	LinkArg<const DroneReflectEvent&> reflecting;
 	LinkArg<Entity*> hit;
 	LinkArg<Ability> ability_spawned;
+	LinkArg<s8> charge_restored;
 	Link detaching;
 	Link dashing;
 	Link done_flying;

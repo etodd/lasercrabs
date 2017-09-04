@@ -458,10 +458,6 @@ void PlayerHuman::energy_notify(s32 change)
 	msg(buffer, true);
 }
 
-#define DANGER_RAMP_UP_TIME 2.0f
-#define DANGER_LINGER_TIME 3.0f
-#define DANGER_RAMP_DOWN_TIME 4.0f
-r32 PlayerHuman::danger;
 Array<PlayerHuman::LogEntry> PlayerHuman::logs;
 Array<PlayerHuman::ChatEntry> PlayerHuman::chats;
 Array<PlayerHuman::Notification> PlayerHuman::notifications;
@@ -469,32 +465,6 @@ void PlayerHuman::update_all(const Update& u)
 {
 	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-
-	// update audio danger parameter
-
-	b8 visible_enemy = false;
-	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
-	{
-		PlayerManager* local_common = i.item()->get<PlayerCommon>()->manager.ref();
-		for (auto j = PlayerCommon::list.iterator(); !j.is_last(); j.next())
-		{
-			const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(local_common, j.item()->manager.ref())];
-			if (visibility.type == PlayerManager::Visibility::Type::Direct && visibility.entity.ref())
-			{
-				visible_enemy = true;
-				break;
-			}
-		}
-		if (visible_enemy)
-			break;
-	}
-
-	if (visible_enemy)
-		danger = vi_min(1.0f + DANGER_LINGER_TIME / DANGER_RAMP_UP_TIME, danger + Game::real_time.delta / DANGER_RAMP_UP_TIME);
-	else
-		danger = vi_max(0.0f, danger - Game::real_time.delta / DANGER_RAMP_DOWN_TIME);
-
-	Audio::param_global(AK::GAME_PARAMETERS::DANGER, vi_min(danger, 1.0f));
 
 	for (s32 i = logs.length - 1; i >= 0; i--)
 	{
@@ -549,8 +519,9 @@ void PlayerHuman::log_add(const char* a, AI::Team a_team, AI::TeamMask mask, con
 
 void PlayerHuman::clear()
 {
-	danger = 0.0f;
 	logs.length = 0;
+	chats.length = 0;
+	notifications.length = 0;
 }
 
 void PlayerHuman::update_camera_rotation(const Update& u)
@@ -842,7 +813,7 @@ void PlayerHuman::update(const Update& u)
 			if (Game::session.type == SessionType::Story)
 				Menu::title();
 			else
-				Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
+				Menu::title_multiplayer();
 		}
 	}
 	else // no rumble when replaying
@@ -1258,7 +1229,7 @@ void PlayerHuman::update_late(const Update& u)
 	if (camera.ref())
 	{
 		if (Game::level.noclip
-			|| (ui_mode() == UIMode::Dead && get<PlayerManager>()->respawns != 0)) // we're respawning
+			|| (!get<PlayerManager>()->instance.ref() && get<PlayerManager>()->respawns != 0)) // we're respawning
 			Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
 		else
 		{
@@ -3101,6 +3072,7 @@ void PlayerControlHuman::awake()
 		link<&PlayerControlHuman::drone_done_flying_or_dashing>(get<Drone>()->done_dashing);
 		link_arg<const DroneReflectEvent&, &PlayerControlHuman::drone_reflecting>(get<Drone>()->reflecting);
 		link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Drone>()->hit);
+		link_arg<s8, &PlayerControlHuman::drone_charge_restored>(get<Drone>()->charge_restored);
 
 		if (Team::match_state == Team::MatchState::Done && Game::level.has_feature(Game::FeatureLevel::All))
 		{
@@ -3138,6 +3110,15 @@ PlayerControlHuman::~PlayerControlHuman()
 		AI::record_close(player.ref()->ai_record_id);
 		player.ref()->ai_record_id = AI::record_init(Game::level.team_lookup_reverse(player.ref()->get<PlayerManager>()->team.ref()->team()), player.ref()->get<PlayerManager>()->respawns);
 #endif
+	}
+}
+
+void PlayerControlHuman::drone_charge_restored(s8 charges)
+{
+	if (local())
+	{
+		get<Audio>()->param(AK::GAME_PARAMETERS::COOLDOWNCHARGE, vi_max(0, charges - 1));
+		get<Audio>()->post(AK::EVENTS::PLAY_DRONE_CHARGE_RESTORE);
 	}
 }
 
@@ -4586,19 +4567,19 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			&& !UpgradeStation::drone_at(get<Drone>()))
 		{
 			Vec3 pos = SpawnPoint::closest(1 << s32(get<AIAgent>()->team), get<Transform>()->absolute_pos())->get<Transform>()->absolute_pos();
-			UI::indicator(params, pos, Team::ui_color_friend, true);
+			Vec2 p = UI::indicator(params, pos, Team::ui_color_friend, true);
 
-			UIText text;
-			text.color = Team::ui_color_friend;
-			text.text(player.ref()->gamepad, _(strings::upgrade_notification));
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			Vec2 p;
-			UI::is_onscreen(params, pos, &p);
 			p.y += UI_TEXT_SIZE_DEFAULT * 2.0f * UI::scale;
-			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
 			if (UI::flash_function_slow(Game::real_time.total))
+			{
+				UIText text;
+				text.color = Team::ui_color_friend;
+				text.text(player.ref()->gamepad, _(strings::upgrade_notification));
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
 				text.draw(params, p);
+			}
 		}
 	}
 	else

@@ -167,7 +167,7 @@ void update(const Update&);
 void debug_draw_nav_mesh(const RenderParams&);
 void draw_hollow(const RenderParams&);
 r32 audio_pathfind(const Vec3&, const Vec3&);
-u32 audio_pathfind(const Vec3&, const Vec3&, Audio::Entry*, s8, r32);
+u32 audio_pathfind(const Vec3&, const Vec3&, AudioEntry*, s8, r32);
 
 b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);
 

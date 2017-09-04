@@ -2802,7 +2802,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 
 			consolidate_nav_geometry(&nav_mesh_input, meshes, state.manifest, json, default_filter);
 
-			if (nav_mesh_input.vertices.length > 0 && !cJSON_HasObjectItem(json->child, "nonav")) // map-level nonav directive prevents nav-mesh generation for the whole map
+			if (nav_mesh_input.vertices.length > 0)
 			{
 				if (!build_nav_mesh(nav_mesh_input, &nav_tiles))
 				{

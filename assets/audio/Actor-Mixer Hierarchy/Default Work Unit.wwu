@@ -873,6 +873,11 @@
 				<ActorMixer Name="dialogue" ID="{268C5A9B-FE0E-4CCA-8A21-B0D3CC20AED4}" ShortID="544240620">
 					<PropertyList>
 						<Property Name="PositioningType" Type="int16" Value="1"/>
+						<Property Name="Priority" Type="int16">
+							<ValueList>
+								<Value>25</Value>
+							</ValueList>
+						</Property>
 					</PropertyList>
 					<ReferenceList>
 						<Reference Name="Conversion">
@@ -2302,8 +2307,13 @@
 					<ChildrenList>
 						<ActorMixer Name="Drone" ID="{BCD26B41-C952-4D17-AC8C-D31F7E014A58}" ShortID="512526251">
 							<PropertyList>
-								<Property Name="BelowThresholdBehavior" Type="int16" Value="1"/>
+								<Property Name="BelowThresholdBehavior" Type="int16" Value="3"/>
 								<Property Name="PositioningType" Type="int16" Value="1"/>
+								<Property Name="Priority" Type="int16">
+									<ValueList>
+										<Value>100</Value>
+									</ValueList>
+								</Property>
 								<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 								<Property Name="Volume" Type="Real64">
 									<RTPCList>
@@ -4653,7 +4663,13 @@
 						</ActorMixer>
 						<ActorMixer Name="Minion" ID="{89577139-02FD-4162-A44A-B8AF2F7DCFC9}" ShortID="263941054">
 							<PropertyList>
+								<Property Name="BelowThresholdBehavior" Type="int16" Value="3"/>
 								<Property Name="PositioningType" Type="int16" Value="1"/>
+								<Property Name="Priority" Type="int16">
+									<ValueList>
+										<Value>75</Value>
+									</ValueList>
+								</Property>
 								<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 							</PropertyList>
 							<ReferenceList>
@@ -5999,6 +6015,13 @@
 					<ChildrenList>
 						<Folder Name="DEC_UI" ID="{DD2B7596-BFE5-4F34-BDEB-06BE9CA9811F}" ShortID="16160690"/>
 						<ActorMixer Name="UI" ID="{156C97DB-FC19-4B4D-9BAC-B83FD1785087}" ShortID="291371428">
+							<PropertyList>
+								<Property Name="Priority" Type="int16">
+									<ValueList>
+										<Value>100</Value>
+									</ValueList>
+								</Property>
+							</PropertyList>
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6110,6 +6133,123 @@
 										</Sound>
 									</ChildrenList>
 								</RandomSequenceContainer>
+								<BlendContainer Name="UI_Cooldown_Charge" ID="{1BA49282-81BE-4E52-9188-CEC4EE805A1D}" ShortID="649294645">
+									<PropertyList>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-18</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="DEC_Cooldown_Charge_01_01" ID="{AFF61599-2F5E-4B89-8BE3-C8B1983101BC}" ShortID="292906479">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Cooldown_Charge_01_01" ID="{11D21053-B174-4AB6-A160-B65321A6A13E}" ShortID="476217923">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Cooldown_Charge_01_01.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Cooldown_Charge_01_01" ID="{11D21053-B174-4AB6-A160-B65321A6A13E}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_Cooldown_Charge_01_02" ID="{DD8D7F8A-02C9-4580-8990-445ADCC1F4AA}" ShortID="303451722">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Cooldown_Charge_01_02" ID="{373F96A5-8929-4A0C-B6FC-0DAA2FA728D4}" ShortID="21743308">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Cooldown_Charge_01_02.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Cooldown_Charge_01_02" ID="{373F96A5-8929-4A0C-B6FC-0DAA2FA728D4}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_Cooldown_Charge_01_03" ID="{4D755D16-FBE1-49FE-BCF0-362482011EB9}" ShortID="112055535">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Cooldown_Charge_01_03" ID="{8E72CFCE-97A6-4B84-A33F-8C4DB24EA7F1}" ShortID="427848271">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Cooldown_Charge_01_03.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Cooldown_Charge_01_03" ID="{8E72CFCE-97A6-4B84-A33F-8C4DB24EA7F1}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+									<BlendTrackList>
+										<BlendTrack Name="New Blend Track" ID="{EF0CED12-FD38-4DAD-BE6A-D7621705E3AF}" ShortID="192409848">
+											<PropertyList>
+												<Property Name="EnableCrossFading" Type="bool" Value="True"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="LayerCrossFadeControlInput">
+													<ObjectRef Name="CooldownCharge" ID="{DB9FE303-F172-4012-8D56-E04392A8FFFE}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+												</Reference>
+											</ReferenceList>
+											<BlendTrackAssocList>
+												<BlendTrackAssoc>
+													<ItemRef Name="DEC_Cooldown_Charge_01_01" ID="{AFF61599-2F5E-4B89-8BE3-C8B1983101BC}"/>
+													<CrossfadingInfo>
+														<LeftEdgePos>0</LeftEdgePos>
+														<LeftFadingMode>Automatic</LeftFadingMode>
+														<RightEdgePos>0.521414021164021</RightEdgePos>
+														<RightFadingMode>Automatic</RightFadingMode>
+													</CrossfadingInfo>
+												</BlendTrackAssoc>
+												<BlendTrackAssoc>
+													<ItemRef Name="DEC_Cooldown_Charge_01_02" ID="{DD8D7F8A-02C9-4580-8990-445ADCC1F4AA}"/>
+													<CrossfadingInfo>
+														<LeftEdgePos>0.834641534391535</LeftEdgePos>
+														<LeftFadingMode>Automatic</LeftFadingMode>
+														<RightEdgePos>1.26638756613757</RightEdgePos>
+														<RightFadingMode>Automatic</RightFadingMode>
+													</CrossfadingInfo>
+												</BlendTrackAssoc>
+												<BlendTrackAssoc>
+													<ItemRef Name="DEC_Cooldown_Charge_01_03" ID="{4D755D16-FBE1-49FE-BCF0-362482011EB9}"/>
+													<CrossfadingInfo>
+														<LeftEdgePos>1.43333333333333</LeftEdgePos>
+														<LeftFadingMode>Automatic</LeftFadingMode>
+														<RightEdgePos>2</RightEdgePos>
+														<RightFadingMode>Automatic</RightFadingMode>
+													</CrossfadingInfo>
+												</BlendTrackAssoc>
+											</BlendTrackAssocList>
+										</BlendTrack>
+									</BlendTrackList>
+								</BlendContainer>
 							</ChildrenList>
 						</ActorMixer>
 					</ChildrenList>
@@ -6199,6 +6339,7 @@
 					<ChildrenList>
 						<ActorMixer Name="UpgradeStation" ID="{79747495-B39F-4EA1-AE53-D0F84348880F}" ShortID="929173201">
 							<PropertyList>
+								<Property Name="BelowThresholdBehavior" Type="int16" Value="3"/>
 								<Property Name="PositioningType" Type="int16" Value="1"/>
 								<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 								<Property Name="Volume" Type="Real64">
@@ -6285,6 +6426,309 @@
 						</ActorMixer>
 					</ChildrenList>
 				</Folder>
+				<Folder Name="ExtraBeepsFromJack" ID="{442441FD-C955-4598-AD2B-4729D2CB8B4F}" ShortID="73168524">
+					<ChildrenList>
+						<ActorMixer Name="ExtraBeepsFromJack" ID="{50AA8D2E-7E69-4D14-B95D-8966F6C5B702}" ShortID="63723774">
+							<PropertyList>
+								<Property Name="Volume" Type="Real64">
+									<ValueList>
+										<Value>-18</Value>
+									</ValueList>
+								</Property>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<Sound Name="RUMBLE_Error_4_1" ID="{01009801-D8D6-43CA-B3BF-0E3482AB0EFB}" ShortID="345491759">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="RUMBLE_Error_4_1" ID="{26AC1170-C66A-43EB-8486-848B332B5AD9}" ShortID="762994597">
+											<Language>SFX</Language>
+											<AudioFile>RUMBLE_Error_4_1.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="RUMBLE_Error_4_1" ID="{26AC1170-C66A-43EB-8486-848B332B5AD9}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+								<Sound Name="RUMBLE_Error_2" ID="{56BD1F0E-E05A-4A27-A6CB-3AA0B0760BAC}" ShortID="705957676">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="RUMBLE_Error_2" ID="{BC4A5F93-7975-4DC9-96B1-13D42D537434}" ShortID="162343456">
+											<Language>SFX</Language>
+											<AudioFile>RUMBLE_Error_2.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="RUMBLE_Error_2" ID="{BC4A5F93-7975-4DC9-96B1-13D42D537434}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+								<Sound Name="RUMBLE_Beep_3_1" ID="{4B57B166-DAD8-42B1-8AD3-D194A09DDAE7}" ShortID="152940491">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="RUMBLE_Beep_3_1" ID="{6E2F8419-FCE3-4613-8867-0B197E4611FD}" ShortID="52273037">
+											<Language>SFX</Language>
+											<AudioFile>RUMBLE_Beep_3_1.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="RUMBLE_Beep_3_1" ID="{6E2F8419-FCE3-4613-8867-0B197E4611FD}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+								<Sound Name="RUMBLE_Beep_4_1" ID="{F3B141EC-291A-4456-A460-2192A3167B64}" ShortID="300877563">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="RUMBLE_Beep_4_1" ID="{13AE5D09-9717-4871-BD15-91367824E7D5}" ShortID="485711082">
+											<Language>SFX</Language>
+											<AudioFile>RUMBLE_Beep_4_1.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="RUMBLE_Beep_4_1" ID="{13AE5D09-9717-4871-BD15-91367824E7D5}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+								<Sound Name="RUMBLE_Beep_5_1" ID="{2B079E69-C12D-434F-9C42-935C4C30DC54}" ShortID="31076258">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="RUMBLE_Beep_5_1" ID="{EFAE8494-5380-4977-911E-D22D73BBDF6E}" ShortID="188957428">
+											<Language>SFX</Language>
+											<AudioFile>RUMBLE_Beep_5_1.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="RUMBLE_Beep_5_1" ID="{EFAE8494-5380-4977-911E-D22D73BBDF6E}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+								<Sound Name="RUMBLE_Error_5_1" ID="{3B18076A-97E2-4010-961E-595423734BFB}" ShortID="857986303">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="RUMBLE_Error_5_1" ID="{47C9D750-7513-48FE-8E53-9897B6773320}" ShortID="1055623207">
+											<Language>SFX</Language>
+											<AudioFile>RUMBLE_Error_5_1.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="RUMBLE_Error_5_1" ID="{47C9D750-7513-48FE-8E53-9897B6773320}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+								<Sound Name="RUMBLE_Beep_6_1" ID="{07693FCA-D034-466F-B805-B1B10B970A8E}" ShortID="142922773">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="RUMBLE_Beep_6_1" ID="{65B02039-EEF2-422F-962F-18617295E947}" ShortID="508661001">
+											<Language>SFX</Language>
+											<AudioFile>RUMBLE_Beep_6_1.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="RUMBLE_Beep_6_1" ID="{65B02039-EEF2-422F-962F-18617295E947}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+								<Sound Name="RUMBLE_Error_1" ID="{4123B5B1-B60D-436C-B227-D2396341761F}" ShortID="999900371">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="RUMBLE_Error_1" ID="{2FC72F15-8A16-4E46-8778-46E5951FED2B}" ShortID="45860279">
+											<Language>SFX</Language>
+											<AudioFile>RUMBLE_Error_1.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="RUMBLE_Error_1" ID="{2FC72F15-8A16-4E46-8778-46E5951FED2B}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+							</ChildrenList>
+						</ActorMixer>
+					</ChildrenList>
+				</Folder>
+				<Folder Name="AMBIENCE" ID="{54599BD1-651A-486D-9694-7119D2BDF1E5}" ShortID="784258196">
+					<ChildrenList>
+						<ActorMixer Name="AMBIENCE" ID="{6F9C180A-B770-4B6C-86E0-B2A3815DBC0C}" ShortID="1061644172">
+							<PropertyList>
+								<Property Name="BelowThresholdBehavior" Type="int16" Value="2"/>
+								<Property Name="EnablePositioning" Type="bool" Value="False"/>
+								<Property Name="VirtualVoiceQueueBehavior" Type="int16" Value="2"/>
+								<Property Name="Volume" Type="Real64">
+									<ValueList>
+										<Value>-22</Value>
+									</ValueList>
+								</Property>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Ambience" ID="{671FD099-C447-471C-B015-7ADC69B847EE}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<BlendContainer Name="AMB_Area_01" ID="{CD1D8AA8-48F6-49E9-9E12-4BAE6058910E}" ShortID="6788480">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="RUMBLE_Area_2_Layer_1_1_LOOPed" ID="{E633185B-4A4B-44B5-9BAB-7B97299E3C68}" ShortID="20454220">
+											<PropertyList>
+												<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="RUMBLE_Area_2_Layer_1_1_LOOPed" ID="{5575DBCA-2478-4E47-8CAA-5D866D952BE3}" ShortID="963459125">
+													<Language>SFX</Language>
+													<AudioFile>RUMBLE_Area_2_Layer_1_1_LOOPed.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="RUMBLE_Area_2_Layer_1_1_LOOPed" ID="{5575DBCA-2478-4E47-8CAA-5D866D952BE3}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</BlendContainer>
+								<BlendContainer Name="AMB_Area_02" ID="{408D2A62-05DE-4839-8585-3D191BBC4A47}" ShortID="620485947">
+									<Comment>Maybe for an abandoned factory?
+</Comment>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="RUMBLE_Area_2_Layer_2_1_LOOPed" ID="{B5B866B5-0D63-484A-B141-5D7D5E8C20BF}" ShortID="1031726074">
+											<PropertyList>
+												<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="RUMBLE_Area_2_Layer_2_1_LOOPed" ID="{8D90EFDF-AB34-4D37-BAB5-EF9FA7E1084F}" ShortID="668090733">
+													<Language>SFX</Language>
+													<AudioFile>RUMBLE_Area_2_Layer_2_1_LOOPed.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="RUMBLE_Area_2_Layer_2_1_LOOPed" ID="{8D90EFDF-AB34-4D37-BAB5-EF9FA7E1084F}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</BlendContainer>
+							</ChildrenList>
+						</ActorMixer>
+					</ChildrenList>
+				</Folder>
+				<Sound Name="water" ID="{AEA07151-6FEF-4E24-BB89-64608D66BD93}" ShortID="461005122">
+					<PropertyList>
+						<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
+						<Property Name="PositioningType" Type="int16" Value="1"/>
+						<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+						<Property Name="Volume" Type="Real64">
+							<ValueList>
+								<Value>-14</Value>
+							</ValueList>
+						</Property>
+					</PropertyList>
+					<ReferenceList>
+						<Reference Name="Attenuation">
+							<ObjectRef Name="Water" ID="{011FA1EA-FB34-4140-A482-B7B579763EAA}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+						</Reference>
+						<Reference Name="Conversion">
+							<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+						</Reference>
+						<Reference Name="OutputBus">
+							<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+						</Reference>
+					</ReferenceList>
+					<ChildrenList>
+						<AudioFileSource Name="water" ID="{FD8AD9A1-3AC7-45B1-A512-A4D0EB9B6F94}" ShortID="975188519">
+							<Language>SFX</Language>
+							<AudioFile>water.wav</AudioFile>
+						</AudioFileSource>
+					</ChildrenList>
+					<ActiveSourceList>
+						<ActiveSource Name="water" ID="{FD8AD9A1-3AC7-45B1-A512-A4D0EB9B6F94}" Platform="Linked"/>
+					</ActiveSourceList>
+				</Sound>
 			</ChildrenList>
 		</WorkUnit>
 	</AudioObjects>

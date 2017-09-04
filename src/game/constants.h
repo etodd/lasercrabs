@@ -13,6 +13,8 @@
 
 #define MAX_BONES 72
 
+#define MAX_AUDIO_EVENT_NAME 63
+
 #define VOLUME_MULTIPLIER 0.01f
 
 #define AFK_TIME 90.0f

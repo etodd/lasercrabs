@@ -66,36 +66,6 @@
 									</SequenceList>
 								</MusicTrack>
 								<MusicTrack Name="russiaRobot_music_track_01_danger_01" ID="{5F4B2F19-2DE9-4166-889B-9160E351DD3C}" ShortID="538710948">
-									<PropertyList>
-										<Property Name="Volume" Type="Real64">
-											<RTPCList>
-												<RTPC Name="" ID="{AF3E6517-6A93-46F2-92B1-DCE3064ECF52}" ShortID="724702924">
-													<ReferenceList>
-														<Reference Name="ControlInput">
-															<ObjectRef Name="Danger" ID="{F2CF682D-D1A7-4B62-82F0-EB53B18EEC18}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
-														</Reference>
-													</ReferenceList>
-													<Curve Name="" ID="{1C400A19-1288-40C7-B653-E6CE14DF6733}">
-														<PropertyList>
-															<Property Name="Flags" Type="int32" Value="3"/>
-														</PropertyList>
-														<PointList>
-															<Point>
-																<XPos>0</XPos>
-																<YPos>-200</YPos>
-																<Flags>5</Flags>
-															</Point>
-															<Point>
-																<XPos>1</XPos>
-																<YPos>0</YPos>
-																<Flags>37</Flags>
-															</Point>
-														</PointList>
-													</Curve>
-												</RTPC>
-											</RTPCList>
-										</Property>
-									</PropertyList>
 									<ReferenceList>
 										<Reference Name="OutputBus">
 											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
@@ -234,36 +204,6 @@
 									</SequenceList>
 								</MusicTrack>
 								<MusicTrack Name="russiaRobot_music_track_01_danger_01" ID="{273A17FF-5837-410E-BD43-04816E24518C}" ShortID="253616361">
-									<PropertyList>
-										<Property Name="Volume" Type="Real64">
-											<RTPCList>
-												<RTPC Name="" ID="{F8C8A723-51F0-45A7-84C6-88A9F698E175}" ShortID="503135901">
-													<ReferenceList>
-														<Reference Name="ControlInput">
-															<ObjectRef Name="Danger" ID="{F2CF682D-D1A7-4B62-82F0-EB53B18EEC18}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
-														</Reference>
-													</ReferenceList>
-													<Curve Name="" ID="{11DE0C71-7C18-4FD8-95D9-BC7DB8E8A224}">
-														<PropertyList>
-															<Property Name="Flags" Type="int32" Value="3"/>
-														</PropertyList>
-														<PointList>
-															<Point>
-																<XPos>0</XPos>
-																<YPos>-200</YPos>
-																<Flags>5</Flags>
-															</Point>
-															<Point>
-																<XPos>1</XPos>
-																<YPos>0</YPos>
-																<Flags>37</Flags>
-															</Point>
-														</PointList>
-													</Curve>
-												</RTPC>
-											</RTPCList>
-										</Property>
-									</PropertyList>
 									<ReferenceList>
 										<Reference Name="OutputBus">
 											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
@@ -403,36 +343,6 @@
 									</SequenceList>
 								</MusicTrack>
 								<MusicTrack Name="russiaRobot_music_track_01_danger_01" ID="{CD240B9E-DD09-4ED2-A0D5-394975718A16}" ShortID="571082528">
-									<PropertyList>
-										<Property Name="Volume" Type="Real64">
-											<RTPCList>
-												<RTPC Name="" ID="{E42E40C4-B8C6-43A2-AC56-4F51ADFF06DF}" ShortID="26015837">
-													<ReferenceList>
-														<Reference Name="ControlInput">
-															<ObjectRef Name="Danger" ID="{F2CF682D-D1A7-4B62-82F0-EB53B18EEC18}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
-														</Reference>
-													</ReferenceList>
-													<Curve Name="" ID="{A2D06B45-AA1A-419D-BCF4-68C2957E02B3}">
-														<PropertyList>
-															<Property Name="Flags" Type="int32" Value="3"/>
-														</PropertyList>
-														<PointList>
-															<Point>
-																<XPos>0</XPos>
-																<YPos>-200</YPos>
-																<Flags>5</Flags>
-															</Point>
-															<Point>
-																<XPos>1</XPos>
-																<YPos>0</YPos>
-																<Flags>37</Flags>
-															</Point>
-														</PointList>
-													</Curve>
-												</RTPC>
-											</RTPCList>
-										</Property>
-									</PropertyList>
 									<ReferenceList>
 										<Reference Name="OutputBus">
 											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
@@ -568,36 +478,6 @@
 									</SequenceList>
 								</MusicTrack>
 								<MusicTrack Name="russiaRobot_music_track_01_danger_01" ID="{9ABF3D0E-E059-445C-9DA2-E5F50C9F362C}" ShortID="688300613">
-									<PropertyList>
-										<Property Name="Volume" Type="Real64">
-											<RTPCList>
-												<RTPC Name="" ID="{4154D187-65EB-4ADA-BB5C-913375ED7058}" ShortID="997315938">
-													<ReferenceList>
-														<Reference Name="ControlInput">
-															<ObjectRef Name="Danger" ID="{F2CF682D-D1A7-4B62-82F0-EB53B18EEC18}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
-														</Reference>
-													</ReferenceList>
-													<Curve Name="" ID="{799F3E17-C92F-4B8D-9311-83D733AEBA2D}">
-														<PropertyList>
-															<Property Name="Flags" Type="int32" Value="3"/>
-														</PropertyList>
-														<PointList>
-															<Point>
-																<XPos>0</XPos>
-																<YPos>-200</YPos>
-																<Flags>5</Flags>
-															</Point>
-															<Point>
-																<XPos>1</XPos>
-																<YPos>0</YPos>
-																<Flags>37</Flags>
-															</Point>
-														</PointList>
-													</Curve>
-												</RTPC>
-											</RTPCList>
-										</Property>
-									</PropertyList>
 									<ReferenceList>
 										<Reference Name="OutputBus">
 											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>

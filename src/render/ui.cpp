@@ -1238,12 +1238,12 @@ b8 UI::is_onscreen(const RenderParams& params, const Vec3& pos, Vec2* out, Vec2*
 	return on_screen;
 }
 
-void UI::indicator(const RenderParams& params, const Vec3& pos, const Vec4& color, b8 offscreen, r32 scale, r32 rotation)
+Vec2 UI::indicator(const RenderParams& params, const Vec3& pos, const Vec4& color, b8 offscreen, r32 scale, r32 rotation)
 {
+	Vec2 p;
 	if (offscreen)
 	{
 		// if the target is offscreen, point toward it
-		Vec2 p;
 		Vec2 offset;
 		if (is_onscreen(params, pos, &p, &offset))
 			triangle_border(params, { p, Vec2(28 * scale * UI::scale) }, 6 * scale, color, rotation);
@@ -1252,10 +1252,10 @@ void UI::indicator(const RenderParams& params, const Vec3& pos, const Vec4& colo
 	}
 	else
 	{
-		Vec2 p;
 		if (project(params, pos, &p))
 			triangle_border(params, { p, Vec2(28 * UI::scale * scale) }, 6 * scale, color, rotation);
 	}
+	return p;
 }
 
 #if DEBUG

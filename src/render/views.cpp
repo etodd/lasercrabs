@@ -8,6 +8,7 @@
 #include "game/team.h"
 #include "game/game.h"
 #include "asset/Wwise_IDs.h"
+#include "game/audio.h"
 #include "settings.h"
 
 namespace VI
@@ -863,7 +864,6 @@ Water::Water(AssetID mesh_id)
 	: config(mesh_id),
 	mask(RENDER_MASK_DEFAULT)
 {
-
 }
 
 Water* Water::underwater(const Vec3& pos)
@@ -902,36 +902,48 @@ void Water::awake()
 	}
 }
 
+Water::~Water()
+{
+	if (audio.ref())
+	{
+		audio.ref()->stop_all();
+		audio = nullptr;
+	}
+}
+
 void Water::update(const Update& u)
 {
-	// todo: audio
-	/*
-	if (Camera::list.count() > 0)
+	if (Audio::listener_mask)
 	{
+		if (!audio.ref())
+			audio = Audio::post_global(AK::EVENTS::PLAY_WATER_LOOP, get<Transform>()->absolute_pos());
 		const Mesh* m = Loader::mesh(config.mesh);
 		Vec3 water_pos = get<Transform>()->absolute_pos();
 		Vec3 bmin = water_pos + m->bounds_min;
 		Vec3 bmax = water_pos + m->bounds_max;
 		r32 closest_distance_sq = FLT_MAX;
 		Vec3 closest_pos = water_pos;
-		for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		{
-			Vec3 p = i.item()->pos;
-			p.y = water_pos.y;
-			p.x = vi_max(p.x, bmin.x);
-			p.x = vi_min(p.x, bmax.x);
-			p.z = vi_max(p.z, bmin.z);
-			p.z = vi_min(p.z, bmax.z);
-
-			r32 distance_sq = (p - i.item()->pos).length_squared();
-			if (distance_sq < closest_distance_sq)
+			if (Audio::listener_mask & (1 << i))
 			{
-				closest_distance_sq = distance_sq;
-				closest_pos = p;
+				Vec3 p = Audio::listener_pos[i];
+				p.y = water_pos.y;
+				p.x = vi_max(p.x, bmin.x);
+				p.x = vi_min(p.x, bmax.x);
+				p.z = vi_max(p.z, bmin.z);
+				p.z = vi_min(p.z, bmax.z);
+
+				r32 distance_sq = (p - Audio::listener_pos[i]).length_squared();
+				if (distance_sq < closest_distance_sq)
+				{
+					closest_distance_sq = distance_sq;
+					closest_pos = p;
+				}
 			}
 		}
+		audio.ref()->abs_pos = closest_pos;
 	}
-	*/
 }
 
 void Water::draw_opaque(const RenderParams& params, const Config& cfg, const Vec3& pos, const Quat& rot)

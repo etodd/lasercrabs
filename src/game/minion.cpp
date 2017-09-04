@@ -176,40 +176,43 @@ void Minion::melee_damage()
 	Vec3 forward = get<Walker>()->forward();
 
 	b8 did_damage = false;
-	for (auto i = AIAgent::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team != my_team)
+		Entity* e = i.item()->entity();
+		AI::Team team;
+		AI::entity_info(e, my_team, &team);
+		if (team != my_team)
 		{
-			Vec3 to_target = i.item()->get<Transform>()->absolute_pos() - me;
+			Vec3 to_target = e->get<Transform>()->absolute_pos() - me;
 			r32 distance = to_target.length();
 			if (distance < MINION_MELEE_RANGE
 				&& forward.dot(to_target / distance) > 0.707f)
 			{
-				if (i.item()->has<Walker>())
+				if (e->has<Walker>())
 				{
 					Vec3 v = Vec3::normalize(to_target);
 					v.y = 0.6f;
-					i.item()->get<RigidBody>()->btBody->setLinearVelocity(v * 7.0f);
+					e->get<RigidBody>()->btBody->setLinearVelocity(v * 7.0f);
 				}
 
-				if (i.item()->has<Parkour>())
+				if (e->has<Parkour>())
 				{
-					Parkour* parkour = i.item()->get<Parkour>();
-					parkour->last_support = i.item()->get<Walker>()->support = nullptr;
+					Parkour* parkour = e->get<Parkour>();
+					parkour->last_support = e->get<Walker>()->support = nullptr;
 					parkour->last_support_time = Game::time.total;
 					parkour->wall_run_state = Parkour::WallRunState::None;
 
 					if (Game::level.local)
-						i.item()->get<Health>()->damage(entity(), 1);
+						e->get<Health>()->damage(entity(), 1);
 
-					did_damage = true;
+					did_damage = true; // did damage
 				}
-				else if (i.item()->has<Health>())
+				else
 				{
-					if (Game::level.local && i.item()->get<Health>()->can_take_damage())
-						i.item()->get<Health>()->damage(entity(), 1);
+					if (Game::level.local && e->get<Health>()->can_take_damage())
+						e->get<Health>()->damage(entity(), 1);
 
-					did_damage = true;
+					did_damage = true; // did damage
 				}
 			}
 		}
@@ -218,6 +221,7 @@ void Minion::melee_damage()
 	// spark effects
 	if (did_damage)
 	{
+		get<Audio>()->post(AK::EVENTS::PLAY_MINION_MELEE_IMPACT);
 		Vec3 p = hand_pos();
 		Quat rot = Quat::look(forward);
 		for (s32 i = 0; i < 50; i++)

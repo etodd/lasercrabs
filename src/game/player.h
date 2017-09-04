@@ -106,7 +106,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		Type type;
 	};
 
-	static r32 danger;
 	static Array<LogEntry> logs;
 	static Array<ChatEntry> chats;
 	static Array<Notification> notifications;
@@ -308,6 +307,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	~PlayerControlHuman();
 
 	b8 local() const;
+	void drone_charge_restored(s8);
 	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 	void camera_shake(r32);

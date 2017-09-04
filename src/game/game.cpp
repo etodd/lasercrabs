@@ -938,7 +938,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 	if (schedule_timer > 0.0f && schedule_timer < TRANSITION_TIME)
 		Menu::draw_letterbox(render_params, schedule_timer, TRANSITION_TIME);
 
-	if (render_params.camera->gamepad == 0)
+	if (render_params.camera->gamepad == 0 && Game::level.id != Asset::Level::splash)
 	{
 		Console::draw_ui(render_params);
 
@@ -1508,6 +1508,9 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			level.feature_level = FeatureLevel(Json::get_s32(element, "feature_level", s32(FeatureLevel::All)));
 
 			level.rain = Json::get_r32(element, "rain");
+
+			if (cJSON_HasObjectItem(element, "ambience"))
+				strncpy(level.ambience, Json::get_string(element, "ambience"), MAX_AUDIO_EVENT_NAME);
 
 			// fill team lookup table
 			{
@@ -2212,6 +2215,9 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 void Game::awake_all()
 {
+	if (level.ambience[0])
+		Audio::post_global(Audio::get_id(level.ambience));
+
 	for (s32 i = 0; i < level.scripts.length; i++)
 		Script::list[level.scripts[i]].function(level.finder);
 

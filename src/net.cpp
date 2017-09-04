@@ -836,6 +836,17 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 		serialize_r32_range(p, cloud->shadow, 0.0f, 1.0f, 8);
 	}
 	serialize_s16(p, Game::level.id);
+
+	{
+		s32 ambience_length;
+		if (Stream::IsWriting)
+			ambience_length = strlen(Game::level.ambience);
+		serialize_int(p, s32, ambience_length, 0, MAX_AUDIO_EVENT_NAME);
+		serialize_bytes(p, (u8*)Game::level.ambience, ambience_length);
+		if (Stream::IsReading)
+			Game::level.ambience[ambience_length] = '\0';
+	}
+
 	serialize_enum(p, Game::Mode, Game::level.mode);
 	serialize_enum(p, SessionType, Game::session.type);
 	serialize_bool(p, Game::level.post_pvp);

@@ -585,6 +585,7 @@ void Game::update(const Update& update_in)
 		ForceField::update_all(u);
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
+		ParticleEffect::update_all(u);
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		{
 			if (!level.local && i.item()->local() && i.item()->has<Walker>())
@@ -909,6 +910,8 @@ void Game::draw_alpha(const RenderParams& render_params)
 	EffectLight::draw_alpha(render_params);
 
 	Tile::draw_alpha(render_params);
+
+	ParticleEffect::draw_alpha(render_params);
 
 	PlayerHuman* player_human = PlayerHuman::player_for_camera(render_params.camera);
 
@@ -1279,6 +1282,7 @@ void Game::unload_level()
 
 	Particles::clear();
 	ShellCasing::clear();
+	ParticleEffect::clear();
 
 	Audio::clear();
 

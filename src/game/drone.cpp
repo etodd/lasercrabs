@@ -790,29 +790,21 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							else
 								angle = 0.0f;
 						}
-						Net::finalize(World::create<MinionEntity>(npos, Quat::euler(0, angle, 0), drone->get<AIAgent>()->team, manager));
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, npos + Vec3(0, -1, 0), Quat::identity, manager);
 					}
 
 					// effects
 					particle_trail(my_pos, pos);
-					EffectLight::add(npos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
-
-					Audio::post_global(AK::EVENTS::PLAY_MINION_SPAWN, npos);
 					break;
 				}
 				case Ability::ForceField:
 				{
 					// spawn a force field
-					Vec3 npos = pos + rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
-
-					Audio::post_global(AK::EVENTS::PLAY_SENSOR_SPAWN, npos);
-
 					if (Game::level.local)
-						Net::finalize(World::create<ForceFieldEntity>(parent->get<Transform>(), npos, rot, drone->get<AIAgent>()->team));
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, pos + rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), rot, manager);
 
 					// effects
 					particle_trail(my_pos, pos);
-					EffectLight::add(npos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 					break;
 				}

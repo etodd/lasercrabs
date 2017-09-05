@@ -957,8 +957,7 @@ void SpawnPoint::update_server_all(const Update& u)
 					if (i.item()->team != AI::TeamNone)
 					{
 						SpawnPosition pos = i.item()->spawn_position();
-						Net::finalize(World::create<MinionEntity>(pos.pos + Vec3(0, 1, 0), Quat::euler(0, pos.angle, 0), i.item()->team, nullptr));
-						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, pos.pos, Quat::look(Vec3(0, 1, 0)));
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, pos.pos, Quat::euler(0, pos.angle, 0), nullptr, i.item()->team);
 					}
 				}
 			}
@@ -2325,17 +2324,36 @@ void Bolt::hit_entity(const Hit& hit)
 		World::remove_deferred(entity());
 }
 
-b8 ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot)
+Array<ParticleEffect> ParticleEffect::list;
+
+template<typename Stream> b8 serialize_particle_effect(Stream* p, ParticleEffect* e)
+{
+	serialize_enum(p, ParticleEffect::Type, e->type);
+	if (e->type == ParticleEffect::Type::SpawnMinion || e->type == ParticleEffect::Type::SpawnDrone || e->type == ParticleEffect::Type::SpawnForceField)
+		serialize_ref(p, e->owner);
+	if (e->type == ParticleEffect::Type::SpawnMinion && !e->owner.ref())
+		serialize_s8(p, e->team);
+	if (!Net::serialize_position(p, &e->pos, Net::Resolution::Low))
+		net_error();
+	if (!Net::serialize_quat(p, &e->rot, Net::Resolution::Low))
+		net_error();
+	return true;
+}
+
+b8 ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot, PlayerManager* owner, AI::Team team)
 {
 	vi_assert(Game::level.local);
 	using Stream = Net::StreamWrite;
 	Net::StreamWrite* p = Net::msg_new(Net::MessageType::ParticleEffect);
 
-	serialize_enum(p, Type, t);
-	Vec3 pos2 = pos;
-	Net::serialize_position(p, &pos2, Net::Resolution::Low);
-	Quat rot2 = rot;
-	Net::serialize_quat(p, &rot2, Net::Resolution::Low);
+	ParticleEffect e;
+	e.type = t;
+	e.pos = pos;
+	e.rot = rot;
+	e.team = team;
+	e.owner = owner;
+	if (!serialize_particle_effect(p, &e))
+		net_error();
 
 	Net::msg_finalize(p);
 
@@ -2345,42 +2363,39 @@ b8 ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot)
 b8 ParticleEffect::net_msg(Net::StreamRead* p)
 {
 	using Stream = Net::StreamRead;
-	Type t;
-	serialize_enum(p, Type, t);
 
-	Vec3 pos;
-	if (!Net::serialize_position(p, &pos, Net::Resolution::Low))
-		net_error();
-	Quat rot;
-	if (!Net::serialize_quat(p, &rot, Net::Resolution::Low))
+	ParticleEffect e;
+	if (!serialize_particle_effect(p, &e))
 		net_error();
 
-	if (t == Type::Grenade)
+	if (e.type == Type::Grenade)
 	{
-		Audio::post_global(AK::EVENTS::PLAY_DRONE_GRENADE_EXPLO, pos);
-		EffectLight::add(pos, GRENADE_RANGE, 0.35f, EffectLight::Type::Alpha);
+		Audio::post_global(AK::EVENTS::PLAY_DRONE_GRENADE_EXPLO, e.pos);
+		EffectLight::add(e.pos, GRENADE_RANGE, 0.35f, EffectLight::Type::Alpha);
 	}
-	else if (t == Type::Explosion)
+	else if (e.type == Type::Explosion)
 	{
-		Audio::post_global(AK::EVENTS::PLAY_EXPLOSION, pos);
-		EffectLight::add(pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
+		Audio::post_global(AK::EVENTS::PLAY_EXPLOSION, e.pos);
+		EffectLight::add(e.pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
 	}
-	else if (t == Type::DroneExplosion)
-		EffectLight::add(pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
-	else if (t == Type::ImpactLarge || t == Type::ImpactSmall)
-		Audio::post_global(AK::EVENTS::PLAY_DRONE_BOLT_IMPACT, pos);
-	else if (t == Type::Fizzle)
-		Audio::post_global(AK::EVENTS::PLAY_FIZZLE, pos);
-	else if (t == Type::SpawnMinion)
-		Audio::post_global(AK::EVENTS::PLAY_MINION_SPAWN, pos);
-	else if (t == Type::SpawnDrone)
-		Audio::post_global(AK::EVENTS::PLAY_DRONE_SPAWN, pos);
+	else if (e.type == Type::DroneExplosion)
+		EffectLight::add(e.pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
+	else if (e.type == Type::ImpactLarge || e.type == Type::ImpactSmall)
+		Audio::post_global(AK::EVENTS::PLAY_DRONE_BOLT_IMPACT, e.pos);
+	else if (e.type == Type::Fizzle)
+		Audio::post_global(AK::EVENTS::PLAY_FIZZLE, e.pos);
+	else if (e.type == Type::SpawnMinion)
+		Audio::post_global(AK::EVENTS::PLAY_MINION_SPAWN, e.pos);
+	else if (e.type == Type::SpawnDrone)
+		Audio::post_global(AK::EVENTS::PLAY_DRONE_SPAWN, e.pos);
+	else if (e.type == Type::SpawnForceField)
+		Audio::post_global(AK::EVENTS::PLAY_FORCE_FIELD_SPAWN, e.pos);
 
-	if (t == Type::Grenade)
+	if (e.type == Type::Grenade)
 	{
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		{
-			r32 distance = (i.item()->get<Transform>()->absolute_pos() - pos).length();
+			r32 distance = (i.item()->get<Transform>()->absolute_pos() - e.pos).length();
 			if (distance < GRENADE_RANGE * 1.5f)
 				i.item()->camera_shake(LMath::lerpf(vi_max(0.0f, (distance - (GRENADE_RANGE * 0.66f)) / (GRENADE_RANGE * (1.5f - 0.66f))), 1.0f, 0.0f));
 		}
@@ -2389,7 +2404,7 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 		{
 			if (i.item()->has<RigidBody>())
 			{
-				Vec3 to_item = i.item()->get<Transform>()->absolute_pos() - pos;
+				Vec3 to_item = i.item()->get<Transform>()->absolute_pos() - e.pos;
 				r32 distance = to_item.length();
 				to_item /= distance;
 				if (distance < GRENADE_RANGE)
@@ -2402,22 +2417,138 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 		}
 	}
 
-	if (t == Type::ImpactLarge || t == Type::SpawnMinion || t == Type::SpawnDrone)
-		EffectLight::add(pos, GRENADE_RANGE, 1.5f, EffectLight::Type::Shockwave);
+	if (e.type == Type::ImpactLarge)
+		EffectLight::add(e.pos, GRENADE_RANGE * 0.5f, 0.75f, EffectLight::Type::Shockwave);
 
-	if (t != Type::SpawnMinion && t != Type::SpawnDrone)
+	if (!is_spawn_effect(e.type))
 	{
 		for (s32 i = 0; i < 50; i++)
 		{
 			Particles::sparks.add
 			(
-				pos,
-				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+				e.pos,
+				e.rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
 				Vec4(1, 1, 1, 1)
 			);
 		}
 	}
+
+	if (is_spawn_effect(e.type))
+	{
+		e.lifetime = SPAWN_EFFECT_LIFETIME;
+		list.add(e);
+	}
+
 	return true;
+}
+
+b8 ParticleEffect::is_spawn_effect(Type t)
+{
+	return t == Type::SpawnDrone
+		|| t == Type::SpawnMinion
+		|| t == Type::SpawnForceField;
+}
+
+#define SPAWN_EFFECT_THRESHOLD 0.4f
+
+void ParticleEffect::update_all(const Update& u)
+{
+	for (s32 i = 0; i < list.length; i++)
+	{
+		ParticleEffect* e = &list[i];
+		e->lifetime -= u.time.delta;
+		if (e->lifetime < 0.0f)
+		{
+			list.remove(i);
+			i--;
+		}
+		else if (Game::level.local && e->owner.ref())
+		{
+			const r32 threshold = SPAWN_EFFECT_LIFETIME - SPAWN_EFFECT_THRESHOLD;
+			if (e->lifetime < threshold && e->lifetime + u.time.delta >= threshold)
+			{
+				switch (e->type)
+				{
+					case Type::SpawnDrone:
+					{
+						break;
+					}
+					case Type::SpawnMinion:
+					{
+						Net::finalize(World::create<MinionEntity>(e->pos + Vec3(0, 1, 0), e->rot, e->owner.ref()->team.ref()->team(), nullptr));
+						break;
+					}
+					case Type::SpawnForceField:
+					{
+						Net::finalize(World::create<ForceFieldEntity>(nullptr, e->pos, e->rot, e->owner.ref()->team.ref()->team()));
+						break;
+					}
+					default:
+						vi_assert(false);
+						break;
+				}
+			}
+		}
+	}
+}
+
+void ParticleEffect::draw_alpha(const RenderParams& p)
+{
+	for (s32 i = 0; i < list.length; i++)
+	{
+		const ParticleEffect& e = list[i];
+
+		r32 blend = 1.0f - (e.lifetime / SPAWN_EFFECT_LIFETIME);
+		r32 radius_scale;
+		const r32 fulcrum = SPAWN_EFFECT_THRESHOLD / SPAWN_EFFECT_LIFETIME;
+		if (blend < fulcrum)
+		{
+			blend /= fulcrum; // blend goes from 0 to 1
+			radius_scale = vi_min(1.0f, blend / 0.1f);
+		}
+		else
+		{
+			blend = ((blend - fulcrum) / (1.0f - fulcrum)); // blend goes from 0 to 1
+			radius_scale = LMath::lerpf(Ease::cubic_out<r32>(vi_min(blend / 0.25f, 1.0f)), 1.0f, 0.1f);
+			blend = 1.0f - blend; // blend goes from 1 to 0
+		}
+		r32 height_scale = Ease::cubic_in_out<r32>(blend);
+		Vec3 scale(radius_scale, height_scale, radius_scale);
+
+		Mat4 m;
+		Vec3 size;
+		switch (e.type)
+		{
+			case Type::SpawnDrone:
+			{
+				size = scale * Vec3(DRONE_SHIELD_RADIUS, DRONE_SHIELD_RADIUS * 2.0f, DRONE_SHIELD_RADIUS);
+				m.make_transform(e.pos, size, Quat::identity);
+				break;
+			}
+			case Type::SpawnMinion:
+			{
+				size = scale * Vec3(WALKER_RADIUS, WALKER_HEIGHT, WALKER_RADIUS);
+				m.make_transform(e.pos, size, Quat::identity);
+				break;
+			}
+			case Type::SpawnForceField:
+			{
+				size = scale * Vec3(FORCE_FIELD_BASE_RADIUS * 1.75f, FORCE_FIELD_BASE_OFFSET + DRONE_RADIUS * 2.0f, FORCE_FIELD_BASE_RADIUS * 1.75f);
+				m.make_transform(e.pos + e.rot * Vec3(0, 0, -FORCE_FIELD_BASE_OFFSET), size, e.rot * Quat::euler(0, 0, PI * 0.5f));
+				break;
+			}
+			default:
+				vi_assert(false);
+				break;
+		}
+		r32 radius = vi_max(size.x, vi_max(size.y, size.z));
+		View::draw_mesh(p, Asset::Mesh::cylinder, Asset::Shader::standard_flat, AssetNull, m, Vec4(1), radius);
+	}
+}
+
+void ParticleEffect::clear()
+{
+	list.length = 0;
 }
 
 Array<ShellCasing> ShellCasing::list;

@@ -458,10 +458,25 @@ struct ParticleEffect
 		Grenade,
 		SpawnDrone,
 		SpawnMinion,
+		SpawnForceField,
 		count,
 	};
-	static b8 spawn(Type, const Vec3&, const Quat&);
+
+	static Array<ParticleEffect> list;
+
+	static b8 spawn(Type, const Vec3&, const Quat&, PlayerManager* = nullptr, AI::Team = AI::TeamNone);
 	static b8 net_msg(Net::StreamRead*);
+	static void update_all(const Update&);
+	static void clear();
+	static b8 is_spawn_effect(Type);
+	static void draw_alpha(const RenderParams&);
+
+	Vec3 pos;
+	Quat rot;
+	r32 lifetime;
+	Ref<PlayerManager> owner;
+	AI::Team team;
+	Type type;
 };
 
 struct GrenadeEntity : public Entity

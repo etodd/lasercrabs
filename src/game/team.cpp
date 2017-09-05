@@ -208,7 +208,7 @@ void Team::awake_all()
 	winner = nullptr;
 	score_summary.length = 0;
 	for (s32 i = 0; i < MAX_PLAYERS * MAX_PLAYERS; i++)
-		PlayerManager::visibility[i] = { nullptr, PlayerManager::Visibility::Type::Direct };
+		PlayerManager::visibility[i] = { nullptr };
 }
 
 s32 Team::teams_with_active_players()
@@ -369,7 +369,7 @@ b8 visibility_check(Entity* i, Entity* j, r32* distance)
 	else
 	{
 		btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
-		Physics::raycast(&ray_callback, CollisionStatic | CollisionInaccessible | CollisionParkour | CollisionElectric);
+		Physics::raycast(&ray_callback, CollisionAudio);
 		if (!ray_callback.hasHit())
 		{
 			*distance = sqrtf(dist_sq);
@@ -475,7 +475,7 @@ void update_visibility(const Update& u)
 			if (i_team == j_team)
 				continue;
 
-			PlayerManager::Visibility detected = { nullptr, PlayerManager::Visibility::Type::Direct };
+			PlayerManager::Visibility detected = { nullptr };
 
 			Entity* j_actual_entity = j.item()->instance.ref();
 			if (j_actual_entity && !j_actual_entity->get<AIAgent>()->stealth)
@@ -484,38 +484,7 @@ void update_visibility(const Update& u)
 				r32 distance;
 				if ((visibility_check(i_entity, j_actual_entity, &distance)
 					&& distance < i_range))
-				{
 					detected.entity = j_actual_entity;
-					detected.type = PlayerManager::Visibility::Type::Direct;
-				}
-
-				if (!detected.entity.ref())
-				{
-					// i turrets detecting j_actual_entity
-					for (auto t = Turret::list.iterator(); !t.is_last(); t.next())
-					{
-						if (t.item()->team == i_team->team() && t.item()->target.ref() == j_actual_entity)
-						{
-							detected.entity = j_actual_entity;
-							detected.type = PlayerManager::Visibility::Type::Indirect;
-							break;
-						}
-					}
-
-					// i minions detecting j_actual_entity
-					if (!detected.entity.ref())
-					{
-						for (auto m = Minion::list.iterator(); !m.is_last(); m.next())
-						{
-							if (m.item()->get<AIAgent>()->team == i_team->team() && m.item()->goal.entity.ref() == j_actual_entity)
-							{
-								detected.entity = j_actual_entity;
-								detected.type = PlayerManager::Visibility::Type::Indirect;
-								break;
-							}
-						}
-					}
-				}
 			}
 
 			PlayerManager::visibility[PlayerManager::visibility_hash(i.item(), j.item())] = detected;
@@ -823,7 +792,7 @@ void Team::update_all_server(const Update& u)
 {
 	if (match_state == MatchState::Waiting)
 	{
-		if ((Game::session.type == SessionType::Story ? PlayerManager::list.count() : PlayerHuman::list.count()) >= Game::session.config.min_players)
+		if (PlayerHuman::list.count() >= Game::session.config.min_players)
 			match_team_select();
 	}
 
@@ -901,7 +870,7 @@ void Team::update_all_server(const Update& u)
 		Team* team_with_most_kills = Game::session.config.game_type == GameType::Deathmatch ? with_most_kills() : nullptr;
 		if (!Game::level.noclip
 			&& (match_time > Game::session.config.time_limit()
-			|| (Game::level.has_feature(Game::FeatureLevel::All) && teams_with_active_players() <= 1)
+			|| (Game::level.has_feature(Game::FeatureLevel::All) && teams_with_active_players() <= 1 && Game::level.ai_config.length == 0)
 			|| (Game::session.config.game_type == GameType::Assault && CoreModule::count(1 << 0) == 0)
 			|| (Game::session.config.game_type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::session.config.kill_limit)))
 		{

@@ -161,6 +161,7 @@ namespace AI
 		r32 dodge_chance;
 		r32 spawn_time;
 		AI::Team team;
+		Upgrade upgrade_priorities[s32(Upgrade::count)];
 	};
 }
 

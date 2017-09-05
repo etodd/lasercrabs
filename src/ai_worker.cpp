@@ -529,7 +529,7 @@ r32 audio_pathfind(const DroneNavContext& ctx, const Vec3& a, const Vec3& b)
 
 	AudioPathfindScorer scorer;
 	scorer.min_score = (a - b).length() + DRONE_MAX_DISTANCE;
-	scorer.iterations = 24;
+	scorer.iterations = 16;
 	scorer.end_vertex = target_closest_vertex;
 	scorer.highest_travel_score = 0.0f;
 	scorer.highest_total_score = 0.0f;

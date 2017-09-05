@@ -1182,6 +1182,7 @@ namespace Master
 				switch (auth_type)
 				{
 					case Master::AuthType::None:
+						itch_auth_result(addr.hash(), false, 0, nullptr); // failed
 						break;
 					case Master::AuthType::Itch:
 					{
@@ -1195,15 +1196,11 @@ namespace Master
 						break;
 					}
 					case Master::AuthType::Steam:
-					{
-						// todo: Steam auth
+						send_auth_response(addr, nullptr, nullptr); // todo
 						break;
-					}
 					default:
-					{
 						vi_assert(false);
 						break;
-					}
 				}
 
 				break;

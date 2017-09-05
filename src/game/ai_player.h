@@ -106,7 +106,6 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	void callback_path(const AI::DroneResult&);
 	void upgrade_completed(Upgrade);
 	void update_memory();
-	void sniper_or_bolter_cancel();
 	Vec2 aim(const Update&, const Vec3&, r32);
 	void aim_and_shoot_target(const Update&, const Vec3&, Target*);
 	b8 aim_and_shoot_location(const Update&, const AI::DronePathNode&, const AI::DronePathNode&, r32);

@@ -2573,10 +2573,14 @@ b8 Drone::bolter_can_fire() const
 {
 	r32 interval;
 #if SERVER
-	interval = BOLTER_INTERVAL * 0.5f; // server-side forgiveness
-#else
-	interval = BOLTER_INTERVAL;
+	if (has<PlayerControlHuman>())
+		interval = BOLTER_INTERVAL * 0.5f; // server-side forgiveness
+	else
 #endif
+	{
+		interval = BOLTER_INTERVAL;
+	}
+
 	return Game::time.total - bolter_last_fired > interval;
 }
 

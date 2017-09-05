@@ -169,15 +169,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 
 	struct Visibility
 	{
-		enum class Type : s8
-		{
-			Direct,
-			Indirect,
-			count,
-		};
-
 		Ref<Entity> entity;
-		Type type;
 	};
 
 	static s32 visibility_hash(const PlayerManager*, const PlayerManager*);

@@ -9,6 +9,8 @@ namespace VI
 struct Transform;
 struct RigidBody;
 
+#define RAGDOLL_TIME 5.0f
+
 struct Ragdoll : public ComponentType<Ragdoll>
 {
 	struct BoneBody
@@ -19,7 +21,7 @@ struct Ragdoll : public ComponentType<Ragdoll>
 		AssetID bone;
 	};
 
-	enum Impulse
+	enum Impulse : s8
 	{
 		None,
 		Head,
@@ -29,10 +31,9 @@ struct Ragdoll : public ComponentType<Ragdoll>
 
 	Array<BoneBody> bodies;
 	Vec3 impulse;
-	r32 timer;
+	r32 timer = RAGDOLL_TIME;
 	Impulse impulse_type;
 
-	Ragdoll();
 	~Ragdoll();
 	void awake();
 

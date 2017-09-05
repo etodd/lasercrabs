@@ -39,6 +39,43 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 	config.aim_timeout = 2.0f;
 	config.aim_speed = 3.0f;
 	config.dodge_chance = 0.1f;
+	
+	s32 upgrade_count = 0;
+	for (s32 i = 0; i < s32(Upgrade::count); i++)
+	{
+		Upgrade u = Upgrade(i);
+		if (Game::session.config.allow_upgrades & (1 << s16(u)))
+		{
+			b8 start_with = false;
+			for (s32 j = 0; j < Game::session.config.start_upgrades.length; j++)
+			{
+				if (u == Game::session.config.start_upgrades[j])
+				{
+					start_with = true;
+					break;
+				}
+			}
+
+			if (!start_with)
+			{
+				config.upgrade_priorities[upgrade_count] = u;
+				upgrade_count++;
+			}
+		}
+	}
+
+	// shuffle
+	for (s32 i = 0; i < upgrade_count - 1; i++)
+	{
+		Upgrade tmp = config.upgrade_priorities[i];
+		s32 j = i + mersenne::rand() % (upgrade_count - i);
+		config.upgrade_priorities[i] = config.upgrade_priorities[j];
+		config.upgrade_priorities[j] = tmp;
+	}
+
+	// fill rest of array
+	for (s32 i = upgrade_count; i < s32(Upgrade::count); i++)
+		config.upgrade_priorities[i] = Upgrade::None;
 
 	return config;
 }
@@ -400,6 +437,9 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 
 	b8 can_move = common->movement_enabled();
 
+	if (current.action.type == AI::RecordedLife::Action::TypeAttack && get<Drone>()->current_ability != current.action.ability)
+		get<Drone>()->ability(current.action.ability);
+
 	b8 only_crawling_dashing = false;
 
 	if (juke_needed(this))
@@ -500,6 +540,7 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 			{
 				if (lined_up
 					&& get<Drone>()->can_shoot(look_dir)
+					&& (get<Drone>()->current_ability != Ability::Bolter || get<Drone>()->bolter_can_fire())
 					&& get<Drone>()->go(look_dir))
 					target_shot_at = true;
 			}
@@ -511,6 +552,9 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 // returns true as long as it's possible for us to eventually hit the goal
 b8 PlayerControlAI::aim_and_shoot_location(const Update& u, const AI::DronePathNode& node_prev, const AI::DronePathNode& node, r32 tolerance)
 {
+	if (get<Drone>()->current_ability != Ability::None)
+		get<Drone>()->ability(Ability::None);
+
 	PlayerCommon* common = get<PlayerCommon>();
 
 	b8 can_move = common->movement_enabled();
@@ -895,13 +939,6 @@ void PlayerControlAI::update_memory()
 	}
 }
 
-void PlayerControlAI::sniper_or_bolter_cancel()
-{
-	Ability a = get<Drone>()->current_ability;
-	if (a == Ability::Sniper || a == Ability::Bolter)
-		get<Drone>()->ability(Ability::None);
-}
-
 void PlayerControlAI::set_path(const AI::DronePath& p)
 {
 	path = p;
@@ -929,14 +966,16 @@ void PlayerControlAI::action_clear()
 b8 want_upgrade(PlayerControlAI* player, Upgrade u)
 {
 	PlayerManager* manager = player->get<PlayerCommon>()->manager.ref();
+
+	if (u == Upgrade::ExtraDrone && manager->respawns > 1)
+		return false;
+
 	return manager->upgrade_available(u) && manager->upgrade_cost(u) < manager->energy;
 }
 
 void PlayerControlAI::actions_populate()
 {
 	update_memory();
-
-	static Upgrade upgrade_priorities[MAX_ABILITIES] = { Upgrade::Minion, Upgrade::Bolter, Upgrade::ForceField };
 
 	PlayerManager* manager = get<PlayerCommon>()->manager.ref();
 
@@ -947,14 +986,17 @@ void PlayerControlAI::actions_populate()
 
 	if (UpgradeStation::drone_at(get<Drone>()))
 	{
-		for (s32 i = 0; i < MAX_ABILITIES; i++)
+		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{
-			if (want_upgrade(this, upgrade_priorities[i]))
+			Upgrade u = player.ref()->config.upgrade_priorities[i];
+			if (u == Upgrade::None)
+				break;
+			else if (want_upgrade(this, u))
 			{
 				// buy upgrade
 				AI::RecordedLife::Action action;
 				action.type = AI::RecordedLife::Action::TypeUpgrade;
-				action.ability = s8(upgrade_priorities[i]);
+				action.upgrade = u;
 				action_queue.push({ 0, action });
 			}
 		}
@@ -962,9 +1004,12 @@ void PlayerControlAI::actions_populate()
 
 	if (Net::popcount(u32(tag.upgrades)) < MAX_ABILITIES)
 	{
-		for (s32 i = 0; i < MAX_ABILITIES; i++)
+		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{
-			if (want_upgrade(this, upgrade_priorities[i]))
+			Upgrade u = player.ref()->config.upgrade_priorities[i];
+			if (u == Upgrade::None)
+				break;
+			else if (want_upgrade(this, u))
 			{
 				// go to upgrade
 				AI::RecordedLife::Action action;
@@ -1026,8 +1071,23 @@ void PlayerControlAI::actions_populate()
 				&& default_filter(this, entity))
 			{
 				s8 priority = 1;
-				if (get<Drone>()->can_hit(entity->get<Target>()))
+				b8 can_hit = get<Drone>()->can_hit(entity->get<Target>());
+
+				Ability ability = Ability::None;
+
+				if (can_hit)
+				{
 					priority -= 1;
+
+					if (manager->has_upgrade(Upgrade::Bolter) && manager->ability_valid(Ability::Bolter) && mersenne::randf_cc() < 0.5f)
+						ability = Ability::Bolter;
+					else if (manager->has_upgrade(Upgrade::Sniper) && manager->ability_valid(Ability::Sniper) && mersenne::randf_cc() < 0.75f)
+						ability = Ability::Sniper;
+					else if (manager->has_upgrade(Upgrade::Shotgun) && manager->ability_valid(Ability::Shotgun))
+						ability = Ability::Shotgun;
+					else if (manager->has_upgrade(Upgrade::Grenade) && manager->ability_valid(Ability::Grenade) && mersenne::randf_cc() < 0.5f)
+						ability = Ability::Grenade;
+				}
 
 				switch (entity_type)
 				{
@@ -1064,6 +1124,9 @@ void PlayerControlAI::actions_populate()
 						added_battery = true;
 						if (entity_type == AI::RecordedLife::EntityBatteryEnemy)
 							priority -= 1;
+
+						ability = Ability::None;
+
 						break;
 					}
 					case AI::RecordedLife::EntityTurretEnemy:
@@ -1081,6 +1144,7 @@ void PlayerControlAI::actions_populate()
 
 				AI::RecordedLife::Action action;
 				action.type = AI::RecordedLife::Action::TypeAttack;
+				action.ability = ability;
 				action.entity_type = entity_type;
 				action_queue.push({ priority, action });
 			}
@@ -1094,6 +1158,7 @@ void PlayerControlAI::actions_populate()
 		{
 			AI::RecordedLife::Action action;
 			action.type = AI::RecordedLife::Action::TypeAttack;
+			action.ability = Ability::None;
 			action.entity_type = AI::RecordedLife::EntityBatteryNeutral;
 			action_queue.push({ 1, action });
 		}
@@ -1101,6 +1166,7 @@ void PlayerControlAI::actions_populate()
 		{
 			AI::RecordedLife::Action action;
 			action.type = AI::RecordedLife::Action::TypeAttack;
+			action.ability = Ability::None;
 			action.entity_type = AI::RecordedLife::EntityBatteryEnemy;
 			action_queue.push({ 0, action });
 		}
@@ -1332,7 +1398,7 @@ void PlayerControlAI::update(const Update& u)
 
 					if (target_shot_at)
 					{
-						if (get<Drone>()->current_ability != Ability::Bolter)
+						if (get<Drone>()->current_ability == Ability::None)
 							action_done(target_hit); // call it success if we hit our target, or if there was nothing to hit
 					}
 				}
@@ -1374,11 +1440,11 @@ void PlayerControlAI::update(const Update& u)
 
 		if (follow_path)
 		{
+			if (get<Drone>()->current_ability != Ability::None)
+				get<Drone>()->ability(Ability::None);
+
 			if (path_index < path.length)
 			{
-				if (AbilityInfo::list[s32(get<Drone>()->current_ability)].type == AbilityInfo::Type::Shoot)
-					sniper_or_bolter_cancel();
-
 				// look at next target
 				if (aim_timeout > config.aim_timeout
 					|| !aim_and_shoot_location(u, path[path_index - 1], path[path_index], DRONE_RADIUS))

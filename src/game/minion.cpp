@@ -879,12 +879,33 @@ void Minion::killed(Entity* killer)
 	get<Audio>()->stop_all();
 	get<Audio>()->post_unattached(killer && killer->has<Drone>() ? AK::EVENTS::PLAY_MINION_HEADSHOT : AK::EVENTS::PLAY_MINION_DIE, head_pos() - get<Transform>()->absolute_pos());
 
-	if (Game::level.local && Ragdoll::list.count() < 8) // limit ragdolls
+	if (Game::level.local)
 	{
+		World::remove_deferred(entity());
+
+		const s32 RAGDOLL_LIMIT = 6;
+		if (Ragdoll::list.count() >= 6)
+		{
+			Ragdoll* oldest_ragdoll = nullptr;
+			r32 oldest_timer = RAGDOLL_TIME;
+			for (auto i = Ragdoll::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->timer < oldest_timer)
+				{
+					oldest_timer = i.item()->timer;
+					oldest_ragdoll = i.item();
+				}
+			}
+			if (oldest_ragdoll)
+				World::remove(oldest_ragdoll->entity());
+			else
+				return; // all existing ragdolls were created during this frame; there's no use deleting one to replace it with this ragdoll
+		}
+
 		Entity* ragdoll = World::create<Empty>();
 		ragdoll->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());
 
-		// Apply the SkinnedModel::offset rotation to the ragdoll transform to make everything work
+		// apply the SkinnedModel::offset rotation to the ragdoll transform to make everything work
 		ragdoll->get<Transform>()->absolute_rot(Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0));
 
 		SkinnedModel* new_skin = ragdoll->add<SkinnedModel>();
@@ -897,7 +918,7 @@ void Minion::killed(Entity* killer)
 		new_skin->team = old_skin->team;
 		new_skin->mask = old_skin->mask;
 
-		// No rotation
+		// no rotation
 		new_skin->offset.make_transform(
 			Vec3(0, -1.1f, 0),
 			Vec3(1.0f, 1.0f, 1.0f),
@@ -910,8 +931,6 @@ void Minion::killed(Entity* killer)
 		new_anim->bones.resize(old_anim->bones.length);
 		for (s32 i = 0; i < old_anim->bones.length; i++)
 			new_anim->bones[i] = old_anim->bones[i];
-
-		World::remove_deferred(entity());
 
 		Ragdoll* r = ragdoll->add<Ragdoll>();
 

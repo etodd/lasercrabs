@@ -2545,7 +2545,7 @@ Entity* PlayerCommon::incoming_attacker() const
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
 		const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(manager, i.item()->manager.ref())];
-		if (visibility.entity.ref() && visibility.type == PlayerManager::Visibility::Type::Direct)
+		if (visibility.entity.ref())
 		{
 			// determine if they're attacking us
 			if (i.item()->get<Drone>()->state() != Drone::State::Crawl
@@ -2885,7 +2885,7 @@ Entity* player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player
 	else
 	{
 		const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(me->manager.ref(), other_player->manager.ref())];
-		*visible = visibility.type == PlayerManager::Visibility::Type::Direct && visibility.entity.ref();
+		*visible = visibility.entity.ref();
 
 		if (track.tracking)
 			return track.entity.ref();

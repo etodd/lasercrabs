@@ -264,6 +264,8 @@ s32 socket_bind(u64* handle, u16 port, s32 family)
 #endif
 	}
 
+	printf("Listening on %s port %hu\n", family == AF_INET ? "IPv4" : "IPv6", port);
+
 	return 0;
 }
 

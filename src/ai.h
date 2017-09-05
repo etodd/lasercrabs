@@ -299,10 +299,10 @@ struct RecordedLife
 		s8 type;
 		union
 		{
-			s8 ability; // for build and shoot ability actions
-			s8 upgrade; // for upgrade actions
-			s8 entity_type; // for attack and shoot ability actions
+			Ability ability; // for build and shoot ability actions
+			Upgrade upgrade; // for upgrade actions
 		};
+		s8 entity_type; // for attack and shoot ability actions
 		Action();
 		Action& operator=(const Action&);
 

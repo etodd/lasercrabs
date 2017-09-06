@@ -341,6 +341,7 @@ struct EffectLight
 	{
 		BoltDroneBolter,
 		BoltDroneShotgun,
+		Grenade,
 		Spark,
 		Shockwave,
 		Explosion,
@@ -353,6 +354,7 @@ struct EffectLight
 	static EffectLight* add(const Vec3&, r32, r32, Type, Transform* = nullptr, Quat = Quat::identity);
 	static void remove(EffectLight*);
 	static void draw_alpha(const RenderParams&);
+	static void draw_opaque(const RenderParams&);
 
 	Quat rot;
 	Vec3 pos;

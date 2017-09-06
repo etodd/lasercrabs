@@ -2719,18 +2719,23 @@ void ShellCasing::draw_all(const RenderParams& params)
 	sync->write<Mat4>(instances.data, instances.length);
 }
 
-GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Vec3& velocity)
+GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Vec3& dir)
 {
 	Transform* transform = create<Transform>();
 	transform->absolute_pos(abs_pos);
+	transform->absolute_rot(Quat::look(dir));
 
 	create<Audio>();
 
 	Grenade* g = create<Grenade>();
 	g->owner = owner;
-	g->velocity = Vec3::normalize(velocity) * GRENADE_LAUNCH_SPEED;
+	g->velocity = dir * GRENADE_LAUNCH_SPEED;
 
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionTarget, ~CollisionShield & ~CollisionParkour & ~CollisionElectric & ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionAllTeamsForceField);
+
+	PointLight* light = create<PointLight>();
+	light->radius = BOLT_LIGHT_RADIUS;
+	light->color = Vec3(1, 1, 1);
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::grenade_detached;
@@ -2934,6 +2939,7 @@ void Grenade::update_client_all(const Update& u)
 				{
 					v->mesh = Asset::Mesh::grenade_attached;
 					i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_ATTACH);
+					i.item()->get<PointLight>()->radius = 0.0f;
 				}
 			}
 			else
@@ -3468,11 +3474,28 @@ void EffectLight::draw_alpha(const RenderParams& params)
 	}
 }
 
+void EffectLight::draw_opaque(const RenderParams& params)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->type == Type::Grenade)
+		{
+			Mat4 m;
+
+			Vec3 initial_velocity = i.item()->rot * Vec3(0, 0, GRENADE_LAUNCH_SPEED);
+			Vec3 p = i.item()->pos + (initial_velocity * i.item()->timer) + (Vec3(Physics::btWorld->getGravity()) * ((i.item()->timer * i.item()->timer) * 0.5f));
+			m.make_transform(p, Vec3(GRENADE_RADIUS), i.item()->rot);
+			View::draw_mesh(params, Asset::Mesh::grenade_detached, Asset::Shader::standard, AssetNull, m, Vec4(1, 1, 1, MATERIAL_NO_OVERRIDE), GRENADE_RADIUS);
+		}
+	}
+}
+
 r32 EffectLight::radius() const
 {
 	switch (type)
 	{
 		case Type::BoltDroneBolter:
+		case Type::Grenade:
 			return max_radius;
 		case Type::BoltDroneShotgun:
 			return 0.0f;
@@ -3511,6 +3534,7 @@ r32 EffectLight::opacity() const
 		case Type::BoltDroneBolter:
 		case Type::BoltDroneShotgun:
 		case Type::MuzzleFlash:
+		case Type::Grenade:
 			return 1.0f;
 		case Type::Spark:
 		{

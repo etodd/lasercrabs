@@ -703,15 +703,6 @@ void Game::draw_opaque(const RenderParams& render_params)
 
 	View::draw_opaque(render_params);
 
-	Water::draw_opaque(render_params);
-
-	SkinnedModel::draw_opaque(render_params);
-
-	ShellCasing::draw_all(render_params);
-
-	if (render_params.technique == RenderTechnique::Shadow)
-		Rope::draw_all(render_params);
-
 	if (default_pass)
 	{
 		SkyPattern::draw_opaque(render_params);
@@ -731,6 +722,17 @@ void Game::draw_opaque(const RenderParams& render_params)
 			render_params.sync->write<RenderCullMode>(RenderCullMode::Back);
 		}
 	}
+
+	Water::draw_opaque(render_params);
+
+	SkinnedModel::draw_opaque(render_params);
+
+	EffectLight::draw_opaque(render_params);
+
+	ShellCasing::draw_all(render_params);
+
+	if (render_params.technique == RenderTechnique::Shadow)
+		Rope::draw_all(render_params);
 
 	if (render_params.flags & RenderFlagPolygonOffset)
 	{

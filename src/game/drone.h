@@ -133,7 +133,7 @@ struct Drone : public ComponentType<Drone>
 	Ability current_ability;
 	Footing footing[DRONE_LEGS];
 	Array<Ref<Entity>> hit_targets;
-	Array<Ref<EffectLight>> fake_bolts;
+	Array<Ref<EffectLight>> fake_projectiles;
 	LinkArg<const DroneReflectEvent&> reflecting;
 	LinkArg<Entity*> hit;
 	LinkArg<Ability> ability_spawned;

@@ -383,6 +383,26 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTar
 	return 1;
 }
 
+void drone_remove_fake_projectile(Drone* drone, EffectLight::Type type)
+{
+	for (s32 i = 0; i < drone->fake_projectiles.length; i++)
+	{
+		EffectLight* p = drone->fake_projectiles[i].ref();
+
+		if (!p) // might have already been removed
+		{
+			drone->fake_projectiles.remove_ordered(i);
+			i--;
+			continue;
+		}
+
+		if (p->type == type)
+			EffectLight::remove(p);
+		drone->fake_projectiles.remove_ordered(i);
+		break;
+	}
+}
+
 void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normalized, Bolt::Type type)
 {
 	if (Game::level.local)
@@ -401,7 +421,7 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 
 			r32 timestamp;
 #if SERVER
-			timestamp = Net::timestamp() - vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt);
+			timestamp = Net::timestamp() - vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt) * Game::session.effective_time_scale();
 #else
 			timestamp = Net::timestamp();
 #endif
@@ -410,9 +430,10 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 
 			Bolt::Hit hit = {};
 
+			const r32 SIMULATION_STEP = Net::tick_rate() * Game::session.effective_time_scale();
+
 			while (timestamp < Net::timestamp())
 			{
-				const r32 SIMULATION_STEP = Net::tick_rate();
 				Net::StateFrame state_frame;
 				Net::state_frame_by_timestamp(&state_frame, timestamp);
 
@@ -437,13 +458,8 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 	{
 		// we're a client; if this is a local player who has already spawned a fake bolt for client-side prediction,
 		// we need to delete that fake bolt, since the server has spawned a real one.
-		if (drone->fake_bolts.length > 0)
-		{
-			EffectLight* bolt = drone->fake_bolts[0].ref();
-			if (bolt) // might have already been removed
-				EffectLight::remove(bolt);
-			drone->fake_bolts.remove_ordered(0);
-		}
+		EffectLight::Type effect_light_type = type == Bolt::Type::DroneBolter ? EffectLight::Type::BoltDroneBolter : EffectLight::Type::BoltDroneShotgun;
+		drone_remove_fake_projectile(drone, effect_light_type);
 	}
 }
 
@@ -530,6 +546,17 @@ void drone_bolter_cooldown_setup(Drone* drone)
 		drone->bolter_charge_counter = 0;
 		drone->cooldown_setup();
 	}
+}
+
+Vec3 grenade_adjusted_dir(const Vec3& dir_normalized)
+{
+	Vec3 dir_adjusted = dir_normalized;
+	if (dir_adjusted.y > -0.25f)
+	{
+		dir_adjusted.y += 0.35f;
+		dir_adjusted.normalize();
+	}
+	return dir_adjusted;
 }
 
 b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
@@ -792,7 +819,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							else
 								angle = 0.0f;
 						}
-						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, npos + Vec3(0, -1, 0), Quat::identity, manager);
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, npos + Vec3(0, -1, 0), Quat::euler(0, angle, 0), manager);
 					}
 
 					// effects
@@ -837,9 +864,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					if (Game::level.local)
 					{
-						Vec3 dir_adjusted = dir_normalized;
-						if (dir_adjusted.y > -0.25f)
-							dir_adjusted.y += 0.35f;
+						Vec3 dir_adjusted = grenade_adjusted_dir(dir_normalized);
 
 						PlayerManager* manager = drone->get<PlayerCommon>()->manager.ref();
 
@@ -855,7 +880,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 							r32 timestamp;
 #if SERVER
-							timestamp = Net::timestamp() - vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt);
+							timestamp = Net::timestamp() - vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt) * Game::session.effective_time_scale();
 #else
 							timestamp = Net::timestamp();
 #endif
@@ -864,9 +889,10 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 							Bolt::Hit hit = {};
 
+							const r32 SIMULATION_STEP = Net::tick_rate() * Game::session.effective_time_scale();
+
 							while (timestamp < Net::timestamp())
 							{
-								const r32 SIMULATION_STEP = Net::tick_rate();
 								Net::StateFrame state_frame;
 								Net::state_frame_by_timestamp(&state_frame, timestamp);
 
@@ -887,6 +913,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							Net::finalize(grenade_entity);
 						}
 					}
+					else // client
+						drone_remove_fake_projectile(drone, EffectLight::Type::Grenade);
 					break;
 				}
 				case Ability::Bolter:
@@ -1025,7 +1053,7 @@ Drone::Drone()
 	cooldown(),
 	charges(DRONE_CHARGES),
 	current_ability(Ability::None),
-	fake_bolts(),
+	fake_projectiles(),
 	ability_spawned(),
 	dash_target(),
 	reflections(),
@@ -1225,7 +1253,7 @@ b8 Drone::net_state_frame(Net::StateFrame* state_frame) const
 	{
 		r32 timestamp;
 #if SERVER
-		timestamp = Net::timestamp() - vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt);
+		timestamp = Net::timestamp() - vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt) * Game::session.effective_time_scale();
 #else
 		// should never happen on client
 		timestamp = 0.0f;
@@ -1717,7 +1745,7 @@ b8 Drone::go(const Vec3& dir)
 				for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
 				{
 					Vec3 d = target_quat * drone_shotgun_dirs[i];
-					fake_bolts.add
+					fake_projectiles.add
 					(
 						EffectLight::add
 						(
@@ -1743,7 +1771,7 @@ b8 Drone::go(const Vec3& dir)
 				Vec3 my_pos = get<Transform>()->absolute_pos();
 				EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
 				ShellCasing::spawn(my_pos, Quat::look(dir_normalized), ShellCasing::Type::Bolter);
-				fake_bolts.add
+				fake_projectiles.add
 				(
 					EffectLight::add
 					(
@@ -1757,6 +1785,27 @@ b8 Drone::go(const Vec3& dir)
 				);
 				drone_bolter_cooldown_setup(this);
 			}
+			else if (a == Ability::Grenade)
+			{
+				// create fake grenade
+				get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_SPAWN);
+				Vec3 my_pos = get<Transform>()->absolute_pos();
+				Vec3 dir_adjusted = grenade_adjusted_dir(dir_normalized);
+				EffectLight::add(my_pos + dir_adjusted * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
+				fake_projectiles.add
+				(
+					EffectLight::add
+					(
+						my_pos + dir_adjusted * (DRONE_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f),
+						BOLT_LIGHT_RADIUS,
+						0.5f,
+						EffectLight::Type::Grenade,
+						nullptr,
+						Quat::look(dir_adjusted)
+					)
+				);
+				cooldown_setup();
+			}
 			else
 			{
 				// all other abilities have normal cooldowns
@@ -1769,11 +1818,6 @@ b8 Drone::go(const Vec3& dir)
 				{
 					get<Health>()->active_armor_timer = ACTIVE_ARMOR_TIME; // show invincibility sparkles instantly
 					get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
-				}
-				else if (a == Ability::Grenade)
-				{
-					get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_SPAWN);
-					EffectLight::add(get<Transform>()->absolute_pos() + dir_normalized * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
 				}
 			}
 		}
@@ -1884,8 +1928,8 @@ void drone_fast_forward(Drone* d, r32 amount)
 	vi_debug("%f fast-forwarding %fs", Game::real_time.total, amount);
 #endif
 
-	r32 timestamp = Net::timestamp() - amount;
-	const r32 SIMULATION_STEP = Net::tick_rate();
+	r32 timestamp = Net::timestamp() - amount * Game::session.effective_time_scale();
+	const r32 SIMULATION_STEP = Net::tick_rate() * Game::session.effective_time_scale();
 	s32 reflection_count = d->reflections.length;
 	while (timestamp < Net::timestamp()
 		&& d->reflections.length == reflection_count

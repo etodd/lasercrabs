@@ -2043,7 +2043,10 @@ void Bolt::awake()
 	last_pos = get<Transform>()->absolute_pos();
 
 	if (owner.ref() && owner.ref()->has<Turret>())
+	{
 		owner.ref()->get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
+		EffectLight::add(last_pos, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
+	}
 }
 
 b8 Bolt::visible() const

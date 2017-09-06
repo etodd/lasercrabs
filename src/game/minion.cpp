@@ -167,6 +167,7 @@ void Minion::melee_thrust()
 void Minion::fired()
 {
 	get<Audio>()->post(AK::EVENTS::PLAY_MINION_WEAPON_FIRE);
+	EffectLight::add(hand_pos(), DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
 }
 
 void Minion::melee_damage()

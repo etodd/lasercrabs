@@ -85,8 +85,6 @@ ScreenQuad Game::screen_quad;
 template<typename Stream> b8 serialize_save(Stream* p, Game::Save* s)
 {
 	serialize_r64(p, s->timestamp);
-	for (s32 i = 0; i < MAX_ZONES; i++)
-		serialize_r64(p, s->zone_lost_times[i]);
 	serialize_s32(p, s->collectibles.length);
 	if (Stream::IsReading)
 		s->collectibles.resize(s->collectibles.length);

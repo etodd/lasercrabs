@@ -160,6 +160,7 @@ elseif (PLAYSTATION)
 	)
 else() # Linux
 	target_link_libraries(wwise_integration
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libCommunicationCentral.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkMemoryMgr.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkMemoryMgr.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkMusicEngine.a
@@ -180,6 +181,5 @@ else() # Linux
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkDelayFX.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkSynthOne.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkSynthOne.a
-		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libCommunicationCentral.a
 	)
 endif()

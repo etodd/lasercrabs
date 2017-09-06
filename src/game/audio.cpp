@@ -577,18 +577,29 @@ void Audio::listener_list_update()
 		}
 	}
 	AK::SoundEngine::SetDefaultListeners(listener_ids, count);
+
+	for (auto i = AudioEntry::list.iterator(); !i.is_last(); i.next())
+		AK::SoundEngine::SetListeners(i.item()->ak_id(), listener_ids, count);
 }
 
 void Audio::listener_disable(s8 gamepad)
 {
-	listener_mask &= ~(1 << gamepad);
-	listener_list_update();
+	s8 mask = 1 << gamepad;
+	if (listener_mask & mask)
+	{
+		listener_mask &= ~mask;
+		listener_list_update();
+	}
 }
 
 void Audio::listener_enable(s8 gamepad)
 {
-	listener_mask |= (1 << gamepad);
-	listener_list_update();
+	s8 mask = 1 << gamepad;
+	if (!(listener_mask & mask))
+	{
+		listener_mask |= mask;
+		listener_list_update();
+	}
 }
 
 void Audio::listener_update(s8 gamepad, const Vec3& pos, const Quat& rot)

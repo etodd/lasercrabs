@@ -68,7 +68,7 @@ struct Game
 		SessionType type;
 
 		Session();
-		void reset();
+		void reset(SessionType);
 		r32 effective_time_scale() const;
 		s32 local_player_count() const;
 	};
@@ -181,7 +181,7 @@ struct Game
 	static void update(const Update&);
 	static void schedule_load_level(AssetID, Mode, r32 = 0.0f);
 	static void unload_level();
-	static void load_level(AssetID, Mode, b8 = false);
+	static void load_level(AssetID, Mode);
 	static void awake_all();
 	static void draw_opaque(const RenderParams&);
 	static void draw_hollow(const RenderParams&);
@@ -191,6 +191,9 @@ struct Game
 	static void draw_additive(const RenderParams&);
 	static void auth_failed();
 	static void term();
+
+	static void remove_bots_if_necessary(s32);
+	static void add_local_player(s8);
 
 	static b8 edge_trigger(r32, b8(*)(r32));
 	static b8 edge_trigger(r32, r32, b8(*)(r32, r32));

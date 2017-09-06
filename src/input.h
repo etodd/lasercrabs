@@ -352,8 +352,8 @@ namespace Input
 {
 	void init(); // strings must be already loaded before calling this
 
-	void dead_zone(r32*, r32*, r32 = 0.1f);
-	void dead_zone_cross(r32*, r32*, r32 = 0.1f);
+	void dead_zone(r32*, r32*, r32 = 0.15f);
+	void dead_zone_cross(r32*, r32*, r32 = 0.15f);
 	r32 dead_zone(r32, r32 = UI_JOYSTICK_DEAD_ZONE);
 	const char* control_string(Controls);
 	b8 control_customizable(Controls, Gamepad::Type);

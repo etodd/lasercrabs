@@ -1926,6 +1926,7 @@ struct Client
 	// starts at NET_SEQUENCE_COUNT - 1 so that the first sequence ID we expect to receive is 0
 	MessageFrameState processed_msg_frame = { NET_SEQUENCE_COUNT - 1, true };
 	SequenceID first_load_sequence;
+	char username[MAX_USERNAME + 1];
 	// when a client connects, we add them to our list, but set connected to false.
 	// as soon as they send us an Update packet, we set connected to true.
 	b8 connected;
@@ -1940,7 +1941,10 @@ struct ExpectedClient
 		u64 uuid;
 		AI::Team team;
 	};
-	StaticArray<TeamEntry, MAX_GAMEPADS> teams;
+
+	typedef StaticArray<ExpectedClient::TeamEntry, MAX_GAMEPADS> Teams;
+
+	Teams teams;
 	r32 timestamp;
 	Master::UserKey user_key;
 	b8 is_admin;
@@ -2725,22 +2729,99 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 	return true;
 }
 
-// remove bots to make room for new human players if necessary
-void remove_bots_if_necessary(s32 players)
+b8 add_players(Net::StreamRead* p, Client* client, s32 count, const ExpectedClient::Teams* teams = nullptr)
 {
-	s32 open_slots = Game::session.config.max_players - PlayerManager::list.count();
-	s32 bots_to_remove = vi_min(PlayerAI::list.count(), players - open_slots);
-	while (bots_to_remove > 0)
+	using Stream = Net::StreamRead;
+
+	if (Game::session.type == SessionType::Multiplayer)
+		Game::remove_bots_if_necessary(count);
+
+	for (s32 i = 0; i < count; i++)
 	{
-		PlayerAI* ai_player = PlayerAI::list.iterator().item();
-		PlayerManager* player = ai_player->manager.ref();
-		Entity* instance = player->instance.ref();
-		if (instance)
-			World::remove(instance);
-		World::remove(player->entity());
-		PlayerAI::list.remove(ai_player->id());
-		bots_to_remove--;
+		s8 gamepad;
+		serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
+		u64 uuid;
+		serialize_u64(p, uuid);
+
+		b8 already_added = false;
+		for (s32 j = 0; j < client->players.length; j++)
+		{
+			PlayerHuman* player = client->players[j].ref();
+			if (player->gamepad == gamepad)
+			{
+				already_added = true;
+				break;
+			}
+		}
+
+		if (!already_added && PlayerHuman::list.count() < Game::session.config.max_players)
+		{
+			Team* team_ref = nullptr;
+
+			switch (Game::session.type)
+			{
+				case SessionType::Multiplayer:
+				{
+					if (teams)
+					{
+						// remember previous teams, and rotate them
+						for (s32 j = 0; j < teams->length; j++)
+						{
+							const ExpectedClient::TeamEntry& entry = (*teams)[j];
+							if (entry.uuid == uuid)
+							{
+								if (entry.team != AI::TeamNone)
+									team_ref = &Team::list[(entry.team + 1) % Team::list.count()];
+								break;
+							}
+						}
+					}
+
+					if (!team_ref)
+					{
+						// distribute players evenly
+						// assign player randomly to one of the teams with the smallest number of players
+						StaticArray<Team*, MAX_TEAMS> smallest_teams;
+						s32 least_players;
+						Team::with_least_players(&least_players);
+						for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+						{
+							if (i.item()->player_count() == least_players)
+								smallest_teams.add(i.item());
+						}
+						vi_assert(smallest_teams.length > 0);
+						team_ref = smallest_teams[mersenne::rand() % smallest_teams.length];
+					}
+					break;
+				}
+				case SessionType::Story:
+					team_ref = &Team::list[1];
+					break;
+				default:
+					vi_assert(false);
+					break;
+			}
+
+			Entity* e = World::create<ContainerEntity>();
+			PlayerManager* manager = e->add<PlayerManager>(team_ref);
+			strncpy(manager->username, client->username, MAX_USERNAME);
+			if (gamepad > 0)
+			{
+				char number[5] = {};
+				snprintf(number, 5, " [%d]", s32(gamepad + 1));
+				Font::truncate(manager->username, MAX_USERNAME, number, Font::EllipsisMode::Always);
+			}
+			PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
+			manager->is_admin = client->is_admin && gamepad == 0;
+			player->uuid = uuid;
+			player->local = false;
+			client->players.add(player);
+			finalize(e);
+		}
 	}
+	master_send_status_update();
+
+	return true;
 }
 
 // server function for processing messages
@@ -2837,16 +2918,15 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 				serialize_u32(p, client->user_key.id);
 				serialize_u32(p, client->user_key.token);
 
-				char username[MAX_USERNAME + 1];
 				s32 username_length;
 				serialize_int(p, s32, username_length, 0, MAX_USERNAME);
-				serialize_bytes(p, (u8*)username, username_length);
-				username[username_length] = '\0';
+				serialize_bytes(p, (u8*)client->username, username_length);
+				client->username[username_length] = '\0';
 
 				s32 local_players;
 				serialize_int(p, s32, local_players, 1, MAX_GAMEPADS);
 
-				StaticArray<ExpectedClient::TeamEntry, MAX_GAMEPADS> teams;
+				ExpectedClient::Teams teams;
 
 				for (s32 i = 0; i < state_server.expected_clients.length; i++)
 				{
@@ -2861,79 +2941,8 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 					}
 				}
 
-				if (Game::session.type == SessionType::Multiplayer)
-					remove_bots_if_necessary(local_players);
-
 				if (local_players <= Game::session.config.max_players - PlayerManager::list.count())
-				{
-					for (s32 i = 0; i < local_players; i++)
-					{
-						s8 gamepad;
-						serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
-						u64 uuid;
-						serialize_u64(p, uuid);
-
-						Team* team_ref = nullptr;
-
-						switch (Game::session.type)
-						{
-							case SessionType::Multiplayer:
-							{
-								// remember previous teams, and rotate them
-								for (s32 j = 0; j < teams.length; j++)
-								{
-									const ExpectedClient::TeamEntry& entry = teams[j];
-									if (entry.uuid == uuid)
-									{
-										if (entry.team != AI::TeamNone)
-											team_ref = &Team::list[(entry.team + 1) % Team::list.count()];
-										break;
-									}
-								}
-
-								if (!team_ref)
-								{
-									// distribute players evenly
-									// assign player randomly to one of the teams with the smallest number of players
-									StaticArray<Team*, MAX_TEAMS> smallest_teams;
-									s32 least_players;
-									Team::with_least_players(&least_players);
-									for (auto i = Team::list.iterator(); !i.is_last(); i.next())
-									{
-										if (i.item()->player_count() == least_players)
-											smallest_teams.add(i.item());
-									}
-									vi_assert(smallest_teams.length > 0);
-									team_ref = smallest_teams[mersenne::rand() % smallest_teams.length];
-								}
-								break;
-							}
-							case SessionType::Story:
-								team_ref = &Team::list[1];
-								break;
-							default:
-								vi_assert(false);
-								break;
-						}
-
-						Entity* e = World::create<ContainerEntity>();
-						PlayerManager* manager = e->add<PlayerManager>(team_ref);
-						strncpy(manager->username, username, MAX_USERNAME);
-						if (gamepad > 0)
-						{
-							char number[5] = {};
-							snprintf(number, 5, " [%d]", s32(gamepad + 1));
-							Font::truncate(manager->username, MAX_USERNAME, number, Font::EllipsisMode::Always);
-						}
-						PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
-						manager->is_admin = client->is_admin && gamepad == 0;
-						player->uuid = uuid;
-						player->local = false;
-						client->players.add(player);
-						finalize(e);
-					}
-					master_send_status_update();
-				}
+					add_players(p, client, local_players, &teams);
 				else
 				{
 					// server is full
@@ -2949,6 +2958,12 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 		case MessageType::Overworld:
 		{
 			if (!Overworld::net_msg(p, MessageSource::Remote))
+				net_error();
+			break;
+		}
+		case MessageType::AddPlayer:
+		{
+			if (!add_players(p, client, 1))
 				net_error();
 			break;
 		}
@@ -3204,6 +3219,16 @@ b8 ping(const Sock::Address& addr, u32 token)
 	return true;
 }
 
+b8 add_player(s8 gamepad)
+{
+	using Stream = StreamWrite;
+	StreamWrite* p = msg_new(MessageType::AddPlayer);
+	serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
+	serialize_u64(p, Game::session.local_player_uuids[gamepad]);
+	msg_finalize(p);
+	return true;
+}
+
 b8 init()
 {
 	if (Sock::udp_open(&state_persistent.sock))
@@ -3369,7 +3394,7 @@ void handle_server_disconnect(DisconnectReason reason)
 		{
 			Game::unload_level();
 			Game::save.reset();
-			Game::session.reset();
+			Game::session.reset(SessionType::Multiplayer);
 			replay();
 		}
 	}
@@ -3913,9 +3938,7 @@ b8 msg_process(StreamRead* p)
 			break;
 		}
 		case MessageType::Noop:
-		{
 			break;
-		}
 		default:
 		{
 			p->rewind(start_pos);
@@ -4401,6 +4424,21 @@ b8 msg_process(StreamRead* p, MessageSource src)
 			if (!Script::net_msg(p, src))
 				net_error();
 			break;
+		}
+		case MessageType::AddPlayer:
+		{
+#if SERVER
+			// should never get a loopback AddPlayer message
+			vi_assert(false);
+#else
+			s8 gamepad;
+			serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
+			u64 uuid;
+			serialize_u64(p, uuid);
+			if (Game::level.local)
+				Game::add_local_player(gamepad);
+			break;
+#endif
 		}
 #if DEBUG
 		case MessageType::DebugCommand:

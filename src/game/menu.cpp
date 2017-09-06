@@ -113,7 +113,13 @@ void quit_multiplayer(s8 gamepad)
 	if (Game::level.id == Asset::Level::Docks)
 		Overworld::title();
 	else
-		Menu::title_multiplayer();
+	{
+		PlayerHuman* player = PlayerHuman::player_for_gamepad(gamepad);
+		if (player)
+			player->get<PlayerManager>()->leave();
+		else
+			Menu::title_multiplayer();
+	}
 }
 
 void quit_to_title(s8 gamepad)
@@ -379,8 +385,7 @@ void title_menu(const Update& u, Camera* camera)
 				if (main_menu.item(u, _(strings::multiplayer)))
 				{
 					Game::save.reset();
-					Game::session.reset();
-					Game::session.type = SessionType::Multiplayer;
+					Game::session.reset(SessionType::Multiplayer);
 					Game::session.config.game_type = GameType::Assault;
 					Overworld::show(camera, Overworld::State::Multiplayer);
 					clear();
@@ -776,7 +781,7 @@ void show()
 void title()
 {
 	clear();
-	Game::session.reset();
+	Game::session.reset(SessionType::Story);
 	Game::save.reset();
 	Game::schedule_load_level(Asset::Level::Docks, Game::Mode::Special);
 }
@@ -784,8 +789,7 @@ void title()
 void title_multiplayer()
 {
 	clear();
-	Game::session.reset();
-	Game::session.type = SessionType::Multiplayer;
+	Game::session.reset(SessionType::Multiplayer);
 	Game::save.reset();
 	Game::schedule_load_level(Asset::Level::Docks, Game::Mode::Special);
 }
@@ -793,8 +797,7 @@ void title_multiplayer()
 void splash()
 {
 	clear();
-	Game::session.reset();
-	Game::session.type = SessionType::Multiplayer;
+	Game::session.reset(SessionType::Story);
 	Game::save.reset();
 	Game::schedule_load_level(Asset::Level::splash, Game::Mode::Special);
 }

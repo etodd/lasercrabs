@@ -71,7 +71,6 @@ struct DataGlobal
 {
 	struct Multiplayer
 	{
-		s8 local_player_mask = 1;
 		ServerListType tab;
 		ServerListType tab_previous;
 	};
@@ -890,7 +889,6 @@ void multiplayer_entry_view_update(const Update& u)
 		{
 			u32 id = data.multiplayer.active_server.config.id;
 			Game::unload_level();
-			Game::session.local_player_mask = global.multiplayer.local_player_mask;
 #if !SERVER
 			Net::Client::master_request_server(id);
 #endif
@@ -927,7 +925,7 @@ void hide();
 void title()
 {
 	Game::save.reset();
-	Game::session.reset();
+	Game::session.reset(SessionType::Story);
 	hide();
 }
 
@@ -948,19 +946,20 @@ void multiplayer_update(const Update& u)
 	for (s32 i = 1; i < MAX_GAMEPADS; i++)
 	{
 		if (u.input->gamepads[i].type == Gamepad::Type::None)
-			global.multiplayer.local_player_mask &= ~(1 << i);
+			Game::session.local_player_mask &= ~(1 << i);
 		else
 		{
-			b8 player_active = global.multiplayer.local_player_mask & (1 << i);
+			b8 player_active = Game::session.local_player_mask & (1 << i);
 			if (!player_active
-				&& u.last_input->get(Controls::Interact, i) && !u.input->get(Controls::Interact, i))
+				&& ((u.last_input->get(Controls::Interact, i) && !u.input->get(Controls::Interact, i))
+					|| (u.last_input->get(Controls::Start, i) && !u.input->get(Controls::Start, i))))
 			{
-				global.multiplayer.local_player_mask |= 1 << i;
+				Game::session.local_player_mask |= 1 << i;
 			}
 			else if (player_active
 				&& u.last_input->get(Controls::Cancel, i) && !u.input->get(Controls::Cancel, i))
 			{
-				global.multiplayer.local_player_mask &= ~(1 << i);
+				Game::session.local_player_mask &= ~(1 << i);
 			}
 		}
 	}
@@ -1012,6 +1011,29 @@ void multiplayer_update(const Update& u)
 				break;
 		}
 	}
+}
+
+void multiplayer_in_game_update(const Update& u)
+{
+#if !SERVER
+	if (PlayerHuman::list.count() < Game::session.config.max_players)
+	{
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		{
+			if (u.input->gamepads[i].type != Gamepad::Type::None
+				&& ((u.input->get(Controls::Start, i) && !u.last_input->get(Controls::Start, i))
+					|| (u.input->get(Controls::Interact, i) && !u.last_input->get(Controls::Interact, i)))
+				&& !PlayerHuman::player_for_gamepad(i))
+			{
+				Game::session.local_player_mask |= 1 << i;
+				if (Net::Client::mode() == Net::Client::Mode::Connected)
+					Net::Client::add_player(i);
+				else
+					Game::add_local_player(i);
+			}
+		}
+	}
+#endif
 }
 
 void tab_draw_label(const RenderParams& p, const char* label, const Vec2& pos, const Vec4& color, const Vec4& text_color = UI::color_background)
@@ -1714,7 +1736,7 @@ void multiplayer_draw(const RenderParams& params)
 				Vec2 pos = vp.size * Vec2(0.5f, 0.1f) + Vec2(gamepad_spacing * (gamepad_count - 1) * -0.5f, 0);
 				for (s32 i = 0; i < gamepad_count; i++)
 				{
-					draw_gamepad_icon(params, pos, i, (global.multiplayer.local_player_mask & (1 << i)) ? UI::color_accent() : UI::color_disabled(), SCALE_MULTIPLIER);
+					draw_gamepad_icon(params, pos, i, (Game::session.local_player_mask & (1 << i)) ? UI::color_accent() : UI::color_disabled(), SCALE_MULTIPLIER);
 					pos.x += gamepad_spacing;
 				}
 			}
@@ -2932,24 +2954,13 @@ void show_complete()
 r32 particle_accumulator = 0.0f;
 void update(const Update& u)
 {
-	if (Game::level.id == Asset::Level::overworld
-		&& data.state == State::Hidden && data.state_next == State::Hidden
 #if !SERVER
-		&& Net::Client::mode() == Net::Client::Mode::Disconnected
+	if (Game::level.mode == Game::Mode::Pvp
+		&& Game::session.type == SessionType::Multiplayer
+		&& Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying
+		&& (Net::Client::mode() == Net::Client::Mode::Connected || Game::level.local))
+		multiplayer_in_game_update(u);
 #endif
-		&& Game::scheduled_load_level == AssetNull)
-	{
-		Camera* c = Camera::add(0);
-		data.timer_transition = 0.0f;
-
-		if (Game::session.type == SessionType::Story)
-			vi_assert(false);
-		else
-			show(c, State::Multiplayer);
-
-		show_complete();
-		data.timer_transition = 0.0f;
-	}
 
 	if (data.timer_transition > 0.0f)
 	{

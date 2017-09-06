@@ -1249,6 +1249,22 @@ namespace PlayerManagerNet
 		return true;
 	}
 
+	b8 leave(PlayerManager* m)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::Leave;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+
 	b8 map_schedule(PlayerManager* m, AssetID map)
 	{
 		using Stream = Net::StreamWrite;
@@ -1587,6 +1603,16 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			}
 			break;
 		}
+		case Message::Leave:
+		{
+			if (!m)
+				return true;
+
+			if (Game::level.local)
+				m->kick();
+				
+			break;
+		}
 		case Message::MapSchedule:
 		{
 			AssetID map;
@@ -1692,6 +1718,20 @@ void PlayerManager::kick()
 			Net::Server::client_force_disconnect(client_id, Net::DisconnectReason::Kicked);
 	}
 #endif
+}
+
+void PlayerManager::leave()
+{
+	if (has<PlayerHuman>() && get<PlayerHuman>()->local && (PlayerHuman::count_local() == 1 || get<PlayerHuman>()->gamepad == 0))
+	{
+		// we're the only player left, or we're player 1; just exit
+		if (Game::session.type == SessionType::Story)
+			Menu::title();
+		else
+			Menu::title_multiplayer();
+	}
+	else // other people still playing
+		PlayerManagerNet::leave(this);
 }
 
 b8 PlayerManager::upgrade_start(Upgrade u)

@@ -131,17 +131,8 @@ void Game::Save::reset()
 }
 
 Game::Session::Session()
-	: type(SessionType::Story),
-#if SERVER
-	local_player_mask(),
-#else
-	local_player_mask(1),
-#endif
-	config(),
-	time_scale(1.0f)
 {
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
-		local_player_uuids[i] = mersenne::rand_u64();
+	reset(SessionType::Story);
 }
 
 r32 Game::Session::effective_time_scale() const
@@ -154,10 +145,19 @@ s32 Game::Session::local_player_count() const
 	return Net::popcount(u32(local_player_mask));
 }
 
-void Game::Session::reset()
+void Game::Session::reset(SessionType t)
 {
-	this->~Session();
-	new (this) Session();
+	type = t;
+	new (&config) Net::Master::ServerConfig();
+	time_scale = 1.0f;
+#if SERVER
+	local_player_mask = 0;
+#else
+	if (t == SessionType::Story)
+		local_player_mask = 1;
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		local_player_uuids[i] = mersenne::rand_u64();
+#endif
 }
 
 b8 Game::Level::has_feature(FeatureLevel f) const
@@ -646,6 +646,51 @@ b8 Game::edge_trigger(r32 time, b8(*fn)(r32))
 b8 Game::edge_trigger(r32 time, r32 speed, b8(*fn)(r32, r32))
 {
 	return fn(time, speed) != fn(time - real_time.delta, speed);
+}
+
+// remove bots to make room for new human players if necessary
+void Game::remove_bots_if_necessary(s32 players)
+{
+	s32 open_slots = session.config.max_players - PlayerManager::list.count();
+	s32 bots_to_remove = vi_min(PlayerAI::list.count(), players - open_slots);
+	while (bots_to_remove > 0)
+	{
+		PlayerAI* ai_player = PlayerAI::list.iterator().item();
+		PlayerManager* player = ai_player->manager.ref();
+		Entity* instance = player->instance.ref();
+		if (instance)
+			World::remove(instance);
+		World::remove(player->entity());
+		PlayerAI::list.remove(ai_player->id());
+		bots_to_remove--;
+	}
+}
+
+void Game::add_local_player(s8 gamepad)
+{
+	vi_assert
+	(
+		level.local
+		&& level.mode == Mode::Pvp
+		&& session.type == SessionType::Multiplayer
+		&& PlayerHuman::list.count() < session.config.max_players
+		&& !PlayerHuman::player_for_gamepad(gamepad)
+	);
+
+	remove_bots_if_necessary(1);
+
+	AI::Team team = Team::with_least_players()->team();
+
+	char username[MAX_USERNAME + 1] = {};
+	snprintf(username, MAX_USERNAME, _(strings::player), gamepad + 1);
+
+	Entity* e = World::alloc<ContainerEntity>();
+	PlayerManager* manager = e->create<PlayerManager>(&Team::list[s32(team)], username);
+
+	e->create<PlayerHuman>(true, gamepad); // local = true
+
+	World::awake(e);
+	Net::finalize(e);
 }
 
 // return true if this entity's transform needs synced over the network
@@ -1175,19 +1220,6 @@ void Game::execute(const char* cmd)
 			}
 		}
 	}
-	else if (strstr(cmd, "lda ") == cmd)
-	{
-		// AI test
-		const char* delimiter = strchr(cmd, ' ');
-		const char* level_name = delimiter + 1;
-		AssetID level = Loader::find_level(level_name);
-		if (level != AssetNull)
-		{
-			save.reset();
-			save.zone_current = level;
-			load_level(level, Mode::Pvp, true);
-		}
-	}
 	else if (strstr(cmd, "ld ") == cmd)
 	{
 		// pvp mode
@@ -1384,7 +1416,7 @@ void ingress_points_get(cJSON* json, cJSON* element, MinionTarget* target)
 	}
 }
 
-void Game::load_level(AssetID l, Mode m, b8 ai_test)
+void Game::load_level(AssetID l, Mode m)
 {
 	vi_debug("Loading level %d", s32(l));
 
@@ -1566,34 +1598,12 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 						AI::Team team = team_lookup(level.team_lookup, i % session.config.team_count);
 
 						char username[MAX_USERNAME + 1] = {};
-						if (ai_test)
-							strncpy(username, Usernames::all[mersenne::rand_u32() % Usernames::count], MAX_USERNAME);
-						else
-						{
-							if (level.local && session.type != SessionType::Story)
-								snprintf(username, MAX_USERNAME, _(strings::player), i + 1);
-							else
-							{
-								strncpy(username, Settings::username, MAX_USERNAME);
-								if (i > 0)
-								{
-									char number[5] = {};
-									snprintf(number, 5, " [%d]", i + 1);
-									Font::truncate(username, MAX_USERNAME, number, Font::EllipsisMode::Always);
-								}
-							}
-						}
+						snprintf(username, MAX_USERNAME, _(strings::player), i + 1);
 
 						Entity* e = World::alloc<ContainerEntity>();
 						PlayerManager* manager = e->create<PlayerManager>(&Team::list[s32(team)], username);
 
-						if (ai_test)
-						{
-							PlayerAI* player = PlayerAI::list.add();
-							new (player) PlayerAI(manager, PlayerAI::generate_config(team, 0.0f));
-						}
-						else
-							e->create<PlayerHuman>(true, i); // local = true
+						e->create<PlayerHuman>(true, i); // local = true
 						// container entity will be finalized later
 					}
 				}

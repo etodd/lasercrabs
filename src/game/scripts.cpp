@@ -436,14 +436,8 @@ b8 any_input(const Update& u)
 {
 	if (u.last_input->keys.any() && !u.input->keys.any())
 		return true;
-	else
-	{
-		for (s32 i = 0; i < MAX_GAMEPADS; i++)
-		{
-			if (u.last_input->gamepads[i].btns && !u.input->gamepads[i].btns)
-				return true;
-		}
-	}
+	else if (u.last_input->gamepads[0].btns && !u.input->gamepads[0].btns)
+		return true;
 	return false;
 }
 
@@ -819,7 +813,7 @@ namespace Docks
 	void play()
 	{
 		Game::save.reset();
-		Game::session.reset();
+		Game::session.reset(SessionType::Story);
 		data->transition_timer = total_transition;
 		Audio::post_global(AK::EVENTS::PLAY_TRANSITION_OUT);
 	}

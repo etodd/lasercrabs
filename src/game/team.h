@@ -164,6 +164,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		MapSchedule,
 		MapSkip,
 		Chat,
+		Leave,
 		count,
 	};
 
@@ -221,6 +222,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s16 upgrade_cost(Upgrade) const;
 	void kick(PlayerManager*);
 	void kick();
+	void leave();
 	void add_energy(s32);
 	void add_energy_and_notify(s32);
 	void add_kills(s32);

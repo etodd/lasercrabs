@@ -57,6 +57,7 @@ enum class MessageType : s8
 	TransitionLevel,
 	Overworld,
 	Script,
+	AddPlayer,
 #if DEBUG
 	DebugCommand,
 #endif
@@ -192,6 +193,7 @@ namespace Client
 	void master_cancel_outgoing();
 	b8 master_request_server_details(u32, u32);
 	b8 ping(const Sock::Address&, u32);
+	b8 add_player(s8);
 
 	ReplayMode replay_mode();
 

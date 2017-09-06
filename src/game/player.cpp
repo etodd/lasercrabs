@@ -3352,10 +3352,7 @@ Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot, s8 gamep
 	else
 	{
 		Vec2 gamepad_movement(-u.input->gamepads[gamepad].left_x, -u.input->gamepads[gamepad].left_y);
-		if (Game::level.mode == Game::Mode::Pvp)
-			Input::dead_zone(&gamepad_movement.x, &gamepad_movement.y);
-		else
-			Input::dead_zone_cross(&gamepad_movement.x, &gamepad_movement.y);
+		Input::dead_zone(&gamepad_movement.x, &gamepad_movement.y);
 		movement.x = gamepad_movement.x;
 		movement.z = gamepad_movement.y;
 	}

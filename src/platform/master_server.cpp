@@ -20,7 +20,7 @@
 #include "data/json.h"
 #include <cmath>
 
-#define OFFLINE_DEV 0
+#define OFFLINE_DEV 1
 #define AUTHENTICATE_DOWNLOAD_KEYS 0
 
 namespace VI

@@ -233,8 +233,6 @@ void Audio::term()
 	AK::MemoryMgr::Term();
 }
 
-#define MAX_IMAGE_SOURCES 4
-
 void AudioEntry::init(const Vec3& npos, Transform* nparent, AudioEntry* parent_entry)
 {
 	revision++;

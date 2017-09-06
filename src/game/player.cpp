@@ -1405,7 +1405,7 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 		}
 	}
 	else
-		ParticleEffect::spawn(ParticleEffect::Type::SpawnDrone, spawn_pos.pos, Quat::look(Vec3(0, 1, 0)));
+		ParticleEffect::spawn(ParticleEffect::Type::SpawnDrone, spawn_pos.pos + Vec3(0, DRONE_RADIUS, 0), Quat::look(Vec3(0, 1, 0)));
 
 	Net::finalize(spawned);
 
@@ -1748,7 +1748,7 @@ Upgrade PlayerHuman::upgrade_selected() const
 	return upgrade;
 }
 
-void PlayerHuman::draw_ui_early(const RenderParams& params) const
+void PlayerHuman::draw_turret_battery_icons(const RenderParams& params) const
 {
 	UIMode mode = ui_mode();
 	if (params.camera == camera.ref()
@@ -1868,6 +1868,12 @@ void PlayerHuman::draw_ui_early(const RenderParams& params) const
 			}
 		}
 	}
+}
+
+void PlayerHuman::draw_ui_early(const RenderParams& params) const
+{
+	if (ui_mode() != UIMode::Dead)
+		draw_turret_battery_icons(params);
 }
 
 void PlayerHuman::draw_ui(const RenderParams& params) const
@@ -2080,6 +2086,20 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 						if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
 							UI::triangle_border(params, { p, Vec2(28.0f * UI::scale) }, 6, UI::color_accent(), PI);
 
+						// highlight available spawns
+						AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+						for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+						{
+							if (i.item()->team == my_team)
+							{
+								Vec2 p;
+								if (UI::project(params, i.item()->get<Transform>()->absolute_pos(), &p))
+									UI::triangle(params, { p, Vec2(18.0f * UI::scale) }, Team::ui_color_friend, PI);
+							}
+						}
+
+						draw_turret_battery_icons(params);
+
 						if (Game::session.config.game_type == GameType::Assault)
 						{
 							// attacking/defending
@@ -2100,7 +2120,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 									str = strings::core_modules_remaining_spawning;
 									count = CoreModule::list.count();
 								}
-								text.text(gamepad, _(str), _(get<PlayerManager>()->team.ref()->team() == 0 ? strings::defend : strings::attack), count);
+								text.text(gamepad, _(str), _(my_team == 0 ? strings::defend : strings::attack), count);
 							}
 							Vec2 pos = vp.size * Vec2(0.5f, 0.25f);
 							UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
@@ -4566,19 +4586,23 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			&& manager->upgrade_available() && manager->upgrade_highest_owned_or_available() != player.ref()->upgrade_last_visit_highest_available
 			&& !UpgradeStation::drone_at(get<Drone>()))
 		{
-			Vec3 pos = SpawnPoint::closest(1 << s32(get<AIAgent>()->team), get<Transform>()->absolute_pos())->get<Transform>()->absolute_pos();
-			Vec2 p = UI::indicator(params, pos, Team::ui_color_friend, true);
-
-			p.y += UI_TEXT_SIZE_DEFAULT * 2.0f * UI::scale;
-			if (UI::flash_function_slow(Game::real_time.total))
+			UpgradeStation* station = UpgradeStation::closest_available(1 << s32(get<AIAgent>()->team), get<Transform>()->absolute_pos());
+			if (station)
 			{
-				UIText text;
-				text.color = Team::ui_color_friend;
-				text.text(player.ref()->gamepad, _(strings::upgrade_notification));
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
-				text.draw(params, p);
+				Vec3 pos = station->get<Transform>()->absolute_pos();
+				Vec2 p = UI::indicator(params, pos, Team::ui_color_friend, true);
+
+				p.y += UI_TEXT_SIZE_DEFAULT * 2.0f * UI::scale;
+				if (UI::flash_function_slow(Game::real_time.total))
+				{
+					UIText text;
+					text.color = Team::ui_color_friend;
+					text.text(player.ref()->gamepad, _(strings::upgrade_notification));
+					text.anchor_x = UIText::Anchor::Center;
+					text.anchor_y = UIText::Anchor::Center;
+					UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
+					text.draw(params, p);
+				}
 			}
 		}
 	}

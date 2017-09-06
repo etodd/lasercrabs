@@ -602,7 +602,10 @@ void update(const Update& u)
 		if ((u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
 			|| (u.last_input->get(Controls::Pause, 0) && !u.input->get(Controls::Pause, 0)))
 		{
-			title();
+			if (Game::session.type == SessionType::Story)
+				title();
+			else
+				title_multiplayer();
 		}
 	}
 
@@ -714,6 +717,7 @@ void update(const Update& u)
 		if (main_menu_state == State::Visible
 			&& !Game::cancel_event_eaten[0]
 			&& Game::time.total > 0.0f
+			&& !Menu::dialog_active(0)
 			&& ((u.last_input->get(Controls::Pause, 0) && !u.input->get(Controls::Pause, 0))
 				|| (u.input->get(Controls::Cancel, 0) && !u.last_input->get(Controls::Cancel, 0))))
 		{
@@ -753,6 +757,7 @@ void update_end(const Update& u)
 			};
 			camera_connecting.ref()->perspective((60.0f * PI * 0.5f / 180.0f), 0.1f, Game::level.skybox.far_plane);
 			camera_connecting.ref()->mask = 0; // don't display anything; entities will be popping in over the network
+			camera_connecting.ref()->flag(CameraFlagColors, false);
 		}
 		else if (!camera_needed && camera_connecting.ref())
 		{
@@ -950,6 +955,8 @@ void draw_letterbox(const RenderParams& params, r32 t, r32 total)
 	UI::box(params, { Vec2(0, vp.size.y - size), Vec2(vp.size.x, size) }, UI::color_background);
 }
 
+void settings_graphics_init();
+
 // returns next state the menu should be in
 State settings(const Update& u, s8 gamepad, UIMenu* menu)
 {
@@ -978,6 +985,7 @@ State settings(const Update& u, s8 gamepad, UIMenu* menu)
 		if (menu->item(u, _(strings::settings_graphics)))
 		{
 			menu->end();
+			settings_graphics_init();
 			return State::SettingsGraphics;
 		}
 
@@ -1163,6 +1171,13 @@ void settings_graphics_cancel(s8)
 	Settings::display_mode_index = display_mode_index = display_mode_index_last;
 	Settings::fullscreen = display_mode_fullscreen = display_mode_fullscreen_last;
 	Settings::vsync = display_mode_vsync = display_mode_vsync_last;
+}
+
+void settings_graphics_init()
+{
+	display_mode_index = display_mode_index_last = Settings::display_mode_index;
+	display_mode_fullscreen = display_mode_fullscreen_last = Settings::fullscreen;
+	display_mode_vsync = display_mode_vsync_last = Settings::vsync;
 }
 
 void settings_graphics_apply(s8)

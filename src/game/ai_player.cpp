@@ -1012,11 +1012,15 @@ void PlayerControlAI::actions_populate()
 			else if (want_upgrade(this, u))
 			{
 				// go to upgrade
-				AI::RecordedLife::Action action;
-				action.type = AI::RecordedLife::Action::TypeMove;
-				action.pos = UpgradeStation::closest(1 << s32(my_team), get<Transform>()->absolute_pos())->get<Transform>()->absolute_pos();
-				action.normal = Vec3(0, 1, 0);
-				action_queue.push({ 0, action });
+				UpgradeStation* station = UpgradeStation::closest_available(1 << s32(my_team), get<Transform>()->absolute_pos());
+				if (station)
+				{
+					AI::RecordedLife::Action action;
+					action.type = AI::RecordedLife::Action::TypeMove;
+					action.pos = station->get<Transform>()->absolute_pos();
+					action.normal = Vec3(0, 1, 0);
+					action_queue.push({ 0, action });
+				}
 			}
 		}
 	}

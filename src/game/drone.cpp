@@ -449,11 +449,13 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 
 void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone::Hits* hits = nullptr)
 {
-	ShellCasing::spawn(drone->get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Sniper);
+	Vec3 pos = drone->get<Transform>()->absolute_pos();
+
+	ShellCasing::spawn(pos, Quat::look(dir_normalized), ShellCasing::Type::Sniper);
 	drone->get<Audio>()->post(AK::EVENTS::PLAY_SNIPER_FIRE);
+	EffectLight::add(pos + dir_normalized * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 2.0f, 0.1f, EffectLight::Type::MuzzleFlash);
 
 	drone->hit_targets.length = 0;
-	Vec3 pos = drone->get<Transform>()->absolute_pos();
 	Vec3 ray_start = pos + dir_normalized * -DRONE_RADIUS;
 	Vec3 ray_end = pos + dir_normalized * drone->range();
 	drone->velocity = dir_normalized * DRONE_FLY_SPEED;
@@ -828,7 +830,10 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				case Ability::Grenade:
 				{
 					if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
+					{
 						drone->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_SPAWN);
+						EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
+					}
 
 					if (Game::level.local)
 					{
@@ -890,6 +895,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
 					{
 						drone->get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
+						EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
 						ShellCasing::spawn(drone->get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Bolter);
 						drone_bolter_cooldown_setup(drone);
 					}
@@ -908,7 +914,9 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
 						{
 							drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
-							ShellCasing::spawn(drone->get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Shotgun);
+							Vec3 my_pos = drone->get<Transform>()->absolute_pos();
+							ShellCasing::spawn(my_pos, Quat::look(dir_normalized), ShellCasing::Type::Shotgun);
+							EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 3.0f, DRONE_RADIUS * 3.0f, 0.1f, EffectLight::Type::MuzzleFlash);
 							drone->cooldown_setup();
 							drone->current_ability = Ability::None; // HACK: make sure dash_start() knows it's okay to go
 							drone->dash_start(-dir_normalized, my_pos, DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
@@ -1703,7 +1711,9 @@ b8 Drone::go(const Vec3& dir)
 				// create fake bolts
 				get<Audio>()->post(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
 				Quat target_quat = Quat::look(dir_normalized);
-				ShellCasing::spawn(get<Transform>()->absolute_pos(), target_quat, ShellCasing::Type::Shotgun);
+				Vec3 my_pos = get<Transform>()->absolute_pos();
+				ShellCasing::spawn(my_pos, target_quat, ShellCasing::Type::Shotgun);
+				EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 3.0f, DRONE_RADIUS * 3.0f, 0.1f, EffectLight::Type::MuzzleFlash);
 				for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
 				{
 					Vec3 d = target_quat * drone_shotgun_dirs[i];
@@ -1711,7 +1721,7 @@ b8 Drone::go(const Vec3& dir)
 					(
 						EffectLight::add
 						(
-							get<Transform>()->absolute_pos() + d * DRONE_SHIELD_RADIUS,
+							my_pos + d * DRONE_SHIELD_RADIUS,
 							BOLT_LIGHT_RADIUS,
 							0.5f,
 							EffectLight::Type::BoltDroneShotgun,
@@ -1730,12 +1740,14 @@ b8 Drone::go(const Vec3& dir)
 
 				// create fake bolt
 				get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
-				ShellCasing::spawn(get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Bolter);
+				Vec3 my_pos = get<Transform>()->absolute_pos();
+				EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
+				ShellCasing::spawn(my_pos, Quat::look(dir_normalized), ShellCasing::Type::Bolter);
 				fake_bolts.add
 				(
 					EffectLight::add
 					(
-						get<Transform>()->absolute_pos() + dir_normalized * DRONE_SHIELD_RADIUS,
+						my_pos + dir_normalized * DRONE_SHIELD_RADIUS,
 						BOLT_LIGHT_RADIUS,
 						0.5f,
 						EffectLight::Type::BoltDroneBolter,
@@ -1759,7 +1771,10 @@ b8 Drone::go(const Vec3& dir)
 					get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
 				}
 				else if (a == Ability::Grenade)
+				{
 					get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_SPAWN);
+					EffectLight::add(get<Transform>()->absolute_pos() + dir_normalized * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
+				}
 			}
 		}
 	}

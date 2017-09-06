@@ -238,16 +238,16 @@ s32 socket_bind(u64* handle, u16 port, s32 family)
 				port = addr->sin6_port;
 				inet_ntop(AF_INET6, &addr->sin6_addr, buffer, NET_MAX_ADDRESS);
 			}
-			vi_debug("Binding to %s:%hu...", buffer, ntohs(port));
+			printf("Binding to %s:%hu...", buffer, ntohs(port));
 		}
 
 		if (bind(*handle, addr_list->ai_addr, addr_list->ai_addrlen))
 		{
-			vi_debug("%s", "Bind failed.");
+			fprintf(stderr, "%s", "Bind failed.");
 			return error("Failed to bind socket");
 		}
 		else
-			vi_debug("%s", "Bind succeeded.");
+			printf("%s", "Bind succeeded.");
 
 		freeaddrinfo(addr_list);
 	}
@@ -263,8 +263,6 @@ s32 socket_bind(u64* handle, u16 port, s32 family)
 			return error("Failed to set socket to non-blocking");
 #endif
 	}
-
-	printf("Listening on %s port %hu\n", family == AF_INET ? "IPv4" : "IPv6", port);
 
 	return 0;
 }

@@ -62,7 +62,7 @@ void main()
 	}
 	else if (type == type_override)
 	{
-		float distance_attenuation = 1.0 - (distance_to_light / light_radius);
+		float distance_attenuation = 1.0f - (distance_to_light / light_radius);
 		if (distance_attenuation < 0.0f || normal_attenuation < 0.0f)
 			discard;
 		light_strength = 1.0f;

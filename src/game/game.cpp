@@ -514,6 +514,8 @@ void Game::update(const Update& update_in)
 
 		Physics::sync_static();
 
+		ParticleEffect::update_all(u);
+
 		PlayerManager::update_all(u);
 		PlayerHuman::update_all(u);
 
@@ -585,7 +587,6 @@ void Game::update(const Update& update_in)
 		ForceField::update_all(u);
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
-		ParticleEffect::update_all(u);
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		{
 			if (!level.local && i.item()->local() && i.item()->has<Walker>())

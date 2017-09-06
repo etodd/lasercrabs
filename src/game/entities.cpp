@@ -1064,14 +1064,14 @@ UpgradeStation* UpgradeStation::drone_inside(const Drone* drone)
 	return nullptr;
 }
 
-UpgradeStation* UpgradeStation::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
+UpgradeStation* UpgradeStation::closest_available(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
 	UpgradeStation* closest = nullptr;
 	r32 closest_distance = FLT_MAX;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (AI::match(i.item()->spawn_point.ref()->team, mask))
+		if (AI::match(i.item()->spawn_point.ref()->team, mask) && !i.item()->drone.ref())
 		{
 			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (d < closest_distance)
@@ -2371,15 +2371,15 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 	if (e.type == Type::Grenade)
 	{
 		Audio::post_global(AK::EVENTS::PLAY_DRONE_GRENADE_EXPLO, e.pos);
-		EffectLight::add(e.pos, GRENADE_RANGE, 0.35f, EffectLight::Type::Alpha);
+		EffectLight::add(e.pos, GRENADE_RANGE, 0.35f, EffectLight::Type::Explosion);
 	}
 	else if (e.type == Type::Explosion)
 	{
 		Audio::post_global(AK::EVENTS::PLAY_EXPLOSION, e.pos);
-		EffectLight::add(e.pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
+		EffectLight::add(e.pos, 8.0f, 0.35f, EffectLight::Type::Explosion);
 	}
 	else if (e.type == Type::DroneExplosion)
-		EffectLight::add(e.pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
+		EffectLight::add(e.pos, 8.0f, 0.35f, EffectLight::Type::Explosion);
 	else if (e.type == Type::ImpactLarge || e.type == Type::ImpactSmall)
 		Audio::post_global(AK::EVENTS::PLAY_DRONE_BOLT_IMPACT, e.pos);
 	else if (e.type == Type::Fizzle)
@@ -2462,30 +2462,35 @@ void ParticleEffect::update_all(const Update& u)
 			list.remove(i);
 			i--;
 		}
-		else if (Game::level.local && e->owner.ref())
+		else
 		{
 			const r32 threshold = SPAWN_EFFECT_LIFETIME - SPAWN_EFFECT_THRESHOLD;
 			if (e->lifetime < threshold && e->lifetime + u.time.delta >= threshold)
 			{
-				switch (e->type)
+				EffectLight::add(e->pos, GRENADE_RANGE * 0.5f, 0.75f, EffectLight::Type::Shockwave);
+				if (Game::level.local && (e->owner.ref() || e->type == Type::SpawnMinion))
 				{
-					case Type::SpawnDrone:
+					switch (e->type)
 					{
-						break;
+						case Type::SpawnDrone:
+						{
+							break;
+						}
+						case Type::SpawnMinion:
+						{
+							AI::Team team = e->owner.ref() ? e->owner.ref()->team.ref()->team() : e->team;
+							Net::finalize(World::create<MinionEntity>(e->pos + Vec3(0, 1, 0), e->rot, team, e->owner.ref()));
+							break;
+						}
+						case Type::SpawnForceField:
+						{
+							Net::finalize(World::create<ForceFieldEntity>(nullptr, e->pos, e->rot, e->owner.ref()->team.ref()->team()));
+							break;
+						}
+						default:
+							vi_assert(false);
+							break;
 					}
-					case Type::SpawnMinion:
-					{
-						Net::finalize(World::create<MinionEntity>(e->pos + Vec3(0, 1, 0), e->rot, e->owner.ref()->team.ref()->team(), nullptr));
-						break;
-					}
-					case Type::SpawnForceField:
-					{
-						Net::finalize(World::create<ForceFieldEntity>(nullptr, e->pos, e->rot, e->owner.ref()->team.ref()->team()));
-						break;
-					}
-					default:
-						vi_assert(false);
-						break;
 				}
 			}
 		}
@@ -2498,51 +2503,55 @@ void ParticleEffect::draw_alpha(const RenderParams& p)
 	{
 		const ParticleEffect& e = list[i];
 
-		r32 blend = 1.0f - (e.lifetime / SPAWN_EFFECT_LIFETIME);
-		r32 radius_scale;
-		const r32 fulcrum = SPAWN_EFFECT_THRESHOLD / SPAWN_EFFECT_LIFETIME;
-		if (blend < fulcrum)
-		{
-			blend /= fulcrum; // blend goes from 0 to 1
-			radius_scale = vi_min(1.0f, blend / 0.1f);
-		}
-		else
-		{
-			blend = ((blend - fulcrum) / (1.0f - fulcrum)); // blend goes from 0 to 1
-			radius_scale = LMath::lerpf(Ease::cubic_out<r32>(vi_min(blend / 0.25f, 1.0f)), 1.0f, 0.1f);
-			blend = 1.0f - blend; // blend goes from 1 to 0
-		}
-		r32 height_scale = Ease::cubic_in_out<r32>(blend);
-		Vec3 scale(radius_scale, height_scale, radius_scale);
-
 		Mat4 m;
 		Vec3 size;
-		switch (e.type)
+
 		{
-			case Type::SpawnDrone:
+			r32 blend = 1.0f - (e.lifetime / SPAWN_EFFECT_LIFETIME);
+			r32 radius_scale;
+			r32 height_scale;
+			const r32 fulcrum = SPAWN_EFFECT_THRESHOLD / SPAWN_EFFECT_LIFETIME;
+			if (blend < fulcrum)
 			{
-				size = scale * Vec3(DRONE_SHIELD_RADIUS, DRONE_SHIELD_RADIUS * 2.0f, DRONE_SHIELD_RADIUS);
-				m.make_transform(e.pos, size, Quat::identity);
-				break;
+				blend /= fulcrum; // blend goes from 0 to 1
+				radius_scale = 1.0f;
+				height_scale = Ease::cubic_in_out<r32>(blend);
 			}
-			case Type::SpawnMinion:
+			else
 			{
-				size = scale * Vec3(WALKER_RADIUS, WALKER_HEIGHT, WALKER_RADIUS);
-				m.make_transform(e.pos, size, Quat::identity);
-				break;
+				blend = ((blend - fulcrum) / (1.0f - fulcrum)); // blend goes from 0 to 1
+				radius_scale = LMath::lerpf(Ease::cubic_in_out<r32>(vi_min(blend / 0.5f, 1.0f)), 1.0f, 0.05f);
+				height_scale = 1.0f - Ease::cubic_in<r32>(blend);
 			}
-			case Type::SpawnForceField:
+
+			switch (e.type)
 			{
-				size = scale * Vec3(FORCE_FIELD_BASE_RADIUS * 1.75f, FORCE_FIELD_BASE_OFFSET + DRONE_RADIUS * 2.0f, FORCE_FIELD_BASE_RADIUS * 1.75f);
-				m.make_transform(e.pos + e.rot * Vec3(0, 0, -FORCE_FIELD_BASE_OFFSET), size, e.rot * Quat::euler(0, 0, PI * 0.5f));
-				break;
+				case Type::SpawnDrone:
+				{
+					size = Vec3(height_scale * DRONE_SHIELD_RADIUS * 1.1f);
+					m.make_transform(e.pos, size, Quat::identity);
+					break;
+				}
+				case Type::SpawnMinion:
+				{
+					size = Vec3(radius_scale * WALKER_RADIUS * 1.5f, height_scale * (WALKER_HEIGHT * 2.0f + WALKER_SUPPORT_HEIGHT), radius_scale * WALKER_RADIUS * 1.5f);
+					m.make_transform(e.pos, size, Quat::identity);
+					break;
+				}
+				case Type::SpawnForceField:
+				{
+					size = Vec3(radius_scale * FORCE_FIELD_BASE_RADIUS * 1.75f, height_scale * (FORCE_FIELD_BASE_OFFSET + DRONE_RADIUS * 2.0f), radius_scale * FORCE_FIELD_BASE_RADIUS * 1.75f);
+					m.make_transform(e.pos + e.rot * Vec3(0, 0, -FORCE_FIELD_BASE_OFFSET), size, e.rot * Quat::euler(0, 0, PI * 0.5f));
+					break;
+				}
+				default:
+					vi_assert(false);
+					break;
 			}
-			default:
-				vi_assert(false);
-				break;
 		}
+
 		r32 radius = vi_max(size.x, vi_max(size.y, size.z));
-		View::draw_mesh(p, Asset::Mesh::cylinder, Asset::Shader::standard_flat, AssetNull, m, Vec4(1), radius);
+		View::draw_mesh(p, e.type == Type::SpawnDrone ? Asset::Mesh::sphere_highres : Asset::Mesh::cylinder, Asset::Shader::standard_flat, AssetNull, m, Vec4(1), radius);
 	}
 }
 
@@ -3434,28 +3443,28 @@ void EffectLight::draw_alpha(const RenderParams& params)
 	{
 		r32 radius = i.item()->radius();
 		Vec3 pos = i.item()->absolute_pos();
-		if (i.item()->type != Type::Alpha || !params.camera->visible_sphere(pos, radius))
-			continue;
+		if ((i.item()->type == Type::Explosion || i.item()->type == Type::MuzzleFlash) && params.camera->visible_sphere(pos, radius))
+		{
+			Mat4 m;
+			m.make_transform(pos, Vec3(radius), Quat::identity);
+			Mat4 mvp = m * params.view_projection;
 
-		Mat4 m;
-		m.make_transform(pos, Vec3(radius), Quat::identity);
-		Mat4 mvp = m * params.view_projection;
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::mvp);
+			sync->write(RenderDataType::Mat4);
+			sync->write<s32>(1);
+			sync->write<Mat4>(mvp);
 
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::mvp);
-		sync->write(RenderDataType::Mat4);
-		sync->write<s32>(1);
-		sync->write<Mat4>(mvp);
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::diffuse_color);
+			sync->write(RenderDataType::Vec4);
+			sync->write<s32>(1);
+			sync->write<Vec4>(Vec4(1, 1, 1, i.item()->opacity()));
 
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::diffuse_color);
-		sync->write(RenderDataType::Vec4);
-		sync->write<s32>(1);
-		sync->write<Vec4>(Vec4(1, 1, 1, i.item()->opacity()));
-
-		sync->write(RenderOp::Mesh);
-		sync->write(RenderPrimitiveMode::Triangles);
-		sync->write(Asset::Mesh::sphere_highres);
+			sync->write(RenderOp::Mesh);
+			sync->write(RenderPrimitiveMode::Triangles);
+			sync->write(Asset::Mesh::sphere_highres);
+		}
 	}
 }
 
@@ -3474,10 +3483,18 @@ r32 EffectLight::radius() const
 			r32 blend = Ease::cubic_in<r32>(timer / duration);
 			return LMath::lerpf(blend, max_radius * 0.25f, max_radius);
 		}
-		case Type::Alpha:
+		case Type::Explosion:
 		{
 			r32 blend = Ease::cubic_in<r32>(timer / duration);
 			return LMath::lerpf(blend, 0.0f, max_radius);
+		}
+		case Type::MuzzleFlash:
+		{
+			r32 blend = timer / duration;
+			if (blend < 0.2f)
+				return LMath::lerpf(Ease::cubic_out<r32>(blend / 0.2f), 0.0f, max_radius);
+			else
+				return LMath::lerpf(Ease::cubic_in<r32>((blend - 0.2f) / (0.8f)), max_radius, 0.0f);
 		}
 		default:
 		{
@@ -3493,9 +3510,8 @@ r32 EffectLight::opacity() const
 	{
 		case Type::BoltDroneBolter:
 		case Type::BoltDroneShotgun:
-		{
+		case Type::MuzzleFlash:
 			return 1.0f;
-		}
 		case Type::Spark:
 		{
 			r32 blend = Ease::cubic_in<r32>(timer / duration);
@@ -3507,7 +3523,7 @@ r32 EffectLight::opacity() const
 			r32 fade = 1.0f - vi_max(0.0f, ((radius() - (max_radius - fade_radius)) / fade_radius));
 			return fade * 0.8f;
 		}
-		case Type::Alpha:
+		case Type::Explosion:
 		{
 			r32 blend = Ease::cubic_in<r32>(timer / duration);
 			return LMath::lerpf(blend, 0.8f, 0.0f);

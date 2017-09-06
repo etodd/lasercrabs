@@ -178,6 +178,7 @@ namespace Client
 	extern MasterError master_error;
 	extern DisconnectReason disconnect_reason;
 
+	b8 master_send_auth();
 	void connect(Sock::Address);
 	void connect(const char*, u16);
 	void replay(const char* = nullptr);

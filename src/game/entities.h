@@ -177,7 +177,7 @@ struct UpgradeStation : public ComponentType<UpgradeStation>
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static UpgradeStation* drone_at(const Drone*);
 	static UpgradeStation* drone_inside(const Drone*);
-	static UpgradeStation* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+	static UpgradeStation* closest_available(AI::TeamMask, const Vec3&, r32* = nullptr);
 
 	r32 timer;
 	Ref<SpawnPoint> spawn_point;
@@ -343,7 +343,8 @@ struct EffectLight
 		BoltDroneShotgun,
 		Spark,
 		Shockwave,
-		Alpha,
+		Explosion,
+		MuzzleFlash,
 		count,
 	};
 

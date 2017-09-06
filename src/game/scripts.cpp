@@ -748,6 +748,11 @@ namespace Docks
 		data = new Data();
 		Game::cleanups.add(cleanup);
 
+#if !SERVER
+		if (!Game::user_key.id)
+			Net::Client::master_send_auth();
+#endif
+
 		if (Game::level.mode == Game::Mode::Special)
 		{
 			data->camera = Camera::add(0);

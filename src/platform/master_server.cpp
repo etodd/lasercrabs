@@ -21,6 +21,7 @@
 #include <cmath>
 
 #define OFFLINE_DEV 0
+#define AUTHENTICATE_DOWNLOAD_KEYS 0
 
 namespace VI
 {
@@ -631,9 +632,14 @@ namespace Master
 					{
 						success = true;
 
+#if AUTHENTICATE_DOWNLOAD_KEYS
 						char url[MAX_PATH_LENGTH + 1] = {};
 						snprintf(url, MAX_PATH_LENGTH, "https://itch.io/api/1/%s/game/65651/download_keys?user_id=%d", Settings::itch_api_key, id->valueint);
 						Http::get(url, &itch_download_key_callback, nullptr, user_data);
+#else
+						const char* username = cJSON_GetObjectItem(user, "username")->valuestring;
+						itch_auth_result(user_data, true, id->valuedouble, username);
+#endif
 					}
 				}
 				cJSON_Delete(json);

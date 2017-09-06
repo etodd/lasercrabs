@@ -3111,6 +3111,8 @@ StateClient state_client;
 
 b8 master_send_auth()
 {
+	master_auth_timer = MASTER_AUTH_TIMEOUT;
+
 	using Stream = StreamWrite;
 	StreamWrite p;
 	packet_init(&p);
@@ -3211,8 +3213,6 @@ b8 init()
 	}
 
 	master_init();
-	master_auth_timer = MASTER_AUTH_TIMEOUT;
-	master_send_auth();
 
 	return true;
 }

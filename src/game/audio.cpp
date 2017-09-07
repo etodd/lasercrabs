@@ -149,6 +149,11 @@ b8 Audio::init()
 		AkPlatformInitSettings platform_init_settings;
 		AK::SoundEngine::GetDefaultInitSettings(init_settings);
 		AK::SoundEngine::GetDefaultPlatformInitSettings(platform_init_settings);
+#ifdef __linux__
+		// disable 5.1 surround on linux
+		// because for some reason it thinks headphones can do 5.1
+		init_settings.settingsMainOutput.channelConfig.SetStandard(AK_SPEAKER_SETUP_STEREO);
+#endif
 
 		if (AK::SoundEngine::Init(&init_settings, &platform_init_settings) != AK_Success)
 		{

@@ -173,6 +173,7 @@ void RigidBody::awake()
 			| CollisionElectric
 			| CollisionWalker
 			| CollisionTarget
+			| CollisionAudio
 		);
 	}
 	else

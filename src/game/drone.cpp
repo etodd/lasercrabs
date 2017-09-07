@@ -603,10 +603,12 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
 					drone->get<Transform>()->absolute_rot(Quat::look(dir));
 
-					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
-
 					if (flag != DroneNet::FlyFlag::CancelExisting)
+					{
+						drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
 						drone->cooldown_setup();
+					}
+
 					drone->ensure_detached();
 				}
 			}

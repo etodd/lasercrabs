@@ -2139,14 +2139,14 @@ b8 Bolt::simulate(r32 dt, Hit* out_hit, Net::StateFrame* state_frame)
 r32 Bolt::particle_accumulator;
 void Bolt::update_client_all(const Update& u)
 {
-	const r32 particle_interval = 0.025f;
+	const r32 particle_interval = 0.035f;
 	particle_accumulator += u.time.delta;
 	while (particle_accumulator > particle_interval)
 	{
 		particle_accumulator -= particle_interval;
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->reflected)
+			if (i.item()->reflected || i.item()->type == Type::Turret)
 			{
 				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 				Particles::tracers.add

@@ -750,7 +750,10 @@ b8 PlayerHuman::chat_emotes_enabled() const
 void PlayerHuman::update(const Update& u)
 {
 #if SERVER
-	if (Game::session.type == SessionType::Multiplayer && get<PlayerManager>()->respawns != 0 && Team::match_state == Team::MatchState::Active)
+	if (Game::session.type == SessionType::Multiplayer
+		&& !Game::session.config.is_private
+		&& get<PlayerManager>()->respawns != 0
+		&& Team::match_state == Team::MatchState::Active)
 	{
 		afk_timer -= Game::real_time.delta;
 		if (afk_timer < 0.0f)
@@ -2055,7 +2058,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 					p.x += MENU_ITEM_WIDTH * -0.5f;
 
 					if (Team::match_state == Team::MatchState::TeamSelect)
-						text.text(0, _(Game::level.local ? strings::team_select : strings::team_select_timer), vi_max(0, s32(TEAM_SELECT_TIME - Team::match_time)));
+						text.text(0, _(Game::session.config.is_private ? strings::team_select : strings::team_select_timer), vi_max(0, s32(TEAM_SELECT_TIME - Team::match_time)));
 					else // waiting for players to connect
 						text.text(0, _(strings::waiting_players), Game::session.config.min_players - PlayerHuman::list.count());
 
@@ -2214,7 +2217,8 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 			Vec2 p = title_pos + Vec2(0, -2.0f * (MENU_ITEM_HEIGHT + MENU_ITEM_PADDING));
 
-			match_timer_draw(params, p + Vec2(0, MENU_ITEM_HEIGHT + MENU_ITEM_PADDING * 0.5f), UIText::Anchor::Center);
+			if (!Game::session.config.is_private)
+				match_timer_draw(params, p + Vec2(0, MENU_ITEM_HEIGHT + MENU_ITEM_PADDING * 0.5f), UIText::Anchor::Center);
 
 			p.y -= MENU_ITEM_PADDING * 2.0f;
 			score_summary_scroll.start(params, p + Vec2(0, MENU_ITEM_PADDING));

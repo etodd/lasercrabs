@@ -1,0 +1,4 @@
+[[actions]]
+name = "play"
+path = "deceiver"
+scope = "profile:me"

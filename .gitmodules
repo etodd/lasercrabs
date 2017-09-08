@@ -37,3 +37,6 @@
 [submodule "external/sqlite"]
 	path = external/sqlite
 	url = git@github.com:etodd/sqlite-amalgamation.git
+[submodule "external/mongoose"]
+	path = external/mongoose
+	url = git@github.com:etodd/mongoose.git

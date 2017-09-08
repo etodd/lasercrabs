@@ -1,5 +1,6 @@
 #define _AMD64_
 
+#include "curl/curl.h"
 #include <glew/include/GL/glew.h>
 #include <sdl/include/SDL.h>
 //#undef main
@@ -13,9 +14,13 @@
 #include "settings.h"
 #if _WIN32
 #include <Windows.h>
+#include <DbgHelp.h>
+#include "game/menu.h"
 #endif
 #include <time.h>
 #include "lodepng/lodepng.h"
+#include "asset/version.h"
+#include <sstream>
 
 namespace VI
 {
@@ -101,17 +106,131 @@ namespace VI
 		return 0;
 	}
 
-	s32 proc()
+#if _WIN32
+	void create_mini_dump(EXCEPTION_POINTERS* pep, const char* path)
 	{
+		typedef BOOL(*PDUMPFN)
+		(
+			HANDLE hProcess,
+			DWORD ProcessId,
+			HANDLE hFile,
+			MINIDUMP_TYPE DumpType,
+			PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
+			PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam,
+			PMINIDUMP_CALLBACK_INFORMATION CallbackParam
+		);
+
+		HANDLE hFile = CreateFile(path, GENERIC_READ | GENERIC_WRITE,
+			0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+		HMODULE lib = ::LoadLibrary("DbgHelp.dll");
+		PDUMPFN pFn = PDUMPFN(GetProcAddress(lib, "MiniDumpWriteDump"));
+
+		if (hFile && hFile != INVALID_HANDLE_VALUE)
 		{
-			const char* itch_api_key = getenv("ITCHIO_API_KEY");
-			if (itch_api_key)
+			// Create the minidump 
+
+			MINIDUMP_EXCEPTION_INFORMATION mdei;
+			mdei.ThreadId = GetCurrentThreadId();
+			mdei.ExceptionPointers = pep;
+			mdei.ClientPointers = TRUE;
+
+			BOOL rv = (*pFn)(GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, (pep != 0) ? &mdei : 0, 0, 0);
+
+			CloseHandle(hFile);
+		}
+	}
+
+	void mini_dump_name(std::string* name)
+	{
+		std::stringstream builder;
+		builder << BUILD_ID;
+		time_t timev = time(NULL);
+		struct tm * now = localtime(&timev);
+		builder << "-" << now->tm_year + 1900 << "-" << now->tm_mon + 1 << "-" << now->tm_mday << "-" << now->tm_hour << "-" << now->tm_min << "-" << now->tm_sec << ".dmp";
+		*name = builder.str();
+	}
+
+	void mini_dump_path(std::string* path)
+	{
+		std::stringstream builder;
+		builder << Loader::data_directory;
+		std::string name;
+		mini_dump_name(&name);
+		builder << name;
+		*path = builder.str();
+	}
+
+	size_t mini_dump_read_callback(void* ptr, size_t size, size_t nmemb, void* stream)
+	{
+		return fread(ptr, size, nmemb, (FILE*)(stream));
+	}
+
+	LONG WINAPI crash_reporter(PEXCEPTION_POINTERS exc_info)
+	{
+		std::string path;
+		mini_dump_path(&path);
+
+		create_mini_dump(exc_info, path.c_str());
+
+		if (MessageBox(NULL, "You found a bug! Sorry about that. Send the crash dump to the mothership?", "Deceiver", MB_ICONERROR | MB_OKCANCEL) == IDOK)
+		{
+			FILE* fd = fopen(path.c_str(), "rb");
+			if (!fd)
+				return EXCEPTION_EXECUTE_HANDLER;
+
+			struct stat file_info;
+			if (fstat(fileno(fd), &file_info))
+				return EXCEPTION_EXECUTE_HANDLER;
+
+			CURLcode result = CURLE_SEND_ERROR;
+
+			if (CURL* curl = curl_easy_init())
 			{
-				Game::auth_type = Net::Master::AuthType::Itch;
-				strncpy(Game::auth_key, itch_api_key, MAX_AUTH_KEY);
+				curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+
+				{
+					std::stringstream url;
+					url << "http://[" << Settings::master_server << "]:" << NET_MASTER_HTTP_PORT << "/crash_dump";
+					curl_easy_setopt(curl, CURLOPT_URL, url.str().c_str());
+				}
+
+				curl_mime* form = curl_mime_init(curl);
+				curl_mimepart* field = curl_mime_addpart(form);
+				curl_mime_name(field, "crash_dump", CURL_ZERO_TERMINATED);
+				curl_mime_filedata(field, path.c_str());
+				curl_easy_setopt(curl, CURLOPT_MIMEPOST, form);
+
+				struct curl_slist* headers = nullptr;
+				headers = curl_slist_append(headers, "Expect:"); // initialize custom header list stating that Expect: 100-continue is not wanted
+				curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+				result = curl_easy_perform(curl);
+
+				curl_easy_cleanup(curl);
+
+				curl_mime_free(form);
+
+				curl_slist_free_all(headers);
+			}
+
+			Menu::open_url("https://github.com/etodd/deceiver/issues");
+
+			if (result == CURLE_OK)
+				MessageBox(NULL, "Crash dump uploaded. Thanks!", "Deceiver", MB_OK);
+			else
+			{
+				std::string msg = "Upload failed. Crash dump is available here: " + path;
+				MessageBox(NULL, msg.c_str(), "Deceiver", MB_ICONERROR | MB_OK);
 			}
 		}
 
+		return EXCEPTION_EXECUTE_HANDLER;
+	}
+#endif
+
+	s32 proc()
+	{
 #if _WIN32
 		SetProcessDPIAware();
 #endif
@@ -135,6 +254,19 @@ namespace VI
 		}
 
 		Loader::data_directory = SDL_GetPrefPath("HelveticaScenario", "Deceiver");
+
+#if _WIN32
+		SetUnhandledExceptionFilter(crash_reporter);
+#endif
+
+		{
+			const char* itch_api_key = getenv("ITCHIO_API_KEY");
+			if (itch_api_key)
+			{
+				Game::auth_type = Net::Master::AuthType::Itch;
+				strncpy(Game::auth_key, itch_api_key, MAX_AUTH_KEY);
+			}
+		}
 
 		SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
 

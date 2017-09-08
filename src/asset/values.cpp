@@ -981,6 +981,7 @@ const char* AssetLookup::String::names[] =
 	"btn_ps4_Start",
 	"btn_ps4_X",
 	"btn_ps4_Y",
+	"bug_report",
 	"buying",
 	"cancel",
 	"capture_bonus",

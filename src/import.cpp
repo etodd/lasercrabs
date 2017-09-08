@@ -3658,7 +3658,7 @@ s32 proc(s32 argc, char* argv[])
 			{
 				printf("%s\n", version_header_path);
 				FILE* f = fopen(version_header_path, "w");
-				fprintf(f, "#pragma once\nnamespace VI { const char* BUILD_ID = \"%s\"; }", version);
+				fprintf(f, "#pragma once\n#define BUILD_ID \"%s\"", version);
 				fclose(f);
 			}
 		}

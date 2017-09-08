@@ -1,5 +1,7 @@
 #define _AMD64_
 
+#include "http.h"
+#include "curl/curl.h"
 #include "game/master.h"
 
 #include <thread>
@@ -15,13 +17,14 @@
 #include "asset/level.h"
 #include "cjson/cJSON.h"
 #include "sqlite/sqlite3.h"
-#include "http.h"
 #include "mersenne/mersenne-twister.h"
 #include "data/json.h"
 #include <cmath>
+#include "mongoose/mongoose.h"
 
-#define OFFLINE_DEV 1
+#define OFFLINE_DEV 0
 #define AUTHENTICATE_DOWNLOAD_KEYS 0
+#define CRASH_DUMP_DIR "crash_dumps/"
 
 namespace VI
 {
@@ -41,7 +44,7 @@ namespace platform
 		return r64(std::chrono::high_resolution_clock::now().time_since_epoch().count()) / 1000000000.0;
 	}
 
-	void sleep(r32 time)
+	void vi_sleep(r32 time)
 	{
 		std::this_thread::sleep_for(std::chrono::milliseconds(s64(time * 1000.0f)));
 	}
@@ -77,19 +80,147 @@ namespace platform
 		}
 	}
 #else
-	s64 filemtime(const std::string& file)
+	s64 filemtime(const char* file)
 	{
 		struct stat st;
-		if (stat(file.c_str(), &st))
+		if (stat(file, &st))
 			return 0;
 		return st.st_mtime;
 	}
 #endif
 
+	b8 file_exists(const char* file)
+	{
+		return filemtime(file) != 0;
+	}
+
 }
 
 namespace Net
 {
+
+namespace CrashReport
+{
+
+
+mg_mgr mgr;
+mg_connection* conn_ipv4;
+mg_connection* conn_ipv6;
+
+struct mg_str upload_filename(mg_connection* nc, mg_str fname)
+{
+	if (fname.len == 0)
+		return { nullptr, 0 }; // not cool
+
+	s32 i = 0;
+	while (char c = fname.p[i])
+	{
+		if ((c < 'A' || c > 'Z')
+			&& (c < 'a' || c > 'z')
+			&& (c < '0' || c > '9')
+			&& c != '-'
+			&& c != '.'
+			&& c != '_')
+			return { nullptr, 0 }; // not cool
+		i++;
+	}
+
+	mg_str result = { nullptr, 0 };
+	s32 try_index = 0;
+	while (!result.p || platform::file_exists(result.p))
+	{
+		if (result.p)
+			free((void*)(result.p));
+
+		char suffix[32];
+		if (try_index > 0)
+			sprintf(suffix, "%d", try_index);
+		else
+			suffix[0] = '\0';
+
+		result.len = strlen(CRASH_DUMP_DIR) + fname.len + strlen(suffix);
+		char* full_path = (char*)(calloc(result.len + 1, sizeof(char)));
+		sprintf(full_path, "%s%s%s", CRASH_DUMP_DIR, fname.p, suffix);
+		result.p = full_path;
+		try_index++;
+	}
+	return result;
+}
+
+void ev_handler(mg_connection* nc, int ev, void* ev_data)
+{
+	switch (ev)
+	{
+		case MG_EV_HTTP_REQUEST:
+		{
+			mg_printf
+			(
+				nc, "%s",
+				"HTTP/1.1 403 Forbidden\r\n"
+				"Content-Type: text/html\r\n"
+				"Connection: close\r\n"
+				"\r\n"
+				"Forbidden"
+			);
+			nc->flags |= MG_F_SEND_AND_CLOSE;
+			break;
+		}
+	}
+}
+
+void handle_upload(mg_connection* nc, int ev, void* p)
+{
+	switch (ev)
+	{
+		case MG_EV_HTTP_PART_BEGIN:
+		case MG_EV_HTTP_PART_DATA:
+		case MG_EV_HTTP_PART_END:
+			mg_file_upload_handler(nc, ev, p, upload_filename);
+	}
+}
+
+b8 init()
+{
+	mg_mgr_init(&mgr, nullptr);
+	{
+		char addr[32];
+		sprintf(addr, "0.0.0.0:%d", NET_MASTER_HTTP_PORT);
+		conn_ipv4 = mg_bind(&mgr, addr, ev_handler);
+
+		sprintf(addr, "[::]:%d", NET_MASTER_HTTP_PORT);
+		conn_ipv6 = mg_bind(&mgr, addr, ev_handler);
+	}
+
+	if (conn_ipv4)
+	{
+		mg_set_protocol_http_websocket(conn_ipv4);
+		mg_register_http_endpoint(conn_ipv4, "/crash_dump", handle_upload);
+		printf("Bound to 0.0.0.0:%d\n", NET_MASTER_HTTP_PORT);
+	}
+
+	if (conn_ipv6)
+	{
+		mg_set_protocol_http_websocket(conn_ipv6);
+		mg_register_http_endpoint(conn_ipv6, "/crash_dump", handle_upload);
+		printf("Bound to [::]:%d\n", NET_MASTER_HTTP_PORT);
+	}
+
+	return conn_ipv4 || conn_ipv6;
+}
+
+void update()
+{
+	mg_mgr_poll(&mgr, 0);
+}
+
+void term()
+{
+	mg_mgr_free(&mgr);
+}
+
+
+}
+
 
 namespace Master
 {
@@ -1471,11 +1602,12 @@ namespace Master
 		if (!Http::init())
 			return 1;
 
+		if (!CrashReport::init())
+			return 1;
+
 		// open sqlite database
 		{
-			b8 init_db = false;
-			if (platform::filemtime("deceiver.db") == 0)
-				init_db = true;
+			b8 init_db = !platform::file_exists("deceiver.db");
 			
 			if (sqlite3_open("deceiver.db", &db))
 			{
@@ -1541,6 +1673,9 @@ namespace Master
 			}
 
 			Http::update();
+
+			CrashReport::update();
+
 			messenger.update(timestamp, &sock);
 
 			// remove timed out client connection attempts
@@ -1653,12 +1788,14 @@ namespace Master
 					vi_debug("%s", "Discarding packet due to invalid checksum.");
 			}
 			else
-				platform::sleep(1.0f / 60.0f);
+				platform::vi_sleep(1.0f / 60.0f);
 		}
 
 		sqlite3_close(db);
 
 		Http::term();
+
+		CrashReport::term();
 
 		return 0;
 	}

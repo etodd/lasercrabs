@@ -399,6 +399,8 @@ void title_menu(const Update& u, Camera* camera)
 					open_url("https://discord.gg/rHkXXhR");
 				if (main_menu.item(u, _(strings::twitter)))
 					open_url("https://twitter.com/DeceiverGame");
+				if (main_menu.item(u, _(strings::bug_report)))
+					open_url("https://github.com/etodd/deceiver/issues");
 				if (main_menu.item(u, _(strings::exit)))
 					dialog(0, &exit, _(strings::confirm_quit));
 				main_menu.end();

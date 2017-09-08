@@ -238,7 +238,7 @@ s32 socket_bind(u64* handle, u16 port, s32 family)
 				port = addr->sin6_port;
 				inet_ntop(AF_INET6, &addr->sin6_addr, buffer, NET_MAX_ADDRESS);
 			}
-			printf("Binding to %s:%hu...\n", buffer, ntohs(port));
+			printf("Binding to [%s]:%hu...\n", buffer, ntohs(port));
 		}
 
 		if (bind(*handle, addr_list->ai_addr, addr_list->ai_addrlen))

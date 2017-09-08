@@ -21,11 +21,9 @@
 #include <sys/stat.h>
 #endif
 
-#if !LINUX
 #include <glew/include/GL/glew.h>
 #include <sdl/include/SDL.h>
 #undef main
-#endif
 
 #include <cfloat>
 #include <sstream>
@@ -897,9 +895,7 @@ const char* script_ttf_to_fbx_path(const ImporterState& state)
 
 s32 exit_error()
 {
-#if !LINUX
 	SDL_Quit();
-#endif
 	return 1;
 }
 
@@ -2905,7 +2901,6 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 	{
 		printf("%s\n", asset_out_path.c_str());
 
-#if !LINUX
 		FILE* f = fopen(asset_in_path.c_str(), "rb");
 		if (!f)
 		{
@@ -2923,7 +2918,7 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 		fread(code.data, fsize, 1, f);
 		fclose(f);
 
-		for (s32 i = 0; i < (s32)RenderTechnique::count; i++)
+		for (s32 i = 0; i < s32(RenderTechnique::count); i++)
 		{
 			GLuint program_id;
 			if (!compile_shader(TechniquePrefixes::all[i], code.data, code.length, &program_id, asset_out_path.c_str()))
@@ -2952,7 +2947,6 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 
 			glDeleteProgram(program_id);
 		}
-#endif
 
 		if (!cp(asset_in_path, asset_out_path))
 		{
@@ -3225,7 +3219,6 @@ s32 proc(s32 argc, char* argv[])
 	}
 
 	// Initialise SDL
-#if !LINUX
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
 		fprintf(stderr, "Error: Failed to initialize SDL: %s\n", SDL_GetError());
@@ -3262,7 +3255,6 @@ s32 proc(s32 argc, char* argv[])
 			return exit_error();
 		}
 	}
-#endif
 
 	{
 		DIR* dir = opendir(asset_out_folder);
@@ -3429,7 +3421,6 @@ s32 proc(s32 argc, char* argv[])
 	if (state.error)
 		return exit_error();
 
-#if !LINUX
 	{
 		// copy Wwise header
 		s64 mtime = platform::filemtime(wwise_header_in_path);
@@ -3447,7 +3438,6 @@ s32 proc(s32 argc, char* argv[])
 
 	if (state.error)
 		return exit_error();
-#endif
 
 	{
 		// import levels
@@ -3552,7 +3542,6 @@ s32 proc(s32 argc, char* argv[])
 			close_asset_header(f);
 		}
 
-#if !LINUX
 		if (state.rebuild
 			|| !maps_equal(state.manifest.soundbanks, state.cached_manifest.soundbanks)
 			|| platform::filemtime(soundbank_header_path) == 0)
@@ -3580,7 +3569,6 @@ s32 proc(s32 argc, char* argv[])
 			write_asset_header(f, "Shader", state.manifest.shaders);
 			close_asset_header(f);
 		}
-#endif
 
 		if (state.rebuild
 			|| !maps_equal(state.manifest.fonts, state.cached_manifest.fonts)
@@ -3644,7 +3632,7 @@ s32 proc(s32 argc, char* argv[])
 					existing_version_buffer[read] = '\0';
 				}
 
-				const char* existing_version = &existing_version_buffer[52];
+				const char* existing_version = &existing_version_buffer[31];
 				{
 					char* existing_version_end = (char*)(strchr(existing_version, '\"'));
 					*existing_version_end = '\0';
@@ -3663,7 +3651,6 @@ s32 proc(s32 argc, char* argv[])
 			}
 		}
 
-#if !LINUX
 		if (state.rebuild || update_manifest || platform::filemtime(asset_src_path) < state.manifest_mtime)
 		{
 			printf("%s\n", asset_src_path);
@@ -3695,14 +3682,11 @@ s32 proc(s32 argc, char* argv[])
 			clean_unused_output_files(state.manifest, level_out_folder);
 			clean_unused_output_files(state.manifest, string_out_folder);
 		}
-#endif
 	}
 
-#if !LINUX
 	SDL_GL_DeleteContext(context);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
-#endif
 	return 0;
 }
 

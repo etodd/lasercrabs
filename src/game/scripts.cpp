@@ -25,6 +25,9 @@
 #include "drone.h"
 #include "settings.h"
 #include "asset/texture.h"
+#include "render/skinned_model.h"
+#include "data/animator.h"
+#include "input.h"
 
 namespace VI
 {
@@ -1191,6 +1194,7 @@ namespace tier_2
 	{
 		Actor::Instance* meursault;
 		Ref<Entity> anim_base;
+		Ref<Entity> hobo;
 		b8 anim_played;
 		b8 drones_given;
 	};
@@ -1257,20 +1261,32 @@ namespace tier_2
 #endif
 	}
 
+	void update(const Update& u)
+	{
+		if (u.input->keys.get(s32(KeyCode::D1)) && !u.last_input->keys.get(s32(KeyCode::D1)))
+			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer1);
+		if (u.input->keys.get(s32(KeyCode::D2)) && !u.last_input->keys.get(s32(KeyCode::D2)))
+			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer2);
+	}
+
 	void init(const EntityFinder& entities)
 	{
 		data = new Data();
 		Game::cleanups.add(&cleanup);
+		Game::updates.add(&update);
 
 		data->meursault = Actor::add(entities.find("meursault"), Asset::Bone::meursault_head, Actor::IdleBehavior::Interrupt);
 
 		entities.find("trigger")->get<PlayerTrigger>()->entered.link(&trigger);
 		data->anim_base = entities.find("player_anim");
 
-#if !SERVER
+		data->hobo = World::create<Prop>(Asset::Mesh::hobo, Asset::Armature::hobo);
+		data->hobo.ref()->get<SkinnedModel>()->radius = 1000.0f;
+		data->hobo.ref()->get<Animator>()->layers[0].blend_time = 0.0f;
+		data->hobo.ref()->get<Animator>()->layers[0].behavior = Animator::Behavior::Default;
+
 		Loader::animation(Asset::Animation::character_meursault_intro);
 		Loader::animation(Asset::Animation::meursault_intro);
-#endif
 	}
 }
 

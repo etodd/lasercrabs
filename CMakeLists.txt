@@ -692,14 +692,6 @@ if (NOT PLAYSTATION)
 		${ZLIB_INCLUDE_DIR}
 	)
 
-	if (APPLE)
-		set(GLVM_IMPORT src/platform/glvm.cpp)
-	elseif (WIN32)
-		set(GLVM_IMPORT src/platform/glvm.cpp)
-	else()
-		set(GLVM_IMPORT "")
-	endif()
-
 	set(SRC_IMPORT
 		src/game/constants.h
 		src/data/import_common.h
@@ -712,7 +704,7 @@ if (NOT PLAYSTATION)
 		src/import.cpp
 		src/data/json.h
 		src/data/json.cpp
-		${GLVM_IMPORT}
+		src/platform/glvm.cpp
 	)
 	#enable_unity_build(import SRC_IMPORT)
 	add_executable(import ${SRC_IMPORT})

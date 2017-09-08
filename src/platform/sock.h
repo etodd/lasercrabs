@@ -2,7 +2,7 @@
 #include "types.h"
 #include "net_serialize.h"
 
-#define NET_MAX_ADDRESS 66
+#define NET_MAX_ADDRESS 68
 
 namespace VI
 {

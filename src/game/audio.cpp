@@ -353,10 +353,15 @@ void AudioEntry::update_spatialization(UpdateType type)
 				if (ray_callback.hasHit())
 				{
 					obstruction_target[i] = 1.0f;
-					if (type == UpdateType::All)
-						pathfind_result(s8(i), AI::audio_pathfind(listener, abs_pos), distance);
+					if (distance > 80.0f)
+						occlusion_target[i] = 0.0f;
 					else
-						AI::audio_pathfind(listener, abs_pos, this, s8(i), distance);
+					{
+						if (type == UpdateType::All)
+							pathfind_result(s8(i), AI::audio_pathfind(listener, abs_pos), distance);
+						else
+							AI::audio_pathfind(listener, abs_pos, this, s8(i), distance);
+					}
 				}
 				else
 				{

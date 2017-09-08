@@ -2768,7 +2768,9 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 					c->try_primary = false;
 					c->try_secondary = false;
 				}
-				else if (msg.ability != Ability::Bolter)
+				else if (msg.ability == Ability::Bolter)
+					c->player.ref()->rumble_add(0.2f);
+				else
 				{
 					c->try_primary = false;
 					c->player.ref()->rumble_add(0.5f);

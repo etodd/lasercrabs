@@ -144,7 +144,7 @@ void Address::str(char* out) const
 			vi_assert(false);
 			break;
 	}
-	sprintf(out, "%s:%hu", buffer, ntohs(port));
+	sprintf(out, "[%s]:%hu", buffer, ntohs(port));
 }
 
 s32 Sock::Address::get(Address* address, const char* host, u16 port)

@@ -739,7 +739,7 @@ void loop()
 			case Op::Load:
 			{
 #if DEBUG_DRONE || DEBUG_WALK || DEBUG_AUDIO
-				vi_debug("Loading nav mesh...");
+				vi_debug("%s", "Loading nav mesh...");
 				r32 start_time = platform::time();
 #endif
 				// free old data if necessary
@@ -1425,11 +1425,12 @@ void loop()
 				break;
 			}
 			default:
-			{
 				vi_assert(false);
 				break;
-			}
 		}
+#if DEBUG_DRONE || DEBUG_WALK || DEBUG_AUDIO
+		vi_debug("AI work queue usage: %.0f%%", 100.0f * (r32(sync_in.length()) / r32(sync_in.capacity())));
+#endif
 	}
 }
 

@@ -126,6 +126,19 @@ template<s32 size> struct SyncRingBuffer
 #pragma clang diagnostic pop
 #endif
 	}
+
+	s32 length()
+	{
+		if (read_pos <= write_pos)
+			return write_pos - read_pos;
+		else
+			return write_pos + data.length - read_pos;
+	}
+
+	s32 capacity()
+	{
+		return data.length;
+	}
 };
 
 enum SwapType

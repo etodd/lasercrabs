@@ -157,7 +157,7 @@ add_library(mongoose STATIC
 	external/mongoose/mongoose.c
 	external/mongoose/mongoose.h
 )
-target_compile_definitions(mongoose PUBLIC -DMG_ENABLE_HTTP_STREAMING_MULTIPART=1 -DMG_ENABLE_IPV6=1)
+target_compile_definitions(mongoose PUBLIC -DMG_ENABLE_HTTP_STREAMING_MULTIPART=1 -DMG_ENABLE_IPV6=1 -DDISABLE_MD5=1)
 
 ## cJSON
 add_library(cJSON STATIC
@@ -469,11 +469,10 @@ if (SERVER)
 	)
 
 	if (APPLE)
-		target_link_libraries(deceiver ${OPENSSL_LIBRARIES})
 		target_link_libraries(deceivermaster ${OPENSSL_LIBRARIES})
 	elseif (WIN32)
 	else()
-		target_link_libraries(deceiver "-lpthread")
+		target_link_libraries(deceiversrv "-lpthread")
 		target_link_libraries(deceivermaster "-lpthread")
 	endif()
 

@@ -1087,7 +1087,7 @@ void Game::execute(const char* cmd)
 {
 	if (strcmp(cmd, "netstat") == 0)
 		Net::show_stats = !Net::show_stats;
-	else if (Game::level.mode == Game::Mode::Pvp && strcmp(cmd, "noclip") == 0)
+	else if (strcmp(cmd, "noclip") == 0)
 	{
 		level.noclip = !level.noclip;
 		if (Game::level.local && level.noclip)

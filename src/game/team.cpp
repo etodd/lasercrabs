@@ -21,8 +21,6 @@
 #include "player.h"
 #include "common.h"
 
-#define ENERGY_FLASH_TIME 0.5f
-
 namespace VI
 {
 

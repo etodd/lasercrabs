@@ -90,7 +90,7 @@ typedef StaticArray<Vec3, AI_MAX_PATH_LENGTH> Path;
 
 struct DronePathNode
 {
-	enum Flags
+	enum Flags : s8
 	{
 		FlagCrawledFromParent = 1 << 0,
 	};
@@ -175,12 +175,12 @@ namespace Worker
 {
 	struct NavMeshProcess : public dtTileCacheMeshProcess
 	{
-		void process(struct dtNavMeshCreateParams* params, u8* polyAreas, u16* polyFlags);
+		void process(struct dtNavMeshCreateParams*, u8*, u16*);
 	};
 
 	struct DroneNavMeshNodeData
 	{
-		enum Flags
+		enum Flags : s8
 		{
 			FlagInQueue = (1 << 0),
 			FlagVisited = (1 << 1),
@@ -227,7 +227,7 @@ namespace Worker
 		s8 flags;
 	};
 
-	enum DroneNavFlags
+	enum DroneNavFlags : s8
 	{
 		DroneNavFlagBias = (1 << 0),
 	};

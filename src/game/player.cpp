@@ -169,9 +169,9 @@ s32 PlayerHuman::count_local()
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 #if !SERVER
-		if (i.item()->local || Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
+		if (i.item()->local() || Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
 #else
-		if (i.item()->local)
+		if (i.item()->local())
 #endif
 			count++;
 	}
@@ -192,7 +192,7 @@ PlayerHuman* PlayerHuman::player_for_gamepad(s8 gamepad)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->local && i.item()->gamepad == gamepad)
+		if (i.item()->local() && i.item()->gamepad == gamepad)
 			return i.item();
 	}
 	return nullptr;
@@ -206,9 +206,9 @@ s32 PlayerHuman::count_local_before(PlayerHuman* h)
 		if (i.item() == h)
 			break;
 #if !SERVER
-		if (i.item()->local || Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
+		if (i.item()->local() || Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
 #else
-		if (i.item()->local)
+		if (i.item()->local())
 #endif
 			count++;
 	}
@@ -291,14 +291,13 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	selected_spawn(),
 	killed_by(),
 	select_spawn_timer(),
-	upgrade_menu_open(),
 	last_supported(),
 	energy_notification_accumulator(),
 #if SERVER
 	afk_timer(AFK_TIME),
 	ai_record_id(),
 #endif
-	local(local),
+	flags(local ? FlagLocal : 0),
 	chat_field(),
 	emote_category(EmoteCategory::None),
 	chat_focus()
@@ -316,7 +315,7 @@ void PlayerHuman::awake()
 	msg_text.anchor_x = UIText::Anchor::Center;
 	msg_text.anchor_y = UIText::Anchor::Center;
 
-	if (local
+	if (local()
 #if !SERVER
 		|| Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying
 #endif
@@ -342,7 +341,7 @@ void PlayerHuman::awake()
 		&& Game::session.type == SessionType::Multiplayer
 		&& (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
 		&& !Game::level.local
-		&& local)
+		&& local())
 	{
 		Menu::teams_select_match_start_init(this);
 	}
@@ -442,12 +441,18 @@ b8 PlayerHuman::notification(Entity* entity, AI::Team team, Notification::Type t
 	return true;
 }
 
-void PlayerHuman::msg(const char* msg, b8 good)
+void PlayerHuman::msg(const char* msg, Flags f)
 {
-	msg_text.text(gamepad, msg);
-	msg_text.color = good ? UI::color_accent() : UI::color_alert();
-	msg_timer = msg_time;
-	msg_good = good;
+	if (msg_timer == 0.0f
+		|| !flag(FlagMessageHighPriority)
+		|| (f & FlagMessageHighPriority))
+	{
+		msg_text.text(gamepad, msg);
+		msg_text.color = (f & FlagMessageGood) ? UI::color_accent() : UI::color_alert();
+		msg_timer = msg_time;
+		flag(FlagMessageGood, f & FlagMessageGood);
+		flag(FlagMessageHighPriority, f & FlagMessageHighPriority);
+	}
 }
 
 void PlayerHuman::energy_notify(s32 change)
@@ -455,7 +460,7 @@ void PlayerHuman::energy_notify(s32 change)
 	energy_notification_accumulator += s16(change);
 	char buffer[UI_TEXT_MAX + 1];
 	sprintf(buffer, _(strings::energy_added), s32(energy_notification_accumulator));
-	msg(buffer, true);
+	msg(buffer, FlagMessageGood);
 }
 
 Array<PlayerHuman::LogEntry> PlayerHuman::logs;
@@ -673,14 +678,14 @@ void PlayerHuman::upgrade_menu_show()
 		animation_time = Game::real_time.total;
 		menu.animate();
 		menu.selected = 0;
-		upgrade_menu_open = true;
+		flag(FlagUpgradeMenuOpen, true);
 		upgrade_last_visit_highest_available = get<PlayerManager>()->upgrade_highest_owned_or_available();
 	}
 }
 
 void PlayerHuman::upgrade_menu_hide()
 {
-	upgrade_menu_open = false;
+	flag(FlagUpgradeMenuOpen, false);
 	upgrade_station_try_exit();
 }
 
@@ -700,7 +705,7 @@ void PlayerHuman::upgrade_station_try_exit()
 
 void PlayerHuman::upgrade_completed(Upgrade u)
 {
-	if (upgrade_menu_open && menu.selected > 0)
+	if (flag(FlagUpgradeMenuOpen) && menu.selected > 0)
 	{
 		// an upgrade was just removed from the menu
 		// shift selected menu item up one so the player is not surprised by what they currently have selected
@@ -798,7 +803,7 @@ void PlayerHuman::update(const Update& u)
 		}
 	}
 
-	if (!local
+	if (!local()
 #if !SERVER
 		&& Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying
 #endif
@@ -973,7 +978,7 @@ void PlayerHuman::update(const Update& u)
 		}
 		case UIMode::PvpUpgrading:
 		{
-			if (upgrade_menu_open)
+			if (flag(FlagUpgradeMenuOpen))
 			{
 				// upgrade menu
 				if (u.last_input->get(Controls::Cancel, gamepad)
@@ -1183,7 +1188,7 @@ void PlayerHuman::update(const Update& u)
 			&& u.last_input->get(Controls::Pause, gamepad)
 			&& !u.input->get(Controls::Pause, gamepad)
 			&& !Game::cancel_event_eaten[gamepad]
-			&& !upgrade_menu_open
+			&& !flag(FlagUpgradeMenuOpen)
 			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
 		{
 			Game::cancel_event_eaten[gamepad] = true;
@@ -1430,7 +1435,7 @@ void PlayerHuman::assault_status_display()
 		good = team != 0;
 		sprintf(buffer, _(strings::core_modules_remaining), CoreModule::list.count());
 	}
-	msg(buffer, good);
+	msg(buffer, good ? FlagMessageGood : Flags(0));
 }
 
 r32 draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, AssetID icon, char* string, const Vec4& color, r32 total_width = 0.0f)
@@ -1757,7 +1762,7 @@ void PlayerHuman::draw_turret_battery_icons(const RenderParams& params) const
 	if (params.camera == camera.ref()
 		&& !Overworld::active()
 		&& !Game::level.noclip
-		&& local
+		&& local()
 		&& Game::level.mode == Game::Mode::Pvp
 		&& (mode == UIMode::Dead || mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrading))
 	{
@@ -1884,7 +1889,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	if (params.camera != camera.ref()
 		|| Overworld::active()
 		|| Game::level.noclip
-		|| !local)
+		|| !local())
 		return;
 
 	const r32 line_thickness = 2.0f * UI::scale;
@@ -2007,7 +2012,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	}
 	else if (mode == UIMode::PvpUpgrading)
 	{
-		if (upgrade_menu_open)
+		if (flag(FlagUpgradeMenuOpen))
 		{
 			Vec2 upgrade_menu_pos = vp.size * Vec2(0.5f, 0.6f);
 			menu.draw_ui(params, upgrade_menu_pos, UIText::Anchor::Center, UIText::Anchor::Center);
@@ -2325,7 +2330,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			UI::box(params, box, UI::color_background);
 			msg_text.draw(params, pos);
 			if (!last_flash)
-				Audio::post_global(msg_good ? AK::EVENTS::PLAY_MESSAGE_BEEP_GOOD : AK::EVENTS::PLAY_MESSAGE_BEEP_BAD);
+				Audio::post_global(flag(FlagMessageGood) ? AK::EVENTS::PLAY_MESSAGE_BEEP_GOOD : AK::EVENTS::PLAY_MESSAGE_BEEP_BAD);
 		}
 	}
 
@@ -2357,6 +2362,14 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 	if (mode == UIMode::Pause) // pause menu always drawn on top
 		menu.draw_ui(params, Vec2(0, params.camera->viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
+}
+
+void PlayerHuman::flag(Flags f, b8 value)
+{
+	if (value)
+		flags |= f;
+	else
+		flags &= ~f;
 }
 
 void PlayerHuman::draw_chats(const RenderParams& params) const
@@ -3074,7 +3087,7 @@ void PlayerControlHuman::awake()
 	rtt = Net::rtt(player.ref()) + Net::interpolation_delay();
 #endif
 
-	if (player.ref()->local && !Game::level.local)
+	if (player.ref()->local() && !Game::level.local)
 	{
 		Transform* t = get<Transform>();
 		remote_control.pos = t->pos;
@@ -3105,7 +3118,7 @@ void PlayerControlHuman::awake()
 			else if (Game::session.config.game_type == GameType::Deathmatch)
 			{
 				if (player.ref()->get<PlayerManager>()->deaths == 0)
-					player.ref()->msg(_(strings::attack), true);
+					player.ref()->msg(_(strings::attack), PlayerHuman::FlagMessageGood);
 			}
 		}
 
@@ -3371,7 +3384,7 @@ Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot, s8 gamep
 
 b8 PlayerControlHuman::local() const
 {
-	return player.ref()->local;
+	return player.ref()->local();
 }
 
 void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteControl& control)
@@ -4073,7 +4086,7 @@ void PlayerControlHuman::update(const Update& u)
 											Menu::dialog_with_cancel(gamepad, &player_confirm_terminal_interactable, &player_cancel_interactable, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES);
 									}
 									else // must be in a group
-										player.ref()->msg(_(strings::group_required), false);
+										player.ref()->msg(_(strings::group_required), PlayerHuman::FlagNone);
 									break;
 								}
 								case ZoneState::ParkourUnlocked:
@@ -4092,7 +4105,7 @@ void PlayerControlHuman::update(const Update& u)
 								case ZoneState::PvpFriendly:
 								{
 									// zone is already owned
-									player.ref()->msg(_(strings::zone_already_captured), false);
+									player.ref()->msg(_(strings::zone_already_captured), PlayerHuman::FlagNone);
 									break;
 								}
 								default:
@@ -4120,7 +4133,7 @@ void PlayerControlHuman::update(const Update& u)
 								anim_base = interactable->entity();
 							}
 							else if (tram->arrive_only || target_level == AssetNull) // can't leave
-								player.ref()->msg(_(strings::zone_unavailable), false);
+								player.ref()->msg(_(strings::zone_unavailable), PlayerHuman::FlagNone);
 							else if (Overworld::zone_is_pvp(target_level))
 								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_drones), DEFAULT_ASSAULT_DRONES);
 							else if (Game::save.resources[s32(Resource::AccessKeys)] > 0) // ask if they want to use a key

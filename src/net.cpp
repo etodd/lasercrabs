@@ -694,7 +694,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_u64(p, ph->uuid);
 		if (Stream::IsReading)
 		{
-			ph->local = false;
+			ph->flag(PlayerHuman::FlagLocal, false);
 #if !SERVER // when replaying, all players are remote
 			if (Client::replay_mode() == Client::ReplayMode::Replaying)
 				ph->gamepad = s8(ph->id());
@@ -705,7 +705,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 				{
 					if (ph->uuid == Game::session.local_player_uuids[i])
 					{
-						ph->local = true;
+						ph->flag(PlayerHuman::FlagLocal, true);
 						ph->gamepad = s8(i);
 						break;
 					}
@@ -1713,7 +1713,7 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			const TransformState& s = frame.transforms[index];
 			if (t->revision == s.revision && Transform::list.active(index))
 			{
-				if (t->has<PlayerControlHuman>() && t->get<PlayerControlHuman>()->player.ref()->local)
+				if (t->has<PlayerControlHuman>() && t->get<PlayerControlHuman>()->player.ref()->local())
 				{
 					// this is a local player; we don't want to immediately overwrite its position with the server's data
 					// let the PlayerControlHuman deal with it
@@ -2814,7 +2814,6 @@ b8 add_players(Net::StreamRead* p, Client* client, s32 count, const ExpectedClie
 			PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
 			manager->is_admin = client->is_admin && gamepad == 0;
 			player->uuid = uuid;
-			player->local = false;
 			client->players.add(player);
 			finalize(e);
 		}
@@ -3058,7 +3057,7 @@ void player_deleting(const PlayerHuman* player)
 // this is meant for external consumption in the game code.
 r32 rtt(const PlayerHuman* p, SequenceID client_seq)
 {
-	if (Game::level.local && p->local)
+	if (Game::level.local && p->local())
 		return 0.0f;
 
 	Server::Client* client = Server::client_for_player(p);
@@ -4492,7 +4491,7 @@ b8 msg_finalize(StreamWrite* p)
 // this is meant for external consumption in the game code.
 r32 rtt(const PlayerHuman* p)
 {
-	if (Game::level.local && p->local)
+	if (Game::level.local && p->local())
 		return 0.0f;
 
 #if SERVER
@@ -4503,7 +4502,7 @@ r32 rtt(const PlayerHuman* p)
 	else
 		return 0.0f;
 #else
-	if (p->local)
+	if (p->local())
 		return Client::state_client.server_rtt;
 	else
 		return Client::state_client.rtts[p->id()];

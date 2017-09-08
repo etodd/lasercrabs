@@ -105,6 +105,15 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		AI::Team team;
 		Type type;
 	};
+	
+	enum Flags : s8
+	{
+		FlagNone = 0,
+		FlagLocal = 1 << 0,
+		FlagMessageGood = 1 << 1,
+		FlagMessageHighPriority = 1 << 2,
+		FlagUpgradeMenuOpen = 1 << 3,
+	};
 
 	static Array<LogEntry> logs;
 	static Array<ChatEntry> chats;
@@ -156,17 +165,27 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	EmoteCategory emote_category;
 	s8 gamepad;
 	ChatFocus chat_focus;
-	b8 msg_good;
-	b8 local;
-	b8 upgrade_menu_open;
+	s8 flags;
 	
 	PlayerHuman(b8 = false, s8 = 0);
 	void awake();
 	~PlayerHuman();
 
+	inline b8 flag(Flags f) const
+	{
+		return flags & f;
+	}
+
+	void flag(Flags, b8);
+
+	inline b8 local() const
+	{
+		return flags & FlagLocal;
+	}
+
 	void draw_chats(const RenderParams&) const;
 	b8 chat_emotes_enabled() const;
-	void msg(const char*, b8);
+	void msg(const char*, Flags);
 	void rumble_add(r32);
 	UIMode ui_mode() const;
 	Vec2 ui_anchor(const RenderParams&) const;

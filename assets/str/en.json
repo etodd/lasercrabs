@@ -83,6 +83,7 @@
 	"player_joined": "%s connected.",
 	"player_left": "%s disconnected.",
 	"player_ascended": "%s ascended.",
+	"killed_player": "Destroyed %s",
 	"group_required": "Group membership required",
 	"zone_already_captured": "Zone already captured",
 	"zone_defense_expired": "Window expired",

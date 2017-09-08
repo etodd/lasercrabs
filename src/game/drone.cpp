@@ -411,7 +411,7 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 
 		Entity* bolt_entity = World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), type, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized);
 
-		if (manager->has<PlayerHuman>() && !manager->get<PlayerHuman>()->local)
+		if (manager->has<PlayerHuman>() && !manager->get<PlayerHuman>()->local())
 		{
 			// step 1. rewind the world to the point where the remote player fired
 			// step 2. step forward in increments of 1/60th of a second until we reach the present,
@@ -872,7 +872,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 						Entity* grenade_entity = World::create<GrenadeEntity>(manager, my_pos + dir_adjusted * (DRONE_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted);
 
-						if (manager->has<PlayerHuman>() && !manager->get<PlayerHuman>()->local)
+						if (manager->has<PlayerHuman>() && !manager->get<PlayerHuman>()->local())
 						{
 							// step 1. rewind the world to the point where the remote player fired
 							// step 2. step forward in increments of 1/60th of a second until we reach the present,
@@ -2665,7 +2665,7 @@ void Drone::update_client(const Update& u)
 			AI::Team my_team = get<AIAgent>()->team;
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 			{
-				if (i.item()->local && i.item()->get<PlayerManager>()->team.ref()->team() != my_team)
+				if (i.item()->local() && i.item()->get<PlayerManager>()->team.ref()->team() != my_team)
 				{
 					perspective = 1;
 					break;

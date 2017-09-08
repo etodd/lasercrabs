@@ -1406,7 +1406,7 @@ void CoreModule::killed(Entity* e)
 		{
 			// it's a good thing if you're not on the defending team
 			b8 good = i.item()->get<PlayerManager>()->team.ref()->team() != 0;
-			i.item()->msg(buffer, good);
+			i.item()->msg(buffer, good ? PlayerHuman::FlagMessageGood : PlayerHuman::FlagNone);
 		}
 	}
 
@@ -1512,7 +1512,7 @@ void Turret::killed(Entity* by)
 		{
 			// it's a good thing if you're not on the defending team
 			b8 good = i.item()->get<PlayerManager>()->team.ref()->team() != 0;
-			i.item()->msg(buffer, good);
+			i.item()->msg(buffer, good ? PlayerHuman::FlagMessageGood : PlayerHuman::FlagNone);
 		}
 	}
 
@@ -3663,7 +3663,7 @@ void Collectible::give_rewards()
 	char msg[512];
 	sprintf(msg, _(strings::resource_collected), a, _(Overworld::resource_info[s32(type)].description));
 	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-		i.item()->msg(msg, true);
+		i.item()->msg(msg, PlayerHuman::FlagMessageGood);
 	collected.fire();
 }
 
@@ -3906,7 +3906,7 @@ void TerminalInteractable::interacted(Interactable*)
 			if (Game::level.local)
 				Overworld::zone_change(Game::level.id, ZoneState::PvpHostile);
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-				i.item()->msg(_(strings::zone_unlocked), true);
+				i.item()->msg(_(strings::zone_unlocked), PlayerHuman::FlagMessageGood);
 			TerminalEntity::open();
 		}
 		else if (zone_state == ZoneState::PvpHostile)
@@ -4298,7 +4298,7 @@ void Tram::player_entered(Entity* e)
 		if (departing && doors_open())
 		{
 			if (Overworld::zone_under_attack() == Game::level.tram_tracks[track()].level) // can't go there if it's under attack
-				e->get<PlayerControlHuman>()->player.ref()->msg(_(strings::error_zone_under_attack), false);
+				e->get<PlayerControlHuman>()->player.ref()->msg(_(strings::error_zone_under_attack), PlayerHuman::FlagNone);
 			else
 				TramNet::send(this, TramNet::Message::Entered);
 		}

@@ -1723,7 +1723,7 @@ void PlayerManager::kick()
 
 void PlayerManager::leave()
 {
-	if (has<PlayerHuman>() && get<PlayerHuman>()->local && (PlayerHuman::count_local() == 1 || get<PlayerHuman>()->gamepad == 0))
+	if (has<PlayerHuman>() && get<PlayerHuman>()->local() && (PlayerHuman::count_local() == 1 || get<PlayerHuman>()->gamepad == 0))
 	{
 		// we're the only player left, or we're player 1; just exit
 		if (Game::session.type == SessionType::Story)
@@ -1748,7 +1748,7 @@ b8 PlayerManager::upgrade_start(Upgrade u)
 			current_upgrade = u;
 
 			r32 rtt;
-			if (has<PlayerHuman>() && !get<PlayerHuman>()->local)
+			if (has<PlayerHuman>() && !get<PlayerHuman>()->local())
 				rtt = Net::rtt(get<PlayerHuman>());
 			else
 				rtt = 0.0f;
@@ -2033,6 +2033,13 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 					killer_name(killer, killer_player, player, killer_str);
 
 					PlayerHuman::log_add(killer_str, killer_team, AI::TeamAll, player->username, team);
+				}
+
+				if (player && killer_player && killer_player->has<PlayerHuman>())
+				{
+					char msg[UI_TEXT_MAX];
+					sprintf(msg, _(strings::killed_player), player->username);
+					killer_player->get<PlayerHuman>()->msg(msg, PlayerHuman::Flags(PlayerHuman::FlagMessageGood | PlayerHuman::FlagMessageHighPriority));
 				}
 
 				reward = ENERGY_DRONE_DESTROY;

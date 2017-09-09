@@ -1072,12 +1072,7 @@ b8 PlayerManager::ability_valid(Ability ability) const
 	if (ability == Ability::ActiveArmor && instance.ref()->get<Health>()->active_armor())
 		return false;
 
-	if (ability == Ability::Shotgun)
-	{
-		if (instance.ref()->get<Drone>()->charges < DRONE_SHOTGUN_CHARGES)
-			return false;
-	}
-	else if (instance.ref()->get<Drone>()->charges < 1)
+	if (!instance.ref()->get<Drone>()->cooldown_can_shoot())
 		return false;
 
 	return true;

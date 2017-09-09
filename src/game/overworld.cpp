@@ -1021,8 +1021,8 @@ void multiplayer_in_game_update(const Update& u)
 		for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		{
 			if (u.input->gamepads[i].type != Gamepad::Type::None
-				&& ((u.input->get(Controls::Start, i) && !u.last_input->get(Controls::Start, i))
-					|| (u.input->get(Controls::Interact, i) && !u.last_input->get(Controls::Interact, i)))
+				&& ((u.last_input->get(Controls::Start, i) && !u.input->get(Controls::Start, i))
+					|| (u.last_input->get(Controls::Interact, i) && !u.input->get(Controls::Interact, i)))
 				&& !PlayerHuman::player_for_gamepad(i))
 			{
 				Game::session.local_player_mask |= 1 << i;

@@ -3072,6 +3072,7 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 	remote_control(),
 	player(p),
 	position_history(),
+	cooldown_last(),
 #if SERVER
 	ai_record_tag(),
 	ai_record_wait_timer(AI_RECORD_WAIT_TIME),
@@ -3111,7 +3112,6 @@ void PlayerControlHuman::awake()
 		link<&PlayerControlHuman::drone_done_flying_or_dashing>(get<Drone>()->done_dashing);
 		link_arg<const DroneReflectEvent&, &PlayerControlHuman::drone_reflecting>(get<Drone>()->reflecting);
 		link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Drone>()->hit);
-		link_arg<s8, &PlayerControlHuman::drone_charge_restored>(get<Drone>()->charge_restored);
 
 		if (Team::match_state == Team::MatchState::Done && Game::level.has_feature(Game::FeatureLevel::All))
 		{
@@ -3149,15 +3149,6 @@ PlayerControlHuman::~PlayerControlHuman()
 		AI::record_close(player.ref()->ai_record_id);
 		player.ref()->ai_record_id = AI::record_init(Game::level.team_lookup_reverse(player.ref()->get<PlayerManager>()->team.ref()->team()), player.ref()->get<PlayerManager>()->respawns);
 #endif
-	}
-}
-
-void PlayerControlHuman::drone_charge_restored(s8 charges)
-{
-	if (local())
-	{
-		get<Audio>()->param(AK::GAME_PARAMETERS::COOLDOWNCHARGE, vi_max(0, charges - 1));
-		get<Audio>()->post(AK::EVENTS::PLAY_DRONE_CHARGE_RESTORE);
 	}
 }
 
@@ -3648,6 +3639,13 @@ void PlayerControlHuman::update(const Update& u)
 							get<Drone>()->velocity = t->rot * Vec3(0, 0, vi_max(DRONE_DASH_SPEED, get<Drone>()->velocity.length()));
 					}
 				}
+			}
+
+			{
+				r32 cooldown = get<Drone>()->cooldown;
+				if (cooldown < DRONE_COOLDOWN_THRESHOLD && cooldown_last >= DRONE_COOLDOWN_THRESHOLD)
+					Audio::post_global(AK::EVENTS::PLAY_DRONE_CHARGE_RESTORE);
+				cooldown_last = cooldown;
 			}
 
 			Camera* camera = player.ref()->camera.ref();
@@ -5026,21 +5024,12 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 		// cooldown indicator
 		{
-			s32 charges = get<Drone>()->charges;
-			if (charges == 0)
-			{
-				r32 cooldown_scale = (get<Drone>()->cooldown - Drone::cooldown_thresholds[0]) / (DRONE_COOLDOWN - Drone::cooldown_thresholds[0]);
-				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * cooldown_scale) * UI::scale) }, spoke_width, UI::color_alert(), PI);
-			}
-			else
-			{
-				const Vec2 box_size = Vec2(10.0f) * UI::scale;
-				for (s32 i = 0; i < charges; i++)
-				{
-					Vec2 p = pos + Vec2(0.0f, -36.0f + i * -16.0f) * UI::scale;
-					UI::triangle(params, { p, box_size }, *color, PI);
-				}
-			}
+			r32 cooldown = get<Drone>()->cooldown;
+			b8 cooldown_can_shoot = cooldown < DRONE_COOLDOWN_THRESHOLD;
+			Rect2 box = { pos + Vec2(0, -50.0f) * UI::scale, Vec2(64.0f, 16.0f) * UI::scale };
+			if (!cooldown_can_shoot)
+				UI::centered_box(params, { box.pos, box.size * Vec2(cooldown / DRONE_COOLDOWN_THRESHOLD, 1.0f) }, UI::color_accent());
+			UI::centered_box(params, { box.pos, box.size * Vec2(vi_min(1.0f, cooldown / DRONE_COOLDOWN_THRESHOLD), 1.0f) }, cooldown_can_shoot ? UI::color_accent() : UI::color_alert());
 		}
 
 		// reticle
@@ -5063,7 +5052,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (get<Drone>()->current_ability != Ability::None)
 			{
 				Ability a = get<Drone>()->current_ability;
-				Vec2 p = pos + Vec2(0, (-128.0f + UI_TEXT_SIZE_DEFAULT + 8.0f) * UI::scale);
+				Vec2 p = pos + Vec2(0, -160.0f * UI::scale);
 				UI::centered_box(params, { p, Vec2(34.0f * UI::scale) }, UI::color_background);
 				UI::mesh(params, AbilityInfo::list[s32(a)].icon, p, Vec2(18.0f * UI::scale), *color);
 
@@ -5085,7 +5074,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				text.text(player.ref()->gamepad, _(strings::prompt_cancel_ability), Settings::gamepads[player.ref()->gamepad].bindings[s32(binding)].string(Game::ui_gamepad_types[player.ref()->gamepad]));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Max;
-				p = pos + Vec2(0, -128.0f * UI::scale);
+				p.y -= UI_TEXT_SIZE_DEFAULT + 8.0f;
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
 				text.draw(params, p);
 			}

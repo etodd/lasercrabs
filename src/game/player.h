@@ -317,6 +317,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	r32 camera_shake_timer;
 	r32 last_gamepad_input_time;
 	r32 gamepad_rotation_speed;
+	r32 cooldown_last;
 	Ref<PlayerHuman> player;
 	Ref<Entity> anim_base;
 	b8 try_secondary;
@@ -327,7 +328,6 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	~PlayerControlHuman();
 
 	b8 local() const;
-	void drone_charge_restored(s8);
 	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 	void camera_shake(r32);

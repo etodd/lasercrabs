@@ -49,8 +49,6 @@ struct Drone : public ComponentType<Drone>
 		Ref<const Transform> parent;
 	};
 
-	static const r32 cooldown_thresholds[DRONE_CHARGES];
-
 	struct Hit
 	{
 		struct Comparator
@@ -137,13 +135,10 @@ struct Drone : public ComponentType<Drone>
 	LinkArg<const DroneReflectEvent&> reflecting;
 	LinkArg<Entity*> hit;
 	LinkArg<Ability> ability_spawned;
-	LinkArg<s8> charge_restored;
 	Link detaching;
 	Link dashing;
 	Link done_flying;
 	Link done_dashing;
-	s8 charges;
-	s8 bolter_charge_counter;
 	b8 dash_combo;
 
 	Drone();
@@ -159,7 +154,7 @@ struct Drone : public ComponentType<Drone>
 	Vec3 rotation_clamp() const;
 	Vec3 camera_center() const;
 	void ability(Ability);
-	void cooldown_setup(s8 = 1);
+	void cooldown_setup(r32);
 	State state() const;
 	b8 dash_start(const Vec3&, const Vec3&, r32 = DRONE_DASH_TIME);
 	b8 cooldown_can_shoot() const; // can we go?

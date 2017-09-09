@@ -84,6 +84,7 @@ struct MinionState
 struct PlayerManagerState
 {
 	r32 spawn_timer;
+	r32 cooldown;
 	s16 energy;
 	b8 active;
 };

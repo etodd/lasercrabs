@@ -474,9 +474,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<Drone>())
 	{
 		Drone* a = e->get<Drone>();
-		serialize_r32_range(p, a->cooldown, 0, DRONE_COOLDOWN, 8);
+		serialize_r32_range(p, a->cooldown, 0, DRONE_COOLDOWN_MAX, 8);
 		serialize_int(p, Ability, a->current_ability, 0, s32(Ability::count) + 1);
-		serialize_int(p, s8, a->charges, 0, DRONE_CHARGES);
 	}
 
 	if (e->has<Minion>())
@@ -1303,6 +1302,12 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 		serialize_r32_range(p, state->spawn_timer, 0, SPAWN_DELAY, 8);
 
 	if (Stream::IsWriting)
+		b = !base || state->cooldown != base->cooldown;
+	serialize_bool(p, b);
+	if (b)
+		serialize_r32_range(p, state->cooldown, 0, DRONE_COOLDOWN_MAX, 8);
+
+	if (Stream::IsWriting)
 		b = !base || state->energy != base->energy;
 	serialize_bool(p, b);
 	if (b)
@@ -1363,10 +1368,10 @@ b8 equal_states_minion(const StateFrame* frame_a, const StateFrame* frame_b, s32
 b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
 {
 	return a.spawn_timer == b.spawn_timer
+		&& a.cooldown == b.cooldown
 		&& a.energy == b.energy
 		&& a.active == b.active;
 }
-
 
 template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame, const StateFrame* base)
 {
@@ -1537,6 +1542,8 @@ void state_frame_build(StateFrame* frame)
 	{
 		PlayerManagerState* state = &frame->players[i.index];
 		state->spawn_timer = i.item()->spawn_timer;
+		Entity* instance = i.item()->instance.ref();
+		state->cooldown = instance ? instance->get<Drone>()->cooldown : 0.0f;
 		state->energy = i.item()->energy;
 		state->active = true;
 	}
@@ -1792,6 +1799,9 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			PlayerManager* s = &PlayerManager::list[i];
 			s->spawn_timer = state.spawn_timer;
 			s->energy = state.energy;
+			Entity* instance = s->instance.ref();
+			if (instance)
+				instance->get<Drone>()->cooldown = state.cooldown;
 		}
 	}
 

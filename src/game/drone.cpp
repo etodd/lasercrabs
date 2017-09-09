@@ -37,10 +37,15 @@ namespace VI
 #define DRONE_REFLECTION_POSITION_TOLERANCE (DRONE_SHIELD_RADIUS * 10.0f)
 #define DRONE_SHOTGUN_PELLETS 13
 
+#define DRONE_COOLDOWN_NORMAL 0.75f
+#define DRONE_COOLDOWN_SHOTGUN 1.5f
+#define DRONE_COOLDOWN_BOLTER (1.0f / 8.0f)
+#define DRONE_COOLDOWN_THRESHOLD_TIME 2.25f
+#define DRONE_COOLDOWN_SPEED (DRONE_COOLDOWN_THRESHOLD / DRONE_COOLDOWN_THRESHOLD_TIME)
+
 #define DEBUG_REFLECTIONS 0
 #define DEBUG_NET_SYNC 0
 
-const r32 Drone::cooldown_thresholds[DRONE_CHARGES] = { DRONE_COOLDOWN * 0.4f, DRONE_COOLDOWN * 0.1f, 0.0f, };
 Vec3 drone_shotgun_dirs[DRONE_SHOTGUN_PELLETS];
 r32 drone_shotgun_offsets[DRONE_SHOTGUN_PELLETS];
 
@@ -77,7 +82,6 @@ enum class Message : s8
 	DashStart,
 	DashDone,
 	HitTarget,
-	ChargeCount,
 	AbilitySelect,
 	AbilitySpawn,
 	ReflectionEffects,
@@ -108,23 +112,6 @@ b8 start_flying(Drone* a, Vec3 dir, FlyFlag flag)
 	serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
 	serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
 	serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
-	Net::msg_finalize(p);
-	return true;
-}
-
-b8 charge_count(Drone* a, s8 count)
-{
-	using Stream = Net::StreamWrite;
-	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
-	{
-		Ref<Drone> ref = a;
-		serialize_ref(p, ref);
-	}
-	{
-		Message t = Message::ChargeCount;
-		serialize_enum(p, Message, t);
-	}
-	serialize_int(p, s8, count, 0, DRONE_CHARGES);
 	Net::msg_finalize(p);
 	return true;
 }
@@ -540,12 +527,7 @@ void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone:
 void drone_bolter_cooldown_setup(Drone* drone)
 {
 	drone->bolter_last_fired = Game::time.total;
-	drone->bolter_charge_counter++;
-	if (drone->bolter_charge_counter >= BOLTS_PER_DRONE_CHARGE)
-	{
-		drone->bolter_charge_counter = 0;
-		drone->cooldown_setup();
-	}
+	drone->cooldown_setup(DRONE_COOLDOWN_BOLTER);
 }
 
 Vec3 grenade_adjusted_dir(const Vec3& dir_normalized)
@@ -592,7 +574,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			if (apply_msg)
 			{
-				if (drone->charges > 0 || flag == DroneNet::FlyFlag::CancelExisting)
+				if (drone->cooldown_can_shoot() || flag == DroneNet::FlyFlag::CancelExisting)
 				{
 					drone->dash_combo = false;
 					drone->dash_timer = 0.0f;
@@ -606,7 +588,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					if (flag != DroneNet::FlyFlag::CancelExisting)
 					{
 						drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
-						drone->cooldown_setup();
+						drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
 					}
 
 					drone->ensure_detached();
@@ -625,7 +607,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
 
-			if (apply_msg && drone->charges > 0)
+			if (apply_msg && drone->cooldown_can_shoot())
 			{
 				drone->velocity = dir * DRONE_DASH_SPEED;
 
@@ -634,7 +616,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				drone->dash_timer = dash_time;
 
 				drone->attach_time = Game::time.total;
-				drone->cooldown_setup();
+				drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
 
 				for (s32 i = 0; i < DRONE_LEGS; i++)
 					drone->footing[i].parent = nullptr;
@@ -707,19 +689,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			}
 			break;
 		}
-		case DroneNet::Message::ChargeCount:
-		{
-			s8 charges;
-			serialize_int(p, s8, charges, 0, DRONE_CHARGES);
-			if (apply_msg || !Game::level.local)
-			{
-				if (charges > drone->charges)
-					drone->charge_restored.fire(charges);
-				drone->charges = charges;
-				drone->bolter_charge_counter = 0; // hack; this will result in some de-syncs between client and server
-			}
-			break;
-		}
 		case DroneNet::Message::AbilitySelect:
 		{
 			Ability ability;
@@ -774,7 +743,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (ability != Ability::Bolter // bolter handles cooldowns manually
 				&& ability != Ability::Shotgun // so does shotgun
 				&& (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())) // only do cooldowns for remote drones or AI drones; local players will have already done this
-				drone->cooldown_setup();
+				drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
 
 			Vec3 my_pos;
 			Quat my_rot;
@@ -933,24 +902,21 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				case Ability::Shotgun:
 				{
-					if (drone->charges >= DRONE_SHOTGUN_CHARGES)
+					Quat target_quat = Quat::look(dir_normalized);
+					for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
 					{
-						Quat target_quat = Quat::look(dir_normalized);
-						for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
-						{
-							Vec3 d = target_quat * drone_shotgun_dirs[i];
-							drone_bolt_spawn(drone, my_pos + d * drone_shotgun_offsets[i], d, Bolt::Type::DroneShotgun);
-						}
-						if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
-						{
-							drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
-							Vec3 my_pos = drone->get<Transform>()->absolute_pos();
-							ShellCasing::spawn(my_pos, Quat::look(dir_normalized), ShellCasing::Type::Shotgun);
-							EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 3.0f, DRONE_RADIUS * 3.0f, 0.1f, EffectLight::Type::MuzzleFlash);
-							drone->cooldown_setup();
-							drone->current_ability = Ability::None; // HACK: make sure dash_start() knows it's okay to go
-							drone->dash_start(-dir_normalized, my_pos, DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
-						}
+						Vec3 d = target_quat * drone_shotgun_dirs[i];
+						drone_bolt_spawn(drone, my_pos + d * drone_shotgun_offsets[i], d, Bolt::Type::DroneShotgun);
+					}
+					if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
+					{
+						drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
+						Vec3 my_pos = drone->get<Transform>()->absolute_pos();
+						ShellCasing::spawn(my_pos, Quat::look(dir_normalized), ShellCasing::Type::Shotgun);
+						EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 3.0f, DRONE_RADIUS * 3.0f, 0.1f, EffectLight::Type::MuzzleFlash);
+						drone->cooldown_setup(DRONE_COOLDOWN_SHOTGUN);
+						drone->current_ability = Ability::None; // HACK: make sure dash_start() knows it's okay to go
+						drone->dash_start(-dir_normalized, my_pos, DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
 					}
 					break;
 				}
@@ -1053,13 +1019,11 @@ Drone::Drone()
 	reflecting(),
 	hit_targets(),
 	cooldown(),
-	charges(DRONE_CHARGES),
 	current_ability(Ability::None),
 	fake_projectiles(),
 	ability_spawned(),
 	dash_target(),
-	reflections(),
-	bolter_charge_counter()
+	reflections()
 {
 }
 
@@ -1509,19 +1473,14 @@ void Drone::ability(Ability a)
 		DroneNet::ability_select(this, a);
 }
 
-void Drone::cooldown_setup(s8 amount)
+void Drone::cooldown_setup(r32 amount)
 {
-	vi_assert(charges >= amount);
-	charges -= amount;
+	cooldown += amount;
 
 #if SERVER
-	DroneNet::charge_count(this, charges);
-
 	if (has<PlayerControlHuman>())
-		cooldown = DRONE_COOLDOWN - vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt);
-	else
+		cooldown = vi_max(0.0f, cooldown - vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt) * DRONE_COOLDOWN_SPEED);
 #endif
-		cooldown = DRONE_COOLDOWN;
 }
 
 void Drone::ensure_detached()
@@ -1649,7 +1608,7 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target, r32 max_time)
 
 b8 Drone::cooldown_can_shoot() const
 {
-	return charges > 0;
+	return cooldown < DRONE_COOLDOWN_THRESHOLD;
 }
 
 r32 Drone::target_prediction_speed() const
@@ -1760,7 +1719,7 @@ b8 Drone::go(const Vec3& dir)
 						)
 					);
 				}
-				cooldown_setup();
+				cooldown_setup(DRONE_COOLDOWN_SHOTGUN);
 				current_ability = Ability::None; // HACK: make sure dash_start() knows it's okay to go
 				dash_start(-dir_normalized, get<Transform>()->absolute_pos(), DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
 			}
@@ -1806,13 +1765,13 @@ b8 Drone::go(const Vec3& dir)
 						Quat::look(dir_adjusted)
 					)
 				);
-				cooldown_setup();
+				cooldown_setup(DRONE_COOLDOWN_NORMAL);
 			}
 			else
 			{
 				// all other abilities have normal cooldowns
 				if (a != Ability::None)
-					cooldown_setup();
+					cooldown_setup(DRONE_COOLDOWN_NORMAL);
 
 				if (a == Ability::Sniper)
 					drone_sniper_effects(this, dir_normalized);
@@ -2451,32 +2410,10 @@ void Drone::update_server(const Update& u)
 {
 	State s = state();
 
-	if (cooldown > 0.0f)
-	{
-		r32 cooldown_last = cooldown;
-		cooldown = vi_max(0.0f, cooldown - u.time.delta);
-		for (s32 i = 0; i < DRONE_CHARGES; i++)
-		{
-			if (charges < DRONE_CHARGES && cooldown <= cooldown_thresholds[i])
-			{
-				if (cooldown_last > cooldown_thresholds[i])
-				{
-					// we just crossed the threshold this frame
-					if (Game::level.local)
-					{
-						charges++;
-#if SERVER
-						DroneNet::charge_count(this, charges);
-#endif
-					}
-					bolter_charge_counter = 0;
-				}
-			}
-		}
-	}
-
 	if (s == Drone::State::Crawl)
 	{
+		cooldown = vi_max(0.0f, cooldown - u.time.delta * DRONE_COOLDOWN_SPEED);
+
 		r32 velocity_sq = velocity.length_squared();
 		b8 just_landed = u.time.total - attach_time < DRONE_REFLECTION_TIME_TOLERANCE;
 		if ((velocity_sq > 0.0f || just_landed) && !UpgradeStation::drone_inside(this))

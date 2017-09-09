@@ -477,8 +477,6 @@ void Game::update(const Update& update_in)
 	Ascensions::update(u);
 #endif
 
-	Overworld::update(u);
-
 	AI::update(u);
 
 	Team::update(u);
@@ -618,6 +616,8 @@ void Game::update(const Update& update_in)
 	}
 
 	Console::update(u);
+
+	Overworld::update(u);
 
 	World::flush();
 

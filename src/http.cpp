@@ -31,17 +31,15 @@ struct State
 };
 State state;
 
-b8 init()
+void init()
 {
 	if (curl_global_init(CURL_GLOBAL_SSL)) // no need for CURL_GLOBAL_WIN32 as Sock::init() initializes Win32 socket libs
-		return false;
+		vi_assert(false);
 
 	state.curl_multi = curl_multi_init();
 
-	if (state.curl_multi)
-		return true;
-	else
-		return false;
+	if (!state.curl_multi)
+		vi_assert(false);
 }
 
 size_t write_callback(void* data, size_t size, size_t count, void* user_data)

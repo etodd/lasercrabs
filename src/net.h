@@ -100,7 +100,7 @@ struct StateFrame
 	SequenceID sequence_id;
 };
 
-b8 init();
+void init();
 r32 tick_rate();
 r32 interpolation_delay();
 void update_start(const Update&);

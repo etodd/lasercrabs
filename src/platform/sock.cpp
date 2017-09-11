@@ -39,16 +39,15 @@ const char* get_error(void)
 	return g_error;
 }
 
-s32 init(void)
+void init()
 {
 #ifdef _WIN32
 	WSADATA wsa_data;
 	if (WSAStartup(MAKEWORD(2, 2), &wsa_data) != 0)
-		return error("Windows Sockets failed to start");
-
-	return 0;
-#else
-	return 0;
+	{
+		fprintf(stderr, "Windows Sockets failed to start");
+		vi_assert(false);
+	}
 #endif
 }
 

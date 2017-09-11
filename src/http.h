@@ -30,7 +30,7 @@ struct Request
 	~Request();
 };
 
-b8 init();
+void init();
 Request* get(const char*, Callback* = nullptr, const char* = nullptr, u64 = 0);
 Request* request_for_user_data(u64);
 void update();

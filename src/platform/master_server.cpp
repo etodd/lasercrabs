@@ -179,7 +179,7 @@ void handle_upload(mg_connection* nc, int ev, void* p)
 	}
 }
 
-b8 init()
+void init()
 {
 	mg_mgr_init(&mgr, nullptr);
 	{
@@ -205,7 +205,7 @@ b8 init()
 		printf("Bound to [::]:%d\n", NET_MASTER_HTTP_PORT);
 	}
 
-	return conn_ipv4 || conn_ipv6;
+	vi_assert(conn_ipv4 || conn_ipv6);
 }
 
 void update()
@@ -1590,8 +1590,7 @@ namespace Master
 	{
 		mersenne::srand(platform::timestamp());
 
-		if (Sock::init())
-			return 1;
+		Sock::init();
 
 		if (Sock::udp_open(&sock, NET_MASTER_PORT))
 		{
@@ -1599,11 +1598,9 @@ namespace Master
 			return 1;
 		}
 
-		if (!Http::init())
-			return 1;
+		Http::init();
 
-		if (!CrashReport::init())
-			return 1;
+		CrashReport::init();
 
 		// open sqlite database
 		{

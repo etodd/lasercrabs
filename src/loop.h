@@ -1614,11 +1614,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 
 	Loader::init(swapper_render);
 
-	if (!Game::init(sync_render))
-	{
-		fprintf(stderr, "Failed to initialize game.\n");
-		exit(-1);
-	}
+	Game::init(sync_render);
 
 	g_albedo_buffer = Loader::dynamic_texture_permanent();
 	g_normal_buffer = Loader::dynamic_texture_permanent();

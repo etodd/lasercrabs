@@ -84,7 +84,7 @@ struct Handle
 };
 
 const char* get_error(void);
-s32 init(void);
+void init();
 void netshutdown(void);
 
 void close(Handle*);

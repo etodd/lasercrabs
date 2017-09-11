@@ -176,7 +176,7 @@ struct Game
 	static char auth_key[MAX_AUTH_KEY + 1];
 	static Net::Master::UserKey user_key;
 
-	static b8 init(LoopSync*);
+	static void init(LoopSync*);
 	static void execute(const char*);
 	static void update(const Update&);
 	static void schedule_load_level(AssetID, Mode, r32 = 0.0f);

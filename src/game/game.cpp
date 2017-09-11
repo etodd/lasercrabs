@@ -184,7 +184,7 @@ Array<UpdateFunction> Game::updates;
 Array<DrawFunction> Game::draws;
 Array<CleanupFunction> Game::cleanups;
 
-b8 Game::init(LoopSync* sync)
+void Game::init(LoopSync* sync)
 {
 	// count scripts
 	while (true)
@@ -205,8 +205,7 @@ b8 Game::init(LoopSync* sync)
 		Loader::level_free(overworld_level);
 	}
 
-	if (!Net::init())
-		return false;
+	Net::init();
 
 #if !SERVER
 	switch (auth_type)
@@ -252,16 +251,15 @@ b8 Game::init(LoopSync* sync)
 		}
 	}
 
-	if (!Audio::init())
-		return false;
+	Audio::init();
 
 	Loader::font_permanent(Asset::Font::lowpoly);
 	Loader::font_permanent(Asset::Font::pt_sans);
 
 	if (!Loader::soundbank_permanent(Asset::Soundbank::Init))
-		return false;
+		vi_assert(false);
 	if (!Loader::soundbank_permanent(Asset::Soundbank::SOUNDBANK))
-		return false;
+		vi_assert(false);
 
 	// strings
 	{
@@ -300,8 +298,6 @@ b8 Game::init(LoopSync* sync)
 	Drone::init();
 
 	Menu::splash();
-
-	return true;
 }
 
 void Game::auth_failed()

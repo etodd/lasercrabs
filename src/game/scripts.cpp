@@ -1195,6 +1195,8 @@ namespace tier_2
 		Actor::Instance* meursault;
 		Ref<Entity> anim_base;
 		Ref<Entity> hobo;
+		Ref<Entity> terminal;
+		Ref<Entity> drone;
 		b8 anim_played;
 		b8 drones_given;
 	};
@@ -1267,6 +1269,16 @@ namespace tier_2
 			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer1);
 		if (u.input->keys.get(s32(KeyCode::D2)) && !u.last_input->keys.get(s32(KeyCode::D2)))
 			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer2);
+		if (u.input->keys.get(s32(KeyCode::D3)) && !u.last_input->keys.get(s32(KeyCode::D3)))
+		{
+			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer3);
+			data->terminal.ref()->get<Animator>()->layers[0].play(Asset::Animation::terminal_trailer3_terminal);
+		}
+		if (u.input->keys.get(s32(KeyCode::D4)) && !u.last_input->keys.get(s32(KeyCode::D4)))
+		{
+			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer4);
+			data->drone.ref()->get<Animator>()->layers[0].play(Asset::Animation::drone_trailer4_drone);
+		}
 	}
 
 	void init(const EntityFinder& entities)
@@ -1284,6 +1296,16 @@ namespace tier_2
 		data->hobo.ref()->get<SkinnedModel>()->radius = 1000.0f;
 		data->hobo.ref()->get<Animator>()->layers[0].blend_time = 0.0f;
 		data->hobo.ref()->get<Animator>()->layers[0].behavior = Animator::Behavior::Default;
+
+		data->terminal = World::create<Prop>(Asset::Mesh::terminal, Asset::Armature::terminal);
+		data->terminal.ref()->get<SkinnedModel>()->radius = 1000.0f;
+		data->terminal.ref()->get<Animator>()->layers[0].blend_time = 0.0f;
+		data->terminal.ref()->get<Animator>()->layers[0].behavior = Animator::Behavior::Default;
+
+		data->drone = World::create<Prop>(Asset::Mesh::drone, Asset::Armature::drone);
+		data->drone.ref()->get<SkinnedModel>()->radius = 1000.0f;
+		data->drone.ref()->get<Animator>()->layers[0].blend_time = 0.0f;
+		data->drone.ref()->get<Animator>()->layers[0].behavior = Animator::Behavior::Default;
 
 		Loader::animation(Asset::Animation::character_meursault_intro);
 		Loader::animation(Asset::Animation::meursault_intro);

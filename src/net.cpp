@@ -2072,12 +2072,12 @@ b8 master_send_status_update()
 	return true;
 }
 
-b8 init()
+void init()
 {
 	if (Sock::udp_open(&state_persistent.sock, Settings::port))
 	{
-		printf("%s\n", Sock::get_error());
-		return false;
+		fprintf(stderr, "%s\n", Sock::get_error());
+		vi_assert(false);
 	}
 
 	master_init();
@@ -2089,8 +2089,6 @@ b8 init()
 
 	if (Settings::public_ipv6[0])
 		Sock::Address::get(&state_server_persistent.public_ipv6, Settings::public_ipv6, Settings::port);
-
-	return true;
 }
 
 // let clients know we're about to switch levels
@@ -3238,17 +3236,15 @@ b8 add_player(s8 gamepad)
 	return true;
 }
 
-b8 init()
+void init()
 {
 	if (Sock::udp_open(&state_persistent.sock))
 	{
-		printf("%s\n", Sock::get_error());
-		return false;
+		fprintf(stderr, "%s\n", Sock::get_error());
+		vi_assert(false);
 	}
 
 	master_init();
-
-	return true;
 }
 
 ReplayMode replay_mode()
@@ -4021,15 +4017,14 @@ r32 interpolation_delay()
 	return (tick_rate() * 4.0f) + 0.02f;
 }
 
-b8 init()
+void init()
 {
-	if (Sock::init())
-		return false;
+	Sock::init();
 
 #if SERVER
-	return Server::init();
+	Server::init();
 #else
-	return Client::init();
+	Client::init();
 #endif
 }
 

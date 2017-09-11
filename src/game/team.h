@@ -111,6 +111,7 @@ struct Team : public ComponentType<Team>
 	static void draw_ui(const RenderParams&);
 	static void match_start();
 	static void match_team_select();
+	static void match_waiting();
 	static AssetID name_selector(AI::Team);
 	static AssetID name_long(AI::Team);
 
@@ -158,6 +159,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		UpdateCounts,
 		SetInstance,
 		MakeAdmin,
+		MakeOtherAdmin,
 		Kick,
 		TeamSchedule,
 		TeamSwitch,
@@ -205,7 +207,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void awake();
 	~PlayerManager();
 
-	void make_admin();
+	void make_admin(b8 = true);
+	void make_admin(PlayerManager*, b8 = true);
 	void set_instance(Entity*);
 	void spawn_select(SpawnPoint*);
 	void clear_ownership();

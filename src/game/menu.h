@@ -82,6 +82,7 @@ enum class State : s8
 	Visible,
 	Maps,
 	Teams,
+	Player,
 	Settings,
 	SettingsControlsKeyboard,
 	SettingsControlsGamepad,
@@ -121,7 +122,8 @@ void refresh_variables(const InputState&);
 void pause_menu(const Update&, s8, UIMenu*, State*);
 void title_menu(const Update&, Camera*);
 void teams_select_match_start_init(PlayerHuman*);
-b8 teams(const Update&, s8, UIMenu*, TeamSelectMode);
+State teams(const Update&, s8, UIMenu*, TeamSelectMode);
+void friendship_state(u32, b8);
 b8 choose_region(const Update&, s8, UIMenu*, AllowClose);
 void progress_spinner(const RenderParams&, const Vec2&, r32 = 20.0f);
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&);

@@ -587,7 +587,7 @@ namespace Master
 
 			details->is_admin = role == Role::Admin;
 			server_state_for_config_id(config_id, details->config.max_players, &details->state, addr_type, &details->addr);
-			username_get(user_id, details->creator_username);
+			username_get(details->config.creator_id, details->creator_username);
 			return true;
 		}
 		return false;
@@ -694,7 +694,7 @@ namespace Master
 				// log in to the first user in the database
 				UserKey key;
 				key.token = u32(mersenne::rand());
-				sqlite3_stmt* stmt = db_query("select id, banned, username from User limit 1;");
+				sqlite3_stmt* stmt = db_query("select id, banned, username from User order by random() limit 1;");
 				if (db_step(stmt))
 				{
 					key.id = s32(db_column_int(stmt, 0));
@@ -1025,21 +1025,22 @@ namespace Master
 		{
 			case ServerListType::Top:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig left join User on User.id=ServerConfig.creator_id where ServerConfig.is_private=0 and (ServerConfig.online=1 or ServerConfig.region=?) order by ServerConfig.online desc, ServerConfig.score desc limit ?,24");
-				db_bind_int(stmt, 0, s64(region));
-				db_bind_int(stmt, 1, offset);
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig left join User on User.id=ServerConfig.creator_id left join UserServer on (ServerConfig.id=UserServer.server_id and UserServer.user_id=?) where (ServerConfig.is_private=0 or UserServer.role>1) and (ServerConfig.online=1 or ServerConfig.region=?) and (UserServer.role!=1 or UserServer.role is null) order by ServerConfig.online desc, ServerConfig.score desc limit ?,24");
+				db_bind_int(stmt, 0, client->user_key.id);
+				db_bind_int(stmt, 1, s64(region));
+				db_bind_int(stmt, 2, offset);
 				break;
 			}
 			case ServerListType::Recent:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? order by UserServer.timestamp desc limit ?,24");
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role!=1 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
 				db_bind_int(stmt, 0, client->user_key.id);
 				db_bind_int(stmt, 1, offset);
 				break;
 			}
 			case ServerListType::Mine:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role>2 order by UserServer.timestamp desc limit ?,24");
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role>=2 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
 				db_bind_int(stmt, 0, client->user_key.id);
 				db_bind_int(stmt, 1, offset);
 				break;
@@ -1098,8 +1099,10 @@ namespace Master
 
 		{
 			s32 index = -1;
-			serialize_s32(&p, index); // done
+			serialize_s32(&p, index); // done with the fragment
 		}
+
+		serialize_bool(&p, *done); // done with the whole list?
 
 		packet_finalize(&p);
 		messenger.send(p, timestamp, client->addr, &sock);
@@ -1233,6 +1236,16 @@ namespace Master
 		return false;
 	}
 
+	b8 user_exists(u32 id)
+	{
+		sqlite3_stmt* stmt = db_query("select count(1) from User where id=?");
+		db_bind_int(stmt, 0, id);
+		db_step(stmt);
+		b8 result = b8(db_column_int(stmt, 0));
+		db_finalize(stmt);
+		return result;
+	}
+
 	Node* client_requested_server(Node* client)
 	{
 		// if the user is requesting to connect to a virtual server that is already active, they can connect immediately
@@ -1267,6 +1280,63 @@ namespace Master
 		send_server_expect_client(server, &client->user_key);
 		send_client_connect(server, client->addr);
 		client_queue_join(server, client);
+	}
+
+	b8 friendship_get(u32 user1_id, u32 user2_id)
+	{
+		sqlite3_stmt* stmt = db_query("select count(1) from Friendship where user1_id=? and user2_id=?;");
+		db_bind_int(stmt, 0, user1_id);
+		db_bind_int(stmt, 1, user2_id);
+		db_step(stmt);
+		b8 result = db_column_int(stmt, 0);
+		db_finalize(stmt);
+		return result;
+	}
+
+	void friend_set_server_role(u32 user1_id, u32 user2_id, Role role)
+	{
+		// get list of user 1's servers
+		sqlite3_stmt* stmt = db_query("select server_id from UserServer where user_id=? and role>2");
+		db_bind_int(stmt, 0, user1_id);
+		while (db_step(stmt))
+		{
+			u32 server_id = u32(db_column_int(stmt, 0));
+			update_user_server_linkage(user2_id, server_id, role);
+		}
+		db_finalize(stmt);
+	}
+
+	void friendship_add(u32 user1_id, u32 user2_id)
+	{
+		friend_set_server_role(user1_id, user2_id, Role::Allowed);
+
+		sqlite3_stmt* stmt = db_query("insert into Friendship (user1_id, user2_id) values (?, ?);");
+		db_bind_int(stmt, 0, user1_id);
+		db_bind_int(stmt, 1, user2_id);
+		db_exec(stmt);
+	}
+
+	void friendship_remove(u32 user1_id, u32 user2_id)
+	{
+		friend_set_server_role(user1_id, user2_id, Role::Banned);
+
+		sqlite3_stmt* stmt = db_query("delete from Friendship where user1_id=? and user2_id=?;");
+		db_bind_int(stmt, 0, user1_id);
+		db_bind_int(stmt, 1, user2_id);
+		db_exec(stmt);
+	}
+
+	b8 send_friendship_state(Node* node, u32 friend_id, b8 state)
+	{
+		using Stream = StreamWrite;
+		StreamWrite p;
+		packet_init(&p);
+		messenger.add_header(&p, node->addr, Message::FriendshipState);
+		serialize_u32(&p, friend_id);
+		serialize_bool(&p, state);
+		packet_finalize(&p);
+		messenger.send(p, timestamp, node->addr, &sock);
+		return true;
 	}
 
 	b8 packet_handle(StreamRead* p, const Sock::Address& addr)
@@ -1484,6 +1554,18 @@ namespace Master
 					db_bind_int(stmt, 7, s64(config.region));
 					db_bind_int(stmt, 8, server_config_score(0, platform::timestamp()));
 					config_id = db_exec(stmt);
+
+					// give friends access to new server
+					{
+						sqlite3_stmt* stmt = db_query("select user2_id from Friendship where user1_id=?;");
+						db_bind_int(stmt, 0, node->user_key.id);
+						while (db_step(stmt))
+						{
+							u32 friend_id = u32(db_column_int(stmt, 0));
+							update_user_server_linkage(friend_id, config_id, Role::Allowed);
+						}
+						db_finalize(stmt);
+					}
 				}
 				else
 				{
@@ -1576,11 +1658,79 @@ namespace Master
 				}
 				break;
 			}
-			default:
+			case Message::FriendshipGet:
 			{
-				net_error();
+				if (!check_user_key(p, node))
+					return false;
+
+				u32 friend_id;
+				serialize_u32(p, friend_id);
+
+				send_friendship_state(node, friend_id, friendship_get(node->user_key.id, friend_id));
 				break;
 			}
+			case Message::FriendAdd:
+			{
+				if (!check_user_key(p, node))
+					return false;
+
+				u32 friend_id;
+				serialize_u32(p, friend_id);
+
+				if (user_exists(friend_id) && !friendship_get(node->user_key.id, friend_id))
+				{
+					friendship_add(node->user_key.id, friend_id);
+					send_friendship_state(node, friend_id, true);
+				}
+				else
+					send_friendship_state(node, friend_id, false);
+				break;
+			}
+			case Message::FriendRemove:
+			{
+				if (!check_user_key(p, node))
+					return false;
+
+				u32 friend_id;
+				serialize_u32(p, friend_id);
+
+				if (user_exists(friend_id))
+					friendship_remove(node->user_key.id, friend_id);
+				send_friendship_state(node, friend_id, false);
+				break;
+			}
+			case Message::AdminMake:
+			case Message::AdminRemove:
+			{
+				if (!check_user_key(p, node))
+					return false;
+
+				u32 config_id;
+				serialize_u32(p, config_id);
+
+				u32 friend_id;
+				serialize_u32(p, friend_id);
+
+				if (user_role(node->user_key.id, config_id) == Role::Admin && user_exists(friend_id))
+				{
+					Role role;
+					if (type == Message::AdminMake)
+						role = Role::Admin;
+					else
+					{
+						// remove admin status
+						if (user_role(node->user_key.id, friend_id) == Role::Admin)
+							role = Role::Allowed;
+						else // some other role already assigned; leave it as-is
+							role = Role::None;
+					}
+					update_user_server_linkage(friend_id, config_id, role);
+				}
+				break;
+			}
+			default:
+				net_error();
+				break;
 		}
 
 		return true;
@@ -1616,7 +1766,8 @@ namespace Master
 			{
 				db_exec("create table User (id integer primary key autoincrement, token integer not null, token_timestamp integer not null, itch_id integer, steam_id integer, username varchar(256) not null, banned boolean not null, unique(itch_id), unique(steam_id));");
 				db_exec("create table ServerConfig (id integer primary key autoincrement, creator_id integer not null, name text not null, config text, max_players integer not null, team_count integer not null, game_type integer not null, is_private boolean not null, online boolean not null, region integer not null, plays integer not null, score integer not null, foreign key (creator_id) references User(id));");
-				db_exec("create table UserServer (user_id not null, server_id not null, timestamp integer not null, role integer not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id));");
+				db_exec("create table UserServer (user_id integer not null, server_id integer not null, timestamp integer not null, role integer not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id), primary key (user_id, server_id));");
+				db_exec("create table Friendship (user1_id integer not null, user2_id integer not null, foreign key (user1_id) references User(id), foreign key (user2_id) references User(id), primary key (user1_id, user2_id));");
 			}
 			db_exec("update ServerConfig set online=0;");
 		}

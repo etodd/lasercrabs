@@ -627,6 +627,18 @@ void Team::match_team_select()
 	}
 }
 
+void Team::match_waiting()
+{
+	vi_assert(Game::level.local && (match_state == MatchState::Waiting || match_state == MatchState::TeamSelect));
+	if (match_state != MatchState::Waiting)
+	{
+		TeamNet::send_match_state(MatchState::Waiting);
+#if SERVER
+		Net::Server::sync_time();
+#endif
+	}
+}
+
 void team_add_score_summary_item(PlayerManager* player, const char* label, s32 amount = -1)
 {
 	Team::ScoreSummaryItem* item = Team::score_summary.add();
@@ -790,8 +802,17 @@ void Team::update_all_server(const Update& u)
 {
 	if (match_state == MatchState::Waiting)
 	{
-		if (PlayerHuman::list.count() >= Game::session.config.min_players)
+		// check whether we need to transition to TeamSelect
+		if (Game::session.type == SessionType::Story
+			|| PlayerHuman::list.count() >= vi_max(s32(Game::session.config.min_players), Game::session.config.fill_bots ? 1 : 2))
 			match_team_select();
+	}
+	else if (match_state == MatchState::TeamSelect)
+	{
+		// check whether we need to transition back to Waiting
+		if (Game::session.type == SessionType::Multiplayer
+			&& PlayerHuman::list.count() < vi_max(s32(Game::session.config.min_players), Game::session.config.fill_bots ? 1 : 2))
+			match_waiting();
 	}
 
 	if (match_state == MatchState::TeamSelect
@@ -1207,7 +1228,28 @@ namespace PlayerManagerNet
 		return true;
 	}
 
-	b8 make_admin(PlayerManager* m)
+	b8 make_other_admin(PlayerManager* existing_admin, PlayerManager* m, b8 value)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = existing_admin;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::MakeOtherAdmin;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		serialize_bool(p, value);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 make_admin(PlayerManager* m, b8 value)
 	{
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
@@ -1219,6 +1261,7 @@ namespace PlayerManagerNet
 			PlayerManager::Message msg = PlayerManager::Message::MakeAdmin;
 			serialize_enum(p, PlayerManager::Message, msg);
 		}
+		serialize_bool(p, value);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -1557,13 +1600,36 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 				m->instance = i;
 			break;
 		}
-		case Message::MakeAdmin:
+		case Message::MakeOtherAdmin:
 		{
-			if (!m)
+			Ref<PlayerManager> target;
+			serialize_ref(p, target);
+			b8 value;
+			serialize_bool(p, value);
+
+			if (!m || !target.ref() || !m->is_admin || !target.ref()->has<PlayerHuman>())
 				return true;
 
-			if (!Game::level.local || src == Net::MessageSource::Loopback)
-				m->is_admin = true;
+			if (Game::level.local)
+				target.ref()->make_admin(value);
+			break;
+		}
+		case Message::MakeAdmin:
+		{
+			b8 value;
+			serialize_bool(p, value);
+
+			if (!m || !m->has<PlayerHuman>())
+				return true;
+
+			if (!Game::level.local
+				|| src == Net::MessageSource::Loopback)
+			{
+				m->is_admin = value;
+#if SERVER
+				Net::Server::admin_set(m->get<PlayerHuman>(), value);
+#endif
+			}
 			break;
 		}
 		case Message::Kick:
@@ -1866,10 +1932,16 @@ void PlayerManager::set_instance(Entity* e)
 	PlayerManagerNet::set_instance(this, e);
 }
 
-void PlayerManager::make_admin()
+void PlayerManager::make_admin(b8 value)
 {
 	vi_assert(Game::level.local);
-	PlayerManagerNet::make_admin(this);
+	PlayerManagerNet::make_admin(this, value);
+}
+
+void PlayerManager::make_admin(PlayerManager* other, b8 value)
+{
+	vi_assert(is_admin);
+	PlayerManagerNet::make_other_admin(this, other, value);
 }
 
 void PlayerManager::kick(PlayerManager* kickee)

@@ -1052,7 +1052,7 @@ void PlayerHuman::update(const Update& u)
 			if (Game::session.type == SessionType::Multiplayer && (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect))
 			{
 				// show team switcher
-				if (!Menu::teams(u, gamepad, &menu, Menu::TeamSelectMode::MatchStart))
+				if (Menu::teams(u, gamepad, &menu, Menu::TeamSelectMode::MatchStart) != Menu::State::Teams)
 				{
 					// user hit escape
 					// make sure the cancel event is not eaten, so that our pause/unpause code below works
@@ -2067,7 +2067,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 					if (Team::match_state == Team::MatchState::TeamSelect)
 						text.text(0, _(Game::session.config.is_private ? strings::team_select : strings::team_select_timer), vi_max(0, s32(TEAM_SELECT_TIME - Team::match_time)));
 					else // waiting for players to connect
-						text.text(0, _(strings::waiting_players), Game::session.config.min_players - PlayerHuman::list.count());
+						text.text(0, _(strings::waiting_players), vi_max(1, Game::session.config.min_players - PlayerHuman::list.count()));
 
 					{
 						Vec2 p2 = p + Vec2(MENU_ITEM_PADDING, 0);

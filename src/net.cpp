@@ -691,6 +691,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		PlayerHuman* ph = e->get<PlayerHuman>();
 		serialize_u64(p, ph->uuid);
+		serialize_u32(p, ph->master_id);
 		if (Stream::IsReading)
 		{
 			ph->flag(PlayerHuman::FlagLocal, false);
@@ -2326,6 +2327,13 @@ void client_force_disconnect(ID id, DisconnectReason reason)
 	handle_client_disconnect(client);
 }
 
+void admin_set(PlayerHuman* player, b8 value)
+{
+	Client* client = client_for_player(player);
+	if (client)
+		client->is_admin = value;
+}
+
 void tick(const Update& u, r32 dt)
 {
 	if (state_server.mode == Mode::Active)
@@ -2820,6 +2828,7 @@ b8 add_players(Net::StreamRead* p, Client* client, s32 count, const ExpectedClie
 				Font::truncate(manager->username, MAX_USERNAME, number, Font::EllipsisMode::Always);
 			}
 			PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
+			player->master_id = client->user_key.id;
 			manager->is_admin = client->is_admin && gamepad == 0;
 			player->uuid = uuid;
 			client->players.add(player);
@@ -2888,7 +2897,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 
 			b8 valid = !m.ref()
 				|| client_owns(client, m.ref()->entity())
-				|| (client->is_admin && (msg == PlayerManager::Message::TeamSchedule || msg == PlayerManager::Message::CanSpawn));
+				|| (m.ref()->is_admin && (msg == PlayerManager::Message::TeamSchedule || msg == PlayerManager::Message::CanSpawn));
 			if (!PlayerManager::net_msg(p, m.ref(), msg, valid ? MessageSource::Remote : MessageSource::Invalid))
 				net_error();
 			break;
@@ -3146,6 +3155,60 @@ b8 master_send_auth()
 	packet_finalize(&p);
 	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
 	return true;
+}
+
+b8 master_friendship_request(u32 friend_id, Master::Message msg)
+{
+	using Stream = StreamWrite;
+	StreamWrite p;
+	packet_init(&p);
+	state_persistent.master.add_header(&p, state_persistent.master_addr, msg);
+	serialize_u32(&p, Game::user_key.id);
+	serialize_u32(&p, Game::user_key.token);
+	serialize_u32(&p, friend_id);
+	packet_finalize(&p);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	return true;
+}
+
+b8 master_friendship_get(u32 friend_id)
+{
+	return master_friendship_request(friend_id, Master::Message::FriendshipGet);
+}
+
+b8 master_friend_add(u32 friend_id)
+{
+	return master_friendship_request(friend_id, Master::Message::FriendAdd);
+}
+
+b8 master_friend_remove(u32 friend_id)
+{
+	return master_friendship_request(friend_id, Master::Message::FriendRemove);
+}
+
+b8 master_admin_request(u32 server_id, u32 user_id, Master::Message msg)
+{
+	using Stream = StreamWrite;
+	StreamWrite p;
+	packet_init(&p);
+	state_persistent.master.add_header(&p, state_persistent.master_addr, msg);
+	serialize_u32(&p, Game::user_key.id);
+	serialize_u32(&p, Game::user_key.token);
+	serialize_u32(&p, server_id);
+	serialize_u32(&p, user_id);
+	packet_finalize(&p);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	return true;
+}
+
+b8 master_admin_make(u32 server_id, u32 user_id)
+{
+	return master_admin_request(server_id, user_id, Master::Message::AdminMake);
+}
+
+b8 master_admin_remove(u32 server_id, u32 user_id)
+{
+	return master_admin_request(server_id, user_id, Master::Message::AdminRemove);
 }
 
 b8 master_save_server_config(const Master::ServerConfig& config, u32 request_id)
@@ -3674,6 +3737,7 @@ b8 packet_handle_master(StreamRead* p)
 		{
 			ServerListType type;
 			serialize_enum(p, ServerListType, type);
+			s32 last_index = -1;
 			while (true)
 			{
 				s32 index;
@@ -3686,7 +3750,22 @@ b8 packet_handle_master(StreamRead* p)
 					net_error();
 
 				Overworld::master_server_list_entry(type, index, entry);
+
+				last_index = index;
 			}
+			b8 done;
+			serialize_bool(p, done);
+			if (done)
+				Overworld::master_server_list_end(type, last_index + 1);
+			break;
+		}
+		case Master::Message::FriendshipState:
+		{
+			u32 friend_id;
+			serialize_u32(p, friend_id);
+			b8 state;
+			serialize_bool(p, state);
+			Menu::friendship_state(friend_id, state);
 			break;
 		}
 		default:

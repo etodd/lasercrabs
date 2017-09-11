@@ -127,10 +127,10 @@ union Single
 	u32 value_u32;
 };
 
-#if DEBUG
-#define net_error() do { vi_debug_break(); } while (0)
-#else
+#if RELEASE_BUILD
 #define net_error() do { return false; } while (0)
+#else
+#define net_error() do { vi_debug_break(); } while (0)
 #endif
 
 #define BITS_REQUIRED(min, max) Net::BitsRequired<min, max>::result

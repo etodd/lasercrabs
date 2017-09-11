@@ -156,13 +156,14 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 #if SERVER
 	u32 ai_record_id;
 #endif
-	Upgrade upgrade_last_visit_highest_available;
+	u32 master_id;
 	Menu::State menu_state;
 	s16 energy_notification_accumulator;
 	Ref<SpawnPoint> selected_spawn;
 	Ref<Entity> killed_by;
 	Ref<Camera> camera;
 	EmoteCategory emote_category;
+	Upgrade upgrade_last_visit_highest_available;
 	s8 gamepad;
 	ChatFocus chat_focus;
 	s8 flags;

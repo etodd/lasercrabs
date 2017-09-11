@@ -340,6 +340,16 @@ void master_server_list_entry(ServerListType type, s32 index, const Net::Master:
 	}
 }
 
+void master_server_list_end(ServerListType type, s32 length)
+{
+	if (active()
+		&& data.state == State::Multiplayer)
+	{
+		Data::Multiplayer::ServerList* list = &data.multiplayer.server_lists[s32(type)];
+		list->entries.resize(length);
+	}
+}
+
 void multiplayer_entry_edit_cancel(s8 gamepad = 0)
 {
 	if (data.multiplayer.active_server.config.id) // we were editing a config that actually exists; switch to EntryView mode
@@ -866,6 +876,7 @@ void multiplayer_entry_view_update(const Update& u)
 		{
 			data.multiplayer.request_id = 0; // cancel active request
 			Game::cancel_event_eaten[0] = true;
+			multiplayer_state_transition(Data::Multiplayer::State::Browse);
 #if !SERVER
 			Net::Client::master_cancel_outgoing();
 #endif

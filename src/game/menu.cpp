@@ -27,6 +27,14 @@ namespace VI
 namespace Menu
 {
 
+enum class FriendshipState
+{
+	None,
+	NotFriends,
+	Friends,
+	count,
+};
+
 State main_menu_state;
 DialogCallback dialog_callback[MAX_GAMEPADS];
 DialogCallback dialog_cancel_callback[MAX_GAMEPADS];
@@ -44,6 +52,7 @@ s32 display_mode_index_last;
 b8 display_mode_fullscreen_last;
 b8 display_mode_vsync_last;
 Ref<PlayerManager> teams_selected_player[MAX_GAMEPADS] = {};
+FriendshipState teams_selected_player_friendship[MAX_GAMEPADS] = {};
 AssetID maps_selected_map = AssetNull;
 
 #define DIALOG_ANIM_TIME 0.25f
@@ -85,13 +94,14 @@ void show() {}
 void refresh_variables(const InputState&) {}
 void pause_menu(const Update&, s8, UIMenu*, State*) {}
 void draw_letterbox(const RenderParams&, r32, r32) {}
-State settings(const Update&, s8, UIMenu*) { return State::Settings; }
-b8 maps(const Update&, s8, UIMenu*) { return true; }
+State settings(const Update&, s8, UIMenu*) { return State::Visible; }
+b8 maps(const Update&, s8, UIMenu*) { return false; }
 void teams_select_match_start_init(PlayerHuman*) {}
-b8 teams(const Update&, s8, UIMenu*, TeamSelectMode) { return true; }
+State teams(const Update&, s8, UIMenu*, TeamSelectMode) { return State::Visible; }
+void friendship_state(u32, b8) {}
 b8 choose_region(const Update&, s8, UIMenu*, AllowClose) { return false; }
-b8 settings_controls(const Update&, s8, UIMenu*, Gamepad::Type) { return true; }
-b8 settings_graphics(const Update&, s8, UIMenu*) { return true; }
+b8 settings_controls(const Update&, s8, UIMenu*, Gamepad::Type) { return false; }
+b8 settings_graphics(const Update&, s8, UIMenu*) { return false; }
 void progress_spinner(const RenderParams&, const Vec2&, r32) {}
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&) {}
 void progress_infinite(const RenderParams&, const char*, const Vec2&) {}
@@ -471,6 +481,8 @@ void open_url(const char* url)
 #endif
 }
 
+b8 player(const Update&, s8, UIMenu*);
+
 void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 {
 	if (*state == State::Hidden)
@@ -497,6 +509,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 				{
 					*state = State::Teams;
 					teams_selected_player[gamepad] = nullptr;
+					teams_selected_player_friendship[gamepad] = FriendshipState::None;
 					menu->animate();
 				}
 				if (me->is_admin)
@@ -538,9 +551,19 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 		}
 		case State::Teams:
 		{
-			if (!teams(u, gamepad, menu, TeamSelectMode::Normal))
+			State s = teams(u, gamepad, menu, TeamSelectMode::Normal);
+			if (s != *state)
 			{
-				*state = State::Visible;
+				*state = s;
+				menu->animate();
+			}
+			break;
+		}
+		case State::Player:
+		{
+			if (!player(u, gamepad, menu))
+			{
+				*state = State::Teams;
 				menu->animate();
 			}
 			break;
@@ -1414,13 +1437,122 @@ void teams_kick_player(s8 gamepad)
 	}
 }
 
-void teams_kick_cancel(s8 gamepad)
+void teams_friend_add(s8 gamepad)
 {
-	teams_selected_player[gamepad] = nullptr;
+#if !SERVER
+	PlayerManager* selected = teams_selected_player[gamepad].ref();
+	if (selected)
+		Net::Client::master_friend_add(selected->get<PlayerHuman>()->master_id);
+#endif
+}
+
+void teams_friend_remove(s8 gamepad)
+{
+#if !SERVER
+	PlayerManager* selected = teams_selected_player[gamepad].ref();
+	if (selected)
+		Net::Client::master_friend_remove(selected->get<PlayerHuman>()->master_id);
+#endif
+}
+
+void teams_admin_set(s8 gamepad, b8 value)
+{
+#if !SERVER
+	PlayerManager* selected = teams_selected_player[gamepad].ref();
+	if (selected)
+	{
+		PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+		me->make_admin(selected, value);
+
+		auto fn = value ? &Net::Client::master_admin_make : &Net::Client::master_admin_remove;
+		fn(Game::session.config.id, selected->get<PlayerHuman>()->master_id);
+	}
+#endif
+}
+
+void teams_admin_make(s8 gamepad)
+{
+	teams_admin_set(gamepad, true);
+}
+
+void teams_admin_remove(s8 gamepad)
+{
+	teams_admin_set(gamepad, false);
+}
+
+void friendship_state(u32 friend_id, b8 state)
+{
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		PlayerManager* player = teams_selected_player[i].ref();
+		if (player && player->has<PlayerHuman>() && player->get<PlayerHuman>()->master_id == friend_id)
+			teams_selected_player_friendship[i] = state ? FriendshipState::Friends : FriendshipState::NotFriends;
+	}
+}
+
+b8 player(const Update& u, s8 gamepad, UIMenu* menu)
+{
+	PlayerManager* selected = teams_selected_player[gamepad].ref();
+	if (!selected)
+		return false;
+
+	vi_assert(gamepad == 0 && selected->has<PlayerHuman>());
+
+	PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+
+	b8 exit = !Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad);
+
+	menu->start(u, gamepad);
+
+	menu->text(u, selected->username);
+
+	if (menu->item(u, _(strings::back)))
+		exit = true;
+	else
+	{
+		// kick
+		if (me->is_admin && menu->item(u, _(strings::kick)))
+			Menu::dialog_with_cancel(gamepad, &teams_kick_player, nullptr, _(strings::confirm_kick), selected->username);
+
+		if (!Game::level.local && selected->get<PlayerHuman>()->gamepad == 0)
+		{
+			// add/remove friend
+			FriendshipState friendship = teams_selected_player_friendship[gamepad];
+			if (friendship == FriendshipState::None)
+				menu->item(u, _(strings::loading), nullptr, true);
+			else if (menu->item(u, _(friendship == FriendshipState::NotFriends ? strings::friend_add : strings::friend_remove)))
+			{
+				if (friendship == FriendshipState::NotFriends)
+					Menu::dialog_with_cancel(gamepad, &teams_friend_add, nullptr, _(strings::confirm_friend_add), selected->username);
+				else
+					Menu::dialog_with_cancel(gamepad, &teams_friend_remove, nullptr, _(strings::confirm_friend_remove), selected->username);
+			}
+
+			// add/remove admin
+			if (me->is_admin)
+			{
+				if (menu->item(u, _(selected->is_admin ? strings::admin_remove : strings::admin_make)))
+				{
+					if (selected->is_admin)
+						Menu::dialog_with_cancel(gamepad, &teams_admin_remove, nullptr, _(strings::confirm_admin_remove), selected->username);
+					else
+						Menu::dialog_with_cancel(gamepad, &teams_admin_make, nullptr, _(strings::confirm_admin_make), selected->username);
+				}
+			}
+		}
+	}
+
+	if (exit)
+	{
+		Game::cancel_event_eaten[gamepad] = true;
+		teams_selected_player[gamepad] = nullptr;
+	}
+
+	return true;
 }
 
 // returns true if the team menu should stay open
-b8 teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
+State teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 {
 	PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
 	PlayerManager* selected = teams_selected_player[gamepad].ref();
@@ -1434,22 +1566,29 @@ b8 teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 		if (menu->item(u, _(strings::back)))
 			exit = true;
 
-		if (me->is_admin)
-			menu->text(u, _(strings::prompt_kick));
+		if (me->get<PlayerHuman>()->gamepad == 0)
+			menu->text(u, _(strings::prompt_options));
 	}
 
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
 		const char* value = _(Team::name_selector(i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled));
-		b8 disabled = (selected && i.item() != selected) || (i.item() != me && !me->is_admin && mode != TeamSelectMode::MatchStart);
+		b8 disabled = (selected && i.item() != selected) || (i.item() != me && mode != TeamSelectMode::MatchStart);
 		AssetID icon = i.item()->can_spawn ? Asset::Mesh::icon_checkmark : AssetNull;
 
-		if (menu->selected == menu->items.length && me->is_admin && me != i.item() && i.item()->has<PlayerHuman>()
+		if (mode == TeamSelectMode::Normal
+			&& teams_selected_player[gamepad].ref() == nullptr
+			&& menu->selected == menu->items.length && me != i.item() && i.item()->has<PlayerHuman>()
 			&& !u.input->get(Controls::UIContextAction, gamepad) && u.last_input->get(Controls::UIContextAction, gamepad))
 		{
-			// kick 'em!
+			// open context menu
 			teams_selected_player[gamepad] = i.item();
-			Menu::dialog_with_cancel(gamepad, &teams_kick_player, &teams_kick_cancel, _(strings::confirm_kick), i.item()->username);
+			teams_selected_player_friendship[gamepad] = FriendshipState::None;
+#if !SERVER
+			Net::Client::master_friendship_get(i.item()->get<PlayerHuman>()->master_id);
+#endif
+			menu->end();
+			return State::Player;
 		}
 
 		if (i.item() == selected)
@@ -1501,10 +1640,10 @@ b8 teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 			teams_selected_player[gamepad] = nullptr;
 		}
 		else
-			return false;
+			return State::Visible;
 	}
 
-	return true; // stay open
+	return State::Teams; // stay open
 }
 
 // returns true if menu should stay open

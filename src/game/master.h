@@ -64,6 +64,12 @@ enum class Message : s8
 	ServerDetails, // master responding to a client with ServerDetails data
 	ServerConfigSaved, // master telling a client their config was created
 	WrongVersion, // master telling a server or client that it needs to upgrade
+	FriendshipGet, // client asking the master about the friendship state of two players
+	FriendshipState, // master tell a client about the friendship state of two players
+	FriendAdd, // client telling master to add a friend
+	FriendRemove, // client telling master to remove a friend
+	AdminMake, // client telling master to add a server admin
+	AdminRemove, // client telling master to remove a server admin
 	Keepalive,
 	Disconnect,
 	count,

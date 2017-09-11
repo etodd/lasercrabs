@@ -1701,7 +1701,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 #if SERVER
 			dt_limit = Net::tick_rate();
 #else
-			dt_limit = u.input->focus ? (1.0f / r32(Settings::framerate_limit)) : (1.0f / 30.0f);
+			dt_limit = vi_max(1.0f / r32(Settings::framerate_limit), u.input->focus ? 0.0f : (1.0f / 30.0f));
 #endif
 
 			r32 delay = dt_limit - time_update;

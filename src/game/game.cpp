@@ -1083,28 +1083,7 @@ void Game::execute(const char* cmd)
 {
 	if (strcmp(cmd, "netstat") == 0)
 		Net::show_stats = !Net::show_stats;
-	else if (strcmp(cmd, "noclip") == 0)
-	{
-		level.noclip = !level.noclip;
-		if (Game::level.local && level.noclip)
-		{
-			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-			{
-				Entity* entity = i.item()->get<PlayerManager>()->instance.ref();
-				if (entity)
-					World::remove(entity);
-			}
-		}
-	}
 #if !SERVER
-	else if (strcmp(cmd, "friend") == 0)
-	{
-		if (level.id == Asset::Level::Docks && level.mode == Mode::Special)
-		{
-			Scripts::Docks::play();
-			Menu::clear();
-		}
-	}
 	else if (strstr(cmd, "replay") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');
@@ -1120,6 +1099,22 @@ void Game::execute(const char* cmd)
 			Net::Client::replay(filename);
 		}
 	}
+#endif
+#if !RELEASE_BUILD
+#if !SERVER
+	else if (strcmp(cmd, "noclip") == 0)
+	{
+		level.noclip = !level.noclip;
+		if (Game::level.local && level.noclip)
+		{
+			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+			{
+				Entity* entity = i.item()->get<PlayerManager>()->instance.ref();
+				if (entity)
+					World::remove(entity);
+			}
+		}
+	}
 	else if (strstr(cmd, "lds ") == cmd)
 	{
 		// allocate a story-mode server
@@ -1133,8 +1128,6 @@ void Game::execute(const char* cmd)
 			Net::Client::master_request_server(0, level); // 0 = story mode
 		}
 	}
-#endif
-#if DEBUG && !SERVER
 	else if (!level.local && Net::Client::mode() == Net::Client::Mode::Connected)
 	{
 		Net::Client::execute(cmd);
@@ -1144,10 +1137,7 @@ void Game::execute(const char* cmd)
 	else if (strcmp(cmd, "killai") == 0)
 	{
 		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
-		{
-			Health* health = i.item()->get<Health>();
-			health->damage(nullptr, health->hp_max + health->shield_max);
-		}
+			i.item()->get<Health>()->kill(nullptr);
 	}
 	else if (strcmp(cmd, "spawn") == 0)
 	{
@@ -1275,6 +1265,7 @@ void Game::execute(const char* cmd)
 	}
 	else
 		Overworld::execute(cmd);
+#endif
 }
 
 void Game::schedule_load_level(AssetID level_id, Mode m, r32 delay)

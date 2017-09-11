@@ -580,7 +580,7 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 
 	model->offset.scale(Vec3(BATTERY_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(BATTERY_RADIUS), 0.1f, CollisionTarget, ~CollisionShield & ~CollisionAllTeamsForceField & ~CollisionWalker);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(BATTERY_RADIUS), 0.1f, CollisionTarget, ~CollisionAllTeamsForceField & ~CollisionWalker);
 	body->set_damping(0.5f, 0.5f);
 	body->set_ccd(true);
 
@@ -1208,7 +1208,7 @@ SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_r
 
 	create<Target>();
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 0.0f, CollisionTarget, ~CollisionShield);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 0.0f, CollisionTarget, 0xffff);
 }
 
 Sensor::Sensor(AI::Team t)
@@ -1893,7 +1893,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 
 	create<Target>();
 	create<Health>(FORCE_FIELD_HEALTH, FORCE_FIELD_HEALTH);
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(FORCE_FIELD_BASE_RADIUS), 0.0f, CollisionTarget, ~CollisionStatic & ~CollisionAudio & ~CollisionShield & ~CollisionParkour & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionElectric);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(FORCE_FIELD_BASE_RADIUS), 0.0f, CollisionTarget, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionElectric);
 
 	ForceField* field = create<ForceField>();
 	field->team = team;
@@ -2733,7 +2733,7 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	g->owner = owner;
 	g->velocity = dir * GRENADE_LAUNCH_SPEED;
 
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionTarget, ~CollisionShield & ~CollisionParkour & ~CollisionElectric & ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionAllTeamsForceField);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionTarget, ~CollisionParkour & ~CollisionElectric & ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionAllTeamsForceField);
 
 	PointLight* light = create<PointLight>();
 	light->radius = BOLT_LIGHT_RADIUS;

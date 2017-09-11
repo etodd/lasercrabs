@@ -1,5 +1,7 @@
 #pragma once
 
+#define RELEASE_BUILD 1
+
 #define MAX_PLAYERS 8
 
 #define MAX_GAMEPADS 4

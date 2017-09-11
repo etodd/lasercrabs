@@ -2980,7 +2980,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 				net_error();
 			break;
 		}
-#if DEBUG
+#if !RELEASE_BUILD
 		case MessageType::DebugCommand:
 		{
 			s32 len;
@@ -3991,7 +3991,7 @@ Sock::Address server_address()
 
 b8 execute(const char* string)
 {
-#if DEBUG
+#if !RELEASE_BUILD
 	using Stream = StreamWrite;
 	Stream* p = msg_new(MessageType::DebugCommand);
 	s32 len = strlen(string);
@@ -4009,7 +4009,7 @@ b8 execute(const char* string)
 
 r32 tick_rate()
 {
-	return Game::level.mode == Game::Mode::Pvp ? (1.0f / 60.0f) : (1.0f / 30.0f);
+	return (Game::level.mode == Game::Mode::Pvp && Team::match_state == Team::MatchState::Active) ? (1.0f / 60.0f) : (1.0f / 30.0f);
 }
 
 r32 interpolation_delay()
@@ -4444,7 +4444,7 @@ b8 msg_process(StreamRead* p, MessageSource src)
 			break;
 #endif
 		}
-#if DEBUG
+#if !RELEASE_BUILD
 		case MessageType::DebugCommand:
 		{
 			// handled by Server::msg_process
@@ -4482,7 +4482,7 @@ b8 msg_finalize(StreamWrite* p)
 		&& type != MessageType::InitDone
 		&& type != MessageType::LoadingDone
 		&& type != MessageType::TimeSync
-#if DEBUG
+#if !RELEASE_BUILD
 		&& type != MessageType::DebugCommand
 #endif
 		&& type != MessageType::TransitionLevel)

@@ -1537,6 +1537,7 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target, r32 max_time)
 			max_time = ray_callback.m_closestHitFraction * max_time;
 	}
 	Vec3 next_pos = pos;
+	const r32 time_increment = Net::tick_rate() * 0.5f;
 	while (time < max_time)
 	{
 		// recalculate dir_flattened in case wall_normal has changed as we've been dashing
@@ -1572,7 +1573,6 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target, r32 max_time)
 			break;
 		}
 
-		const r32 time_increment = Net::tick_rate() * 0.1f;
 		next_pos += dir_flattened * DRONE_DASH_SPEED * time_increment;
 		time += time_increment;
 	}

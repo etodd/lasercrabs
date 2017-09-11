@@ -58,7 +58,7 @@ enum class MessageType : s8
 	Overworld,
 	Script,
 	AddPlayer,
-#if DEBUG
+#if !RELEASE_BUILD
 	DebugCommand,
 #endif
 	count,

@@ -2412,7 +2412,7 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 				text.text(gamepad, "%s: %s", entry.username, entry.msg);
 				text.draw(params, p);
 
-				p.y += (text.bounds().y * UI::scale) + MENU_ITEM_PADDING;
+				p.y += text.bounds().y + MENU_ITEM_PADDING;
 				count--;
 			}
 		}
@@ -2609,7 +2609,7 @@ Entity* PlayerCommon::incoming_attacker() const
 			{
 				// only worry about it if it can actually see us
 				btCollisionWorld::ClosestRayResultCallback ray_callback(me, bolt_pos);
-				Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionShield);
+				Physics::raycast(&ray_callback, ~CollisionDroneIgnore);
 				if (!ray_callback.hasHit())
 					return i.item()->entity();
 			}

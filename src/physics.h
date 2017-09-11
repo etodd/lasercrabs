@@ -17,12 +17,11 @@ enum CollisionGroup
 	CollisionWalker = 1 << 2,
 	CollisionInaccessible = 1 << 3,
 	CollisionTarget = 1 << 4,
-	CollisionShield = 1 << 5,
-	CollisionDroneIgnore = 1 << 6,
-	CollisionTeamAForceField = 1 << 7,
-	CollisionTeamBForceField = 1 << 8,
-	CollisionTeamCForceField = 1 << 9,
-	CollisionTeamDForceField = 1 << 10,
+	CollisionDroneIgnore = 1 << 5,
+	CollisionTeamAForceField = 1 << 6,
+	CollisionTeamBForceField = 1 << 7,
+	CollisionTeamCForceField = 1 << 8,
+	CollisionTeamDForceField = 1 << 9,
 	CollisionAllTeamsForceField =
 	(
 		CollisionTeamAForceField
@@ -30,20 +29,20 @@ enum CollisionGroup
 		| CollisionTeamCForceField
 		| CollisionTeamDForceField
 	),
-	CollisionParkour = 1 << 12,
-	CollisionElectric = 1 << 13,
-	CollisionAudio = 1 << 14,
+	CollisionParkour = 1 << 11,
+	CollisionElectric = 1 << 12,
+	CollisionAudio = 1 << 13,
 };
 
-#define DRONE_PERMEABLE_MASK (CollisionTarget | CollisionShield | CollisionDroneIgnore)
-#define DRONE_INACCESSIBLE_MASK (CollisionInaccessible | CollisionElectric | CollisionWalker | DRONE_PERMEABLE_MASK | CollisionAllTeamsForceField)
+#define DRONE_PERMEABLE_MASK (CollisionTarget | CollisionDroneIgnore | CollisionDefault | CollisionWalker)
+#define DRONE_INACCESSIBLE_MASK (CollisionInaccessible | CollisionElectric | DRONE_PERMEABLE_MASK | CollisionAllTeamsForceField)
 
 struct RaycastCallbackExcept : btCollisionWorld::ClosestRayResultCallback
 {
 	Array<ID> additional_ids;
 	ID entity_id;
 	RaycastCallbackExcept(const Vec3& a, const Vec3& b, const Entity*);
-	virtual	btScalar addSingleResult(btCollisionWorld::LocalRayResult& rayResult, b8 normalInWorldSpace);
+	virtual	btScalar addSingleResult(btCollisionWorld::LocalRayResult&, b8);
 	void ignore(const Entity*);
 };
 

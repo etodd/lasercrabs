@@ -1428,7 +1428,6 @@ void CoreModule::destroy()
 
 #define TURRET_COOLDOWN 1.5f
 #define TURRET_TARGET_CHECK_TIME 0.75f
-#define TURRET_RADIUS 0.5f
 TurretEntity::TurretEntity(AI::Team team)
 {
 	create<Transform>();

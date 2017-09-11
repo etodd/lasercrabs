@@ -5029,7 +5029,15 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			r32 cooldown = get<Drone>()->cooldown;
 			b8 cooldown_can_shoot = cooldown < DRONE_COOLDOWN_THRESHOLD;
 			Rect2 box = { pos + Vec2(0, -50.0f) * UI::scale, Vec2(64.0f, 16.0f) * UI::scale };
-			if (!cooldown_can_shoot)
+			if (cooldown_can_shoot)
+			{
+				if (cooldown > 0.0f)
+				{
+					UI::centered_box(params, { box.pos + Vec2(box.size.x * 0.5f, 0), Vec2(spoke_width * UI::scale, box.size.y) }, UI::color_accent());
+					UI::centered_box(params, { box.pos + Vec2(box.size.x * -0.5f, 0), Vec2(spoke_width * UI::scale, box.size.y) }, UI::color_accent());
+				}
+			}
+			else
 				UI::centered_box(params, { box.pos, box.size * Vec2(cooldown / DRONE_COOLDOWN_THRESHOLD, 1.0f) }, UI::color_accent());
 			UI::centered_box(params, { box.pos, box.size * Vec2(vi_min(1.0f, cooldown / DRONE_COOLDOWN_THRESHOLD), 1.0f) }, cooldown_can_shoot ? UI::color_accent() : UI::color_alert());
 		}

@@ -557,7 +557,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 	// should we actually pay attention to this message?
 	// if it's a message from a remote, but we are a local entity, then ignore the message.
-	b8 apply_msg = drone && (src == Net::MessageSource::Loopback || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local());
+	b8 apply_msg = drone && src == Net::MessageSource::Loopback;
 
 	switch (type)
 	{
@@ -574,25 +574,22 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			if (apply_msg)
 			{
-				if (drone->cooldown_can_shoot() || flag == DroneNet::FlyFlag::CancelExisting)
+				drone->dash_combo = false;
+				drone->dash_timer = 0.0f;
+				drone->velocity = dir * DRONE_FLY_SPEED;
+				drone->rotation_clamp_vector = dir;
+
+				drone->detaching.fire();
+				drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
+				drone->get<Transform>()->absolute_rot(Quat::look(dir));
+
+				if (flag != DroneNet::FlyFlag::CancelExisting)
 				{
-					drone->dash_combo = false;
-					drone->dash_timer = 0.0f;
-					drone->velocity = dir * DRONE_FLY_SPEED;
-					drone->rotation_clamp_vector = dir;
-
-					drone->detaching.fire();
-					drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
-					drone->get<Transform>()->absolute_rot(Quat::look(dir));
-
-					if (flag != DroneNet::FlyFlag::CancelExisting)
-					{
-						drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
-						drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
-					}
-
-					drone->ensure_detached();
+					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
+					drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
 				}
+
+				drone->ensure_detached();
 			}
 
 			break;
@@ -607,7 +604,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
 
-			if (apply_msg && drone->cooldown_can_shoot())
+			if (apply_msg)
 			{
 				drone->velocity = dir * DRONE_DASH_SPEED;
 
@@ -616,7 +613,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				drone->dash_timer = dash_time;
 
 				drone->attach_time = Game::time.total;
-				drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
 
 				for (s32 i = 0; i < DRONE_LEGS; i++)
 					drone->footing[i].parent = nullptr;
@@ -625,7 +621,11 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 				drone->particle_accumulator = 0;
 
-				drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
+				if (drone->current_ability == Ability::None)
+				{
+					drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
+					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
+				}
 			}
 
 			break;
@@ -914,9 +914,10 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						Vec3 my_pos = drone->get<Transform>()->absolute_pos();
 						ShellCasing::spawn(my_pos, Quat::look(dir_normalized), ShellCasing::Type::Shotgun);
 						EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 3.0f, DRONE_RADIUS * 3.0f, 0.1f, EffectLight::Type::MuzzleFlash);
-						drone->cooldown_setup(DRONE_COOLDOWN_SHOTGUN);
-						drone->current_ability = Ability::None; // HACK: make sure dash_start() knows it's okay to go
+						drone->current_ability = Ability::Shotgun; // HACK: let dash_start() know we're doing a shotgun dash
 						drone->dash_start(-dir_normalized, my_pos, DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
+						drone->current_ability = Ability::None;
+						drone->cooldown_setup(DRONE_COOLDOWN_SHOTGUN);
 					}
 					break;
 				}
@@ -1515,7 +1516,7 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target, r32 max_time)
 			return false;
 		}
 	}
-	else if (state() == State::Fly || current_ability != Ability::None)
+	else if (state() == State::Fly)
 		return false;
 
 	Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
@@ -1719,9 +1720,10 @@ b8 Drone::go(const Vec3& dir)
 						)
 					);
 				}
-				cooldown_setup(DRONE_COOLDOWN_SHOTGUN);
-				current_ability = Ability::None; // HACK: make sure dash_start() knows it's okay to go
+				current_ability = Ability::Shotgun; // HACK: let dash_start() know we're doing a shotgun dash
 				dash_start(-dir_normalized, get<Transform>()->absolute_pos(), DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
+				current_ability = Ability::None;
+				cooldown_setup(DRONE_COOLDOWN_SHOTGUN);
 			}
 			else if (a == Ability::Bolter)
 			{

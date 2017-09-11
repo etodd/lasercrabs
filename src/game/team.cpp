@@ -818,7 +818,7 @@ void Team::update_all_server(const Update& u)
 	if (match_state == MatchState::TeamSelect
 		&& Game::level.mode == Game::Mode::Pvp)
 	{
-		if ((!Game::session.config.is_private && match_time > TEAM_SELECT_TIME)
+		if ((match_time > TEAM_SELECT_TIME)
 			|| (Game::session.config.game_type == GameType::Deathmatch
 				&& Game::session.config.max_players == Game::session.config.team_count // FFA
 				&& teams_with_active_players() > 1))
@@ -955,8 +955,7 @@ void Team::update_all_server(const Update& u)
 	{
 		// wait for all local players to accept scores
 		b8 score_accepted = true;
-		if (Game::real_time.total - game_over_real_time < SCORE_SUMMARY_ACCEPT_TIME // automatically move on after 45 seconds
-			|| Game::session.config.is_private) // take your time in a private match
+		if (Game::real_time.total - game_over_real_time < SCORE_SUMMARY_ACCEPT_TIME) // automatically move on after 45 seconds
 		{
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 			{

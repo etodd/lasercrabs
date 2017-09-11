@@ -180,7 +180,6 @@
 	"ability_spawn_cost": "-%d energy",
 	"waiting": "Waiting...",
 	"waiting_players": "Waiting for %d more players...",
-	"team_select": "Team select",
 	"team_select_timer": "Team select... %d",
 	"upgrade_description": "Cost: %d\n%s",
 	"sensor": "Sensor",

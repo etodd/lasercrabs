@@ -1499,7 +1499,6 @@ const char* AssetLookup::String::names[] =
 	"team_b",
 	"team_c",
 	"team_d",
-	"team_select",
 	"team_select_a",
 	"team_select_b",
 	"team_select_c",

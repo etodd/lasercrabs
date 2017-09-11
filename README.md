@@ -27,7 +27,7 @@ separate threads for physics, rendering, AI, and game logic
 Windows quickstart
 ------------------
 
-1. Clone the repository and pull down the submodules. Don't worry about the `src/platforms/ps` submodule. You will need [Git LFS](https://git-lfs.github.com/).
+1. Clone the repository and pull down the submodules. You will need [Git LFS](https://git-lfs.github.com/).
 2. Install [Visual Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx) 2017.
 3. Install the [DirectX SDK](https://www.microsoft.com/en-us/download/confirmation.aspx?id=6812)
 4. Install [CMake](http://www.cmake.org/download/)
@@ -43,7 +43,7 @@ is available on the path
 Linux quickstart
 ----------------
 
-1. Clone the repository and pull down the submodules. Don't worry about the `src/platforms/ps` submodule. You will need [Git LFS](https://git-lfs.github.com/).
+1. Clone the repository and pull down the submodules. You will need [Git LFS](https://git-lfs.github.com/).
 2. The Wwise authoring tool doesn't run on Linux. Use Wwise on another platform
 to build the Linux soundbanks.
 3. If necessary, copy the generated `Wwise_IDs.h` file into `src/asset`
@@ -55,7 +55,7 @@ to build the Linux soundbanks.
 Mac quickstart
 --------------
 
-1. Clone the repository and pull down the submodules. Don't worry about the `src/platforms/ps` submodule. You will need [Git LFS](https://git-lfs.github.com/).
+1. Clone the repository and pull down the submodules. You will need [Git LFS](https://git-lfs.github.com/).
 2. Install [Homebrew](http://brew.sh/)
 3. Ensure [Blender](http://blender.org) 2.78c is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm)

@@ -556,7 +556,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					s16* respawns = &config->respawns;
 					sprintf(str, "%hd", *respawns);
 					delta = menu->slider_item(u, _(strings::drones), str);
-					*respawns = vi_max(1, vi_min(1000, s32(*respawns) + delta * (*respawns >= 10 ? 5 : 1)));
+					*respawns = vi_max(1, vi_min(MAX_RESPAWNS, s32(*respawns) + delta * (*respawns >= 10 ? 5 : 1)));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
 				}
@@ -566,7 +566,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					s16* kill_limit = &config->kill_limit;
 					sprintf(str, "%hd", *kill_limit);
 					delta = menu->slider_item(u, _(strings::kill_limit), str);
-					*kill_limit = vi_max(1, vi_min(1000, s32(*kill_limit) + delta * (*kill_limit >= 10 ? 5 : 1)));
+					*kill_limit = vi_max(1, vi_min(MAX_RESPAWNS, s32(*kill_limit) + delta * (*kill_limit >= 10 ? 5 : 1)));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
 				}

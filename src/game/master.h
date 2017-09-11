@@ -226,9 +226,9 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		else
 			serialize_int(p, s8, c->team_count, 2, MAX_TEAMS);
 		c->team_count = vi_min(c->team_count, c->max_players);
-		serialize_int(p, s16, c->respawns, 1, 1000);
+		serialize_int(p, s16, c->respawns, 1, MAX_RESPAWNS);
 		serialize_u32(p, c->creator_id);
-		serialize_int(p, s16, c->kill_limit, 0, 1000);
+		serialize_int(p, s16, c->kill_limit, 0, MAX_RESPAWNS);
 		serialize_s16(p, c->allow_upgrades);
 #if SERVER
 		// disallow extra drone upgrade without actually storing that preference in the master server database

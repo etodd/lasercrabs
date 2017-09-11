@@ -22,7 +22,11 @@
 #include <cmath>
 #include "mongoose/mongoose.h"
 
+#if RELEASE_BUILD
 #define OFFLINE_DEV 0
+#else
+#define OFFLINE_DEV 1
+#endif
 #define AUTHENTICATE_DOWNLOAD_KEYS 0
 #define CRASH_DUMP_DIR "crash_dumps/"
 
@@ -490,7 +494,7 @@ namespace Master
 		config->enable_batteries = b8(Json::get_s32(json, "enable_batteries", 1));
 		config->enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", 1));
 		config->drone_shield = s8(Json::get_s32(json, "drone_shield", DRONE_SHIELD_AMOUNT));
-		config->start_energy = b8(Json::get_s32(json, "start_energy"));
+		config->start_energy = s16(Json::get_s32(json, "start_energy"));
 		config->fill_bots = b8(Json::get_s32(json, "fill_bots"));
 		cJSON_Delete(json);
 	}

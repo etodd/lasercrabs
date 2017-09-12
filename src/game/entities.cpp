@@ -2564,7 +2564,7 @@ void ParticleEffect::clear()
 
 Array<ShellCasing> ShellCasing::list;
 
-#define SHELL_CASING_LIFETIME 3.0f
+#define SHELL_CASING_LIFETIME 2.5f
 
 Vec3 shell_casing_size(ShellCasing::Type type)
 {
@@ -2613,7 +2613,8 @@ void ShellCasing::spawn(const Vec3& pos, const Quat& rot, Type type)
 	entry->btBody->setCcdMotionThreshold(size.x);
 	entry->btBody->setCcdSweptSphereRadius(size.z);
 
-	entry->btBody->setLinearVelocity(rot * Vec3(-0.707f * 4.0f, 0.707f * 4.0f, 0));
+	entry->btBody->setLinearVelocity(rot * Vec3(-0.707f * 4.0f, 0.707f * 4.0f + mersenne::randf_cc() - 0.5f, 0));
+	entry->btBody->setAngularVelocity(btVector3((mersenne::randf_cc() - 0.5f) * 2.0f, (mersenne::randf_cc() - 0.5f) * 2.0f, (mersenne::randf_cc() - 0.5f) * 2.0f));
 
 	Physics::btWorld->addRigidBody(entry->btBody, CollisionDroneIgnore, CollisionStatic);
 }

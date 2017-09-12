@@ -1197,6 +1197,7 @@ namespace tier_2
 		Ref<Entity> hobo;
 		Ref<Entity> terminal;
 		Ref<Entity> drone;
+		Ref<Entity> parkour;
 		b8 anim_played;
 		b8 drones_given;
 	};
@@ -1279,6 +1280,12 @@ namespace tier_2
 			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer4);
 			data->drone.ref()->get<Animator>()->layers[0].play(Asset::Animation::drone_trailer4_drone);
 		}
+		if (u.input->keys.get(s32(KeyCode::D5)) && !u.last_input->keys.get(s32(KeyCode::D5)))
+		{
+			data->terminal.ref()->get<Animator>()->layers[0].play(Asset::Animation::terminal_trailer5_terminal);
+			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer5);
+			data->parkour.ref()->get<Animator>()->layers[0].play(Asset::Animation::parkour_trailer5_parkour);
+		}
 	}
 
 	void init(const EntityFinder& entities)
@@ -1301,6 +1308,11 @@ namespace tier_2
 		data->terminal.ref()->get<SkinnedModel>()->radius = 1000.0f;
 		data->terminal.ref()->get<Animator>()->layers[0].blend_time = 0.0f;
 		data->terminal.ref()->get<Animator>()->layers[0].behavior = Animator::Behavior::Default;
+
+		data->parkour = World::create<Prop>(Asset::Mesh::parkour, Asset::Armature::parkour);
+		data->parkour.ref()->get<SkinnedModel>()->radius = 1000.0f;
+		data->parkour.ref()->get<Animator>()->layers[0].blend_time = 0.0f;
+		data->parkour.ref()->get<Animator>()->layers[0].behavior = Animator::Behavior::Default;
 
 		data->drone = World::create<Prop>(Asset::Mesh::drone, Asset::Armature::drone);
 		data->drone.ref()->get<SkinnedModel>()->radius = 1000.0f;

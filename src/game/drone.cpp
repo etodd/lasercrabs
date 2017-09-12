@@ -1476,10 +1476,14 @@ void Drone::ability(Ability a)
 
 void Drone::cooldown_setup(r32 amount)
 {
+#if SERVER
+	b8 lag_compensate = cooldown == 0.0f;
+#endif
+
 	cooldown += amount;
 
 #if SERVER
-	if (has<PlayerControlHuman>())
+	if (lag_compensate && has<PlayerControlHuman>())
 		cooldown = vi_max(0.0f, cooldown - vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt) * DRONE_COOLDOWN_SPEED);
 #endif
 }

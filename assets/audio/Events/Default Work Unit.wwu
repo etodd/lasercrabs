@@ -455,7 +455,7 @@
 											</PropertyList>
 											<ReferenceList>
 												<Reference Name="Target">
-													<ObjectRef Name="Explosions" ID="{C6C242DC-96E5-4994-90AB-F2C88D1EA10A}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+													<ObjectRef Name="Drone_Grenade_Explo" ID="{433A7DED-6736-4CBD-9721-B1DA2C5A6841}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>

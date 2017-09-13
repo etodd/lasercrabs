@@ -110,11 +110,15 @@ namespace LMath
 		r32 ray_start_distance_sq = sphere_to_ray_start.length_squared();
 		r32 sphere_radius_sq = sphere_radius * sphere_radius;
 		r32 dot = sphere_to_ray_start.dot(ray);
-		if (ray_start_distance_sq < sphere_radius_sq
+
+		if (type == RaySphereIntersection::FrontFace
+			&& ray_start_distance_sq < sphere_radius_sq
 			&& dot < 0.0f)
 		{
+			// we're starting out inside the sphere; raycast hit will be behind ray_start
 			ray *= -1.0f;
 			dot = sphere_to_ray_start.dot(ray);
+			type = RaySphereIntersection::BackFace;
 		}
 
 		r32 a = ray.length_squared();
@@ -125,15 +129,16 @@ namespace LMath
 
 		if (delta > 0.0f)
 		{
-			r32 distance = (-b - sqrtf(delta)) / (2.0f * a);
+			r32 distance;
+			if (type == RaySphereIntersection::BackFace)
+				distance = (-b + sqrtf(delta)) / (2.0f * a);
+			else
+				distance = (-b - sqrtf(delta)) / (2.0f * a);
+
 			if (distance >= 0.0f && distance < 1.0f)
 			{
 				if (intersection)
-				{
-					if (type == RaySphereIntersection::BackFace)
-						distance = (-b + sqrtf(delta)) / (2.0f * a);
 					*intersection = ray_start + ray * distance;
-				}
 				return true;
 			}
 		}

@@ -39,6 +39,7 @@ namespace VI
 
 #define DRONE_COOLDOWN_NORMAL 0.75f
 #define DRONE_COOLDOWN_SHOTGUN 1.5f
+#define DRONE_COOLDOWN_SNIPER 1.1f
 #define DRONE_COOLDOWN_BOLTER (1.0f / 8.0f)
 #define DRONE_COOLDOWN_THRESHOLD_TIME 2.25f
 #define DRONE_COOLDOWN_SPEED (DRONE_COOLDOWN_THRESHOLD / DRONE_COOLDOWN_THRESHOLD_TIME)
@@ -360,7 +361,8 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTar
 	{
 		r32 dot = Vec3::normalize(intersection - target_pos).dot(ray_dir);
 
-		b8 allow_direct_hit = drone->current_ability == Ability::Sniper ? true : !target_shield->has<Turret>();
+		// only sniper can do direct hits on turrets
+		b8 allow_direct_hit = (drone->current_ability == Ability::Sniper) ? true : !target_shield->has<Turret>();
 
 		if (dot < -0.9f && allow_direct_hit)
 			return 3;
@@ -557,7 +559,15 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 	// should we actually pay attention to this message?
 	// if it's a message from a remote, but we are a local entity, then ignore the message.
-	b8 apply_msg = drone && src == Net::MessageSource::Loopback;
+	b8 apply_msg;
+	{
+#if SERVER
+		apply_msg = src == Net::MessageSource::Loopback;
+#else
+		b8 local = Game::level.local || (drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local());
+		apply_msg = drone && (local == (src == Net::MessageSource::Loopback));
+#endif
+	}
 
 	switch (type)
 	{
@@ -623,8 +633,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 				if (drone->current_ability == Ability::None)
 				{
-					drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
 					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
+					drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
 				}
 			}
 
@@ -742,6 +752,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			if (ability != Ability::Bolter // bolter handles cooldowns manually
 				&& ability != Ability::Shotgun // so does shotgun
+				&& ability != Ability::Sniper // so does sniper
 				&& (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())) // only do cooldowns for remote drones or AI drones; local players will have already done this
 				drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
 
@@ -820,9 +831,13 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						Hits hits;
 						drone->movement_raycast(ray_start, ray_end, &hits);
 						drone_sniper_effects(drone, dir_normalized, &hits);
+						drone->cooldown_setup(DRONE_COOLDOWN_SNIPER);
 					}
 					else if (!drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
+					{
 						drone_sniper_effects(drone, dir_normalized);
+						drone->cooldown_setup(DRONE_COOLDOWN_SNIPER);
+					}
 					break;
 				}
 				case Ability::Grenade:
@@ -1773,15 +1788,18 @@ b8 Drone::go(const Vec3& dir)
 				);
 				cooldown_setup(DRONE_COOLDOWN_NORMAL);
 			}
+			else if (a == Ability::Sniper)
+			{
+				drone_sniper_effects(this, dir_normalized);
+				cooldown_setup(DRONE_COOLDOWN_SNIPER);
+			}
 			else
 			{
 				// all other abilities have normal cooldowns
 				if (a != Ability::None)
 					cooldown_setup(DRONE_COOLDOWN_NORMAL);
 
-				if (a == Ability::Sniper)
-					drone_sniper_effects(this, dir_normalized);
-				else if (a == Ability::ActiveArmor)
+				if (a == Ability::ActiveArmor)
 				{
 					get<Health>()->active_armor_timer = ACTIVE_ARMOR_TIME; // show invincibility sparkles instantly
 					get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);

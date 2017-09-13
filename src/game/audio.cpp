@@ -520,7 +520,7 @@ void Audio::update_all(const Update& u)
 			spatialization_update_frame = (spatialization_update_frame + 1) & s16((1 << 15) - 1); // increment to next frame so that all entries are marked as needing updated
 
 			// update ambience
-			r32 ambience = 0.0f;
+			r32 ambience = 0.1f;
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)
 			{
 				if (listener_mask & (1 << i))
@@ -532,7 +532,7 @@ void Audio::update_all(const Update& u)
 					for (s32 i = 0; i < 4; i++)
 					{
 						if (distances[i] > 10.0f)
-							a = vi_min(1.0f, a + 0.34f);
+							a = vi_min(1.0f, a + 0.33f);
 					}
 					ambience = vi_max(ambience, a);
 					if (ambience == 1.0f) // already at max

@@ -2036,7 +2036,8 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 					text.anchor_y = UIText::Anchor::Max;
 					text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
 					s16 cost = get<PlayerManager>()->upgrade_cost(upgrade);
-					text.text(gamepad, _(strings::upgrade_description), cost, _(info.description));
+					s16 usage_cost = info.type == UpgradeInfo::Type::Ability ? AbilityInfo::list[s32(upgrade)].spawn_cost : cost;
+					text.text(gamepad, _(info.description), cost, usage_cost);
 					UIMenu::text_clip(&text, animation_time, 150.0f);
 
 					Vec2 pos = upgrade_menu_pos + Vec2(MENU_ITEM_WIDTH * -0.5f + padding, menu.height() * -0.5f - padding * 7.0f);
@@ -5026,7 +5027,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		{
 			r32 cooldown = get<Drone>()->cooldown;
 			b8 cooldown_can_shoot = cooldown < DRONE_COOLDOWN_THRESHOLD;
-			Rect2 box = { pos + Vec2(0, -50.0f) * UI::scale, Vec2(64.0f, 16.0f) * UI::scale };
+			Rect2 box = { pos + Vec2(0, -42.0f) * UI::scale, Vec2(64.0f, 16.0f) * UI::scale };
 			if (cooldown_can_shoot)
 			{
 				if (cooldown > 0.0f)
@@ -5060,31 +5061,9 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (get<Drone>()->current_ability != Ability::None)
 			{
 				Ability a = get<Drone>()->current_ability;
-				Vec2 p = pos + Vec2(0, -160.0f * UI::scale);
+				Vec2 p = pos + Vec2(0, -80.0f * UI::scale);
 				UI::centered_box(params, { p, Vec2(34.0f * UI::scale) }, UI::color_background);
 				UI::mesh(params, AbilityInfo::list[s32(a)].icon, p, Vec2(18.0f * UI::scale), *color);
-
-				// cancel prompt
-				UIText text;
-				text.color = UI::color_accent();
-				Controls binding = Controls::count;
-				PlayerManager* manager = player.ref()->get<PlayerManager>();
-				for (s32 i = 0; i < manager->ability_count(); i++)
-				{
-					if (a == manager->abilities[i])
-					{
-						const Controls bindings[3] = { Controls::Ability1, Controls::Ability2, Controls::Ability3 };
-						binding = bindings[i];
-						break;
-					}
-				}
-				vi_assert(binding != Controls::count);
-				text.text(player.ref()->gamepad, _(strings::prompt_cancel_ability), Settings::gamepads[player.ref()->gamepad].bindings[s32(binding)].string(Game::ui_gamepad_types[player.ref()->gamepad]));
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Max;
-				p.y -= UI_TEXT_SIZE_DEFAULT + 8.0f;
-				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
-				text.draw(params, p);
 			}
 
 			if (reticle_valid && (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target || reticle.type == ReticleType::DashTarget))

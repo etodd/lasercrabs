@@ -112,8 +112,7 @@ namespace LMath
 		r32 dot = sphere_to_ray_start.dot(ray);
 
 		if (type == RaySphereIntersection::FrontFace
-			&& ray_start_distance_sq < sphere_radius_sq
-			&& dot < 0.0f)
+			&& ray_start_distance_sq < sphere_radius_sq)
 		{
 			// we're starting out inside the sphere; raycast hit will be behind ray_start
 			ray *= -1.0f;

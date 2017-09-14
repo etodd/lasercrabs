@@ -446,10 +446,11 @@ b8 any_input(const Update& u)
 
 namespace splash
 {
+	const r32 splash_time = 2.0f;
 
 	struct Data
 	{
-		r32 timer = 2.0f;
+		r32 timer = splash_time;
 		Ref<Camera> camera;
 	};
 	Data* data;
@@ -469,6 +470,7 @@ namespace splash
 		};
 		const r32 fov = 40.0f * PI * 0.5f / 180.0f;
 		data->camera.ref()->perspective(fov, 0.1f, Game::level.skybox.far_plane);
+		data->camera.ref()->rot *= Quat::euler(0, Game::real_time.delta * -0.05f, 0);
 	}
 
 	void draw_ui(const RenderParams& params)
@@ -476,7 +478,7 @@ namespace splash
 		if (params.camera == data->camera.ref())
 		{
 			const Rect2& vp = params.camera->viewport;
-			UI::mesh(params, Asset::Mesh::helvetica_scenario, vp.size * 0.5f, Vec2(vp.size.x * 0.25f));
+			UI::mesh(params, Asset::Mesh::helvetica_scenario, vp.size * 0.5f, Vec2(vp.size.x * 0.25f * (1.0f - ((data->timer / splash_time) - 0.5f) * 0.2f)));
 
 			UIText text;
 			text.anchor_x = UIText::Anchor::Center;
@@ -1198,8 +1200,12 @@ namespace tier_2
 		Ref<Entity> terminal;
 		Ref<Entity> drone;
 		Ref<Entity> parkour;
+		Ref<Transform> trailer5_camera_base;
+		Array<Ref<Entity> > minions;
+		Array<Ref<Transform> > minion_bases;
 		b8 anim_played;
 		b8 drones_given;
+		b8 trailer5_camera;
 	};
 	Data* data;
 
@@ -1285,6 +1291,42 @@ namespace tier_2
 			data->terminal.ref()->get<Animator>()->layers[0].play(Asset::Animation::terminal_trailer5_terminal);
 			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer5);
 			data->parkour.ref()->get<Animator>()->layers[0].play(Asset::Animation::parkour_trailer5_parkour);
+			data->trailer5_camera = u.input->keys.get(s32(KeyCode::LShift));
+		}
+
+		if (u.input->keys.get(s32(KeyCode::Space)) && !u.last_input->keys.get(s32(KeyCode::Space)))
+		{
+			if (Game::session.time_scale == 1.0f)
+				Game::session.time_scale = 0.2f;
+			else
+				Game::session.time_scale = 1.0f;
+		}
+
+		const Animator::Layer& layer = data->terminal.ref()->get<Animator>()->layers[0];
+		if (layer.animation == Asset::Animation::terminal_trailer5_terminal)
+		{
+			if (data->trailer5_camera)
+			{
+				Camera* camera = PlayerHuman::list.iterator().item()->camera.ref();
+
+				Transform* base = data->trailer5_camera_base.ref();
+
+				const r32 initial_speed = 0.2f;
+				const r32 acceleration = 0.1f;
+				r32 time = vi_max(0.0f, layer.time - 0.5f);
+				r32 t = vi_max(0.0f, vi_min(time - 5.75f, initial_speed / acceleration));
+				r32 y = vi_min(5.75f + initial_speed / acceleration, time) * initial_speed - 0.5f * acceleration * (t * t);
+				camera->pos = base->pos + Vec3(0, y, 0);
+				camera->rot = Quat::look(base->rot * Vec3(0, -1, 0));
+			}
+
+			for (s32 i = 0; i < data->minions.length; i++)
+			{
+				Transform* base = data->minion_bases[i].ref();
+				Transform* transform = data->minions[i].ref()->get<Transform>();
+				transform->pos = base->pos + base->rot * Vec3(layer.time, 0, 0);
+				transform->rot = base->rot * Quat::euler(0, PI, 0);
+			}
 		}
 	}
 
@@ -1318,6 +1360,24 @@ namespace tier_2
 		data->drone.ref()->get<SkinnedModel>()->radius = 1000.0f;
 		data->drone.ref()->get<Animator>()->layers[0].blend_time = 0.0f;
 		data->drone.ref()->get<Animator>()->layers[0].behavior = Animator::Behavior::Default;
+
+		data->trailer5_camera_base = entities.find("trailer5_camera_base")->get<Transform>();
+
+		for (s32 i = 0; i < 33; i++)
+		{
+			char name[32];
+			sprintf(name, "minion%d", i);
+			
+			data->minion_bases.add(entities.find(name)->get<Transform>());
+
+			Entity* minion = World::create<Prop>(Asset::Mesh::character, Asset::Armature::character);
+			minion->get<Animator>()->layers[0].blend_time = 0.0f;
+			minion->get<Animator>()->layers[0].behavior = Animator::Behavior::Loop;
+			minion->get<Animator>()->layers[0].speed = 0.75f;
+			minion->get<Animator>()->layers[0].play(Asset::Animation::character_walk);
+
+			data->minions.add(minion);
+		}
 
 		Loader::animation(Asset::Animation::character_meursault_intro);
 		Loader::animation(Asset::Animation::meursault_intro);

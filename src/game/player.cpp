@@ -45,6 +45,7 @@ namespace VI
 
 #define DEBUG_NET_SYNC 0
 
+#define fov_narrow (30.0f * PI * 0.5f / 180.0f)
 #define fov_map_view (60.0f * PI * 0.5f / 180.0f)
 #define fov_default (70.0f * PI * 0.5f / 180.0f)
 #define fov_zoom (fov_default * 0.5f)
@@ -1213,7 +1214,7 @@ void PlayerHuman::update_late(const Update& u)
 		// noclip
 		update_camera_rotation(u);
 
-		camera.ref()->perspective(fov_map_view, 0.02f, Game::level.skybox.far_plane);
+		camera.ref()->perspective(u.input->keys.get(s32(KeyCode::E)) ? fov_narrow : fov_map_view, 0.02f, Game::level.skybox.far_plane);
 		camera.ref()->range = 0;
 		camera.ref()->cull_range = 0;
 

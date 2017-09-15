@@ -102,6 +102,7 @@ struct Particles
 	static StandardParticleSystem fast_tracers;
 	static StandardParticleSystem eased_particles;
 	static StandardParticleSystem sparkles;
+	static StandardParticleSystem smoke;
 
 	static void clear();
 };

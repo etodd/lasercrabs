@@ -347,6 +347,7 @@ set(SRC
 	src/game/parkour.cpp
 	external/sdl_controllers/gamecontrollerdb.txt
 	assets/shader/particle_standard.glsl
+	assets/shader/particle_alpha.glsl
 	assets/shader/particle_limited_size.glsl
 	assets/shader/particle_eased.glsl
 	assets/shader/particle_textured.glsl

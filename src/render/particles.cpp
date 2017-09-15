@@ -286,7 +286,16 @@ void Particles::clear()
 	ParticleSystem::time = 0.0f;
 }
 
-StandardParticleSystem::StandardParticleSystem(s32 vertices_per_particle, s32 indices_per_particle, const Vec2& start_size, const Vec2& end_size, r32 lifetime, const Vec3& gravity, const Vec4& color, AssetID shader, AssetID texture, r32 fade_in)
+StandardParticleSystem::StandardParticleSystem(s32 vertices_per_particle,
+	s32 indices_per_particle,
+	const Vec2& start_size,
+	const Vec2& end_size,
+	r32 lifetime,
+	const Vec3& gravity,
+	const Vec4& color,
+	AssetID shader,
+	AssetID texture,
+	r32 fade_in)
 	: ParticleSystem(vertices_per_particle, indices_per_particle, lifetime, shader == AssetNull ? (texture == AssetNull ? Asset::Shader::particle_standard : Asset::Shader::particle_textured) : shader, texture),
 	start_size(start_size),
 	end_size(end_size),
@@ -747,6 +756,17 @@ StandardParticleSystem Particles::eased_particles
 	Vec3::zero,
 	Vec4(1, 1, 1, 1),
 	Asset::Shader::particle_eased
+);
+
+StandardParticleSystem Particles::smoke
+(
+	3, 3,
+	Vec2(0.01f),
+	Vec2(0.1f),
+	3.0f,
+	Vec3(0, -0.05f, 0),
+	Vec4(1, 1, 1, 0.5f),
+	Asset::Shader::particle_alpha
 );
 
 }

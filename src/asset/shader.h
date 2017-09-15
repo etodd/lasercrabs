@@ -73,7 +73,7 @@ namespace Asset
 	}
 	namespace Shader
 	{
-		const s32 count = 37;
+		const s32 count = 38;
 		const AssetID armature = 0;
 		const AssetID blit = 1;
 		const AssetID bloom_downsample = 2;
@@ -89,28 +89,29 @@ namespace Asset
 		const AssetID fresnel = 12;
 		const AssetID global_light = 13;
 		const AssetID nav_dots = 14;
-		const AssetID particle_eased = 15;
-		const AssetID particle_limited_size = 16;
-		const AssetID particle_rain = 17;
-		const AssetID particle_spark = 18;
-		const AssetID particle_standard = 19;
-		const AssetID particle_textured = 20;
-		const AssetID point_light = 21;
-		const AssetID scan_lines = 22;
-		const AssetID sky_decal = 23;
-		const AssetID skybox = 24;
-		const AssetID spot_light = 25;
-		const AssetID ssao = 26;
-		const AssetID ssao_blur = 27;
-		const AssetID ssao_downsample = 28;
-		const AssetID standard = 29;
-		const AssetID standard_flat = 30;
-		const AssetID standard_instanced = 31;
-		const AssetID stencil_back_faces = 32;
-		const AssetID ui = 33;
-		const AssetID ui_texture = 34;
-		const AssetID underwater = 35;
-		const AssetID water = 36;
+		const AssetID particle_alpha = 15;
+		const AssetID particle_eased = 16;
+		const AssetID particle_limited_size = 17;
+		const AssetID particle_rain = 18;
+		const AssetID particle_spark = 19;
+		const AssetID particle_standard = 20;
+		const AssetID particle_textured = 21;
+		const AssetID point_light = 22;
+		const AssetID scan_lines = 23;
+		const AssetID sky_decal = 24;
+		const AssetID skybox = 25;
+		const AssetID spot_light = 26;
+		const AssetID ssao = 27;
+		const AssetID ssao_blur = 28;
+		const AssetID ssao_downsample = 29;
+		const AssetID standard = 30;
+		const AssetID standard_flat = 31;
+		const AssetID standard_instanced = 32;
+		const AssetID stencil_back_faces = 33;
+		const AssetID ui = 34;
+		const AssetID ui_texture = 35;
+		const AssetID underwater = 36;
+		const AssetID water = 37;
 	}
 }
 

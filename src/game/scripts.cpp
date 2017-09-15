@@ -26,8 +26,10 @@
 #include "settings.h"
 #include "asset/texture.h"
 #include "render/skinned_model.h"
+#include "render/particles.h"
 #include "data/animator.h"
 #include "input.h"
+#include "ease.h"
 
 namespace VI
 {
@@ -1195,14 +1197,19 @@ namespace tier_2
 	struct Data
 	{
 		Actor::Instance* meursault;
+		Array<Ref<Entity> > minions;
+		Array<Ref<Transform> > minion_bases;
+		Vec3 particle_last_pos;
+		r32 particle_accumulator;
 		Ref<Entity> anim_base;
 		Ref<Entity> hobo;
 		Ref<Entity> terminal;
 		Ref<Entity> drone;
 		Ref<Entity> parkour;
 		Ref<Transform> trailer5_camera_base;
-		Array<Ref<Entity> > minions;
-		Array<Ref<Transform> > minion_bases;
+		Ref<Transform> trailer5_camera_base2;
+		Ref<Transform> trailer5_camera_base3;
+		Ref<Transform> cigarette;
 		b8 anim_played;
 		b8 drones_given;
 		b8 trailer5_camera;
@@ -1302,22 +1309,66 @@ namespace tier_2
 				Game::session.time_scale = 1.0f;
 		}
 
+		{
+			const Animator::Layer& layer = data->hobo.ref()->get<Animator>()->layers[0];
+			b8 visible = layer.animation != Asset::Animation::hobo_trailer4;
+			data->parkour.ref()->get<SkinnedModel>()->mask = visible ? RENDER_MASK_DEFAULT : 0;
+			data->terminal.ref()->get<SkinnedModel>()->mask = visible ? RENDER_MASK_DEFAULT : 0;
+
+			for (s32 i = 0; i < data->minions.length; i++)
+				data->minions[i].ref()->get<SkinnedModel>()->mask = visible ? RENDER_MASK_DEFAULT : 0;
+		}
+
 		const Animator::Layer& layer = data->terminal.ref()->get<Animator>()->layers[0];
 		if (layer.animation == Asset::Animation::terminal_trailer5_terminal)
 		{
+			{
+				Transform* cig = data->cigarette.ref();
+				cig->pos = Vec3::zero;
+				cig->rot = Quat::identity;
+				data->parkour.ref()->get<Animator>()->to_world(Asset::Bone::parkour_attach_point, &cig->pos, &cig->rot);
+
+				Vec3 p = cig->to_world(Vec3(0.1f, 0, 0));
+				if (layer.time > 0.05f)
+				{
+					const r32 interval = 0.08f * (0.003f * 60.0f / vi_max(0.003f * 60.0f, (p - data->particle_last_pos).length() / u.time.delta));
+					data->particle_accumulator += u.time.delta;
+					while (data->particle_accumulator > interval)
+					{
+						data->particle_accumulator -= interval;
+						Particles::smoke.add(Vec3::lerp(data->particle_accumulator / vi_max(0.0001f, u.time.delta), data->particle_last_pos, p), Vec3(0, 0.2f, 0), PI, 0.0f);
+					}
+				}
+				data->particle_last_pos = p;
+			}
+
 			if (data->trailer5_camera)
 			{
 				Camera* camera = PlayerHuman::list.iterator().item()->camera.ref();
 
-				Transform* base = data->trailer5_camera_base.ref();
+				if (layer.time < 8.58f)
+				{
+					Transform* base = data->trailer5_camera_base.ref();
 
-				const r32 initial_speed = 0.2f;
-				const r32 acceleration = 0.1f;
-				r32 time = vi_max(0.0f, layer.time - 0.5f);
-				r32 t = vi_max(0.0f, vi_min(time - 5.75f, initial_speed / acceleration));
-				r32 y = vi_min(5.75f + initial_speed / acceleration, time) * initial_speed - 0.5f * acceleration * (t * t);
-				camera->pos = base->pos + Vec3(0, y, 0);
-				camera->rot = Quat::look(base->rot * Vec3(0, -1, 0));
+					const r32 initial_speed = 0.2f;
+					const r32 acceleration = 0.1f;
+					r32 time = vi_max(0.0f, layer.time - 0.5f);
+					r32 t = vi_max(0.0f, vi_min(time - 5.75f, initial_speed / acceleration));
+					r32 y = vi_min(5.75f + initial_speed / acceleration, time) * initial_speed - 0.5f * acceleration * (t * t);
+					camera->pos = base->pos + Vec3(0, y, 0);
+					camera->rot = Quat::look(base->rot * Vec3(0, -1, 0));
+				}
+				else
+				{
+					Transform* base2 = data->trailer5_camera_base2.ref();
+					Transform* base3 = data->trailer5_camera_base3.ref();
+					const r32 anim_time = 0.6f;
+					r32 time = layer.time - 8.58f;
+					camera->pos = Vec3::lerp(Ease::cubic_in_out<r32>(vi_min(1.0f, time / anim_time)), base2->pos, base3->pos);
+					camera->rot = Quat::look(base2->rot * Vec3(0, -1, 0));
+					if (time > anim_time)
+						Game::session.time_scale = vi_max(0.075f, 1.0f - (time - anim_time) / 0.1f);
+				}
 			}
 
 			for (s32 i = 0; i < data->minions.length; i++)
@@ -1362,13 +1413,20 @@ namespace tier_2
 		data->drone.ref()->get<Animator>()->layers[0].behavior = Animator::Behavior::Default;
 
 		data->trailer5_camera_base = entities.find("trailer5_camera_base")->get<Transform>();
+		data->trailer5_camera_base2 = entities.find("trailer5_camera_base2")->get<Transform>();
+		data->trailer5_camera_base3 = entities.find("trailer5_camera_base3")->get<Transform>();
 
-		for (s32 i = 0; i < 33; i++)
+		s32 i = 0;
+		while (true)
 		{
 			char name[32];
 			sprintf(name, "minion%d", i);
-			
-			data->minion_bases.add(entities.find(name)->get<Transform>());
+
+			Entity* e = entities.find(name);
+			if (!e)
+				break;
+				
+			data->minion_bases.add(e->get<Transform>());
 
 			Entity* minion = World::create<Prop>(Asset::Mesh::character, Asset::Armature::character);
 			minion->get<Animator>()->layers[0].blend_time = 0.0f;
@@ -1377,7 +1435,16 @@ namespace tier_2
 			minion->get<Animator>()->layers[0].play(Asset::Animation::character_walk);
 
 			data->minions.add(minion);
+
+			i++;
 		}
+
+		Entity* cigarette_main = World::create<Prop>(Asset::Mesh::cigarette_Circle);
+		data->cigarette = cigarette_main->get<Transform>();
+
+		Entity* cigarette_end = World::create<Prop>(Asset::Mesh::cigarette_Circle_1);
+		cigarette_end->get<Transform>()->parent = cigarette_main->get<Transform>();
+		cigarette_end->get<View>()->alpha();
 
 		Loader::animation(Asset::Animation::character_meursault_intro);
 		Loader::animation(Asset::Animation::meursault_intro);

@@ -1200,7 +1200,9 @@ namespace tier_2
 		Array<Ref<Entity> > minions;
 		Array<Ref<Transform> > minion_bases;
 		Vec3 particle_last_pos;
+		Vec3 particle_last_pos2;
 		r32 particle_accumulator;
+		r32 particle_accumulator2;
 		Ref<Entity> anim_base;
 		Ref<Entity> hobo;
 		Ref<Entity> terminal;
@@ -1275,6 +1277,25 @@ namespace tier_2
 			player->get<PlayerControlHuman>()->cinematic(data->anim_base.ref(), Asset::Animation::character_meursault_intro);
 		}
 #endif
+	}
+
+	void muzzle_flash()
+	{
+		Vec3 pos = Vec3::zero;
+		Quat rot = Quat::identity;
+		data->parkour.ref()->get<Animator>()->to_world(Asset::Bone::parkour_hand_L, &pos, &rot);
+
+		for (s32 i = 0; i < 32; i++)
+		{
+			Particles::sparks_small.add
+			(
+				pos,
+				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 6.0f,
+				Vec4(1, 1, 1, 1)
+			);
+		}
+
+		EffectLight::add(pos, 8.0f, 1.5f, EffectLight::Type::Spark);
 	}
 
 	void update(const Update& u)
@@ -1357,9 +1378,31 @@ namespace tier_2
 					r32 y = vi_min(5.75f + initial_speed / acceleration, time) * initial_speed - 0.5f * acceleration * (t * t);
 					camera->pos = base->pos + Vec3(0, y, 0);
 					camera->rot = Quat::look(base->rot * Vec3(0, -1, 0));
+
+					{
+						Vec3 p = Vec3::zero;
+						Quat rot = Quat::identity;
+						data->parkour.ref()->get<Animator>()->to_world(Asset::Bone::parkour_hand_L, &p, &rot);
+						data->particle_last_pos2 = p;
+					}
 				}
 				else
 				{
+					{
+						Vec3 p = Vec3::zero;
+						Quat rot = Quat::identity;
+						data->parkour.ref()->get<Animator>()->to_world(Asset::Bone::parkour_hand_L, &p, &rot);
+
+						const r32 interval = 0.02f;
+						data->particle_accumulator2 += u.time.delta;
+						while (data->particle_accumulator2 > interval)
+						{
+							data->particle_accumulator2 -= interval;
+							Particles::fast_tracers.add(Vec3::lerp(data->particle_accumulator2 / vi_max(0.0001f, u.time.delta), data->particle_last_pos2, p), Vec3::zero, 0);
+						}
+						data->particle_last_pos2 = p;
+					}
+
 					Transform* base2 = data->trailer5_camera_base2.ref();
 					Transform* base3 = data->trailer5_camera_base3.ref();
 					const r32 anim_time = 0.6f;
@@ -1406,6 +1449,7 @@ namespace tier_2
 		data->parkour.ref()->get<SkinnedModel>()->radius = 1000.0f;
 		data->parkour.ref()->get<Animator>()->layers[0].blend_time = 0.0f;
 		data->parkour.ref()->get<Animator>()->layers[0].behavior = Animator::Behavior::Default;
+		data->parkour.ref()->get<Animator>()->trigger(Asset::Animation::parkour_trailer5_parkour, 9.1f).link(&muzzle_flash);
 
 		data->drone = World::create<Prop>(Asset::Mesh::drone, Asset::Armature::drone);
 		data->drone.ref()->get<SkinnedModel>()->radius = 1000.0f;

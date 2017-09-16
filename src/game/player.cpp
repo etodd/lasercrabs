@@ -433,6 +433,25 @@ b8 PlayerHuman::notification(Entity* entity, AI::Team team, Notification::Type t
 			}
 		}
 	}
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->local() && i.item()->get<PlayerManager>()->team.ref()->team() == team)
+		{
+			// a local player will receive this notification; play a sound
+			if (type == Notification::Type::ForceFieldUnderAttack
+				|| type == Notification::Type::BatteryUnderAttack
+				|| type == Notification::Type::TurretUnderAttack)
+				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_UNDER_ATTACK);
+			else if (type == Notification::Type::ForceFieldDestroyed
+				|| type == Notification::Type::BatteryLost
+				|| type == Notification::Type::TurretDestroyed)
+				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_LOST);
+
+			break;
+		}
+	}
+
 	Notification* n = notifications.add();
 	n->transform = t;
 	n->pos = n->transform.ref()->absolute_pos();

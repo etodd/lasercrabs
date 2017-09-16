@@ -123,6 +123,8 @@ namespace AK
         static const AkUniqueID PLAY_MINION_SPAWN = 4058052828U;
         static const AkUniqueID PLAY_MINION_WEAPON_FIRE = 2006027670U;
         static const AkUniqueID PLAY_MUSIC_01 = 3709355747U;
+        static const AkUniqueID PLAY_NOTIFICATION_LOST = 4226152292U;
+        static const AkUniqueID PLAY_NOTIFICATION_UNDER_ATTACK = 4019010343U;
         static const AkUniqueID PLAY_OVERWORLD_DEPLOY = 3291224810U;
         static const AkUniqueID PLAY_OVERWORLD_DEPLOY_START = 1917291515U;
         static const AkUniqueID PLAY_OVERWORLD_MOVE = 3749213116U;

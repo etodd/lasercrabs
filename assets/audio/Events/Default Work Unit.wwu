@@ -1936,6 +1936,34 @@
 								</Action>
 							</ChildrenList>
 						</Event>
+						<Event Name="Play_Notification_Lost" ID="{146812B4-7C3E-47FD-A139-730CA7EEA0B3}">
+							<ChildrenList>
+								<Action Name="" ID="{64C598CB-766A-4D5C-B7D1-809C025EDD22}" ShortID="722649820">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="RUMBLE_Error_2" ID="{56BD1F0E-E05A-4A27-A6CB-3AA0B0760BAC}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_Notification_Under_Attack" ID="{4B0CB8FD-9728-4BDD-BCDC-4989437D126C}">
+							<ChildrenList>
+								<Action Name="" ID="{8028DF2E-A077-4891-A985-EB87BCB1C400}" ShortID="156456242">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="RUMBLE_Error_5_1" ID="{3B18076A-97E2-4010-961E-595423734BFB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
 					</ChildrenList>
 				</Folder>
 				<Event Name="Stop_All" ID="{07D81830-164C-4236-BA40-35B363A62413}">

@@ -940,12 +940,11 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				case Ability::ActiveArmor:
 				{
-					if (drone)
+					if (drone && (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local()))
 					{
-						drone->cooldown_setup(DRONE_COOLDOWN_ACTIVE_ARMOR);
 						drone->get<Health>()->active_armor_timer = vi_max(drone->get<Health>()->active_armor_timer, ACTIVE_ARMOR_TIME);
-						if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
-							drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
+						drone->cooldown_setup(DRONE_COOLDOWN_ACTIVE_ARMOR);
+						drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
 					}
 					break;
 				}

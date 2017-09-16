@@ -41,6 +41,7 @@ namespace VI
 #define DRONE_COOLDOWN_SHOTGUN 1.5f
 #define DRONE_COOLDOWN_SNIPER 1.1f
 #define DRONE_COOLDOWN_BOLTER (1.0f / 8.0f)
+#define DRONE_COOLDOWN_ACTIVE_ARMOR 1.1f
 #define DRONE_COOLDOWN_THRESHOLD_TIME 2.25f
 #define DRONE_COOLDOWN_SPEED (DRONE_COOLDOWN_THRESHOLD / DRONE_COOLDOWN_THRESHOLD_TIME)
 
@@ -753,6 +754,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (ability != Ability::Bolter // bolter handles cooldowns manually
 				&& ability != Ability::Shotgun // so does shotgun
 				&& ability != Ability::Sniper // so does sniper
+				&& ability != Ability::ActiveArmor // so does active armor
 				&& (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())) // only do cooldowns for remote drones or AI drones; local players will have already done this
 				drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
 
@@ -940,6 +942,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					if (drone)
 					{
+						drone->cooldown_setup(DRONE_COOLDOWN_ACTIVE_ARMOR);
 						drone->get<Health>()->active_armor_timer = vi_max(drone->get<Health>()->active_armor_timer, ACTIVE_ARMOR_TIME);
 						if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
 							drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
@@ -1793,18 +1796,14 @@ b8 Drone::go(const Vec3& dir)
 				drone_sniper_effects(this, dir_normalized);
 				cooldown_setup(DRONE_COOLDOWN_SNIPER);
 			}
-			else
+			else if (a == Ability::ActiveArmor)
 			{
-				// all other abilities have normal cooldowns
-				if (a != Ability::None)
-					cooldown_setup(DRONE_COOLDOWN_NORMAL);
-
-				if (a == Ability::ActiveArmor)
-				{
-					get<Health>()->active_armor_timer = ACTIVE_ARMOR_TIME; // show invincibility sparkles instantly
-					get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
-				}
+				cooldown_setup(DRONE_COOLDOWN_ACTIVE_ARMOR);
+				get<Health>()->active_armor_timer = ACTIVE_ARMOR_TIME; // show invincibility sparkles instantly
+				get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
 			}
+			else if (a != Ability::None)
+				cooldown_setup(DRONE_COOLDOWN_NORMAL); // all other abilities have normal cooldowns
 		}
 	}
 

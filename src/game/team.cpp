@@ -176,14 +176,14 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::sniper,
 		strings::description_sniper,
 		Asset::Mesh::icon_sniper,
-		200,
+		250,
 		Type::Ability,
 	},
 	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
-		200,
+		250,
 		Type::Ability,
 	},
 	{
@@ -1837,7 +1837,7 @@ s16 PlayerManager::upgrade_cost(Upgrade u) const
 	vi_assert(u != Upgrade::None);
 	const UpgradeInfo& info = UpgradeInfo::list[s32(u)];
 	if (info.type == UpgradeInfo::Type::Ability)
-		return info.cost * (1 + ability_count());
+		return s16(r32(info.cost) * (1.0f + 0.5f * ability_count()));
 	else
 		return info.cost;
 }

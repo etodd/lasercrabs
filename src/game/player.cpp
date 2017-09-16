@@ -4586,6 +4586,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				{
 					if (UI::flash_function(Game::real_time.total))
 						UI::indicator(params, pos, Team::ui_color_enemy, true);
+					enemy_dangerous_visible = true;
 				}
 			}
 		}

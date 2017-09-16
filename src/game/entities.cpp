@@ -2028,6 +2028,7 @@ b8 Bolt::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		Audio::post_global(AK::EVENTS::PLAY_DRONE_REFLECT, ref.ref()->get<Transform>()->absolute_pos());
 		if (change_team)
 		{
+			ref.ref()->type = Type::DroneBolter;
 			ref.ref()->reflected = true;
 			ref.ref()->team = team;
 			ref.ref()->player = player;
@@ -2257,11 +2258,7 @@ void Bolt::hit_entity(const Hit& hit)
 				break;
 			}
 			case Type::Turret:
-			{
-				if (hit_object->has<Drone>())
-					damage = 2;
 				break;
-			}
 			default:
 				vi_assert(false);
 				break;

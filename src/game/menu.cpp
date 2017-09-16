@@ -147,7 +147,11 @@ b8 dialog_active(s8 gamepad)
 
 void dialog(s8 gamepad, DialogCallback callback, const char* format, ...)
 {
-	Audio::post_global(AK::EVENTS::PLAY_DIALOG_ALERT);
+	if (callback == &dialog_no_action)
+		Audio::post_global(AK::EVENTS::PLAY_DIALOG_ALERT);
+	else
+		Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW);
+
 	va_list args;
 	va_start(args, format);
 

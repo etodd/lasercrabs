@@ -414,20 +414,7 @@
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Battery_Reset" ID="{76DB62BF-CC10-45C3-80F6-FEA99D6DA648}">
-									<ChildrenList>
-										<Action Name="" ID="{F38E9EAF-2E55-4C43-9327-FC01B56C7985}" ShortID="783462743">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Beep_Grenade" ID="{628C690A-1CE9-46C3-A5B4-1EE9975C34DD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
+								<Event Name="Play_Battery_Reset" ID="{76DB62BF-CC10-45C3-80F6-FEA99D6DA648}"/>
 								<Event Name="Play_Battery_Loop" ID="{A00E5B7B-CAF7-4218-B614-163785E6A767}"/>
 							</ChildrenList>
 						</Folder>
@@ -510,34 +497,8 @@
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Terminal_Open" ID="{A2432DE0-A6DC-4A6E-99C1-2F6A85A757FA}">
-									<ChildrenList>
-										<Action Name="" ID="{B90FA806-4240-40C7-A9C3-FDD6AA9BB48D}" ShortID="150188932">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Start_Session" ID="{D21915AF-CC7D-43F7-AB3E-814AAD6FF594}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
-								<Event Name="Play_Terminal_Close" ID="{E34B4434-5C00-4A01-B0DE-F438DC3E7F16}">
-									<ChildrenList>
-										<Action Name="" ID="{BB974E5D-300E-459D-A1B6-787D3E22D768}" ShortID="69540115">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Start_Session" ID="{D21915AF-CC7D-43F7-AB3E-814AAD6FF594}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
+								<Event Name="Play_Terminal_Open" ID="{A2432DE0-A6DC-4A6E-99C1-2F6A85A757FA}"/>
+								<Event Name="Play_Terminal_Close" ID="{E34B4434-5C00-4A01-B0DE-F438DC3E7F16}"/>
 								<Event Name="Play_Water_Loop" ID="{D8B5B134-F94F-4257-826F-931BD1D6EFBF}">
 									<ChildrenList>
 										<Action Name="" ID="{B0D58FF9-9D4B-46EF-B7BE-58C738204089}" ShortID="606562639">
@@ -1856,7 +1817,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="Beep_Good" ID="{54447A20-7B33-4926-9A51-135793FFE7F4}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="RUMBLE_Beep_4_1" ID="{F3B141EC-291A-4456-A460-2192A3167B64}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -1870,7 +1831,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="Beep_Good" ID="{54447A20-7B33-4926-9A51-135793FFE7F4}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="RUMBLE_Beep_6_1" ID="{07693FCA-D034-466F-B805-B1B10B970A8E}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -1884,7 +1845,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="UI_Danger_Beep" ID="{B1B65865-0782-4C2D-A3D4-A4BB4D2BB19B}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="RUMBLE_Beep_5_1" ID="{2B079E69-C12D-434F-9C42-935C4C30DC54}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -1898,7 +1859,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="UI_Danger_Beep" ID="{B1B65865-0782-4C2D-A3D4-A4BB4D2BB19B}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="RUMBLE_Error_5_1" ID="{3B18076A-97E2-4010-961E-595423734BFB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -1918,20 +1879,7 @@
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_Overworld_Deploy" ID="{DD8441E8-CCC7-424D-9337-CBAC4BE00765}">
-							<ChildrenList>
-								<Action Name="" ID="{F76F6ECA-371A-4C08-BB7C-370892DF170F}" ShortID="1031803303">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Start_Session" ID="{D21915AF-CC7D-43F7-AB3E-814AAD6FF594}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
+						<Event Name="Play_Overworld_Deploy" ID="{DD8441E8-CCC7-424D-9337-CBAC4BE00765}"/>
 						<Event Name="Play_UI_Shield_Down_Beep" ID="{996D37D5-A401-4185-ADA2-CE4155A54FDE}">
 							<ChildrenList>
 								<Action Name="" ID="{4DE3AAE0-276D-40A5-A2A9-9044842B35D8}" ShortID="894655529">

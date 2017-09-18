@@ -575,7 +575,7 @@ void Game::update(const Update& update_in)
 		for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		Battery::update_all(u);
-		Sensor::update_client_all(u);
+		Generator::update_all(u);
 		ForceField::update_all(u);
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
@@ -692,7 +692,7 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 {
 	// energy pickups are not synced in parkour mode
 
-	if (t->has<Sensor>() && !t->has<Battery>())
+	if (t->has<Generator>() && !t->has<Battery>())
 		return true;
 
 	const ComponentMask mask_parkour =
@@ -1855,17 +1855,6 @@ void Game::load_level(AssetID l, Mode m)
 				spawn_link->ref = &entity->get<Battery>()->spawn_point;
 				spawn_link->target_name = spawn_point_name;
 			}
-		}
-		else if (cJSON_HasObjectItem(element, "AICue"))
-		{
-			const char* type = Json::get_string(element, "AICue");
-			AICue::Type t;
-			if (strcmp(type, "snipe") == 0)
-				t = AICue::Type::Snipe;
-			else
-				t = AICue::Type::Sensor;
-			entity = World::alloc<Empty>();
-			entity->create<AICue>(t);
 		}
 		else if (cJSON_HasObjectItem(element, "SkyDecal"))
 		{

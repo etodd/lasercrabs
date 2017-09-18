@@ -389,9 +389,9 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 		}
 	}
 
-	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
 	{
-		Sensor* item = i.item();
+		Generator* item = i.item();
 		if (item->team != team && !item->has<Battery>())
 		{
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
@@ -523,13 +523,13 @@ Entity* visible_target(Minion* me, AI::Team team)
 		}
 	}
 
-	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
 	{
-		Sensor* sensor = i.item();
-		if (sensor->team != team && !sensor->has<Battery>())
+		Generator* generator = i.item();
+		if (generator->team != team && !generator->has<Battery>())
 		{
-			if (me->can_see(sensor->entity()))
-				return sensor->entity();
+			if (me->can_see(generator->entity()))
+				return generator->entity();
 		}
 	}
 

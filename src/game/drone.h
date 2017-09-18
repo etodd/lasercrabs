@@ -125,6 +125,7 @@ struct Drone : public ComponentType<Drone>
 	Vec3 rotation_clamp_vector;
 	r32 attach_time;
 	r32 cooldown; // remaining cooldown time
+	r32 cooldown_last_local_change;
 	r32 last_footstep;
 	r32 dash_timer;
 	r32 bolter_last_fired;

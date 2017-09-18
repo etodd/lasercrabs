@@ -781,9 +781,9 @@ MemoryStatus minion_memory_filter(const PlayerControlAI* control, const Entity* 
 		return MemoryStatus::Update;
 }
 
-MemoryStatus sensor_memory_filter(const PlayerControlAI* control, const Entity* e)
+MemoryStatus generator_memory_filter(const PlayerControlAI* control, const Entity* e)
 {
-	if (e->get<Sensor>()->team == control->get<AIAgent>()->team || e->has<Battery>())
+	if (e->get<Generator>()->team == control->get<AIAgent>()->team || e->has<Battery>())
 		return MemoryStatus::Forget;
 	else
 		return MemoryStatus::Update;
@@ -831,18 +831,6 @@ b8 force_field_filter(const PlayerControlAI* control, const Entity* e)
 {
 	ForceField* field = e->get<ForceField>();
 	return field->team != control->get<AIAgent>()->team && field->contains(control->get<Transform>()->absolute_pos());
-}
-
-b8 aicue_sensor_filter(const PlayerControlAI* control, const Entity* e)
-{
-	// only interested in interest points we don't have control over yet
-	if (e->get<AICue>()->type & AICue::Type::Sensor)
-	{
-		r32 closest_distance;
-		Sensor::closest(1 << control->get<AIAgent>()->team, e->get<Transform>()->absolute_pos(), &closest_distance);
-		return closest_distance > SENSOR_RANGE;
-	}
-	return false;
 }
 
 MemoryStatus default_memory_filter(const PlayerControlAI* control, const Entity* e)
@@ -906,7 +894,7 @@ s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
 		}
 	}
 
-	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
 	{
 		if (AI::match(i.item()->team, mask)
 			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
@@ -922,18 +910,17 @@ void PlayerControlAI::update_memory()
 {
 	update_component_memory<Battery>(this, &default_memory_filter);
 	update_component_memory<Minion>(this, &minion_memory_filter);
-	update_component_memory<Sensor>(this, &sensor_memory_filter);
-	update_component_memory<AICue>(this, &default_memory_filter);
+	update_component_memory<Generator>(this, &generator_memory_filter);
 	update_component_memory<ForceField>(this, &default_memory_filter);
 
-	// update memory of enemy drone positions based on team sensor data
+	// update memory of enemy drone positions based on team generator data
 
 	update_component_memory<Drone>(this, &drone_memory_filter);
 
 	const Team& team = Team::list[(s32)get<AIAgent>()->team];
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
-		const Team::SensorTrack& track = team.player_tracks[i];
+		const Team::GeneratorTrack& track = team.player_tracks[i];
 		if (track.tracking && track.entity.ref())
 			add_memory(&player.ref()->memory, track.entity.ref(), track.entity.ref()->get<Transform>()->absolute_pos());
 	}
@@ -1055,7 +1042,7 @@ void PlayerControlAI::actions_populate()
 			| (1 << s32(AI::RecordedLife::EntityBatteryNeutral))
 			| (1 << s32(AI::RecordedLife::EntityTurretEnemy))
 			| (1 << s32(AI::RecordedLife::EntityCoreModuleVulnerable))
-			| (1 << s32(AI::RecordedLife::EntitySensorEnemy))))
+			| (1 << s32(AI::RecordedLife::EntityGeneratorEnemy))))
 	{
 		Vec3 pos = get<Transform>()->absolute_pos();
 		for (s32 i = 0; i < player.ref()->memory.length; i++)
@@ -1134,7 +1121,7 @@ void PlayerControlAI::actions_populate()
 						break;
 					}
 					case AI::RecordedLife::EntityTurretEnemy:
-					case AI::RecordedLife::EntitySensorEnemy:
+					case AI::RecordedLife::EntityGeneratorEnemy:
 					case AI::RecordedLife::EntityForceFieldEnemy:
 					{
 						break;

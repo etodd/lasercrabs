@@ -102,7 +102,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 		Type::Other,
 	},
 	{
-		Asset::Mesh::icon_sensor,
+		Asset::Mesh::icon_generator,
 		25,
 		Type::Build,
 	},
@@ -152,9 +152,9 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		Type::Ability,
 	},
 	{
-		strings::sensor,
-		strings::description_sensor,
-		Asset::Mesh::icon_sensor,
+		strings::generator,
+		strings::description_generator,
+		Asset::Mesh::icon_generator,
 		100,
 		Type::Ability,
 	},
@@ -300,7 +300,7 @@ void Team::track(PlayerManager* player, Entity* e)
 	// enemy player has been detected by `tracked_by`
 	vi_assert(player->team.ref() != this);
 
-	SensorTrack* track = &player_tracks[player->id()];
+	GeneratorTrack* track = &player_tracks[player->id()];
 	track->tracking = true; // got em
 	track->entity = e;
 }
@@ -326,11 +326,21 @@ void Team::add_kills(s32 k)
 s16 Team::increment() const
 {
 	s16 increment = ENERGY_DEFAULT_INCREMENT;
+
+	// generators that are not batteries
+	for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
+	{
+		if (!i.item()->has<Battery>() && i.item()->team == team())
+			increment += Battery::increment(0);
+	}
+
+	// batteries (that may or may not be generators)
 	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team == team())
 			increment += i.item()->increment();
 	}
+
 	return increment;
 }
 
@@ -378,25 +388,25 @@ b8 visibility_check(Entity* i, Entity* j, r32* distance)
 	return false;
 }
 
-// determine which sensors can see the given player
-void update_visibility_sensor(Entity* visibility[][MAX_TEAMS], PlayerManager* player, Entity* player_entity)
+// determine which generators can see the given player
+void update_visibility_generator(Entity* visibility[][MAX_TEAMS], PlayerManager* player, Entity* player_entity)
 {
 	Quat player_rot;
 	Vec3 player_pos;
 	player_entity->get<Transform>()->absolute(&player_pos, &player_rot);
 	player_pos += player_rot * Vec3(0, 0, -DRONE_RADIUS);
 	Vec3 normal = player_rot * Vec3(0, 0, 1);
-	for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
+	for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
 	{
-		if (sensor.item()->team != AI::TeamNone)
+		if (i.item()->team != AI::TeamNone)
 		{
-			Entity** sensor_visibility = &visibility[player->id()][s32(sensor.item()->team)];
-			if (!(*sensor_visibility))
+			Entity** entry = &visibility[player->id()][s32(i.item()->team)];
+			if (!(*entry))
 			{
-				Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
-				if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE
-					&& to_sensor.dot(normal) > 0.0f)
-					*sensor_visibility = player_entity;
+				Vec3 to_generator = i.item()->get<Transform>()->absolute_pos() - player_pos;
+				if (to_generator.length_squared() < GENERATOR_RANGE * GENERATOR_RANGE
+					&& to_generator.dot(normal) > 0.0f)
+					*entry = player_entity;
 			}
 		}
 	}
@@ -410,18 +420,18 @@ void update_stealth_state(PlayerManager* player, AIAgent* a, Entity* visibility[
 	player_pos += player_rot * Vec3(0, 0, -DRONE_RADIUS);
 	Vec3 normal = player_rot * Vec3(0, 0, 1);
 
-	// if we are within range of their own sensors
-	// and not detected by enemy sensors
+	// if we are within range of their own generators
+	// and not detected by enemy generators
 	// then we should be stealthed
 	b8 stealth_enabled = true;
 	UpgradeStation* upgrade_station = UpgradeStation::drone_inside(a->get<Drone>());
 	if (upgrade_station && upgrade_station->timer == 0.0f) // always stealthed inside upgrade stations (but not while transitioning)
 		stealth_enabled = true;
-	else if (!Sensor::can_see(a->team, player_pos, normal))
+	else if (!Generator::can_see(a->team, player_pos, normal))
 		stealth_enabled = false;
 	else
 	{
-		// check if any enemy sensors can see us
+		// check if any enemy generators can see us
 		for (auto t = Team::list.iterator(); !t.is_last(); t.next())
 		{
 			if (t.item()->team() != a->team && t.item()->player_tracks[player->id()].entity.ref() == a->entity())
@@ -446,7 +456,7 @@ void update_visibility(const Update& u)
 		{
 			if (player_entity->get<Drone>()->state() == Drone::State::Crawl) // we're on a wall and can thus be detected
 			{
-				update_visibility_sensor(visibility, player.item(), player_entity);
+				update_visibility_generator(visibility, player.item(), player_entity);
 				update_stealth_state(player.item(), player_entity->get<AIAgent>(), visibility);
 			}
 			else
@@ -502,19 +512,19 @@ void update_visibility(const Update& u)
 				continue;
 
 			Entity* detected_entity = visibility[player.index][team->id()];
-			Team::SensorTrack* track = &team->player_tracks[player.index];
+			Team::GeneratorTrack* track = &team->player_tracks[player.index];
 			if (detected_entity)
 			{
-				// team's sensors are picking up the Drone
+				// team's generators are picking up the Drone
 				if (track->entity.ref() == detected_entity)
 				{
 					if (track->tracking)
-						track->timer = SENSOR_LINGER_TIME; // this is how much time we'll continue to track them after we can no longer detect them
+						track->timer = GENERATOR_LINGER_TIME; // this is how much time we'll continue to track them after we can no longer detect them
 					else
 					{
 						// tracking but not yet alerted
 						track->timer += u.time.delta;
-						if (track->timer >= SENSOR_TRACK_TIME)
+						if (track->timer >= GENERATOR_TRACK_TIME)
 							team->track(player.item(), detected_entity);
 					}
 				}
@@ -523,15 +533,15 @@ void update_visibility(const Update& u)
 					// not tracking yet; insert new track entry
 					// (only start tracking if the Drone is attached to a wall; don't start tracking if Drone is mid-air)
 
-					new (track) Team::SensorTrack();
+					new (track) Team::GeneratorTrack();
 					track->entity = detected_entity;
 				}
 			}
 			else
 			{
-				// team's sensors don't see the Drone
+				// team's generators don't see the Drone
 				// done tracking
-				if (track->tracking && track->entity.ref() && track->timer > 0.0f) // track still remains active for SENSOR_LINGER_TIME seconds
+				if (track->tracking && track->entity.ref() && track->timer > 0.0f) // track still remains active for GENERATOR_LINGER_TIME seconds
 					track->timer -= u.time.delta;
 				else
 				{
@@ -2114,8 +2124,8 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 				reward = ENERGY_GRENADE_DESTROY;
 			else if (e->has<ForceField>())
 				reward = ENERGY_FORCE_FIELD_DESTROY;
-			else if (e->has<Sensor>())
-				reward = ENERGY_SENSOR_DESTROY;
+			else if (e->has<Generator>())
+				reward = ENERGY_GENERATOR_DESTROY;
 			else if (e->has<Turret>())
 			{
 				reward = ENERGY_TURRET_DESTROY;

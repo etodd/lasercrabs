@@ -357,6 +357,8 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTar
 
 	Vec3 ray_start = drone->get<Transform>()->absolute_pos();
 
+	s32 result = 1;
+
 	Vec3 intersection;
 	if (LMath::ray_sphere_intersect(ray_start, ray_start + ray_dir * drone->range(), target_pos, DRONE_SHIELD_RADIUS, &intersection))
 	{
@@ -366,11 +368,15 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTar
 		b8 allow_direct_hit = (drone->current_ability == Ability::Sniper) ? true : !target_shield->has<Turret>();
 
 		if (dot < -0.9f && allow_direct_hit)
-			return 3;
+			result = 3;
 		else if (dot < -0.7f)
-			return 2;
+			result = 2;
 	}
-	return 1;
+
+	if (target_shield->has<Generator>() && result >= target_shield->get<Health>()->shield)
+		result = DRONE_SHIELD_AMOUNT + GENERATOR_HEALTH; // generators are one hit kills once the shield is down
+	
+	return result;
 }
 
 void drone_remove_fake_projectile(Drone* drone, EffectLight::Type type)
@@ -764,17 +770,14 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			switch (ability)
 			{
-				case Ability::Sensor:
+				case Ability::Generator:
 				{
-					// place a sensor
+					// place a generator
 					if (Game::level.local)
-						Net::finalize(World::create<SensorEntity>(manager->team.ref()->team(), pos + rot * Vec3(0, 0, SENSOR_RADIUS), rot));
-
-					Audio::post_global(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnGenerator, pos + rot * Vec3(0, 0, GENERATOR_RADIUS), rot, manager);
 
 					// effects
 					particle_trail(my_pos, pos);
-					EffectLight::add(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH), 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 					break;
 				}
@@ -1037,6 +1040,7 @@ Drone::Drone()
 	reflecting(),
 	hit_targets(),
 	cooldown(),
+	cooldown_last_local_change(),
 	current_ability(Ability::None),
 	fake_projectiles(),
 	ability_spawned(),
@@ -1498,6 +1502,7 @@ void Drone::cooldown_setup(r32 amount)
 #endif
 
 	cooldown += amount;
+	cooldown_last_local_change = Game::time.total;
 
 #if SERVER
 	if (lag_compensate && has<PlayerControlHuman>())

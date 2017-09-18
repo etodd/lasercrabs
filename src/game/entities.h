@@ -121,6 +121,7 @@ struct Battery : public ComponentType<Battery>
 	static Battery* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static s32 count(AI::TeamMask);
 	static b8 net_msg(Net::StreamRead*);
+	static s16 increment(s16);
 
 	Ref<Entity> light;
 	Ref<SpawnPoint> spawn_point;
@@ -197,27 +198,26 @@ struct UpgradeStationEntity : public Entity
 	UpgradeStationEntity(SpawnPoint*);
 };
 
-struct SensorEntity : public Entity
+struct GeneratorEntity : public Entity
 {
-	SensorEntity(AI::Team, const Vec3&, const Quat&);
+	GeneratorEntity(AI::Team, const Vec3&, const Quat&);
 };
 
-struct Sensor : public ComponentType<Sensor>
+struct Generator : public ComponentType<Generator>
 {
 	AI::Team team;
 
-	Sensor(AI::Team = AI::TeamNone);
+	Generator(AI::Team = AI::TeamNone);
 
 	void killed_by(Entity*);
 	void awake();
 
-	void hit_by(const TargetEvent&);
 	void set_team(AI::Team);
 
 	static b8 can_see(AI::Team, const Vec3&, const Vec3&);
-	static Sensor* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+	static Generator* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 
-	static void update_client_all(const Update&);
+	static void update_all(const Update&);
 };
 
 struct CoreModuleEntity : public Entity
@@ -294,6 +294,8 @@ struct ForceField : public ComponentType<ForceField>
 		count,
 	};
 
+	r32 spawn_death_timer;
+	r32 damage_timer;
 	u32 obstacle_id;
 	Ref<ForceFieldCollision> collision;
 	AI::Team team;
@@ -314,25 +316,6 @@ struct ForceField : public ComponentType<ForceField>
 struct ForceFieldEntity : public Entity
 {
 	ForceFieldEntity(Transform*, const Vec3&, const Quat&, AI::Team, ForceField::Type = ForceField::Type::Normal);
-};
-
-struct AICue : public ComponentType<AICue>
-{
-	enum Type
-	{
-		Sensor = 1 << 0,
-		Snipe = 1 << 1,
-	};
-
-	typedef s32 TypeMask;
-	static const TypeMask TypeAll = (TypeMask)-1;
-
-	static AICue* in_range(TypeMask, const Vec3&, r32, s32* = nullptr);
-
-	TypeMask type;
-	AICue(TypeMask);
-	AICue();
-	void awake() {}
 };
 
 struct EffectLight
@@ -462,6 +445,7 @@ struct ParticleEffect
 		SpawnDrone,
 		SpawnMinion,
 		SpawnForceField,
+		SpawnGenerator,
 		count,
 	};
 

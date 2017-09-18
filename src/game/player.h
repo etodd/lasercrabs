@@ -32,12 +32,17 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 {
 	enum class UIMode : s8
 	{
-		PvpDefault,
 		ParkourDefault,
-		Pause,
-		Dead,
-		PvpUpgrading,
+		ParkourDead,
+		PvpDefault,
+		PvpSelectTeam,
+		PvpSelectSpawn,
+		PvpKillCam,
+		PvpSpectate,
+		PvpUpgrade,
 		PvpGameOver,
+		Noclip,
+		Pause,
 		count,
 	};
 
@@ -277,7 +282,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 			BatteryEnemyOutOfRange,
 			BatteryFriendly,
 			BatteryFriendlyOutOfRange,
-			Sensor,
+			Generator,
 			ForceField,
 			Grenade,
 			Turret,

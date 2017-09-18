@@ -47,7 +47,7 @@ COMPONENT_TYPE(24, SkinnedModel) \
 COMPONENT_TYPE(25, Bolt) \
 COMPONENT_TYPE(26, Grenade) \
 COMPONENT_TYPE(27, Battery) \
-COMPONENT_TYPE(28, Sensor) \
+COMPONENT_TYPE(28, Generator) \
 COMPONENT_TYPE(29, ForceField) \
 COMPONENT_TYPE(30, ForceFieldCollision) \
 COMPONENT_TYPE(31, SkyDecal) \
@@ -59,11 +59,10 @@ COMPONENT_TYPE(36, Interactable) \
 COMPONENT_TYPE(37, TramRunner) \
 COMPONENT_TYPE(38, Tram) \
 COMPONENT_TYPE(39, Collectible) \
-COMPONENT_TYPE(40, AICue) \
-COMPONENT_TYPE(41, Water) \
-COMPONENT_TYPE(42, MinionTarget) \
+COMPONENT_TYPE(40, Water) \
+COMPONENT_TYPE(41, MinionTarget) \
 
-Family World::families = 43;
+Family World::families = 42;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

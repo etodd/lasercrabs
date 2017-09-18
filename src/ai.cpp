@@ -71,27 +71,27 @@ void quit()
 	sync_in.unlock();
 }
 
-#define SENSOR_UPDATE_INTERVAL 0.5f
-r32 sensor_timer = SENSOR_UPDATE_INTERVAL;
+#define GENERATOR_UPDATE_INTERVAL 0.5f
+r32 generator_timer = GENERATOR_UPDATE_INTERVAL;
 
 void update(const Update& u)
 {
-	sensor_timer -= u.time.delta;
-	if (sensor_timer < 0.0f)
+	generator_timer -= u.time.delta;
+	if (generator_timer < 0.0f)
 	{
-		sensor_timer += SENSOR_UPDATE_INTERVAL;
+		generator_timer += GENERATOR_UPDATE_INTERVAL;
 
 		NavGameState state;
-		for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
-			state.sensors.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
+		for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
+			state.generators.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
 
 		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 			state.force_fields.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
 
 		sync_in.lock();
 		sync_in.write(Op::UpdateState);
-		sync_in.write(state.sensors.length);
-		sync_in.write(state.sensors.data, state.sensors.length);
+		sync_in.write(state.generators.length);
+		sync_in.write(state.generators.data, state.generators.length);
 		sync_in.write(state.force_fields.length);
 		sync_in.write(state.force_fields.data, state.force_fields.length);
 		sync_in.unlock();
@@ -458,7 +458,7 @@ void drone_mark_adjacency_bad(DroneNavMeshNode a, DroneNavMeshNode b)
 
 void NavGameState::clear()
 {
-	sensors.length = 0;
+	generators.length = 0;
 	force_fields.length = 0;
 }
 
@@ -668,7 +668,7 @@ void draw_hollow(const RenderParams& params)
 	params.sync->write(RenderFillMode::Fill);
 }
 
-ComponentMask entity_mask = Sensor::component_mask
+ComponentMask entity_mask = Generator::component_mask
 	| Drone::component_mask
 	| Minion::component_mask
 	| Battery::component_mask
@@ -716,10 +716,10 @@ void entity_info(const Entity* e, Team query_team, Team* team, s8* type)
 		else
 			_type = RecordedLife::EntityBatteryEnemy;
 	}
-	else if (e->has<Sensor>())
+	else if (e->has<Generator>())
 	{
-		_team = e->get<Sensor>()->team;
-		_type = _team == query_team ? RecordedLife::EntitySensorFriend : RecordedLife::EntitySensorEnemy;
+		_team = e->get<Generator>()->team;
+		_type = _team == query_team ? RecordedLife::EntityGeneratorFriend : RecordedLife::EntityGeneratorEnemy;
 	}
 	else if (e->has<ForceField>())
 	{

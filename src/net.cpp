@@ -317,7 +317,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Bolt::component_mask
 		| Grenade::component_mask
 		| Battery::component_mask
-		| Sensor::component_mask
+		| Generator::component_mask
 		| ForceField::component_mask
 		| ForceFieldCollision::component_mask
 		| Drone::component_mask
@@ -643,9 +643,9 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_ref(p, b->spawn_point);
 	}
 
-	if (e->has<Sensor>())
+	if (e->has<Generator>())
 	{
-		Sensor* s = e->get<Sensor>();
+		Generator* s = e->get<Generator>();
 		serialize_s8(p, s->team);
 	}
 
@@ -1802,7 +1802,19 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			s->energy = state.energy;
 			Entity* instance = s->instance.ref();
 			if (instance)
-				instance->get<Drone>()->cooldown = state.cooldown;
+			{
+				Drone* drone = instance->get<Drone>();
+				if (s->has<PlayerHuman>())
+				{
+					PlayerHuman* ph = s->get<PlayerHuman>();
+					// only overwrite cooldown value if it hasn't changed recently
+					// to facilitate client-side prediction
+					if (Game::time.total - drone->cooldown_last_local_change >= rtt(ph) + interpolation_delay() + tick_rate() * 2.0f)
+						drone->cooldown = state.cooldown;
+				}
+				else
+					drone->cooldown = state.cooldown;
+			}
 		}
 	}
 

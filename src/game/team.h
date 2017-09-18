@@ -71,7 +71,7 @@ struct Team : public ComponentType<Team>
 		count,
 	};
 
-	struct SensorTrack
+	struct GeneratorTrack
 	{
 		r32 timer;
 		Ref<Entity> entity;
@@ -125,7 +125,7 @@ struct Team : public ComponentType<Team>
 		return me == them ? color_friend : color_enemy;
 	}
 
-	SensorTrack player_tracks[MAX_PLAYERS];
+	GeneratorTrack player_tracks[MAX_PLAYERS];
 	s16 kills;
 
 	void awake() {}

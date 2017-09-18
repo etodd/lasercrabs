@@ -380,10 +380,14 @@ void PlayerHuman::rumble_add(r32 r)
 
 PlayerHuman::UIMode PlayerHuman::ui_mode() const
 {
-	if (menu_state != Menu::State::Hidden)
+	if (Game::level.noclip)
+		return UIMode::Noclip;
+	else if (menu_state != Menu::State::Hidden)
 		return UIMode::Pause;
 	else if (Team::match_state == Team::MatchState::Done)
 		return UIMode::PvpGameOver;
+	else if (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
+		return UIMode::PvpSelectTeam;
 	else
 	{
 		Entity* entity = get<PlayerManager>()->instance.ref();
@@ -393,7 +397,7 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 			{
 				UpgradeStation* station = UpgradeStation::drone_inside(entity->get<Drone>());
 				if (station && station->mode != UpgradeStation::Mode::Deactivating)
-					return UIMode::PvpUpgrading;
+					return UIMode::PvpUpgrade;
 				else
 					return UIMode::PvpDefault;
 			}
@@ -401,7 +405,20 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 				return UIMode::ParkourDefault;
 		}
 		else
-			return UIMode::Dead;
+		{
+			// dead
+			if (Game::level.mode == Game::Mode::Parkour)
+				return UIMode::ParkourDead;
+			else
+			{
+				if (get<PlayerManager>()->spawn_timer > 0.0f)
+					return UIMode::PvpKillCam;
+				else if (get<PlayerManager>()->respawns == 0)
+					return UIMode::PvpSpectate;
+				else
+					return UIMode::PvpSelectSpawn;
+			}
+		}
 	}
 }
 
@@ -767,8 +784,11 @@ b8 PlayerHuman::chat_emotes_enabled() const
 {
 	UIMode mode = ui_mode();
 	return mode == UIMode::PvpDefault
-		|| mode == UIMode::PvpUpgrading
-		|| mode == UIMode::Dead
+		|| mode == UIMode::PvpUpgrade
+		|| mode == UIMode::PvpKillCam
+		|| mode == UIMode::PvpSelectTeam
+		|| mode == UIMode::PvpSelectSpawn
+		|| mode == UIMode::PvpSpectate
 		|| mode == UIMode::PvpGameOver;
 }
 
@@ -981,6 +1001,10 @@ void PlayerHuman::update(const Update& u)
 
 	switch (mode)
 	{
+		case UIMode::ParkourDefault:
+		case UIMode::ParkourDead:
+		case UIMode::Noclip:
+			break;
 		case UIMode::PvpDefault:
 		{
 			kill_cam_rot = camera.ref()->rot;
@@ -991,11 +1015,7 @@ void PlayerHuman::update(const Update& u)
 			}
 			break;
 		}
-		case UIMode::ParkourDefault:
-		{
-			break;
-		}
-		case UIMode::PvpUpgrading:
+		case UIMode::PvpUpgrade:
 		{
 			if (flag(FlagUpgradeMenuOpen))
 			{
@@ -1066,114 +1086,110 @@ void PlayerHuman::update(const Update& u)
 			Menu::pause_menu(u, gamepad, &menu, &menu_state);
 			break;
 		}
-		case UIMode::Dead:
+		case UIMode::PvpSelectTeam:
 		{
-			if (Game::session.type == SessionType::Multiplayer && (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect))
+			// show team switcher
+			if (Menu::teams(u, gamepad, &menu, Menu::TeamSelectMode::MatchStart) != Menu::State::Teams)
 			{
-				// show team switcher
-				if (Menu::teams(u, gamepad, &menu, Menu::TeamSelectMode::MatchStart) != Menu::State::Teams)
-				{
-					// user hit escape
-					// make sure the cancel event is not eaten, so that our pause/unpause code below works
-					Game::cancel_event_eaten[gamepad] = false;
-				}
+				// user hit escape
+				// make sure the cancel event is not eaten, so that our pause/unpause code below works
+				Game::cancel_event_eaten[gamepad] = false;
 			}
-			else if (Game::level.mode == Game::Mode::Pvp && get<PlayerManager>()->respawns != 0)
+			break;
+		}
+		case UIMode::PvpKillCam:
+		{
+			// if something killed us, show the kill cam
+			Entity* k = killed_by.ref();
+			if (k)
+				kill_cam_rot = Quat::look(Vec3::normalize(k->get<Transform>()->absolute_pos() - camera.ref()->pos));
+			if (get<PlayerManager>()->spawn_timer < SPAWN_DELAY - 1.0f)
+				camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, kill_cam_rot);
+			break;
+		}
+		case UIMode::PvpSelectSpawn:
+		{
+			// select a spawn point
+			AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+			if (select_spawn_timer > 0.0f)
 			{
-				// we're spawning
-				if (get<PlayerManager>()->spawn_timer > 0.0f)
+				if (selected_spawn.ref() && selected_spawn.ref()->team == my_team)
 				{
-					// waiting for spawn timer; if something killed us, show the kill cam
-					Entity* k = killed_by.ref();
-					if (k)
-						kill_cam_rot = Quat::look(Vec3::normalize(k->get<Transform>()->absolute_pos() - camera.ref()->pos));
-					if (get<PlayerManager>()->spawn_timer < SPAWN_DELAY - 1.0f)
-						camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, kill_cam_rot);
+					select_spawn_timer = vi_max(0.0f, select_spawn_timer - u.time.delta);
+					if (select_spawn_timer == 0.0f)
+						get<PlayerManager>()->spawn_select(selected_spawn.ref());
 				}
 				else
-				{
-					// select a spawn point
-					AI::Team my_team = get<PlayerManager>()->team.ref()->team();
-					if (select_spawn_timer > 0.0f)
-					{
-						if (selected_spawn.ref() && selected_spawn.ref()->team == my_team)
-						{
-							select_spawn_timer = vi_max(0.0f, select_spawn_timer - u.time.delta);
-							if (select_spawn_timer == 0.0f)
-								get<PlayerManager>()->spawn_select(selected_spawn.ref());
-						}
-						else
-							select_spawn_timer = 0.0f;
-					}
-					else
-					{
-						if (!selected_spawn.ref() || selected_spawn.ref()->team != my_team)
-							selected_spawn = SpawnPoint::closest(1 << s32(my_team), camera.ref()->pos);
-
-						Vec2 movement = camera_topdown_movement(u, gamepad, camera.ref()->rot);
-						r32 movement_amount = movement.length();
-						if (movement_amount > 0.0f)
-						{
-							movement /= movement_amount;
-							SpawnPoint* closest = nullptr;
-							r32 closest_dot = FLT_MAX;
-
-							Vec3 spawn_pos = selected_spawn.ref()->get<Transform>()->absolute_pos();
-							for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
-							{
-								SpawnPoint* candidate = i.item();
-								if (candidate == selected_spawn.ref() || candidate->team != my_team)
-									continue;
-
-								Vec3 candidate_pos = candidate->get<Transform>()->absolute_pos();
-								Vec3 to_candidate = candidate_pos - spawn_pos;
-								if (movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z))) > 0.707f)
-								{
-									r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
-									if (dot < closest_dot)
-									{
-										closest = candidate;
-										closest_dot = dot;
-									}
-								}
-							}
-							if (closest)
-								selected_spawn = closest;
-						}
-
-						if (chat_focus == ChatFocus::None && u.input->get(Controls::Interact, gamepad) && !u.last_input->get(Controls::Interact, gamepad))
-							select_spawn_timer = 1.0f;
-					}
-
-					// move camera to focus on selected spawn point
-					{
-						Quat target_rot = Quat::look(Game::level.map_view.ref()->absolute_rot() * Vec3(0, -1, 0));
-						Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.skybox.far_plane * -0.4f);
-						camera.ref()->pos += (target_pos - camera.ref()->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
-						camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, target_rot);
-					}
-				}
+					select_spawn_timer = 0.0f;
 			}
-			else if (Game::level.mode == Game::Mode::Pvp)
+			else
 			{
-				// we're dead but others still playing; spectate
-				update_camera_rotation(u);
+				if (!selected_spawn.ref() || selected_spawn.ref()->team != my_team)
+					selected_spawn = SpawnPoint::closest(1 << s32(my_team), camera.ref()->pos);
 
-				camera.ref()->perspective(fov_default, 0.02f, Game::level.skybox.far_plane);
-
-				if (PlayerCommon::list.count() > 0)
+				Vec2 movement = camera_topdown_movement(u, gamepad, camera.ref()->rot);
+				r32 movement_amount = movement.length();
+				if (movement_amount > 0.0f)
 				{
-					spectate_index += chat_focus == ChatFocus::None ? UI::input_delta_horizontal(u, gamepad) : 0;
-					if (spectate_index < 0)
-						spectate_index = PlayerCommon::list.count() - 1;
-					else if (spectate_index >= PlayerCommon::list.count())
-						spectate_index = 0;
+					movement /= movement_amount;
+					SpawnPoint* closest = nullptr;
+					r32 closest_dot = FLT_MAX;
 
-					Entity* spectating = live_player_get(spectate_index);
+					Vec3 spawn_pos = selected_spawn.ref()->get<Transform>()->absolute_pos();
+					for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+					{
+						SpawnPoint* candidate = i.item();
+						if (candidate == selected_spawn.ref() || candidate->team != my_team)
+							continue;
 
-					if (spectating)
-						camera_setup_drone(spectating->get<Drone>(), camera.ref(), &camera_center, 6.0f);
+						Vec3 candidate_pos = candidate->get<Transform>()->absolute_pos();
+						Vec3 to_candidate = candidate_pos - spawn_pos;
+						if (movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z))) > 0.707f)
+						{
+							r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
+							if (dot < closest_dot)
+							{
+								closest = candidate;
+								closest_dot = dot;
+							}
+						}
+					}
+					if (closest)
+						selected_spawn = closest;
 				}
+
+				if (chat_focus == ChatFocus::None && u.input->get(Controls::Interact, gamepad) && !u.last_input->get(Controls::Interact, gamepad))
+					select_spawn_timer = 1.0f;
+			}
+
+			// move camera to focus on selected spawn point
+			{
+				Quat target_rot = Quat::look(Game::level.map_view.ref()->absolute_rot() * Vec3(0, -1, 0));
+				Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.skybox.far_plane * -0.4f);
+				camera.ref()->pos += (target_pos - camera.ref()->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
+				camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, target_rot);
+			}
+			break;
+		}
+		case UIMode::PvpSpectate:
+		{
+			// we're dead but others still playing; spectate
+			update_camera_rotation(u);
+
+			camera.ref()->perspective(fov_default, 0.02f, Game::level.skybox.far_plane);
+
+			if (PlayerCommon::list.count() > 0)
+			{
+				spectate_index += chat_focus == ChatFocus::None ? UI::input_delta_horizontal(u, gamepad) : 0;
+				if (spectate_index < 0)
+					spectate_index = PlayerCommon::list.count() - 1;
+				else if (spectate_index >= PlayerCommon::list.count())
+					spectate_index = 0;
+
+				Entity* spectating = live_player_get(spectate_index);
+
+				if (spectating)
+					camera_setup_drone(spectating->get<Drone>(), camera.ref(), &camera_center, 6.0f);
 			}
 			break;
 		}
@@ -1782,10 +1798,8 @@ void PlayerHuman::draw_turret_battery_icons(const RenderParams& params) const
 	UIMode mode = ui_mode();
 	if (params.camera == camera.ref()
 		&& !Overworld::active()
-		&& !Game::level.noclip
 		&& local()
-		&& Game::level.mode == Game::Mode::Pvp
-		&& (mode == UIMode::Dead || mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrading))
+		&& (mode == UIMode::PvpSelectSpawn || mode == UIMode::PvpSpectate || mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade))
 	{
 
 		AI::Team my_team = get<PlayerManager>()->team.ref()->team();
@@ -1901,7 +1915,8 @@ void PlayerHuman::draw_turret_battery_icons(const RenderParams& params) const
 
 void PlayerHuman::draw_ui_early(const RenderParams& params) const
 {
-	if (ui_mode() != UIMode::Dead)
+	UIMode mode = ui_mode();
+	if (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade)
 		draw_turret_battery_icons(params);
 }
 
@@ -1979,7 +1994,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.draw(params, pos);
 		}
 
-		if ((mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrading)
+		if ((mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade)
 			&& get<PlayerManager>()->can_transition_state())
 		{
 			// draw abilities
@@ -2006,7 +2021,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
 		&& Game::session.config.allow_upgrades
-		&& (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrading))
+		&& (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade))
 	{
 		// energy
 		char buffer[16];
@@ -2031,7 +2046,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		if (params.sync->input.get(Controls::Scoreboard, gamepad))
 			scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Center);
 	}
-	else if (mode == UIMode::PvpUpgrading)
+	else if (mode == UIMode::PvpUpgrade)
 	{
 		if (flag(FlagUpgradeMenuOpen))
 		{
@@ -2066,141 +2081,148 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				}
 			}
 		}
-	}
-	else if (mode == UIMode::Dead)
-	{
-		if (Game::level.mode == Game::Mode::Pvp)
+
+		// upgrade timer bar
+		if (get<PlayerManager>()->state() == PlayerManager::State::Upgrading)
 		{
-			if (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
+			UIText text;
+			text.size = 18.0f;
+			text.color = UI::color_background;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.text(gamepad, _(strings::upgrading));
+			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+			Rect2 bar = text.rect(pos).outset(MENU_ITEM_PADDING);
+			UI::box(params, bar, UI::color_background);
+			UI::border(params, bar, 2, UI::color_accent());
+			UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (get<PlayerManager>()->state_timer / UPGRADE_TIME)), bar.size.y) }, UI::color_accent());
+			text.draw(params, pos);
+		}
+	}
+	else if (mode == UIMode::PvpSelectTeam)
+	{
+		// waiting for players or selecting teams
+		Vec2 p(params.camera->viewport.size * Vec2(0.5f, 0.75f));
+		{
+			UIText text;
+			text.anchor_x = UIText::Anchor::Min;
+			text.anchor_y = UIText::Anchor::Min;
+			text.color = UI::color_default;
+			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+			p.y += text.bounds().y + MENU_ITEM_PADDING * -3.0f;
+			p.x += MENU_ITEM_WIDTH * -0.5f;
+
+			if (Team::match_state == Team::MatchState::TeamSelect)
+				text.text(0, _(strings::team_select_timer), vi_max(0, s32(TEAM_SELECT_TIME - Team::match_time)));
+			else // waiting for players to connect
+				text.text(0, _(strings::waiting_players), vi_max(1, Game::session.config.min_players - PlayerHuman::list.count()));
+
 			{
-				// waiting for players or selecting teams
-				Vec2 p(params.camera->viewport.size * Vec2(0.5f, 0.75f));
-				{
-					UIText text;
-					text.anchor_x = UIText::Anchor::Min;
-					text.anchor_y = UIText::Anchor::Min;
-					text.color = UI::color_default;
-					text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
-					p.y += text.bounds().y + MENU_ITEM_PADDING * -3.0f;
-					p.x += MENU_ITEM_WIDTH * -0.5f;
-
-					if (Team::match_state == Team::MatchState::TeamSelect)
-						text.text(0, _(strings::team_select_timer), vi_max(0, s32(TEAM_SELECT_TIME - Team::match_time)));
-					else // waiting for players to connect
-						text.text(0, _(strings::waiting_players), vi_max(1, Game::session.config.min_players - PlayerHuman::list.count()));
-
-					{
-						Vec2 p2 = p + Vec2(MENU_ITEM_PADDING, 0);
-						UI::box(params, text.rect(p2).outset(MENU_ITEM_PADDING), UI::color_background);
-						text.draw(params, p2);
-					}
-					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
-				}
-				menu.draw_ui(params, p, UIText::Anchor::Min, UIText::Anchor::Max);
+				Vec2 p2 = p + Vec2(MENU_ITEM_PADDING, 0);
+				UI::box(params, text.rect(p2).outset(MENU_ITEM_PADDING), UI::color_background);
+				text.draw(params, p2);
 			}
-			else if (get<PlayerManager>()->respawns != 0) // if we haven't spawned yet, then show the player list
+			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+		}
+		menu.draw_ui(params, p, UIText::Anchor::Min, UIText::Anchor::Max);
+	}
+	else if (mode == UIMode::PvpKillCam)
+		scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Bottom);
+	else if (mode == UIMode::PvpSelectSpawn)
+	{
+		if (select_spawn_timer > 0.0f)
+		{
+			// spawning...
+			Menu::progress_infinite(params, _(strings::deploying), vp.size * Vec2(0.5f));
+		}
+		else
+		{
+			// select spawn point
+			Vec2 p;
+			if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
+				UI::triangle_border(params, { p, Vec2(28.0f * UI::scale) }, 6, UI::color_accent(), PI);
+
+			// highlight available spawns
+			AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+			for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
 			{
-				if (get<PlayerManager>()->spawn_timer > 0.0f)
-					scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Bottom);
-				else
+				if (i.item()->team == my_team)
 				{
-					if (select_spawn_timer > 0.0f)
+					Vec2 p;
+					if (UI::project(params, i.item()->get<Transform>()->absolute_pos(), &p))
+						UI::triangle(params, { p, Vec2(18.0f * UI::scale) }, Team::ui_color_friend, PI);
+				}
+			}
+
+			draw_turret_battery_icons(params);
+
+			if (Game::session.config.game_type == GameType::Assault)
+			{
+				// attacking/defending
+				UIText text;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Min;
+				text.color = UI::color_default;
+				{
+					AssetID str;
+					s32 count;
+					if (Turret::list.count() > 0)
 					{
-						// spawning...
-						Menu::progress_infinite(params, _(strings::deploying), vp.size * Vec2(0.5f));
+						str = strings::turrets_remaining_spawning;
+						count = Turret::list.count();
 					}
 					else
 					{
-						// select spawn point
-						Vec2 p;
-						if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
-							UI::triangle_border(params, { p, Vec2(28.0f * UI::scale) }, 6, UI::color_accent(), PI);
-
-						// highlight available spawns
-						AI::Team my_team = get<PlayerManager>()->team.ref()->team();
-						for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
-						{
-							if (i.item()->team == my_team)
-							{
-								Vec2 p;
-								if (UI::project(params, i.item()->get<Transform>()->absolute_pos(), &p))
-									UI::triangle(params, { p, Vec2(18.0f * UI::scale) }, Team::ui_color_friend, PI);
-							}
-						}
-
-						draw_turret_battery_icons(params);
-
-						if (Game::session.config.game_type == GameType::Assault)
-						{
-							// attacking/defending
-							UIText text;
-							text.anchor_x = UIText::Anchor::Center;
-							text.anchor_y = UIText::Anchor::Min;
-							text.color = UI::color_default;
-							{
-								AssetID str;
-								s32 count;
-								if (Turret::list.count() > 0)
-								{
-									str = strings::turrets_remaining_spawning;
-									count = Turret::list.count();
-								}
-								else
-								{
-									str = strings::core_modules_remaining_spawning;
-									count = CoreModule::list.count();
-								}
-								text.text(gamepad, _(str), _(my_team == 0 ? strings::defend : strings::attack), count);
-							}
-							Vec2 pos = vp.size * Vec2(0.5f, 0.25f);
-							UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
-							text.draw(params, pos);
-						}
-
-						{
-							// deploy prompt
-							UIText text;
-							text.anchor_x = UIText::Anchor::Center;
-							text.anchor_y = UIText::Anchor::Max;
-							text.color = UI::color_accent();
-							text.text(gamepad, _(strings::prompt_deploy));
-							Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
-							UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
-							text.draw(params, pos);
-						}
+						str = strings::core_modules_remaining_spawning;
+						count = CoreModule::list.count();
 					}
+					text.text(gamepad, _(str), _(my_team == 0 ? strings::defend : strings::attack), count);
 				}
+				Vec2 pos = vp.size * Vec2(0.5f, 0.25f);
+				UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
+				text.draw(params, pos);
 			}
-			else
+
 			{
-				// we're dead but others still playing; spectate
-
-				Entity* spectating = live_player_get(spectate_index);
-				if (spectating)
-				{
-					UIText text;
-					text.anchor_x = UIText::Anchor::Center;
-					text.anchor_y = UIText::Anchor::Max;
-
-					// username
-					text.color = Team::ui_color(get<PlayerManager>()->team.ref()->team(), spectating->get<AIAgent>()->team);
-					text.text_raw(gamepad, spectating->get<PlayerCommon>()->manager.ref()->username);
-					Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
-					UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
-					text.draw(params, pos);
-
-					// "spectating"
-					text.color = UI::color_accent();
-					text.text(gamepad, _(strings::spectating));
-					pos = vp.size * Vec2(0.5f, 0.1f);
-					UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
-					text.draw(params, pos);
-				}
+				// deploy prompt
+				UIText text;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Max;
+				text.color = UI::color_accent();
+				text.text(gamepad, _(strings::prompt_deploy));
+				Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
+				UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
+				text.draw(params, pos);
 			}
 		}
 	}
+	else if (mode == UIMode::PvpSpectate)
+	{
+		// we're dead but others still playing; spectate
 
-	if (mode == UIMode::PvpGameOver && Game::level.mode == Game::Mode::Pvp)
+		Entity* spectating = live_player_get(spectate_index);
+		if (spectating)
+		{
+			UIText text;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Max;
+
+			// username
+			text.color = Team::ui_color(get<PlayerManager>()->team.ref()->team(), spectating->get<AIAgent>()->team);
+			text.text_raw(gamepad, spectating->get<PlayerCommon>()->manager.ref()->username);
+			Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
+			UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
+			text.draw(params, pos);
+
+			// "spectating"
+			text.color = UI::color_accent();
+			text.text(gamepad, _(strings::spectating));
+			pos = vp.size * Vec2(0.5f, 0.1f);
+			UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
+			text.draw(params, pos);
+		}
+	}
+	else if (mode == UIMode::PvpGameOver)
 	{
 		// show victory/defeat/draw message
 		UIText text;
@@ -2283,55 +2305,10 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			}
 		}
 	}
-	else if (Game::level.mode == Game::Mode::Pvp)
-	{
-		// game is not yet over
 
-		{
-			// upgrade / spawn / capture timer
-			PlayerManager::State manager_state = get<PlayerManager>()->state();
-			if (manager_state != PlayerManager::State::Default)
-			{
-				r32 total_time;
-				AssetID string;
-
-				switch (manager_state)
-				{
-					case PlayerManager::State::Upgrading:
-					{
-						// getting an upgrade
-						string = strings::upgrading;
-
-						total_time = UPGRADE_TIME;
-						break;
-					}
-					default:
-					{
-						vi_assert(false);
-						break;
-					}
-				}
-
-				// draw bar
-
-				UIText text;
-				text.size = 18.0f;
-				text.color = UI::color_background;
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				text.text(gamepad, _(string));
-				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
-				Rect2 bar = text.rect(pos).outset(MENU_ITEM_PADDING);
-				UI::box(params, bar, UI::color_background);
-				UI::border(params, bar, 2, UI::color_accent());
-				UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (get<PlayerManager>()->state_timer / total_time)), bar.size.y) }, UI::color_accent());
-				text.draw(params, pos);
-			}
-		}
-
-		if (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrading) // show game timer
-			match_timer_draw(params, ui_anchor(params) + Vec2(0, (UI_TEXT_SIZE_DEFAULT + 16.0f) * -UI::scale), UIText::Anchor::Min);
-	}
+	// game timer
+	if (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade)
+		match_timer_draw(params, ui_anchor(params) + Vec2(0, (UI_TEXT_SIZE_DEFAULT + 16.0f) * -UI::scale), UIText::Anchor::Min);
 
 	// network error icon
 #if !SERVER
@@ -2521,10 +2498,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 
 void PlayerHuman::draw_alpha(const RenderParams& params) const
 {
-	if (ui_mode() == UIMode::Dead
-		&& get<PlayerManager>()->can_spawn
-		&& get<PlayerManager>()->spawn_timer > 0.0f
-		&& params.camera == camera.ref())
+	if (ui_mode() == UIMode::PvpKillCam)
 	{
 		Entity* k = killed_by.ref();
 		if (k)
@@ -2664,13 +2638,13 @@ r32 PlayerCommon::detect_danger() const
 		if (team->team() == my_team)
 			continue;
 
-		Team::SensorTrack* track = &team->player_tracks[manager.id];
+		Team::GeneratorTrack* track = &team->player_tracks[manager.id];
 		if (track->entity.ref() == entity())
 		{
 			if (track->tracking)
 				return 1.0f;
 			else
-				return track->timer / SENSOR_TRACK_TIME;
+				return track->timer / GENERATOR_TRACK_TIME;
 		}
 	}
 	return 0.0f;
@@ -2934,7 +2908,7 @@ Entity* player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player
 {
 	// make sure we can see this guy
 	AI::Team team = me->get<AIAgent>()->team;
-	const Team::SensorTrack track = Team::list[s32(team)].player_tracks[other_player->manager.id];
+	const Team::GeneratorTrack track = Team::list[s32(team)].player_tracks[other_player->manager.id];
 	*tracking = track.tracking;
 
 	if (other_player->get<AIAgent>()->team == team)
@@ -2994,11 +2968,11 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 		}
 	}
 
-	// sensors
-	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+	// generators
+	for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team != team)
-			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Sensor);
+			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Generator);
 	}
 
 	// turrets and core modules
@@ -4483,7 +4457,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			}
 			case TargetIndicator::Type::BatteryFriendly:
 			case TargetIndicator::Type::DroneOutOfRange:
-			case TargetIndicator::Type::Sensor:
+			case TargetIndicator::Type::Generator:
 			case TargetIndicator::Type::ForceField:
 			case TargetIndicator::Type::Grenade:
 			case TargetIndicator::Type::TurretFriendly:

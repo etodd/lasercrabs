@@ -238,7 +238,13 @@ void Shield::awake()
 {
 	if (Game::level.local && !inner.ref() && get<Health>()->shield_max > 0)
 	{
-		AI::Team team = has<CoreModule>() ? get<CoreModule>()->team : get<AIAgent>()->team;
+		AI::Team team;
+		if (has<CoreModule>())
+			team = get<CoreModule>()->team;
+		else if (has<Generator>())
+			team = get<Generator>()->team;
+		else
+			team = get<AIAgent>()->team;
 
 		{
 			Entity* shield_entity = World::create<Empty>();
@@ -558,21 +564,19 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 	model->mesh = Asset::Mesh::battery;
 	model->shader = Asset::Shader::standard;
 
-	create<AICue>(AICue::Type::Sensor);
-
 	if (Game::session.config.enable_battery_stealth)
 	{
 		PointLight* light = create<PointLight>();
 		light->type = PointLight::Type::Override;
 		light->team = s8(team);
-		light->radius = (team == AI::TeamNone) ? 0.0f : SENSOR_RANGE;
+		light->radius = (team == AI::TeamNone) ? 0.0f : GENERATOR_RANGE;
 
-		create<Sensor>()->team = team;
+		create<Generator>()->team = team;
 	}
 
 	Target* target = create<Target>();
 
-	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
+	create<Health>(BATTERY_HEALTH, BATTERY_HEALTH);
 
 	Battery* battery = create<Battery>();
 	battery->team = team;
@@ -718,11 +722,11 @@ void Battery::set_team_client(AI::Team t)
 
 	team = t;
 	get<View>()->team = s8(t);
-	if (has<Sensor>())
+	if (has<Generator>())
 	{
 		get<PointLight>()->team = s8(t);
-		get<PointLight>()->radius = (t == AI::TeamNone) ? 0.0f : SENSOR_RANGE;
-		get<Sensor>()->team = t;
+		get<PointLight>()->radius = (t == AI::TeamNone) ? 0.0f : GENERATOR_RANGE;
+		get<Generator>()->team = t;
 	}
 	spawn_point.ref()->set_team(t);
 }
@@ -809,6 +813,11 @@ s16 Battery::reward() const
 
 // applied to every player on the owning team every ENERGY_INCREMENT_INTERVAL seconds
 s16 Battery::increment() const
+{
+	return increment(reward_level);
+}
+
+s16 Battery::increment(s16 reward_level)
 {
 	s32 multiplier;
 	if (PlayerManager::list.count() >= 6)
@@ -1182,7 +1191,7 @@ UpgradeStationEntity::UpgradeStationEntity(SpawnPoint* p)
 	view->color.w = MATERIAL_NO_OVERRIDE;
 }
 
-SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_rot)
+GeneratorEntity::GeneratorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_rot)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = abs_pos;
@@ -1191,47 +1200,38 @@ SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_r
 	create<Audio>();
 
 	View* model = create<View>();
-	model->mesh = Asset::Mesh::sphere;
+	model->mesh = Asset::Mesh::generator;
 	model->color = Team::color_enemy;
 	model->team = s8(team);
 	model->shader = Asset::Shader::standard;
-	model->offset.scale(Vec3(SENSOR_RADIUS));
+	model->offset.scale(Vec3(GENERATOR_RADIUS));
 
-	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
+	create<Health>(GENERATOR_HEALTH, GENERATOR_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
 
 	PointLight* light = create<PointLight>();
 	light->type = PointLight::Type::Override;
 	light->team = s8(team);
-	light->radius = SENSOR_RANGE;
+	light->radius = GENERATOR_RANGE;
 
-	create<Sensor>(team);
+	create<Generator>(team);
 
 	create<Target>();
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 0.0f, CollisionTarget, 0xffff);
+	create<Shield>();
 }
 
-Sensor::Sensor(AI::Team t)
+Generator::Generator(AI::Team t)
 	: team(t)
 {
 }
 
-void Sensor::awake()
+void Generator::awake()
 {
 	if (!has<Battery>())
-	{
-		link_arg<Entity*, &Sensor::killed_by>(get<Health>()->killed);
-		link_arg<const TargetEvent&, &Sensor::hit_by>(get<Target>()->target_hit);
-	}
+		link_arg<Entity*, &Generator::killed_by>(get<Health>()->killed);
 }
 
-void Sensor::hit_by(const TargetEvent& e)
-{
-	vi_assert(!has<Battery>());
-	get<Health>()->kill(e.hit_by);
-}
-
-void Sensor::killed_by(Entity* e)
+void Generator::killed_by(Entity* e)
 {
 	vi_assert(!has<Battery>());
 	PlayerManager::entity_killed_by(entity(), e);
@@ -1239,26 +1239,74 @@ void Sensor::killed_by(Entity* e)
 		World::remove_deferred(entity());
 }
 
-void Sensor::update_client_all(const Update& u)
+void generator_update(const Vec3& generator_pos, r32 particle_lerp, Entity* e, b8 particle, b8 heal)
+{
+	Vec3 pos = e->get<Transform>()->absolute_pos();
+	if ((pos - generator_pos).length_squared() < (GENERATOR_RANGE + 2.0f) * (GENERATOR_RANGE + 2.0f))
+	{
+		if (particle)
+		{
+			Particles::fast_tracers.add
+			(
+				Vec3::lerp(particle_lerp, generator_pos, pos),
+				Vec3::zero,
+				0
+			);
+		}
+
+		if (heal)
+			e->get<Health>()->add(1);
+	}
+}
+
+void Generator::update_all(const Update& u)
 {
 	r32 time = u.time.total;
 	r32 last_time = time - u.time.delta;
-	const r32 sensor_shockwave_interval = 5.0f;
+	const r32 shockwave_interval = 5.0f;
+	const r32 heal_interval = 3.0f;
+	const r32 particle_interval = heal_interval / 32;
+	b8 particle = s32(u.time.total / particle_interval) != s32((u.time.total - u.time.delta) / particle_interval);
+	r32 particle_lerp = (u.time.total - (s32(u.time.total / heal_interval) * heal_interval)) / heal_interval;
+	b8 heal = Game::level.local && s32(u.time.total / heal_interval) != s32((u.time.total - u.time.delta) / heal_interval);
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team != AI::TeamNone)
 		{
-			r32 offset = i.index * sensor_shockwave_interval * 0.3f;
-			if (s32((time + offset) / sensor_shockwave_interval) != s32((last_time + offset) / sensor_shockwave_interval))
+			r32 offset = i.index * shockwave_interval * 0.3f;
+			Vec3 me = i.item()->get<Transform>()->absolute_pos();
+			if (s32((time + offset) / shockwave_interval) != s32((last_time + offset) / shockwave_interval))
 			{
-				EffectLight::add(i.item()->get<Transform>()->absolute_pos(), 10.0f, 1.5f, EffectLight::Type::Shockwave);
+				EffectLight::add(me, 10.0f, 1.5f, EffectLight::Type::Shockwave);
 				i.item()->get<Audio>()->post(AK::EVENTS::PLAY_SENSOR_PING);
+			}
+
+			// buff friendly turrets, force fields, and minions
+			if (particle || heal)
+			{
+				for (auto j = Turret::list.iterator(); !j.is_last(); j.next())
+				{
+					if (j.item()->team == i.item()->team)
+						generator_update(me, particle_lerp, j.item()->entity(), particle, heal);
+				}
+
+				for (auto j = ForceField::list.iterator(); !j.is_last(); j.next())
+				{
+					if (j.item()->team == i.item()->team)
+						generator_update(me, particle_lerp, j.item()->entity(), particle, heal);
+				}
+
+				for (auto j = Minion::list.iterator(); !j.is_last(); j.next())
+				{
+					if (j.item()->get<AIAgent>()->team == i.item()->team)
+						generator_update(me, particle_lerp, j.item()->entity(), particle, heal);
+				}
 			}
 		}
 	}
 }
 
-void Sensor::set_team(AI::Team t)
+void Generator::set_team(AI::Team t)
 {
 	// not synced over network
 	team = t;
@@ -1266,23 +1314,23 @@ void Sensor::set_team(AI::Team t)
 	get<PointLight>()->team = s8(t);
 }
 
-b8 Sensor::can_see(AI::Team team, const Vec3& pos, const Vec3& normal)
+b8 Generator::can_see(AI::Team team, const Vec3& pos, const Vec3& normal)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team == team)
 		{
-			Vec3 to_sensor = i.item()->get<Transform>()->absolute_pos() - pos;
-			if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE && to_sensor.dot(normal) > 0.0f)
+			Vec3 to_generator = i.item()->get<Transform>()->absolute_pos() - pos;
+			if (to_generator.length_squared() < GENERATOR_RANGE * GENERATOR_RANGE && to_generator.dot(normal) > 0.0f)
 				return true;
 		}
 	}
 	return false;
 }
 
-Sensor* Sensor::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
+Generator* Generator::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
-	Sensor* closest = nullptr;
+	Generator* closest = nullptr;
 	r32 closest_distance = FLT_MAX;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -1305,43 +1353,6 @@ Sensor* Sensor::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 		else
 			*distance = FLT_MAX;
 	}
-
-	return closest;
-}
-
-AICue::AICue(TypeMask t)
-	: type(t)
-{
-}
-
-AICue::AICue() : type() {}
-
-// returns the closest sensor interest point within range of the given position, or null
-AICue* AICue::in_range(AICue::TypeMask mask, const Vec3& pos, r32 radius, s32* count)
-{
-	AICue* closest = nullptr;
-	r32 closest_distance = radius * radius;
-
-	s32 c = 0;
-
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (mask & i.item()->type)
-		{
-			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
-			if (d < closest_distance)
-			{
-				closest = i.item();
-				closest_distance = d;
-			}
-
-			if (d < radius * radius)
-				c++;
-		}
-	}
-
-	if (count)
-		*count = c;
 
 	return closest;
 }
@@ -1587,8 +1598,15 @@ b8 Turret::can_see(Entity* target) const
 	if (distance_to_target < TURRET_RANGE)
 	{
 		RaycastCallbackExcept ray_callback(pos, target_pos, entity());
-		Physics::raycast(&ray_callback, ~Team::force_field_mask(team));
-		if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == target->id())
+		Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionElectric | CollisionAllTeamsForceField) & ~Team::force_field_mask(team));
+		if (ray_callback.hasHit())
+		{
+			Entity* hit = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+			if (hit->has<ForceFieldCollision>())
+				hit = hit->get<ForceFieldCollision>()->field.ref()->entity();
+			return hit == target;
+		}
+		else
 			return true;
 	}
 	return false;
@@ -1738,8 +1756,13 @@ u32 ForceField::hash(AI::Team my_team, const Vec3& pos)
 	return result;
 }
 
+#define FORCE_FIELD_ANIM_TIME 0.4f
+#define FORCE_FIELD_DAMAGE_TIME 0.15f
+
 ForceField::ForceField()
 	: team(AI::TeamNone),
+	spawn_death_timer(FORCE_FIELD_ANIM_TIME),
+	damage_timer(),
 	flags(),
 	collision(),
 	obstacle_id(-1)
@@ -1788,20 +1811,34 @@ void ForceField::hit_by(const TargetEvent& e)
 void ForceField::health_changed(const HealthEvent& e)
 {
 	if (e.hp + e.shield < 0
-		&& get<Health>()->hp > 0
-		&& PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::ForceFieldUnderAttack))
+		&& get<Health>()->hp > 0)
 	{
-		PlayerHuman::log_add(_(strings::force_field_under_attack), AI::TeamNone, 1 << team);
+		damage_timer = FORCE_FIELD_DAMAGE_TIME;
+		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::ForceFieldUnderAttack))
+			PlayerHuman::log_add(_(strings::force_field_under_attack), AI::TeamNone, 1 << team);
+
 	}
 }
 
 void ForceField::killed(Entity* e)
 {
-	PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::ForceFieldDestroyed);
-	PlayerHuman::log_add(_(strings::force_field_destroyed), AI::TeamNone, 1 << team);
-	PlayerManager::entity_killed_by(entity(), e);
+	if (e)
+	{
+		PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::ForceFieldDestroyed);
+		PlayerHuman::log_add(_(strings::force_field_destroyed), AI::TeamNone, 1 << team);
+		PlayerManager::entity_killed_by(entity(), e);
+	}
+
 	if (Game::level.local)
-		World::remove_deferred(entity());
+	{
+		Vec3 pos;
+		Quat rot;
+		get<Transform>()->absolute(&pos, &rot);
+		ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+	}
+
+	get<View>()->mask = 0;
+	spawn_death_timer = FORCE_FIELD_ANIM_TIME;
 }
 
 ForceField* ForceField::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
@@ -1854,16 +1891,46 @@ void ForceField::update_all(const Update& u)
 			);
 		}
 	}
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		View* v = i.item()->collision.ref()->get<View>();
+
+		if (i.item()->spawn_death_timer > 0.0f)
+		{
+			i.item()->spawn_death_timer = vi_max(0.0f, i.item()->spawn_death_timer - u.time.delta);
+
+			r32 blend = 1.0f - (i.item()->spawn_death_timer / FORCE_FIELD_ANIM_TIME);
+
+			s8 hp = i.item()->get<Health>()->hp;
+			if (hp == 0)
+			{
+				// dying
+				v->color.w = 0.65f * (1.0f - blend);
+				v->offset = Mat4::make_scale(Vec3(1.0f + Ease::cubic_in<r32>(blend) * 0.25f));
+			}
+			else
+			{
+				// spawning
+				v->color.w = 0.35f * blend;
+				v->offset = Mat4::make_scale(Vec3(Ease::cubic_out<r32>(blend)));
+			}
+
+			if (Game::level.local && blend == 1.0f && hp == 0)
+				World::remove(i.item()->entity());
+		}
+		else if (i.item()->damage_timer > 0.0f)
+		{
+			i.item()->damage_timer = vi_max(0.0f, i.item()->damage_timer - u.time.delta);
+			v->color.w = 0.35f + (i.item()->damage_timer / FORCE_FIELD_DAMAGE_TIME) * 0.3f;
+		}
+	}
 }
 
 void ForceField::destroy()
 {
 	vi_assert(Game::level.local);
-	Vec3 pos;
-	Quat rot;
-	get<Transform>()->absolute(&pos, &rot);
-	ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
-	World::remove_deferred(entity());
+	get<Health>()->kill(nullptr);
 }
 
 #define FORCE_FIELD_BASE_RADIUS 0.385f
@@ -2231,7 +2298,10 @@ void Bolt::hit_entity(const Hit& hit)
 		{
 			case Type::DroneBolter:
 			{
-				if (hit_object->has<Turret>() || hit_object->has<Drone>() || hit_object->has<ForceField>() || hit_object->has<CoreModule>())
+				if (hit_object->has<Turret>()
+					|| hit_object->has<Drone>()
+					|| hit_object->has<ForceField>()
+					|| hit_object->has<CoreModule>())
 					damage = 1;
 				else if (hit_object->has<Minion>())
 					damage = 3;
@@ -2328,7 +2398,10 @@ Array<ParticleEffect> ParticleEffect::list;
 template<typename Stream> b8 serialize_particle_effect(Stream* p, ParticleEffect* e)
 {
 	serialize_enum(p, ParticleEffect::Type, e->type);
-	if (e->type == ParticleEffect::Type::SpawnMinion || e->type == ParticleEffect::Type::SpawnDrone || e->type == ParticleEffect::Type::SpawnForceField)
+	if (e->type == ParticleEffect::Type::SpawnMinion
+		|| e->type == ParticleEffect::Type::SpawnDrone
+		|| e->type == ParticleEffect::Type::SpawnForceField
+		|| e->type == ParticleEffect::Type::SpawnGenerator)
 		serialize_ref(p, e->owner);
 	if (e->type == ParticleEffect::Type::SpawnMinion && !e->owner.ref())
 		serialize_s8(p, e->team);
@@ -2389,6 +2462,8 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 		Audio::post_global(AK::EVENTS::PLAY_DRONE_SPAWN, e.pos);
 	else if (e.type == Type::SpawnForceField)
 		Audio::post_global(AK::EVENTS::PLAY_FORCE_FIELD_SPAWN, e.pos);
+	else if (e.type == Type::SpawnGenerator)
+		Audio::post_global(AK::EVENTS::PLAY_SENSOR_SPAWN, e.pos);
 
 	if (e.type == Type::Grenade)
 	{
@@ -2445,7 +2520,8 @@ b8 ParticleEffect::is_spawn_effect(Type t)
 {
 	return t == Type::SpawnDrone
 		|| t == Type::SpawnMinion
-		|| t == Type::SpawnForceField;
+		|| t == Type::SpawnForceField
+		|| t == Type::SpawnGenerator;
 }
 
 #define SPAWN_EFFECT_THRESHOLD 0.4f
@@ -2472,9 +2548,7 @@ void ParticleEffect::update_all(const Update& u)
 					switch (e->type)
 					{
 						case Type::SpawnDrone:
-						{
 							break;
-						}
 						case Type::SpawnMinion:
 						{
 							AI::Team team = e->owner.ref() ? e->owner.ref()->team.ref()->team() : e->team;
@@ -2482,10 +2556,11 @@ void ParticleEffect::update_all(const Update& u)
 							break;
 						}
 						case Type::SpawnForceField:
-						{
 							Net::finalize(World::create<ForceFieldEntity>(nullptr, e->pos, e->rot, e->owner.ref()->team.ref()->team()));
 							break;
-						}
+						case Type::SpawnGenerator:
+							Net::finalize(World::create<GeneratorEntity>(e->owner.ref()->team.ref()->team(), e->pos, e->rot));
+							break;
 						default:
 							vi_assert(false);
 							break;
@@ -2504,6 +2579,7 @@ void ParticleEffect::draw_alpha(const RenderParams& p)
 
 		Mat4 m;
 		Vec3 size;
+		AssetID mesh;
 
 		{
 			r32 blend = 1.0f - (e.lifetime / SPAWN_EFFECT_LIFETIME);
@@ -2526,21 +2602,25 @@ void ParticleEffect::draw_alpha(const RenderParams& p)
 			switch (e.type)
 			{
 				case Type::SpawnDrone:
+				case Type::SpawnGenerator:
 				{
 					size = Vec3(height_scale * DRONE_SHIELD_RADIUS * 1.1f);
 					m.make_transform(e.pos, size, Quat::identity);
+					mesh = Asset::Mesh::sphere_highres;
 					break;
 				}
 				case Type::SpawnMinion:
 				{
 					size = Vec3(radius_scale * WALKER_RADIUS * 1.5f, height_scale * (WALKER_HEIGHT * 2.0f + WALKER_SUPPORT_HEIGHT), radius_scale * WALKER_RADIUS * 1.5f);
 					m.make_transform(e.pos, size, Quat::identity);
+					mesh = Asset::Mesh::cylinder;
 					break;
 				}
 				case Type::SpawnForceField:
 				{
 					size = Vec3(radius_scale * FORCE_FIELD_BASE_RADIUS * 1.75f, height_scale * (FORCE_FIELD_BASE_OFFSET + DRONE_RADIUS * 2.0f), radius_scale * FORCE_FIELD_BASE_RADIUS * 1.75f);
 					m.make_transform(e.pos + e.rot * Vec3(0, 0, -FORCE_FIELD_BASE_OFFSET), size, e.rot * Quat::euler(0, 0, PI * 0.5f));
+					mesh = Asset::Mesh::cylinder;
 					break;
 				}
 				default:
@@ -2550,7 +2630,7 @@ void ParticleEffect::draw_alpha(const RenderParams& p)
 		}
 
 		r32 radius = vi_max(size.x, vi_max(size.y, size.z));
-		View::draw_mesh(p, e.type == Type::SpawnDrone ? Asset::Mesh::sphere_highres : Asset::Mesh::cylinder, Asset::Shader::standard_flat, AssetNull, m, Vec4(1), radius);
+		View::draw_mesh(p, mesh, Asset::Shader::standard_flat, AssetNull, m, Vec4(1), radius);
 	}
 }
 
@@ -2744,7 +2824,7 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	model->shader = Asset::Shader::standard;
 	model->offset.scale(Vec3(GRENADE_RADIUS));
 
-	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
+	create<Health>(GRENADE_HEALTH, GRENADE_HEALTH);
 
 	create<Target>();
 }
@@ -2783,7 +2863,7 @@ b8 grenade_trigger_filter(Entity* e, AI::Team team)
 	return (e->has<AIAgent>() && e->get<AIAgent>()->team != team && !e->get<AIAgent>()->stealth)
 		|| (e->has<ForceField>() && e->get<ForceField>()->team != team)
 		|| (e->has<ForceFieldCollision>() && e->get<ForceFieldCollision>()->field.ref()->team != team)
-		|| (e->has<Sensor>() && !e->has<Battery>() && e->get<Sensor>()->team != team)
+		|| (e->has<Generator>() && !e->has<Battery>() && e->get<Generator>()->team != team)
 		|| (e->has<Turret>() && e->get<Turret>()->team != team)
 		|| (e->has<CoreModule>() && e->get<CoreModule>()->team != team);
 }

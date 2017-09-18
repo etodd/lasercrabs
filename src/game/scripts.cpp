@@ -886,7 +886,7 @@ namespace tutorial
 
 			Game::level.feature_level = Game::FeatureLevel::Abilities;
 			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-			manager->energy = UpgradeInfo::list[s32(Upgrade::Sensor)].cost + AbilityInfo::list[s32(Ability::Sensor)].spawn_cost * 2;
+			manager->energy = UpgradeInfo::list[s32(Upgrade::Generator)].cost + AbilityInfo::list[s32(Ability::Generator)].spawn_cost * 2;
 		}
 	}
 
@@ -982,7 +982,7 @@ namespace tutorial
 				if (manager->upgrades)
 				{
 					Actor::tut_clear();
-					if (human->ui_mode() != PlayerHuman::UIMode::PvpUpgrading)
+					if (human->ui_mode() != PlayerHuman::UIMode::PvpUpgrade)
 					{
 						data->state = TutorialState::Ability;
 						Actor::tut(strings::tut_ability, 0.5f);

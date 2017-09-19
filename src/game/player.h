@@ -70,7 +70,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	{
 		r32 timestamp;
 		char username[MAX_USERNAME + 1];
-		char msg[CHAT_MAX + 1];
+		char msg[MAX_CHAT + 1];
 		AI::Team team;
 		AI::TeamMask mask;
 	};

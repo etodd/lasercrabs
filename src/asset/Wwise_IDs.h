@@ -47,6 +47,8 @@ namespace AK
         static const AkUniqueID PLAY_FOOTSTEP = 1602358412U;
         static const AkUniqueID PLAY_FORCE_FIELD_LOOP = 427547487U;
         static const AkUniqueID PLAY_FORCE_FIELD_SPAWN = 1877727510U;
+        static const AkUniqueID PLAY_GENERATOR_PING = 1210740188U;
+        static const AkUniqueID PLAY_GENERATOR_SPAWN = 2826267681U;
         static const AkUniqueID PLAY_GRENADE_ARM = 1073857507U;
         static const AkUniqueID PLAY_GRENADE_ATTACH = 2813332440U;
         static const AkUniqueID PLAY_GRENADE_BEEP = 4011376411U;
@@ -141,8 +143,6 @@ namespace AK
         static const AkUniqueID PLAY_PARKOUR_SLIDE = 3397163066U;
         static const AkUniqueID PLAY_PARKOUR_TOPOUT = 1638007016U;
         static const AkUniqueID PLAY_PARKOUR_WIND = 2240612133U;
-        static const AkUniqueID PLAY_SENSOR_PING = 3989478699U;
-        static const AkUniqueID PLAY_SENSOR_SPAWN = 2220123776U;
         static const AkUniqueID PLAY_SHIELD_RESTORE_INNER = 3921268631U;
         static const AkUniqueID PLAY_SHIELD_RESTORE_OUTER = 3809385754U;
         static const AkUniqueID PLAY_SNIPER_FIRE = 3954156574U;

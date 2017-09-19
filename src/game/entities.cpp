@@ -1263,8 +1263,8 @@ void Generator::update_all(const Update& u)
 {
 	r32 time = u.time.total;
 	r32 last_time = time - u.time.delta;
-	const r32 shockwave_interval = 5.0f;
-	const r32 heal_interval = 3.0f;
+	const r32 shockwave_interval = 8.0f;
+	const r32 heal_interval = GENERATOR_HEAL_INTERVAL;
 	const r32 particle_interval = heal_interval / 32;
 	b8 particle = s32(u.time.total / particle_interval) != s32((u.time.total - u.time.delta) / particle_interval);
 	r32 particle_lerp = (u.time.total - (s32(u.time.total / heal_interval) * heal_interval)) / heal_interval;
@@ -1278,7 +1278,7 @@ void Generator::update_all(const Update& u)
 			if (s32((time + offset) / shockwave_interval) != s32((last_time + offset) / shockwave_interval))
 			{
 				EffectLight::add(me, 10.0f, 1.5f, EffectLight::Type::Shockwave);
-				i.item()->get<Audio>()->post(AK::EVENTS::PLAY_SENSOR_PING);
+				i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GENERATOR_PING);
 			}
 
 			// buff friendly turrets, force fields, and minions
@@ -1437,8 +1437,6 @@ void CoreModule::destroy()
 	World::remove_deferred(entity());
 }
 
-#define TURRET_COOLDOWN 1.5f
-#define TURRET_TARGET_CHECK_TIME 0.75f
 TurretEntity::TurretEntity(AI::Team team)
 {
 	create<Transform>();
@@ -2121,7 +2119,12 @@ b8 Bolt::visible() const
 	return velocity.length_squared() > 0.0f;
 }
 
-b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, Hit* out_hit, Net::StateFrame* state_frame)
+b8 Bolt::default_raycast_filter(Entity* e, AI::Team team)
+{
+	return !e->has<AIAgent>() || e->get<AIAgent>()->team != team;
+}
+
+b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, AI::Team team, Hit* out_hit, b8(*filter)(Entity*, AI::Team), Net::StateFrame* state_frame)
 {
 	out_hit->entity = nullptr;
 	r32 closest_hit_distance_sq = FLT_MAX;
@@ -2141,6 +2144,9 @@ b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, Hit* 
 	// check target collisions
 	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 	{
+		if (!filter(i.item()->entity(), team))
+			continue;
+
 		Vec3 p;
 		if (state_frame)
 		{
@@ -2189,7 +2195,7 @@ b8 Bolt::simulate(r32 dt, Hit* out_hit, Net::StateFrame* state_frame)
 	Vec3 trace_end = next_pos + Vec3::normalize(velocity) * BOLT_LENGTH;
 
 	Hit hit;
-	if (raycast(pos, trace_end, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team)), &hit, state_frame))
+	if (raycast(pos, trace_end, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team)), team, &hit, &default_raycast_filter, state_frame))
 	{
 		if (out_hit)
 			*out_hit = hit;
@@ -2463,7 +2469,7 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 	else if (e.type == Type::SpawnForceField)
 		Audio::post_global(AK::EVENTS::PLAY_FORCE_FIELD_SPAWN, e.pos);
 	else if (e.type == Type::SpawnGenerator)
-		Audio::post_global(AK::EVENTS::PLAY_SENSOR_SPAWN, e.pos);
+		Audio::post_global(AK::EVENTS::PLAY_GENERATOR_SPAWN, e.pos);
 
 	if (e.type == Type::Grenade)
 	{
@@ -2903,7 +2909,7 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, Net::StateFrame* state_frame)
 				v.normalize();
 
 			Bolt::Hit hit;
-			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team())), &hit, state_frame))
+			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team())), team(), &hit, &grenade_hit_filter, state_frame))
 			{
 				if (out_hit)
 					*out_hit = hit;

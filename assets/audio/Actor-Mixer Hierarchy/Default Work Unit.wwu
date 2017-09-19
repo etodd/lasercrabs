@@ -4249,7 +4249,7 @@
 										</RandomSequenceContainer>
 									</ChildrenList>
 								</ActorMixer>
-								<ActorMixer Name="Drone_Sensor" ID="{89043ACD-6F2A-46BD-962E-93B66C819ACF}" ShortID="118580530">
+								<ActorMixer Name="Drone_Generator" ID="{89043ACD-6F2A-46BD-962E-93B66C819ACF}" ShortID="118580530">
 									<PropertyList>
 										<Property Name="OverrideOutput" Type="bool" Value="True"/>
 										<Property Name="OverridePositioning" Type="bool" Value="True"/>
@@ -4257,7 +4257,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Attenuation">
-											<ObjectRef Name="Drone_Sensor" ID="{E49272F0-35F5-47D4-8B8C-0265B3BD8641}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+											<ObjectRef Name="Drone_Generator" ID="{E49272F0-35F5-47D4-8B8C-0265B3BD8641}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
 										</Reference>
 										<Reference Name="Conversion">
 											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -4267,7 +4267,7 @@
 										</Reference>
 									</ReferenceList>
 									<ChildrenList>
-										<RandomSequenceContainer Name="Drone_Sensor" ID="{CD50FA34-9721-4B01-A553-305848B52118}" ShortID="74236733">
+										<RandomSequenceContainer Name="Drone_Generator" ID="{CD50FA34-9721-4B01-A553-305848B52118}" ShortID="74236733">
 											<PropertyList>
 												<Property Name="Pitch" Type="int32">
 													<ModifierList>
@@ -4284,7 +4284,7 @@
 												<Property Name="PositioningType" Type="int16" Value="1"/>
 												<Property Name="Volume" Type="Real64">
 													<ValueList>
-														<Value>-14</Value>
+														<Value>-17</Value>
 													</ValueList>
 													<ModifierList>
 														<ModifierInfo>
@@ -4318,7 +4318,7 @@
 													</PropertyList>
 													<ReferenceList>
 														<Reference Name="Attenuation">
-															<ObjectRef Name="Drone_Sensor" ID="{E49272F0-35F5-47D4-8B8C-0265B3BD8641}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+															<ObjectRef Name="Drone_Generator" ID="{E49272F0-35F5-47D4-8B8C-0265B3BD8641}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
 														</Reference>
 														<Reference Name="Conversion">
 															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>

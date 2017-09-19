@@ -330,9 +330,9 @@
 										</Event>
 									</ChildrenList>
 								</Folder>
-								<Folder Name="Drone_Sensor" ID="{951E8FFD-2D84-4C4E-9C3A-F1D15EC07398}" ShortID="401505317">
+								<Folder Name="Drone_Generator" ID="{951E8FFD-2D84-4C4E-9C3A-F1D15EC07398}" ShortID="401505317">
 									<ChildrenList>
-										<Event Name="Play_Sensor_Ping" ID="{C4E6BF43-CC38-4E5D-8AD4-09031E41DDA1}">
+										<Event Name="Play_Generator_Ping" ID="{C4E6BF43-CC38-4E5D-8AD4-09031E41DDA1}">
 											<ChildrenList>
 												<Action Name="" ID="{3FE18BEA-ED8E-4B7D-BAB6-4195CCB668C3}" ShortID="454400929">
 													<PropertyList>
@@ -340,13 +340,13 @@
 													</PropertyList>
 													<ReferenceList>
 														<Reference Name="Target">
-															<ObjectRef Name="Drone_Sensor" ID="{CD50FA34-9721-4B01-A553-305848B52118}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+															<ObjectRef Name="Drone_Generator" ID="{CD50FA34-9721-4B01-A553-305848B52118}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 														</Reference>
 													</ReferenceList>
 												</Action>
 											</ChildrenList>
 										</Event>
-										<Event Name="Play_Sensor_Spawn" ID="{10DCE6B8-FAC1-4121-89FE-CF7AFB789028}">
+										<Event Name="Play_Generator_Spawn" ID="{10DCE6B8-FAC1-4121-89FE-CF7AFB789028}">
 											<ChildrenList>
 												<Action Name="" ID="{C63320C0-72AE-4E35-89CF-3B83E27078DF}" ShortID="619182946">
 													<PropertyList>

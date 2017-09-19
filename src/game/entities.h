@@ -407,7 +407,8 @@ struct Bolt : public ComponentType<Bolt>
 	static s16 raycast_mask(AI::Team);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void update_client_all(const Update&);
-	static b8 raycast(const Vec3&, const Vec3&, s16, Hit*, Net::StateFrame* = nullptr);
+	static b8 default_raycast_filter(Entity*, AI::Team);
+	static b8 raycast(const Vec3&, const Vec3&, s16, AI::Team, Hit*, b8(*)(Entity*, AI::Team), Net::StateFrame* = nullptr);
 	
 	Vec3 velocity;
 	Vec3 last_pos;

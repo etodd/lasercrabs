@@ -542,7 +542,7 @@ void PlayerHuman::chat_add(const char* msg, PlayerManager* player, AI::TeamMask 
 	entry->mask = mask;
 	entry->team = player->team.ref()->team();
 	strncpy(entry->username, player->username, MAX_USERNAME);
-	strncpy(entry->msg, msg, CHAT_MAX);
+	strncpy(entry->msg, msg, MAX_CHAT);
 }
 
 void PlayerHuman::log_add(const char* a, AI::Team a_team, AI::TeamMask mask, const char* b, AI::Team b_team)
@@ -1292,7 +1292,7 @@ void PlayerHuman::update_late(const Update& u)
 	if (chat_focus != ChatFocus::None)
 	{
 		s32 prompt_length = strlen(_(chat_focus == ChatFocus::Team ? strings::chat_team_prompt : strings::chat_all_prompt));
-		chat_field.update(u, prompt_length, CHAT_MAX);
+		chat_field.update(u, prompt_length, MAX_CHAT);
 		if (!u.input->get(Controls::UIAcceptText, 0) && u.last_input->get(Controls::UIAcceptText, 0))
 		{
 			get<PlayerManager>()->chat(&chat_field.value.data[prompt_length], chat_focus == ChatFocus::All ? AI::TeamAll : (1 << get<PlayerManager>()->team.ref()->team()));

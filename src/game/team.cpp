@@ -1382,7 +1382,7 @@ namespace PlayerManagerNet
 
 		{
 			s32 text_length = strlen(text);
-			serialize_int(p, s32, text_length, 1, CHAT_MAX);
+			serialize_int(p, s32, text_length, 1, MAX_CHAT);
 			char* hack = const_cast<char*>(text);
 			serialize_bytes(p, (u8*)hack, text_length);
 		}
@@ -1723,8 +1723,8 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			serialize_s8(p, mask);
 
 			s32 text_length;
-			serialize_int(p, s32, text_length, 1, CHAT_MAX);
-			char text[CHAT_MAX + 1];
+			serialize_int(p, s32, text_length, 1, MAX_CHAT);
+			char text[MAX_CHAT + 1];
 			serialize_bytes(p, (u8*)text, text_length);
 			text[text_length] = '\0';
 

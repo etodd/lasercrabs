@@ -29,25 +29,27 @@ void do_impulse(Ragdoll* ragdoll, Ragdoll::Impulse type, const Vec3& i)
 	switch (type)
 	{
 		case Ragdoll::Impulse::None:
-		{
 			break;
-		}
 		case Ragdoll::Impulse::Head:
 		{
-			ragdoll->get_body(Asset::Bone::character_head)->btBody->applyImpulse(i, Vec3::zero);
+			RigidBody* body = ragdoll->get_body(Asset::Bone::character_head);
+			if (body->btBody) // if it hasn't been initialized yet, we must be joining a match in progress; forget the impulse
+				body->btBody->applyImpulse(i, Vec3::zero);
 			break;
 		}
 		case Ragdoll::Impulse::Feet:
 		{
-			ragdoll->get_body(Asset::Bone::character_shin_L)->btBody->applyImpulse(i, Vec3::zero);
-			ragdoll->get_body(Asset::Bone::character_shin_R)->btBody->applyImpulse(i, Vec3::zero);
+			RigidBody* body = ragdoll->get_body(Asset::Bone::character_shin_L);
+			if (body->btBody) // if it hasn't been initialized yet, we must be joining a match in progress; forget the impulse
+			{
+				body->btBody->applyImpulse(i, Vec3::zero);
+				ragdoll->get_body(Asset::Bone::character_shin_R)->btBody->applyImpulse(i, Vec3::zero);
+			}
 			break;
 		}
 		default:
-		{
 			vi_assert(false);
 			break;
-		}
 	}
 }
 

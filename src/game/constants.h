@@ -21,7 +21,7 @@
 
 #define VOLUME_MULTIPLIER 0.01f
 
-#define AFK_TIME 90.0f
+#define AFK_TIME 120.0f
 #define UI_JOYSTICK_DEAD_ZONE 0.5f
 #define SPAWN_DELAY 5.0f
 #define MAX_ABILITIES 3

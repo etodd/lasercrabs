@@ -2055,7 +2055,7 @@ void server_state(Master::ServerState* s)
 		s->id = 0;
 	else
 		s->id = Game::session.config.id;
-	s->player_slots = s8(vi_max(0, Game::session.config.max_players - PlayerManager::list.count()));
+	s->player_slots = s8(vi_max(0, Game::session.config.max_players - PlayerHuman::list.count()));
 	s->region = Settings::region;
 }
 
@@ -2969,7 +2969,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 					}
 				}
 
-				if (local_players <= Game::session.config.max_players - PlayerManager::list.count())
+				if (local_players <= Game::session.config.max_players - PlayerHuman::list.count())
 					add_players(p, client, local_players, &teams);
 				else
 				{

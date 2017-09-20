@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Animation
 	{
-		const s32 count = 68;
+		const s32 count = 69;
 		const AssetID character_aim = 0;
 		const AssetID character_climb_down = 1;
 		const AssetID character_climb_up = 2;
@@ -52,31 +52,32 @@ namespace Asset
 		const AssetID hobo_trailer3 = 40;
 		const AssetID hobo_trailer4 = 41;
 		const AssetID hobo_trailer5 = 42;
-		const AssetID interactable_disabled = 43;
-		const AssetID interactable_enabled = 44;
-		const AssetID interactable_interact = 45;
-		const AssetID interactable_interact_disable = 46;
-		const AssetID locke_gesture_both_arms = 47;
-		const AssetID locke_gesture_one_hand = 48;
-		const AssetID locke_gesture_one_hand_short = 49;
-		const AssetID locke_idle = 50;
-		const AssetID locke_shift_weight = 51;
-		const AssetID meursault_intro = 52;
-		const AssetID meursault_wait = 53;
-		const AssetID parkour_trailer5_parkour = 54;
-		const AssetID samsa_close = 55;
-		const AssetID samsa_closed = 56;
-		const AssetID samsa_open = 57;
-		const AssetID samsa_opened = 58;
-		const AssetID samsa_walk = 59;
-		const AssetID terminal_close = 60;
-		const AssetID terminal_open = 61;
-		const AssetID terminal_opened = 62;
-		const AssetID terminal_trailer3_terminal = 63;
-		const AssetID terminal_trailer5_terminal = 64;
-		const AssetID tram_doors_close = 65;
-		const AssetID tram_doors_open = 66;
-		const AssetID tram_doors_opened = 67;
+		const AssetID hobo_trailer6 = 43;
+		const AssetID interactable_disabled = 44;
+		const AssetID interactable_enabled = 45;
+		const AssetID interactable_interact = 46;
+		const AssetID interactable_interact_disable = 47;
+		const AssetID locke_gesture_both_arms = 48;
+		const AssetID locke_gesture_one_hand = 49;
+		const AssetID locke_gesture_one_hand_short = 50;
+		const AssetID locke_idle = 51;
+		const AssetID locke_shift_weight = 52;
+		const AssetID meursault_intro = 53;
+		const AssetID meursault_wait = 54;
+		const AssetID parkour_trailer5_parkour = 55;
+		const AssetID samsa_close = 56;
+		const AssetID samsa_closed = 57;
+		const AssetID samsa_open = 58;
+		const AssetID samsa_opened = 59;
+		const AssetID samsa_walk = 60;
+		const AssetID terminal_close = 61;
+		const AssetID terminal_open = 62;
+		const AssetID terminal_opened = 63;
+		const AssetID terminal_trailer3_terminal = 64;
+		const AssetID terminal_trailer5_terminal = 65;
+		const AssetID tram_doors_close = 66;
+		const AssetID tram_doors_open = 67;
+		const AssetID tram_doors_opened = 68;
 	}
 }
 

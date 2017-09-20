@@ -1212,6 +1212,7 @@ namespace tier_2
 		Ref<Transform> trailer5_camera_base2;
 		Ref<Transform> trailer5_camera_base3;
 		Ref<Transform> cigarette;
+		Ref<Transform> trailer6_camera_base;
 		b8 anim_played;
 		b8 drones_given;
 		b8 trailer5_camera;
@@ -1321,6 +1322,8 @@ namespace tier_2
 			data->parkour.ref()->get<Animator>()->layers[0].play(Asset::Animation::parkour_trailer5_parkour);
 			data->trailer5_camera = u.input->keys.get(s32(KeyCode::LShift));
 		}
+		if (u.input->keys.get(s32(KeyCode::D6)) && !u.last_input->keys.get(s32(KeyCode::D6)))
+			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer6);
 
 		if (u.input->keys.get(s32(KeyCode::Space)) && !u.last_input->keys.get(s32(KeyCode::Space)))
 		{
@@ -1422,6 +1425,18 @@ namespace tier_2
 				transform->rot = base->rot * Quat::euler(0, PI, 0);
 			}
 		}
+		else
+		{
+			const Animator::Layer& layer = data->hobo.ref()->get<Animator>()->layers[0];
+			if (layer.animation == Asset::Animation::hobo_trailer6)
+			{
+				Transform* base = data->trailer6_camera_base.ref();
+				Camera* camera = PlayerHuman::list.iterator().item()->camera.ref();
+				Vec3 dir = base->rot * Vec3(0, -1, 0);
+				camera->pos = base->pos + dir * (layer.time * -0.5f);
+				camera->rot = Quat::look(dir);
+			}
+		}
 	}
 
 	void init(const EntityFinder& entities)
@@ -1489,6 +1504,8 @@ namespace tier_2
 		Entity* cigarette_end = World::create<Prop>(Asset::Mesh::cigarette_Circle_1);
 		cigarette_end->get<Transform>()->parent = cigarette_main->get<Transform>();
 		cigarette_end->get<View>()->alpha();
+
+		data->trailer6_camera_base = entities.find("trailer6_camera_base")->get<Transform>();
 
 		Loader::animation(Asset::Animation::character_meursault_intro);
 		Loader::animation(Asset::Animation::meursault_intro);

@@ -21,6 +21,7 @@
 #include "lodepng/lodepng.h"
 #include "asset/version.h"
 #include <sstream>
+#include "data/json.h"
 
 namespace VI
 {
@@ -260,12 +261,42 @@ namespace VI
 #endif
 
 		{
-			const char* itch_api_key = getenv("ITCHIO_API_KEY");
-			if (itch_api_key)
+			const char* build_file = "build.txt";
+			cJSON* json = Json::load(build_file);
+			Game::language = Json::get_string(json, "language", "en");
+
+			const char* auth_type = Json::get_string(json, "auth", "");
+			if (strcmp(auth_type, "gamejolt") == 0)
+			{
+				Game::auth_type = Net::Master::AuthType::GameJolt;
+				FILE* f = fopen(".gj-credentials", "r");
+				if (f)
+				{
+					char buffer[512];
+					fgets(buffer, 512, f); // version
+					fgets(Settings::gamejolt_username, MAX_PATH_LENGTH, f); // username
+					Settings::gamejolt_username[strcspn(Settings::gamejolt_username, "\r\n")] = 0;
+					fgets(Settings::gamejolt_token, MAX_AUTH_KEY, f); // token
+					Settings::gamejolt_token[strcspn(Settings::gamejolt_token, "\r\n")] = 0;
+					fclose(f);
+				}
+			}
+			else if (strcmp(auth_type, "itch") == 0)
 			{
 				Game::auth_type = Net::Master::AuthType::Itch;
-				strncpy(Game::auth_key, itch_api_key, MAX_AUTH_KEY);
+				const char* itch_api_key = getenv("ITCHIO_API_KEY");
+				if (itch_api_key)
+				{
+					Game::auth_type = Net::Master::AuthType::Itch;
+					strncpy(Game::auth_key, itch_api_key, MAX_AUTH_KEY);
+				}
 			}
+			else if (strcmp(auth_type, "steam") == 0)
+				Game::auth_type = Net::Master::AuthType::Steam;
+			else
+				Game::auth_type = Net::Master::AuthType::None;
+
+			// don't free the json; keep the strings in memory
 		}
 
 		SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
@@ -273,7 +304,7 @@ namespace VI
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
+		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
 		{
 			Array<DisplayMode> modes;

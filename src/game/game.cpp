@@ -68,6 +68,7 @@ GameTime Game::real_time;
 r32 Game::physics_timestep;
 r32 Game::inactive_timer;
 Net::Master::AuthType Game::auth_type;
+const char* Game::language;
 char Game::auth_key[MAX_AUTH_KEY + 1];
 Net::Master::UserKey Game::user_key;
 
@@ -211,6 +212,7 @@ void Game::init(LoopSync* sync)
 	switch (auth_type)
 	{
 		case Net::Master::AuthType::None:
+		case Net::Master::AuthType::GameJolt:
 			break;
 		case Net::Master::AuthType::Itch:
 		{
@@ -263,11 +265,8 @@ void Game::init(LoopSync* sync)
 
 	// strings
 	{
-		const char* language_file = "language.txt";
-		cJSON* json_language = Json::load(language_file);
-		const char* language = Json::get_string(json_language, "language", "en");
-		char string_file[255];
-		sprintf(string_file, "assets/str/%s.json", language);
+		char string_file[256] = {};
+		snprintf(string_file, 255, "assets/str/%s.json", language);
 
 		// UI
 		{
@@ -302,7 +301,10 @@ void Game::init(LoopSync* sync)
 
 void Game::auth_failed()
 {
-	Menu::dialog(0, &Menu::dialog_no_action, _(strings::auth_failed_permanently));
+	if (auth_type == Net::Master::AuthType::GameJolt)
+		Scripts::Docks::prompt_gamejolt();
+	else
+		Menu::dialog(0, &Menu::dialog_no_action, _(strings::auth_failed_permanently));
 }
 
 void Game::update(const Update& update_in)

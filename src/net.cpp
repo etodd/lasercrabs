@@ -3160,10 +3160,26 @@ b8 master_send_auth()
 	StreamWrite p;
 	packet_init(&p);
 	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::Auth);
+
 	serialize_enum(&p, Master::AuthType, Game::auth_type);
-	s32 auth_key_length = strlen(Game::auth_key);
-	serialize_int(&p, s32, auth_key_length, 0, MAX_AUTH_KEY);
-	serialize_bytes(&p, (u8*)Game::auth_key, auth_key_length);
+
+	if (Game::auth_type == Master::AuthType::GameJolt)
+	{
+		s32 length = strlen(Settings::gamejolt_username);
+		serialize_int(&p, s32, length, 0, MAX_PATH_LENGTH);
+		serialize_bytes(&p, (u8*)Settings::gamejolt_username, length);
+
+		length = strlen(Settings::gamejolt_token);
+		serialize_int(&p, s32, length, 0, MAX_AUTH_KEY);
+		serialize_bytes(&p, (u8*)Settings::gamejolt_token, length);
+	}
+	else
+	{
+		s32 length = strlen(Game::auth_key);
+		serialize_int(&p, s32, length, 0, MAX_AUTH_KEY);
+		serialize_bytes(&p, (u8*)Game::auth_key, length);
+	}
+
 	packet_finalize(&p);
 	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
 	return true;
@@ -3685,12 +3701,9 @@ b8 packet_handle_master(StreamRead* p)
 				char username[MAX_USERNAME + 1];
 				serialize_bytes(p, (u8*)username, username_length);
 				username[username_length] = '\0';
-				if (strncmp(Settings::username, username, MAX_USERNAME))
-				{
-					memset(Settings::username, 0, sizeof(Settings::username));
-					strncpy(Settings::username, username, MAX_USERNAME);
-					Loader::settings_save();
-				}
+				memset(Settings::username, 0, sizeof(Settings::username));
+				strncpy(Settings::username, username, MAX_USERNAME);
+				Loader::settings_save();
 			}
 			else
 				Game::auth_failed();

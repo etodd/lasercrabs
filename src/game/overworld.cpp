@@ -126,7 +126,6 @@ struct Data
 		enum class EditMode : s8
 		{
 			Main,
-			Name,
 			Levels,
 			AllowedUpgrades,
 			StartUpgrades,
@@ -157,7 +156,6 @@ struct Data
 		std::unordered_map<u64, PingData> ping;
 		ServerList server_lists[s32(ServerListType::count)];
 		UIMenu menu[s32(EditMode::count)];
-		TextField text_field;
 		r32 tab_timer = TAB_ANIMATION_TIME;
 		r32 state_transition_time;
 		r32 refresh_timer;
@@ -432,6 +430,13 @@ void game_type_string(UIText* text, GameType type, s8 team_count, s8 max_players
 	text->text(0, "%s %s", _(teams_type), _(game_type_string(type)));
 }
 
+void multiplayer_entry_name_edit(const TextField& text_field)
+{
+	vi_assert(data.multiplayer.state == Data::Multiplayer::State::EntryEdit);
+	data.multiplayer.active_server_dirty = true;
+	strncpy(data.multiplayer.active_server.config.name, text_field.value.data, MAX_SERVER_CONFIG_NAME);
+}
+
 void multiplayer_entry_edit_update(const Update& u)
 {
 	b8 cancel = u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
@@ -450,7 +455,7 @@ void multiplayer_entry_edit_update(const Update& u)
 	}
 	else
 	{
-		if (data.multiplayer.edit_mode != Data::Multiplayer::EditMode::Name
+		if (!Menu::dialog_active(0)
 			&& u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0))
 		{
 			multiplayer_entry_save();
@@ -462,28 +467,6 @@ void multiplayer_entry_edit_update(const Update& u)
 		UIMenu* menu = &data.multiplayer.menu[s32(data.multiplayer.edit_mode)];
 		switch (data.multiplayer.edit_mode)
 		{
-			case Data::Multiplayer::EditMode::Name:
-			{
-				data.multiplayer.text_field.update(u, 0, MAX_SERVER_CONFIG_NAME);
-				if (cancel)
-				{
-					data.multiplayer.text_field.set("");
-					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Main);
-					Game::cancel_event_eaten[0] = true;
-					menu->end();
-					return;
-				}
-				else if (u.last_input->get(Controls::UIAcceptText, 0) && !u.input->get(Controls::UIAcceptText, 0))
-				{
-					data.multiplayer.active_server_dirty = true;
-					strncpy(config->name, data.multiplayer.text_field.value.data, MAX_SERVER_CONFIG_NAME);
-					data.multiplayer.text_field.set("");
-					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Main);
-					menu->end();
-					return;
-				}
-				break;
-			}
 			case Data::Multiplayer::EditMode::Main:
 			{
 				menu->start(u, 0);
@@ -512,12 +495,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				// edit name
 				if (menu->item(u, _(strings::edit_name)))
-				{
-					data.multiplayer.text_field.set(config->name);
-					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Name);
-					menu->end();
-					return;
-				}
+					Menu::dialog_text_with_cancel(&multiplayer_entry_name_edit, &Menu::dialog_text_cancel_no_action, config->name, MAX_SERVER_CONFIG_NAME, _(strings::prompt_name));
 
 				s32 delta;
 				char str[MAX_PATH_LENGTH + 1];
@@ -1231,64 +1209,6 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 	{
 		switch (data.multiplayer.edit_mode)
 		{
-			case Data::Multiplayer::EditMode::Name:
-			{
-				Vec2 field_size(rect.size.x + PADDING * -4.0f, MENU_ITEM_HEIGHT);
-				Rect2 field_rect =
-				{
-					rect.pos + (rect.size * 0.5f) + (field_size * -0.5f),
-					field_size
-				};
-
-				UIText text;
-				text.size = TEXT_SIZE;
-				text.anchor_x = UIText::Anchor::Min;
-				text.anchor_y = UIText::Anchor::Min;
-
-				{
-					// prompt
-					text.color = UI::color_default;
-					text.text(0, _(strings::prompt_name));
-					UIMenu::text_clip(&text, data.multiplayer.state_transition_time, 100.0f);
-					text.draw(params, field_rect.pos + Vec2(0, field_rect.size.y + PADDING));
-					text.clip = 0;
-
-					// accept/cancel control prompts
-
-					// accept
-					Rect2 controls_rect = field_rect;
-					controls_rect.pos.y -= MENU_ITEM_HEIGHT + PADDING;
-
-					text.wrap_width = 0;
-					text.anchor_y = UIText::Anchor::Min;
-					text.anchor_x = UIText::Anchor::Min;
-					text.color = UI::color_accent();
-					text.text(0, _(strings::prompt_accept_text));
-					Vec2 prompt_pos = controls_rect.pos + Vec2(PADDING);
-					text.draw(params, prompt_pos);
-
-					// cancel
-					text.anchor_x = UIText::Anchor::Max;
-					text.color = UI::color_alert();
-					text.clip = 0;
-					text.text(0, _(strings::prompt_cancel));
-					text.draw(params, prompt_pos + Vec2(controls_rect.size.x + PADDING * -2.0f, 0));
-				}
-
-				{
-					// text field
-					UI::box(params, field_rect, UI::color_background);
-					UI::border(params, field_rect, 2.0f, UI::color_accent());
-
-					text.font = Asset::Font::pt_sans;
-					text.size = TEXT_SIZE;
-					text.anchor_x = UIText::Anchor::Min;
-					text.color = UI::color_default;
-					data.multiplayer.text_field.get(&text, 64);
-					text.draw(params, field_rect.pos + Vec2(PADDING * 0.8125f));
-				}
-				break;
-			}
 			case Data::Multiplayer::EditMode::Levels:
 			case Data::Multiplayer::EditMode::Main:
 			case Data::Multiplayer::EditMode::AllowedUpgrades:

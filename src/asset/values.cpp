@@ -1456,6 +1456,8 @@ const char* AssetLookup::String::names[] =
 	"prompt_entry_create",
 	"prompt_entry_edit",
 	"prompt_entry_save",
+	"prompt_gamejolt_token",
+	"prompt_gamejolt_username",
 	"prompt_interact",
 	"prompt_name",
 	"prompt_options",

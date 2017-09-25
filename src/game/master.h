@@ -35,15 +35,6 @@ enum class Role : s8
 	count,
 };
 
-// type of authentication used to obtain a user key from the master server
-enum class AuthType : s8
-{
-	None,
-	Itch,
-	Steam,
-	count,
-};
-
 enum class Message : s8
 {
 	Ack,

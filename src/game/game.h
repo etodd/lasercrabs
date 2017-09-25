@@ -171,6 +171,7 @@ struct Game
 	static b8 cancel_event_eaten[MAX_GAMEPADS];
 	static b8 quit;
 	static Net::Master::AuthType auth_type;
+	static const char* language;
 	static char auth_key[MAX_AUTH_KEY + 1];
 	static Net::Master::UserKey user_key;
 

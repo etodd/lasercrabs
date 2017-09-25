@@ -21,6 +21,7 @@
 #include "data/json.h"
 #include <cmath>
 #include "mongoose/mongoose.h"
+#include "sha1/sha1.h"
 
 #if RELEASE_BUILD
 #define OFFLINE_DEV 0
@@ -241,6 +242,7 @@ namespace Master
 	{
 		s32 secret;
 		char itch_api_key[MAX_AUTH_KEY + 1];
+		char gamejolt_api_key[MAX_AUTH_KEY + 1];
 	}
 
 	r64 timestamp;
@@ -259,12 +261,26 @@ namespace Master
 			count,
 		};
 
+		struct Client
+		{
+			UserKey user_key;
+			char username[MAX_USERNAME + 1];
+		};
+
+		struct Server
+		{
+			Sock::Address public_ipv4;
+			Sock::Address public_ipv6;
+		};
+
 		r64 last_message_timestamp;
 		r64 state_change_timestamp;
-		UserKey user_key;
 		Sock::Address addr;
-		Sock::Address public_ipv4;
-		Sock::Address public_ipv6;
+		union
+		{
+			Client client;
+			Server server;
+		};
 		ServerState server_state;
 		State state;
 
@@ -328,9 +344,9 @@ namespace Master
 	Sock::Address server_public_ip(Node* server, Sock::Host::Type type)
 	{
 		if (type == Sock::Host::Type::IPv4) // prefer ipv4
-			return server->public_ipv4.port ? server->public_ipv4 : server->public_ipv6;
+			return server->server.public_ipv4.port ? server->server.public_ipv4 : server->server.public_ipv6;
 		else // prefer ipv6
-			return server->public_ipv6.port ? server->public_ipv6 : server->public_ipv4;
+			return server->server.public_ipv6.port ? server->server.public_ipv6 : server->server.public_ipv4;
 	}
 
 	b8 db_step(sqlite3_stmt* stmt)
@@ -688,8 +704,8 @@ namespace Master
 
 				if (success)
 				{
+					node->client.user_key = key;
 					send_auth_response(node->addr, &key, username);
-					return;
 				}
 			}
 			else
@@ -713,6 +729,7 @@ namespace Master
 						db_bind_int(stmt, 2, key.id);
 						db_exec(stmt);
 
+						node->client.user_key = key;
 						send_auth_response(node->addr, &key, username);
 						return;
 					}
@@ -783,6 +800,144 @@ namespace Master
 
 		if (!success)
 			itch_auth_result(user_data, false, 0, nullptr);
+	}
+
+	void gamejolt_sign_url(char* url) // assumes MAX_PATH_LENGTH
+	{
+		char url_with_api_key[MAX_PATH_LENGTH + 1] = {};
+		snprintf(url_with_api_key, MAX_PATH_LENGTH, "%s%s", url, Settings::gamejolt_api_key);
+		char signature[41];
+		sha1::hash(url_with_api_key, signature);
+		snprintf(url_with_api_key, MAX_PATH_LENGTH, "%s&signature=%s", url, signature);
+		strncpy(url, url_with_api_key, MAX_PATH_LENGTH);
+	}
+
+	void gamejolt_auth_result(u64 addr_hash, b8 success, s64 gamejolt_id, const char* username)
+	{
+		Node* node = node_for_hash(addr_hash);
+		if (node)
+		{
+			if (success)
+			{
+				UserKey key;
+				key.token = u32(mersenne::rand());
+
+				// save user in database
+
+				sqlite3_stmt* stmt = db_query("select id, banned from User where gamejolt_id=? limit 1;");
+				db_bind_int(stmt, 0, gamejolt_id);
+				if (db_step(stmt))
+				{
+					key.id = s32(db_column_int(stmt, 0));
+					b8 banned = b8(db_column_int(stmt, 1));
+					if (banned)
+						success = false;
+					else
+					{
+						// update existing user
+						sqlite3_stmt* stmt = db_query("update User set token=?, token_timestamp=?, username=? where id=?;");
+						db_bind_int(stmt, 0, key.token);
+						db_bind_int(stmt, 1, platform::timestamp());
+						db_bind_text(stmt, 2, username);
+						db_bind_int(stmt, 3, key.id);
+						db_exec(stmt);
+					}
+				}
+				else
+				{
+					// insert new user
+					sqlite3_stmt* stmt = db_query("insert into User (token, token_timestamp, gamejolt_id, username, banned) values (?, ?, ?, ?, 0);");
+					db_bind_int(stmt, 0, key.token);
+					db_bind_int(stmt, 1, platform::timestamp());
+					db_bind_int(stmt, 2, gamejolt_id);
+					db_bind_text(stmt, 3, username);
+					key.id = s32(db_exec(stmt));
+				}
+				db_finalize(stmt);
+
+				if (success)
+				{
+					node->client.user_key = key;
+					send_auth_response(node->addr, &key, username);
+				}
+			}
+			else
+				send_auth_response(node->addr, nullptr, nullptr);
+		}
+	}
+
+	void gamejolt_user_callback(s32 code, const char* data, u64 user_data)
+	{
+		Node* node = node_for_hash(user_data);
+		if (node)
+		{
+			b8 success = false;
+			if (code == 200)
+			{
+				cJSON* json = cJSON_Parse(data);
+				if (json)
+				{
+					cJSON* response = cJSON_GetObjectItem(json, "response");
+					if (response)
+					{
+						cJSON* users = cJSON_GetObjectItem(response, "users");
+						if (users)
+						{
+							cJSON* user = users->child;
+							if (user)
+							{
+								cJSON* id = cJSON_GetObjectItem(user, "id");
+								if (id)
+								{
+									success = true;
+									gamejolt_auth_result(user_data, true, atol(id->valuestring), node->client.username);
+								}
+							}
+						}
+					}
+					cJSON_Delete(json);
+				}
+			}
+
+			if (!success)
+				gamejolt_auth_result(user_data, false, 0, nullptr);
+		}
+	}
+
+	void gamejolt_auth_callback(s32 code, const char* data, u64 user_data)
+	{
+		Node* node = node_for_hash(user_data);
+		if (node)
+		{
+			b8 success = false;
+			if (code == 200)
+			{
+				cJSON* json = cJSON_Parse(data);
+				if (json)
+				{
+					cJSON* response = cJSON_GetObjectItem(json, "response");
+					if (response && strcmp(Json::get_string(response, "success"), "true") == 0)
+					{
+						success = true;
+
+						CURL* curl = curl_easy_init();
+						char* escaped_username = curl_easy_escape(curl, node->client.username, 0);
+
+						char url[MAX_PATH_LENGTH + 1] = {};
+						snprintf(url, MAX_PATH_LENGTH, "https://gamejolt.com/api/game/v1/users/?game_id=284977&format=json&username=%s", escaped_username);
+						gamejolt_sign_url(url);
+						Http::get(url, &gamejolt_user_callback, nullptr, user_data);
+
+						curl_free(escaped_username);
+						curl_easy_cleanup(curl);
+					}
+					cJSON_Delete(json);
+				}
+			}
+
+			if (!success)
+				itch_auth_result(user_data, false, 0, nullptr);
+		}
 	}
 
 	void db_set_server_online(u32 id, b8 online)
@@ -1030,7 +1185,7 @@ namespace Master
 			case ServerListType::Top:
 			{
 				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig left join User on User.id=ServerConfig.creator_id left join UserServer on (ServerConfig.id=UserServer.server_id and UserServer.user_id=?) where (ServerConfig.is_private=0 or UserServer.role>1) and (ServerConfig.online=1 or ServerConfig.region=?) and (UserServer.role!=1 or UserServer.role is null) order by ServerConfig.online desc, ServerConfig.score desc limit ?,24");
-				db_bind_int(stmt, 0, client->user_key.id);
+				db_bind_int(stmt, 0, client->client.user_key.id);
 				db_bind_int(stmt, 1, s64(region));
 				db_bind_int(stmt, 2, offset);
 				break;
@@ -1038,14 +1193,14 @@ namespace Master
 			case ServerListType::Recent:
 			{
 				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role!=1 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
-				db_bind_int(stmt, 0, client->user_key.id);
+				db_bind_int(stmt, 0, client->client.user_key.id);
 				db_bind_int(stmt, 1, offset);
 				break;
 			}
 			case ServerListType::Mine:
 			{
 				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role>=2 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
-				db_bind_int(stmt, 0, client->user_key.id);
+				db_bind_int(stmt, 0, client->client.user_key.id);
 				db_bind_int(stmt, 1, offset);
 				break;
 			}
@@ -1135,7 +1290,7 @@ namespace Master
 		packet_init(&p);
 		messenger.add_header(&p, addr, Message::ClientConnect);
 
-		Sock::Address server_addr = addr.host.type == Sock::Host::Type::IPv4 ? server->public_ipv4 : server->public_ipv6;
+		Sock::Address server_addr = addr.host.type == Sock::Host::Type::IPv4 ? server->server.public_ipv4 : server->server.public_ipv6;
 		if (!Sock::Address::serialize(&p, &server_addr))
 			net_error();
 
@@ -1217,9 +1372,9 @@ namespace Master
 
 		if (key.id != 0)
 		{
-			if (node->user_key.equals(key)) // already authenticated
+			if (node->client.user_key.equals(key)) // already authenticated
 				return true;
-			else if (node->user_key.id == 0 && node->user_key.token == 0) // user hasn't been authenticated yet
+			else if (node->client.user_key.id == 0 && node->client.user_key.token == 0) // user hasn't been authenticated yet
 			{
 				sqlite3_stmt* stmt = db_query("select token, token_timestamp from User where id=? limit 1;");
 				db_bind_int(stmt, 0, key.id);
@@ -1229,7 +1384,7 @@ namespace Master
 					s64 token_timestamp = db_column_int(stmt, 1);
 					if (u32(token) == key.token && platform::timestamp() - token_timestamp < MASTER_TOKEN_TIMEOUT)
 					{
-						node->user_key = key;
+						node->client.user_key = key;
 						return true;
 					}
 				}
@@ -1281,7 +1436,7 @@ namespace Master
 
 	void client_connect_to_existing_server(Node* client, Node* server)
 	{
-		send_server_expect_client(server, &client->user_key);
+		send_server_expect_client(server, &client->client.user_key);
 		send_client_connect(server, client->addr);
 		client_queue_join(server, client);
 	}
@@ -1373,9 +1528,7 @@ namespace Master
 		{
 			case Message::Ack:
 			case Message::Keepalive:
-			{
 				break;
-			}
 			case Message::Disconnect:
 			{
 				disconnected(addr);
@@ -1385,34 +1538,67 @@ namespace Master
 			{
 				AuthType auth_type;
 				serialize_enum(p, AuthType, auth_type);
+
+				s32 username_length = 0;
+				char username[MAX_PATH_LENGTH + 1];
+				if (auth_type == AuthType::GameJolt)
+				{
+					serialize_int(p, s32, username_length, 0, MAX_PATH_LENGTH);
+					serialize_bytes(p, (u8*)username, username_length);
+				}
+				username[username_length] = '\0';
+
 				s32 auth_key_length;
 				serialize_int(p, s32, auth_key_length, 0, MAX_AUTH_KEY);
 				char auth_key[MAX_AUTH_KEY + 1];
+
 				serialize_bytes(p, (u8*)auth_key, auth_key_length);
 				auth_key[auth_key_length] = '\0';
+
+				CURL* curl = curl_easy_init();
+				char* escaped_username = curl_easy_escape(curl, username, 0);
+				char* escaped_auth_key = curl_easy_escape(curl, auth_key, 0);
+
 				switch (auth_type)
 				{
-					case Master::AuthType::None:
+					case AuthType::None:
 						itch_auth_result(addr.hash(), false, 0, nullptr); // failed
 						break;
-					case Master::AuthType::Itch:
+					case AuthType::Itch:
 					{
 						u64 hash = node->addr.hash();
 						if (!Http::request_for_user_data(hash)) // make sure we're not already trying to authenticate this user
 						{
 							char header[MAX_PATH_LENGTH + 1] = {};
-							snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", auth_key);
+							snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", escaped_auth_key);
 							Http::get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header, hash);
 						}
 						break;
 					}
-					case Master::AuthType::Steam:
+					case AuthType::GameJolt:
+					{
+						u64 hash = node->addr.hash();
+						if (!Http::request_for_user_data(hash)) // make sure we're not already trying to authenticate this user
+						{
+							strncpy(node->client.username, username, MAX_USERNAME);
+							char url[MAX_PATH_LENGTH + 1] = {};
+							snprintf(url, MAX_PATH_LENGTH, "https://gamejolt.com/api/game/v1/users/auth/?game_id=284977&format=json&username=%s&user_token=%s", escaped_username, escaped_auth_key);
+							gamejolt_sign_url(url);
+							Http::get(url, &gamejolt_auth_callback, nullptr, hash);
+						}
+						break;
+					}
+					case AuthType::Steam:
 						send_auth_response(addr, nullptr, nullptr); // todo
 						break;
 					default:
 						vi_assert(false);
 						break;
 				}
+
+				curl_free(escaped_username);
+				curl_free(escaped_auth_key);
+				curl_easy_cleanup(curl);
 
 				break;
 			}
@@ -1455,7 +1641,7 @@ namespace Master
 							db_finalize(stmt);
 
 							// check if user has privileges on this server
-							Role role = user_role(node->user_key.id, requested_server_id);
+							Role role = user_role(node->client.user_key.id, requested_server_id);
 							if (role == Role::Banned || (role == Role::None && is_private))
 								net_error();
 
@@ -1520,7 +1706,7 @@ namespace Master
 				else
 				{
 					ServerDetails details;
-					if (server_details_get(config_id, node->user_key.id, &details, node->addr.host.type))
+					if (server_details_get(config_id, node->client.user_key.id, &details, node->addr.host.type))
 						send_server_details(node->addr, details, request_id);
 					else
 						net_error();
@@ -1546,7 +1732,7 @@ namespace Master
 				{
 					// create config in db
 					sqlite3_stmt* stmt = db_query("insert into ServerConfig (creator_id, name, config, max_players, team_count, game_type, is_private, online, region, plays, score) values (?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?);");
-					db_bind_int(stmt, 0, node->user_key.id);
+					db_bind_int(stmt, 0, node->client.user_key.id);
 					db_bind_text(stmt, 1, config.name);
 					char* json = server_config_stringify(config);
 					db_bind_text(stmt, 2, json);
@@ -1562,7 +1748,7 @@ namespace Master
 					// give friends access to new server
 					{
 						sqlite3_stmt* stmt = db_query("select user2_id from Friendship where user1_id=?;");
-						db_bind_int(stmt, 0, node->user_key.id);
+						db_bind_int(stmt, 0, node->client.user_key.id);
 						while (db_step(stmt))
 						{
 							u32 friend_id = u32(db_column_int(stmt, 0));
@@ -1575,7 +1761,7 @@ namespace Master
 				{
 					// update an existing config
 					// check if the user actually has privileges to edit it
-					if (user_role(node->user_key.id, config.id) != Role::Admin)
+					if (user_role(node->client.user_key.id, config.id) != Role::Admin)
 						net_error();
 					sqlite3_stmt* stmt = db_query("update ServerConfig set name=?, config=?, max_players=?, team_count=?, game_type=?, is_private=? where id=?;");
 					db_bind_text(stmt, 0, config.name);
@@ -1591,7 +1777,7 @@ namespace Master
 					config_id = config.id;
 				}
 
-				update_user_server_linkage(node->user_key.id, config_id, Role::Admin); // make them an admin
+				update_user_server_linkage(node->client.user_key.id, config_id, Role::Admin); // make them an admin
 
 				Node* server = server_for_config_id(config_id);
 				if (server)
@@ -1627,9 +1813,9 @@ namespace Master
 				ServerState s;
 				if (!serialize_server_state(p, &s))
 					net_error();
-				if (!Sock::Address::serialize(p, &node->public_ipv4))
+				if (!Sock::Address::serialize(p, &node->server.public_ipv4))
 					net_error();
-				if (!Sock::Address::serialize(p, &node->public_ipv6))
+				if (!Sock::Address::serialize(p, &node->server.public_ipv6))
 					net_error();
 				if (node->state == Node::State::ServerLoading)
 				{
@@ -1670,7 +1856,7 @@ namespace Master
 				u32 friend_id;
 				serialize_u32(p, friend_id);
 
-				send_friendship_state(node, friend_id, friendship_get(node->user_key.id, friend_id));
+				send_friendship_state(node, friend_id, friendship_get(node->client.user_key.id, friend_id));
 				break;
 			}
 			case Message::FriendAdd:
@@ -1681,9 +1867,9 @@ namespace Master
 				u32 friend_id;
 				serialize_u32(p, friend_id);
 
-				if (user_exists(friend_id) && !friendship_get(node->user_key.id, friend_id))
+				if (user_exists(friend_id) && !friendship_get(node->client.user_key.id, friend_id))
 				{
-					friendship_add(node->user_key.id, friend_id);
+					friendship_add(node->client.user_key.id, friend_id);
 					send_friendship_state(node, friend_id, true);
 				}
 				else
@@ -1699,7 +1885,7 @@ namespace Master
 				serialize_u32(p, friend_id);
 
 				if (user_exists(friend_id))
-					friendship_remove(node->user_key.id, friend_id);
+					friendship_remove(node->client.user_key.id, friend_id);
 				send_friendship_state(node, friend_id, false);
 				break;
 			}
@@ -1715,7 +1901,7 @@ namespace Master
 				u32 friend_id;
 				serialize_u32(p, friend_id);
 
-				if (user_role(node->user_key.id, config_id) == Role::Admin && user_exists(friend_id))
+				if (user_role(node->client.user_key.id, config_id) == Role::Admin && user_exists(friend_id))
 				{
 					Role role;
 					if (type == Message::AdminMake)
@@ -1723,7 +1909,7 @@ namespace Master
 					else
 					{
 						// remove admin status
-						if (user_role(node->user_key.id, friend_id) == Role::Admin)
+						if (user_role(node->client.user_key.id, friend_id) == Role::Admin)
 							role = Role::Allowed;
 						else // some other role already assigned; leave it as-is
 							role = Role::None;
@@ -1768,7 +1954,7 @@ namespace Master
 
 			if (init_db)
 			{
-				db_exec("create table User (id integer primary key autoincrement, token integer not null, token_timestamp integer not null, itch_id integer, steam_id integer, username varchar(256) not null, banned boolean not null, unique(itch_id), unique(steam_id));");
+				db_exec("create table User (id integer primary key autoincrement, token integer not null, token_timestamp integer not null, itch_id integer, steam_id integer, gamejolt_id integer, username varchar(256) not null, banned boolean not null, unique(itch_id), unique(steam_id));");
 				db_exec("create table ServerConfig (id integer primary key autoincrement, creator_id integer not null, name text not null, config text, max_players integer not null, team_count integer not null, game_type integer not null, is_private boolean not null, online boolean not null, region integer not null, plays integer not null, score integer not null, foreign key (creator_id) references User(id));");
 				db_exec("create table UserServer (user_id integer not null, server_id integer not null, timestamp integer not null, role integer not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id), primary key (user_id, server_id));");
 				db_exec("create table Friendship (user1_id integer not null, user2_id integer not null, foreign key (user1_id) references User(id), foreign key (user2_id) references User(id), primary key (user1_id, user2_id));");
@@ -1798,6 +1984,11 @@ namespace Master
 						const char* itch_api_key = Json::get_string(json, "itch_api_key");
 						if (itch_api_key)
 							strncpy(Settings::itch_api_key, itch_api_key, MAX_AUTH_KEY);
+					}
+					{
+						const char* gamejolt_api_key = Json::get_string(json, "gamejolt_api_key");
+						if (gamejolt_api_key)
+							strncpy(Settings::gamejolt_api_key, gamejolt_api_key, MAX_AUTH_KEY);
 					}
 					{
 						const char* ca_path = Json::get_string(json, "ca_path");
@@ -1917,7 +2108,7 @@ namespace Master
 						{
 							idle_servers--;
 							send_server_load(idle_server, client);
-							send_server_expect_client(idle_server, &client->user_key);
+							send_server_expect_client(idle_server, &client->client.user_key);
 							client_queue_join(idle_server, client);
 							i--; // client has been removed from clients_waiting
 						}

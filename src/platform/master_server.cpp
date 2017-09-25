@@ -23,6 +23,8 @@
 #include "mongoose/mongoose.h"
 #include "sha1/sha1.h"
 
+#define DEBUG_SQL 0
+
 #if RELEASE_BUILD
 #define OFFLINE_DEV 0
 #else
@@ -320,6 +322,9 @@ namespace Master
 			fprintf(stderr, "SQL: Failed to prepare statement: %s\nError: %s", sql, sqlite3_errmsg(db));
 			vi_assert(false);
 		}
+#if DEBUG_SQL
+		printf("%s\n", sql);
+#endif
 		return stmt;
 	}
 
@@ -393,6 +398,9 @@ namespace Master
 	
 	void db_exec(const char* sql)
 	{
+#if DEBUG_SQL
+		printf("%s\n", sql);
+#endif
 		char* err;
 		if (sqlite3_exec(db, sql, nullptr, nullptr, &err))
 		{

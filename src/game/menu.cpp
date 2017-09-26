@@ -1753,7 +1753,7 @@ State teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
 		const char* value = _(Team::name_selector(i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled));
-		b8 disabled = (selected && i.item() != selected) || (i.item() != me && mode != TeamSelectMode::MatchStart);
+		b8 disabled = (selected && i.item() != selected) || (i.item() != me && mode == TeamSelectMode::MatchStart);
 		AssetID icon = i.item()->can_spawn ? Asset::Mesh::icon_checkmark : AssetNull;
 
 		if (mode == TeamSelectMode::Normal

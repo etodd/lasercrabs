@@ -285,7 +285,10 @@ enum class DroneHitType
 void client_hit_effects(Drone* drone, Entity* target, DroneHitType type)
 {
 	if (type == DroneHitType::Reflection || (target && target->has<Shield>()))
-		drone->get<Audio>()->post_unattached(AK::EVENTS::PLAY_DRONE_REFLECT);
+	{
+		Entity* audio_source = (target && target->has<Audio>() && drone->current_ability == Ability::Sniper) ? target : drone->entity();
+		audio_source->get<Audio>()->post_unattached(AK::EVENTS::PLAY_DRONE_REFLECT);
+	}
 
 	Vec3 pos = drone->get<Transform>()->absolute_pos();
 

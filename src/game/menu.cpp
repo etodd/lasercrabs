@@ -1083,26 +1083,29 @@ void draw_ui(const RenderParams& params)
 
 		// container
 		{
+			r32 prompt_height = (MENU_ITEM_HEIGHT + MENU_ITEM_PADDING) * Ease::cubic_out<r32>(vi_min((Game::real_time.total - dialog_time[0]) / DIALOG_ANIM_TIME, 1.0f));
 			Rect2 r =
 			{
-				field_rect.pos + Vec2(-MENU_ITEM_PADDING, -MENU_ITEM_HEIGHT - MENU_ITEM_PADDING),
-				field_rect.size + Vec2(MENU_ITEM_PADDING * 2.0f, (MENU_ITEM_HEIGHT + MENU_ITEM_PADDING) * 2.0f),
+				field_rect.pos + Vec2(-MENU_ITEM_PADDING, -prompt_height),
+				field_rect.size + Vec2(MENU_ITEM_PADDING * 2.0f, prompt_height + MENU_ITEM_HEIGHT),
 			};
 			UI::box(params, r.outset(MENU_ITEM_PADDING), UI::color_background);
+			UI::border(params, r.outset(MENU_ITEM_PADDING), 2.0f, UI::color_accent());
 		}
 
 		UIText text;
 		text.anchor_x = UIText::Anchor::Min;
 		text.anchor_y = UIText::Anchor::Min;
 
-		{
-			// prompt
-			text.color = UI::color_default;
-			text.text(0, dialog_string[0]);
-			UIMenu::text_clip(&text, dialog_time[0], 100.0f);
-			text.draw(params, field_rect.pos + Vec2(0, field_rect.size.y + MENU_ITEM_PADDING));
-			text.clip = 0;
+		// prompt
+		text.color = UI::color_default;
+		text.text(0, dialog_string[0]);
+		UIMenu::text_clip(&text, dialog_time[0], 100.0f);
+		text.draw(params, field_rect.pos + Vec2(0, field_rect.size.y + MENU_ITEM_PADDING));
+		text.clip = 0;
 
+		if ((Game::real_time.total - dialog_time[0]) > DIALOG_ANIM_TIME)
+		{
 			// accept/cancel control prompts
 
 			// accept
@@ -1806,7 +1809,12 @@ State teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 			teams_selected_player[gamepad] = nullptr;
 		}
 		else
-			return State::Visible;
+		{
+			if (mode == TeamSelectMode::MatchStart && me->can_spawn)
+				me->set_can_spawn(false);
+			else
+				return State::Visible;
+		}
 	}
 
 	return State::Teams; // stay open

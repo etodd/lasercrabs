@@ -81,7 +81,7 @@ s32 Loader::animation_count;
 #define config_filename "config.txt"
 #define config_version 2
 #define mod_manifest_filename "mod.json"
-#define default_master_server "104.236.204.240"
+#define default_master_server "master.deceivergame.com"
 
 Array<const char*> mod_level_names;
 Array<const char*> mod_level_paths;

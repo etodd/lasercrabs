@@ -42,7 +42,7 @@ namespace VI
 
 	}
 
-	s32 proc()
+	s32 proc(u16 port)
 	{
 		Loader::data_directory = ""; // todo
 		{
@@ -51,7 +51,9 @@ namespace VI
 			Loader::settings_load(modes);
 		}
 
-		// Launch threads
+		Settings::port = port;
+
+		// launch threads
 
 		Sync<LoopSync> render_sync;
 
@@ -102,5 +104,18 @@ namespace VI
 
 int main(int argc, char** argv)
 {
-	return VI::proc();
+	int port;
+
+	if (argc >= 2)
+		port = atoi(argv[1]);
+	else
+		port = 21365;
+
+	if (port <= 0 || port > 65535)
+	{
+		fprintf(stderr, "%s\n", "Invalid port number specified.");
+		return -1;
+	}
+
+	return VI::proc(port);
 }

@@ -324,7 +324,6 @@ void Loader::settings_load(const Array<DisplayMode>& modes)
 	Settings::secret = Json::get_s32(json, "secret");
 	strncpy(Settings::public_ipv4, Json::get_string(json, "public_ipv4", ""), NET_MAX_ADDRESS);
 	strncpy(Settings::public_ipv6, Json::get_string(json, "public_ipv6", ""), NET_MAX_ADDRESS);
-	Settings::port = u16(Json::get_s32(json, "port", 3494));
 #endif
 
 	if (json)

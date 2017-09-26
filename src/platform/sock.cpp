@@ -242,7 +242,7 @@ s32 socket_bind(u64* handle, u16 port, s32 family)
 
 		if (bind(*handle, addr_list->ai_addr, addr_list->ai_addrlen))
 		{
-			fprintf(stderr, "%s", "Bind failed.");
+			fprintf(stderr, "%s\n", "Bind failed.");
 			return error("Failed to bind socket");
 		}
 		else

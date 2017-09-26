@@ -1606,6 +1606,16 @@ void teams_kick_player(s8 gamepad)
 	}
 }
 
+void teams_ban_player(s8 gamepad)
+{
+	PlayerManager* player = teams_selected_player[gamepad].ref();
+	if (player)
+	{
+		PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+		me->ban(player);
+	}
+}
+
 void teams_friend_add(s8 gamepad)
 {
 #if !SERVER
@@ -1632,9 +1642,6 @@ void teams_admin_set(s8 gamepad, b8 value)
 	{
 		PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
 		me->make_admin(selected, value);
-
-		auto fn = value ? &Net::Client::master_admin_make : &Net::Client::master_admin_remove;
-		fn(Game::session.config.id, selected->get<PlayerHuman>()->master_id);
 	}
 #endif
 }
@@ -1679,10 +1686,6 @@ b8 player(const Update& u, s8 gamepad, UIMenu* menu)
 		exit = true;
 	else
 	{
-		// kick
-		if (me->is_admin && menu->item(u, _(strings::kick)))
-			Menu::dialog_with_cancel(gamepad, &teams_kick_player, nullptr, _(strings::confirm_kick), selected->username);
-
 		if (!Game::level.local && selected->get<PlayerHuman>()->gamepad == 0)
 		{
 			// add/remove friend
@@ -1709,6 +1712,14 @@ b8 player(const Update& u, s8 gamepad, UIMenu* menu)
 				}
 			}
 		}
+
+		// kick
+		if (me->is_admin && menu->item(u, _(strings::kick)))
+			Menu::dialog_with_cancel(gamepad, &teams_kick_player, nullptr, _(strings::confirm_kick), selected->username);
+
+		// ban
+		if (me->is_admin && menu->item(u, _(strings::ban)))
+			Menu::dialog_with_cancel(gamepad, &teams_ban_player, nullptr, _(strings::confirm_ban), selected->username);
 	}
 
 	if (exit)

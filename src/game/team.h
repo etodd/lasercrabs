@@ -161,6 +161,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		MakeAdmin,
 		MakeOtherAdmin,
 		Kick,
+		Ban,
 		TeamSchedule,
 		TeamSwitch,
 		MapSchedule,
@@ -224,6 +225,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
 	s16 upgrade_cost(Upgrade) const;
 	void kick(PlayerManager*);
+	void ban(PlayerManager*);
 	void kick();
 	void leave();
 	void add_energy(s32);

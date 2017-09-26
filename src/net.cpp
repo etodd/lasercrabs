@@ -1925,6 +1925,34 @@ void replay_filename_generate(char* filename)
 	}
 }
 
+b8 master_user_role_set(u32 server_id, u32 user_id, Master::Role role)
+{
+	using Stream = StreamWrite;
+	StreamWrite p;
+	packet_init(&p);
+	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::UserRoleSet);
+
+	b8 is_server;
+#if SERVER
+	is_server = true;
+	serialize_bool(&p, is_server);
+	serialize_s32(&p, Settings::secret);
+#else
+	is_server = false;
+	serialize_bool(&p, is_server);
+	serialize_u32(&p, Game::user_key.id);
+	serialize_u32(&p, Game::user_key.token);
+#endif
+
+	serialize_u32(&p, server_id);
+	serialize_u32(&p, user_id);
+	serialize_enum(&p, Master::Role, role);
+
+	packet_finalize(&p);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	return true;
+}
+
 #if SERVER
 
 namespace Server
@@ -3212,31 +3240,6 @@ b8 master_friend_add(u32 friend_id)
 b8 master_friend_remove(u32 friend_id)
 {
 	return master_friendship_request(friend_id, Master::Message::FriendRemove);
-}
-
-b8 master_admin_request(u32 server_id, u32 user_id, Master::Message msg)
-{
-	using Stream = StreamWrite;
-	StreamWrite p;
-	packet_init(&p);
-	state_persistent.master.add_header(&p, state_persistent.master_addr, msg);
-	serialize_u32(&p, Game::user_key.id);
-	serialize_u32(&p, Game::user_key.token);
-	serialize_u32(&p, server_id);
-	serialize_u32(&p, user_id);
-	packet_finalize(&p);
-	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
-	return true;
-}
-
-b8 master_admin_make(u32 server_id, u32 user_id)
-{
-	return master_admin_request(server_id, user_id, Master::Message::AdminMake);
-}
-
-b8 master_admin_remove(u32 server_id, u32 user_id)
-{
-	return master_admin_request(server_id, user_id, Master::Message::AdminRemove);
 }
 
 b8 master_save_server_config(const Master::ServerConfig& config, u32 request_id)

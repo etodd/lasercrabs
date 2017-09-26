@@ -1897,10 +1897,19 @@ namespace Master
 				send_friendship_state(node, friend_id, false);
 				break;
 			}
-			case Message::AdminMake:
-			case Message::AdminRemove:
+			case Message::UserRoleSet:
 			{
-				if (!check_user_key(p, node))
+				b8 is_server;
+				serialize_bool(p, is_server);
+
+				if (is_server)
+				{
+					s32 secret;
+					serialize_s32(p, secret);
+					if (secret != Settings::secret)
+						net_error();
+				}
+				else if (!check_user_key(p, node))
 					return false;
 
 				u32 config_id;
@@ -1909,21 +1918,12 @@ namespace Master
 				u32 friend_id;
 				serialize_u32(p, friend_id);
 
-				if (user_role(node->client.user_key.id, config_id) == Role::Admin && user_exists(friend_id))
-				{
-					Role role;
-					if (type == Message::AdminMake)
-						role = Role::Admin;
-					else
-					{
-						// remove admin status
-						if (user_role(node->client.user_key.id, friend_id) == Role::Admin)
-							role = Role::Allowed;
-						else // some other role already assigned; leave it as-is
-							role = Role::None;
-					}
-					update_user_server_linkage(friend_id, config_id, role);
-				}
+				Role desired_role;
+				serialize_enum(p, Role, desired_role);
+
+				if (user_exists(friend_id)
+					&& (is_server || user_role(node->client.user_key.id, config_id) == Role::Admin))
+					update_user_server_linkage(friend_id, config_id, desired_role);
 				break;
 			}
 			default:

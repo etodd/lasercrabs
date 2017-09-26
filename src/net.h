@@ -122,6 +122,8 @@ enum class DisconnectReason : s8
 	count,
 };
 
+b8 master_user_role_set(u32, u32, Master::Role);
+
 #if SERVER
 namespace Server
 {
@@ -192,8 +194,6 @@ namespace Client
 	b8 master_friendship_get(u32);
 	b8 master_friend_remove(u32);
 	b8 master_friend_add(u32);
-	b8 master_admin_make(u32, u32);
-	b8 master_admin_remove(u32, u32);
 	b8 master_save_server_config(const Master::ServerConfig&, u32);
 	b8 master_request_server_list(ServerListType, s32);
 	void master_keepalive();

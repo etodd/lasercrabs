@@ -26,15 +26,6 @@ struct UserKey
 	}
 };
 
-enum class Role : s8
-{
-	None,
-	Banned,
-	Allowed,
-	Admin,
-	count,
-};
-
 enum class Message : s8
 {
 	Ack,
@@ -59,8 +50,7 @@ enum class Message : s8
 	FriendshipState, // master tell a client about the friendship state of two players
 	FriendAdd, // client telling master to add a friend
 	FriendRemove, // client telling master to remove a friend
-	AdminMake, // client telling master to add a server admin
-	AdminRemove, // client telling master to remove a server admin
+	UserRoleSet, // client or server telling master to set somebody's role within a server
 	Keepalive,
 	Disconnect,
 	count,

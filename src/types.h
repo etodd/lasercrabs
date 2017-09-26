@@ -150,6 +150,16 @@ namespace Net
 			GameJolt,
 			count,
 		};
+
+		// role of a user in a specific server
+		enum class Role : s8
+		{
+			None,
+			Banned,
+			Allowed,
+			Admin,
+			count,
+		};
 	}
 }
 

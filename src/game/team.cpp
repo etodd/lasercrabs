@@ -1258,6 +1258,26 @@ namespace PlayerManagerNet
 		return true;
 	}
 
+	b8 ban(PlayerManager* existing_admin, PlayerManager* m)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = existing_admin;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::Ban;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+
 	b8 make_admin(PlayerManager* m, b8 value)
 	{
 		using Stream = Net::StreamWrite;
@@ -1637,7 +1657,25 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 				m->is_admin = value;
 #if SERVER
 				Net::Server::admin_set(m->get<PlayerHuman>(), value);
+				Net::master_user_role_set(Game::session.config.id, m->get<PlayerHuman>()->master_id, value ? Net::Master::Role::Admin : Net::Master::Role::Allowed);
 #endif
+			}
+			break;
+		}
+		case Message::Ban:
+		{
+			Ref<PlayerManager> target;
+			serialize_ref(p, target);
+
+			if (!m || !target.ref() || !m->is_admin || !target.ref()->has<PlayerHuman>())
+				return true;
+
+			if (Game::level.local)
+			{
+#if SERVER
+				Net::master_user_role_set(Game::session.config.id, target.ref()->get<PlayerHuman>()->master_id, Net::Master::Role::Banned);
+#endif
+				PlayerManagerNet::kick(m, target.ref()); // repeat for other clients and ourselves
 			}
 			break;
 		}
@@ -1756,37 +1794,6 @@ void PlayerManager::chat(const char* msg, AI::TeamMask mask)
 {
 	if (strlen(msg) > 0)
 		PlayerManagerNet::chat(this, msg, mask);
-}
-
-void PlayerManager::kick()
-{
-	vi_assert(Game::level.local);
-
-	{
-		Entity* i = instance.ref();
-		if (i)
-			World::remove_deferred(i);
-	}
-	World::remove_deferred(entity());
-
-#if SERVER
-	if (has<PlayerHuman>())
-	{
-		ID client_id = Net::Server::client_id(get<PlayerHuman>());
-		b8 client_has_other_players = false;
-		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item() != get<PlayerHuman>() && Net::Server::client_id(i.item()) == client_id)
-			{
-				client_has_other_players = true;
-				break;
-			}
-		}
-
-		if (!client_has_other_players)
-			Net::Server::client_force_disconnect(client_id, Net::DisconnectReason::Kicked);
-	}
-#endif
 }
 
 void PlayerManager::leave()
@@ -1957,6 +1964,43 @@ void PlayerManager::kick(PlayerManager* kickee)
 {
 	vi_assert(is_admin && kickee != this);
 	PlayerManagerNet::kick(this, kickee);
+}
+
+void PlayerManager::kick()
+{
+	vi_assert(Game::level.local);
+
+	{
+		Entity* i = instance.ref();
+		if (i)
+			World::remove_deferred(i);
+	}
+	World::remove_deferred(entity());
+
+#if SERVER
+	if (has<PlayerHuman>())
+	{
+		ID client_id = Net::Server::client_id(get<PlayerHuman>());
+		b8 client_has_other_players = false;
+		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item() != get<PlayerHuman>() && Net::Server::client_id(i.item()) == client_id)
+			{
+				client_has_other_players = true;
+				break;
+			}
+		}
+
+		if (!client_has_other_players)
+			Net::Server::client_force_disconnect(client_id, Net::DisconnectReason::Kicked);
+	}
+#endif
+}
+
+void PlayerManager::ban(PlayerManager* other)
+{
+	vi_assert(is_admin);
+	PlayerManagerNet::ban(this, other);
 }
 
 PlayerManager::State PlayerManager::state() const

@@ -137,6 +137,8 @@
 	"confirm_admin_remove": "Remove %s as an admin of this server?",
 	"kick": "Kick",
 	"confirm_kick": "Kick %s?",
+	"ban": "Ban",
+	"confirm_ban": "Permanently ban %s from this server?",
 	"prompt_skip_map": "[{{UIContextAction}}] Load immediately",
 	"confirm_skip_map": "Switch to %s now?",
 	"kicked": "You were kicked!",

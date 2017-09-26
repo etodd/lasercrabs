@@ -564,14 +564,13 @@ Vec3 Minion::goal_path_position(const Goal& g, const Vec3& minion_pos)
 			}
 			else if (t->has<Turret>())
 				return e->get<Transform>()->to_world(Vec3(0, 0, -TURRET_HEIGHT));
+			else if (t->has<Battery>())
+				return e->get<Battery>()->spawn_point.ref()->get<Transform>()->absolute_pos();
 			else
 				return e->get<Transform>()->absolute_pos();
 		}
-		else
-			return g.pos; // last known position of the target
 	}
-	else
-		return g.pos;
+	return g.pos; // last known position of the target
 }
 
 void Minion::update_server(const Update& u)

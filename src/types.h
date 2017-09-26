@@ -138,6 +138,19 @@ namespace Net
 		Invalid, // message is malicious or something; deserialize it but ignore
 		count,
 	};
+
+	namespace Master
+	{
+		// type of authentication used to obtain a user key from the master server
+		enum class AuthType : s8
+		{
+			None,
+			Itch,
+			Steam,
+			GameJolt,
+			count,
+		};
+	}
 }
 
 namespace AI

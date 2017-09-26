@@ -152,6 +152,12 @@ add_library(mersenne STATIC
 	external/mersenne/mersenne-twister.h
 )
 
+## sha1
+add_library(sha1 STATIC
+	external/sha1/sha1.cpp
+	external/sha1/sha1.h
+)
+
 ## mongoose
 add_library(mongoose STATIC
 	external/mongoose/mongoose.c
@@ -492,6 +498,7 @@ if (SERVER)
 		libcurl
 		mersenne
 		mongoose
+		sha1
 	)
 
 endif()

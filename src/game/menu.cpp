@@ -8,6 +8,7 @@
 #include "entities.h"
 #include "audio.h"
 #include "asset/Wwise_IDs.h"
+#include "asset/font.h"
 #include "render/views.h"
 #include "console.h"
 #include "mersenne/mersenne-twister.h"
@@ -35,13 +36,20 @@ enum class FriendshipState
 	count,
 };
 
+#define DIALOG_MAX 255
+
 State main_menu_state;
 DialogCallback dialog_callback[MAX_GAMEPADS];
 DialogCallback dialog_cancel_callback[MAX_GAMEPADS];
 DialogCallback dialog_callback_last[MAX_GAMEPADS];
+DialogTextCallback dialog_text_callback;
+DialogTextCallback dialog_text_callback_last;
+DialogTextCancelCallback dialog_text_cancel_callback;
+s32 dialog_text_truncate;
 r32 dialog_time[MAX_GAMEPADS];
-char dialog_string[MAX_GAMEPADS][255];
+char dialog_string[MAX_GAMEPADS][DIALOG_MAX + 1];
 r32 dialog_time_limit[MAX_GAMEPADS];
+TextField dialog_text_field;
 Ref<Camera> camera_connecting;
 Controls currently_editing_control = Controls::count;
 b8 currently_editing_control_enable_input; // should we be listening for any and all button presses to apply to the control binding we're currently editing?
@@ -57,10 +65,9 @@ AssetID maps_selected_map = AssetNull;
 
 #define DIALOG_ANIM_TIME 0.25f
 
-// default callback
-void dialog_no_action(s8 gamepad)
-{
-}
+// default callbacks
+void dialog_no_action(s8 gamepad) { }
+void dialog_text_cancel_no_action() { }
 
 State settings(const Update&, s8, UIMenu*);
 b8 settings_controls(const Update&, s8, UIMenu*, Gamepad::Type);
@@ -82,6 +89,7 @@ AssetID region_string(Region region)
 #if SERVER
 
 void init(const InputState&) {}
+void exit(s8) {}
 void update(const Update&) {}
 void update_end(const Update&) {}
 void clear() {}
@@ -108,6 +116,8 @@ void progress_infinite(const RenderParams&, const char*, const Vec2&) {}
 void dialog(s8, DialogCallback, const char*, ...) {}
 void dialog_with_cancel(s8, DialogCallback, DialogCallback, const char*, ...) {}
 void dialog_with_time_limit(s8, DialogCallback, DialogCallback, r32, const char*, ...) {}
+void dialog_text(DialogTextCallback, const char*, s32, const char*, ...) {}
+void dialog_text_with_cancel(DialogTextCallback, DialogTextCancelCallback, const char*, s32, const char*, ...) {}
 b8 dialog_active(s8) { return false; }
 
 #else
@@ -142,7 +152,10 @@ void quit_to_title(s8 gamepad)
 
 b8 dialog_active(s8 gamepad)
 {
-	return dialog_callback[gamepad] || dialog_callback_last[gamepad];
+	return dialog_callback[gamepad]
+		|| dialog_callback_last[gamepad]
+		|| (gamepad == 0
+			&& (dialog_text_callback || dialog_text_callback_last));
 }
 
 void dialog(s8 gamepad, DialogCallback callback, const char* format, ...)
@@ -159,9 +172,9 @@ void dialog(s8 gamepad, DialogCallback callback, const char* format, ...)
 		format = "";
 
 #if defined(_WIN32)
-	vsprintf_s(dialog_string[gamepad], 254, format, args);
+	vsprintf_s(dialog_string[gamepad], DIALOG_MAX, format, args);
 #else
-	vsnprintf(dialog_string[gamepad], 254, format, args);
+	vsnprintf(dialog_string[gamepad], DIALOG_MAX, format, args);
 #endif
 
 	va_end(args);
@@ -183,9 +196,9 @@ void dialog_with_cancel(s8 gamepad, DialogCallback callback, DialogCallback canc
 		format = "";
 
 #if defined(_WIN32)
-	vsprintf_s(dialog_string[gamepad], 254, format, args);
+	vsprintf_s(dialog_string[gamepad], DIALOG_MAX, format, args);
 #else
-	vsnprintf(dialog_string[gamepad], 254, format, args);
+	vsnprintf(dialog_string[gamepad], DIALOG_MAX, format, args);
 #endif
 
 	va_end(args);
@@ -207,9 +220,9 @@ void dialog_with_time_limit(s8 gamepad, DialogCallback callback, DialogCallback 
 		format = "";
 
 #if defined(_WIN32)
-	vsprintf_s(dialog_string[gamepad], 254, format, args);
+	vsprintf_s(dialog_string[gamepad], DIALOG_MAX, format, args);
 #else
-	vsnprintf(dialog_string[gamepad], 254, format, args);
+	vsnprintf(dialog_string[gamepad], DIALOG_MAX, format, args);
 #endif
 
 	va_end(args);
@@ -218,6 +231,58 @@ void dialog_with_time_limit(s8 gamepad, DialogCallback callback, DialogCallback 
 	dialog_cancel_callback[gamepad] = callback_cancel;
 	dialog_time[gamepad] = Game::real_time.total;
 	dialog_time_limit[gamepad] = limit;
+}
+
+void dialog_text(DialogTextCallback callback, const char* initial_value, s32 truncate, const char* format, ...)
+{
+	Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW);
+
+	va_list args;
+	va_start(args, format);
+
+	if (!format)
+		format = "";
+
+#if defined(_WIN32)
+	vsprintf_s(dialog_string[0], DIALOG_MAX, format, args);
+#else
+	vsnprintf(dialog_string[0], DIALOG_MAX, format, args);
+#endif
+
+	va_end(args);
+
+	dialog_text_callback = callback;
+	dialog_text_cancel_callback = nullptr;
+	dialog_text_truncate = truncate;
+	dialog_text_field.set(initial_value);
+	dialog_time[0] = Game::real_time.total;
+	dialog_time_limit[0] = 0.0f;
+}
+
+void dialog_text_with_cancel(DialogTextCallback callback, DialogTextCancelCallback cancel_callback, const char* initial_value, s32 truncate, const char* format, ...)
+{
+	Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW);
+
+	va_list args;
+	va_start(args, format);
+
+	if (!format)
+		format = "";
+
+#if defined(_WIN32)
+	vsprintf_s(dialog_string[0], DIALOG_MAX, format, args);
+#else
+	vsnprintf(dialog_string[0], DIALOG_MAX, format, args);
+#endif
+
+	va_end(args);
+
+	dialog_text_callback = callback;
+	dialog_text_cancel_callback = cancel_callback;
+	dialog_text_truncate = truncate;
+	dialog_text_field.set(initial_value);
+	dialog_time[0] = Game::real_time.total;
+	dialog_time_limit[0] = 0.0f;
 }
 
 void progress_spinner(const RenderParams& params, const Vec2& pos, r32 size)
@@ -352,6 +417,8 @@ void init(const InputState& input)
 void clear()
 {
 	main_menu_state = State::Hidden;
+	dialog_text_callback = nullptr;
+	dialog_text_cancel_callback = nullptr;
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
 		dialog_callback[i] = nullptr;
@@ -699,7 +766,7 @@ void update(const Update& u)
 	}
 #endif
 
-	// dialog
+	// dialogs
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
 		if (dialog_time_limit[i] > 0.0f)
@@ -745,6 +812,34 @@ void update(const Update& u)
 		}
 	}
 
+	// text dialog
+	if (dialog_text_callback && dialog_text_callback_last) // make sure we don't trigger the button on the first frame the dialog is shown
+	{
+		dialog_text_field.update(u, 0, dialog_text_truncate);
+		if (u.last_input->get(Controls::UIAcceptText, 0) && !u.input->get(Controls::UIAcceptText, 0))
+		{
+			// accept
+			Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT);
+			DialogTextCallback callback = dialog_text_callback;
+			dialog_text_callback = nullptr;
+			dialog_text_cancel_callback = nullptr;
+			dialog_time_limit[0] = 0.0f;
+			callback(dialog_text_field);
+		}
+		else if (!Game::cancel_event_eaten[0] && u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+		{
+			// cancel
+			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+			DialogTextCancelCallback cancel_callback = dialog_text_cancel_callback;
+			dialog_text_callback = nullptr;
+			dialog_text_cancel_callback = nullptr;
+			dialog_time_limit[0] = 0.0f;
+			Game::cancel_event_eaten[0] = true;
+			if (cancel_callback)
+				cancel_callback();
+		}
+	}
+
 	if (Overworld::active())
 	{
 		// do pause menu
@@ -767,6 +862,7 @@ void update(const Update& u)
 void update_end(const Update& u)
 {
 	// reset cancel event eaten flags
+	dialog_text_callback_last = dialog_text_callback;
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
 		dialog_callback_last[i] = dialog_callback[i];
@@ -972,6 +1068,75 @@ void draw_ui(const RenderParams& params)
 				text.text(gamepad, _(strings::prompt_cancel));
 				text.draw(params, prompt_pos + Vec2(text_rect.size.x + padding * -2.0f, 0));
 			}
+		}
+	}
+
+	// text dialog box
+	if (dialog_text_callback)
+	{
+		Vec2 field_size(MENU_ITEM_WIDTH * 1.5f, MENU_ITEM_HEIGHT);
+		Rect2 field_rect =
+		{
+			(viewport.size * 0.5f) + (field_size * -0.5f),
+			field_size
+		};
+
+		// container
+		{
+			r32 prompt_height = (MENU_ITEM_HEIGHT + MENU_ITEM_PADDING) * Ease::cubic_out<r32>(vi_min((Game::real_time.total - dialog_time[0]) / DIALOG_ANIM_TIME, 1.0f));
+			Rect2 r =
+			{
+				field_rect.pos + Vec2(-MENU_ITEM_PADDING, -prompt_height),
+				field_rect.size + Vec2(MENU_ITEM_PADDING * 2.0f, prompt_height + MENU_ITEM_HEIGHT),
+			};
+			UI::box(params, r.outset(MENU_ITEM_PADDING), UI::color_background);
+			UI::border(params, r.outset(MENU_ITEM_PADDING), 2.0f, UI::color_accent());
+		}
+
+		UIText text;
+		text.anchor_x = UIText::Anchor::Min;
+		text.anchor_y = UIText::Anchor::Min;
+
+		// prompt
+		text.color = UI::color_default;
+		text.text(0, dialog_string[0]);
+		UIMenu::text_clip(&text, dialog_time[0], 100.0f);
+		text.draw(params, field_rect.pos + Vec2(0, field_rect.size.y + MENU_ITEM_PADDING));
+		text.clip = 0;
+
+		if ((Game::real_time.total - dialog_time[0]) > DIALOG_ANIM_TIME)
+		{
+			// accept/cancel control prompts
+
+			// accept
+			Rect2 controls_rect = field_rect;
+			controls_rect.pos.y -= MENU_ITEM_HEIGHT + MENU_ITEM_PADDING;
+
+			text.wrap_width = 0;
+			text.anchor_y = UIText::Anchor::Min;
+			text.anchor_x = UIText::Anchor::Min;
+			text.color = UI::color_accent();
+			text.text(0, _(strings::prompt_accept_text));
+			Vec2 prompt_pos = controls_rect.pos + Vec2(MENU_ITEM_PADDING);
+			text.draw(params, prompt_pos);
+
+			// cancel
+			text.anchor_x = UIText::Anchor::Max;
+			text.color = UI::color_alert();
+			text.clip = 0;
+			text.text(0, _(strings::prompt_cancel));
+			text.draw(params, prompt_pos + Vec2(controls_rect.size.x + MENU_ITEM_PADDING * -2.0f, 0));
+		}
+
+		{
+			// text field
+			UI::border(params, field_rect, 2.0f, UI::color_accent());
+
+			text.font = Asset::Font::pt_sans;
+			text.anchor_x = UIText::Anchor::Min;
+			text.color = UI::color_default;
+			dialog_text_field.get(&text, 64);
+			text.draw(params, field_rect.pos + Vec2(MENU_ITEM_PADDING * 0.8125f));
 		}
 	}
 }
@@ -1644,7 +1809,12 @@ State teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 			teams_selected_player[gamepad] = nullptr;
 		}
 		else
-			return State::Visible;
+		{
+			if (mode == TeamSelectMode::MatchStart && me->can_spawn)
+				me->set_can_spawn(false);
+			else
+				return State::Visible;
+		}
 	}
 
 	return State::Teams; // stay open

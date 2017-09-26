@@ -652,8 +652,18 @@ namespace Docks
 			};
 			data->camera.ref()->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), 0.1f, Game::level.skybox.far_plane);
 
-			if (Game::level.mode == Game::Mode::Special && !Overworld::active() && !Overworld::transitioning())
-				Menu::title_menu(u, data->camera.ref());
+			if (Game::user_key.id)
+			{
+				if (Game::level.mode == Game::Mode::Special
+					&& !Overworld::active()
+					&& !Overworld::transitioning())
+					Menu::title_menu(u, data->camera.ref());
+			}
+			else
+			{
+				if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0) && !Game::cancel_event_eaten[0])
+					Menu::dialog(0, &Menu::exit, _(strings::confirm_quit));
+			}
 		}
 
 		if (data->transition_timer > 0.0f)
@@ -680,7 +690,9 @@ namespace Docks
 			if (Game::level.mode == Game::Mode::Special
 				&& Menu::main_menu_state == Menu::State::Hidden
 				&& Game::scheduled_load_level == AssetNull
-				&& !Overworld::active() && !Overworld::transitioning())
+				&& !Overworld::active() && !Overworld::transitioning()
+				&& !Menu::dialog_active(0)
+				&& Game::user_key.id)
 			{
 				if (Game::session.type == SessionType::Multiplayer)
 				{
@@ -697,36 +709,41 @@ namespace Docks
 	{
 		Loader::texture(Asset::Texture::logo);
 
-		if (Game::level.mode == Game::Mode::Special
-			&& Game::scheduled_load_level == AssetNull
-			&& data->transition_timer == 0.0f
-			&& !Overworld::active()
-			&& Game::session.type == SessionType::Story
-			&& !Menu::dialog_active(0))
+		if (Game::user_key.id)
 		{
-			Rect2 logo_rect;
-			if (Menu::main_menu_state == Menu::State::Hidden)
+			if (Game::level.mode == Game::Mode::Special
+				&& Game::scheduled_load_level == AssetNull
+				&& data->transition_timer == 0.0f
+				&& !Overworld::active()
+				&& Game::session.type == SessionType::Story
+				&& !Menu::dialog_active(0))
 			{
-				UIText text;
-				text.color = UI::color_accent();
-				text.text(0, "[{{Start}}]");
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				Vec2 pos = p.camera->viewport.size * Vec2(0.5f, 0.1f);
-				UI::box(p, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-				text.draw(p, pos);
+				Rect2 logo_rect;
+				if (Menu::main_menu_state == Menu::State::Hidden)
+				{
+					UIText text;
+					text.color = UI::color_accent();
+					text.text(0, "[{{Start}}]");
+					text.anchor_x = UIText::Anchor::Center;
+					text.anchor_y = UIText::Anchor::Center;
+					Vec2 pos = p.camera->viewport.size * Vec2(0.5f, 0.1f);
+					UI::box(p, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+					text.draw(p, pos);
 
-				Vec2 size(p.camera->viewport.size.x * 0.25f);
-				logo_rect = { p.camera->viewport.size * 0.5f + size * Vec2(-0.5f, -0.5f), size };
+					Vec2 size(p.camera->viewport.size.x * 0.25f);
+					logo_rect = { p.camera->viewport.size * 0.5f + size * Vec2(-0.5f, -0.5f), size };
+				}
+				else
+				{
+					Vec2 menu_pos(p.camera->viewport.size.x * 0.5f, p.camera->viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f);
+					Vec2 size((MENU_ITEM_WIDTH + MENU_ITEM_PADDING * -2.0f) * 0.3f);
+					logo_rect = { menu_pos + size * Vec2(-0.5f, 0.0f) + Vec2(0.0f, MENU_ITEM_PADDING * 3.0f), size };
+				}
+				UI::sprite(p, Asset::Texture::logo, { logo_rect.pos + logo_rect.size * 0.5f, logo_rect.size });
 			}
-			else
-			{
-				Vec2 menu_pos(p.camera->viewport.size.x * 0.5f, p.camera->viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f);
-				Vec2 size((MENU_ITEM_WIDTH + MENU_ITEM_PADDING * -2.0f) * 0.3f);
-				logo_rect = { menu_pos + size * Vec2(-0.5f, 0.0f) + Vec2(0.0f, MENU_ITEM_PADDING * 3.0f), size };
-			}
-			UI::sprite(p, Asset::Texture::logo, { logo_rect.pos + logo_rect.size * 0.5f, logo_rect.size });
 		}
+		else
+			Menu::progress_infinite(p, _(strings::connecting), p.camera->viewport.size * 0.5f);
 
 		if (data->transition_timer > 0.0f && data->transition_timer < TRANSITION_TIME)
 			Menu::draw_letterbox(p, data->transition_timer, TRANSITION_TIME);
@@ -743,6 +760,27 @@ namespace Docks
 		data->ivory_ad_text.ref()->rot *= Quat::euler(0, u.time.delta * 0.2f, 0);
 	}
 
+#if SERVER
+	void prompt_gamejolt() { }
+#else
+	void gamejolt_token_callback(const TextField& text_field)
+	{
+		strncpy(Settings::gamejolt_token, text_field.value.data, MAX_AUTH_KEY);
+		Net::Client::master_send_auth();
+	}
+
+	void gamejolt_username_callback(const TextField& text_field)
+	{
+		strncpy(Settings::gamejolt_username, text_field.value.data, MAX_PATH_LENGTH);
+		Menu::dialog_text(&gamejolt_token_callback, "", MAX_AUTH_KEY, _(strings::prompt_gamejolt_token));
+	}
+
+	void prompt_gamejolt()
+	{
+		Menu::dialog_text(&gamejolt_username_callback, "", MAX_PATH_LENGTH, _(strings::prompt_gamejolt_username));
+	}
+#endif
+
 	void init(const EntityFinder& entities)
 	{
 		vi_assert(!data);
@@ -751,7 +789,29 @@ namespace Docks
 
 #if !SERVER
 		if (!Game::user_key.id)
-			Net::Client::master_send_auth();
+		{
+			switch (Game::auth_type)
+			{
+				case Net::Master::AuthType::GameJolt:
+				{
+					// check if we already have the username and token
+					if (Settings::gamejolt_username[0])
+						Net::Client::master_send_auth();
+					else
+						prompt_gamejolt();
+					break;
+				}
+				case Net::Master::AuthType::Itch:
+				case Net::Master::AuthType::Steam:
+				case Net::Master::AuthType::None:
+					// we either have the auth token or we don't
+					Net::Client::master_send_auth();
+					break;
+				default:
+					vi_assert(false);
+					break;
+			}
+		}
 #endif
 
 		if (Game::level.mode == Game::Mode::Special)

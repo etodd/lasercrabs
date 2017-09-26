@@ -297,6 +297,8 @@
 
 	"prompt_zone_defend": "%s under attack. [{{Scoreboard}}] to defend. (%d)",
 	"prompt_name": "Enter name:",
+	"prompt_gamejolt_username": "Enter GameJolt username:",
+	"prompt_gamejolt_token": "Enter GameJolt game token:",
 
 	"zone_unavailable": "Zone unavailable",
 	"zone_unlocked": "Zone unlocked",

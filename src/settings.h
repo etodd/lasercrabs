@@ -30,15 +30,16 @@ namespace Settings
 	extern s32 display_mode_index;
 #if SERVER
 	extern s32 secret;
-#endif
-	extern char master_server[MAX_PATH_LENGTH + 1];
-	extern char username[MAX_USERNAME + 1];
-#if SERVER
+	extern u16 port;
 	extern char itch_api_key[MAX_AUTH_KEY + 1];
 	extern char public_ipv4[NET_MAX_ADDRESS];
 	extern char public_ipv6[NET_MAX_ADDRESS];
-	extern u16 port;
+	extern char gamejolt_api_key[MAX_AUTH_KEY + 1];
 #endif
+	extern char master_server[MAX_PATH_LENGTH + 1];
+	extern char username[MAX_USERNAME + 1];
+	extern char gamejolt_username[MAX_PATH_LENGTH + 1];
+	extern char gamejolt_token[MAX_AUTH_KEY + 1];
 	extern u8 sfx;
 	extern u8 music;
 	extern ShadowQuality shadow_quality;

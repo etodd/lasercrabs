@@ -72,6 +72,8 @@ struct UIMenu
 };
 
 typedef void(*DialogCallback)(s8);
+typedef void(*DialogTextCallback)(const TextField&);
+typedef void(*DialogTextCancelCallback)();
 
 namespace Menu
 {
@@ -109,6 +111,7 @@ extern DialogCallback dialog_callback[MAX_GAMEPADS];
 extern DialogCallback dialog_cancel_callback[MAX_GAMEPADS];
 
 void init(const InputState&);
+void exit(s8);
 void update(const Update&);
 void update_end(const Update&);
 void clear();
@@ -132,6 +135,9 @@ void dialog(s8, DialogCallback, const char*, ...);
 void dialog_with_cancel(s8, DialogCallback, DialogCallback, const char*, ...);
 void dialog_with_time_limit(s8, DialogCallback, DialogCallback, r32, const char*, ...);
 void dialog_no_action(s8);
+void dialog_text_cancel_no_action();
+void dialog_text(DialogTextCallback, const char*, s32, const char*, ...);
+void dialog_text_with_cancel(DialogTextCallback, DialogTextCancelCallback, const char*, s32, const char*, ...);
 void draw_letterbox(const RenderParams&, r32, r32);
 b8 dialog_active(s8);
 AssetID region_string(Region);

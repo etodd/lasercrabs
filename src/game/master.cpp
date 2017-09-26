@@ -49,7 +49,11 @@ b8 Messenger::add_header(StreamWrite* p, const Sock::Address& addr, Message type
 	}
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 #if DEBUG_MSG
-	vi_debug("Sending seq %d message %d to %s:%hd", s32(seq), s32(type), Sock::host_to_str(addr.host), addr.port);
+	{
+		char str[NET_MAX_ADDRESS];
+		addr.str(str);
+		vi_debug("Sending seq %d message %d to %s", s32(seq), s32(type), str);
+	}
 #endif
 	serialize_enum(p, Message, type);
 	return true;
@@ -125,7 +129,11 @@ void Messenger::received(Message type, SequenceID seq, const Sock::Address& addr
 		// when we receive any kind of message other than an ack, we must send an ack back
 
 #if DEBUG_MSG
-		vi_debug("Received seq %d message %d from %s:%hd", s32(seq), s32(type), Sock::host_to_str(addr.host), addr.port);
+		{
+			char str[NET_MAX_ADDRESS];
+			addr.str(str);
+			vi_debug("Received seq %d message %d from %s", s32(seq), s32(type), str);
+		}
 #endif
 
 		messenger_send_ack(seq, addr, sock);
@@ -145,7 +153,11 @@ void Messenger::update(r64 timestamp, Sock::Handle* sock, s32 max_outgoing)
 			if (packet->timestamp < timestamp_cutoff)
 			{
 #if DEBUG_MSG
-				vi_debug("Resending seq %d to %s:%hd", s32(packet->sequence_id), Sock::host_to_str(packet->addr.host), packet->addr.port);
+				{
+					char str[NET_MAX_ADDRESS];
+					packet->addr.str(str);
+					vi_debug("Resending seq %d to %s", s32(packet->sequence_id), str);
+				}
 #endif
 				packet->timestamp = timestamp;
 				Sock::udp_send(sock, packet->addr, packet->data.data.data, packet->data.bytes_written());
@@ -166,7 +178,11 @@ void Messenger::reset()
 void Messenger::remove(const Sock::Address& addr)
 {
 #if DEBUG_MSG
-	vi_debug("Removing peer %s:%hd", Sock::host_to_str(addr.host), addr.port);
+	{
+		char str[NET_MAX_ADDRESS];
+		addr.str(str);
+		vi_debug("Removing peer %s", str);
+	}
 #endif
 	for (s32 i = 0; i < outgoing.length; i++)
 	{

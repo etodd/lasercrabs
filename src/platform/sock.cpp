@@ -155,7 +155,7 @@ s32 Sock::Address::get(Address* address, const char* host, u16 port)
 		memset(&hints, 0, sizeof(struct addrinfo));
 		hints.ai_family = AF_UNSPEC;
 		hints.ai_socktype = SOCK_DGRAM;
-		hints.ai_flags = AI_NUMERICHOST | AI_NUMERICSERV;
+		hints.ai_flags = AI_NUMERICSERV;
 		hints.ai_protocol = IPPROTO_UDP;
 
 		struct addrinfo* result;

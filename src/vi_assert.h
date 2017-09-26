@@ -16,11 +16,7 @@
 #  define vi_debug_break() ((void)0)
 #endif
 
-#if DEBUG
 #define vi_debug(fmt, ...) fprintf(stderr, "%s:%d: " fmt "\n", __func__, __LINE__, __VA_ARGS__)
-#else
-#define vi_debug(fmt, ...) ((void)0)
-#endif
 
 inline void vi_assert(bool x)
 {

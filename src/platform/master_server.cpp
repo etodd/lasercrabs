@@ -242,7 +242,7 @@ namespace Master
 
 	namespace Settings
 	{
-		s32 secret;
+		u64 secret;
 		char itch_api_key[MAX_AUTH_KEY + 1];
 		char gamejolt_api_key[MAX_AUTH_KEY + 1];
 	}
@@ -1207,7 +1207,7 @@ namespace Master
 			}
 			case ServerListType::Mine:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role>=2 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role>=3 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
 				db_bind_int(stmt, 0, client->client.user_key.id);
 				db_bind_int(stmt, 1, offset);
 				break;
@@ -1814,8 +1814,8 @@ namespace Master
 			}
 			case Message::ServerStatusUpdate:
 			{
-				s32 secret;
-				serialize_s32(p, secret);
+				u64 secret;
+				serialize_u64(p, secret);
 				if (secret != Settings::secret)
 					net_error();
 				ServerState s;
@@ -1904,8 +1904,8 @@ namespace Master
 
 				if (is_server)
 				{
-					s32 secret;
-					serialize_s32(p, secret);
+					u64 secret;
+					serialize_u64(p, secret);
 					if (secret != Settings::secret)
 						net_error();
 				}
@@ -1987,7 +1987,10 @@ namespace Master
 				cJSON* json = cJSON_Parse(data);
 				if (json)
 				{
-					Settings::secret = Json::get_s32(json, "secret");
+					{
+						cJSON* s = cJSON_GetObjectItem(json, "secret");
+						Settings::secret = s ? s->valueint : 0;
+					}
 					{
 						const char* itch_api_key = Json::get_string(json, "itch_api_key");
 						if (itch_api_key)

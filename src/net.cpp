@@ -1936,7 +1936,7 @@ b8 master_user_role_set(u32 server_id, u32 user_id, Master::Role role)
 #if SERVER
 	is_server = true;
 	serialize_bool(&p, is_server);
-	serialize_s32(&p, Settings::secret);
+	serialize_u64(&p, Settings::secret);
 #else
 	is_server = false;
 	serialize_bool(&p, is_server);
@@ -2093,7 +2093,7 @@ b8 master_send_status_update()
 	StreamWrite p;
 	packet_init(&p);
 	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ServerStatusUpdate);
-	serialize_s32(&p, Settings::secret);
+	serialize_u64(&p, Settings::secret);
 	Master::ServerState s;
 	server_state(&s);
 	if (!serialize_server_state(&p, &s))

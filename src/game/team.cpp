@@ -113,7 +113,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 	},
 	{
 		Asset::Mesh::icon_force_field,
-		100,
+		80,
 		Type::Build,
 	},
 	{
@@ -162,7 +162,7 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::minion,
 		strings::description_minion,
 		Asset::Mesh::icon_minion,
-		150,
+		100,
 		Type::Ability,
 	},
 	{
@@ -1021,7 +1021,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	current_upgrade(Upgrade::None),
 	state_timer(),
 	upgrade_completed(),
-	respawns(Game::session.config.game_type == GameType::Deathmatch ? -1 : Game::session.config.respawns),
+	respawns(Game::session.config.game_type == GameType::Deathmatch || team->team() == 0 ? -1 : Game::session.config.respawns),
 	kills(),
 	deaths(),
 	ability_purchase_times(),

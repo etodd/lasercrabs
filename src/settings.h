@@ -29,7 +29,7 @@ namespace Settings
 	extern s32 framerate_limit;
 	extern s32 display_mode_index;
 #if SERVER
-	extern s32 secret;
+	extern u64 secret;
 	extern u16 port;
 	extern char itch_api_key[MAX_AUTH_KEY + 1];
 	extern char public_ipv4[NET_MAX_ADDRESS];

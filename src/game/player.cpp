@@ -1756,7 +1756,10 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 
 					text.anchor_x = UIText::Anchor::Max;
 					text.wrap_width = 0;
-					text.text(0, "%d", vi_max(0, s32(i.item()->respawns) + (i.item()->instance.ref() ? 1 : 0) - 1));
+					if (i.item()->respawns == -1)
+						text.text(0, _(strings::infinite));
+					else
+						text.text(0, "%d", vi_max(0, s32(i.item()->respawns) + (i.item()->instance.ref() ? 1 : 0) - 1));
 					text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
 
 					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;

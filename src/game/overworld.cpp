@@ -533,7 +533,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					// respawns
 					s16* respawns = &config->respawns;
 					sprintf(str, "%hd", *respawns);
-					delta = menu->slider_item(u, _(strings::drones), str);
+					delta = menu->slider_item(u, _(strings::respawns), str);
 					*respawns = vi_max(1, vi_min(MAX_RESPAWNS, s32(*respawns) + delta * (*respawns >= 10 ? 5 : 1)));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
@@ -1400,7 +1400,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			else
 			{
 				// respawns
-				text.text(0, _(strings::drones));
+				text.text(0, _(strings::respawns));
 				text.draw(params, pos);
 				value.text(0, "%d", s32(details.config.respawns));
 				value.draw(params, pos + Vec2(panel_size.x, 0));

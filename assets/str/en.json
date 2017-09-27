@@ -102,6 +102,8 @@
 	"energy_added": "+%d energy",
 	"access_keys": "Access keys",
 	"drones": "Drones",
+	"respawns": "Attacker drones",
+	"infinite": "Inf",
 	"capture_bonus": "Capture bonus:",
 	"unknown": "Unknown",
 	"sfx": "SFX",

@@ -23,7 +23,7 @@ namespace Settings
 	s32 display_mode_index;
 	s32 framerate_limit;
 #if SERVER
-	s32 secret;
+	u64 secret;
 	u16 port;
 #endif
 	Region region;
@@ -321,7 +321,10 @@ void Loader::settings_load(const Array<DisplayMode>& modes)
 		strncpy(Settings::gamejolt_token, Json::get_string(json, "gamejolt_token", ""), MAX_AUTH_KEY);
 	}
 #if SERVER
-	Settings::secret = Json::get_s32(json, "secret");
+	{
+		cJSON* s = cJSON_GetObjectItem(json, "secret");
+		Settings::secret = s ? s->valueint : 0;
+	}
 	strncpy(Settings::public_ipv4, Json::get_string(json, "public_ipv4", ""), NET_MAX_ADDRESS);
 	strncpy(Settings::public_ipv6, Json::get_string(json, "public_ipv6", ""), NET_MAX_ADDRESS);
 #endif

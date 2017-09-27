@@ -19,6 +19,8 @@
 
 #define DEBUG_AUDIO 0
 
+#define ENABLE_RECORD 0
+
 #if DEBUG_AUDIO
 #include "render/views.h"
 #include "asset/mesh.h"
@@ -189,12 +191,14 @@ u32 record_init(AI::Team team, s8 remaining_drones)
 	record_id_current++;
 	if (record_id_current == 0) // 0 is an invalid record ID
 		record_id_current = 1;
+#if ENABLE_RECORD
 	sync_in.lock();
 	sync_in.write(Op::RecordInit);
 	sync_in.write(id);
 	sync_in.write(team);
 	sync_in.write(remaining_drones);
 	sync_in.unlock();
+#endif
 
 	return id;
 }
@@ -202,22 +206,26 @@ u32 record_init(AI::Team team, s8 remaining_drones)
 void record_add(u32 id, const AI::RecordedLife::Tag& tag, const AI::RecordedLife::Action& action)
 {
 	vi_assert(id != 0);
+#if ENABLE_RECORD
 	sync_in.lock();
 	sync_in.write(Op::RecordAdd);
 	sync_in.write(id);
 	sync_in.write(tag);
 	sync_in.write(action);
 	sync_in.unlock();
+#endif
 }
 
 void record_close(u32 id)
 {
 	if (id != 0)
 	{
+#if ENABLE_RECORD
 		sync_in.lock();
 		sync_in.write(Op::RecordClose);
 		sync_in.write(id);
 		sync_in.unlock();
+#endif
 	}
 }
 

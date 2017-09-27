@@ -33,9 +33,9 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 	config.interval_memory_update = 0.2f;
 	config.interval_low_level = 0.25f;
 	config.interval_high_level = 0.5f;
-	config.inaccuracy_min = PI * 0.002f;
-	config.inaccuracy_range = PI * 0.01f;
-	config.aim_min_delay = 0.5f;
+	config.inaccuracy_min = PI * 0.005f;
+	config.inaccuracy_range = PI * 0.015f;
+	config.aim_min_delay = 0.75f;
 	config.aim_timeout = 2.0f;
 	config.aim_speed = 3.0f;
 	config.dodge_chance = 0.1f;

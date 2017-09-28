@@ -17,3 +17,12 @@ Settings are stored in the following locations:
 - Windows: C:\Users\<user>\AppData\Roaming\HelveticaScenario\Deceiver\config.txt
 - Mac: /Users/<user>/Library/Application Support/HelveticaScenario/Deceiver/config.txt
 - Linux: /home/<user>/.local/share/HelveticaScenario/Deceiver/config.txt
+
+Credits
+-------
+
+Evan Todd - code, design, art
+Jack Menhorn - sound design
+Logan Hayes - music
+Ian Cuslidge - level design for "Plaza"
+Bobpoblo - level design for "Crossing"

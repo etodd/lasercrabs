@@ -99,6 +99,10 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/Commons_bsp_model_0_011.msh",
 	"assets/lvl/Commons_bsp_model_0_012.msh",
 	"assets/lvl/Commons_bsp_model_0_013.msh",
+	"assets/lvl/Crossing_Cube_000_proxy.msh",
+	"assets/lvl/Crossing_Cube_000_proxy_1.msh",
+	"assets/lvl/Crossing_concept3_001.msh",
+	"assets/lvl/Crossing_concept3_001_1.msh",
 	"assets/lvl/Docks_Cube.msh",
 	"assets/lvl/Docks_Cube_001.msh",
 	"assets/lvl/Docks_Cube_002.msh",
@@ -339,6 +343,10 @@ const char* AssetLookup::Mesh::names[] =
 	"Commons_bsp_model_0_011",
 	"Commons_bsp_model_0_012",
 	"Commons_bsp_model_0_013",
+	"Crossing_Cube_000_proxy",
+	"Crossing_Cube_000_proxy_1",
+	"Crossing_concept3_001",
+	"Crossing_concept3_001_1",
 	"Docks_Cube",
 	"Docks_Cube_001",
 	"Docks_Cube_002",
@@ -888,6 +896,7 @@ const char* AssetLookup::Font::names[] =
 const char* AssetLookup::Level::values[] =
 {
 	"assets/lvl/Commons.lvl",
+	"assets/lvl/Crossing.lvl",
 	"assets/lvl/Docks.lvl",
 	"assets/lvl/Library.lvl",
 	"assets/lvl/Media_Tower.lvl",
@@ -906,6 +915,7 @@ const char* AssetLookup::Level::values[] =
 const char* AssetLookup::Level::names[] =
 {
 	"Commons",
+	"Crossing",
 	"Docks",
 	"Library",
 	"Media Tower",
@@ -924,6 +934,7 @@ const char* AssetLookup::Level::names[] =
 const char* AssetLookup::NavMesh::values[] =
 {
 	"assets/lvl/Commons.nav",
+	"assets/lvl/Crossing.nav",
 	"assets/lvl/Docks.nav",
 	"assets/lvl/Library.nav",
 	"assets/lvl/Media_Tower.nav",
@@ -942,6 +953,7 @@ const char* AssetLookup::NavMesh::values[] =
 const char* AssetLookup::NavMesh::names[] =
 {
 	"Commons",
+	"Crossing",
 	"Docks",
 	"Library",
 	"Media Tower",

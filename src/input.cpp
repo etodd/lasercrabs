@@ -335,10 +335,10 @@ void init()
 	btn_strings_playstation[s32(Gamepad::Btn::Start)] = _(strings::btn_ps4_Start);
 	btn_strings_playstation[s32(Gamepad::Btn::LeftTrigger)] = _(strings::btn_ps4_LeftTrigger);
 	btn_strings_playstation[s32(Gamepad::Btn::RightTrigger)] = _(strings::btn_ps4_RightTrigger);
-	btn_strings_xbox[s32(Gamepad::Btn::DDown)] = _(strings::btn_ps4_DDown);
-	btn_strings_xbox[s32(Gamepad::Btn::DUp)] = _(strings::btn_ps4_DUp);
-	btn_strings_xbox[s32(Gamepad::Btn::DLeft)] = _(strings::btn_ps4_DLeft);
-	btn_strings_xbox[s32(Gamepad::Btn::DRight)] = _(strings::btn_ps4_DRight);
+	btn_strings_playstation[s32(Gamepad::Btn::DDown)] = _(strings::btn_ps4_DDown);
+	btn_strings_playstation[s32(Gamepad::Btn::DUp)] = _(strings::btn_ps4_DUp);
+	btn_strings_playstation[s32(Gamepad::Btn::DLeft)] = _(strings::btn_ps4_DLeft);
+	btn_strings_playstation[s32(Gamepad::Btn::DRight)] = _(strings::btn_ps4_DRight);
 	btn_strings_playstation[s32(Gamepad::Btn::None)] = _(strings::btn_None);
 
 	control_strings[s32(Controls::Forward)] = _(strings::forward);

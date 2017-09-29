@@ -1194,7 +1194,7 @@ State settings(const Update& u, s8 gamepad, UIMenu* menu)
 			else if (delta > 0)
 				Settings::sfx = vi_min(100, Settings::sfx + 10);
 			if (delta != 0)
-				Audio::param_global(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER);
+				Audio::param_global(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER * Audio::volume_scale);
 		}
 
 		{
@@ -1205,7 +1205,7 @@ State settings(const Update& u, s8 gamepad, UIMenu* menu)
 			else if (delta > 0)
 				Settings::music = vi_min(100, Settings::music + 10);
 			if (delta != 0)
-				Audio::param_global(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER);
+				Audio::param_global(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER * Audio::volume_scale);
 		}
 
 		UIMenu::enum_option(&Settings::region, menu->slider_item(u, _(strings::region), _(region_string(Settings::region))));

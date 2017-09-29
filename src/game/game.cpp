@@ -2208,6 +2208,11 @@ void Game::load_level(AssetID l, Mode m)
 
 void Game::awake_all()
 {
+#if !SERVER
+	if (Settings::expo)
+		Audio::volume_multiplier(Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying ? 0.25f : 1.0f);
+#endif
+
 	if (level.ambience[0])
 		Audio::post_global(Audio::get_id(level.ambience));
 

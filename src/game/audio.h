@@ -105,6 +105,7 @@ struct Audio : ComponentType<Audio>
 	static s8 listener_mask;
 	static Vec3 listener_pos[MAX_GAMEPADS];
 	static StaticArray<ID, 32> dialogue_callbacks; // poll this and empty it every frame; ID is entity ID
+	static r32 volume_scale;
 
 	static s16 spatialization_update_frame;
 	static PinArray<AudioEntry, MAX_ENTITIES> pool_entity;
@@ -122,6 +123,7 @@ struct Audio : ComponentType<Audio>
 	static AkUniqueID get_id(const char*);
 	static AkGameObjectID listener_id(s8);
 	static void clear();
+	static void volume_multiplier(r32);
 
 	ID entry_id;
 

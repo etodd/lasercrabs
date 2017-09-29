@@ -68,6 +68,7 @@ r32 Audio::dialogue_volume;
 s8 Audio::listener_mask;
 Vec3 Audio::listener_pos[MAX_GAMEPADS];
 PinArray<AudioEntry, MAX_ENTITIES> AudioEntry::list;
+r32 Audio::volume_scale = 1.0f;
 
 #if SERVER
 b8 Audio::init() { return true; }
@@ -194,10 +195,18 @@ b8 Audio::init()
 
 	AK::SoundEngine::RegisterBusMeteringCallback(AK::BUSSES::DIALOGUE, AudioEntry::dialogue_volume_callback, AkMeteringFlags(AK_EnableBusMeter_Peak));
 
-	param_global(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER);
-	param_global(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER);
+	param_global(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER * volume_scale);
+	param_global(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER * volume_scale);
 
 	return true;
+}
+
+void Audio::volume_multiplier(r32 v)
+{
+	volume_scale = v;
+
+	param_global(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER * v);
+	param_global(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER * v);
 }
 
 AkGameObjectID Audio::listener_id(s8 gamepad)

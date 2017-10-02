@@ -5717,7 +5717,7 @@
 									<PropertyList>
 										<Property Name="Volume" Type="Real64">
 											<ValueList>
-												<Value>-3</Value>
+												<Value>-12</Value>
 											</ValueList>
 										</Property>
 									</PropertyList>
@@ -5781,7 +5781,7 @@
 									<PropertyList>
 										<Property Name="Volume" Type="Real64">
 											<ValueList>
-												<Value>-8</Value>
+												<Value>-15</Value>
 											</ValueList>
 										</Property>
 									</PropertyList>
@@ -6147,6 +6147,13 @@
 									</ActiveSourceList>
 								</Sound>
 								<Sound Name="RUMBLE_Error_2" ID="{56BD1F0E-E05A-4A27-A6CB-3AA0B0760BAC}" ShortID="705957676">
+									<PropertyList>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-2</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Conversion">
 											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6185,6 +6192,13 @@
 									</ActiveSourceList>
 								</Sound>
 								<Sound Name="RUMBLE_Beep_4_1" ID="{F3B141EC-291A-4456-A460-2192A3167B64}" ShortID="300877563">
+									<PropertyList>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-4</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Conversion">
 											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6204,6 +6218,13 @@
 									</ActiveSourceList>
 								</Sound>
 								<Sound Name="RUMBLE_Beep_5_1" ID="{2B079E69-C12D-434F-9C42-935C4C30DC54}" ShortID="31076258">
+									<PropertyList>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-4</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Conversion">
 											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6223,6 +6244,13 @@
 									</ActiveSourceList>
 								</Sound>
 								<Sound Name="RUMBLE_Error_5_1" ID="{3B18076A-97E2-4010-961E-595423734BFB}" ShortID="857986303">
+									<PropertyList>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-2</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Conversion">
 											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6242,6 +6270,13 @@
 									</ActiveSourceList>
 								</Sound>
 								<Sound Name="RUMBLE_Beep_6_1" ID="{07693FCA-D034-466F-B805-B1B10B970A8E}" ShortID="142922773">
+									<PropertyList>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-4</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Conversion">
 											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>

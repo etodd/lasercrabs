@@ -1055,7 +1055,9 @@ UpgradeStation* UpgradeStation::drone_at(const Drone* drone)
 	AI::Team team = drone->get<AIAgent>()->team;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->spawn_point.ref()->team == team && i.item()->get<PlayerTrigger>()->is_triggered(drone->entity()))
+		if (i.item()->spawn_point.ref()->team == team
+			&& i.item()->get<PlayerTrigger>()->is_triggered(drone->entity())
+			&& !i.item()->drone.ref())
 			return i.item();
 	}
 
@@ -2976,14 +2978,14 @@ void Grenade::explode()
 				if (i.item()->has<Drone>())
 				{
 					r32 multiplier = i.item()->get<AIAgent>()->team == my_team ? 0.5f : 1.0f;
-					if (distance < multiplier * GRENADE_RANGE * 0.4f)
+					if (distance < multiplier * GRENADE_RANGE * 0.75f)
 						i.item()->damage(entity(), 3);
-					else if (distance < multiplier * GRENADE_RANGE * 0.7f)
+					else if (distance < multiplier * GRENADE_RANGE * 0.85f)
 						i.item()->damage(entity(), 2);
 					else if (distance < multiplier * GRENADE_RANGE)
 						i.item()->damage(entity(), 1);
 				}
-				else if (distance < GRENADE_RANGE && !i.item()->has<Battery>())
+				else if (distance < GRENADE_RANGE && (!i.item()->has<Battery>() || i.item()->get<Battery>()->team != my_team))
 					i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 6 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1));
 			}
 		}

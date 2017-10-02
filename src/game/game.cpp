@@ -647,7 +647,7 @@ b8 Game::edge_trigger(r32 time, r32 speed, b8(*fn)(r32, r32))
 // remove bots to make room for new human players if necessary
 void Game::remove_bots_if_necessary(s32 players)
 {
-	s32 open_slots = session.config.max_players - PlayerManager::list.count();
+	s32 open_slots = session.config.fill_bots - PlayerManager::list.count();
 	s32 bots_to_remove = vi_min(PlayerAI::list.count(), players - open_slots);
 	while (bots_to_remove > 0)
 	{

@@ -190,7 +190,8 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	}
 
 	void draw_chats(const RenderParams&) const;
-	b8 chat_emotes_enabled() const;
+	b8 chat_enabled() const;
+	b8 emotes_enabled() const;
 	void msg(const char*, Flags);
 	void rumble_add(r32);
 	UIMode ui_mode() const;

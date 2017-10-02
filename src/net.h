@@ -84,9 +84,14 @@ struct MinionState
 struct PlayerManagerState
 {
 	r32 spawn_timer;
-	r32 cooldown;
 	s16 energy;
 	b8 active;
+};
+
+struct DroneState
+{
+	r32 cooldown;
+	Revision revision;
 };
 
 struct StateFrame
@@ -94,9 +99,11 @@ struct StateFrame
 	TransformState transforms[MAX_ENTITIES];
 	PlayerManagerState players[MAX_PLAYERS];
 	MinionState minions[MAX_ENTITIES];
+	DroneState drones[MAX_ENTITIES];
 	r32 timestamp;
 	Bitmask<MAX_ENTITIES> transforms_active;
 	Bitmask<MAX_ENTITIES> minions_active;
+	Bitmask<MAX_ENTITIES> drones_active;
 	SequenceID sequence_id;
 };
 

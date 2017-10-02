@@ -875,11 +875,10 @@ void Team::update_all_server(const Update& u)
 		return;
 
 	// fill bots
-	if (Game::session.config.fill_bots
-		&& (match_state == MatchState::Waiting || match_state == MatchState::TeamSelect || match_state == MatchState::Active)
+	if ((match_state == MatchState::Waiting || match_state == MatchState::TeamSelect || match_state == MatchState::Active)
 		&& PlayerHuman::list.count() > 0)
 	{
-		while (PlayerManager::list.count() < Game::session.config.max_players)
+		while (PlayerManager::list.count() < Game::session.config.fill_bots)
 		{
 			Entity* e = World::create<ContainerEntity>();
 			char username[MAX_USERNAME + 1] = {};
@@ -1007,6 +1006,11 @@ void Team::update_all_client_only(const Update& u)
 	update_visibility(u);
 }
 
+s16 Team::initial_respawns() const
+{
+	return Game::session.config.game_type == GameType::Deathmatch || team() == 0 ? -1 : Game::session.config.respawns;
+}
+
 PlayerManager::Visibility PlayerManager::visibility[MAX_PLAYERS * MAX_PLAYERS];
 
 PlayerManager::PlayerManager(Team* team, const char* u)
@@ -1021,7 +1025,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	current_upgrade(Upgrade::None),
 	state_timer(),
 	upgrade_completed(),
-	respawns(Game::session.config.game_type == GameType::Deathmatch || team->team() == 0 ? -1 : Game::session.config.respawns),
+	respawns(team->initial_respawns()),
 	kills(),
 	deaths(),
 	ability_purchase_times(),
@@ -1162,8 +1166,36 @@ namespace PlayerManagerNet
 		return true;
 	}
 
+	b8 update_counts(PlayerManager* m)
+	{
+		using Stream = Net::StreamWrite;
+		vi_assert(Game::level.local);
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::UpdateCounts;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		serialize_s16(p, m->kills);
+		serialize_s16(p, m->deaths);
+		serialize_s16(p, m->respawns);
+		Net::msg_finalize(p);
+		return true;
+	}
+
 	b8 team_switch(PlayerManager* m, AI::Team t)
 	{
+		vi_assert(Game::level.local);
+
+		if (Game::session.config.game_type == GameType::Assault && t != m->team.ref()->team())
+		{
+			m->respawns = Team::list[s32(t)].initial_respawns();
+			update_counts(m);
+		}
+
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
 		{
@@ -1175,7 +1207,9 @@ namespace PlayerManagerNet
 			serialize_enum(p, PlayerManager::Message, msg);
 		}
 		serialize_s8(p, t);
+
 		Net::msg_finalize(p);
+
 		return true;
 	}
 
@@ -1211,26 +1245,6 @@ namespace PlayerManagerNet
 		}
 		{
 			Ref<SpawnPoint> ref = point;
-			serialize_ref(p, ref);
-		}
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 set_instance(PlayerManager* m, Entity* e)
-	{
-		using Stream = Net::StreamWrite;
-		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
-		{
-			Ref<PlayerManager> ref = m;
-			serialize_ref(p, ref);
-		}
-		{
-			PlayerManager::Message msg = PlayerManager::Message::SetInstance;
-			serialize_enum(p, PlayerManager::Message, msg);
-		}
-		{
-			Ref<Entity> ref = e;
 			serialize_ref(p, ref);
 		}
 		Net::msg_finalize(p);
@@ -1365,26 +1379,6 @@ namespace PlayerManagerNet
 		return true;
 	}
 
-	b8 update_counts(PlayerManager* m)
-	{
-		using Stream = Net::StreamWrite;
-		vi_assert(Game::level.local);
-		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
-		{
-			Ref<PlayerManager> ref = m;
-			serialize_ref(p, ref);
-		}
-		{
-			PlayerManager::Message msg = PlayerManager::Message::UpdateCounts;
-			serialize_enum(p, PlayerManager::Message, msg);
-		}
-		serialize_s16(p, m->kills);
-		serialize_s16(p, m->deaths);
-		serialize_s16(p, m->respawns);
-		Net::msg_finalize(p);
-		return true;
-	}
-
 	b8 chat(PlayerManager* m, const char* text, AI::TeamMask mask)
 	{
 		using Stream = Net::StreamWrite;
@@ -1427,6 +1421,12 @@ void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
 	if (m->respawns != 0)
 		m->spawn_timer = SPAWN_DELAY;
 	m->spawn.fire(point->spawn_position());
+}
+
+void remove_player_from_local_mask(PlayerManager* m)
+{
+	if (m->has<PlayerHuman>() && m->get<PlayerHuman>()->local())
+		Game::session.local_player_mask &= ~(1 << m->get<PlayerHuman>()->gamepad);
 }
 
 b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net::MessageSource src)
@@ -1617,18 +1617,6 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			}
 			break;
 		}
-		case Message::SetInstance:
-		{
-			Ref<Entity> i;
-			serialize_ref(p, i);
-
-			if (!m)
-				return true;
-
-			if (!Game::level.local || src == Net::MessageSource::Loopback)
-				m->instance = i;
-			break;
-		}
 		case Message::MakeOtherAdmin:
 		{
 			Ref<PlayerManager> target;
@@ -1707,6 +1695,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 				char buffer[UI_TEXT_MAX];
 				snprintf(buffer, UI_TEXT_MAX, _(strings::player_kicked), kickee.ref()->username);
 				PlayerHuman::log_add(buffer, kickee.ref()->team.ref()->team(), AI::TeamAll);
+				remove_player_from_local_mask(m);
 			}
 			break;
 		}
@@ -1714,6 +1703,8 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 		{
 			if (!m)
 				return true;
+
+			remove_player_from_local_mask(m);
 
 			if (Game::level.local)
 				m->kick();
@@ -1940,12 +1931,6 @@ void PlayerManager::add_deaths(s32 d)
 	vi_assert(Game::level.local);
 	deaths += d;
 	PlayerManagerNet::update_counts(this);
-}
-
-void PlayerManager::set_instance(Entity* e)
-{
-	vi_assert(Game::level.local);
-	PlayerManagerNet::set_instance(this, e);
 }
 
 void PlayerManager::make_admin(b8 value)

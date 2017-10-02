@@ -780,16 +780,28 @@ AssetID emote_strings[s32(PlayerHuman::EmoteCategory::count)][s32(PlayerHuman::E
 	},
 };
 
-b8 PlayerHuman::chat_emotes_enabled() const
+b8 PlayerHuman::chat_enabled() const
 {
 	UIMode mode = ui_mode();
-	return mode == UIMode::PvpDefault
+	return gamepad == 0
+		&& (mode == UIMode::PvpDefault
 		|| mode == UIMode::PvpUpgrade
 		|| mode == UIMode::PvpKillCam
 		|| mode == UIMode::PvpSelectTeam
 		|| mode == UIMode::PvpSelectSpawn
 		|| mode == UIMode::PvpSpectate
-		|| mode == UIMode::PvpGameOver;
+		|| mode == UIMode::PvpGameOver);
+}
+
+b8 PlayerHuman::emotes_enabled() const
+{
+	UIMode mode = ui_mode();
+	return (mode == UIMode::PvpDefault
+		|| mode == UIMode::PvpKillCam
+		|| mode == UIMode::PvpSelectTeam
+		|| mode == UIMode::PvpSelectSpawn
+		|| mode == UIMode::PvpSpectate
+		|| mode == UIMode::PvpGameOver);
 }
 
 void PlayerHuman::update(const Update& u)
@@ -802,7 +814,7 @@ void PlayerHuman::update(const Update& u)
 		afk_timer -= Game::real_time.delta;
 		if (afk_timer < 0.0f)
 		{
-			get<PlayerManager>()->kick();
+			get<PlayerManager>()->leave();
 			return;
 		}
 	}
@@ -934,7 +946,7 @@ void PlayerHuman::update(const Update& u)
 	UIMode mode = ui_mode();
 
 	// emotes
-	if (chat_emotes_enabled())
+	if (emotes_enabled())
 	{
 		static Controls emote_bindings[s32(EmoteCategory::count)] =
 		{
@@ -970,32 +982,32 @@ void PlayerHuman::update(const Update& u)
 			if (emote_timer == 0.0f)
 				emote_category = EmoteCategory::None;
 		}
+	}
 
-		if (gamepad == 0)
+	if (chat_enabled())
+	{
+		if (chat_focus == ChatFocus::None)
 		{
-			if (chat_focus == ChatFocus::None)
+			if (u.last_input->get(Controls::ChatAll, 0)
+				&& !u.input->get(Controls::ChatAll, 0))
 			{
-				if (u.last_input->get(Controls::ChatAll, 0)
-					&& !u.input->get(Controls::ChatAll, 0))
-				{
-					chat_focus = ChatFocus::All;
-					chat_field.set(_(strings::chat_all_prompt));
-				}
-				else if (u.last_input->get(Controls::ChatTeam, 0)
-					&& !u.input->get(Controls::ChatTeam, 0))
-				{
-					chat_focus = ChatFocus::Team;
-					chat_field.set(_(strings::chat_team_prompt));
-				}
+				chat_focus = ChatFocus::All;
+				chat_field.set(_(strings::chat_all_prompt));
 			}
-			else if (u.last_input->get(Controls::Cancel, 0)
-				&& !u.input->get(Controls::Cancel, 0)
-				&& !Game::cancel_event_eaten[0])
+			else if (u.last_input->get(Controls::ChatTeam, 0)
+				&& !u.input->get(Controls::ChatTeam, 0))
 			{
-				chat_field.set("");
-				chat_focus = ChatFocus::None;
-				Game::cancel_event_eaten[0] = true;
+				chat_focus = ChatFocus::Team;
+				chat_field.set(_(strings::chat_team_prompt));
 			}
+		}
+		else if (u.last_input->get(Controls::Cancel, 0)
+			&& !u.input->get(Controls::Cancel, 0)
+			&& !Game::cancel_event_eaten[0])
+		{
+			chat_field.set("");
+			chat_focus = ChatFocus::None;
+			Game::cancel_event_eaten[0] = true;
 		}
 	}
 
@@ -1263,6 +1275,8 @@ void PlayerHuman::update_late(const Update& u)
 	}
 	else if (Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
 	{
+		camera.ref()->perspective(fov_map_view, 1.0f, Game::level.skybox.far_plane);
+
 		Entity* e = get<PlayerManager>()->instance.ref();
 		if (e)
 		{
@@ -1453,8 +1467,6 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 		ParticleEffect::spawn(ParticleEffect::Type::SpawnDrone, spawn_pos.pos + Vec3(0, DRONE_RADIUS, 0), Quat::look(Vec3(0, 1, 0)));
 
 	Net::finalize(spawned);
-
-	get<PlayerManager>()->set_instance(spawned);
 }
 
 void PlayerHuman::assault_status_display()
@@ -1938,7 +1950,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	UIMode mode = ui_mode();
 
 	// emote menu
-	if (emote_category != EmoteCategory::None && chat_emotes_enabled())
+	if (emote_category != EmoteCategory::None && emotes_enabled())
 	{
 		UIText text;
 		text.font = Asset::Font::pt_sans;
@@ -2535,6 +2547,7 @@ PlayerCommon::PlayerCommon(PlayerManager* m)
 void PlayerCommon::awake()
 {
 	link_arg<const HealthEvent&, &PlayerCommon::health_changed>(get<Health>()->changed);
+	manager.ref()->instance = entity();
 }
 
 void PlayerCommon::health_changed(const HealthEvent& e)

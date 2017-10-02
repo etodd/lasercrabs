@@ -26,7 +26,7 @@
 #define DEBUG_SQL 0
 
 #if RELEASE_BUILD
-#define OFFLINE_DEV 0
+#define OFFLINE_DEV 1
 #else
 #define OFFLINE_DEV 1
 #endif
@@ -519,7 +519,7 @@ namespace Master
 		config->enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", 1));
 		config->drone_shield = s8(Json::get_s32(json, "drone_shield", DRONE_SHIELD_AMOUNT));
 		config->start_energy = s16(Json::get_s32(json, "start_energy"));
-		config->fill_bots = b8(Json::get_s32(json, "fill_bots"));
+		config->fill_bots = s8(Json::get_s32(json, "fill_bots"));
 		cJSON_Delete(json);
 	}
 
@@ -1067,6 +1067,7 @@ namespace Master
 					b8 success = db_step(stmt);
 					vi_assert(success);
 				}
+				db_step(stmt);
 				plays = db_column_int(stmt, 0) + 1;
 				db_finalize(stmt);
 			}
@@ -1074,7 +1075,8 @@ namespace Master
 			{
 				sqlite3_stmt* stmt = db_query("update ServerConfig set plays=?, score=? where id=?;");
 				db_bind_int(stmt, 0, plays);
-				db_bind_int(stmt, 0, server_config_score(plays, platform::timestamp()));
+				db_bind_int(stmt, 1, server_config_score(plays, platform::timestamp()));
+				db_bind_int(stmt, 2, server_id);
 				db_exec(stmt);
 			}
 		}

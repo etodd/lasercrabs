@@ -37,12 +37,12 @@ namespace VI
 #define DRONE_REFLECTION_POSITION_TOLERANCE (DRONE_SHIELD_RADIUS * 10.0f)
 #define DRONE_SHOTGUN_PELLETS 13
 
-#define DRONE_COOLDOWN_NORMAL 0.75f
+#define DRONE_COOLDOWN_NORMAL 0.7f
 #define DRONE_COOLDOWN_SHOTGUN 1.5f
 #define DRONE_COOLDOWN_SNIPER 1.1f
 #define DRONE_COOLDOWN_BOLTER (1.0f / 8.0f)
 #define DRONE_COOLDOWN_ACTIVE_ARMOR 0.95f
-#define DRONE_COOLDOWN_THRESHOLD_TIME 2.25f
+#define DRONE_COOLDOWN_THRESHOLD_TIME 3.0f
 #define DRONE_COOLDOWN_SPEED (DRONE_COOLDOWN_THRESHOLD / DRONE_COOLDOWN_THRESHOLD_TIME)
 
 #define DEBUG_REFLECTIONS 0
@@ -542,14 +542,21 @@ void drone_bolter_cooldown_setup(Drone* drone)
 	drone->cooldown_setup(DRONE_COOLDOWN_BOLTER);
 }
 
-Vec3 grenade_adjusted_dir(const Vec3& dir_normalized)
+// velocity to give the grenade
+Vec3 grenade_velocity_dir(const Vec3& dir_normalized)
 {
 	Vec3 dir_adjusted = dir_normalized;
-	if (dir_adjusted.y > -0.25f)
-	{
-		dir_adjusted.y += 0.35f;
-		dir_adjusted.normalize();
-	}
+	dir_adjusted.y += 0.2f;
+	dir_adjusted.normalize();
+	return dir_adjusted;
+}
+
+// direction to offset the grenade spawn position
+Vec3 grenade_spawn_dir(const Vec3& dir_normalized)
+{
+	Vec3 dir_adjusted = dir_normalized;
+	dir_adjusted.y += 0.5f;
+	dir_adjusted.normalize();
 	return dir_adjusted;
 }
 
@@ -858,11 +865,9 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					if (Game::level.local)
 					{
-						Vec3 dir_adjusted = grenade_adjusted_dir(dir_normalized);
-
 						PlayerManager* manager = drone->get<PlayerCommon>()->manager.ref();
 
-						Entity* grenade_entity = World::create<GrenadeEntity>(manager, my_pos + dir_adjusted * (DRONE_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted);
+						Entity* grenade_entity = World::create<GrenadeEntity>(manager, my_pos + grenade_spawn_dir(dir_normalized) * (DRONE_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), grenade_velocity_dir(dir_normalized));
 
 						if (manager->has<PlayerHuman>() && !manager->get<PlayerHuman>()->local())
 						{
@@ -1505,7 +1510,7 @@ void Drone::cooldown_setup(r32 amount)
 #endif
 
 	cooldown += amount;
-	cooldown_last_local_change = Game::time.total;
+	cooldown_last_local_change = Game::real_time.total;
 
 #if SERVER
 	if (lag_compensate && has<PlayerControlHuman>())
@@ -1782,18 +1787,19 @@ b8 Drone::go(const Vec3& dir)
 				// create fake grenade
 				get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_SPAWN);
 				Vec3 my_pos = get<Transform>()->absolute_pos();
-				Vec3 dir_adjusted = grenade_adjusted_dir(dir_normalized);
-				EffectLight::add(my_pos + dir_adjusted * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
+				Vec3 dir_spawn = grenade_spawn_dir(dir_normalized);
+
+				EffectLight::add(my_pos + dir_spawn * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
 				fake_projectiles.add
 				(
 					EffectLight::add
 					(
-						my_pos + dir_adjusted * (DRONE_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f),
+						my_pos + dir_spawn * (DRONE_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f),
 						BOLT_LIGHT_RADIUS,
 						0.5f,
 						EffectLight::Type::Grenade,
 						nullptr,
-						Quat::look(dir_adjusted)
+						Quat::look(grenade_velocity_dir(dir_normalized))
 					)
 				);
 				cooldown_setup(DRONE_COOLDOWN_NORMAL);

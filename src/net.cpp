@@ -1289,6 +1289,21 @@ template<typename Stream> b8 serialize_minion(Stream* p, MinionState* state, con
 	return true;
 }
 
+template<typename Stream> b8 serialize_drone(Stream* p, DroneState* state, const DroneState* base)
+{
+	b8 b;
+
+	if (Stream::IsWriting)
+		b = !base || state->revision != base->revision;
+	serialize_bool(p, b);
+	if (b)
+		serialize_s16(p, state->revision);
+
+	serialize_r32_range(p, state->cooldown, 0, DRONE_COOLDOWN_MAX, 8);
+
+	return true;
+}
+
 template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerState* state, const PlayerManagerState* base)
 {
 	b8 b;
@@ -1301,12 +1316,6 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 	serialize_bool(p, b);
 	if (b)
 		serialize_r32_range(p, state->spawn_timer, 0, SPAWN_DELAY, 8);
-
-	if (Stream::IsWriting)
-		b = !base || state->cooldown != base->cooldown;
-	serialize_bool(p, b);
-	if (b)
-		serialize_r32_range(p, state->cooldown, 0, DRONE_COOLDOWN_MAX, 8);
 
 	if (Stream::IsWriting)
 		b = !base || state->energy != base->energy;
@@ -1366,10 +1375,20 @@ b8 equal_states_minion(const StateFrame* frame_a, const StateFrame* frame_b, s32
 	return false;
 }
 
+b8 equal_states_drone(const StateFrame* frame_a, const StateFrame* frame_b, s32 index)
+{
+	if (frame_a && frame_b)
+	{
+		b8 a_active = frame_a->drones_active.get(index);
+		b8 b_active = frame_b->drones_active.get(index);
+		return !a_active && !b_active;
+	}
+	return false;
+}
+
 b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
 {
 	return a.spawn_timer == b.spawn_timer
-		&& a.cooldown == b.cooldown
 		&& a.energy == b.energy
 		&& a.active == b.active;
 }
@@ -1509,6 +1528,50 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 		}
 	}
 
+	// drones
+	{
+		s32 changed_count;
+		if (Stream::IsWriting)
+		{
+			// count changed drones
+			changed_count = 0;
+			s32 index = vi_min(s32(frame->drones_active.start), base ? s32(base->drones_active.start) : MAX_ENTITIES - 1);
+			while (index < vi_max(s32(frame->drones_active.end), base ? s32(base->drones_active.end) : 0))
+			{
+				if (!equal_states_drone(frame, base, index))
+					changed_count++;
+				index++;
+			}
+		}
+		serialize_int(p, s32, changed_count, 0, MAX_ENTITIES);
+
+		s32 index;
+		if (Stream::IsWriting)
+			index = vi_min(s32(frame->drones_active.start), base ? s32(base->drones_active.start) : MAX_ENTITIES - 1);
+		for (s32 i = 0; i < changed_count; i++)
+		{
+			if (Stream::IsWriting)
+			{
+				while (equal_states_drone(frame, base, index))
+					index++;
+			}
+
+			serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
+			b8 active;
+			if (Stream::IsWriting)
+				active = frame->drones_active.get(index);
+			serialize_bool(p, active);
+			if (Stream::IsReading)
+				frame->drones_active.set(index, active);
+			if (active)
+			{
+				if (!serialize_drone(p, &frame->drones[index], base ? &base->drones[index] : nullptr))
+					net_error();
+			}
+			index++;
+		}
+	}
+
 	return true;
 }
 
@@ -1544,7 +1607,6 @@ void state_frame_build(StateFrame* frame)
 		PlayerManagerState* state = &frame->players[i.index];
 		state->spawn_timer = i.item()->spawn_timer;
 		Entity* instance = i.item()->instance.ref();
-		state->cooldown = instance ? instance->get<Drone>()->cooldown : 0.0f;
 		state->energy = i.item()->energy;
 		state->active = true;
 	}
@@ -1561,6 +1623,15 @@ void state_frame_build(StateFrame* frame)
 		const Animator::Layer& layer = i.item()->get<Animator>()->layers[0];
 		minion->animation = layer.animation;
 		minion->animation_time = layer.time;
+	}
+
+	// drones
+	for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
+	{
+		frame->drones_active.set(i.index, true);
+		DroneState* drone = &frame->drones[i.index];
+		drone->revision = i.item()->revision;
+		drone->cooldown = i.item()->cooldown;
 	}
 }
 
@@ -1708,6 +1779,26 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 			index = b.minions_active.next(index);
 		}
 	}
+
+	// drones
+	{
+		result->drones_active = b.drones_active;
+		s32 index = s32(b.drones_active.start);
+		while (index < b.drones_active.end)
+		{
+			DroneState* drone = &result->drones[index];
+			const DroneState& last = a.drones[index];
+			const DroneState& next = b.drones[index];
+
+			drone->revision = next.revision;
+			if (last.revision == next.revision)
+				drone->cooldown = LMath::lerpf(blend, last.cooldown, next.cooldown);
+			else
+				drone->cooldown = next.cooldown;
+
+			index = b.drones_active.next(index);
+		}
+	}
 }
 
 void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, const StateFrame* frame_next)
@@ -1800,21 +1891,6 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			PlayerManager* s = &PlayerManager::list[i];
 			s->spawn_timer = state.spawn_timer;
 			s->energy = state.energy;
-			Entity* instance = s->instance.ref();
-			if (instance)
-			{
-				Drone* drone = instance->get<Drone>();
-				if (s->has<PlayerHuman>())
-				{
-					PlayerHuman* ph = s->get<PlayerHuman>();
-					// only overwrite cooldown value if it hasn't changed recently
-					// to facilitate client-side prediction
-					if (Game::time.total - drone->cooldown_last_local_change >= rtt(ph) + interpolation_delay() + tick_rate() * 2.0f)
-						drone->cooldown = state.cooldown;
-				}
-				else
-					drone->cooldown = state.cooldown;
-			}
 		}
 	}
 
@@ -1823,10 +1899,10 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 		s32 index = frame.minions_active.start;
 		while (index < frame.minions_active.end)
 		{
-			Minion* m = &Minion::list[index];
-			const MinionState& s = frame.minions[index];
 			if (Minion::list.active(index))
 			{
+				const MinionState& s = frame.minions[index];
+				Minion* m = &Minion::list[index];
 				m->get<Walker>()->rotation = s.rotation;
 				Animator::Layer* layer = &m->get<Animator>()->layers[0];
 				layer->animation = s.animation;
@@ -1834,6 +1910,30 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			}
 
 			index = frame.minions_active.next(index);
+		}
+	}
+
+	// drones
+	{
+		s32 index = frame.drones_active.start;
+		while (index < frame.drones_active.end)
+		{
+			if (Drone::list.active(index))
+			{
+				const DroneState& state = frame.drones[index];
+				Drone* drone = &Drone::list[index];
+				if (drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local())
+				{
+					// only overwrite cooldown value if it hasn't changed recently
+					// to facilitate client-side prediction
+					if (Game::real_time.total - drone->cooldown_last_local_change >= rtt(drone->get<PlayerControlHuman>()->player.ref()) + interpolation_delay() + tick_rate() * 2.0f)
+						drone->cooldown = state.cooldown;
+				}
+				else
+					drone->cooldown = state.cooldown;
+			}
+
+			index = frame.drones_active.next(index);
 		}
 	}
 }

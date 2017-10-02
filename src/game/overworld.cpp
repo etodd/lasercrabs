@@ -534,7 +534,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					s16* respawns = &config->respawns;
 					sprintf(str, "%hd", *respawns);
 					delta = menu->slider_item(u, _(strings::respawns), str);
-					*respawns = vi_max(1, vi_min(MAX_RESPAWNS, s32(*respawns) + delta * (*respawns >= 10 ? 5 : 1)));
+					*respawns = vi_max(1, vi_min(MAX_RESPAWNS, s32(*respawns) + delta * (*respawns >= (delta > 0 ? 10 : 11) ? 5 : 1)));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
 				}
@@ -544,7 +544,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					s16* kill_limit = &config->kill_limit;
 					sprintf(str, "%hd", *kill_limit);
 					delta = menu->slider_item(u, _(strings::kill_limit), str);
-					*kill_limit = vi_max(1, vi_min(MAX_RESPAWNS, s32(*kill_limit) + delta * (*kill_limit >= 10 ? 5 : 1)));
+					*kill_limit = vi_max(1, vi_min(MAX_RESPAWNS, s32(*kill_limit) + delta * (*kill_limit >= (delta > 0 ? 10 : 11) ? 5 : 1)));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
 				}
@@ -554,7 +554,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					u8* time_limit = &config->time_limit_minutes;
 					sprintf(str, _(strings::timer), s32(*time_limit), 0);
 					delta = menu->slider_item(u, _(strings::time_limit), str);
-					*time_limit = vi_max(1, vi_min(254, s32(*time_limit) + delta * (*time_limit >= 10 ? 5 : 1)));
+					*time_limit = vi_max(1, vi_min(254, s32(*time_limit) + delta * (*time_limit >= (delta > 0 ? 10 : 11) ? 5 : 1)));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
 				}
@@ -599,13 +599,19 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				{
 					// bots
-					b8* fill_bots = &config->fill_bots;
-					delta = menu->slider_item(u, _(strings::fill_bots), _(*fill_bots ? strings::on : strings::off));
-					if (delta)
+					s8* fill_bots = &config->fill_bots;
+					sprintf(str, "%d", s32(*fill_bots));
+					delta = menu->slider_item(u, _(strings::fill_bots), str);
+					*fill_bots = vi_max(0, vi_min(s32(config->max_players), (*fill_bots) + delta));
+					if (*fill_bots == 1)
 					{
-						*fill_bots = !(*fill_bots);
-						data.multiplayer.active_server_dirty = true;
+						if (delta >= 0)
+							*fill_bots = 2;
+						else
+							*fill_bots = 0;
 					}
+					if (delta)
+						data.multiplayer.active_server_dirty = true;
 				}
 
 				{
@@ -1410,7 +1416,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			// bots
 			text.text(0, _(strings::fill_bots));
 			text.draw(params, pos);
-			value.text(0, _(details.config.fill_bots ? strings::on : strings::off));
+			value.text(0, "%d", s32(details.config.fill_bots));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 

@@ -134,6 +134,7 @@ struct Team : public ComponentType<Team>
 	s32 player_count() const;
 	s16 increment() const;
 	void add_kills(s32);
+	s16 initial_respawns() const;
 
 	inline AI::Team team() const
 	{
@@ -157,7 +158,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		SpawnSelect,
 		UpgradeCompleted,
 		UpdateCounts,
-		SetInstance,
 		MakeAdmin,
 		MakeOtherAdmin,
 		Kick,
@@ -210,7 +210,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 
 	void make_admin(b8 = true);
 	void make_admin(PlayerManager*, b8 = true);
-	void set_instance(Entity*);
 	void spawn_select(SpawnPoint*);
 	void clear_ownership();
 	State state() const;

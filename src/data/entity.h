@@ -62,6 +62,8 @@ template<typename T> struct Ref
 template<typename T>
 struct ComponentPool : public ComponentPoolBase
 {
+	s32 _; // force compiler to keep this thing in memory even though it doesn't store any data
+
 	T* add()
 	{
 		return T::list.add();

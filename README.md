@@ -14,7 +14,7 @@ separate threads for physics, rendering, AI, and game logic
 - Geometry-based font rendering and UI system
 - UDP client-server network architecture
 - Online user profile system via [sqlite](https://sqlite.org/)
-- Authentication through the [itch.io app](https://itch.io/app)
+- Authentication via [itch.io](https://itch.io) and [GameJolt](https://gamejolt.com)
 - Localization support
 - Simple Windows crash report system
 - Keyboard/mouse/gamepad support via SDL
@@ -33,12 +33,19 @@ Windows quickstart
 4. Install [CMake](http://www.cmake.org/download/)
 5. Ensure [Blender](http://blender.org) 2.78c is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm)
-6. Ensure [Wwise](https://www.audiokinetic.com/) 2016.2.4 build 6098 is installed and `WwiseCLI`
+6. Ensure [Wwise](https://www.audiokinetic.com/) 2017.1.0 build 6302 is installed and `WwiseCLI`
 is available on the path
 7. Run `setup-win.bat`
 8. Open `build/deceiver.sln` in Visual Studio
 9. Set the `deceiver`, `deceiversrv`, and `deceivermaster` projects to startup by default
-10. Hit F5 to run the game
+10. To connect to your local server rather than the main server, create the file `C:\Users\<user>\AppData\Roaming\HelveticaScenario\Deceiver\config.txt` with the following contents:
+```
+{
+	"version":	2,
+	"master_server":	"::1"
+}
+```
+11. Hit F5 to run the game
 
 Linux quickstart
 ----------------
@@ -50,7 +57,14 @@ to build the Linux soundbanks.
 4. Copy the soundbanks into `assets/audio/GeneratedSoundBanks/Linux`
 5. If you are on Debian/Ubuntu, run `./setup-debian-deps`. Otherwise you'll need to install these dependencies yourself.
 6. Run `./setup-linux`
-7. Run `./deceiver` from the `build` folder
+7. To connect to your local server rather than the main server, create the file `/home/<user>/.local/share/HelveticaScenario/Deceiver/config.txt` with the following contents:
+```
+{
+	"version":	2,
+	"master_server":	"::1"
+}
+```
+8. Run `./deceivermaster`, `./deceiversrv`, and `./deceiver` from the `build` folder
 
 Mac quickstart
 --------------
@@ -59,12 +73,28 @@ Mac quickstart
 2. Install [Homebrew](http://brew.sh/)
 3. Ensure [Blender](http://blender.org) 2.78c is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm)
-4. Ensure [Wwise](https://www.audiokinetic.com/) 2016.2.4 build 6098 is installed and `WwiseCLI.sh`
+4. Ensure [Wwise](https://www.audiokinetic.com/) 2017.1.0 build 6302 is installed and `WwiseCLI.sh`
 is available on the path
 5. Wwise might have trouble generating soundbanks the first time. You might
 need to delete any cache files and open the project manually in Wwise first.
 6. Run `./setup-mac`
-7. Run `./deceiver` from the `build` folder
+7. To connect to your local server rather than the main server, create the file `/Users/<user>/Library/Application Support/HelveticaScenario/Deceiver/config.txt` with the following contents:
+```
+{
+	"version":	2,
+	"master_server":	"::1"
+}
+```
+8. Run `./deceivermaster`, `./deceiversrv`, and `./deceiver` from the `build` folder
+
+Credits
+-------
+
+- Evan Todd - code, design, art
+- Jack Menhorn - sound design
+- Logan Hayes - music
+- Ian Cuslidge - level design for "Plaza"
+- Bobpoblo - level design for "Crossing"
 
 Asset license
 -------------

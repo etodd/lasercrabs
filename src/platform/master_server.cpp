@@ -26,7 +26,7 @@
 #define DEBUG_SQL 0
 
 #if RELEASE_BUILD
-#define OFFLINE_DEV 1
+#define OFFLINE_DEV 0
 #else
 #define OFFLINE_DEV 1
 #endif

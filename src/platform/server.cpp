@@ -12,6 +12,7 @@
 #endif
 #include <time.h>
 #include <chrono>
+#include <signal.h>
 
 namespace VI
 {
@@ -40,10 +41,19 @@ namespace VI
 		{
 		}
 
+		b8 quit = false;
+		void signal_handle(s32)
+		{
+			quit = true;
+		}
+
 	}
 
 	s32 proc(u16 port)
 	{
+		signal(SIGINT, platform::signal_handle);
+		signal(SIGTERM, platform::signal_handle);
+
 		Loader::data_directory = ""; // todo
 		{
 			Array<DisplayMode> modes;
@@ -83,6 +93,7 @@ namespace VI
 			sync->time.delta = vi_min(r32(time - last_time), 0.25f);
 			last_time = time;
 
+			sync->quit |= platform::quit;
 			b8 quit = sync->quit;
 
 			sync = render_swapper.swap<SwapType_Read>();

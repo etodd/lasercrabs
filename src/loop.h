@@ -1690,9 +1690,11 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 
 	r32 time_update = 0.0f; // time required for update
 
-	while (!sync_render->quit && !Game::quit)
+	while (!Game::quit)
 	{
 		// update loop
+
+		Game::quit |= sync_render->quit;
 
 		{
 			// limit framerate
@@ -1744,6 +1746,9 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 				draw(sync_render, i.item());
 		}
 #endif
+
+		if (sync_render->quit)
+			break;
 
 		sync_render->quit |= Game::quit;
 		sync_render->display_mode = Settings::display();

@@ -99,11 +99,11 @@ struct StateFrame
 	TransformState transforms[MAX_ENTITIES];
 	PlayerManagerState players[MAX_PLAYERS];
 	MinionState minions[MAX_ENTITIES];
-	DroneState drones[MAX_ENTITIES];
+	DroneState drones[MAX_PLAYERS];
 	r32 timestamp;
 	Bitmask<MAX_ENTITIES> transforms_active;
 	Bitmask<MAX_ENTITIES> minions_active;
-	Bitmask<MAX_ENTITIES> drones_active;
+	Bitmask<MAX_PLAYERS> drones_active;
 	SequenceID sequence_id;
 };
 

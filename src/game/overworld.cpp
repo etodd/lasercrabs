@@ -600,16 +600,9 @@ void multiplayer_entry_edit_update(const Update& u)
 				{
 					// bots
 					s8* fill_bots = &config->fill_bots;
-					sprintf(str, "%d", s32(*fill_bots));
+					sprintf(str, "%d", s32(*fill_bots ? *fill_bots + 1 : 0));
 					delta = menu->slider_item(u, _(strings::fill_bots), str);
-					*fill_bots = vi_max(0, vi_min(s32(config->max_players), (*fill_bots) + delta));
-					if (*fill_bots == 1)
-					{
-						if (delta >= 0)
-							*fill_bots = 2;
-						else
-							*fill_bots = 0;
-					}
+					*fill_bots = vi_max(0, vi_min(s32(config->max_players - 1), (*fill_bots) + delta));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
 				}
@@ -1416,7 +1409,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			// bots
 			text.text(0, _(strings::fill_bots));
 			text.draw(params, pos);
-			value.text(0, "%d", s32(details.config.fill_bots));
+			value.text(0, "%d", s32(details.config.fill_bots ? details.config.fill_bots + 1 : 0));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 

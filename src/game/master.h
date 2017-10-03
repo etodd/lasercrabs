@@ -176,7 +176,7 @@ struct ServerConfig
 	s8 min_players = 1;
 	s8 team_count = 2;
 	s8 drone_shield = DRONE_SHIELD_AMOUNT;
-	s8 fill_bots;
+	s8 fill_bots; // if = 0, no bots. if > 0, total number of desired players including bots is fill_bots + 1
 	Region region;
 	u8 time_limit_minutes = 10;
 	char name[MAX_SERVER_CONFIG_NAME + 1];
@@ -202,7 +202,7 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 			serialize_s16(p, c->levels[i]);
 		serialize_int(p, s8, c->max_players, 1, MAX_PLAYERS);
 		serialize_int(p, s8, c->min_players, 1, MAX_PLAYERS);
-		serialize_int(p, s8, c->fill_bots, 0, MAX_PLAYERS);
+		serialize_int(p, s8, c->fill_bots, 0, MAX_PLAYERS - 1);
 		if (c->game_type == GameType::Assault)
 			c->team_count = 2;
 		else

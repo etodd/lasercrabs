@@ -875,10 +875,11 @@ void Team::update_all_server(const Update& u)
 		return;
 
 	// fill bots
-	if ((match_state == MatchState::Waiting || match_state == MatchState::TeamSelect || match_state == MatchState::Active)
+	if (Game::session.config.fill_bots
+		&& (match_state == MatchState::Waiting || match_state == MatchState::TeamSelect || match_state == MatchState::Active)
 		&& PlayerHuman::list.count() > 0)
 	{
-		while (PlayerManager::list.count() < Game::session.config.fill_bots)
+		while (PlayerManager::list.count() < vi_min(s32(Game::session.config.max_players), Game::session.config.fill_bots + 1))
 		{
 			Entity* e = World::create<ContainerEntity>();
 			char username[MAX_USERNAME + 1] = {};

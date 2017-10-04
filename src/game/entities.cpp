@@ -1363,7 +1363,7 @@ CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3&
 {
 	Transform* transform = create<Transform>();
 	transform->parent = parent;
-	transform->absolute(pos + rot * Vec3(0, 0, DRONE_RADIUS), rot);
+	transform->absolute(pos, rot);
 
 	create<Health>(DRONE_HEALTH, DRONE_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
 
@@ -1371,8 +1371,9 @@ CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3&
 	model->mesh = Asset::Mesh::core_module;
 	model->shader = Asset::Shader::standard;
 	model->team = s8(team);
+	model->offset.make_translate(Vec3(0, -DRONE_RADIUS * 0.5f, 0));
 
-	create<Target>();
+	create<Target>()->local_offset = Vec3(0, 0, DRONE_RADIUS);
 	create<MinionTarget>();
 
 	create<CoreModule>()->team = team;

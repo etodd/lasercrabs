@@ -2056,12 +2056,13 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 	}
 
-	if (mode == UIMode::PvpDefault)
+	if (mode == UIMode::PvpDefault || mode == UIMode::PvpSpectate)
 	{
 		if (params.sync->input.get(Controls::Scoreboard, gamepad))
 			scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Center);
 	}
-	else if (mode == UIMode::PvpUpgrade)
+
+	if (mode == UIMode::PvpUpgrade)
 	{
 		if (flag(FlagUpgradeMenuOpen))
 		{
@@ -2235,6 +2236,8 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			pos = vp.size * Vec2(0.5f, 0.1f);
 			UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, pos);
+
+			match_timer_draw(params, ui_anchor(params) + Vec2(0, (UI_TEXT_SIZE_DEFAULT + 8.0f) * -UI::scale), UIText::Anchor::Min);
 		}
 	}
 	else if (mode == UIMode::PvpGameOver)

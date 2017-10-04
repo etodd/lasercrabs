@@ -461,11 +461,8 @@ Entity* visible_target(Minion* me, AI::Team team)
 	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 	{
 		Minion* minion = i.item();
-		if (minion->get<AIAgent>()->team != team)
-		{
-			if (me->can_see(minion->entity()))
-				return minion->entity();
-		}
+		if (minion->get<AIAgent>()->team != team && me->can_see(minion->entity()))
+			return minion->entity();
 	}
 
 	if (Turret::list.count() > 0)
@@ -473,11 +470,8 @@ Entity* visible_target(Minion* me, AI::Team team)
 		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 		{
 			Turret* turret = i.item();
-			if (turret->team != team)
-			{
-				if (me->can_see(turret->entity()))
-					return turret->entity();
-			}
+			if (turret->team != team && me->can_see(turret->entity()))
+				return turret->entity();
 		}
 	}
 	else
@@ -485,52 +479,39 @@ Entity* visible_target(Minion* me, AI::Team team)
 		for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
 		{
 			CoreModule* core = i.item();
-			if (core->team != team)
-			{
-				if (me->can_see(core->entity()))
-					return core->entity();
-			}
+			if (core->team != team && me->can_see(core->entity()))
+				return core->entity();
 		}
 	}
 
 	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 	{
 		Grenade* grenade = i.item();
-		if (grenade->team() != team)
-		{
-			if (me->can_see(grenade->entity()))
-				return grenade->entity();
-		}
+		if (grenade->team() != team && me->can_see(grenade->entity()))
+			return grenade->entity();
 	}
 
 	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
 		ForceField* field = i.item();
-		if (field->team != team && !(field->flags & ForceField::FlagPermanent))
-		{
-			if (me->can_see(field->entity()))
-				return field->entity();
-		}
+		if (field->team != team
+			&& !(field->flags & ForceField::FlagPermanent)
+			&& me->can_see(field->entity()))
+			return field->entity();
 	}
 
 	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 	{
-		Battery* pickup = i.item();
-		if (pickup->team != team && pickup->team != AI::TeamNone)
-		{
-			if (me->can_see(pickup->entity()))
-				return pickup->entity();
-		}
+		Battery* battery = i.item();
+		if (battery->team != team && battery->team != AI::TeamNone && me->can_see(battery->entity()))
+			return battery->entity();
 	}
 
 	for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
 	{
 		Generator* generator = i.item();
-		if (generator->team != team && !generator->has<Battery>())
-		{
-			if (me->can_see(generator->entity()))
-				return generator->entity();
-		}
+		if (generator->team != team && !generator->has<Battery>() && me->can_see(generator->entity()))
+			return generator->entity();
 	}
 
 	return nullptr;
@@ -657,7 +638,7 @@ void Minion::update_server(const Update& u)
 						Vec3 hand_pos = get<Minion>()->aim_pos(get<Walker>()->rotation);
 						Vec3 aim_pos;
 						if (!g->has<Target>() || !g->get<Target>()->predict_intersection(hand_pos, BOLT_SPEED_MINION, nullptr, &aim_pos))
-							aim_pos = g->get<Transform>()->absolute_pos();
+							aim_pos = g->get<Target>()->absolute_pos();
 						goal.pos = aim_pos;
 						turn_to(aim_pos);
 						path.length = 0;
@@ -970,17 +951,19 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 		|| (target->has<Drone>() && target->get<Drone>()->state() != Drone::State::Crawl))
 		return false;
 
-	Vec3 target_pos = target->get<Transform>()->absolute_pos();
-	Vec3 head = head_pos();
+	Vec3 target_pos = target->get<Target>()->absolute_pos();
+
 	Vec3 hand = aim_pos(minion_angle_to(this, target_pos));
 
 	if (!target->has<ForceField>() && ForceField::hash(get<AIAgent>()->team, hand) != ForceField::hash(get<AIAgent>()->team, target_pos))
 		return false;
 
+	Vec3 head = head_pos();
+
 	Vec3 diff = target_pos - head;
 	r32 distance = diff.length() + (target->has<ForceField>() ? -FORCE_FIELD_RADIUS : 0);
 
-	// if we're targeting an drone that is flying or just flew recently,
+	// if we're targeting a drone that is flying or just flew recently,
 	// then don't limit detection to the minion's vision cone
 	// this essentially means the minion can hear the drone flying around
 	if (limit_vision_cone)
@@ -1003,21 +986,11 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 		}
 	}
 
-	if (distance < MINION_VISION_RANGE)
-	{
-		r32 distance = diff.length();
-		Vec3 dir = diff / distance;
-		if (!limit_vision_cone || dir.dot(get<Walker>()->forward()) > 0.707f)
-		{
-			if (!target->has<Parkour>() || fabsf(diff.y) < MINION_HEARING_RANGE)
-			{
-				if (minion_vision_check(get<AIAgent>()->team, head, target_pos, target)
-					&& minion_vision_check(get<AIAgent>()->team, hand, target_pos, target))
-					return true;
-			}
-		}
-	}
-	return false;
+	return distance < MINION_VISION_RANGE
+		&& (!limit_vision_cone || Vec3::normalize(diff).dot(get<Walker>()->forward()) > 0.707f)
+		&& (!target->has<Parkour>() || fabsf(diff.y) < MINION_HEARING_RANGE)
+		&& minion_vision_check(get<AIAgent>()->team, head, target_pos, target)
+		&& minion_vision_check(get<AIAgent>()->team, hand, target_pos, target);
 }
 
 void Minion::new_goal(const Vec3& direction, b8 allow_entity_target)

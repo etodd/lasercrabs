@@ -759,7 +759,14 @@ namespace PlayerManagerNet
 	b8 can_spawn(PlayerManager*, b8);
 }
 
-void team_balance(b8 move_humans)
+enum class BalanceMode : s8
+{
+	All,
+	OnlyBots,
+	count,
+};
+
+void team_balance(BalanceMode mode)
 {
 	s32 team_counts[MAX_TEAMS] = {};
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
@@ -771,7 +778,7 @@ void team_balance(b8 move_humans)
 	AI::Team largest_team;
 	AI::Team smallest_team;
 	team_stats(team_counts, Team::list.count(), &smallest_team, &largest_team);
-	while (team_counts[largest_team] > team_counts[smallest_team] + 1)
+	while (team_counts[largest_team] > team_counts[smallest_team] + (mode == BalanceMode::OnlyBots ? 1 : 2))
 	{
 		// move a player from the largest team to the smallest
 		PlayerManager* victim = nullptr;
@@ -780,7 +787,7 @@ void team_balance(b8 move_humans)
 			AI::Team team = i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled;
 			if (team == largest_team)
 			{
-				if ((move_humans && !victim) || !i.item()->has<PlayerHuman>()) // bots get moved first
+				if ((mode == BalanceMode::All && !victim) || !i.item()->has<PlayerHuman>()) // bots get moved first
 					victim = i.item();
 				break;
 			}
@@ -792,7 +799,7 @@ void team_balance(b8 move_humans)
 			victim->team_scheduled = smallest_team;
 			team_stats(team_counts, Team::list.count(), &smallest_team, &largest_team);
 		}
-		else if (move_humans) // we should be able to balance teams if we're allowed to move humans
+		else if (mode == BalanceMode::All) // we should be able to balance teams if we're allowed to move humans
 			vi_assert(false);
 		else
 			break; // impossible to balance by only moving bots
@@ -834,7 +841,7 @@ void Team::update_all_server(const Update& u)
 				&& teams_with_active_players() > 1))
 		{
 			// force match to start
-			team_balance(true);
+			team_balance(BalanceMode::All);
 			match_start();
 		}
 		else
@@ -852,7 +859,7 @@ void Team::update_all_server(const Update& u)
 
 			if (can_spawn)
 			{
-				team_balance(false); // move bots around (not humans) to try and balance teams
+				team_balance(BalanceMode::OnlyBots); // move bots around (not humans) to try and balance teams
 
 				if (teams_with_active_players() > 1)
 				{
@@ -864,7 +871,7 @@ void Team::update_all_server(const Update& u)
 						least_players = vi_min(least_players, players);
 						most_players = vi_max(most_players, players);
 					}
-					if (most_players <= least_players + 1)
+					if (most_players <= least_players + 2)
 						match_start();
 				}
 			}
@@ -1468,7 +1475,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 						Team::with_least_players(&least_players);
 						if (least_players == m->team.ref()->player_count())
 							least_players--; // this team would also be losing a player
-						valid = Team::list[m->team_scheduled].player_count() + 1 <= least_players + 1;
+						valid = Team::list[m->team_scheduled].player_count() + 1 <= least_players + 2;
 					}
 
 					if (valid) // actually switch teams
@@ -1476,6 +1483,8 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 						PlayerManagerNet::team_switch(m, m->team_scheduled);
 						if (!m->can_spawn)
 							PlayerManagerNet::can_spawn(m, value); // repeat to all clients
+						if (Team::match_state == Team::MatchState::Active)
+							team_balance(BalanceMode::OnlyBots);
 					}
 					else
 						PlayerManagerNet::team_switch(m, m->team.ref()->team()); // keep their same team (clears team_scheduled)

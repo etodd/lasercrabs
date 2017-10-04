@@ -1716,7 +1716,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 		u.input = &sync_render->input;
 		u.time = sync_render->time;
 
-#if DEBUG
+#if !RELEASE_BUILD
 		if (u.input->keys.get(s32(KeyCode::F5)))
 			vi_assert(false);
 #endif

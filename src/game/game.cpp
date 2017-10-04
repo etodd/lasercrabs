@@ -1739,6 +1739,7 @@ void Game::load_level(AssetID l, Mode m)
 				AI::Team team = AI::Team(Json::get_s32(element, "team"));
 				if (Team::list.count() > s32(team))
 				{
+					absolute_pos += absolute_rot * Vec3(0, DRONE_RADIUS * 0.5f, 0);
 					entity = World::alloc<CoreModuleEntity>(team, nullptr, absolute_pos, absolute_rot);
 					ingress_points_get(json, element, entity->get<MinionTarget>());
 				}

@@ -21,7 +21,7 @@ struct View : public ComponentType<View>
 
 	static Bitmask<MAX_ENTITIES> list_alpha;
 	static Bitmask<MAX_ENTITIES> list_additive;
-#if DEBUG
+#if !RELEASE_BUILD
 	static Array<DebugEntry> debug_entries;
 #endif
 
@@ -43,7 +43,7 @@ struct View : public ComponentType<View>
 
 	static void draw_mesh(const RenderParams&, AssetID, AssetID, AssetID, const Mat4&, const Vec4&, r32 = 0.0f);
 
-#if DEBUG
+#if !RELEASE_BUILD
 	static void debug(AssetID, const Vec3&, const Quat& = Quat::identity, const Vec3& = Vec3(1));
 #endif
 

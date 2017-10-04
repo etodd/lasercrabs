@@ -346,11 +346,6 @@ void refresh_variables(const InputState& input)
 	{
 		Gamepad::Type type = Game::ui_gamepad_types[i];
 		const Settings::Gamepad& gamepad = Settings::gamepads[i];
-		UIText::variable_add(i, "Start", gamepad.bindings[s32(Controls::Start)].string(type));
-		UIText::variable_add(i, "Cancel", gamepad.bindings[s32(Controls::Cancel)].string(type));
-
-		UIText::variable_add(i, "Primary", gamepad.bindings[s32(Controls::Primary)].string(type));
-		UIText::variable_add(i, "Zoom", gamepad.bindings[s32(Controls::Zoom)].string(type));
 		if (type == Gamepad::Type::None)
 		{
 			char buffer[512];
@@ -386,24 +381,12 @@ void refresh_variables(const InputState& input)
 			);
 			UIText::variable_add(i, "ClimbingMovement", buffer);
 		}
-		UIText::variable_add(i, "Ability1", gamepad.bindings[s32(Controls::Ability1)].string(type));
-		UIText::variable_add(i, "Ability2", gamepad.bindings[s32(Controls::Ability2)].string(type));
-		UIText::variable_add(i, "Ability3", gamepad.bindings[s32(Controls::Ability3)].string(type));
-		UIText::variable_add(i, "Interact", gamepad.bindings[s32(Controls::Interact)].string(type));
-		UIText::variable_add(i, "InteractSecondary", gamepad.bindings[s32(Controls::InteractSecondary)].string(type));
-		UIText::variable_add(i, "Scoreboard", gamepad.bindings[s32(Controls::Scoreboard)].string(type));
-		UIText::variable_add(i, "Jump", gamepad.bindings[s32(Controls::Jump)].string(type));
-		UIText::variable_add(i, "Parkour", gamepad.bindings[s32(Controls::Parkour)].string(type));
-		UIText::variable_add(i, "UIContextAction", gamepad.bindings[s32(Controls::UIContextAction)].string(type));
-		UIText::variable_add(i, "UIAcceptText", gamepad.bindings[s32(Controls::UIAcceptText)].string(type));
-		UIText::variable_add(i, "TabLeft", gamepad.bindings[s32(Controls::TabLeft)].string(type));
-		UIText::variable_add(i, "TabRight", gamepad.bindings[s32(Controls::TabRight)].string(type));
-		UIText::variable_add(i, "Emote1", gamepad.bindings[s32(Controls::Emote1)].string(type));
-		UIText::variable_add(i, "Emote2", gamepad.bindings[s32(Controls::Emote2)].string(type));
-		UIText::variable_add(i, "Emote3", gamepad.bindings[s32(Controls::Emote3)].string(type));
-		UIText::variable_add(i, "Emote4", gamepad.bindings[s32(Controls::Emote4)].string(type));
-		UIText::variable_add(i, "ChatTeam", gamepad.bindings[s32(Controls::ChatTeam)].string(type));
-		UIText::variable_add(i, "ChatAll", gamepad.bindings[s32(Controls::ChatAll)].string(type));
+		for (s32 j = 0; j < s32(Controls::count); j++)
+		{
+			const char* ui_variable_name = Input::control_ui_variable_name(Controls(j));
+			if (ui_variable_name)
+				UIText::variable_add(i, ui_variable_name, gamepad.bindings[j].string(type));
+		}
 	}
 }
 

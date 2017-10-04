@@ -168,6 +168,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		MapSkip,
 		Chat,
 		Leave,
+		SpotEntity,
+		SpotPosition,
 		count,
 	};
 
@@ -237,6 +239,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void set_can_spawn(b8 = true);
 	void team_schedule(AI::Team);
 	void chat(const char*, AI::TeamMask);
+	void spot(Entity*);
+	void spot(const Vec3&);
 	void map_schedule(AssetID);
 	void map_skip(AssetID);
 };

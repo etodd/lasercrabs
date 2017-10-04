@@ -38,6 +38,7 @@ enum class Controls : s8
 	Emote4,
 	ChatTeam,
 	ChatAll,
+	Spot,
 	count,
 };
 
@@ -356,6 +357,7 @@ namespace Input
 	void dead_zone_cross(r32*, r32*, r32 = 0.15f);
 	r32 dead_zone(r32, r32 = UI_JOYSTICK_DEAD_ZONE);
 	const char* control_string(Controls);
+	const char* control_ui_variable_name(Controls);
 	b8 control_customizable(Controls, Gamepad::Type);
 
 	extern const char* control_setting_names[s32(Controls::count)];

@@ -1412,6 +1412,46 @@ namespace PlayerManagerNet
 		Net::msg_finalize(p);
 		return true;
 	}
+
+	b8 spot(PlayerManager* m, Entity* e)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::SpotEntity;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		{
+			Ref<Entity> ref = e;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 spot(PlayerManager* m, const Vec3& pos)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::SpotPosition;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		{
+			Vec3 pos2 = pos;
+			serialize_position(p, &pos2, Net::Resolution::Medium);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
 }
 
 void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
@@ -1782,6 +1822,30 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 
 			break;
 		}
+		case Message::SpotEntity:
+		{
+			Ref<Entity> target;
+			serialize_ref(p, target);
+
+			if (!m)
+				return true;
+
+			PlayerHuman::notification(target.ref(), m->team.ref()->team(), PlayerHuman::Notification::Type::Spot);
+			break;
+		}
+		case Message::SpotPosition:
+		{
+			Vec3 pos;
+			if (!serialize_position(p, &pos, Net::Resolution::Medium))
+				net_error();
+
+			if (!m)
+				return true;
+
+			PlayerHuman::notification(pos, m->team.ref()->team(), PlayerHuman::Notification::Type::Spot);
+
+			break;
+		}
 		default:
 		{
 			vi_assert(false);
@@ -1795,6 +1859,17 @@ void PlayerManager::chat(const char* msg, AI::TeamMask mask)
 {
 	if (strlen(msg) > 0)
 		PlayerManagerNet::chat(this, msg, mask);
+}
+
+void PlayerManager::spot(Entity* e)
+{
+	if (e)
+		PlayerManagerNet::spot(this, e);
+}
+
+void PlayerManager::spot(const Vec3& pos)
+{
+	PlayerManagerNet::spot(this, pos);
 }
 
 void PlayerManager::leave()

@@ -428,54 +428,71 @@ Vec2 PlayerHuman::ui_anchor(const RenderParams& params) const
 }
 
 // return true if we actually display the notification
-b8 PlayerHuman::notification(Entity* entity, AI::Team team, Notification::Type type)
+b8 player_human_notification(Entity* entity, const Vec3& pos, AI::Team team, PlayerHuman::Notification::Type type)
 {
 	vi_assert(team != AI::TeamNone);
-	Transform* t = entity->get<Transform>();
-	for (s32 i = 0; i < notifications.length; i++)
+	Target*  t = nullptr;
+	if (entity)
 	{
-		Notification* n = &notifications[i];
-		if (n->team == team && n->transform.ref() == t)
+		t = entity->get<Target>();
+		for (s32 i = 0; i < PlayerHuman::notifications.length; i++)
 		{
-			if (n->type == type)
+			PlayerHuman::Notification* n = &PlayerHuman::notifications[i];
+			if (n->team == team && n->target.ref() == t)
 			{
-				n->timer = NOTIFICATION_TIME;
-				return false; // notification already displayed
-			}
-			else
-			{
-				// replace existing notification
-				notifications.remove(i);
-				i--;
+				if (n->type == type)
+				{
+					n->timer = NOTIFICATION_TIME;
+					return false; // notification already displayed
+				}
+				else if (n->type != PlayerHuman::Notification::Type::Spot) // don't replace spots
+				{
+					// replace existing notification
+					PlayerHuman::notifications.remove(i);
+					i--;
+				}
 			}
 		}
 	}
 
-	for (auto i = list.iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->local() && i.item()->get<PlayerManager>()->team.ref()->team() == team)
 		{
 			// a local player will receive this notification; play a sound
-			if (type == Notification::Type::ForceFieldUnderAttack
-				|| type == Notification::Type::BatteryUnderAttack
-				|| type == Notification::Type::TurretUnderAttack)
+			if (type == PlayerHuman::Notification::Type::ForceFieldUnderAttack
+				|| type == PlayerHuman::Notification::Type::BatteryUnderAttack
+				|| type == PlayerHuman::Notification::Type::TurretUnderAttack)
 				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_UNDER_ATTACK);
-			else if (type == Notification::Type::ForceFieldDestroyed
-				|| type == Notification::Type::BatteryLost
-				|| type == Notification::Type::TurretDestroyed)
+			else if (type == PlayerHuman::Notification::Type::ForceFieldDestroyed
+				|| type == PlayerHuman::Notification::Type::BatteryLost
+				|| type == PlayerHuman::Notification::Type::TurretDestroyed)
 				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_LOST);
 
 			break;
 		}
 	}
 
-	Notification* n = notifications.add();
-	n->transform = t;
-	n->pos = n->transform.ref()->absolute_pos();
+	PlayerHuman::Notification* n = PlayerHuman::notifications.add();
+	n->target = t;
+	n->pos = t ? t->absolute_pos() : pos;
 	n->timer = NOTIFICATION_TIME;
 	n->team = team;
 	n->type = type;
 	return true;
+}
+
+
+// return true if we actually display the notification
+b8 PlayerHuman::notification(const Vec3& pos, AI::Team team, Notification::Type type)
+{
+	return player_human_notification(nullptr, pos, team, type);
+}
+
+// return true if we actually display the notification
+b8 PlayerHuman::notification(Entity* e, AI::Team team, Notification::Type type)
+{
+	return player_human_notification(e, Vec3::zero, team, type);
 }
 
 void PlayerHuman::msg(const char* msg, Flags f)
@@ -526,9 +543,9 @@ void PlayerHuman::update_all(const Update& u)
 		n->timer -= u.time.delta;
 		if (n->timer < 0.0f)
 		{
-			Transform* transform = n->transform.ref();
-			if (transform)
-				n->pos = transform->absolute_pos();
+			Target* target = n->target.ref();
+			if (target)
+				n->pos = target->absolute_pos();
 			notifications.remove(i);
 			i--;
 		}
@@ -616,13 +633,14 @@ struct Message
 		Reflect,
 		UpgradeStart,
 		AbilitySelect,
+		Spot,
 		count,
 	};
 
 	Vec3 pos;
 	Quat rot;
 	Vec3 dir;
-	Vec3 target;
+	Vec3 target; // target position for dashes, or camera position for spotting
 	Ability ability = Ability::None;
 	Upgrade upgrade = Upgrade::None;
 	Type type;
@@ -637,7 +655,8 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 	if (msg->type == Message::Type::Dash
 		|| msg->type == Message::Type::DashCombo
 		|| msg->type == Message::Type::Go
-		|| msg->type == Message::Type::Reflect)
+		|| msg->type == Message::Type::Reflect
+		|| msg->type == Message::Type::Spot)
 	{
 		serialize_position(p, &msg->pos, Net::Resolution::High);
 		if (!serialize_quat(p, &msg->rot, Net::Resolution::High))
@@ -647,9 +666,9 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 		serialize_r32_range(p, msg->dir.z, -1.0f, 1.0f, 16);
 	}
 
-	if (msg->type == Message::Type::DashCombo)
+	if (msg->type == Message::Type::DashCombo || msg->type == Message::Type::Spot)
 		serialize_position(p, &msg->target, Net::Resolution::High);
-	else
+	else if (Stream::IsReading)
 		msg->target = Vec3::zero;
 
 	// ability
@@ -1884,8 +1903,8 @@ void PlayerHuman::draw_turret_battery_icons(const RenderParams& params) const
 			const Notification& n = notifications[i];
 			if (n.timer > NOTIFICATION_TIME_HIDDEN && n.team == my_team)
 			{
-				const Transform* transform = n.transform.ref();
-				Vec3 pos = transform ? transform->absolute_pos() : n.pos;
+				const Target* target = n.target.ref();
+				Vec3 pos = target ? target->absolute_pos() : n.pos;
 				Vec2 p;
 				if (UI::project(params, pos, &p))
 				{
@@ -1916,6 +1935,16 @@ void PlayerHuman::draw_turret_battery_icons(const RenderParams& params) const
 						{
 							if (UI::flash_function_slow(Game::real_time.total))
 								UI::mesh(params, Asset::Mesh::icon_warning, p + Vec2(0, 32.0f * UI::scale), size, UI::color_accent());
+							break;
+						}
+						case Notification::Type::Spot:
+						{
+							// if the target is offscreen, point toward it
+							Vec2 offset;
+							if (UI::is_onscreen(params, pos, &p, &offset))
+								UI::mesh(params, Asset::Mesh::icon_spot, p, size, UI::color_accent());
+							else
+								UI::triangle(params, { p, Vec2(18 * UI::scale) }, UI::color_accent(), atan2f(offset.y, offset.x) + PI * -0.5f);
 							break;
 						}
 						default:
@@ -2695,6 +2724,41 @@ void PlayerCommon::clamp_rotation(const Vec3& direction, r32 dot_limit)
 	}
 }
 
+// returns the actual detected entity, if any. could be the original player, or something else.
+Entity* player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visible, b8* tracking)
+{
+	// make sure we can see this guy
+	AI::Team team = me->get<AIAgent>()->team;
+	const Team::GeneratorTrack track = Team::list[s32(team)].player_tracks[other_player->manager.id];
+	*tracking = track.tracking;
+
+	if (other_player->get<AIAgent>()->team == team)
+	{
+		*visible = true;
+		return other_player->entity();
+	}
+	else
+	{
+		const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(me->manager.ref(), other_player->manager.ref())];
+		*visible = visibility.entity.ref();
+
+		if (track.tracking)
+			return track.entity.ref();
+		else
+			return visibility.entity.ref();
+	}
+}
+
+void reticle_raycast(RaycastCallbackExcept* ray_callback)
+{
+	for (auto i = UpgradeStation::list.iterator(); !i.is_last(); i.next()) // ignore drones inside upgrade stations
+	{
+		if (i.item()->drone.ref())
+			ray_callback->ignore(i.item()->drone.ref()->entity());
+	}
+	Physics::raycast(ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
+}
+
 b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::MessageSource src, Net::SequenceID seq)
 {
 	using Stream = Net::StreamRead;
@@ -2732,12 +2796,14 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 
 		if (msg.type == PlayerControlHumanNet::Message::Type::Dash
 			|| msg.type == PlayerControlHumanNet::Message::Type::DashCombo
-			|| msg.type == PlayerControlHumanNet::Message::Type::Go)
+			|| msg.type == PlayerControlHumanNet::Message::Type::Go
+			|| msg.type == PlayerControlHumanNet::Message::Type::Spot)
 		{
 			// make sure we are where the remote thinks we are when we start processing this message
 			r32 dist_sq = (c->get<Transform>()->absolute_pos() - msg.pos).length_squared();
 			r32 tolerance_pos;
 			c->remote_position(&tolerance_pos);
+
 			if (dist_sq < tolerance_pos * tolerance_pos)
 				c->get<Transform>()->absolute(msg.pos, msg.rot);
 			else
@@ -2809,6 +2875,97 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		{
 			if (msg.ability == Ability::None || c->get<PlayerCommon>()->manager.ref()->has_upgrade(Upgrade(msg.ability)))
 				c->get<Drone>()->ability(msg.ability);
+			break;
+		}
+		case PlayerControlHumanNet::Message::Type::Spot:
+		{
+			if (Game::level.local) // spotting is all server-side
+			{
+				vi_assert(src == Net::MessageSource::Remote); // server should not send reflect messages to client
+
+				r32 closest_dot = 0.95f;
+				Entity* target = nullptr;
+
+				// turrets
+				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+				{
+					r32 dot = Vec3::normalize(i.item()->get<Transform>()->absolute_pos() - msg.target).dot(msg.dir);
+					if (dot > closest_dot)
+					{
+						closest_dot = dot;
+						target = i.item()->entity();
+					}
+				}
+
+				// batteries
+				for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
+				{
+					r32 dot = Vec3::normalize(i.item()->get<Transform>()->absolute_pos() - msg.target).dot(msg.dir);
+					if (dot > closest_dot)
+					{
+						closest_dot = dot;
+						target = i.item()->entity();
+					}
+				}
+
+				// drones
+				AI::Team my_team = c->get<AIAgent>()->team;
+				for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->get<AIAgent>()->team != my_team) // only spot enemies
+					{
+						r32 dot = Vec3::normalize(i.item()->get<Transform>()->absolute_pos() - msg.target).dot(msg.dir);
+						if (dot > closest_dot)
+						{
+							b8 tracking;
+							b8 visible;
+							Entity* detected_entity = player_determine_visibility(c->get<PlayerCommon>(), i.item()->get<PlayerCommon>(), &visible, &tracking);
+							if (visible && detected_entity == i.item()->entity())
+							{
+								closest_dot = dot;
+								target = i.item()->entity();
+							}
+						}
+					}
+				}
+
+				PlayerManager* manager = c->get<PlayerCommon>()->manager.ref();
+				if (target)
+					manager->spot(target);
+				else
+				{
+					// spot any nearby minions
+					b8 spotted_minion = false;
+					for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+					{
+						if (i.item()->get<AIAgent>()->team != my_team)
+						{
+							Vec3 minion_pos = i.item()->get<Target>()->absolute_pos();
+							Vec3 to_minion = minion_pos - msg.target;
+							r32 distance = to_minion.length();
+							if (distance < c->get<Drone>()->range())
+							{
+								r32 dot = (to_minion / distance).dot(msg.dir);
+								if (dot > 0.95f)
+								{
+									spotted_minion = true;
+									manager->spot(i.item()->entity());
+								}
+							}
+						}
+					}
+
+					if (!spotted_minion)
+					{
+						// we didn't spot anything
+						// spot a position
+						RaycastCallbackExcept ray_callback(msg.target, msg.target + msg.dir * DRONE_SNIPE_DISTANCE, c->entity());
+						reticle_raycast(&ray_callback);
+						if (ray_callback.hasHit())
+							manager->spot(ray_callback.m_hitPointWorld);
+					}
+				}
+			}
 			break;
 		}
 		default:
@@ -2919,31 +3076,6 @@ void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerCo
 		}
 		else // just show the target's actual position
 			p->target_indicators.add({ target->absolute_pos(), target->velocity(), target, type });
-	}
-}
-
-// returns the actual detected entity, if any. could be the original player, or something else.
-Entity* player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visible, b8* tracking)
-{
-	// make sure we can see this guy
-	AI::Team team = me->get<AIAgent>()->team;
-	const Team::GeneratorTrack track = Team::list[s32(team)].player_tracks[other_player->manager.id];
-	*tracking = track.tracking;
-
-	if (other_player->get<AIAgent>()->team == team)
-	{
-		*visible = true;
-		return other_player->entity();
-	}
-	else
-	{
-		const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(me->manager.ref(), other_player->manager.ref())];
-		*visible = visibility.entity.ref();
-
-		if (track.tracking)
-			return track.entity.ref();
-		else
-			return visibility.entity.ref();
 	}
 }
 
@@ -3849,12 +3981,7 @@ void PlayerControlHuman::update(const Update& u)
 
 					{
 						RaycastCallbackExcept physics_ray_callback(trace_start, trace_end, entity());
-						for (auto i = UpgradeStation::list.iterator(); !i.is_last(); i.next()) // ignore drones inside upgrade stations
-						{
-							if (i.item()->drone.ref())
-								physics_ray_callback.ignore(i.item()->drone.ref()->entity());
-						}
-						Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
+						reticle_raycast(&physics_ray_callback);
 
 						ray_callback.hit = physics_ray_callback.hasHit();
 						ray_callback.pos = physics_ray_callback.m_hitPointWorld;
@@ -3990,6 +4117,18 @@ void PlayerControlHuman::update(const Update& u)
 					try_primary = true;
 				else if (!primary_pressed)
 					try_primary = false;
+			}
+
+			// spot
+			if (u.input->get(Controls::Spot, gamepad)
+				&& !u.last_input->get(Controls::Spot, gamepad))
+			{
+				PlayerControlHumanNet::Message msg;
+				msg.type = PlayerControlHumanNet::Message::Type::Spot;
+				msg.dir = camera->rot * Vec3(0, 0, 1);
+				msg.target = camera->pos;
+				get<Transform>()->absolute(&msg.pos, &msg.rot);
+				PlayerControlHumanNet::send(this, &msg);
 			}
 
 			if (reticle.type == ReticleType::None || !get<Drone>()->cooldown_can_shoot())

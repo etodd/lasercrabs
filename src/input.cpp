@@ -47,6 +47,39 @@ const char* control_setting_names[s32(Controls::count)] =
 	"emote4",
 	"chat_team",
 	"chat_all",
+	"spot",
+};
+
+const char* control_ui_variable_names[s32(Controls::count)] =
+{
+	nullptr, // Forward
+	nullptr, // Backward
+	nullptr, // Left
+	nullptr, // Right
+	"Primary",
+	"Zoom",
+	"Ability1",
+	"Ability2",
+	"Ability3",
+	"Start",
+	"Cancel",
+	nullptr, // Pause
+	"Interact",
+	"InteractSecondary",
+	"Scoreboard",
+	"Jump",
+	"Parkour",
+	"UIContextAction",
+	"UIAcceptText",
+	"TabLeft",
+	"TabRight",
+	"Emote1",
+	"Emote2",
+	"Emote3",
+	"Emote4",
+	"ChatTeam",
+	"ChatAll",
+	"Spot",
 };
 
 InputBinding control_defaults[s32(Controls::count)] =
@@ -78,6 +111,7 @@ InputBinding control_defaults[s32(Controls::count)] =
 	{ Gamepad::Btn::DDown, KeyCode::F4, KeyCode::None, }, // Emote4
 	{ Gamepad::Btn::None, KeyCode::T, KeyCode::None, }, // ChatTeam
 	{ Gamepad::Btn::None, KeyCode::Y, KeyCode::None, }, // ChatAll
+	{ Gamepad::Btn::LeftShoulder, KeyCode::Q, KeyCode::None, }, // Spot
 };
 
 void init()
@@ -363,6 +397,7 @@ void init()
 	control_strings[s32(Controls::Emote4)] = _(strings::emote4);
 	control_strings[s32(Controls::ChatTeam)] = _(strings::chat_team);
 	control_strings[s32(Controls::ChatAll)] = _(strings::chat_all);
+	control_strings[s32(Controls::Spot)] = _(strings::spot);
 
 	TextField::normal_map[s32(KeyCode::D0)] = '0';
 	TextField::normal_map[s32(KeyCode::D1)] = '1';
@@ -453,6 +488,11 @@ r32 dead_zone(r32 x, r32 threshold)
 const char* control_string(Controls c)
 {
 	return control_strings[s32(c)];
+}
+
+const char* control_ui_variable_name(Controls c)
+{
+	return control_ui_variable_names[s32(c)];
 }
 
 b8 control_customizable(Controls c, Gamepad::Type type)

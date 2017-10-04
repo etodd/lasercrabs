@@ -298,6 +298,7 @@
 	"chat_team_prompt": "Team: ",
 	"chat_all": "All chat",
 	"chat_all_prompt": "All: ",
+	"spot": "Spot",
 
 	"prompt_zone_defend": "%s under attack. [{{Scoreboard}}] to defend. (%d)",
 	"prompt_name": "Enter name:",

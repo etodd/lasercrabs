@@ -62,6 +62,7 @@ namespace VI
 
 #define NOTIFICATION_TIME_HIDDEN 4.0f
 #define NOTIFICATION_TIME (6.0f + NOTIFICATION_TIME_HIDDEN)
+#define NOTIFICATION_TIME_SPOT (10.0f + NOTIFICATION_TIME_HIDDEN)
 #define LOG_TIME 4.0f
 #define CHAT_TIME 10.0f
 #define INTERACT_TIME 2.5f
@@ -476,7 +477,7 @@ b8 player_human_notification(Entity* entity, const Vec3& pos, AI::Team team, Pla
 	PlayerHuman::Notification* n = PlayerHuman::notifications.add();
 	n->target = t;
 	n->pos = t ? t->absolute_pos() : pos;
-	n->timer = NOTIFICATION_TIME;
+	n->timer = type == PlayerHuman::Notification::Type::Spot ? NOTIFICATION_TIME_SPOT : NOTIFICATION_TIME;
 	n->team = team;
 	n->type = type;
 	return true;
@@ -2882,89 +2883,103 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 			if (Game::level.local) // spotting is all server-side
 			{
 				vi_assert(src == Net::MessageSource::Remote); // server should not send reflect messages to client
-
-				r32 closest_dot = 0.95f;
-				Entity* target = nullptr;
-
-				// turrets
-				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+				if (c->spot_timer == 0.0f)
 				{
-					r32 dot = Vec3::normalize(i.item()->get<Transform>()->absolute_pos() - msg.target).dot(msg.dir);
-					if (dot > closest_dot)
-					{
-						closest_dot = dot;
-						target = i.item()->entity();
-					}
-				}
+					r32 closest_dot = 0.95f;
+					Entity* target = nullptr;
 
-				// batteries
-				for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
-				{
-					r32 dot = Vec3::normalize(i.item()->get<Transform>()->absolute_pos() - msg.target).dot(msg.dir);
-					if (dot > closest_dot)
-					{
-						closest_dot = dot;
-						target = i.item()->entity();
-					}
-				}
-
-				// drones
-				AI::Team my_team = c->get<AIAgent>()->team;
-				for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item()->get<AIAgent>()->team != my_team) // only spot enemies
+					// turrets
+					for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 					{
 						r32 dot = Vec3::normalize(i.item()->get<Transform>()->absolute_pos() - msg.target).dot(msg.dir);
 						if (dot > closest_dot)
 						{
-							b8 tracking;
-							b8 visible;
-							Entity* detected_entity = player_determine_visibility(c->get<PlayerCommon>(), i.item()->get<PlayerCommon>(), &visible, &tracking);
-							if (visible && detected_entity == i.item()->entity())
-							{
-								closest_dot = dot;
-								target = i.item()->entity();
-							}
+							closest_dot = dot;
+							target = i.item()->entity();
 						}
 					}
-				}
 
-				PlayerManager* manager = c->get<PlayerCommon>()->manager.ref();
-				if (target)
-					manager->spot(target);
-				else
-				{
-					// spot any nearby minions
-					b8 spotted_minion = false;
-					for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+					// batteries
+					for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 					{
-						if (i.item()->get<AIAgent>()->team != my_team)
+						r32 dot = Vec3::normalize(i.item()->get<Transform>()->absolute_pos() - msg.target).dot(msg.dir);
+						if (dot > closest_dot)
 						{
-							Vec3 minion_pos = i.item()->get<Target>()->absolute_pos();
-							Vec3 to_minion = minion_pos - msg.target;
-							r32 distance = to_minion.length();
-							if (distance < c->get<Drone>()->range())
+							closest_dot = dot;
+							target = i.item()->entity();
+						}
+					}
+
+					// drones
+					AI::Team my_team = c->get<AIAgent>()->team;
+					for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
+					{
+						if (i.item()->get<AIAgent>()->team != my_team) // only spot enemies
+						{
+							r32 dot = Vec3::normalize(i.item()->get<Transform>()->absolute_pos() - msg.target).dot(msg.dir);
+							if (dot > closest_dot)
 							{
-								r32 dot = (to_minion / distance).dot(msg.dir);
-								if (dot > 0.95f)
+								b8 tracking;
+								b8 visible;
+								Entity* detected_entity = player_determine_visibility(c->get<PlayerCommon>(), i.item()->get<PlayerCommon>(), &visible, &tracking);
+								if (visible && detected_entity == i.item()->entity())
 								{
-									spotted_minion = true;
-									manager->spot(i.item()->entity());
+									closest_dot = dot;
+									target = i.item()->entity();
 								}
 							}
 						}
 					}
 
-					if (!spotted_minion)
+					b8 spotted_anything = false;
+					PlayerManager* manager = c->get<PlayerCommon>()->manager.ref();
+					if (target)
 					{
-						// we didn't spot anything
-						// spot a position
-						RaycastCallbackExcept ray_callback(msg.target, msg.target + msg.dir * DRONE_SNIPE_DISTANCE, c->entity());
-						reticle_raycast(&ray_callback);
-						if (ray_callback.hasHit())
-							manager->spot(ray_callback.m_hitPointWorld);
+						manager->spot(target);
+						spotted_anything = true;
 					}
+					else
+					{
+						// spot any nearby minions
+						b8 spotted_minion = false;
+						for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+						{
+							if (i.item()->get<AIAgent>()->team != my_team)
+							{
+								Vec3 minion_pos = i.item()->get<Target>()->absolute_pos();
+								Vec3 to_minion = minion_pos - msg.target;
+								r32 distance = to_minion.length();
+								if (distance < c->get<Drone>()->range())
+								{
+									r32 dot = (to_minion / distance).dot(msg.dir);
+									if (dot > 0.95f)
+									{
+										spotted_minion = true;
+										spotted_anything = true;
+										manager->spot(i.item()->entity());
+									}
+								}
+							}
+						}
+
+						if (!spotted_minion)
+						{
+							// we didn't spot anything
+							// spot a position
+							RaycastCallbackExcept ray_callback(msg.target, msg.target + msg.dir * DRONE_SNIPE_DISTANCE, c->entity());
+							reticle_raycast(&ray_callback);
+							if (ray_callback.hasHit())
+							{
+								manager->spot(ray_callback.m_hitPointWorld);
+								spotted_anything = true;
+							}
+						}
+					}
+					if (spotted_anything)
+						c->spot_timer = 2.0f;
 				}
+				else
+					c->spot_timer = vi_min(0.5f, vi_max(6.0f, c->spot_timer * 2.0f));
 			}
 			break;
 		}
@@ -3216,6 +3231,7 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 	last_gamepad_input_time(),
 	gamepad_rotation_speed(),
 	remote_control(),
+	spot_timer(),
 	player(p),
 	position_history(),
 	cooldown_last(),
@@ -3750,6 +3766,8 @@ void PlayerControlHuman::update(const Update& u)
 
 	if (has<Drone>())
 	{
+		spot_timer = vi_max(0.0f, spot_timer - u.real_time.delta);
+
 		if (local())
 		{
 			if (!Game::level.local)

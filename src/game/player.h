@@ -325,6 +325,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	r32 fov;
 	r32 camera_shake_timer;
 	r32 last_gamepad_input_time;
+	r32 spot_timer;
 	r32 gamepad_rotation_speed;
 	r32 cooldown_last;
 	Ref<PlayerHuman> player;

@@ -11,7 +11,7 @@
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 1
+#define GAME_VERSION 2
 
 #define MAX_USERNAME 79
 

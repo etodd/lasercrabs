@@ -1217,13 +1217,13 @@ b8 settings_controls(const Update& u, s8 gamepad, UIMenu* menu, Gamepad::Type ga
 	s32 delta;
 
 	{
-		u8* sensitivity = &Settings::gamepads[gamepad].sensitivity;
+		u8* sensitivity = gamepad_type == Gamepad::Type::None ? &Settings::gamepads[gamepad].sensitivity_mouse : &Settings::gamepads[gamepad].sensitivity_gamepad;
 		sprintf(str, "%u", *sensitivity);
 		delta = menu->slider_item(u, _(strings::sensitivity), str);
 		if (delta < 0)
-			*sensitivity = vi_max(10, (s32)(*sensitivity) - 10);
+			*sensitivity = vi_max(10, s32(*sensitivity) - 10);
 		else if (delta > 0)
-			*sensitivity = vi_min(250, (s32)(*sensitivity) + 10);
+			*sensitivity = vi_min(250, s32(*sensitivity) + 10);
 	}
 
 	{

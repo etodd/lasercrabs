@@ -587,14 +587,14 @@ void PlayerHuman::clear()
 void PlayerHuman::update_camera_rotation(const Update& u)
 {
 	{
-		r32 s = speed_mouse * Settings::gamepads[gamepad].effective_sensitivity() * Game::session.effective_time_scale();
+		r32 s = speed_mouse * Settings::gamepads[gamepad].effective_sensitivity_mouse() * Game::session.effective_time_scale();
 		angle_horizontal -= r32(u.input->cursor_x) * s;
 		angle_vertical += r32(u.input->cursor_y) * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
 	}
 
 	if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
 	{
-		r32 s = speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::time.delta;
+		r32 s = speed_joystick * Settings::gamepads[gamepad].effective_sensitivity_gamepad() * Game::time.delta;
 		Vec2 rotation(u.input->gamepads[gamepad].right_x, u.input->gamepads[gamepad].right_y);
 		Input::dead_zone(&rotation.x, &rotation.y);
 		angle_horizontal -= rotation.x * s;
@@ -3471,7 +3471,7 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 overall_rotati
 		s32 gamepad = player.ref()->gamepad;
 		if (gamepad == 0)
 		{
-			r32 s = overall_rotation_multiplier * speed_mouse * Settings::gamepads[gamepad].effective_sensitivity();
+			r32 s = overall_rotation_multiplier * speed_mouse * Settings::gamepads[gamepad].effective_sensitivity_mouse();
 			get<PlayerCommon>()->angle_horizontal -= r32(u.input->cursor_x) * s;
 			get<PlayerCommon>()->angle_vertical += r32(u.input->cursor_y) * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
 		}
@@ -3484,7 +3484,7 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 overall_rotati
 				u.input->gamepads[gamepad].right_y * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f)
 			);
 			Input::dead_zone(&adjustment.x, &adjustment.y);
-			adjustment *= overall_rotation_multiplier * speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::time.delta * gamepad_rotation_multiplier;
+			adjustment *= overall_rotation_multiplier * speed_joystick * Settings::gamepads[gamepad].effective_sensitivity_gamepad() * Game::time.delta * gamepad_rotation_multiplier;
 			r32 adjustment_length = adjustment.length();
 			if (adjustment_length > 0.0f)
 			{

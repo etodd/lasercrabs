@@ -308,7 +308,9 @@ void Loader::settings_load(const Array<DisplayMode>& modes)
 
 		bindings->invert_y = Json::get_s32(gamepad, "invert_y", 0);
 		bindings->zoom_toggle = Json::get_s32(gamepad, "zoom_toggle", 0);
-		bindings->sensitivity = u8(Json::get_s32(gamepad, "sensitivity", 100));
+		bindings->sensitivity_gamepad = u8(Json::get_s32(gamepad, "sensitivity_gamepad", 100));
+		if (i == 0)
+			bindings->sensitivity_mouse = u8(Json::get_s32(gamepad, "sensitivity_mouse", 100));
 		bindings->rumble = b8(Json::get_s32(gamepad, "rumble", 1));
 		gamepad = gamepad ? gamepad->next : nullptr;
 	}
@@ -390,7 +392,9 @@ void Loader::settings_save()
 			}
 		}
 		cJSON_AddItemToObject(gamepad, "invert_y", cJSON_CreateNumber(bindings->invert_y));
-		cJSON_AddItemToObject(gamepad, "sensitivity", cJSON_CreateNumber(bindings->sensitivity));
+		cJSON_AddItemToObject(gamepad, "sensitivity_gamepad", cJSON_CreateNumber(bindings->sensitivity_gamepad));
+		if (i == 0)
+			cJSON_AddItemToObject(gamepad, "sensitivity_mouse", cJSON_CreateNumber(bindings->sensitivity_mouse));
 		cJSON_AddItemToObject(gamepad, "rumble", cJSON_CreateNumber(bindings->rumble));
 		cJSON_AddItemToArray(gamepads, gamepad);
 	}

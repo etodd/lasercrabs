@@ -959,7 +959,7 @@ void draw_ui(const RenderParams& params)
 	}
 
 #if !SERVER
-	if (Game::level.mode == Game::Mode::Special && main_menu_state != State::Hidden)
+	if (Game::level.mode == Game::Mode::Special)
 	{
 		AssetID error_string = AssetNull;
 		switch (Net::Client::master_error)

@@ -103,12 +103,29 @@ namespace platform
 
 }
 
+namespace Settings
+{
+	u64 secret;
+	char itch_api_key[MAX_AUTH_KEY + 1];
+	char gamejolt_api_key[MAX_AUTH_KEY + 1];
+	char dashboard_username[MAX_USERNAME];
+	char dashboard_password_hash[MAX_AUTH_KEY];
+}
+
 namespace Net
 {
 
+namespace Master
+{
+	namespace Dashboard
+	{
+		void handle_static(mg_connection*, int, void*);
+		void handle_api(mg_connection*, int, void*);
+	}
+}
+
 namespace CrashReport
 {
-
 
 mg_mgr mgr;
 mg_connection* conn_ipv4;
@@ -154,7 +171,7 @@ struct mg_str upload_filename(mg_connection* nc, mg_str fname)
 	return result;
 }
 
-void ev_handler(mg_connection* nc, int ev, void* ev_data)
+void ev_handler(mg_connection* conn, int ev, void* ev_data)
 {
 	switch (ev)
 	{
@@ -162,14 +179,14 @@ void ev_handler(mg_connection* nc, int ev, void* ev_data)
 		{
 			mg_printf
 			(
-				nc, "%s",
+				conn, "%s",
 				"HTTP/1.1 403 Forbidden\r\n"
 				"Content-Type: text/html\r\n"
-				"Connection: close\r\n"
+				"Transfer-Encoding: chunked\r\n"
 				"\r\n"
-				"Forbidden"
 			);
-			nc->flags |= MG_F_SEND_AND_CLOSE;
+			mg_printf_http_chunk(conn, "%s", "Forbidden");
+			mg_send_http_chunk(conn, "", 0);
 			break;
 		}
 	}
@@ -181,9 +198,24 @@ void handle_upload(mg_connection* nc, int ev, void* p)
 	{
 		case MG_EV_HTTP_PART_BEGIN:
 		case MG_EV_HTTP_PART_DATA:
-		case MG_EV_HTTP_PART_END:
 			mg_file_upload_handler(nc, ev, p, upload_filename);
+			break;
+		case MG_EV_HTTP_PART_END:
+		{
+			mg_file_upload_handler(nc, ev, p, upload_filename);
+#if RELEASE_BUILD
+			Http::smtp("root@master.deceivergame.com", "support@deceivergame.com", "Deceiver crash dump", "A crash dump has been received.");
+#endif
+			break;
+		}
 	}
+}
+
+void register_endpoints(mg_connection* conn)
+{
+	mg_register_http_endpoint(conn, "/crash_dump", handle_upload);
+	mg_register_http_endpoint(conn, "/dashboard", Master::Dashboard::handle_static);
+	mg_register_http_endpoint(conn, "/dashboard/api", Master::Dashboard::handle_api);
 }
 
 void init()
@@ -191,25 +223,25 @@ void init()
 	mg_mgr_init(&mgr, nullptr);
 	{
 		char addr[32];
-		sprintf(addr, "0.0.0.0:%d", NET_MASTER_HTTP_PORT);
+		sprintf(addr, "127.0.0.1:%d", NET_MASTER_HTTP_PORT);
 		conn_ipv4 = mg_bind(&mgr, addr, ev_handler);
 
-		sprintf(addr, "[::]:%d", NET_MASTER_HTTP_PORT);
+		sprintf(addr, "[::1]:%d", NET_MASTER_HTTP_PORT);
 		conn_ipv6 = mg_bind(&mgr, addr, ev_handler);
 	}
 
 	if (conn_ipv4)
 	{
 		mg_set_protocol_http_websocket(conn_ipv4);
-		mg_register_http_endpoint(conn_ipv4, "/crash_dump", handle_upload);
-		printf("Bound to 0.0.0.0:%d\n", NET_MASTER_HTTP_PORT);
+		register_endpoints(conn_ipv4);
+		printf("Bound to 127.0.0.1:%d\n", NET_MASTER_HTTP_PORT);
 	}
 
 	if (conn_ipv6)
 	{
 		mg_set_protocol_http_websocket(conn_ipv6);
-		mg_register_http_endpoint(conn_ipv6, "/crash_dump", handle_upload);
-		printf("Bound to [::]:%d\n", NET_MASTER_HTTP_PORT);
+		register_endpoints(conn_ipv6);
+		printf("Bound to [::1]:%d\n", NET_MASTER_HTTP_PORT);
 	}
 
 	vi_assert(conn_ipv4 || conn_ipv6);
@@ -240,14 +272,7 @@ namespace Master
 #define MASTER_TOKEN_TIMEOUT (86400 * 2)
 #define MASTER_SERVER_LOAD_TIMEOUT 10.0
 
-	namespace Settings
-	{
-		u64 secret;
-		char itch_api_key[MAX_AUTH_KEY + 1];
-		char gamejolt_api_key[MAX_AUTH_KEY + 1];
-	}
-
-	r64 timestamp;
+	r64 global_timestamp;
 
 	struct Node // could be a server or client
 	{
@@ -291,7 +316,7 @@ namespace Master
 			if (s != state)
 			{
 				state = s;
-				state_change_timestamp = timestamp;
+				state_change_timestamp = global_timestamp;
 			}
 		}
 	};
@@ -304,22 +329,25 @@ namespace Master
 		s8 slots;
 	};
 
-	std::unordered_map<u64, Node> nodes;
-	std::unordered_map<u32, Sock::Address> server_config_map;
-	Sock::Handle sock;
-	Messenger messenger;
-	Array<u64> servers;
-	Array<u64> clients_waiting;
-	Array<ClientConnection> clients_connecting;
-	Array<u64> servers_loading;
-	sqlite3* db;
+	struct Global
+	{
+		sqlite3* db;
+		std::unordered_map<u64, Node> nodes;
+		std::unordered_map<u32, Sock::Address> server_config_map;
+		Sock::Handle sock;
+		Messenger messenger;
+		Array<u64> servers;
+		Array<u64> clients_waiting;
+		Array<ClientConnection> clients_connecting;
+	};
+	Global global;
 
 	sqlite3_stmt* db_query(const char* sql)
 	{
 		sqlite3_stmt* stmt;
-		if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr))
+		if (sqlite3_prepare_v2(global.db, sql, -1, &stmt, nullptr))
 		{
-			fprintf(stderr, "SQL: Failed to prepare statement: %s\nError: %s", sql, sqlite3_errmsg(db));
+			fprintf(stderr, "SQL: Failed to prepare statement: %s\nError: %s", sql, sqlite3_errmsg(global.db));
 			vi_assert(false);
 		}
 #if DEBUG_SQL
@@ -332,7 +360,7 @@ namespace Master
 	{
 		if (sqlite3_bind_int64(stmt, index + 1, value))
 		{
-			fprintf(stderr, "SQL: Could not bind integer at index %d.\nError: %s", index, sqlite3_errmsg(db));
+			fprintf(stderr, "SQL: Could not bind integer at index %d.\nError: %s", index, sqlite3_errmsg(global.db));
 			vi_assert(false);
 		}
 	}
@@ -341,7 +369,7 @@ namespace Master
 	{
 		if (sqlite3_bind_null(stmt, index + 1))
 		{
-			fprintf(stderr, "SQL: Could not bind null at index %d.\nError: %s", index, sqlite3_errmsg(db));
+			fprintf(stderr, "SQL: Could not bind null at index %d.\nError: %s", index, sqlite3_errmsg(global.db));
 			vi_assert(false);
 		}
 	}
@@ -350,7 +378,7 @@ namespace Master
 	{
 		if (sqlite3_bind_text(stmt, index + 1, text, -1, SQLITE_TRANSIENT))
 		{
-			fprintf(stderr, "SQL: Could not bind text at index %d.\nError: %s", index, sqlite3_errmsg(db));
+			fprintf(stderr, "SQL: Could not bind text at index %d.\nError: %s", index, sqlite3_errmsg(global.db));
 			vi_assert(false);
 		}
 	}
@@ -372,7 +400,7 @@ namespace Master
 			return false;
 		else
 		{
-			fprintf(stderr, "SQL: Failed to step query.\nError: %s", sqlite3_errmsg(db));
+			fprintf(stderr, "SQL: Failed to step query.\nError: %s", sqlite3_errmsg(global.db));
 			vi_assert(false);
 			return false;
 		}
@@ -392,7 +420,7 @@ namespace Master
 	{
 		if (sqlite3_finalize(stmt))
 		{
-			fprintf(stderr, "SQL: Failed to finalize query.\nError: %s", sqlite3_errmsg(db));
+			fprintf(stderr, "SQL: Failed to finalize query.\nError: %s", sqlite3_errmsg(global.db));
 			vi_assert(false);
 		}
 	}
@@ -402,7 +430,7 @@ namespace Master
 		b8 more = db_step(stmt);
 		vi_assert(!more); // this kind of query shouldn't return any rows
 		db_finalize(stmt);
-		return sqlite3_last_insert_rowid(db);
+		return sqlite3_last_insert_rowid(global.db);
 	}
 	
 	void db_exec(const char* sql)
@@ -411,7 +439,7 @@ namespace Master
 		printf("%s\n", sql);
 #endif
 		char* err;
-		if (sqlite3_exec(db, sql, nullptr, nullptr, &err))
+		if (sqlite3_exec(global.db, sql, nullptr, nullptr, &err))
 		{
 			fprintf(stderr, "SQL statement failed: %s\nError: %s", sql, err);
 			vi_assert(false);
@@ -421,11 +449,11 @@ namespace Master
 	Node* node_add_or_get(const Sock::Address& addr)
 	{
 		u64 hash = addr.hash();
-		auto i = nodes.find(hash);
+		auto i = global.nodes.find(hash);
 		Node* n;
-		if (i == nodes.end())
+		if (i == global.nodes.end())
 		{
-			auto i = nodes.insert(std::pair<u64, Node>(hash, Node()));
+			auto i = global.nodes.insert(std::pair<u64, Node>(hash, Node()));
 			n = &i.first->second;
 			n->addr = addr;
 		}
@@ -436,8 +464,8 @@ namespace Master
 
 	Node* node_for_hash(u64 hash)
 	{
-		auto i = nodes.find(hash);
-		if (i == nodes.end())
+		auto i = global.nodes.find(hash);
+		if (i == global.nodes.end())
 			return nullptr;
 		else
 			return &i->second;
@@ -450,8 +478,8 @@ namespace Master
 
 	Node* server_for_config_id(u32 id)
 	{
-		auto i = server_config_map.find(id);
-		if (i == server_config_map.end())
+		auto i = global.server_config_map.find(id);
+		if (i == global.server_config_map.end())
 			return nullptr;
 		else
 			return node_for_address(i->second);
@@ -479,15 +507,15 @@ namespace Master
 	void server_remove_clients_connecting(Node* server)
 	{
 		// reset any clients trying to connect to this server
-		for (s32 i = 0; i < clients_connecting.length; i++)
+		for (s32 i = 0; i < global.clients_connecting.length; i++)
 		{
-			const ClientConnection& connection = clients_connecting[i];
+			const ClientConnection& connection = global.clients_connecting[i];
 			if (connection.server.equals(server->addr))
 			{
 				Node* client = node_for_address(connection.client);
 				if (client)
 					client->transition(Node::State::ClientWaiting);
-				clients_connecting.remove(i);
+				global.clients_connecting.remove(i);
 				i--;
 			}
 		}
@@ -663,7 +691,7 @@ namespace Master
 		using Stream = StreamWrite;
 		StreamWrite p;
 		packet_init(&p);
-		messenger.add_header(&p, addr, Message::AuthResponse);
+		global.messenger.add_header(&p, addr, Message::AuthResponse);
 
 		b8 success = b8(key);
 		serialize_bool(&p, success);
@@ -676,7 +704,7 @@ namespace Master
 			serialize_bytes(&p, (u8*)username, username_length);
 		}
 		packet_finalize(&p);
-		messenger.send(p, timestamp, addr, &sock);
+		global.messenger.send(p, global_timestamp, addr, &global.sock);
 		return true;
 	}
 
@@ -685,9 +713,9 @@ namespace Master
 		using Stream = StreamWrite;
 		StreamWrite p;
 		packet_init(&p);
-		messenger.add_header(&p, addr, Message::ReauthRequired);
+		global.messenger.add_header(&p, addr, Message::ReauthRequired);
 		packet_finalize(&p);
-		messenger.send(p, timestamp, addr, &sock);
+		global.messenger.send(p, global_timestamp, addr, &global.sock);
 		return true;
 	}
 
@@ -996,16 +1024,16 @@ namespace Master
 			if (node->server_state.id)
 			{
 				db_set_server_online(node->server_state.id, false);
-				server_config_map.erase(node->server_state.id);
+				global.server_config_map.erase(node->server_state.id);
 			}
 
 			{
 				u64 hash = addr.hash();
-				for (s32 i = 0; i < servers.length; i++)
+				for (s32 i = 0; i < global.servers.length; i++)
 				{
-					if (servers[i] == hash)
+					if (global.servers[i] == hash)
 					{
-						servers.remove(i);
+						global.servers.remove(i);
 						i--;
 					}
 				}
@@ -1019,18 +1047,18 @@ namespace Master
 			// it's a client waiting for a server; remove it from the wait list
 			{
 				u64 hash = addr.hash();
-				for (s32 i = 0; i < clients_waiting.length; i++)
+				for (s32 i = 0; i < global.clients_waiting.length; i++)
 				{
-					if (clients_waiting[i] == hash)
+					if (global.clients_waiting[i] == hash)
 					{
-						clients_waiting.remove(i);
+						global.clients_waiting.remove(i);
 						i--;
 					}
 				}
 			}
 		}
-		nodes.erase(addr.hash());
-		messenger.remove(addr);
+		global.nodes.erase(addr.hash());
+		global.messenger.remove(addr);
 	}
 
 	s64 server_config_score(s64 plays, s64 last_played)
@@ -1118,7 +1146,7 @@ namespace Master
 
 		StreamWrite p;
 		packet_init(&p);
-		messenger.add_header(&p, server->addr, Message::ExpectClient);
+		global.messenger.add_header(&p, server->addr, Message::ExpectClient);
 		serialize_u32(&p, user->id);
 		serialize_u32(&p, user->token);
 		{
@@ -1126,7 +1154,7 @@ namespace Master
 			serialize_bool(&p, is_admin);
 		}
 		packet_finalize(&p);
-		messenger.send(p, timestamp, server->addr, &sock);
+		global.messenger.send(p, global_timestamp, server->addr, &global.sock);
 		return true;
 	}
 
@@ -1140,7 +1168,7 @@ namespace Master
 
 		StreamWrite p;
 		packet_init(&p);
-		messenger.add_header(&p, server->addr, Message::ServerLoad);
+		global.messenger.add_header(&p, server->addr, Message::ServerLoad);
 		
 		ServerConfig config;
 		if (client_desired_server_config(client, &config))
@@ -1154,7 +1182,7 @@ namespace Master
 			net_error();
 
 		packet_finalize(&p);
-		messenger.send(p, timestamp, server->addr, &sock);
+		global.messenger.send(p, global_timestamp, server->addr, &global.sock);
 		return true;
 	}
 
@@ -1163,11 +1191,11 @@ namespace Master
 		using Stream = StreamWrite;
 		StreamWrite p;
 		packet_init(&p);
-		messenger.add_header(&p, client->addr, Message::ServerConfigSaved);
+		global.messenger.add_header(&p, client->addr, Message::ServerConfigSaved);
 		serialize_u32(&p, config_id);
 		serialize_u32(&p, request_id);
 		packet_finalize(&p);
-		messenger.send(p, timestamp, client->addr, &sock);
+		global.messenger.send(p, global_timestamp, client->addr, &global.sock);
 		return true;
 	}
 
@@ -1176,7 +1204,7 @@ namespace Master
 		using Stream = StreamWrite;
 		StreamWrite p;
 		packet_init(&p);
-		messenger.add_header(&p, addr, Message::ServerConfig);
+		global.messenger.add_header(&p, addr, Message::ServerConfig);
 
 		serialize_u32(&p, request_id);
 
@@ -1187,7 +1215,7 @@ namespace Master
 		}
 
 		packet_finalize(&p);
-		messenger.send(p, timestamp, addr, &sock);
+		global.messenger.send(p, global_timestamp, addr, &global.sock);
 		return true;
 	}
 
@@ -1196,7 +1224,7 @@ namespace Master
 		using Stream = StreamWrite;
 		StreamWrite p;
 		packet_init(&p);
-		messenger.add_header(&p, addr, Message::ServerDetails);
+		global.messenger.add_header(&p, addr, Message::ServerDetails);
 
 		serialize_u32(&p, request_id);
 
@@ -1207,7 +1235,7 @@ namespace Master
 		}
 
 		packet_finalize(&p);
-		messenger.send(p, timestamp, addr, &sock);
+		global.messenger.send(p, global_timestamp, addr, &global.sock);
 		return true;
 	}
 
@@ -1252,7 +1280,7 @@ namespace Master
 
 		StreamWrite p;
 		packet_init(&p);
-		messenger.add_header(&p, client->addr, Message::ServerList);
+		global.messenger.add_header(&p, client->addr, Message::ServerList);
 
 		serialize_enum(&p, ServerListType, type);
 
@@ -1298,7 +1326,7 @@ namespace Master
 		serialize_bool(&p, *done); // done with the whole list?
 
 		packet_finalize(&p);
-		messenger.send(p, timestamp, client->addr, &sock);
+		global.messenger.send(p, global_timestamp, client->addr, &global.sock);
 		return true;
 	}
 
@@ -1322,23 +1350,23 @@ namespace Master
 		using Stream = StreamWrite;
 		StreamWrite p;
 		packet_init(&p);
-		messenger.add_header(&p, addr, Message::ClientConnect);
+		global.messenger.add_header(&p, addr, Message::ClientConnect);
 
 		Sock::Address server_addr = addr.host.type == Sock::Host::Type::IPv4 ? server->server.public_ipv4 : server->server.public_ipv6;
 		if (!Sock::Address::serialize(&p, &server_addr))
 			net_error();
 
 		packet_finalize(&p);
-		messenger.send(p, timestamp, addr, &sock);
+		global.messenger.send(p, global_timestamp, addr, &global.sock);
 		return true;
 	}
 
 	s8 server_client_slots_connecting(Node* server)
 	{
 		s8 slots = 0;
-		for (s32 i = 0; i < clients_connecting.length; i++)
+		for (s32 i = 0; i < global.clients_connecting.length; i++)
 		{
-			const ClientConnection& connection = clients_connecting[i];
+			const ClientConnection& connection = global.clients_connecting[i];
 			if (connection.server.equals(server->addr))
 				slots += connection.slots;
 		}
@@ -1361,7 +1389,7 @@ namespace Master
 			char addr_str[NET_MAX_ADDRESS];
 			server->addr.str(addr_str);
 			vi_debug("Server %s connected.", addr_str);
-			servers.add(server->addr.hash());
+			global.servers.add(server->addr.hash());
 		}
 
 		server->transition(s.level == AssetNull ? Node::State::ServerIdle : Node::State::ServerActive);
@@ -1369,14 +1397,14 @@ namespace Master
 		if (server->server_state.id && s.level == AssetNull)
 		{
 			db_set_server_online(server->server_state.id, false);
-			server_config_map.erase(server->server_state.id);
+			global.server_config_map.erase(server->server_state.id);
 		}
 
 		if (s.id)
 		{
 			vi_assert(s.level != AssetNull);
 			db_set_server_online(s.id, true);
-			server_config_map[s.id] = server->addr;
+			global.server_config_map[s.id] = server->addr;
 		}
 
 		s8 original_open_slots = server->server_state.player_slots;
@@ -1407,7 +1435,11 @@ namespace Master
 		if (key.id != 0)
 		{
 			if (node->client.user_key.equals(key)) // already authenticated
+			{
+				if (node->state == Node::State::Invalid)
+					node->state = Node::State::ClientIdle;
 				return true;
+			}
 			else if (node->client.user_key.id == 0 && node->client.user_key.token == 0) // user hasn't been authenticated yet
 			{
 				sqlite3_stmt* stmt = db_query("select token, token_timestamp from User where id=? limit 1;");
@@ -1419,6 +1451,8 @@ namespace Master
 					if (u32(token) == key.token && platform::timestamp() - token_timestamp < MASTER_TOKEN_TIMEOUT)
 					{
 						node->client.user_key = key;
+						if (node->state == Node::State::Invalid)
+							node->state = Node::State::ClientIdle;
 						return true;
 					}
 				}
@@ -1450,17 +1484,17 @@ namespace Master
 
 	void client_queue_join(Node* server, Node* client)
 	{
-		for (s32 i = 0; i < clients_waiting.length; i++)
+		for (s32 i = 0; i < global.clients_waiting.length; i++)
 		{
-			if (clients_waiting[i] == client->addr.hash())
+			if (global.clients_waiting[i] == client->addr.hash())
 			{
-				clients_waiting.remove(i);
+				global.clients_waiting.remove(i);
 				break;
 			}
 		}
 
-		ClientConnection* connection = clients_connecting.add();
-		connection->timestamp = timestamp;
+		ClientConnection* connection = global.clients_connecting.add();
+		connection->timestamp = global_timestamp;
 		connection->server = server->addr;
 		connection->client = client->addr;
 		connection->slots = client->server_state.player_slots;
@@ -1524,11 +1558,11 @@ namespace Master
 		using Stream = StreamWrite;
 		StreamWrite p;
 		packet_init(&p);
-		messenger.add_header(&p, node->addr, Message::FriendshipState);
+		global.messenger.add_header(&p, node->addr, Message::FriendshipState);
 		serialize_u32(&p, friend_id);
 		serialize_bool(&p, state);
 		packet_finalize(&p);
-		messenger.send(p, timestamp, node->addr, &sock);
+		global.messenger.send(p, global_timestamp, node->addr, &global.sock);
 		return true;
 	}
 
@@ -1543,9 +1577,9 @@ namespace Master
 				using Stream = StreamWrite;
 				StreamWrite p;
 				packet_init(&p);
-				messenger.add_header(&p, addr, Message::WrongVersion);
+				global.messenger.add_header(&p, addr, Message::WrongVersion);
 				packet_finalize(&p);
-				Sock::udp_send(&sock, addr, p.data.data, p.bytes_written());
+				Sock::udp_send(&global.sock, addr, p.data.data, p.bytes_written());
 				return false; // ignore this packet
 			}
 		}
@@ -1553,10 +1587,10 @@ namespace Master
 		serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 		Message type;
 		serialize_enum(p, Message, type);
-		messenger.received(type, seq, addr, &sock);
+		global.messenger.received(type, seq, addr, &global.sock);
 
 		Node* node = node_add_or_get(addr);
-		node->last_message_timestamp = timestamp;
+		node->last_message_timestamp = global_timestamp;
 
 		switch (type)
 		{
@@ -1692,7 +1726,7 @@ namespace Master
 					if (node->state != Node::State::ClientWaiting)
 					{
 						// add to client waiting list
-						clients_waiting.add(node->addr.hash());
+						global.clients_waiting.add(node->addr.hash());
 						node->transition(Node::State::ClientWaiting);
 					}
 				}
@@ -1797,7 +1831,7 @@ namespace Master
 					// check if the user actually has privileges to edit it
 					if (user_role(node->client.user_key.id, config.id) != Role::Admin)
 						net_error();
-					sqlite3_stmt* stmt = db_query("update ServerConfig set name=?, config=?, max_players=?, team_count=?, game_type=?, is_private=? where id=?;");
+					sqlite3_stmt* stmt = db_query("update ServerConfig set name=?, config=?, max_players=?, team_count=?, game_type=?, is_private=?, region=? where id=?;");
 					db_bind_text(stmt, 0, config.name);
 					char* json = server_config_stringify(config);
 					db_bind_text(stmt, 1, json);
@@ -1806,7 +1840,8 @@ namespace Master
 					db_bind_int(stmt, 3, config.team_count);
 					db_bind_int(stmt, 4, s32(config.game_type));
 					db_bind_int(stmt, 5, config.is_private);
-					db_bind_int(stmt, 6, config.id);
+					db_bind_int(stmt, 6, s64(config.region));
+					db_bind_int(stmt, 7, config.id);
 					db_exec(stmt);
 					config_id = config.id;
 				}
@@ -1853,16 +1888,16 @@ namespace Master
 					net_error();
 				if (node->state == Node::State::ServerLoading)
 				{
-					if (node->state_change_timestamp > timestamp - MASTER_SERVER_LOAD_TIMEOUT)
+					if (node->state_change_timestamp > global_timestamp - MASTER_SERVER_LOAD_TIMEOUT)
 					{
 						if (s.id == node->server_state.id) // done loading
 						{
 							server_update_state(node, s);
 
 							// tell clients to connect to this server
-							for (s32 i = 0; i < clients_connecting.length; i++)
+							for (s32 i = 0; i < global.clients_connecting.length; i++)
 							{
-								const ClientConnection& connection = clients_connecting[i];
+								const ClientConnection& connection = global.clients_connecting[i];
 								if (connection.server.equals(node->addr))
 									send_client_connect(node, connection.client);
 							}
@@ -1966,7 +2001,7 @@ namespace Master
 
 		Sock::init();
 
-		if (Sock::udp_open(&sock, NET_MASTER_PORT))
+		if (Sock::udp_open(&global.sock, NET_MASTER_PORT))
 		{
 			fprintf(stderr, "%s\n", Sock::get_error());
 			return 1;
@@ -1980,9 +2015,9 @@ namespace Master
 		{
 			b8 init_db = !platform::file_exists("deceiver.db");
 			
-			if (sqlite3_open("deceiver.db", &db))
+			if (sqlite3_open("deceiver.db", &global.db))
 			{
-				fprintf(stderr, "Can't open sqlite database: %s", sqlite3_errmsg(db));
+				fprintf(stderr, "Can't open sqlite database: %s", sqlite3_errmsg(global.db));
 				return 1;
 			}
 
@@ -2029,6 +2064,16 @@ namespace Master
 							strncpy(Settings::gamejolt_api_key, gamejolt_api_key, MAX_AUTH_KEY);
 					}
 					{
+						const char* dashboard_username = Json::get_string(json, "dashboard_username", "test");
+						if (dashboard_username)
+							strncpy(Settings::dashboard_username, dashboard_username, MAX_USERNAME);
+					}
+					{
+						const char* dashboard_password_hash = Json::get_string(json, "dashboard_password_hash", "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3"); // "test"
+						if (dashboard_password_hash)
+							strncpy(Settings::dashboard_password_hash, dashboard_password_hash, MAX_AUTH_KEY);
+					}
+					{
 						const char* ca_path = Json::get_string(json, "ca_path");
 						if (ca_path)
 							strncpy(Http::ca_path, ca_path, MAX_PATH_LENGTH);
@@ -2049,7 +2094,7 @@ namespace Master
 		{
 			{
 				r64 t = platform::time();
-				timestamp += vi_min(0.25, t - last_update);
+				global_timestamp += vi_min(0.25, t - last_update);
 				last_update = t;
 			}
 
@@ -2057,21 +2102,21 @@ namespace Master
 
 			CrashReport::update();
 
-			messenger.update(timestamp, &sock);
+			global.messenger.update(global_timestamp, &global.sock);
 
 			// remove timed out client connection attempts
 			{
-				r64 threshold = timestamp - MASTER_CLIENT_CONNECTION_TIMEOUT;
-				for (s32 i = 0; i < clients_connecting.length; i++)
+				r64 threshold = global_timestamp - MASTER_CLIENT_CONNECTION_TIMEOUT;
+				for (s32 i = 0; i < global.clients_connecting.length; i++)
 				{
-					const ClientConnection& c = clients_connecting[i];
+					const ClientConnection& c = global.clients_connecting[i];
 					if (c.timestamp < threshold)
 					{
 						Node* client = node_for_address(c.client);
 						if (client && client->state == Node::State::ClientConnecting)
 						{
 							client->transition(Node::State::ClientWaiting); // give up connecting, go back to matchmaking
-							clients_waiting.add(client->addr.hash());
+							global.clients_waiting.add(client->addr.hash());
 						}
 
 						Node* server = node_for_address(c.server);
@@ -2083,42 +2128,42 @@ namespace Master
 							server->server_state.player_slots -= c.slots;
 						}
 
-						clients_connecting.remove(i);
+						global.clients_connecting.remove(i);
 						i--;
 					}
 				}
 			}
 
 			// remove inactive nodes
-			if (timestamp - last_audit > MASTER_AUDIT_INTERVAL)
+			if (global_timestamp - last_audit > MASTER_AUDIT_INTERVAL)
 			{
-				r64 threshold = timestamp - MASTER_INACTIVE_THRESHOLD;
+				r64 threshold = global_timestamp - MASTER_INACTIVE_THRESHOLD;
 				Array<Sock::Address> removals;
-				for (auto i = nodes.begin(); i != nodes.end(); i++)
+				for (auto i = global.nodes.begin(); i != global.nodes.end(); i++)
 				{
 					if (i->second.last_message_timestamp < threshold)
 						removals.add(i->second.addr);
 				}
 				for (s32 i = 0; i < removals.length; i++)
 					disconnected(removals[i]);
-				last_audit = timestamp;
+				last_audit = global_timestamp;
 			}
 
-			if (timestamp - last_match > MASTER_MATCH_INTERVAL)
+			if (global_timestamp - last_match > MASTER_MATCH_INTERVAL)
 			{
-				last_match = timestamp;
+				last_match = global_timestamp;
 
 				s32 idle_servers = 0;
-				for (s32 i = 0; i < servers.length; i++)
+				for (s32 i = 0; i < global.servers.length; i++)
 				{
-					Node* server = node_for_hash(servers[i]);
+					Node* server = node_for_hash(global.servers[i]);
 					if (server->state == Node::State::ServerIdle)
 						idle_servers++;
 				}
 
-				for (s32 i = 0; i < clients_waiting.length; i++)
+				for (s32 i = 0; i < global.clients_waiting.length; i++)
 				{
-					Node* client = node_for_hash(clients_waiting[i]);
+					Node* client = node_for_hash(global.clients_waiting[i]);
 					Node* server = client_requested_server(client);
 					if (server)
 					{
@@ -2132,9 +2177,9 @@ namespace Master
 					{
 						// allocate an idle server for this client
 						Node* idle_server = nullptr;
-						for (s32 i = 0; i < servers.length; i++)
+						for (s32 i = 0; i < global.servers.length; i++)
 						{
-							Node* server = node_for_hash(servers[i]);
+							Node* server = node_for_hash(global.servers[i]);
 							if (server->state == Node::State::ServerIdle && server->server_state.region == client->server_state.region)
 							{
 								idle_server = server;
@@ -2156,7 +2201,7 @@ namespace Master
 
 			Sock::Address addr;
 			StreamRead packet;
-			s32 bytes_read = Sock::udp_receive(&sock, &addr, packet.data.data, NET_MAX_PACKET_SIZE);
+			s32 bytes_read = Sock::udp_receive(&global.sock, &addr, packet.data.data, NET_MAX_PACKET_SIZE);
 			packet.resize_bytes(bytes_read);
 			if (bytes_read > 0)
 			{
@@ -2172,7 +2217,7 @@ namespace Master
 				platform::vi_sleep(1.0f / 60.0f);
 		}
 
-		sqlite3_close(db);
+		sqlite3_close(global.db);
 
 		Http::term();
 
@@ -2180,6 +2225,239 @@ namespace Master
 
 		return 0;
 	}
+
+
+namespace Dashboard
+{
+
+b8 auth_failed(mg_connection* conn)
+{
+	mg_printf
+	(
+		conn, "%s",
+		"HTTP/1.1 401 Access Denied\r\n"
+		"WWW-Authenticate: Basic realm=\"Deceiver\"\r\n"
+		"Transfer-Encoding: chunked\r\n"
+		"\r\n"
+	);
+	mg_printf_http_chunk(conn, "%s", "Incorrect login");
+	mg_send_http_chunk(conn, "", 0);
+	return false;
+}
+
+b8 auth(mg_connection* conn, http_message* msg)
+{
+	char username[MAX_USERNAME + 1];
+	char password[MAX_AUTH_KEY + 1];
+	if (mg_get_http_basic_auth(msg, username, MAX_USERNAME, password, MAX_AUTH_KEY))
+		return auth_failed(conn);
+	if (strcmp(username, Settings::dashboard_username))
+		return auth_failed(conn);
+	char password_hash[41];
+	sha1::hash(password, password_hash);
+	if (strcmp(password_hash, Settings::dashboard_password_hash))
+		return auth_failed(conn);
+	return true;
+}
+
+void handle_static(mg_connection* conn, int ev, void* ev_data)
+{
+	if (ev == MG_EV_HTTP_REQUEST)
+	{
+		http_message* msg = (http_message*)ev_data;
+
+		if (!auth(conn, msg))
+			return;
+
+		mg_http_serve_file(conn, msg, "dashboard.html", mg_mk_str("text/html"), mg_mk_str(""));
+	}
+}
+
+void handle_api(mg_connection* conn, int ev, void* ev_data)
+{
+	if (ev == MG_EV_HTTP_REQUEST)
+	{
+		// GET
+		http_message* msg = (http_message*)ev_data;
+
+		if (!auth(conn, msg))
+			return;
+
+		mg_printf
+		(
+			conn, "%s",
+			"HTTP/1.1 200 OK\r\n"
+			"Content-Type: application/json\r\n"
+			"Transfer-Encoding: chunked\r\n"
+			"\r\n"
+		);
+
+		// JSON
+		{
+			cJSON* json = cJSON_CreateObject();
+
+			// servers
+			{
+				cJSON* servers = cJSON_CreateArray();
+				cJSON_AddItemToObject(json, "servers", servers);
+				for (s32 i = 0; i < global.servers.length; i++)
+				{
+					Node* node = node_for_hash(global.servers[i]);
+					cJSON* server = cJSON_CreateObject();
+					cJSON_AddNumberToObject(server, "state", s32(node->state));
+					{
+						char addr[NET_MAX_ADDRESS];
+						node->addr.str(addr);
+						cJSON_AddStringToObject(server, "addr", addr);
+					}
+					if (node->server_state.id)
+					{
+						// multiplayer
+						ServerConfig config;
+						server_config_get(node->server_state.id, &config);
+						cJSON_AddStringToObject(server, "config", config.name);
+						cJSON_AddNumberToObject(server, "max_players", config.max_players);
+						cJSON_AddNumberToObject(server, "players", config.max_players - node->server_state.player_slots);
+					}
+					else
+					{
+						// story mode
+						cJSON_AddItemToObject(server, "config", nullptr);
+						cJSON_AddNumberToObject(server, "max_players", 1);
+						cJSON_AddNumberToObject(server, "players", 1 - node->server_state.player_slots);
+					}
+					cJSON_AddNumberToObject(server, "level_id", node->server_state.level);
+					cJSON_AddNumberToObject(server, "region", s32(node->server_state.region));
+					cJSON_AddItemToArray(servers, server);
+				}
+			}
+
+			// clients
+			{
+				cJSON* clients = cJSON_CreateArray();
+				cJSON_AddItemToObject(json, "clients", clients);
+				for (auto i = global.nodes.begin(); i != global.nodes.end(); i++)
+				{
+					Node* node = &i->second;
+					if (node->state == Node::State::ClientWaiting
+						|| node->state == Node::State::ClientConnecting
+						|| node->state == Node::State::ClientIdle)
+					{
+						cJSON* client = cJSON_CreateObject();
+						cJSON_AddItemToArray(clients, client);
+						cJSON_AddNumberToObject(client, "state", s32(node->state));
+						if (node->client.user_key.id)
+						{
+							char username[MAX_USERNAME];
+							username_get(node->client.user_key.id, username);
+							cJSON_AddStringToObject(client, "username", username);
+						}
+						else
+							cJSON_AddItemToObject(client, "username", nullptr);
+					}
+				}
+			}
+
+			{
+				char* json_str = cJSON_Print(json);
+				mg_printf_http_chunk(conn, "%s", json_str);
+				free(json_str);
+			}
+			Json::json_free(json);
+		}
+
+		mg_send_http_chunk(conn, "", 0);
+	}
+	else if (ev == MG_EV_HTTP_MULTIPART_REQUEST)
+	{
+		http_message* msg = (http_message*)ev_data;
+
+		if (!auth(conn, msg))
+		{
+			conn->flags |= MG_F_CLOSE_IMMEDIATELY;
+			return;
+		}
+	}
+	else if (ev == MG_EV_HTTP_PART_DATA)
+	{
+		mg_http_multipart_part* part = (mg_http_multipart_part*)ev_data;
+		if (strcmp(part->var_name, "sql") == 0)
+		{
+			// execute SQL
+			mg_printf
+			(
+				conn, "%s",
+				"HTTP/1.1 200 OK\r\n"
+				"Content-Type: text/plain\r\n"
+				"Transfer-Encoding: chunked\r\n"
+				"\r\n"
+			);
+
+			sqlite3_stmt* stmt;
+			if (sqlite3_prepare_v2(global.db, part->data.p, part->data.len, &stmt, nullptr))
+				mg_printf_http_chunk(conn, "%s", sqlite3_errmsg(global.db));
+			else
+			{
+				Array<char> line;
+				while (true)
+				{
+					s32 result = sqlite3_step(stmt);
+					if (result == SQLITE_ROW)
+					{
+						line.length = 0;
+						s32 column_count = sqlite3_column_count(stmt);
+						s32 length = 0;
+						for (s32 i = 0; i < column_count; i++)
+						{
+							const char* value = (const char*)(sqlite3_column_text(stmt, i));
+							if (!value)
+								value = "[null]";
+							length += strlen(value) + 1;
+						}
+						line.reserve(length + 1);
+						for (s32 i = 0; i < column_count; i++)
+						{
+							const char* value = (const char*)(sqlite3_column_text(stmt, i));
+							if (!value)
+								value = "[null]";
+							s32 length = strlen(value) + 1;
+							sprintf(&line.data[line.length], "%s\t", value);
+							line.length += length;
+						}
+
+						// add newline and null terminate
+						line.add('\n');
+						line.add('\0');
+
+						mg_printf_http_chunk(conn, "%s", line.data);
+					}
+					else
+						break;
+				}
+
+				if (sqlite3_finalize(stmt))
+					mg_printf_http_chunk(conn, "%s", sqlite3_errmsg(global.db));
+			}
+
+			mg_send_http_chunk(conn, "", 0);
+		}
+		else
+		{
+			mg_printf
+			(
+				conn, "%s",
+				"HTTP/1.1 400 Bad Request\r\n"
+				"Content-Type: text/html\r\n"
+				"Transfer-Encoding: chunked\r\n"
+				"\r\n"
+			);
+			mg_printf_http_chunk(conn, "%s", "Bad Request");
+			mg_send_http_chunk(conn, "", 0);
+		}
+	}
+}
+
+}
 
 }
 

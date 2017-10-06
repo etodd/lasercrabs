@@ -2193,10 +2193,15 @@ void server_state(Master::ServerState* s)
 {
 	s->level = Game::level.id;
 	if (s->level == AssetNull)
+	{
 		s->id = 0;
+		s->player_slots = 1;
+	}
 	else
+	{
 		s->id = Game::session.config.id;
-	s->player_slots = s8(vi_max(0, Game::session.config.max_players - PlayerHuman::list.count()));
+		s->player_slots = s8(vi_max(0, Game::session.config.max_players - PlayerHuman::list.count()));
+	}
 	s->region = Settings::region;
 }
 

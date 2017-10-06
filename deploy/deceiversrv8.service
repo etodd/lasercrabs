@@ -1,0 +1,15 @@
+[Unit]
+Description=deceiversrv8
+After=syslog.target
+After=network.target
+OnFailure=unit-status-mail@%n.service
+
+[Service]
+LimitCORE=infinity
+User=root
+WorkingDirectory=/root/deceiver
+ExecStart=/root/deceiver/deceiversrv 21372
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

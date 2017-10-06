@@ -1,0 +1,13 @@
+#!/bin/bash
+
+rsync $1/deceivermaster root@master.deceivergame.com:~/deceiver/
+ssh root@master.deceivergame.com systemctl restart deceivermaster
+
+rsync -r $1/deceiversrv $1/assets root@useast1.deceivergame.com:~/deceiver/
+ssh root@useast1.deceivergame.com systemctl restart deceiversrv1 deceiversrv2 deceiversrv3 deceiversrv4 deceiversrv5 deceiversrv6 deceiversrv7 deceiversrv8
+
+rsync -r $1/deceiversrv $1/assets root@uswest1.deceivergame.com:~/deceiver/
+ssh root@uswest1.deceivergame.com systemctl restart deceiversrv1 deceiversrv2 deceiversrv3 deceiversrv4 deceiversrv5 deceiversrv6 deceiversrv7 deceiversrv8
+
+rsync -r $1/deceiversrv $1/assets root@eu1.deceivergame.com:~/deceiver/
+ssh root@eu1.deceivergame.com systemctl restart deceiversrv1 deceiversrv2 deceiversrv3 deceiversrv4 deceiversrv5 deceiversrv6 deceiversrv7 deceiversrv8

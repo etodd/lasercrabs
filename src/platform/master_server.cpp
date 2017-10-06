@@ -337,6 +337,15 @@ namespace Master
 		}
 	}
 
+	void db_bind_null(sqlite3_stmt* stmt, s32 index)
+	{
+		if (sqlite3_bind_null(stmt, index + 1))
+		{
+			fprintf(stderr, "SQL: Could not bind null at index %d.\nError: %s", index, sqlite3_errmsg(db));
+			vi_assert(false);
+		}
+	}
+
 	void db_bind_text(sqlite3_stmt* stmt, s32 index, const char* text)
 	{
 		if (sqlite3_bind_text(stmt, index + 1, text, -1, SQLITE_TRANSIENT))
@@ -634,8 +643,23 @@ namespace Master
 			return server_config_get(client->server_state.id, config);
 	}
 
-	b8 send_auth_response(const Sock::Address& addr, UserKey* key, const char* username)
+	b8 send_auth_response(const Sock::Address& addr, AuthType auth_type, UserKey* key, const char* username)
 	{
+		{
+			// record auth attempt
+			sqlite3_stmt* stmt = db_query("insert into AuthAttempt (timestamp, type, ip, user_id) values (?, ?, ?, ?);");
+			db_bind_int(stmt, 0, platform::timestamp());
+			db_bind_int(stmt, 1, s32(auth_type));
+			char ip[NET_MAX_ADDRESS];
+			addr.str_ip_only(ip);
+			db_bind_text(stmt, 2, ip);
+			if (key)
+				db_bind_int(stmt, 3, key->id);
+			else
+				db_bind_null(stmt, 3);
+			db_exec(stmt);
+		}
+
 		using Stream = StreamWrite;
 		StreamWrite p;
 		packet_init(&p);
@@ -713,7 +737,7 @@ namespace Master
 				if (success)
 				{
 					node->client.user_key = key;
-					send_auth_response(node->addr, &key, username);
+					send_auth_response(node->addr, AuthType::Itch, &key, username);
 				}
 			}
 			else
@@ -738,12 +762,12 @@ namespace Master
 						db_exec(stmt);
 
 						node->client.user_key = key;
-						send_auth_response(node->addr, &key, username);
+						send_auth_response(node->addr, AuthType::Itch, &key, username);
 						return;
 					}
 				}
 #endif
-				send_auth_response(node->addr, nullptr, nullptr);
+				send_auth_response(node->addr, AuthType::Itch, nullptr, nullptr);
 			}
 		}
 	}
@@ -866,11 +890,11 @@ namespace Master
 				if (success)
 				{
 					node->client.user_key = key;
-					send_auth_response(node->addr, &key, username);
+					send_auth_response(node->addr, AuthType::GameJolt, &key, username);
 				}
 			}
 			else
-				send_auth_response(node->addr, nullptr, nullptr);
+				send_auth_response(node->addr, AuthType::GameJolt, nullptr, nullptr);
 		}
 	}
 
@@ -1599,7 +1623,7 @@ namespace Master
 						break;
 					}
 					case AuthType::Steam:
-						send_auth_response(addr, nullptr, nullptr); // todo
+						send_auth_response(addr, AuthType::Steam, nullptr, nullptr); // todo
 						break;
 					default:
 						vi_assert(false);
@@ -1968,6 +1992,7 @@ namespace Master
 				db_exec("create table ServerConfig (id integer primary key autoincrement, creator_id integer not null, name text not null, config text, max_players integer not null, team_count integer not null, game_type integer not null, is_private boolean not null, online boolean not null, region integer not null, plays integer not null, score integer not null, foreign key (creator_id) references User(id));");
 				db_exec("create table UserServer (user_id integer not null, server_id integer not null, timestamp integer not null, role integer not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id), primary key (user_id, server_id));");
 				db_exec("create table Friendship (user1_id integer not null, user2_id integer not null, foreign key (user1_id) references User(id), foreign key (user2_id) references User(id), primary key (user1_id, user2_id));");
+				db_exec("create table AuthAttempt (timestamp integer not null, type integer not null, ip text not null, user_id integer, foreign key (user_id) references User(id));");
 			}
 			db_exec("update ServerConfig set online=0;");
 		}

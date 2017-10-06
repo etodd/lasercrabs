@@ -120,29 +120,34 @@ u64 Address::hash() const
 	return result;
 }
 
-void Address::str(char* out) const
+void Address::str_ip_only(char* out) const
 {
-	char buffer[NET_MAX_ADDRESS];
 	switch (host.type)
 	{
 		case Host::Type::IPv4:
 		{
 			struct in_addr in;
 			in.s_addr = host.ipv4;
-			inet_ntop(AF_INET, &in, buffer, NET_MAX_ADDRESS);
+			inet_ntop(AF_INET, &in, out, NET_MAX_ADDRESS);
 			break;
 		}
 		case Host::Type::IPv6:
 		{
 			struct in6_addr in;
 			memcpy(&in, host.ipv6, sizeof(in));
-			inet_ntop(AF_INET6, &in, buffer, NET_MAX_ADDRESS);
+			inet_ntop(AF_INET6, &in, out, NET_MAX_ADDRESS);
 			break;
 		}
 		default:
 			vi_assert(false);
 			break;
 	}
+}
+
+void Address::str(char* out) const
+{
+	char buffer[NET_MAX_ADDRESS];
+	str_ip_only(buffer);
 	sprintf(out, "[%s]:%hu", buffer, ntohs(port));
 }
 

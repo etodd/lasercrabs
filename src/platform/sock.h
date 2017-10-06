@@ -74,6 +74,7 @@ struct Address
 	b8 equals(const Address&) const;
 	b8 operator==(const Address&) const;
 	void str(char*) const; // needs NET_MAX_ADDRESS space
+	void str_ip_only(char*) const; // needs NET_MAX_ADDRESS space
 	u64 hash() const;
 };
 

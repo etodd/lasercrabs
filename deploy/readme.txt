@@ -6,20 +6,21 @@ Master server
 3.  Install CA cert in /etc/ssl/certs
 4.  mkdir /root/deceiver && mkdir /root/deceiver/crash_dumps
 5.  Install deceivermaster in /root/deceiver
-6.  Create /root/deceiver/config.txt and specify "itch_api_key", "gamejolt_api_key",
+6.  Install dashboard.html in /root/deceiver
+7.  Create /root/deceiver/config.txt and specify "itch_api_key", "gamejolt_api_key",
     and "ca_path" (/etc/ssl/certs)
-7.  Install unit-status-mail.sh in /root
-8.  Install unit-status-mail@.service in /etc/systemd/system
-9.  Install deceivermaster.service in /etc/systemd/system
-10. Set up nginx and letsencrypt
+8.  Install unit-status-mail.sh in /root
+9.  Install unit-status-mail@.service in /etc/systemd/system
+10.  Install deceivermaster.service in /etc/systemd/system
+11. Set up nginx and letsencrypt
 	- apt-get install nginx software-properties-common
 	- Install deceivermaster-nginx.conf as /etc/nginx/sites-available/default
 	- add-apt-repository ppa:certbot/certbot
 	- apt-get update
 	- apt-get install python-certbot-nginx
 	- certbot --nginx certonly
-11. systemctl enable deceivermaster
-12. systemctl start deceivermaster
+12. systemctl enable deceivermaster
+13. systemctl start deceivermaster
 
 Game server
 ===========

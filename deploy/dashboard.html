@@ -1,0 +1,219 @@
+<!doctype html>
+<html>
+<head>
+<title>Deceiver Dashboard</title>
+
+<style>
+html, body
+{
+	box-sizing: border-box;
+	background-color: #000;
+	color: #fff;
+	padding: 0px;
+	margin: 0px;
+	font-family: monospace;
+}
+
+#console
+{
+	height: 24em;
+	overflow-x: auto;
+	overflow-y: scroll;
+	background-color: #222;
+}
+
+#console_contents
+{
+	white-space: pre;
+}
+
+#sql
+{
+	display: block;
+	width: 100%;
+	padding: 0.5em;
+	border: 0px;
+	border-top: 1px solid #00d9eb;
+	border-bottom: 1px solid #00d9eb;
+	background-color: #222;
+	color: #00d9eb;
+	outline: none;
+	font-family: monospace;
+	white-space: pre;
+}
+
+b, h1, h2, h3
+{
+	color: #00d9eb;
+}
+
+.container
+{
+	width: 45%;
+	padding: 1em;
+	background-color: #222;
+}
+
+#client_container
+{
+	float: left;
+}
+
+#server_container
+{
+	float: right;
+}
+</style>
+
+<script>
+var state = 
+{
+	timeout: 0,
+};
+var selector = null;
+
+var func = {};
+
+func.post_sql = function(sql)
+{
+	selector.console_contents.appendChild(document.createTextNode(sql + '\n'));
+	selector.console.scrollTop = selector.console.scrollHeight;
+
+	var data = new FormData();
+	data.append('sql', sql);
+	fetch('/dashboard/api',
+	{
+		method: 'POST',
+		credentials: 'include',
+		body: data,
+	}).then(function(response)
+	{
+		return response.text();
+	}).then(function(text)
+	{
+		selector.console_contents.appendChild(document.createTextNode(text + '\n'));
+		selector.console.scrollTop = selector.console.scrollHeight;
+	});
+};
+
+func.node_state_name = function(state)
+{
+	if (state === 1) // ServerActive
+		return 'Active';
+	else if (state === 2) // ServerLoading
+		return 'Loading';
+	else if (state === 3) // ServerIdle
+		return 'Idle';
+	else if (state === 4) // ClientWaiting
+		return 'Waiting';
+	else if (state === 5) // ClientConnecting
+		return 'Connecting';
+	else if (state === 6) // ClientIdle
+		return 'Idle';
+	else
+		return 'Invalid';
+};
+
+func.region_name = function(region)
+{
+	if (region === 0)
+		return 'useast';
+	else if (region === 1)
+		return 'uswest';
+	else if (region === 2)
+		return 'eu';
+	else
+		return 'invalid';
+};
+
+func.get = function()
+{
+	clearTimeout(state.timeout);
+	state.timeout = 0;
+	fetch('/dashboard/api',
+	{
+		method: 'GET',
+		credentials: 'include',
+	}).then(function(response)
+	{
+		state.timeout = setTimeout(func.get, 5000);
+		return response.json();
+	}).then(function(json)
+	{
+		selector.servers.innerHTML = '<tr><th>Region</th><th>Address</th><th>State</th><th>Config</th><th>Players</th><th>Map</th></tr>';
+		for (var i = 0; i < json.servers.length; i++)
+		{
+			var server = json.servers[i];
+			var $el = document.createElement('tr');
+			$el.innerHTML = '<td>' + func.region_name(server.region) + '</td>'
+				+ '<td>' + server.addr + '</td>'
+				+ '<td>' + func.node_state_name(server.state) + '</td>'
+				+ '<td>' + (server.config ? server.config : '[null]') + '</td>'
+				+ '<td>' + server.players + '/' + server.max_players + '</td>'
+				+ '<td>' + (server.level_id === -1 ? 'none' : server.level_id) + '</td>';
+			selector.servers.appendChild($el);
+		}
+
+		selector.clients.innerHTML = '<tr><th>Username</th><th>State</th></tr>';
+		for (var i = 0; i < json.clients.length; i++)
+		{
+			var client = json.clients[i];
+			var $el = document.createElement('tr');
+			$el.innerHTML = '<td>' + (client.username ? client.username : '[null]') + '</td>'
+				+ '<td>' + func.node_state_name(client.state) + '</td>';
+			selector.clients.appendChild($el);
+		}
+	}).catch(function(error)
+	{
+		state.timeout = setTimeout(func.get, 5000);
+		selector.servers.innerHTML = 'DISCONNECTED!';
+		selector.clients.innerHTML = 'DISCONNECTED!';
+	});
+};
+
+func.init = function()
+{
+	selector = {
+		console: document.querySelector('#console'),
+		console_contents: document.querySelector('#console_contents'),
+		sql: document.querySelector('#sql'),
+		servers: document.querySelector('#servers'),
+		clients: document.querySelector('#clients'),
+	};
+
+	document.querySelector('#form').onsubmit = function(event)
+	{
+		event.preventDefault();
+		func.post_sql(selector.sql.value);
+		selector.sql.value = '';
+		return false;
+	};
+
+	func.get();
+};
+
+window.addEventListener('load', func.init, false);
+</script>
+
+</head>
+
+<body>
+<div id="console">
+	<pre id="console_contents"></pre>
+</div>
+<form id="form">
+	<input type="text" id="sql" autocomplete="off" autofocus />
+</form>
+<div id="client_container" class="container">
+	<h3>Clients</h3>
+	<table id="clients">
+	</table>
+</div>
+<div id="server_container" class="container">
+	<h3>Servers</h3>
+	<table id="servers">
+	</table>
+</div>
+</body>
+
+</html>

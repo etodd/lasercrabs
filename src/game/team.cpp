@@ -1447,7 +1447,8 @@ namespace PlayerManagerNet
 		}
 		{
 			Vec3 pos2 = pos;
-			serialize_position(p, &pos2, Net::Resolution::Medium);
+			if (!serialize_position(p, &pos2, Net::Resolution::Medium))
+				net_error();
 		}
 		Net::msg_finalize(p);
 		return true;

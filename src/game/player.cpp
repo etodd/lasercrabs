@@ -659,7 +659,8 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 		|| msg->type == Message::Type::Reflect
 		|| msg->type == Message::Type::Spot)
 	{
-		serialize_position(p, &msg->pos, Net::Resolution::High);
+		if (!serialize_position(p, &msg->pos, Net::Resolution::High))
+			net_error();
 		if (!serialize_quat(p, &msg->rot, Net::Resolution::High))
 			net_error();
 		serialize_r32_range(p, msg->dir.x, -1.0f, 1.0f, 16);
@@ -668,7 +669,10 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 	}
 
 	if (msg->type == Message::Type::DashCombo || msg->type == Message::Type::Spot)
-		serialize_position(p, &msg->target, Net::Resolution::High);
+	{
+		if (!serialize_position(p, &msg->target, Net::Resolution::High))
+			net_error();
+	}
 	else if (Stream::IsReading)
 		msg->target = Vec3::zero;
 

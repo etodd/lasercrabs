@@ -258,8 +258,10 @@ template<typename Stream> b8 serialize_player_control(Stream* p, PlayerControlHu
 	else if (Stream::IsReading)
 		control->movement = Vec3::zero;
 	serialize_ref(p, control->parent);
-	serialize_position(p, &control->pos, Resolution::High);
-	serialize_quat(p, &control->rot, Resolution::High);
+	if (!serialize_position(p, &control->pos, Resolution::High))
+		net_error();
+	if (!serialize_quat(p, &control->rot, Resolution::High))
+		net_error();
 	return true;
 }
 
@@ -271,24 +273,29 @@ template<typename Stream> b8 serialize_constraint(Stream* p, RigidBody::Constrai
 	Vec3 pos;
 	if (Stream::IsWriting)
 		pos = c->frame_a.getOrigin();
-	serialize_position(p, &pos, Resolution::High);
+	if (!serialize_position(p, &pos, Resolution::High))
+		net_error();
 	Quat rot;
 	if (Stream::IsWriting)
 		rot = c->frame_a.getRotation();
-	serialize_quat(p, &rot, Resolution::High);
+	if (!serialize_quat(p, &rot, Resolution::High))
+		net_error();
 	if (Stream::IsReading)
 		c->frame_a = btTransform(rot, pos);
 
 	if (Stream::IsWriting)
 		pos = c->frame_b.getOrigin();
-	serialize_position(p, &pos, Resolution::High);
+	if (!serialize_position(p, &pos, Resolution::High))
+		net_error();
 	if (Stream::IsWriting)
 		rot = c->frame_b.getRotation();
-	serialize_quat(p, &rot, Resolution::High);
+	if (!serialize_quat(p, &rot, Resolution::High))
+		net_error();
 	if (Stream::IsReading)
 		c->frame_b = btTransform(rot, pos);
 
-	serialize_position(p, &c->limits, Resolution::Medium);
+	if (!serialize_position(p, &c->limits, Resolution::Medium))
+		net_error();
 
 	return true;
 }
@@ -373,13 +380,17 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<Transform>())
 	{
 		Transform* t = e->get<Transform>();
-		serialize_position(p, &t->pos, Resolution::High);
+		if (!serialize_position(p, &t->pos, Resolution::High))
+			net_error();
 		b8 is_identity_quat;
 		if (Stream::IsWriting)
 			is_identity_quat = Quat::angle(t->rot, Quat::identity) == 0.0f;
 		serialize_bool(p, is_identity_quat);
 		if (!is_identity_quat)
-			serialize_quat(p, &t->rot, Resolution::High);
+		{
+			if (!serialize_quat(p, &t->rot, Resolution::High))
+				net_error();
+		}
 		else if (Stream::IsReading)
 			t->rot = Quat::identity;
 		serialize_ref(p, t->parent);
@@ -592,8 +603,10 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 			Ragdoll::BoneBody* bone = &r->bodies[i];
 			serialize_ref(p, bone->body);
 			serialize_asset(p, bone->bone, Asset::Bone::count);
-			serialize_position(p, &bone->body_to_bone_pos, Resolution::Medium);
-			serialize_quat(p, &bone->body_to_bone_rot, Resolution::Medium);
+			if (!serialize_position(p, &bone->body_to_bone_pos, Resolution::Medium))
+				net_error();
+			if (!serialize_quat(p, &bone->body_to_bone_rot, Resolution::Medium))
+				net_error();
 		}
 	}
 
@@ -2294,7 +2307,8 @@ b8 packet_build_init(StreamWrite* p, Client* client)
 	ServerPacket type = ServerPacket::Init;
 	serialize_enum(p, ServerPacket, type);
 	serialize_int(p, SequenceID, client->first_load_sequence, 0, NET_SEQUENCE_COUNT - 1);
-	serialize_init_packet(p);
+	if (!serialize_init_packet(p))
+		net_error();
 	packet_finalize(p);
 	return true;
 }
@@ -2384,7 +2398,8 @@ b8 packet_build_update(StreamWrite* p, Client* client, StateFrame* frame)
 
 		serialize_int(p, SequenceID, last_acked_sequence, 0, NET_SEQUENCE_COUNT); // not NET_SEQUENCE_COUNT - 1, because base_sequence_id might be NET_SEQUENCE_INVALID
 		const StateFrame* base = state_frame_by_sequence(state_common.state_history, last_acked_sequence);
-		serialize_state_frame(p, frame, base);
+		if (!serialize_state_frame(p, frame, base))
+			net_error();
 	}
 
 	packet_finalize(p);
@@ -2845,7 +2860,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 
 				PlayerControlHuman::RemoteControl control;
 
-				serialize_player_control(p, &control);
+				if (!serialize_player_control(p, &control))
+					net_error();
 
 				if (most_recent && PlayerControlHuman::list.active(id) && client_owns(client, c->entity()))
 					c->remote_control_handle(control);
@@ -3513,7 +3529,8 @@ b8 packet_build_update(StreamWrite* p, const Update& u)
 		{
 			serialize_int(p, ID, i.index, 0, MAX_PLAYERS - 1);
 			PlayerControlHuman::RemoteControl control = i.item()->remote_control_get(u);
-			serialize_player_control(p, &control);
+			if (!serialize_player_control(p, &control))
+				net_error();
 		}
 	}
 
@@ -3938,37 +3955,36 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			{
 				SequenceID seq;
 				serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
-				if (serialize_init_packet(p))
+				if (!serialize_init_packet(p))
+					net_error();
+				state_client.server_processed_msg_frame = state_client.server_processed_load_msg_frame = { sequence_advance(seq, -1), true };
+				vi_debug("Starting on sequence %d", s32(seq));
+				state_client.mode = Mode::Loading;
+				state_client.timeout = 0.0f;
+
+				// send client setup message
 				{
-					state_client.server_processed_msg_frame = state_client.server_processed_load_msg_frame = { sequence_advance(seq, -1), true };
-					vi_debug("Starting on sequence %d", s32(seq));
-					state_client.mode = Mode::Loading;
-					state_client.timeout = 0.0f;
+					using Stream = StreamWrite;
+					StreamWrite* p2 = msg_new(MessageType::ClientSetup);
 
-					// send client setup message
+					serialize_u32(p2, Game::user_key.id);
+					serialize_u32(p2, Game::user_key.token);
+
+					s32 username_length = strlen(Settings::username);
+					serialize_int(p2, s32, username_length, 0, MAX_USERNAME);
+					serialize_bytes(p2, (u8*)Settings::username, username_length);
+
+					s32 local_players = Game::session.local_player_count();
+					serialize_int(p2, s32, local_players, 1, MAX_GAMEPADS);
+					for (s32 i = 0; i < MAX_GAMEPADS; i++)
 					{
-						using Stream = StreamWrite;
-						StreamWrite* p2 = msg_new(MessageType::ClientSetup);
-
-						serialize_u32(p2, Game::user_key.id);
-						serialize_u32(p2, Game::user_key.token);
-
-						s32 username_length = strlen(Settings::username);
-						serialize_int(p2, s32, username_length, 0, MAX_USERNAME);
-						serialize_bytes(p2, (u8*)Settings::username, username_length);
-
-						s32 local_players = Game::session.local_player_count();
-						serialize_int(p2, s32, local_players, 1, MAX_GAMEPADS);
-						for (s32 i = 0; i < MAX_GAMEPADS; i++)
+						if (Game::session.local_player_mask & (1 << i))
 						{
-							if (Game::session.local_player_mask & (1 << i))
-							{
-								serialize_int(p2, s32, i, 0, MAX_GAMEPADS - 1); // gamepad
-								serialize_u64(p2, Game::session.local_player_uuids[i]); // uuid
-							}
+							serialize_int(p2, s32, i, 0, MAX_GAMEPADS - 1); // gamepad
+							serialize_u64(p2, Game::session.local_player_uuids[i]); // uuid
 						}
-						msg_finalize(p2);
 					}
+					msg_finalize(p2);
 				}
 			}
 			break;

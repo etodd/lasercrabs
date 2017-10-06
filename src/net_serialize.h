@@ -54,6 +54,8 @@ struct StreamWrite
 	enum { IsWriting = 1 };
 	enum { IsReading = 0 };
 
+	static inline void error() { vi_debug_break(); }
+
 	u64 scratch;
 	s32 scratch_bits; // number of bits we've used in the last u32
 	StaticArray<u32, NET_MAX_PACKET_SIZE / sizeof(u32)> data;
@@ -75,6 +77,8 @@ struct StreamRead
 {
 	enum { IsWriting = 0 };
 	enum { IsReading = 1 };
+
+	static inline void error() { }
 
 	u64 scratch;
 	s32 scratch_bits;
@@ -128,7 +132,7 @@ union Single
 };
 
 #if RELEASE_BUILD
-#define net_error() do { return false; } while (0)
+#define net_error() do { Stream::error(); return false; } while (0)
 #else
 #define net_error() do { vi_debug_break(); } while (0)
 #endif

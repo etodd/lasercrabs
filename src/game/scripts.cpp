@@ -762,6 +762,7 @@ namespace Docks
 
 #if SERVER
 	void prompt_gamejolt() { }
+	void prompt_itch() { }
 #else
 	void gamejolt_token_callback(const TextField& text_field)
 	{
@@ -778,6 +779,21 @@ namespace Docks
 	void prompt_gamejolt()
 	{
 		Menu::dialog_text(&gamejolt_username_callback, "", MAX_PATH_LENGTH, _(strings::prompt_gamejolt_username));
+	}
+
+	void itch_app_show(s8)
+	{
+		Menu::open_url("https://itch.io/app");
+	}
+
+	void itch_app_cancel(s8 gamepad)
+	{
+		Menu::exit(gamepad);
+	}
+
+	void prompt_itch()
+	{
+		Menu::dialog_with_cancel(0, &itch_app_show, &itch_app_cancel, _(strings::prompt_itch));
 	}
 #endif
 
@@ -802,6 +818,14 @@ namespace Docks
 					break;
 				}
 				case Net::Master::AuthType::Itch:
+				{
+					// check if we already have the username and token
+					if (Game::auth_key[0])
+						Net::Client::master_send_auth();
+					else
+						prompt_itch();
+					break;
+				}
 				case Net::Master::AuthType::Steam:
 				case Net::Master::AuthType::None:
 					// we either have the auth token or we don't

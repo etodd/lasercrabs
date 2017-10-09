@@ -1478,6 +1478,7 @@ const char* AssetLookup::String::names[] =
 	"prompt_gamejolt_token",
 	"prompt_gamejolt_username",
 	"prompt_interact",
+	"prompt_itch",
 	"prompt_name",
 	"prompt_options",
 	"prompt_region",

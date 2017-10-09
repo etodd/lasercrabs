@@ -304,6 +304,7 @@
 	"prompt_name": "Enter name:",
 	"prompt_gamejolt_username": "Enter GameJolt username:",
 	"prompt_gamejolt_token": "Enter GameJolt game token:",
+	"prompt_itch": "DECEIVER must be launched via the itch app. Download the itch app now?",
 
 	"zone_unavailable": "Zone unavailable",
 	"zone_unlocked": "Zone unlocked",

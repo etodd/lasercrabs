@@ -1,42 +1,42 @@
 [submodule "external/glew_src"]
 	path = external/glew_src
-	url = git@github.com:etodd/glew.git
+	url = https://github.com/etodd/glew.git
 [submodule "external/assimp"]
 	path = external/assimp
-	url = git@github.com:etodd/assimp.git
+	url = https://github.com/etodd/assimp.git
 [submodule "external/lodepng"]
 	path = external/lodepng
-	url = git@github.com:etodd/lodepng.git
+	url = https://github.com/etodd/lodepng.git
 [submodule "external/bullet"]
 	path = external/bullet
-	url = git@github.com:etodd/bullet3.git
+	url = https://github.com/etodd/bullet3.git
 [submodule "external/recast"]
 	path = external/recast
-	url = git@github.com:etodd/recastnavigation.git
+	url = https://github.com/etodd/recastnavigation.git
 [submodule "external/sdl"]
 	path = external/sdl
-	url = git@github.com:etodd/SDL-mirror.git
+	url = https://github.com/etodd/SDL-mirror.git
 [submodule "external/sdl_controllers"]
 	path = external/sdl_controllers
-	url = git@github.com:etodd/SDL_GameControllerDB.git
+	url = https://github.com/etodd/SDL_GameControllerDB.git
 [submodule "external/cjson"]
 	path = external/cjson
-	url = git@github.com:etodd/cJSON.git
+	url = https://github.com/etodd/cJSON.git
 [submodule "external/mersenne"]
 	path = external/mersenne
-	url = git@github.com:etodd/mersenne-twister.git
+	url = https://github.com/etodd/mersenne-twister.git
 [submodule "external/fastlz"]
 	path = external/fastlz
-	url = git@github.com:etodd/FastLZ.git
+	url = https://github.com/etodd/FastLZ.git
 [submodule "external/curl"]
 	path = external/curl
-	url = git@github.com:etodd/curl.git
+	url = https://github.com/etodd/curl.git
 [submodule "external/sqlite"]
 	path = external/sqlite
-	url = git@github.com:etodd/sqlite-amalgamation.git
+	url = https://github.com/etodd/sqlite-amalgamation.git
 [submodule "external/mongoose"]
 	path = external/mongoose
-	url = git@github.com:etodd/mongoose.git
+	url = https://github.com/etodd/mongoose.git
 [submodule "external/sha1"]
 	path = external/sha1
-	url = git@github.com:etodd/sha1.git
+	url = https://github.com/etodd/sha1.git

@@ -183,6 +183,7 @@ struct ServerConfig
 	b8 enable_minions = true;
 	b8 enable_batteries = true;
 	b8 enable_battery_stealth = true;
+	b8 enable_spawn_shields = true;
 	b8 is_private;
 
 	r32 time_limit() const
@@ -234,6 +235,7 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		serialize_bool(p, c->enable_minions);
 		serialize_bool(p, c->enable_batteries);
 		serialize_bool(p, c->enable_battery_stealth);
+		serialize_bool(p, c->enable_spawn_shields);
 		serialize_bool(p, c->is_private);
 	}
 	return true;

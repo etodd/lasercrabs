@@ -2665,7 +2665,7 @@ Entity* PlayerCommon::incoming_attacker() const
 	// check grenades
 	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team() != my_team)
+		if (i.item()->team() != my_team && i.item()->state != Grenade::State::Exploded)
 		{
 			Vec3 grenade_pos = i.item()->get<Transform>()->absolute_pos();
 			if ((grenade_pos - me).length_squared() < GRENADE_RANGE * GRENADE_RANGE)

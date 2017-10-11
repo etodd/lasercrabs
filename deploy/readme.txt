@@ -7,7 +7,7 @@ Master server
 4.  mkdir /root/deceiver && mkdir /root/deceiver/crash_dumps
 5.  Install deceivermaster in /root/deceiver
 6.  Install dashboard.html in /root/deceiver
-7.  Create /root/deceiver/config.txt and specify "itch_api_key", "gamejolt_api_key",
+7.  Create /root/deceiver/config.txt and specify "itch_api_key", "gamejolt_api_key", "secret",
     and "ca_path" (/etc/ssl/certs)
 8.  Install unit-status-mail.sh in /root
 9.  Install unit-status-mail@.service in /etc/systemd/system
@@ -29,7 +29,7 @@ Game server
 2.  apt-get install sendmail
 3.  mkdir /root/deceiver && mkdir /root/deceiver/air && mkdir /root/deceiver/rec
 4.  Install deceiversrv and assets in /root/deceiver
-5.  Create /root/deceiver/config.txt and specify "version", "public_ipv4",
+5.  Create /root/deceiver/config.txt and specify "version", "public_ipv4", "secret",
     "public_ipv6", "record", "region", and "framerate_limit"
 6.  Install unit-status-mail.sh in /root
 7.  Install unit-status-mail@.service in /etc/systemd/system

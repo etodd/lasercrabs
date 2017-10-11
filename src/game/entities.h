@@ -163,6 +163,7 @@ struct SpawnPoint : public ComponentType<SpawnPoint>
 	void awake() {}
 	void set_team(AI::Team);
 	SpawnPosition spawn_position() const;
+	Battery* battery() const;
 };
 
 struct Drone;
@@ -281,6 +282,7 @@ struct ForceField : public ComponentType<ForceField>
 	static ForceField* inside(AI::TeamMask, const Vec3&);
 	static ForceField* closest(AI::TeamMask, const Vec3&, r32*);
 	static u32 hash(AI::Team, const Vec3&);
+	static b8 can_spawn(AI::Team, const Vec3&);
 
 	enum Flags
 	{
@@ -474,6 +476,14 @@ struct GrenadeEntity : public Entity
 
 struct Grenade : public ComponentType<Grenade>
 {
+	enum class State
+	{
+		Inactive,
+		Active,
+		Exploded,
+		count,
+	};
+
 	static r32 particle_accumulator;
 	static void update_client_all(const Update&);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
@@ -481,7 +491,7 @@ struct Grenade : public ComponentType<Grenade>
 	Vec3 velocity;
 	r32 timer;
 	Ref<PlayerManager> owner;
-	b8 active;
+	State state;
 
 	void awake();
 

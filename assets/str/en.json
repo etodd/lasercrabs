@@ -216,6 +216,7 @@
 	"enable_minions": "Minions",
 	"enable_batteries": "Batteries",
 	"enable_battery_stealth": "Battery stealth",
+	"enable_spawn_shields": "Spawn force fields",
 	"max_players": "Max players",
 	"min_players": "Min players",
 	"player_count": "%d/%d players",

@@ -554,6 +554,7 @@ namespace Master
 		config->enable_minions = b8(Json::get_s32(json, "enable_minions", 1));
 		config->enable_batteries = b8(Json::get_s32(json, "enable_batteries", 1));
 		config->enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", 1));
+		config->enable_spawn_shields = b8(Json::get_s32(json, "enable_spawn_shields", 1));
 		config->drone_shield = s8(Json::get_s32(json, "drone_shield", DRONE_SHIELD_AMOUNT));
 		config->start_energy = s16(Json::get_s32(json, "start_energy"));
 		config->fill_bots = s8(Json::get_s32(json, "fill_bots"));
@@ -588,6 +589,7 @@ namespace Master
 		cJSON_AddNumberToObject(json, "enable_minions", config.enable_minions);
 		cJSON_AddNumberToObject(json, "enable_batteries", config.enable_batteries);
 		cJSON_AddNumberToObject(json, "enable_battery_stealth", config.enable_battery_stealth);
+		cJSON_AddNumberToObject(json, "enable_spawn_shields", config.enable_spawn_shields);
 		cJSON_AddNumberToObject(json, "drone_shield", config.drone_shield);
 		cJSON_AddNumberToObject(json, "start_energy", config.start_energy);
 		cJSON_AddNumberToObject(json, "fill_bots", config.fill_bots);
@@ -2153,14 +2155,6 @@ namespace Master
 			{
 				last_match = global_timestamp;
 
-				s32 idle_servers = 0;
-				for (s32 i = 0; i < global.servers.length; i++)
-				{
-					Node* server = node_for_hash(global.servers[i]);
-					if (server->state == Node::State::ServerIdle)
-						idle_servers++;
-				}
-
 				for (s32 i = 0; i < global.clients_waiting.length; i++)
 				{
 					Node* client = node_for_hash(global.clients_waiting[i]);
@@ -2173,7 +2167,7 @@ namespace Master
 							i--; // client has been removed from clients_waiting
 						}
 					}
-					else if (idle_servers > 0)
+					else
 					{
 						// allocate an idle server for this client
 						Node* idle_server = nullptr;
@@ -2189,7 +2183,6 @@ namespace Master
 
 						if (idle_server)
 						{
-							idle_servers--;
 							send_server_load(idle_server, client);
 							send_server_expect_client(idle_server, &client->client.user_key);
 							client_queue_join(idle_server, client);

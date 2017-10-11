@@ -661,6 +661,17 @@ void multiplayer_entry_edit_update(const Update& u)
 				}
 
 				{
+					// spawn shields
+					b8* enable_spawn_shields = &config->enable_spawn_shields;
+					delta = menu->slider_item(u, _(strings::enable_spawn_shields), _(*enable_spawn_shields ? strings::on : strings::off));
+					if (delta)
+					{
+						*enable_spawn_shields = !(*enable_spawn_shields);
+						data.multiplayer.active_server_dirty = true;
+					}
+				}
+
+				{
 					// allowed upgrades
 					sprintf(str, "%d", s32(Net::popcount(s16((1 << s32(Upgrade::count)) - 1) & config->allow_upgrades)));
 					if (menu->item(u, _(strings::allow_upgrades), str))
@@ -1336,7 +1347,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 		// column 1
 		{
-			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 9;
+			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 10;
 			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			if (details.state.level == AssetNull)
@@ -1438,6 +1449,13 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			text.text(0, _(strings::enable_battery_stealth));
 			text.draw(params, pos);
 			value.text(0, _(details.config.enable_battery_stealth ? strings::on : strings::off));
+			value.draw(params, pos + Vec2(panel_size.x, 0));
+			pos.y -= panel_size.y;
+
+			// spawn point force fields
+			text.text(0, _(strings::enable_spawn_shields));
+			text.draw(params, pos);
+			value.text(0, _(details.config.enable_spawn_shields ? strings::on : strings::off));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 

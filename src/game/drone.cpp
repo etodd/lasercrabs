@@ -1491,9 +1491,17 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	else
 	{
 		// build-type ability
-		return ray_callback.hit
+		if (ray_callback.hit
 			&& !ray_callback.entity->has<Target>()
-			&& !(ray_callback.entity->get<RigidBody>()->collision_group & DRONE_INACCESSIBLE_MASK);
+			&& !(ray_callback.entity->get<RigidBody>()->collision_group & DRONE_INACCESSIBLE_MASK))
+		{
+			if (a == Ability::ForceField)
+				return ForceField::can_spawn(get<AIAgent>()->team, ray_callback.pos);
+			else
+				return true;
+		}
+		else
+			return false;
 	}
 }
 
@@ -1995,7 +2003,7 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 						break;
 					}
 				}
-				random_range += PI / r32(REFLECTION_TRIES);
+				random_range = vi_min(PI, random_range + (1.5f * PI / r32(REFLECTION_TRIES)));
 			}
 		}
 	}
@@ -2931,26 +2939,32 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 	}
 
 	// check targets
-	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item() == get<Target>() // don't collide with self
-			|| i.item()->entity() == ignore // don't collide with ignored entity
-			|| (i.item()->has<Drone>() && UpgradeStation::drone_inside(i.item()->get<Drone>()))) // ignore drones inside upgrade stations
-			continue;
-
-		Vec3 p = target_position(entity(), state_frame, i.item());
-
-		Vec3 intersection;
-		if (LMath::ray_sphere_intersect(ray_start, ray_end, p, i.item()->radius(), &intersection))
+		AI::Team my_team = get<AIAgent>()->team;
+		for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 		{
-			result->hits.add(
+			if (i.item() == get<Target>() // don't collide with self
+				|| i.item()->entity() == ignore // don't collide with ignored entity
+				|| (i.item()->has<Drone>() && UpgradeStation::drone_inside(i.item()->get<Drone>())) // ignore drones inside upgrade stations
+				|| (i.item()->has<ForceField>() && i.item()->get<ForceField>()->team == my_team) // ignore friendly force fields
+				|| (i.item()->has<Minion>() && i.item()->get<AIAgent>()->team == my_team) // ignore friendly minions
+				|| (current_ability != Ability::Sniper && i.item()->has<Grenade>() && i.item()->get<Grenade>()->team() == my_team)) // ignore friendly grenades unless we're sniping them
+				continue;
+
+			Vec3 p = target_position(entity(), state_frame, i.item());
+
+			Vec3 intersection;
+			if (LMath::ray_sphere_intersect(ray_start, ray_end, p, i.item()->radius(), &intersection))
 			{
-				intersection,
-				Vec3::normalize(intersection - p),
-				(intersection - ray_start).length() / distance_total,
-				i.item()->entity(),
-				i.item()->has<Shield>() ? Hit::Type::Shield : Hit::Type::Target,
-			});
+				result->hits.add(
+				{
+					intersection,
+					Vec3::normalize(intersection - p),
+					(intersection - ray_start).length() / distance_total,
+					i.item()->entity(),
+					i.item()->has<Shield>() ? Hit::Type::Shield : Hit::Type::Target,
+				});
+			}
 		}
 	}
 

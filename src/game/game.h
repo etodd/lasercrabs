@@ -30,6 +30,8 @@ namespace VI
 		void add(const char*, Entity*);
 	};
 
+	struct ForceField;
+
 #if DEBUG
 #define DEBUG_AI_CONTROL 0
 #endif
@@ -136,6 +138,7 @@ struct Game
 		Ref<Entity> terminal;
 		Ref<Entity> terminal_interactable;
 		Ref<Entity> shop;
+		Ref<ForceField> core_force_field;
 		AI::Team team_lookup[MAX_TEAMS];
 		FeatureLevel feature_level;
 		Mode mode;

@@ -1754,6 +1754,7 @@ void Game::load_level(AssetID l, Mode m)
 				{
 					absolute_pos += absolute_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
 					entity = World::alloc<ForceFieldEntity>(nullptr, absolute_pos, absolute_rot, team, ForceField::Type::Permanent);
+					level.core_force_field = entity->get<ForceField>();
 				}
 			}
 		}
@@ -2173,6 +2174,22 @@ void Game::load_level(AssetID l, Mode m)
 	{
 		LevelLink<SpawnPoint>* link = &spawn_links[i];
 		*link->ref = level.finder.find(link->target_name)->get<SpawnPoint>();
+	}
+
+	if (level.mode == Mode::Pvp && session.config.enable_spawn_shields)
+	{
+		for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+		{
+			if (!i.item()->battery())
+			{
+				// this is some team's default spawn point; create a force field around it
+				Vec3 absolute_pos;
+				Quat absolute_rot;
+				i.item()->get<Transform>()->absolute(&absolute_pos, &absolute_rot);
+				absolute_pos += absolute_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
+				World::create<ForceFieldEntity>(nullptr, absolute_pos, absolute_rot, i.item()->team, ForceField::Type::Permanent);
+			}
+		}
 	}
 
 	for (s32 i = 0; i < entity_links.length; i++)

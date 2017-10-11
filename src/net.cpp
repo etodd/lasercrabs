@@ -645,7 +645,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		Grenade* g = e->get<Grenade>();
 		serialize_ref(p, g->owner);
-		serialize_bool(p, g->active);
+		serialize_enum(p, Grenade::State, g->state);
 	}
 
 	if (e->has<Battery>())
@@ -864,6 +864,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_enum(p, SessionType, Game::session.type);
 	serialize_bool(p, Game::level.post_pvp);
 	serialize_ref(p, Game::level.map_view);
+	serialize_ref(p, Game::level.core_force_field);
 	serialize_ref(p, Game::level.terminal);
 	serialize_ref(p, Game::level.terminal_interactable);
 	serialize_ref(p, Game::level.shop);

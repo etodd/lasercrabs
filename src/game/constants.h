@@ -1,6 +1,6 @@
 #pragma once
 
-#define RELEASE_BUILD 0
+#define RELEASE_BUILD 1
 
 #define MAX_PLAYERS 8
 
@@ -11,7 +11,7 @@
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 2
+#define GAME_VERSION 3
 
 #define MAX_USERNAME 79
 
@@ -114,7 +114,7 @@
 #define DRONE_COOLDOWN_THRESHOLD 1.0f
 #define DRONE_COOLDOWN_MAX 3.0f
 #define DRONE_LEGS 3
-#define DRONE_INVINCIBLE_TIME 1.5f
+#define DRONE_INVINCIBLE_TIME 2.0f
 #define DRONE_SNIPE_DISTANCE 100.0f
 #define DRONE_THIRD_PERSON_OFFSET 2.0f
 #define DRONE_SHIELD_RADIUS 0.6f
@@ -146,15 +146,15 @@
 #define GENERATOR_RADIUS 0.2f
 #define GENERATOR_HEALTH 4
 #define BATTERY_HEALTH 6
-#define GRENADE_HEALTH 6
+#define GRENADE_HEALTH 2
 
 #define FORCE_FIELD_HEALTH 30
-#define FORCE_FIELD_RADIUS 8.75f
+#define FORCE_FIELD_RADIUS 8.0f
 #define FORCE_FIELD_BASE_OFFSET 0.95f
 
 #define GRENADE_LAUNCH_SPEED 20.0f
 #define GRENADE_RADIUS 0.125f
-#define GRENADE_RANGE 15.0f
+#define GRENADE_RANGE 12.0f
 #define GRENADE_DELAY 2.0f
 
 #define BOLT_SPEED_MINION 15.0f

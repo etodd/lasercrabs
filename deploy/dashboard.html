@@ -4,9 +4,13 @@
 <title>Deceiver Dashboard</title>
 
 <style>
-html, body
+*
 {
 	box-sizing: border-box;
+}
+
+html, body
+{
 	background-color: #000;
 	color: #fff;
 	padding: 0px;
@@ -49,19 +53,26 @@ b, h1, h2, h3
 
 .container
 {
-	width: 45%;
 	padding: 1em;
 	background-color: #222;
 }
 
-#client_container
+@media screen and (min-width:980px)
 {
-	float: left;
-}
+	.container
+	{
+		width: 49%;
+	}
 
-#server_container
-{
-	float: right;
+	#client_container
+	{
+		float: right;
+	}
+
+	#server_container
+	{
+		float: left;
+	}
 }
 </style>
 
@@ -204,14 +215,14 @@ window.addEventListener('load', func.init, false);
 <form id="form">
 	<input type="text" id="sql" autocomplete="off" autofocus />
 </form>
-<div id="client_container" class="container">
-	<h3>Clients</h3>
-	<table id="clients">
-	</table>
-</div>
 <div id="server_container" class="container">
 	<h3>Servers</h3>
 	<table id="servers">
+	</table>
+</div>
+<div id="client_container" class="container">
+	<h3>Clients</h3>
+	<table id="clients">
 	</table>
 </div>
 </body>

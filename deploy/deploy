@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rsync $1/deceivermaster root@master.deceivergame.com:~/deceiver/
+rsync $1/deceivermaster $1/../deploy/dashboard.html root@master.deceivergame.com:~/deceiver/
 ssh root@master.deceivergame.com systemctl restart deceivermaster
 
 rsync -r $1/deceiversrv $1/assets root@useast1.deceivergame.com:~/deceiver/

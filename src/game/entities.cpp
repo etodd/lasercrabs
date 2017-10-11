@@ -863,6 +863,16 @@ void SpawnPoint::set_team(AI::Team t)
 	get<PointLight>()->team = s8(t);
 }
 
+Battery* SpawnPoint::battery() const
+{
+	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->spawn_point.ref() == this)
+			return i.item();
+	}
+	return nullptr;
+}
+
 SpawnPoint* SpawnPoint::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
 	SpawnPoint* closest = nullptr;
@@ -1539,11 +1549,7 @@ void Turret::killed(Entity* by)
 		if (list.count() <= 1)
 		{
 			// core is vulnerable; remove permanent ForceField protecting it
-			for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->flags & ForceField::FlagPermanent)
-					i.item()->destroy();
-			}
+			Game::level.core_force_field.ref()->destroy();
 		}
 
 		World::remove_deferred(entity());
@@ -1772,21 +1778,28 @@ ForceField::ForceField()
 
 void ForceField::awake()
 {
-	link_arg<const TargetEvent&, &ForceField::hit_by>(get<Target>()->target_hit);
 	link_arg<Entity*, &ForceField::killed>(get<Health>()->killed);
-	link_arg<const HealthEvent&, &ForceField::health_changed>(get<Health>()->changed);
-	get<Audio>()->post(AK::EVENTS::PLAY_FORCE_FIELD_LOOP);
-	if (Game::level.local)
-		obstacle_id = AI::obstacle_add(get<Transform>()->to_world(Vec3(0, 0, FORCE_FIELD_BASE_OFFSET * -0.5f)) + Vec3(0, FORCE_FIELD_BASE_OFFSET * -0.5f, 0), FORCE_FIELD_BASE_OFFSET * 0.5f, FORCE_FIELD_BASE_OFFSET);
+	if (!(flags & FlagPermanent))
+	{
+		link_arg<const TargetEvent&, &ForceField::hit_by>(get<Target>()->target_hit);
+		link_arg<const HealthEvent&, &ForceField::health_changed>(get<Health>()->changed);
+		get<Audio>()->post(AK::EVENTS::PLAY_FORCE_FIELD_LOOP);
+		if (Game::level.local)
+			obstacle_id = AI::obstacle_add(get<Transform>()->to_world(Vec3(0, 0, FORCE_FIELD_BASE_OFFSET * -0.5f)) + Vec3(0, FORCE_FIELD_BASE_OFFSET * -0.5f, 0), FORCE_FIELD_BASE_OFFSET * 0.5f, FORCE_FIELD_BASE_OFFSET);
+	}
 }
 
 ForceField::~ForceField()
 {
 	if (Game::level.local && collision.ref())
 		World::remove_deferred(collision.ref()->entity());
-	get<Audio>()->stop(AK::EVENTS::STOP_FORCE_FIELD_LOOP);
-	if (obstacle_id != u32(-1))
-		AI::obstacle_remove(obstacle_id);
+
+	if (!(flags & FlagPermanent))
+	{
+		get<Audio>()->stop(AK::EVENTS::STOP_FORCE_FIELD_LOOP);
+		if (obstacle_id != u32(-1))
+			AI::obstacle_remove(obstacle_id);
+	}
 }
 
 Vec3 ForceField::base_pos() const
@@ -1830,15 +1843,18 @@ void ForceField::killed(Entity* e)
 		PlayerManager::entity_killed_by(entity(), e);
 	}
 
-	if (Game::level.local)
+	if (!(flags & FlagPermanent))
 	{
-		Vec3 pos;
-		Quat rot;
-		get<Transform>()->absolute(&pos, &rot);
-		ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
-	}
+		if (Game::level.local)
+		{
+			Vec3 pos;
+			Quat rot;
+			get<Transform>()->absolute(&pos, &rot);
+			ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+		}
 
-	get<View>()->mask = 0;
+		get<View>()->mask = 0;
+	}
 	spawn_death_timer = FORCE_FIELD_ANIM_TIME;
 }
 
@@ -1881,15 +1897,18 @@ void ForceField::update_all(const Update& u)
 		particle_accumulator -= interval;
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+			if (!(i.item()->flags & FlagPermanent))
+			{
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 
-			// spawn particle effect
-			Particles::eased_particles.add
-			(
-				pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 2.0f),
-				pos,
-				0
-			);
+				// spawn particle effect
+				Particles::eased_particles.add
+				(
+					pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 2.0f),
+					pos,
+					0
+				);
+			}
 		}
 	}
 
@@ -1934,6 +1953,19 @@ void ForceField::destroy()
 	get<Health>()->kill(nullptr);
 }
 
+b8 ForceField::can_spawn(AI::Team team, const Vec3& abs_pos)
+{
+	// can't be near a permanent force field
+	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team == team
+			&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < FORCE_FIELD_RADIUS * 2.0f * FORCE_FIELD_RADIUS * 2.0f
+			&& (i.item()->flags & ForceField::FlagPermanent))
+			return false;
+	}
+	return true;
+}
+
 #define FORCE_FIELD_BASE_RADIUS 0.385f
 ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const Quat& abs_rot, AI::Team team, ForceField::Type type)
 {
@@ -1941,32 +1973,35 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 	transform->absolute(abs_pos, abs_rot);
 	transform->reparent(parent);
 
-	create<Audio>();
-
-	// destroy any overlapping friendly force field
-	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->team == team
-			&& !(i.item()->flags & ForceField::FlagPermanent)
-			&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < FORCE_FIELD_RADIUS * 2.0f * FORCE_FIELD_RADIUS * 2.0f)
-		{
-			i.item()->destroy();
-		}
-	}
-
-	View* model = create<View>();
-	model->team = team;
-	model->mesh = Asset::Mesh::force_field_base;
-	model->shader = Asset::Shader::standard;
-
-	create<Target>();
 	create<Health>(FORCE_FIELD_HEALTH, FORCE_FIELD_HEALTH);
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(FORCE_FIELD_BASE_RADIUS), 0.0f, CollisionTarget, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionElectric);
 
 	ForceField* field = create<ForceField>();
 	field->team = team;
 	if (type == ForceField::Type::Permanent)
 		field->flags |= ForceField::FlagPermanent;
+	else
+	{
+		// normal (non-permanent) force field
+		create<Audio>();
+
+		// destroy any overlapping friendly force field
+		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->team == team
+				&& i.item() != field
+				&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < FORCE_FIELD_RADIUS * 2.0f * FORCE_FIELD_RADIUS * 2.0f
+				&& !(i.item()->flags & ForceField::FlagPermanent))
+				i.item()->destroy();
+		}
+
+		View* model = create<View>();
+		model->team = team;
+		model->mesh = Asset::Mesh::force_field_base;
+		model->shader = Asset::Shader::standard;
+
+		create<Target>();
+		create<Shield>();
+	}
 
 	// collision
 	Entity* f = World::create<Empty>();
@@ -2124,7 +2159,9 @@ b8 Bolt::visible() const
 
 b8 Bolt::default_raycast_filter(Entity* e, AI::Team team)
 {
-	return !e->has<AIAgent>() || e->get<AIAgent>()->team != team;
+	return (!e->has<AIAgent>() || e->get<AIAgent>()->team != team) // ignore friendlies
+		&& (!e->has<Drone>() || !UpgradeStation::drone_inside(e->get<Drone>()) // ignore drones inside upgrade stations
+		&& (!e->has<ForceField>() || e->get<ForceField>()->team != team)); // ignore friendly force fields
 }
 
 b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, AI::Team team, Hit* out_hit, b8(*filter)(Entity*, AI::Team), Net::StateFrame* state_frame)
@@ -2846,7 +2883,10 @@ b8 Grenade::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	if (ref.ref())
 	{
 		ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_ARM);
-		ref.ref()->active = true;
+		State state;
+		serialize_enum(p, State, state);
+		ref.ref()->state = state;
+		ref.ref()->get<View>()->mask = (state == State::Exploded) ? 0 : RENDER_MASK_DEFAULT;
 	}
 
 	return true;
@@ -2854,7 +2894,7 @@ b8 Grenade::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 namespace GrenadeNet
 {
-	b8 send_activate(Grenade* g)
+	b8 send_state_change(Grenade* g, Grenade::State s)
 	{
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Grenade);
@@ -2862,6 +2902,7 @@ namespace GrenadeNet
 			Ref<Grenade> ref = g;
 			serialize_ref(p, ref);
 		}
+		serialize_enum(p, Grenade::State, s);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -2879,8 +2920,8 @@ b8 grenade_trigger_filter(Entity* e, AI::Team team)
 
 b8 grenade_hit_filter(Entity* e, AI::Team team)
 {
-	return grenade_trigger_filter(e, team)
-		|| (e->has<AIAgent>() && e->get<AIAgent>()->team != team); // don't care if the AIAgent is stealthed or not
+	return (grenade_trigger_filter(e, team) || (e->has<AIAgent>() && e->get<AIAgent>()->team != team)) // don't care if the AIAgent is stealthed or not
+		&& (!e->has<Drone>() || !UpgradeStation::drone_inside(e->get<Drone>())); // can't hit drones inside upgrade stations
 }
 
 // returns true if grenade hits something
@@ -2927,7 +2968,7 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, Net::StateFrame* state_frame)
 		t->pos = next_pos;
 	}
 
-	if (!state_frame && active && timer > GRENADE_DELAY)
+	if (!state_frame && state == State::Active && timer > GRENADE_DELAY)
 		explode();
 
 	return false;
@@ -2939,7 +2980,7 @@ void Grenade::hit_entity(const Bolt::Hit& hit)
 		explode();
 	else
 	{
-		if (active)
+		if (state == State::Active)
 		{
 			// attach
 			velocity = Vec3::zero;
@@ -2950,7 +2991,7 @@ void Grenade::hit_entity(const Bolt::Hit& hit)
 		{
 			// bounce
 			velocity = velocity.reflect(hit.normal) * 0.5f;
-			GrenadeNet::send_activate(this);
+			GrenadeNet::send_state_change(this, State::Active);
 		}
 	}
 }
@@ -2958,6 +2999,12 @@ void Grenade::hit_entity(const Bolt::Hit& hit)
 void Grenade::explode()
 {
 	vi_assert(Game::level.local);
+	vi_assert(state != State::Exploded);
+
+	GrenadeNet::send_state_change(this, State::Exploded);
+
+	timer = 0.0f; // stick around for a bit after exploding to make sure damage gets counted properly
+
 	Vec3 me = get<Transform>()->absolute_pos();
 	ParticleEffect::spawn(ParticleEffect::Type::Grenade, me, Quat::look(Vec3(0, 1, 0))); // also handles physics impulses
 
@@ -2978,12 +3025,12 @@ void Grenade::explode()
 
 				if (i.item()->has<Drone>())
 				{
-					r32 multiplier = i.item()->get<AIAgent>()->team == my_team ? 0.5f : 1.0f;
-					if (distance < multiplier * GRENADE_RANGE * 0.75f)
+					distance *= (i.item()->get<AIAgent>()->team == my_team) ? 2.0f : 1.0f;
+					if (distance < GRENADE_RANGE * 0.75f)
 						i.item()->damage(entity(), 3);
-					else if (distance < multiplier * GRENADE_RANGE * 0.85f)
+					else if (distance < GRENADE_RANGE * 0.85f)
 						i.item()->damage(entity(), 2);
-					else if (distance < multiplier * GRENADE_RANGE)
+					else if (distance < GRENADE_RANGE)
 						i.item()->damage(entity(), 1);
 				}
 				else if (distance < GRENADE_RANGE && (!i.item()->has<Battery>() || i.item()->get<Battery>()->team != my_team))
@@ -2991,8 +3038,6 @@ void Grenade::explode()
 			}
 		}
 	}
-
-	World::remove_deferred(entity());
 }
 
 void Grenade::set_owner(PlayerManager* m)
@@ -3001,7 +3046,7 @@ void Grenade::set_owner(PlayerManager* m)
 	owner = m;
 	get<View>()->team = m ? s8(m->team.ref()->team()) : AI::TeamNone;
 	if (!m)
-		active = false;
+		state = State::Inactive;
 }
 
 AI::Team Grenade::team() const
@@ -3020,25 +3065,37 @@ void Grenade::update_client_all(const Update& u)
 		particle_accumulator -= interval;
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			Transform* t = i.item()->get<Transform>();
-			if (t->parent.ref())
+			if (i.item()->state != State::Exploded)
 			{
-				View* v = i.item()->get<View>();
-				if (v->mesh != Asset::Mesh::grenade_attached)
+				Transform* t = i.item()->get<Transform>();
+				if (t->parent.ref())
 				{
-					v->mesh = Asset::Mesh::grenade_attached;
-					i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_ATTACH);
-					i.item()->get<PointLight>()->radius = 0.0f;
+					View* v = i.item()->get<View>();
+					if (v->mesh != Asset::Mesh::grenade_attached)
+					{
+						v->mesh = Asset::Mesh::grenade_attached;
+						i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_ATTACH);
+						i.item()->get<PointLight>()->radius = 0.0f;
+					}
 				}
+				else
+					Particles::tracers.add(t->absolute_pos(), Vec3::zero, 0);
 			}
-			else
-				Particles::tracers.add(t->absolute_pos(), Vec3::zero, 0);
 		}
 	}
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->active)
+		if (i.item()->state == State::Exploded)
+		{
+			if (Game::level.local)
+			{
+				i.item()->timer += u.time.delta;
+				if (i.item()->timer > NET_MAX_RTT_COMPENSATION * 2.0f)
+					World::remove(i.item()->entity());
+			}
+		}
+		else if (i.item()->state == State::Active)
 		{
 			Vec3 me = i.item()->get<Transform>()->absolute_pos();
 			AI::Team my_team = i.item()->team();
@@ -3087,18 +3144,17 @@ void Grenade::awake()
 
 void Grenade::hit_by(const TargetEvent& e)
 {
-	get<Health>()->kill(e.hit_by);
+	if (state != State::Exploded)
+		get<Health>()->kill(e.hit_by);
 }
 
 void Grenade::killed_by(Entity* e)
 {
-	PlayerManager::entity_killed_by(entity(), e);
-	if (Game::level.local)
+	if (state != State::Exploded)
 	{
-		if (e->has<Grenade>())
+		PlayerManager::entity_killed_by(entity(), e);
+		if (Game::level.local)
 			explode();
-		else
-			World::remove_deferred(entity());
 	}
 }
 

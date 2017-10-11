@@ -193,7 +193,7 @@ namespace VI
 				{
 					std::stringstream url;
 #if RELEASE_BUILD
-					url << "https://[" << Settings::master_server << "]/crash_dump";
+					url << "https://" << Settings::master_server << "/crash_dump";
 #else
 					url << "http://[" << Settings::master_server << "]:" << NET_MASTER_HTTP_PORT << "/crash_dump";
 #endif

@@ -312,7 +312,7 @@ void Game::update(const Update& update_in)
 	real_time = update_in.time;
 	time.delta = update_in.time.delta * session.effective_time_scale();
 
-#if DEBUG
+#if !RELEASE_BUILD
 	View::debug_entries.length = 0;
 #endif
 

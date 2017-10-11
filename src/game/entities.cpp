@@ -2160,8 +2160,8 @@ b8 Bolt::visible() const
 b8 Bolt::default_raycast_filter(Entity* e, AI::Team team)
 {
 	return (!e->has<AIAgent>() || e->get<AIAgent>()->team != team) // ignore friendlies
-		&& (!e->has<Drone>() || !UpgradeStation::drone_inside(e->get<Drone>()) // ignore drones inside upgrade stations
-		&& (!e->has<ForceField>() || e->get<ForceField>()->team != team)); // ignore friendly force fields
+		&& (!e->has<Drone>() || !UpgradeStation::drone_inside(e->get<Drone>())) // ignore drones inside upgrade stations
+		&& (!e->has<ForceField>() || e->get<ForceField>()->team != team); // ignore friendly force fields
 }
 
 b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, AI::Team team, Hit* out_hit, b8(*filter)(Entity*, AI::Team), Net::StateFrame* state_frame)

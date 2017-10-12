@@ -2,27 +2,49 @@
 set -e
 set -o pipefail
 
-blender=0
-if which blender >/dev/null; then
-	blender_version="$(blender --version)"
-	blender_version_extracted="${blender_version:8:4}"
-	if (( $(echo "$blender_version_extracted > 2.75" | bc -l) )); then
-		blender=1
-		echo "Good news, Blender is set up correctly on the path!"
-	fi
-fi
+_info () {
+	echo "INFO: ${1}"
+}
 
-if [ $blender -eq 0 ]; then
-	echo "Please install Blender 2.75 or higher and make sure it is available on the path."
+_error () {
+	echo "ERROR: ${1}"
 	exit 1
-fi
+}
 
-git submodule update --init --recursive
-mkdir -p build
-cd build
-export CC=/usr/bin/clang
-export CXX=/usr/bin/clang++
-cmake .. -DCMAKE_BUILD_TYPE=Debug -DSERVER=1 -DCLIENT=1
-cpu_count=`cat /proc/cpuinfo | grep -i 'processor' | wc -l`
-echo "Building with "$cpu_count" jobs"
-make -j$cpu_count
+_check_blender () {
+
+	_BLENDER_VERSION_REQUIRED="2.75"
+
+	if which blender >/dev/null; then
+		local _BLENDER_VERSION_INSTALLED=$(blender --version |awk 'NR==1{print $2}')
+
+		if (( $(echo "${_BLENDER_VERSION_INSTALLED} < ${_BLENDER_VERSION_REQUIRED}" | bc -l) )); then
+			_error "Blender is installed but the version is too old (${_BLENDER_VERSION_INSTALLED}). Please install version ${_BLENDER_VERSION_REQUIRED} or newer."
+		fi
+	else
+		_error "Blender is not installed"
+	fi
+}
+
+_pull_submodules () {
+	git submodule update --init --recursive
+}
+
+_build () {
+	local _CPU_COUNT=$(nproc)
+
+	mkdir -p build && cd build
+
+	CC=/usr/bin/clang CXX=/usr/bin/clang++ cmake ../ -DCMAKE_BUILD_TYPE=Release -DSERVER=1 -DCLIENT=1
+
+	echo "Building with ${_CPU_COUNT} jobs"
+	make -j${_CPU_COUNT}
+}
+
+_main () {
+	_pull_submodules
+	_check_blender
+	_build
+}
+
+_main

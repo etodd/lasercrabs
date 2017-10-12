@@ -278,7 +278,7 @@ void Game::init(LoopSync* sync)
 void Game::auth_failed()
 {
 	if (auth_type == Net::Master::AuthType::GameJolt)
-		Scripts::Docks::prompt_gamejolt();
+		Scripts::Docks::gamejolt_prompt();
 	else
 		Menu::dialog(0, &Menu::dialog_no_action, _(strings::auth_failed_permanently));
 }

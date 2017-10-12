@@ -409,6 +409,17 @@ void clear()
 	}
 }
 
+void dialog_clear(s8 gamepad)
+{
+	if (gamepad == 0)
+	{
+		dialog_text_callback = nullptr;
+		dialog_text_cancel_callback = nullptr;
+	}
+	dialog_callback[gamepad] = nullptr;
+	dialog_cancel_callback[gamepad] = nullptr;
+}
+
 void exit(s8 gamepad)
 {
 	Game::quit = true;
@@ -437,7 +448,7 @@ void title_menu(const Update& u, Camera* camera)
 				main_menu.start(u, 0);
 				b8 story_disabled;
 #if RELEASE_BUILD
-				story_disabled = false;
+				story_disabled = true;
 #else
 				story_disabled = false;
 #endif

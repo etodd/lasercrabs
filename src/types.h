@@ -148,6 +148,7 @@ namespace Net
 			Itch,
 			Steam,
 			GameJolt,
+			ItchOAuth,
 			count,
 		};
 

@@ -145,6 +145,7 @@ void dialog_no_action(s8);
 void dialog_text_cancel_no_action();
 void dialog_text(DialogTextCallback, const char*, s32, const char*, ...);
 void dialog_text_with_cancel(DialogTextCallback, DialogTextCancelCallback, const char*, s32, const char*, ...);
+void dialog_clear(s8);
 void draw_letterbox(const RenderParams&, r32, r32);
 b8 dialog_active(s8);
 AssetID region_string(Region);

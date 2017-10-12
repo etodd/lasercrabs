@@ -1,4 +1,10 @@
+#if !SERVER
+#include "mongoose/mongoose.h"
+#endif
+#undef sleep // ugh
+
 #include "scripts.h"
+#include "net.h"
 #include "mersenne/mersenne-twister.h"
 #include "entities.h"
 #include "common.h"
@@ -8,7 +14,6 @@
 #include <unordered_map>
 #include <string>
 #include "minion.h"
-#include "net.h"
 #include "team.h"
 #include "asset/level.h"
 #include "asset/armature.h"
@@ -30,9 +35,6 @@
 #include "data/animator.h"
 #include "input.h"
 #include "ease.h"
-#if !SERVER
-#include "mongoose/mongoose.h"
-#endif
 
 namespace VI
 {
@@ -550,6 +552,11 @@ namespace Docks
 
 	void cleanup()
 	{
+#if !SERVER
+		if (data->mg_conn_ipv4 || data->mg_conn_ipv6)
+			mg_mgr_free(&data->mg_mgr);
+#endif
+
 		delete data;
 		data = nullptr;
 	}
@@ -642,8 +649,160 @@ namespace Docks
 		}
 	}
 
+#if SERVER
+	void gamejolt_prompt() { }
+#else
+	void gamejolt_token_callback(const TextField& text_field)
+	{
+		strncpy(Settings::gamejolt_token, text_field.value.data, MAX_AUTH_KEY);
+		Net::Client::master_send_auth();
+	}
+
+	void gamejolt_username_callback(const TextField& text_field)
+	{
+		strncpy(Settings::gamejolt_username, text_field.value.data, MAX_PATH_LENGTH);
+		Menu::dialog_text(&gamejolt_token_callback, "", MAX_AUTH_KEY, _(strings::prompt_gamejolt_token));
+	}
+
+	void gamejolt_prompt()
+	{
+		Menu::dialog_text(&gamejolt_username_callback, "", MAX_PATH_LENGTH, _(strings::prompt_gamejolt_username));
+	}
+
+	void itch_handle_oauth(mg_connection* conn, int ev, void* ev_data)
+	{
+		if (ev == MG_EV_HTTP_REQUEST)
+		{
+			// GET
+			http_message* msg = (http_message*)(ev_data);
+
+			mg_printf
+			(
+				conn, "%s",
+				"HTTP/1.1 200 OK\r\n"
+				"Content-Type: text/html\r\n"
+				"\r\n"
+				"<html>"
+				"<head><title>Deceiver</title>"
+				"<style>"
+				"* { box-sizing: border-box; }"
+				"body { background-color: #000; color: #fff; font-family: sans-serif; font-size: x-large; font-weight: bold; }"
+				"img { display: block; margin-left: auto; margin-right: auto; width: 100%; max-width: 980px; padding: 3em; padding-bottom: 0px; }"
+				"p { display: block; text-align: center; padding: 3em; }"
+				"</style>"
+				"</head>"
+				"<body>"
+				"<img src=\"http://deceivergame.com/public/header-backdrop.svg\" />"
+				"<p id=\"msg\">Logging in...</p>"
+				"<script>"
+				"var data = new FormData();"
+				"data.append('access_token', window.location.hash.substr(window.location.hash.indexOf('=') + 1));"
+				"var ajax = new XMLHttpRequest();"
+				"var $msg = document.getElementById('msg');"
+				"function msg_error()"
+				"{"
+				"	$msg.innerHTML = 'Login failed! Please try again.';"
+				"}"
+				"ajax.addEventListener('load', function()"
+				"{"
+				"	if (this.status === 200)"
+				"		$msg.innerHTML = 'Login successful! You can close this window and return to the game.';"
+				"	else"
+				"		msg_error();"
+				"});"
+				"ajax.addEventListener('error', msg_error);"
+				"ajax.open('POST', '/auth', true);"
+				"ajax.send(data);"
+				"</script>"
+				"</body>"
+				"</html>"
+			);
+			conn->flags |= MG_F_SEND_AND_CLOSE;
+		}
+		else if (ev == MG_EV_HTTP_PART_DATA)
+		{
+			// POST
+			mg_http_multipart_part* part = (mg_http_multipart_part*)(ev_data);
+			if (strcmp(part->var_name, "access_token") == 0 && part->data.len <= MAX_AUTH_KEY)
+			{
+				// got the access token
+				strncpy(Settings::itch_api_key, part->data.p, part->data.len);
+				Loader::settings_save();
+				strncpy(Game::auth_key, part->data.p, part->data.len);
+				Menu::dialog_clear(0);
+				Net::Client::master_send_auth();
+
+				mg_printf
+				(
+					conn, "%s",
+					"HTTP/1.1 200 OK\r\n"
+					"Content-Type: text/html\r\n"
+					"\r\n"
+				);
+				conn->flags |= MG_F_SEND_AND_CLOSE;
+			}
+			else
+			{
+				mg_printf
+				(
+					conn, "%s",
+					"HTTP/1.1 400 Bad Request\r\n"
+					"Content-Type: text/html\r\n"
+					"\r\n"
+				);
+				conn->flags |= MG_F_SEND_AND_CLOSE;
+			}
+		}
+	}
+
+	void itch_redirect(s8)
+	{
+		Menu::open_url("https://itch.io/user/oauth?client_id=96b70c5d535c7101941dcbb0648ca2e3&scope=profile%3Ame&response_type=token&redirect_uri=http%3A%2F%2Flocalhost%3A3499%2Fauth");
+	}
+
+	void itch_prompt()
+	{
+		Menu::dialog(0, &itch_redirect, _(strings::prompt_itch));
+	}
+
+	void itch_register_endpoints(mg_connection* conn)
+	{
+		mg_register_http_endpoint(conn, "/auth", itch_handle_oauth);
+	}
+
+	void itch_ev_handler(mg_connection* conn, int ev, void* ev_data)
+	{
+		switch (ev)
+		{
+			case MG_EV_HTTP_REQUEST:
+			{
+				mg_printf
+				(
+					conn, "%s",
+					"HTTP/1.1 403 Forbidden\r\n"
+					"Content-Type: text/html\r\n"
+					"Transfer-Encoding: chunked\r\n"
+					"\r\n"
+				);
+				mg_printf_http_chunk(conn, "%s", "Forbidden");
+				mg_send_http_chunk(conn, "", 0);
+				break;
+			}
+		}
+	}
+#endif
+
 	void update_title(const Update& u)
 	{
+#if !SERVER
+		if (data->mg_conn_ipv4 || data->mg_conn_ipv6)
+		{
+			mg_mgr_poll(&data->mg_mgr, 0);
+			if (!Game::auth_key[0] && !Menu::dialog_active(0))
+				itch_prompt();
+		}
+#endif
+
 		if (data->camera.ref())
 		{
 			Vec3 head_pos = Vec3::zero;
@@ -761,71 +920,6 @@ namespace Docks
 		data->ivory_ad_text.ref()->rot *= Quat::euler(0, u.time.delta * 0.2f, 0);
 	}
 
-#if SERVER
-	void prompt_gamejolt() { }
-#else
-	void gamejolt_token_callback(const TextField& text_field)
-	{
-		strncpy(Settings::gamejolt_token, text_field.value.data, MAX_AUTH_KEY);
-		Net::Client::master_send_auth();
-	}
-
-	void gamejolt_username_callback(const TextField& text_field)
-	{
-		strncpy(Settings::gamejolt_username, text_field.value.data, MAX_PATH_LENGTH);
-		Menu::dialog_text(&gamejolt_token_callback, "", MAX_AUTH_KEY, _(strings::prompt_gamejolt_token));
-	}
-
-	void prompt_gamejolt()
-	{
-		Menu::dialog_text(&gamejolt_username_callback, "", MAX_PATH_LENGTH, _(strings::prompt_gamejolt_username));
-	}
-
-	void itch_handle_oauth(mg_connection* conn, int ev, void* ev_data)
-	{
-		if (ev == MG_EV_HTTP_REQUEST)
-		{
-			// GET
-			http_message* msg = (http_message*)(ev_data);
-
-			mg_printf
-			(
-				conn, "%s",
-				"HTTP/1.1 200 OK\r\n"
-				"Content-Type: text/html\r\n"
-				"\r\n"
-			);
-			conn->flags |= MG_F_SEND_AND_CLOSE;
-		}
-	}
-
-	void itch_register_endpoints(mg_connection* conn)
-	{
-		mg_register_http_endpoint(conn, "/auth", itch_handle_oauth);
-	}
-
-	void itch_ev_handler(mg_connection* conn, int ev, void* ev_data)
-	{
-		switch (ev)
-		{
-			case MG_EV_HTTP_REQUEST:
-			{
-				mg_printf
-				(
-					conn, "%s",
-					"HTTP/1.1 403 Forbidden\r\n"
-					"Content-Type: text/html\r\n"
-					"Transfer-Encoding: chunked\r\n"
-					"\r\n"
-				);
-				mg_printf_http_chunk(conn, "%s", "Forbidden");
-				mg_send_http_chunk(conn, "", 0);
-				break;
-			}
-		}
-	}
-#endif
-
 	void init(const EntityFinder& entities)
 	{
 		vi_assert(!data);
@@ -843,7 +937,7 @@ namespace Docks
 					if (Settings::gamejolt_username[0])
 						Net::Client::master_send_auth();
 					else
-						prompt_gamejolt();
+						gamejolt_prompt();
 					break;
 				}
 				case Net::Master::AuthType::Itch:
@@ -852,6 +946,8 @@ namespace Docks
 						Net::Client::master_send_auth();
 					else // launched standalone
 					{
+						Game::auth_type = Net::Master::AuthType::ItchOAuth;
+
 						if (Settings::itch_api_key[0]) // already got an OAuth token
 						{
 							strncpy(Game::auth_key, Settings::itch_api_key, MAX_AUTH_KEY);

@@ -1635,13 +1635,15 @@ namespace Master
 						itch_auth_result(addr.hash(), false, 0, nullptr); // failed
 						break;
 					case AuthType::Itch:
+					case AuthType::ItchOAuth:
 					{
 						u64 hash = node->addr.hash();
 						if (!Http::request_for_user_data(hash)) // make sure we're not already trying to authenticate this user
 						{
 							char header[MAX_PATH_LENGTH + 1] = {};
-							snprintf(header, MAX_PATH_LENGTH, "Authorization: %s", escaped_auth_key);
-							Http::get("https://itch.io/api/1/jwt/me", &itch_auth_callback, header, hash);
+							snprintf(header, MAX_PATH_LENGTH, "Authorization: Bearer %s", escaped_auth_key);
+							const char* url = auth_type == AuthType::Itch ? "https://itch.io/api/1/jwt/me" : "https://itch.io/api/1/key/me";
+							Http::get(url, &itch_auth_callback, header, hash);
 						}
 						break;
 					}

@@ -28,7 +28,7 @@ namespace Scripts
 namespace Docks
 {
 	void play();
-	void prompt_gamejolt();
+	void gamejolt_prompt();
 }
 
 }

@@ -2271,7 +2271,7 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 	if (ev == MG_EV_HTTP_REQUEST)
 	{
 		// GET
-		http_message* msg = (http_message*)ev_data;
+		http_message* msg = (http_message*)(ev_data);
 
 		if (!auth(conn, msg))
 			return;

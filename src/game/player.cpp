@@ -1316,14 +1316,19 @@ void PlayerHuman::update_late(const Update& u)
 			Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
 		else
 		{
-			// either we're alive, or we're spectating someone
-			// make sure the listener is in a valid place
-			btCollisionWorld::ClosestRayResultCallback ray_callback(camera_center, camera.ref()->pos);
-			Physics::raycast(&ray_callback, CollisionAudio);
-			if (ray_callback.hasHit())
-				Audio::listener_update(gamepad, ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * DRONE_RADIUS, camera.ref()->rot);
-			else
+			if (Game::level.mode == Game::Mode::Parkour)
 				Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
+			else
+			{
+				// either we're alive, or we're spectating someone
+				// make sure the listener is in a valid place
+				btCollisionWorld::ClosestRayResultCallback ray_callback(camera_center, camera.ref()->pos);
+				Physics::raycast(&ray_callback, CollisionAudio);
+				if (ray_callback.hasHit())
+					Audio::listener_update(gamepad, ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * DRONE_RADIUS, camera.ref()->rot);
+				else
+					Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
+			}
 		}
 	}
 

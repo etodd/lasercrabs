@@ -36,11 +36,11 @@ namespace Settings
 #if SERVER
 	extern u64 secret;
 	extern u16 port;
-	extern char itch_api_key[MAX_AUTH_KEY + 1];
 	extern char public_ipv4[NET_MAX_ADDRESS];
 	extern char public_ipv6[NET_MAX_ADDRESS];
 	extern char gamejolt_api_key[MAX_AUTH_KEY + 1];
 #endif
+	extern char itch_api_key[MAX_AUTH_KEY + 1];
 	extern char master_server[MAX_PATH_LENGTH + 1];
 	extern char username[MAX_USERNAME + 1];
 	extern char gamejolt_username[MAX_PATH_LENGTH + 1];

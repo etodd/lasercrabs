@@ -30,6 +30,9 @@
 #include "data/animator.h"
 #include "input.h"
 #include "ease.h"
+#if !SERVER
+#include "mongoose/mongoose.h"
+#endif
 
 namespace VI
 {
@@ -524,10 +527,14 @@ namespace Docks
 
 	struct Data
 	{
+#if !SERVER
+		mg_mgr mg_mgr;
+		mg_connection* mg_conn_ipv4;
+		mg_connection* mg_conn_ipv6;
+#endif
+
 		Ref<Camera> camera;
 		Actor::Instance* dada;
-		Quat barge_base_rot;
-		Vec3 barge_base_pos;
 		Vec3 camera_start_pos;
 		r32 transition_timer;
 		Ref<Animator> character;
@@ -535,7 +542,6 @@ namespace Docks
 		Ref<Actor::Instance> ivory_ad_actor;
 		Ref<Actor::Instance> hobo_actor;
 		Ref<Entity> hobo;
-		Ref<Transform> barge;
 		TutorialState state;
 		b8 dada_talked;
 	};
@@ -751,18 +757,12 @@ namespace Docks
 
 	void update(const Update& u)
 	{
-		// bob the barge
-		r32 t = u.time.total * (1.0f / 5.0f);
-		data->barge.ref()->absolute_pos(data->barge_base_pos + Vec3(0, sinf(t) * 0.2f, 0));
-		data->barge.ref()->absolute_rot(data->barge_base_rot * Quat::euler(cosf(t) * 0.02f, 0, 0));
-
 		// ivory ad text
 		data->ivory_ad_text.ref()->rot *= Quat::euler(0, u.time.delta * 0.2f, 0);
 	}
 
 #if SERVER
 	void prompt_gamejolt() { }
-	void prompt_itch() { }
 #else
 	void gamejolt_token_callback(const TextField& text_field)
 	{
@@ -781,19 +781,48 @@ namespace Docks
 		Menu::dialog_text(&gamejolt_username_callback, "", MAX_PATH_LENGTH, _(strings::prompt_gamejolt_username));
 	}
 
-	void itch_app_show(s8)
+	void itch_handle_oauth(mg_connection* conn, int ev, void* ev_data)
 	{
-		Menu::open_url("https://itch.io/app");
+		if (ev == MG_EV_HTTP_REQUEST)
+		{
+			// GET
+			http_message* msg = (http_message*)(ev_data);
+
+			mg_printf
+			(
+				conn, "%s",
+				"HTTP/1.1 200 OK\r\n"
+				"Content-Type: text/html\r\n"
+				"\r\n"
+			);
+			conn->flags |= MG_F_SEND_AND_CLOSE;
+		}
 	}
 
-	void itch_app_cancel(s8 gamepad)
+	void itch_register_endpoints(mg_connection* conn)
 	{
-		Menu::exit(gamepad);
+		mg_register_http_endpoint(conn, "/auth", itch_handle_oauth);
 	}
 
-	void prompt_itch()
+	void itch_ev_handler(mg_connection* conn, int ev, void* ev_data)
 	{
-		Menu::dialog_with_cancel(0, &itch_app_show, &itch_app_cancel, _(strings::prompt_itch));
+		switch (ev)
+		{
+			case MG_EV_HTTP_REQUEST:
+			{
+				mg_printf
+				(
+					conn, "%s",
+					"HTTP/1.1 403 Forbidden\r\n"
+					"Content-Type: text/html\r\n"
+					"Transfer-Encoding: chunked\r\n"
+					"\r\n"
+				);
+				mg_printf_http_chunk(conn, "%s", "Forbidden");
+				mg_send_http_chunk(conn, "", 0);
+				break;
+			}
+		}
 	}
 #endif
 
@@ -819,11 +848,48 @@ namespace Docks
 				}
 				case Net::Master::AuthType::Itch:
 				{
-					// check if we already have the username and token
-					if (Game::auth_key[0])
+					if (Game::auth_key[0]) // launched from itch app
 						Net::Client::master_send_auth();
-					else
-						prompt_itch();
+					else // launched standalone
+					{
+						if (Settings::itch_api_key[0]) // already got an OAuth token
+						{
+							strncpy(Game::auth_key, Settings::itch_api_key, MAX_AUTH_KEY);
+							Net::Client::master_send_auth();
+						}
+						else
+						{
+							// get an OAuth token
+
+							// launch server
+
+							mg_mgr_init(&data->mg_mgr, nullptr);
+							{
+								char addr[32];
+								sprintf(addr, "127.0.0.1:%d", NET_OAUTH_PORT);
+								data->mg_conn_ipv4 = mg_bind(&data->mg_mgr, addr, itch_ev_handler);
+
+								sprintf(addr, "[::1]:%d", NET_OAUTH_PORT);
+								data->mg_conn_ipv6 = mg_bind(&data->mg_mgr, addr, itch_ev_handler);
+							}
+
+							if (data->mg_conn_ipv4)
+							{
+								mg_set_protocol_http_websocket(data->mg_conn_ipv4);
+								itch_register_endpoints(data->mg_conn_ipv4);
+								printf("Bound to 127.0.0.1:%d\n", NET_OAUTH_PORT);
+							}
+
+							if (data->mg_conn_ipv6)
+							{
+								mg_set_protocol_http_websocket(data->mg_conn_ipv6);
+								itch_register_endpoints(data->mg_conn_ipv6);
+								printf("Bound to [::1]:%d\n", NET_OAUTH_PORT);
+							}
+
+							vi_assert(data->mg_conn_ipv4 || data->mg_conn_ipv6);
+						}
+					}
 					break;
 				}
 				case Net::Master::AuthType::Steam:
@@ -895,9 +961,6 @@ namespace Docks
 		data->ivory_ad_actor = Actor::add(entities.find("ivory_ad"));
 		data->ivory_ad_actor.ref()->dialogue_radius = 0.0f;
 
-		data->barge = entities.find("barge")->get<Transform>();
-		data->barge.ref()->absolute(&data->barge_base_pos, &data->barge_base_rot);
-
 		Game::updates.add(update);
 	}
 
@@ -915,8 +978,6 @@ namespace tutorial
 	enum class TutorialState : s8
 	{
 		None,
-		WallRun,
-		WallRunDone,
 		Crawl,
 		Battery,
 		Upgrade,
@@ -932,34 +993,13 @@ namespace tutorial
 
 	struct Data
 	{
-		r32 wallrun_footstep_timer;
-		s32 wallrun_footstep_index;
 		TutorialState state;
 		Ref<Entity> player;
 		Ref<Entity> battery;
 		Ref<Transform> crawl_target;
-		StaticArray<Ref<Transform>, 8> wallrun_footsteps;
 	};
 
 	Data* data;
-
-	void wallrun_start(Entity*)
-	{
-		if (Game::level.mode == Game::Mode::Parkour && data->state == TutorialState::None)
-		{
-			Actor::tut(strings::tut_wallrun, 0.0f);
-			data->state = TutorialState::WallRun;
-		}
-	}
-
-	void wallrun_success(Entity*)
-	{
-		if (data->state == TutorialState::WallRun)
-		{
-			Actor::tut_clear();
-			data->state = TutorialState::WallRunDone;
-		}
-	}
 
 	void drone_target_hit(Entity* e)
 	{
@@ -1029,19 +1069,7 @@ namespace tutorial
 			}
 		}
 
-
-		if (data->state == TutorialState::WallRun)
-		{
-			// spawn wallrun footstep shockwave effects
-			data->wallrun_footstep_timer -= u.time.delta;
-			if (data->wallrun_footstep_timer < 0.0f)
-			{
-				data->wallrun_footstep_timer += 2.0f / data->wallrun_footsteps.length;
-				data->wallrun_footstep_index = (data->wallrun_footstep_index + 1) % data->wallrun_footsteps.length;
-				EffectLight::add(data->wallrun_footsteps[data->wallrun_footstep_index].ref()->absolute_pos(), 1.0f, 1.0f, EffectLight::Type::Shockwave);
-			}
-		}
-		else if (data->state == TutorialState::Overworld && Overworld::active())
+		if (data->state == TutorialState::Overworld && Overworld::active())
 		{
 			data->state = TutorialState::Return;
 			Actor::tut_clear();
@@ -1100,19 +1128,8 @@ namespace tutorial
 
 		data->battery = entities.find("battery");
 
-		data->wallrun_footsteps.add(entities.find("wallrun_footstep")->get<Transform>());
-		data->wallrun_footsteps.add(entities.find("wallrun_footstep.001")->get<Transform>());
-		data->wallrun_footsteps.add(entities.find("wallrun_footstep.002")->get<Transform>());
-		data->wallrun_footsteps.add(entities.find("wallrun_footstep.003")->get<Transform>());
-		data->wallrun_footsteps.add(entities.find("wallrun_footstep.004")->get<Transform>());
-		data->wallrun_footsteps.add(entities.find("wallrun_footstep.005")->get<Transform>());
-		data->wallrun_footsteps.add(entities.find("wallrun_footstep.006")->get<Transform>());
-		data->wallrun_footsteps.add(entities.find("wallrun_footstep.007")->get<Transform>());
-
 		data->crawl_target = entities.find("crawl_target")->get<Transform>();
 		entities.find("crawl_trigger")->get<PlayerTrigger>()->entered.link(&crawl_complete);
-		entities.find("wallrun_trigger")->get<PlayerTrigger>()->entered.link(&wallrun_start);
-		entities.find("wallrun_success")->get<PlayerTrigger>()->entered.link(&wallrun_success);
 
 		Game::level.feature_level = Game::FeatureLevel::Base;
 

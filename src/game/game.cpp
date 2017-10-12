@@ -209,30 +209,6 @@ void Game::init(LoopSync* sync)
 	Net::init();
 
 #if !SERVER
-	switch (auth_type)
-	{
-		case Net::Master::AuthType::None:
-		case Net::Master::AuthType::GameJolt:
-			break;
-		case Net::Master::AuthType::Itch:
-		{
-#if DEBUG
-			vi_debug("Itch auth key: %s", auth_key);
-#endif
-			break;
-		}
-		case Net::Master::AuthType::Steam:
-		{
-			// todo: pull Steam username
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
-
 	// replay files
 	{
 		const char* replay_dir = "rec/";

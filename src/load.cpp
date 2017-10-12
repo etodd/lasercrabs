@@ -32,6 +32,7 @@ namespace Settings
 	char username[MAX_USERNAME + 1];
 	char gamejolt_username[MAX_PATH_LENGTH + 1];
 	char gamejolt_token[MAX_AUTH_KEY + 1];
+	char itch_api_key[MAX_AUTH_KEY + 1];
 #if SERVER
 	char public_ipv4[NET_MAX_ADDRESS];
 	char public_ipv6[NET_MAX_ADDRESS];
@@ -317,6 +318,7 @@ void Loader::settings_load(const Array<DisplayMode>& modes)
 
 	strncpy(Settings::master_server, Json::get_string(json, "master_server", default_master_server), MAX_PATH_LENGTH);
 	strncpy(Settings::username, Json::get_string(json, "username", "Anonymous"), MAX_USERNAME);
+	strncpy(Settings::itch_api_key, Json::get_string(json, "itch_api_key", ""), MAX_AUTH_KEY);
 	if (!Settings::gamejolt_username[0]) // if the username has already been acquired via other means, don't overwrite it
 	{
 		strncpy(Settings::gamejolt_username, Json::get_string(json, "gamejolt_username", ""), MAX_PATH_LENGTH);
@@ -357,6 +359,8 @@ void Loader::settings_save()
 		cJSON_AddStringToObject(json, "gamejolt_username", Settings::gamejolt_username);
 		cJSON_AddStringToObject(json, "gamejolt_token", Settings::gamejolt_token);
 	}
+	if (Settings::itch_api_key[0])
+		cJSON_AddStringToObject(json, "itch_api_key", Settings::itch_api_key);
 	cJSON_AddNumberToObject(json, "framerate_limit", Settings::framerate_limit);
 	cJSON_AddNumberToObject(json, "width", Settings::display().width);
 	cJSON_AddNumberToObject(json, "height", Settings::display().height);

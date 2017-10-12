@@ -574,6 +574,7 @@ if (CLIENT)
 		wwise_integration
 		zlibstatic
 		libcurl
+		mongoose
 	)
 
 	if (APPLE)

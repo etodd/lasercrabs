@@ -437,7 +437,7 @@ void title_menu(const Update& u, Camera* camera)
 				main_menu.start(u, 0);
 				b8 story_disabled;
 #if RELEASE_BUILD
-				story_disabled = true;
+				story_disabled = false;
 #else
 				story_disabled = false;
 #endif
@@ -521,16 +521,16 @@ void open_url(const char* url)
 	ShellExecute(0, 0, url, 0, 0 , SW_SHOW);
 #elif !defined(__APPLE__)
 	// Mac
-	char buffer[MAX_PATH_LENGTH];
-	sprintf(buffer, "open %s", url);
+	char buffer[MAX_PATH_LENGTH + 1] = {};
+	snprintf(buffer, MAX_PATH_LENGTH, "open %s", url);
 	system(buffer);
 #elif defined(__ORBIS__)
 	// PS4
 	// todo
 #else
 	// Linux
-	char buffer[MAX_PATH_LENGTH];
-	sprintf(buffer, "xdg-open %s", url);
+	char buffer[MAX_PATH_LENGTH + 1] = {};
+	snprintf(buffer, MAX_PATH_LENGTH, "xdg-open %s", url);
 	system(buffer);
 #endif
 }

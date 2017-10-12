@@ -363,14 +363,31 @@ void multiplayer_request_setup(Data::Multiplayer::RequestType type)
 	data.multiplayer.request_type = type;
 }
 
+void multiplayer_entry_name_edit(const TextField& text_field)
+{
+	vi_assert(data.multiplayer.state == Data::Multiplayer::State::EntryEdit);
+	data.multiplayer.active_server_dirty = true;
+	strncpy(data.multiplayer.active_server.config.name, text_field.value.data, MAX_SERVER_CONFIG_NAME);
+}
+
+void multiplayer_entry_edit_show_name(s8 = 0)
+{
+	Menu::dialog_text_with_cancel(&multiplayer_entry_name_edit, &Menu::dialog_text_cancel_no_action, data.multiplayer.active_server.config.name, MAX_SERVER_CONFIG_NAME, _(strings::prompt_name));
+}
+
+void multiplayer_entry_edit_switch_to_levels(s8 = 0)
+{
+	multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Levels);
+}
+
 void multiplayer_entry_save()
 {
 	vi_assert(data.multiplayer.state == Data::Multiplayer::State::EntryEdit);
 	const Net::Master::ServerConfig& config = data.multiplayer.active_server.config;
 	if (config.levels.length == 0)
-		Menu::dialog(0, &Menu::dialog_no_action, _(strings::error_no_levels));
+		Menu::dialog(0, &multiplayer_entry_edit_switch_to_levels, _(strings::error_no_levels));
 	else if (strlen(config.name) == 0)
-		Menu::dialog(0, &Menu::dialog_no_action, _(strings::error_no_name));
+		Menu::dialog(0, &multiplayer_entry_edit_show_name, _(strings::error_no_name));
 	else
 	{
 		multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigSave);
@@ -428,13 +445,6 @@ void game_type_string(UIText* text, GameType type, s8 team_count, s8 max_players
 		}
 	}
 	text->text(0, "%s %s", _(teams_type), _(game_type_string(type)));
-}
-
-void multiplayer_entry_name_edit(const TextField& text_field)
-{
-	vi_assert(data.multiplayer.state == Data::Multiplayer::State::EntryEdit);
-	data.multiplayer.active_server_dirty = true;
-	strncpy(data.multiplayer.active_server.config.name, text_field.value.data, MAX_SERVER_CONFIG_NAME);
 }
 
 void multiplayer_entry_edit_update(const Update& u)
@@ -495,7 +505,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				// edit name
 				if (menu->item(u, _(strings::edit_name)))
-					Menu::dialog_text_with_cancel(&multiplayer_entry_name_edit, &Menu::dialog_text_cancel_no_action, config->name, MAX_SERVER_CONFIG_NAME, _(strings::prompt_name));
+					multiplayer_entry_edit_show_name();
 
 				s32 delta;
 				char str[MAX_PATH_LENGTH + 1];
@@ -522,7 +532,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					sprintf(str, "%d", s32(config->levels.length));
 					if (menu->item(u, _(strings::levels), str))
 					{
-						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Levels);
+						multiplayer_entry_edit_switch_to_levels();
 						menu->end();
 						return;
 					}

@@ -84,10 +84,10 @@ const char* control_ui_variable_names[s32(Controls::count)] =
 
 InputBinding control_defaults[s32(Controls::count)] =
 {
-	{ Gamepad::Btn::DUp, KeyCode::W, KeyCode::Up, }, // Forward
-	{ Gamepad::Btn::DDown, KeyCode::S, KeyCode::Down, }, // Backward
-	{ Gamepad::Btn::DLeft, KeyCode::A, KeyCode::Left, }, // Left
-	{ Gamepad::Btn::DRight, KeyCode::D, KeyCode::Right, }, // Right
+	{ Gamepad::Btn::None, KeyCode::W, KeyCode::Up, }, // Forward
+	{ Gamepad::Btn::None, KeyCode::S, KeyCode::Down, }, // Backward
+	{ Gamepad::Btn::None, KeyCode::A, KeyCode::Left, }, // Left
+	{ Gamepad::Btn::None, KeyCode::D, KeyCode::Right, }, // Right
 	{ Gamepad::Btn::RightTrigger, KeyCode::MouseLeft, KeyCode::None, }, // Primary
 	{ Gamepad::Btn::LeftTrigger, KeyCode::MouseRight, KeyCode::None, }, // Zoom
 	{ Gamepad::Btn::X, KeyCode::D1, KeyCode::None, }, // Ability1

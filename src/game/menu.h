@@ -106,6 +106,13 @@ enum class AllowClose : s8
 	count,
 };
 
+enum class EnableInput : s8
+{
+	No,
+	Yes,
+	count,
+};
+
 extern State main_menu_state;
 extern DialogCallback dialog_callback[MAX_GAMEPADS];
 extern DialogCallback dialog_cancel_callback[MAX_GAMEPADS];
@@ -125,7 +132,7 @@ void refresh_variables(const InputState&);
 void pause_menu(const Update&, s8, UIMenu*, State*);
 void title_menu(const Update&, Camera*);
 void teams_select_match_start_init(PlayerHuman*);
-State teams(const Update&, s8, UIMenu*, TeamSelectMode);
+State teams(const Update&, s8, UIMenu*, TeamSelectMode, EnableInput = EnableInput::Yes);
 void friendship_state(u32, b8);
 b8 choose_region(const Update&, s8, UIMenu*, AllowClose);
 void progress_spinner(const RenderParams&, const Vec2&, r32 = 20.0f);

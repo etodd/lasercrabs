@@ -1125,7 +1125,7 @@ void PlayerHuman::update(const Update& u)
 		case UIMode::PvpSelectTeam:
 		{
 			// show team switcher
-			if (Menu::teams(u, gamepad, &menu, Menu::TeamSelectMode::MatchStart) != Menu::State::Teams)
+			if (Menu::teams(u, gamepad, &menu, Menu::TeamSelectMode::MatchStart, chat_focus == ChatFocus::None ? Menu::EnableInput::Yes : Menu::EnableInput::No) != Menu::State::Teams)
 			{
 				// user hit escape
 				// make sure the cancel event is not eaten, so that our pause/unpause code below works

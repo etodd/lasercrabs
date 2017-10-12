@@ -105,7 +105,7 @@ void draw_letterbox(const RenderParams&, r32, r32) {}
 State settings(const Update&, s8, UIMenu*) { return State::Visible; }
 b8 maps(const Update&, s8, UIMenu*) { return false; }
 void teams_select_match_start_init(PlayerHuman*) {}
-State teams(const Update&, s8, UIMenu*, TeamSelectMode) { return State::Visible; }
+State teams(const Update&, s8, UIMenu*, TeamSelectMode, EnableInput) { return State::Visible; }
 void friendship_state(u32, b8) {}
 b8 choose_region(const Update&, s8, UIMenu*, AllowClose) { return false; }
 b8 settings_controls(const Update&, s8, UIMenu*, Gamepad::Type) { return false; }
@@ -1575,7 +1575,6 @@ b8 maps(const Update& u, s8 gamepad, UIMenu* menu)
 void teams_select_match_start_init(PlayerHuman* player)
 {
 	PlayerManager* manager = player->get<PlayerManager>();
-	teams_selected_player[player->gamepad] = manager;
 	manager->team_schedule(manager->team.ref()->team());
 }
 
@@ -1715,14 +1714,14 @@ b8 player(const Update& u, s8 gamepad, UIMenu* menu)
 }
 
 // returns true if the team menu should stay open
-State teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
+State teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode, EnableInput input)
 {
 	PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
 	PlayerManager* selected = teams_selected_player[gamepad].ref();
 
 	b8 exit = !Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad);
 
-	menu->start(u, gamepad, mode == TeamSelectMode::Normal && !selected); // can select different players in Normal mode when no player is selected
+	menu->start(u, gamepad, mode == TeamSelectMode::Normal && !selected && input == EnableInput::Yes); // can select different players in Normal mode when no player is selected
 	
 	if (mode == TeamSelectMode::Normal)
 	{
@@ -1736,10 +1735,11 @@ State teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
 		const char* value = _(Team::name_selector(i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled));
-		b8 disabled = (selected && i.item() != selected) || (i.item() != me && mode == TeamSelectMode::MatchStart);
+		b8 disabled = input == EnableInput::No || (selected && i.item() != selected) || (i.item() != me && mode == TeamSelectMode::MatchStart);
 		AssetID icon = i.item()->can_spawn ? Asset::Mesh::icon_checkmark : AssetNull;
 
 		if (mode == TeamSelectMode::Normal
+			&& input == EnableInput::Yes
 			&& teams_selected_player[gamepad].ref() == nullptr
 			&& menu->selected == menu->items.length && me != i.item() && i.item()->has<PlayerHuman>()
 			&& !u.input->get(Controls::UIContextAction, gamepad) && u.last_input->get(Controls::UIContextAction, gamepad))
@@ -1777,17 +1777,23 @@ State teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode)
 				}
 			}
 		}
-		else if (menu->item(u, i.item()->username, value, disabled, icon))
+		else
 		{
-			if (Game::session.type == SessionType::Multiplayer
-				&& (i.item() == me || mode == TeamSelectMode::Normal)
-				&& (Game::session.config.game_type == GameType::Assault || Game::session.config.max_players > Game::session.config.team_count)) // disallow team switching in FFA
+			if (mode == TeamSelectMode::MatchStart && i.item() == me)
+				menu->selected = menu->items.length; // always have the cursor on me in MatchStart mode
+
+			if (menu->item(u, i.item()->username, value, disabled, icon))
 			{
-				// we are selecting this player
-				teams_selected_player[gamepad] = i.item();
-				i.item()->team_schedule(i.item()->team.ref()->team());
-				if (Team::match_state == Team::MatchState::TeamSelect)
-					i.item()->set_can_spawn(false);
+				if (Game::session.type == SessionType::Multiplayer
+					&& (i.item() == me || mode == TeamSelectMode::Normal)
+					&& (Game::session.config.game_type == GameType::Assault || Game::session.config.max_players > Game::session.config.team_count)) // disallow team switching in FFA
+				{
+					// we are selecting this player
+					teams_selected_player[gamepad] = i.item();
+					i.item()->team_schedule(i.item()->team.ref()->team());
+					if (Team::match_state == Team::MatchState::TeamSelect)
+						i.item()->set_can_spawn(false);
+				}
 			}
 		}
 	}

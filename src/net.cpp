@@ -1147,18 +1147,16 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 
 			// start resending frames starting at that index
 			SequenceID current_seq = history.msg_frames[history.current_index].sequence_id;
-			r32 timestamp_cutoff = state_common.timestamp - rtt * 1.5f; // don't resend stuff multiple times; wait a certain period before trying to resend it again
+			r32 timestamp_cutoff = state_common.timestamp - tick_rate() * 1.5f; // don't resend stuff multiple times; wait a certain period before trying to resend it again
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				const MessageFrame& frame = history.msg_frames[index];
 				s32 relative_sequence = sequence_relative_to(frame.sequence_id, remote_ack.sequence_id);
-				if (relative_sequence < 0
-					&& relative_sequence >= -NET_ACK_PREVIOUS_SEQUENCES
+				if (relative_sequence >= -NET_ACK_PREVIOUS_SEQUENCES
 					&& !ack_get(remote_ack, frame.sequence_id)
 					&& !sequence_history_contains_newer_than(*recently_resent, frame.sequence_id, timestamp_cutoff)
 					&& 8 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 				{
-					vi_debug("Resending seq %d: %d bytes. Current seq: %d", s32(frame.sequence_id), frame.bytes, s32(current_seq));
 					bytes += frame.write.bytes_written();
 					serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
 					sequence_history_add(recently_resent, frame.sequence_id, state_common.timestamp);
@@ -4210,7 +4208,7 @@ void reset()
 b8 lagging()
 {
 	return state_client.mode == Mode::Disconnected
-		|| (state_client.msgs_in_history.msg_frames.length > 0 && state_common.timestamp - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > tick_rate() * 5.0f);
+		|| (state_client.msgs_in_history.msg_frames.length > 0 && state_common.timestamp - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > tick_rate() * 8.0f);
 }
 
 Sock::Address server_address()

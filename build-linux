@@ -10,4 +10,4 @@ cp .itch-linux.toml final/.itch.toml
 cp build.txt final
 cp shipme.txt final/readme.txt
 cp /usr/lib/x86_64-linux-gnu/libstdc++.so.6 final
-cp run-linux final/deceiver.sh
+cp run-linux final/deceiver-launcher

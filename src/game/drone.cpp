@@ -37,7 +37,7 @@ namespace VI
 #define DRONE_REFLECTION_POSITION_TOLERANCE (DRONE_SHIELD_RADIUS * 10.0f)
 #define DRONE_SHOTGUN_PELLETS 13
 
-#define DRONE_COOLDOWN_NORMAL 0.7f
+#define DRONE_COOLDOWN_NORMAL 0.6f
 #define DRONE_COOLDOWN_SHOTGUN 1.5f
 #define DRONE_COOLDOWN_SNIPER 1.1f
 #define DRONE_COOLDOWN_BOLTER (1.0f / 8.0f)
@@ -367,13 +367,21 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTar
 	{
 		r32 dot = Vec3::normalize(intersection - target_pos).dot(ray_dir);
 
-		// only sniper can do direct hits on turrets
-		b8 allow_direct_hit = (drone->current_ability == Ability::Sniper) ? true : !target_shield->has<Turret>();
-
-		if (dot < -0.9f && allow_direct_hit)
-			result = 3;
-		else if (dot < -0.7f)
-			result = 2;
+		if (drone->current_ability == Ability::Sniper)
+		{
+			if (dot < -0.9f)
+				result = 3;
+			else if (dot < -0.7f)
+				result = 2;
+		}
+		else
+		{
+			// flying hit
+			if (dot < -0.75f && !target_shield->has<Turret>()) // no flying direct hits on turrets
+				result = 3;
+			else if (dot < -0.4f)
+				result = 2;
+		}
 	}
 
 	if (target_shield->has<Generator>() && result >= target_shield->get<Health>()->shield)

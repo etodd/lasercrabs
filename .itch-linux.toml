@@ -1,4 +1,4 @@
 [[actions]]
 name = "play"
-path = "deceiver.sh"
+path = "deceiver-launcher"
 scope = "profile:me"

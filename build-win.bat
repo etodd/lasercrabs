@@ -7,4 +7,12 @@ cp build/gamecontrollerdb.txt final
 cp .itch-win.toml final/.itch.toml
 cp build.txt final
 cp shipme.txt final/readme.txt
+
+
+FOR /F "tokens=* USEBACKQ" %%F IN (`git describe --always --tags`) DO (
+set version=%%F
+)
+mkdir pdb
+cp build/%config%/deceiver.pdb pdb/%version%.pdb
+
 pause

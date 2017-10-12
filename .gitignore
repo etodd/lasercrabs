@@ -1,5 +1,6 @@
 /build/
 /final/
+/pdb/
 /ps/
 __pycache__
 *.pyc

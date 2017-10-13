@@ -58,14 +58,36 @@ namespace Overworld
 
 struct ZoneNode
 {
-	Vec2 pos;
+	StaticArray<Vec3, ZONE_MAX_CHILDREN> children;
+	Quat rot;
 	AssetID id;
 	AssetID uuid;
+	AssetID mesh;
 	s16 rewards[s32(Resource::count)];
+	s8 size;
 	s8 max_teams;
+
+	inline Vec3 pos() const
+	{
+		return children[children.length - 1];
+	}
 };
 
 #define DEPLOY_ANIMATION_TIME 1.0f
+
+struct PropEntry
+{
+	Quat rot;
+	Vec3 pos;
+	AssetID mesh;
+};
+
+struct WaterEntry
+{
+	Quat rot;
+	Vec3 pos;
+	Water::Config config;
+};
 
 struct DataGlobal
 {
@@ -76,6 +98,11 @@ struct DataGlobal
 	};
 
 	StaticArray<ZoneNode, MAX_ZONES> zones;
+	Array<PropEntry> props;
+	Array<WaterEntry> waters;
+	Vec3 camera_offset_pos;
+	Quat camera_offset_rot;
+
 	Multiplayer multiplayer;
 };
 DataGlobal global;
@@ -180,7 +207,7 @@ struct Data
 	};
 
 	Ref<Camera> camera;
-	Vec2 camera_pos;
+	Ref<Camera> restore_camera;
 	r32 timer_deploy;
 	r32 timer_transition;
 	State state;
@@ -726,7 +753,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				for (s32 i = 0; i < Asset::Level::count; i++)
 				{
-					if (i != Asset::Level::Port_District && zone_is_pvp(AssetID(i)) )
+					if (zone_is_pvp(AssetID(i)) )
 					{
 						const ZoneNode* node = zone_node_by_id(AssetID(i));
 
@@ -1711,14 +1738,16 @@ void go(AssetID zone)
 	Game::schedule_load_level(zone, Game::Mode::Pvp);
 }
 
-void focus_camera(const Update& u, const Vec2& target_pos)
+void focus_camera(const Update& u, const Vec3& target_pos, const Quat& target_rot)
 {
-	data.camera_pos += (target_pos - data.camera_pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
+	data.camera.ref()->pos += (target_pos - data.camera.ref()->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
+	data.camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), data.camera.ref()->rot, target_rot);
 }
 
 void focus_camera(const Update& u, const ZoneNode& zone)
 {
-	focus_camera(u, zone.pos);
+	Vec3 target_pos = zone.pos() + zone.rot * global.camera_offset_pos;
+	focus_camera(u, target_pos, zone.rot * global.camera_offset_rot);
 }
 
 const ZoneNode* zone_node_by_id(AssetID id)
@@ -1748,7 +1777,7 @@ AssetID zone_id_for_uuid(AssetID uuid)
 
 s16 energy_increment_zone(const ZoneNode& zone)
 {
-	return zone.max_teams == MAX_TEAMS ? 200 : 10;
+	return zone.size * (zone.max_teams == MAX_TEAMS ? 200 : 10);
 }
 
 s16 energy_increment_total()
@@ -1778,7 +1807,7 @@ void select_zone_update(const Update& u, b8 enable_movement)
 	// movement
 	if (enable_movement)
 	{
-		Vec2 movement = PlayerHuman::camera_topdown_movement(u, 0, Quat::euler(PI * -0.5f, 0, 0));
+		Vec2 movement = PlayerHuman::camera_topdown_movement(u, 0, data.camera.ref()->rot);
 		r32 movement_amount = movement.length();
 		if (movement_amount > 0.0f)
 		{
@@ -1786,20 +1815,28 @@ void select_zone_update(const Update& u, b8 enable_movement)
 			const ZoneNode* closest = nullptr;
 			r32 closest_dot = FLT_MAX;
 
-			for (s32 i = 0; i < global.zones.length; i++)
+			for (s32 i = 0; i < zone->children.length; i++)
 			{
-				const ZoneNode& candidate = global.zones[i];
-				if (&candidate == zone)
-					continue;
-
-				Vec2 to_candidate = candidate.pos - zone->pos;
-				if (movement.dot(Vec2::normalize(to_candidate)) > 0.707f)
+				const Vec3& zone_pos = zone->children[i];
+				for (s32 j = 0; j < global.zones.length; j++)
 				{
-					r32 dot = movement.dot(to_candidate);
-					if (dot < closest_dot)
+					const ZoneNode& candidate = global.zones[j];
+					if (&candidate == zone)
+						continue;
+
+					for (s32 k = 0; k < candidate.children.length; k++)
 					{
-						closest = &candidate;
-						closest_dot = dot;
+						const Vec3& candidate_pos = candidate.children[k];
+						Vec3 to_candidate = candidate_pos - zone_pos;
+						if (movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z))) > 0.707f)
+						{
+							r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
+							if (dot < closest_dot)
+							{
+								closest = &candidate;
+								closest_dot = dot;
+							}
+						}
 					}
 				}
 			}
@@ -1816,36 +1853,31 @@ void select_zone_update(const Update& u, b8 enable_movement)
 
 Vec3 zone_color(const ZoneNode& zone)
 {
-	if (Game::session.type == SessionType::Story)
+	ZoneState zone_state = Game::save.zones[zone.id];
+	switch (zone_state)
 	{
-		ZoneState zone_state = Game::save.zones[zone.id];
-		switch (zone_state)
+		case ZoneState::Locked:
 		{
-			case ZoneState::Locked:
-			{
-				return Vec3(0.25f);
-			}
-			case ZoneState::ParkourUnlocked:
-			{
-				return Vec3(1.0f);
-			}
-			case ZoneState::PvpFriendly:
-			{
-				return Team::color_friend.xyz();
-			}
-			case ZoneState::PvpHostile:
-			{
-				return Team::color_enemy.xyz();
-			}
-			default:
-			{
-				vi_assert(false);
-				return Vec3::zero;
-			}
+			return Vec3(0.3f);
+		}
+		case ZoneState::ParkourUnlocked:
+		{
+			return UI::color_accent().xyz();
+		}
+		case ZoneState::PvpFriendly:
+		{
+			return Team::color_friend.xyz();
+		}
+		case ZoneState::PvpHostile:
+		{
+			return Team::color_enemy.xyz();
+		}
+		default:
+		{
+			vi_assert(false);
+			return Vec3::zero;
 		}
 	}
-	else
-		return Team::color_friend.xyz();
 }
 
 const Vec4& zone_ui_color(const ZoneNode& zone)
@@ -1878,11 +1910,101 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 	}
 }
 
-#define BACKGROUND_COLOR Vec4(0.8f, 0.8f, 0.8f, 1)
-
-Vec2 camera_project(const Vec2& p)
+void zone_draw_mesh(const RenderParams& params, AssetID mesh, const Vec3& pos, const Vec4& color)
 {
-	return (p - data.camera_pos) * UI::scale;
+	Loader::mesh_permanent(mesh);
+	Loader::shader(Asset::Shader::standard_flat);
+
+	RenderSync* sync = params.sync;
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::standard_flat);
+	sync->write(params.technique);
+
+	Mat4 m;
+	m.make_translate(pos);
+	Mat4 mvp = m * params.view_projection;
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mvp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(mvp);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mv);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(m * params.view);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(color);
+
+	sync->write(RenderOp::Mesh);
+	sync->write(RenderPrimitiveMode::Triangles);
+	sync->write(mesh);
+}
+
+#define BACKGROUND_COLOR Vec4(0.8f, 0.8f, 0.8f, 1)
+void zones_draw_override(const RenderParams& params)
+{
+	struct Comparator
+	{
+		r32 priority(const ZoneNode* n)
+		{
+			// sort farthest zones first
+			Vec3 camera_forward = data.camera.ref()->rot * Vec3(0, 0, 1);
+			return camera_forward.dot(n->pos() - data.camera.ref()->pos);
+		}
+
+		s32 compare(const ZoneNode* a, const ZoneNode* b)
+		{
+			r32 pa = priority(a);
+			r32 pb = priority(b);
+			if (pa > pb)
+				return 1;
+			else if (pa == pb)
+				return 0;
+			else
+				return -1;
+		}
+	};
+
+	StaticArray<const ZoneNode*, Asset::Level::count> zones;
+
+	Comparator key;
+
+	for (s32 i = 0; i < global.zones.length; i++)
+	{
+		const ZoneNode* zone = &global.zones[i];
+		// flash if necessary
+		if (Game::session.type == SessionType::Multiplayer
+			|| Game::real_time.total > data.story.map.zones_change_time[zone->id] + 0.5f
+			|| UI::flash_function(Game::real_time.total))
+		{
+			zones.add(zone);
+		}
+	}
+
+	Quicksort::sort<const ZoneNode*, Comparator>(zones.data, 0, zones.length, &key);
+
+	RenderSync* sync = params.sync;
+
+	sync->write(RenderOp::DepthTest);
+	sync->write<b8>(true);
+
+	for (s32 i = 0; i < zones.length; i++)
+	{
+		sync->write<RenderOp>(RenderOp::CullMode);
+		sync->write<RenderCullMode>(RenderCullMode::Back);
+		const ZoneNode& zone = *zones[i];
+		zone_draw_mesh(params, zone.mesh, zone.pos(), Vec4(zone_color(zone), 1.0f));
+		sync->write<RenderOp>(RenderOp::CullMode);
+		sync->write<RenderCullMode>(RenderCullMode::Front);
+		zone_draw_mesh(params, zone.mesh, zone.pos(), BACKGROUND_COLOR);
+	}
 }
 
 // returns current zone node
@@ -1893,48 +2015,55 @@ const ZoneNode* zones_draw(const RenderParams& params)
 	if (data.timer_deploy > 0.0f || Game::scheduled_load_level != AssetNull)
 		return nullptr;
 
+	// highlight zone locations
 	const ZoneNode* selected_zone = zone_node_by_id(data.zone_selected);
-	const ZoneNode* under_attack = zone_node_by_id(zone_under_attack());
+
+	// "you are here"
 	const ZoneNode* current_zone = zone_node_by_id(Game::level.id);
+	Vec2 p;
+	if (current_zone && UI::project(params, current_zone->pos(), &p))
+		UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_accent(), PI);
 
-	for (s32 i = 0; i < global.zones.length; i++)
+	// highlight selected zone
+	if (selected_zone)
 	{
-		const ZoneNode& zone = global.zones[i];
-
-		// flash if recently changed
-		if (Game::real_time.total < data.story.map.zones_change_time[zone.id] + 0.5f
-			&& !UI::flash_function(Game::real_time.total))
-			continue;
-
-		if (&zone == selected_zone)
-			UI::triangle_border(params, { camera_project(zone.pos), Vec2(48.0f * UI::scale) }, BORDER * 2.0f, UI::color_accent(), PI);
-
-		const Vec4 *color;
-
-		if (&zone == under_attack)
-		{
-			Vec2 p = camera_project(zone.pos);
-			if (UI::flash_function(Game::real_time.total))
-				UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_alert(), PI);
-
-			UIText text;
-			text.color = UI::color_alert();
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Min;
-			if (Game::session.zone_under_attack_timer > 0.0f)
-				text.text(0, "%d", s32(ceilf(Game::session.zone_under_attack_timer)));
-			else
-				text.text(0, _(strings::zone_defense_expired));
-
-			{
-				Vec2 text_pos = p;
-				text_pos.y += 32.0f * UI::scale;
-				UI::box(params, text.rect(text_pos).outset(8.0f * UI::scale), UI::color_background);
-				text.draw(params, text_pos);
-			}
-		}
+		Vec2 p;
+		if (UI::project(params, selected_zone->pos(), &p))
+			UI::triangle_border(params, { p, Vec2(48.0f * UI::scale) }, BORDER * 2.0f, UI::color_accent(), PI);
 	}
 
+	// zone under attack
+	const ZoneNode* under_attack = zone_node_by_id(zone_under_attack());
+	if (under_attack)
+	{
+		Vec2 p;
+		if (UI::is_onscreen(params, under_attack->pos(), &p))
+		{
+			if (UI::flash_function(Game::real_time.total))
+				UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, UI::color_alert(), PI);
+		}
+		else
+		{
+			if (UI::flash_function(Game::real_time.total))
+				UI::indicator(params, under_attack->pos(), UI::color_alert(), true, 1.0f, PI);
+		}
+
+		UIText text;
+		text.color = UI::color_alert();
+		text.anchor_x = UIText::Anchor::Center;
+		text.anchor_y = UIText::Anchor::Min;
+		if (Game::session.zone_under_attack_timer > 0.0f)
+			text.text(0, "%d", s32(ceilf(Game::session.zone_under_attack_timer)));
+		else
+			text.text(0, _(strings::zone_defense_expired));
+
+		{
+			Vec2 text_pos = p;
+			text_pos.y += 32.0f * UI::scale;
+			UI::box(params, text.rect(text_pos).outset(8.0f * UI::scale), UI::color_background);
+			text.draw(params, text_pos);
+		}
+	}
 
 	return selected_zone;
 }
@@ -2165,9 +2294,23 @@ void hide()
 
 void hide_complete()
 {
-	if (data.camera.ref() && Game::session.type == SessionType::Story)
-		data.camera.ref()->flag(CameraFlagColors, true);
-	data.camera = nullptr;
+	Particles::clear();
+	if (data.camera.ref())
+	{
+		data.camera.ref()->remove();
+		data.camera = nullptr;
+	}
+	if (data.restore_camera.ref())
+	{
+		data.restore_camera.ref()->flag(CameraFlagActive, true);
+		data.restore_camera.ref()->flag(CameraFlagColors, true);
+		data.restore_camera = nullptr;
+	}
+	if (data.state == State::StoryMode)
+	{
+		TerminalEntity::open();
+		PlayerControlHuman::list.iterator().item()->terminal_exit();
+	}
 	data.state = data.state_next = State::Hidden;
 }
 
@@ -2184,12 +2327,40 @@ void deploy_update(const Update& u)
 
 	// must use Game::real_time because Game::time is paused when overworld is active
 
-	if (data.timer_deploy > 0.0f)
+	r32 old_timer = data.timer_deploy;
+	data.timer_deploy = vi_max(0.0f, data.timer_deploy - Game::real_time.delta);
+
+	if (data.timer_deploy > 0.5f)
 	{
-		data.timer_deploy = vi_max(0.0f, data.timer_deploy - Game::real_time.delta);
-		if (data.timer_deploy == 0.0f)
-			deploy_done();
+		// particles
+		r32 t = old_timer;
+		const r32 particle_interval = 0.015f;
+		const ZoneNode* zone = zone_node_by_id(data.zone_selected);
+		while (s32(t / particle_interval) > s32(data.timer_deploy / particle_interval))
+		{
+			r32 particle_blend = (t - 0.5f) / 0.5f;
+			Particles::tracers.add
+			(
+				zone->pos() + Vec3(0, -2.0f + particle_blend * 12.0f, 0),
+				Vec3::zero,
+				0
+			);
+			t -= particle_interval;
+		}
 	}
+	else
+	{
+		// screen shake
+		r32 shake = (data.timer_deploy / 0.5f) * 0.05f;
+		r32 offset = Game::real_time.total * 20.0f;
+		data.camera.ref()->pos += Vec3(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+
+		if (old_timer >= 0.5f)
+			Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_DEPLOY);
+	}
+
+	if (data.timer_deploy == 0.0f && old_timer > 0.0f)
+			deploy_done();
 }
 
 void deploy_draw(const RenderParams& params)
@@ -2283,9 +2454,7 @@ b8 zone_filter_default(AssetID zone_id)
 
 b8 zone_filter_can_be_attacked(AssetID zone_id)
 {
-	if (zone_id == Asset::Level::Port_District)
-		return false;
-	else if (zone_id == Game::level.id || (Game::session.type == SessionType::Story && zone_id == Game::save.zone_current))
+	if (zone_id == Game::level.id || (Game::session.type == SessionType::Story && zone_id == Game::save.zone_current))
 		return false;
 
 	return true;
@@ -2365,6 +2534,11 @@ ResourceInfo resource_info[s32(Resource::count)] =
 		50,
 	},
 };
+
+StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS> directional_lights;
+Vec3 ambient_color;
+r32 far_plane;
+r32 fog_start;
 
 void resource_buy(s8 gamepad)
 {
@@ -2868,19 +3042,31 @@ void show_complete()
 
 	Particles::clear();
 	{
-		Camera* c = data.camera.ref();
+		Camera* restore_camera = data.restore_camera.ref();
+		if (data.camera.ref())
+			data.camera.ref()->remove();
 		r32 t = data.timer_transition;
 		data.~Data();
 		new (&data) Data();
-		data.camera = c;
 		data.timer_transition = t;
-
-		if (state_next != State::StoryModeOverlay)
-			data.camera.ref()->flag(CameraFlagColors, false);
+		data.restore_camera = restore_camera;
 	}
 
 	data.state = state_next;
 	data.story.tab = tab_next;
+
+	if (data.state != State::StoryModeOverlay)
+		data.restore_camera.ref()->flag(CameraFlagColors, false);
+
+	if (modal())
+	{
+		data.restore_camera.ref()->flag(CameraFlagActive, false);
+		data.camera = Camera::list.add();
+		data.camera.ref()->mask = 0;
+		data.camera.ref()->flag(CameraFlagColors, false);
+		data.camera.ref()->pos = global.camera_offset_pos;
+		data.camera.ref()->rot = global.camera_offset_rot;
+	}
 
 	if (Game::session.type == SessionType::Story)
 	{
@@ -2899,19 +3085,29 @@ void show_complete()
 			data.zone_selected = Game::save.zone_last;
 	}
 
-
 	{
 		const ZoneNode* zone = zone_node_by_id(Game::save.zone_overworld);
 		if (!zone)
 			zone = zone_node_by_id(Game::save.zone_last);
-		if (zone)
-			data.camera_pos += zone->pos;
+		if (zone && modal())
+			data.camera.ref()->pos += zone->pos();
 	}
 }
 
 r32 particle_accumulator = 0.0f;
 void update(const Update& u)
 {
+	if (data.camera.ref())
+	{
+		const DisplayMode& display = Settings::display();
+		data.camera.ref()->viewport =
+		{
+			Vec2::zero,
+			Vec2(display.width, display.height),
+		};
+		data.camera.ref()->perspective((60.0f * PI * 0.5f / 180.0f), 1.0f, Game::level.far_plane_get());
+	}
+
 #if !SERVER
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::session.type == SessionType::Multiplayer
@@ -3010,9 +3206,47 @@ void update(const Update& u)
 	}
 }
 
+void draw_opaque(const RenderParams& params)
+{
+	if (modal())
+	{
+		for (s32 i = 0; i < global.props.length; i++)
+		{
+			const PropEntry& entry = global.props[i];
+			Mat4 m;
+			m.make_transform(entry.pos, Vec3(1), entry.rot);
+			View::draw_mesh(params, entry.mesh, Asset::Shader::standard, AssetNull, m, Loader::mesh(entry.mesh)->color);
+		}
+
+		for (s32 i = 0; i < global.waters.length; i++)
+		{
+			const WaterEntry& entry = global.waters[i];
+			Water::draw_opaque(params, entry.config, entry.pos, entry.rot);
+		}
+	}
+}
+
+void draw_override(const RenderParams& params)
+{
+	if (modal() && should_draw_zones())
+		zones_draw_override(params);
+}
+
+void draw_hollow(const RenderParams& params)
+{
+	if (modal())
+	{
+		for (s32 i = 0; i < global.waters.length; i++)
+		{
+			const WaterEntry& entry = global.waters[i];
+			Water::draw_hollow(params, entry.config, entry.pos, entry.rot);
+		}
+	}
+}
+
 void draw_ui(const RenderParams& params)
 {
-	if (active() && params.camera == data.camera.ref())
+	if (active() && (params.camera == data.camera.ref() || params.camera == data.restore_camera.ref()))
 	{
 		switch (data.state)
 		{
@@ -3045,11 +3279,11 @@ void draw_ui(const RenderParams& params)
 		Menu::draw_letterbox(params, data.timer_transition, TRANSITION_TIME);
 }
 
-void show(Camera* camera, State state, StoryTab tab)
+void show(Camera* cam, State state, StoryTab tab)
 {
 	if (data.timer_transition == 0.0f)
 	{
-		data.camera = camera;
+		data.restore_camera = cam;
 		data.state_next = state;
 		data.story.tab = tab;
 		if (state == State::StoryModeOverlay) // overlay; no transition
@@ -3073,6 +3307,11 @@ void skip_transition()
 b8 active()
 {
 	return data.state != State::Hidden;
+}
+
+b8 modal()
+{
+	return active() && data.state != State::StoryModeOverlay && data.state != State::Multiplayer;
 }
 
 b8 transitioning()
@@ -3125,6 +3364,12 @@ cJSON* find_entity(cJSON* level, const char* name)
 void init(cJSON* level)
 {
 	{
+		cJSON* t = find_entity(level, "map_view");
+		global.camera_offset_pos = Json::get_vec3(t, "pos");
+		global.camera_offset_rot = Quat::look(Json::get_quat(t, "rot") * Vec3(0, -1, 0));
+	}
+
+	{
 		cJSON* element = level->child;
 		s32 element_id = 0;
 		while (element)
@@ -3137,18 +3382,90 @@ void init(cJSON* level)
 				{
 					ZoneNode* node = global.zones.add();
 
+					Vec3 zone_pos = Json::get_vec3(element, "pos");
 					{
-						Vec3 zone_pos = Json::get_vec3(element, "pos");
-						node->pos = Vec2(zone_pos.x, zone_pos.z);
+						cJSON* element2 = level->child;
+						while (element2)
+					{
+							if (Json::get_s32(element2, "parent") == element_id)
+								node->children.add(zone_pos + Json::get_vec3(element2, "pos"));
+							element2 = element2->next;
+						}
 					}
+					node->children.add(zone_pos);
+					node->rot = Json::get_quat(element, "rot");
 
 					node->id = level_id;
 					node->uuid = AssetID(Json::get_s32(element, "uuid"));
+
+					cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
+					cJSON* mesh_json = meshes->child;
+					const char* mesh_ref = mesh_json->valuestring;
+					node->mesh = Loader::find_mesh(mesh_ref);
+
 					node->rewards[0] = s16(Json::get_s32(element, "energy", 0));
 					node->rewards[1] = s16(Json::get_s32(element, "access_keys", 0));
 					node->rewards[2] = s16(Json::get_s32(element, "drones", 0));
+					node->size = s8(Json::get_s32(element, "size", 1));
 					node->max_teams = s8(Json::get_s32(element, "max_teams", 2));
 				}
+			}
+			else if (cJSON_HasObjectItem(element, "World"))
+			{
+				ambient_color = Json::get_vec3(element, "ambient_color");
+				far_plane = Json::get_r32(element, "far_plane", 100.0f);
+				fog_start = Json::get_r32(element, "fog_start", far_plane * 0.25f);
+			}
+			else if (cJSON_HasObjectItem(element, "DirectionalLight"))
+			{
+				DirectionalLight light;
+				light.color = Json::get_vec3(element, "color");
+				light.shadowed = b8(Json::get_s32(element, "shadowed"));
+				light.rot = Json::get_quat(element, "rot");
+				directional_lights.add(light);
+			}
+			else if (cJSON_HasObjectItem(element, "Prop"))
+			{
+				cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
+				cJSON* json_mesh = meshes->child;
+
+				Vec3 pos = Json::get_vec3(element, "pos");
+				Quat rot = Json::get_quat(element, "rot");
+
+				while (json_mesh)
+				{
+					const char* mesh_ref = json_mesh->valuestring;
+
+					PropEntry* entry = global.props.add();
+					entry->mesh = Loader::find_mesh(mesh_ref);
+#if !SERVER
+					Loader::mesh_permanent(entry->mesh);
+#endif
+					entry->pos = pos;
+					entry->rot = rot;
+
+					json_mesh = json_mesh->next;
+				}
+			}
+			else if (cJSON_HasObjectItem(element, "Water"))
+			{
+				cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
+				cJSON* mesh_json = meshes->child;
+				const char* mesh_ref = mesh_json->valuestring;
+
+				WaterEntry* water = global.waters.add();
+				new (&water->config) Water::Config();
+				water->config.mesh = Loader::find_mesh(mesh_ref);
+				vi_assert(water->config.mesh != AssetNull);
+#if !SERVER
+				Loader::mesh_permanent(water->config.mesh);
+#endif
+				water->config.texture = Loader::find(Json::get_string(element, "texture", "water_normal"), AssetLookup::Texture::names);
+				water->config.displacement_horizontal = Json::get_r32(element, "displacement_horizontal", 2.0f);
+				water->config.displacement_vertical = Json::get_r32(element, "displacement_vertical", 0.75f);
+				water->config.color = Vec4(0, 0, 0, 1);
+				water->pos = Json::get_vec3(element, "pos");
+				water->rot = Json::get_quat(element, "rot");
 			}
 
 			element = element->next;

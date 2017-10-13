@@ -124,8 +124,6 @@ void Game::Save::reset()
 	zone_overworld = AssetNull;
 	locke_index = -1;
 
-	zones[Asset::Level::Docks] = ZoneState::ParkourUnlocked;
-
 	resources[s32(Resource::Energy)] = s16(ENERGY_INITIAL * 3.5f);
 }
 
@@ -179,6 +177,38 @@ AI::Team Game::Level::team_lookup_reverse(AI::Team t) const
 			return AI::Team(i);
 	}
 	return AI::TeamNone;
+}
+
+const StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS>& Game::Level::directional_lights_get() const
+{
+	if (Overworld::modal())
+		return Overworld::directional_lights;
+	else
+		return directional_lights;
+}
+
+const Vec3& Game::Level::ambient_color_get() const
+{
+	if (Overworld::modal())
+		return Overworld::ambient_color;
+	else
+		return ambient_color;
+}
+
+r32 Game::Level::far_plane_get() const
+{
+	if (Overworld::modal())
+		return Overworld::far_plane;
+	else
+		return skybox.far_plane;
+}
+
+r32 Game::Level::fog_start_get() const
+{
+	if (Overworld::modal())
+		return Overworld::fog_start;
+	else
+		return Game::level.skybox.fog_start;
 }
 
 Array<UpdateFunction> Game::updates;
@@ -315,7 +345,7 @@ void Game::update(const Update& update_in)
 #if SERVER
 	update_game = Net::Server::mode() == Net::Server::Mode::Active;
 #else
-	update_game = level.local || Net::Client::mode() == Net::Client::Mode::Connected;
+	update_game = (level.local || Net::Client::mode() == Net::Client::Mode::Connected) && !Overworld::modal();
 #endif
 
 	if (update_game)
@@ -694,6 +724,7 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 void Game::draw_opaque(const RenderParams&) { }
 void Game::draw_alpha(const RenderParams&) { }
 void Game::draw_hollow(const RenderParams&) { }
+void Game::draw_override(const RenderParams&) { }
 void Game::draw_particles(const RenderParams&) { }
 void Game::draw_additive(const RenderParams&) { }
 void Game::draw_alpha_late(const RenderParams&) { }
@@ -739,6 +770,8 @@ void Game::draw_opaque(const RenderParams& render_params)
 			render_params.sync->write<RenderCullMode>(RenderCullMode::Back);
 		}
 	}
+
+	Overworld::draw_opaque(render_params);
 
 	Water::draw_opaque(render_params);
 
@@ -979,6 +1012,8 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 void Game::draw_hollow(const RenderParams& render_params)
 {
+	Overworld::draw_hollow(render_params);
+
 	SkyPattern::draw_hollow(render_params);
 
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
@@ -990,6 +1025,11 @@ void Game::draw_hollow(const RenderParams& render_params)
 
 	if (Settings::antialiasing)
 		AI::draw_hollow(render_params);
+}
+
+void Game::draw_override(const RenderParams& render_params)
+{
+	Overworld::draw_override(render_params);
 }
 
 void Game::draw_particles(const RenderParams& render_params)
@@ -2116,6 +2156,7 @@ void Game::load_level(AssetID l, Mode m)
 				Entity* i = World::alloc<TerminalInteractable>();
 				i->get<Transform>()->parent = entity->get<Transform>();
 				i->get<Transform>()->pos = Vec3(1.0f, 0, 0);
+				i->get<Interactable>()->user_data = Loader::find_level(Json::get_string(element, "level"));
 				World::awake(i);
 				level.terminal_interactable = i;
 			}

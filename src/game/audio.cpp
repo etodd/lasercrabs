@@ -231,7 +231,10 @@ void AudioEntry::dialogue_done_callback(AkCallbackType type, AkCallbackInfo* inf
 	if (Audio::dialogue_callbacks.length == Audio::dialogue_callbacks.capacity())
 		Audio::dialogue_callbacks.length--;
 
-	Audio::dialogue_callbacks.add(ID(info->gameObjID));
+	AudioEntry* entry = AudioEntry::by_ak_id(info->gameObjID);
+	Transform* t = entry->parent.ref();
+	if (t)
+		Audio::dialogue_callbacks.add(ID(t->entity_id));
 }
 
 void Audio::term()
@@ -647,8 +650,9 @@ Audio::~Audio()
 
 void Audio::clear()
 {
-	Audio::post_global(AK::EVENTS::STOP_ALL);
-
+	post_global(AK::EVENTS::STOP_ALL);
+	
+	dialogue_callbacks.length = 0;
 	for (auto i = AudioEntry::list.iterator(); !i.is_last(); i.next())
 		i.item()->cleanup();
 	AudioEntry::list.clear();

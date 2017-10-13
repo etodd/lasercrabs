@@ -879,7 +879,7 @@ void update_end(const Update& u)
 				Vec2::zero,
 				Vec2(display.width, display.height),
 			};
-			camera_connecting.ref()->perspective((60.0f * PI * 0.5f / 180.0f), 0.1f, Game::level.skybox.far_plane);
+			camera_connecting.ref()->perspective((60.0f * PI * 0.5f / 180.0f), 0.1f, Game::level.far_plane_get());
 			camera_connecting.ref()->mask = 0; // don't display anything; entities will be popping in over the network
 			camera_connecting.ref()->flag(CameraFlagColors, false);
 		}
@@ -1547,7 +1547,7 @@ b8 maps(const Update& u, s8 gamepad, UIMenu* menu)
 
 	for (AssetID level_id = 0; level_id < AssetID(Asset::Level::count); level_id++)
 	{
-		if (level_id == Asset::Level::Port_District || Overworld::zone_max_teams(level_id) < Game::session.config.team_count)
+		if (Overworld::zone_max_teams(level_id) < Game::session.config.team_count)
 			continue;
 
 		b8 in_rotation = false;

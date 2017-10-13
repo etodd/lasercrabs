@@ -587,6 +587,8 @@ void draw(LoopSync* sync, const Camera* camera)
 			render_point_lights(render_params, s32(PointLight::Type::Override), inv_buffer_size, ~(1 << camera->team));
 		}
 
+		Game::draw_override(render_params);
+
 		sync->write(RenderOp::CullMode);
 		sync->write(RenderCullMode::Back);
 
@@ -604,9 +606,10 @@ void draw(LoopSync* sync, const Camera* camera)
 			Vec3 directions[MAX_DIRECTIONAL_LIGHTS] = {};
 			Vec3 abs_directions[MAX_DIRECTIONAL_LIGHTS] = {};
 			b8 shadowed = false;
-			for (s32 i = 0; i < Game::level.directional_lights.length; i++)
+			const StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS>& directional_lights = Game::level.directional_lights_get();
+			for (s32 i = 0; i < directional_lights.length; i++)
 			{
-				const DirectionalLight& light = Game::level.directional_lights[i];
+				const DirectionalLight& light = directional_lights[i];
 
 				colors[i] = render_params.camera->flag(CameraFlagColors) ? light.color : LMath::desaturate(light.color);
 				abs_directions[i] = light.rot * Vec3(0, 1, 0);
@@ -748,7 +751,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::far_plane);
 			sync->write(RenderDataType::R32);
 			sync->write<s32>(1);
-			sync->write<r32>(Game::level.skybox.far_plane);
+			sync->write<r32>(render_params.camera->far_plane);
 
 			if (shadowed)
 			{
@@ -1165,9 +1168,9 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
 		if (camera->flag(CameraFlagColors))
-			sync->write<Vec3>(Game::level.ambient_color);
+			sync->write<Vec3>(Game::level.ambient_color_get());
 		else
-			sync->write<Vec3>(LMath::desaturate(Game::level.ambient_color));
+			sync->write<Vec3>(LMath::desaturate(Game::level.ambient_color_get()));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::ssao_buffer);

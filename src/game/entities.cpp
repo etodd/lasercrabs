@@ -3869,47 +3869,6 @@ void Interactable::awake()
 	}
 }
 
-namespace InteractableNet
-{
-	b8 send_msg(Interactable* i)
-	{
-		using Stream = Net::StreamWrite;
-		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Interactable);
-		{
-			Ref<Interactable> ref = i;
-			serialize_ref(p, ref);
-		}
-		Net::msg_finalize(p);
-		return true;
-	}
-}
-
-b8 Interactable::net_msg(Net::StreamRead* p, Net::MessageSource src)
-{
-	using Stream = Net::StreamRead;
-	Ref<Interactable> ref;
-	serialize_ref(p, ref);
-	Interactable* i = ref.ref();
-	if (i && Game::level.mode == Game::Mode::Parkour)
-	{
-		if (Game::level.local)
-		{
-			if (src == Net::MessageSource::Remote)
-				InteractableNet::send_msg(i); // need to send out this message to everyone
-			else if (src == Net::MessageSource::Loopback)
-				i->interacted.fire(i);
-			else
-				vi_assert(false);
-		}
-		else // client
-		{
-			if (src == Net::MessageSource::Loopback)
-				i->interacted.fire(i);
-		}
-	}
-	return true;
-}
-
 void Interactable::interact()
 {
 	Animator* anim = get<Animator>();
@@ -3930,12 +3889,12 @@ void Interactable::interact()
 
 void Interactable::interact_no_animation()
 {
-	InteractableNet::send_msg(this);
+	interacted.fire(this);
 }
 
 void Interactable::animation_callback()
 {
-	InteractableNet::send_msg(this);
+	interacted.fire(this);
 }
 
 b8 Interactable::is_present(Type t)
@@ -4035,7 +3994,7 @@ TerminalInteractable::TerminalInteractable()
 	create<Interactable>(Interactable::Type::Terminal);
 }
 
-void TerminalInteractable::interacted(Interactable*)
+void TerminalInteractable::interacted(Interactable* i)
 {
 	vi_assert(Game::level.mode == Game::Mode::Parkour);
 
@@ -4043,20 +4002,15 @@ void TerminalInteractable::interacted(Interactable*)
 	if (animator->layers[1].animation == AssetNull) // make sure nothing's happening already
 	{
 		ZoneState zone_state = Game::save.zones[Game::level.id];
-		if (zone_state == ZoneState::Locked)
+		if (zone_state == ZoneState::Locked) // open up
 		{
-			if (Game::level.local)
-				Overworld::zone_change(Game::level.id, ZoneState::PvpHostile);
+			Overworld::zone_change(Game::level.id, ZoneState::ParkourUnlocked);
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 				i.item()->msg(_(strings::zone_unlocked), PlayerHuman::FlagMessageGood);
 			TerminalEntity::open();
 		}
-		else if (zone_state == ZoneState::PvpHostile)
-		{
-			if (Game::level.local)
-				Overworld::resource_change(Resource::Drones, -DEFAULT_ASSAULT_DRONES);
+		else // already open; get in
 			TerminalEntity::close();
-		}
 	}
 }
 
@@ -4138,20 +4092,6 @@ void TramRunner::go(s8 track, r32 x, State s)
 	}
 }
 
-namespace TramNet
-{
-	enum Message
-	{
-		Entered,
-		Exited,
-		Arrived,
-		DoorsOpen,
-		count,
-	};
-
-	b8 send(Tram*, Message);
-};
-
 void TramRunner::awake()
 {
 	get<Audio>()->post(AK::EVENTS::PLAY_TRAM_LOOP);
@@ -4194,7 +4134,11 @@ void TramRunner::update_server(const Update& u)
 		if (state == State::Arriving)
 		{
 			if (is_front)
-				TramNet::send(Tram::by_track(track), TramNet::Message::Arrived);
+			{
+				Tram* tram = Tram::by_track(track);
+				tram->get<Audio>()->post(AK::EVENTS::PLAY_TRAM_STOP);
+				tram->doors_open(true);
+			}
 			state = State::Idle;
 		}
 
@@ -4348,90 +4292,6 @@ void Tram::set_position()
 	}
 }
 
-namespace TramNet
-{
-	b8 send(Tram* t, Message m)
-	{
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Tram);
-
-		{
-			Ref<Tram> ref = t;
-			serialize_ref(p, ref);
-		}
-
-		serialize_enum(p, Message, m);
-
-		Net::msg_finalize(p);
-
-		return true;
-	}
-}
-
-b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
-{
-	using Stream = Net::StreamRead;
-
-	Ref<Tram> ref;
-	serialize_ref(p, ref);
-
-	TramNet::Message m;
-	serialize_enum(p, TramNet::Message, m);
-
-	if (Game::level.mode == Game::Mode::Parkour && ref.ref())
-	{
-		switch (m)
-		{
-			case TramNet::Message::Entered:
-			{
-				if (ref.ref()->departing && ref.ref()->doors_open())
-				{
-					ref.ref()->doors_open(false);
-					ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_TRAM_START);
-					if (Game::level.local)
-						TramRunner::go(ref.ref()->track(), 1.0f, TramRunner::State::Departing);
-				}
-				else if (Game::level.local
-					&& ref.ref()->runner_a.ref()->state == TramRunner::State::Idle
-					&& !ref.ref()->doors_open())
-				{
-					// player spawned inside us and we're sitting still
-					// open the doors for them
-					TramNet::send(ref.ref(), TramNet::Message::DoorsOpen);
-				}
-				break;
-			}
-			case TramNet::Message::Exited:
-			{
-				if (ref.ref()->doors_open())
-				{
-					ref.ref()->doors_open(false);
-					ref.ref()->departing = false;
-				}
-				break;
-			}
-			case TramNet::Message::DoorsOpen:
-			{
-				ref.ref()->doors_open(true);
-				break;
-			}
-			case TramNet::Message::Arrived:
-			{
-				ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_TRAM_STOP);
-				ref.ref()->doors_open(true);
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
-		}
-	}
-
-	return true;
-}
-
 void Tram::player_entered(Entity* e)
 {
 	if (e->has<Parkour>()
@@ -4439,16 +4299,24 @@ void Tram::player_entered(Entity* e)
 	{
 		if (departing && doors_open())
 		{
-			if (Overworld::zone_under_attack() == Game::level.tram_tracks[track()].level) // can't go there if it's under attack
-				e->get<PlayerControlHuman>()->player.ref()->msg(_(strings::error_zone_under_attack), PlayerHuman::FlagNone);
-			else
-				TramNet::send(this, TramNet::Message::Entered);
+			if (departing && doors_open()) // close doors and depart
+			{
+				doors_open(false);
+				get<Audio>()->post(AK::EVENTS::PLAY_TRAM_START);
+				TramRunner::go(track(), 1.0f, TramRunner::State::Departing);
+			}
+			else if (runner_a.ref()->state == TramRunner::State::Idle && !doors_open())
+			{
+				// player spawned inside us and we're sitting still
+				// open the doors for them
+				doors_open(true);
+			}
 		}
 		else if (!doors_open() && e->get<Walker>()->get_support() == get<RigidBody>())
 		{
 			// player spawned inside us and we're sitting still
 			// open the doors for them
-			TramNet::send(this, TramNet::Message::Entered);
+			doors_open(true);
 		}
 	}
 }
@@ -4460,7 +4328,8 @@ void Tram::player_exited(Entity* e)
 		&& e->has<Parkour>()
 		&& e->get<PlayerControlHuman>()->local())
 	{
-		TramNet::send(this, TramNet::Message::Exited);
+		doors_open(false);
+		departing = false;
 	}
 }
 
@@ -4572,13 +4441,13 @@ const r32 ascension_total_time = 20.0f;
 Vec3 Ascensions::Entry::pos() const
 {
 	r32 blend = 1.0f - (timer / ascension_total_time);
-	return Quat::euler(Ease::circ_out<r32>(blend) * PI * 0.45f, Game::level.rotation, 0) * Vec3(Game::level.skybox.far_plane * 0.9f, 0, 0);
+	return Quat::euler(Ease::circ_out<r32>(blend) * PI * 0.45f, Game::level.rotation, 0) * Vec3(Game::level.far_plane_get() * 0.9f, 0, 0);
 }
 
 r32 Ascensions::Entry::scale() const
 {
 	r32 blend = 1.0f - (timer / ascension_total_time);
-	return (Game::level.skybox.far_plane / 100.0f) * LMath::lerpf(blend, 1.0f, 0.5f);
+	return (Game::level.far_plane_get() / 100.0f) * LMath::lerpf(blend, 1.0f, 0.5f);
 }
 
 void Ascensions::update(const Update& u)

@@ -356,6 +356,8 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void remote_control_handle(const RemoteControl&);
 	RemoteControl remote_control_get(const Update&) const;
 
+	void terminal_exit();
+
 	void update(const Update&);
 	void update_late(const Update&);
 	void draw_ui(const RenderParams&) const;

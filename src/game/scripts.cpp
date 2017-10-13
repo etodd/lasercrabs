@@ -172,8 +172,6 @@ void cleanup()
 	delete data;
 	data = nullptr;
 	Instance::list.clear();
-
-	Audio::dialogue_callbacks.length = 0;
 }
 
 void tut_clear()
@@ -476,7 +474,7 @@ namespace splash
 			Vec2(Settings::display().width, Settings::display().height),
 		};
 		const r32 fov = 40.0f * PI * 0.5f / 180.0f;
-		data->camera.ref()->perspective(fov, 0.1f, Game::level.skybox.far_plane);
+		data->camera.ref()->perspective(fov, 0.1f, Game::level.far_plane_get());
 		data->camera.ref()->rot *= Quat::euler(0, Game::real_time.delta * -0.05f, 0);
 	}
 
@@ -815,7 +813,7 @@ namespace Docks
 				Vec2(0, 0),
 				Vec2(Settings::display().width, Settings::display().height),
 			};
-			data->camera.ref()->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), 0.1f, Game::level.skybox.far_plane);
+			data->camera.ref()->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), 0.1f, Game::level.far_plane_get());
 
 			if (Game::user_key.id)
 			{
@@ -1422,24 +1420,13 @@ namespace tier_2
 		data = nullptr;
 	}
 
-	b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
+	void give_drones()
 	{
-		using Stream = Net::StreamRead;
 		if (!data->drones_given)
 		{
-			if (Game::level.local)
-				Overworld::resource_change(Resource::Drones, 2);
+			Overworld::resource_change(Resource::Drones, 2);
 			data->drones_given = true;
 		}
-		return true;
-	}
-
-	b8 give_drones()
-	{
-		using Stream = Net::StreamWrite;
-		Stream* p = Script::net_msg_new(net_msg);
-		Net::msg_finalize(p);
-		return true;
 	}
 
 	void give_drones_animation_callback(Actor::Instance*)
@@ -1714,52 +1701,15 @@ namespace tier_2
 
 Script Script::list[] =
 {
-	{ "splash", Scripts::splash::init, nullptr, },
-	{ "tutorial", Scripts::tutorial::init, nullptr, },
-	{ "Docks", Scripts::Docks::init, nullptr, },
-	{ "locke", Scripts::locke::init, nullptr, },
-	{ "tier_1", Scripts::tier_1::init, nullptr },
-	{ "tier_2", Scripts::tier_2::init, Scripts::tier_2::net_msg, },
-	{ 0, 0, },
+	{ "splash", Scripts::splash::init },
+	{ "tutorial", Scripts::tutorial::init },
+	{ "Docks", Scripts::Docks::init },
+	{ "locke", Scripts::locke::init },
+	{ "tier_1", Scripts::tier_1::init },
+	{ "tier_2", Scripts::tier_2::init },
+	{ nullptr, nullptr },
 };
 s32 Script::count; // set in Game::init
 
-b8 net_msg_init(Net::StreamWrite* p, s32 script_id)
-{
-	using Stream = Net::StreamWrite;
-	serialize_int(p, s32, script_id, 0, Script::count);
-	return true;
-}
-
-Net::StreamWrite* Script::net_msg_new(NetMsgFunction callback)
-{
-	using Stream = Net::StreamWrite;
-
-	s32 script_id = -1;
-	for (s32 i = 0; i < count; i++)
-	{
-		if (list[i].net_callback == callback)
-		{
-			script_id = i;
-			break;
-		}
-	}
-	vi_assert(script_id != -1);
-
-	Stream* p = Net::msg_new(Net::MessageType::Script);
-	net_msg_init(p, script_id);
-	return p;
-}
-
-b8 Script::net_msg(Net::StreamRead* p, Net::MessageSource src)
-{
-	using Stream = Net::StreamRead;
-	s32 script_id;
-	serialize_int(p, s32, script_id, 0, count);
-	const Script& script = list[script_id];
-	if (!script.net_callback || !script.net_callback(p, src))
-		net_error();
-	return true;
-}
 
 }

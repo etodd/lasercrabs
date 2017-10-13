@@ -151,6 +151,10 @@ struct Game
 		b8 has_feature(FeatureLevel) const;
 		AI::Team team_lookup_reverse(AI::Team) const;
 		void multiplayer_level_schedule();
+		const StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS>& directional_lights_get() const;
+		const Vec3& ambient_color_get() const;
+		r32 far_plane_get() const;
+		r32 fog_start_get() const;
 	};
 
 	static Session session;
@@ -187,6 +191,7 @@ struct Game
 	static void awake_all();
 	static void draw_opaque(const RenderParams&);
 	static void draw_hollow(const RenderParams&);
+	static void draw_override(const RenderParams&);
 	static void draw_particles(const RenderParams&);
 	static void draw_alpha(const RenderParams&);
 	static void draw_alpha_late(const RenderParams&);

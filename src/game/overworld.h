@@ -43,11 +43,18 @@ enum class StoryTab : s8
 };
 
 extern ResourceInfo resource_info[s32(Resource::count)];
+extern StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS> directional_lights;
+extern Vec3 ambient_color;
+extern r32 far_plane;
+extern r32 fog_start;
 
 b8 net_msg(Net::StreamRead*, Net::MessageSource);
 void init(cJSON*);
 void update(const Update&);
 void draw_ui(const RenderParams&);
+void draw_hollow(const RenderParams&);
+void draw_opaque(const RenderParams&);
+void draw_override(const RenderParams&);
 void show(Camera*, State, StoryTab = StoryTab::Map);
 void clear();
 void execute(const char*);
@@ -57,6 +64,7 @@ AssetID zone_id_for_uuid(AssetID);
 b8 active(); // true if the overworld UI is being shown in any way
 void title();
 void skip_transition();
+b8 modal();
 b8 transitioning();
 b8 zone_is_pvp(AssetID);
 s32 zone_max_teams(AssetID);

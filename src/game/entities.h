@@ -597,7 +597,6 @@ struct Interactable : public ComponentType<Interactable>
 
 	static Interactable* closest(const Vec3&);
 	static b8 is_present(Type);
-	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
 	s32 user_data;
 	Type type;
@@ -680,7 +679,6 @@ struct TramEntity : public Entity
 struct Tram : public ComponentType<Tram>
 {
 	static Tram* by_track(s8);
-	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static Tram* player_inside(Entity*);
 	static void setup();
 

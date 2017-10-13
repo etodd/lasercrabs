@@ -3062,24 +3062,6 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 				net_error();
 			break;
 		}
-		case MessageType::Interactable:
-		{
-			if (!Interactable::net_msg(p, MessageSource::Remote))
-				net_error();
-			break;
-		}
-		case MessageType::Parkour:
-		{
-			if (!Parkour::net_msg(p, MessageSource::Remote))
-				net_error();
-			break;
-		}
-		case MessageType::Tram:
-		{
-			if (!Tram::net_msg(p, MessageSource::Remote))
-				net_error();
-			break;
-		}
 		case MessageType::UpgradeStation:
 		{
 			if (!UpgradeStation::net_msg(p, MessageSource::Remote))
@@ -3140,12 +3122,6 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 		case MessageType::AddPlayer:
 		{
 			if (!add_players(p, client, 1))
-				net_error();
-			break;
-		}
-		case MessageType::Script:
-		{
-			if (!Script::net_msg(p, MessageSource::Remote))
 				net_error();
 			break;
 		}
@@ -4608,18 +4584,6 @@ b8 msg_process(StreamRead* p, MessageSource src)
 				net_error();
 			break;
 		}
-		case MessageType::Interactable:
-		{
-			if (!Interactable::net_msg(p, src))
-				net_error();
-			break;
-		}
-		case MessageType::Parkour:
-		{
-			if (!Parkour::net_msg(p, src))
-				net_error();
-			break;
-		}
 		case MessageType::Bolt:
 		{
 			if (!Bolt::net_msg(p, src))
@@ -4632,12 +4596,6 @@ b8 msg_process(StreamRead* p, MessageSource src)
 				net_error();
 			break;
 		}
-		case MessageType::Tram:
-		{
-			if (!Tram::net_msg(p, src))
-				net_error();
-			break;
-		}
 		case MessageType::Turret:
 		{
 			if (!Turret::net_msg(p, src))
@@ -4647,12 +4605,6 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Overworld:
 		{
 			if (!Overworld::net_msg(p, src))
-				net_error();
-			break;
-		}
-		case MessageType::Script:
-		{
-			if (!Script::net_msg(p, src))
 				net_error();
 			break;
 		}

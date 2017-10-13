@@ -113,88 +113,6 @@ Parkour::~Parkour()
 	pickup_animation_complete(); // delete anything we're holding
 }
 
-namespace ParkourNet
-{
-	enum Message
-	{
-		Pickup,
-		StateSync,
-		Electrocuted,
-		FallDamage,
-		count,
-	};
-
-	b8 pickup(Parkour* parkour, Collectible* collectible)
-	{
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Parkour);
-		{
-			Message m = Message::Pickup;
-			serialize_enum(p, Message, m);
-		}
-		{
-			Ref<Parkour> ref = parkour;
-			serialize_ref(p, ref);
-		}
-		{
-			Ref<Collectible> ref = collectible;
-			serialize_ref(p, ref);
-		}
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 sync_state(Parkour* parkour)
-	{
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Parkour);
-		{
-			Message m = Message::StateSync;
-			serialize_enum(p, Message, m);
-		}
-		{
-			Ref<Parkour> ref = parkour;
-			serialize_ref(p, ref);
-		}
-		serialize_enum(p, Parkour::State, parkour->fsm.current);
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 electrocuted(Parkour* parkour)
-	{
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Parkour);
-		{
-			Message m = Message::Electrocuted;
-			serialize_enum(p, Message, m);
-		}
-		{
-			Ref<Parkour> ref = parkour;
-			serialize_ref(p, ref);
-		}
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 fall_damage(Parkour* parkour, s8 damage)
-	{
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Parkour);
-		{
-			Message m = Message::FallDamage;
-			serialize_enum(p, Message, m);
-		}
-		{
-			Ref<Parkour> ref = parkour;
-			serialize_ref(p, ref);
-		}
-		serialize_int(p, s8, damage, 0, DRONE_HEALTH + PARKOUR_SHIELD);
-		Net::msg_finalize(p);
-		return true;
-	}
-}
-
 void Parkour::killed(Entity*)
 {
 	if (Game::level.local)
@@ -217,7 +135,7 @@ void Parkour::land(r32 velocity_diff)
 				get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_HARD);
 				s8 damage = vi_min(s8((LANDING_VELOCITY_HARD - velocity_diff) * 0.5f), s8(DRONE_HEALTH + PARKOUR_SHIELD));
 				if (damage > 0)
-					ParkourNet::fall_damage(this, damage);
+					get<Health>()->damage(nullptr, damage);
 			}
 			else // light landing
 			{
@@ -460,74 +378,6 @@ void parkour_set_collectible_position(Animator* parkour, Transform* collectible)
 	collectible->pos = Vec3(0.04f, 0, 0);
 	collectible->rot = Quat::euler(0, PI * 0.5f, 0);
 	parkour->to_local(Asset::Bone::character_hand_R, &collectible->pos, &collectible->rot);
-}
-
-b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
-{
-	using Stream = Net::StreamRead;
-	ParkourNet::Message type;
-	serialize_enum(p, ParkourNet::Message, type);
-	Ref<Parkour> parkour;
-	serialize_ref(p, parkour);
-	if (parkour.ref())
-	{
-		switch (type)
-		{
-			case ParkourNet::Message::Pickup:
-			{
-				Ref<Collectible> collectible;
-				serialize_ref(p, collectible);
-				if (collectible.ref()
-					&& (parkour.ref()->get<Walker>()->base_pos() - collectible.ref()->get<Transform>()->absolute_pos()).length_squared() < (COLLECTIBLE_RADIUS * 2.0f) * (COLLECTIBLE_RADIUS * 2.0f)
-					&& collectible.ref()->get<Transform>()->parent.ref() != parkour.ref()->get<Transform>())
-				{
-					Animator::Layer* layer3 = &parkour.ref()->get<Animator>()->layers[3];
-					if (layer3->animation == AssetNull)
-					{
-						collectible.ref()->give_rewards();
-						collectible.ref()->get<Transform>()->parent = parkour.ref()->get<Transform>();
-						layer3->set(Asset::Animation::character_pickup, 0.0f); // bypass animation blending
-						parkour.ref()->get<Animator>()->update_world_transforms();
-						parkour.ref()->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_COLLECTIBLE_PICKUP);
-						parkour_set_collectible_position(parkour.ref()->get<Animator>(), collectible.ref()->get<Transform>());
-					}
-				}
-				break;
-			}
-			case ParkourNet::Message::StateSync:
-			{
-				State old_value = parkour.ref()->fsm.current;
-				serialize_enum(p, State, parkour.ref()->fsm.current);
-				if ((src == Net::MessageSource::Remote || Game::level.local) && old_value != parkour.ref()->fsm.current)
-				{
-					parkour.ref()->fsm.last = old_value;
-					parkour.ref()->fsm.time = 0.0f;
-				}
-				break;
-			}
-			case ParkourNet::Message::Electrocuted:
-			{
-				spawn_sparks(parkour.ref()->get<Walker>()->base_pos(), Quat::look(Vec3(0, 1, 0)));
-				if (Game::level.local)
-					parkour.ref()->get<Health>()->kill(nullptr);
-				break;
-			}
-			case ParkourNet::Message::FallDamage:
-			{
-				s8 damage;
-				serialize_int(p, s8, damage, 0, DRONE_HEALTH + PARKOUR_SHIELD);
-				if (Game::level.local)
-					parkour.ref()->get<Health>()->damage(nullptr, damage);
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
-		}
-	}
-	return true;
 }
 
 void parkour_stop_climbing(Parkour* parkour)
@@ -799,7 +649,11 @@ void Parkour::update(const Update& u)
 		if (get<Walker>()->support.ref())
 		{
 			if (get<Walker>()->support.ref()->get<RigidBody>()->collision_group & CollisionElectric)
-				ParkourNet::electrocuted(this);
+			{
+				spawn_sparks(get<Walker>()->base_pos(), Quat::look(Vec3(0, 1, 0)));
+				get<Health>()->kill(nullptr);
+				return;
+			}
 
 			can_double_jump = true;
 			tile_history.length = 0;
@@ -969,13 +823,6 @@ void Parkour::update(const Update& u)
 		}
 	}
 
-	if (!Game::level.local)
-	{
-		if (last_frame_state != fsm.current)
-			ParkourNet::sync_state(this);
-		last_frame_state = fsm.current;
-	}
-
 	// mantle animation stuff
 
 	{
@@ -1018,8 +865,20 @@ void Parkour::update(const Update& u)
 		{
 			Transform* t = i.item()->get<Transform>();
 
-			if (pickup && t->parent.ref() != get<Transform>() && (t->absolute_pos() - me).length_squared() < COLLECTIBLE_RADIUS * COLLECTIBLE_RADIUS)
-				ParkourNet::pickup(this, i.item()); // pick it up
+			if (pickup && t->parent.ref() != get<Transform>()
+				&& (t->absolute_pos() - me).length_squared() < COLLECTIBLE_RADIUS * COLLECTIBLE_RADIUS)
+			{
+				Animator::Layer* layer3 = &get<Animator>()->layers[3];
+				if (layer3->animation == AssetNull)
+				{
+					i.item()->give_rewards();
+					i.item()->get<Transform>()->parent = get<Transform>();
+					layer3->set(Asset::Animation::character_pickup, 0.0f); // bypass animation blending
+					get<Animator>()->update_world_transforms();
+					get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_COLLECTIBLE_PICKUP);
+					parkour_set_collectible_position(get<Animator>(), t);
+				}
+			}
 
 			if (t->parent.ref() == get<Transform>())
 			{

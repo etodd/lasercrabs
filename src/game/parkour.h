@@ -16,11 +16,6 @@ struct Traceur : public Entity
 #define LANDING_VELOCITY_LIGHT 5.0f * -1.25f
 #define LANDING_VELOCITY_HARD 5.0f * -3.0f
 
-namespace Net
-{
-	struct StreamRead;
-};
-
 struct Minion;
 struct Transform;
 struct RigidBody;
@@ -62,8 +57,6 @@ struct Parkour : public ComponentType<Parkour>
 		b8 operator!=(const TilePos&) const;
 	};
 
-	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
-
 	Vec3 relative_wall_run_normal;
 	Vec3 relative_support_pos;
 	Vec3 relative_animation_start_pos;
@@ -76,7 +69,6 @@ struct Parkour : public ComponentType<Parkour>
 	FSM<State> fsm;
 	WallRunState wall_run_state;
 	WallRunState last_support_wall_run_state;
-	State last_frame_state;
 	Ref<RigidBody> last_support;
 	Ref<Transform> rope;
 	Ref<Transform> animation_start_support;

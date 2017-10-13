@@ -932,7 +932,7 @@ void PlayerHuman::update(const Update& u)
 		{
 			if (Game::level.mode == Game::Mode::Pvp)
 			{
-				camera.ref()->perspective(fov_map_view, 1.0f, Game::level.skybox.far_plane);
+				camera.ref()->perspective(fov_map_view, 1.0f, Game::level.far_plane_get());
 				camera.ref()->range = 0;
 				if (get<PlayerManager>()->spawn_timer == 0.0f)
 				{
@@ -1201,7 +1201,7 @@ void PlayerHuman::update(const Update& u)
 			// move camera to focus on selected spawn point
 			{
 				Quat target_rot = Quat::look(Game::level.map_view.ref()->absolute_rot() * Vec3(0, -1, 0));
-				Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.skybox.far_plane * -0.4f);
+				Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.far_plane_get() * -0.4f);
 				camera.ref()->pos += (target_pos - camera.ref()->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
 				camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, target_rot);
 			}
@@ -1212,7 +1212,7 @@ void PlayerHuman::update(const Update& u)
 			// we're dead but others still playing; spectate
 			update_camera_rotation(u);
 
-			camera.ref()->perspective(fov_default, 0.02f, Game::level.skybox.far_plane);
+			camera.ref()->perspective(fov_default, 0.02f, Game::level.far_plane_get());
 
 			if (PlayerCommon::list.count() > 0)
 			{
@@ -1285,7 +1285,7 @@ void PlayerHuman::update_late(const Update& u)
 		// noclip
 		update_camera_rotation(u);
 
-		camera.ref()->perspective(u.input->keys.get(s32(KeyCode::E)) ? fov_narrow : fov_map_view, 0.02f, Game::level.skybox.far_plane);
+		camera.ref()->perspective(u.input->keys.get(s32(KeyCode::E)) ? fov_narrow : fov_map_view, 0.02f, Game::level.far_plane_get());
 		camera.ref()->range = 0;
 		camera.ref()->cull_range = 0;
 
@@ -1299,7 +1299,7 @@ void PlayerHuman::update_late(const Update& u)
 	}
 	else if (Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
 	{
-		camera.ref()->perspective(fov_map_view, 1.0f, Game::level.skybox.far_plane);
+		camera.ref()->perspective(fov_map_view, 1.0f, Game::level.far_plane_get());
 
 		Entity* e = get<PlayerManager>()->instance.ref();
 		if (e)
@@ -1487,8 +1487,7 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 		if (Game::level.post_pvp)
 		{
 			// player is getting out of the terminal
-			spawned->get<Animator>()->layers[3].set(Asset::Animation::character_terminal_exit, 0.0f); // bypass animation blending
-			spawned->get<PlayerControlHuman>()->anim_base = Game::level.terminal_interactable.ref();
+			spawned->get<PlayerControlHuman>()->terminal_exit();
 			Game::level.post_pvp = false;
 		}
 	}
@@ -3377,6 +3376,12 @@ void PlayerControlHuman::parkour_landed(r32 velocity_diff)
 	}
 }
 
+void PlayerControlHuman::terminal_exit()
+{
+	get<Animator>()->layers[3].set(Asset::Animation::character_terminal_exit, 0.0f); // bypass animation blending
+	get<PlayerControlHuman>()->anim_base = Game::level.terminal_interactable.ref();
+}
+
 void PlayerControlHuman::terminal_enter_animation_callback()
 {
 	Game::level.terminal_interactable.ref()->get<Interactable>()->interact_no_animation();
@@ -3661,19 +3666,6 @@ void player_confirm_tram_interactable(s8 gamepad)
 
 void player_confirm_terminal_interactable(s8 gamepad)
 {
-	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->player.ref()->gamepad == gamepad)
-		{
-			Interactable* interactable = Interactable::closest(i.item()->get<Transform>()->absolute_pos());
-			if (interactable && interactable->type == Interactable::Type::Terminal)
-			{
-				i.item()->anim_base = interactable->entity();
-				i.item()->get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
-			}
-			break;
-		}
-	}
 }
 
 void player_cancel_interactable(s8 gamepad)
@@ -3862,7 +3854,7 @@ void PlayerControlHuman::update(const Update& u)
 			}
 
 			// update camera projection
-			camera->perspective(fov, 0.005f, Game::level.skybox.far_plane);
+			camera->perspective(fov, 0.005f, Game::level.far_plane_get());
 
 			// collect target indicators
 			player_collect_target_indicators(this);
@@ -4256,25 +4248,7 @@ void PlayerControlHuman::update(const Update& u)
 						{
 							switch (Game::save.zones[Game::level.id])
 							{
-								case ZoneState::PvpHostile:
-								{
-									if (Game::level.max_teams <= 2 || Game::save.group != Game::Group::None) // if the map requires more than two players, you must be in a group
-									{
-										if (Game::save.resources[s32(Resource::Drones)] < DEFAULT_ASSAULT_DRONES)
-											Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), DEFAULT_ASSAULT_DRONES, _(strings::drones));
-										else
-											Menu::dialog_with_cancel(gamepad, &player_confirm_terminal_interactable, &player_cancel_interactable, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES);
-									}
-									else // must be in a group
-										player.ref()->msg(_(strings::group_required), PlayerHuman::FlagNone);
-									break;
-								}
-								case ZoneState::ParkourUnlocked:
-								{
-									vi_assert(false); // shouldn't be any terminals in parkour zones
-									break;
-								}
-								case ZoneState::Locked:
+								case ZoneState::Locked: // open up
 								{
 									interactable->interact();
 									get<Animator>()->layers[3].play(Asset::Animation::character_interact);
@@ -4282,10 +4256,10 @@ void PlayerControlHuman::update(const Update& u)
 									anim_base = interactable->entity();
 									break;
 								}
-								case ZoneState::PvpFriendly:
+								case ZoneState::ParkourUnlocked: // already open; get in
 								{
-									// zone is already owned
-									player.ref()->msg(_(strings::zone_already_captured), PlayerHuman::FlagNone);
+									anim_base = interactable->entity();
+									get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
 									break;
 								}
 								default:
@@ -4507,21 +4481,29 @@ void PlayerControlHuman::update_late(const Update& u)
 				get_interactable_standing_position(anim_base.ref()->get<Transform>(), &target_pos, &target_angle);
 
 				// lerp to interactable
-				r32 angle = fabsf(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, target_angle));
-				get<PlayerCommon>()->angle_horizontal = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / angle) * u.time.delta), get<PlayerCommon>()->angle_horizontal, LMath::closest_angle(target_angle, get<PlayerCommon>()->angle_horizontal));
-				get<PlayerCommon>()->angle_vertical = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / fabsf(get<PlayerCommon>()->angle_vertical)) * u.time.delta), get<PlayerCommon>()->angle_vertical, -arm_angle_offset);
+				target_angle = LMath::closest_angle(target_angle, get<PlayerCommon>()->angle_horizontal);
+
+				if (get<PlayerCommon>()->angle_horizontal > target_angle)
+					get<PlayerCommon>()->angle_horizontal = LMath::angle_range(vi_max(target_angle, get<PlayerCommon>()->angle_horizontal - INTERACT_LERP_ROTATION_SPEED * u.time.delta));
+				else
+					get<PlayerCommon>()->angle_horizontal = LMath::angle_range(vi_min(target_angle, get<PlayerCommon>()->angle_horizontal + INTERACT_LERP_ROTATION_SPEED * u.time.delta));
+
+				{
+					r32 target_angle = -arm_angle_offset;
+					if (get<PlayerCommon>()->angle_vertical > target_angle)
+						get<PlayerCommon>()->angle_vertical = LMath::angle_range(vi_max(target_angle, get<PlayerCommon>()->angle_vertical - INTERACT_LERP_ROTATION_SPEED * u.time.delta));
+					else
+						get<PlayerCommon>()->angle_vertical = LMath::angle_range(vi_min(target_angle, get<PlayerCommon>()->angle_vertical + INTERACT_LERP_ROTATION_SPEED * u.time.delta));
+				}
 
 				Vec3 abs_pos = get<Transform>()->absolute_pos();
 				Vec3 diff = target_pos - abs_pos;
 				r32 distance = diff.length();
 				r32 max_correction_distance = INTERACT_LERP_TRANSLATION_SPEED * u.time.delta;
-				if (distance < max_correction_distance)
+				if (distance <= max_correction_distance)
 					get<Walker>()->absolute_pos(target_pos);
 				else
-				{
-					diff /= distance;
-					get<Walker>()->absolute_pos(abs_pos + diff * max_correction_distance);
-				}
+					get<Walker>()->absolute_pos(abs_pos + diff * (max_correction_distance / distance));
 			}
 			else
 			{
@@ -4540,7 +4522,7 @@ void PlayerControlHuman::update_late(const Update& u)
 		Camera* camera = player.ref()->camera.ref();
 
 		{
-			camera->perspective(fov_default, 0.02f, Game::level.skybox.far_plane);
+			camera->perspective(fov_default, 0.02f, Game::level.far_plane_get());
 			camera->clip_planes[0] = Plane();
 			camera->cull_range = 0.0f;
 			camera->flag(CameraFlagCullBehindWall, false);
@@ -4869,14 +4851,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 			if (Settings::waypoints)
 			{
-				// highlight terminal location
-				if (!closest_interactable && Game::save.zones[Game::level.id] == ZoneState::Locked)
-				{
-					Entity* terminal = Game::level.terminal.ref();
-					if (terminal)
-						UI::indicator(params, terminal->get<Transform>()->absolute_pos(), UI::color_default, true);
-				}
-
 				// highlight trams
 				Vec3 look_dir = params.camera->rot * Vec3(0, 0, 1);
 				for (auto i = Tram::list.iterator(); !i.is_last(); i.next())

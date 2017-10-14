@@ -110,6 +110,8 @@ enum class ZoneState : s8
 {
 	Locked,
 	ParkourUnlocked,
+	ParkourOwned,
+	PvpUnlocked,
 	PvpFriendly,
 	PvpHostile,
 	count,

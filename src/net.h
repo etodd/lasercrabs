@@ -52,7 +52,6 @@ enum class MessageType : s8
 	TimeSync,
 	Turret,
 	TransitionLevel,
-	Overworld,
 	AddPlayer,
 #if !RELEASE_BUILD
 	DebugCommand,

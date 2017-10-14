@@ -266,10 +266,10 @@ void Team::transition_next()
 	vi_assert(Game::level.local);
 	if (Game::session.type == SessionType::Story)
 	{
+#if SERVER
 		Game::unload_level(); // disconnect any connected players
-#if !SERVER
-		Game::load_level(Game::save.zone_current, Game::Mode::Parkour);
-		Game::level.post_pvp = true;
+#else
+		Game::schedule_load_level(Game::save.zone_current, Game::Mode::Parkour);
 #endif
 	}
 	else
@@ -836,6 +836,7 @@ void Team::update_all_server(const Update& u)
 		&& Game::level.mode == Game::Mode::Pvp)
 	{
 		if ((match_time > TEAM_SELECT_TIME)
+			|| !Game::level.has_feature(Game::FeatureLevel::All) // tutorial
 			|| (Game::session.config.game_type == GameType::Deathmatch
 				&& Game::session.config.max_players == Game::session.config.team_count // FFA
 				&& teams_with_active_players() > 1))
@@ -1017,6 +1018,16 @@ void Team::update_all_client_only(const Update& u)
 s16 Team::initial_respawns() const
 {
 	return Game::session.config.game_type == GameType::Deathmatch || team() == 0 ? -1 : Game::session.config.respawns;
+}
+
+SpawnPoint* Team::default_spawn_point() const
+{
+	for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team == team() && !i.item()->battery())
+			return i.item();
+	}
+	return nullptr;
 }
 
 PlayerManager::Visibility PlayerManager::visibility[MAX_PLAYERS * MAX_PLAYERS];

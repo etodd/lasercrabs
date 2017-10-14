@@ -111,6 +111,8 @@ struct Game
 		AssetID zone_overworld;
 		b8 locke_spoken;
 		b8 extended_parkour;
+		b8 tutorial_complete;
+		b8 inside_terminal;
 
 		Save();
 		void reset();
@@ -146,7 +148,6 @@ struct Game
 		b8 local = true;
 		b8 noclip;
 		b8 config_scheduled_apply; // true if we have a scheduled ServerConfig we need to apply on the next level transition
-		b8 post_pvp; // true if we've already played a PvP match on this level
 
 		b8 has_feature(FeatureLevel) const;
 		AI::Team team_lookup_reverse(AI::Team) const;

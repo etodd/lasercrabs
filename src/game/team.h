@@ -135,6 +135,7 @@ struct Team : public ComponentType<Team>
 	s16 increment() const;
 	void add_kills(s32);
 	s16 initial_respawns() const;
+	SpawnPoint* default_spawn_point() const;
 
 	inline AI::Team team() const
 	{

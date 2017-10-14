@@ -537,8 +537,6 @@ b8 Health::active_armor() const
 		return active_armor_timer > 0.0f || Turret::list.count() > 0 || Game::level.mode != Game::Mode::Pvp;
 	else if (has<ForceField>())
 		return active_armor_timer > 0.0f || (get<ForceField>()->flags & ForceField::FlagPermanent);
-	else if (has<Turret>() && !Game::level.has_feature(Game::FeatureLevel::Turrets))
-		return true;
 	else
 		return active_armor_timer > 0.0f;
 }
@@ -955,7 +953,7 @@ SpawnPosition SpawnPoint::spawn_position() const
 void SpawnPoint::update_server_all(const Update& u)
 {
 	if (Game::level.mode == Game::Mode::Pvp
-		&& Game::level.has_feature(Game::FeatureLevel::All)
+		&& Game::level.has_feature(Game::FeatureLevel::Turrets)
 		&& Team::match_state == Team::MatchState::Active
 		&& Game::session.config.enable_minions)
 	{
@@ -1669,7 +1667,7 @@ void Turret::update_server(const Update& u)
 	if (cooldown > 0.0f)
 		cooldown -= u.time.delta;
 
-	if (Game::level.has_feature(Game::FeatureLevel::All))
+	if (Game::level.has_feature(Game::FeatureLevel::Turrets))
 	{
 		target_check_time -= u.time.delta;
 		if (target_check_time < 0.0f)
@@ -3787,7 +3785,7 @@ void Collectible::give_rewards()
 			}
 			case Resource::Drones:
 			{
-				a = 5;
+				a = DEFAULT_ASSAULT_DRONES;
 				break;
 			}
 			default:
@@ -3967,7 +3965,7 @@ TerminalEntity::TerminalEntity()
 	anim->armature = Asset::Armature::terminal;
 	anim->layers[0].behavior = Animator::Behavior::Loop;
 	anim->layers[0].blend_time = 0.0f;
-	anim->layers[0].animation = Game::save.zones[Game::level.id] == ZoneState::Locked ? AssetNull : Asset::Animation::terminal_opened;
+	anim->layers[0].animation = (Game::save.zones[Game::level.id] == ZoneState::ParkourOwned && !Game::save.inside_terminal) ? Asset::Animation::terminal_opened : AssetNull;
 	anim->layers[1].blend_time = 0.0f;
 	anim->trigger(Asset::Animation::terminal_close, 1.33f).link(&closed);
 
@@ -3987,7 +3985,7 @@ TerminalInteractable::TerminalInteractable()
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::interactable;
 	anim->layers[0].behavior = Animator::Behavior::Loop;
-	anim->layers[0].animation = Game::save.zones[Game::level.id] == ZoneState::Locked ? Asset::Animation::interactable_enabled : Asset::Animation::interactable_disabled;
+	anim->layers[0].animation = Game::save.zones[Game::level.id] == ZoneState::ParkourOwned ? Asset::Animation::interactable_disabled : Asset::Animation::interactable_enabled;
 	anim->layers[0].blend_time = 0.0f;
 	anim->layers[1].blend_time = 0.0f;
 
@@ -4002,15 +4000,16 @@ void TerminalInteractable::interacted(Interactable* i)
 	if (animator->layers[1].animation == AssetNull) // make sure nothing's happening already
 	{
 		ZoneState zone_state = Game::save.zones[Game::level.id];
-		if (zone_state == ZoneState::Locked) // open up
+		if (zone_state == ZoneState::ParkourOwned) // already open; get in
+			TerminalEntity::close();
+		else // open up
 		{
-			Overworld::zone_change(Game::level.id, ZoneState::ParkourUnlocked);
+			Overworld::zone_change(Game::level.id, ZoneState::ParkourOwned);
+			Overworld::zone_change(AssetID(i->user_data), ZoneState::PvpUnlocked); // user data = target PvP level
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-				i.item()->msg(_(strings::zone_unlocked), PlayerHuman::FlagMessageGood);
+				i.item()->msg(_(strings::story_victory), PlayerHuman::FlagMessageGood);
 			TerminalEntity::open();
 		}
-		else // already open; get in
-			TerminalEntity::close();
 	}
 }
 
@@ -4036,7 +4035,7 @@ TramRunnerEntity::TramRunnerEntity(s8 track, b8 is_front)
 
 	const Game::TramTrack& t = Game::level.tram_tracks[track];
 	r32 offset;
-	if (Game::save.zone_last == t.level && !Game::level.post_pvp)
+	if (Game::save.zone_last == t.level)
 	{
 		offset = t.points[t.points.length - 1].offset - TRAM_LENGTH;
 		r->velocity = -TRAM_SPEED_MAX;
@@ -4294,25 +4293,15 @@ void Tram::set_position()
 
 void Tram::player_entered(Entity* e)
 {
-	if (e->has<Parkour>()
-		&& e->get<PlayerControlHuman>()->local())
+	if (e->has<Parkour>())
 	{
-		if (departing && doors_open())
+		if (departing && doors_open()) // close doors and depart
 		{
-			if (departing && doors_open()) // close doors and depart
-			{
-				doors_open(false);
-				get<Audio>()->post(AK::EVENTS::PLAY_TRAM_START);
-				TramRunner::go(track(), 1.0f, TramRunner::State::Departing);
-			}
-			else if (runner_a.ref()->state == TramRunner::State::Idle && !doors_open())
-			{
-				// player spawned inside us and we're sitting still
-				// open the doors for them
-				doors_open(true);
-			}
+			doors_open(false);
+			get<Audio>()->post(AK::EVENTS::PLAY_TRAM_START);
+			TramRunner::go(track(), 1.0f, TramRunner::State::Departing);
 		}
-		else if (!doors_open() && e->get<Walker>()->get_support() == get<RigidBody>())
+		else if (runner_a.ref()->state == TramRunner::State::Idle && !doors_open())
 		{
 			// player spawned inside us and we're sitting still
 			// open the doors for them
@@ -4396,7 +4385,7 @@ void TramInteractableEntity::interacted(Interactable* i)
 	else
 	{
 		AssetID target_level = Game::level.tram_tracks[track].level;
-		if (Game::level.local && Game::save.zones[target_level] == ZoneState::Locked && !Overworld::zone_is_pvp(target_level))
+		if (Game::save.zones[target_level] == ZoneState::Locked)
 		{
 			Overworld::resource_change(Resource::AccessKeys, -1);
 			Overworld::zone_change(target_level, ZoneState::ParkourUnlocked);

@@ -48,7 +48,6 @@ extern Vec3 ambient_color;
 extern r32 far_plane;
 extern r32 fog_start;
 
-b8 net_msg(Net::StreamRead*, Net::MessageSource);
 void init(cJSON*);
 void update(const Update&);
 void draw_ui(const RenderParams&);
@@ -58,12 +57,12 @@ void draw_override(const RenderParams&);
 void show(Camera*, State, StoryTab = StoryTab::Map);
 void clear();
 void execute(const char*);
-void zone_done(AssetID);
 void zone_change(AssetID, ZoneState);
 AssetID zone_id_for_uuid(AssetID);
 b8 active(); // true if the overworld UI is being shown in any way
 void title();
-void skip_transition();
+void skip_transition_full();
+void skip_transition_half();
 b8 modal();
 b8 transitioning();
 b8 zone_is_pvp(AssetID);

@@ -1734,8 +1734,16 @@ void multiplayer_draw(const RenderParams& params)
 
 void go(AssetID zone)
 {
-	vi_assert(Game::level.local);
-	Game::schedule_load_level(zone, Game::Mode::Pvp);
+	vi_assert(Game::level.local && Game::session.type == SessionType::Story);
+	if (zone == Asset::Level::Commons && !Game::save.tutorial_complete)
+		Game::schedule_load_level(zone, Game::Mode::Pvp); // run tutorial locally
+	else
+	{
+		// connect to a server
+#if !SERVER
+		Net::Client::master_request_server(0, zone);
+#endif
+	}
 }
 
 void focus_camera(const Update& u, const Vec3& target_pos, const Quat& target_rot)
@@ -1857,21 +1865,16 @@ Vec3 zone_color(const ZoneNode& zone)
 	switch (zone_state)
 	{
 		case ZoneState::Locked:
-		{
 			return Vec3(0.3f);
-		}
 		case ZoneState::ParkourUnlocked:
-		{
+		case ZoneState::PvpUnlocked:
+			return Vec3(1.0f);
+		case ZoneState::ParkourOwned:
 			return UI::color_accent().xyz();
-		}
 		case ZoneState::PvpFriendly:
-		{
 			return Team::color_friend.xyz();
-		}
 		case ZoneState::PvpHostile:
-		{
 			return Team::color_enemy.xyz();
-		}
 		default:
 		{
 			vi_assert(false);
@@ -1887,21 +1890,16 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 	switch (zone_state)
 	{
 		case ZoneState::Locked:
-		{
 			return UI::color_disabled();
-		}
 		case ZoneState::ParkourUnlocked:
-		{
+		case ZoneState::PvpUnlocked:
 			return UI::color_default;
-		}
+		case ZoneState::ParkourOwned:
+			return UI::color_accent();
 		case ZoneState::PvpFriendly:
-		{
 			return Team::ui_color_friend;
-		}
 		case ZoneState::PvpHostile:
-		{
 			return Team::ui_color_enemy;
-		}
 		default:
 		{
 			vi_assert(false);
@@ -2091,195 +2089,17 @@ b8 zone_can_capture(AssetID zone_id)
 	}
 }
 
-namespace OverworldNet
-{
-	enum class Message : s8
-	{
-		CaptureOrDefend,
-		ZoneUnderAttack,
-		ZoneChange,
-		ResourceChange,
-		Buy,
-		count,
-	};
-
-	b8 capture_or_defend(AssetID zone)
-	{
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Overworld);
-		Message m = Message::CaptureOrDefend;
-		serialize_enum(p, Message, m);
-		serialize_s16(p, zone);
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 zone_under_attack(AssetID zone)
-	{
-		vi_assert(Game::level.local);
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Overworld);
-		Message m = Message::ZoneUnderAttack;
-		serialize_enum(p, Message, m);
-		serialize_s16(p, zone);
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 zone_change(AssetID zone, ZoneState state)
-	{
-		vi_assert(Game::level.local);
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Overworld);
-		Message m = Message::ZoneChange;
-		serialize_enum(p, Message, m);
-		serialize_s16(p, zone);
-		serialize_enum(p, ZoneState, state);
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 resource_change(Resource r, s16 delta)
-	{
-		vi_assert(Game::level.local);
-		if (delta != 0)
-		{
-			using Stream = Net::StreamWrite;
-			Stream* p = Net::msg_new(Net::MessageType::Overworld);
-			Message m = Message::ResourceChange;
-			serialize_enum(p, Message, m);
-			serialize_enum(p, Resource, r);
-			serialize_s16(p, delta);
-			Net::msg_finalize(p);
-		}
-		return true;
-	}
-
-	b8 buy(Resource r, s16 quantity)
-	{
-		vi_assert(quantity != 0);
-		using Stream = Net::StreamWrite;
-		Stream* p = Net::msg_new(Net::MessageType::Overworld);
-		Message m = Message::Buy;
-		serialize_enum(p, Message, m);
-		serialize_enum(p, Resource, r);
-		serialize_s16(p, quantity);
-		Net::msg_finalize(p);
-		return true;
-	}
-}
-
 void resource_change(Resource r, s16 delta)
 {
-	OverworldNet::resource_change(r, delta);
+	Game::save.resources[s32(r)] += delta;
+	vi_assert(Game::save.resources[s32(r)] >= 0);
+	if (r != Resource::Energy)
+		data.story.inventory.resource_change_time[s32(r)] = Game::real_time.total;
 }
 
 AssetID zone_under_attack()
 {
 	return Game::session.zone_under_attack;
-}
-
-b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
-{
-	using Stream = Net::StreamRead;
-
-	OverworldNet::Message type;
-	serialize_enum(p, OverworldNet::Message, type);
-
-	switch (type)
-	{
-		case OverworldNet::Message::CaptureOrDefend:
-		{
-			AssetID zone;
-			serialize_s16(p, zone);
-
-			// only server accepts CaptureOrDefend messages
-			if (Game::level.local && Game::session.type == SessionType::Story)
-			{
-				if (zone_node_by_id(zone) && zone_can_capture(zone))
-				{
-					if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES
-						&& (Game::save.zones[zone] == ZoneState::PvpFriendly || Game::save.resources[s32(Resource::AccessKeys)] > 0))
-					{
-						resource_change(Resource::Drones, -DEFAULT_ASSAULT_DRONES);
-						if (Game::save.zones[zone] != ZoneState::PvpFriendly)
-							resource_change(Resource::AccessKeys, -1);
-						go(zone);
-					}
-				}
-			}
-			break;
-		}
-		case OverworldNet::Message::ZoneUnderAttack:
-		{
-			AssetID zone;
-			serialize_s16(p, zone);
-
-			// server does not accept ZoneUnderAttack messages from client
-			if (Game::level.local == (src == Net::MessageSource::Loopback))
-			{
-				Game::session.zone_under_attack = zone;
-				Game::session.zone_under_attack_timer = zone == AssetNull ? 0.0f : ZONE_UNDER_ATTACK_TIME;
-			}
-			break;
-		}
-		case OverworldNet::Message::ZoneChange:
-		{
-			AssetID zone;
-			serialize_s16(p, zone);
-
-			ZoneState state;
-			serialize_enum(p, ZoneState, state);
-			// server does not accept ZoneChange messages from client
-			if (Game::level.local == (src == Net::MessageSource::Loopback))
-			{
-				Game::save.zones[zone] = state;
-				data.story.map.zones_change_time[zone] = Game::real_time.total;
-			}
-			break;
-		}
-		case OverworldNet::Message::ResourceChange:
-		{
-			Resource r;
-			serialize_enum(p, Resource, r);
-			s16 delta;
-			serialize_s16(p, delta);
-			// server does not accept ResourceChange messages from client
-			if (Game::level.local == (src == Net::MessageSource::Loopback))
-			{
-				Game::save.resources[s32(r)] += delta;
-				vi_assert(Game::save.resources[s32(r)] >= 0);
-				if (r != Resource::Energy)
-					data.story.inventory.resource_change_time[s32(r)] = Game::real_time.total;
-			}
-			break;
-		}
-		case OverworldNet::Message::Buy:
-		{
-			Resource r;
-			serialize_enum(p, Resource, r);
-			s16 amount;
-			serialize_s16(p, amount);
-			// only server accepts Buy messages
-			if (Game::level.local && Game::session.type == SessionType::Story && amount > 0 && Interactable::is_present(Interactable::Type::Shop))
-			{
-				s32 cost = s32(amount) * s32(resource_info[s32(r)].cost);
-				if (cost <= Game::save.resources[s32(Resource::Energy)])
-				{
-					resource_change(r, amount);
-					resource_change(Resource::Energy, -cost);
-				}
-			}
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
-
-	return true;
 }
 
 void hide()
@@ -2308,6 +2128,8 @@ void hide_complete()
 	}
 	if (data.state == State::StoryMode)
 	{
+		Game::save.inside_terminal = false;
+		Game::save.zone_overworld = Game::level.id;
 		TerminalEntity::open();
 		PlayerControlHuman::list.iterator().item()->terminal_exit();
 	}
@@ -2317,7 +2139,11 @@ void hide_complete()
 void deploy_done()
 {
 	vi_assert(Game::session.type == SessionType::Story);
-	OverworldNet::capture_or_defend(data.zone_selected);
+	if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
+	{
+		resource_change(Resource::Drones, -DEFAULT_ASSAULT_DRONES);
+		go(data.zone_selected);
+	}
 }
 
 void deploy_update(const Update& u)
@@ -2360,7 +2186,7 @@ void deploy_update(const Update& u)
 	}
 
 	if (data.timer_deploy == 0.0f && old_timer > 0.0f)
-			deploy_done();
+		deploy_done();
 }
 
 void deploy_draw(const RenderParams& params)
@@ -2402,31 +2228,21 @@ void capture_start(s8 gamepad)
 {
 	if (zone_can_capture(data.zone_selected)
 		&& Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
-	{
-		// one access key needed if we're attacking
-		if (Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly || Game::save.resources[s32(Resource::AccessKeys)] > 0)
-			deploy_start();
-	}
-}
-
-void zone_done(AssetID zone)
-{
-	if (Game::save.zones[zone] == ZoneState::PvpFriendly)
-	{
-		// we won
-		if (Game::level.local)
-		{
-			const ZoneNode* z = zone_node_by_id(zone);
-			for (s32 i = 0; i < s32(Resource::count); i++)
-				resource_change(Resource(i), z->rewards[i]);
-		}
-	}
+		deploy_start();
 }
 
 void zone_change(AssetID zone, ZoneState state)
 {
-	vi_assert(Game::level.local);
-	OverworldNet::zone_change(zone, state);
+	Game::save.zones[zone] = state;
+	data.story.map.zones_change_time[zone] = Game::real_time.total;
+
+	if (state == ZoneState::PvpFriendly)
+	{
+		// we won
+		const ZoneNode* z = zone_node_by_id(zone);
+		for (s32 i = 0; i < s32(Resource::count); i++)
+			resource_change(Resource(i), z->rewards[i]);
+	}
 }
 
 s32 zone_max_teams(AssetID zone_id)
@@ -2501,14 +2317,8 @@ void tab_map_update(const Update& u)
 			{
 				if (Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly) // defending
 					Menu::dialog(0, &capture_start, _(strings::confirm_defend), DEFAULT_ASSAULT_DRONES);
-				else
-				{
-					// attacking
-					if (Game::save.resources[s32(Resource::AccessKeys)] > 0)
-						Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES, 1);
-					else
-						Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::access_keys));
-				}
+				else // attacking
+					Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES);
 			}
 			else
 				Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), DEFAULT_ASSAULT_DRONES, _(strings::drones));
@@ -2558,7 +2368,10 @@ void tab_inventory_update(const Update& u)
 			const ResourceInfo& info = resource_info[s32(resource)];
 			s16 total_cost = info.cost * s16(data.story.inventory.buy_quantity);
 			if (Game::save.resources[s32(Resource::Energy)] >= total_cost)
-				OverworldNet::buy(resource, data.story.inventory.buy_quantity);
+			{
+				resource_change(resource, data.story.inventory.buy_quantity);
+				resource_change(Resource::Energy, -total_cost);
+			}
 			data.story.inventory.mode = Data::Inventory::Mode::Normal;
 			data.story.inventory.buy_quantity = 1;
 		}
@@ -2653,7 +2466,10 @@ void zone_random_attack(r32 elapsed_time)
 		{
 			AssetID z = zone_random(&zone_filter_captured, &zone_filter_can_be_attacked); // live incoming attack
 			if (z != AssetNull)
-				OverworldNet::zone_under_attack(z);
+			{
+				Game::session.zone_under_attack = z;
+				Game::session.zone_under_attack_timer = z == AssetNull ? 0.0f : ZONE_UNDER_ATTACK_TIME;
+			}
 			event_odds -= 1.0f;
 		}
 	}
@@ -2664,7 +2480,20 @@ void story_mode_update(const Update& u)
 	if (UIMenu::active[0])
 		return;
 
-	data.story.tab_timer = vi_max(0.0f, data.story.tab_timer - u.time.delta);
+	if (data.story.tab_timer > 0.0f)
+	{
+		data.story.tab_timer = vi_max(0.0f, data.story.tab_timer - u.time.delta);
+
+		if (data.story.tab_timer == 0.0f && data.story.tab == StoryTab::Map)
+		{
+			// animation completely done; reveal unlocked PvP zones
+			for (s32 i = 0; i < MAX_ZONES; i++)
+			{
+				if (Game::save.zones[i] == ZoneState::PvpUnlocked)
+					zone_change(AssetID(i), ZoneState::PvpHostile);
+			}
+		}
+	}
 
 	tab_map_update(u);
 	tab_inventory_update(u);
@@ -2799,6 +2628,8 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 				UI::color_default,
 				PI
 			);
+
+			index++; // takes two slots
 		}
 
 		// member of group "x"
@@ -3037,23 +2868,24 @@ b8 pvp_colors()
 
 void show_complete()
 {
-	State state_next = data.state_next;
-	StoryTab tab_next = data.story.tab;
-
 	Particles::clear();
+
 	{
 		Camera* restore_camera = data.restore_camera.ref();
+		StoryTab tab_next = data.story.tab;
+		State state_next = data.state_next;
 		if (data.camera.ref())
 			data.camera.ref()->remove();
 		r32 t = data.timer_transition;
 		data.~Data();
 		new (&data) Data();
+		data.state = state_next;
+		data.story.tab = tab_next;
 		data.timer_transition = t;
 		data.restore_camera = restore_camera;
 	}
 
-	data.state = state_next;
-	data.story.tab = tab_next;
+	data.story.tab_previous = StoryTab((s32(data.story.tab) + 1) % s32(StoryTab::count));
 
 	if (data.state != State::StoryModeOverlay)
 		data.restore_camera.ref()->flag(CameraFlagColors, false);
@@ -3066,31 +2898,20 @@ void show_complete()
 		data.camera.ref()->flag(CameraFlagColors, false);
 		data.camera.ref()->pos = global.camera_offset_pos;
 		data.camera.ref()->rot = global.camera_offset_rot;
-	}
 
-	if (Game::session.type == SessionType::Story)
-	{
+		const ZoneNode* zone = zone_node_by_id(Game::save.zone_overworld);
+		if (!zone)
+			zone = zone_node_by_id(Game::save.zone_last);
+		if (zone)
+			data.camera.ref()->pos += zone->pos();
+
 		if (Game::session.zone_under_attack == AssetNull)
 			data.zone_selected = Game::level.id;
 		else
 			data.zone_selected = Game::session.zone_under_attack;
 
-		data.story.tab_previous = StoryTab((s32(data.story.tab) + 1) % s32(StoryTab::count));
-	}
-	else
-	{
-		if (Game::save.zone_last == AssetNull)
-			data.zone_selected = Asset::Level::Office;
-		else
-			data.zone_selected = Game::save.zone_last;
-	}
-
-	{
-		const ZoneNode* zone = zone_node_by_id(Game::save.zone_overworld);
-		if (!zone)
-			zone = zone_node_by_id(Game::save.zone_last);
-		if (zone && modal())
-			data.camera.ref()->pos += zone->pos();
+		Game::save.inside_terminal = true;
+		Game::save.zone_overworld = Game::level.id;
 	}
 }
 
@@ -3189,7 +3010,7 @@ void update(const Update& u)
 		}
 
 		// pause
-		if (!Game::cancel_event_eaten[0])
+		if (data.state != State::StoryModeDeploying && !Game::cancel_event_eaten[0])
 		{
 			if (Game::session.type == SessionType::Story && ((u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
 				|| (u.input->get(Controls::Scoreboard, 0) && !u.last_input->get(Controls::Scoreboard, 0))))
@@ -3298,10 +3119,15 @@ void show(Camera* cam, State state, StoryTab tab)
 	}
 }
 
-void skip_transition()
+void skip_transition_full()
 {
 	data.timer_transition = 0.0f;
 	show_complete();
+}
+
+void skip_transition_half()
+{
+	data.timer_transition = TRANSITION_TIME * 0.5f;
 }
 
 b8 active()
@@ -3331,7 +3157,10 @@ void execute(const char* cmd)
 	{
 		AssetID z = zone_random(&zone_filter_captured, &zone_filter_can_be_attacked); // live incoming attack
 		if (z != AssetNull)
-			OverworldNet::zone_under_attack(z);
+		{
+			Game::session.zone_under_attack = z;
+			Game::session.zone_under_attack_timer = ZONE_UNDER_ATTACK_TIME;
+		}
 	}
 	else if (strstr(cmd, "join ") == cmd)
 	{

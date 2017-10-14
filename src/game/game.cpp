@@ -125,6 +125,7 @@ void Game::Save::reset()
 	locke_index = -1;
 
 	resources[s32(Resource::Energy)] = s16(ENERGY_INITIAL * 3.5f);
+	zones[s32(Asset::Level::Docks)] = ZoneState::ParkourUnlocked;
 }
 
 Game::Session::Session()
@@ -361,7 +362,11 @@ void Game::update(const Update& update_in)
 	{
 		time.total += time.delta;
 		Team::match_time += time.delta;
-		ParticleSystem::time = time.total;
+	}
+
+	if (update_game || Overworld::modal())
+	{
+		ParticleSystem::time = update_game ? time.total : real_time.total;
 		for (s32 i = 0; i < ParticleSystem::list.length; i++)
 			ParticleSystem::list[i]->update(u);
 	}
@@ -1460,8 +1465,6 @@ void Game::load_level(AssetID l, Mode m)
 	level.mode = m;
 	level.id = l;
 	level.local = true;
-	if (last_mode == Mode::Pvp && m == Mode::Parkour)
-		level.post_pvp = true;
 
 	if (session.type == SessionType::Multiplayer)
 		level.multiplayer_level_schedule();

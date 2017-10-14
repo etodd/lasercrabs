@@ -862,7 +862,6 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 
 	serialize_enum(p, Game::Mode, Game::level.mode);
 	serialize_enum(p, SessionType, Game::session.type);
-	serialize_bool(p, Game::level.post_pvp);
 	serialize_ref(p, Game::level.map_view);
 	serialize_ref(p, Game::level.core_force_field);
 	serialize_ref(p, Game::level.terminal);
@@ -3113,12 +3112,6 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 			}
 			break;
 		}
-		case MessageType::Overworld:
-		{
-			if (!Overworld::net_msg(p, MessageSource::Remote))
-				net_error();
-			break;
-		}
 		case MessageType::AddPlayer:
 		{
 			if (!add_players(p, client, 1))
@@ -3604,10 +3597,7 @@ void handle_server_disconnect(DisconnectReason reason)
 	{
 		Game::unload_level();
 		if (Game::session.type == SessionType::Story && reason == DisconnectReason::ServerResetting)
-		{
-			Game::load_level(Game::save.zone_current, Game::Mode::Parkour);
-			Game::level.post_pvp = true;
-		}
+			Game::schedule_load_level(Game::save.zone_current, Game::Mode::Parkour);
 	}
 }
 
@@ -4599,12 +4589,6 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Turret:
 		{
 			if (!Turret::net_msg(p, src))
-				net_error();
-			break;
-		}
-		case MessageType::Overworld:
-		{
-			if (!Overworld::net_msg(p, src))
 				net_error();
 			break;
 		}

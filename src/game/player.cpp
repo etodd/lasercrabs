@@ -1430,12 +1430,8 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 
 		if (!spawned_at_last_supported)
 		{
-			if (Game::level.post_pvp)
-			{
-				// we have just played a PvP match; we must be exiting PvP mode.
-				// spawn the player at the terminal.
+			if (Game::save.inside_terminal) // spawn the player inside the terminal.
 				get_interactable_standing_position(Game::level.terminal_interactable.ref()->get<Transform>(), &spawn_pos.pos, &spawn_pos.angle);
-			}
 			else
 			{
 				// we are entering a level. if we're entering by tram, spawn in the tram. otherwise spawn at the SpawnPoint
@@ -1482,19 +1478,15 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 
 	spawned->add<PlayerControlHuman>(this);
 
-	if (Game::level.mode == Game::Mode::Parkour)
-	{
-		if (Game::level.post_pvp)
-		{
-			// player is getting out of the terminal
-			spawned->get<PlayerControlHuman>()->terminal_exit();
-			Game::level.post_pvp = false;
-		}
-	}
-	else
-		ParticleEffect::spawn(ParticleEffect::Type::SpawnDrone, spawn_pos.pos + Vec3(0, DRONE_RADIUS, 0), Quat::look(Vec3(0, 1, 0)));
-
 	Net::finalize(spawned);
+
+	if (Game::level.mode == Game::Mode::Pvp)
+		ParticleEffect::spawn(ParticleEffect::Type::SpawnDrone, spawn_pos.pos + Vec3(0, DRONE_RADIUS, 0), Quat::look(Vec3(0, 1, 0)));
+	else if (Game::save.inside_terminal)
+	{
+		Overworld::show(camera.ref(), Overworld::State::StoryMode);
+		Overworld::skip_transition_half();
+	}
 }
 
 void PlayerHuman::assault_status_display()
@@ -4248,7 +4240,8 @@ void PlayerControlHuman::update(const Update& u)
 						{
 							switch (Game::save.zones[Game::level.id])
 							{
-								case ZoneState::Locked: // open up
+								case ZoneState::Locked:
+								case ZoneState::ParkourUnlocked: // open up
 								{
 									interactable->interact();
 									get<Animator>()->layers[3].play(Asset::Animation::character_interact);
@@ -4256,7 +4249,7 @@ void PlayerControlHuman::update(const Update& u)
 									anim_base = interactable->entity();
 									break;
 								}
-								case ZoneState::ParkourUnlocked: // already open; get in
+								case ZoneState::ParkourOwned: // already open; get in
 								{
 									anim_base = interactable->entity();
 									get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
@@ -4277,8 +4270,7 @@ void PlayerControlHuman::update(const Update& u)
 							Tram* tram = Tram::by_track(track);
 							if (tram->doors_open() // if the tram doors are open, we can always close them
 								|| (!tram->arrive_only && target_level != AssetNull // if the target zone doesn't exist, or if the tram is for arrivals only, nothing else matters, we can't do anything
-									&& (Game::save.zones[target_level] == ZoneState::ParkourUnlocked // if we've already unlocked it, go ahead
-									|| (Overworld::zone_is_pvp(target_level) && Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)))) // if it's a PvP zone, we need x drones to capture it
+									&& Game::save.zones[target_level] != ZoneState::Locked)) // if we've already unlocked it, go ahead
 							{
 								// go right ahead
 								interactable->interact();
@@ -4288,8 +4280,6 @@ void PlayerControlHuman::update(const Update& u)
 							}
 							else if (tram->arrive_only || target_level == AssetNull) // can't leave
 								player.ref()->msg(_(strings::zone_unavailable), PlayerHuman::FlagNone);
-							else if (Overworld::zone_is_pvp(target_level))
-								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_drones), DEFAULT_ASSAULT_DRONES);
 							else if (Game::save.resources[s32(Resource::AccessKeys)] > 0) // ask if they want to use a key
 								Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::access_keys));
 							else // not enough
@@ -4812,7 +4802,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			{
 				UI::box(params, { pos + Vec2(-panel_size.x, 0), panel_size }, UI::color_background);
 
-				r32 icon_size = (UI_TEXT_SIZE_DEFAULT + 2.0f) * UI::scale;
+				r32 icon_size = UI_TEXT_SIZE_DEFAULT * UI::scale;
 
 				const Overworld::ResourceInfo& info = Overworld::resource_info[i];
 
@@ -4878,15 +4868,14 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 								switch (Game::save.zones[zone])
 								{
 									case ZoneState::PvpFriendly:
-									{
 										text.color = Team::ui_color_friend;
 										break;
-									}
 									case ZoneState::ParkourUnlocked:
-									{
 										text.color = UI::color_default;
 										break;
-									}
+									case ZoneState::ParkourOwned:
+										text.color = UI::color_accent();
+										break;
 									case ZoneState::Locked:
 									{
 										if (Overworld::zone_is_pvp(zone))
@@ -4896,15 +4885,11 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 										break;
 									}
 									case ZoneState::PvpHostile:
-									{
 										text.color = Team::ui_color_enemy;
 										break;
-									}
 									default:
-									{
 										vi_assert(false);
 										break;
-									}
 								}
 								text.text(player.ref()->gamepad, Loader::level_name(zone));
 								text.anchor_x = UIText::Anchor::Center;

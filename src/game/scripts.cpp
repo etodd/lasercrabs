@@ -860,7 +860,7 @@ namespace Docks
 				if (Game::session.type == SessionType::Multiplayer)
 				{
 					Overworld::show(data->camera.ref(), Overworld::State::Multiplayer);
-					Overworld::skip_transition();
+					Overworld::skip_transition_full();
 				}
 				else if (any_input(u))
 					Menu::show();
@@ -1078,9 +1078,6 @@ namespace tutorial
 		Ability,
 		Turrets,
 		Capture,
-		ZoneCaptured,
-		Overworld,
-		Return,
 		Done,
 		count,
 	};
@@ -1089,15 +1086,13 @@ namespace tutorial
 	{
 		TutorialState state;
 		Ref<Entity> player;
-		Ref<Entity> battery;
-		Ref<Transform> crawl_target;
 	};
 
 	Data* data;
 
 	void drone_target_hit(Entity* e)
 	{
-		if ((data->state == TutorialState::Crawl || data->state == TutorialState::Battery) && e == data->battery.ref())
+		if ((data->state == TutorialState::Crawl || data->state == TutorialState::Battery) && e->has<Battery>())
 		{
 			data->state = TutorialState::Upgrade;
 			Actor::tut(strings::tut_upgrade);
@@ -1128,12 +1123,6 @@ namespace tutorial
 		}
 	}
 
-	void draw_ui(const RenderParams& params)
-	{
-		if (data->state == TutorialState::Crawl)
-			UI::indicator(params, data->crawl_target.ref()->absolute_pos(), UI::color_accent(), true);
-	}
-
 	void update(const Update& u)
 	{
 		// check if the player has spawned
@@ -1141,42 +1130,22 @@ namespace tutorial
 		{
 			Entity* player = PlayerControlHuman::list.iterator().item()->entity();
 			data->player = player;
-			if (player->has<Drone>())
-			{
-				player->get<Drone>()->ability_spawned.link(&ability_spawned);
-				player->get<Drone>()->hit.link(&drone_target_hit);
+			player->get<Drone>()->ability_spawned.link(&ability_spawned);
+			player->get<Drone>()->hit.link(&drone_target_hit);
 
-				if (s32(data->state) <= s32(TutorialState::Crawl))
-				{
-					data->state = TutorialState::Crawl;
-					Actor::tut(strings::tut_crawl);
-				}
-			}
-			else
+			if (s32(data->state) <= s32(TutorialState::Crawl))
 			{
-				// parkour mode
-				if (data->state == TutorialState::ZoneCaptured)
-				{
-					data->state = TutorialState::Overworld;
-					Actor::tut(strings::tut_overworld, 4.5f);
-				}
+				data->state = TutorialState::Crawl;
+				Actor::tut(strings::tut_crawl);
 			}
 		}
 
-		if (data->state == TutorialState::Overworld && Overworld::active())
-		{
-			data->state = TutorialState::Return;
-			Actor::tut_clear();
-		}
-		else if (data->state == TutorialState::Return && !Overworld::active())
+		if (data->state != TutorialState::Done
+			&& Team::match_state == Team::MatchState::Done
+			&& Game::level.mode == Game::Mode::Pvp)
 		{
 			data->state = TutorialState::Done;
-			Actor::tut(strings::tut_done);
-		}
-
-		if (data->state != TutorialState::ZoneCaptured && Team::match_state == Team::MatchState::Done && Game::level.mode == Game::Mode::Pvp)
-		{
-			data->state = TutorialState::ZoneCaptured;
+			Game::save.tutorial_complete = true;
 			Actor::tut_clear();
 		}
 		else if (data->state == TutorialState::Upgrade)
@@ -1215,21 +1184,35 @@ namespace tutorial
 
 	void init(const EntityFinder& entities)
 	{
-		Actor::init();
+		if (Game::session.type == SessionType::Story
+			&& Game::level.local
+			&& !Game::save.tutorial_complete)
+		{
+			Game::level.ai_config.length = 0; // no bots
 
-		vi_assert(!data);
-		data = new Data();
+			Actor::init();
 
-		data->battery = entities.find("battery");
+			data = new Data();
 
-		data->crawl_target = entities.find("crawl_target")->get<Transform>();
-		entities.find("crawl_trigger")->get<PlayerTrigger>()->entered.link(&crawl_complete);
+			{
+				SpawnPoint* default_spawn = Team::list[1].default_spawn_point();
+				Entity* trigger_entity = World::create<Empty>();
+				trigger_entity->get<Transform>()->absolute_pos(default_spawn->get<Transform>()->absolute_pos());
+				PlayerTrigger* trigger = trigger_entity->create<PlayerTrigger>();
+				trigger->radius = DRONE_MAX_DISTANCE;
+				trigger->exited.link(&crawl_complete);
+				World::awake(trigger_entity);
+				Net::finalize(trigger_entity);
+			}
 
-		Game::level.feature_level = Game::FeatureLevel::Base;
+			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+				i.item()->get<Health>()->hp = 1;
 
-		Game::updates.add(&update);
-		Game::draws.insert(0, &draw_ui);
-		Game::cleanups.add(&cleanup);
+			Game::level.feature_level = Game::FeatureLevel::Base;
+
+			Game::updates.add(&update);
+			Game::cleanups.add(&cleanup);
+		}
 	}
 }
 

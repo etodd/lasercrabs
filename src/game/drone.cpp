@@ -38,7 +38,7 @@ namespace VI
 #define DRONE_SHOTGUN_PELLETS 13
 
 #define DRONE_COOLDOWN_NORMAL 0.6f
-#define DRONE_COOLDOWN_SHOTGUN 1.5f
+#define DRONE_COOLDOWN_SHOTGUN 1.1f
 #define DRONE_COOLDOWN_SNIPER 1.1f
 #define DRONE_COOLDOWN_BOLTER (1.0f / 8.0f)
 #define DRONE_COOLDOWN_ACTIVE_ARMOR 0.95f
@@ -377,9 +377,9 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTar
 		else
 		{
 			// flying hit
-			if (dot < -0.75f && !target_shield->has<Turret>()) // no flying direct hits on turrets
+			if (dot < -0.8f && !target_shield->has<Turret>()) // no flying direct hits on turrets
 				result = 3;
-			else if (dot < -0.4f)
+			else if (dot < -0.5f)
 				result = 2;
 		}
 	}

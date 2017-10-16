@@ -72,8 +72,12 @@ r32 Game::physics_timestep;
 r32 Game::inactive_timer;
 Net::Master::AuthType Game::auth_type;
 const char* Game::language;
-char Game::auth_key[MAX_AUTH_KEY + 1];
+u8 Game::auth_key[MAX_AUTH_KEY + 1];
+s32 Game::auth_key_length;
 Net::Master::UserKey Game::user_key;
+#if !defined(__ORBIS__)
+char Game::steam_username[MAX_USERNAME + 1];
+#endif
 
 Gamepad::Type Game::ui_gamepad_types[MAX_GAMEPADS] = { };
 AssetID Game::scheduled_load_level = AssetNull;
@@ -291,10 +295,11 @@ void Game::init(LoopSync* sync)
 		// UI
 		{
 			cJSON* json = Json::load(string_file);
+			cJSON* str = cJSON_GetObjectItem(json, "str");
 			for (s32 i = 0; i < Asset::String::count; i++)
 			{
 				const char* name = AssetLookup::String::names[i];
-				cJSON* value = cJSON_GetObjectItem(json, name);
+				cJSON* value = cJSON_GetObjectItem(str, name);
 				strings_set(i, value ? value->valuestring : nullptr);
 			}
 		}

@@ -3092,7 +3092,7 @@ void import_strings(ImporterState& state, const std::string& asset_in_path, cons
 				state.error = true;
 				return;
 			}
-			cJSON* element = json->child;
+			cJSON* element = cJSON_GetObjectItem(json, "str")->child;
 			while (element)
 			{
 				std::string key = element->string;

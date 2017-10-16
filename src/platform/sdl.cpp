@@ -292,7 +292,8 @@ namespace VI
 				if (itch_api_key)
 				{
 					Game::auth_type = Net::Master::AuthType::Itch;
-					strncpy(Game::auth_key, itch_api_key, MAX_AUTH_KEY);
+					Game::auth_key_length = vi_max(0, vi_min(s32(strlen(itch_api_key)), MAX_AUTH_KEY));
+					memcpy(Game::auth_key, itch_api_key, Game::auth_key_length);
 				}
 			}
 			else if (strcmp(auth_type, "steam") == 0)

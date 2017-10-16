@@ -107,6 +107,7 @@ namespace Settings
 {
 	u64 secret;
 	char itch_api_key[MAX_AUTH_KEY + 1];
+	char steam_api_key[MAX_AUTH_KEY + 1];
 	char gamejolt_api_key[MAX_AUTH_KEY + 1];
 	char dashboard_username[MAX_USERNAME];
 	char dashboard_password_hash[MAX_AUTH_KEY];
@@ -1002,6 +1003,137 @@ namespace Master
 		}
 	}
 
+	void steam_auth_result(u64 addr_hash, b8 success, s64 steam_id, const char* username)
+	{
+		Node* node = node_for_hash(addr_hash);
+		if (node)
+		{
+			if (success)
+			{
+				UserKey key;
+				key.token = u32(mersenne::rand());
+
+				// save user in database
+
+				sqlite3_stmt* stmt = db_query("select id, banned from User where steam_id=? limit 1;");
+				db_bind_int(stmt, 0, steam_id);
+				if (db_step(stmt))
+				{
+					key.id = s32(db_column_int(stmt, 0));
+					b8 banned = b8(db_column_int(stmt, 1));
+					if (banned)
+						success = false;
+					else
+					{
+						// update existing user
+						sqlite3_stmt* stmt = db_query("update User set token=?, token_timestamp=?, username=? where id=?;");
+						db_bind_int(stmt, 0, key.token);
+						db_bind_int(stmt, 1, platform::timestamp());
+						db_bind_text(stmt, 2, username);
+						db_bind_int(stmt, 3, key.id);
+						db_exec(stmt);
+					}
+				}
+				else
+				{
+					// insert new user
+					sqlite3_stmt* stmt = db_query("insert into User (token, token_timestamp, steam_id, username, banned) values (?, ?, ?, ?, 0);");
+					db_bind_int(stmt, 0, key.token);
+					db_bind_int(stmt, 1, platform::timestamp());
+					db_bind_int(stmt, 2, steam_id);
+					db_bind_text(stmt, 3, username);
+					key.id = s32(db_exec(stmt));
+				}
+				db_finalize(stmt);
+
+				if (success)
+				{
+					node->client.user_key = key;
+					send_auth_response(node->addr, AuthType::Steam, &key, username);
+				}
+			}
+			else
+				send_auth_response(node->addr, AuthType::Steam, nullptr, nullptr);
+		}
+	}
+
+	void steam_ownership_callback(s32 code, const char* data, u64 user_data)
+	{
+		Node* node = node_for_hash(user_data);
+		if (node)
+		{
+			b8 success = false;
+			if (code == 200)
+			{
+				cJSON* json = cJSON_Parse(data);
+				if (json)
+				{
+					cJSON* appownership = cJSON_GetObjectItem(json, "appownership");
+					if (appownership)
+					{
+						if (appownership && strcmp(Json::get_string(appownership, "result"), "OK") == 0)
+						{
+							cJSON* ownsapp = cJSON_GetObjectItem(appownership, "ownsapp");
+							if (ownsapp && ownsapp->valueint)
+							{
+								cJSON* steam_id = cJSON_GetObjectItem(appownership, "ownersteamid");
+								if (steam_id)
+								{
+									success = true;
+									steam_auth_result(user_data, true, strtoull(steam_id->valuestring, nullptr, 10), node->client.username);
+								}
+							}
+						}
+					}
+				}
+			}
+			if (!success)
+				steam_auth_result(user_data, false, 0, nullptr);
+		}
+	}
+
+	void steam_auth_callback(s32 code, const char* data, u64 user_data)
+	{
+		Node* node = node_for_hash(user_data);
+		if (node)
+		{
+			b8 success = false;
+			if (code == 200)
+			{
+				cJSON* json = cJSON_Parse(data);
+				if (json)
+				{
+					cJSON* response = cJSON_GetObjectItem(json, "response");
+					if (response)
+					{
+						cJSON* params = cJSON_GetObjectItem(response, "params");
+						if (params && strcmp(Json::get_string(params, "result"), "OK") == 0)
+						{
+							cJSON* steam_id = cJSON_GetObjectItem(params, "steamid");
+							if (steam_id)
+							{
+								success = true;
+
+								u64 steam_id_int = strtoull(steam_id->valuestring, nullptr, 10);
+#if AUTHENTICATE_DOWNLOAD_KEYS
+								char url[MAX_PATH_LENGTH + 1] = {};
+								snprintf(url, MAX_PATH_LENGTH, "https://api.steampowered.com/ISteamUser/CheckAppOwnership/v1/?appid=728100&key=%s&steamid=%llu", Settings::steam_api_key, steam_id_int);
+								Http::get(url, &steam_ownership_callback, nullptr, user_data);
+#else
+								steam_auth_result(user_data, true, strtoull(steam_id->valuestring, nullptr, 10), node->client.username);
+#endif
+							}
+						}
+					}
+					cJSON_Delete(json);
+				}
+			}
+
+			if (!success)
+				steam_auth_result(user_data, false, 0, nullptr);
+		}
+	}
+
 	void db_set_server_online(u32 id, b8 online)
 	{
 		sqlite3_stmt* stmt = db_query("update ServerConfig set online=? where id=?;");
@@ -1568,6 +1700,14 @@ namespace Master
 		return true;
 	}
 
+	char hex_char(u8 c)
+	{
+		if (c < 10)
+			return '0' + char(c);
+		else
+			return 'A' + char(c - 10);
+	}
+
 	b8 packet_handle(StreamRead* p, const Sock::Address& addr)
 	{
 		using Stream = StreamRead;
@@ -1611,7 +1751,7 @@ namespace Master
 
 				s32 username_length = 0;
 				char username[MAX_PATH_LENGTH + 1];
-				if (auth_type == AuthType::GameJolt)
+				if (auth_type == AuthType::GameJolt || auth_type == AuthType::Steam)
 				{
 					serialize_int(p, s32, username_length, 0, MAX_PATH_LENGTH);
 					serialize_bytes(p, (u8*)username, username_length);
@@ -1620,14 +1760,12 @@ namespace Master
 
 				s32 auth_key_length;
 				serialize_int(p, s32, auth_key_length, 0, MAX_AUTH_KEY);
-				char auth_key[MAX_AUTH_KEY + 1];
+				u8 auth_key[MAX_AUTH_KEY + 1];
 
 				serialize_bytes(p, (u8*)auth_key, auth_key_length);
 				auth_key[auth_key_length] = '\0';
 
 				CURL* curl = curl_easy_init();
-				char* escaped_username = curl_easy_escape(curl, username, 0);
-				char* escaped_auth_key = curl_easy_escape(curl, auth_key, 0);
 
 				switch (auth_type)
 				{
@@ -1640,8 +1778,10 @@ namespace Master
 						u64 hash = node->addr.hash();
 						if (!Http::request_for_user_data(hash)) // make sure we're not already trying to authenticate this user
 						{
+							char* escaped_auth_key = curl_easy_escape(curl, (char*)(auth_key), 0);
 							char header[MAX_PATH_LENGTH + 1] = {};
 							snprintf(header, MAX_PATH_LENGTH, "Authorization: Bearer %s", escaped_auth_key);
+							curl_free(escaped_auth_key);
 							const char* url = auth_type == AuthType::Itch ? "https://itch.io/api/1/jwt/me" : "https://itch.io/api/1/key/me";
 							Http::get(url, &itch_auth_callback, header, hash);
 						}
@@ -1653,23 +1793,44 @@ namespace Master
 						if (!Http::request_for_user_data(hash)) // make sure we're not already trying to authenticate this user
 						{
 							strncpy(node->client.username, username, MAX_USERNAME);
+							char* escaped_username = curl_easy_escape(curl, username, 0);
+							char* escaped_auth_key = curl_easy_escape(curl, (char*)(auth_key), 0);
 							char url[MAX_PATH_LENGTH + 1] = {};
 							snprintf(url, MAX_PATH_LENGTH, "https://gamejolt.com/api/game/v1/users/auth/?game_id=284977&format=json&username=%s&user_token=%s", escaped_username, escaped_auth_key);
+							curl_free(escaped_username);
+							curl_free(escaped_auth_key);
 							gamejolt_sign_url(url);
 							Http::get(url, &gamejolt_auth_callback, nullptr, hash);
 						}
 						break;
 					}
 					case AuthType::Steam:
-						send_auth_response(addr, AuthType::Steam, nullptr, nullptr); // todo
+					{
+						u64 hash = node->addr.hash();
+						if (!Http::request_for_user_data(hash)) // make sure we're not already trying to authenticate this user
+						{
+							strncpy(node->client.username, username, MAX_USERNAME);
+
+							char hex_auth_key[(MAX_AUTH_KEY * 2) + 1];
+
+							for (s32 i = 0; i < auth_key_length; i++)
+							{
+								hex_auth_key[i * 2] = hex_char((auth_key[i] & (0xf0)) >> 4);
+								hex_auth_key[(i * 2) + 1] = hex_char(auth_key[i] & (0xf));
+							}
+							hex_auth_key[auth_key_length * 2] = '\0';
+
+							char url[(MAX_PATH_LENGTH * 3) + 1] = {};
+							snprintf(url, MAX_PATH_LENGTH * 3, "https://api.steampowered.com/ISteamUserAuth/AuthenticateUserTicket/v1/?appid=728100&key=%s&ticket=%s", Settings::steam_api_key, hex_auth_key);
+							Http::get(url, &steam_auth_callback, nullptr, hash);
+						}
 						break;
+					}
 					default:
 						vi_assert(false);
 						break;
 				}
 
-				curl_free(escaped_username);
-				curl_free(escaped_auth_key);
 				curl_easy_cleanup(curl);
 
 				break;
@@ -2061,6 +2222,11 @@ namespace Master
 						const char* itch_api_key = Json::get_string(json, "itch_api_key");
 						if (itch_api_key)
 							strncpy(Settings::itch_api_key, itch_api_key, MAX_AUTH_KEY);
+					}
+					{
+						const char* steam_api_key = Json::get_string(json, "steam_api_key");
+						if (steam_api_key)
+							strncpy(Settings::steam_api_key, steam_api_key, MAX_AUTH_KEY);
 					}
 					{
 						const char* gamejolt_api_key = Json::get_string(json, "gamejolt_api_key");

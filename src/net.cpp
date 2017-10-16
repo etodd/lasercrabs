@@ -3292,9 +3292,17 @@ b8 master_send_auth()
 	}
 	else
 	{
-		s32 length = strlen(Game::auth_key);
-		serialize_int(&p, s32, length, 0, MAX_AUTH_KEY);
-		serialize_bytes(&p, (u8*)Game::auth_key, length);
+#if !defined(__ORBIS__)
+		if (Game::auth_type == Master::AuthType::Steam)
+		{
+			s32 length = strlen(Game::steam_username);
+			serialize_int(&p, s32, length, 0, MAX_PATH_LENGTH);
+			serialize_bytes(&p, (u8*)Game::steam_username, length);
+		}
+#endif
+
+		serialize_int(&p, s32, Game::auth_key_length, 0, MAX_AUTH_KEY);
+		serialize_bytes(&p, (u8*)Game::auth_key, Game::auth_key_length);
 	}
 
 	packet_finalize(&p);

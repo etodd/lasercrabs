@@ -541,9 +541,8 @@ if (CLIENT)
 	endif()
 
 	add_custom_command(
-		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
-		COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
-		MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt
+		TARGET deceiver POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
 	)
 
 	target_include_directories(deceiver PRIVATE ${SERVER_CLIENT_INCLUDES})
@@ -581,9 +580,8 @@ if (CLIENT)
 	if (WIN32)
 		target_link_libraries(deceiver ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/win64/steam_api64.lib)
 		add_custom_command(
-			OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/steam_api64.dll
-			COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/win64/steam_api64.dll ${CMAKE_CURRENT_BINARY_DIR}/steam_api64.dll
-			MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/win64/steam_api64.dll
+			TARGET deceiver POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/win64/steam_api64.dll ${CMAKE_CURRENT_BINARY_DIR}/steam_api64.dll
 		)
 	elseif (APPLE)
 		target_link_libraries(deceiver ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/osx32/libsteam_api.dylib)

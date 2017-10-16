@@ -6,6 +6,8 @@ cd ..
 cp build/deceiver final
 cp -R build/assets/ final/assets
 cp build/gamecontrollerdb.txt final
+cp build/libsteam_api.dylib final
 cp .itch-mac.toml final/.itch.toml
 cp build.txt final
 cp shipme.txt final/readme.txt
+cp run-mac-linux final/deceiver-launcher

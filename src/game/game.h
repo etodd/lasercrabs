@@ -180,8 +180,12 @@ struct Game
 	static b8 quit;
 	static Net::Master::AuthType auth_type;
 	static const char* language;
-	static char auth_key[MAX_AUTH_KEY + 1];
+	static u8 auth_key[MAX_AUTH_KEY + 1];
+	static s32 auth_key_length;
 	static Net::Master::UserKey user_key;
+#if !defined(__ORBIS__)
+	static char steam_username[MAX_USERNAME + 1];
+#endif
 
 	static void init(LoopSync*);
 	static void execute(const char*);

@@ -4,6 +4,7 @@ set /p config="Enter config name: "
 cp build/%config%/deceiver.exe final
 cp -R build/assets/ final/assets
 cp build/gamecontrollerdb.txt final
+cp build/steam_api64.dll final
 cp .itch-win.toml final/.itch.toml
 cp build.txt final
 cp shipme.txt final/readme.txt

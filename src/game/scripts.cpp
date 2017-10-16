@@ -528,12 +528,30 @@ namespace Docks
 		count,
 	};
 
+#if !SERVER && !defined(__ORBIS__)
+	struct SteamCallback
+	{
+		static SteamCallback instance;
+
+		STEAM_CALLBACK(SteamCallback, auth_session_ticket_callback, GetAuthSessionTicketResponse_t);
+	};
+
+	void SteamCallback::auth_session_ticket_callback(GetAuthSessionTicketResponse_t* data)
+	{
+		Net::Client::master_send_auth();
+	}
+#endif
+
 	struct Data
 	{
 #if !SERVER
 		mg_mgr mg_mgr;
 		mg_connection* mg_conn_ipv4;
 		mg_connection* mg_conn_ipv6;
+#if !defined(__ORBIS__)
+		SteamCallback steam_callback;
+#endif
+
 #endif
 
 		Ref<Camera> camera;
@@ -729,7 +747,8 @@ namespace Docks
 				// got the access token
 				strncpy(Settings::itch_api_key, part->data.p, part->data.len);
 				Loader::settings_save();
-				strncpy(Game::auth_key, part->data.p, part->data.len);
+				Game::auth_key_length = vi_max(0, vi_min(MAX_AUTH_KEY, s32(part->data.len)));
+				memcpy(Game::auth_key, part->data.p, Game::auth_key_length);
 				Menu::dialog_clear(0);
 				Net::Client::master_send_auth();
 
@@ -799,7 +818,7 @@ namespace Docks
 		if (data->mg_conn_ipv4 || data->mg_conn_ipv6)
 		{
 			mg_mgr_poll(&data->mg_mgr, 0);
-			if (!Game::auth_key[0] && !Menu::dialog_active(0))
+			if (Game::auth_key_length == 0 && !Menu::dialog_active(0))
 				itch_prompt();
 		}
 #endif
@@ -943,7 +962,7 @@ namespace Docks
 				}
 				case Net::Master::AuthType::Itch:
 				{
-					if (Game::auth_key[0]) // launched from itch app
+					if (Game::auth_key_length) // launched from itch app
 						Net::Client::master_send_auth();
 					else // launched standalone
 					{
@@ -951,7 +970,8 @@ namespace Docks
 
 						if (Settings::itch_api_key[0]) // already got an OAuth token
 						{
-							strncpy(Game::auth_key, Settings::itch_api_key, MAX_AUTH_KEY);
+							Game::auth_key_length = vi_max(0, vi_min(s32(strlen(Settings::itch_api_key)), MAX_AUTH_KEY));
+							memcpy(Game::auth_key, Settings::itch_api_key, Game::auth_key_length);
 							Net::Client::master_send_auth();
 						}
 						else
@@ -992,9 +1012,11 @@ namespace Docks
 				case Net::Master::AuthType::Steam:
 #if !defined(__ORBIS__)
 				{
+					strncpy(Game::steam_username, SteamFriends()->GetPersonaName(), MAX_USERNAME);
 					u32 auth_key_length;
 					SteamUser()->GetAuthSessionTicket(Game::auth_key, MAX_AUTH_KEY, &auth_key_length);
-					vi_debug_break();
+					Game::auth_key_length = vi_max(0, vi_min(MAX_AUTH_KEY, s32(auth_key_length)));
+					Game::auth_key[Game::auth_key_length] = '\0';
 					break;
 				}
 #endif

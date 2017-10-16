@@ -585,9 +585,17 @@ if (CLIENT)
 		)
 	elseif (APPLE)
 		target_link_libraries(deceiver ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/osx32/libsteam_api.dylib)
+		add_custom_command(
+			TARGET deceiver POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/osx32/libsteam_api.dylib ${CMAKE_CURRENT_BINARY_DIR}/libsteam_api.dylib
+		)
 	elseif (PLAYSTATION)
 	else() # Linux
 		target_link_libraries(deceiver ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/linux64/libsteam_api.so)
+		add_custom_command(
+			TARGET deceiver POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/linux64/libsteam_api.so ${CMAKE_CURRENT_BINARY_DIR}/libsteam_api.so
+		)
 	endif()
 
 	if (APPLE)

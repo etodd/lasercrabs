@@ -527,13 +527,14 @@ void title_menu(const Update& u, Camera* camera)
 
 void open_url(const char* url)
 {
+	vi_debug("Opening URL: %s", url);
 #if _WIN32
 	// Windows
 	ShellExecute(0, 0, url, 0, 0 , SW_SHOW);
-#elif !defined(__APPLE__)
+#elif defined(__APPLE__)
 	// Mac
 	char buffer[MAX_PATH_LENGTH + 1] = {};
-	snprintf(buffer, MAX_PATH_LENGTH, "open %s", url);
+	snprintf(buffer, MAX_PATH_LENGTH, "open \"%s\"", url);
 	system(buffer);
 #elif defined(__ORBIS__)
 	// PS4
@@ -541,7 +542,7 @@ void open_url(const char* url)
 #else
 	// Linux
 	char buffer[MAX_PATH_LENGTH + 1] = {};
-	snprintf(buffer, MAX_PATH_LENGTH, "xdg-open %s", url);
+	snprintf(buffer, MAX_PATH_LENGTH, "xdg-open \"%s\"", url);
 	system(buffer);
 #endif
 }

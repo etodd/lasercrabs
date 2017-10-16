@@ -13,7 +13,7 @@ if (APPLE)
 endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-	set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-deprecated-register -Wno-deprecated-declarations")
+	set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-deprecated-register -Wno-deprecated-declarations -Wno-invalid-offsetof")
 	set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG=1 -g -O0")
 	set(CMAKE_CXX_FLAGS_RELEASE "-DAK_OPTIMIZED=1 -g")
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")

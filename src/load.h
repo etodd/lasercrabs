@@ -104,7 +104,7 @@ struct Loader
 	static b8 soundbank_permanent(AssetID);
 	static void soundbank_free(AssetID);
 	
-	static void settings_load(const Array<DisplayMode>&);
+	static void settings_load(const Array<DisplayMode>&, const DisplayMode&);
 	static void settings_save();
 
 	static void transients_free();

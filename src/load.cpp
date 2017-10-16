@@ -213,7 +213,7 @@ cJSON* input_binding_json(const InputBinding& binding, const InputBinding& defau
 		return nullptr;
 }
 
-void Loader::settings_load(const Array<DisplayMode>& modes)
+void Loader::settings_load(const Array<DisplayMode>& modes, const DisplayMode& current_mode)
 {
 	char path[MAX_PATH_LENGTH + 1];
 	user_data_path(path, config_filename);
@@ -226,18 +226,12 @@ void Loader::settings_load(const Array<DisplayMode>& modes)
 
 	// resolution
 	{
+		for (s32 i = 0; i < modes.length; i++)
 		{
-			DisplayMode largest = {};
-			for (s32 i = 0; i < modes.length; i++)
-			{
-				const DisplayMode& mode = modes[i];
-				display_modes.add(mode);
-				if (mode.width * mode.height > largest.width * largest.height)
-				{
-					largest = mode;
-					Settings::display_mode_index = i;
-				}
-			}
+			const DisplayMode& mode = modes[i];
+			display_modes.add(mode);
+			if (mode.width == current_mode.width && mode.height == current_mode.height)
+				Settings::display_mode_index = i;
 		}
 
 		DisplayMode saved_display_mode =

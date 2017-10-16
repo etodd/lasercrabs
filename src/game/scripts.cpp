@@ -35,6 +35,9 @@
 #include "data/animator.h"
 #include "input.h"
 #include "ease.h"
+#if !defined(__ORBIS__)
+#include "steam/steam_api.h"
+#endif
 
 namespace VI
 {
@@ -987,6 +990,14 @@ namespace Docks
 					break;
 				}
 				case Net::Master::AuthType::Steam:
+#if !defined(__ORBIS__)
+				{
+					u32 auth_key_length;
+					SteamUser()->GetAuthSessionTicket(Game::auth_key, MAX_AUTH_KEY, &auth_key_length);
+					vi_debug_break();
+					break;
+				}
+#endif
 				case Net::Master::AuthType::None:
 					// we either have the auth token or we don't
 					Net::Client::master_send_auth();

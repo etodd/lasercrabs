@@ -3941,8 +3941,11 @@ void PlayerControlHuman::update(const Update& u)
 
 				update_camera_input(u, look_speed, gamepad_rotation_multiplier);
 				{
-					r32 scale = vi_min(1.0f, (u.time.total - get<Drone>()->attach_time) / 0.5f);
-					get<PlayerCommon>()->clamp_rotation(get<Drone>()->rotation_clamp(), LMath::lerpf(Ease::cubic_in_out<r32>(scale), 1.0f, 0.707f));
+					r32 scale = vi_min(2.0f, (u.time.total - get<Drone>()->attach_time) / 0.4f);
+					if (scale > 1.0f)
+						scale = 1.0f - (scale - 1.0f);
+					if (scale > 0.0f)
+						get<PlayerCommon>()->clamp_rotation(get<Drone>()->rotation_clamp(), LMath::lerpf(Ease::cubic_in_out<r32>(scale), 1.0f, 0.707f));
 				}
 				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 
@@ -3976,7 +3979,7 @@ void PlayerControlHuman::update(const Update& u)
 
 				reticle.type = ReticleType::None;
 
-				if (movement_enabled())
+				if (movement_enabled() && trace_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1)) > -0.9f)
 				{
 					Vec3 trace_end = trace_start + trace_dir * DRONE_SNIPE_DISTANCE;
 

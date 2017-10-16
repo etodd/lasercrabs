@@ -49,6 +49,9 @@
 #include "settings.h"
 #include "data/json.h"
 #include "asset/version.h"
+#if !SERVER && !defined(__ORBIS__)
+#include "steam/steam_api.h"
+#endif
 
 #if DEBUG
 	#define DEBUG_WALK_NAV_MESH 0
@@ -218,6 +221,16 @@ Array<CleanupFunction> Game::cleanups;
 
 void Game::init(LoopSync* sync)
 {
+#if !SERVER && !defined(__ORBIS__)
+	if (auth_type == Net::Master::AuthType::Steam)
+	{
+		if (SteamAPI_RestartAppIfNecessary(STEAM_APP_ID))
+			quit = true;
+		else if (!SteamAPI_Init())
+			vi_assert(false);
+	}
+#endif
+
 	// count scripts
 	while (true)
 	{
@@ -321,6 +334,11 @@ void Game::update(const Update& update_in)
 
 #if !RELEASE_BUILD
 	View::debug_entries.length = 0;
+#endif
+
+#if !SERVER && !defined(__ORBIS__)
+	if (auth_type == Net::Master::AuthType::Steam)
+		SteamAPI_RunCallbacks();
 #endif
 
 	if (schedule_timer > 0.0f)
@@ -643,6 +661,10 @@ void Game::term()
 {
 	Net::term();
 	Audio::term();
+#if !SERVER && !defined(__ORBIS__)
+	if (auth_type == Net::Master::AuthType::Steam)
+		SteamAPI_Shutdown();
+#endif
 }
 
 b8 Game::edge_trigger(r32 time, b8(*fn)(r32))

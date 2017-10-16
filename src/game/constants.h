@@ -13,6 +13,8 @@
 
 #define GAME_VERSION 4
 
+#define STEAM_APP_ID 728100
+
 #define MAX_USERNAME 79
 
 #define MAX_BONES 72
@@ -67,7 +69,7 @@
 #define ZONE_UNDER_ATTACK_TIME 60.0f
 
 #define MAX_PATH_LENGTH 1024
-#define MAX_AUTH_KEY 255
+#define MAX_AUTH_KEY 1024
 #define AI_MAX_PATH_LENGTH 64
 
 #define AI_RECORD_WAIT_TIME 1.0f

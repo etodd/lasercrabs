@@ -332,7 +332,12 @@ namespace VI
 				if (unique)
 					modes.add({ mode.w, mode.h });
 			}
-			Loader::settings_load(modes);
+
+			SDL_DisplayMode current_mode;
+			if (SDL_GetDesktopDisplayMode(0, &current_mode))
+				vi_assert(false);
+
+			Loader::settings_load(modes, { current_mode.w, current_mode.h });
 		}
 
 		if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0)

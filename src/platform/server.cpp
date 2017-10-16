@@ -58,7 +58,7 @@ namespace VI
 		{
 			Array<DisplayMode> modes;
 			modes.add({ 0, 0 });
-			Loader::settings_load(modes);
+			Loader::settings_load(modes, { 0, 0 });
 		}
 
 		Settings::port = port;

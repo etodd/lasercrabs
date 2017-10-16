@@ -576,6 +576,21 @@ if (CLIENT)
 		libcurl
 		mongoose
 	)
+	
+	## Steam
+	if (WIN32)
+		target_link_libraries(deceiver ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/win64/steam_api64.lib)
+		add_custom_command(
+			OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/steam_api64.dll
+			COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/win64/steam_api64.dll ${CMAKE_CURRENT_BINARY_DIR}/steam_api64.dll
+			MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/win64/steam_api64.dll
+		)
+	elseif (APPLE)
+		target_link_libraries(deceiver ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/osx32/libsteam_api.dylib)
+	elseif (PLAYSTATION)
+	else() # Linux
+		target_link_libraries(deceiver ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/linux64/libsteam_api.so)
+	endif()
 
 	if (APPLE)
 		target_link_libraries(deceiver "-framework AudioToolbox" "-framework CoreAudio" ${OPENSSL_LIBRARIES})

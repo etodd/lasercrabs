@@ -1586,6 +1586,7 @@ b8 maps(const Update& u, s8 gamepad, UIMenu* menu)
 void teams_select_match_start_init(PlayerHuman* player)
 {
 	PlayerManager* manager = player->get<PlayerManager>();
+	teams_selected_player[player->gamepad] = manager;
 	manager->team_schedule(manager->team.ref()->team());
 }
 

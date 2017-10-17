@@ -327,13 +327,6 @@ s16 Team::increment() const
 {
 	s16 increment = ENERGY_DEFAULT_INCREMENT;
 
-	// generators that are not batteries
-	for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
-	{
-		if (!i.item()->has<Battery>() && i.item()->team == team())
-			increment += Battery::increment(0);
-	}
-
 	// batteries (that may or may not be generators)
 	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 	{

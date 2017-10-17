@@ -1101,6 +1101,7 @@ const char* AssetLookup::String::names[] =
 	"energy_surplus",
 	"entry_create",
 	"entry_saved",
+	"entry_saved_in_game",
 	"entry_saving",
 	"ephyra",
 	"error_no_levels",

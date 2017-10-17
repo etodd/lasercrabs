@@ -55,6 +55,7 @@ void draw_hollow(const RenderParams&);
 void draw_opaque(const RenderParams&);
 void draw_override(const RenderParams&);
 void show(Camera*, State, StoryTab = StoryTab::Map);
+void server_settings(Camera*);
 void clear();
 void execute(const char*);
 void zone_change(AssetID, ZoneState);

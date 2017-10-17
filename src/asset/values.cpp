@@ -1491,6 +1491,7 @@ const char* AssetLookup::String::names[] =
 	"sensitivity",
 	"server_full",
 	"server_resetting",
+	"server_settings",
 	"settings",
 	"settings_controls_gamepad",
 	"settings_controls_keyboard",

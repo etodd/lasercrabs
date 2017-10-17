@@ -227,6 +227,7 @@ void deploy_start()
 	Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_DEPLOY);
 }
 
+void hide();
 void deploy_done();
 const ZoneNode* zone_node_by_id(AssetID);
 const ZoneNode* zone_node_by_uuid(AssetID);
@@ -377,10 +378,15 @@ void master_server_list_end(ServerListType type, s32 length)
 
 void multiplayer_entry_edit_cancel(s8 gamepad = 0)
 {
-	if (data.multiplayer.active_server.config.id) // we were editing a config that actually exists; switch to EntryView mode
-		multiplayer_state_transition(Data::Multiplayer::State::EntryView);
-	else // we were creating a new entry and we never saved it; go back to Browse
-		multiplayer_state_transition(Data::Multiplayer::State::Browse);
+	if (Game::level.mode == Game::Mode::Pvp) // we are currently in the server we're editing
+		hide();
+	else
+	{
+		if (data.multiplayer.active_server.config.id) // we were editing a config that actually exists; switch to EntryView mode
+			multiplayer_state_transition(Data::Multiplayer::State::EntryView);
+		else // we were creating a new entry and we never saved it; go back to Browse
+			multiplayer_state_transition(Data::Multiplayer::State::Browse);
+	}
 	Game::cancel_event_eaten[0] = true;
 }
 
@@ -867,7 +873,10 @@ void master_server_config_saved(u32 id, u32 request_id)
 		&& data.multiplayer.state == Data::Multiplayer::State::EntryEdit
 		&& data.multiplayer.request_id == request_id)
 	{
-		PlayerHuman::log_add(_(strings::entry_saved));
+		if (Game::level.mode == Game::Mode::Pvp) // we're editing a server while playing in it
+			PlayerHuman::log_add(_(strings::entry_saved_in_game)); // changes will take effect next round
+		else
+			PlayerHuman::log_add(_(strings::entry_saved));
 		data.multiplayer.server_lists[s32(ServerListType::Mine)].selected = 0;
 		data.multiplayer.active_server.config.id = id;
 		data.multiplayer.active_server_dirty = false;
@@ -2890,6 +2899,14 @@ void show_complete()
 	if (data.state != State::StoryModeOverlay)
 		data.restore_camera.ref()->flag(CameraFlagColors, false);
 
+	if (data.state == State::Multiplayer && Game::level.mode == Game::Mode::Pvp)
+	{
+		// we're editing a server while playing in that server
+		data.multiplayer.active_server.config = Game::session.config;
+		multiplayer_switch_tab(ServerListType::Mine);
+		multiplayer_state_transition(Data::Multiplayer::State::EntryEdit);
+	}
+
 	if (modal())
 	{
 		data.restore_camera.ref()->flag(CameraFlagActive, false);
@@ -3117,6 +3134,12 @@ void show(Camera* cam, State state, StoryTab tab)
 			data.timer_transition = TRANSITION_TIME;
 		}
 	}
+}
+
+// show server settings for current server
+void server_settings(Camera* cam)
+{
+	show(cam, State::Multiplayer);
 }
 
 void skip_transition_full()

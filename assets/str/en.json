@@ -150,6 +150,7 @@
 		"entry_create": "Create new server",
 		"entry_saving": "Saving server config...",
 		"entry_saved": "Saved changes.",
+		"entry_saved_in_game": "Saved. Changes will take effect next round.",
 		"confirm_entry_cancel": "Discard changes?",
 		"confirm_spend": "Spend %d %s?",
 		"confirm_capture": "Spend %d drones to capture this zone?",
@@ -232,6 +233,7 @@
 		"error_no_name": "Please provide a name for this server.",
 		"error_no_levels": "Please select one or more maps for this server.",
 		"ping": "%dms",
+		"server_settings": "Server settings",
 
 		"tut_crawl": "Leave the spawn area.\n{{Movement}} to crawl.\n[{{Primary}}] to launch.",
 		"tut_battery": "Capture one of the hanging batteries.\n[{{Zoom}}] to zoom.\n[{{Primary}}] to launch.",

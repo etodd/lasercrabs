@@ -446,13 +446,7 @@ void title_menu(const Update& u, Camera* camera)
 			else
 			{
 				main_menu.start(u, 0);
-				b8 story_disabled;
-#if RELEASE_BUILD
-				story_disabled = true;
-#else
-				story_disabled = false;
-#endif
-				if (main_menu.item(u, _(strings::story), nullptr, story_disabled))
+				if (main_menu.item(u, _(strings::story)))
 				{
 					Scripts::Docks::play();
 					clear();
@@ -585,6 +579,12 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 						*state = State::Maps;
 						maps_selected_map = AssetNull;
 						menu->animate();
+					}
+
+					if (menu->item(u, _(strings::server_settings)))
+					{
+						*state = State::Hidden;
+						Overworld::server_settings(me->get<PlayerHuman>()->camera.ref());
 					}
 				}
 			}

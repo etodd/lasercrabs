@@ -2927,7 +2927,7 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, Net::StateFrame* state_frame)
 {
 	vi_assert(Game::level.local);
 	Transform* t = get<Transform>();
-	if (!t->parent.ref())
+	if (!t->parent.ref() && state != State::Exploded)
 	{
 		Vec3 pos = t->absolute_pos();
 		Vec3 next_pos;

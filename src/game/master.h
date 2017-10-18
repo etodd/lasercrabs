@@ -170,6 +170,7 @@ struct ServerConfig
 	s16 respawns = DEFAULT_ASSAULT_DRONES;
 	s16 allow_upgrades = s16((1 << s32(Upgrade::count)) - 1);
 	s16 start_energy = ENERGY_INITIAL;
+	s16 start_energy_attacker = ENERGY_INITIAL_ATTACKER;
 	GameType game_type = GameType::Assault;
 	StaticArray<Upgrade, 3> start_upgrades;
 	s8 max_players = 1;
@@ -178,13 +179,19 @@ struct ServerConfig
 	s8 drone_shield = DRONE_SHIELD_AMOUNT;
 	s8 fill_bots; // if = 0, no bots. if > 0, total number of desired players including bots is fill_bots + 1
 	Region region;
-	u8 time_limit_minutes = 10;
+	u8 time_limit_minutes = DEFAULT_TIME_LIMIT_MINUTES;
+	u8 cooldown_speed_index = 4; // multiply by 0.25 to get actual value
 	char name[MAX_SERVER_CONFIG_NAME + 1];
 	b8 enable_minions = true;
 	b8 enable_batteries = true;
 	b8 enable_battery_stealth = true;
 	b8 enable_spawn_shields = true;
 	b8 is_private;
+
+	r32 cooldown_speed() const
+	{
+		return r32(cooldown_speed_index) * 0.25f;
+	}
 
 	r32 time_limit() const
 	{
@@ -219,12 +226,14 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 			c->allow_upgrades &= ~(1 << s32(Upgrade::ExtraDrone)); // can't purchase extra drones when you have infinite drones
 #endif
 		serialize_int(p, s16, c->start_energy, 0, MAX_START_ENERGY);
+		serialize_int(p, s16, c->start_energy_attacker, 0, MAX_START_ENERGY);
 		serialize_int(p, s8, c->drone_shield, 0, DRONE_SHIELD_AMOUNT);
 		serialize_enum(p, Region, c->region);
 		serialize_int(p, u16, c->start_upgrades.length, 0, c->start_upgrades.capacity());
 		for (s32 i = 0; i < c->start_upgrades.length; i++)
 			serialize_enum(p, Upgrade, c->start_upgrades[i]);
 		serialize_int(p, u8, c->time_limit_minutes, 1, 254);
+		serialize_int(p, u8, c->cooldown_speed_index, 1, COOLDOWN_SPEED_MAX_INDEX);
 		s32 name_length;
 		if (Stream::IsWriting)
 			name_length = strlen(c->name);

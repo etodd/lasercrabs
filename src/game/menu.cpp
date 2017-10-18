@@ -69,10 +69,10 @@ AssetID maps_selected_map = AssetNull;
 void dialog_no_action(s8 gamepad) { }
 void dialog_text_cancel_no_action() { }
 
-State settings(const Update&, s8, UIMenu*);
-b8 settings_controls(const Update&, s8, UIMenu*, Gamepad::Type);
-b8 settings_graphics(const Update&, s8, UIMenu*);
-b8 maps(const Update&, s8, UIMenu*);
+State settings(const Update&, const UIMenu::Origin&, s8, UIMenu*);
+b8 settings_controls(const Update&, const UIMenu::Origin&, s8, UIMenu*, Gamepad::Type);
+b8 settings_graphics(const Update&, const UIMenu::Origin&, s8, UIMenu*);
+b8 maps(const Update&, const UIMenu::Origin&, s8, UIMenu*);
 
 AssetID region_string(Region region)
 {
@@ -100,16 +100,16 @@ void splash() {}
 void title_menu(const Update& u, Camera* camera) {};
 void show() {}
 void refresh_variables(const InputState&) {}
-void pause_menu(const Update&, s8, UIMenu*, State*) {}
+void pause_menu(const Update&, const UIMenu::Origin&, s8, UIMenu*, State*) {}
 void draw_letterbox(const RenderParams&, r32, r32) {}
-State settings(const Update&, s8, UIMenu*) { return State::Visible; }
+State settings(const Update&, const UIMenu::Origin&, s8, UIMenu*) { return State::Visible; }
 b8 maps(const Update&, s8, UIMenu*) { return false; }
 void teams_select_match_start_init(PlayerHuman*) {}
-State teams(const Update&, s8, UIMenu*, TeamSelectMode, EnableInput) { return State::Visible; }
+State teams(const Update&, const UIMenu::Origin&, s8, UIMenu*, TeamSelectMode, EnableInput) { return State::Visible; }
 void friendship_state(u32, b8) {}
-b8 choose_region(const Update&, s8, UIMenu*, AllowClose) { return false; }
-b8 settings_controls(const Update&, s8, UIMenu*, Gamepad::Type) { return false; }
-b8 settings_graphics(const Update&, s8, UIMenu*) { return false; }
+b8 choose_region(const Update&, const UIMenu::Origin&, s8, UIMenu*, AllowClose) { return false; }
+b8 settings_controls(const Update&, const UIMenu::Origin&, s8, UIMenu*, Gamepad::Type) { return false; }
+b8 settings_graphics(const Update&, const UIMenu::Origin&, s8, UIMenu*) { return false; }
 void progress_spinner(const RenderParams&, const Vec2&, r32) {}
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&) {}
 void progress_infinite(const RenderParams&, const char*, const Vec2&) {}
@@ -427,6 +427,17 @@ void exit(s8 gamepad)
 
 void title_menu(const Update& u, Camera* camera)
 {
+	UIMenu::Origin origin;
+	{
+		const DisplayMode& display = Settings::display();
+		origin =
+		{
+			Vec2(display.width * 0.5f, display.height * 0.65f + MENU_ITEM_HEIGHT * -1.5f),
+			UIText::Anchor::Center,
+			UIText::Anchor::Max,
+		};
+	}
+
 	switch (main_menu_state)
 	{
 		case State::Hidden:
@@ -436,7 +447,7 @@ void title_menu(const Update& u, Camera* camera)
 			if (Settings::region == Region::Invalid)
 			{
 				// must choose a region first
-				if (!choose_region(u, 0, &main_menu, AllowClose::No))
+				if (!choose_region(u, origin, 0, &main_menu, AllowClose::No))
 				{
 					// done choosing a region
 					main_menu.clear();
@@ -445,7 +456,7 @@ void title_menu(const Update& u, Camera* camera)
 			}
 			else
 			{
-				main_menu.start(u, 0);
+				main_menu.start(u, origin, 0);
 				if (main_menu.item(u, _(strings::story)))
 				{
 					Scripts::Docks::play();
@@ -478,7 +489,7 @@ void title_menu(const Update& u, Camera* camera)
 		}
 		case State::Settings:
 		{
-			State s = settings(u, 0, &main_menu);
+			State s = settings(u, origin, 0, &main_menu);
 			if (s != main_menu_state)
 			{
 				main_menu_state = s;
@@ -488,7 +499,7 @@ void title_menu(const Update& u, Camera* camera)
 		}
 		case State::SettingsControlsKeyboard:
 		{
-			if (!settings_controls(u, 0, &main_menu, Gamepad::Type::None))
+			if (!settings_controls(u, origin, 0, &main_menu, Gamepad::Type::None))
 			{
 				main_menu_state = State::Settings;
 				main_menu.animate();
@@ -497,7 +508,7 @@ void title_menu(const Update& u, Camera* camera)
 		}
 		case State::SettingsControlsGamepad:
 		{
-			if (!settings_controls(u, 0, &main_menu, u.input->gamepads[0].type))
+			if (!settings_controls(u, origin, 0, &main_menu, u.input->gamepads[0].type))
 			{
 				main_menu_state = State::Settings;
 				main_menu.animate();
@@ -506,7 +517,7 @@ void title_menu(const Update& u, Camera* camera)
 		}
 		case State::SettingsGraphics:
 		{
-			if (!settings_graphics(u, 0, &main_menu))
+			if (!settings_graphics(u, origin, 0, &main_menu))
 			{
 				main_menu_state = State::Settings;
 				main_menu.animate();
@@ -541,9 +552,9 @@ void open_url(const char* url)
 #endif
 }
 
-b8 player(const Update&, s8, UIMenu*);
+b8 player(const Update&, const UIMenu::Origin&, s8, UIMenu*);
 
-void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
+void pause_menu(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu, State* state)
 {
 	if (*state == State::Hidden)
 	{
@@ -558,7 +569,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 	{
 		case State::Visible:
 		{
-			menu->start(u, gamepad);
+			menu->start(u, origin, gamepad);
 			if (menu->item(u, _(strings::resume)))
 				*state = State::Hidden;
 			if (Game::session.type == SessionType::Multiplayer && Game::level.mode == Game::Mode::Pvp)
@@ -581,7 +592,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 						menu->animate();
 					}
 
-					if (menu->item(u, _(strings::server_settings)))
+					if (PlayerHuman::count_local() <= 1 && menu->item(u, _(strings::server_settings)))
 					{
 						*state = State::Hidden;
 						Overworld::server_settings(me->get<PlayerHuman>()->camera.ref());
@@ -608,7 +619,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 		}
 		case State::Maps:
 		{
-			if (!maps(u, gamepad, menu))
+			if (!maps(u, origin, gamepad, menu))
 			{
 				*state = State::Visible;
 				menu->animate();
@@ -617,7 +628,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 		}
 		case State::Teams:
 		{
-			State s = teams(u, gamepad, menu, TeamSelectMode::Normal);
+			State s = teams(u, origin, gamepad, menu, TeamSelectMode::Normal);
 			if (s != *state)
 			{
 				*state = s;
@@ -627,7 +638,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 		}
 		case State::Player:
 		{
-			if (!player(u, gamepad, menu))
+			if (!player(u, origin, gamepad, menu))
 			{
 				*state = State::Teams;
 				menu->animate();
@@ -636,7 +647,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 		}
 		case State::Settings:
 		{
-			State s = settings(u, gamepad, menu);
+			State s = settings(u, origin, gamepad, menu);
 			if (s != *state)
 			{
 				*state = s;
@@ -646,7 +657,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 		}
 		case State::SettingsControlsKeyboard:
 		{
-			if (!settings_controls(u, gamepad, menu, Gamepad::Type::None))
+			if (!settings_controls(u, origin, gamepad, menu, Gamepad::Type::None))
 			{
 				*state = State::Settings;
 				menu->animate();
@@ -655,7 +666,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 		}
 		case State::SettingsControlsGamepad:
 		{
-			if (!settings_controls(u, gamepad, menu, u.input->gamepads[gamepad].type))
+			if (!settings_controls(u, origin, gamepad, menu, u.input->gamepads[gamepad].type))
 			{
 				if (gamepad == 0)
 					*state = State::Settings;
@@ -667,7 +678,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 		}
 		case State::SettingsGraphics:
 		{
-			if (!settings_graphics(u, gamepad, menu))
+			if (!settings_graphics(u, origin, gamepad, menu))
 			{
 				*state = State::Settings;
 				menu->animate();
@@ -850,7 +861,15 @@ void update(const Update& u)
 			main_menu.clear();
 		}
 		else
-			pause_menu(u, 0, &main_menu, &main_menu_state);
+		{
+			UIMenu::Origin origin =
+			{
+				Vec2(0, Settings::display().height * 0.5f),
+				UIText::Anchor::Min,
+				UIText::Anchor::Center
+			};
+			pause_menu(u, origin, 0, &main_menu, &main_menu_state);
+		}
 	}
 }
 
@@ -963,12 +982,7 @@ void draw_ui(const RenderParams& params)
 #endif
 
 	if (main_menu_state != State::Hidden)
-	{
-		if (Game::level.id == Asset::Level::Docks && Game::level.mode == Game::Mode::Special)
-			main_menu.draw_ui(params, Vec2(viewport.size.x * 0.5f, viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f), UIText::Anchor::Center, UIText::Anchor::Max);
-		else
-			main_menu.draw_ui(params, Vec2(0, viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
-	}
+		main_menu.draw_ui(params);
 
 #if !SERVER
 	if (Game::level.mode == Game::Mode::Special)
@@ -1150,9 +1164,9 @@ void draw_letterbox(const RenderParams& params, r32 t, r32 total)
 void settings_graphics_init();
 
 // returns next state the menu should be in
-State settings(const Update& u, s8 gamepad, UIMenu* menu)
+State settings(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu)
 {
-	menu->start(u, gamepad);
+	menu->start(u, origin, gamepad);
 	b8 exit = menu->item(u, _(strings::back)) || (!Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
 
 	char str[128];
@@ -1220,9 +1234,9 @@ State settings(const Update& u, s8 gamepad, UIMenu* menu)
 }
 
 // returns true if this menu should remain open
-b8 settings_controls(const Update& u, s8 gamepad, UIMenu* menu, Gamepad::Type gamepad_type)
+b8 settings_controls(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu, Gamepad::Type gamepad_type)
 {
-	menu->start(u, gamepad, currently_editing_control == Controls::count);
+	menu->start(u, origin, gamepad, currently_editing_control == Controls::count);
 	b8 exit = menu->item(u, _(strings::back)) || (currently_editing_control == Controls::count && !Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
 
 	char str[128];
@@ -1380,9 +1394,9 @@ void settings_graphics_apply(s8)
 }
 
 // returns true if this menu should remain open
-b8 settings_graphics(const Update& u, s8 gamepad, UIMenu* menu)
+b8 settings_graphics(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu)
 {
-	menu->start(u, gamepad);
+	menu->start(u, origin, gamepad);
 	b8 exit = menu->item(u, _(strings::back)) || (!Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
 
 	const s32 MAX_ITEM = 128;
@@ -1536,9 +1550,9 @@ void maps_skip_map(s8 gamepad)
 }
 
 // returns true if map menu should stay open
-b8 maps(const Update& u, s8 gamepad, UIMenu* menu)
+b8 maps(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu)
 {
-	menu->start(u, gamepad);
+	menu->start(u, origin, gamepad);
 
 	b8 exit = menu->item(u, _(strings::back)) || (!Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
 
@@ -1661,7 +1675,7 @@ void friendship_state(u32 friend_id, b8 state)
 	}
 }
 
-b8 player(const Update& u, s8 gamepad, UIMenu* menu)
+b8 player(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu)
 {
 	PlayerManager* selected = teams_selected_player[gamepad].ref();
 	if (!selected)
@@ -1673,7 +1687,7 @@ b8 player(const Update& u, s8 gamepad, UIMenu* menu)
 
 	b8 exit = !Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad);
 
-	menu->start(u, gamepad);
+	menu->start(u, origin, gamepad);
 
 	menu->text(u, selected->username);
 
@@ -1727,14 +1741,14 @@ b8 player(const Update& u, s8 gamepad, UIMenu* menu)
 }
 
 // returns true if the team menu should stay open
-State teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode, EnableInput input)
+State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu, TeamSelectMode mode, EnableInput input)
 {
 	PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
 	PlayerManager* selected = teams_selected_player[gamepad].ref();
 
 	b8 exit = !Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad);
 
-	menu->start(u, gamepad, mode == TeamSelectMode::Normal && !selected && input == EnableInput::Yes); // can select different players in Normal mode when no player is selected
+	menu->start(u, origin, gamepad, mode == TeamSelectMode::Normal && !selected && input == EnableInput::Yes); // can select different players in Normal mode when no player is selected
 	
 	if (mode == TeamSelectMode::Normal)
 	{
@@ -1834,9 +1848,9 @@ State teams(const Update& u, s8 gamepad, UIMenu* menu, TeamSelectMode mode, Enab
 }
 
 // returns true if menu should stay open
-b8 choose_region(const Update& u, s8 gamepad, UIMenu* menu, AllowClose allow_close)
+b8 choose_region(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu, AllowClose allow_close)
 {
-	menu->start(u, 0);
+	menu->start(u, origin, 0);
 
 	menu->text(u, _(strings::choose_region));
 
@@ -1874,7 +1888,8 @@ UIMenu::UIMenu()
 	: selected(),
 	items(),
 	animation_time(),
-	scroll()
+	scroll(),
+	allow_select(true)
 {
 }
 
@@ -1890,9 +1905,11 @@ void UIMenu::animate()
 	animation_time = Game::real_time.total;
 }
 
-void UIMenu::start(const Update& u, s8 g, b8 input)
+void UIMenu::start(const Update& u, const Origin& o, s8 g, b8 input)
 {
 	clear();
+
+	origin = o;
 
 	gamepad = g;
 
@@ -1907,15 +1924,110 @@ void UIMenu::start(const Update& u, s8 g, b8 input)
 	else
 		active[g] = this;
 
-	if (!input)
-		return;
-
-	s32 delta = UI::input_delta_vertical(u, gamepad);
-	if (delta != 0)
+	if (gamepad == 0)
 	{
-		Audio::post_global(AK::EVENTS::PLAY_MENU_MOVE);
-		selected += delta;
+		UI::cursor_pos += Vec2(u.input->cursor_x, -u.input->cursor_y);
+		const DisplayMode& display = Settings::display();
+		UI::cursor_pos.x = vi_max(0.0f, vi_min(UI::cursor_pos.x, r32(display.width)));
+		UI::cursor_pos.y = vi_max(0.0f, vi_min(UI::cursor_pos.y, r32(display.height)));
 	}
+
+	allow_select = input;
+	if (input)
+	{
+		if (gamepad == 0)
+		{
+			if (u.input->keys.get(s32(KeyCode::MouseWheelUp)))
+				scroll.pos = vi_max(0, scroll.pos - 1);
+			else if (u.input->keys.get(s32(KeyCode::MouseWheelDown)))
+				scroll.pos++;
+		}
+
+		s32 delta = UI::input_delta_vertical(u, gamepad);
+		if (delta != 0)
+		{
+			Audio::post_global(AK::EVENTS::PLAY_MENU_MOVE);
+			selected += delta;
+		}
+	}
+}
+
+Vec2 screen_origin(const UIMenu& menu)
+{
+	Vec2 pos = menu.origin.pos + Vec2(MENU_ITEM_PADDING_LEFT, 0);
+	switch (menu.origin.anchor_x)
+	{
+		case UIText::Anchor::Center:
+		{
+			pos.x += MENU_ITEM_WIDTH * -0.5f;
+			break;
+		}
+		case UIText::Anchor::Min:
+		{
+			break;
+		}
+		case UIText::Anchor::Max:
+		{
+			pos.x -= MENU_ITEM_WIDTH;
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+
+	switch (menu.origin.anchor_y)
+	{
+		case UIText::Anchor::Center:
+		{
+			pos.y += menu.cached_height * 0.5f;
+			break;
+		}
+		case UIText::Anchor::Min:
+		{
+			pos.y += menu.cached_height;
+			break;
+		}
+		case UIText::Anchor::Max:
+		{
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+
+	return pos;
+}
+
+Rect2 item_rect(const UIMenu& menu, s32 i)
+{
+	Vec2 pos = screen_origin(menu);
+	return
+	{
+		Vec2(pos.x - MENU_ITEM_PADDING_LEFT, pos.y - (MENU_ITEM_FONT_SIZE * UI::scale) - MENU_ITEM_PADDING - (i - menu.scroll.top()) * MENU_ITEM_HEIGHT),
+		Vec2(MENU_ITEM_WIDTH, (MENU_ITEM_FONT_SIZE * UI::scale) + MENU_ITEM_PADDING * 2.0f),
+	};
+}
+
+Rect2 item_slider_down_rect(const UIMenu& menu, s32 i)
+{
+	Rect2 r = item_rect(menu, i);
+	r.pos.x += MENU_ITEM_PADDING_LEFT + MENU_ITEM_WIDTH * 0.5f;
+	r.size.x = r.size.y;
+	return r;
+}
+
+Rect2 item_slider_up_rect(const UIMenu& menu, s32 i)
+{
+	Rect2 r = item_rect(menu, i);
+	r.pos.x += r.size.x - r.size.y;
+	r.size.x = r.size.y;
+	return r;
 }
 
 b8 UIMenu::add_item(Item::Type type, const char* string, const char* value, b8 disabled, AssetID icon)
@@ -1929,7 +2041,7 @@ b8 UIMenu::add_item(Item::Type type, const char* string, const char* value, b8 d
 	else
 		item->label.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING - MENU_ITEM_PADDING_LEFT;
 	item->label.anchor_x = UIText::Anchor::Min;
-	item->label.anchor_y = item->value.anchor_y = UIText::Anchor::Max;
+	item->label.anchor_y = item->value.anchor_y = UIText::Anchor::Min;
 
 	b8 is_selected = active[gamepad] == this && selected == items.length - 1;
 	item->label.color = item->value.color = (disabled || active[gamepad] != this) ? UI::color_disabled() : (is_selected ? UI::color_accent() : UI::color_default);
@@ -1943,6 +2055,17 @@ b8 UIMenu::add_item(Item::Type type, const char* string, const char* value, b8 d
 		return false;
 
 	return true;
+}
+
+b8 check_mouse_select(UIMenu* menu, const Update& u, s32 item)
+{
+	if (item_rect(*menu, item).contains(UI::cursor_pos))
+	{
+		if (menu->allow_select)
+			menu->selected = item;
+		return menu->selected == item;
+	}
+	return false;
 }
 
 b8 UIMenu::text(const Update& u, const char* string, const char* value, b8 disabled, AssetID icon)
@@ -1961,7 +2084,6 @@ b8 UIMenu::text(const Update& u, const char* string, const char* value, b8 disab
 	return true;
 }
 
-// render a single menu item and increment the position for the next item
 b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disabled, AssetID icon)
 {
 	if (!add_item(Item::Type::Button, string, value, disabled, icon))
@@ -1970,15 +2092,28 @@ b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disab
 	if (Console::visible || active[gamepad] != this || Menu::dialog_active(gamepad))
 		return false;
 
+	b8 mouse_selected = false;
+	if (gamepad == 0 && Game::ui_gamepad_types[0] == Gamepad::Type::None)
+		mouse_selected = check_mouse_select(this, u, items.length - 1);
+
 	if (selected == items.length - 1
-		&& !u.input->get(Controls::Interact, gamepad)
-		&& u.last_input->get(Controls::Interact, gamepad)
 		&& Game::time.total > 0.35f
 		&& !Console::visible
 		&& !disabled)
 	{
-		Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
-		return true;
+		if ((mouse_selected && u.last_input->keys.get(s32(KeyCode::MouseLeft)))
+			|| u.input->get(Controls::Interact, gamepad))
+		{
+			// show that the user is getting ready to activate this item
+			items[selected].label.color = UI::color_alert();
+		}
+
+		if ((mouse_selected && u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
+			|| (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad)))
+		{
+			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+			return true;
+		}
 	}
 	
 	return false;
@@ -1995,10 +2130,33 @@ s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b
 	if (disabled)
 		return 0;
 
+	b8 mouse_selected = false;
+	if (gamepad == 0 && Game::ui_gamepad_types[0] == Gamepad::Type::None)
+		mouse_selected = check_mouse_select(this, u, items.length - 1);
+
 	if (selected == items.length - 1
 		&& Game::time.total > 0.5f)
 	{
 		s32 delta = UI::input_delta_horizontal(u, gamepad);
+
+		if (mouse_selected)
+		{
+			if (item_slider_down_rect(*this, items.length - 1).contains(UI::cursor_pos))
+			{
+				if (u.input->keys.get(s32(KeyCode::MouseLeft))) // show that the user is getting ready to alter this slider
+					items[items.length - 1].value.color = UI::color_alert();
+				else if (u.last_input->keys.get(s32(KeyCode::MouseLeft)))
+					delta = -1;
+			}
+			else if (item_slider_up_rect(*this, items.length - 1).contains(UI::cursor_pos))
+			{
+				if (u.input->keys.get(s32(KeyCode::MouseLeft))) // show that the user is getting ready to alter this slider
+					items[items.length - 1].value.color = UI::color_alert();
+				else if (u.last_input->keys.get(s32(KeyCode::MouseLeft)))
+					delta = 1;
+			}
+		}
+
 		if (delta < 0)
 			Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER);
 		else if (delta > 0)
@@ -2026,6 +2184,8 @@ void UIMenu::end()
 	}
 
 	scroll.scroll_into_view(selected);
+
+	cached_height = height();
 }
 
 r32 UIMenu::height() const
@@ -2067,7 +2227,7 @@ const UIMenu::Item* UIMenu::last_visible_item() const
 		return nullptr;
 }
 
-void UIMenu::draw_ui(const RenderParams& params, const Vec2& origin, UIText::Anchor anchor_x, UIText::Anchor anchor_y) const
+void UIMenu::draw_ui(const RenderParams& params) const
 {
 	if (items.length == 0)
 		return;
@@ -2076,57 +2236,11 @@ void UIMenu::draw_ui(const RenderParams& params, const Vec2& origin, UIText::Anc
 
 	Rect2 last_item_rect;
 
-	Vec2 pos = origin + Vec2(MENU_ITEM_PADDING_LEFT, 0);
-	switch (anchor_x)
-	{
-		case UIText::Anchor::Center:
-		{
-			pos.x += MENU_ITEM_WIDTH * -0.5f;
-			break;
-		}
-		case UIText::Anchor::Min:
-		{
-			break;
-		}
-		case UIText::Anchor::Max:
-		{
-			pos.x -= MENU_ITEM_WIDTH;
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
-
-	switch (anchor_y)
-	{
-		case UIText::Anchor::Center:
-		{
-			pos.y += height() * 0.5f;
-			break;
-		}
-		case UIText::Anchor::Min:
-		{
-			pos.y += height();
-			break;
-		}
-		case UIText::Anchor::Max:
-		{
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
-
 	if (items.length > 0)
 	{
 		// draw background
-		r32 h = height() * Ease::cubic_out<r32>(vi_min((Game::real_time.total - animation_time) / 0.25f, 1.0f));
+		r32 h = cached_height * Ease::cubic_out<r32>(vi_min((Game::real_time.total - animation_time) / 0.25f, 1.0f));
+		Vec2 pos = screen_origin(*this);
 		Rect2 rect =
 		{
 			Vec2(pos.x - MENU_ITEM_PADDING_LEFT, pos.y - h - MENU_ITEM_PADDING * 1.5f),
@@ -2141,13 +2255,7 @@ void UIMenu::draw_ui(const RenderParams& params, const Vec2& origin, UIText::Anc
 	{
 		const Item& item = items[i];
 
-		{
-			Vec2 bounds = item.label.bounds();
-			rect.pos.x = pos.x - MENU_ITEM_PADDING_LEFT;
-			rect.pos.y = pos.y - bounds.y - MENU_ITEM_PADDING;
-			rect.size.x = MENU_ITEM_WIDTH;
-			rect.size.y = bounds.y + MENU_ITEM_PADDING * 2.0f;
-		}
+		rect = item_rect(*this, i);
 
 		if (!scroll_started)
 		{
@@ -2156,37 +2264,31 @@ void UIMenu::draw_ui(const RenderParams& params, const Vec2& origin, UIText::Anc
 		}
 
 		if (active[gamepad] == this && i == selected)
-			UI::box(params, { pos + Vec2(-MENU_ITEM_PADDING_LEFT, item.label.size * -UI::scale), Vec2(4 * UI::scale, item.label.size * UI::scale) }, UI::color_accent());
+			UI::box(params, { rect.pos + Vec2(0, MENU_ITEM_PADDING), Vec2(4 * UI::scale, item.label.size * UI::scale) }, item.label.color);
 
 		if (item.icon != AssetNull)
-			UI::mesh(params, item.icon, pos + Vec2(MENU_ITEM_PADDING_LEFT * -0.5f, MENU_ITEM_FONT_SIZE * -0.5f), Vec2(UI::scale * MENU_ITEM_FONT_SIZE), item.label.color);
+			UI::mesh(params, item.icon, rect.pos + Vec2(MENU_ITEM_PADDING_LEFT * 0.5f, MENU_ITEM_PADDING + MENU_ITEM_FONT_SIZE * 0.5f), Vec2(UI::scale * MENU_ITEM_FONT_SIZE), item.label.color);
 
-		item.label.draw(params, pos);
+		item.label.draw(params, rect.pos + Vec2(MENU_ITEM_PADDING_LEFT, MENU_ITEM_PADDING));
 
 		r32 value_offset_time = (2 + vi_min(i, 6)) * 0.06f;
 		if (Game::real_time.total - animation_time > value_offset_time)
 		{
 			if (item.value.has_text())
-				item.value.draw(params, pos + Vec2(MENU_ITEM_VALUE_OFFSET, 0));
+				item.value.draw(params, rect.pos + Vec2(MENU_ITEM_PADDING_LEFT + MENU_ITEM_VALUE_OFFSET, MENU_ITEM_PADDING));
 			if (item.type == Item::Type::Slider)
 			{
-				Rect2 down_rect = rect;
 				{
-					down_rect.pos.x += MENU_ITEM_PADDING_LEFT + MENU_ITEM_WIDTH * 0.5f;
-					down_rect.size.x = down_rect.size.y;
+					Rect2 down_rect = item_slider_down_rect(*this, i);
+					UI::triangle(params, { down_rect.pos + down_rect.size * 0.5f, down_rect.size * 0.5f }, item.value.color, PI * 0.5f);
 				}
 
-				UI::triangle(params, { down_rect.pos + down_rect.size * 0.5f, down_rect.size * 0.5f }, item.label.color, PI * 0.5f);
-
-				Rect2 up_rect = rect;
 				{
-					up_rect.size.x = up_rect.size.y;
-					up_rect.pos.x += rect.size.x - up_rect.size.x;
+					Rect2 up_rect = item_slider_up_rect(*this, i);
+					UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, item.value.color, PI * -0.5f);
 				}
-				UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, item.label.color, PI * -0.5f);
 			}
 		}
-		pos.y -= MENU_ITEM_HEIGHT;
 	}
 
 	if (scroll_started)

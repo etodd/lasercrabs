@@ -4,9 +4,11 @@
 #include "render/render.h"
 #include "strings.h"
 #include "asset/font.h"
+#include "asset/mesh.h"
 #include "game/game.h"
 #include "game/overworld.h"
 #include "settings.h"
+#include "game/menu.h"
 
 namespace VI
 {
@@ -566,6 +568,7 @@ const Vec4& UI::color_ping(r32 p)
 		return color_alert();
 }
 
+Vec2 UI::cursor_pos(200, 200);
 r32 UI::scale = 1.0f;
 AssetID UI::mesh_id = AssetNull;
 AssetID UI::texture_mesh_id = AssetNull;
@@ -1014,6 +1017,14 @@ void UI::update(const RenderParams& p)
 
 void UI::draw(const RenderParams& p)
 {
+	if (p.camera->gamepad == 0
+		&& Game::ui_gamepad_types[0] == Gamepad::Type::None
+		&& UIMenu::active[0])
+	{
+		mesh(p, Asset::Mesh::icon_cursor, cursor_pos + Vec2(-2, 4), Vec2(24 * UI::scale), UI::color_background);
+		mesh(p, Asset::Mesh::icon_cursor, cursor_pos, Vec2(18 * UI::scale), UI::color_default);
+	}
+
 #if DEBUG
 	for (s32 i = 0; i < debugs.length; i++)
 	{

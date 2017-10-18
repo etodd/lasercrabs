@@ -480,6 +480,21 @@ void game_type_string(UIText* text, GameType type, s8 team_count, s8 max_players
 	text->text(0, "%s %s", _(teams_type), _(game_type_string(type)));
 }
 
+UIMenu::Origin multiplayer_menu_origin()
+{
+	const DisplayMode& display = Settings::display();
+	r32 y =
+		data.multiplayer.state == Data::Multiplayer::State::EntryEdit && data.multiplayer.edit_mode != Data::Multiplayer::EditMode::Main
+		? (display.height * 0.6f) - MENU_ITEM_HEIGHT * 2.0f
+		: display.height * 0.6f;
+	return
+	{
+		Vec2(display.width * 0.5f, y),
+		UIText::Anchor::Center,
+		UIText::Anchor::Max,
+	};
+}
+
 void multiplayer_entry_edit_update(const Update& u)
 {
 	b8 cancel = u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
@@ -512,7 +527,7 @@ void multiplayer_entry_edit_update(const Update& u)
 		{
 			case Data::Multiplayer::EditMode::Main:
 			{
-				menu->start(u, 0);
+				menu->start(u, multiplayer_menu_origin(), 0);
 
 				// cancel
 				if (cancel || menu->item(u, _(strings::cancel), nullptr, false, Asset::Mesh::icon_close))
@@ -670,6 +685,27 @@ void multiplayer_entry_edit_update(const Update& u)
 						data.multiplayer.active_server_dirty = true;
 				}
 
+				if (config->game_type == GameType::Assault)
+				{
+					// start energy attacker
+					s16* start_energy_attacker = &config->start_energy_attacker;
+					sprintf(str, "%d", s32(*start_energy_attacker));
+					delta = menu->slider_item(u, _(strings::start_energy_attacker), str);
+					*start_energy_attacker = vi_max(0, vi_min(MAX_START_ENERGY, (*start_energy_attacker) + (delta * 50)));
+					if (delta)
+						data.multiplayer.active_server_dirty = true;
+				}
+
+				{
+					// cooldown speed
+					u8* cooldown_speed_index = &config->cooldown_speed_index;
+					sprintf(str, "%d%%%%", s32(config->cooldown_speed() * 100.0f), 0);
+					delta = menu->slider_item(u, _(strings::cooldown_speed), str);
+					*cooldown_speed_index = vi_max(1, vi_min(COOLDOWN_SPEED_MAX_INDEX, s32(*cooldown_speed_index) + delta));
+					if (delta)
+						data.multiplayer.active_server_dirty = true;
+				}
+
 				{
 					// enable minions
 					b8* enable_minions = &config->enable_minions;
@@ -747,7 +783,7 @@ void multiplayer_entry_edit_update(const Update& u)
 			}
 			case Data::Multiplayer::EditMode::Levels:
 			{
-				menu->start(u, 0);
+				menu->start(u, multiplayer_menu_origin(), 0);
 
 				if (cancel || menu->item(u, _(strings::back)))
 				{
@@ -789,7 +825,7 @@ void multiplayer_entry_edit_update(const Update& u)
 			}
 			case Data::Multiplayer::EditMode::StartUpgrades:
 			{
-				menu->start(u, 0);
+				menu->start(u, multiplayer_menu_origin(), 0);
 
 				if (cancel || menu->item(u, _(strings::back)))
 				{
@@ -831,7 +867,7 @@ void multiplayer_entry_edit_update(const Update& u)
 			}
 			case Data::Multiplayer::EditMode::AllowedUpgrades:
 			{
-				menu->start(u, 0);
+				menu->start(u, multiplayer_menu_origin(), 0);
 
 				if (cancel || menu->item(u, _(strings::back)))
 				{
@@ -955,7 +991,7 @@ void multiplayer_entry_view_update(const Update& u)
 
 void multiplayer_change_region_update(const Update& u)
 {
-	if (!Menu::choose_region(u, 0, &data.multiplayer.menu[0], Menu::AllowClose::Yes))
+	if (!Menu::choose_region(u, multiplayer_menu_origin(), 0, &data.multiplayer.menu[0], Menu::AllowClose::Yes))
 	{
 		Data::Multiplayer::ServerList* top = &data.multiplayer.server_lists[s32(ServerListType::Top)];
 		top->entries.length = 0;
@@ -1332,7 +1368,7 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 					}
 				}
 
-				data.multiplayer.menu[s32(data.multiplayer.edit_mode)].draw_ui(params, pos, UIText::Anchor::Min, UIText::Anchor::Max);
+				data.multiplayer.menu[s32(data.multiplayer.edit_mode)].draw_ui(params);
 				break;
 			}
 			default:
@@ -1393,7 +1429,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 		// column 1
 		{
-			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 10;
+			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 11 + (details.config.game_type == GameType::Assault ? 1 : 0);
 			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			if (details.state.level == AssetNull)
@@ -1511,6 +1547,25 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			value.text(0, "%d", s32(details.config.start_energy));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
+
+			if (details.config.game_type == GameType::Assault)
+			{
+				// start energy attacker
+				text.text(0, _(strings::start_energy_attacker));
+				text.draw(params, pos);
+				value.text(0, "%d", s32(details.config.start_energy_attacker));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+			}
+
+			{
+				// cooldown speed
+				text.text(0, _(strings::cooldown_speed));
+				text.draw(params, pos);
+				value.text(0, "%d%%", s32(details.config.cooldown_speed() * 100.0f));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+			}
 		}
 
 		// column 2
@@ -1593,7 +1648,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 void multiplayer_change_region_draw(const RenderParams& params, const Rect2& rect)
 {
-	data.multiplayer.menu[0].draw_ui(params, rect.pos + rect.size * 0.5f, UIText::Anchor::Center, UIText::Anchor::Center);
+	data.multiplayer.menu[0].draw_ui(params);
 }
 
 void multiplayer_draw(const RenderParams& params)

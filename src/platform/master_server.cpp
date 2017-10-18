@@ -486,7 +486,7 @@ namespace Master
 			return node_for_address(i->second);
 	}
 
-	void server_state_for_config_id(u32 id, s8 max_players, ServerState* state, Sock::Host::Type addr_type = Sock::Host::Type::IPv4, Sock::Address* addr = nullptr)
+	void server_state_for_config_id(u32 id, s8 max_players, Region region, ServerState* state, Sock::Host::Type addr_type = Sock::Host::Type::IPv4, Sock::Address* addr = nullptr)
 	{
 		Node* server = server_for_config_id(id);
 		if (server) // a server is running this config
@@ -500,6 +500,7 @@ namespace Master
 			state->id = id;
 			state->player_slots = max_players;
 			state->level = AssetNull;
+			state->region = region;
 			if (addr)
 				*addr = {};
 		}
@@ -549,15 +550,17 @@ namespace Master
 				u = u->next;
 			}
 		}
-		config->max_players = s8(Json::get_s32(json, "max_players", 4));
+		config->max_players = s8(Json::get_s32(json, "max_players", MAX_PLAYERS));
 		config->min_players = s8(Json::get_s32(json, "min_players", 2));
-		config->time_limit_minutes = s8(Json::get_s32(json, "time_limit_minutes", 6));
+		config->time_limit_minutes = s8(Json::get_s32(json, "time_limit_minutes", DEFAULT_TIME_LIMIT_MINUTES));
 		config->enable_minions = b8(Json::get_s32(json, "enable_minions", 1));
 		config->enable_batteries = b8(Json::get_s32(json, "enable_batteries", 1));
 		config->enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", 1));
 		config->enable_spawn_shields = b8(Json::get_s32(json, "enable_spawn_shields", 1));
 		config->drone_shield = s8(Json::get_s32(json, "drone_shield", DRONE_SHIELD_AMOUNT));
-		config->start_energy = s16(Json::get_s32(json, "start_energy"));
+		config->start_energy = s16(Json::get_s32(json, "start_energy", ENERGY_INITIAL));
+		config->start_energy_attacker = s16(Json::get_s32(json, "start_energy_attacker", ENERGY_INITIAL_ATTACKER));
+		config->cooldown_speed_index = u8(Json::get_s32(json, "cooldown_speed_index", 4));
 		config->fill_bots = s8(Json::get_s32(json, "fill_bots"));
 		cJSON_Delete(json);
 	}
@@ -593,6 +596,8 @@ namespace Master
 		cJSON_AddNumberToObject(json, "enable_spawn_shields", config.enable_spawn_shields);
 		cJSON_AddNumberToObject(json, "drone_shield", config.drone_shield);
 		cJSON_AddNumberToObject(json, "start_energy", config.start_energy);
+		cJSON_AddNumberToObject(json, "start_energy_attacker", config.start_energy_attacker);
+		cJSON_AddNumberToObject(json, "cooldown_speed_index", config.cooldown_speed_index);
 		cJSON_AddNumberToObject(json, "fill_bots", config.fill_bots);
 
 		char* result = cJSON_Print(json);
@@ -654,7 +659,7 @@ namespace Master
 				return false;
 
 			details->is_admin = role == Role::Admin;
-			server_state_for_config_id(config_id, details->config.max_players, &details->state, addr_type, &details->addr);
+			server_state_for_config_id(config_id, details->config.max_players, details->config.region, &details->state, addr_type, &details->addr);
 			username_get(details->config.creator_id, details->creator_username);
 			return true;
 		}
@@ -1408,7 +1413,7 @@ namespace Master
 		return stmt;
 	}
 
-	b8 send_server_list_fragment(Node* client, ServerListType type, sqlite3_stmt* stmt, s32* offset, b8* done)
+	b8 send_server_list_fragment(Node* client, Region region, ServerListType type, sqlite3_stmt* stmt, s32* offset, b8* done)
 	{
 		using Stream = StreamWrite;
 
@@ -1440,7 +1445,7 @@ namespace Master
 			entry.team_count = db_column_int(stmt, 4);
 			entry.game_type = GameType(db_column_int(stmt, 5));
 
-			server_state_for_config_id(id, entry.max_players, &entry.server_state, client->addr.host.type, &entry.addr);
+			server_state_for_config_id(id, entry.max_players, region, &entry.server_state, client->addr.host.type, &entry.addr);
 
 			if (!serialize_server_list_entry(&p, &entry))
 				net_error();
@@ -1471,7 +1476,7 @@ namespace Master
 		while (true)
 		{
 			b8 done;
-			send_server_list_fragment(client, type, stmt, &offset, &done);
+			send_server_list_fragment(client, region, type, stmt, &offset, &done);
 			if (done)
 				break;
 		}

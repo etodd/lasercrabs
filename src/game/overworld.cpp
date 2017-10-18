@@ -670,6 +670,27 @@ void multiplayer_entry_edit_update(const Update& u)
 						data.multiplayer.active_server_dirty = true;
 				}
 
+				if (config->game_type == GameType::Assault)
+				{
+					// start energy attacker
+					s16* start_energy_attacker = &config->start_energy_attacker;
+					sprintf(str, "%d", s32(*start_energy_attacker));
+					delta = menu->slider_item(u, _(strings::start_energy_attacker), str);
+					*start_energy_attacker = vi_max(0, vi_min(MAX_START_ENERGY, (*start_energy_attacker) + (delta * 50)));
+					if (delta)
+						data.multiplayer.active_server_dirty = true;
+				}
+
+				{
+					// cooldown speed
+					u8* cooldown_speed_index = &config->cooldown_speed_index;
+					sprintf(str, "%d%%%%", s32(config->cooldown_speed() * 100.0f), 0);
+					delta = menu->slider_item(u, _(strings::cooldown_speed), str);
+					*cooldown_speed_index = vi_max(1, vi_min(COOLDOWN_SPEED_MAX_INDEX, s32(*cooldown_speed_index) + delta));
+					if (delta)
+						data.multiplayer.active_server_dirty = true;
+				}
+
 				{
 					// enable minions
 					b8* enable_minions = &config->enable_minions;
@@ -1393,7 +1414,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 		// column 1
 		{
-			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 10;
+			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 11 + (details.config.game_type == GameType::Assault ? 1 : 0);
 			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			if (details.state.level == AssetNull)
@@ -1511,6 +1532,25 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			value.text(0, "%d", s32(details.config.start_energy));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
+
+			if (details.config.game_type == GameType::Assault)
+			{
+				// start energy attacker
+				text.text(0, _(strings::start_energy_attacker));
+				text.draw(params, pos);
+				value.text(0, "%d", s32(details.config.start_energy_attacker));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+			}
+
+			{
+				// cooldown speed
+				text.text(0, _(strings::cooldown_speed));
+				text.draw(params, pos);
+				value.text(0, "%d%%", s32(details.config.cooldown_speed() * 100.0f));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+			}
 		}
 
 		// column 2

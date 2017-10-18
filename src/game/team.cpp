@@ -103,12 +103,12 @@ AbilityInfo AbilityInfo::list[s32(Ability::count)] =
 	},
 	{
 		Asset::Mesh::icon_generator,
-		25,
+		30,
 		Type::Build,
 	},
 	{
 		Asset::Mesh::icon_minion,
-		25,
+		20,
 		Type::Build,
 	},
 	{
@@ -1013,6 +1013,13 @@ s16 Team::initial_respawns() const
 	return Game::session.config.game_type == GameType::Deathmatch || team() == 0 ? -1 : Game::session.config.respawns;
 }
 
+s16 Team::initial_energy() const
+{
+	return Game::session.config.game_type == GameType::Deathmatch || team() == 0 || Game::session.type == SessionType::Story
+		? Game::session.config.start_energy
+		: Game::session.config.start_energy_attacker;
+}
+
 SpawnPoint* Team::default_spawn_point() const
 {
 	for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
@@ -1038,6 +1045,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	state_timer(),
 	upgrade_completed(),
 	respawns(team->initial_respawns()),
+	energy(team->initial_energy()),
 	kills(),
 	deaths(),
 	ability_purchase_times(),
@@ -1056,8 +1064,6 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 			}
 		}
 	}
-
-	energy = Game::session.config.start_energy;
 
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
 		&& Game::session.config.allow_upgrades
@@ -1204,7 +1210,9 @@ namespace PlayerManagerNet
 
 		if (Game::session.config.game_type == GameType::Assault && t != m->team.ref()->team())
 		{
-			m->respawns = Team::list[s32(t)].initial_respawns();
+			const Team& team = Team::list[s32(t)];
+			m->respawns = team.initial_respawns();
+			m->energy = team.initial_energy();
 			update_counts(m);
 		}
 

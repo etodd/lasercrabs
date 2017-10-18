@@ -2882,7 +2882,9 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		{
 			if (Game::level.local) // spotting is all server-side
 			{
-				vi_assert(src == Net::MessageSource::Remote); // server should not send reflect messages to client
+#if SERVER
+				vi_assert(src == Net::MessageSource::Remote);
+#endif
 				if (c->spot_timer == 0.0f)
 				{
 					r32 closest_dot = 0.95f;

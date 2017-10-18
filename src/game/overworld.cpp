@@ -480,6 +480,21 @@ void game_type_string(UIText* text, GameType type, s8 team_count, s8 max_players
 	text->text(0, "%s %s", _(teams_type), _(game_type_string(type)));
 }
 
+UIMenu::Origin multiplayer_menu_origin()
+{
+	const DisplayMode& display = Settings::display();
+	r32 y =
+		data.multiplayer.state == Data::Multiplayer::State::EntryEdit && data.multiplayer.edit_mode != Data::Multiplayer::EditMode::Main
+		? (display.height * 0.6f) - MENU_ITEM_HEIGHT * 2.0f
+		: display.height * 0.6f;
+	return
+	{
+		Vec2(display.width * 0.5f, y),
+		UIText::Anchor::Center,
+		UIText::Anchor::Max,
+	};
+}
+
 void multiplayer_entry_edit_update(const Update& u)
 {
 	b8 cancel = u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
@@ -512,7 +527,7 @@ void multiplayer_entry_edit_update(const Update& u)
 		{
 			case Data::Multiplayer::EditMode::Main:
 			{
-				menu->start(u, 0);
+				menu->start(u, multiplayer_menu_origin(), 0);
 
 				// cancel
 				if (cancel || menu->item(u, _(strings::cancel), nullptr, false, Asset::Mesh::icon_close))
@@ -768,7 +783,7 @@ void multiplayer_entry_edit_update(const Update& u)
 			}
 			case Data::Multiplayer::EditMode::Levels:
 			{
-				menu->start(u, 0);
+				menu->start(u, multiplayer_menu_origin(), 0);
 
 				if (cancel || menu->item(u, _(strings::back)))
 				{
@@ -810,7 +825,7 @@ void multiplayer_entry_edit_update(const Update& u)
 			}
 			case Data::Multiplayer::EditMode::StartUpgrades:
 			{
-				menu->start(u, 0);
+				menu->start(u, multiplayer_menu_origin(), 0);
 
 				if (cancel || menu->item(u, _(strings::back)))
 				{
@@ -852,7 +867,7 @@ void multiplayer_entry_edit_update(const Update& u)
 			}
 			case Data::Multiplayer::EditMode::AllowedUpgrades:
 			{
-				menu->start(u, 0);
+				menu->start(u, multiplayer_menu_origin(), 0);
 
 				if (cancel || menu->item(u, _(strings::back)))
 				{
@@ -976,7 +991,7 @@ void multiplayer_entry_view_update(const Update& u)
 
 void multiplayer_change_region_update(const Update& u)
 {
-	if (!Menu::choose_region(u, 0, &data.multiplayer.menu[0], Menu::AllowClose::Yes))
+	if (!Menu::choose_region(u, multiplayer_menu_origin(), 0, &data.multiplayer.menu[0], Menu::AllowClose::Yes))
 	{
 		Data::Multiplayer::ServerList* top = &data.multiplayer.server_lists[s32(ServerListType::Top)];
 		top->entries.length = 0;
@@ -1353,7 +1368,7 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 					}
 				}
 
-				data.multiplayer.menu[s32(data.multiplayer.edit_mode)].draw_ui(params, pos, UIText::Anchor::Min, UIText::Anchor::Max);
+				data.multiplayer.menu[s32(data.multiplayer.edit_mode)].draw_ui(params);
 				break;
 			}
 			default:
@@ -1633,7 +1648,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 void multiplayer_change_region_draw(const RenderParams& params, const Rect2& rect)
 {
-	data.multiplayer.menu[0].draw_ui(params, rect.pos + rect.size * 0.5f, UIText::Anchor::Center, UIText::Anchor::Center);
+	data.multiplayer.menu[0].draw_ui(params);
 }
 
 void multiplayer_draw(const RenderParams& params)

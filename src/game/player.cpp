@@ -1071,7 +1071,15 @@ void PlayerHuman::update(const Update& u)
 
 					s8 last_selected = menu.selected;
 
-					menu.start(u, gamepad, chat_focus == ChatFocus::None);
+					{
+						UIMenu::Origin origin =
+						{
+							camera.ref()->viewport.size * Vec2(0.5f, 0.6f),
+							UIText::Anchor::Center,
+							UIText::Anchor::Center,
+						};
+						menu.start(u, origin, gamepad, chat_focus == ChatFocus::None);
+					}
 
 					if (menu.item(u, _(strings::close), nullptr, false, Asset::Mesh::icon_close))
 						upgrade_menu_hide();
@@ -1119,13 +1127,25 @@ void PlayerHuman::update(const Update& u)
 		}
 		case UIMode::Pause:
 		{
-			Menu::pause_menu(u, gamepad, &menu, &menu_state);
+			UIMenu::Origin origin =
+			{
+				camera.ref()->viewport.size * Vec2(0, 0.5f),
+				UIText::Anchor::Min,
+				UIText::Anchor::Center,
+			};
+			Menu::pause_menu(u, origin, gamepad, &menu, &menu_state);
 			break;
 		}
 		case UIMode::PvpSelectTeam:
 		{
 			// show team switcher
-			if (Menu::teams(u, gamepad, &menu, Menu::TeamSelectMode::MatchStart, chat_focus == ChatFocus::None ? Menu::EnableInput::Yes : Menu::EnableInput::No) != Menu::State::Teams)
+			UIMenu::Origin origin =
+			{
+				camera.ref()->viewport.size * Vec2(0.5f),
+				UIText::Anchor::Center,
+				UIText::Anchor::Max,
+			};
+			if (Menu::teams(u, origin, gamepad, &menu, Menu::TeamSelectMode::MatchStart, chat_focus == ChatFocus::None ? Menu::EnableInput::Yes : Menu::EnableInput::No) != Menu::State::Teams)
 			{
 				// user hit escape
 				// make sure the cancel event is not eaten, so that our pause/unpause code below works
@@ -2096,8 +2116,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	{
 		if (flag(FlagUpgradeMenuOpen))
 		{
-			Vec2 upgrade_menu_pos = vp.size * Vec2(0.5f, 0.6f);
-			menu.draw_ui(params, upgrade_menu_pos, UIText::Anchor::Center, UIText::Anchor::Center);
+			menu.draw_ui(params);
 
 			if (menu.selected > 0)
 			{
@@ -2121,7 +2140,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 					text.text(gamepad, _(info.description), cost, usage_cost);
 					UIMenu::text_clip(&text, animation_time, 150.0f);
 
-					Vec2 pos = upgrade_menu_pos + Vec2(MENU_ITEM_WIDTH * -0.5f + padding, menu.height() * -0.5f - padding * 7.0f);
+					Vec2 pos = menu.origin.pos + Vec2(MENU_ITEM_WIDTH * -0.5f + padding, menu.height() * -0.5f - padding * 7.0f);
 					UI::box(params, text.rect(pos).outset(padding), UI::color_background);
 					text.draw(params, pos);
 				}
@@ -2170,7 +2189,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			}
 			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 		}
-		menu.draw_ui(params, p, UIText::Anchor::Min, UIText::Anchor::Max);
+		menu.draw_ui(params);
 	}
 	else if (mode == UIMode::PvpKillCam)
 		scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Bottom);
@@ -2407,7 +2426,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		Menu::draw_letterbox(params, select_spawn_timer, TRANSITION_TIME);
 
 	if (mode == UIMode::Pause) // pause menu always drawn on top
-		menu.draw_ui(params, Vec2(0, params.camera->viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
+		menu.draw_ui(params);
 }
 
 void PlayerHuman::flag(Flags f, b8 value)

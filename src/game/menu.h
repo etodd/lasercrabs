@@ -38,6 +38,13 @@ struct UIMenu
 		Type type;
 	};
 
+	struct Origin
+	{
+		Vec2 pos;
+		UIText::Anchor anchor_x;
+		UIText::Anchor anchor_y;
+	};
+
 	static void text_clip_timer(UIText*, r32, r32, s32 = 0);
 	static void text_clip(UIText*, r32, r32, s32 = 0);
 	template<typename T> static b8 enum_option(T* t, s32 delta)
@@ -52,22 +59,25 @@ struct UIMenu
 	}
 
 	Array<Item> items;
+	Origin origin;
 	r32 animation_time;
+	r32 cached_height;
 	UIScroll scroll;
 	s8 selected;
 	s8 gamepad;
+	b8 allow_select;
 
 	UIMenu();
 	void clear();
 	void animate();
 	r32 height() const;
-	void start(const Update&, s8, b8 = true);
+	void start(const Update&, const Origin&, s8, b8 = true);
 	const Item* last_visible_item() const;
 	b8 add_item(Item::Type, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	b8 item(const Update&, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	b8 text(const Update&, const char*, const char* = nullptr, b8 = true, AssetID = AssetNull);
 	s32 slider_item(const Update&, const char*, const char*, b8 = false, AssetID = AssetNull);
-	void draw_ui(const RenderParams&, const Vec2&, UIText::Anchor, UIText::Anchor) const;
+	void draw_ui(const RenderParams&) const;
 	void end();
 };
 
@@ -129,12 +139,12 @@ void title_multiplayer();
 void show();
 void open_url(const char*);
 void refresh_variables(const InputState&);
-void pause_menu(const Update&, s8, UIMenu*, State*);
+void pause_menu(const Update&, const UIMenu::Origin&, s8, UIMenu*, State*);
 void title_menu(const Update&, Camera*);
 void teams_select_match_start_init(PlayerHuman*);
-State teams(const Update&, s8, UIMenu*, TeamSelectMode, EnableInput = EnableInput::Yes);
+State teams(const Update&, const UIMenu::Origin&, s8, UIMenu*, TeamSelectMode, EnableInput = EnableInput::Yes);
 void friendship_state(u32, b8);
-b8 choose_region(const Update&, s8, UIMenu*, AllowClose);
+b8 choose_region(const Update&, const UIMenu::Origin&, s8, UIMenu*, AllowClose);
 void progress_spinner(const RenderParams&, const Vec2&, r32 = 20.0f);
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&);
 void progress_infinite(const RenderParams&, const char*, const Vec2&);

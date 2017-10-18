@@ -699,7 +699,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				{
 					// cooldown speed
 					u8* cooldown_speed_index = &config->cooldown_speed_index;
-					sprintf(str, "%d%%%%", s32(config->cooldown_speed() * 100.0f), 0);
+					sprintf(str, "%d%%%%", s32(config->cooldown_speed() * 100.0f));
 					delta = menu->slider_item(u, _(strings::cooldown_speed), str);
 					*cooldown_speed_index = vi_max(1, vi_min(COOLDOWN_SPEED_MAX_INDEX, s32(*cooldown_speed_index) + delta));
 					if (delta)

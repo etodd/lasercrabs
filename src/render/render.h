@@ -72,6 +72,7 @@ struct Camera
 	static ViewportBlueprint* viewport_blueprints[4];
 
 	static Camera* add(s8);
+	static Camera* for_gamepad(s8);
 
 	Mat4 projection;
 	Mat4 projection_inverse;

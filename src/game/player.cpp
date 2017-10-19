@@ -69,6 +69,7 @@ namespace VI
 #define INTERACT_LERP_ROTATION_SPEED 5.0f
 #define INTERACT_LERP_TRANSLATION_SPEED 10.0f
 #define EMOTE_TIMEOUT 3.0f
+#define KILL_POPUP_TIME 4.0f
 
 #define HP_BOX_SIZE (Vec2(UI_TEXT_SIZE_DEFAULT) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
@@ -277,6 +278,7 @@ Vec2 PlayerHuman::camera_topdown_movement(const Update& u, s8 gamepad, const Qua
 PlayerHuman::PlayerHuman(b8 local, s8 g)
 	: gamepad(g),
 	camera(),
+	kill_popups(),
 	msg_text(),
 	msg_timer(0.0f),
 	menu(),
@@ -313,9 +315,6 @@ void PlayerHuman::awake()
 {
 	get<PlayerManager>()->spawn.link<PlayerHuman, const SpawnPosition&, &PlayerHuman::spawn>(this);
 	get<PlayerManager>()->upgrade_completed.link<PlayerHuman, Upgrade, &PlayerHuman::upgrade_completed>(this);
-
-	msg_text.anchor_x = UIText::Anchor::Center;
-	msg_text.anchor_y = UIText::Anchor::Center;
 
 	if (local()
 #if !SERVER
@@ -362,6 +361,11 @@ PlayerHuman::~PlayerHuman()
 	AI::record_close(ai_record_id);
 	ai_record_id = 0;
 #endif
+}
+
+void PlayerHuman::kill_popup(PlayerManager* victim)
+{
+	kill_popups.add({ KILL_POPUP_TIME, victim });
 }
 
 void PlayerHuman::team_set(AI::Team t)
@@ -498,16 +502,9 @@ b8 PlayerHuman::notification(Entity* e, AI::Team team, Notification::Type type)
 
 void PlayerHuman::msg(const char* msg, Flags f)
 {
-	if (msg_timer == 0.0f
-		|| !flag(FlagMessageHighPriority)
-		|| (f & FlagMessageHighPriority))
-	{
-		msg_text.text(gamepad, msg);
-		msg_text.color = (f & FlagMessageGood) ? UI::color_accent() : UI::color_alert();
-		msg_timer = msg_time;
-		flag(FlagMessageGood, f & FlagMessageGood);
-		flag(FlagMessageHighPriority, f & FlagMessageHighPriority);
-	}
+	strncpy(msg_text, msg, UI_TEXT_MAX);
+	msg_timer = msg_time;
+	flag(FlagMessageGood, f & FlagMessageGood);
 }
 
 void PlayerHuman::energy_notify(s32 change)
@@ -844,6 +841,17 @@ void PlayerHuman::update(const Update& u)
 	}
 #endif
 
+	for (s32 i = 0; i < kill_popups.length; i++)
+	{
+		KillPopup* k = &kill_popups[i];
+		k->timer -= u.real_time.delta;
+		if (k->timer < 0.0f || !k->victim.ref())
+		{
+			kill_popups.remove_ordered(i);
+			i--;
+		}
+	}
+
 	Entity* entity = get<PlayerManager>()->instance.ref();
 
 	// record parkour support
@@ -1108,7 +1116,7 @@ void PlayerHuman::update(const Update& u)
 						}
 					}
 
-					menu.end();
+					menu.end(u);
 
 					if (menu.selected != last_selected
 						|| upgrade_in_progress) // once the upgrade is done, animate the new ability description
@@ -1141,7 +1149,7 @@ void PlayerHuman::update(const Update& u)
 			// show team switcher
 			UIMenu::Origin origin =
 			{
-				camera.ref()->viewport.size * Vec2(0.5f),
+				camera.ref()->viewport.size * Vec2(0.5f, 0.65f),
 				UIText::Anchor::Center,
 				UIText::Anchor::Max,
 			};
@@ -2187,7 +2195,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				UI::box(params, text.rect(p2).outset(MENU_ITEM_PADDING), UI::color_background);
 				text.draw(params, p2);
 			}
-			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 		}
 		menu.draw_ui(params);
 	}
@@ -2390,10 +2397,16 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		b8 last_flash = UI::flash_function(Game::real_time.total - Game::real_time.delta);
 		if (flash)
 		{
+			UIText text;
+			text.text(gamepad, msg_text);
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.color = flag(FlagMessageGood) ? UI::color_accent() : UI::color_alert();
+
 			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.6f);
-			Rect2 box = msg_text.rect(pos).outset(MENU_ITEM_PADDING);
+			Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
 			UI::box(params, box, UI::color_background);
-			msg_text.draw(params, pos);
+			text.draw(params, pos);
 			if (!last_flash)
 				Audio::post_global(flag(FlagMessageGood) ? AK::EVENTS::PLAY_MESSAGE_BEEP_GOOD : AK::EVENTS::PLAY_MESSAGE_BEEP_BAD);
 		}
@@ -2401,6 +2414,34 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 	{
 		AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+
+		// draw kill popups
+		if ((mode == UIMode::PvpDefault
+			|| mode == UIMode::PvpKillCam)
+			&& kill_popups.length > 0)
+		{
+			UIText text;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Max;
+			text.color = UI::color_accent();
+
+			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, mode == UIMode::PvpKillCam ? 0.45f : 0.3f);
+			for (s32 i = 0; i < kill_popups.length; i++)
+			{
+				const KillPopup& k = kill_popups[i];
+				PlayerManager* victim = k.victim.ref();
+				if (victim)
+				{
+					text.text(gamepad, _(strings::killed_player), victim->username);
+					UIMenu::text_clip_timer(&text, KILL_POPUP_TIME - k.timer, 50.0f);
+					Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
+					UI::box(params, box, UI::color_background);
+					text.draw(params, pos);
+					pos.y -= box.size.y;
+				}
+			}
+		}
+
 		draw_chats(params);
 		draw_logs(params, my_team, gamepad);
 	}

@@ -483,7 +483,7 @@ void title_menu(const Update& u, Camera* camera)
 					open_url("https://github.com/etodd/deceiver/issues");
 				if (main_menu.item(u, _(strings::exit)))
 					dialog(0, &exit, _(strings::confirm_quit));
-				main_menu.end();
+				main_menu.end(u);
 			}
 			break;
 		}
@@ -614,7 +614,7 @@ void pause_menu(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMen
 				else
 					dialog(gamepad, &quit_multiplayer, _(strings::confirm_quit));
 			}
-			menu->end();
+			menu->end(u);
 			break;
 		}
 		case State::Maps:
@@ -693,6 +693,92 @@ void pause_menu(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMen
 	}
 }
 
+struct DialogLayout
+{
+	Rect2 container;
+	Rect2 accept;
+	Rect2 cancel;
+};
+
+DialogLayout dialog_layout(s8 gamepad, const RenderParams* params = nullptr)
+{
+	const r32 padding = 16.0f * UI::scale;
+	UIText text;
+	text.color = UI::color_default;
+	text.wrap_width = MENU_ITEM_WIDTH;
+	text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+	text.text(gamepad, dialog_string[gamepad]);
+	Vec2 pos = Camera::for_gamepad(gamepad)->viewport.size * 0.5f;
+	Rect2 text_rect = text.rect(pos).outset(padding);
+
+	{
+		r32 prompt_height = (padding + UI_TEXT_SIZE_DEFAULT * UI::scale) * Ease::cubic_out<r32>(vi_min((Game::real_time.total - dialog_time[gamepad]) / DIALOG_ANIM_TIME, 1.0f));
+		text_rect.pos.y -= prompt_height;
+		text_rect.size.y += prompt_height;
+	}
+
+	DialogLayout layout = {};
+	layout.container = text_rect;
+
+	if (params)
+	{
+		UI::box(*params, text_rect, UI::color_background);
+		UI::border(*params, text_rect, 2.0f, UI::color_accent());
+
+		UIMenu::text_clip(&text, dialog_time[gamepad], 150.0f);
+		text.draw(*params, pos);
+	}
+
+	if (Game::real_time.total > dialog_time[gamepad] + DIALOG_ANIM_TIME)
+	{
+		// accept
+		text.wrap_width = 0;
+		text.anchor_y = UIText::Anchor::Min;
+		text.anchor_x = UIText::Anchor::Min;
+		text.color = UI::color_accent();
+		text.clip = 0;
+		text.text(gamepad, dialog_time_limit[gamepad] > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(dialog_time_limit[gamepad]) + 1);
+		Vec2 prompt_pos = text_rect.pos + Vec2(padding);
+		layout.accept = text.rect(prompt_pos).outset(padding * 0.5f);
+		if (params)
+		{
+			if (params->sync->input.get(Controls::Interact, gamepad)
+				|| (gamepad == 0
+				&& Game::ui_gamepad_types[0] == Gamepad::Type::None
+				&& layout.accept.contains(UI::cursor_pos)))
+			{
+				UI::box(*params, layout.accept, params->sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : UI::color_accent());
+				text.color = UI::color_background;
+			}
+			text.draw(*params, prompt_pos);
+		}
+
+		if (dialog_callback[gamepad] != &dialog_no_action)
+		{
+			// cancel
+			text.anchor_x = UIText::Anchor::Max;
+			text.color = UI::color_alert();
+			text.clip = 0;
+			text.text(gamepad, _(strings::prompt_cancel));
+			Vec2 p = prompt_pos + Vec2(text_rect.size.x + padding * -2.0f, 0);
+			layout.cancel = text.rect(p).outset(padding * 0.5f);
+			if (params)
+			{
+				if (params->sync->input.get(Controls::Cancel, gamepad)
+					|| (gamepad == 0
+					&& Game::ui_gamepad_types[0] == Gamepad::Type::None
+					&& layout.cancel.contains(UI::cursor_pos)))
+				{
+					UI::box(*params, layout.cancel, params->sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_accent() : UI::color_alert());
+					text.color = UI::color_background;
+				}
+				text.draw(*params, p);
+			}
+		}
+	}
+
+	return layout;
+}
 
 void update(const Update& u)
 {
@@ -793,7 +879,21 @@ void update(const Update& u)
 		// dialog buttons
 		if (dialog_callback[i] && dialog_callback_last[i]) // make sure we don't trigger the button on the first frame the dialog is shown
 		{
-			if (u.last_input->get(Controls::Interact, i) && !u.input->get(Controls::Interact, i))
+			b8 accept_clicked = false;
+			b8 cancel_clicked = false;
+			if (i == 0 && Game::ui_gamepad_types[i] == Gamepad::Type::None)
+			{
+				DialogLayout layout = dialog_layout(i);
+				if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
+				{
+					if (layout.accept.contains(UI::cursor_pos))
+						accept_clicked = true;
+					else if (layout.cancel.contains(UI::cursor_pos))
+						cancel_clicked = true;
+				}
+			}
+
+			if (accept_clicked || (u.last_input->get(Controls::Interact, i) && !u.input->get(Controls::Interact, i)))
 			{
 				// accept
 				Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT);
@@ -803,7 +903,7 @@ void update(const Update& u)
 				dialog_time_limit[i] = 0.0f;
 				callback(s8(i));
 			}
-			else if (!Game::cancel_event_eaten[i] && u.last_input->get(Controls::Cancel, i) && !u.input->get(Controls::Cancel, i))
+			else if (cancel_clicked || (!Game::cancel_event_eaten[i] && u.last_input->get(Controls::Cancel, i) && !u.input->get(Controls::Cancel, i)))
 			{
 				// cancel
 				Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
@@ -991,24 +1091,16 @@ void draw_ui(const RenderParams& params)
 		switch (Net::Client::master_error)
 		{
 			case Net::Client::MasterError::None:
-			{
 				break;
-			}
 			case Net::Client::MasterError::WrongVersion:
-			{
 				error_string = strings::need_upgrade;
 				break;
-			}
 			case Net::Client::MasterError::Timeout:
-			{
 				error_string = strings::master_timeout;
 				break;
-			}
 			default:
-			{
 				vi_assert(false);
 				break;
-			}
 		}
 
 		if (error_string != AssetNull)
@@ -1034,51 +1126,7 @@ void draw_ui(const RenderParams& params)
 			gamepad = player->gamepad;
 	}
 	if (dialog_callback[gamepad])
-	{
-		const r32 padding = 16.0f * UI::scale;
-		UIText text;
-		text.color = UI::color_default;
-		text.wrap_width = MENU_ITEM_WIDTH;
-		text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-		text.text(gamepad, dialog_string[gamepad]);
-		UIMenu::text_clip(&text, dialog_time[gamepad], 150.0f);
-		Vec2 pos = params.camera->viewport.size * 0.5f;
-		Rect2 text_rect = text.rect(pos).outset(padding);
-
-		{
-			r32 prompt_height = (padding + UI_TEXT_SIZE_DEFAULT * UI::scale) * Ease::cubic_out<r32>(vi_min((Game::real_time.total - dialog_time[gamepad]) / DIALOG_ANIM_TIME, 1.0f));
-			text_rect.pos.y -= prompt_height;
-			text_rect.size.y += prompt_height;
-		}
-
-		UI::box(params, text_rect, UI::color_background);
-		UI::border(params, text_rect, 2.0f, UI::color_accent());
-
-		text.draw(params, pos);
-
-		if (Game::real_time.total > dialog_time[gamepad] + DIALOG_ANIM_TIME)
-		{
-			// accept
-			text.wrap_width = 0;
-			text.anchor_y = UIText::Anchor::Min;
-			text.anchor_x = UIText::Anchor::Min;
-			text.color = UI::color_accent();
-			text.clip = 0;
-			text.text(gamepad, dialog_time_limit[gamepad] > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(dialog_time_limit[gamepad]) + 1);
-			Vec2 prompt_pos = text_rect.pos + Vec2(padding);
-			text.draw(params, prompt_pos);
-
-			if (dialog_callback[gamepad] != &dialog_no_action)
-			{
-				// cancel
-				text.anchor_x = UIText::Anchor::Max;
-				text.color = UI::color_alert();
-				text.clip = 0;
-				text.text(gamepad, _(strings::prompt_cancel));
-				text.draw(params, prompt_pos + Vec2(text_rect.size.x + padding * -2.0f, 0));
-			}
-		}
-	}
+		dialog_layout(gamepad, &params);
 
 	// text dialog box
 	if (dialog_text_callback)
@@ -1174,7 +1222,7 @@ State settings(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu
 
 	if ((gamepad > 0 || u.input->gamepads[0].type != Gamepad::Type::None) && menu->item(u, _(strings::settings_controls_gamepad)))
 	{
-		menu->end();
+		menu->end(u);
 		return State::SettingsControlsGamepad;
 	}
 
@@ -1183,14 +1231,14 @@ State settings(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu
 #if !defined(__ORBIS__)
 		if (menu->item(u, _(strings::settings_controls_keyboard)))
 		{
-			menu->end();
+			menu->end(u);
 			return State::SettingsControlsKeyboard;
 		}
 #endif
 
 		if (menu->item(u, _(strings::settings_graphics)))
 		{
-			menu->end();
+			menu->end(u);
 			settings_graphics_init();
 			return State::SettingsGraphics;
 		}
@@ -1220,12 +1268,12 @@ State settings(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu
 		UIMenu::enum_option(&Settings::region, menu->slider_item(u, _(strings::region), _(region_string(Settings::region))));
 	}
 
-	menu->end();
+	menu->end(u);
 
 	if (exit)
 	{
 		Game::cancel_event_eaten[gamepad] = true;
-		menu->end();
+		menu->end(u);
 		Loader::settings_save();
 		return State::Visible;
 	}
@@ -1358,7 +1406,7 @@ b8 settings_controls(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 		}
 	}
 
-	menu->end();
+	menu->end(u);
 
 	if (exit)
 	{
@@ -1517,7 +1565,7 @@ b8 settings_graphics(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 			*shell_casings = !(*shell_casings);
 	}
 
-	menu->end();
+	menu->end(u);
 
 	if (exit)
 	{
@@ -1587,7 +1635,7 @@ b8 maps(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu)
 			me->map_schedule(level_id);
 	}
 
-	menu->end();
+	menu->end(u);
 
 	if (exit)
 	{
@@ -1777,7 +1825,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 #if !SERVER
 			Net::Client::master_friendship_get(i.item()->get<PlayerHuman>()->master_id);
 #endif
-			menu->end();
+			menu->end(u);
 			return State::Player;
 		}
 
@@ -1825,7 +1873,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 		}
 	}
 
-	menu->end();
+	menu->end(u);
 
 	if (exit)
 	{
@@ -1859,7 +1907,7 @@ b8 choose_region(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMe
 	if (allow_close == AllowClose::Yes && (cancel || menu->item(u, _(strings::back))))
 	{
 		Game::cancel_event_eaten[0] = true;
-		menu->end();
+		menu->end(u);
 		return false;
 	}
 
@@ -1870,12 +1918,12 @@ b8 choose_region(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMe
 		{
 			Settings::region = region;
 			Loader::settings_save();
-			menu->end();
+			menu->end(u);
 			return false;
 		}
 	}
 
-	menu->end();
+	menu->end(u);
 	return true;
 }
 #endif
@@ -1924,25 +1972,9 @@ void UIMenu::start(const Update& u, const Origin& o, s8 g, b8 input)
 	else
 		active[g] = this;
 
-	if (gamepad == 0)
-	{
-		UI::cursor_pos += Vec2(u.input->cursor_x, -u.input->cursor_y);
-		const DisplayMode& display = Settings::display();
-		UI::cursor_pos.x = vi_max(0.0f, vi_min(UI::cursor_pos.x, r32(display.width)));
-		UI::cursor_pos.y = vi_max(0.0f, vi_min(UI::cursor_pos.y, r32(display.height)));
-	}
-
 	allow_select = input;
 	if (input)
 	{
-		if (gamepad == 0)
-		{
-			if (u.input->keys.get(s32(KeyCode::MouseWheelUp)))
-				scroll.pos = vi_max(0, scroll.pos - 1);
-			else if (u.input->keys.get(s32(KeyCode::MouseWheelDown)))
-				scroll.pos++;
-		}
-
 		s32 delta = UI::input_delta_vertical(u, gamepad);
 		if (delta != 0)
 		{
@@ -2167,8 +2199,16 @@ s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b
 	return 0;
 }
 
-void UIMenu::end()
+void UIMenu::end(const Update& u)
 {
+	if (allow_select && gamepad == 0)
+	{
+		if (u.input->keys.get(s32(KeyCode::MouseWheelUp)))
+			scroll.pos = vi_max(0, scroll.pos - 1);
+		else if (u.input->keys.get(s32(KeyCode::MouseWheelDown)))
+			scroll.pos++;
+	}
+
 	scroll.update_menu(items.length);
 
 	if (selected < 0)

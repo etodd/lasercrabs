@@ -67,6 +67,16 @@ Camera* Camera::add(s8 gamepad)
 	return c;
 }
 
+Camera* Camera::for_gamepad(s8 gamepad)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->gamepad == gamepad)
+			return i.item();
+	}
+	return nullptr;
+}
+
 void Camera::remove()
 {
 	this->~Camera();

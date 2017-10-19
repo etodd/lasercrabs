@@ -78,7 +78,7 @@ struct UIMenu
 	b8 text(const Update&, const char*, const char* = nullptr, b8 = true, AssetID = AssetNull);
 	s32 slider_item(const Update&, const char*, const char*, b8 = false, AssetID = AssetNull);
 	void draw_ui(const RenderParams&) const;
-	void end();
+	void end(const Update&);
 };
 
 typedef void(*DialogCallback)(s8);

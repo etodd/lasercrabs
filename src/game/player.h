@@ -111,14 +111,19 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		AI::Team team;
 		Type type;
 	};
+
+	struct KillPopup
+	{
+		r32 timer;
+		Ref<PlayerManager> victim;
+	};
 	
 	enum Flags : s8
 	{
 		FlagNone = 0,
 		FlagLocal = 1 << 0,
 		FlagMessageGood = 1 << 1,
-		FlagMessageHighPriority = 1 << 2,
-		FlagUpgradeMenuOpen = 1 << 3,
+		FlagUpgradeMenuOpen = 1 << 2,
 	};
 
 	static Array<LogEntry> logs;
@@ -141,12 +146,12 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static void camera_setup_drone(Drone*, Camera*, Vec3*, r32);
 	static void draw_logs(const RenderParams&, AI::Team, s8);
 
+	Array<KillPopup> kill_popups;
 	Array<SupportEntry> last_supported;
 	TextField chat_field;
 	u64 uuid;
 	UIMenu menu;
 	UIScroll score_summary_scroll;
-	UIText msg_text;
 	Quat kill_cam_rot;
 	Vec3 camera_center;
 	r32 msg_timer;
@@ -174,6 +179,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	s8 gamepad;
 	ChatFocus chat_focus;
 	s8 flags;
+	char msg_text[UI_TEXT_MAX];
 	
 	PlayerHuman(b8 = false, s8 = 0);
 	void awake();
@@ -191,6 +197,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		return flags & FlagLocal;
 	}
 
+	void kill_popup(PlayerManager*);
 	void draw_chats(const RenderParams&) const;
 	b8 chat_enabled() const;
 	b8 emotes_enabled() const;

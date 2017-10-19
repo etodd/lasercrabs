@@ -346,6 +346,16 @@ void Game::update(const Update& update_in)
 		SteamAPI_RunCallbacks();
 #endif
 
+#if !SERVER
+	if (UI::cursor_active())
+	{
+		UI::cursor_pos += Vec2(update_in.input->cursor_x, -update_in.input->cursor_y);
+		const DisplayMode& display = Settings::display();
+		UI::cursor_pos.x = vi_max(0.0f, vi_min(UI::cursor_pos.x, r32(display.width)));
+		UI::cursor_pos.y = vi_max(0.0f, vi_min(UI::cursor_pos.y, r32(display.height)));
+	}
+#endif
+
 	if (schedule_timer > 0.0f)
 	{
 		r32 old_timer = schedule_timer;

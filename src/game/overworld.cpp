@@ -191,6 +191,7 @@ struct Data
 		RequestType request_type;
 		State state;
 		EditMode edit_mode;
+		ServerListType tab_mouse_try;
 		// in State::EntryEdit, this is true if there are unsaved changes.
 		// in State::EntryView, this is true if we've received ServerDetails from the master
 		b8 active_server_dirty;
@@ -232,11 +233,6 @@ void deploy_done();
 const ZoneNode* zone_node_by_id(AssetID);
 const ZoneNode* zone_node_by_uuid(AssetID);
 
-b8 multiplayer_can_switch_tab()
-{
-	return data.multiplayer.state == Data::Multiplayer::State::Browse;
-}
-
 void multiplayer_state_transition(Data::Multiplayer::State state)
 {
 	data.multiplayer.state = state;
@@ -271,6 +267,28 @@ void multiplayer_switch_tab(ServerListType type)
 	}
 }
 
+Rect2 multiplayer_main_view_rect()
+{
+	const DisplayMode& display = Settings::display();
+	Vec2 center = Vec2(display.width, display.height) * 0.5f;
+	Vec2 tab_size = TAB_SIZE;
+	return
+	{
+		center + MAIN_VIEW_SIZE * -0.5f + Vec2(0, -tab_size.y),
+		MAIN_VIEW_SIZE,
+	};
+}
+
+Rect2 multiplayer_browse_entry_rect(const Data::Multiplayer::ServerList& list, s32 index)
+{
+	Rect2 rect = multiplayer_main_view_rect().outset(-PADDING);
+	Vec2 panel_size(rect.size.x, PADDING + TEXT_SIZE * UI::scale);
+	Vec2 top_bar_size(panel_size.x, panel_size.y * 1.5f);
+	Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
+	pos.y -= panel_size.y + (PADDING * 1.5f) + ((index - list.scroll.top()) * panel_size.y);
+	return { pos, panel_size };
+}
+
 void multiplayer_browse_update(const Update& u)
 {
 	if (u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0))
@@ -291,11 +309,35 @@ void multiplayer_browse_update(const Update& u)
 	Data::Multiplayer::ServerList* server_list = &data.multiplayer.server_lists[s32(global.multiplayer.tab)];
 
 	server_list->selected = vi_max(0, vi_min(server_list->entries.length - 1, server_list->selected + UI::input_delta_vertical(u, 0)));
+	if (!UIMenu::active[0] && !Menu::dialog_active(0))
+	{
+		if (u.input->keys.get(s32(KeyCode::MouseWheelUp)))
+			server_list->scroll.pos = vi_max(0, server_list->scroll.pos - 1);
+		else if (u.input->keys.get(s32(KeyCode::MouseWheelDown)))
+			server_list->scroll.pos++;
+	}
 	server_list->scroll.update_menu(server_list->entries.length);
 	server_list->scroll.scroll_into_view(server_list->selected);
+	for (s32 i = server_list->scroll.top(); i < server_list->scroll.bottom(server_list->entries.length); i++)
+	{
+		if (multiplayer_browse_entry_rect(*server_list, i).contains(UI::cursor_pos))
+		{
+			server_list->selected = i;
+			if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
+			{
+				// select entry
+				data.multiplayer.active_server.config.id = server_list->entries[i].server_state.id;
+				multiplayer_state_transition(Data::Multiplayer::State::EntryView);
+				return;
+			}
+
+			break;
+		}
+	}
 
 	if (server_list->selected < server_list->entries.length && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 	{
+		// select entry
 		data.multiplayer.active_server.config.id = server_list->entries[server_list->selected].server_state.id;
 		multiplayer_state_transition(Data::Multiplayer::State::EntryView);
 		return;
@@ -538,7 +580,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					else
 					{
 						multiplayer_entry_edit_cancel();
-						menu->end();
+						menu->end(u);
 						return;
 					}
 				}
@@ -547,7 +589,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				if (menu->item(u, _(strings::save), nullptr, false, Asset::Mesh::icon_arrow))
 				{
 					multiplayer_entry_save();
-					menu->end();
+					menu->end(u);
 					return;
 				}
 
@@ -581,7 +623,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					if (menu->item(u, _(strings::levels), str))
 					{
 						multiplayer_entry_edit_switch_to_levels();
-						menu->end();
+						menu->end(u);
 						return;
 					}
 				}
@@ -756,7 +798,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					if (menu->item(u, _(strings::allow_upgrades), str))
 					{
 						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::AllowedUpgrades);
-						menu->end();
+						menu->end(u);
 						return;
 					}
 				}
@@ -767,7 +809,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					if (menu->item(u, _(strings::start_upgrades), str))
 					{
 						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::StartUpgrades);
-						menu->end();
+						menu->end(u);
 						return;
 					}
 				}
@@ -778,7 +820,7 @@ void multiplayer_entry_edit_update(const Update& u)
 						data.multiplayer.active_server_dirty = true;
 				}
 
-				menu->end();
+				menu->end(u);
 				break;
 			}
 			case Data::Multiplayer::EditMode::Levels:
@@ -789,7 +831,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				{
 					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Main);
 					Game::cancel_event_eaten[0] = true;
-					menu->end();
+					menu->end(u);
 					return;
 				}
 
@@ -820,7 +862,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					}
 				}
 
-				menu->end();
+				menu->end(u);
 				break;
 			}
 			case Data::Multiplayer::EditMode::StartUpgrades:
@@ -831,7 +873,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				{
 					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Main);
 					Game::cancel_event_eaten[0] = true;
-					menu->end();
+					menu->end(u);
 					return;
 				}
 
@@ -862,7 +904,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					}
 				}
 
-				menu->end();
+				menu->end(u);
 				break;
 			}
 			case Data::Multiplayer::EditMode::AllowedUpgrades:
@@ -873,7 +915,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				{
 					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Main);
 					Game::cancel_event_eaten[0] = true;
-					menu->end();
+					menu->end(u);
 					return;
 				}
 
@@ -892,7 +934,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					}
 				}
 
-				menu->end();
+				menu->end(u);
 				break;
 			}
 			default:
@@ -1010,6 +1052,45 @@ void title()
 	hide();
 }
 
+void multiplayer_tab_left(s8)
+{
+	multiplayer_switch_tab(ServerListType(vi_max(0, s32(global.multiplayer.tab) - 1)));
+	multiplayer_state_transition(Data::Multiplayer::State::Browse);
+}
+
+void multiplayer_tab_right(s8)
+{
+	multiplayer_switch_tab(ServerListType(vi_min(s32(ServerListType::count) - 1, s32(global.multiplayer.tab) + 1)));
+	multiplayer_state_transition(Data::Multiplayer::State::Browse);
+}
+
+void multiplayer_tab_switch_mouse(s8)
+{
+	multiplayer_switch_tab(data.multiplayer.tab_mouse_try);
+	multiplayer_state_transition(Data::Multiplayer::State::Browse);
+}
+
+void multiplayer_tab_switch_try(void (*action)(s8))
+{
+	if (data.multiplayer.state == Data::Multiplayer::State::EntryEdit
+		&& !data.multiplayer.request_id
+		&& data.multiplayer.active_server_dirty)
+		Menu::dialog(0, action, _(strings::confirm_entry_cancel));
+	else
+		action(0);
+}
+
+Rect2 multiplayer_tab_rect(s32 i)
+{
+	Rect2 rect = multiplayer_main_view_rect();
+	Vec2 tab_size = TAB_SIZE;
+	return
+	{
+		rect.pos + Vec2(i * (tab_size.x + PADDING), rect.size.y),
+		tab_size,
+	};
+}
+
 void multiplayer_update(const Update& u)
 {
 	if (Menu::main_menu_state != Menu::State::Hidden || Game::scheduled_load_level != AssetNull)
@@ -1049,12 +1130,28 @@ void multiplayer_update(const Update& u)
 	Net::Client::master_keepalive();
 #endif
 
-	if (multiplayer_can_switch_tab())
+	if (s32(global.multiplayer.tab) > 0 && u.last_input->get(Controls::TabLeft, 0) && !u.input->get(Controls::TabLeft, 0))
+		multiplayer_tab_switch_try(&multiplayer_tab_left);
+	else if (s32(global.multiplayer.tab) < s32(ServerListType::count) - 1 && u.last_input->get(Controls::TabRight, 0) && !u.input->get(Controls::TabRight, 0))
+		multiplayer_tab_switch_try(&multiplayer_tab_right);
+	else if (Game::ui_gamepad_types[0] == Gamepad::Type::None)
 	{
-		if (u.last_input->get(Controls::TabLeft, 0) && !u.input->get(Controls::TabLeft, 0))
-			multiplayer_switch_tab(ServerListType(vi_max(0, s32(global.multiplayer.tab) - 1)));
-		if (u.last_input->get(Controls::TabRight, 0) && !u.input->get(Controls::TabRight, 0))
-			multiplayer_switch_tab(ServerListType(vi_min(s32(ServerListType::count) - 1, s32(global.multiplayer.tab) + 1)));
+		// mouse tab switching
+		if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
+		{
+			for (s32 i = 0; i < s32(ServerListType::count); i++)
+			{
+				if (multiplayer_tab_rect(i).contains(UI::cursor_pos))
+				{
+					if (ServerListType(i) != global.multiplayer.tab)
+					{
+						data.multiplayer.tab_mouse_try = ServerListType(i);
+						multiplayer_tab_switch_try(&multiplayer_tab_switch_mouse);
+					}
+					break;
+				}
+			}
+		}
 	}
 
 	if (data.multiplayer.tab_timer > 0.0f)
@@ -1227,7 +1324,11 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 			UI::box(params, { pos, panel_size }, UI::color_background);
 
 			if (selected)
-				UI::border(params, Rect2(pos, panel_size).outset(-2.0f * UI::scale), 2.0f, UI::color_accent());
+			{
+				b8 active = (Rect2(pos, panel_size).contains(UI::cursor_pos) && params.sync->input.keys.get(s32(KeyCode::MouseLeft)))
+					|| params.sync->input.get(Controls::Interact, 0); // is the user pressing down on this entry?
+				UI::border(params, Rect2(pos, panel_size).outset(-2.0f * UI::scale), 2.0f, active ? UI::color_alert() : UI::color_accent());
+			}
 
 			text.color = selected ? UI::color_accent() : UI::color_default;
 			text.clip = 48;
@@ -1655,23 +1756,17 @@ void multiplayer_draw(const RenderParams& params)
 {
 	if (Menu::main_menu_state == Menu::State::Hidden)
 	{
-		const Rect2& vp = params.camera->viewport;
-		Vec2 center = vp.size * 0.5f;
+		Rect2 rect = multiplayer_main_view_rect();
+
 		Vec2 tab_size = TAB_SIZE;
-		Rect2 rect =
-		{
-			center + MAIN_VIEW_SIZE * -0.5f + Vec2(0, -tab_size.y),
-			MAIN_VIEW_SIZE,
-		};
 
 		// left/right tab control prompt
-		if (multiplayer_can_switch_tab())
 		{
 			UIText text;
 			text.size = TEXT_SIZE;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Min;
-			text.color = UI::color_default;
+			text.color = s32(global.multiplayer.tab) > 0 ? UI::color_default : UI::color_disabled();
 			text.text(0, "[{{TabLeft}}]");
 
 			Vec2 pos = rect.pos + Vec2(tab_size.x * 0.5f, rect.size.y + tab_size.y * 1.5f);
@@ -1681,6 +1776,7 @@ void multiplayer_draw(const RenderParams& params)
 			pos.x += rect.size.x - tab_size.x;
 			text.text(0, "[{{TabRight}}]");
 			UI::box(params, text.rect(pos).outset(PADDING), UI::color_background);
+			text.color = s32(global.multiplayer.tab) < s32(ServerListType::count) - 1 ? UI::color_default : UI::color_disabled();
 			text.draw(params, pos);
 		}
 
@@ -1698,7 +1794,12 @@ void multiplayer_draw(const RenderParams& params)
 						color = &UI::color_accent();
 				}
 				else
+				{
 					color = &UI::color_disabled();
+					if (Game::ui_gamepad_types[0] == Gamepad::Type::None
+						&& Rect2(pos, tab_size).contains(UI::cursor_pos))
+						color = params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? &UI::color_alert() : &UI::color_default;
+				}
 
 				tab_draw_label(params, _(multiplayer_tab_names[i]), pos, *color);
 				pos.x += tab_size.x + PADDING;
@@ -1737,11 +1838,7 @@ void multiplayer_draw(const RenderParams& params)
 		// content
 		if (data.multiplayer.tab_timer == 0.0f)
 		{
-			Rect2 rect_padded =
-			{
-				rect.pos + Vec2(PADDING),
-				rect.size + Vec2(PADDING * -2.0f),
-			};
+			Rect2 rect_padded = rect.outset(-PADDING);
 			switch (data.multiplayer.state)
 			{
 				case Data::Multiplayer::State::Browse:
@@ -1782,7 +1879,7 @@ void multiplayer_draw(const RenderParams& params)
 			if (gamepad_count > 1)
 			{
 				const r32 gamepad_spacing = 128.0f * UI::scale * SCALE_MULTIPLIER;
-				Vec2 pos = vp.size * Vec2(0.5f, 0.1f) + Vec2(gamepad_spacing * (gamepad_count - 1) * -0.5f, 0);
+				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.1f) + Vec2(gamepad_spacing * (gamepad_count - 1) * -0.5f, 0);
 				for (s32 i = 0; i < gamepad_count; i++)
 				{
 					draw_gamepad_icon(params, pos, i, (Game::session.local_player_mask & (1 << i)) ? UI::color_accent() : UI::color_disabled(), SCALE_MULTIPLIER);
@@ -1879,44 +1976,51 @@ void select_zone_update(const Update& u, b8 enable_movement)
 	// movement
 	if (enable_movement)
 	{
-		Vec2 movement = PlayerHuman::camera_topdown_movement(u, 0, data.camera.ref()->rot);
-		r32 movement_amount = movement.length();
-		if (movement_amount > 0.0f)
 		{
-			movement /= movement_amount;
-			const ZoneNode* closest = nullptr;
-			r32 closest_dot = FLT_MAX;
-
-			for (s32 i = 0; i < zone->children.length; i++)
+			// keyboard/gamepad
+			Vec2 movement = PlayerHuman::camera_topdown_movement(u, 0, data.camera.ref()->rot);
+			r32 movement_amount = movement.length();
+			if (movement_amount > 0.0f)
 			{
-				const Vec3& zone_pos = zone->children[i];
-				for (s32 j = 0; j < global.zones.length; j++)
-				{
-					const ZoneNode& candidate = global.zones[j];
-					if (&candidate == zone)
-						continue;
+				movement /= movement_amount;
+				const ZoneNode* closest = nullptr;
+				r32 closest_dot = FLT_MAX;
 
-					for (s32 k = 0; k < candidate.children.length; k++)
+				for (s32 i = 0; i < zone->children.length; i++)
+				{
+					const Vec3& zone_pos = zone->children[i];
+					for (s32 j = 0; j < global.zones.length; j++)
 					{
-						const Vec3& candidate_pos = candidate.children[k];
-						Vec3 to_candidate = candidate_pos - zone_pos;
-						if (movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z))) > 0.707f)
+						const ZoneNode& candidate = global.zones[j];
+						if (&candidate == zone)
+							continue;
+
+						for (s32 k = 0; k < candidate.children.length; k++)
 						{
-							r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
-							if (dot < closest_dot)
+							const Vec3& candidate_pos = candidate.children[k];
+							Vec3 to_candidate = candidate_pos - zone_pos;
+							if (movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z))) > 0.707f)
 							{
-								closest = &candidate;
-								closest_dot = dot;
+								r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
+								if (dot < closest_dot)
+								{
+									closest = &candidate;
+									closest_dot = dot;
+								}
 							}
 						}
 					}
 				}
+				if (closest)
+				{
+					data.zone_selected = closest->id;
+					Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_MOVE);
+				}
 			}
-			if (closest)
-			{
-				data.zone_selected = closest->id;
-				Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_MOVE);
-			}
+		}
+
+		{
+			// TODO: mouse
 		}
 	}
 

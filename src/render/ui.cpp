@@ -1015,11 +1015,19 @@ void UI::update(const RenderParams& p)
 	scale = get_scale(p.camera->viewport.size.x, p.camera->viewport.size.y);
 }
 
+b8 UI::cursor_active()
+{
+#if SERVER
+	return false;
+#else
+	return Game::ui_gamepad_types[0] == Gamepad::Type::None
+		&& (UIMenu::active[0] || Menu::dialog_active(0) || Overworld::active());
+#endif
+}
+
 void UI::draw(const RenderParams& p)
 {
-	if (p.camera->gamepad == 0
-		&& Game::ui_gamepad_types[0] == Gamepad::Type::None
-		&& UIMenu::active[0])
+	if (p.camera->gamepad == 0 && cursor_active())
 	{
 		mesh(p, Asset::Mesh::icon_cursor, cursor_pos + Vec2(-2, 4), Vec2(24 * UI::scale), UI::color_background);
 		mesh(p, Asset::Mesh::icon_cursor, cursor_pos, Vec2(18 * UI::scale), UI::color_default);

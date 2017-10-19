@@ -2237,11 +2237,7 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 				}
 
 				if (player && killer_player && killer_player->has<PlayerHuman>())
-				{
-					char msg[UI_TEXT_MAX];
-					sprintf(msg, _(strings::killed_player), player->username);
-					killer_player->get<PlayerHuman>()->msg(msg, PlayerHuman::Flags(PlayerHuman::FlagMessageGood | PlayerHuman::FlagMessageHighPriority));
-				}
+					killer_player->get<PlayerHuman>()->kill_popup(player);
 
 				reward = ENERGY_DRONE_DESTROY;
 			}

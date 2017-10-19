@@ -7,7 +7,7 @@ namespace VI
 
 template<s16 size> struct Bitmask
 {
-	u32 data[(size / (sizeof(u32) * 8)) + 1];
+	u32 data[(size / (sizeof(u32) * 8)) + (size % (sizeof(u32) * 8) == 0 ? 0 : 1)];
 	s16 start;
 	s16 end;
 

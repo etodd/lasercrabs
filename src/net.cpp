@@ -3502,17 +3502,26 @@ b8 packet_build_update(StreamWrite* p, const Update& u)
 	serialize_int(p, SequenceID, state_common.local_sequence_id, 0, NET_SEQUENCE_COUNT - 1);
 
 	// player control
-	s32 count = PlayerControlHuman::count_local();
-	serialize_int(p, s32, count, 0, MAX_GAMEPADS);
-	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+	if (state_client.mode == Mode::Connected)
 	{
-		if (i.item()->local())
+		s32 count = PlayerControlHuman::count_local();
+		serialize_int(p, s32, count, 0, MAX_GAMEPADS);
+		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		{
-			serialize_int(p, ID, i.index, 0, MAX_PLAYERS - 1);
-			PlayerControlHuman::RemoteControl control = i.item()->remote_control_get(u);
-			if (!serialize_player_control(p, &control))
-				net_error();
+			if (i.item()->local())
+			{
+				serialize_int(p, ID, i.index, 0, MAX_PLAYERS - 1);
+				PlayerControlHuman::RemoteControl control = i.item()->remote_control_get(u);
+				if (!serialize_player_control(p, &control))
+					net_error();
+			}
 		}
+	}
+	else
+	{
+		// still loading
+		s32 count = 0; // no player control data
+		serialize_int(p, s32, count, 0, MAX_GAMEPADS);
 	}
 
 	packet_finalize(p);

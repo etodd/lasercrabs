@@ -996,7 +996,7 @@ do\
 
 				s32 attachments = *(sync->read<s32>());
 
-				GLenum color_buffers[4];
+				GLenum color_buffers[4] = { GL_NONE, GL_NONE, GL_NONE, GL_NONE };
 
 				s32 color_buffer_index = 0;
 				for (s32 i = 0; i < attachments; i++)
@@ -1053,11 +1053,8 @@ do\
 					debug_check();
 				}
 
-				if (color_buffer_index > 0)
-				{
-					vi_assert(color_buffer_index <= 4);
-					glDrawBuffers(color_buffer_index, color_buffers);
-				}
+				vi_assert(color_buffer_index <= 4);
+				glDrawBuffers(color_buffer_index, color_buffers);
 
 				GLenum framebuffer_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 				vi_assert(framebuffer_status == GL_FRAMEBUFFER_COMPLETE);

@@ -80,7 +80,7 @@ enum class Ability : s8
 	Sniper,
 	Grenade,
 	count,
-	None,
+	None = count,
 };
 
 enum class Upgrade : s8

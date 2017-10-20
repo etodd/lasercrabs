@@ -39,7 +39,7 @@ namespace VI
 
 #define DRONE_COOLDOWN_NORMAL 0.6f
 #define DRONE_COOLDOWN_SHOTGUN 1.1f
-#define DRONE_COOLDOWN_SNIPER 1.1f
+#define DRONE_COOLDOWN_SNIPER 0.9f
 #define DRONE_COOLDOWN_BOLTER (1.0f / 8.0f)
 #define DRONE_COOLDOWN_ACTIVE_ARMOR 0.95f
 #define DRONE_COOLDOWN_THRESHOLD_TIME 3.0f
@@ -702,7 +702,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (target.ref()->has<Shield>())
 			{
 				// check if we can damage them
-				if (target.ref()->get<Health>()->can_take_damage())
+				if (target.ref()->get<Health>()->can_take_damage(drone->entity()))
 				{
 					// we hurt them
 					if (Game::level.local) // if we're a client, this has already been handled by the server
@@ -731,8 +731,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (apply_msg && (ability == Ability::None || AbilityInfo::list[s32(ability)].type != AbilityInfo::Type::Other))
 			{
 				drone->current_ability = ability;
-				if (ability != Ability::None)
-					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_WEAPON_EQUIP);
+				drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_WEAPON_EQUIP);
 			}
 			break;
 		}
@@ -950,9 +949,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						Vec3 my_pos = drone->get<Transform>()->absolute_pos();
 						ShellCasing::spawn(my_pos, Quat::look(dir_normalized), ShellCasing::Type::Shotgun);
 						EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 3.0f, DRONE_RADIUS * 3.0f, 0.1f, EffectLight::Type::MuzzleFlash);
-						drone->current_ability = Ability::Shotgun; // HACK: let dash_start() know we're doing a shotgun dash
 						drone->dash_start(-dir_normalized, my_pos, DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
-						drone->current_ability = Ability::None;
 						drone->cooldown_setup(DRONE_COOLDOWN_SHOTGUN);
 					}
 					break;
@@ -974,8 +971,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 			}
 
-			if (ability != Ability::Bolter)
-				drone->current_ability = Ability::None;
 			drone->ability_spawned.fire(ability);
 			break;
 		}
@@ -1685,8 +1680,6 @@ r32 Drone::range() const
 b8 Drone::go(const Vec3& dir)
 {
 	Ability a = current_ability;
-	if (AbilityInfo::list[s32(a)].type == AbilityInfo::Type::Other)
-		current_ability = Ability::None;
 
 	if (!cooldown_can_shoot())
 	{
@@ -1770,9 +1763,7 @@ b8 Drone::go(const Vec3& dir)
 						)
 					);
 				}
-				current_ability = Ability::Shotgun; // HACK: let dash_start() know we're doing a shotgun dash
 				dash_start(-dir_normalized, get<Transform>()->absolute_pos(), DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
-				current_ability = Ability::None;
 				cooldown_setup(DRONE_COOLDOWN_SHOTGUN);
 			}
 			else if (a == Ability::Bolter)
@@ -3012,7 +3003,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 
 			if (!already_hit)
 			{
-				if (!hit.entity.ref()->get<Health>()->can_take_damage()) // it's invincible; always bounce off
+				if (!hit.entity.ref()->get<Health>()->can_take_damage(entity())) // it's invincible; always bounce off
 					stop = true;
 				else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref(), HitTargetType::Raycast))
 					stop = true; // it has health or shield to spare; we'll bounce off

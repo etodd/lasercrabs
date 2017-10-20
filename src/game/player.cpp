@@ -304,7 +304,8 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	flags(local ? FlagLocal : 0),
 	chat_field(),
 	emote_category(EmoteCategory::None),
-	chat_focus()
+	chat_focus(),
+	ability_upgrade_slot()
 {
 	menu.scroll.size = 10;
 	if (local)
@@ -335,7 +336,7 @@ void PlayerHuman::awake()
 	}
 
 #if SERVER
-	ai_record_id = AI::record_init(Game::level.team_lookup_reverse(get<PlayerManager>()->team.ref()->team()), get<PlayerManager>()->respawns);
+	ai_record_id = AI::record_init(Game::level.team_lookup_reverse(get<PlayerManager>()->team.ref()->team()), get<PlayerManager>()->team.ref()->tickets);
 #endif
 
 	if (!get<PlayerManager>()->can_spawn
@@ -418,7 +419,7 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 			{
 				if (get<PlayerManager>()->spawn_timer > 0.0f)
 					return UIMode::PvpKillCam;
-				else if (get<PlayerManager>()->respawns == 0)
+				else if (get<PlayerManager>()->team.ref()->tickets == 0)
 					return UIMode::PvpSpectate;
 				else
 					return UIMode::PvpSelectSpawn;
@@ -639,10 +640,11 @@ struct Message
 	Quat rot;
 	Vec3 dir;
 	Vec3 target; // target position for dashes, or camera position for spotting
-	Ability ability = Ability::None;
-	Upgrade upgrade = Upgrade::None;
 	Type type;
 	Ref<Entity> entity;
+	Ability ability = Ability::None;
+	Upgrade upgrade = Upgrade::None;
+	s8 ability_slot; // for upgrades
 };
 
 template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
@@ -691,9 +693,15 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 
 	// upgrade
 	if (msg->type == Message::Type::UpgradeStart)
+	{
 		serialize_enum(p, Upgrade, msg->upgrade);
+		serialize_int(p, s8, msg->ability_slot, 0, MAX_ABILITIES - 1);
+	}
 	else if (Stream::IsReading)
+	{
 		msg->upgrade = Upgrade::None;
+		msg->ability_slot = 0;
+	}
 
 	// what did we reflect off of
 	if (msg->type == Message::Type::Reflect)
@@ -725,10 +733,7 @@ void PlayerHuman::upgrade_menu_show()
 	{
 		UpgradeStation* station = UpgradeStation::drone_at(instance->get<Drone>());
 		if (station)
-		{
-			instance->get<Drone>()->ability(Ability::None);
 			station->drone_enter(instance->get<Drone>());
-		}
 	}
 
 	if (UpgradeStation::drone_inside(instance->get<Drone>()))
@@ -763,14 +768,7 @@ void PlayerHuman::upgrade_station_try_exit()
 
 void PlayerHuman::upgrade_completed(Upgrade u)
 {
-	if (flag(FlagUpgradeMenuOpen) && menu.selected > 0)
-	{
-		// an upgrade was just removed from the menu
-		// shift selected menu item up one so the player is not surprised by what they currently have selected
-		Upgrade selected = upgrade_selected();
-		if (selected == Upgrade::None || s32(selected) > s32(u) + 1)
-			menu.selected = vi_max(0, menu.selected - 1);
-	}
+	ability_upgrade_slot = (ability_upgrade_slot + 1) % MAX_ABILITIES;
 }
 
 AssetID emote_strings[s32(PlayerHuman::EmoteCategory::count)][s32(PlayerHuman::EmoteCategory::count)] =
@@ -829,7 +827,7 @@ void PlayerHuman::update(const Update& u)
 {
 #if SERVER
 	if (Game::session.type == SessionType::Multiplayer
-		&& get<PlayerManager>()->respawns != 0
+		&& get<PlayerManager>()->team.ref()->tickets != 0
 		&& Team::match_state == Team::MatchState::Active)
 	{
 		afk_timer -= Game::real_time.delta;
@@ -1064,14 +1062,7 @@ void PlayerHuman::update(const Update& u)
 			if (flag(FlagUpgradeMenuOpen))
 			{
 				// upgrade menu
-				if (u.last_input->get(Controls::Cancel, gamepad)
-					&& !u.input->get(Controls::Cancel, gamepad)
-					&& !Game::cancel_event_eaten[gamepad])
-				{
-					Game::cancel_event_eaten[gamepad] = true;
-					upgrade_menu_hide();
-				}
-				else if (!UpgradeStation::drone_inside(entity->get<Drone>())) // we got kicked out of the upgrade station; probably by the server
+				if (!UpgradeStation::drone_inside(entity->get<Drone>())) // we got kicked out of the upgrade station; probably by the server
 					upgrade_menu_hide();
 				else
 				{
@@ -1091,27 +1082,42 @@ void PlayerHuman::update(const Update& u)
 
 					if (menu.item(u, _(strings::close), nullptr, false, Asset::Mesh::icon_close))
 						upgrade_menu_hide();
-
-					for (s32 i = 0; i < s32(Upgrade::count); i++)
+					else
 					{
-						Upgrade upgrade = Upgrade(i);
-						if ((Game::session.config.allow_upgrades & (1 << s32(upgrade)))
-							&& !get<PlayerManager>()->has_upgrade(upgrade))
+						if (!upgrade_in_progress)
 						{
-							const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
-							b8 can_upgrade = !upgrade_in_progress
-								&& chat_focus == ChatFocus::None
-								&& get<PlayerManager>()->upgrade_available(upgrade)
-								&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade)
-								&& (Game::level.has_feature(Game::FeatureLevel::All) || !get<PlayerManager>()->upgrades) // only allow one ability upgrade in tutorial
-								&& (Game::level.has_feature(Game::FeatureLevel::All) || UpgradeInfo::list[i].type == UpgradeInfo::Type::Ability) // only allow ability upgrades in tutorial
-								&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type != AbilityInfo::Type::Other); // don't allow Other ability upgrades in tutorial
-							if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
+							if ((get<PlayerManager>()->abilities[0] == Ability::None || get<PlayerManager>()->ability_count() == MAX_ABILITIES) // keep the player from accidentally replacing an ability when they have an empty slot
+								&& u.input->get(Controls::Ability2, gamepad)
+								&& !u.last_input->get(Controls::Ability2, gamepad))
+								ability_upgrade_slot = 0;
+							if ((get<PlayerManager>()->abilities[1] == Ability::None || get<PlayerManager>()->ability_count() == MAX_ABILITIES) // keep the player from accidentally replacing an ability when they have an empty slot
+								&& u.input->get(Controls::Ability3, gamepad)
+								&& !u.last_input->get(Controls::Ability3, gamepad))
+								ability_upgrade_slot = 1;
+						}
+
+						for (s32 i = 0; i < s32(Upgrade::count); i++)
+						{
+							Upgrade upgrade = Upgrade(i);
+							if (Game::session.config.allow_upgrades & (1 << s32(upgrade)))
 							{
-								PlayerControlHumanNet::Message msg;
-								msg.type = PlayerControlHumanNet::Message::Type::UpgradeStart;
-								msg.upgrade = upgrade;
-								PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
+								const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
+								b8 can_upgrade = !upgrade_in_progress
+									&& chat_focus == ChatFocus::None
+									&& get<PlayerManager>()->upgrade_available(upgrade)
+									&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade)
+									&& (Game::level.has_feature(Game::FeatureLevel::All) || !get<PlayerManager>()->upgrades) // only allow one ability upgrade in tutorial
+									&& (Game::level.has_feature(Game::FeatureLevel::All) || UpgradeInfo::list[i].type == UpgradeInfo::Type::Ability) // only allow ability upgrades in tutorial
+									&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type != AbilityInfo::Type::Other); // don't allow Other ability upgrades in tutorial
+								if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
+								{
+									menu.selected = 0; // move cursor back up to "Close" button
+									PlayerControlHumanNet::Message msg;
+									msg.type = PlayerControlHumanNet::Message::Type::UpgradeStart;
+									msg.upgrade = upgrade;
+									msg.ability_slot = ability_upgrade_slot;
+									PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
+								}
 							}
 						}
 					}
@@ -1340,7 +1346,7 @@ void PlayerHuman::update_late(const Update& u)
 	if (camera.ref())
 	{
 		if (Game::level.noclip
-			|| (!get<PlayerManager>()->instance.ref() && get<PlayerManager>()->respawns != 0)) // we're respawning
+			|| (!get<PlayerManager>()->instance.ref() && get<PlayerManager>()->team.ref()->tickets != 0)) // we're respawning
 			Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
 		else
 		{
@@ -1554,20 +1560,29 @@ r32 draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, Asse
 	UI::box(params, Rect2(pos, Vec2(total_width, icon_size)).outset(padding), UI::color_background);
 	if (icon != AssetNull)
 		UI::mesh(params, icon, pos + Vec2(icon_size - padding, icon_size * 0.5f), Vec2(icon_size), text.color);
-	text.draw(params, pos + Vec2(icon == AssetNull ? 0 : icon_size + padding, padding));
+	text.draw(params, pos + Vec2(icon_size + padding, padding));
 
 	return total_width + padding * 2.0f;
 }
 
-r32 ability_draw(const RenderParams& params, const PlayerManager* manager, const Vec2& pos, s8 gamepad, s32 index, Controls binding)
+enum class AbilityDrawMode : s8
+{
+	InGameUI,
+	UpgradeMenu,
+	count,
+};
+
+r32 ability_draw(const RenderParams& params, const PlayerManager* manager, const Vec2& pos, s8 gamepad, s32 index, Controls binding, AbilityDrawMode mode)
 {
 	char string[255];
 
-	Ability ability = manager->abilities[index];
+	Ability ability = index == 0 ? Ability::None : manager->abilities[index - 1];
 
 	sprintf(string, "%s", Settings::gamepads[gamepad].bindings[s32(binding)].string(Game::ui_gamepad_types[gamepad]));
 	const Vec4* color;
-	if (Game::time.total - manager->ability_purchase_times[index] < msg_time)
+	if (mode == AbilityDrawMode::UpgradeMenu)
+		color = manager->get<PlayerHuman>()->ability_upgrade_slot == index - 1 ? &UI::color_default : &UI::color_accent();
+	else if (index > 0 && Game::time.total - manager->ability_purchase_times[index - 1] < msg_time)
 		color = UI::flash_function(Game::time.total) ? &UI::color_default : &UI::color_background;
 	else if (!manager->ability_valid(ability) || !manager->instance.ref()->get<PlayerCommon>()->movement_enabled())
 		color = params.sync->input.get(binding, gamepad) ? &UI::color_disabled() : &UI::color_alert();
@@ -1575,7 +1590,18 @@ r32 ability_draw(const RenderParams& params, const PlayerManager* manager, const
 		color = &UI::color_default;
 	else
 		color = &UI::color_accent();
-	return draw_icon_text(params, gamepad, pos, AbilityInfo::list[s32(ability)].icon, string, *color);
+	
+	AssetID icon;
+	if (mode == AbilityDrawMode::UpgradeMenu)
+	{
+		if (ability == Ability::None)
+			icon = manager->get<PlayerHuman>()->ability_upgrade_slot == index - 1 ? Asset::Mesh::icon_ability_pip : AssetNull;
+		else
+			icon = AbilityInfo::list[s32(ability)].icon;
+	}
+	else
+		icon = AbilityInfo::list[s32(ability)].icon;
+	return draw_icon_text(params, gamepad, pos, icon, string, *color);
 }
 
 r32 match_timer_width()
@@ -1718,7 +1744,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	p.x += width * -0.5f;
 
 	// "deploying..."
-	if (!manager->instance.ref() && manager->respawns != 0)
+	if (!manager->instance.ref() && manager->team.ref()->tickets != 0)
 	{
 		if (Team::match_state == Team::MatchState::Active)
 		{
@@ -1816,10 +1842,10 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 
 					text.anchor_x = UIText::Anchor::Max;
 					text.wrap_width = 0;
-					if (i.item()->respawns == -1)
+					if (i.item()->team.ref()->tickets == -1)
 						text.text(0, _(strings::infinite));
 					else
-						text.text(0, "%d", vi_max(0, s32(i.item()->respawns) + (i.item()->instance.ref() ? 1 : 0) - 1));
+						text.text(0, "%d", vi_max(0, s32(i.item()->team.ref()->tickets)));
 					text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
 
 					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -1841,8 +1867,7 @@ Upgrade PlayerHuman::upgrade_selected() const
 		s32 index = 0;
 		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{
-			if ((Game::session.config.allow_upgrades & (1 << i))
-				&& !get<PlayerManager>()->has_upgrade(Upgrade(i)))
+			if (Game::session.config.allow_upgrades & (1 << i))
 			{
 				if (index == menu.selected - 1)
 				{
@@ -2073,21 +2098,17 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			// draw abilities
 
 			Vec2 pos = ui_anchor(params);
-			// ability 1
+
+			// ability 1 (jump)
+			pos.x += ability_draw(params, get<PlayerManager>(), pos, gamepad, 0, Controls::Ability1, AbilityDrawMode::InGameUI);
+
+			// ability 2
 			if (get<PlayerManager>()->abilities[0] != Ability::None)
-			{
-				pos.x += ability_draw(params, get<PlayerManager>(), pos, gamepad, 0, Controls::Ability1);
+				pos.x += ability_draw(params, get<PlayerManager>(), pos, gamepad, 1, Controls::Ability2, AbilityDrawMode::InGameUI);
 
-				// ability 2
-				if (get<PlayerManager>()->abilities[1] != Ability::None)
-				{
-					pos.x += ability_draw(params, get<PlayerManager>(), pos, gamepad, 1, Controls::Ability2);
-
-					// ability 3
-					if (get<PlayerManager>()->abilities[2] != Ability::None)
-						pos.x += ability_draw(params, get<PlayerManager>(), pos, gamepad, 2, Controls::Ability3);
-				}
-			}
+			// ability 3
+			if (get<PlayerManager>()->abilities[1] != Ability::None)
+				ability_draw(params, get<PlayerManager>(), pos, gamepad, 2, Controls::Ability3, AbilityDrawMode::InGameUI);
 		}
 	}
 
@@ -2101,15 +2122,15 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		snprintf(buffer, 16, "%hd", get<PlayerManager>()->energy);
 		Vec2 p = ui_anchor(params) + Vec2(match_timer_width() + UI_TEXT_SIZE_DEFAULT * UI::scale, (UI_TEXT_SIZE_DEFAULT + 16.0f) * -UI::scale);
 		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_battery, buffer, UI::color_accent(), UI_TEXT_SIZE_DEFAULT * 5 * UI::scale);
-		s16 respawns = get<PlayerManager>()->respawns;
-		if (respawns != -1)
+		s16 tickets = get<PlayerManager>()->team.ref()->tickets;
+		if (tickets != -1)
 		{
 			if (get<PlayerManager>()->instance.ref())
-				respawns++;
-			respawns--;
+				tickets++;
+			tickets--;
 			p.x += UI_TEXT_SIZE_DEFAULT * 5 * UI::scale;
-			snprintf(buffer, 16, "%hd", respawns);
-			const Vec4& color = respawns > 1 ? UI::color_default : (respawns > 0 ? UI::color_accent() : UI::color_alert());
+			snprintf(buffer, 16, "%hd", tickets);
+			const Vec4& color = tickets > 1 ? UI::color_default : (tickets > 0 ? UI::color_accent() : UI::color_alert());
 			draw_icon_text(params, gamepad, p, Asset::Mesh::icon_drone, buffer, color, UI_TEXT_SIZE_DEFAULT * 4 * UI::scale);
 		}
 	}
@@ -2124,6 +2145,15 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	{
 		if (flag(FlagUpgradeMenuOpen))
 		{
+			// draw ability slots
+			{
+				Rect2 menu_rect = menu.rect();
+
+				Vec2 pos = menu_rect.pos + Vec2(MENU_ITEM_PADDING, menu_rect.size.y + MENU_ITEM_PADDING);
+				pos.x += ability_draw(params, get<PlayerManager>(), pos, gamepad, 1, Controls::Ability2, AbilityDrawMode::UpgradeMenu);
+				ability_draw(params, get<PlayerManager>(), pos, gamepad, 2, Controls::Ability3, AbilityDrawMode::UpgradeMenu);
+			}
+
 			menu.draw_ui(params);
 
 			if (menu.selected > 0)
@@ -2425,7 +2455,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.anchor_y = UIText::Anchor::Max;
 			text.color = UI::color_accent();
 
-			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, mode == UIMode::PvpKillCam ? 0.45f : 0.3f);
+			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.75f);
 			for (s32 i = 0; i < kill_popups.length; i++)
 			{
 				const KillPopup& k = kill_popups[i];
@@ -2881,7 +2911,6 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 	{
 		case PlayerControlHumanNet::Message::Type::Dash:
 		{
-			c->get<Drone>()->current_ability = Ability::None;
 			if (c->get<Drone>()->dash_start(msg.dir, c->get<Transform>()->absolute_pos())) // HACK: set target to current position so that it is not used
 			{
 				c->try_primary = false;
@@ -2891,7 +2920,6 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		}
 		case PlayerControlHumanNet::Message::Type::DashCombo:
 		{
-			c->get<Drone>()->current_ability = Ability::None;
 			if (c->get<Drone>()->dash_start(msg.dir, msg.target))
 			{
 				c->try_primary = false;
@@ -2901,7 +2929,9 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		}
 		case PlayerControlHumanNet::Message::Type::Go:
 		{
+			Ability old_ability = c->get<Drone>()->current_ability;
 			c->get<Drone>()->current_ability = msg.ability;
+
 			if (c->get<Drone>()->go(msg.dir))
 			{
 				if (msg.ability == Ability::None)
@@ -2918,10 +2948,13 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 				}
 			}
 
+			if (AbilityInfo::list[s32(msg.ability)].type == AbilityInfo::Type::Other)
+				c->get<Drone>()->current_ability = old_ability;
+
 			break;
 		}
 		case PlayerControlHumanNet::Message::Type::UpgradeStart:
-			c->get<PlayerCommon>()->manager.ref()->upgrade_start(msg.upgrade);
+			c->get<PlayerCommon>()->manager.ref()->upgrade_start(msg.upgrade, msg.ability_slot);
 			break;
 		case PlayerControlHumanNet::Message::Type::Reflect:
 		{
@@ -3070,7 +3103,7 @@ void PlayerControlHuman::drone_done_flying_or_dashing()
 {
 	camera_shake_timer = 0.0f; // stop screen shake
 #if SERVER
-	if (get<Health>()->can_take_damage())
+	if (get<Health>()->can_take_damage(nullptr))
 	{
 		AI::RecordedLife::Action action;
 		action.type = AI::RecordedLife::Action::TypeMove;
@@ -3090,14 +3123,6 @@ void ability_select(PlayerControlHuman* control, Ability a)
 	PlayerControlHumanNet::Message msg;
 	msg.type = PlayerControlHumanNet::Message::Type::AbilitySelect;
 	msg.ability = a;
-	PlayerControlHumanNet::send(control, &msg);
-}
-
-void ability_cancel(PlayerControlHuman* control)
-{
-	PlayerControlHumanNet::Message msg;
-	msg.type = PlayerControlHumanNet::Message::Type::AbilitySelect;
-	msg.ability = Ability::None;
 	PlayerControlHumanNet::send(control, &msg);
 }
 
@@ -3220,7 +3245,7 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 				player_add_target_indicator(p, i.item()->get<Target>(), type);
 			}
 		}
-		else
+		else if (Team::core_module_delay == 0.0f)
 		{
 			for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
 			{
@@ -3251,12 +3276,20 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 
 void player_ability_update(const Update& u, PlayerControlHuman* control, Controls binding, s8 gamepad, s32 index)
 {
-	PlayerHuman* player = control->player.ref();
-	PlayerManager* manager = player->get<PlayerManager>();
-	Ability ability = manager->abilities[index];
-
-	if (ability == Ability::None || !control->input_enabled())
+	if (!control->input_enabled())
 		return;
+
+	PlayerManager* manager = control->player.ref()->get<PlayerManager>();
+
+	Ability ability;
+	if (index == 0)
+		ability = Ability::None;
+	else
+	{
+		ability = manager->abilities[index - 1];
+		if (ability == Ability::None)
+			return;
+	}
 
 	Drone* drone = control->get<Drone>();
 
@@ -3274,19 +3307,15 @@ void player_ability_update(const Update& u, PlayerControlHuman* control, Control
 				PlayerControlHumanNet::send(control, &msg);
 			}
 		}
-		else
-		{
-			if (drone->current_ability == ability)
-				ability_cancel(control); // cancel current spawn ability
-			else
-				ability_select(control, ability);
-		}
+		else if (drone->current_ability != ability)
+			ability_select(control, ability);
 	}
 }
 
 PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 	: fov(fov_default),
 	try_primary(),
+	try_dash(),
 	try_secondary(),
 	camera_shake_timer(),
 	target_indicators(),
@@ -3371,7 +3400,7 @@ PlayerControlHuman::~PlayerControlHuman()
 		player.ref()->select_spawn_timer = 0.0f;
 #if SERVER
 		AI::record_close(player.ref()->ai_record_id);
-		player.ref()->ai_record_id = AI::record_init(Game::level.team_lookup_reverse(player.ref()->get<PlayerManager>()->team.ref()->team()), player.ref()->get<PlayerManager>()->respawns);
+		player.ref()->ai_record_id = AI::record_init(Game::level.team_lookup_reverse(player.ref()->get<PlayerManager>()->team.ref()->team()), player.ref()->get<PlayerManager>()->team.ref()->tickets);
 #endif
 	}
 }
@@ -4263,7 +4292,7 @@ void PlayerControlHuman::update(const Update& u)
 			if (ai_record_wait_timer < 0.0f)
 			{
 				ai_record_wait_timer += AI_RECORD_WAIT_TIME;
-				if (get<Health>()->can_take_damage())
+				if (get<Health>()->can_take_damage(nullptr))
 				{
 					AI::RecordedLife::Action action;
 					action.type = AI::RecordedLife::Action::TypeWait;
@@ -5108,7 +5137,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	{
 		const Health* health = get<Health>();
 
-		b8 is_vulnerable = get<Health>()->can_take_damage() && health->hp == 1 && health->shield == 0 && Game::session.config.drone_shield > 0;
+		b8 is_vulnerable = get<Health>()->can_take_damage(nullptr) && health->hp == 1 && health->shield == 0 && Game::session.config.drone_shield > 0;
 
 		Vec2 ui_anchor = player.ref()->ui_anchor(params);
 		ui_anchor.y = params.camera->viewport.size.y * 0.5f + UI_TEXT_SIZE_DEFAULT * -4.0f;
@@ -5262,11 +5291,9 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				UI::centered_box(params, { pos, Vec2(spoke_length * 3.0f, spoke_width) * UI::scale }, *color, PI * 0.75f);
 			}
 
-			if (get<Drone>()->current_ability != Ability::None)
 			{
 				Ability a = get<Drone>()->current_ability;
 				Vec2 p = pos + Vec2(0, -80.0f * UI::scale);
-				UI::centered_box(params, { p, Vec2(34.0f * UI::scale) }, UI::color_background);
 				UI::mesh(params, AbilityInfo::list[s32(a)].icon, p, Vec2(18.0f * UI::scale), *color);
 			}
 

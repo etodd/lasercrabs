@@ -172,7 +172,7 @@ struct ServerConfig
 	s16 start_energy = ENERGY_INITIAL;
 	s16 start_energy_attacker = ENERGY_INITIAL_ATTACKER;
 	GameType game_type = GameType::Assault;
-	StaticArray<Upgrade, 3> start_upgrades;
+	StaticArray<Upgrade, MAX_ABILITIES> start_upgrades;
 	s8 max_players = 1;
 	s8 min_players = 1;
 	s8 team_count = 2;

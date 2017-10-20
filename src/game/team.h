@@ -33,7 +33,7 @@ struct AbilityInfo
 		count,
 	};
 
-	static AbilityInfo list[s32(Ability::count)];
+	static AbilityInfo list[s32(Ability::count) + 1]; // +1 for Ability::None
 
 	AssetID icon;
 	s16 spawn_cost;
@@ -95,6 +95,7 @@ struct Team : public ComponentType<Team>
 	static r32 game_over_real_time;
 	static r32 transition_timer;
 	static r32 match_time;
+	static r32 core_module_delay;
 	static Ref<Team> winner;
 	static MatchState match_state;
 
@@ -127,6 +128,7 @@ struct Team : public ComponentType<Team>
 
 	GeneratorTrack player_tracks[MAX_PLAYERS];
 	s16 kills;
+	s16 tickets;
 
 	void awake() {}
 	b8 has_active_player() const;
@@ -134,9 +136,10 @@ struct Team : public ComponentType<Team>
 	s32 player_count() const;
 	s16 increment() const;
 	void add_kills(s32);
-	s16 initial_respawns() const;
 	s16 initial_energy() const;
+	s16 initial_tickets() const;
 	SpawnPoint* default_spawn_point() const;
+	void add_tickets(s16);
 
 	inline AI::Team team() const
 	{
@@ -199,11 +202,11 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s16 energy;
 	s16 kills;
 	s16 deaths;
-	s16 respawns;
 	char username[MAX_USERNAME + 1]; // +1 for null terminator
 	Ability abilities[MAX_ABILITIES];
 	Upgrade current_upgrade;
 	AI::Team team_scheduled;
+	s8 current_upgrade_ability_slot;
 	b8 score_accepted;
 	b8 can_spawn;
 	b8 is_admin;
@@ -222,7 +225,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	b8 is_local() const;
 	s32 ability_count() const;
 	b8 ability_valid(Ability) const;
-	b8 upgrade_start(Upgrade);
+	b8 upgrade_start(Upgrade, s8 = 0);
 	void upgrade_complete();
 	Upgrade upgrade_highest_owned_or_available() const;
 	b8 upgrade_available(Upgrade = Upgrade::None) const;

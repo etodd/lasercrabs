@@ -738,7 +738,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_s16(p, m->energy);
 		serialize_s16(p, m->kills);
 		serialize_s16(p, m->deaths);
-		serialize_s16(p, m->respawns);
 		s32 username_length;
 		if (Stream::IsWriting)
 			username_length = strlen(m->username);
@@ -748,6 +747,13 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 			m->username[username_length] = '\0';
 		serialize_bool(p, m->can_spawn);
 		serialize_bool(p, m->is_admin);
+	}
+
+	if (e->has<Team>())
+	{
+		Team* t = e->get<Team>();
+		serialize_s16(p, t->kills);
+		serialize_int(p, s16, t->tickets, -1, MAX_RESPAWNS);
 	}
 
 	if (e->has<PlayerCommon>())

@@ -12,15 +12,17 @@ namespace Settings
 	struct Gamepad
 	{
 		InputBinding bindings[s32(Controls::count)];
-		u8 sensitivity_gamepad;
-		u8 sensitivity_mouse;
+		u16 sensitivity_gamepad;
+		u16 sensitivity_mouse;
 		b8 invert_y;
 		b8 zoom_toggle;
 		b8 rumble;
+
 		r32 effective_sensitivity_gamepad() const
 		{
 			return r32(sensitivity_gamepad) * 0.01f;
 		}
+
 		r32 effective_sensitivity_mouse() const
 		{
 			return r32(sensitivity_mouse) * 0.01f;

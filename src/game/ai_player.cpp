@@ -108,7 +108,7 @@ void PlayerAI::update(const Update& u)
 		// check if we need to spawn
 		if (!manager.ref()->instance.ref()
 			&& manager.ref()->spawn_timer == 0.0f
-			&& manager.ref()->respawns != 0)
+			&& manager.ref()->team.ref()->tickets != 0)
 		{
 			// select a random point to spawn at
 			AI::TeamMask mask = 1 << s32(manager.ref()->team.ref()->team());
@@ -819,7 +819,7 @@ b8 drone_react_filter(const PlayerControlAI* control, const Entity* e)
 	if (!drone_find_filter(control, e))
 		return false;
 
-	if (!e->get<Health>()->can_take_damage() && mersenne::randf_co() > 0.5f)
+	if (!e->get<Health>()->can_take_damage(control->entity()) && mersenne::randf_co() > 0.5f)
 		return false;
 
 	return !e->has<Drone>() || e->get<Drone>()->state() == Drone::State::Crawl;
@@ -952,7 +952,7 @@ b8 want_upgrade(PlayerControlAI* player, Upgrade u)
 {
 	PlayerManager* manager = player->get<PlayerCommon>()->manager.ref();
 
-	if (u == Upgrade::ExtraDrone && manager->respawns > 1)
+	if (u == Upgrade::ExtraDrone && manager->team.ref()->tickets > 1)
 		return false;
 
 	return manager->upgrade_available(u) && manager->upgrade_cost(u) < manager->energy;

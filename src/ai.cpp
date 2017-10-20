@@ -761,7 +761,7 @@ void entity_info(const Entity* e, Team query_team, Team* team, s8* type)
 	else if (e->has<CoreModule>())
 	{
 		_team = e->get<CoreModule>()->team;
-		_type = e->get<Health>()->can_take_damage() ? RecordedLife::EntityCoreModuleInvincible : RecordedLife::EntityCoreModuleVulnerable;
+		_type = e->get<Health>()->can_take_damage(nullptr) ? RecordedLife::EntityCoreModuleInvincible : RecordedLife::EntityCoreModuleVulnerable;
 	}
 	else
 	{

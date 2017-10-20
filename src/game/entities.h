@@ -16,6 +16,7 @@ namespace Net
 struct PlayerManager;
 struct Transform;
 struct RigidBody;
+struct PlayerControlHuman;
 
 void spawn_sparks(const Vec3&, const Quat&, Transform* = nullptr);
 
@@ -73,7 +74,7 @@ struct Health : public ComponentType<Health>
 	void add(s8);
 	s8 total() const;
 	b8 active_armor() const;
-	b8 can_take_damage() const;
+	b8 can_take_damage(Entity*) const;
 };
 
 struct Shield : public ComponentType<Shield>
@@ -425,7 +426,6 @@ struct Bolt : public ComponentType<Bolt>
 
 	b8 visible() const; // bolts are invisible and essentially inert while they are waiting for damage buffer
 	void reflect(const Entity*, ReflectionType = ReflectionType::Homing, const Vec3& = Vec3::zero);
-	b8 can_damage(const Entity*) const;
 	b8 simulate(r32, Hit* = nullptr, Net::StateFrame* = nullptr); // returns true if the bolt hit something
 	void hit_entity(const Hit&);
 };

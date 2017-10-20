@@ -176,9 +176,10 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	Ref<Camera> camera;
 	EmoteCategory emote_category;
 	Upgrade upgrade_last_visit_highest_available;
-	s8 gamepad;
 	ChatFocus chat_focus;
+	s8 gamepad;
 	s8 flags;
+	s8 ability_upgrade_slot;
 	char msg_text[UI_TEXT_MAX];
 	
 	PlayerHuman(b8 = false, s8 = 0);
@@ -339,6 +340,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	Ref<Entity> anim_base;
 	b8 try_secondary;
 	b8 try_primary;
+	b8 try_dash;
 
 	PlayerControlHuman(PlayerHuman* = nullptr);
 	void awake();

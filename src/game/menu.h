@@ -71,6 +71,7 @@ struct UIMenu
 	void clear();
 	void animate();
 	r32 height() const;
+	Rect2 rect(r32 = 1.0f) const;
 	void start(const Update&, const Origin&, s8, b8 = true);
 	const Item* last_visible_item() const;
 	b8 add_item(Item::Type, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);

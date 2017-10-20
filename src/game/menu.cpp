@@ -1291,13 +1291,10 @@ b8 settings_controls(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 	s32 delta;
 
 	{
-		u8* sensitivity = gamepad_type == Gamepad::Type::None ? &Settings::gamepads[gamepad].sensitivity_mouse : &Settings::gamepads[gamepad].sensitivity_gamepad;
-		sprintf(str, "%u", *sensitivity);
+		u16* sensitivity = gamepad_type == Gamepad::Type::None ? &Settings::gamepads[gamepad].sensitivity_mouse : &Settings::gamepads[gamepad].sensitivity_gamepad;
+		sprintf(str, "%d", s32(*sensitivity));
 		delta = menu->slider_item(u, _(strings::sensitivity), str);
-		if (delta < 0)
-			*sensitivity = vi_max(10, s32(*sensitivity) - 10);
-		else if (delta > 0)
-			*sensitivity = vi_min(250, s32(*sensitivity) + 10);
+		*sensitivity = vi_max(10, vi_min(1000, s32(*sensitivity) + delta * (*sensitivity >= (delta > 0 ? 150 : 151) ? 25 : 10)));
 	}
 
 	{
@@ -2267,6 +2264,17 @@ const UIMenu::Item* UIMenu::last_visible_item() const
 		return nullptr;
 }
 
+Rect2 UIMenu::rect(r32 height_scale) const
+{
+	r32 h = cached_height * height_scale;
+	Vec2 pos = screen_origin(*this);
+	return
+	{
+		Vec2(pos.x - MENU_ITEM_PADDING_LEFT, pos.y - h - MENU_ITEM_PADDING * 1.5f),
+		Vec2(MENU_ITEM_WIDTH, h + MENU_ITEM_PADDING * 3.0f)
+	};
+}
+
 void UIMenu::draw_ui(const RenderParams& params) const
 {
 	if (items.length == 0)
@@ -2276,19 +2284,8 @@ void UIMenu::draw_ui(const RenderParams& params) const
 
 	Rect2 last_item_rect;
 
-	if (items.length > 0)
-	{
-		// draw background
-		r32 h = cached_height * Ease::cubic_out<r32>(vi_min((Game::real_time.total - animation_time) / 0.25f, 1.0f));
-		Vec2 pos = screen_origin(*this);
-		Rect2 rect =
-		{
-			Vec2(pos.x - MENU_ITEM_PADDING_LEFT, pos.y - h - MENU_ITEM_PADDING * 1.5f),
-			Vec2(MENU_ITEM_WIDTH, h + MENU_ITEM_PADDING * 3.0f)
-		};
-
-		UI::box(params, rect, UI::color_background);
-	}
+	if (items.length > 0) // draw background
+		UI::box(params, rect(Ease::cubic_out<r32>(vi_min((Game::real_time.total - animation_time) / 0.25f, 1.0f))), UI::color_background);
 
 	Rect2 rect;
 	for (s32 i = scroll.top(); i < scroll.bottom(items.length); i++)

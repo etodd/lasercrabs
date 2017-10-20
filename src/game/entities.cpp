@@ -210,7 +210,7 @@ void Health::update_server(const Update& u)
 			{
 				if (src->has<Bolt>())
 				{
-					if (src->get<Bolt>()->can_damage(entity()))
+					if (can_take_damage(src))
 					{
 						health_internal_apply_damage(this, src, entry->damage);
 						World::remove_deferred(src);
@@ -218,7 +218,7 @@ void Health::update_server(const Update& u)
 					else
 						src->get<Bolt>()->reflect(entity());
 				}
-				else if (can_take_damage())
+				else if (can_take_damage(src))
 					health_internal_apply_damage(this, src, entry->damage);
 				else if (active_armor() && src->has<Drone>() && entry->type != BufferedDamage::Type::Sniper) // kill 'em
 					src->get<Health>()->kill(entity());
@@ -470,7 +470,7 @@ b8 Health::damage_buffer_required(const Entity* src) const
 void Health::damage(Entity* src, s8 damage)
 {
 	vi_assert(Game::level.local);
-	vi_assert(can_take_damage());
+	vi_assert(can_take_damage(src));
 	if (hp > 0 && damage > 0)
 	{
 		if (damage_buffer_required(src))
@@ -534,20 +534,50 @@ s8 Health::total() const
 b8 Health::active_armor() const
 {
 	if (has<CoreModule>())
-		return active_armor_timer > 0.0f || Turret::list.count() > 0 || Game::level.mode != Game::Mode::Pvp;
+		return active_armor_timer > 0.0f || Turret::list.count() > 0 || Game::level.mode != Game::Mode::Pvp || Team::core_module_delay > 0.0f;
 	else if (has<ForceField>())
 		return active_armor_timer > 0.0f || (get<ForceField>()->flags & ForceField::FlagPermanent);
 	else
 		return active_armor_timer > 0.0f;
 }
 
-b8 Health::can_take_damage() const
+b8 Health::can_take_damage(Entity* damager) const
 {
 	if (active_armor())
 		return false;
 
 	if (has<Drone>())
-		return get<Drone>()->state() == Drone::State::Crawl && !UpgradeStation::drone_inside(get<Drone>());
+	{
+		if (UpgradeStation::drone_inside(get<Drone>()))
+			return false;
+
+		if (get<Drone>()->state() == Drone::State::Crawl)
+			return true;
+		else
+		{
+			// invincible when flying or dashing
+
+			// but still vulnerable to enemy drone bolts
+			if (damager && damager->has<Bolt>()
+				&& (damager->get<Bolt>()->type == Bolt::Type::DroneBolter || damager->get<Bolt>()->type == Bolt::Type::DroneShotgun))
+				return true;
+
+			// there is also a grace period where we're still vulnerable to direct drone attacks
+
+			// lag compensation
+			r32 rtt = 0.0f;
+#if SERVER
+			if (damager && damager->has<PlayerControlHuman>() && !PlayerHuman::players_on_same_client(entity(), damager))
+				rtt = damager->get<PlayerControlHuman>()->rtt;
+#endif
+
+			if (damager && damager->has<Drone>() // grace period only applies if we're being attacked directly by an enemy drone
+				&& Game::time.total - get<Drone>()->attach_time < 0.25f + rtt)
+				return true; // still vulnerable
+			else
+				return false; // invincible
+		}
+	}
 	else
 		return true;
 }
@@ -1522,10 +1552,7 @@ void Turret::killed(Entity* by)
 	{
 		// let everyone know what happened
 		char buffer[UI_TEXT_MAX];
-		if (list.count() > 1)
-			snprintf(buffer, UI_TEXT_MAX, _(strings::turrets_remaining), list.count() - 1);
-		else
-			strcpy(buffer, _(strings::core_vulnerable));
+		snprintf(buffer, UI_TEXT_MAX, _(strings::turrets_remaining), list.count() - 1);
 
 		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		{
@@ -1544,13 +1571,13 @@ void Turret::killed(Entity* by)
 		get<Transform>()->absolute(&pos, &rot);
 		ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
 
-		if (list.count() <= 1)
-		{
-			// core is vulnerable; remove permanent ForceField protecting it
-			Game::level.core_force_field.ref()->destroy();
-		}
-
 		World::remove_deferred(entity());
+
+		Team::list[1].add_tickets(TURRET_TICKET_REWARD);
+		Team::match_time = vi_max(0.0f, Team::match_time - TURRET_TIME_REWARD);
+#if SERVER
+		Net::Server::sync_time();
+#endif
 	}
 }
 
@@ -1816,7 +1843,7 @@ void ForceField::set_team(AI::Team t)
 
 void ForceField::hit_by(const TargetEvent& e)
 {
-	if (!(flags & FlagPermanent) && get<Health>()->can_take_damage())
+	if (!(flags & FlagPermanent) && get<Health>()->can_take_damage(e.hit_by))
 		get<Health>()->damage(e.hit_by, 1);
 }
 
@@ -2279,15 +2306,6 @@ s16 Bolt::raycast_mask(AI::Team team)
 	return ~Team::force_field_mask(team);
 }
 
-b8 Bolt::can_damage(const Entity* e) const
-{
-	return e->has<Health>()
-		&& e->get<Health>()->can_take_damage()
-		&& (!e->has<Drone>() // not a drone; we can always damage them
-			|| type == Type::DroneBolter || type == Type::DroneShotgun // we're a drone shooting at a drone; can always do damage
-			|| e->get<Drone>()->state() == Drone::State::Crawl); // the drone is flying or dashing; it's invincible to minions and turrets
-}
-
 void Bolt::reflect(const Entity* hit_object, ReflectionType reflection_type, const Vec3& normal)
 {
 	vi_assert(Game::level.local);
@@ -2381,7 +2399,7 @@ void Bolt::hit_entity(const Hit& hit)
 		if (reflected)
 			damage += 4;
 
-		if (!can_damage(hit_object))
+		if (!hit_object->has<Health>() || !hit_object->get<Health>()->can_take_damage(entity()))
 			damage = 0;
 
 		if (hit_force_field_collision)
@@ -3011,7 +3029,7 @@ void Grenade::explode()
 
 	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->can_take_damage())
+		if (i.item()->can_take_damage(entity()))
 		{
 			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 			if (i.item()->has<ForceField>() || ForceField::hash(my_team, pos) == my_hash)
@@ -3030,6 +3048,12 @@ void Grenade::explode()
 						i.item()->damage(entity(), 2);
 					else if (distance < GRENADE_RANGE)
 						i.item()->damage(entity(), 1);
+				}
+				else if (i.item()->has<Turret>())
+				{
+					distance *= (i.item()->get<Turret>()->team == my_team) ? 2.0f : 1.0f;
+					if (distance < GRENADE_RANGE)
+						i.item()->damage(entity(), distance < GRENADE_RANGE * 0.75f ? 8 : 4);
 				}
 				else if (distance < GRENADE_RANGE && (!i.item()->has<Battery>() || i.item()->get<Battery>()->team != my_team))
 					i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 6 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1));

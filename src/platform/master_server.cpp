@@ -544,7 +544,7 @@ namespace Master
 		{
 			cJSON* start_upgrades = cJSON_GetObjectItem(json, "start_upgrades");
 			cJSON* u = start_upgrades->child;
-			while (u)
+			while (u && config->start_upgrades.length < config->start_upgrades.capacity())
 			{
 				config->start_upgrades.add(Upgrade(u->valueint));
 				u = u->next;

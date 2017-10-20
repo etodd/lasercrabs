@@ -90,9 +90,9 @@ InputBinding control_defaults[s32(Controls::count)] =
 	{ Gamepad::Btn::None, KeyCode::D, KeyCode::Right, }, // Right
 	{ Gamepad::Btn::RightTrigger, KeyCode::MouseLeft, KeyCode::None, }, // Primary
 	{ Gamepad::Btn::LeftTrigger, KeyCode::MouseRight, KeyCode::None, }, // Zoom
-	{ Gamepad::Btn::X, KeyCode::D1, KeyCode::None, }, // Ability1
-	{ Gamepad::Btn::Y, KeyCode::D2, KeyCode::None, }, // Ability2
-	{ Gamepad::Btn::B, KeyCode::D3, KeyCode::None, }, // Ability3
+	{ Gamepad::Btn::X, KeyCode::Q, KeyCode::None, }, // Ability1
+	{ Gamepad::Btn::Y, KeyCode::E, KeyCode::None, }, // Ability2
+	{ Gamepad::Btn::B, KeyCode::R, KeyCode::None, }, // Ability3
 	{ Gamepad::Btn::Start, KeyCode::Return, KeyCode::None, }, // Start
 	{ Gamepad::Btn::B, KeyCode::Escape, KeyCode::None, }, // Cancel
 	{ Gamepad::Btn::Start, KeyCode::Escape, KeyCode::None, }, // Pause
@@ -111,7 +111,7 @@ InputBinding control_defaults[s32(Controls::count)] =
 	{ Gamepad::Btn::DDown, KeyCode::F4, KeyCode::None, }, // Emote4
 	{ Gamepad::Btn::None, KeyCode::T, KeyCode::None, }, // ChatTeam
 	{ Gamepad::Btn::None, KeyCode::Y, KeyCode::None, }, // ChatAll
-	{ Gamepad::Btn::LeftShoulder, KeyCode::Q, KeyCode::None, }, // Spot
+	{ Gamepad::Btn::LeftShoulder, KeyCode::F, KeyCode::None, }, // Spot
 };
 
 void init()

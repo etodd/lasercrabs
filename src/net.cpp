@@ -929,7 +929,7 @@ MessageFrame* msg_history_add(MessageHistory* history, r32 timestamp, s32 bytes)
 	return frame;
 }
 
-SequenceID msg_history_foremost_sequence(const MessageHistory& history, b8 (*comparator)(SequenceID, SequenceID))
+template<typename Comparator> SequenceID msg_history_foremost_sequence(const MessageHistory& history, Comparator* comparator)
 {
 	// find foremost sequence ID we've received
 	if (history.msg_frames.length == 0)
@@ -947,7 +947,7 @@ SequenceID msg_history_foremost_sequence(const MessageHistory& history, b8 (*com
 		if (index == history.current_index || msg.timestamp < state_common.timestamp - NET_TIMEOUT) // hit the end
 			break;
 
-		if (comparator(msg.sequence_id, result))
+		if (comparator->compare(msg.sequence_id, result))
 			result = msg.sequence_id;
 	}
 	return result;
@@ -955,12 +955,57 @@ SequenceID msg_history_foremost_sequence(const MessageHistory& history, b8 (*com
 
 SequenceID msg_history_most_recent_sequence(const MessageHistory& history)
 {
-	return msg_history_foremost_sequence(history, &sequence_more_recent);
+	struct Comparator
+	{
+		const MessageHistory* history;
+
+		b8 compare(SequenceID a, SequenceID b)
+		{
+			return sequence_more_recent(a, b);
+		}
+	};
+
+	Comparator comparator;
+	comparator.history = &history;
+	return msg_history_foremost_sequence(history, &comparator);
 }
 
-SequenceID msg_history_oldest_sequence(const MessageHistory& history)
+MessageFrame* msg_frame_by_sequence(MessageHistory* history, SequenceID sequence_id)
 {
-	return msg_history_foremost_sequence(history, &sequence_older_than);
+	if (history->msg_frames.length > 0)
+	{
+		s32 index = history->current_index;
+		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
+		{
+			MessageFrame* msg = &history->msg_frames[index];
+			if (msg->sequence_id == sequence_id)
+				return msg;
+
+			// loop backward through most recently received frames
+			index = index > 0 ? index - 1 : history->msg_frames.length - 1;
+			if (index == history->current_index || msg->timestamp < state_common.timestamp - NET_TIMEOUT) // hit the end
+				break;
+		}
+	}
+	return nullptr;
+}
+
+SequenceID msg_history_most_recent_sequence_before(const MessageHistory& history, r32 timestamp_cutoff)
+{
+	struct Comparator
+	{
+		const MessageHistory* history;
+		r32 timestamp_cutoff;
+
+		b8 compare(SequenceID a, SequenceID b)
+		{
+			return sequence_more_recent(a, b) && msg_frame_by_sequence((MessageHistory*)(history), a)->timestamp <= timestamp_cutoff;
+		}
+	};
+	Comparator comparator;
+	comparator.history = &history;
+	comparator.timestamp_cutoff = timestamp_cutoff;
+	return msg_history_foremost_sequence(history, &comparator);
 }
 
 Ack msg_history_ack(const MessageHistory& history)
@@ -991,6 +1036,28 @@ Ack msg_history_ack(const MessageHistory& history)
 		}
 	}
 	return ack;
+}
+
+b8 msg_history_contains(const MessageHistory& history, SequenceID sequence_id)
+{
+	if (history.msg_frames.length > 0)
+	{
+		s32 index = history.current_index;
+		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
+		{
+			// loop backward through most recently received frames
+			const MessageFrame& msg = history.msg_frames[index];
+
+			if (msg.sequence_id == sequence_id)
+				return true;
+
+			index = index > 0 ? index - 1 : history.msg_frames.length - 1;
+
+			if (index == history.current_index || msg.timestamp < state_common.timestamp - NET_TIMEOUT) // hit the end
+				break;
+		}
+	}
+	return false;
 }
 
 // consolidate msgs_out into msgs_out_history
@@ -1036,33 +1103,13 @@ b8 msgs_out_consolidate(MessageBuffer* buffer, MessageHistory* history, Sequence
 	return true;
 }
 
-MessageFrame* msg_frame_by_sequence(MessageHistory* history, SequenceID sequence_id)
-{
-	if (history->msg_frames.length > 0)
-	{
-		s32 index = history->current_index;
-		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
-		{
-			MessageFrame* msg = &history->msg_frames[index];
-			if (msg->sequence_id == sequence_id)
-				return msg;
-
-			// loop backward through most recently received frames
-			index = index > 0 ? index - 1 : history->msg_frames.length - 1;
-			if (index == history->current_index || msg->timestamp < state_common.timestamp - NET_TIMEOUT) // hit the end
-				break;
-		}
-	}
-	return nullptr;
-}
-
-MessageFrame* msg_frame_advance(MessageHistory* history, MessageFrameState* processed_msg_frame, r32 timestamp)
+MessageFrame* msg_frame_advance(MessageHistory* history, MessageFrameState* processed_msg_frame, r32 timestamp_cutoff)
 {
 	if (processed_msg_frame->starting)
 	{
 		SequenceID next_sequence = sequence_advance(processed_msg_frame->sequence_id, 1);
 		MessageFrame* next_frame = msg_frame_by_sequence(history, next_sequence);
-		if (next_frame && next_frame->timestamp <= timestamp)
+		if (next_frame && next_frame->timestamp <= timestamp_cutoff)
 		{
 			processed_msg_frame->sequence_id = next_sequence;
 			processed_msg_frame->starting = false;
@@ -1075,12 +1122,15 @@ MessageFrame* msg_frame_advance(MessageHistory* history, MessageFrameState* proc
 		if (frame)
 		{
 			SequenceID next_sequence = sequence_advance(processed_msg_frame->sequence_id, 1);
-			MessageFrame* next_frame = msg_frame_by_sequence(history, next_sequence);
-			if (next_frame
-				&& (frame->timestamp <= timestamp - tick_rate() || next_frame->timestamp <= timestamp))
+			SequenceID sequence_cutoff = msg_history_most_recent_sequence_before(*history, timestamp_cutoff);
+			if (!sequence_more_recent(next_sequence, sequence_cutoff))
 			{
-				processed_msg_frame->sequence_id = next_sequence;
-				return next_frame;
+				MessageFrame* next_frame = msg_frame_by_sequence(history, next_sequence);
+				if (next_frame)
+				{
+					processed_msg_frame->sequence_id = next_sequence;
+					return next_frame;
+				}
 			}
 		}
 	}
@@ -1146,7 +1196,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 
 			// start resending frames starting at that index
 			SequenceID current_seq = history.msg_frames[history.current_index].sequence_id;
-			r32 timestamp_cutoff = state_common.timestamp - tick_rate() * 1.5f; // don't resend stuff multiple times; wait a certain period before trying to resend it again
+			r32 timestamp_cutoff = state_common.timestamp - vi_max(tick_rate() * 2.0f, rtt * 0.5f); // don't resend stuff multiple times; wait a certain period before trying to resend it again
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				const MessageFrame& frame = history.msg_frames[index];
@@ -1156,6 +1206,9 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 					&& !sequence_history_contains_newer_than(*recently_resent, frame.sequence_id, timestamp_cutoff)
 					&& 8 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 				{
+#if DEBUG_MSG
+					vi_debug("Resending seq %d: %d bytes", s32(frame.sequence_id), s32(frame.write.bytes_written()));
+#endif
 					bytes += frame.write.bytes_written();
 					serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
 					sequence_history_add(recently_resent, frame.sequence_id, state_common.timestamp);
@@ -1173,8 +1226,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 			if (8 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 			{
 #if DEBUG_MSG
-				if (frame.bytes > 1)
-					vi_debug("Sending seq %d: %d bytes", s32(frame.sequence_id), s32(frame.bytes));
+				vi_debug("Sending seq %d: %d bytes", s32(frame.sequence_id), s32(frame.bytes));
 #endif
 				serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
 			}
@@ -1187,7 +1239,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 	return true;
 }
 
-b8 msgs_read(StreamRead* p, MessageHistory* history, const Ack& remote_ack, SequenceID* received_sequence = nullptr)
+b8 msgs_read(StreamRead* p, MessageHistory* history, const Ack& remote_ack)
 {
 	using Stream = StreamRead;
 
@@ -1200,18 +1252,27 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, const Ack& remote_ack, Sequ
 		serialize_int(p, s32, bytes, 0, NET_MAX_MESSAGES_SIZE);
 		if (bytes)
 		{
-			MessageFrame* frame = msg_history_add(history, state_common.timestamp, bytes);
-			serialize_int(p, SequenceID, frame->sequence_id, 0, NET_SEQUENCE_COUNT - 1);
-			frame->remote_sequence_id = remote_ack.sequence_id;
+			SequenceID sequence_id;
+			serialize_int(p, SequenceID, sequence_id, 0, NET_SEQUENCE_COUNT - 1);
+			if (msg_history_contains(*history, sequence_id))
+			{
+				// already received this frame; discard it
+				u8 buffer[NET_MAX_PACKET_SIZE];
+				serialize_bytes(p, buffer, bytes);
+			}
+			else
+			{
+				MessageFrame* frame = msg_history_add(history, state_common.timestamp, bytes);
+				frame->sequence_id = sequence_id;
+				frame->remote_sequence_id = remote_ack.sequence_id;
 #if DEBUG_MSG
-			if (bytes > 1)
-				vi_debug("Received seq %d: %d bytes", s32(frame->sequence_id), s32(bytes));
+				if (bytes > 1)
+					vi_debug("Received seq %d: %d bytes", s32(frame->sequence_id), s32(bytes));
 #endif
-			if (received_sequence && (first_frame || sequence_more_recent(frame->sequence_id, *received_sequence)))
-				*received_sequence = frame->sequence_id;
+				frame->read.resize_bytes(bytes);
+				serialize_bytes(p, (u8*)frame->read.data.data, bytes);
+			}
 			first_frame = false;
-			frame->read.resize_bytes(bytes);
-			serialize_bytes(p, (u8*)frame->read.data.data, bytes);
 		}
 		else
 			break;
@@ -2088,6 +2149,7 @@ struct Client
 	// starts at NET_SEQUENCE_COUNT - 1 so that the first sequence ID we expect to receive is 0
 	MessageFrameState processed_msg_frame = { NET_SEQUENCE_COUNT - 1, true };
 	SequenceID first_load_sequence;
+	SequenceID acked_state_frame = NET_SEQUENCE_INVALID; // most recent state frame the client has acked
 	char username[MAX_USERNAME + 1];
 	// when a client connects, we add them to our list, but set connected to false.
 	// as soon as they send us an Update packet, we set connected to true.
@@ -2384,23 +2446,13 @@ b8 packet_build_update(StreamWrite* p, Client* client, StateFrame* frame)
 		msgs_write(p, client->msgs_out_load_history, client->ack_load, &client->recently_resent_load, client->rtt);
 	else if (frame)
 	{
-		SequenceID last_acked_sequence = client->ack.sequence_id;
+		if (client->msgs_out_load_history.msg_frames.length > 0
+			&& client->ack.sequence_id != NET_SEQUENCE_INVALID
+			&& sequence_relative_to(client->ack.sequence_id, client->first_load_sequence) > NET_ACK_PREVIOUS_SEQUENCES)
+			client->msgs_out_load_history.msg_frames.length = 0; // it's been long enough, we can stop worrying about this. all frames should have state frames by now
 
-		// we don't send state frames when the client is loading
-		// so if the client was still loading during the last acked sequence, then they wouldn't have received a state frame
-		// so we can't do delta compression based on that state frame; we have to send the entire state frame
-
-		// first we need to determine whether the last acked sequence happened while the client was loading.
-		if (client->msgs_out_load_history.msg_frames.length > 0)
-		{
-			if (msg_frame_by_sequence(&client->msgs_out_load_history, last_acked_sequence))
-				last_acked_sequence = NET_SEQUENCE_INVALID; // it did; so it had no state frame, and therefore there's no basis to do delta compression against
-			else if (sequence_relative_to(last_acked_sequence, client->first_load_sequence) > NET_ACK_PREVIOUS_SEQUENCES)
-				client->msgs_out_load_history.msg_frames.length = 0; // it's been long enough, we can stop worrying about this. all frames should have state frames by now
-		}
-
-		serialize_int(p, SequenceID, last_acked_sequence, 0, NET_SEQUENCE_COUNT); // not NET_SEQUENCE_COUNT - 1, because base_sequence_id might be NET_SEQUENCE_INVALID
-		const StateFrame* base = state_frame_by_sequence(state_common.state_history, last_acked_sequence);
+		serialize_int(p, SequenceID, client->acked_state_frame, 0, NET_SEQUENCE_COUNT); // not NET_SEQUENCE_COUNT - 1, because base_sequence_id might be NET_SEQUENCE_INVALID
+		const StateFrame* base = state_frame_by_sequence(state_common.state_history, client->acked_state_frame);
 		if (!serialize_state_frame(p, frame, base))
 			net_error();
 	}
@@ -2804,19 +2856,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				if (sequence_more_recent(ack_candidate.sequence_id, client->ack.sequence_id))
 					client->ack = ack_candidate;
 
-				SequenceID sequence_id; // TODO: calculate this differently because this packet might be missing the current message frame
-				if (!msgs_read(p, &client->msgs_in_history, ack_candidate, &sequence_id))
+				if (!msgs_read(p, &client->msgs_in_history, ack_candidate))
 					net_error();
-
-				if (abs(sequence_relative_to(sequence_id, client->processed_msg_frame.sequence_id)) > NET_MAX_SEQUENCE_GAP)
-				{
-					// we missed a packet that we'll never be able to recover
-					char str[NET_MAX_ADDRESS];
-					client->address.str(str);
-					vi_debug("Client %s timed out.", str);
-					handle_client_disconnect(client);
-					return false;
-				}
 			}
 
 			{
@@ -2843,12 +2884,27 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				client->connected = true;
 			}
 
+			// client is letting us know what the last state frame they received was
+			serialize_int(p, SequenceID, client->acked_state_frame, 0, NET_SEQUENCE_COUNT);
+
 			b8 most_recent;
 			{
 				// we must serialize the current sequence ID separately from the message system
 				// because perhaps msgs_write did not have enough room to serialize the message frame for the current sequence
 				SequenceID sequence_id;
 				serialize_int(p, SequenceID, sequence_id, 0, NET_SEQUENCE_COUNT - 1);
+
+				if (abs(sequence_relative_to(sequence_id, client->processed_msg_frame.sequence_id)) > NET_MAX_SEQUENCE_GAP)
+				{
+					// we missed a packet that we'll never be able to recover
+					char str[NET_MAX_ADDRESS];
+					client->address.str(str);
+					vi_debug("Connection with client %s failed due to sequence gap. Last seq: %d Current seq: %d", str, s32(client->processed_msg_frame.sequence_id), s32(sequence_id));
+					handle_client_disconnect(client);
+					return false;
+				}
+
+				// only take player control data if this is the most recent packet we've received
 				most_recent = sequence_relative_to(sequence_id, msg_history_most_recent_sequence(client->msgs_in_history)) >= 0;
 			}
 
@@ -3497,6 +3553,16 @@ b8 packet_build_update(StreamWrite* p, const Update& u)
 		}
 	}
 
+	// let the server know the last state frame we received
+	{
+		SequenceID most_recent_state_frame;
+		if (state_common.state_history.frames.length > 0)
+			most_recent_state_frame = state_common.state_history.frames[state_common.state_history.current_index].sequence_id;
+		else
+			most_recent_state_frame = NET_SEQUENCE_INVALID;
+		serialize_int(p, SequenceID, most_recent_state_frame, 0, NET_SEQUENCE_COUNT); // not NET_SEQUENCE_COUNT - 1, because it might be NET_SEQUENCE_INVALID
+	}
+
 	// we must serialize the current sequence ID separately from the message system
 	// because perhaps msgs_write did not have enough room to serialize the message frame for the current sequence
 	serialize_int(p, SequenceID, state_common.local_sequence_id, 0, NET_SEQUENCE_COUNT - 1);
@@ -3988,8 +4054,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			if (sequence_more_recent(ack_candidate.sequence_id, state_client.server_ack.sequence_id))
 				state_client.server_ack = ack_candidate;
 
-			SequenceID msg_sequence_id;
-			if (!msgs_read(p, &state_client.msgs_in_history, ack_candidate, &msg_sequence_id))
+			if (!msgs_read(p, &state_client.msgs_in_history, ack_candidate))
 				net_error();
 
 			calculate_rtt(state_common.timestamp, state_client.server_ack, state_common.msgs_out_history, &state_client.server_rtt);
@@ -4000,20 +4065,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				vi_assert(has_load_msgs);
 			if (has_load_msgs)
 			{
-				if (!msgs_read(p, &state_client.msgs_in_load_history, ack_candidate, &msg_sequence_id))
+				if (!msgs_read(p, &state_client.msgs_in_load_history, ack_candidate))
 					net_error();
-			}
-
-			// check for large gaps in the sequence
-			const MessageFrameState& processed_msg_frame = has_load_msgs ? state_client.server_processed_load_msg_frame : state_client.server_processed_msg_frame;
-			if (abs(sequence_relative_to(processed_msg_frame.sequence_id, msg_sequence_id)) > NET_MAX_SEQUENCE_GAP)
-			{
-				// we missed a packet that we'll never be able to recover
-				char str[NET_MAX_ADDRESS];
-				state_client.server_address.str(str);
-				vi_debug("Lost connection to %s due to sequence gap. Local seq: %d. Remote seq: %d.", str, s32(processed_msg_frame.sequence_id), s32(msg_sequence_id));
-				handle_server_disconnect(DisconnectReason::SequenceGap);
-				return false;
 			}
 
 			if (p->bytes_read() < p->bytes_total) // server doesn't always send state frames
@@ -4031,6 +4084,18 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					char str[NET_MAX_ADDRESS];
 					state_client.server_address.str(str);
 					vi_debug("Lost connection to %s due to missing state frame delta compression basis seq %d. Current seq: %d", str, s32(base_sequence_id), s32(frame.sequence_id));
+					handle_server_disconnect(DisconnectReason::SequenceGap);
+					return false;
+				}
+
+				// check for large gaps in the sequence
+				const MessageFrameState& processed_msg_frame = has_load_msgs ? state_client.server_processed_load_msg_frame : state_client.server_processed_msg_frame;
+				if (abs(sequence_relative_to(processed_msg_frame.sequence_id, frame.sequence_id)) > NET_MAX_SEQUENCE_GAP)
+				{
+					// we missed a packet that we'll never be able to recover
+					char str[NET_MAX_ADDRESS];
+					state_client.server_address.str(str);
+					vi_debug("Lost connection to %s due to sequence gap. Last seq: %d. Current seq: %d.", str, s32(processed_msg_frame.sequence_id), s32(frame.sequence_id));
 					handle_server_disconnect(DisconnectReason::SequenceGap);
 					return false;
 				}

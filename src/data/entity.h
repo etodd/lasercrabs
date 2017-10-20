@@ -170,7 +170,6 @@ struct World
 
 	template<typename T, typename... Args> static T* alloc(Args... args)
 	{
-		vi_assert(Game::level.local);
 		Entity* e = Entity::list.add();
 		e->revision++;
 		new (e) T(args...);
@@ -179,7 +178,6 @@ struct World
 
 	template<typename T, typename... Args> static T* create(Args... args)
 	{
-		vi_assert(Game::level.local);
 		Entity* e = Entity::list.add();
 		e->revision++;
 		new (e) T(args...);
@@ -198,7 +196,7 @@ struct World
 
 template<typename T, typename... Args> T* Entity::create(Args... args)
 {
-	vi_assert(Game::level.local && !has<T>());
+	vi_assert(!has<T>());
 	T* item = T::pool.add();
 	component_mask |= T::component_mask;
 	components[T::family] = item->id();
@@ -212,7 +210,7 @@ template<typename T, typename... Args> T* Entity::create(Args... args)
 
 template<typename T, typename... Args> T* Entity::add(Args... args)
 {
-	vi_assert(Game::level.local && !has<T>());
+	vi_assert(!has<T>());
 	T* component = create<T>(args...);
 	component->awake();
 	return component;

@@ -35,6 +35,7 @@ struct AbilityInfo
 
 	static AbilityInfo list[s32(Ability::count) + 1]; // +1 for Ability::None
 
+	r32 cooldown;
 	AssetID icon;
 	s16 spawn_cost;
 	Type type;
@@ -128,7 +129,7 @@ struct Team : public ComponentType<Team>
 
 	GeneratorTrack player_tracks[MAX_PLAYERS];
 	s16 kills;
-	s16 tickets;
+	s16 extra_drones;
 
 	void awake() {}
 	b8 has_active_player() const;
@@ -138,8 +139,9 @@ struct Team : public ComponentType<Team>
 	void add_kills(s32);
 	s16 initial_energy() const;
 	s16 initial_tickets() const;
+	s16 tickets() const;
 	SpawnPoint* default_spawn_point() const;
-	void add_tickets(s16);
+	void add_extra_drones(s16);
 
 	inline AI::Team team() const
 	{
@@ -174,7 +176,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		Chat,
 		Leave,
 		SpotEntity,
-		SpotPosition,
 		count,
 	};
 
@@ -245,7 +246,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void team_schedule(AI::Team);
 	void chat(const char*, AI::TeamMask);
 	void spot(Entity*);
-	void spot(const Vec3&);
 	void map_schedule(AssetID);
 	void map_skip(AssetID);
 };

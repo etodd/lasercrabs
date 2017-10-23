@@ -184,7 +184,6 @@ namespace AI
 		r32 aim_timeout;
 		r32 aim_speed;
 		r32 aim_min_delay;
-		r32 dodge_chance;
 		r32 spawn_time;
 		AI::Team team;
 		Upgrade upgrade_priorities[s32(Upgrade::count)];

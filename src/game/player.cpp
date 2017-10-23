@@ -62,7 +62,7 @@ namespace VI
 
 #define NOTIFICATION_TIME_HIDDEN 4.0f
 #define NOTIFICATION_TIME (6.0f + NOTIFICATION_TIME_HIDDEN)
-#define NOTIFICATION_TIME_SPOT (10.0f + NOTIFICATION_TIME_HIDDEN)
+#define NOTIFICATION_TIME_SPOT (16.0f + NOTIFICATION_TIME_HIDDEN)
 #define LOG_TIME 4.0f
 #define CHAT_TIME 10.0f
 #define INTERACT_TIME 2.5f
@@ -336,7 +336,7 @@ void PlayerHuman::awake()
 	}
 
 #if SERVER
-	ai_record_id = AI::record_init(Game::level.team_lookup_reverse(get<PlayerManager>()->team.ref()->team()), get<PlayerManager>()->team.ref()->tickets);
+	ai_record_id = AI::record_init(Game::level.team_lookup_reverse(get<PlayerManager>()->team.ref()->team()), get<PlayerManager>()->team.ref()->tickets());
 #endif
 
 	if (!get<PlayerManager>()->can_spawn
@@ -417,10 +417,10 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 				return UIMode::ParkourDead;
 			else
 			{
-				if (get<PlayerManager>()->spawn_timer > 0.0f)
-					return UIMode::PvpKillCam;
-				else if (get<PlayerManager>()->team.ref()->tickets == 0)
+				if (get<PlayerManager>()->team.ref()->tickets() == 0)
 					return UIMode::PvpSpectate;
+				else if (get<PlayerManager>()->spawn_timer > 0.0f)
+					return UIMode::PvpKillCam;
 				else
 					return UIMode::PvpSelectSpawn;
 			}
@@ -540,11 +540,8 @@ void PlayerHuman::update_all(const Update& u)
 	{
 		Notification* n = &notifications[i];
 		n->timer -= u.time.delta;
-		if (n->timer < 0.0f)
+		if (n->timer < 0.0f || (n->type == Notification::Type::Spot && !n->target.ref()))
 		{
-			Target* target = n->target.ref();
-			if (target)
-				n->pos = target->absolute_pos();
 			notifications.remove(i);
 			i--;
 		}
@@ -827,7 +824,7 @@ void PlayerHuman::update(const Update& u)
 {
 #if SERVER
 	if (Game::session.type == SessionType::Multiplayer
-		&& get<PlayerManager>()->team.ref()->tickets != 0
+		&& get<PlayerManager>()->team.ref()->tickets() != 0
 		&& Team::match_state == Team::MatchState::Active)
 	{
 		afk_timer -= Game::real_time.delta;
@@ -1064,6 +1061,11 @@ void PlayerHuman::update(const Update& u)
 				// upgrade menu
 				if (!UpgradeStation::drone_inside(entity->get<Drone>())) // we got kicked out of the upgrade station; probably by the server
 					upgrade_menu_hide();
+				else if (!Game::cancel_event_eaten[gamepad] && u.last_input->get(Controls::Cancel, gamepad) && !u.input->get(Controls::Cancel, gamepad))
+				{
+					Game::cancel_event_eaten[gamepad] = true;
+					upgrade_menu_hide();
+				}
 				else
 				{
 					b8 upgrade_in_progress = !get<PlayerManager>()->can_transition_state();
@@ -1086,14 +1088,27 @@ void PlayerHuman::update(const Update& u)
 					{
 						if (!upgrade_in_progress)
 						{
-							if ((get<PlayerManager>()->abilities[0] == Ability::None || get<PlayerManager>()->ability_count() == MAX_ABILITIES) // keep the player from accidentally replacing an ability when they have an empty slot
-								&& u.input->get(Controls::Ability2, gamepad)
-								&& !u.last_input->get(Controls::Ability2, gamepad))
-								ability_upgrade_slot = 0;
-							if ((get<PlayerManager>()->abilities[1] == Ability::None || get<PlayerManager>()->ability_count() == MAX_ABILITIES) // keep the player from accidentally replacing an ability when they have an empty slot
-								&& u.input->get(Controls::Ability3, gamepad)
-								&& !u.last_input->get(Controls::Ability3, gamepad))
-								ability_upgrade_slot = 1;
+							if (Game::ui_gamepad_types[gamepad] == Gamepad::Type::None)
+							{
+								// keyboard
+								if (u.input->get(Controls::Ability2, gamepad) && !u.last_input->get(Controls::Ability2, gamepad))
+									ability_upgrade_slot = 0;
+								else if (u.input->get(Controls::Ability3, gamepad) && !u.last_input->get(Controls::Ability3, gamepad))
+									ability_upgrade_slot = 1;
+							}
+							else
+							{
+								// gamepad
+								if (u.input->get(Controls::Ability2, gamepad) && !u.last_input->get(Controls::Ability2, gamepad))
+									ability_upgrade_slot = (ability_upgrade_slot + 1) % MAX_ABILITIES;
+							}
+
+							if (get<PlayerManager>()->ability_count() < MAX_ABILITIES)
+							{
+								// we have an empty ability slot; don't let the player replace an existing ability by accident
+								while (get<PlayerManager>()->abilities[ability_upgrade_slot] != Ability::None)
+									ability_upgrade_slot = (ability_upgrade_slot + 1) % MAX_ABILITIES;
+							}
 						}
 
 						for (s32 i = 0; i < s32(Upgrade::count); i++)
@@ -1111,7 +1126,6 @@ void PlayerHuman::update(const Update& u)
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type != AbilityInfo::Type::Other); // don't allow Other ability upgrades in tutorial
 								if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
 								{
-									menu.selected = 0; // move cursor back up to "Close" button
 									PlayerControlHumanNet::Message msg;
 									msg.type = PlayerControlHumanNet::Message::Type::UpgradeStart;
 									msg.upgrade = upgrade;
@@ -1346,7 +1360,7 @@ void PlayerHuman::update_late(const Update& u)
 	if (camera.ref())
 	{
 		if (Game::level.noclip
-			|| (!get<PlayerManager>()->instance.ref() && get<PlayerManager>()->team.ref()->tickets != 0)) // we're respawning
+			|| (!get<PlayerManager>()->instance.ref() && get<PlayerManager>()->team.ref()->tickets() != 0)) // we're respawning
 			Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
 		else
 		{
@@ -1744,7 +1758,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	p.x += width * -0.5f;
 
 	// "deploying..."
-	if (!manager->instance.ref() && manager->team.ref()->tickets != 0)
+	if (!manager->instance.ref() && manager->team.ref()->tickets() != 0)
 	{
 		if (Team::match_state == Team::MatchState::Active)
 		{
@@ -1763,7 +1777,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	if (Game::session.config.game_type == GameType::Assault)
 	{
 		// show remaining drones label
-		text.text(0, _(strings::drones_remaining));
+		text.text(0, _(strings::attacker_drones_remaining), s32(Team::list[1].tickets()));
 		text.color = UI::color_accent();
 		UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
@@ -1775,43 +1789,17 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	AI::Team team = team_mine;
 	while (true)
 	{
-		if (Game::session.config.game_type == GameType::Deathmatch)
-		{
-			const Team& team_ref = Team::list[team];
+		const Team& team_ref = Team::list[team];
 
+		// team header
+		s32 player_count = team_ref.player_count();
+		if (Game::session.config.game_type == GameType::Deathmatch && player_count > 1)
+		{
 			text.anchor_x = UIText::Anchor::Min;
 			text.color = Team::ui_color(manager->team.ref()->team(), team);
-			PlayerManager* player = nullptr;
-			if (team_ref.player_count() == 1)
-			{
-				// use the only player's username
-				for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item()->team.ref()->team() == team)
-					{
-						player = i.item();
-						break;
-					}
-				}
-				text.text_raw(0, player->username);
-			}
-			else
-			{
-				// use the team name
-				text.text_raw(0, _(Team::name_long(team)));
-			}
+			text.text_raw(0, _(Team::name_long(team)));
 			UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, p);
-
-			// ping
-			if (!Game::level.local && player && player->has<PlayerHuman>()) // todo: fake ping for ai players
-			{
-				r32 rtt = Net::rtt(player->get<PlayerHuman>());
-				text.anchor_x = UIText::Anchor::Max;
-				text.color = UI::color_ping(rtt);
-				text.text(0, _(strings::ping), s32(rtt * 1000.0f));
-				text.draw(params, p + Vec2(width * 0.75f, 0));
-			}
 
 			text.anchor_x = UIText::Anchor::Max;
 			text.text(0, "%d", s32(team_ref.kills));
@@ -1819,39 +1807,37 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 
 			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 		}
-		else
+
+		// players
+		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		{
-			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			if (i.item()->team.ref()->team() == team)
 			{
-				if (i.item()->team.ref()->team() == team)
+				text.anchor_x = UIText::Anchor::Min;
+				text.color = Team::ui_color(manager->team.ref()->team(), i.item()->team.ref()->team());
+				text.text_raw(0, i.item()->username);
+				UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
+				text.draw(params, p);
+
+				// ping
+				if (!Game::level.local && i.item()->has<PlayerHuman>()) // todo: fake ping for ai players
 				{
+					r32 rtt = Net::rtt(i.item()->get<PlayerHuman>());
 					text.anchor_x = UIText::Anchor::Min;
-					text.color = Team::ui_color(manager->team.ref()->team(), i.item()->team.ref()->team());
-					text.text_raw(0, i.item()->username);
-					UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
-					text.draw(params, p);
-
-					if (!Game::level.local && i.item()->has<PlayerHuman>()) // todo: fake ping for ai players
-					{
-						r32 rtt = Net::rtt(i.item()->get<PlayerHuman>());
-						text.anchor_x = UIText::Anchor::Min;
-						text.color = UI::color_ping(rtt);
-						text.text(0, _(strings::ping), s32(rtt * 1000.0f));
-						text.draw(params, p + Vec2(width * 0.75f, 0));
-					}
-
-					text.anchor_x = UIText::Anchor::Max;
-					text.wrap_width = 0;
-					if (i.item()->team.ref()->tickets == -1)
-						text.text(0, _(strings::infinite));
-					else
-						text.text(0, "%d", vi_max(0, s32(i.item()->team.ref()->tickets)));
-					text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
-
-					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+					text.color = UI::color_ping(rtt);
+					text.text(0, _(strings::ping), s32(rtt * 1000.0f));
+					text.draw(params, p + Vec2(width * 0.75f, 0));
 				}
+
+				text.anchor_x = UIText::Anchor::Max;
+				text.wrap_width = 0;
+				text.text(0, "%d", s32(player_count == 1 ? team_ref.kills : i.item()->kills)); // if there's only one player on the team, show all team kills as belonging to that player
+				text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
+
+				p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 			}
 		}
+
 		team = AI::Team((s32(team) + 1) % Team::list.count());
 		if (team == team_mine)
 			break;
@@ -2122,7 +2108,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		snprintf(buffer, 16, "%hd", get<PlayerManager>()->energy);
 		Vec2 p = ui_anchor(params) + Vec2(match_timer_width() + UI_TEXT_SIZE_DEFAULT * UI::scale, (UI_TEXT_SIZE_DEFAULT + 16.0f) * -UI::scale);
 		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_battery, buffer, UI::color_accent(), UI_TEXT_SIZE_DEFAULT * 5 * UI::scale);
-		s16 tickets = get<PlayerManager>()->team.ref()->tickets;
+		s16 tickets = get<PlayerManager>()->team.ref()->tickets();
 		if (tickets != -1)
 		{
 			if (get<PlayerManager>()->instance.ref())
@@ -3036,7 +3022,6 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 					else
 					{
 						// spot any nearby minions
-						b8 spotted_minion = false;
 						for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 						{
 							if (i.item()->get<AIAgent>()->team != my_team)
@@ -3049,24 +3034,10 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 									r32 dot = (to_minion / distance).dot(msg.dir);
 									if (dot > 0.95f)
 									{
-										spotted_minion = true;
 										spotted_anything = true;
 										manager->spot(i.item()->entity());
 									}
 								}
-							}
-						}
-
-						if (!spotted_minion)
-						{
-							// we didn't spot anything
-							// spot a position
-							RaycastCallbackExcept ray_callback(msg.target, msg.target + msg.dir * DRONE_SNIPE_DISTANCE, c->entity());
-							reticle_raycast(&ray_callback);
-							if (ray_callback.hasHit())
-							{
-								manager->spot(ray_callback.m_hitPointWorld);
-								spotted_anything = true;
 							}
 						}
 					}
@@ -3400,7 +3371,7 @@ PlayerControlHuman::~PlayerControlHuman()
 		player.ref()->select_spawn_timer = 0.0f;
 #if SERVER
 		AI::record_close(player.ref()->ai_record_id);
-		player.ref()->ai_record_id = AI::record_init(Game::level.team_lookup_reverse(player.ref()->get<PlayerManager>()->team.ref()->team()), player.ref()->get<PlayerManager>()->team.ref()->tickets);
+		player.ref()->ai_record_id = AI::record_init(Game::level.team_lookup_reverse(player.ref()->get<PlayerManager>()->team.ref()->team()), player.ref()->get<PlayerManager>()->team.ref()->tickets());
 #endif
 	}
 }
@@ -4720,10 +4691,8 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			case TargetIndicator::Type::BatteryFriendlyOutOfRange:
 				break;
 			default:
-			{
 				vi_assert(false);
 				break;
-			}
 		}
 	}
 
@@ -4799,6 +4768,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				if ((me - pos).length_squared() < DRONE_MAX_DISTANCE * DRONE_MAX_DISTANCE)
 				{
 					enemy_visible = true;
+					enemy_dangerous_visible = true;
 
 					UI::indicator(params, pos, Team::ui_color_enemy, true);
 
@@ -4817,7 +4787,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			}
 		}
 
-		// highlight incoming bolts
 		for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->team != my_team && i.item()->visible())
@@ -4827,11 +4796,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				r32 distance = diff.length();
 				if (distance < DRONE_MAX_DISTANCE
 					&& (diff / distance).dot(Vec3::normalize(i.item()->velocity)) > 0.7f)
-				{
-					if (UI::flash_function(Game::real_time.total))
-						UI::indicator(params, pos, Team::ui_color_enemy, true);
 					enemy_dangerous_visible = true;
-				}
 			}
 		}
 	}
@@ -5121,12 +5086,15 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 						r32 item_size = UI_TEXT_SIZE_DEFAULT * UI::scale * 0.75f;
 						Vec2 p2 = username_pos + Vec2((ability_count * -0.5f + 0.5f) * item_size + ((ability_count - 1) * HP_BOX_SPACING * -0.5f), (UI_TEXT_SIZE_DEFAULT * UI::scale) + item_size);
 						UI::box(params, { Vec2(p2.x + item_size * -0.5f - HP_BOX_SPACING, p2.y + item_size * -0.5f - HP_BOX_SPACING), Vec2((ability_count * item_size) + ((ability_count + 1) * HP_BOX_SPACING), item_size + HP_BOX_SPACING * 2.0f) }, UI::color_background);
-						for (s32 i = 0; i < ability_count; i++)
+						for (s32 i = 0; i < MAX_ABILITIES; i++)
 						{
 							Ability ability = other_manager->abilities[i];
-							const AbilityInfo& info = AbilityInfo::list[s32(ability)];
-							UI::mesh(params, info.icon, p2, Vec2(item_size), ability == other_player.item()->get<Drone>()->current_ability ? UI::color_default : *color);
-							p2.x += item_size + HP_BOX_SPACING;
+							if (ability != Ability::None)
+							{
+								const AbilityInfo& info = AbilityInfo::list[s32(ability)];
+								UI::mesh(params, info.icon, p2, Vec2(item_size), ability == other_player.item()->get<Drone>()->current_ability ? UI::color_default : *color);
+								p2.x += item_size + HP_BOX_SPACING;
+							}
 						}
 					}
 				}
@@ -5261,15 +5229,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			r32 cooldown = get<Drone>()->cooldown;
 			b8 cooldown_can_shoot = cooldown < DRONE_COOLDOWN_THRESHOLD;
 			Rect2 box = { pos + Vec2(0, -42.0f) * UI::scale, Vec2(64.0f, 16.0f) * UI::scale };
-			if (cooldown_can_shoot)
-			{
-				if (cooldown > 0.0f)
-				{
-					UI::centered_box(params, { box.pos + Vec2(box.size.x * 0.5f, 0), Vec2(spoke_width * UI::scale, box.size.y) }, UI::color_accent());
-					UI::centered_box(params, { box.pos + Vec2(box.size.x * -0.5f, 0), Vec2(spoke_width * UI::scale, box.size.y) }, UI::color_accent());
-				}
-			}
-			else
+			if (!cooldown_can_shoot)
 				UI::centered_box(params, { box.pos, box.size * Vec2(cooldown / DRONE_COOLDOWN_THRESHOLD, 1.0f) }, UI::color_accent());
 			UI::centered_box(params, { box.pos, box.size * Vec2(vi_min(1.0f, cooldown / DRONE_COOLDOWN_THRESHOLD), 1.0f) }, cooldown_can_shoot ? UI::color_accent() : UI::color_alert());
 		}

@@ -37,14 +37,6 @@ namespace VI
 #define DRONE_REFLECTION_POSITION_TOLERANCE (DRONE_SHIELD_RADIUS * 10.0f)
 #define DRONE_SHOTGUN_PELLETS 13
 
-#define DRONE_COOLDOWN_NORMAL 0.6f
-#define DRONE_COOLDOWN_SHOTGUN 1.1f
-#define DRONE_COOLDOWN_SNIPER 0.9f
-#define DRONE_COOLDOWN_BOLTER (1.0f / 8.0f)
-#define DRONE_COOLDOWN_ACTIVE_ARMOR 0.95f
-#define DRONE_COOLDOWN_THRESHOLD_TIME 3.0f
-#define DRONE_COOLDOWN_SPEED (Game::session.config.cooldown_speed() * (DRONE_COOLDOWN_THRESHOLD / DRONE_COOLDOWN_THRESHOLD_TIME))
-
 #define DEBUG_REFLECTIONS 0
 #define DEBUG_NET_SYNC 0
 
@@ -344,6 +336,7 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTar
 
 	Net::StateFrame state_frame;
 
+	Quat target_rot;
 	Vec3 target_pos;
 
 	if (Game::net_transform_filter(target_shield, Game::level.mode)
@@ -354,18 +347,34 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTar
 		Quat rot;
 		Net::transform_absolute(state_frame, target_shield->get<Transform>()->id(), &pos, &rot);
 		target_pos = pos + (rot * target_shield->get<Target>()->local_offset); // todo possibly: rewind local_offset as well?
+		target_rot = rot;
 	}
 	else
+	{
 		target_pos = target_shield->get<Target>()->absolute_pos();
+		target_rot = target_shield->get<Transform>()->absolute_rot();
+	}
 
-	Vec3 ray_start = drone->get<Transform>()->absolute_pos();
+	Vec3 me = drone->get<Transform>()->absolute_pos();
 
 	s32 result = 1;
 
 	Vec3 intersection;
-	if (LMath::ray_sphere_intersect(ray_start, ray_start + ray_dir * drone->range(), target_pos, DRONE_SHIELD_RADIUS, &intersection))
+	if (LMath::ray_sphere_intersect(me, me + ray_dir * drone->range(), target_pos, DRONE_SHIELD_RADIUS, &intersection))
 	{
-		r32 dot = Vec3::normalize(intersection - target_pos).dot(ray_dir);
+		Vec3 intersection_dir = Vec3::normalize(intersection - target_pos);
+		r32 dot = intersection_dir.dot(ray_dir);
+
+		if (target_shield->has<Drone>())
+		{
+			Drone* target_drone = target_shield->get<Drone>();
+			if (target_drone->state() != Drone::State::Crawl)
+			{
+				// drone is flying or dashing, but it must be within DRONE_GRACE_PERIOD or can_take_damage() would have returned false
+				if (intersection_dir.dot(target_rot * Vec3(0, 0, 1)) > 0.0f) // drone is flying towards us; bounce off
+					return 0;
+			}
+		}
 
 		if (drone->current_ability == Ability::Sniper)
 		{
@@ -547,7 +556,6 @@ void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone:
 void drone_bolter_cooldown_setup(Drone* drone)
 {
 	drone->bolter_last_fired = Game::time.total;
-	drone->cooldown_setup(DRONE_COOLDOWN_BOLTER);
 }
 
 // velocity to give the grenade
@@ -621,7 +629,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				if (flag != DroneNet::FlyFlag::CancelExisting)
 				{
 					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
-					drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
+					drone->cooldown_setup(AbilityInfo::list[s32(Ability::None)].cooldown);
 				}
 
 				drone->ensure_detached();
@@ -659,7 +667,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				if (drone->current_ability == Ability::None)
 				{
 					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
-					drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
+					drone->cooldown_setup(AbilityInfo::list[s32(Ability::None)].cooldown);
 				}
 			}
 
@@ -774,12 +782,12 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			manager->add_energy(-info.spawn_cost);
 
-			if (ability != Ability::Bolter // bolter handles cooldowns manually
-				&& ability != Ability::Shotgun // so does shotgun
-				&& ability != Ability::Sniper // so does sniper
-				&& ability != Ability::ActiveArmor // so does active armor
-				&& (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())) // only do cooldowns for remote drones or AI drones; local players will have already done this
-				drone->cooldown_setup(DRONE_COOLDOWN_NORMAL);
+			if ((Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())) // only do cooldowns for remote drones or AI drones; local players will have already done this
+			{
+				drone->cooldown_setup(info.cooldown);
+				if (ability == Ability::Bolter)
+					drone_bolter_cooldown_setup(drone);
+			}
 
 			Vec3 my_pos;
 			Quat my_rot;
@@ -853,13 +861,9 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						Hits hits;
 						drone->movement_raycast(ray_start, ray_end, &hits);
 						drone_sniper_effects(drone, dir_normalized, &hits);
-						drone->cooldown_setup(DRONE_COOLDOWN_SNIPER);
 					}
 					else if (!drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
-					{
 						drone_sniper_effects(drone, dir_normalized);
-						drone->cooldown_setup(DRONE_COOLDOWN_SNIPER);
-					}
 					break;
 				}
 				case Ability::Grenade:
@@ -931,7 +935,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						drone->get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
 						EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
 						ShellCasing::spawn(drone->get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Bolter);
-						drone_bolter_cooldown_setup(drone);
 					}
 					break;
 				}
@@ -950,25 +953,21 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						ShellCasing::spawn(my_pos, Quat::look(dir_normalized), ShellCasing::Type::Shotgun);
 						EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 3.0f, DRONE_RADIUS * 3.0f, 0.1f, EffectLight::Type::MuzzleFlash);
 						drone->dash_start(-dir_normalized, my_pos, DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
-						drone->cooldown_setup(DRONE_COOLDOWN_SHOTGUN);
 					}
 					break;
 				}
 				case Ability::ActiveArmor:
 				{
-					if (drone && (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local()))
+					if ((Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local()))
 					{
 						drone->get<Health>()->active_armor_timer = vi_max(drone->get<Health>()->active_armor_timer, ACTIVE_ARMOR_TIME);
-						drone->cooldown_setup(DRONE_COOLDOWN_ACTIVE_ARMOR);
 						drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
 					}
 					break;
 				}
 				default:
-				{
 					vi_assert(false);
 					break;
-				}
 			}
 
 			drone->ability_spawned.fire(ability);
@@ -1520,7 +1519,7 @@ void Drone::cooldown_setup(r32 amount)
 	b8 lag_compensate = cooldown == 0.0f;
 #endif
 
-	cooldown += amount;
+	cooldown = vi_min(cooldown + amount, DRONE_COOLDOWN_MAX);
 	cooldown_last_local_change = Game::real_time.total;
 
 #if SERVER
@@ -1736,11 +1735,10 @@ b8 Drone::go(const Vec3& dir)
 		else
 		{
 			// client-side prediction
+			cooldown_setup(AbilityInfo::list[s32(a)].cooldown);
 
 			if (a == Ability::Shotgun)
 			{
-				// shotgun handles cooldowns manually
-
 				// create fake bolts
 				get<Audio>()->post(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
 				Quat target_quat = Quat::look(dir_normalized);
@@ -1764,12 +1762,9 @@ b8 Drone::go(const Vec3& dir)
 					);
 				}
 				dash_start(-dir_normalized, get<Transform>()->absolute_pos(), DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
-				cooldown_setup(DRONE_COOLDOWN_SHOTGUN);
 			}
 			else if (a == Ability::Bolter)
 			{
-				// bolter handles cooldowns manually
-
 				// create fake bolt
 				get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
 				Vec3 my_pos = get<Transform>()->absolute_pos();
@@ -1809,21 +1804,14 @@ b8 Drone::go(const Vec3& dir)
 						Quat::look(grenade_velocity_dir(dir_normalized))
 					)
 				);
-				cooldown_setup(DRONE_COOLDOWN_NORMAL);
 			}
 			else if (a == Ability::Sniper)
-			{
 				drone_sniper_effects(this, dir_normalized);
-				cooldown_setup(DRONE_COOLDOWN_SNIPER);
-			}
 			else if (a == Ability::ActiveArmor)
 			{
-				cooldown_setup(DRONE_COOLDOWN_ACTIVE_ARMOR);
 				get<Health>()->active_armor_timer = ACTIVE_ARMOR_TIME; // show invincibility sparkles instantly
 				get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
 			}
-			else if (a != Ability::None)
-				cooldown_setup(DRONE_COOLDOWN_NORMAL); // all other abilities have normal cooldowns
 		}
 	}
 

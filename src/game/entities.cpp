@@ -141,9 +141,6 @@ void health_internal_apply_damage(Health* h, Entity* e, s8 damage)
 
 	s8 shield_value = h->shield;
 
-	if (h->has<Drone>() && h->get<Drone>()->current_ability == Ability::Sniper) // shield is down while sniping
-		shield_value = 0;
-
 	s8 damage_accumulator = damage;
 	s8 damage_shield;
 	if (damage_accumulator > shield_value)
@@ -411,12 +408,7 @@ void Shield::update_client(const Update& u)
 
 		r32 target_alpha;
 		r32 target_scale;
-		if (has<Drone>() && get<Drone>()->current_ability == Ability::Sniper)
-		{
-			target_alpha = 0.0f;
-			target_scale = 0.0f;
-		}
-		else if (get<Health>()->shield > 0)
+		if (get<Health>()->shield > 0)
 		{
 			target_alpha = DRONE_SHIELD_ALPHA;
 			target_scale = DRONE_SHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO;
@@ -436,12 +428,7 @@ void Shield::update_client(const Update& u)
 
 		r32 target_alpha;
 		r32 target_scale;
-		if (has<Drone>() && get<Drone>()->current_ability == Ability::Sniper)
-		{
-			target_alpha = 0.0f;
-			target_scale = 0.0f;
-		}
-		else if (get<Health>()->shield > 1)
+		if (get<Health>()->shield > 1)
 		{
 			target_alpha = DRONE_OVERSHIELD_ALPHA;
 			target_scale = DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO;
@@ -572,7 +559,7 @@ b8 Health::can_take_damage(Entity* damager) const
 #endif
 
 			if (damager && damager->has<Drone>() // grace period only applies if we're being attacked directly by an enemy drone
-				&& Game::time.total - get<Drone>()->attach_time < 0.25f + rtt)
+				&& Game::time.total - get<Drone>()->attach_time < DRONE_GRACE_PERIOD + rtt)
 				return true; // still vulnerable
 			else
 				return false; // invincible
@@ -989,7 +976,7 @@ void SpawnPoint::update_server_all(const Update& u)
 	{
 		const s32 minion_group = 3;
 		const r32 minion_initial_delay = Game::session.config.game_type == GameType::Deathmatch ? 45.0f : 20.0f;
-		const r32 minion_spawn_interval = 8.0f;
+		const r32 minion_spawn_interval = 9.0f;
 		const r32 minion_group_interval = minion_spawn_interval * 12.0f; // must be a multiple of minion_spawn_interval
 		r32 t = Team::match_time - minion_initial_delay;
 		if (t > 0.0f)
@@ -1573,7 +1560,7 @@ void Turret::killed(Entity* by)
 
 		World::remove_deferred(entity());
 
-		Team::list[1].add_tickets(TURRET_TICKET_REWARD);
+		Team::list[1].add_extra_drones(TURRET_TICKET_REWARD);
 		Team::match_time = vi_max(0.0f, Team::match_time - TURRET_TIME_REWARD);
 #if SERVER
 		Net::Server::sync_time();

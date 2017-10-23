@@ -753,7 +753,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		Team* t = e->get<Team>();
 		serialize_s16(p, t->kills);
-		serialize_int(p, s16, t->tickets, -1, MAX_RESPAWNS);
+		serialize_int(p, s16, t->extra_drones, 0, MAX_RESPAWNS);
 	}
 
 	if (e->has<PlayerCommon>())
@@ -884,6 +884,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	if (!Master::serialize_server_config(p, &Game::session.config))
 		net_error();
 	serialize_r32_range(p, Team::match_time, 0, Game::session.config.time_limit(), 16);
+	serialize_r32_range(p, Team::core_module_delay, 0, CORE_MODULE_DELAY, 8);
 	serialize_enum(p, Team::MatchState, Team::match_state);
 	if (Stream::IsReading)
 		Game::level.finder.map.length = 0;

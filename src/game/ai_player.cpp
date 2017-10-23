@@ -33,12 +33,11 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 	config.interval_memory_update = 0.2f;
 	config.interval_low_level = 0.25f;
 	config.interval_high_level = 0.5f;
-	config.inaccuracy_min = PI * 0.005f;
-	config.inaccuracy_range = PI * 0.015f;
-	config.aim_min_delay = 0.75f;
-	config.aim_timeout = 2.0f;
-	config.aim_speed = 3.0f;
-	config.dodge_chance = 0.1f;
+	config.inaccuracy_min = PI * 0.01f;
+	config.inaccuracy_range = PI * 0.02f;
+	config.aim_min_delay = 1.0f;
+	config.aim_timeout = 3.0f;
+	config.aim_speed = 2.0f;
 	
 	s32 upgrade_count = 0;
 	for (s32 i = 0; i < s32(Upgrade::count); i++)
@@ -108,7 +107,7 @@ void PlayerAI::update(const Update& u)
 		// check if we need to spawn
 		if (!manager.ref()->instance.ref()
 			&& manager.ref()->spawn_timer == 0.0f
-			&& manager.ref()->team.ref()->tickets != 0)
+			&& manager.ref()->team.ref()->tickets() != 0)
 		{
 			// select a random point to spawn at
 			AI::TeamMask mask = 1 << s32(manager.ref()->team.ref()->team());
@@ -952,7 +951,7 @@ b8 want_upgrade(PlayerControlAI* player, Upgrade u)
 {
 	PlayerManager* manager = player->get<PlayerCommon>()->manager.ref();
 
-	if (u == Upgrade::ExtraDrone && manager->team.ref()->tickets > 1)
+	if (u == Upgrade::ExtraDrone && manager->team.ref()->tickets() > 1)
 		return false;
 
 	return manager->upgrade_available(u) && manager->upgrade_cost(u) < manager->energy;

@@ -963,28 +963,8 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 	Vec3 diff = target_pos - head;
 	r32 distance = diff.length() + (target->has<ForceField>() ? -FORCE_FIELD_RADIUS : 0);
 
-	// if we're targeting a drone that is flying or just flew recently,
-	// then don't limit detection to the minion's vision cone
-	// this essentially means the minion can hear the drone flying around
-	if (limit_vision_cone)
-	{
-		if (target->has<Drone>())
-		{
-			if (distance < (Game::time.total - target->get<Drone>()->attach_time < 1.0f ? MINION_HEARING_RANGE : MINION_HEARING_RANGE * 0.5f)) // we can hear the drone
-				limit_vision_cone = false;
-			else
-			{
-				PlayerManager* manager = target->get<PlayerCommon>()->manager.ref();
-				if (Team::list[s32(get<AIAgent>()->team)].player_tracks[manager->id()].tracking)
-					limit_vision_cone = false;
-			}
-		}
-		else if (target->has<Parkour>())
-		{
-			if (distance < MINION_HEARING_RANGE)
-				limit_vision_cone = false;
-		}
-	}
+	if (limit_vision_cone && target->has<Parkour>() && distance < MINION_HEARING_RANGE)
+		limit_vision_cone = false;
 
 	return distance < MINION_VISION_RANGE
 		&& (!limit_vision_cone || Vec3::normalize(diff).dot(get<Walker>()->forward()) > 0.707f)

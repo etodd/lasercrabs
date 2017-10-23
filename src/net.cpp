@@ -639,6 +639,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32(p, x->velocity.x);
 		serialize_r32(p, x->velocity.y);
 		serialize_r32(p, x->velocity.z);
+		serialize_enum(p, Bolt::Type, x->type);
+		serialize_bool(p, x->reflected);
 	}
 
 	if (e->has<Grenade>())

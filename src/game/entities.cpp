@@ -1560,7 +1560,7 @@ void Turret::killed(Entity* by)
 
 		World::remove_deferred(entity());
 
-		Team::list[1].add_extra_drones(TURRET_TICKET_REWARD);
+		Team::list[1].add_extra_drones(TURRET_TICKET_REWARD * Team::list[1].player_count());
 		Team::match_time = vi_max(0.0f, Team::match_time - TURRET_TIME_REWARD);
 #if SERVER
 		Net::Server::sync_time();
@@ -2342,7 +2342,7 @@ void Bolt::hit_entity(const Hit& hit)
 	if (hit_object->has<Health>())
 	{
 		basis = Vec3::normalize(velocity);
-		s8 damage = 1;
+		s8 damage;
 		switch (type)
 		{
 			case Type::DroneBolter:
@@ -2362,7 +2362,9 @@ void Bolt::hit_entity(const Hit& hit)
 			{
 				if (hit_object->has<Minion>())
 					damage = MINION_HEALTH;
-				else if (hit_object->has<Turret>() || hit_object->has<CoreModule>())
+				else if (hit_object->has<Turret>())
+					damage = 1;
+				else if (hit_object->has<CoreModule>())
 					damage = 1;
 				else if (hit_object->has<ForceField>())
 					damage = mersenne::rand() % 3 > 0 ? 1 : 0; // expected value: 0.66
@@ -2374,17 +2376,23 @@ void Bolt::hit_entity(const Hit& hit)
 			{
 				if (hit_object->has<Turret>())
 					damage = 2;
+				else
+					damage = 1;
 				break;
 			}
 			case Type::Turret:
+				damage = 1;
 				break;
 			default:
+			{
+				damage = 0;
 				vi_assert(false);
 				break;
+			}
 		}
 
 		if (reflected)
-			damage += 4;
+			damage = (damage * 2) + 4;
 
 		if (!hit_object->has<Health>() || !hit_object->get<Health>()->can_take_damage(entity()))
 			damage = 0;
@@ -2431,7 +2439,9 @@ void Bolt::hit_entity(const Hit& hit)
 
 	{
 		ParticleEffect::Type particle_type;
-		if (hit_object->has<Health>() && type != Type::DroneShotgun)
+		if (type == Type::DroneShotgun)
+			particle_type = ParticleEffect::Type::ImpactTiny;
+		else if (hit_object->has<Health>())
 			particle_type = ParticleEffect::Type::ImpactLarge;
 		else
 			particle_type = ParticleEffect::Type::ImpactSmall;
@@ -2503,8 +2513,6 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 		EffectLight::add(e.pos, 8.0f, 0.35f, EffectLight::Type::Explosion);
 	else if (e.type == Type::ImpactLarge || e.type == Type::ImpactSmall)
 		Audio::post_global(AK::EVENTS::PLAY_DRONE_BOLT_IMPACT, e.pos);
-	else if (e.type == Type::Fizzle)
-		Audio::post_global(AK::EVENTS::PLAY_FIZZLE, e.pos);
 	else if (e.type == Type::SpawnMinion)
 		Audio::post_global(AK::EVENTS::PLAY_MINION_SPAWN, e.pos);
 	else if (e.type == Type::SpawnDrone)
@@ -2543,7 +2551,12 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 	if (e.type == Type::ImpactLarge)
 		EffectLight::add(e.pos, GRENADE_RANGE * 0.5f, 0.75f, EffectLight::Type::Shockwave);
 
-	if (!is_spawn_effect(e.type))
+	if (is_spawn_effect(e.type))
+	{
+		e.lifetime = SPAWN_EFFECT_LIFETIME;
+		list.add(e);
+	}
+	else
 	{
 		for (s32 i = 0; i < 50; i++)
 		{
@@ -2554,12 +2567,6 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 				Vec4(1, 1, 1, 1)
 			);
 		}
-	}
-
-	if (is_spawn_effect(e.type))
-	{
-		e.lifetime = SPAWN_EFFECT_LIFETIME;
-		list.add(e);
 	}
 
 	return true;
@@ -3040,7 +3047,7 @@ void Grenade::explode()
 				{
 					distance *= (i.item()->get<Turret>()->team == my_team) ? 2.0f : 1.0f;
 					if (distance < GRENADE_RANGE)
-						i.item()->damage(entity(), distance < GRENADE_RANGE * 0.75f ? 8 : 4);
+						i.item()->damage(entity(), 10);
 				}
 				else if (distance < GRENADE_RANGE && (!i.item()->has<Battery>() || i.item()->get<Battery>()->team != my_team))
 					i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 6 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1));

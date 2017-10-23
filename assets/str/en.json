@@ -116,7 +116,7 @@
 		"deploy_timer_assault": "%s - Deploying... %d",
 		"defend": "Defend",
 		"attack": "Attack",
-		"attacker_drones_remaining": "Attacker drones remaining: %d",
+		"attacker_drones_remaining": "%d attacker drones remain",
 		"prompt_deploy": "[{{Interact}}] Deploy",
 		"prompt_interact": "[{{InteractSecondary}}] Interact",
 		"prompt_accept": "[{{Interact}}] Accept",
@@ -240,7 +240,7 @@
 		"tut_crawl": "Leave the spawn area.\n{{Movement}} to crawl.\n[{{Primary}}] to launch.",
 		"tut_battery": "Capture one of the hanging batteries.\n[{{Zoom}}] to zoom.\n[{{Primary}}] to launch.",
 		"tut_upgrade": "Batteries give you energy. Use your energy to buy an upgrade.",
-		"tut_ability": "Press [{{Ability1}}] to select the ability, then [{{Primary}}] to use it.",
+		"tut_ability": "Press [{{Ability2}}] to select the ability, then [{{Primary}}] to use it.",
 		"tut_turrets": "Destroy the turrets to expose the core. Your batteries will spawn minions to help you.",
 		"tut_capture": "Destroy the core modules to capture the zone. Your batteries will spawn minions to help you.",
 

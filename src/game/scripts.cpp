@@ -1203,6 +1203,7 @@ namespace tutorial
 		{
 			if (Turret::list.count() == 0)
 			{
+				Team::core_module_delay = 1.0f;
 				data->state = TutorialState::Capture;
 				Actor::tut(strings::tut_capture);
 			}

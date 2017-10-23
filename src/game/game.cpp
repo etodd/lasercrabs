@@ -1045,7 +1045,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 		{
 			UIText text;
 			text.font = Asset::Font::pt_sans;
-			text.text(0, "DECEIVER pre-alpha %s", BUILD_ID);
+			text.text(0, "DECEIVER %s", BUILD_ID);
 			text.draw(render_params, Vec2::zero);
 		}
 #endif

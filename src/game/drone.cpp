@@ -378,10 +378,12 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTar
 
 		if (drone->current_ability == Ability::Sniper)
 		{
-			if (dot < -0.9f)
+			if (dot < -0.95f)
 				result = 3;
-			else if (dot < -0.7f)
+			else if (dot < -0.8f)
 				result = 2;
+			if (target_shield->has<Turret>())
+				result += 1;
 		}
 		else
 		{

@@ -442,6 +442,7 @@ struct ParticleEffect
 		Fizzle,
 		ImpactLarge,
 		ImpactSmall,
+		ImpactTiny,
 		Explosion,
 		DroneExplosion,
 		Grenade,

@@ -1842,7 +1842,6 @@ void ForceField::health_changed(const HealthEvent& e)
 		damage_timer = FORCE_FIELD_DAMAGE_TIME;
 		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::ForceFieldUnderAttack))
 			PlayerHuman::log_add(_(strings::force_field_under_attack), AI::TeamNone, 1 << team);
-
 	}
 }
 
@@ -2978,7 +2977,7 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, Net::StateFrame* state_frame)
 		t->pos = next_pos;
 	}
 
-	if (!state_frame && state == State::Active && timer > GRENADE_DELAY)
+	if (!state_frame && timer > GRENADE_DELAY)
 		explode();
 
 	return false;
@@ -3047,7 +3046,7 @@ void Grenade::explode()
 				{
 					distance *= (i.item()->get<Turret>()->team == my_team) ? 2.0f : 1.0f;
 					if (distance < GRENADE_RANGE)
-						i.item()->damage(entity(), 10);
+						i.item()->damage(entity(), 9);
 				}
 				else if (distance < GRENADE_RANGE && (!i.item()->has<Battery>() || i.item()->get<Battery>()->team != my_team))
 					i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 6 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1));
@@ -3102,52 +3101,69 @@ void Grenade::update_client_all(const Update& u)
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->state == State::Exploded)
+		switch (i.item()->state)
 		{
-			if (Game::level.local)
+			case State::Exploded:
 			{
-				i.item()->timer += u.time.delta;
-				if (i.item()->timer > NET_MAX_RTT_COMPENSATION * 2.0f)
-					World::remove(i.item()->entity());
-			}
-		}
-		else if (i.item()->state == State::Active)
-		{
-			Vec3 me = i.item()->get<Transform>()->absolute_pos();
-			AI::Team my_team = i.item()->team();
-			b8 countdown = false;
-			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
-			{
-				if (grenade_trigger_filter(i.item()->entity(), my_team))
+				if (Game::level.local)
 				{
-					r32 distance = (i.item()->get<Transform>()->absolute_pos() - me).length();
-					if (i.item()->has<ForceField>())
-						distance -= FORCE_FIELD_RADIUS;
-					if (distance < GRENADE_RANGE * 0.8f)
+					i.item()->timer += u.time.delta;
+					if (i.item()->timer > NET_MAX_RTT_COMPENSATION * 2.0f)
+						World::remove(i.item()->entity());
+				}
+				break;
+			}
+			case State::Inactive:
+			case State::Active:
+			{
+				Vec3 me = i.item()->get<Transform>()->absolute_pos();
+				AI::Team my_team = i.item()->team();
+
+				b8 countdown = false;
+				if (i.item()->timer > GRENADE_DELAY * 0.5f) // once the countdown is past 50%, it's irreversible
+					countdown = true;
+				else
+				{
+					for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 					{
-						countdown = true;
-						break;
+						if (grenade_trigger_filter(i.item()->entity(), my_team))
+						{
+							r32 distance = (i.item()->get<Transform>()->absolute_pos() - me).length();
+							if (i.item()->has<ForceField>())
+								distance -= FORCE_FIELD_RADIUS;
+							if (distance < GRENADE_RANGE * 0.8f)
+							{
+								countdown = true;
+								break;
+							}
+						}
 					}
 				}
-			}
-			if (countdown)
-			{
-				r32 timer_last = i.item()->timer;
-				i.item()->timer += u.time.delta;
-				const r32 interval = 1.5f;
-				if (timer_last == 0.0f || s32(Ease::cubic_in<r32>(i.item()->timer) / interval) != s32(Ease::cubic_in<r32>(timer_last) / interval))
-					i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_BEEP);
-			}
-			else
-			{
-				i.item()->timer = 0.0f;
-				const r32 interval = 5.0f;
-				if (s32(Game::time.total / interval) != s32((Game::time.total - u.time.delta) / interval))
+
+				if (countdown)
 				{
-					EffectLight::add(me, GRENADE_RANGE, 1.5f, EffectLight::Type::Shockwave);
-					i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_BEEP);
+					r32 timer_last = i.item()->timer;
+					i.item()->timer += u.time.delta;
+					const r32 interval = 1.5f;
+					if (timer_last == 0.0f || s32(Ease::cubic_in<r32>(i.item()->timer) / interval) != s32(Ease::cubic_in<r32>(timer_last) / interval))
+						i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_BEEP);
 				}
+				else
+				{
+					i.item()->timer = 0.0f;
+					const r32 interval = 5.0f;
+					if (s32(Game::time.total / interval) != s32((Game::time.total - u.time.delta) / interval))
+					{
+						EffectLight::add(me, GRENADE_RANGE, 1.5f, EffectLight::Type::Shockwave);
+						i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_BEEP);
+					}
+				}
+
+				break;
 			}
+			default:
+				vi_assert(false);
+				break;
 		}
 	}
 }

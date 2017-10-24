@@ -56,7 +56,7 @@ struct Minion : public ComponentType<Minion>
 	static void update_client_all(const Update&);
 	static Vec3 goal_path_position(const Goal&, const Vec3&);
 
-	PathRequest path_request;
+	Array<Ref<Entity>> unreachable_targets;
 	Goal goal;
 	AI::Path path;
 	r32 attack_timer;
@@ -66,6 +66,7 @@ struct Minion : public ComponentType<Minion>
 	Ref<PlayerManager> owner;
 	s8 path_index;
 	b8 charging;
+	PathRequest path_request;
 
 	void awake();
 	~Minion();

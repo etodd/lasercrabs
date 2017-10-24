@@ -628,7 +628,7 @@ void NavMeshProcess::process(struct dtNavMeshCreateParams* params, u8* polyAreas
 		polyFlags[i] = 1;
 }
 
-void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_poly, Path* path)
+void pathfind(const NavGameState& nav_game_state, AI::Team team, const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_poly, Path* path)
 {
 	dtPolyRef path_polys[AI_MAX_PATH_LENGTH];
 	u8 path_straight_flags[AI_MAX_PATH_LENGTH];
@@ -661,6 +661,20 @@ void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_
 
 		if (path->length > 1)
 			path->remove_ordered(0);
+
+		if (path->length > 0)
+		{
+			u32 hash_start = force_field_hash(nav_game_state, team, start);
+			for (s32 i = 0; i < path->length; i++)
+			{
+				if (force_field_hash(nav_game_state, team, (*path)[i]) != hash_start)
+				{
+					// path goes through an enemy force field
+					path->length = 0;
+					break;
+				}
+			}
+		}
 	}
 }
 
@@ -1045,9 +1059,11 @@ void loop()
 				vi_debug("Walk pathfind...");
 #endif
 
+				AI::Team team;
 				Vec3 a;
 				Vec3 b;
 				LinkEntryArg<Path> callback;
+				sync_in.read(&team);
 				sync_in.read(&a);
 				sync_in.read(&b);
 				sync_in.read(&callback);
@@ -1060,7 +1076,7 @@ void loop()
 				Path path;
 
 				if (start_poly && end_poly)
-					pathfind(a, b, start_poly, end_poly, &path);
+					pathfind(nav_game_state, team, a, b, start_poly, end_poly, &path);
 				
 				sync_out.lock();
 				sync_out.write(Callback::Path);
@@ -1113,7 +1129,7 @@ void loop()
 				Path path;
 
 				if (start_poly && end_poly && valid)
-					pathfind(start, end, start_poly, end_poly, &path);
+					pathfind(nav_game_state, team, start, end, start_poly, end_poly, &path);
 
 				sync_out.lock();
 				sync_out.write(Callback::Path);

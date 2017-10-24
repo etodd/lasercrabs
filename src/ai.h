@@ -152,7 +152,7 @@ extern u32 record_id_current;
 b8 match(AI::Team, AI::TeamMask);
 u32 obstacle_add(const Vec3&, r32, r32);
 void obstacle_remove(u32);
-u32 pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
+u32 pathfind(AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
 u32 drone_pathfind(DronePathfind, DroneAllow, AI::Team, const Vec3&, const Vec3&, const Vec3&, const Vec3&, const LinkEntryArg<const DroneResult&>&);
 void drone_mark_adjacency_bad(DroneNavMeshNode, DroneNavMeshNode);
 u32 drone_closest_point(const Vec3&, AI::Team, const LinkEntryArg<const DronePathNode&>&);

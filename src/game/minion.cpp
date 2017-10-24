@@ -282,11 +282,17 @@ b8 Minion::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 	return LMath::ray_sphere_intersect(ray_start, ray_end, head_pos(), MINION_HEAD_RADIUS);
 }
 
-r32 entity_cost(const Vec3& pos, AI::Team team, const Vec3& direction, const Entity* target)
+r32 entity_cost(const Minion* me, const Vec3& pos, AI::Team team, const Vec3& direction, const Entity* target)
 {
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
 	if (ForceField::hash(team, pos) != ForceField::hash(team, target_pos))
 		return FLT_MAX; // can't do it
+
+	for (s32 i = 0; i < me->unreachable_targets.length; i++)
+	{
+		if (me->unreachable_targets[i].ref() == target)
+			return FLT_MAX; // can't do it
+	}
 
 	const r32 direction_cost = DRONE_MAX_DISTANCE;
 
@@ -323,7 +329,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 			{
 				if (me->can_see(item->entity()))
 					return item->entity();
-				r32 cost = entity_cost(pos, team, direction, item->entity());
+				r32 cost = entity_cost(me, pos, team, direction, item->entity());
 				if (cost < best_cost)
 				{
 					best = item->entity();
@@ -342,7 +348,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 				Vec3 item_pos = item->get<Transform>()->absolute_pos();
 				if (me->can_see(item->entity()))
 					return item->entity();
-				r32 cost = entity_cost(pos, team, direction, item->entity());
+				r32 cost = entity_cost(me, pos, team, direction, item->entity());
 				if (cost < best_cost)
 				{
 					best = item->entity();
@@ -363,7 +369,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
 				return item->entity();
-			r32 cost = entity_cost(pos, team, direction, item->entity());
+			r32 cost = entity_cost(me, pos, team, direction, item->entity());
 			if (cost < best_cost)
 			{
 				best = item->entity();
@@ -380,7 +386,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
 				return item->entity();
-			r32 cost = entity_cost(pos, team, direction, item->entity());
+			r32 cost = entity_cost(me, pos, team, direction, item->entity());
 			if (cost < best_cost)
 			{
 				best = item->entity();
@@ -397,7 +403,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
 				return item->entity();
-			r32 cost = entity_cost(pos, team, direction, item->entity());
+			r32 cost = entity_cost(me, pos, team, direction, item->entity());
 			if (cost < best_cost)
 			{
 				best = item->entity();
@@ -414,7 +420,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
 				return item->entity();
-			r32 cost = entity_cost(pos, team, direction, item->entity());
+			r32 cost = entity_cost(me, pos, team, direction, item->entity());
 			if (cost < best_cost)
 			{
 				best = item->entity();
@@ -431,7 +437,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
 				return item->entity();
-			r32 cost = entity_cost(pos, team, direction, item->entity());
+			r32 cost = entity_cost(me, pos, team, direction, item->entity());
 			if (cost < best_cost)
 			{
 				best = item->entity();
@@ -621,7 +627,7 @@ void Minion::update_server(const Update& u)
 					{
 						// recalc path
 						path_request = PathRequest::Repath;
-						AI::pathfind(pos, goal_path_position(goal, pos), ObjectLinkEntryArg<Minion, const AI::Result&, &Minion::set_path>(id()));
+						AI::pathfind(get<AIAgent>()->team, pos, goal_path_position(goal, pos), ObjectLinkEntryArg<Minion, const AI::Result&, &Minion::set_path>(id()));
 					}
 				}
 				break;
@@ -673,7 +679,7 @@ void Minion::update_server(const Update& u)
 							{
 								// recalc path
 								path_request = PathRequest::Target;
-								AI::pathfind(pos, goal_pos, ObjectLinkEntryArg<Minion, const AI::Result&, &Minion::set_path>(id()));
+								AI::pathfind(get<AIAgent>()->team, pos, goal_pos, ObjectLinkEntryArg<Minion, const AI::Result&, &Minion::set_path>(id()));
 							}
 							else // won't be able to reach the goal; find a new one
 								new_goal();
@@ -985,7 +991,7 @@ void Minion::new_goal(const Vec3& direction, b8 allow_entity_target)
 		{
 			path_request = PathRequest::Target;
 			goal.pos = goal.entity.ref()->get<Transform>()->absolute_pos();
-			AI::pathfind(pos, goal_path_position(goal, pos), path_callback);
+			AI::pathfind(get<AIAgent>()->team, pos, goal_path_position(goal, pos), path_callback);
 		}
 	}
 	else
@@ -1022,9 +1028,16 @@ void Minion::set_path(const AI::Result& result)
 			if ((path[i] - get<Walker>()->base_pos()).length_squared() < 0.3f * 0.3f)
 				path_index = i;
 		}
+
+		if (goal.type == Goal::Type::Target) // we successfully did a pathfind to our target; reset unreachable_targets
+			unreachable_targets.length = 0;
 	}
 	else if (path.length == 0 && goal.type == Goal::Type::Target)
+	{
+		unreachable_targets.add(goal.entity);
 		goal.entity = nullptr; // can't path there
+	}
+
 	if (path_request != PathRequest::Repath)
 	{
 		if (path.length > 0)

@@ -377,13 +377,14 @@ u32 drone_random_path(DroneAllow rule, Team team, const Vec3& pos, const Vec3& n
 	return drone_pathfind(DronePathfind::Random, rule, team, pos, normal, Vec3::zero, Vec3::zero, callback);
 }
 
-u32 pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
+u32 pathfind(AI::Team team, const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
 {
 	u32 id = callback_in_id;
 	callback_in_id++;
 
 	sync_in.lock();
 	sync_in.write(Op::Pathfind);
+	sync_in.write(team);
 	sync_in.write(a);
 	sync_in.write(b);
 	sync_in.write(callback);

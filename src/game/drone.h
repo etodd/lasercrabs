@@ -18,6 +18,7 @@ struct RigidBody;
 struct TargetEvent;
 struct Target;
 struct EffectLight;
+struct Flag;
 
 namespace Net
 {
@@ -117,6 +118,8 @@ struct Drone : public ComponentType<Drone>
 	static void init();
 
 	Array<Reflection> reflections;
+	Array<Ref<Entity>> hit_targets;
+	Array<Ref<EffectLight>> fake_projectiles;
 	Quat lerped_rotation;
 	Vec3 velocity;
 	Vec3 lerped_pos;
@@ -129,20 +132,20 @@ struct Drone : public ComponentType<Drone>
 	r32 last_footstep;
 	r32 dash_timer;
 	r32 bolter_last_fired;
-	Ability current_ability;
 	Footing footing[DRONE_LEGS];
-	Array<Ref<Entity>> hit_targets;
-	Array<Ref<EffectLight>> fake_projectiles;
 	LinkArg<const DroneReflectEvent&> reflecting;
 	LinkArg<Entity*> hit;
 	LinkArg<Ability> ability_spawned;
+	Ref<Flag> flag;
 	Link detaching;
 	Link dashing;
 	Link done_flying;
 	Link done_dashing;
+	Ability current_ability;
 	b8 dash_combo;
 
 	Drone();
+	~Drone();
 	void awake();
 
 	b8 bolter_can_fire() const;

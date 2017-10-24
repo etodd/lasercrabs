@@ -523,6 +523,7 @@ AssetID game_type_string(GameType type)
 	{
 		strings::game_type_assault,
 		strings::game_type_deathmatch,
+		strings::game_type_capture_the_flag,
 	};
 	vi_assert(s32(type) >= 0 && s32(type) < s32(GameType::count));
 	return game_type_strings[s32(type)];
@@ -673,25 +674,44 @@ void multiplayer_entry_edit_update(const Update& u)
 					}
 				}
 
-				if (config->game_type == GameType::Assault)
+				switch (config->game_type)
 				{
-					// respawns
-					s16* respawns = &config->respawns;
-					sprintf(str, "%hd", *respawns);
-					delta = menu->slider_item(u, _(strings::respawns), str);
-					*respawns = vi_max(1, vi_min(MAX_RESPAWNS, s32(*respawns) + delta * (*respawns >= (delta > 0 ? 10 : 11) ? 5 : 1)));
-					if (delta)
-						data.multiplayer.active_server_dirty = true;
-				}
-				else
-				{
-					// kill limit
-					s16* kill_limit = &config->kill_limit;
-					sprintf(str, "%hd", *kill_limit);
-					delta = menu->slider_item(u, _(strings::kill_limit), str);
-					*kill_limit = vi_max(1, vi_min(MAX_RESPAWNS, s32(*kill_limit) + delta * (*kill_limit >= (delta > 0 ? 10 : 11) ? 5 : 1)));
-					if (delta)
-						data.multiplayer.active_server_dirty = true;
+					case GameType::Assault:
+					{
+						// respawns
+						s16* respawns = &config->respawns;
+						sprintf(str, "%hd", *respawns);
+						delta = menu->slider_item(u, _(strings::respawns), str);
+						*respawns = vi_max(1, vi_min(MAX_RESPAWNS, s32(*respawns) + delta * (*respawns >= (delta > 0 ? 10 : 11) ? 5 : 1)));
+						if (delta)
+							data.multiplayer.active_server_dirty = true;
+						break;
+					}
+					case GameType::Deathmatch:
+					{
+						// kill limit
+						s16* kill_limit = &config->kill_limit;
+						sprintf(str, "%hd", *kill_limit);
+						delta = menu->slider_item(u, _(strings::kill_limit), str);
+						*kill_limit = vi_max(1, vi_min(MAX_RESPAWNS, s32(*kill_limit) + delta * (*kill_limit >= (delta > 0 ? 10 : 11) ? 5 : 1)));
+						if (delta)
+							data.multiplayer.active_server_dirty = true;
+						break;
+					}
+					case GameType::CaptureTheFlag:
+					{
+						// flag limit
+						s16* flag_limit = &config->flag_limit;
+						sprintf(str, "%hd", *flag_limit);
+						delta = menu->slider_item(u, _(strings::flag_limit), str);
+						*flag_limit = vi_max(1, vi_min(MAX_RESPAWNS, s32(*flag_limit) + delta));
+						if (delta)
+							data.multiplayer.active_server_dirty = true;
+						break;
+					}
+					default:
+						vi_assert(false);
+						break;
 				}
 
 				{
@@ -726,7 +746,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				{
 					// team count
-					if (config->game_type == GameType::Assault)
+					if (config->game_type == GameType::Assault || config->game_type == GameType::CaptureTheFlag)
 						config->team_count = 2;
 
 					s8* team_count = &config->team_count;
@@ -826,6 +846,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					}
 				}
 
+				if (config->game_type != GameType::CaptureTheFlag) // no spawn shields in CTF
 				{
 					// spawn shields
 					b8* enable_spawn_shields = &config->enable_spawn_shields;
@@ -1667,22 +1688,39 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			pos.y -= panel_size.y;
 
 			// kill limit
-			if (details.config.game_type == GameType::Deathmatch)
+			switch (details.config.game_type)
 			{
-				text.text(0, _(strings::kill_limit));
-				text.draw(params, pos);
-				value.text(0, "%d", s32(details.config.kill_limit));
-				value.draw(params, pos + Vec2(panel_size.x, 0));
-				pos.y -= panel_size.y;
-			}
-			else
-			{
-				// respawns
-				text.text(0, _(strings::respawns));
-				text.draw(params, pos);
-				value.text(0, "%d", s32(details.config.respawns));
-				value.draw(params, pos + Vec2(panel_size.x, 0));
-				pos.y -= panel_size.y;
+				case GameType::Deathmatch:
+				{
+					text.text(0, _(strings::kill_limit));
+					text.draw(params, pos);
+					value.text(0, "%d", s32(details.config.kill_limit));
+					value.draw(params, pos + Vec2(panel_size.x, 0));
+					pos.y -= panel_size.y;
+					break;
+				}
+				case GameType::Assault:
+				{
+					// respawns
+					text.text(0, _(strings::respawns));
+					text.draw(params, pos);
+					value.text(0, "%d", s32(details.config.respawns));
+					value.draw(params, pos + Vec2(panel_size.x, 0));
+					pos.y -= panel_size.y;
+					break;
+				}
+				case GameType::CaptureTheFlag:
+				{
+					// flag limit
+					text.text(0, _(strings::flag_limit));
+					text.draw(params, pos);
+					value.text(0, "%d", s32(details.config.flag_limit));
+					value.draw(params, pos + Vec2(panel_size.x, 0));
+					pos.y -= panel_size.y;
+					break;
+				}
+				default:
+					vi_assert(false);
 			}
 
 			// bots
@@ -1723,7 +1761,8 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			// spawn point force fields
 			text.text(0, _(strings::enable_spawn_shields));
 			text.draw(params, pos);
-			value.text(0, _(details.config.enable_spawn_shields ? strings::on : strings::off));
+			// no force fields in CTF
+			value.text(0, _(details.config.game_type != GameType::CaptureTheFlag && details.config.enable_spawn_shields ? strings::on : strings::off));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 
@@ -2105,7 +2144,7 @@ void select_zone_update(const Update& u, b8 enable_movement)
 		}
 
 		{
-			// TODO: mouse
+			// mouse
 		}
 	}
 

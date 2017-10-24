@@ -341,7 +341,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Tram::component_mask
 		| TramRunner::component_mask
 		| Collectible::component_mask
-		| Water::component_mask;
+		| Water::component_mask
+		| Flag::component_mask;
 
 	if (Stream::IsWriting)
 	{
@@ -500,6 +501,14 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Turret* t = e->get<Turret>();
 		serialize_s8(p, t->team);
 		serialize_ref(p, t->target);
+	}
+
+	if (e->has<Flag>())
+	{
+		Flag* f = e->get<Flag>();
+		serialize_s8(p, f->team);
+		serialize_r32_range(p, f->timer, 0.0f, FLAG_RESTORE_TIME, 16);
+		serialize_bool(p, f->at_base);
 	}
 
 	if (e->has<Health>())
@@ -740,6 +749,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_s16(p, m->energy);
 		serialize_s16(p, m->kills);
 		serialize_s16(p, m->deaths);
+		serialize_s16(p, m->flags_captured);
 		s32 username_length;
 		if (Stream::IsWriting)
 			username_length = strlen(m->username);
@@ -755,6 +765,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		Team* t = e->get<Team>();
 		serialize_s16(p, t->kills);
+		serialize_s16(p, t->flags_captured);
 		serialize_int(p, s16, t->extra_drones, 0, MAX_RESPAWNS);
 	}
 
@@ -4680,6 +4691,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Turret:
 		{
 			if (!Turret::net_msg(p, src))
+				net_error();
+			break;
+		}
+		case MessageType::Flag:
+		{
+			if (!Flag::net_msg(p, src))
 				net_error();
 			break;
 		}

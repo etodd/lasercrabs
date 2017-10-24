@@ -598,6 +598,13 @@ void Game::update(const Update& update_in)
 				i.item()->update(u);
 			for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
 				i.item()->simulate(u.time.delta);
+			for (auto i = Flag::list.iterator(); !i.is_last(); i.next())
+				i.item()->update_server(u);
+		}
+		else
+		{
+			for (auto i = Flag::list.iterator(); !i.is_last(); i.next())
+				i.item()->update_client_only(u);
 		}
 
 		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
@@ -742,23 +749,16 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 {
 	// energy pickups are not synced in parkour mode
 
-	if (t->has<Generator>() && !t->has<Battery>())
-		return true;
-
-	const ComponentMask mask_parkour =
+	const ComponentMask mask =
 	(
 		Drone::component_mask
 		| Bolt::component_mask
 		| Minion::component_mask
 		| Grenade::component_mask
-		| TramRunner::component_mask
-	);
-	const ComponentMask mask_pvp =
-	(
-		mask_parkour
+		| Flag::component_mask
 		| Battery::component_mask
 	);
-	return t->component_mask & (mode == Mode::Pvp ? mask_pvp : mask_parkour);
+	return t->component_mask & mask;
 }
 
 #if SERVER
@@ -2233,18 +2233,28 @@ void Game::load_level(AssetID l, Mode m)
 		*link->ref = level.finder.find(link->target_name)->get<SpawnPoint>();
 	}
 
-	if (level.mode == Mode::Pvp && session.config.enable_spawn_shields)
+	if (level.mode == Mode::Pvp)
 	{
-		for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+		if (session.config.game_type == GameType::CaptureTheFlag)
 		{
-			if (!i.item()->battery())
+			// create flags
+			for (s32 i = 0; i < Team::list.count(); i++)
+				World::create<FlagEntity>(AI::Team(i));
+		}
+		else if (session.config.enable_spawn_shields)
+		{
+			// create spawn force fields
+			for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
 			{
-				// this is some team's default spawn point; create a force field around it
-				Vec3 absolute_pos;
-				Quat absolute_rot;
-				i.item()->get<Transform>()->absolute(&absolute_pos, &absolute_rot);
-				absolute_pos += absolute_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
-				World::create<ForceFieldEntity>(nullptr, absolute_pos, absolute_rot, i.item()->team, ForceField::Type::Permanent);
+				if (!i.item()->battery())
+				{
+					// this is some team's default spawn point; create a force field around it
+					Vec3 absolute_pos;
+					Quat absolute_rot;
+					i.item()->get<Transform>()->absolute(&absolute_pos, &absolute_rot);
+					absolute_pos += absolute_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
+					World::create<ForceFieldEntity>(nullptr, absolute_pos, absolute_rot, i.item()->team, ForceField::Type::Permanent);
+				}
 			}
 		}
 	}

@@ -1790,7 +1790,8 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 
 		// team header
 		s32 player_count = team_ref.player_count();
-		if (Game::session.config.game_type == GameType::Deathmatch && player_count > 1)
+		if (Game::session.config.game_type == GameType::CaptureTheFlag
+			|| (Game::session.config.game_type == GameType::Deathmatch && player_count > 1))
 		{
 			text.anchor_x = UIText::Anchor::Min;
 			text.color = Team::ui_color(manager->team.ref()->team(), team);
@@ -1799,7 +1800,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 			text.draw(params, p);
 
 			text.anchor_x = UIText::Anchor::Max;
-			text.text(0, "%d", s32(team_ref.kills));
+			text.text(0, "%d", s32(Game::session.config.game_type == GameType::CaptureTheFlag ? team_ref.flags_captured : team_ref.kills));
 			text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
 
 			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -1828,7 +1829,14 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 
 				text.anchor_x = UIText::Anchor::Max;
 				text.wrap_width = 0;
-				text.text(0, "%d", s32(player_count == 1 ? team_ref.kills : i.item()->kills)); // if there's only one player on the team, show all team kills as belonging to that player
+
+				s32 score;
+				if (Game::session.config.game_type == GameType::CaptureTheFlag)
+					score = s32(i.item()->flags_captured);
+				else // if there's only one player on the team, show all team kills as belonging to that player
+					score = s32(player_count == 1 ? team_ref.kills : i.item()->kills);
+
+				text.text(0, "%d", score);
 				text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
 
 				p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;

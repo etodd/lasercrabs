@@ -1384,6 +1384,204 @@ Generator* Generator::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 	return closest;
 }
 
+namespace FlagNet
+{
+	b8 state_change(Flag* flag, Flag::StateChange change, Entity* param = nullptr)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Flag);
+		{
+			Ref<Flag> ref_flag = flag;
+			serialize_ref(p, ref_flag);
+		}
+		serialize_enum(p, Flag::StateChange, change);
+		{
+			Ref<Entity> ref = param;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
+
+b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+	Ref<Flag> ref;
+	serialize_ref(p, ref);
+	StateChange change;
+	serialize_enum(p, StateChange, change);
+	Ref<Entity> param;
+	serialize_ref(p, param);
+	if (ref.ref() && (Game::level.local == (src == Net::MessageSource::Loopback)))
+	{
+		Flag* flag = ref.ref();
+		switch (change)
+		{
+			case StateChange::PickedUp:
+			{
+				if (param.ref())
+					param.ref()->get<Drone>()->flag = flag;
+				flag->at_base = false;
+				flag->timer = FLAG_RESTORE_TIME;
+				flag->get<View>()->mask = 0;
+
+				{
+					char buffer[UI_TEXT_MAX];
+					snprintf(buffer, UI_TEXT_MAX, _(strings::flag_captured), _(Team::name_long(flag->team)));
+					PlayerHuman::log_add(buffer, flag->team);
+				}
+
+				break;
+			}
+			case StateChange::Dropped:
+			{
+				flag->at_base = false;
+				flag->timer = FLAG_RESTORE_TIME;
+				flag->get<View>()->mask = RENDER_MASK_DEFAULT;
+
+				{
+					char buffer[UI_TEXT_MAX];
+					snprintf(buffer, UI_TEXT_MAX, _(strings::flag_dropped), _(Team::name_long(flag->team)));
+					PlayerHuman::log_add(buffer, flag->team);
+				}
+
+				break;
+			}
+			case StateChange::Scored:
+			{
+				// param = PlayerManager who scored
+				flag->at_base = true;
+				flag->get<View>()->mask = RENDER_MASK_DEFAULT;
+
+				PlayerManager* player = param.ref()->get<PlayerManager>();
+
+				{
+					char buffer[UI_TEXT_MAX];
+					snprintf(buffer, UI_TEXT_MAX, _(strings::flag_scored), player->username);
+					PlayerHuman::log_add(buffer, player->team.ref()->team());
+				}
+				break;
+			}
+			case StateChange::Restored:
+			{
+				flag->at_base = true;
+				flag->get<View>()->mask = RENDER_MASK_DEFAULT;
+
+				{
+					char buffer[UI_TEXT_MAX];
+					snprintf(buffer, UI_TEXT_MAX, _(strings::flag_restored), _(Team::name_long(flag->team)));
+					PlayerHuman::log_add(buffer, flag->team);
+				}
+				break;
+			}
+			default:
+				vi_assert(false);
+				break;
+		}
+	}
+	return true;
+}
+
+void Flag::awake()
+{
+	link_arg<Entity*, &Flag::player_entered_trigger>(get<PlayerTrigger>()->entered);
+}
+
+void Flag::player_entered_trigger(Entity* player)
+{
+	if (Game::level.local
+		&& player->get<AIAgent>()->team != team
+		&& !get<Transform>()->parent.ref())
+	{
+		// attach ourselves to player
+		get<Transform>()->pos = Vec3::zero;
+		get<Transform>()->parent = player->get<Transform>();
+		FlagNet::state_change(this, StateChange::PickedUp, player);
+	}
+}
+
+void Flag::drop()
+{
+	vi_assert(Game::level.local);
+	get<Transform>()->parent = nullptr;
+	get<Transform>()->pos = pos_cached;
+	FlagNet::state_change(this, StateChange::Dropped);
+}
+
+Flag* Flag::for_team(AI::Team t)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team == t)
+			return i.item();
+	}
+	return nullptr;
+}
+
+void Flag::update_server(const Update& u)
+{
+	pos_cached = get<Transform>()->absolute_pos();
+
+	if (get<Transform>()->parent.ref())
+	{
+		// we're being carried
+		for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->team() != team && for_team(i.item()->team())->at_base)
+			{
+				SpawnPoint* spawn = i.item()->default_spawn_point();
+				if ((spawn->get<Transform>()->absolute_pos() - pos_cached).length_squared() < get<PlayerTrigger>()->radius * get<PlayerTrigger>()->radius)
+				{
+					// score
+					PlayerManager* player = get<Transform>()->parent.ref()->get<PlayerCommon>()->manager.ref();
+					player->captured_flag();
+
+					FlagNet::state_change(this, StateChange::Scored, player->entity());
+					get<Transform>()->parent = nullptr;
+					get<Transform>()->pos = pos_cached = Team::list[team].default_spawn_point()->spawn_position().pos;
+					break;
+				}
+			}
+		}
+	}
+	else
+	{
+		// we're sitting somewhere
+		if (!at_base)
+		{
+			timer = vi_max(0.0f, timer - u.time.delta);
+			if (timer == 0.0f)
+			{
+				FlagNet::state_change(this, StateChange::Restored);
+				get<Transform>()->pos = pos_cached = Team::list[team].default_spawn_point()->spawn_position().pos;
+			}
+		}
+	}
+}
+
+void Flag::update_client_only(const Update& u)
+{
+	if (!get<Transform>()->parent.ref() && !at_base)
+		timer = vi_max(0.0f, timer - u.time.delta);
+}
+
+FlagEntity::FlagEntity(AI::Team team)
+{
+	create<Transform>()->absolute_pos(Team::list[team].default_spawn_point()->spawn_position().pos);
+
+	View* model = create<View>();
+	model->mesh = Asset::Mesh::sphere;
+	model->shader = Asset::Shader::standard;
+	model->team = s8(team);
+	model->offset.scale(Vec3(0.2f));
+
+	create<PlayerTrigger>()->radius = DRONE_SHIELD_RADIUS * 2.0f;
+
+	create<Flag>()->team = team;
+}
+
 CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3& pos, const Quat& rot)
 {
 	Transform* transform = create<Transform>();
@@ -1594,7 +1792,7 @@ b8 Turret::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	serialize_ref(p, ref);
 	Ref<Entity> target;
 	serialize_ref(p, target);
-	if (ref.ref())
+	if ((Game::level.local == (src == Net::MessageSource::Loopback)) && target.ref())
 		ref.ref()->target = target;
 	return true;
 }

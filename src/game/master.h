@@ -167,6 +167,7 @@ struct ServerConfig
 	u32 creator_id;
 	StaticArray<AssetID, 32> levels;
 	s16 kill_limit = DEFAULT_ASSAULT_DRONES;
+	s16 flag_limit = DEFAULT_FLAG_LIMIT;
 	s16 respawns = DEFAULT_ASSAULT_DRONES;
 	s16 allow_upgrades = s16((1 << s32(Upgrade::count)) - 1);
 	s16 start_energy = ENERGY_INITIAL;

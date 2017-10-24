@@ -1276,20 +1276,17 @@ void Loader::ai_record_path(char* path, AssetID level, GameType type)
 	switch (type)
 	{
 		case GameType::Deathmatch:
-		{
 			type_str = "dm";
 			break;
-		}
 		case GameType::Assault:
-		{
 			type_str = "as";
 			break;
-		}
+		case GameType::CaptureTheFlag:
+			type_str = "ctf";
+			break;
 		default:
-		{
 			vi_assert(false);
 			break;
-		}
 	}
 	char clean_level_name[MAX_PATH_LENGTH + 1];
 	strncpy(clean_level_name, level_name(level), MAX_PATH_LENGTH);

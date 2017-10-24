@@ -51,6 +51,7 @@ enum class MessageType : s8
 	LoadingDone,
 	TimeSync,
 	Turret,
+	Flag,
 	TransitionLevel,
 	AddPlayer,
 #if !RELEASE_BUILD

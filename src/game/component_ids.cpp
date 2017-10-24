@@ -61,8 +61,9 @@ COMPONENT_TYPE(38, Tram) \
 COMPONENT_TYPE(39, Collectible) \
 COMPONENT_TYPE(40, Water) \
 COMPONENT_TYPE(41, MinionTarget) \
+COMPONENT_TYPE(42, Flag) \
 
-Family World::families = 42;
+Family World::families = 43;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

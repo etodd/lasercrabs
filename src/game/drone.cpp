@@ -1057,8 +1057,18 @@ Drone::Drone()
 	fake_projectiles(),
 	ability_spawned(),
 	dash_target(),
-	reflections()
+	reflections(),
+	flag()
 {
+}
+
+Drone::~Drone()
+{
+	if (Game::level.local && flag.ref())
+	{
+		flag.ref()->drop();
+		flag = nullptr;
+	}
 }
 
 void Drone::awake()
@@ -2339,6 +2349,7 @@ void Drone::crawl(const Vec3& dir_raw, r32 dt)
 		}
 	}
 }
+
 const AssetID drone_legs[DRONE_LEGS] =
 {
 	Asset::Bone::drone_a1,

@@ -27,7 +27,7 @@ namespace VI
 
 namespace TeamNet
 {
-	b8 update_kills(Team*);
+	b8 update_counts(Team*);
 }
 
 const Vec4 Team::color_friend = Vec4(0.15f, 0.45f, 0.7f, MATERIAL_NO_OVERRIDE);
@@ -336,7 +336,7 @@ void Team::add_kills(s32 k)
 {
 	vi_assert(Game::level.local);
 	kills += k;
-	TeamNet::update_kills(this);
+	TeamNet::update_counts(this);
 }
 
 s16 Team::increment() const
@@ -365,6 +365,24 @@ Team* Team::with_most_kills()
 		else if (kills > highest_kills)
 		{
 			highest_kills = kills;
+			result = i.item();
+		}
+	}
+	return result;
+}
+
+Team* Team::with_most_flags()
+{
+	s16 highest_flags = 0;
+	Team* result = nullptr;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		s16 flags = i.item()->flags_captured;
+		if (flags == highest_flags)
+			result = nullptr;
+		else if (flags > highest_flags)
+		{
+			highest_flags = flags;
 			result = i.item();
 		}
 	}
@@ -568,8 +586,7 @@ namespace TeamNet
 	enum Message
 	{
 		MatchState,
-		UpdateKills,
-		UpdateExtraDrones,
+		UpdateCounts,
 		MapSchedule,
 		CoreVulnerable,
 		count,
@@ -593,12 +610,12 @@ namespace TeamNet
 		return true;
 	}
 
-	b8 update_kills(Team* t)
+	b8 update_counts(Team* t)
 	{
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Team);
 		{
-			Message type = Message::UpdateKills;
+			Message type = Message::UpdateCounts;
 			serialize_enum(p, Message, type);
 		}
 		{
@@ -606,22 +623,7 @@ namespace TeamNet
 			serialize_ref(p, ref);
 		}
 		serialize_s16(p, t->kills);
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 update_extra_drones(Team* t)
-	{
-		using Stream = Net::StreamWrite;
-		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Team);
-		{
-			Message type = Message::UpdateExtraDrones;
-			serialize_enum(p, Message, type);
-		}
-		{
-			Ref<Team> ref = t;
-			serialize_ref(p, ref);
-		}
+		serialize_s16(p, t->flags_captured);
 		serialize_int(p, s16, t->extra_drones, -1, MAX_RESPAWNS);
 		Net::msg_finalize(p);
 		return true;
@@ -748,24 +750,22 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			match_time = 0.0f;
 			break;
 		}
-		case TeamNet::Message::UpdateKills:
+		case TeamNet::Message::UpdateCounts:
 		{
 			Ref<Team> t;
 			serialize_ref(p, t);
 			s16 kills;
 			serialize_s16(p, kills);
-			if (!Game::level.local || src == Net::MessageSource::Loopback)
-				t.ref()->kills = kills;
-			break;
-		}
-		case TeamNet::Message::UpdateExtraDrones:
-		{
-			Ref<Team> t;
-			serialize_ref(p, t);
+			s16 flags_captured;
+			serialize_s16(p, flags_captured);
 			s16 extra_drones;
 			serialize_int(p, s16, extra_drones, -1, MAX_RESPAWNS);
 			if (!Game::level.local || src == Net::MessageSource::Loopback)
+			{
+				t.ref()->kills = kills;
 				t.ref()->extra_drones = extra_drones;
+				t.ref()->flags_captured = flags_captured;
+			}
 			break;
 		}
 		case TeamNet::Message::MapSchedule:
@@ -973,11 +973,13 @@ void Team::update_all_server(const Update& u)
 	if (match_state == MatchState::Active)
 	{
 		Team* team_with_most_kills = Game::session.config.game_type == GameType::Deathmatch ? with_most_kills() : nullptr;
+		Team* team_with_most_flags = Game::session.config.game_type == GameType::CaptureTheFlag ? with_most_flags() : nullptr;
 		if (!Game::level.noclip
 			&& (match_time > Game::session.config.time_limit()
 			|| (Game::level.has_feature(Game::FeatureLevel::All) && teams_with_active_players() <= 1 && Game::level.ai_config.length == 0)
 			|| (Game::session.config.game_type == GameType::Assault && CoreModule::count(1 << 0) == 0)
-			|| (Game::session.config.game_type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::session.config.kill_limit)))
+			|| (Game::session.config.game_type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::session.config.kill_limit))
+			|| (Game::session.config.game_type == GameType::CaptureTheFlag && team_with_most_flags && team_with_most_flags->flags_captured >= Game::session.config.flag_limit))
 		{
 			// determine the winner, if any
 			Team* w = nullptr;
@@ -1003,6 +1005,8 @@ void Team::update_all_server(const Update& u)
 				else
 					w = &list[0]; // defenders win
 			}
+			else if (Game::session.config.game_type == GameType::CaptureTheFlag)
+				w = team_with_most_flags;
 
 			// remove player entities
 			for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
@@ -1126,7 +1130,7 @@ void Team::add_extra_drones(s16 d)
 {
 	vi_assert(Game::level.local);
 	extra_drones += d;
-	TeamNet::update_extra_drones(this);
+	TeamNet::update_counts(this);
 }
 
 s16 Team::initial_energy() const
@@ -1321,6 +1325,7 @@ namespace PlayerManagerNet
 		}
 		serialize_s16(p, m->kills);
 		serialize_s16(p, m->deaths);
+		serialize_s16(p, m->flags_captured);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -1763,8 +1768,10 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 		{
 			s16 kills;
 			s16 deaths;
+			s16 flags_captured;
 			serialize_s16(p, kills);
 			serialize_s16(p, deaths);
+			serialize_s16(p, flags_captured);
 
 			if (!m)
 				return true;
@@ -1773,6 +1780,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			{
 				m->kills = kills;
 				m->deaths = deaths;
+				m->flags_captured = flags_captured;
 			}
 			break;
 		}
@@ -2094,6 +2102,15 @@ void PlayerManager::add_kills(s32 k)
 	vi_assert(Game::level.local);
 	kills += k;
 	PlayerManagerNet::update_counts(this);
+}
+
+void PlayerManager::captured_flag()
+{
+	vi_assert(Game::level.local);
+	flags_captured++;
+	PlayerManagerNet::update_counts(this);
+	team.ref()->flags_captured++;
+	TeamNet::update_counts(team.ref());
 }
 
 void PlayerManager::add_deaths(s32 d)

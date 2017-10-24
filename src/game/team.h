@@ -108,6 +108,7 @@ struct Team : public ComponentType<Team>
 	static void update_all_client_only(const Update&);
 	static s32 teams_with_active_players();
 	static Team* with_most_kills();
+	static Team* with_most_flags();
 	static Team* with_least_players(s32* = nullptr);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void draw_ui(const RenderParams&);
@@ -130,6 +131,7 @@ struct Team : public ComponentType<Team>
 	GeneratorTrack player_tracks[MAX_PLAYERS];
 	s16 kills;
 	s16 extra_drones;
+	s16 flags_captured;
 
 	void awake() {}
 	b8 has_active_player() const;
@@ -203,6 +205,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s16 energy;
 	s16 kills;
 	s16 deaths;
+	s16 flags_captured;
 	char username[MAX_USERNAME + 1]; // +1 for null terminator
 	Ability abilities[MAX_ABILITIES];
 	Upgrade current_upgrade;
@@ -239,6 +242,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void add_energy_and_notify(s32);
 	void add_kills(s32);
 	void add_deaths(s32);
+	void captured_flag();
 	void update_server(const Update&);
 	void update_client_only(const Update&);
 	void score_accept();

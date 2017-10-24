@@ -121,6 +121,7 @@ enum class GameType : s8
 {
 	Assault,
 	Deathmatch,
+	CaptureTheFlag,
 	count,
 };
 

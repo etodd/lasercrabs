@@ -222,6 +222,37 @@ struct Generator : public ComponentType<Generator>
 	static void update_all(const Update&);
 };
 
+struct Flag : public ComponentType<Flag>
+{
+	enum class StateChange
+	{
+		Scored,
+		Dropped,
+		PickedUp,
+		Restored,
+		count,
+	};
+
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
+	static Flag* for_team(AI::Team);
+
+	Vec3 pos_cached;
+	r32 timer;
+	AI::Team team;
+	b8 at_base;
+
+	void awake();
+	void player_entered_trigger(Entity*);
+	void drop();
+	void update_server(const Update&);
+	void update_client_only(const Update&);
+};
+
+struct FlagEntity : public Entity
+{
+	FlagEntity(AI::Team);
+};
+
 struct CoreModuleEntity : public Entity
 {
 	CoreModuleEntity(AI::Team, Transform*, const Vec3&, const Quat&);

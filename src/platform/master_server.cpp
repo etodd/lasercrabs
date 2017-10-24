@@ -538,9 +538,11 @@ namespace Master
 				level = level->next;
 			}
 		}
-		config->kill_limit = s16(Json::get_s32(json, "kill_limit", DEFAULT_ASSAULT_DRONES));
-		config->respawns = s16(Json::get_s32(json, "respawns", DEFAULT_ASSAULT_DRONES));
-		config->allow_upgrades = s16(Json::get_s32(json, "allow_upgrades", 0xffff));
+		ServerConfig defaults;
+		config->kill_limit = s16(Json::get_s32(json, "kill_limit", defaults.kill_limit));
+		config->flag_limit = s16(Json::get_s32(json, "flag_limit", defaults.flag_limit));
+		config->respawns = s16(Json::get_s32(json, "respawns", defaults.respawns));
+		config->allow_upgrades = s16(Json::get_s32(json, "allow_upgrades", defaults.allow_upgrades));
 		{
 			cJSON* start_upgrades = cJSON_GetObjectItem(json, "start_upgrades");
 			cJSON* u = start_upgrades->child;
@@ -550,18 +552,18 @@ namespace Master
 				u = u->next;
 			}
 		}
-		config->max_players = s8(Json::get_s32(json, "max_players", MAX_PLAYERS));
-		config->min_players = s8(Json::get_s32(json, "min_players", 2));
-		config->time_limit_minutes = s8(Json::get_s32(json, "time_limit_minutes", DEFAULT_TIME_LIMIT_MINUTES));
-		config->enable_minions = b8(Json::get_s32(json, "enable_minions", 1));
-		config->enable_batteries = b8(Json::get_s32(json, "enable_batteries", 1));
-		config->enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", 1));
-		config->enable_spawn_shields = b8(Json::get_s32(json, "enable_spawn_shields", 1));
-		config->drone_shield = s8(Json::get_s32(json, "drone_shield", DRONE_SHIELD_AMOUNT));
-		config->start_energy = s16(Json::get_s32(json, "start_energy", ENERGY_INITIAL));
-		config->start_energy_attacker = s16(Json::get_s32(json, "start_energy_attacker", ENERGY_INITIAL_ATTACKER));
-		config->cooldown_speed_index = u8(Json::get_s32(json, "cooldown_speed_index", 4));
-		config->fill_bots = s8(Json::get_s32(json, "fill_bots"));
+		config->max_players = s8(Json::get_s32(json, "max_players", defaults.max_players));
+		config->min_players = s8(Json::get_s32(json, "min_players", defaults.min_players));
+		config->time_limit_minutes = s8(Json::get_s32(json, "time_limit_minutes", defaults.time_limit_minutes));
+		config->enable_minions = b8(Json::get_s32(json, "enable_minions", defaults.enable_minions));
+		config->enable_batteries = b8(Json::get_s32(json, "enable_batteries", defaults.enable_batteries));
+		config->enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", defaults.enable_battery_stealth));
+		config->enable_spawn_shields = b8(Json::get_s32(json, "enable_spawn_shields", defaults.enable_spawn_shields));
+		config->drone_shield = s8(Json::get_s32(json, "drone_shield", defaults.drone_shield));
+		config->start_energy = s16(Json::get_s32(json, "start_energy", defaults.start_energy));
+		config->start_energy_attacker = s16(Json::get_s32(json, "start_energy_attacker", defaults.start_energy_attacker));
+		config->cooldown_speed_index = u8(Json::get_s32(json, "cooldown_speed_index", defaults.cooldown_speed_index));
+		config->fill_bots = s8(Json::get_s32(json, "fill_bots", defaults.fill_bots));
 		cJSON_Delete(json);
 	}
 
@@ -569,6 +571,8 @@ namespace Master
 	char* server_config_stringify(const ServerConfig& config)
 	{
 		// id, name, game_type, team_count, and is_private are stored in DB row, not here
+
+		ServerConfig defaults;
 
 		cJSON* json = cJSON_CreateObject();
 
@@ -578,27 +582,44 @@ namespace Master
 			for (s32 i = 0; i < config.levels.length; i++)
 				cJSON_AddItemToArray(levels, cJSON_CreateNumber(config.levels[i]));
 		}
-		cJSON_AddNumberToObject(json, "kill_limit", config.kill_limit);
-		cJSON_AddNumberToObject(json, "respawns", config.respawns);
-		cJSON_AddNumberToObject(json, "allow_upgrades", config.allow_upgrades);
+		if (config.kill_limit != defaults.kill_limit)
+			cJSON_AddNumberToObject(json, "kill_limit", config.kill_limit);
+		if (config.flag_limit != defaults.flag_limit)
+			cJSON_AddNumberToObject(json, "flag_limit", config.flag_limit);
+		if (config.respawns != defaults.respawns)
+			cJSON_AddNumberToObject(json, "respawns", config.respawns);
+		if (config.allow_upgrades != defaults.allow_upgrades)
+			cJSON_AddNumberToObject(json, "allow_upgrades", config.allow_upgrades);
 		{
 			cJSON* start_upgrades = cJSON_CreateArray();
 			cJSON_AddItemToObject(json, "start_upgrades", start_upgrades);
 			for (s32 i = 0; i < config.start_upgrades.length; i++)
 				cJSON_AddItemToArray(start_upgrades, cJSON_CreateNumber(s32(config.start_upgrades[i])));
 		}
-		cJSON_AddNumberToObject(json, "max_players", config.max_players);
-		cJSON_AddNumberToObject(json, "min_players", config.min_players);
-		cJSON_AddNumberToObject(json, "time_limit_minutes", config.time_limit_minutes);
-		cJSON_AddNumberToObject(json, "enable_minions", config.enable_minions);
-		cJSON_AddNumberToObject(json, "enable_batteries", config.enable_batteries);
-		cJSON_AddNumberToObject(json, "enable_battery_stealth", config.enable_battery_stealth);
-		cJSON_AddNumberToObject(json, "enable_spawn_shields", config.enable_spawn_shields);
-		cJSON_AddNumberToObject(json, "drone_shield", config.drone_shield);
-		cJSON_AddNumberToObject(json, "start_energy", config.start_energy);
-		cJSON_AddNumberToObject(json, "start_energy_attacker", config.start_energy_attacker);
-		cJSON_AddNumberToObject(json, "cooldown_speed_index", config.cooldown_speed_index);
-		cJSON_AddNumberToObject(json, "fill_bots", config.fill_bots);
+		if (config.max_players != defaults.max_players)
+			cJSON_AddNumberToObject(json, "max_players", config.max_players);
+		if (config.min_players != defaults.min_players)
+			cJSON_AddNumberToObject(json, "min_players", config.min_players);
+		if (config.time_limit_minutes != defaults.time_limit_minutes)
+			cJSON_AddNumberToObject(json, "time_limit_minutes", config.time_limit_minutes);
+		if (config.enable_minions != defaults.enable_minions)
+			cJSON_AddNumberToObject(json, "enable_minions", config.enable_minions);
+		if (config.enable_batteries != defaults.enable_batteries)
+			cJSON_AddNumberToObject(json, "enable_batteries", config.enable_batteries);
+		if (config.enable_battery_stealth != defaults.enable_battery_stealth)
+			cJSON_AddNumberToObject(json, "enable_battery_stealth", config.enable_battery_stealth);
+		if (config.enable_spawn_shields != defaults.enable_spawn_shields)
+			cJSON_AddNumberToObject(json, "enable_spawn_shields", config.enable_spawn_shields);
+		if (config.drone_shield != defaults.drone_shield)
+			cJSON_AddNumberToObject(json, "drone_shield", config.drone_shield);
+		if (config.start_energy != defaults.start_energy)
+			cJSON_AddNumberToObject(json, "start_energy", config.start_energy);
+		if (config.start_energy_attacker != defaults.start_energy_attacker)
+			cJSON_AddNumberToObject(json, "start_energy_attacker", config.start_energy_attacker);
+		if (config.cooldown_speed_index != defaults.cooldown_speed_index)
+			cJSON_AddNumberToObject(json, "cooldown_speed_index", config.cooldown_speed_index);
+		if (config.fill_bots != defaults.fill_bots)
+			cJSON_AddNumberToObject(json, "fill_bots", config.fill_bots);
 
 		char* result = cJSON_Print(json);
 		cJSON_Delete(json);

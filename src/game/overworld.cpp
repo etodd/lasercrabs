@@ -180,6 +180,47 @@ struct Data
 			u32 last_sent_token;
 		};
 
+		struct TopBarLayout
+		{
+			struct Button
+			{
+				enum class Type : s8
+				{
+					Select,
+					CreateServer,
+					ChooseRegion,
+					Back,
+					ConnectServer,
+					EditServer,
+					SaveServer,
+					count,
+				};
+
+				Rect2 rect;
+				char text[UI_TEXT_MAX];
+				Type type;
+
+				Rect2 container() const
+				{
+					return rect.outset(PADDING * 0.5f);
+				}
+			};
+
+			StaticArray<Button, 4> buttons;
+			Rect2 rect;
+
+			b8 button_clicked(Button::Type type, const Update& u)
+			{
+				for (s32 i = 0; i < buttons.length; i++)
+				{
+					const Button& button = buttons[i];
+					if (button.type == type)
+						return button.container().contains(UI::cursor_pos) && u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft));
+				}
+				return false;
+			}
+		};
+
 		std::unordered_map<u64, PingData> ping;
 		ServerList server_lists[s32(ServerListType::count)];
 		UIMenu menu[s32(EditMode::count)];
@@ -192,6 +233,7 @@ struct Data
 		State state;
 		EditMode edit_mode;
 		ServerListType tab_mouse_try;
+		TopBarLayout top_bar;
 		// in State::EntryEdit, this is true if there are unsaved changes.
 		// in State::EntryView, this is true if we've received ServerDetails from the master
 		b8 active_server_dirty;
@@ -279,20 +321,21 @@ Rect2 multiplayer_main_view_rect()
 	};
 }
 
-Rect2 multiplayer_browse_entry_rect(const Data::Multiplayer::ServerList& list, s32 index)
+Rect2 multiplayer_browse_entry_rect(const Data::Multiplayer::TopBarLayout& top_bar, const Data::Multiplayer::ServerList& list, s32 index)
 {
 	Rect2 rect = multiplayer_main_view_rect().outset(-PADDING);
 	Vec2 panel_size(rect.size.x, PADDING + TEXT_SIZE * UI::scale);
-	Vec2 top_bar_size(panel_size.x, panel_size.y * 1.5f);
-	Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
+	Vec2 pos = top_bar.rect.pos;
 	pos.y -= panel_size.y + (PADDING * 1.5f) + ((index - list.scroll.top()) * panel_size.y);
 	return { pos, panel_size };
 }
 
 void multiplayer_browse_update(const Update& u)
 {
-	if (u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0))
+	if (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::CreateServer, u)
+		|| (u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0)))
 	{
+		// create server
 		new (&data.multiplayer.active_server.config) Net::Master::ServerConfig();
 		data.multiplayer.active_server.config.region = Settings::region;
 		multiplayer_switch_tab(ServerListType::Mine);
@@ -300,7 +343,8 @@ void multiplayer_browse_update(const Update& u)
 		return;
 	}
 
-	if (u.last_input->get(Controls::Scoreboard, 0) && !u.input->get(Controls::Scoreboard, 0))
+	if (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::ChooseRegion, u)
+		|| (u.last_input->get(Controls::Scoreboard, 0) && !u.input->get(Controls::Scoreboard, 0)))
 	{
 		multiplayer_state_transition(Data::Multiplayer::State::ChangeRegion);
 		return;
@@ -320,7 +364,7 @@ void multiplayer_browse_update(const Update& u)
 	server_list->scroll.scroll_into_view(server_list->selected);
 	for (s32 i = server_list->scroll.top(); i < server_list->scroll.bottom(server_list->entries.length); i++)
 	{
-		if (multiplayer_browse_entry_rect(*server_list, i).contains(UI::cursor_pos))
+		if (multiplayer_browse_entry_rect(data.multiplayer.top_bar, *server_list, i).contains(UI::cursor_pos))
 		{
 			server_list->selected = i;
 			if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
@@ -335,7 +379,8 @@ void multiplayer_browse_update(const Update& u)
 		}
 	}
 
-	if (server_list->selected < server_list->entries.length && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+	if (server_list->selected < server_list->entries.length
+		&& (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::Select, u) || (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))))
 	{
 		// select entry
 		data.multiplayer.active_server.config.id = server_list->entries[server_list->selected].server_state.id;
@@ -539,8 +584,8 @@ UIMenu::Origin multiplayer_menu_origin()
 
 void multiplayer_entry_edit_update(const Update& u)
 {
-	b8 cancel = u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
-		&& !Game::cancel_event_eaten[0];
+	b8 cancel = data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::Back, u)
+		|| (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0) && !Game::cancel_event_eaten[0]);
 
 	if (data.multiplayer.request_id)
 	{
@@ -556,7 +601,7 @@ void multiplayer_entry_edit_update(const Update& u)
 	else
 	{
 		if (!Menu::dialog_active(0)
-			&& u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0))
+			&& (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::SaveServer, u) || (u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0))))
 		{
 			multiplayer_entry_save();
 			return;
@@ -979,8 +1024,8 @@ void master_server_details_response(const Net::Master::ServerDetails& details, u
 
 void multiplayer_entry_view_update(const Update& u)
 {
-	b8 cancel = u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
-		&& !Game::cancel_event_eaten[0];
+	b8 cancel = data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::Back, u)
+		|| (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0) && !Game::cancel_event_eaten[0]);
 
 	if (data.multiplayer.request_id && !data.multiplayer.active_server_dirty) // we don't have any config data yet
 	{
@@ -1003,12 +1048,13 @@ void multiplayer_entry_view_update(const Update& u)
 			return;
 		}
 		else if (data.multiplayer.active_server.is_admin
-			&& u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0))
+			&& (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::EditServer, u) || (u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0))))
 		{
 			multiplayer_state_transition(Data::Multiplayer::State::EntryEdit);
 			return;
 		}
-		else if (u.input->get(Controls::Interact, 0) && !u.last_input->get(Controls::Interact, 0))
+		else if (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::ConnectServer, u)
+			|| (u.input->get(Controls::Interact, 0) && !u.last_input->get(Controls::Interact, 0)))
 		{
 			u32 id = data.multiplayer.active_server.config.id;
 			Game::unload_level();
@@ -1091,13 +1137,78 @@ Rect2 multiplayer_tab_rect(s32 i)
 	};
 }
 
+void multiplayer_top_bar_button_add(Data::Multiplayer::TopBarLayout* layout, Vec2* pos, Data::Multiplayer::TopBarLayout::Button::Type type, const char* format, ...)
+{
+	Data::Multiplayer::TopBarLayout::Button* button = layout->buttons.add();
+
+	UIText text;
+	text.size = TEXT_SIZE;
+	text.anchor_y = UIText::Anchor::Center;
+	text.anchor_x = UIText::Anchor::Min;
+	{
+		va_list args;
+		va_start(args, format);
+		text.text(0, format, args);
+		va_end(args);
+	}
+	button->rect = text.rect(*pos);
+	pos->x = button->rect.pos.x + button->rect.size.x + PADDING * 3.0f;
+	strncpy(button->text, text.rendered_string, UI_TEXT_MAX);
+	button->type = type;
+}
+
+void multiplayer_top_bar_layout(Data::Multiplayer::TopBarLayout* layout)
+{
+	using Layout = VI::Overworld::Data::Multiplayer::TopBarLayout;
+	Rect2 rect = multiplayer_main_view_rect().outset(-PADDING);
+	Vec2 panel_size(rect.size.x, PADDING + TEXT_SIZE * UI::scale);
+	Vec2 top_bar_size(panel_size.x, panel_size.y * 1.5f);
+	Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
+
+	layout->rect = { pos, top_bar_size };
+
+	pos += Vec2(PADDING, top_bar_size.y * 0.5f);
+
+	layout->buttons.length = 0;
+	switch (data.multiplayer.state)
+	{
+		case Data::Multiplayer::State::Browse:
+		{
+			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::Back, _(strings::prompt_back));
+			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::ChooseRegion, _(strings::prompt_region), _(Menu::region_string(Settings::region)));
+			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::CreateServer, _(strings::prompt_entry_create));
+			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::Select, _(strings::prompt_select));
+			break;
+		}
+		case Data::Multiplayer::State::EntryView:
+		{
+			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::Back, _(strings::prompt_back));
+			if (data.multiplayer.active_server.is_admin)
+				multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::EditServer, _(strings::prompt_entry_edit));
+			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::ConnectServer, _(strings::prompt_connect));
+			break;
+		}
+		case Data::Multiplayer::State::EntryEdit:
+		{
+			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::Back, _(strings::prompt_back));
+			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::SaveServer, _(strings::prompt_entry_save));
+			break;
+		}
+		case Data::Multiplayer::State::ChangeRegion:
+			break;
+		default:
+			vi_assert(false);
+			break;
+	}
+}
+
 void multiplayer_update(const Update& u)
 {
 	if (Menu::main_menu_state != Menu::State::Hidden || Game::scheduled_load_level != AssetNull)
 		return;
 
 	if (data.multiplayer.state == Data::Multiplayer::State::Browse
-		&& u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
+		&& (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::Back, u) || (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)))
 		&& !Game::cancel_event_eaten[0])
 	{
 		title();
@@ -1162,28 +1273,21 @@ void multiplayer_update(const Update& u)
 	}
 	else
 	{
+		multiplayer_top_bar_layout(&data.multiplayer.top_bar);
 		switch (data.multiplayer.state)
 		{
 			case Data::Multiplayer::State::Browse:
-			{
 				multiplayer_browse_update(u);
 				break;
-			}
 			case Data::Multiplayer::State::EntryEdit:
-			{
 				multiplayer_entry_edit_update(u);
 				break;
-			}
 			case Data::Multiplayer::State::EntryView:
-			{
 				multiplayer_entry_view_update(u);
 				break;
-			}
 			case Data::Multiplayer::State::ChangeRegion:
-			{
 				multiplayer_change_region_update(u);
 				break;
-			}
 			default:
 				vi_assert(false);
 				break;
@@ -1255,56 +1359,40 @@ void draw_gamepad_icon(const RenderParams& p, const Vec2& pos, s32 index, const 
 	text.draw(p, pos);
 }
 
-void multiplayer_top_bar_draw(const RenderParams& params, const Vec2& pos, const Vec2& top_bar_size)
+void multiplayer_top_bar_draw(const RenderParams& params, const Data::Multiplayer::TopBarLayout& layout)
 {
-	UI::box(params, { pos, top_bar_size }, UI::color_background);
+	using Layout = VI::Overworld::Data::Multiplayer::TopBarLayout;
+	UI::box(params, layout.rect, UI::color_background);
 
 	UIText text;
 	text.size = TEXT_SIZE;
-	text.anchor_y = UIText::Anchor::Center;
-	text.color = UI::color_accent();
-	switch (data.multiplayer.state)
+	text.anchor_x = UIText::Anchor::Min;
+	text.anchor_y = UIText::Anchor::Min;
+	for (s32 i = 0; i < layout.buttons.length; i++)
 	{
-		case Data::Multiplayer::State::Browse:
-			text.text(0, "%s    %s    %s (%s)    %s", _(strings::prompt_select), _(strings::prompt_entry_create), _(strings::prompt_region), _(Menu::region_string(Settings::region)), _(strings::prompt_back));
-			break;
-		case Data::Multiplayer::State::EntryView:
+		const Layout::Button& button = layout.buttons[i];
+
 		{
-			if (data.multiplayer.active_server.is_admin)
-				text.text(0, "%s    %s    %s", _(strings::prompt_connect), _(strings::prompt_entry_edit), _(strings::prompt_back));
+			Rect2 container = button.container();
+			if (container.contains(UI::cursor_pos))
+			{
+				UI::box(params, container, params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : UI::color_accent());
+				text.color = UI::color_background;
+			}
 			else
-				text.text(0, "%s    %s", _(strings::prompt_connect), _(strings::prompt_back));
-			break;
+				text.color = UI::color_accent();
 		}
-		case Data::Multiplayer::State::EntryEdit:
-			text.text(0, "%s    %s", _(strings::prompt_entry_save), _(strings::prompt_back));
-			break;
-		default:
-			vi_assert(false);
-			break;
-	}
-	UIMenu::text_clip(&text, data.multiplayer.state_transition_time, 100.0f);
-	if (Game::ui_gamepad_types[0] == Gamepad::Type::None)
-	{
-		text.anchor_x = UIText::Anchor::Min;
-		text.draw(params, pos + Vec2(PADDING, top_bar_size.y * 0.5f));
-	}
-	else
-	{
-		text.anchor_x = UIText::Anchor::Max;
-		text.draw(params, pos + Vec2(top_bar_size.x - PADDING, top_bar_size.y * 0.5f));
+
+		text.text_raw(0, button.text);
+		text.draw(params, button.rect.pos);
 	}
 }
 
 void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 {
+	multiplayer_top_bar_draw(params, data.multiplayer.top_bar);
 	Vec2 panel_size(rect.size.x, PADDING + TEXT_SIZE * UI::scale);
-	Vec2 top_bar_size(panel_size.x, panel_size.y * 1.5f);
-	Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
-
-	multiplayer_top_bar_draw(params, pos, top_bar_size);
-
-	pos.y -= panel_size.y + PADDING * 1.5f;
+	Vec2 pos = data.multiplayer.top_bar.rect.pos + Vec2(0, -panel_size.y - PADDING * 1.5f);
 
 	// server list
 	{
@@ -1410,12 +1498,10 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 				const Rect2& vp = params.camera->viewport;
 				
 				Vec2 panel_size(((rect.size.x + PADDING * -2.0f) / 3.0f) + PADDING * -2.0f, PADDING + TEXT_SIZE * UI::scale);
-				Vec2 top_bar_size(rect.size.x, panel_size.y * 1.5f);
-				Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
 
-				multiplayer_top_bar_draw(params, pos, top_bar_size);
-				pos.y -= PADDING;
-				pos.x = vp.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f;
+				multiplayer_top_bar_draw(params, data.multiplayer.top_bar);
+
+				Vec2 pos(vp.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, data.multiplayer.top_bar.rect.pos.y - PADDING);
 
 				// top header
 				UIText text;
@@ -1491,11 +1577,10 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 		const r32 text_size = TEXT_SIZE * 0.8f;
 		const r32 padding = PADDING * 0.8f;
 		Vec2 panel_size(((rect.size.x + padding * -2.0f) / 3.0f) + padding * -2.0f, padding + text_size * UI::scale);
-		Vec2 top_bar_size(rect.size.x, panel_size.y * 1.5f);
-		Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
 
-		multiplayer_top_bar_draw(params, pos, top_bar_size);
-		pos += Vec2(padding, padding * -2.0f);
+		multiplayer_top_bar_draw(params, data.multiplayer.top_bar);
+
+		Vec2 pos = data.multiplayer.top_bar.rect.pos + Vec2(padding, padding * -2.0f);
 
 		const Net::Master::ServerDetails& details = data.multiplayer.active_server;
 

@@ -1475,6 +1475,13 @@ b8 settings_graphics(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 #endif
 
 	{
+		u8* fov = &Settings::fov;
+		snprintf(str, MAX_ITEM, "%d deg", s32(*fov));
+		delta = menu->slider_item(u, _(strings::fov), str);
+		*fov = u8(vi_max(40, vi_min(150, s32(*fov) + delta * 5)));
+	}
+
+	{
 		b8* waypoints = &Settings::waypoints;
 		delta = menu->slider_item(u, _(strings::waypoints), _(*waypoints ? strings::on : strings::off));
 		if (delta != 0)

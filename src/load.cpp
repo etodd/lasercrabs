@@ -39,6 +39,7 @@ namespace Settings
 #endif
 	u8 sfx;
 	u8 music;
+	u8 fov;
 	b8 fullscreen;
 	b8 vsync;
 	b8 volumetric_lighting;
@@ -276,6 +277,7 @@ void Loader::settings_load(const Array<DisplayMode>& modes, const DisplayMode& c
 	Settings::volumetric_lighting = b8(Json::get_s32(json, "volumetric_lighting", 1));
 	Settings::antialiasing = b8(Json::get_s32(json, "antialiasing", 1));
 	Settings::ssao = b8(Json::get_s32(json, "ssao", 1));
+	Settings::fov = u8(vi_max(40, vi_min(150, Json::get_s32(json, "fov", 80))));
 	Settings::subtitles = b8(Json::get_s32(json, "subtitles", 1));
 	Settings::waypoints = b8(Json::get_s32(json, "waypoints", 1));
 	Settings::scan_lines = b8(Json::get_s32(json, "scan_lines", 1));
@@ -367,6 +369,7 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "volumetric_lighting", s32(Settings::volumetric_lighting));
 	cJSON_AddNumberToObject(json, "antialiasing", s32(Settings::antialiasing));
 	cJSON_AddNumberToObject(json, "ssao", s32(Settings::ssao));
+	cJSON_AddNumberToObject(json, "fov", s32(Settings::fov));
 	cJSON_AddNumberToObject(json, "subtitles", s32(Settings::subtitles));
 	cJSON_AddNumberToObject(json, "waypoints", s32(Settings::waypoints));
 	cJSON_AddNumberToObject(json, "scan_lines", s32(Settings::scan_lines));

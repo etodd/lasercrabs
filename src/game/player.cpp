@@ -45,11 +45,8 @@ namespace VI
 
 #define DEBUG_NET_SYNC 0
 
-#define fov_narrow (30.0f * PI * 0.5f / 180.0f)
-#define fov_map_view (60.0f * PI * 0.5f / 180.0f)
-#define fov_default (70.0f * PI * 0.5f / 180.0f)
-#define fov_zoom (fov_default * 0.5f)
-#define fov_sniper (fov_default * 0.25f)
+#define fov_zoom (35.0f * PI * 0.5f / 180.0f)
+#define fov_sniper (17.5f * PI * 0.5f / 180.0f)
 #define zoom_speed_multiplier 0.25f
 #define zoom_speed_multiplier_sniper 0.15f
 #define zoom_speed (1.0f / 0.15f)
@@ -935,7 +932,7 @@ void PlayerHuman::update(const Update& u)
 		{
 			if (Game::level.mode == Game::Mode::Pvp)
 			{
-				camera.ref()->perspective(fov_map_view, 1.0f, Game::level.far_plane_get());
+				camera.ref()->perspective(Settings::effective_fov(), 1.0f, Game::level.far_plane_get());
 				camera.ref()->range = 0;
 				if (get<PlayerManager>()->spawn_timer == 0.0f)
 				{
@@ -1260,7 +1257,7 @@ void PlayerHuman::update(const Update& u)
 			// we're dead but others still playing; spectate
 			update_camera_rotation(u);
 
-			camera.ref()->perspective(fov_default, 0.02f, Game::level.far_plane_get());
+			camera.ref()->perspective(Settings::effective_fov(), 0.02f, Game::level.far_plane_get());
 
 			if (PlayerCommon::list.count() > 0)
 			{
@@ -1333,7 +1330,7 @@ void PlayerHuman::update_late(const Update& u)
 		// noclip
 		update_camera_rotation(u);
 
-		camera.ref()->perspective(u.input->keys.get(s32(KeyCode::E)) ? fov_narrow : fov_map_view, 0.02f, Game::level.far_plane_get());
+		camera.ref()->perspective(u.input->keys.get(s32(KeyCode::E)) ? fov_zoom : Settings::effective_fov(), 0.02f, Game::level.far_plane_get());
 		camera.ref()->range = 0;
 		camera.ref()->cull_range = 0;
 
@@ -1347,7 +1344,7 @@ void PlayerHuman::update_late(const Update& u)
 	}
 	else if (Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
 	{
-		camera.ref()->perspective(fov_map_view, 1.0f, Game::level.far_plane_get());
+		camera.ref()->perspective(Settings::effective_fov(), 1.0f, Game::level.far_plane_get());
 
 		Entity* e = get<PlayerManager>()->instance.ref();
 		if (e)
@@ -3284,7 +3281,7 @@ void player_ability_update(const Update& u, PlayerControlHuman* control, Control
 }
 
 PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
-	: fov(fov_default),
+	: fov(Settings::effective_fov()),
 	try_primary(),
 	try_dash(),
 	try_secondary(),
@@ -3899,7 +3896,7 @@ void PlayerControlHuman::update(const Update& u)
 					try_secondary = false;
 				}
 
-				r32 fov_target = LMath::lerpf(zoom_amount, fov_default, (get<Drone>()->current_ability == Ability::Sniper ? fov_sniper : fov_zoom));
+				r32 fov_target = LMath::lerpf(zoom_amount, Settings::effective_fov(), (get<Drone>()->current_ability == Ability::Sniper ? fov_sniper : fov_zoom));
 
 				if (fov < fov_target)
 					fov = vi_min(fov + zoom_speed * sinf(fov) * u.time.delta, fov_target);
@@ -4577,7 +4574,7 @@ void PlayerControlHuman::update_late(const Update& u)
 		Camera* camera = player.ref()->camera.ref();
 
 		{
-			camera->perspective(fov_default, 0.02f, Game::level.far_plane_get());
+			camera->perspective(Settings::effective_fov(), 0.02f, Game::level.far_plane_get());
 			camera->clip_planes[0] = Plane();
 			camera->cull_range = 0.0f;
 			camera->flag(CameraFlagCullBehindWall, false);

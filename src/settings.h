@@ -49,6 +49,13 @@ namespace Settings
 	extern char gamejolt_token[MAX_AUTH_KEY + 1];
 	extern u8 sfx;
 	extern u8 music;
+	extern u8 fov;
+
+	inline r32 effective_fov()
+	{
+		return r32(Settings::fov) * PI * 0.5f / 180.0f;
+	}
+
 	extern ShadowQuality shadow_quality;
 	extern Region region;
 	extern b8 fullscreen;

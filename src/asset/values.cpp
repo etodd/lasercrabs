@@ -1121,6 +1121,7 @@ const char* AssetLookup::String::names[] =
 	"force_field_destroyed",
 	"force_field_under_attack",
 	"forward",
+	"fov",
 	"framerate_limit",
 	"friend_add",
 	"friend_remove",

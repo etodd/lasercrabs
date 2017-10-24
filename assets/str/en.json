@@ -65,6 +65,7 @@
 		"shell_casings": "Shell casings",
 		"antialiasing": "Antialiasing",
 		"ssao": "Ambient occlusion",
+		"fov": "Field of view",
 		"waypoints":  "Waypoints",
 		"subtitles": "Subtitles",
 		"shadow_quality": "Shadows",

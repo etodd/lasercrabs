@@ -300,20 +300,20 @@ void AudioEntry::pathfind_result(s8 listener, r32 path_length, r32 straight_dist
 	occlusion_target[listener] = vi_max(0.0f, vi_min(1.0f, 0.05f + (path_length - straight_distance) / (DRONE_MAX_DISTANCE * 0.4f)));
 }
 
+static const Vec3 audio_reverb_raycasts[4] =
+{
+	Vec3(0, 0, -1),
+	Vec3(0, 0, 1),
+	Vec3(-1, 0, 0),
+	Vec3(1, 0, 0),
+};
+
 void audio_reverb_raycast(const Vec3& abs_pos, r32 output[4])
 {
-	static const Vec3 raycasts[4] =
-	{
-		Vec3(0, 0, -1),
-		Vec3(0, 0, 1),
-		Vec3(-1, 0, 0),
-		Vec3(1, 0, 0),
-	};
-
 	const r32 raycast_length = 100.0f;
 	for (s32 i = 0; i < 4; i++)
 	{
-		btCollisionWorld::ClosestRayResultCallback ray_callback(abs_pos, abs_pos + raycasts[i] * raycast_length);
+		btCollisionWorld::ClosestRayResultCallback ray_callback(abs_pos, abs_pos + audio_reverb_raycasts[i] * raycast_length);
 		Physics::raycast(&ray_callback, CollisionAudio);
 		output[i] = (ray_callback.hasHit() ? ray_callback.m_closestHitFraction : 1.0f) * raycast_length;
 	}

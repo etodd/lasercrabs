@@ -1422,7 +1422,16 @@ b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			case StateChange::PickedUp:
 			{
 				if (param.ref())
+				{
 					param.ref()->get<Drone>()->flag = flag;
+					if (param.ref()->has<PlayerControlHuman>())
+					{
+						if (param.ref()->get<PlayerControlHuman>()->local())
+							param.ref()->get<PlayerControlHuman>()->ability_select(Ability::None);
+					}
+					else // bot
+						param.ref()->get<Drone>()->ability(Ability::None);
+				}
 				flag->at_base = false;
 				flag->timer = FLAG_RESTORE_TIME;
 				flag->get<View>()->mask = 0;
@@ -1456,6 +1465,8 @@ b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				flag->get<View>()->mask = RENDER_MASK_DEFAULT;
 
 				PlayerManager* player = param.ref()->get<PlayerManager>();
+				if (player->instance.ref())
+					player->instance.ref()->get<Drone>()->flag = nullptr;
 
 				{
 					char buffer[UI_TEXT_MAX];
@@ -1529,20 +1540,18 @@ void Flag::update_server(const Update& u)
 		// we're being carried
 		for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->team() != team && for_team(i.item()->team())->at_base)
+			if (i.item()->team() != team
+				&& for_team(i.item()->team())->at_base
+				&& (i.item()->flag_base.ref()->absolute_pos() - pos_cached).length_squared() < get<PlayerTrigger>()->radius * get<PlayerTrigger>()->radius)
 			{
-				SpawnPoint* spawn = i.item()->default_spawn_point();
-				if ((spawn->get<Transform>()->absolute_pos() - pos_cached).length_squared() < get<PlayerTrigger>()->radius * get<PlayerTrigger>()->radius)
-				{
-					// score
-					PlayerManager* player = get<Transform>()->parent.ref()->get<PlayerCommon>()->manager.ref();
-					player->captured_flag();
+				// score
+				PlayerManager* player = get<Transform>()->parent.ref()->get<PlayerCommon>()->manager.ref();
+				player->captured_flag();
 
-					FlagNet::state_change(this, StateChange::Scored, player->entity());
-					get<Transform>()->parent = nullptr;
-					get<Transform>()->pos = pos_cached = Team::list[team].default_spawn_point()->spawn_position().pos;
-					break;
-				}
+				FlagNet::state_change(this, StateChange::Scored, player->entity());
+				get<Transform>()->parent = nullptr;
+				get<Transform>()->pos = pos_cached = Team::list[team].flag_base.ref()->absolute_pos();
+				break;
 			}
 		}
 	}
@@ -1555,7 +1564,7 @@ void Flag::update_server(const Update& u)
 			if (timer == 0.0f)
 			{
 				FlagNet::state_change(this, StateChange::Restored);
-				get<Transform>()->pos = pos_cached = Team::list[team].default_spawn_point()->spawn_position().pos;
+				get<Transform>()->pos = pos_cached = Team::list[team].flag_base.ref()->absolute_pos();
 			}
 		}
 	}
@@ -1569,7 +1578,7 @@ void Flag::update_client_only(const Update& u)
 
 FlagEntity::FlagEntity(AI::Team team)
 {
-	create<Transform>()->absolute_pos(Team::list[team].default_spawn_point()->spawn_position().pos);
+	create<Transform>()->absolute_pos(Team::list[team].flag_base.ref()->absolute_pos());
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::sphere;
@@ -1577,7 +1586,7 @@ FlagEntity::FlagEntity(AI::Team team)
 	model->team = s8(team);
 	model->offset.scale(Vec3(0.2f));
 
-	create<PlayerTrigger>()->radius = DRONE_SHIELD_RADIUS * 2.0f;
+	create<PlayerTrigger>()->radius = DRONE_SHIELD_RADIUS + 0.2f;
 
 	create<Flag>()->team = team;
 }
@@ -1703,18 +1712,19 @@ void Turret::set_team(AI::Team t)
 	get<PointLight>()->team = s8(t);
 }
 
+static const AssetID turret_names[MAX_TURRETS] =
+{
+	strings::turret1,
+	strings::turret2,
+	strings::turret3,
+	strings::turret4,
+	strings::turret5,
+	strings::turret6,
+};
+
 AssetID Turret::name() const
 {
-	static const AssetID names[MAX_TURRETS] =
-	{
-		strings::turret1,
-		strings::turret2,
-		strings::turret3,
-		strings::turret4,
-		strings::turret5,
-		strings::turret6,
-	};
-	return names[id()];
+	return turret_names[id()];
 }
 
 void Turret::health_changed(const HealthEvent& e)
@@ -3562,7 +3572,7 @@ void Rope::draw_all(const RenderParams& params)
 		instances.length = 0;
 		// ropes
 		{
-			static const Vec3 scale = Vec3(ROPE_RADIUS, ROPE_RADIUS, ROPE_SEGMENT_LENGTH * 0.5f);
+			const Vec3 scale = Vec3(ROPE_RADIUS, ROPE_RADIUS, ROPE_SEGMENT_LENGTH * 0.5f);
 
 			for (auto i = list.iterator(); !i.is_last(); i.next())
 			{
@@ -3578,8 +3588,8 @@ void Rope::draw_all(const RenderParams& params)
 		}
 
 		// bolts
-		static const Vec3 scale = Vec3(BOLT_THICKNESS, BOLT_THICKNESS, BOLT_LENGTH * 0.5f);
-		static const Mat4 offset = Mat4::make_translation(0, 0, BOLT_LENGTH * 0.5f);
+		const Vec3 scale = Vec3(BOLT_THICKNESS, BOLT_THICKNESS, BOLT_LENGTH * 0.5f);
+		const Mat4 offset = Mat4::make_translation(0, 0, BOLT_LENGTH * 0.5f);
 		for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
 		{
 			Mat4 m;

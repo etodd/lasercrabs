@@ -215,7 +215,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void update_late(const Update&);
 	void update_camera_rotation(const Update&);
 	void draw_ui_early(const RenderParams&) const;
-	void draw_turret_battery_icons(const RenderParams&) const;
+	void draw_turret_battery_flag_icons(const RenderParams&) const;
 	void draw_ui(const RenderParams&) const;
 	void draw_alpha(const RenderParams&) const;
 	void spawn(const SpawnPosition&);
@@ -363,6 +363,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void parkour_landed(r32);
 	void hit_target(Entity*);
 	void remote_control_handle(const RemoteControl&);
+	void ability_select(Ability);
 	RemoteControl remote_control_get(const Update&) const;
 
 	void terminal_exit();

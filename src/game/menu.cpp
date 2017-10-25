@@ -74,14 +74,15 @@ b8 settings_controls(const Update&, const UIMenu::Origin&, s8, UIMenu*, Gamepad:
 b8 settings_graphics(const Update&, const UIMenu::Origin&, s8, UIMenu*);
 b8 maps(const Update&, const UIMenu::Origin&, s8, UIMenu*);
 
+static const AssetID region_strings[] =
+{
+	strings::region_useast,
+	strings::region_uswest,
+	strings::region_europe,
+};
+
 AssetID region_string(Region region)
 {
-	static const AssetID region_strings[] =
-	{
-		strings::region_useast,
-		strings::region_uswest,
-		strings::region_europe,
-	};
 	vi_assert(s32(region) >= 0 && s32(region) < s32(Region::count));
 	return region_strings[s32(region)];
 }
@@ -1837,10 +1838,11 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 		{
 			// player selected; we can switch their team
 			menu->selected = menu->items.length; // make sure the menu knows which player we have selected, in case players change
-			s32 delta = menu->slider_item(u, i.item()->username, value, disabled, icon);
+			s32 delta = menu->slider_item(u, i.item()->username, value, disabled, icon, UIMenu::SliderItemAllowSelect::Yes);
 			if (i.item()->team_scheduled != AI::TeamNone)
 			{
-				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+				if (delta == INT_MIN // slider item was clicked
+					|| (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad)))
 				{
 					i.item()->set_can_spawn(true);
 					teams_selected_player[gamepad] = nullptr;
@@ -2155,7 +2157,7 @@ b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disab
 	return false;
 }
 
-s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b8 disabled, AssetID icon)
+s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b8 disabled, AssetID icon, SliderItemAllowSelect allow_select)
 {
 	if (!add_item(Item::Type::Slider, label, value, disabled, icon))
 		return 0;
@@ -2191,11 +2193,16 @@ s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b
 				else if (u.last_input->keys.get(s32(KeyCode::MouseLeft)))
 					delta = 1;
 			}
+			else if (allow_select == SliderItemAllowSelect::Yes)
+			{
+				if (u.input->keys.get(s32(KeyCode::MouseLeft))) // show that the user is getting ready to select this slider
+					items[items.length - 1].label.color = UI::color_alert();
+				else if (u.last_input->keys.get(s32(KeyCode::MouseLeft)))
+					delta = INT_MIN;
+			}
 		}
 
-		if (delta < 0)
-			Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER);
-		else if (delta > 0)
+		if (delta != 0)
 			Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER);
 		return delta;
 	}

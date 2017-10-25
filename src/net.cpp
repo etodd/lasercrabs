@@ -767,6 +767,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_s16(p, t->kills);
 		serialize_s16(p, t->flags_captured);
 		serialize_int(p, s16, t->extra_drones, 0, MAX_RESPAWNS);
+		serialize_ref(p, t->flag_base);
 	}
 
 	if (e->has<PlayerCommon>())

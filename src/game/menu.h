@@ -45,6 +45,13 @@ struct UIMenu
 		UIText::Anchor anchor_y;
 	};
 
+	enum class SliderItemAllowSelect : s8
+	{
+		No,
+		Yes,
+		count,
+	};
+
 	static void text_clip_timer(UIText*, r32, r32, s32 = 0);
 	static void text_clip(UIText*, r32, r32, s32 = 0);
 	template<typename T> static b8 enum_option(T* t, s32 delta)
@@ -77,7 +84,7 @@ struct UIMenu
 	b8 add_item(Item::Type, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	b8 item(const Update&, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	b8 text(const Update&, const char*, const char* = nullptr, b8 = true, AssetID = AssetNull);
-	s32 slider_item(const Update&, const char*, const char*, b8 = false, AssetID = AssetNull);
+	s32 slider_item(const Update&, const char*, const char*, b8 = false, AssetID = AssetNull, SliderItemAllowSelect = SliderItemAllowSelect::No);
 	void draw_ui(const RenderParams&) const;
 	void end(const Update&);
 };

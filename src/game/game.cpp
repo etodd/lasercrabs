@@ -1788,6 +1788,20 @@ void Game::load_level(AssetID l, Mode m)
 			else
 				entity = World::alloc<StaticGeom>(Asset::Mesh::spawn_collision, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 		}
+		else if (cJSON_HasObjectItem(element, "FlagBase"))
+		{
+			if (session.config.game_type == GameType::CaptureTheFlag)
+			{
+				AI::Team team = AI::Team(Json::get_s32(element, "team"));
+				if (Team::list.count() > s32(team))
+				{
+					entity = World::create<Prop>(Asset::Mesh::flag_base);
+					entity->get<View>()->team = s8(team);
+					entity->get<View>()->shader = Asset::Shader::culled;
+					Team::list[s32(team)].flag_base = entity->get<Transform>();
+				}
+			}
+		}
 		else if (cJSON_HasObjectItem(element, "CoreModule"))
 		{
 			if (session.config.game_type == GameType::Assault)

@@ -627,6 +627,7 @@ struct Message
 		UpgradeStart,
 		AbilitySelect,
 		Spot,
+		DropFlag,
 		count,
 	};
 
@@ -1044,7 +1045,7 @@ void PlayerHuman::update(const Update& u)
 		case UIMode::PvpDefault:
 		{
 			kill_cam_rot = camera.ref()->rot;
-			if (UpgradeStation::drone_at(entity->get<Drone>()) && get<PlayerManager>()->energy > 0)
+			if (UpgradeStation::drone_at(entity->get<Drone>()) && get<PlayerManager>()->energy > 0 && !entity->get<Drone>()->flag.ref())
 			{
 				if (chat_focus == ChatFocus::None && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 					upgrade_menu_show();
@@ -1872,7 +1873,55 @@ Upgrade PlayerHuman::upgrade_selected() const
 	return upgrade;
 }
 
-void PlayerHuman::draw_turret_battery_icons(const RenderParams& params) const
+// returns the actual detected entity, if any. could be the original player, or something else.
+Entity* player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visible, b8* tracking = nullptr)
+{
+	// make sure we can see this guy
+	AI::Team team = me->get<AIAgent>()->team;
+	const Team::GeneratorTrack track = Team::list[s32(team)].player_tracks[other_player->manager.id];
+	if (tracking)
+		*tracking = track.tracking;
+
+	if (other_player->get<AIAgent>()->team == team)
+	{
+		*visible = true;
+		return other_player->entity();
+	}
+	else
+	{
+		const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(me->manager.ref(), other_player->manager.ref())];
+		*visible = visibility.entity.ref();
+
+		if (track.tracking)
+			return track.entity.ref();
+		else
+			return visibility.entity.ref();
+	}
+}
+
+void player_draw_flag(const RenderParams& params, const Flag* flag)
+{
+	Vec3 pos = flag->get<Transform>()->absolute_pos();
+	Vec2 p;
+	if (UI::project(params, pos, &p))
+	{
+		const Vec4& color = Team::ui_color(params.camera->team, flag->team);
+		UI::centered_box(params, { p, Vec2(32.0f * UI::scale) }, UI::color_background);
+		UI::mesh(params, Asset::Mesh::icon_flag, p, Vec2(24.0f * UI::scale), color);
+
+		if (!flag->at_base && !flag->get<Transform>()->parent.ref())
+		{
+			// it's not at the base and not being carried, so it's sitting waiting to be restored
+			Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
+			Rect2 bar = { p + Vec2(0, 32.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+			UI::box(params, bar, UI::color_background);
+			UI::border(params, bar, 2, color);
+			UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (flag->timer / FLAG_RESTORE_TIME)), bar.size.y) }, color);
+		}
+	}
+}
+
+void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) const
 {
 	UIMode mode = ui_mode();
 	if (params.camera == camera.ref()
@@ -1880,7 +1929,6 @@ void PlayerHuman::draw_turret_battery_icons(const RenderParams& params) const
 		&& local()
 		&& (mode == UIMode::PvpSelectSpawn || mode == UIMode::PvpSpectate || mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade))
 	{
-
 		AI::Team my_team = get<PlayerManager>()->team.ref()->team();
 
 		// battery and turret names
@@ -1939,6 +1987,39 @@ void PlayerHuman::draw_turret_battery_icons(const RenderParams& params) const
 						text.draw(params, p);
 					}
 				}
+			}
+		}
+
+		// flags
+		if (Game::session.config.game_type == GameType::CaptureTheFlag)
+		{
+			AI::Team enemy_team = my_team == 0 ? 1 : 0;
+
+			Entity* instance = get<PlayerManager>()->instance.ref();
+
+			{
+				// enemy flag
+				Flag* enemy_flag = Flag::for_team(enemy_team);
+				if (!instance || enemy_flag != instance->get<Drone>()->flag.ref()) // don't show it if we're carrying it
+					player_draw_flag(params, enemy_flag);
+			}
+
+			{
+				// our flag
+				Flag* our_flag = Flag::for_team(my_team);
+				Transform* carrier = our_flag->get<Transform>()->parent.ref();
+				if (carrier) // it's being carried; only show it if we can see the carrier
+				{
+					if (instance)
+					{
+						b8 carrier_visible;
+						player_determine_visibility(instance->get<PlayerCommon>(), carrier->get<PlayerCommon>(), &carrier_visible);
+						if (carrier_visible)
+							player_draw_flag(params, our_flag);
+					}
+				}
+				else // flag is sitting somewhere
+					player_draw_flag(params, our_flag);
 			}
 		}
 
@@ -2006,7 +2087,7 @@ void PlayerHuman::draw_ui_early(const RenderParams& params) const
 {
 	UIMode mode = ui_mode();
 	if (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade)
-		draw_turret_battery_icons(params);
+		draw_turret_battery_flag_icons(params);
 }
 
 void PlayerHuman::draw_ui(const RenderParams& params) const
@@ -2062,6 +2143,19 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.draw(params, p);
 			p.y -= UI_TEXT_SIZE_DEFAULT * UI::scale + MENU_ITEM_PADDING;
 		}
+	}
+
+	if (mode == UIMode::PvpDefault && get<PlayerManager>()->instance.ref()->get<Drone>()->flag.ref())
+	{
+		// drop flag control prompt
+		UIText text;
+		text.color = UI::color_accent();
+		text.text(gamepad, _(strings::prompt_drop_flag));
+		text.anchor_x = UIText::Anchor::Center;
+		text.anchor_y = UIText::Anchor::Center;
+		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+		text.draw(params, pos);
 	}
 
 	// draw abilities
@@ -2247,7 +2341,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				}
 			}
 
-			draw_turret_battery_icons(params);
+			draw_turret_battery_flag_icons(params);
 
 			if (Game::session.config.game_type == GameType::Assault)
 			{
@@ -2806,31 +2900,6 @@ void PlayerCommon::clamp_rotation(const Vec3& direction, r32 dot_limit)
 	}
 }
 
-// returns the actual detected entity, if any. could be the original player, or something else.
-Entity* player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visible, b8* tracking)
-{
-	// make sure we can see this guy
-	AI::Team team = me->get<AIAgent>()->team;
-	const Team::GeneratorTrack track = Team::list[s32(team)].player_tracks[other_player->manager.id];
-	*tracking = track.tracking;
-
-	if (other_player->get<AIAgent>()->team == team)
-	{
-		*visible = true;
-		return other_player->entity();
-	}
-	else
-	{
-		const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(me->manager.ref(), other_player->manager.ref())];
-		*visible = visibility.entity.ref();
-
-		if (track.tracking)
-			return track.entity.ref();
-		else
-			return visibility.entity.ref();
-	}
-}
-
 void reticle_raycast(RaycastCallbackExcept* ray_callback)
 {
 	for (auto i = UpgradeStation::list.iterator(); !i.is_last(); i.next()) // ignore drones inside upgrade stations
@@ -3054,6 +3123,17 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 			}
 			break;
 		}
+		case PlayerControlHumanNet::Message::Type::DropFlag:
+		{
+			if (Game::level.local)
+			{
+				Flag* flag = c->get<Drone>()->flag.ref();
+				if (flag)
+					flag->drop();
+			}
+			c->get<Drone>()->flag = nullptr;
+			break;
+		}
 		default:
 		{
 			vi_assert(false);
@@ -3091,15 +3171,6 @@ void PlayerControlHuman::drone_done_flying_or_dashing()
 	}
 	ai_record_tag.init(player.ref()->get<PlayerManager>());
 #endif
-}
-
-void ability_select(PlayerControlHuman* control, Ability a)
-{
-	vi_assert(AbilityInfo::list[s32(a)].type != AbilityInfo::Type::Other);
-	PlayerControlHumanNet::Message msg;
-	msg.type = PlayerControlHumanNet::Message::Type::AbilitySelect;
-	msg.ability = a;
-	PlayerControlHumanNet::send(control, &msg);
 }
 
 void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerControlHuman::TargetIndicator::Type type)
@@ -3284,7 +3355,7 @@ void player_ability_update(const Update& u, PlayerControlHuman* control, Control
 			}
 		}
 		else if (drone->current_ability != ability)
-			ability_select(control, ability);
+			control->ability_select(ability);
 	}
 }
 
@@ -3537,6 +3608,15 @@ b8 PlayerControlHuman::movement_enabled() const
 	return input_enabled() && get<PlayerCommon>()->movement_enabled();
 }
 
+void PlayerControlHuman::ability_select(Ability a)
+{
+	vi_assert(AbilityInfo::list[s32(a)].type != AbilityInfo::Type::Other);
+	PlayerControlHumanNet::Message msg;
+	msg.type = PlayerControlHumanNet::Message::Type::AbilitySelect;
+	msg.ability = a;
+	PlayerControlHumanNet::send(this, &msg);
+}
+
 void PlayerControlHuman::update_camera_input(const Update& u, r32 overall_rotation_multiplier, r32 gamepad_rotation_multiplier)
 {
 	if (input_enabled())
@@ -3721,14 +3801,6 @@ void player_confirm_tram_interactable(s8 gamepad)
 			break;
 		}
 	}
-}
-
-void player_confirm_terminal_interactable(s8 gamepad)
-{
-}
-
-void player_cancel_interactable(s8 gamepad)
-{
 }
 
 const PlayerControlHuman::PositionEntry* PlayerControlHuman::remote_position(r32* tolerance_pos, r32* tolerance_rot) const
@@ -4023,6 +4095,13 @@ void PlayerControlHuman::update(const Update& u)
 				}
 
 				last_pos = get<Drone>()->center_lerped();
+
+				if (get<Drone>()->flag.ref() && u.last_input->get(Controls::Interact, gamepad) && u.input->get(Controls::Interact, gamepad))
+				{
+					PlayerControlHumanNet::Message msg;
+					msg.type = PlayerControlHumanNet::Message::Type::DropFlag;
+					PlayerControlHumanNet::send(this, &msg);
+				}
 			}
 			else // flying
 				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
@@ -4813,6 +4892,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		// highlight upgrade point if there is an upgrade available
 		if (Game::level.has_feature(Game::FeatureLevel::Abilities)
 			&& Game::session.config.allow_upgrades
+			&& !get<Drone>()->flag.ref()
 			&& (Game::level.has_feature(Game::FeatureLevel::All) || Game::level.feature_level == Game::FeatureLevel::Abilities) // disable prompt in tutorial after ability has been purchased
 			&& manager->upgrade_available() && manager->upgrade_highest_owned_or_available() != player.ref()->upgrade_last_visit_highest_available
 			&& !UpgradeStation::drone_at(get<Drone>()))
@@ -5141,16 +5221,16 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
 
 			// shield indicator
-			if (is_vulnerable && (danger ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total)))
-			{
-				text.color = UI::color_alert();
-				text.text(player.ref()->gamepad, _(strings::shield_down));
-				UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
-				text.draw(params, ui_anchor);
-			}
-
 			if (is_vulnerable)
 			{
+				if (danger ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total))
+				{
+					text.color = UI::color_alert();
+					text.text(player.ref()->gamepad, _(strings::shield_down));
+					UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
+					text.draw(params, ui_anchor);
+				}
+
 				if (danger)
 				{
 					if (UI::flash_function(Game::real_time.total) && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
@@ -5191,6 +5271,8 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					text.draw(params, ui_anchor);
 				}
 			}
+
+			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
 		}
 	}
 

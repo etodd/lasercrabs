@@ -129,6 +129,7 @@ struct Team : public ComponentType<Team>
 	}
 
 	GeneratorTrack player_tracks[MAX_PLAYERS];
+	Ref<Transform> flag_base;
 	s16 kills;
 	s16 extra_drones;
 	s16 flags_captured;

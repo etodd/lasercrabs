@@ -190,18 +190,19 @@ enum class ParkourHand
 	count,
 };
 
+static const AssetID parkour_claws[6] =
+{
+	Asset::Bone::character_claw1_L,
+	Asset::Bone::character_claw2_L,
+	Asset::Bone::character_claw3_L,
+	Asset::Bone::character_claw1_R,
+	Asset::Bone::character_claw2_R,
+	Asset::Bone::character_claw3_R,
+};
+
 void parkour_sparks(Parkour* parkour, const Update& u, ParkourHand hand, r32 amount)
 {
 	static r32 particle_accumulator = 0.0f;
-	static const AssetID claws[6] =
-	{
-		Asset::Bone::character_claw1_L,
-		Asset::Bone::character_claw2_L,
-		Asset::Bone::character_claw3_L,
-		Asset::Bone::character_claw1_R,
-		Asset::Bone::character_claw2_R,
-		Asset::Bone::character_claw3_R,
-	};
 	s32 claw_offset;
 	s32 claw_count;
 	Quat rot;
@@ -240,7 +241,7 @@ void parkour_sparks(Parkour* parkour, const Update& u, ParkourHand hand, r32 amo
 	while (particle_accumulator > interval)
 	{
 		Vec3 p(0.085f, 0.0f, 0.15f);
-		parkour->get<Animator>()->to_world(claws[claw_offset + mersenne::rand() % claw_count], &p);
+		parkour->get<Animator>()->to_world(parkour_claws[claw_offset + mersenne::rand() % claw_count], &p);
 
 		Particles::sparks_small.add
 		(

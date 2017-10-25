@@ -178,6 +178,7 @@
 		"shield": "Shield",
 		"upgrade_notification": "Upgrade",
 		"prompt_upgrade": "[{{Interact}}] Upgrade",
+		"prompt_drop_flag": "[{{Interact}}] Drop flag",
 		"upgrading": "Upgrading...",
 		"prompt_capture": "[{{Interact}}] Capture",
 		"prompt_defend": "[{{Interact}}] Defend",

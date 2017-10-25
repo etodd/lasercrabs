@@ -45,6 +45,14 @@ r32 Team::match_time;
 r32 Team::core_module_delay;
 Team::MatchState Team::match_state;
 
+static const AssetID team_select_names[MAX_TEAMS] =
+{
+	strings::team_select_a,
+	strings::team_select_b,
+	strings::team_select_c,
+	strings::team_select_d,
+};
+
 AssetID Team::name_selector(AI::Team t)
 {
 	if (Game::session.config.game_type == GameType::Assault)
@@ -54,16 +62,17 @@ AssetID Team::name_selector(AI::Team t)
 	}
 	else
 	{
-		static const AssetID lookup[MAX_TEAMS] =
-		{
-			strings::team_select_a,
-			strings::team_select_b,
-			strings::team_select_c,
-			strings::team_select_d,
-		};
-		return lookup[t];
+		return team_select_names[t];
 	}
 }
+
+static const AssetID team_long_names[MAX_TEAMS] =
+{
+	strings::team_a,
+	strings::team_b,
+	strings::team_c,
+	strings::team_d,
+};
 
 AssetID Team::name_long(AI::Team t)
 {
@@ -73,16 +82,7 @@ AssetID Team::name_long(AI::Team t)
 		return t == 0 ? strings::defend : strings::attack;
 	}
 	else
-	{
-		static const AssetID lookup[MAX_TEAMS] =
-		{
-			strings::team_a,
-			strings::team_b,
-			strings::team_c,
-			strings::team_d,
-		};
-		return lookup[t];
-	}
+		return team_long_names[t];
 }
 
 AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
@@ -1135,9 +1135,9 @@ void Team::add_extra_drones(s16 d)
 
 s16 Team::initial_energy() const
 {
-	return Game::session.config.game_type == GameType::Deathmatch || team() == 0 || Game::session.type == SessionType::Story
-		? Game::session.config.start_energy
-		: Game::session.config.start_energy_attacker;
+	return Game::session.config.game_type == GameType::Assault && team() == 1 && Game::session.type != SessionType::Story
+		? Game::session.config.start_energy_attacker
+		: Game::session.config.start_energy;
 }
 
 SpawnPoint* Team::default_spawn_point() const
@@ -1247,10 +1247,14 @@ b8 PlayerManager::ability_valid(Ability ability) const
 	if (ability == Ability::ActiveArmor && e->get<Health>()->active_armor())
 		return false;
 
-	if (e->get<Drone>()->state() != Drone::State::Crawl)
+	Drone* drone = e->get<Drone>();
+	if (drone->state() != Drone::State::Crawl)
 		return false;
 
-	if (!e->get<Drone>()->cooldown_can_shoot())
+	if (!drone->cooldown_can_shoot())
+		return false;
+
+	if (ability != Ability::None && drone->flag.ref())
 		return false;
 
 	return true;
@@ -2195,7 +2199,8 @@ b8 PlayerManager::can_transition_state() const
 	if (state() != State::Default)
 		return false;
 
-	return e->get<Drone>()->state() == Drone::State::Crawl;
+	Drone* drone = e->get<Drone>();
+	return drone->state() == Drone::State::Crawl && !drone->flag.ref();
 }
 
 void PlayerManager::update_all(const Update& u)

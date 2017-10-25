@@ -517,14 +517,15 @@ void multiplayer_entry_save()
 	}
 }
 
+static const AssetID game_type_strings[] =
+{
+	strings::game_type_assault,
+	strings::game_type_deathmatch,
+	strings::game_type_capture_the_flag,
+};
+
 AssetID game_type_string(GameType type)
 {
-	static const AssetID game_type_strings[] =
-	{
-		strings::game_type_assault,
-		strings::game_type_deathmatch,
-		strings::game_type_capture_the_flag,
-	};
 	vi_assert(s32(type) >= 0 && s32(type) < s32(GameType::count));
 	return game_type_strings[s32(type)];
 }
@@ -1137,6 +1138,11 @@ void multiplayer_tab_switch_mouse(s8)
 	multiplayer_state_transition(Data::Multiplayer::State::Browse);
 }
 
+b8 multiplayer_tab_switch_enabled()
+{
+	return Game::level.mode == Game::Mode::Special; // only in the main menu; not in-game
+}
+
 void multiplayer_tab_switch_try(void (*action)(s8))
 {
 	if (data.multiplayer.state == Data::Multiplayer::State::EntryEdit
@@ -1262,25 +1268,28 @@ void multiplayer_update(const Update& u)
 	Net::Client::master_keepalive();
 #endif
 
-	if (s32(global.multiplayer.tab) > 0 && u.last_input->get(Controls::TabLeft, 0) && !u.input->get(Controls::TabLeft, 0))
-		multiplayer_tab_switch_try(&multiplayer_tab_left);
-	else if (s32(global.multiplayer.tab) < s32(ServerListType::count) - 1 && u.last_input->get(Controls::TabRight, 0) && !u.input->get(Controls::TabRight, 0))
-		multiplayer_tab_switch_try(&multiplayer_tab_right);
-	else if (Game::ui_gamepad_types[0] == Gamepad::Type::None)
+	if (multiplayer_tab_switch_enabled())
 	{
-		// mouse tab switching
-		if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
+		if (s32(global.multiplayer.tab) > 0 && u.last_input->get(Controls::TabLeft, 0) && !u.input->get(Controls::TabLeft, 0))
+			multiplayer_tab_switch_try(&multiplayer_tab_left);
+		else if (s32(global.multiplayer.tab) < s32(ServerListType::count) - 1 && u.last_input->get(Controls::TabRight, 0) && !u.input->get(Controls::TabRight, 0))
+			multiplayer_tab_switch_try(&multiplayer_tab_right);
+		else if (Game::ui_gamepad_types[0] == Gamepad::Type::None)
 		{
-			for (s32 i = 0; i < s32(ServerListType::count); i++)
+			// mouse tab switching
+			if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
 			{
-				if (multiplayer_tab_rect(i).contains(UI::cursor_pos))
+				for (s32 i = 0; i < s32(ServerListType::count); i++)
 				{
-					if (ServerListType(i) != global.multiplayer.tab)
+					if (multiplayer_tab_rect(i).contains(UI::cursor_pos))
 					{
-						data.multiplayer.tab_mouse_try = ServerListType(i);
-						multiplayer_tab_switch_try(&multiplayer_tab_switch_mouse);
+						if (ServerListType(i) != global.multiplayer.tab)
+						{
+							data.multiplayer.tab_mouse_try = ServerListType(i);
+							multiplayer_tab_switch_try(&multiplayer_tab_switch_mouse);
+						}
+						break;
 					}
-					break;
 				}
 			}
 		}
@@ -1890,7 +1899,7 @@ void multiplayer_draw(const RenderParams& params)
 			text.size = TEXT_SIZE;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Min;
-			text.color = s32(global.multiplayer.tab) > 0 ? UI::color_default : UI::color_disabled();
+			text.color = multiplayer_tab_switch_enabled() && s32(global.multiplayer.tab) > 0 ? UI::color_default : UI::color_disabled();
 			text.text(0, "[{{TabLeft}}]");
 
 			Vec2 pos = rect.pos + Vec2(tab_size.x * 0.5f, rect.size.y + tab_size.y * 1.5f);
@@ -1900,7 +1909,7 @@ void multiplayer_draw(const RenderParams& params)
 			pos.x += rect.size.x - tab_size.x;
 			text.text(0, "[{{TabRight}}]");
 			UI::box(params, text.rect(pos).outset(PADDING), UI::color_background);
-			text.color = s32(global.multiplayer.tab) < s32(ServerListType::count) - 1 ? UI::color_default : UI::color_disabled();
+			text.color = multiplayer_tab_switch_enabled() && s32(global.multiplayer.tab) < s32(ServerListType::count) - 1 ? UI::color_default : UI::color_disabled();
 			text.draw(params, pos);
 		}
 

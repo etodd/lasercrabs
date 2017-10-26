@@ -764,6 +764,11 @@ void entity_info(const Entity* e, Team query_team, Team* team, s8* type)
 		_team = e->get<CoreModule>()->team;
 		_type = e->get<Health>()->can_take_damage(nullptr) ? RecordedLife::EntityCoreModuleInvincible : RecordedLife::EntityCoreModuleVulnerable;
 	}
+	else if (e->has<Flag>())
+	{
+		_team = e->get<Flag>()->team;
+		_type = _team == query_team ? RecordedLife::EntityFlagFriend : RecordedLife::EntityFlagEnemy;
+	}
 	else
 	{
 		_team = TeamNone;

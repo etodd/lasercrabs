@@ -1951,6 +1951,16 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			if (!m)
 				return true;
 
+			AI::Team my_team = m->team.ref()->team();
+			for (s32 i = 0; i < PlayerHuman::notifications.length; i++)
+			{
+				const PlayerHuman::Notification& notification = PlayerHuman::notifications[i];
+				if (notification.type == PlayerHuman::Notification::Type::Spot && notification.team == my_team)
+				{
+					PlayerHuman::notifications.remove(i);
+					i--;
+				}
+			}
 			PlayerHuman::notification(target.ref(), m->team.ref()->team(), PlayerHuman::Notification::Type::Spot);
 			break;
 		}

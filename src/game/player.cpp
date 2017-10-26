@@ -59,7 +59,6 @@ namespace VI
 
 #define NOTIFICATION_TIME_HIDDEN 4.0f
 #define NOTIFICATION_TIME (6.0f + NOTIFICATION_TIME_HIDDEN)
-#define NOTIFICATION_TIME_SPOT (16.0f + NOTIFICATION_TIME_HIDDEN)
 #define LOG_TIME 4.0f
 #define CHAT_TIME 10.0f
 #define INTERACT_TIME 2.5f
@@ -479,7 +478,7 @@ b8 player_human_notification(Entity* entity, const Vec3& pos, AI::Team team, Pla
 	PlayerHuman::Notification* n = PlayerHuman::notifications.add();
 	n->target = t;
 	n->pos = t ? t->absolute_pos() : pos;
-	n->timer = type == PlayerHuman::Notification::Type::Spot ? NOTIFICATION_TIME_SPOT : NOTIFICATION_TIME;
+	n->timer = NOTIFICATION_TIME;
 	n->team = team;
 	n->type = type;
 	return true;
@@ -536,8 +535,30 @@ void PlayerHuman::update_all(const Update& u)
 	for (s32 i = 0; i < notifications.length; i++)
 	{
 		Notification* n = &notifications[i];
-		n->timer -= u.time.delta;
-		if (n->timer < 0.0f || (n->type == Notification::Type::Spot && !n->target.ref()))
+
+		Target* target = n->target.ref();
+		b8 remove = !target;
+
+		if (!remove)
+		{
+			if (n->type == Notification::Type::Spot)
+			{
+				if (target->has<Flag>())
+				{
+					Transform* carrier = target->get<Transform>()->parent.ref();
+					if (carrier && carrier->get<AIAgent>()->team != n->team)
+						remove = true; // remove spot once the flag is picked up by an enemy
+				}
+			}
+			else
+			{
+				n->timer -= u.time.delta;
+				if (n->timer < 0.0f)
+					remove = true;
+			}
+		}
+
+		if (remove)
 		{
 			notifications.remove(i);
 			i--;
@@ -2239,12 +2260,30 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		{
 			// "upgrade!" prompt
 			UIText text;
-			text.color = get<PlayerManager>()->upgrade_available() ? UI::color_accent() : UI::color_disabled();
 			text.text(gamepad, _(strings::prompt_upgrade));
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
-			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+			const Vec4* bg;
+			if (get<PlayerManager>()->upgrade_available())
+			{
+				if (params.sync->input.get(Controls::Interact, gamepad))
+				{
+					text.color = UI::color_background;
+					bg = &UI::color_accent();
+				}
+				else
+				{
+					text.color = UI::color_accent();
+					bg = &UI::color_background;
+				}
+			}
+			else
+			{
+				text.color = UI::color_disabled();
+				bg = &UI::color_background;
+			}
+			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), *bg);
 			text.draw(params, pos);
 		}
 
@@ -3126,8 +3165,37 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 						}
 					}
 
-					// drones
 					AI::Team my_team = c->get<AIAgent>()->team;
+
+					// flags
+					for (auto i = Flag::list.iterator(); !i.is_last(); i.next())
+					{
+						if (i.item()->team != my_team || !i.item()->get<Transform>()->parent.ref()) // can't spot it if it's our own flag being carried by an enemy
+						{
+							r32 dot = Vec3::normalize(i.item()->get<Target>()->absolute_pos() - msg.target).dot(msg.dir);
+							if (dot > closest_dot)
+							{
+								closest_dot = dot;
+								target = i.item()->entity();
+							}
+						}
+					}
+
+					// minions
+					for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+					{
+						if (i.item()->get<AIAgent>()->team != my_team) // only spot enemies
+						{
+							r32 dot = Vec3::normalize(i.item()->get<Target>()->absolute_pos() - msg.target).dot(msg.dir);
+							if (dot > closest_dot && i.item()->can_see(c->entity()))
+							{
+								closest_dot = dot;
+								target = i.item()->entity();
+							}
+						}
+					}
+
+					// drones
 					for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
 					{
 						if (i.item()->get<AIAgent>()->team != my_team) // only spot enemies
@@ -3147,40 +3215,24 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 						}
 					}
 
-					b8 spotted_anything = false;
-					PlayerManager* manager = c->get<PlayerCommon>()->manager.ref();
 					if (target)
 					{
+						PlayerManager* manager = c->get<PlayerCommon>()->manager.ref();
 						manager->spot(target);
-						spotted_anything = true;
-					}
-					else
-					{
-						// spot any nearby minions
 						for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 						{
-							if (i.item()->get<AIAgent>()->team != my_team)
+							if (i.item()->get<AIAgent>()->team == my_team)
 							{
-								Vec3 minion_pos = i.item()->get<Target>()->absolute_pos();
-								Vec3 to_minion = minion_pos - msg.target;
-								r32 distance = to_minion.length();
-								if (distance < c->get<Drone>()->range())
-								{
-									r32 dot = (to_minion / distance).dot(msg.dir);
-									if (dot > 0.95f)
-									{
-										spotted_anything = true;
-										manager->spot(i.item()->entity());
-									}
-								}
+								PlayerManager* owner = i.item()->owner.ref();
+								if (!owner || owner == manager) // don't boss around minions created by other players
+									i.item()->new_goal(); // minion will automatically go after spotted entities
 							}
 						}
-					}
-					if (spotted_anything)
 						c->spot_timer = 2.0f;
+					}
 				}
 				else
-					c->spot_timer = vi_min(0.5f, vi_max(6.0f, c->spot_timer * 2.0f));
+					c->spot_timer = vi_max(0.5f, vi_min(6.0f, c->spot_timer * 2.0f));
 			}
 			break;
 		}

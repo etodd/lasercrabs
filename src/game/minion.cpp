@@ -285,8 +285,13 @@ b8 Minion::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 r32 entity_cost(const Minion* me, const Vec3& pos, AI::Team team, const Vec3& direction, const Entity* target)
 {
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
-	if (ForceField::hash(team, pos) != ForceField::hash(team, target_pos))
-		return FLT_MAX; // can't do it
+
+	if (!target->has<ForceField>())
+	{
+		ForceField* target_force_field = ForceField::inside(team, target_pos);
+		if (target_force_field && target_force_field->flags & ForceField::FlagPermanent)
+			return FLT_MAX; // can't do it
+	}
 
 	for (s32 i = 0; i < me->unreachable_targets.length; i++)
 	{
@@ -310,15 +315,34 @@ r32 entity_cost(const Minion* me, const Vec3& pos, AI::Team team, const Vec3& di
 
 Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 {
-	if (!Game::level.has_feature(Game::FeatureLevel::All)) // in tutorial, don't chase after targets
-		return nullptr;
-
-	// if the target is in the wrong direction, add a cost to it
-
 	Vec3 pos = me->get<Transform>()->absolute_pos();
-	Entity* best = nullptr;
 
+	Entity* best = nullptr;
 	r32 best_cost = FLT_MAX;
+
+	// check spots first
+	for (s32 i = 0; i < PlayerHuman::notifications.length; i++)
+	{
+		const PlayerHuman::Notification& notification = PlayerHuman::notifications[i];
+		if (notification.team == team && notification.type == PlayerHuman::Notification::Type::Spot)
+		{
+			Target* target = notification.target.ref();
+			if (target)
+			{
+				if (me->can_see(target->entity()))
+					return target->entity();
+				r32 cost = entity_cost(me, pos, team, direction, target->entity());
+				if (cost < best_cost)
+				{
+					best = target->entity();
+					best_cost = cost;
+				}
+			}
+		}
+	}
+
+	if (best)
+		return best;
 
 	if (Turret::list.count() > 0)
 	{
@@ -981,27 +1005,32 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 
 void Minion::new_goal(const Vec3& direction, b8 allow_entity_target)
 {
-	Vec3 pos = get<Walker>()->base_pos();
-	goal.entity = allow_entity_target ? closest_target(this, get<AIAgent>()->team, direction) : nullptr;
-	auto path_callback = ObjectLinkEntryArg<Minion, const AI::Result&, &Minion::set_path>(id());
-	if (goal.entity.ref())
+	Entity* target = allow_entity_target ? closest_target(this, get<AIAgent>()->team, direction) : nullptr;
+	if (target != goal.entity.ref() || (!target && !goal.entity.ref()))
 	{
-		goal.type = Goal::Type::Target;
-		if (!can_see(goal.entity.ref()))
+		goal.entity = target;
+		auto path_callback = ObjectLinkEntryArg<Minion, const AI::Result&, &Minion::set_path>(id());
+		if (goal.entity.ref())
 		{
-			path_request = PathRequest::Target;
-			goal.pos = goal.entity.ref()->get<Transform>()->absolute_pos();
-			AI::pathfind(get<AIAgent>()->team, pos, goal_path_position(goal, pos), path_callback);
+			goal.type = Goal::Type::Target;
+			if (!can_see(goal.entity.ref()))
+			{
+				path_request = PathRequest::Target;
+				goal.pos = goal.entity.ref()->get<Transform>()->absolute_pos();
+				Vec3 pos = get<Walker>()->base_pos();
+				AI::pathfind(get<AIAgent>()->team, pos, goal_path_position(goal, pos), path_callback);
+			}
 		}
+		else
+		{
+			goal.type = Goal::Type::Position;
+			path_request = PathRequest::Random;
+			Vec3 pos = get<Walker>()->base_pos();
+			AI::random_path(pos, pos, get<AIAgent>()->team, MINION_VISION_RANGE, path_callback);
+		}
+		target_timer = 0.0f;
+		path_timer = PATH_RECALC_TIME;
 	}
-	else
-	{
-		goal.type = Goal::Type::Position;
-		path_request = PathRequest::Random;
-		AI::random_path(pos, pos, get<AIAgent>()->team, MINION_VISION_RANGE, path_callback);
-	}
-	target_timer = 0.0f;
-	path_timer = PATH_RECALC_TIME;
 }
 
 Vec3 goal_pos(const Minion::Goal& g)

@@ -1589,6 +1589,8 @@ FlagEntity::FlagEntity(AI::Team team)
 	create<PlayerTrigger>()->radius = DRONE_SHIELD_RADIUS + 0.2f;
 
 	create<Flag>()->team = team;
+
+	create<Target>();
 }
 
 CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3& pos, const Quat& rot)
@@ -3459,6 +3461,8 @@ r32 Target::radius() const
 		return TURRET_RADIUS;
 	else if (has<Shield>())
 		return DRONE_SHIELD_RADIUS;
+	else if (has<Flag>())
+		return 0.0f;
 	else
 		return get<RigidBody>()->size.y;
 }

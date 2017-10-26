@@ -335,6 +335,8 @@ struct RecordedLife
 	static const s8 EntityTurretEnemy = 22;
 	static const s8 EntityCoreModuleInvincible = 23;
 	static const s8 EntityCoreModuleVulnerable = 24;
+	static const s8 EntityFlagFriend = 25;
+	static const s8 EntityFlagEnemy = 26;
 
 	Array<Vec3> pos;
 	Array<Vec3> normal;

@@ -599,7 +599,7 @@ if (CLIENT)
 	endif()
 
 	if (APPLE)
-		target_link_libraries(deceiver "-framework AudioToolbox" "-framework CoreAudio" ${OPENSSL_LIBRARIES})
+		target_link_libraries(deceiver "-framework AudioUnit -framework AudioToolbox" "-framework CoreAudio" ${OPENSSL_LIBRARIES})
 	elseif (WIN32)
 	else()
 		target_link_libraries(deceiver "-lpthread")

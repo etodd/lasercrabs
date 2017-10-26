@@ -1436,6 +1436,8 @@ b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				flag->timer = FLAG_RESTORE_TIME;
 				flag->get<View>()->mask = 0;
 
+				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_LOST);
+
 				{
 					char buffer[UI_TEXT_MAX];
 					snprintf(buffer, UI_TEXT_MAX, _(strings::flag_captured), _(Team::name_long(flag->team)));
@@ -1450,6 +1452,8 @@ b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				flag->timer = FLAG_RESTORE_TIME;
 				flag->get<View>()->mask = RENDER_MASK_DEFAULT;
 
+				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_UNDER_ATTACK);
+
 				{
 					char buffer[UI_TEXT_MAX];
 					snprintf(buffer, UI_TEXT_MAX, _(strings::flag_dropped), _(Team::name_long(flag->team)));
@@ -1463,6 +1467,8 @@ b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				// param = PlayerManager who scored
 				flag->at_base = true;
 				flag->get<View>()->mask = RENDER_MASK_DEFAULT;
+
+				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_LOST);
 
 				PlayerManager* player = param.ref()->get<PlayerManager>();
 				if (player->instance.ref())
@@ -1479,6 +1485,8 @@ b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			{
 				flag->at_base = true;
 				flag->get<View>()->mask = RENDER_MASK_DEFAULT;
+
+				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_UNDER_ATTACK);
 
 				{
 					char buffer[UI_TEXT_MAX];

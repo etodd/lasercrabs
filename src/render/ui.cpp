@@ -9,6 +9,7 @@
 #include "game/overworld.h"
 #include "settings.h"
 #include "game/menu.h"
+#include "game/player.h"
 
 namespace VI
 {
@@ -963,8 +964,13 @@ void UI::mesh(const RenderParams& params, const AssetID mesh, const Vec2& pos, c
 
 b8 UI::project(const RenderParams& p, const Vec3& v, Vec2* out)
 {
-	Vec4 projected = p.view_projection * Vec4(v.x, v.y, v.z, 1);
-	Vec2 screen = p.camera->viewport.size * 0.5f;
+	return project(p.view_projection, p.camera->viewport, v, out);
+}
+
+b8 UI::project(const Mat4& view_projection, const Rect2& viewport, const Vec3& v, Vec2* out)
+{
+	Vec4 projected = view_projection * Vec4(v.x, v.y, v.z, 1);
+	Vec2 screen = viewport.size * 0.5f;
 	*out = Vec2((projected.x / projected.w + 1.0f) * screen.x, (projected.y / projected.w + 1.0f) * screen.y);
 	return projected.z > -projected.w;
 }
@@ -1023,8 +1029,16 @@ b8 UI::cursor_active()
 #if SERVER
 	return false;
 #else
-	return Game::ui_gamepad_types[0] == Gamepad::Type::None
-		&& (UIMenu::active[0] || Menu::dialog_active(0) || Overworld::active());
+	if (Game::ui_gamepad_types[0] == Gamepad::Type::None)
+	{
+		if (UIMenu::active[0] || Menu::dialog_active(0) || Overworld::active())
+			return true;
+
+		PlayerHuman* player = PlayerHuman::player_for_gamepad(0);
+		if (player && player->ui_mode() == PlayerHuman::UIMode::PvpSelectSpawn)
+			return true;
+	}
+	return false;
 #endif
 }
 

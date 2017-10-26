@@ -818,6 +818,38 @@ b8 PlayerHuman::emotes_enabled() const
 		|| mode == UIMode::PvpGameOver);
 }
 
+Rect2 player_deploy_prompt(const Rect2& viewport, s8 gamepad, const RenderParams* params = nullptr)
+{
+	// deploy prompt
+	UIText text;
+	text.anchor_x = UIText::Anchor::Center;
+	text.anchor_y = UIText::Anchor::Max;
+	text.text(gamepad, _(strings::prompt_deploy));
+	Vec2 pos = viewport.size * Vec2(0.5f, 0.2f);
+	Rect2 box = text.rect(pos).outset(8 * UI::scale);
+	if (params)
+	{
+		const Vec4* bg;
+		if (params->sync->input.get(Controls::Interact, gamepad)
+			|| (gamepad == 0 && Game::ui_gamepad_types[0] == Gamepad::Type::None && box.contains(UI::cursor_pos)))
+		{
+			text.color = UI::color_background;
+			if (params->sync->input.keys.get(s32(KeyCode::MouseLeft)))
+				bg = &UI::color_alert();
+			else
+				bg = &UI::color_accent();
+		}
+		else
+		{
+			text.color = UI::color_accent();
+			bg = &UI::color_background;
+		}
+		UI::box(*params, box, *bg);
+		text.draw(*params, pos);
+	}
+	return box;
+}
+
 void PlayerHuman::update(const Update& u)
 {
 #if SERVER
@@ -1209,39 +1241,78 @@ void PlayerHuman::update(const Update& u)
 				if (!selected_spawn.ref() || selected_spawn.ref()->team != my_team)
 					selected_spawn = SpawnPoint::closest(1 << s32(my_team), camera.ref()->pos);
 
-				Vec2 movement = camera_topdown_movement(u, gamepad, camera.ref()->rot);
-				r32 movement_amount = movement.length();
-				if (movement_amount > 0.0f)
+				if (chat_focus == ChatFocus::None)
 				{
-					movement /= movement_amount;
-					SpawnPoint* closest = nullptr;
-					r32 closest_dot = FLT_MAX;
-
-					Vec3 spawn_pos = selected_spawn.ref()->get<Transform>()->absolute_pos();
-					for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+					if (((u.last_input->get(Controls::Interact, gamepad) && !u.input->get(Controls::Interact, gamepad))
+						|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && player_deploy_prompt(camera.ref()->viewport, gamepad).contains(UI::cursor_pos))))
 					{
-						SpawnPoint* candidate = i.item();
-						if (candidate == selected_spawn.ref() || candidate->team != my_team)
-							continue;
+						select_spawn_timer = 1.0f;
+					}
+					else
+					{
+						SpawnPoint* closest = nullptr;
 
-						Vec3 candidate_pos = candidate->get<Transform>()->absolute_pos();
-						Vec3 to_candidate = candidate_pos - spawn_pos;
-						if (movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z))) > 0.707f)
+						Vec2 movement = camera_topdown_movement(u, gamepad, camera.ref()->rot);
+						r32 movement_amount = movement.length();
+						if (movement_amount > 0.0f)
 						{
-							r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
-							if (dot < closest_dot)
+							// keyboard / gamepad
+							movement /= movement_amount;
+							r32 closest_dot = FLT_MAX;
+
+							Vec3 spawn_pos = selected_spawn.ref()->get<Transform>()->absolute_pos();
+							for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
 							{
-								closest = candidate;
-								closest_dot = dot;
+								SpawnPoint* candidate = i.item();
+								if (candidate == selected_spawn.ref() || candidate->team != my_team)
+									continue;
+
+								Vec3 candidate_pos = candidate->get<Transform>()->absolute_pos();
+								Vec3 to_candidate = candidate_pos - spawn_pos;
+								if (movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z))) > 0.707f)
+								{
+									r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
+									if (dot < closest_dot)
+									{
+										closest = candidate;
+										closest_dot = dot;
+									}
+								}
 							}
 						}
-					}
-					if (closest)
-						selected_spawn = closest;
-				}
+						else if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
+						{
+							// mouse
 
-				if (chat_focus == ChatFocus::None && u.input->get(Controls::Interact, gamepad) && !u.last_input->get(Controls::Interact, gamepad))
-					select_spawn_timer = 1.0f;
+							Mat4 view_projection = camera.ref()->view() * camera.ref()->projection;
+							const Rect2& viewport = camera.ref()->viewport;
+
+							r32 closest_distance = FLT_MAX;
+
+							for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+							{
+								SpawnPoint* candidate = i.item();
+
+								if (candidate->team != my_team)
+									continue;
+
+								Vec2 p;
+								if (UI::project(view_projection, viewport, candidate->get<Transform>()->absolute_pos(), &p))
+								{
+									r32 distance = (p - UI::cursor_pos).length_squared();
+									if (distance < closest_distance)
+									{
+										closest = candidate;
+										closest_distance = distance;
+									}
+								}
+							}
+						}
+
+						if (closest)
+							selected_spawn = closest;
+					}
+				}
 			}
 
 			// move camera to focus on selected spawn point
@@ -2370,17 +2441,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				text.draw(params, pos);
 			}
 
-			{
-				// deploy prompt
-				UIText text;
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Max;
-				text.color = UI::color_accent();
-				text.text(gamepad, _(strings::prompt_deploy));
-				Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
-				UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
-				text.draw(params, pos);
-			}
+			player_deploy_prompt(vp, gamepad, &params);
 		}
 	}
 	else if (mode == UIMode::PvpSpectate)

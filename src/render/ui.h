@@ -12,6 +12,7 @@ namespace VI
 #define UI_TEXT_MAX 511
 
 struct RenderParams;
+struct Camera;
 
 typedef enum UITextFlags
 {
@@ -127,6 +128,7 @@ struct UI
 	static void draw(const RenderParams&);
 	static void mesh(const RenderParams&, const AssetID, const Vec2&, const Vec2& = Vec2(1, 1), const Vec4& = Vec4(1, 1, 1, 1), r32 = 0.0f);
 	static b8 project(const RenderParams&, const Vec3&, Vec2*);
+	static b8 project(const Mat4&, const Rect2&, const Vec3&, Vec2*);
 	static s32 input_delta_vertical(const Update&, s32);
 	static s32 input_delta_horizontal(const Update&, s32);
 

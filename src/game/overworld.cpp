@@ -362,20 +362,24 @@ void multiplayer_browse_update(const Update& u)
 	}
 	server_list->scroll.update_menu(server_list->entries.length);
 	server_list->scroll.scroll_into_view(server_list->selected);
-	for (s32 i = server_list->scroll.top(); i < server_list->scroll.bottom(server_list->entries.length); i++)
-	{
-		if (multiplayer_browse_entry_rect(data.multiplayer.top_bar, *server_list, i).contains(UI::cursor_pos))
-		{
-			server_list->selected = i;
-			if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
-			{
-				// select entry
-				data.multiplayer.active_server.config.id = server_list->entries[i].server_state.id;
-				multiplayer_state_transition(Data::Multiplayer::State::EntryView);
-				return;
-			}
 
-			break;
+	if (Game::ui_gamepad_types[0] == Gamepad::Type::None)
+	{
+		for (s32 i = server_list->scroll.top(); i < server_list->scroll.bottom(server_list->entries.length); i++)
+		{
+			if (multiplayer_browse_entry_rect(data.multiplayer.top_bar, *server_list, i).contains(UI::cursor_pos))
+			{
+				server_list->selected = i;
+				if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
+				{
+					// select entry
+					data.multiplayer.active_server.config.id = server_list->entries[i].server_state.id;
+					multiplayer_state_transition(Data::Multiplayer::State::EntryView);
+					return;
+				}
+
+				break;
+			}
 		}
 	}
 
@@ -1404,7 +1408,7 @@ void multiplayer_top_bar_draw(const RenderParams& params, const Data::Multiplaye
 
 		{
 			Rect2 container = button.container();
-			if (container.contains(UI::cursor_pos))
+			if (Game::ui_gamepad_types[0] == Gamepad::Type::None && container.contains(UI::cursor_pos))
 			{
 				UI::box(params, container, params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : UI::color_accent());
 				text.color = UI::color_background;
@@ -2097,69 +2101,6 @@ s16 energy_increment_total()
 	return result;
 }
 
-void select_zone_update(const Update& u, b8 enable_movement)
-{
-	if (UIMenu::active[0])
-		return;
-
-	const ZoneNode* zone = zone_node_by_id(data.zone_selected);
-	if (!zone)
-		return;
-
-	// movement
-	if (enable_movement)
-	{
-		{
-			// keyboard/gamepad
-			Vec2 movement = PlayerHuman::camera_topdown_movement(u, 0, data.camera.ref()->rot);
-			r32 movement_amount = movement.length();
-			if (movement_amount > 0.0f)
-			{
-				movement /= movement_amount;
-				const ZoneNode* closest = nullptr;
-				r32 closest_dot = FLT_MAX;
-
-				for (s32 i = 0; i < zone->children.length; i++)
-				{
-					const Vec3& zone_pos = zone->children[i];
-					for (s32 j = 0; j < global.zones.length; j++)
-					{
-						const ZoneNode& candidate = global.zones[j];
-						if (&candidate == zone)
-							continue;
-
-						for (s32 k = 0; k < candidate.children.length; k++)
-						{
-							const Vec3& candidate_pos = candidate.children[k];
-							Vec3 to_candidate = candidate_pos - zone_pos;
-							if (movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z))) > 0.707f)
-							{
-								r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
-								if (dot < closest_dot)
-								{
-									closest = &candidate;
-									closest_dot = dot;
-								}
-							}
-						}
-					}
-				}
-				if (closest)
-				{
-					data.zone_selected = closest->id;
-					Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_MOVE);
-				}
-			}
-		}
-
-		{
-			// mouse
-		}
-	}
-
-	focus_camera(u, *zone);
-}
-
 Vec3 zone_color(const ZoneNode& zone)
 {
 	ZoneState zone_state = Game::save.zones[zone.id];
@@ -2498,14 +2439,15 @@ void deploy_draw(const RenderParams& params)
 	Menu::progress_infinite(params, _(strings::deploying), params.camera->viewport.size * Vec2(0.5f, 0.2f));
 }
 
-b8 enable_input()
+b8 story_mode_enable_input()
 {
 	const Data::StoryMode& story = data.story;
 	return data.state != State::Hidden
 		&& data.timer_transition == 0.0f
 		&& data.timer_deploy == 0.0f
 		&& story.inventory.timer_buy == 0.0f
-		&& !Menu::dialog_active(0);
+		&& !Menu::dialog_active(0)
+		&& !UIMenu::active[0];
 }
 
 void group_join(Game::Group g)
@@ -2603,27 +2545,156 @@ void zone_statistics(s32* captured, s32* hostile, s32* locked, b8 (*filter)(Asse
 	}
 }
 
+Rect2 story_mode_main_view_rect()
+{
+	const Vec2 main_view_size = MAIN_VIEW_SIZE;
+	const Vec2 tab_size = TAB_SIZE;
+
+	Vec2 center = data.camera.ref()->viewport.size * 0.5f;
+	Vec2 total_size = Vec2(main_view_size.x + (tab_size.x + PADDING), main_view_size.y);
+	Vec2 bottom_left = center + total_size * -0.5f + Vec2(0, -tab_size.y);
+
+	return { bottom_left, main_view_size };
+}
+
+Rect2 tab_map_capture_prompt(const Rect2& rect, const RenderParams* params = nullptr)
+{
+	UIText text;
+	text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+	text.text(0, _(Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly ? strings::prompt_defend : strings::prompt_capture));
+
+	Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
+
+	Rect2 box = text.rect(pos).outset(8 * UI::scale);
+	if (params)
+	{
+		const Vec4* bg;
+		const Vec4* fg;
+		if (params->sync->input.get(Controls::Interact, 0)
+			|| (Game::ui_gamepad_types[0] == Gamepad::Type::None && box.contains(UI::cursor_pos)))
+		{
+			text.color = UI::color_background;
+			if (params->sync->input.keys.get(s32(KeyCode::MouseLeft)))
+				bg = &UI::color_alert();
+			else
+				bg = &UI::color_accent();
+		}
+		else
+		{
+			bg = &UI::color_background;
+			text.color = UI::color_accent();
+		}
+		UI::box(*params, box, *bg);
+		text.draw(*params, pos);
+	}
+
+	return box;
+}
+
 void tab_map_update(const Update& u)
 {
 	if (data.story.tab == StoryTab::Map && data.story.tab_timer == 0.0f)
 	{
-		select_zone_update(u, enable_input()); // only enable movement if enable_input()
+		const ZoneNode* zone = zone_node_by_id(data.zone_selected);
+		if (!zone)
+			return;
 
-		// capture button
-		if (enable_input()
-			&& u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0)
-			&& zone_can_capture(data.zone_selected))
+		if (story_mode_enable_input())
 		{
-			if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
+			if (zone_can_capture(data.zone_selected)
+				&& ((u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+				|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && tab_map_capture_prompt(story_mode_main_view_rect()).contains(UI::cursor_pos))))
 			{
-				if (Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly) // defending
-					Menu::dialog(0, &capture_start, _(strings::confirm_defend), DEFAULT_ASSAULT_DRONES);
-				else // attacking
-					Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES);
+				// capture button
+				if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
+				{
+					if (Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly) // defending
+						Menu::dialog(0, &capture_start, _(strings::confirm_defend), DEFAULT_ASSAULT_DRONES);
+					else // attacking
+						Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES);
+				}
+				else
+					Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), DEFAULT_ASSAULT_DRONES, _(strings::drones));
 			}
 			else
-				Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), DEFAULT_ASSAULT_DRONES, _(strings::drones));
+			{
+				// movement
+
+				const ZoneNode* closest = nullptr;
+
+				// keyboard/gamepad
+				Vec2 movement = PlayerHuman::camera_topdown_movement(u, 0, data.camera.ref()->rot);
+				r32 movement_amount = movement.length();
+				if (movement_amount > 0.0f)
+				{
+					movement /= movement_amount;
+					r32 closest_dot = FLT_MAX;
+
+					for (s32 i = 0; i < zone->children.length; i++)
+					{
+						const Vec3& zone_pos = zone->children[i];
+						for (s32 j = 0; j < global.zones.length; j++)
+						{
+							const ZoneNode& candidate = global.zones[j];
+							if (&candidate == zone)
+								continue;
+
+							for (s32 k = 0; k < candidate.children.length; k++)
+							{
+								const Vec3& candidate_pos = candidate.children[k];
+								Vec3 to_candidate = candidate_pos - zone_pos;
+								if (movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z))) > 0.707f)
+								{
+									r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
+									if (dot < closest_dot)
+									{
+										closest = &candidate;
+										closest_dot = dot;
+									}
+								}
+							}
+						}
+					}
+				}
+				else if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
+				{
+					// mouse
+					
+					r32 closest_distance = FLT_MAX;
+
+					Mat4 view_projection = data.camera.ref()->view() * data.camera.ref()->projection;
+					const Rect2& viewport = data.camera.ref()->viewport;
+
+					for (s32 i = 0; i < global.zones.length; i++)
+					{
+						const ZoneNode& candidate = global.zones[i];
+
+						for (s32 j = 0; j < candidate.children.length; j++)
+						{
+							const Vec3& candidate_pos = candidate.children[j];
+							Vec2 p;
+							if (UI::project(view_projection, viewport, candidate_pos, &p))
+							{
+								r32 distance = (p - UI::cursor_pos).length_squared();
+								if (distance < closest_distance)
+								{
+									closest = &candidate;
+									closest_distance = distance;
+								}
+							}
+						}
+					}
+				}
+
+				if (closest)
+				{
+					data.zone_selected = closest->id;
+					Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_MOVE);
+				}
+			}
 		}
+
+		focus_camera(u, *zone);
 	}
 }
 
@@ -2678,7 +2749,7 @@ void tab_inventory_update(const Update& u)
 		}
 	}
 
-	if (data.story.tab == StoryTab::Inventory && enable_input())
+	if (data.story.tab == StoryTab::Inventory && story_mode_enable_input())
 	{
 		// handle input
 		switch (inventory->mode)
@@ -3007,19 +3078,8 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		}
 
 		// capture prompt
-		if (enable_input() && zone_can_capture(data.zone_selected))
-		{
-			UIText text;
-			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-			text.color = UI::color_accent();
-			text.text(0, _(Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly ? strings::prompt_defend : strings::prompt_capture));
-
-			Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
-
-			UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::color_background);
-
-			text.draw(p, pos);
-		}
+		if (story_mode_enable_input() && zone_can_capture(data.zone_selected))
+			tab_map_capture_prompt(rect, &p);
 	}
 }
 
@@ -3136,14 +3196,9 @@ void story_mode_draw(const RenderParams& p)
 
 	const Rect2& vp = p.camera->viewport;
 
-	const Vec2 main_view_size = MAIN_VIEW_SIZE;
-	const Vec2 tab_size = TAB_SIZE;
+	Rect2 main_view_rect = story_mode_main_view_rect();
 
-	Vec2 center = vp.size * 0.5f;
-	Vec2 total_size = Vec2(main_view_size.x + (tab_size.x + PADDING), main_view_size.y);
-	Vec2 bottom_left = center + total_size * -0.5f + Vec2(0, -tab_size.y);
-
-	Vec2 pos = bottom_left;
+	Vec2 pos = main_view_rect.pos;
 	{
 		Rect2 rect = tab_story_draw(p, data.story, StoryTab::Map, _(strings::tab_map), &pos).outset(-PADDING);
 		if (data.story.tab_timer == 0.0f)

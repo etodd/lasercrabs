@@ -539,6 +539,7 @@ namespace Master
 			}
 		}
 		ServerConfig defaults;
+		new (&defaults) ServerConfig();
 		config->kill_limit = s16(Json::get_s32(json, "kill_limit", defaults.kill_limit));
 		config->flag_limit = s16(Json::get_s32(json, "flag_limit", defaults.flag_limit));
 		config->respawns = s16(Json::get_s32(json, "respawns", defaults.respawns));
@@ -573,6 +574,7 @@ namespace Master
 		// id, name, game_type, team_count, and is_private are stored in DB row, not here
 
 		ServerConfig defaults;
+		new (&defaults) ServerConfig();
 
 		cJSON* json = cJSON_CreateObject();
 

@@ -1107,14 +1107,14 @@ void Team::update_all_client_only(const Update& u)
 
 s16 Team::initial_tickets() const
 {
-	return Game::session.config.game_type == GameType::Deathmatch || team() == 0 ? -1 : (Game::session.config.respawns * player_count());
+	return (Game::session.config.game_type == GameType::Assault && team() == 1)
+		? (Game::session.config.respawns * player_count())
+		: -1;
 }
 
 s16 Team::tickets() const
 {
-	if (Game::session.config.game_type == GameType::Deathmatch || team() == 0)
-		return -1;
-	else
+	if (Game::session.config.game_type == GameType::Assault && team() == 1)
 	{
 		s16 deaths = 0;
 		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
@@ -1124,6 +1124,8 @@ s16 Team::tickets() const
 		}
 		return vi_max(0, initial_tickets() + extra_drones - deaths);
 	}
+	else
+		return -1;
 }
 
 void Team::add_extra_drones(s16 d)
@@ -1135,7 +1137,7 @@ void Team::add_extra_drones(s16 d)
 
 s16 Team::initial_energy() const
 {
-	return Game::session.config.game_type == GameType::Assault && team() == 1 && Game::session.type != SessionType::Story
+	return (Game::session.config.game_type == GameType::Assault && team() == 1 && Game::session.type != SessionType::Story)
 		? Game::session.config.start_energy_attacker
 		: Game::session.config.start_energy;
 }
@@ -1760,7 +1762,10 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 				else
 				{
 					if (u == Upgrade::ExtraDrone)
-						m->team.ref()->add_extra_drones(1);
+					{
+						if (Game::level.local)
+							m->team.ref()->add_extra_drones(1);
+					}
 					else
 						vi_assert(false);
 				}

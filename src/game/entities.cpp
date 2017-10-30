@@ -1539,6 +1539,16 @@ Flag* Flag::for_team(AI::Team t)
 	return nullptr;
 }
 
+void flag_build_force_field(Flag* flag)
+{
+	Vec3 abs_pos;
+	Quat abs_rot;
+	flag->get<Transform>()->absolute(&abs_pos, &abs_rot);
+
+	abs_rot = abs_rot * Quat::euler(0, 0, PI * -0.5f);
+	ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, abs_pos + abs_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), abs_rot, nullptr, flag->team);
+}
+
 void Flag::update_server(const Update& u)
 {
 	pos_cached = get<Transform>()->absolute_pos();
@@ -1559,6 +1569,8 @@ void Flag::update_server(const Update& u)
 				FlagNet::state_change(this, StateChange::Scored, player->entity());
 				get<Transform>()->parent = nullptr;
 				get<Transform>()->pos = pos_cached = Team::list[team].flag_base.ref()->absolute_pos();
+
+				flag_build_force_field(this);
 				break;
 			}
 		}
@@ -1573,6 +1585,7 @@ void Flag::update_server(const Update& u)
 			{
 				FlagNet::state_change(this, StateChange::Restored);
 				get<Transform>()->pos = pos_cached = Team::list[team].flag_base.ref()->absolute_pos();
+				flag_build_force_field(this);
 			}
 		}
 	}
@@ -1596,7 +1609,19 @@ FlagEntity::FlagEntity(AI::Team team)
 
 	create<PlayerTrigger>()->radius = DRONE_SHIELD_RADIUS + 0.2f;
 
-	create<Flag>()->team = team;
+	Flag* flag = create<Flag>();
+	flag->team = team;
+	flag->at_base = true;
+
+	{
+		Vec3 abs_pos;
+		Quat abs_rot;
+		flag->get<Transform>()->absolute(&abs_pos, &abs_rot);
+
+		abs_rot = abs_rot * Quat::euler(0, 0, PI * -0.5f);
+		abs_pos += abs_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
+		Net::finalize_child(World::create<ForceFieldEntity>(nullptr, abs_pos, abs_rot, flag->team, ForceField::Type::Normal));
+	}
 
 	create<Target>();
 }
@@ -1812,7 +1837,7 @@ b8 Turret::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	serialize_ref(p, ref);
 	Ref<Entity> target;
 	serialize_ref(p, target);
-	if ((Game::level.local == (src == Net::MessageSource::Loopback)) && target.ref())
+	if (Game::level.local == (src == Net::MessageSource::Loopback))
 		ref.ref()->target = target;
 	return true;
 }
@@ -2584,7 +2609,7 @@ void Bolt::hit_entity(const Hit& hit)
 				else if (hit_object->has<CoreModule>())
 					damage = 1;
 				else if (hit_object->has<ForceField>())
-					damage = mersenne::rand() % 3 > 0 ? 1 : 0; // expected value: 0.66
+					damage = mersenne::rand() % 3 == 0 ? 0 : 1; // expected value: 0.33
 				else
 					damage = 2;
 				break;
@@ -2674,13 +2699,8 @@ Array<ParticleEffect> ParticleEffect::list;
 template<typename Stream> b8 serialize_particle_effect(Stream* p, ParticleEffect* e)
 {
 	serialize_enum(p, ParticleEffect::Type, e->type);
-	if (e->type == ParticleEffect::Type::SpawnMinion
-		|| e->type == ParticleEffect::Type::SpawnDrone
-		|| e->type == ParticleEffect::Type::SpawnForceField
-		|| e->type == ParticleEffect::Type::SpawnGenerator)
-		serialize_ref(p, e->owner);
-	if (e->type == ParticleEffect::Type::SpawnMinion && !e->owner.ref())
-		serialize_s8(p, e->team);
+	serialize_ref(p, e->owner);
+	serialize_s8(p, e->team);
 	if (!Net::serialize_position(p, &e->pos, Net::Resolution::Low))
 		net_error();
 	if (!Net::serialize_quat(p, &e->rot, Net::Resolution::Low))
@@ -2816,7 +2836,7 @@ void ParticleEffect::update_all(const Update& u)
 			if (e->lifetime < threshold && e->lifetime + u.time.delta >= threshold)
 			{
 				EffectLight::add(e->pos, GRENADE_RANGE * 0.5f, 0.75f, EffectLight::Type::Shockwave);
-				if (Game::level.local && (e->owner.ref() || e->type == Type::SpawnMinion))
+				if (Game::level.local && (e->owner.ref() || e->type == Type::SpawnMinion || e->type == Type::SpawnForceField))
 				{
 					switch (e->type)
 					{
@@ -2829,8 +2849,11 @@ void ParticleEffect::update_all(const Update& u)
 							break;
 						}
 						case Type::SpawnForceField:
-							Net::finalize(World::create<ForceFieldEntity>(nullptr, e->pos, e->rot, e->owner.ref()->team.ref()->team()));
+						{
+							AI::Team team = e->owner.ref() ? e->owner.ref()->team.ref()->team() : e->team;
+							Net::finalize(World::create<ForceFieldEntity>(nullptr, e->pos, e->rot, team));
 							break;
+						}
 						case Type::SpawnGenerator:
 							Net::finalize(World::create<GeneratorEntity>(e->owner.ref()->team.ref()->team(), e->pos, e->rot));
 							break;

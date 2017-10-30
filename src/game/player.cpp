@@ -1165,7 +1165,7 @@ void PlayerHuman::update(const Update& u)
 						for (s32 i = 0; i < s32(Upgrade::count); i++)
 						{
 							Upgrade upgrade = Upgrade(i);
-							if (Game::session.config.allow_upgrades & (1 << s32(upgrade)))
+							if (Game::session.config.allow_upgrades & (1 << s32(upgrade)) && (upgrade != Upgrade::ExtraDrone || get<PlayerManager>()->team.ref()->tickets() != -1))
 							{
 								const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
 								b8 can_upgrade = !upgrade_in_progress

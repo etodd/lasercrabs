@@ -379,7 +379,9 @@ void Game::update(const Update& update_in)
 #if SERVER
 	update_game = Net::Server::mode() == Net::Server::Mode::Active;
 #else
-	update_game = (level.local || Net::Client::mode() == Net::Client::Mode::Connected) && !Overworld::modal();
+	update_game = (level.local || Net::Client::mode() == Net::Client::Mode::Connected)
+		&& !Overworld::modal()
+		&& (!level.local || PlayerHuman::list.count() != 1 || PlayerHuman::list.iterator().item()->ui_mode() != PlayerHuman::UIMode::Pause); // don't update game while paused in local game with only one player
 #endif
 
 	if (update_game)
@@ -662,6 +664,17 @@ void Game::update(const Update& update_in)
 
 		if (level.rain > 0.0f)
 			Rain::spawn(u, level.rain);
+	}
+	else
+	{
+		// don't update game
+#if !SERVER
+		if (Game::session.type == SessionType::Story && Game::level.local)
+		{
+			// we're paused; update player UI
+			PlayerHuman::update_all(u);
+		}
+#endif
 	}
 
 	Console::update(u);

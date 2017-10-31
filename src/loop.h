@@ -526,6 +526,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	Vec2 buffer_size(Settings::display().width, Settings::display().height);
 	Vec2 inv_buffer_size = 1.0f / buffer_size;
 	Vec2 inv_half_buffer_size = inv_buffer_size * 2.0f;
+	r32 ui_scale = vi_max(1.0f, UI::get_scale(camera->viewport.size.x, camera->viewport.size.y));
 
 	Rect2 screen_quad_uv =
 	{
@@ -1022,7 +1023,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::inv_buffer_size);
 			sync->write(RenderDataType::Vec2);
 			sync->write<s32>(1);
-			sync->write<Vec2>(inv_buffer_size);
+			sync->write<Vec2>(inv_buffer_size * ui_scale);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::uv_offset);
@@ -1413,11 +1414,19 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderTextureType::Texture2D);
 		sync->write<AssetID>(half_buffer1);
 
+		r32 blur_scale = ui_scale > 1.25f ? 1.25f : 1.0f;
+
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::inv_buffer_size);
 		sync->write(RenderDataType::Vec2);
 		sync->write<s32>(1);
-		sync->write<Vec2>(Vec2(inv_half_buffer_size.x, 0));
+		sync->write<Vec2>(Vec2(inv_half_buffer_size.x * blur_scale, 0));
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::radius);
+		sync->write(RenderDataType::S32);
+		sync->write<s32>(1);
+		sync->write<s32>(ui_scale > 1.25f ? 15 : 7);
 
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);
@@ -1438,7 +1447,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::inv_buffer_size);
 		sync->write(RenderDataType::Vec2);
 		sync->write<s32>(1);
-		sync->write<Vec2>(Vec2(0, inv_half_buffer_size.y));
+		sync->write<Vec2>(Vec2(0, inv_half_buffer_size.y * blur_scale));
 
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);

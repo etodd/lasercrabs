@@ -1393,6 +1393,15 @@ void PlayerHuman::update(const Update& u)
 
 	// close/open pause menu if needed
 	{
+#if RELEASE_BUILD
+		if (Game::level.local && menu_state == Menu::State::Hidden && !u.input->focus && u.last_input->focus)
+		{
+			// pause when window loses focus
+			menu_state = Menu::State::Visible;
+			menu.animate();
+		}
+		else
+#endif
 		if (Game::time.total > 0.5f
 			&& u.last_input->get(Controls::Pause, gamepad)
 			&& !u.input->get(Controls::Pause, gamepad)
@@ -2582,14 +2591,24 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			}
 			score_summary_scroll.end(params, p + Vec2(0, MENU_ITEM_PADDING));
 
-			// press x to continue
+			// press A to continue
 			if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
 			{
 				Vec2 p = vp.size * Vec2(0.5f, 0.2f);
 				text.wrap_width = 0;
-				text.color = UI::color_accent();
 				text.text(gamepad, _(get<PlayerManager>()->score_accepted ? strings::waiting : strings::prompt_accept));
-				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+				const Vec4* bg;
+				if (params.sync->input.get(Controls::Interact, gamepad))
+				{
+					text.color = UI::color_background;
+					bg = &UI::color_accent();
+				}
+				else
+				{
+					text.color = UI::color_accent();
+					bg = &UI::color_background;
+				}
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), *bg);
 				text.draw(params, p);
 			}
 		}
@@ -5087,12 +5106,22 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (closest_interactable)
 			{
 				UIText text;
-				text.color = UI::color_accent();
 				text.text(player.ref()->gamepad, _(strings::prompt_interact));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
 				Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
-				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+				const Vec4* bg;
+				if (params.sync->input.get(Controls::InteractSecondary, player.ref()->gamepad))
+				{
+					bg = &UI::color_accent();
+					text.color = UI::color_background;
+				}
+				else
+				{
+					bg = &UI::color_background;
+					text.color = UI::color_accent();
+				}
+				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), *bg);
 				text.draw(params, pos);
 			}
 

@@ -561,8 +561,6 @@ namespace Docks
 		Ref<Animator> character;
 		Ref<Transform> ivory_ad_text;
 		Ref<Actor::Instance> ivory_ad_actor;
-		Ref<Actor::Instance> hobo_actor;
-		Ref<Entity> hobo;
 		TutorialState state;
 		b8 dada_talked;
 	};
@@ -647,13 +645,6 @@ namespace Docks
 		hobo->cue(AK::EVENTS::PLAY_HOBO09, Asset::Animation::hobo_idle, strings::hobo09);
 		hobo->cue(AK::EVENTS::PLAY_HOBO10, Asset::Animation::hobo_idle, strings::hobo10);
 		hobo->cue(&hobo_done, 4.0f);
-	}
-
-	void hobo_talk(Entity*)
-	{
-		Actor::Instance* hobo = data->hobo_actor.ref();
-		if (hobo->cues.length == 0)
-			hobo_done(hobo);
 	}
 
 	void ivory_ad_play(Entity*)
@@ -1053,9 +1044,7 @@ namespace Docks
 		{
 			entities.find("jump_trigger")->get<PlayerTrigger>()->entered.link(&jump_trigger);
 			entities.find("climb_trigger")->get<PlayerTrigger>()->entered.link(&climb_trigger);
-			entities.find("climb_trigger2")->get<PlayerTrigger>()->entered.link(&climb_trigger);
 			entities.find("climb_success_trigger")->get<PlayerTrigger>()->entered.link(&climb_success_trigger);
-			entities.find("climb_success_trigger2")->get<PlayerTrigger>()->entered.link(&climb_success_trigger);
 			entities.find("dada_spotted_trigger")->get<PlayerTrigger>()->entered.link(&dada_spotted);
 			entities.find("dada_talk_trigger")->get<PlayerTrigger>()->entered.link(&dada_talk);
 
@@ -1078,12 +1067,11 @@ namespace Docks
 
 		entities.find("ivory_ad_trigger")->get<PlayerTrigger>()->entered.link(&ivory_ad_play);
 		data->ivory_ad_text = entities.find("ivory_ad_text")->get<Transform>();
-		data->hobo = entities.find("hobo");
 
 		Actor::init();
 		Loader::animation(Asset::Animation::hobo_idle);
-		data->hobo_actor = Actor::add(data->hobo.ref(), Asset::Bone::hobo_head);
-		entities.find("hobo_trigger")->get<PlayerTrigger>()->entered.link(&hobo_talk);
+		Actor::Instance* hobo = Actor::add(entities.find("hobo"), Asset::Bone::hobo_head);
+		hobo_done(hobo);
 
 		data->ivory_ad_actor = Actor::add(entities.find("ivory_ad"));
 		data->ivory_ad_actor.ref()->dialogue_radius = 0.0f;
@@ -1384,7 +1372,7 @@ namespace locke
 	}
 }
 
-namespace tier_1
+namespace Channels
 {
 	struct Data
 	{
@@ -1404,30 +1392,14 @@ namespace tier_1
 	}
 }
 
-namespace tier_2
+namespace Slum
 {
 	struct Data
 	{
 		Actor::Instance* meursault;
-		Array<Ref<Entity> > minions;
-		Array<Ref<Transform> > minion_bases;
-		Vec3 particle_last_pos;
-		Vec3 particle_last_pos2;
-		r32 particle_accumulator;
-		r32 particle_accumulator2;
 		Ref<Entity> anim_base;
-		Ref<Entity> hobo;
-		Ref<Entity> terminal;
-		Ref<Entity> drone;
-		Ref<Entity> parkour;
-		Ref<Transform> trailer5_camera_base;
-		Ref<Transform> trailer5_camera_base2;
-		Ref<Transform> trailer5_camera_base3;
-		Ref<Transform> cigarette;
-		Ref<Transform> trailer6_camera_base;
 		b8 anim_played;
 		b8 drones_given;
-		b8 trailer5_camera;
 	};
 	Data* data;
 
@@ -1481,232 +1453,15 @@ namespace tier_2
 #endif
 	}
 
-	void muzzle_flash()
-	{
-		Vec3 pos = Vec3::zero;
-		Quat rot = Quat::identity;
-		data->parkour.ref()->get<Animator>()->to_world(Asset::Bone::parkour_hand_L, &pos, &rot);
-
-		for (s32 i = 0; i < 32; i++)
-		{
-			Particles::sparks_small.add
-			(
-				pos,
-				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 6.0f,
-				Vec4(1, 1, 1, 1)
-			);
-		}
-
-		EffectLight::add(pos, 8.0f, 1.5f, EffectLight::Type::Spark);
-	}
-
-	void update(const Update& u)
-	{
-		if (u.input->keys.get(s32(KeyCode::D1)) && !u.last_input->keys.get(s32(KeyCode::D1)))
-			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer1);
-		if (u.input->keys.get(s32(KeyCode::D2)) && !u.last_input->keys.get(s32(KeyCode::D2)))
-			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer2);
-		if (u.input->keys.get(s32(KeyCode::D3)) && !u.last_input->keys.get(s32(KeyCode::D3)))
-		{
-			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer3);
-			data->terminal.ref()->get<Animator>()->layers[0].play(Asset::Animation::terminal_trailer3_terminal);
-		}
-		if (u.input->keys.get(s32(KeyCode::D4)) && !u.last_input->keys.get(s32(KeyCode::D4)))
-		{
-			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer4);
-			data->drone.ref()->get<Animator>()->layers[0].play(Asset::Animation::drone_trailer4_drone);
-		}
-		if (u.input->keys.get(s32(KeyCode::D5)) && !u.last_input->keys.get(s32(KeyCode::D5)))
-		{
-			data->terminal.ref()->get<Animator>()->layers[0].play(Asset::Animation::terminal_trailer5_terminal);
-			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer5);
-			data->parkour.ref()->get<Animator>()->layers[0].play(Asset::Animation::parkour_trailer5_parkour);
-			data->trailer5_camera = u.input->keys.get(s32(KeyCode::LShift));
-		}
-		if (u.input->keys.get(s32(KeyCode::D6)) && !u.last_input->keys.get(s32(KeyCode::D6)))
-			data->hobo.ref()->get<Animator>()->layers[0].play(Asset::Animation::hobo_trailer6);
-
-		if (u.input->keys.get(s32(KeyCode::Space)) && !u.last_input->keys.get(s32(KeyCode::Space)))
-		{
-			if (Game::session.time_scale == 1.0f)
-				Game::session.time_scale = 0.2f;
-			else
-				Game::session.time_scale = 1.0f;
-		}
-
-		{
-			const Animator::Layer& layer = data->hobo.ref()->get<Animator>()->layers[0];
-			b8 visible = layer.animation != Asset::Animation::hobo_trailer4;
-			data->parkour.ref()->get<SkinnedModel>()->mask = visible ? RENDER_MASK_DEFAULT : 0;
-			data->terminal.ref()->get<SkinnedModel>()->mask = visible ? RENDER_MASK_DEFAULT : 0;
-
-			for (s32 i = 0; i < data->minions.length; i++)
-				data->minions[i].ref()->get<SkinnedModel>()->mask = visible ? RENDER_MASK_DEFAULT : 0;
-		}
-
-		const Animator::Layer& layer = data->terminal.ref()->get<Animator>()->layers[0];
-		if (layer.animation == Asset::Animation::terminal_trailer5_terminal)
-		{
-			{
-				Transform* cig = data->cigarette.ref();
-				cig->pos = Vec3::zero;
-				cig->rot = Quat::identity;
-				data->parkour.ref()->get<Animator>()->to_world(Asset::Bone::parkour_attach_point, &cig->pos, &cig->rot);
-
-				Vec3 p = cig->to_world(Vec3(0.1f, 0, 0));
-				if (layer.time > 0.05f)
-				{
-					const r32 interval = 0.08f * (0.003f * 60.0f / vi_max(0.003f * 60.0f, (p - data->particle_last_pos).length() / u.time.delta));
-					data->particle_accumulator += u.time.delta;
-					while (data->particle_accumulator > interval)
-					{
-						data->particle_accumulator -= interval;
-						Particles::smoke.add(Vec3::lerp(data->particle_accumulator / vi_max(0.0001f, u.time.delta), data->particle_last_pos, p), Vec3(0, 0.2f, 0), PI, 0.0f);
-					}
-				}
-				data->particle_last_pos = p;
-			}
-
-			if (data->trailer5_camera)
-			{
-				Camera* camera = PlayerHuman::list.iterator().item()->camera.ref();
-
-				if (layer.time < 8.58f)
-				{
-					Transform* base = data->trailer5_camera_base.ref();
-
-					const r32 initial_speed = 0.2f;
-					const r32 acceleration = 0.1f;
-					r32 time = vi_max(0.0f, layer.time - 0.5f);
-					r32 t = vi_max(0.0f, vi_min(time - 5.75f, initial_speed / acceleration));
-					r32 y = vi_min(5.75f + initial_speed / acceleration, time) * initial_speed - 0.5f * acceleration * (t * t);
-					camera->pos = base->pos + Vec3(0, y, 0);
-					camera->rot = Quat::look(base->rot * Vec3(0, -1, 0));
-
-					{
-						Vec3 p = Vec3::zero;
-						Quat rot = Quat::identity;
-						data->parkour.ref()->get<Animator>()->to_world(Asset::Bone::parkour_hand_L, &p, &rot);
-						data->particle_last_pos2 = p;
-					}
-				}
-				else
-				{
-					{
-						Vec3 p = Vec3::zero;
-						Quat rot = Quat::identity;
-						data->parkour.ref()->get<Animator>()->to_world(Asset::Bone::parkour_hand_L, &p, &rot);
-
-						const r32 interval = 0.02f;
-						data->particle_accumulator2 += u.time.delta;
-						while (data->particle_accumulator2 > interval)
-						{
-							data->particle_accumulator2 -= interval;
-							Particles::fast_tracers.add(Vec3::lerp(data->particle_accumulator2 / vi_max(0.0001f, u.time.delta), data->particle_last_pos2, p), Vec3::zero, 0);
-						}
-						data->particle_last_pos2 = p;
-					}
-
-					Transform* base2 = data->trailer5_camera_base2.ref();
-					Transform* base3 = data->trailer5_camera_base3.ref();
-					const r32 anim_time = 0.6f;
-					r32 time = layer.time - 8.58f;
-					camera->pos = Vec3::lerp(Ease::cubic_in_out<r32>(vi_min(1.0f, time / anim_time)), base2->pos, base3->pos);
-					camera->rot = Quat::look(base2->rot * Vec3(0, -1, 0));
-					if (time > anim_time)
-						Game::session.time_scale = vi_max(0.075f, 1.0f - (time - anim_time) / 0.1f);
-				}
-			}
-
-			for (s32 i = 0; i < data->minions.length; i++)
-			{
-				Transform* base = data->minion_bases[i].ref();
-				Transform* transform = data->minions[i].ref()->get<Transform>();
-				transform->pos = base->pos + base->rot * Vec3(layer.time, 0, 0);
-				transform->rot = base->rot * Quat::euler(0, PI, 0);
-			}
-		}
-		else
-		{
-			const Animator::Layer& layer = data->hobo.ref()->get<Animator>()->layers[0];
-			if (layer.animation == Asset::Animation::hobo_trailer6)
-			{
-				Transform* base = data->trailer6_camera_base.ref();
-				Camera* camera = PlayerHuman::list.iterator().item()->camera.ref();
-				Vec3 dir = base->rot * Vec3(0, -1, 0);
-				camera->pos = base->pos + dir * (layer.time * -0.5f);
-				camera->rot = Quat::look(dir);
-			}
-		}
-	}
-
 	void init(const EntityFinder& entities)
 	{
 		data = new Data();
 		Game::cleanups.add(&cleanup);
-		Game::updates.add(&update);
 
 		data->meursault = Actor::add(entities.find("meursault"), Asset::Bone::meursault_head, Actor::IdleBehavior::Interrupt);
 
 		entities.find("trigger")->get<PlayerTrigger>()->entered.link(&trigger);
 		data->anim_base = entities.find("player_anim");
-
-		data->hobo = World::create<Prop>(Asset::Mesh::hobo, Asset::Armature::hobo);
-		data->hobo.ref()->get<SkinnedModel>()->radius = 1000.0f;
-		data->hobo.ref()->get<Animator>()->layers[0].blend_time = 0.0f;
-		data->hobo.ref()->get<Animator>()->layers[0].behavior = Animator::Behavior::Default;
-
-		data->terminal = World::create<Prop>(Asset::Mesh::terminal, Asset::Armature::terminal);
-		data->terminal.ref()->get<SkinnedModel>()->radius = 1000.0f;
-		data->terminal.ref()->get<Animator>()->layers[0].blend_time = 0.0f;
-		data->terminal.ref()->get<Animator>()->layers[0].behavior = Animator::Behavior::Default;
-
-		data->parkour = World::create<Prop>(Asset::Mesh::parkour, Asset::Armature::parkour);
-		data->parkour.ref()->get<SkinnedModel>()->radius = 1000.0f;
-		data->parkour.ref()->get<Animator>()->layers[0].blend_time = 0.0f;
-		data->parkour.ref()->get<Animator>()->layers[0].behavior = Animator::Behavior::Default;
-		data->parkour.ref()->get<Animator>()->trigger(Asset::Animation::parkour_trailer5_parkour, 9.1f).link(&muzzle_flash);
-
-		data->drone = World::create<Prop>(Asset::Mesh::drone, Asset::Armature::drone);
-		data->drone.ref()->get<SkinnedModel>()->radius = 1000.0f;
-		data->drone.ref()->get<Animator>()->layers[0].blend_time = 0.0f;
-		data->drone.ref()->get<Animator>()->layers[0].behavior = Animator::Behavior::Default;
-
-		data->trailer5_camera_base = entities.find("trailer5_camera_base")->get<Transform>();
-		data->trailer5_camera_base2 = entities.find("trailer5_camera_base2")->get<Transform>();
-		data->trailer5_camera_base3 = entities.find("trailer5_camera_base3")->get<Transform>();
-
-		s32 i = 0;
-		while (true)
-		{
-			char name[32];
-			sprintf(name, "minion%d", i);
-
-			Entity* e = entities.find(name);
-			if (!e)
-				break;
-				
-			data->minion_bases.add(e->get<Transform>());
-
-			Entity* minion = World::create<Prop>(Asset::Mesh::character, Asset::Armature::character);
-			minion->get<Animator>()->layers[0].blend_time = 0.0f;
-			minion->get<Animator>()->layers[0].behavior = Animator::Behavior::Loop;
-			minion->get<Animator>()->layers[0].speed = 0.75f;
-			minion->get<Animator>()->layers[0].play(Asset::Animation::character_walk);
-
-			data->minions.add(minion);
-
-			i++;
-		}
-
-		Entity* cigarette_main = World::create<Prop>(Asset::Mesh::cigarette_Circle);
-		data->cigarette = cigarette_main->get<Transform>();
-
-		Entity* cigarette_end = World::create<Prop>(Asset::Mesh::cigarette_Circle_1);
-		cigarette_end->get<Transform>()->parent = cigarette_main->get<Transform>();
-		cigarette_end->get<View>()->alpha();
-
-		data->trailer6_camera_base = entities.find("trailer6_camera_base")->get<Transform>();
 
 		Loader::animation(Asset::Animation::character_meursault_intro);
 		Loader::animation(Asset::Animation::meursault_intro);
@@ -1722,8 +1477,8 @@ Script Script::list[] =
 	{ "tutorial", Scripts::tutorial::init },
 	{ "Docks", Scripts::Docks::init },
 	{ "locke", Scripts::locke::init },
-	{ "tier_1", Scripts::tier_1::init },
-	{ "tier_2", Scripts::tier_2::init },
+	{ "Channels", Scripts::Channels::init },
+	{ "Slum", Scripts::Slum::init },
 	{ nullptr, nullptr },
 };
 s32 Script::count; // set in Game::init

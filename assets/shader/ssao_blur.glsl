@@ -16,24 +16,23 @@ void main()
 
 in vec2 uv;
 
-const float gaussian_kernel[16] = float[16]
+const float gaussian_kernel[15] = float[15]
 (
-	0.003829872,
-	0.0088129551,
-	0.0181463396,
-	0.03343381,
-	0.0551230286,
-	0.0813255467,
-	0.1073650667,
-	0.1268369298,
-	0.1340827751,
-	0.1268369298,
-	0.1073650667,
-	0.0813255467,
-	0.0551230286,
-	0.03343381,
-	0.0181463396,
-	0.0088129551
+	0.000489,
+	0.002403,
+	0.009246,
+	0.02784,
+	0.065602,
+	0.120999,
+	0.174697,
+	0.197448,
+	0.174697,
+	0.120999,
+	0.065602,
+	0.02784,
+	0.009246,
+	0.002403,
+	0.000489
 );
 
 uniform sampler2D color_buffer;
@@ -49,18 +48,13 @@ void main()
 	float depth = texture(depth_buffer, uv).x;
 
 	float sum = 0.0;
-	float count = 0;
-	for (int i = -8; i < 8; i++)
+	for (int i = -7; i <= 7; i++)
 	{
 		vec2 tap = uv + (inv_buffer_size * i);
 		if (abs(depth - texture(depth_buffer, tap).x) < blur_discard_threshold)
-		{
-			sum += texture(color_buffer, tap).x * gaussian_kernel[i + 8];
-			count += gaussian_kernel[i + 8];
-		}
+			sum += texture(color_buffer, tap).x * gaussian_kernel[i + 7];
 	}
 	
-	sum /= count;
 	out_color = vec4(sum, sum, sum, 1.0);
 }
 

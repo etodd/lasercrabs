@@ -2432,7 +2432,7 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 		printf("Chunked inaccessible surfaces: %fs\n", platform::time() - timer);
 		timer = platform::time();
 	}
-
+	
 	{
 		// filter out bad nav graph vertices where there is an obstruction between the surface point
 		// and the Drone's actual location which is offset by DRONE_RADIUS
@@ -2516,7 +2516,7 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 								// neighbor is in front of our surface; we might be able to shoot there
 								r32 distance_squared = to_neighbor.length_squared();
 								if (distance_squared < (DRONE_MAX_DISTANCE - DRONE_RADIUS) * (DRONE_MAX_DISTANCE - DRONE_RADIUS)
-									&& distance_squared > (DRONE_RADIUS * 2.0f) * (DRONE_RADIUS * 2.0f))
+									&& distance_squared >(DRONE_RADIUS * 2.0f) * (DRONE_RADIUS * 2.0f))
 								{
 									to_neighbor /= sqrtf(distance_squared);
 									if (fabs(to_neighbor.y) < DRONE_VERTICAL_DOT_LIMIT) // can't shoot straight up or straight down
@@ -2793,6 +2793,12 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		TileCacheData nav_tiles;
 
 		// build nav mesh
+		if (cJSON_HasObjectItem(json->child, "nonav"))
+		{
+			nav_tiles.width = 0;
+			nav_tiles.height = 0;
+		}
+		else
 		{
 			Mesh nav_mesh_input;
 

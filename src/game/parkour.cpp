@@ -1191,34 +1191,26 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 			switch (attempt)
 			{
 				case MantleAttempt::Normal:
-				{
 					extra_raycast = 0.0f;
 					break;
-				}
 				case MantleAttempt::Extra:
-				{
 					extra_raycast = -WALKER_SUPPORT_HEIGHT;
 					break;
-				}
 				case MantleAttempt::Force:
-				{
 					extra_raycast = -WALKER_SUPPORT_HEIGHT - 0.5f;
 					break;
-				}
 				default:
-				{
 					vi_assert(false);
 					break;
-				}
 			}
 			Vec3 ray_end = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * -0.25f + extra_raycast, dir_offset.z);
 
 			RayCallbackDefaultConstructor ray_callback(ray_start, ray_end);
 			Physics::raycast(&ray_callback, CollisionParkour);
 
-			// check for wall blocking the mantle
-			if (ray_callback.hasHit() && ray_callback.m_hitNormalWorld.getY() > 0.25f)
+			if (ray_callback.hasHit() && ray_callback.m_hitNormalWorld.getY() > 0.707f)
 			{
+				// check for wall blocking the mantle
 				Vec3 wall_ray_start = pos;
 				wall_ray_start.y = ray_callback.m_hitPointWorld.getY() + 0.1f;
 				Vec3 wall_ray_end = ray_callback.m_hitPointWorld;
@@ -1300,21 +1292,15 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 		// this prevents the player from spamming the wall-run key to wall-run infinitely
 		b8 add_velocity = !last_support.ref()
 			|| last_support.ref()->entity_id != support_body->getUserIndex()
-			|| last_support_wall_run_state != s
-			|| wall_run_state != s;
+			|| last_support_wall_run_state == WallRunState::None
+			|| relative_wall_run_normal.dot(wall_normal) < 0.9f;
 
 		if (s == WallRunState::Forward)
 		{
-			if (add_velocity && vertical_velocity - support_velocity.y > -4.0f)
-			{
-				// going up
+			if (add_velocity && vertical_velocity - support_velocity.y > -4.0f) // going up
 				wall_run_up_add_velocity(velocity, support_velocity);
-			}
-			else
-			{
-				// going down
+			else // going down
 				body->setLinearVelocity(support_velocity + Vec3(0, (vertical_velocity - support_velocity.y) * 0.5f, 0));
-			}
 		}
 		else
 		{

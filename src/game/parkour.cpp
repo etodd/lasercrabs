@@ -28,20 +28,18 @@ namespace VI
 #define WALL_JUMP_RAYCAST_RADIUS_RATIO 2.0f
 #define WALL_RUN_DISTANCE_RATIO 1.1f
 
-#define RUN_SPEED 5.0f
+#define RUN_SPEED 4.5f
 #define WALK_SPEED 3.0f
-#define MAX_SPEED 6.0f
-#define MIN_WALLRUN_SPEED 3.0f
-#define MIN_ATTACK_SPEED 4.0f
-#define JUMP_SPEED 5.5f
+#define MAX_SPEED 5.5f
+#define MIN_WALLRUN_SPEED 2.5f
+#define JUMP_SPEED 5.0f
 #define COLLECTIBLE_RADIUS 1.0f
 
 #define JUMP_GRACE_PERIOD 0.3f
 
 #define TILE_CREATE_RADIUS 4.5f
 
-#define MIN_SLIDE_TIME 0.6f
-#define ANIMATION_SPEED_MULTIPLIER 2.0f
+#define ANIMATION_SPEED_MULTIPLIER 2.2f
 
 Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 {
@@ -172,7 +170,7 @@ void Parkour::footstep()
 		Audio::post_global(AK::EVENTS::PLAY_FOOTSTEP, base_pos);
 
 		RigidBody* support = get<Walker>()->support.ref();
-		EffectLight::add(base_pos, 1.0f, 5.0f, EffectLight::Type::Shockwave, support ? support->get<Transform>() : nullptr);
+		EffectLight::add(base_pos, 0.5f, 5.0f, EffectLight::Type::Shockwave, support ? support->get<Transform>() : nullptr);
 	}
 }
 

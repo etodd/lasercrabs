@@ -920,34 +920,44 @@ void Game::draw_alpha(const RenderParams& render_params)
 			AssetID mesh_id;
 			switch (body->type)
 			{
-			case RigidBody::Type::Box:
-				mesh_id = Asset::Mesh::cube;
-				radius = body->size;
-				color = Vec4(1, 0, 0, 1);
-				break;
-			case RigidBody::Type::Sphere:
-				mesh_id = Asset::Mesh::sphere;
-				radius = body->size;
-				color = Vec4(1, 0, 0, 1);
-				break;
-			case RigidBody::Type::CapsuleX:
-				// capsules: size.x = radius, size.y = height
-				mesh_id = Asset::Mesh::cube;
-				radius = Vec3((body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x, body->size.x);
-				color = Vec4(0, 1, 0, 1);
-				break;
-			case RigidBody::Type::CapsuleY:
-				mesh_id = Asset::Mesh::cube;
-				radius = Vec3(body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x);
-				color = Vec4(0, 1, 0, 1);
-				break;
-			case RigidBody::Type::CapsuleZ:
-				mesh_id = Asset::Mesh::cube;
-				radius = Vec3(body->size.x, body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f);
-				color = Vec4(0, 1, 0, 1);
-				break;
-			default:
-				continue;
+				case RigidBody::Type::Box:
+				{
+					mesh_id = Asset::Mesh::cube;
+					radius = body->size;
+					color = Vec4(1, 0, 0, 1);
+					break;
+				}
+				case RigidBody::Type::Sphere:
+				{
+					mesh_id = Asset::Mesh::sphere;
+					radius = body->size;
+					color = Vec4(1, 0, 0, 1);
+					break;
+				}
+				case RigidBody::Type::CapsuleX:
+				{
+					// capsules: size.x = radius, size.y = height
+					mesh_id = Asset::Mesh::cube;
+					radius = Vec3((body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x, body->size.x);
+					color = Vec4(0, 1, 0, 1);
+					break;
+				}
+				case RigidBody::Type::CapsuleY:
+				{
+					mesh_id = Asset::Mesh::cube;
+					radius = Vec3(body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x);
+					color = Vec4(0, 1, 0, 1);
+					break;
+				}
+				case RigidBody::Type::CapsuleZ:
+				{
+					mesh_id = Asset::Mesh::cube;
+					radius = Vec3(body->size.x, body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f);
+					color = Vec4(0, 1, 0, 1);
+					break;
+				}
+				default:
+					continue;
 			}
 
 			if (!render_params.camera->visible_sphere(transform.getOrigin(), vi_max(radius.x, vi_max(radius.y, radius.z))))
@@ -2118,6 +2128,20 @@ void Game::load_level(AssetID l, Mode m)
 
 					mesh = mesh->next;
 				}
+			}
+
+			if (const char* physics = Json::get_string(element, "physics"))
+			{
+				const Mesh* mesh = Loader::mesh(entity->get<View>()->mesh);
+				const r32 density = 0.5f;
+				Vec3 size = (mesh->bounds_max - mesh->bounds_min) * 0.5f;
+				r32 mass = size.dot(Vec3(1)) * density;
+				if (strcmp(physics, "Box") == 0)
+					entity->create<RigidBody>(RigidBody::Type::Box, size, Json::get_r32(element, "mass", mass), CollisionDroneIgnore, ~CollisionAllTeamsForceField, AssetNull, RigidBody::FlagGhost);
+				else if (strcmp(physics, "Sphere") == 0)
+					entity->create<RigidBody>(RigidBody::Type::Sphere, Vec3(mesh->bounds_radius), Json::get_r32(element, "mass", mass), CollisionDroneIgnore, ~CollisionAllTeamsForceField, AssetNull, RigidBody::FlagGhost);
+				else
+					vi_assert(false);
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "Tram"))

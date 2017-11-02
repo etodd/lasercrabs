@@ -11,8 +11,8 @@ struct RigidBody;
 
 #define WALKER_SUPPORT_HEIGHT 0.35f
 #define WALKER_HEIGHT 0.95f
-#define WALKER_RADIUS 0.35f
-#define WALKER_DEFAULT_CAPSULE_HEIGHT (WALKER_HEIGHT + WALKER_RADIUS * 2.0f)
+#define WALKER_PARKOUR_RADIUS 0.45f
+#define WALKER_MINION_RADIUS 0.35f
 
 struct Walker : public ComponentType<Walker>
 {
@@ -41,7 +41,9 @@ struct Walker : public ComponentType<Walker>
 	void absolute_pos(const Vec3&);
 	Vec3 forward() const;
 	Vec3 right() const;
+	r32 radius() const;
 	r32 capsule_height() const;
+	r32 default_capsule_height() const;
 	void crouch(b8);
 
 	void update(const Update&);

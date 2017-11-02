@@ -6,6 +6,7 @@
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "console.h"
 #include "team.h"
+#include "minion.h"
 
 namespace VI
 {
@@ -48,7 +49,7 @@ void Walker::awake()
 	if (has<RigidBody>())
 		body = get<RigidBody>(); // RigidBody will already be awake because it comes first in the component list
 	else
-		body = entity()->add<RigidBody>(RigidBody::Type::CapsuleY, Vec3(WALKER_RADIUS, WALKER_HEIGHT, 0), 1.5f, CollisionWalker, ~Team::force_field_mask(get<AIAgent>()->team));
+		body = entity()->add<RigidBody>(RigidBody::Type::CapsuleY, Vec3(radius(), WALKER_HEIGHT, 0), 1.5f, CollisionWalker, ~Team::force_field_mask(get<AIAgent>()->team));
 	walker_set_rigid_body_props(body->btBody);
 }
 
@@ -66,7 +67,7 @@ const Vec3 corners[num_corners] =
 b8 Walker::slide(Vec2* movement, const Vec3& wall_ray)
 {
 	Vec3 ray_start = get<Transform>()->absolute_pos();
-	Vec3 ray_end = ray_start + wall_ray * (WALKER_RADIUS + 0.25f);
+	Vec3 ray_end = ray_start + wall_ray * (radius() + 0.25f);
 	btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionWalker & ~CollisionTarget & ~Team::force_field_mask(get<AIAgent>()->team));
 	if (ray_callback.hasHit()
@@ -112,7 +113,7 @@ btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_dista
 
 	for (s32 i = 0; i < num_corners; i++)
 	{
-		Vec3 ray_start = pos + (corners[i] * (WALKER_RADIUS * 0.75f));
+		Vec3 ray_start = pos + (corners[i] * (radius() * 0.75f));
 		Vec3 ray_end = ray_start + Vec3(0, (capsule_height() * -0.5f) + (WALKER_SUPPORT_HEIGHT * -1.5f) - extra_distance, 0);
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
@@ -358,6 +359,16 @@ r32 Walker::capsule_height() const
 {
 	const Vec3& size = get<RigidBody>()->size;
 	return size.y + size.x * 2.0f;
+}
+
+r32 Walker::radius() const
+{
+	return has<Minion>() ? WALKER_MINION_RADIUS : WALKER_PARKOUR_RADIUS;
+}
+
+r32 Walker::default_capsule_height() const
+{
+	return (WALKER_HEIGHT + radius() * 2.0f);
 }
 
 void Walker::crouch(b8 c)

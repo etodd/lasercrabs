@@ -1504,7 +1504,8 @@ void get_interactable_standing_position(Transform* i, Vec3* pos, r32* angle)
 	if (angle)
 		*angle = atan2f(dir.x, dir.z);
 	*pos = i_pos + dir * -1.0f;
-	pos->y += (WALKER_DEFAULT_CAPSULE_HEIGHT * 0.5f) + WALKER_SUPPORT_HEIGHT;
+	const r32 default_capsule_height = (WALKER_HEIGHT + WALKER_PARKOUR_RADIUS * 2.0f);
+	pos->y += (default_capsule_height * 0.5f) + WALKER_SUPPORT_HEIGHT;
 }
 
 void get_standing_position(Transform* i, Vec3* pos, r32* angle)
@@ -1518,7 +1519,8 @@ void get_standing_position(Transform* i, Vec3* pos, r32* angle)
 	if (angle)
 		*angle = atan2f(dir.x, dir.z);
 	*pos = i_pos;
-	pos->y += (WALKER_DEFAULT_CAPSULE_HEIGHT * 0.5f) + WALKER_SUPPORT_HEIGHT;
+	const r32 default_capsule_height = (WALKER_HEIGHT + WALKER_PARKOUR_RADIUS * 2.0f);
+	pos->y += (default_capsule_height * 0.5f) + WALKER_SUPPORT_HEIGHT;
 }
 
 void PlayerHuman::game_mode_transitioning()

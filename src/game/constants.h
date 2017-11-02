@@ -1,6 +1,6 @@
 #pragma once
 
-#define RELEASE_BUILD 0
+#define RELEASE_BUILD 1
 
 #define MAX_PLAYERS 8
 
@@ -11,7 +11,7 @@
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 7
+#define GAME_VERSION 8
 
 #define STEAM_APP_ID 728100
 

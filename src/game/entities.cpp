@@ -2907,7 +2907,7 @@ void ParticleEffect::draw_alpha(const RenderParams& p)
 				}
 				case Type::SpawnMinion:
 				{
-					size = Vec3(radius_scale * WALKER_RADIUS * 1.5f, height_scale * (WALKER_HEIGHT * 2.0f + WALKER_SUPPORT_HEIGHT), radius_scale * WALKER_RADIUS * 1.5f);
+					size = Vec3(radius_scale * WALKER_MINION_RADIUS * 1.5f, height_scale * (WALKER_HEIGHT * 2.0f + WALKER_SUPPORT_HEIGHT), radius_scale * WALKER_MINION_RADIUS * 1.5f);
 					m.make_transform(e.pos, size, Quat::identity);
 					mesh = Asset::Mesh::cylinder;
 					break;

@@ -761,8 +761,8 @@ void Minion::update_server(const Update& u)
 							diff.y = 0.0f;
 							r32 distance = diff.length();
 							r32 dot = diff.dot(ray);
-							if (distance < WALKER_RADIUS * 2.0f * 1.25f
-								&& dot > 0.0f && dot < WALKER_RADIUS * 2.0f * 1.25f)
+							if (distance < WALKER_MINION_RADIUS * 2.0f * 1.25f
+								&& dot > 0.0f && dot < WALKER_MINION_RADIUS * 2.0f * 1.25f)
 							{
 								diff /= distance;
 								Vec3 right = diff.cross(Vec3(0, 1, 0));

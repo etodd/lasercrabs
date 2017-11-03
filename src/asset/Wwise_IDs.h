@@ -69,6 +69,10 @@ namespace AK
         static const AkUniqueID PLAY_IVORY_AD04 = 1856248775U;
         static const AkUniqueID PLAY_IVORY_AD05 = 1856248774U;
         static const AkUniqueID PLAY_LOCKE_A01 = 2868667721U;
+        static const AkUniqueID PLAY_LOCKE_A02 = 2868667722U;
+        static const AkUniqueID PLAY_LOCKE_A03 = 2868667723U;
+        static const AkUniqueID PLAY_LOCKE_A04 = 2868667724U;
+        static const AkUniqueID PLAY_LOCKE_A05 = 2868667725U;
         static const AkUniqueID PLAY_LOCKE_B01 = 486790274U;
         static const AkUniqueID PLAY_LOCKE_B02 = 486790273U;
         static const AkUniqueID PLAY_LOCKE_C01 = 3070293435U;

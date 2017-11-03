@@ -35,6 +35,7 @@
 #include "data/animator.h"
 #include "input.h"
 #include "ease.h"
+#include "parkour.h"
 #if !defined(__ORBIS__)
 #include "steam/steam_api.h"
 #endif
@@ -189,6 +190,11 @@ void tut(AssetID text, r32 delay = 1.0f)
 	data->text_tut_real_time = Game::real_time.total + delay;
 }
 
+b8 tut_active()
+{
+	return data->text_tut != AssetNull;
+}
+
 void done(Instance* i)
 {
 	i->highlight = false;
@@ -289,46 +295,46 @@ void draw_ui(const RenderParams& params)
 	if (!data)
 		return;
 
-	if (!Overworld::active())
+	for (auto i = Instance::list.iterator(); !i.is_last(); i.next())
 	{
-		for (auto i = Instance::list.iterator(); !i.is_last(); i.next())
+		const Instance& instance = *i.item();
+
+		Vec3 actor_pos = Vec3::zero;
+		if (instance.model.ref())
 		{
-			const Instance& instance = *i.item();
+			if (instance.head_bone == AssetNull)
+				actor_pos = instance.model.ref()->get<Transform>()->absolute_pos();
+			else
+				instance.model.ref()->get<Animator>()->to_world(instance.head_bone, &actor_pos);
 
-			Vec3 actor_pos = Vec3::zero;
-			if (instance.model.ref())
-			{
-				if (instance.head_bone == AssetNull)
-					actor_pos = instance.model.ref()->get<Transform>()->absolute_pos();
-				else
-					instance.model.ref()->get<Animator>()->to_world(instance.head_bone, &actor_pos);
-
-				if (Settings::waypoints && instance.highlight)
-					UI::indicator(params, actor_pos + Vec3(0, -0.4f, 0), UI::color_accent(), true);
-			}
-
-			if (Settings::subtitles
-				&& instance.text != AssetNull
-				&& (instance.highlight || instance.dialogue_radius == 0.0f || (actor_pos - params.camera->pos).length_squared() < instance.dialogue_radius * instance.dialogue_radius))
-			{
-				UIText text;
-				text.font = Asset::Font::pt_sans;
-				text.size = 18.0f;
-				text.wrap_width = MENU_ITEM_WIDTH;
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Min;
-				text.color = UI::color_default;
-				text.text(params.camera->gamepad, _(instance.text));
-				UIMenu::text_clip(&text, instance.last_cue_real_time, 80.0f);
-
-				{
-					Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.2f);
-					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-					text.draw(params, p);
-				}
-			}
+			if (Settings::waypoints && instance.highlight)
+				UI::indicator(params, actor_pos + Vec3(0, -0.4f, 0), UI::color_accent(), true);
 		}
 
+		if (Settings::subtitles
+			&& instance.text != AssetNull
+			&& (instance.highlight || instance.dialogue_radius == 0.0f || (actor_pos - params.camera->pos).length_squared() < instance.dialogue_radius * instance.dialogue_radius))
+		{
+			UIText text;
+			text.font = Asset::Font::pt_sans;
+			text.size = 18.0f;
+			text.wrap_width = MENU_ITEM_WIDTH;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Min;
+			text.color = UI::color_default;
+			text.text(params.camera->gamepad, _(instance.text));
+			UIMenu::text_clip(&text, instance.last_cue_real_time, 80.0f);
+
+			{
+				Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+				text.draw(params, p);
+			}
+		}
+	}
+
+	if (!Overworld::active())
+	{
 		if (data->text_tut != AssetNull && Game::real_time.total > data->text_tut_real_time)
 		{
 			UIText text;
@@ -522,8 +528,10 @@ namespace Docks
 		Start,
 		DadaSpotted,
 		DadaTalking,
+		DadaDone,
 		Jump,
 		Climb,
+		WallRun,
 		Done,
 		count,
 	};
@@ -554,13 +562,20 @@ namespace Docks
 
 #endif
 
-		Ref<Camera> camera;
 		Actor::Instance* dada;
+		r32 wallrun_footstep_timer;
+		s32 wallrun_footstep_index;
 		Vec3 camera_start_pos;
 		r32 transition_timer;
+		Ref<Camera> camera;
+		Ref<Parkour> player;
 		Ref<Animator> character;
 		Ref<Transform> ivory_ad_text;
-		Ref<Actor::Instance> ivory_ad_actor;
+		Ref<PlayerTrigger> wallrun_trigger_1;
+		Ref<PlayerTrigger> wallrun_trigger_2;
+		Ref<Entity> energy;
+		StaticArray<Ref<Transform>, 8> wallrun_footsteps1;
+		StaticArray<Ref<Transform>, 8> wallrun_footsteps2;
 		TutorialState state;
 		b8 dada_talked;
 	};
@@ -584,26 +599,9 @@ namespace Docks
 			|| data->state == TutorialState::DadaSpotted
 			|| data->state == TutorialState::DadaTalking)
 		{
+			data->dada->highlight = false;
 			data->state = TutorialState::Jump;
 			Actor::tut(strings::tut_jump, 0.0f);
-		}
-	}
-
-	void climb_trigger(Entity*)
-	{
-		if (data->state == TutorialState::Jump)
-		{
-			data->state = TutorialState::Climb;
-			Actor::tut(strings::tut_climb, 0.0f);
-		}
-	}
-
-	void climb_success_trigger(Entity*)
-	{
-		if (data->state == TutorialState::Climb)
-		{
-			data->state = TutorialState::Done;
-			Actor::tut_clear();
 		}
 	}
 
@@ -614,6 +612,12 @@ namespace Docks
 			data->state = TutorialState::DadaSpotted;
 			data->dada->cue(AK::EVENTS::PLAY_DADA01, Asset::Animation::dada_wait, strings::dada01);
 		}
+	}
+
+	void dada_done(Actor::Instance*)
+	{
+		if (data->state == TutorialState::DadaTalking)
+			data->state = TutorialState::DadaDone;
 	}
 
 	void dada_talk(Entity*)
@@ -628,11 +632,12 @@ namespace Docks
 			data->dada->cue(AK::EVENTS::PLAY_DADA02, Asset::Animation::dada_talk, strings::dada02);
 			data->dada->cue(AK::EVENTS::PLAY_DADA03, Asset::Animation::dada_talk, strings::dada03);
 			data->dada->cue(AK_InvalidID, Asset::Animation::dada_close_door, AssetNull, Actor::Loop::No);
+			data->dada->cue(&dada_done, 0.0f);
 			data->dada->cue(&Actor::done, 0.0f);
 		}
 	}
 
-	void hobo_done(Actor::Instance* hobo)
+	void hobo_speak(Actor::Instance* hobo)
 	{
 		hobo->cue(AK::EVENTS::PLAY_HOBO01, Asset::Animation::hobo_idle, strings::hobo01);
 		hobo->cue(AK::EVENTS::PLAY_HOBO02, Asset::Animation::hobo_idle, strings::hobo02);
@@ -644,19 +649,17 @@ namespace Docks
 		hobo->cue(AK::EVENTS::PLAY_HOBO08, Asset::Animation::hobo_idle, strings::hobo08);
 		hobo->cue(AK::EVENTS::PLAY_HOBO09, Asset::Animation::hobo_idle, strings::hobo09);
 		hobo->cue(AK::EVENTS::PLAY_HOBO10, Asset::Animation::hobo_idle, strings::hobo10);
-		hobo->cue(&hobo_done, 4.0f);
+		hobo->cue(&hobo_speak, 4.0f);
 	}
 
-	void ivory_ad_play(Entity*)
+	void ivory_ad_play(Actor::Instance* ad)
 	{
-		if (data->ivory_ad_actor.ref()->cues.length == 0)
-		{
-			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD01, AssetNull, strings::ivory_ad01);
-			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD02, AssetNull, strings::ivory_ad02);
-			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD03, AssetNull, strings::ivory_ad03);
-			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD04, AssetNull, strings::ivory_ad04);
-			data->ivory_ad_actor.ref()->cue(AK::EVENTS::PLAY_IVORY_AD05, AssetNull, strings::ivory_ad05);
-		}
+		ad->cue(AK::EVENTS::PLAY_IVORY_AD01, AssetNull, strings::ivory_ad01);
+		ad->cue(AK::EVENTS::PLAY_IVORY_AD02, AssetNull, strings::ivory_ad02);
+		ad->cue(AK::EVENTS::PLAY_IVORY_AD03, AssetNull, strings::ivory_ad03);
+		ad->cue(AK::EVENTS::PLAY_IVORY_AD04, AssetNull, strings::ivory_ad04);
+		ad->cue(AK::EVENTS::PLAY_IVORY_AD05, AssetNull, strings::ivory_ad05);
+		ad->cue(&ivory_ad_play, 4.0f);
 	}
 
 #if SERVER
@@ -921,14 +924,95 @@ namespace Docks
 		else
 			Menu::progress_infinite(p, _(strings::connecting), p.camera->viewport.size * 0.5f);
 
+		if (data->energy.ref()
+			&& data->state != TutorialState::Start && data->state != TutorialState::DadaSpotted && data->state != TutorialState::DadaTalking
+			&& !data->energy.ref()->get<Transform>()->parent.ref())
+			UI::indicator(p, data->energy.ref()->get<Transform>()->absolute_pos(), UI::color_accent(), true);
+
 		if (data->transition_timer > 0.0f && data->transition_timer < TRANSITION_TIME)
 			Menu::draw_letterbox(p, data->transition_timer, TRANSITION_TIME);
+	}
+
+	void player_jumped()
+	{
+		if (data->state == TutorialState::Jump)
+		{
+			data->state = TutorialState::Climb;
+			Actor::tut_clear();
+			Actor::tut(strings::tut_climb, 2.0f);
+		}
+	}
+
+	void wallrun_tut(Entity*)
+	{
+		if (data->state == TutorialState::WallRun)
+		{
+			data->wallrun_footstep_index = 0;
+			data->wallrun_footstep_timer = 0.0f;
+			Actor::tut_clear();
+			Actor::tut(Asset::String::tut_wallrun, 0.0f);
+		}
+	}
+
+	void wallrun_tut_clear(Entity*)
+	{
+		if (data->state == TutorialState::WallRun)
+			Actor::tut_clear();
+	}
+
+	void wallrun_done(Entity*)
+	{
+		if (data->state == TutorialState::WallRun)
+		{
+			Actor::tut_clear();
+			data->state = TutorialState::Done;
+		}
 	}
 
 	void update(const Update& u)
 	{
 		// ivory ad text
 		data->ivory_ad_text.ref()->rot *= Quat::euler(0, u.time.delta * 0.2f, 0);
+
+		if (Parkour::list.count() > 0 && data->state != TutorialState::Done)
+		{
+			Parkour* parkour = Parkour::list.iterator().item();
+
+			if (!data->player.ref())
+			{
+				// player just spawned
+				data->player = parkour;
+				parkour->jumped.link(&player_jumped);
+			}
+
+			if (data->state == TutorialState::Climb
+				&& (parkour->fsm.current == Parkour::State::Climb || parkour->fsm.current == Parkour::State::Mantle))
+			{
+				data->state = TutorialState::WallRun;
+				Actor::tut_clear();
+			}
+
+			if (data->state == TutorialState::WallRun)
+			{
+				StaticArray<Ref<Transform>, 8>* footsteps = nullptr;
+				if (data->wallrun_trigger_1.ref()->is_triggered())
+					footsteps = &data->wallrun_footsteps1;
+				else if (data->wallrun_trigger_2.ref()->is_triggered())
+					footsteps = &data->wallrun_footsteps2;
+
+				if (footsteps)
+				{
+					// spawn wallrun footstep shockwave effects
+					data->wallrun_footstep_timer -= u.time.delta;
+					if (data->wallrun_footstep_timer < 0.0f)
+					{
+						data->wallrun_footstep_timer += 2.0f / footsteps->length;
+						data->wallrun_footstep_index = (data->wallrun_footstep_index + 1) % footsteps->length;
+						EffectLight::add((*footsteps)[data->wallrun_footstep_index].ref()->absolute_pos(), 1.0f, 1.0f, EffectLight::Type::Shockwave);
+					}
+				}
+			}
+		}
 	}
 
 	void init(const EntityFinder& entities)
@@ -1040,13 +1124,12 @@ namespace Docks
 			World::remove(entities.find("character"));
 
 		if ((Game::save.zone_last == AssetNull || Game::save.zone_last == Asset::Level::Docks)
-			&& entities.find("drones"))
+			&& entities.find("energy"))
 		{
 			entities.find("jump_trigger")->get<PlayerTrigger>()->entered.link(&jump_trigger);
-			entities.find("climb_trigger")->get<PlayerTrigger>()->entered.link(&climb_trigger);
-			entities.find("climb_success_trigger")->get<PlayerTrigger>()->entered.link(&climb_success_trigger);
 			entities.find("dada_spotted_trigger")->get<PlayerTrigger>()->entered.link(&dada_spotted);
 			entities.find("dada_talk_trigger")->get<PlayerTrigger>()->entered.link(&dada_talk);
+			data->energy = entities.find("energy");
 
 			Game::updates.add(update_title);
 			Game::draws.add(draw_ui);
@@ -1057,24 +1140,46 @@ namespace Docks
 			Loader::animation(Asset::Animation::dada_talk);
 			if (Game::level.mode != Game::Mode::Special)
 				data->dada->highlight = true;
+
+			data->wallrun_trigger_1 = entities.find("wallrun_trigger_1")->get<PlayerTrigger>();
+			data->wallrun_trigger_1.ref()->entered.link(&wallrun_tut);
+			data->wallrun_trigger_1.ref()->exited.link(&wallrun_tut_clear);
+			entities.find("wallrun_success_1")->get<PlayerTrigger>()->entered.link(&wallrun_done);
+			data->wallrun_trigger_2 = entities.find("wallrun_trigger_2")->get<PlayerTrigger>();
+			data->wallrun_trigger_2.ref()->entered.link(&wallrun_tut);
+			data->wallrun_trigger_2.ref()->exited.link(&wallrun_tut_clear);
+			entities.find("wallrun_success_2")->get<PlayerTrigger>()->entered.link(&wallrun_done);
+			for (s32 i = 0; i < 8; i++)
+			{
+				char name[64];
+				sprintf(name, "wallrun_footstep_1.%03d", i);
+				data->wallrun_footsteps1.add(entities.find(name)->get<Transform>());
+			}
+			for (s32 i = 0; i < 8; i++)
+			{
+				char name[64];
+				sprintf(name, "wallrun_footstep_2.%03d", i);
+				data->wallrun_footsteps2.add(entities.find(name)->get<Transform>());
+			}
 		}
 		else
 		{
+			data->state = TutorialState::Done;
 			Animator* dada = entities.find("dada")->get<Animator>();
 			dada->layers[0].behavior = Animator::Behavior::Freeze;
 			dada->layers[0].play(Asset::Animation::dada_close_door);
 		}
 
-		entities.find("ivory_ad_trigger")->get<PlayerTrigger>()->entered.link(&ivory_ad_play);
 		data->ivory_ad_text = entities.find("ivory_ad_text")->get<Transform>();
 
 		Actor::init();
 		Loader::animation(Asset::Animation::hobo_idle);
 		Actor::Instance* hobo = Actor::add(entities.find("hobo"), Asset::Bone::hobo_head);
-		hobo_done(hobo);
+		hobo_speak(hobo);
 
-		data->ivory_ad_actor = Actor::add(entities.find("ivory_ad"));
-		data->ivory_ad_actor.ref()->dialogue_radius = 0.0f;
+		Actor::Instance* ivory_ad = Actor::add(entities.find("ivory_ad"));
+		ivory_ad->dialogue_radius = 25.0f;
+		ivory_ad_play(ivory_ad);
 
 		Game::updates.add(update);
 	}
@@ -1286,6 +1391,10 @@ namespace locke
 				case 0:
 				{
 					data->locke->cue(AK::EVENTS::PLAY_LOCKE_A01, Asset::Animation::locke_gesture_one_hand_short, strings::locke_a01, Actor::Loop::No);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_A02, Asset::Animation::locke_gesture_one_hand_short, strings::locke_a02, Actor::Loop::No, Actor::Overlap::Yes);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_A03, Asset::Animation::locke_gesture_both_arms, strings::locke_a03, Actor::Loop::No, Actor::Overlap::Yes);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_A04, Asset::Animation::locke_gesture_both_arms, strings::locke_a04, Actor::Loop::No);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE_A05, Asset::Animation::locke_shift_weight, strings::locke_a05, Actor::Loop::No);
 					break;
 				}
 				case 1:

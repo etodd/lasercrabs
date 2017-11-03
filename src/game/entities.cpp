@@ -3818,7 +3818,7 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack, 
 				{
 					// only attached on one end
 					Vec3 start_relative_pos = Vec3(0, 0, ROPE_SEGMENT_LENGTH * 0.5f);
-					rope_add(rope->get<RigidBody>(), start_relative_pos, end2, Quat::look(Vec3::normalize(end2 - rope->get<Transform>()->to_world(start_relative_pos))), slack, RigidBody::Constraint::Type::ConeTwist);
+					rope_add(rope->get<RigidBody>(), start_relative_pos, start_pos, Quat::look(Vec3::normalize(start_pos - rope->get<Transform>()->to_world(start_relative_pos))), slack, RigidBody::Constraint::Type::ConeTwist);
 				}
 			}
 		}
@@ -4119,28 +4119,21 @@ void Interactable::awake()
 		link<&Interactable::animation_callback>(get<Animator>()->trigger(Asset::Animation::interactable_interact, 1.916f));
 		link<&Interactable::animation_callback>(get<Animator>()->trigger(Asset::Animation::interactable_interact_disable, 1.916f));
 	}
+
 	switch (type)
 	{
 		case Type::Terminal:
-		{
 			interacted.link(&TerminalInteractable::interacted);
 			break;
-		}
 		case Type::Tram:
-		{
 			interacted.link(&TramInteractableEntity::interacted);
 			break;
-		}
 		case Type::Shop:
-		{
 			interacted.link(&ShopInteractable::interacted);
 			break;
-		}
 		default:
-		{
 			vi_assert(false);
 			break;
-		}
 	}
 }
 

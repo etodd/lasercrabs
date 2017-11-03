@@ -2709,12 +2709,12 @@ ResourceInfo resource_info[s32(Resource::count)] =
 	{
 		Asset::Mesh::icon_access_key,
 		strings::access_keys,
-		800,
+		2000,
 	},
 	{
 		Asset::Mesh::icon_drone,
 		strings::drones,
-		50,
+		100,
 	},
 };
 
@@ -2759,7 +2759,7 @@ void tab_inventory_update(const Update& u)
 			{
 				s32 selected = s32(inventory->resource_selected);
 				selected = vi_max(0, vi_min(s32(Resource::count) - 1, selected + UI::input_delta_vertical(u, 0)));
-				inventory->resource_selected = (Resource)selected;
+				inventory->resource_selected = Resource(selected);
 
 				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 				{

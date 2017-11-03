@@ -831,6 +831,8 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_r32_range(p, Game::level.rotation, -2.0f * PI, 2.0f * PI, 16);
 	serialize_r32_range(p, Game::level.min_y, -128, 128, 8);
 	serialize_r32(p, Game::level.skybox.far_plane);
+	serialize_r32(p, Game::level.skybox.fog_start);
+	serialize_r32(p, Game::level.skybox.fog_end);
 	serialize_asset(p, Game::level.skybox.texture, Loader::static_texture_count);
 	serialize_asset(p, Game::level.skybox.shader, Loader::shader_count);
 	serialize_asset(p, Game::level.skybox.mesh, Loader::static_mesh_count);

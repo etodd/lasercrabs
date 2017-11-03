@@ -67,7 +67,7 @@ void main()
 		#define FOG_SHADOW_SAMPLES 16
 		#define FOG_SHADOW_STRENGTH 0.6f
 
-		float diff = final_depth - fog_start;
+		float diff = min(final_depth, fog_start + fog_extent) - fog_start;
 		if (diff < 0.0f)
 			discard;
 		float interval = diff / FOG_SHADOW_SAMPLES;

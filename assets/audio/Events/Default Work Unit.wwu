@@ -1644,6 +1644,62 @@
 								</Action>
 							</ChildrenList>
 						</Event>
+						<Event Name="Play_locke_a04" ID="{5FF1905E-E08A-4F5A-8C40-66EB37D03412}">
+							<ChildrenList>
+								<Action Name="" ID="{E837408B-4F1C-4DEA-812A-9CBE4D15CE63}" ShortID="840679528">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="locke_a04" ID="{4A036F50-2853-49E8-9868-1AAA8460105C}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_locke_a02" ID="{5B48F9C8-FA2F-4F5A-A227-6247F18C4118}">
+							<ChildrenList>
+								<Action Name="" ID="{E2B96AB2-2489-409C-92D0-CAB28C624D2C}" ShortID="661753820">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="locke_a02" ID="{B8796ACC-93C8-44E2-85CB-9A413242117E}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_locke_a03" ID="{9055E77A-CE33-436E-9516-6580107A83D6}">
+							<ChildrenList>
+								<Action Name="" ID="{6F3AAED1-6BF3-46B5-AACC-A4D95E08AA00}" ShortID="1003869909">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="locke_a03" ID="{32682376-1233-4025-BFCE-CE64C56A643E}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_locke_a05" ID="{C7E7F3B5-8A84-46E4-AB11-EF7FD74823A3}">
+							<ChildrenList>
+								<Action Name="" ID="{BBC42465-CA87-4577-BD16-9055A3FB287D}" ShortID="693434669">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="locke_a05" ID="{13F75F27-A639-4F80-97E4-F24749E22061}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
 					</ChildrenList>
 				</Folder>
 				<Folder Name="music" ID="{2510DC71-3D30-487C-882E-3E0AD65BD055}" ShortID="408702147">

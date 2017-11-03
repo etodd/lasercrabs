@@ -3,7 +3,7 @@
 	<Attenuations>
 		<WorkUnit Name="Default Work Unit" ID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}" PersistMode="Standalone">
 			<ChildrenList>
-				<Attenuation Name="Atten20" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" ShortID="1058333233">
+				<Attenuation Name="Atten35" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" ShortID="1058333233">
 					<PropertyList>
 						<Property Name="RadiusMax" Type="Real64" Value="35"/>
 					</PropertyList>
@@ -49,7 +49,7 @@
 						</FocusUsage>
 					</CurveUsageInfoList>
 				</Attenuation>
-				<Attenuation Name="Atten15" ID="{66FF368F-246F-423C-AD7C-4B99890C0E5F}" ShortID="1017001815">
+				<Attenuation Name="Atten20" ID="{66FF368F-246F-423C-AD7C-4B99890C0E5F}" ShortID="1017001815">
 					<PropertyList>
 						<Property Name="RadiusMax" Type="Real64" Value="20"/>
 					</PropertyList>

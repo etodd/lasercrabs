@@ -66,7 +66,7 @@ Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 	create<AIAgent>()->team = team;
 
 	create<Target>();
-	create<Health>(DRONE_HEALTH, DRONE_HEALTH, PARKOUR_SHIELD, PARKOUR_SHIELD);
+	create<Health>(DRONE_HEALTH, DRONE_HEALTH);
 
 	create<Parkour>();
 }
@@ -131,7 +131,7 @@ void Parkour::land(r32 velocity_diff)
 				get<RigidBody>()->btBody->setLinearVelocity(Vec3(0, get<RigidBody>()->btBody->getLinearVelocity().getY(), 0));
 				get<Animator>()->layers[1].play(Asset::Animation::character_land_hard);
 				get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_HARD);
-				s8 damage = vi_min(s8((LANDING_VELOCITY_HARD - velocity_diff) * 0.5f), s8(DRONE_HEALTH + PARKOUR_SHIELD));
+				s8 damage = vi_min(s8((LANDING_VELOCITY_HARD - velocity_diff) * 0.5f), s8(DRONE_HEALTH));
 				if (damage > 0)
 					get<Health>()->damage(nullptr, damage);
 			}
@@ -858,33 +858,25 @@ void Parkour::update(const Update& u)
 
 	// handle collectibles
 	{
-		b8 pickup = get<Animator>()->layers[3].animation == AssetNull; // should we look for collectibles to pick up?
 		Vec3 me = get<Walker>()->base_pos();
 		for (auto i = Collectible::list.iterator(); !i.is_last(); i.next())
 		{
 			Transform* t = i.item()->get<Transform>();
 
-			if (pickup && t->parent.ref() != get<Transform>()
+			if (t->parent.ref() != get<Transform>()
 				&& (t->absolute_pos() - me).length_squared() < COLLECTIBLE_RADIUS * COLLECTIBLE_RADIUS)
 			{
-				Animator::Layer* layer3 = &get<Animator>()->layers[3];
-				if (layer3->animation == AssetNull)
-				{
-					i.item()->give_rewards();
-					i.item()->get<Transform>()->parent = get<Transform>();
-					layer3->set(Asset::Animation::character_pickup, 0.0f); // bypass animation blending
-					get<Animator>()->update_world_transforms();
-					get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_COLLECTIBLE_PICKUP);
-					parkour_set_collectible_position(get<Animator>(), t);
-				}
+				pickup_animation_complete();
+				i.item()->give_rewards();
+				i.item()->get<Transform>()->parent = get<Transform>();
+				get<Animator>()->layers[3].set(Asset::Animation::character_pickup, 0.0f); // bypass animation blending
+				get<Animator>()->update_world_transforms();
+				get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_COLLECTIBLE_PICKUP);
+				parkour_set_collectible_position(get<Animator>(), t);
 			}
 
-			if (t->parent.ref() == get<Transform>())
-			{
-				// glue it to our hand
+			if (t->parent.ref() == get<Transform>()) // glue it to our hand
 				parkour_set_collectible_position(get<Animator>(), t);
-				break;
-			}
 		}
 	}
 }
@@ -1100,6 +1092,7 @@ b8 Parkour::try_jump(r32 rotation)
 
 	if (did_jump)
 	{
+		jumped.fire();
 		get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_JUMP);
 		fsm.transition(State::Normal);
 		footstep();
@@ -1206,7 +1199,7 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 			RayCallbackDefaultConstructor ray_callback(ray_start, ray_end);
 			Physics::raycast(&ray_callback, CollisionParkour);
 
-			if (ray_callback.hasHit() && ray_callback.m_hitNormalWorld.getY() > 0.707f)
+			if (ray_callback.hasHit() && ray_callback.m_hitNormalWorld.getY() > WALKER_TRACTION_DOT)
 			{
 				// check for wall blocking the mantle
 				Vec3 wall_ray_start = pos;

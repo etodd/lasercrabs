@@ -5334,7 +5334,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	{
 		const Health* health = get<Health>();
 
-		b8 is_vulnerable = get<Health>()->can_take_damage(nullptr) && health->hp == 1 && health->shield == 0 && Game::session.config.drone_shield > 0;
+		b8 is_vulnerable = get<Health>()->can_take_damage(nullptr) && health->hp == 1 && health->shield == 0 && health->shield_max > 0;
 
 		Vec2 ui_anchor = player.ref()->ui_anchor(params);
 		ui_anchor.y = params.camera->viewport.size.y * 0.5f + UI_TEXT_SIZE_DEFAULT * -4.0f;

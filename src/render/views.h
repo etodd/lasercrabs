@@ -67,6 +67,7 @@ struct Skybox
 		Vec3 color;
 		r32 far_plane;
 		r32 fog_start;
+		r32 fog_end;
 		AssetID texture;
 		AssetID mesh;
 		AssetID shader;

@@ -420,7 +420,7 @@ void SkyDecal::draw_alpha(const RenderParams& p)
 	sync->write(Asset::Uniform::fog_extent);
 	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
-	sync->write<r32>(p.camera->far_plane * 0.75f);
+	sync->write<r32>(Game::level.fog_end_get() - Game::level.fog_start_get());
 
 	Vec2 inv_buffer_size = Vec2(1.0f / r32(Settings::display().width), 1.0f / r32(Settings::display().height));
 
@@ -564,7 +564,7 @@ void Skybox::draw_alpha(const RenderParams& p)
 	sync->write(Asset::Uniform::fog_extent);
 	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
-	sync->write<r32>(p.camera->far_plane - Game::level.fog_start_get());
+	sync->write<r32>(Game::level.fog_end_get() - Game::level.fog_start_get());
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::far_plane);
@@ -706,7 +706,7 @@ void Clouds::draw_alpha(const RenderParams& p)
 		sync->write(Asset::Uniform::fog_extent);
 		sync->write(RenderDataType::R32);
 		sync->write<s32>(1);
-		sync->write<r32>(p.camera->far_plane - Game::level.fog_start_get());
+		sync->write<r32>(Game::level.fog_end_get() - Game::level.fog_start_get());
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::cloud_inv_uv_scale);

@@ -219,6 +219,14 @@ r32 Game::Level::fog_start_get() const
 		return Game::level.skybox.fog_start;
 }
 
+r32 Game::Level::fog_end_get() const
+{
+	if (Overworld::modal())
+		return Overworld::far_plane;
+	else
+		return Game::level.skybox.fog_end;
+}
+
 Array<UpdateFunction> Game::updates;
 Array<DrawFunction> Game::draws;
 Array<CleanupFunction> Game::cleanups;
@@ -1638,7 +1646,8 @@ void Game::load_level(AssetID l, Mode m)
 			}
 
 			level.skybox.far_plane = Json::get_r32(element, "far_plane", 100.0f);
-			level.skybox.fog_start = Json::get_r32(element, "fog_start", level.skybox.far_plane * 0.25f);
+			level.skybox.fog_start = Json::get_r32(element, "fog_start", 10.0f);
+			level.skybox.fog_end = Json::get_r32(element, "fog_end", level.skybox.far_plane * 0.75f);
 			level.skybox.texture = Loader::find(Json::get_string(element, "skybox_texture"), AssetLookup::Texture::names);
 			level.skybox.shader = Asset::Shader::skybox;
 			level.skybox.mesh = Asset::Mesh::skybox;
@@ -1753,7 +1762,7 @@ void Game::load_level(AssetID l, Mode m)
 			rope->rot = absolute_rot;
 			rope->slack = Json::get_r32(element, "slack");
 			rope->max_distance = Json::get_r32(element, "max_distance", 20.0f);
-			rope->attach_end = b8(Json::get_s32(element, "attach_end", 0));
+			rope->attach_end = b8(Json::get_s32(element, "attach_end"));
 		}
 		else if (cJSON_HasObjectItem(element, "Turret"))
 		{
@@ -2328,7 +2337,10 @@ void Game::load_level(AssetID l, Mode m)
 	Physics::sync_static();
 
 	for (s32 i = 0; i < ropes.length; i++)
-		Rope::spawn(ropes[i].pos, ropes[i].rot * Vec3(0, 1, 0), ropes[i].max_distance, ropes[i].slack, ropes[i].attach_end);
+	{
+		const RopeEntry& entry = ropes[i];
+		Rope::spawn(entry.pos, entry.rot * Vec3(0, 1, 0), entry.max_distance, entry.slack, entry.attach_end);
+	}
 
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		World::awake(i.item()->entity());

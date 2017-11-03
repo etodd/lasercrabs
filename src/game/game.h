@@ -156,6 +156,7 @@ struct Game
 		const Vec3& ambient_color_get() const;
 		r32 far_plane_get() const;
 		r32 fog_start_get() const;
+		r32 fog_end_get() const;
 	};
 
 	static Session session;

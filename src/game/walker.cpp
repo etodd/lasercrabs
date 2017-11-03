@@ -228,7 +228,7 @@ void Walker::update(const Update& u)
 				r32 support_normal_velocity = support_velocity.dot(support_normal);
 				adjustment += (support_normal_velocity - normal_velocity) * support_normal;
 
-				b8 has_traction = support_normal.y > 0.7f;
+				b8 has_traction = support_normal.y > WALKER_TRACTION_DOT;
 
 				Vec2 movement = dir;
 

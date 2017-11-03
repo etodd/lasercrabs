@@ -14,7 +14,7 @@ separate threads for physics, rendering, AI, and game logic
 - Geometry-based font rendering and UI system
 - UDP client-server network architecture
 - Online user profile system via [sqlite](https://sqlite.org/)
-- Authentication via [itch.io](https://itch.io) and [GameJolt](https://gamejolt.com)
+- Authentication via [Steam](http://store.steampowered.com/), [itch.io](https://itch.io), or [GameJolt](https://gamejolt.com)
 - Localization support
 - Simple Windows crash report system
 - Keyboard/mouse/gamepad support via SDL

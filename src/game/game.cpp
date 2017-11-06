@@ -1344,6 +1344,8 @@ void Game::execute(const char* cmd)
 		if (Overworld::zone_is_pvp(id))
 			Overworld::zone_change(id, ZoneState::PvpFriendly);
 	}
+	else if (strcmp(cmd, "abilities") == 0)
+		Game::save.extended_parkour = true;
 	else if (strstr(cmd, "unlock ") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');
@@ -1458,6 +1460,7 @@ struct RopeEntry
 	Vec3 pos;
 	r32 max_distance;
 	r32 slack;
+	s8 flags;
 	b8 attach_end;
 };
 
@@ -1763,6 +1766,7 @@ void Game::load_level(AssetID l, Mode m)
 			rope->slack = Json::get_r32(element, "slack");
 			rope->max_distance = Json::get_r32(element, "max_distance", 20.0f);
 			rope->attach_end = b8(Json::get_s32(element, "attach_end"));
+			rope->flags = Rope::FlagClimbable;
 		}
 		else if (cJSON_HasObjectItem(element, "Turret"))
 		{
@@ -1952,6 +1956,7 @@ void Game::load_level(AssetID l, Mode m)
 				rope->slack = 0.0f;
 				rope->max_distance = 100.0f;
 				rope->attach_end = true;
+				rope->flags = Rope::FlagClimbable;
 
 				cJSON* links = cJSON_GetObjectItem(element, "links");
 				vi_assert(links && cJSON_GetArraySize(links) == 1);
@@ -2339,7 +2344,7 @@ void Game::load_level(AssetID l, Mode m)
 	for (s32 i = 0; i < ropes.length; i++)
 	{
 		const RopeEntry& entry = ropes[i];
-		Rope::spawn(entry.pos, entry.rot * Vec3(0, 1, 0), entry.max_distance, entry.slack, entry.attach_end);
+		Rope::spawn(entry.pos, entry.rot * Vec3(0, 1, 0), entry.max_distance, entry.slack, entry.attach_end, entry.flags);
 	}
 
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())

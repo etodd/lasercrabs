@@ -11,9 +11,9 @@
 namespace VI
 {
 
-#define ACCEL1 15.0f
+#define ACCEL1 20.0f
 #define ACCEL_THRESHOLD 3.0f
-#define ACCEL2 2.0f
+#define ACCEL2 3.0f
 #define DECELERATION 30.0f
 
 void walker_set_rigid_body_props(btRigidBody* btBody)
@@ -43,7 +43,7 @@ Walker::Walker(r32 rot)
 void Walker::awake()
 {
 	// NOTE: RigidBody must come before Walker in component_ids.cpp
-	// It needs to be initialized first
+	// it needs to be initialized first
 
 	RigidBody* body;
 	if (has<RigidBody>())
@@ -244,38 +244,52 @@ void Walker::update(const Update& u)
 							slide(&movement, Vec3(cosf(angle - PI * 0.25f), 0, sinf(angle - PI * 0.25f)));
 					}
 
-					Vec3 x = Vec3::normalize(Vec3(movement.x, 0, movement.y).cross(ray_callback.m_hitNormalWorld));
-					Vec3 z = Vec3::normalize(Vec3(ray_callback.m_hitNormalWorld).cross(x));
+					Vec3 x = Vec3(movement.x, 0, movement.y).cross(ray_callback.m_hitNormalWorld);
+					{
+						r32 x_length = x.length();
+						if (btFuzzyZero(x_length))
+							return;
+						x /= x_length;
+					}
+					Vec3 z = Vec3(ray_callback.m_hitNormalWorld).cross(x);
+					{
+						r32 z_length = z.length();
+						if (btFuzzyZero(z_length))
+							return;
+						z /= z_length;
+					}
 
-					// Remove velocity perpendicular to our desired movement
+					// remove velocity perpendicular to our desired movement
 					r32 x_speed = velocity.dot(x);
 					r32 support_x_speed = support_velocity.dot(x);
 					r32 x_speed_change = LMath::clampf(x_speed - support_x_speed, -u.time.delta * DECELERATION, u.time.delta * DECELERATION);
 					adjustment -= x_speed_change * x;
 
-					// Calculate speed along desired movement direction
+					// calculate speed along desired movement direction
 					r32 net_z_speed = (velocity - support_velocity).dot(z);
 
-					// Makeshift acceleration curve
-					r32 acceleration = net_speed < ACCEL_THRESHOLD ? ACCEL1 : ACCEL2;
+					// makeshift acceleration curve
+					r32 acceleration = net_z_speed < ACCEL_THRESHOLD ? ACCEL1 : ACCEL2;
 
-					// Increase acceleration if we're turning
-					acceleration += fabsf(Vec2(x.x, x.z).dot(Vec2(velocity.x - support_velocity.x, velocity.z - support_velocity.z))) * ACCEL2 * 4.0f;
+					// increase acceleration if we're turning
+					acceleration += fabsf((velocity - support_velocity).dot(x)) * ACCEL2 * 4.0f;
 
-					// Increase acceleration if we're climbing
+					// increase acceleration if we're climbing
 					if (z.y > 0.0f)
 						acceleration += z.y * ACCEL2 * 2.0f;
+
+					Console::debug("%.02f", acceleration);
 
 					r32 target_speed = vi_max(net_speed, speed) * movement_length;
 					if (net_z_speed > target_speed)
 					{
-						// Decelerate
+						// decelerate
 						r32 z_speed_change = vi_min(u.time.delta * DECELERATION, target_speed - net_z_speed);
 						adjustment += z_speed_change * z;
 					}
 					else
 					{
-						// Accelerate net_z_speed up to speed
+						// accelerate net_z_speed up to speed
 						r32 z_speed_change = vi_min(u.time.delta * acceleration, target_speed - net_z_speed);
 						adjustment += z_speed_change * z;
 						if (z.y > 0.0f)
@@ -316,7 +330,8 @@ void Walker::update(const Update& u)
 			Vec3 accel3 = Vec3(accel.x, 0, accel.y);
 
 			// don't allow the walker to go faster than the speed we were going when we last hit the ground
-			if (velocity.dot(accel3 / accel3.length()) < vi_max(speed * 0.25f, net_speed))
+			r32 accel_length = accel3.length();
+			if (accel_length > 0.0f && velocity.dot(accel3 / accel_length) < vi_max(speed * 0.25f, net_speed))
 				adjustment += accel3;
 		}
 

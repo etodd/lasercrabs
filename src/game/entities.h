@@ -403,10 +403,18 @@ struct Rope : public ComponentType<Rope>
 	static Array<Mat4> instances;
 
 	static void draw_all(const RenderParams&);
-	static void spawn(const Vec3&, const Vec3&, r32, r32 = 0.0f, b8 = true);
+	static void spawn(const Vec3&, const Vec3&, r32, r32 = 0.0f, b8 = true, s8 = 0);
+	static Rope* start(RigidBody*, const Vec3&, const Vec3&, const Quat&, r32 = 0.0f, s8 = 0);
+
+	enum Flags
+	{
+		FlagClimbable = 1 << 0,
+	};
+
+	s8 flags;
 
 	void awake() {}
-	static Rope* start(RigidBody*, const Vec3&, const Vec3&, const Quat&, r32 = 0.0f);
+
 	void end(const Vec3&, const Vec3&, RigidBody*, r32 = 0.0f, b8 = false);
 };
 

@@ -1518,7 +1518,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::buffer_size);
 		sync->write(RenderDataType::Vec2);
 		sync->write<s32>(1);
-		sync->write<Vec2>(buffer_size);
+		sync->write<Vec2>(buffer_size * (UI::scale > 1.25f ? 0.5f : 1.0f));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::scan_line_interval);

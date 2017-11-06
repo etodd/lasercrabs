@@ -3689,7 +3689,7 @@ void Rope::draw_all(const RenderParams& params)
 	sync->write<Mat4>(instances.data, instances.length);
 }
 
-RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3& pos, const Quat& rot, r32 slack, RigidBody::Constraint::Type constraint_type)
+RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3& pos, const Quat& rot, r32 slack, RigidBody::Constraint::Type constraint_type, s8 flags)
 {
 	RigidBody* last_segment = start;
 	Vec3 last_segment_relative_pos = start_relative_pos;
@@ -3711,7 +3711,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
 				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionDroneIgnore, ~CollisionWalker & ~CollisionAllTeamsForceField);
-				box->add<Rope>();
+				box->add<Rope>()->flags = flags;
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);
 				static Quat rotation_b = Quat::look(Vec3(0, 0, -1)) * Quat::euler(PI, PI * -0.5f, 0);
@@ -3743,7 +3743,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 		return last_segment;
 }
 
-Rope* Rope::start(RigidBody* start, const Vec3& abs_pos, const Vec3& abs_normal, const Quat& abs_rot, r32 slack)
+Rope* Rope::start(RigidBody* start, const Vec3& abs_pos, const Vec3& abs_normal, const Quat& abs_rot, r32 slack, s8 flags)
 {
 	Entity* base = World::create<Prop>(Asset::Mesh::rope_base);
 	base->get<Transform>()->absolute(abs_pos, Quat::look(abs_normal));
@@ -3753,7 +3753,7 @@ Rope* Rope::start(RigidBody* start, const Vec3& abs_pos, const Vec3& abs_normal,
 	// add the first rope segment
 	Vec3 p = abs_pos + abs_normal * ROPE_RADIUS;
 	Transform* start_trans = start->get<Transform>();
-	RigidBody* rope = rope_add(start, start_trans->to_local(p), p + abs_rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH), abs_rot, slack, RigidBody::Constraint::Type::PointToPoint);
+	RigidBody* rope = rope_add(start, start_trans->to_local(p), p + abs_rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH), abs_rot, slack, RigidBody::Constraint::Type::PointToPoint, flags);
 	vi_assert(rope); // should never happen
 	return rope->get<Rope>();
 }
@@ -3763,7 +3763,7 @@ void Rope::end(const Vec3& pos, const Vec3& normal, RigidBody* end, r32 slack, b
 	Vec3 abs_pos = pos + normal * ROPE_RADIUS;
 	RigidBody* start = get<RigidBody>();
 	Vec3 start_relative_pos = Vec3(0, 0, ROPE_SEGMENT_LENGTH * 0.5f);
-	RigidBody* last = rope_add(start, start_relative_pos, abs_pos, Quat::look(Vec3::normalize(abs_pos - get<Transform>()->to_world(start_relative_pos))), slack, RigidBody::Constraint::Type::ConeTwist);
+	RigidBody* last = rope_add(start, start_relative_pos, abs_pos, Quat::look(Vec3::normalize(abs_pos - get<Transform>()->to_world(start_relative_pos))), slack, RigidBody::Constraint::Type::ConeTwist, flags);
 	if (!last) // we didn't need to add any rope segments; just attach ourselves to the end point
 		last = start;
 
@@ -3786,7 +3786,7 @@ void Rope::end(const Vec3& pos, const Vec3& normal, RigidBody* end, r32 slack, b
 	Net::finalize(last->entity());
 }
 
-void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack, b8 attach_end)
+void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack, b8 attach_end, s8 flags)
 {
 	Vec3 dir_normalized = Vec3::normalize(dir);
 	Vec3 start_pos = pos;
@@ -3804,7 +3804,7 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack, 
 		{
 			RigidBody* a = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
 
-			Rope* rope = Rope::start(a, ray_callback.m_hitPointWorld, ray_callback.m_hitNormalWorld, Quat::look(ray_callback.m_hitNormalWorld), slack);
+			Rope* rope = Rope::start(a, ray_callback.m_hitPointWorld, ray_callback.m_hitNormalWorld, Quat::look(ray_callback.m_hitNormalWorld), slack, flags);
 
 			if (rope)
 			{
@@ -3818,7 +3818,7 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack, 
 				{
 					// only attached on one end
 					Vec3 start_relative_pos = Vec3(0, 0, ROPE_SEGMENT_LENGTH * 0.5f);
-					rope_add(rope->get<RigidBody>(), start_relative_pos, start_pos, Quat::look(Vec3::normalize(start_pos - rope->get<Transform>()->to_world(start_relative_pos))), slack, RigidBody::Constraint::Type::ConeTwist);
+					rope_add(rope->get<RigidBody>(), start_relative_pos, start_pos, Quat::look(Vec3::normalize(start_pos - rope->get<Transform>()->to_world(start_relative_pos))), slack, RigidBody::Constraint::Type::ConeTwist, flags);
 				}
 			}
 		}

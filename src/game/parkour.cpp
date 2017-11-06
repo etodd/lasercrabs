@@ -273,7 +273,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		r32 new_speed = Vec2(velocity.x, velocity.z).length();
 		if (new_speed < speed) // make sure we don't slow down at all though
 		{
-			r32 scale = speed / new_speed;
+			r32 scale = speed / vi_max(0.01f, new_speed);
 			velocity.x *= scale;
 			velocity.z *= scale;
 		}
@@ -408,34 +408,35 @@ Transform* parkour_get_rope(Parkour* parkour, ParkourRopeSearch search)
 	Vec3 climb_attach_point = parkour->get<Transform>()->absolute_pos() + parkour_climb_offset(parkour);
 	for (auto i = Rope::list.iterator(); !i.is_last(); i.next())
 	{
-		Vec3 diff = i.item()->get<Transform>()->absolute_pos() - climb_attach_point;
-		r32 distance_sq = diff.length_squared();
-		switch (search)
+		if (i.item()->flags & Rope::FlagClimbable)
 		{
-			case ParkourRopeSearch::Any:
+			Vec3 diff = i.item()->get<Transform>()->absolute_pos() - climb_attach_point;
+			r32 distance_sq = diff.length_squared();
+			switch (search)
 			{
-				if (distance_sq < ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_LENGTH)
-					return i.item()->get<Transform>();
-				break;
-			}
-			case ParkourRopeSearch::Above:
-			{
-				if (distance_sq < ROPE_SEGMENT_LENGTH * 0.75f * ROPE_SEGMENT_LENGTH * 0.75f
-					&& diff.y > ROPE_SEGMENT_LENGTH * 0.25f)
-					return i.item()->get<Transform>();
-				break;
-			}
-			case ParkourRopeSearch::Below:
-			{
-				if (distance_sq < ROPE_SEGMENT_LENGTH * 0.75f * ROPE_SEGMENT_LENGTH * 0.75f
-					&& diff.y < ROPE_SEGMENT_LENGTH * -0.25f)
-					return i.item()->get<Transform>();
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
+				case ParkourRopeSearch::Any:
+				{
+					if (distance_sq < ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_LENGTH)
+						return i.item()->get<Transform>();
+					break;
+				}
+				case ParkourRopeSearch::Above:
+				{
+					if (distance_sq < ROPE_SEGMENT_LENGTH * 0.75f * ROPE_SEGMENT_LENGTH * 0.75f
+						&& diff.y > ROPE_SEGMENT_LENGTH * 0.25f)
+						return i.item()->get<Transform>();
+					break;
+				}
+				case ParkourRopeSearch::Below:
+				{
+					if (distance_sq < ROPE_SEGMENT_LENGTH * 0.75f * ROPE_SEGMENT_LENGTH * 0.75f
+						&& diff.y < ROPE_SEGMENT_LENGTH * -0.25f)
+						return i.item()->get<Transform>();
+					break;
+				}
+				default:
+					vi_assert(false);
+					break;
 			}
 		}
 	}
@@ -522,14 +523,14 @@ void Parkour::update(const Update& u)
 				// move vertically
 				r32 distance = diff.y;
 				r32 time_left = (mantle_time * 0.5f) - fsm.time;
-				adjustment = Vec3(0, vi_min(distance, u.time.delta / time_left), 0);
+				adjustment = Vec3(0, vi_min(distance, u.time.delta / vi_max(u.time.delta, time_left)), 0);
 			}
 			else
 			{
 				// move horizontally
 				r32 distance = diff.length();
 				r32 time_left = mantle_time - fsm.time;
-				adjustment = diff * vi_min(1.0f, u.time.delta / time_left);
+				adjustment = diff * vi_min(1.0f, u.time.delta / vi_max(u.time.delta, time_left));
 			}
 			get<Walker>()->absolute_pos(start + adjustment);
 		}
@@ -979,7 +980,7 @@ void Parkour::do_normal_jump()
 	Vec3 new_velocity = body->getLinearVelocity();
 	new_velocity.y = vi_max(0.0f, new_velocity.y) + JUMP_SPEED;
 	body->setLinearVelocity(new_velocity);
-	last_support = get<Walker>()->support = nullptr;
+	get<Walker>()->support = nullptr;
 	last_support_wall_run_state = WallRunState::None;
 	last_support_time = Game::time.total;
 	wall_run_state = WallRunState::None;
@@ -1005,7 +1006,7 @@ b8 Parkour::try_jump(r32 rotation)
 		Vec3 velocity = body->btBody->getLinearVelocity();
 		r32 velocity_length = velocity.length();
 		r32 speed = vi_max(MIN_WALLRUN_SPEED, velocity_length * 1.5f);
-		body->btBody->setLinearVelocity(velocity * (speed / velocity_length) + Vec3(0, JUMP_SPEED, 0));
+		body->btBody->setLinearVelocity(velocity * (speed / vi_max(0.01f, velocity_length)) + Vec3(0, JUMP_SPEED, 0));
 		did_jump = true;
 	}
 	else if (fsm.current == State::Normal || fsm.current == State::WallRun)
@@ -1119,12 +1120,10 @@ void Parkour::wall_jump(r32 rotation, const Vec3& wall_normal, const btRigidBody
 
 	Vec3 new_velocity = velocity_reflected + (wall_normal * velocity_length * 0.5f);
 	new_velocity.y = 0.0f;
-	new_velocity *= velocity_length / new_velocity.length();
+	new_velocity *= velocity_length / vi_max(0.001f, new_velocity.length());
 	new_velocity.y = velocity_length;
 	body->btBody->setLinearVelocity(new_velocity);
 
-	last_support = nullptr;
-	last_support_wall_run_state = WallRunState::None;
 	last_support_time = Game::time.total;
 }
 
@@ -1247,15 +1246,6 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 	return false;
 }
 
-void Parkour::wall_run_up_add_velocity(const Vec3& velocity, const Vec3& support_velocity)
-{
-	Vec3 horizontal_velocity = velocity - support_velocity;
-	r32 vertical_velocity = vi_max(0.0f, horizontal_velocity.y);
-	horizontal_velocity.y = 0.0f;
-	r32 speed = LMath::clampf(horizontal_velocity.length(), 2.0f, MAX_SPEED);
-	get<RigidBody>()->btBody->setLinearVelocity(support_velocity + Vec3(0, 3.0f + speed + vertical_velocity, 0));
-}
-
 b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 {
 	Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, WALKER_SUPPORT_HEIGHT + get<Walker>()->default_capsule_height() * 0.25f, 0);
@@ -1290,9 +1280,27 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 		if (s == WallRunState::Forward)
 		{
 			if (add_velocity && vertical_velocity - support_velocity.y > -4.0f) // going up
-				wall_run_up_add_velocity(velocity, support_velocity);
+			{
+				Vec3 horizontal_velocity = velocity - support_velocity;
+				r32 vertical_velocity = vi_max(0.0f, horizontal_velocity.y);
+				horizontal_velocity.y = 0.0f;
+				Vec3 horizontal_wall_normal = wall_normal;
+				horizontal_wall_normal.y = 0.0f;
+				if (horizontal_velocity.dot(horizontal_wall_normal) < 1.0f) // make sure we're moving somewhat toward the wall
+				{
+					r32 speed = LMath::clampf(horizontal_velocity.length(), 2.0f, MAX_SPEED);
+					get<RigidBody>()->btBody->setLinearVelocity(support_velocity + Vec3(0, 3.0f + speed + vertical_velocity, 0));
+				}
+			}
 			else // going down
-				body->setLinearVelocity(support_velocity + Vec3(0, (vertical_velocity - support_velocity.y) * 0.5f, 0));
+			{
+				if (last_support_wall_run_state == WallRunState::Forward
+					&& s == WallRunState::Forward
+					&& Game::time.total - last_support_time < 0.3f)
+					return false; // too soon to wall-run straight again
+				else
+					body->setLinearVelocity(support_velocity + Vec3(0, (vertical_velocity - support_velocity.y) * 0.5f, 0));
+			}
 		}
 		else
 		{
@@ -1309,7 +1317,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 
 			r32 speed = vi_max(get<Walker>()->net_speed, MIN_WALLRUN_SPEED + 1.0f);
 
-			velocity_flattened *= (speed * 1.1f) / velocity_flattened.length();
+			velocity_flattened *= (speed * 1.1f) / vi_max(0.01f, velocity_flattened.length());
 
 			if (add_velocity)
 				velocity_flattened.y = vi_max(flattened_vertical_speed, 0.0f) + 3.0f + speed * 0.5f;

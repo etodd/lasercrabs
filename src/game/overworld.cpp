@@ -1144,7 +1144,7 @@ void multiplayer_tab_switch_mouse(s8)
 
 b8 multiplayer_tab_switch_enabled()
 {
-	return Game::level.mode == Game::Mode::Special; // only in the main menu; not in-game
+	return Game::level.mode == Game::Mode::Special && !Menu::dialog_active(0); // only in the main menu; not in-game
 }
 
 void multiplayer_tab_switch_try(void (*action)(s8))

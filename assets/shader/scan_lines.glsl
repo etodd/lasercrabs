@@ -27,10 +27,10 @@ out vec4 out_color;
 
 void main()
 {
-	float y = time * 8.0 + uv.y * buffer_size.y;
+	float y = (uv.y + (time * 0.01f)) * buffer_size.y;
 	int y_pixel = int(y);
-	float line1 = float(y_pixel % scan_line_interval == 0);
-	float line2 = float((y_pixel + 1) % scan_line_interval == 0);
+	float line1 = float((y_pixel % scan_line_interval) == 0);
+	float line2 = float(((y_pixel + 1) % scan_line_interval) == 0);
 	float y_subpixel = min(y - float(y_pixel), 0.25);
 	float value = mix(line1, line2, y_subpixel);
 	float clip_depth = texture(depth_buffer, uv).x * texture(normal_buffer, uv).w;

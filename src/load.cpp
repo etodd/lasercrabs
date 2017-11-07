@@ -51,6 +51,7 @@ namespace Settings
 	b8 record;
 	b8 expo;
 	b8 shell_casings;
+	b8 god_mode;
 
 	const DisplayMode& display()
 	{
@@ -285,8 +286,10 @@ void Loader::settings_load(const Array<DisplayMode>& modes, const DisplayMode& c
 	Settings::expo = b8(Json::get_s32(json, "expo", 0));
 #if SERVER
 	Settings::shell_casings = false;
+	Settings::god_mode = false;
 #else
 	Settings::shell_casings = b8(Json::get_s32(json, "shell_casings", 1));
+	Settings::god_mode = b8(Json::get_s32(json, "god_mode"));
 #endif
 
 	cJSON* gamepads = json ? cJSON_GetObjectItem(json, "gamepads") : nullptr;
@@ -374,6 +377,8 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "waypoints", s32(Settings::waypoints));
 	cJSON_AddNumberToObject(json, "scan_lines", s32(Settings::scan_lines));
 	cJSON_AddNumberToObject(json, "shell_casings", s32(Settings::shell_casings));
+	if (Settings::god_mode)
+		cJSON_AddNumberToObject(json, "god_mode", 1);
 
 	cJSON* gamepads = cJSON_CreateArray();
 	cJSON_AddItemToObject(json, "gamepads", gamepads);

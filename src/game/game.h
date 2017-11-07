@@ -148,6 +148,7 @@ struct Game
 		b8 local = true;
 		b8 noclip;
 		b8 config_scheduled_apply; // true if we have a scheduled ServerConfig we need to apply on the next level transition
+		StoryModeTeam story_mode_team;
 
 		b8 has_feature(FeatureLevel) const;
 		AI::Team team_lookup_reverse(AI::Team) const;
@@ -193,7 +194,7 @@ struct Game
 	static void update(const Update&);
 	static void schedule_load_level(AssetID, Mode, r32 = 0.0f);
 	static void unload_level();
-	static void load_level(AssetID, Mode);
+	static void load_level(AssetID, Mode, StoryModeTeam = StoryModeTeam::Attack);
 	static void awake_all();
 	static void draw_opaque(const RenderParams&);
 	static void draw_hollow(const RenderParams&);

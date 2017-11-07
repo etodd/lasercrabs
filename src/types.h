@@ -132,6 +132,13 @@ enum class SessionType : s8
 	count,
 };
 
+enum class StoryModeTeam : s8
+{
+	Attack,
+	Defend,
+	count,
+};
+
 namespace Net
 {
 	enum class MessageSource : s8 // included here to prevent having to include net.h everywhere

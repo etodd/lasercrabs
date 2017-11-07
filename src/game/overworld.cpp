@@ -52,7 +52,7 @@ namespace Overworld
 #define OPACITY 0.8f
 #define STRING_BUFFER_SIZE 256
 #define BUY_TIME 1.0f
-#define EVENT_INTERVAL_PER_ZONE (60.0f * 5.0f)
+#define EVENT_INTERVAL_PER_ZONE (60.0f * 10.0f)
 #define EVENT_ODDS_PER_ZONE (1.0f / EVENT_INTERVAL_PER_ZONE) // an event will happen on average every X minutes per zone you own
 #define ZONE_MAX_CHILDREN 12
 
@@ -2033,13 +2033,14 @@ void multiplayer_draw(const RenderParams& params)
 void go(AssetID zone)
 {
 	vi_assert(Game::level.local && Game::session.type == SessionType::Story);
-	if (zone == Asset::Level::Commons && !Game::save.tutorial_complete)
+	if (zone == Asset::Level::Commons && !Game::save.tutorial_complete && Game::save.zones[zone] == ZoneState::PvpHostile)
 		Game::schedule_load_level(zone, Game::Mode::Pvp); // run tutorial locally
 	else
 	{
 		// connect to a server
 #if !SERVER
-		Net::Client::master_request_server(0, zone);
+		Game::unload_level();
+		Net::Client::master_request_server(0, zone, Game::save.zones[zone] == ZoneState::PvpFriendly ? StoryModeTeam::Defend : StoryModeTeam::Attack); // 0 = story mode
 #endif
 	}
 }
@@ -2288,16 +2289,18 @@ const ZoneNode* zones_draw(const RenderParams& params)
 				UI::indicator(params, under_attack->pos(), UI::color_alert(), true, 1.0f, PI);
 		}
 
-		UIText text;
-		text.color = UI::color_alert();
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Min;
-		if (Game::session.zone_under_attack_timer > 0.0f)
-			text.text(0, "%d", s32(ceilf(Game::session.zone_under_attack_timer)));
-		else
-			text.text(0, _(strings::zone_defense_expired));
-
+		r32 time_remaining = Game::session.zone_under_attack_timer - ZONE_UNDER_ATTACK_THRESHOLD;
+		if (time_remaining > 0.0f)
 		{
+			UIText text;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Min;
+			text.color = UI::color_alert();
+
+			s32 remaining_minutes = time_remaining / 60.0f;
+			s32 remaining_seconds = time_remaining - (remaining_minutes * 60.0f);
+			text.text(0, _(strings::timer), remaining_minutes, remaining_seconds);
+
 			Vec2 text_pos = p;
 			text_pos.y += 32.0f * UI::scale;
 			UI::box(params, text.rect(text_pos).outset(8.0f * UI::scale), UI::color_background);
@@ -2476,16 +2479,26 @@ void capture_start(s8 gamepad)
 
 void zone_change(AssetID zone, ZoneState state)
 {
+	ZoneState state_old = Game::save.zones[zone];
+	if (state_old != state)
+	{
+		if (state == ZoneState::PvpFriendly)
+		{
+			// we captured the zone; give rewards
+			const ZoneNode* z = zone_node_by_id(zone);
+			for (s32 i = 0; i < s32(Resource::count); i++)
+				resource_change(Resource(i), z->rewards[i]);
+		}
+		else if (state == ZoneState::PvpHostile && state_old == ZoneState::PvpFriendly)
+		{
+			char str[UI_TEXT_MAX];
+			sprintf(str, _(strings::zone_lost), Loader::level_name(zone));
+			PlayerHuman::log_add(str, AI::Team(0));
+		}
+	}
+
 	Game::save.zones[zone] = state;
 	data.story.map.zones_change_time[zone] = Game::real_time.total;
-
-	if (state == ZoneState::PvpFriendly)
-	{
-		// we won
-		const ZoneNode* z = zone_node_by_id(zone);
-		for (s32 i = 0; i < s32(Resource::count); i++)
-			resource_change(Resource(i), z->rewards[i]);
-	}
 }
 
 s32 zone_max_teams(AssetID zone_id)

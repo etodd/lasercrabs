@@ -278,8 +278,6 @@ void Walker::update(const Update& u)
 					if (z.y > 0.0f)
 						acceleration += z.y * ACCEL2 * 2.0f;
 
-					Console::debug("%.02f", acceleration);
-
 					r32 target_speed = vi_max(net_speed, speed) * movement_length;
 					if (net_z_speed > target_speed)
 					{

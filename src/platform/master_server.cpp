@@ -1338,7 +1338,10 @@ namespace Master
 			if (!serialize_server_config(&p, &config))
 				net_error();
 			if (config.id == 0) // story mode
+			{
 				serialize_s16(&p, client->server_state.level); // desired level
+				serialize_enum(&p, StoryModeTeam, client->server_state.story_mode_team);
+			}
 		}
 		else
 			net_error();
@@ -1887,11 +1890,15 @@ namespace Master
 						serialize_enum(p, Region, region);
 						if (level < 0 || level >= Asset::Level::count) // todo: verify it is a PvP map
 							net_error();
+						serialize_enum(p, StoryModeTeam, node->server_state.story_mode_team);
 						node->server_state.level = level;
 						node->server_state.region = region;
+						node->server_state.player_slots = 1;
 					}
-					else
+					else // multiplayer
 					{
+						serialize_int(p, s8, node->server_state.player_slots, 1, MAX_GAMEPADS);
+
 						// check if requested config exists, and find out whether it is private and what region it should be launched in
 						sqlite3_stmt* stmt = db_query("select is_private, region from ServerConfig where id=? limit 1;");
 						db_bind_int(stmt, 0, requested_server_id);

@@ -23,6 +23,7 @@
 #include "team.h"
 #include "load.h"
 #include "ease.h"
+#include "walker.h"
 
 namespace VI
 {
@@ -1511,10 +1512,58 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 		{
 			if (a == Ability::ForceField)
 				return ForceField::can_spawn(get<AIAgent>()->team, ray_callback.pos);
-			else
-				return true;
+
+			// make sure there's enough room
+			Vec3 space_check_pos = ray_callback.pos;
+			Vec3 space_check_dir = ray_callback.normal;
+			r32 required_space;
+			switch (a)
+			{
+				case Ability::ForceField:
+					required_space = FORCE_FIELD_BASE_OFFSET;
+					break;
+				case Ability::Generator:
+					required_space = DRONE_SHIELD_RADIUS;
+					break;
+				case Ability::Minion:
+				{
+					space_check_pos += ray_callback.normal;
+					space_check_pos.y -= 1.0f;
+					space_check_dir = Vec3(0, 1, 0);
+					required_space = WALKER_SUPPORT_HEIGHT + WALKER_HEIGHT + (WALKER_MINION_RADIUS * 2.0f);
+					break;
+				}
+				case Ability::Grenade:
+					required_space = 0.0f;
+					break;
+				default:
+				{
+					required_space = 0.0f;
+					vi_assert(false);
+					break;
+				}
+			}
+
+			if (required_space > 0.0f)
+			{
+				if ((space_check_pos - ray_callback.pos).length_squared() > 0.0f)
+				{
+					RaycastCallbackExcept physics_ray_callback(ray_callback.pos + ray_callback.normal * 0.05f, space_check_pos, entity());
+					Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & ~ally_force_field_mask());
+					if (physics_ray_callback.hasHit())
+						return false; // something in the way
+				}
+
+				{
+					RaycastCallbackExcept physics_ray_callback(space_check_pos + space_check_dir * 0.05f, space_check_pos + space_check_dir * required_space, entity());
+					Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & ~ally_force_field_mask());
+					if (physics_ray_callback.hasHit())
+						return false; // not enough space
+				}
+			}
+			return true;
 		}
-		else
+		else // nowhere to build
 			return false;
 	}
 }

@@ -374,7 +374,7 @@ void Game::update(const Update& update_in)
 #endif
 		if (scheduled_load_level != AssetNull && schedule_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
 		{
-			load_level(scheduled_load_level, scheduled_mode);
+			load_level(scheduled_load_level, scheduled_mode, StoryModeTeam::Attack);
 			if (scheduled_dialog != AssetNull)
 			{
 				Menu::dialog(0, &Menu::dialog_no_action, _(scheduled_dialog));
@@ -1191,7 +1191,19 @@ void Game::execute(const char* cmd)
 		}
 	}
 #endif
-#if !RELEASE_BUILD
+	else if (!Settings::god_mode
+#if SERVER
+		|| true
+#endif
+		)
+	{
+		if (strcmp(cmd, "0451") == 0)
+		{
+			Settings::god_mode = true;
+			Loader::settings_save();
+			PlayerHuman::log_add(_(strings::god_mode_enabled));
+		}
+	}
 #if !SERVER
 	else if (strcmp(cmd, "noclip") == 0)
 	{
@@ -1358,7 +1370,6 @@ void Game::execute(const char* cmd)
 	}
 	else
 		Overworld::execute(cmd);
-#endif
 }
 
 void Game::schedule_load_level(AssetID level_id, Mode m, r32 delay)
@@ -1495,7 +1506,7 @@ void ingress_points_get(cJSON* json, cJSON* element, MinionTarget* target)
 	}
 }
 
-void Game::load_level(AssetID l, Mode m)
+void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 {
 	vi_debug("Loading level %d", s32(l));
 
@@ -1536,6 +1547,7 @@ void Game::load_level(AssetID l, Mode m)
 	level.mode = m;
 	level.id = l;
 	level.local = true;
+	level.story_mode_team = story_mode_team;
 
 	if (session.type == SessionType::Multiplayer)
 		level.multiplayer_level_schedule();
@@ -1596,7 +1608,7 @@ void Game::load_level(AssetID l, Mode m)
 	}
 
 	// default team index for minions and other items that spawn in the level
-	s32 default_team_index = save.zones[level.id] == ZoneState::PvpFriendly ? 0 : 1;
+	s32 default_team_index = story_mode_team == StoryModeTeam::Defend ? 0 : 1;
 
 	cJSON* element = json->child;
 	while (element)
@@ -1633,7 +1645,7 @@ void Game::load_level(AssetID l, Mode m)
 				s32 offset;
 				if (session.type == SessionType::Story)
 				{
-					if (save.zones[level.id] == ZoneState::PvpFriendly)
+					if (story_mode_team == StoryModeTeam::Defend)
 						offset = 0; // put local player on team 0 (defenders)
 					else
 						offset = 1; // put local player on team 1 (attackers)
@@ -1915,7 +1927,7 @@ void Game::load_level(AssetID l, Mode m)
 				if (ai_player_count > 1)
 				{
 					// 2v2 map
-					if (save.zones[level.id] == ZoneState::PvpFriendly && (team_original == 1 || mersenne::randf_cc() < 0.5f))
+					if (story_mode_team == StoryModeTeam::Defend && (team_original == 1 || mersenne::randf_cc() < 0.5f))
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // enemy is attacking; they're there from the beginning
 					else
 						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_TIME * 1.5f)));
@@ -1923,7 +1935,7 @@ void Game::load_level(AssetID l, Mode m)
 				else
 				{
 					// 1v1 map
-					if (save.zones[level.id] == ZoneState::PvpFriendly)
+					if (story_mode_team == StoryModeTeam::Defend)
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // player is defending, enemy is already there
 					else // player is attacking, eventually enemy will come to defend
 						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_TIME * 1.5f)));
@@ -1937,7 +1949,7 @@ void Game::load_level(AssetID l, Mode m)
 				AI::Team team;
 				if (session.type == SessionType::Story)
 				{
-					if (save.zones[level.id] == ZoneState::PvpFriendly // defending; enemy might have already captured some batteries
+					if (story_mode_team == StoryModeTeam::Defend // defending; enemy might have already captured some batteries
 						&& mersenne::randf_cc() < 0.2f) // only some batteries though, not all
 						team = team_lookup(level.team_lookup, Json::get_s32(element, "team", 1));
 					else

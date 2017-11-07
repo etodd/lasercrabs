@@ -1311,6 +1311,7 @@ namespace tutorial
 
 	void init(const EntityFinder& entities)
 	{
+#if !SERVER
 		if (Game::session.type == SessionType::Story
 			&& Game::level.local
 			&& !Game::save.tutorial_complete)
@@ -1340,6 +1341,7 @@ namespace tutorial
 			Game::updates.add(&update);
 			Game::cleanups.add(&cleanup);
 		}
+#endif
 	}
 }
 

@@ -2285,6 +2285,7 @@ void server_state(Master::ServerState* s)
 		s->id = Game::session.config.id;
 		s->player_slots = s8(vi_max(0, Game::session.config.max_players - PlayerHuman::list.count()));
 	}
+	s->story_mode_team = Game::level.story_mode_team;
 	s->region = Settings::region;
 }
 
@@ -2676,7 +2677,9 @@ b8 packet_handle_master(StreamRead* p)
 				Game::session.type = SessionType::Story;
 				AssetID level;
 				serialize_s16(p, level);
-				Game::load_level(level, Game::Mode::Pvp);
+				StoryModeTeam story_mode_team;
+				serialize_enum(p, StoryModeTeam, story_mode_team);
+				Game::load_level(level, Game::Mode::Pvp, story_mode_team);
 			}
 			else
 			{
@@ -3049,7 +3052,7 @@ b8 add_players(Net::StreamRead* p, Client* client, s32 count, const ExpectedClie
 					break;
 				}
 				case SessionType::Story:
-					team_ref = &Team::list[1];
+					team_ref = Game::level.story_mode_team == StoryModeTeam::Attack ? &Team::list[1] : &Team::list[0];
 					break;
 				default:
 					vi_assert(false);
@@ -3197,22 +3200,21 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 				net_error();
 			break;
 		}
-#if !RELEASE_BUILD
 		case MessageType::DebugCommand:
 		{
 			s32 len;
 			serialize_int(p, s32, len, 0, 512);
-			char buffer[513] = {};
+			char buffer[513];
 			serialize_bytes(p, (u8*)buffer, len);
+			buffer[len] = '\0';
+#if !RELEASE_BUILD
 			Game::execute(buffer);
+#endif
 			break;
 		}
-#endif
 		default:
-		{
 			net_error();
 			break;
-		}
 	}
 	serialize_align(p);
 	return true;
@@ -3344,6 +3346,7 @@ struct StateClient
 	AssetID requested_level;
 	Mode mode;
 	ReplayMode replay_mode;
+	StoryModeTeam requested_story_mode_team;
 	b8 reconnect;
 };
 StateClient state_client;
@@ -3720,13 +3723,19 @@ b8 master_send_server_request()
 	{
 		serialize_s16(&p, state_client.requested_level);
 		serialize_enum(&p, Region, Settings::region);
+		serialize_enum(&p, StoryModeTeam, state_client.requested_story_mode_team);
+	}
+	else
+	{
+		s8 local_players = Game::session.local_player_count();
+		serialize_int(&p, s8, local_players, 1, MAX_GAMEPADS);
 	}
 	packet_finalize(&p);
 	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
 	return true;
 }
 
-b8 master_request_server(u32 id, AssetID level)
+b8 master_request_server(u32 id, AssetID level, StoryModeTeam story_mode_team)
 {
 	vi_assert((id == 0) == (level != AssetNull));
 
@@ -3737,6 +3746,7 @@ b8 master_request_server(u32 id, AssetID level)
 	state_client.mode = Mode::ContactingMaster;
 	state_client.requested_server_id = id;
 	state_client.requested_level = level;
+	state_client.requested_story_mode_team = story_mode_team;
 
 	master_send(Master::Message::Disconnect);
 	state_persistent.master.reset();
@@ -4289,14 +4299,12 @@ Sock::Address server_address()
 
 b8 execute(const char* string)
 {
-#if !RELEASE_BUILD
 	using Stream = StreamWrite;
 	Stream* p = msg_new(MessageType::DebugCommand);
 	s32 len = strlen(string);
 	serialize_int(p, s32, len, 0, 512);
 	serialize_bytes(p, (u8*)string, len);
 	msg_finalize(p);
-#endif
 	return true;
 }
 
@@ -4718,13 +4726,8 @@ b8 msg_process(StreamRead* p, MessageSource src)
 			break;
 #endif
 		}
-#if !RELEASE_BUILD
-		case MessageType::DebugCommand:
-		{
-			// handled by Server::msg_process
+		case MessageType::DebugCommand: // handled by Server::msg_process
 			break;
-		}
-#endif
 		default:
 		{
 			vi_debug("Unknown message type: %d", s32(type));
@@ -4756,9 +4759,7 @@ b8 msg_finalize(StreamWrite* p)
 		&& type != MessageType::InitDone
 		&& type != MessageType::LoadingDone
 		&& type != MessageType::TimeSync
-#if !RELEASE_BUILD
 		&& type != MessageType::DebugCommand
-#endif
 		&& type != MessageType::TransitionLevel)
 	{
 		r.rewind();

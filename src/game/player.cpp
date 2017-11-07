@@ -2683,20 +2683,36 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	}
 
 	// overworld notifications
-	if (Game::level.mode == Game::Mode::Parkour && Overworld::zone_under_attack() != AssetNull)
+	if (Game::level.mode == Game::Mode::Parkour && Overworld::zone_under_attack() != AssetNull && Game::session.zone_under_attack_timer > ZONE_UNDER_ATTACK_THRESHOLD)
 	{
 		UIText text;
 		text.anchor_x = UIText::Anchor::Max;
 		text.anchor_y = UIText::Anchor::Min;
 		text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 		text.color = UI::color_alert();
-		r32 timer = Game::session.zone_under_attack_timer;
-		text.text(gamepad, _(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), s32(ceilf(timer)));
+		r32 timer = Game::session.zone_under_attack_timer - ZONE_UNDER_ATTACK_THRESHOLD;
+		s32 remaining_minutes = timer / 60.0f;
+		s32 remaining_seconds = timer - (remaining_minutes * 60.0f);
+		text.text(gamepad, _(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), remaining_minutes, remaining_seconds);
 		UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_TIME - timer, 80.0f);
 
-		Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 5.0f);
-		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-		text.draw(params, p);
+		{
+			Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 5.0f);
+			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+			text.draw(params, p);
+		}
+
+		{
+			text.wrap_width = 0.0f;
+			text.text(gamepad, _(strings::timer), remaining_minutes, remaining_seconds);
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Min;
+			text.color = UI::color_alert();
+			Vec2 p = UI::indicator(params, Game::level.terminal.ref()->get<Transform>()->absolute_pos(), text.color, true);
+			p.y += UI_TEXT_SIZE_DEFAULT * 1.5f * UI::scale;
+			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING * 0.5f), UI::color_background);
+			text.draw(params, p);
+		}
 	}
 
 	if (get<PlayerManager>()->instance.ref() && select_spawn_timer > 0.0f)

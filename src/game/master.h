@@ -95,6 +95,7 @@ struct ServerState // represents the current state of a game server
 	u32 id; // the virtual server configuration currently active on this game server; 0 if it's story mode
 	AssetID level;
 	s8 player_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
+	StoryModeTeam story_mode_team;
 	Region region;
 };
 
@@ -104,6 +105,7 @@ template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)
 	serialize_s16(p, s->level);
 	serialize_int(p, s8, s->player_slots, 0, MAX_PLAYERS);
 	serialize_enum(p, Region, s->region);
+	serialize_enum(p, StoryModeTeam, s->story_mode_team);
 	return true;
 }
 

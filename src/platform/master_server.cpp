@@ -501,6 +501,7 @@ namespace Master
 			state->player_slots = max_players;
 			state->level = AssetNull;
 			state->region = region;
+			state->story_mode_team = StoryModeTeam(0);
 			if (addr)
 				*addr = {};
 		}

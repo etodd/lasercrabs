@@ -111,7 +111,6 @@ template<typename Stream> b8 serialize_save(Stream* p, Game::Save* s)
 	serialize_s16(p, s->zone_current);
 	serialize_s16(p, s->zone_overworld);
 	serialize_bool(p, s->locke_spoken);
-	serialize_bool(p, s->extended_parkour);
 	return true;
 }
 

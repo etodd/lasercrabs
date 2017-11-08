@@ -15,5 +15,6 @@ set version=%%F
 )
 mkdir pdb
 cp build/%config%/deceiver.pdb pdb/%version%.pdb
+cp build/%config%/deceiver.exe pdb/%version%.exe
 
 pause

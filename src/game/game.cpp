@@ -164,8 +164,7 @@ void Game::Session::reset(SessionType t)
 #if SERVER
 	local_player_mask = 0;
 #else
-	if (t == SessionType::Story)
-		local_player_mask = 1;
+	local_player_mask = 1;
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		local_player_uuids[i] = mersenne::rand_u64();
 #endif

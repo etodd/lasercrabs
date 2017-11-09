@@ -841,13 +841,13 @@ b8 PlayerHuman::emotes_enabled() const
 		|| mode == UIMode::PvpGameOver);
 }
 
-Rect2 player_deploy_prompt(const Rect2& viewport, s8 gamepad, const RenderParams* params = nullptr)
+Rect2 player_button(const Rect2& viewport, s8 gamepad, AssetID string, const RenderParams* params = nullptr)
 {
 	// deploy prompt
 	UIText text;
 	text.anchor_x = UIText::Anchor::Center;
 	text.anchor_y = UIText::Anchor::Max;
-	text.text(gamepad, _(strings::prompt_deploy));
+	text.text(gamepad, _(string));
 	Vec2 pos = viewport.size * Vec2(0.5f, 0.2f);
 	Rect2 box = text.rect(pos).outset(8 * UI::scale);
 	if (params)
@@ -1285,7 +1285,7 @@ void PlayerHuman::update(const Update& u)
 				if (chat_focus == ChatFocus::None)
 				{
 					if (((u.last_input->get(Controls::Interact, gamepad) && !u.input->get(Controls::Interact, gamepad))
-						|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && player_deploy_prompt(camera.ref()->viewport, gamepad).contains(UI::cursor_pos))))
+						|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && player_button(camera.ref()->viewport, gamepad, strings::prompt_deploy).contains(UI::cursor_pos))))
 					{
 						select_spawn_timer = 1.0f;
 					}
@@ -1393,13 +1393,24 @@ void PlayerHuman::update(const Update& u)
 			if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY)
 			{
 				// update score summary scroll
+				if (gamepad == 0 && !Menu::dialog_active(0) && !UIMenu::active[0])
+				{
+					if (u.input->keys.get(s32(KeyCode::MouseWheelUp)))
+						score_summary_scroll.pos = vi_max(0, score_summary_scroll.pos - 1);
+					else if (u.input->keys.get(s32(KeyCode::MouseWheelDown)))
+						score_summary_scroll.pos++;
+				}
 				score_summary_scroll.update(u, Team::score_summary.length, gamepad);
 
-				if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
+				if (!get<PlayerManager>()->score_accepted && Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
 				{
 					// accept score summary
-					if (chat_focus == ChatFocus::None && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+					if (chat_focus == ChatFocus::None
+						&& ((!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+							|| (!u.input->keys.get(s32(KeyCode::MouseLeft)) && u.last_input->keys.get(s32(KeyCode::MouseLeft)) && player_button(camera.ref()->viewport, gamepad, strings::prompt_accept).contains(UI::cursor_pos))))
+					{
 						get<PlayerManager>()->score_accept();
+					}
 				}
 			}
 			break;
@@ -2511,7 +2522,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				text.draw(params, pos);
 			}
 
-			player_deploy_prompt(vp, gamepad, &params);
+			player_button(vp, gamepad, strings::prompt_deploy, &params);
 		}
 	}
 	else if (mode == UIMode::PvpSpectate)
@@ -2615,24 +2626,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 			// press A to continue
 			if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
-			{
-				Vec2 p = vp.size * Vec2(0.5f, 0.2f);
-				text.wrap_width = 0;
-				text.text(gamepad, _(get<PlayerManager>()->score_accepted ? strings::waiting : strings::prompt_accept));
-				const Vec4* bg;
-				if (params.sync->input.get(Controls::Interact, gamepad))
-				{
-					text.color = UI::color_background;
-					bg = &UI::color_accent();
-				}
-				else
-				{
-					text.color = UI::color_accent();
-					bg = &UI::color_background;
-				}
-				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), *bg);
-				text.draw(params, p);
-			}
+				player_button(vp, gamepad, get<PlayerManager>()->score_accepted ? strings::waiting : strings::prompt_accept, &params);
 		}
 	}
 

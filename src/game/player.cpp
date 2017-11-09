@@ -2371,7 +2371,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 			{
 				s32 turrets = Turret::list.count();
-				snprintf(buffer, 16, "%hd", turrets);
+				snprintf(buffer, 16, "%d", turrets);
 				p.x += UI_TEXT_SIZE_DEFAULT * 4 * UI::scale;
 				const Vec4& color = turrets > 1 ? UI::color_default : (turrets > 0 ? UI::color_accent() : UI::color_alert());
 				draw_icon_text(params, gamepad, p, Asset::Mesh::icon_turret2, buffer, color, UI_TEXT_SIZE_DEFAULT * 3 * UI::scale);

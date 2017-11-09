@@ -27,6 +27,13 @@ namespace Docks
 	void gamejolt_prompt();
 }
 
+namespace AudioLogs
+{
+	AssetID get_id(const char*);
+	void play(AssetID);
+	void stop();
+}
+
 }
 
 }

@@ -292,6 +292,8 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	killed_by(),
 	select_spawn_timer(),
 	last_supported(),
+	audio_log_prompt_timer(),
+	audio_log(AssetNull),
 	energy_notification_accumulator(),
 #if SERVER
 	afk_timer(AFK_TIME),
@@ -1092,6 +1094,24 @@ void PlayerHuman::update(const Update& u)
 	switch (mode)
 	{
 		case UIMode::ParkourDefault:
+		{
+			if (audio_log != AssetNull)
+			{
+				audio_log_prompt_timer = vi_max(0.0f, audio_log_prompt_timer - u.real_time.delta);
+				if (u.input->get(Controls::Scoreboard, gamepad) && !u.last_input->get(Controls::Scoreboard, gamepad))
+				{
+					if (flag(FlagAudioLogPlaying))
+						audio_log_stop();
+					else
+					{
+						audio_log_prompt_timer = 0.0f;
+						Scripts::AudioLogs::play(audio_log);
+						flag(FlagAudioLogPlaying, true);
+					}
+				}
+			}
+			break;
+		}
 		case UIMode::ParkourDead:
 		case UIMode::Noclip:
 			break;
@@ -2683,35 +2703,54 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	}
 
 	// overworld notifications
-	if (Game::level.mode == Game::Mode::Parkour && Overworld::zone_under_attack() != AssetNull && Game::session.zone_under_attack_timer > ZONE_UNDER_ATTACK_THRESHOLD)
+	if (mode == UIMode::ParkourDefault)
 	{
-		UIText text;
-		text.anchor_x = UIText::Anchor::Max;
-		text.anchor_y = UIText::Anchor::Min;
-		text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
-		text.color = UI::color_alert();
-		r32 timer = Game::session.zone_under_attack_timer - ZONE_UNDER_ATTACK_THRESHOLD;
-		s32 remaining_minutes = timer / 60.0f;
-		s32 remaining_seconds = timer - (remaining_minutes * 60.0f);
-		text.text(gamepad, _(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), remaining_minutes, remaining_seconds);
-		UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_TIME - timer, 80.0f);
-
+		if (Overworld::zone_under_attack() != AssetNull && Game::session.zone_under_attack_timer > ZONE_UNDER_ATTACK_THRESHOLD)
 		{
-			Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 5.0f);
-			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-			text.draw(params, p);
+			UIText text;
+			text.anchor_x = UIText::Anchor::Max;
+			text.anchor_y = UIText::Anchor::Min;
+			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+			text.color = UI::color_alert();
+			r32 timer = Game::session.zone_under_attack_timer - ZONE_UNDER_ATTACK_THRESHOLD;
+			s32 remaining_minutes = timer / 60.0f;
+			s32 remaining_seconds = timer - (remaining_minutes * 60.0f);
+			text.text(gamepad, _(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), remaining_minutes, remaining_seconds);
+			UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_TIME - timer, 80.0f);
+
+			{
+				Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 5.0f);
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+				text.draw(params, p);
+			}
+
+			{
+				text.wrap_width = 0.0f;
+				text.text(gamepad, _(strings::timer), remaining_minutes, remaining_seconds);
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Min;
+				text.color = UI::color_alert();
+				Vec2 p = UI::indicator(params, Game::level.terminal.ref()->get<Transform>()->absolute_pos(), text.color, true);
+				p.y += UI_TEXT_SIZE_DEFAULT * 1.5f * UI::scale;
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING * 0.5f), UI::color_background);
+				text.draw(params, p);
+			}
 		}
 
+		if (audio_log != AssetNull && (flag(FlagAudioLogPlaying) || audio_log_prompt_timer > 0.0f))
 		{
-			text.wrap_width = 0.0f;
-			text.text(gamepad, _(strings::timer), remaining_minutes, remaining_seconds);
-			text.anchor_x = UIText::Anchor::Center;
+			UIText text;
+			text.anchor_x = UIText::Anchor::Max;
 			text.anchor_y = UIText::Anchor::Min;
-			text.color = UI::color_alert();
-			Vec2 p = UI::indicator(params, Game::level.terminal.ref()->get<Transform>()->absolute_pos(), text.color, true);
-			p.y += UI_TEXT_SIZE_DEFAULT * 1.5f * UI::scale;
-			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING * 0.5f), UI::color_background);
-			text.draw(params, p);
+			text.color = UI::color_accent();
+			text.text(gamepad, _(flag(FlagAudioLogPlaying) ? strings::prompt_stop : strings::prompt_listen));
+			UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_TIME - audio_log_prompt_timer, 80.0f);
+
+			{
+				Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 24.0f);
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+				text.draw(params, p);
+			}
 		}
 	}
 
@@ -2720,6 +2759,21 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 	if (mode == UIMode::Pause) // pause menu always drawn on top
 		menu.draw_ui(params);
+}
+
+void PlayerHuman::audio_log_pickup(AssetID id)
+{
+	audio_log = id;
+	flag(FlagAudioLogPlaying, false);
+	audio_log_prompt_timer = 8.0f;
+}
+
+void PlayerHuman::audio_log_stop()
+{
+	audio_log = AssetNull;
+	flag(FlagAudioLogPlaying, false);
+	audio_log_prompt_timer = 0.0f;
+	Scripts::AudioLogs::stop();
 }
 
 void PlayerHuman::flag(Flags f, b8 value)
@@ -5092,7 +5146,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			text.anchor_y = UIText::Anchor::Center;
 			text.anchor_x = UIText::Anchor::Max;
 			text.size = UI_TEXT_SIZE_DEFAULT;
-			for (s32 i = s32(Resource::count) - 1; i >= 0; i--)
+			for (s32 i = s32(Resource::ConsumableCount) - 1; i >= 0; i--)
 			{
 				UI::box(params, { pos + Vec2(-panel_size.x, 0), panel_size }, UI::color_background);
 

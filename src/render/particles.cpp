@@ -761,10 +761,10 @@ StandardParticleSystem Particles::eased_particles
 StandardParticleSystem Particles::smoke
 (
 	3, 3,
-	Vec2(0.01f),
-	Vec2(0.1f),
-	3.0f,
-	Vec3(0, -0.05f, 0),
+	Vec2(0.15f),
+	Vec2(0.6f),
+	5.0f,
+	Vec3(0, -0.3f, 0),
 	Vec4(1, 1, 1, 0.5f),
 	Asset::Shader::particle_alpha
 );

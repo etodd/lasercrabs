@@ -36,6 +36,7 @@
 #include "input.h"
 #include "ease.h"
 #include "parkour.h"
+#include "noise.h"
 #if !defined(__ORBIS__)
 #include "steam/steam_api.h"
 #endif
@@ -211,80 +212,75 @@ void update(const Update& u)
 	{
 		Instance* instance = i.item();
 
-		if (instance->model.ref())
+		if (!instance->sound_done)
 		{
-			if (!instance->sound_done)
+			for (s32 j = 0; j < Audio::dialogue_callbacks.length; j++)
 			{
-				for (s32 j = 0; j < Audio::dialogue_callbacks.length; j++)
+				ID callback_entity_id = Audio::dialogue_callbacks[j];
+				if (instance->model.id == callback_entity_id)
 				{
-					ID callback_entity_id = Audio::dialogue_callbacks[j];
-					if (instance->model.id == callback_entity_id)
-					{
-						instance->sound_done = true;
-						instance->text = AssetNull;
-					}
+					instance->sound_done = true;
+					instance->text = AssetNull;
 				}
 			}
+		}
 
-			Animator::Layer* layer;
-			if (instance->model.ref()->has<Animator>())
-				layer = &instance->model.ref()->get<Animator>()->layers[0];
+		Animator::Layer* layer;
+		if (instance->model.ref() && instance->model.ref()->has<Animator>())
+			layer = &instance->model.ref()->get<Animator>()->layers[0];
+		else
+			layer = nullptr;
+
+		if ((!layer
+			|| layer->animation == AssetNull
+			|| layer->behavior == Animator::Behavior::Loop
+			|| layer->time == Loader::animation(layer->animation)->duration
+			|| instance->overlap_animation)
+			&& instance->sound_done
+			&& instance->cues.length > 0)
+		{
+			Cue* cue = &instance->cues[0];
+			if (cue->delay > 0.0f)
+				cue->delay -= u.time.delta;
 			else
-				layer = nullptr;
-
-			if ((!layer
-				|| layer->animation == AssetNull
-				|| layer->behavior == Animator::Behavior::Loop
-				|| layer->time == Loader::animation(layer->animation)->duration
-				|| instance->overlap_animation)
-				&& instance->sound_done
-				&& instance->cues.length > 0)
 			{
-				Cue* cue = &instance->cues[0];
-				if (cue->delay > 0.0f)
-					cue->delay -= u.time.delta;
+				if (cue->callback)
+					cue->callback(instance);
 				else
 				{
-					if (cue->callback)
-						cue->callback(instance);
-					else
+					instance->last_cue_real_time = Game::real_time.total;
+					instance->text = cue->text;
+					if (layer)
 					{
-						instance->last_cue_real_time = Game::real_time.total;
-						instance->text = cue->text;
-						if (layer)
+						if (cue->animation != AssetNull)
 						{
-							if (cue->animation != AssetNull)
-							{
-								instance->overlap_animation = cue->overlap == Overlap::Yes ? true : false;
-								layer->behavior = cue->loop == Loop::Yes ? Animator::Behavior::Loop : Animator::Behavior::Freeze;
-								layer->play(cue->animation);
-							}
-						}
-						else
-							vi_assert(cue->animation == AssetNull);
-
-						if (cue->sound == AK_InvalidID)
-							instance->sound_done = true;
-						else
-						{
-							instance->sound_done = false;
-							instance->model.ref()->get<Audio>()->post_dialogue(cue->sound);
+							instance->overlap_animation = cue->overlap == Overlap::Yes ? true : false;
+							layer->behavior = cue->loop == Loop::Yes ? Animator::Behavior::Loop : Animator::Behavior::Freeze;
+							layer->play(cue->animation);
 						}
 					}
+					else
+						vi_assert(cue->animation == AssetNull);
 
-					if (data) // callback might have called cleanup()
-						instance->cues.remove_ordered(0);
+					if (cue->sound == AK_InvalidID)
+						instance->sound_done = true;
+					else
+					{
+						instance->sound_done = false;
+						if (instance->model.ref())
+							instance->model.ref()->get<Audio>()->post_dialogue(cue->sound);
+						else
+							Audio::post_global_dialogue(cue->sound);
+					}
 				}
-			}
 
-			if (layer)
-				instance->collision.ref()->pos = instance->collision_offset();
+				if (data && instance->cues.length > 0) // callback might have called cleanup()
+					instance->cues.remove_ordered(0);
+			}
 		}
-		else
-		{
-			// model has been removed
-			remove(instance);
-		}
+
+		if (layer)
+			instance->collision.ref()->pos = instance->collision_offset();
 	}
 
 	Audio::dialogue_callbacks.length = 0;
@@ -366,8 +362,9 @@ void init()
 	}
 }
 
-Instance* add(Entity* model, AssetID head_bone = AssetNull, IdleBehavior idle_behavior = IdleBehavior::Wait)
+Instance* add(Entity* model = nullptr, AssetID head_bone = AssetNull, IdleBehavior idle_behavior = IdleBehavior::Wait)
 {
+	vi_assert(Game::level.local);
 	init();
 
 	Instance* i = Instance::list.add();
@@ -379,7 +376,7 @@ Instance* add(Entity* model, AssetID head_bone = AssetNull, IdleBehavior idle_be
 	i->head_bone = head_bone;
 	i->sound_done = true;
 
-	if (Game::level.local)
+	if (model)
 	{
 		if (!model->has<Audio>())
 			model->add<Audio>();
@@ -392,22 +389,6 @@ Instance* add(Entity* model, AssetID head_bone = AssetNull, IdleBehavior idle_be
 			collision->get<View>()->mask = 0;
 			i->collision = collision->get<Transform>();
 			Net::finalize(collision);
-		}
-	}
-	else
-	{
-		// we're a client
-		// find the collision body assigned by the server, if any
-		if (model->has<Animator>())
-		{
-			for (auto j = Transform::list.iterator(); !j.is_last(); j.next())
-			{
-				if (j.item()->parent.ref() == model->get<Transform>())
-				{
-					i->collision = j.item();
-					break;
-				}
-			}
 		}
 	}
 
@@ -566,11 +547,14 @@ namespace Docks
 		r32 wallrun_footstep_timer;
 		s32 wallrun_footstep_index;
 		Vec3 camera_start_pos;
+		Vec3 fire_start_pos;
 		r32 transition_timer;
+		r32 fire_accumulator;
 		Ref<Camera> camera;
 		Ref<Parkour> player;
 		Ref<Animator> character;
 		Ref<Transform> ivory_ad_text;
+		Ref<Transform> fire;
 		Ref<PlayerTrigger> wallrun_trigger_1;
 		Ref<PlayerTrigger> wallrun_trigger_2;
 		Ref<Entity> energy;
@@ -659,6 +643,7 @@ namespace Docks
 		ad->cue(AK::EVENTS::PLAY_IVORY_AD03, AssetNull, strings::ivory_ad03);
 		ad->cue(AK::EVENTS::PLAY_IVORY_AD04, AssetNull, strings::ivory_ad04);
 		ad->cue(AK::EVENTS::PLAY_IVORY_AD05, AssetNull, strings::ivory_ad05);
+		ad->cue(AK::EVENTS::PLAY_IVORY_AD06, AssetNull, strings::ivory_ad06);
 		ad->cue(&ivory_ad_play, 4.0f);
 	}
 
@@ -974,6 +959,24 @@ namespace Docks
 		// ivory ad text
 		data->ivory_ad_text.ref()->rot *= Quat::euler(0, u.time.delta * 0.2f, 0);
 
+		{
+			// fire
+			r32 offset = Game::time.total * 10.0f;
+			const r32 radius = 0.25f;
+			data->fire.ref()->pos = data->fire_start_pos + Vec3(noise::sample3d(Vec3(offset)) * radius, noise::sample3d(Vec3(offset + 67)) * radius, noise::sample3d(Vec3(offset + 137)) * radius);
+			data->fire.ref()->get<PointLight>()->radius = 7.0f + noise::sample3d(Vec3(offset + 191));
+
+			const r32 fire_interval = 0.01f;
+			data->fire_accumulator += u.time.delta;
+			while (data->fire_accumulator > fire_interval)
+			{
+				r32 offset = (Game::time.total - data->fire_accumulator) * 10.0f;
+				Vec3 pos = data->fire_start_pos + Vec3(noise::sample3d(Vec3(offset)) * radius, -0.4f + noise::sample3d(Vec3(offset + 67)) * radius, noise::sample3d(Vec3(offset + 137)) * radius);
+				Particles::smoke.add(pos, Vec3(0, 1.5f, 0));
+				data->fire_accumulator -= fire_interval;
+			}
+		}
+
 		if (Parkour::list.count() > 0 && data->state != TutorialState::Done)
 		{
 			Parkour* parkour = Parkour::list.iterator().item();
@@ -1171,6 +1174,9 @@ namespace Docks
 		}
 
 		data->ivory_ad_text = entities.find("ivory_ad_text")->get<Transform>();
+		data->fire = entities.find("fire")->get<Transform>();
+		data->fire.ref()->entity()->add<Audio>()->post(AK::EVENTS::PLAY_FIRE_LOOP);
+		data->fire_start_pos = data->fire.ref()->pos;
 
 		Actor::init();
 		Loader::animation(Asset::Animation::hobo_idle);
@@ -1576,6 +1582,96 @@ namespace Slum
 
 		Loader::animation(Asset::Animation::character_meursault_intro);
 		Loader::animation(Asset::Animation::meursault_intro);
+	}
+}
+
+
+namespace AudioLogs
+{
+	struct Data
+	{
+		Actor::Instance* actor;
+	};
+	static Data* data;
+
+	struct Entry
+	{
+		const char* id;
+		void(*function)();
+	};
+
+	void cleanup()
+	{
+		delete data;
+	}
+
+	void init()
+	{
+		if (!data)
+		{
+			data = new Data();
+			data->actor = Actor::add();
+			data->actor->dialogue_radius = 0.0f;
+		}
+	}
+
+	void stop()
+	{
+		Audio::post_global(AK::EVENTS::STOP_AUDIOLOG);
+		data->actor->cues.length = 0;
+	}
+
+	void done(Actor::Instance*)
+	{
+		if (PlayerHuman::list.count() > 0)
+			PlayerHuman::list.iterator().item()->audio_log_stop();
+	}
+
+	void rex()
+	{
+		init();
+		data->actor->cue(AK::EVENTS::PLAY_REX01, AssetNull, strings::rex01);
+		data->actor->cue(AK::EVENTS::PLAY_REX02, AssetNull, strings::rex02);
+		data->actor->cue(AK::EVENTS::PLAY_REX03, AssetNull, strings::rex03);
+		data->actor->cue(AK::EVENTS::PLAY_REX04, AssetNull, strings::rex04);
+		data->actor->cue(AK::EVENTS::PLAY_REX05, AssetNull, strings::rex05);
+		data->actor->cue(AK::EVENTS::PLAY_REX06, AssetNull, strings::rex06);
+		data->actor->cue(AK::EVENTS::PLAY_REX07, AssetNull, strings::rex07);
+		data->actor->cue(AK::EVENTS::PLAY_REX08, AssetNull, strings::rex08);
+		data->actor->cue(AK::EVENTS::PLAY_REX09, AssetNull, strings::rex09);
+		data->actor->cue(AK::EVENTS::PLAY_REX10, AssetNull, strings::rex10);
+		data->actor->cue(AK::EVENTS::PLAY_REX11, AssetNull, strings::rex11);
+		data->actor->cue(AK::EVENTS::PLAY_REX12, AssetNull, strings::rex12);
+		data->actor->cue(&done);
+	}
+
+	static const Entry entries[] =
+	{
+		{ "rex", &rex },
+		{ nullptr, nullptr },
+	};
+
+	AssetID get_id(const char* id)
+	{
+		s32 i = 0;
+		while (true)
+		{
+			const Entry& entry = entries[i];
+			if (entry.id)
+			{
+				if (strcmp(entry.id, id) == 0)
+					return AssetID(i);
+			}
+			else
+				break;
+			i++;
+		}
+		return AssetNull;
+	}
+
+	void play(AssetID id)
+	{
+		entries[id].function();
 	}
 }
 

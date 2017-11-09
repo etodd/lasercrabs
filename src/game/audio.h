@@ -99,6 +99,7 @@ struct Audio : ComponentType<Audio>
 {
 #if !SERVER
 	static CAkDefaultIOHookBlocking wwise_io;
+	static void dialogue_done_callback(AkCallbackType, AkCallbackInfo*);
 #endif
 
 	static r32 dialogue_volume;
@@ -114,6 +115,7 @@ struct Audio : ComponentType<Audio>
 	static void term();
 	static void update_all(const Update&);
 	static void post_global(AkUniqueID);
+	static b8 post_global_dialogue(AkUniqueID);
 	static AudioEntry* post_global(AkUniqueID, const Vec3&);
 	static void param_global(AkRtpcID, AkRtpcValue);
 	static void listener_list_update();

@@ -358,7 +358,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 	}
 
 	// spawn tiles
-	if (!exit_wallrun && wall_run_state != WallRunState::Forward && Game::save.extended_parkour)
+	if (!exit_wallrun && wall_run_state != WallRunState::Forward && Game::save.resources[s32(Resource::ExtendedWallRun)])
 	{
 		Vec3 relative_wall_right = relative_wall_run_normal.cross(last_support.ref()->get<Transform>()->to_local_normal(Vec3(0, 1, 0)));
 		relative_wall_right.normalize();
@@ -629,7 +629,7 @@ void Parkour::update(const Update& u)
 					exit_wallrun = true;
 					try_parkour(MantleAttempt::Force); // do an extra broad raycast to make sure we hit the top if at all possible
 				}
-				else if (Game::save.extended_parkour) // keep going, generate a wall
+				else if (Game::save.resources[s32(Resource::ExtendedWallRun)]) // keep going, generate a wall
 					exit_wallrun = wallrun(u, last_support.ref(), relative_support_pos, relative_wall_run_normal);
 				else
 					exit_wallrun = true;
@@ -1052,7 +1052,7 @@ b8 Parkour::try_jump(r32 rotation)
 		}
 	}
 
-	if (!did_jump && can_double_jump && Game::save.extended_parkour)
+	if (!did_jump && can_double_jump && Game::save.resources[s32(Resource::DoubleJump)])
 	{
 		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
 		if (velocity.y < 0.0f) // have to be going down to double jump

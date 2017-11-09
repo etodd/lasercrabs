@@ -593,6 +593,7 @@ struct Collectible : public ComponentType<Collectible>
 	Link collected;
 	ID save_id;
 	s16 amount;
+	AssetID audio_log;
 
 	void awake() {}
 

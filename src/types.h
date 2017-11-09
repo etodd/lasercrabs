@@ -103,6 +103,10 @@ enum class Resource : s8
 	Energy,
 	AccessKeys,
 	Drones,
+	ConsumableCount,
+	DoubleJump = ConsumableCount,
+	ExtendedWallRun,
+	AudioLog,
 	count,
 };
 

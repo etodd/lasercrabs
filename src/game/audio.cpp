@@ -75,6 +75,7 @@ b8 Audio::init() { return true; }
 void Audio::term() {}
 void Audio::update_all(const Update&) {}
 void Audio::post_global(AkUniqueID) {}
+b8 Audio::post_global_dialogue(AkUniqueID) { return false; }
 AudioEntry* Audio::post_global(AkUniqueID, const Vec3&) { return nullptr; }
 void Audio::param_global(AkRtpcID, AkRtpcValue) {}
 void Audio::listener_enable(s8) {}
@@ -566,6 +567,22 @@ AkUniqueID Audio::get_id(const char* str)
 void Audio::post_global(AkUniqueID event_id)
 {
 	AK::SoundEngine::PostEvent(event_id, AUDIO_OFFSET_GLOBAL_2D);
+}
+
+void Audio::dialogue_done_callback(AkCallbackType type, AkCallbackInfo* info)
+{
+	// anyone paying attention to these should be polling them every frame;
+	// if they're not, we don't care which ones get dropped
+	if (Audio::dialogue_callbacks.length == Audio::dialogue_callbacks.capacity())
+		Audio::dialogue_callbacks.length--;
+
+	Audio::dialogue_callbacks.add(IDNull);
+}
+
+b8 Audio::post_global_dialogue(AkUniqueID event_id)
+{
+	AkPlayingID i = AK::SoundEngine::PostEvent(event_id, AUDIO_OFFSET_GLOBAL_2D, AkCallbackType::AK_EndOfEvent, &dialogue_done_callback);
+	return i != 0;
 }
 
 b8 Audio::post_dialogue(AkUniqueID event_id)

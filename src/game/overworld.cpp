@@ -2729,6 +2729,21 @@ ResourceInfo resource_info[s32(Resource::count)] =
 		strings::drones,
 		100,
 	},
+	{ // DoubleJump
+		AssetNull,
+		AssetNull,
+		2000,
+	},
+	{ // ExtendedWallRun
+		AssetNull,
+		AssetNull,
+		2000,
+	},
+	{ // AudioLog
+		AssetNull,
+		strings::audio_log,
+		0,
+	},
 };
 
 StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS> directional_lights;
@@ -2771,7 +2786,7 @@ void tab_inventory_update(const Update& u)
 			case Data::Inventory::Mode::Normal:
 			{
 				s32 selected = s32(inventory->resource_selected);
-				selected = vi_max(0, vi_min(s32(Resource::count) - 1, selected + UI::input_delta_vertical(u, 0)));
+				selected = vi_max(0, vi_min(s32(Resource::ConsumableCount) - 1, selected + UI::input_delta_vertical(u, 0)));
 				inventory->resource_selected = Resource(selected);
 
 				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
@@ -2836,6 +2851,7 @@ AssetID zone_random(b8(*filter1)(AssetID), b8(*filter2)(AssetID) = &zone_filter_
 
 void zone_random_attack(r32 elapsed_time)
 {
+#if !RELEASE_BUILD // incoming attacks disabled for now
 	if (Game::level.local
 		&& Game::level.mode == Game::Mode::Parkour
 		&& zone_under_attack() == AssetNull
@@ -2859,6 +2875,7 @@ void zone_random_attack(r32 elapsed_time)
 			event_odds -= 1.0f;
 		}
 	}
+#endif
 }
 
 void story_mode_update(const Update& u)
@@ -3106,7 +3123,7 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 {
 	Vec2 panel_size = get_panel_size(rect);
 	Vec2 pos = rect.pos + Vec2(0, rect.size.y - panel_size.y);
-	for (s32 i = 0; i < s32(Resource::count); i++)
+	for (s32 i = 0; i < s32(Resource::ConsumableCount); i++)
 	{
 		b8 selected = data.tab == StoryTab::Inventory && data.inventory.resource_selected == (Resource)i && !Menu::dialog_active(0);
 

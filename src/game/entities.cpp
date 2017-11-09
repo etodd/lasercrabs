@@ -4013,9 +4013,15 @@ CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)
 	{
 		case Resource::AccessKeys:
 		case Resource::Energy:
+		case Resource::AudioLog:
 		{
 			// simple models
-			View* v = create<View>(type == Resource::AccessKeys ? Asset::Mesh::access_key : Asset::Mesh::energy);
+			AssetID mesh;
+			if (type == Resource::Energy)
+				mesh = Asset::Mesh::energy;
+			else
+				mesh = Asset::Mesh::access_key;
+			View* v = create<View>(mesh);
 			v->shader = Asset::Shader::standard;
 			v->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
 			break;
@@ -4036,10 +4042,8 @@ CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)
 			break;
 		}
 		default:
-		{
 			vi_assert(false);
 			break;
-		}
 	}
 }
 
@@ -4051,29 +4055,28 @@ void Collectible::give_rewards()
 		switch (type)
 		{
 			case Resource::AccessKeys:
-			{
+			case Resource::AudioLog:
 				a = 1;
 				break;
-			}
 			case Resource::Energy:
-			{
 				a = 100;
 				break;
-			}
 			case Resource::Drones:
-			{
 				a = DEFAULT_ASSAULT_DRONES;
 				break;
-			}
 			default:
-			{
 				vi_assert(false);
 				break;
-			}
 		}
 	}
 	if (Game::level.local)
 		Overworld::resource_change(type, a);
+
+	if (type == Resource::AudioLog)
+	{
+		PlayerHuman* player = PlayerHuman::list.iterator().item();
+		player->audio_log_pickup(audio_log);
+	}
 
 	Game::save.collectibles.add({ Game::level.id, save_id });
 

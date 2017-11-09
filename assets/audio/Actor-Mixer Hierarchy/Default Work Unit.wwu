@@ -629,7 +629,7 @@
 						</Sound>
 					</ChildrenList>
 				</RandomSequenceContainer>
-				<ActorMixer Name="dialogue" ID="{268C5A9B-FE0E-4CCA-8A21-B0D3CC20AED4}" ShortID="544240620">
+				<ActorMixer Name="dialogue_range_unlimited" ID="{268C5A9B-FE0E-4CCA-8A21-B0D3CC20AED4}" ShortID="544240620">
 					<PropertyList>
 						<Property Name="PositioningType" Type="int16" Value="1"/>
 						<Property Name="Priority" Type="int16">
@@ -6546,6 +6546,272 @@
 							</ChildrenList>
 							<ActiveSourceList>
 								<ActiveSource Name="ivory_ad04" ID="{8E41B3C8-1045-4110-A3E5-20655DF1B707}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="ivory_ad06" ID="{4FCBE6A7-74FF-46AB-9DFE-CD147DBE6D6A}" ShortID="810057165">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="ivory_ad06" ID="{57CE7687-FB36-4531-BC4A-D526A6B6CCEA}" ShortID="634449432">
+									<Language>SFX</Language>
+									<AudioFile>ivory_ad06.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="ivory_ad06" ID="{57CE7687-FB36-4531-BC4A-D526A6B6CCEA}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+					</ChildrenList>
+				</ActorMixer>
+				<ActorMixer Name="dialogue_2d" ID="{A791F080-C24F-471B-8F73-59CB887010DE}" ShortID="803466805">
+					<PropertyList>
+						<Property Name="Priority" Type="int16">
+							<ValueList>
+								<Value>25</Value>
+							</ValueList>
+						</Property>
+					</PropertyList>
+					<ReferenceList>
+						<Reference Name="Conversion">
+							<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+						</Reference>
+						<Reference Name="OutputBus">
+							<ObjectRef Name="Dialogue" ID="{E8A73A5E-056C-46B8-875C-9658C99452FC}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+						</Reference>
+					</ReferenceList>
+					<ChildrenList>
+						<Sound Name="rex01" ID="{78F32895-5B1C-4458-A18C-ECB7B78D4918}" ShortID="870873838">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="rex01" ID="{6984029D-4C1E-4FBE-A0AF-426D1E90F584}" ShortID="980259330">
+									<Language>SFX</Language>
+									<AudioFile>rex01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="rex01" ID="{6984029D-4C1E-4FBE-A0AF-426D1E90F584}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="rex02" ID="{5A88E829-958F-4A6F-A863-F46E3C246D8D}" ShortID="118258331">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="rex02" ID="{F6D35C0A-AF11-46A3-96E3-4D0A91AB583E}" ShortID="922729000">
+									<Language>SFX</Language>
+									<AudioFile>rex02.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="rex02" ID="{F6D35C0A-AF11-46A3-96E3-4D0A91AB583E}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="rex03" ID="{442749D2-A40C-4DD9-AADF-355C32980B52}" ShortID="204358306">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="rex03" ID="{249D0CD6-C9FC-4130-B117-072E70445EA0}" ShortID="261846575">
+									<Language>SFX</Language>
+									<AudioFile>rex03.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="rex03" ID="{249D0CD6-C9FC-4130-B117-072E70445EA0}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="rex04" ID="{B99E2DC0-9BF5-4D10-9DC9-DCC9FB1C8738}" ShortID="144048998">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="rex04" ID="{A33F5096-B5EF-4027-874F-0C57D6902938}" ShortID="804636690">
+									<Language>SFX</Language>
+									<AudioFile>rex04.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="rex04" ID="{A33F5096-B5EF-4027-874F-0C57D6902938}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="rex05" ID="{1416E059-88BC-4C9E-A2EF-67E9BED5C760}" ShortID="168257113">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="rex05" ID="{4E69716A-133D-4DCF-9692-45E654B57B81}" ShortID="111101500">
+									<Language>SFX</Language>
+									<AudioFile>rex05.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="rex05" ID="{4E69716A-133D-4DCF-9692-45E654B57B81}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="rex06" ID="{7C6C3CC7-7198-4E40-8952-46EE6FF54CB8}" ShortID="135876268">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="rex06" ID="{8F4EF13D-D358-4EB4-8255-E93F7FFAB6B9}" ShortID="608209469">
+									<Language>SFX</Language>
+									<AudioFile>rex06.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="rex06" ID="{8F4EF13D-D358-4EB4-8255-E93F7FFAB6B9}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="rex07" ID="{96004C6A-A84B-4E37-933D-0C7768E82429}" ShortID="67751267">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="rex07" ID="{81B2477B-C0A5-4CB4-B77B-BA1BB2E3D45C}" ShortID="776238769">
+									<Language>SFX</Language>
+									<AudioFile>rex07.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="rex07" ID="{81B2477B-C0A5-4CB4-B77B-BA1BB2E3D45C}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="rex08" ID="{1986F7BE-7448-4FE1-9792-10482C1985EF}" ShortID="923689439">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="rex08" ID="{E3D0DD60-9487-4ED2-A01E-9C660248AA78}" ShortID="263207555">
+									<Language>SFX</Language>
+									<AudioFile>rex08.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="rex08" ID="{E3D0DD60-9487-4ED2-A01E-9C660248AA78}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="rex09" ID="{99933642-109D-459D-8150-092E1D299142}" ShortID="894872514">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="rex09" ID="{BF5148B6-1D50-44E1-A489-3EFDECAD3AB6}" ShortID="680859440">
+									<Language>SFX</Language>
+									<AudioFile>rex09.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="rex09" ID="{BF5148B6-1D50-44E1-A489-3EFDECAD3AB6}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="rex10" ID="{58B79496-2F24-4E49-8FEE-9BED3D407F1C}" ShortID="1013931929">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="rex10" ID="{C014C508-DC56-4CFC-8267-EE273BD697DB}" ShortID="65402662">
+									<Language>SFX</Language>
+									<AudioFile>rex10.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="rex10" ID="{C014C508-DC56-4CFC-8267-EE273BD697DB}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="rex11" ID="{C8B1C58A-606A-4C36-BC6B-D9061564D4C0}" ShortID="168650926">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="rex11" ID="{71E5549F-51E1-447B-B3D4-7F645D2C5AEC}" ShortID="799972419">
+									<Language>SFX</Language>
+									<AudioFile>rex11.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="rex11" ID="{71E5549F-51E1-447B-B3D4-7F645D2C5AEC}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="rex12" ID="{5EC28DAD-582E-4D29-8D1A-D15542250BE9}" ShortID="1012053434">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="rex12" ID="{8DE3430B-C87D-4E83-9625-69DC40CAF9AB}" ShortID="544985805">
+									<Language>SFX</Language>
+									<AudioFile>rex12.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="rex12" ID="{8DE3430B-C87D-4E83-9625-69DC40CAF9AB}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>

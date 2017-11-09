@@ -110,7 +110,6 @@ struct Game
 		AssetID zone_current;
 		AssetID zone_overworld;
 		b8 locke_spoken;
-		b8 extended_parkour;
 		b8 tutorial_complete;
 		b8 inside_terminal;
 

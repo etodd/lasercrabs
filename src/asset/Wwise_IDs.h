@@ -43,6 +43,7 @@ namespace AK
         static const AkUniqueID PLAY_DRONE_SPAWN = 1629787408U;
         static const AkUniqueID PLAY_DRONE_WEAPON_EQUIP = 3950931494U;
         static const AkUniqueID PLAY_EXPLOSION = 4030404899U;
+        static const AkUniqueID PLAY_FIRE_LOOP = 1779335U;
         static const AkUniqueID PLAY_FIZZLE = 3890314848U;
         static const AkUniqueID PLAY_FOOTSTEP = 1602358412U;
         static const AkUniqueID PLAY_FORCE_FIELD_LOOP = 427547487U;
@@ -68,6 +69,7 @@ namespace AK
         static const AkUniqueID PLAY_IVORY_AD03 = 1856248768U;
         static const AkUniqueID PLAY_IVORY_AD04 = 1856248775U;
         static const AkUniqueID PLAY_IVORY_AD05 = 1856248774U;
+        static const AkUniqueID PLAY_IVORY_AD06 = 1856248773U;
         static const AkUniqueID PLAY_LOCKE_A01 = 2868667721U;
         static const AkUniqueID PLAY_LOCKE_A02 = 2868667722U;
         static const AkUniqueID PLAY_LOCKE_A03 = 2868667723U;
@@ -147,6 +149,18 @@ namespace AK
         static const AkUniqueID PLAY_PARKOUR_SLIDE = 3397163066U;
         static const AkUniqueID PLAY_PARKOUR_TOPOUT = 1638007016U;
         static const AkUniqueID PLAY_PARKOUR_WIND = 2240612133U;
+        static const AkUniqueID PLAY_REX01 = 3604012298U;
+        static const AkUniqueID PLAY_REX02 = 3604012297U;
+        static const AkUniqueID PLAY_REX03 = 3604012296U;
+        static const AkUniqueID PLAY_REX04 = 3604012303U;
+        static const AkUniqueID PLAY_REX05 = 3604012302U;
+        static const AkUniqueID PLAY_REX06 = 3604012301U;
+        static const AkUniqueID PLAY_REX07 = 3604012300U;
+        static const AkUniqueID PLAY_REX08 = 3604012291U;
+        static const AkUniqueID PLAY_REX09 = 3604012290U;
+        static const AkUniqueID PLAY_REX10 = 3587234712U;
+        static const AkUniqueID PLAY_REX11 = 3587234713U;
+        static const AkUniqueID PLAY_REX12 = 3587234714U;
         static const AkUniqueID PLAY_SHIELD_RESTORE_INNER = 3921268631U;
         static const AkUniqueID PLAY_SHIELD_RESTORE_OUTER = 3809385754U;
         static const AkUniqueID PLAY_SNIPER_FIRE = 3954156574U;
@@ -171,6 +185,7 @@ namespace AK
         static const AkUniqueID PLAY_ZOOM_OUT = 1819052470U;
         static const AkUniqueID STOP = 788884573U;
         static const AkUniqueID STOP_ALL = 452547817U;
+        static const AkUniqueID STOP_AUDIOLOG = 3683249448U;
         static const AkUniqueID STOP_DIALOGUE = 288905442U;
         static const AkUniqueID STOP_FORCE_FIELD_LOOP = 1907392129U;
         static const AkUniqueID STOP_MINION_CHARGE = 1499790205U;

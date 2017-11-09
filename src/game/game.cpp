@@ -152,9 +152,15 @@ s32 Game::Session::local_player_count() const
 
 void Game::Session::reset(SessionType t)
 {
-	type = t;
-	new (&config) Net::Master::ServerConfig();
+	this->~Session();
+	memset(this, 0, sizeof(*this));
+
+	zone_under_attack = AssetNull;
 	time_scale = 1.0f;
+	new (&config) Net::Master::ServerConfig();
+
+	type = t;
+
 #if SERVER
 	local_player_mask = 0;
 #else
@@ -1357,7 +1363,10 @@ void Game::execute(const char* cmd)
 			Overworld::zone_change(id, ZoneState::PvpFriendly);
 	}
 	else if (strcmp(cmd, "abilities") == 0)
-		Game::save.extended_parkour = true;
+	{
+		Game::save.resources[s32(Resource::DoubleJump)] = 1;
+		Game::save.resources[s32(Resource::ExtendedWallRun)] = 1;
+	}
 	else if (strstr(cmd, "unlock ") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');
@@ -2226,9 +2235,17 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 					type = Resource::AccessKeys;
 				else if (strcmp(type_str, "Drones") == 0)
 					type = Resource::Drones;
+				else if (strcmp(type_str, "AudioLog") == 0)
+					type = Resource::AudioLog;
 				else
 					type = Resource::Energy;
 				entity = World::alloc<CollectibleEntity>(id, type, s16(Json::get_s32(element, "amount")));
+				if (type == Resource::AudioLog)
+				{
+					AssetID id = Scripts::AudioLogs::get_id(Json::get_string(element, "AudioLog"));
+					vi_assert(id != AssetNull);
+					entity->get<Collectible>()->audio_log = id;
+				}
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "Shop"))

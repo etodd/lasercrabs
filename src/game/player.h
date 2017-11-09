@@ -124,6 +124,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		FlagLocal = 1 << 0,
 		FlagMessageGood = 1 << 1,
 		FlagUpgradeMenuOpen = 1 << 2,
+		FlagAudioLogPlaying = 1 << 3,
 	};
 
 	static Array<LogEntry> logs;
@@ -164,6 +165,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 #endif
 	r32 rumble;
 	r32 emote_timer;
+	r32 audio_log_prompt_timer;
 	s32 spectate_index;
 #if SERVER
 	u32 ai_record_id;
@@ -174,6 +176,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	Ref<SpawnPoint> selected_spawn;
 	Ref<Entity> killed_by;
 	Ref<Camera> camera;
+	AssetID audio_log;
 	EmoteCategory emote_category;
 	Upgrade upgrade_last_visit_highest_available;
 	ChatFocus chat_focus;
@@ -203,6 +206,8 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	b8 chat_enabled() const;
 	b8 emotes_enabled() const;
 	void msg(const char*, Flags);
+	void audio_log_pickup(AssetID);
+	void audio_log_stop();
 	void rumble_add(r32);
 	UIMode ui_mode() const;
 	Vec2 ui_anchor(const RenderParams&) const;

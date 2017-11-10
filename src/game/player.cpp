@@ -857,7 +857,7 @@ Rect2 player_button(const Rect2& viewport, s8 gamepad, AssetID string, const Ren
 			|| (gamepad == 0 && Game::ui_gamepad_types[0] == Gamepad::Type::None && box.contains(UI::cursor_pos)))
 		{
 			text.color = UI::color_background;
-			if (params->sync->input.keys.get(s32(KeyCode::MouseLeft)))
+			if (params->sync->input.keys.get(s32(KeyCode::MouseLeft)) && PlayerHuman::player_for_gamepad(0)->chat_focus == PlayerHuman::ChatFocus::None)
 				bg = &UI::color_alert();
 			else
 				bg = &UI::color_accent();
@@ -1150,7 +1150,7 @@ void PlayerHuman::update(const Update& u)
 							UIText::Anchor::Center,
 							UIText::Anchor::Center,
 						};
-						menu.start(u, origin, gamepad, chat_focus == ChatFocus::None);
+						menu.start(u, origin, gamepad, chat_focus == ChatFocus::None ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::No);
 					}
 
 					if (menu.item(u, _(strings::close), nullptr, false, Asset::Mesh::icon_close))
@@ -1244,7 +1244,7 @@ void PlayerHuman::update(const Update& u)
 				UIText::Anchor::Center,
 				UIText::Anchor::Max,
 			};
-			if (Menu::teams(u, origin, gamepad, &menu, Menu::TeamSelectMode::MatchStart, chat_focus == ChatFocus::None ? Menu::EnableInput::Yes : Menu::EnableInput::No) != Menu::State::Teams)
+			if (Menu::teams(u, origin, gamepad, &menu, Menu::TeamSelectMode::MatchStart, chat_focus == ChatFocus::None ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::No) != Menu::State::Teams)
 			{
 				// user hit escape
 				// make sure the cancel event is not eaten, so that our pause/unpause code below works
@@ -1390,7 +1390,7 @@ void PlayerHuman::update(const Update& u)
 		case UIMode::PvpGameOver:
 		{
 			camera.ref()->range = 0;
-			if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY)
+			if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY && chat_focus == ChatFocus::None)
 			{
 				// update score summary scroll
 				if (gamepad == 0 && !Menu::dialog_active(0) && !UIMenu::active[0])
@@ -1405,9 +1405,8 @@ void PlayerHuman::update(const Update& u)
 				if (!get<PlayerManager>()->score_accepted && Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
 				{
 					// accept score summary
-					if (chat_focus == ChatFocus::None
-						&& ((!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
-							|| (!u.input->keys.get(s32(KeyCode::MouseLeft)) && u.last_input->keys.get(s32(KeyCode::MouseLeft)) && player_button(camera.ref()->viewport, gamepad, strings::prompt_accept).contains(UI::cursor_pos))))
+					if ((!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+							|| (!u.input->keys.get(s32(KeyCode::MouseLeft)) && u.last_input->keys.get(s32(KeyCode::MouseLeft)) && player_button(camera.ref()->viewport, gamepad, strings::prompt_accept).contains(UI::cursor_pos)))
 					{
 						get<PlayerManager>()->score_accept();
 					}
@@ -2309,7 +2308,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			const Vec4* bg;
 			if (get<PlayerManager>()->upgrade_available())
 			{
-				if (params.sync->input.get(Controls::Interact, gamepad))
+				if (chat_focus == ChatFocus::None && params.sync->input.get(Controls::Interact, gamepad))
 				{
 					text.color = UI::color_background;
 					bg = &UI::color_accent();
@@ -2359,16 +2358,24 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		snprintf(buffer, 16, "%hd", get<PlayerManager>()->energy);
 		Vec2 p = ui_anchor(params) + Vec2(match_timer_width() + UI_TEXT_SIZE_DEFAULT * UI::scale, (UI_TEXT_SIZE_DEFAULT + 16.0f) * -UI::scale);
 		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_battery, buffer, UI::color_accent(), UI_TEXT_SIZE_DEFAULT * 5 * UI::scale);
-		s16 tickets = get<PlayerManager>()->team.ref()->tickets();
-		if (tickets != -1)
+
+		if (Game::session.config.game_type == GameType::Assault)
 		{
-			if (get<PlayerManager>()->instance.ref())
-				tickets++;
-			tickets--;
-			p.x += UI_TEXT_SIZE_DEFAULT * 5 * UI::scale;
-			snprintf(buffer, 16, "%hd", tickets);
-			const Vec4& color = tickets > 1 ? UI::color_default : (tickets > 0 ? UI::color_accent() : UI::color_alert());
-			draw_icon_text(params, gamepad, p, Asset::Mesh::icon_drone, buffer, color, UI_TEXT_SIZE_DEFAULT * 4 * UI::scale);
+			{
+				s16 tickets = Team::list[1].tickets();
+				snprintf(buffer, 16, "%hd", tickets);
+				p.x += UI_TEXT_SIZE_DEFAULT * 5 * UI::scale;
+				const Vec4& color = tickets > Team::list[1].player_count() ? UI::color_default : (tickets > 1 ? UI::color_accent() : UI::color_alert());
+				draw_icon_text(params, gamepad, p, Asset::Mesh::icon_drone, buffer, color, UI_TEXT_SIZE_DEFAULT * 4 * UI::scale);
+			}
+
+			{
+				s32 turrets = Turret::list.count();
+				snprintf(buffer, 16, "%hd", turrets);
+				p.x += UI_TEXT_SIZE_DEFAULT * 4 * UI::scale;
+				const Vec4& color = turrets > 1 ? UI::color_default : (turrets > 0 ? UI::color_accent() : UI::color_alert());
+				draw_icon_text(params, gamepad, p, Asset::Mesh::icon_turret2, buffer, color, UI_TEXT_SIZE_DEFAULT * 3 * UI::scale);
+			}
 		}
 	}
 
@@ -3239,6 +3246,39 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 						}
 					}
 
+					if (Turret::list.count() == 0)
+					{
+						// core modules
+						for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+						{
+							r32 dot = Vec3::normalize(i.item()->get<Transform>()->absolute_pos() - msg.target).dot(msg.dir);
+							if (dot > closest_dot)
+							{
+								closest_dot = dot;
+								target = i.item()->entity();
+							}
+						}
+					}
+
+					// force fields
+					for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
+					{
+						if (!(i.item()->flags & ForceField::FlagInvincible))
+						{
+							Vec3 to_target = i.item()->get<Transform>()->absolute_pos() - msg.target;
+							r32 distance = to_target.length();
+							if (distance < DRONE_MAX_DISTANCE)
+							{
+								r32 dot = (to_target / distance).dot(msg.dir);
+								if (dot > closest_dot)
+								{
+									closest_dot = dot;
+									target = i.item()->entity();
+								}
+							}
+						}
+					}
+
 					// batteries
 					for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 					{
@@ -3514,7 +3554,7 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 	// force fields
 	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team != team && !(i.item()->flags & ForceField::FlagPermanent))
+		if (i.item()->team != team && !(i.item()->flags & ForceField::FlagInvincible))
 			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::ForceField);
 	}
 }
@@ -4294,7 +4334,7 @@ void PlayerControlHuman::update(const Update& u)
 
 				last_pos = get<Drone>()->center_lerped();
 
-				if (get<Drone>()->flag.ref() && u.last_input->get(Controls::Interact, gamepad) && u.input->get(Controls::Interact, gamepad))
+				if (get<Drone>()->flag.ref() && input_enabled() && u.last_input->get(Controls::Interact, gamepad) && u.input->get(Controls::Interact, gamepad))
 				{
 					PlayerControlHumanNet::Message msg;
 					msg.type = PlayerControlHumanNet::Message::Type::DropFlag;
@@ -5020,7 +5060,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		// force field health bars
 		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 		{
-			if (!(i.item()->flags & ForceField::FlagPermanent))
+			if (!(i.item()->flags & ForceField::FlagInvincible))
 			{
 				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 				if ((pos - me).length_squared() < range * range)

@@ -43,14 +43,12 @@ void Console::init()
 
 	field.value.resize(2);
 	field.value[0] = '$';
-	field.ignored_keys.add(KeyCode::Grave);
 	text.text(0, field.value.data);
 }
 
 void Console::update(const Update& u)
 {
-	if (u.input->keys.get(s32(KeyCode::Grave))
-		&& !u.last_input->keys.get(s32(KeyCode::Grave)))
+	if (u.input->get(Controls::Console, 0) && !u.last_input->get(Controls::Console, 0))
 		visible = !visible;
 
 	if (fps_visible)

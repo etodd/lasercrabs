@@ -1510,8 +1510,13 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 			&& !ray_callback.entity->has<Target>()
 			&& !(ray_callback.entity->get<RigidBody>()->collision_group & DRONE_INACCESSIBLE_MASK))
 		{
-			if (a == Ability::ForceField)
-				return ForceField::can_spawn(get<AIAgent>()->team, ray_callback.pos);
+			if (a != Ability::Minion) // minions can be built inside invincible force fields
+			{
+				// check if this thing we're building will intersect with an invincible force field
+				r32 radius = (a == Ability::ForceField) ? FORCE_FIELD_RADIUS : 0.0f;
+				if (!ForceField::can_spawn(get<AIAgent>()->team, ray_callback.pos, radius))
+					return false;
+			}
 
 			// make sure there's enough room
 			Vec3 space_check_pos = ray_callback.pos;
@@ -1533,9 +1538,6 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 					required_space = WALKER_SUPPORT_HEIGHT + WALKER_HEIGHT + (WALKER_MINION_RADIUS * 2.0f);
 					break;
 				}
-				case Ability::Grenade:
-					required_space = 0.0f;
-					break;
 				default:
 				{
 					required_space = 0.0f;
@@ -1544,22 +1546,22 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 				}
 			}
 
-			if (required_space > 0.0f)
-			{
-				if ((space_check_pos - ray_callback.pos).length_squared() > 0.0f)
-				{
-					RaycastCallbackExcept physics_ray_callback(ray_callback.pos + ray_callback.normal * 0.05f, space_check_pos, entity());
-					Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & ~ally_force_field_mask());
-					if (physics_ray_callback.hasHit())
-						return false; // something in the way
-				}
+			space_check_pos += space_check_dir * 0.01f;
 
-				{
-					RaycastCallbackExcept physics_ray_callback(space_check_pos + space_check_dir * 0.05f, space_check_pos + space_check_dir * required_space, entity());
-					Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & ~ally_force_field_mask());
-					if (physics_ray_callback.hasHit())
-						return false; // not enough space
-				}
+			Vec3 ray_hit = ray_callback.pos + ray_callback.normal * 0.01f;
+			if ((space_check_pos - ray_hit).length_squared() > 0.01f * 0.01f)
+			{
+				RaycastCallbackExcept physics_ray_callback(ray_hit, space_check_pos, entity());
+				Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & ~ally_force_field_mask());
+				if (physics_ray_callback.hasHit())
+					return false; // something in the way
+			}
+
+			{
+				RaycastCallbackExcept physics_ray_callback(space_check_pos, space_check_pos + space_check_dir * required_space, entity());
+				Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & ~ally_force_field_mask());
+				if (physics_ray_callback.hasHit())
+					return false; // not enough space
 			}
 			return true;
 		}

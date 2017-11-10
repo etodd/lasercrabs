@@ -530,7 +530,6 @@ void Game::update(const Update& update_in)
 	}
 
 	Menu::update(u);
-	Ascensions::update(u);
 #endif
 
 	AI::update(u);
@@ -539,6 +538,8 @@ void Game::update(const Update& update_in)
 
 	if (update_game)
 	{
+		Ascensions::update(u);
+
 		Physics::sync_dynamic();
 
 		ShellCasing::update_all(u);
@@ -1878,7 +1879,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				if (Team::list.count() > s32(team))
 				{
 					absolute_pos += absolute_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
-					entity = World::alloc<ForceFieldEntity>(nullptr, absolute_pos, absolute_rot, team, ForceField::Type::Permanent);
+					entity = World::alloc<ForceFieldEntity>(nullptr, absolute_pos, absolute_rot, team, ForceField::Type::Invincible);
 					level.core_force_field = entity->get<ForceField>();
 				}
 			}

@@ -100,7 +100,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{
-		2.0f,
+		DRONE_COOLDOWN_MAX,
 		Asset::Mesh::icon_active_armor,
 		0,
 		Type::Other,
@@ -108,13 +108,13 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		2.0f,
 		Asset::Mesh::icon_generator,
-		30,
+		40,
 		Type::Build,
 	},
 	{
-		2.0f,
+		1.5f,
 		Asset::Mesh::icon_minion,
-		25,
+		30,
 		Type::Build,
 	},
 	{
@@ -130,9 +130,9 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{
-		2.0f,
+		2.5f,
 		Asset::Mesh::icon_grenade,
-		25,
+		30,
 		Type::Shoot,
 	},
 	{ // Ability::None
@@ -776,6 +776,7 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		case TeamNet::Message::CoreVulnerable:
 		{
 			core_module_delay = 0.0f;
+			Game::level.core_force_field.ref()->flags &= ~ForceField::FlagInvincible;
 
 			// let everyone know what happened
 			char buffer[UI_TEXT_MAX];
@@ -1049,11 +1050,7 @@ void Team::update_all_server(const Update& u)
 				{
 					core_module_delay = vi_max(0.0f, core_module_delay - u.time.delta);
 					if (core_module_delay == 0.0f)
-					{
-						// core is vulnerable; remove permanent ForceField protecting it
-						Game::level.core_force_field.ref()->destroy();
 						TeamNet::core_vulnerable();
-					}
 				}
 			}
 		}

@@ -523,7 +523,7 @@ b8 Health::active_armor() const
 	if (has<CoreModule>())
 		return active_armor_timer > 0.0f || Turret::list.count() > 0 || Game::level.mode != Game::Mode::Pvp || Team::core_module_delay > 0.0f;
 	else if (has<ForceField>())
-		return active_armor_timer > 0.0f || (get<ForceField>()->flags & ForceField::FlagPermanent);
+		return active_armor_timer > 0.0f || (get<ForceField>()->flags & ForceField::FlagInvincible);
 	else
 		return active_armor_timer > 0.0f;
 }
@@ -816,6 +816,19 @@ void Battery::update_all(const Update& u)
 				Vec3::zero,
 				0
 			);
+		}
+	}
+
+	r32 last_time = u.time.total - u.time.delta;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		const r32 shockwave_interval = 8.0f;
+		r32 offset = i.index * shockwave_interval * 0.3f;
+		Vec3 me = i.item()->get<Transform>()->absolute_pos();
+		if (s32((u.time.total + offset) / shockwave_interval) != s32((last_time + offset) / shockwave_interval))
+		{
+			EffectLight::add(me, 10.0f, 1.5f, EffectLight::Type::Shockwave);
+			i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GENERATOR_PING);
 		}
 	}
 }
@@ -1288,29 +1301,23 @@ void generator_update(const Vec3& generator_pos, r32 particle_lerp, Entity* e, b
 
 void Generator::update_all(const Update& u)
 {
-	r32 time = u.time.total;
-	r32 last_time = time - u.time.delta;
-	const r32 shockwave_interval = 8.0f;
 	const r32 heal_interval = GENERATOR_HEAL_INTERVAL;
-	const r32 particle_interval = heal_interval / 32;
-	b8 particle = s32(u.time.total / particle_interval) != s32((u.time.total - u.time.delta) / particle_interval);
-	r32 particle_lerp = (u.time.total - (s32(u.time.total / heal_interval) * heal_interval)) / heal_interval;
-	b8 heal = Game::level.local && s32(u.time.total / heal_interval) != s32((u.time.total - u.time.delta) / heal_interval);
+	const r32 particle_interval = heal_interval / 32.0f;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team != AI::TeamNone)
 		{
-			r32 offset = i.index * shockwave_interval * 0.3f;
-			Vec3 me = i.item()->get<Transform>()->absolute_pos();
-			if (s32((time + offset) / shockwave_interval) != s32((last_time + offset) / shockwave_interval))
-			{
-				EffectLight::add(me, 10.0f, 1.5f, EffectLight::Type::Shockwave);
-				i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GENERATOR_PING);
-			}
+			r32 time = u.time.total + i.index * 0.5f;
+			b8 particle = s32(time / particle_interval) != s32((time - u.time.delta) / particle_interval);
+			r32 particle_lerp = particle
+				? (time - (s32(time / heal_interval) * heal_interval)) / heal_interval
+				: 0.0f;
+			b8 heal = Game::level.local && s32(time / heal_interval) != s32((time - u.time.delta) / heal_interval);
 
 			// buff friendly turrets, force fields, and minions
 			if (particle || heal)
 			{
+				Vec3 me = i.item()->get<Transform>()->absolute_pos();
 				for (auto j = Turret::list.iterator(); !j.is_last(); j.next())
 				{
 					if (j.item()->team == i.item()->team)
@@ -1632,7 +1639,7 @@ CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3&
 	transform->parent = parent;
 	transform->absolute(pos, rot);
 
-	create<Health>(DRONE_HEALTH, DRONE_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
+	create<Health>(10, 10, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::core_module;
@@ -2073,7 +2080,7 @@ void ForceField::set_team(AI::Team t)
 
 void ForceField::hit_by(const TargetEvent& e)
 {
-	if (!(flags & FlagPermanent) && get<Health>()->can_take_damage(e.hit_by))
+	if (!(flags & FlagInvincible) && get<Health>()->can_take_damage(e.hit_by))
 		get<Health>()->damage(e.hit_by, 1);
 }
 
@@ -2196,7 +2203,7 @@ void ForceField::update_all(const Update& u)
 		else if (i.item()->damage_timer > 0.0f)
 		{
 			i.item()->damage_timer = vi_max(0.0f, i.item()->damage_timer - u.time.delta);
-			v->color.w = 0.35f + (i.item()->damage_timer / FORCE_FIELD_DAMAGE_TIME) * 0.3f;
+			v->color.w = 0.35f + (i.item()->damage_timer / FORCE_FIELD_DAMAGE_TIME) * 0.65f;
 		}
 	}
 }
@@ -2207,14 +2214,14 @@ void ForceField::destroy()
 	get<Health>()->kill(nullptr);
 }
 
-b8 ForceField::can_spawn(AI::Team team, const Vec3& abs_pos)
+b8 ForceField::can_spawn(AI::Team team, const Vec3& abs_pos, r32 radius)
 {
-	// can't be near a permanent force field
+	// can't be near an invincible force field
 	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team == team
-			&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < FORCE_FIELD_RADIUS * 2.0f * FORCE_FIELD_RADIUS * 2.0f
-			&& (i.item()->flags & ForceField::FlagPermanent))
+			&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < (FORCE_FIELD_RADIUS + radius) * (FORCE_FIELD_RADIUS + radius)
+			&& (i.item()->flags & ForceField::FlagInvincible))
 			return false;
 	}
 	return true;
@@ -2232,10 +2239,14 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 	ForceField* field = create<ForceField>();
 	field->team = team;
 	if (type == ForceField::Type::Permanent)
-		field->flags |= ForceField::FlagPermanent;
+		field->flags |= ForceField::FlagPermanent | ForceField::FlagInvincible;
 	else
 	{
 		// normal (non-permanent) force field
+
+		if (type == ForceField::Type::Invincible)
+			field->flags |= ForceField::FlagInvincible;
+
 		create<Audio>();
 
 		// destroy any overlapping friendly force field
@@ -2244,7 +2255,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 			if (i.item()->team == team
 				&& i.item() != field
 				&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < FORCE_FIELD_RADIUS * 2.0f * FORCE_FIELD_RADIUS * 2.0f
-				&& !(i.item()->flags & ForceField::FlagPermanent))
+				&& !(i.item()->flags & ForceField::FlagInvincible))
 				i.item()->destroy();
 		}
 
@@ -2385,7 +2396,6 @@ b8 Bolt::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		Audio::post_global(AK::EVENTS::PLAY_DRONE_REFLECT, ref.ref()->get<Transform>()->absolute_pos());
 		if (change_team)
 		{
-			ref.ref()->type = Type::DroneBolter;
 			ref.ref()->reflected = true;
 			ref.ref()->team = team;
 			ref.ref()->player = player;
@@ -2598,6 +2608,9 @@ void Bolt::hit_entity(const Hit& hit)
 					damage = 3;
 				else
 					damage = 2;
+
+				if (reflected)
+					damage = (damage * 2) + 2;
 				break;
 			}
 			case Type::DroneShotgun:
@@ -2605,13 +2618,16 @@ void Bolt::hit_entity(const Hit& hit)
 				if (hit_object->has<Minion>())
 					damage = MINION_HEALTH;
 				else if (hit_object->has<Turret>())
+					damage = mersenne::rand() % 3 < 2 ? 1 : 0; // expected value: 0.66
+				else if (hit_object->has<CoreModule>() || hit_object->has<ForceField>())
+					damage = mersenne::rand() % 4 == 0 ? 0 : 1; // expected value: 0.25
+				else if (hit_object->has<Drone>())
 					damage = 1;
-				else if (hit_object->has<CoreModule>())
-					damage = 1;
-				else if (hit_object->has<ForceField>())
-					damage = mersenne::rand() % 3 == 0 ? 0 : 1; // expected value: 0.33
 				else
 					damage = 2;
+
+				if (reflected)
+					damage = (damage * 2) + 2;
 				break;
 			}
 			case Type::Minion:
@@ -2620,11 +2636,21 @@ void Bolt::hit_entity(const Hit& hit)
 					damage = 2;
 				else
 					damage = 1;
+				if (reflected)
+				{
+					damage = MINION_HEALTH;
+					if (hit_object->has<Minion>())
+						destroy = false;
+				}
 				break;
 			}
 			case Type::Turret:
+			{
 				damage = 1;
+				if (reflected)
+					damage = 10;
 				break;
+			}
 			default:
 			{
 				damage = 0;
@@ -2632,9 +2658,6 @@ void Bolt::hit_entity(const Hit& hit)
 				break;
 			}
 		}
-
-		if (reflected)
-			damage = (damage * 2) + 4;
 
 		if (!hit_object->has<Health>() || !hit_object->get<Health>()->can_take_damage(entity()))
 			damage = 0;
@@ -3276,13 +3299,15 @@ void Grenade::explode()
 				if (i.item()->has<Drone>())
 				{
 					distance *= (i.item()->get<AIAgent>()->team == my_team) ? 2.0f : 1.0f;
-					if (distance < GRENADE_RANGE * 0.75f)
+					if (distance < GRENADE_RANGE * 0.6f)
 						i.item()->damage(entity(), 3);
-					else if (distance < GRENADE_RANGE * 0.85f)
+					else if (distance < GRENADE_RANGE * 0.8f)
 						i.item()->damage(entity(), 2);
 					else if (distance < GRENADE_RANGE)
 						i.item()->damage(entity(), 1);
 				}
+				else if (i.item()->has<CoreModule>())
+					i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 2 : 1);
 				else if (i.item()->has<Turret>())
 				{
 					distance *= (i.item()->get<Turret>()->team == my_team) ? 2.0f : 1.0f;

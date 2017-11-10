@@ -39,6 +39,7 @@ enum class Controls : s8
 	ChatTeam,
 	ChatAll,
 	Spot,
+	Console,
 	count,
 };
 

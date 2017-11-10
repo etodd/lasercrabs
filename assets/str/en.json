@@ -301,6 +301,7 @@
 		"chat_all": "All chat",
 		"chat_all_prompt": "All: ",
 		"spot": "Spot",
+		"toggle_console": "Toggle console",
 
 		"prompt_listen": "[{{Scoreboard}}] Listen",
 		"prompt_stop": "[{{Scoreboard}}] Stop",

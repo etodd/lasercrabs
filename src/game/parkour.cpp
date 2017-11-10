@@ -982,7 +982,7 @@ void Parkour::do_normal_jump()
 	body->setLinearVelocity(new_velocity);
 	get<Walker>()->support = nullptr;
 	last_support_wall_run_state = WallRunState::None;
-	last_support_time = Game::time.total;
+	last_support_time = last_jump_time = Game::time.total;
 	wall_run_state = WallRunState::None;
 	get<Animator>()->layers[1].play(Asset::Animation::character_jump1);
 }
@@ -998,6 +998,9 @@ void Parkour::lessen_gravity()
 
 b8 Parkour::try_jump(r32 rotation)
 {
+	if (Game::time.total - last_jump_time < JUMP_GRACE_PERIOD)
+		return false;
+
 	b8 did_jump = false;
 	if (fsm.current == State::Climb)
 	{
@@ -1124,7 +1127,7 @@ void Parkour::wall_jump(r32 rotation, const Vec3& wall_normal, const btRigidBody
 	new_velocity.y = velocity_length;
 	body->btBody->setLinearVelocity(new_velocity);
 
-	last_support_time = Game::time.total;
+	last_support_time = last_jump_time = Game::time.total;
 }
 
 const s32 mantle_sample_count = 3;

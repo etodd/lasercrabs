@@ -289,7 +289,7 @@ r32 entity_cost(const Minion* me, const Vec3& pos, AI::Team team, const Vec3& di
 	if (!target->has<ForceField>())
 	{
 		ForceField* target_force_field = ForceField::inside(team, target_pos);
-		if (target_force_field && target_force_field->flags & ForceField::FlagPermanent)
+		if (target_force_field && target_force_field->flags & ForceField::FlagInvincible)
 			return FLT_MAX; // can't do it
 	}
 
@@ -310,6 +310,10 @@ r32 entity_cost(const Minion* me, const Vec3& pos, AI::Team team, const Vec3& di
 	else
 		total_distance = to_target.length();
 	total_distance += (to_target.dot(direction) < 0.0f ? direction_cost : 0.0f);
+
+	if (target->has<Generator>()) // we don't like to attack generators
+		total_distance += DRONE_MAX_DISTANCE;
+
 	return total_distance;
 }
 
@@ -330,7 +334,18 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 			if (target)
 			{
 				if (me->can_see(target->entity()))
-					return target->entity();
+				{
+					AI::Team target_team;
+					AI::entity_info(target->entity(), team, &target_team);
+					if (target_team == team)
+					{
+						// the spot is telling us to defend a friendly thing and we're already within line of sight of it
+						// so force a random position target (i.e., patrol around the spotted entity)
+						return nullptr;
+					}
+					else
+						return target->entity();
+				}
 				r32 cost = entity_cost(me, pos, team, direction, target->entity());
 				if (cost < best_cost)
 				{
@@ -388,7 +403,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 	{
 		ForceField* item = i.item();
-		if (item->team != team && !(item->flags & ForceField::FlagPermanent))
+		if (item->team != team && !(item->flags & ForceField::FlagInvincible))
 		{
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
@@ -406,23 +421,6 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 	{
 		Battery* item = i.item();
 		if (item->team != team && item->team != AI::TeamNone)
-		{
-			Vec3 item_pos = item->get<Transform>()->absolute_pos();
-			if (me->can_see(item->entity()))
-				return item->entity();
-			r32 cost = entity_cost(me, pos, team, direction, item->entity());
-			if (cost < best_cost)
-			{
-				best = item->entity();
-				best_cost = cost;
-			}
-		}
-	}
-
-	for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
-	{
-		Generator* item = i.item();
-		if (item->team != team && !item->has<Battery>())
 		{
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
@@ -457,6 +455,23 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 	{
 		Grenade* item = i.item();
 		if (item->team() != team)
+		{
+			Vec3 item_pos = item->get<Transform>()->absolute_pos();
+			if (me->can_see(item->entity()))
+				return item->entity();
+			r32 cost = entity_cost(me, pos, team, direction, item->entity());
+			if (cost < best_cost)
+			{
+				best = item->entity();
+				best_cost = cost;
+			}
+		}
+	}
+
+	for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
+	{
+		Generator* item = i.item();
+		if (item->team != team && !item->has<Battery>())
 		{
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
@@ -525,7 +540,7 @@ Entity* visible_target(Minion* me, AI::Team team)
 	{
 		ForceField* field = i.item();
 		if (field->team != team
-			&& !(field->flags & ForceField::FlagPermanent)
+			&& !(field->flags & ForceField::FlagInvincible)
 			&& me->can_see(field->entity()))
 			return field->entity();
 	}
@@ -664,33 +679,43 @@ void Minion::update_server(const Update& u)
 					// we're going after the target
 					if (can_see(g))
 					{
-						// turn to and attack the target
-						Vec3 hand_pos = get<Minion>()->aim_pos(get<Walker>()->rotation);
-						Vec3 aim_pos;
-						if (!g->has<Target>() || !g->get<Target>()->predict_intersection(hand_pos, BOLT_SPEED_MINION, nullptr, &aim_pos))
-							aim_pos = g->get<Target>()->absolute_pos();
-						goal.pos = aim_pos;
-						turn_to(aim_pos);
-						path.length = 0;
-
-						Animator::Layer* anim_layer = &get<Animator>()->layers[0];
-
-						if (fabsf(LMath::angle_to(get<Walker>()->target_rotation, get<Walker>()->rotation)) < PI * 0.05f // make sure we're looking at the target
-							&& target_timer > MINION_ATTACK_TIME * 0.25f // give some reaction time
-							&& anim_layer->animation != Asset::Animation::character_melee
-							&& Team::match_state == Team::MatchState::Active)
+						AI::Team target_team;
+						AI::entity_info(g, get<AIAgent>()->team, &target_team);
+						if (target_team == AI::TeamNone || target_team == get<AIAgent>()->team)
 						{
-							if ((aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
+							// it's friendly
+							if (path.length == 0 || (path[path.length - 1] - pos).length_squared() < 1.5f * 1.5f)
+								new_goal();
+						}
+						else
+						{
+							// turn to and attack the target
+							Vec3 hand_pos = get<Minion>()->aim_pos(get<Walker>()->rotation);
+							Vec3 aim_pos;
+							if (!g->get<Target>()->predict_intersection(hand_pos, BOLT_SPEED_MINION, nullptr, &aim_pos))
+								aim_pos = g->get<Target>()->absolute_pos();
+							turn_to(aim_pos);
+							path.length = 0;
+
+							Animator::Layer* anim_layer = &get<Animator>()->layers[0];
+
+							if (fabsf(LMath::angle_to(get<Walker>()->target_rotation, get<Walker>()->rotation)) < PI * 0.05f // make sure we're looking at the target
+								&& target_timer > MINION_ATTACK_TIME * 0.25f // give some reaction time
+								&& anim_layer->animation != Asset::Animation::character_melee
+								&& Team::match_state == Team::MatchState::Active)
 							{
-								anim_layer->speed = 1.0f;
-								anim_layer->behavior = Animator::Behavior::Default;
-								anim_layer->play(Asset::Animation::character_melee);
-								get<Minion>()->attack_timer = 0.0f;
+								if ((aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
+								{
+									anim_layer->speed = 1.0f;
+									anim_layer->behavior = Animator::Behavior::Default;
+									anim_layer->play(Asset::Animation::character_melee);
+									get<Minion>()->attack_timer = 0.0f;
+								}
+								else if (can_attack)
+									get<Minion>()->fire(aim_pos);
+								else if (get<Minion>()->attack_timer == 0.0f)
+									get<Minion>()->attack_timer = MINION_ATTACK_TIME;
 							}
-							else if (can_attack)
-								get<Minion>()->fire(aim_pos);
-							else if (get<Minion>()->attack_timer == 0.0f)
-								get<Minion>()->attack_timer = MINION_ATTACK_TIME;
 						}
 					}
 					else
@@ -715,10 +740,8 @@ void Minion::update_server(const Update& u)
 				break;
 			}
 			default:
-			{
 				vi_assert(false);
 				break;
-			}
 		}
 	}
 

@@ -48,6 +48,7 @@ const char* control_setting_names[s32(Controls::count)] =
 	"chat_team",
 	"chat_all",
 	"spot",
+	"console",
 };
 
 const char* control_ui_variable_names[s32(Controls::count)] =
@@ -80,6 +81,7 @@ const char* control_ui_variable_names[s32(Controls::count)] =
 	"ChatTeam",
 	"ChatAll",
 	"Spot",
+	"Console",
 };
 
 InputBinding control_defaults[s32(Controls::count)] =
@@ -102,7 +104,7 @@ InputBinding control_defaults[s32(Controls::count)] =
 	{ Gamepad::Btn::RightTrigger, KeyCode::Space, KeyCode::None, }, // Jump
 	{ Gamepad::Btn::LeftTrigger, KeyCode::LShift, KeyCode::None, }, // Parkour
 	{ Gamepad::Btn::X, KeyCode::F, KeyCode::None, }, // UIContextAction
-	{ Gamepad::Btn::A, KeyCode::Return, KeyCode::None, }, // UIAcceptText
+	{ Gamepad::Btn::A, KeyCode::Return, KeyCode::KeypadEnter, }, // UIAcceptText
 	{ Gamepad::Btn::LeftShoulder, KeyCode::Q, KeyCode::None, }, // TabLeft
 	{ Gamepad::Btn::RightShoulder, KeyCode::E, KeyCode::None, }, // TabRight
 	{ Gamepad::Btn::DLeft, KeyCode::F1, KeyCode::None, }, // Emote1
@@ -112,6 +114,7 @@ InputBinding control_defaults[s32(Controls::count)] =
 	{ Gamepad::Btn::None, KeyCode::T, KeyCode::None, }, // ChatTeam
 	{ Gamepad::Btn::None, KeyCode::Y, KeyCode::None, }, // ChatAll
 	{ Gamepad::Btn::LeftShoulder, KeyCode::F, KeyCode::None, }, // Spot
+	{ Gamepad::Btn::None, KeyCode::Grave, KeyCode::None, }, // Console
 };
 
 void init()
@@ -398,6 +401,7 @@ void init()
 	control_strings[s32(Controls::ChatTeam)] = _(strings::chat_team);
 	control_strings[s32(Controls::ChatAll)] = _(strings::chat_all);
 	control_strings[s32(Controls::Spot)] = _(strings::spot);
+	control_strings[s32(Controls::Console)] = _(strings::toggle_console);
 
 	TextField::normal_map[s32(KeyCode::D0)] = '0';
 	TextField::normal_map[s32(KeyCode::D1)] = '1';
@@ -599,17 +603,21 @@ b8 TextField::update(const Update& u, s32 first_editable_index, s32 max_length)
 	b8 shift = u.input->keys.get(s32(KeyCode::LShift))
 		|| u.input->keys.get(s32(KeyCode::RShift));
 	b8 any_key_pressed = u.input->keys.any();
+	KeyCode console_key = Settings::gamepads[0].bindings[s32(Controls::Console)].key1;
 	if (max_length == 0 || value.length < max_length - sizeof(u32)) // make sure we have room even for a big ol' UTF-8 character
 	{
 		for (s32 i = u.input->keys.start; i < u.input->keys.end && i < 127; i = u.input->keys.next(i))
 		{
-			b8 ignore_key = false;
-			for (s32 j = 0; j < ignored_keys.length; j++)
+			b8 ignore_key = i == s32(console_key);
+			if (!ignore_key)
 			{
-				if (i == s32(ignored_keys[j]))
+				for (s32 j = 0; j < ignored_keys.length; j++)
 				{
-					ignore_key = true;
-					break;
+					if (i == s32(ignored_keys[j]))
+					{
+						ignore_key = true;
+						break;
+					}
 				}
 			}
 			if (ignore_key)

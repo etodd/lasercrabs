@@ -106,7 +106,7 @@ void draw_letterbox(const RenderParams&, r32, r32) {}
 State settings(const Update&, const UIMenu::Origin&, s8, UIMenu*) { return State::Visible; }
 b8 maps(const Update&, s8, UIMenu*) { return false; }
 void teams_select_match_start_init(PlayerHuman*) {}
-State teams(const Update&, const UIMenu::Origin&, s8, UIMenu*, TeamSelectMode, EnableInput) { return State::Visible; }
+State teams(const Update&, const UIMenu::Origin&, s8, UIMenu*, TeamSelectMode, UIMenu::EnableInput) { return State::Visible; }
 void friendship_state(u32, b8) {}
 b8 choose_region(const Update&, const UIMenu::Origin&, s8, UIMenu*, AllowClose) { return false; }
 b8 settings_controls(const Update&, const UIMenu::Origin&, s8, UIMenu*, Gamepad::Type) { return false; }
@@ -1285,7 +1285,7 @@ State settings(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu
 // returns true if this menu should remain open
 b8 settings_controls(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu, Gamepad::Type gamepad_type)
 {
-	menu->start(u, origin, gamepad, currently_editing_control == Controls::count);
+	menu->start(u, origin, gamepad, currently_editing_control == Controls::count ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::No);
 	b8 exit = menu->item(u, _(strings::back)) || (currently_editing_control == Controls::count && !Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
 
 	char str[128];
@@ -1793,15 +1793,15 @@ b8 player(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* men
 	return true;
 }
 
-// returns true if the team menu should stay open
-State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu, TeamSelectMode mode, EnableInput input)
+// returns the state the menu should be in
+State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu, TeamSelectMode mode, UIMenu::EnableInput input)
 {
 	PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
 	PlayerManager* selected = teams_selected_player[gamepad].ref();
 
 	b8 exit = !Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad);
 
-	menu->start(u, origin, gamepad, mode == TeamSelectMode::Normal && !selected && input == EnableInput::Yes); // can select different players in Normal mode when no player is selected
+	menu->start(u, origin, gamepad, (input == UIMenu::EnableInput::Yes && mode == TeamSelectMode::Normal && !selected) ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::No); // can select different players in Normal mode when no player is selected
 	
 	if (mode == TeamSelectMode::Normal)
 	{
@@ -1815,11 +1815,11 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
 		const char* value = _(Team::name_selector(i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled));
-		b8 disabled = input == EnableInput::No || (selected && i.item() != selected) || (i.item() != me && mode == TeamSelectMode::MatchStart);
+		b8 disabled = input == UIMenu::EnableInput::No || (selected && i.item() != selected) || (i.item() != me && mode == TeamSelectMode::MatchStart);
 		AssetID icon = i.item()->can_spawn ? Asset::Mesh::icon_checkmark : AssetNull;
 
 		if (mode == TeamSelectMode::Normal
-			&& input == EnableInput::Yes
+			&& input == UIMenu::EnableInput::Yes
 			&& teams_selected_player[gamepad].ref() == nullptr
 			&& menu->selected == menu->items.length && me != i.item() && i.item()->has<PlayerHuman>()
 			&& !u.input->get(Controls::UIContextAction, gamepad) && u.last_input->get(Controls::UIContextAction, gamepad))
@@ -1842,7 +1842,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 			if (i.item()->team_scheduled != AI::TeamNone)
 			{
 				if (delta == INT_MIN // slider item was clicked
-					|| (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad)))
+					|| (input == UIMenu::EnableInput::Yes && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad)))
 				{
 					i.item()->set_can_spawn(true);
 					teams_selected_player[gamepad] = nullptr;
@@ -1959,7 +1959,7 @@ void UIMenu::animate()
 	animation_time = Game::real_time.total;
 }
 
-void UIMenu::start(const Update& u, const Origin& o, s8 g, b8 input)
+void UIMenu::start(const Update& u, const Origin& o, s8 g, EnableInput input)
 {
 	clear();
 
@@ -1978,8 +1978,8 @@ void UIMenu::start(const Update& u, const Origin& o, s8 g, b8 input)
 	else
 		active[g] = this;
 
-	allow_select = input;
-	if (input)
+	allow_select = input == EnableInput::Yes;
+	if (input == EnableInput::Yes)
 	{
 		s32 delta = UI::input_delta_vertical(u, gamepad);
 		if (delta != 0)

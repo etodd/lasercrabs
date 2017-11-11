@@ -1339,6 +1339,9 @@ namespace tutorial
 				Net::finalize(trigger_entity);
 			}
 
+			Game::level.core_force_field.ref()->get<Health>()->hp = 1;
+			for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+				i.item()->get<Health>()->hp = 1;
 			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 				i.item()->get<Health>()->hp = 1;
 

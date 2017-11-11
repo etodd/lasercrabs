@@ -105,6 +105,7 @@
 		"spectating": "Spectating",
 		"back": "Back",
 		"energy": "Spark",
+		"insufficient_energy": "Insufficient spark",
 		"audio_log": "Audio log",
 		"energy_added": "+%d spark",
 		"access_keys": "Access keys",

@@ -5441,7 +5441,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		b8 is_vulnerable = get<Health>()->can_take_damage(nullptr) && health->hp == 1 && health->shield == 0 && health->shield_max > 0;
 
 		Vec2 ui_anchor = player.ref()->ui_anchor(params);
-		ui_anchor.y = params.camera->viewport.size.y * 0.5f + UI_TEXT_SIZE_DEFAULT * -4.0f;
+		ui_anchor.y = params.camera->viewport.size.y * 0.5f + UI_TEXT_SIZE_DEFAULT * -2.0f;
 
 		UIText text;
 		text.anchor_x = UIText::Anchor::Min;
@@ -5519,7 +5519,20 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					text.draw(params, ui_anchor);
 				}
 			}
+			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
+		}
 
+		// insufficient energy
+		if (has<Drone>())
+		{
+			Ability ability = get<Drone>()->current_ability;
+			if (ability != Ability::None && player.ref()->get<PlayerManager>()->energy < AbilityInfo::list[s32(ability)].spawn_cost)
+			{
+				text.color = UI::color_alert();
+				text.text(player.ref()->gamepad, _(strings::insufficient_energy));
+				UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
+				text.draw(params, ui_anchor);
+			}
 			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
 		}
 	}

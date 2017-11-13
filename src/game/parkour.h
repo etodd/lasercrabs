@@ -66,6 +66,7 @@ struct Parkour : public ComponentType<Parkour>
 	r32 last_angular_velocity;
 	r32 last_angle_horizontal;
 	r32 climb_velocity;
+	r32 last_climb_time;
 	StaticArray<TilePos, 8> tile_history;
 	FSM<State> fsm;
 	Ref<RigidBody> last_support;

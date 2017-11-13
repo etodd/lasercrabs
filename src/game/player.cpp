@@ -841,7 +841,7 @@ b8 PlayerHuman::emotes_enabled() const
 		|| mode == UIMode::PvpGameOver);
 }
 
-Rect2 player_button(const Rect2& viewport, s8 gamepad, AssetID string, const RenderParams* params = nullptr)
+Rect2 player_button(const Rect2& viewport, s8 gamepad, AssetID string, UIMenu::EnableInput enable_input = UIMenu::EnableInput::Yes, const RenderParams* params = nullptr)
 {
 	// deploy prompt
 	UIText text;
@@ -853,8 +853,9 @@ Rect2 player_button(const Rect2& viewport, s8 gamepad, AssetID string, const Ren
 	if (params)
 	{
 		const Vec4* bg;
-		if (params->sync->input.get(Controls::Interact, gamepad)
-			|| (gamepad == 0 && Game::ui_gamepad_types[0] == Gamepad::Type::None && box.contains(UI::cursor_pos)))
+		if (enable_input == UIMenu::EnableInput::Yes
+			&& (params->sync->input.get(Controls::Interact, gamepad)
+			|| (gamepad == 0 && Game::ui_gamepad_types[0] == Gamepad::Type::None && box.contains(UI::cursor_pos))))
 		{
 			text.color = UI::color_background;
 			if (params->sync->input.keys.get(s32(KeyCode::MouseLeft)) && PlayerHuman::player_for_gamepad(0)->chat_focus == PlayerHuman::ChatFocus::None)
@@ -1406,7 +1407,7 @@ void PlayerHuman::update(const Update& u)
 				{
 					// accept score summary
 					if ((!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
-							|| (!u.input->keys.get(s32(KeyCode::MouseLeft)) && u.last_input->keys.get(s32(KeyCode::MouseLeft)) && player_button(camera.ref()->viewport, gamepad, strings::prompt_accept).contains(UI::cursor_pos)))
+						|| (!u.input->keys.get(s32(KeyCode::MouseLeft)) && u.last_input->keys.get(s32(KeyCode::MouseLeft)) && player_button(camera.ref()->viewport, gamepad, strings::prompt_accept).contains(UI::cursor_pos)))
 					{
 						get<PlayerManager>()->score_accept();
 					}
@@ -2529,7 +2530,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				text.draw(params, pos);
 			}
 
-			player_button(vp, gamepad, strings::prompt_deploy, &params);
+			player_button(vp, gamepad, strings::prompt_deploy, chat_focus == ChatFocus::None ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::No, &params);
 		}
 	}
 	else if (mode == UIMode::PvpSpectate)
@@ -2633,7 +2634,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 			// press A to continue
 			if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
-				player_button(vp, gamepad, get<PlayerManager>()->score_accepted ? strings::waiting : strings::prompt_accept, &params);
+				player_button(vp, gamepad, get<PlayerManager>()->score_accepted ? strings::waiting : strings::prompt_accept, chat_focus == ChatFocus::None ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::No, &params);
 		}
 	}
 
@@ -4940,6 +4941,15 @@ void PlayerControlHuman::update_late(const Update& u)
 	}
 }
 
+void draw_health_bar(const RenderParams& params, const Health* health, const Vec2& p, const Vec4& color)
+{
+	Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
+	Rect2 bar = { p + (bar_size * -0.5f), bar_size };
+	UI::box(params, bar, UI::color_background);
+	UI::border(params, bar, 2, color);
+	UI::box(params, { bar.pos, Vec2(bar.size.x * (r32(health->hp) / r32(health->hp_max)), bar.size.y) }, color);
+}
+
 void PlayerControlHuman::draw_ui(const RenderParams& params) const
 {
 	if (params.technique != RenderTechnique::Default
@@ -5026,32 +5036,42 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 		AI::Team my_team = get<AIAgent>()->team;
 
-		// turret health bars
-		if (Game::level.mode == Game::Mode::Pvp && Turret::list.count() > 0 && Game::level.has_feature(Game::FeatureLevel::Turrets))
+		if (Game::level.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::Turrets))
 		{
-			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+			if (Turret::list.count() > 0)
 			{
-				Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
-
-				if (i.item()->team == my_team || (turret_pos - me).length_squared() < range * range)
+				// turret health bars
+				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 				{
-					Vec2 p;
-					if (UI::project(params, turret_pos, &p))
-					{
-						Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
-						Rect2 bar = { p + Vec2(0, 32.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-						UI::box(params, bar, UI::color_background);
-						const Vec4& color = Team::ui_color(team, i.item()->team);
-						UI::border(params, bar, 2, color);
-						Health* health = i.item()->get<Health>();
-						UI::box(params, { bar.pos, Vec2(bar.size.x * (r32(health->hp) / r32(health->hp_max)), bar.size.y) }, color);
-					}
+					Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
 
-					if (i.item()->target.ref() == entity())
+					if (i.item()->team == my_team || (turret_pos - me).length_squared() < range * range)
 					{
-						if (UI::flash_function(Game::time.total))
-							UI::indicator(params, turret_pos, Team::ui_color_enemy, true);
-						enemy_visible = true;
+						Vec2 p;
+						if (UI::project(params, turret_pos, &p))
+							draw_health_bar(params, i.item()->get<Health>(), p + Vec2(0, 32.0f * UI::scale), Team::ui_color(team, i.item()->team));
+
+						if (i.item()->target.ref() == entity())
+						{
+							if (UI::flash_function(Game::time.total))
+								UI::indicator(params, turret_pos, Team::ui_color_enemy, true);
+							enemy_visible = true;
+						}
+					}
+				}
+			}
+			else
+			{
+				// core module health bars
+				for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+				{
+					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+
+					if (i.item()->team == my_team || (pos - me).length_squared() < range * range)
+					{
+						Vec2 p;
+						if (UI::project(params, pos, &p))
+							draw_health_bar(params, i.item()->get<Health>(), p + Vec2(0, 32.0f * UI::scale), Team::ui_color(team, i.item()->team));
 					}
 				}
 			}
@@ -5067,15 +5087,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				{
 					Vec2 p;
 					if (UI::project(params, pos, &p))
-					{
-						Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
-						Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-						UI::box(params, bar, UI::color_background);
-						const Vec4& color = Team::ui_color(team, i.item()->team);
-						UI::border(params, bar, 2, color);
-						Health* hp = i.item()->get<Health>();
-						UI::box(params, { bar.pos, Vec2(bar.size.x * (r32(hp->hp) / r32(hp->hp_max)), bar.size.y) }, color);
-					}
+						draw_health_bar(params, i.item()->get<Health>(), p + Vec2(0, 40.0f * UI::scale), Team::ui_color(team, i.item()->team));
 				}
 			}
 		}

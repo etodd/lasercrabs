@@ -765,7 +765,7 @@ void Parkour::update(const Update& u)
 	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::HardLanding;
 
 	{
-		if (fsm.current == State::Normal && Game::time.total - last_support_time > JUMP_GRACE_PERIOD * 2.0f)
+		if (fsm.current == State::Normal && Game::time.total - last_climb_time > JUMP_GRACE_PERIOD * 2.0f)
 		{
 			// check for stuff to climb
 			Transform* r = parkour_get_rope(this, ParkourRopeSearch::Any);
@@ -794,6 +794,7 @@ void Parkour::update(const Update& u)
 		}
 		else if (fsm.current == State::Climb)
 		{
+			last_climb_time = Game::time.total;
 			RigidBody* body = get<RigidBody>();
 			Vec3 v = body->btBody->getLinearVelocity();
 			Vec2 accel = get<Walker>()->dir * AIR_CONTROL_ACCEL * u.time.delta;
@@ -1232,7 +1233,7 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 				relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld + Vec3(0, WALKER_SUPPORT_HEIGHT + get<Walker>()->default_capsule_height() * 0.6f, 0));
 				relative_animation_start_pos = pos;
 				relative_animation_start_pos.y = ray_callback.m_hitPointWorld.getY();
-				relative_animation_start_pos += rot * (top_out ? Vec3(0, -0.55f, 0) : Vec3(0, 0.1f, -0.35f));
+				relative_animation_start_pos += rot * (top_out ? Vec3(0, -0.5f, 0) : Vec3(0, 0.1f, -0.35f));
 				animation_start_support = last_support.ref()->get<Transform>();
 				relative_animation_start_pos = animation_start_support.ref()->to_local(relative_animation_start_pos);
 				last_support_time = Game::time.total;

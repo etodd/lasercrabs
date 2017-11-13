@@ -368,10 +368,14 @@ void Shield::health_changed(const HealthEvent& e)
 	}
 }
 
-void apply_alpha_scale(View* v, const Update& u, const Vec3& offset_pos, r32 target_alpha, r32 target_scale, r32 scale_speed_multiplier)
+#define DRONE_SHIELD_ALPHA 0.3f
+#define DRONE_SHIELD_VIEW_RATIO 0.6f
+#define DRONE_OVERSHIELD_ALPHA 0.45f
+
+void apply_alpha_scale(View* v, const Update& u, const Vec3& offset_pos, r32 target_alpha, r32 target_scale, r32 alpha_speed_multiplier, r32 scale_speed_multiplier)
 {
 	const r32 anim_time = 0.3f;
-	r32 alpha_speed = (DRONE_SHIELD_ALPHA / anim_time) * u.time.delta;
+	r32 alpha_speed = (DRONE_SHIELD_ALPHA / anim_time) * alpha_speed_multiplier * u.time.delta;
 	if (v->color.w > target_alpha)
 		v->color.w = vi_max(target_alpha, v->color.w - alpha_speed);
 	else
@@ -401,6 +405,8 @@ void Shield::update_client(const Update& u)
 	Vec3 offset_pos = has<SkinnedModel>() ? get<SkinnedModel>()->offset.translation() : get<View>()->offset.translation();
 	RenderMask mask = has<SkinnedModel>() ? get<SkinnedModel>()->mask : get<View>()->mask;
 
+	b8 active_armor = get<Health>()->active_armor();
+
 	{
 		// inner shield
 		View* inner_view = inner.ref()->get<View>();
@@ -408,17 +414,26 @@ void Shield::update_client(const Update& u)
 
 		r32 target_alpha;
 		r32 target_scale;
-		if (get<Health>()->shield > 0)
+		r32 speed;
+		if (active_armor)
 		{
+			speed = 5.0f;
+			target_alpha = 1.25f;
+			target_scale = DRONE_SHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO;
+		}
+		else if (get<Health>()->shield > 0)
+		{
+			speed = 1.0f;
 			target_alpha = DRONE_SHIELD_ALPHA;
 			target_scale = DRONE_SHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO;
 		}
 		else
 		{
+			speed = 1.0f;
 			target_alpha = 0.0f;
 			target_scale = 8.0f;
 		}
-		apply_alpha_scale(inner_view, u, offset_pos, target_alpha, target_scale, 1.0f);
+		apply_alpha_scale(inner_view, u, offset_pos, target_alpha, target_scale, speed, speed);
 	}
 
 	{
@@ -428,17 +443,26 @@ void Shield::update_client(const Update& u)
 
 		r32 target_alpha;
 		r32 target_scale;
-		if (get<Health>()->shield > 1)
+		r32 speed;
+		if (active_armor)
 		{
+			speed = 5.0f;
+			target_alpha = 1.25f;
+			target_scale = DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO;
+		}
+		else if (get<Health>()->shield > 1)
+		{
+			speed = 1.0f;
 			target_alpha = DRONE_OVERSHIELD_ALPHA;
 			target_scale = DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO;
 		}
 		else
 		{
+			speed = 1.0f;
 			target_alpha = 0.0f;
 			target_scale = 10.0f;
 		}
-		apply_alpha_scale(outer_view, u, offset_pos, target_alpha, target_scale, 1.25f);
+		apply_alpha_scale(outer_view, u, offset_pos, target_alpha, target_scale, speed, speed * 1.25f);
 	}
 }
 
@@ -1335,6 +1359,12 @@ void Generator::update_all(const Update& u)
 					if (j.item()->get<AIAgent>()->team == i.item()->team)
 						generator_update(me, particle_lerp, j.item()->entity(), particle, heal);
 				}
+
+				for (auto j = CoreModule::list.iterator(); !j.is_last(); j.next())
+				{
+					if (j.item()->team == i.item()->team)
+						generator_update(me, particle_lerp, j.item()->entity(), particle, heal);
+				}
 			}
 		}
 	}
@@ -1639,7 +1669,7 @@ CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3&
 	transform->parent = parent;
 	transform->absolute(pos, rot);
 
-	create<Health>(10, 10, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
+	create<Health>(20, 20, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::core_module;
@@ -1701,7 +1731,13 @@ void CoreModule::killed(Entity* e)
 	PlayerManager::entity_killed_by(entity(), e);
 
 	if (Game::level.local)
+	{
 		destroy();
+		Team::match_time = vi_max(0.0f, Team::match_time - CORE_MODULE_TIME_REWARD);
+#if SERVER
+		Net::Server::sync_time();
+#endif
+	}
 }
 
 void CoreModule::destroy()
@@ -2428,7 +2464,7 @@ b8 Bolt::default_raycast_filter(Entity* e, AI::Team team)
 		&& (!e->has<ForceField>() || e->get<ForceField>()->team != team); // ignore friendly force fields
 }
 
-b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, AI::Team team, Hit* out_hit, b8(*filter)(Entity*, AI::Team), Net::StateFrame* state_frame)
+b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, AI::Team team, Hit* out_hit, b8(*filter)(Entity*, AI::Team), Net::StateFrame* state_frame, r32 extra_radius)
 {
 	out_hit->entity = nullptr;
 	r32 closest_hit_distance_sq = FLT_MAX;
@@ -2463,7 +2499,7 @@ b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, AI::T
 			p = i.item()->absolute_pos();
 
 		Vec3 intersection;
-		if (LMath::ray_sphere_intersect(trace_start, trace_end, p, i.item()->radius(), &intersection))
+		if (LMath::ray_sphere_intersect(trace_start, trace_end, p, i.item()->radius() + extra_radius, &intersection))
 		{
 			r32 distance_sq = (intersection - trace_start).length_squared();
 			if (distance_sq < closest_hit_distance_sq)
@@ -2620,14 +2656,19 @@ void Bolt::hit_entity(const Hit& hit)
 				else if (hit_object->has<Turret>())
 					damage = mersenne::rand() % 3 < 2 ? 1 : 0; // expected value: 0.66
 				else if (hit_object->has<CoreModule>() || hit_object->has<ForceField>())
-					damage = mersenne::rand() % 4 == 0 ? 0 : 1; // expected value: 0.25
+					damage = mersenne::rand() % 3 == 0 ? 1 : 0; // expected value: 0.33
 				else if (hit_object->has<Drone>())
 					damage = 1;
 				else
 					damage = 2;
 
 				if (reflected)
-					damage = (damage * 2) + 2;
+				{
+					if (hit_object->has<Drone>())
+						damage = 2;
+					else
+						damage = (damage * 2) + 2;
+				}
 				break;
 			}
 			case Type::Minion:
@@ -3226,7 +3267,7 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, Net::StateFrame* state_frame)
 				v.normalize();
 
 			Bolt::Hit hit;
-			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team())), team(), &hit, &grenade_hit_filter, state_frame))
+			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team())), team(), &hit, &grenade_hit_filter, state_frame, DRONE_SHIELD_RADIUS))
 			{
 				if (out_hit)
 					*out_hit = hit;

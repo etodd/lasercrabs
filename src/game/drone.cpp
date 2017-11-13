@@ -1942,11 +1942,21 @@ void drone_dash_fly_simulate(Drone* d, r32 dt, Net::StateFrame* state_frame = nu
 	Drone::State s = d->state();
 
 	Vec3 position = d->get<Transform>()->absolute_pos();
+
+	if (s == Drone::State::Fly && btVector3(d->velocity).fuzzyZero() && d->reflections.length == 0) // HACK. why does this happen
+	{
+		for (s32 i = 0; i < REFLECTION_TRIES; i++)
+		{
+			Vec3 candidate_dir = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1);
+			if (d->can_shoot(candidate_dir, nullptr, nullptr, state_frame))
+			{
+				d->velocity = candidate_dir * DRONE_FLY_SPEED;
+				break;
+			}
+		}
+	}
+
 	Vec3 next_position;
-
-	if (btVector3(d->velocity).fuzzyZero() && d->reflections.length == 0) // HACK. why does this happen
-		d->velocity = d->get<Transform>()->absolute_rot() * Vec3(0, 0, s == Drone::State::Dash ? DRONE_DASH_SPEED : DRONE_FLY_SPEED);
-
 	if (s == Drone::State::Dash)
 	{
 		d->crawl(d->velocity, vi_min(d->dash_timer, dt));
@@ -2017,7 +2027,7 @@ void Drone::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const N
 		// our goal
 		Vec3 target_dir = Vec3::normalize(velocity.reflect(normal));
 
-		new_dir = target_dir;
+		new_dir = -Vec3::normalize(velocity);
 
 		Quat target_quat = Quat::look(target_dir);
 
@@ -2543,7 +2553,7 @@ void Drone::update_server(const Update& u)
 						if (distance == 0.0f)
 						{
 							hit = target_pos;
-							normal = Vec3(0, 1, 0);
+							normal = Vec3(1, 0, 0);
 						}
 						else
 						{
@@ -2552,7 +2562,7 @@ void Drone::update_server(const Update& u)
 							normal = -diff;
 						}
 
-						velocity = diff;
+						velocity = -normal;
 						hit_target(i.item()->entity(), HitTargetType::Repulsion);
 						reflect(i.item()->entity(), hit, normal, state_frame);
 						break;

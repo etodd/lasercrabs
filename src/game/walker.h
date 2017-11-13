@@ -9,8 +9,8 @@ namespace VI
 
 struct RigidBody;
 
-#define WALKER_SUPPORT_HEIGHT 0.35f
-#define WALKER_HEIGHT 0.95f
+#define WALKER_SUPPORT_HEIGHT 0.45f
+#define WALKER_HEIGHT 0.85f
 #define WALKER_PARKOUR_RADIUS 0.45f
 #define WALKER_MINION_RADIUS 0.35f
 #define WALKER_TRACTION_DOT 0.7f

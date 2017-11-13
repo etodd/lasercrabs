@@ -490,9 +490,6 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 
 Entity* visible_target(Minion* me, AI::Team team)
 {
-	if (!Game::level.has_feature(Game::FeatureLevel::All)) // in tutorial, don't chase after targets
-		return nullptr;
-
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
 		PlayerCommon* player = i.item();

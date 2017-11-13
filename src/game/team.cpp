@@ -94,7 +94,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{
-		2.0f,
+		DRONE_COOLDOWN_MAX,
 		Asset::Mesh::icon_shotgun,
 		0,
 		Type::Shoot,
@@ -114,11 +114,11 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		1.5f,
 		Asset::Mesh::icon_minion,
-		30,
+		25,
 		Type::Build,
 	},
 	{
-		2.0f,
+		1.5f,
 		Asset::Mesh::icon_force_field,
 		80,
 		Type::Build,
@@ -130,9 +130,9 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{
-		2.5f,
+		DRONE_COOLDOWN_MAX,
 		Asset::Mesh::icon_grenade,
-		30,
+		35,
 		Type::Shoot,
 	},
 	{ // Ability::None
@@ -976,7 +976,7 @@ void Team::update_all_server(const Update& u)
 		Team* team_with_most_kills = Game::session.config.game_type == GameType::Deathmatch ? with_most_kills() : nullptr;
 		Team* team_with_most_flags = Game::session.config.game_type == GameType::CaptureTheFlag ? with_most_flags() : nullptr;
 		if (!Game::level.noclip
-			&& (match_time > Game::session.config.time_limit()
+			&& ((match_time > Game::session.config.time_limit() && Game::level.has_feature(Game::FeatureLevel::All)) // no time limit in tutorial
 			|| (Game::level.has_feature(Game::FeatureLevel::All) && teams_with_active_players() <= 1 && Game::level.ai_config.length == 0)
 			|| (Game::session.config.game_type == GameType::Assault && CoreModule::count(1 << 0) == 0)
 			|| (Game::session.config.game_type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::session.config.kill_limit)

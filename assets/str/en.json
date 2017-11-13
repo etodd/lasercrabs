@@ -197,7 +197,7 @@
 		"generator": "Generator",
 		"description_generator": "Upgrade cost: %d    Per-use cost: %d\nCreates a stealth field, detects enemy drones, and heals nearby turrets, force fields, and minions.",
 		"shotgun": "Shotgun",
-		"description_shotgun": "Cost: %d\nShort-range wide-angle weapon. Requires two charges to fire.",
+		"description_shotgun": "Cost: %d\nShort-range wide-angle weapon.",
 		"sniper": "Sniper",
 		"description_sniper": "Cost: %d\nInstantly hit targets at range.",
 		"minion": "Minion",

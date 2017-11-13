@@ -1651,19 +1651,24 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			// fill team lookup table
 			{
 				s32 offset;
-				if (session.type == SessionType::Story)
+				if (level.mode == Mode::Pvp)
 				{
-					if (story_mode_team == StoryModeTeam::Defend)
-						offset = 0; // put local player on team 0 (defenders)
+					if (session.type == SessionType::Story)
+					{
+						if (story_mode_team == StoryModeTeam::Defend)
+							offset = 0; // put local player on team 0 (defenders)
+						else
+							offset = 1; // put local player on team 1 (attackers)
+					}
 					else
-						offset = 1; // put local player on team 1 (attackers)
+					{
+						// shuffle teams and make sure they're packed in the array starting at 0
+						b8 lock_teams = Json::get_s32(element, "lock_teams");
+						offset = lock_teams ? 0 : mersenne::rand() % session.config.team_count;
+					}
 				}
 				else
-				{
-					// shuffle teams and make sure they're packed in the array starting at 0
-					b8 lock_teams = Json::get_s32(element, "lock_teams");
-					offset = lock_teams ? 0 : mersenne::rand() % session.config.team_count;
-				}
+					offset = 1; // local player is always on team 1 (attackers) in Parkour or Special mode
 				for (s32 i = 0; i < MAX_TEAMS; i++)
 					level.team_lookup[i] = AI::Team((offset + i) % session.config.team_count);
 			}
@@ -1828,7 +1833,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		}
 		else if (cJSON_HasObjectItem(element, "Minion"))
 		{
-			if (session.type == SessionType::Story)
+			if (level.mode == Mode::Parkour)
 			{
 				// starts out owned by player if the zone is friendly
 				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
@@ -2249,55 +2254,41 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		}
 		else if (cJSON_HasObjectItem(element, "Shop"))
 		{
-			if (session.type == SessionType::Story)
+			vi_assert(level.mode != Mode::Pvp);
+			entity = World::alloc<ShopEntity>();
+			level.shop = entity;
+
 			{
-				entity = World::alloc<ShopEntity>();
-				level.shop = entity;
-
-				{
-					Entity* i = World::alloc<ShopInteractable>();
-					i->get<Transform>()->parent = entity->get<Transform>();
-					i->get<Transform>()->pos = Vec3(-3.0f, 0, 0);
-					World::awake(i);
-				}
-
-				{
-					Entity* locke = World::create<Prop>(Asset::Mesh::locke, Asset::Armature::locke);
-					locke->get<Transform>()->pos = absolute_pos + absolute_rot * Vec3(-1.25f, 0, 0);
-					locke->get<Transform>()->rot = absolute_rot;
-					locke->add<PlayerTrigger>()->radius = 5.0f;
-					locke->get<Animator>()->layers[0].behavior = Animator::Behavior::Freeze;
-					level.finder.add("locke", locke);
-					level.scripts.add(Script::find("locke"));
-				}
+				Entity* i = World::alloc<ShopInteractable>();
+				i->get<Transform>()->parent = entity->get<Transform>();
+				i->get<Transform>()->pos = Vec3(-3.0f, 0, 0);
+				World::awake(i);
 			}
-			else
+
 			{
-				entity = World::alloc<StaticGeom>(Asset::Mesh::shop, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
-				entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
+				Entity* locke = World::create<Prop>(Asset::Mesh::locke, Asset::Armature::locke);
+				locke->get<Transform>()->pos = absolute_pos + absolute_rot * Vec3(-1.25f, 0, 0);
+				locke->get<Transform>()->rot = absolute_rot;
+				locke->add<PlayerTrigger>()->radius = 5.0f;
+				locke->get<Animator>()->layers[0].behavior = Animator::Behavior::Freeze;
+				level.finder.add("locke", locke);
+				level.scripts.add(Script::find("locke"));
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "Empty") || cJSON_HasObjectItem(element, "Camera"))
 			entity = World::alloc<Empty>();
 		else if (strcmp(Json::get_string(element, "name"), "terminal") == 0)
 		{
-			if (session.type == SessionType::Story)
-			{
-				entity = World::alloc<TerminalEntity>();
-				level.terminal = entity;
+			vi_assert(level.mode != Mode::Pvp);
+			entity = World::alloc<TerminalEntity>();
+			level.terminal = entity;
 
-				Entity* i = World::alloc<TerminalInteractable>();
-				i->get<Transform>()->parent = entity->get<Transform>();
-				i->get<Transform>()->pos = Vec3(1.0f, 0, 0);
-				i->get<Interactable>()->user_data = Loader::find_level(Json::get_string(element, "level"));
-				World::awake(i);
-				level.terminal_interactable = i;
-			}
-			else
-			{
-				entity = World::alloc<StaticGeom>(Asset::Mesh::terminal_collision, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
-				entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
-			}
+			Entity* i = World::alloc<TerminalInteractable>();
+			i->get<Transform>()->parent = entity->get<Transform>();
+			i->get<Transform>()->pos = Vec3(1.0f, 0, 0);
+			i->get<Interactable>()->user_data = Loader::find_level(Json::get_string(element, "level"));
+			World::awake(i);
+			level.terminal_interactable = i;
 		}
 
 		if (entity && entity->has<Transform>())

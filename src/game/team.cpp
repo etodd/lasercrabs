@@ -2132,8 +2132,11 @@ void PlayerManager::captured_flag()
 void PlayerManager::add_deaths(s32 d)
 {
 	vi_assert(Game::level.local);
-	deaths += d;
-	PlayerManagerNet::update_counts(this);
+	if (Game::level.has_feature(Game::FeatureLevel::All)) // don't count deaths in tutorial
+	{
+		deaths += d;
+		PlayerManagerNet::update_counts(this);
+	}
 }
 
 void PlayerManager::make_admin(b8 value)

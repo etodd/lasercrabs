@@ -4677,6 +4677,7 @@ void PlayerControlHuman::update(const Update& u)
 						case Interactable::Type::Shop:
 						{
 							Overworld::show(player.ref()->camera.ref(), Overworld::State::StoryModeOverlay, Overworld::StoryTab::Inventory);
+							Overworld::shop_flags(interactable->user_data);
 							break;
 						}
 						default:

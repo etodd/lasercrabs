@@ -17,6 +17,7 @@ struct PlayerHuman;
 #define MENU_ITEM_HEIGHT ((MENU_ITEM_FONT_SIZE * UI::scale) + MENU_ITEM_PADDING * 2.0f)
 #define MENU_ITEM_PADDING_LEFT (48.0f * UI::scale)
 #define MENU_ITEM_VALUE_OFFSET (MENU_ITEM_WIDTH * 0.7f)
+#define DIALOG_ANIM_TIME 0.25f
 
 struct UIMenu
 {
@@ -99,6 +100,7 @@ struct UIMenu
 typedef void(*DialogCallback)(s8);
 typedef void(*DialogTextCallback)(const TextField&);
 typedef void(*DialogTextCancelCallback)();
+typedef void(*DialogLayoutCallback)(s8, const Update*, const RenderParams*);
 
 namespace Menu
 {
@@ -132,8 +134,7 @@ enum class AllowClose : s8
 };
 
 extern State main_menu_state;
-extern DialogCallback dialog_callback[MAX_GAMEPADS];
-extern DialogCallback dialog_cancel_callback[MAX_GAMEPADS];
+extern r32 dialog_time[MAX_GAMEPADS];
 
 void init(const InputState&);
 void exit(s8);
@@ -164,6 +165,7 @@ void dialog_text_cancel_no_action();
 void dialog_text(DialogTextCallback, const char*, s32, const char*, ...);
 void dialog_text_with_cancel(DialogTextCallback, DialogTextCancelCallback, const char*, s32, const char*, ...);
 void dialog_clear(s8);
+void dialog_custom(s8, DialogLayoutCallback);
 void draw_letterbox(const RenderParams&, r32, r32);
 b8 dialog_active(s8);
 AssetID region_string(Region);

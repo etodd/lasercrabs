@@ -1349,7 +1349,7 @@ void Game::execute(const char* cmd)
 		r32 value = std::strtod(number_string, &end);
 		if (*end == '\0')
 		{
-			for (s32 i = 0; i < s32(Resource::count); i++)
+			for (s32 i = 0; i < s32(Resource::ConsumableCount); i++)
 				Overworld::resource_change(Resource(i), value);
 		}
 	}
@@ -2262,6 +2262,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				Entity* i = World::alloc<ShopInteractable>();
 				i->get<Transform>()->parent = entity->get<Transform>();
 				i->get<Transform>()->pos = Vec3(-3.0f, 0, 0);
+				i->get<Interactable>()->user_data = ShopInteractable::flags_default; // todo: allow shop to enable and disable items
 				World::awake(i);
 			}
 

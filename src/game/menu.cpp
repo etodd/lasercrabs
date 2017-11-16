@@ -41,7 +41,8 @@ enum class FriendshipState
 State main_menu_state;
 DialogCallback dialog_callback[MAX_GAMEPADS];
 DialogCallback dialog_cancel_callback[MAX_GAMEPADS];
-DialogCallback dialog_callback_last[MAX_GAMEPADS];
+DialogLayoutCallback dialog_layout_callback[MAX_GAMEPADS];
+DialogLayoutCallback dialog_layout_callback_last[MAX_GAMEPADS];
 DialogTextCallback dialog_text_callback;
 DialogTextCallback dialog_text_callback_last;
 DialogTextCancelCallback dialog_text_cancel_callback;
@@ -62,8 +63,6 @@ b8 display_mode_vsync_last;
 Ref<PlayerManager> teams_selected_player[MAX_GAMEPADS] = {};
 FriendshipState teams_selected_player_friendship[MAX_GAMEPADS] = {};
 AssetID maps_selected_map = AssetNull;
-
-#define DIALOG_ANIM_TIME 0.25f
 
 // default callbacks
 void dialog_no_action(s8 gamepad) { }
@@ -114,11 +113,13 @@ b8 settings_graphics(const Update&, const UIMenu::Origin&, s8, UIMenu*) { return
 void progress_spinner(const RenderParams&, const Vec2&, r32) {}
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&) {}
 void progress_infinite(const RenderParams&, const char*, const Vec2&) {}
+void dialog_clear(s8) {}
 void dialog(s8, DialogCallback, const char*, ...) {}
 void dialog_with_cancel(s8, DialogCallback, DialogCallback, const char*, ...) {}
 void dialog_with_time_limit(s8, DialogCallback, DialogCallback, r32, const char*, ...) {}
 void dialog_text(DialogTextCallback, const char*, s32, const char*, ...) {}
 void dialog_text_with_cancel(DialogTextCallback, DialogTextCancelCallback, const char*, s32, const char*, ...) {}
+void dialog_custom(s8, DialogLayoutCallback) {}
 b8 dialog_active(s8) { return false; }
 
 #else
@@ -153,10 +154,169 @@ void quit_to_title(s8 gamepad)
 
 b8 dialog_active(s8 gamepad)
 {
-	return dialog_callback[gamepad]
-		|| dialog_callback_last[gamepad]
+	return dialog_layout_callback[gamepad]
+		|| dialog_layout_callback_last[gamepad]
 		|| (gamepad == 0
 			&& (dialog_text_callback || dialog_text_callback_last));
+}
+
+void dialog_layout(s8 gamepad, const Update* u, const RenderParams* params)
+{
+	// time limited dialog
+	if (u && dialog_time_limit[gamepad] > 0.0f)
+	{
+		dialog_time_limit[gamepad] = vi_max(0.0f, dialog_time_limit[gamepad] - u->time.delta);
+		if (dialog_time_limit[gamepad] == 0.0f)
+		{
+			// cancel
+			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+			DialogCallback c = dialog_cancel_callback[gamepad];
+			dialog_layout_callback[gamepad] = nullptr;
+			dialog_callback[gamepad] = nullptr;
+			dialog_cancel_callback[gamepad] = nullptr;
+			if (c)
+				c(gamepad);
+		}
+	}
+
+	// text dialog
+	if (u && gamepad == 0 && dialog_text_callback && dialog_text_callback_last) // make sure we don't trigger the button on the first frame the dialog is shown
+	{
+		dialog_text_field.update(*u, 0, dialog_text_truncate);
+		if (u->last_input->get(Controls::UIAcceptText, 0) && !u->input->get(Controls::UIAcceptText, 0))
+		{
+			// accept
+			Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT);
+			DialogTextCallback callback = dialog_text_callback;
+			dialog_clear(gamepad);
+			callback(dialog_text_field);
+		}
+		else if (!Game::cancel_event_eaten[0] && u->last_input->get(Controls::Cancel, 0) && !u->input->get(Controls::Cancel, 0))
+		{
+			// cancel
+			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+			DialogTextCancelCallback cancel_callback = dialog_text_cancel_callback;
+			dialog_clear(gamepad);
+			Game::cancel_event_eaten[0] = true;
+			if (cancel_callback)
+				cancel_callback();
+		}
+	}
+
+	const r32 padding = 16.0f * UI::scale;
+	UIText text;
+	text.color = UI::color_default;
+	text.wrap_width = MENU_ITEM_WIDTH;
+	text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+	text.text(gamepad, dialog_string[gamepad]);
+	Vec2 pos = Camera::for_gamepad(gamepad)->viewport.size * 0.5f;
+	Rect2 text_rect = text.rect(pos).outset(padding);
+
+	{
+		r32 prompt_height = (padding + UI_TEXT_SIZE_DEFAULT * UI::scale) * Ease::cubic_out<r32>(vi_min((Game::real_time.total - dialog_time[gamepad]) / DIALOG_ANIM_TIME, 1.0f));
+		text_rect.pos.y -= prompt_height;
+		text_rect.size.y += prompt_height;
+	}
+
+	if (params)
+	{
+		UI::box(*params, text_rect, UI::color_background);
+		UI::border(*params, text_rect, 2.0f, UI::color_accent());
+
+		UIMenu::text_clip(&text, dialog_time[gamepad], 150.0f);
+		text.draw(*params, pos);
+	}
+
+	if (Game::real_time.total > dialog_time[gamepad] + DIALOG_ANIM_TIME)
+	{
+		// accept
+		text.wrap_width = 0;
+		text.anchor_y = UIText::Anchor::Min;
+		text.anchor_x = UIText::Anchor::Min;
+		text.color = UI::color_accent();
+		text.clip = 0;
+		text.text(gamepad, dialog_time_limit[gamepad] > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(dialog_time_limit[gamepad]) + 1);
+		Vec2 prompt_pos = text_rect.pos + Vec2(padding);
+		Rect2 rect_accept = text.rect(prompt_pos).outset(padding * 0.5f);
+		if (params)
+		{
+			if (params->sync->input.get(Controls::Interact, gamepad)
+				|| (gamepad == 0
+				&& Game::ui_gamepad_types[0] == Gamepad::Type::None
+				&& rect_accept.contains(UI::cursor_pos)))
+			{
+				UI::box(*params, rect_accept, params->sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : UI::color_accent());
+				text.color = UI::color_background;
+			}
+			text.draw(*params, prompt_pos);
+		}
+
+		Rect2 rect_cancel = {};
+		if (dialog_callback[gamepad] != &dialog_no_action)
+		{
+			// cancel
+			text.anchor_x = UIText::Anchor::Max;
+			text.color = UI::color_alert();
+			text.clip = 0;
+			text.text(gamepad, _(strings::prompt_cancel));
+			Vec2 p = prompt_pos + Vec2(text_rect.size.x + padding * -2.0f, 0);
+			rect_cancel = text.rect(p).outset(padding * 0.5f);
+			if (params)
+			{
+				if (params->sync->input.get(Controls::Cancel, gamepad)
+					|| (gamepad == 0
+					&& Game::ui_gamepad_types[0] == Gamepad::Type::None
+					&& rect_cancel.contains(UI::cursor_pos)))
+				{
+					UI::box(*params, rect_cancel, params->sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_accent() : UI::color_alert());
+					text.color = UI::color_background;
+				}
+				text.draw(*params, p);
+			}
+		}
+
+		// dialog buttons
+		if (u && dialog_callback[gamepad] && dialog_layout_callback_last[gamepad]) // make sure we don't trigger the button on the first frame the dialog is shown
+		{
+			b8 accept_clicked = false;
+			b8 cancel_clicked = false;
+			if (gamepad == 0 && Game::ui_gamepad_types[gamepad] == Gamepad::Type::None)
+			{
+				if (u->last_input->keys.get(s32(KeyCode::MouseLeft)) && !u->input->keys.get(s32(KeyCode::MouseLeft)))
+				{
+					if (rect_accept.contains(UI::cursor_pos))
+						accept_clicked = true;
+					else if (rect_cancel.contains(UI::cursor_pos))
+						cancel_clicked = true;
+				}
+			}
+
+			if (accept_clicked || (u->last_input->get(Controls::Interact, gamepad) && !u->input->get(Controls::Interact, gamepad)))
+			{
+				// accept
+				Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT);
+				DialogCallback callback = dialog_callback[gamepad];
+				dialog_layout_callback[gamepad] = nullptr;
+				dialog_callback[gamepad] = nullptr;
+				dialog_cancel_callback[gamepad] = nullptr;
+				dialog_time_limit[gamepad] = 0.0f;
+				callback(gamepad);
+			}
+			else if (cancel_clicked || (!Game::cancel_event_eaten[gamepad] && u->last_input->get(Controls::Cancel, gamepad) && !u->input->get(Controls::Cancel, gamepad)))
+			{
+				// cancel
+				Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+				DialogCallback cancel_callback = dialog_cancel_callback[gamepad];
+				dialog_layout_callback[gamepad] = nullptr;
+				dialog_callback[gamepad] = nullptr;
+				dialog_cancel_callback[gamepad] = nullptr;
+				dialog_time_limit[gamepad] = 0.0f;
+				Game::cancel_event_eaten[gamepad] = true;
+				if (cancel_callback)
+					cancel_callback(gamepad);
+			}
+		}
+	}
 }
 
 void dialog(s8 gamepad, DialogCallback callback, const char* format, ...)
@@ -180,6 +340,7 @@ void dialog(s8 gamepad, DialogCallback callback, const char* format, ...)
 
 	va_end(args);
 
+	dialog_layout_callback[gamepad] = &dialog_layout;
 	dialog_callback[gamepad] = callback;
 	dialog_cancel_callback[gamepad] = nullptr;
 	dialog_time[gamepad] = Game::real_time.total;
@@ -204,8 +365,19 @@ void dialog_with_cancel(s8 gamepad, DialogCallback callback, DialogCallback canc
 
 	va_end(args);
 
+	dialog_layout_callback[gamepad] = &dialog_layout;
 	dialog_callback[gamepad] = callback;
 	dialog_cancel_callback[gamepad] = cancel_callback;
+	dialog_time[gamepad] = Game::real_time.total;
+	dialog_time_limit[gamepad] = 0.0f;
+}
+
+void dialog_custom(s8 gamepad, DialogLayoutCallback layout)
+{
+	dialog_string[gamepad][0] = '\0';
+	dialog_layout_callback[gamepad] = layout;
+	dialog_callback[gamepad] = nullptr;
+	dialog_cancel_callback[gamepad] = nullptr;
 	dialog_time[gamepad] = Game::real_time.total;
 	dialog_time_limit[gamepad] = 0.0f;
 }
@@ -228,6 +400,7 @@ void dialog_with_time_limit(s8 gamepad, DialogCallback callback, DialogCallback 
 
 	va_end(args);
 
+	dialog_layout_callback[gamepad] = &dialog_layout;
 	dialog_callback[gamepad] = callback;
 	dialog_cancel_callback[gamepad] = callback_cancel;
 	dialog_time[gamepad] = Game::real_time.total;
@@ -405,6 +578,7 @@ void clear()
 	dialog_text_cancel_callback = nullptr;
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
+		dialog_layout_callback[i] = nullptr;
 		dialog_callback[i] = nullptr;
 		dialog_cancel_callback[i] = nullptr;
 	}
@@ -417,6 +591,7 @@ void dialog_clear(s8 gamepad)
 		dialog_text_callback = nullptr;
 		dialog_text_cancel_callback = nullptr;
 	}
+	dialog_layout_callback[gamepad] = nullptr;
 	dialog_callback[gamepad] = nullptr;
 	dialog_cancel_callback[gamepad] = nullptr;
 }
@@ -694,93 +869,6 @@ void pause_menu(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMen
 	}
 }
 
-struct DialogLayout
-{
-	Rect2 container;
-	Rect2 accept;
-	Rect2 cancel;
-};
-
-DialogLayout dialog_layout(s8 gamepad, const RenderParams* params = nullptr)
-{
-	const r32 padding = 16.0f * UI::scale;
-	UIText text;
-	text.color = UI::color_default;
-	text.wrap_width = MENU_ITEM_WIDTH;
-	text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-	text.text(gamepad, dialog_string[gamepad]);
-	Vec2 pos = Camera::for_gamepad(gamepad)->viewport.size * 0.5f;
-	Rect2 text_rect = text.rect(pos).outset(padding);
-
-	{
-		r32 prompt_height = (padding + UI_TEXT_SIZE_DEFAULT * UI::scale) * Ease::cubic_out<r32>(vi_min((Game::real_time.total - dialog_time[gamepad]) / DIALOG_ANIM_TIME, 1.0f));
-		text_rect.pos.y -= prompt_height;
-		text_rect.size.y += prompt_height;
-	}
-
-	DialogLayout layout = {};
-	layout.container = text_rect;
-
-	if (params)
-	{
-		UI::box(*params, text_rect, UI::color_background);
-		UI::border(*params, text_rect, 2.0f, UI::color_accent());
-
-		UIMenu::text_clip(&text, dialog_time[gamepad], 150.0f);
-		text.draw(*params, pos);
-	}
-
-	if (Game::real_time.total > dialog_time[gamepad] + DIALOG_ANIM_TIME)
-	{
-		// accept
-		text.wrap_width = 0;
-		text.anchor_y = UIText::Anchor::Min;
-		text.anchor_x = UIText::Anchor::Min;
-		text.color = UI::color_accent();
-		text.clip = 0;
-		text.text(gamepad, dialog_time_limit[gamepad] > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(dialog_time_limit[gamepad]) + 1);
-		Vec2 prompt_pos = text_rect.pos + Vec2(padding);
-		layout.accept = text.rect(prompt_pos).outset(padding * 0.5f);
-		if (params)
-		{
-			if (params->sync->input.get(Controls::Interact, gamepad)
-				|| (gamepad == 0
-				&& Game::ui_gamepad_types[0] == Gamepad::Type::None
-				&& layout.accept.contains(UI::cursor_pos)))
-			{
-				UI::box(*params, layout.accept, params->sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : UI::color_accent());
-				text.color = UI::color_background;
-			}
-			text.draw(*params, prompt_pos);
-		}
-
-		if (dialog_callback[gamepad] != &dialog_no_action)
-		{
-			// cancel
-			text.anchor_x = UIText::Anchor::Max;
-			text.color = UI::color_alert();
-			text.clip = 0;
-			text.text(gamepad, _(strings::prompt_cancel));
-			Vec2 p = prompt_pos + Vec2(text_rect.size.x + padding * -2.0f, 0);
-			layout.cancel = text.rect(p).outset(padding * 0.5f);
-			if (params)
-			{
-				if (params->sync->input.get(Controls::Cancel, gamepad)
-					|| (gamepad == 0
-					&& Game::ui_gamepad_types[0] == Gamepad::Type::None
-					&& layout.cancel.contains(UI::cursor_pos)))
-				{
-					UI::box(*params, layout.cancel, params->sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_accent() : UI::color_alert());
-					text.color = UI::color_background;
-				}
-				text.draw(*params, p);
-			}
-		}
-	}
-
-	return layout;
-}
-
 void update(const Update& u)
 {
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
@@ -862,89 +950,8 @@ void update(const Update& u)
 	// dialogs
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		if (dialog_time_limit[i] > 0.0f)
-		{
-			dialog_time_limit[i] = vi_max(0.0f, dialog_time_limit[i] - u.time.delta);
-			if (dialog_time_limit[i] == 0.0f)
-			{
-				// cancel
-				Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
-				DialogCallback c = dialog_cancel_callback[i];
-				dialog_callback[i] = nullptr;
-				dialog_cancel_callback[i] = nullptr;
-				if (c)
-					c(i);
-			}
-		}
-
-		// dialog buttons
-		if (dialog_callback[i] && dialog_callback_last[i]) // make sure we don't trigger the button on the first frame the dialog is shown
-		{
-			b8 accept_clicked = false;
-			b8 cancel_clicked = false;
-			if (i == 0 && Game::ui_gamepad_types[i] == Gamepad::Type::None)
-			{
-				DialogLayout layout = dialog_layout(i);
-				if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
-				{
-					if (layout.accept.contains(UI::cursor_pos))
-						accept_clicked = true;
-					else if (layout.cancel.contains(UI::cursor_pos))
-						cancel_clicked = true;
-				}
-			}
-
-			if (accept_clicked || (u.last_input->get(Controls::Interact, i) && !u.input->get(Controls::Interact, i)))
-			{
-				// accept
-				Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT);
-				DialogCallback callback = dialog_callback[i];
-				dialog_callback[i] = nullptr;
-				dialog_cancel_callback[i] = nullptr;
-				dialog_time_limit[i] = 0.0f;
-				callback(s8(i));
-			}
-			else if (cancel_clicked || (!Game::cancel_event_eaten[i] && u.last_input->get(Controls::Cancel, i) && !u.input->get(Controls::Cancel, i)))
-			{
-				// cancel
-				Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
-				DialogCallback cancel_callback = dialog_cancel_callback[i];
-				dialog_callback[i] = nullptr;
-				dialog_cancel_callback[i] = nullptr;
-				dialog_time_limit[i] = 0.0f;
-				Game::cancel_event_eaten[i] = true;
-				if (cancel_callback)
-					cancel_callback(s8(i));
-			}
-		}
-	}
-
-	// text dialog
-	if (dialog_text_callback && dialog_text_callback_last) // make sure we don't trigger the button on the first frame the dialog is shown
-	{
-		dialog_text_field.update(u, 0, dialog_text_truncate);
-		if (u.last_input->get(Controls::UIAcceptText, 0) && !u.input->get(Controls::UIAcceptText, 0))
-		{
-			// accept
-			Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT);
-			DialogTextCallback callback = dialog_text_callback;
-			dialog_text_callback = nullptr;
-			dialog_text_cancel_callback = nullptr;
-			dialog_time_limit[0] = 0.0f;
-			callback(dialog_text_field);
-		}
-		else if (!Game::cancel_event_eaten[0] && u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
-		{
-			// cancel
-			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
-			DialogTextCancelCallback cancel_callback = dialog_text_cancel_callback;
-			dialog_text_callback = nullptr;
-			dialog_text_cancel_callback = nullptr;
-			dialog_time_limit[0] = 0.0f;
-			Game::cancel_event_eaten[0] = true;
-			if (cancel_callback)
-				cancel_callback();
-		}
+		if (dialog_layout_callback[i])
+			dialog_layout_callback[i](i, &u, nullptr);
 	}
 
 	if (Overworld::active())
@@ -980,7 +987,7 @@ void update_end(const Update& u)
 	dialog_text_callback_last = dialog_text_callback;
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		dialog_callback_last[i] = dialog_callback[i];
+		dialog_layout_callback_last[i] = dialog_layout_callback[i];
 		if (!u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i))
 			Game::cancel_event_eaten[i] = false;
 	}
@@ -1126,8 +1133,8 @@ void draw_ui(const RenderParams& params)
 		if (player)
 			gamepad = player->gamepad;
 	}
-	if (dialog_callback[gamepad])
-		dialog_layout(gamepad, &params);
+	if (dialog_layout_callback[gamepad])
+		dialog_layout_callback[gamepad](gamepad, nullptr, &params);
 
 	// text dialog box
 	if (dialog_text_callback)
@@ -2331,12 +2338,24 @@ void UIMenu::draw_ui(const RenderParams& params) const
 			{
 				{
 					Rect2 down_rect = item_slider_down_rect(*this, i);
-					UI::triangle(params, { down_rect.pos + down_rect.size * 0.5f, down_rect.size * 0.5f }, item.value.color, PI * 0.5f);
+					b8 mouse_over = false;
+					if (Game::ui_gamepad_types[0] == Gamepad::Type::None && down_rect.contains(UI::cursor_pos))
+					{
+						UI::box(params, down_rect, params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : item.value.color);
+						mouse_over = true;
+					}
+					UI::triangle(params, { down_rect.pos + down_rect.size * 0.5f, down_rect.size * 0.5f }, mouse_over ? UI::color_background : item.value.color, PI * 0.5f);
 				}
 
 				{
 					Rect2 up_rect = item_slider_up_rect(*this, i);
-					UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, item.value.color, PI * -0.5f);
+					b8 mouse_over = false;
+					if (Game::ui_gamepad_types[0] == Gamepad::Type::None && up_rect.contains(UI::cursor_pos))
+					{
+						UI::box(params, up_rect, params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : item.value.color);
+						mouse_over = true;
+					}
+					UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, mouse_over ? UI::color_background : item.value.color, PI * -0.5f);
 				}
 			}
 		}

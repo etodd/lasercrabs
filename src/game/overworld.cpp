@@ -46,11 +46,8 @@ namespace Overworld
 #define TAB_SIZE Vec2(160.0f * UI::scale, UI_TEXT_SIZE_DEFAULT * UI::scale + PADDING * 2.0f)
 #define MAIN_VIEW_SIZE (Vec2(800.0f, 512.0f) * (SCALE_MULTIPLIER * UI::scale))
 #define TEXT_SIZE (UI_TEXT_SIZE_DEFAULT * SCALE_MULTIPLIER)
-#define MESSAGE_TRUNCATE_LONG (72 * SCALE_MULTIPLIER)
-#define MESSAGE_TRUNCATE_SHORT (48 * SCALE_MULTIPLIER)
 #define BORDER 2.0f
 #define OPACITY 0.8f
-#define STRING_BUFFER_SIZE 256
 #define BUY_TIME 1.0f
 #define EVENT_INTERVAL_PER_ZONE (60.0f * 10.0f)
 #define EVENT_ODDS_PER_ZONE (1.0f / EVENT_INTERVAL_PER_ZONE) // an event will happen on average every X minutes per zone you own
@@ -72,8 +69,6 @@ struct ZoneNode
 		return children[children.length - 1];
 	}
 };
-
-#define DEPLOY_ANIMATION_TIME 1.0f
 
 struct PropEntry
 {
@@ -113,18 +108,12 @@ struct Data
 {
 	struct Inventory
 	{
-		enum class Mode : s8
-		{
-			Normal,
-			Buy,
-			count,
-		};
-
+		UIMenu menu;
 		r32 resource_change_time[s32(Resource::count)];
+		s32 flags;
 		r32 timer_buy;
-		Resource resource_selected;
 		s16 buy_quantity;
-		Mode mode;
+		Resource resource_selected;
 	};
 
 	struct Map
@@ -2558,7 +2547,7 @@ void zone_statistics(s32* captured, s32* hostile, s32* locked, b8 (*filter)(Asse
 	}
 }
 
-Rect2 story_mode_main_view_rect()
+Rect2 story_mode_main_view_rect(s32 index)
 {
 	const Vec2 main_view_size = MAIN_VIEW_SIZE;
 	const Vec2 tab_size = TAB_SIZE;
@@ -2567,6 +2556,7 @@ Rect2 story_mode_main_view_rect()
 	Vec2 center = Vec2(display.width, display.height) * 0.5f;
 	Vec2 total_size = Vec2(main_view_size.x + (tab_size.x + PADDING), main_view_size.y);
 	Vec2 bottom_left = center + total_size * -0.5f + Vec2(0, -tab_size.y);
+	bottom_left.x += r32(index) * (tab_size.x + PADDING);
 
 	return { bottom_left, main_view_size };
 }
@@ -2617,7 +2607,7 @@ void tab_map_update(const Update& u)
 		{
 			if (zone_can_capture(data.zone_selected)
 				&& ((u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-				|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && tab_map_capture_prompt(story_mode_main_view_rect()).contains(UI::cursor_pos))))
+				|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && tab_map_capture_prompt(story_mode_main_view_rect(s32(data.story.tab))).contains(UI::cursor_pos))))
 			{
 				// capture button
 				if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
@@ -2756,6 +2746,303 @@ void resource_buy(s8 gamepad)
 	data.story.inventory.timer_buy = BUY_TIME;
 }
 
+Vec2 get_panel_size(const Rect2& rect)
+{
+	return Vec2(rect.size.x, PADDING * 2.0f + TEXT_SIZE * UI::scale);
+}
+
+void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
+{
+	Data::Inventory* inventory = &data.story.inventory;
+	const ResourceInfo& info = resource_info[s32(inventory->resource_selected)];
+
+	Vec2 pos = (Camera::for_gamepad(gamepad)->viewport.size * 0.5f) + Vec2(MENU_ITEM_WIDTH * -0.5f, 0);
+	Rect2 text_rect = Rect2(pos, Vec2(MENU_ITEM_WIDTH, MENU_ITEM_FONT_SIZE * UI::scale)).outset(PADDING);
+
+	{
+		r32 prompt_height = (PADDING + MENU_ITEM_FONT_SIZE * UI::scale) * Ease::cubic_out<r32>(vi_min((Game::real_time.total - Menu::dialog_time[gamepad]) / DIALOG_ANIM_TIME, 1.0f));
+		text_rect.pos.y -= prompt_height;
+		text_rect.size.y += prompt_height;
+	}
+
+	Rect2 rect_decrease = { pos + Vec2(0, -MENU_ITEM_PADDING), Vec2((MENU_ITEM_FONT_SIZE * UI::scale) + MENU_ITEM_PADDING * 2.0f) };
+	Rect2 rect_increase = { pos + Vec2(MENU_ITEM_WIDTH * 0.2f, -MENU_ITEM_PADDING), rect_decrease.size };
+	b8 mouse_over_decrease = false;
+	b8 mouse_over_increase = false;
+	if (Game::ui_gamepad_types[0] == Gamepad::Type::None)
+	{
+		mouse_over_decrease = rect_decrease.contains(UI::cursor_pos);
+		mouse_over_increase = rect_increase.contains(UI::cursor_pos);
+	}
+
+	if (u)
+	{
+		s32 delta = UI::input_delta_horizontal(*u, 0);
+		if (mouse_over_decrease && u->last_input->keys.get(s32(KeyCode::MouseLeft)) && !u->input->keys.get(s32(KeyCode::MouseLeft)))
+			delta--;
+		else if (mouse_over_increase && u->last_input->keys.get(s32(KeyCode::MouseLeft)) && !u->input->keys.get(s32(KeyCode::MouseLeft)))
+			delta++;
+		inventory->buy_quantity = s16(vi_max(1, inventory->buy_quantity + delta));
+	}
+
+	if (p)
+	{
+		UI::box(*p, text_rect, UI::color_background);
+		UI::border(*p, text_rect, 2.0f, UI::color_accent());
+
+		b8 mouse_click = p->sync->input.keys.get(s32(KeyCode::MouseLeft));
+
+		// decrease
+		{
+			const Vec4* bg;
+			const Vec4* color;
+			if (mouse_over_decrease)
+			{
+				bg = mouse_click ? &UI::color_alert() : &UI::color_accent();
+				color = &UI::color_background;
+			}
+			else
+			{
+				bg = nullptr;
+				color = &UI::color_accent();
+			}
+			if (bg)
+				UI::box(*p, rect_decrease, *bg);
+			UI::triangle(*p, { rect_decrease.pos + rect_decrease.size * 0.5f, rect_decrease.size * 0.5f }, *color, PI * 0.5f);
+
+			// increase
+			if (mouse_over_increase)
+			{
+				bg = mouse_click ? &UI::color_alert() : &UI::color_accent();
+				color = &UI::color_background;
+			}
+			else
+			{
+				bg = nullptr;
+				color = &UI::color_accent();
+			}
+			if (bg)
+				UI::box(*p, rect_increase, *bg);
+			UI::triangle(*p, { rect_increase.pos + rect_increase.size * 0.5f, rect_increase.size * 0.5f }, *color, PI * -0.5f);
+		}
+
+		// quantity
+		UIText text;
+		text.size = MENU_ITEM_FONT_SIZE;
+		text.color = Game::save.resources[s32(Resource::Energy)] >= info.cost * inventory->buy_quantity ? UI::color_default : UI::color_alert();
+		text.anchor_x = UIText::Anchor::Center;
+		text.anchor_y = UIText::Anchor::Min;
+		text.text(0, "%hd", inventory->buy_quantity);
+		text.draw(*p, pos + Vec2(MENU_ITEM_WIDTH * 0.1f + MENU_ITEM_PADDING * 2.0f, 0));
+
+		// cost
+		text.anchor_x = UIText::Anchor::Max;
+		text.text(0, _(strings::buy_cost), info.cost * inventory->buy_quantity);
+		text.draw(*p, pos + Vec2(MENU_ITEM_WIDTH, 0));
+	}
+
+	if (Game::real_time.total > Menu::dialog_time[gamepad] + DIALOG_ANIM_TIME)
+	{
+		// accept
+		b8 can_accept = Game::save.resources[s32(Resource::Energy)] >= info.cost * inventory->buy_quantity;
+		UIText text;
+		text.anchor_y = UIText::Anchor::Min;
+		text.anchor_x = UIText::Anchor::Min;
+		text.color = can_accept ? UI::color_accent() : UI::color_disabled();
+		text.clip = 0;
+		text.text(gamepad, _(strings::prompt_buy));
+		Vec2 prompt_pos = text_rect.pos + Vec2(PADDING);
+		Rect2 rect_accept = text.rect(prompt_pos).outset(PADDING * 0.5f);
+		if (p)
+		{
+			if (p->sync->input.get(Controls::Interact, gamepad)
+				|| (gamepad == 0
+				&& Game::ui_gamepad_types[0] == Gamepad::Type::None
+				&& rect_accept.contains(UI::cursor_pos)))
+			{
+				const Vec4* bg;
+				if (can_accept)
+					bg = p->sync->input.keys.get(s32(KeyCode::MouseLeft)) ? &UI::color_alert() : &UI::color_accent();
+				else
+					bg = &UI::color_disabled();
+				UI::box(*p, rect_accept, *bg);
+				text.color = UI::color_background;
+			}
+			text.draw(*p, prompt_pos);
+		}
+
+		// cancel
+		Rect2 rect_cancel = {};
+		text.anchor_x = UIText::Anchor::Max;
+		text.color = UI::color_alert();
+		text.clip = 0;
+		text.text(gamepad, _(strings::prompt_cancel));
+		Vec2 pos = prompt_pos + Vec2(text_rect.size.x + PADDING * -2.0f, 0);
+		rect_cancel = text.rect(pos).outset(PADDING * 0.5f);
+		if (p)
+		{
+			if (p->sync->input.get(Controls::Cancel, gamepad)
+				|| (gamepad == 0
+				&& Game::ui_gamepad_types[0] == Gamepad::Type::None
+				&& rect_cancel.contains(UI::cursor_pos)))
+			{
+				UI::box(*p, rect_cancel, p->sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_accent() : UI::color_alert());
+				text.color = UI::color_background;
+			}
+			text.draw(*p, pos);
+		}
+
+		// dialog buttons
+		if (u)
+		{
+			b8 accept_clicked = false;
+			b8 cancel_clicked = false;
+			if (gamepad == 0 && Game::ui_gamepad_types[gamepad] == Gamepad::Type::None)
+			{
+				if (u->last_input->keys.get(s32(KeyCode::MouseLeft)) && !u->input->keys.get(s32(KeyCode::MouseLeft)))
+				{
+					if (rect_accept.contains(UI::cursor_pos))
+						accept_clicked = true;
+					else if (rect_cancel.contains(UI::cursor_pos))
+						cancel_clicked = true;
+				}
+			}
+
+			if (accept_clicked || (u->last_input->get(Controls::Interact, gamepad) && !u->input->get(Controls::Interact, gamepad)))
+			{
+				// accept
+				if (can_accept)
+				{
+					Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT);
+					Menu::dialog_clear(0);
+					data.story.inventory.timer_buy = BUY_TIME;
+				}
+			}
+			else if (cancel_clicked || (!Game::cancel_event_eaten[gamepad] && u->last_input->get(Controls::Cancel, gamepad) && !u->input->get(Controls::Cancel, gamepad)))
+			{
+				// cancel
+				Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+				Menu::dialog_clear(0);
+				Game::cancel_event_eaten[gamepad] = true;
+			}
+		}
+	}
+}
+
+void inventory_items(const Update* u, const RenderParams* p, const Rect2& rect)
+{
+	Data::StoryMode* story = &data.story;
+	Data::Inventory* inventory = &story->inventory;
+	Vec2 panel_size = get_panel_size(rect);
+
+	if (story->tab == StoryTab::Inventory)
+		panel_size.x -= PADDING * 2.0f + MENU_ITEM_WIDTH;
+
+	if (p)
+	{
+		Vec2 pos = rect.pos + Vec2(0, rect.size.y - panel_size.y);
+
+		if (story->tab == StoryTab::Inventory)
+		{
+			UIText text;
+			text.anchor_y = UIText::Anchor::Max;
+			text.anchor_x = UIText::Anchor::Min;
+			text.color = UI::color_default;
+			text.text(0, _(strings::tab_inventory));
+			text.draw(*p, pos);
+			pos.y -= panel_size.y + PADDING * 2.0f;
+		}
+
+		for (s32 i = 0; i < s32(Resource::count); i++)
+		{
+			if (Game::save.resources[i] > 0)
+			{
+				const ResourceInfo& info = resource_info[i];
+
+				UI::box(*p, { pos, panel_size }, UI::color_background);
+
+				r32 icon_size = 18.0f * SCALE_MULTIPLIER * UI::scale;
+
+				b8 flash = Game::real_time.total - inventory->resource_change_time[i] < 0.5f;
+				b8 draw = !flash || UI::flash_function(Game::real_time.total);
+
+				if (draw)
+				{
+					const Vec4& color = flash
+						? UI::color_accent()
+						: (Menu::dialog_active(0) ? UI::color_disabled() : UI::color_default);
+
+					// icon
+					if (info.icon != AssetNull)
+						UI::mesh(*p, info.icon, pos + Vec2(PADDING + icon_size * 0.5f, panel_size.y * 0.5f), Vec2(icon_size), color);
+
+					UIText text;
+					text.anchor_y = UIText::Anchor::Center;
+					text.color = color;
+
+					// description
+					if (story->tab == StoryTab::Inventory)
+					{
+						text.anchor_x = UIText::Anchor::Min;
+						text.text(0, _(info.description));
+						text.draw(*p, pos + Vec2(icon_size * 2.0f + PADDING * 2.0f, panel_size.y * 0.5f));
+					}
+
+					// current amount
+					text.size = TEXT_SIZE * (story->tab == StoryTab::Inventory ? 1.0f : 0.75f);
+					text.anchor_x = UIText::Anchor::Max;
+					text.text(0, "%d", Game::save.resources[i]);
+					text.draw(*p, pos + Vec2(panel_size.x - PADDING, panel_size.y * 0.5f));
+				}
+				pos.y -= panel_size.y;
+			}
+		}
+	}
+
+	if (story->tab == StoryTab::Inventory)
+	{
+		Vec2 pos = rect.pos + Vec2(panel_size.x + PADDING, rect.size.y - panel_size.y);
+
+		if (u)
+		{
+			pos.y -= panel_size.y + PADDING;
+			b8 input = story_mode_enable_input() && inventory->timer_buy == 0.0f;
+			inventory->menu.start(*u, { pos, UIText::Anchor::Min, UIText::Anchor::Max }, 0, input ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::No);
+			for (s32 i = 0; i < s32(Resource::count); i++)
+			{
+				if (inventory->flags & (1 << i))
+				{
+					const ResourceInfo& info = resource_info[i];
+					char cost_str[UI_TEXT_MAX];
+					snprintf(cost_str, UI_TEXT_MAX, "%d", info.cost);
+					if (inventory->menu.item(*u, _(info.description), cost_str, !input || Game::save.resources[s32(Resource::Energy)] < info.cost, info.icon))
+					{
+						Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW);
+						data.story.inventory.resource_selected = Resource(i);
+						data.story.inventory.buy_quantity = 1;
+						Menu::dialog_custom(0, &inventory_dialog_buy);
+					}
+				}
+			}
+			inventory->menu.end(*u);
+		}
+		else if (p)
+		{
+			// header
+			{
+				UIText text;
+				text.anchor_y = UIText::Anchor::Max;
+				text.anchor_x = UIText::Anchor::Min;
+				text.color = UI::color_default;
+				text.text(0, _(strings::buy));
+				text.draw(*p, pos);
+			}
+
+			inventory->menu.draw_ui(*p);
+		}
+	}
+}
+
 void tab_inventory_update(const Update& u)
 {
 	Data::Inventory* inventory = &data.story.inventory;
@@ -2773,65 +3060,11 @@ void tab_inventory_update(const Update& u)
 				resource_change(resource, data.story.inventory.buy_quantity);
 				resource_change(Resource::Energy, -total_cost);
 			}
-			data.story.inventory.mode = Data::Inventory::Mode::Normal;
 			data.story.inventory.buy_quantity = 1;
 		}
 	}
 
-	if (data.story.tab == StoryTab::Inventory && story_mode_enable_input())
-	{
-		// handle input
-		switch (inventory->mode)
-		{
-			case Data::Inventory::Mode::Normal:
-			{
-				s32 selected = s32(inventory->resource_selected);
-				selected = vi_max(0, vi_min(s32(Resource::ConsumableCount) - 1, selected + UI::input_delta_vertical(u, 0)));
-				inventory->resource_selected = Resource(selected);
-
-				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-				{
-					const ResourceInfo& info = resource_info[s32(inventory->resource_selected)];
-					if (info.cost > 0)
-					{
-						inventory->mode = Data::Inventory::Mode::Buy;
-						inventory->buy_quantity = 1;
-					}
-				}
-				break;
-			}
-			case Data::Inventory::Mode::Buy:
-			{
-				inventory->buy_quantity = vi_max(1, vi_min(8, inventory->buy_quantity + UI::input_delta_horizontal(u, 0)));
-				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-				{
-					const ResourceInfo& info = resource_info[s32(inventory->resource_selected)];
-					if (Game::save.resources[s32(Resource::Energy)] >= info.cost * inventory->buy_quantity)
-						Menu::dialog(0, &resource_buy, _(strings::prompt_buy), inventory->buy_quantity * info.cost, inventory->buy_quantity, _(info.description));
-					else
-						Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), info.cost * inventory->buy_quantity, _(strings::energy));
-				}
-				else if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0) && !Game::cancel_event_eaten[0])
-				{
-					inventory->mode = Data::Inventory::Mode::Normal;
-					Game::cancel_event_eaten[0] = true;
-				}
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
-		}
-	}
-
-	if (data.story.tab != StoryTab::Inventory)
-	{
-		// minimized view; reset
-		inventory->mode = Data::Inventory::Mode::Normal;
-		inventory->buy_quantity = 1;
-	}
+	inventory_items(&u, nullptr, story_mode_main_view_rect(s32(StoryTab::Inventory)));
 }
 
 AssetID zone_random(b8(*filter1)(AssetID), b8(*filter2)(AssetID) = &zone_filter_default)
@@ -2902,18 +3135,13 @@ void story_mode_update(const Update& u)
 	tab_inventory_update(u);
 }
 
-Vec2 get_panel_size(const Rect2& rect)
-{
-	return Vec2(rect.size.x, PADDING * 2.0f + TEXT_SIZE * UI::scale);
-}
-
 // the lower left corner of the tab box starts at `pos`
 Rect2 tab_story_draw(const RenderParams& p, const Data::StoryMode& data, StoryTab tab, const char* label, Vec2* pos, b8 flash = false)
 {
 	b8 draw = true;
 
 	const Vec4* color;
-	if (data.tab == tab && !Menu::dialog_callback[0])
+	if (data.tab == tab && !Menu::dialog_active(0))
 	{
 		// flash the tab when it is selected
 		if (data.tab_timer > 0.0f)
@@ -3119,104 +3347,14 @@ r32 resource_change_time(Resource r)
 	return data.story.inventory.resource_change_time[s32(r)];
 }
 
-void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, const Rect2& rect)
-{
-	Vec2 panel_size = get_panel_size(rect);
-	Vec2 pos = rect.pos + Vec2(0, rect.size.y - panel_size.y);
-	for (s32 i = 0; i < s32(Resource::ConsumableCount); i++)
-	{
-		b8 selected = data.tab == StoryTab::Inventory && data.inventory.resource_selected == (Resource)i && !Menu::dialog_active(0);
-
-		UI::box(p, { pos, panel_size }, UI::color_background);
-		if (selected)
-			UI::border(p, Rect2(pos, panel_size).outset(BORDER * -UI::scale), BORDER, UI::color_accent());
-
-		r32 icon_size = 18.0f * SCALE_MULTIPLIER * UI::scale;
-
-		b8 flash = Game::real_time.total - data.inventory.resource_change_time[i] < 0.5f;
-		b8 draw = !flash || UI::flash_function(Game::real_time.total);
-		
-		const ResourceInfo& info = resource_info[i];
-
-		const Vec4* color;
-		if (flash)
-			color = &UI::color_accent();
-		else if (selected && data.inventory.mode == Data::Inventory::Mode::Buy && Game::save.resources[s32(Resource::Energy)] < data.inventory.buy_quantity * info.cost)
-			color = &UI::color_alert(); // not enough energy to buy
-		else if (selected)
-			color = &UI::color_accent();
-		else if (Game::save.resources[i] == 0)
-			color = &UI::color_alert();
-		else
-			color = &UI::color_default;
-
-		if (draw)
-			UI::mesh(p, info.icon, pos + Vec2(PADDING + icon_size * 0.5f, panel_size.y * 0.5f), Vec2(icon_size), *color);
-
-		UIText text;
-		text.anchor_y = UIText::Anchor::Center;
-		text.color = *color;
-		text.size = TEXT_SIZE * (data.tab == StoryTab::Inventory ? 1.0f : 0.75f);
-		if (draw)
-		{
-			// current amount
-			text.anchor_x = UIText::Anchor::Max;
-			text.text(0, "%d", Game::save.resources[i]);
-			text.draw(p, pos + Vec2(panel_size.x - PADDING, panel_size.y * 0.5f));
-
-			if (data.tab == StoryTab::Inventory)
-			{
-				text.anchor_x = UIText::Anchor::Min;
-				text.text(0, _(info.description));
-				text.draw(p, pos + Vec2(icon_size * 2.0f + PADDING * 2.0f, panel_size.y * 0.5f));
-
-				if (selected)
-				{
-					if (data.inventory.mode == Data::Inventory::Mode::Buy)
-					{
-						// buy interface
-						text.anchor_x = UIText::Anchor::Center;
-						text.text(0, "+%d", data.inventory.buy_quantity);
-
-						const r32 buy_quantity_spacing = 32.0f * UI::scale * SCALE_MULTIPLIER;
-						Vec2 buy_quantity_pos = pos + Vec2(panel_size.x * 0.4f, panel_size.y * 0.5f);
-						text.draw(p, buy_quantity_pos);
-
-						UI::triangle(p, { buy_quantity_pos + Vec2(-buy_quantity_spacing, 0), Vec2(text.size * UI::scale) }, *color, PI * 0.5f);
-						UI::triangle(p, { buy_quantity_pos + Vec2(buy_quantity_spacing, 0), Vec2(text.size * UI::scale) }, *color, PI * -0.5f);
-
-						// cost
-						text.anchor_x = UIText::Anchor::Min;
-						text.text(0, _(strings::ability_spawn_cost), s32(info.cost * data.inventory.buy_quantity));
-						text.draw(p, pos + Vec2(panel_size.x * 0.6f, panel_size.y * 0.5f));
-					}
-					else
-					{
-						// normal mode
-						if (info.cost > 0)
-						{
-							// "buy more!"
-							text.anchor_x = UIText::Anchor::Center;
-							text.text(0, _(strings::prompt_buy_more));
-							text.draw(p, pos + Vec2(panel_size.x * 0.5f, panel_size.y * 0.5f));
-						}
-					}
-				}
-			}
-		}
-
-		pos.y -= panel_size.y;
-	}
-}
-
 void tab_inventory_draw(const RenderParams& p, const Data::StoryMode& data, const Rect2& rect)
 {
-	inventory_items_draw(p, data, rect);
+	inventory_items(nullptr, &p, rect);
 
 	if (data.tab == StoryTab::Inventory && data.tab_timer == 0.0f)
 	{
 		if (data.inventory.timer_buy > 0.0f)
-			Menu::progress_bar(p, _(strings::buying), 1.0f - (data.inventory.timer_buy / BUY_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+			Menu::progress_bar(p, _(strings::buying), 1.0f - (data.inventory.timer_buy / BUY_TIME), p.camera->viewport.size * Vec2(0.5f, 0.35f));
 	}
 }
 
@@ -3227,7 +3365,7 @@ void story_mode_draw(const RenderParams& p)
 
 	const Rect2& vp = p.camera->viewport;
 
-	Rect2 main_view_rect = story_mode_main_view_rect();
+	Rect2 main_view_rect = story_mode_main_view_rect(0);
 
 	Vec2 pos = main_view_rect.pos;
 	{
@@ -3512,6 +3650,11 @@ void show(Camera* cam, State state, StoryTab tab)
 			data.timer_transition = TRANSITION_TIME;
 		}
 	}
+}
+
+void shop_flags(s32 flags)
+{
+	data.story.inventory.flags = flags;
 }
 
 // show server settings for current server

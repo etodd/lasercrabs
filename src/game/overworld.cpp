@@ -2835,6 +2835,11 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 		text.text(0, "%hd", inventory->buy_quantity);
 		text.draw(*p, pos + Vec2(MENU_ITEM_WIDTH * 0.1f + MENU_ITEM_PADDING * 2.0f, 0));
 
+		// description
+		text.anchor_x = UIText::Anchor::Min;
+		text.text(0, _(info.description));
+		text.draw(*p, pos + Vec2(MENU_ITEM_WIDTH * 0.25f + MENU_ITEM_PADDING * 3.0f, 0));
+
 		// cost
 		text.anchor_x = UIText::Anchor::Max;
 		text.text(0, _(strings::buy_cost), info.cost * inventory->buy_quantity);

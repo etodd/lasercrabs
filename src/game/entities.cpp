@@ -2655,7 +2655,9 @@ void Bolt::hit_entity(const Hit& hit)
 					damage = MINION_HEALTH;
 				else if (hit_object->has<Turret>())
 					damage = mersenne::rand() % 3 < 2 ? 1 : 0; // expected value: 0.66
-				else if (hit_object->has<CoreModule>() || hit_object->has<ForceField>())
+				else if (hit_object->has<ForceField>())
+					damage = mersenne::rand() % 2 == 0 ? 1 : 0; // expected value: 0.5
+				else if (hit_object->has<CoreModule>())
 					damage = mersenne::rand() % 3 == 0 ? 1 : 0; // expected value: 0.33
 				else if (hit_object->has<Drone>())
 					damage = 1;

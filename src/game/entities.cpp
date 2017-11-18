@@ -1754,7 +1754,7 @@ void CoreModule::health_changed(const HealthEvent& e)
 		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::CoreModuleUnderAttack))
 		{
 			char buffer[UI_TEXT_MAX];
-			snprintf(buffer, UI_TEXT_MAX, _(strings::core_module_under_attack));
+			snprintf(buffer, UI_TEXT_MAX, "%s", _(strings::core_module_under_attack));
 			PlayerHuman::log_add(buffer, AI::TeamNone, 1 << team);
 		}
 	}

@@ -311,7 +311,7 @@ r32 entity_cost(const Minion* me, const Vec3& pos, AI::Team team, const Vec3& di
 		total_distance = to_target.length();
 	total_distance += (to_target.dot(direction) < 0.0f ? direction_cost : 0.0f);
 
-	if (target->has<Generator>()) // we don't like to attack generators
+	if (target->has<Rectifier>()) // we don't like to attack rectifiers
 		total_distance += DRONE_MAX_DISTANCE;
 
 	return total_distance;
@@ -468,9 +468,9 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 		}
 	}
 
-	for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Rectifier::list.iterator(); !i.is_last(); i.next())
 	{
-		Generator* item = i.item();
+		Rectifier* item = i.item();
 		if (item->team != team && !item->has<Battery>())
 		{
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
@@ -549,11 +549,11 @@ Entity* visible_target(Minion* me, AI::Team team)
 			return battery->entity();
 	}
 
-	for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Rectifier::list.iterator(); !i.is_last(); i.next())
 	{
-		Generator* generator = i.item();
-		if (generator->team != team && !generator->has<Battery>() && me->can_see(generator->entity()))
-			return generator->entity();
+		Rectifier* rectifier = i.item();
+		if (rectifier->team != team && !rectifier->has<Battery>() && me->can_see(rectifier->entity()))
+			return rectifier->entity();
 	}
 
 	return nullptr;

@@ -177,7 +177,7 @@ s32 PlayerHuman::count_local()
 	return count;
 }
 
-PlayerHuman* PlayerHuman::player_for_camera(const Camera* camera)
+PlayerHuman* PlayerHuman::for_camera(const Camera* camera)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
@@ -187,7 +187,7 @@ PlayerHuman* PlayerHuman::player_for_camera(const Camera* camera)
 	return nullptr;
 }
 
-PlayerHuman* PlayerHuman::player_for_gamepad(s8 gamepad)
+PlayerHuman* PlayerHuman::for_gamepad(s8 gamepad)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
@@ -435,7 +435,7 @@ Vec2 PlayerHuman::ui_anchor(const RenderParams& params) const
 b8 player_human_notification(Entity* entity, const Vec3& pos, AI::Team team, PlayerHuman::Notification::Type type)
 {
 	vi_assert(team != AI::TeamNone);
-	Target*  t = nullptr;
+	Target* t = nullptr;
 	if (entity)
 	{
 		t = entity->get<Target>();
@@ -466,11 +466,13 @@ b8 player_human_notification(Entity* entity, const Vec3& pos, AI::Team team, Pla
 			// a local player will receive this notification; play a sound
 			if (type == PlayerHuman::Notification::Type::ForceFieldUnderAttack
 				|| type == PlayerHuman::Notification::Type::BatteryUnderAttack
-				|| type == PlayerHuman::Notification::Type::TurretUnderAttack)
+				|| type == PlayerHuman::Notification::Type::TurretUnderAttack
+				|| type == PlayerHuman::Notification::Type::CoreModuleUnderAttack)
 				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_UNDER_ATTACK);
 			else if (type == PlayerHuman::Notification::Type::ForceFieldDestroyed
 				|| type == PlayerHuman::Notification::Type::BatteryLost
-				|| type == PlayerHuman::Notification::Type::TurretDestroyed)
+				|| type == PlayerHuman::Notification::Type::TurretDestroyed
+				|| type == PlayerHuman::Notification::Type::CoreModuleDestroyed)
 				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_LOST);
 
 			break;
@@ -483,6 +485,7 @@ b8 player_human_notification(Entity* entity, const Vec3& pos, AI::Team team, Pla
 	n->timer = NOTIFICATION_TIME;
 	n->team = team;
 	n->type = type;
+	n->attached = b8(t);
 	return true;
 }
 
@@ -539,8 +542,8 @@ void PlayerHuman::update_all(const Update& u)
 		Notification* n = &notifications[i];
 
 		Target* target = n->target.ref();
-		b8 remove = !target;
-
+		b8 remove = n->attached && !target;
+		
 		if (!remove)
 		{
 			if (n->type == Notification::Type::Spot)
@@ -841,6 +844,21 @@ b8 PlayerHuman::emotes_enabled() const
 		|| mode == UIMode::PvpGameOver);
 }
 
+Upgrade player_confirm_upgrade[MAX_GAMEPADS];
+void player_upgrade_start(s8 gamepad)
+{
+	PlayerHuman* player = PlayerHuman::for_gamepad(gamepad);
+	Entity* entity = player->get<PlayerManager>()->instance.ref();
+	if (entity)
+	{
+		PlayerControlHumanNet::Message msg;
+		msg.type = PlayerControlHumanNet::Message::Type::UpgradeStart;
+		msg.upgrade = player_confirm_upgrade[gamepad];
+		msg.ability_slot = player->ability_upgrade_slot;
+		PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
+	}
+}
+
 Rect2 player_button(const Rect2& viewport, s8 gamepad, AssetID string, UIMenu::EnableInput enable_input = UIMenu::EnableInput::Yes, const RenderParams* params = nullptr)
 {
 	// deploy prompt
@@ -858,7 +876,7 @@ Rect2 player_button(const Rect2& viewport, s8 gamepad, AssetID string, UIMenu::E
 			|| (gamepad == 0 && Game::ui_gamepad_types[0] == Gamepad::Type::None && box.contains(UI::cursor_pos))))
 		{
 			text.color = UI::color_background;
-			if (params->sync->input.keys.get(s32(KeyCode::MouseLeft)) && PlayerHuman::player_for_gamepad(0)->chat_focus == PlayerHuman::ChatFocus::None)
+			if (params->sync->input.keys.get(s32(KeyCode::MouseLeft)) && PlayerHuman::for_gamepad(0)->chat_focus == PlayerHuman::ChatFocus::None)
 				bg = &UI::color_alert();
 			else
 				bg = &UI::color_accent();
@@ -1198,11 +1216,15 @@ void PlayerHuman::update(const Update& u)
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type != AbilityInfo::Type::Other); // don't allow Other ability upgrades in tutorial
 								if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
 								{
-									PlayerControlHumanNet::Message msg;
-									msg.type = PlayerControlHumanNet::Message::Type::UpgradeStart;
-									msg.upgrade = upgrade;
-									msg.ability_slot = ability_upgrade_slot;
-									PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
+									player_confirm_upgrade[gamepad] = upgrade;
+									Ability existing_ability = get<PlayerManager>()->abilities[ability_upgrade_slot];
+									if (existing_ability == Ability::None)
+										player_upgrade_start(gamepad);
+									else
+									{
+										const UpgradeInfo& info = UpgradeInfo::list[s32(existing_ability)];
+										Menu::dialog(gamepad, &player_upgrade_start, _(strings::confirm_upgrade_replace), _(info.name));
+									}
 								}
 							}
 						}
@@ -2012,7 +2034,7 @@ Entity* player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player
 {
 	// make sure we can see this guy
 	AI::Team team = me->get<AIAgent>()->team;
-	const Team::GeneratorTrack track = Team::list[s32(team)].player_tracks[other_player->manager.id];
+	const Team::RectifierTrack track = Team::list[s32(team)].player_tracks[other_player->manager.id];
 	if (tracking)
 		*tracking = track.tracking;
 
@@ -2174,12 +2196,14 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 						case Notification::Type::DroneDestroyed:
 						case Notification::Type::TurretDestroyed:
 						case Notification::Type::ForceFieldDestroyed:
+						case Notification::Type::CoreModuleDestroyed:
 							UI::mesh(params, Asset::Mesh::icon_close, p, size, UI::color_alert());
 							break;
 						case Notification::Type::BatteryLost:
 							UI::mesh(params, Asset::Mesh::icon_close, p + Vec2(0, 32.0f * UI::scale), size, UI::color_alert());
 							break;
 						case Notification::Type::TurretUnderAttack:
+						case Notification::Type::CoreModuleUnderAttack:
 						{
 							if (UI::flash_function_slow(Game::real_time.total))
 								UI::mesh(params, Asset::Mesh::icon_warning, p + Vec2(0, 56.0f * UI::scale), size, UI::color_accent());
@@ -2407,14 +2431,13 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				Upgrade upgrade = upgrade_selected();
 				vi_assert(upgrade != Upgrade::None);
 
-				if (get<PlayerManager>()->current_upgrade == Upgrade::None
-					&& get<PlayerManager>()->upgrade_available(upgrade))
+				if (get<PlayerManager>()->current_upgrade == Upgrade::None)
 				{
 					r32 padding = 8.0f * UI::scale;
 
 					const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
 					UIText text;
-					text.color = UI::color_accent();
+					text.color = menu.items[menu.selected].label.color;
 					text.anchor_x = UIText::Anchor::Min;
 					text.anchor_y = UIText::Anchor::Max;
 					text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
@@ -3055,13 +3078,13 @@ r32 PlayerCommon::detect_danger() const
 		if (team->team() == my_team)
 			continue;
 
-		Team::GeneratorTrack* track = &team->player_tracks[manager.id];
+		Team::RectifierTrack* track = &team->player_tracks[manager.id];
 		if (track->entity.ref() == entity())
 		{
 			if (track->tracking)
 				return 1.0f;
 			else
-				return track->timer / GENERATOR_TRACK_TIME;
+				return track->timer / RECTIFIER_TRACK_TIME;
 		}
 	}
 	return 0.0f;
@@ -3507,11 +3530,11 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 		}
 	}
 
-	// generators
-	for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
+	// rectifiers
+	for (auto i = Rectifier::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team != team)
-			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Generator);
+			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Rectifier);
 	}
 
 	// turrets and core modules
@@ -5012,7 +5035,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			}
 			case TargetIndicator::Type::BatteryFriendly:
 			case TargetIndicator::Type::DroneOutOfRange:
-			case TargetIndicator::Type::Generator:
+			case TargetIndicator::Type::Rectifier:
 			case TargetIndicator::Type::ForceField:
 			case TargetIndicator::Type::Grenade:
 			case TargetIndicator::Type::TurretFriendly:

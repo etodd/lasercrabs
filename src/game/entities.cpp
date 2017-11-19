@@ -40,7 +40,11 @@ namespace VI
 DroneEntity::DroneEntity(AI::Team team, const Vec3& pos)
 {
 	create<Audio>();
-	create<Transform>()->pos = pos;
+	{
+		Transform* transform = create<Transform>();
+		transform->pos = pos;
+		transform->rot = Quat::look(Vec3(0, -1, 0));
+	}
 	create<Drone>();
 	create<AIAgent>()->team = team;
 	create<Health>(DRONE_HEALTH, DRONE_HEALTH, Game::session.config.drone_shield, Game::session.config.drone_shield)->active_armor_timer = DRONE_INVINCIBLE_TIME;
@@ -217,8 +221,8 @@ void Health::update_server(const Update& u)
 				}
 				else if (can_take_damage(src))
 					health_internal_apply_damage(this, src, entry->damage);
-				else if (active_armor() && src->has<Drone>() && entry->type != BufferedDamage::Type::Sniper) // kill 'em
-					src->get<Health>()->kill(entity());
+				else if (active_armor() && src->has<Drone>() && entry->type != BufferedDamage::Type::Sniper) // damage them back
+					src->get<Health>()->damage_force(entity(), ACTIVE_ARMOR_DIRECT_DAMAGE);
 			}
 			damage_buffer.remove(i);
 			i--;
@@ -231,6 +235,10 @@ void Health::update_client(const Update& u)
 	active_armor_timer = vi_max(0.0f, active_armor_timer - u.time.delta);
 }
 
+#define DRONE_SHIELD_ALPHA 0.3f
+#define DRONE_SHIELD_VIEW_RATIO 0.6f
+#define DRONE_OVERSHIELD_ALPHA 0.45f
+
 void Shield::awake()
 {
 	if (Game::level.local && !inner.ref() && get<Health>()->shield_max > 0)
@@ -238,41 +246,59 @@ void Shield::awake()
 		AI::Team team;
 		if (has<CoreModule>())
 			team = get<CoreModule>()->team;
-		else if (has<Generator>())
-			team = get<Generator>()->team;
+		else if (has<Rectifier>())
+			team = get<Rectifier>()->team;
 		else
 			team = get<AIAgent>()->team;
 
 		{
+			// active armor
+			vi_assert(!active_armor.ref());
 			Entity* shield_entity = World::create<Empty>();
 			shield_entity->get<Transform>()->parent = get<Transform>();
-			inner = shield_entity;
 
 			View* s = shield_entity->add<View>();
-			s->team = s8(team);
 			s->mesh = Asset::Mesh::sphere_highres;
-			s->offset.scale(Vec3::zero);
 			s->shader = Asset::Shader::fresnel;
+			s->color = Vec4(1, 1, 1, 0);
+			s->offset.scale(Vec3(DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO * 1.1f));
 			s->alpha();
-			s->color.w = 0.0f;
+			active_armor = s;
 
 			Net::finalize_child(shield_entity);
 		}
 
 		{
-			// overshield
-			vi_assert(!outer.ref());
+			// inner shield
 			Entity* shield_entity = World::create<Empty>();
 			shield_entity->get<Transform>()->parent = get<Transform>();
-			outer = shield_entity;
 
 			View* s = shield_entity->add<View>();
 			s->team = s8(team);
 			s->mesh = Asset::Mesh::sphere_highres;
-			s->offset.scale(Vec3::zero);
 			s->shader = Asset::Shader::fresnel;
-			s->alpha();
 			s->color.w = 0.0f;
+			s->offset.scale(Vec3::zero);
+			s->alpha();
+			inner = s;
+
+			Net::finalize_child(shield_entity);
+		}
+
+		{
+			// outer shield
+			vi_assert(!outer.ref());
+			Entity* shield_entity = World::create<Empty>();
+			shield_entity->get<Transform>()->parent = get<Transform>();
+
+			View* s = shield_entity->add<View>();
+			s->team = s8(team);
+			s->mesh = Asset::Mesh::sphere_highres;
+			s->shader = Asset::Shader::fresnel;
+			s->color.w = 0.0f;
+			s->offset.scale(Vec3::zero);
+			s->alpha();
+			outer = s;
 
 			Net::finalize_child(shield_entity);
 		}
@@ -286,17 +312,21 @@ void Shield::set_team(AI::Team team)
 {
 	if (inner.ref())
 	{
-		inner.ref()->get<View>()->team = s8(team);
-		outer.ref()->get<View>()->team = s8(team);
+		inner.ref()->team = s8(team);
+		outer.ref()->team = s8(team);
 	}
 }
 
 Shield::~Shield()
 {
-	if (Game::level.local && inner.ref())
+	if (Game::level.local)
 	{
-		World::remove_deferred(inner.ref());
-		World::remove_deferred(outer.ref());
+		if (inner.ref())
+			World::remove_deferred(inner.ref()->entity());
+		if (outer.ref())
+			World::remove_deferred(outer.ref()->entity());
+		if (active_armor.ref())
+			World::remove_deferred(active_armor.ref()->entity());
 	}
 }
 
@@ -320,7 +350,7 @@ void Shield::update_client_all(const Update& u)
 				for (s32 j = 0; j < particles; j++)
 				{
 					s32 cluster = 1 + s32(mersenne::randf_co() * 3.0f);
-					Vec3 cluster_center = pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, DRONE_SHIELD_RADIUS);
+					Vec3 cluster_center = pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, DRONE_SHIELD_RADIUS * 1.1f);
 					for (s32 k = 0; k < cluster; k++)
 					{
 						Particles::sparkles.add
@@ -368,101 +398,99 @@ void Shield::health_changed(const HealthEvent& e)
 	}
 }
 
-#define DRONE_SHIELD_ALPHA 0.3f
-#define DRONE_SHIELD_VIEW_RATIO 0.6f
-#define DRONE_OVERSHIELD_ALPHA 0.45f
-
-void apply_alpha_scale(View* v, const Update& u, const Vec3& offset_pos, r32 target_alpha, r32 target_scale, r32 alpha_speed_multiplier, r32 scale_speed_multiplier)
+void alpha_scale_lerp(const Update& u, r32* alpha, r32 alpha_target, r32* scale, r32 scale_target)
 {
 	const r32 anim_time = 0.3f;
-	r32 alpha_speed = (DRONE_SHIELD_ALPHA / anim_time) * alpha_speed_multiplier * u.time.delta;
-	if (v->color.w > target_alpha)
-		v->color.w = vi_max(target_alpha, v->color.w - alpha_speed);
-	else
-		v->color.w = vi_min(target_alpha, v->color.w + alpha_speed);
-
-	if (v->color.w == 0.0f)
 	{
-		v->mask = 0;
-		v->offset = Mat4::make_scale(Vec3::zero);
-	}
-	else
-	{
-		r32 scale_speed = (DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO / anim_time) * scale_speed_multiplier * u.time.delta;
-		r32 existing_scale = v->offset.m[0][0];
-		if (existing_scale > target_scale)
-			v->offset.make_transform(offset_pos, Vec3(vi_max(target_scale, existing_scale - scale_speed)), Quat::identity);
+		r32 alpha_speed = (DRONE_SHIELD_ALPHA / anim_time) * u.time.delta;
+		if (*alpha > alpha_target)
+			*alpha = vi_max(alpha_target, *alpha - alpha_speed);
 		else
-			v->offset.make_transform(offset_pos, Vec3(vi_min(target_scale, existing_scale + scale_speed)), Quat::identity);
+			*alpha = vi_min(alpha_target, *alpha + alpha_speed);
 	}
+
+	if (scale)
+	{
+		r32 scale_speed = (DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO / anim_time) * u.time.delta;
+		if (*scale > scale_target)
+			*scale = vi_max(scale_target, *scale - scale_speed);
+		else
+			*scale = vi_min(scale_target, *scale + scale_speed);
+	}
+}
+
+void alpha_mask(View* v, RenderMask mask)
+{
+	if (v->color.w == 0.0f)
+		v->mask = 0;
+	else
+		v->mask = mask;
 }
 
 void Shield::update_client(const Update& u)
 {
-	if (!inner.ref() || !outer.ref())
+	if (!inner.ref() || !outer.ref() || !active_armor.ref())
 		return;
 
 	Vec3 offset_pos = has<SkinnedModel>() ? get<SkinnedModel>()->offset.translation() : get<View>()->offset.translation();
 	RenderMask mask = has<SkinnedModel>() ? get<SkinnedModel>()->mask : get<View>()->mask;
 
-	b8 active_armor = get<Health>()->active_armor();
-
 	{
 		// inner shield
-		View* inner_view = inner.ref()->get<View>();
-		inner_view->mask = mask;
+		View* inner_view = inner.ref();
 
 		r32 target_alpha;
 		r32 target_scale;
-		r32 speed;
-		if (active_armor)
+		if (get<Health>()->shield > 0)
 		{
-			speed = 5.0f;
-			target_alpha = 1.25f;
-			target_scale = DRONE_SHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO;
-		}
-		else if (get<Health>()->shield > 0)
-		{
-			speed = 1.0f;
 			target_alpha = DRONE_SHIELD_ALPHA;
 			target_scale = DRONE_SHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO;
 		}
 		else
 		{
-			speed = 1.0f;
 			target_alpha = 0.0f;
 			target_scale = 8.0f;
 		}
-		apply_alpha_scale(inner_view, u, offset_pos, target_alpha, target_scale, speed, speed);
+		r32 inner_scale = inner_view->offset.m[0][0];
+		alpha_scale_lerp(u, &inner_view->color.w, target_alpha, &inner_scale, target_scale);
+		alpha_mask(inner_view, mask);
+		if (inner_view->color.w == 0.0f)
+			inner_scale = 0.0f;
+		inner_view->offset.make_transform(offset_pos, Vec3(inner_scale), Quat::identity);
 	}
 
 	{
 		// outer shield
-		View* outer_view = outer.ref()->get<View>();
-		outer_view->mask = mask;
+		View* outer_view = outer.ref();
 
 		r32 target_alpha;
 		r32 target_scale;
-		r32 speed;
-		if (active_armor)
+		if (get<Health>()->shield > 1)
 		{
-			speed = 5.0f;
-			target_alpha = 1.25f;
-			target_scale = DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO;
-		}
-		else if (get<Health>()->shield > 1)
-		{
-			speed = 1.0f;
 			target_alpha = DRONE_OVERSHIELD_ALPHA;
 			target_scale = DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO;
 		}
 		else
 		{
-			speed = 1.0f;
 			target_alpha = 0.0f;
 			target_scale = 10.0f;
 		}
-		apply_alpha_scale(outer_view, u, offset_pos, target_alpha, target_scale, speed, speed * 1.25f);
+		r32 outer_scale = outer_view->offset.m[0][0];
+		alpha_scale_lerp(u, &outer_view->color.w, target_alpha, &outer_scale, target_scale);
+		alpha_mask(outer_view, mask);
+		if (outer_view->color.w == 0.0f)
+			outer_scale = 0.0f;
+		outer_view->offset.make_transform(offset_pos, Vec3(outer_scale), Quat::identity);
+	}
+
+	{
+		// active armor
+		View* armor_view = active_armor.ref();
+		if (get<Health>()->active_armor())
+			armor_view->color.w = 1.0f;
+		else
+			armor_view->color.w = vi_max(0.0f, armor_view->color.w + u.time.delta * -4.0f);
+		alpha_mask(armor_view, mask);
 	}
 }
 
@@ -608,9 +636,9 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 		PointLight* light = create<PointLight>();
 		light->type = PointLight::Type::Override;
 		light->team = s8(team);
-		light->radius = (team == AI::TeamNone) ? 0.0f : GENERATOR_RANGE;
+		light->radius = (team == AI::TeamNone) ? 0.0f : RECTIFIER_RANGE;
 
-		create<Generator>()->team = team;
+		create<Rectifier>(team);
 	}
 
 	Target* target = create<Target>();
@@ -761,11 +789,11 @@ void Battery::set_team_client(AI::Team t)
 
 	team = t;
 	get<View>()->team = s8(t);
-	if (has<Generator>())
+	if (has<Rectifier>())
 	{
 		get<PointLight>()->team = s8(t);
-		get<PointLight>()->radius = (t == AI::TeamNone) ? 0.0f : GENERATOR_RANGE;
-		get<Generator>()->team = t;
+		get<PointLight>()->radius = (t == AI::TeamNone) ? 0.0f : RECTIFIER_RANGE;
+		get<Rectifier>()->team = t;
 	}
 	spawn_point.ref()->set_team(t);
 }
@@ -783,6 +811,7 @@ b8 Battery::net_msg(Net::StreamRead* p)
 	serialize_ref(p, caused_by);
 
 	Battery* pickup = ref.ref();
+	pickup->reward_level = reward_level;
 	if (caused_by.ref() && caused_by.ref()->has<AIAgent>() && t == caused_by.ref()->get<AIAgent>()->team)
 	{
 		if (pickup->team != t)
@@ -791,8 +820,6 @@ b8 Battery::net_msg(Net::StreamRead* p)
 	}
 	else if (t == AI::TeamNone)
 		pickup->get<Audio>()->post(AK::EVENTS::PLAY_BATTERY_RESET);
-
-	pickup->reward_level = reward_level;
 	pickup->set_team_client(t);
 
 	return true;
@@ -852,7 +879,7 @@ void Battery::update_all(const Update& u)
 		if (s32((u.time.total + offset) / shockwave_interval) != s32((last_time + offset) / shockwave_interval))
 		{
 			EffectLight::add(me, 10.0f, 1.5f, EffectLight::Type::Shockwave);
-			i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GENERATOR_PING);
+			i.item()->get<Audio>()->post(AK::EVENTS::PLAY_RECTIFIER_PING);
 		}
 	}
 }
@@ -860,7 +887,7 @@ void Battery::update_all(const Update& u)
 // instant reward for capturing the battery
 s16 Battery::reward() const
 {
-	return s16(vi_max(1, vi_min(10, s32(reward_level / 2) + 1)) * 5);
+	return s16(vi_min(9, 1 + (((s32(reward_level) + 1) * 2) / 3)) * 10);
 }
 
 // applied to every player on the owning team every ENERGY_INCREMENT_INTERVAL seconds
@@ -979,7 +1006,7 @@ b8 drone_can_spawn(const Vec3& pos)
 {
 	for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
 	{
-		if (LMath::ray_sphere_intersect(pos + Vec3(0, 1, 0), pos, i.item()->get<Target>()->absolute_pos(), DRONE_SHIELD_RADIUS))
+		if (LMath::ray_sphere_intersect(pos + Vec3(0, 3, 0), pos + Vec3(0, -3, 0), i.item()->get<Transform>()->absolute_pos(), DRONE_SHIELD_RADIUS))
 			return false;
 	}
 	return true;
@@ -997,7 +1024,7 @@ SpawnPosition SpawnPoint::spawn_position() const
 	Vec3 p = result.pos;
 	while (!drone_can_spawn(p) && j < 4)
 	{
-		p = result.pos + Quat::euler(0, result.angle + (r32(j + 1) * PI * 0.5f), 0) * Vec3(0, 0, SPAWN_POINT_RADIUS * 0.5f);
+		p = result.pos + Quat::euler(0, result.angle + (r32(j + 1) * PI * 0.5f), 0) * Vec3(0, 0, SPAWN_POINT_RADIUS * 0.75f);
 		j++;
 	}
 	result.pos = p;
@@ -1255,7 +1282,7 @@ UpgradeStationEntity::UpgradeStationEntity(SpawnPoint* p)
 	view->color.w = MATERIAL_NO_OVERRIDE;
 }
 
-GeneratorEntity::GeneratorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_rot)
+RectifierEntity::RectifierEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat& abs_rot)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = abs_pos;
@@ -1264,38 +1291,38 @@ GeneratorEntity::GeneratorEntity(AI::Team team, const Vec3& abs_pos, const Quat&
 	create<Audio>();
 
 	View* model = create<View>();
-	model->mesh = Asset::Mesh::generator;
+	model->mesh = Asset::Mesh::rectifier;
 	model->color = Team::color_enemy;
-	model->team = s8(team);
+	model->team = s8(owner->team.ref()->team());
 	model->shader = Asset::Shader::standard;
-	model->offset.scale(Vec3(GENERATOR_RADIUS));
+	model->offset.scale(Vec3(RECTIFIER_RADIUS));
 
-	create<Health>(GENERATOR_HEALTH, GENERATOR_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
+	create<Health>(RECTIFIER_HEALTH, RECTIFIER_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
 
 	PointLight* light = create<PointLight>();
 	light->type = PointLight::Type::Override;
-	light->team = s8(team);
-	light->radius = GENERATOR_RANGE;
+	light->team = s8(owner->team.ref()->team());
+	light->radius = RECTIFIER_RANGE;
 
-	create<Generator>(team);
+	create<Rectifier>(owner->team.ref()->team(), owner);
 
 	create<Target>();
 
 	create<Shield>();
 }
 
-Generator::Generator(AI::Team t)
-	: team(t)
+Rectifier::Rectifier(AI::Team t, PlayerManager* o)
+	: team(t), owner(o)
 {
 }
 
-void Generator::awake()
+void Rectifier::awake()
 {
 	if (!has<Battery>())
-		link_arg<Entity*, &Generator::killed_by>(get<Health>()->killed);
+		link_arg<Entity*, &Rectifier::killed_by>(get<Health>()->killed);
 }
 
-void Generator::killed_by(Entity* e)
+void Rectifier::killed_by(Entity* e)
 {
 	vi_assert(!has<Battery>());
 	PlayerManager::entity_killed_by(entity(), e);
@@ -1303,29 +1330,35 @@ void Generator::killed_by(Entity* e)
 		World::remove_deferred(entity());
 }
 
-void generator_update(const Vec3& generator_pos, r32 particle_lerp, Entity* e, b8 particle, b8 heal)
+void rectifier_update(const Vec3& rectifier_pos, r32 particle_lerp, Entity* e, b8 particle, b8 heal, PlayerManager* owner)
 {
 	Vec3 pos = e->get<Transform>()->absolute_pos();
-	if ((pos - generator_pos).length_squared() < (GENERATOR_RANGE + 2.0f) * (GENERATOR_RANGE + 2.0f))
+	if ((pos - rectifier_pos).length_squared() < (RECTIFIER_RANGE + 2.0f) * (RECTIFIER_RANGE + 2.0f))
 	{
 		if (particle)
 		{
 			Particles::fast_tracers.add
 			(
-				Vec3::lerp(particle_lerp, generator_pos, pos),
+				Vec3::lerp(particle_lerp, rectifier_pos, pos),
 				Vec3::zero,
 				0
 			);
 		}
 
-		if (heal)
-			e->get<Health>()->add(1);
+		Health* health = e->get<Health>();
+		if (heal && health->hp > 0 && health->hp < health->hp_max
+			&& (!owner || owner->energy >= RECTIFIER_HEAL_COST))
+		{
+			if (owner)
+				owner->add_energy(-RECTIFIER_HEAL_COST);
+			health->add(1);
+		}
 	}
 }
 
-void Generator::update_all(const Update& u)
+void Rectifier::update_all(const Update& u)
 {
-	const r32 heal_interval = GENERATOR_HEAL_INTERVAL;
+	const r32 heal_interval = RECTIFIER_HEAL_INTERVAL;
 	const r32 particle_interval = heal_interval / 32.0f;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
@@ -1338,39 +1371,42 @@ void Generator::update_all(const Update& u)
 				: 0.0f;
 			b8 heal = Game::level.local && s32(time / heal_interval) != s32((time - u.time.delta) / heal_interval);
 
+			PlayerManager* owner = i.item()->owner.ref();
+			b8 has_energy = !owner || owner->energy >= RECTIFIER_HEAL_COST;
+
 			// buff friendly turrets, force fields, and minions
-			if (particle || heal)
+			if (has_energy && (particle || heal))
 			{
 				Vec3 me = i.item()->get<Transform>()->absolute_pos();
 				for (auto j = Turret::list.iterator(); !j.is_last(); j.next())
 				{
 					if (j.item()->team == i.item()->team)
-						generator_update(me, particle_lerp, j.item()->entity(), particle, heal);
+						rectifier_update(me, particle_lerp, j.item()->entity(), particle, heal, owner);
 				}
 
 				for (auto j = ForceField::list.iterator(); !j.is_last(); j.next())
 				{
 					if (j.item()->team == i.item()->team)
-						generator_update(me, particle_lerp, j.item()->entity(), particle, heal);
+						rectifier_update(me, particle_lerp, j.item()->entity(), particle, heal, owner);
 				}
 
 				for (auto j = Minion::list.iterator(); !j.is_last(); j.next())
 				{
 					if (j.item()->get<AIAgent>()->team == i.item()->team)
-						generator_update(me, particle_lerp, j.item()->entity(), particle, heal);
+						rectifier_update(me, particle_lerp, j.item()->entity(), particle, heal, owner);
 				}
 
 				for (auto j = CoreModule::list.iterator(); !j.is_last(); j.next())
 				{
 					if (j.item()->team == i.item()->team)
-						generator_update(me, particle_lerp, j.item()->entity(), particle, heal);
+						rectifier_update(me, particle_lerp, j.item()->entity(), particle, heal, owner);
 				}
 			}
 		}
 	}
 }
 
-void Generator::set_team(AI::Team t)
+void Rectifier::set_team(AI::Team t)
 {
 	// not synced over network
 	team = t;
@@ -1378,23 +1414,23 @@ void Generator::set_team(AI::Team t)
 	get<PointLight>()->team = s8(t);
 }
 
-b8 Generator::can_see(AI::Team team, const Vec3& pos, const Vec3& normal)
+b8 Rectifier::can_see(AI::Team team, const Vec3& pos, const Vec3& normal)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team == team)
 		{
-			Vec3 to_generator = i.item()->get<Transform>()->absolute_pos() - pos;
-			if (to_generator.length_squared() < GENERATOR_RANGE * GENERATOR_RANGE && to_generator.dot(normal) > 0.0f)
+			Vec3 to_rectifier = i.item()->get<Transform>()->absolute_pos() - pos;
+			if (to_rectifier.length_squared() < RECTIFIER_RANGE * RECTIFIER_RANGE && to_rectifier.dot(normal) > 0.0f)
 				return true;
 		}
 	}
 	return false;
 }
 
-Generator* Generator::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
+Rectifier* Rectifier::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
-	Generator* closest = nullptr;
+	Rectifier* closest = nullptr;
 	r32 closest_distance = FLT_MAX;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -1711,15 +1747,30 @@ s32 CoreModule::count(AI::TeamMask mask)
 	return count;
 }
 
+void CoreModule::health_changed(const HealthEvent& e)
+{
+	if (e.hp + e.shield < 0 && get<Health>()->hp > 0)
+	{
+		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::CoreModuleUnderAttack))
+		{
+			char buffer[UI_TEXT_MAX];
+			snprintf(buffer, UI_TEXT_MAX, _(strings::core_module_under_attack));
+			PlayerHuman::log_add(buffer, AI::TeamNone, 1 << team);
+		}
+	}
+}
+
 void CoreModule::killed(Entity* e)
 {
 	if (list.count() > 1)
 	{
 		// let everyone know what happened
+		PlayerHuman::notification(get<Transform>()->absolute_pos(), team, PlayerHuman::Notification::Type::CoreModuleDestroyed);
+
 		char buffer[512];
 		sprintf(buffer, _(strings::core_modules_remaining), list.count() - 1);
-
 		PlayerHuman::log_add(buffer);
+
 		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		{
 			// it's a good thing if you're not on the defending team
@@ -1835,7 +1886,7 @@ void Turret::killed(Entity* by)
 		}
 	}
 
-	PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::TurretDestroyed);
+	PlayerHuman::notification(get<Transform>()->absolute_pos(), team, PlayerHuman::Notification::Type::TurretDestroyed);
 
 	if (Game::level.local)
 	{
@@ -2079,7 +2130,6 @@ void ForceField::awake()
 	link_arg<Entity*, &ForceField::killed>(get<Health>()->killed);
 	if (!(flags & FlagPermanent))
 	{
-		link_arg<const TargetEvent&, &ForceField::hit_by>(get<Target>()->target_hit);
 		link_arg<const HealthEvent&, &ForceField::health_changed>(get<Health>()->changed);
 		get<Audio>()->post(AK::EVENTS::PLAY_FORCE_FIELD_LOOP);
 		if (Game::level.local)
@@ -2114,12 +2164,6 @@ void ForceField::set_team(AI::Team t)
 	collision.ref()->get<RigidBody>()->set_collision_masks(CollisionGroup(1 << (8 + team)), CollisionDroneIgnore);
 }
 
-void ForceField::hit_by(const TargetEvent& e)
-{
-	if (!(flags & FlagInvincible) && get<Health>()->can_take_damage(e.hit_by))
-		get<Health>()->damage(e.hit_by, 1);
-}
-
 void ForceField::health_changed(const HealthEvent& e)
 {
 	if (e.hp + e.shield < 0
@@ -2135,7 +2179,7 @@ void ForceField::killed(Entity* e)
 {
 	if (e)
 	{
-		PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::ForceFieldDestroyed);
+		PlayerHuman::notification(get<Transform>()->absolute_pos(), team, PlayerHuman::Notification::Type::ForceFieldDestroyed);
 		PlayerHuman::log_add(_(strings::force_field_destroyed), AI::TeamNone, 1 << team);
 		PlayerManager::entity_killed_by(entity(), e);
 	}
@@ -2326,18 +2370,18 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 	field->collision = collision;
 }
 
-r32 Bolt::speed(Type t)
+r32 Bolt::speed(Type t, b8 reflected)
 {
 	if (t == Type::DroneBolter)
 		return BOLT_SPEED_DRONE_BOLTER;
 	else if (t == Type::DroneShotgun)
 		return BOLT_SPEED_DRONE_SHOTGUN;
 	else if (t == Type::Turret)
-		return BOLT_SPEED_TURRET;
+		return BOLT_SPEED_TURRET * (reflected ? 2.0f : 1.0f);
 	else
 	{
 		vi_assert(t == Type::Minion);
-		return BOLT_SPEED_MINION;
+		return BOLT_SPEED_MINION * (reflected ? 2.0f : 1.0f);
 	}
 }
 
@@ -2597,8 +2641,8 @@ void Bolt::reflect(const Entity* hit_object, ReflectionType reflection_type, con
 	else // simple reflection
 		dir = (transform->absolute_rot() * Vec3(0, 0, 1.0f)).reflect(normal);
 
-	velocity = dir * 2.0f * speed(type);
-	remaining_lifetime = (DRONE_MAX_DISTANCE * 0.99f) / (2.0f * speed(type));
+	velocity = dir * speed(type, true);
+	remaining_lifetime = (DRONE_MAX_DISTANCE * 0.99f) / (1.5f * speed(type, true));
 	transform->absolute_rot(Quat::look(dir));
 	transform->absolute_pos(transform->absolute_pos() + dir * BOLT_LENGTH);
 
@@ -2635,17 +2679,12 @@ void Bolt::hit_entity(const Hit& hit)
 		{
 			case Type::DroneBolter:
 			{
-				if (hit_object->has<Turret>()
-					|| hit_object->has<Drone>()
-					|| hit_object->has<ForceField>()
-					|| hit_object->has<CoreModule>())
-					damage = 1;
-				else if (hit_object->has<Minion>())
+				if (hit_object->has<Minion>())
 					damage = 3;
 				else
-					damage = 2;
+					damage = 1;
 
-				if (reflected)
+				if (reflected && !hit_object->has<Drone>())
 					damage = (damage * 2) + 2;
 				break;
 			}
@@ -2653,10 +2692,8 @@ void Bolt::hit_entity(const Hit& hit)
 			{
 				if (hit_object->has<Minion>())
 					damage = MINION_HEALTH;
-				else if (hit_object->has<Turret>())
+				else if (hit_object->has<Turret>() || hit_object->has<ForceField>())
 					damage = mersenne::rand() % 3 < 2 ? 1 : 0; // expected value: 0.66
-				else if (hit_object->has<ForceField>())
-					damage = mersenne::rand() % 2 == 0 ? 1 : 0; // expected value: 0.5
 				else if (hit_object->has<CoreModule>())
 					damage = mersenne::rand() % 3 == 0 ? 1 : 0; // expected value: 0.33
 				else if (hit_object->has<Drone>())
@@ -2667,7 +2704,7 @@ void Bolt::hit_entity(const Hit& hit)
 				if (reflected)
 				{
 					if (hit_object->has<Drone>())
-						damage = 2;
+						damage = 1;
 					else
 						damage = (damage * 2) + 2;
 				}
@@ -2822,8 +2859,8 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 		Audio::post_global(AK::EVENTS::PLAY_DRONE_SPAWN, e.pos);
 	else if (e.type == Type::SpawnForceField)
 		Audio::post_global(AK::EVENTS::PLAY_FORCE_FIELD_SPAWN, e.pos);
-	else if (e.type == Type::SpawnGenerator)
-		Audio::post_global(AK::EVENTS::PLAY_GENERATOR_SPAWN, e.pos);
+	else if (e.type == Type::SpawnRectifier)
+		Audio::post_global(AK::EVENTS::PLAY_RECTIFIER_SPAWN, e.pos);
 
 	if (e.type == Type::Grenade)
 	{
@@ -2880,7 +2917,7 @@ b8 ParticleEffect::is_spawn_effect(Type t)
 	return t == Type::SpawnDrone
 		|| t == Type::SpawnMinion
 		|| t == Type::SpawnForceField
-		|| t == Type::SpawnGenerator;
+		|| t == Type::SpawnRectifier;
 }
 
 #define SPAWN_EFFECT_THRESHOLD 0.4f
@@ -2920,8 +2957,8 @@ void ParticleEffect::update_all(const Update& u)
 							Net::finalize(World::create<ForceFieldEntity>(nullptr, e->pos, e->rot, team));
 							break;
 						}
-						case Type::SpawnGenerator:
-							Net::finalize(World::create<GeneratorEntity>(e->owner.ref()->team.ref()->team(), e->pos, e->rot));
+						case Type::SpawnRectifier:
+							Net::finalize(World::create<RectifierEntity>(e->owner.ref(), e->pos, e->rot));
 							break;
 						default:
 							vi_assert(false);
@@ -2964,7 +3001,7 @@ void ParticleEffect::draw_alpha(const RenderParams& p)
 			switch (e.type)
 			{
 				case Type::SpawnDrone:
-				case Type::SpawnGenerator:
+				case Type::SpawnRectifier:
 				{
 					size = Vec3(height_scale * DRONE_SHIELD_RADIUS * 1.1f);
 					m.make_transform(e.pos, size, Quat::identity);
@@ -3229,7 +3266,7 @@ b8 grenade_trigger_filter(Entity* e, AI::Team team)
 	return (e->has<AIAgent>() && e->get<AIAgent>()->team != team && !e->get<AIAgent>()->stealth)
 		|| (e->has<ForceField>() && e->get<ForceField>()->team != team)
 		|| (e->has<ForceFieldCollision>() && e->get<ForceFieldCollision>()->field.ref()->team != team)
-		|| (e->has<Generator>() && !e->has<Battery>() && e->get<Generator>()->team != team)
+		|| (e->has<Rectifier>() && !e->has<Battery>() && e->get<Rectifier>()->team != team)
 		|| (e->has<Turret>() && e->get<Turret>()->team != team)
 		|| (e->has<CoreModule>() && e->get<CoreModule>()->team != team);
 }
@@ -3357,6 +3394,8 @@ void Grenade::explode()
 					if (distance < GRENADE_RANGE)
 						i.item()->damage(entity(), 9);
 				}
+				else if (i.item()->has<ForceField>() && i.item()->get<ForceField>()->team != my_team)
+					i.item()->damage(entity(), distance < GRENADE_RANGE * 0.25f ? 10 : 5);
 				else if (distance < GRENADE_RANGE && (!i.item()->has<Battery>() || i.item()->get<Battery>()->team != my_team))
 					i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 6 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1));
 			}

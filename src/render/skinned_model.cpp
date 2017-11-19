@@ -245,7 +245,7 @@ void SkinnedModel::draw(const RenderParams& params, ObstructingBehavior b)
 		Vec4 c;
 		if (team == s8(AI::TeamNone))
 		{
-			if (params.camera->flag(CameraFlagColors))
+			if (params.camera->flag(CameraFlagColors) || list_alpha.get(id()) || list_additive.get(id()))
 				c = color;
 			else if (color.w == MATERIAL_INACCESSIBLE)
 				c = PVP_INACCESSIBLE;

@@ -1231,7 +1231,7 @@ namespace tutorial
 
 			Game::level.feature_level = Game::FeatureLevel::Abilities;
 			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-			manager->energy = UpgradeInfo::list[s32(Upgrade::Generator)].cost + AbilityInfo::list[s32(Ability::Generator)].spawn_cost * 2;
+			manager->energy = UpgradeInfo::list[s32(Upgrade::Rectifier)].cost + AbilityInfo::list[s32(Ability::Rectifier)].spawn_cost * 2;
 		}
 	}
 

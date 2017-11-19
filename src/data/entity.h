@@ -163,7 +163,7 @@ struct Entity
 struct World
 {
 	static Family families;
-	static Array<ID> remove_buffer;
+	static Array<Ref<Entity>> remove_buffer;
 	static ComponentPoolBase* component_pools[MAX_FAMILIES];
 
 	static void init();

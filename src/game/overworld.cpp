@@ -1328,7 +1328,7 @@ void multiplayer_in_game_update(const Update& u)
 			if (u.input->gamepads[i].type != Gamepad::Type::None
 				&& ((u.last_input->get(Controls::Start, i) && !u.input->get(Controls::Start, i))
 					|| (u.last_input->get(Controls::Interact, i) && !u.input->get(Controls::Interact, i)))
-				&& !PlayerHuman::player_for_gamepad(i))
+				&& !PlayerHuman::for_gamepad(i))
 			{
 				Game::session.local_player_mask |= 1 << i;
 				if (Net::Client::mode() == Net::Client::Mode::Connected)
@@ -3702,7 +3702,25 @@ void clear()
 
 void execute(const char* cmd)
 {
-	if (strcmp(cmd, "attack") == 0)
+	if (strstr(cmd, "capture ") == cmd)
+	{
+		const char* delimiter = strchr(cmd, ' ');
+		const char* zone_string = delimiter + 1;
+		AssetID id = Loader::find(zone_string, AssetLookup::Level::names);
+		if (zone_is_pvp(id))
+			zone_change(id, ZoneState::PvpFriendly);
+	}
+	else if (strstr(cmd, "unlock ") == cmd)
+	{
+		const char* delimiter = strchr(cmd, ' ');
+		const char* zone_string = delimiter + 1;
+		AssetID id = Loader::find(zone_string, AssetLookup::Level::names);
+		if (zone_is_pvp(id))
+			zone_change(id, ZoneState::PvpHostile);
+		else
+			zone_change(id, ZoneState::ParkourUnlocked);
+	}
+	else if (strcmp(cmd, "attack") == 0)
 	{
 		AssetID z = zone_random(&zone_filter_captured, &zone_filter_can_be_attacked); // live incoming attack
 		if (z != AssetNull)

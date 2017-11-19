@@ -285,7 +285,7 @@ void View::draw(const RenderParams& params) const
 		Vec4 color_final;
 		if (team == s8(AI::TeamNone))
 		{
-			if (params.camera->flag(CameraFlagColors))
+			if (params.camera->flag(CameraFlagColors) || list_alpha.get(id()) || list_additive.get(id()))
 				color_final = color;
 			else if (color.w == MATERIAL_INACCESSIBLE || (params.flags & RenderFlagBackFace))
 				color_final = PVP_INACCESSIBLE;

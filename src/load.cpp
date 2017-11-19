@@ -284,12 +284,11 @@ void Loader::settings_load(const Array<DisplayMode>& modes, const DisplayMode& c
 	Settings::scan_lines = b8(Json::get_s32(json, "scan_lines", 1));
 	Settings::record = b8(Json::get_s32(json, "record", 0));
 	Settings::expo = b8(Json::get_s32(json, "expo", 0));
+	Settings::god_mode = b8(Json::get_s32(json, "god_mode"));
 #if SERVER
 	Settings::shell_casings = false;
-	Settings::god_mode = false;
 #else
 	Settings::shell_casings = b8(Json::get_s32(json, "shell_casings", 1));
-	Settings::god_mode = b8(Json::get_s32(json, "god_mode"));
 #endif
 
 	cJSON* gamepads = json ? cJSON_GetObjectItem(json, "gamepads") : nullptr;

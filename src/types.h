@@ -72,10 +72,10 @@ enum class Region : s8
 enum class Ability : s8
 {
 	Bolter,
-	Shotgun,
 	ActiveArmor,
-	Generator,
+	Rectifier,
 	Minion,
+	Shotgun,
 	ForceField,
 	Sniper,
 	Grenade,
@@ -86,10 +86,10 @@ enum class Ability : s8
 enum class Upgrade : s8
 {
 	Bolter,
-	Shotgun,
 	ActiveArmor,
-	Generator,
+	Rectifier,
 	Minion,
+	Shotgun,
 	ForceField,
 	Sniper,
 	Grenade,

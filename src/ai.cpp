@@ -73,27 +73,27 @@ void quit()
 	sync_in.unlock();
 }
 
-#define GENERATOR_UPDATE_INTERVAL 0.5f
-r32 generator_timer = GENERATOR_UPDATE_INTERVAL;
+#define RECTIFIER_UPDATE_INTERVAL 0.5f
+r32 rectifier_timer = RECTIFIER_UPDATE_INTERVAL;
 
 void update(const Update& u)
 {
-	generator_timer -= u.time.delta;
-	if (generator_timer < 0.0f)
+	rectifier_timer -= u.time.delta;
+	if (rectifier_timer < 0.0f)
 	{
-		generator_timer += GENERATOR_UPDATE_INTERVAL;
+		rectifier_timer += RECTIFIER_UPDATE_INTERVAL;
 
 		NavGameState state;
-		for (auto i = Generator::list.iterator(); !i.is_last(); i.next())
-			state.generators.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
+		for (auto i = Rectifier::list.iterator(); !i.is_last(); i.next())
+			state.rectifiers.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
 
 		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 			state.force_fields.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
 
 		sync_in.lock();
 		sync_in.write(Op::UpdateState);
-		sync_in.write(state.generators.length);
-		sync_in.write(state.generators.data, state.generators.length);
+		sync_in.write(state.rectifiers.length);
+		sync_in.write(state.rectifiers.data, state.rectifiers.length);
 		sync_in.write(state.force_fields.length);
 		sync_in.write(state.force_fields.data, state.force_fields.length);
 		sync_in.unlock();
@@ -467,7 +467,7 @@ void drone_mark_adjacency_bad(DroneNavMeshNode a, DroneNavMeshNode b)
 
 void NavGameState::clear()
 {
-	generators.length = 0;
+	rectifiers.length = 0;
 	force_fields.length = 0;
 }
 
@@ -677,7 +677,7 @@ void draw_hollow(const RenderParams& params)
 	params.sync->write(RenderFillMode::Fill);
 }
 
-ComponentMask entity_mask = Generator::component_mask
+ComponentMask entity_mask = Rectifier::component_mask
 	| Drone::component_mask
 	| Minion::component_mask
 	| Battery::component_mask
@@ -725,10 +725,10 @@ void entity_info(const Entity* e, Team query_team, Team* team, s8* type)
 		else
 			_type = RecordedLife::EntityBatteryEnemy;
 	}
-	else if (e->has<Generator>())
+	else if (e->has<Rectifier>())
 	{
-		_team = e->get<Generator>()->team;
-		_type = _team == query_team ? RecordedLife::EntityGeneratorFriend : RecordedLife::EntityGeneratorEnemy;
+		_team = e->get<Rectifier>()->team;
+		_type = _team == query_team ? RecordedLife::EntityRectifierFriend : RecordedLife::EntityRectifierEnemy;
 	}
 	else if (e->has<ForceField>())
 	{

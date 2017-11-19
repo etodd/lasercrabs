@@ -97,6 +97,8 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 			DroneDestroyed,
 			TurretUnderAttack,
 			TurretDestroyed,
+			CoreModuleUnderAttack,
+			CoreModuleDestroyed,
 			ForceFieldUnderAttack,
 			ForceFieldDestroyed,
 			BatteryUnderAttack,
@@ -110,6 +112,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		Ref<Target> target;
 		AI::Team team;
 		Type type;
+		b8 attached;
 	};
 
 	struct KillPopup
@@ -139,8 +142,8 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static void update_all(const Update&);
 	static s32 count_local();
 	static s32 count_local_before(PlayerHuman*);
-	static PlayerHuman* player_for_camera(const Camera*);
-	static PlayerHuman* player_for_gamepad(s8);
+	static PlayerHuman* for_camera(const Camera*);
+	static PlayerHuman* for_gamepad(s8);
 	static void chat_add(const char*, PlayerManager* player, AI::TeamMask = AI::TeamAll);
 	static void log_add(const char*, AI::Team = AI::TeamNone, AI::TeamMask = AI::TeamAll, const char* = nullptr, AI::Team = AI::TeamNone);
 	static void clear();
@@ -298,7 +301,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 			BatteryEnemyOutOfRange,
 			BatteryFriendly,
 			BatteryFriendlyOutOfRange,
-			Generator,
+			Rectifier,
 			ForceField,
 			Grenade,
 			Turret,

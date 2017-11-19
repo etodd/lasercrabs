@@ -24,7 +24,7 @@ out vec4 out_color;
 void main()
 {
 	out_color = diffuse_color;
-	out_color.a *= 0.33f + 0.66f * (1.0f - abs(normalize(normal_viewspace).z));
+	out_color.a *= 0.25f + 0.75f * (1.0f - abs(normalize(normal_viewspace).z));
 }
 
 #endif

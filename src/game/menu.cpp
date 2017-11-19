@@ -136,7 +136,7 @@ void quit_multiplayer(s8 gamepad)
 		Overworld::title();
 	else
 	{
-		PlayerHuman* player = PlayerHuman::player_for_gamepad(gamepad);
+		PlayerHuman* player = PlayerHuman::for_gamepad(gamepad);
 		if (player)
 			player->get<PlayerManager>()->leave();
 		else
@@ -750,7 +750,7 @@ void pause_menu(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMen
 				*state = State::Hidden;
 			if (Game::session.type == SessionType::Multiplayer && Game::level.mode == Game::Mode::Pvp)
 			{
-				PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+				PlayerManager* me = PlayerHuman::for_gamepad(gamepad)->get<PlayerManager>();
 				if ((me->is_admin || (Game::session.config.game_type == GameType::Assault || Game::session.config.max_players > Game::session.config.team_count))
 					&& menu->item(u, _(strings::teams)))
 				{
@@ -1129,7 +1129,7 @@ void draw_ui(const RenderParams& params)
 	// draw dialog box
 	s32 gamepad = 0;
 	{
-		PlayerHuman* player = PlayerHuman::player_for_camera(params.camera);
+		PlayerHuman* player = PlayerHuman::for_camera(params.camera);
 		if (player)
 			gamepad = player->gamepad;
 	}
@@ -1604,7 +1604,7 @@ void maps_skip_map_cancel(s8 gamepad)
 
 void maps_skip_map(s8 gamepad)
 {
-	PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+	PlayerManager* me = PlayerHuman::for_gamepad(gamepad)->get<PlayerManager>();
 	me->map_skip(maps_selected_map);
 	maps_selected_map = AssetNull;
 }
@@ -1618,7 +1618,7 @@ b8 maps(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu)
 
 	menu->text(u, _(strings::prompt_skip_map));
 
-	PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+	PlayerManager* me = PlayerHuman::for_gamepad(gamepad)->get<PlayerManager>();
 
 	for (AssetID level_id = 0; level_id < AssetID(Asset::Level::count); level_id++)
 	{
@@ -1670,7 +1670,7 @@ void teams_kick_player(s8 gamepad)
 	PlayerManager* player = teams_selected_player[gamepad].ref();
 	if (player)
 	{
-		PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+		PlayerManager* me = PlayerHuman::for_gamepad(gamepad)->get<PlayerManager>();
 		me->kick(player);
 	}
 }
@@ -1680,7 +1680,7 @@ void teams_ban_player(s8 gamepad)
 	PlayerManager* player = teams_selected_player[gamepad].ref();
 	if (player)
 	{
-		PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+		PlayerManager* me = PlayerHuman::for_gamepad(gamepad)->get<PlayerManager>();
 		me->ban(player);
 	}
 }
@@ -1709,7 +1709,7 @@ void teams_admin_set(s8 gamepad, b8 value)
 	PlayerManager* selected = teams_selected_player[gamepad].ref();
 	if (selected)
 	{
-		PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+		PlayerManager* me = PlayerHuman::for_gamepad(gamepad)->get<PlayerManager>();
 		me->make_admin(selected, value);
 	}
 #endif
@@ -1743,7 +1743,7 @@ b8 player(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* men
 
 	vi_assert(gamepad == 0 && selected->has<PlayerHuman>());
 
-	PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+	PlayerManager* me = PlayerHuman::for_gamepad(gamepad)->get<PlayerManager>();
 
 	b8 exit = !Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad);
 
@@ -1803,7 +1803,7 @@ b8 player(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* men
 // returns the state the menu should be in
 State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu, TeamSelectMode mode, UIMenu::EnableInput input)
 {
-	PlayerManager* me = PlayerHuman::player_for_gamepad(gamepad)->get<PlayerManager>();
+	PlayerManager* me = PlayerHuman::for_gamepad(gamepad)->get<PlayerManager>();
 	PlayerManager* selected = teams_selected_player[gamepad].ref();
 
 	b8 exit = !Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad);
@@ -2341,7 +2341,7 @@ void UIMenu::draw_ui(const RenderParams& params) const
 					b8 mouse_over = false;
 					if (Game::ui_gamepad_types[0] == Gamepad::Type::None && down_rect.contains(UI::cursor_pos))
 					{
-						UI::box(params, down_rect, params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : item.value.color);
+						UI::box(params, down_rect.outset(-6.0f * UI::scale), params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : item.value.color);
 						mouse_over = true;
 					}
 					UI::triangle(params, { down_rect.pos + down_rect.size * 0.5f, down_rect.size * 0.5f }, mouse_over ? UI::color_background : item.value.color, PI * 0.5f);
@@ -2352,7 +2352,7 @@ void UIMenu::draw_ui(const RenderParams& params) const
 					b8 mouse_over = false;
 					if (Game::ui_gamepad_types[0] == Gamepad::Type::None && up_rect.contains(UI::cursor_pos))
 					{
-						UI::box(params, up_rect, params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : item.value.color);
+						UI::box(params, up_rect.outset(-6.0f * UI::scale), params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : item.value.color);
 						mouse_over = true;
 					}
 					UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, mouse_over ? UI::color_background : item.value.color, PI * -0.5f);

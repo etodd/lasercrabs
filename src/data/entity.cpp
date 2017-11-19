@@ -7,7 +7,7 @@ namespace VI
 {
 
 PinArray<Entity, MAX_ENTITIES> Entity::list;
-Array<ID> World::remove_buffer;
+Array<Ref<Entity>> World::remove_buffer;
 ComponentPoolBase* World::component_pools[MAX_FAMILIES];
 
 LinkEntry::Data::Data()
@@ -80,18 +80,14 @@ void remove_components(Entity* e)
 // returns true if the entity was actually active and removed
 // World::remove_deferred WILL NOT crash when it removes an entity multiple times
 // World::remove WILL crash if you try to remove an inactive entity
-b8 internal_remove(Entity* e)
+void internal_remove(Entity* e)
 {
 	ID id = e->id();
-	if (Entity::list.active(id))
-	{
-		Net::remove(e);
-		remove_components(e);
-		e->revision++;
-		Entity::list.remove(id);
-		return true;
-	}
-	return false;
+	vi_assert(Entity::list.active(id));
+	Net::remove(e);
+	remove_components(e);
+	e->revision++;
+	Entity::list.remove(id);
 }
 
 // add an entity on the client because the server told us to
@@ -118,20 +114,23 @@ void World::net_remove(Entity* e)
 void World::remove(Entity* e)
 {
 	vi_assert(Game::level.local); // if we're a client, all entity removals are handled by the server
-	b8 actually_removed = internal_remove(e);
-	vi_assert(actually_removed);
+	internal_remove(e);
 }
 
 void World::remove_deferred(Entity* e)
 {
 	vi_assert(Game::level.local); // if we're a client, all entity removals are handled by the server
-	remove_buffer.add(e->id());
+	remove_buffer.add(e);
 }
 
 void World::flush()
 {
 	for (s32 i = 0; i < remove_buffer.length; i++)
-		internal_remove(&Entity::list[remove_buffer[i]]);
+	{
+		Entity* e = remove_buffer[i].ref();
+		if (e) // might have already been removed
+			internal_remove(e);
+	}
 	remove_buffer.length = 0;
 }
 

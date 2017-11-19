@@ -48,8 +48,8 @@ namespace AK
         static const AkUniqueID PLAY_FOOTSTEP = 1602358412U;
         static const AkUniqueID PLAY_FORCE_FIELD_LOOP = 427547487U;
         static const AkUniqueID PLAY_FORCE_FIELD_SPAWN = 1877727510U;
-        static const AkUniqueID PLAY_GENERATOR_PING = 1210740188U;
-        static const AkUniqueID PLAY_GENERATOR_SPAWN = 2826267681U;
+        static const AkUniqueID PLAY_RECTIFIER_PING = 1210740188U;
+        static const AkUniqueID PLAY_RECTIFIER_SPAWN = 2826267681U;
         static const AkUniqueID PLAY_GRENADE_ARM = 1073857507U;
         static const AkUniqueID PLAY_GRENADE_ATTACH = 2813332440U;
         static const AkUniqueID PLAY_GRENADE_BEEP = 4011376411U;

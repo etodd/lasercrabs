@@ -17,6 +17,7 @@ struct PlayerManager;
 struct Transform;
 struct RigidBody;
 struct PlayerControlHuman;
+struct View;
 
 void spawn_sparks(const Vec3&, const Quat&, Transform* = nullptr);
 
@@ -81,8 +82,9 @@ struct Shield : public ComponentType<Shield>
 {
 	static void update_client_all(const Update&);
 
-	Ref<Entity> inner;
-	Ref<Entity> outer;
+	Ref<View> inner;
+	Ref<View> outer;
+	Ref<View> active_armor;
 
 	void awake();
 	~Shield();
@@ -200,16 +202,17 @@ struct UpgradeStationEntity : public Entity
 	UpgradeStationEntity(SpawnPoint*);
 };
 
-struct GeneratorEntity : public Entity
+struct RectifierEntity : public Entity
 {
-	GeneratorEntity(AI::Team, const Vec3&, const Quat&);
+	RectifierEntity(PlayerManager*, const Vec3&, const Quat&);
 };
 
-struct Generator : public ComponentType<Generator>
+struct Rectifier : public ComponentType<Rectifier>
 {
+	Ref<PlayerManager> owner;
 	AI::Team team;
 
-	Generator(AI::Team = AI::TeamNone);
+	Rectifier(AI::Team = AI::TeamNone, PlayerManager* = nullptr);
 
 	void killed_by(Entity*);
 	void awake();
@@ -217,7 +220,7 @@ struct Generator : public ComponentType<Generator>
 	void set_team(AI::Team);
 
 	static b8 can_see(AI::Team, const Vec3&, const Vec3&);
-	static Generator* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+	static Rectifier* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 
 	static void update_all(const Update&);
 };
@@ -265,6 +268,7 @@ struct CoreModule : public ComponentType<CoreModule>
 	AI::Team team;
 
 	void awake();
+	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 	void destroy();
 	void set_team(AI::Team);
@@ -340,7 +344,6 @@ struct ForceField : public ComponentType<ForceField>
 	ForceField();
 	void awake();
 	~ForceField();
-	void hit_by(const TargetEvent&);
 	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 	void destroy();
@@ -447,7 +450,7 @@ struct Bolt : public ComponentType<Bolt>
 		Vec3 normal;
 	};
 
-	static r32 speed(Type);
+	static r32 speed(Type, b8 = false);
 	static s16 raycast_mask(AI::Team);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void update_client_all(const Update&);
@@ -490,7 +493,7 @@ struct ParticleEffect
 		SpawnDrone,
 		SpawnMinion,
 		SpawnForceField,
-		SpawnGenerator,
+		SpawnRectifier,
 		count,
 	};
 

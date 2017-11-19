@@ -71,17 +71,17 @@ enum class DroneAllow : s8
 	All = Crawl | Shoot,
 };
 
-struct GeneratorState
+struct RectifierState
 {
 	Vec3 pos;
 	AI::Team team;
 };
 
-typedef GeneratorState ForceFieldState;
+typedef RectifierState ForceFieldState;
 
 struct NavGameState
 {
-	Array<GeneratorState> generators;
+	Array<RectifierState> rectifiers;
 	Array<ForceFieldState> force_fields;
 	void clear();
 };
@@ -189,7 +189,7 @@ namespace Worker
 
 		r32 travel_score;
 		r32 estimate_score;
-		r32 generator_score;
+		r32 rectifier_score;
 		DroneNavMeshNode parent;
 		s8 flags;
 
@@ -310,8 +310,8 @@ struct RecordedLife
 	};
 
 	static const s8 EntityNone = -1;
-	static const s8 EntityGeneratorEnemy = 0;
-	static const s8 EntityGeneratorFriend = 1;
+	static const s8 EntityRectifierEnemy = 0;
+	static const s8 EntityRectifierFriend = 1;
 	static const s8 EntityBatteryEnemy = 2;
 	static const s8 EntityBatteryFriend = 3;
 	static const s8 EntityBatteryNeutral = 4;

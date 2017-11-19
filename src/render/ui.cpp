@@ -1034,7 +1034,7 @@ b8 UI::cursor_active()
 		if (UIMenu::active[0] || Menu::dialog_active(0) || Overworld::active())
 			return true;
 
-		PlayerHuman* player = PlayerHuman::player_for_gamepad(0);
+		PlayerHuman* player = PlayerHuman::for_gamepad(0);
 		if (player)
 		{
 			PlayerHuman::UIMode mode = player->ui_mode();

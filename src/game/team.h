@@ -72,7 +72,7 @@ struct Team : public ComponentType<Team>
 		count,
 	};
 
-	struct GeneratorTrack
+	struct RectifierTrack
 	{
 		r32 timer;
 		Ref<Entity> entity;
@@ -128,7 +128,7 @@ struct Team : public ComponentType<Team>
 		return me == them ? color_friend : color_enemy;
 	}
 
-	GeneratorTrack player_tracks[MAX_PLAYERS];
+	RectifierTrack player_tracks[MAX_PLAYERS];
 	Ref<Transform> flag_base;
 	s16 kills;
 	s16 extra_drones;

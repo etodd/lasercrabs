@@ -324,7 +324,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Bolt::component_mask
 		| Grenade::component_mask
 		| Battery::component_mask
-		| Generator::component_mask
+		| Rectifier::component_mask
 		| ForceField::component_mask
 		| ForceFieldCollision::component_mask
 		| Drone::component_mask
@@ -527,6 +527,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Shield* s = e->get<Shield>();
 		serialize_ref(p, s->inner);
 		serialize_ref(p, s->outer);
+		serialize_ref(p, s->active_armor);
 	}
 
 	if (e->has<CoreModule>())
@@ -667,10 +668,11 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_ref(p, b->spawn_point);
 	}
 
-	if (e->has<Generator>())
+	if (e->has<Rectifier>())
 	{
-		Generator* s = e->get<Generator>();
+		Rectifier* s = e->get<Rectifier>();
 		serialize_s8(p, s->team);
+		serialize_ref(p, s->owner);
 	}
 
 	if (e->has<ForceField>())

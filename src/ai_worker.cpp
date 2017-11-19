@@ -120,7 +120,7 @@ struct AwayScorer : AstarScorer
 		if (v.equals(start_vertex)) // we need to go somewhere other than here
 			return false;
 
-		if (data.generator_score <= DRONE_FRIENDLY_BIAS) // inside a friendly generator zone or force field
+		if (data.rectifier_score <= DRONE_FRIENDLY_BIAS) // inside a friendly rectifier zone or force field
 			return true;
 
 		const Vec3& vertex = mesh->chunks[v.chunk].vertices[v.vertex];
@@ -204,20 +204,20 @@ b8 force_field_raycast(const NavGameState& state, Team my_team, const Vec3& a, c
 	return false;
 }
 
-r32 generator_cost(const DroneNavMesh& mesh, const NavGameState& state, Team team, const DroneNavMeshNode& node)
+r32 rectifier_cost(const DroneNavMesh& mesh, const NavGameState& state, Team team, const DroneNavMeshNode& node)
 {
 	const Vec3& pos = mesh.chunks[node.chunk].vertices[node.vertex];
 	const Vec3& normal = mesh.chunks[node.chunk].normals[node.vertex];
 	b8 in_friendly_zone = false;
 	b8 in_enemy_zone = false;
-	for (s32 i = 0; i < state.generators.length; i++)
+	for (s32 i = 0; i < state.rectifiers.length; i++)
 	{
-		Vec3 to_generator = state.generators[i].pos - pos;
-		if (to_generator.length_squared() < GENERATOR_RANGE * GENERATOR_RANGE)
+		Vec3 to_rectifier = state.rectifiers[i].pos - pos;
+		if (to_rectifier.length_squared() < RECTIFIER_RANGE * RECTIFIER_RANGE)
 		{
-			if (normal.dot(to_generator) > 0.0f)
+			if (normal.dot(to_rectifier) > 0.0f)
 			{
-				if (state.generators[i].team == team)
+				if (state.rectifiers[i].team == team)
 					in_friendly_zone = true;
 				else
 				{
@@ -228,14 +228,14 @@ r32 generator_cost(const DroneNavMesh& mesh, const NavGameState& state, Team tea
 		}
 	}
 
-	r32 generator_cost;
+	r32 rectifier_cost;
 
 	if (in_enemy_zone)
-		generator_cost = 24.0f;
+		rectifier_cost = 24.0f;
 	else if (in_friendly_zone)
-		generator_cost = 0;
+		rectifier_cost = 0;
 	else
-		generator_cost = DRONE_FRIENDLY_BIAS;
+		rectifier_cost = DRONE_FRIENDLY_BIAS;
 
 	r32 force_field_cost = DRONE_FRIENDLY_BIAS;
 
@@ -253,7 +253,7 @@ r32 generator_cost(const DroneNavMesh& mesh, const NavGameState& state, Team tea
 		}
 	}
 
-	return generator_cost + force_field_cost;
+	return rectifier_cost + force_field_cost;
 }
 
 DroneNavMeshNode drone_closest_point(const DroneNavMesh& mesh, const NavGameState& state, Team team, const Vec3& p, const Vec3& normal = Vec3::zero)
@@ -378,7 +378,7 @@ void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const D
 		DroneNavMeshNodeData* start_data = &ctx.key->get(start_vertex);
 		start_data->travel_score = 0;
 		start_data->estimate_score = scorer->score(start_pos);
-		start_data->generator_score = (ctx.flags & DroneNavFlagBias) ? generator_cost(ctx.mesh, ctx.game_state, team, start_vertex) : 0;
+		start_data->rectifier_score = (ctx.flags & DroneNavFlagBias) ? rectifier_cost(ctx.mesh, ctx.game_state, team, start_vertex) : 0;
 		start_data->parent = DRONE_NAV_MESH_NODE_NONE;
 		start_data->flags = DroneNavMeshNodeData::FlagCrawledFromParent
 			| DroneNavMeshNodeData::FlagInQueue;
@@ -446,7 +446,7 @@ void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const D
 				else
 				{
 					r32 candidate_travel_score = vertex_data->travel_score
-						+ vertex_data->generator_score
+						+ vertex_data->rectifier_score
 						+ (adjacent_pos - vertex_pos).length()
 						+ ((ctx.flags & DroneNavFlagBias) ? DRONE_PATH_BIAS : 0); // bias toward longer shots
 
@@ -477,7 +477,7 @@ void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const D
 						// totally new node, not in queue yet
 						adjacent_data->flag(DroneNavMeshNodeData::FlagCrawledFromParent, adjacency.flag(i));
 						adjacent_data->parent = vertex_node;
-						adjacent_data->generator_score = (ctx.flags & DroneNavFlagBias) ? generator_cost(ctx.mesh, ctx.game_state, team, adjacent_node) : 0;
+						adjacent_data->rectifier_score = (ctx.flags & DroneNavFlagBias) ? rectifier_cost(ctx.mesh, ctx.game_state, team, adjacent_node) : 0;
 						adjacent_data->travel_score = candidate_travel_score;
 						adjacent_data->estimate_score = scorer->score(adjacent_pos);
 						adjacent_data->flag(DroneNavMeshNodeData::FlagVisited, true);
@@ -1347,8 +1347,8 @@ void loop()
 			{
 				s32 count;
 				sync_in.read(&count);
-				nav_game_state.generators.resize(count);
-				sync_in.read(nav_game_state.generators.data, nav_game_state.generators.length);
+				nav_game_state.rectifiers.resize(count);
+				sync_in.read(nav_game_state.rectifiers.data, nav_game_state.rectifiers.length);
 				sync_in.read(&count);
 				nav_game_state.force_fields.resize(count);
 				sync_in.read(nav_game_state.force_fields.data, nav_game_state.force_fields.length);
@@ -1473,7 +1473,7 @@ void DroneNavMeshKey::reset()
 r32 DroneNavMeshKey::priority(const DroneNavMeshNode& a)
 {
 	const DroneNavMeshNodeData& data = get(a);
-	return data.travel_score + data.estimate_score + data.generator_score;
+	return data.travel_score + data.estimate_score + data.rectifier_score;
 }
 
 DroneNavMeshNodeData& DroneNavMeshKey::get(const DroneNavMeshNode& node)

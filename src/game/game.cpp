@@ -643,7 +643,7 @@ void Game::update(const Update& update_in)
 		for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		Battery::update_all(u);
-		Generator::update_all(u);
+		Rectifier::update_all(u);
 		ForceField::update_all(u);
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
@@ -751,7 +751,7 @@ void Game::add_local_player(s8 gamepad)
 		&& level.mode == Mode::Pvp
 		&& session.type == SessionType::Multiplayer
 		&& PlayerHuman::list.count() < session.config.max_players
-		&& !PlayerHuman::player_for_gamepad(gamepad)
+		&& !PlayerHuman::for_gamepad(gamepad)
 	);
 
 	remove_bots_if_necessary(1);
@@ -1044,7 +1044,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	ParticleEffect::draw_alpha(render_params);
 
-	PlayerHuman* player_human = PlayerHuman::player_for_camera(render_params.camera);
+	PlayerHuman* player_human = PlayerHuman::for_camera(render_params.camera);
 
 	if (player_human)
 	{
@@ -1196,11 +1196,7 @@ void Game::execute(const char* cmd)
 		}
 	}
 #endif
-	else if (!Settings::god_mode
-#if SERVER
-		|| true
-#endif
-		)
+	else if (!Settings::god_mode)
 	{
 		if (strcmp(cmd, "0451") == 0)
 		{
@@ -1240,6 +1236,52 @@ void Game::execute(const char* cmd)
 	{
 		Net::Client::execute(cmd);
 		return;
+	}
+	else if (strstr(cmd, "ld ") == cmd)
+	{
+		// pvp mode
+		const char* delimiter = strchr(cmd, ' ');
+		const char* level_name = delimiter + 1;
+		AssetID level = Loader::find_level(level_name);
+		if (level != AssetNull)
+		{
+			save.reset();
+			save.zone_current = level;
+			schedule_load_level(level, Mode::Pvp);
+		}
+	}
+	else if (strstr(cmd, "ldp ") == cmd)
+	{
+		// parkour mode
+		const char* delimiter = strchr(cmd, ' ');
+		if (delimiter)
+		{
+			const char* level_name = delimiter + 1;
+			AssetID level = Loader::find_level(level_name);
+			if (level != AssetNull)
+			{
+				save.reset();
+				save.zone_current = level;
+				schedule_load_level(level, Mode::Parkour);
+			}
+		}
+	}
+	else if (strstr(cmd, "resources ") == cmd)
+	{
+		const char* delimiter = strchr(cmd, ' ');
+		const char* number_string = delimiter + 1;
+		char* end;
+		r32 value = std::strtod(number_string, &end);
+		if (*end == '\0')
+		{
+			for (s32 i = 0; i < s32(Resource::ConsumableCount); i++)
+				Overworld::resource_change(Resource(i), value);
+		}
+	}
+	else if (strcmp(cmd, "abilities") == 0)
+	{
+		Game::save.resources[s32(Resource::DoubleJump)] = 1;
+		Game::save.resources[s32(Resource::ExtendedWallRun)] = 1;
 	}
 #endif
 	else if (strcmp(cmd, "killai") == 0)
@@ -1292,92 +1334,10 @@ void Game::execute(const char* cmd)
 			}
 		}
 	}
-	else if (strstr(cmd, "upgrade") == cmd)
-	{
-		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->instance.ref())
-			{
-				s16 energy = i.item()->energy;
-				i.item()->energy = 10000;
-				for (s32 upgrade = 0; upgrade < s32(Upgrade::count); upgrade++)
-				{
-					while (i.item()->upgrade_available(Upgrade(upgrade)))
-					{
-						i.item()->upgrade_start(Upgrade(upgrade));
-						i.item()->upgrade_complete();
-					}
-				}
-				i.item()->energy = energy;
-			}
-		}
-	}
-	else if (strstr(cmd, "ld ") == cmd)
-	{
-		// pvp mode
-		const char* delimiter = strchr(cmd, ' ');
-		const char* level_name = delimiter + 1;
-		AssetID level = Loader::find_level(level_name);
-		if (level != AssetNull)
-		{
-			save.reset();
-			save.zone_current = level;
-			schedule_load_level(level, Mode::Pvp);
-		}
-	}
-	else if (strstr(cmd, "ldp ") == cmd)
-	{
-		// parkour mode
-		const char* delimiter = strchr(cmd, ' ');
-		if (delimiter)
-		{
-			const char* level_name = delimiter + 1;
-			AssetID level = Loader::find_level(level_name);
-			if (level != AssetNull)
-			{
-				save.reset();
-				save.zone_current = level;
-				schedule_load_level(level, Mode::Parkour);
-			}
-		}
-	}
-	else if (strstr(cmd, "resources ") == cmd)
-	{
-		const char* delimiter = strchr(cmd, ' ');
-		const char* number_string = delimiter + 1;
-		char* end;
-		r32 value = std::strtod(number_string, &end);
-		if (*end == '\0')
-		{
-			for (s32 i = 0; i < s32(Resource::ConsumableCount); i++)
-				Overworld::resource_change(Resource(i), value);
-		}
-	}
-	else if (strstr(cmd, "capture ") == cmd)
-	{
-		const char* delimiter = strchr(cmd, ' ');
-		const char* zone_string = delimiter + 1;
-		AssetID id = Loader::find(zone_string, AssetLookup::Level::names);
-		if (Overworld::zone_is_pvp(id))
-			Overworld::zone_change(id, ZoneState::PvpFriendly);
-	}
-	else if (strcmp(cmd, "abilities") == 0)
-	{
-		Game::save.resources[s32(Resource::DoubleJump)] = 1;
-		Game::save.resources[s32(Resource::ExtendedWallRun)] = 1;
-	}
-	else if (strstr(cmd, "unlock ") == cmd)
-	{
-		const char* delimiter = strchr(cmd, ' ');
-		const char* zone_string = delimiter + 1;
-		AssetID id = Loader::find(zone_string, AssetLookup::Level::names);
-		if (Overworld::zone_is_pvp(id))
-			Overworld::zone_change(id, ZoneState::PvpHostile);
-		else
-			Overworld::zone_change(id, ZoneState::ParkourUnlocked);
-	}
+#if !SERVER
 	else
 		Overworld::execute(cmd);
+#endif
 }
 
 void Game::schedule_load_level(AssetID level_id, Mode m, r32 delay)

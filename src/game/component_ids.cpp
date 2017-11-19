@@ -47,7 +47,7 @@ COMPONENT_TYPE(24, SkinnedModel) \
 COMPONENT_TYPE(25, Bolt) \
 COMPONENT_TYPE(26, Grenade) \
 COMPONENT_TYPE(27, Battery) \
-COMPONENT_TYPE(28, Generator) \
+COMPONENT_TYPE(28, Rectifier) \
 COMPONENT_TYPE(29, ForceField) \
 COMPONENT_TYPE(30, ForceFieldCollision) \
 COMPONENT_TYPE(31, SkyDecal) \

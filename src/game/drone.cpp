@@ -396,8 +396,8 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTar
 		}
 	}
 
-	if (target_shield->has<Generator>() && result >= target_shield->get<Health>()->shield)
-		result = DRONE_SHIELD_AMOUNT + GENERATOR_HEALTH; // generators are one hit kills once the shield is down
+	if (target_shield->has<Rectifier>() && result >= target_shield->get<Health>()->shield)
+		result = DRONE_SHIELD_AMOUNT + RECTIFIER_HEALTH; // rectifiers are one hit kills once the shield is down
 	
 	return result;
 }
@@ -729,7 +729,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							&& target.ref()->get<Health>()->active_armor()
 							&& target.ref()->has<AIAgent>()
 							&& target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team)
-							drone->get<Health>()->kill(target.ref());
+							drone->get<Health>()->damage_force(target.ref(), ACTIVE_ARMOR_DIRECT_DAMAGE);
 					}
 				}
 			}
@@ -798,11 +798,11 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			switch (ability)
 			{
-				case Ability::Generator:
+				case Ability::Rectifier:
 				{
-					// place a generator
+					// place a rectifier
 					if (Game::level.local)
-						ParticleEffect::spawn(ParticleEffect::Type::SpawnGenerator, pos + rot * Vec3(0, 0, GENERATOR_RADIUS), rot, manager);
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnRectifier, pos + rot * Vec3(0, 0, RECTIFIER_RADIUS), rot, manager);
 
 					// effects
 					particle_trail(my_pos, pos);
@@ -1076,7 +1076,8 @@ void Drone::awake()
 {
 	get<Animator>()->layers[0].behavior = Animator::Behavior::Loop;
 	link_arg<Entity*, &Drone::killed>(get<Health>()->killed);
-	lerped_pos = get<Transform>()->absolute_pos();
+	get<Transform>()->absolute(&lerped_pos, &lerped_rotation);
+	update_offset();
 }
 
 Drone::State Drone::state() const
@@ -1170,7 +1171,7 @@ b8 Drone::predict_intersection(const Target* target, const Net::StateFrame* stat
 
 void Drone::killed(Entity* e)
 {
-	PlayerHuman::notification(entity(), get<AIAgent>()->team, PlayerHuman::Notification::Type::DroneDestroyed);
+	PlayerHuman::notification(get<Transform>()->absolute_pos(), get<AIAgent>()->team, PlayerHuman::Notification::Type::DroneDestroyed);
 
 	PlayerManager::entity_killed_by(entity(), e);
 
@@ -1527,7 +1528,7 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 				case Ability::ForceField:
 					required_space = FORCE_FIELD_BASE_OFFSET;
 					break;
-				case Ability::Generator:
+				case Ability::Rectifier:
 					required_space = DRONE_SHIELD_RADIUS;
 					break;
 				case Ability::Minion:
@@ -2919,12 +2920,7 @@ void Drone::update_client(const Update& u)
 			ensure_detached();
 		}
 
-		Quat rot;
-		Vec3 pos;
-		get<Transform>()->absolute(&pos, &rot);
-
-		lerped_pos = pos;
-		lerped_rotation = rot;
+		get<Transform>()->absolute(&lerped_pos, &lerped_rotation);
 		update_offset();
 	}
 }

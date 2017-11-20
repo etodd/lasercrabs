@@ -198,7 +198,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	r32 spawn_timer;
 	r32 state_timer;
 	r32 ability_purchase_times[MAX_ABILITIES];
-	s32 upgrades;
 	LinkArg<const SpawnPosition&> spawn;
 	LinkArg<Upgrade> upgrade_completed;
 	Ref<Team> team;
@@ -207,6 +206,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s16 kills;
 	s16 deaths;
 	s16 flags_captured;
+	s16 upgrades;
 	char username[MAX_USERNAME + 1]; // +1 for null terminator
 	Ability abilities[MAX_ABILITIES];
 	Upgrade current_upgrade;

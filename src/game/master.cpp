@@ -195,6 +195,26 @@ void Messenger::remove(const Sock::Address& addr)
 	sequence_ids.erase(addr.hash());
 }
 
+const char* ServerConfig::game_type_string(GameType type)
+{
+	switch (type)
+	{
+		case GameType::Deathmatch:
+			return "dm";
+			break;
+		case GameType::Assault:
+			return "as";
+			break;
+		case GameType::CaptureTheFlag:
+			return "ctf";
+			break;
+		default:
+			vi_assert(false);
+			return nullptr;
+	}
+}
+
+
 }
 
 }

@@ -556,7 +556,12 @@ namespace Master
 		}
 		config->max_players = s8(Json::get_s32(json, "max_players", defaults.max_players));
 		config->min_players = s8(Json::get_s32(json, "min_players", defaults.min_players));
-		config->time_limit_minutes = s8(Json::get_s32(json, "time_limit_minutes", defaults.time_limit_minutes));
+		for (s32 i = 0; i < s32(GameType::count); i++)
+		{
+			char key[64];
+			snprintf(key, 64, "time_limit_minutes_%s", ServerConfig::game_type_string(GameType(i)));
+			config->time_limit_minutes[i] = u8(Json::get_s32(json, key, defaults.time_limit_minutes[i]));
+		}
 		config->enable_minions = b8(Json::get_s32(json, "enable_minions", defaults.enable_minions));
 		config->enable_batteries = b8(Json::get_s32(json, "enable_batteries", defaults.enable_batteries));
 		config->enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", defaults.enable_battery_stealth));
@@ -603,8 +608,15 @@ namespace Master
 			cJSON_AddNumberToObject(json, "max_players", config.max_players);
 		if (config.min_players != defaults.min_players)
 			cJSON_AddNumberToObject(json, "min_players", config.min_players);
-		if (config.time_limit_minutes != defaults.time_limit_minutes)
-			cJSON_AddNumberToObject(json, "time_limit_minutes", config.time_limit_minutes);
+		for (s32 i = 0; i < s32(GameType::count); i++)
+		{
+			if (config.time_limit_minutes[i] != defaults.time_limit_minutes[i])
+			{
+				char key[64];
+				snprintf(key, 64, "time_limit_minutes_%s", ServerConfig::game_type_string(GameType(i)));
+				cJSON_AddNumberToObject(json, key, config.time_limit_minutes[i]);
+			}
+		}
 		if (config.enable_minions != defaults.enable_minions)
 			cJSON_AddNumberToObject(json, "enable_minions", config.enable_minions);
 		if (config.enable_batteries != defaults.enable_batteries)
@@ -1746,7 +1758,7 @@ namespace Master
 		{
 			s16 version;
 			serialize_s16(p, version);
-			if (version < GAME_VERSION)
+			if (version != GAME_VERSION)
 			{
 				using Stream = StreamWrite;
 				StreamWrite p;

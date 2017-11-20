@@ -10,6 +10,7 @@
 #include "data/json.h"
 #include "ai.h"
 #include "settings.h"
+#include "game/master.h"
 
 namespace VI
 {
@@ -1276,26 +1277,10 @@ void Loader::user_data_path(char* path, const char* filename)
 
 void Loader::ai_record_path(char* path, AssetID level, GameType type)
 {
-	const char* type_str;
-	switch (type)
-	{
-		case GameType::Deathmatch:
-			type_str = "dm";
-			break;
-		case GameType::Assault:
-			type_str = "as";
-			break;
-		case GameType::CaptureTheFlag:
-			type_str = "ctf";
-			break;
-		default:
-			vi_assert(false);
-			break;
-	}
 	char clean_level_name[MAX_PATH_LENGTH + 1];
 	strncpy(clean_level_name, level_name(level), MAX_PATH_LENGTH);
 	clean_name(clean_level_name);
-	sprintf(path, "air/%s_%s.air", clean_level_name, type_str);
+	sprintf(path, "air/%s_%s.air", clean_level_name, Net::Master::ServerConfig::game_type_string(type));
 }
 
 }

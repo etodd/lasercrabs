@@ -202,7 +202,7 @@ b8 finish_dashing(Drone* a)
 	return true;
 }
 
-b8 hit_target(Drone* a, Entity* target, Drone::HitTargetType type)
+b8 hit_target(Drone* a, Entity* target)
 {
 	using Stream = Net::StreamWrite;
 	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Drone);
@@ -218,7 +218,6 @@ b8 hit_target(Drone* a, Entity* target, Drone::HitTargetType type)
 		Ref<Entity> ref = target;
 		serialize_ref(p, ref);
 	}
-	serialize_enum(p, Drone::HitTargetType, type);
 	Net::msg_finalize(p);
 	return true;
 }
@@ -318,13 +317,10 @@ void sniper_hit_effects(const Drone::Hit& hit)
 	Audio::post_global(AK::EVENTS::PLAY_SNIPER_IMPACT, hit.pos);
 }
 
-s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTargetType type)
+s32 impact_damage(const Drone* drone, const Entity* target_shield)
 {
 	if (target_shield->has<Drone>() && target_shield->get<AIAgent>()->team == drone->get<AIAgent>()->team)
 		return 0;
-
-	if (type == Drone::HitTargetType::Repulsion)
-		return 1;
 
 	Vec3 ray_dir;
 	{
@@ -379,19 +375,21 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield, Drone::HitTar
 
 		if (drone->current_ability == Ability::Sniper)
 		{
-			if (dot < -0.95f)
+			if (dot < -0.9f)
 				result = 3;
 			else if (dot < -0.8f)
 				result = 2;
-			if (target_shield->has<Turret>())
+			if (target_shield->has<Turret>()
+				|| target_shield->has<ForceField>()
+				|| target_shield->has<ForceFieldCollision>())
 				result += 1;
 		}
 		else
 		{
 			// flying hit
-			if (dot < -0.8f && !target_shield->has<Turret>()) // no flying direct hits on turrets
+			if (dot < -0.8f)
 				result = 3;
-			else if (dot < -0.5f)
+			else
 				result = 2;
 		}
 	}
@@ -702,9 +700,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			Ref<Entity> target;
 			serialize_ref(p, target);
 
-			HitTargetType type;
-			serialize_enum(p, HitTargetType, type);
-
 			if (apply_msg)
 				client_hit_effects(drone, target.ref(), DroneHitType::Target);
 
@@ -717,7 +712,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					// we hurt them
 					if (Game::level.local) // if we're a client, this has already been handled by the server
-						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref(), type));
+						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref()));
 				}
 				else
 				{
@@ -1109,7 +1104,7 @@ Vec3 Drone::attach_point(r32 offset) const
 }
 
 // returns true if it's a valid hit
-b8 Drone::hit_target(Entity* target, HitTargetType type)
+b8 Drone::hit_target(Entity* target)
 {
 	if (target->has<ForceFieldCollision>())
 		target = target->get<ForceFieldCollision>()->field.ref()->entity();
@@ -1132,7 +1127,7 @@ b8 Drone::hit_target(Entity* target, HitTargetType type)
 		return true;
 	}
 
-	DroneNet::hit_target(this, target, type);
+	DroneNet::hit_target(this, target);
 
 	if (target->has<Target>())
 	{
@@ -1439,30 +1434,19 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 				// check actual position
 				Vec3 shield_pos = i.item()->get<Target>()->absolute_pos();
 				Vec3 intersection;
-				if (LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection, LMath::RaySphereIntersection::BackFace)
-					&& (!ray_callback.hit || (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared()))
+				if (LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection, LMath::RaySphereIntersection::BackFace))
 				{
-					ray_callback.hit = true;
-					ray_callback.pos = intersection;
-					Vec3 diff = intersection - shield_pos;
-					r32 length = diff.length();
-					if (length > 0.0f)
-						ray_callback.normal = diff / length;
-					else
-						ray_callback.normal = Vec3(0, 1, 0);
-					ray_callback.entity = i.item()->entity();
-				}
-			}
+					b8 hit = true;
+					if (ray_callback.hit)
+					{
+						// check if an existing hit is in front of this shield
+						Vec3 intersection_front;
+						LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection_front);
+						if ((ray_callback.pos - trace_start).length_squared() < (intersection_front - trace_start).length_squared())
+							hit = false;
+					}
 
-			if (type == AbilityInfo::Type::Shoot)
-			{
-				// check predicted intersection
-				Vec3 shield_pos;
-				if (predict_intersection(i.item()->get<Target>(), nullptr, &shield_pos, target_prediction_speed()))
-				{
-					Vec3 intersection;
-					if (LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection, LMath::RaySphereIntersection::BackFace)
-						&& (!ray_callback.hit || (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared()))
+					if (hit)
 					{
 						ray_callback.hit = true;
 						ray_callback.pos = intersection;
@@ -1473,6 +1457,41 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 						else
 							ray_callback.normal = Vec3(0, 1, 0);
 						ray_callback.entity = i.item()->entity();
+					}
+				}
+			}
+
+			if (type == AbilityInfo::Type::Shoot)
+			{
+				// check predicted intersection
+				Vec3 shield_pos;
+				if (predict_intersection(i.item()->get<Target>(), nullptr, &shield_pos, target_prediction_speed()))
+				{
+					Vec3 intersection;
+					if (LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection, LMath::RaySphereIntersection::BackFace))
+					{
+						b8 hit = true;
+						if (ray_callback.hit)
+						{
+							// check if an existing hit is in front of this shield
+							Vec3 intersection_front;
+							LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection_front);
+							if ((ray_callback.pos - trace_start).length_squared() < (intersection_front - trace_start).length_squared())
+								hit = false;
+						}
+
+						if (hit)
+						{
+							ray_callback.hit = true;
+							ray_callback.pos = intersection;
+							Vec3 diff = intersection - shield_pos;
+							r32 length = diff.length();
+							if (length > 0.0f)
+								ray_callback.normal = diff / length;
+							else
+								ray_callback.normal = Vec3(0, 1, 0);
+							ray_callback.entity = i.item()->entity();
+						}
 					}
 				}
 			}
@@ -2517,61 +2536,7 @@ void Drone::update_server(const Update& u)
 	State s = state();
 
 	if (s == Drone::State::Crawl)
-	{
 		cooldown = vi_max(0.0f, cooldown - u.time.delta * DRONE_COOLDOWN_SPEED);
-
-		r32 velocity_sq = velocity.length_squared();
-		b8 just_landed = u.time.total - attach_time < DRONE_REFLECTION_TIME_TOLERANCE;
-		if ((velocity_sq > 0.0f || just_landed) && !UpgradeStation::drone_inside(this))
-		{
-			// collision detection with other drones
-			Net::StateFrame* state_frame = nullptr;
-			Net::StateFrame state_frame_data;
-			if (net_state_frame(&state_frame_data))
-				state_frame = &state_frame_data;
-			AI::Team my_team = get<AIAgent>()->team;
-			Vec3 my_pos = get<Transform>()->absolute_pos();
-			for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item() == this // don't collide with self
-					|| i.item()->get<AIAgent>()->team == my_team // don't collide with teammates
-					|| UpgradeStation::drone_inside(i.item())) // ignore drones inside upgrade stations
-					continue;
-
-				Vec3 target_pos = target_position(entity(), state_frame, i.item()->get<Target>());
-				Vec3 diff = target_pos - my_pos;
-				r32 distance = diff.length_squared();
-				if (distance < (DRONE_SHIELD_RADIUS * 2.0f) * (DRONE_SHIELD_RADIUS * 2.0f))
-				{
-					b8 enemy_just_landed = u.time.total - i.item()->attach_time < DRONE_REFLECTION_TIME_TOLERANCE;
-					if ((just_landed || enemy_just_landed)
-						? (attach_time > i.item()->attach_time) // if one of us just landed, then the one that landed first takes precedence
-						: (i.item()->velocity.length_squared() <= velocity.length_squared())) // if we're both just crawling around, the faster one takes precedence
-					{
-						distance = sqrtf(distance);
-						Vec3 normal;
-						Vec3 hit;
-						if (distance == 0.0f)
-						{
-							hit = target_pos;
-							normal = Vec3(1, 0, 0);
-						}
-						else
-						{
-							diff /= distance;
-							hit = target_pos - diff * DRONE_SHIELD_RADIUS;
-							normal = -diff;
-						}
-
-						velocity = -normal;
-						hit_target(i.item()->entity(), HitTargetType::Repulsion);
-						reflect(i.item()->entity(), hit, normal, state_frame);
-						break;
-					}
-				}
-			}
-		}
-	}
 	else
 	{
 		// flying or dashing
@@ -2947,17 +2912,14 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 			switch (mode)
 			{
 				case RaycastMode::Default:
-				{
 					mask = (CollisionStatic | CollisionAllTeamsForceField) & ~ally_force_field_mask();
 					break;
-				}
 				case RaycastMode::IgnoreForceFields:
-				{
 					mask = CollisionStatic;
 					break;
-				}
 				default:
 				{
+					mask = 0;
 					vi_assert(false);
 					break;
 				}
@@ -3010,13 +2972,16 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 
 			Vec3 p = target_position(entity(), state_frame, i.item());
 
+			r32 raycast_radius = (current_ability == Ability::None && i.item()->has<Shield>()) ? DRONE_SHIELD_RADIUS : 0.0f;
 			Vec3 intersection;
-			if (LMath::ray_sphere_intersect(ray_start, ray_end, p, i.item()->radius(), &intersection))
+			if (LMath::ray_sphere_intersect(ray_start, ray_end, p, i.item()->radius() + raycast_radius, &intersection))
 			{
+				Vec3 normal = Vec3::normalize(intersection - p);
+				intersection -= normal * raycast_radius;
 				result->hits.add(
 				{
 					intersection,
-					Vec3::normalize(intersection - p),
+					normal,
 					(intersection - ray_start).length() / distance_total,
 					i.item()->entity(),
 					i.item()->has<Shield>() ? Hit::Type::Shield : Hit::Type::Target,
@@ -3063,7 +3028,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 			{
 				if (!hit.entity.ref()->get<Health>()->can_take_damage(entity())) // it's invincible; always bounce off
 					stop = true;
-				else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref(), HitTargetType::Raycast))
+				else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()))
 					stop = true; // it has health or shield to spare; we'll bounce off
 			}
 		}
@@ -3154,10 +3119,10 @@ void Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* h
 			sniper_hit_effects(hit);
 
 		if (hit.type == Hit::Type::Target)
-			hit_target(hit.entity.ref(), HitTargetType::Raycast);
+			hit_target(hit.entity.ref());
 		else if (hit.type == Hit::Type::Shield)
 		{
-			if (hit_target(hit.entity.ref(), HitTargetType::Raycast)
+			if (hit_target(hit.entity.ref())
 				&& i == hits.index_end // make sure this is the hit we thought we would stop on
 				&& s != State::Crawl) // make sure we're flying or dashing
 				reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
@@ -3169,7 +3134,7 @@ void Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* h
 		}
 		else if (hit.type == Hit::Type::ForceField)
 		{
-			hit_target(hit.entity.ref(), HitTargetType::Raycast);
+			hit_target(hit.entity.ref());
 			if (s == State::Fly)
 				reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
 		}

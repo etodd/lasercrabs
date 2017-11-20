@@ -197,7 +197,7 @@
 		"waiting_players": "Waiting for %d more players...",
 		"team_select_timer": "Team select... %d",
 		"rectifier": "Rectifier",
-		"description_rectifier": "Upgrade cost: %d    Per-use cost: %d\nRepairs nearby turrets, force fields, and minions at a cost of 2 spark per HP. Also creates a stealth field, and detects enemy drones.",
+		"description_rectifier": "Upgrade cost: %d    Per-use cost: %d\nRepairs nearby turrets, force fields, and minions at a cost of 1 spark per HP. Also creates a stealth field, and detects enemy drones.",
 		"shotgun": "Shotgun",
 		"description_shotgun": "Cost: %d\nShort-range wide-angle weapon.",
 		"sniper": "Sniper",

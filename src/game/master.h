@@ -165,6 +165,8 @@ template<typename Stream> b8 serialize_server_list_entry(Stream* p, ServerListEn
 
 struct ServerConfig
 {
+	static const char* game_type_string(GameType);
+
 	u32 id;
 	u32 creator_id;
 	StaticArray<AssetID, 32> levels;
@@ -174,15 +176,15 @@ struct ServerConfig
 	s16 allow_upgrades = s16((1 << s32(Upgrade::count)) - 1);
 	s16 start_energy = ENERGY_INITIAL;
 	s16 start_energy_attacker = ENERGY_INITIAL_ATTACKER;
-	GameType game_type = GameType::Assault;
 	StaticArray<Upgrade, MAX_ABILITIES> start_upgrades;
+	GameType game_type = GameType::Assault;
+	Region region;
 	s8 max_players = 1;
 	s8 min_players = 1;
 	s8 team_count = 2;
 	s8 drone_shield = DRONE_SHIELD_AMOUNT;
 	s8 fill_bots; // if = 0, no bots. if > 0, total number of desired players including bots is fill_bots + 1
-	Region region;
-	u8 time_limit_minutes = DEFAULT_TIME_LIMIT_MINUTES;
+	u8 time_limit_minutes[s32(GameType::count)] = { 6, 10, 10 }; // Assault, Deathmatch, CaptureTheFlag
 	u8 cooldown_speed_index = 4; // multiply by 0.25 to get actual value
 	char name[MAX_SERVER_CONFIG_NAME + 1];
 	b8 enable_minions = true;
@@ -198,7 +200,7 @@ struct ServerConfig
 
 	r32 time_limit() const
 	{
-		return r32(time_limit_minutes) * 60.0f;
+		return r32(time_limit_minutes[s32(game_type)]) * 60.0f;
 	}
 };
 
@@ -235,7 +237,8 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		serialize_int(p, u16, c->start_upgrades.length, 0, c->start_upgrades.capacity());
 		for (s32 i = 0; i < c->start_upgrades.length; i++)
 			serialize_enum(p, Upgrade, c->start_upgrades[i]);
-		serialize_int(p, u8, c->time_limit_minutes, 1, 254);
+		for (s32 i = 0; i < s32(GameType::count); i++)
+			serialize_int(p, u8, c->time_limit_minutes[i], 1, 254);
 		serialize_int(p, u8, c->cooldown_speed_index, 1, COOLDOWN_SPEED_MAX_INDEX);
 		s32 name_length;
 		if (Stream::IsWriting)

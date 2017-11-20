@@ -710,7 +710,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				{
 					// time limit
-					u8* time_limit = &config->time_limit_minutes;
+					u8* time_limit = &config->time_limit_minutes[s32(config->game_type)];
 					sprintf(str, _(strings::timer), s32(*time_limit), 0);
 					delta = menu->slider_item(u, _(strings::time_limit), str);
 					*time_limit = vi_max(1, vi_min(254, s32(*time_limit) + delta * (*time_limit >= (delta > 0 ? 10 : 11) ? 5 : 1)));
@@ -1685,7 +1685,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			// time limit
 			text.text(0, _(strings::time_limit));
 			text.draw(params, pos);
-			value.text(0, "%d:00", s32(details.config.time_limit_minutes));
+			value.text(0, "%d:00", s32(details.config.time_limit_minutes[s32(details.config.game_type)]));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 

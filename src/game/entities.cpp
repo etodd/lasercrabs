@@ -1468,10 +1468,15 @@ namespace FlagNet
 			serialize_ref(p, ref_flag);
 		}
 		serialize_enum(p, Flag::StateChange, change);
+
 		{
 			Ref<Entity> ref = param;
 			serialize_ref(p, ref);
 		}
+
+		if (change == Flag::StateChange::Dropped)
+			serialize_r32_range(p, flag->timer, 0.0f, FLAG_RESTORE_TIME, 16);
+
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -1487,6 +1492,9 @@ b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	serialize_enum(p, StateChange, change);
 	Ref<Entity> param;
 	serialize_ref(p, param);
+	r32 timer = 0.0f;
+	if (change == StateChange::Dropped)
+		serialize_r32_range(p, timer, 0.0f, FLAG_RESTORE_TIME, 16);
 	if (ref.ref() && (Game::level.local == (src == Net::MessageSource::Loopback)))
 	{
 		Flag* flag = ref.ref();
@@ -1506,7 +1514,6 @@ b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						param.ref()->get<Drone>()->ability(Ability::None);
 				}
 				flag->at_base = false;
-				flag->timer = FLAG_RESTORE_TIME;
 				flag->get<View>()->mask = 0;
 
 				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_LOST);
@@ -1522,8 +1529,9 @@ b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			case StateChange::Dropped:
 			{
 				flag->at_base = false;
-				flag->timer = FLAG_RESTORE_TIME;
 				flag->get<View>()->mask = RENDER_MASK_DEFAULT;
+				vi_debug("Flag dropped. Current timer: %f New timer: %f", flag->timer, timer);
+				flag->timer = timer;
 
 				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_UNDER_ATTACK);
 
@@ -1540,6 +1548,7 @@ b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				// param = PlayerManager who scored
 				flag->at_base = true;
 				flag->get<View>()->mask = RENDER_MASK_DEFAULT;
+				flag->timer = FLAG_RESTORE_TIME;
 
 				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_LOST);
 
@@ -1558,6 +1567,7 @@ b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			{
 				flag->at_base = true;
 				flag->get<View>()->mask = RENDER_MASK_DEFAULT;
+				flag->timer = FLAG_RESTORE_TIME;
 
 				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_UNDER_ATTACK);
 
@@ -1612,14 +1622,13 @@ Flag* Flag::for_team(AI::Team t)
 	return nullptr;
 }
 
-void flag_build_force_field(Flag* flag)
+void flag_build_force_field(Transform* flag, AI::Team team)
 {
 	Vec3 abs_pos;
 	Quat abs_rot;
-	flag->get<Transform>()->absolute(&abs_pos, &abs_rot);
+	flag->absolute(&abs_pos, &abs_rot);
 
-	abs_rot = abs_rot * Quat::euler(0, 0, PI * -0.5f);
-	ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, abs_pos + abs_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), abs_rot, nullptr, flag->team);
+	ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, abs_pos + abs_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), abs_rot, nullptr, team);
 }
 
 void Flag::update_server(const Update& u)
@@ -1629,6 +1638,7 @@ void Flag::update_server(const Update& u)
 	if (get<Transform>()->parent.ref())
 	{
 		// we're being carried
+		timer = vi_min(FLAG_RESTORE_TIME, timer + u.time.delta);
 		for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->team() != team
@@ -1643,7 +1653,7 @@ void Flag::update_server(const Update& u)
 				get<Transform>()->parent = nullptr;
 				get<Transform>()->pos = pos_cached = Team::list[team].flag_base.ref()->absolute_pos();
 
-				flag_build_force_field(this);
+				flag_build_force_field(Team::list[team].flag_base.ref(), team);
 				break;
 			}
 		}
@@ -1658,7 +1668,7 @@ void Flag::update_server(const Update& u)
 			{
 				FlagNet::state_change(this, StateChange::Restored);
 				get<Transform>()->pos = pos_cached = Team::list[team].flag_base.ref()->absolute_pos();
-				flag_build_force_field(this);
+				flag_build_force_field(Team::list[team].flag_base.ref(), team);
 			}
 		}
 	}
@@ -1685,18 +1695,11 @@ FlagEntity::FlagEntity(AI::Team team)
 	Flag* flag = create<Flag>();
 	flag->team = team;
 	flag->at_base = true;
-
-	{
-		Vec3 abs_pos;
-		Quat abs_rot;
-		flag->get<Transform>()->absolute(&abs_pos, &abs_rot);
-
-		abs_rot = abs_rot * Quat::euler(0, 0, PI * -0.5f);
-		abs_pos += abs_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
-		Net::finalize_child(World::create<ForceFieldEntity>(nullptr, abs_pos, abs_rot, flag->team, ForceField::Type::Normal));
-	}
+	flag->timer = FLAG_RESTORE_TIME;
 
 	create<Target>();
+
+	flag_build_force_field(Team::list[team].flag_base.ref(), team);
 }
 
 CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3& pos, const Quat& rot)

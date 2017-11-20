@@ -1151,7 +1151,10 @@ void PlayerHuman::update(const Update& u)
 				// upgrade menu
 				if (!UpgradeStation::drone_inside(entity->get<Drone>())) // we got kicked out of the upgrade station; probably by the server
 					upgrade_menu_hide();
-				else if (!Game::cancel_event_eaten[gamepad] && u.last_input->get(Controls::Cancel, gamepad) && !u.input->get(Controls::Cancel, gamepad))
+				else if (chat_focus == ChatFocus::None
+					&& !Menu::dialog_active(gamepad)
+					&& !Game::cancel_event_eaten[gamepad]
+					&& u.last_input->get(Controls::Cancel, gamepad) && !u.input->get(Controls::Cancel, gamepad))
 				{
 					Game::cancel_event_eaten[gamepad] = true;
 					upgrade_menu_hide();
@@ -4385,6 +4388,10 @@ void PlayerControlHuman::update(const Update& u)
 				Vec3 me = get<Transform>()->absolute_pos();
 				Vec3 trace_start = camera->pos + trace_dir * trace_dir.dot(me - camera->pos);
 
+				Ability ability = get<Drone>()->current_ability;
+				
+				r32 raycast_radius = ability == Ability::None ? DRONE_SHIELD_RADIUS : 0.0f;
+
 				reticle.type = ReticleType::None;
 
 				if (movement_enabled() && trace_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1)) > -0.9f)
@@ -4419,19 +4426,29 @@ void PlayerControlHuman::update(const Update& u)
 							{
 								Vec3 shield_pos = i.item()->get<Target>()->absolute_pos();
 								Vec3 intersection;
-								if (LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection, LMath::RaySphereIntersection::BackFace)
-									&& (!ray_callback.hit || (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared()))
+								if (LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS + raycast_radius, &intersection, LMath::RaySphereIntersection::BackFace))
 								{
-									ray_callback.hit = true;
-									ray_callback.pos = intersection;
-									ray_callback.normal = Vec3::normalize(shield_pos - intersection);
-									ray_callback.entity = i.item()->entity();
+									b8 hit = true;
+									if (ray_callback.hit)
+									{
+										// check if an existing hit is in front of this shield
+										Vec3 intersection_front;
+										LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS + raycast_radius, &intersection_front);
+										if ((ray_callback.pos - trace_start).length_squared() < (intersection_front - trace_start).length_squared())
+											hit = false;
+									}
+
+									if (hit)
+									{
+										ray_callback.hit = true;
+										ray_callback.normal = Vec3::normalize(shield_pos - intersection);
+										ray_callback.pos = intersection;
+										ray_callback.entity = i.item()->entity();
+									}
 								}
 							}
 						}
 					}
-
-					Ability ability = get<Drone>()->current_ability;
 
 					if (ability == Ability::None || AbilityInfo::list[s32(ability)].type == AbilityInfo::Type::Shoot)
 					{
@@ -4441,13 +4458,25 @@ void PlayerControlHuman::update(const Update& u)
 							const TargetIndicator& indicator = target_indicators[i];
 							Vec3 intersection;
 							if (indicator.type == TargetIndicator::Type::DroneVisible
-								&& LMath::ray_sphere_intersect(trace_start, trace_end, indicator.pos, DRONE_SHIELD_RADIUS, &intersection, LMath::RaySphereIntersection::BackFace)
-								&& (!ray_callback.hit || (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared()))
+								&& LMath::ray_sphere_intersect(trace_start, trace_end, indicator.pos, DRONE_SHIELD_RADIUS + raycast_radius, &intersection, LMath::RaySphereIntersection::BackFace))
 							{
-								ray_callback.hit = true;
-								ray_callback.pos = intersection;
-								ray_callback.normal = Vec3::normalize(indicator.pos - intersection);
-								ray_callback.entity = indicator.target.ref()->entity();
+								b8 hit = true;
+								if (ray_callback.hit)
+								{
+									// check if an existing hit is in front of this shield
+									Vec3 intersection_front;
+									LMath::ray_sphere_intersect(trace_start, trace_end, indicator.pos, DRONE_SHIELD_RADIUS + raycast_radius, &intersection_front);
+									if ((ray_callback.pos - trace_start).length_squared() < (intersection_front - trace_start).length_squared())
+										hit = false;
+								}
+
+								if (hit)
+								{
+									ray_callback.hit = true;
+									ray_callback.normal = Vec3::normalize(indicator.pos - intersection);
+									ray_callback.pos = intersection;
+									ray_callback.entity = indicator.target.ref()->entity();
+								}
 							}
 						}
 					}

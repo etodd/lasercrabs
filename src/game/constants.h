@@ -11,7 +11,7 @@
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 12
+#define GAME_VERSION 13
 
 #define STEAM_APP_ID 728100
 
@@ -20,7 +20,6 @@
 #define MAX_BONES 72
 
 #define MAX_AUDIO_EVENT_NAME 63
-#define DEFAULT_TIME_LIMIT_MINUTES 6
 
 #define VOLUME_MULTIPLIER 0.01f
 
@@ -144,7 +143,7 @@
 #define TURRET_COOLDOWN 1.5f
 #define TURRET_TARGET_CHECK_TIME 0.75f
 
-#define FLAG_RESTORE_TIME 30.0f
+#define FLAG_RESTORE_TIME 25.0f
 
 #define MINION_HEAD_RADIUS 0.35f
 #define MINION_ATTACK_TIME 2.0f
@@ -154,7 +153,7 @@
 #define MINION_HEALTH 6
 
 #define RECTIFIER_HEAL_INTERVAL 3.0f
-#define RECTIFIER_HEAL_COST 2
+#define RECTIFIER_HEAL_COST 1
 #define RECTIFIER_LINGER_TIME 3.0f
 #define RECTIFIER_TRACK_TIME 1.5f
 #define RECTIFIER_RANGE 11.0f

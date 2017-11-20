@@ -10,6 +10,7 @@
 #include "asset/Wwise_IDs.h"
 #include "game/audio.h"
 #include "settings.h"
+#include "render/particles.h"
 
 namespace VI
 {
@@ -978,7 +979,7 @@ void Water::draw_opaque(const RenderParams& params, const Config& cfg, const Vec
 	sync->write(Asset::Uniform::time);
 	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
-	sync->write<r32>(Game::time.total);
+	sync->write<r32>(ParticleSystem::time);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::displacement);
@@ -1042,7 +1043,7 @@ void Water::draw_hollow(const RenderParams& params, const Config& cfg, const Vec
 	sync->write(Asset::Uniform::time);
 	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
-	sync->write<r32>(Game::time.total);
+	sync->write<r32>(ParticleSystem::time);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::displacement);

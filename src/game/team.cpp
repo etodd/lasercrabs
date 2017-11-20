@@ -102,11 +102,11 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		2.0f,
 		Asset::Mesh::icon_rectifier,
-		30,
+		40,
 		Type::Build,
 	},
 	{
-		2.0f,
+		1.5f,
 		Asset::Mesh::icon_minion,
 		25,
 		Type::Build,
@@ -1155,7 +1155,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	: spawn_timer((Game::session.type == SessionType::Story && team->team() == 1) ? 0 : SPAWN_DELAY), // defenders in story mode get to spawn instantly
 	score_accepted(Team::match_state == Team::MatchState::Done),
 	team(team),
-	upgrades(0),
+	upgrades(),
 	abilities{ Ability::None, Ability::None },
 	instance(),
 	spawn(),
@@ -1166,7 +1166,9 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	energy(team->initial_energy()),
 	kills(),
 	deaths(),
+	flags_captured(),
 	ability_purchase_times(),
+	current_upgrade_ability_slot(),
 	team_scheduled(AI::TeamNone),
 	is_admin()
 {

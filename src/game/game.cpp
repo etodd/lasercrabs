@@ -1803,8 +1803,9 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		else if (cJSON_HasObjectItem(element, "SpawnPoint"))
 		{
 			AI::Team team = AI::Team(Json::get_s32(element, "team"));
-			if (session.config.enable_batteries
-				|| (cJSON_HasObjectItem(element, "team") && Team::list.count() > s32(team)))
+			b8 is_team_spawn = cJSON_HasObjectItem(element, "team");
+			if ((is_team_spawn && Team::list.count() > s32(team))
+				|| (!is_team_spawn && session.config.enable_batteries))
 				entity = World::alloc<SpawnPointEntity>(team, Json::get_s32(element, "visible", 1));
 			else
 				entity = World::alloc<StaticGeom>(Asset::Mesh::spawn_collision, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);

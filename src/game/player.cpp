@@ -4406,23 +4406,27 @@ void PlayerControlHuman::update(const Update& u)
 						b8 hit;
 					};
 
-					RayHit ray_callback;
+					RayHit static_ray_callback; // fallback raycast result; only tests against level geometry
+					RayHit ray_callback; // could be level geometry or a target
 
 					{
-						RaycastCallbackExcept physics_ray_callback(trace_start, trace_end, entity());
-						reticle_raycast(&physics_ray_callback);
+						{
+							RaycastCallbackExcept bullet_ray_callback(trace_start, trace_end, entity());
+							reticle_raycast(&bullet_ray_callback);
 
-						ray_callback.hit = physics_ray_callback.hasHit();
-						ray_callback.pos = physics_ray_callback.m_hitPointWorld;
-						ray_callback.normal = physics_ray_callback.m_hitNormalWorld;
-						if (ray_callback.hit)
-							ray_callback.entity = &Entity::list[physics_ray_callback.m_collisionObject->getUserIndex()];
+							ray_callback.hit = bullet_ray_callback.hasHit();
+							ray_callback.pos = bullet_ray_callback.m_hitPointWorld;
+							ray_callback.normal = bullet_ray_callback.m_hitNormalWorld;
+							if (ray_callback.hit)
+								ray_callback.entity = &Entity::list[bullet_ray_callback.m_collisionObject->getUserIndex()];
+
+							static_ray_callback = ray_callback;
+						}
 
 						// check shields
 						for (auto i = Shield::list.iterator(); !i.is_last(); i.next())
 						{
-							if (i.item()->entity() != entity()
-								&& (!i.item()->has<Drone>() || !UpgradeStation::drone_inside(i.item()->get<Drone>())))
+							if (get<Drone>()->should_collide(i.item()->get<Target>()))
 							{
 								Vec3 shield_pos = i.item()->get<Target>()->absolute_pos();
 								Vec3 intersection;
@@ -4497,7 +4501,7 @@ void PlayerControlHuman::update(const Update& u)
 							{
 								if (hit_target)
 									reticle.type = ReticleType::Target;
-								else if ((hit - me).length() > distance - DRONE_RADIUS)
+								else if ((hit - me).length() > (static_ray_callback.pos - me).length() - DRONE_RADIUS)
 									reticle.type = ReticleType::Normal;
 							}
 							else if (get<Drone>()->direction_is_toward_attached_wall(detach_dir))

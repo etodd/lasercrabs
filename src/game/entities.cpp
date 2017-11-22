@@ -1631,6 +1631,17 @@ void flag_build_force_field(Transform* flag, AI::Team team)
 	ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, abs_pos + abs_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), abs_rot, nullptr, team);
 }
 
+#define FLAG_RADIUS 0.2f
+
+Vec3 flag_base_pos(Transform* flag_base)
+{
+	Vec3 pos;
+	Quat rot;
+	flag_base->absolute(&pos, &rot);
+	pos += rot * Vec3(0, 0, FLAG_RADIUS);
+	return pos;
+}
+
 void Flag::update_server(const Update& u)
 {
 	pos_cached = get<Transform>()->absolute_pos();
@@ -1651,7 +1662,7 @@ void Flag::update_server(const Update& u)
 
 				FlagNet::state_change(this, StateChange::Scored, player->entity());
 				get<Transform>()->parent = nullptr;
-				get<Transform>()->pos = pos_cached = Team::list[team].flag_base.ref()->absolute_pos();
+				get<Transform>()->pos = pos_cached = flag_base_pos(Team::list[team].flag_base.ref());
 
 				flag_build_force_field(Team::list[team].flag_base.ref(), team);
 				break;
@@ -1667,7 +1678,7 @@ void Flag::update_server(const Update& u)
 			if (timer == 0.0f)
 			{
 				FlagNet::state_change(this, StateChange::Restored);
-				get<Transform>()->pos = pos_cached = Team::list[team].flag_base.ref()->absolute_pos();
+				get<Transform>()->pos = pos_cached = flag_base_pos(Team::list[team].flag_base.ref());
 				flag_build_force_field(Team::list[team].flag_base.ref(), team);
 			}
 		}
@@ -1682,13 +1693,13 @@ void Flag::update_client_only(const Update& u)
 
 FlagEntity::FlagEntity(AI::Team team)
 {
-	create<Transform>()->absolute_pos(Team::list[team].flag_base.ref()->absolute_pos());
+	create<Transform>()->absolute_pos(flag_base_pos(Team::list[team].flag_base.ref()));
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::sphere;
 	model->shader = Asset::Shader::standard;
 	model->team = s8(team);
-	model->offset.scale(Vec3(0.2f));
+	model->offset.scale(Vec3(FLAG_RADIUS));
 
 	create<PlayerTrigger>()->radius = DRONE_SHIELD_RADIUS + 0.2f;
 

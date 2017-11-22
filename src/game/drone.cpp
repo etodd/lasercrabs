@@ -621,7 +621,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				drone->dash_combo = false;
 				drone->dash_timer = 0.0f;
 				drone->velocity = dir * DRONE_FLY_SPEED;
-				drone->rotation_clamp_vector = dir;
 
 				drone->detaching.fire();
 				drone->get<Transform>()->absolute_pos(drone->get<Transform>()->absolute_pos() + dir * DRONE_RADIUS * 0.5f);
@@ -688,8 +687,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (apply_msg)
 			{
 				drone->finish_flying_dashing_common();
-
-				drone->rotation_clamp_vector = drone->get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 
 				drone->done_flying.fire();
 			}
@@ -807,7 +804,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				case Ability::Minion:
 				{
 					// spawn a minion
-					Vec3 forward = rot * Vec3(0, 0, 1.0f);
+					Vec3 forward = rot * Vec3(0, 0, MINION_SPAWN_HEIGHT);
 					Vec3 npos = pos + forward;
 					forward.y = 0.0f;
 
@@ -829,7 +826,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							else
 								angle = 0.0f;
 						}
-						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, npos + Vec3(0, -1, 0), Quat::euler(0, angle, 0), manager);
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, npos + Vec3(0, -MINION_SPAWN_HEIGHT, 0), Quat::euler(0, angle, 0), manager);
 					}
 
 					// effects
@@ -1041,7 +1038,6 @@ Drone::Drone()
 	dash_timer(),
 	bolter_last_fired(),
 	dash_combo(),
-	rotation_clamp_vector(0, 1, 0),
 	attach_time(Game::time.total),
 	footing(),
 	last_footstep(),
@@ -1054,7 +1050,11 @@ Drone::Drone()
 	ability_spawned(),
 	dash_target(),
 	reflections(),
-	flag()
+	flag(),
+	lerped_rotation(),
+	lerped_pos(),
+	last_pos(),
+	hit()
 {
 }
 
@@ -1339,7 +1339,7 @@ b8 Drone::could_shoot(const Vec3& trace_start, const Vec3& dir, Vec3* final_pos,
 				if (predict_intersection(i.item()->get<Target>(), state_frame, &intersection, target_prediction_speed()))
 				{
 					if ((intersection - trace_start).length_squared() <= end_distance_sq
-						&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, DRONE_SHIELD_RADIUS))
+						&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, DRONE_SHIELD_RADIUS * 2.0f))
 					{
 						allow_further_end = true;
 						hit_target_value = true;
@@ -1424,33 +1424,44 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 		}
 	}
 
-	// check shields
-	for (auto i = Shield::list.iterator(); !i.is_last(); i.next())
+	// check targets
+	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->entity() != entity()
-			&& (!i.item()->has<Drone>() || !UpgradeStation::drone_inside(i.item()->get<Drone>())))
+		if (should_collide(i.item())
+			|| i.item()->has<Minion>()) // raycast against friendly minions so we can easily spawn minions next to each other
 		{
 			{
 				// check actual position
-				Vec3 shield_pos = i.item()->get<Target>()->absolute_pos();
+				Vec3 target_pos = i.item()->absolute_pos();
 				Vec3 intersection;
-				if (LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection, LMath::RaySphereIntersection::BackFace))
+				if (LMath::ray_sphere_intersect(trace_start, trace_end, target_pos, i.item()->radius(), &intersection)
+					&& (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared())
 				{
-					b8 hit = true;
-					if (ray_callback.hit)
-					{
-						// check if an existing hit is in front of this shield
-						Vec3 intersection_front;
-						LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection_front);
-						if ((ray_callback.pos - trace_start).length_squared() < (intersection_front - trace_start).length_squared())
-							hit = false;
-					}
+					ray_callback.hit = true;
+					ray_callback.pos = intersection;
+					Vec3 diff = intersection - target_pos;
+					r32 length = diff.length();
+					if (length > 0.0f)
+						ray_callback.normal = diff / length;
+					else
+						ray_callback.normal = Vec3(0, 1, 0);
+					ray_callback.entity = i.item()->entity();
+				}
+			}
 
-					if (hit)
+			if (type == AbilityInfo::Type::Shoot)
+			{
+				// check predicted intersection
+				Vec3 target_pos;
+				if (predict_intersection(i.item()->get<Target>(), nullptr, &target_pos, target_prediction_speed()))
+				{
+					Vec3 intersection;
+					if (LMath::ray_sphere_intersect(trace_start, trace_end, target_pos, i.item()->radius(), &intersection)
+						&& (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared())
 					{
 						ray_callback.hit = true;
 						ray_callback.pos = intersection;
-						Vec3 diff = intersection - shield_pos;
+						Vec3 diff = intersection - target_pos;
 						r32 length = diff.length();
 						if (length > 0.0f)
 							ray_callback.normal = diff / length;
@@ -1460,46 +1471,14 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 					}
 				}
 			}
-
-			if (type == AbilityInfo::Type::Shoot)
-			{
-				// check predicted intersection
-				Vec3 shield_pos;
-				if (predict_intersection(i.item()->get<Target>(), nullptr, &shield_pos, target_prediction_speed()))
-				{
-					Vec3 intersection;
-					if (LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection, LMath::RaySphereIntersection::BackFace))
-					{
-						b8 hit = true;
-						if (ray_callback.hit)
-						{
-							// check if an existing hit is in front of this shield
-							Vec3 intersection_front;
-							LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS, &intersection_front);
-							if ((ray_callback.pos - trace_start).length_squared() < (intersection_front - trace_start).length_squared())
-								hit = false;
-						}
-
-						if (hit)
-						{
-							ray_callback.hit = true;
-							ray_callback.pos = intersection;
-							Vec3 diff = intersection - shield_pos;
-							r32 length = diff.length();
-							if (length > 0.0f)
-								ray_callback.normal = diff / length;
-							else
-								ray_callback.normal = Vec3(0, 1, 0);
-							ray_callback.entity = i.item()->entity();
-						}
-					}
-				}
-			}
 		}
 	}
 
 	if (ray_callback.hit)
 	{
+		if (ray_callback.entity->has<Minion>()) // allow minions to be built next to each other easily
+			ray_callback.normal = -trace_dir;
+
 		if (final_pos)
 			*final_pos = ray_callback.pos;
 		if (final_normal)
@@ -1527,8 +1506,8 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	{
 		// build-type ability
 		if (ray_callback.hit
-			&& !ray_callback.entity->has<Target>()
-			&& !(ray_callback.entity->get<RigidBody>()->collision_group & DRONE_INACCESSIBLE_MASK))
+			&& (a == Ability::Minion // minions can spawn on Targets because they don't attach to the target
+				|| (!ray_callback.entity->has<Target>() && !(ray_callback.entity->get<RigidBody>()->collision_group & DRONE_INACCESSIBLE_MASK))))
 		{
 			if (a != Ability::Minion) // minions can be built inside invincible force fields
 			{
@@ -1552,8 +1531,8 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 					break;
 				case Ability::Minion:
 				{
-					space_check_pos += ray_callback.normal;
-					space_check_pos.y -= 1.0f;
+					space_check_pos += ray_callback.normal * MINION_SPAWN_HEIGHT;
+					space_check_pos.y -= MINION_SPAWN_HEIGHT;
 					space_check_dir = Vec3(0, 1, 0);
 					required_space = WALKER_SUPPORT_HEIGHT + WALKER_HEIGHT + (WALKER_MINION_RADIUS * 2.0f);
 					break;
@@ -1950,7 +1929,6 @@ void drone_reflection_execute(Drone* d)
 	e.new_velocity = reflection.dir * DRONE_FLY_SPEED;
 	d->reflecting.fire(e);
 
-	d->rotation_clamp_vector = reflection.dir;
 	d->get<Transform>()->rot = Quat::look(reflection.dir);
 	d->velocity = e.new_velocity;
 
@@ -2647,11 +2625,7 @@ b8 Drone::bolter_can_fire() const
 
 Vec3 Drone::rotation_clamp() const
 {
-	r32 length = rotation_clamp_vector.length();
-	if (length > 0.0f)
-		return rotation_clamp_vector / length;
-	else
-		return lerped_rotation * Vec3(0, 0, 1);
+	return lerped_rotation * Vec3(0, 0, 1);
 }
 
 Vec3 Drone::camera_center() const
@@ -2688,14 +2662,6 @@ void Drone::update_client(const Update& u)
 	if (s == Drone::State::Crawl)
 	{
 		// crawling
-
-		// rotation clamp
-		{
-			Vec3 target = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
-			r32 distance = (target - rotation_clamp_vector).length();
-			if (distance > 0.0f)
-				rotation_clamp_vector = Vec3::lerp(vi_min(1.0f, (6.0f / distance) * u.time.delta), rotation_clamp_vector, target);
-		}
 
 		if (!get<AIAgent>()->stealth)
 			get<SkinnedModel>()->alpha_if_obstructing();
@@ -2900,6 +2866,16 @@ s32 Drone::Hit::Comparator::compare(const Hit& a, const Hit& b)
 		return -1;
 }
 
+b8 Drone::should_collide(const Target* target) const
+{
+	AI::Team my_team = get<AIAgent>()->team;
+	return target != get<Target>() // don't collide with self
+		&& (!target->has<Drone>() || !UpgradeStation::drone_inside(target->get<Drone>())) // ignore drones inside upgrade stations
+		&& (!target->has<ForceField>() || target->get<ForceField>()->team != my_team) // ignore friendly force fields
+		&& (!target->has<Minion>() || target->get<AIAgent>()->team != my_team) // ignore friendly minions
+		&& (!target->has<Grenade>() || target->get<Grenade>()->team() != my_team || current_ability == Ability::Sniper); // ignore friendly grenades unless we're sniping them
+}
+
 void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, const Net::StateFrame* state_frame, Hits* result, s32 recursion_level, Entity* ignore) const
 {
 	r32 distance_total = (ray_end - ray_start).length();
@@ -2962,12 +2938,8 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 		AI::Team my_team = get<AIAgent>()->team;
 		for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item() == get<Target>() // don't collide with self
-				|| i.item()->entity() == ignore // don't collide with ignored entity
-				|| (i.item()->has<Drone>() && UpgradeStation::drone_inside(i.item()->get<Drone>())) // ignore drones inside upgrade stations
-				|| (i.item()->has<ForceField>() && i.item()->get<ForceField>()->team == my_team) // ignore friendly force fields
-				|| (i.item()->has<Minion>() && i.item()->get<AIAgent>()->team == my_team) // ignore friendly minions
-				|| (current_ability != Ability::Sniper && i.item()->has<Grenade>() && i.item()->get<Grenade>()->team() == my_team)) // ignore friendly grenades unless we're sniping them
+			if (i.item()->entity() == ignore // don't collide with ignored entity
+				|| !should_collide(i.item()))
 				continue;
 
 			Vec3 p = target_position(entity(), state_frame, i.item());

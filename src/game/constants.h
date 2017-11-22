@@ -11,7 +11,7 @@
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 13
+#define GAME_VERSION 14
 
 #define STEAM_APP_ID 728100
 
@@ -170,6 +170,8 @@
 #define GRENADE_RADIUS 0.125f
 #define GRENADE_RANGE 12.0f
 #define GRENADE_DELAY 2.0f
+
+#define MINION_SPAWN_HEIGHT 0.5f
 
 #define BOLT_SPEED_MINION 12.0f
 #define BOLT_SPEED_TURRET 12.0f

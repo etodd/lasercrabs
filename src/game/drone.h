@@ -118,7 +118,6 @@ struct Drone : public ComponentType<Drone>
 	Vec3 lerped_pos;
 	Vec3 last_pos;
 	Vec3 dash_target;
-	Vec3 rotation_clamp_vector;
 	r32 attach_time;
 	r32 cooldown; // remaining cooldown time
 	r32 cooldown_last_local_change;
@@ -190,6 +189,7 @@ struct Drone : public ComponentType<Drone>
 	b8 go(const Vec3&);
 
 	b8 direction_is_toward_attached_wall(const Vec3&) const;
+	b8 should_collide(const Target*) const;
 	b8 can_shoot(const Vec3&, Vec3* = nullptr, b8* = nullptr, const Net::StateFrame* = nullptr) const;
 	b8 can_shoot(const Target*, Vec3* = nullptr, r32 = DRONE_FLY_SPEED, const Net::StateFrame* = nullptr) const;
 	b8 could_shoot(const Vec3&, const Vec3&, Vec3* = nullptr, Vec3* = nullptr, b8* = nullptr, const Net::StateFrame* = nullptr) const;

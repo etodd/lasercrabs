@@ -731,10 +731,12 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		{
 			Ability ability;
 			serialize_int(p, Ability, ability, 0, s32(Ability::count) + 1); // must be +1 for Ability::None
-			if (apply_msg && (ability == Ability::None || AbilityInfo::list[s32(ability)].type != AbilityInfo::Type::Other))
+			if (apply_msg)
 			{
-				drone->current_ability = ability;
-				drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_WEAPON_EQUIP);
+				const AbilityInfo& info = AbilityInfo::list[s32(ability)];
+				drone->get<Audio>()->post(info.equip_sound);
+				if (ability == Ability::None || info.type != AbilityInfo::Type::Other)
+					drone->current_ability = ability;
 			}
 			break;
 		}
@@ -1434,7 +1436,8 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 				// check actual position
 				Vec3 target_pos = i.item()->absolute_pos();
 				Vec3 intersection;
-				if (LMath::ray_sphere_intersect(trace_start, trace_end, target_pos, i.item()->radius(), &intersection)
+				r32 radius = i.item()->radius() + (a == Ability::Minion ? WALKER_MINION_RADIUS : 0.0f);
+				if (LMath::ray_sphere_intersect(trace_start, trace_end, target_pos, radius, &intersection)
 					&& (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared())
 				{
 					ray_callback.hit = true;
@@ -1476,7 +1479,7 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 
 	if (ray_callback.hit)
 	{
-		if (ray_callback.entity->has<Minion>()) // allow minions to be built next to each other easily
+		if (a == Ability::Minion && ray_callback.entity->has<Target>()) // allow minions to be built next to each other easily
 			ray_callback.normal = -trace_dir;
 
 		if (final_pos)

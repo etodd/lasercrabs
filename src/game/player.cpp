@@ -4390,7 +4390,9 @@ void PlayerControlHuman::update(const Update& u)
 
 				Ability ability = get<Drone>()->current_ability;
 				
-				r32 raycast_radius = ability == Ability::None ? DRONE_SHIELD_RADIUS : 0.0f;
+				r32 raycast_radius = ability == Ability::None
+					? DRONE_SHIELD_RADIUS
+					: (ability == Ability::Minion ? WALKER_MINION_RADIUS : 0.0f);
 
 				reticle.type = ReticleType::None;
 

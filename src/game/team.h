@@ -36,6 +36,7 @@ struct AbilityInfo
 	static AbilityInfo list[s32(Ability::count) + 1]; // +1 for Ability::None
 
 	r32 cooldown;
+	AkUniqueID equip_sound;
 	AssetID icon;
 	s16 spawn_cost;
 	Type type;

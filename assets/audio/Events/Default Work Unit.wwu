@@ -222,9 +222,79 @@
 												</Action>
 											</ChildrenList>
 										</Event>
-										<Event Name="Play_Drone_Weapon_Equip" ID="{8901850E-A5B3-4169-A7F5-EBAB47B0C2FA}">
+										<Event Name="Play_Equip_None" ID="{8901850E-A5B3-4169-A7F5-EBAB47B0C2FA}">
 											<ChildrenList>
 												<Action Name="" ID="{3A7064AC-C9ED-42B1-ABB0-41A5D82159C2}" ShortID="634828720">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Weapon_Equip" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
+										<Event Name="Play_Equip_Bolter" ID="{CEC63768-9357-48C4-81D8-6C995835E442}">
+											<ChildrenList>
+												<Action Name="" ID="{EADFF23A-D665-4AC3-9A3C-65C024B3D471}" ShortID="156011818">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Weapon_Equip" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
+										<Event Name="Play_Equip_Shotgun" ID="{1C79530E-E4FB-48F1-9BF1-2BAB996677BB}">
+											<ChildrenList>
+												<Action Name="" ID="{749D1C5A-0E16-4E31-9F45-365E57BE09CB}" ShortID="1041769423">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Weapon_Equip" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
+										<Event Name="Play_Equip_Grenade" ID="{3FEA7A3C-08F5-4D31-BF07-9A26A93C224A}">
+											<ChildrenList>
+												<Action Name="" ID="{6612ED60-9789-4F6D-89C2-056BC739CE6E}" ShortID="443763443">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Weapon_Equip" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
+										<Event Name="Play_Equip_Sniper" ID="{98D78556-B883-4A1B-8B86-3B1B0432C321}">
+											<ChildrenList>
+												<Action Name="" ID="{341425DC-CA5F-4157-B759-F18E6F5CA663}" ShortID="444293468">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Weapon_Equip" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
+										<Event Name="Play_Equip_Build" ID="{221E938F-A048-4055-A613-3FFDAE8A097C}">
+											<ChildrenList>
+												<Action Name="" ID="{6E116DCB-49E8-4F67-96E4-B45119A7CB72}" ShortID="87415786">
 													<PropertyList>
 														<Property Name="ActionType" Type="int16" Value="1"/>
 													</PropertyList>
@@ -330,9 +400,9 @@
 										</Event>
 									</ChildrenList>
 								</Folder>
-								<Folder Name="Drone_Generator" ID="{951E8FFD-2D84-4C4E-9C3A-F1D15EC07398}" ShortID="401505317">
+								<Folder Name="Drone_Rectifier" ID="{951E8FFD-2D84-4C4E-9C3A-F1D15EC07398}" ShortID="401505317">
 									<ChildrenList>
-										<Event Name="Play_Generator_Ping" ID="{C4E6BF43-CC38-4E5D-8AD4-09031E41DDA1}">
+										<Event Name="Play_Rectifier_Ping" ID="{C4E6BF43-CC38-4E5D-8AD4-09031E41DDA1}">
 											<ChildrenList>
 												<Action Name="" ID="{3FE18BEA-ED8E-4B7D-BAB6-4195CCB668C3}" ShortID="454400929">
 													<PropertyList>
@@ -346,7 +416,7 @@
 												</Action>
 											</ChildrenList>
 										</Event>
-										<Event Name="Play_Generator_Spawn" ID="{10DCE6B8-FAC1-4121-89FE-CF7AFB789028}">
+										<Event Name="Play_Rectifier_Spawn" ID="{10DCE6B8-FAC1-4121-89FE-CF7AFB789028}">
 											<ChildrenList>
 												<Action Name="" ID="{C63320C0-72AE-4E35-89CF-3B83E27078DF}" ShortID="619182946">
 													<PropertyList>
@@ -570,7 +640,6 @@
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Fizzle" ID="{A178C8DF-0EAD-4DCB-9CA6-40B1450CF6AC}"/>
 								<Event Name="Play_Parkour_Climb" ID="{D6C93F1C-824D-4D72-B267-BA62ADC469EE}"/>
 								<Event Name="Stop_Parkour_All" ID="{B6CC42D5-5F5E-4BBA-8CF2-9A986C68C2EC}">
 									<ChildrenList>

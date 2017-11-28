@@ -541,8 +541,6 @@ void draw(LoopSync* sync, const Camera* camera)
 		screen_quad_uv
 	);
 
-	UI::update(render_params);
-
 	sync->write(RenderOp::Viewport);
 	sync->write<Rect2>({ camera->viewport.pos, camera->viewport.size });
 

@@ -346,6 +346,8 @@ void Game::auth_failed()
 
 void Game::update(const Update& update_in)
 {
+	UI::update();
+
 	real_time = update_in.time;
 	time.delta = update_in.time.delta * session.effective_time_scale();
 

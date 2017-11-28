@@ -123,7 +123,7 @@ struct Drone : public ComponentType<Drone>
 	r32 cooldown_last_local_change;
 	r32 last_footstep;
 	r32 dash_timer;
-	r32 bolter_last_fired;
+	r32 last_ability_fired;
 	Footing footing[DRONE_LEGS];
 	LinkArg<const DroneReflectEvent&> reflecting;
 	LinkArg<Entity*> hit;

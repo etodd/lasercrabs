@@ -1013,15 +1013,20 @@ r32 UI::get_scale(s32 width, s32 height)
 		return 1.5f;
 	else if (area > 1280 * 720)
 		return 1.25f;
-	else if (area > 640 * 480)
+	else if (area > 640 * 480 && height > 480)
 		return 1.0f;
 	else
 		return 0.6f;
 }
 
-void UI::update(const RenderParams& p)
+void UI::update()
 {
-	scale = get_scale(p.camera->viewport.size.x, p.camera->viewport.size.y);
+	if (Camera::list.count() > 0)
+	{
+		const Camera* camera = Camera::list.iterator().item();
+		const Rect2& viewport = camera->viewport;
+		scale = get_scale(viewport.size.x, viewport.size.y);
+	}
 }
 
 b8 UI::cursor_active()

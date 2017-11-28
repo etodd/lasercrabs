@@ -554,11 +554,6 @@ void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone:
 	}
 }
 
-void drone_bolter_cooldown_setup(Drone* drone)
-{
-	drone->bolter_last_fired = Game::time.total;
-}
-
 // velocity to give the grenade
 Vec3 grenade_velocity_dir(const Vec3& dir_normalized)
 {
@@ -780,11 +775,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			manager->add_energy(-info.spawn_cost);
 
 			if ((Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())) // only do cooldowns for remote drones or AI drones; local players will have already done this
-			{
 				drone->cooldown_setup(info.cooldown);
-				if (ability == Ability::Bolter)
-					drone_bolter_cooldown_setup(drone);
-			}
 
 			Vec3 my_pos;
 			Quat my_rot;
@@ -1038,7 +1029,7 @@ Drone::Drone()
 	detaching(),
 	dashing(),
 	dash_timer(),
-	bolter_last_fired(),
+	last_ability_fired(),
 	dash_combo(),
 	attach_time(Game::time.total),
 	footing(),
@@ -1587,6 +1578,8 @@ void Drone::cooldown_setup(r32 amount)
 	cooldown = vi_min(cooldown + amount, DRONE_COOLDOWN_MAX);
 	cooldown_last_local_change = Game::real_time.total;
 
+	last_ability_fired = Game::time.total;
+
 #if SERVER
 	if (lag_compensate && has<PlayerControlHuman>())
 		cooldown = vi_max(0.0f, cooldown - vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt) * DRONE_COOLDOWN_SPEED);
@@ -1847,7 +1840,6 @@ b8 Drone::go(const Vec3& dir)
 						Quat::look(dir_normalized)
 					)
 				);
-				drone_bolter_cooldown_setup(this);
 			}
 			else if (a == Ability::Grenade)
 			{
@@ -2623,7 +2615,7 @@ b8 Drone::bolter_can_fire() const
 		interval = BOLTER_INTERVAL;
 	}
 
-	return Game::time.total - bolter_last_fired > interval;
+	return Game::time.total - last_ability_fired > interval;
 }
 
 Vec3 Drone::rotation_clamp() const

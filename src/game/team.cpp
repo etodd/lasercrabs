@@ -463,6 +463,8 @@ void update_stealth_state(PlayerManager* player, AIAgent* a, Entity* visibility[
 	UpgradeStation* upgrade_station = UpgradeStation::drone_inside(a->get<Drone>());
 	if (upgrade_station && upgrade_station->timer == 0.0f) // always stealthed inside upgrade stations (but not while transitioning)
 		stealth_enabled = true;
+	else if (Game::time.total - a->get<Drone>()->last_ability_fired < ABILITY_UNSTEALTH_TIME)
+		stealth_enabled = false;
 	else if (!Rectifier::can_see(a->team, player_pos, normal))
 		stealth_enabled = false;
 	else

@@ -15,19 +15,7 @@
 						<Property Name="Max" Type="Real64" Value="1"/>
 					</PropertyList>
 				</GameParameter>
-				<GameParameter Name="Parkour_Slide" ID="{6071C0CE-A3CA-461F-BDE3-5ADA06A81114}">
-					<PropertyList>
-						<Property Name="InitialValue" Type="Real64" Value="0"/>
-						<Property Name="Max" Type="Real64" Value="1"/>
-					</PropertyList>
-				</GameParameter>
 				<GameParameter Name="Tram_Loop" ID="{4141EC43-09B5-47DC-90E6-E83292CD9ACD}">
-					<PropertyList>
-						<Property Name="InitialValue" Type="Real64" Value="0"/>
-						<Property Name="Max" Type="Real64" Value="1"/>
-					</PropertyList>
-				</GameParameter>
-				<GameParameter Name="Parkour_Wind" ID="{F6905F29-60EE-4D61-80E8-1CE93F7CC94F}">
 					<PropertyList>
 						<Property Name="InitialValue" Type="Real64" Value="0"/>
 						<Property Name="Max" Type="Real64" Value="1"/>
@@ -77,6 +65,28 @@
 						<Property Name="SlewRateUp" Type="Real64" Value="1"/>
 					</PropertyList>
 				</GameParameter>
+				<Folder Name="Parkour" ID="{D67B3C99-E8E3-464E-B3C6-F85D36205A37}" ShortID="698200592">
+					<ChildrenList>
+						<GameParameter Name="Parkour_Wind" ID="{F6905F29-60EE-4D61-80E8-1CE93F7CC94F}">
+							<PropertyList>
+								<Property Name="InitialValue" Type="Real64" Value="0"/>
+								<Property Name="Max" Type="Real64" Value="1"/>
+							</PropertyList>
+						</GameParameter>
+						<GameParameter Name="Parkour_Slide" ID="{6071C0CE-A3CA-461F-BDE3-5ADA06A81114}">
+							<PropertyList>
+								<Property Name="InitialValue" Type="Real64" Value="0"/>
+								<Property Name="Max" Type="Real64" Value="1"/>
+							</PropertyList>
+						</GameParameter>
+						<GameParameter Name="Parkour_Breath" ID="{0EAC87CB-1D8B-446C-9306-4A43A88B7809}">
+							<PropertyList>
+								<Property Name="InitialValue" Type="Real64" Value="0"/>
+								<Property Name="Max" Type="Real64" Value="1"/>
+							</PropertyList>
+						</GameParameter>
+					</ChildrenList>
+				</Folder>
 			</ChildrenList>
 		</WorkUnit>
 	</GameParameters>

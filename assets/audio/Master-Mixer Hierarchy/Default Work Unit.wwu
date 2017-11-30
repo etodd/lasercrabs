@@ -271,6 +271,35 @@
 										</Property>
 									</PropertyList>
 								</Bus>
+								<Bus Name="ParkourVocals" ID="{A3679190-C4F9-411F-B374-AC1A4144629E}">
+									<PropertyList>
+										<Property Name="DivergenceCenter" Type="int32">
+											<ValueList>
+												<Value>100</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
+									<DuckingList>
+										<DuckItem>
+											<BusRef Name="ParkourBreathing" ID="{3B4B3BBF-C360-4A32-8F20-AD80BA15F5E1}"/>
+											<DuckingParam>
+												<Volume>-6</Volume>
+												<FadeInTime>0.200000002980232</FadeInTime>
+												<FadeOutTime>1</FadeOutTime>
+												<FadeCurve>FadeLinear</FadeCurve>
+											</DuckingParam>
+										</DuckItem>
+									</DuckingList>
+								</Bus>
+								<Bus Name="ParkourBreathing" ID="{3B4B3BBF-C360-4A32-8F20-AD80BA15F5E1}">
+									<PropertyList>
+										<Property Name="DivergenceCenter" Type="int32">
+											<ValueList>
+												<Value>100</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
+								</Bus>
 							</ChildrenList>
 						</Bus>
 					</ChildrenList>

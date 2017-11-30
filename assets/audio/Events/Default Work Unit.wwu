@@ -488,175 +488,11 @@
 								<Event Name="Play_Battery_Loop" ID="{A00E5B7B-CAF7-4218-B614-163785E6A767}"/>
 							</ChildrenList>
 						</Folder>
-						<Folder Name="toMove" ID="{40123C6B-5420-4AB9-AF80-413A82A15257}" ShortID="304977609">
+						<Folder Name="Story" ID="{40123C6B-5420-4AB9-AF80-413A82A15257}" ShortID="304977609">
 							<ChildrenList>
-								<Event Name="Play_Parkour_Jump" ID="{D1181DC1-3636-4D9C-BC5E-6F4C155CDCDE}">
-									<ChildrenList>
-										<Action Name="" ID="{C30F91E5-730A-4E79-848D-01DE45481814}" ShortID="868806898">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Jump" ID="{463E9B1C-325F-4C2D-AC2B-C2F482485AD6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
-								<Event Name="Play_Explosion" ID="{6F0DBF32-EE0B-45FC-9DEF-71F7FD036F6A}">
-									<ChildrenList>
-										<Action Name="" ID="{51EE7091-3A21-488C-B842-2C95600003DE}" ShortID="593962971">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Drone_Grenade_Explo" ID="{433A7DED-6736-4CBD-9721-B1DA2C5A6841}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
-								<Event Name="Play_Parkour_Collectible_Pickup" ID="{51CFD251-60EC-484B-8579-50DBDEC469B4}">
-									<ChildrenList>
-										<Action Name="" ID="{92955BC3-959B-41C1-891B-5AAA27049BD5}" ShortID="688702236">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
-								<Event Name="Play_Parkour_Slide" ID="{2C8B90FF-219F-48DD-AABE-E6247A72387C}"/>
-								<Event Name="Play_Parkour_Topout" ID="{2BB47BCB-D5D7-4C97-AA69-3974BE92380D}"/>
-								<Event Name="Play_Parkour_Mantle" ID="{F493ABC2-8104-4A65-900F-E300107E7019}"/>
-								<Event Name="Play_Tram_Close" ID="{AE2AE18A-4789-4A35-AC15-604AF4D0723A}">
-									<ChildrenList>
-										<Action Name="" ID="{246D0AE0-5B93-461B-8189-8483EC8D6854}" ShortID="114373368">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="mover_stop" ID="{3E866ABF-46BC-43B0-8938-2A924DA19CB8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
-								<Event Name="Play_Tram_Loop" ID="{3C8F00CF-6EA0-447C-964D-0FF3FDB28E09}"/>
-								<Event Name="Play_Parkour_Roll" ID="{CE8EE5FB-A846-42A9-A487-4D4CDCFE5881}"/>
-								<Event Name="Play_Parkour_Land_Soft" ID="{9BDD5946-A039-428C-886A-3C3DE1AAAAEF}"/>
-								<Event Name="Play_Parkour_Land_Hard" ID="{024C2322-2321-46C7-B770-85FFAA1C424A}"/>
-								<Event Name="Play_Parkour_Interact" ID="{37A0FB82-599A-4B51-ACBB-B6CC81EFF93F}">
-									<ChildrenList>
-										<Action Name="" ID="{E3275B55-628F-41E6-BF8E-675A3CFC8514}" ShortID="202403467">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
-								<Event Name="Play_Terminal_Open" ID="{A2432DE0-A6DC-4A6E-99C1-2F6A85A757FA}"/>
-								<Event Name="Play_Terminal_Close" ID="{E34B4434-5C00-4A01-B0DE-F438DC3E7F16}"/>
-								<Event Name="Play_Water_Loop" ID="{D8B5B134-F94F-4257-826F-931BD1D6EFBF}">
-									<ChildrenList>
-										<Action Name="" ID="{B0D58FF9-9D4B-46EF-B7BE-58C738204089}" ShortID="606562639">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="water" ID="{AEA07151-6FEF-4E24-BB89-64608D66BD93}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
-								<Event Name="Play_Tram_Open" ID="{37AEB283-B3E9-4C64-B7A7-97DF3A54870F}">
-									<ChildrenList>
-										<Action Name="" ID="{76A2CBA0-187D-4299-83F4-80C896109B7B}" ShortID="247448348">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
-								<Event Name="Stop_Parkour_Slide" ID="{8588E130-B849-4454-AA70-05E0BDE13952}"/>
-								<Event Name="Play_Tram_Stop" ID="{80B9F137-62E7-4ECF-99E6-B91AC01B6C50}">
-									<ChildrenList>
-										<Action Name="" ID="{F3DCE3BF-341D-4451-BCDA-C60073FB233E}" ShortID="373694478">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="mover_stop" ID="{3E866ABF-46BC-43B0-8938-2A924DA19CB8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
-								<Event Name="Play_Tram_Start" ID="{356ED879-2C80-497B-AFF1-49A43375EBF7}">
-									<ChildrenList>
-										<Action Name="" ID="{FD53B476-CE62-46BF-A8AD-325E195BB62A}" ShortID="265229325">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
-								<Event Name="Play_Parkour_Wind" ID="{B9CBEF66-FCD7-452F-AC0E-DD2770A0155E}">
-									<ChildrenList>
-										<Action Name="" ID="{3EE1C63F-BA77-4969-B818-B5EEE12AD02B}" ShortID="415331658">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Parkour_Wind" ID="{8998A440-9F0E-41AF-AA4F-D8914994F5A5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
-								<Event Name="Play_Parkour_Climb" ID="{D6C93F1C-824D-4D72-B267-BA62ADC469EE}"/>
-								<Event Name="Stop_Parkour_All" ID="{B6CC42D5-5F5E-4BBA-8CF2-9A986C68C2EC}">
-									<ChildrenList>
-										<Action Name="" ID="{D94C694F-9A58-4475-8676-400B3E9672E9}" ShortID="1057738642">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="2"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Parkour_Wind" ID="{8998A440-9F0E-41AF-AA4F-D8914994F5A5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
-								<Event Name="Play_Tram_Spark" ID="{429DC99F-7AD1-4688-8154-3B950FCBD2E9}"/>
 								<Event Name="Play_Fire_Loop" ID="{F7DA5BA8-70E9-4091-9CBE-8D7F6F49BE40}"/>
+								<Event Name="Play_Ship_Door_Shut" ID="{53E12526-B6F4-4610-9688-0EF5458B2AAD}"/>
+								<Event Name="Play_Shopping_Cart_Rattle" ID="{90101E79-CBB9-4B62-9F96-17E4D7543A2C}"/>
 							</ChildrenList>
 						</Folder>
 						<Folder Name="UpgradeStation" ID="{D315141A-C891-4142-AA38-1A62C0CFBDB9}" ShortID="931062636">
@@ -844,7 +680,7 @@
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Footstep" ID="{912A7768-2178-48E7-BCF7-F9F9EE2EADDE}">
+								<Event Name="Play_Minion_Footstep" ID="{912A7768-2178-48E7-BCF7-F9F9EE2EADDE}">
 									<ChildrenList>
 										<Action Name="" ID="{867FDA87-4015-411C-AA89-49B580BEEA38}" ShortID="606933759">
 											<PropertyList>
@@ -852,7 +688,7 @@
 											</PropertyList>
 											<ReferenceList>
 												<Reference Name="Target">
-													<ObjectRef Name="Footstep" ID="{8D83EC8D-7858-4B9E-8986-13A19750752B}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+													<ObjectRef Name="Minion_Footstep" ID="{8D83EC8D-7858-4B9E-8986-13A19750752B}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>
@@ -880,6 +716,249 @@
 								<Event Name="Stop_Turret_Charge" ID="{2EAE6447-AB75-4EAE-966B-A71048579772}"/>
 							</ChildrenList>
 						</Folder>
+						<Folder Name="Parkour" ID="{35BF57FA-0E4A-448F-AE7E-C2064D11080F}" ShortID="693886921">
+							<ChildrenList>
+								<Event Name="Play_Parkour_Mantle" ID="{F493ABC2-8104-4A65-900F-E300107E7019}"/>
+								<Event Name="Play_Parkour_Collectible_Pickup" ID="{51CFD251-60EC-484B-8579-50DBDEC469B4}">
+									<ChildrenList>
+										<Action Name="" ID="{92955BC3-959B-41C1-891B-5AAA27049BD5}" ShortID="688702236">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Parkour_Roll" ID="{CE8EE5FB-A846-42A9-A487-4D4CDCFE5881}"/>
+								<Event Name="Play_Parkour_Slide" ID="{2C8B90FF-219F-48DD-AABE-E6247A72387C}"/>
+								<Event Name="Play_Parkour_Topout" ID="{2BB47BCB-D5D7-4C97-AA69-3974BE92380D}"/>
+								<Event Name="Play_Parkour_Jump" ID="{D1181DC1-3636-4D9C-BC5E-6F4C155CDCDE}">
+									<ChildrenList>
+										<Action Name="" ID="{C30F91E5-730A-4E79-848D-01DE45481814}" ShortID="868806898">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Jump" ID="{463E9B1C-325F-4C2D-AC2B-C2F482485AD6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Parkour_Interact" ID="{37A0FB82-599A-4B51-ACBB-B6CC81EFF93F}">
+									<ChildrenList>
+										<Action Name="" ID="{E3275B55-628F-41E6-BF8E-675A3CFC8514}" ShortID="202403467">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Parkour_Land_Soft" ID="{9BDD5946-A039-428C-886A-3C3DE1AAAAEF}"/>
+								<Event Name="Play_Parkour_Wind" ID="{B9CBEF66-FCD7-452F-AC0E-DD2770A0155E}">
+									<ChildrenList>
+										<Action Name="" ID="{3EE1C63F-BA77-4969-B818-B5EEE12AD02B}" ShortID="415331658">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Parkour_Wind" ID="{8998A440-9F0E-41AF-AA4F-D8914994F5A5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Parkour_Climb" ID="{D6C93F1C-824D-4D72-B267-BA62ADC469EE}"/>
+								<Event Name="Play_Parkour_Land_Hard" ID="{024C2322-2321-46C7-B770-85FFAA1C424A}">
+									<ChildrenList>
+										<Action Name="" ID="{4BEBBE18-2D3C-414E-BDC3-49803E4CDA09}" ShortID="973795113">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="LandHard" ID="{7071055C-F5F4-4E89-A630-0FCDA45CF068}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Stop_Parkour_All" ID="{B6CC42D5-5F5E-4BBA-8CF2-9A986C68C2EC}"/>
+								<Event Name="Stop_Parkour_Slide" ID="{8588E130-B849-4454-AA70-05E0BDE13952}"/>
+								<Event Name="Play_Parkour_Breathing" ID="{E5777B4F-E1AB-4932-A759-5387DFDBB754}">
+									<ChildrenList>
+										<Action Name="" ID="{AB4B0E9D-ACC1-4AC1-8AFB-B926530C7D69}" ShortID="657349100">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="ParkourBreathing" ID="{96264D6C-BE34-493B-9815-C33C483788BE}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Parkour_Footstep" ID="{38C0264B-8B26-44F8-96C4-56BC9B1F6098}">
+									<ChildrenList>
+										<Action Name="" ID="{4FDB5DDB-E8E9-428E-8F2E-D0FFF01BAB96}" ShortID="185619554">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Parkour_Footstep" ID="{D20C872E-B248-424A-87DB-A774A0575EB9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+							</ChildrenList>
+						</Folder>
+						<Event Name="Play_Explosion" ID="{6F0DBF32-EE0B-45FC-9DEF-71F7FD036F6A}">
+							<ChildrenList>
+								<Action Name="" ID="{51EE7091-3A21-488C-B842-2C95600003DE}" ShortID="593962971">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="Drone_Grenade_Explo" ID="{433A7DED-6736-4CBD-9721-B1DA2C5A6841}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Folder Name="Interactables" ID="{55F3B513-FDDE-42BC-A9BA-99A6AD7895E7}" ShortID="720913413">
+							<ChildrenList>
+								<Event Name="Play_Tram_Close" ID="{AE2AE18A-4789-4A35-AC15-604AF4D0723A}">
+									<ChildrenList>
+										<Action Name="" ID="{246D0AE0-5B93-461B-8189-8483EC8D6854}" ShortID="114373368">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="mover_stop" ID="{3E866ABF-46BC-43B0-8938-2A924DA19CB8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Tram_Loop" ID="{3C8F00CF-6EA0-447C-964D-0FF3FDB28E09}"/>
+								<Event Name="Play_Tram_Open" ID="{37AEB283-B3E9-4C64-B7A7-97DF3A54870F}">
+									<ChildrenList>
+										<Action Name="" ID="{76A2CBA0-187D-4299-83F4-80C896109B7B}" ShortID="247448348">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Tram_Spark" ID="{429DC99F-7AD1-4688-8154-3B950FCBD2E9}"/>
+								<Event Name="Play_Tram_Stop" ID="{80B9F137-62E7-4ECF-99E6-B91AC01B6C50}">
+									<ChildrenList>
+										<Action Name="" ID="{F3DCE3BF-341D-4451-BCDA-C60073FB233E}" ShortID="373694478">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="mover_stop" ID="{3E866ABF-46BC-43B0-8938-2A924DA19CB8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Tram_Start" ID="{356ED879-2C80-497B-AFF1-49A43375EBF7}">
+									<ChildrenList>
+										<Action Name="" ID="{FD53B476-CE62-46BF-A8AD-325E195BB62A}" ShortID="265229325">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Terminal_Close" ID="{E34B4434-5C00-4A01-B0DE-F438DC3E7F16}">
+									<ChildrenList>
+										<Action Name="" ID="{21BB9BFD-8611-4C1D-B173-0432176547AA}" ShortID="935408708">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_terminal_close" ID="{8F4F2FEE-46A8-452F-8A26-8AF523343765}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Terminal_Open" ID="{A2432DE0-A6DC-4A6E-99C1-2F6A85A757FA}">
+									<ChildrenList>
+										<Action Name="" ID="{0582455A-BA98-4642-B4B2-E4964AEA5841}" ShortID="452293754">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_terminal_open" ID="{79956616-90EB-4693-8F63-DF17D0C23B77}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+							</ChildrenList>
+						</Folder>
+						<Event Name="Play_Water_Loop" ID="{D8B5B134-F94F-4257-826F-931BD1D6EFBF}">
+							<ChildrenList>
+								<Action Name="" ID="{B0D58FF9-9D4B-46EF-B7BE-58C738204089}" ShortID="606562639">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="water" ID="{AEA07151-6FEF-4E24-BB89-64608D66BD93}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_Rain_Loop" ID="{D96CD4A4-5710-495F-9996-C8FA24BA6F7D}">
+							<ChildrenList>
+								<Action Name="" ID="{CAF27A8A-49A6-4D6D-815A-6832A67B81D3}" ShortID="942315005">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="DEC_Amb_rain" ID="{D5F824CE-B604-464D-89ED-BD75E71AF0EE}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_Ocean_Loop" ID="{9DF10433-2F3A-40B6-8826-B4FBF6E60B2B}"/>
 					</ChildrenList>
 				</Folder>
 				<Folder Name="dialogue_range_unlimited" ID="{04E54C47-F0F5-451B-8777-7B7C24045653}" ShortID="896672305">
@@ -1905,8 +1984,34 @@
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_Transition_In" ID="{E6410D4E-A3B7-4C05-9524-305121AC0440}"/>
-						<Event Name="Play_Transition_Out" ID="{8E2932DB-7C19-42D1-ADD9-2AAC76A6F9CE}"/>
+						<Event Name="Play_Transition_In" ID="{E6410D4E-A3B7-4C05-9524-305121AC0440}">
+							<ChildrenList>
+								<Action Name="" ID="{8C58EC69-6381-46CD-B1B4-0B347BBF870D}" ShortID="920873169">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="DEC_UI_transition_in_rev3" ID="{1504EA46-D3DC-405B-A407-0E5C7086B527}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_Transition_Out" ID="{8E2932DB-7C19-42D1-ADD9-2AAC76A6F9CE}">
+							<ChildrenList>
+								<Action Name="" ID="{1A84A60F-4FB1-4804-A08E-A7EC0EBD60D4}" ShortID="108456551">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="DEC_UI_transition_out_rev2" ID="{84A74C12-6787-4AED-8604-FE56DBF575E4}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
 						<Event Name="Play_Overworld_Show" ID="{53C4A666-53D3-4CC2-867C-D33764C612F5}">
 							<ChildrenList>
 								<Action Name="" ID="{DDEEFE6E-5874-41E8-888B-B6352C3EF9DF}" ShortID="658666503">

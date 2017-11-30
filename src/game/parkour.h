@@ -67,14 +67,15 @@ struct Parkour : public ComponentType<Parkour>
 	r32 last_angle_horizontal;
 	r32 climb_velocity;
 	r32 last_climb_time;
+	r32 breathing;
 	StaticArray<TilePos, 8> tile_history;
+	StaticArray<Vec3, 3> jump_history;
 	FSM<State> fsm;
 	Ref<RigidBody> last_support;
 	Ref<Transform> rope;
 	Ref<Transform> animation_start_support;
 	ID rope_constraint = IDNull;
 	Link jumped;
-	StaticArray<Ref<Minion>, 4> damage_minions; // HACK; minions we're currently damaging
 	WallRunState wall_run_state;
 	WallRunState last_support_wall_run_state;
 	b8 can_double_jump;

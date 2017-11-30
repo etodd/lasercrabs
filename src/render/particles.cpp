@@ -4,6 +4,9 @@
 #include "asset/texture.h"
 #include "mersenne/mersenne-twister.h"
 #include "physics.h"
+#include "game/audio.h"
+#include "asset/Wwise_IDs.h"
+#include "console.h"
 
 namespace VI
 {
@@ -375,12 +378,47 @@ b8 Sparks::pre_draw(const RenderParams& params)
 	return true;
 }
 
+const r32 rain_radius = 30.0f;
+const r32 rain_interval_multiplier = 0.00075f;
+const r32 rain_raycast_grid_cell_size = (rain_radius * 2.0f) / Rain::raycast_grid_size;
+r32 Rain::audio_kernel[raycast_grid_size * raycast_grid_size];
+r32 Rain::particle_accumulator;
+Ref<AudioEntry> Rain::audio_entry;
+
+Vec3 rain_cell_offset(s32 x, s32 z)
+{
+	return Vec3((r32(x - (Rain::raycast_grid_size / 2)) + 0.5f) * rain_raycast_grid_cell_size, 0, (r32(z - (Rain::raycast_grid_size / 2)) + 0.5f) * rain_raycast_grid_cell_size);
+}
+
+Vec3 rain_cell_offset(s32 i)
+{
+	s32 z = i / Rain::raycast_grid_size;
+	s32 x = i - (z * Rain::raycast_grid_size);
+	return rain_cell_offset(x, z);
+}
+
 Rain::Rain(const Vec2& size, const Vec3& velocity)
 	: ParticleSystem(4, 6, 2.0f, Asset::Shader::particle_rain, AssetNull),
 	size(size),
 	velocity(velocity),
 	camera_last_pos()
 {
+	r32 sum = 0.0f;
+	for (s32 i = 0; i < raycast_grid_size * raycast_grid_size; i++)
+	{
+		r32 cell = vi_max(0.0f, rain_radius - rain_cell_offset(i).length());
+		audio_kernel[i] = cell;
+		sum += cell;
+	}
+
+	for (s32 i = 0; i < raycast_grid_size * raycast_grid_size; i++)
+		audio_kernel[i] = audio_kernel[i] / sum;
+}
+
+void Rain::init()
+{
+	audio_entry = Audio::post_global(AK::EVENTS::PLAY_RAIN_LOOP, Vec3::zero);
+	audio_entry.ref()->flag(AudioEntry::FlagEnableObstructionOcclusion, false);
 }
 
 void Rain::clear()
@@ -395,10 +433,6 @@ r32 Rain::height() const
 	return velocity.length() * lifetime;
 }
 
-r32 Rain::particle_accumulator;
-const r32 rain_radius = 30.0f;
-const r32 rain_interval_multiplier = 0.001f;
-const r32 rain_raycast_grid_cell_size = (rain_radius * 2.0f) / Rain::raycast_grid_size;
 void Rain::spawn(const Update& u, r32 strength)
 {
 #if !SERVER
@@ -414,6 +448,8 @@ void Rain::spawn(const Update& u, r32 strength)
 	const r32 raycast_grid_time_to_refresh = 0.5f; // in seconds
 	s32 raycasts_per_frame = u.time.delta * (raycast_grid_size * raycast_grid_size) / raycast_grid_time_to_refresh;
 
+	Vec3 audio_pos = Vec3::zero;
+	r32 audio_score = FLT_MAX;
 	for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
 	{
 		const Camera& camera = *i.item();
@@ -444,9 +480,8 @@ void Rain::spawn(const Update& u, r32 strength)
 				{
 					if (!every_other || (i % 2) == 0) // this only works when the grid size is a power of 2; otherwise a raycast from row N might carry over row N+1
 					{
-						s32 z = rain->raycast_grid_index / raycast_grid_size;
-						s32 x = rain->raycast_grid_index - (z * raycast_grid_size);
-						Vec3 ray_start = camera.pos + Vec3((x - (raycast_grid_size / 2)) * rain_raycast_grid_cell_size, 150.0f, (z - (raycast_grid_size / 2)) * rain_raycast_grid_cell_size);
+						Vec3 ray_start = camera.pos + rain_cell_offset(rain->raycast_grid_index);
+						ray_start.y += 150.0f;
 						Vec3 ray_end = ray_start;
 						ray_end.y = camera.pos.y + rain_radius - height;
 						btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
@@ -455,6 +490,65 @@ void Rain::spawn(const Update& u, r32 strength)
 					}
 					rain->raycast_grid[rain->raycast_grid_index] = last_result;
 					rain->raycast_grid_index = (rain->raycast_grid_index + 1) % (raycast_grid_size * raycast_grid_size);
+				}
+			}
+
+			// calculate audio volume every n frames
+			{
+				Vec3 average_pos = Vec3::zero;
+				r32 sum_horizontal = 0.0f;
+				r32 sum_vertical = 0.0f;
+
+				Vec3 closest_pos = Vec3::zero;
+				r32 closest_score = 0.0f;
+
+				for (s32 i = 0; i < raycast_grid_size * raycast_grid_size; i++)
+				{
+					if (audio_kernel[i] > 0.0f)
+					{
+						Vec3 pos = rain_cell_offset(i);
+						pos.y = vi_max(0.0f, vi_min(rain_radius * 1.5f, rain->raycast_grid[i] - camera.pos.y));
+						if (pos.y < rain_radius * 0.25f)
+						{
+							r32 score = audio_kernel[i];
+							if (score > closest_score)
+							{
+								closest_score = score;
+								closest_pos = pos;
+							}
+
+							average_pos.y += pos.y * audio_kernel[i] * 1.25f;
+							sum_vertical += audio_kernel[i] * 1.25f;
+
+							average_pos.x += pos.x * audio_kernel[i];
+							average_pos.z += pos.z * audio_kernel[i];
+							sum_horizontal += audio_kernel[i];
+						}
+						else
+						{
+							average_pos.y += pos.y * audio_kernel[i] * 0.75f;
+							sum_vertical += audio_kernel[i] * 0.75f;
+						}
+					}
+				}
+
+				average_pos.y /= sum_vertical;
+
+				if (sum_horizontal > 0.0f)
+				{
+					average_pos.x /= sum_horizontal;
+					average_pos.z /= sum_horizontal;
+				}
+
+				if (closest_score > 0.0015f)
+					average_pos += (closest_pos - average_pos) * 0.5f;
+
+				r32 score = average_pos.length_squared();
+				if (score < audio_score)
+				{
+					Console::debug("%f %f %f", average_pos.x, average_pos.y, average_pos.z);
+					audio_score = score;
+					audio_pos = camera.pos + average_pos;
 				}
 			}
 
@@ -531,6 +625,7 @@ void Rain::spawn(const Update& u, r32 strength)
 		else
 			rain->clear();
 	}
+	audio_entry.ref()->abs_pos = audio_pos;
 #endif
 }
 

@@ -2344,6 +2344,9 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 
 void Game::awake_all()
 {
+	if (level.rain > 0.0f)
+		Rain::init();
+
 #if !SERVER
 	if (Settings::expo)
 		Audio::volume_multiplier(Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying ? 0.25f : 1.0f);

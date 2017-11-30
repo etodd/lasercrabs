@@ -232,7 +232,7 @@ namespace platform
 
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
-const s32 version = 34;
+const s32 version = 35;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -1006,7 +1006,7 @@ const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path, b8 
 	return scene;
 }
 
-void edge_add(const Array<Vec3>& vertices, const Array<Vec3>& normals, Array<s32>* indices, s32 a, s32 b)
+void edge_add(const Array<Vec3>& vertices, const Array<Vec3>& normals, Array<s32>* indices, s32 a, s32 b, r32 dot_threshold)
 {
 	const Vec3& va = vertices[a];
 	const Vec3& vb = vertices[b];
@@ -1035,7 +1035,7 @@ void edge_add(const Array<Vec3>& vertices, const Array<Vec3>& normals, Array<s32
 			{
 				// it's a highlighted edge, but it's already been added as part of a different face
 				const Vec3& nu = normals[u];
-				if (nu.dot(na) > 0.999f) // face is coplanar; remove existing edge
+				if (nu.dot(na) > dot_threshold) // face is coplanar; remove existing edge
 				{
 					indices->remove(j + 1);
 					indices->remove(j);
@@ -1051,7 +1051,7 @@ void edge_add(const Array<Vec3>& vertices, const Array<Vec3>& normals, Array<s32
 	}
 }
 
-b8 load_mesh(const aiMesh* mesh, Mesh* out)
+b8 load_mesh(const aiMesh* mesh, Mesh* out, r32 edge_threshold)
 {
 	out->bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
 	out->bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
@@ -1101,9 +1101,9 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out)
 		out->indices.add(b);
 		s32 c = mesh->mFaces[i].mIndices[2];
 		out->indices.add(c);
-		edge_add(out->vertices, out->normals, &out->edge_indices, a, b);
-		edge_add(out->vertices, out->normals, &out->edge_indices, b, c);
-		edge_add(out->vertices, out->normals, &out->edge_indices, a, c);
+		edge_add(out->vertices, out->normals, &out->edge_indices, a, b, edge_threshold);
+		edge_add(out->vertices, out->normals, &out->edge_indices, b, c, edge_threshold);
+		edge_add(out->vertices, out->normals, &out->edge_indices, a, c, edge_threshold);
 	}
 
 	return true;
@@ -1414,7 +1414,7 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 					mesh->color.w = 1.0f;
 			}
 
-			if (load_mesh(ai_mesh, mesh))
+			if (load_mesh(ai_mesh, mesh, 0.99999f))
 			{
 				printf("%s\n", mesh_out_filename.c_str());
 
@@ -1630,7 +1630,7 @@ b8 import_level_meshes(ImporterState& state, const std::string& asset_in_path, c
 					mesh->color.w = 1.0f;
 			}
 
-			if (load_mesh(ai_mesh, mesh))
+			if (load_mesh(ai_mesh, mesh, 0.995f))
 			{
 				printf("%s\n", mesh_out_filename.c_str());
 

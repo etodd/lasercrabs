@@ -48,6 +48,13 @@ struct AudioEntry
 		count,
 	};
 
+	enum Flag : s8
+	{
+		FlagKeepalive = 1 << 0,
+		FlagEnableObstructionOcclusion = 1 << 1,
+		FlagEnableReverb = 1 << 2,
+	};
+
 	static PinArray<AudioEntry, MAX_ENTITIES> list;
 
 	static AudioEntry* by_ak_id(AkGameObjectID);
@@ -70,7 +77,20 @@ struct AudioEntry
 	s16 spatialization_update_frame;
 	Revision revision;
 	s8 playing;
-	b8 keepalive;
+	s8 flags;
+
+	inline b8 flag(Flag f) const
+	{
+		return flags & f;
+	}
+
+	inline void flag(Flag f, b8 value)
+	{
+		if (value)
+			flags |= f;
+		else
+			flags &= ~f;
+	}
 
 	void init(const Vec3&, Transform*, AudioEntry* = nullptr);
 	void cleanup();

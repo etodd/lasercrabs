@@ -141,7 +141,7 @@ s32 Minion::count(AI::TeamMask mask)
 
 void Minion::footstep()
 {
-	get<Audio>()->post(AK::EVENTS::PLAY_FOOTSTEP);
+	get<Audio>()->post(AK::EVENTS::PLAY_MINION_FOOTSTEP);
 }
 
 void Minion::melee_started()

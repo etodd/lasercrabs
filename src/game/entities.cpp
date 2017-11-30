@@ -4327,7 +4327,7 @@ void TerminalEntity::open()
 	Animator* animator = Game::level.terminal.ref()->get<Animator>();
 	animator->layers[0].play(Asset::Animation::terminal_opened);
 	animator->layers[1].play(Asset::Animation::terminal_open);
-	animator->get<Audio>()->post(AK::EVENTS::PLAY_TERMINAL_OPEN);
+	Audio::post_global(AK::EVENTS::PLAY_TERMINAL_OPEN, Game::level.terminal.ref()->get<Transform>()->absolute_pos());
 }
 
 void TerminalEntity::close()
@@ -4335,7 +4335,7 @@ void TerminalEntity::close()
 	Animator* animator = Game::level.terminal.ref()->get<Animator>();
 	animator->layers[0].animation = AssetNull;
 	animator->layers[1].play(Asset::Animation::terminal_close);
-	animator->get<Audio>()->post(AK::EVENTS::PLAY_TERMINAL_CLOSE);
+	Audio::post_global(AK::EVENTS::PLAY_TERMINAL_CLOSE, Game::level.terminal.ref()->get<Transform>()->absolute_pos());
 }
 
 void TerminalEntity::closed()
@@ -4348,8 +4348,6 @@ TerminalEntity::TerminalEntity()
 {
 	Transform* transform = create<Transform>();
 	
-	create<Audio>();
-
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::terminal;
 	model->shader = Asset::Shader::armature;

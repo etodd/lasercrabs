@@ -73,6 +73,7 @@ Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 
 void Parkour::awake()
 {
+	get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_BREATHING);
 	get<RigidBody>()->set_ccd(true);
 	Animator* animator = get<Animator>();
 	animator->layers[0].behavior = Animator::Behavior::Loop;
@@ -100,6 +101,8 @@ void Parkour::awake()
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_left, 0.0f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.5f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.0f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_land, 0.1f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_land_hard, 0.1f));
 	link<&Parkour::pickup_animation_complete>(animator->trigger(Asset::Animation::character_pickup, 2.5f));
 	link_arg<r32, &Parkour::land>(get<Walker>()->land);
 	link_arg<Entity*, &Parkour::killed>(get<Health>()->killed);
@@ -108,6 +111,7 @@ void Parkour::awake()
 
 Parkour::~Parkour()
 {
+	get<Audio>()->stop_all();
 	pickup_animation_complete(); // delete anything we're holding
 }
 
@@ -167,7 +171,7 @@ void Parkour::footstep()
 	{
 		Vec3 base_pos = get<Walker>()->base_pos();
 
-		Audio::post_global(AK::EVENTS::PLAY_FOOTSTEP, base_pos);
+		Audio::post_global(AK::EVENTS::PLAY_PARKOUR_FOOTSTEP, base_pos);
 
 		RigidBody* support = get<Walker>()->support.ref();
 		EffectLight::add(base_pos, 0.5f, 5.0f, EffectLight::Type::Shockwave, support ? support->get<Transform>() : nullptr);
@@ -656,6 +660,7 @@ void Parkour::update(const Update& u)
 			}
 
 			can_double_jump = true;
+			jump_history.length = 0;
 			tile_history.length = 0;
 
 			Animator::Layer* layer1 = &get<Animator>()->layers[1];
@@ -667,6 +672,16 @@ void Parkour::update(const Update& u)
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos());
 			lean_target = get<Walker>()->net_speed * angular_velocity * (0.75f / 180.0f) / vi_max(0.0001f, u.time.delta);
 		}
+	}
+
+	// update breath sound
+	{
+		if ((fsm.current != State::Normal || get<Walker>()->net_speed >= RUN_SPEED)
+			&& fsm.current != State::Climb)
+			breathing = vi_min(5.0f, breathing + u.time.delta * (1.0f / 1.0f));
+		else
+			breathing = vi_max(0.0f, breathing + u.time.delta * (-1.0f / 0.6f));
+		get<Audio>()->param(AK::GAME_PARAMETERS::PARKOUR_BREATH, vi_max(0.0f, vi_min(1.0f, (breathing - 2.0f) * (1.0f / 2.0f))));
 	}
 
 	// update animation
@@ -969,10 +984,10 @@ const s32 wall_jump_direction_count = 4;
 const s32 wall_run_direction_count = 3;
 Vec3 wall_directions[wall_jump_direction_count] =
 {
-	Vec3(1, 0, 0),
-	Vec3(-1, 0, 0),
 	Vec3(0, 0, 1),
 	Vec3(0, 0, -1),
+	Vec3(1, 0, 0),
+	Vec3(-1, 0, 0),
 };
 
 void Parkour::do_normal_jump()
@@ -1001,6 +1016,22 @@ b8 Parkour::try_jump(r32 rotation)
 {
 	if (Game::time.total - last_jump_time < JUMP_GRACE_PERIOD)
 		return false;
+
+	if (jump_history.length == jump_history.capacity())
+	{
+		Vec3 pos = get<Walker>()->base_pos();
+		b8 found_different_jump = false;
+		for (s32 i = 0; i < jump_history.length; i++)
+		{
+			Vec3 diff = jump_history[i] - pos;
+			diff.y = 0.0f;
+			if (diff.length_squared() > 1.5f * 1.5f)
+				found_different_jump = true;
+		}
+
+		if (!found_different_jump)
+			return false;
+	}
 
 	b8 did_jump = false;
 	if (fsm.current == State::Climb)
@@ -1097,6 +1128,9 @@ b8 Parkour::try_jump(r32 rotation)
 
 	if (did_jump)
 	{
+		if (jump_history.length == jump_history.capacity())
+			jump_history.remove_ordered(0);
+		jump_history.add(get<Walker>()->base_pos());
 		jumped.fire();
 		get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_JUMP);
 		fsm.transition(State::Normal);
@@ -1253,19 +1287,26 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 {
 	Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, WALKER_SUPPORT_HEIGHT + get<Walker>()->default_capsule_height() * 0.25f, 0);
-	Vec3 ray_end = ray_start + wall_direction * WALKER_PARKOUR_RADIUS * WALL_RUN_DISTANCE_RATIO * 2.0f;
-	btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
+	btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_start + wall_direction * WALKER_PARKOUR_RADIUS * WALL_RUN_DISTANCE_RATIO * 2.0f);
 	Physics::raycast(&ray_callback, CollisionParkour);
 
 	if (ray_callback.hasHit()
 		&& fabsf(ray_callback.m_hitNormalWorld.getY()) < 0.25f
 		&& wall_direction.dot(ray_callback.m_hitNormalWorld) < -0.8f)
 	{
+		if (s == WallRunState::Left || s == WallRunState::Right)
+		{
+			// don't do side wall-run if there is a wall directly in front of us
+			Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
+			btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(ray_start, ray_start + forward * WALKER_PARKOUR_RADIUS * WALL_RUN_DISTANCE_RATIO * 2.0f);
+			Physics::raycast(&obstacle_ray_callback, CollisionStatic);
+			if (obstacle_ray_callback.hasHit())
+				return false;
+		}
+
 		btRigidBody* body = get<RigidBody>()->btBody;
 
 		Vec3 velocity = body->getLinearVelocity();
-		r32 vertical_velocity = velocity.y;
-		velocity.y = 0.0f;
 
 		Vec3 wall_normal = ray_callback.m_hitNormalWorld;
 
@@ -1283,8 +1324,9 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 
 		if (s == WallRunState::Forward)
 		{
-			if (add_velocity && vertical_velocity - support_velocity.y > -4.0f) // going up
+			if (add_velocity && velocity.y - support_velocity.y > -4.0f) // going up
 			{
+				velocity.y = 0.0f;
 				Vec3 horizontal_velocity = velocity - support_velocity;
 				r32 vertical_velocity = vi_max(0.0f, horizontal_velocity.y);
 				horizontal_velocity.y = 0.0f;
@@ -1299,11 +1341,10 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 			else // going down
 			{
 				if (last_support_wall_run_state == WallRunState::Forward
-					&& s == WallRunState::Forward
 					&& Game::time.total - last_support_time < 0.3f)
 					return false; // too soon to wall-run straight again
 				else
-					body->setLinearVelocity(support_velocity + Vec3(0, (vertical_velocity - support_velocity.y) * 0.5f, 0));
+					body->setLinearVelocity(support_velocity + Vec3(0, (velocity.y - support_velocity.y) * 0.5f, 0));
 			}
 		}
 		else
@@ -1311,23 +1352,30 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 			// side wall run
 			Vec3 relative_velocity = velocity - support_velocity;
 			Vec3 velocity_flattened = relative_velocity - wall_normal * relative_velocity.dot(wall_normal);
-			r32 flattened_vertical_speed = velocity_flattened.y;
-			velocity_flattened.y = 0.0f;
+			r32 flattened_vertical_speed = vi_min(velocity_flattened.y, relative_velocity.y);
 
 			// make sure we're facing the same way as we'll be moving
 			Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
 			if (velocity_flattened.dot(forward) < 0.0f)
 				velocity_flattened *= -1.0f;
 
-			r32 speed = vi_max(get<Walker>()->net_speed, MIN_WALLRUN_SPEED + 1.0f);
-
-			velocity_flattened *= (speed * 1.1f) / vi_max(0.01f, velocity_flattened.length());
-
 			if (add_velocity)
-				velocity_flattened.y = vi_max(flattened_vertical_speed, 0.0f) + 3.0f + speed * 0.5f;
+			{
+				r32 speed = vi_max(get<Walker>()->net_speed, MIN_WALLRUN_SPEED + 1.0f);
+				velocity_flattened *= (speed * 1.1f) / vi_max(0.01f, velocity_flattened.length());
+				velocity_flattened.y = vi_max(flattened_vertical_speed, 3.0f + speed * 0.5f);
+			}
 			else
 				velocity_flattened.y = flattened_vertical_speed;
-			body->setLinearVelocity(velocity_flattened);
+
+			{
+				Vec3 horizontal_velocity_diff = velocity_flattened;
+				horizontal_velocity_diff.y = 0.0f;
+				if (horizontal_velocity_diff.length() < MIN_WALLRUN_SPEED)
+					return false;
+			}
+
+			body->setLinearVelocity(support_velocity + velocity_flattened);
 		}
 
 		wall_run_state = s;

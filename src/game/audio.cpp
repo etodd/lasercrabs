@@ -261,7 +261,7 @@ void AudioEntry::init(const Vec3& npos, Transform* nparent, AudioEntry* parent_e
 	else
 		abs_pos = pos;
 	playing = 0;
-	keepalive = false;
+	flags = Flag(FlagEnableObstructionOcclusion | FlagEnableReverb);
 
 	AK::SoundEngine::RegisterGameObj(ak_id());
 
@@ -339,41 +339,49 @@ void audio_reverb_calc(const Vec3& abs_pos, r32 output[MAX_REVERBS])
 		if (distances[i] < 10.0f)
 			output[0] = vi_min(1.0f, output[0] + 0.5f);
 
-		if (distances[i] > 50.0f)
+		if (distances[i] > 20.0f && distances[i] < 40.0f)
 			output[2] = vi_min(1.0f, output[2] + 0.5f);
 	}
 
-	if (max_distance > 10.0f && max_distance < 50.0f)
-		output[1] = 1.0f;
+	if (max_distance > 10.0f && max_distance < 20.0f)
+		output[1] = 0.5f;
 }
 
 void AudioEntry::update_spatialization(UpdateType type)
 {
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	if (flag(FlagEnableObstructionOcclusion))
 	{
-		if (Audio::listener_mask & (1 << i))
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		{
-			const Vec3& listener = Audio::listener_pos[i];
-
-			Vec3 dir = abs_pos - listener;
-			r32 distance = dir.length();
-			if (distance > 0.0f)
+			if (Audio::listener_mask & (1 << i))
 			{
-				dir /= distance;
+				const Vec3& listener = Audio::listener_pos[i];
 
-				btCollisionWorld::ClosestRayResultCallback ray_callback(listener, listener + dir * vi_max(0.1f, distance - 0.5f));
-				Physics::raycast(&ray_callback, CollisionAudio);
-				if (ray_callback.hasHit())
+				Vec3 dir = abs_pos - listener;
+				r32 distance = dir.length();
+				if (distance > 0.0f)
 				{
-					obstruction_target[i] = 1.0f;
-					if (distance > 80.0f)
-						occlusion_target[i] = 0.0f;
+					dir /= distance;
+
+					btCollisionWorld::ClosestRayResultCallback ray_callback(listener, listener + dir * vi_max(0.1f, distance - 0.5f));
+					Physics::raycast(&ray_callback, CollisionAudio);
+					if (ray_callback.hasHit())
+					{
+						obstruction_target[i] = 1.0f;
+						if (distance > 80.0f)
+							occlusion_target[i] = 0.0f;
+						else
+						{
+							if (type == UpdateType::All)
+								pathfind_result(s8(i), AI::audio_pathfind(listener, abs_pos), distance);
+							else
+								AI::audio_pathfind(listener, abs_pos, this, s8(i), distance);
+						}
+					}
 					else
 					{
-						if (type == UpdateType::All)
-							pathfind_result(s8(i), AI::audio_pathfind(listener, abs_pos), distance);
-						else
-							AI::audio_pathfind(listener, abs_pos, this, s8(i), distance);
+						obstruction_target[i] = 0.0f;
+						occlusion_target[i] = 0.0f;
 					}
 				}
 				else
@@ -382,15 +390,11 @@ void AudioEntry::update_spatialization(UpdateType type)
 					occlusion_target[i] = 0.0f;
 				}
 			}
-			else
-			{
-				obstruction_target[i] = 0.0f;
-				occlusion_target[i] = 0.0f;
-			}
 		}
 	}
 
-	audio_reverb_calc(abs_pos, reverb_target);
+	if (flag(FlagEnableReverb))
+		audio_reverb_calc(abs_pos, reverb_target);
 
 	spatialization_update_frame = Audio::spatialization_update_frame;
 }
@@ -401,23 +405,27 @@ void AudioEntry::update(r32 dt)
 		abs_pos = pos + parent.ref()->absolute_pos();
 
 	const r32 delta = dt * (1.0f / 0.4f); // takes X seconds to lerp to the new value
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+
+	if (flag(FlagEnableObstructionOcclusion))
 	{
-		if (Audio::listener_mask & (1 << i))
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		{
-			if (obstruction_target[i] > obstruction[i])
-				obstruction[i] = vi_min(obstruction_target[i], obstruction[i] + delta);
-			else
-				obstruction[i] = vi_max(obstruction_target[i], obstruction[i] - delta);
-			if (occlusion_target[i] > occlusion[i])
-				occlusion[i] = vi_min(occlusion_target[i], occlusion[i] + delta);
-			else
-				occlusion[i] = vi_max(occlusion_target[i], occlusion[i] - delta);
-			AK::SoundEngine::SetObjectObstructionAndOcclusion(ak_id(), Audio::listener_id(i), obstruction[i], occlusion[i]);
+			if (Audio::listener_mask & (1 << i))
+			{
+				if (obstruction_target[i] > obstruction[i])
+					obstruction[i] = vi_min(obstruction_target[i], obstruction[i] + delta);
+				else
+					obstruction[i] = vi_max(obstruction_target[i], obstruction[i] - delta);
+				if (occlusion_target[i] > occlusion[i])
+					occlusion[i] = vi_min(occlusion_target[i], occlusion[i] + delta);
+				else
+					occlusion[i] = vi_max(occlusion_target[i], occlusion[i] - delta);
+				AK::SoundEngine::SetObjectObstructionAndOcclusion(ak_id(), Audio::listener_id(i), obstruction[i], occlusion[i]);
+			}
 		}
 	}
 
-	// reverb
+	if (flag(FlagEnableReverb))
 	{
 		s32 reverb_count = 0;
 
@@ -511,9 +519,10 @@ void Audio::update_all(const Update& u)
 
 		for (auto i = AudioEntry::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->keepalive || i.item()->playing > 0) // Audio component is keeping it alive, or something is playing on it
+			if (i.item()->flag(AudioEntry::FlagKeepalive) || i.item()->playing > 0) // Audio component is keeping it alive, or something is playing on it
 			{
-				if (spatialization_updates > 0
+				if (i.item()->flag(AudioEntry::Flag(AudioEntry::FlagEnableObstructionOcclusion | AudioEntry::FlagEnableReverb))
+					&& spatialization_updates > 0
 					&& i.item()->spatialization_update_frame != spatialization_update_frame)
 				{
 					i.item()->update_spatialization(AudioEntry::UpdateType::ReverbObstruction);
@@ -657,12 +666,12 @@ void Audio::awake()
 	AudioEntry* e = AudioEntry::list.add();
 	entry_id = e->id();
 	e->init(Vec3::zero, get<Transform>());
-	e->keepalive = true;
+	e->flag(AudioEntry::FlagKeepalive, true);
 }
 
 Audio::~Audio()
 {
-	AudioEntry::list[entry_id].keepalive = false;
+	AudioEntry::list[entry_id].flag(AudioEntry::FlagKeepalive, false);
 }
 
 void Audio::clear()

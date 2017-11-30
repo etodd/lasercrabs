@@ -2,6 +2,7 @@
 
 #include "data/array.h"
 #include "render.h"
+#include "data/entity.h"
 
 namespace VI
 {
@@ -62,11 +63,16 @@ struct Sparks : public ParticleSystem
 	void add(const Vec3&, const Vec3&, const Vec4& = Vec4(1));
 };
 
+struct AudioEntry;
+
 struct Rain : public ParticleSystem
 {
 	static r32 particle_accumulator;
 	static const s32 raycast_grid_size = 24; // must be a power of 2
+	static r32 audio_kernel[raycast_grid_size * raycast_grid_size];
+	static Ref<AudioEntry> audio_entry;
 
+	static void init();
 	static void spawn(const Update&, r32);
 
 	Vec3 velocity;

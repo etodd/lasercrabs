@@ -49,7 +49,6 @@ namespace AK
         static const AkUniqueID PLAY_EQUIP_SNIPER = 3837239528U;
         static const AkUniqueID PLAY_EXPLOSION = 4030404899U;
         static const AkUniqueID PLAY_FIRE_LOOP = 1779335U;
-        static const AkUniqueID PLAY_FOOTSTEP = 1602358412U;
         static const AkUniqueID PLAY_FORCE_FIELD_LOOP = 427547487U;
         static const AkUniqueID PLAY_FORCE_FIELD_SPAWN = 1877727510U;
         static const AkUniqueID PLAY_GRENADE_ARM = 1073857507U;
@@ -124,6 +123,7 @@ namespace AK
         static const AkUniqueID PLAY_MEURSAULT_ARROW = 2722111244U;
         static const AkUniqueID PLAY_MINION_CHARGE = 1161618039U;
         static const AkUniqueID PLAY_MINION_DIE = 677003823U;
+        static const AkUniqueID PLAY_MINION_FOOTSTEP = 3410323533U;
         static const AkUniqueID PLAY_MINION_HEADSHOT = 3502276269U;
         static const AkUniqueID PLAY_MINION_MELEE_HANDCLOSE = 1681336885U;
         static const AkUniqueID PLAY_MINION_MELEE_HANDOPEN = 3002091487U;
@@ -135,13 +135,16 @@ namespace AK
         static const AkUniqueID PLAY_MUSIC_01 = 3709355747U;
         static const AkUniqueID PLAY_NOTIFICATION_LOST = 4226152292U;
         static const AkUniqueID PLAY_NOTIFICATION_UNDER_ATTACK = 4019010343U;
+        static const AkUniqueID PLAY_OCEAN_LOOP = 3589618837U;
         static const AkUniqueID PLAY_OVERWORLD_DEPLOY = 3291224810U;
         static const AkUniqueID PLAY_OVERWORLD_DEPLOY_START = 1917291515U;
         static const AkUniqueID PLAY_OVERWORLD_MOVE = 3749213116U;
         static const AkUniqueID PLAY_OVERWORLD_SELECT = 2566488799U;
         static const AkUniqueID PLAY_OVERWORLD_SHOW = 3935148276U;
+        static const AkUniqueID PLAY_PARKOUR_BREATHING = 2176843955U;
         static const AkUniqueID PLAY_PARKOUR_CLIMB = 1530104406U;
         static const AkUniqueID PLAY_PARKOUR_COLLECTIBLE_PICKUP = 1377678954U;
+        static const AkUniqueID PLAY_PARKOUR_FOOTSTEP = 1407435961U;
         static const AkUniqueID PLAY_PARKOUR_INTERACT = 3428809693U;
         static const AkUniqueID PLAY_PARKOUR_JUMP = 3928088679U;
         static const AkUniqueID PLAY_PARKOUR_LAND_HARD = 64743920U;
@@ -151,6 +154,7 @@ namespace AK
         static const AkUniqueID PLAY_PARKOUR_SLIDE = 3397163066U;
         static const AkUniqueID PLAY_PARKOUR_TOPOUT = 1638007016U;
         static const AkUniqueID PLAY_PARKOUR_WIND = 2240612133U;
+        static const AkUniqueID PLAY_RAIN_LOOP = 1012011693U;
         static const AkUniqueID PLAY_RECTIFIER_PING = 415448958U;
         static const AkUniqueID PLAY_RECTIFIER_SPAWN = 2834774227U;
         static const AkUniqueID PLAY_REX01 = 3604012298U;
@@ -167,6 +171,8 @@ namespace AK
         static const AkUniqueID PLAY_REX12 = 3587234714U;
         static const AkUniqueID PLAY_SHIELD_RESTORE_INNER = 3921268631U;
         static const AkUniqueID PLAY_SHIELD_RESTORE_OUTER = 3809385754U;
+        static const AkUniqueID PLAY_SHIP_DOOR_SHUT = 337830204U;
+        static const AkUniqueID PLAY_SHOPPING_CART_RATTLE = 3926018496U;
         static const AkUniqueID PLAY_SNIPER_FIRE = 3954156574U;
         static const AkUniqueID PLAY_SNIPER_IMPACT = 2393598820U;
         static const AkUniqueID PLAY_SNIPER_WHIFF = 1643495180U;
@@ -204,6 +210,7 @@ namespace AK
         static const AkUniqueID COOLDOWNCHARGE = 1079239790U;
         static const AkUniqueID DRONE_SPEED = 1382379429U;
         static const AkUniqueID MINION_WEAPON_CHARGE = 691397373U;
+        static const AkUniqueID PARKOUR_BREATH = 1605332778U;
         static const AkUniqueID PARKOUR_SLIDE = 2866705659U;
         static const AkUniqueID PARKOUR_WIND = 2655675174U;
         static const AkUniqueID PERSPECTIVE = 3838734001U;
@@ -233,6 +240,8 @@ namespace AK
         static const AkUniqueID MASTER_SECONDARY_BUS = 805203703U;
         static const AkUniqueID MINION = 2963829187U;
         static const AkUniqueID MUSIC = 3991942870U;
+        static const AkUniqueID PARKOURBREATHING = 3642465865U;
+        static const AkUniqueID PARKOURVOCALS = 3912924935U;
         static const AkUniqueID SFX = 393239870U;
         static const AkUniqueID UI = 1551306167U;
     } // namespace BUSSES

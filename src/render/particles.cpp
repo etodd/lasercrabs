@@ -6,7 +6,6 @@
 #include "physics.h"
 #include "game/audio.h"
 #include "asset/Wwise_IDs.h"
-#include "console.h"
 
 namespace VI
 {
@@ -546,7 +545,6 @@ void Rain::spawn(const Update& u, r32 strength)
 				r32 score = average_pos.length_squared();
 				if (score < audio_score)
 				{
-					Console::debug("%f %f %f", average_pos.x, average_pos.y, average_pos.z);
 					audio_score = score;
 					audio_pos = camera.pos + average_pos;
 				}
@@ -625,7 +623,8 @@ void Rain::spawn(const Update& u, r32 strength)
 		else
 			rain->clear();
 	}
-	audio_entry.ref()->abs_pos = audio_pos;
+	if (audio_entry.ref())
+		audio_entry.ref()->abs_pos = audio_pos;
 #endif
 }
 

@@ -677,8 +677,10 @@ void Game::update(const Update& update_in)
 		for (s32 i = 0; i < updates.length; i++)
 			(*updates[i])(u);
 
+#if !SERVER
 		if (level.rain > 0.0f)
 			Rain::spawn(u, level.rain);
+#endif
 	}
 	else
 	{
@@ -2344,8 +2346,10 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 
 void Game::awake_all()
 {
+#if !SERVER
 	if (level.rain > 0.0f)
 		Rain::init();
+#endif
 
 #if !SERVER
 	if (Settings::expo)

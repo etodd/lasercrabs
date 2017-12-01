@@ -454,7 +454,7 @@
 				</Attenuation>
 				<Attenuation Name="Rain" ID="{D35A067F-4D95-446B-AF99-FBDB8875E15E}" ShortID="132732473">
 					<PropertyList>
-						<Property Name="RadiusMax" Type="Real64" Value="35"/>
+						<Property Name="RadiusMax" Type="Real64" Value="29"/>
 					</PropertyList>
 					<CurveUsageInfoList>
 						<VolumeDryUsage>
@@ -470,18 +470,18 @@
 											<Flags>5</Flags>
 										</Point>
 										<Point>
-											<XPos>6.88889</XPos>
-											<YPos>-4.07384</YPos>
+											<XPos>6.16825</XPos>
+											<YPos>-5.36163</YPos>
 											<Flags>0</Flags>
 										</Point>
 										<Point>
-											<XPos>15.27778</XPos>
-											<YPos>-7.60479</YPos>
+											<XPos>14.73016</XPos>
+											<YPos>-11.09699</YPos>
 											<Flags>0</Flags>
 										</Point>
 										<Point>
-											<XPos>35</XPos>
-											<YPos>-17.20676</YPos>
+											<XPos>29</XPos>
+											<YPos>-200</YPos>
 											<Flags>37</Flags>
 										</Point>
 									</PointList>
@@ -513,18 +513,18 @@
 											<Flags>5</Flags>
 										</Point>
 										<Point>
-											<XPos>5.50001</XPos>
+											<XPos>4.55715114285714</XPos>
 											<YPos>100</YPos>
 											<Flags>0</Flags>
 										</Point>
 										<Point>
-											<XPos>20</XPos>
-											<YPos>25.28736</YPos>
+											<XPos>16.61746</XPos>
+											<YPos>14.36782</YPos>
 											<Flags>0</Flags>
 										</Point>
 										<Point>
-											<XPos>35</XPos>
-											<YPos>24.71264</YPos>
+											<XPos>29</XPos>
+											<YPos>13.7931</YPos>
 											<Flags>37</Flags>
 										</Point>
 									</PointList>
@@ -598,7 +598,7 @@
 										</Point>
 										<Point>
 											<XPos>20</XPos>
-											<YPos>-0</YPos>
+											<YPos>0</YPos>
 											<Flags>37</Flags>
 										</Point>
 									</PointList>

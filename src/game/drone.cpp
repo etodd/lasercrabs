@@ -2590,15 +2590,8 @@ void Drone::update_client_all(const Update& u)
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		Vec3 pos = i.item()->lerped_pos;
-		r32 speed;
 		if (i.item()->state() == State::Crawl)
-		{
 			i.item()->velocity = i.item()->velocity * 0.9f + ((pos - i.item()->last_pos) / vi_max(0.0001f, u.time.delta)) * 0.1f;
-			speed = vi_max(0.0f, vi_min(1.0f, i.item()->velocity.length() / DRONE_CRAWL_SPEED));
-		}
-		else
-			speed = 0.0f;
-		i.item()->get<Audio>()->param(AK::GAME_PARAMETERS::DRONE_SPEED, speed);
 		i.item()->last_pos = pos;
 	}
 }

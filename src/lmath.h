@@ -6,6 +6,7 @@
 #include "bullet/src/LinearMath/btVector3.h"
 #include "bullet/src/LinearMath/btQuaternion.h"
 #include "types.h"
+#include "vi_assert.h"
 
 namespace VI
 {
@@ -55,11 +56,13 @@ struct Vec2
 
 	inline r32 operator [] (s32 i) const
 	{
+		vi_assert(i == 0 || i == 1);
 		return *(&x+i);
 	}
 
 	inline r32& operator [] (s32 i)
 	{
+		vi_assert(i == 0 || i == 1);
 		return *(&x+i);
 	}
 
@@ -339,11 +342,13 @@ struct Vec3
 
 	inline r32 operator [] (s32 i) const
 	{
+		vi_assert(i >= 0 && i < 3);
 		return *(&x + i);
 	}
 
 	inline r32& operator [] (s32 i)
 	{
+		vi_assert(i >= 0 && i < 3);
 		return *(&x + i);
 	}
 
@@ -643,11 +648,13 @@ struct Vec4
 
 	inline r32 operator [] (s32 i) const
 	{
+		vi_assert(i >= 0 && i < 4);
 		return *(&x + i);
 	}
 
 	inline r32& operator [] (s32 i)
 	{
+		vi_assert(i >= 0 && i < 4);
 		return *(&x + i);
 	}
 
@@ -1077,11 +1084,13 @@ struct Quat
 
 	inline r32 operator [] (s32 i) const
 	{
+		vi_assert(i >= 0 && i < 4);
 		return *(&w + i);
 	}
 
 	inline r32& operator [] (s32 i)
 	{
+		vi_assert(i >= 0 && i < 4);
 		return *(&w + i);
 	}
 
@@ -1204,11 +1213,13 @@ struct Mat4
 
 	inline r32* operator [] (s32 column)
 	{
+		vi_assert(column >= 0 && column < 4);
 		return m[column];
 	}
 
 	inline const r32* operator [] (s32 column) const
 	{
+		vi_assert(column >= 0 && column < 4);
 		return m[column];
 	}
 

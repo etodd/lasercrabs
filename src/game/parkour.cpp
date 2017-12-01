@@ -125,25 +125,20 @@ void Parkour::land(r32 velocity_diff)
 {
 	if (fsm.current == State::Normal)
 	{
-		if (velocity_diff < LANDING_VELOCITY_LIGHT)
+		if (velocity_diff < LANDING_VELOCITY_HARD - 7.0f)
+			get<Health>()->kill(nullptr);
+		else if (velocity_diff < LANDING_VELOCITY_HARD)
 		{
-			if (velocity_diff < LANDING_VELOCITY_HARD)
-			{
-				// hard landing
-				fsm.transition(State::HardLanding);
-				get<Walker>()->max_speed = get<Walker>()->speed = get<Walker>()->net_speed = 0.0f;
-				get<RigidBody>()->btBody->setLinearVelocity(Vec3(0, get<RigidBody>()->btBody->getLinearVelocity().getY(), 0));
-				get<Animator>()->layers[1].play(Asset::Animation::character_land_hard);
-				get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_HARD);
-				s8 damage = vi_min(s8((LANDING_VELOCITY_HARD - velocity_diff) * 0.5f), s8(DRONE_HEALTH));
-				if (damage > 0)
-					get<Health>()->damage(nullptr, damage);
-			}
-			else // light landing
-			{
-				get<Animator>()->layers[1].play(Asset::Animation::character_land);
-				get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_SOFT);
-			}
+			fsm.transition(State::HardLanding);
+			get<Walker>()->max_speed = get<Walker>()->speed = get<Walker>()->net_speed = 0.0f;
+			get<RigidBody>()->btBody->setLinearVelocity(Vec3(0, get<RigidBody>()->btBody->getLinearVelocity().getY(), 0));
+			get<Animator>()->layers[1].play(Asset::Animation::character_land_hard);
+			get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_HARD);
+		}
+		else if (velocity_diff < LANDING_VELOCITY_LIGHT)
+		{
+			get<Animator>()->layers[1].play(Asset::Animation::character_land);
+			get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_SOFT);
 		}
 	}
 }
@@ -636,7 +631,10 @@ void Parkour::update(const Update& u)
 				else if (Game::save.resources[s32(Resource::ExtendedWallRun)]) // keep going, generate a wall
 					exit_wallrun = wallrun(u, last_support.ref(), relative_support_pos, relative_wall_run_normal);
 				else
+				{
+					get<PlayerControlHuman>()->try_secondary = true; // HACK: re-enable try_parkour() every frame since we ran out of wall to run on
 					exit_wallrun = true;
+				}
 			}
 		}
 
@@ -1362,8 +1360,15 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 			if (add_velocity)
 			{
 				r32 speed = vi_max(get<Walker>()->net_speed, MIN_WALLRUN_SPEED + 1.0f);
-				velocity_flattened *= (speed * 1.1f) / vi_max(0.01f, velocity_flattened.length());
-				velocity_flattened.y = vi_max(flattened_vertical_speed, 3.0f + speed * 0.5f);
+				velocity_flattened.y = 0.0f;
+				r32 flattened_speed = velocity_flattened.length();
+				if (flattened_speed > 0.01f)
+				{
+					velocity_flattened *= (speed * 1.1f) / vi_max(0.01f, flattened_speed);
+					velocity_flattened.y = vi_max(flattened_vertical_speed, 3.0f + speed * 0.5f);
+				}
+				else
+					return false;
 			}
 			else
 				velocity_flattened.y = flattened_vertical_speed;

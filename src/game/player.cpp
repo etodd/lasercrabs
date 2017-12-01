@@ -763,6 +763,7 @@ void PlayerHuman::upgrade_menu_show()
 		menu.animate();
 		menu.selected = 0;
 		flag(FlagUpgradeMenuOpen, true);
+		Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW);
 		upgrade_last_visit_highest_available = get<PlayerManager>()->upgrade_highest_owned_or_available();
 	}
 }
@@ -770,6 +771,7 @@ void PlayerHuman::upgrade_menu_show()
 void PlayerHuman::upgrade_menu_hide()
 {
 	flag(FlagUpgradeMenuOpen, false);
+	Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
 	upgrade_station_try_exit();
 }
 
@@ -1015,7 +1017,8 @@ void PlayerHuman::update(const Update& u)
 					camera.ref()->flag(CameraFlagCullBehindWall, false);
 					camera.ref()->flag(CameraFlagFog, true);
 				}
-				upgrade_menu_hide();
+				if (flag(FlagUpgradeMenuOpen))
+					upgrade_menu_hide();
 			}
 			else
 				camera.ref()->flag(CameraFlagActive, false);
@@ -1467,6 +1470,7 @@ void PlayerHuman::update(const Update& u)
 		{
 			Game::cancel_event_eaten[gamepad] = true;
 			menu_state = (menu_state == Menu::State::Hidden) ? Menu::State::Visible : Menu::State::Hidden;
+			Audio::post_global(menu_state == Menu::State::Visible ? AK::EVENTS::PLAY_DIALOG_SHOW : AK::EVENTS::PLAY_DIALOG_CANCEL);
 			menu.animate();
 		}
 		else if (menu_state == Menu::State::Visible
@@ -1476,6 +1480,7 @@ void PlayerHuman::update(const Update& u)
 		{
 			Game::cancel_event_eaten[gamepad] = true;
 			menu_state = Menu::State::Hidden;
+			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
 		}
 	}
 }
@@ -1525,7 +1530,7 @@ void PlayerHuman::update_late(const Update& u)
 			{
 				// either we're alive, or we're spectating someone
 				// make sure the listener is in a valid place
-				btCollisionWorld::ClosestRayResultCallback ray_callback(camera_center, camera.ref()->pos);
+				btCollisionWorld::ClosestRayResultCallback ray_callback(get<PlayerManager>()->instance.ref()->get<Transform>()->absolute_pos(), camera.ref()->pos);
 				Physics::raycast(&ray_callback, CollisionAudio);
 				if (ray_callback.hasHit())
 					Audio::listener_update(gamepad, ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * DRONE_RADIUS, camera.ref()->rot);
@@ -3668,6 +3673,9 @@ void PlayerControlHuman::awake()
 
 	link_arg<const HealthEvent&, &PlayerControlHuman::health_changed>(get<Health>()->changed);
 	link_arg<Entity*, &PlayerControlHuman::killed>(get<Health>()->killed);
+
+	if (player.ref()->local())
+		get<Audio>()->entry()->flag(AudioEntry::FlagEnableObstructionOcclusion, false);
 
 	if (has<Drone>())
 	{

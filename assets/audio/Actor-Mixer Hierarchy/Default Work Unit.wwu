@@ -88,44 +88,6 @@
 						</Sound>
 					</ChildrenList>
 				</RandomSequenceContainer>
-				<RandomSequenceContainer Name="Beep_Good" ID="{54447A20-7B33-4926-9A51-135793FFE7F4}" ShortID="716394228">
-					<PropertyList>
-						<Property Name="Volume" Type="Real64">
-							<ValueList>
-								<Value>-6</Value>
-							</ValueList>
-						</Property>
-					</PropertyList>
-					<ReferenceList>
-						<Reference Name="Conversion">
-							<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-						</Reference>
-						<Reference Name="OutputBus">
-							<ObjectRef Name="UI" ID="{3ECCDB42-2C41-40BC-9EED-68EB2EF11F5C}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-						</Reference>
-					</ReferenceList>
-					<ChildrenList>
-						<Sound Name="beep-good" ID="{52AC9256-6C30-4EE1-BBB6-BE03D768F6F3}" ShortID="724184251">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="beep-good" ID="{49929F01-2E70-40FE-9AD4-FDB719C2B7AC}" ShortID="186868769">
-									<Language>SFX</Language>
-									<AudioFile>beep-good.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="beep-good" ID="{49929F01-2E70-40FE-9AD4-FDB719C2B7AC}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-					</ChildrenList>
-				</RandomSequenceContainer>
 				<RandomSequenceContainer Name="Zoom_In" ID="{BFCF049F-FB49-4EF8-BB36-0DB5752BF3F9}" ShortID="93570768">
 					<ReferenceList>
 						<Reference Name="Conversion">
@@ -1684,32 +1646,6 @@
 															</Modifier>
 														</ModifierInfo>
 													</ModifierList>
-													<RTPCList>
-														<RTPC Name="" ID="{17A25749-E2AE-40A5-9A5F-78A3D6122963}" ShortID="61511891">
-															<ReferenceList>
-																<Reference Name="ControlInput">
-																	<ObjectRef Name="Drone_Speed" ID="{2A872154-8E2F-422B-B045-3731805BB183}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
-																</Reference>
-															</ReferenceList>
-															<Curve Name="" ID="{CAE3AC8F-1DD1-47A6-8CEE-DFEEA4A65719}">
-																<PropertyList>
-																	<Property Name="Flags" Type="int32" Value="65537"/>
-																</PropertyList>
-																<PointList>
-																	<Point>
-																		<XPos>0</XPos>
-																		<YPos>0</YPos>
-																		<Flags>5</Flags>
-																	</Point>
-																	<Point>
-																		<XPos>1</XPos>
-																		<YPos>200</YPos>
-																		<Flags>37</Flags>
-																	</Point>
-																</PointList>
-															</Curve>
-														</RTPC>
-													</RTPCList>
 												</Property>
 												<Property Name="PositioningType" Type="int16" Value="1"/>
 												<Property Name="RandomAvoidRepeatingCount" Type="int32" Value="5"/>
@@ -1722,32 +1658,6 @@
 													<ValueList>
 														<Value>-16</Value>
 													</ValueList>
-													<RTPCList>
-														<RTPC Name="" ID="{8D140812-80F0-4891-BEA2-88F1CC76B3C9}" ShortID="658209306">
-															<ReferenceList>
-																<Reference Name="ControlInput">
-																	<ObjectRef Name="Drone_Speed" ID="{2A872154-8E2F-422B-B045-3731805BB183}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
-																</Reference>
-															</ReferenceList>
-															<Curve Name="" ID="{4FDAE1A3-4C93-4A2A-969C-56E283494DD8}">
-																<PropertyList>
-																	<Property Name="Flags" Type="int32" Value="3"/>
-																</PropertyList>
-																<PointList>
-																	<Point>
-																		<XPos>0</XPos>
-																		<YPos>0</YPos>
-																		<Flags>5</Flags>
-																	</Point>
-																	<Point>
-																		<XPos>1</XPos>
-																		<YPos>-3</YPos>
-																		<Flags>37</Flags>
-																	</Point>
-																</PointList>
-															</Curve>
-														</RTPC>
-													</RTPCList>
 												</Property>
 											</PropertyList>
 											<ReferenceList>
@@ -6560,7 +6470,7 @@
 						<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 						<Property Name="Volume" Type="Real64">
 							<ValueList>
-								<Value>-10</Value>
+								<Value>-5</Value>
 							</ValueList>
 							<RTPCList>
 								<RTPC Name="" ID="{1BEF484B-055A-4512-890E-D4E73671B081}" ShortID="572203935">
@@ -6622,7 +6532,7 @@
 								<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 								<Property Name="Volume" Type="Real64">
 									<ValueList>
-										<Value>-5</Value>
+										<Value>-4</Value>
 									</ValueList>
 								</Property>
 							</PropertyList>
@@ -6753,7 +6663,7 @@
 								<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 								<Property Name="Volume" Type="Real64">
 									<ValueList>
-										<Value>-7</Value>
+										<Value>-5</Value>
 									</ValueList>
 									<ModifierList>
 										<ModifierInfo>
@@ -7129,82 +7039,13 @@
 										<ActiveSource Name="DEC_Cooldown_Charge_01_01" ID="{11D21053-B174-4AB6-A160-B65321A6A13E}" Platform="Linked"/>
 									</ActiveSourceList>
 								</Sound>
-								<Sound Name="DEC_Cooldown_Charge_01_02" ID="{DD8D7F8A-02C9-4580-8990-445ADCC1F4AA}" ShortID="303451722">
-									<ReferenceList>
-										<Reference Name="Conversion">
-											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-										</Reference>
-										<Reference Name="OutputBus">
-											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-										</Reference>
-									</ReferenceList>
-									<ChildrenList>
-										<AudioFileSource Name="DEC_Cooldown_Charge_01_02" ID="{373F96A5-8929-4A0C-B6FC-0DAA2FA728D4}" ShortID="21743308">
-											<Language>SFX</Language>
-											<AudioFile>DEC_Cooldown_Charge_01_02.wav</AudioFile>
-										</AudioFileSource>
-									</ChildrenList>
-									<ActiveSourceList>
-										<ActiveSource Name="DEC_Cooldown_Charge_01_02" ID="{373F96A5-8929-4A0C-B6FC-0DAA2FA728D4}" Platform="Linked"/>
-									</ActiveSourceList>
-								</Sound>
-								<Sound Name="DEC_Cooldown_Charge_01_03" ID="{4D755D16-FBE1-49FE-BCF0-362482011EB9}" ShortID="112055535">
-									<ReferenceList>
-										<Reference Name="Conversion">
-											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-										</Reference>
-										<Reference Name="OutputBus">
-											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-										</Reference>
-									</ReferenceList>
-									<ChildrenList>
-										<AudioFileSource Name="DEC_Cooldown_Charge_01_03" ID="{8E72CFCE-97A6-4B84-A33F-8C4DB24EA7F1}" ShortID="427848271">
-											<Language>SFX</Language>
-											<AudioFile>DEC_Cooldown_Charge_01_03.wav</AudioFile>
-										</AudioFileSource>
-									</ChildrenList>
-									<ActiveSourceList>
-										<ActiveSource Name="DEC_Cooldown_Charge_01_03" ID="{8E72CFCE-97A6-4B84-A33F-8C4DB24EA7F1}" Platform="Linked"/>
-									</ActiveSourceList>
-								</Sound>
 							</ChildrenList>
 							<BlendTrackList>
 								<BlendTrack Name="New Blend Track" ID="{EF0CED12-FD38-4DAD-BE6A-D7621705E3AF}" ShortID="192409848">
-									<PropertyList>
-										<Property Name="EnableCrossFading" Type="bool" Value="True"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="LayerCrossFadeControlInput">
-											<ObjectRef Name="CooldownCharge" ID="{DB9FE303-F172-4012-8D56-E04392A8FFFE}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
-										</Reference>
-									</ReferenceList>
+									<ReferenceList/>
 									<BlendTrackAssocList>
 										<BlendTrackAssoc>
 											<ItemRef Name="DEC_Cooldown_Charge_01_01" ID="{AFF61599-2F5E-4B89-8BE3-C8B1983101BC}"/>
-											<CrossfadingInfo>
-												<LeftEdgePos>0</LeftEdgePos>
-												<LeftFadingMode>Automatic</LeftFadingMode>
-												<RightEdgePos>0.521414021164021</RightEdgePos>
-												<RightFadingMode>Automatic</RightFadingMode>
-											</CrossfadingInfo>
-										</BlendTrackAssoc>
-										<BlendTrackAssoc>
-											<ItemRef Name="DEC_Cooldown_Charge_01_02" ID="{DD8D7F8A-02C9-4580-8990-445ADCC1F4AA}"/>
-											<CrossfadingInfo>
-												<LeftEdgePos>0.834641534391535</LeftEdgePos>
-												<LeftFadingMode>Automatic</LeftFadingMode>
-												<RightEdgePos>1.26638756613757</RightEdgePos>
-												<RightFadingMode>Automatic</RightFadingMode>
-											</CrossfadingInfo>
-										</BlendTrackAssoc>
-										<BlendTrackAssoc>
-											<ItemRef Name="DEC_Cooldown_Charge_01_03" ID="{4D755D16-FBE1-49FE-BCF0-362482011EB9}"/>
-											<CrossfadingInfo>
-												<LeftEdgePos>1.43333333333333</LeftEdgePos>
-												<LeftFadingMode>Automatic</LeftFadingMode>
-												<RightEdgePos>2</RightEdgePos>
-												<RightFadingMode>Automatic</RightFadingMode>
-											</CrossfadingInfo>
 										</BlendTrackAssoc>
 									</BlendTrackAssocList>
 								</BlendTrack>
@@ -7260,6 +7101,179 @@
 							</ChildrenList>
 							<ActiveSourceList>
 								<ActiveSource Name="DEC_UI_transition_out_rev2" ID="{6ED42551-BB42-49B0-B3E8-82F0D3276F31}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<RandomSequenceContainer Name="Beep_Good" ID="{54447A20-7B33-4926-9A51-135793FFE7F4}" ShortID="716394228">
+							<PropertyList>
+								<Property Name="Volume" Type="Real64">
+									<ValueList>
+										<Value>-6</Value>
+									</ValueList>
+								</Property>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="UI" ID="{3ECCDB42-2C41-40BC-9EED-68EB2EF11F5C}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<Sound Name="beep-good" ID="{52AC9256-6C30-4EE1-BBB6-BE03D768F6F3}" ShortID="724184251">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="beep-good" ID="{49929F01-2E70-40FE-9AD4-FDB719C2B7AC}" ShortID="186868769">
+											<Language>SFX</Language>
+											<AudioFile>beep-good.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="beep-good" ID="{49929F01-2E70-40FE-9AD4-FDB719C2B7AC}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+							</ChildrenList>
+						</RandomSequenceContainer>
+						<Sound Name="DEC_UI_menu_alter_value" ID="{914C4690-2BC5-4201-BE0B-28FDFD8D29AD}" ShortID="431572474">
+							<PropertyList>
+								<Property Name="Volume" Type="Real64">
+									<ValueList>
+										<Value>-5</Value>
+									</ValueList>
+								</Property>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="DEC_UI_menu_alter_value" ID="{DB82B860-6B49-4707-A7AF-5CA72DEBCE0E}" ShortID="1070193350">
+									<Language>SFX</Language>
+									<AudioFile>DEC_UI_menu_alter_value.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="DEC_UI_menu_alter_value" ID="{DB82B860-6B49-4707-A7AF-5CA72DEBCE0E}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="DEC_UI_menu_elect" ID="{E6EA72CF-5F00-4C3D-8791-706222426EC1}" ShortID="17341461">
+							<PropertyList>
+								<Property Name="Volume" Type="Real64">
+									<ValueList>
+										<Value>-3</Value>
+									</ValueList>
+								</Property>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="DEC_UI_menu_elect" ID="{A8680FBC-077A-43FB-84BE-515A8BA87FBF}" ShortID="957982833">
+									<Language>SFX</Language>
+									<AudioFile>DEC_UI_menu_elect.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="DEC_UI_menu_elect" ID="{A8680FBC-077A-43FB-84BE-515A8BA87FBF}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="DEC_UI_menu_move" ID="{1D13B3F9-4F36-40B5-B5BC-B9B191073886}" ShortID="68476574">
+							<PropertyList>
+								<Property Name="Volume" Type="Real64">
+									<ValueList>
+										<Value>-10</Value>
+									</ValueList>
+								</Property>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="DEC_UI_menu_move" ID="{E483CA6C-E2C1-45DB-BC72-E2287299A8F2}" ShortID="1018757264">
+									<Language>SFX</Language>
+									<AudioFile>DEC_UI_menu_move.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="DEC_UI_menu_move" ID="{E483CA6C-E2C1-45DB-BC72-E2287299A8F2}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="DEC_UI_overworld_deploy_rev2" ID="{EE368ED8-AEB3-44F4-9E7D-B01451EE8A60}" ShortID="946148594">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="DEC_UI_overworld_deploy_rev2" ID="{9095A1EC-E8FB-4FE2-AA1E-3862327266DD}" ShortID="452120612">
+									<Language>SFX</Language>
+									<AudioFile>DEC_UI_overworld_deploy_rev2.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="DEC_UI_overworld_deploy_rev2" ID="{9095A1EC-E8FB-4FE2-AA1E-3862327266DD}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="DEC_UI_Overworld_Show" ID="{18561411-1D96-4264-ACC6-4440A6AC89EF}" ShortID="81147779">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="DEC_UI_Overworld_Show" ID="{1F6A3C50-66E8-49E5-8C8C-D0D62429D74C}" ShortID="952169327">
+									<Language>SFX</Language>
+									<AudioFile>DEC_UI_Overworld_Show.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="DEC_UI_Overworld_Show" ID="{1F6A3C50-66E8-49E5-8C8C-D0D62429D74C}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="DEC_UI_Dialog_Cancel" ID="{B0C8C10D-4020-4887-99AC-7A25F0A33825}" ShortID="528317653">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="DEC_UI_Dialog_Cancel" ID="{25EED77F-9656-4681-AF78-6CC816A097A9}" ShortID="979413430">
+									<Language>SFX</Language>
+									<AudioFile>DEC_UI_Dialog_Cancel.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="DEC_UI_Dialog_Cancel" ID="{25EED77F-9656-4681-AF78-6CC816A097A9}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>

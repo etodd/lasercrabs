@@ -32,18 +32,6 @@
 								<Property Name="Max" Type="Real64" Value="1"/>
 							</PropertyList>
 						</GameParameter>
-						<GameParameter Name="Drone_Speed" ID="{2A872154-8E2F-422B-B045-3731805BB183}">
-							<PropertyList>
-								<Property Name="InitialValue" Type="Real64" Value="0"/>
-								<Property Name="Max" Type="Real64" Value="1"/>
-							</PropertyList>
-						</GameParameter>
-						<GameParameter Name="CooldownCharge" ID="{DB9FE303-F172-4012-8D56-E04392A8FFFE}">
-							<PropertyList>
-								<Property Name="InitialValue" Type="Real64" Value="0"/>
-								<Property Name="Max" Type="Real64" Value="2"/>
-							</PropertyList>
-						</GameParameter>
 					</ChildrenList>
 				</Folder>
 				<Folder Name="Minion" ID="{E8FF3EC7-B525-4BDA-85C5-13F4376920E7}" ShortID="283844579">

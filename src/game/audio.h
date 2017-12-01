@@ -154,6 +154,7 @@ struct Audio : ComponentType<Audio>
 	void post(AkUniqueID);
 	void stop(AkUniqueID);
 	void stop_all();
+	AudioEntry* entry() const;
 	AudioEntry* post_unattached(AkUniqueID, const Vec3& = Vec3::zero);
 	AudioEntry* post_offset(AkUniqueID, const Vec3&);
 	b8 post_dialogue(AkUniqueID);

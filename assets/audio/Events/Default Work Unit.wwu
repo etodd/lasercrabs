@@ -1908,7 +1908,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="Console_Key" ID="{875D41B3-6735-47FB-9F38-2541F81678DC}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="DEC_UI_menu_alter_value" ID="{914C4690-2BC5-4201-BE0B-28FDFD8D29AD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -1922,7 +1922,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="Beep_Good" ID="{54447A20-7B33-4926-9A51-135793FFE7F4}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="DEC_UI_menu_elect" ID="{E6EA72CF-5F00-4C3D-8791-706222426EC1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -1936,7 +1936,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="Beep_Good" ID="{54447A20-7B33-4926-9A51-135793FFE7F4}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="DEC_UI_menu_move" ID="{1D13B3F9-4F36-40B5-B5BC-B9B191073886}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -2020,7 +2020,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="Beep_Good" ID="{54447A20-7B33-4926-9A51-135793FFE7F4}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="DEC_UI_Overworld_Show" ID="{18561411-1D96-4264-ACC6-4440A6AC89EF}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -2034,21 +2034,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="Console_Key" ID="{875D41B3-6735-47FB-9F38-2541F81678DC}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Overworld_Select" ID="{2A978885-BB4F-4383-A776-7F2F40C9A0A8}">
-							<ChildrenList>
-								<Action Name="" ID="{DC69140D-0BA8-4202-BDA4-E51C83804A4D}" ShortID="543769941">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="Beep_Good" ID="{54447A20-7B33-4926-9A51-135793FFE7F4}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="DEC_UI_menu_alter_value" ID="{914C4690-2BC5-4201-BE0B-28FDFD8D29AD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -2076,7 +2062,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="RUMBLE_Beep_6_1" ID="{07693FCA-D034-466F-B805-B1B10B970A8E}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="DEC_UI_menu_elect" ID="{E6EA72CF-5F00-4C3D-8791-706222426EC1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -2090,7 +2076,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="RUMBLE_Beep_5_1" ID="{2B079E69-C12D-434F-9C42-935C4C30DC54}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="DEC_UI_Dialog_Cancel" ID="{B0C8C10D-4020-4887-99AC-7A25F0A33825}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -2118,13 +2104,26 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="Beep_Good" ID="{54447A20-7B33-4926-9A51-135793FFE7F4}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="DEC_UI_menu_elect" ID="{E6EA72CF-5F00-4C3D-8791-706222426EC1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_Overworld_Deploy" ID="{DD8441E8-CCC7-424D-9337-CBAC4BE00765}"/>
+						<Event Name="Play_Overworld_Deploy" ID="{DD8441E8-CCC7-424D-9337-CBAC4BE00765}">
+							<ChildrenList>
+								<Action Name="" ID="{63607E22-A316-4F2D-9819-2D2E51094FDB}" ShortID="516411099">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="DEC_UI_overworld_deploy_rev2" ID="{EE368ED8-AEB3-44F4-9E7D-B01451EE8A60}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
 						<Event Name="Play_UI_Shield_Down_Beep" ID="{996D37D5-A401-4185-ADA2-CE4155A54FDE}">
 							<ChildrenList>
 								<Action Name="" ID="{4DE3AAE0-276D-40A5-A2A9-9044842B35D8}" ShortID="894655529">

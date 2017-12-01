@@ -139,7 +139,6 @@ namespace AK
         static const AkUniqueID PLAY_OVERWORLD_DEPLOY = 3291224810U;
         static const AkUniqueID PLAY_OVERWORLD_DEPLOY_START = 1917291515U;
         static const AkUniqueID PLAY_OVERWORLD_MOVE = 3749213116U;
-        static const AkUniqueID PLAY_OVERWORLD_SELECT = 2566488799U;
         static const AkUniqueID PLAY_OVERWORLD_SHOW = 3935148276U;
         static const AkUniqueID PLAY_PARKOUR_BREATHING = 2176843955U;
         static const AkUniqueID PLAY_PARKOUR_CLIMB = 1530104406U;
@@ -207,8 +206,6 @@ namespace AK
     namespace GAME_PARAMETERS
     {
         static const AkUniqueID AMBIENCE = 85412153U;
-        static const AkUniqueID COOLDOWNCHARGE = 1079239790U;
-        static const AkUniqueID DRONE_SPEED = 1382379429U;
         static const AkUniqueID MINION_WEAPON_CHARGE = 691397373U;
         static const AkUniqueID PARKOUR_BREATH = 1605332778U;
         static const AkUniqueID PARKOUR_SLIDE = 2866705659U;

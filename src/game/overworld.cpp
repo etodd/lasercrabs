@@ -256,7 +256,7 @@ void deploy_start()
 	vi_assert(Game::session.type == SessionType::Story);
 	data.state = State::StoryModeDeploying;
 	data.timer_deploy = DEPLOY_TIME;
-	Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_DEPLOY);
+	Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_DEPLOY_START);
 }
 
 void hide();
@@ -2782,6 +2782,8 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 			delta--;
 		else if (mouse_over_increase && u->last_input->keys.get(s32(KeyCode::MouseLeft)) && !u->input->keys.get(s32(KeyCode::MouseLeft)))
 			delta++;
+		if (delta)
+			Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER);
 		inventory->buy_quantity = s16(vi_max(1, inventory->buy_quantity + delta));
 	}
 
@@ -3419,6 +3421,8 @@ void show_complete()
 
 	if (data.state != State::StoryModeOverlay)
 		data.restore_camera.ref()->flag(CameraFlagColors, false);
+
+	Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_SHOW);
 
 	if (data.state == State::Multiplayer && Game::level.mode == Game::Mode::Pvp)
 	{

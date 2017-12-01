@@ -2107,7 +2107,11 @@ b8 check_mouse_select(UIMenu* menu, const Update& u, s32 item)
 	if (item_rect(*menu, item).contains(UI::cursor_pos))
 	{
 		if (menu->allow_select)
+		{
+			if (menu->selected != item)
+				Audio::post_global(AK::EVENTS::PLAY_MENU_MOVE);
 			menu->selected = item;
+		}
 		return menu->selected == item;
 	}
 	return false;

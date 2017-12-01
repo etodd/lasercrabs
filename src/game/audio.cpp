@@ -98,6 +98,7 @@ void AudioEntry::param(AkRtpcID, AkRtpcValue) {}
 void Audio::awake() {}
 Audio::~Audio() {}
 void Audio::post(AkUniqueID) {}
+AudioEntry* Audio::entry() const { return nullptr; }
 AudioEntry* Audio::post_unattached(AkUniqueID, const Vec3&) { return nullptr; }
 AudioEntry* Audio::post_offset(AkUniqueID, const Vec3&) { return nullptr; }
 b8 Audio::post_dialogue(AkUniqueID) { return false; }
@@ -301,52 +302,6 @@ void AudioEntry::pathfind_result(s8 listener, r32 path_length, r32 straight_dist
 	occlusion_target[listener] = vi_max(0.0f, vi_min(1.0f, 0.05f + (path_length - straight_distance) / (DRONE_MAX_DISTANCE * 0.4f)));
 }
 
-static const Vec3 audio_reverb_raycasts[4] =
-{
-	Vec3(0, 0, -1),
-	Vec3(0, 0, 1),
-	Vec3(-1, 0, 0),
-	Vec3(1, 0, 0),
-};
-
-void audio_reverb_raycast(const Vec3& abs_pos, r32 output[4])
-{
-	const r32 raycast_length = 100.0f;
-	for (s32 i = 0; i < 4; i++)
-	{
-		btCollisionWorld::ClosestRayResultCallback ray_callback(abs_pos, abs_pos + audio_reverb_raycasts[i] * raycast_length);
-		Physics::raycast(&ray_callback, CollisionAudio);
-		output[i] = (ray_callback.hasHit() ? ray_callback.m_closestHitFraction : 1.0f) * raycast_length;
-	}
-}
-
-void audio_reverb_calc(const Vec3& abs_pos, r32 output[MAX_REVERBS])
-{
-	s32 reverb_counts[MAX_REVERBS] = {};
-
-	for (s32 i = 0; i < MAX_REVERBS; i++)
-		output[i] = 0.0f;
-
-	r32 distances[4];
-	audio_reverb_raycast(abs_pos, distances);
-
-	r32 max_distance = 0.0f;
-	for (s32 i = 0; i < 4; i++)
-	{
-		max_distance = vi_max(max_distance, distances[i]);
-
-		// add send value to appropriate reverb aux bus based on distance
-		if (distances[i] < 10.0f)
-			output[0] = vi_min(1.0f, output[0] + 0.5f);
-
-		if (distances[i] > 20.0f && distances[i] < 40.0f)
-			output[2] = vi_min(1.0f, output[2] + 0.5f);
-	}
-
-	if (max_distance > 10.0f && max_distance < 20.0f)
-		output[1] = 0.5f;
-}
-
 void AudioEntry::update_spatialization(UpdateType type)
 {
 	if (flag(FlagEnableObstructionOcclusion))
@@ -394,7 +349,7 @@ void AudioEntry::update_spatialization(UpdateType type)
 	}
 
 	if (flag(FlagEnableReverb))
-		audio_reverb_calc(abs_pos, reverb_target);
+		AI::audio_reverb_calc(abs_pos, reverb_target);
 
 	spatialization_update_frame = Audio::spatialization_update_frame;
 }
@@ -547,16 +502,19 @@ void Audio::update_all(const Update& u)
 			{
 				if (listener_mask & (1 << i))
 				{
-					r32 distances[4];
-					audio_reverb_raycast(listener_pos[i], distances);
+					r32 reverb[MAX_REVERBS];
+					AI::audio_reverb_calc(listener_pos[i], reverb);
 
-					r32 a = 0.0f;
-					for (s32 i = 0; i < 4; i++)
-					{
-						if (distances[i] > 10.0f)
-							a = vi_min(1.0f, a + 0.33f);
-					}
-					ambience = vi_max(ambience, a);
+					r32 reverb_sum = 0.0f;
+					for (s32 j = 0; j < MAX_REVERBS; j++)
+						reverb_sum += reverb[j];
+
+					r32 r;
+					if (reverb_sum == 0.0f)
+						r = 1.0f;
+					else
+						r = ((reverb[1] + reverb[2]) / reverb_sum) + vi_max(0.0f, 1.0f - reverb_sum);
+					ambience = vi_max(ambience, r);
 					if (ambience == 1.0f) // already at max
 						break;
 				}
@@ -588,6 +546,11 @@ void Audio::dialogue_done_callback(AkCallbackType type, AkCallbackInfo* info)
 	Audio::dialogue_callbacks.add(IDNull);
 }
 
+AudioEntry* Audio::entry() const
+{
+	return &AudioEntry::list[entry_id];
+}
+
 b8 Audio::post_global_dialogue(AkUniqueID event_id)
 {
 	AkPlayingID i = AK::SoundEngine::PostEvent(event_id, AUDIO_OFFSET_GLOBAL_2D, AkCallbackType::AK_EndOfEvent, &dialogue_done_callback);
@@ -596,7 +559,7 @@ b8 Audio::post_global_dialogue(AkUniqueID event_id)
 
 b8 Audio::post_dialogue(AkUniqueID event_id)
 {
-	return AudioEntry::list[entry_id].post_dialogue(event_id);
+	return entry()->post_dialogue(event_id);
 }
 
 AudioEntry* Audio::post_global(AkUniqueID event_id, const Vec3& pos)
@@ -671,7 +634,7 @@ void Audio::awake()
 
 Audio::~Audio()
 {
-	AudioEntry::list[entry_id].flag(AudioEntry::FlagKeepalive, false);
+	entry()->flag(AudioEntry::FlagKeepalive, false);
 }
 
 void Audio::clear()
@@ -688,24 +651,24 @@ void Audio::clear()
 
 void Audio::post(AkUniqueID event_id)
 {
-	AudioEntry::list[entry_id].post(event_id);
+	entry()->post(event_id);
 }
 
 void Audio::stop(AkUniqueID event_id)
 {
-	AudioEntry::list[entry_id].stop(event_id);
+	entry()->stop(event_id);
 }
 
 void Audio::stop_all()
 {
-	AudioEntry::list[entry_id].stop_all();
+	entry()->stop_all();
 }
 
 AudioEntry* Audio::post_unattached(AkUniqueID event_id, const Vec3& pos)
 {
 	AudioEntry* e = AudioEntry::list.add();
 
-	e->init(pos + get<Transform>()->absolute_pos(), nullptr, &AudioEntry::list[entry_id]);
+	e->init(pos + get<Transform>()->absolute_pos(), nullptr, entry());
 	e->post(event_id);
 	return e;
 }
@@ -713,19 +676,19 @@ AudioEntry* Audio::post_unattached(AkUniqueID event_id, const Vec3& pos)
 AudioEntry* Audio::post_offset(AkUniqueID event_id, const Vec3& offset)
 {
 	AudioEntry* e = AudioEntry::list.add();
-	e->init(offset, get<Transform>(), &AudioEntry::list[entry_id]);
+	e->init(offset, get<Transform>(), entry());
 	e->post(event_id);
 	return e;
 }
 
 void Audio::param(AkRtpcID id, AkRtpcValue value)
 {
-	AudioEntry::list[entry_id].param(id, value);
+	entry()->param(id, value);
 }
 
 void Audio::offset(const Vec3& offset)
 {
-	AudioEntry::list[entry_id].pos = offset;
+	entry()->pos = offset;
 }
 
 #endif

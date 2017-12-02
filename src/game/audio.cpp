@@ -504,7 +504,6 @@ void Audio::update_all(const Update& u)
 				{
 					r32 reverb[MAX_REVERBS];
 					AI::audio_reverb_calc(listener_pos[i], reverb);
-					vi_debug("%f %f %f", reverb[0], reverb[1], reverb[2]);
 
 					r32 reverb_sum = 0.0f;
 					for (s32 j = 0; j < MAX_REVERBS; j++)

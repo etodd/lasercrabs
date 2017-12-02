@@ -146,7 +146,7 @@ r32 Game::Session::effective_time_scale() const
 
 s32 Game::Session::local_player_count() const
 {
-	return Net::popcount(u32(local_player_mask));
+	return BitUtility::popcount(u32(local_player_mask));
 }
 
 void Game::Session::reset(SessionType t)

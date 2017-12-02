@@ -854,7 +854,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				{
 					// allowed upgrades
-					sprintf(str, "%d", s32(Net::popcount(s16((1 << s32(Upgrade::count)) - 1) & config->allow_upgrades)));
+					sprintf(str, "%d", s32(BitUtility::popcount(s16((1 << s32(Upgrade::count)) - 1) & config->allow_upgrades)));
 					if (menu->item(u, _(strings::allow_upgrades), str))
 					{
 						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::AllowedUpgrades);

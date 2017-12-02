@@ -470,7 +470,7 @@ void Audio::update_all(const Update& u)
 {
 	// update obstruction and occlusion of the first n entries that we haven't updated yet
 	{
-		s32 spatialization_updates = 12 / vi_max(1, s32(Net::popcount(listener_mask)));
+		s32 spatialization_updates = 12 / vi_max(1, s32(BitUtility::popcount(listener_mask)));
 
 		for (auto i = AudioEntry::list.iterator(); !i.is_last(); i.next())
 		{
@@ -504,6 +504,7 @@ void Audio::update_all(const Update& u)
 				{
 					r32 reverb[MAX_REVERBS];
 					AI::audio_reverb_calc(listener_pos[i], reverb);
+					vi_debug("%f %f %f", reverb[0], reverb[1], reverb[2]);
 
 					r32 reverb_sum = 0.0f;
 					for (s32 j = 0; j < MAX_REVERBS; j++)

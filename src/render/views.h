@@ -14,8 +14,9 @@ struct View : public ComponentType<View>
 	struct DebugEntry
 	{
 		AssetID mesh;
-		Vec3 pos;
 		Quat rot;
+		Vec4 color;
+		Vec3 pos;
 		Vec3 scale;
 	};
 
@@ -44,7 +45,7 @@ struct View : public ComponentType<View>
 	static void draw_mesh(const RenderParams&, AssetID, AssetID, AssetID, const Mat4&, const Vec4&, r32 = 0.0f);
 
 #if !RELEASE_BUILD
-	static void debug(AssetID, const Vec3&, const Quat& = Quat::identity, const Vec3& = Vec3(1));
+	static void debug(AssetID, const Vec3&, const Quat& = Quat::identity, const Vec3& = Vec3(1), const Vec4& = Vec4(1, 1, 1, 0.5f));
 #endif
 
 	View();

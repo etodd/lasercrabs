@@ -248,6 +248,17 @@ template<typename T> struct Chunks
 		return c;
 	}
 
+	Vec3 pos(Coord coord) const
+	{
+		Vec3 offset(coord.x, coord.y, coord.z);
+		return vmin + (offset + Vec3(0.5f)) * chunk_size;
+	}
+
+	Vec3 pos(s32 i) const
+	{
+		return pos(coord(i));
+	}
+
 	Coord clamped_coord(Coord c) const
 	{
 		return
@@ -275,14 +286,17 @@ struct DroneNavMeshNode
 	{
 		return chunk == other.chunk && vertex == other.vertex;
 	}
+
+	s32 hash() const
+	{
+		return (chunk << 16) | vertex;
+	}
 };
 
 #define DRONE_NAV_MESH_NODE_NONE { -1, -1 }
 
 struct DroneNavMeshAdjacency
 {
-	// true = crawl
-	// false = shoot
 	u64 flags;
 	StaticArray<DroneNavMeshNode, DRONE_NAV_MESH_ADJACENCY> neighbors;
 	b8 flag(s32) const;
@@ -297,8 +311,20 @@ struct DroneNavMeshChunk
 	Array<DroneNavMeshAdjacency> adjacency;
 };
 
+struct ReverbCell
+{
+	r32 data[MAX_REVERBS];
+};
+
+struct ReverbVoxel : Chunks<ReverbCell>
+{
+	void read(FILE*);
+};
+
 struct DroneNavMesh : Chunks<DroneNavMeshChunk>
 {
+	ReverbVoxel reverb;
+
 	void read(FILE*);
 };
 

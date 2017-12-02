@@ -54,6 +54,8 @@
 #define NET_SERVER_IDLE_TIME 5.0f
 #define NET_MAX_RTT_COMPENSATION 0.2f
 
+#define MAX_REVERBS 3
+
 #define MAX_ZONES 64
 
 #define MAX_ENTITIES 2048

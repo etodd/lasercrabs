@@ -2,6 +2,7 @@
 
 #include "types.h"
 #include "data/array.h"
+#include "data/pin_array.h"
 #include "vi_assert.h"
 #include "lmath.h"
 
@@ -16,38 +17,6 @@ namespace Net
 #define NET_PROTOCOL_ID 0x6906c2fe
 
 u32 crc32(const u8*, memory_index, u32 value = 0);
-
-template <u32 x> struct PopCount
-{
-	enum
-	{
-		a = x - ((x >> 1) & 0x55555555),
-		b =   (((a >> 2) & 0x33333333) + (a & 0x33333333)),
-		c =   (((b >> 4) + b) & 0x0f0f0f0f),
-		d =   c + (c >> 8),
-		e =   d + (d >> 16),
-		result = e & 0x0000003f 
-	};
-};
-
-template <u32 x> struct Log2
-{
-	enum
-	{
-		a = x | (x >> 1),
-		b = a | (a >> 2),
-		c = b | (b >> 4),
-		d = c | (c >> 8),
-		e = d | (d >> 16),
-		f = e >> 1,
-		result = PopCount<f>::result
-	};
-};
-
-template <s64 min, s64 max> struct BitsRequired
-{
-	static const u32 result = (min == max) ? 0 : (Log2<u32(max - min)>::result + 1);
-};
 
 struct StreamWrite
 {
@@ -137,23 +106,6 @@ union Single
 #define net_error() do { vi_debug_break(); } while (0)
 #endif
 
-#define BITS_REQUIRED(min, max) Net::BitsRequired<min, max>::result
-
-inline u32 popcount(u32 x)
-{
-#ifdef __GNUC__
-	return __builtin_popcount( x );
-#else // #ifdef __GNUC__
-	const u32 a = x - ((x >> 1) & 0x55555555);
-	const u32 b = (((a >> 2)       & 0x33333333) + (a & 0x33333333));
-	const u32 c = (((b >> 4) + b) & 0x0f0f0f0f);
-	const u32 d = c + (c >> 8);
-	const u32 e = d + (d >> 16);
-	const u32 result = e & 0x0000003f;
-	return result;
-#endif // #ifdef __GNUC__
-}
-
 #ifdef __GNUC__
 
 inline int bits_required(u32 min, u32 max)
@@ -171,7 +123,7 @@ inline u32 log2(u32 x)
 	const u32 d = c | (c >> 8);
 	const u32 e = d | (d >> 16);
 	const u32 f = e >> 1;
-	return popcount(f);
+	return BitUtility::popcount(f);
 }
 
 inline int bits_required(u32 min, u32 max)

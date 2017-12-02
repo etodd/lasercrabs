@@ -5,6 +5,24 @@
 namespace VI
 {
 
+namespace BitUtility
+{
+	static inline u32 popcount(u32 x)
+	{
+#ifdef __GNUC__
+		return __builtin_popcount(x);
+#else // #ifdef __GNUC__
+		const u32 a = x - ((x >> 1) & 0x55555555);
+		const u32 b = (((a >> 2) & 0x33333333) + (a & 0x33333333));
+		const u32 c = (((b >> 4) + b) & 0x0f0f0f0f);
+		const u32 d = c + (c >> 8);
+		const u32 e = d + (d >> 16);
+		const u32 result = e & 0x0000003f;
+		return result;
+#endif // #ifdef __GNUC__
+	}
+}
+
 template<s16 size> struct Bitmask
 {
 	u32 data[(size / (sizeof(u32) * 8)) + (size % (sizeof(u32) * 8) == 0 ? 0 : 1)];
@@ -12,7 +30,7 @@ template<s16 size> struct Bitmask
 	s16 end;
 
 	Bitmask()
-		: start(size), end(0)
+		: start(size), end(), data()
 	{
 	}
 
@@ -26,6 +44,21 @@ template<s16 size> struct Bitmask
 	inline b8 any() const
 	{
 		return start < end;
+	}
+
+	s16 count() const
+	{
+		if (start < end)
+		{
+			s32 total = 0;
+			s32 start_index = start / (sizeof(u32) * 8);
+			s32 end_index = ((end - 1) / (sizeof(u32) * 8)) + 1;
+			for (s32 i = start_index; i < end_index; i++)
+				total += BitUtility::popcount(data[i]);
+			return total;
+		}
+		else
+			return 0;
 	}
 
 	inline s32 next(s32 i) const

@@ -10,8 +10,10 @@
 #include "types.h"
 #include "lmath.h"
 #include "data/array.h"
+#include "data/pin_array.h"
 #include <dirent.h>
 #include <map>
+#include <set>
 #include <array>
 #include "mersenne/mersenne-twister.h"
 #include "platform/util.h"
@@ -232,7 +234,7 @@ namespace platform
 
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
-const s32 version = 35;
+const s32 version = 36;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -2298,10 +2300,317 @@ b8 drone_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, co
 	return hit;
 }
 
+Vec3 icosphere[42];
+StaticArray<s32, 6> icosphere_adjacency[42];
+
+void icosphere_edge_add(StaticArray<s32, 6>* adjacency, s32 a, s32 b)
+{
+	adjacency[a].add(b);
+	adjacency[b].add(a);
+}
+
+s32 icosphere_subdivided_vertex(s32 edge)
+{
+	return 12 + edge;
+}
+
+s32 icosphere_find(const Vec3& vector)
+{
+	s32 index = 0;
+	r32 dot = icosphere[index].dot(vector);
+	while (true)
+	{
+		const StaticArray<s32, 6>& neighbors = icosphere_adjacency[index];
+
+		b8 best_match = true;
+		for (s32 i = 0; i < neighbors.length; i++)
+		{
+			s32 neighbor_index = neighbors[i];
+			const Vec3& neighbor_vertex = icosphere[neighbor_index];
+			r32 d = neighbor_vertex.dot(vector);
+			if (d > dot)
+			{
+				dot = d;
+				index = neighbor_index;
+				best_match = false;
+			}
+		}
+
+		if (best_match)
+			return index;
+	}
+	vi_assert(false);
+	return -1;
+}
+
+void icosphere_init()
+{
+	const r32 tao = 1.61803399f;
+	const Vec3 icosahedron[12] =
+	{
+		{ 1, tao, 0 },
+		{ -1, tao, 0 },
+		{ 1, -tao, 0 },
+		{ -1, -tao, 0 },
+		{ 0, 1, tao },
+		{ 0, -1, tao },
+		{ 0, 1, -tao },
+		{ 0, -1, -tao },
+		{ tao, 0, 1 },
+		{ -tao, 0, 1 },
+		{ tao, 0, -1 },
+		{ -tao, 0, -1 },
+	};
+	const s32 icosahedron_edges[30][2] =
+	{
+		{ 0, 1 },
+		{ 1, 4 },
+		{ 0, 4 },
+		{ 1, 9 },
+		{ 9, 4 },
+		{ 9, 5 },
+		{ 4, 5 },
+		{ 9, 3 },
+		{ 5, 3 },
+		{ 2, 3 },
+		{ 3, 7 },
+		{ 2, 7 },
+		{ 2, 5 },
+		{ 7, 10 },
+		{ 10, 2 },
+		{ 0, 8 },
+		{ 8, 10 },
+		{ 0, 10 },
+		{ 4, 8 },
+		{ 8, 2 },
+		{ 8, 5 },
+		{ 0, 6 },
+		{ 1, 6 },
+		{ 11, 1 },
+		{ 11, 6 },
+		{ 9, 11 },
+		{ 3, 11 },
+		{ 6, 10 },
+		{ 6, 7 },
+		{ 11, 7 },
+	};
+	const s32 icosahedron_face_edges[20][3] = // edge indices
+	{
+		{ 0, 1, 2 },
+		{ 3, 4, 1 },
+		{ 4, 5, 6 },
+		{ 5, 7, 8 },
+		{ 9, 10, 11 },
+		{ 9, 12, 8 },
+		{ 13, 14, 11 },
+		{ 15, 16, 17 },
+		{ 2, 18, 15 },
+		{ 19, 14, 16 },
+		{ 18, 6, 20 },
+		{ 20, 12, 19 },
+		{ 0, 21, 22 },
+		{ 23, 22, 24 },
+		{ 7, 25, 26 },
+		{ 27, 13, 28 },
+		{ 26, 29, 10 },
+		{ 24, 28, 29 },
+		{ 21, 17, 27 },
+		{ 3, 23, 25 },
+	};
+
+	for (s32 i = 0; i < 12; i++)
+		icosphere[i] = Vec3::normalize(icosahedron[i]);
+
+	for (s32 i = 0; i < 30; i++)
+	{
+		const s32* edge = icosahedron_edges[i];
+		const Vec3& a = icosahedron[edge[0]];
+		const Vec3& b = icosahedron[edge[1]];
+		icosphere[icosphere_subdivided_vertex(i)] = Vec3::normalize((a + b) * 0.5f);
+	}
+
+	// connect icosahedron vertices to subdivided vertices
+	for (s32 i = 0; i < 30; i++)
+	{
+		const s32* edge = icosahedron_edges[i];
+		icosphere_edge_add(icosphere_adjacency, edge[0], icosphere_subdivided_vertex(i));
+		icosphere_edge_add(icosphere_adjacency, edge[1], icosphere_subdivided_vertex(i));
+	}
+
+	// connect subdivided vertices to each other
+	for (s32 i = 0; i < 20; i++)
+	{
+		const s32* face_edge = icosahedron_face_edges[i];
+		icosphere_edge_add(icosphere_adjacency, icosphere_subdivided_vertex(face_edge[0]), icosphere_subdivided_vertex(face_edge[1]));
+		icosphere_edge_add(icosphere_adjacency, icosphere_subdivided_vertex(face_edge[1]), icosphere_subdivided_vertex(face_edge[2]));
+		icosphere_edge_add(icosphere_adjacency, icosphere_subdivided_vertex(face_edge[0]), icosphere_subdivided_vertex(face_edge[2]));
+	}
+}
+
+void icosphere_rasterize(Bitmask<42>* output, const Vec3& vector, const Vec3& normal)
+{
+	s32 index = icosphere_find(vector);
+	output->set(index, true);
+	if (vector.dot(normal) < -0.707f)
+	{
+		const auto& adjacency = icosphere_adjacency[index];
+		for (s32 i = 0; i < adjacency.length; i++)
+		{
+			const Vec3& neighbor = icosphere[adjacency[i]];
+			output->set(adjacency[i], true);
+		}
+	}
+}
+
+DroneNavMeshNode drone_nav_mesh_closest_point(const DroneNavMesh& mesh, const Vec3& p)
+{
+	if (mesh.chunks.length == 0)
+		return DRONE_NAV_MESH_NODE_NONE;
+
+	DroneNavMesh::Coord chunk_coord = mesh.coord(p);
+	r32 closest_distance = FLT_MAX;
+	DroneNavMeshNode closest = DRONE_NAV_MESH_NODE_NONE;
+	s32 end_x = vi_min(vi_max(chunk_coord.x + 2, 1), mesh.size.x);
+	for (s32 chunk_x = vi_min(vi_max(chunk_coord.x - 1, 0), mesh.size.x - 1); chunk_x < end_x; chunk_x++)
+	{
+		s32 end_y = vi_min(vi_max(chunk_coord.y + 2, 1), mesh.size.y);
+		for (s32 chunk_y = vi_min(vi_max(chunk_coord.y - 1, 0), mesh.size.y - 1); chunk_y < end_y; chunk_y++)
+		{
+			s32 end_z = vi_min(vi_max(chunk_coord.z + 2, 1), mesh.size.z);
+			for (s32 chunk_z = vi_min(vi_max(chunk_coord.z - 1, 0), mesh.size.z - 1); chunk_z < end_z; chunk_z++)
+			{
+				s32 chunk_index = mesh.index({ chunk_x, chunk_y, chunk_z });
+				const DroneNavMeshChunk& chunk = mesh.chunks[chunk_index];
+				for (s32 vertex_index = 0; vertex_index < chunk.vertices.length; vertex_index++)
+				{
+					const DroneNavMeshAdjacency& adjacency = chunk.adjacency[vertex_index];
+					const Vec3& vertex = chunk.vertices[vertex_index];
+					Vec3 to_vertex = vertex - p;
+					r32 distance = to_vertex.length_squared();
+					if (distance < closest_distance)
+					{
+						closest_distance = distance;
+						closest = { s16(chunk_index), s16(vertex_index) };
+					}
+				}
+			}
+		}
+	}
+	return closest;
+}
+
+void audio_reverb_calc(const DroneNavMesh& mesh, const Vec3& pos, ReverbCell* out_reverb)
+{
+	DroneNavMeshNode vertex = drone_nav_mesh_closest_point(mesh, pos);
+	if (vertex.equals(DRONE_NAV_MESH_NODE_NONE))
+	{
+		for (s32 i = 0; i < MAX_REVERBS; i++)
+			out_reverb->data[i] = 0.0f;
+		return;
+	}
+
+	StaticArray<DroneNavMeshNode, DRONE_NAV_MESH_ADJACENCY * 2> neighbors;
+
+	{
+		// collect neighbors
+		std::set<s32> crawl_visited;
+		StaticArray<DroneNavMeshNode, DRONE_NAV_MESH_ADJACENCY * 2> crawl_queue;
+
+		neighbors.add(vertex);
+		crawl_visited.insert(vertex.hash());
+
+		{
+			const DroneNavMeshAdjacency& adjacency = mesh.chunks[vertex.chunk].adjacency[vertex.vertex];
+
+			for (s32 i = 0; i < adjacency.neighbors.length; i++)
+			{
+				const DroneNavMeshNode& neighbor = adjacency.neighbors[i];
+				if (adjacency.flag(i))
+				{
+					crawl_queue.add(neighbor);
+					crawl_visited.insert(neighbor.hash());
+				}
+				neighbors.add(neighbor);
+			}
+		}
+
+		// crawl neighbors
+		const Vec3& crawl_normal = mesh.chunks[vertex.chunk].normals[vertex.vertex];
+		s32 crawl_queue_index = 0;
+		while (crawl_queue_index < crawl_queue.length && neighbors.length < neighbors.capacity())
+		{
+			DroneNavMeshNode crawl_neighbor = crawl_queue[crawl_queue_index];
+			crawl_queue_index++;
+
+			const DroneNavMeshAdjacency& adjacency = mesh.chunks[crawl_neighbor.chunk].adjacency[crawl_neighbor.vertex];
+			for (s32 i = 0; i < adjacency.neighbors.length && crawl_queue.length < crawl_queue.capacity() && neighbors.length < neighbors.capacity(); i++)
+			{
+				const DroneNavMeshNode& neighbor = adjacency.neighbors[i];
+				if (adjacency.flag(i)
+					&& crawl_visited.find(neighbor.hash()) == crawl_visited.end()
+					&& mesh.chunks[neighbor.chunk].vertices[neighbor.vertex].dot(crawl_normal) > 0.9f
+					&& (pos - mesh.chunks[neighbor.chunk].vertices[neighbor.vertex]).length_squared() < DRONE_MAX_DISTANCE * 0.75f * DRONE_MAX_DISTANCE * 0.75f)
+				{
+					crawl_queue.add(crawl_neighbor);
+					crawl_visited.insert(crawl_neighbor.hash());
+					neighbors.add(neighbor);
+				}
+			}
+		}
+	}
+
+	// calculate center of vertex field
+	Vec3 center = Vec3::zero;
+	for (s32 i = 0; i < neighbors.length; i++)
+	{
+		const DroneNavMeshNode& neighbor = neighbors[i];
+		const Vec3& neighbor_pos = mesh.chunks[neighbor.chunk].vertices[neighbor.vertex];
+		const Vec3& neighbor_normal = mesh.chunks[neighbor.chunk].normals[neighbor.vertex];
+		center += neighbor_pos + neighbor_normal * 3.0f;
+	}
+	center /= neighbors.length;
+
+	Bitmask<42> icosphere_blockage[MAX_REVERBS] = {};
+
+	for (s32 i = 0; i < neighbors.length; i++)
+	{
+		// rasterize neighbors into blockage bitmask;
+		const DroneNavMeshNode& neighbor = neighbors[i];
+		const Vec3& neighbor_pos = mesh.chunks[neighbor.chunk].vertices[neighbor.vertex];
+		const Vec3& neighbor_normal = mesh.chunks[neighbor.chunk].normals[neighbor.vertex];
+		Vec3 diff = neighbor_pos - center;
+		if (diff.dot(neighbor_normal) < 0.0f)
+		{
+			r32 length = diff.length();
+			diff /= length;
+
+			Bitmask<42>* blockage;
+			if (length < 6.0f)
+				blockage = &icosphere_blockage[0];
+			else if (length < 12.0f)
+				blockage = &icosphere_blockage[1];
+			else
+				blockage = &icosphere_blockage[2];
+
+			icosphere_rasterize(blockage, diff, neighbor_normal);
+		}
+	}
+
+	for (s32 i = 0; i < MAX_REVERBS; i++)
+		out_reverb->data[i] = r32(icosphere_blockage[i].count()) / 42.0f;
+}
+
+void reverb_cell_add(ReverbCell* a, ReverbCell* b, r32 weight)
+{
+	for (s32 i = 0; i < MAX_REVERBS; i++)
+		a->data[i] += b->data[i] * weight;
+}
+
 void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, DroneNavMesh* out, s32* adjacency_buffer_overflows, s32* orphans)
 {
 	r64 timer = platform::time();
 	const r32 chunk_size = 10.0f;
+	const r32 reverb_chunk_size = 4.0f;
 	const r32 chunk_padding = DRONE_RADIUS;
 
 	ChunkedTris accessible_chunked;
@@ -2314,6 +2623,7 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 		timer = platform::time();
 
 		out->resize(accessible.bounds_min, accessible.bounds_max, chunk_size);
+		out->reverb.resize(accessible.bounds_min, accessible.bounds_max, reverb_chunk_size);
 
 		for (s32 index_index = 0; index_index < accessible.indices.length; index_index += 3)
 		{
@@ -2747,6 +3057,103 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 	}
 
 	printf("Cleaned orphans: %fs\n", platform::time() - timer);
+	timer = platform::time();
+
+	// reverb voxel
+	for (s32 i = 0; i < out->reverb.chunks.length; i++)
+	{
+		// sample 6 subcells and take the average
+		ReverbCell subcells[6];
+		const Vec3 directions[6] =
+		{
+			Vec3(-1, 0, 0),
+			Vec3(1, 0, 0),
+			Vec3(0, -1, 0),
+			Vec3(0, 1, 0),
+			Vec3(0, 0, -1),
+			Vec3(0, 0, 1),
+		};
+		Vec3 pos = out->reverb.pos(i);
+		for (s32 j = 0; j < 6; j++)
+			audio_reverb_calc(*out, pos + directions[j] * reverb_chunk_size * 0.5f, &subcells[j]);
+
+		ReverbCell* cell = &out->reverb.chunks[i];
+		for (s32 j = 0; j < MAX_REVERBS; j++)
+		{
+			r32 sum = 0.0f;
+			for (s32 k = 0; k < 6; k++)
+				sum += subcells[k].data[j];
+			cell->data[j] = sum / 6.0f;
+		}
+	}
+
+	// smooth reverb voxel
+	Array<ReverbCell> reverb_copy;
+	reverb_copy.resize(out->reverb.chunks.length);
+	memcpy(reverb_copy.data, out->reverb.chunks.data, sizeof(ReverbCell) * out->reverb.chunks.length);
+
+	for (s32 i = 0; i < out->reverb.chunks.length; i++)
+	{
+		ReverbCell* cell = &out->reverb.chunks[i];
+		memset(cell, 0, sizeof(*cell));
+
+		ReverbVoxel::Coord coord = out->reverb.coord(i);
+
+		r32 weight = 0.0f;
+		const r32 subcell_weight = 0.1f;
+
+		if (coord.x < out->reverb.size.x - 1)
+		{
+			ReverbVoxel::Coord c = coord;
+			c.x++;
+			reverb_cell_add(cell, &reverb_copy[out->reverb.index(c)], subcell_weight);
+			weight += subcell_weight;
+		}
+
+		if (coord.x > 0)
+		{
+			ReverbVoxel::Coord c = coord;
+			c.x--;
+			reverb_cell_add(cell, &reverb_copy[out->reverb.index(c)], subcell_weight);
+			weight += subcell_weight;
+		}
+
+		if (coord.y < out->reverb.size.y - 1)
+		{
+			ReverbVoxel::Coord c = coord;
+			c.y++;
+			reverb_cell_add(cell, &reverb_copy[out->reverb.index(c)], subcell_weight);
+			weight += subcell_weight;
+		}
+
+		if (coord.y > 0)
+		{
+			ReverbVoxel::Coord c = coord;
+			c.y--;
+			reverb_cell_add(cell, &reverb_copy[out->reverb.index(c)], subcell_weight);
+			weight += subcell_weight;
+		}
+
+		if (coord.z < out->reverb.size.z - 1)
+		{
+			ReverbVoxel::Coord c = coord;
+			c.z++;
+			reverb_cell_add(cell, &reverb_copy[out->reverb.index(c)], subcell_weight);
+			weight += subcell_weight;
+		}
+
+		if (coord.z > 0)
+		{
+			ReverbVoxel::Coord c = coord;
+			c.z--;
+			reverb_cell_add(cell, &reverb_copy[out->reverb.index(c)], subcell_weight);
+			weight += subcell_weight;
+		}
+
+		reverb_cell_add(cell, &reverb_copy[i], 1.0f - weight);
+	}
+
+	printf("Built reverb voxel: %fs\n", platform::time() - timer);
 }
 
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
@@ -2831,35 +3238,48 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			return;
 		}
 
-		s32 total_vertices = 0;
-		fwrite(&drone_nav.chunk_size, sizeof(r32), 1, f);
-		fwrite(&drone_nav.vmin, sizeof(Vec3), 1, f);
-		fwrite(&drone_nav.size, sizeof(DroneNavMesh::Coord), 1, f);
-		for (s32 i = 0; i < drone_nav.chunks.length; i++)
+		// minion nav mesh
 		{
-			const DroneNavMeshChunk& chunk = drone_nav.chunks[i];
-			fwrite(&chunk.vertices.length, sizeof(s32), 1, f);
-			fwrite(chunk.vertices.data, sizeof(Vec3), chunk.vertices.length, f);
-			fwrite(chunk.normals.data, sizeof(Vec3), chunk.normals.length, f);
-			fwrite(chunk.adjacency.data, sizeof(DroneNavMeshAdjacency), chunk.adjacency.length, f);
-			total_vertices += chunk.vertices.length;
+			fwrite(&nav_tiles.min, sizeof(Vec3), 1, f);
+			fwrite(&nav_tiles.width, sizeof(s32), 1, f);
+			fwrite(&nav_tiles.height, sizeof(s32), 1, f);
+			for (s32 i = 0; i < nav_tiles.cells.length; i++)
+			{
+				TileCacheCell& cell = nav_tiles.cells[i];
+				fwrite(&cell.layers.length, sizeof(s32), 1, f);
+				for (s32 j = 0; j < cell.layers.length; j++)
+				{
+					TileCacheLayer& layer = cell.layers[j];
+					fwrite(&layer.data_size, sizeof(s32), 1, f);
+					fwrite(layer.data, sizeof(u8), layer.data_size, f);
+				}
+			}
 		}
 
-		printf("%s - Drone nav mesh - Chunks: %d Vertices: %d Adjacency buffer overflows: %d Orphans: %d\n", nav_mesh_out_path.c_str(), drone_nav.chunks.length, total_vertices, drone_adjacency_buffer_overflows, drone_orphans);
-
-		fwrite(&nav_tiles.min, sizeof(Vec3), 1, f);
-		fwrite(&nav_tiles.width, sizeof(s32), 1, f);
-		fwrite(&nav_tiles.height, sizeof(s32), 1, f);
-		for (s32 i = 0; i < nav_tiles.cells.length; i++)
+		// drone nav mesh
 		{
-			TileCacheCell& cell = nav_tiles.cells[i];
-			fwrite(&cell.layers.length, sizeof(s32), 1, f);
-			for (s32 j = 0; j < cell.layers.length; j++)
+			s32 total_vertices = 0;
+			fwrite(&drone_nav.chunk_size, sizeof(r32), 1, f);
+			fwrite(&drone_nav.vmin, sizeof(Vec3), 1, f);
+			fwrite(&drone_nav.size, sizeof(DroneNavMesh::Coord), 1, f);
+			for (s32 i = 0; i < drone_nav.chunks.length; i++)
 			{
-				TileCacheLayer& layer = cell.layers[j];
-				fwrite(&layer.data_size, sizeof(s32), 1, f);
-				fwrite(layer.data, sizeof(u8), layer.data_size, f);
+				const DroneNavMeshChunk& chunk = drone_nav.chunks[i];
+				fwrite(&chunk.vertices.length, sizeof(s32), 1, f);
+				fwrite(chunk.vertices.data, sizeof(Vec3), chunk.vertices.length, f);
+				fwrite(chunk.normals.data, sizeof(Vec3), chunk.normals.length, f);
+				fwrite(chunk.adjacency.data, sizeof(DroneNavMeshAdjacency), chunk.adjacency.length, f);
+				total_vertices += chunk.vertices.length;
 			}
+			printf("%s - Drone nav mesh - Chunks: %d Vertices: %d Adjacency buffer overflows: %d Orphans: %d\n", nav_mesh_out_path.c_str(), drone_nav.chunks.length, total_vertices, drone_adjacency_buffer_overflows, drone_orphans);
+		}
+
+		// reverb voxel
+		{
+			fwrite(&drone_nav.reverb.chunk_size, sizeof(r32), 1, f);
+			fwrite(&drone_nav.reverb.vmin, sizeof(Vec3), 1, f);
+			fwrite(&drone_nav.reverb.size, sizeof(ReverbVoxel::Coord), 1, f);
+			fwrite(drone_nav.reverb.chunks.data, sizeof(ReverbCell), drone_nav.reverb.chunks.length, f);
 		}
 
 		fclose(f);
@@ -3213,6 +3633,8 @@ s32 mod_proc()
 s32 proc(s32 argc, char* argv[])
 {
 	mersenne::seed(0xabad1dea);
+
+	icosphere_init();
 
 	{
 		DIR* dir = opendir(mod_folder);

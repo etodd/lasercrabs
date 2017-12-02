@@ -305,6 +305,29 @@ void load(AssetID id, const char* filename, const char* record_filename)
 	if (filename)
 	{
 		FILE* f = fopen(filename, "rb");
+
+		{
+			// skip minion nav mesh
+			Vec3 min;
+			s32 width;
+			s32 height;
+			fread(&min, sizeof(Vec3), 1, f);
+			fread(&width, sizeof(s32), 1, f);
+			fread(&height, sizeof(s32), 1, f);
+			s32 count = width * height;
+			for (s32 i = 0; i < count; i++)
+			{
+				s32 layer_count;
+				fread(&layer_count, sizeof(s32), 1, f);
+				for (s32 j = 0; j < layer_count; j++)
+				{
+					s32 data_size;
+					fread(&data_size, sizeof(s32), 1, f);
+					fseek(f, data_size, SEEK_CUR);
+				}
+			}
+		}
+
 		drone_nav_mesh.read(f);
 		fclose(f);
 		drone_nav_mesh_key.resize(drone_nav_mesh);
@@ -896,7 +919,7 @@ s32 RecordedLife::Tag::battery_count(BatteryState s) const
 
 s32 RecordedLife::Tag::turret_count() const
 {
-	return Net::popcount(turret_state);
+	return BitUtility::popcount(turret_state);
 }
 
 b8 RecordedLife::Tag::turret(s32 index) const

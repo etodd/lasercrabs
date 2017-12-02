@@ -173,6 +173,20 @@ void DroneNavMeshAdjacency::flag(s32 i, b8 value)
 		flags &= ~((u64)1 << i);
 }
 
+void ReverbVoxel::read(FILE* f)
+{
+#if SERVER
+	size = {};
+	resize();
+#else
+	fread(&chunk_size, sizeof(r32), 1, f);
+	fread(&vmin, sizeof(Vec3), 1, f);
+	fread(&size, sizeof(Chunks<ReverbVoxel>::Coord), 1, f);
+	resize();
+	fread(chunks.data, sizeof(ReverbCell), chunks.length, f);
+#endif
+}
+
 void DroneNavMesh::read(FILE* f)
 {
 	fread(&chunk_size, sizeof(r32), 1, f);
@@ -194,6 +208,8 @@ void DroneNavMesh::read(FILE* f)
 		chunk->adjacency.resize(vertex_count);
 		fread(chunk->adjacency.data, sizeof(DroneNavMeshAdjacency), vertex_count, f);
 	}
+
+	reverb.read(f);
 }
 
 Armature::Armature()

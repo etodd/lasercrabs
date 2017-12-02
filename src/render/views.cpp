@@ -84,7 +84,7 @@ void View::draw_alpha(const RenderParams& params)
 	{
 		const DebugEntry& entry = debug_entries[i];
 		m.make_transform(entry.pos, entry.scale, entry.rot);
-		draw_mesh(params, entry.mesh, Asset::Shader::flat, AssetNull, m, Vec4(1, 1, 1, 0.5f));
+		draw_mesh(params, entry.mesh, Asset::Shader::flat, AssetNull, m, entry.color);
 	}
 #endif
 }
@@ -221,13 +221,14 @@ void View::draw_mesh(const RenderParams& params, AssetID mesh, AssetID shader, A
 }
 
 #if !RELEASE_BUILD
-void View::debug(AssetID mesh, const Vec3& pos, const Quat& rot, const Vec3& scale)
+void View::debug(AssetID mesh, const Vec3& pos, const Quat& rot, const Vec3& scale, const Vec4& color)
 {
 	DebugEntry* entry = debug_entries.add();
 	entry->mesh = mesh;
 	entry->pos = pos;
 	entry->rot = rot;
 	entry->scale = scale;
+	entry->color = color;
 }
 #endif
 

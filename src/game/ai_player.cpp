@@ -13,7 +13,6 @@
 #include "net.h"
 #include "team.h"
 #include "player.h"
-#include "net_serialize.h" // for popcount
 
 namespace VI
 {
@@ -986,7 +985,7 @@ void PlayerControlAI::actions_populate()
 		}
 	}
 
-	if (Net::popcount(u32(tag.upgrades)) < MAX_ABILITIES)
+	if (BitUtility::popcount(u32(tag.upgrades)) < MAX_ABILITIES)
 	{
 		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{

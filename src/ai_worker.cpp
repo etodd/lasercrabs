@@ -282,29 +282,26 @@ DroneNavMeshNode drone_closest_point(const DroneNavMesh& mesh, const NavGameStat
 				for (s32 vertex_index = 0; vertex_index < chunk.vertices.length; vertex_index++)
 				{
 					const DroneNavMeshAdjacency& adjacency = chunk.adjacency[vertex_index];
-					if (adjacency.neighbors.length > 0) // ignore orphans
+					const Vec3& vertex = chunk.vertices[vertex_index];
+					const Vec3& normal = chunk.normals[vertex_index];
+					Vec3 to_vertex = vertex - p;
+					if (to_vertex.dot(normal) < 0.0f)
 					{
-						const Vec3& vertex = chunk.vertices[vertex_index];
-						const Vec3& normal = chunk.normals[vertex_index];
-						Vec3 to_vertex = vertex - p;
-						if (to_vertex.dot(normal) < 0.0f)
+						r32 distance = to_vertex.length_squared();
+						if (distance < closest_distance
+							&& force_field_hash(state, team, vertex) == desired_hash)
 						{
-							r32 distance = to_vertex.length_squared();
-							if (distance < closest_distance
-								&& force_field_hash(state, team, vertex) == desired_hash)
+							const Vec3& vertex_normal = chunk.normals[vertex_index];
+							if (ignore_normals || normal.dot(vertex_normal) > 0.8f) // make sure it's roughly facing the right way
 							{
-								const Vec3& vertex_normal = chunk.normals[vertex_index];
-								if (ignore_normals || normal.dot(vertex_normal) > 0.8f) // make sure it's roughly facing the right way
-								{
-									closest_distance = distance;
-									closest = { s16(chunk_index), s16(vertex_index) };
-									found = true;
-								}
-								else if (!found) // the normal is wrong, but we'll use it in an emergency
-								{
-									closest = { s16(chunk_index), s16(vertex_index) };
-									found = true;
-								}
+								closest_distance = distance;
+								closest = { s16(chunk_index), s16(vertex_index) };
+								found = true;
+							}
+							else if (!found) // the normal is wrong, but we'll use it in an emergency
+							{
+								closest = { s16(chunk_index), s16(vertex_index) };
+								found = true;
 							}
 						}
 					}
@@ -556,141 +553,21 @@ r32 audio_pathfind(const DroneNavContext& ctx, const Vec3& a, const Vec3& b)
 	return scorer.highest_total_score;
 }
 
-void audio_reverb_bucket_add(r32 distance, r32* output, r32 strength)
-{
-	// convert a single distance into a series of reverb strengths
-
-	const r32 range_thresholds[MAX_REVERBS] =
-	{
-		DRONE_MAX_DISTANCE * (6.0f / 20.0f),
-		DRONE_MAX_DISTANCE * (12.0f / 20.0f),
-		DRONE_MAX_DISTANCE * (21.0f / 20.0f),
-	};
-
-	for (s32 range_index = 0; range_index < MAX_REVERBS; range_index++)
-	{
-		const r32 lerp = 6.0f;
-		r32 s = 1.0f;
-		if (range_index > 0)
-		{
-			r32 min_distance = range_thresholds[range_index - 1] - lerp * 0.5f;
-			s = vi_max(0.0f, vi_min(s, (distance - min_distance) / lerp));
-		}
-
-		{
-			r32 max_distance = range_thresholds[range_index] + lerp * 0.5f;
-			s = vi_max(0.0f, vi_min(s, (max_distance - distance) / lerp));
-		}
-
-		output[range_index] += s * strength;
-	}
-}
-
 void audio_reverb_calc(const DroneNavContext& ctx, const Vec3& pos, r32* out_reverb)
 {
-	DroneNavMeshNode vertex = drone_closest_point(ctx.mesh, ctx.game_state, AI::TeamNone, pos, Vec3::zero);
-	if (vertex.equals(DRONE_NAV_MESH_NODE_NONE))
+	if (ctx.mesh.reverb.chunks.length > 0)
+	{
+		ReverbVoxel::Coord coord = ctx.mesh.reverb.clamped_coord(ctx.mesh.reverb.coord(pos));
+		const ReverbCell& cell = ctx.mesh.reverb.get(coord);
+		memcpy(out_reverb, cell.data, sizeof(cell.data));
+		out_reverb[0] = vi_max(0.0f, vi_min(1.0f, (out_reverb[0] - 0.3f) / 0.7f));
+		out_reverb[1] = vi_max(0.0f, vi_min(1.0f, (out_reverb[1] - 0.3f) / 0.7f));
+		out_reverb[2] = vi_max(0.0f, vi_min(1.0f, (out_reverb[2] - 0.2f) / 0.6f));
+	}
+	else
 	{
 		for (s32 i = 0; i < MAX_REVERBS; i++)
 			out_reverb[i] = 0.0f;
-		return;
-	}
-
-	const StaticArray<DroneNavMeshNode, DRONE_NAV_MESH_ADJACENCY>& neighbors = ctx.mesh.chunks[vertex.chunk].adjacency[vertex.vertex].neighbors;
-
-	// calculate center of vertex field
-	Vec3 center = Vec3::zero;
-	for (s32 i = 0; i < neighbors.length; i++)
-	{
-		const DroneNavMeshNode& neighbor = neighbors[i];
-		const Vec3& neighbor_pos = ctx.mesh.chunks[neighbor.chunk].vertices[neighbor.vertex];
-		center += neighbor_pos;
-	}
-	center /= r32(neighbors.length);
-
-	// -x, +x, -y, +y, -z, +z
-	r32 sums[6][MAX_REVERBS] = {};
-	s8 counts[6] = {};
-
-	// sum up reverb strengths in each direction
-	for (s32 i = 0; i < neighbors.length; i++)
-	{
-		const DroneNavMeshNode& neighbor = neighbors[i];
-		const Vec3& neighbor_pos = ctx.mesh.chunks[neighbor.chunk].vertices[neighbor.vertex];
-
-		Vec3 diff = neighbor_pos - center;
-
-		s32 axis = 0; // 0 = x, 1 = y, 2 = z
-		if (fabsf(diff.y) > fabsf(diff.x))
-			axis = 1;
-		if (fabsf(diff.z) > fabsf(diff.y) && fabsf(diff.z) > fabsf(diff.x))
-			axis = 2;
-		s32 direction = (axis * 2) + (diff[axis] > 0.0f ? 1 : 0);
-
-		const Vec3& neighbor_normal = ctx.mesh.chunks[neighbor.chunk].normals[neighbor.vertex];
-		r32 strength = neighbor_normal.dot(-diff);
-		if (strength > 0.0f)
-		{
-			r32 distance = diff.length();
-			audio_reverb_bucket_add(distance, sums[direction], strength / distance);
-			counts[direction]++;
-		}
-	}
-
-	// calculate average strength in each direction and each reverb bucket
-	for (s32 dir = 0; dir < 6; dir++)
-	{
-		for (s32 range_index = 0; range_index < MAX_REVERBS; range_index++)
-		{
-			if (counts[dir] > 0)
-				sums[dir][range_index] /= r32(counts[dir]);
-		}
-	}
-
-	// calculate reverb for each range bucket
-
-	// sum of strengths in each direction for previous (smaller) ranges, including the current range
-	r32 sums_previous_ranges[6] = {};
-
-	for (s32 range_index = 0; range_index < MAX_REVERBS; range_index++)
-	{
-		r32 output = 0.0f;
-
-		for (s32 dir = 0; dir < 6; dir++)
-			sums_previous_ranges[dir] = (sums_previous_ranges[dir] * 0.5f) + sums[dir][range_index];
-
-		const r32 strength_opposite = 1.0f;
-		const r32 strength_adjacent = 0.5f;
-
-		// add up -x to +x reverbs
-		output += strength_opposite
-			* ((sums[0][range_index] * sums_previous_ranges[1])
-			+ (sums_previous_ranges[0] * sums[1][range_index]));
-
-		// add up -y to y reverbs
-		output += strength_opposite
-			* ((sums[2][range_index] * sums_previous_ranges[3])
-			+ (sums_previous_ranges[2] * sums[3][range_index]));
-
-		// add up -z to z reverbs
-		output += strength_opposite
-			* ((sums[4][range_index] * sums_previous_ranges[5])
-			+ (sums_previous_ranges[4] * sums[5][range_index]));
-
-		// add up x to z adjacency
-		{
-			r32 x_sum = sums[0][range_index] + sums[1][range_index]; // -x plus +x
-			output += strength_adjacent * x_sum * (sums_previous_ranges[4] + sums_previous_ranges[5]);
-		}
-
-		// add up z to x adjacency
-		{
-			r32 z_sum = sums[4][range_index] + sums[5][range_index]; // -z plus +z
-			output += strength_adjacent * z_sum * (sums_previous_ranges[0] + sums_previous_ranges[1]);
-		}
-
-		const r32 min_reverb = 0.1f;
-		out_reverb[range_index] = vi_max(0.0f, vi_min(1.0f, (output - min_reverb) / (1.0f - min_reverb)));
 	}
 }
 
@@ -1019,10 +896,7 @@ void loop()
 #if DEBUG_WALK || DEBUG_DRONE || DEBUG_AUDIO
 					vi_debug("%d bytes", data_length);
 #endif
-					// drone nav mesh
-					drone_nav_mesh.read(f);
-					drone_nav_mesh_key.resize(drone_nav_mesh);
-
+					// minion nav mesh
 					TileCacheData tiles;
 
 					{
@@ -1121,6 +995,10 @@ void loop()
 						dtStatus status = nav_mesh_query->init(nav_mesh, 2048);
 						vi_assert(dtStatusSucceed(status));
 					}
+
+					// drone nav mesh
+					drone_nav_mesh.read(f);
+					drone_nav_mesh_key.resize(drone_nav_mesh);
 				}
 
 				if (f)

@@ -165,6 +165,30 @@ void Parkour::footstep()
 	if (fsm.current == State::Normal || fsm.current == State::WallRun)
 	{
 		Vec3 base_pos = get<Walker>()->base_pos();
+		if (fsm.current == State::WallRun)
+		{
+			Quat rot = Quat::euler(0, get<Walker>()->target_rotation, 0);
+			Vec3 offset;
+			switch (wall_run_state)
+			{
+				case WallRunState::Forward:
+					offset = Vec3(0, 0, WALKER_PARKOUR_RADIUS * 0.8f);
+					break;
+				case WallRunState::Left:
+					offset = Vec3(WALKER_PARKOUR_RADIUS * 0.8f, 0, 0);
+					break;
+				case WallRunState::Right:
+					offset = Vec3(-WALKER_PARKOUR_RADIUS * 0.8f, 0, 0);
+					break;
+				default:
+				{
+					offset = Vec3::zero;
+					vi_assert(false);
+					break;
+				}
+			}
+			base_pos += rot * offset;
+		}
 
 		Audio::post_global(AK::EVENTS::PLAY_PARKOUR_FOOTSTEP, base_pos);
 
@@ -1236,15 +1260,27 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 
 			if (ray_callback.hasHit() && ray_callback.m_hitNormalWorld.getY() > WALKER_TRACTION_DOT)
 			{
+				// check for ceiling blocking the mantle
+				{
+					Vec3 ceiling_ray_end = pos;
+					ceiling_ray_end.y = ray_callback.m_hitPointWorld.getY() + 0.1f;
+					btCollisionWorld::ClosestRayResultCallback ceiling_ray_callback(pos, ceiling_ray_end);
+					Physics::raycast(&ceiling_ray_callback, ~CollisionDroneIgnore);
+					if (ceiling_ray_callback.hasHit())
+						return false;
+				}
+
 				// check for wall blocking the mantle
-				Vec3 wall_ray_start = pos;
-				wall_ray_start.y = ray_callback.m_hitPointWorld.getY() + 0.1f;
-				Vec3 wall_ray_end = ray_callback.m_hitPointWorld;
-				wall_ray_end.y += 0.1f;
-				btCollisionWorld::ClosestRayResultCallback wall_ray_callback(wall_ray_start, wall_ray_end);
-				Physics::raycast(&wall_ray_callback, ~CollisionDroneIgnore);
-				if (wall_ray_callback.hasHit())
-					return false;
+				{
+					Vec3 wall_ray_start = pos;
+					wall_ray_start.y = ray_callback.m_hitPointWorld.getY() + 0.1f;
+					Vec3 wall_ray_end = ray_callback.m_hitPointWorld;
+					wall_ray_end.y += 0.1f;
+					btCollisionWorld::ClosestRayResultCallback wall_ray_callback(wall_ray_start, wall_ray_end);
+					Physics::raycast(&wall_ray_callback, ~CollisionDroneIgnore);
+					if (wall_ray_callback.hasHit())
+						return false;
+				}
 
 				ray_callbacks[i] = ray_callback;
 			}
@@ -1284,6 +1320,9 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 
 b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 {
+	if (Game::time.total - last_jump_time < JUMP_GRACE_PERIOD)
+		return false;
+
 	Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, WALKER_SUPPORT_HEIGHT + get<Walker>()->default_capsule_height() * 0.25f, 0);
 	btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_start + wall_direction * WALKER_PARKOUR_RADIUS * WALL_RUN_DISTANCE_RATIO * 2.0f);
 	Physics::raycast(&ray_callback, CollisionParkour);

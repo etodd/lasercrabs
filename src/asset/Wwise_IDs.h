@@ -18,6 +18,7 @@ namespace AK
         static const AkUniqueID PLAY_BATTERY_CAPTURE = 2178381398U;
         static const AkUniqueID PLAY_BATTERY_LOOP = 2192484874U;
         static const AkUniqueID PLAY_BATTERY_RESET = 229884389U;
+        static const AkUniqueID PLAY_BOLT_REFLECT = 3058991653U;
         static const AkUniqueID PLAY_BOLT_SPAWN = 778399531U;
         static const AkUniqueID PLAY_CONSOLE_KEY = 3924749205U;
         static const AkUniqueID PLAY_DADA01 = 4184561299U;

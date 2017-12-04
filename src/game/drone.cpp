@@ -426,7 +426,7 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 	{
 		PlayerManager* manager = drone->get<PlayerCommon>()->manager.ref();
 
-		Entity* bolt_entity = World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), type, my_pos + dir_normalized * DRONE_SHIELD_RADIUS, dir_normalized);
+		Entity* bolt_entity = World::create<BoltEntity>(manager->team.ref()->team(), manager, drone->entity(), type, my_pos, dir_normalized);
 
 		if (manager->has<PlayerHuman>() && !manager->get<PlayerHuman>()->local())
 		{
@@ -1810,7 +1810,7 @@ b8 Drone::go(const Vec3& dir)
 					(
 						EffectLight::add
 						(
-							my_pos + d * DRONE_SHIELD_RADIUS,
+							my_pos,
 							BOLT_LIGHT_RADIUS,
 							0.5f,
 							EffectLight::Type::BoltDroneShotgun,
@@ -1832,7 +1832,7 @@ b8 Drone::go(const Vec3& dir)
 				(
 					EffectLight::add
 					(
-						my_pos + dir_normalized * DRONE_SHIELD_RADIUS,
+						my_pos,
 						BOLT_LIGHT_RADIUS,
 						0.5f,
 						EffectLight::Type::BoltDroneBolter,

@@ -2487,7 +2487,7 @@ b8 Bolt::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 	if (ref.ref())
 	{
-		Audio::post_global(AK::EVENTS::PLAY_DRONE_REFLECT, ref.ref()->get<Transform>()->absolute_pos());
+		Audio::post_global(AK::EVENTS::PLAY_BOLT_REFLECT, ref.ref()->get<Transform>()->absolute_pos());
 		if (change_team)
 		{
 			ref.ref()->reflected = true;
@@ -4304,7 +4304,7 @@ ShopEntity::ShopEntity()
 	create<Transform>();
 
 	View* model = create<View>();
-	model->mesh = Asset::Mesh::shop;
+	model->mesh = Asset::Mesh::shop_view;
 	model->shader = Asset::Shader::standard;
 	model->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
 

@@ -72,8 +72,8 @@ namespace Asset
 		const AssetID rope_base = 60;
 		const AssetID samsa = 61;
 		const AssetID seven = 62;
-		const AssetID shop = 63;
-		const AssetID shop_collision = 64;
+		const AssetID shop_collision = 63;
+		const AssetID shop_view = 64;
 		const AssetID sky_decal = 65;
 		const AssetID sky_pattern = 66;
 		const AssetID skybox = 67;

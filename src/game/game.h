@@ -105,7 +105,7 @@ struct Game
 		s32 locke_index;
 		ZoneState zones[MAX_ZONES];
 		Group group;
-		s16 resources[s32(Resource::count)];
+		s32 resources[s32(Resource::count)];
 		AssetID zone_last;
 		AssetID zone_current;
 		AssetID zone_overworld;

@@ -2784,7 +2784,7 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 			delta++;
 		if (delta)
 			Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER);
-		inventory->buy_quantity = s16(vi_max(1, inventory->buy_quantity + delta));
+		inventory->buy_quantity = s16(vi_max(1, vi_min(32000 / s32(info.cost), inventory->buy_quantity + delta)));
 	}
 
 	if (p)

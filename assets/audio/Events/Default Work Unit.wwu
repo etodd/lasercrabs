@@ -306,6 +306,20 @@
 												</Action>
 											</ChildrenList>
 										</Event>
+										<Event Name="Play_Bolt_Reflect" ID="{F18F46AF-2AD7-4A55-BEA0-9307F4DE952F}">
+											<ChildrenList>
+												<Action Name="" ID="{99F53ADB-C36D-4A3D-A3EA-60A9A2619EE1}" ShortID="260335526">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Drone_Bolt_Reflect" ID="{4230C902-DD07-4FEA-8CFA-8C493FE42FB6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
 									</ChildrenList>
 								</Folder>
 								<Folder Name="Drone_Damage" ID="{1FD1F71A-0632-4786-80B6-8C2E1A1B5D48}" ShortID="852233345">

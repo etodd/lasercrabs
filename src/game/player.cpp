@@ -3164,7 +3164,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 	{
 #if SERVER
 		// update RTT based on the sequence number
-		c->rtt = Net::Server::rtt(c->player.ref(), seq) + Net::interpolation_delay();
+		c->rtt = Net::Server::rtt(c->player.ref(), seq);
 
 		c->player.ref()->afk_timer = AFK_TIME;
 #endif
@@ -3657,7 +3657,7 @@ void PlayerControlHuman::awake()
 #if SERVER
 	player.ref()->afk_timer = AFK_TIME;
 
-	rtt = Net::rtt(player.ref()) + Net::interpolation_delay();
+	rtt = Net::rtt(player.ref());
 #endif
 
 	if (player.ref()->local() && !Game::level.local)
@@ -4154,7 +4154,7 @@ void PlayerControlHuman::update(const Update& u)
 
 	{
 		// save our position history
-		r32 cutoff = Game::real_time.total - (Net::rtt(player.ref()) * 2.0f) - Net::interpolation_delay();
+		r32 cutoff = Game::real_time.total - (Net::rtt(player.ref()) * 2.0f) - Net::interpolation_delay(player.ref());
 		while (position_history.length > 16 && position_history[0].timestamp < cutoff)
 			position_history.remove_ordered(0);
 		Transform* t = get<Transform>();
@@ -4646,7 +4646,7 @@ void PlayerControlHuman::update(const Update& u)
 			// if we are crawling, update the RTT every frame
 			// if we're dashing or flying, the RTT is set based on the sequence number of the command we received
 			if (get<Drone>()->state() == Drone::State::Crawl)
-				rtt = Net::rtt(player.ref()) + Net::interpolation_delay();
+				rtt = Net::rtt(player.ref());
 
 			ai_record_wait_timer -= u.time.delta;
 			if (ai_record_wait_timer < 0.0f)

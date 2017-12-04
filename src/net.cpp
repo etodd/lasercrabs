@@ -147,6 +147,11 @@ struct StatePersistent
 };
 StatePersistent state_persistent;
 
+r32 internal_interpolation_delay(b8 low_latency)
+{
+	return (tick_rate() * (low_latency ? 1.1f : 4.5f)) + 0.005f;
+}
+
 #if SERVER
 namespace Server
 {
@@ -1898,143 +1903,6 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 	}
 }
 
-void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, const StateFrame* frame_next)
-{
-	// transforms
-	{
-		s32 index = frame.transforms_active.start;
-		while (index < frame.transforms_active.end)
-		{
-			Transform* t = &Transform::list[index];
-			const TransformState& s = frame.transforms[index];
-			if (t->revision == s.revision && Transform::list.active(index))
-			{
-				if (t->has<PlayerControlHuman>() && t->get<PlayerControlHuman>()->player.ref()->local())
-				{
-					// this is a local player; we don't want to immediately overwrite its position with the server's data
-					// let the PlayerControlHuman deal with it
-				}
-				else
-				{
-					t->pos = s.pos;
-					t->rot = s.rot;
-					t->parent = s.parent;
-
-					if (t->has<RigidBody>())
-					{
-						RigidBody* body = t->get<RigidBody>();
-						btRigidBody* btBody = body->btBody;
-						if (btBody)
-						{
-							Vec3 abs_pos;
-							Quat abs_rot;
-							transform_absolute(frame, index, &abs_pos, &abs_rot);
-
-							btTransform world_transform(abs_rot, abs_pos);
-							btTransform old_transform = btBody->getWorldTransform();
-							btBody->setWorldTransform(world_transform);
-							btBody->setInterpolationWorldTransform(world_transform);
-							if ((world_transform.getOrigin() - old_transform.getOrigin()).length2() > 0.01f * 0.01f
-								|| Quat::angle(world_transform.getRotation(), old_transform.getRotation()) > 0.1f)
-								body->activate_linked();
-							else
-								body->btBody->setActivationState(ISLAND_SLEEPING);
-						}
-					}
-
-					if (frame_next)
-					{
-						// calculate client-side velocity for components that need it
-						if (t->has<Target>())
-						{
-							Vec3 abs_pos_last;
-							Quat abs_rot_last;
-							transform_absolute(frame_last, index, &abs_pos_last, &abs_rot_last);
-							Vec3 abs_pos_next;
-							Quat abs_rot_next;
-							transform_absolute(*frame_next, index, &abs_pos_next, &abs_rot_next);
-							t->get<Target>()->net_velocity = t->get<Target>()->net_velocity * 0.9f + ((abs_pos_next - abs_pos_last) / tick_rate()) * 0.1f;
-						}
-						else if (t->has<TramRunner>())
-						{
-							Vec3 abs_pos_last;
-							transform_absolute(frame_last, index, &abs_pos_last);
-							Vec3 abs_pos_next;
-							transform_absolute(*frame_next, index, &abs_pos_next);
-							t->get<TramRunner>()->velocity = t->get<TramRunner>()->velocity * 0.9f + ((abs_pos_next - abs_pos_last) / tick_rate()).length() * 0.1f;
-						}
-						else if (t->has<Bolt>())
-						{
-							Vec3 abs_pos_last;
-							transform_absolute(frame_last, index, &abs_pos_last);
-							Vec3 abs_pos_next;
-							transform_absolute(*frame_next, index, &abs_pos_next);
-							t->get<Bolt>()->velocity = (abs_pos_next - abs_pos_last) / tick_rate();
-						}
-					}
-				}
-			}
-
-			index = frame.transforms_active.next(index);
-		}
-	}
-
-	// players
-	for (s32 i = 0; i < MAX_PLAYERS; i++)
-	{
-		const PlayerManagerState& state = frame.players[i];
-		if (state.active)
-		{
-			PlayerManager* s = &PlayerManager::list[i];
-			s->spawn_timer = state.spawn_timer;
-			s->energy = state.energy;
-		}
-	}
-
-	// minions
-	{
-		s32 index = frame.minions_active.start;
-		while (index < frame.minions_active.end)
-		{
-			if (Minion::list.active(index))
-			{
-				const MinionState& s = frame.minions[index];
-				Minion* m = &Minion::list[index];
-				m->get<Walker>()->rotation = s.rotation;
-				Animator::Layer* layer = &m->get<Animator>()->layers[0];
-				layer->animation = s.animation;
-				layer->time = s.animation_time;
-			}
-
-			index = frame.minions_active.next(index);
-		}
-	}
-
-	// drones
-	{
-		s32 index = frame.drones_active.start;
-		while (index < frame.drones_active.end)
-		{
-			if (Drone::list.active(index))
-			{
-				const DroneState& state = frame.drones[index];
-				Drone* drone = &Drone::list[index];
-				if (drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local())
-				{
-					// only overwrite cooldown value if it hasn't changed recently
-					// to facilitate client-side prediction
-					if (Game::real_time.total - drone->cooldown_last_local_change >= rtt(drone->get<PlayerControlHuman>()->player.ref()) + interpolation_delay() + tick_rate() * 2.0f)
-						drone->cooldown = state.cooldown;
-				}
-				else
-					drone->cooldown = state.cooldown;
-			}
-
-			index = frame.drones_active.next(index);
-		}
-	}
-}
-
 StateFrame* state_frame_add(StateHistory* history)
 {
 	StateFrame* frame;
@@ -2157,6 +2025,17 @@ namespace Server
 
 struct Client
 {
+	enum Flags : s8
+	{
+		// when a client connects, we add them to our list, but set connected to false.
+		// as soon as they send us an Update packet, we set connected to true.
+		FlagConnected = 1 << 0,
+
+		FlagLoadingDone = 1 << 1,
+		FlagIsAdmin = 1 << 2,
+		FlagLowLatencyInterpolation = 1 << 3,
+	};
+
 	Sock::Address address;
 	r32 timeout;
 	r32 rtt = 0.5f;
@@ -2176,11 +2055,20 @@ struct Client
 	SequenceID first_load_sequence;
 	SequenceID acked_state_frame = NET_SEQUENCE_INVALID; // most recent state frame the client has acked
 	char username[MAX_USERNAME + 1];
-	// when a client connects, we add them to our list, but set connected to false.
-	// as soon as they send us an Update packet, we set connected to true.
-	b8 connected;
-	b8 loading_done;
-	b8 is_admin;
+	s8 flags = FlagLowLatencyInterpolation;
+
+	b8 flag(Flags f) const
+	{
+		return flags & f;
+	}
+
+	void flag(s32 f, b8 value)
+	{
+		if (value)
+			flags |= f;
+		else
+			flags &= ~f;
+	}
 };
 
 struct ExpectedClient
@@ -2204,7 +2092,7 @@ b8 msg_process(StreamRead*, Client*, SequenceID);
 struct StateServer
 {
 	FILE* replay_file;
-	Array<Client> clients;
+	StaticArray<Client, MAX_PLAYERS> clients;
 	Array<Ref<Entity>> finalize_children_queue;
 	Array<ExpectedClient> expected_clients;
 	Mode mode;
@@ -2466,7 +2354,7 @@ b8 packet_build_update(StreamWrite* p, Client* client, StateFrame* frame)
 		msgs_write(p, state_common.msgs_out_history, client_ack, &client->recently_resent, client->rtt);
 	}
 
-	b8 has_load_msgs = !client->loading_done;
+	b8 has_load_msgs = !client->flag(Client::FlagLoadingDone);
 	serialize_bool(p, has_load_msgs);
 	if (has_load_msgs)
 		msgs_write(p, client->msgs_out_load_history, client->ack_load, &client->recently_resent_load, client->rtt);
@@ -2567,7 +2455,7 @@ void admin_set(PlayerHuman* player, b8 value)
 {
 	Client* client = client_for_player(player);
 	if (client)
-		client->is_admin = value;
+		client->flag(Client::FlagIsAdmin, value);
 }
 
 void tick(const Update& u, r32 dt)
@@ -2605,7 +2493,7 @@ void tick(const Update& u, r32 dt)
 	for (s32 i = 0; i < state_server.clients.length; i++)
 	{
 		Client* client = &state_server.clients[i];
-		if (!client->loading_done)
+		if (!client->flag(Client::FlagLoadingDone))
 			msgs_out_consolidate(&client->msgs_out_load, &client->msgs_out_load_history, state_common.local_sequence_id);
 	}
 	frame = state_frame_add(&state_common.state_history);
@@ -2716,7 +2604,7 @@ b8 packet_handle_master(StreamRead* p)
 				if (key.equals(client->user_key))
 				{
 					client->auth_timeout = 0.0f;
-					client->is_admin = is_admin;
+					client->flag(Client::FlagIsAdmin, is_admin);
 					if (is_admin)
 					{
 						// let the client's player know they're an admin
@@ -2806,7 +2694,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			{
 				if (!client
 					&& state_server.mode == Mode::Active
-					&& Game::session.config.max_players >= PlayerHuman::list.count() + local_players)
+					&& Game::session.config.max_players >= PlayerHuman::list.count() + local_players
+					&& state_server.clients.length < state_server.clients.capacity())
 				{
 					client = state_server.clients.add();
 					client_index = state_server.clients.length - 1;
@@ -2904,12 +2793,12 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			calculate_rtt(state_common.timestamp, client->ack, state_common.msgs_out_history, &client->rtt);
 
 			client->timeout = 0.0f;
-			if (!client->connected)
+			if (!client->flag(Client::FlagConnected))
 			{
 				char str[NET_MAX_ADDRESS];
 				client->address.str(str);
 				vi_debug("Client %s connected.", str);
-				client->connected = true;
+				client->flag(Client::FlagConnected, true);
 			}
 
 			// client is letting us know what the last state frame they received was
@@ -3072,7 +2961,7 @@ b8 add_players(Net::StreamRead* p, Client* client, s32 count, const ExpectedClie
 			}
 			PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
 			player->master_id = client->user_key.id;
-			manager->is_admin = client->is_admin && gamepad == 0;
+			manager->is_admin = client->flag(Client::FlagIsAdmin) && gamepad == 0;
 			player->uuid = uuid;
 			client->players.add(player);
 			finalize(e);
@@ -3102,7 +2991,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 		}
 		case MessageType::LoadingDone:
 		{
-			client->loading_done = true;
+			client->flag(Client::FlagLoadingDone, true);
 			{
 				char str[NET_MAX_ADDRESS];
 				client->address.str(str);
@@ -3175,7 +3064,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 					if (expected_client.user_key.equals(client->user_key))
 					{
 						client->auth_timeout = 0.0f;
-						client->is_admin = expected_client.is_admin;
+						client->flag(Client::FlagIsAdmin, expected_client.is_admin);
 						teams = expected_client.teams;
 						state_server.expected_clients.remove(i);
 						break;
@@ -3194,6 +3083,17 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 					return false;
 				}
 			}
+			break;
+		}
+		case MessageType::LowLatencyInterpolation:
+		{
+			b8 value;
+			serialize_bool(p, value);
+			client->flag(Client::FlagLowLatencyInterpolation, value);
+
+			char addr[NET_MAX_ADDRESS];
+			client->address.str(addr);
+			vi_debug("%s low-latency interpolation for client %s", value ? "Enabling" : "Disabling", addr);
 			break;
 		}
 		case MessageType::AddPlayer:
@@ -3250,7 +3150,7 @@ void reset()
 			ExpectedClient expected_client;
 			expected_client.timestamp = 0.0f;
 			expected_client.user_key = client.user_key;
-			expected_client.is_admin = client.is_admin;
+			expected_client.is_admin = client.flag(Client::FlagIsAdmin);
 			for (s32 j = 0; j < client.players.length; j++)
 			{
 				const PlayerHuman* player = client.players[j].ref();
@@ -3289,7 +3189,7 @@ r32 rtt(const PlayerHuman* p, SequenceID client_seq)
 	if (Game::level.local && p->local())
 		return 0.0f;
 
-	Server::Client* client = Server::client_for_player(p);
+	Client* client = client_for_player(p);
 
 	vi_assert(client);
 
@@ -3303,6 +3203,7 @@ r32 rtt(const PlayerHuman* p, SequenceID client_seq)
 	else
 		return client->rtt;
 }
+
 
 }
 
@@ -3332,9 +3233,15 @@ b8 msg_process(StreamRead*);
 
 struct StateClient
 {
+	enum Flags : s8
+	{
+		FlagReconnect = 1 << 0,
+	};
+
 	FILE* replay_file;
 	r32 timeout;
 	r32 tick_timer;
+	r32 lag_score; // higher = less reliable network connection
 	r32 server_rtt = 0.15f;
 	r32 rtts[MAX_PLAYERS];
 	u32 requested_server_id;
@@ -3349,9 +3256,27 @@ struct StateClient
 	Mode mode;
 	ReplayMode replay_mode;
 	StoryModeTeam requested_story_mode_team;
-	b8 reconnect;
+	s8 flags;
+
+	b8 flag(Flags f) const
+	{
+		return flags & f;
+	}
+
+	void flag(s32 f, b8 value)
+	{
+		if (value)
+			flags |= f;
+		else
+			flags &= ~f;
+	}
 };
 StateClient state_client;
+
+b8 low_latency_interpolation()
+{
+	return state_client.lag_score < 60.0f * 3.0f;
+}
 
 b8 master_send_auth()
 {
@@ -3622,6 +3547,144 @@ b8 packet_build_update(StreamWrite* p, const Update& u)
 	return true;
 }
 
+void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, const StateFrame* frame_next)
+{
+	// transforms
+	{
+		s32 index = frame.transforms_active.start;
+		while (index < frame.transforms_active.end)
+		{
+			Transform* t = &Transform::list[index];
+			const TransformState& s = frame.transforms[index];
+			if (t->revision == s.revision && Transform::list.active(index))
+			{
+				if (t->has<PlayerControlHuman>() && t->get<PlayerControlHuman>()->player.ref()->local())
+				{
+					// this is a local player; we don't want to immediately overwrite its position with the server's data
+					// let the PlayerControlHuman deal with it
+				}
+				else
+				{
+					t->pos = s.pos;
+					t->rot = s.rot;
+					t->parent = s.parent;
+
+					if (t->has<RigidBody>())
+					{
+						RigidBody* body = t->get<RigidBody>();
+						btRigidBody* btBody = body->btBody;
+						if (btBody)
+						{
+							Vec3 abs_pos;
+							Quat abs_rot;
+							transform_absolute(frame, index, &abs_pos, &abs_rot);
+
+							btTransform world_transform(abs_rot, abs_pos);
+							btTransform old_transform = btBody->getWorldTransform();
+							btBody->setWorldTransform(world_transform);
+							btBody->setInterpolationWorldTransform(world_transform);
+							if ((world_transform.getOrigin() - old_transform.getOrigin()).length2() > 0.01f * 0.01f
+								|| Quat::angle(world_transform.getRotation(), old_transform.getRotation()) > 0.1f)
+								body->activate_linked();
+							else
+								body->btBody->setActivationState(ISLAND_SLEEPING);
+						}
+					}
+
+					if (frame_next)
+					{
+						// calculate client-side velocity for components that need it
+						if (t->has<Target>())
+						{
+							Vec3 abs_pos_last;
+							Quat abs_rot_last;
+							transform_absolute(frame_last, index, &abs_pos_last, &abs_rot_last);
+							Vec3 abs_pos_next;
+							Quat abs_rot_next;
+							transform_absolute(*frame_next, index, &abs_pos_next, &abs_rot_next);
+							t->get<Target>()->net_velocity = t->get<Target>()->net_velocity * 0.9f + ((abs_pos_next - abs_pos_last) / tick_rate()) * 0.1f;
+						}
+						else if (t->has<TramRunner>())
+						{
+							Vec3 abs_pos_last;
+							transform_absolute(frame_last, index, &abs_pos_last);
+							Vec3 abs_pos_next;
+							transform_absolute(*frame_next, index, &abs_pos_next);
+							t->get<TramRunner>()->velocity = t->get<TramRunner>()->velocity * 0.9f + ((abs_pos_next - abs_pos_last) / tick_rate()).length() * 0.1f;
+						}
+						else if (t->has<Bolt>())
+						{
+							Vec3 abs_pos_last;
+							transform_absolute(frame_last, index, &abs_pos_last);
+							Vec3 abs_pos_next;
+							transform_absolute(*frame_next, index, &abs_pos_next);
+							t->get<Bolt>()->velocity = (abs_pos_next - abs_pos_last) / tick_rate();
+						}
+					}
+				}
+			}
+
+			index = frame.transforms_active.next(index);
+		}
+	}
+
+	// players
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	{
+		const PlayerManagerState& state = frame.players[i];
+		if (state.active)
+		{
+			PlayerManager* s = &PlayerManager::list[i];
+			s->spawn_timer = state.spawn_timer;
+			s->energy = state.energy;
+		}
+	}
+
+	// minions
+	{
+		s32 index = frame.minions_active.start;
+		while (index < frame.minions_active.end)
+		{
+			if (Minion::list.active(index))
+			{
+				const MinionState& s = frame.minions[index];
+				Minion* m = &Minion::list[index];
+				m->get<Walker>()->rotation = s.rotation;
+				Animator::Layer* layer = &m->get<Animator>()->layers[0];
+				layer->animation = s.animation;
+				layer->time = s.animation_time;
+			}
+
+			index = frame.minions_active.next(index);
+		}
+	}
+
+	// drones
+	{
+		s32 index = frame.drones_active.start;
+		while (index < frame.drones_active.end)
+		{
+			if (Drone::list.active(index))
+			{
+				const DroneState& state = frame.drones[index];
+				Drone* drone = &Drone::list[index];
+				if (drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local())
+				{
+					// only overwrite cooldown value if it hasn't changed recently
+					// to facilitate client-side prediction
+					PlayerHuman* player = drone->get<PlayerControlHuman>()->player.ref();
+					if (Game::real_time.total - drone->cooldown_last_local_change >= rtt(player) + tick_rate() * 2.0f)
+						drone->cooldown = state.cooldown;
+				}
+				else
+					drone->cooldown = state.cooldown;
+			}
+
+			index = frame.drones_active.next(index);
+		}
+	}
+}
+
 void update(const Update& u, r32 dt)
 {
 	if (master_auth_timer > 0.0f)
@@ -3640,13 +3703,13 @@ void update(const Update& u, r32 dt)
 		if (state_client.mode == Mode::Disconnected)
 			Console::debug("%s", "Disconnected");
 		else
-			Console::debug("%.0fkbps down | %.0fkbps up | %.0fms", state_common.bandwidth_in * 8.0f / 500.0f, state_common.bandwidth_out * 8.0f / 500.0f, state_client.server_rtt * 1000.0f);
+			Console::debug("%.0fkbps down | %.0fkbps up | %.0fms rtt | %.0fms interp", state_common.bandwidth_in * 8.0f / 500.0f, state_common.bandwidth_out * 8.0f / 500.0f, state_client.server_rtt * 1000.0f, interpolation_delay(nullptr) * 1000.0f);
 	}
 
 	if (Game::level.local)
 		return;
 
-	r32 interpolation_time = state_common.timestamp - interpolation_delay();
+	r32 interpolation_time = state_common.timestamp - interpolation_delay(nullptr);
 
 	const StateFrame* frame = state_frame_by_timestamp(state_common.state_history, interpolation_time);
 	if (frame)
@@ -3698,7 +3761,7 @@ void handle_server_disconnect(DisconnectReason reason)
 			replay();
 		}
 	}
-	else if (state_client.reconnect)
+	else if (state_client.flag(StateClient::FlagReconnect))
 	{
 		Sock::Address addr = state_client.server_address;
 		Game::unload_level();
@@ -3759,14 +3822,21 @@ b8 master_request_server(u32 id, AssetID level, StoryModeTeam story_mode_team)
 	return true;
 }
 
+b8 send_low_latency_interpolation(b8 value)
+{
+	using Stream = StreamWrite;
+	StreamWrite* p = msg_new(MessageType::LowLatencyInterpolation);
+	serialize_bool(p, value);
+	msg_finalize(p);
+	return true;
+}
+
 void tick(const Update& u, r32 dt)
 {
 	switch (state_client.mode)
 	{
 		case Mode::Disconnected:
-		{
 			break;
-		}
 		case Mode::ContactingMaster:
 		{
 			state_client.timeout += dt;
@@ -3803,6 +3873,22 @@ void tick(const Update& u, r32 dt)
 			{
 				msgs_out_consolidate(&state_common.msgs_out, &state_common.msgs_out_history, state_common.local_sequence_id);
 
+				{
+					// determine whether we can use low-latency interpolation
+					b8 low_latency = low_latency_interpolation();
+
+					if (state_client.msgs_in_history.msg_frames.length > 0
+						&& state_common.timestamp - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > internal_interpolation_delay(true) * 1.2f)
+						state_client.lag_score = vi_min(60.0f * 4.0f, state_client.lag_score + 60.0f * 0.5f);
+					else
+						state_client.lag_score = vi_max(0.0f, state_client.lag_score - dt);
+
+					b8 low_latency_new = low_latency_interpolation();
+
+					if (low_latency_new != low_latency)
+						send_low_latency_interpolation(low_latency_new);
+				}
+
 				StreamWrite p;
 				packet_build_update(&p, u);
 				packet_send(p, state_client.server_address);
@@ -3812,10 +3898,8 @@ void tick(const Update& u, r32 dt)
 			break;
 		}
 		default:
-		{
 			vi_assert(false);
 			break;
-		}
 	}
 }
 
@@ -4249,7 +4333,7 @@ b8 msg_process(StreamRead* p)
 			// start letterbox animation
 			Game::schedule_timer = TRANSITION_TIME;
 			// wait for server to disconnect, then reconnect
-			state_client.reconnect = true;
+			state_client.flag(StateClient::FlagReconnect, true);
 			break;
 		}
 		case MessageType::Noop:
@@ -4291,7 +4375,8 @@ void reset()
 b8 lagging()
 {
 	return state_client.mode == Mode::Disconnected
-		|| (state_client.msgs_in_history.msg_frames.length > 0 && state_common.timestamp - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > tick_rate() * 8.0f);
+		|| (state_client.msgs_in_history.msg_frames.length > 0
+			&& state_common.timestamp - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > tick_rate() * 8.0f);
 }
 
 Sock::Address server_address()
@@ -4314,16 +4399,6 @@ b8 execute(const char* string)
 }
 
 #endif
-
-r32 tick_rate()
-{
-	return (Game::level.mode == Game::Mode::Pvp && Team::match_state == Team::MatchState::Active) ? (1.0f / 60.0f) : (1.0f / 30.0f);
-}
-
-r32 interpolation_delay()
-{
-	return (tick_rate() * 4.0f) + 0.02f;
-}
 
 void init()
 {
@@ -4756,6 +4831,7 @@ b8 msg_finalize(StreamWrite* p)
 	serialize_enum(&r, MessageType, type);
 	if (type != MessageType::Noop
 		&& type != MessageType::ClientSetup
+		&& type != MessageType::LowLatencyInterpolation
 		&& type != MessageType::EntityCreate
 		&& type != MessageType::EntityRemove
 		&& type != MessageType::InitDone
@@ -4809,6 +4885,27 @@ b8 state_frame_by_timestamp(StateFrame* result, r32 timestamp)
 r32 timestamp()
 {
 	return state_common.timestamp;
+}
+
+r32 tick_rate()
+{
+	return (Game::level.mode == Game::Mode::Pvp && Team::match_state == Team::MatchState::Active) ? (1.0f / 60.0f) : (1.0f / 30.0f);
+}
+
+r32 interpolation_delay(const PlayerHuman* ph)
+{
+	b8 low_latency;
+#if SERVER
+	Server::Client* client = Server::client_for_player(ph);
+	if (client)
+		low_latency = client->flag(Server::Client::FlagLowLatencyInterpolation);
+	else
+		low_latency = false;
+#else
+	vi_assert(!ph || ph->local());
+	low_latency = Client::low_latency_interpolation();
+#endif
+	return internal_interpolation_delay(low_latency);
 }
 
 

@@ -438,7 +438,7 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 
 			r32 timestamp;
 #if SERVER
-			timestamp = Net::timestamp() - vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt) * Game::session.effective_time_scale();
+			timestamp = Net::timestamp() - (vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt) - Net::interpolation_delay(manager->get<PlayerHuman>())) * Game::session.effective_time_scale();
 #else
 			timestamp = Net::timestamp();
 #endif
@@ -878,7 +878,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 							r32 timestamp;
 #if SERVER
-							timestamp = Net::timestamp() - vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt) * Game::session.effective_time_scale();
+							timestamp = Net::timestamp() - (vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt) - Net::interpolation_delay(manager->get<PlayerHuman>())) * Game::session.effective_time_scale();
 #else
 							timestamp = Net::timestamp();
 #endif
@@ -1253,7 +1253,7 @@ b8 Drone::net_state_frame(Net::StateFrame* state_frame) const
 	{
 		r32 timestamp;
 #if SERVER
-		timestamp = Net::timestamp() - vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt) * Game::session.effective_time_scale();
+		timestamp = Net::timestamp() - (vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt) - Net::interpolation_delay(get<PlayerControlHuman>()->player.ref())) * Game::session.effective_time_scale();
 #else
 		// should never happen on client
 		timestamp = 0.0f;
@@ -1582,7 +1582,7 @@ void Drone::cooldown_setup(r32 amount)
 
 #if SERVER
 	if (lag_compensate && has<PlayerControlHuman>())
-		cooldown = vi_max(0.0f, cooldown - vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt) * DRONE_COOLDOWN_SPEED);
+		cooldown = vi_max(0.0f, cooldown - (vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt) - Net::interpolation_delay(get<PlayerControlHuman>()->player.ref())) * DRONE_COOLDOWN_SPEED * Game::session.effective_time_scale());
 #endif
 }
 

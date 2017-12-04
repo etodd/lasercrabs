@@ -2026,11 +2026,18 @@ b8 PlayerManager::upgrade_start(Upgrade u, s8 ability_slot)
 			current_upgrade_ability_slot = ability_slot;
 
 			r32 rtt;
+			r32 interpolation_delay;
 			if (has<PlayerHuman>() && !get<PlayerHuman>()->local())
+			{
 				rtt = Net::rtt(get<PlayerHuman>());
+				interpolation_delay = Net::interpolation_delay(get<PlayerHuman>());
+			}
 			else
+			{
 				rtt = 0.0f;
-			state_timer = UPGRADE_TIME - vi_min(NET_MAX_RTT_COMPENSATION, rtt) - Net::interpolation_delay();
+				interpolation_delay = 0.0f;
+			}
+			state_timer = UPGRADE_TIME - vi_min(NET_MAX_RTT_COMPENSATION, rtt) - interpolation_delay;
 
 			add_energy(-cost);
 		}

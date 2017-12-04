@@ -106,7 +106,7 @@ template<typename Stream> b8 serialize_save(Stream* p, Game::Save* s)
 		serialize_enum(p, ZoneState, s->zones[i]);
 	serialize_enum(p, Game::Group, s->group);
 	for (s32 i = 0; i < s32(Resource::count); i++)
-		serialize_s16(p, s->resources[i]);
+		serialize_s32(p, s->resources[i]);
 	serialize_s16(p, s->zone_last);
 	serialize_s16(p, s->zone_current);
 	serialize_s16(p, s->zone_overworld);

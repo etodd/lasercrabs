@@ -518,7 +518,7 @@ void Health::damage(Entity* src, s8 damage)
 			BufferedDamage entry;
 			entry.source = src;
 			entry.damage = damage;
-			entry.delay = vi_min(NET_MAX_RTT_COMPENSATION, Net::rtt(get<PlayerControlHuman>()->player.ref())) + Net::tick_rate();
+			entry.delay = (vi_min(NET_MAX_RTT_COMPENSATION, Net::rtt(get<PlayerControlHuman>()->player.ref())) + Net::interpolation_delay(get<PlayerControlHuman>()->player.ref()) + Net::tick_rate()) * Game::session.effective_time_scale();
 			if (src->has<Drone>() && src->get<Drone>()->current_ability == Ability::Sniper)
 				entry.type = BufferedDamage::Type::Sniper;
 			else
@@ -607,7 +607,7 @@ b8 Health::can_take_damage(Entity* damager) const
 			r32 rtt = 0.0f;
 #if SERVER
 			if (damager && damager->has<PlayerControlHuman>() && !PlayerHuman::players_on_same_client(entity(), damager))
-				rtt = damager->get<PlayerControlHuman>()->rtt;
+				rtt = vi_min(NET_MAX_RTT_COMPENSATION, damager->get<PlayerControlHuman>()->rtt) + Net::interpolation_delay(damager->get<PlayerControlHuman>()->player.ref());
 #endif
 
 			if (damager && damager->has<Drone>() // grace period only applies if we're being attacked directly by an enemy drone

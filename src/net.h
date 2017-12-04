@@ -55,6 +55,7 @@ enum class MessageType : s8
 	TransitionLevel,
 	AddPlayer,
 	DebugCommand,
+	LowLatencyInterpolation,
 	count,
 };
 
@@ -102,8 +103,8 @@ struct StateFrame
 };
 
 void init();
+r32 interpolation_delay(const PlayerHuman*);
 r32 tick_rate();
-r32 interpolation_delay();
 void update_start(const Update&);
 void update_end(const Update&);
 void finalize(Entity*);

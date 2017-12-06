@@ -624,7 +624,6 @@ b8 Health::can_take_damage(Entity* damager) const
 BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 {
 	create<Transform>()->pos = p;
-	create<Audio>();
 
 	View* model = create<View>();
 	model->color = Vec4(0.6f, 0.6f, 0.6f, MATERIAL_NO_OVERRIDE);
@@ -760,7 +759,6 @@ void Battery::awake()
 	link_arg<Entity*, &Battery::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &Battery::health_changed>(get<Health>()->changed);
 	set_team_client(team);
-	get<Audio>()->post(AK::EVENTS::PLAY_BATTERY_LOOP);
 }
 
 Battery::~Battery()
@@ -816,10 +814,8 @@ b8 Battery::net_msg(Net::StreamRead* p)
 	{
 		if (pickup->team != t)
 			caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_energy_and_notify(pickup->reward());
-		pickup->get<Audio>()->post(AK::EVENTS::PLAY_BATTERY_CAPTURE);
+		Audio::post_global(AK::EVENTS::PLAY_BATTERY_CAPTURE, Vec3::zero, pickup->get<Transform>());
 	}
-	else if (t == AI::TeamNone)
-		pickup->get<Audio>()->post(AK::EVENTS::PLAY_BATTERY_RESET);
 	pickup->set_team_client(t);
 
 	return true;
@@ -879,7 +875,7 @@ void Battery::update_all(const Update& u)
 		if (s32((u.time.total + offset) / shockwave_interval) != s32((last_time + offset) / shockwave_interval))
 		{
 			EffectLight::add(me, 10.0f, 1.5f, EffectLight::Type::Shockwave);
-			i.item()->get<Audio>()->post(AK::EVENTS::PLAY_RECTIFIER_PING);
+			Audio::post_global(AK::EVENTS::PLAY_RECTIFIER_PING, Vec3::zero, i.item()->get<Transform>());
 		}
 	}
 }
@@ -1119,14 +1115,14 @@ b8 UpgradeStation::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						ref.ref()->drone = d;
 						ref.ref()->timer = UPGRADE_STATION_ANIM_TIME - ref.ref()->timer;
 						ref.ref()->mode = Mode::Activating;
-						ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_UPGRADE_STATION_ENTER);
+						Audio::post_global(AK::EVENTS::PLAY_UPGRADE_STATION_ENTER, Vec3::zero, ref.ref()->get<Transform>());
 					}
 				}
 				else if (ref.ref()->mode == Mode::Activating)
 				{
 					ref.ref()->timer = UPGRADE_STATION_ANIM_TIME - ref.ref()->timer;
 					ref.ref()->mode = Mode::Deactivating;
-					ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_UPGRADE_STATION_EXIT);
+					Audio::post_global(AK::EVENTS::PLAY_UPGRADE_STATION_EXIT, Vec3::zero, ref.ref()->get<Transform>());
 				}
 			}
 		}
@@ -1201,7 +1197,7 @@ void UpgradeStation::update_client(const Update& u)
 		// drone disappeared on us; flip back over automatically
 		mode = Mode::Deactivating;
 		timer = UPGRADE_STATION_ANIM_TIME;
-		get<Audio>()->post(AK::EVENTS::PLAY_UPGRADE_STATION_EXIT);
+		Audio::post_global(AK::EVENTS::PLAY_UPGRADE_STATION_EXIT, Vec3::zero, get<Transform>());
 	}
 
 	if (timer > 0.0f)
@@ -1268,7 +1264,6 @@ void UpgradeStation::drone_exit()
 UpgradeStationEntity::UpgradeStationEntity(SpawnPoint* p)
 {
 	create<Transform>();
-	create<Audio>();
 
 	create<PlayerTrigger>()->radius = UPGRADE_STATION_RADIUS;
 
@@ -1287,8 +1282,6 @@ RectifierEntity::RectifierEntity(PlayerManager* owner, const Vec3& abs_pos, cons
 	Transform* transform = create<Transform>();
 	transform->pos = abs_pos;
 	transform->rot = abs_rot;
-
-	create<Audio>();
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::rectifier;
@@ -2145,7 +2138,6 @@ void ForceField::awake()
 	if (!(flags & FlagPermanent))
 	{
 		link_arg<const HealthEvent&, &ForceField::health_changed>(get<Health>()->changed);
-		get<Audio>()->post(AK::EVENTS::PLAY_FORCE_FIELD_LOOP);
 		if (Game::level.local)
 			obstacle_id = AI::obstacle_add(get<Transform>()->to_world(Vec3(0, 0, FORCE_FIELD_BASE_OFFSET * -0.5f)) + Vec3(0, FORCE_FIELD_BASE_OFFSET * -0.5f, 0), FORCE_FIELD_BASE_OFFSET * 0.5f, FORCE_FIELD_BASE_OFFSET);
 	}
@@ -2158,7 +2150,6 @@ ForceField::~ForceField()
 
 	if (!(flags & FlagPermanent))
 	{
-		get<Audio>()->stop(AK::EVENTS::STOP_FORCE_FIELD_LOOP);
 		if (obstacle_id != u32(-1))
 			AI::obstacle_remove(obstacle_id);
 	}
@@ -2341,8 +2332,6 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 		if (type == ForceField::Type::Invincible)
 			field->flags |= ForceField::FlagInvincible;
 
-		create<Audio>();
-
 		// destroy any overlapping friendly force field
 		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 		{
@@ -2505,7 +2494,7 @@ void Bolt::awake()
 
 	if (owner.ref() && owner.ref()->has<Turret>())
 	{
-		owner.ref()->get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
+		owner.ref()->get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN); // HACK
 		EffectLight::add(last_pos, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
 	}
 }

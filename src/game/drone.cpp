@@ -1582,7 +1582,7 @@ void Drone::cooldown_setup(r32 amount)
 
 #if SERVER
 	if (lag_compensate && has<PlayerControlHuman>())
-		cooldown = vi_max(0.0f, cooldown - (vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt) - Net::interpolation_delay(get<PlayerControlHuman>()->player.ref())) * DRONE_COOLDOWN_SPEED * Game::session.effective_time_scale());
+		cooldown = vi_max(0.0f, cooldown - (vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt) + Net::interpolation_delay(get<PlayerControlHuman>()->player.ref())) * DRONE_COOLDOWN_SPEED * Game::session.effective_time_scale());
 #endif
 }
 

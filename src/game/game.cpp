@@ -2346,6 +2346,95 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 
 void Game::awake_all()
 {
+	// preload stuff
+	{
+		Loader::mesh(Asset::Mesh::character);
+		Loader::armature(Asset::Armature::character);
+
+		if (level.mode == Mode::Pvp)
+		{
+			Loader::animation(Asset::Animation::character_aim);
+			Loader::animation(Asset::Animation::character_fire);
+			Loader::animation(Asset::Animation::character_idle);
+			Loader::animation(Asset::Animation::character_walk);
+			Loader::animation(Asset::Animation::character_melee);
+
+			Loader::mesh(Asset::Mesh::drone);
+			Loader::armature(Asset::Armature::drone);
+			Loader::animation(Asset::Animation::drone_dash);
+			Loader::animation(Asset::Animation::drone_fly);
+			Loader::animation(Asset::Animation::drone_idle);
+			Loader::mesh(Asset::Mesh::rectifier);
+			Loader::mesh(Asset::Mesh::force_field_base);
+			Loader::mesh(Asset::Mesh::force_field_sphere);
+
+			Loader::mesh(Asset::Mesh::grenade_attached);
+			Loader::mesh(Asset::Mesh::grenade_detached);
+		}
+		else
+		{
+			Loader::animation(Asset::Animation::character_climb_down);
+			Loader::animation(Asset::Animation::character_climb_up);
+			Loader::animation(Asset::Animation::character_fall);
+			Loader::animation(Asset::Animation::character_fire);
+			Loader::animation(Asset::Animation::character_hang);
+			Loader::animation(Asset::Animation::character_idle);
+			Loader::animation(Asset::Animation::character_interact);
+			Loader::animation(Asset::Animation::character_jump1);
+			Loader::animation(Asset::Animation::character_land);
+			Loader::animation(Asset::Animation::character_land_hard);
+			Loader::animation(Asset::Animation::character_mantle);
+			Loader::animation(Asset::Animation::character_pickup);
+			Loader::animation(Asset::Animation::character_run);
+			Loader::animation(Asset::Animation::character_run_backward);
+			Loader::animation(Asset::Animation::character_run_left);
+			Loader::animation(Asset::Animation::character_run_right);
+			Loader::animation(Asset::Animation::character_terminal_enter);
+			Loader::animation(Asset::Animation::character_terminal_exit);
+			Loader::animation(Asset::Animation::character_top_out);
+			Loader::animation(Asset::Animation::character_walk);
+			Loader::animation(Asset::Animation::character_walk_backward);
+			Loader::animation(Asset::Animation::character_walk_left);
+			Loader::animation(Asset::Animation::character_walk_right);
+			Loader::animation(Asset::Animation::character_wall_run_left);
+			Loader::animation(Asset::Animation::character_wall_run_right);
+			Loader::animation(Asset::Animation::character_wall_run_straight);
+			Loader::animation(Asset::Animation::character_wall_slide);
+
+			Loader::mesh(Asset::Mesh::plane);
+		}
+
+		Loader::mesh(Asset::Mesh::cylinder);
+		Loader::mesh(Asset::Mesh::sphere_highres);
+		Loader::mesh(Asset::Mesh::tri_tube);
+
+		Loader::mesh(Asset::Mesh::icon_warning);
+		Loader::mesh(Asset::Mesh::icon_turret2);
+		Loader::mesh(Asset::Mesh::icon_turret);
+		Loader::mesh(Asset::Mesh::icon_spot);
+		Loader::mesh(Asset::Mesh::icon_sniper);
+		Loader::mesh(Asset::Mesh::icon_shotgun);
+		Loader::mesh(Asset::Mesh::icon_rectifier);
+		Loader::mesh(Asset::Mesh::icon_network_error);
+		Loader::mesh(Asset::Mesh::icon_minion);
+		Loader::mesh(Asset::Mesh::icon_grenade);
+		Loader::mesh(Asset::Mesh::icon_gamepad);
+		Loader::mesh(Asset::Mesh::icon_force_field);
+		Loader::mesh(Asset::Mesh::icon_flag);
+		Loader::mesh(Asset::Mesh::icon_drone);
+		Loader::mesh(Asset::Mesh::icon_cursor);
+		Loader::mesh(Asset::Mesh::icon_core_module);
+		Loader::mesh(Asset::Mesh::icon_close);
+		Loader::mesh(Asset::Mesh::icon_chevron);
+		Loader::mesh(Asset::Mesh::icon_checkmark);
+		Loader::mesh(Asset::Mesh::icon_bolter);
+		Loader::mesh(Asset::Mesh::icon_battery);
+		Loader::mesh(Asset::Mesh::icon_arrow);
+		Loader::mesh(Asset::Mesh::icon_active_armor);
+		Loader::mesh(Asset::Mesh::icon_access_key);
+		Loader::mesh(Asset::Mesh::icon_ability_pip);
+	}
+
 #if !SERVER
 	if (level.rain > 0.0f)
 		Rain::init();

@@ -462,8 +462,6 @@
 												</Action>
 											</ChildrenList>
 										</Event>
-										<Event Name="Play_Force_Field_Loop" ID="{166CECA6-FDA1-4E82-AF9A-0C8EB8EA072E}"/>
-										<Event Name="Stop_Force_Field_Loop" ID="{22A00904-D95C-4259-864B-24CDDCAFFAE5}"/>
 									</ChildrenList>
 								</Folder>
 								<Event Name="Play_Drone_Spawn" ID="{E224D9E5-4677-4789-8EF9-DB0E18AA0A61}">
@@ -498,8 +496,6 @@
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Battery_Reset" ID="{76DB62BF-CC10-45C3-80F6-FEA99D6DA648}"/>
-								<Event Name="Play_Battery_Loop" ID="{A00E5B7B-CAF7-4218-B614-163785E6A767}"/>
 							</ChildrenList>
 						</Folder>
 						<Folder Name="Story" ID="{40123C6B-5420-4AB9-AF80-413A82A15257}" ShortID="304977609">

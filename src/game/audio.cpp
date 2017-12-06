@@ -76,7 +76,7 @@ void Audio::term() {}
 void Audio::update_all(const Update&) {}
 void Audio::post_global(AkUniqueID) {}
 b8 Audio::post_global_dialogue(AkUniqueID) { return false; }
-AudioEntry* Audio::post_global(AkUniqueID, const Vec3&) { return nullptr; }
+AudioEntry* Audio::post_global(AkUniqueID, const Vec3&, Transform*) { return nullptr; }
 void Audio::param_global(AkRtpcID, AkRtpcValue) {}
 void Audio::listener_enable(s8) {}
 void Audio::listener_disable(s8) {}
@@ -94,6 +94,7 @@ void AudioEntry::stop_all() {}
 void AudioEntry::pathfind_result(s8, r32, r32) {}
 b8 AudioEntry::post_dialogue(AkUniqueID) { return false; }
 void AudioEntry::param(AkRtpcID, AkRtpcValue) {}
+void AudioEntry::flag(s32, b8) {}
 
 void Audio::awake() {}
 Audio::~Audio() {}
@@ -290,6 +291,26 @@ void AudioEntry::init(const Vec3& npos, Transform* nparent, AudioEntry* parent_e
 	}
 }
 
+void AudioEntry::flag(s32 f, b8 value)
+{
+	if (value)
+		flags |= f;
+	else
+	{
+		flags &= ~f;
+		if (f & FlagEnableObstructionOcclusion)
+		{
+			memset(obstruction, 0, sizeof(obstruction));
+			memset(obstruction_target, 0, sizeof(obstruction_target));
+		}
+		if (f & FlagEnableReverb)
+		{
+			memset(reverb, 0, sizeof(reverb));
+			memset(reverb_target, 0, sizeof(reverb_target));
+		}
+	}
+}
+
 AkAuxBusID reverb_aux_bus[MAX_REVERBS] =
 {
 	AK::AUX_BUSSES::REVERB_SMALL,
@@ -361,11 +382,11 @@ void AudioEntry::update(r32 dt)
 
 	const r32 delta = dt * (1.0f / 0.4f); // takes X seconds to lerp to the new value
 
-	if (flag(FlagEnableObstructionOcclusion))
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		if (Audio::listener_mask & (1 << i))
 		{
-			if (Audio::listener_mask & (1 << i))
+			if (flag(FlagEnableObstructionOcclusion))
 			{
 				if (obstruction_target[i] > obstruction[i])
 					obstruction[i] = vi_min(obstruction_target[i], obstruction[i] + delta);
@@ -375,32 +396,32 @@ void AudioEntry::update(r32 dt)
 					occlusion[i] = vi_min(occlusion_target[i], occlusion[i] + delta);
 				else
 					occlusion[i] = vi_max(occlusion_target[i], occlusion[i] - delta);
-				AK::SoundEngine::SetObjectObstructionAndOcclusion(ak_id(), Audio::listener_id(i), obstruction[i], occlusion[i]);
 			}
+			AK::SoundEngine::SetObjectObstructionAndOcclusion(ak_id(), Audio::listener_id(i), obstruction[i], occlusion[i]);
 		}
 	}
 
-	if (flag(FlagEnableReverb))
 	{
 		s32 reverb_count = 0;
-
-		AkAuxSendValue values[MAX_REVERBS];
-		for (s32 i = 0; i < MAX_REVERBS; i++)
+		AkAuxSendValue values[MAX_REVERBS] = {};
+		if (flag(FlagEnableReverb))
 		{
-			if (reverb_target[i] > reverb[i])
-				reverb[i] = vi_min(reverb_target[i], reverb[i] + delta);
-			else
-				reverb[i] = vi_max(reverb_target[i], reverb[i] - delta);
-
-			if (reverb[i] > 0.0f)
+			for (s32 i = 0; i < MAX_REVERBS; i++)
 			{
-				values[reverb_count].auxBusID = reverb_aux_bus[i];
-				values[reverb_count].fControlValue = reverb[i];
-				values[reverb_count].listenerID = AK_INVALID_GAME_OBJECT;
-				reverb_count++;
+				if (reverb_target[i] > reverb[i])
+					reverb[i] = vi_min(reverb_target[i], reverb[i] + delta);
+				else
+					reverb[i] = vi_max(reverb_target[i], reverb[i] - delta);
+
+				if (reverb[i] > 0.0f)
+				{
+					values[reverb_count].auxBusID = reverb_aux_bus[i];
+					values[reverb_count].fControlValue = reverb[i];
+					values[reverb_count].listenerID = AK_INVALID_GAME_OBJECT;
+					reverb_count++;
+				}
 			}
 		}
-
 		AK::SoundEngine::SetGameObjectAuxSendValues(ak_id(), values, reverb_count);
 	}
 
@@ -476,7 +497,7 @@ void Audio::update_all(const Update& u)
 		{
 			if (i.item()->flag(AudioEntry::FlagKeepalive) || i.item()->playing > 0) // Audio component is keeping it alive, or something is playing on it
 			{
-				if (i.item()->flag(AudioEntry::Flag(AudioEntry::FlagEnableObstructionOcclusion | AudioEntry::FlagEnableReverb))
+				if (i.item()->flag(AudioEntry::FlagEnableObstructionOcclusion | AudioEntry::FlagEnableReverb)
 					&& spatialization_updates > 0
 					&& i.item()->spatialization_update_frame != spatialization_update_frame)
 				{
@@ -562,10 +583,10 @@ b8 Audio::post_dialogue(AkUniqueID event_id)
 	return entry()->post_dialogue(event_id);
 }
 
-AudioEntry* Audio::post_global(AkUniqueID event_id, const Vec3& pos)
+AudioEntry* Audio::post_global(AkUniqueID event_id, const Vec3& pos, Transform* parent)
 {
 	AudioEntry* e = AudioEntry::list.add();
-	e->init(pos, nullptr, nullptr);
+	e->init(pos, parent, nullptr);
 	e->post(event_id);
 	return e;
 }

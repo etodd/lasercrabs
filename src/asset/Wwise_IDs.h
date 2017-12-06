@@ -16,8 +16,6 @@ namespace AK
         static const AkUniqueID PLAY_AMB_AREA_01 = 2012228648U;
         static const AkUniqueID PLAY_AMB_AREA_02 = 2012228651U;
         static const AkUniqueID PLAY_BATTERY_CAPTURE = 2178381398U;
-        static const AkUniqueID PLAY_BATTERY_LOOP = 2192484874U;
-        static const AkUniqueID PLAY_BATTERY_RESET = 229884389U;
         static const AkUniqueID PLAY_BOLT_REFLECT = 3058991653U;
         static const AkUniqueID PLAY_BOLT_SPAWN = 778399531U;
         static const AkUniqueID PLAY_CONSOLE_KEY = 3924749205U;
@@ -50,7 +48,6 @@ namespace AK
         static const AkUniqueID PLAY_EQUIP_SNIPER = 3837239528U;
         static const AkUniqueID PLAY_EXPLOSION = 4030404899U;
         static const AkUniqueID PLAY_FIRE_LOOP = 1779335U;
-        static const AkUniqueID PLAY_FORCE_FIELD_LOOP = 427547487U;
         static const AkUniqueID PLAY_FORCE_FIELD_SPAWN = 1877727510U;
         static const AkUniqueID PLAY_GRENADE_ARM = 1073857507U;
         static const AkUniqueID PLAY_GRENADE_ATTACH = 2813332440U;
@@ -197,7 +194,6 @@ namespace AK
         static const AkUniqueID STOP_ALL = 452547817U;
         static const AkUniqueID STOP_AUDIOLOG = 3683249448U;
         static const AkUniqueID STOP_DIALOGUE = 288905442U;
-        static const AkUniqueID STOP_FORCE_FIELD_LOOP = 1907392129U;
         static const AkUniqueID STOP_MINION_CHARGE = 1499790205U;
         static const AkUniqueID STOP_PARKOUR_ALL = 405246226U;
         static const AkUniqueID STOP_PARKOUR_SLIDE = 3858061116U;

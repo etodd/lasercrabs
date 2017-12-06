@@ -1273,6 +1273,29 @@ State settings(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu
 				Audio::param_global(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER * Audio::volume_scale);
 		}
 
+		{
+			AssetID value;
+			switch (Settings::net_client_interpolation_mode)
+			{
+				case Settings::NetClientInterpolationMode::Auto:
+					value = strings::net_client_interpolation_mode_auto;
+					break;
+				case Settings::NetClientInterpolationMode::LowLatency:
+					value = strings::net_client_interpolation_mode_low_latency;
+					break;
+				case Settings::NetClientInterpolationMode::Smooth:
+					value = strings::net_client_interpolation_mode_smooth;
+					break;
+				default:
+				{
+					value = AssetNull;
+					vi_assert(false);
+					break;
+				}
+			}
+			UIMenu::enum_option(&Settings::net_client_interpolation_mode, menu->slider_item(u, _(strings::net_client_interpolation_mode), _(value)));
+		}
+
 		UIMenu::enum_option(&Settings::region, menu->slider_item(u, _(strings::region), _(region_string(Settings::region))));
 	}
 
@@ -1518,20 +1541,14 @@ b8 settings_graphics(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 		switch (Settings::shadow_quality)
 		{
 			case Settings::ShadowQuality::Off:
-			{
 				value = strings::off;
 				break;
-			}
 			case Settings::ShadowQuality::Medium:
-			{
 				value = strings::medium;
 				break;
-			}
 			case Settings::ShadowQuality::High:
-			{
 				value = strings::high;
 				break;
-			}
 			default:
 			{
 				value = AssetNull;
@@ -1919,6 +1936,7 @@ b8 choose_region(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMe
 		&& !Game::cancel_event_eaten[0];
 	if (allow_close == AllowClose::Yes && (cancel || menu->item(u, _(strings::back))))
 	{
+		Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
 		Game::cancel_event_eaten[0] = true;
 		menu->end(u);
 		return false;
@@ -2062,7 +2080,7 @@ Rect2 item_rect(const UIMenu& menu, s32 i)
 Rect2 item_slider_down_rect(const UIMenu& menu, s32 i)
 {
 	Rect2 r = item_rect(menu, i);
-	r.pos.x += MENU_ITEM_PADDING_LEFT + MENU_ITEM_WIDTH * 0.5f;
+	r.pos.x += MENU_ITEM_PADDING_LEFT + MENU_ITEM_WIDTH * 0.5f + MENU_ITEM_PADDING * 0.4f;
 	r.size.x = r.size.y;
 	return r;
 }
@@ -2070,7 +2088,7 @@ Rect2 item_slider_down_rect(const UIMenu& menu, s32 i)
 Rect2 item_slider_up_rect(const UIMenu& menu, s32 i)
 {
 	Rect2 r = item_rect(menu, i);
-	r.pos.x += r.size.x - r.size.y;
+	r.pos.x += r.size.x - r.size.y + MENU_ITEM_PADDING * 0.4f;
 	r.size.x = r.size.y;
 	return r;
 }

@@ -149,7 +149,7 @@ StatePersistent state_persistent;
 
 r32 internal_interpolation_delay(b8 low_latency)
 {
-	return (tick_rate() * (low_latency ? 1.1f : 4.5f)) + 0.005f;
+	return tick_rate() * (low_latency ? 1.5f : 5.0f);
 }
 
 #if SERVER
@@ -1966,11 +1966,20 @@ const StateFrame* state_frame_next(const StateHistory& history, const StateFrame
 {
 	if (history.frames.length > 1)
 	{
-		s32 index = &frame - history.frames.data;
-		index = index < history.frames.length - 1 ? index + 1 : 0;
-		const StateFrame& frame_next = history.frames[index];
-		if (sequence_more_recent(frame_next.sequence_id, frame.sequence_id))
-			return &frame_next;
+		s32 current_index = &frame - history.frames.data;
+		s32 index = current_index;
+		while (true)
+		{
+			// search forward
+			index = (index == history.frames.length - 1) ? 0 : (index + 1);
+
+			if (index == current_index) // hit the end
+				break;
+
+			const StateFrame* f = &history.frames[index];
+			if (f->timestamp > frame.timestamp - NET_TIMEOUT && sequence_more_recent(f->sequence_id, frame.sequence_id))
+				return f;
+		}
 	}
 	return nullptr;
 }
@@ -3236,6 +3245,7 @@ struct StateClient
 	enum Flags : s8
 	{
 		FlagReconnect = 1 << 0,
+		FlagLowLatencyInterpolation = 1 << 1,
 	};
 
 	FILE* replay_file;
@@ -3256,7 +3266,7 @@ struct StateClient
 	Mode mode;
 	ReplayMode replay_mode;
 	StoryModeTeam requested_story_mode_team;
-	s8 flags;
+	s8 flags = FlagLowLatencyInterpolation;
 
 	b8 flag(Flags f) const
 	{
@@ -3272,11 +3282,6 @@ struct StateClient
 	}
 };
 StateClient state_client;
-
-b8 low_latency_interpolation()
-{
-	return state_client.lag_score < 60.0f * 3.0f;
-}
 
 b8 master_send_auth()
 {
@@ -3673,7 +3678,7 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 					// only overwrite cooldown value if it hasn't changed recently
 					// to facilitate client-side prediction
 					PlayerHuman* player = drone->get<PlayerControlHuman>()->player.ref();
-					if (Game::real_time.total - drone->cooldown_last_local_change >= rtt(player) + tick_rate() * 2.0f)
+					if (Game::real_time.total - drone->cooldown_last_local_change >= rtt(player) + interpolation_delay(player) + tick_rate() * 2.0f)
 						drone->cooldown = state.cooldown;
 				}
 				else
@@ -3683,6 +3688,15 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			index = frame.drones_active.next(index);
 		}
 	}
+}
+
+b8 send_low_latency_interpolation(b8 value)
+{
+	using Stream = StreamWrite;
+	StreamWrite* p = msg_new(MessageType::LowLatencyInterpolation);
+	serialize_bool(p, value);
+	msg_finalize(p);
+	return true;
 }
 
 void update(const Update& u, r32 dt)
@@ -3706,8 +3720,63 @@ void update(const Update& u, r32 dt)
 			Console::debug("%.0fkbps down | %.0fkbps up | %.0fms rtt | %.0fms interp", state_common.bandwidth_in * 8.0f / 500.0f, state_common.bandwidth_out * 8.0f / 500.0f, state_client.server_rtt * 1000.0f, interpolation_delay(nullptr) * 1000.0f);
 	}
 
-	if (Game::level.local)
+	if (state_client.mode == Mode::Disconnected)
 		return;
+
+	if (state_client.mode == Mode::Connected)
+	{
+		// determine whether we can use low-latency interpolation
+		r32 interpolation_time = state_common.timestamp - internal_interpolation_delay(true);
+		const StateFrame* frame = state_frame_by_timestamp(state_common.state_history, interpolation_time);
+		if (frame)
+		{
+			if (state_frame_next(state_common.state_history, *frame))
+				state_client.lag_score = vi_max(0.0f, state_client.lag_score - dt);
+			else
+				state_client.lag_score = vi_min(80.0f, state_client.lag_score + 5.0f * dt / tick_rate());
+
+			switch (Settings::net_client_interpolation_mode)
+			{
+				case Settings::NetClientInterpolationMode::Auto:
+				{
+					if (state_client.flag(StateClient::FlagLowLatencyInterpolation)
+						&& state_client.lag_score > 60.0f)
+					{
+						state_client.flag(StateClient::FlagLowLatencyInterpolation, false);
+						send_low_latency_interpolation(false);
+					}
+					else if (!state_client.flag(StateClient::FlagLowLatencyInterpolation)
+						&& state_client.lag_score < 20.0f)
+					{
+						state_client.flag(StateClient::FlagLowLatencyInterpolation, true);
+						send_low_latency_interpolation(true);
+					}
+					break;
+				}
+				case Settings::NetClientInterpolationMode::LowLatency:
+				{
+					if (!state_client.flag(StateClient::FlagLowLatencyInterpolation))
+					{
+						state_client.flag(StateClient::FlagLowLatencyInterpolation, true);
+						send_low_latency_interpolation(true);
+					}
+					break;
+				}
+				case Settings::NetClientInterpolationMode::Smooth:
+				{
+					if (state_client.flag(StateClient::FlagLowLatencyInterpolation))
+					{
+						state_client.flag(StateClient::FlagLowLatencyInterpolation, false);
+						send_low_latency_interpolation(false);
+					}
+					break;
+				}
+				default:
+					vi_assert(false);
+					break;
+			}
+		}
+	}
 
 	r32 interpolation_time = state_common.timestamp - interpolation_delay(nullptr);
 
@@ -3822,15 +3891,6 @@ b8 master_request_server(u32 id, AssetID level, StoryModeTeam story_mode_team)
 	return true;
 }
 
-b8 send_low_latency_interpolation(b8 value)
-{
-	using Stream = StreamWrite;
-	StreamWrite* p = msg_new(MessageType::LowLatencyInterpolation);
-	serialize_bool(p, value);
-	msg_finalize(p);
-	return true;
-}
-
 void tick(const Update& u, r32 dt)
 {
 	switch (state_client.mode)
@@ -3872,22 +3932,6 @@ void tick(const Update& u, r32 dt)
 			else
 			{
 				msgs_out_consolidate(&state_common.msgs_out, &state_common.msgs_out_history, state_common.local_sequence_id);
-
-				{
-					// determine whether we can use low-latency interpolation
-					b8 low_latency = low_latency_interpolation();
-
-					if (state_client.msgs_in_history.msg_frames.length > 0
-						&& state_common.timestamp - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > internal_interpolation_delay(true) * 1.2f)
-						state_client.lag_score = vi_min(60.0f * 4.0f, state_client.lag_score + 60.0f * 0.5f);
-					else
-						state_client.lag_score = vi_max(0.0f, state_client.lag_score - dt);
-
-					b8 low_latency_new = low_latency_interpolation();
-
-					if (low_latency_new != low_latency)
-						send_low_latency_interpolation(low_latency_new);
-				}
 
 				StreamWrite p;
 				packet_build_update(&p, u);
@@ -4180,8 +4224,6 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 
 			b8 has_load_msgs;
 			serialize_bool(p, has_load_msgs);
-			if (state_client.mode == Mode::Loading)
-				vi_assert(has_load_msgs);
 			if (has_load_msgs)
 			{
 				if (!msgs_read(p, &state_client.msgs_in_load_history, ack_candidate))
@@ -4506,7 +4548,7 @@ void packet_read(const Update& u, PacketEntry* entry)
 
 void update_start(const Update& u)
 {
-	r32 dt = vi_min(Game::real_time.delta, NET_MAX_FRAME_TIME);
+	r32 dt = vi_min(u.real_time.delta, NET_MAX_FRAME_TIME);
 	state_common.timestamp += dt;
 
 #if !SERVER
@@ -4903,7 +4945,7 @@ r32 interpolation_delay(const PlayerHuman* ph)
 		low_latency = false;
 #else
 	vi_assert(!ph || ph->local());
-	low_latency = Client::low_latency_interpolation();
+	low_latency = Client::state_client.flag(Client::StateClient::FlagLowLatencyInterpolation);
 #endif
 	return internal_interpolation_delay(low_latency);
 }

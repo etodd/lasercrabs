@@ -9,6 +9,15 @@ namespace VI
 
 namespace Settings
 {
+
+	enum class NetClientInterpolationMode : s8
+	{
+		Auto,
+		LowLatency,
+		Smooth,
+		count,
+	};
+
 	struct Gamepad
 	{
 		InputBinding bindings[s32(Controls::count)];
@@ -50,6 +59,7 @@ namespace Settings
 	extern u8 sfx;
 	extern u8 music;
 	extern u8 fov;
+	extern NetClientInterpolationMode net_client_interpolation_mode;
 
 	inline r32 effective_fov()
 	{

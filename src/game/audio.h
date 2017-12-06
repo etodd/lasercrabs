@@ -78,18 +78,12 @@ struct AudioEntry
 	s8 playing;
 	s8 flags;
 
-	inline b8 flag(Flag f) const
+	inline b8 flag(s32 f) const
 	{
 		return flags & f;
 	}
 
-	inline void flag(Flag f, b8 value)
-	{
-		if (value)
-			flags |= f;
-		else
-			flags &= ~f;
-	}
+	void flag(s32, b8);
 
 	void init(const Vec3&, Transform*, AudioEntry* = nullptr);
 	void cleanup();
@@ -135,7 +129,7 @@ struct Audio : ComponentType<Audio>
 	static void update_all(const Update&);
 	static void post_global(AkUniqueID);
 	static b8 post_global_dialogue(AkUniqueID);
-	static AudioEntry* post_global(AkUniqueID, const Vec3&);
+	static AudioEntry* post_global(AkUniqueID, const Vec3&, Transform* = nullptr);
 	static void param_global(AkRtpcID, AkRtpcValue);
 	static void listener_list_update();
 	static void listener_enable(s8);

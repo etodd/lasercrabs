@@ -25,7 +25,7 @@ namespace Asset
 	}
 	namespace Bone
 	{
-		const s32 count = 389;
+		const s32 count = 395;
 		const AssetID character_camera = 0;
 		const AssetID character_claw1_L = 9;
 		const AssetID character_claw1_R = 15;
@@ -349,6 +349,12 @@ namespace Asset
 		const AssetID samsa_wing_r = 13;
 		const AssetID seven_ball_l = 48;
 		const AssetID seven_ball_r = 52;
+		const AssetID seven_bp_clavicle_l = 55;
+		const AssetID seven_bp_clavicle_r = 57;
+		const AssetID seven_bp_spine_02 = 53;
+		const AssetID seven_bp_spine_03 = 54;
+		const AssetID seven_bp_upperarm_l = 56;
+		const AssetID seven_bp_upperarm_r = 58;
 		const AssetID seven_calf_l = 46;
 		const AssetID seven_calf_r = 50;
 		const AssetID seven_clavicle_l = 5;

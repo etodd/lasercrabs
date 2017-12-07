@@ -88,8 +88,8 @@ struct Team : public ComponentType<Team>
 		char label[512];
 	};
 
-	static const Vec4 ui_color_enemy;
-	static const Vec4 ui_color_friend;
+	static const Vec4& ui_color_enemy();
+	static const Vec4& ui_color_friend();
 	static const Vec4 color_enemy;
 	static const Vec4 color_friend;
 	static StaticArray<ScoreSummaryItem, MAX_PLAYERS * PLAYER_SCORE_SUMMARY_ITEMS> score_summary;
@@ -121,7 +121,7 @@ struct Team : public ComponentType<Team>
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{
-		return them == AI::TeamNone ? UI::color_accent() : (me == them ? ui_color_friend : ui_color_enemy);
+		return them == AI::TeamNone ? UI::color_accent() : (me == them ? ui_color_friend() : ui_color_enemy());
 	}
 
 	static inline const Vec4& color(AI::Team me, AI::Team them)

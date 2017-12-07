@@ -2281,7 +2281,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		{
 			case EmoteCategory::TeamA:
 			case EmoteCategory::TeamB:
-				text.color = Team::ui_color_friend;
+				text.color = Team::ui_color_friend();
 				break;
 			case EmoteCategory::Everyone:
 				text.color = UI::color_accent();
@@ -2528,7 +2528,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				{
 					Vec2 p;
 					if (UI::project(params, i.item()->get<Transform>()->absolute_pos(), &p))
-						UI::triangle(params, { p, Vec2(18.0f * UI::scale) }, Team::ui_color_friend, PI);
+						UI::triangle(params, { p, Vec2(18.0f * UI::scale) }, Team::ui_color_friend(), PI);
 				}
 			}
 
@@ -2866,7 +2866,7 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 		base_pos.y -= text.size * UI::scale + MENU_ITEM_PADDING * 4.0f;
 		chat_field.get(&text, 32);
 		UI::box(params, text.rect(base_pos).outset(MENU_ITEM_PADDING), UI::color_background);
-		text.color = chat_focus == ChatFocus::Team ? Team::ui_color_friend : UI::color_default;
+		text.color = chat_focus == ChatFocus::Team ? Team::ui_color_friend() : UI::color_default;
 		text.draw(params, base_pos);
 	}
 }
@@ -2898,7 +2898,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 			if (entry.a_team == AI::TeamNone)
 				text.color = UI::color_accent();
 			else
-				text.color = my_team == entry.a_team ? Team::ui_color_friend : Team::ui_color_enemy;
+				text.color = my_team == entry.a_team ? Team::ui_color_friend() : Team::ui_color_enemy();
 
 			if (entry.b[0])
 			{
@@ -2927,7 +2927,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 				if (entry.b_team == AI::TeamNone)
 					text.color = UI::color_accent();
 				else
-					text.color = my_team == entry.b_team ? Team::ui_color_friend : Team::ui_color_enemy;
+					text.color = my_team == entry.b_team ? Team::ui_color_friend() : Team::ui_color_enemy();
 				{
 					char buffer[MAX_USERNAME + 1] = {};
 					strncpy(buffer, entry.b, MAX_USERNAME);
@@ -5053,13 +5053,13 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				UI::indicator(params, indicator.pos, UI::color_accent(), false, 1.0f, PI);
 				break;
 			case TargetIndicator::Type::BatteryEnemy:
-				UI::indicator(params, indicator.pos, Team::ui_color_enemy, false, 1.0f, PI);
+				UI::indicator(params, indicator.pos, Team::ui_color_enemy(), false, 1.0f, PI);
 				break;
 			case TargetIndicator::Type::Minion:
 			case TargetIndicator::Type::Turret:
 			case TargetIndicator::Type::CoreModule:
 			{
-				UI::indicator(params, indicator.pos, Team::ui_color_enemy, false);
+				UI::indicator(params, indicator.pos, Team::ui_color_enemy(), false);
 				break;
 			}
 			case TargetIndicator::Type::TurretAttacking:
@@ -5073,7 +5073,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			{
 				Vec2 p;
 				if (UI::project(params, indicator.pos, &p))
-					UI::mesh(params, Asset::Mesh::icon_core_module, p, size, indicator.type == TargetIndicator::Type::CoreModuleOutOfRange ? Team::ui_color_enemy : Team::ui_color_friend);
+					UI::mesh(params, Asset::Mesh::icon_core_module, p, size, indicator.type == TargetIndicator::Type::CoreModuleOutOfRange ? Team::ui_color_enemy() : Team::ui_color_friend());
 				break;
 			}
 			case TargetIndicator::Type::BatteryFriendly:
@@ -5121,7 +5121,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 						if (i.item()->target.ref() == entity())
 						{
 							if (UI::flash_function(Game::time.total))
-								UI::indicator(params, turret_pos, Team::ui_color_enemy, true);
+								UI::indicator(params, turret_pos, Team::ui_color_enemy(), true);
 							enemy_visible = true;
 						}
 					}
@@ -5171,7 +5171,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					enemy_visible = true;
 					enemy_dangerous_visible = true;
 
-					UI::indicator(params, pos, Team::ui_color_enemy, true);
+					UI::indicator(params, pos, Team::ui_color_enemy(), true);
 
 					UIText text;
 					text.color = Team::ui_color(team, i.item()->team());
@@ -5218,13 +5218,13 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (station)
 			{
 				Vec3 pos = station->get<Transform>()->absolute_pos();
-				Vec2 p = UI::indicator(params, pos, Team::ui_color_friend, true);
+				Vec2 p = UI::indicator(params, pos, Team::ui_color_friend(), true);
 
 				p.y += UI_TEXT_SIZE_DEFAULT * 2.0f * UI::scale;
 				if (UI::flash_function_slow(Game::real_time.total))
 				{
 					UIText text;
-					text.color = Team::ui_color_friend;
+					text.color = Team::ui_color_friend();
 					text.text(player.ref()->gamepad, _(strings::upgrade_notification));
 					text.anchor_x = UIText::Anchor::Center;
 					text.anchor_y = UIText::Anchor::Center;
@@ -5339,7 +5339,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 								switch (Game::save.zones[zone])
 								{
 									case ZoneState::PvpFriendly:
-										text.color = Team::ui_color_friend;
+										text.color = Team::ui_color_friend();
 										break;
 									case ZoneState::ParkourUnlocked:
 										text.color = UI::color_default;
@@ -5356,7 +5356,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 										break;
 									}
 									case ZoneState::PvpHostile:
-										text.color = Team::ui_color_enemy;
+										text.color = Team::ui_color_enemy();
 										break;
 									default:
 										vi_assert(false);
@@ -5443,7 +5443,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			{
 				Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, DRONE_RADIUS * 2.0f, 0);
 				draw = UI::project(params, pos3d, &p);
-				color = &Team::ui_color_friend;
+				color = &Team::ui_color_friend();
 			}
 			else
 			{
@@ -5453,9 +5453,9 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, DRONE_RADIUS * 2.0f, 0);
 
 					if (friendly)
-						color = &Team::ui_color_friend;
+						color = &Team::ui_color_friend();
 					else
-						color = &Team::ui_color_enemy;
+						color = &Team::ui_color_enemy();
 
 					// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
 

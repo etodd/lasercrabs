@@ -2150,9 +2150,9 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 		case ZoneState::ParkourOwned:
 			return UI::color_accent();
 		case ZoneState::PvpFriendly:
-			return Team::ui_color_friend;
+			return Team::ui_color_friend();
 		case ZoneState::PvpHostile:
-			return Team::ui_color_enemy;
+			return Team::ui_color_enemy();
 		default:
 		{
 			vi_assert(false);
@@ -3304,7 +3304,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			zone_statistics(&captured, &hostile, &locked);
 
 			sprintf(buffer, _(strings::zones_captured), captured);
-			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, Game::save.group == Game::Group::None ? Team::ui_color_friend : UI::color_accent());
+			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, Game::save.group == Game::Group::None ? Team::ui_color_friend() : UI::color_accent());
 
 			sprintf(buffer, _(strings::zones_hostile), hostile);
 			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, UI::color_alert());

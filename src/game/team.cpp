@@ -33,8 +33,18 @@ namespace TeamNet
 const Vec4 Team::color_friend = Vec4(0.15f, 0.45f, 0.7f, MATERIAL_NO_OVERRIDE);
 const Vec4 Team::color_enemy = Vec4(1.0f, 0.3f, 0.4f, MATERIAL_NO_OVERRIDE);
 
-const Vec4 Team::ui_color_friend = Vec4(0.35f, 0.85f, 1.0f, 1);
-const Vec4 Team::ui_color_enemy = Vec4(1.0f, 0.4f, 0.4f, 1);
+const Vec4 ui_color_friend_pvp = Vec4(0.35f, 0.85f, 1.0f, 1);
+const Vec4 ui_color_friend_normal = Vec4(0.0f / 255.0f, 232.0f / 255.0f, 202.0f / 255.0f, 1);
+const Vec4& Team::ui_color_friend()
+{
+	return Overworld::pvp_colors() ? ui_color_friend_pvp : ui_color_friend_normal;
+}
+const Vec4 ui_color_enemy_pvp = Vec4(1.0f, 0.4f, 0.4f, 1);
+const Vec4 ui_color_enemy_normal = Vec4(255.0f / 255.0f, 85.0f / 255.0f, 170.0f / 255.0f, 1);
+const Vec4& Team::ui_color_enemy()
+{
+	return Overworld::pvp_colors() ? ui_color_enemy_pvp : ui_color_enemy_normal;
+}
 
 r32 Team::control_point_timer;
 r32 Team::game_over_real_time;

@@ -65,6 +65,7 @@ struct Parkour : public ComponentType<Parkour>
 	r32 lean;
 	r32 last_angular_velocity;
 	r32 last_angle_horizontal;
+	r32 last_footstep;
 	r32 climb_velocity;
 	r32 last_climb_time;
 	r32 breathing;

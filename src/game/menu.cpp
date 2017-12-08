@@ -425,6 +425,7 @@ void dialog_text(DialogTextCallback callback, const char* initial_value, s32 tru
 
 	va_end(args);
 
+	dialog_layout_callback[0] = &dialog_layout;
 	dialog_text_callback = callback;
 	dialog_text_cancel_callback = nullptr;
 	dialog_text_truncate = truncate;
@@ -451,6 +452,7 @@ void dialog_text_with_cancel(DialogTextCallback callback, DialogTextCancelCallba
 
 	va_end(args);
 
+	dialog_layout_callback[0] = &dialog_layout;
 	dialog_text_callback = callback;
 	dialog_text_cancel_callback = cancel_callback;
 	dialog_text_truncate = truncate;

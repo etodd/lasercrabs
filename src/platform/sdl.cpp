@@ -22,6 +22,7 @@
 #include "asset/version.h"
 #include <sstream>
 #include "data/json.h"
+#include "mersenne/mersenne-twister.h"
 
 #if _WIN32
 extern "C"
@@ -156,7 +157,7 @@ namespace VI
 		builder << BUILD_ID;
 		time_t timev = time(NULL);
 		struct tm * now = localtime(&timev);
-		builder << "-" << now->tm_year + 1900 << "-" << now->tm_mon + 1 << "-" << now->tm_mday << "-" << now->tm_hour << "-" << now->tm_min << "-" << now->tm_sec << ".dmp";
+		builder << "-" << now->tm_year + 1900 << "-" << now->tm_mon + 1 << "-" << now->tm_mday << "-" << now->tm_hour << "-" << now->tm_min << "-" << now->tm_sec << "-" << mersenne::rand() << ".dmp";
 		*name = builder.str();
 	}
 
@@ -182,7 +183,6 @@ namespace VI
 
 		create_mini_dump(exc_info, path.c_str());
 
-		if (MessageBox(NULL, "You found a bug! Sorry about that. Send the crash dump to the mothership?", "Deceiver", MB_ICONERROR | MB_OKCANCEL) == IDOK)
 		{
 			FILE* fd = fopen(path.c_str(), "rb");
 			if (!fd)
@@ -191,8 +191,6 @@ namespace VI
 			struct stat file_info;
 			if (fstat(fileno(fd), &file_info))
 				return EXCEPTION_EXECUTE_HANDLER;
-
-			CURLcode result = CURLE_SEND_ERROR;
 
 			if (CURL* curl = curl_easy_init())
 			{
@@ -218,23 +216,13 @@ namespace VI
 				headers = curl_slist_append(headers, "Expect:"); // initialize custom header list stating that Expect: 100-continue is not wanted
 				curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-				result = curl_easy_perform(curl);
+				curl_easy_perform(curl);
 
 				curl_easy_cleanup(curl);
 
 				curl_mime_free(form);
 
 				curl_slist_free_all(headers);
-			}
-
-			Menu::open_url("https://github.com/etodd/deceiver/issues");
-
-			if (result == CURLE_OK)
-				MessageBox(NULL, "Crash dump uploaded. Thanks!", "Deceiver", MB_OK);
-			else
-			{
-				std::string msg = "Upload failed. Crash dump is available here: " + path;
-				MessageBox(NULL, msg.c_str(), "Deceiver", MB_ICONERROR | MB_OK);
 			}
 		}
 

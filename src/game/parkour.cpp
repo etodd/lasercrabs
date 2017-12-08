@@ -162,7 +162,8 @@ void Parkour::head_to_object_space(Vec3* pos, Quat* rot) const
 
 void Parkour::footstep()
 {
-	if (fsm.current == State::Normal || fsm.current == State::WallRun)
+	if ((fsm.current == State::Normal || fsm.current == State::WallRun)
+		&& Game::time.total - last_footstep > 0.2f)
 	{
 		Vec3 base_pos = get<Walker>()->base_pos();
 		if (fsm.current == State::WallRun)
@@ -194,6 +195,8 @@ void Parkour::footstep()
 
 		RigidBody* support = get<Walker>()->support.ref();
 		EffectLight::add(base_pos, 0.5f, 5.0f, EffectLight::Type::Shockwave, support ? support->get<Transform>() : nullptr);
+
+		last_footstep = Game::time.total;
 	}
 }
 
@@ -670,16 +673,17 @@ void Parkour::update(const Update& u)
 	}
 	else if (fsm.current == State::Normal)
 	{
-		get<Walker>()->max_speed = MAX_SPEED;
-		get<Walker>()->speed = RUN_SPEED;
+		b8 allow_run;
 		if (get<Walker>()->support.ref())
 		{
-			if (get<Walker>()->support.ref()->get<RigidBody>()->collision_group & CollisionElectric)
+			s16 collision_group = get<Walker>()->support.ref()->get<RigidBody>()->collision_group;
+			if (collision_group & CollisionElectric)
 			{
 				spawn_sparks(get<Walker>()->base_pos(), Quat::look(Vec3(0, 1, 0)));
 				get<Health>()->kill(nullptr);
 				return;
 			}
+			allow_run = collision_group & CollisionParkour;
 
 			can_double_jump = true;
 			jump_history.length = 0;
@@ -694,6 +698,16 @@ void Parkour::update(const Update& u)
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos());
 			lean_target = get<Walker>()->net_speed * angular_velocity * (0.75f / 180.0f) / vi_max(0.0001f, u.time.delta);
 		}
+		else
+			allow_run = true;
+
+		if (allow_run)
+		{
+			get<Walker>()->max_speed = MAX_SPEED;
+			get<Walker>()->speed = RUN_SPEED;
+		}
+		else
+			get<Walker>()->max_speed = get<Walker>()->speed = WALK_SPEED - 0.2f;
 	}
 
 	// update breath sound
@@ -739,7 +753,7 @@ void Parkour::update(const Update& u)
 
 			// set animation speed
 			r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
-			layer0->speed = ANIMATION_SPEED_MULTIPLIER * (net_speed > WALK_SPEED ? LMath::lerpf((net_speed - WALK_SPEED) / RUN_SPEED, 0.75f, 1.0f) : (net_speed / WALK_SPEED));
+			layer0->speed = (net_speed > WALK_SPEED ? ANIMATION_SPEED_MULTIPLIER * LMath::lerpf((net_speed - WALK_SPEED) / RUN_SPEED, 0.75f, 1.0f) : 1.1f * (net_speed / WALK_SPEED));
 
 			// choose animation
 			r32 angle = LMath::angle_range(LMath::angle_to(get<Walker>()->target_rotation, atan2f(get<Walker>()->dir.x, get<Walker>()->dir.y)));

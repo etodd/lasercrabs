@@ -39,7 +39,7 @@ namespace Overworld
 
 #define DEPLOY_TIME 1.0f
 #define TAB_ANIMATION_TIME 0.3f
-#define REFRESH_INTERVAL 5.0f
+#define REFRESH_INTERVAL 4.0f
 
 #define SCALE_MULTIPLIER (UI::scale < 1.0f ? 0.5f : 1.0f)
 #define PADDING (16.0f * UI::scale * SCALE_MULTIPLIER)
@@ -343,40 +343,52 @@ void multiplayer_browse_update(const Update& u)
 
 	Data::Multiplayer::ServerList* server_list = &data.multiplayer.server_lists[s32(global.multiplayer.tab)];
 
-	s32 old_selected = server_list->selected;
-	server_list->selected = vi_max(0, vi_min(server_list->entries.length - 1, server_list->selected + UI::input_delta_vertical(u, 0)));
-	if (!UIMenu::active[0] && !Menu::dialog_active(0))
 	{
-		if (u.input->keys.get(s32(KeyCode::MouseWheelUp)))
-			server_list->scroll.pos = vi_max(0, server_list->scroll.pos - 1);
-		else if (u.input->keys.get(s32(KeyCode::MouseWheelDown)))
-			server_list->scroll.pos++;
-	}
-	server_list->scroll.update_menu(server_list->entries.length);
-	server_list->scroll.scroll_into_view(server_list->selected);
+		s32 old_selected = server_list->selected;
+		s32 old_scroll = server_list->scroll.pos;
 
-	if (Game::ui_gamepad_types[0] == Gamepad::Type::None)
-	{
-		for (s32 i = server_list->scroll.top(); i < server_list->scroll.bottom(server_list->entries.length); i++)
+		server_list->selected = vi_max(0, vi_min(server_list->entries.length - 1, server_list->selected + UI::input_delta_vertical(u, 0)));
+		if (!UIMenu::active[0] && !Menu::dialog_active(0))
 		{
-			if (multiplayer_browse_entry_rect(data.multiplayer.top_bar, *server_list, i).contains(UI::cursor_pos))
-			{
-				server_list->selected = i;
-				if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
-				{
-					// select entry
-					data.multiplayer.active_server.config.id = server_list->entries[i].server_state.id;
-					multiplayer_state_transition(Data::Multiplayer::State::EntryView);
-					Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
-					return;
-				}
+			if (u.input->keys.get(s32(KeyCode::MouseWheelUp)))
+				server_list->scroll.pos = vi_max(0, server_list->scroll.pos - 1);
+			else if (u.input->keys.get(s32(KeyCode::MouseWheelDown)))
+				server_list->scroll.pos++;
+			server_list->selected = vi_max(0, vi_min(server_list->entries.length - 1, server_list->selected + server_list->scroll.pos - old_scroll));
+		}
 
-				break;
+		if (Game::ui_gamepad_types[0] == Gamepad::Type::None)
+		{
+			for (s32 i = server_list->scroll.top(); i < server_list->scroll.bottom(server_list->entries.length); i++)
+			{
+				if (multiplayer_browse_entry_rect(data.multiplayer.top_bar, *server_list, i).contains(UI::cursor_pos))
+				{
+					server_list->selected = i;
+					if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
+					{
+						// select entry
+						data.multiplayer.active_server.config.id = server_list->entries[i].server_state.id;
+						multiplayer_state_transition(Data::Multiplayer::State::EntryView);
+						Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+						return;
+					}
+
+					break;
+				}
 			}
 		}
+
+		server_list->scroll.update_menu(server_list->entries.length);
+		server_list->scroll.scroll_into_view(server_list->selected);
+
+		if (server_list->scroll.pos != old_scroll
+			&& data.multiplayer.refresh_timer < REFRESH_INTERVAL - 0.5f
+			&& (server_list->scroll.top() == 0 ||  server_list->scroll.bottom(server_list->entries.length) == server_list->entries.length))
+			data.multiplayer.refresh_timer = 0.0f; // refresh list immediately
+
+		if (server_list->selected != old_selected)
+			Audio::post_global(AK::EVENTS::PLAY_MENU_MOVE);
 	}
-	if (server_list->selected != old_selected)
-		Audio::post_global(AK::EVENTS::PLAY_MENU_MOVE);
 
 	if (server_list->selected < server_list->entries.length
 		&& (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::Select, u) || (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))))
@@ -393,6 +405,7 @@ void multiplayer_browse_update(const Update& u)
 	{
 		data.multiplayer.refresh_timer += REFRESH_INTERVAL;
 
+		vi_debug("Refreshing server list: %f", Game::real_time.total);
 #if !SERVER
 		Net::Client::master_request_server_list(global.multiplayer.tab, server_list->selected);
 #endif
@@ -460,6 +473,8 @@ void master_server_list_end(ServerListType type, s32 length)
 	{
 		Data::Multiplayer::ServerList* list = &data.multiplayer.server_lists[s32(type)];
 		list->entries.resize(length);
+		list->selected = vi_min(list->selected, list->entries.length - 1);
+		list->scroll.update_menu(list->entries.length);
 	}
 }
 
@@ -1028,6 +1043,7 @@ void master_server_config_saved(u32 id, u32 request_id)
 		else
 			PlayerHuman::log_add(_(strings::entry_saved));
 		data.multiplayer.server_lists[s32(ServerListType::Mine)].selected = 0;
+		data.multiplayer.server_lists[s32(ServerListType::Mine)].scroll.pos = 0;
 		data.multiplayer.active_server.config.id = id;
 		data.multiplayer.active_server_dirty = false;
 		data.multiplayer.request_id = 0;
@@ -1115,6 +1131,7 @@ void multiplayer_change_region_update(const Update& u)
 		Data::Multiplayer::ServerList* top = &data.multiplayer.server_lists[s32(ServerListType::Top)];
 		top->entries.length = 0;
 		top->selected = 0;
+		top->scroll.pos = 0;
 
 		multiplayer_state_transition(Data::Multiplayer::State::Browse);
 	}

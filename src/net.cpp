@@ -3673,16 +3673,9 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			{
 				const DroneState& state = frame.drones[index];
 				Drone* drone = &Drone::list[index];
-				if (drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local())
-				{
-					// only overwrite cooldown value if it hasn't changed recently
-					// to facilitate client-side prediction
-					PlayerHuman* player = drone->get<PlayerControlHuman>()->player.ref();
-					if (Game::real_time.total - drone->cooldown_last_local_change >= rtt(player) + interpolation_delay(player) + tick_rate() * 2.0f)
-						drone->cooldown = state.cooldown;
-				}
-				else
-					drone->cooldown = state.cooldown;
+				r32 adjustment;
+				if (drone->cooldown_remote_controlled(&adjustment))
+					drone->cooldown = vi_max(0.0f, state.cooldown - adjustment);
 			}
 
 			index = frame.drones_active.next(index);

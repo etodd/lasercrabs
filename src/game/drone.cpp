@@ -1571,19 +1571,49 @@ void Drone::ability(Ability a)
 
 void Drone::cooldown_setup(r32 amount)
 {
-#if SERVER
-	b8 lag_compensate = cooldown == 0.0f;
-#endif
-
 	cooldown = vi_min(cooldown + amount, DRONE_COOLDOWN_MAX);
 	cooldown_last_local_change = Game::real_time.total;
-
 	last_ability_fired = Game::time.total;
+}
 
-#if SERVER
-	if (lag_compensate && has<PlayerControlHuman>())
-		cooldown = vi_max(0.0f, cooldown - (vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt) + Net::interpolation_delay(get<PlayerControlHuman>()->player.ref())) * DRONE_COOLDOWN_SPEED * Game::session.effective_time_scale());
-#endif
+// if the cooldown is remote controlled, adjustment is the amount that should be subtracted due to network lag
+b8 Drone::cooldown_remote_controlled(r32* adjustment) const
+{
+	if (Game::level.local)
+	{
+		if (adjustment)
+			*adjustment = 0.0f;
+		return false;
+	}
+	else
+	{
+		if (has<PlayerControlHuman>() && get<PlayerControlHuman>()->local())
+		{
+			// cooldown is remote controlled unless it changed recently
+			// this facilitates client-side prediction
+			PlayerHuman* player = get<PlayerControlHuman>()->player.ref();
+			r32 rtt = Net::rtt(player);
+			if (Game::real_time.total - cooldown_last_local_change > (rtt + Net::interpolation_delay(player)) + Net::tick_rate() * 2.0f)
+			{
+				if (adjustment)
+					*adjustment = rtt * DRONE_COOLDOWN_SPEED * Game::session.effective_time_scale();
+				return true;
+			}
+			else
+			{
+				if (adjustment)
+					*adjustment = 0.0f;
+				return false;
+			}
+		}
+		else
+		{
+			// permanently remote controlled drone
+			if (adjustment)
+				*adjustment = 0.0f;
+			return true;
+		}
+	}
 }
 
 void Drone::ensure_detached()
@@ -2508,9 +2538,10 @@ void Drone::update_server(const Update& u)
 {
 	State s = state();
 
-	if (s == Drone::State::Crawl)
+	if (!cooldown_remote_controlled())
 		cooldown = vi_max(0.0f, cooldown - u.time.delta * DRONE_COOLDOWN_SPEED);
-	else
+
+	if (s != Drone::State::Crawl)
 	{
 		// flying or dashing
 		if (Game::level.local && u.time.total - attach_time > MAX_FLIGHT_TIME)

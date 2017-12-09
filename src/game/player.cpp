@@ -1219,7 +1219,7 @@ void PlayerHuman::update(const Update& u)
 									&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade)
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || !get<PlayerManager>()->upgrades) // only allow one ability upgrade in tutorial
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || UpgradeInfo::list[i].type == UpgradeInfo::Type::Ability) // only allow ability upgrades in tutorial
-									&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type != AbilityInfo::Type::Other); // don't allow Other ability upgrades in tutorial
+									&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type == AbilityInfo::Type::Shoot); // only allow shooting abilities in tutorial
 								if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
 								{
 									player_confirm_upgrade[gamepad] = upgrade;

@@ -151,6 +151,7 @@ struct Drone : public ComponentType<Drone>
 	Vec3 camera_center() const;
 	void ability(Ability);
 	void cooldown_setup(r32);
+	b8 cooldown_remote_controlled(r32* = nullptr) const;
 	State state() const;
 	b8 dash_start(const Vec3&, const Vec3&, r32 = DRONE_DASH_TIME);
 	b8 cooldown_can_shoot() const; // can we go?

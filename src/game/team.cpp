@@ -154,7 +154,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{ // Ability::None
-		1.3f,
+		1.6f,
 		AK::EVENTS::PLAY_EQUIP_NONE,
 		Asset::Mesh::icon_chevron,
 		0,

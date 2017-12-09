@@ -70,7 +70,7 @@ struct Parkour : public ComponentType<Parkour>
 	r32 last_climb_time;
 	r32 breathing;
 	StaticArray<TilePos, 8> tile_history;
-	StaticArray<Vec3, 3> jump_history;
+	StaticArray<Vec3, 4> jump_history;
 	FSM<State> fsm;
 	Ref<RigidBody> last_support;
 	Ref<Transform> rope;

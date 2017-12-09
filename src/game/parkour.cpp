@@ -1048,26 +1048,34 @@ void Parkour::lessen_gravity()
 		body->applyCentralForce(Physics::btWorld->getGravity() * -0.2f);
 }
 
-b8 Parkour::try_jump(r32 rotation)
+b8 parkour_jump_history_can_jump(const Parkour* parkour)
 {
-	if (Game::time.total - last_jump_time < JUMP_GRACE_PERIOD)
-		return false;
-
-	if (jump_history.length == jump_history.capacity())
+	if (parkour->jump_history.length == parkour->jump_history.capacity())
 	{
-		Vec3 pos = get<Walker>()->base_pos();
+		Vec3 pos = parkour->get<Walker>()->base_pos();
 		b8 found_different_jump = false;
-		for (s32 i = 0; i < jump_history.length; i++)
+		for (s32 i = 0; i < parkour->jump_history.length; i++)
 		{
-			Vec3 diff = jump_history[i] - pos;
+			Vec3 diff = parkour->jump_history[i] - pos;
 			diff.y = 0.0f;
-			if (diff.length_squared() > 1.5f * 1.5f)
+			if (diff.length_squared() > 2.0f * 2.0f)
 				found_different_jump = true;
 		}
 
 		if (!found_different_jump)
 			return false;
 	}
+
+	return true;
+}
+
+b8 Parkour::try_jump(r32 rotation)
+{
+	if (Game::time.total - last_jump_time < JUMP_GRACE_PERIOD)
+		return false;
+
+	if (!parkour_jump_history_can_jump(this))
+		return false;
 
 	b8 did_jump = false;
 	if (fsm.current == State::Climb)
@@ -1375,8 +1383,14 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 
 		if (s == WallRunState::Forward)
 		{
-			if (add_velocity && velocity.y - support_velocity.y > -4.0f) // going up
+			if (add_velocity
+				&& parkour_jump_history_can_jump(this)
+				&& velocity.y - support_velocity.y > -4.0f) // going up
 			{
+				if (jump_history.length == jump_history.capacity())
+					jump_history.remove_ordered(0);
+				jump_history.add(get<Walker>()->base_pos());
+
 				velocity.y = 0.0f;
 				Vec3 horizontal_velocity = velocity - support_velocity;
 				r32 vertical_velocity = vi_max(0.0f, horizontal_velocity.y);

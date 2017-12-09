@@ -617,6 +617,8 @@ b8 Health::can_take_damage(Entity* damager) const
 				return false; // invincible
 		}
 	}
+	else if (has<Battery>() && damager->has<Bolt>())
+		return get<Battery>()->team != damager->get<Bolt>()->team;
 	else
 		return true;
 }
@@ -2874,9 +2876,9 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 				i.item()->camera_shake(LMath::lerpf(vi_max(0.0f, (distance - (GRENADE_RANGE * 0.66f)) / (GRENADE_RANGE * (1.5f - 0.66f))), 1.0f, 0.0f));
 		}
 
-		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+		for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->has<RigidBody>())
+			if (i.item()->mass)
 			{
 				Vec3 to_item = i.item()->get<Transform>()->absolute_pos() - e.pos;
 				r32 distance = to_item.length();

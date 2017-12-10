@@ -154,7 +154,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{ // Ability::None
-		1.6f,
+		1.1f + (DRONE_MAX_DISTANCE / DRONE_FLY_SPEED),
 		AK::EVENTS::PLAY_EQUIP_NONE,
 		Asset::Mesh::icon_chevron,
 		0,

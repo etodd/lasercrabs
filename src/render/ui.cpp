@@ -1219,7 +1219,7 @@ void UI::texture(const RenderParams& p, s32 texture, const Rect2& r, const Vec4&
 // Cue up a sprite to be rendered later
 void UI::sprite(const RenderParams& p, s32 texture, const Rect2& r, const Vec4& color, const Rect2& uv, r32 rot, const Vec2& anchor, AssetID shader)
 {
-	Loader::texture(texture);
+	Loader::texture(texture, RenderTextureWrap::Clamp);
 	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
 		TextureBlit* tb = texture_blits.add();

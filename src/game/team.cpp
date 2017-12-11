@@ -140,7 +140,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Build,
 	},
 	{
-		2.0f,
+		2.5f,
 		AK::EVENTS::PLAY_EQUIP_SNIPER,
 		Asset::Mesh::icon_sniper,
 		0,
@@ -154,7 +154,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{ // Ability::None
-		1.1f + (DRONE_MAX_DISTANCE / DRONE_FLY_SPEED),
+		1.2f + (DRONE_MAX_DISTANCE / DRONE_FLY_SPEED),
 		AK::EVENTS::PLAY_EQUIP_NONE,
 		Asset::Mesh::icon_chevron,
 		0,

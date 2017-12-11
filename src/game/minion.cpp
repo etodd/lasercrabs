@@ -173,8 +173,7 @@ void Minion::fired()
 void Minion::melee_damage()
 {
 	AI::Team my_team = get<AIAgent>()->team;
-	Vec3 me = get<Transform>()->absolute_pos();
-	Vec3 forward = get<Walker>()->forward();
+	Vec3 damage_pos = hand_pos();
 
 	b8 did_damage = false;
 	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
@@ -184,10 +183,9 @@ void Minion::melee_damage()
 		AI::entity_info(e, my_team, &team);
 		if (team != my_team)
 		{
-			Vec3 to_target = e->get<Transform>()->absolute_pos() - me;
+			Vec3 to_target = e->get<Transform>()->absolute_pos() - damage_pos;
 			r32 distance = to_target.length();
-			if (distance < MINION_MELEE_RANGE
-				&& forward.dot(to_target / distance) > 0.707f)
+			if (distance < MINION_MELEE_RANGE)
 			{
 				if (e->has<Walker>())
 				{
@@ -223,13 +221,12 @@ void Minion::melee_damage()
 	if (did_damage)
 	{
 		get<Audio>()->post(AK::EVENTS::PLAY_MINION_MELEE_IMPACT);
-		Vec3 p = hand_pos();
-		Quat rot = Quat::look(forward);
+		Quat rot = Quat::euler(0, get<Walker>()->rotation, 0);
 		for (s32 i = 0; i < 50; i++)
 		{
 			Particles::sparks.add
 			(
-				p,
+				damage_pos,
 				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
 				Vec4(1, 1, 1, 1)
 			);
@@ -602,10 +599,10 @@ void Minion::update_server(const Update& u)
 	target_timer += u.time.delta;
 
 	b8 can_attack = false;
-	if (get<Minion>()->attack_timer > 0.0f)
+	if (attack_timer > 0.0f)
 	{
-		get<Minion>()->attack_timer = vi_max(0.0f, get<Minion>()->attack_timer - u.time.delta);
-		can_attack = get<Minion>()->attack_timer == 0.0f;
+		attack_timer = vi_max(0.0f, attack_timer - u.time.delta);
+		can_attack = attack_timer == 0.0f;
 	}
 
 	Vec3 pos = get<Walker>()->base_pos();
@@ -687,7 +684,7 @@ void Minion::update_server(const Update& u)
 						else
 						{
 							// turn to and attack the target
-							Vec3 hand_pos = get<Minion>()->aim_pos(get<Walker>()->rotation);
+							Vec3 hand_pos = aim_pos(get<Walker>()->rotation);
 							Vec3 aim_pos;
 							if (!g->get<Target>()->predict_intersection(hand_pos, BOLT_SPEED_MINION, nullptr, &aim_pos))
 								aim_pos = g->get<Target>()->absolute_pos();
@@ -706,12 +703,12 @@ void Minion::update_server(const Update& u)
 									anim_layer->speed = 1.0f;
 									anim_layer->behavior = Animator::Behavior::Default;
 									anim_layer->play(Asset::Animation::character_melee);
-									get<Minion>()->attack_timer = 0.0f;
+									attack_timer = 0.0f;
 								}
 								else if (can_attack)
-									get<Minion>()->fire(aim_pos);
-								else if (get<Minion>()->attack_timer == 0.0f)
-									get<Minion>()->attack_timer = MINION_ATTACK_TIME;
+									fire(aim_pos);
+								else if (attack_timer == 0.0f)
+									attack_timer = MINION_ATTACK_TIME;
 							}
 						}
 					}

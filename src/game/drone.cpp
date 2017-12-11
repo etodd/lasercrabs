@@ -381,8 +381,9 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 				result = 2;
 			if (target_shield->has<Turret>()
 				|| target_shield->has<ForceField>()
-				|| target_shield->has<ForceFieldCollision>())
-				result += 1;
+				|| target_shield->has<ForceFieldCollision>()
+				|| target_shield->has<Rectifier>())
+				result += 3;
 		}
 		else
 		{

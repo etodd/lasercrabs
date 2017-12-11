@@ -72,6 +72,8 @@ namespace VI
 
 #define MAP_VIEW_ROT Quat::look(Vec3(0, -1, 0))
 #define MAP_VIEW_POS Vec3(0, 80, 0)
+#define MAP_VIEW_NEAR 30.0f
+#define MAP_VIEW_FAR 200.0f
 
 r32 hp_width(u8 hp, s8 shield, r32 scale = 1.0f)
 {
@@ -333,6 +335,7 @@ void PlayerHuman::awake()
 
 		camera.ref()->pos = MAP_VIEW_POS;
 		camera.ref()->rot = kill_cam_rot = MAP_VIEW_ROT;
+		camera.ref()->perspective(Settings::effective_fov(), MAP_VIEW_NEAR, MAP_VIEW_FAR);
 	}
 
 #if SERVER
@@ -1392,7 +1395,7 @@ void PlayerHuman::update(const Update& u)
 			{
 				camera.ref()->pos += (MAP_VIEW_POS - camera.ref()->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
 				camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, MAP_VIEW_ROT);
-				camera.ref()->perspective(Settings::effective_fov(), 30.0f, 200.0f);
+				camera.ref()->perspective(Settings::effective_fov(), MAP_VIEW_NEAR, MAP_VIEW_FAR);
 			}
 			break;
 		}

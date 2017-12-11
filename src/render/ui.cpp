@@ -542,14 +542,14 @@ const Vec4 UI::color_default = Vec4(1, 1, 1, 1);
 const Vec4 UI::color_background = Vec4(0, 0, 0, 1);
 
 const Vec4 color_alert_pvp = Vec4(1.0f, 0.4f, 0.4f, 1);
-const Vec4 color_alert_normal = Vec4(255.0f / 255.0f, 85.0f / 255.0f, 170.0f / 255.0f, 1);
+const Vec4 color_alert_normal = Vec4(255.0f / 255.0f, 115.0f / 255.0f, 200.0f / 255.0f, 1);
 const Vec4& UI::color_alert()
 {
 	return Overworld::pvp_colors() ? color_alert_pvp : color_alert_normal;
 }
 
 const Vec4 color_accent_pvp = Vec4(1.0f, 0.95f, 0.35f, 1);
-const Vec4 color_accent_normal = Vec4(0.0f / 255.0f, 232.0f / 255.0f, 202.0f / 255.0f, 1);
+const Vec4 color_accent_normal = Vec4(1.0f, 1.0f, 0.4f, 1);
 const Vec4& UI::color_accent()
 {
 	return Overworld::pvp_colors() ? color_accent_pvp : color_accent_normal;
@@ -1104,10 +1104,10 @@ void UI::draw(const RenderParams& p)
 
 		const Vec2 uvs[] =
 		{
-			Vec2(tb.uv.pos.x, tb.uv.pos.y),
 			Vec2(tb.uv.pos.x + tb.uv.size.x, tb.uv.pos.y),
-			Vec2(tb.uv.pos.x, tb.uv.pos.y + tb.uv.size.y),
+			Vec2(tb.uv.pos.x, tb.uv.pos.y),
 			Vec2(tb.uv.pos.x + tb.uv.size.x, tb.uv.pos.y + tb.uv.size.y),
+			Vec2(tb.uv.pos.x, tb.uv.pos.y + tb.uv.size.y),
 		};
 
 		p.sync->write(RenderOp::UpdateAttribBuffers);

@@ -135,7 +135,6 @@ struct Game
 		StaticArray<AssetID, 8> scripts;
 		AssetID id = AssetNull;
 		AssetID multiplayer_level_scheduled = AssetNull;
-		Ref<Transform> map_view;
 		Ref<Entity> terminal;
 		Ref<Entity> terminal_interactable;
 		Ref<Entity> shop;
@@ -172,6 +171,7 @@ struct Game
 	static GameTime time;
 	static GameTime real_time;
 	static r32 inactive_timer;
+	static r64 platform_time;
 	static r32 physics_timestep;
 	static r32 schedule_timer;
 	static Mode scheduled_mode;
@@ -190,7 +190,7 @@ struct Game
 
 	static void init(LoopSync*);
 	static void execute(const char*);
-	static void update(const Update&);
+	static void update(InputState*, const InputState*);
 	static void schedule_load_level(AssetID, Mode, r32 = 0.0f);
 	static void unload_level();
 	static void load_level(AssetID, Mode, StoryModeTeam = StoryModeTeam::Attack);

@@ -650,7 +650,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				}
 
 				// save
-				if (menu->item(u, _(strings::save), nullptr, false, Asset::Mesh::icon_arrow))
+				if (menu->item(u, _(strings::save), nullptr, false, Asset::Mesh::icon_arrow_main))
 				{
 					multiplayer_entry_save();
 					menu->end(u);

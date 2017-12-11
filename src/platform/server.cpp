@@ -83,16 +83,8 @@ namespace VI
 
 		LoopSync* sync = render_swapper.get();
 
-		r64 start_time = platform::time();
-		r64 last_time = start_time;
-
 		while (true)
 		{
-			r64 time = platform::time();
-			sync->time.total = r32(time - start_time);
-			sync->time.delta = vi_min(r32(time - last_time), 0.25f);
-			last_time = time;
-
 			sync->quit |= platform::quit;
 			b8 quit = sync->quit;
 

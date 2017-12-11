@@ -139,7 +139,7 @@ void ParticleSystem::upload_range(RenderSync* sync, s32 start, s32 count)
 	sync->write(&params[start], count);
 }
 
-void ParticleSystem::update(const Update& u)
+void ParticleSystem::update()
 {
 	// free active particles
 	while (first_active != first_free)

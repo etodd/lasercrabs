@@ -164,10 +164,18 @@ struct Instance
 
 PinArray<Instance, 8> Instance::list;
 
+enum class TutMode : s8
+{
+	Left,
+	Center,
+	count,
+};
+
 struct Data
 {
 	r32 text_tut_real_time;
 	AssetID text_tut = AssetNull;
+	TutMode tut_mode;
 };
 
 static Data* data;
@@ -184,11 +192,12 @@ void tut_clear()
 	data->text_tut = AssetNull;
 }
 
-void tut(AssetID text, r32 delay = 1.0f)
+void tut(AssetID text, TutMode mode = TutMode::Left, r32 delay = 1.0f)
 {
 	tut_clear();
 	data->text_tut = text;
 	data->text_tut_real_time = Game::real_time.total + delay;
+	data->tut_mode = mode;
 }
 
 b8 tut_active()
@@ -334,18 +343,40 @@ void draw_ui(const RenderParams& params)
 		if (data->text_tut != AssetNull && Game::real_time.total > data->text_tut_real_time)
 		{
 			UIText text;
-			text.wrap_width = MENU_ITEM_WIDTH;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Max;
 			text.color = UI::color_accent();
+
+			Vec2 p;
+			switch (data->tut_mode)
+			{
+				case TutMode::Center:
+				{
+					text.wrap_width = MENU_ITEM_WIDTH;
+					text.anchor_x = UIText::Anchor::Center;
+					text.anchor_y = UIText::Anchor::Max;
+					p = params.camera->viewport.size * Vec2(0.5f, 0.8f);
+					break;
+				}
+				case TutMode::Left:
+				{
+					text.wrap_width = MENU_ITEM_WIDTH * 0.5f;
+					text.anchor_x = UIText::Anchor::Max;
+					text.anchor_y = UIText::Anchor::Center;
+					p = params.camera->viewport.size * Vec2(0.35f, 0.5f);
+					break;
+				}
+				default:
+				{
+					p = Vec2::zero;
+					vi_assert(false);
+					break;
+				}
+			}
+
 			text.text(params.camera->gamepad, _(data->text_tut));
 			UIMenu::text_clip(&text, data->text_tut_real_time, 80.0f);
 
-			{
-				Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.8f);
-				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-				text.draw(params, p);
-			}
+			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+			text.draw(params, p);
 		}
 	}
 }
@@ -585,7 +616,7 @@ namespace Docks
 		{
 			data->dada->highlight = false;
 			data->state = TutorialState::Jump;
-			Actor::tut(strings::tut_jump, 0.0f);
+			Actor::tut(strings::tut_jump, Actor::TutMode::Left, 0.0f);
 		}
 	}
 
@@ -836,6 +867,9 @@ namespace Docks
 			data->transition_timer = vi_max(0.0f, data->transition_timer - Game::real_time.delta);
 			if (data->transition_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
 			{
+				Game::time.total = Game::real_time.total = 0.0f;
+				Particles::clear();
+
 				data->camera.ref()->remove();
 				data->camera = nullptr;
 				World::remove(data->character.ref()->entity());
@@ -870,8 +904,6 @@ namespace Docks
 
 	void draw_ui(const RenderParams& p)
 	{
-		Loader::texture(Asset::Texture::logo);
-
 		if (Game::user_key.id)
 		{
 			if (Game::level.mode == Game::Mode::Special
@@ -881,11 +913,12 @@ namespace Docks
 				&& Game::session.type == SessionType::Story
 				&& !Menu::dialog_active(0))
 			{
+				const Vec2 actual_size(1185, 374);
 				Rect2 logo_rect;
 				if (Menu::main_menu_state == Menu::State::Hidden)
 				{
 					UIText text;
-					text.color = UI::color_accent();
+					text.color = UI::color_default;
 					text.text(0, "[{{Start}}]");
 					text.anchor_x = UIText::Anchor::Center;
 					text.anchor_y = UIText::Anchor::Center;
@@ -893,13 +926,13 @@ namespace Docks
 					UI::box(p, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 					text.draw(p, pos);
 
-					Vec2 size(p.camera->viewport.size.x * 0.25f);
+					Vec2 size = actual_size * (p.camera->viewport.size.x * 0.5f / actual_size.x);
 					logo_rect = { p.camera->viewport.size * 0.5f + size * Vec2(-0.5f, -0.5f), size };
 				}
 				else
 				{
 					Vec2 menu_pos(p.camera->viewport.size.x * 0.5f, p.camera->viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f);
-					Vec2 size((MENU_ITEM_WIDTH + MENU_ITEM_PADDING * -2.0f) * 0.3f);
+					Vec2 size = actual_size * ((MENU_ITEM_WIDTH + MENU_ITEM_PADDING * -2.0f) / actual_size.x);
 					logo_rect = { menu_pos + size * Vec2(-0.5f, 0.0f) + Vec2(0.0f, MENU_ITEM_PADDING * 3.0f), size };
 				}
 				UI::sprite(p, Asset::Texture::logo, { logo_rect.pos + logo_rect.size * 0.5f, logo_rect.size });
@@ -923,7 +956,7 @@ namespace Docks
 		{
 			data->state = TutorialState::Climb;
 			Actor::tut_clear();
-			Actor::tut(strings::tut_climb, 2.0f);
+			Actor::tut(strings::tut_climb, Actor::TutMode::Left, 2.0f);
 		}
 	}
 
@@ -934,7 +967,7 @@ namespace Docks
 			data->wallrun_footstep_index = 0;
 			data->wallrun_footstep_timer = 0.0f;
 			Actor::tut_clear();
-			Actor::tut(Asset::String::tut_wallrun, 0.0f);
+			Actor::tut(Asset::String::tut_wallrun, Actor::TutMode::Left, 0.0f);
 		}
 	}
 
@@ -1229,7 +1262,7 @@ namespace tutorial
 
 			Game::level.feature_level = Game::FeatureLevel::Abilities;
 			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-			manager->energy = UpgradeInfo::list[s32(Upgrade::Rectifier)].cost + AbilityInfo::list[s32(Ability::Rectifier)].spawn_cost * 2;
+			manager->energy = UpgradeInfo::list[s32(Upgrade::Grenade)].cost + AbilityInfo::list[s32(Ability::Grenade)].spawn_cost * 2;
 		}
 	}
 
@@ -1290,7 +1323,7 @@ namespace tutorial
 					if (human->ui_mode() != PlayerHuman::UIMode::PvpUpgrade)
 					{
 						data->state = TutorialState::Ability;
-						Actor::tut(strings::tut_ability, 0.5f);
+						Actor::tut(strings::tut_ability, Actor::TutMode::Left, 0.5f);
 						Game::level.feature_level = Game::FeatureLevel::Abilities;
 					}
 				}

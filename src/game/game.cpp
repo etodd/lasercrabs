@@ -68,6 +68,7 @@ namespace VI
 b8 Game::quit = false;
 GameTime Game::time;
 GameTime Game::real_time;
+r64 Game::platform_time;
 r32 Game::physics_timestep;
 r32 Game::inactive_timer;
 Net::Master::AuthType Game::auth_type;
@@ -344,12 +345,20 @@ void Game::auth_failed()
 		Menu::dialog(0, &Menu::dialog_no_action, _(strings::auth_failed_permanently));
 }
 
-void Game::update(const Update& update_in)
+void Game::update(InputState* input, const InputState* last_input)
 {
 	UI::update();
 
-	real_time = update_in.time;
-	time.delta = update_in.time.delta * session.effective_time_scale();
+	{
+		r64 t = platform::time();
+		r64 dt = vi_min(t - platform_time, 0.2);
+		platform_time = t;
+
+		real_time.total = r32(r64(real_time.total) + dt);
+		real_time.delta = r32(dt);
+		r64 dt2 = dt * r64(session.effective_time_scale());
+		time.delta = r32(dt2);
+	}
 
 #if !RELEASE_BUILD
 	View::debug_entries.length = 0;
@@ -363,7 +372,7 @@ void Game::update(const Update& update_in)
 #if !SERVER
 	if (UI::cursor_active())
 	{
-		UI::cursor_pos += Vec2(update_in.input->cursor_x, -update_in.input->cursor_y);
+		UI::cursor_pos += Vec2(input->cursor_x, -input->cursor_y);
 		const DisplayMode& display = Settings::display();
 		UI::cursor_pos.x = vi_max(0.0f, vi_min(UI::cursor_pos.x, r32(display.width)));
 		UI::cursor_pos.y = vi_max(0.0f, vi_min(UI::cursor_pos.y, r32(display.height)));
@@ -403,21 +412,23 @@ void Game::update(const Update& update_in)
 	else
 		physics_timestep = 0.0f;
 
-	Update u = update_in;
-	u.time = time;
-	u.real_time = update_in.time;
-
 	if (update_game)
 	{
 		time.total += time.delta;
 		Team::match_time += time.delta;
 	}
 
+	Update u;
+	u.input = input;
+	u.last_input = last_input;
+	u.time = time;
+	u.real_time = real_time;
+
 	if (update_game || Overworld::modal())
 	{
 		ParticleSystem::time = update_game ? time.total : real_time.total;
 		for (s32 i = 0; i < ParticleSystem::list.length; i++)
-			ParticleSystem::list[i]->update(u);
+			ParticleSystem::list[i]->update();
 	}
 
 	Net::update_start(u);
@@ -427,15 +438,15 @@ void Game::update(const Update& update_in)
 	if (Settings::expo && Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying)
 	{
 		inactive_timer += u.time.delta;
-		if (update_in.input->keys.any()
-			|| update_in.input->cursor_x != 0 || update_in.input->cursor_y != 0
+		if (input->keys.any()
+			|| input->cursor_x != 0 || input->cursor_y != 0
 			|| (PlayerControlHuman::list.count() > 0 && PlayerControlHuman::list.iterator().item()->cinematic_active()))
 			inactive_timer = 0.0f;
 		else
 		{
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)
 			{
-				const Gamepad& gamepad = update_in.input->gamepads[i];
+				const Gamepad& gamepad = input->gamepads[i];
 				if (gamepad.type != Gamepad::Type::None
 					&& (gamepad.btns
 						|| Input::dead_zone(gamepad.left_x) != 0.0f || Input::dead_zone(gamepad.left_y) != 0.0f
@@ -471,7 +482,7 @@ void Game::update(const Update& update_in)
 		b8 refresh = false;
 		for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		{
-			const Gamepad& gamepad = update_in.input->gamepads[i];
+			const Gamepad& gamepad = input->gamepads[i];
 			if (i == 0)
 			{
 				if (ui_gamepad_types[0] == Gamepad::Type::None)
@@ -510,9 +521,9 @@ void Game::update(const Update& update_in)
 				{
 					// check if we need to clear the gamepad flag
 					if (gamepad.type == Gamepad::Type::None
-						|| update_in.input->cursor_x != 0
-						|| update_in.input->cursor_y != 0
-						|| update_in.input->keys.any())
+						|| input->cursor_x != 0
+						|| input->cursor_y != 0
+						|| input->keys.any())
 					{
 						ui_gamepad_types[0] = Gamepad::Type::None;
 						refresh = true;
@@ -2315,12 +2326,6 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		*link->ref = level.finder.find(link->target_name);
 	}
 
-	{
-		Entity* map_view = level.finder.find("map_view");
-		if (map_view && map_view->has<Transform>())
-			level.map_view = map_view->get<Transform>();
-	}
-
 	for (s32 i = 0; i < level.finder.map.length; i++)
 		World::awake(level.finder.map[i].entity.ref());
 
@@ -2429,7 +2434,8 @@ void Game::awake_all()
 		Loader::mesh(Asset::Mesh::icon_checkmark);
 		Loader::mesh(Asset::Mesh::icon_bolter);
 		Loader::mesh(Asset::Mesh::icon_battery);
-		Loader::mesh(Asset::Mesh::icon_arrow);
+		Loader::mesh(Asset::Mesh::icon_arrow_main);
+		Loader::mesh(Asset::Mesh::icon_arrow_border);
 		Loader::mesh(Asset::Mesh::icon_active_armor);
 		Loader::mesh(Asset::Mesh::icon_access_key);
 		Loader::mesh(Asset::Mesh::icon_ability_pip);

@@ -70,6 +70,9 @@ namespace VI
 #define HP_BOX_SIZE (Vec2(UI_TEXT_SIZE_DEFAULT) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
 
+#define MAP_VIEW_ROT Quat::look(Vec3(0, -1, 0))
+#define MAP_VIEW_POS Vec3(0, 80, 0)
+
 r32 hp_width(u8 hp, s8 shield, r32 scale = 1.0f)
 {
 	const Vec2 box_size = HP_BOX_SIZE;
@@ -328,9 +331,8 @@ void PlayerHuman::awake()
 		camera.ref()->mask = 1 << camera.ref()->team;
 		camera.ref()->flag(CameraFlagColors, false);
 
-		Quat rot;
-		Game::level.map_view.ref()->absolute(&camera.ref()->pos, &rot);
-		camera.ref()->rot = kill_cam_rot = Quat::look(rot * Vec3(0, -1, 0));
+		camera.ref()->pos = MAP_VIEW_POS;
+		camera.ref()->rot = kill_cam_rot = MAP_VIEW_ROT;
 	}
 
 #if SERVER
@@ -866,9 +868,9 @@ Rect2 player_button(const Rect2& viewport, s8 gamepad, AssetID string, UIMenu::E
 	// deploy prompt
 	UIText text;
 	text.anchor_x = UIText::Anchor::Center;
-	text.anchor_y = UIText::Anchor::Max;
+	text.anchor_y = UIText::Anchor::Min;
 	text.text(gamepad, _(string));
-	Vec2 pos = viewport.size * Vec2(0.5f, 0.2f);
+	Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
 	Rect2 box = text.rect(pos).outset(8 * UI::scale);
 	if (params)
 	{
@@ -985,6 +987,7 @@ void PlayerHuman::update(const Update& u)
 	}
 
 	// camera stuff
+	if (!Overworld::modal())
 	{
 		s32 player_count;
 #if DEBUG_AI_CONTROL
@@ -1009,7 +1012,7 @@ void PlayerHuman::update(const Update& u)
 		{
 			if (Game::level.mode == Game::Mode::Pvp)
 			{
-				camera.ref()->perspective(Settings::effective_fov(), 1.0f, Game::level.far_plane_get());
+				camera.ref()->perspective(Settings::effective_fov(), camera.ref()->near_plane, camera.ref()->far_plane);
 				camera.ref()->range = 0;
 				if (get<PlayerManager>()->spawn_timer == 0.0f)
 				{
@@ -1385,12 +1388,11 @@ void PlayerHuman::update(const Update& u)
 				}
 			}
 
-			// move camera to focus on selected spawn point
+			// move camera to map view
 			{
-				Quat target_rot = Quat::look(Game::level.map_view.ref()->absolute_rot() * Vec3(0, -1, 0));
-				Vec3 target_pos = selected_spawn.ref()->get<Transform>()->absolute_pos() + target_rot * Vec3(0, 0, Game::level.far_plane_get() * -0.4f);
-				camera.ref()->pos += (target_pos - camera.ref()->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
-				camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, target_rot);
+				camera.ref()->pos += (MAP_VIEW_POS - camera.ref()->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
+				camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, MAP_VIEW_ROT);
+				camera.ref()->perspective(Settings::effective_fov(), 30.0f, 200.0f);
 			}
 			break;
 		}
@@ -1582,18 +1584,6 @@ void get_standing_position(Transform* i, Vec3* pos, r32* angle)
 	*pos = i_pos;
 	const r32 default_capsule_height = (WALKER_HEIGHT + WALKER_PARKOUR_RADIUS * 2.0f);
 	pos->y += (default_capsule_height * 0.5f) + WALKER_SUPPORT_HEIGHT;
-}
-
-void PlayerHuman::game_mode_transitioning()
-{
-	if (camera.ref())
-	{
-		Quat rot;
-		Game::level.map_view.ref()->absolute(&camera.ref()->pos, &rot);
-		camera.ref()->rot = Quat::look(rot * Vec3(0, -1, 0));
-	}
-	get<PlayerManager>()->can_spawn = Game::level.mode == Game::Mode::Parkour;
-	last_supported.length = 0;
 }
 
 void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
@@ -2515,24 +2505,34 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 		else
 		{
-			// select spawn point
-			Vec2 p;
-			if (selected_spawn.ref() && UI::project(params, selected_spawn.ref()->get<Transform>()->absolute_pos(), &p))
-				UI::triangle_border(params, { p, Vec2(28.0f * UI::scale) }, 6, UI::color_accent(), PI);
+			draw_turret_battery_flag_icons(params);
 
-			// highlight available spawns
-			AI::Team my_team = get<PlayerManager>()->team.ref()->team();
-			for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+			// highlight default spawn
 			{
-				if (i.item()->team == my_team)
+				SpawnPoint* default_spawn = get<PlayerManager>()->team.ref()->default_spawn_point();
+				Vec2 p;
+				if (UI::project(params, default_spawn->get<Transform>()->absolute_pos(), &p))
 				{
-					Vec2 p;
-					if (UI::project(params, i.item()->get<Transform>()->absolute_pos(), &p))
-						UI::triangle(params, { p, Vec2(18.0f * UI::scale) }, Team::ui_color_friend(), PI);
+					UI::triangle(params, { p, Vec2(38.0f * UI::scale) }, UI::color_background, PI);
+					UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, Team::ui_color_friend(), PI);
 				}
 			}
 
-			draw_turret_battery_flag_icons(params);
+			// select spawn point
+			if (selected_spawn.ref())
+			{
+				Battery* battery = selected_spawn.ref()->battery();
+				Transform* pos = battery ? battery->get<Transform>() : selected_spawn.ref()->get<Transform>();
+				Vec2 p;
+				if (UI::project(params, pos->absolute_pos(), &p))
+				{
+					p.y += (38.0f + sinf(Game::real_time.total * 12.0f) * 3.0f) * UI::scale;
+					UI::mesh(params, Asset::Mesh::icon_arrow_border, p, Vec2(32.0f * UI::scale), UI::color_background, PI * -0.5f);
+					UI::mesh(params, Asset::Mesh::icon_arrow_main, p, Vec2(32.0f * UI::scale), UI::color_accent(), PI * -0.5f);
+				}
+			}
+
+			player_button(vp, gamepad, strings::prompt_deploy, chat_focus == ChatFocus::None ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::No, &params);
 
 			if (Game::session.config.game_type == GameType::Assault)
 			{
@@ -2554,14 +2554,13 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 						str = strings::core_modules_remaining_spawning;
 						count = CoreModule::list.count();
 					}
+					AI::Team my_team = get<PlayerManager>()->team.ref()->team();
 					text.text(gamepad, _(str), _(my_team == 0 ? strings::defend : strings::attack), count);
 				}
-				Vec2 pos = vp.size * Vec2(0.5f, 0.25f);
+				Vec2 pos = vp.size * Vec2(0.5f, 0.05f);
 				UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
 				text.draw(params, pos);
 			}
-
-			player_button(vp, gamepad, strings::prompt_deploy, chat_focus == ChatFocus::None ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::No, &params);
 		}
 	}
 	else if (mode == UIMode::PvpSpectate)

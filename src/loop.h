@@ -1692,10 +1692,6 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 
 	InputState last_input;
 
-	Update u;
-	u.input = &sync_render->input;
-	u.last_input = &last_input;
-
 	PhysicsSync* sync_physics = nullptr;
 
 	r32 time_update = 0.0f; // time required for update
@@ -1713,7 +1709,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 #if SERVER
 			dt_limit = Net::tick_rate();
 #else
-			dt_limit = vi_max(1.0f / r32(Settings::framerate_limit), u.input->focus ? 0.0f : (1.0f / 30.0f));
+			dt_limit = vi_max(1.0f / r32(Settings::framerate_limit), sync_render->input.focus ? 0.0f : (1.0f / 30.0f));
 #endif
 
 			r32 delay = dt_limit - time_update;
@@ -1723,11 +1719,8 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 
 		r64 time_update_start = platform::time();
 
-		u.input = &sync_render->input;
-		u.time = sync_render->time;
-
 #if DEBUG
-		if (u.input->keys.get(s32(KeyCode::F5)))
+		if (sync_render->input.keys.get(s32(KeyCode::F5)))
 			vi_assert(false);
 #endif
 		if (sync_physics)
@@ -1735,7 +1728,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 		else
 			sync_physics = swapper_physics->get();
 
-		Game::update(u);
+		Game::update(&sync_render->input, &last_input);
 
 		sync_physics->time = Game::time;
 		sync_physics->timestep = Game::physics_timestep;

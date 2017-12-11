@@ -179,7 +179,7 @@ struct ServerConfig
 	StaticArray<Upgrade, MAX_ABILITIES> start_upgrades;
 	GameType game_type = GameType::Assault;
 	Region region;
-	s8 max_players = 1;
+	s8 max_players = MAX_PLAYERS;
 	s8 min_players = 1;
 	s8 team_count = 2;
 	s8 drone_shield = DRONE_SHIELD_AMOUNT;

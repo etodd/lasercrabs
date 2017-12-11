@@ -31,7 +31,7 @@ struct ParticleSystem
 	ParticleSystem(s32, s32, r32, AssetID, AssetID = AssetNull);
 	void init(LoopSync*);
 
-	void update(const Update&);
+	void update();
 	void upload_range(RenderSync*, s32, s32);
 	void draw(const RenderParams&);
 	virtual b8 pre_draw(const RenderParams&) { return true; }

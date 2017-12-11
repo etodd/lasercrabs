@@ -40,7 +40,7 @@ const Vec4& Team::ui_color_friend()
 	return Overworld::pvp_colors() ? ui_color_friend_pvp : ui_color_friend_normal;
 }
 const Vec4 ui_color_enemy_pvp = Vec4(1.0f, 0.4f, 0.4f, 1);
-const Vec4 ui_color_enemy_normal = Vec4(255.0f / 255.0f, 85.0f / 255.0f, 170.0f / 255.0f, 1);
+const Vec4 ui_color_enemy_normal = Vec4(255.0f / 255.0f, 115.0f / 255.0f, 200.0f / 255.0f, 1);
 const Vec4& Team::ui_color_enemy()
 {
 	return Overworld::pvp_colors() ? ui_color_enemy_pvp : ui_color_enemy_normal;

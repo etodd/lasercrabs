@@ -420,8 +420,6 @@ namespace VI
 
 		LoopSync* sync = swapper_render.get();
 
-		r64 last_time = SDL_GetTicks() / 1000.0;
-
 		b8 has_focus = true;
 
 		SDL_PumpEvents();
@@ -886,11 +884,6 @@ namespace VI
 					active_gamepads++;
 				}
 			}
-
-			r64 time = (SDL_GetTicks() / 1000.0);
-			sync->time.total = r32(time);
-			sync->time.delta = vi_min(r32(time - last_time), 0.25f);
-			last_time = time;
 
 			b8 quit = sync->quit;
 

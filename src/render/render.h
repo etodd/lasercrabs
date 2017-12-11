@@ -125,7 +125,6 @@ struct Camera
 struct LoopSync : RenderSync
 {
 	b8 quit;
-	GameTime time;
 	InputState input;
 	DisplayMode display_mode;
 	b8 vsync;

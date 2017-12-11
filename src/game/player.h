@@ -230,7 +230,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void assault_status_display();
 	void energy_notify(s32);
 	void team_set(AI::Team);
-	void game_mode_transitioning();
 };
 
 struct PlayerCommon : public ComponentType<PlayerCommon>

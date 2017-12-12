@@ -341,14 +341,19 @@ void Animator::update_world_transforms()
 		offsets.resize(arm->hierarchy.length);
 		for (s32 i = old_length; i < offsets.length; i++)
 		{
-			if (override_mode == OverrideMode::Offset)
-				offsets[i] = Mat4::identity;
-			else
+			if (override_mode == OverrideMode::Override)
 				offsets[i].make_transform(arm->bind_pose[i].pos, Vec3(1, 1, 1), arm->bind_pose[i].rot);
+			else
+				offsets[i] = Mat4::identity;
 		}
 	}
 
-	if (override_mode == OverrideMode::Offset)
+	if (override_mode == OverrideMode::Override)
+	{
+		for (s32 i = 0; i < bones.length; i++)
+			bones[i] = offsets[i];
+	}
+	else
 	{
 		AnimatorTransform bone_channels[MAX_BONES];
 
@@ -391,20 +396,34 @@ void Animator::update_world_transforms()
 		for (s32 i = 0; i < bones.length; i++)
 		{
 			bones[i].make_transform(bone_channels[i].pos, bone_channels[i].scale, bone_channels[i].rot);
-			bones[i] = offsets[i] * bones[i];
+			if (override_mode == OverrideMode::OffsetBoneSpace)
+				bones[i] = offsets[i] * bones[i];
+		}
+	}
+
+	if (override_mode == OverrideMode::OffsetObjectSpace)
+	{
+		for (s32 i = 0; i < bones.length; i++)
+		{
+			s32 parent = arm->hierarchy[i];
+			if (parent != -1)
+				bones[i] = (bones[i] * bones[parent]);
+			{
+				Vec3 translation = bones[i].translation();
+				bones[i].translation(Vec3::zero);
+				bones[i] = bones[i] * offsets[i];
+				bones[i].translate(translation);
+			}
 		}
 	}
 	else
 	{
 		for (s32 i = 0; i < bones.length; i++)
-			bones[i] = offsets[i];
-	}
-
-	for (s32 i = 0; i < bones.length; i++)
-	{
-		s32 parent = arm->hierarchy[i];
-		if (parent != -1)
-			bones[i] = bones[i] * bones[parent];
+		{
+			s32 parent = arm->hierarchy[i];
+			if (parent != -1)
+				bones[i] = bones[i] * bones[parent];
+		}
 	}
 
 	Mat4 transform;
@@ -533,15 +552,15 @@ void Animator::override_bone(const s32 index, const Vec3& pos, const Quat& rot)
 void Animator::reset_overrides()
 {
 	const Armature* arm = Loader::armature(armature);
-	if (override_mode == OverrideMode::Offset)
+	if (override_mode == OverrideMode::Override)
 	{
 		for (s32 i = 0; i < offsets.length; i++)
-			offsets[i] = Mat4::identity;
+			offsets[i].make_transform(arm->bind_pose[i].pos, Vec3(1, 1, 1), arm->bind_pose[i].rot);
 	}
 	else
 	{
 		for (s32 i = 0; i < offsets.length; i++)
-			offsets[i].make_transform(arm->bind_pose[i].pos, Vec3(1, 1, 1), arm->bind_pose[i].rot);
+			offsets[i] = Mat4::identity;
 	}
 }
 

@@ -24,7 +24,6 @@ struct Walker : public ComponentType<Walker>
 		max_speed,
 		rotation,
 		target_rotation,
-		rotation_speed,
 		net_speed,
 		net_speed_timer;
 	Ref<RigidBody> support;

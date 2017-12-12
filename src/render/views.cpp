@@ -518,8 +518,6 @@ void Skybox::draw_alpha(const RenderParams& p)
 
 	b8 volumetric_lighting = p.shadow_buffer != AssetNull && p.camera->flag(CameraFlagFog);
 
-	vi_assert(p.camera->flag(CameraFlagFog) == (p.camera->range == 0.0f));
-
 	if (volumetric_lighting)
 		sync->write(RenderTechnique::Shadow);
 	else

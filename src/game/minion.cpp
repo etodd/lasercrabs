@@ -24,7 +24,6 @@
 #include "common.h"
 
 #define WALK_SPEED 2.5f
-#define ROTATION_SPEED 4.0f
 #define PATH_RECALC_TIME 2.1f
 #define TARGET_SCAN_TIME 0.5f
 
@@ -55,7 +54,6 @@ MinionEntity::MinionEntity(const Vec3& pos, const Quat& quat, AI::Team team, Pla
 
 	Walker* walker = create<Walker>(atan2f(forward.x, forward.z));
 	walker->max_speed = walker->speed = WALK_SPEED;
-	walker->rotation_speed = ROTATION_SPEED;
 
 	Minion* m = create<Minion>();
 	m->owner = manager;

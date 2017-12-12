@@ -587,7 +587,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Walker* w = e->get<Walker>();
 		serialize_r32_range(p, w->speed, 0, 10, 16);
 		serialize_r32_range(p, w->max_speed, 0, 10, 16);
-		serialize_r32_range(p, w->rotation_speed, 0, 20.0f, 16);
 		serialize_bool(p, w->auto_rotate);
 		r32 r;
 		if (Stream::IsWriting)

@@ -57,6 +57,12 @@ struct Parkour : public ComponentType<Parkour>
 		b8 operator!=(const TilePos&) const;
 	};
 
+	enum Flags
+	{
+		FlagCanDoubleJump = 1 << 0,
+		FlagGrapple = 1 << 1,
+	};
+
 	Vec3 relative_wall_run_normal;
 	Vec3 relative_support_pos;
 	Vec3 relative_animation_start_pos;
@@ -79,7 +85,20 @@ struct Parkour : public ComponentType<Parkour>
 	Link jumped;
 	WallRunState wall_run_state;
 	WallRunState last_support_wall_run_state;
-	b8 can_double_jump;
+	s8 flags;
+
+	inline b8 flag(s32 f) const
+	{
+		return flags & f;
+	}
+
+	inline void flag(s32 f, b8 value)
+	{
+		if (value)
+			flags |= f;
+		else
+			flags &= ~f;
+	}
 
 	b8 wallrun(const Update&, RigidBody*, const Vec3&, const Vec3&);
 
@@ -95,7 +114,9 @@ struct Parkour : public ComponentType<Parkour>
 	b8 try_jump(r32);
 	void do_normal_jump();
 	b8 try_parkour(MantleAttempt = MantleAttempt::Normal);
+	b8 try_grapple(const Vec3&, const Quat&);
 	Vec3 head_pos() const;
+	Vec3 hand_pos() const;
 	void head_to_object_space(Vec3*, Quat*) const;
 	void spawn_tiles(const Vec3&, const Vec3&, const Vec3&, const Vec3&);
 	b8 try_wall_run(WallRunState, const Vec3&);

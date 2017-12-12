@@ -275,6 +275,7 @@
 		"scoreboard": "Scoreboard",
 		"jump": "Jump",
 		"parkour": "Parkour",
+		"grapple": "Grapple",
 		"ui_context_action": "UI context action",
 		"tab_left": "Tab left",
 		"tab_right": "Tab right",

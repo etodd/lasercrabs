@@ -536,8 +536,8 @@ void Audio::update_all(const Update& u)
 			{
 				if (listener_mask & (1 << i))
 				{
-					Listener* listener = &listener[i];
-					listener->force_field_hash = ForceField::hash(listener->team, listener->pos);
+					Listener* l = &listener[i];
+					l->force_field_hash = ForceField::hash(l->team, l->pos);
 				}
 			}
 

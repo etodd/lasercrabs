@@ -50,6 +50,7 @@ Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 	SkinnedModel* model = create<SkinnedModel>();
 
 	animator->armature = Asset::Armature::character;
+	animator->override_mode = Animator::OverrideMode::OffsetObjectSpace;
 
 	model->shader = Asset::Shader::armature;
 	model->mesh_shadow = Asset::Mesh::parkour;
@@ -79,6 +80,7 @@ void Parkour::awake()
 	animator->layers[0].behavior = Animator::Behavior::Loop;
 	animator->layers[0].play(Asset::Animation::character_idle);
 	animator->layers[1].blend_time = 0.2f;
+	animator->layers[2].behavior = Animator::Behavior::Loop;
 	link<&Parkour::climb_sound>(animator->trigger(Asset::Animation::character_climb_down, 0.0f));
 	link<&Parkour::climb_sound>(animator->trigger(Asset::Animation::character_climb_up, 0.0f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.0f));
@@ -106,7 +108,7 @@ void Parkour::awake()
 	link<&Parkour::pickup_animation_complete>(animator->trigger(Asset::Animation::character_pickup, 2.5f));
 	link_arg<r32, &Parkour::land>(get<Walker>()->land);
 	link_arg<Entity*, &Parkour::killed>(get<Health>()->killed);
-	last_angle_horizontal = get<Walker>()->rotation;
+	last_angle_horizontal = get<Walker>()->target_rotation;
 }
 
 Parkour::~Parkour()
@@ -148,6 +150,14 @@ Vec3 Parkour::head_pos() const
 	Vec3 pos = Vec3(0.1f, 0, 0);
 	Quat rot = Quat::identity;
 	get<Animator>()->to_world(Asset::Bone::character_head, &pos, &rot);
+	return pos;
+}
+
+Vec3 Parkour::hand_pos() const
+{
+	Vec3 pos = Vec3::zero;
+	Quat rot = Quat::identity;
+	get<Animator>()->to_world(Asset::Bone::character_hand_R, &pos, &rot);
 	return pos;
 }
 
@@ -659,7 +669,7 @@ void Parkour::update(const Update& u)
 					exit_wallrun = wallrun(u, last_support.ref(), relative_support_pos, relative_wall_run_normal);
 				else
 				{
-					get<PlayerControlHuman>()->try_secondary = true; // HACK: re-enable try_parkour() every frame since we ran out of wall to run on
+					get<PlayerControlHuman>()->flag(PlayerControlHuman::FlagTrySecondary, true); // HACK: re-enable try_parkour() every frame since we ran out of wall to run on
 					exit_wallrun = true;
 				}
 			}
@@ -685,7 +695,7 @@ void Parkour::update(const Update& u)
 			}
 			allow_run = collision_group & CollisionParkour;
 
-			can_double_jump = true;
+			flag(FlagCanDoubleJump, true);
 			jump_history.length = 0;
 			tile_history.length = 0;
 
@@ -814,6 +824,8 @@ void Parkour::update(const Update& u)
 	}
 
 	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::HardLanding;
+
+	get<Animator>()->layers[2].play(flag(FlagGrapple) ? Asset::Animation::character_grapple_aim : AssetNull);
 
 	{
 		if (fsm.current == State::Normal && Game::time.total - last_climb_time > JUMP_GRACE_PERIOD * 2.0f)
@@ -1131,7 +1143,7 @@ b8 Parkour::try_jump(r32 rotation)
 		}
 	}
 
-	if (!did_jump && can_double_jump && Game::save.resources[s32(Resource::DoubleJump)])
+	if (!did_jump && flag(FlagCanDoubleJump) && Game::save.resources[s32(Resource::DoubleJump)])
 	{
 		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
 		if (velocity.y < 0.0f) // have to be going down to double jump
@@ -1159,13 +1171,13 @@ b8 Parkour::try_jump(r32 rotation)
 			// override horizontal velocity based on current facing angle
 			Vec3 horizontal_velocity = velocity;
 			horizontal_velocity.y = 0.0f;
-			Vec3 new_velocity = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, horizontal_velocity.length());
+			Vec3 new_velocity = Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, horizontal_velocity.length());
 			new_velocity.y = velocity.y;
 			get<RigidBody>()->btBody->setLinearVelocity(new_velocity);
 
 			do_normal_jump();
 
-			can_double_jump = false;
+			flag(FlagCanDoubleJump, false);
 			did_jump = true;
 		}
 	}
@@ -1232,7 +1244,7 @@ struct RayCallbackDefaultConstructor : public btCollisionWorld::ClosestRayResult
 // if force is true, we'll raycast farther downward when trying to mantle, to make sure we find something.
 b8 Parkour::try_parkour(MantleAttempt attempt)
 {
-	Quat rot = Quat::euler(0, get<Walker>()->rotation, 0);
+	Quat rot = Quat::euler(0, get<Walker>()->target_rotation, 0);
 
 	if (fsm.current == State::Normal)
 	{
@@ -1340,6 +1352,22 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 	return false;
 }
 
+b8 Parkour::try_grapple(const Vec3& start_pos, const Quat& start_rot)
+{
+	RaycastCallbackExcept ray_callback(start_pos, start_pos + start_rot * Vec3(0, 0, DRONE_MAX_DISTANCE * 1.5f), entity());
+	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
+	if (ray_callback.hasHit()
+		&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK)
+		&& (Vec3(ray_callback.m_hitPointWorld) - hand_pos()).length_squared() < DRONE_MAX_DISTANCE * DRONE_MAX_DISTANCE)
+	{
+		// teleport there
+		get<Walker>()->absolute_pos(ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * WALKER_PARKOUR_RADIUS);
+		return true;
+	}
+
+	return false;
+}
+
 b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 {
 	if (Game::time.total - last_jump_time < JUMP_GRACE_PERIOD)
@@ -1356,7 +1384,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 		if (s == WallRunState::Left || s == WallRunState::Right)
 		{
 			// don't do side wall-run if there is a wall directly in front of us
-			Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
+			Vec3 forward = Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1);
 			btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(ray_start, ray_start + forward * WALKER_PARKOUR_RADIUS * WALL_RUN_DISTANCE_RATIO * 2.0f);
 			Physics::raycast(&obstacle_ray_callback, CollisionStatic);
 			if (obstacle_ray_callback.hasHit())
@@ -1420,7 +1448,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 			r32 flattened_vertical_speed = vi_min(velocity_flattened.y, relative_velocity.y);
 
 			// make sure we're facing the same way as we'll be moving
-			Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
+			Vec3 forward = Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1);
 			if (velocity_flattened.dot(forward) < 0.0f)
 				velocity_flattened *= -1.0f;
 

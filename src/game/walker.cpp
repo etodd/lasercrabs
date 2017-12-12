@@ -7,6 +7,7 @@
 #include "console.h"
 #include "team.h"
 #include "minion.h"
+#include "parkour.h"
 
 namespace VI
 {
@@ -31,7 +32,6 @@ Walker::Walker(r32 rot)
 	max_speed(5.0f),
 	rotation(rot),
 	target_rotation(rot),
-	rotation_speed(8.0f),
 	auto_rotate(true),
 	enabled(true),
 	land(),
@@ -340,7 +340,13 @@ void Walker::update(const Update& u)
 
 	target_rotation = LMath::closest_angle(target_rotation, rotation);
 
-	rotation = target_rotation > rotation ? vi_min(target_rotation, rotation + rotation_speed * u.time.delta) : vi_max(target_rotation, rotation - rotation_speed * u.time.delta);
+	if (has<Parkour>())
+		rotation += (target_rotation - rotation) * vi_min(1.0f, 20.0f * u.time.delta);
+	else
+	{
+		const r32 rotation_speed = 8.0f;
+		rotation = target_rotation > rotation ? vi_min(target_rotation, rotation + rotation_speed * u.time.delta) : vi_max(target_rotation, rotation - rotation_speed * u.time.delta);
+	}
 
 	rotation = LMath::angle_range(rotation);
 }

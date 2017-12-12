@@ -3199,19 +3199,13 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		case PlayerControlHumanNet::Message::Type::Dash:
 		{
 			if (c->get<Drone>()->dash_start(msg.dir, c->get<Transform>()->absolute_pos())) // HACK: set target to current position so that it is not used
-			{
-				c->try_primary = false;
-				c->try_secondary = false;
-			}
+				c->flag(PlayerControlHuman::FlagTryPrimary | PlayerControlHuman::FlagTrySecondary, false);
 			break;
 		}
 		case PlayerControlHumanNet::Message::Type::DashCombo:
 		{
 			if (c->get<Drone>()->dash_start(msg.dir, msg.target))
-			{
-				c->try_primary = false;
-				c->try_secondary = false;
-			}
+				c->flag(PlayerControlHuman::FlagTryPrimary | PlayerControlHuman::FlagTrySecondary, false);
 			break;
 		}
 		case PlayerControlHumanNet::Message::Type::Go:
@@ -3222,15 +3216,12 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 			if (c->get<Drone>()->go(msg.dir))
 			{
 				if (msg.ability == Ability::None)
-				{
-					c->try_primary = false;
-					c->try_secondary = false;
-				}
+					c->flag(PlayerControlHuman::FlagTryPrimary | PlayerControlHuman::FlagTrySecondary, false);
 				else if (msg.ability == Ability::Bolter)
 					c->player.ref()->rumble_add(0.2f);
 				else
 				{
-					c->try_primary = false;
+					c->flag(PlayerControlHuman::FlagTryPrimary, false);
 					c->player.ref()->rumble_add(0.5f);
 				}
 			}
@@ -3634,9 +3625,7 @@ void player_ability_update(const Update& u, PlayerControlHuman* control, Control
 
 PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 	: fov(Settings::effective_fov()),
-	try_primary(),
-	try_dash(),
-	try_secondary(),
+	flags(),
 	camera_shake_timer(),
 	target_indicators(),
 	last_gamepad_input_time(),
@@ -3734,7 +3723,7 @@ void PlayerControlHuman::health_changed(const HealthEvent& e)
 	if (total < 0)
 	{
 		if (has<Drone>()) // de-scope when damaged
-			try_secondary = false;
+			flag(PlayerControlHuman::FlagTrySecondary, false);
 		if (has<Drone>() || e.source.ref()) // no rumble if you just fall in parkour mode
 			camera_shake(total < -1 ? 1.0f : 0.7f);
 	}
@@ -4120,11 +4109,11 @@ r32 zoom_amount_get(PlayerControlHuman* player, const Update& u)
 {
 	s8 gamepad = player->player.ref()->gamepad;
 	if (Settings::gamepads[gamepad].zoom_toggle)
-		return player->try_secondary ? 1.0f : 0.0f;
+		return player->flag(PlayerControlHuman::FlagTrySecondary) ? 1.0f : 0.0f;
 	else
 	{
 		// analog zoom
-		if (player->try_secondary)
+		if (player->flag(PlayerControlHuman::FlagTrySecondary))
 		{
 			const InputBinding& binding = Settings::gamepads[gamepad].bindings[s32(Controls::Zoom)];
 			if (u.input->keys.get(s32(binding.key1)) || u.input->keys.get(s32(binding.key2)))
@@ -4235,21 +4224,21 @@ void PlayerControlHuman::update(const Update& u)
 						// we can actually zoom
 						if (Settings::gamepads[gamepad].zoom_toggle)
 						{
-							try_secondary = !try_secondary;
-							Audio::post_global(try_secondary ? AK::EVENTS::PLAY_ZOOM_IN : AK::EVENTS::PLAY_ZOOM_OUT);
+							flag(FlagTrySecondary, !flag(FlagTrySecondary));
+							Audio::post_global(flag(FlagTrySecondary) ? AK::EVENTS::PLAY_ZOOM_IN : AK::EVENTS::PLAY_ZOOM_OUT);
 						}
 						else
 						{
-							try_secondary = true;
+							flag(FlagTrySecondary, true);
 							Audio::post_global(AK::EVENTS::PLAY_ZOOM_IN);
 						}
 					}
 				}
 				else if (!Settings::gamepads[gamepad].zoom_toggle && !zoom_pressed)
 				{
-					if (try_secondary)
+					if (flag(FlagTrySecondary))
 						Audio::post_global(AK::EVENTS::PLAY_ZOOM_OUT);
-					try_secondary = false;
+					flag(FlagTrySecondary, false);
 				}
 
 				r32 fov_target = LMath::lerpf(zoom_amount, Settings::effective_fov(), (get<Drone>()->current_ability == Ability::Sniper ? fov_sniper : fov_zoom));
@@ -4582,9 +4571,9 @@ void PlayerControlHuman::update(const Update& u)
 			{
 				b8 primary_pressed = u.input->get(Controls::Primary, gamepad);
 				if (primary_pressed && !u.last_input->get(Controls::Primary, gamepad))
-					try_primary = true;
+					flag(FlagTryPrimary, true);
 				else if (!primary_pressed)
-					try_primary = false;
+					flag(FlagTryPrimary, false);
 			}
 
 			// spot
@@ -4613,7 +4602,7 @@ void PlayerControlHuman::update(const Update& u)
 			else
 			{
 				// we're aiming at something
-				if (try_primary && camera_shake_timer < 0.1f) // don't go anywhere if the camera is shaking wildly
+				if (flag(FlagTryPrimary) && camera_shake_timer < 0.1f) // don't go anywhere if the camera is shaking wildly
 				{
 					PlayerControlHumanNet::Message msg;
 					msg.dir = Vec3::normalize(reticle.pos - get<Transform>()->absolute_pos());
@@ -4779,42 +4768,59 @@ void PlayerControlHuman::update(const Update& u)
 			}
 
 			// parkour button
-			b8 parkour_pressed = movement_enabled() && u.input->get(Controls::Parkour, gamepad);
-
-			if (get<Parkour>()->fsm.current == Parkour::State::WallRun && !parkour_pressed)
-				get<Parkour>()->fsm.transition(Parkour::State::Normal);
-
-			if (parkour_pressed && !u.last_input->get(Controls::Parkour, gamepad))
-				try_secondary = true;
-			else if (!parkour_pressed)
-				try_secondary = false;
-
-			if (try_secondary)
 			{
-				if (get<Parkour>()->try_parkour())
+				b8 parkour_pressed = movement_enabled() && u.input->get(Controls::Parkour, gamepad);
+
+				if (get<Parkour>()->fsm.current == Parkour::State::WallRun && !parkour_pressed)
 				{
-					try_secondary = false;
-					try_primary = false;
+					get<Parkour>()->fsm.transition(Parkour::State::Normal);
+					get<Parkour>()->wall_run_state = Parkour::WallRunState::None;
+				}
+
+				if (parkour_pressed && !u.last_input->get(Controls::Parkour, gamepad))
+					flag(FlagTrySecondary, true);
+				else if (!parkour_pressed)
+					flag(FlagTrySecondary, false);
+
+				if (flag(FlagTrySecondary))
+				{
+					if (get<Parkour>()->try_parkour())
+						flag(FlagTrySecondary | FlagTryPrimary, false);
 				}
 			}
 
 			// jump button
-			b8 jump_pressed = movement_enabled() && u.input->get(Controls::Jump, gamepad);
-			if (jump_pressed && !u.last_input->get(Controls::Jump, gamepad))
-				try_primary = true;
-			else if (!jump_pressed)
-				try_primary = false;
-
-			if (jump_pressed)
-				get<Parkour>()->lessen_gravity(); // jump higher when the player holds the jump button
-
-			if (try_primary)
 			{
-				if (get<Parkour>()->try_jump(get<PlayerCommon>()->angle_horizontal))
+				b8 jump_pressed = movement_enabled() && u.input->get(Controls::Jump, gamepad);
+				if (jump_pressed && !u.last_input->get(Controls::Jump, gamepad))
+					flag(FlagTryPrimary, true);
+				else if (!jump_pressed)
+					flag(FlagTryPrimary, false);
+
+				if (jump_pressed)
+					get<Parkour>()->lessen_gravity(); // jump higher when the player holds the jump button
+
+				if (flag(FlagTryPrimary))
 				{
-					try_secondary = false;
-					try_primary = false;
+					if (get<Parkour>()->try_jump(get<PlayerCommon>()->angle_horizontal))
+						flag(FlagTrySecondary | FlagTryPrimary, false);
 				}
+			}
+
+			// grapple button
+			{
+				b8 grapple_pressed = movement_enabled() && u.input->get(Controls::Grapple, gamepad);
+
+				if (grapple_pressed && !u.last_input->get(Controls::Grapple, gamepad))
+					flag(FlagTryGrapple, true);
+				else if (!grapple_pressed && flag(FlagTryGrapple))
+				{
+					Camera* camera = player.ref()->camera.ref();
+					get<Parkour>()->try_grapple(camera->pos, camera->rot);
+					flag(FlagTryGrapple, false);
+				}
+				Game::session.time_scale = flag(FlagTryGrapple) ? 0.3f : 1.0f;
+				get<Parkour>()->flag(Parkour::FlagGrapple, flag(FlagTryGrapple));
 			}
 
 			Parkour::State parkour_state = get<Parkour>()->fsm.current;
@@ -4834,11 +4840,10 @@ void PlayerControlHuman::update(const Update& u)
 					blend = vi_max(0.0f, 1.0f - (get<Parkour>()->fsm.time / blend_time));
 				else
 					blend = 0.0f;
-				get<Animator>()->override_bone(Asset::Bone::character_upper_arm_L, Vec3::zero, Quat::euler(arm_angle * blend, 0, 0));
-				get<Animator>()->override_bone(Asset::Bone::character_upper_arm_R, Vec3::zero, Quat::euler(arm_angle * -blend, 0, 0));
+				Quat offset = Quat::euler(arm_angle * blend, 0, 0);
+				get<Animator>()->override_bone(Asset::Bone::character_upper_arm_L, Vec3::zero, offset);
+				get<Animator>()->override_bone(Asset::Bone::character_upper_arm_R, Vec3::zero, offset);
 			}
-
-			r32 lean_target = 0.0f;
 
 			if (parkour_state == Parkour::State::WallRun)
 			{
@@ -4974,9 +4979,18 @@ void PlayerControlHuman::update_late(const Update& u)
 			camera->clip_planes[0] = Plane();
 			camera->cull_range = 0.0f;
 			camera->flag(CameraFlagCullBehindWall, false);
-			camera->flag(CameraFlagColors, true);
 			camera->flag(CameraFlagFog, true);
-			camera->range = 0.0f;
+			if (flag(FlagTryGrapple))
+			{
+				camera->flag(CameraFlagColors, false);
+				camera->range_center = camera->rot.inverse() * (get<Parkour>()->hand_pos() - camera->pos);
+				camera->range = DRONE_MAX_DISTANCE;
+			}
+			else
+			{
+				camera->flag(CameraFlagColors, true);
+				camera->range = 0.0f;
+			}
 		}
 
 		{
@@ -5059,12 +5073,12 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				UI::indicator(params, indicator.pos, Team::ui_color_enemy(), false, 1.0f, PI);
 				break;
 			case TargetIndicator::Type::Minion:
+				UI::indicator(params, indicator.pos, Team::ui_color_enemy(), false, 1.0f, PI);
+				break;
 			case TargetIndicator::Type::Turret:
 			case TargetIndicator::Type::CoreModule:
-			{
 				UI::indicator(params, indicator.pos, Team::ui_color_enemy(), false);
 				break;
-			}
 			case TargetIndicator::Type::TurretAttacking:
 			{
 				if (UI::flash_function(Game::time.total))

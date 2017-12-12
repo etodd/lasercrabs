@@ -37,6 +37,7 @@ const char* control_setting_names[s32(Controls::count)] =
 	"scoreboard",
 	"jump",
 	"parkour",
+	"grapple",
 	"ui_context_action",
 	nullptr, // UIAcceptText; can't be modified
 	"tab_left",
@@ -70,6 +71,7 @@ const char* control_ui_variable_names[s32(Controls::count)] =
 	"Scoreboard",
 	"Jump",
 	"Parkour",
+	"Grapple",
 	"UIContextAction",
 	"UIAcceptText",
 	"TabLeft",
@@ -103,6 +105,7 @@ InputBinding control_defaults[s32(Controls::count)] =
 	{ Gamepad::Btn::Back, KeyCode::Tab, KeyCode::None, }, // Scoreboard
 	{ Gamepad::Btn::RightTrigger, KeyCode::Space, KeyCode::None, }, // Jump
 	{ Gamepad::Btn::LeftTrigger, KeyCode::LShift, KeyCode::None, }, // Parkour
+	{ Gamepad::Btn::RightShoulder, KeyCode::MouseLeft, KeyCode::None, }, // Grapple
 	{ Gamepad::Btn::X, KeyCode::F, KeyCode::None, }, // UIContextAction
 	{ Gamepad::Btn::A, KeyCode::Return, KeyCode::KeypadEnter, }, // UIAcceptText
 	{ Gamepad::Btn::LeftShoulder, KeyCode::Q, KeyCode::None, }, // TabLeft
@@ -391,6 +394,7 @@ void init()
 	control_strings[s32(Controls::Scoreboard)] = _(strings::scoreboard);
 	control_strings[s32(Controls::Jump)] = _(strings::jump);
 	control_strings[s32(Controls::Parkour)] = _(strings::parkour);
+	control_strings[s32(Controls::Grapple)] = _(strings::grapple);
 	control_strings[s32(Controls::UIContextAction)] = _(strings::ui_context_action);
 	control_strings[s32(Controls::TabLeft)] = _(strings::tab_left);
 	control_strings[s32(Controls::TabRight)] = _(strings::tab_right);

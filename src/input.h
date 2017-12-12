@@ -28,6 +28,7 @@ enum class Controls : s8
 	Scoreboard,
 	Jump,
 	Parkour,
+	Grapple,
 	UIContextAction,
 	UIAcceptText,
 	TabLeft,

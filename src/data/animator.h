@@ -75,7 +75,8 @@ struct Animator : public ComponentType<Animator>
 
 	enum class OverrideMode : s8
 	{
-		Offset,
+		OffsetBoneSpace,
+		OffsetObjectSpace,
 		Override,
 		count,
 	};

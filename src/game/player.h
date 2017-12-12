@@ -280,6 +280,13 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		count,
 	};
 
+	enum Flags : s8
+	{
+		FlagTryPrimary = 1 << 0,
+		FlagTrySecondary = 1 << 1,
+		FlagTryGrapple = 1 << 2,
+	};
+
 	struct Reticle
 	{
 		Vec3 pos;
@@ -345,9 +352,20 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	r32 cooldown_last;
 	Ref<PlayerHuman> player;
 	Ref<Entity> anim_base;
-	b8 try_secondary;
-	b8 try_primary;
-	b8 try_dash;
+	s8 flags;
+
+	inline b8 flag(s32 f) const
+	{
+		return flags & f;
+	}
+
+	inline void flag(s32 f, b8 value)
+	{
+		if (value)
+			flags |= f;
+		else
+			flags &= ~f;
+	}
 
 	PlayerControlHuman(PlayerHuman* = nullptr);
 	void awake();

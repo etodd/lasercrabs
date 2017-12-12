@@ -3417,7 +3417,11 @@ void Grenade::explode()
 						i.item()->damage(entity(), 1);
 				}
 				else if (i.item()->has<CoreModule>())
-					i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 2 : 1);
+				{
+					distance *= (i.item()->get<CoreModule>()->team == my_team) ? 2.0f : 1.0f;
+					if (distance < GRENADE_RANGE)
+						i.item()->damage(entity(), 4);
+				}
 				else if (i.item()->has<Turret>())
 				{
 					distance *= (i.item()->get<Turret>()->team == my_team) ? 2.0f : 1.0f;

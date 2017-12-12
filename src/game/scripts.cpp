@@ -839,6 +839,7 @@ namespace Docks
 			data->character.ref()->to_world(Asset::Bone::character_head, &head_pos);
 			r32 blend = data->transition_timer > 0.0f ? vi_min(1.0f, total_transition - data->transition_timer) : 0.0f;
 			data->camera.ref()->pos = Vec3::lerp(blend, data->camera_start_pos, head_pos);
+			Audio::listener_update(0, data->camera.ref()->pos, data->camera.ref()->rot);
 
 			data->camera.ref()->viewport =
 			{

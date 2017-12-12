@@ -1851,6 +1851,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 			&& !u.input->get(Controls::UIContextAction, gamepad) && u.last_input->get(Controls::UIContextAction, gamepad))
 		{
 			// open context menu
+			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
 			teams_selected_player[gamepad] = i.item();
 			teams_selected_player_friendship[gamepad] = FriendshipState::None;
 #if !SERVER
@@ -1870,6 +1871,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 				if (delta == INT_MIN // slider item was clicked
 					|| (input == UIMenu::EnableInput::Yes && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad)))
 				{
+					Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
 					i.item()->set_can_spawn(true);
 					teams_selected_player[gamepad] = nullptr;
 				}
@@ -1909,6 +1911,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 
 	if (exit)
 	{
+		Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
 		Game::cancel_event_eaten[gamepad] = true;
 		if (selected)
 		{

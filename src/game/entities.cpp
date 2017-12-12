@@ -633,7 +633,7 @@ void Shield::update_client(const Update& u)
 		if (get<Health>()->active_armor())
 			armor_view->color.w = 1.0f;
 		else
-			armor_view->color.w = vi_max(0.0f, armor_view->color.w + u.time.delta * -4.0f);
+			armor_view->color.w = vi_max(0.0f, armor_view->color.w + u.time.delta * -5.0f);
 		alpha_mask(armor_view, mask);
 	}
 }

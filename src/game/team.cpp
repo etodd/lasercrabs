@@ -105,7 +105,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{
-		DRONE_COOLDOWN_MAX,
+		2.5f,
 		AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR,
 		Asset::Mesh::icon_active_armor,
 		0,

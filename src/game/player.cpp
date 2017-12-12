@@ -326,10 +326,11 @@ void PlayerHuman::awake()
 #endif
 		)
 	{
-		Audio::listener_enable(gamepad);
+		AI::Team team = get<PlayerManager>()->team.ref()->team();
+		Audio::listener_enable(gamepad, team);
 
 		camera = Camera::add(gamepad);
-		camera.ref()->team = s8(get<PlayerManager>()->team.ref()->team());
+		camera.ref()->team = s8(team);
 		camera.ref()->mask = 1 << camera.ref()->team;
 		camera.ref()->flag(CameraFlagColors, false);
 

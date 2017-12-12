@@ -110,6 +110,13 @@ struct AudioEntry
 
 struct Audio : ComponentType<Audio>
 {
+	struct Listener
+	{
+		Vec3 pos;
+		u32 force_field_hash;
+		AI::Team team;
+	};
+
 #if !SERVER
 	static CAkDefaultIOHookBlocking wwise_io;
 	static void dialogue_done_callback(AkCallbackType, AkCallbackInfo*);
@@ -117,7 +124,7 @@ struct Audio : ComponentType<Audio>
 
 	static r32 dialogue_volume;
 	static s8 listener_mask;
-	static Vec3 listener_pos[MAX_GAMEPADS];
+	static Listener listener[MAX_GAMEPADS];
 	static StaticArray<ID, 32> dialogue_callbacks; // poll this and empty it every frame; ID is entity ID
 	static r32 volume_scale;
 
@@ -132,7 +139,7 @@ struct Audio : ComponentType<Audio>
 	static AudioEntry* post_global(AkUniqueID, const Vec3&, Transform* = nullptr);
 	static void param_global(AkRtpcID, AkRtpcValue);
 	static void listener_list_update();
-	static void listener_enable(s8);
+	static void listener_enable(s8, AI::Team);
 	static void listener_disable(s8);
 	static void listener_update(s8, const Vec3&, const Quat&);
 	static AkUniqueID get_id(const char*);

@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include "asset/Wwise_IDs.h"
 #include "settings.h"
+#include "game/entities.h"
+#include "game/team.h"
 
 #if !SERVER
 #include <AK/SoundEngine/Common/AkMemoryMgr.h>
@@ -66,7 +68,7 @@ namespace VI
 StaticArray<ID, 32> Audio::dialogue_callbacks;
 r32 Audio::dialogue_volume;
 s8 Audio::listener_mask;
-Vec3 Audio::listener_pos[MAX_GAMEPADS];
+Audio::Listener Audio::listener[MAX_GAMEPADS];
 PinArray<AudioEntry, MAX_ENTITIES> AudioEntry::list;
 r32 Audio::volume_scale = 1.0f;
 
@@ -78,7 +80,7 @@ void Audio::post_global(AkUniqueID) {}
 b8 Audio::post_global_dialogue(AkUniqueID) { return false; }
 AudioEntry* Audio::post_global(AkUniqueID, const Vec3&, Transform*) { return nullptr; }
 void Audio::param_global(AkRtpcID, AkRtpcValue) {}
-void Audio::listener_enable(s8) {}
+void Audio::listener_enable(s8, AI::Team) {}
 void Audio::listener_disable(s8) {}
 void Audio::listener_update(s8, const Vec3&, const Quat&) {}
 AkUniqueID Audio::get_id(const char*) { return 0; }
@@ -300,6 +302,8 @@ void AudioEntry::flag(s32 f, b8 value)
 		flags &= ~f;
 		if (f & FlagEnableObstructionOcclusion)
 		{
+			memset(occlusion, 0, sizeof(occlusion));
+			memset(occlusion_target, 0, sizeof(occlusion_target));
 			memset(obstruction, 0, sizeof(obstruction));
 			memset(obstruction_target, 0, sizeof(obstruction_target));
 		}
@@ -331,37 +335,48 @@ void AudioEntry::update_spatialization(UpdateType type)
 		{
 			if (Audio::listener_mask & (1 << i))
 			{
-				const Vec3& listener = Audio::listener_pos[i];
+				const Audio::Listener& listener = Audio::listener[i];
 
-				Vec3 dir = abs_pos - listener;
+				Vec3 dir = abs_pos - listener.pos;
 				r32 distance = dir.length();
 				if (distance > 0.0f)
 				{
-					dir /= distance;
-
-					btCollisionWorld::ClosestRayResultCallback ray_callback(listener, listener + dir * vi_max(0.1f, distance - 0.5f));
-					Physics::raycast(&ray_callback, CollisionAudio);
-					if (ray_callback.hasHit())
+					if (ForceField::hash(listener.team, abs_pos) == listener.force_field_hash)
 					{
-						obstruction_target[i] = 1.0f;
-						if (distance > 80.0f)
-							occlusion_target[i] = 0.0f;
+						dir /= distance;
+
+						btCollisionWorld::ClosestRayResultCallback ray_callback(listener.pos, listener.pos + dir * vi_max(0.1f, distance - 0.5f));
+						Physics::raycast(&ray_callback, CollisionAudio | (CollisionAllTeamsForceField & ~Team::force_field_mask(listener.team)));
+						if (ray_callback.hasHit())
+						{
+							obstruction_target[i] = 1.0f;
+							if (distance > 80.0f)
+								occlusion_target[i] = 0.0f;
+							else
+							{
+								if (type == UpdateType::All)
+									pathfind_result(s8(i), AI::audio_pathfind(listener.pos, abs_pos), distance);
+								else
+									AI::audio_pathfind(listener.pos, abs_pos, this, s8(i), distance);
+							}
+						}
 						else
 						{
-							if (type == UpdateType::All)
-								pathfind_result(s8(i), AI::audio_pathfind(listener, abs_pos), distance);
-							else
-								AI::audio_pathfind(listener, abs_pos, this, s8(i), distance);
+							// clear line of sight
+							obstruction_target[i] = 0.0f;
+							occlusion_target[i] = 0.0f;
 						}
 					}
 					else
 					{
-						obstruction_target[i] = 0.0f;
-						occlusion_target[i] = 0.0f;
+						// inside a different force field
+						obstruction_target[i] = 1.0f;
+						occlusion_target[i] = 0.7f;
 					}
 				}
 				else
 				{
+					// distance is zero
 					obstruction_target[i] = 0.0f;
 					occlusion_target[i] = 0.0f;
 				}
@@ -517,6 +532,15 @@ void Audio::update_all(const Update& u)
 		{
 			spatialization_update_frame = (spatialization_update_frame + 1) & s16((1 << 15) - 1); // increment to next frame so that all entries are marked as needing updated
 
+			for (s32 i = 0; i < MAX_GAMEPADS; i++)
+			{
+				if (listener_mask & (1 << i))
+				{
+					Listener* listener = &listener[i];
+					listener->force_field_hash = ForceField::hash(listener->team, listener->pos);
+				}
+			}
+
 			// update ambience
 			r32 ambience = 0.1f;
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)
@@ -524,7 +548,7 @@ void Audio::update_all(const Update& u)
 				if (listener_mask & (1 << i))
 				{
 					r32 reverb[MAX_REVERBS];
-					AI::audio_reverb_calc(listener_pos[i], reverb);
+					AI::audio_reverb_calc(listener[i].pos, reverb);
 
 					r32 reverb_sum = 0.0f;
 					for (s32 j = 0; j < MAX_REVERBS; j++)
@@ -624,9 +648,10 @@ void Audio::listener_disable(s8 gamepad)
 	}
 }
 
-void Audio::listener_enable(s8 gamepad)
+void Audio::listener_enable(s8 gamepad, AI::Team team)
 {
 	s8 mask = 1 << gamepad;
+	listener[gamepad].team = team;
 	if (!(listener_mask & mask))
 	{
 		listener_mask |= mask;
@@ -636,7 +661,7 @@ void Audio::listener_enable(s8 gamepad)
 
 void Audio::listener_update(s8 gamepad, const Vec3& pos, const Quat& rot)
 {
-	listener_pos[gamepad] = pos;
+	listener[gamepad].pos = pos;
 	AkListenerPosition listener_position;
 	listener_position.SetPosition(pos.x, pos.y, pos.z);
 	Vec3 forward = rot * Vec3(0, 0, -1);

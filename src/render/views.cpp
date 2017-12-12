@@ -924,14 +924,14 @@ void Water::update(const Update& u)
 		{
 			if (Audio::listener_mask & (1 << i))
 			{
-				Vec3 p = Audio::listener_pos[i];
+				Vec3 p = Audio::listener[i].pos;
 				p.y = water_pos.y;
 				p.x = vi_max(p.x, bmin.x);
 				p.x = vi_min(p.x, bmax.x);
 				p.z = vi_max(p.z, bmin.z);
 				p.z = vi_min(p.z, bmax.z);
 
-				r32 distance_sq = (p - Audio::listener_pos[i]).length_squared();
+				r32 distance_sq = (p - Audio::listener[i].pos).length_squared();
 				if (distance_sq < closest_distance_sq)
 				{
 					closest_distance_sq = distance_sq;

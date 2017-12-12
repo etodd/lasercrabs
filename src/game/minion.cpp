@@ -25,7 +25,7 @@
 
 #define WALK_SPEED 2.5f
 #define ROTATION_SPEED 4.0f
-#define PATH_RECALC_TIME 1.0f
+#define PATH_RECALC_TIME 2.1f
 #define TARGET_SCAN_TIME 0.5f
 
 namespace VI
@@ -632,7 +632,7 @@ void Minion::update_server(const Update& u)
 						target_timer = 0;
 					}
 				}
-				else
+				else if (goal.entity.ref() && can_see(goal.entity.ref()))
 					goal.entity = nullptr; // our current target no longer matches our criteria
 			}
 		}
@@ -717,7 +717,7 @@ void Minion::update_server(const Update& u)
 						if (recalc)
 						{
 							Vec3 goal_pos = goal_path_position(goal, pos);
-							if (ForceField::hash(get<AIAgent>()->team, pos) == ForceField::hash(get<AIAgent>()->team, goal_pos)
+							if (ForceField::hash(get<AIAgent>()->team, pos, ForceField::HashMode::OnlyInvincible) == ForceField::hash(get<AIAgent>()->team, goal_pos, ForceField::HashMode::OnlyInvincible)
 								|| (goal_pos - pos).length_squared() > FORCE_FIELD_RADIUS * 1.5f * FORCE_FIELD_RADIUS * 1.5f) // if we're far away, keep going toward the target even though there's a force field around it
 							{
 								// recalc path

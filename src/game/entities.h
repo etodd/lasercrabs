@@ -312,12 +312,19 @@ struct ForceFieldCollision : public ComponentType<ForceFieldCollision>
 
 struct ForceField : public ComponentType<ForceField>
 {
+	enum class HashMode : s8
+	{
+		All,
+		OnlyInvincible,
+		count,
+	};
+
 	static r32 particle_accumulator;
 
 	static void update_all(const Update&);
 	static ForceField* inside(AI::TeamMask, const Vec3&);
 	static ForceField* closest(AI::TeamMask, const Vec3&, r32*);
-	static u32 hash(AI::Team, const Vec3&);
+	static u32 hash(AI::Team, const Vec3&, HashMode = HashMode::All);
 	static b8 can_spawn(AI::Team, const Vec3&, r32 = FORCE_FIELD_RADIUS);
 
 	enum Flags

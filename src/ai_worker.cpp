@@ -1137,7 +1137,7 @@ void loop()
 					s32 tries = 0;
 					do
 					{
-						nav_mesh_query->findRandomPointAroundCircle(patrol_point_poly, (r32*)&patrol_point, range * (0.5f + mersenne::randf_co() * 0.5f), &default_query_filter, mersenne::randf_co, &end_poly, (r32*)&end);
+						nav_mesh_query->findRandomPointAroundCircle(patrol_point_poly, (r32*)(&patrol_point), range * (0.75f + mersenne::randf_co() * 0.5f), &default_query_filter, mersenne::randf_co, &end_poly, (r32*)(&end));
 						valid = force_field_hash(nav_game_state, team, end) == hash_start;
 						tries++;
 					} while (!valid && tries < 20);

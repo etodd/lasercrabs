@@ -37,6 +37,21 @@ namespace VI
 {
 
 
+void spawn_sparks(const Vec3& pos, const Quat& rot, Transform* parent)
+{
+	for (s32 i = 0; i < 15; i++)
+	{
+		Particles::sparks.add
+		(
+			pos,
+			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+			Vec4(1, 1, 1, 1)
+		);
+	}
+
+	EffectLight::add(pos, 3.0f, 0.25f, EffectLight::Type::Spark, parent);
+}
+
 DroneEntity::DroneEntity(AI::Team team, const Vec3& pos)
 {
 	create<Audio>();
@@ -71,21 +86,6 @@ Health::Health(s8 hp, s8 hp_max, s8 shield, s8 shield_max)
 	killed(),
 	regen_timer()
 {
-}
-
-void spawn_sparks(const Vec3& pos, const Quat& rot, Transform* parent)
-{
-	for (s32 i = 0; i < 15; i++)
-	{
-		Particles::sparks.add
-		(
-			pos,
-			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-			Vec4(1, 1, 1, 1)
-		);
-	}
-
-	EffectLight::add(pos, 3.0f, 0.25f, EffectLight::Type::Spark, parent);
 }
 
 template<typename Stream> b8 serialize_health_event(Stream* p, Health* h, HealthEvent* e)
@@ -233,6 +233,135 @@ void Health::update_server(const Update& u)
 void Health::update_client(const Update& u)
 {
 	active_armor_timer = vi_max(0.0f, active_armor_timer - u.time.delta);
+}
+
+b8 Health::damage_buffer_required(const Entity* src) const
+{
+#if SERVER
+	return has<PlayerControlHuman>()
+		&& !get<PlayerControlHuman>()->local() // we are a remote player
+		&& src
+		&& (!src->has<PlayerControlHuman>() || !PlayerHuman::players_on_same_client(entity(), src)); // the attacker is remote from the player
+#else
+	return false;
+#endif
+}
+
+void Health::damage(Entity* src, s8 damage)
+{
+	vi_assert(Game::level.local);
+	vi_assert(can_take_damage(src));
+	if (hp > 0 && damage > 0)
+	{
+		if (damage_buffer_required(src))
+		{
+			// do damage buffering
+			BufferedDamage entry;
+			entry.source = src;
+			entry.damage = damage;
+			entry.delay = (vi_min(NET_MAX_RTT_COMPENSATION, Net::rtt(get<PlayerControlHuman>()->player.ref())) + Net::interpolation_delay(get<PlayerControlHuman>()->player.ref()) + Net::tick_rate()) * Game::session.effective_time_scale();
+			if (src->has<Drone>() && src->get<Drone>()->current_ability == Ability::Sniper)
+				entry.type = BufferedDamage::Type::Sniper;
+			else
+				entry.type = BufferedDamage::Type::Other;
+			damage_buffer.add(entry);
+		}
+		else // apply damage immediately
+			health_internal_apply_damage(this, src, damage);
+	}
+}
+
+void Health::damage_force(Entity* src, s8 damage)
+{
+	vi_assert(Game::level.local);
+	if (hp > 0 && damage > 0)
+		health_internal_apply_damage(this, src, damage);
+}
+
+void Health::reset_hp()
+{
+	if (hp < hp_max)
+		add(hp_max - hp);
+}
+
+// bypasses all invincibility calculations and damage buffering
+void Health::kill(Entity* e)
+{
+	damage_force(e, hp + shield);
+}
+
+void Health::add(s8 amount)
+{
+	vi_assert(Game::level.local);
+	amount = vi_min(amount, s8(hp_max - hp));
+	if (amount > 0)
+	{
+		HealthEvent e =
+		{
+			nullptr,
+			amount,
+			0,
+		};
+		health_send_event(this, &e);
+	}
+}
+
+s8 Health::total() const
+{
+	return hp + shield;
+}
+
+b8 Health::active_armor() const
+{
+	if (has<CoreModule>())
+		return active_armor_timer > 0.0f || Turret::list.count() > 0 || Game::level.mode != Game::Mode::Pvp || Team::core_module_delay > 0.0f;
+	else if (has<ForceField>())
+		return active_armor_timer > 0.0f || (get<ForceField>()->flags & ForceField::FlagInvincible);
+	else
+		return active_armor_timer > 0.0f;
+}
+
+b8 Health::can_take_damage(Entity* damager) const
+{
+	if (active_armor())
+		return false;
+
+	if (has<Drone>())
+	{
+		if (UpgradeStation::drone_inside(get<Drone>()))
+			return false;
+
+		if (get<Drone>()->state() == Drone::State::Crawl)
+			return true;
+		else
+		{
+			// invincible when flying or dashing
+
+			// but still vulnerable to enemy drone bolts
+			if (damager && damager->has<Bolt>()
+				&& (damager->get<Bolt>()->type == Bolt::Type::DroneBolter || damager->get<Bolt>()->type == Bolt::Type::DroneShotgun))
+				return true;
+
+			// there is also a grace period where we're still vulnerable to direct drone attacks
+
+			// lag compensation
+			r32 rtt = 0.0f;
+#if SERVER
+			if (damager && damager->has<PlayerControlHuman>() && !PlayerHuman::players_on_same_client(entity(), damager))
+				rtt = vi_min(NET_MAX_RTT_COMPENSATION, damager->get<PlayerControlHuman>()->rtt) + Net::interpolation_delay(damager->get<PlayerControlHuman>()->player.ref());
+#endif
+
+			if (damager && damager->has<Drone>() // grace period only applies if we're being attacked directly by an enemy drone
+				&& Game::time.total - get<Drone>()->attach_time < DRONE_GRACE_PERIOD + rtt)
+				return true; // still vulnerable
+			else
+				return false; // invincible
+		}
+	}
+	else if (has<Battery>() && damager->has<Bolt>())
+		return get<Battery>()->team != damager->get<Bolt>()->team;
+	else
+		return true;
 }
 
 #define DRONE_SHIELD_ALPHA 0.3f
@@ -387,14 +516,29 @@ void Shield::health_changed(const HealthEvent& e)
 			get<Audio>()->post_offset(event_id, offset * DRONE_SHIELD_RADIUS * 2.0f);
 		}
 		else
-			get<Audio>()->post_unattached(event_id);
+		{
+			if (has<Audio>())
+				get<Audio>()->post_unattached(event_id);
+			else
+				Audio::post_global(event_id, get<Transform>()->absolute_pos());
+		}
 	}
 	else if (e.shield > 0)
 	{
 		if (get<Health>()->shield == 1)
-			get<Audio>()->post(AK::EVENTS::PLAY_SHIELD_RESTORE_INNER);
+		{
+			if (has<Audio>())
+				get<Audio>()->post(AK::EVENTS::PLAY_SHIELD_RESTORE_INNER);
+			else
+				Audio::post_global(AK::EVENTS::PLAY_SHIELD_RESTORE_INNER, Vec3::zero, get<Transform>());
+		}
 		else if (get<Health>()->shield == 2)
-			get<Audio>()->post(AK::EVENTS::PLAY_SHIELD_RESTORE_OUTER);
+		{
+			if (has<Audio>())
+				get<Audio>()->post(AK::EVENTS::PLAY_SHIELD_RESTORE_OUTER);
+			else
+				Audio::post_global(AK::EVENTS::PLAY_SHIELD_RESTORE_OUTER, Vec3::zero, get<Transform>());
+		}
 	}
 }
 
@@ -492,135 +636,6 @@ void Shield::update_client(const Update& u)
 			armor_view->color.w = vi_max(0.0f, armor_view->color.w + u.time.delta * -4.0f);
 		alpha_mask(armor_view, mask);
 	}
-}
-
-b8 Health::damage_buffer_required(const Entity* src) const
-{
-#if SERVER
-	return has<PlayerControlHuman>()
-		&& !get<PlayerControlHuman>()->local() // we are a remote player
-		&& src
-		&& (!src->has<PlayerControlHuman>() || !PlayerHuman::players_on_same_client(entity(), src)); // the attacker is remote from the player
-#else
-	return false;
-#endif
-}
-
-void Health::damage(Entity* src, s8 damage)
-{
-	vi_assert(Game::level.local);
-	vi_assert(can_take_damage(src));
-	if (hp > 0 && damage > 0)
-	{
-		if (damage_buffer_required(src))
-		{
-			// do damage buffering
-			BufferedDamage entry;
-			entry.source = src;
-			entry.damage = damage;
-			entry.delay = (vi_min(NET_MAX_RTT_COMPENSATION, Net::rtt(get<PlayerControlHuman>()->player.ref())) + Net::interpolation_delay(get<PlayerControlHuman>()->player.ref()) + Net::tick_rate()) * Game::session.effective_time_scale();
-			if (src->has<Drone>() && src->get<Drone>()->current_ability == Ability::Sniper)
-				entry.type = BufferedDamage::Type::Sniper;
-			else
-				entry.type = BufferedDamage::Type::Other;
-			damage_buffer.add(entry);
-		}
-		else // apply damage immediately
-			health_internal_apply_damage(this, src, damage);
-	}
-}
-
-void Health::damage_force(Entity* src, s8 damage)
-{
-	vi_assert(Game::level.local);
-	if (hp > 0 && damage > 0)
-		health_internal_apply_damage(this, src, damage);
-}
-
-void Health::reset_hp()
-{
-	if (hp < hp_max)
-		add(hp_max - hp);
-}
-
-// bypasses all invincibility calculations and damage buffering
-void Health::kill(Entity* e)
-{
-	damage_force(e, hp + shield);
-}
-
-void Health::add(s8 amount)
-{
-	vi_assert(Game::level.local);
-	amount = vi_min(amount, s8(hp_max - hp));
-	if (amount > 0)
-	{
-		HealthEvent e =
-		{
-			nullptr,
-			amount,
-			0,
-		};
-		health_send_event(this, &e);
-	}
-}
-
-s8 Health::total() const
-{
-	return hp + shield;
-}
-
-b8 Health::active_armor() const
-{
-	if (has<CoreModule>())
-		return active_armor_timer > 0.0f || Turret::list.count() > 0 || Game::level.mode != Game::Mode::Pvp || Team::core_module_delay > 0.0f;
-	else if (has<ForceField>())
-		return active_armor_timer > 0.0f || (get<ForceField>()->flags & ForceField::FlagInvincible);
-	else
-		return active_armor_timer > 0.0f;
-}
-
-b8 Health::can_take_damage(Entity* damager) const
-{
-	if (active_armor())
-		return false;
-
-	if (has<Drone>())
-	{
-		if (UpgradeStation::drone_inside(get<Drone>()))
-			return false;
-
-		if (get<Drone>()->state() == Drone::State::Crawl)
-			return true;
-		else
-		{
-			// invincible when flying or dashing
-
-			// but still vulnerable to enemy drone bolts
-			if (damager && damager->has<Bolt>()
-				&& (damager->get<Bolt>()->type == Bolt::Type::DroneBolter || damager->get<Bolt>()->type == Bolt::Type::DroneShotgun))
-				return true;
-
-			// there is also a grace period where we're still vulnerable to direct drone attacks
-
-			// lag compensation
-			r32 rtt = 0.0f;
-#if SERVER
-			if (damager && damager->has<PlayerControlHuman>() && !PlayerHuman::players_on_same_client(entity(), damager))
-				rtt = vi_min(NET_MAX_RTT_COMPENSATION, damager->get<PlayerControlHuman>()->rtt) + Net::interpolation_delay(damager->get<PlayerControlHuman>()->player.ref());
-#endif
-
-			if (damager && damager->has<Drone>() // grace period only applies if we're being attacked directly by an enemy drone
-				&& Game::time.total - get<Drone>()->attach_time < DRONE_GRACE_PERIOD + rtt)
-				return true; // still vulnerable
-			else
-				return false; // invincible
-		}
-	}
-	else if (has<Battery>() && damager->has<Bolt>())
-		return get<Battery>()->team != damager->get<Bolt>()->team;
-	else
-		return true;
 }
 
 BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
@@ -1037,7 +1052,9 @@ void SpawnPoint::update_server_all(const Update& u)
 		&& Game::session.config.enable_minions)
 	{
 		const s32 minion_group = 3;
-		const r32 minion_initial_delay = Game::session.config.game_type == GameType::Deathmatch ? 45.0f : 20.0f;
+		const r32 minion_initial_delay = Game::session.type == SessionType::Story
+			? 3.0f
+			: (Game::session.config.game_type == GameType::Deathmatch ? 45.0f : 20.0f);
 		const r32 minion_spawn_interval = 9.0f;
 		const r32 minion_group_interval = minion_spawn_interval * 12.0f; // must be a multiple of minion_spawn_interval
 		r32 t = Team::match_time - minion_initial_delay;
@@ -1322,7 +1339,15 @@ void Rectifier::killed_by(Entity* e)
 	vi_assert(!has<Battery>());
 	PlayerManager::entity_killed_by(entity(), e);
 	if (Game::level.local)
+	{
+		{
+			Vec3 pos;
+			Quat rot;
+			get<Transform>()->absolute(&pos, &rot);
+			ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+		}
 		World::remove_deferred(entity());
+	}
 }
 
 void rectifier_update(const Vec3& rectifier_pos, r32 particle_lerp, Entity* e, b8 particle, b8 heal, PlayerManager* owner)
@@ -1728,8 +1753,6 @@ CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3&
 	create<CoreModule>()->team = team;
 
 	create<Shield>();
-
-	create<Audio>();
 }
 
 void CoreModule::awake()
@@ -2106,12 +2129,14 @@ b8 ForceField::contains(const Vec3& pos) const
 }
 
 // describes which enemy force fields you are currently inside
-u32 ForceField::hash(AI::Team my_team, const Vec3& pos)
+u32 ForceField::hash(AI::Team my_team, const Vec3& pos, HashMode mode)
 {
 	u32 result = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team != my_team && (pos - i.item()->get<Transform>()->absolute_pos()).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS)
+		if (i.item()->team != my_team
+			&& (mode == HashMode::All || (i.item()->flags & FlagInvincible))
+			&& (pos - i.item()->get<Transform>()->absolute_pos()).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS)
 		{
 			if (result == 0)
 				result = 1;

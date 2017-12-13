@@ -322,12 +322,15 @@ void RigidBody::set_ghost(b8 g)
 
 void RigidBody::set_collision_masks(s16 group, s16 filter)
 {
-	collision_group = group;
-	collision_filter = filter;
-	if (btBody)
+	if (collision_group != group || collision_filter != filter)
 	{
-		Physics::btWorld->removeRigidBody(btBody);
-		Physics::btWorld->addRigidBody(btBody, group, filter);
+		collision_group = group;
+		collision_filter = filter;
+		if (btBody)
+		{
+			Physics::btWorld->removeRigidBody(btBody);
+			Physics::btWorld->addRigidBody(btBody, group, filter);
+		}
 	}
 }
 

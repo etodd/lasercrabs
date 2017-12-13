@@ -171,7 +171,7 @@ void Console::debug(const char* format, ...)
 	va_end(args);
 
 	s32 buffer_start = debug_buffer.length;
-	s32 buffer_length = strlen(buffer);
+	s32 buffer_length = s32(strlen(buffer));
 	if (debug_buffer.length > 0)
 		debug_buffer[debug_buffer.length - 1] = '\n';
 

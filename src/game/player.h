@@ -225,7 +225,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void draw_ui_early(const RenderParams&) const;
 	void draw_turret_battery_flag_icons(const RenderParams&) const;
 	void draw_ui(const RenderParams&) const;
-	void draw_alpha(const RenderParams&) const;
+	void draw_alpha_late(const RenderParams&) const;
 	void spawn(const SpawnPosition&);
 	void assault_status_display();
 	void energy_notify(s32);
@@ -284,7 +284,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	{
 		FlagTryPrimary = 1 << 0,
 		FlagTrySecondary = 1 << 1,
-		FlagTryGrapple = 1 << 2,
+		FlagGrappleValid = 1 << 2,
 	};
 
 	struct Reticle
@@ -396,6 +396,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void update(const Update&);
 	void update_late(const Update&);
 	void draw_ui(const RenderParams&) const;
+	void draw_alpha_late(const RenderParams&) const;
 
 	void update_camera_input(const Update&, r32 = 1.0f, r32 = 1.0f);
 	b8 input_enabled() const;

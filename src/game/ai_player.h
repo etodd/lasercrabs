@@ -42,7 +42,7 @@ struct PlayerAI
 	PlayerAI(PlayerManager*, const AI::Config&);
 	inline ID id() const
 	{
-		return this - &list[0];
+		return ID(this - &list[0]);
 	}
 	void update(const Update&);
 	void spawn(const SpawnPosition&);

@@ -1060,8 +1060,8 @@ void SpawnPoint::update_server_all(const Update& u)
 		r32 t = Team::match_time - minion_initial_delay;
 		if (t > 0.0f)
 		{
-			s32 index = t / minion_spawn_interval;
-			s32 index_last = (t - u.time.delta) / minion_spawn_interval;
+			s32 index = s32(t / minion_spawn_interval);
+			s32 index_last = s32((t - u.time.delta) / minion_spawn_interval);
 			if (index != index_last && (index % s32(minion_group_interval / minion_spawn_interval)) <= minion_group)
 			{
 				// spawn points owned by a team will spawn a minion
@@ -2022,7 +2022,7 @@ void Turret::check_target()
 
 	Ref<Entity> target_new = nullptr;
 
-	r32 target_priority = 0;
+	s32 target_priority = 0;
 	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 	{
 		Entity* e = i.item()->entity();
@@ -2032,7 +2032,7 @@ void Turret::check_target()
 			&& e_team != team
 			&& can_see(i.item()->entity()))
 		{
-			r32 candidate_priority = turret_priority(i.item()->entity());
+			s32 candidate_priority = turret_priority(i.item()->entity());
 			if (candidate_priority > target_priority)
 			{
 				target_new = i.item()->entity();

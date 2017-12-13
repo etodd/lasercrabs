@@ -104,7 +104,7 @@ struct Instance
 
 	inline ID id() const
 	{
-		return this - &list[0];
+		return ID(this - &list[0]);
 	}
 
 	Instance()
@@ -492,7 +492,7 @@ namespace splash
 		data->camera.ref()->viewport =
 		{
 			Vec2(0, 0),
-			Vec2(Settings::display().width, Settings::display().height),
+			Vec2(r32(Settings::display().width), r32(Settings::display().height)),
 		};
 		const r32 fov = 40.0f * PI * 0.5f / 180.0f;
 		data->camera.ref()->perspective(fov, 0.1f, Game::level.far_plane_get());
@@ -844,7 +844,7 @@ namespace Docks
 			data->camera.ref()->viewport =
 			{
 				Vec2(0, 0),
-				Vec2(Settings::display().width, Settings::display().height),
+				Vec2(r32(Settings::display().width), r32(Settings::display().height)),
 			};
 			data->camera.ref()->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), 0.1f, Game::level.far_plane_get());
 
@@ -996,15 +996,15 @@ namespace Docks
 			// fire
 			r32 offset = Game::time.total * 10.0f;
 			const r32 radius = 0.25f;
-			data->fire.ref()->pos = data->fire_start_pos + Vec3(noise::sample3d(Vec3(offset)) * radius, noise::sample3d(Vec3(offset + 67)) * radius, noise::sample3d(Vec3(offset + 137)) * radius);
-			data->fire.ref()->get<PointLight>()->radius = 7.0f + noise::sample3d(Vec3(offset + 191));
+			data->fire.ref()->pos = data->fire_start_pos + Vec3(noise::sample2d(Vec2(offset)) * radius, noise::sample2d(Vec2(offset + 67)) * radius, noise::sample2d(Vec2(offset + 137)) * radius);
+			data->fire.ref()->get<PointLight>()->radius = 7.0f + noise::sample2d(Vec2(offset + 191));
 
 			const r32 fire_interval = 0.01f;
 			data->fire_accumulator += u.time.delta;
 			while (data->fire_accumulator > fire_interval)
 			{
 				r32 offset = (Game::time.total - data->fire_accumulator) * 10.0f;
-				Vec3 pos = data->fire_start_pos + Vec3(noise::sample3d(Vec3(offset)) * radius, -0.4f + noise::sample3d(Vec3(offset + 67)) * radius, noise::sample3d(Vec3(offset + 137)) * radius);
+				Vec3 pos = data->fire_start_pos + Vec3(noise::sample2d(Vec2(offset)) * radius, -0.4f + noise::sample2d(Vec2(offset + 67)) * radius, noise::sample2d(Vec2(offset + 137)) * radius);
 				Particles::smoke.add(pos, Vec3(0, 1.5f, 0));
 				data->fire_accumulator -= fire_interval;
 			}

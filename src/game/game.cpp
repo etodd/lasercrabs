@@ -372,7 +372,7 @@ void Game::update(InputState* input, const InputState* last_input)
 #if !SERVER
 	if (UI::cursor_active())
 	{
-		UI::cursor_pos += Vec2(input->cursor_x, -input->cursor_y);
+		UI::cursor_pos += Vec2(r32(input->cursor_x), r32(-input->cursor_y));
 		const DisplayMode& display = Settings::display();
 		UI::cursor_pos.x = vi_max(0.0f, vi_min(UI::cursor_pos.x, r32(display.width)));
 		UI::cursor_pos.y = vi_max(0.0f, vi_min(UI::cursor_pos.y, r32(display.height)));
@@ -1062,10 +1062,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 	PlayerHuman* player_human = PlayerHuman::for_camera(render_params.camera);
 
 	if (player_human)
-	{
-		player_human->draw_alpha(render_params);
 		player_human->draw_ui_early(render_params);
-	}
 
 	Ascensions::draw_ui(render_params);
 
@@ -1147,6 +1144,12 @@ void Game::draw_additive(const RenderParams& render_params)
 void Game::draw_alpha_late(const RenderParams& render_params)
 {
 	Water::draw_alpha_late(render_params);
+	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+		i.item()->draw_alpha_late(render_params);
+
+	PlayerHuman* player_human = PlayerHuman::for_camera(render_params.camera);
+	if (player_human)
+		player_human->draw_alpha_late(render_params);
 }
 
 #endif
@@ -1286,11 +1289,11 @@ void Game::execute(const char* cmd)
 		const char* delimiter = strchr(cmd, ' ');
 		const char* number_string = delimiter + 1;
 		char* end;
-		r32 value = std::strtod(number_string, &end);
+		s32 value = s32(std::strtol(number_string, &end, 10));
 		if (*end == '\0')
 		{
 			for (s32 i = 0; i < s32(Resource::ConsumableCount); i++)
-				Overworld::resource_change(Resource(i), value);
+				Overworld::resource_change(Resource(i), s16(value));
 		}
 	}
 	else if (strcmp(cmd, "abilities") == 0)
@@ -1323,7 +1326,7 @@ void Game::execute(const char* cmd)
 		const char* delimiter = strchr(cmd, ' ');
 		const char* number_string = delimiter + 1;
 		char* end;
-		r32 value = std::strtod(number_string, &end);
+		r32 value = r32(std::strtod(number_string, &end));
 		if (*end == '\0')
 		{
 			session.time_scale = value;
@@ -1337,7 +1340,7 @@ void Game::execute(const char* cmd)
 		const char* delimiter = strchr(cmd, ' ');
 		const char* number_string = delimiter + 1;
 		char* end;
-		s32 value = (s32)std::strtol(number_string, &end, 10);
+		s32 value = s32(std::strtol(number_string, &end, 10));
 		if (*end == '\0')
 		{
 			if (level.mode == Mode::Parkour)
@@ -2406,7 +2409,10 @@ void Game::awake_all()
 			Loader::animation(Asset::Animation::character_wall_run_straight);
 			Loader::animation(Asset::Animation::character_wall_slide);
 
+			Loader::shader(Asset::Shader::flat_texture_offset);
+
 			Loader::mesh(Asset::Mesh::plane);
+			Loader::mesh(Asset::Mesh::reticle_grapple);
 		}
 
 		Loader::mesh(Asset::Mesh::cylinder);
@@ -2427,7 +2433,8 @@ void Game::awake_all()
 		Loader::mesh(Asset::Mesh::icon_force_field);
 		Loader::mesh(Asset::Mesh::icon_flag);
 		Loader::mesh(Asset::Mesh::icon_drone);
-		Loader::mesh(Asset::Mesh::icon_cursor);
+		Loader::mesh(Asset::Mesh::icon_cursor_main);
+		Loader::mesh(Asset::Mesh::icon_cursor_border);
 		Loader::mesh(Asset::Mesh::icon_core_module);
 		Loader::mesh(Asset::Mesh::icon_close);
 		Loader::mesh(Asset::Mesh::icon_chevron);

@@ -15,6 +15,8 @@ struct Traceur : public Entity
 
 #define LANDING_VELOCITY_LIGHT 5.0f * -1.25f
 #define LANDING_VELOCITY_HARD 5.0f * -2.65f
+#define GRAPPLE_COOLDOWN_THRESHOLD 3.0f
+#define GRAPPLE_COOLDOWN 4.5f
 
 struct Minion;
 struct Transform;
@@ -29,6 +31,7 @@ struct Parkour : public ComponentType<Parkour>
 		HardLanding,
 		WallRun,
 		Climb,
+		Grapple,
 		count,
 	};
 
@@ -41,7 +44,7 @@ struct Parkour : public ComponentType<Parkour>
 		count,
 	};
 
-	enum class MantleAttempt
+	enum class MantleAttempt : s8
 	{
 		Normal,
 		Extra,
@@ -60,20 +63,24 @@ struct Parkour : public ComponentType<Parkour>
 	enum Flags
 	{
 		FlagCanDoubleJump = 1 << 0,
-		FlagGrapple = 1 << 1,
+		FlagTryGrapple = 1 << 1,
 	};
 
+	Vec3 grapple_start_pos;
+	Vec3 grapple_normal;
+	Vec3 grapple_pos;
 	Vec3 relative_wall_run_normal;
 	Vec3 relative_support_pos;
 	Vec3 relative_animation_start_pos;
+	r32 grapple_cooldown;
 	r32 last_support_time;
 	r32 last_jump_time;
+	r32 last_footstep_time;
+	r32 last_climb_time;
 	r32 lean;
 	r32 last_angular_velocity;
 	r32 last_angle_horizontal;
-	r32 last_footstep;
 	r32 climb_velocity;
-	r32 last_climb_time;
 	r32 breathing;
 	StaticArray<TilePos, 8> tile_history;
 	StaticArray<Vec3, 4> jump_history;
@@ -114,7 +121,10 @@ struct Parkour : public ComponentType<Parkour>
 	b8 try_jump(r32);
 	void do_normal_jump();
 	b8 try_parkour(MantleAttempt = MantleAttempt::Normal);
-	b8 try_grapple(const Vec3&, const Quat&);
+	void grapple_start(const Vec3&, const Quat&);
+	void grapple_cancel();
+	b8 grapple_valid(const Vec3&, const Quat&, Vec3* = nullptr, Vec3* = nullptr) const;
+	b8 grapple_try(const Vec3&, const Quat&);
 	Vec3 head_pos() const;
 	Vec3 hand_pos() const;
 	void head_to_object_space(Vec3*, Quat*) const;

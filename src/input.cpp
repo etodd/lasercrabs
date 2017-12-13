@@ -582,7 +582,7 @@ TextField::TextField()
 
 void TextField::set(const char* v)
 {
-	value.resize(strlen(v) + 1);
+	value.resize(s32(strlen(v)) + 1);
 	memcpy(value.data, v, value.length - 1);
 	value[value.length - 1] = '\0';
 }

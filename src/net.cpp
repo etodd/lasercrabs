@@ -758,7 +758,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_s16(p, m->flags_captured);
 		s32 username_length;
 		if (Stream::IsWriting)
-			username_length = strlen(m->username);
+			username_length = s32(strlen(m->username));
 		serialize_int(p, s32, username_length, 0, MAX_USERNAME);
 		serialize_bytes(p, (u8*)m->username, username_length);
 		if (Stream::IsReading)
@@ -881,7 +881,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	{
 		s32 ambience_length;
 		if (Stream::IsWriting)
-			ambience_length = strlen(Game::level.ambience);
+			ambience_length = s32(strlen(Game::level.ambience));
 		serialize_int(p, s32, ambience_length, 0, MAX_AUDIO_EVENT_NAME);
 		serialize_bytes(p, (u8*)Game::level.ambience, ambience_length);
 		if (Stream::IsReading)
@@ -1964,7 +1964,7 @@ const StateFrame* state_frame_next(const StateHistory& history, const StateFrame
 {
 	if (history.frames.length > 1)
 	{
-		s32 current_index = &frame - history.frames.data;
+		s32 current_index = s32(&frame - history.frames.data);
 		s32 index = current_index;
 		while (true)
 		{
@@ -2403,7 +2403,7 @@ void handle_client_disconnect(Client* c)
 			World::remove_deferred(player->entity());
 		}
 	}
-	state_server.clients.remove(c - &state_server.clients[0]);
+	state_server.clients.remove(s32(c - &state_server.clients[0]));
 	master_send_status_update();
 }
 
@@ -3294,11 +3294,11 @@ b8 master_send_auth()
 
 	if (Game::auth_type == Master::AuthType::GameJolt)
 	{
-		s32 length = strlen(Settings::gamejolt_username);
+		s32 length = s32(strlen(Settings::gamejolt_username));
 		serialize_int(&p, s32, length, 0, MAX_PATH_LENGTH);
 		serialize_bytes(&p, (u8*)Settings::gamejolt_username, length);
 
-		length = strlen(Settings::gamejolt_token);
+		length = s32(strlen(Settings::gamejolt_token));
 		serialize_int(&p, s32, length, 0, MAX_AUTH_KEY);
 		serialize_bytes(&p, (u8*)Settings::gamejolt_token, length);
 	}
@@ -3307,7 +3307,7 @@ b8 master_send_auth()
 #if !defined(__ORBIS__)
 		if (Game::auth_type == Master::AuthType::Steam)
 		{
-			s32 length = strlen(Game::steam_username);
+			s32 length = s32(strlen(Game::steam_username));
 			serialize_int(&p, s32, length, 0, MAX_PATH_LENGTH);
 			serialize_bytes(&p, (u8*)Game::steam_username, length);
 		}
@@ -4177,7 +4177,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					serialize_u32(p2, Game::user_key.id);
 					serialize_u32(p2, Game::user_key.token);
 
-					s32 username_length = strlen(Settings::username);
+					s32 username_length = s32(strlen(Settings::username));
 					serialize_int(p2, s32, username_length, 0, MAX_USERNAME);
 					serialize_bytes(p2, (u8*)Settings::username, username_length);
 
@@ -4421,7 +4421,7 @@ b8 execute(const char* string)
 {
 	using Stream = StreamWrite;
 	Stream* p = msg_new(MessageType::DebugCommand);
-	s32 len = strlen(string);
+	s32 len = s32(strlen(string));
 	serialize_int(p, s32, len, 0, 512);
 	serialize_bytes(p, (u8*)string, len);
 	msg_finalize(p);

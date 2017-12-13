@@ -74,7 +74,7 @@ namespace Asset
 	}
 	namespace Shader
 	{
-		const s32 count = 38;
+		const s32 count = 39;
 		const AssetID armature = 0;
 		const AssetID blit = 1;
 		const AssetID bloom_downsample = 2;
@@ -87,32 +87,33 @@ namespace Asset
 		const AssetID flat = 9;
 		const AssetID flat_instanced = 10;
 		const AssetID flat_texture = 11;
-		const AssetID fresnel = 12;
-		const AssetID global_light = 13;
-		const AssetID nav_dots = 14;
-		const AssetID particle_alpha = 15;
-		const AssetID particle_eased = 16;
-		const AssetID particle_limited_size = 17;
-		const AssetID particle_rain = 18;
-		const AssetID particle_spark = 19;
-		const AssetID particle_standard = 20;
-		const AssetID particle_textured = 21;
-		const AssetID point_light = 22;
-		const AssetID scan_lines = 23;
-		const AssetID sky_decal = 24;
-		const AssetID skybox = 25;
-		const AssetID spot_light = 26;
-		const AssetID ssao = 27;
-		const AssetID ssao_blur = 28;
-		const AssetID ssao_downsample = 29;
-		const AssetID standard = 30;
-		const AssetID standard_flat = 31;
-		const AssetID standard_instanced = 32;
-		const AssetID stencil_back_faces = 33;
-		const AssetID ui = 34;
-		const AssetID ui_texture = 35;
-		const AssetID underwater = 36;
-		const AssetID water = 37;
+		const AssetID flat_texture_offset = 12;
+		const AssetID fresnel = 13;
+		const AssetID global_light = 14;
+		const AssetID nav_dots = 15;
+		const AssetID particle_alpha = 16;
+		const AssetID particle_eased = 17;
+		const AssetID particle_limited_size = 18;
+		const AssetID particle_rain = 19;
+		const AssetID particle_spark = 20;
+		const AssetID particle_standard = 21;
+		const AssetID particle_textured = 22;
+		const AssetID point_light = 23;
+		const AssetID scan_lines = 24;
+		const AssetID sky_decal = 25;
+		const AssetID skybox = 26;
+		const AssetID spot_light = 27;
+		const AssetID ssao = 28;
+		const AssetID ssao_blur = 29;
+		const AssetID ssao_downsample = 30;
+		const AssetID standard = 31;
+		const AssetID standard_flat = 32;
+		const AssetID standard_instanced = 33;
+		const AssetID stencil_back_faces = 34;
+		const AssetID ui = 35;
+		const AssetID ui_texture = 36;
+		const AssetID underwater = 37;
+		const AssetID water = 38;
 	}
 }
 

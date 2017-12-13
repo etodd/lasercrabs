@@ -250,7 +250,7 @@ template<typename T> struct Chunks
 
 	Vec3 pos(Coord coord) const
 	{
-		Vec3 offset(coord.x, coord.y, coord.z);
+		Vec3 offset(r32(coord.x), r32(coord.y), r32(coord.z));
 		return vmin + (offset + Vec3(0.5f)) * chunk_size;
 	}
 

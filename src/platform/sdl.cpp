@@ -45,14 +45,14 @@ namespace VI
 			return (u64)t;
 		}
 
-		double time()
+		r64 time()
 		{
 			return (SDL_GetTicks() / 1000.0);
 		}
 
-		void sleep(float time)
+		void sleep(r32 time)
 		{
-			SDL_Delay(time * 1000.0f);
+			SDL_Delay(u32(time * 1000.0f));
 		}
 
 	}

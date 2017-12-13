@@ -80,6 +80,7 @@ void Parkour::awake()
 	animator->layers[0].behavior = Animator::Behavior::Loop;
 	animator->layers[0].play(Asset::Animation::character_idle);
 	animator->layers[1].blend_time = 0.2f;
+	animator->layers[2].blend_time = 0.08f;
 	animator->layers[2].behavior = Animator::Behavior::Loop;
 	link<&Parkour::climb_sound>(animator->trigger(Asset::Animation::character_climb_down, 0.0f));
 	link<&Parkour::climb_sound>(animator->trigger(Asset::Animation::character_climb_up, 0.0f));
@@ -173,7 +174,7 @@ void Parkour::head_to_object_space(Vec3* pos, Quat* rot) const
 void Parkour::footstep()
 {
 	if ((fsm.current == State::Normal || fsm.current == State::WallRun)
-		&& Game::time.total - last_footstep > 0.2f)
+		&& Game::time.total - last_footstep_time > 0.2f)
 	{
 		Vec3 base_pos = get<Walker>()->base_pos();
 		if (fsm.current == State::WallRun)
@@ -206,7 +207,7 @@ void Parkour::footstep()
 		RigidBody* support = get<Walker>()->support.ref();
 		EffectLight::add(base_pos, 0.5f, 5.0f, EffectLight::Type::Shockwave, support ? support->get<Transform>() : nullptr);
 
-		last_footstep = Game::time.total;
+		last_footstep_time = Game::time.total;
 	}
 }
 
@@ -526,7 +527,30 @@ void Parkour::update(const Update& u)
 		}
 	}
 
-	if (fsm.current == State::Mantle)
+	if (fsm.current == State::Grapple)
+		get<RigidBody>()->set_collision_masks(0, 0);
+	else
+	{
+		get<RigidBody>()->set_collision_masks(CollisionWalker, ~Team::force_field_mask(get<AIAgent>()->team));
+		grapple_cooldown = vi_max(0.0f, grapple_cooldown - u.time.delta);
+	}
+
+	get<Animator>()->layers[2].play(fsm.current == State::Grapple
+		? Asset::Animation::character_grapple_fire
+		: (flag(FlagTryGrapple) ? Asset::Animation::character_grapple_aim : AssetNull));
+
+	if (fsm.current == State::Grapple)
+	{
+		const r32 grapple_time = 0.1f;
+		r32 blend = Ease::cubic_in_out<r32>(vi_min(1.0f, fsm.time / grapple_time));
+		get<Walker>()->absolute_pos(Vec3::lerp(blend, grapple_start_pos, grapple_pos));
+		if (blend == 1.0f)
+		{
+			fsm.transition(State::Normal);
+			get<RigidBody>()->btBody->setLinearVelocity(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, get<Walker>()->net_speed));
+		}
+	}
+	else if (fsm.current == State::Mantle)
 	{
 		// top-out animation is slower than mantle animation
 		const r32 mantle_time = get<Animator>()->layers[1].animation == Asset::Animation::character_mantle ? 0.4f : 1.2f;
@@ -611,7 +635,7 @@ void Parkour::update(const Update& u)
 					if (!try_wall_run(WallRunState::Forward, forward))
 					{
 						// check if we need to transfer between walls that are slightly angled
-						Vec3 ray_dir = rot * Vec3(wall_run_state == WallRunState::Left ? 1 : -1, 0, 1);
+						Vec3 ray_dir = rot * Vec3(r32(wall_run_state == WallRunState::Left ? 1 : -1), 0, 1);
 						Vec3 ray_end = ray_start + ray_dir * (WALKER_PARKOUR_RADIUS * WALL_RUN_DISTANCE_RATIO);
 						btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 						Physics::raycast(&ray_callback, CollisionParkour);
@@ -825,8 +849,6 @@ void Parkour::update(const Update& u)
 
 	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::HardLanding;
 
-	get<Animator>()->layers[2].play(flag(FlagGrapple) ? Asset::Animation::character_grapple_aim : AssetNull);
-
 	{
 		if (fsm.current == State::Normal && Game::time.total - last_climb_time > JUMP_GRACE_PERIOD * 2.0f)
 		{
@@ -979,13 +1001,13 @@ void Parkour::spawn_tiles(const Vec3& relative_wall_right, const Vec3& relative_
 		{
 			for (s32 y = -s32(TILE_CREATE_RADIUS); y <= s32(TILE_CREATE_RADIUS); y++)
 			{
-				if (Vec2(x, y).length_squared() < TILE_CREATE_RADIUS * TILE_CREATE_RADIUS)
+				if (Vec2(r32(x), r32(y)).length_squared() < TILE_CREATE_RADIUS * TILE_CREATE_RADIUS)
 				{
 					b8 create = true;
 					for (s32 i = tile_history.length - 1; i >= 0; i--)
 					{
 						const TilePos& history_coord = tile_history[i];
-						if (Vec2(wall_coord.x + x - history_coord.x, wall_coord.y + y - history_coord.y).length_squared() < (TILE_CREATE_RADIUS + TILE_SIZE) * (TILE_CREATE_RADIUS + TILE_SIZE))
+						if (Vec2(r32(wall_coord.x + x - history_coord.x), r32(wall_coord.y + y - history_coord.y)).length_squared() < (TILE_CREATE_RADIUS + TILE_SIZE) * (TILE_CREATE_RADIUS + TILE_SIZE))
 						{
 							create = false;
 							break;
@@ -994,7 +1016,7 @@ void Parkour::spawn_tiles(const Vec3& relative_wall_right, const Vec3& relative_
 
 					if (create && Tile::list.count() < MAX_ENTITIES)
 					{
-						Vec2 relative_tile_wall_coord = Vec2(wall_coord.x + x, wall_coord.y + y) * TILE_SIZE;
+						Vec2 relative_tile_wall_coord = Vec2(r32(wall_coord.x + x), r32(wall_coord.y + y)) * TILE_SIZE;
 						Vec3 relative_tile_pos = (relative_wall_right * relative_tile_wall_coord.x)
 							+ (relative_wall_up * relative_tile_wall_coord.y)
 							+ (relative_wall_normal * relative_wall_z);
@@ -1160,9 +1182,9 @@ b8 Parkour::try_jump(r32 rotation)
 			{
 				for (s32 y = -s32(TILE_CREATE_RADIUS); y <= s32(radius); y++)
 				{
-					if (Vec2(x, y).length_squared() < radius * radius)
+					if (Vec2(r32(x), r32(y)).length_squared() < radius * radius)
 					{
-						Tile::add(pos + Vec3(x, 0, y) * TILE_SIZE, tile_rot, spawn_offset, nullptr, 0.15f + 0.05f * i);
+						Tile::add(pos + Vec3(r32(x), 0, r32(y)) * TILE_SIZE, tile_rot, spawn_offset, nullptr, 0.15f + 0.05f * i);
 						i++;
 					}
 				}
@@ -1352,19 +1374,69 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 	return false;
 }
 
-b8 Parkour::try_grapple(const Vec3& start_pos, const Quat& start_rot)
+void Parkour::grapple_start(const Vec3& start_pos, const Quat& start_rot)
 {
-	RaycastCallbackExcept ray_callback(start_pos, start_pos + start_rot * Vec3(0, 0, DRONE_MAX_DISTANCE * 1.5f), entity());
-	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
-	if (ray_callback.hasHit()
-		&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK)
-		&& (Vec3(ray_callback.m_hitPointWorld) - hand_pos()).length_squared() < DRONE_MAX_DISTANCE * DRONE_MAX_DISTANCE)
-	{
-		// teleport there
-		get<Walker>()->absolute_pos(ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * WALKER_PARKOUR_RADIUS);
-		return true;
-	}
+	flag(FlagTryGrapple, true);
+}
 
+void Parkour::grapple_cancel()
+{
+	flag(FlagTryGrapple, false);
+}
+
+b8 grapple_possible(const Parkour* parkour)
+{
+	return parkour->grapple_cooldown < GRAPPLE_COOLDOWN_THRESHOLD
+		&& parkour->fsm.current != Parkour::State::HardLanding
+		&& parkour->fsm.current != Parkour::State::Mantle
+		&& parkour->fsm.current != Parkour::State::Grapple
+		&& parkour->get<Animator>()->layers[3].animation == AssetNull;
+}
+
+b8 grapple_raycast(const Parkour* parkour, const Vec3& start_pos, const Quat& start_rot, Vec3* hit, Vec3* normal)
+{
+	RaycastCallbackExcept ray_callback(start_pos, start_pos + start_rot * Vec3(0, 0, DRONE_MAX_DISTANCE * 1.5f), parkour->entity());
+	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
+	if (ray_callback.hasHit())
+	{
+		if (hit)
+			*hit = ray_callback.m_hitPointWorld;
+		if (normal)
+			*normal = ray_callback.m_hitNormalWorld;;
+		return !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK)
+			&& (Vec3(ray_callback.m_hitPointWorld) - parkour->hand_pos()).length_squared() < DRONE_MAX_DISTANCE * DRONE_MAX_DISTANCE;
+	}
+	else
+	{
+		if (hit)
+			*hit = start_pos + start_rot * Vec3(0, 0, DRONE_MAX_DISTANCE);
+		if (normal)
+			*normal = start_rot * Vec3(0, 0, -1);
+		return false;
+	}
+}
+
+b8 Parkour::grapple_valid(const Vec3& start_pos, const Quat& start_rot, Vec3* pos, Vec3* normal) const
+{
+	return grapple_raycast(this, start_pos, start_rot, pos, normal) && grapple_possible(this);
+}
+
+b8 Parkour::grapple_try(const Vec3& start_pos, const Quat& start_rot)
+{
+	flag(FlagTryGrapple, false);
+	if (grapple_possible(this))
+	{
+		Vec3 hit;
+		Vec3 normal;
+		if (grapple_raycast(this, start_pos, start_rot, &hit, &normal))
+		{
+			fsm.transition(State::Grapple);
+			grapple_start_pos = get<Transform>()->absolute_pos();
+			grapple_pos = hit + normal * (fabsf(normal.y) > 0.707f ? WALKER_HEIGHT : WALKER_PARKOUR_RADIUS);
+			grapple_cooldown += GRAPPLE_COOLDOWN;
+			return true;
+		}
+	}
 	return false;
 }
 

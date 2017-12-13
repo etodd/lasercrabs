@@ -6,7 +6,7 @@
 #include "mersenne/mersenne-twister.h"
 #include "game/audio.h"
 
-#define RECORD_VERSION 1
+#define RECORD_VERSION 2
 
 #define DEBUG_WALK 0
 #define DEBUG_DRONE 0
@@ -1376,7 +1376,7 @@ void loop()
 			{
 				u32 id;
 				AI::Team team;
-				s8 remaining_drones;
+				s16 remaining_drones;
 				sync_in.read(&id);
 				sync_in.read(&team);
 				sync_in.read(&remaining_drones);

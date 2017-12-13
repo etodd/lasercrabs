@@ -1007,7 +1007,7 @@ void update_end(const Update& u)
 			camera_connecting.ref()->viewport =
 			{
 				Vec2::zero,
-				Vec2(display.width, display.height),
+				Vec2(r32(display.width), r32(display.height)),
 			};
 			camera_connecting.ref()->perspective((60.0f * PI * 0.5f / 180.0f), 0.1f, Game::level.far_plane_get());
 			camera_connecting.ref()->mask = 0; // don't display anything; entities will be popping in over the network

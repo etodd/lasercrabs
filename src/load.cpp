@@ -172,7 +172,7 @@ void Loader::init(LoopSwapper* s)
 	{
 		sync->write(RenderOp::AllocUniform);
 		sync->write<AssetID>(i);
-		s32 length = strlen(uniform_name);
+		s32 length = s32(strlen(uniform_name));
 		sync->write(length);
 		sync->write(uniform_name, length);
 		i++;
@@ -934,7 +934,7 @@ void Loader::shader(AssetID id)
 		while (true)
 		{
 			code.reserve(i * chunk_size + 1); // extra char since this will be a null-terminated string
-			s32 read = fread(&code.data[(i - 1) * chunk_size], sizeof(char), chunk_size, f);
+			s32 read = s32(fread(&code.data[(i - 1) * chunk_size], sizeof(char), chunk_size, f));
 			if (read < chunk_size)
 			{
 				code.length = ((i - 1) * chunk_size) + read;

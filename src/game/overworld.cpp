@@ -301,7 +301,7 @@ void multiplayer_switch_tab(ServerListType type)
 Rect2 multiplayer_main_view_rect()
 {
 	const DisplayMode& display = Settings::display();
-	Vec2 center = Vec2(display.width, display.height) * 0.5f;
+	Vec2 center = Vec2(r32(display.width), r32(display.height)) * 0.5f;
 	Vec2 tab_size = TAB_SIZE;
 	return
 	{
@@ -2324,8 +2324,8 @@ const ZoneNode* zones_draw(const RenderParams& params)
 			text.anchor_y = UIText::Anchor::Min;
 			text.color = UI::color_alert();
 
-			s32 remaining_minutes = time_remaining / 60.0f;
-			s32 remaining_seconds = time_remaining - (remaining_minutes * 60.0f);
+			s32 remaining_minutes = s32(time_remaining / 60.0f);
+			s32 remaining_seconds = s32(time_remaining - (remaining_minutes * 60.0f));
 			text.text(0, _(strings::timer), remaining_minutes, remaining_seconds);
 
 			Vec2 text_pos = p;
@@ -2451,7 +2451,7 @@ void deploy_update(const Update& u)
 		// screen shake
 		r32 shake = (data.timer_deploy / 0.5f) * 0.05f;
 		r32 offset = Game::real_time.total * 20.0f;
-		data.camera.ref()->pos += Vec3(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+		data.camera.ref()->pos += Vec3(noise::sample2d(Vec2(offset)) * shake, noise::sample2d(Vec2(offset + 67)) * shake, noise::sample2d(Vec2(offset + 137)) * shake);
 
 		if (old_timer >= 0.5f)
 			Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_DEPLOY);
@@ -2591,7 +2591,7 @@ Rect2 story_mode_main_view_rect(s32 index)
 	const Vec2 tab_size = TAB_SIZE;
 
 	const DisplayMode& display = Settings::display();
-	Vec2 center = Vec2(display.width, display.height) * 0.5f;
+	Vec2 center = Vec2(r32(display.width), r32(display.height)) * 0.5f;
 	Vec2 total_size = Vec2(main_view_size.x + (tab_size.x + PADDING), main_view_size.y);
 	Vec2 bottom_left = center + total_size * -0.5f + Vec2(0, -tab_size.y);
 	bottom_left.x += r32(index) * (tab_size.x + PADDING);
@@ -2611,7 +2611,6 @@ Rect2 tab_map_capture_prompt(const Rect2& rect, const RenderParams* params = nul
 	if (params)
 	{
 		const Vec4* bg;
-		const Vec4* fg;
 		if (params->sync->input.get(Controls::Interact, 0)
 			|| (Game::ui_gamepad_types[0] == Gamepad::Type::None && box.contains(UI::cursor_pos)))
 		{
@@ -3122,7 +3121,7 @@ AssetID zone_random(b8(*filter1)(AssetID), b8(*filter2)(AssetID) = &zone_filter_
 			zones.add(zone.id);
 	}
 	if (zones.length > 0)
-		return zones[mersenne::randf_co() * zones.length];
+		return zones[s32(mersenne::randf_co() * zones.length)];
 	else
 		return AssetNull;
 }
@@ -3295,7 +3294,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 
 			// energy increment timer
 			r32 icon_size = TEXT_SIZE * 1.5f * UI::scale * (story.tab == StoryTab::Map ? 1.0f : 0.75f);
-			r64 t = platform::timestamp();
+			r64 t = r64(platform::timestamp());
 			UI::triangle_percentage
 			(
 				p,
@@ -3504,7 +3503,7 @@ void update(const Update& u)
 		data.camera.ref()->viewport =
 		{
 			Vec2::zero,
-			Vec2(display.width, display.height),
+			Vec2(r32(display.width), r32(display.height)),
 		};
 		data.camera.ref()->perspective((60.0f * PI * 0.5f / 180.0f), 1.0f, Game::level.far_plane_get());
 	}
@@ -3555,7 +3554,7 @@ void update(const Update& u)
 		// energy increment
 		if (Game::level.local)
 		{
-			r64 t = platform::timestamp();
+			r64 t = r64(platform::timestamp());
 			if (s32(t / ENERGY_INCREMENT_INTERVAL) > s32(data.story.timestamp_last / ENERGY_INCREMENT_INTERVAL))
 				resource_change(Resource::Energy, energy_increment_total());
 			data.story.timestamp_last = t;

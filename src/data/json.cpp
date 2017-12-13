@@ -68,7 +68,7 @@ Vec3 get_vec3(cJSON* parent, const char* key, const Vec3& default_value)
 	cJSON* x = json->child;
 	cJSON* y = x->next;
 	cJSON* z = y->next;
-	return Vec3(x->valuedouble, y->valuedouble, z->valuedouble);
+	return Vec3(r32(x->valuedouble), r32(y->valuedouble), r32(z->valuedouble));
 }
 
 Vec4 get_vec4(cJSON* parent, const char* key, const Vec4& default_value)
@@ -83,7 +83,7 @@ Vec4 get_vec4(cJSON* parent, const char* key, const Vec4& default_value)
 	cJSON* y = x->next;
 	cJSON* z = y->next;
 	cJSON* w = z->next;
-	return Vec4(x->valuedouble, y->valuedouble, z->valuedouble, w->valuedouble);
+	return Vec4(r32(x->valuedouble), r32(y->valuedouble), r32(z->valuedouble), r32(w->valuedouble));
 }
 
 Quat get_quat(cJSON* parent, const char* key, const Quat& default_value)
@@ -98,7 +98,7 @@ Quat get_quat(cJSON* parent, const char* key, const Quat& default_value)
 	cJSON* x = w->next;
 	cJSON* y = x->next;
 	cJSON* z = y->next;
-	return Quat(w->valuedouble, x->valuedouble, y->valuedouble, z->valuedouble);
+	return Quat(r32(w->valuedouble), r32(x->valuedouble), r32(y->valuedouble), r32(z->valuedouble));
 }
 
 r32 get_r32(cJSON* parent, const char* key, r32 default_value)
@@ -108,7 +108,7 @@ r32 get_r32(cJSON* parent, const char* key, r32 default_value)
 
 	cJSON* json = cJSON_GetObjectItem(parent, key);
 	if (json)
-		return json->valuedouble;
+		return r32(json->valuedouble);
 	else
 		return default_value;
 }

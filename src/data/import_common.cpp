@@ -58,7 +58,7 @@ s32 Font::codepoint(const char* s)
 
 void Font::truncate(char* str, s32 length, const char* ellipsis, EllipsisMode mode)
 {
-	s32 length_str = strlen(str);
+	s32 length_str = s32(strlen(str));
 	if (length_str > length || mode == EllipsisMode::Always)
 	{
 		// find last utf-8 codepoint before length
@@ -71,7 +71,7 @@ void Font::truncate(char* str, s32 length, const char* ellipsis, EllipsisMode mo
 				if (next - str > length)
 				{
 					// str is longer than length; cut at last codepoint
-					length = cutoff - str;
+					length = s32(cutoff - str);
 					break;
 				}
 				else
@@ -81,7 +81,7 @@ void Font::truncate(char* str, s32 length, const char* ellipsis, EllipsisMode mo
 
 		if (ellipsis)
 		{
-			s32 length_ellipsis = strlen(ellipsis);
+			s32 length_ellipsis = s32(strlen(ellipsis));
 			strcpy(&str[vi_min(length_str, length - length_ellipsis)], ellipsis);
 		}
 		str[length] = '\0';

@@ -289,7 +289,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 			shadow_camera.viewport =
 			{
 				Vec2(0, 0),
-				Vec2(shadow_map_size[s32(Settings::shadow_quality)][0], shadow_map_size[s32(Settings::shadow_quality)][0]),
+				Vec2(r32(shadow_map_size[s32(Settings::shadow_quality)][0]), r32(shadow_map_size[s32(Settings::shadow_quality)][0])),
 			};
 			shadow_camera.perspective(light->fov, 0.1f, light->radius);
 			shadow_camera.pos = abs_pos;
@@ -513,8 +513,8 @@ void draw(LoopSync* sync, const Camera* camera)
 
 	Rect2 half_viewport =
 	{
-		Vec2(s32(camera->viewport.pos.x * 0.5f), s32(camera->viewport.pos.y * 0.5f)),
-		Vec2(s32(camera->viewport.size.x * 0.5f), s32(camera->viewport.size.y * 0.5f)),
+		Vec2(r32(s32(camera->viewport.pos.x * 0.5f)), r32(s32(camera->viewport.pos.y * 0.5f))),
+		Vec2(r32(s32(camera->viewport.size.x * 0.5f)), r32(s32(camera->viewport.size.y * 0.5f))),
 	};
 
 	Mat4 inverse_view = render_params.view.inverse();
@@ -523,15 +523,15 @@ void draw(LoopSync* sync, const Camera* camera)
 
 	const Vec3* frustum = render_params.camera->frustum_rays;
 
-	Vec2 buffer_size(Settings::display().width, Settings::display().height);
+	Vec2 buffer_size(r32(Settings::display().width), r32(Settings::display().height));
 	Vec2 inv_buffer_size = 1.0f / buffer_size;
 	Vec2 inv_half_buffer_size = inv_buffer_size * 2.0f;
-	r32 ui_scale = vi_max(1.0f, UI::get_scale(camera->viewport.size.x, camera->viewport.size.y));
+	r32 ui_scale = vi_max(1.0f, UI::get_scale(s32(camera->viewport.size.x), s32(camera->viewport.size.y)));
 
 	Rect2 screen_quad_uv =
 	{
-		camera->viewport.pos / Vec2(Settings::display().width, Settings::display().height),
-		camera->viewport.size / Vec2(Settings::display().width, Settings::display().height),
+		camera->viewport.pos / Vec2(r32(Settings::display().width), r32(Settings::display().height)),
+		camera->viewport.size / Vec2(r32(Settings::display().width), r32(Settings::display().height)),
 	};
 	Game::screen_quad.set
 	(
@@ -642,7 +642,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				r32 size = vi_min(800.0f, render_params.camera->far_plane * 1.5f);
 				Vec3 pos = render_params.camera->pos;
 				const r32 interval = 2.0f;
-				pos = Vec3(s32(pos.x / interval), s32(pos.y / interval), s32(pos.z / interval)) * interval;
+				pos = Vec3(r32(s32(pos.x / interval)), r32(s32(pos.y / interval)), r32(s32(pos.z / interval))) * interval;
 				r32 depth = vi_min(400.0f, size * 2.0f);
 				shadow_camera.pos = pos + (abs_directions[0] * depth * -0.25f);
 				shadow_camera.rot = Quat::look(abs_directions[0]);
@@ -656,7 +656,7 @@ void draw(LoopSync* sync, const Camera* camera)
 					shadow_camera.viewport =
 					{
 						Vec2(0, 0),
-						Vec2(shadow_map_size[s32(Settings::shadow_quality)][2], shadow_map_size[s32(Settings::shadow_quality)][2]),
+						Vec2(r32(shadow_map_size[s32(Settings::shadow_quality)][2]), r32(shadow_map_size[s32(Settings::shadow_quality)][2])),
 					};
 					shadow_camera.orthographic(size, size, 1.0f, depth);
 					far_shadow_cascade_camera = shadow_camera;
@@ -674,7 +674,7 @@ void draw(LoopSync* sync, const Camera* camera)
 					shadow_camera.viewport =
 					{
 						Vec2(0, 0),
-						Vec2(shadow_map_size[s32(Settings::shadow_quality)][1], shadow_map_size[s32(Settings::shadow_quality)][1]),
+						Vec2(r32(shadow_map_size[s32(Settings::shadow_quality)][1]), r32(shadow_map_size[s32(Settings::shadow_quality)][1])),
 					};
 					shadow_camera.orthographic(100.0f, 100.0f, 1.0f, depth);
 
@@ -687,7 +687,7 @@ void draw(LoopSync* sync, const Camera* camera)
 					shadow_camera.viewport =
 					{
 						Vec2(0, 0),
-						Vec2(shadow_map_size[s32(Settings::shadow_quality)][0], shadow_map_size[s32(Settings::shadow_quality)][0]),
+						Vec2(r32(shadow_map_size[s32(Settings::shadow_quality)][0]), r32(shadow_map_size[s32(Settings::shadow_quality)][0])),
 					};
 					shadow_camera.orthographic(20.0f, 20.0f, 1.0f, depth);
 
@@ -1617,7 +1617,7 @@ void resolution_apply(const DisplayMode& mode)
 
 void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 {
-	mersenne::srand(platform::timestamp());
+	mersenne::srand(u32(platform::timestamp()));
 	noise::reseed();
 
 	LoopSync* sync_render = swapper_render->swap<SwapType_Write>();

@@ -224,7 +224,7 @@ void AudioEntry::dialogue_volume_callback(AK::IAkMetering* metering, AkChannelCo
 {
 	r32 sum = 0.0f;
 	AK::SpeakerVolumes::ConstVectorPtr peak = metering->GetPeak();
-	for (s32 i = 0; i < channel_config.uNumChannels; i++)
+	for (s32 i = 0; i < s32(channel_config.uNumChannels); i++)
 		sum += peak[i];
 	Audio::dialogue_volume = sum;
 }
@@ -448,7 +448,7 @@ void AudioEntry::update(r32 dt)
 
 AudioEntry* AudioEntry::by_ak_id(AkGameObjectID id)
 {
-	return &list[id - AUDIO_OFFSET_ENTRIES];
+	return &list[s32(id - AUDIO_OFFSET_ENTRIES)];
 }
 
 #if !SERVER

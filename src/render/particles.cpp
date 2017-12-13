@@ -445,7 +445,7 @@ void Rain::spawn(const Update& u, r32 strength)
 	}
 
 	const r32 raycast_grid_time_to_refresh = 0.5f; // in seconds
-	s32 raycasts_per_frame = u.time.delta * (raycast_grid_size * raycast_grid_size) / raycast_grid_time_to_refresh;
+	s32 raycasts_per_frame = s32(u.time.delta * (raycast_grid_size * raycast_grid_size) / raycast_grid_time_to_refresh);
 
 	Vec3 audio_pos = Vec3::zero;
 	r32 audio_score = FLT_MAX;
@@ -632,7 +632,7 @@ void Rain::spawn(const Update& u, r32 strength)
 r32 Rain::density(r32 strength) const
 {
 	r32 interval = rain_interval_multiplier / strength;
-	s32 total_active_particles = lifetime / interval; // the total number of active particles when we're in steady state
+	s32 total_active_particles = s32(lifetime / interval); // the total number of active particles when we're in steady state
 	r32 total_volume = (rain_radius * 2.0f) * (rain_radius * 2.0f) * (velocity.length() * lifetime); // total volume containing particles
 	return r32(total_active_particles) / total_volume;
 }
@@ -660,7 +660,7 @@ void Rain::spawn_fill(const Update& u, const Vec3& min, const Vec3& max, r32 str
 {
 	Vec3 diff = max - min;
 	r32 volume = fabsf(diff.x * diff.y * diff.z);
-	s32 iterations = volume * density;
+	s32 iterations = s32(volume * density);
 
 	for (s32 i = 0; i < iterations; i++)
 		spawn(u, min, max, strength, true);

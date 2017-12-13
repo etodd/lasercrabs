@@ -97,7 +97,7 @@ void UIText::text_raw(s8 gamepad, const char* string, UITextFlags flags)
 
 							c = *variable;
 							// set up char_index to resume at the end of the variable name once we're done with it
-							char_index = end + 2 - string;
+							char_index = s32(end + 2 - string);
 							break;
 						}
 					}
@@ -1025,7 +1025,7 @@ void UI::update()
 	{
 		const Camera* camera = Camera::list.iterator().item();
 		const Rect2& viewport = camera->viewport;
-		scale = get_scale(viewport.size.x, viewport.size.y);
+		scale = get_scale(s32(viewport.size.x), s32(viewport.size.y));
 	}
 }
 
@@ -1055,8 +1055,8 @@ void UI::draw(const RenderParams& p)
 {
 	if (p.camera->gamepad == 0 && cursor_active())
 	{
-		mesh(p, Asset::Mesh::icon_cursor, cursor_pos + Vec2(-2, 4), Vec2(24 * UI::scale), UI::color_background);
-		mesh(p, Asset::Mesh::icon_cursor, cursor_pos, Vec2(18 * UI::scale), UI::color_default);
+		mesh(p, Asset::Mesh::icon_cursor_border, cursor_pos, Vec2(18 * UI::scale), UI::color_background);
+		mesh(p, Asset::Mesh::icon_cursor_main, cursor_pos, Vec2(18 * UI::scale), UI::color_default);
 	}
 
 #if DEBUG

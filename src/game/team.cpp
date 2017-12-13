@@ -1565,7 +1565,7 @@ namespace PlayerManagerNet
 		serialize_s8(p, mask);
 
 		{
-			s32 text_length = strlen(text);
+			s32 text_length = s32(strlen(text));
 			serialize_int(p, s32, text_length, 1, MAX_CHAT);
 			char* hack = const_cast<char*>(text);
 			serialize_bytes(p, (u8*)hack, text_length);

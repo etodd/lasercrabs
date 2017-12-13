@@ -179,24 +179,24 @@ enum class RenderDataType : s8
 	count,
 };
 
-inline size_t render_data_type_size(RenderDataType type)
+inline s32 render_data_type_size(RenderDataType type)
 {
 	switch (type)
 	{
 		case RenderDataType::R32:
-			return sizeof(r32);
+			return s32(sizeof(r32));
 		case RenderDataType::Vec2:
-			return sizeof(Vec2);
+			return s32(sizeof(Vec2));
 		case RenderDataType::Vec3:
-			return sizeof(Vec3);
+			return s32(sizeof(Vec3));
 		case RenderDataType::Vec4:
-			return sizeof(Vec4);
+			return s32(sizeof(Vec4));
 		case RenderDataType::S32:
-			return sizeof(s32);
+			return s32(sizeof(s32));
 		case RenderDataType::Mat4:
-			return sizeof(Mat4);
+			return s32(sizeof(Mat4));
 		case RenderDataType::Texture:
-			return sizeof(s32);
+			return s32(sizeof(s32));
 		default:
 		{
 			vi_assert(false);

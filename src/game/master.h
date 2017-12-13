@@ -139,7 +139,7 @@ template<typename Stream> b8 serialize_server_list_entry(Stream* p, ServerListEn
 	{
 		s32 name_length;
 		if (Stream::IsWriting)
-			name_length = strlen((const char*)s->name);
+			name_length = s32(strlen((const char*)s->name));
 		serialize_int(p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
 		serialize_bytes(p, (u8*)s->name, name_length);
 		if (Stream::IsReading)
@@ -149,7 +149,7 @@ template<typename Stream> b8 serialize_server_list_entry(Stream* p, ServerListEn
 	{
 		s32 creator_length;
 		if (Stream::IsWriting)
-			creator_length = strlen((const char*)s->creator_username);
+			creator_length = s32(strlen((const char*)s->creator_username));
 		serialize_int(p, s32, creator_length, 0, MAX_USERNAME);
 		serialize_bytes(p, (u8*)s->creator_username, creator_length);
 		if (Stream::IsReading)
@@ -242,7 +242,7 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		serialize_int(p, u8, c->cooldown_speed_index, 1, COOLDOWN_SPEED_MAX_INDEX);
 		s32 name_length;
 		if (Stream::IsWriting)
-			name_length = strlen(c->name);
+			name_length = s32(strlen(c->name));
 		serialize_int(p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
 		serialize_bytes(p, (u8*)c->name, name_length);
 		if (Stream::IsReading)
@@ -282,7 +282,7 @@ template<typename Stream> b8 serialize_server_details(Stream* p, ServerDetails* 
 	{
 		s32 creator_username_length;
 		if (Stream::IsWriting)
-			creator_username_length = strlen(d->creator_username);
+			creator_username_length = s32(strlen(d->creator_username));
 		serialize_int(p, s32, creator_username_length, 0, MAX_USERNAME);
 		serialize_bytes(p, (u8*)d->creator_username, creator_username_length);
 		if (Stream::IsReading)

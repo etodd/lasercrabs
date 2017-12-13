@@ -653,10 +653,10 @@ namespace Master
 			memset(config->name, 0, sizeof(config->name));
 			strncpy(config->name, db_column_text(stmt, 0), MAX_SERVER_CONFIG_NAME);
 			server_config_parse(db_column_text(stmt, 1), config);
-			config->max_players = db_column_int(stmt, 2);
-			config->team_count = db_column_int(stmt, 3);
+			config->max_players = s8(db_column_int(stmt, 2));
+			config->team_count = s8(db_column_int(stmt, 3));
 			config->game_type = GameType(db_column_int(stmt, 4));
-			config->creator_id = db_column_int(stmt, 5);
+			config->creator_id = u32(db_column_int(stmt, 5));
 			config->is_private = b8(db_column_int(stmt, 6));
 			config->region = Region(db_column_int(stmt, 7));
 			found = true;
@@ -858,7 +858,7 @@ namespace Master
 					cJSON* owner = cJSON_GetObjectItem(download_key, "owner");
 					if (owner)
 					{
-						s64 itch_id = cJSON_GetObjectItem(owner, "id")->valuedouble;
+						s64 itch_id = s64(cJSON_GetObjectItem(owner, "id")->valuedouble);
 						const char* username = cJSON_GetObjectItem(owner, "username")->valuestring;
 						itch_auth_result(user_data, true, itch_id, username);
 						success = true;
@@ -894,7 +894,7 @@ namespace Master
 						Http::get(url, &itch_download_key_callback, nullptr, user_data);
 #else
 						const char* username = cJSON_GetObjectItem(user, "username")->valuestring;
-						itch_auth_result(user_data, true, id->valuedouble, username);
+						itch_auth_result(user_data, true, s64(id->valuedouble), username);
 #endif
 					}
 				}
@@ -1475,13 +1475,13 @@ namespace Master
 
 			ServerListEntry entry;
 
-			u32 id = db_column_int(stmt, 0);
+			u32 id = u32(db_column_int(stmt, 0));
 			memset(entry.name, 0, sizeof(entry.name));
 			strncpy(entry.name, db_column_text(stmt, 1), MAX_SERVER_CONFIG_NAME);
 			memset(entry.creator_username, 0, sizeof(entry.creator_username));
 			strncpy(entry.creator_username, db_column_text(stmt, 2), MAX_USERNAME);
-			entry.max_players = db_column_int(stmt, 3);
-			entry.team_count = db_column_int(stmt, 4);
+			entry.max_players = s8(db_column_int(stmt, 3));
+			entry.team_count = s8(db_column_int(stmt, 4));
 			entry.game_type = GameType(db_column_int(stmt, 5));
 
 			server_state_for_config_id(id, entry.max_players, region, &entry.server_state, client->addr.host.type, &entry.addr);
@@ -2024,7 +2024,7 @@ namespace Master
 					db_bind_int(stmt, 6, config.is_private);
 					db_bind_int(stmt, 7, s64(config.region));
 					db_bind_int(stmt, 8, server_config_score(0, platform::timestamp()));
-					config_id = db_exec(stmt);
+					config_id = u32(db_exec(stmt));
 
 					// give friends access to new server
 					{
@@ -2210,7 +2210,7 @@ namespace Master
 
 	s32 proc()
 	{
-		mersenne::srand(platform::timestamp());
+		mersenne::srand(u32(platform::timestamp()));
 
 		Sock::init();
 
@@ -2603,7 +2603,7 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 			);
 
 			sqlite3_stmt* stmt;
-			if (sqlite3_prepare_v2(global.db, part->data.p, part->data.len, &stmt, nullptr))
+			if (sqlite3_prepare_v2(global.db, part->data.p, s32(part->data.len), &stmt, nullptr))
 				mg_printf_http_chunk(conn, "%s", sqlite3_errmsg(global.db));
 			else
 			{
@@ -2621,7 +2621,7 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 							const char* value = (const char*)(sqlite3_column_text(stmt, i));
 							if (!value)
 								value = "[null]";
-							length += strlen(value) + 1;
+							length += s32(strlen(value)) + 1;
 						}
 						line.reserve(length + 1);
 						for (s32 i = 0; i < column_count; i++)
@@ -2629,7 +2629,7 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 							const char* value = (const char*)(sqlite3_column_text(stmt, i));
 							if (!value)
 								value = "[null]";
-							s32 length = strlen(value) + 1;
+							s32 length = s32(strlen(value)) + 1;
 							sprintf(&line.data[line.length], "%s\t", value);
 							line.length += length;
 						}

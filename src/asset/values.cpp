@@ -42,7 +42,8 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/icon_chevron.msh",
 	"assets/icon_close.msh",
 	"assets/icon_core_module.msh",
-	"assets/icon_cursor.msh",
+	"assets/icon_cursor_border.msh",
+	"assets/icon_cursor_main.msh",
 	"assets/icon_drone.msh",
 	"assets/icon_flag.msh",
 	"assets/icon_force_field.msh",
@@ -67,6 +68,7 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/parkour_headless.msh",
 	"assets/plane.msh",
 	"assets/rectifier.msh",
+	"assets/reticle_grapple.msh",
 	"assets/rope_base.msh",
 	"assets/samsa.msh",
 	"assets/seven.msh",
@@ -327,7 +329,8 @@ const char* AssetLookup::Mesh::names[] =
 	"icon_chevron",
 	"icon_close",
 	"icon_core_module",
-	"icon_cursor",
+	"icon_cursor_border",
+	"icon_cursor_main",
 	"icon_drone",
 	"icon_flag",
 	"icon_force_field",
@@ -352,6 +355,7 @@ const char* AssetLookup::Mesh::names[] =
 	"parkour_headless",
 	"plane",
 	"rectifier",
+	"reticle_grapple",
 	"rope_base",
 	"samsa",
 	"seven",
@@ -582,6 +586,7 @@ const char* AssetLookup::Animation::values[] =
 	"assets/character_fall.anm",
 	"assets/character_fire.anm",
 	"assets/character_grapple_aim.anm",
+	"assets/character_grapple_fire.anm",
 	"assets/character_hang.anm",
 	"assets/character_idle.anm",
 	"assets/character_interact.anm",
@@ -658,6 +663,7 @@ const char* AssetLookup::Animation::names[] =
 	"character_fall",
 	"character_fire",
 	"character_grapple_aim",
+	"character_grapple_fire",
 	"character_hang",
 	"character_idle",
 	"character_interact",
@@ -766,6 +772,7 @@ const char* AssetLookup::Armature::names[] =
 
 const char* AssetLookup::Texture::values[] =
 {
+	"assets/bars.png",
 	"assets/blank.png",
 	"assets/clouds.png",
 	"assets/flare.png",
@@ -779,6 +786,7 @@ const char* AssetLookup::Texture::values[] =
 
 const char* AssetLookup::Texture::names[] =
 {
+	"bars",
 	"blank",
 	"clouds",
 	"flare",
@@ -820,6 +828,7 @@ const char* AssetLookup::Shader::values[] =
 	"assets/shader/flat.glsl",
 	"assets/shader/flat_instanced.glsl",
 	"assets/shader/flat_texture.glsl",
+	"assets/shader/flat_texture_offset.glsl",
 	"assets/shader/fresnel.glsl",
 	"assets/shader/global_light.glsl",
 	"assets/shader/nav_dots.glsl",
@@ -864,6 +873,7 @@ const char* AssetLookup::Shader::names[] =
 	"flat",
 	"flat_instanced",
 	"flat_texture",
+	"flat_texture_offset",
 	"fresnel",
 	"global_light",
 	"nav_dots",

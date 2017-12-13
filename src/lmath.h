@@ -212,7 +212,7 @@ struct Vec2
 
 	inline r32 length() const
 	{
-		return sqrt(x * x + y * y);
+		return sqrtf(x * x + y * y);
 	}
 
 	inline r32 length_squared() const
@@ -227,7 +227,7 @@ struct Vec2
 
 	inline r32 normalize()
 	{
-		r32 fLength = sqrt(x * x + y * y);
+		r32 fLength = sqrtf(x * x + y * y);
 
 		r32 fInvLength = 1.0f / fLength;
 		x *= fInvLength;
@@ -238,13 +238,13 @@ struct Vec2
 
 	inline static Vec2 normalize(const Vec2& v)
 	{
-		r32 len = sqrt(v.x * v.x + v.y * v.y);
+		r32 len = sqrtf(v.x * v.x + v.y * v.y);
 		return Vec2(v.x / len, v.y / len);
 	}
 
 	inline Vec2 perpendicular(void) const
 	{
-		return Vec2 (-y, x);
+		return Vec2(-y, x);
 	}
 
 	inline r32 cross(const Vec2& rkVector) const
@@ -544,7 +544,7 @@ struct Vec3
 
 	inline r32 length() const
 	{
-		return sqrt(x * x + y * y + z * z);
+		return sqrtf(x * x + y * y + z * z);
 	}
 
 	inline r32 length_squared() const
@@ -559,7 +559,7 @@ struct Vec3
 
 	inline r32 normalize()
 	{
-		r32 fLength = sqrt(x * x + y * y + z * z);
+		r32 fLength = sqrtf(x * x + y * y + z * z);
 
 		r32 fInvLength = 1.0f / fLength;
 		x *= fInvLength;
@@ -571,7 +571,7 @@ struct Vec3
 
 	inline static Vec3 normalize(const Vec3& v)
 	{
-		r32 len = sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+		r32 len = sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
 		return Vec3(v.x / len, v.y / len, v.z / len);
 	}
 

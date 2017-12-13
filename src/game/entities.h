@@ -401,7 +401,7 @@ struct EffectLight
 
 	inline ID id() const
 	{
-		return this - &list[0];
+		return ID(this - &list[0]);
 	}
 };
 

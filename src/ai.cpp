@@ -185,7 +185,7 @@ void update(const Update& u)
 	sync_out.unlock();
 }
 
-u32 record_init(AI::Team team, s8 remaining_drones)
+u32 record_init(AI::Team team, s16 remaining_drones)
 {
 	u32 id = record_id_current;
 	record_id_current++;
@@ -284,12 +284,12 @@ void load(AssetID id, const char* filename, const char* record_filename)
 	sync_in.lock();
 	sync_in.write(Op::Load);
 	sync_in.write(id);
-	s32 length = filename ? strlen(filename) : 0;
+	s32 length = filename ? s32(strlen(filename)) : 0;
 	vi_assert(length <= MAX_PATH_LENGTH);
 	sync_in.write(length);
 	if (length > 0)
 		sync_in.write(filename, length);
-	length = record_filename ? strlen(record_filename) : 0;
+	length = record_filename ? s32(strlen(record_filename)) : 0;
 	vi_assert(length <= MAX_PATH_LENGTH);
 	sync_in.write(length);
 	if (length > 0)
@@ -957,7 +957,7 @@ void RecordedLife::reset()
 	action.length = 0;
 }
 
-void RecordedLife::reset(AI::Team t, s8 d)
+void RecordedLife::reset(AI::Team t, s16 d)
 {
 	team = t;
 	drones_remaining = d;
@@ -1028,7 +1028,7 @@ size_t RecordedLife::custom_fread(void* buffer, size_t size, size_t count, FILE*
 void RecordedLife::serialize(FILE* f, size_t(*func)(void*, size_t, size_t, FILE*))
 {
 	func(&team, sizeof(AI::Team), 1, f);
-	func(&drones_remaining, sizeof(s8), 1, f);
+	func(&drones_remaining, sizeof(s16), 1, f);
 
 	func(&shield.length, sizeof(s32), 1, f);
 	shield.resize(shield.length);

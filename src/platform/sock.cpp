@@ -245,7 +245,7 @@ s32 socket_bind(u64* handle, u16 port, s32 family)
 			printf("Binding to [%s]:%hu...\n", buffer, ntohs(port));
 		}
 
-		if (bind(*handle, addr_list->ai_addr, addr_list->ai_addrlen))
+		if (bind(*handle, addr_list->ai_addr, s32(addr_list->ai_addrlen)))
 		{
 			fprintf(stderr, "%s\n", "Bind failed.");
 			return error("Failed to bind socket");
@@ -343,7 +343,7 @@ s32 udp_send(Handle* socket, const Address& destination, const void* data, s32 s
 
 	if (handle) // do we actually have a socket open for the desired protocol?
 	{
-		s32 sent_bytes = sendto(handle, (const char*)data, size, 0, (const struct sockaddr*)&address, addr_length);
+		s32 sent_bytes = sendto(handle, (const char*)data, size, 0, (const struct sockaddr*)&address, s32(addr_length));
 		if (sent_bytes != size)
 			return error("Failed to send data");
 	}

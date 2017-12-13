@@ -355,7 +355,7 @@ Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target, r32 inaccuracy
 	r32 target_angle_horizontal;
 	{
 		r32 angle = atan2f(to_target.x, to_target.z);
-		target_angle_horizontal = LMath::closest_angle(angle + noise::sample3d(Vec3(Game::time.total, 0, 0)) * inaccuracy, common->angle_horizontal);
+		target_angle_horizontal = LMath::closest_angle(angle + noise::sample2d(Vec2(Game::time.total, 0)) * inaccuracy, common->angle_horizontal);
 
 		{
 			// make sure we don't try to turn through the wall
@@ -373,7 +373,7 @@ Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target, r32 inaccuracy
 	r32 target_angle_vertical;
 	{
 		r32 angle = atan2f(-to_target.y, Vec2(to_target.x, to_target.z).length());
-		target_angle_vertical = LMath::closest_angle(angle + noise::sample3d(Vec3(0, Game::time.total, 0)) * inaccuracy, common->angle_vertical);
+		target_angle_vertical = LMath::closest_angle(angle + noise::sample2d(Vec2(0, Game::time.total)) * inaccuracy, common->angle_vertical);
 
 		{
 			// make sure we don't try to turn through the wall
@@ -423,7 +423,7 @@ b8 juke_needed(const PlayerControlAI* control)
 void juke(PlayerControlAI* control, const Update& u)
 {
 	// crawl randomly
-	r32 angle = (noise::sample3d(Vec3(Game::time.total * 0.5f)) + 1.0f) * PI;
+	r32 angle = (noise::sample2d(Vec2(Game::time.total * 0.5f)) + 1.0f) * PI;
 	control->get<Drone>()->crawl(control->get<Transform>()->absolute_rot() * Vec3(cosf(angle), sinf(angle), 0), u.time.delta);
 }
 

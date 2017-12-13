@@ -16,7 +16,7 @@ b8 compile_shader(const char* prefix, const char* code, s32 code_length, u32* pr
 	GLuint frag_id = glCreateShader(GL_FRAGMENT_SHADER);
 
 	// compile Vertex Shader
-	GLint prefix_length = strlen(prefix);
+	GLint prefix_length = GLint(strlen(prefix));
 	char const* vertex_code[] = { "#version 330 core\n#define VERTEX\n", prefix, code };
 	const GLint vertex_code_length[] = { 33, prefix_length, (GLint)code_length };
 	glShaderSource(vertex_id, 3, vertex_code, vertex_code_length);
@@ -1076,7 +1076,19 @@ do\
 				glBindFramebuffer(GL_READ_FRAMEBUFFER, GLData::framebuffers[id]);
 				const Rect2* src = sync->read<Rect2>();
 				const Rect2* dst = sync->read<Rect2>();
-				glBlitFramebuffer(src->pos.x, src->pos.y, src->pos.x + src->size.x, src->pos.y + src->size.y, dst->pos.x, dst->pos.y, dst->pos.x + dst->size.x, dst->pos.y + dst->size.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+				glBlitFramebuffer
+				(
+					GLint(src->pos.x),
+					GLint(src->pos.y),
+					GLint(src->pos.x + src->size.x),
+					GLint(src->pos.y + src->size.y),
+					GLint(dst->pos.x),
+					GLint(dst->pos.y),
+					GLint(dst->pos.x + dst->size.x),
+					GLint(dst->pos.y + dst->size.y),
+					GL_COLOR_BUFFER_BIT,
+					GL_NEAREST
+				);
 				debug_check();
 				break;
 			}
@@ -1092,7 +1104,7 @@ do\
 					|| vp.size.y != GLData::viewport.size.y)
 				{
 					GLData::viewport = vp;
-					glViewport(vp.pos.x, vp.pos.y, vp.size.x, vp.size.y);
+					glViewport(GLint(vp.pos.x), GLint(vp.pos.y), GLsizei(vp.size.x), GLsizei(vp.size.y));
 					debug_check();
 				}
 				break;

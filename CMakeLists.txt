@@ -16,7 +16,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-deprecated-register -Wno-deprecated-declarations -Wno-invalid-offsetof")
 	set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG=1 -g -O0")
 	set(CMAKE_CXX_FLAGS_RELEASE "-DAK_OPTIMIZED=1 -g")
-elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+else() # MSVC
 	set(CMAKE_C_FLAGS "/Zi /MP")
 	set(CMAKE_C_FLAGS_DEBUG "-DDEBUG=1 /MTd /Od")
 	set(CMAKE_C_FLAGS_RELEASE "/MT")
@@ -376,6 +376,7 @@ set(SRC
 	assets/shader/flat.glsl
 	assets/shader/nav_dots.glsl
 	assets/shader/flat_texture.glsl
+	assets/shader/flat_texture_offset.glsl
 	assets/shader/fresnel.glsl
 	assets/shader/water.glsl
 	assets/shader/point_light.glsl

@@ -105,7 +105,7 @@ void update()
 				if (request->callback)
 					request->callback(response_code, response, request->user_data);
 				request->~Request();
-				state.requests.remove(request - &state.requests[0]);
+				state.requests.remove(s32(request - &state.requests[0]));
 			}
 			else
 			{
@@ -123,7 +123,7 @@ void update()
 				vi_assert(request);
 
 				request->~SmtpRequest();
-				state.smtp_requests.remove(request - &state.smtp_requests[0]);
+				state.smtp_requests.remove(s32(request - &state.smtp_requests[0]));
 			}
 			curl_easy_cleanup(curl);
 		}
@@ -202,7 +202,7 @@ void smtp(const char* from, const char* to, const char* subject, const char* bod
 	curl_easy_setopt(request->curl, CURLOPT_VERBOSE, 1L);
 #endif
 	
-	request->data.resize(strlen(format) + strlen(to) + strlen(from) + strlen(subject) + strlen(body) + 1);
+	request->data.resize(s32(strlen(format) + strlen(to) + strlen(from) + strlen(subject) + strlen(body) + 1));
 	sprintf(request->data.data, format, to, from, subject, body);
 
 	curl_multi_add_handle(state.curl_multi, request->curl);

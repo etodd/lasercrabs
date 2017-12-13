@@ -165,8 +165,8 @@ namespace platform
 				// copy child stdout to output if necessary
 				if (output)
 				{
-					DWORD read, written; 
-					if (!ReadFile(stdout_read, output, output_max, &read, NULL))
+					DWORD read; 
+					if (!ReadFile(stdout_read, output, DWORD(output_max), &read, NULL))
 						return false;
 				}
 			}
@@ -323,7 +323,7 @@ std::string read_string(FILE* f)
 
 void write_string(const std::string& str, FILE* f)
 {
-	s32 length = str.length();
+	s32 length = s32(str.length());
 	fwrite(&length, sizeof(s32), 1, f);
 	fwrite(str.c_str(), sizeof(u8), length, f);
 }
@@ -479,15 +479,15 @@ void map_read(FILE* f, Map2<T>& map)
 
 void map_write(const Map<std::string>& map, FILE* f)
 {
-	s32 count = map.size();
+	s32 count = s32(map.size());
 	fwrite(&count, sizeof(s32), 1, f);
 	for (auto j = map.begin(); j != map.end(); j++)
 	{
-		s32 length = j->first.length();
+		s32 length = s32(j->first.length());
 		fwrite(&length, sizeof(s32), 1, f);
 		fwrite(j->first.c_str(), sizeof(char), length, f);
 
-		length = j->second.length();
+		length = s32(j->second.length());
 		fwrite(&length, sizeof(s32), 1, f);
 		fwrite(j->second.c_str(), sizeof(char), length, f);
 	}
@@ -495,11 +495,11 @@ void map_write(const Map<std::string>& map, FILE* f)
 
 void map_write(const Map<s32>& map, FILE* f)
 {
-	s32 count = map.size();
+	s32 count = s32(map.size());
 	fwrite(&count, sizeof(s32), 1, f);
 	for (auto j = map.begin(); j != map.end(); j++)
 	{
-		s32 length = j->first.length();
+		s32 length = s32(j->first.length());
 		fwrite(&length, sizeof(s32), 1, f);
 		fwrite(j->first.c_str(), sizeof(char), length, f);
 
@@ -510,11 +510,11 @@ void map_write(const Map<s32>& map, FILE* f)
 template<typename T>
 void map_write(Map2<T>& map, FILE* f)
 {
-	s32 count = map.size();
+	s32 count = s32(map.size());
 	fwrite(&count, sizeof(s32), 1, f);
 	for (auto i = map.begin(); i != map.end(); i++)
 	{
-		s32 length = i->first.length();
+		s32 length = s32(i->first.length());
 		fwrite(&length, sizeof(s32), 1, f);
 		fwrite(i->first.c_str(), sizeof(char), length, f);
 
@@ -525,7 +525,7 @@ void map_write(Map2<T>& map, FILE* f)
 
 b8 has_extension(const std::string& path, const char* extension)
 {
-	s32 extension_length = strlen(extension);
+	s32 extension_length = s32(strlen(extension));
 	if (path.length() > extension_length)
 	{
 		if (strcmp(path.c_str() + path.length() - extension_length, extension) == 0)
@@ -536,7 +536,7 @@ b8 has_extension(const std::string& path, const char* extension)
 
 void write_asset_header(FILE* file, const std::string& name, const Map<std::string>& assets)
 {
-	s32 asset_count = assets.size();
+	s32 asset_count = s32(assets.size());
 	fprintf(file, "\tnamespace %s\n\t{\n\t\tconst s32 count = %d;\n", name.c_str(), asset_count);
 	s32 index = 0;
 	for (auto i = assets.begin(); i != assets.end(); i++)
@@ -551,7 +551,7 @@ void write_asset_header(FILE* file, const std::string& name, const Map<std::stri
 
 void write_asset_header(FILE* file, const std::string& name, const Map<s32>& assets)
 {
-	s32 asset_count = assets.size();
+	s32 asset_count = s32(assets.size());
 	fprintf(file, "\tnamespace %s\n\t{\n\t\tconst s32 count = %d;\n", name.c_str(), asset_count);
 	for (auto i = assets.begin(); i != assets.end(); i++)
 	{
@@ -903,13 +903,13 @@ s32 exit_error()
 
 const aiNode* find_mesh_node(const aiScene* scene, const aiNode* node, const aiMesh* mesh)
 {
-	for (s32 i = 0; i < node->mNumMeshes; i++)
+	for (s32 i = 0; i < s32(node->mNumMeshes); i++)
 	{
 		if (scene->mMeshes[node->mMeshes[i]] == mesh)
 			return node;
 	}
 
-	for (s32 i = 0; i < node->mNumChildren; i++)
+	for (s32 i = 0; i < s32(node->mNumChildren); i++)
 	{
 		const aiNode* found = find_mesh_node(scene, node->mChildren[i], mesh);
 		if (found)
@@ -922,7 +922,7 @@ const aiNode* find_mesh_node(const aiScene* scene, const aiNode* node, const aiM
 std::string get_mesh_name(const aiScene* scene, const std::string& clean_asset_name, const aiMesh* ai_mesh, const aiNode* mesh_node, b8 level_mesh = false)
 {
 	s32 material_index = 0;
-	for (s32 i = 0; i < mesh_node->mNumMeshes; i++)
+	for (s32 i = 0; i < s32(mesh_node->mNumMeshes); i++)
 	{
 		if (scene->mMeshes[mesh_node->mMeshes[i]] == ai_mesh)
 			break;
@@ -946,9 +946,9 @@ std::string get_mesh_name(const aiScene* scene, const std::string& clean_asset_n
 
 b8 load_anim(const Armature& armature, const aiAnimation* in, Animation* out, const Map<s32>& bone_map)
 {
-	out->duration = (r32)(in->mDuration / in->mTicksPerSecond);
+	out->duration = r32(in->mDuration / in->mTicksPerSecond);
 	out->channels.reserve(in->mNumChannels);
-	for (s32 i = 0; i < in->mNumChannels; i++)
+	for (s32 i = 0; i < s32(in->mNumChannels); i++)
 	{
 		aiNodeAnim* in_channel = in->mChannels[i];
 		auto bone_index_entry = bone_map.find(in_channel->mNodeName.C_Str());
@@ -960,7 +960,7 @@ b8 load_anim(const Armature& armature, const aiAnimation* in, Animation* out, co
 
 			out_channel->positions.resize(in_channel->mNumPositionKeys);
 
-			for (s32 j = 0; j < in_channel->mNumPositionKeys; j++)
+			for (s32 j = 0; j < s32(in_channel->mNumPositionKeys); j++)
 			{
 				out_channel->positions[j].time = (r32)(in_channel->mPositionKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mPositionKeys[j].mValue;
@@ -968,7 +968,7 @@ b8 load_anim(const Armature& armature, const aiAnimation* in, Animation* out, co
 			}
 
 			out_channel->rotations.resize(in_channel->mNumRotationKeys);
-			for (s32 j = 0; j < in_channel->mNumRotationKeys; j++)
+			for (s32 j = 0; j < s32(in_channel->mNumRotationKeys); j++)
 			{
 				out_channel->rotations[j].time = (r32)(in_channel->mRotationKeys[j].mTime / in->mTicksPerSecond);
 				aiQuaternion value = in_channel->mRotationKeys[j].mValue;
@@ -982,7 +982,7 @@ b8 load_anim(const Armature& armature, const aiAnimation* in, Animation* out, co
 			}
 
 			out_channel->scales.resize(in_channel->mNumScalingKeys);
-			for (s32 j = 0; j < in_channel->mNumScalingKeys; j++)
+			for (s32 j = 0; j < s32(in_channel->mNumScalingKeys); j++)
 			{
 				out_channel->scales[j].time = (r32)(in_channel->mScalingKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mScalingKeys[j].mValue;
@@ -1060,7 +1060,7 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out, r32 edge_threshold)
 	out->bounds_radius = 0.0f;
 	// fill vertex positions
 	out->vertices.reserve(mesh->mNumVertices);
-	for (s32 i = 0; i < mesh->mNumVertices; i++)
+	for (s32 i = 0; i < s32(mesh->mNumVertices); i++)
 	{
 		aiVector3D pos = mesh->mVertices[i];
 		Vec3 v = Vec3(pos.y, pos.z, pos.x);
@@ -1079,7 +1079,7 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out, r32 edge_threshold)
 	if (mesh->HasNormals())
 	{
 		out->normals.reserve(mesh->mNumVertices);
-		for (s32 i = 0; i < mesh->mNumVertices; i++)
+		for (s32 i = 0; i < s32(mesh->mNumVertices); i++)
 		{
 			aiVector3D n = mesh->mNormals[i];
 			Vec3 v = Vec3(n.y, n.z, n.x);
@@ -1094,7 +1094,7 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out, r32 edge_threshold)
 
 	// fill face indices
 	out->indices.reserve(3 * mesh->mNumFaces);
-	for (s32 i = 0; i < mesh->mNumFaces; i++)
+	for (s32 i = 0; i < s32(mesh->mNumFaces); i++)
 	{
 		// assume the mesh has only triangles.
 		s32 a = mesh->mFaces[i].mIndices[0];
@@ -1177,7 +1177,7 @@ b8 build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 pare
 		(*counter)++;
 	}
 
-	for (s32 i = 0; i < node->mNumChildren; i++)
+	for (s32 i = 0; i < s32(node->mNumChildren); i++)
 	{
 		if (!build_armature(armature, bone_map, node->mChildren[i], current_bone_index, counter))
 			return false;
@@ -1194,7 +1194,7 @@ b8 build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& mes
 		// Build the bone hierarchy.
 		// First we fill the bone map with all the bones,
 		// so that build_armature can tell which nodes are bones.
-		for (s32 bone_index = 0; bone_index < ai_mesh->mNumBones; bone_index++)
+		for (s32 bone_index = 0; bone_index < s32(ai_mesh->mNumBones); bone_index++)
 		{
 			aiBone* bone = ai_mesh->mBones[bone_index];
 			bone_map[bone->mName.C_Str()] = -1;
@@ -1206,7 +1206,7 @@ b8 build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& mes
 		if (!build_armature(armature, bone_map, scene->mRootNode, -1, &node_hierarchy_counter))
 			return false;
 
-		for (s32 i = 0; i < ai_mesh->mNumBones; i++)
+		for (s32 i = 0; i < s32(ai_mesh->mNumBones); i++)
 		{
 			aiBone* bone = ai_mesh->mBones[i];
 			s32 bone_index = bone_map[bone->mName.C_Str()];
@@ -1378,7 +1378,7 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 		// This nonsense is so that the meshes are added in alphabetical order
 		// Same order as they are stored in the manifest.
 		Map<s32> mesh_indices;
-		for (s32 i = 0; i < scene->mNumMeshes; i++)
+		for (s32 i = 0; i < s32(scene->mNumMeshes); i++)
 		{
 			aiMesh* ai_mesh = scene->mMeshes[i];
 			if (ai_mesh->mNumVertices > 0)
@@ -1427,7 +1427,7 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 					{
 						Array<Vec2>* uvs = uv_layers.add();
 						uvs->reserve(ai_mesh->mNumVertices);
-						for (s32 k = 0; k < ai_mesh->mNumVertices; k++)
+						for (s32 k = 0; k < s32(ai_mesh->mNumVertices); k++)
 						{
 							aiVector3D UVW = ai_mesh->mTextureCoords[j][k];
 							uvs->add(Vec2(UVW.x, 1.0f - UVW.y));
@@ -1441,14 +1441,14 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 				if (ai_mesh->HasTangentsAndBitangents())
 				{
 					tangents.resize(ai_mesh->mNumVertices);
-					for (s32 i = 0; i < ai_mesh->mNumVertices; i++)
+					for (s32 i = 0; i < s32(ai_mesh->mNumVertices); i++)
 					{
 						aiVector3D n = ai_mesh->mTangents[i];
 						tangents[i] = Vec3(n.y, n.z, n.x);
 					}
 
 					bitangents.resize(ai_mesh->mNumVertices);
-					for (s32 i = 0; i < ai_mesh->mNumVertices; i++)
+					for (s32 i = 0; i < s32(ai_mesh->mNumVertices); i++)
 					{
 						aiVector3D n = ai_mesh->mBitangents[i];
 						bitangents[i] = Vec3(n.y, n.z, n.x);
@@ -1479,11 +1479,11 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 					bone_weights.resize(ai_mesh->mNumVertices);
 					bone_indices.resize(ai_mesh->mNumVertices);
 
-					for (s32 i = 0; i < ai_mesh->mNumBones; i++)
+					for (s32 i = 0; i < s32(ai_mesh->mNumBones); i++)
 					{
 						aiBone* bone = ai_mesh->mBones[i];
 						s32 bone_index = bone_map[bone->mName.C_Str()];
-						for (s32 bone_weight_index = 0; bone_weight_index < bone->mNumWeights; bone_weight_index++)
+						for (s32 bone_weight_index = 0; bone_weight_index < s32(bone->mNumWeights); bone_weight_index++)
 						{
 							s32 vertex_id = bone->mWeights[bone_weight_index].mVertexId;
 							r32 weight = bone->mWeights[bone_weight_index].mWeight;
@@ -1528,7 +1528,7 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 			}
 		}
 
-		for (s32 j = 0; j < scene->mNumAnimations; j++)
+		for (s32 j = 0; j < s32(scene->mNumAnimations); j++)
 		{
 			aiAnimation* ai_anim = scene->mAnimations[j];
 			Animation anim;
@@ -1609,7 +1609,7 @@ b8 import_level_meshes(ImporterState& state, const std::string& asset_in_path, c
 		const aiScene* scene = load_blend(state, importer, asset_in_path, out_folder);
 		map_init(state.manifest.level_meshes, asset_name);
 
-		for (s32 mesh_index = 0; mesh_index < scene->mNumMeshes; mesh_index++)
+		for (s32 mesh_index = 0; mesh_index < s32(scene->mNumMeshes); mesh_index++)
 		{
 			aiMesh* ai_mesh = scene->mMeshes[mesh_index];
 			const aiNode* mesh_node = find_mesh_node(scene, scene->mRootNode, ai_mesh);
@@ -1643,7 +1643,7 @@ b8 import_level_meshes(ImporterState& state, const std::string& asset_in_path, c
 					{
 						Array<Vec2>* uvs = uv_layers.add();
 						uvs->reserve(ai_mesh->mNumVertices);
-						for (s32 k = 0; k < ai_mesh->mNumVertices; k++)
+						for (s32 k = 0; k < s32(ai_mesh->mNumVertices); k++)
 						{
 							aiVector3D UVW = ai_mesh->mTextureCoords[j][k];
 							uvs->add(Vec2(1.0f - UVW.x, 1.0f - UVW.y));
@@ -1657,14 +1657,14 @@ b8 import_level_meshes(ImporterState& state, const std::string& asset_in_path, c
 				if (ai_mesh->HasTangentsAndBitangents())
 				{
 					tangents.resize(ai_mesh->mNumVertices);
-					for (s32 i = 0; i < ai_mesh->mNumVertices; i++)
+					for (s32 i = 0; i < s32(ai_mesh->mNumVertices); i++)
 					{
 						aiVector3D n = ai_mesh->mTangents[i];
 						tangents[i] = Vec3(n.y, n.z, n.x);
 					}
 
 					bitangents.resize(ai_mesh->mNumVertices);
-					for (s32 i = 0; i < ai_mesh->mNumVertices; i++)
+					for (s32 i = 0; i < s32(ai_mesh->mNumVertices); i++)
 					{
 						aiVector3D n = ai_mesh->mBitangents[i];
 						bitangents[i] = Vec3(n.y, n.z, n.x);
@@ -2251,7 +2251,7 @@ b8 drone_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, co
 
 	Vec3 t;
 	{
-		Vec3 start_min(coord.x, coord.y, coord.z);
+		Vec3 start_min(r32(coord.x), r32(coord.y), r32(coord.z));
 		Vec3 start_max = start_min + Vec3(1.0f);
 		t.x = ((start_scaled.x > end_scaled.x) ? (start_scaled.x - start_min.x) : (start_max.x - start_scaled.x)) * delta_t.x;
 		t.y = ((start_scaled.y > end_scaled.y) ? (start_scaled.y - start_min.y) : (start_max.y - start_scaled.y)) * delta_t.y;
@@ -3340,7 +3340,7 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 		fseek(f, 0, SEEK_SET);
 
 		Array<char> code;
-		code.resize(fsize + 1); // One extra character for the null terminator
+		code.resize(s32(fsize) + 1); // One extra character for the null terminator
 		fread(code.data, fsize, 1, f);
 		fclose(f);
 
@@ -3392,12 +3392,12 @@ b8 load_font(const aiScene* scene, Font& font)
 
 	const r32 scale = 1.2f;
 
-	for (s32 i = 0; i < scene->mNumMeshes; i++)
+	for (s32 i = 0; i < s32(scene->mNumMeshes); i++)
 	{
 		aiMesh* ai_mesh = scene->mMeshes[i];
 		font.vertices.reserve(current_mesh_vertex + ai_mesh->mNumVertices);
 		Vec2 min_vertex(FLT_MAX, FLT_MAX), max_vertex(FLT_MIN, FLT_MIN);
-		for (s32 j = 0; j < ai_mesh->mNumVertices; j++)
+		for (s32 j = 0; j < s32(ai_mesh->mNumVertices); j++)
 		{
 			aiVector3D pos = ai_mesh->mVertices[j];
 			Vec3 p = Vec3(pos.x, pos.y, pos.z);
@@ -3410,7 +3410,7 @@ b8 load_font(const aiScene* scene, Font& font)
 		}
 
 		font.indices.reserve(current_mesh_index + ai_mesh->mNumFaces * 3);
-		for (s32 j = 0; j < ai_mesh->mNumFaces; j++)
+		for (s32 j = 0; j < s32(ai_mesh->mNumFaces); j++)
 		{
 			// assume the model has only triangles.
 			font.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[0]);
@@ -4055,7 +4055,7 @@ s32 proc(s32 argc, char* argv[])
 				char existing_version_buffer[256];
 				{
 					FILE* f = fopen(version_header_path, "r");
-					s32 read = fread(existing_version_buffer, 1, 255, f);
+					s32 read = s32(fread(existing_version_buffer, 1, 255, f));
 					fclose(f);
 					existing_version_buffer[read] = '\0';
 				}

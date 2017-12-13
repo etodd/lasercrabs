@@ -61,6 +61,7 @@ struct Game
 	{
 		u64 local_player_uuids[MAX_GAMEPADS];
 		r32 time_scale;
+		r32 grapple_time_scale;
 		r32 zone_under_attack_timer;
 		Net::Master::ServerConfig config;
 		AssetID zone_under_attack = AssetNull;

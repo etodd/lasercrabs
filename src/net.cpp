@@ -4606,7 +4606,7 @@ void update_start(const Update& u)
 	for (s32 i = 0; i < lag_buffer.length; i++)
 	{
 		PacketEntry* entry = &lag_buffer[i];
-		if (entry->timestamp < state_common.timestamp - DEBUG_LAG_AMOUNT / Game::session.time_scale)
+		if (entry->timestamp < state_common.timestamp - DEBUG_LAG_AMOUNT / Game::session.effective_time_scale())
 		{
 			packet_read(u, entry);
 			lag_buffer.remove_ordered(i);

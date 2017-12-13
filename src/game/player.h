@@ -285,6 +285,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		FlagTryPrimary = 1 << 0,
 		FlagTrySecondary = 1 << 1,
 		FlagGrappleValid = 1 << 2,
+		FlagGrappleCanceled = 1 << 3,
 	};
 
 	struct Reticle

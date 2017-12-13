@@ -4964,34 +4964,32 @@ void Tile::draw_alpha(const RenderParams& params)
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
 
+	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
+		Tile* tile = i.item();
+		const r32 size = tile->scale();
+
+		r32 blend = vi_min(tile->timer / tile->anim_time, 1.0f);
+		Vec3 pos = Vec3::lerp(blend, tile->relative_start_pos, tile->relative_target_pos) + Vec3(sinf(blend * PI) * 0.25f);
+		Quat rot = Quat::slerp(blend, tile->relative_start_rot, tile->relative_target_rot);
+		if (tile->parent.ref())
+			tile->parent.ref()->to_world(&pos, &rot);
+
+		if (params.camera->visible_sphere(pos, size * f_radius))
 		{
-			Tile* tile = i.item();
-			const r32 size = tile->scale();
-
-			r32 blend = vi_min(tile->timer / tile->anim_time, 1.0f);
-			Vec3 pos = Vec3::lerp(blend, tile->relative_start_pos, tile->relative_target_pos) + Vec3(sinf(blend * PI) * 0.25f);
-			Quat rot = Quat::slerp(blend, tile->relative_start_rot, tile->relative_target_rot);
-			if (tile->parent.ref())
-				tile->parent.ref()->to_world(&pos, &rot);
-
-			if (params.camera->visible_sphere(pos, size * f_radius))
-			{
-				Mat4* m = instances.add();
-				m->make_transform(pos, Vec3(size), rot);
-			}
+			Mat4* m = instances.add();
+			m->make_transform(pos, Vec3(size), rot);
 		}
 	}
 
 	if (instances.length == 0)
 		return;
 
-	Loader::shader_permanent(Asset::Shader::standard_instanced);
+	Loader::shader_permanent(Asset::Shader::flat_instanced);
 
 	RenderSync* sync = params.sync;
 	sync->write(RenderOp::Shader);
-	sync->write(Asset::Shader::standard_instanced);
+	sync->write(Asset::Shader::flat_instanced);
 	sync->write(params.technique);
 
 	Mat4 vp = params.view_projection;
@@ -5001,12 +4999,6 @@ void Tile::draw_alpha(const RenderParams& params)
 	sync->write(RenderDataType::Mat4);
 	sync->write<s32>(1);
 	sync->write<Mat4>(vp);
-
-	sync->write(RenderOp::Uniform);
-	sync->write(Asset::Uniform::v);
-	sync->write(RenderDataType::Mat4);
-	sync->write<s32>(1);
-	sync->write<Mat4>(params.view);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
@@ -5044,5 +5036,84 @@ r32 Tile::scale() const
 	return blend * TILE_SIZE;
 }
 
+PinArray<AirWave, MAX_ENTITIES> AirWave::list;
+Array<Mat4> AirWave::instances;
+
+void AirWave::add(const Vec3& pos, const Quat& rot, r32 timestamp_offset)
+{
+	AirWave* w = list.add();
+	w->pos = pos;
+	w->rot = rot;
+	w->timestamp = Game::time.total + timestamp_offset;
+}
+
+void AirWave::clear()
+{
+	list.clear();
+}
+
+void AirWave::draw_alpha(const RenderParams& params)
+{
+	const r32 lifetime = 0.3f;
+	const r32 anim_in_time = 0.02f;
+	const r32 anim_out_time = 0.15f;
+	instances.length = 0;
+
+	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::air_wave);
+	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
+	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		AirWave* w = i.item();
+		r32 timer = Game::time.total - w->timestamp;
+		if (timer > 0.0f)
+		{
+			r32 blend = 1.0f;
+			blend = vi_min(blend, Ease::cubic_out<r32>(timer / anim_in_time));
+			blend = vi_min(blend, Ease::cubic_in_out<r32>(1.0f - vi_max(0.0f, vi_min(1.0f, (timer - (lifetime - anim_out_time)) / anim_out_time))));
+			if (params.camera->visible_sphere(w->pos, blend * f_radius))
+			{
+				Mat4* m = instances.add();
+				m->make_transform(w->pos, Vec3(blend), w->rot);
+			}
+		}
+	}
+
+	if (instances.length == 0)
+		return;
+
+	Loader::shader_permanent(Asset::Shader::flat_instanced);
+
+	RenderSync* sync = params.sync;
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::flat_instanced);
+	sync->write(params.technique);
+
+	Mat4 vp = params.view_projection;
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::vp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(vp);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(Vec4(1, 1, 1, 0.3f));
+
+	sync->write(RenderOp::Instances);
+	sync->write(Asset::Mesh::air_wave);
+	sync->write(instances.length);
+	sync->write<Mat4>(instances.data, instances.length);
+}
+
+void AirWave::update(const Update& u)
+{
+	if (u.time.total - timestamp > TILE_LIFE_TIME)
+		list.remove(id());
+}
 
 }

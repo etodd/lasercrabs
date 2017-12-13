@@ -8,6 +8,7 @@ const char* AssetLookup::Mesh::values[] =
 {
 	"assets/access_key.msh",
 	"assets/actor_collision.msh",
+	"assets/air_wave.msh",
 	"assets/battery.msh",
 	"assets/cart.msh",
 	"assets/character.msh",
@@ -295,6 +296,7 @@ const char* AssetLookup::Mesh::names[] =
 {
 	"access_key",
 	"actor_collision",
+	"air_wave",
 	"battery",
 	"cart",
 	"character",
@@ -1242,6 +1244,7 @@ const char* AssetLookup::String::names[] =
 	"game_type_deathmatch",
 	"god_mode_enabled",
 	"grapple",
+	"grapple_cancel",
 	"grenade",
 	"grenade_incoming",
 	"group_required",
@@ -1584,6 +1587,7 @@ const char* AssetLookup::String::names[] =
 	"prompt_back",
 	"prompt_buy",
 	"prompt_cancel",
+	"prompt_cancel_grapple",
 	"prompt_capture",
 	"prompt_connect",
 	"prompt_defend",

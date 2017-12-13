@@ -106,6 +106,7 @@ enum class Resource : s8
 	ConsumableCount,
 	DoubleJump = ConsumableCount,
 	ExtendedWallRun,
+	Grapple,
 	AudioLog,
 	count,
 };

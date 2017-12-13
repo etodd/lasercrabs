@@ -4798,14 +4798,27 @@ void PlayerControlHuman::update(const Update& u)
 		{
 			if (movement_enabled())
 			{
-				b8 grapple_pressed = u.input->get(Controls::Grapple, gamepad);
-				b8 grapple_pressed_last = u.last_input->get(Controls::Grapple, gamepad);
+				if (get<Parkour>()->flag(Parkour::FlagTryGrapple) && u.input->get(Controls::GrappleCancel, gamepad))
+				{
+					get<Parkour>()->grapple_cancel();
+					flag(FlagGrappleCanceled, true);
+				}
 
-				Camera* camera = player.ref()->camera.ref();
-				if (grapple_pressed && !grapple_pressed_last)
-					get<Parkour>()->grapple_start(camera->pos, camera->rot);
-				else if (!grapple_pressed && grapple_pressed_last && get<Parkour>()->flag(Parkour::FlagTryGrapple))
-					get<Parkour>()->grapple_try(camera->pos, camera->rot);
+				b8 grapple_pressed = u.input->get(Controls::Grapple, gamepad);
+
+				if (flag(FlagGrappleCanceled))
+				{
+					if (!grapple_pressed)
+						flag(FlagGrappleCanceled, false);
+				}
+				else
+				{
+					Camera* camera = player.ref()->camera.ref();
+					if (grapple_pressed && !get<Parkour>()->flag(Parkour::FlagTryGrapple))
+						get<Parkour>()->grapple_start(camera->pos, camera->rot);
+					else if (!grapple_pressed && get<Parkour>()->flag(Parkour::FlagTryGrapple))
+						get<Parkour>()->grapple_try(camera->pos, camera->rot);
+				}
 			}
 			else
 			{
@@ -4817,7 +4830,6 @@ void PlayerControlHuman::update(const Update& u)
 				Camera* camera = player.ref()->camera.ref();
 				flag(FlagGrappleValid, get<Parkour>()->grapple_valid(camera->pos, camera->rot, &get<Parkour>()->grapple_pos, &get<Parkour>()->grapple_normal));
 			}
-			Game::session.time_scale = (get<Parkour>()->flag(Parkour::FlagTryGrapple) || get<Parkour>()->fsm.current == Parkour::State::Grapple) ? 0.3f : 1.0f;
 		}
 
 		Parkour::State parkour_state = get<Parkour>()->fsm.current;
@@ -4981,7 +4993,7 @@ void PlayerControlHuman::update_late(const Update& u)
 			{
 				camera->flag(CameraFlagColors, false);
 				camera->range_center = camera->rot.inverse() * (get<Parkour>()->hand_pos() - camera->pos);
-				camera->range = DRONE_MAX_DISTANCE;
+				camera->range = GRAPPLE_RANGE;
 			}
 			else
 			{
@@ -5478,6 +5490,19 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					text.draw(params, pos);
 				}
 			}
+		}
+
+		if (get<Parkour>()->flag(Parkour::FlagTryGrapple))
+		{
+			// cancel grapple
+			UIText text;
+			text.color = UI::color_accent();
+			text.text(player.ref()->gamepad, _(strings::prompt_cancel_grapple));
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+			text.draw(params, pos);
 		}
 
 		draw_cooldown(params, get<Parkour>()->grapple_cooldown, viewport.size * Vec2(0.5f, 0.15f), GRAPPLE_COOLDOWN_THRESHOLD);

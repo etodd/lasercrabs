@@ -115,6 +115,7 @@ void Parkour::awake()
 Parkour::~Parkour()
 {
 	get<Audio>()->stop_all();
+	Game::session.grapple_time_scale = 1.0f;
 	pickup_animation_complete(); // delete anything we're holding
 }
 
@@ -527,6 +528,8 @@ void Parkour::update(const Update& u)
 		}
 	}
 
+	Game::session.grapple_time_scale = (flag(FlagTryGrapple) || fsm.current == State::Grapple) ? 0.3f : 1.0f;
+
 	if (fsm.current == State::Grapple)
 		get<RigidBody>()->set_collision_masks(0, 0);
 	else
@@ -541,7 +544,7 @@ void Parkour::update(const Update& u)
 
 	if (fsm.current == State::Grapple)
 	{
-		const r32 grapple_time = 0.1f;
+		const r32 grapple_time = 0.15f;
 		r32 blend = Ease::cubic_in_out<r32>(vi_min(1.0f, fsm.time / grapple_time));
 		get<Walker>()->absolute_pos(Vec3::lerp(blend, grapple_start_pos, grapple_pos));
 		if (blend == 1.0f)
@@ -991,7 +994,7 @@ void Parkour::spawn_tiles(const Vec3& relative_wall_right, const Vec3& relative_
 
 	if (new_wall_coord)
 	{
-		r32 relative_wall_z = relative_support_pos.dot(relative_wall_normal) - 0.05f;
+		r32 relative_wall_z = relative_support_pos.dot(relative_wall_normal) - 0.1f;
 
 		Vec3 absolute_wall_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_normal);
 		Quat absolute_wall_rot = Quat::look(absolute_wall_normal);
@@ -1374,9 +1377,25 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 	return false;
 }
 
-void Parkour::grapple_start(const Vec3& start_pos, const Quat& start_rot)
+b8 grapple_possible(const Parkour* parkour)
 {
-	flag(FlagTryGrapple, true);
+	return Game::save.resources[s32(Resource::Grapple)]
+		&& parkour->grapple_cooldown < GRAPPLE_COOLDOWN_THRESHOLD
+		&& parkour->fsm.current != Parkour::State::HardLanding
+		&& parkour->fsm.current != Parkour::State::Mantle
+		&& parkour->fsm.current != Parkour::State::Grapple
+		&& parkour->get<Animator>()->layers[3].animation == AssetNull;
+}
+
+b8 Parkour::grapple_start(const Vec3& start_pos, const Quat& start_rot)
+{
+	if (grapple_possible(this))
+	{
+		flag(FlagTryGrapple, true);
+		return true;
+	}
+	else
+		return false;
 }
 
 void Parkour::grapple_cancel()
@@ -1384,32 +1403,25 @@ void Parkour::grapple_cancel()
 	flag(FlagTryGrapple, false);
 }
 
-b8 grapple_possible(const Parkour* parkour)
-{
-	return parkour->grapple_cooldown < GRAPPLE_COOLDOWN_THRESHOLD
-		&& parkour->fsm.current != Parkour::State::HardLanding
-		&& parkour->fsm.current != Parkour::State::Mantle
-		&& parkour->fsm.current != Parkour::State::Grapple
-		&& parkour->get<Animator>()->layers[3].animation == AssetNull;
-}
-
 b8 grapple_raycast(const Parkour* parkour, const Vec3& start_pos, const Quat& start_rot, Vec3* hit, Vec3* normal)
 {
-	RaycastCallbackExcept ray_callback(start_pos, start_pos + start_rot * Vec3(0, 0, DRONE_MAX_DISTANCE * 1.5f), parkour->entity());
+	RaycastCallbackExcept ray_callback(start_pos, start_pos + start_rot * Vec3(0, 0, GRAPPLE_RANGE * 1.5f), parkour->entity());
 	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
 	if (ray_callback.hasHit())
 	{
 		if (hit)
 			*hit = ray_callback.m_hitPointWorld;
 		if (normal)
-			*normal = ray_callback.m_hitNormalWorld;;
+			*normal = ray_callback.m_hitNormalWorld;
+		r32 dist_sq = (Vec3(ray_callback.m_hitPointWorld) - parkour->hand_pos()).length_squared();
 		return !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK)
-			&& (Vec3(ray_callback.m_hitPointWorld) - parkour->hand_pos()).length_squared() < DRONE_MAX_DISTANCE * DRONE_MAX_DISTANCE;
+			&& dist_sq < GRAPPLE_RANGE * GRAPPLE_RANGE
+			&& dist_sq > GRAPPLE_RANGE * 0.15f * GRAPPLE_RANGE * 0.15f;
 	}
 	else
 	{
 		if (hit)
-			*hit = start_pos + start_rot * Vec3(0, 0, DRONE_MAX_DISTANCE);
+			*hit = start_pos + start_rot * Vec3(0, 0, GRAPPLE_RANGE);
 		if (normal)
 			*normal = start_rot * Vec3(0, 0, -1);
 		return false;
@@ -1434,6 +1446,19 @@ b8 Parkour::grapple_try(const Vec3& start_pos, const Quat& start_rot)
 			grapple_start_pos = get<Transform>()->absolute_pos();
 			grapple_pos = hit + normal * (fabsf(normal.y) > 0.707f ? WALKER_HEIGHT : WALKER_PARKOUR_RADIUS);
 			grapple_cooldown += GRAPPLE_COOLDOWN;
+
+			// air waves
+			{
+				Vec3 diff = grapple_pos - grapple_start_pos;
+				r32 distance = diff.length();
+				diff /= distance;
+
+				Quat rot = Quat::look(diff);
+				const r32 interval = 3.0f;
+				for (s32 i = 0; i < s32(distance / interval); i++)
+					AirWave::add(grapple_start_pos + Vec3(0, WALKER_HEIGHT * 0.5f, 0) + diff * ((i + 1) * interval), rot, i * 0.02f);
+			}
+
 			return true;
 		}
 	}

@@ -142,7 +142,7 @@ Game::Session::Session()
 
 r32 Game::Session::effective_time_scale() const
 {
-	return time_scale;
+	return time_scale * grapple_time_scale;
 }
 
 s32 Game::Session::local_player_count() const
@@ -156,7 +156,7 @@ void Game::Session::reset(SessionType t)
 	memset(this, 0, sizeof(*this));
 
 	zone_under_attack = AssetNull;
-	time_scale = 1.0f;
+	time_scale = grapple_time_scale = 1.0f;
 	new (&config) Net::Master::ServerConfig();
 
 	type = t;
@@ -643,6 +643,8 @@ void Game::update(InputState* input, const InputState* last_input)
 		Grenade::update_client_all(u);
 		for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
+		for (auto i = AirWave::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
 		for (auto i = UpgradeStation::list.iterator(); !i.is_last(); i.next())
 			i.item()->update_client(u);
 		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
@@ -1056,6 +1058,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 	EffectLight::draw_alpha(render_params);
 
 	Tile::draw_alpha(render_params);
+	AirWave::draw_alpha(render_params);
 
 	ParticleEffect::draw_alpha(render_params);
 
@@ -1300,6 +1303,7 @@ void Game::execute(const char* cmd)
 	{
 		Game::save.resources[s32(Resource::DoubleJump)] = 1;
 		Game::save.resources[s32(Resource::ExtendedWallRun)] = 1;
+		Game::save.resources[s32(Resource::Grapple)] = 1;
 	}
 #endif
 	else if (strcmp(cmd, "killai") == 0)
@@ -1380,6 +1384,7 @@ void Game::unload_level()
 	Overworld::clear();
 	Ascensions::clear();
 	Tile::clear();
+	AirWave::clear();
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		Audio::listener_disable(i);
 

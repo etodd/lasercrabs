@@ -17,6 +17,7 @@ struct Traceur : public Entity
 #define LANDING_VELOCITY_HARD 5.0f * -2.65f
 #define GRAPPLE_COOLDOWN_THRESHOLD 3.0f
 #define GRAPPLE_COOLDOWN 4.5f
+#define GRAPPLE_RANGE 16.0f
 
 struct Minion;
 struct Transform;
@@ -121,7 +122,7 @@ struct Parkour : public ComponentType<Parkour>
 	b8 try_jump(r32);
 	void do_normal_jump();
 	b8 try_parkour(MantleAttempt = MantleAttempt::Normal);
-	void grapple_start(const Vec3&, const Quat&);
+	b8 grapple_start(const Vec3&, const Quat&);
 	void grapple_cancel();
 	b8 grapple_valid(const Vec3&, const Quat&, Vec3* = nullptr, Vec3* = nullptr) const;
 	b8 grapple_try(const Vec3&, const Quat&);

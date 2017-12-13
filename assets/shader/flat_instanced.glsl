@@ -35,7 +35,6 @@ layout(location = 2) in mat4 in_model_matrix;
 out vec3 normal_viewspace;
 
 uniform mat4 vp;
-uniform mat4 v;
 
 void main()
 {

@@ -807,5 +807,27 @@ struct Tile
 	void update(const Update&);
 };
 
+struct AirWave
+{
+	static PinArray<AirWave, MAX_ENTITIES> list;
+
+	static Array<Mat4> instances;
+
+	static void add(const Vec3&, const Quat&, r32 = 0.0f);
+	static void draw_alpha(const RenderParams&);
+	static void clear();
+
+	Quat rot;
+	Vec3 pos;
+	r32 timestamp;
+
+	ID id() const
+	{
+		return ID(this - &list.data[0]);
+	}
+
+	void update(const Update&);
+};
+
 
 }

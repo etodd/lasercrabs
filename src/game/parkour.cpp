@@ -56,6 +56,7 @@ Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 	model->mesh_shadow = Asset::Mesh::parkour;
 	model->mesh = Asset::Mesh::parkour_headless;
 	model->radius = 20.0f;
+	model->color.w = MATERIAL_INACCESSIBLE;
 
 	create<Audio>();
 	

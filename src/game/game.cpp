@@ -882,8 +882,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 	{
 		Skybox::draw_alpha(render_params);
 		SkyDecal::draw_alpha(render_params);
-		Clouds::draw_alpha(render_params);
 	}
+
+	Clouds::draw_alpha(render_params);
 
 #if DEBUG_WALK_AI_PATH
 	{
@@ -1909,7 +1910,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			Clouds::Config config;
 			config.color = Json::get_vec4(element, "color");
 			config.height = absolute_pos.y;
-			config.scale = Json::get_r32(element, "scale", 1.0f) * 2.0f;
+			config.scale = Json::get_r32(element, "cloud_scale", 1.0f) * 2.0f;
 			config.velocity = Vec2(Json::get_r32(element, "velocity_x"), Json::get_r32(element, "velocity_z"));
 			config.shadow = Json::get_r32(element, "shadow");
 			level.clouds.add(config);

@@ -128,6 +128,7 @@
 		"deploy_timer_assault": "%s - Deploying... %d",
 		"defend": "Defend",
 		"attack": "Attack",
+		"demo_end": "Thanks for playing the demo! Back the game on Kickstarter if you want to see it finished!",
 		"attacker_drones_remaining": "%d attacker drones remain",
 		"prompt_deploy": "[{{Interact}}] Deploy",
 		"prompt_interact": "[{{InteractSecondary}}] Interact",

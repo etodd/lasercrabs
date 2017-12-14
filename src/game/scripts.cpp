@@ -588,6 +588,7 @@ namespace Docks
 		Ref<Transform> fire;
 		Ref<PlayerTrigger> wallrun_trigger_1;
 		Ref<PlayerTrigger> wallrun_trigger_2;
+		Ref<Animator> cutscene_parkour;
 		Ref<Entity> energy;
 		StaticArray<Ref<Transform>, 8> wallrun_footsteps1;
 		StaticArray<Ref<Transform>, 8> wallrun_footsteps2;
@@ -822,6 +823,38 @@ namespace Docks
 	}
 #endif
 
+	void cutscene_update(const Update& u)
+	{
+		Camera* camera = Camera::list.iterator().item();
+		camera->perspective(PI * 0.5f * 0.33f, 0.1f, Game::level.far_plane_get());
+		camera->pos = Vec3(0.15f, 0, 0);
+		camera->rot = Quat::euler(PI * -0.5f, 0, 0);
+		data->cutscene_parkour.ref()->to_world(Asset::Bone::parkour_head, &camera->pos, &camera->rot);
+	}
+
+	void cutscene_init()
+	{
+		Entity* hobo = World::create<Prop>(Asset::Mesh::hobo, Asset::Armature::hobo, Asset::Animation::hobo_trailer7);
+		hobo->get<Animator>()->layers[0].blend_time = 0.0f;
+		Entity* parkour = World::create<Prop>(Asset::Mesh::parkour_headless, Asset::Armature::parkour, Asset::Animation::parkour_trailer7_parkour);
+		parkour->get<SkinnedModel>()->mesh_shadow = Asset::Mesh::parkour;
+		data->cutscene_parkour = parkour->get<Animator>();
+		data->cutscene_parkour.ref()->layers[0].blend_time = 0.0f;
+		{
+			Game::level.finder.find("cutscene_props")->get<View>()->mask = RENDER_MASK_DEFAULT;
+			Transform* cutscene = Game::level.finder.find("cutscene")->get<Transform>();
+			hobo->get<Transform>()->absolute(cutscene->pos, cutscene->rot);
+			parkour->get<Transform>()->absolute(cutscene->pos, cutscene->rot);
+		}
+		Game::updates.add(&cutscene_update);
+		for (auto i = Actor::Instance::list.iterator(); !i.is_last(); i.next())
+			i.item()->highlight = false;
+		data->ivory_ad_text.ref()->get<View>()->mask = 0;
+		Game::level.finder.find("ivory_ad")->get<View>()->mask = 0;
+		Particles::clear();
+		Game::level.rain = 0.0f;
+	}
+
 	void update_title(const Update& u)
 	{
 #if !SERVER
@@ -831,6 +864,11 @@ namespace Docks
 			if (Game::auth_key_length == 0 && !Menu::dialog_active(0))
 				itch_prompt();
 		}
+#endif
+
+#if !RELEASE_BUILD
+		if (u.input->keys.get(s32(KeyCode::F1)) && !u.last_input->keys.get(s32(KeyCode::F1)))
+			cutscene_init();
 #endif
 
 		if (data->camera.ref())
@@ -1056,6 +1094,8 @@ namespace Docks
 		vi_assert(!data);
 		data = new Data();
 		Game::cleanups.add(cleanup);
+
+		entities.find("cutscene_props")->get<View>()->mask = 0;
 
 #if !SERVER
 		if (!Game::user_key.id)

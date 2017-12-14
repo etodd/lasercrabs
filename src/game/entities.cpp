@@ -4521,7 +4521,14 @@ void TramRunner::update_server(const Update& u)
 			&& state == State::Departing
 			&& Game::scheduled_load_level == AssetNull
 			&& offset > t.points[t.points.length - 1].offset) // we hit our goal, we are the front runner, we're a local game, and we're exiting the level
+		{
+#if RELEASE_BUILD
+			Game::scheduled_dialog = strings::demo_end;
+			Menu::title();
+#else
 			Game::schedule_load_level(t.level, Game::Mode::Parkour);
+#endif
+		}
 	}
 
 	r32 error = target_offset - offset;

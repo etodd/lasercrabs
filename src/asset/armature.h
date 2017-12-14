@@ -25,7 +25,7 @@ namespace Asset
 	}
 	namespace Bone
 	{
-		const s32 count = 395;
+		const s32 count = 396;
 		const AssetID character_camera = 0;
 		const AssetID character_claw1_L = 9;
 		const AssetID character_claw1_R = 15;
@@ -113,6 +113,7 @@ namespace Asset
 		const AssetID drone_root = 0;
 		const AssetID hobo_ball_l = 48;
 		const AssetID hobo_ball_r = 52;
+		const AssetID hobo_bottle = 53;
 		const AssetID hobo_calf_l = 46;
 		const AssetID hobo_calf_r = 50;
 		const AssetID hobo_clavicle_l = 5;

@@ -4858,6 +4858,14 @@ r32 Ascensions::Entry::scale() const
 	return (Game::level.far_plane_get() / 100.0f) * LMath::lerpf(blend, 1.0f, 0.5f);
 }
 
+void Ascensions::add(const char* username)
+{
+	Entry* e = entries.add();
+	e->timer = ascension_total_time;
+	memset(e->username, 0, sizeof(e->username));
+	strncpy(e->username, username, MAX_USERNAME);
+}
+
 void Ascensions::update(const Update& u)
 {
 	if (Game::level.mode != Game::Mode::Special)
@@ -4866,10 +4874,9 @@ void Ascensions::update(const Update& u)
 		if (timer < 0.0f)
 		{
 			timer = 40.0f + mersenne::randf_co() * 200.0f;
-
-			Entry* e = entries.add();
-			e->timer = ascension_total_time;
-			e->username = Usernames::all[mersenne::rand_u32() % Usernames::count];
+#if !SERVER
+			Net::Client::master_request_ascension();
+#endif
 		}
 	}
 

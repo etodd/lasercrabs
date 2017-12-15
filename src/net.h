@@ -192,6 +192,7 @@ namespace Client
 	void replay_file_add(const char*);
 	s32 replay_file_count();
 	b8 lagging();
+	b8 master_request_ascension();
 	b8 master_request_server(u32, AssetID = AssetNull, StoryModeTeam = StoryModeTeam::Attack);
 	b8 master_friendship_get(u32);
 	b8 master_friend_remove(u32);

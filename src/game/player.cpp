@@ -3902,20 +3902,20 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 overall_rotati
 				u.input->gamepads[gamepad].right_y * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f)
 			);
 			Input::dead_zone(&adjustment.x, &adjustment.y);
-			adjustment *= overall_rotation_multiplier * speed_joystick * Settings::gamepads[gamepad].effective_sensitivity_gamepad() * Game::time.delta * gamepad_rotation_multiplier;
+			adjustment *= overall_rotation_multiplier * speed_joystick * Settings::gamepads[gamepad].effective_sensitivity_gamepad() * u.real_time.delta * gamepad_rotation_multiplier;
 			r32 adjustment_length = adjustment.length();
 			if (adjustment_length > 0.0f)
 			{
-				last_gamepad_input_time = Game::real_time.total;
+				last_gamepad_input_time = u.real_time.total;
 
 				// ramp gamepad rotation speed up at a constant rate until we reach the desired speed
 				adjustment /= adjustment_length;
-				gamepad_rotation_speed = vi_min(adjustment_length, gamepad_rotation_speed + Game::real_time.delta * gamepad_rotation_acceleration);
+				gamepad_rotation_speed = vi_min(adjustment_length, gamepad_rotation_speed + u.real_time.delta * gamepad_rotation_acceleration);
 			}
 			else
 			{
 				// ramp gamepad rotation speed back down
-				gamepad_rotation_speed = vi_max(0.0f, gamepad_rotation_speed + Game::real_time.delta * -gamepad_rotation_acceleration);
+				gamepad_rotation_speed = vi_max(0.0f, gamepad_rotation_speed + u.real_time.delta * -gamepad_rotation_acceleration);
 			}
 			get<PlayerCommon>()->angle_horizontal += adjustment.x * gamepad_rotation_speed;
 			get<PlayerCommon>()->angle_vertical += adjustment.y * gamepad_rotation_speed;

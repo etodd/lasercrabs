@@ -1307,6 +1307,7 @@ void Game::execute(const char* cmd)
 		Game::save.resources[s32(Resource::Grapple)] = 1;
 	}
 #endif
+#if !RELEASE_BUILD
 	else if (strcmp(cmd, "killai") == 0)
 	{
 		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
@@ -1326,6 +1327,13 @@ void Game::execute(const char* cmd)
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 			i.item()->get<Health>()->kill(nullptr);
 	}
+#if !SERVER
+	else if (strcmp(cmd, "ascension") == 0)
+	{
+		Net::Client::master_request_ascension();
+	}
+#endif
+#endif
 	else if (strstr(cmd, "timescale ") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');

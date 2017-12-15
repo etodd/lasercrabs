@@ -797,7 +797,7 @@ namespace Master
 				else
 				{
 					// insert new user
-					sqlite3_stmt* stmt = db_query("insert into User (token, token_timestamp, itch_id, username, banned) values (?, ?, ?, ?, 0);");
+					sqlite3_stmt* stmt = db_query("insert into User (token, token_timestamp, itch_id, username, banned, vip, completed_campaign) values (?, ?, ?, ?, 0, 0, 0);");
 					db_bind_int(stmt, 0, key.token);
 					db_bind_int(stmt, 1, platform::timestamp());
 					db_bind_int(stmt, 2, itch_id);
@@ -950,7 +950,7 @@ namespace Master
 				else
 				{
 					// insert new user
-					sqlite3_stmt* stmt = db_query("insert into User (token, token_timestamp, gamejolt_id, username, banned) values (?, ?, ?, ?, 0);");
+					sqlite3_stmt* stmt = db_query("insert into User (token, token_timestamp, gamejolt_id, username, banned, vip, completed_campaign) values (?, ?, ?, ?, 0, 0, 0);");
 					db_bind_int(stmt, 0, key.token);
 					db_bind_int(stmt, 1, platform::timestamp());
 					db_bind_int(stmt, 2, gamejolt_id);
@@ -1078,7 +1078,7 @@ namespace Master
 				else
 				{
 					// insert new user
-					sqlite3_stmt* stmt = db_query("insert into User (token, token_timestamp, steam_id, username, banned) values (?, ?, ?, ?, 0);");
+					sqlite3_stmt* stmt = db_query("insert into User (token, token_timestamp, steam_id, username, banned, vip, completed_campaign) values (?, ?, ?, ?, 0, 0, 0);");
 					db_bind_int(stmt, 0, key.token);
 					db_bind_int(stmt, 1, platform::timestamp());
 					db_bind_int(stmt, 2, steam_id);
@@ -1309,6 +1309,22 @@ namespace Master
 		}
 
 		return role;
+	}
+
+	b8 send_ascension(Node* client, char* username)
+	{
+		using Stream = StreamWrite;
+		StreamWrite p;
+		packet_init(&p);
+		global.messenger.add_header(&p, client->addr, Message::Ascension);
+
+		s32 length = s32(strlen(username));
+		serialize_int(&p, s32, length, 0, MAX_USERNAME);
+		serialize_bytes(&p, (u8*)(username), length);
+
+		packet_finalize(&p);
+		global.messenger.send(p, global_timestamp, client->addr, &global.sock);
+		return true;
 	}
 
 	b8 send_server_expect_client(Node* server, UserKey* user)
@@ -2200,6 +2216,17 @@ namespace Master
 					update_user_server_linkage(friend_id, config_id, desired_role);
 				break;
 			}
+			case Message::ClientRequestAscension:
+			{
+				sqlite3_stmt* stmt = db_query("select username from User where completed_campaign=1 order by random() limit 1;");
+				while (db_step(stmt))
+				{
+					char* username = (char*)(db_column_text(stmt, 0));
+					send_ascension(node, username);
+				}
+				db_finalize(stmt);
+				break;
+			}
 			default:
 				net_error();
 				break;
@@ -2236,7 +2263,7 @@ namespace Master
 
 			if (init_db)
 			{
-				db_exec("create table User (id integer primary key autoincrement, token integer not null, token_timestamp integer not null, itch_id integer, steam_id integer, gamejolt_id integer, username varchar(256) not null, banned boolean not null, unique(itch_id), unique(steam_id));");
+				db_exec("create table User (id integer primary key autoincrement, token integer not null, token_timestamp integer not null, itch_id integer, steam_id integer, gamejolt_id integer, username varchar(256) not null, banned boolean not null, vip boolean not null, completed_campaign boolean not null, unique(itch_id), unique(steam_id));");
 				db_exec("create table ServerConfig (id integer primary key autoincrement, creator_id integer not null, name text not null, config text, max_players integer not null, team_count integer not null, game_type integer not null, is_private boolean not null, online boolean not null, region integer not null, plays integer not null, score integer not null, foreign key (creator_id) references User(id));");
 				db_exec("create table UserServer (user_id integer not null, server_id integer not null, timestamp integer not null, role integer not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id), primary key (user_id, server_id));");
 				db_exec("create table Friendship (user1_id integer not null, user2_id integer not null, foreign key (user1_id) references User(id), foreign key (user2_id) references User(id), primary key (user1_id, user2_id));");

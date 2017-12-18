@@ -4126,26 +4126,27 @@ void PlayerControlHuman::update(const Update& u)
 {
 	s32 gamepad = player.ref()->gamepad;
 
-	{
-		// save our position history
-		r32 cutoff = Game::real_time.total - (Net::rtt(player.ref()) * 2.0f) - Net::interpolation_delay(player.ref());
-		while (position_history.length > 16 && position_history[0].timestamp < cutoff)
-			position_history.remove_ordered(0);
-		Transform* t = get<Transform>();
-		Vec3 abs_pos;
-		Quat abs_rot;
-		t->absolute(&abs_pos, &abs_rot);
-		position_history.add(
-		{
-			abs_rot,
-			abs_pos,
-			Game::real_time.total,
-		});
-	}
-
 	if (has<Drone>())
 	{
 		spot_timer = vi_max(0.0f, spot_timer - u.real_time.delta);
+
+		if (Game::level.local || local())
+		{
+			// save our position history
+			r32 cutoff = Game::real_time.total - (Net::rtt(player.ref()) * 2.0f) - Net::interpolation_delay(player.ref());
+			while (position_history.length > 16 && position_history[0].timestamp < cutoff)
+				position_history.remove_ordered(0);
+			Transform* t = get<Transform>();
+			Vec3 abs_pos;
+			Quat abs_rot;
+			t->absolute(&abs_pos, &abs_rot);
+			position_history.add(
+			{
+				abs_rot,
+				abs_pos,
+				Game::real_time.total,
+			});
+		}
 
 		if (local())
 		{

@@ -453,6 +453,7 @@
 							</ReferenceList>
 							<ChildrenList>
 								<AudioFileSource Name="hobo01" ID="{D6E495FB-49AB-4FF1-A7D0-902DF78546C6}" ShortID="769469240">
+									<ReferenceList/>
 									<Language>SFX</Language>
 									<AudioFile>hobo01.wav</AudioFile>
 								</AudioFileSource>
@@ -475,9 +476,17 @@
 									<Language>SFX</Language>
 									<AudioFile>hobo02.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="hobo01" ID="{59199E36-3C8C-45B2-82FB-39BE0E66DF18}" ShortID="99771586">
+									<ReferenceList/>
+									<Language>SFX</Language>
+									<AudioFile>hobo01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="769469240"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="hobo02" ID="{F85E19DD-44F5-4BB3-BE2E-C445C8DE8FC6}" Platform="Linked"/>
+								<ActiveSource Name="hobo01" ID="{59199E36-3C8C-45B2-82FB-39BE0E66DF18}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="hobo03" ID="{C9BC228E-9F5E-4CDA-8478-56207272492A}" ShortID="650019088">
@@ -494,9 +503,17 @@
 									<Language>SFX</Language>
 									<AudioFile>hobo03.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="hobo01" ID="{153F44FB-38F8-4D86-9208-1FD86ADE5679}" ShortID="479496770">
+									<ReferenceList/>
+									<Language>SFX</Language>
+									<AudioFile>hobo01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="769469240"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="hobo03" ID="{FA2AADDB-41B7-4E72-8D8D-D3513901E07B}" Platform="Linked"/>
+								<ActiveSource Name="hobo01" ID="{153F44FB-38F8-4D86-9208-1FD86ADE5679}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="hobo04" ID="{E713A85D-A072-4117-B83C-375357A47762}" ShortID="959052307">
@@ -513,9 +530,17 @@
 									<Language>SFX</Language>
 									<AudioFile>hobo04.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="hobo01" ID="{57B8875B-5C81-4359-AFCE-0ED86E8B50D3}" ShortID="221223431">
+									<ReferenceList/>
+									<Language>SFX</Language>
+									<AudioFile>hobo01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="769469240"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="hobo04" ID="{DE4E5491-E196-4E72-8C19-17E98A70DFB1}" Platform="Linked"/>
+								<ActiveSource Name="hobo01" ID="{57B8875B-5C81-4359-AFCE-0ED86E8B50D3}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="hobo05" ID="{57CA57C3-8502-4C57-8B1C-37829F7AB0C2}" ShortID="966806543">
@@ -532,9 +557,17 @@
 									<Language>SFX</Language>
 									<AudioFile>hobo05.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="hobo01" ID="{EC966C4A-279F-4E1E-A2C8-2BBE3BC7D795}" ShortID="128338876">
+									<ReferenceList/>
+									<Language>SFX</Language>
+									<AudioFile>hobo01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="769469240"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="hobo05" ID="{72B8EB35-2370-4E29-8CA7-18E2DD9D8A42}" Platform="Linked"/>
+								<ActiveSource Name="hobo01" ID="{EC966C4A-279F-4E1E-A2C8-2BBE3BC7D795}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="hobo06" ID="{A0FF3FFD-E485-44F7-BF53-83DE50A7224D}" ShortID="9759816">
@@ -551,9 +584,17 @@
 									<Language>SFX</Language>
 									<AudioFile>hobo06.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="hobo01" ID="{00BD4205-3D61-4DF5-AB35-9C1B5B21826E}" ShortID="422815132">
+									<ReferenceList/>
+									<Language>SFX</Language>
+									<AudioFile>hobo01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="769469240"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="hobo06" ID="{7BD5A8BE-E976-4239-A71D-C3D656181F37}" Platform="Linked"/>
+								<ActiveSource Name="hobo01" ID="{00BD4205-3D61-4DF5-AB35-9C1B5B21826E}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="hobo07" ID="{FC38538F-AC93-4ACF-845B-E623AD80E22D}" ShortID="1066922079">
@@ -570,9 +611,17 @@
 									<Language>SFX</Language>
 									<AudioFile>hobo07.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="hobo01" ID="{77612AD1-DC7F-4664-99D5-19EF4160E89F}" ShortID="400782208">
+									<ReferenceList/>
+									<Language>SFX</Language>
+									<AudioFile>hobo01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="769469240"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="hobo07" ID="{1E46A276-5B0F-44CF-8D4F-F48BAB6C1D6A}" Platform="Linked"/>
+								<ActiveSource Name="hobo01" ID="{77612AD1-DC7F-4664-99D5-19EF4160E89F}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="hobo08" ID="{AFE37A8D-D712-4054-B857-87FA1348EBBD}" ShortID="106589291">
@@ -589,9 +638,17 @@
 									<Language>SFX</Language>
 									<AudioFile>hobo08.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="hobo01" ID="{395269E3-A83A-41DF-B6BC-288D35A99EF1}" ShortID="572790582">
+									<ReferenceList/>
+									<Language>SFX</Language>
+									<AudioFile>hobo01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="769469240"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="hobo08" ID="{32F38EB1-50FA-4DAF-AB19-44BFF18A3C27}" Platform="Linked"/>
+								<ActiveSource Name="hobo01" ID="{395269E3-A83A-41DF-B6BC-288D35A99EF1}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="hobo09" ID="{BF5E524C-6DEB-4012-8D7B-05A53F2DDC77}" ShortID="759559628">
@@ -608,9 +665,17 @@
 									<Language>SFX</Language>
 									<AudioFile>hobo09.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="hobo01" ID="{97486C00-5540-4D85-9D02-152B031E1945}" ShortID="963364196">
+									<ReferenceList/>
+									<Language>SFX</Language>
+									<AudioFile>hobo01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="769469240"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="hobo09" ID="{78B319C5-B116-406F-991B-D5DA939F764F}" Platform="Linked"/>
+								<ActiveSource Name="hobo01" ID="{97486C00-5540-4D85-9D02-152B031E1945}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="hobo10" ID="{3E058752-F2CF-42EE-91FC-DAA7A7C33FAA}" ShortID="268400148">
@@ -627,9 +692,17 @@
 									<Language>SFX</Language>
 									<AudioFile>hobo10.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="hobo01" ID="{0A3D9D0F-194F-4703-97DD-454AFD5D4BD7}" ShortID="503814164">
+									<ReferenceList/>
+									<Language>SFX</Language>
+									<AudioFile>hobo01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="769469240"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="hobo10" ID="{1A45E92B-5452-400D-BC02-4058464E6652}" Platform="Linked"/>
+								<ActiveSource Name="hobo01" ID="{0A3D9D0F-194F-4703-97DD-454AFD5D4BD7}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="locke_a01" ID="{7CB79A5A-26BF-4E26-9ECD-3DA0178A1DA5}" ShortID="549563186">
@@ -3014,7 +3087,7 @@
 												</Sound>
 											</ChildrenList>
 										</RandomSequenceContainer>
-										<RandomSequenceContainer Name="Drone_Weapon_Equip" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" ShortID="524296170">
+										<RandomSequenceContainer Name="Drone_Weapon_Equip_None" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" ShortID="524296170">
 											<PropertyList>
 												<Property Name="Highpass" Type="int16">
 													<ValueList>
@@ -3037,6 +3110,13 @@
 											</ReferenceList>
 											<ChildrenList>
 												<Sound Name="DEC_Weapon_Equip_01_V_01" ID="{4F36B0FD-1EAE-4055-B833-1D394156FE88}" ShortID="866731795">
+													<PropertyList>
+														<Property Name="Inclusion" Type="bool">
+															<ValueList>
+																<Value>False</Value>
+															</ValueList>
+														</Property>
+													</PropertyList>
 													<ReferenceList>
 														<Reference Name="Conversion">
 															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -3056,6 +3136,13 @@
 													</ActiveSourceList>
 												</Sound>
 												<Sound Name="DEC_Weapon_Equip_01_V_02" ID="{319F1333-C193-4CE7-AC26-C301C96CD5CD}" ShortID="454693488">
+													<PropertyList>
+														<Property Name="Inclusion" Type="bool">
+															<ValueList>
+																<Value>False</Value>
+															</ValueList>
+														</Property>
+													</PropertyList>
 													<ReferenceList>
 														<Reference Name="Conversion">
 															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -3095,6 +3182,136 @@
 												</Sound>
 											</ChildrenList>
 										</RandomSequenceContainer>
+										<Sound Name="DEC_CombatSFX_equip_bolter" ID="{C0EA9A5C-9B00-43F6-BEF5-EDCD3306AD66}" ShortID="136005444">
+											<PropertyList>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-4</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_CombatSFX_equip_bolter" ID="{135774BA-E65E-4698-A1CA-814D11908E2A}" ShortID="461666280">
+													<Language>SFX</Language>
+													<AudioFile>DEC_CombatSFX_equip_bolter.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_CombatSFX_equip_bolter" ID="{135774BA-E65E-4698-A1CA-814D11908E2A}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_CombatSFX_equip_grenade" ID="{33C61B23-036D-4AD2-BD3D-4942513DC037}" ShortID="40887405">
+											<PropertyList>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-4</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_CombatSFX_equip_grenade_rev2" ID="{8AD6BEE9-4564-4CAB-B30A-5268DB36E38A}" ShortID="645099786">
+													<Language>SFX</Language>
+													<AudioFile>DEC_CombatSFX_equip_grenade_rev2.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_CombatSFX_equip_grenade_rev2" ID="{8AD6BEE9-4564-4CAB-B30A-5268DB36E38A}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_CombatSFX_equip_shotgun" ID="{2901C41A-C003-40B1-9446-2A1F234579FA}" ShortID="55329825">
+											<PropertyList>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-6</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_CombatSFX_equip_shotgun" ID="{F41FB118-E9B3-4FB3-9E25-84BF02C25686}" ShortID="407684560">
+													<Language>SFX</Language>
+													<AudioFile>DEC_CombatSFX_equip_shotgun.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_CombatSFX_equip_shotgun" ID="{F41FB118-E9B3-4FB3-9E25-84BF02C25686}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_CombatSFX_equip_sniper" ID="{2D722901-DFDE-4B60-803A-BC574EFC9E44}" ShortID="307660705">
+											<PropertyList>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-6</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_CombatSFX_equip_sniper" ID="{D73A570C-80C0-4BD3-98EE-88342F1A5C86}" ShortID="586635090">
+													<Language>SFX</Language>
+													<AudioFile>DEC_CombatSFX_equip_sniper.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_CombatSFX_equip_sniper" ID="{D73A570C-80C0-4BD3-98EE-88342F1A5C86}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_CombatSFX_equip_build" ID="{4884DB47-1CAB-41D6-B9F5-07E6CBDA4105}" ShortID="492977671">
+											<PropertyList>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-3</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_CombatSFX_equip_build" ID="{31AFBB4C-5910-4100-B8AD-0E3D0A17A1EE}" ShortID="845874935">
+													<Language>SFX</Language>
+													<AudioFile>DEC_CombatSFX_equip_build.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_CombatSFX_equip_build" ID="{31AFBB4C-5910-4100-B8AD-0E3D0A17A1EE}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
 									</ChildrenList>
 								</ActorMixer>
 								<ActorMixer Name="Drone_Shield" ID="{4ECCCA00-8101-45FB-BC44-922EC21FDB10}" ShortID="382729958">
@@ -7401,6 +7618,254 @@
 						</Sound>
 					</ChildrenList>
 				</ActorMixer>
+				<Folder Name="Tram" ID="{78E531F8-C4B9-4B52-8887-4B24E6F461BB}" ShortID="425418416">
+					<ChildrenList>
+						<ActorMixer Name="TramRunner" ID="{2EFBE09E-C1D7-462D-9911-C6130EDB396B}" ShortID="178937525">
+							<PropertyList>
+								<Property Name="PositioningType" Type="int16" Value="1"/>
+								<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Attenuation">
+									<ObjectRef Name="Atten20" ID="{66FF368F-246F-423C-AD7C-4B99890C0E5F}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+								</Reference>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<RandomSequenceContainer Name="Sparks" ID="{6B1B9DF2-0433-4D50-A3E5-7645978216D7}" ShortID="994158971">
+									<PropertyList>
+										<Property Name="Pitch" Type="int32">
+											<ModifierList>
+												<ModifierInfo>
+													<Modifier Name="" ID="{74BB310F-2F29-4392-AC20-D9C191034ACE}">
+														<PropertyList>
+															<Property Name="Enabled" Type="bool" Value="True"/>
+															<Property Name="Max" Type="Real64" Value="200"/>
+															<Property Name="Min" Type="Real64" Value="-200"/>
+														</PropertyList>
+													</Modifier>
+												</ModifierInfo>
+											</ModifierList>
+										</Property>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-10</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="DEC_Parkour_tram_spark1" ID="{0AE19B61-D09D-4FF9-BEFE-F6323BA15C8D}" ShortID="489941828">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Parkour_tram_spark1" ID="{D80FB074-755E-4A70-8AB7-F4D8388D5817}" ShortID="254557376">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Parkour_tram_spark1.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Parkour_tram_spark1" ID="{D80FB074-755E-4A70-8AB7-F4D8388D5817}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_Parkour_tram_spark2" ID="{EFD9EA07-5C3F-484D-A05D-A3D14F0C5588}" ShortID="563412624">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Parkour_tram_spark2" ID="{0D17F0C4-DDB2-4B24-B5E2-C3C26D60D3E8}" ShortID="874206724">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Parkour_tram_spark2.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Parkour_tram_spark2" ID="{0D17F0C4-DDB2-4B24-B5E2-C3C26D60D3E8}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_Parkour_tram_spark3" ID="{9AFB5ADB-0CDC-414B-8E20-FEA1E91AD627}" ShortID="624205440">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Parkour_tram_spark3" ID="{C59B4636-6B19-4D5C-B4FD-CF7A3E2ED7E3}" ShortID="407403830">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Parkour_tram_spark3.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Parkour_tram_spark3" ID="{C59B4636-6B19-4D5C-B4FD-CF7A3E2ED7E3}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_Parkour_tram_spark4" ID="{486A9D74-8392-4ABB-91EC-FB203602519D}" ShortID="418599650">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Parkour_tram_spark4" ID="{B6DA8D56-30BE-46B8-87DC-8B42F6D07F75}" ShortID="215808876">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Parkour_tram_spark4.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Parkour_tram_spark4" ID="{B6DA8D56-30BE-46B8-87DC-8B42F6D07F75}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</RandomSequenceContainer>
+							</ChildrenList>
+						</ActorMixer>
+						<ActorMixer Name="Tram" ID="{E174B875-7E6A-4E08-ADD0-C4D8D37F9E80}" ShortID="30811573">
+							<PropertyList>
+								<Property Name="PositioningType" Type="int16" Value="1"/>
+								<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Attenuation">
+									<ObjectRef Name="Tram" ID="{9AF1B56B-B9AF-4C32-BB6D-B9022ABE8FDB}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+								</Reference>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<Sound Name="TramClose" ID="{E032BDE1-7A5E-4557-9064-11B0290FB376}" ShortID="1055619641">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="DEC_Parkour_tram_close" ID="{6C4B0364-2B34-47FB-993F-B34A3FC15E1F}" ShortID="418565098">
+											<Language>SFX</Language>
+											<AudioFile>DEC_Parkour_tram_close.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="DEC_Parkour_tram_close" ID="{6C4B0364-2B34-47FB-993F-B34A3FC15E1F}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+								<Sound Name="TramOpen" ID="{36CA1852-5CAC-4421-B7E0-D4519DBE1AAB}" ShortID="593737972">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="DEC_Parkour_tram_open" ID="{9B93593A-F079-4F67-8F82-D0A3F72767B4}" ShortID="999924087">
+											<Language>SFX</Language>
+											<AudioFile>DEC_Parkour_tram_open.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="DEC_Parkour_tram_open" ID="{9B93593A-F079-4F67-8F82-D0A3F72767B4}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+								<Sound Name="DEC_Parkour_tram_loop" ID="{24C04262-A4B3-419F-85C0-FED2BFD9ABC5}" ShortID="5621554">
+									<PropertyList>
+										<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="DEC_Parkour_tram_loop" ID="{7E7F8463-FFD7-49D6-978E-BA10746B4B64}" ShortID="958311836">
+											<Language>SFX</Language>
+											<AudioFile>DEC_Parkour_tram_loop.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="DEC_Parkour_tram_loop" ID="{7E7F8463-FFD7-49D6-978E-BA10746B4B64}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+								<Sound Name="DEC_Parkour_tram_start" ID="{238723B5-16BF-4EC7-8B1E-BAFEE00008D3}" ShortID="874203068">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="DEC_Parkour_tram_start" ID="{6E8E78AF-EB57-48E5-8FFE-EA3455D8A847}" ShortID="967661210">
+											<Language>SFX</Language>
+											<AudioFile>DEC_Parkour_tram_start.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="DEC_Parkour_tram_start" ID="{6E8E78AF-EB57-48E5-8FFE-EA3455D8A847}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+								<Sound Name="DEC_Parkour_tram_stop" ID="{9039D2B1-727A-4061-9AF8-74255EB014DD}" ShortID="143852265">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="DEC_Parkour_tram_stop" ID="{A0C564CB-B7DD-4F8E-BE92-1C671065E34F}" ShortID="637239268">
+											<Language>SFX</Language>
+											<AudioFile>DEC_Parkour_tram_stop.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<ActiveSourceList>
+										<ActiveSource Name="DEC_Parkour_tram_stop" ID="{A0C564CB-B7DD-4F8E-BE92-1C671065E34F}" Platform="Linked"/>
+									</ActiveSourceList>
+								</Sound>
+							</ChildrenList>
+						</ActorMixer>
+					</ChildrenList>
+				</Folder>
 			</ChildrenList>
 		</WorkUnit>
 	</AudioObjects>

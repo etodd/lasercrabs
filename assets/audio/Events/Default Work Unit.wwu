@@ -230,7 +230,7 @@
 													</PropertyList>
 													<ReferenceList>
 														<Reference Name="Target">
-															<ObjectRef Name="Drone_Weapon_Equip" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+															<ObjectRef Name="Drone_Weapon_Equip_None" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 														</Reference>
 													</ReferenceList>
 												</Action>
@@ -244,7 +244,7 @@
 													</PropertyList>
 													<ReferenceList>
 														<Reference Name="Target">
-															<ObjectRef Name="Drone_Weapon_Equip" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+															<ObjectRef Name="DEC_CombatSFX_equip_bolter" ID="{C0EA9A5C-9B00-43F6-BEF5-EDCD3306AD66}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 														</Reference>
 													</ReferenceList>
 												</Action>
@@ -258,7 +258,7 @@
 													</PropertyList>
 													<ReferenceList>
 														<Reference Name="Target">
-															<ObjectRef Name="Drone_Weapon_Equip" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+															<ObjectRef Name="DEC_CombatSFX_equip_shotgun" ID="{2901C41A-C003-40B1-9446-2A1F234579FA}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 														</Reference>
 													</ReferenceList>
 												</Action>
@@ -272,7 +272,7 @@
 													</PropertyList>
 													<ReferenceList>
 														<Reference Name="Target">
-															<ObjectRef Name="Drone_Weapon_Equip" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+															<ObjectRef Name="DEC_CombatSFX_equip_grenade" ID="{33C61B23-036D-4AD2-BD3D-4942513DC037}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 														</Reference>
 													</ReferenceList>
 												</Action>
@@ -286,7 +286,7 @@
 													</PropertyList>
 													<ReferenceList>
 														<Reference Name="Target">
-															<ObjectRef Name="Drone_Weapon_Equip" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+															<ObjectRef Name="DEC_CombatSFX_equip_sniper" ID="{2D722901-DFDE-4B60-803A-BC574EFC9E44}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 														</Reference>
 													</ReferenceList>
 												</Action>
@@ -300,7 +300,7 @@
 													</PropertyList>
 													<ReferenceList>
 														<Reference Name="Target">
-															<ObjectRef Name="Drone_Weapon_Equip" ID="{3BD15CCA-5C16-4E04-887E-F32BA8AB47DB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+															<ObjectRef Name="DEC_CombatSFX_equip_build" ID="{4884DB47-1CAB-41D6-B9F5-07E6CBDA4105}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 														</Reference>
 													</ReferenceList>
 												</Action>
@@ -729,20 +729,7 @@
 						<Folder Name="Parkour" ID="{35BF57FA-0E4A-448F-AE7E-C2064D11080F}" ShortID="693886921">
 							<ChildrenList>
 								<Event Name="Play_Parkour_Mantle" ID="{F493ABC2-8104-4A65-900F-E300107E7019}"/>
-								<Event Name="Play_Parkour_Collectible_Pickup" ID="{51CFD251-60EC-484B-8579-50DBDEC469B4}">
-									<ChildrenList>
-										<Action Name="" ID="{92955BC3-959B-41C1-891B-5AAA27049BD5}" ShortID="688702236">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
+								<Event Name="Play_Parkour_Collectible_Pickup" ID="{51CFD251-60EC-484B-8579-50DBDEC469B4}"/>
 								<Event Name="Play_Parkour_Roll" ID="{CE8EE5FB-A846-42A9-A487-4D4CDCFE5881}"/>
 								<Event Name="Play_Parkour_Slide" ID="{2C8B90FF-219F-48DD-AABE-E6247A72387C}"/>
 								<Event Name="Play_Parkour_Topout" ID="{2BB47BCB-D5D7-4C97-AA69-3974BE92380D}"/>
@@ -760,20 +747,7 @@
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Parkour_Interact" ID="{37A0FB82-599A-4B51-ACBB-B6CC81EFF93F}">
-									<ChildrenList>
-										<Action Name="" ID="{E3275B55-628F-41E6-BF8E-675A3CFC8514}" ShortID="202403467">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-									</ChildrenList>
-								</Event>
+								<Event Name="Play_Parkour_Interact" ID="{37A0FB82-599A-4B51-ACBB-B6CC81EFF93F}"/>
 								<Event Name="Play_Parkour_Land_Soft" ID="{9BDD5946-A039-428C-886A-3C3DE1AAAAEF}"/>
 								<Event Name="Play_Parkour_Wind" ID="{B9CBEF66-FCD7-452F-AC0E-DD2770A0155E}">
 									<ChildrenList>
@@ -860,13 +834,27 @@
 											</PropertyList>
 											<ReferenceList>
 												<Reference Name="Target">
-													<ObjectRef Name="mover_stop" ID="{3E866ABF-46BC-43B0-8938-2A924DA19CB8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+													<ObjectRef Name="TramClose" ID="{E032BDE1-7A5E-4557-9064-11B0290FB376}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Tram_Loop" ID="{3C8F00CF-6EA0-447C-964D-0FF3FDB28E09}"/>
+								<Event Name="Play_Tram_Loop" ID="{3C8F00CF-6EA0-447C-964D-0FF3FDB28E09}">
+									<ChildrenList>
+										<Action Name="" ID="{00CD530F-1661-4ACC-A1E4-C506925600F5}" ShortID="78755313">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+												<Property Name="FadeTime" Type="Real64" Value="0.2"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_tram_loop" ID="{24C04262-A4B3-419F-85C0-FED2BFD9ABC5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
 								<Event Name="Play_Tram_Open" ID="{37AEB283-B3E9-4C64-B7A7-97DF3A54870F}">
 									<ChildrenList>
 										<Action Name="" ID="{76A2CBA0-187D-4299-83F4-80C896109B7B}" ShortID="247448348">
@@ -875,13 +863,26 @@
 											</PropertyList>
 											<ReferenceList>
 												<Reference Name="Target">
-													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+													<ObjectRef Name="TramOpen" ID="{36CA1852-5CAC-4421-B7E0-D4519DBE1AAB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Tram_Spark" ID="{429DC99F-7AD1-4688-8154-3B950FCBD2E9}"/>
+								<Event Name="Play_Tram_Spark" ID="{429DC99F-7AD1-4688-8154-3B950FCBD2E9}">
+									<ChildrenList>
+										<Action Name="" ID="{1EC13A6D-0B72-4248-A1C9-3BA51745B46D}" ShortID="864053370">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Sparks" ID="{6B1B9DF2-0433-4D50-A3E5-7645978216D7}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
 								<Event Name="Play_Tram_Stop" ID="{80B9F137-62E7-4ECF-99E6-B91AC01B6C50}">
 									<ChildrenList>
 										<Action Name="" ID="{F3DCE3BF-341D-4451-BCDA-C60073FB233E}" ShortID="373694478">
@@ -890,7 +891,7 @@
 											</PropertyList>
 											<ReferenceList>
 												<Reference Name="Target">
-													<ObjectRef Name="mover_stop" ID="{3E866ABF-46BC-43B0-8938-2A924DA19CB8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+													<ObjectRef Name="DEC_Parkour_tram_stop" ID="{9039D2B1-727A-4061-9AF8-74255EB014DD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>
@@ -904,7 +905,7 @@
 											</PropertyList>
 											<ReferenceList>
 												<Reference Name="Target">
-													<ObjectRef Name="Switch_On" ID="{90008E4A-A492-4BBA-8718-2663CC868802}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+													<ObjectRef Name="DEC_Parkour_tram_start" ID="{238723B5-16BF-4EC7-8B1E-BAFEE00008D3}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>
@@ -933,6 +934,37 @@
 											<ReferenceList>
 												<Reference Name="Target">
 													<ObjectRef Name="DEC_Parkour_terminal_open" ID="{79956616-90EB-4693-8F63-DF17D0C23B77}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Stop_Tram_Loop" ID="{152B37D3-1D15-49F6-8924-F81CBCBE59AB}">
+									<ChildrenList>
+										<Action Name="" ID="{16714237-DC0A-4EE8-9738-B65E7FC46B83}" ShortID="1048026524">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="2"/>
+												<Property Name="FadeTime" Type="Real64" Value="0.2"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_tram_loop" ID="{24C04262-A4B3-419F-85C0-FED2BFD9ABC5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Tram_Loop_Delayed" ID="{5690FA9F-2062-470D-AEDD-2FD16E7D8B55}">
+									<ChildrenList>
+										<Action Name="" ID="{12F31DF9-90CA-4CBB-837F-517F21F7695E}" ShortID="334030046">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+												<Property Name="Delay" Type="Real64" Value="3.8"/>
+												<Property Name="FadeTime" Type="Real64" Value="0.2"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_tram_loop" ID="{24C04262-A4B3-419F-85C0-FED2BFD9ABC5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>

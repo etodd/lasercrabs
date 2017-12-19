@@ -177,6 +177,7 @@ namespace AK
         static const AkUniqueID PLAY_TERMINAL_OPEN = 2265088429U;
         static const AkUniqueID PLAY_TRAM_CLOSE = 1649854579U;
         static const AkUniqueID PLAY_TRAM_LOOP = 1447001723U;
+        static const AkUniqueID PLAY_TRAM_LOOP_DELAYED = 675817228U;
         static const AkUniqueID PLAY_TRAM_OPEN = 339879557U;
         static const AkUniqueID PLAY_TRAM_SPARK = 2915748392U;
         static const AkUniqueID PLAY_TRAM_START = 1747554651U;
@@ -197,6 +198,7 @@ namespace AK
         static const AkUniqueID STOP_MINION_CHARGE = 1499790205U;
         static const AkUniqueID STOP_PARKOUR_ALL = 405246226U;
         static const AkUniqueID STOP_PARKOUR_SLIDE = 3858061116U;
+        static const AkUniqueID STOP_TRAM_LOOP = 2281239037U;
         static const AkUniqueID STOP_TURRET_CHARGE = 625456941U;
     } // namespace EVENTS
 

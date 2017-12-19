@@ -4505,8 +4505,6 @@ void TramRunner::go(s8 track, r32 x, State s)
 
 void TramRunner::awake()
 {
-	get<Audio>()->post(AK::EVENTS::PLAY_TRAM_LOOP);
-	get<Audio>()->param(AK::GAME_PARAMETERS::TRAM_LOOP, 0.0f);
 }
 
 void TramRunner::update_server(const Update& u)
@@ -4554,6 +4552,7 @@ void TramRunner::update_server(const Update& u)
 			if (is_front)
 			{
 				Tram* tram = Tram::by_track(track);
+				tram->get<Audio>()->stop(AK::EVENTS::STOP_TRAM_LOOP);
 				tram->get<Audio>()->post(AK::EVENTS::PLAY_TRAM_STOP);
 				tram->doors_open(true);
 			}
@@ -4687,6 +4686,8 @@ void Tram::awake()
 {
 	link_arg<Entity*, &Tram::player_entered>(get<PlayerTrigger>()->entered);
 	link_arg<Entity*, &Tram::player_exited>(doors.ref()->get<PlayerTrigger>()->exited);
+	if (runner_b.ref()->state == TramRunner::State::Arriving)
+		get<Audio>()->post(AK::EVENTS::PLAY_TRAM_LOOP);
 }
 
 void Tram::setup()
@@ -4717,7 +4718,8 @@ void Tram::player_entered(Entity* e)
 		if (departing && doors_open()) // close doors and depart
 		{
 			doors_open(false);
-			get<Audio>()->post(AK::EVENTS::PLAY_TRAM_START);
+			Tram::by_track(track())->get<Audio>()->post(AK::EVENTS::PLAY_TRAM_START);
+			Tram::by_track(track())->get<Audio>()->post(AK::EVENTS::PLAY_TRAM_LOOP_DELAYED);
 			TramRunner::go(track(), 1.0f, TramRunner::State::Departing);
 		}
 		else if (runner_a.ref()->state == TramRunner::State::Idle && !doors_open())

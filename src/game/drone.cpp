@@ -731,6 +731,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			{
 				const AbilityInfo& info = AbilityInfo::list[s32(ability)];
 				drone->get<Audio>()->post(info.equip_sound);
+				drone->cooldown_ability_switch = info.cooldown_switch;
+				drone->cooldown_ability_switch_last_local_change = Game::real_time.total;
 				if (ability == Ability::None || info.type != AbilityInfo::Type::Other)
 					drone->current_ability = ability;
 			}
@@ -1577,8 +1579,8 @@ void Drone::cooldown_setup(r32 amount)
 	last_ability_fired = Game::time.total;
 }
 
-// if the cooldown is remote controlled, adjustment is the amount that should be subtracted due to network lag
-b8 Drone::cooldown_remote_controlled(r32* adjustment) const
+// if the property in question is remote controlled, adjustment is the amount that should be subtracted due to network lag
+b8 is_remote_controlled(const Drone* drone, r32 last_local_change, r32* adjustment)
 {
 	if (Game::level.local)
 	{
@@ -1588,13 +1590,13 @@ b8 Drone::cooldown_remote_controlled(r32* adjustment) const
 	}
 	else
 	{
-		if (has<PlayerControlHuman>() && get<PlayerControlHuman>()->local())
+		if (drone->has<PlayerControlHuman>() && drone->get<PlayerControlHuman>()->local())
 		{
 			// cooldown is remote controlled unless it changed recently
 			// this facilitates client-side prediction
-			PlayerHuman* player = get<PlayerControlHuman>()->player.ref();
+			PlayerHuman* player = drone->get<PlayerControlHuman>()->player.ref();
 			r32 rtt = Net::rtt(player);
-			if (Game::real_time.total - cooldown_last_local_change > (rtt + Net::interpolation_delay(player)) + Net::tick_rate() * 2.0f)
+			if (Game::real_time.total - last_local_change > (rtt + Net::interpolation_delay(player)) + Net::tick_rate() * 2.0f)
 			{
 				if (adjustment)
 					*adjustment = rtt * DRONE_COOLDOWN_SPEED * Game::session.effective_time_scale();
@@ -1615,6 +1617,18 @@ b8 Drone::cooldown_remote_controlled(r32* adjustment) const
 			return true;
 		}
 	}
+}
+
+// if the cooldown is remote controlled, adjustment is the amount that should be subtracted due to network lag
+b8 Drone::cooldown_remote_controlled(r32* adjustment) const
+{
+	return is_remote_controlled(this, cooldown_last_local_change, adjustment);
+}
+
+// if the cooldown is remote controlled, adjustment is the amount that should be subtracted due to network lag
+b8 Drone::cooldown_ability_switch_remote_controlled(r32* adjustment) const
+{
+	return is_remote_controlled(this, cooldown_ability_switch_last_local_change, adjustment);
 }
 
 void Drone::ensure_detached()
@@ -1742,7 +1756,7 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target, r32 max_time)
 
 b8 Drone::cooldown_can_shoot() const
 {
-	return cooldown < DRONE_COOLDOWN_THRESHOLD;
+	return cooldown < DRONE_COOLDOWN_THRESHOLD && cooldown_ability_switch == 0.0f;
 }
 
 r32 Drone::target_prediction_speed() const
@@ -2540,7 +2554,10 @@ void Drone::update_server(const Update& u)
 	State s = state();
 
 	if (!cooldown_remote_controlled())
+	{
 		cooldown = vi_max(0.0f, cooldown - u.time.delta * DRONE_COOLDOWN_SPEED);
+		cooldown_ability_switch = vi_max(0.0f, cooldown_ability_switch - u.time.delta * DRONE_COOLDOWN_SPEED);
+	}
 
 	if (s != Drone::State::Crawl)
 	{

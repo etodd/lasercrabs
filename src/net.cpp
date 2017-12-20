@@ -492,6 +492,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		Drone* a = e->get<Drone>();
 		serialize_r32_range(p, a->cooldown, 0, DRONE_COOLDOWN_MAX, 8);
+		serialize_r32_range(p, a->cooldown_ability_switch, 0, DRONE_COOLDOWN_ABILITY_SWITCH_MAX, 6);
 		serialize_int(p, Ability, a->current_ability, 0, s32(Ability::count) + 1);
 	}
 
@@ -1401,6 +1402,14 @@ template<typename Stream> b8 serialize_drone(Stream* p, DroneState* state, const
 
 	serialize_r32_range(p, state->cooldown, 0, DRONE_COOLDOWN_MAX, 8);
 
+	if (Stream::IsWriting)
+		b = state->cooldown_ability_switch > 0.0f;
+	serialize_bool(p, b);
+	if (b)
+		serialize_r32_range(p, state->cooldown_ability_switch, 0, DRONE_COOLDOWN_ABILITY_SWITCH_MAX, 6);
+	else if (Stream::IsReading)
+		state->cooldown_ability_switch = 0.0f;
+
 	return true;
 }
 
@@ -1732,6 +1741,7 @@ void state_frame_build(StateFrame* frame)
 		DroneState* drone = &frame->drones[i.index];
 		drone->revision = i.item()->revision;
 		drone->cooldown = i.item()->cooldown;
+		drone->cooldown_ability_switch = i.item()->cooldown_ability_switch;
 	}
 }
 
@@ -1892,9 +1902,15 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 
 			drone->revision = next.revision;
 			if (last.revision == next.revision)
+			{
 				drone->cooldown = LMath::lerpf(blend, last.cooldown, next.cooldown);
+				drone->cooldown_ability_switch = LMath::lerpf(blend, last.cooldown_ability_switch, next.cooldown_ability_switch);
+			}
 			else
+			{
 				drone->cooldown = next.cooldown;
+				drone->cooldown_ability_switch = next.cooldown_ability_switch;
+			}
 
 			index = b.drones_active.next(index);
 		}
@@ -3685,6 +3701,8 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 				r32 adjustment;
 				if (drone->cooldown_remote_controlled(&adjustment))
 					drone->cooldown = vi_max(0.0f, state.cooldown - adjustment);
+				if (drone->cooldown_ability_switch_remote_controlled(&adjustment))
+					drone->cooldown_ability_switch = vi_max(0.0f, state.cooldown_ability_switch - adjustment);
 			}
 
 			index = frame.drones_active.next(index);

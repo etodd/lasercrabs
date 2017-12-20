@@ -99,6 +99,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 {
 	{
 		0.275f,
+		0.3f,
 		AK::EVENTS::PLAY_EQUIP_BOLTER,
 		Asset::Mesh::icon_bolter,
 		0,
@@ -106,6 +107,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		2.5f,
+		0.0f,
 		AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR,
 		Asset::Mesh::icon_active_armor,
 		0,
@@ -113,6 +115,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		2.0f,
+		0.0f,
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_rectifier,
 		40,
@@ -120,6 +123,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		1.5f,
+		0.0f,
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_minion,
 		25,
@@ -127,6 +131,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		2.5f,
+		0.4f,
 		AK::EVENTS::PLAY_EQUIP_SHOTGUN,
 		Asset::Mesh::icon_shotgun,
 		0,
@@ -134,6 +139,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		1.5f,
+		0.0f,
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_force_field,
 		90,
@@ -141,6 +147,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		2.5f,
+		0.5f,
 		AK::EVENTS::PLAY_EQUIP_SNIPER,
 		Asset::Mesh::icon_sniper,
 		0,
@@ -148,6 +155,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		DRONE_COOLDOWN_MAX,
+		0.3f,
 		AK::EVENTS::PLAY_EQUIP_GRENADE,
 		Asset::Mesh::icon_grenade,
 		35,
@@ -155,6 +163,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{ // Ability::None
 		1.2f + (DRONE_MAX_DISTANCE / DRONE_FLY_SPEED),
+		0.0f,
 		AK::EVENTS::PLAY_EQUIP_NONE,
 		Asset::Mesh::icon_chevron,
 		0,

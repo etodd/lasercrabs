@@ -4550,12 +4550,7 @@ void TramRunner::update_server(const Update& u)
 		if (state == State::Arriving)
 		{
 			if (is_front)
-			{
-				Tram* tram = Tram::by_track(track);
-				tram->get<Audio>()->stop(AK::EVENTS::STOP_TRAM_LOOP);
-				tram->get<Audio>()->post(AK::EVENTS::PLAY_TRAM_STOP);
-				tram->doors_open(true);
-			}
+				Tram::by_track(track)->doors_open(true);
 			state = State::Idle;
 		}
 
@@ -4577,6 +4572,13 @@ void TramRunner::update_server(const Update& u)
 			velocity = vi_max(0.01f, velocity - dv_half);
 		else
 			velocity = vi_min(-0.01f, velocity + dv_half);
+
+		if (is_front && distance >= ACCEL_DISTANCE * 0.25f && fabsf(target_offset - offset) < ACCEL_DISTANCE * 0.25f)
+		{
+			Tram* tram = Tram::by_track(track);
+			tram->get<Audio>()->stop(AK::EVENTS::STOP_TRAM_LOOP);
+			tram->get<Audio>()->post(AK::EVENTS::PLAY_TRAM_STOP);
+		}
 	}
 }
 

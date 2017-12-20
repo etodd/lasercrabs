@@ -121,6 +121,8 @@ struct Drone : public ComponentType<Drone>
 	r32 attach_time;
 	r32 cooldown; // remaining cooldown time
 	r32 cooldown_last_local_change;
+	r32 cooldown_ability_switch;
+	r32 cooldown_ability_switch_last_local_change;
 	r32 last_footstep;
 	r32 dash_timer;
 	r32 last_ability_fired;
@@ -152,6 +154,7 @@ struct Drone : public ComponentType<Drone>
 	void ability(Ability);
 	void cooldown_setup(r32);
 	b8 cooldown_remote_controlled(r32* = nullptr) const;
+	b8 cooldown_ability_switch_remote_controlled(r32* = nullptr) const;
 	State state() const;
 	b8 dash_start(const Vec3&, const Vec3&, r32 = DRONE_DASH_TIME);
 	b8 cooldown_can_shoot() const; // can we go?

@@ -5748,14 +5748,22 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		draw_cooldown(params, get<Drone>()->cooldown, pos + Vec2(0, -42.0f) * UI::scale, DRONE_COOLDOWN_THRESHOLD);
 
 		// reticle
+		if (get<Drone>()->cooldown_ability_switch == 0.0f)
 		{
-			const r32 ratio = 0.8660254037844386f;
 			if (reticle_valid)
 			{
 				// triangular crosshair
+				const r32 ratio = 0.8660254037844386f;
 				UI::centered_box(params, { pos + Vec2(ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * 0.33f);
 				UI::centered_box(params, { pos + Vec2(-ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * -0.33f);
 				UI::centered_box(params, { pos + Vec2(0, -1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, *color);
+
+				if (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target || reticle.type == ReticleType::DashTarget)
+				{
+					Vec2 a;
+					if (UI::project(params, reticle.pos, &a))
+						UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Target || reticle.type == ReticleType::DashTarget ? UI::color_alert() : *color, PI);
+				}
 			}
 			else
 			{
@@ -5763,19 +5771,13 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				UI::centered_box(params, { pos, Vec2(spoke_length * 3.0f, spoke_width) * UI::scale }, *color, PI * 0.25f);
 				UI::centered_box(params, { pos, Vec2(spoke_length * 3.0f, spoke_width) * UI::scale }, *color, PI * 0.75f);
 			}
+		}
 
-			{
-				Ability a = get<Drone>()->current_ability;
-				Vec2 p = pos + Vec2(0, -80.0f * UI::scale);
-				UI::mesh(params, AbilityInfo::list[s32(a)].icon, p, Vec2(18.0f * UI::scale), *color);
-			}
-
-			if (reticle_valid && (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target || reticle.type == ReticleType::DashTarget))
-			{
-				Vec2 a;
-				if (UI::project(params, reticle.pos, &a))
-					UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Target || reticle.type == ReticleType::DashTarget ? UI::color_alert() : *color, PI);
-			}
+		// ability icon
+		{
+			Ability a = get<Drone>()->current_ability;
+			Vec2 p = pos + Vec2(0, -80.0f * UI::scale);
+			UI::mesh(params, AbilityInfo::list[s32(a)].icon, p, Vec2(18.0f * UI::scale), *color);
 		}
 	}
 }

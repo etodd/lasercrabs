@@ -405,7 +405,6 @@ void multiplayer_browse_update(const Update& u)
 	{
 		data.multiplayer.refresh_timer += REFRESH_INTERVAL;
 
-		vi_debug("Refreshing server list: %f", Game::real_time.total);
 #if !SERVER
 		Net::Client::master_request_server_list(global.multiplayer.tab, server_list->selected);
 #endif

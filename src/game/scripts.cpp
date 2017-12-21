@@ -1330,7 +1330,7 @@ namespace tutorial
 	void update(const Update& u)
 	{
 		// check if the player has spawned
-		if (!data->player.ref() && PlayerControlHuman::list.count() > 0)
+		if (Game::level.mode == Game::Mode::Pvp && !data->player.ref() && PlayerControlHuman::list.count() > 0)
 		{
 			Entity* player = PlayerControlHuman::list.iterator().item()->entity();
 			data->player = player;

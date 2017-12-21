@@ -115,7 +115,8 @@ struct UI
 	static Array<s32> indices;
 	static Array<TextureBlit> texture_blits;
 	static void init(LoopSync*);
-	static r32 get_scale(const s32, const s32);
+	static r32 get_scale(s32, s32);
+	static void get_line_width_point_size(const Rect2&, r32*, r32*);
 	static b8 cursor_active();
 	static void box(const RenderParams&, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1));
 	static void centered_box(const RenderParams&, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), r32 = 0.0f);

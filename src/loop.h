@@ -441,8 +441,13 @@ void draw_edges(const RenderParams& render_params)
 	sync->write(RenderOp::FillMode);
 	sync->write(RenderFillMode::Line);
 
+	r32 line_width;
+	r32 point_size;
+	UI::get_line_width_point_size(render_params.camera->viewport, &line_width, &point_size);
 	sync->write(RenderOp::LineWidth);
-	sync->write(vi_max(1.0f, 2.5f * UI::scale));
+	sync->write(line_width);
+	sync->write(RenderOp::PointSize);
+	sync->write(point_size);
 
 	{
 		RenderParams p = render_params;

@@ -694,8 +694,6 @@ void draw_hollow(const RenderParams& params)
 
 	params.sync->write(RenderOp::FillMode);
 	params.sync->write(RenderFillMode::Point);
-	params.sync->write(RenderOp::PointSize);
-	params.sync->write<r32>(4 * UI::scale);
 
 	params.sync->write(RenderOp::Mesh);
 	params.sync->write(RenderPrimitiveMode::Points);

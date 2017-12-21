@@ -1019,6 +1019,26 @@ r32 UI::get_scale(s32 width, s32 height)
 		return 0.6f;
 }
 
+void UI::get_line_width_point_size(const Rect2& vp, r32* line_width, r32* point_size)
+{
+	s32 area = s32(vp.size.x) * s32(vp.size.y);
+	if (area > 1920 * 1080)
+	{
+		*line_width = 4.0f;
+		*point_size = 6.0f;
+	}
+	else if (area > 1280 * 720)
+	{
+		*line_width = 3.0f;
+		*point_size = 5.0f;
+	}
+	else
+	{
+		*line_width = 2.0f;
+		*point_size = 4.0f;
+	}
+}
+
 void UI::update()
 {
 	if (Camera::list.count() > 0)

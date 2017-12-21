@@ -746,7 +746,7 @@ namespace VI
 
 #if DEBUG
 			// screenshot
-			if (sync->input.keys.get(s32(KeyCode::F11)) && !sdl_keys[s32(KeyCode::F11)])
+			if (sync->input.keys.get(s32(KeyCode::F11)))
 			{
 				s32 w = Settings::display().width;
 				s32 h = Settings::display().height;

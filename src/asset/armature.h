@@ -8,24 +8,25 @@ namespace Asset
 {
 	namespace Armature
 	{
-		const s32 count = 13;
+		const s32 count = 14;
 		const AssetID character = 0;
 		const AssetID dada = 1;
 		const AssetID drone = 2;
 		const AssetID hobo = 3;
-		const AssetID interactable = 4;
-		const AssetID locke = 5;
-		const AssetID meursault = 6;
-		const AssetID parkour = 7;
-		const AssetID parkour_headless = 8;
-		const AssetID samsa = 9;
-		const AssetID seven = 10;
-		const AssetID terminal = 11;
-		const AssetID tram_doors = 12;
+		const AssetID hologram = 4;
+		const AssetID interactable = 5;
+		const AssetID locke = 6;
+		const AssetID meursault = 7;
+		const AssetID parkour = 8;
+		const AssetID parkour_headless = 9;
+		const AssetID samsa = 10;
+		const AssetID seven = 11;
+		const AssetID terminal = 12;
+		const AssetID tram_doors = 13;
 	}
 	namespace Bone
 	{
-		const s32 count = 396;
+		const s32 count = 411;
 		const AssetID character_camera = 0;
 		const AssetID character_claw1_L = 9;
 		const AssetID character_claw1_R = 15;
@@ -165,6 +166,21 @@ namespace Asset
 		const AssetID hobo_thumb_03_r = 42;
 		const AssetID hobo_upperarm_l = 6;
 		const AssetID hobo_upperarm_r = 25;
+		const AssetID hologram_circle0 = 9;
+		const AssetID hologram_circle1 = 10;
+		const AssetID hologram_circle2 = 11;
+		const AssetID hologram_outer = 4;
+		const AssetID hologram_part1 = 1;
+		const AssetID hologram_part2 = 2;
+		const AssetID hologram_part3 = 3;
+		const AssetID hologram_root = 0;
+		const AssetID hologram_row0 = 5;
+		const AssetID hologram_row1 = 6;
+		const AssetID hologram_row2 = 7;
+		const AssetID hologram_row3 = 8;
+		const AssetID hologram_screen = 14;
+		const AssetID hologram_square_left = 12;
+		const AssetID hologram_square_right = 13;
 		const AssetID interactable_outer = 4;
 		const AssetID interactable_part1 = 1;
 		const AssetID interactable_part2 = 2;

@@ -2084,6 +2084,14 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				else
 				{
 					// SkinnedModel
+					if (cJSON_HasObjectItem(element, "blend"))
+					{
+						r32 blend = Json::get_r32(element, "blend");
+						Animator* animator = entity->get<Animator>();
+						for (s32 i = 0; i < MAX_ANIMATIONS; i++)
+							animator->layers[i].blend_time = blend;
+					}
+
 					entity->get<SkinnedModel>()->texture = texture;
 					entity->get<SkinnedModel>()->shader = shader;
 					if (cJSON_HasObjectItem(element, "r"))

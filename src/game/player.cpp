@@ -1507,7 +1507,7 @@ void PlayerHuman::update_late(const Update& u)
 		{
 			r32 speed = u.input->get(Controls::Parkour, gamepad) ? 24.0f : 4.0f;
 			if (u.input->keys.get(s32(KeyCode::LAlt)))
-				speed *= 0.5f;
+				speed *= 0.2f;
 			camera.ref()->pos += (u.time.delta * speed) * PlayerControlHuman::get_movement(u, camera.ref()->rot, gamepad);
 		}
 	}

@@ -2466,15 +2466,11 @@ void PlayerManager::update_server(const Update& u)
 			switch (s)
 			{
 				case State::Upgrading:
-				{
 					upgrade_complete();
 					break;
-				}
 				default:
-				{
 					vi_assert(false);
 					break;
-				}
 			}
 		}
 	}

@@ -71,7 +71,7 @@ namespace VI
 #define HP_BOX_SPACING (8.0f * UI::scale)
 
 #define MAP_VIEW_ROT Quat::look(Vec3(0, -1, 0))
-#define MAP_VIEW_POS Vec3(0, 80, 0)
+#define MAP_VIEW_POS Vec3(0, 90, 0)
 #define MAP_VIEW_NEAR 30.0f
 #define MAP_VIEW_FAR 200.0f
 
@@ -1317,7 +1317,10 @@ void PlayerHuman::update(const Update& u)
 			else
 			{
 				if (!selected_spawn.ref() || selected_spawn.ref()->team != my_team)
+				{
+					Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER);
 					selected_spawn = SpawnPoint::closest(1 << s32(my_team), camera.ref()->pos);
+				}
 
 				if (chat_focus == ChatFocus::None)
 				{
@@ -1325,6 +1328,7 @@ void PlayerHuman::update(const Update& u)
 						|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && player_button(camera.ref()->viewport, gamepad, strings::prompt_deploy).contains(UI::cursor_pos))))
 					{
 						select_spawn_timer = 1.0f;
+						Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
 					}
 					else
 					{
@@ -1388,7 +1392,10 @@ void PlayerHuman::update(const Update& u)
 						}
 
 						if (closest)
+						{
 							selected_spawn = closest;
+							Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER);
+						}
 					}
 				}
 			}

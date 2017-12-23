@@ -1865,6 +1865,11 @@ void Turret::awake()
 	link_arg<const HealthEvent&, &Turret::health_changed>(get<Health>()->changed);
 }
 
+Turret::~Turret()
+{
+	get<Audio>()->stop_all();
+}
+
 // not synced over network
 void Turret::set_team(AI::Team t)
 {
@@ -2087,8 +2092,8 @@ void Turret::update_client_all(const Update& u)
 		particle_accumulator -= interval;
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			b8 has_target = b8(i.item()->target.ref());
-			if (has_target)
+			Entity* target = i.item()->target.ref();
+			if (target)
 			{
 				// spawn particle effect
 				Vec3 offset = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1.5f);
@@ -2100,13 +2105,15 @@ void Turret::update_client_all(const Update& u)
 				);
 			}
 
-			if (has_target != i.item()->charging)
+			i.item()->get<Audio>()->param(AK::GAME_PARAMETERS::TURRET_CHARGE, target && target->has<PlayerControlHuman>() && target->get<PlayerControlHuman>()->local() ? 1.0f : 0.0f);
+
+			if (b8(target) != i.item()->charging)
 			{
-				if (has_target)
+				if (target)
 					i.item()->get<Audio>()->post(AK::EVENTS::PLAY_TURRET_CHARGE);
 				else
 					i.item()->get<Audio>()->stop(AK::EVENTS::STOP_TURRET_CHARGE);
-				i.item()->charging = has_target;
+				i.item()->charging = b8(target);
 			}
 		}
 	}
@@ -2168,12 +2175,16 @@ void ForceField::awake()
 		if (Game::level.local)
 			obstacle_id = AI::obstacle_add(get<Transform>()->to_world(Vec3(0, 0, FORCE_FIELD_BASE_OFFSET * -0.5f)) + Vec3(0, FORCE_FIELD_BASE_OFFSET * -0.5f, 0), FORCE_FIELD_BASE_OFFSET * 0.5f, FORCE_FIELD_BASE_OFFSET);
 	}
+	get<Audio>()->entry()->flag(AudioEntry::FlagEnableForceFieldObstruction, false);
+	get<Audio>()->post(AK::EVENTS::PLAY_FORCE_FIELD_LOOP);
 }
 
 ForceField::~ForceField()
 {
 	if (Game::level.local && collision.ref())
 		World::remove_deferred(collision.ref()->entity());
+
+	get<Audio>()->stop_all();
 
 	if (!(flags & FlagPermanent))
 	{
@@ -2347,6 +2358,8 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 	transform->reparent(parent);
 
 	create<Health>(FORCE_FIELD_HEALTH, FORCE_FIELD_HEALTH);
+
+	create<Audio>();
 
 	ForceField* field = create<ForceField>();
 	field->team = team;
@@ -4584,7 +4597,6 @@ void TramRunner::update_server(const Update& u)
 
 void TramRunner::update_client(const Update& u)
 {
-	get<Audio>()->param(AK::GAME_PARAMETERS::TRAM_LOOP, fabsf(velocity) / TRAM_SPEED_MAX);
 	if (get<RigidBody>()->btBody->isActive() && mersenne::randf_co() < u.time.delta / 3.0f)
 	{
 		b8 left = mersenne::randf_co() < 0.5f;

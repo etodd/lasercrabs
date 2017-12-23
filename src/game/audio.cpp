@@ -265,7 +265,7 @@ void AudioEntry::init(const Vec3& npos, Transform* nparent, AudioEntry* parent_e
 	else
 		abs_pos = pos;
 	playing = 0;
-	flags = Flag(FlagEnableObstructionOcclusion | FlagEnableReverb);
+	flags = Flag(FlagEnableObstructionOcclusion | FlagEnableForceFieldObstruction | FlagEnableReverb);
 
 	AK::SoundEngine::RegisterGameObj(ak_id());
 
@@ -341,7 +341,7 @@ void AudioEntry::update_spatialization(UpdateType type)
 				r32 distance = dir.length();
 				if (distance > 0.0f)
 				{
-					if (ForceField::hash(listener.team, abs_pos) == listener.force_field_hash)
+					if (!flag(FlagEnableForceFieldObstruction) || ForceField::hash(listener.team, abs_pos) == listener.force_field_hash)
 					{
 						dir /= distance;
 

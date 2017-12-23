@@ -51,7 +51,8 @@ struct AudioEntry
 	{
 		FlagKeepalive = 1 << 0,
 		FlagEnableObstructionOcclusion = 1 << 1,
-		FlagEnableReverb = 1 << 2,
+		FlagEnableForceFieldObstruction = 1 << 2,
+		FlagEnableReverb = 1 << 3,
 	};
 
 	static PinArray<AudioEntry, MAX_ENTITIES> list;

@@ -462,6 +462,21 @@
 												</Action>
 											</ChildrenList>
 										</Event>
+										<Event Name="Play_Force_Field_Loop" ID="{47CB2A51-1850-49DF-BC79-5D11E9898CA1}">
+											<ChildrenList>
+												<Action Name="" ID="{9A1D1C8D-DCCB-48D9-8A0B-B9377756E4E8}" ShortID="412470239">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+														<Property Name="FadeTime" Type="Real64" Value="0.5"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="DEC_CombatSFX_force_field_loop" ID="{AA35F66F-611D-430E-AD87-74ECB058820C}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
 									</ChildrenList>
 								</Folder>
 								<Event Name="Play_Drone_Spawn" ID="{E224D9E5-4677-4789-8EF9-DB0E18AA0A61}">
@@ -722,8 +737,36 @@
 						</Folder>
 						<Folder Name="Turret" ID="{77A319CF-2ED3-47A1-AB27-56DA164A38A9}" ShortID="391449703">
 							<ChildrenList>
-								<Event Name="Play_Turret_Charge" ID="{7C218435-CC3A-4F80-B956-152F226AE2BB}"/>
-								<Event Name="Stop_Turret_Charge" ID="{2EAE6447-AB75-4EAE-966B-A71048579772}"/>
+								<Event Name="Play_Turret_Charge" ID="{7C218435-CC3A-4F80-B956-152F226AE2BB}">
+									<ChildrenList>
+										<Action Name="" ID="{EF9093A4-D66A-4D61-8DBA-1D4581E11776}" ShortID="435339398">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+												<Property Name="FadeTime" Type="Real64" Value="0.25"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_CombatSFX_turret_charge_loop" ID="{ED762E5C-AD09-4E22-9212-F53219F7316E}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Stop_Turret_Charge" ID="{2EAE6447-AB75-4EAE-966B-A71048579772}">
+									<ChildrenList>
+										<Action Name="" ID="{65605485-43C7-4BF5-939E-94DB29221DF9}" ShortID="673645958">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="2"/>
+												<Property Name="FadeTime" Type="Real64" Value="0.25"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_CombatSFX_turret_charge_loop" ID="{ED762E5C-AD09-4E22-9212-F53219F7316E}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
 							</ChildrenList>
 						</Folder>
 						<Folder Name="Parkour" ID="{35BF57FA-0E4A-448F-AE7E-C2064D11080F}" ShortID="693886921">
@@ -2255,6 +2298,7 @@
 								<Action Name="" ID="{C1355D0F-7D12-4CCD-B62F-152289FA285B}" ShortID="646729235">
 									<PropertyList>
 										<Property Name="ActionType" Type="int16" Value="1"/>
+										<Property Name="Delay" Type="Real64" Value="0.1"/>
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">

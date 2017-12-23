@@ -49,6 +49,7 @@ namespace AK
         static const AkUniqueID PLAY_EQUIP_SNIPER = 3837239528U;
         static const AkUniqueID PLAY_EXPLOSION = 4030404899U;
         static const AkUniqueID PLAY_FIRE_LOOP = 1779335U;
+        static const AkUniqueID PLAY_FORCE_FIELD_LOOP = 427547487U;
         static const AkUniqueID PLAY_FORCE_FIELD_SPAWN = 1877727510U;
         static const AkUniqueID PLAY_GRENADE_ARM = 1073857507U;
         static const AkUniqueID PLAY_GRENADE_ATTACH = 2813332440U;
@@ -211,7 +212,7 @@ namespace AK
         static const AkUniqueID PARKOUR_SLIDE = 2866705659U;
         static const AkUniqueID PARKOUR_WIND = 2655675174U;
         static const AkUniqueID PERSPECTIVE = 3838734001U;
-        static const AkUniqueID TRAM_LOOP = 2421357802U;
+        static const AkUniqueID TURRET_CHARGE = 2996230726U;
         static const AkUniqueID VOLUME_MUSIC = 3891337659U;
         static const AkUniqueID VOLUME_SFX = 3673881719U;
     } // namespace GAME_PARAMETERS

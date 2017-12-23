@@ -293,6 +293,7 @@ struct Turret : public ComponentType<Turret>
 	b8 charging;
 
 	void awake();
+	~Turret();
 
 	AssetID name() const;
 	void health_changed(const HealthEvent&);

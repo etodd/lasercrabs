@@ -15,12 +15,6 @@
 						<Property Name="Max" Type="Real64" Value="1"/>
 					</PropertyList>
 				</GameParameter>
-				<GameParameter Name="Tram_Loop" ID="{4141EC43-09B5-47DC-90E6-E83292CD9ACD}">
-					<PropertyList>
-						<Property Name="InitialValue" Type="Real64" Value="0"/>
-						<Property Name="Max" Type="Real64" Value="1"/>
-					</PropertyList>
-				</GameParameter>
 				<Folder Name="Drone" ID="{DBE234F0-D420-4B1E-8BAD-0E018D9CEE07}" ShortID="807528089">
 					<ChildrenList>
 						<GameParameter Name="Perspective" ID="{ECB87B1E-057D-46B4-9B66-B6EBBE249A3E}">
@@ -75,6 +69,15 @@
 						</GameParameter>
 					</ChildrenList>
 				</Folder>
+				<GameParameter Name="Turret_Charge" ID="{973E6FF1-4436-41A2-BC57-DF4EFF1092F7}">
+					<PropertyList>
+						<Property Name="InitialValue" Type="Real64" Value="0"/>
+						<Property Name="Max" Type="Real64" Value="1"/>
+						<Property Name="RTPCRamping" Type="int16" Value="1"/>
+						<Property Name="SlewRateDown" Type="Real64" Value="2"/>
+						<Property Name="SlewRateUp" Type="Real64" Value="2"/>
+					</PropertyList>
+				</GameParameter>
 			</ChildrenList>
 		</WorkUnit>
 	</GameParameters>

@@ -16,6 +16,10 @@
 					</ModuleList>
 					<RTPCValueList ShowAll="true">
 						<RTPCValue>
+							<GameParameterRef Name="Turret_Charge" ID="{973E6FF1-4436-41A2-BC57-DF4EFF1092F7}"/>
+							<Value>1.65375360466854E-315</Value>
+						</RTPCValue>
+						<RTPCValue>
 							<GameParameterRef Name="Volume_Music" ID="{B1E54CCC-5EC7-4345-A62F-3A5A4F0365C8}"/>
 							<Value>1</Value>
 						</RTPCValue>
@@ -34,10 +38,6 @@
 						<RTPCValue>
 							<GameParameterRef Name="Perspective" ID="{ECB87B1E-057D-46B4-9B66-B6EBBE249A3E}"/>
 							<Value>0.5</Value>
-						</RTPCValue>
-						<RTPCValue>
-							<GameParameterRef Name="Tram_Loop" ID="{4141EC43-09B5-47DC-90E6-E83292CD9ACD}"/>
-							<Value>0</Value>
 						</RTPCValue>
 						<RTPCValue>
 							<GameParameterRef Name="Minion_Weapon_Charge" ID="{3D691C56-7A0B-4B17-A031-05C582C8C697}"/>

@@ -216,7 +216,7 @@
 													</PropertyList>
 													<ReferenceList>
 														<Reference Name="Target">
-															<ObjectRef Name="Drone_Bolt_Fire" ID="{175AA597-3979-4154-B623-5A28EFE0EEE6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+															<ObjectRef Name="Drone_Active_Armor" ID="{79D3BBF7-24E0-4D07-B6F5-E499A69A673D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 														</Reference>
 													</ReferenceList>
 												</Action>
@@ -2245,6 +2245,20 @@
 									<ReferenceList>
 										<Reference Name="Target">
 											<ObjectRef Name="RUMBLE_Error_5_1" ID="{3B18076A-97E2-4010-961E-595423734BFB}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_Drone_Upgrade" ID="{87EB257B-8A9A-4AD9-B945-9B59EAC30E7E}">
+							<ChildrenList>
+								<Action Name="" ID="{C1355D0F-7D12-4CCD-B62F-152289FA285B}" ShortID="646729235">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="DEC_CombatSFX_drone_upgrade_bar" ID="{DDCEDEB6-A83A-4E75-AF04-73DE5BD640BC}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>

@@ -3737,7 +3737,7 @@ b8 transitioning()
 void clear()
 {
 	hide_complete();
-	data.timer_transition = 0.0f;
+	new (&data) Data();
 }
 
 void execute(const char* cmd)

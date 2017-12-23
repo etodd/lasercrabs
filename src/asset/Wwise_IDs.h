@@ -40,6 +40,7 @@ namespace AK
         static const AkUniqueID PLAY_DRONE_REFLECT = 263311222U;
         static const AkUniqueID PLAY_DRONE_SHOTGUN_FIRE = 1051822446U;
         static const AkUniqueID PLAY_DRONE_SPAWN = 1629787408U;
+        static const AkUniqueID PLAY_DRONE_UPGRADE = 1130104933U;
         static const AkUniqueID PLAY_EQUIP_BOLTER = 3058066161U;
         static const AkUniqueID PLAY_EQUIP_BUILD = 3295909331U;
         static const AkUniqueID PLAY_EQUIP_GRENADE = 272546657U;

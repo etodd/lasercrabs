@@ -1596,6 +1596,7 @@ const char* AssetLookup::String::names[] =
 	"on",
 	"online",
 	"parkour",
+	"parkour_reticle",
 	"ping",
 	"player",
 	"player_ascended",

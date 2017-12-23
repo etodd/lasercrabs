@@ -1522,6 +1522,13 @@ b8 settings_graphics(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 	}
 
 	{
+		b8* parkour_reticle = &Settings::parkour_reticle;
+		delta = menu->slider_item(u, _(strings::parkour_reticle), _(*parkour_reticle ? strings::on : strings::off));
+		if (delta != 0)
+			*parkour_reticle = !(*parkour_reticle);
+	}
+
+	{
 		b8* subtitles = &Settings::subtitles;
 		delta = menu->slider_item(u, _(strings::subtitles), _(*subtitles ? strings::on : strings::off));
 		if (delta != 0)

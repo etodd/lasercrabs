@@ -453,7 +453,6 @@
 							</ReferenceList>
 							<ChildrenList>
 								<AudioFileSource Name="hobo01" ID="{D6E495FB-49AB-4FF1-A7D0-902DF78546C6}" ShortID="769469240">
-									<ReferenceList/>
 									<Language>SFX</Language>
 									<AudioFile>hobo01.wav</AudioFile>
 								</AudioFileSource>
@@ -477,7 +476,6 @@
 									<AudioFile>hobo02.wav</AudioFile>
 								</AudioFileSource>
 								<AudioFileSource Name="hobo01" ID="{59199E36-3C8C-45B2-82FB-39BE0E66DF18}" ShortID="99771586">
-									<ReferenceList/>
 									<Language>SFX</Language>
 									<AudioFile>hobo01.wav</AudioFile>
 									<ConvertedFileIDList>
@@ -504,7 +502,6 @@
 									<AudioFile>hobo03.wav</AudioFile>
 								</AudioFileSource>
 								<AudioFileSource Name="hobo01" ID="{153F44FB-38F8-4D86-9208-1FD86ADE5679}" ShortID="479496770">
-									<ReferenceList/>
 									<Language>SFX</Language>
 									<AudioFile>hobo01.wav</AudioFile>
 									<ConvertedFileIDList>
@@ -531,7 +528,6 @@
 									<AudioFile>hobo04.wav</AudioFile>
 								</AudioFileSource>
 								<AudioFileSource Name="hobo01" ID="{57B8875B-5C81-4359-AFCE-0ED86E8B50D3}" ShortID="221223431">
-									<ReferenceList/>
 									<Language>SFX</Language>
 									<AudioFile>hobo01.wav</AudioFile>
 									<ConvertedFileIDList>
@@ -558,7 +554,6 @@
 									<AudioFile>hobo05.wav</AudioFile>
 								</AudioFileSource>
 								<AudioFileSource Name="hobo01" ID="{EC966C4A-279F-4E1E-A2C8-2BBE3BC7D795}" ShortID="128338876">
-									<ReferenceList/>
 									<Language>SFX</Language>
 									<AudioFile>hobo01.wav</AudioFile>
 									<ConvertedFileIDList>
@@ -585,7 +580,6 @@
 									<AudioFile>hobo06.wav</AudioFile>
 								</AudioFileSource>
 								<AudioFileSource Name="hobo01" ID="{00BD4205-3D61-4DF5-AB35-9C1B5B21826E}" ShortID="422815132">
-									<ReferenceList/>
 									<Language>SFX</Language>
 									<AudioFile>hobo01.wav</AudioFile>
 									<ConvertedFileIDList>
@@ -612,7 +606,6 @@
 									<AudioFile>hobo07.wav</AudioFile>
 								</AudioFileSource>
 								<AudioFileSource Name="hobo01" ID="{77612AD1-DC7F-4664-99D5-19EF4160E89F}" ShortID="400782208">
-									<ReferenceList/>
 									<Language>SFX</Language>
 									<AudioFile>hobo01.wav</AudioFile>
 									<ConvertedFileIDList>
@@ -639,7 +632,6 @@
 									<AudioFile>hobo08.wav</AudioFile>
 								</AudioFileSource>
 								<AudioFileSource Name="hobo01" ID="{395269E3-A83A-41DF-B6BC-288D35A99EF1}" ShortID="572790582">
-									<ReferenceList/>
 									<Language>SFX</Language>
 									<AudioFile>hobo01.wav</AudioFile>
 									<ConvertedFileIDList>
@@ -666,7 +658,6 @@
 									<AudioFile>hobo09.wav</AudioFile>
 								</AudioFileSource>
 								<AudioFileSource Name="hobo01" ID="{97486C00-5540-4D85-9D02-152B031E1945}" ShortID="963364196">
-									<ReferenceList/>
 									<Language>SFX</Language>
 									<AudioFile>hobo01.wav</AudioFile>
 									<ConvertedFileIDList>
@@ -693,7 +684,6 @@
 									<AudioFile>hobo10.wav</AudioFile>
 								</AudioFileSource>
 								<AudioFileSource Name="hobo01" ID="{0A3D9D0F-194F-4703-97DD-454AFD5D4BD7}" ShortID="503814164">
-									<ReferenceList/>
 									<Language>SFX</Language>
 									<AudioFile>hobo01.wav</AudioFile>
 									<ConvertedFileIDList>
@@ -3303,15 +3293,104 @@
 												</Reference>
 											</ReferenceList>
 											<ChildrenList>
-												<AudioFileSource Name="DEC_CombatSFX_equip_build" ID="{31AFBB4C-5910-4100-B8AD-0E3D0A17A1EE}" ShortID="845874935">
+												<AudioFileSource Name="DEC_CombatSFX_equip_minion_rectifier_forcefield_rev4" ID="{8F6E12EF-8350-4CC4-89ED-E0D97C4BF773}" ShortID="554143873">
 													<Language>SFX</Language>
-													<AudioFile>DEC_CombatSFX_equip_build.wav</AudioFile>
+													<AudioFile>DEC_CombatSFX_equip_minion_rectifier_forcefield_rev4.wav</AudioFile>
 												</AudioFileSource>
 											</ChildrenList>
 											<ActiveSourceList>
-												<ActiveSource Name="DEC_CombatSFX_equip_build" ID="{31AFBB4C-5910-4100-B8AD-0E3D0A17A1EE}" Platform="Linked"/>
+												<ActiveSource Name="DEC_CombatSFX_equip_minion_rectifier_forcefield_rev4" ID="{8F6E12EF-8350-4CC4-89ED-E0D97C4BF773}" Platform="Linked"/>
 											</ActiveSourceList>
 										</Sound>
+										<RandomSequenceContainer Name="Drone_Active_Armor" ID="{79D3BBF7-24E0-4D07-B6F5-E499A69A673D}" ShortID="537524468">
+											<PropertyList>
+												<Property Name="Pitch" Type="int32">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{0F9FF3B9-586E-4384-883B-A93073F7081E}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="100"/>
+																	<Property Name="Min" Type="Real64" Value="-100"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+												<Property Name="Volume" Type="Real64">
+													<ValueList>
+														<Value>-4</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<Sound Name="DEC_CombatSFX_drone_active_armor_rev2_v1" ID="{A45B928F-1F34-401C-877E-4FB78D98D53B}" ShortID="3062218">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_CombatSFX_drone_active_armor_rev2_v1" ID="{AF0FDD93-0651-443D-BEE5-A3556DC0E9E2}" ShortID="99848132">
+															<Language>SFX</Language>
+															<AudioFile>DEC_CombatSFX_drone_active_armor_rev2_v1.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_CombatSFX_drone_active_armor_rev2_v1" ID="{AF0FDD93-0651-443D-BEE5-A3556DC0E9E2}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_CombatSFX_drone_active_armor_rev2_v2" ID="{49D57F00-DF03-4C58-805C-629B9005D841}" ShortID="1049807412">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_CombatSFX_drone_active_armor_rev2_v2" ID="{056CE723-798D-4BB5-B5A8-8881B75D732C}" ShortID="659656213">
+															<Language>SFX</Language>
+															<AudioFile>DEC_CombatSFX_drone_active_armor_rev2_v2.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_CombatSFX_drone_active_armor_rev2_v2" ID="{056CE723-798D-4BB5-B5A8-8881B75D732C}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+												<Sound Name="DEC_CombatSFX_drone_active_armor_rev2_v3" ID="{35693A72-3B2E-4D7E-9E5A-E85B930110FC}" ShortID="656808448">
+													<ReferenceList>
+														<Reference Name="Conversion">
+															<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+														</Reference>
+														<Reference Name="OutputBus">
+															<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+														</Reference>
+													</ReferenceList>
+													<ChildrenList>
+														<AudioFileSource Name="DEC_CombatSFX_drone_active_armor_rev2_v3" ID="{F385EC9B-79AB-4402-B861-ED41B714F734}" ShortID="996872451">
+															<Language>SFX</Language>
+															<AudioFile>DEC_CombatSFX_drone_active_armor_rev2_v3.wav</AudioFile>
+														</AudioFileSource>
+													</ChildrenList>
+													<ActiveSourceList>
+														<ActiveSource Name="DEC_CombatSFX_drone_active_armor_rev2_v3" ID="{F385EC9B-79AB-4402-B861-ED41B714F734}" Platform="Linked"/>
+													</ActiveSourceList>
+												</Sound>
+											</ChildrenList>
+										</RandomSequenceContainer>
 									</ChildrenList>
 								</ActorMixer>
 								<ActorMixer Name="Drone_Shield" ID="{4ECCCA00-8101-45FB-BC44-922EC21FDB10}" ShortID="382729958">
@@ -6477,13 +6556,16 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="rex02" ID="{F6D35C0A-AF11-46A3-96E3-4D0A91AB583E}" ShortID="922729000">
+								<AudioFileSource Name="rex01" ID="{E4BAA550-114A-42C6-8712-EB3629CDCC82}" ShortID="937325592">
 									<Language>SFX</Language>
-									<AudioFile>rex02.wav</AudioFile>
+									<AudioFile>rex01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="980259330"/>
+									</ConvertedFileIDList>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="rex02" ID="{F6D35C0A-AF11-46A3-96E3-4D0A91AB583E}" Platform="Linked"/>
+								<ActiveSource Name="rex01" ID="{E4BAA550-114A-42C6-8712-EB3629CDCC82}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="rex03" ID="{442749D2-A40C-4DD9-AADF-355C32980B52}" ShortID="204358306">
@@ -6500,9 +6582,16 @@
 									<Language>SFX</Language>
 									<AudioFile>rex03.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="rex01" ID="{E2BD9B61-4BB5-4116-9B1A-48CF9854DB47}" ShortID="858065986">
+									<Language>SFX</Language>
+									<AudioFile>rex01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="980259330"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="rex03" ID="{249D0CD6-C9FC-4130-B117-072E70445EA0}" Platform="Linked"/>
+								<ActiveSource Name="rex01" ID="{E2BD9B61-4BB5-4116-9B1A-48CF9854DB47}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="rex04" ID="{B99E2DC0-9BF5-4D10-9DC9-DCC9FB1C8738}" ShortID="144048998">
@@ -6519,9 +6608,16 @@
 									<Language>SFX</Language>
 									<AudioFile>rex04.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="rex01" ID="{6F9CB88C-1B3E-42B4-87DF-72ABA6C04C14}" ShortID="1062434164">
+									<Language>SFX</Language>
+									<AudioFile>rex01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="980259330"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="rex04" ID="{A33F5096-B5EF-4027-874F-0C57D6902938}" Platform="Linked"/>
+								<ActiveSource Name="rex01" ID="{6F9CB88C-1B3E-42B4-87DF-72ABA6C04C14}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="rex05" ID="{1416E059-88BC-4C9E-A2EF-67E9BED5C760}" ShortID="168257113">
@@ -6538,9 +6634,16 @@
 									<Language>SFX</Language>
 									<AudioFile>rex05.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="rex01" ID="{A6829DF7-113A-4010-957B-A0D5F774DF3B}" ShortID="714930779">
+									<Language>SFX</Language>
+									<AudioFile>rex01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="980259330"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="rex05" ID="{4E69716A-133D-4DCF-9692-45E654B57B81}" Platform="Linked"/>
+								<ActiveSource Name="rex01" ID="{A6829DF7-113A-4010-957B-A0D5F774DF3B}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="rex06" ID="{7C6C3CC7-7198-4E40-8952-46EE6FF54CB8}" ShortID="135876268">
@@ -6557,9 +6660,16 @@
 									<Language>SFX</Language>
 									<AudioFile>rex06.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="rex01" ID="{1EF44952-F1E1-49F4-9F44-2B916AAE5390}" ShortID="1006896228">
+									<Language>SFX</Language>
+									<AudioFile>rex01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="980259330"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="rex06" ID="{8F4EF13D-D358-4EB4-8255-E93F7FFAB6B9}" Platform="Linked"/>
+								<ActiveSource Name="rex01" ID="{1EF44952-F1E1-49F4-9F44-2B916AAE5390}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="rex07" ID="{96004C6A-A84B-4E37-933D-0C7768E82429}" ShortID="67751267">
@@ -6576,9 +6686,16 @@
 									<Language>SFX</Language>
 									<AudioFile>rex07.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="rex01" ID="{620F73BF-EC30-40CA-BAD3-31CDADDFA6A1}" ShortID="317772657">
+									<Language>SFX</Language>
+									<AudioFile>rex01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="980259330"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="rex07" ID="{81B2477B-C0A5-4CB4-B77B-BA1BB2E3D45C}" Platform="Linked"/>
+								<ActiveSource Name="rex01" ID="{620F73BF-EC30-40CA-BAD3-31CDADDFA6A1}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="rex08" ID="{1986F7BE-7448-4FE1-9792-10482C1985EF}" ShortID="923689439">
@@ -6595,9 +6712,16 @@
 									<Language>SFX</Language>
 									<AudioFile>rex08.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="rex01" ID="{A5673E3D-9825-4ACC-83D8-33DCF2CCD809}" ShortID="787816354">
+									<Language>SFX</Language>
+									<AudioFile>rex01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="980259330"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="rex08" ID="{E3D0DD60-9487-4ED2-A01E-9C660248AA78}" Platform="Linked"/>
+								<ActiveSource Name="rex01" ID="{A5673E3D-9825-4ACC-83D8-33DCF2CCD809}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="rex09" ID="{99933642-109D-459D-8150-092E1D299142}" ShortID="894872514">
@@ -6613,6 +6737,13 @@
 								<AudioFileSource Name="rex09" ID="{BF5148B6-1D50-44E1-A489-3EFDECAD3AB6}" ShortID="680859440">
 									<Language>SFX</Language>
 									<AudioFile>rex09.wav</AudioFile>
+								</AudioFileSource>
+								<AudioFileSource Name="rex01" ID="{552A6EC0-875B-489E-8872-D57D82EDDF3F}" ShortID="871463827">
+									<Language>SFX</Language>
+									<AudioFile>rex01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="980259330"/>
+									</ConvertedFileIDList>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
@@ -6633,9 +6764,16 @@
 									<Language>SFX</Language>
 									<AudioFile>rex10.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="rex01" ID="{AFD97370-5A8C-4CCA-9580-8EFD7B023B89}" ShortID="926317430">
+									<Language>SFX</Language>
+									<AudioFile>rex01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="980259330"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="rex10" ID="{C014C508-DC56-4CFC-8267-EE273BD697DB}" Platform="Linked"/>
+								<ActiveSource Name="rex01" ID="{AFD97370-5A8C-4CCA-9580-8EFD7B023B89}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="rex11" ID="{C8B1C58A-606A-4C36-BC6B-D9061564D4C0}" ShortID="168650926">
@@ -6652,9 +6790,16 @@
 									<Language>SFX</Language>
 									<AudioFile>rex11.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="rex01" ID="{46FFDE32-B006-4EE0-871A-AD2691FC64DF}" ShortID="1059991542">
+									<Language>SFX</Language>
+									<AudioFile>rex01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="980259330"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="rex11" ID="{71E5549F-51E1-447B-B3D4-7F645D2C5AEC}" Platform="Linked"/>
+								<ActiveSource Name="rex01" ID="{46FFDE32-B006-4EE0-871A-AD2691FC64DF}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="rex12" ID="{5EC28DAD-582E-4D29-8D1A-D15542250BE9}" ShortID="1012053434">
@@ -6671,9 +6816,16 @@
 									<Language>SFX</Language>
 									<AudioFile>rex12.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="rex01" ID="{BCE68548-F9C3-487A-AA7D-F03560870496}" ShortID="12789919">
+									<Language>SFX</Language>
+									<AudioFile>rex01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="980259330"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="rex12" ID="{8DE3430B-C87D-4E83-9625-69DC40CAF9AB}" Platform="Linked"/>
+								<ActiveSource Name="rex01" ID="{BCE68548-F9C3-487A-AA7D-F03560870496}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>
@@ -7614,6 +7766,25 @@
 							</ChildrenList>
 							<ActiveSourceList>
 								<ActiveSource Name="DEC_UI_Dialog_Cancel" ID="{25EED77F-9656-4681-AF78-6CC816A097A9}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="DEC_CombatSFX_drone_upgrade_bar" ID="{DDCEDEB6-A83A-4E75-AF04-73DE5BD640BC}" ShortID="944507066">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="DEC_CombatSFX_drone_upgrade_bar" ID="{1E3BCB2C-2F1E-463F-93F5-DA27A35876EF}" ShortID="526474033">
+									<Language>SFX</Language>
+									<AudioFile>DEC_CombatSFX_drone_upgrade_bar.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="DEC_CombatSFX_drone_upgrade_bar" ID="{1E3BCB2C-2F1E-463F-93F5-DA27A35876EF}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>

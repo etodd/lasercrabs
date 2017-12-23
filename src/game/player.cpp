@@ -859,6 +859,7 @@ void player_upgrade_start(s8 gamepad)
 	Entity* entity = player->get<PlayerManager>()->instance.ref();
 	if (entity)
 	{
+		Audio::post_global(AK::EVENTS::PLAY_DRONE_UPGRADE);
 		PlayerControlHumanNet::Message msg;
 		msg.type = PlayerControlHumanNet::Message::Type::UpgradeStart;
 		msg.upgrade = player_confirm_upgrade[gamepad];
@@ -4796,6 +4797,7 @@ void PlayerControlHuman::update(const Update& u)
 		}
 
 		// grapple button
+		if (Game::save.resources[s32(Resource::Grapple)])
 		{
 			if (movement_enabled())
 			{
@@ -4826,7 +4828,8 @@ void PlayerControlHuman::update(const Update& u)
 				if (get<Parkour>()->flag(Parkour::FlagTryGrapple))
 					get<Parkour>()->grapple_cancel();
 			}
-			if (get<Parkour>()->flag(Parkour::FlagTryGrapple))
+
+			if (get<Parkour>()->fsm.current != Parkour::State::Grapple)
 			{
 				Camera* camera = player.ref()->camera.ref();
 				flag(FlagGrappleValid, get<Parkour>()->grapple_valid(camera->pos, camera->rot, &get<Parkour>()->grapple_pos, &get<Parkour>()->grapple_normal));
@@ -5093,6 +5096,21 @@ void PlayerControlHuman::draw_alpha_late(const RenderParams& params) const
 			View::draw_mesh(params, Asset::Mesh::reticle_grapple, Asset::Shader::flat_texture_offset, Asset::Texture::bars, m, flag(FlagGrappleValid) ? UI::color_accent() : UI::color_alert());
 		}
 	}
+}
+
+void draw_triangular_reticle(const RenderParams& params, const Vec4& color, const Vec4& center_dot_color = Vec4::zero)
+{
+	const r32 ratio = 0.8660254037844386f;
+	const r32 spoke_length = 12.0f;
+	const r32 spoke_width = 3.0f;
+	const r32 start_radius = 8.0f + spoke_length * 0.5f;
+	Vec2 pos = params.camera->viewport.size * 0.5f;
+	UI::centered_box(params, { pos + Vec2(ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * 0.33f);
+	UI::centered_box(params, { pos + Vec2(-ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * -0.33f);
+	UI::centered_box(params, { pos + Vec2(0, -1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, color);
+
+	if (center_dot_color.w > 0.0f)
+		UI::triangle(params, { pos, Vec2(10.0f * UI::scale) }, center_dot_color, PI);
 }
 
 void PlayerControlHuman::draw_ui(const RenderParams& params) const
@@ -5372,7 +5390,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				text.text(player.ref()->gamepad, _(strings::prompt_interact));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
-				Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
+				Vec2 pos = viewport.size * Vec2(0.5f, 0.2f);
 				const Vec4* bg;
 				if (params.sync->input.get(Controls::InteractSecondary, player.ref()->gamepad))
 				{
@@ -5504,6 +5522,18 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
 			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 			text.draw(params, pos);
+		}
+		else if (Settings::parkour_reticle && movement_enabled())
+		{
+			if (Game::save.resources[s32(Resource::Grapple)])
+			{
+				if (flag(FlagGrappleValid) && get<Parkour>()->grapple_cooldown < GRAPPLE_COOLDOWN_THRESHOLD)
+					draw_triangular_reticle(params, UI::color_accent(), UI::color_accent()); // draw reticle with center dot
+				else
+					draw_triangular_reticle(params, UI::color_alert()); // no center dot
+			}
+			else
+				draw_triangular_reticle(params, UI::color_accent()); // no center dot
 		}
 
 		draw_cooldown(params, get<Parkour>()->grapple_cooldown, viewport.size * Vec2(0.5f, 0.15f), GRAPPLE_COOLDOWN_THRESHOLD);
@@ -5718,9 +5748,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		)
 	{
 		Vec2 pos = viewport.size * Vec2(0.5f, 0.5f);
-		const r32 spoke_length = 12.0f;
-		const r32 spoke_width = 3.0f;
-		const r32 start_radius = 8.0f + spoke_length * 0.5f;
 
 		b8 cooldown_can_go = get<Drone>()->cooldown_can_shoot();
 
@@ -5752,24 +5779,18 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		{
 			if (reticle_valid)
 			{
-				// triangular crosshair
-				const r32 ratio = 0.8660254037844386f;
-				UI::centered_box(params, { pos + Vec2(ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * 0.33f);
-				UI::centered_box(params, { pos + Vec2(-ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * -0.33f);
-				UI::centered_box(params, { pos + Vec2(0, -1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, *color);
-
-				if (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target || reticle.type == ReticleType::DashTarget)
-				{
-					Vec2 a;
-					if (UI::project(params, reticle.pos, &a))
-						UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Target || reticle.type == ReticleType::DashTarget ? UI::color_alert() : *color, PI);
-				}
+				if (reticle.type == ReticleType::Normal
+					|| reticle.type == ReticleType::Target
+					|| reticle.type == ReticleType::DashTarget) // draw reticle with center dot
+					draw_triangular_reticle(params, *color, reticle.type == ReticleType::Target || reticle.type == ReticleType::DashTarget ? UI::color_alert() : *color);
+				else // no center dot
+					draw_triangular_reticle(params, *color);
 			}
 			else
 			{
 				// crossbars
-				UI::centered_box(params, { pos, Vec2(spoke_length * 3.0f, spoke_width) * UI::scale }, *color, PI * 0.25f);
-				UI::centered_box(params, { pos, Vec2(spoke_length * 3.0f, spoke_width) * UI::scale }, *color, PI * 0.75f);
+				UI::centered_box(params, { pos, Vec2(36.0f, 3.0f) * UI::scale }, *color, PI * 0.25f);
+				UI::centered_box(params, { pos, Vec2(36.0f, 3.0f) * UI::scale }, *color, PI * 0.75f);
 			}
 		}
 

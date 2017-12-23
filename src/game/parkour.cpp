@@ -1404,6 +1404,15 @@ void Parkour::grapple_cancel()
 	flag(FlagTryGrapple, false);
 }
 
+const Vec3 grapple_raycast_directions[5] =
+{
+	Vec3(0, 0, 1),
+	Vec3(-1, 0, 0),
+	Vec3(1, 0, 0),
+	Vec3(0, -1, 0),
+	Vec3(0, 1, 0),
+};
+
 b8 grapple_raycast(const Parkour* parkour, const Vec3& start_pos, const Quat& start_rot, Vec3* hit, Vec3* normal)
 {
 	RaycastCallbackExcept ray_callback(start_pos, start_pos + start_rot * Vec3(0, 0, GRAPPLE_RANGE * 1.5f), parkour->entity());
@@ -1415,9 +1424,28 @@ b8 grapple_raycast(const Parkour* parkour, const Vec3& start_pos, const Quat& st
 		if (normal)
 			*normal = ray_callback.m_hitNormalWorld;
 		r32 dist_sq = (Vec3(ray_callback.m_hitPointWorld) - parkour->hand_pos()).length_squared();
-		return !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK)
+		if (!(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK)
 			&& dist_sq < GRAPPLE_RANGE * GRAPPLE_RANGE
-			&& dist_sq > GRAPPLE_RANGE * 0.15f * GRAPPLE_RANGE * 0.15f;
+			&& dist_sq > GRAPPLE_RANGE * 0.15f * GRAPPLE_RANGE * 0.15f)
+		{
+			// check for enough space
+
+			Vec3 start2 = ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * 0.02f;
+			Quat basis = Quat::look(ray_callback.m_hitNormalWorld);
+			for (s32 i = 0; i < 5; i++)
+			{
+				const Vec3& dir2 = grapple_raycast_directions[i];
+				RaycastCallbackExcept ray_callback2(start2, start2 + basis * dir2 * WALKER_PARKOUR_RADIUS, parkour->entity());
+				Physics::raycast(&ray_callback2, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
+				if (ray_callback2.hasHit()) // obstacle
+					return false;
+			}
+
+			// no obstacles
+			return true;
+		}
+		else
+			return false; // invalid raycast hit
 	}
 	else
 	{
@@ -1443,6 +1471,9 @@ b8 Parkour::grapple_try(const Vec3& start_pos, const Quat& start_rot)
 		Vec3 normal;
 		if (grapple_raycast(this, start_pos, start_rot, &hit, &normal))
 		{
+			if (fsm.current == State::Climb)
+				parkour_stop_climbing(this);
+
 			fsm.transition(State::Grapple);
 			grapple_start_pos = get<Transform>()->absolute_pos();
 			grapple_pos = hit + normal * (fabsf(normal.y) > 0.707f ? WALKER_HEIGHT : WALKER_PARKOUR_RADIUS);

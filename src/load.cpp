@@ -53,6 +53,7 @@ namespace Settings
 	b8 expo;
 	b8 shell_casings;
 	b8 god_mode;
+	b8 parkour_reticle;
 	NetClientInterpolationMode net_client_interpolation_mode;
 
 	const DisplayMode& display()
@@ -288,6 +289,7 @@ void Loader::settings_load(const Array<DisplayMode>& modes, const DisplayMode& c
 	Settings::record = b8(Json::get_s32(json, "record", 0));
 	Settings::expo = b8(Json::get_s32(json, "expo", 0));
 	Settings::god_mode = b8(Json::get_s32(json, "god_mode"));
+	Settings::parkour_reticle = b8(Json::get_s32(json, "parkour_reticle"));
 #if SERVER
 	Settings::shell_casings = false;
 #else
@@ -382,6 +384,7 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "shell_casings", s32(Settings::shell_casings));
 	if (Settings::god_mode)
 		cJSON_AddNumberToObject(json, "god_mode", 1);
+	cJSON_AddNumberToObject(json, "parkour_reticle", s32(Settings::parkour_reticle));
 
 	cJSON* gamepads = cJSON_CreateArray();
 	cJSON_AddItemToObject(json, "gamepads", gamepads);

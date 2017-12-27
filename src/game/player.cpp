@@ -1542,12 +1542,22 @@ void PlayerHuman::update_late(const Update& u)
 				Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
 			else
 			{
-				// either we're alive, or we're spectating someone
-				// make sure the listener is in a valid place
-				btCollisionWorld::ClosestRayResultCallback ray_callback(get<PlayerManager>()->instance.ref()->get<Transform>()->absolute_pos(), camera.ref()->pos);
-				Physics::raycast(&ray_callback, CollisionAudio);
-				if (ray_callback.hasHit())
-					Audio::listener_update(gamepad, ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * DRONE_RADIUS, camera.ref()->rot);
+				Entity* instance = get<PlayerManager>()->instance.ref();
+				if (!instance)
+					instance = live_player_get(spectate_index);
+
+				if (instance)
+				{
+					// either we're alive, or we're spectating someone
+					// make sure the listener is in a valid place
+
+					btCollisionWorld::ClosestRayResultCallback ray_callback(instance->get<Transform>()->absolute_pos(), camera.ref()->pos);
+					Physics::raycast(&ray_callback, CollisionAudio);
+					if (ray_callback.hasHit())
+						Audio::listener_update(gamepad, ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * DRONE_RADIUS, camera.ref()->rot);
+					else
+						Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
+				}
 				else
 					Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
 			}

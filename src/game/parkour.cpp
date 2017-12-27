@@ -1323,8 +1323,19 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 				// check for ceiling blocking the mantle
 				{
 					Vec3 ceiling_ray_end = pos;
-					ceiling_ray_end.y = ray_callback.m_hitPointWorld.getY() + 0.1f;
+					ceiling_ray_end.y = ray_callback.m_hitPointWorld.getY() + get<Walker>()->capsule_height();
 					btCollisionWorld::ClosestRayResultCallback ceiling_ray_callback(pos, ceiling_ray_end);
+					Physics::raycast(&ceiling_ray_callback, ~CollisionDroneIgnore);
+					if (ceiling_ray_callback.hasHit())
+						return false;
+				}
+
+				{
+					Vec3 ceiling_ray_start = ray_callback.m_hitPointWorld;
+					ceiling_ray_start.y += 0.1f;
+					Vec3 ceiling_ray_end = ray_callback.m_hitPointWorld;
+					ceiling_ray_end.y += get<Walker>()->capsule_height() + WALKER_SUPPORT_HEIGHT;
+					btCollisionWorld::ClosestRayResultCallback ceiling_ray_callback(ceiling_ray_start, ceiling_ray_end);
 					Physics::raycast(&ceiling_ray_callback, ~CollisionDroneIgnore);
 					if (ceiling_ray_callback.hasHit())
 						return false;
@@ -1434,8 +1445,8 @@ b8 grapple_raycast(const Parkour* parkour, const Vec3& start_pos, const Quat& st
 			Quat basis = Quat::look(ray_callback.m_hitNormalWorld);
 			for (s32 i = 0; i < 5; i++)
 			{
-				const Vec3& dir2 = grapple_raycast_directions[i];
-				RaycastCallbackExcept ray_callback2(start2, start2 + basis * dir2 * WALKER_PARKOUR_RADIUS, parkour->entity());
+				Vec3 dir2 = basis * grapple_raycast_directions[i];
+				RaycastCallbackExcept ray_callback2(start2, start2 + dir2 * (dir2.y > 0.707f ? parkour->get<Walker>()->capsule_height() + WALKER_SUPPORT_HEIGHT : WALKER_PARKOUR_RADIUS), parkour->entity());
 				Physics::raycast(&ray_callback2, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
 				if (ray_callback2.hasHit()) // obstacle
 					return false;

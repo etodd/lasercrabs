@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Animation
 	{
-		const s32 count = 79;
+		const s32 count = 81;
 		const AssetID character_aim = 0;
 		const AssetID character_climb_down = 1;
 		const AssetID character_climb_up = 2;
@@ -56,38 +56,40 @@ namespace Asset
 		const AssetID hobo_trailer5 = 44;
 		const AssetID hobo_trailer6 = 45;
 		const AssetID hobo_trailer7 = 46;
-		const AssetID hologram_animate = 47;
-		const AssetID hologram_close = 48;
-		const AssetID interactable_disabled = 49;
-		const AssetID interactable_enabled = 50;
-		const AssetID interactable_interact = 51;
-		const AssetID interactable_interact_disable = 52;
-		const AssetID locke_gesture_both_arms = 53;
-		const AssetID locke_gesture_one_hand = 54;
-		const AssetID locke_gesture_one_hand_short = 55;
-		const AssetID locke_idle = 56;
-		const AssetID locke_shift_weight = 57;
-		const AssetID meursault_intro = 58;
-		const AssetID meursault_wait = 59;
-		const AssetID parkour_trailer5_parkour = 60;
-		const AssetID parkour_trailer7_parkour = 61;
-		const AssetID samsa_close = 62;
-		const AssetID samsa_closed = 63;
-		const AssetID samsa_open = 64;
-		const AssetID samsa_opened = 65;
-		const AssetID samsa_wag = 66;
-		const AssetID samsa_walk = 67;
-		const AssetID seven_hands_on_hips = 68;
-		const AssetID seven_sitting = 69;
-		const AssetID seven_sling_backpack = 70;
-		const AssetID terminal_close = 71;
-		const AssetID terminal_open = 72;
-		const AssetID terminal_opened = 73;
-		const AssetID terminal_trailer3_terminal = 74;
-		const AssetID terminal_trailer5_terminal = 75;
-		const AssetID tram_doors_close = 76;
-		const AssetID tram_doors_open = 77;
-		const AssetID tram_doors_opened = 78;
+		const AssetID hobo_trailer8 = 47;
+		const AssetID hologram_animate = 48;
+		const AssetID hologram_close = 49;
+		const AssetID interactable_disabled = 50;
+		const AssetID interactable_enabled = 51;
+		const AssetID interactable_interact = 52;
+		const AssetID interactable_interact_disable = 53;
+		const AssetID locke_gesture_both_arms = 54;
+		const AssetID locke_gesture_one_hand = 55;
+		const AssetID locke_gesture_one_hand_short = 56;
+		const AssetID locke_idle = 57;
+		const AssetID locke_shift_weight = 58;
+		const AssetID meursault_intro = 59;
+		const AssetID meursault_wait = 60;
+		const AssetID parkour_trailer5_parkour = 61;
+		const AssetID parkour_trailer7_parkour = 62;
+		const AssetID parkour_trailer8_parkour = 63;
+		const AssetID samsa_close = 64;
+		const AssetID samsa_closed = 65;
+		const AssetID samsa_open = 66;
+		const AssetID samsa_opened = 67;
+		const AssetID samsa_wag = 68;
+		const AssetID samsa_walk = 69;
+		const AssetID seven_hands_on_hips = 70;
+		const AssetID seven_sitting = 71;
+		const AssetID seven_sling_backpack = 72;
+		const AssetID terminal_close = 73;
+		const AssetID terminal_open = 74;
+		const AssetID terminal_opened = 75;
+		const AssetID terminal_trailer3_terminal = 76;
+		const AssetID terminal_trailer5_terminal = 77;
+		const AssetID tram_doors_close = 78;
+		const AssetID tram_doors_open = 79;
+		const AssetID tram_doors_opened = 80;
 	}
 }
 

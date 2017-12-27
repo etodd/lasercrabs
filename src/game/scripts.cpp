@@ -823,6 +823,7 @@ namespace Docks
 	}
 #endif
 
+#if !RELEASE_BUILD
 	void cutscene_update(const Update& u)
 	{
 		Camera* camera = Camera::list.iterator().item();
@@ -832,11 +833,11 @@ namespace Docks
 		data->cutscene_parkour.ref()->to_world(Asset::Bone::parkour_head, &camera->pos, &camera->rot);
 	}
 
-	void cutscene_init()
+	void cutscene_init_common(AssetID hobo_anim, AssetID parkour_anim)
 	{
-		Entity* hobo = World::create<Prop>(Asset::Mesh::hobo, Asset::Armature::hobo, Asset::Animation::hobo_trailer7);
+		Entity* hobo = World::create<Prop>(Asset::Mesh::hobo, Asset::Armature::hobo, hobo_anim);
 		hobo->get<Animator>()->layers[0].blend_time = 0.0f;
-		Entity* parkour = World::create<Prop>(Asset::Mesh::parkour_headless, Asset::Armature::parkour, Asset::Animation::parkour_trailer7_parkour);
+		Entity* parkour = World::create<Prop>(Asset::Mesh::parkour_headless, Asset::Armature::parkour, parkour_anim);
 		parkour->get<SkinnedModel>()->mesh_shadow = Asset::Mesh::parkour;
 		data->cutscene_parkour = parkour->get<Animator>();
 		data->cutscene_parkour.ref()->layers[0].blend_time = 0.0f;
@@ -846,14 +847,27 @@ namespace Docks
 			hobo->get<Transform>()->absolute(cutscene->pos, cutscene->rot);
 			parkour->get<Transform>()->absolute(cutscene->pos, cutscene->rot);
 		}
-		Game::updates.add(&cutscene_update);
 		for (auto i = Actor::Instance::list.iterator(); !i.is_last(); i.next())
 			i.item()->highlight = false;
 		data->ivory_ad_text.ref()->get<View>()->mask = 0;
 		Game::level.finder.find("ivory_ad")->get<View>()->mask = 0;
+		Game::updates.add(&cutscene_update);
+	}
+
+	void cutscene_init()
+	{
+		cutscene_init_common(Asset::Animation::hobo_trailer7, Asset::Animation::parkour_trailer7_parkour);
 		Particles::clear();
 		Game::level.rain = 0.0f;
 	}
+
+	void cutscene2_init()
+	{
+		cutscene_init_common(Asset::Animation::hobo_trailer8, Asset::Animation::parkour_trailer8_parkour);
+		Particles::clear();
+		Game::level.rain = 0.0f;
+	}
+#endif
 
 	void update_title(const Update& u)
 	{
@@ -869,6 +883,8 @@ namespace Docks
 #if !RELEASE_BUILD
 		if (u.input->keys.get(s32(KeyCode::F1)) && !u.last_input->keys.get(s32(KeyCode::F1)))
 			cutscene_init();
+		else if (u.input->keys.get(s32(KeyCode::F2)) && !u.last_input->keys.get(s32(KeyCode::F2)))
+			cutscene2_init();
 #endif
 
 		if (data->camera.ref())

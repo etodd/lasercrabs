@@ -1610,6 +1610,8 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 	// default team index for minions and other items that spawn in the level
 	s32 default_team_index = story_mode_team == StoryModeTeam::Defend ? 0 : 1;
 
+	ID collectible_id = 0;
+
 	cJSON* element = json->child;
 	while (element)
 	{
@@ -2222,11 +2224,10 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		else if (cJSON_HasObjectItem(element, "Collectible"))
 		{
 			b8 already_collected = false;
-			ID id = ID(transforms.length);
 			for (s32 i = 0; i < save.collectibles.length; i++)
 			{
 				const CollectibleEntry& entry = save.collectibles[i];
-				if (entry.zone == level.id && entry.id == id)
+				if (entry.zone == level.id && entry.id == collectible_id)
 				{
 					already_collected = true;
 					break;
@@ -2244,7 +2245,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 					type = Resource::AudioLog;
 				else
 					type = Resource::Energy;
-				entity = World::alloc<CollectibleEntity>(id, type, s16(Json::get_s32(element, "amount")));
+				entity = World::alloc<CollectibleEntity>(collectible_id, type, s16(Json::get_s32(element, "amount")));
 				if (type == Resource::AudioLog)
 				{
 					AssetID id = Scripts::AudioLogs::get_id(Json::get_string(element, "AudioLog"));
@@ -2252,6 +2253,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 					entity->get<Collectible>()->audio_log = id;
 				}
 			}
+			collectible_id++;
 		}
 		else if (cJSON_HasObjectItem(element, "Shop"))
 		{
@@ -2269,6 +2271,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 
 			{
 				Entity* locke = World::create<Prop>(Asset::Mesh::locke, Asset::Armature::locke);
+				locke->get<SkinnedModel>()->color.w = MATERIAL_INACCESSIBLE;
 				locke->get<Transform>()->pos = absolute_pos + absolute_rot * Vec3(-1.25f, 0, 0);
 				locke->get<Transform>()->rot = absolute_rot;
 				locke->add<PlayerTrigger>()->radius = 5.0f;

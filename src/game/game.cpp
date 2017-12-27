@@ -2436,13 +2436,16 @@ void Game::awake_all()
 
 			Loader::shader(Asset::Shader::flat_texture_offset);
 
-			Loader::mesh(Asset::Mesh::plane);
+			Loader::mesh(Asset::Mesh::tile);
 			Loader::mesh(Asset::Mesh::reticle_grapple);
 		}
 
 		Loader::mesh(Asset::Mesh::cylinder);
 		Loader::mesh(Asset::Mesh::sphere_highres);
-		Loader::mesh(Asset::Mesh::tri_tube);
+		Loader::mesh_permanent(Asset::Mesh::tri_tube);
+		Loader::mesh_instanced(Asset::Mesh::tri_tube);
+		Loader::mesh_permanent(Asset::Mesh::shell_casing);
+		Loader::mesh_instanced(Asset::Mesh::shell_casing);
 
 		Loader::mesh(Asset::Mesh::icon_warning);
 		Loader::mesh(Asset::Mesh::icon_turret2);

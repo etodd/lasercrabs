@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const s32 count = 92;
+		const s32 count = 93;
 		const AssetID access_key = 0;
 		const AssetID actor_collision = 1;
 		const AssetID air_wave = 2;
@@ -71,12 +71,12 @@ namespace Asset
 		const AssetID mountain = 59;
 		const AssetID parkour = 60;
 		const AssetID parkour_headless = 61;
-		const AssetID plane = 62;
-		const AssetID rectifier = 63;
-		const AssetID reticle_grapple = 64;
-		const AssetID rope_base = 65;
-		const AssetID samsa = 66;
-		const AssetID seven = 67;
+		const AssetID rectifier = 62;
+		const AssetID reticle_grapple = 63;
+		const AssetID rope_base = 64;
+		const AssetID samsa = 65;
+		const AssetID seven = 66;
+		const AssetID shell_casing = 67;
 		const AssetID shop_collision = 68;
 		const AssetID shop_view = 69;
 		const AssetID sky_decal = 70;
@@ -91,16 +91,17 @@ namespace Asset
 		const AssetID support2 = 79;
 		const AssetID terminal = 80;
 		const AssetID terminal_collision = 81;
-		const AssetID tram_collision = 82;
-		const AssetID tram_collision_door = 83;
-		const AssetID tram_doors = 84;
-		const AssetID tram_mesh = 85;
-		const AssetID tram_mesh_1 = 86;
-		const AssetID tram_runner = 87;
-		const AssetID tri_tube = 88;
-		const AssetID turret_base = 89;
-		const AssetID turret_top = 90;
-		const AssetID water = 91;
+		const AssetID tile = 82;
+		const AssetID tram_collision = 83;
+		const AssetID tram_collision_door = 84;
+		const AssetID tram_doors = 85;
+		const AssetID tram_mesh = 86;
+		const AssetID tram_mesh_1 = 87;
+		const AssetID tram_runner = 88;
+		const AssetID tri_tube = 89;
+		const AssetID turret_base = 90;
+		const AssetID turret_top = 91;
+		const AssetID water = 92;
 	}
 }
 

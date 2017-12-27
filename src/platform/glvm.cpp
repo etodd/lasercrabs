@@ -96,6 +96,7 @@ struct GLData
 		GLuint instance_buffer;
 		s32 index_count;
 		s32 edges_index_count;
+		s32 instance_count;
 		b8 dynamic;
 	};
 
@@ -935,25 +936,33 @@ do\
 				debug_check();
 				break;
 			}
-			case RenderOp::Instances:
+			case RenderOp::UpdateInstances:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
 
-				s32 count = *(sync->read<s32>());
+				mesh->instance_count = *(sync->read<s32>());
 
 				glBindBuffer(GL_ARRAY_BUFFER, mesh->instance_buffer);
-				glBufferData(GL_ARRAY_BUFFER, sizeof(Mat4) * count, sync->read<Mat4>(count), GL_DYNAMIC_DRAW);
+				glBufferData(GL_ARRAY_BUFFER, sizeof(Mat4) * mesh->instance_count, sync->read<Mat4>(mesh->instance_count), GL_DYNAMIC_DRAW);
 
-				glBindVertexArray(mesh->instance_array);
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
+				debug_check();
+				break;
+			}
+			case RenderOp::Instances:
+			{
+				AssetID id = *(sync->read<AssetID>());
+				const GLData::Mesh& mesh = GLData::meshes[id];
+
+				glBindVertexArray(mesh.instance_array);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.index_buffer);
 
 				glDrawElementsInstanced(
 					GL_TRIANGLES,       // mode
-					mesh->index_count,    // count
+					mesh.index_count,    // count
 					GL_UNSIGNED_INT,    // type
 					(void*)0,            // element array buffer offset
-					count
+					mesh.instance_count
 				);
 
 				debug_check();
@@ -962,22 +971,17 @@ do\
 			case RenderOp::InstancesEdges:
 			{
 				AssetID id = *(sync->read<AssetID>());
-				GLData::Mesh* mesh = &GLData::meshes[id];
+				const GLData::Mesh& mesh = GLData::meshes[id];
 
-				s32 count = *(sync->read<s32>());
-
-				glBindBuffer(GL_ARRAY_BUFFER, mesh->instance_buffer);
-				glBufferData(GL_ARRAY_BUFFER, sizeof(Mat4) * count, sync->read<Mat4>(count), GL_DYNAMIC_DRAW);
-
-				glBindVertexArray(mesh->instance_array);
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->edges_index_buffer);
+				glBindVertexArray(mesh.instance_array);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.edges_index_buffer);
 
 				glDrawElementsInstanced(
 					GL_LINES, // RenderPrimitiveMode::Lines
-					mesh->edges_index_count, // count
+					mesh.edges_index_count, // count
 					GL_UNSIGNED_INT, // type
 					(void*)0, // element array buffer offset
-					count
+					mesh.instance_count
 				);
 				
 				debug_check();

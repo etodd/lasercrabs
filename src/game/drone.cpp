@@ -545,14 +545,6 @@ void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone:
 			line_start = p;
 		}
 	}
-
-	// everyone instantly knows where we are
-	AI::Team team = drone->get<AIAgent>()->team;
-	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->team() != team)
-			i.item()->track(drone->get<PlayerCommon>()->manager.ref(), drone->entity());
-	}
 }
 
 // velocity to give the grenade

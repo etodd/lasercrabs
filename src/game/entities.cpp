@@ -3183,9 +3183,11 @@ void ShellCasing::draw_all(const RenderParams& params)
 	if (!params.camera->mask || !Settings::shell_casings)
 		return;
 
-	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::tri_tube);
+	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::shell_casing);
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
+
+	RenderSync* sync = params.sync;
 
 	if (params.technique == RenderTechnique::Shadow || Settings::shadow_quality == Settings::ShadowQuality::Off)
 	{
@@ -3203,6 +3205,14 @@ void ShellCasing::draw_all(const RenderParams& params)
 				instances.add(m);
 			}
 		}
+
+		if (instances.length > 0)
+		{
+			sync->write(RenderOp::UpdateInstances);
+			sync->write(Asset::Mesh::shell_casing);
+			sync->write(instances.length);
+			sync->write<Mat4>(instances.data, instances.length);
+		}
 	}
 
 	if (instances.length == 0)
@@ -3210,7 +3220,6 @@ void ShellCasing::draw_all(const RenderParams& params)
 
 	Loader::shader_permanent(Asset::Shader::standard_instanced);
 
-	RenderSync* sync = params.sync;
 	sync->write(RenderOp::Shader);
 	sync->write(Asset::Shader::standard_instanced);
 	sync->write(params.technique);
@@ -3236,9 +3245,7 @@ void ShellCasing::draw_all(const RenderParams& params)
 	sync->write<Vec4>(Vec4(1, 1, 1, MATERIAL_NO_OVERRIDE));
 
 	sync->write(params.flags & RenderFlagEdges ? RenderOp::InstancesEdges : RenderOp::Instances);
-	sync->write(Asset::Mesh::tri_tube);
-	sync->write(instances.length);
-	sync->write<Mat4>(instances.data, instances.length);
+	sync->write(Asset::Mesh::shell_casing);
 }
 
 GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Vec3& dir)
@@ -3756,6 +3763,8 @@ void Rope::draw_all(const RenderParams& params)
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
 
+	RenderSync* sync = params.sync;
+
 	if (params.technique == RenderTechnique::Shadow || Settings::shadow_quality == Settings::ShadowQuality::Off)
 	{
 		instances.length = 0;
@@ -3805,6 +3814,14 @@ void Rope::draw_all(const RenderParams& params)
 					instances.add(m);
 			}
 		}
+
+		if (instances.length > 0)
+		{
+			sync->write(RenderOp::UpdateInstances);
+			sync->write(Asset::Mesh::tri_tube);
+			sync->write(instances.length);
+			sync->write<Mat4>(instances.data, instances.length);
+		}
 	}
 
 	if (instances.length == 0)
@@ -3812,7 +3829,6 @@ void Rope::draw_all(const RenderParams& params)
 
 	Loader::shader_permanent(Asset::Shader::flat_instanced);
 
-	RenderSync* sync = params.sync;
 	sync->write(RenderOp::Shader);
 	sync->write(Asset::Shader::flat_instanced);
 	sync->write(params.technique);
@@ -3839,8 +3855,6 @@ void Rope::draw_all(const RenderParams& params)
 
 	sync->write(RenderOp::Instances);
 	sync->write(Asset::Mesh::tri_tube);
-	sync->write(instances.length);
-	sync->write<Mat4>(instances.data, instances.length);
 }
 
 RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3& pos, const Quat& rot, r32 slack, RigidBody::Constraint::Type constraint_type, s8 flags)
@@ -4990,7 +5004,7 @@ void Tile::draw_alpha(const RenderParams& params)
 {
 	instances.length = 0;
 
-	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::plane);
+	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::tile);
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
 
@@ -5036,10 +5050,13 @@ void Tile::draw_alpha(const RenderParams& params)
 	sync->write<s32>(1);
 	sync->write<Vec4>(Vec4(1, 1, 1, 0.5f));
 
-	sync->write(RenderOp::Instances);
-	sync->write(Asset::Mesh::plane);
+	sync->write(RenderOp::UpdateInstances);
+	sync->write(Asset::Mesh::tile);
 	sync->write(instances.length);
 	sync->write<Mat4>(instances.data, instances.length);
+
+	sync->write(RenderOp::Instances);
+	sync->write(Asset::Mesh::tile);
 }
 
 void Tile::clear()
@@ -5134,10 +5151,13 @@ void AirWave::draw_alpha(const RenderParams& params)
 	sync->write<s32>(1);
 	sync->write<Vec4>(Vec4(1, 1, 1, 0.3f));
 
-	sync->write(RenderOp::Instances);
+	sync->write(RenderOp::UpdateInstances);
 	sync->write(Asset::Mesh::air_wave);
 	sync->write(instances.length);
 	sync->write<Mat4>(instances.data, instances.length);
+
+	sync->write(RenderOp::Instances);
+	sync->write(Asset::Mesh::air_wave);
 }
 
 void AirWave::update(const Update& u)

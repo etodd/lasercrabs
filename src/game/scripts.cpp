@@ -828,30 +828,42 @@ namespace Docks
 	{
 		Camera* camera = Camera::list.iterator().item();
 		camera->perspective(PI * 0.5f * 0.33f, 0.1f, Game::level.far_plane_get());
-		camera->pos = Vec3(0.15f, 0, 0);
-		camera->rot = Quat::euler(PI * -0.5f, 0, 0);
-		data->cutscene_parkour.ref()->to_world(Asset::Bone::parkour_head, &camera->pos, &camera->rot);
+		if (data->cutscene_parkour.ref())
+		{
+			camera->pos = Vec3(0.15f, 0, 0);
+			camera->rot = Quat::euler(PI * -0.5f, 0, 0);
+			data->cutscene_parkour.ref()->to_world(Asset::Bone::parkour_head, &camera->pos, &camera->rot);
+		}
 	}
 
 	void cutscene_init_common(AssetID hobo_anim, AssetID parkour_anim)
 	{
 		Entity* hobo = World::create<Prop>(Asset::Mesh::hobo, Asset::Armature::hobo, hobo_anim);
 		hobo->get<Animator>()->layers[0].blend_time = 0.0f;
-		Entity* parkour = World::create<Prop>(Asset::Mesh::parkour_headless, Asset::Armature::parkour, parkour_anim);
-		parkour->get<SkinnedModel>()->mesh_shadow = Asset::Mesh::parkour;
-		data->cutscene_parkour = parkour->get<Animator>();
-		data->cutscene_parkour.ref()->layers[0].blend_time = 0.0f;
+
+		if (parkour_anim != AssetNull)
+		{
+			Entity* parkour = World::create<Prop>(Asset::Mesh::parkour_headless, Asset::Armature::parkour, parkour_anim);
+			parkour->get<SkinnedModel>()->mesh_shadow = Asset::Mesh::parkour;
+			data->cutscene_parkour = parkour->get<Animator>();
+			data->cutscene_parkour.ref()->layers[0].blend_time = 0.0f;
+		}
+
 		{
 			Game::level.finder.find("cutscene_props")->get<View>()->mask = RENDER_MASK_DEFAULT;
 			Transform* cutscene = Game::level.finder.find("cutscene")->get<Transform>();
 			hobo->get<Transform>()->absolute(cutscene->pos, cutscene->rot);
-			parkour->get<Transform>()->absolute(cutscene->pos, cutscene->rot);
+			if (data->cutscene_parkour.ref())
+				data->cutscene_parkour.ref()->get<Transform>()->absolute(cutscene->pos, cutscene->rot);
 		}
+
 		for (auto i = Actor::Instance::list.iterator(); !i.is_last(); i.next())
 			i.item()->highlight = false;
+
 		data->ivory_ad_text.ref()->get<View>()->mask = 0;
 		Game::level.finder.find("ivory_ad")->get<View>()->mask = 0;
 		Game::updates.add(&cutscene_update);
+		Actor::cleanup();
 	}
 
 	void cutscene_init()
@@ -866,6 +878,15 @@ namespace Docks
 		cutscene_init_common(Asset::Animation::hobo_trailer8, Asset::Animation::parkour_trailer8_parkour);
 		Particles::clear();
 		Game::level.rain = 0.0f;
+	}
+
+	void cutscene3_init()
+	{
+		cutscene_init_common(Asset::Animation::hobo_trailer9, AssetNull);
+		Game::level.sky_decals.length = 0;
+		Game::level.clouds[0].color = Vec4(0.0f, 0.25f, 0.5f, 0.5f);
+		Game::level.asteroids = 1.0f;
+		World::remove(Game::level.finder.find("hobo"));
 	}
 #endif
 
@@ -885,6 +906,8 @@ namespace Docks
 			cutscene_init();
 		else if (u.input->keys.get(s32(KeyCode::F2)) && !u.last_input->keys.get(s32(KeyCode::F2)))
 			cutscene2_init();
+		else if (u.input->keys.get(s32(KeyCode::F3)) && !u.last_input->keys.get(s32(KeyCode::F3)))
+			cutscene3_init();
 #endif
 
 		if (data->camera.ref())

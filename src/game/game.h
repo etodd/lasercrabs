@@ -130,9 +130,11 @@ struct Game
 		r32 min_y;
 		r32 rotation;
 		r32 rain;
+		r32 asteroids;
 		s32 max_teams;
 		Skybox::Config skybox;
 		StaticArray<Clouds::Config, 4> clouds;
+		StaticArray<SkyDecals::Config, 4> sky_decals;
 		StaticArray<AssetID, 8> scripts;
 		AssetID id = AssetNull;
 		AssetID multiplayer_level_scheduled = AssetNull;

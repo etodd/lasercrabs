@@ -50,20 +50,19 @@ COMPONENT_TYPE(27, Battery) \
 COMPONENT_TYPE(28, Rectifier) \
 COMPONENT_TYPE(29, ForceField) \
 COMPONENT_TYPE(30, ForceFieldCollision) \
-COMPONENT_TYPE(31, SkyDecal) \
-COMPONENT_TYPE(32, Team) \
-COMPONENT_TYPE(33, PlayerHuman) \
-COMPONENT_TYPE(34, PlayerManager) \
-COMPONENT_TYPE(35, Parkour) \
-COMPONENT_TYPE(36, Interactable) \
-COMPONENT_TYPE(37, TramRunner) \
-COMPONENT_TYPE(38, Tram) \
-COMPONENT_TYPE(39, Collectible) \
-COMPONENT_TYPE(40, Water) \
-COMPONENT_TYPE(41, MinionTarget) \
-COMPONENT_TYPE(42, Flag) \
+COMPONENT_TYPE(31, Team) \
+COMPONENT_TYPE(32, PlayerHuman) \
+COMPONENT_TYPE(33, PlayerManager) \
+COMPONENT_TYPE(34, Parkour) \
+COMPONENT_TYPE(35, Interactable) \
+COMPONENT_TYPE(36, TramRunner) \
+COMPONENT_TYPE(37, Tram) \
+COMPONENT_TYPE(38, Collectible) \
+COMPONENT_TYPE(39, Water) \
+COMPONENT_TYPE(40, MinionTarget) \
+COMPONENT_TYPE(41, Flag) \
 
-Family World::families = 43;
+Family World::families = 42;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

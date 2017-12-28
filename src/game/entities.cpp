@@ -4870,7 +4870,7 @@ TramInteractableEntity::TramInteractableEntity(const Vec3& absolute_pos, const Q
 	}
 }
 
-Array<Ascensions::Entry> Ascensions::entries;
+Array<Ascensions::Entry> Ascensions::list;
 r32 Ascensions::timer;
 r32 Ascensions::particle_accumulator;
 
@@ -4890,7 +4890,7 @@ r32 Ascensions::Entry::scale() const
 
 void Ascensions::add(const char* username)
 {
-	Entry* e = entries.add();
+	Entry* e = list.add();
 	e->timer = ascension_total_time;
 	memset(e->username, 0, sizeof(e->username));
 	strncpy(e->username, username, MAX_USERNAME);
@@ -4900,7 +4900,7 @@ void Ascensions::update(const Update& u)
 {
 	if (Game::level.mode != Game::Mode::Special)
 	{
-		timer -= Game::real_time.delta;
+		timer -= u.real_time.delta;
 		if (timer < 0.0f)
 		{
 			timer = 40.0f + mersenne::randf_co() * 200.0f;
@@ -4910,14 +4910,14 @@ void Ascensions::update(const Update& u)
 		}
 	}
 
-	for (s32 i = 0; i < entries.length; i++)
+	for (s32 i = 0; i < list.length; i++)
 	{
-		Entry* e = &entries[i];
+		Entry* e = &list[i];
 		r32 old_timer = e->timer;
 		e->timer -= u.time.delta;
 		if (e->timer < 0.0f)
 		{
-			entries.remove(i);
+			list.remove(i);
 			i--;
 		}
 		else
@@ -4939,9 +4939,9 @@ void Ascensions::update(const Update& u)
 	while (particle_accumulator > interval)
 	{
 		particle_accumulator -= interval;
-		for (s32 i = 0; i < entries.length; i++)
+		for (s32 i = 0; i < list.length; i++)
 		{
-			const Entry& e = entries[i];
+			const Entry& e = list[i];
 			Particles::tracers_skybox.add(e.pos(), e.scale());
 		}
 	}
@@ -4951,12 +4951,13 @@ void Ascensions::draw_ui(const RenderParams& params)
 {
 	if (Game::level.mode != Game::Mode::Pvp)
 	{
-		for (s32 i = 0; i < entries.length; i++)
+		for (s32 i = 0; i < list.length; i++)
 		{
-			if (entries[i].timer < ascension_total_time * 0.85f)
+			const Entry& entry = list[i];
+			if (entry.timer < ascension_total_time * 0.85f)
 			{
 				Vec2 p;
-				if (UI::project(params, entries[i].pos(), &p))
+				if (UI::project(params, entry.pos(), &p))
 				{
 					p.y += 8.0f * UI::scale;
 
@@ -4965,7 +4966,7 @@ void Ascensions::draw_ui(const RenderParams& params)
 					username.anchor_x = UIText::Anchor::Center;
 					username.anchor_y = UIText::Anchor::Min;
 					username.color = UI::color_accent();
-					username.text_raw(params.camera->gamepad, entries[i].username);
+					username.text_raw(params.camera->gamepad, entry.username);
 					UI::box(params, username.rect(p).outset(8.0f * UI::scale), UI::color_background);
 					username.draw(params, p);
 				}
@@ -4977,7 +4978,114 @@ void Ascensions::draw_ui(const RenderParams& params)
 void Ascensions::clear()
 {
 	timer = 40.0f + mersenne::randf_co() * 200.0f;
-	entries.length = 0;
+	list.length = 0;
+}
+
+Array<Asteroids::Entry> Asteroids::list;
+r32 Asteroids::timer;
+r32 Asteroids::particle_accumulator;
+Array<Mat4> Asteroids::instances;
+
+void Asteroids::update(const Update& u)
+{
+	if (Game::level.asteroids > 0.0f && PlayerHuman::list.count() > 0)
+	{
+		timer -= u.time.delta;
+		while (timer < 0.0f)
+		{
+			Camera* camera = PlayerHuman::list.iterator().item()->camera.ref();
+			timer += LMath::lerpf(Game::level.asteroids, 180.0f, 0.5f);
+			Entry* entry = list.add();
+			entry->pos = camera->pos + Quat::euler((1.0f + mersenne::randf_cc()) * PI * 0.2f, mersenne::randf_cc() * PI * 2.0f, 0) * Vec3(Game::level.far_plane_get() * 0.8f, 0, 0);
+			entry->velocity = Quat::euler(PI * -0.3f, Game::level.rotation, 0) * Vec3(20.0f + mersenne::randf_cc() * 15.0f, 0, 0);
+		}
+	}
+
+	// remove old entries
+	for (s32 i = 0; i < list.length; i++)
+	{
+		Entry* e = &list[i];
+		e->lifetime += u.time.delta;
+		e->pos += e->velocity * u.time.delta;
+		if (e->pos.y < 20.0f)
+		{
+			list.remove(i);
+			i--;
+		}
+	}
+
+	// spawn particles
+	particle_accumulator -= u.time.delta;
+	while (particle_accumulator < 0.0f)
+	{
+		particle_accumulator += 0.2f;
+		for (s32 i = 0; i < list.length; i++)
+			Particles::tracers_skybox.add(list[i].pos, 2.0f);
+	}
+}
+
+void Asteroids::draw_alpha(const RenderParams& params)
+{
+	if (!params.camera->mask)
+		return;
+
+	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::asteroid);
+	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
+	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
+
+	RenderSync* sync = params.sync;
+
+	instances.length = 0;
+	for (s32 i = 0; i < list.length; i++)
+	{
+		const Entry& entry = list[i];
+		r32 scale = 0.03f * vi_min(entry.lifetime, 2.0f) * sqrtf((params.camera->pos - entry.pos).length());
+		if (params.camera->visible_sphere(entry.pos, scale * f_radius))
+			instances.add()->make_transform(entry.pos, Vec3(scale), Quat::identity);
+	}
+
+	if (instances.length == 0)
+		return;
+
+	Loader::shader_permanent(Asset::Shader::flat_instanced);
+
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::flat_instanced);
+	sync->write(params.technique);
+
+	Mat4 vp = params.view_projection;
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::vp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(vp);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::v);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(params.view);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(Vec4(1, 1, 1, 1));
+
+	sync->write(RenderOp::UpdateInstances);
+	sync->write(Asset::Mesh::asteroid);
+	sync->write(instances.length);
+	sync->write<Mat4>(instances.data, instances.length);
+
+	sync->write(RenderOp::Instances);
+	sync->write(Asset::Mesh::asteroid);
+}
+
+void Asteroids::clear()
+{
+	timer = 0.0f;
+	list.length = 0;
 }
 
 PinArray<Tile, MAX_ENTITIES> Tile::list;

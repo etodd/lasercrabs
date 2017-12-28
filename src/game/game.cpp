@@ -552,6 +552,7 @@ void Game::update(InputState* input, const InputState* last_input)
 	if (update_game)
 	{
 		Ascensions::update(u);
+		Asteroids::update(u);
 
 		Physics::sync_dynamic();
 
@@ -881,7 +882,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 	if (render_params.camera->flag(CameraFlagFog))
 	{
 		Skybox::draw_alpha(render_params);
-		SkyDecal::draw_alpha(render_params);
+		SkyDecals::draw_alpha(render_params);
 	}
 
 	Clouds::draw_alpha(render_params);
@@ -1129,7 +1130,10 @@ void Game::draw_override(const RenderParams& render_params)
 void Game::draw_particles(const RenderParams& render_params)
 {
 	if (!(render_params.flags & RenderFlagEdges))
+	{
 		Rope::draw_all(render_params);
+		Asteroids::draw_alpha(render_params);
+	}
 
 	render_params.sync->write(RenderOp::CullMode);
 	render_params.sync->write(RenderCullMode::None);
@@ -1392,6 +1396,7 @@ void Game::unload_level()
 
 	Overworld::clear();
 	Ascensions::clear();
+	Asteroids::clear();
 	Tile::clear();
 	AirWave::clear();
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
@@ -1989,12 +1994,14 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		}
 		else if (cJSON_HasObjectItem(element, "SkyDecal"))
 		{
-			entity = World::alloc<Empty>();
+			entity = nullptr; // sky decals are not part of the entity system
 
-			SkyDecal* decal = entity->create<SkyDecal>();
-			decal->color = Vec4(Json::get_r32(element, "r", 1.0f), Json::get_r32(element, "g", 1.0f), Json::get_r32(element, "b", 1.0f), Json::get_r32(element, "a", 1.0f));
-			decal->scale = Json::get_r32(element, "scale", 1.0f);
-			decal->texture = Loader::find(Json::get_string(element, "SkyDecal"), AssetLookup::Texture::names);
+			SkyDecals::Config config;
+			config.rot = absolute_rot;
+			config.color = Vec4(Json::get_r32(element, "r", 1.0f), Json::get_r32(element, "g", 1.0f), Json::get_r32(element, "b", 1.0f), Json::get_r32(element, "a", 1.0f));
+			config.scale = Json::get_r32(element, "scale", 1.0f);
+			config.texture = Loader::find(Json::get_string(element, "SkyDecal"), AssetLookup::Texture::names);
+			level.sky_decals.add(config);
 		}
 		else if (cJSON_HasObjectItem(element, "Script"))
 		{

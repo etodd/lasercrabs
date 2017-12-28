@@ -773,14 +773,32 @@ struct Ascensions
 		r32 scale() const;
 	};
 
-	static Array<Entry> entries;
+	static Array<Entry> list;
 	static r32 timer;
 	static r32 particle_accumulator;
 
-	static void request();
 	static void add(const char*);
 	static void update(const Update&);
 	static void draw_ui(const RenderParams&);
+	static void clear();
+};
+
+struct Asteroids
+{
+	struct Entry
+	{
+		Vec3 pos;
+		Vec3 velocity;
+		r32 lifetime;
+	};
+
+	static Array<Entry> list;
+	static Array<Mat4> instances;
+	static r32 timer;
+	static r32 particle_accumulator;
+
+	static void update(const Update&);
+	static void draw_alpha(const RenderParams&);
 	static void clear();
 };
 

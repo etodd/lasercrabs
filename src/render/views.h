@@ -78,15 +78,17 @@ struct Skybox
 	static void draw_alpha(const RenderParams&);
 };
 
-struct SkyDecal : ComponentType<SkyDecal>
+struct SkyDecals
 {
-	Vec4 color;
-	r32 scale;
-	AssetID texture;
+	struct Config
+	{
+		Quat rot;
+		Vec4 color;
+		r32 scale;
+		AssetID texture;
+	};
 
 	static void draw_alpha(const RenderParams&);
-
-	void awake() {}
 };
 
 struct Clouds

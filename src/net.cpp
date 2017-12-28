@@ -314,7 +314,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Rope::component_mask
 		| SpawnPoint::component_mask
 		| UpgradeStation::component_mask
-		| SkyDecal::component_mask
 		| AIAgent::component_mask
 		| Health::component_mask
 		| PointLight::component_mask
@@ -707,17 +706,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_asset(p, w->config.texture, Loader::static_texture_count);
 	}
 
-	if (e->has<SkyDecal>())
-	{
-		SkyDecal* d = e->get<SkyDecal>();
-		serialize_r32_range(p, d->color.x, 0, 1.0f, 8);
-		serialize_r32_range(p, d->color.y, 0, 1.0f, 8);
-		serialize_r32_range(p, d->color.z, 0, 1.0f, 8);
-		serialize_r32_range(p, d->color.w, 0, 1.0f, 8);
-		serialize_r32_range(p, d->scale, 0, 10.0f, 8);
-		serialize_asset(p, d->texture, Loader::static_texture_count);
-	}
-
 	if (e->has<PlayerHuman>())
 	{
 		PlayerHuman* ph = e->get<PlayerHuman>();
@@ -850,6 +838,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_r32_range(p, Game::level.ambient_color.y, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.ambient_color.z, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.rain, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, Game::level.asteroids, 0.0f, 1.0f, 8);
 
 	serialize_int(p, u16, Game::level.directional_lights.length, 0, Game::level.directional_lights.capacity());
 	for (s32 i = 0; i < Game::level.directional_lights.length; i++)
@@ -877,6 +866,21 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 		serialize_r32_range(p, cloud->color.w, 0.0f, 1.0f, 8);
 		serialize_r32_range(p, cloud->shadow, 0.0f, 1.0f, 8);
 	}
+
+	serialize_int(p, u16, Game::level.sky_decals.length, 0, Game::level.sky_decals.capacity());
+	for (s32 i = 0; i < Game::level.sky_decals.length; i++)
+	{
+		SkyDecals::Config* decal = &Game::level.sky_decals[i];
+		if (!serialize_quat(p, &decal->rot, Net::Resolution::Low))
+			net_error();
+		serialize_r32_range(p, decal->color.x, 0.0f, 1.0f, 8);
+		serialize_r32_range(p, decal->color.y, 0.0f, 1.0f, 8);
+		serialize_r32_range(p, decal->color.z, 0.0f, 1.0f, 8);
+		serialize_r32_range(p, decal->color.w, 0.0f, 1.0f, 8);
+		serialize_r32_range(p, decal->scale, 0.0f, 10.0f, 8);
+		serialize_asset(p, decal->texture, Loader::static_texture_count);
+	}
+
 	serialize_s16(p, Game::level.id);
 
 	{

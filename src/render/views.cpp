@@ -390,7 +390,7 @@ void View::awake()
 	}
 }
 
-void SkyDecal::draw_alpha(const RenderParams& p)
+void SkyDecals::draw_alpha(const RenderParams& p)
 {
 	RenderSync* sync = p.sync;
 
@@ -449,15 +449,14 @@ void SkyDecal::draw_alpha(const RenderParams& p)
 	sync->write(false);
 
 	Loader::mesh_permanent(Asset::Mesh::sky_decal);
-	for (auto i = SkyDecal::list.iterator(); !i.is_last(); i.next())
+	for (s32 i = 0; i < Game::level.sky_decals.length; i++)
 	{
-		SkyDecal* d = i.item();
+		const Config& config = Game::level.sky_decals[i];
 
-		Loader::texture(d->texture);
+		Loader::texture(config.texture);
 
-		Quat rot = d->get<Transform>()->absolute_rot();
 		Mat4 m;
-		m.make_transform(rot * Vec3(0, 0, 1), Vec3(d->scale), rot);
+		m.make_transform(config.rot * Vec3(0, 0, 1), Vec3(config.scale), config.rot);
 		Mat4 v = p.view;
 		v.translation(Vec3::zero);
 
@@ -474,16 +473,16 @@ void SkyDecal::draw_alpha(const RenderParams& p)
 		sync->write(RenderDataType::Vec4);
 		sync->write<s32>(1);
 		if (p.camera->flag(CameraFlagColors))
-			sync->write<Vec4>(d->color);
+			sync->write<Vec4>(config.color);
 		else
-			sync->write<Vec4>(LMath::desaturate(d->color));
+			sync->write<Vec4>(LMath::desaturate(config.color));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::diffuse_map);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-		sync->write<AssetID>(d->texture);
+		sync->write<AssetID>(config.texture);
 
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);

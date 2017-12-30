@@ -44,6 +44,7 @@ void UIText::variable_add(s8 gamepad, const char* name, const char* value)
 
 void UIText::text(s8 gamepad, const char* format, ...)
 {
+#if !SERVER
 	va_list args;
 	va_start(args, format);
 	char string[1024];
@@ -60,10 +61,12 @@ void UIText::text(s8 gamepad, const char* format, ...)
 	va_end(args);
 
 	text_raw(gamepad, string);
+#endif
 }
 
 void UIText::text_raw(s8 gamepad, const char* string, UITextFlags flags)
 {
+#if !SERVER
 	if (!string)
 		string = "";
 
@@ -120,6 +123,7 @@ void UIText::text_raw(s8 gamepad, const char* string, UITextFlags flags)
 	}
 
 	refresh_bounds();
+#endif
 }
 
 b8 UIText::has_text() const

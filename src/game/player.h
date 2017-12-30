@@ -236,17 +236,22 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 {
 	r32 angle_horizontal;
 	r32 angle_vertical;
+	r32 recoil;
+	r32 recoil_velocity;
 	Ref<PlayerManager> manager;
 
 	PlayerCommon(PlayerManager* = nullptr);
 	void awake();
 
+	void recoil_add(r32);
+	void update_client(const Update&);
 	Entity* incoming_attacker() const;
 	Vec3 look_dir() const;
 	Quat look() const;
 	r32 detect_danger() const;
 	void clamp_rotation(const Vec3&, r32 = 0.0f);
 	b8 movement_enabled() const;
+	r32 angle_vertical_total() const;
 	void health_changed(const HealthEvent&);
 };
 

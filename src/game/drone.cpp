@@ -617,7 +617,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				if (flag != DroneNet::FlyFlag::CancelExisting)
 				{
 					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
-					drone->cooldown_setup(AbilityInfo::list[s32(Ability::None)].cooldown);
+					const AbilityInfo& info = AbilityInfo::list[s32(Ability::None)];
+					drone->cooldown_recoil_setup(info.cooldown, info.recoil_velocity);
 				}
 
 				drone->ensure_detached();
@@ -655,7 +656,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				if (drone->current_ability == Ability::None)
 				{
 					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
-					drone->cooldown_setup(AbilityInfo::list[s32(Ability::None)].cooldown);
+					const AbilityInfo& info = AbilityInfo::list[s32(Ability::None)];
+					drone->cooldown_recoil_setup(info.cooldown, info.recoil_velocity);
 				}
 			}
 
@@ -770,7 +772,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			manager->add_energy(-info.spawn_cost);
 
 			if ((Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())) // only do cooldowns for remote drones or AI drones; local players will have already done this
-				drone->cooldown_setup(info.cooldown);
+				drone->cooldown_recoil_setup(info.cooldown, info.recoil_velocity);
 
 			Vec3 my_pos;
 			Quat my_rot;
@@ -1564,11 +1566,12 @@ void Drone::ability(Ability a)
 		DroneNet::ability_select(this, a);
 }
 
-void Drone::cooldown_setup(r32 amount)
+void Drone::cooldown_recoil_setup(r32 cooldown_delta, r32 recoil_velocity)
 {
-	cooldown = vi_min(cooldown + amount, DRONE_COOLDOWN_MAX);
+	cooldown = vi_min(cooldown + cooldown_delta, DRONE_COOLDOWN_MAX);
 	cooldown_last_local_change = Game::real_time.total;
 	last_ability_fired = Game::time.total;
+	get<PlayerCommon>()->recoil_add(recoil_velocity);
 }
 
 // if the property in question is remote controlled, adjustment is the amount that should be subtracted due to network lag
@@ -1830,7 +1833,10 @@ b8 Drone::go(const Vec3& dir)
 		else
 		{
 			// client-side prediction
-			cooldown_setup(AbilityInfo::list[s32(a)].cooldown);
+			{
+				const AbilityInfo& info = AbilityInfo::list[s32(a)];
+				cooldown_recoil_setup(info.cooldown, info.recoil_velocity);
+			}
 
 			if (a == Ability::Shotgun)
 			{

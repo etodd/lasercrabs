@@ -37,6 +37,7 @@ struct AbilityInfo
 
 	r32 cooldown;
 	r32 cooldown_switch;
+	r32 recoil_velocity;
 	AkUniqueID equip_sound;
 	AssetID icon;
 	s16 spawn_cost;

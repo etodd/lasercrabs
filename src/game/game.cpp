@@ -663,6 +663,8 @@ void Game::update(InputState* input, const InputState* last_input)
 		ForceField::update_all(u);
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
+		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+			i.item()->update_client(u);
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		{
 			if (!level.local && i.item()->local() && i.item()->has<Walker>())

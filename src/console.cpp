@@ -158,6 +158,7 @@ void Console::update_log()
 
 void Console::debug(const char* format, ...)
 {
+#if !SERVER
 	va_list args;
 	va_start(args, format);
 	char buffer[255];
@@ -179,6 +180,7 @@ void Console::debug(const char* format, ...)
 
 	memcpy(&debug_buffer[buffer_start], buffer, sizeof(char) * buffer_length);
 	debug_buffer[debug_buffer.length - 1] = '\0';
+#endif
 }
 
 void Console::draw_ui(const RenderParams& p)

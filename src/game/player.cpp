@@ -2993,6 +2993,8 @@ void PlayerHuman::draw_alpha_late(const RenderParams& params) const
 PlayerCommon::PlayerCommon(PlayerManager* m)
 	: angle_horizontal(),
 	angle_vertical(),
+	recoil(),
+	recoil_velocity(),
 	manager(m)
 {
 }
@@ -3001,6 +3003,22 @@ void PlayerCommon::awake()
 {
 	link_arg<const HealthEvent&, &PlayerCommon::health_changed>(get<Health>()->changed);
 	manager.ref()->instance = entity();
+}
+
+r32 PlayerCommon::angle_vertical_total() const
+{
+	return LMath::clampf(get<PlayerCommon>()->angle_vertical - recoil, -DRONE_VERTICAL_ANGLE_LIMIT, DRONE_VERTICAL_ANGLE_LIMIT);
+}
+
+void PlayerCommon::recoil_add(r32 velocity)
+{
+	recoil_velocity = vi_max(recoil_velocity, velocity);
+}
+
+void PlayerCommon::update_client(const Update& u)
+{
+	recoil_velocity = vi_max(vi_min(-0.1f, recoil * -9.0f), recoil_velocity - 8.0f * u.time.delta);
+	recoil = vi_max(0.0f, recoil + recoil_velocity * u.time.delta);
 }
 
 void PlayerCommon::health_changed(const HealthEvent& e)
@@ -3126,7 +3144,7 @@ Vec3 PlayerCommon::look_dir() const
 
 Quat PlayerCommon::look() const
 {
-	return Quat::euler(0, angle_horizontal, angle_vertical);
+	return Quat::euler(0, angle_horizontal, angle_vertical_total());
 }
 
 void PlayerCommon::clamp_rotation(const Vec3& direction, r32 dot_limit)
@@ -4316,14 +4334,14 @@ void PlayerControlHuman::update(const Update& u)
 										Vec3 target_predicted = indicator.pos + indicator.velocity * u.time.delta;
 										Vec3 predicted_ray = Vec3::normalize(target_predicted - me_predicted);
 										Vec2 predicted_angles(atan2f(predicted_ray.x, predicted_ray.z), -asinf(predicted_ray.y));
-										predicted_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, predicted_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, predicted_angles.y));
+										predicted_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, predicted_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical_total(), predicted_angles.y));
 									}
 
 									Vec2 current_offset;
 									{
 										Vec3 current_ray = Vec3::normalize(indicator.pos - get<Transform>()->absolute_pos());
 										Vec2 current_angles(atan2f(current_ray.x, current_ray.z), -asinf(current_ray.y));
-										current_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, current_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, current_angles.y));
+										current_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, current_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical_total(), current_angles.y));
 									}
 
 									Vec2 adjustment(LMath::angle_to(current_offset.x, predicted_offset.x), LMath::angle_to(current_offset.y, predicted_offset.y));
@@ -4331,7 +4349,7 @@ void PlayerControlHuman::update(const Update& u)
 									r32 max_adjustment = look_speed * 0.5f * speed_joystick * u.time.delta;
 
 									if (current_offset.x > 0 == adjustment.x > 0 // only adjust if it's an adjustment toward the target
-										&& fabsf(get<PlayerCommon>()->angle_vertical) < PI * 0.4f) // only adjust if we're not looking straight up or down
+										&& fabsf(get<PlayerCommon>()->angle_vertical_total()) < PI * 0.4f) // only adjust if we're not looking straight up or down
 										get<PlayerCommon>()->angle_horizontal = LMath::angle_range(get<PlayerCommon>()->angle_horizontal + vi_max(-max_adjustment, vi_min(max_adjustment, adjustment.x)));
 
 									if (current_offset.y > 0 == adjustment.y > 0) // only adjust if it's an adjustment toward the target
@@ -4352,7 +4370,7 @@ void PlayerControlHuman::update(const Update& u)
 					if (scale > 0.0f)
 						get<PlayerCommon>()->clamp_rotation(get<Drone>()->rotation_clamp(), LMath::lerpf(Ease::cubic_in_out<r32>(scale), 1.0f, 0.707f));
 				}
-				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
+				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical_total());
 
 				// crawling
 				{
@@ -4370,7 +4388,7 @@ void PlayerControlHuman::update(const Update& u)
 				}
 			}
 			else // flying
-				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
+				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical_total());
 
 			{
 				// abilities
@@ -4860,7 +4878,7 @@ void PlayerControlHuman::update(const Update& u)
 			// rotate arms to match the camera view
 			// blend smoothly between the two states (rotating and not rotating)
 
-			r32 arm_angle = LMath::clampf(get<PlayerCommon>()->angle_vertical * 0.75f + arm_angle_offset, -PI * 0.2f, PI * 0.25f);
+			r32 arm_angle = LMath::clampf(get<PlayerCommon>()->angle_vertical_total() * 0.75f + arm_angle_offset, -PI * 0.2f, PI * 0.25f);
 
 			const r32 blend_time = 0.2f;
 			r32 blend;
@@ -4879,7 +4897,7 @@ void PlayerControlHuman::update(const Update& u)
 		{
 			Vec3 wall_normal = get<Parkour>()->last_support.ref()->get<Transform>()->to_world_normal(get<Parkour>()->relative_wall_run_normal);
 
-			Vec3 forward = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Vec3(0, 0, 1);
+			Vec3 forward = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical_total()) * Vec3(0, 0, 1);
 
 			if (get<Parkour>()->wall_run_state == Parkour::WallRunState::Forward)
 				get<PlayerCommon>()->clamp_rotation(-wall_normal); // make sure we're always facing the wall
@@ -4930,6 +4948,8 @@ void PlayerControlHuman::cinematic(Entity* basis, AssetID anim)
 
 	get<PlayerCommon>()->angle_horizontal = get<Parkour>()->last_angle_horizontal = get<Walker>()->rotation = get<Walker>()->target_rotation = target_angle;
 	get<PlayerCommon>()->angle_vertical = 0.0f;
+	get<PlayerCommon>()->recoil = 0.0f;
+	get<PlayerCommon>()->recoil_velocity = 0.0f;
 	get<Parkour>()->lean = 0.0f;
 	get<Walker>()->absolute_pos(target_pos);
 
@@ -4995,6 +5015,8 @@ void PlayerControlHuman::update_late(const Update& u)
 				get<Walker>()->absolute_pos(target_pos);
 				get<PlayerCommon>()->angle_horizontal = target_angle;
 				get<PlayerCommon>()->angle_vertical = 0.0f;
+				get<PlayerCommon>()->recoil = 0.0f;
+				get<PlayerCommon>()->recoil_velocity = 0.0f;
 			}
 			get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);
 		}
@@ -5027,7 +5049,7 @@ void PlayerControlHuman::update_late(const Update& u)
 			// camera bone affects rotation only
 			Quat camera_animation = Quat::euler(PI * -0.5f, 0, 0);
 			get<Animator>()->bone_transform(Asset::Bone::character_camera, nullptr, &camera_animation);
-			camera->rot = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Quat::euler(0, PI * 0.5f, 0) * camera_animation * Quat::euler(0, PI * -0.5f, 0);
+			camera->rot = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical_total()) * Quat::euler(0, PI * 0.5f, 0) * camera_animation * Quat::euler(0, PI * -0.5f, 0);
 
 			camera->pos = Vec3(0, 0, 0.1f);
 			Quat q = Quat::identity;

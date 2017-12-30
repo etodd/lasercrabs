@@ -116,6 +116,7 @@ enum class State : s8
 	SettingsControlsKeyboard,
 	SettingsControlsGamepad,
 	SettingsGraphics,
+	Credits,
 	count,
 };
 

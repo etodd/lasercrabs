@@ -1009,7 +1009,12 @@ namespace Docks
 				}
 				else
 				{
-					Vec2 menu_pos(p.camera->viewport.size.x * 0.5f, p.camera->viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f);
+					Vec2 menu_pos;
+					menu_pos.x = p.camera->viewport.size.x * 0.5f;
+					if (Menu::main_menu_state == Menu::State::Credits)
+						menu_pos.y = p.camera->viewport.size.y * 0.8f + MENU_ITEM_HEIGHT * -1.5f;
+					else
+						menu_pos.y = p.camera->viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f;
 					Vec2 size = actual_size * ((MENU_ITEM_WIDTH + MENU_ITEM_PADDING * -2.0f) / actual_size.x);
 					logo_rect = { menu_pos + size * Vec2(-0.5f, 0.0f) + Vec2(0.0f, MENU_ITEM_PADDING * 3.0f), size };
 				}

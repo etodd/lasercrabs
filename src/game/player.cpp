@@ -3007,7 +3007,7 @@ void PlayerCommon::awake()
 
 r32 PlayerCommon::angle_vertical_total() const
 {
-	return LMath::clampf(get<PlayerCommon>()->angle_vertical - recoil, -DRONE_VERTICAL_ANGLE_LIMIT, DRONE_VERTICAL_ANGLE_LIMIT);
+	return LMath::clampf(angle_vertical - recoil, -DRONE_VERTICAL_ANGLE_LIMIT, DRONE_VERTICAL_ANGLE_LIMIT);
 }
 
 void PlayerCommon::recoil_add(r32 velocity)

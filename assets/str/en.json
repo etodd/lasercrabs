@@ -58,7 +58,7 @@
 		"story": "Story",
 		"settings": "Settings",
 		"discord": "Discord",
-		"twitter": "Twitter",
+		"credits": "Credits",
 		"bug_report": "Report a bug",
 		"presents": "Presents",
 		"settings_controls_keyboard": "Keyboard/mouse",
@@ -426,6 +426,8 @@
 		"meursault_a13": "[Meursault] Serum'll wear off soon.",
 		"meursault_a14": "[Meursault] Here's a drone I found. Can't stand 'em myself.",
 		"meursault_a15": "[Meursault] We'll be in touch.",
+
+		"credits_full": "CREDITS\n--------------------------------------------\nJack Menhorn - sound design\nLogan Hayes - sound design and music\nIan Cuslidge - level design for 'Plaza'\nBobpoblo - level design for 'Crossing'\nEvan Todd - everything else\n\nSPECIAL THANKS\n--------------------------------------------\nElisabeth Aubry, Charles Dickens, Chase Grozdina, Jesse Kooner, Zac Pierce, Ben Homan, Megan Fox, Garrett Cooper, all you crafty playtesters, and everyone else keeping me alive through the insanity of game development :)",
 
 		"yes": "Yes",
 		"no": "No",

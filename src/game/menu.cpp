@@ -655,10 +655,10 @@ void title_menu(const Update& u, Camera* camera)
 				}
 				if (main_menu.item(u, _(strings::discord)))
 					open_url("https://discord.gg/rHkXXhR");
-				if (main_menu.item(u, _(strings::twitter)))
-					open_url("https://twitter.com/DeceiverGame");
 				if (main_menu.item(u, _(strings::bug_report)))
 					open_url("https://github.com/etodd/deceiver/issues");
+				if (main_menu.item(u, _(strings::credits)))
+					main_menu_state = State::Credits;
 				if (main_menu.item(u, _(strings::exit)))
 					dialog(0, &exit, _(strings::confirm_quit));
 				main_menu.end(u);
@@ -698,6 +698,16 @@ void title_menu(const Update& u, Camera* camera)
 			if (!settings_graphics(u, origin, 0, &main_menu))
 			{
 				main_menu_state = State::Settings;
+				main_menu.animate();
+			}
+			break;
+		}
+		case State::Credits:
+		{
+			if (!Game::cancel_event_eaten[0] && u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+			{
+				Game::cancel_event_eaten[0] = true;
+				main_menu_state = State::Visible;
 				main_menu.animate();
 			}
 			break;
@@ -863,11 +873,11 @@ void pause_menu(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMen
 			}
 			break;
 		}
+		case State::Credits:
+			break;
 		default:
-		{
 			vi_assert(false);
 			break;
-		}
 	}
 }
 
@@ -1091,7 +1101,34 @@ void draw_ui(const RenderParams& params)
 	}
 #endif
 
-	if (main_menu_state != State::Hidden)
+	if (main_menu_state == State::Credits)
+	{
+		{
+			UIText text;
+			text.size = 18.0f;
+			text.color = UI::color_default;
+			text.font = Asset::Font::pt_sans;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.wrap_width = MENU_ITEM_WIDTH;
+			text.text_raw(0, _(strings::credits_full));
+			Vec2 pos = params.camera->viewport.size * 0.5f;
+			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+			text.draw(params, pos);
+		}
+		
+		{
+			UIText text;
+			text.color = UI::color_accent();
+			text.text(0, "[{{Cancel}}]");
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Max;
+			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+			text.draw(params, pos);
+		}
+	}
+	else if (main_menu_state != State::Hidden)
 		main_menu.draw_ui(params);
 
 #if !SERVER

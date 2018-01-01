@@ -655,8 +655,8 @@ void title_menu(const Update& u, Camera* camera)
 				}
 				if (main_menu.item(u, _(strings::discord)))
 					open_url("https://discord.gg/rHkXXhR");
-				if (main_menu.item(u, _(strings::bug_report)))
-					open_url("https://github.com/etodd/deceiver/issues");
+				if (main_menu.item(u, _(strings::kickstarter)))
+					open_url("https://www.kickstarter.com/projects/et1337/53945443?ref=372881&token=8c61c7c4");
 				if (main_menu.item(u, _(strings::credits)))
 					main_menu_state = State::Credits;
 				if (main_menu.item(u, _(strings::exit)))
@@ -941,20 +941,14 @@ void update(const Update& u)
 				break;
 			}
 			case Net::Client::MasterError::WrongVersion:
-			{
 				Game::scheduled_dialog = strings::need_upgrade;
 				break;
-			}
 			case Net::Client::MasterError::Timeout:
-			{
 				Game::scheduled_dialog = strings::connection_failed;
 				break;
-			}
 			default:
-			{
 				vi_assert(false);
 				break;
-			}
 		}
 	}
 #endif
@@ -1076,25 +1070,17 @@ void draw_ui(const RenderParams& params)
 		switch (Net::Client::mode())
 		{
 			case Net::Client::Mode::ContactingMaster:
-			{
 				str = strings::contacting_master;
 				break;
-			}
 			case Net::Client::Mode::Connecting:
-			{
 				str = strings::connecting;
 				break;
-			}
 			case Net::Client::Mode::Loading:
-			{
 				str = strings::loading;
 				break;
-			}
 			default:
-			{
 				str = AssetNull;
 				break;
-			}
 		}
 		if (str != AssetNull)
 			progress_infinite(params, _(str), viewport.size * 0.5f);
@@ -2070,47 +2056,31 @@ Vec2 screen_origin(const UIMenu& menu)
 	switch (menu.origin.anchor_x)
 	{
 		case UIText::Anchor::Center:
-		{
 			pos.x += MENU_ITEM_WIDTH * -0.5f;
 			break;
-		}
 		case UIText::Anchor::Min:
-		{
 			break;
-		}
 		case UIText::Anchor::Max:
-		{
 			pos.x -= MENU_ITEM_WIDTH;
 			break;
-		}
 		default:
-		{
 			vi_assert(false);
 			break;
-		}
 	}
 
 	switch (menu.origin.anchor_y)
 	{
 		case UIText::Anchor::Center:
-		{
 			pos.y += menu.cached_height * 0.5f;
 			break;
-		}
 		case UIText::Anchor::Min:
-		{
 			pos.y += menu.cached_height;
 			break;
-		}
 		case UIText::Anchor::Max:
-		{
 			break;
-		}
 		default:
-		{
 			vi_assert(false);
 			break;
-		}
 	}
 
 	return pos;

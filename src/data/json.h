@@ -18,6 +18,7 @@ namespace Json
 	Quat get_quat(cJSON*, const char*, const Quat& = Quat::identity);
 	r32 get_r32(cJSON*, const char*, const r32 = 0.0f);
 	s32 get_s32(cJSON*, const char*, const s32 = 0);
+	s64 get_s64(cJSON*, const char*, const s64 = 0);
 	const char* get_string(cJSON*, const char*, const char* = 0);
 	s32 get_enum(cJSON*, const char*, const char**, const s32 = 0);
 };

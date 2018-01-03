@@ -130,7 +130,7 @@ void update()
 	}
 }
 
-Request* get(const char* url, Callback* callback, const char* header, u64 user_data)
+Request* get_headers(const char* url, Callback* callback, struct curl_slist* headers, u64 user_data)
 {
 	Request* request = state.requests.add();
 	new (request) Request();
@@ -146,20 +146,59 @@ Request* get(const char* url, Callback* callback, const char* header, u64 user_d
 	if (ca_path[0])
 		curl_easy_setopt(request->curl, CURLOPT_CAPATH, ca_path);
 
-	if (header)
+	if (headers)
 	{
-		request->request_headers = curl_slist_append(request->request_headers, header);
-		curl_easy_setopt(request->curl, CURLOPT_HTTPHEADER, request->request_headers);
+		request->request_headers = headers;
+		curl_easy_setopt(request->curl, CURLOPT_HTTPHEADER, headers);
 	}
 
 #if DEBUG_HTTP
 	curl_easy_setopt(request->curl, CURLOPT_VERBOSE, 1L);
-	vi_debug("HTTP GET: %s %s", url, header);
+	{
+		struct curl_slist* header = headers;
+		vi_debug("HTTP GET: %s", url);
+		while (header)
+		{
+			vi_debug("\t%s", header->data);
+			header = header->next;
+		}
+	}
 #endif
 
 	curl_multi_add_handle(state.curl_multi, request->curl);
 
 	return request;
+}
+
+Request* add(CURL* curl, Callback* callback, u64 user_data)
+{
+	Request* request = state.requests.add();
+	new (request) Request();
+	request->callback = callback;
+	request->user_data = user_data;
+
+	request->curl = curl;
+	curl_easy_setopt(request->curl, CURLOPT_NOPROGRESS, 1);
+	curl_easy_setopt(request->curl, CURLOPT_ERRORBUFFER, request->error);
+	if (ca_path[0])
+		curl_easy_setopt(request->curl, CURLOPT_CAPATH, ca_path);
+
+#if DEBUG_HTTP
+	curl_easy_setopt(request->curl, CURLOPT_VERBOSE, 1L);
+#endif
+
+	curl_multi_add_handle(state.curl_multi, request->curl);
+
+	return request;
+}
+
+Request* get(const char* url, Callback* callback, const char* header, u64 user_data)
+{
+	struct curl_slist* headers = nullptr;
+	if (header)
+		headers = curl_slist_append(nullptr, header);
+
+	return get_headers(url, callback, headers, user_data);
 }
 
 static size_t smtp_read(void* buffer, size_t element_size, size_t element_count, void* userdata)

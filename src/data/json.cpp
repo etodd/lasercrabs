@@ -125,6 +125,18 @@ s32 get_s32(cJSON* parent, const char* key, s32 default_value)
 		return default_value;
 }
 
+s64 get_s64(cJSON* parent, const char* key, s64 default_value)
+{
+	if (!parent)
+		return default_value;
+
+	cJSON* json = cJSON_GetObjectItem(parent, key);
+	if (json)
+		return json->valuedouble;
+	else
+		return default_value;
+}
+
 const char* get_string(cJSON* parent, const char* key, const char* default_value)
 {
 	if (!parent)

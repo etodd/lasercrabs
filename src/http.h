@@ -31,9 +31,11 @@ struct Request
 };
 
 void init();
+Request* get_headers(const char*, Callback* = nullptr, struct curl_slist* = nullptr, u64 = 0);
 Request* get(const char*, Callback* = nullptr, const char* = nullptr, u64 = 0);
 Request* request_for_user_data(u64);
 void smtp(const char*, const char*, const char*, const char*);
+Request* add(CURL*, Callback* = nullptr, u64 = 0);
 void update();
 void term();
 

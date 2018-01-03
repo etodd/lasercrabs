@@ -15,6 +15,7 @@
 #include "sock.h"
 #include <unordered_map>
 #include "asset/level.h"
+#include "asset/version.h"
 #include "cjson/cJSON.h"
 #include "sqlite/sqlite3.h"
 #include "mersenne/mersenne-twister.h"
@@ -32,6 +33,8 @@
 #endif
 #define AUTHENTICATE_DOWNLOAD_KEYS 0
 #define CRASH_DUMP_DIR "crash_dumps/"
+
+#define MAX_DISCORD_ID_LENGTH 32
 
 namespace VI
 {
@@ -111,6 +114,10 @@ namespace Settings
 	char gamejolt_api_key[MAX_AUTH_KEY + 1];
 	char dashboard_username[MAX_USERNAME];
 	char dashboard_password_hash[MAX_AUTH_KEY];
+	char discord_webhook[MAX_PATH_LENGTH + 1];
+	char discord_bot_token[MAX_AUTH_KEY + 1];
+	char discord_channel_id[MAX_DISCORD_ID_LENGTH + 1];
+	char discord_bot_user_id[MAX_DISCORD_ID_LENGTH + 1];
 }
 
 namespace Net
@@ -123,6 +130,8 @@ namespace Master
 		void handle_static(mg_connection*, int, void*);
 		void handle_api(mg_connection*, int, void*);
 	}
+
+	r64 global_timestamp;
 }
 
 namespace CrashReport
@@ -261,6 +270,108 @@ void term()
 
 }
 
+namespace DiscordBot
+{
+	struct State
+	{
+		r64 last_poll;
+		char last_poll_message_id[MAX_DISCORD_ID_LENGTH + 1];
+	};
+	State state;
+
+	struct curl_slist* auth_headers(CURL* curl)
+	{
+		struct curl_slist* headers;
+
+		{
+			char auth_header[MAX_PATH_LENGTH + 1] = {};
+			char* escaped_bot_token = curl_easy_escape(curl, (char*)(Settings::discord_bot_token), 0);
+			snprintf(auth_header, MAX_PATH_LENGTH, "Authorization: Bot %s", escaped_bot_token);
+			curl_free(escaped_bot_token);
+			headers = curl_slist_append(nullptr, auth_header);
+		}
+
+		headers = curl_slist_append(headers, "User-Agent: DiscordBot (http://deceivergame.com, " BUILD_ID ")");
+
+		return headers;
+	}
+
+	void msg_post(const char* msg)
+	{
+		CURL* curl = curl_easy_init();
+		curl_easy_setopt(curl, CURLOPT_URL, Settings::discord_webhook);
+
+		{
+			cJSON* post = cJSON_CreateObject();
+			cJSON_AddStringToObject(post, "content", msg);
+			char* post_string = cJSON_Print(post);
+			curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, post_string);
+			free(post_string);
+			Json::json_free(post);
+		}
+
+		struct curl_slist* headers = auth_headers(curl);
+		headers = curl_slist_append(headers, "Content-Type: application/json");
+		headers = curl_slist_append(headers, "Expect:"); // initialize custom header list stating that Expect: 100-continue is not wanted
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+		Http::add(curl);
+	}
+
+	void msg_handle(cJSON* msg)
+	{
+	}
+
+	void poll_callback(s32 code, const char* data, u64 user_data)
+	{
+		if (data)
+		{
+			cJSON* json = cJSON_Parse(data);
+			if (json)
+			{
+				cJSON* msg = json->child;
+				while (msg)
+				{
+					cJSON* author = cJSON_GetObjectItem(msg, "author");
+					if (author && strncmp(Json::get_string(author, "id"), Settings::discord_bot_user_id, MAX_DISCORD_ID_LENGTH) != 0) // ignore messages from ourselves
+					{
+						if (state.last_poll_message_id[0]) // ignore all messages if this is the first poll we're doing
+							msg_handle(msg);
+					}
+					msg = msg->next;
+				}
+
+				if (json->child) // most recent message
+				{
+					const char* id = Json::get_string(json->child, "id");
+					if (id)
+						strncpy(state.last_poll_message_id, id, MAX_DISCORD_ID_LENGTH);
+				}
+			}
+		}
+	}
+
+	void poll()
+	{
+		CURL* curl = curl_easy_init();
+		char url[MAX_PATH_LENGTH + 1] = {};
+		if (state.last_poll_message_id[0])
+			snprintf(url, MAX_PATH_LENGTH, "https://discordapp.com/api/v6/channels/%s/messages?after=%s", Settings::discord_channel_id, state.last_poll_message_id);
+		else
+			snprintf(url, MAX_PATH_LENGTH, "https://discordapp.com/api/v6/channels/%s/messages", Settings::discord_channel_id);
+		Http::get_headers(url, &poll_callback, auth_headers(curl));
+	}
+
+	void update()
+	{
+		if (Master::global_timestamp - state.last_poll > 5.0)
+		{
+			state.last_poll = Master::global_timestamp;
+			poll();
+		}
+	}
+}
+
 
 namespace Master
 {
@@ -272,8 +383,6 @@ namespace Master
 #define MASTER_SETTINGS_FILE "config.txt"
 #define MASTER_TOKEN_TIMEOUT (86400 * 2)
 #define MASTER_SERVER_LOAD_TIMEOUT 10.0
-
-	r64 global_timestamp;
 
 	struct Node // could be a server or client
 	{
@@ -2314,6 +2423,26 @@ namespace Master
 							strncpy(Settings::dashboard_username, dashboard_username, MAX_USERNAME);
 					}
 					{
+						const char* discord_webhook = Json::get_string(json, "discord_webhook");
+						if (discord_webhook)
+							strncpy(Settings::discord_webhook, discord_webhook, MAX_PATH_LENGTH);
+					}
+					{
+						const char* discord_bot_token = Json::get_string(json, "discord_bot_token");
+						if (discord_bot_token)
+							strncpy(Settings::discord_bot_token, discord_bot_token, MAX_AUTH_KEY);
+					}
+					{
+						const char* discord_channel_id = Json::get_string(json, "discord_channel_id");
+						if (discord_channel_id)
+							strncpy(Settings::discord_channel_id, discord_channel_id, MAX_DISCORD_ID_LENGTH);
+					}
+					{
+						const char* discord_bot_user_id = Json::get_string(json, "discord_bot_user_id");
+						if (discord_bot_user_id)
+							strncpy(Settings::discord_bot_user_id, discord_bot_user_id, MAX_DISCORD_ID_LENGTH);
+					}
+					{
 						const char* dashboard_password_hash = Json::get_string(json, "dashboard_password_hash", "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3"); // "test"
 						if (dashboard_password_hash)
 							strncpy(Settings::dashboard_password_hash, dashboard_password_hash, MAX_AUTH_KEY);
@@ -2342,6 +2471,8 @@ namespace Master
 				global_timestamp += vi_min(0.25, t - last_update);
 				last_update = t;
 			}
+
+			DiscordBot::update();
 
 			Http::update();
 

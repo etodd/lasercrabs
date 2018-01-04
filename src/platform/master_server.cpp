@@ -2573,7 +2573,7 @@ namespace DiscordBot
 
 		char url[MAX_PATH_LENGTH + 1];
 		const char* msg_id = Json::get_string(msg, "id");
-		snprintf(url, MAX_PATH_LENGTH, u8"https://discordapp.com/api/v6/channels/%s/messages/%s/reactions/\x2705/@me", Settings::discord_channel_id, msg_id);
+		snprintf(url, MAX_PATH_LENGTH, u8"https://discordapp.com/api/v6/channels/%s/messages/%s/reactions/\u2705/@me", Settings::discord_channel_id, msg_id);
 		curl_easy_setopt(curl, CURLOPT_URL, url);
 
 		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT"); 

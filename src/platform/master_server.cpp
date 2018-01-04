@@ -3152,9 +3152,9 @@ namespace DiscordBot
 					s32 available;
 					stats(&playing, &in_lobby, &available);
 
-					s32 total = playing + in_lobby + available;
-					if (total >= vi_max(1, state.last_stat_mention_total_players * 2)
-						|| timestamp > state.last_stat_mention_timestamp + 30.0 * 60.0)
+					s32 total = vi_max(playing + in_lobby, available);
+					if (total > 0
+						&& (total >= state.last_stat_mention_total_players * 2 || timestamp > state.last_stat_mention_timestamp + 30.0 * 60.0))
 					{
 						if (state.last_poll_message_id[0]) // if this is the first time we're polling, we just rebooted; don't send out the mention
 						{

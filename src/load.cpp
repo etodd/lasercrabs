@@ -8,6 +8,7 @@
 #endif
 #include "cjson/cJSON.h"
 #include "data/json.h"
+#include "data/unicode.h"
 #include "ai.h"
 #include "settings.h"
 #include "game/master.h"
@@ -1019,13 +1020,13 @@ const Font* Loader::font(AssetID id)
 		}
 		{
 			Font::Character space;
-			space.codepoint = Font::codepoint(" ");
+			space.codepoint = Unicode::codepoint(" ");
 			space.max.x = 0.3f;
 			font->characters[space.codepoint] = space;
 		}
 		{
 			Font::Character tab;
-			tab.codepoint = Font::codepoint("\t");
+			tab.codepoint = Unicode::codepoint("\t");
 			tab.max.x = 1.5f;
 			font->characters[tab.codepoint] = tab;
 		}

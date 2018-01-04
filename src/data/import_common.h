@@ -105,18 +105,6 @@ struct Font
 		Character();
 	};
 
-	enum class EllipsisMode : s8
-	{
-		IfNecessary,
-		Always,
-		count,
-	};
-
-	static s32 codepoint(const char*);
-	static const char* codepoint_next(const char*);
-	static s32 codepoint_count(const char*);
-	static void truncate(char*, s32, const char* = nullptr, EllipsisMode = EllipsisMode::IfNecessary);
-
 	std::unordered_map<s32, Character> characters;
 	Array<s32> indices;
 	Array<Vec3> vertices;

@@ -32,6 +32,7 @@
 #include "cjson/cJSON.h"
 #include <array>
 #include "data/import_common.h"
+#include "data/unicode.h"
 
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0
@@ -2984,7 +2985,7 @@ b8 add_players(Net::StreamRead* p, Client* client, s32 count, const ExpectedClie
 			{
 				char number[5] = {};
 				snprintf(number, 5, " [%d]", s32(gamepad + 1));
-				Font::truncate(manager->username, MAX_USERNAME, number, Font::EllipsisMode::Always);
+				Unicode::truncate(manager->username, MAX_USERNAME, number, Unicode::EllipsisMode::Always);
 			}
 			PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
 			player->master_id = client->user_key.id;

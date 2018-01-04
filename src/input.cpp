@@ -5,7 +5,7 @@
 #include "ease.h"
 #include "settings.h"
 #include "render/ui.h"
-#include "data/import_common.h"
+#include "data/unicode.h"
 
 namespace VI
 {
@@ -597,7 +597,7 @@ void TextField::get(UIText* text, s32 truncate) const
 	{
 		const char* start = value.data;
 		while (start < &value.data[value.length - truncate])
-			start = Font::codepoint_next(start);
+			start = Unicode::codepoint_next(start);
 		text->text_raw(0, start, UITextFlagSingleLine);
 	}
 	else

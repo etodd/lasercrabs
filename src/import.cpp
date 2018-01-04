@@ -30,6 +30,7 @@
 #include <cfloat>
 #include <sstream>
 #include "data/import_common.h"
+#include "data/unicode.h"
 #include "recast/Recast/Include/Recast.h"
 #include "render/glvm.h"
 #include "cjson/cJSON.h"
@@ -3419,7 +3420,7 @@ b8 load_font(const aiScene* scene, Font& font)
 		}
 
 		Font::Character c;
-		c.codepoint = Font::codepoint((char*)&ai_mesh->mName.data[0]);
+		c.codepoint = Unicode::codepoint((char*)&ai_mesh->mName.data[0]);
 		c.vertex_start = current_mesh_vertex;
 		c.vertex_count = ai_mesh->mNumVertices;
 		c.index_start = current_mesh_index;

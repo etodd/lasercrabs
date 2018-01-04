@@ -38,6 +38,7 @@
 #include "overworld.h"
 #include "load.h"
 #include "asset/level.h"
+#include "data/unicode.h"
 
 namespace VI
 {
@@ -2925,7 +2926,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 			{
 				char buffer[MAX_USERNAME + 1] = {};
 				strncpy(buffer, entry.a, MAX_USERNAME);
-				Font::truncate(buffer, 17, "...");
+				Unicode::truncate(buffer, 17, "...");
 				text.text_raw(0, buffer);
 			}
 			else
@@ -2952,7 +2953,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 				{
 					char buffer[MAX_USERNAME + 1] = {};
 					strncpy(buffer, entry.b, MAX_USERNAME);
-					Font::truncate(buffer, 17, "...");
+					Unicode::truncate(buffer, 17, "...");
 					text.text_raw(0, buffer);
 				}
 				UIMenu::text_clip(&text, entry.timestamp, 80.0f);

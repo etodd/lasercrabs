@@ -10,6 +10,7 @@
 #include "settings.h"
 #include "game/menu.h"
 #include "game/player.h"
+#include "data/unicode.h"
 
 namespace VI
 {
@@ -87,7 +88,7 @@ void UIText::text_raw(s8 gamepad, const char* string, UITextFlags flags)
 				const char* start = &string[char_index + 2];
 				const char* end = start;
 				while (*end && (*end != '}' || *(end + 1) != '}'))
-					end = Font::codepoint_next(end);
+					end = Unicode::codepoint_next(end);
 
 				if (*end)
 				{
@@ -152,13 +153,13 @@ void UIText::refresh_bounds()
 			// check if we need to put the next word on the next line
 
 			r32 end_of_next_word = pos.x + spacing.x + character.max.x;
-			const char* word_char = Font::codepoint_next(c);
+			const char* word_char = Unicode::codepoint_next(c);
 			while (true)
 			{
 				if (!(*word_char) || *word_char == ' ' || *word_char == '\t' || *word_char == '\n')
 					break;
 				end_of_next_word += spacing.x + f->get(word_char).max.x;
-				word_char = Font::codepoint_next(word_char);
+				word_char = Unicode::codepoint_next(word_char);
 			}
 
 			if (end_of_next_word > wrap)
@@ -175,7 +176,7 @@ void UIText::refresh_bounds()
 		}
 		else
 		{
-			if (character.codepoint == Font::codepoint(c))
+			if (character.codepoint == Unicode::codepoint(c))
 				pos.x += spacing.x + character.max.x;
 			else
 			{
@@ -185,7 +186,7 @@ void UIText::refresh_bounds()
 
 		normalized_bounds.x = vi_max(normalized_bounds.x, pos.x);
 
-		c = Font::codepoint_next(c);
+		c = Unicode::codepoint_next(c);
 	}
 
 	normalized_bounds.y = -pos.y;
@@ -193,7 +194,7 @@ void UIText::refresh_bounds()
 
 b8 UIText::clipped() const
 {
-	return clip > 0 && clip < Font::codepoint_count(rendered_string);
+	return clip > 0 && clip < Unicode::codepoint_count(rendered_string);
 }
 
 void UIText::set_size(r32 s)
@@ -313,13 +314,13 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 			// check if we need to put the next word on the next line
 
 			r32 end_of_next_word = p.x + spacing.x + character->max.x;
-			const char* word_char = Font::codepoint_next(c);
+			const char* word_char = Unicode::codepoint_next(c);
 			while (true)
 			{
 				if (!(*word_char) || *word_char == ' ' || *word_char == '\t' || *word_char == '\n')
 					break;
 				end_of_next_word += spacing.x + f->get(word_char).max.x;
-				word_char = Font::codepoint_next(word_char);
+				word_char = Unicode::codepoint_next(word_char);
 			}
 
 			if (end_of_next_word > wrap)
@@ -337,7 +338,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 		else
 		{
 			b8 valid_character;
-			if (character->codepoint == Font::codepoint(c))
+			if (character->codepoint == Unicode::codepoint(c))
 				valid_character = true;
 			else
 			{
@@ -414,7 +415,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 		if (clipped)
 			break;
 
-		c = Font::codepoint_next(c);
+		c = Unicode::codepoint_next(c);
 		char_index++;
 	}
 }

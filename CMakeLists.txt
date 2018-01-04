@@ -276,6 +276,8 @@ set(SRC
 	src/data/priority_queue.h
 	src/data/json.h
 	src/data/json.cpp
+	src/data/unicode.h
+	src/data/unicode.cpp
 	src/render/render.h
 	src/render/render.cpp
 	src/render/views.h
@@ -449,6 +451,8 @@ if (SERVER)
 		src/data/priority_queue.h
 		src/data/json.h
 		src/data/json.cpp
+		src/data/unicode.h
+		src/data/unicode.cpp
 		src/net_serialize.h
 		src/net_serialize.cpp
 		src/vi_assert.h
@@ -752,6 +756,8 @@ if (NOT PLAYSTATION)
 		src/import.cpp
 		src/data/json.h
 		src/data/json.cpp
+		src/data/unicode.h
+		src/data/unicode.cpp
 		src/platform/glvm.cpp
 	)
 	#enable_unity_build(import SRC_IMPORT)

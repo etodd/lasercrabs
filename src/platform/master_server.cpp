@@ -2961,7 +2961,7 @@ namespace DiscordBot
 					else
 					{
 						// create user
-						sqlite3_stmt* stmt = db_query("insert into DiscordUser (id, time_offset_half_hour) values (?, ?);");
+						sqlite3_stmt* stmt = db_query("insert into DiscordUser (id, time_offset_half_hour, member_available_role) values (?, ?, 0);");
 						db_bind_text(stmt, 0, author_id);
 						db_bind_int(stmt, 1, offset_half_hour);
 						db_exec(stmt);

@@ -170,24 +170,29 @@ Request* get_headers(const char* url, Callback* callback, struct curl_slist* hea
 	return request;
 }
 
-Request* add(CURL* curl, Callback* callback, u64 user_data)
+Request* add(CURL* curl, Callback* callback, struct curl_slist* headers, u64 user_data)
 {
 	Request* request = state.requests.add();
 	new (request) Request();
 	request->callback = callback;
 	request->user_data = user_data;
-
 	request->curl = curl;
-	curl_easy_setopt(request->curl, CURLOPT_NOPROGRESS, 1);
-	curl_easy_setopt(request->curl, CURLOPT_ERRORBUFFER, request->error);
+	if (headers)
+	{
+		request->request_headers = headers;
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+	}
+
+	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1);
+	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, request->error);
 	if (ca_path[0])
-		curl_easy_setopt(request->curl, CURLOPT_CAPATH, ca_path);
+		curl_easy_setopt(curl, CURLOPT_CAPATH, ca_path);
 
 #if DEBUG_HTTP
-	curl_easy_setopt(request->curl, CURLOPT_VERBOSE, 1L);
+	curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 #endif
 
-	curl_multi_add_handle(state.curl_multi, request->curl);
+	curl_multi_add_handle(state.curl_multi, curl);
 
 	return request;
 }

@@ -121,6 +121,8 @@ namespace Settings
 	char discord_bot_token[MAX_AUTH_KEY + 1];
 	char discord_channel_id[MAX_DISCORD_ID_LENGTH + 1];
 	char discord_bot_user_id[MAX_DISCORD_ID_LENGTH + 1];
+	char discord_guild_id[MAX_DISCORD_ID_LENGTH + 1];
+	char discord_available_role_id[MAX_DISCORD_ID_LENGTH + 1];
 }
 
 namespace Net
@@ -2287,7 +2289,7 @@ namespace Master
 				db_exec("create table UserServer (user_id integer not null, server_id integer not null, timestamp integer not null, role integer not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id), primary key (user_id, server_id));");
 				db_exec("create table Friendship (user1_id integer not null, user2_id integer not null, foreign key (user1_id) references User(id), foreign key (user2_id) references User(id), primary key (user1_id, user2_id));");
 				db_exec("create table AuthAttempt (timestamp integer not null, type integer not null, ip text not null, user_id integer, foreign key (user_id) references User(id));");
-				db_exec("create table DiscordUser (id integer primary key, time_offset_half_hour integer);");
+				db_exec("create table DiscordUser (id integer primary key, time_offset_half_hour integer, member_available_role boolean not null);");
 				db_exec("create table DiscordPlaytime (user_id integer, start integer not null, end integer not null);");
 			}
 			db_exec("update ServerConfig set online=0;");
@@ -2353,6 +2355,16 @@ namespace Master
 						const char* discord_bot_user_id = Json::get_string(json, "discord_bot_user_id");
 						if (discord_bot_user_id)
 							strncpy(Settings::discord_bot_user_id, discord_bot_user_id, MAX_DISCORD_ID_LENGTH);
+					}
+					{
+						const char* discord_guild_id = Json::get_string(json, "discord_guild_id");
+						if (discord_guild_id)
+							strncpy(Settings::discord_guild_id, discord_guild_id, MAX_DISCORD_ID_LENGTH);
+					}
+					{
+						const char* discord_available_role_id = Json::get_string(json, "discord_available_role_id");
+						if (discord_available_role_id)
+							strncpy(Settings::discord_available_role_id, discord_available_role_id, MAX_DISCORD_ID_LENGTH);
 					}
 					{
 						const char* dashboard_password_hash = Json::get_string(json, "dashboard_password_hash", "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3"); // "test"
@@ -2512,6 +2524,8 @@ namespace DiscordBot
 	struct State
 	{
 		r64 last_poll;
+		r64 last_stat_mention_timestamp;
+		s32 last_stat_mention_total_players;
 		char last_poll_message_id[MAX_DISCORD_ID_LENGTH + 1];
 	};
 	State state;
@@ -2550,9 +2564,7 @@ namespace DiscordBot
 		struct curl_slist* headers = auth_headers(curl);
 		headers = curl_slist_append(headers, "Content-Type: application/json");
 		headers = curl_slist_append(headers, "Expect:"); // initialize custom header list stating that Expect: 100-continue is not wanted
-		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
-		Http::add(curl);
+		Http::add(curl, nullptr, headers);
 	}
 
 	void cmd_acknowledge(cJSON* msg)
@@ -2568,8 +2580,7 @@ namespace DiscordBot
 		struct curl_slist* headers = auth_headers(curl);
 		headers = curl_slist_append(headers, "Content-Length: 0");
 		headers = curl_slist_append(headers, "Expect:"); // initialize custom header list stating that Expect: 100-continue is not wanted
-		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-		Http::add(curl);
+		Http::add(curl, nullptr, headers);
 	}
 
 	b8 user_exists(const char* id)
@@ -2737,6 +2748,41 @@ namespace DiscordBot
 		return false;
 	}
 
+	void stats(s32* playing, s32* in_lobby, s32* available)
+	{
+		*playing = 0;
+		for (s32 i = 0; i < global.servers.length; i++)
+		{
+			Node* node = node_for_hash(global.servers[i]);
+			if (node->server_state.id) // multiplayer
+			{
+				ServerConfig config;
+				server_config_get(node->server_state.id, &config);
+				*playing += config.max_players - node->server_state.player_slots;
+			}
+		}
+
+		*in_lobby = 0;
+		for (auto i = global.nodes.begin(); i != global.nodes.end(); i++)
+		{
+			Node* node = &i->second;
+			if (node->state == Node::State::ClientWaiting
+				|| node->state == Node::State::ClientConnecting
+				|| node->state == Node::State::ClientIdle)
+				(*in_lobby)++;
+		}
+
+		{
+			sqlite3_stmt* stmt = db_query("select count(1) from DiscordPlaytime where start < ? and end > ?");
+			s64 t = s64(platform::timestamp());
+			db_bind_int(stmt, 0, t);
+			db_bind_int(stmt, 1, t);
+			db_step(stmt);
+			*available = db_column_int(stmt, 0);
+			db_finalize(stmt);
+		}
+	}
+
 	void msg_handle(cJSON* msg)
 	{
 		cJSON* author = cJSON_GetObjectItem(msg, "author");
@@ -2787,6 +2833,8 @@ namespace DiscordBot
 				s32 time_offset_half_hour;
 				if (user_time_offset_half_hour(author_id, &time_offset_half_hour))
 				{
+					// user has set local time offset
+
 					std::time_t now = std::time(nullptr);
 					std::tm now_local = *std::localtime(&now);
 					std::tm start = now_local;
@@ -2930,44 +2978,13 @@ namespace DiscordBot
 			}
 			else if (strcmp(cmd, "!stats") == 0)
 			{
-				s32 playing = 0;
-				for (s32 i = 0; i < global.servers.length; i++)
-				{
-					Node* node = node_for_hash(global.servers[i]);
-					if (node->server_state.id) // multiplayer
-					{
-						ServerConfig config;
-						server_config_get(node->server_state.id, &config);
-						playing += config.max_players - node->server_state.player_slots;
-					}
-				}
-
-				s32 in_lobby = 0;
-				for (auto i = global.nodes.begin(); i != global.nodes.end(); i++)
-				{
-					Node* node = &i->second;
-					if (node->state == Node::State::ClientWaiting
-						|| node->state == Node::State::ClientConnecting
-						|| node->state == Node::State::ClientIdle)
-						in_lobby++;
-				}
-
-				s32 scheduled;
-				{
-					sqlite3_stmt* stmt = db_query("select count(1) from DiscordPlaytime where start < ? and end > ?");
-					s64 t = s64(platform::timestamp());
-					db_bind_int(stmt, 0, t);
-					db_bind_int(stmt, 1, t);
-					db_step(stmt);
-					scheduled = db_column_int(stmt, 0);
-					db_finalize(stmt);
-				}
-
-				{
-					char response[MAX_PATH_LENGTH + 1] = {};
-					snprintf(response, MAX_PATH_LENGTH, "Playing: %d\nIn lobby: %d\nAvailable to play: %d\n", playing, in_lobby, scheduled);
-					msg_post(response);
-				}
+				s32 playing;
+				s32 in_lobby;
+				s32 available;
+				stats(&playing, &in_lobby, &available);
+				char response[MAX_PATH_LENGTH + 1] = {};
+				snprintf(response, MAX_PATH_LENGTH, "Playing: %d\nIn lobby: %d\nLooking to play: %d\n", playing, in_lobby, available);
+				msg_post(response);
 			}
 			else if (strcmp(cmd, "!help") == 0 || strcmp(cmd, "!h") == 0)
 			{
@@ -2983,31 +3000,175 @@ namespace DiscordBot
 			}
 			else if (strcmp(cmd, "!schedule") == 0 || strcmp(cmd, "!sched") == 0)
 			{
-				msg_post("<todo> :P");
+				s32 time_offset_half_hour;
+				if (user_time_offset_half_hour(author_id, &time_offset_half_hour))
+				{
+					Array<char> response;
+					sqlite3_stmt* stmt = db_query("select start, end from DiscordPlaytime;");
+					b8 has_entry = false;
+					s64 offset_seconds = time_offset_half_hour * 30 * 60;
+					s64 timestamp = s64(platform::timestamp());
+					while (db_step(stmt))
+					{
+						char line[MAX_PATH_LENGTH + 1] = {};
+						s64 start = db_column_int(stmt, 0);
+						s64 end = db_column_int(stmt, 1);
+
+						std::tm tm;
+
+						char start_str[129] = {};
+						if (start < timestamp)
+							strcpy(start_str, "Now");
+						else
+						{
+							start += offset_seconds;
+							tm = *localtime((const time_t*)(&start));
+							strftime(start_str, 128, "%A %I:%M%p", &tm);
+						}
+
+						char end_str[129] = {};
+						start += offset_seconds;
+						tm = *localtime((const time_t*)(&end));
+						strftime(end_str, 128, "%A %I:%M%p", &tm);
+
+						s32 length = snprintf(line, MAX_PATH_LENGTH, "%s - %s\n", start_str, end_str);
+
+						s32 destination = response.length;
+						response.resize(response.length + length);
+						strncpy(&response[destination], line, length);
+						has_entry = true;
+					}
+
+					if (!has_entry)
+					{
+						const char* msg = "Nothing scheduled.";
+						s32 destination = response.length;
+						response.resize(response.length + strlen(msg));
+						strncpy(&response[destination], msg, strlen(msg));
+					}
+					response.add('\0');
+					msg_post(response.data);
+					db_finalize(stmt);
+				}
 			}
 		}
 	}
 
+	void available_role_update_db(u64 user_id, b8 value)
+	{
+		sqlite3_stmt* stmt = db_query("update DiscordUser set member_available_role=? where id=?;");
+		db_bind_int(stmt, 0, s64(value));
+		db_bind_int(stmt, 1, s64(user_id));
+		db_exec(stmt);
+	}
+
+	void available_role_callback_add(s32 code, const char* data, u64 user_data)
+	{
+		if (code == 204)
+			available_role_update_db(user_data, true);
+	}
+
+	void available_role_callback_remove(s32 code, const char* data, u64 user_data)
+	{
+		if (code == 204)
+			available_role_update_db(user_data, false);
+	}
+
+	void available_role_request(const char* member_id, const char* method, Http::Callback* callback)
+	{
+		CURL* curl = curl_easy_init();
+		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method); 
+		struct curl_slist* headers = auth_headers(curl);
+		headers = curl_slist_append(headers, "Content-Length: 0");
+		headers = curl_slist_append(headers, "Expect:"); // initialize custom header list stating that Expect: 100-continue is not wanted
+		char url[MAX_PATH_LENGTH + 1] = {};
+		snprintf(url, MAX_PATH_LENGTH, "https://discordapp.com/api/v6/guilds/%s/members/%s/roles/%s", Settings::discord_guild_id, member_id, Settings::discord_available_role_id);
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+		u64 id = u64(atoll(member_id));
+		Http::add(curl, callback, headers, id);
+	}
+
 	void poll_callback(s32 code, const char* data, u64 user_data)
 	{
-		if (data)
+		if (code == 200 && data)
 		{
 			cJSON* json = cJSON_Parse(data);
 			if (json)
 			{
-				cJSON* msg = json->child;
-				while (msg)
+				// process messages
 				{
-					cJSON* author = cJSON_GetObjectItem(msg, "author");
-					if (author && strncmp(Json::get_string(author, "id"), Settings::discord_bot_user_id, MAX_DISCORD_ID_LENGTH) != 0) // ignore messages from ourselves
+					cJSON* msg = json->child;
+					while (msg)
 					{
-						if (state.last_poll_message_id[0]) // ignore all messages if this is the first poll we're doing
-							msg_handle(msg);
+						cJSON* author = cJSON_GetObjectItem(msg, "author");
+						if (author && strncmp(Json::get_string(author, "id"), Settings::discord_bot_user_id, MAX_DISCORD_ID_LENGTH) != 0) // ignore messages from ourselves
+						{
+							if (state.last_poll_message_id[0]) // ignore all messages if this is the first poll we're doing
+								msg_handle(msg);
+						}
+						msg = msg->next;
 					}
-					msg = msg->next;
 				}
 
-				if (json->child) // most recent message
+				// delete old playtime records
+				s64 timestamp = s64(platform::timestamp());
+				{
+					sqlite3_stmt* stmt = db_query("delete from DiscordPlaytime where end < ?;");
+					db_bind_int(stmt, 0, timestamp);
+					db_exec(stmt);
+				}
+
+				// add members to available role
+				{
+					sqlite3_stmt* stmt = db_query("select DiscordPlaytime.user_id from DiscordPlaytime left join DiscordUser on DiscordPlaytime.user_id=DiscordUser.id where DiscordPlaytime.start <= ? and DiscordPlaytime.end > ? and DiscordUser.member_available_role=0;");
+					db_bind_int(stmt, 0, timestamp);
+					db_bind_int(stmt, 1, timestamp);
+					while (db_step(stmt))
+					{
+						const char* member_id = db_column_text(stmt, 0);
+						available_role_request(member_id, "PUT", &available_role_callback_add);
+					}
+					db_finalize(stmt);
+				}
+
+				// remove members from available role
+				{
+					sqlite3_stmt* stmt = db_query("select DiscordUser.id from DiscordUser where DiscordUser.member_available_role=1 and (select count(1) from DiscordPlaytime where DiscordPlaytime.user_id=DiscordUser.id and DiscordPlaytime.start <= ? and DiscordPlaytime.end > ?)=0;");
+					db_bind_int(stmt, 0, timestamp);
+					db_bind_int(stmt, 1, timestamp);
+					while (db_step(stmt))
+					{
+						const char* member_id = db_column_text(stmt, 0);
+						available_role_request(member_id, "DELETE", &available_role_callback_remove);
+					}
+					db_finalize(stmt);
+				}
+
+				// stat mention
+				if (timestamp > state.last_stat_mention_timestamp + 60.0)
+				{
+					s32 playing;
+					s32 in_lobby;
+					s32 available;
+					stats(&playing, &in_lobby, &available);
+
+					s32 total = playing + in_lobby + available;
+					if (total >= vi_max(1, state.last_stat_mention_total_players * 2)
+						|| timestamp > state.last_stat_mention_timestamp + 30.0 * 60.0)
+					{
+						if (state.last_poll_message_id[0]) // if this is the first time we're polling, we just rebooted; don't send out the mention
+						{
+							char mention[MAX_PATH_LENGTH + 1] = {};
+							snprintf(mention, MAX_PATH_LENGTH, "<@&%s>\nPlaying: %d\nIn lobby: %d\nLooking to play: %d\n", Settings::discord_available_role_id, playing, in_lobby, available);
+							msg_post(mention);
+						}
+						state.last_stat_mention_timestamp = timestamp;
+						state.last_stat_mention_total_players = total;
+					}
+				}
+
+				// remember most recent message id
+				if (json->child)
 				{
 					const char* id = Json::get_string(json->child, "id");
 					if (id)

@@ -3027,7 +3027,7 @@ namespace DiscordBot
 						}
 
 						char end_str[129] = {};
-						start += offset_seconds;
+						end += offset_seconds;
 						tm = *localtime((const time_t*)(&end));
 						strftime(end_str, 128, "%A %I:%M%p", &tm);
 

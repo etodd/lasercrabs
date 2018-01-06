@@ -1232,13 +1232,18 @@ void PlayerHuman::update(const Update& u)
 								if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
 								{
 									player_confirm_upgrade[gamepad] = upgrade;
-									Ability existing_ability = get<PlayerManager>()->abilities[ability_upgrade_slot];
-									if (existing_ability == Ability::None)
+									if (info.type == UpgradeInfo::Type::Consumable)
 										player_upgrade_start(gamepad);
 									else
 									{
-										const UpgradeInfo& info = UpgradeInfo::list[s32(existing_ability)];
-										Menu::dialog(gamepad, &player_upgrade_start, _(strings::confirm_upgrade_replace), _(info.name));
+										Ability existing_ability = get<PlayerManager>()->abilities[ability_upgrade_slot];
+										if (existing_ability == Ability::None)
+											player_upgrade_start(gamepad);
+										else
+										{
+											const UpgradeInfo& info = UpgradeInfo::list[s32(existing_ability)];
+											Menu::dialog(gamepad, &player_upgrade_start, _(strings::confirm_upgrade_replace), _(info.name));
+										}
 									}
 								}
 							}
@@ -1296,7 +1301,7 @@ void PlayerHuman::update(const Update& u)
 			Entity* k = killed_by.ref();
 			if (k)
 				kill_cam_rot = Quat::look(Vec3::normalize(k->get<Transform>()->absolute_pos() - camera.ref()->pos));
-			if (get<PlayerManager>()->spawn_timer < SPAWN_DELAY - 1.0f)
+			if (get<PlayerManager>()->spawn_timer < Game::session.config.spawn_delay - 1.0f)
 				camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, kill_cam_rot);
 			break;
 		}
@@ -2184,6 +2189,19 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 			{
 				// our flag
 				Flag* our_flag = Flag::for_team(my_team);
+
+				if (!our_flag->at_base)
+				{
+					// flag base icon
+					Vec3 pos = get<PlayerManager>()->team.ref()->flag_base.ref()->absolute_pos();
+					Vec2 p;
+					if (UI::project(params, pos, &p))
+					{
+						UI::centered_box(params, { p, Vec2(32.0f * UI::scale) }, UI::color_background);
+						UI::mesh(params, Asset::Mesh::icon_flag_base, p, Vec2(24.0f * UI::scale), Team::ui_color_friend());
+					}
+				}
+
 				Transform* carrier = our_flag->get<Transform>()->parent.ref();
 				if (carrier) // it's being carried; only show it if we can see the carrier
 				{
@@ -2196,7 +2214,13 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 					}
 				}
 				else // flag is sitting somewhere
+				{
+					Vec3 pos = get<PlayerManager>()->team.ref()->flag_base.ref()->absolute_pos();
+					if (instance && instance->get<Drone>()->flag.ref())
+						UI::indicator(params, pos, Team::ui_color_friend(), true);
+
 					player_draw_flag(params, our_flag);
+				}
 			}
 		}
 
@@ -2856,7 +2880,10 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 		const ChatEntry& entry = chats[i];
 		if (my_team == AI::TeamNone || AI::match(my_team, entry.mask))
 		{
-			text.text(gamepad, "%s: %s", entry.username, entry.msg);
+			if (entry.mask == 1 << my_team)
+				text.text(gamepad, "%s %s: %s", entry.username, _(strings::chat_team_prefix), entry.msg);
+			else
+				text.text(gamepad, "%s: %s", entry.username, entry.msg);
 			height += text.bounds().y + MENU_ITEM_PADDING;
 			count++;
 		}
@@ -2874,7 +2901,10 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 			if (my_team == AI::TeamNone || AI::match(my_team, entry.mask))
 			{
 				text.color = Team::ui_color(my_team, entry.team);
-				text.text(gamepad, "%s: %s", entry.username, entry.msg);
+				if (entry.mask == 1 << my_team)
+					text.text(gamepad, "%s %s: %s", entry.username, _(strings::chat_team_prefix), entry.msg);
+				else
+					text.text(gamepad, "%s: %s", entry.username, entry.msg);
 				text.draw(params, p);
 
 				p.y += text.bounds().y + MENU_ITEM_PADDING;
@@ -3622,11 +3652,8 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 	}
 }
 
-void player_ability_update(const Update& u, PlayerControlHuman* control, Controls binding, s8 gamepad, s32 index)
+void player_ability_select(const Update& u, PlayerControlHuman* control, s32 index)
 {
-	if (!control->input_enabled())
-		return;
-
 	PlayerManager* manager = control->player.ref()->get<PlayerManager>();
 
 	Ability ability;
@@ -3639,25 +3666,20 @@ void player_ability_update(const Update& u, PlayerControlHuman* control, Control
 			return;
 	}
 
-	Drone* drone = control->get<Drone>();
-
-	if (u.input->get(binding, gamepad) && !u.last_input->get(binding, gamepad))
+	if (AbilityInfo::list[s32(ability)].type == AbilityInfo::Type::Other)
 	{
-		if (AbilityInfo::list[s32(ability)].type == AbilityInfo::Type::Other)
+		if (manager->ability_valid(ability))
 		{
-			if (manager->ability_valid(ability))
-			{
-				PlayerControlHumanNet::Message msg;
-				control->get<Transform>()->absolute(&msg.pos, &msg.rot);
-				msg.dir = Vec3::normalize(control->reticle.pos - msg.pos);
-				msg.type = PlayerControlHumanNet::Message::Type::Go;
-				msg.ability = ability;
-				PlayerControlHumanNet::send(control, &msg);
-			}
+			PlayerControlHumanNet::Message msg;
+			control->get<Transform>()->absolute(&msg.pos, &msg.rot);
+			msg.dir = Vec3::normalize(control->reticle.pos - msg.pos);
+			msg.type = PlayerControlHumanNet::Message::Type::Go;
+			msg.ability = ability;
+			PlayerControlHumanNet::send(control, &msg);
 		}
-		else if (drone->current_ability != ability)
-			control->ability_select(ability);
 	}
+	else if (control->get<Drone>()->current_ability != ability)
+		control->ability_select(ability);
 }
 
 PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
@@ -4391,11 +4413,27 @@ void PlayerControlHuman::update(const Update& u)
 			else // flying
 				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical_total());
 
+			if (movement_enabled())
 			{
-				// abilities
-				player_ability_update(u, this, Controls::Ability1, gamepad, 0);
-				player_ability_update(u, this, Controls::Ability2, gamepad, 1);
-				player_ability_update(u, this, Controls::Ability3, gamepad, 2);
+				// ability inputs
+
+				// make sure player is only selecting one ability input
+				s32 selected_abilities = 0;
+				if (u.input->get(Controls::Ability1, gamepad))
+					selected_abilities |= 1 << 0;
+				if (u.input->get(Controls::Ability2, gamepad))
+					selected_abilities |= 1 << 1;
+				if (u.input->get(Controls::Ability3, gamepad))
+					selected_abilities |= 1 << 2;
+
+				if (BitUtility::popcount(selected_abilities) == 1)
+				{
+					for (s32 i = 0; i < MAX_ABILITIES + 1; i++)
+					{
+						if (selected_abilities & (1 << i))
+							player_ability_select(u, this, i);
+					}
+				}
 			}
 
 			camera_shake_update(u, camera);

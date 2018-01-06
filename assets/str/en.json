@@ -59,7 +59,7 @@
 		"settings": "Settings",
 		"discord": "Discord",
 		"credits": "Credits",
-		"kickstarter": "Kickstarter",
+		"mail_list": "Mail list",
 		"presents": "Presents",
 		"settings_controls_keyboard": "Keyboard/mouse",
 		"settings_controls_gamepad": "Gamepad",
@@ -221,7 +221,7 @@
 		"description_active_armor": "Cost: %d\nDeflect all incoming damage back at enemies.",
 		"player_kicked": "%s kicked!",
 		"extra_drone": "+1 Drone",
-		"description_extra_drone": "An extra drone.",
+		"description_extra_drone": "Cost: %d\nAn extra drone.",
 
 		"map_by": "%s - by %s",
 		"tab_map": "Map",
@@ -241,6 +241,7 @@
 		"player_count": "%d/%d players",
 		"teams": "Teams",
 		"drone_shield": "Drone shield",
+		"spawn_delay": "Spawn delay",
 		"start_energy": "Starting spark",
 		"start_energy_attacker": "Attacker spark",
 		"cooldown_speed": "Cooldown speed",
@@ -310,6 +311,7 @@
 
 		"chat_team": "Team chat",
 		"chat_team_prompt": "Team: ",
+		"chat_team_prefix": "(Team)",
 		"chat_all": "All chat",
 		"chat_all_prompt": "All: ",
 		"spot": "Spot",

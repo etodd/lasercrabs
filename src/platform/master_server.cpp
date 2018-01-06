@@ -26,6 +26,7 @@
 #include "mongoose/mongoose.h"
 #include "sha1/sha1.h"
 #include <ctype.h>
+#include <sstream>
 
 #define DEBUG_SQL 0
 
@@ -435,7 +436,7 @@ namespace Master
 
 	const char* db_column_text(sqlite3_stmt* stmt, s32 index)
 	{
-		return (const char*)sqlite3_column_text(stmt, index);
+		return (const char*)(sqlite3_column_text(stmt, index));
 	}
 
 	void db_finalize(sqlite3_stmt* stmt)
@@ -588,6 +589,7 @@ namespace Master
 		config->enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", defaults.enable_battery_stealth));
 		config->enable_spawn_shields = b8(Json::get_s32(json, "enable_spawn_shields", defaults.enable_spawn_shields));
 		config->drone_shield = s8(Json::get_s32(json, "drone_shield", defaults.drone_shield));
+		config->spawn_delay = s8(Json::get_s32(json, "spawn_delay", defaults.spawn_delay));
 		config->start_energy = s16(Json::get_s32(json, "start_energy", defaults.start_energy));
 		config->start_energy_attacker = s16(Json::get_s32(json, "start_energy_attacker", defaults.start_energy_attacker));
 		config->cooldown_speed_index = u8(Json::get_s32(json, "cooldown_speed_index", defaults.cooldown_speed_index));
@@ -648,6 +650,8 @@ namespace Master
 			cJSON_AddNumberToObject(json, "enable_spawn_shields", config.enable_spawn_shields);
 		if (config.drone_shield != defaults.drone_shield)
 			cJSON_AddNumberToObject(json, "drone_shield", config.drone_shield);
+		if (config.spawn_delay != defaults.spawn_delay)
+			cJSON_AddNumberToObject(json, "spawn_delay", config.spawn_delay);
 		if (config.start_energy != defaults.start_energy)
 			cJSON_AddNumberToObject(json, "start_energy", config.start_energy);
 		if (config.start_energy_attacker != defaults.start_energy_attacker)
@@ -2340,6 +2344,8 @@ namespace Master
 						const char* discord_webhook = Json::get_string(json, "discord_webhook");
 						if (discord_webhook)
 							strncpy(Settings::discord_webhook, discord_webhook, MAX_PATH_LENGTH);
+						else
+							vi_debug("%s", "Missing Discord bot settings.");
 					}
 					{
 						const char* discord_bot_token = Json::get_string(json, "discord_bot_token");
@@ -2783,6 +2789,16 @@ namespace DiscordBot
 		}
 	}
 
+	void build_stat_msg(std::ostringstream* msg, s32 playing, s32 in_lobby, s32 available)
+	{
+		if (playing > 0)
+			(*msg) << "\nPlaying: " << playing;
+		if (in_lobby > 0)
+			(*msg) << "\nIn lobby:" << in_lobby;
+		if (available > 0)
+			(*msg) << "\nLooking to play: " << available;
+	}
+
 	void msg_handle(cJSON* msg)
 	{
 		cJSON* author = cJSON_GetObjectItem(msg, "author");
@@ -2931,7 +2947,11 @@ namespace DiscordBot
 					cmd_acknowledge(msg);
 				}
 				else
-					msg_post("Set your local time first using !time.");
+				{
+					std::ostringstream response;
+					response << "<@!" << author_id << "> Set your local time first using !time.";
+					msg_post(response.str().c_str());
+				}
 			}
 			else if (strstr(cmd, "!time ") == cmd || strstr(cmd, "!t ") == cmd)
 			{
@@ -2982,35 +3002,35 @@ namespace DiscordBot
 				s32 in_lobby;
 				s32 available;
 				stats(&playing, &in_lobby, &available);
-				char response[MAX_PATH_LENGTH + 1] = {};
-				snprintf(response, MAX_PATH_LENGTH, "Playing: %d\nIn lobby: %d\nLooking to play: %d\n", playing, in_lobby, available);
-				msg_post(response);
+				std::ostringstream response;
+				response << "<@!" << author_id << "> ";
+				build_stat_msg(&response, playing, in_lobby, available);
+				msg_post(response.str().c_str());
 			}
 			else if (strcmp(cmd, "!help") == 0 || strcmp(cmd, "!h") == 0)
 			{
-				msg_post
-				(
+				std::ostringstream response;
+				response << "<@!" << author_id << ">\n" <<
 					"!play - indicate you want to play now\n"
 					"!play <time range> - indicate desired play time, ex: Tue 2pm-3pm\n"
 					"!time <time> - set your local time zone\n"
 					"!clear - clear play times\n"
 					"!stats - see who's online\n"
-					"!schedule - see when people are playing\n"
-				);
+					"!schedule - see when people are playing\n";
+				msg_post(response.str().c_str());
 			}
 			else if (strcmp(cmd, "!schedule") == 0 || strcmp(cmd, "!sched") == 0)
 			{
 				s32 time_offset_half_hour;
 				if (user_time_offset_half_hour(author_id, &time_offset_half_hour))
 				{
-					Array<char> response;
+					std::ostringstream response;
 					sqlite3_stmt* stmt = db_query("select start, end from DiscordPlaytime;");
 					b8 has_entry = false;
 					s64 offset_seconds = time_offset_half_hour * 30 * 60;
 					s64 timestamp = s64(platform::timestamp());
 					while (db_step(stmt))
 					{
-						char line[MAX_PATH_LENGTH + 1] = {};
 						s64 start = db_column_int(stmt, 0);
 						s64 end = db_column_int(stmt, 1);
 
@@ -3031,23 +3051,14 @@ namespace DiscordBot
 						tm = *localtime((const time_t*)(&end));
 						strftime(end_str, 128, "%A %I:%M%p", &tm);
 
-						s32 length = snprintf(line, MAX_PATH_LENGTH, "%s - %s\n", start_str, end_str);
+						response << start_str << " - " << end_str << "\n";
 
-						s32 destination = response.length;
-						response.resize(response.length + length);
-						strncpy(&response[destination], line, length);
 						has_entry = true;
 					}
 
 					if (!has_entry)
-					{
-						const char* msg = "Nothing scheduled.";
-						s32 destination = response.length;
-						response.resize(response.length + strlen(msg));
-						strncpy(&response[destination], msg, strlen(msg));
-					}
-					response.add('\0');
-					msg_post(response.data);
+						response << "Nothing scheduled.";
+					msg_post(response.str().c_str());
 					db_finalize(stmt);
 				}
 			}
@@ -3123,12 +3134,38 @@ namespace DiscordBot
 					sqlite3_stmt* stmt = db_query("select DiscordPlaytime.user_id from DiscordPlaytime left join DiscordUser on DiscordPlaytime.user_id=DiscordUser.id where DiscordPlaytime.start <= ? and DiscordPlaytime.end > ? and DiscordUser.member_available_role=0;");
 					db_bind_int(stmt, 0, timestamp);
 					db_bind_int(stmt, 1, timestamp);
+					typedef StaticArray<char, MAX_DISCORD_ID_LENGTH + 1> DiscordId;
+					Array<DiscordId> member_ids;
 					while (db_step(stmt))
 					{
 						const char* member_id = db_column_text(stmt, 0);
+						s32 length = strlen(member_id);
+						vi_assert(length <= MAX_DISCORD_ID_LENGTH);
+
+						DiscordId* entry = member_ids.add();
+						entry->length = length;
+						strncpy(entry->data, member_id, MAX_DISCORD_ID_LENGTH);
+
 						available_role_request(member_id, "PUT", &available_role_callback_add);
 					}
 					db_finalize(stmt);
+
+					if (member_ids.length > 0)
+					{
+						s32 playing;
+						s32 in_lobby;
+						s32 available;
+						stats(&playing, &in_lobby, &available);
+
+						if (vi_max(playing + in_lobby, available) > 0)
+						{
+							std::ostringstream mention;
+							for (s32 i = 0; i < member_ids.length; i++)
+								mention << "<@" << member_ids[i].data << "> ";
+							build_stat_msg(&mention, playing, in_lobby, available);
+							msg_post(mention.str().c_str());
+						}
+					}
 				}
 
 				// remove members from available role
@@ -3158,9 +3195,10 @@ namespace DiscordBot
 					{
 						if (state.last_poll_message_id[0]) // if this is the first time we're polling, we just rebooted; don't send out the mention
 						{
-							char mention[MAX_PATH_LENGTH + 1] = {};
-							snprintf(mention, MAX_PATH_LENGTH, "<@&%s>\nPlaying: %d\nIn lobby: %d\nLooking to play: %d\n", Settings::discord_available_role_id, playing, in_lobby, available);
-							msg_post(mention);
+							std::ostringstream mention;
+							mention << "<@&" << Settings::discord_available_role_id << ">";
+							build_stat_msg(&mention, playing, in_lobby, available);
+							msg_post(mention.str().c_str());
 						}
 						state.last_stat_mention_timestamp = timestamp;
 						state.last_stat_mention_total_players = total;
@@ -3191,7 +3229,7 @@ namespace DiscordBot
 
 	void update()
 	{
-		if (Master::global_timestamp - state.last_poll > 5.0)
+		if (Settings::discord_webhook[0] && Master::global_timestamp - state.last_poll > 5.0)
 		{
 			state.last_poll = Master::global_timestamp;
 			poll();
@@ -3371,38 +3409,25 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 				mg_printf_http_chunk(conn, "%s", sqlite3_errmsg(global.db));
 			else
 			{
-				Array<char> line;
+				std::ostringstream line;
 				while (true)
 				{
 					s32 result = sqlite3_step(stmt);
 					if (result == SQLITE_ROW)
 					{
-						line.length = 0;
 						s32 column_count = sqlite3_column_count(stmt);
-						s32 length = 0;
 						for (s32 i = 0; i < column_count; i++)
 						{
 							const char* value = (const char*)(sqlite3_column_text(stmt, i));
 							if (!value)
 								value = "[null]";
-							length += s32(strlen(value)) + 1;
-						}
-						line.reserve(length + 1);
-						for (s32 i = 0; i < column_count; i++)
-						{
-							const char* value = (const char*)(sqlite3_column_text(stmt, i));
-							if (!value)
-								value = "[null]";
-							s32 length = s32(strlen(value)) + 1;
-							sprintf(&line.data[line.length], "%s\t", value);
-							line.length += length;
+							line << value << "\t";
 						}
 
 						// add newline and null terminate
-						line.add('\n');
-						line.add('\0');
+						line << '\n';
 
-						mg_printf_http_chunk(conn, "%s", line.data);
+						mg_printf_http_chunk(conn, "%s", line.str().c_str());
 					}
 					else
 						break;

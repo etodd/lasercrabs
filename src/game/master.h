@@ -184,6 +184,7 @@ struct ServerConfig
 	s8 max_players = MAX_PLAYERS;
 	s8 min_players = 1;
 	s8 team_count = 2;
+	s8 spawn_delay = 5;
 	s8 drone_shield = DRONE_SHIELD_AMOUNT;
 	s8 fill_bots; // if = 0, no bots. if > 0, total number of desired players including bots is fill_bots + 1
 	u8 time_limit_minutes[s32(GameType::count)] = { 6, 10, 10 }; // Assault, Deathmatch, CaptureTheFlag
@@ -223,15 +224,11 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		else
 			serialize_int(p, s8, c->team_count, 2, MAX_TEAMS);
 		c->team_count = vi_min(c->team_count, c->max_players);
+		serialize_int(p, s8, c->spawn_delay, 0, 120);
 		serialize_int(p, s16, c->respawns, 1, MAX_RESPAWNS);
 		serialize_u32(p, c->creator_id);
 		serialize_int(p, s16, c->kill_limit, 0, MAX_RESPAWNS);
 		serialize_s16(p, c->allow_upgrades);
-#if SERVER
-		// disallow extra drone upgrade without actually storing that preference in the master server database
-		if (Stream::IsReading && c->game_type == GameType::Deathmatch)
-			c->allow_upgrades &= ~(1 << s32(Upgrade::ExtraDrone)); // can't purchase extra drones when you have infinite drones
-#endif
 		serialize_int(p, s16, c->start_energy, 0, MAX_START_ENERGY);
 		serialize_int(p, s16, c->start_energy_attacker, 0, MAX_START_ENERGY);
 		serialize_int(p, s8, c->drone_shield, 0, DRONE_SHIELD_AMOUNT);

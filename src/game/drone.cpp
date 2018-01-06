@@ -383,7 +383,7 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 				|| target_shield->has<ForceField>()
 				|| target_shield->has<ForceFieldCollision>()
 				|| target_shield->has<Rectifier>())
-				result += 3;
+				result = (result * 2) + 2;
 		}
 		else
 		{
@@ -1751,7 +1751,14 @@ b8 Drone::dash_start(const Vec3& dir, const Vec3& target, r32 max_time)
 
 b8 Drone::cooldown_can_shoot() const
 {
-	return cooldown < DRONE_COOLDOWN_THRESHOLD && cooldown_ability_switch == 0.0f;
+	r32 epsilon;
+#if SERVER
+	epsilon = DRONE_REFLECTION_TIME_TOLERANCE;
+#else
+	epsilon = 0.0f;
+#endif
+	return cooldown < DRONE_COOLDOWN_THRESHOLD + epsilon
+		&& cooldown_ability_switch <= epsilon;
 }
 
 r32 Drone::target_prediction_speed() const
@@ -2906,6 +2913,7 @@ b8 Drone::should_collide(const Target* target) const
 	AI::Team my_team = get<AIAgent>()->team;
 	return target != get<Target>() // don't collide with self
 		&& (!target->has<Drone>() || !UpgradeStation::drone_inside(target->get<Drone>())) // ignore drones inside upgrade stations
+		&& (!target->has<Rectifier>() || target->get<Rectifier>()->team != my_team) // ignore friendly rectifiers
 		&& (!target->has<ForceField>() || target->get<ForceField>()->team != my_team) // ignore friendly force fields
 		&& (!target->has<Minion>() || target->get<AIAgent>()->team != my_team) // ignore friendly minions
 		&& (!target->has<Grenade>() || target->get<Grenade>()->team() != my_team || current_ability == Ability::Sniper); // ignore friendly grenades unless we're sniping them

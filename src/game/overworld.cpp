@@ -613,6 +613,8 @@ void multiplayer_entry_edit_update(const Update& u)
 #if !SERVER
 			Net::Client::master_cancel_outgoing();
 #endif
+			if (Game::level.mode == Game::Mode::Pvp) // we are currently in the server we're editing
+				hide();
 		}
 	}
 	else
@@ -795,6 +797,16 @@ void multiplayer_entry_edit_update(const Update& u)
 					sprintf(str, "%d", s32(*drone_shield));
 					delta = menu->slider_item(u, _(strings::drone_shield), str);
 					*drone_shield = vi_max(0, vi_min(DRONE_SHIELD_AMOUNT, (*drone_shield) + delta));
+					if (delta)
+						data.multiplayer.active_server_dirty = true;
+				}
+
+				{
+					// spawn delay
+					s8* spawn_delay = &config->spawn_delay;
+					sprintf(str, "%d", s32(*spawn_delay));
+					delta = menu->slider_item(u, _(strings::spawn_delay), str);
+					*spawn_delay = vi_max(0, vi_min(120, (*spawn_delay) + delta * (*spawn_delay >= (delta > 0 ? 10 : 11) ? 5 : 1)));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
 				}
@@ -1053,7 +1065,7 @@ void master_server_details_response(const Net::Master::ServerDetails& details, u
 {
 	if (active()
 		&& data.state == State::Multiplayer
-		&& data.multiplayer.state == Data::Multiplayer::State::EntryView
+		&& (data.multiplayer.state == Data::Multiplayer::State::EntryView || data.multiplayer.state == Data::Multiplayer::State::EntryEdit)
 		&& data.multiplayer.request_id == request_id)
 	{
 		data.multiplayer.active_server = details;
@@ -1675,7 +1687,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 		// column 1
 		{
-			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 11 + (details.config.game_type == GameType::Assault ? 1 : 0);
+			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 12 + (details.config.game_type == GameType::Assault ? 1 : 0);
 			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			if (details.state.level == AssetNull)
@@ -1773,6 +1785,13 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			text.text(0, _(strings::drone_shield));
 			text.draw(params, pos);
 			value.text(0, "%d", s32(details.config.drone_shield));
+			value.draw(params, pos + Vec2(panel_size.x, 0));
+			pos.y -= panel_size.y;
+
+			// spawn delay
+			text.text(0, _(strings::spawn_delay));
+			text.draw(params, pos);
+			value.text(0, "%d", s32(details.config.spawn_delay));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 
@@ -3463,9 +3482,13 @@ void show_complete()
 	if (data.state == State::Multiplayer && Game::level.mode == Game::Mode::Pvp)
 	{
 		// we're editing a server while playing in that server
-		data.multiplayer.active_server.config = Game::session.config;
 		multiplayer_switch_tab(ServerListType::Mine);
 		multiplayer_state_transition(Data::Multiplayer::State::EntryEdit);
+		data.multiplayer.active_server.config.id = Game::session.config.id;
+		multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigGet);
+#if !SERVER
+		Net::Client::master_request_server_details(data.multiplayer.active_server.config.id, data.multiplayer.request_id);
+#endif
 	}
 
 	if (modal())

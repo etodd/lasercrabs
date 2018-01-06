@@ -1032,12 +1032,13 @@ SpawnPosition SpawnPoint::spawn_position() const
 	get<Transform>()->absolute(&result.pos, &rot);
 	Vec3 dir = rot * Vec3(0, 1, 0);
 	result.angle = atan2f(dir.x, dir.z);
+	result.pos += rot * Vec3(0, 0, DRONE_RADIUS);
 
 	s32 j = 0;
 	Vec3 p = result.pos;
-	while (!drone_can_spawn(p) && j < 4)
+	while (!drone_can_spawn(p) && j < (MAX_PLAYERS / 2))
 	{
-		p = result.pos + Quat::euler(0, result.angle + (r32(j + 1) * PI * 0.5f), 0) * Vec3(0, 0, SPAWN_POINT_RADIUS * 0.75f);
+		p = result.pos + (rot * Quat::euler(r32(j) * PI * (2.0f / (MAX_PLAYERS / 2)), 0, 0)) * Vec3(2.0f, 0, 0);
 		j++;
 	}
 	result.pos = p;
@@ -2547,6 +2548,7 @@ b8 Bolt::visible() const
 b8 Bolt::default_raycast_filter(Entity* e, AI::Team team)
 {
 	return (!e->has<AIAgent>() || e->get<AIAgent>()->team != team) // ignore friendlies
+		&& (!e->has<Rectifier>() || e->get<Rectifier>()->team != team) // ignore friendly rectifiers
 		&& (!e->has<Drone>() || !UpgradeStation::drone_inside(e->get<Drone>())) // ignore drones inside upgrade stations
 		&& (!e->has<ForceField>() || e->get<ForceField>()->team != team); // ignore friendly force fields
 }
@@ -3380,7 +3382,14 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, Net::StateFrame* state_frame)
 void Grenade::hit_entity(const Bolt::Hit& hit)
 {
 	if (grenade_hit_filter(hit.entity, team()))
-		explode();
+	{
+		timer = vi_max(timer, GRENADE_DELAY * 0.75f);
+
+		// bounce
+		velocity = velocity.reflect(hit.normal) * 0.5f;
+		if (state != State::Active)
+			GrenadeNet::send_state_change(this, State::Active);
+	}
 	else
 	{
 		if (state == State::Active)
@@ -3429,9 +3438,9 @@ void Grenade::explode()
 				if (i.item()->has<Drone>())
 				{
 					distance *= (i.item()->get<AIAgent>()->team == my_team) ? 2.0f : 1.0f;
-					if (distance < GRENADE_RANGE * 0.6f)
+					if (distance < GRENADE_RANGE * 0.4f)
 						i.item()->damage(entity(), 3);
-					else if (distance < GRENADE_RANGE * 0.8f)
+					else if (distance < GRENADE_RANGE * 0.7f)
 						i.item()->damage(entity(), 2);
 					else if (distance < GRENADE_RANGE)
 						i.item()->damage(entity(), 1);
@@ -3446,12 +3455,22 @@ void Grenade::explode()
 				{
 					distance *= (i.item()->get<Turret>()->team == my_team) ? 2.0f : 1.0f;
 					if (distance < GRENADE_RANGE)
-						i.item()->damage(entity(), 9);
+						i.item()->damage(entity(), 10);
 				}
 				else if (i.item()->has<ForceField>() && i.item()->get<ForceField>()->team != my_team)
-					i.item()->damage(entity(), distance < GRENADE_RANGE * 0.25f ? 10 : 5);
-				else if (distance < GRENADE_RANGE && (!i.item()->has<Battery>() || i.item()->get<Battery>()->team != my_team))
-					i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 6 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1));
+				{
+					if (distance < GRENADE_RANGE)
+						i.item()->damage(entity(), 11);
+				}
+				else
+				{
+					if ((i.item()->has<Rectifier>() && i.item()->get<Rectifier>()->team == my_team)
+						|| (i.item()->has<Battery>() && i.item()->get<Battery>()->team == my_team))
+						distance *= 2.0f;
+
+					if (distance < GRENADE_RANGE)
+						i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 6 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1));
+				}
 			}
 		}
 	}
@@ -4257,7 +4276,7 @@ void Collectible::give_rewards()
 
 Interactable* Interactable::closest(const Vec3& pos)
 {
-	r32 distance_sq = SPAWN_POINT_RADIUS * 0.35f * SPAWN_POINT_RADIUS * 0.35f;
+	r32 distance_sq = 1.25f * 1.25f;
 	Interactable* result = nullptr;
 	// find the closest interactable
 	for (auto i = list.iterator(); !i.is_last(); i.next())

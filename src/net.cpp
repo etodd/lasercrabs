@@ -1429,7 +1429,7 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 		b = !base || state->spawn_timer != base->spawn_timer;
 	serialize_bool(p, b);
 	if (b)
-		serialize_r32_range(p, state->spawn_timer, 0, SPAWN_DELAY, 8);
+		serialize_r32_range(p, state->spawn_timer, 0, 127, 10);
 
 	if (Stream::IsWriting)
 		b = !base || state->energy != base->energy;

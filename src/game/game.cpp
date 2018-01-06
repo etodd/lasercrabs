@@ -2390,9 +2390,6 @@ void Game::awake_all()
 {
 	// preload stuff
 	{
-		Loader::mesh(Asset::Mesh::character);
-		Loader::armature(Asset::Armature::character);
-
 		if (level.mode == Mode::Pvp)
 		{
 			Loader::animation(Asset::Animation::character_aim);
@@ -2449,6 +2446,9 @@ void Game::awake_all()
 			Loader::mesh(Asset::Mesh::reticle_grapple);
 		}
 
+		Loader::mesh_permanent(Asset::Mesh::character);
+		Loader::armature_permanent(Asset::Armature::character);
+
 		Loader::mesh(Asset::Mesh::cylinder);
 		Loader::mesh(Asset::Mesh::sphere_highres);
 		Loader::mesh_permanent(Asset::Mesh::tri_tube);
@@ -2456,33 +2456,33 @@ void Game::awake_all()
 		Loader::mesh_permanent(Asset::Mesh::shell_casing);
 		Loader::mesh_instanced(Asset::Mesh::shell_casing);
 
-		Loader::mesh(Asset::Mesh::icon_warning);
-		Loader::mesh(Asset::Mesh::icon_turret2);
-		Loader::mesh(Asset::Mesh::icon_turret);
-		Loader::mesh(Asset::Mesh::icon_spot);
-		Loader::mesh(Asset::Mesh::icon_sniper);
-		Loader::mesh(Asset::Mesh::icon_shotgun);
-		Loader::mesh(Asset::Mesh::icon_rectifier);
-		Loader::mesh(Asset::Mesh::icon_network_error);
-		Loader::mesh(Asset::Mesh::icon_minion);
-		Loader::mesh(Asset::Mesh::icon_grenade);
-		Loader::mesh(Asset::Mesh::icon_gamepad);
-		Loader::mesh(Asset::Mesh::icon_force_field);
-		Loader::mesh(Asset::Mesh::icon_flag);
-		Loader::mesh(Asset::Mesh::icon_drone);
-		Loader::mesh(Asset::Mesh::icon_cursor_main);
-		Loader::mesh(Asset::Mesh::icon_cursor_border);
-		Loader::mesh(Asset::Mesh::icon_core_module);
-		Loader::mesh(Asset::Mesh::icon_close);
-		Loader::mesh(Asset::Mesh::icon_chevron);
-		Loader::mesh(Asset::Mesh::icon_checkmark);
-		Loader::mesh(Asset::Mesh::icon_bolter);
-		Loader::mesh(Asset::Mesh::icon_battery);
-		Loader::mesh(Asset::Mesh::icon_arrow_main);
-		Loader::mesh(Asset::Mesh::icon_arrow_border);
-		Loader::mesh(Asset::Mesh::icon_active_armor);
-		Loader::mesh(Asset::Mesh::icon_access_key);
-		Loader::mesh(Asset::Mesh::icon_ability_pip);
+		Loader::mesh_permanent(Asset::Mesh::icon_chevron);
+		Loader::mesh_permanent(Asset::Mesh::icon_warning);
+		Loader::mesh_permanent(Asset::Mesh::icon_turret2);
+		Loader::mesh_permanent(Asset::Mesh::icon_turret);
+		Loader::mesh_permanent(Asset::Mesh::icon_spot);
+		Loader::mesh_permanent(Asset::Mesh::icon_sniper);
+		Loader::mesh_permanent(Asset::Mesh::icon_shotgun);
+		Loader::mesh_permanent(Asset::Mesh::icon_rectifier);
+		Loader::mesh_permanent(Asset::Mesh::icon_network_error);
+		Loader::mesh_permanent(Asset::Mesh::icon_minion);
+		Loader::mesh_permanent(Asset::Mesh::icon_grenade);
+		Loader::mesh_permanent(Asset::Mesh::icon_gamepad);
+		Loader::mesh_permanent(Asset::Mesh::icon_force_field);
+		Loader::mesh_permanent(Asset::Mesh::icon_flag);
+		Loader::mesh_permanent(Asset::Mesh::icon_drone);
+		Loader::mesh_permanent(Asset::Mesh::icon_cursor_main);
+		Loader::mesh_permanent(Asset::Mesh::icon_cursor_border);
+		Loader::mesh_permanent(Asset::Mesh::icon_core_module);
+		Loader::mesh_permanent(Asset::Mesh::icon_close);
+		Loader::mesh_permanent(Asset::Mesh::icon_checkmark);
+		Loader::mesh_permanent(Asset::Mesh::icon_bolter);
+		Loader::mesh_permanent(Asset::Mesh::icon_battery);
+		Loader::mesh_permanent(Asset::Mesh::icon_arrow_main);
+		Loader::mesh_permanent(Asset::Mesh::icon_arrow_border);
+		Loader::mesh_permanent(Asset::Mesh::icon_active_armor);
+		Loader::mesh_permanent(Asset::Mesh::icon_access_key);
+		Loader::mesh_permanent(Asset::Mesh::icon_ability_pip);
 	}
 
 #if !SERVER

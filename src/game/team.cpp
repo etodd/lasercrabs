@@ -107,7 +107,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{
-		2.5f, // cooldown
+		2.75f, // cooldown
 		0.0f, // switch cooldown
 		0.0f, // recoil velocity
 		AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR,
@@ -117,8 +117,8 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		2.0f, // cooldown
-		0.0f, // switch cooldown
-		0.0f, // recoil velocity
+		0.25f, // switch cooldown
+		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_rectifier,
 		40,
@@ -126,11 +126,20 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		1.5f, // cooldown
-		0.0f, // switch cooldown
-		0.0f, // recoil velocity
+		0.3f, // switch cooldown
+		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_minion,
 		25,
+		Type::Build,
+	},
+	{
+		DRONE_COOLDOWN_MAX, // cooldown
+		0.5f, // switch cooldown
+		1.0f, // recoil velocity
+		AK::EVENTS::PLAY_EQUIP_BUILD,
+		Asset::Mesh::icon_force_field,
+		125,
 		Type::Build,
 	},
 	{
@@ -141,15 +150,6 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Asset::Mesh::icon_shotgun,
 		0,
 		Type::Shoot,
-	},
-	{
-		1.5f, // cooldown
-		0.0f, // switch cooldown
-		0.0f, // recoil velocity
-		AK::EVENTS::PLAY_EQUIP_BUILD,
-		Asset::Mesh::icon_force_field,
-		90,
-		Type::Build,
 	},
 	{
 		2.5f, // cooldown
@@ -163,7 +163,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		DRONE_COOLDOWN_MAX, // cooldown
 		0.3f, // switch cooldown
-		0.2f, // recoil velocity
+		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_GRENADE,
 		Asset::Mesh::icon_grenade,
 		35,
@@ -211,16 +211,16 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		Type::Ability,
 	},
 	{
-		strings::shotgun,
-		strings::description_shotgun,
-		Asset::Mesh::icon_shotgun,
-		150,
-		Type::Ability,
-	},
-	{
 		strings::force_field,
 		strings::description_force_field,
 		Asset::Mesh::icon_force_field,
+		100,
+		Type::Ability,
+	},
+	{
+		strings::shotgun,
+		strings::description_shotgun,
+		Asset::Mesh::icon_shotgun,
 		150,
 		Type::Ability,
 	},
@@ -1191,7 +1191,7 @@ SpawnPoint* Team::default_spawn_point() const
 PlayerManager::Visibility PlayerManager::visibility[MAX_PLAYERS * MAX_PLAYERS];
 
 PlayerManager::PlayerManager(Team* team, const char* u)
-	: spawn_timer((Game::session.type == SessionType::Story && team->team() == 1) ? 0 : SPAWN_DELAY), // defenders in story mode get to spawn instantly
+	: spawn_timer((Game::session.type == SessionType::Story && team->team() == 1) ? 0 : Game::session.config.spawn_delay), // defenders in story mode get to spawn instantly
 	score_accepted(Team::match_state == Team::MatchState::Done),
 	team(team),
 	upgrades(),
@@ -1618,7 +1618,7 @@ void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
 {
 	vi_assert(Game::level.local && point);
 	if (m->team.ref()->tickets() != 0)
-		m->spawn_timer = SPAWN_DELAY;
+		m->spawn_timer = Game::session.config.spawn_delay;
 	m->spawn.fire(point->spawn_position());
 }
 

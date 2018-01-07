@@ -2764,7 +2764,7 @@ namespace DiscordBot
 			{
 				ServerConfig config;
 				server_config_get(node->server_state.id, &config);
-				*playing += config.max_players - node->server_state.player_slots;
+				*playing += vi_max(0, config.max_players - node->server_state.player_slots);
 			}
 		}
 
@@ -3189,7 +3189,7 @@ namespace DiscordBot
 					s32 available;
 					stats(&playing, &in_lobby, &available);
 
-					s32 total = vi_max(playing + in_lobby, available);
+					s32 total = vi_max(playing, available);
 					if (total > 0
 						&& (total >= state.last_stat_mention_total_players * 2 || timestamp > state.last_stat_mention_timestamp + 30.0 * 60.0))
 					{
@@ -3328,14 +3328,14 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 						server_config_get(node->server_state.id, &config);
 						cJSON_AddStringToObject(server, "config", config.name);
 						cJSON_AddNumberToObject(server, "max_players", config.max_players);
-						cJSON_AddNumberToObject(server, "players", config.max_players - node->server_state.player_slots);
+						cJSON_AddNumberToObject(server, "players", vi_max(0, config.max_players - node->server_state.player_slots));
 					}
 					else
 					{
 						// story mode
 						cJSON_AddItemToObject(server, "config", nullptr);
 						cJSON_AddNumberToObject(server, "max_players", 1);
-						cJSON_AddNumberToObject(server, "players", 1 - node->server_state.player_slots);
+						cJSON_AddNumberToObject(server, "players", vi_max(0, 1 - node->server_state.player_slots));
 					}
 					cJSON_AddNumberToObject(server, "level_id", node->server_state.level);
 					cJSON_AddNumberToObject(server, "region", s32(node->server_state.region));

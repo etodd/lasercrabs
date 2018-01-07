@@ -2196,7 +2196,7 @@ void server_state(Master::ServerState* s)
 	if (s->level == AssetNull)
 	{
 		s->id = 0;
-		s->player_slots = 1;
+		s->player_slots = MAX_PLAYERS;
 	}
 	else
 	{

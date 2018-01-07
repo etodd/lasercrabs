@@ -336,6 +336,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 	static b8 net_msg(Net::StreamRead*, PlayerControlHuman*, Net::MessageSource, Net::SequenceID);
 	static s32 count_local();
+
 	static Vec3 get_movement(const Update&, const Quat&, s8);
 
 	Array<TargetIndicator> target_indicators;

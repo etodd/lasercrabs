@@ -1396,7 +1396,8 @@ b8 grapple_possible(const Parkour* parkour)
 		&& parkour->fsm.current != Parkour::State::HardLanding
 		&& parkour->fsm.current != Parkour::State::Mantle
 		&& parkour->fsm.current != Parkour::State::Grapple
-		&& parkour->get<Animator>()->layers[3].animation == AssetNull;
+		&& parkour->get<Animator>()->layers[3].animation == AssetNull
+		&& (!parkour->get<Walker>()->support.ref() || parkour->get<Walker>()->support.ref()->btBody->getBroadphaseProxy()->m_collisionFilterGroup & CollisionParkour);
 }
 
 b8 Parkour::grapple_start(const Vec3& start_pos, const Quat& start_rot)

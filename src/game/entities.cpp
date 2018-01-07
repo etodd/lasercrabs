@@ -3383,7 +3383,7 @@ void Grenade::hit_entity(const Bolt::Hit& hit)
 {
 	if (grenade_hit_filter(hit.entity, team()))
 	{
-		timer = vi_max(timer, GRENADE_DELAY * 0.75f);
+		timer = vi_max(timer, GRENADE_DELAY - 0.3f);
 
 		// bounce
 		velocity = velocity.reflect(hit.normal) * 0.5f;
@@ -4760,7 +4760,7 @@ void Tram::set_position()
 
 void Tram::player_entered(Entity* e)
 {
-	if (e->has<Parkour>())
+	if (e->has<Parkour>() && e->get<Parkour>()->fsm.current != Parkour::State::Grapple)
 	{
 		if (departing && doors_open()) // close doors and depart
 		{

@@ -4006,12 +4006,10 @@ Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot, s8 gamep
 		movement.z = gamepad_movement.y;
 	}
 
-	r32 length_squared = movement.length_squared();
-	if (length_squared > 1.0f)
-		movement /= sqrtf(length_squared);
-
 	movement = rot * movement;
-	return movement;
+
+	r32 length_sq = movement.length_squared();
+	return length_sq < 1.0f ? movement : movement / sqrtf(length_sq);
 }
 
 b8 PlayerControlHuman::local() const
@@ -4066,10 +4064,7 @@ PlayerControlHuman::RemoteControl PlayerControlHuman::remote_control_get(const U
 	control.movement = movement_enabled() ? get_movement(u, get<PlayerCommon>()->look(), player.ref()->gamepad) : Vec3::zero;
 	Transform* t = get<Transform>();
 	control.pos = t->pos;
-	if (has<Parkour>())
-		control.rot = Quat::euler(0, get<Walker>()->target_rotation, 0);
-	else
-		control.rot = t->rot;
+	control.rot = t->rot;
 	control.parent = t->parent;
 	return control;
 }
@@ -4634,56 +4629,59 @@ void PlayerControlHuman::update(const Update& u)
 					flag(FlagTryPrimary, false);
 			}
 
-			// spot
-			if (u.input->get(Controls::Spot, gamepad)
-				&& !u.last_input->get(Controls::Spot, gamepad))
+			if (movement_enabled())
 			{
-				PlayerControlHumanNet::Message msg;
-				msg.type = PlayerControlHumanNet::Message::Type::Spot;
-				msg.dir = camera->rot * Vec3(0, 0, 1);
-				msg.target = camera->pos;
-				get<Transform>()->absolute(&msg.pos, &msg.rot);
-				PlayerControlHumanNet::send(this, &msg);
-			}
-
-			if (reticle.type == ReticleType::None || !get<Drone>()->cooldown_can_shoot())
-			{
-				// can't shoot
-				if (u.input->get(Controls::Primary, gamepad)) // player is mashing the fire button; give them some feedback
-				{
-					if (reticle.type == ReticleType::Dash)
-						reticle.type = ReticleType::DashError;
-					else
-						reticle.type = ReticleType::Error;
-				}
-			}
-			else
-			{
-				// we're aiming at something
-				if (flag(FlagTryPrimary) && camera_shake_timer < 0.1f) // don't go anywhere if the camera is shaking wildly
+				// spot
+				if (u.input->get(Controls::Spot, gamepad)
+					&& !u.last_input->get(Controls::Spot, gamepad))
 				{
 					PlayerControlHumanNet::Message msg;
-					msg.dir = Vec3::normalize(reticle.pos - get<Transform>()->absolute_pos());
+					msg.type = PlayerControlHumanNet::Message::Type::Spot;
+					msg.dir = camera->rot * Vec3(0, 0, 1);
+					msg.target = camera->pos;
 					get<Transform>()->absolute(&msg.pos, &msg.rot);
-					if (reticle.type == ReticleType::DashCombo || reticle.type == ReticleType::DashTarget)
+					PlayerControlHumanNet::send(this, &msg);
+				}
+
+				if (reticle.type == ReticleType::None || !get<Drone>()->cooldown_can_shoot())
+				{
+					// can't shoot
+					if (u.input->get(Controls::Primary, gamepad)) // player is mashing the fire button; give them some feedback
 					{
-						msg.type = PlayerControlHumanNet::Message::Type::DashCombo;
-						msg.target = reticle.pos;
-						PlayerControlHumanNet::send(this, &msg);
+						if (reticle.type == ReticleType::Dash)
+							reticle.type = ReticleType::DashError;
+						else
+							reticle.type = ReticleType::Error;
 					}
-					else if (reticle.type == ReticleType::Dash)
+				}
+				else
+				{
+					// we're aiming at something
+					if (flag(FlagTryPrimary) && camera_shake_timer < 0.1f) // don't go anywhere if the camera is shaking wildly
 					{
-						msg.type = PlayerControlHumanNet::Message::Type::Dash;
-						PlayerControlHumanNet::send(this, &msg);
-					}
-					else
-					{
-						msg.ability = get<Drone>()->current_ability;
-						if (msg.ability == Ability::None
-							|| (player.ref()->get<PlayerManager>()->ability_valid(msg.ability) && (msg.ability != Ability::Bolter || get<Drone>()->bolter_can_fire())))
+						PlayerControlHumanNet::Message msg;
+						msg.dir = Vec3::normalize(reticle.pos - get<Transform>()->absolute_pos());
+						get<Transform>()->absolute(&msg.pos, &msg.rot);
+						if (reticle.type == ReticleType::DashCombo || reticle.type == ReticleType::DashTarget)
 						{
-							msg.type = PlayerControlHumanNet::Message::Type::Go;
+							msg.type = PlayerControlHumanNet::Message::Type::DashCombo;
+							msg.target = reticle.pos;
 							PlayerControlHumanNet::send(this, &msg);
+						}
+						else if (reticle.type == ReticleType::Dash)
+						{
+							msg.type = PlayerControlHumanNet::Message::Type::Dash;
+							PlayerControlHumanNet::send(this, &msg);
+						}
+						else
+						{
+							msg.ability = get<Drone>()->current_ability;
+							if (msg.ability == Ability::None
+								|| (player.ref()->get<PlayerManager>()->ability_valid(msg.ability) && (msg.ability != Ability::Bolter || get<Drone>()->bolter_can_fire())))
+							{
+								msg.type = PlayerControlHumanNet::Message::Type::Go;
+								PlayerControlHumanNet::send(this, &msg);
+							}
 						}
 					}
 				}

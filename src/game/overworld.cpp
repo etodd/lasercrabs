@@ -1514,7 +1514,7 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 			{
 				if (!selected)
 					text.color = UI::color_default;
-				text.text(0, "%d/%d", s32(entry.max_players - entry.server_state.player_slots), s32(entry.max_players));
+				text.text(0, "%d/%d", vi_max(0, s32(entry.max_players - entry.server_state.player_slots)), s32(entry.max_players));
 				text.draw(params, pos + Vec2(panel_size.x * 0.91f, panel_size.y * 0.5f));
 			}
 
@@ -1687,7 +1687,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 		// column 1
 		{
-			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 12 + (details.config.game_type == GameType::Assault ? 1 : 0);
+			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 10 + (details.config.game_type == GameType::Assault ? 1 : 0);
 			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			if (details.state.level == AssetNull)
@@ -1711,7 +1711,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 				pos.y -= panel_size.y;
 
 				// players
-				text.text(0, _(strings::player_count), s32(details.config.max_players - details.state.player_slots), s32(details.config.max_players));
+				text.text(0, _(strings::player_count), vi_max(0, s32(details.config.max_players - details.state.player_slots)), s32(details.config.max_players));
 				text.draw(params, pos);
 
 				// ping
@@ -1781,19 +1781,29 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 
-			// drone shield
-			text.text(0, _(strings::drone_shield));
-			text.draw(params, pos);
-			value.text(0, "%d", s32(details.config.drone_shield));
-			value.draw(params, pos + Vec2(panel_size.x, 0));
-			pos.y -= panel_size.y;
-
 			// spawn delay
 			text.text(0, _(strings::spawn_delay));
 			text.draw(params, pos);
 			value.text(0, "%d", s32(details.config.spawn_delay));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
+
+			// start energy
+			text.text(0, _(strings::start_energy));
+			text.draw(params, pos);
+			value.text(0, "%d", s32(details.config.start_energy));
+			value.draw(params, pos + Vec2(panel_size.x, 0));
+			pos.y -= panel_size.y;
+
+			if (details.config.game_type == GameType::Assault)
+			{
+				// start energy attacker
+				text.text(0, _(strings::start_energy_attacker));
+				text.draw(params, pos);
+				value.text(0, "%d", s32(details.config.start_energy_attacker));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+			}
 
 			// enable minions
 			text.text(0, _(strings::enable_minions));
@@ -1823,23 +1833,20 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			value.text(0, _(details.config.game_type != GameType::CaptureTheFlag && details.config.enable_spawn_shields ? strings::on : strings::off));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
+		}
 
-			// start energy
-			text.text(0, _(strings::start_energy));
+		// column 2
+		pos = top + Vec2(panel_size.x + padding * 3.0f, 0);
+		{
+			s32 rows = 3 + details.config.levels.length;
+			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
+
+			// drone shield
+			text.text(0, _(strings::drone_shield));
 			text.draw(params, pos);
-			value.text(0, "%d", s32(details.config.start_energy));
+			value.text(0, "%d", s32(details.config.drone_shield));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
-
-			if (details.config.game_type == GameType::Assault)
-			{
-				// start energy attacker
-				text.text(0, _(strings::start_energy_attacker));
-				text.draw(params, pos);
-				value.text(0, "%d", s32(details.config.start_energy_attacker));
-				value.draw(params, pos + Vec2(panel_size.x, 0));
-				pos.y -= panel_size.y;
-			}
 
 			{
 				// cooldown speed
@@ -1849,13 +1856,6 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 				value.draw(params, pos + Vec2(panel_size.x, 0));
 				pos.y -= panel_size.y;
 			}
-		}
-
-		// column 2
-		pos = top + Vec2(panel_size.x + padding * 3.0f, 0);
-		{
-			s32 rows = 1 + details.config.levels.length;
-			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			// levels
 			if (details.config.levels.length > 0)

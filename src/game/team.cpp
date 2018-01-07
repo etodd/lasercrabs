@@ -139,7 +139,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_force_field,
-		125,
+		150,
 		Type::Build,
 	},
 	{

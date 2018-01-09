@@ -1975,6 +1975,7 @@ namespace Master
 						{
 							// if we have a secret, ignore the requested ID and find the server with the given secret
 							sqlite3_stmt* stmt = db_query("select id from ServerConfig where secret=? limit 1;");
+							db_bind_text(stmt, 0, secret);
 							if (db_step(stmt))
 								requested_server_id = u32(db_column_int(stmt, 0));
 							else

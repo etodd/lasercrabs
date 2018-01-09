@@ -214,6 +214,25 @@ const char* ServerConfig::game_type_string(GameType type)
 	}
 }
 
+const char* ServerConfig::game_type_string_human(GameType type)
+{
+	switch (type)
+	{
+		case GameType::Deathmatch:
+			return "DM";
+			break;
+		case GameType::Assault:
+			return "Assault";
+			break;
+		case GameType::CaptureTheFlag:
+			return "CTF";
+			break;
+		default:
+			vi_assert(false);
+			return nullptr;
+	}
+}
+
 
 }
 

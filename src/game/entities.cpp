@@ -2773,7 +2773,7 @@ void Bolt::hit_entity(const Hit& hit)
 			{
 				damage = 1;
 				if (reflected)
-					damage = 11;
+					damage = 12;
 				break;
 			}
 			default:

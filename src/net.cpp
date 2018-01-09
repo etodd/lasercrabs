@@ -3274,6 +3274,7 @@ struct StateClient
 	r32 server_rtt = 0.15f;
 	r32 rtts[MAX_PLAYERS];
 	u32 requested_server_id;
+	char requested_server_secret[MAX_SERVER_CONFIG_SECRET + 1];
 	MessageHistory msgs_in_history; // messages we've received from the server
 	MessageHistory msgs_in_load_history; // load messages we've received from the server
 	Ack server_ack = { u32(-1), NET_SEQUENCE_INVALID }; // most recent ack we've received from the server
@@ -3886,6 +3887,9 @@ b8 master_send_server_request()
 	}
 	else
 	{
+		s32 secret_length = strlen(state_client.requested_server_secret);
+		serialize_int(&p, s32, secret_length, 0, MAX_SERVER_CONFIG_SECRET);
+		serialize_bytes(&p, (u8*)state_client.requested_server_secret, secret_length);
 		s8 local_players = Game::session.local_player_count();
 		serialize_int(&p, s8, local_players, 1, MAX_GAMEPADS);
 	}
@@ -3894,7 +3898,7 @@ b8 master_send_server_request()
 	return true;
 }
 
-b8 master_request_server(u32 id, AssetID level, StoryModeTeam story_mode_team)
+b8 master_request_server(u32 id, const char* secret, AssetID level, StoryModeTeam story_mode_team)
 {
 	vi_assert((id == 0) == (level != AssetNull));
 
@@ -3903,6 +3907,9 @@ b8 master_request_server(u32 id, AssetID level, StoryModeTeam story_mode_team)
 
 	state_client.timeout = 0.0f;
 	state_client.mode = Mode::ContactingMaster;
+	memset(state_client.requested_server_secret, 0, sizeof(state_client.requested_server_secret));
+	if (secret)
+		strncpy(state_client.requested_server_secret, secret, MAX_SERVER_CONFIG_SECRET);
 	state_client.requested_server_id = id;
 	state_client.requested_level = level;
 	state_client.requested_story_mode_team = story_mode_team;

@@ -21,3 +21,4 @@ __pycache__
 /x64/
 *.cache
 /src/asset/version.h
+/thirdparty

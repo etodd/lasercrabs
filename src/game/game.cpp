@@ -51,7 +51,9 @@
 #include "asset/version.h"
 #if !SERVER && !defined(__ORBIS__)
 #include "steam/steam_api.h"
+#include "discord/include/discord-rpc.h"
 #endif
+#include "data/unicode.h"
 
 #if DEBUG
 	#define DEBUG_WALK_NAV_MESH 0
@@ -236,6 +238,57 @@ Array<UpdateFunction> Game::updates;
 Array<DrawFunction> Game::draws;
 Array<CleanupFunction> Game::cleanups;
 
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
+#if !SERVER && !defined(__ORBIS__)
+char discord_match_secret[MAX_SERVER_CONFIG_SECRET + 1];
+r64 discord_presence_time;
+
+void discord_ready()
+{
+}
+
+void discord_join_game(const char* secret)
+{
+	strncpy(discord_match_secret, secret, MAX_SERVER_CONFIG_SECRET);
+}
+
+void discord_update_presence()
+{
+	discord_presence_time = Game::platform_time;
+
+	DiscordRichPresence p;
+	memset(&p, 0, sizeof(p));
+	char details[256] = {};
+	char party_id[32] = {};
+	if (Game::level.mode == Game::Mode::Special)
+	{
+		if (Game::session.type == SessionType::Multiplayer)
+			p.state = "In Lobby";
+		else
+			p.state = "In Menus";
+	}
+	else
+	{
+		if (Game::session.type == SessionType::Story)
+			p.state = "Playing Story";
+		else
+		{
+			p.state = "In Game";
+			snprintf(details, 255, "%s | %s", Net::Master::ServerConfig::game_type_string_human(Game::session.config.game_type), Loader::level_name(Game::level.id));
+			p.details = details;
+			snprintf(party_id, 32, "%u", Game::session.config.id);
+			p.partyId = party_id;
+			p.joinSecret = Game::session.config.secret;
+			p.partySize = PlayerHuman::list.count();
+			p.partyMax = Game::session.config.max_players;
+		}
+	}
+	Discord_UpdatePresence(&p);
+}
+#endif
+
 void Game::init(LoopSync* sync)
 {
 #if !SERVER && !defined(__ORBIS__)
@@ -245,6 +298,14 @@ void Game::init(LoopSync* sync)
 			quit = true;
 		else if (!SteamAPI_Init())
 			vi_assert(false);
+	}
+
+	{
+		DiscordEventHandlers handlers;
+		memset(&handlers, 0, sizeof(handlers));
+		handlers.joinGame = discord_join_game;
+		handlers.ready = discord_ready;
+		Discord_Initialize(DISCORD_APP_ID, &handlers, 1, auth_type == Net::Master::AuthType::Steam ? TOSTRING(STEAM_APP_ID) : nullptr);
 	}
 #endif
 
@@ -347,6 +408,22 @@ void Game::auth_failed()
 
 void Game::update(InputState* input, const InputState* last_input)
 {
+#if !SERVER && !defined(__ORBIS__)
+	Discord_UpdateConnection();
+	Discord_RunCallbacks();
+
+	if (user_key.id && discord_match_secret[0])
+	{
+		// we're logged in, and we're supposed to be joining a discord match
+		unload_level();
+		Net::Client::master_request_server(1, discord_match_secret);
+		discord_match_secret[0] = '\0';
+	}
+
+	if (platform_time - discord_presence_time > 1.0)
+		discord_update_presence();
+#endif
+
 	UI::update();
 
 	{
@@ -732,6 +809,7 @@ void Game::term()
 #if !SERVER && !defined(__ORBIS__)
 	if (auth_type == Net::Master::AuthType::Steam)
 		SteamAPI_Shutdown();
+	Discord_Shutdown();
 #endif
 }
 
@@ -1257,7 +1335,7 @@ void Game::execute(const char* cmd)
 		{
 			unload_level();
 			save.reset();
-			Net::Client::master_request_server(0, level); // 0 = story mode
+			Net::Client::master_request_server(0, nullptr, level); // 0 = story mode
 		}
 	}
 	else if (!level.local && Net::Client::mode() == Net::Client::Mode::Connected)
@@ -2504,6 +2582,10 @@ void Game::awake_all()
 	Team::awake_all();
 
 	Loader::nav_mesh(level.id, session.config.game_type);
+
+#if !SERVER && !defined(__ORBIS__)
+	discord_update_presence();
+#endif
 }
 
 

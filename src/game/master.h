@@ -165,9 +165,12 @@ template<typename Stream> b8 serialize_server_list_entry(Stream* p, ServerListEn
 	return true;
 }
 
+#define MAX_SERVER_CONFIG_SECRET 127
+
 struct ServerConfig
 {
 	static const char* game_type_string(GameType);
+	static const char* game_type_string_human(GameType);
 
 	u32 id;
 	u32 creator_id;
@@ -190,6 +193,7 @@ struct ServerConfig
 	u8 time_limit_minutes[s32(GameType::count)] = { 6, 10, 10 }; // Assault, Deathmatch, CaptureTheFlag
 	u8 cooldown_speed_index = 4; // multiply by 0.25 to get actual value
 	char name[MAX_SERVER_CONFIG_NAME + 1];
+	char secret[MAX_SERVER_CONFIG_SECRET + 1];
 	b8 enable_minions = true;
 	b8 enable_batteries = true;
 	b8 enable_battery_stealth = true;
@@ -239,13 +243,24 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		for (s32 i = 0; i < s32(GameType::count); i++)
 			serialize_int(p, u8, c->time_limit_minutes[i], 1, 254);
 		serialize_int(p, u8, c->cooldown_speed_index, 1, COOLDOWN_SPEED_MAX_INDEX);
-		s32 name_length;
-		if (Stream::IsWriting)
-			name_length = s32(strlen(c->name));
-		serialize_int(p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
-		serialize_bytes(p, (u8*)c->name, name_length);
-		if (Stream::IsReading)
-			c->name[name_length] = '\0';
+		{
+			s32 name_length;
+			if (Stream::IsWriting)
+				name_length = s32(strlen(c->name));
+			serialize_int(p, s32, name_length, 0, MAX_SERVER_CONFIG_NAME);
+			serialize_bytes(p, (u8*)c->name, name_length);
+			if (Stream::IsReading)
+				c->name[name_length] = '\0';
+		}
+		{
+			s32 secret_length;
+			if (Stream::IsWriting)
+				secret_length = s32(strlen(c->secret));
+			serialize_int(p, s32, secret_length, 0, MAX_SERVER_CONFIG_SECRET);
+			serialize_bytes(p, (u8*)c->secret, secret_length);
+			if (Stream::IsReading)
+				c->secret[secret_length] = '\0';
+		}
 		serialize_bool(p, c->enable_minions);
 		serialize_bool(p, c->enable_batteries);
 		serialize_bool(p, c->enable_battery_stealth);

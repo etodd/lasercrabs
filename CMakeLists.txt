@@ -538,11 +538,20 @@ if (CLIENT)
 		)
 		#enable_unity_build(deceiver SRC_CLIENT)
 		add_executable(deceiver ${SRC_CLIENT})
+
+		## discord
+		set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+		set(ENABLE_IO_THREAD OFF CACHE BOOL "" FORCE)
+		set(USE_STATIC_CRT ON CACHE BOOL "" FORCE)
+		add_subdirectory(external/discord)
+
 		target_include_directories(deceiver PRIVATE
 			${SDL2_BINARY_DIR}/include
 			external/curl/include
 			${CMAKE_CURRENT_BINARY_DIR}/external/curl/include/curl
 		)
+
+		target_link_libraries(deceiver discord-rpc)
 	endif()
 
 	add_custom_command(

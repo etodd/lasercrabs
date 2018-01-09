@@ -594,6 +594,7 @@ namespace Master
 		config->start_energy_attacker = s16(Json::get_s32(json, "start_energy_attacker", defaults.start_energy_attacker));
 		config->cooldown_speed_index = u8(Json::get_s32(json, "cooldown_speed_index", defaults.cooldown_speed_index));
 		config->fill_bots = s8(Json::get_s32(json, "fill_bots", defaults.fill_bots));
+		strncpy(config->secret, Json::get_string(json, "secret", ""), MAX_SERVER_CONFIG_SECRET);
 		cJSON_Delete(json);
 	}
 
@@ -670,7 +671,7 @@ namespace Master
 	{
 		config->id = id;
 		vi_assert(id > 0);
-		sqlite3_stmt* stmt = db_query("select name, config, max_players, team_count, game_type, creator_id, is_private, region from ServerConfig where id=?;");
+		sqlite3_stmt* stmt = db_query("select name, config, max_players, team_count, game_type, creator_id, is_private, region, secret from ServerConfig where id=?;");
 		db_bind_int(stmt, 0, id);
 		b8 found = false;
 		if (db_step(stmt))
@@ -684,6 +685,7 @@ namespace Master
 			config->creator_id = u32(db_column_int(stmt, 5));
 			config->is_private = b8(db_column_int(stmt, 6));
 			config->region = Region(db_column_int(stmt, 7));
+			strncpy(config->secret, db_column_text(stmt, 8), MAX_SERVER_CONFIG_SECRET);
 			found = true;
 		}
 		db_finalize(stmt);
@@ -1793,6 +1795,16 @@ namespace Master
 			return 'A' + char(c - 10);
 	}
 
+	void server_config_generate_secret(char secret[MAX_SERVER_CONFIG_SECRET + 1])
+	{
+		char data[MAX_SERVER_CONFIG_SECRET + 1];
+		for (s32 i = 0; i < MAX_SERVER_CONFIG_SECRET; i++)
+			data[i] = char(mersenne::rand() % 256);
+		data[MAX_SERVER_CONFIG_SECRET] = '\0';
+		memset(secret, 0, sizeof(secret));
+		sha1::hash(data, secret);
+	}
+
 	b8 packet_handle(StreamRead* p, const Sock::Address& addr)
 	{
 		using Stream = StreamRead;
@@ -1951,7 +1963,24 @@ namespace Master
 					}
 					else // multiplayer
 					{
+						char secret[MAX_SERVER_CONFIG_SECRET + 1];
+						s32 secret_length;
+						serialize_int(p, s32, secret_length, 0, MAX_SERVER_CONFIG_SECRET);
+						serialize_bytes(p, (u8*)secret, secret_length);
+						secret[secret_length] = '\0';
+
 						serialize_int(p, s8, node->server_state.player_slots, 1, MAX_GAMEPADS);
+
+						if (secret_length > 0)
+						{
+							// if we have a secret, ignore the requested ID and find the server with the given secret
+							sqlite3_stmt* stmt = db_query("select id from ServerConfig where secret=? limit 1;");
+							if (db_step(stmt))
+								requested_server_id = u32(db_column_int(stmt, 0));
+							else
+								net_error();
+							db_finalize(stmt);
+						}
 
 						// check if requested config exists, and find out whether it is private and what region it should be launched in
 						sqlite3_stmt* stmt = db_query("select is_private, region from ServerConfig where id=? limit 1;");
@@ -1965,7 +1994,12 @@ namespace Master
 							// check if user has privileges on this server
 							Role role = user_role(node->client.user_key.id, requested_server_id);
 							if (role == Role::Banned || (role == Role::None && is_private))
-								net_error();
+							{
+								if (secret_length > 0) // they have an invite
+									update_user_server_linkage(node->client.user_key.id, requested_server_id, Role::Allowed);
+								else
+									net_error();
+							}
 
 							node->server_state.region = region;
 						}
@@ -2053,7 +2087,9 @@ namespace Master
 				if (create_new)
 				{
 					// create config in db
-					sqlite3_stmt* stmt = db_query("insert into ServerConfig (creator_id, name, config, max_players, team_count, game_type, is_private, online, region, plays, score) values (?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?);");
+					server_config_generate_secret(config.secret);
+
+					sqlite3_stmt* stmt = db_query("insert into ServerConfig (creator_id, name, config, max_players, team_count, game_type, is_private, online, region, plays, score, secret) values (?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?);");
 					db_bind_int(stmt, 0, node->client.user_key.id);
 					db_bind_text(stmt, 1, config.name);
 					char* json = server_config_stringify(config);
@@ -2065,6 +2101,7 @@ namespace Master
 					db_bind_int(stmt, 6, config.is_private);
 					db_bind_int(stmt, 7, s64(config.region));
 					db_bind_int(stmt, 8, server_config_score(0, platform::timestamp()));
+					db_bind_text(stmt, 9, config.secret);
 					config_id = u32(db_exec(stmt));
 
 					// give friends access to new server
@@ -2085,7 +2122,23 @@ namespace Master
 					// check if the user actually has privileges to edit it
 					if (user_role(node->client.user_key.id, config.id) != Role::Admin)
 						net_error();
-					sqlite3_stmt* stmt = db_query("update ServerConfig set name=?, config=?, max_players=?, team_count=?, game_type=?, is_private=?, region=? where id=?;");
+					
+					if (config.is_private)
+					{
+						// check if we need to generate a new secret
+						sqlite3_stmt* stmt = db_query("select is_private from ServerConfig where id=?;");
+						db_bind_int(stmt, 0, config.id);
+						if (db_step(stmt))
+						{
+							b8 previously_private = b8(db_column_int(stmt, 0));
+							if (!previously_private)
+								server_config_generate_secret(config.secret);
+						}
+						else // config doesn't exist
+							net_error();
+					}
+
+					sqlite3_stmt* stmt = db_query("update ServerConfig set name=?, config=?, max_players=?, team_count=?, game_type=?, is_private=?, region=?, secret=? where id=?;");
 					db_bind_text(stmt, 0, config.name);
 					char* json = server_config_stringify(config);
 					db_bind_text(stmt, 1, json);
@@ -2095,7 +2148,8 @@ namespace Master
 					db_bind_int(stmt, 4, s32(config.game_type));
 					db_bind_int(stmt, 5, config.is_private);
 					db_bind_int(stmt, 6, s64(config.region));
-					db_bind_int(stmt, 7, config.id);
+					db_bind_text(stmt, 7, config.secret);
+					db_bind_int(stmt, 8, config.id);
 					db_exec(stmt);
 					config_id = config.id;
 				}
@@ -2289,7 +2343,7 @@ namespace Master
 			if (init_db)
 			{
 				db_exec("create table User (id integer primary key autoincrement, token integer not null, token_timestamp integer not null, itch_id integer, steam_id integer, gamejolt_id integer, username varchar(256) not null, banned boolean not null, vip boolean not null, completed_campaign boolean not null, unique(itch_id), unique(steam_id));");
-				db_exec("create table ServerConfig (id integer primary key autoincrement, creator_id integer not null, name text not null, config text, max_players integer not null, team_count integer not null, game_type integer not null, is_private boolean not null, online boolean not null, region integer not null, plays integer not null, score integer not null, foreign key (creator_id) references User(id));");
+				db_exec("create table ServerConfig (id integer primary key autoincrement, creator_id integer not null, name text not null, config text, max_players integer not null, team_count integer not null, game_type integer not null, is_private boolean not null, online boolean not null, region integer not null, plays integer not null, score integer not null, secret text not null, foreign key (creator_id) references User(id));");
 				db_exec("create table UserServer (user_id integer not null, server_id integer not null, timestamp integer not null, role integer not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id), primary key (user_id, server_id));");
 				db_exec("create table Friendship (user1_id integer not null, user2_id integer not null, foreign key (user1_id) references User(id), foreign key (user2_id) references User(id), primary key (user1_id, user2_id));");
 				db_exec("create table AuthAttempt (timestamp integer not null, type integer not null, ip text not null, user_id integer, foreign key (user_id) references User(id));");
@@ -3031,27 +3085,29 @@ namespace DiscordBot
 					s64 timestamp = s64(platform::timestamp());
 					while (db_step(stmt))
 					{
-						s64 start = db_column_int(stmt, 0);
-						s64 end = db_column_int(stmt, 1);
+						s64 start = db_column_int(stmt, 0) + offset_seconds;
+						s64 end = db_column_int(stmt, 1) + offset_seconds;
 
 						std::tm tm;
 
 						char start_str[129] = {};
-						if (start < timestamp)
+						if (start < timestamp + offset_seconds)
 							strcpy(start_str, "Now");
 						else
 						{
-							start += offset_seconds;
 							tm = *localtime((const time_t*)(&start));
 							strftime(start_str, 128, "%A %I:%M%p", &tm);
 						}
 
-						char end_str[129] = {};
-						end += offset_seconds;
-						tm = *localtime((const time_t*)(&end));
-						strftime(end_str, 128, "%A %I:%M%p", &tm);
-
-						response << start_str << " - " << end_str << "\n";
+						if (end > start + 3600) // more than an hour
+						{
+							char end_str[129] = {};
+							tm = *localtime((const time_t*)(&end));
+							strftime(end_str, 128, "%A %I:%M%p", &tm);
+							response << start_str << " - " << end_str << "\n";
+						}
+						else
+							response << start_str << "\n";
 
 						has_entry = true;
 					}

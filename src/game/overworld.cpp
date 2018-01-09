@@ -2085,7 +2085,7 @@ void go(AssetID zone)
 		// connect to a server
 #if !SERVER
 		Game::unload_level();
-		Net::Client::master_request_server(0, zone, Game::save.zones[zone] == ZoneState::PvpFriendly ? StoryModeTeam::Defend : StoryModeTeam::Attack); // 0 = story mode
+		Net::Client::master_request_server(0, nullptr, zone, Game::save.zones[zone] == ZoneState::PvpFriendly ? StoryModeTeam::Defend : StoryModeTeam::Attack); // 0 = story mode
 #endif
 	}
 }

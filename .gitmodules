@@ -40,3 +40,6 @@
 [submodule "external/sha1"]
 	path = external/sha1
 	url = git@github.com:etodd/sha1.git
+[submodule "external/discord"]
+	path = external/discord
+	url = git@github.com:etodd/discord-rpc.git

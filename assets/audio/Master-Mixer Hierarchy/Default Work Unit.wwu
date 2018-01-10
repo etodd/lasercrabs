@@ -11,7 +11,6 @@
 							</ValueList>
 						</Property>
 					</PropertyList>
-					<ReferenceList/>
 					<ChildrenList>
 						<Bus Name="Music" ID="{7964C80C-6C7B-447F-AF8B-6C14A891BF66}">
 							<PropertyList>
@@ -86,7 +85,6 @@
 									</ValueList>
 								</Property>
 							</PropertyList>
-							<ReferenceList/>
 							<ChildrenList>
 								<Bus Name="Dialogue" ID="{E8A73A5E-056C-46B8-875C-9658C99452FC}">
 									<PropertyList>
@@ -285,8 +283,8 @@
 										<DuckItem>
 											<BusRef Name="ParkourBreathing" ID="{3B4B3BBF-C360-4A32-8F20-AD80BA15F5E1}"/>
 											<DuckingParam>
-												<Volume>-6</Volume>
-												<FadeInTime>0.200000002980232</FadeInTime>
+												<Volume>-96</Volume>
+												<FadeInTime>0.100000001490116</FadeInTime>
 												<FadeOutTime>1</FadeOutTime>
 												<FadeCurve>FadeLinear</FadeCurve>
 											</DuckingParam>
@@ -300,6 +298,7 @@
 												<Value>100</Value>
 											</ValueList>
 										</Property>
+										<Property Name="RecoveryTime" Type="Real64" Value="2"/>
 									</PropertyList>
 								</Bus>
 							</ChildrenList>

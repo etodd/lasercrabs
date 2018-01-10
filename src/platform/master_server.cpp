@@ -3004,7 +3004,7 @@ namespace DiscordBot
 				else
 				{
 					std::ostringstream response;
-					response << "<@!" << author_id << "> Set your local time first using !time.";
+					response << "<@!" << author_id << "> First set your local time like this: !time 7pm";
 					msg_post(response.str().c_str());
 				}
 			}
@@ -3066,11 +3066,11 @@ namespace DiscordBot
 			{
 				std::ostringstream response;
 				response << "<@!" << author_id << ">\n" <<
-					"!play - indicate you want to play now\n"
-					"!play <time range> - indicate desired play time, ex: Tue 2pm-3pm\n"
-					"!time <time> - set your local time zone\n"
+					"!play - indicate you want to play now!\n"
+					"!play <time range> - indicate desired play time, ex: !play Tue 2pm-3pm\n"
+					"!time <time> - set your local time, ex: !time 7pm\n"
 					"!clear - clear play times\n"
-					"!stats - see who's online\n"
+					"!stats - see who's playing\n"
 					"!schedule - see when people are playing\n";
 				msg_post(response.str().c_str());
 			}

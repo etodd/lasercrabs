@@ -441,7 +441,7 @@ void AudioEntry::update(r32 dt)
 	}
 
 	AkSoundPosition sound_position;
-	sound_position.SetPosition(abs_pos.x, abs_pos.y, abs_pos.z);
+	sound_position.SetPosition(-abs_pos.x, abs_pos.y, abs_pos.z);
 	sound_position.SetOrientation(0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f);
 	AK::SoundEngine::SetPosition(ak_id(), sound_position);
 }
@@ -663,10 +663,10 @@ void Audio::listener_update(s8 gamepad, const Vec3& pos, const Quat& rot)
 {
 	listener[gamepad].pos = pos;
 	AkListenerPosition listener_position;
-	listener_position.SetPosition(pos.x, pos.y, pos.z);
-	Vec3 forward = rot * Vec3(0, 0, -1);
+	listener_position.SetPosition(-pos.x, pos.y, pos.z);
+	Vec3 forward = rot * Vec3(0, 0, 1);
 	Vec3 up = rot * Vec3(0, 1, 0);
-	listener_position.SetOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
+	listener_position.SetOrientation(-forward.x, forward.y, forward.z, -up.x, up.y, up.z);
 	AK::SoundEngine::SetPosition(listener_id(gamepad), listener_position);
 }
 

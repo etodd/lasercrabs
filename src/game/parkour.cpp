@@ -39,7 +39,7 @@ namespace VI
 
 #define TILE_CREATE_RADIUS 4.5f
 
-#define ANIMATION_SPEED_MULTIPLIER 2.2f
+#define ANIMATION_SPEED_MULTIPLIER 2.1f
 
 Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 {

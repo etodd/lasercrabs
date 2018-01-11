@@ -368,10 +368,11 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 				result = 3;
 			else if (dot < -0.8f)
 				result = 2;
-			if (target_shield->has<Turret>()
+			if (target_shield->has<Rectifier>())
+				result *= 2;
+			else if (target_shield->has<Turret>()
 				|| target_shield->has<ForceField>()
-				|| target_shield->has<ForceFieldCollision>()
-				|| target_shield->has<Rectifier>())
+				|| target_shield->has<ForceFieldCollision>())
 				result = (result * 2) + 2;
 		}
 		else
@@ -384,9 +385,6 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 		}
 	}
 
-	if (target_shield->has<Rectifier>() && result >= target_shield->get<Health>()->shield)
-		result = DRONE_SHIELD_AMOUNT + RECTIFIER_HEALTH; // rectifiers are one hit kills once the shield is down
-	
 	return result;
 }
 

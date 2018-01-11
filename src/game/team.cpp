@@ -121,7 +121,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_rectifier,
-		40,
+		50,
 		Type::Build,
 	},
 	{

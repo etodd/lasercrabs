@@ -1727,7 +1727,7 @@ CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3&
 	transform->parent = parent;
 	transform->absolute(pos, rot);
 
-	create<Health>(20, 20, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
+	create<Health>(CORE_MODULE_HEALTH, CORE_MODULE_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::core_module;
@@ -3444,10 +3444,14 @@ void Grenade::explode()
 					if (distance < GRENADE_RANGE)
 						i.item()->damage(entity(), 10);
 				}
-				else if (i.item()->has<ForceField>() && i.item()->get<ForceField>()->team != my_team)
+				else if (i.item()->has<ForceField>())
 				{
-					if (distance < GRENADE_RANGE)
+					if (distance < GRENADE_RANGE && i.item()->get<ForceField>()->team != my_team)
 						i.item()->damage(entity(), 11);
+				}
+				else if (i.item()->has<Grenade>() && i.item()->get<Grenade>()->team() == my_team)
+				{
+					// don't damage friendly grenades (no chain reaction)
 				}
 				else
 				{

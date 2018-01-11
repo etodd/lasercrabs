@@ -97,7 +97,7 @@
 				</Attenuation>
 				<Attenuation Name="Drone_Perspective_01" ID="{A382FC13-692F-413C-B3F3-537600DAC1C4}" ShortID="51572763">
 					<PropertyList>
-						<Property Name="RadiusMax" Type="Real64" Value="30"/>
+						<Property Name="RadiusMax" Type="Real64" Value="28"/>
 					</PropertyList>
 					<CurveUsageInfoList>
 						<VolumeDryUsage>
@@ -114,7 +114,7 @@
 											<SegmentShape>Log1</SegmentShape>
 										</Point>
 										<Point>
-											<XPos>30</XPos>
+											<XPos>28</XPos>
 											<YPos>-200</YPos>
 											<Flags>37</Flags>
 										</Point>
@@ -147,17 +147,17 @@
 											<Flags>5</Flags>
 										</Point>
 										<Point>
-											<XPos>1.49997</XPos>
+											<XPos>1.399972</XPos>
 											<YPos>100</YPos>
 											<Flags>0</Flags>
 										</Point>
 										<Point>
-											<XPos>1.50117</XPos>
+											<XPos>1.401092</XPos>
 											<YPos>0</YPos>
 											<Flags>0</Flags>
 										</Point>
 										<Point>
-											<XPos>30</XPos>
+											<XPos>28</XPos>
 											<YPos>0</YPos>
 											<Flags>37</Flags>
 										</Point>

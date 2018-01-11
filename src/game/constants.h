@@ -2,7 +2,7 @@
 
 #define RELEASE_BUILD 1
 
-#define MAX_PLAYERS 16
+#define MAX_PLAYERS 12
 
 #define MAX_GAMEPADS 4
 
@@ -114,7 +114,6 @@
 #define DRONE_RADIUS 0.2f
 #define DRONE_VERTICAL_DOT_LIMIT 0.9998f
 #define DRONE_VERTICAL_ANGLE_LIMIT ((PI * 0.5f) - 0.021f)
-#define DRONE_GRACE_PERIOD 0.15f // period after launching where drone is still vulnerable
 
 #define DRONE_HEALTH 1
 #define DRONE_SHIELD_AMOUNT 2

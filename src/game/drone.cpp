@@ -30,7 +30,6 @@ namespace VI
 
 #define LERP_ROTATION_SPEED 10.0f
 #define LERP_TRANSLATION_SPEED 4.0f
-#define MAX_FLIGHT_TIME (DRONE_SNIPE_DISTANCE / DRONE_FLY_SPEED)
 #define DRONE_LEG_LENGTH (0.277f - 0.101f)
 #define DRONE_LEG_BLEND_SPEED (1.0f / 0.03f)
 #define DRONE_MIN_LEG_BLEND_SPEED (DRONE_LEG_BLEND_SPEED * 0.1f)
@@ -319,7 +318,8 @@ void sniper_hit_effects(const Drone::Hit& hit)
 
 s32 impact_damage(const Drone* drone, const Entity* target_shield)
 {
-	if (target_shield->has<Drone>() && target_shield->get<AIAgent>()->team == drone->get<AIAgent>()->team)
+	if (target_shield->has<Drone>()
+		&& (target_shield->get<Drone>()->state() != Drone::State::Crawl || target_shield->get<AIAgent>()->team == drone->get<AIAgent>()->team))
 		return 0;
 
 	Vec3 ray_dir;
@@ -361,17 +361,6 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 	{
 		Vec3 intersection_dir = Vec3::normalize(intersection - target_pos);
 		r32 dot = intersection_dir.dot(ray_dir);
-
-		if (target_shield->has<Drone>())
-		{
-			Drone* target_drone = target_shield->get<Drone>();
-			if (target_drone->state() != Drone::State::Crawl)
-			{
-				// drone is flying or dashing, but it must be within DRONE_GRACE_PERIOD or can_take_damage() would have returned false
-				if (intersection_dir.dot(target_rot * Vec3(0, 0, 1)) > 0.0f) // drone is flying towards us; bounce off
-					return 0;
-			}
-		}
 
 		if (drone->current_ability == Ability::Sniper)
 		{
@@ -1980,21 +1969,74 @@ void drone_reflection_execute(Drone* d)
 	d->reflections.remove_ordered(0);
 }
 
+void drone_environment_raycast(const Drone* drone, RaycastCallbackExcept* ray_callback, Drone::RaycastMode mode)
+{
+	s16 mask;
+	switch (mode)
+	{
+		case Drone::RaycastMode::Default:
+			mask = (CollisionStatic | CollisionAllTeamsForceField) & ~drone->ally_force_field_mask();
+			break;
+		case Drone::RaycastMode::IgnoreForceFields:
+			mask = CollisionStatic;
+			break;
+		default:
+		{
+			mask = 0;
+			vi_assert(false);
+			break;
+		}
+	}
+	Physics::raycast(ray_callback, mask);
+}
+
 void drone_dash_fly_simulate(Drone* d, r32 dt, Net::StateFrame* state_frame = nullptr)
 {
 	Drone::State s = d->state();
 
 	Vec3 position = d->get<Transform>()->absolute_pos();
 
-	if (s == Drone::State::Fly && btVector3(d->velocity).fuzzyZero() && d->reflections.length == 0) // HACK. why does this happen
+	if (s == Drone::State::Fly)
 	{
-		for (s32 i = 0; i < REFLECTION_TRIES; i++)
+		// we might enter an invalid state for various reasons while in flight
+		// in that case we should try and find a new direction to fly
+		b8 find_new_dir = false;
+
+		if (btVector3(d->velocity).fuzzyZero())
 		{
-			Vec3 candidate_dir = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1);
-			if (d->can_shoot(candidate_dir, nullptr, nullptr, state_frame))
+			// we're flying but have no velocity
+			// we could be waiting for a reflection to be confirmed...
+			if (d->reflections.length == 0)
+				find_new_dir = true; // apparently not. we're dead in the water.
+		}
+		else
+		{
+			// we're moving, but we might be heading somewhere we don't want to go
+			RaycastCallbackExcept ray_callback(position, position + Vec3::normalize(d->velocity) * DRONE_SNIPE_DISTANCE, d->entity());
+			drone_environment_raycast(d, &ray_callback, Drone::RaycastMode::IgnoreForceFields);
+			if (!ray_callback.hasHit() // heading toward empty space
+				|| (ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & CollisionInaccessible)) // heading toward inaccessible surface
+				find_new_dir = true;
+		}
+
+		if (find_new_dir)
+		{
+			b8 found = false;
+			for (s32 i = 0; i < REFLECTION_TRIES; i++)
 			{
-				d->velocity = candidate_dir * DRONE_FLY_SPEED;
-				break;
+				Vec3 candidate_dir = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1);
+				if (d->can_shoot(candidate_dir, nullptr, nullptr, state_frame))
+				{
+					d->velocity = candidate_dir * DRONE_FLY_SPEED;
+					found = true;
+					break;
+				}
+			}
+
+			if (!found) // couldn't find a new direction; kill self
+			{
+				d->get<Health>()->kill(d->entity());
+				return;
 			}
 		}
 	}
@@ -2565,16 +2607,7 @@ void Drone::update_server(const Update& u)
 	}
 
 	if (s != Drone::State::Crawl)
-	{
-		// flying or dashing
-		if (Game::level.local && u.time.total - attach_time > MAX_FLIGHT_TIME)
-		{
-			get<Health>()->kill(entity()); // kill self
-			return;
-		}
-
 		drone_dash_fly_simulate(this, u.time.delta);
-	}
 
 #if SERVER
 	for (s32 i = 0; i < reflections.length; i++)
@@ -2592,18 +2625,33 @@ void Drone::update_server(const Update& u)
 			vi_debug("%f remote reflection timed out without confirmation, executing anyway", Game::real_time.total);
 #endif
 			drone_reflection_execute(this); // automatically removes the reflection
+
+			// fast forward whatever amount of time we've been sitting here waiting on this reflection
+			drone_fast_forward(this, fast_forward);
 		}
 		else // we detected the hit locally, but the client never acknowledged it. ignore the reflection and keep going straight.
 		{
 #if DEBUG_REFLECTIONS
 			vi_debug("%f remote never confirmed local reflection, continuing as normal", Game::real_time.total);
 #endif
-			velocity = get<Transform>()->absolute_rot() * Vec3(0, 0, state() == State::Dash ? DRONE_DASH_SPEED : DRONE_FLY_SPEED); // restore original velocity
 			reflections.remove_ordered(0);
+			if (state() == State::Dash)
+			{
+				// can't restore original velocity
+				// i mean i could but i'd rather not add the complexity of saving it in another member variable
+				// instead just stop the dash
+				velocity = Vec3::zero;
+				dash_timer = 0.0f;
+				DroneNet::finish_dashing(this);
+			}
+			else
+			{
+				// restore original velocity
+				velocity = get<Transform>()->absolute_rot() * Vec3(0, 0, DRONE_FLY_SPEED);
+				// fast forward whatever amount of time we've been sitting here waiting on this reflection
+				drone_fast_forward(this, fast_forward);
+			}
 		}
-
-		// fast forward whatever amount of time we've been sitting here waiting on this reflection
-		drone_fast_forward(this, fast_forward);
 	}
 #else
 	// client
@@ -2926,25 +2974,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 	// check environment
 	{
 		RaycastCallbackExcept ray_callback(ray_start, ray_end, entity());
-		{
-			s16 mask;
-			switch (mode)
-			{
-				case RaycastMode::Default:
-					mask = (CollisionStatic | CollisionAllTeamsForceField) & ~ally_force_field_mask();
-					break;
-				case RaycastMode::IgnoreForceFields:
-					mask = CollisionStatic;
-					break;
-				default:
-				{
-					mask = 0;
-					vi_assert(false);
-					break;
-				}
-			}
-			Physics::raycast(&ray_callback, mask);
-		}
+		drone_environment_raycast(this, &ray_callback, mode);
 
 		if (ray_callback.hasHit())
 		{

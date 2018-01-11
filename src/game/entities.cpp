@@ -341,19 +341,6 @@ b8 Health::can_take_damage(Entity* damager) const
 			if (damager && damager->has<Bolt>()
 				&& (damager->get<Bolt>()->type == Bolt::Type::DroneBolter || damager->get<Bolt>()->type == Bolt::Type::DroneShotgun))
 				return true;
-
-			// there is also a grace period where we're still vulnerable to direct drone attacks
-
-			// lag compensation
-			r32 rtt = 0.0f;
-#if SERVER
-			if (damager && damager->has<PlayerControlHuman>() && !PlayerHuman::players_on_same_client(entity(), damager))
-				rtt = vi_min(NET_MAX_RTT_COMPENSATION, damager->get<PlayerControlHuman>()->rtt) + Net::interpolation_delay(damager->get<PlayerControlHuman>()->player.ref());
-#endif
-
-			if (damager && damager->has<Drone>() // grace period only applies if we're being attacked directly by an enemy drone
-				&& Game::time.total - get<Drone>()->attach_time < DRONE_GRACE_PERIOD + rtt)
-				return true; // still vulnerable
 			else
 				return false; // invincible
 		}

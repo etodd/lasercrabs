@@ -8,20 +8,21 @@ namespace Asset
 {
 	namespace Level
 	{
-		const s32 count = 13;
+		const s32 count = 14;
 		const AssetID Channels = 0;
 		const AssetID Commons = 1;
 		const AssetID Crossing = 2;
 		const AssetID Docks = 3;
-		const AssetID Library = 4;
-		const AssetID Media_Tower = 5;
-		const AssetID Office = 6;
-		const AssetID Plaza = 7;
-		const AssetID Refinery = 8;
-		const AssetID Slum = 9;
-		const AssetID Treatment_Plant = 10;
-		const AssetID overworld = 11;
-		const AssetID splash = 12;
+		const AssetID Financial_District = 4;
+		const AssetID Library = 5;
+		const AssetID Media_Tower = 6;
+		const AssetID Office = 7;
+		const AssetID Plaza = 8;
+		const AssetID Refinery = 9;
+		const AssetID Slum = 10;
+		const AssetID Treatment_Plant = 11;
+		const AssetID overworld = 12;
+		const AssetID splash = 13;
 	}
 }
 

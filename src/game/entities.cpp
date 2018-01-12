@@ -1312,7 +1312,7 @@ RectifierEntity::RectifierEntity(PlayerManager* owner, const Vec3& abs_pos, cons
 }
 
 Rectifier::Rectifier(AI::Team t, PlayerManager* o)
-	: team(t), owner(o)
+	: team(t), owner(o), stealth()
 {
 }
 
@@ -1338,19 +1338,15 @@ void Rectifier::killed_by(Entity* e)
 	}
 }
 
-void rectifier_update(const Vec3& rectifier_pos, r32 particle_lerp, Entity* e, b8 particle, b8 heal, PlayerManager* owner)
+void rectifier_update(const Vec3& rectifier_pos, r32 heal_effect_lerp, Entity* e, b8 heal, PlayerManager* owner)
 {
-	Vec3 pos = e->get<Transform>()->absolute_pos();
+	Vec3 pos = e->get<Target>()->absolute_pos();
 	if ((pos - rectifier_pos).length_squared() < (RECTIFIER_RANGE + 2.0f) * (RECTIFIER_RANGE + 2.0f))
 	{
-		if (particle)
+		if (heal_effect_lerp > 0.0f)
 		{
-			Particles::fast_tracers.add
-			(
-				Vec3::lerp(particle_lerp, rectifier_pos, pos),
-				Vec3::zero,
-				0
-			);
+			Mat4* m = Rectifier::heal_effects.add();
+			m->make_transform(pos, Vec3((1.0f - heal_effect_lerp) * 0.75f), Quat::identity);
 		}
 
 		Health* health = e->get<Health>();
@@ -1364,54 +1360,102 @@ void rectifier_update(const Vec3& rectifier_pos, r32 particle_lerp, Entity* e, b
 	}
 }
 
+Array<Mat4> Rectifier::heal_effects;
 void Rectifier::update_all(const Update& u)
 {
 	const r32 heal_interval = RECTIFIER_HEAL_INTERVAL;
-	const r32 particle_interval = heal_interval / 32.0f;
+	heal_effects.length = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team != AI::TeamNone)
 		{
 			r32 time = u.time.total + i.index * 0.5f;
-			b8 particle = s32(time / particle_interval) != s32((time - u.time.delta) / particle_interval);
-			r32 particle_lerp = particle
-				? (time - (s32(time / heal_interval) * heal_interval)) / heal_interval
-				: 0.0f;
+			r32 heal_effect_lerp = (time - (s32(time / heal_interval) * heal_interval)) / heal_interval;
+			if (heal_effect_lerp > 0.5f)
+				heal_effect_lerp = (heal_effect_lerp - 0.5f) / 0.5f;
+			else
+				heal_effect_lerp = 0.0f;
 			b8 heal = Game::level.local && s32(time / heal_interval) != s32((time - u.time.delta) / heal_interval);
 
 			PlayerManager* owner = i.item()->owner.ref();
 			b8 has_energy = !owner || owner->energy >= RECTIFIER_HEAL_COST;
 
 			// buff friendly turrets, force fields, and minions
-			if (has_energy && (particle || heal))
+			if (has_energy)
 			{
 				Vec3 me = i.item()->get<Transform>()->absolute_pos();
 				for (auto j = Turret::list.iterator(); !j.is_last(); j.next())
 				{
 					if (j.item()->team == i.item()->team)
-						rectifier_update(me, particle_lerp, j.item()->entity(), particle, heal, owner);
+						rectifier_update(me, heal_effect_lerp, j.item()->entity(), heal, owner);
 				}
 
 				for (auto j = ForceField::list.iterator(); !j.is_last(); j.next())
 				{
-					if (j.item()->team == i.item()->team)
-						rectifier_update(me, particle_lerp, j.item()->entity(), particle, heal, owner);
+					if (!(j.item()->flags & ForceField::FlagPermanent) && j.item()->team == i.item()->team)
+						rectifier_update(me, heal_effect_lerp, j.item()->entity(), heal, owner);
 				}
 
 				for (auto j = Minion::list.iterator(); !j.is_last(); j.next())
 				{
 					if (j.item()->get<AIAgent>()->team == i.item()->team)
-						rectifier_update(me, particle_lerp, j.item()->entity(), particle, heal, owner);
+						rectifier_update(me, heal_effect_lerp, j.item()->entity(), heal, owner);
 				}
 
 				for (auto j = CoreModule::list.iterator(); !j.is_last(); j.next())
 				{
 					if (j.item()->team == i.item()->team)
-						rectifier_update(me, particle_lerp, j.item()->entity(), particle, heal, owner);
+						rectifier_update(me, heal_effect_lerp, j.item()->entity(), heal, owner);
 				}
 			}
 		}
 	}
+}
+
+void Rectifier::draw_alpha_all(const RenderParams& params)
+{
+	if (!params.camera->mask || heal_effects.length == 0)
+		return;
+
+	Loader::mesh_instanced(Asset::Mesh::heal_effect);
+
+	const r32 f_radius = 1.0f;
+
+	RenderSync* sync = params.sync;
+
+	sync->write(RenderOp::UpdateInstances);
+	sync->write(Asset::Mesh::heal_effect);
+	sync->write(heal_effects.length);
+	sync->write<Mat4>(heal_effects.data, heal_effects.length);
+
+	Loader::shader_permanent(Asset::Shader::flat_instanced);
+
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::flat_instanced);
+	sync->write(params.technique);
+
+	Mat4 vp = params.view_projection;
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::vp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(vp);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::v);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(params.view);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(Vec4(1, 1, 1, 0.2f));
+
+	sync->write(RenderOp::Instances);
+	sync->write(Asset::Mesh::heal_effect);
 }
 
 void Rectifier::set_team(AI::Team t)
@@ -1422,11 +1466,32 @@ void Rectifier::set_team(AI::Team t)
 	get<PointLight>()->team = s8(t);
 }
 
-b8 Rectifier::can_see(AI::Team team, const Vec3& pos, const Vec3& normal)
+void Rectifier::set_stealth(b8 enable)
+{
+	if (stealth != enable)
+	{
+		if (enable)
+		{
+			get<View>()->alpha();
+			get<View>()->color.w = 0.7f;
+			get<View>()->mask = 1 << s32(team); // only display to fellow teammates
+		}
+		else
+		{
+			get<View>()->alpha_disable();
+			get<View>()->color.w = MATERIAL_NO_OVERRIDE;
+			get<View>()->mask = RENDER_MASK_DEFAULT; // display to everyone
+		}
+		stealth = enable;
+	}
+}
+
+// returns true if given team can see the given position
+b8 Rectifier::can_see(AI::TeamMask team_mask, const Vec3& pos, const Vec3& normal)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team == team)
+		if (AI::match(i.item()->team, team_mask))
 		{
 			Vec3 to_rectifier = i.item()->get<Transform>()->absolute_pos() - pos;
 			if (to_rectifier.length_squared() < RECTIFIER_RANGE * RECTIFIER_RANGE && to_rectifier.dot(normal) > 0.0f)
@@ -1964,7 +2029,8 @@ b8 Turret::net_msg(Net::StreamRead* p, Net::MessageSource src)
 b8 Turret::can_see(Entity* target) const
 {
 	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth)
-		|| (target->has<Drone>() && target->get<Drone>()->state() != Drone::State::Crawl))
+		|| (target->has<Drone>() && target->get<Drone>()->state() != Drone::State::Crawl)
+		|| (target->has<Rectifier>() && target->get<Rectifier>()->stealth))
 		return false;
 
 	Vec3 pos = get<Transform>()->absolute_pos();
@@ -2156,9 +2222,9 @@ ForceField::ForceField()
 
 void ForceField::awake()
 {
-	link_arg<Entity*, &ForceField::killed>(get<Health>()->killed);
 	if (!(flags & FlagPermanent))
 	{
+		link_arg<Entity*, &ForceField::killed>(get<Health>()->killed);
 		link_arg<const HealthEvent&, &ForceField::health_changed>(get<Health>()->changed);
 		if (Game::level.local)
 			obstacle_id = AI::obstacle_add(get<Transform>()->to_world(Vec3(0, 0, FORCE_FIELD_BASE_OFFSET * -0.5f)) + Vec3(0, FORCE_FIELD_BASE_OFFSET * -0.5f, 0), FORCE_FIELD_BASE_OFFSET * 0.5f, FORCE_FIELD_BASE_OFFSET);
@@ -2294,7 +2360,7 @@ void ForceField::update_all(const Update& u)
 
 			r32 blend = 1.0f - (i.item()->spawn_death_timer / FORCE_FIELD_ANIM_TIME);
 
-			s8 hp = i.item()->get<Health>()->hp;
+			s8 hp = (i.item()->flags & FlagPermanent) ? FORCE_FIELD_HEALTH : i.item()->get<Health>()->hp;
 			if (hp == 0)
 			{
 				// dying
@@ -2345,8 +2411,6 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 	transform->absolute(abs_pos, abs_rot);
 	transform->reparent(parent);
 
-	create<Health>(FORCE_FIELD_HEALTH, FORCE_FIELD_HEALTH);
-
 	create<Audio>();
 
 	ForceField* field = create<ForceField>();
@@ -2356,6 +2420,8 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 	else
 	{
 		// normal (non-permanent) force field
+
+		create<Health>(FORCE_FIELD_HEALTH, FORCE_FIELD_HEALTH);
 
 		if (type == ForceField::Type::Invincible)
 			field->flags |= ForceField::FlagInvincible;
@@ -3249,7 +3315,7 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	g->owner = owner;
 	g->velocity = dir * GRENADE_LAUNCH_SPEED;
 
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionTarget, ~CollisionParkour & ~CollisionElectric & ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionAllTeamsForceField);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionTarget, ~CollisionParkour & ~CollisionElectric & ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionWalker);
 
 	PointLight* light = create<PointLight>();
 	light->radius = BOLT_LIGHT_RADIUS;
@@ -3278,7 +3344,9 @@ b8 Grenade::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		State state;
 		serialize_enum(p, State, state);
 		ref.ref()->state = state;
-		ref.ref()->get<View>()->mask = (state == State::Exploded) ? 0 : RENDER_MASK_DEFAULT;
+		View* view = ref.ref()->get<View>();
+		view->mesh = (state == State::Attached) ? Asset::Mesh::grenade_attached : Asset::Mesh::grenade_detached;
+		view->mask = (state == State::Exploded) ? 0 : RENDER_MASK_DEFAULT;
 	}
 
 	return true;
@@ -3312,7 +3380,7 @@ b8 grenade_trigger_filter(Entity* e, AI::Team team)
 
 b8 grenade_hit_filter(Entity* e, AI::Team team)
 {
-	return (grenade_trigger_filter(e, team) || (e->has<AIAgent>() && e->get<AIAgent>()->team != team)) // don't care if the AIAgent is stealthed or not
+	return (grenade_trigger_filter(e, team) || (e->has<AIAgent>() && (e->get<AIAgent>()->team != team || e->has<Minion>()))) // don't care if the AIAgent is stealthed or not if it's an enemy or a minion
 		&& (!e->has<Drone>() || !UpgradeStation::drone_inside(e->get<Drone>())); // can't hit drones inside upgrade stations
 }
 
@@ -3370,12 +3438,25 @@ void Grenade::hit_entity(const Bolt::Hit& hit)
 {
 	if (grenade_hit_filter(hit.entity, team()))
 	{
-		timer = vi_max(timer, GRENADE_DELAY - 0.3f);
+		if (hit.entity->has<Minion>() && hit.entity->get<AIAgent>()->team == team())
+		{
+			// stick to minion
+			velocity = Vec3::zero;
+			get<Transform>()->parent = hit.entity->get<Transform>();
+			get<Transform>()->pos = Vec3::zero;
+			get<Transform>()->rot = Quat::identity;
+			if (state != State::Attached)
+				GrenadeNet::send_state_change(this, State::Attached);
+		}
+		else
+		{
+			timer = vi_max(timer, GRENADE_DELAY - 0.3f);
 
-		// bounce
-		velocity = velocity.reflect(hit.normal) * 0.5f;
-		if (state != State::Active)
-			GrenadeNet::send_state_change(this, State::Active);
+			// bounce
+			velocity = velocity.reflect(hit.normal) * 0.5f;
+			if (state != State::Active)
+				GrenadeNet::send_state_change(this, State::Active);
+		}
 	}
 	else
 	{
@@ -3385,6 +3466,7 @@ void Grenade::hit_entity(const Bolt::Hit& hit)
 			velocity = Vec3::zero;
 			get<Transform>()->parent = hit.entity->get<Transform>();
 			get<Transform>()->absolute(hit.point + hit.normal * GRENADE_RADIUS * 1.1f, Quat::look(hit.normal));
+			GrenadeNet::send_state_change(this, State::Attached);
 		}
 		else
 		{
@@ -3482,7 +3564,7 @@ AI::Team Grenade::team() const
 }
 
 r32 Grenade::particle_accumulator;
-void Grenade::update_client_all(const Update& u)
+void Grenade::update_client_server_all(const Update& u)
 {
 	// normal particles
 	const r32 interval = 0.05f;
@@ -3492,22 +3574,8 @@ void Grenade::update_client_all(const Update& u)
 		particle_accumulator -= interval;
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->state != State::Exploded)
-			{
-				Transform* t = i.item()->get<Transform>();
-				if (t->parent.ref())
-				{
-					View* v = i.item()->get<View>();
-					if (v->mesh != Asset::Mesh::grenade_attached)
-					{
-						v->mesh = Asset::Mesh::grenade_attached;
-						i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_ATTACH);
-						i.item()->get<PointLight>()->radius = 0.0f;
-					}
-				}
-				else
-					Particles::tracers.add(t->absolute_pos(), Vec3::zero, 0);
-			}
+			if (i.item()->state == State::Active)
+				Particles::tracers.add(i.item()->get<Transform>()->absolute_pos(), Vec3::zero, 0);
 		}
 	}
 
@@ -3527,8 +3595,42 @@ void Grenade::update_client_all(const Update& u)
 			}
 			case State::Inactive:
 			case State::Active:
+			case State::Attached:
 			{
-				Vec3 me = i.item()->get<Transform>()->absolute_pos();
+				Transform* transform = i.item()->get<Transform>();
+
+				// if we're stuck to a minion, make it look like we're attached to the minion's back
+				if (i.item()->state == State::Attached)
+				{
+					View* model = i.item()->get<View>();
+					Transform* parent = transform->parent.ref();
+					if (parent)
+					{
+						if (parent->has<Animator>())
+						{
+							Vec3 pos(0.1f, 0.0f, -0.12f - GRENADE_RADIUS);
+							Quat rot = Quat::euler(0, PI, 0);
+							parent->get<Animator>()->to_local(Asset::Bone::character_spine, &pos, &rot);
+							model->offset.make_transform(pos, Vec3(GRENADE_RADIUS), rot);
+							i.item()->abs_pos_attached = parent->to_world(pos);
+						}
+						else
+							i.item()->abs_pos_attached = transform->absolute_pos();
+					}
+					else
+					{
+						// no longer attached
+						model->offset = Mat4::make_scale(Vec3(GRENADE_RADIUS));
+						if (Game::level.local)
+						{
+							transform->pos = i.item()->abs_pos_attached;
+							transform->rot = Quat::identity;
+							GrenadeNet::send_state_change(i.item(), State::Active);
+						}
+					}
+				}
+
+				Vec3 me = transform->absolute_pos();
 				AI::Team my_team = i.item()->team();
 
 				b8 countdown = false;
@@ -3543,7 +3645,7 @@ void Grenade::update_client_all(const Update& u)
 							r32 distance = (i.item()->get<Transform>()->absolute_pos() - me).length();
 							if (i.item()->has<ForceField>())
 								distance -= FORCE_FIELD_RADIUS;
-							if (distance < GRENADE_RANGE * 0.8f)
+							if (distance < GRENADE_RANGE * 0.5f)
 							{
 								countdown = true;
 								break;

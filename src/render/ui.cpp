@@ -512,7 +512,7 @@ void UIScroll::start(const RenderParams& params, const Vec2& p) const
 {
 	if (pos > 0)
 	{
-		Vec2 p2 = p + Vec2(0, 16.0f * UI::scale);
+		Vec2 p2 = p + Vec2(-16.0f * UI::scale, 16.0f * UI::scale);
 		UI::centered_box(params, { p2, Vec2(32.0f * UI::scale) }, UI::color_background);
 		UI::triangle(params, { p2, Vec2(16.0f * UI::scale) }, UI::color_accent());
 	}
@@ -522,7 +522,7 @@ void UIScroll::end(const RenderParams& params, const Vec2& p) const
 {
 	if (pos + size < count)
 	{
-		Vec2 p2 = p + Vec2(0, -16.0f * UI::scale);
+		Vec2 p2 = p + Vec2(-16.0f * UI::scale, -16.0f * UI::scale);
 		UI::centered_box(params, { p2, Vec2(32.0f * UI::scale) }, UI::color_background);
 		UI::triangle(params, { p2, Vec2(16.0f * UI::scale) }, UI::color_accent(), PI);
 	}
@@ -577,7 +577,6 @@ const Vec4& UI::color_ping(r32 p)
 		return color_alert();
 }
 
-Vec2 UI::cursor_pos(200, 200);
 r32 UI::scale = 1.0f;
 AssetID UI::mesh_id = AssetNull;
 AssetID UI::texture_mesh_id = AssetNull;
@@ -1078,12 +1077,6 @@ b8 UI::cursor_active()
 
 void UI::draw(const RenderParams& p)
 {
-	if (p.camera->gamepad == 0 && cursor_active())
-	{
-		mesh(p, Asset::Mesh::icon_cursor_border, cursor_pos, Vec2(18 * UI::scale), UI::color_background);
-		mesh(p, Asset::Mesh::icon_cursor_main, cursor_pos, Vec2(18 * UI::scale), UI::color_default);
-	}
-
 #if DEBUG
 	for (s32 i = 0; i < debugs.length; i++)
 	{

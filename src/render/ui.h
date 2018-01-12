@@ -100,7 +100,6 @@ struct UI
 		Vec2 anchor;
 	};
 
-	static Vec2 cursor_pos;
 	static const Vec4 color_default;
 	static const Vec4& color_alert();
 	static const Vec4& color_accent();

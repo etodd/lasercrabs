@@ -2,6 +2,7 @@
 
 #include "types.h"
 #include "data/pin_array.h"
+#include "lmath.h"
 #include "sdl/include/SDL_keycode.h"
 
 namespace VI
@@ -344,10 +345,11 @@ struct InputBinding
 struct InputState
 {
 	Bitmask<s16(KeyCode::count)> keys;
+	Vec2 cursor;
+	Vec2 mouse_relative;
 	Gamepad gamepads[MAX_GAMEPADS];
-	s32 cursor_x;
-	s32 cursor_y;
 	b8 focus;
+	b8 cursor_visible;
 
 	b8 get(Controls, s32) const;
 };

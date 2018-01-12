@@ -451,7 +451,7 @@ const Mesh* Loader::mesh(AssetID id)
 		sync->write(RenderDataType::Vec3); // position
 		sync->write<s32>(1); // number of data elements per vertex
 
-		sync->write(RenderDataType::Vec3); // Normal
+		sync->write(RenderDataType::Vec3); // normal
 		sync->write<s32>(1); // number of data elements per vertex
 
 		for (s32 i = 0; i < extra_attribs.length; i++)

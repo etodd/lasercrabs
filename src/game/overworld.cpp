@@ -204,7 +204,7 @@ struct Data
 				{
 					const Button& button = buttons[i];
 					if (button.type == type)
-						return button.container().contains(UI::cursor_pos) && u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft));
+						return button.container().contains(u.input->cursor) && u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft));
 				}
 				return false;
 			}
@@ -361,7 +361,7 @@ void multiplayer_browse_update(const Update& u)
 		{
 			for (s32 i = server_list->scroll.top(); i < server_list->scroll.bottom(server_list->entries.length); i++)
 			{
-				if (multiplayer_browse_entry_rect(data.multiplayer.top_bar, *server_list, i).contains(UI::cursor_pos))
+				if (multiplayer_browse_entry_rect(data.multiplayer.top_bar, *server_list, i).contains(u.input->cursor))
 				{
 					server_list->selected = i;
 					if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
@@ -1323,7 +1323,7 @@ void multiplayer_update(const Update& u)
 			{
 				for (s32 i = 0; i < s32(ServerListType::count); i++)
 				{
-					if (multiplayer_tab_rect(i).contains(UI::cursor_pos))
+					if (multiplayer_tab_rect(i).contains(u.input->cursor))
 					{
 						if (ServerListType(i) != global.multiplayer.tab)
 						{
@@ -1446,7 +1446,7 @@ void multiplayer_top_bar_draw(const RenderParams& params, const Data::Multiplaye
 
 		{
 			Rect2 container = button.container();
-			if (Game::ui_gamepad_types[0] == Gamepad::Type::None && container.contains(UI::cursor_pos))
+			if (Game::ui_gamepad_types[0] == Gamepad::Type::None && container.contains(params.sync->input.cursor))
 			{
 				UI::box(params, container, params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : UI::color_accent());
 				text.color = UI::color_background;
@@ -1485,7 +1485,7 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 
 			if (selected)
 			{
-				b8 active = (Rect2(pos, panel_size).contains(UI::cursor_pos) && params.sync->input.keys.get(s32(KeyCode::MouseLeft)))
+				b8 active = (Rect2(pos, panel_size).contains(params.sync->input.cursor) && params.sync->input.keys.get(s32(KeyCode::MouseLeft)))
 					|| params.sync->input.get(Controls::Interact, 0); // is the user pressing down on this entry?
 				UI::border(params, Rect2(pos, panel_size).outset(-2.0f * UI::scale), 2.0f, active ? UI::color_alert() : UI::color_accent());
 			}
@@ -1979,7 +1979,7 @@ void multiplayer_draw(const RenderParams& params)
 				{
 					color = &UI::color_disabled();
 					if (Game::ui_gamepad_types[0] == Gamepad::Type::None
-						&& Rect2(pos, tab_size).contains(UI::cursor_pos))
+						&& Rect2(pos, tab_size).contains(params.sync->input.cursor))
 						color = params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? &UI::color_alert() : &UI::color_default;
 				}
 
@@ -2630,7 +2630,7 @@ Rect2 tab_map_capture_prompt(const Rect2& rect, const RenderParams* params = nul
 	{
 		const Vec4* bg;
 		if (params->sync->input.get(Controls::Interact, 0)
-			|| (Game::ui_gamepad_types[0] == Gamepad::Type::None && box.contains(UI::cursor_pos)))
+			|| (Game::ui_gamepad_types[0] == Gamepad::Type::None && box.contains(params->sync->input.cursor)))
 		{
 			text.color = UI::color_background;
 			if (params->sync->input.keys.get(s32(KeyCode::MouseLeft)))
@@ -2662,7 +2662,7 @@ void tab_map_update(const Update& u)
 		{
 			if (zone_can_capture(data.zone_selected)
 				&& ((u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-				|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && tab_map_capture_prompt(story_mode_main_view_rect(s32(data.story.tab))).contains(UI::cursor_pos))))
+				|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && tab_map_capture_prompt(story_mode_main_view_rect(s32(data.story.tab))).contains(u.input->cursor))))
 			{
 				// capture button
 				if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
@@ -2734,7 +2734,7 @@ void tab_map_update(const Update& u)
 							Vec2 p;
 							if (UI::project(view_projection, viewport, candidate_pos, &p))
 							{
-								r32 distance = (p - UI::cursor_pos).length_squared();
+								r32 distance = (p - u.input->cursor).length_squared();
 								if (distance < closest_distance)
 								{
 									closest = &candidate;
@@ -2826,8 +2826,9 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 	b8 mouse_over_increase = false;
 	if (Game::ui_gamepad_types[0] == Gamepad::Type::None)
 	{
-		mouse_over_decrease = rect_decrease.contains(UI::cursor_pos);
-		mouse_over_increase = rect_increase.contains(UI::cursor_pos);
+		const Vec2& cursor = u ? u->input->cursor : p->sync->input.cursor;
+		mouse_over_decrease = rect_decrease.contains(cursor);
+		mouse_over_increase = rect_increase.contains(cursor);
 	}
 
 	if (u)
@@ -2920,7 +2921,7 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 			if (p->sync->input.get(Controls::Interact, gamepad)
 				|| (gamepad == 0
 				&& Game::ui_gamepad_types[0] == Gamepad::Type::None
-				&& rect_accept.contains(UI::cursor_pos)))
+				&& rect_accept.contains(p->sync->input.cursor)))
 			{
 				const Vec4* bg;
 				if (can_accept)
@@ -2946,7 +2947,7 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 			if (p->sync->input.get(Controls::Cancel, gamepad)
 				|| (gamepad == 0
 				&& Game::ui_gamepad_types[0] == Gamepad::Type::None
-				&& rect_cancel.contains(UI::cursor_pos)))
+				&& rect_cancel.contains(p->sync->input.cursor)))
 			{
 				UI::box(*p, rect_cancel, p->sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_accent() : UI::color_alert());
 				text.color = UI::color_background;
@@ -2963,9 +2964,9 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 			{
 				if (u->last_input->keys.get(s32(KeyCode::MouseLeft)) && !u->input->keys.get(s32(KeyCode::MouseLeft)))
 				{
-					if (rect_accept.contains(UI::cursor_pos))
+					if (rect_accept.contains(u->input->cursor))
 						accept_clicked = true;
-					else if (rect_cancel.contains(UI::cursor_pos))
+					else if (rect_cancel.contains(u->input->cursor))
 						cancel_clicked = true;
 				}
 			}

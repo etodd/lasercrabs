@@ -243,7 +243,7 @@ void dialog_layout(s8 gamepad, const Update* u, const RenderParams* params)
 			if (params->sync->input.get(Controls::Interact, gamepad)
 				|| (gamepad == 0
 				&& Game::ui_gamepad_types[0] == Gamepad::Type::None
-				&& rect_accept.contains(UI::cursor_pos)))
+				&& rect_accept.contains(params->sync->input.cursor)))
 			{
 				UI::box(*params, rect_accept, params->sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : UI::color_accent());
 				text.color = UI::color_background;
@@ -266,7 +266,7 @@ void dialog_layout(s8 gamepad, const Update* u, const RenderParams* params)
 				if (params->sync->input.get(Controls::Cancel, gamepad)
 					|| (gamepad == 0
 					&& Game::ui_gamepad_types[0] == Gamepad::Type::None
-					&& rect_cancel.contains(UI::cursor_pos)))
+					&& rect_cancel.contains(params->sync->input.cursor)))
 				{
 					UI::box(*params, rect_cancel, params->sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_accent() : UI::color_alert());
 					text.color = UI::color_background;
@@ -284,9 +284,9 @@ void dialog_layout(s8 gamepad, const Update* u, const RenderParams* params)
 			{
 				if (u->last_input->keys.get(s32(KeyCode::MouseLeft)) && !u->input->keys.get(s32(KeyCode::MouseLeft)))
 				{
-					if (rect_accept.contains(UI::cursor_pos))
+					if (rect_accept.contains(u->input->cursor))
 						accept_clicked = true;
-					else if (rect_cancel.contains(UI::cursor_pos))
+					else if (rect_cancel.contains(u->input->cursor))
 						cancel_clicked = true;
 				}
 			}
@@ -2141,7 +2141,7 @@ b8 UIMenu::add_item(Item::Type type, const char* string, const char* value, b8 d
 
 b8 check_mouse_select(UIMenu* menu, const Update& u, s32 item)
 {
-	if (item_rect(*menu, item).contains(UI::cursor_pos))
+	if (item_rect(*menu, item).contains(u.input->cursor))
 	{
 		if (menu->allow_select)
 		{
@@ -2227,14 +2227,14 @@ s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b
 
 		if (mouse_selected)
 		{
-			if (item_slider_down_rect(*this, items.length - 1).contains(UI::cursor_pos))
+			if (item_slider_down_rect(*this, items.length - 1).contains(u.input->cursor))
 			{
 				if (u.input->keys.get(s32(KeyCode::MouseLeft))) // show that the user is getting ready to alter this slider
 					items[items.length - 1].value.color = UI::color_alert();
 				else if (u.last_input->keys.get(s32(KeyCode::MouseLeft)))
 					delta = -1;
 			}
-			else if (item_slider_up_rect(*this, items.length - 1).contains(UI::cursor_pos))
+			else if (item_slider_up_rect(*this, items.length - 1).contains(u.input->cursor))
 			{
 				if (u.input->keys.get(s32(KeyCode::MouseLeft))) // show that the user is getting ready to alter this slider
 					items[items.length - 1].value.color = UI::color_alert();
@@ -2358,7 +2358,7 @@ void UIMenu::draw_ui(const RenderParams& params) const
 
 		if (!scroll_started)
 		{
-			scroll.start(params, rect.pos + Vec2(rect.size.x * 0.5f, rect.size.y));
+			scroll.start(params, rect.pos + rect.size);
 			scroll_started = true;
 		}
 
@@ -2380,7 +2380,7 @@ void UIMenu::draw_ui(const RenderParams& params) const
 				{
 					Rect2 down_rect = item_slider_down_rect(*this, i);
 					b8 mouse_over = false;
-					if (Game::ui_gamepad_types[0] == Gamepad::Type::None && down_rect.contains(UI::cursor_pos))
+					if (Game::ui_gamepad_types[0] == Gamepad::Type::None && down_rect.contains(params.sync->input.cursor))
 					{
 						UI::box(params, down_rect.outset(-6.0f * UI::scale), params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : item.value.color);
 						mouse_over = true;
@@ -2391,7 +2391,7 @@ void UIMenu::draw_ui(const RenderParams& params) const
 				{
 					Rect2 up_rect = item_slider_up_rect(*this, i);
 					b8 mouse_over = false;
-					if (Game::ui_gamepad_types[0] == Gamepad::Type::None && up_rect.contains(UI::cursor_pos))
+					if (Game::ui_gamepad_types[0] == Gamepad::Type::None && up_rect.contains(params.sync->input.cursor))
 					{
 						UI::box(params, up_rect.outset(-6.0f * UI::scale), params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? UI::color_alert() : item.value.color);
 						mouse_over = true;
@@ -2403,7 +2403,7 @@ void UIMenu::draw_ui(const RenderParams& params) const
 	}
 
 	if (scroll_started)
-		scroll.end(params, rect.pos + Vec2(rect.size.x * 0.5f, 0));
+		scroll.end(params, rect.pos + Vec2(rect.size.x, 0));
 }
 
 

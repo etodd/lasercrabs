@@ -493,7 +493,7 @@ void update_stealth_state(PlayerManager* player, AIAgent* a, Entity* visibility[
 		stealth_enabled = true;
 	else if (Game::time.total - a->get<Drone>()->last_ability_fired < ABILITY_UNSTEALTH_TIME)
 		stealth_enabled = false;
-	else if (!Rectifier::can_see(a->team, player_pos, normal))
+	else if (!Rectifier::can_see(1 << a->team, player_pos, normal))
 		stealth_enabled = false;
 	else
 	{
@@ -512,6 +512,19 @@ void update_stealth_state(PlayerManager* player, AIAgent* a, Entity* visibility[
 
 void update_visibility(const Update& u)
 {
+	// update stealth states of rectifiers
+	for (auto i = Rectifier::list.iterator(); !i.is_last(); i.next())
+	{
+		if (!i.item()->has<Battery>())
+		{
+			Vec3 pos;
+			Quat rot;
+			i.item()->get<Transform>()->absolute(&pos, &rot);
+			Vec3 normal = rot * Vec3(0, 0, 1);
+			i.item()->set_stealth(!Rectifier::can_see(~(1 << i.item()->team), pos - normal * RECTIFIER_RADIUS, normal));
+		}
+	}
+
 	// determine which drones are seen by which teams
 	// and update their stealth state
 	Entity* visibility[MAX_PLAYERS][MAX_TEAMS] = {};

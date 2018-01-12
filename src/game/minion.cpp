@@ -993,7 +993,8 @@ b8 minion_vision_check(AI::Team team, const Vec3& start, const Vec3& end, Entity
 b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 {
 	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth)
-		|| (target->has<Drone>() && target->get<Drone>()->state() != Drone::State::Crawl))
+		|| (target->has<Drone>() && target->get<Drone>()->state() != Drone::State::Crawl)
+		|| (target->has<Rectifier>() && target->get<Rectifier>()->stealth))
 		return false;
 
 	Vec3 target_pos = target->get<Target>()->absolute_pos();

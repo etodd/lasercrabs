@@ -209,20 +209,23 @@ struct RectifierEntity : public Entity
 
 struct Rectifier : public ComponentType<Rectifier>
 {
+	static Array<Mat4> heal_effects;
+
+	static b8 can_see(AI::TeamMask, const Vec3&, const Vec3&);
+	static Rectifier* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+	static void update_all(const Update&);
+	static void draw_alpha_all(const RenderParams&);
+
 	Ref<PlayerManager> owner;
 	AI::Team team;
+	b8 stealth;
 
 	Rectifier(AI::Team = AI::TeamNone, PlayerManager* = nullptr);
-
-	void killed_by(Entity*);
 	void awake();
 
+	void killed_by(Entity*);
 	void set_team(AI::Team);
-
-	static b8 can_see(AI::Team, const Vec3&, const Vec3&);
-	static Rectifier* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
-
-	static void update_all(const Update&);
+	void set_stealth(b8);
 };
 
 struct Flag : public ComponentType<Flag>
@@ -533,14 +536,16 @@ struct Grenade : public ComponentType<Grenade>
 	{
 		Inactive,
 		Active,
+		Attached,
 		Exploded,
 		count,
 	};
 
 	static r32 particle_accumulator;
-	static void update_client_all(const Update&);
+	static void update_client_server_all(const Update&);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
+	Vec3 abs_pos_attached;
 	Vec3 velocity;
 	r32 timer;
 	Ref<PlayerManager> owner;

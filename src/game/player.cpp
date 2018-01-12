@@ -613,8 +613,8 @@ void PlayerHuman::update_camera_rotation(const Update& u)
 {
 	{
 		r32 s = speed_mouse * Settings::gamepads[gamepad].effective_sensitivity_mouse() * Game::session.effective_time_scale();
-		angle_horizontal -= r32(u.input->cursor_x) * s;
-		angle_vertical += r32(u.input->cursor_y) * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
+		angle_horizontal -= u.input->mouse_relative.x * s;
+		angle_vertical += u.input->mouse_relative.y * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
 	}
 
 	if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
@@ -883,7 +883,7 @@ Rect2 player_button(const Rect2& viewport, s8 gamepad, AssetID string, UIMenu::E
 		const Vec4* bg;
 		if (enable_input == UIMenu::EnableInput::Yes
 			&& (params->sync->input.get(Controls::Interact, gamepad)
-			|| (gamepad == 0 && Game::ui_gamepad_types[0] == Gamepad::Type::None && box.contains(UI::cursor_pos))))
+			|| (gamepad == 0 && Game::ui_gamepad_types[0] == Gamepad::Type::None && box.contains(params->sync->input.cursor))))
 		{
 			text.color = UI::color_background;
 			if (params->sync->input.keys.get(s32(KeyCode::MouseLeft)) && PlayerHuman::for_gamepad(0)->chat_focus == PlayerHuman::ChatFocus::None)
@@ -1331,7 +1331,7 @@ void PlayerHuman::update(const Update& u)
 				if (chat_focus == ChatFocus::None)
 				{
 					if (((u.last_input->get(Controls::Interact, gamepad) && !u.input->get(Controls::Interact, gamepad))
-						|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && player_button(camera.ref()->viewport, gamepad, strings::prompt_deploy).contains(UI::cursor_pos))))
+						|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && player_button(camera.ref()->viewport, gamepad, strings::prompt_deploy).contains(u.input->cursor))))
 					{
 						select_spawn_timer = 1.0f;
 						Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
@@ -1387,7 +1387,7 @@ void PlayerHuman::update(const Update& u)
 								Vec2 p;
 								if (UI::project(view_projection, viewport, candidate->get<Transform>()->absolute_pos(), &p))
 								{
-									r32 distance = (p - UI::cursor_pos).length_squared();
+									r32 distance = (p - u.input->cursor).length_squared();
 									if (distance < closest_distance)
 									{
 										closest = candidate;
@@ -1455,7 +1455,7 @@ void PlayerHuman::update(const Update& u)
 				{
 					// accept score summary
 					if ((!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
-						|| (!u.input->keys.get(s32(KeyCode::MouseLeft)) && u.last_input->keys.get(s32(KeyCode::MouseLeft)) && player_button(camera.ref()->viewport, gamepad, strings::prompt_accept).contains(UI::cursor_pos)))
+						|| (!u.input->keys.get(s32(KeyCode::MouseLeft)) && u.last_input->keys.get(s32(KeyCode::MouseLeft)) && player_button(camera.ref()->viewport, gamepad, strings::prompt_accept).contains(u.input->cursor)))
 					{
 						get<PlayerManager>()->score_accept();
 					}
@@ -3949,8 +3949,8 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 overall_rotati
 		if (gamepad == 0)
 		{
 			r32 s = overall_rotation_multiplier * speed_mouse * Settings::gamepads[gamepad].effective_sensitivity_mouse();
-			get<PlayerCommon>()->angle_horizontal -= r32(u.input->cursor_x) * s;
-			get<PlayerCommon>()->angle_vertical += r32(u.input->cursor_y) * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
+			get<PlayerCommon>()->angle_horizontal -= u.input->mouse_relative.x * s;
+			get<PlayerCommon>()->angle_vertical += u.input->mouse_relative.y * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
 		}
 
 		if (u.input->gamepads[gamepad].type != Gamepad::Type::None)

@@ -337,12 +337,6 @@ namespace VI
 			Loader::settings_load(modes, { current_mode.w, current_mode.h });
 		}
 
-		if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0)
-		{
-			fprintf(stderr, "Failed to set relative mouse mode: %s\n", SDL_GetError());
-			return -1;
-		}
-
 		window = SDL_CreateWindow
 		(
 			"Deceiver",
@@ -390,6 +384,66 @@ namespace VI
 				fprintf(stderr, "Failed to initialize GLEW: %s\n", glewGetErrorString(glew_result));
 				return -1;
 			}
+		}
+
+		{
+			// cursor
+			const char* cursor[] =
+			{
+				"           .......           ",
+				"           .......           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				".............+++.............",
+				".............+++.............",
+				"..+++++++++++++++++++++++++..",
+				"..+++++++++++++++++++++++++..",
+				"..+++++++++++++++++++++++++..",
+				".............+++.............",
+				".............+++.............",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           ..+++..           ",
+				"           .......           ",
+				"           .......           ",
+			};
+
+			u8 data[4 * 32] = {};
+			u8 mask[4 * 32] = {};
+			for (s32 y = 0; y < 29; y++)
+			{
+				for (s32 x = 0; x < 29; x++)
+				{
+					s32 pixel = y * 32 + x;
+					s32 index = pixel / 8;
+					s32 bit = 7 - (pixel - (index * 8));
+					switch (cursor[y][x])
+					{
+						case '.':
+							data[index] |= 1 << bit;
+							mask[index] |= 1 << bit;
+							break;
+						case '+':
+							mask[index] |= 1 << bit;
+						default:
+							break;
+					}
+				}
+			}
+			SDL_SetCursor(SDL_CreateCursor(data, mask, 32, 32, 14, 16));
 		}
 
 		DisplayMode resolution_current = Settings::display();
@@ -673,6 +727,8 @@ namespace VI
 			}
 		}
 
+		b8 cursor_visible = true;
+
 		const u8* sdl_keys = SDL_GetKeyboardState(0);
 
 		refresh_controllers();
@@ -733,6 +789,7 @@ namespace VI
 
 			SDL_PumpEvents();
 
+
 			sync->input.keys.clear();
 			for (s32 i = 0; i < s32(KeyCode::count); i++)
 			{
@@ -786,6 +843,8 @@ namespace VI
 			}
 #endif
 
+			b8 just_gained_focus = false;
+
 			SDL_Event sdl_event;
 			while (SDL_PollEvent(&sdl_event))
 			{
@@ -807,7 +866,10 @@ namespace VI
 				else if (sdl_event.type == SDL_WINDOWEVENT)
 				{
 					if (sdl_event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
+					{
 						has_focus = true;
+						just_gained_focus = true;
+					}
 					else if (sdl_event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
 						has_focus = false;
 				}
@@ -815,11 +877,52 @@ namespace VI
 
 			sync->input.focus = has_focus;
 
-			s32 mouse_buttons = SDL_GetRelativeMouseState(&sync->input.cursor_x, &sync->input.cursor_y);
+			{
+				s32 mouse_buttons;
+				if (sync->input.cursor_visible)
+				{
+					if (!cursor_visible)
+					{
+						if (SDL_SetRelativeMouseMode(SDL_FALSE) != 0)
+						{
+							fprintf(stderr, "Failed to set relative mouse mode: %s\n", SDL_GetError());
+							return -1;
+						}
+						cursor_visible = true;
+					}
 
-			sync->input.keys.set(s32(KeyCode::MouseLeft), mouse_buttons & (1 << 0));
-			sync->input.keys.set(s32(KeyCode::MouseMiddle), mouse_buttons & (1 << 1));
-			sync->input.keys.set(s32(KeyCode::MouseRight), mouse_buttons & (1 << 2));
+					s32 mouse_x;
+					s32 mouse_y;
+					mouse_buttons = SDL_GetMouseState(&mouse_x, &mouse_y);
+					sync->input.cursor = Vec2(mouse_x, resolution_current.height - mouse_y);
+				}
+				else
+				{
+					b8 just_enabled_relative = false;
+					if (cursor_visible)
+					{
+						if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0)
+						{
+							fprintf(stderr, "Failed to set relative mouse mode: %s\n", SDL_GetError());
+							return -1;
+						}
+						cursor_visible = false;
+						just_enabled_relative = true;
+					}
+
+					s32 mouse_x;
+					s32 mouse_y;
+					mouse_buttons = SDL_GetRelativeMouseState(&mouse_x, &mouse_y);
+					if (just_enabled_relative || just_gained_focus)
+						sync->input.mouse_relative = Vec2::zero;
+					else
+						sync->input.mouse_relative = Vec2(mouse_x, mouse_y);
+				}
+
+				sync->input.keys.set(s32(KeyCode::MouseLeft), mouse_buttons & (1 << 0));
+				sync->input.keys.set(s32(KeyCode::MouseMiddle), mouse_buttons & (1 << 1));
+				sync->input.keys.set(s32(KeyCode::MouseRight), mouse_buttons & (1 << 2));
+			}
 
 			s32 active_gamepads = 0;
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)

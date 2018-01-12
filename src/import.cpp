@@ -2081,7 +2081,7 @@ b8 default_filter(const Mesh* m)
 }
 
 // spacing of drone nav mesh points
-const r32 grid_spacing = 1.5f;
+const r32 grid_spacing = 1.25f;
 const r32 inv_grid_spacing = 1.0f / grid_spacing;
 
 inline b8 point_in_tri(const Vec2& p, const Vec2& p0, const Vec2& p1, const Vec2& p2)

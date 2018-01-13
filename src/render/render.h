@@ -124,11 +124,12 @@ struct Camera
 
 struct LoopSync : RenderSync
 {
-	b8 quit;
-	InputState input;
 	DisplayMode display_mode;
+	InputState input;
 	b8 vsync;
 	b8 fullscreen;
+	b8 quit;
+	b8 minimize;
 };
 
 typedef Sync<LoopSync>::Swapper LoopSwapper;

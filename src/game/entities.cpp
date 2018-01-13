@@ -1338,74 +1338,95 @@ void Rectifier::killed_by(Entity* e)
 	}
 }
 
-void rectifier_update(const Vec3& rectifier_pos, r32 heal_effect_lerp, Entity* e, b8 heal, PlayerManager* owner)
+void rectifier_update(s32 rectifier_index, const Vec3& rectifier_pos, Entity* e, PlayerManager* owner)
 {
 	Vec3 pos = e->get<Target>()->absolute_pos();
 	if ((pos - rectifier_pos).length_squared() < (RECTIFIER_RANGE + 2.0f) * (RECTIFIER_RANGE + 2.0f))
 	{
-		if (heal_effect_lerp > 0.0f)
+		if (!Rectifier::heal_targets.get(e->id()) || Rectifier::heal_counts[e->id()] < RECTIFIER_HEAL_MAX_CONCURRENT)
 		{
-			Mat4* m = Rectifier::heal_effects.add();
-			m->make_transform(pos, Vec3((1.0f - heal_effect_lerp) * 0.75f), Quat::identity);
-		}
+			Rectifier::heal_targets.set(e->id(), true);
+			Rectifier::heal_counts[e->id()]++;
 
-		Health* health = e->get<Health>();
-		if (heal && health->hp > 0 && health->hp < health->hp_max
-			&& (!owner || owner->energy >= RECTIFIER_HEAL_COST))
-		{
-			if (owner)
-				owner->add_energy(-RECTIFIER_HEAL_COST);
-			health->add(1);
+			r32 time = Game::time.total + (rectifier_index + e->id()) * 0.5f;
+			r32 heal_effect_lerp = (time - (s32(time / RECTIFIER_HEAL_INTERVAL) * RECTIFIER_HEAL_INTERVAL)) / RECTIFIER_HEAL_INTERVAL;
+			if (heal_effect_lerp > 0.5f)
+			{
+				heal_effect_lerp = (heal_effect_lerp - 0.5f) / 0.5f;
+
+				InstanceVertex* instance = Rectifier::heal_effects.add();
+				r32 scale;
+				if (e->has<Minion>())
+					scale = Ease::cubic_in<r32>(heal_effect_lerp, 0.5f, 0.05f);
+				else
+					scale = Ease::cubic_in<r32>(heal_effect_lerp, 1.5f, 0.15f);
+				instance->world_matrix.make_transform(pos, Vec3(scale), Quat::identity);
+				instance->color = Vec4(1, 1, 1, Ease::cubic_in<r32>(heal_effect_lerp));
+			}
+
+			b8 do_heal = Game::level.local && s32(time / RECTIFIER_HEAL_INTERVAL) != s32((time - Game::time.delta) / RECTIFIER_HEAL_INTERVAL);
+			if (do_heal) // apply actual healing
+			{
+				Health* health = e->get<Health>();
+				if (health->hp > 0 && health->hp < health->hp_max
+					&& (!owner || owner->energy >= RECTIFIER_HEAL_COST))
+				{
+					if (owner)
+						owner->add_energy(-RECTIFIER_HEAL_COST);
+					health->add(1);
+				}
+			}
 		}
 	}
 }
 
-Array<Mat4> Rectifier::heal_effects;
+Array<InstanceVertex> Rectifier::heal_effects;
+s8 Rectifier::heal_counts[MAX_ENTITIES];
+Bitmask<MAX_ENTITIES> Rectifier::heal_targets;
 void Rectifier::update_all(const Update& u)
 {
-	const r32 heal_interval = RECTIFIER_HEAL_INTERVAL;
+	// reset heal counts
+	if (heal_targets.any())
+	{
+		for (s32 i = heal_targets.start; i < heal_targets.end; i = heal_targets.next(i))
+			heal_counts[i] = 0;
+		heal_targets.clear();
+	}
+
 	heal_effects.length = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team != AI::TeamNone)
 		{
-			r32 time = u.time.total + i.index * 0.5f;
-			r32 heal_effect_lerp = (time - (s32(time / heal_interval) * heal_interval)) / heal_interval;
-			if (heal_effect_lerp > 0.5f)
-				heal_effect_lerp = (heal_effect_lerp - 0.5f) / 0.5f;
-			else
-				heal_effect_lerp = 0.0f;
-			b8 heal = Game::level.local && s32(time / heal_interval) != s32((time - u.time.delta) / heal_interval);
-
 			PlayerManager* owner = i.item()->owner.ref();
 			b8 has_energy = !owner || owner->energy >= RECTIFIER_HEAL_COST;
 
-			// buff friendly turrets, force fields, and minions
 			if (has_energy)
 			{
+				// buff friendly turrets, force fields, and minions
 				Vec3 me = i.item()->get<Transform>()->absolute_pos();
 				for (auto j = Turret::list.iterator(); !j.is_last(); j.next())
 				{
 					if (j.item()->team == i.item()->team)
-						rectifier_update(me, heal_effect_lerp, j.item()->entity(), heal, owner);
+						rectifier_update(i.index, me, j.item()->entity(), owner);
 				}
 
 				for (auto j = ForceField::list.iterator(); !j.is_last(); j.next())
 				{
 					if (!(j.item()->flags & ForceField::FlagPermanent) && j.item()->team == i.item()->team)
-						rectifier_update(me, heal_effect_lerp, j.item()->entity(), heal, owner);
+						rectifier_update(i.index, me, j.item()->entity(), owner);
 				}
 
 				for (auto j = Minion::list.iterator(); !j.is_last(); j.next())
 				{
 					if (j.item()->get<AIAgent>()->team == i.item()->team)
-						rectifier_update(me, heal_effect_lerp, j.item()->entity(), heal, owner);
+						rectifier_update(i.index, me, j.item()->entity(), owner);
 				}
 
 				for (auto j = CoreModule::list.iterator(); !j.is_last(); j.next())
 				{
 					if (j.item()->team == i.item()->team)
-						rectifier_update(me, heal_effect_lerp, j.item()->entity(), heal, owner);
+						rectifier_update(i.index, me, j.item()->entity(), owner);
 				}
 			}
 		}
@@ -1426,7 +1447,7 @@ void Rectifier::draw_alpha_all(const RenderParams& params)
 	sync->write(RenderOp::UpdateInstances);
 	sync->write(Asset::Mesh::heal_effect);
 	sync->write(heal_effects.length);
-	sync->write<Mat4>(heal_effects.data, heal_effects.length);
+	sync->write<InstanceVertex>(heal_effects.data, heal_effects.length);
 
 	Loader::shader_permanent(Asset::Shader::flat_instanced);
 
@@ -1452,7 +1473,7 @@ void Rectifier::draw_alpha_all(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	sync->write<Vec4>(Vec4(1, 1, 1, 0.2f));
+	sync->write<Vec4>(Vec4(1, 1, 1, 0.5f));
 
 	sync->write(RenderOp::Instances);
 	sync->write(Asset::Mesh::heal_effect);
@@ -2962,6 +2983,7 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 
 	if (e.type == Type::Grenade)
 	{
+		// camera shake
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		{
 			r32 distance = (i.item()->get<Transform>()->absolute_pos() - e.pos).length();
@@ -2969,6 +2991,25 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 				i.item()->camera_shake(LMath::lerpf(vi_max(0.0f, (distance - (GRENADE_RANGE * 0.66f)) / (GRENADE_RANGE * (1.5f - 0.66f))), 1.0f, 0.0f));
 		}
 
+		// grenade impulses
+		for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->state == Grenade::State::Inactive || i.item()->state == Grenade::State::Active)
+			{
+				Vec3 to_item = i.item()->get<Transform>()->absolute_pos() - e.pos;
+				r32 distance = to_item.length();
+				to_item /= distance;
+				if (distance < GRENADE_RANGE)
+				{
+					i.item()->velocity += to_item * LMath::lerpf(distance / GRENADE_RANGE, 1.0f, 0.0f) * GRENADE_LAUNCH_SPEED * 2.0f;
+					r32 length = i.item()->velocity.length();
+					if (length > GRENADE_LAUNCH_SPEED * 1.5f)
+						i.item()->velocity *= (GRENADE_LAUNCH_SPEED * 1.5f) / length; // prevent insane velocity
+				}
+			}
+		}
+
+		// physics impulses
 		for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->mass)
@@ -3232,7 +3273,7 @@ void ShellCasing::cleanup()
 	delete btShape;
 }
 
-Array<Mat4> ShellCasing::instances;
+Array<InstanceVertex> ShellCasing::instances;
 void ShellCasing::draw_all(const RenderParams& params)
 {
 	if (!params.camera->mask || !Settings::shell_casings)
@@ -3257,7 +3298,7 @@ void ShellCasing::draw_all(const RenderParams& params)
 			if (params.camera->visible_sphere(m.translation(), size.z * f_radius))
 			{
 				m.scale(size);
-				instances.add(m);
+				instances.add({ m, Vec4(1) });
 			}
 		}
 
@@ -3266,7 +3307,7 @@ void ShellCasing::draw_all(const RenderParams& params)
 			sync->write(RenderOp::UpdateInstances);
 			sync->write(Asset::Mesh::shell_casing);
 			sync->write(instances.length);
-			sync->write<Mat4>(instances.data, instances.length);
+			sync->write<InstanceVertex>(instances.data, instances.length);
 		}
 	}
 
@@ -3340,9 +3381,14 @@ b8 Grenade::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	serialize_ref(p, ref);
 	if (ref.ref())
 	{
-		ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_ARM);
 		State state;
 		serialize_enum(p, State, state);
+
+		if (state == State::Attached)
+			ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_ATTACH);
+		else if (ref.ref()->state == State::Inactive && state == State::Active)
+			ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_ARM);
+
 		ref.ref()->state = state;
 		View* view = ref.ref()->get<View>();
 		view->mesh = (state == State::Attached) ? Asset::Mesh::grenade_attached : Asset::Mesh::grenade_detached;
@@ -3440,16 +3486,41 @@ void Grenade::hit_entity(const Bolt::Hit& hit)
 	{
 		if (hit.entity->has<Minion>() && hit.entity->get<AIAgent>()->team == team())
 		{
-			// stick to minion
-			velocity = Vec3::zero;
-			get<Transform>()->parent = hit.entity->get<Transform>();
-			get<Transform>()->pos = Vec3::zero;
-			get<Transform>()->rot = Quat::identity;
-			if (state != State::Attached)
-				GrenadeNet::send_state_change(this, State::Attached);
+			// check if minion already has a grenade attached to it
+			b8 attach = true;
+			{
+				Transform* minion = hit.entity->get<Transform>();
+				for (auto i = list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->get<Transform>()->parent.ref() == minion)
+					{
+						attach = false;
+						break;
+					}
+				}
+			}
+
+			if (attach)
+			{
+				// stick to minion
+				velocity = Vec3::zero;
+				get<Transform>()->parent = hit.entity->get<Transform>();
+				get<Transform>()->pos = Vec3::zero;
+				get<Transform>()->rot = Quat::identity;
+				if (state != State::Attached)
+					GrenadeNet::send_state_change(this, State::Attached);
+			}
+			else
+			{
+				// bounce off minion
+				velocity = velocity.reflect(hit.normal) * 0.5f;
+				if (state != State::Active)
+					GrenadeNet::send_state_change(this, State::Active);
+			}
 		}
 		else
 		{
+			// quick fuse
 			timer = vi_max(timer, GRENADE_DELAY - 0.3f);
 
 			// bounce
@@ -3529,7 +3600,7 @@ void Grenade::explode()
 				else if (i.item()->has<ForceField>())
 				{
 					if (distance < GRENADE_RANGE && i.item()->get<ForceField>()->team != my_team)
-						i.item()->damage(entity(), 11);
+						i.item()->damage(entity(), 12);
 				}
 				else if (i.item()->has<Grenade>() && i.item()->get<Grenade>()->team() == my_team)
 				{
@@ -3863,7 +3934,7 @@ s32 PlayerTrigger::count() const
 	return count;
 }
 
-Array<Mat4> Rope::instances;
+Array<InstanceVertex> Rope::instances;
 
 // draw rope segments and bolts
 void Rope::draw_all(const RenderParams& params)
@@ -3892,7 +3963,7 @@ void Rope::draw_all(const RenderParams& params)
 				if (params.camera->visible_sphere(m.translation(), ROPE_SEGMENT_LENGTH * f_radius))
 				{
 					m.scale(scale);
-					instances.add(m);
+					instances.add({ m, Vec4(1) });
 				}
 			}
 		}
@@ -3909,7 +3980,7 @@ void Rope::draw_all(const RenderParams& params)
 				&& params.camera->visible_sphere(m.translation(), BOLT_LENGTH * f_radius))
 			{
 				m.scale(scale);
-				instances.add(m);
+				instances.add({ m, Vec4(1) });
 			}
 		}
 
@@ -3923,7 +3994,7 @@ void Rope::draw_all(const RenderParams& params)
 				m.make_transform(i.item()->pos, scale, i.item()->rot);
 				m = offset * m;
 				if (params.camera->visible_sphere(m.translation(), BOLT_LENGTH * f_radius))
-					instances.add(m);
+					instances.add({ m, Vec4(1) });
 			}
 		}
 
@@ -3932,7 +4003,7 @@ void Rope::draw_all(const RenderParams& params)
 			sync->write(RenderOp::UpdateInstances);
 			sync->write(Asset::Mesh::tri_tube);
 			sync->write(instances.length);
-			sync->write<Mat4>(instances.data, instances.length);
+			sync->write<InstanceVertex>(instances.data, instances.length);
 		}
 	}
 
@@ -5096,7 +5167,7 @@ void Ascensions::clear()
 Array<Asteroids::Entry> Asteroids::list;
 r32 Asteroids::timer;
 r32 Asteroids::particle_accumulator;
-Array<Mat4> Asteroids::instances;
+Array<InstanceVertex> Asteroids::instances;
 
 void Asteroids::update(const Update& u)
 {
@@ -5138,7 +5209,7 @@ void Asteroids::update(const Update& u)
 
 void Asteroids::draw_alpha(const RenderParams& params)
 {
-	if (!params.camera->mask)
+	if (!params.camera->mask || (params.flags & RenderFlagEdges))
 		return;
 
 	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::asteroid);
@@ -5153,7 +5224,11 @@ void Asteroids::draw_alpha(const RenderParams& params)
 		const Entry& entry = list[i];
 		r32 scale = 0.03f * vi_min(entry.lifetime, 2.0f) * sqrtf((params.camera->pos - entry.pos).length());
 		if (params.camera->visible_sphere(entry.pos, scale * f_radius))
-			instances.add()->make_transform(entry.pos, Vec3(scale), Quat::identity);
+		{
+			InstanceVertex* instance = instances.add();
+			instance->world_matrix.make_transform(entry.pos, Vec3(scale), Quat::identity);
+			instance->color = Vec4(1);
+		}
 	}
 
 	if (instances.length == 0)
@@ -5188,7 +5263,7 @@ void Asteroids::draw_alpha(const RenderParams& params)
 	sync->write(RenderOp::UpdateInstances);
 	sync->write(Asset::Mesh::asteroid);
 	sync->write(instances.length);
-	sync->write<Mat4>(instances.data, instances.length);
+	sync->write<InstanceVertex>(instances.data, instances.length);
 
 	sync->write(RenderOp::Instances);
 	sync->write(Asset::Mesh::asteroid);
@@ -5201,7 +5276,7 @@ void Asteroids::clear()
 }
 
 PinArray<Tile, MAX_ENTITIES> Tile::list;
-Array<Mat4> Tile::instances;
+Array<InstanceVertex> Tile::instances;
 
 void Tile::add(const Vec3& target_pos, const Quat& target_rot, const Vec3& offset, Transform* parent, r32 anim_time)
 {
@@ -5241,8 +5316,9 @@ void Tile::draw_alpha(const RenderParams& params)
 
 		if (params.camera->visible_sphere(pos, size * f_radius))
 		{
-			Mat4* m = instances.add();
-			m->make_transform(pos, Vec3(size), rot);
+			InstanceVertex* instance = instances.add();
+			instance->world_matrix.make_transform(pos, Vec3(size), rot);
+			instance->color = Vec4(1);
 		}
 	}
 
@@ -5273,7 +5349,7 @@ void Tile::draw_alpha(const RenderParams& params)
 	sync->write(RenderOp::UpdateInstances);
 	sync->write(Asset::Mesh::tile);
 	sync->write(instances.length);
-	sync->write<Mat4>(instances.data, instances.length);
+	sync->write<InstanceVertex>(instances.data, instances.length);
 
 	sync->write(RenderOp::Instances);
 	sync->write(Asset::Mesh::tile);
@@ -5304,7 +5380,7 @@ r32 Tile::scale() const
 }
 
 PinArray<AirWave, MAX_ENTITIES> AirWave::list;
-Array<Mat4> AirWave::instances;
+Array<InstanceVertex> AirWave::instances;
 
 void AirWave::add(const Vec3& pos, const Quat& rot, r32 timestamp_offset)
 {
@@ -5341,8 +5417,9 @@ void AirWave::draw_alpha(const RenderParams& params)
 			blend = vi_min(blend, Ease::cubic_in_out<r32>(1.0f - vi_max(0.0f, vi_min(1.0f, (timer - (lifetime - anim_out_time)) / anim_out_time))));
 			if (params.camera->visible_sphere(w->pos, blend * f_radius))
 			{
-				Mat4* m = instances.add();
-				m->make_transform(w->pos, Vec3(blend), w->rot);
+				InstanceVertex* instance = instances.add();
+				instance->world_matrix.make_transform(w->pos, Vec3(blend), w->rot);
+				instance->color = Vec4(1);
 			}
 		}
 	}
@@ -5374,7 +5451,7 @@ void AirWave::draw_alpha(const RenderParams& params)
 	sync->write(RenderOp::UpdateInstances);
 	sync->write(Asset::Mesh::air_wave);
 	sync->write(instances.length);
-	sync->write<Mat4>(instances.data, instances.length);
+	sync->write<InstanceVertex>(instances.data, instances.length);
 
 	sync->write(RenderOp::Instances);
 	sync->write(Asset::Mesh::air_wave);

@@ -182,6 +182,7 @@ struct Game
 	static AssetID scheduled_dialog;
 	static b8 cancel_event_eaten[MAX_GAMEPADS];
 	static b8 quit;
+	static b8 minimize;
 	static Net::Master::AuthType auth_type;
 	static const char* language;
 	static u8 auth_key[MAX_AUTH_KEY + 1];

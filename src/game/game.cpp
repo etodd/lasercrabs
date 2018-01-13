@@ -67,7 +67,8 @@
 namespace VI
 {
 
-b8 Game::quit = false;
+b8 Game::quit;
+b8 Game::minimize;
 GameTime Game::time;
 GameTime Game::real_time;
 r64 Game::platform_time;
@@ -936,8 +937,7 @@ void Game::draw_opaque(const RenderParams& render_params)
 
 	ShellCasing::draw_all(render_params);
 
-	if (render_params.technique == RenderTechnique::Shadow)
-		Rope::draw_all(render_params);
+	Rope::draw_all(render_params);
 
 	if (render_params.flags & RenderFlagPolygonOffset)
 	{
@@ -1200,11 +1200,8 @@ void Game::draw_override(const RenderParams& render_params)
 
 void Game::draw_particles(const RenderParams& render_params)
 {
-	if (!(render_params.flags & RenderFlagEdges))
-	{
-		Rope::draw_all(render_params);
-		Asteroids::draw_alpha(render_params);
-	}
+	Rope::draw_all(render_params);
+	Asteroids::draw_alpha(render_params);
 
 	render_params.sync->write(RenderOp::CullMode);
 	render_params.sync->write(RenderCullMode::None);

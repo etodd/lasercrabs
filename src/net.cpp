@@ -2139,7 +2139,7 @@ struct StateServerPersistent
 };
 StateServerPersistent state_server_persistent;
 
-b8 client_owns(Client* c, Entity* e)
+b8 client_owns(const Client* c, Entity* e)
 {
 	PlayerHuman* player = nullptr;
 	if (e->has<PlayerHuman>())
@@ -3057,7 +3057,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 
 			b8 valid = !m.ref()
 				|| client_owns(client, m.ref()->entity())
-				|| (m.ref()->is_admin && (msg == PlayerManager::Message::TeamSchedule || msg == PlayerManager::Message::CanSpawn));
+				|| ((msg == PlayerManager::Message::TeamSchedule || msg == PlayerManager::Message::CanSpawn) && client->flag(Client::FlagIsAdmin));
 			if (!PlayerManager::net_msg(p, m.ref(), msg, valid ? MessageSource::Remote : MessageSource::Invalid))
 				net_error();
 			break;

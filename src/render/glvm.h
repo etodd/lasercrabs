@@ -152,6 +152,12 @@ enum class RenderTextureType : s8
 	count,
 };
 
+struct InstanceVertex
+{
+	Mat4 world_matrix;
+	Vec4 color;
+};
+
 void render_init();
 void render(RenderSync*);
 b8 compile_shader(const char*, const char*, s32, u32*, const char* = 0);

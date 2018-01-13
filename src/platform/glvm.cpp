@@ -15,14 +15,14 @@ b8 compile_shader(const char* prefix, const char* code, s32 code_length, u32* pr
 	GLuint vertex_id = glCreateShader(GL_VERTEX_SHADER);
 	GLuint frag_id = glCreateShader(GL_FRAGMENT_SHADER);
 
-	// compile Vertex Shader
+	// compile vertex shader
 	GLint prefix_length = GLint(strlen(prefix));
 	char const* vertex_code[] = { "#version 330 core\n#define VERTEX\n", prefix, code };
 	const GLint vertex_code_length[] = { 33, prefix_length, (GLint)code_length };
 	glShaderSource(vertex_id, 3, vertex_code, vertex_code_length);
 	glCompileShader(vertex_id);
 
-	// check Vertex Shader
+	// check vertex shader
 	GLint result;
 	glGetShaderiv(vertex_id, GL_COMPILE_STATUS, &result);
 	s32 msg_length;
@@ -35,13 +35,13 @@ b8 compile_shader(const char* prefix, const char* code, s32 code_length, u32* pr
 		success = false;
 	}
 
-	// compile Fragment Shader
+	// compile fragment shader
 	const char* frag_code[] = { "#version 330 core\n", prefix, code };
 	const GLint frag_code_length[] = { 18, prefix_length, (GLint)code_length };
 	glShaderSource(frag_id, 3, frag_code, frag_code_length);
 	glCompileShader(frag_id);
 
-	// check Fragment Shader
+	// check fragment shader
 	glGetShaderiv(frag_id, GL_COMPILE_STATUS, &result);
 	glGetShaderiv(frag_id, GL_INFO_LOG_LENGTH, &msg_length);
 	if (msg_length > 1)
@@ -433,7 +433,7 @@ do\
 
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
 
-				// right now the only supported instanced attribute is the world matrix
+				// right now the only supported instanced attributes are the world matrix and color
 
 				glGenBuffers(1, &mesh->instance_buffer);
 				glBindBuffer(GL_ARRAY_BUFFER, mesh->instance_buffer);
@@ -442,14 +442,18 @@ do\
 				glEnableVertexAttribArray(mesh->attribs.length + 1);
 				glEnableVertexAttribArray(mesh->attribs.length + 2);
 				glEnableVertexAttribArray(mesh->attribs.length + 3);
-				glVertexAttribPointer(mesh->attribs.length + 0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(Vec4), (GLvoid*)(sizeof(Vec4) * 0));
-				glVertexAttribPointer(mesh->attribs.length + 1, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(Vec4), (GLvoid*)(sizeof(Vec4) * 1));
-				glVertexAttribPointer(mesh->attribs.length + 2, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(Vec4), (GLvoid*)(sizeof(Vec4) * 2));
-				glVertexAttribPointer(mesh->attribs.length + 3, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(Vec4), (GLvoid*)(sizeof(Vec4) * 3));
+				glEnableVertexAttribArray(mesh->attribs.length + 4);
+
+				glVertexAttribPointer(mesh->attribs.length + 0, 4, GL_FLOAT, GL_FALSE, sizeof(InstanceVertex), (GLvoid*)(sizeof(Vec4) * 0));
+				glVertexAttribPointer(mesh->attribs.length + 1, 4, GL_FLOAT, GL_FALSE, sizeof(InstanceVertex), (GLvoid*)(sizeof(Vec4) * 1));
+				glVertexAttribPointer(mesh->attribs.length + 2, 4, GL_FLOAT, GL_FALSE, sizeof(InstanceVertex), (GLvoid*)(sizeof(Vec4) * 2));
+				glVertexAttribPointer(mesh->attribs.length + 3, 4, GL_FLOAT, GL_FALSE, sizeof(InstanceVertex), (GLvoid*)(sizeof(Vec4) * 3));
+				glVertexAttribPointer(mesh->attribs.length + 4, 4, GL_FLOAT, GL_FALSE, sizeof(InstanceVertex), (GLvoid*)(sizeof(Vec4) * 4));
 				glVertexAttribDivisor(mesh->attribs.length + 0, 1);
 				glVertexAttribDivisor(mesh->attribs.length + 1, 1);
 				glVertexAttribDivisor(mesh->attribs.length + 2, 1);
 				glVertexAttribDivisor(mesh->attribs.length + 3, 1);
+				glVertexAttribDivisor(mesh->attribs.length + 4, 1);
 
 				debug_check();
 				break;
@@ -944,7 +948,7 @@ do\
 				mesh->instance_count = *(sync->read<s32>());
 
 				glBindBuffer(GL_ARRAY_BUFFER, mesh->instance_buffer);
-				glBufferData(GL_ARRAY_BUFFER, sizeof(Mat4) * mesh->instance_count, sync->read<Mat4>(mesh->instance_count), GL_DYNAMIC_DRAW);
+				glBufferData(GL_ARRAY_BUFFER, sizeof(InstanceVertex) * mesh->instance_count, sync->read<InstanceVertex>(mesh->instance_count), GL_DYNAMIC_DRAW);
 
 				debug_check();
 				break;

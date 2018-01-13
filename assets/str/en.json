@@ -222,6 +222,7 @@
 		"player_kicked": "%s kicked!",
 		"extra_drone": "+1 Drone",
 		"description_extra_drone": "Cost: %d\nAn extra drone.",
+		"purchased": "Purchased",
 
 		"map_by": "%s - by %s",
 		"tab_map": "Map",

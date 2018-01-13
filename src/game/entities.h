@@ -209,7 +209,9 @@ struct RectifierEntity : public Entity
 
 struct Rectifier : public ComponentType<Rectifier>
 {
-	static Array<Mat4> heal_effects;
+	static Array<InstanceVertex> heal_effects;
+	static s8 heal_counts[MAX_ENTITIES];
+	static Bitmask<MAX_ENTITIES> heal_targets;
 
 	static b8 can_see(AI::TeamMask, const Vec3&, const Vec3&);
 	static Rectifier* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
@@ -416,7 +418,7 @@ struct WaterEntity : public Entity
 
 struct Rope : public ComponentType<Rope>
 {
-	static Array<Mat4> instances;
+	static Array<InstanceVertex> instances;
 
 	static void draw_all(const RenderParams&);
 	static void spawn(const Vec3&, const Vec3&, r32, r32 = 0.0f, b8 = true, s8 = 0);
@@ -588,7 +590,7 @@ struct ShellCasing
 	};
 
 	static Array<ShellCasing> list;
-	static Array<Mat4> instances;
+	static Array<InstanceVertex> instances;
 
 	static void spawn(const Vec3&, const Quat&, Type);
 	static void clear();
@@ -798,7 +800,7 @@ struct Asteroids
 	};
 
 	static Array<Entry> list;
-	static Array<Mat4> instances;
+	static Array<InstanceVertex> instances;
 	static r32 timer;
 	static r32 particle_accumulator;
 
@@ -811,7 +813,7 @@ struct Asteroids
 struct Tile
 {
 	static PinArray<Tile, MAX_ENTITIES> list;
-	static Array<Mat4> instances;
+	static Array<InstanceVertex> instances;
 
 	static void add(const Vec3&, const Quat&, const Vec3&, Transform*, r32 = 0.3f);
 	static void draw_alpha(const RenderParams&);
@@ -837,7 +839,7 @@ struct AirWave
 {
 	static PinArray<AirWave, MAX_ENTITIES> list;
 
-	static Array<Mat4> instances;
+	static Array<InstanceVertex> instances;
 
 	static void add(const Vec3&, const Quat&, r32 = 0.0f);
 	static void draw_alpha(const RenderParams&);

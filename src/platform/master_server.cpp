@@ -2834,7 +2834,7 @@ namespace DiscordBot
 		}
 
 		{
-			sqlite3_stmt* stmt = db_query("select count(1) from DiscordPlaytime where start < ? and end > ?");
+			sqlite3_stmt* stmt = db_query("select count(distinct user_id) from DiscordPlaytime where start < ? and end > ?");
 			s64 t = s64(platform::timestamp());
 			db_bind_int(stmt, 0, t);
 			db_bind_int(stmt, 1, t);
@@ -2844,13 +2844,13 @@ namespace DiscordBot
 		}
 	}
 
-	void build_stat_msg(std::ostringstream* msg, s32 playing, s32 in_lobby, s32 available)
+	void build_stat_msg(std::ostringstream* msg, s32 playing, s32 in_lobby, s32 available, b8 include_all = false)
 	{
-		if (playing > 0)
+		if (playing > 0 || include_all)
 			(*msg) << "\nPlaying: " << playing;
-		if (in_lobby > 0)
+		if (in_lobby > 0 || include_all)
 			(*msg) << "\nIn lobby:" << in_lobby;
-		if (available > 0)
+		if (available > 0 || include_all)
 			(*msg) << "\nLooking to play: " << available;
 	}
 
@@ -3059,7 +3059,7 @@ namespace DiscordBot
 				stats(&playing, &in_lobby, &available);
 				std::ostringstream response;
 				response << "<@!" << author_id << "> ";
-				build_stat_msg(&response, playing, in_lobby, available);
+				build_stat_msg(&response, playing, in_lobby, available, true);
 				msg_post(response.str().c_str());
 			}
 			else if (strcmp(cmd, "!help") == 0 || strcmp(cmd, "!h") == 0)
@@ -3188,7 +3188,7 @@ namespace DiscordBot
 
 				// add members to available role
 				{
-					sqlite3_stmt* stmt = db_query("select DiscordPlaytime.user_id from DiscordPlaytime left join DiscordUser on DiscordPlaytime.user_id=DiscordUser.id where DiscordPlaytime.start <= ? and DiscordPlaytime.end > ? and DiscordUser.member_available_role=0;");
+					sqlite3_stmt* stmt = db_query("select distinct DiscordPlaytime.user_id from DiscordPlaytime left join DiscordUser on DiscordPlaytime.user_id=DiscordUser.id where DiscordPlaytime.start <= ? and DiscordPlaytime.end > ? and DiscordUser.member_available_role=0;");
 					db_bind_int(stmt, 0, timestamp);
 					db_bind_int(stmt, 1, timestamp);
 					typedef StaticArray<char, MAX_DISCORD_ID_LENGTH + 1> DiscordId;
@@ -3227,7 +3227,7 @@ namespace DiscordBot
 
 				// remove members from available role
 				{
-					sqlite3_stmt* stmt = db_query("select DiscordUser.id from DiscordUser where DiscordUser.member_available_role=1 and (select count(1) from DiscordPlaytime where DiscordPlaytime.user_id=DiscordUser.id and DiscordPlaytime.start <= ? and DiscordPlaytime.end > ?)=0;");
+					sqlite3_stmt* stmt = db_query("select distinct DiscordUser.id from DiscordUser where DiscordUser.member_available_role=1 and (select count(1) from DiscordPlaytime where DiscordPlaytime.user_id=DiscordUser.id and DiscordPlaytime.start <= ? and DiscordPlaytime.end > ?)=0;");
 					db_bind_int(stmt, 0, timestamp);
 					db_bind_int(stmt, 1, timestamp);
 					while (db_step(stmt))

@@ -1066,13 +1066,13 @@ void PlayerControlAI::actions_populate()
 				{
 					priority -= 1;
 
-					if (manager->has_upgrade(Upgrade::Bolter) && manager->ability_valid(Ability::Bolter) && mersenne::randf_cc() < 0.5f)
+					if (manager->ability_valid(Ability::Bolter) && mersenne::randf_cc() < 0.5f)
 						ability = Ability::Bolter;
-					else if (manager->has_upgrade(Upgrade::Sniper) && manager->ability_valid(Ability::Sniper) && mersenne::randf_cc() < 0.75f)
+					else if (manager->ability_valid(Ability::Sniper) && mersenne::randf_cc() < 0.75f)
 						ability = Ability::Sniper;
-					else if (manager->has_upgrade(Upgrade::Shotgun) && manager->ability_valid(Ability::Shotgun))
+					else if (manager->ability_valid(Ability::Shotgun))
 						ability = Ability::Shotgun;
-					else if (manager->has_upgrade(Upgrade::Grenade) && manager->ability_valid(Ability::Grenade) && mersenne::randf_cc() < 0.5f)
+					else if (manager->ability_valid(Ability::Grenade) && mersenne::randf_cc() < 0.5f)
 						ability = Ability::Grenade;
 				}
 

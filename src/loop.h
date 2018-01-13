@@ -1759,6 +1759,11 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 			break;
 
 		sync_render->quit |= Game::quit;
+		if (Game::minimize)
+		{
+			sync_render->minimize = true;
+			Game::minimize = false;
+		}
 		sync_render->display_mode = Settings::display();
 		sync_render->fullscreen = Settings::fullscreen;
 		sync_render->vsync = Settings::vsync;

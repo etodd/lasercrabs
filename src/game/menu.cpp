@@ -626,11 +626,7 @@ void title_menu(const Update& u, Camera* camera)
 			{
 				// must choose a region first
 				if (!choose_region(u, origin, 0, &main_menu, AllowClose::No))
-				{
-					// done choosing a region
-					main_menu.clear();
-					main_menu.animate();
-				}
+					main_menu.animate(); // done choosing a region
 			}
 			else
 			{
@@ -640,7 +636,7 @@ void title_menu(const Update& u, Camera* camera)
 					Scripts::Docks::play();
 					clear();
 				}
-				if (main_menu.item(u, _(strings::multiplayer)))
+				else if (main_menu.item(u, _(strings::multiplayer)))
 				{
 					Game::save.reset();
 					Game::session.reset(SessionType::Multiplayer);
@@ -648,19 +644,22 @@ void title_menu(const Update& u, Camera* camera)
 					Overworld::show(camera, Overworld::State::Multiplayer);
 					clear();
 				}
-				if (main_menu.item(u, _(strings::settings)))
+				else if (main_menu.item(u, _(strings::settings)))
 				{
 					main_menu_state = State::Settings;
 					main_menu.animate();
 				}
-				if (main_menu.item(u, _(strings::discord)))
-					open_url("https://discord.gg/rHkXXhR");
-				if (main_menu.item(u, _(strings::mail_list)))
-					open_url("https://eepurl.com/U50O5");
-				if (main_menu.item(u, _(strings::credits)))
-					main_menu_state = State::Credits;
-				if (main_menu.item(u, _(strings::exit)))
-					dialog(0, &exit, _(strings::confirm_quit));
+				else
+				{
+					if (main_menu.item(u, _(strings::discord)))
+						open_url("https://discord.gg/rHkXXhR");
+					if (main_menu.item(u, _(strings::mail_list)))
+						open_url("https://eepurl.com/U50O5");
+					if (main_menu.item(u, _(strings::credits)))
+						main_menu_state = State::Credits;
+					if (main_menu.item(u, _(strings::exit)))
+						dialog(0, &exit, _(strings::confirm_quit));
+				}
 				main_menu.end(u);
 			}
 			break;
@@ -738,6 +737,8 @@ void open_url(const char* url)
 	snprintf(buffer, MAX_PATH_LENGTH, "xdg-open \"%s\"", url);
 	system(buffer);
 #endif
+	if (Settings::fullscreen)
+		Game::minimize = true;
 }
 
 b8 player(const Update&, const UIMenu::Origin&, s8, UIMenu*);
@@ -2014,9 +2015,11 @@ void UIMenu::clear()
 
 void UIMenu::animate()
 {
+	clear();
 	selected = 0;
 	scroll.pos = 0;
 	animation_time = Game::real_time.total;
+	allow_select = false; // prevent items being selected for just this frame
 }
 
 void UIMenu::start(const Update& u, const Origin& o, s8 g, EnableInput input)
@@ -2184,6 +2187,7 @@ b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disab
 
 	if (selected == items.length - 1
 		&& Game::time.total > 0.35f
+		&& allow_select
 		&& !Console::visible
 		&& !disabled)
 	{

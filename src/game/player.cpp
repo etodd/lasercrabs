@@ -1229,7 +1229,12 @@ void PlayerHuman::update(const Update& u)
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || !get<PlayerManager>()->upgrades) // only allow one ability upgrade in tutorial
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || UpgradeInfo::list[i].type == UpgradeInfo::Type::Ability) // only allow ability upgrades in tutorial
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type == AbilityInfo::Type::Shoot); // only allow shooting abilities in tutorial
-								if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
+								char name[128] = {};
+								if (get<PlayerManager>()->has_upgrade(upgrade))
+									sprintf(name, "%s [%s]", _(info.name), _(strings::purchased));
+								else
+									strcpy(name, _(info.name));
+								if (menu.item(u, name, nullptr, !can_upgrade, info.icon))
 								{
 									player_confirm_upgrade[gamepad] = upgrade;
 									if (info.type == UpgradeInfo::Type::Consumable)
@@ -3224,7 +3229,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 	}
 
 	if (src == Net::MessageSource::Invalid // message is from a client who doesn't actually own this player
-		|| (msg.ability != Ability::None && !c->player.ref()->get<PlayerManager>()->has_upgrade(Upgrade(msg.ability)))) // don't have the upgrade for that ability
+		|| (msg.ability != Ability::None && !c->player.ref()->get<PlayerManager>()->has_ability(msg.ability))) // don't have that ability
 	{
 		// invalid message, ignore
 		net_error();
@@ -3312,7 +3317,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		}
 		case PlayerControlHumanNet::Message::Type::AbilitySelect:
 		{
-			if (msg.ability == Ability::None || c->get<PlayerCommon>()->manager.ref()->has_upgrade(Upgrade(msg.ability)))
+			if (msg.ability == Ability::None || c->get<PlayerCommon>()->manager.ref()->has_ability(msg.ability))
 				c->get<Drone>()->ability(msg.ability);
 			break;
 		}

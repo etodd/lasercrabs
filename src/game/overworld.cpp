@@ -2078,7 +2078,7 @@ void multiplayer_draw(const RenderParams& params)
 void go(AssetID zone)
 {
 	vi_assert(Game::level.local && Game::session.type == SessionType::Story);
-	if (zone == Asset::Level::Commons && !Game::save.tutorial_complete && Game::save.zones[zone] == ZoneState::PvpHostile)
+	if (zone == Asset::Level::Isca && !Game::save.tutorial_complete && Game::save.zones[zone] == ZoneState::PvpHostile)
 		Game::schedule_load_level(zone, Game::Mode::Pvp); // run tutorial locally
 	else
 	{

@@ -782,13 +782,18 @@ namespace VI
 				}
 			}
 
+			if (sync->minimize)
+			{
+				sync->minimize = false;
+				SDL_MinimizeWindow(window);
+			}
+
 			render(sync);
 
 			// swap buffers
 			SDL_GL_SwapWindow(window);
 
 			SDL_PumpEvents();
-
 
 			sync->input.keys.clear();
 			for (s32 i = 0; i < s32(KeyCode::count); i++)

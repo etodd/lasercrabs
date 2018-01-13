@@ -230,6 +230,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	State state() const;
 	b8 can_transition_state() const;
 	b8 has_upgrade(Upgrade) const;
+	b8 has_ability(Ability) const;
 	b8 is_local() const;
 	s32 ability_count() const;
 	b8 ability_valid(Ability) const;

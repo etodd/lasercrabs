@@ -25,34 +25,35 @@ void main()
 
 #else
 
-// Default technique
+// default technique
 
 #ifdef VERTEX
 
 layout(location = 0) in vec3 in_position;
 layout(location = 2) in mat4 in_model_matrix;
+layout(location = 6) in vec4 in_color;
 
-out vec3 normal_viewspace;
+out vec4 color;
 
 uniform mat4 vp;
 
 void main()
 {
 	gl_Position = vp * in_model_matrix * vec4(in_position, 1);
+	color = in_color;
 }
 
 #else
 
-in vec3 normal_viewspace;
+in vec4 color;
 
-// Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
 
 layout (location = 0) out vec4 out_color;
 
 void main()
 {
-	out_color = diffuse_color;
+	out_color = diffuse_color * color;
 }
 
 #endif

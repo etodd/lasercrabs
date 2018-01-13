@@ -118,7 +118,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		2.0f, // cooldown
 		0.25f, // switch cooldown
-		1.0f, // recoil velocity
+		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_rectifier,
 		50,
@@ -127,7 +127,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		1.5f, // cooldown
 		0.3f, // switch cooldown
-		1.0f, // recoil velocity
+		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_minion,
 		25,
@@ -136,7 +136,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		DRONE_COOLDOWN_MAX, // cooldown
 		0.5f, // switch cooldown
-		1.0f, // recoil velocity
+		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_force_field,
 		150,
@@ -221,21 +221,21 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::shotgun,
 		strings::description_shotgun,
 		Asset::Mesh::icon_shotgun,
-		150,
+		250,
 		Type::Ability,
 	},
 	{
 		strings::sniper,
 		strings::description_sniper,
 		Asset::Mesh::icon_sniper,
-		250,
+		350,
 		Type::Ability,
 	},
 	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
-		250,
+		350,
 		Type::Ability,
 	},
 	{
@@ -1275,6 +1275,16 @@ b8 PlayerManager::has_upgrade(Upgrade u) const
 	return upgrades & (1 << s32(u));
 }
 
+b8 PlayerManager::has_ability(Ability a) const
+{
+	for (s32 i = 0; i < MAX_ABILITIES; i++)
+	{
+		if (abilities[i] == a)
+			return true;
+	}
+	return false;
+}
+
 b8 PlayerManager::ability_valid(Ability ability) const
 {
 	if (ability != Ability::None)
@@ -1282,7 +1292,7 @@ b8 PlayerManager::ability_valid(Ability ability) const
 		if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
 			return false;
 
-		if (!has_upgrade(Upgrade(ability)))
+		if (!has_ability(ability))
 			return false;
 
 		const AbilityInfo& info = AbilityInfo::list[s32(ability)];
@@ -1799,9 +1809,6 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 					m->upgrades |= 1 << s32(u);
 					if (m->abilities[index] != Ability::None)
 					{
-						// clear out the old upgrade
-						m->upgrades &= ~(1 << s32(m->abilities[index]));
-
 						// if the drone currently has the old ability equipped, update it to the new ability
 						Entity* instance = m->instance.ref();
 						if (instance && instance->get<Drone>()->current_ability == m->abilities[index])
@@ -2055,10 +2062,12 @@ void PlayerManager::leave()
 
 b8 PlayerManager::upgrade_start(Upgrade u, s8 ability_slot)
 {
+	const UpgradeInfo& info = UpgradeInfo::list[s32(u)];
 	s16 cost = upgrade_cost(u);
 	if (can_transition_state()
 		&& upgrade_available(u)
-		&& energy >= cost
+		&& (info.type != UpgradeInfo::Type::Ability || !has_ability(Ability(u))) // can't do ability upgrade again if we already have it equipped
+		&& (energy >= cost || has_upgrade(u)) // doesn't cost anything the second time
 		&& UpgradeStation::drone_inside(instance.ref()->get<Drone>()))
 	{
 		if (Game::level.local)
@@ -2080,7 +2089,8 @@ b8 PlayerManager::upgrade_start(Upgrade u, s8 ability_slot)
 			}
 			state_timer = UPGRADE_TIME - vi_min(NET_MAX_RTT_COMPENSATION, rtt) - interpolation_delay;
 
-			add_energy(-cost);
+			if (!has_upgrade(u)) // doesn't cost anything the second time
+				add_energy(-cost);
 		}
 		else // client-side prediction
 		{
@@ -2096,8 +2106,6 @@ b8 PlayerManager::upgrade_start(Upgrade u, s8 ability_slot)
 
 void PlayerManager::upgrade_complete()
 {
-	vi_assert(!has_upgrade(current_upgrade));
-	b8 is_ability = UpgradeInfo::list[s32(current_upgrade)].type == UpgradeInfo::Type::Ability;
 	PlayerManagerNet::upgrade_completed(this, current_upgrade_ability_slot, current_upgrade);
 }
 
@@ -2106,7 +2114,7 @@ s16 PlayerManager::upgrade_cost(Upgrade u) const
 	vi_assert(u != Upgrade::None);
 	const UpgradeInfo& info = UpgradeInfo::list[s32(u)];
 	if (info.type == UpgradeInfo::Type::Ability)
-		return s16(r32(info.cost) * (1.0f + 0.5f * ability_count()));
+		return info.cost * (1 + vi_min(1, ability_count()));
 	else
 		return info.cost;
 }
@@ -2131,20 +2139,21 @@ b8 PlayerManager::upgrade_available(Upgrade u) const
 {
 	if (u == Upgrade::None)
 	{
+		// any upgrade available?
 		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{
-			if ((i != s32(Upgrade::ExtraDrone) || team.ref()->tickets() != -1)
-				&& !has_upgrade(Upgrade(i))
-				&& Game::session.config.allow_upgrades & (1 << i)
-				&& energy >= upgrade_cost(Upgrade(i)))
-					return true;
+			if (!has_upgrade(Upgrade(i))
+				&& energy >= upgrade_cost(Upgrade(i))
+				&& upgrade_available(Upgrade(i)))
+				return true;
 		}
 		return false;
 	}
 	else
 	{
-		// make sure that the upgrade is allowed, and either it's not an ability, or it is an ability and we have enough room for it
-		return !has_upgrade(u)
+		// make sure that the upgrade is allowed
+		const UpgradeInfo& info = UpgradeInfo::list[s32(u)];
+		return (info.type != UpgradeInfo::Type::Ability || !has_ability(Ability(u))) // can't do an ability upgrade if we already have the ability equipped
 			&& Game::session.config.allow_upgrades & (1 << s32(u))
 			&& (u != Upgrade::ExtraDrone || team.ref()->tickets() != -1);
 	}

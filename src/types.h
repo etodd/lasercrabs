@@ -74,7 +74,7 @@ enum class Ability : s8
 	Bolter,
 	ActiveArmor,
 	Rectifier,
-	Minion,
+	MinionBoost,
 	ForceField,
 	Shotgun,
 	Sniper,

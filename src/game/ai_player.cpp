@@ -101,36 +101,6 @@ void PlayerAI::update(const Update& u)
 			PlayerAI::list.remove(id());
 		}
 	}
-	else if (Game::level.mode == Game::Mode::Pvp)
-	{
-		// check if we need to spawn
-		if (!manager.ref()->instance.ref()
-			&& manager.ref()->spawn_timer == 0.0f
-			&& manager.ref()->team.ref()->tickets() != 0)
-		{
-			// select a random point to spawn at
-			AI::TeamMask mask = 1 << s32(manager.ref()->team.ref()->team());
-			s32 count = SpawnPoint::count(mask);
-			s32 choice = mersenne::rand() % count;
-			s32 index = 0;
-
-			b8 found = false;
-			for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
-			{
-				if (AI::match(i.item()->team, mask))
-				{
-					if (choice == index)
-					{
-						manager.ref()->spawn_select(i.item());
-						found = true;
-						break;
-					}
-					index++;
-				}
-			}
-			vi_assert(found);
-		}
-	}
 }
 
 void ai_player_spawn(const Vec3& pos, const Quat& rot, PlayerAI* player)

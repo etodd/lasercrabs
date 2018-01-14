@@ -1067,7 +1067,7 @@ b8 UI::cursor_active()
 		if (player)
 		{
 			PlayerHuman::UIMode mode = player->ui_mode();
-			if (mode == PlayerHuman::UIMode::PvpSelectSpawn || mode == PlayerHuman::UIMode::PvpGameOver)
+			if (mode == PlayerHuman::UIMode::PvpGameOver)
 				return true;
 		}
 	}

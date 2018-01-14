@@ -4457,7 +4457,7 @@ b8 lagging()
 {
 	return state_client.mode == Mode::Disconnected
 		|| (state_client.msgs_in_history.msg_frames.length > 0
-			&& state_common.timestamp - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > tick_rate() * 8.0f);
+			&& state_common.timestamp - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > tick_rate() * 20.0f);
 }
 
 Sock::Address server_address()

@@ -98,84 +98,84 @@ AssetID Team::name_long(AI::Team t)
 AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 {
 	{
-		0.275f, // cooldown
+		0.275f, // movement cooldown
 		0.3f, // switch cooldown
+		0.0f, // use cooldown
 		0.7f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BOLTER,
 		Asset::Mesh::icon_bolter,
-		0,
 		Type::Shoot,
 	},
 	{
 		2.75f, // cooldown
 		0.0f, // switch cooldown
+		0.0f, // use cooldown
 		0.0f, // recoil velocity
 		AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR,
 		Asset::Mesh::icon_active_armor,
-		0,
 		Type::Other,
 	},
 	{
-		2.0f, // cooldown
+		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.25f, // switch cooldown
+		5.0f, // use cooldown
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_rectifier,
-		50,
 		Type::Build,
 	},
 	{
-		1.5f, // cooldown
-		0.3f, // switch cooldown
-		0.5f, // recoil velocity
-		AK::EVENTS::PLAY_EQUIP_BUILD,
+		0.0f, // cooldown
+		0.0f, // switch cooldown
+		0.0f, // use cooldown
+		0.0f, // recoil velocity
+		AK_InvalidID,
 		Asset::Mesh::icon_minion,
-		25,
-		Type::Build,
+		Type::Other,
 	},
 	{
-		DRONE_COOLDOWN_MAX, // cooldown
+		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.5f, // switch cooldown
+		20.0f, // use cooldown
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_force_field,
-		150,
 		Type::Build,
 	},
 	{
-		2.5f, // cooldown
+		2.5f, // movement cooldown
 		0.4f, // switch cooldown
+		0.0f, // use cooldown
 		1.7f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_SHOTGUN,
 		Asset::Mesh::icon_shotgun,
-		0,
 		Type::Shoot,
 	},
 	{
-		2.5f, // cooldown
+		2.5f, // movement cooldown
 		0.5f, // switch cooldown
+		0.0f, // use cooldown
 		1.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_SNIPER,
 		Asset::Mesh::icon_sniper,
-		0,
 		Type::Shoot,
 	},
 	{
-		DRONE_COOLDOWN_MAX, // cooldown
+		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.3f, // switch cooldown
+		5.0f, // use cooldown
 		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_GRENADE,
 		Asset::Mesh::icon_grenade,
-		35,
 		Type::Shoot,
 	},
 	{ // Ability::None
-		1.2f + (DRONE_MAX_DISTANCE / DRONE_FLY_SPEED), // cooldown
+		1.2f + (DRONE_MAX_DISTANCE / DRONE_FLY_SPEED), // movement cooldown
 		0.0f, // switch cooldown
+		0.0f, // use cooldown
 		0.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_NONE,
 		Asset::Mesh::icon_chevron,
-		0,
 		Type::Shoot,
 	},
 };
@@ -200,28 +200,21 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::rectifier,
 		strings::description_rectifier,
 		Asset::Mesh::icon_rectifier,
-		100,
+		250,
 		Type::Ability,
 	},
 	{
-		strings::minion,
-		strings::description_minion,
+		strings::minion_boost,
+		strings::description_minion_boost,
 		Asset::Mesh::icon_minion,
-		100,
-		Type::Ability,
-	},
-	{
-		strings::force_field,
-		strings::description_force_field,
-		Asset::Mesh::icon_force_field,
-		100,
+		250,
 		Type::Ability,
 	},
 	{
 		strings::shotgun,
 		strings::description_shotgun,
 		Asset::Mesh::icon_shotgun,
-		250,
+		350,
 		Type::Ability,
 	},
 	{
@@ -232,17 +225,24 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		Type::Ability,
 	},
 	{
+		strings::force_field,
+		strings::description_force_field,
+		Asset::Mesh::icon_force_field,
+		500,
+		Type::Ability,
+	},
+	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
-		350,
+		500,
 		Type::Ability,
 	},
 	{
 		strings::extra_drone,
 		strings::description_extra_drone,
 		Asset::Mesh::icon_drone,
-		100,
+		50,
 		Type::Consumable,
 	},
 };
@@ -374,6 +374,17 @@ void Team::add_kills(s32 k)
 	vi_assert(Game::level.local);
 	kills += k;
 	TeamNet::update_counts(this);
+}
+
+r32 Team::minion_spawn_speed() const
+{
+	r32 speed = 1.0f;
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->has_ability(Ability::MinionBoost))
+			speed *= 1.2f;
+	}
+	return vi_min(2.0f, speed);
 }
 
 s16 Team::increment() const
@@ -1294,10 +1305,6 @@ b8 PlayerManager::ability_valid(Ability ability) const
 
 		if (!has_ability(ability))
 			return false;
-
-		const AbilityInfo& info = AbilityInfo::list[s32(ability)];
-		if (energy < info.spawn_cost)
-			return false;
 	}
 
 	if (state() != State::Default)
@@ -1438,26 +1445,6 @@ namespace PlayerManagerNet
 		}
 		serialize_int(p, s32, index, 0, MAX_ABILITIES - 1);
 		serialize_enum(p, Upgrade, u);
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 spawn_select(PlayerManager* m, SpawnPoint* point)
-	{
-		using Stream = Net::StreamWrite;
-		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
-		{
-			Ref<PlayerManager> ref = m;
-			serialize_ref(p, ref);
-		}
-		{
-			PlayerManager::Message msg = PlayerManager::Message::SpawnSelect;
-			serialize_enum(p, PlayerManager::Message, msg);
-		}
-		{
-			Ref<SpawnPoint> ref = point;
-			serialize_ref(p, ref);
-		}
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -1749,39 +1736,6 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 				m->clear_ownership();
 			}
 			break;
-		}
-		case Message::SpawnSelect:
-		{
-			Ref<SpawnPoint> ref;
-			serialize_ref(p, ref);
-
-			if (!m)
-				return true;
-
-			if (Game::level.local
-				&& Team::match_state == Team::MatchState::Active
-				&& m->spawn_timer == 0.0f
-				&& m->team.ref()->tickets() != 0
-				&& !m->instance.ref()
-				&& m->can_spawn
-				&& ref.ref() && ref.ref()->team == m->team.ref()->team())
-			{
-#if SERVER
-				if (m->has<PlayerHuman>())
-				{
-					AI::RecordedLife::Tag tag;
-					tag.init(m);
-
-					AI::RecordedLife::Action action;
-					action.type = AI::RecordedLife::Action::TypeSpawn;
-					Quat rot;
-					ref.ref()->get<Transform>()->absolute(&action.pos, &rot);
-					action.normal = rot * Vec3(0, 0, 1);
-					AI::record_add(m->get<PlayerHuman>()->ai_record_id, tag, action);
-				}
-#endif
-				internal_spawn_go(m, ref.ref());
-			}
 		}
 		case Message::ScoreAccept:
 		{
@@ -2112,11 +2066,7 @@ void PlayerManager::upgrade_complete()
 s16 PlayerManager::upgrade_cost(Upgrade u) const
 {
 	vi_assert(u != Upgrade::None);
-	const UpgradeInfo& info = UpgradeInfo::list[s32(u)];
-	if (info.type == UpgradeInfo::Type::Ability)
-		return info.cost * (1 + vi_min(1, ability_count()));
-	else
-		return info.cost;
+	return UpgradeInfo::list[s32(u)].cost;
 }
 
 Upgrade PlayerManager::upgrade_highest_owned_or_available() const
@@ -2476,10 +2426,7 @@ void PlayerManager::update_server(const Update& u)
 			{
 				spawn_timer = vi_max(0.0f, spawn_timer - u.time.delta);
 				if (spawn_timer == 0.0f)
-				{
-					if (SpawnPoint::count(1 << s32(team.ref()->team())) == 1)
-						internal_spawn_go(this, SpawnPoint::first(1 << s32(team.ref()->team())));
-				}
+					internal_spawn_go(this, team.ref()->default_spawn_point());
 			}
 		}
 		else if (Game::level.mode == Game::Mode::Parkour)
@@ -2546,11 +2493,6 @@ void PlayerManager::map_skip(AssetID map)
 void PlayerManager::score_accept()
 {
 	PlayerManagerNet::send(this, PlayerManager::Message::ScoreAccept);
-}
-
-void PlayerManager::spawn_select(SpawnPoint* point)
-{
-	PlayerManagerNet::spawn_select(this, point);
 }
 
 

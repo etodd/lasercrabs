@@ -292,6 +292,7 @@ struct Turret : public ComponentType<Turret>
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
 	r32 cooldown;
+	r32 cooldown_heal;
 	r32 target_check_time;
 	Ref<Entity> target;
 	AI::Team team;

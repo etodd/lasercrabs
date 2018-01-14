@@ -1347,7 +1347,7 @@ namespace tutorial
 
 			Game::level.feature_level = Game::FeatureLevel::Abilities;
 			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-			manager->energy = UpgradeInfo::list[s32(Upgrade::Grenade)].cost + AbilityInfo::list[s32(Ability::Grenade)].spawn_cost * 2;
+			manager->energy = UpgradeInfo::list[s32(Upgrade::Grenade)].cost;
 		}
 	}
 

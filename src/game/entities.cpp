@@ -33,6 +33,8 @@
 #include "load.h"
 #include "ease.h"
 
+#define TURRET_TARGET_CHECK_TIME 0.75f
+
 namespace VI
 {
 
@@ -328,22 +330,8 @@ b8 Health::can_take_damage(Entity* damager) const
 
 	if (has<Drone>())
 	{
-		if (UpgradeStation::drone_inside(get<Drone>()))
-			return false;
-
-		if (get<Drone>()->state() == Drone::State::Crawl)
-			return true;
-		else
-		{
-			// invincible when flying or dashing
-
-			// but still vulnerable to enemy drone bolts
-			if (damager && damager->has<Bolt>()
-				&& (damager->get<Bolt>()->type == Bolt::Type::DroneBolter || damager->get<Bolt>()->type == Bolt::Type::DroneShotgun))
-				return true;
-			else
-				return false; // invincible
-		}
+		return !UpgradeStation::drone_inside(get<Drone>()) // invincible inside upgrade station
+			&& get<Drone>()->state() == Drone::State::Crawl; // invincible when flying or dashing
 	}
 	else if (has<Battery>() && damager->has<Bolt>())
 		return get<Battery>()->team != damager->get<Bolt>()->team;
@@ -1042,23 +1030,27 @@ void SpawnPoint::update_server_all(const Update& u)
 		const s32 minion_group = 3;
 		const r32 minion_initial_delay = Game::session.type == SessionType::Story
 			? 3.0f
-			: (Game::session.config.game_type == GameType::Deathmatch ? 45.0f : 20.0f);
-		const r32 minion_spawn_interval = 9.0f;
-		const r32 minion_group_interval = minion_spawn_interval * 12.0f; // must be a multiple of minion_spawn_interval
-		r32 t = Team::match_time - minion_initial_delay;
-		if (t > 0.0f)
+			: 60.0f;
+		const r32 minion_spawn_interval = 7.0f; // time between individual minions spawning
+		const r32 minion_group_interval = minion_spawn_interval * 10.0f; // time between minion groups spawning; must be a multiple of minion_spawn_interval
+		for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 		{
-			s32 index = s32(t / minion_spawn_interval);
-			s32 index_last = s32((t - u.time.delta) / minion_spawn_interval);
-			if (index != index_last && (index % s32(minion_group_interval / minion_spawn_interval)) <= minion_group)
+			// spawn points owned by a team will spawn a minion
+			r32 time = (Team::match_time * i.item()->minion_spawn_speed()) - minion_initial_delay;
+			for (auto j = list.iterator(); !j.is_last(); j.next())
 			{
-				// spawn points owned by a team will spawn a minion
-				for (auto i = list.iterator(); !i.is_last(); i.next())
+				r32 t = time + j.index * minion_spawn_interval * -0.5f;
+				if (t > 0.0f)
 				{
-					if (i.item()->team != AI::TeamNone)
+					s32 index = s32(t / minion_spawn_interval);
+					s32 index_last = s32((t - u.time.delta) / minion_spawn_interval);
+					if (index != index_last && (index % s32(minion_group_interval / minion_spawn_interval)) <= minion_group)
 					{
-						SpawnPosition pos = i.item()->spawn_position();
-						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, pos.pos, Quat::euler(0, pos.angle, 0), nullptr, i.item()->team);
+						if (j.item()->team == i.item()->team())
+						{
+							SpawnPosition pos = j.item()->spawn_position();
+							ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, pos.pos, Quat::euler(0, pos.angle, 0), nullptr, j.item()->team);
+						}
 					}
 				}
 			}
@@ -1368,13 +1360,8 @@ void rectifier_update(s32 rectifier_index, const Vec3& rectifier_pos, Entity* e,
 			if (do_heal) // apply actual healing
 			{
 				Health* health = e->get<Health>();
-				if (health->hp > 0 && health->hp < health->hp_max
-					&& (!owner || owner->energy >= RECTIFIER_HEAL_COST))
-				{
-					if (owner)
-						owner->add_energy(-RECTIFIER_HEAL_COST);
+				if (health->hp > 0 && health->hp < health->hp_max)
 					health->add(1);
-				}
 			}
 		}
 	}
@@ -1399,35 +1386,31 @@ void Rectifier::update_all(const Update& u)
 		if (i.item()->team != AI::TeamNone)
 		{
 			PlayerManager* owner = i.item()->owner.ref();
-			b8 has_energy = !owner || owner->energy >= RECTIFIER_HEAL_COST;
 
-			if (has_energy)
+			// buff friendly turrets, force fields, and minions
+			Vec3 me = i.item()->get<Transform>()->absolute_pos();
+			for (auto j = Turret::list.iterator(); !j.is_last(); j.next())
 			{
-				// buff friendly turrets, force fields, and minions
-				Vec3 me = i.item()->get<Transform>()->absolute_pos();
-				for (auto j = Turret::list.iterator(); !j.is_last(); j.next())
-				{
-					if (j.item()->team == i.item()->team)
-						rectifier_update(i.index, me, j.item()->entity(), owner);
-				}
+				if (j.item()->team == i.item()->team)
+					rectifier_update(i.index, me, j.item()->entity(), owner);
+			}
 
-				for (auto j = ForceField::list.iterator(); !j.is_last(); j.next())
-				{
-					if (!(j.item()->flags & ForceField::FlagPermanent) && j.item()->team == i.item()->team)
-						rectifier_update(i.index, me, j.item()->entity(), owner);
-				}
+			for (auto j = ForceField::list.iterator(); !j.is_last(); j.next())
+			{
+				if (!(j.item()->flags & ForceField::FlagPermanent) && j.item()->team == i.item()->team)
+					rectifier_update(i.index, me, j.item()->entity(), owner);
+			}
 
-				for (auto j = Minion::list.iterator(); !j.is_last(); j.next())
-				{
-					if (j.item()->get<AIAgent>()->team == i.item()->team)
-						rectifier_update(i.index, me, j.item()->entity(), owner);
-				}
+			for (auto j = Minion::list.iterator(); !j.is_last(); j.next())
+			{
+				if (j.item()->get<AIAgent>()->team == i.item()->team)
+					rectifier_update(i.index, me, j.item()->entity(), owner);
+			}
 
-				for (auto j = CoreModule::list.iterator(); !j.is_last(); j.next())
-				{
-					if (j.item()->team == i.item()->team)
-						rectifier_update(i.index, me, j.item()->entity(), owner);
-				}
+			for (auto j = CoreModule::list.iterator(); !j.is_last(); j.next())
+			{
+				if (j.item()->team == i.item()->team)
+					rectifier_update(i.index, me, j.item()->entity(), owner);
 			}
 		}
 	}
@@ -2127,9 +2110,6 @@ void Turret::check_target()
 
 void Turret::update_server(const Update& u)
 {
-	if (cooldown > 0.0f)
-		cooldown -= u.time.delta;
-
 	if (Game::level.has_feature(Game::FeatureLevel::Turrets))
 	{
 		target_check_time -= u.time.delta;
@@ -2140,7 +2120,17 @@ void Turret::update_server(const Update& u)
 		}
 	}
 
-	if (target.ref() && cooldown <= 0.0f)
+	cooldown_heal -= u.time.delta;
+	if (cooldown_heal < 0.0f)
+	{
+		cooldown_heal += TURRET_HEAL_INTERVAL;
+		if (get<Health>()->hp < get<Health>()->hp_max)
+			get<Health>()->add(1);
+	}
+
+	cooldown = vi_max(0.0f, cooldown - u.time.delta);
+
+	if (target.ref() && cooldown == 0.0f)
 	{
 		if (can_see(target.ref()))
 		{
@@ -2811,10 +2801,10 @@ void Bolt::hit_entity(const Hit& hit)
 			{
 				if (hit_object->has<Minion>())
 					damage = MINION_HEALTH;
-				else if (hit_object->has<Turret>() || hit_object->has<ForceField>())
+				else if (hit_object->has<Turret>())
 					damage = mersenne::rand() % 3 < 2 ? 1 : 0; // expected value: 0.66
-				else if (hit_object->has<CoreModule>())
-					damage = mersenne::rand() % 2 == 0 ? 1 : 0; // expected value: 0.5
+				else if (hit_object->has<ForceField>() || hit_object->has<CoreModule>())
+					damage = 1;
 				else if (hit_object->has<Drone>())
 					damage = 1;
 				else
@@ -2845,9 +2835,10 @@ void Bolt::hit_entity(const Hit& hit)
 			}
 			case Type::Turret:
 			{
-				damage = 1;
 				if (reflected)
-					damage = 12;
+					damage = 4;
+				else
+					damage = 1;
 				break;
 			}
 			default:
@@ -3595,7 +3586,7 @@ void Grenade::explode()
 				{
 					distance *= (i.item()->get<Turret>()->team == my_team) ? 2.0f : 1.0f;
 					if (distance < GRENADE_RANGE)
-						i.item()->damage(entity(), 10);
+						i.item()->damage(entity(), 8);
 				}
 				else if (i.item()->has<ForceField>())
 				{

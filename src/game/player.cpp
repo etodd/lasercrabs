@@ -294,9 +294,8 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	upgrade_last_visit_highest_available(Upgrade::None),
 	score_summary_scroll(),
 	spectate_index(),
-	selected_spawn(),
 	killed_by(),
-	select_spawn_timer(),
+	spawn_animation_timer(),
 	last_supported(),
 	audio_log_prompt_timer(),
 	audio_log(AssetNull),
@@ -424,10 +423,8 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 			{
 				if (get<PlayerManager>()->team.ref()->tickets() == 0)
 					return UIMode::PvpSpectate;
-				else if (get<PlayerManager>()->spawn_timer > 0.0f)
-					return UIMode::PvpKillCam;
 				else
-					return UIMode::PvpSelectSpawn;
+					return UIMode::PvpKillCam;
 			}
 		}
 	}
@@ -837,7 +834,6 @@ b8 PlayerHuman::chat_enabled() const
 		|| mode == UIMode::PvpUpgrade
 		|| mode == UIMode::PvpKillCam
 		|| mode == UIMode::PvpSelectTeam
-		|| mode == UIMode::PvpSelectSpawn
 		|| mode == UIMode::PvpSpectate
 		|| mode == UIMode::PvpGameOver);
 }
@@ -848,7 +844,6 @@ b8 PlayerHuman::emotes_enabled() const
 	return (mode == UIMode::PvpDefault
 		|| mode == UIMode::PvpKillCam
 		|| mode == UIMode::PvpSelectTeam
-		|| mode == UIMode::PvpSelectSpawn
 		|| mode == UIMode::PvpSpectate
 		|| mode == UIMode::PvpGameOver);
 }
@@ -1052,7 +1047,7 @@ void PlayerHuman::update(const Update& u)
 		return;
 
 	if (entity)
-		select_spawn_timer = vi_max(0.0f, select_spawn_timer - u.time.delta); // for letterbox animation
+		spawn_animation_timer = vi_max(0.0f, spawn_animation_timer - u.time.delta); // for letterbox animation
 
 	UIMode mode = ui_mode();
 
@@ -1308,115 +1303,6 @@ void PlayerHuman::update(const Update& u)
 				kill_cam_rot = Quat::look(Vec3::normalize(k->get<Transform>()->absolute_pos() - camera.ref()->pos));
 			if (get<PlayerManager>()->spawn_timer < Game::session.config.spawn_delay - 1.0f)
 				camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, kill_cam_rot);
-			break;
-		}
-		case UIMode::PvpSelectSpawn:
-		{
-			// select a spawn point
-			AI::Team my_team = get<PlayerManager>()->team.ref()->team();
-			if (select_spawn_timer > 0.0f)
-			{
-				if (selected_spawn.ref() && selected_spawn.ref()->team == my_team)
-				{
-					select_spawn_timer = vi_max(0.0f, select_spawn_timer - u.time.delta);
-					if (select_spawn_timer == 0.0f)
-						get<PlayerManager>()->spawn_select(selected_spawn.ref());
-				}
-				else
-					select_spawn_timer = 0.0f;
-			}
-			else
-			{
-				if (!selected_spawn.ref() || selected_spawn.ref()->team != my_team)
-				{
-					Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER);
-					selected_spawn = SpawnPoint::closest(1 << s32(my_team), camera.ref()->pos);
-				}
-
-				if (chat_focus == ChatFocus::None)
-				{
-					if (((u.last_input->get(Controls::Interact, gamepad) && !u.input->get(Controls::Interact, gamepad))
-						|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && player_button(camera.ref()->viewport, gamepad, strings::prompt_deploy).contains(u.input->cursor))))
-					{
-						select_spawn_timer = 1.0f;
-						Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
-					}
-					else
-					{
-						SpawnPoint* closest = nullptr;
-
-						Vec2 movement = camera_topdown_movement(u, gamepad, camera.ref()->rot);
-						r32 movement_amount = movement.length();
-						if (movement_amount > 0.0f)
-						{
-							// keyboard / gamepad
-							movement /= movement_amount;
-							r32 closest_dot = FLT_MAX;
-
-							Vec3 spawn_pos = selected_spawn.ref()->get<Transform>()->absolute_pos();
-							for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
-							{
-								SpawnPoint* candidate = i.item();
-								if (candidate == selected_spawn.ref() || candidate->team != my_team)
-									continue;
-
-								Vec3 candidate_pos = candidate->get<Transform>()->absolute_pos();
-								Vec3 to_candidate = candidate_pos - spawn_pos;
-								if (movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z))) > 0.707f)
-								{
-									r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
-									if (dot < closest_dot)
-									{
-										closest = candidate;
-										closest_dot = dot;
-									}
-								}
-							}
-						}
-						else if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
-						{
-							// mouse
-
-							Mat4 view_projection = camera.ref()->view() * camera.ref()->projection;
-							const Rect2& viewport = camera.ref()->viewport;
-
-							r32 closest_distance = FLT_MAX;
-
-							for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
-							{
-								SpawnPoint* candidate = i.item();
-
-								if (candidate->team != my_team)
-									continue;
-
-								Vec2 p;
-								if (UI::project(view_projection, viewport, candidate->get<Transform>()->absolute_pos(), &p))
-								{
-									r32 distance = (p - u.input->cursor).length_squared();
-									if (distance < closest_distance)
-									{
-										closest = candidate;
-										closest_distance = distance;
-									}
-								}
-							}
-						}
-
-						if (closest)
-						{
-							selected_spawn = closest;
-							Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER);
-						}
-					}
-				}
-			}
-
-			// move camera to map view
-			{
-				camera.ref()->pos += (MAP_VIEW_POS - camera.ref()->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
-				camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, MAP_VIEW_ROT);
-				camera.ref()->perspective(Settings::effective_fov(), MAP_VIEW_NEAR, MAP_VIEW_FAR);
-			}
 			break;
 		}
 		case UIMode::PvpSpectate:
@@ -2114,7 +2000,7 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 	if (params.camera == camera.ref()
 		&& !Overworld::active()
 		&& local()
-		&& (mode == UIMode::PvpSelectSpawn || mode == UIMode::PvpSpectate || mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade))
+		&& (mode == UIMode::PvpSpectate || mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade))
 	{
 		AI::Team my_team = get<PlayerManager>()->team.ref()->team();
 
@@ -2492,8 +2378,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 					text.anchor_y = UIText::Anchor::Max;
 					text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
 					s16 cost = get<PlayerManager>()->upgrade_cost(upgrade);
-					s16 usage_cost = info.type == UpgradeInfo::Type::Ability ? AbilityInfo::list[s32(upgrade)].spawn_cost : cost;
-					text.text(gamepad, _(info.description), cost, usage_cost);
+					text.text(gamepad, _(info.description), cost);
 					UIMenu::text_clip(&text, animation_time, 150.0f);
 
 					Vec2 pos = menu.origin.pos + Vec2(MENU_ITEM_WIDTH * -0.5f + padding, menu.height() * -0.5f - padding * 7.0f);
@@ -2548,73 +2433,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	}
 	else if (mode == UIMode::PvpKillCam)
 		scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Bottom);
-	else if (mode == UIMode::PvpSelectSpawn)
-	{
-		if (select_spawn_timer > 0.0f)
-		{
-			// spawning...
-			Menu::progress_infinite(params, _(strings::deploying), vp.size * Vec2(0.5f));
-		}
-		else
-		{
-			draw_turret_battery_flag_icons(params);
-
-			// highlight default spawn
-			{
-				SpawnPoint* default_spawn = get<PlayerManager>()->team.ref()->default_spawn_point();
-				Vec2 p;
-				if (UI::project(params, default_spawn->get<Transform>()->absolute_pos(), &p))
-				{
-					UI::triangle(params, { p, Vec2(38.0f * UI::scale) }, UI::color_background, PI);
-					UI::triangle(params, { p, Vec2(24.0f * UI::scale) }, Team::ui_color_friend(), PI);
-				}
-			}
-
-			// select spawn point
-			if (selected_spawn.ref())
-			{
-				Battery* battery = selected_spawn.ref()->battery();
-				Transform* pos = battery ? battery->get<Transform>() : selected_spawn.ref()->get<Transform>();
-				Vec2 p;
-				if (UI::project(params, pos->absolute_pos(), &p))
-				{
-					p.y += (38.0f + sinf(Game::real_time.total * 12.0f) * 3.0f) * UI::scale;
-					UI::mesh(params, Asset::Mesh::icon_arrow_border, p, Vec2(32.0f * UI::scale), UI::color_background, PI * -0.5f);
-					UI::mesh(params, Asset::Mesh::icon_arrow_main, p, Vec2(32.0f * UI::scale), UI::color_accent(), PI * -0.5f);
-				}
-			}
-
-			player_button(vp, gamepad, strings::prompt_deploy, chat_focus == ChatFocus::None ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::No, &params);
-
-			if (Game::session.config.game_type == GameType::Assault)
-			{
-				// attacking/defending
-				UIText text;
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Min;
-				text.color = UI::color_default;
-				{
-					AssetID str;
-					s32 count;
-					if (Turret::list.count() > 0)
-					{
-						str = strings::turrets_remaining_spawning;
-						count = Turret::list.count();
-					}
-					else
-					{
-						str = strings::core_modules_remaining_spawning;
-						count = CoreModule::list.count();
-					}
-					AI::Team my_team = get<PlayerManager>()->team.ref()->team();
-					text.text(gamepad, _(str), _(my_team == 0 ? strings::defend : strings::attack), count);
-				}
-				Vec2 pos = vp.size * Vec2(0.5f, 0.05f);
-				UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
-				text.draw(params, pos);
-			}
-		}
-	}
 	else if (mode == UIMode::PvpSpectate)
 	{
 		// we're dead but others still playing; spectate
@@ -2727,7 +2545,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	// network error icon
 #if !SERVER
 	if (!Game::level.local && Net::Client::lagging())
-		UI::mesh(params, Asset::Mesh::icon_network_error, vp.size * Vec2(0.9f, 0.5f), Vec2(UI_TEXT_SIZE_DEFAULT * 2.0f * UI::scale), UI::color_alert());
+		UI::mesh(params, Asset::Mesh::icon_network_error, vp.size * Vec2(0.9f, 0.5f), Vec2(UI_TEXT_SIZE_DEFAULT * UI::scale), UI::color_alert());
 #endif
 
 	// message
@@ -2838,8 +2656,8 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 	}
 
-	if (get<PlayerManager>()->instance.ref() && select_spawn_timer > 0.0f)
-		Menu::draw_letterbox(params, select_spawn_timer, TRANSITION_TIME);
+	if (get<PlayerManager>()->instance.ref() && spawn_animation_timer > 0.0f)
+		Menu::draw_letterbox(params, spawn_animation_timer, TRANSITION_TIME);
 
 	if (mode == UIMode::Pause) // pause menu always drawn on top
 		menu.draw_ui(params);
@@ -3725,7 +3543,7 @@ void PlayerControlHuman::awake()
 	}
 
 	player.ref()->killed_by = nullptr;
-	player.ref()->select_spawn_timer = TRANSITION_TIME * 0.5f; // for letterbox animation
+	player.ref()->spawn_animation_timer = TRANSITION_TIME * 0.5f;
 
 	link_arg<const HealthEvent&, &PlayerControlHuman::health_changed>(get<Health>()->changed);
 	link_arg<Entity*, &PlayerControlHuman::killed>(get<Health>()->killed);
@@ -3773,7 +3591,6 @@ PlayerControlHuman::~PlayerControlHuman()
 		get<Audio>()->stop_all();
 	if (player.ref())
 	{
-		player.ref()->select_spawn_timer = 0.0f;
 #if SERVER
 		AI::record_close(player.ref()->ai_record_id);
 		player.ref()->ai_record_id = AI::record_init(Game::level.team_lookup_reverse(player.ref()->get<PlayerManager>()->team.ref()->team()), player.ref()->get<PlayerManager>()->team.ref()->tickets());
@@ -4450,7 +4267,7 @@ void PlayerControlHuman::update(const Update& u)
 				
 				r32 raycast_radius = ability == Ability::None
 					? DRONE_SHIELD_RADIUS
-					: (ability == Ability::Minion ? WALKER_MINION_RADIUS : 0.0f);
+					: 0.0f;
 
 				reticle.type = ReticleType::None;
 
@@ -5801,20 +5618,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					text.color = UI::color_background;
 					text.draw(params, ui_anchor);
 				}
-			}
-			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
-		}
-
-		// insufficient energy
-		if (has<Drone>())
-		{
-			Ability ability = get<Drone>()->current_ability;
-			if (ability != Ability::None && player.ref()->get<PlayerManager>()->energy < AbilityInfo::list[s32(ability)].spawn_cost)
-			{
-				text.color = UI::color_alert();
-				text.text(player.ref()->gamepad, _(strings::insufficient_energy));
-				UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
-				text.draw(params, ui_anchor);
 			}
 			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
 		}

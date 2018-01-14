@@ -35,12 +35,12 @@ struct AbilityInfo
 
 	static AbilityInfo list[s32(Ability::count) + 1]; // +1 for Ability::None
 
-	r32 cooldown;
+	r32 cooldown_movement;
 	r32 cooldown_switch;
+	r32 cooldown_use;
 	r32 recoil_velocity;
 	AkUniqueID equip_sound;
 	AssetID icon;
-	s16 spawn_cost;
 	Type type;
 };
 
@@ -141,6 +141,7 @@ struct Team : public ComponentType<Team>
 	b8 has_active_player() const;
 	void track(PlayerManager*, Entity*);
 	s32 player_count() const;
+	r32 minion_spawn_speed() const;
 	s16 increment() const;
 	void add_kills(s32);
 	s16 initial_energy() const;
@@ -168,7 +169,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	{
 		CanSpawn,
 		ScoreAccept,
-		SpawnSelect,
 		UpgradeCompleted,
 		UpdateCounts,
 		MakeAdmin,
@@ -225,7 +225,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 
 	void make_admin(b8 = true);
 	void make_admin(PlayerManager*, b8 = true);
-	void spawn_select(SpawnPoint*);
 	void clear_ownership();
 	State state() const;
 	b8 can_transition_state() const;

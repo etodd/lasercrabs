@@ -364,25 +364,24 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 
 		if (drone->current_ability == Ability::Sniper)
 		{
+			// require more precision
 			if (dot < -0.9f)
 				result = 3;
 			else if (dot < -0.8f)
 				result = 2;
-			if (target_shield->has<Rectifier>())
-				result *= 2;
-			else if (target_shield->has<Turret>()
-				|| target_shield->has<ForceField>()
-				|| target_shield->has<ForceFieldCollision>())
-				result = (result * 2) + 2;
 		}
 		else
 		{
-			// flying hit
+			// flying hit; be more tolerant
 			if (dot < -0.8f)
 				result = 3;
 			else
 				result = 2;
 		}
+		if (target_shield->has<Rectifier>())
+			result *= 2;
+		else if (target_shield->has<ForceField>() || target_shield->has<ForceFieldCollision>())
+			result = (result * 2) + 4;
 	}
 
 	return result;
@@ -605,7 +604,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
 					const AbilityInfo& info = AbilityInfo::list[s32(Ability::None)];
-					drone->cooldown_recoil_setup(info.cooldown, info.recoil_velocity);
+					drone->cooldown_recoil_setup(info.cooldown_movement, info.recoil_velocity);
 				}
 
 				drone->ensure_detached();
@@ -644,7 +643,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
 					const AbilityInfo& info = AbilityInfo::list[s32(Ability::None)];
-					drone->cooldown_recoil_setup(info.cooldown, info.recoil_velocity);
+					drone->cooldown_recoil_setup(info.cooldown_movement, info.recoil_velocity);
 				}
 			}
 
@@ -756,10 +755,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			Quat rot = Quat::look(normal);
 
-			manager->add_energy(-info.spawn_cost);
-
 			if ((Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())) // only do cooldowns for remote drones or AI drones; local players will have already done this
-				drone->cooldown_recoil_setup(info.cooldown, info.recoil_velocity);
+				drone->cooldown_recoil_setup(info.cooldown_movement, info.recoil_velocity);
 
 			Vec3 my_pos;
 			Quat my_rot;
@@ -778,38 +775,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					break;
 				}
-				case Ability::Minion:
-				{
-					// spawn a minion
-					Vec3 forward = rot * Vec3(0, 0, MINION_SPAWN_HEIGHT);
-					Vec3 npos = pos + forward;
-					forward.y = 0.0f;
-
-					if (Game::level.local)
-					{
-						r32 angle;
-						if (forward.length_squared() > 0.0f)
-							angle = atan2f(forward.x, forward.z);
-						else
-						{
-							Vec3 forward2 = dir_normalized;
-							forward2.y = 0.0f;
-							r32 length = forward2.length();
-							if (length > 0.0f)
-							{
-								forward2 /= length;
-								angle = atan2f(forward2.x, forward2.z);
-							}
-							else
-								angle = 0.0f;
-						}
-						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, npos + Vec3(0, -MINION_SPAWN_HEIGHT, 0), Quat::euler(0, angle, 0), manager);
-					}
-
-					// effects
-					particle_trail(my_pos, pos);
+				case Ability::MinionBoost: // do nothing
 					break;
-				}
 				case Ability::ForceField:
 				{
 					// spawn a force field
@@ -1411,7 +1378,7 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 				// check actual position
 				Vec3 target_pos = i.item()->absolute_pos();
 				Vec3 intersection;
-				r32 radius = i.item()->radius() + (a == Ability::Minion ? WALKER_MINION_RADIUS : 0.0f);
+				r32 radius = i.item()->radius();
 				if (LMath::ray_sphere_intersect(trace_start, trace_end, target_pos, radius, &intersection)
 					&& (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared())
 				{
@@ -1454,9 +1421,6 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 
 	if (ray_callback.hit)
 	{
-		if (a == Ability::Minion && ray_callback.entity->has<Target>()) // allow minions to be built next to each other easily
-			ray_callback.normal = -trace_dir;
-
 		if (final_pos)
 			*final_pos = ray_callback.pos;
 		if (final_normal)
@@ -1484,10 +1448,9 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	{
 		// build-type ability
 		if (ray_callback.hit
-			&& (a == Ability::Minion // minions can spawn on Targets because they don't attach to the target
-				|| (!ray_callback.entity->has<Target>() && !(ray_callback.entity->get<RigidBody>()->collision_group & DRONE_INACCESSIBLE_MASK))))
+			&& !ray_callback.entity->has<Target>()
+			&& !(ray_callback.entity->get<RigidBody>()->collision_group & DRONE_INACCESSIBLE_MASK))
 		{
-			if (a != Ability::Minion) // minions can be built inside invincible force fields
 			{
 				// check if this thing we're building will intersect with an invincible force field
 				r32 radius = (a == Ability::ForceField) ? FORCE_FIELD_RADIUS : 0.0f;
@@ -1507,14 +1470,6 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 				case Ability::Rectifier:
 					required_space = DRONE_SHIELD_RADIUS;
 					break;
-				case Ability::Minion:
-				{
-					space_check_pos += ray_callback.normal * MINION_SPAWN_HEIGHT;
-					space_check_pos.y -= MINION_SPAWN_HEIGHT;
-					space_check_dir = Vec3(0, 1, 0);
-					required_space = WALKER_SUPPORT_HEIGHT + WALKER_HEIGHT + (WALKER_MINION_RADIUS * 2.0f);
-					break;
-				}
 				default:
 				{
 					required_space = 0.0f;
@@ -1829,7 +1784,7 @@ b8 Drone::go(const Vec3& dir)
 			// client-side prediction
 			{
 				const AbilityInfo& info = AbilityInfo::list[s32(a)];
-				cooldown_recoil_setup(info.cooldown, info.recoil_velocity);
+				cooldown_recoil_setup(info.cooldown_movement, info.recoil_velocity);
 			}
 
 			if (a == Ability::Shotgun)

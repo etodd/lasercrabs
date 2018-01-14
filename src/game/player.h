@@ -36,7 +36,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		ParkourDead,
 		PvpDefault,
 		PvpSelectTeam,
-		PvpSelectSpawn,
 		PvpKillCam,
 		PvpSpectate,
 		PvpUpgrade,
@@ -160,7 +159,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	Vec3 camera_center;
 	r32 msg_timer;
 	r32 animation_time;
-	r32 select_spawn_timer; // also used for spawn letterbox animation
+	r32 spawn_animation_timer;
 	r32 angle_horizontal;
 	r32 angle_vertical;
 #if SERVER
@@ -176,7 +175,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	u32 master_id;
 	Menu::State menu_state;
 	s16 energy_notification_accumulator;
-	Ref<SpawnPoint> selected_spawn;
 	Ref<Entity> killed_by;
 	Ref<Camera> camera;
 	AssetID audio_log;

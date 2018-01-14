@@ -23,7 +23,7 @@
 #include "data/components.h"
 #include "common.h"
 
-#define WALK_SPEED 2.5f
+#define WALK_SPEED 3.0f
 #define PATH_RECALC_TIME 2.1f
 #define TARGET_SCAN_TIME 0.5f
 
@@ -806,7 +806,7 @@ void Minion::update_server(const Update& u)
 			if (get<Walker>()->support.ref() && get<Walker>()->dir.length_squared() > 0.0f)
 			{
 				r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
-				layer->speed = net_speed / get<Walker>()->speed;
+				layer->speed = (net_speed / get<Walker>()->speed) * 1.2f;
 				layer->behavior = Animator::Behavior::Loop;
 				layer->play(Asset::Animation::character_walk);
 			}

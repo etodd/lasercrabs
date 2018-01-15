@@ -30,6 +30,7 @@ struct AbilityInfo
 		Build,
 		Shoot,
 		Other,
+		Passive,
 		count,
 	};
 
@@ -106,7 +107,7 @@ struct Team : public ComponentType<Team>
 	static void awake_all();
 	static void transition_next();
 	static s16 force_field_mask(AI::Team);
-	static void update(const Update&);
+	static void update_all(const Update&);
 	static void update_all_server(const Update&);
 	static void update_all_client_only(const Update&);
 	static s32 teams_with_active_players();
@@ -132,6 +133,7 @@ struct Team : public ComponentType<Team>
 	}
 
 	RectifierTrack player_tracks[MAX_PLAYERS];
+	Ref<Target> spot_target;
 	Ref<Transform> flag_base;
 	s16 kills;
 	s16 extra_drones;
@@ -141,14 +143,11 @@ struct Team : public ComponentType<Team>
 	b8 has_active_player() const;
 	void track(PlayerManager*, Entity*);
 	s32 player_count() const;
-	r32 minion_spawn_speed() const;
+	r32 minion_spawn_rate() const;
 	s16 increment() const;
 	void add_kills(s32);
 	s16 initial_energy() const;
-	s16 initial_tickets() const;
-	s16 tickets() const;
 	SpawnPoint* default_spawn_point() const;
-	void add_extra_drones(s16);
 
 	inline AI::Team team() const
 	{
@@ -181,7 +180,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		MapSkip,
 		Chat,
 		Leave,
-		SpotEntity,
+		Spot,
+		AbilityCooldownReady,
 		count,
 	};
 
@@ -200,7 +200,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 
 	r32 spawn_timer;
 	r32 state_timer;
-	r32 ability_purchase_times[MAX_ABILITIES];
+	r32 ability_cooldown[s32(Ability::count) + 1];
+	r32 ability_flash_time[MAX_ABILITIES];
 	LinkArg<const SpawnPosition&> spawn;
 	LinkArg<Upgrade> upgrade_completed;
 	Ref<Team> team;
@@ -240,6 +241,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s16 upgrade_cost(Upgrade) const;
 	void kick(PlayerManager*);
 	void ban(PlayerManager*);
+	void ability_cooldown_apply(Ability);
 	void kick();
 	void leave();
 	void add_energy(s32);
@@ -253,7 +255,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void set_can_spawn(b8 = true);
 	void team_schedule(AI::Team);
 	void chat(const char*, AI::TeamMask);
-	void spot(Entity*);
+	void spot(Target*);
 	void map_schedule(AssetID);
 	void map_skip(AssetID);
 };

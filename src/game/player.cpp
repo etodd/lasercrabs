@@ -340,7 +340,7 @@ void PlayerHuman::awake()
 	}
 
 #if SERVER
-	ai_record_id = AI::record_init(Game::level.team_lookup_reverse(get<PlayerManager>()->team.ref()->team()), get<PlayerManager>()->team.ref()->tickets());
+	ai_record_id = AI::record_init(Game::level.team_lookup_reverse(get<PlayerManager>()->team.ref()->team()));
 #endif
 
 	if (!get<PlayerManager>()->can_spawn
@@ -420,12 +420,7 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 			if (Game::level.mode == Game::Mode::Parkour)
 				return UIMode::ParkourDead;
 			else
-			{
-				if (get<PlayerManager>()->team.ref()->tickets() == 0)
-					return UIMode::PvpSpectate;
-				else
-					return UIMode::PvpKillCam;
-			}
+				return UIMode::PvpKillCam;
 		}
 	}
 }
@@ -453,7 +448,7 @@ b8 player_human_notification(Entity* entity, const Vec3& pos, AI::Team team, Pla
 					n->timer = NOTIFICATION_TIME;
 					return false; // notification already displayed
 				}
-				else if (n->type != PlayerHuman::Notification::Type::Spot) // don't replace spots
+				else
 				{
 					// replace existing notification
 					PlayerHuman::notifications.remove(i);
@@ -489,7 +484,6 @@ b8 player_human_notification(Entity* entity, const Vec3& pos, AI::Team team, Pla
 	n->timer = NOTIFICATION_TIME;
 	n->team = team;
 	n->type = type;
-	n->attached = b8(t);
 	return true;
 }
 
@@ -546,28 +540,8 @@ void PlayerHuman::update_all(const Update& u)
 		Notification* n = &notifications[i];
 
 		Target* target = n->target.ref();
-		b8 remove = n->attached && !target;
-		
-		if (!remove)
-		{
-			if (n->type == Notification::Type::Spot)
-			{
-				if (target->has<Flag>())
-				{
-					Transform* carrier = target->get<Transform>()->parent.ref();
-					if (carrier && carrier->get<AIAgent>()->team != n->team)
-						remove = true; // remove spot once the flag is picked up by an enemy
-				}
-			}
-			else
-			{
-				n->timer -= u.time.delta;
-				if (n->timer < 0.0f)
-					remove = true;
-			}
-		}
-
-		if (remove)
+		n->timer -= u.time.delta;
+		if (n->timer < 0.0f)
 		{
 			notifications.remove(i);
 			i--;
@@ -901,7 +875,6 @@ void PlayerHuman::update(const Update& u)
 {
 #if SERVER
 	if (Game::session.type == SessionType::Multiplayer
-		&& get<PlayerManager>()->team.ref()->tickets() != 0
 		&& Team::match_state == Team::MatchState::Active)
 	{
 		afk_timer -= Game::real_time.delta;
@@ -1144,7 +1117,10 @@ void PlayerHuman::update(const Update& u)
 		case UIMode::PvpDefault:
 		{
 			kill_cam_rot = camera.ref()->rot;
-			if (UpgradeStation::drone_at(entity->get<Drone>()) && get<PlayerManager>()->energy > 0 && !entity->get<Drone>()->flag.ref())
+			if (UpgradeStation::drone_at(entity->get<Drone>())
+				&& get<PlayerManager>()->can_transition_state()
+				&& (Game::session.config.upgrades_default | get<PlayerManager>()->energy > 0)
+				&& !entity->get<Drone>()->flag.ref())
 			{
 				if (chat_focus == ChatFocus::None && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 					upgrade_menu_show();
@@ -1214,13 +1190,12 @@ void PlayerHuman::update(const Update& u)
 						for (s32 i = 0; i < s32(Upgrade::count); i++)
 						{
 							Upgrade upgrade = Upgrade(i);
-							if (Game::session.config.allow_upgrades & (1 << s32(upgrade)) && (upgrade != Upgrade::ExtraDrone || get<PlayerManager>()->team.ref()->tickets() != -1))
+							if ((Game::session.config.upgrades_allow | Game::session.config.upgrades_default) & (1 << s32(upgrade)))
 							{
 								const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
 								b8 can_upgrade = !upgrade_in_progress
 									&& chat_focus == ChatFocus::None
 									&& get<PlayerManager>()->upgrade_available(upgrade)
-									&& get<PlayerManager>()->energy >= get<PlayerManager>()->upgrade_cost(upgrade)
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || !get<PlayerManager>()->upgrades) // only allow one ability upgrade in tutorial
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || UpgradeInfo::list[i].type == UpgradeInfo::Type::Ability) // only allow ability upgrades in tutorial
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type == AbilityInfo::Type::Shoot); // only allow shooting abilities in tutorial
@@ -1431,7 +1406,7 @@ void PlayerHuman::update_late(const Update& u)
 	if (camera.ref())
 	{
 		if (Game::level.noclip
-			|| (!get<PlayerManager>()->instance.ref() && get<PlayerManager>()->team.ref()->tickets() != 0)) // we're respawning
+			|| !get<PlayerManager>()->instance.ref()) // we're respawning
 			Audio::listener_update(gamepad, camera.ref()->pos, camera.ref()->rot);
 		else
 		{
@@ -1626,7 +1601,7 @@ void PlayerHuman::assault_status_display()
 	msg(buffer, good ? FlagMessageGood : Flags(0));
 }
 
-r32 draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, AssetID icon, char* string, const Vec4& color, r32 total_width = 0.0f)
+r32 draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, AssetID icon, char* string, r32 percentage, const Vec4& color, r32 total_width = 0.0f)
 {
 	r32 icon_size = UI_TEXT_SIZE_DEFAULT * UI::scale;
 	r32 padding = 8 * UI::scale;
@@ -1645,7 +1620,11 @@ r32 draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, Asse
 	UI::box(params, Rect2(pos, Vec2(total_width, icon_size)).outset(padding), UI::color_background);
 	if (icon != AssetNull)
 		UI::mesh(params, icon, pos + Vec2(icon_size - padding, icon_size * 0.5f), Vec2(icon_size), text.color);
-	text.draw(params, pos + Vec2(icon_size + padding, padding));
+
+	if (percentage > 0.0f)
+		UI::triangle_percentage(params, { pos + Vec2(icon_size + padding * 1.5f, padding * 1.25f), Vec2(icon_size + padding) }, percentage, text.color, PI);
+	else
+		text.draw(params, pos + Vec2(icon_size + padding, padding));
 
 	return total_width + padding * 2.0f;
 }
@@ -1663,12 +1642,16 @@ r32 ability_draw(const RenderParams& params, const PlayerManager* manager, const
 
 	Ability ability = index == 0 ? Ability::None : manager->abilities[index - 1];
 
+	const AbilityInfo& info = AbilityInfo::list[s32(ability)];
+
 	sprintf(string, "%s", Settings::gamepads[gamepad].bindings[s32(binding)].string(Game::ui_gamepad_types[gamepad]));
 	const Vec4* color;
 	if (mode == AbilityDrawMode::UpgradeMenu)
 		color = manager->get<PlayerHuman>()->ability_upgrade_slot == index - 1 ? &UI::color_default : &UI::color_accent();
-	else if (index > 0 && Game::time.total - manager->ability_purchase_times[index - 1] < msg_time)
+	else if (index > 0 && Game::real_time.total - manager->ability_flash_time[index - 1] < msg_time)
 		color = UI::flash_function(Game::time.total) ? &UI::color_default : &UI::color_background;
+	else if (info.type == AbilityInfo::Type::Passive)
+		color = &UI::color_disabled();
 	else if (!manager->ability_valid(ability) || !manager->instance.ref()->get<PlayerCommon>()->movement_enabled())
 		color = params.sync->input.get(binding, gamepad) ? &UI::color_disabled() : &UI::color_alert();
 	else if (manager->instance.ref()->get<Drone>()->current_ability == ability)
@@ -1676,17 +1659,27 @@ r32 ability_draw(const RenderParams& params, const PlayerManager* manager, const
 	else
 		color = &UI::color_accent();
 	
+	r32 percentage;
 	AssetID icon;
 	if (mode == AbilityDrawMode::UpgradeMenu)
 	{
+		percentage = 0.0f;
 		if (ability == Ability::None)
 			icon = manager->get<PlayerHuman>()->ability_upgrade_slot == index - 1 ? Asset::Mesh::icon_ability_pip : AssetNull;
 		else
-			icon = AbilityInfo::list[s32(ability)].icon;
+			icon = info.icon;
 	}
 	else
-		icon = AbilityInfo::list[s32(ability)].icon;
-	return draw_icon_text(params, gamepad, pos, icon, string, *color);
+	{
+		icon = info.icon;
+		r32 cooldown = manager->ability_cooldown[s32(ability)];
+		if (cooldown == 0.0f)
+			percentage = 0.0f;
+		else
+			percentage = 1.0f - (cooldown / info.cooldown_use);
+	}
+
+	return draw_icon_text(params, gamepad, pos, icon, string, percentage, *color);
 }
 
 r32 match_timer_width()
@@ -1829,7 +1822,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	p.x += width * -0.5f;
 
 	// "deploying..."
-	if (!manager->instance.ref() && manager->team.ref()->tickets() != 0)
+	if (!manager->instance.ref())
 	{
 		if (Team::match_state == Team::MatchState::Active)
 		{
@@ -1840,16 +1833,6 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 		}
 		else
 			text.text(0, _(strings::waiting));
-		UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
-		text.draw(params, p);
-		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
-	}
-
-	if (Game::session.config.game_type == GameType::Assault)
-	{
-		// show remaining drones label
-		text.text(0, _(strings::attacker_drones_remaining), s32(Team::list[1].tickets()));
-		text.color = UI::color_accent();
 		UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -1932,7 +1915,7 @@ Upgrade PlayerHuman::upgrade_selected() const
 		s32 index = 0;
 		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{
-			if (Game::session.config.allow_upgrades & (1 << i))
+			if ((Game::session.config.upgrades_allow | Game::session.config.upgrades_default) & (1 << i))
 			{
 				if (index == menu.selected - 1)
 				{
@@ -2002,7 +1985,7 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 		&& local()
 		&& (mode == UIMode::PvpSpectate || mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade))
 	{
-		AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+		Team* my_team = get<PlayerManager>()->team.ref();
 
 		// battery and turret names
 		{
@@ -2038,7 +2021,7 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 					if (UI::project(params, pos, &p))
 					{
 						UI::mesh(params, Asset::Mesh::icon_turret, p, Vec2(24.0f * UI::scale), UI::color_background);
-						text.color = Team::ui_color(my_team, i.item()->team);
+						text.color = Team::ui_color(my_team->team(), i.item()->team);
 						text.text(0, _(i.item()->name()));
 						text.draw(params, p);
 					}
@@ -2055,7 +2038,7 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 					if (UI::project(params, pos, &p))
 					{
 						UI::mesh(params, Asset::Mesh::icon_battery, p, Vec2(24.0f * UI::scale), UI::color_background);
-						text.color = Team::ui_color(my_team, i.item()->team);
+						text.color = Team::ui_color(my_team->team(), i.item()->team);
 						text.text(0, "%d", s32(i.index) + 1);
 						text.draw(params, p);
 					}
@@ -2063,10 +2046,25 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 			}
 		}
 
+		// spot
+		{
+			Target* spot_target = get<PlayerManager>()->team.ref()->spot_target.ref();
+			if (spot_target)
+			{
+				// if the target is offscreen, point toward it
+				Vec2 p;
+				Vec2 offset;
+				if (UI::is_onscreen(params, spot_target->absolute_pos(), &p, &offset))
+					UI::mesh(params, Asset::Mesh::icon_spot, p, Vec2(18.0f * UI::scale), UI::color_accent());
+				else
+					UI::triangle(params, { p, Vec2(18 * UI::scale) }, UI::color_accent(), atan2f(offset.y, offset.x) + PI * -0.5f);
+			}
+		}
+
 		// flags
 		if (Game::session.config.game_type == GameType::CaptureTheFlag)
 		{
-			AI::Team enemy_team = my_team == 0 ? 1 : 0;
+			AI::Team enemy_team = my_team->team() == 0 ? 1 : 0;
 
 			Entity* instance = get<PlayerManager>()->instance.ref();
 
@@ -2079,7 +2077,7 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 
 			{
 				// our flag
-				Flag* our_flag = Flag::for_team(my_team);
+				Flag* our_flag = Flag::for_team(my_team->team());
 
 				if (!our_flag->at_base)
 				{
@@ -2119,7 +2117,7 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 		for (s32 i = 0; i < notifications.length; i++)
 		{
 			const Notification& n = notifications[i];
-			if (n.timer > NOTIFICATION_TIME_HIDDEN && n.team == my_team)
+			if (n.timer > NOTIFICATION_TIME_HIDDEN && n.team == my_team->team())
 			{
 				const Target* target = n.target.ref();
 				Vec3 pos = target ? target->absolute_pos() : n.pos;
@@ -2155,16 +2153,6 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 						{
 							if (UI::flash_function_slow(Game::real_time.total))
 								UI::mesh(params, Asset::Mesh::icon_warning, p + Vec2(0, 32.0f * UI::scale), size, UI::color_accent());
-							break;
-						}
-						case Notification::Type::Spot:
-						{
-							// if the target is offscreen, point toward it
-							Vec2 offset;
-							if (UI::is_onscreen(params, pos, &p, &offset))
-								UI::mesh(params, Asset::Mesh::icon_spot, p, size, UI::color_accent());
-							else
-								UI::triangle(params, { p, Vec2(18 * UI::scale) }, UI::color_accent(), atan2f(offset.y, offset.x) + PI * -0.5f);
 							break;
 						}
 						default:
@@ -2253,12 +2241,13 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	}
 
 	// draw abilities
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::session.config.allow_upgrades)
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
+		&& (Game::session.config.upgrades_allow | Game::session.config.upgrades_default))
 	{
 		if (mode == UIMode::PvpDefault
 			&& get<PlayerManager>()->can_transition_state()
 			&& UpgradeStation::drone_at(get<PlayerManager>()->instance.ref()->get<Drone>())
-			&& get<PlayerManager>()->energy > 0)
+			&& (get<PlayerManager>()->energy > 0 | Game::session.config.upgrades_default))
 		{
 			// "upgrade!" prompt
 			UIText text;
@@ -2267,7 +2256,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.anchor_y = UIText::Anchor::Center;
 			Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
 			const Vec4* bg;
-			if (get<PlayerManager>()->upgrade_available())
+			if (get<PlayerManager>()->upgrade_available() || Game::session.config.upgrades_default)
 			{
 				if (chat_focus == ChatFocus::None && params.sync->input.get(Controls::Interact, gamepad))
 				{
@@ -2289,8 +2278,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.draw(params, pos);
 		}
 
-		if ((mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade)
-			&& get<PlayerManager>()->can_transition_state())
+		if ((mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade))
 		{
 			// draw abilities
 
@@ -2311,32 +2299,22 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& Game::session.config.allow_upgrades
+		&& Game::session.config.upgrades_allow
 		&& (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade))
 	{
 		// energy
 		char buffer[16];
 		snprintf(buffer, 16, "%hd", get<PlayerManager>()->energy);
 		Vec2 p = ui_anchor(params) + Vec2(match_timer_width() + UI_TEXT_SIZE_DEFAULT * UI::scale, (UI_TEXT_SIZE_DEFAULT + 16.0f) * -UI::scale);
-		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_battery, buffer, UI::color_accent(), UI_TEXT_SIZE_DEFAULT * 5 * UI::scale);
+		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_battery, buffer, 0.0f, UI::color_accent(), UI_TEXT_SIZE_DEFAULT * 5 * UI::scale);
 
 		if (Game::session.config.game_type == GameType::Assault)
 		{
-			{
-				s16 tickets = Team::list[1].tickets();
-				snprintf(buffer, 16, "%hd", tickets);
-				p.x += UI_TEXT_SIZE_DEFAULT * 5 * UI::scale;
-				const Vec4& color = tickets > Team::list[1].player_count() ? UI::color_default : (tickets > 1 ? UI::color_accent() : UI::color_alert());
-				draw_icon_text(params, gamepad, p, Asset::Mesh::icon_drone, buffer, color, UI_TEXT_SIZE_DEFAULT * 4 * UI::scale);
-			}
-
-			{
-				s32 turrets = Turret::list.count();
-				snprintf(buffer, 16, "%d", turrets);
-				p.x += UI_TEXT_SIZE_DEFAULT * 4 * UI::scale;
-				const Vec4& color = turrets > 1 ? UI::color_default : (turrets > 0 ? UI::color_accent() : UI::color_alert());
-				draw_icon_text(params, gamepad, p, Asset::Mesh::icon_turret2, buffer, color, UI_TEXT_SIZE_DEFAULT * 3 * UI::scale);
-			}
+			s32 turrets = Turret::list.count();
+			snprintf(buffer, 16, "%d", turrets);
+			p.x += UI_TEXT_SIZE_DEFAULT * 5 * UI::scale;
+			const Vec4& color = turrets > 1 ? UI::color_default : (turrets > 0 ? UI::color_accent() : UI::color_alert());
+			draw_icon_text(params, gamepad, p, Asset::Mesh::icon_turret2, buffer, 0.0f, color, UI_TEXT_SIZE_DEFAULT * 3 * UI::scale);
 		}
 	}
 
@@ -3149,7 +3127,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 				if (c->spot_timer == 0.0f)
 				{
 					r32 closest_dot = 0.95f;
-					Entity* target = nullptr;
+					Target* target = nullptr;
 
 					// turrets
 					for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
@@ -3158,7 +3136,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 						if (dot > closest_dot)
 						{
 							closest_dot = dot;
-							target = i.item()->entity();
+							target = i.item()->get<Target>();
 						}
 					}
 
@@ -3171,7 +3149,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 							if (dot > closest_dot)
 							{
 								closest_dot = dot;
-								target = i.item()->entity();
+								target = i.item()->get<Target>();
 							}
 						}
 					}
@@ -3189,7 +3167,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 								if (dot > closest_dot)
 								{
 									closest_dot = dot;
-									target = i.item()->entity();
+									target = i.item()->get<Target>();
 								}
 							}
 						}
@@ -3202,7 +3180,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 						if (dot > closest_dot)
 						{
 							closest_dot = dot;
-							target = i.item()->entity();
+							target = i.item()->get<Target>();
 						}
 					}
 
@@ -3217,7 +3195,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 							if (dot > closest_dot)
 							{
 								closest_dot = dot;
-								target = i.item()->entity();
+								target = i.item()->get<Target>();
 							}
 						}
 					}
@@ -3231,7 +3209,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 							if (dot > closest_dot && i.item()->can_see(c->entity()))
 							{
 								closest_dot = dot;
-								target = i.item()->entity();
+								target = i.item()->get<Target>();
 							}
 						}
 					}
@@ -3250,7 +3228,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 								if (visible && detected_entity == i.item()->entity())
 								{
 									closest_dot = dot;
-									target = i.item()->entity();
+									target = i.item()->get<Target>();
 								}
 							}
 						}
@@ -3489,7 +3467,12 @@ void player_ability_select(const Update& u, PlayerControlHuman* control, s32 ind
 			return;
 	}
 
-	if (AbilityInfo::list[s32(ability)].type == AbilityInfo::Type::Other)
+	const AbilityInfo& info = AbilityInfo::list[s32(ability)];
+	if (info.type == AbilityInfo::Type::Passive)
+	{
+		// do nothing
+	}
+	else if (info.type == AbilityInfo::Type::Other)
 	{
 		if (manager->ability_valid(ability))
 		{
@@ -3593,7 +3576,7 @@ PlayerControlHuman::~PlayerControlHuman()
 	{
 #if SERVER
 		AI::record_close(player.ref()->ai_record_id);
-		player.ref()->ai_record_id = AI::record_init(Game::level.team_lookup_reverse(player.ref()->get<PlayerManager>()->team.ref()->team()), player.ref()->get<PlayerManager>()->team.ref()->tickets());
+		player.ref()->ai_record_id = AI::record_init(Game::level.team_lookup_reverse(player.ref()->get<PlayerManager>()->team.ref()->team()));
 #endif
 	}
 }
@@ -3756,7 +3739,8 @@ b8 PlayerControlHuman::movement_enabled() const
 
 void PlayerControlHuman::ability_select(Ability a)
 {
-	vi_assert(AbilityInfo::list[s32(a)].type != AbilityInfo::Type::Other);
+	const AbilityInfo& info = AbilityInfo::list[s32(a)];
+	vi_assert(info.type == AbilityInfo::Type::Shoot || info.type == AbilityInfo::Type::Build);
 	PlayerControlHumanNet::Message msg;
 	msg.type = PlayerControlHumanNet::Message::Type::AbilitySelect;
 	msg.ability = a;
@@ -5202,7 +5186,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 		// highlight upgrade point if there is an upgrade available
 		if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-			&& Game::session.config.allow_upgrades
 			&& !get<Drone>()->flag.ref()
 			&& (Game::level.has_feature(Game::FeatureLevel::All) || Game::level.feature_level == Game::FeatureLevel::Abilities) // disable prompt in tutorial after ability has been purchased
 			&& manager->upgrade_available() && manager->upgrade_highest_owned_or_available() != player.ref()->upgrade_last_visit_highest_available
@@ -5655,13 +5638,19 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			reticle_valid = false;
 		}
 
-		// cooldown indicator
-		draw_cooldown(params, get<Drone>()->cooldown, pos + Vec2(0, -42.0f) * UI::scale, DRONE_COOLDOWN_THRESHOLD);
+		Ability a = get<Drone>()->current_ability;
+		const AbilityInfo& info = AbilityInfo::list[s32(a)];
 
 		// reticle
 		if (get<Drone>()->cooldown_ability_switch == 0.0f)
 		{
-			if (reticle_valid)
+			r32 cooldown_use = player.ref()->get<PlayerManager>()->ability_cooldown[s32(a)];
+			if (cooldown_use > 0.0f) // ability cooldown reticle
+			{
+				UI::mesh(params, Asset::Mesh::icon_reticle_invalid, pos, Vec2(32.0f * UI::scale), *color);
+				UI::triangle_percentage(params, { pos, Vec2(47.0f * UI::scale) }, 1.0f - (cooldown_use / info.cooldown_use), *color, PI);
+			}
+			else if (reticle_valid) // normal reticle
 			{
 				if (reticle.type == ReticleType::Normal
 					|| reticle.type == ReticleType::Target
@@ -5670,20 +5659,15 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				else // no center dot
 					draw_triangular_reticle(params, *color);
 			}
-			else
-			{
-				// crossbars
-				UI::centered_box(params, { pos, Vec2(36.0f, 3.0f) * UI::scale }, *color, PI * 0.25f);
-				UI::centered_box(params, { pos, Vec2(36.0f, 3.0f) * UI::scale }, *color, PI * 0.75f);
-			}
+			else // can't do it
+				UI::mesh(params, Asset::Mesh::icon_reticle_invalid, pos, Vec2(32.0f * UI::scale), *color);
 		}
 
+		// cooldown indicator
+		draw_cooldown(params, get<Drone>()->cooldown, pos + Vec2(0, -37.0f * UI::scale), DRONE_COOLDOWN_THRESHOLD);
+
 		// ability icon
-		{
-			Ability a = get<Drone>()->current_ability;
-			Vec2 p = pos + Vec2(0, -80.0f * UI::scale);
-			UI::mesh(params, AbilityInfo::list[s32(a)].icon, p, Vec2(18.0f * UI::scale), *color);
-		}
+		UI::mesh(params, info.icon, pos + Vec2(0, -64.0f * UI::scale), Vec2(18.0f * UI::scale), *color);
 	}
 }
 

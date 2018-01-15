@@ -521,6 +521,7 @@ namespace Master
 		{
 			state->id = id;
 			state->player_slots = max_players;
+			state->max_players = max_players;
 			state->level = AssetNull;
 			state->region = region;
 			state->story_mode_team = StoryModeTeam(0);
@@ -566,17 +567,20 @@ namespace Master
 		config->kill_limit = s16(Json::get_s32(json, "kill_limit", defaults.kill_limit));
 		config->flag_limit = s16(Json::get_s32(json, "flag_limit", defaults.flag_limit));
 		config->respawns = s16(Json::get_s32(json, "respawns", defaults.respawns));
-		config->allow_upgrades = s16(Json::get_s32(json, "allow_upgrades", defaults.allow_upgrades));
+		config->upgrades_allow = s16(Json::get_s32(json, "upgrades_allow", defaults.upgrades_allow));
+		config->upgrades_default = s16(Json::get_s32(json, "upgrades_default", defaults.upgrades_default));
 		{
-			cJSON* start_upgrades = cJSON_GetObjectItem(json, "start_upgrades");
-			cJSON* u = start_upgrades->child;
-			while (u && config->start_upgrades.length < config->start_upgrades.capacity())
+			cJSON* start_abilities = cJSON_GetObjectItem(json, "start_abilities");
+			if (start_abilities)
 			{
-				config->start_upgrades.add(Upgrade(u->valueint));
-				u = u->next;
+				cJSON* u = start_abilities->child;
+				while (u && config->start_abilities.length < config->start_abilities.capacity())
+				{
+					config->start_abilities.add(Ability(u->valueint));
+					u = u->next;
+				}
 			}
 		}
-		config->max_players = s8(Json::get_s32(json, "max_players", defaults.max_players));
 		config->min_players = s8(Json::get_s32(json, "min_players", defaults.min_players));
 		for (s32 i = 0; i < s32(GameType::count); i++)
 		{
@@ -584,7 +588,6 @@ namespace Master
 			snprintf(key, 64, "time_limit_minutes_%s", ServerConfig::game_type_string(GameType(i)));
 			config->time_limit_minutes[i] = u8(Json::get_s32(json, key, defaults.time_limit_minutes[i]));
 		}
-		config->enable_minions = b8(Json::get_s32(json, "enable_minions", defaults.enable_minions));
 		config->enable_batteries = b8(Json::get_s32(json, "enable_batteries", defaults.enable_batteries));
 		config->enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", defaults.enable_battery_stealth));
 		config->enable_spawn_shields = b8(Json::get_s32(json, "enable_spawn_shields", defaults.enable_spawn_shields));
@@ -620,16 +623,17 @@ namespace Master
 			cJSON_AddNumberToObject(json, "flag_limit", config.flag_limit);
 		if (config.respawns != defaults.respawns)
 			cJSON_AddNumberToObject(json, "respawns", config.respawns);
-		if (config.allow_upgrades != defaults.allow_upgrades)
-			cJSON_AddNumberToObject(json, "allow_upgrades", config.allow_upgrades);
+		if (config.upgrades_allow != defaults.upgrades_allow)
+			cJSON_AddNumberToObject(json, "upgrades_allow", config.upgrades_allow);
+		if (config.upgrades_default != defaults.upgrades_default)
+			cJSON_AddNumberToObject(json, "upgrades_default", config.upgrades_default);
+		if (config.start_abilities.length > 0)
 		{
-			cJSON* start_upgrades = cJSON_CreateArray();
-			cJSON_AddItemToObject(json, "start_upgrades", start_upgrades);
-			for (s32 i = 0; i < config.start_upgrades.length; i++)
-				cJSON_AddItemToArray(start_upgrades, cJSON_CreateNumber(s32(config.start_upgrades[i])));
+			cJSON* start_abilities = cJSON_CreateArray();
+			cJSON_AddItemToObject(json, "start_abilities", start_abilities);
+			for (s32 i = 0; i < config.start_abilities.length; i++)
+				cJSON_AddItemToArray(start_abilities, cJSON_CreateNumber(s32(config.start_abilities[i])));
 		}
-		if (config.max_players != defaults.max_players)
-			cJSON_AddNumberToObject(json, "max_players", config.max_players);
 		if (config.min_players != defaults.min_players)
 			cJSON_AddNumberToObject(json, "min_players", config.min_players);
 		for (s32 i = 0; i < s32(GameType::count); i++)
@@ -641,8 +645,6 @@ namespace Master
 				cJSON_AddNumberToObject(json, key, config.time_limit_minutes[i]);
 			}
 		}
-		if (config.enable_minions != defaults.enable_minions)
-			cJSON_AddNumberToObject(json, "enable_minions", config.enable_minions);
 		if (config.enable_batteries != defaults.enable_batteries)
 			cJSON_AddNumberToObject(json, "enable_batteries", config.enable_batteries);
 		if (config.enable_battery_stealth != defaults.enable_battery_stealth)
@@ -2819,7 +2821,7 @@ namespace DiscordBot
 			{
 				ServerConfig config;
 				server_config_get(node->server_state.id, &config);
-				*playing += vi_max(0, config.max_players - node->server_state.player_slots);
+				*playing += vi_max(0, node->server_state.max_players - node->server_state.player_slots);
 			}
 		}
 
@@ -3384,8 +3386,8 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 						ServerConfig config;
 						server_config_get(node->server_state.id, &config);
 						cJSON_AddStringToObject(server, "config", config.name);
-						cJSON_AddNumberToObject(server, "max_players", config.max_players);
-						cJSON_AddNumberToObject(server, "players", vi_max(0, config.max_players - node->server_state.player_slots));
+						cJSON_AddNumberToObject(server, "max_players", node->server_state.max_players);
+						cJSON_AddNumberToObject(server, "players", vi_max(0, node->server_state.max_players - node->server_state.player_slots));
 					}
 					else
 					{

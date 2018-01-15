@@ -42,15 +42,20 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 	for (s32 i = 0; i < s32(Upgrade::count); i++)
 	{
 		Upgrade u = Upgrade(i);
-		if (Game::session.config.allow_upgrades & (1 << s16(u)))
+		if ((Game::session.config.upgrades_allow & ~Game::session.config.upgrades_default) & (1 << s16(u)))
 		{
 			b8 start_with = false;
-			for (s32 j = 0; j < Game::session.config.start_upgrades.length; j++)
+
+			const UpgradeInfo& info = UpgradeInfo::list[s32(u)];
+			if (info.type == UpgradeInfo::Type::Ability)
 			{
-				if (u == Game::session.config.start_upgrades[j])
+				for (s32 j = 0; j < Game::session.config.start_abilities.length; j++)
 				{
-					start_with = true;
-					break;
+					if (Game::session.config.start_abilities[j] == Ability(u))
+					{
+						start_with = true;
+						break;
+					}
 				}
 			}
 
@@ -918,12 +923,7 @@ void PlayerControlAI::action_clear()
 
 b8 want_upgrade(PlayerControlAI* player, Upgrade u)
 {
-	PlayerManager* manager = player->get<PlayerCommon>()->manager.ref();
-
-	if (u == Upgrade::ExtraDrone && manager->team.ref()->tickets() > 1)
-		return false;
-
-	return manager->upgrade_available(u) && manager->upgrade_cost(u) < manager->energy;
+	return player->get<PlayerCommon>()->manager.ref()->upgrade_available(u);
 }
 
 void PlayerControlAI::actions_populate()

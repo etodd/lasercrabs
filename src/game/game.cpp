@@ -612,7 +612,7 @@ void Game::update(InputState* input, const InputState* last_input)
 
 	AI::update(u);
 
-	Team::update(u);
+	Team::update_all(u);
 
 	if (update_game)
 	{
@@ -684,8 +684,6 @@ void Game::update(InputState* input, const InputState* last_input)
 				i.item()->update_server(u);
 			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
-			for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
-				i.item()->simulate(u.time.delta);
 			for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
 			for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
@@ -2550,6 +2548,7 @@ void Game::awake_all()
 		Loader::mesh_permanent(Asset::Mesh::icon_active_armor);
 		Loader::mesh_permanent(Asset::Mesh::icon_access_key);
 		Loader::mesh_permanent(Asset::Mesh::icon_ability_pip);
+		Loader::mesh_permanent(Asset::Mesh::icon_reticle_invalid);
 	}
 
 #if !SERVER

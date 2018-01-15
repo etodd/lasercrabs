@@ -118,6 +118,7 @@ struct Battery : public ComponentType<Battery>
 	};
 
 	static r32 particle_accumulator;
+	static r32 heal_timer;
 
 	static void update_all(const Update&);
 	static void sort_all(const Vec3&, Array<Ref<Battery>>*, b8, AI::TeamMask);
@@ -156,9 +157,6 @@ struct SpawnPosition
 
 struct SpawnPoint : public ComponentType<SpawnPoint>
 {
-	static SpawnPoint* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
-	static SpawnPoint* first(AI::TeamMask);
-	static s32 count(AI::TeamMask);
 	static void update_server_all(const Update&);
 
 	AI::Team team;

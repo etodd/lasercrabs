@@ -143,8 +143,8 @@ struct Data
 		{
 			Main,
 			Levels,
-			AllowedUpgrades,
-			StartUpgrades,
+			Upgrades,
+			StartAbilities,
 			count,
 		};
 
@@ -843,17 +843,6 @@ void multiplayer_entry_edit_update(const Update& u)
 				}
 
 				{
-					// enable minions
-					b8* enable_minions = &config->enable_minions;
-					delta = menu->slider_item(u, _(strings::enable_minions), _(*enable_minions ? strings::on : strings::off));
-					if (delta)
-					{
-						*enable_minions = !(*enable_minions);
-						data.multiplayer.active_server_dirty = true;
-					}
-				}
-
-				{
 					// enable batteries
 					b8* enable_batteries = &config->enable_batteries;
 					delta = menu->slider_item(u, _(strings::enable_batteries), _(*enable_batteries ? strings::on : strings::off));
@@ -888,22 +877,22 @@ void multiplayer_entry_edit_update(const Update& u)
 				}
 
 				{
-					// allowed upgrades
-					sprintf(str, "%d", s32(BitUtility::popcount(s16((1 << s32(Upgrade::count)) - 1) & config->allow_upgrades)));
-					if (menu->item(u, _(strings::allow_upgrades), str))
+					// upgrades
+					sprintf(str, "%d", s32(BitUtility::popcount(s16((1 << s32(Upgrade::count)) - 1) & (config->upgrades_allow | config->upgrades_default))));
+					if (menu->item(u, _(strings::upgrades), str))
 					{
-						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::AllowedUpgrades);
+						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Upgrades);
 						menu->end(u);
 						return;
 					}
 				}
 
 				{
-					// start upgrades
-					sprintf(str, "%d", s32(config->start_upgrades.length));
-					if (menu->item(u, _(strings::start_upgrades), str))
+					// start abilities
+					sprintf(str, "%d", s32(config->start_abilities.length));
+					if (menu->item(u, _(strings::start_abilities), str))
 					{
-						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::StartUpgrades);
+						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::StartAbilities);
 						menu->end(u);
 						return;
 					}
@@ -961,7 +950,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				menu->end(u);
 				break;
 			}
-			case Data::Multiplayer::EditMode::StartUpgrades:
+			case Data::Multiplayer::EditMode::StartAbilities:
 			{
 				menu->start(u, multiplayer_menu_origin(), 0);
 
@@ -977,26 +966,26 @@ void multiplayer_entry_edit_update(const Update& u)
 				for (s32 i = 0; i < s32(Upgrade::count); i++)
 				{
 					const UpgradeInfo& info = UpgradeInfo::list[i];
-					if (info.type == UpgradeInfo::Type::Consumable)
+					if (info.type != UpgradeInfo::Type::Ability)
 						continue;
 
 					s32 existing_index = -1;
-					for (s32 j = 0; j < config->start_upgrades.length; j++)
+					for (s32 j = 0; j < config->start_abilities.length; j++)
 					{
-						if (config->start_upgrades[j] == Upgrade(i))
+						if (config->start_abilities[j] == Ability(i))
 						{
 							existing_index = j;
 							break;
 						}
 					}
 
-					b8 disabled = existing_index == -1 && config->start_upgrades.length == config->start_upgrades.capacity();
+					b8 disabled = existing_index == -1 && config->start_abilities.length == config->start_abilities.capacity();
 					if (menu->item(u, _(info.name), nullptr, disabled, existing_index == -1 ? AssetNull : Asset::Mesh::icon_checkmark))
 					{
 						if (existing_index == -1)
-							config->start_upgrades.add(Upgrade(i));
+							config->start_abilities.add(Ability(i));
 						else
-							config->start_upgrades.remove(existing_index);
+							config->start_abilities.remove(existing_index);
 						data.multiplayer.active_server_dirty = true;
 					}
 				}
@@ -1004,7 +993,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				menu->end(u);
 				break;
 			}
-			case Data::Multiplayer::EditMode::AllowedUpgrades:
+			case Data::Multiplayer::EditMode::Upgrades:
 			{
 				menu->start(u, multiplayer_menu_origin(), 0);
 
@@ -1017,18 +1006,42 @@ void multiplayer_entry_edit_update(const Update& u)
 					return;
 				}
 
-				s16* allow_upgrades = &config->allow_upgrades;
+				s16* upgrades_allow = &config->upgrades_allow;
+				s16* upgrades_default = &config->upgrades_default;
 				for (s32 i = 0; i < s32(Upgrade::count); i++)
 				{
-					b8 value = (*allow_upgrades) & (1 << i);
-					if (menu->item(u, _(UpgradeInfo::list[i].name), nullptr, false, value ? Asset::Mesh::icon_checkmark : AssetNull))
+					b8 is_allowed = (*upgrades_allow) & (1 << i);
+					b8 is_default = (*upgrades_default) & (1 << i);
+					AssetID string;
+					if (is_default)
+						string = strings::upgrade_default;
+					else if (is_allowed)
+						string = strings::upgrade_allowed;
+					else
+						string = strings::upgrade_disabled;
+					const UpgradeInfo& info = UpgradeInfo::list[i];
+					s32 delta = menu->slider_item(u, _(info.name), _(string), false, info.icon);
+					if (delta)
 					{
 						data.multiplayer.active_server_dirty = true;
-						value = !value;
-						if (value)
-							*allow_upgrades = (*allow_upgrades) | (1 << i);
+						s32 index = (s32(is_allowed) << 0) | (s32(is_default) << 1);
+						index += delta;
+						if (index < 0)
+							index = 2;
+						else if (index > 2)
+							index = 0;
+						is_allowed = index & (1 << 0);
+						is_default = index & (1 << 1);
+
+						if (is_allowed)
+							*upgrades_allow = (*upgrades_allow) | (1 << i);
 						else
-							*allow_upgrades = (*allow_upgrades) & ~(1 << i);
+							*upgrades_allow = (*upgrades_allow) & ~(1 << i);
+
+						if (is_default)
+							*upgrades_default = (*upgrades_default) | (1 << i);
+						else
+							*upgrades_default = (*upgrades_default) & ~(1 << i);
 					}
 				}
 
@@ -1514,7 +1527,8 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 			{
 				if (!selected)
 					text.color = UI::color_default;
-				text.text(0, "%d/%d", vi_max(0, s32(entry.max_players - entry.server_state.player_slots)), s32(entry.max_players));
+				s32 max_players = entry.server_state.level == AssetNull ? entry.max_players : entry.server_state.max_players;
+				text.text(0, "%d/%d", vi_max(0, max_players - entry.server_state.player_slots), max_players);
 				text.draw(params, pos + Vec2(panel_size.x * 0.91f, panel_size.y * 0.5f));
 			}
 
@@ -1564,8 +1578,8 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 		{
 			case Data::Multiplayer::EditMode::Levels:
 			case Data::Multiplayer::EditMode::Main:
-			case Data::Multiplayer::EditMode::AllowedUpgrades:
-			case Data::Multiplayer::EditMode::StartUpgrades:
+			case Data::Multiplayer::EditMode::Upgrades:
+			case Data::Multiplayer::EditMode::StartAbilities:
 			{
 				const Rect2& vp = params.camera->viewport;
 				
@@ -1607,11 +1621,11 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 						case Data::Multiplayer::EditMode::Levels:
 							text.text(0, _(strings::levels));
 							break;
-						case Data::Multiplayer::EditMode::AllowedUpgrades:
-							text.text(0, _(strings::allow_upgrades));
+						case Data::Multiplayer::EditMode::Upgrades:
+							text.text(0, _(strings::upgrades));
 							break;
-						case Data::Multiplayer::EditMode::StartUpgrades:
-							text.text(0, _(strings::start_upgrades));
+						case Data::Multiplayer::EditMode::StartAbilities:
+							text.text(0, _(strings::start_abilities));
 							break;
 						default:
 							vi_assert(false);
@@ -1687,7 +1701,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 		// column 1
 		{
-			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 10 + (details.config.game_type == GameType::Assault ? 1 : 0);
+			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 9 + (details.config.game_type == GameType::Assault ? 1 : 0);
 			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			if (details.state.level == AssetNull)
@@ -1711,7 +1725,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 				pos.y -= panel_size.y;
 
 				// players
-				text.text(0, _(strings::player_count), vi_max(0, s32(details.config.max_players - details.state.player_slots)), s32(details.config.max_players));
+				text.text(0, _(strings::player_count), vi_max(0, s32(details.state.max_players - details.state.player_slots)), s32(details.state.max_players));
 				text.draw(params, pos);
 
 				// ping
@@ -1805,13 +1819,6 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 				pos.y -= panel_size.y;
 			}
 
-			// enable minions
-			text.text(0, _(strings::enable_minions));
-			text.draw(params, pos);
-			value.text(0, _(details.config.enable_minions ? strings::on : strings::off));
-			value.draw(params, pos + Vec2(panel_size.x, 0));
-			pos.y -= panel_size.y;
-
 			// enable batteries
 			text.text(0, _(strings::enable_batteries));
 			text.draw(params, pos);
@@ -1885,16 +1892,16 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 		// column 3
 		pos = top + Vec2((panel_size.x + padding * 3.0f) * 2.0f, 0);
 		{
-			s32 rows = vi_max(1, s32(details.config.start_upgrades.length)) + 1 + s32(Upgrade::count);
+			s32 rows = vi_max(1, s32(details.config.start_abilities.length)) + 1 + s32(Upgrade::count);
 			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
-			// start upgrades
-			if (details.config.start_upgrades.length > 0)
+			// start abilities
+			if (details.config.start_abilities.length > 0)
 				text.color = UI::color_accent();
-			text.text(0, _(strings::start_upgrades));
+			text.text(0, _(strings::start_abilities));
 			text.draw(params, pos);
 			text.color = UI::color_default;
-			if (details.config.start_upgrades.length == 0)
+			if (details.config.start_abilities.length == 0)
 			{
 				value.text(0, _(strings::none));
 				value.draw(params, pos + Vec2(panel_size.x, 0));
@@ -1903,17 +1910,17 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			else
 			{
 				pos.y -= panel_size.y;
-				for (s32 i = 0; i < details.config.start_upgrades.length; i++)
+				for (s32 i = 0; i < details.config.start_abilities.length; i++)
 				{
-					text.text(0, _(UpgradeInfo::list[s32(details.config.start_upgrades[i])].name));
+					text.text(0, _(UpgradeInfo::list[s32(details.config.start_abilities[i])].name));
 					text.draw(params, pos);
 					pos.y -= panel_size.y;
 				}
 			}
 
-			// allow upgrades
+			// upgrades
 			text.color = UI::color_accent();
-			text.text(0, _(strings::allow_upgrades));
+			text.text(0, _(strings::upgrades));
 			text.draw(params, pos);
 			pos.y -= panel_size.y;
 			text.color = UI::color_default;
@@ -1921,7 +1928,12 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			{
 				text.text(0, _(UpgradeInfo::list[i].name));
 				text.draw(params, pos);
-				value.text(0, _((details.config.allow_upgrades & (1 << i)) ? strings::on : strings::off));
+				if (details.config.upgrades_default & (1 << i))
+					value.text(0, _(strings::upgrade_default));
+				else if (details.config.upgrades_allow & (1 << i))
+					value.text(0, "");
+				else
+					value.text(0, _(strings::upgrade_disabled));
 				value.draw(params, pos + Vec2(panel_size.x, 0));
 				pos.y -= panel_size.y;
 			}

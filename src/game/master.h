@@ -97,6 +97,7 @@ struct ServerState // represents the current state of a game server
 	u32 id; // the virtual server configuration currently active on this game server; 0 if it's story mode
 	AssetID level;
 	s8 player_slots; // for servers, this is the number of open player slots. for clients, this is the number of players the client has locally
+	s8 max_players; // for servers, this is the max number of players. for clients, it's unused
 	StoryModeTeam story_mode_team;
 	Region region;
 };
@@ -106,6 +107,7 @@ template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)
 	serialize_u32(p, s->id);
 	serialize_s16(p, s->level);
 	serialize_int(p, s8, s->player_slots, 0, MAX_PLAYERS);
+	serialize_int(p, s8, s->max_players, 0, MAX_PLAYERS);
 	serialize_enum(p, Region, s->region);
 	serialize_enum(p, StoryModeTeam, s->story_mode_team);
 	return true;
@@ -178,10 +180,11 @@ struct ServerConfig
 	s16 kill_limit = DEFAULT_ASSAULT_DRONES;
 	s16 flag_limit = DEFAULT_FLAG_LIMIT;
 	s16 respawns = DEFAULT_ASSAULT_DRONES;
-	s16 allow_upgrades = s16((1 << s32(Upgrade::count)) - 1);
+	s16 upgrades_allow = s16((1 << s32(Upgrade::count)) - 1);
+	s16 upgrades_default;
 	s16 start_energy = ENERGY_INITIAL;
 	s16 start_energy_attacker = ENERGY_INITIAL_ATTACKER;
-	StaticArray<Upgrade, MAX_ABILITIES> start_upgrades;
+	StaticArray<Ability, MAX_ABILITIES> start_abilities;
 	GameType game_type = GameType::Assault;
 	Region region;
 	s8 max_players = MAX_PLAYERS;
@@ -194,7 +197,6 @@ struct ServerConfig
 	u8 cooldown_speed_index = 4; // multiply by 0.25 to get actual value
 	char name[MAX_SERVER_CONFIG_NAME + 1];
 	char secret[MAX_SERVER_CONFIG_SECRET + 1];
-	b8 enable_minions = true;
 	b8 enable_batteries = true;
 	b8 enable_battery_stealth = true;
 	b8 enable_spawn_shields = true;
@@ -232,14 +234,15 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		serialize_int(p, s16, c->respawns, 1, MAX_RESPAWNS);
 		serialize_u32(p, c->creator_id);
 		serialize_int(p, s16, c->kill_limit, 0, MAX_RESPAWNS);
-		serialize_s16(p, c->allow_upgrades);
+		serialize_s16(p, c->upgrades_allow);
+		serialize_s16(p, c->upgrades_default);
 		serialize_int(p, s16, c->start_energy, 0, MAX_START_ENERGY);
 		serialize_int(p, s16, c->start_energy_attacker, 0, MAX_START_ENERGY);
 		serialize_int(p, s8, c->drone_shield, 0, DRONE_SHIELD_AMOUNT);
 		serialize_enum(p, Region, c->region);
-		serialize_int(p, u16, c->start_upgrades.length, 0, c->start_upgrades.capacity());
-		for (s32 i = 0; i < c->start_upgrades.length; i++)
-			serialize_enum(p, Upgrade, c->start_upgrades[i]);
+		serialize_int(p, u16, c->start_abilities.length, 0, c->start_abilities.capacity());
+		for (s32 i = 0; i < c->start_abilities.length; i++)
+			serialize_enum(p, Ability, c->start_abilities[i]);
 		for (s32 i = 0; i < s32(GameType::count); i++)
 			serialize_int(p, u8, c->time_limit_minutes[i], 1, 254);
 		serialize_int(p, u8, c->cooldown_speed_index, 1, COOLDOWN_SPEED_MAX_INDEX);
@@ -261,7 +264,6 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 			if (Stream::IsReading)
 				c->secret[secret_length] = '\0';
 		}
-		serialize_bool(p, c->enable_minions);
 		serialize_bool(p, c->enable_batteries);
 		serialize_bool(p, c->enable_battery_stealth);
 		serialize_bool(p, c->enable_spawn_shields);

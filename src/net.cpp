@@ -2197,11 +2197,13 @@ void server_state(Master::ServerState* s)
 	{
 		s->id = 0;
 		s->player_slots = MAX_PLAYERS;
+		s->max_players = 0;
 	}
 	else
 	{
 		s->id = Game::session.config.id;
 		s->player_slots = s8(vi_max(0, Game::session.config.max_players - PlayerHuman::list.count()));
+		s->max_players = s8(Game::session.config.max_players);
 	}
 	s->story_mode_team = Game::level.story_mode_team;
 	s->region = Settings::region;

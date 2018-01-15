@@ -353,10 +353,9 @@ struct RecordedLife
 	Array<b8> stealth;
 	Array<Action> action;
 	AI::Team team;
-	s16 drones_remaining;
 
 	void reset();
-	void reset(AI::Team, s16);
+	void reset(AI::Team);
 	void add(const Tag&, const Action&);
 
 	static size_t custom_fwrite(void*, size_t, size_t, FILE*);
@@ -364,7 +363,7 @@ struct RecordedLife
 	void serialize(FILE*, size_t(*)(void*, size_t, size_t, FILE*));
 };
 
-u32 record_init(Team, s16);
+u32 record_init(Team);
 void record_add(u32, const RecordedLife::Tag&, const RecordedLife::Action&);
 void record_close(u32);
 

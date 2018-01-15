@@ -837,6 +837,7 @@ b8 Battery::set_team(AI::Team t, Entity* caused_by)
 }
 
 r32 Battery::particle_accumulator;
+r32 Battery::heal_timer;
 void Battery::update_all(const Update& u)
 {
 	// normal particles
@@ -858,6 +859,14 @@ void Battery::update_all(const Update& u)
 		}
 	}
 
+	b8 heal = false;
+	heal_timer -= u.time.delta;
+	if (heal_timer < 0.0f)
+	{
+		heal = true;
+		heal_timer += 5.0f;
+	}
+
 	r32 last_time = u.time.total - u.time.delta;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
@@ -868,6 +877,13 @@ void Battery::update_all(const Update& u)
 		{
 			EffectLight::add(me, 10.0f, 1.5f, EffectLight::Type::Shockwave);
 			Audio::post_global(AK::EVENTS::PLAY_RECTIFIER_PING, Vec3::zero, i.item()->get<Transform>());
+		}
+
+		if (heal && Game::level.local)
+		{
+			Health* health = i.item()->get<Health>();
+			if (health->hp < health->hp_max)
+				health->add(1);
 		}
 	}
 }
@@ -940,56 +956,6 @@ Battery* SpawnPoint::battery() const
 	return nullptr;
 }
 
-SpawnPoint* SpawnPoint::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
-{
-	SpawnPoint* closest = nullptr;
-	r32 closest_distance = FLT_MAX;
-
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (AI::match(i.item()->team, mask))
-		{
-			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
-			if (d < closest_distance)
-			{
-				closest = i.item();
-				closest_distance = d;
-			}
-		}
-	}
-
-	if (distance)
-	{
-		if (closest)
-			*distance = sqrtf(closest_distance);
-		else
-			*distance = FLT_MAX;
-	}
-
-	return closest;
-}
-
-s32 SpawnPoint::count(AI::TeamMask mask)
-{
-	s32 count = 0;
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (AI::match(i.item()->team, mask))
-			count++;
-	}
-	return count;
-}
-
-SpawnPoint* SpawnPoint::first(AI::TeamMask mask)
-{
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (AI::match(i.item()->team, mask))
-			return i.item();
-	}
-	return nullptr;
-}
-
 b8 drone_can_spawn(const Vec3& pos)
 {
 	for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
@@ -1024,8 +990,7 @@ void SpawnPoint::update_server_all(const Update& u)
 {
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::level.has_feature(Game::FeatureLevel::Turrets)
-		&& Team::match_state == Team::MatchState::Active
-		&& Game::session.config.enable_minions)
+		&& Team::match_state == Team::MatchState::Active)
 	{
 		const s32 minion_group = 3;
 		const r32 minion_initial_delay = Game::session.type == SessionType::Story
@@ -1036,7 +1001,7 @@ void SpawnPoint::update_server_all(const Update& u)
 		for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 		{
 			// spawn points owned by a team will spawn a minion
-			r32 time = (Team::match_time * i.item()->minion_spawn_speed()) - minion_initial_delay;
+			r32 time = (Team::match_time * i.item()->minion_spawn_rate()) - minion_initial_delay;
 			for (auto j = list.iterator(); !j.is_last(); j.next())
 			{
 				r32 t = time + j.index * minion_spawn_interval * -0.5f;
@@ -1991,7 +1956,6 @@ void Turret::killed(Entity* by)
 
 		World::remove_deferred(entity());
 
-		Team::list[1].add_extra_drones(TURRET_TICKET_REWARD * Team::list[1].player_count());
 		Team::match_time = vi_max(0.0f, Team::match_time - TURRET_TIME_REWARD);
 #if SERVER
 		Net::Server::sync_time();
@@ -2033,7 +1997,6 @@ b8 Turret::net_msg(Net::StreamRead* p, Net::MessageSource src)
 b8 Turret::can_see(Entity* target) const
 {
 	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth)
-		|| (target->has<Drone>() && target->get<Drone>()->state() != Drone::State::Crawl)
 		|| (target->has<Rectifier>() && target->get<Rectifier>()->stealth))
 		return false;
 
@@ -2788,8 +2751,10 @@ void Bolt::hit_entity(const Hit& hit)
 		{
 			case Type::DroneBolter:
 			{
-				if (hit_object->has<Minion>())
+				if (hit_object->has<Battery>())
 					damage = 3;
+				else if (hit_object->has<Minion>())
+					damage = 2;
 				else
 					damage = 1;
 
@@ -2799,7 +2764,9 @@ void Bolt::hit_entity(const Hit& hit)
 			}
 			case Type::DroneShotgun:
 			{
-				if (hit_object->has<Minion>())
+				if (hit_object->has<Battery>())
+					damage = BATTERY_HEALTH;
+				else if (hit_object->has<Minion>())
 					damage = MINION_HEALTH;
 				else if (hit_object->has<Turret>())
 					damage = mersenne::rand() % 3 < 2 ? 1 : 0; // expected value: 0.66
@@ -3465,9 +3432,6 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, Net::StateFrame* state_frame)
 		t->pos = next_pos;
 	}
 
-	if (!state_frame && timer > GRENADE_DELAY)
-		explode();
-
 	return false;
 }
 
@@ -3591,7 +3555,7 @@ void Grenade::explode()
 				else if (i.item()->has<ForceField>())
 				{
 					if (distance < GRENADE_RANGE && i.item()->get<ForceField>()->team != my_team)
-						i.item()->damage(entity(), 12);
+						i.item()->damage(entity(), 16);
 				}
 				else if (i.item()->has<Grenade>() && i.item()->get<Grenade>()->team() == my_team)
 				{
@@ -3631,115 +3595,115 @@ void Grenade::update_client_server_all(const Update& u)
 	// normal particles
 	const r32 interval = 0.05f;
 	particle_accumulator += u.time.delta;
+	b8 emit_particles = false;
 	while (particle_accumulator > interval)
 	{
 		particle_accumulator -= interval;
-		for (auto i = list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->state == State::Active)
-				Particles::tracers.add(i.item()->get<Transform>()->absolute_pos(), Vec3::zero, 0);
-		}
+		emit_particles = true;
 	}
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		switch (i.item()->state)
+		if (i.item()->state == State::Exploded)
 		{
-			case State::Exploded:
+			if (Game::level.local)
 			{
-				if (Game::level.local)
-				{
-					i.item()->timer += u.time.delta;
-					if (i.item()->timer > NET_MAX_RTT_COMPENSATION * 2.0f)
-						World::remove(i.item()->entity());
-				}
-				break;
+				i.item()->timer += u.time.delta;
+				if (i.item()->timer > NET_MAX_RTT_COMPENSATION * 2.0f)
+					World::remove(i.item()->entity());
 			}
-			case State::Inactive:
-			case State::Active:
-			case State::Attached:
-			{
-				Transform* transform = i.item()->get<Transform>();
+		}
+		else
+		{
+			Transform* transform = i.item()->get<Transform>();
 
-				// if we're stuck to a minion, make it look like we're attached to the minion's back
-				if (i.item()->state == State::Attached)
+			// if we're stuck to a minion, make it look like we're attached to the minion's back
+			if (i.item()->state == State::Attached)
+			{
+				View* model = i.item()->get<View>();
+				Transform* parent = transform->parent.ref();
+				if (parent)
 				{
-					View* model = i.item()->get<View>();
-					Transform* parent = transform->parent.ref();
-					if (parent)
+					if (parent->has<Animator>())
 					{
-						if (parent->has<Animator>())
-						{
-							Vec3 pos(0.1f, 0.0f, -0.12f - GRENADE_RADIUS);
-							Quat rot = Quat::euler(0, PI, 0);
-							parent->get<Animator>()->to_local(Asset::Bone::character_spine, &pos, &rot);
-							model->offset.make_transform(pos, Vec3(GRENADE_RADIUS), rot);
-							i.item()->abs_pos_attached = parent->to_world(pos);
-						}
-						else
-							i.item()->abs_pos_attached = transform->absolute_pos();
+						Vec3 pos(0.1f, 0.0f, -0.12f - GRENADE_RADIUS);
+						Quat rot = Quat::euler(0, PI, 0);
+						parent->get<Animator>()->to_local(Asset::Bone::character_spine, &pos, &rot);
+						model->offset.make_transform(pos, Vec3(GRENADE_RADIUS), rot);
+						i.item()->abs_pos_attached = parent->to_world(pos);
 					}
 					else
-					{
-						// no longer attached
-						model->offset = Mat4::make_scale(Vec3(GRENADE_RADIUS));
-						if (Game::level.local)
-						{
-							transform->pos = i.item()->abs_pos_attached;
-							transform->rot = Quat::identity;
-							GrenadeNet::send_state_change(i.item(), State::Active);
-						}
-					}
+						i.item()->abs_pos_attached = transform->absolute_pos();
 				}
-
-				Vec3 me = transform->absolute_pos();
-				AI::Team my_team = i.item()->team();
-
-				b8 countdown = false;
-				if (i.item()->timer > GRENADE_DELAY * 0.5f) // once the countdown is past 50%, it's irreversible
-					countdown = true;
 				else
 				{
-					for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+					// no longer attached
+					model->offset = Mat4::make_scale(Vec3(GRENADE_RADIUS));
+					if (Game::level.local)
 					{
-						if (grenade_trigger_filter(i.item()->entity(), my_team))
+						transform->pos = i.item()->abs_pos_attached;
+						transform->rot = Quat::identity;
+						GrenadeNet::send_state_change(i.item(), State::Active);
+					}
+				}
+			}
+			else // Active or Inactive
+			{
+				if (emit_particles)
+					Particles::tracers.add(i.item()->get<Transform>()->absolute_pos(), Vec3::zero, 0);
+				if (Game::level.local)
+					i.item()->simulate(u.time.delta);
+			}
+
+			Vec3 me = transform->absolute_pos();
+			AI::Team my_team = i.item()->team();
+
+			b8 countdown = false;
+			if (i.item()->timer > GRENADE_DELAY * 0.5f) // once the countdown is past 50%, it's irreversible
+				countdown = true;
+			else
+			{
+				for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+				{
+					if (grenade_trigger_filter(i.item()->entity(), my_team))
+					{
+						r32 distance = (i.item()->get<Transform>()->absolute_pos() - me).length();
+						if (i.item()->has<ForceField>())
+							distance -= FORCE_FIELD_RADIUS;
+						if (distance < GRENADE_RANGE * 0.5f)
 						{
-							r32 distance = (i.item()->get<Transform>()->absolute_pos() - me).length();
-							if (i.item()->has<ForceField>())
-								distance -= FORCE_FIELD_RADIUS;
-							if (distance < GRENADE_RANGE * 0.5f)
-							{
-								countdown = true;
-								break;
-							}
+							countdown = true;
+							break;
 						}
 					}
 				}
+			}
 
-				if (countdown)
+			if (countdown)
+			{
+				r32 timer_last = i.item()->timer;
+				i.item()->timer += u.time.delta;
+				if (i.item()->timer < GRENADE_DELAY)
 				{
-					r32 timer_last = i.item()->timer;
-					i.item()->timer += u.time.delta;
 					const r32 interval = 1.5f;
 					if (timer_last == 0.0f || s32(Ease::cubic_in<r32>(i.item()->timer) / interval) != s32(Ease::cubic_in<r32>(timer_last) / interval))
 						i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_BEEP);
 				}
 				else
 				{
-					i.item()->timer = 0.0f;
-					const r32 interval = 5.0f;
-					if (s32(Game::time.total / interval) != s32((Game::time.total - u.time.delta) / interval))
-					{
-						EffectLight::add(me, GRENADE_RANGE, 1.5f, EffectLight::Type::Shockwave);
-						i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_BEEP);
-					}
+					if (Game::level.local)
+						i.item()->explode();
+					else
+						i.item()->timer = 0.0f; // the client may determine it needs to explode while the server decides otherwise; reset client timer in this case
 				}
-
-				break;
 			}
-			default:
-				vi_assert(false);
-				break;
+			else
+			{
+				i.item()->timer = 0.0f;
+				const r32 interval = 5.0f;
+				if (s32(Game::time.total / interval) != s32((Game::time.total - u.time.delta) / interval))
+					i.item()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_BEEP);
+			}
 		}
 	}
 }

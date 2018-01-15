@@ -11,7 +11,7 @@
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 19
+#define GAME_VERSION 20
 
 #define STEAM_APP_ID 728100
 #define DISCORD_APP_ID "367724608469860353"
@@ -83,7 +83,7 @@
 #define ROPE_RADIUS 0.075f
 
 #define ENERGY_INITIAL 0
-#define ENERGY_INITIAL_ATTACKER 100
+#define ENERGY_INITIAL_ATTACKER 0
 #define ENERGY_MINION_KILL 10
 #define ENERGY_RECTIFIER_DESTROY 10
 #define ENERGY_FORCE_FIELD_DESTROY 50
@@ -136,7 +136,6 @@
 #define TURRET_HEIGHT 3.5f
 #define TURRET_HEALTH 100
 #define TURRET_TIME_REWARD 90.0f
-#define TURRET_TICKET_REWARD 1
 #define TURRET_HEAL_INTERVAL 3.0f
 #define CORE_MODULE_HEALTH 20
 #define CORE_MODULE_DELAY 5.0f

@@ -152,7 +152,7 @@ struct Drone : public ComponentType<Drone>
 	Vec3 rotation_clamp() const;
 	Vec3 camera_center() const;
 	void ability(Ability);
-	void cooldown_recoil_setup(r32, r32);
+	void cooldown_recoil_setup(Ability);
 	b8 cooldown_remote_controlled(r32* = nullptr) const;
 	b8 cooldown_ability_switch_remote_controlled(r32* = nullptr) const;
 	State state() const;

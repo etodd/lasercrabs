@@ -185,7 +185,7 @@ void update(const Update& u)
 	sync_out.unlock();
 }
 
-u32 record_init(AI::Team team, s16 remaining_drones)
+u32 record_init(AI::Team team)
 {
 	u32 id = record_id_current;
 	record_id_current++;
@@ -196,7 +196,6 @@ u32 record_init(AI::Team team, s16 remaining_drones)
 	sync_in.write(Op::RecordInit);
 	sync_in.write(id);
 	sync_in.write(team);
-	sync_in.write(remaining_drones);
 	sync_in.unlock();
 #endif
 
@@ -955,10 +954,9 @@ void RecordedLife::reset()
 	action.length = 0;
 }
 
-void RecordedLife::reset(AI::Team t, s16 d)
+void RecordedLife::reset(AI::Team t)
 {
 	team = t;
-	drones_remaining = d;
 	reset();
 }
 
@@ -1026,7 +1024,6 @@ size_t RecordedLife::custom_fread(void* buffer, size_t size, size_t count, FILE*
 void RecordedLife::serialize(FILE* f, size_t(*func)(void*, size_t, size_t, FILE*))
 {
 	func(&team, sizeof(AI::Team), 1, f);
-	func(&drones_remaining, sizeof(s16), 1, f);
 
 	func(&shield.length, sizeof(s32), 1, f);
 	shield.resize(shield.length);

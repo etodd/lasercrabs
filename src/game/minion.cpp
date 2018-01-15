@@ -314,45 +314,29 @@ r32 entity_cost(const Minion* me, const Vec3& pos, AI::Team team, const Vec3& di
 
 Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 {
-	Vec3 pos = me->get<Transform>()->absolute_pos();
-
-	Entity* best = nullptr;
-	r32 best_cost = FLT_MAX;
-
-	// check spots first
-	for (s32 i = 0; i < PlayerHuman::notifications.length; i++)
+	// check spot target first
 	{
-		const PlayerHuman::Notification& notification = PlayerHuman::notifications[i];
-		if (notification.team == team && notification.type == PlayerHuman::Notification::Type::Spot)
+		Target* spot = Team::list[s32(team)].spot_target.ref();
+		if (spot)
 		{
-			Target* target = notification.target.ref();
-			if (target)
+			if (me->can_see(spot->entity()))
 			{
-				if (me->can_see(target->entity()))
+				AI::Team target_team;
+				AI::entity_info(spot->entity(), team, &target_team);
+				if (target_team == team)
 				{
-					AI::Team target_team;
-					AI::entity_info(target->entity(), team, &target_team);
-					if (target_team == team)
-					{
-						// the spot is telling us to defend a friendly thing and we're already within line of sight of it
-						// so force a random position target (i.e., patrol around the spotted entity)
-						return nullptr;
-					}
-					else
-						return target->entity();
-				}
-				r32 cost = entity_cost(me, pos, team, direction, target->entity());
-				if (cost < best_cost)
-				{
-					best = target->entity();
-					best_cost = cost;
+					// the spot is telling us to defend a friendly thing and we're already within line of sight of it
+					// so force a random position target (i.e., patrol around the spotted entity)
+					return nullptr;
 				}
 			}
+			return spot->entity();
 		}
 	}
 
-	if (best)
-		return best;
+	Entity* best = nullptr;
+	r32 best_cost = FLT_MAX;
+	Vec3 pos = me->get<Transform>()->absolute_pos();
 
 	if (Turret::list.count() > 0)
 	{

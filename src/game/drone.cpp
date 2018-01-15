@@ -369,6 +369,9 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 				result = 3;
 			else if (dot < -0.8f)
 				result = 2;
+
+			if (target_shield->has<ForceField>())
+				result += 1;
 		}
 		else
 		{
@@ -378,9 +381,10 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 			else
 				result = 2;
 		}
+
 		if (target_shield->has<Rectifier>())
 			result *= 2;
-		else if (target_shield->has<ForceField>() || target_shield->has<ForceFieldCollision>())
+		else if (target_shield->has<ForceField>())
 			result = (result * 2) + 4;
 	}
 
@@ -603,8 +607,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				if (flag != DroneNet::FlyFlag::CancelExisting)
 				{
 					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
-					const AbilityInfo& info = AbilityInfo::list[s32(Ability::None)];
-					drone->cooldown_recoil_setup(info.cooldown_movement, info.recoil_velocity);
+					drone->cooldown_recoil_setup(Ability::None);
 				}
 
 				drone->ensure_detached();
@@ -642,8 +645,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				if (drone->current_ability == Ability::None)
 				{
 					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);
-					const AbilityInfo& info = AbilityInfo::list[s32(Ability::None)];
-					drone->cooldown_recoil_setup(info.cooldown_movement, info.recoil_velocity);
+					drone->cooldown_recoil_setup(Ability::None);
 				}
 			}
 
@@ -710,11 +712,14 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (apply_msg)
 			{
 				const AbilityInfo& info = AbilityInfo::list[s32(ability)];
-				drone->get<Audio>()->post(info.equip_sound);
-				drone->cooldown_ability_switch = info.cooldown_switch;
-				drone->cooldown_ability_switch_last_local_change = Game::real_time.total;
-				if (ability == Ability::None || info.type != AbilityInfo::Type::Other)
-					drone->current_ability = ability;
+				if (info.type != AbilityInfo::Type::Passive)
+				{
+					drone->get<Audio>()->post(info.equip_sound);
+					drone->cooldown_ability_switch = info.cooldown_switch;
+					drone->cooldown_ability_switch_last_local_change = Game::real_time.total;
+					if (info.type != AbilityInfo::Type::Other)
+						drone->current_ability = ability;
+				}
 			}
 			break;
 		}
@@ -745,7 +750,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				return true;
 #endif
 
-			const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+			const AbilityInfo& info = AbilityInfo::list[s32(ability)];
 
 			Vec3 pos;
 			Vec3 normal;
@@ -756,7 +761,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			Quat rot = Quat::look(normal);
 
 			if ((Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())) // only do cooldowns for remote drones or AI drones; local players will have already done this
-				drone->cooldown_recoil_setup(info.cooldown_movement, info.recoil_velocity);
+				drone->cooldown_recoil_setup(ability);
 
 			Vec3 my_pos;
 			Quat my_rot;
@@ -1050,9 +1055,6 @@ Vec3 Drone::attach_point(r32 offset) const
 // returns true if it's a valid hit
 b8 Drone::hit_target(Entity* target)
 {
-	if (target->has<ForceFieldCollision>())
-		target = target->get<ForceFieldCollision>()->field.ref()->entity();
-
 	for (s32 i = 0; i < hit_targets.length; i++)
 	{
 		if (hit_targets[i].ref() == target)
@@ -1314,7 +1316,11 @@ b8 Drone::could_shoot(const Vec3& trace_start, const Vec3& dir, Vec3* final_pos,
 
 b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_normal, RigidBody** hit_parent, b8* hit_target) const
 {
-	if (AbilityInfo::list[s32(a)].type == AbilityInfo::Type::Other)
+	const AbilityInfo& info = AbilityInfo::list[s32(a)];
+
+	vi_assert(info.type != AbilityInfo::Type::Passive);
+
+	if (info.type == AbilityInfo::Type::Other)
 	{
 		if (final_pos)
 			*final_pos = Vec3::zero;
@@ -1350,11 +1356,9 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 
 	RayHit ray_callback;
 
-	AbilityInfo::Type type = AbilityInfo::list[s32(a)].type;
-
 	{
 		RaycastCallbackExcept physics_ray_callback(trace_start, trace_end, entity());
-		s16 force_field_mask = type == AbilityInfo::Type::Build
+		s16 force_field_mask = info.type == AbilityInfo::Type::Build
 			? ~ally_force_field_mask() // only ignore friendly force fields; we don't want to build something on a force field
 			: ~CollisionAllTeamsForceField; // ignore all force fields
 		Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & force_field_mask);
@@ -1394,7 +1398,7 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 				}
 			}
 
-			if (type == AbilityInfo::Type::Shoot)
+			if (info.type == AbilityInfo::Type::Shoot)
 			{
 				// check predicted intersection
 				Vec3 target_pos;
@@ -1442,7 +1446,7 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 			*hit_parent = nullptr;
 	}
 
-	if (type == AbilityInfo::Type::Shoot)
+	if (info.type == AbilityInfo::Type::Shoot)
 		return true; // we can always spawn these abilities, even if we're aiming into space
 	else
 	{
@@ -1508,12 +1512,14 @@ void Drone::ability(Ability a)
 		DroneNet::ability_select(this, a);
 }
 
-void Drone::cooldown_recoil_setup(r32 cooldown_delta, r32 recoil_velocity)
+void Drone::cooldown_recoil_setup(Ability a)
 {
-	cooldown = vi_min(cooldown + cooldown_delta, DRONE_COOLDOWN_MAX);
+	const AbilityInfo& info = AbilityInfo::list[s32(a)];
+	cooldown = vi_min(cooldown + info.cooldown_movement, DRONE_COOLDOWN_MAX);
 	cooldown_last_local_change = Game::real_time.total;
 	last_ability_fired = Game::time.total;
-	get<PlayerCommon>()->recoil_add(recoil_velocity);
+	get<PlayerCommon>()->recoil_add(info.recoil_velocity);
+	get<PlayerCommon>()->manager.ref()->ability_cooldown_apply(a);
 }
 
 // if the property in question is remote controlled, adjustment is the amount that should be subtracted due to network lag
@@ -1782,10 +1788,7 @@ b8 Drone::go(const Vec3& dir)
 		else
 		{
 			// client-side prediction
-			{
-				const AbilityInfo& info = AbilityInfo::list[s32(a)];
-				cooldown_recoil_setup(info.cooldown_movement, info.recoil_velocity);
-			}
+			cooldown_recoil_setup(a);
 
 			if (a == Ability::Shotgun)
 			{
@@ -2940,22 +2943,19 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 			else
 				type = Hit::Type::Environment;
 
+			Entity* entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+			if (entity->has<ForceFieldCollision>())
+				entity = entity->get<ForceFieldCollision>()->field.ref()->entity();
+
 			Hit hit =
 			{
 				ray_callback.m_hitPointWorld,
 				ray_callback.m_hitNormalWorld,
 				(ray_callback.m_hitPointWorld - ray_start).length() / distance_total,
-				&Entity::list[ray_callback.m_collisionObject->getUserIndex()],
+				entity,
 				type,
 			};
 			result->hits.add(hit);
-
-			if (hit.entity.ref()->has<Turret>())
-			{
-				hit.type = Hit::Type::Target;
-				hit.fraction -= 0.01f; // make sure this hit will be registered before we stop at the original hit
-				result->hits.add(hit);
-			}
 		}
 	}
 
@@ -3009,16 +3009,20 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 		const Hit& hit = result->hits[i];
 
 		b8 stop = false;
-		if (hit.type == Hit::Type::Shield)
+		if (hit.type == Hit::Type::Shield || hit.type == Hit::Type::ForceField)
 		{
-			// if we've already hit this shield once, we must ignore it
 			b8 already_hit = false;
-			for (s32 i = 0; i < hit_targets.length; i++)
+
+			if (hit.type == Hit::Type::Shield)
 			{
-				if (hit_targets[i].equals(hit.entity))
+				// if we've already hit this shield once, we must ignore it
+				for (s32 i = 0; i < hit_targets.length; i++)
 				{
-					already_hit = true;
-					break;
+					if (hit_targets[i].equals(hit.entity))
+					{
+						already_hit = true;
+						break;
+					}
 				}
 			}
 
@@ -3133,7 +3137,7 @@ void Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* h
 		else if (hit.type == Hit::Type::ForceField)
 		{
 			hit_target(hit.entity.ref());
-			if (s == State::Fly)
+			if (s == State::Fly && i == hits.index_end)
 				reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
 		}
 		else if (hit.type == Hit::Type::Environment)

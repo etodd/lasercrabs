@@ -117,8 +117,8 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		DRONE_COOLDOWN_MAX, // movement cooldown
-		0.25f, // switch cooldown
-		5.0f, // use cooldown
+		0.3f, // switch cooldown
+		6.0f, // use cooldown
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_rectifier,
@@ -131,16 +131,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		0.0f, // recoil velocity
 		AK_InvalidID,
 		Asset::Mesh::icon_minion,
-		Type::Other,
-	},
-	{
-		DRONE_COOLDOWN_MAX, // movement cooldown
-		0.5f, // switch cooldown
-		20.0f, // use cooldown
-		0.5f, // recoil velocity
-		AK::EVENTS::PLAY_EQUIP_BUILD,
-		Asset::Mesh::icon_force_field,
-		Type::Build,
+		Type::Passive,
 	},
 	{
 		2.5f, // movement cooldown
@@ -162,8 +153,17 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		DRONE_COOLDOWN_MAX, // movement cooldown
+		0.5f, // switch cooldown
+		30.0f, // use cooldown
+		0.5f, // recoil velocity
+		AK::EVENTS::PLAY_EQUIP_BUILD,
+		Asset::Mesh::icon_force_field,
+		Type::Build,
+	},
+	{
+		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.3f, // switch cooldown
-		5.0f, // use cooldown
+		6.0f, // use cooldown
 		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_GRENADE,
 		Asset::Mesh::icon_grenade,
@@ -238,13 +238,6 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		500,
 		Type::Ability,
 	},
-	{
-		strings::extra_drone,
-		strings::description_extra_drone,
-		Asset::Mesh::icon_drone,
-		50,
-		Type::Consumable,
-	},
 };
 
 void Team::awake_all()
@@ -256,6 +249,8 @@ void Team::awake_all()
 		match_time = 0.0f;
 		core_module_delay = CORE_MODULE_DELAY;
 	}
+	for (s32 i = 0; i < Game::session.config.start_abilities.length; i++)
+		Game::session.config.upgrades_default |= (1 << s32(Game::session.config.start_abilities[i]));
 	winner = nullptr;
 	score_summary.length = 0;
 	for (s32 i = 0; i < MAX_PLAYERS * MAX_PLAYERS; i++)
@@ -306,8 +301,7 @@ b8 Team::has_active_player() const
 
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team.ref() == this
-			&& (tickets() != 0 || i.item()->instance.ref()))
+		if (i.item()->team.ref() == this)
 			return true;
 	}
 
@@ -376,15 +370,20 @@ void Team::add_kills(s32 k)
 	TeamNet::update_counts(this);
 }
 
-r32 Team::minion_spawn_speed() const
+r32 Team::minion_spawn_rate() const
 {
-	r32 speed = 1.0f;
+	r32 rate = Game::session.config.game_type == GameType::Assault ? 1.0f : 0.0f;
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->has_ability(Ability::MinionBoost))
-			speed *= 1.2f;
+		{
+			if (rate == 0.0f)
+				rate = 1.0f;
+			else
+				rate *= 1.2f;
+		}
 	}
-	return vi_min(2.0f, speed);
+	return vi_min(2.0f, rate);
 }
 
 s16 Team::increment() const
@@ -652,6 +651,7 @@ namespace TeamNet
 		UpdateCounts,
 		MapSchedule,
 		CoreVulnerable,
+		Spot,
 		count,
 	};
 
@@ -712,6 +712,26 @@ namespace TeamNet
 		{
 			Message type = Message::CoreVulnerable;
 			serialize_enum(p, Message, type);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 spot(Team* team, Target* t)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Team);
+		{
+			Message type = Message::Spot;
+			serialize_enum(p, Message, type);
+		}
+		{
+			Ref<Team> ref = team;
+			serialize_ref(p, ref);
+		}
+		{
+			Ref<Target> ref = t;
+			serialize_ref(p, ref);
 		}
 		Net::msg_finalize(p);
 		return true;
@@ -789,8 +809,6 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					team_add_score_summary_item(i.item(), i.item()->username);
 					if (Game::session.type == SessionType::Story)
 					{
-						if (Team::list[team].tickets() != -1)
-							team_add_score_summary_item(i.item(), _(strings::drone_surplus), Team::list[team].tickets()); // split remaining tickets between players
 						team_add_score_summary_item(i.item(), _(strings::energy_surplus), i.item()->energy);
 						if (i.item()->has<PlayerHuman>() && i.item()->team.equals(winner))
 						{
@@ -854,11 +872,19 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			break;
 		}
-		default:
+		case TeamNet::Message::Spot:
 		{
-			vi_assert(false);
+			Ref<Team> team;
+			serialize_ref(p, team);
+			Ref<Target> target;
+			serialize_ref(p, target);
+			if (Game::level.local == (src == Net::MessageSource::Loopback))
+				team.ref()->spot_target = target;
 			break;
 		}
+		default:
+			vi_assert(false);
+			break;
 	}
 
 	return true;
@@ -1091,10 +1117,9 @@ void Team::update_all_server(const Update& u)
 				{
 					PlayerManager* player = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 					Overworld::resource_change(Resource::Energy, player->energy);
-					Overworld::resource_change(Resource::Drones, vi_max(s16(0), player->team.ref()->tickets()));
 				}
 
-				if (w == &Team::list[1]) // attackers won; the zone is going to change owners
+				if (w == &list[1]) // attackers won; the zone is going to change owners
 				{
 					if (Game::save.zones[Game::level.id] == ZoneState::PvpFriendly) // player was defending
 						Overworld::zone_change(Game::level.id, ZoneState::PvpHostile);
@@ -1114,6 +1139,19 @@ void Team::update_all_server(const Update& u)
 					core_module_delay = vi_max(0.0f, core_module_delay - u.time.delta);
 					if (core_module_delay == 0.0f)
 						TeamNet::core_vulnerable();
+				}
+			}
+
+			for (auto i = list.iterator(); !i.is_last(); i.next())
+			{
+				Target* spot = i.item()->spot_target.ref();
+				if (spot && spot->has<Flag>())
+				{
+					// check if flag is being carried by an enemy; if so, remove the spot
+					// we don't want people to be able to track their flag's location
+					Transform* parent = spot->get<Transform>()->parent.ref();
+					if (parent && parent->get<AIAgent>()->team != spot->get<Flag>()->team)
+						TeamNet::spot(i.item(), nullptr);
 				}
 			}
 		}
@@ -1148,7 +1186,7 @@ void Team::draw_ui(const RenderParams& params)
 		Menu::draw_letterbox(params, transition_timer, TRANSITION_TIME);
 }
 
-void Team::update(const Update& u)
+void Team::update_all(const Update& u)
 {
 	transition_timer = vi_max(0.0f, transition_timer - Game::real_time.delta);
 	if (Game::level.local)
@@ -1163,36 +1201,6 @@ void Team::update_all_client_only(const Update& u)
 		return;
 
 	update_visibility(u);
-}
-
-s16 Team::initial_tickets() const
-{
-	return (Game::session.config.game_type == GameType::Assault && team() == 1)
-		? (Game::session.config.respawns * player_count())
-		: -1;
-}
-
-s16 Team::tickets() const
-{
-	if (Game::session.config.game_type == GameType::Assault && team() == 1)
-	{
-		s16 deaths = 0;
-		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->team.ref() == this)
-				deaths += i.item()->deaths;
-		}
-		return vi_max(0, initial_tickets() + extra_drones - deaths);
-	}
-	else
-		return -1;
-}
-
-void Team::add_extra_drones(s16 d)
-{
-	vi_assert(Game::level.local);
-	extra_drones += d;
-	TeamNet::update_counts(this);
 }
 
 s16 Team::initial_energy() const
@@ -1218,7 +1226,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	: spawn_timer((Game::session.type == SessionType::Story && team->team() == 1) ? 0 : Game::session.config.spawn_delay), // defenders in story mode get to spawn instantly
 	score_accepted(Team::match_state == Team::MatchState::Done),
 	team(team),
-	upgrades(),
+	upgrades(Game::session.config.upgrades_default),
 	abilities{ Ability::None, Ability::None },
 	instance(),
 	spawn(),
@@ -1230,26 +1238,25 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	kills(),
 	deaths(),
 	flags_captured(),
-	ability_purchase_times(),
+	ability_cooldown(),
+	ability_flash_time(),
 	current_upgrade_ability_slot(),
 	team_scheduled(AI::TeamNone),
 	is_admin()
 {
 	{
-		const StaticArray<Upgrade, MAX_ABILITIES>& start_upgrades = Game::session.config.start_upgrades;
-		for (s32 i = 0; i < start_upgrades.length; i++)
+		const StaticArray<Ability, MAX_ABILITIES>& start_abilities = Game::session.config.start_abilities;
+		for (s32 i = 0; i < start_abilities.length; i++)
 		{
-			Upgrade upgrade = start_upgrades[i];
-			if (UpgradeInfo::list[s32(upgrade)].type == UpgradeInfo::Type::Ability)
-			{
-				upgrades |= 1 << s32(upgrade);
-				abilities[i] = Ability(upgrade);
-			}
+			Ability ability = start_abilities[i];
+			vi_assert(UpgradeInfo::list[s32(ability)].type == UpgradeInfo::Type::Ability);
+			upgrades |= 1 << s32(ability);
+			abilities[i] = ability;
 		}
 	}
 
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& Game::session.config.allow_upgrades
+		&& (Game::session.config.upgrades_allow | Game::session.config.upgrades_default)
 		&& Game::session.type == SessionType::Story
 		&& Game::session.config.game_type == GameType::Assault
 		&& team->team() == 0)
@@ -1326,6 +1333,12 @@ b8 PlayerManager::ability_valid(Ability ability) const
 
 	if (ability != Ability::None && drone->flag.ref())
 		return false;
+
+	{
+		const AbilityInfo& info = AbilityInfo::list[s32(ability)];
+		if (ability_cooldown[s32(ability)] > 0.0f)
+			return false;
+	}
 
 	return true;
 }
@@ -1603,7 +1616,7 @@ namespace PlayerManagerNet
 		return true;
 	}
 
-	b8 spot(PlayerManager* m, Entity* e)
+	b8 spot(PlayerManager* m, Target* t)
 	{
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
@@ -1612,13 +1625,30 @@ namespace PlayerManagerNet
 			serialize_ref(p, ref);
 		}
 		{
-			PlayerManager::Message msg = PlayerManager::Message::SpotEntity;
+			PlayerManager::Message msg = PlayerManager::Message::Spot;
 			serialize_enum(p, PlayerManager::Message, msg);
 		}
 		{
-			Ref<Entity> ref = e;
+			Ref<Target> ref = t;
 			serialize_ref(p, ref);
 		}
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 ability_cooldown_ready(PlayerManager* m, Ability a)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::AbilityCooldownReady;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		serialize_enum(p, Ability, a);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -1627,8 +1657,7 @@ namespace PlayerManagerNet
 void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
 {
 	vi_assert(Game::level.local && point);
-	if (m->team.ref()->tickets() != 0)
-		m->spawn_timer = Game::session.config.spawn_delay;
+	m->spawn_timer = Game::session.config.spawn_delay;
 	m->spawn.fire(point->spawn_position());
 }
 
@@ -1769,18 +1798,10 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 							instance->get<Drone>()->current_ability = Ability(u);
 					}
 					m->abilities[index] = Ability(u);
-					m->ability_purchase_times[index] = Game::time.total;
+					m->ability_flash_time[index] = Game::real_time.total;
 				}
 				else
-				{
-					if (u == Upgrade::ExtraDrone)
-					{
-						if (Game::level.local)
-							m->team.ref()->add_extra_drones(1);
-					}
-					else
-						vi_assert(false);
-				}
+					vi_assert(false);
 				m->upgrade_completed.fire(u);
 			}
 			break;
@@ -1960,25 +1981,40 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 
 			break;
 		}
-		case Message::SpotEntity:
+		case Message::Spot:
 		{
-			Ref<Entity> target;
+			Ref<Target> target;
 			serialize_ref(p, target);
 
 			if (!m)
 				return true;
 
-			AI::Team my_team = m->team.ref()->team();
-			for (s32 i = 0; i < PlayerHuman::notifications.length; i++)
+			m->team.ref()->spot_target = target;
+			break;
+		}
+		case Message::AbilityCooldownReady:
+		{
+			Ability a;
+			serialize_enum(p, Ability, a);
+
+			if (!m)
+				return true;
+
+			if (m->is_local())
+				Audio::post_global(AK::EVENTS::PLAY_DRONE_CHARGE_RESTORE);
+
+			m->ability_cooldown[s32(a)] = 0.0f;
+
+			// flash ability
+			for (s32 i = 0; i < MAX_ABILITIES; i++)
 			{
-				const PlayerHuman::Notification& notification = PlayerHuman::notifications[i];
-				if (notification.type == PlayerHuman::Notification::Type::Spot && notification.team == my_team)
+				if (m->abilities[i] == a)
 				{
-					PlayerHuman::notifications.remove(i);
-					i--;
+					m->ability_flash_time[i] = Game::real_time.total;
+					break;
 				}
 			}
-			PlayerHuman::notification(target.ref(), m->team.ref()->team(), PlayerHuman::Notification::Type::Spot);
+
 			break;
 		}
 		default:
@@ -1994,10 +2030,9 @@ void PlayerManager::chat(const char* msg, AI::TeamMask mask)
 		PlayerManagerNet::chat(this, msg, mask);
 }
 
-void PlayerManager::spot(Entity* e)
+void PlayerManager::spot(Target* t)
 {
-	if (e)
-		PlayerManagerNet::spot(this, e);
+	PlayerManagerNet::spot(this, t);
 }
 
 void PlayerManager::leave()
@@ -2020,8 +2055,6 @@ b8 PlayerManager::upgrade_start(Upgrade u, s8 ability_slot)
 	s16 cost = upgrade_cost(u);
 	if (can_transition_state()
 		&& upgrade_available(u)
-		&& (info.type != UpgradeInfo::Type::Ability || !has_ability(Ability(u))) // can't do ability upgrade again if we already have it equipped
-		&& (energy >= cost || has_upgrade(u)) // doesn't cost anything the second time
 		&& UpgradeStation::drone_inside(instance.ref()->get<Drone>()))
 	{
 		if (Game::level.local)
@@ -2076,7 +2109,7 @@ Upgrade PlayerManager::upgrade_highest_owned_or_available() const
 	for (s32 i = 0; i < s32(Upgrade::count); i++)
 	{
 		s16 cost = upgrade_cost(Upgrade(i));
-		if (cost > highest_cost && energy >= cost && (upgrade_available(Upgrade(i)) || has_upgrade(Upgrade(i))))
+		if (cost > highest_cost && !has_upgrade(Upgrade(i)) && upgrade_available(Upgrade(i)))
 		{
 			highest_cost = cost;
 			highest_upgrade = Upgrade(i);
@@ -2101,11 +2134,11 @@ b8 PlayerManager::upgrade_available(Upgrade u) const
 	}
 	else
 	{
-		// make sure that the upgrade is allowed
+		// make sure that the upgrade is allowed and we have enough money for it
 		const UpgradeInfo& info = UpgradeInfo::list[s32(u)];
 		return (info.type != UpgradeInfo::Type::Ability || !has_ability(Ability(u))) // can't do an ability upgrade if we already have the ability equipped
-			&& Game::session.config.allow_upgrades & (1 << s32(u))
-			&& (u != Upgrade::ExtraDrone || team.ref()->tickets() != -1);
+			&& ((Game::session.config.upgrades_allow | Game::session.config.upgrades_default) & (1 << s32(u)))
+			&& (has_upgrade(u) || energy >= upgrade_cost(u));
 	}
 }
 
@@ -2156,6 +2189,24 @@ void PlayerManager::add_deaths(s32 d)
 	{
 		deaths += d;
 		PlayerManagerNet::update_counts(this);
+	}
+}
+
+void PlayerManager::ability_cooldown_apply(Ability a)
+{
+	const AbilityInfo& info = AbilityInfo::list[s32(a)];
+	if (info.cooldown_use > 0.0f)
+	{
+		vi_assert(ability_cooldown[s32(a)] == 0.0f);
+		r32 c;
+#if SERVER
+		if (has<PlayerHuman>())
+			c = info.cooldown_use - Net::rtt(get<PlayerHuman>());
+		else
+#endif
+			c = info.cooldown_use;
+
+		ability_cooldown[s32(a)] = c;
 	}
 }
 
@@ -2224,7 +2275,7 @@ PlayerManager::State PlayerManager::state() const
 
 b8 PlayerManager::can_transition_state() const
 {
-	if (!Game::level.has_feature(Game::FeatureLevel::Abilities) || !Game::session.config.allow_upgrades)
+	if (!Game::level.has_feature(Game::FeatureLevel::Abilities) || !(Game::session.config.upgrades_allow | Game::session.config.upgrades_default))
 		return false;
 
 	Entity* e = instance.ref();
@@ -2422,7 +2473,7 @@ void PlayerManager::update_server(const Update& u)
 	{
 		if (Game::level.mode == Game::Mode::Pvp)
 		{
-			if (spawn_timer > 0.0f && team.ref()->tickets() != 0)
+			if (spawn_timer > 0.0f)
 			{
 				spawn_timer = vi_max(0.0f, spawn_timer - u.time.delta);
 				if (spawn_timer == 0.0f)
@@ -2430,7 +2481,17 @@ void PlayerManager::update_server(const Update& u)
 			}
 		}
 		else if (Game::level.mode == Game::Mode::Parkour)
-			internal_spawn_go(this, SpawnPoint::first(1 << s32(team.ref()->team())));
+			internal_spawn_go(this, team.ref()->default_spawn_point());
+	}
+
+	for (s32 i = 0; i < s32(Ability::count); i++)
+	{
+		if (ability_cooldown[i] > 0.0f)
+		{
+			ability_cooldown[i] = vi_max(0.0f, ability_cooldown[i] - u.time.delta);
+			if (ability_cooldown[i] == 0.0f) // let clients know
+				PlayerManagerNet::ability_cooldown_ready(this, Ability(i));
+		}
 	}
 
 	State s = state();
@@ -2457,6 +2518,11 @@ void PlayerManager::update_server(const Update& u)
 void PlayerManager::update_client_only(const Update& u)
 {
 	state_timer = vi_max(0.0f, state_timer - u.time.delta);
+	for (s32 i = 0; i < s32(Ability::count); i++)
+	{
+		if (ability_cooldown[i] > 0.0f)
+			ability_cooldown[i] = vi_max(0.01f, ability_cooldown[i] - u.time.delta); // can't set to zero until the server says so
+	}
 }
 
 b8 PlayerManager::is_local() const

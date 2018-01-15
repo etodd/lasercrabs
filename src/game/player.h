@@ -102,7 +102,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 			ForceFieldDestroyed,
 			BatteryUnderAttack,
 			BatteryLost,
-			Spot,
 			count,
 		};
 
@@ -111,7 +110,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		Ref<Target> target;
 		AI::Team team;
 		Type type;
-		b8 attached;
 	};
 
 	struct KillPopup

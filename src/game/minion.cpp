@@ -639,6 +639,7 @@ void Minion::update_server(const Update& u)
 
 			b8 allow_new_target = !goal.entity.ref()
 				|| !goal.entity.ref()->has<PlayerCommon>()
+				|| force_field_between_me_and_target(this)
 				|| (path.length > 0 && path_index >= path.length);
 
 			if (allow_new_target)
@@ -742,17 +743,9 @@ void Minion::update_server(const Update& u)
 							Vec3 goal_pos = goal_path_position(goal, pos);
 							if (ForceField::hash(get<AIAgent>()->team, pos, ForceField::HashMode::OnlyInvincible) == ForceField::hash(get<AIAgent>()->team, goal_pos, ForceField::HashMode::OnlyInvincible))
 							{
-								if (ForceField* field = force_field_between_me_and_target(this))
-								{
-									goal.entity = field->entity();
-									goal.type = Goal::Type::Target;
-								}
-								else
-								{
-									// recalc path
-									path_request = PathRequest::Target;
-									AI::pathfind(get<AIAgent>()->team, pos, goal_pos, ObjectLinkEntryArg<Minion, const AI::Result&, &Minion::set_path>(id()));
-								}
+								// recalc path
+								path_request = PathRequest::Target;
+								AI::pathfind(get<AIAgent>()->team, pos, goal_pos, ObjectLinkEntryArg<Minion, const AI::Result&, &Minion::set_path>(id()));
 							}
 							else // won't be able to reach the goal; find a new one
 								new_goal();

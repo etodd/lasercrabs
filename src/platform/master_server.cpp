@@ -1801,7 +1801,7 @@ namespace Master
 		for (s32 i = 0; i < MAX_SERVER_CONFIG_SECRET; i++)
 			data[i] = char(mersenne::rand() % 256);
 		data[MAX_SERVER_CONFIG_SECRET] = '\0';
-		memset(secret, 0, sizeof(secret));
+		memset(secret, 0, sizeof(char) * MAX_SERVER_CONFIG_SECRET + 1);
 		sha1::hash(data, secret);
 	}
 

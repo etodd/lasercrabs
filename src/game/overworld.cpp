@@ -829,17 +829,6 @@ void multiplayer_entry_edit_update(const Update& u)
 							data.multiplayer.active_server_dirty = true;
 					}
 
-					if (config->game_type == GameType::Assault)
-					{
-						// start energy attacker
-						s16* start_energy_attacker = &config->ruleset.start_energy_attacker;
-						sprintf(str, "%d", s32(*start_energy_attacker));
-						delta = menu->slider_item(u, _(strings::start_energy_attacker), str);
-						*start_energy_attacker = vi_max(0, vi_min(MAX_START_ENERGY, (*start_energy_attacker) + (delta * 50)));
-						if (delta)
-							data.multiplayer.active_server_dirty = true;
-					}
-
 					{
 						// cooldown speed
 						u8* cooldown_speed_index = &config->ruleset.cooldown_speed_index;
@@ -1507,24 +1496,24 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 			}
 
 			text.color = selected ? UI::color_accent() : UI::color_default;
-			text.clip = 48;
+			text.clip = 40;
 			text.text_raw(0, entry.name, UITextFlagSingleLine);
 			text.draw(params, pos + Vec2(PADDING, panel_size.y * 0.5f));
 
 			text.clip = 18;
 			text.text_raw(0, entry.creator_username, UITextFlagSingleLine);
-			text.draw(params, pos + Vec2(panel_size.x * 0.5f, panel_size.y * 0.5f));
+			text.draw(params, pos + Vec2(panel_size.x * 0.4f, panel_size.y * 0.5f));
 			text.clip = 0;
 
 			if (entry.server_state.level != AssetNull)
 			{
 				text.text_raw(0, Loader::level_name(entry.server_state.level));
-				text.draw(params, pos + Vec2(panel_size.x * 0.65f, panel_size.y * 0.5f));
+				text.draw(params, pos + Vec2(panel_size.x * 0.55f, panel_size.y * 0.5f));
 			}
 
 			{
 				game_type_string(&text, entry.preset, entry.game_type, entry.team_count, entry.max_players);
-				text.draw(params, pos + Vec2(panel_size.x * 0.79f, panel_size.y * 0.5f));
+				text.draw(params, pos + Vec2(panel_size.x * 0.69f, panel_size.y * 0.5f));
 			}
 
 			{
@@ -1704,21 +1693,13 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 		// column 1
 		{
-			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 9;
+			s32 rows = (details.state.level == AssetNull ? 1 : 2)
+				+ 3
+				+ (details.config.game_type == GameType::Assault ? 0 : 1)
+				+ (details.config.preset == Net::Master::Ruleset::Preset::Custom ? 7 : 0);
 			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
-			if (details.state.level == AssetNull)
-			{
-				// max players
-				text.color = UI::color_default;
-				text.text(0, _(strings::max_players));
-				text.draw(params, pos);
-				value.color = UI::color_default;
-				value.text(0, "%d", s32(details.config.max_players));
-				value.draw(params, pos + Vec2(panel_size.x, 0));
-				pos.y -= panel_size.y;
-			}
-			else
+			if (details.state.level != AssetNull)
 			{
 				// level name
 				text.color = UI::color_accent();
@@ -1748,6 +1729,18 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			text.draw(params, pos);
 			pos.y -= panel_size.y;
 
+			if (details.state.level == AssetNull)
+			{
+				// max players
+				text.color = UI::color_default;
+				text.text(0, _(strings::max_players));
+				text.draw(params, pos);
+				value.color = UI::color_default;
+				value.text(0, "%d", s32(details.config.max_players));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+			}
+
 			// time limit
 			text.text(0, _(strings::time_limit));
 			text.draw(params, pos);
@@ -1755,13 +1748,13 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 
-			// kill limit
 			switch (details.config.game_type)
 			{
 				case GameType::Assault:
 					break;
 				case GameType::Deathmatch:
 				{
+					// kill limit
 					text.text(0, _(strings::kill_limit));
 					text.draw(params, pos);
 					value.text(0, "%d", s32(details.config.kill_limit));
@@ -1790,74 +1783,65 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 
-			// spawn delay
-			text.text(0, _(strings::spawn_delay));
-			text.draw(params, pos);
-			value.text(0, "%d", s32(details.config.ruleset.spawn_delay));
-			value.draw(params, pos + Vec2(panel_size.x, 0));
-			pos.y -= panel_size.y;
-
-			// start energy
-			text.text(0, _(strings::start_energy));
-			text.draw(params, pos);
-			value.text(0, "%d", s32(details.config.ruleset.start_energy));
-			value.draw(params, pos + Vec2(panel_size.x, 0));
-			pos.y -= panel_size.y;
-
-			if (details.config.game_type == GameType::Assault)
+			if (details.config.preset == Net::Master::Ruleset::Preset::Custom)
 			{
-				// start energy attacker
-				text.text(0, _(strings::start_energy_attacker));
+				// spawn delay
+				text.text(0, _(strings::spawn_delay));
 				text.draw(params, pos);
-				value.text(0, "%d", s32(details.config.ruleset.start_energy_attacker));
+				value.text(0, "%d", s32(details.config.ruleset.spawn_delay));
 				value.draw(params, pos + Vec2(panel_size.x, 0));
 				pos.y -= panel_size.y;
-			}
 
-			// enable batteries
-			text.text(0, _(strings::enable_batteries));
-			text.draw(params, pos);
-			value.text(0, _(details.config.ruleset.enable_batteries ? strings::on : strings::off));
-			value.draw(params, pos + Vec2(panel_size.x, 0));
-			pos.y -= panel_size.y;
-
-			// battery stealth
-			text.text(0, _(strings::enable_battery_stealth));
-			text.draw(params, pos);
-			value.text(0, _(details.config.ruleset.enable_battery_stealth ? strings::on : strings::off));
-			value.draw(params, pos + Vec2(panel_size.x, 0));
-			pos.y -= panel_size.y;
-
-			// spawn point force fields
-			text.text(0, _(strings::enable_spawn_shields));
-			text.draw(params, pos);
-			// no force fields in CTF
-			value.text(0, _(details.config.game_type != GameType::CaptureTheFlag && details.config.ruleset.enable_spawn_shields ? strings::on : strings::off));
-			value.draw(params, pos + Vec2(panel_size.x, 0));
-			pos.y -= panel_size.y;
-		}
-
-		// column 2
-		pos = top + Vec2(panel_size.x + padding * 3.0f, 0);
-		{
-			s32 rows = 3 + details.config.levels.length;
-			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
-
-			// drone shield
-			text.text(0, _(strings::drone_shield));
-			text.draw(params, pos);
-			value.text(0, "%d", s32(details.config.ruleset.drone_shield));
-			value.draw(params, pos + Vec2(panel_size.x, 0));
-			pos.y -= panel_size.y;
-
-			{
 				// cooldown speed
 				text.text(0, _(strings::cooldown_speed));
 				text.draw(params, pos);
 				value.text(0, "%d%%", s32(details.config.ruleset.cooldown_speed() * 100.0f));
 				value.draw(params, pos + Vec2(panel_size.x, 0));
 				pos.y -= panel_size.y;
+
+				// drone shield
+				text.text(0, _(strings::drone_shield));
+				text.draw(params, pos);
+				value.text(0, "%d", s32(details.config.ruleset.drone_shield));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+
+				// start energy
+				text.text(0, _(strings::start_energy));
+				text.draw(params, pos);
+				value.text(0, "%d", s32(details.config.ruleset.start_energy));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+
+				// enable batteries
+				text.text(0, _(strings::enable_batteries));
+				text.draw(params, pos);
+				value.text(0, _(details.config.ruleset.enable_batteries ? strings::on : strings::off));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+
+				// battery stealth
+				text.text(0, _(strings::enable_battery_stealth));
+				text.draw(params, pos);
+				value.text(0, _(details.config.ruleset.enable_battery_stealth ? strings::on : strings::off));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
+
+				// spawn point force fields
+				text.text(0, _(strings::enable_spawn_shields));
+				text.draw(params, pos);
+				// no force fields in CTF
+				value.text(0, _(details.config.game_type != GameType::CaptureTheFlag && details.config.ruleset.enable_spawn_shields ? strings::on : strings::off));
+				value.draw(params, pos + Vec2(panel_size.x, 0));
+				pos.y -= panel_size.y;
 			}
+		}
+
+		// column 2
+		pos = top + Vec2(panel_size.x + padding * 3.0f, 0);
+		{
+			s32 rows = 1 + details.config.levels.length;
+			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			// levels
 			if (details.config.levels.length > 0)
@@ -1886,6 +1870,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 		// column 3
 		pos = top + Vec2((panel_size.x + padding * 3.0f) * 2.0f, 0);
+		if (details.config.preset == Net::Master::Ruleset::Preset::Custom)
 		{
 			s32 rows = vi_max(1, s32(details.config.ruleset.start_abilities.length)) + 2 + s32(Upgrade::count);
 			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);

@@ -135,7 +135,6 @@ struct Ruleset
 	s16 upgrades_allow = s16((1 << s32(Upgrade::count)) - 1);
 	s16 upgrades_default;
 	s16 start_energy = ENERGY_INITIAL;
-	s16 start_energy_attacker = ENERGY_INITIAL_ATTACKER;
 	StaticArray<Ability, MAX_ABILITIES> start_abilities;
 	s8 spawn_delay = 5;
 	s8 drone_shield = DRONE_SHIELD_AMOUNT;
@@ -249,7 +248,6 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		for (s32 i = 0; i < c->ruleset.start_abilities.length; i++)
 			serialize_enum(p, Ability, c->ruleset.start_abilities[i]);
 		serialize_int(p, s16, c->ruleset.start_energy, 0, MAX_START_ENERGY);
-		serialize_int(p, s16, c->ruleset.start_energy_attacker, 0, MAX_START_ENERGY);
 		serialize_int(p, s8, c->ruleset.drone_shield, 0, DRONE_SHIELD_AMOUNT);
 		serialize_int(p, u8, c->ruleset.cooldown_speed_index, 1, COOLDOWN_SPEED_MAX_INDEX);
 

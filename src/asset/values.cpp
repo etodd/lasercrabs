@@ -1728,7 +1728,6 @@ const char* AssetLookup::String::names[] =
 	"ssao",
 	"start_abilities",
 	"start_energy",
-	"start_energy_attacker",
 	"stealth",
 	"story",
 	"story_defeat",

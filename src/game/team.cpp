@@ -1200,9 +1200,7 @@ void Team::update_all_client_only(const Update& u)
 
 s16 Team::initial_energy() const
 {
-	return (Game::session.config.game_type == GameType::Assault && team() == 1 && Game::session.type != SessionType::Story)
-		? Game::session.config.ruleset.start_energy_attacker
-		: Game::session.config.ruleset.start_energy;
+	return Game::session.config.ruleset.start_energy;
 }
 
 SpawnPoint* Team::default_spawn_point() const

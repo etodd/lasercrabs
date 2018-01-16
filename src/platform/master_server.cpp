@@ -585,7 +585,6 @@ namespace Master
 		config->ruleset.drone_shield = s8(Json::get_s32(json, "drone_shield", defaults.ruleset.drone_shield));
 		config->ruleset.spawn_delay = s8(vi_max(1, vi_min(120, s32(Json::get_s32(json, "spawn_delay", defaults.ruleset.spawn_delay)))));
 		config->ruleset.start_energy = s16(Json::get_s32(json, "start_energy", defaults.ruleset.start_energy));
-		config->ruleset.start_energy_attacker = s16(Json::get_s32(json, "start_energy_attacker", defaults.ruleset.start_energy_attacker));
 		config->ruleset.cooldown_speed_index = u8(Json::get_s32(json, "cooldown_speed_index", defaults.ruleset.cooldown_speed_index));
 
 		config->min_players = s8(Json::get_s32(json, "min_players", defaults.min_players));
@@ -634,8 +633,6 @@ namespace Master
 			cJSON_AddNumberToObject(json, "spawn_delay", config.ruleset.spawn_delay);
 		if (config.ruleset.start_energy != defaults.ruleset.start_energy)
 			cJSON_AddNumberToObject(json, "start_energy", config.ruleset.start_energy);
-		if (config.ruleset.start_energy_attacker != defaults.ruleset.start_energy_attacker)
-			cJSON_AddNumberToObject(json, "start_energy_attacker", config.ruleset.start_energy_attacker);
 		if (config.ruleset.cooldown_speed_index != defaults.ruleset.cooldown_speed_index)
 			cJSON_AddNumberToObject(json, "cooldown_speed_index", config.ruleset.cooldown_speed_index);
 

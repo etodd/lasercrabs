@@ -531,11 +531,18 @@ void multiplayer_entry_save()
 	}
 }
 
-static const AssetID game_type_strings[] =
+static const AssetID game_type_strings[s32(GameType::count)] =
 {
 	strings::game_type_assault,
 	strings::game_type_deathmatch,
 	strings::game_type_capture_the_flag,
+};
+
+static const AssetID preset_strings[s32(Net::Master::Ruleset::Preset::count)] =
+{
+	strings::preset_standard,
+	strings::preset_arcade,
+	strings::preset_custom,
 };
 
 AssetID game_type_string(GameType type)
@@ -580,10 +587,10 @@ void game_type_string(UIText* text, Net::Master::Ruleset::Preset preset, GameTyp
 			break;
 		}
 	}
-	if (preset == Net::Master::Ruleset::Preset::Default)
+	if (preset == Net::Master::Ruleset::Preset::Standard)
 		text->text(0, "%s %s", _(teams_type), _(game_type_string(type)));
 	else
-		text->text(0, "%s %s %s", Net::Master::Ruleset::preset_name(preset), _(teams_type), _(game_type_string(type)));
+		text->text(0, "%s %s %s", _(preset_strings[s32(preset)]), _(teams_type), _(game_type_string(type)));
 }
 
 UIMenu::Origin multiplayer_menu_origin()
@@ -793,7 +800,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				{
 					// preset
-					if (UIMenu::enum_option(&config->preset, menu->slider_item(u, _(strings::preset), Net::Master::Ruleset::preset_name(config->preset))))
+					if (UIMenu::enum_option(&config->preset, menu->slider_item(u, _(strings::preset), _(preset_strings[s32(config->preset)]))))
 						data.multiplayer.active_server_dirty = true;
 				}
 
@@ -804,7 +811,7 @@ void multiplayer_entry_edit_update(const Update& u)
 						s8* drone_shield = &config->ruleset.drone_shield;
 						sprintf(str, "%d", s32(*drone_shield));
 						delta = menu->slider_item(u, _(strings::drone_shield), str);
-						*drone_shield = vi_max(0, vi_min(DRONE_SHIELD_AMOUNT, (*drone_shield) + delta));
+						*drone_shield = vi_max(0, vi_min(DRONE_SHIELD_MAX, (*drone_shield) + delta));
 						if (delta)
 							data.multiplayer.active_server_dirty = true;
 					}

@@ -200,8 +200,8 @@ Ruleset Ruleset::presets[s32(Preset::count)];
 void Ruleset::init()
 {
 	{
-		// Default
-		Ruleset* ruleset = &presets[s32(Preset::Default)];
+		// Standard
+		Ruleset* ruleset = &presets[s32(Preset::Standard)];
 	}
 	{
 		// Arcade
@@ -229,22 +229,6 @@ const char* ServerConfig::game_type_string(GameType type)
 		case GameType::CaptureTheFlag:
 			return "ctf";
 			break;
-		default:
-			vi_assert(false);
-			return nullptr;
-	}
-}
-
-const char* Ruleset::preset_name(Preset p)
-{
-	switch (p)
-	{
-		case Preset::Default:
-			return "Default";
-		case Preset::Arcade:
-			return "Arcade";
-		case Preset::Custom:
-			return "Custom";
 		default:
 			vi_assert(false);
 			return nullptr;

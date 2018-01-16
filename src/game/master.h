@@ -120,15 +120,13 @@ struct Ruleset
 {
 	enum class Preset : s8
 	{
-		Default,
+		Standard,
 		Arcade,
 		Custom,
 		count,
 	};
 
 	static Ruleset presets[s32(Preset::count)];
-
-	static const char* preset_name(Preset);
 
 	static void init();
 
@@ -248,7 +246,7 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		for (s32 i = 0; i < c->ruleset.start_abilities.length; i++)
 			serialize_enum(p, Ability, c->ruleset.start_abilities[i]);
 		serialize_int(p, s16, c->ruleset.start_energy, 0, MAX_START_ENERGY);
-		serialize_int(p, s8, c->ruleset.drone_shield, 0, DRONE_SHIELD_AMOUNT);
+		serialize_int(p, s8, c->ruleset.drone_shield, 0, DRONE_SHIELD_MAX);
 		serialize_int(p, u8, c->ruleset.cooldown_speed_index, 1, COOLDOWN_SPEED_MAX_INDEX);
 
 		serialize_enum(p, Ruleset::Preset, c->preset);

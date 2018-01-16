@@ -996,7 +996,7 @@ void SpawnPoint::update_server_all(const Update& u)
 		const r32 minion_initial_delay = Game::session.type == SessionType::Story
 			? 3.0f
 			: 60.0f;
-		const r32 minion_spawn_interval = 7.0f; // time between individual minions spawning
+		const r32 minion_spawn_interval = 8.0f; // time between individual minions spawning
 		const r32 minion_group_interval = minion_spawn_interval * 10.0f; // time between minion groups spawning; must be a multiple of minion_spawn_interval
 		for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 		{
@@ -4332,7 +4332,7 @@ CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)
 			v->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
 			break;
 		}
-		case Resource::Drones:
+		case Resource::DroneKits:
 		{
 			// animated model
 			SkinnedModel* model = create<SkinnedModel>();
@@ -4362,13 +4362,11 @@ void Collectible::give_rewards()
 		{
 			case Resource::AccessKeys:
 			case Resource::AudioLog:
+			case Resource::DroneKits:
 				a = 1;
 				break;
 			case Resource::Energy:
 				a = 100;
-				break;
-			case Resource::Drones:
-				a = DEFAULT_ASSAULT_DRONES;
 				break;
 			default:
 				vi_assert(false);

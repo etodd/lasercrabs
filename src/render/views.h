@@ -125,6 +125,7 @@ struct Water : public ComponentType<Water>
 	static void draw_hollow(const RenderParams&, const Config&, const Vec3&, const Quat&);
 	static void draw_opaque(const RenderParams&);
 	static void draw_alpha_late(const RenderParams&);
+	static void update_all(const Update&);
 
 	Config config;
 	RenderMask mask;
@@ -133,7 +134,6 @@ struct Water : public ComponentType<Water>
 	Water(AssetID = AssetNull);
 	void awake();
 	~Water();
-	void update(const Update&);
 	void draw_hollow(const RenderParams&);
 	b8 contains(const Vec3&) const;
 };

@@ -331,7 +331,7 @@ void draw_ui(const RenderParams& params)
 			UIMenu::text_clip(&text, instance.last_cue_real_time, 80.0f);
 
 			{
-				Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+				Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.25f);
 				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 				text.draw(params, p);
 			}
@@ -562,6 +562,12 @@ namespace Docks
 	}
 #endif
 
+	struct PhysicsSoundEntity
+	{
+		Ref<Entity> entity;
+		r32 last_sound;
+	};
+
 	struct Data
 	{
 #if !SERVER
@@ -575,6 +581,7 @@ namespace Docks
 #endif
 
 		Actor::Instance* dada;
+		Array<PhysicsSoundEntity> carts;
 		r32 wallrun_footstep_timer;
 		s32 wallrun_footstep_index;
 		Vec3 camera_start_pos;
@@ -910,27 +917,27 @@ namespace Docks
 			cutscene3_init();
 #endif
 
-		if (data->camera.ref())
+		if (Camera* camera = data->camera.ref())
 		{
 			Vec3 head_pos = Vec3::zero;
 			data->character.ref()->to_world(Asset::Bone::character_head, &head_pos);
 			r32 blend = data->transition_timer > 0.0f ? vi_min(1.0f, total_transition - data->transition_timer) : 0.0f;
-			data->camera.ref()->pos = Vec3::lerp(blend, data->camera_start_pos, head_pos);
-			Audio::listener_update(0, data->camera.ref()->pos, data->camera.ref()->rot);
+			camera->pos = Vec3::lerp(blend, data->camera_start_pos, head_pos);
 
-			data->camera.ref()->viewport =
+			camera->flag(CameraFlagColors | CameraFlagActive | CameraFlagFog, true);
+			camera->viewport =
 			{
 				Vec2(0, 0),
 				Vec2(r32(Settings::display().width), r32(Settings::display().height)),
 			};
-			data->camera.ref()->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), 0.1f, Game::level.far_plane_get());
+			camera->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), 0.1f, Game::level.far_plane_get());
 
 			if (Game::user_key.id)
 			{
 				if (Game::level.mode == Game::Mode::Special
 					&& !Overworld::active()
 					&& !Overworld::transitioning())
-					Menu::title_menu(u, data->camera.ref());
+					Menu::title_menu(u, camera);
 			}
 			else
 			{
@@ -948,16 +955,13 @@ namespace Docks
 				Game::time.total = Game::real_time.total = 0.0f;
 				Particles::clear();
 
-				data->camera.ref()->remove();
 				data->camera = nullptr;
+
 				World::remove(data->character.ref()->entity());
 				Game::level.mode = Game::Mode::Parkour;
 				data->dada->highlight = true;
 				for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-				{
 					i.item()->get<PlayerManager>()->can_spawn = true;
-					i.item()->camera.ref()->flag(CameraFlagActive, true);
-				}
 			}
 		}
 		else
@@ -1073,6 +1077,49 @@ namespace Docks
 	{
 		// ivory ad text
 		data->ivory_ad_text.ref()->rot *= Quat::euler(0, u.time.delta * 0.2f, 0);
+
+		// shopping cart sounds
+		{
+			s32 num_manifolds = Physics::btWorld->getDispatcher()->getNumManifolds();
+			for (s32 i = 0; i < num_manifolds; i++)
+			{
+				btPersistentManifold* contact_manifold = Physics::btWorld->getDispatcher()->getManifoldByIndexInternal(i);
+				Entity* a = &Entity::list[contact_manifold->getBody0()->getUserIndex()];
+				Entity* b = &Entity::list[contact_manifold->getBody1()->getUserIndex()];
+
+				PhysicsSoundEntity* sound = nullptr;
+				for (s32 i = 0; i < data->carts.length; i++)
+				{
+					PhysicsSoundEntity* entry = &data->carts[i];
+					Entity* e = entry->entity.ref();
+					if (a == e)
+					{
+						sound = entry;
+						break;
+					}
+					else if (b == e)
+					{
+						sound = entry;
+						break;
+					}
+				}
+
+				if (sound && Game::time.total - sound->last_sound > 0.3f)
+				{
+					s32 num_contacts = contact_manifold->getNumContacts();
+					for (s32 j = 0; j < num_contacts; j++)
+					{
+						btManifoldPoint& pt = contact_manifold->getContactPoint(j);
+						if (pt.getAppliedImpulse() > 0.5f)
+						{
+							sound->last_sound = Game::time.total;
+							sound->entity.ref()->get<Audio>()->post(AK::EVENTS::PLAY_SHOPPING_CART_RATTLE);
+							break;
+						}
+					}
+				}
+			}
+		}
 
 		{
 			// fire
@@ -1228,7 +1275,7 @@ namespace Docks
 
 		if (Game::level.mode == Game::Mode::Special)
 		{
-			data->camera = Camera::add(0);
+			data->camera = PlayerHuman::list.iterator().item()->camera.ref();
 
 			Quat rot;
 			entities.find("map_view")->get<Transform>()->absolute(&data->camera_start_pos, &rot);
@@ -1236,9 +1283,6 @@ namespace Docks
 			data->camera.ref()->rot = Quat::look(rot * Vec3(0, -1, 0));
 
 			data->character = entities.find("character")->get<Animator>();
-
-			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-				i.item()->camera.ref()->flag(CameraFlagActive, false);
 		}
 		else if (Game::level.local)
 			World::remove(entities.find("character"));
@@ -1246,6 +1290,7 @@ namespace Docks
 		if ((Game::save.zone_last == AssetNull || Game::save.zone_last == Asset::Level::Docks)
 			&& entities.find("energy"))
 		{
+			entities.find("energy")->get<Collectible>()->amount = Overworld::resource_info[s32(Resource::DroneKits)].cost;
 			entities.find("jump_trigger")->get<PlayerTrigger>()->entered.link(&jump_trigger);
 			entities.find("dada_spotted_trigger")->get<PlayerTrigger>()->entered.link(&dada_spotted);
 			entities.find("dada_talk_trigger")->get<PlayerTrigger>()->entered.link(&dada_talk);
@@ -1290,6 +1335,19 @@ namespace Docks
 			dada->layers[0].play(Asset::Animation::dada_close_door);
 		}
 
+		for (s32 i = 0; ; i++)
+		{
+			char name[16];
+			snprintf(name, 16, "cart%d", i);
+			Entity* cart = entities.find(name);
+			if (cart)
+			{
+				cart->add<Audio>();
+				data->carts.add({ cart, 0.0f });
+			}
+			else
+				break;
+		}
 		data->ivory_ad_text = entities.find("ivory_ad_text")->get<Transform>();
 		data->fire = entities.find("fire")->get<Transform>();
 		data->fire.ref()->entity()->add<Audio>()->post(AK::EVENTS::PLAY_FIRE_LOOP);
@@ -1355,6 +1413,7 @@ namespace tutorial
 	{
 		if (data->state == TutorialState::Ability)
 		{
+			Team::match_time = 0.0f;
 			data->state = TutorialState::Turrets;
 			Game::level.feature_level = Game::FeatureLevel::Turrets;
 			Actor::tut(strings::tut_turrets);
@@ -1455,11 +1514,12 @@ namespace tutorial
 				Net::finalize(trigger_entity);
 			}
 
-			Game::level.core_force_field.ref()->get<Health>()->hp = 1;
-			for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
-				i.item()->get<Health>()->hp = 1;
+			// remove all but the first turret
 			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-				i.item()->get<Health>()->hp = 1;
+			{
+				if (i.index != 0)
+					World::remove(i.item()->entity());
+			}
 
 			Game::level.feature_level = Game::FeatureLevel::Base;
 
@@ -1649,7 +1709,7 @@ namespace Slum
 	{
 		if (!data->drones_given)
 		{
-			Overworld::resource_change(Resource::Drones, 2);
+			Overworld::resource_change(Resource::DroneKits, 1);
 			data->drones_given = true;
 		}
 	}

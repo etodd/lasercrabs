@@ -852,6 +852,15 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 		serialize_bool(p, d->shadowed);
 	}
 
+	serialize_int(p, u16, Game::level.water_sound_negative_spaces.length, 0, Game::level.water_sound_negative_spaces.capacity());
+	for (s32 i = 0; i < Game::level.water_sound_negative_spaces.length; i++)
+	{
+		Game::WaterSoundNegativeSpace* entry = &Game::level.water_sound_negative_spaces[i];
+		if (!serialize_position(p, &entry->pos, Net::Resolution::Low))
+			net_error();
+		serialize_r32_range(p, entry->radius, 0.0f, 1000.0f, 16);
+	}
+
 	serialize_int(p, u16, Game::level.clouds.length, 0, Game::level.clouds.capacity());
 	for (s32 i = 0; i < Game::level.clouds.length; i++)
 	{

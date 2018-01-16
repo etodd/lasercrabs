@@ -52,8 +52,6 @@
 #define NET_SERVER_IDLE_TIME 5.0f
 #define NET_MAX_RTT_COMPENSATION 0.2f
 
-#define DEFAULT_ASSAULT_DRONES 1 // todo: kill this
-
 #define MAX_REVERBS 3
 
 #define MAX_ZONES 64

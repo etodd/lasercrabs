@@ -1216,7 +1216,7 @@ SpawnPoint* Team::default_spawn_point() const
 PlayerManager::Visibility PlayerManager::visibility[MAX_PLAYERS * MAX_PLAYERS];
 
 PlayerManager::PlayerManager(Team* team, const char* u)
-	: spawn_timer((Game::session.type == SessionType::Story && team->team() == 1) ? 0 : Game::session.config.ruleset.spawn_delay), // defenders in story mode get to spawn instantly
+	: spawn_timer(Game::session.config.ruleset.spawn_delay),
 	score_accepted(Team::match_state == Team::MatchState::Done),
 	team(team),
 	upgrades(Game::session.config.ruleset.upgrades_default),

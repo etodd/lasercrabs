@@ -3028,7 +3028,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 
 			if (!already_hit)
 			{
-				if (!hit.entity.ref()->get<Health>()->can_take_damage(entity())) // it's invincible; always bounce off
+				if (!hit.entity.ref()->has<Health>() || !hit.entity.ref()->get<Health>()->can_take_damage(entity())) // it's invincible; always bounce off
 					stop = true;
 				else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()))
 					stop = true; // it has health or shield to spare; we'll bounce off

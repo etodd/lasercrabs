@@ -517,7 +517,20 @@
 							<ChildrenList>
 								<Event Name="Play_Fire_Loop" ID="{F7DA5BA8-70E9-4091-9CBE-8D7F6F49BE40}"/>
 								<Event Name="Play_Ship_Door_Shut" ID="{53E12526-B6F4-4610-9688-0EF5458B2AAD}"/>
-								<Event Name="Play_Shopping_Cart_Rattle" ID="{90101E79-CBB9-4B62-9F96-17E4D7543A2C}"/>
+								<Event Name="Play_Shopping_Cart_Rattle" ID="{90101E79-CBB9-4B62-9F96-17E4D7543A2C}">
+									<ChildrenList>
+										<Action Name="" ID="{94C95842-6A5E-4116-A0E6-702D4D5C062D}" ShortID="661731659">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="ShoppingCart" ID="{DF9607B5-DBFF-4B0A-BA34-4D404D6A7C59}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
 							</ChildrenList>
 						</Folder>
 						<Folder Name="UpgradeStation" ID="{D315141A-C891-4142-AA38-1A62C0CFBDB9}" ShortID="931062636">
@@ -783,9 +796,32 @@
 												</Reference>
 											</ReferenceList>
 										</Action>
+										<Action Name="" ID="{EE995BDF-2C2D-4786-907A-C9152C366E1E}" ShortID="753879438">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_mantle" ID="{C9F09AA7-0ABF-4811-A439-D66EF3447DF2}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Parkour_Collectible_Pickup" ID="{51CFD251-60EC-484B-8579-50DBDEC469B4}"/>
+								<Event Name="Play_Parkour_Collectible_Pickup" ID="{51CFD251-60EC-484B-8579-50DBDEC469B4}">
+									<ChildrenList>
+										<Action Name="" ID="{6AA82F64-90F8-46FA-8B35-58BFF6D596B8}" ShortID="722072223">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Collectible" ID="{214C2598-7B90-41AA-AC8D-FF2A4801B2A2}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
 								<Event Name="Play_Parkour_Roll" ID="{CE8EE5FB-A846-42A9-A487-4D4CDCFE5881}"/>
 								<Event Name="Play_Parkour_Slide" ID="{2C8B90FF-219F-48DD-AABE-E6247A72387C}"/>
 								<Event Name="Play_Parkour_Topout" ID="{2BB47BCB-D5D7-4C97-AA69-3974BE92380D}">
@@ -797,6 +833,16 @@
 											<ReferenceList>
 												<Reference Name="Target">
 													<ObjectRef Name="Mantle" ID="{46D49F10-CE72-4258-BFDE-0FD38A0CA4B9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+										<Action Name="" ID="{2D3772AE-7ECC-4C93-B19F-7FA267011DD8}" ShortID="593594964">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_top_out" ID="{576B307F-9396-48EE-A714-E466D6DCCAE8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>
@@ -816,7 +862,21 @@
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Play_Parkour_Interact" ID="{37A0FB82-599A-4B51-ACBB-B6CC81EFF93F}"/>
+								<Event Name="Play_Parkour_Interact" ID="{37A0FB82-599A-4B51-ACBB-B6CC81EFF93F}">
+									<ChildrenList>
+										<Action Name="" ID="{B94FC091-FE22-442B-B653-2741A09AA0EE}" ShortID="1030409384">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+												<Property Name="Delay" Type="Real64" Value="0.2"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_interact" ID="{2AA7F5FF-3475-4AE7-80DD-1BB5D6978DFD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
 								<Event Name="Play_Parkour_Land_Soft" ID="{9BDD5946-A039-428C-886A-3C3DE1AAAAEF}"/>
 								<Event Name="Play_Parkour_Wind" ID="{B9CBEF66-FCD7-452F-AC0E-DD2770A0155E}">
 									<ChildrenList>
@@ -842,6 +902,16 @@
 											<ReferenceList>
 												<Reference Name="Target">
 													<ObjectRef Name="LandHard" ID="{7071055C-F5F4-4E89-A630-0FCDA45CF068}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+										<Action Name="" ID="{A1C363E7-91C6-465C-880B-E8E8C26898F0}" ShortID="50353497">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_hard_landing" ID="{019C9498-4711-4F59-978B-E0E60C401B04}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>
@@ -1049,7 +1119,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="water" ID="{AEA07151-6FEF-4E24-BB89-64608D66BD93}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="small-water" ID="{AEA07151-6FEF-4E24-BB89-64608D66BD93}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -1069,7 +1139,20 @@
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_Ocean_Loop" ID="{9DF10433-2F3A-40B6-8826-B4FBF6E60B2B}"/>
+						<Event Name="Play_Ocean_Loop" ID="{9DF10433-2F3A-40B6-8826-B4FBF6E60B2B}">
+							<ChildrenList>
+								<Action Name="" ID="{272A940E-FAB8-41B5-906F-67F6766CB830}" ShortID="147069396">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="DEC_Amb_ocean_loop" ID="{E5B365ED-A0D9-4987-8E14-CDA9FBC3D914}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
 					</ChildrenList>
 				</Folder>
 				<Folder Name="dialogue_range_unlimited" ID="{04E54C47-F0F5-451B-8777-7B7C24045653}" ShortID="896672305">
@@ -2145,7 +2228,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="DEC_UI_menu_alter_value" ID="{914C4690-2BC5-4201-BE0B-28FDFD8D29AD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="DEC_UI_overworld_move_rev1" ID="{60A3A879-14D4-4CA1-A026-47FFADF9A020}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>

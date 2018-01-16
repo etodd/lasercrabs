@@ -417,10 +417,10 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 		else
 		{
 			// dead
-			if (Game::level.mode == Game::Mode::Parkour)
-				return UIMode::ParkourDead;
-			else
+			if (Game::level.mode == Game::Mode::Pvp)
 				return UIMode::PvpKillCam;
+			else
+				return UIMode::ParkourDead;
 		}
 	}
 }
@@ -487,7 +487,6 @@ b8 player_human_notification(Entity* entity, const Vec3& pos, AI::Team team, Pla
 	return true;
 }
 
-
 // return true if we actually display the notification
 b8 PlayerHuman::notification(const Vec3& pos, AI::Team team, Notification::Type type)
 {
@@ -510,9 +509,12 @@ void PlayerHuman::msg(const char* msg, Flags f)
 void PlayerHuman::energy_notify(s32 change)
 {
 	energy_notification_accumulator += s16(change);
-	char buffer[UI_TEXT_MAX + 1];
-	sprintf(buffer, _(strings::energy_added), s32(energy_notification_accumulator));
-	msg(buffer, FlagMessageGood);
+	if (Game::session.config.ruleset.upgrades_allow)
+	{
+		char buffer[UI_TEXT_MAX + 1];
+		sprintf(buffer, _(strings::energy_added), s32(energy_notification_accumulator));
+		msg(buffer, FlagMessageGood);
+	}
 }
 
 Array<PlayerHuman::LogEntry> PlayerHuman::logs;
@@ -997,7 +999,7 @@ void PlayerHuman::update(const Update& u)
 				if (flag(FlagUpgradeMenuOpen))
 					upgrade_menu_hide();
 			}
-			else
+			else if (Game::level.mode == Game::Mode::Parkour)
 				camera.ref()->flag(CameraFlagActive, false);
 		}
 	}
@@ -1199,12 +1201,7 @@ void PlayerHuman::update(const Update& u)
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || !get<PlayerManager>()->upgrades) // only allow one ability upgrade in tutorial
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || UpgradeInfo::list[i].type == UpgradeInfo::Type::Ability) // only allow ability upgrades in tutorial
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type == AbilityInfo::Type::Shoot); // only allow shooting abilities in tutorial
-								char name[128] = {};
-								if (get<PlayerManager>()->has_upgrade(upgrade))
-									sprintf(name, "%s [%s]", _(info.name), _(strings::purchased));
-								else
-									strcpy(name, _(info.name));
-								if (menu.item(u, name, nullptr, !can_upgrade, info.icon))
+								if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
 								{
 									player_confirm_upgrade[gamepad] = upgrade;
 									if (info.type == UpgradeInfo::Type::Consumable)
@@ -2348,7 +2345,14 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 					text.anchor_y = UIText::Anchor::Max;
 					text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
 					s16 cost = get<PlayerManager>()->upgrade_cost(upgrade);
-					text.text(gamepad, _(info.description), cost);
+					if (get<PlayerManager>()->has_upgrade(upgrade))
+						text.text(gamepad, _(info.description), cost);
+					else
+					{
+						char description[UI_TEXT_MAX];
+						sprintf(description, "%s\n%s", _(strings::buy_cost), _(info.description));
+						text.text(gamepad, description, cost);
+					}
 					UIMenu::text_clip(&text, animation_time, 150.0f);
 
 					Vec2 pos = menu.origin.pos + Vec2(MENU_ITEM_WIDTH * -0.5f + padding, menu.height() * -0.5f - padding * 7.0f);
@@ -5319,7 +5323,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 									case ZoneState::Locked:
 									{
 										if (Overworld::zone_is_pvp(zone))
-											text.color = Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES ? UI::color_default : UI::color_disabled();
+											text.color = Game::save.resources[s32(Resource::DroneKits)] > 0 ? UI::color_default : UI::color_disabled();
 										else
 											text.color = Game::save.resources[s32(Resource::AccessKeys)] > 0 ? UI::color_default : UI::color_disabled();
 										break;

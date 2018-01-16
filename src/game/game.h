@@ -118,6 +118,12 @@ struct Game
 		void reset();
 	};
 
+	struct WaterSoundNegativeSpace
+	{
+		Vec3 pos;
+		r32 radius;
+	};
+
 	struct Level
 	{
 		StaticArray<AI::PathZone, 16> path_zones;
@@ -133,6 +139,7 @@ struct Game
 		r32 asteroids;
 		s32 max_teams;
 		Skybox::Config skybox;
+		StaticArray<WaterSoundNegativeSpace, 4> water_sound_negative_spaces;
 		StaticArray<Clouds::Config, 4> clouds;
 		StaticArray<SkyDecals::Config, 4> sky_decals;
 		StaticArray<AssetID, 8> scripts;

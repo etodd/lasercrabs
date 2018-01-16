@@ -694,7 +694,7 @@ struct ShopEntity : public Entity
 struct ShopInteractable : public Entity
 {
 	static void interacted(Interactable*);
-	static const s32 flags_default = (1 << s32(Resource::Drones))
+	static const s32 flags_default = (1 << s32(Resource::DroneKits))
 		| (1 << s32(Resource::AccessKeys));
 
 	ShopInteractable();

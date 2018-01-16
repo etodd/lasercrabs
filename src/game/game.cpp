@@ -752,8 +752,7 @@ void Game::update(InputState* input, const InputState* last_input)
 		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 			i.item()->update_late(u);
 
-		for (auto i = Water::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
+		Water::update_all(u);
 
 		for (s32 i = 0; i < updates.length; i++)
 			(*updates[i])(u);
@@ -1595,6 +1594,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			session.config.ruleset = Net::Master::Ruleset::presets[s32(session.config.preset)];
 		for (s32 i = 0; i < session.config.ruleset.start_abilities.length; i++)
 			session.config.ruleset.upgrades_default |= (1 << s32(session.config.ruleset.start_abilities[i]));
+		session.config.ruleset.upgrades_allow &= ~session.config.ruleset.upgrades_default;
 	}
 
 	if (m == Mode::Parkour)
@@ -2008,6 +2008,13 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			config.shadow = Json::get_r32(element, "shadow");
 			level.clouds.add(config);
 		}
+		else if (cJSON_HasObjectItem(element, "WaterSoundNegativeSpace"))
+		{
+			WaterSoundNegativeSpace space;
+			space.pos = absolute_pos;
+			space.radius = Json::get_vec3(element, "scale", Vec3(1)).x;
+			level.water_sound_negative_spaces.add(space);
+		}
 		else if (cJSON_HasObjectItem(element, "AIPlayer"))
 		{
 			// only add an AI player if we are in story mode
@@ -2324,8 +2331,8 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				Resource type;
 				if (strcmp(type_str, "AccessKeys") == 0)
 					type = Resource::AccessKeys;
-				else if (strcmp(type_str, "Drones") == 0)
-					type = Resource::Drones;
+				else if (strcmp(type_str, "DroneKits") == 0)
+					type = Resource::DroneKits;
 				else if (strcmp(type_str, "AudioLog") == 0)
 					type = Resource::AudioLog;
 				else
@@ -2556,7 +2563,6 @@ void Game::awake_all()
 		Loader::mesh_permanent(Asset::Mesh::icon_bolter);
 		Loader::mesh_permanent(Asset::Mesh::icon_battery);
 		Loader::mesh_permanent(Asset::Mesh::icon_arrow_main);
-		Loader::mesh_permanent(Asset::Mesh::icon_arrow_border);
 		Loader::mesh_permanent(Asset::Mesh::icon_active_armor);
 		Loader::mesh_permanent(Asset::Mesh::icon_access_key);
 		Loader::mesh_permanent(Asset::Mesh::icon_ability_pip);

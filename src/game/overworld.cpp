@@ -48,7 +48,6 @@ namespace Overworld
 #define TEXT_SIZE (UI_TEXT_SIZE_DEFAULT * SCALE_MULTIPLIER)
 #define BORDER 2.0f
 #define OPACITY 0.8f
-#define BUY_TIME 1.0f
 #define EVENT_INTERVAL_PER_ZONE (60.0f * 10.0f)
 #define EVENT_ODDS_PER_ZONE (1.0f / EVENT_INTERVAL_PER_ZONE) // an event will happen on average every X minutes per zone you own
 #define ZONE_MAX_CHILDREN 12
@@ -2513,7 +2512,7 @@ void group_join(Game::Group g)
 void capture_start(s8 gamepad)
 {
 	if (zone_can_capture(data.zone_selected)
-		&& Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
+		&& Game::save.resources[s32(Resource::DroneKits)] > 0)
 		deploy_start();
 }
 
@@ -2660,15 +2659,15 @@ void tab_map_update(const Update& u)
 				|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && tab_map_capture_prompt(story_mode_main_view_rect(s32(data.story.tab))).contains(u.input->cursor))))
 			{
 				// capture button
-				if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
+				if (Game::save.resources[s32(Resource::DroneKits)] > 0)
 				{
 					if (Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly) // defending
-						Menu::dialog(0, &capture_start, _(strings::confirm_defend), DEFAULT_ASSAULT_DRONES);
+						Menu::dialog(0, &capture_start, _(strings::confirm_defend), 1);
 					else // attacking
-						Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEFAULT_ASSAULT_DRONES);
+						Menu::dialog(0, &capture_start, _(strings::confirm_capture), 1);
 				}
 				else
-					Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), DEFAULT_ASSAULT_DRONES, _(strings::drones));
+					Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::drone_kits));
 			}
 			else
 			{
@@ -2766,8 +2765,8 @@ ResourceInfo resource_info[s32(Resource::count)] =
 	},
 	{
 		Asset::Mesh::icon_drone,
-		strings::drones,
-		100,
+		strings::drone_kits,
+		1000,
 	},
 	{ // DoubleJump
 		AssetNull,
@@ -2775,6 +2774,11 @@ ResourceInfo resource_info[s32(Resource::count)] =
 		2000,
 	},
 	{ // ExtendedWallRun
+		AssetNull,
+		AssetNull,
+		2000,
+	},
+	{ // Grapple
 		AssetNull,
 		AssetNull,
 		2000,
@@ -2793,7 +2797,8 @@ r32 fog_start;
 
 void resource_buy(s8 gamepad)
 {
-	data.story.inventory.timer_buy = BUY_TIME;
+	data.story.inventory.timer_buy = UPGRADE_TIME;
+	Audio::post_global(AK::EVENTS::PLAY_DRONE_UPGRADE);
 }
 
 Vec2 get_panel_size(const Rect2& rect)
@@ -2973,7 +2978,7 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 				{
 					Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT);
 					Menu::dialog_clear(0);
-					data.story.inventory.timer_buy = BUY_TIME;
+					resource_buy(0);
 				}
 			}
 			else if (cancel_clicked || (!Game::cancel_event_eaten[gamepad] && u->last_input->get(Controls::Cancel, gamepad) && !u->input->get(Controls::Cancel, gamepad)))
@@ -3412,7 +3417,7 @@ void tab_inventory_draw(const RenderParams& p, const Data::StoryMode& data, cons
 	if (data.tab == StoryTab::Inventory && data.tab_timer == 0.0f)
 	{
 		if (data.inventory.timer_buy > 0.0f)
-			Menu::progress_bar(p, _(strings::buying), 1.0f - (data.inventory.timer_buy / BUY_TIME), p.camera->viewport.size * Vec2(0.5f, 0.35f));
+			Menu::progress_bar(p, _(strings::buying), 1.0f - (data.inventory.timer_buy / UPGRADE_TIME), p.camera->viewport.size * Vec2(0.5f, 0.35f));
 	}
 }
 
@@ -3607,7 +3612,9 @@ void update(const Update& u)
 		}
 
 		// pause
-		if (data.state != State::StoryModeDeploying && !Game::cancel_event_eaten[0])
+		if (data.state != State::StoryModeDeploying
+			&& data.story.inventory.timer_buy == 0.0f
+			&& !Game::cancel_event_eaten[0])
 		{
 			if (Game::session.type == SessionType::Story && ((u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
 				|| (u.input->get(Controls::Scoreboard, 0) && !u.last_input->get(Controls::Scoreboard, 0))))

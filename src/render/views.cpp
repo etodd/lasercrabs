@@ -903,38 +903,63 @@ Water::~Water()
 	}
 }
 
-void Water::update(const Update& u)
+void Water::update_all(const Update& u)
 {
 	if (Audio::listener_mask)
 	{
-		if (!audio.ref())
-			audio = Audio::post_global(AK::EVENTS::PLAY_WATER_LOOP, get<Transform>()->absolute_pos());
-		const Mesh* m = Loader::mesh(config.mesh);
-		Vec3 water_pos = get<Transform>()->absolute_pos();
-		Vec3 bmin = water_pos + m->bounds_min;
-		Vec3 bmax = water_pos + m->bounds_max;
-		r32 closest_distance_sq = FLT_MAX;
-		Vec3 closest_pos = water_pos;
+		StaticArray<Vec3, MAX_GAMEPADS> listeners;
+
+		// collect listeners
 		for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		{
 			if (Audio::listener_mask & (1 << i))
 			{
 				Vec3 p = Audio::listener[i].pos;
+
+				// make sure listener is not in a negative space
+				for (s32 j = 0; j < Game::level.water_sound_negative_spaces.length; j++)
+				{
+					const Game::WaterSoundNegativeSpace& space = Game::level.water_sound_negative_spaces[j];
+					Vec3 diff = p - space.pos;
+					r32 distance = diff.length();
+					if (distance < space.radius)
+						p = space.pos + diff * (space.radius / distance);
+				}
+				listeners.add(p);
+			}
+		}
+
+		// find closest position for each water sound
+		for (auto i = list.iterator(); !i.is_last(); i.next())
+		{
+			const Mesh* m = Loader::mesh(i.item()->config.mesh);
+			Vec3 water_pos = i.item()->get<Transform>()->absolute_pos();
+			Vec3 bmin = water_pos + m->bounds_min;
+			Vec3 bmax = water_pos + m->bounds_max;
+			r32 closest_distance_sq = FLT_MAX;
+			Vec3 closest_pos = water_pos;
+
+			for (s32 j = 0; j < listeners.length; j++)
+			{
+				Vec3 p = listeners[j];
 				p.y = water_pos.y;
 				p.x = vi_max(p.x, bmin.x);
 				p.x = vi_min(p.x, bmax.x);
 				p.z = vi_max(p.z, bmin.z);
 				p.z = vi_min(p.z, bmax.z);
 
-				r32 distance_sq = (p - Audio::listener[i].pos).length_squared();
+				r32 distance_sq = (p - listeners[j]).length_squared();
 				if (distance_sq < closest_distance_sq)
 				{
 					closest_distance_sq = distance_sq;
 					closest_pos = p;
 				}
 			}
+			if (i.item()->audio.ref())
+				i.item()->audio.ref()->abs_pos = closest_pos;
+			else
+				i.item()->audio = Audio::post_global(m->bounds_radius > 100.0f ? AK::EVENTS::PLAY_OCEAN_LOOP : AK::EVENTS::PLAY_WATER_LOOP, closest_pos);
 		}
-		audio.ref()->abs_pos = closest_pos;
 	}
 }
 

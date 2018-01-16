@@ -1121,7 +1121,7 @@ void PlayerHuman::update(const Update& u)
 			kill_cam_rot = camera.ref()->rot;
 			if (UpgradeStation::drone_at(entity->get<Drone>())
 				&& get<PlayerManager>()->can_transition_state()
-				&& (Game::session.config.ruleset.upgrades_default | get<PlayerManager>()->energy > 0)
+				&& (Game::session.config.ruleset.upgrades_default || get<PlayerManager>()->energy > 0)
 				&& !entity->get<Drone>()->flag.ref())
 			{
 				if (chat_focus == ChatFocus::None && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
@@ -2236,7 +2236,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		if (mode == UIMode::PvpDefault
 			&& get<PlayerManager>()->can_transition_state()
 			&& UpgradeStation::drone_at(get<PlayerManager>()->instance.ref()->get<Drone>())
-			&& (get<PlayerManager>()->energy > 0 | Game::session.config.ruleset.upgrades_default))
+			&& (get<PlayerManager>()->energy > 0 || Game::session.config.ruleset.upgrades_default))
 		{
 			// "upgrade!" prompt
 			UIText text;

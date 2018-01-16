@@ -116,6 +116,40 @@ template<typename Stream> b8 serialize_server_state(Stream* p, ServerState* s)
 #define MAX_SERVER_CONFIG_NAME 127
 #define MAX_SERVER_LIST 8
 
+struct Ruleset
+{
+	enum class Preset : s8
+	{
+		Default,
+		Arcade,
+		Custom,
+		count,
+	};
+
+	static Ruleset presets[s32(Preset::count)];
+
+	static const char* preset_name(Preset);
+
+	static void init();
+
+	s16 upgrades_allow = s16((1 << s32(Upgrade::count)) - 1);
+	s16 upgrades_default;
+	s16 start_energy = ENERGY_INITIAL;
+	s16 start_energy_attacker = ENERGY_INITIAL_ATTACKER;
+	StaticArray<Ability, MAX_ABILITIES> start_abilities;
+	s8 spawn_delay = 5;
+	s8 drone_shield = DRONE_SHIELD_AMOUNT;
+	u8 cooldown_speed_index = 4; // multiply by 0.25 to get actual value
+	b8 enable_batteries = true;
+	b8 enable_battery_stealth = true;
+	b8 enable_spawn_shields = true;
+
+	r32 cooldown_speed() const
+	{
+		return r32(cooldown_speed_index) * 0.25f;
+	}
+};
+
 struct ServerListEntry
 {
 	ServerState server_state;
@@ -124,6 +158,7 @@ struct ServerListEntry
 	char creator_username[MAX_USERNAME + 1];
 	s8 max_players;
 	s8 team_count;
+	Ruleset::Preset preset;
 	GameType game_type;
 };
 
@@ -161,6 +196,7 @@ template<typename Stream> b8 serialize_server_list_entry(Stream* p, ServerListEn
 	}
 
 	serialize_enum(p, GameType, s->game_type);
+	serialize_enum(p, Ruleset::Preset, s->preset);
 	serialize_int(p, s8, s->max_players, 2, MAX_PLAYERS);
 	serialize_int(p, s8, s->team_count, 2, MAX_TEAMS);
 
@@ -177,35 +213,20 @@ struct ServerConfig
 	u32 id;
 	u32 creator_id;
 	StaticArray<AssetID, 32> levels;
-	s16 kill_limit = DEFAULT_ASSAULT_DRONES;
-	s16 flag_limit = DEFAULT_FLAG_LIMIT;
-	s16 respawns = DEFAULT_ASSAULT_DRONES;
-	s16 upgrades_allow = s16((1 << s32(Upgrade::count)) - 1);
-	s16 upgrades_default;
-	s16 start_energy = ENERGY_INITIAL;
-	s16 start_energy_attacker = ENERGY_INITIAL_ATTACKER;
-	StaticArray<Ability, MAX_ABILITIES> start_abilities;
-	GameType game_type = GameType::Assault;
+	s16 kill_limit = 10;
+	s16 flag_limit = 3;
+	Ruleset ruleset;
 	Region region;
+	Ruleset::Preset preset;
+	GameType game_type = GameType::Assault;
 	s8 max_players = MAX_PLAYERS;
 	s8 min_players = 1;
 	s8 team_count = 2;
-	s8 spawn_delay = 5;
-	s8 drone_shield = DRONE_SHIELD_AMOUNT;
 	s8 fill_bots; // if = 0, no bots. if > 0, total number of desired players including bots is fill_bots + 1
 	u8 time_limit_minutes[s32(GameType::count)] = { 6, 10, 10 }; // Assault, Deathmatch, CaptureTheFlag
-	u8 cooldown_speed_index = 4; // multiply by 0.25 to get actual value
 	char name[MAX_SERVER_CONFIG_NAME + 1];
 	char secret[MAX_SERVER_CONFIG_SECRET + 1];
-	b8 enable_batteries = true;
-	b8 enable_battery_stealth = true;
-	b8 enable_spawn_shields = true;
 	b8 is_private;
-
-	r32 cooldown_speed() const
-	{
-		return r32(cooldown_speed_index) * 0.25f;
-	}
 
 	r32 time_limit() const
 	{
@@ -218,34 +239,39 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 	serialize_u32(p, c->id);
 	if (c->id != 0) // 0 = story mode
 	{
+		serialize_bool(p, c->ruleset.enable_batteries);
+		serialize_bool(p, c->ruleset.enable_battery_stealth);
+		serialize_bool(p, c->ruleset.enable_spawn_shields);
+		serialize_int(p, s8, c->ruleset.spawn_delay, 0, 120);
+		serialize_s16(p, c->ruleset.upgrades_allow);
+		serialize_s16(p, c->ruleset.upgrades_default);
+		serialize_int(p, u16, c->ruleset.start_abilities.length, 0, c->ruleset.start_abilities.capacity());
+		for (s32 i = 0; i < c->ruleset.start_abilities.length; i++)
+			serialize_enum(p, Ability, c->ruleset.start_abilities[i]);
+		serialize_int(p, s16, c->ruleset.start_energy, 0, MAX_START_ENERGY);
+		serialize_int(p, s16, c->ruleset.start_energy_attacker, 0, MAX_START_ENERGY);
+		serialize_int(p, s8, c->ruleset.drone_shield, 0, DRONE_SHIELD_AMOUNT);
+		serialize_int(p, u8, c->ruleset.cooldown_speed_index, 1, COOLDOWN_SPEED_MAX_INDEX);
+
+		serialize_enum(p, Ruleset::Preset, c->preset);
 		serialize_enum(p, GameType, c->game_type);
+		for (s32 i = 0; i < s32(GameType::count); i++)
+			serialize_int(p, u8, c->time_limit_minutes[i], 1, 254);
+		serialize_int(p, s16, c->kill_limit, 0, MAX_RESPAWNS);
+		serialize_int(p, s16, c->flag_limit, 0, MAX_RESPAWNS);
 		serialize_int(p, u16, c->levels.length, 1, c->levels.capacity());
 		for (s32 i = 0; i < c->levels.length; i++)
 			serialize_s16(p, c->levels[i]);
 		serialize_int(p, s8, c->max_players, 1, MAX_PLAYERS);
 		serialize_int(p, s8, c->min_players, 1, MAX_PLAYERS);
 		serialize_int(p, s8, c->fill_bots, 0, MAX_PLAYERS - 1);
-		if (c->game_type == GameType::Assault)
-			c->team_count = 2;
-		else
+		if (c->game_type == GameType::Deathmatch)
 			serialize_int(p, s8, c->team_count, 2, MAX_TEAMS);
+		else
+			c->team_count = 2;
 		c->team_count = vi_min(c->team_count, c->max_players);
-		serialize_int(p, s8, c->spawn_delay, 0, 120);
-		serialize_int(p, s16, c->respawns, 1, MAX_RESPAWNS);
 		serialize_u32(p, c->creator_id);
-		serialize_int(p, s16, c->kill_limit, 0, MAX_RESPAWNS);
-		serialize_s16(p, c->upgrades_allow);
-		serialize_s16(p, c->upgrades_default);
-		serialize_int(p, s16, c->start_energy, 0, MAX_START_ENERGY);
-		serialize_int(p, s16, c->start_energy_attacker, 0, MAX_START_ENERGY);
-		serialize_int(p, s8, c->drone_shield, 0, DRONE_SHIELD_AMOUNT);
 		serialize_enum(p, Region, c->region);
-		serialize_int(p, u16, c->start_abilities.length, 0, c->start_abilities.capacity());
-		for (s32 i = 0; i < c->start_abilities.length; i++)
-			serialize_enum(p, Ability, c->start_abilities[i]);
-		for (s32 i = 0; i < s32(GameType::count); i++)
-			serialize_int(p, u8, c->time_limit_minutes[i], 1, 254);
-		serialize_int(p, u8, c->cooldown_speed_index, 1, COOLDOWN_SPEED_MAX_INDEX);
 		{
 			s32 name_length;
 			if (Stream::IsWriting)
@@ -264,9 +290,6 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 			if (Stream::IsReading)
 				c->secret[secret_length] = '\0';
 		}
-		serialize_bool(p, c->enable_batteries);
-		serialize_bool(p, c->enable_battery_stealth);
-		serialize_bool(p, c->enable_spawn_shields);
 		serialize_bool(p, c->is_private);
 	}
 	return true;

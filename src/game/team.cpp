@@ -249,8 +249,7 @@ void Team::awake_all()
 		match_time = 0.0f;
 		core_module_delay = CORE_MODULE_DELAY;
 	}
-	for (s32 i = 0; i < Game::session.config.start_abilities.length; i++)
-		Game::session.config.upgrades_default |= (1 << s32(Game::session.config.start_abilities[i]));
+
 	winner = nullptr;
 	score_summary.length = 0;
 	for (s32 i = 0; i < MAX_PLAYERS * MAX_PLAYERS; i++)
@@ -687,7 +686,6 @@ namespace TeamNet
 		}
 		serialize_s16(p, t->kills);
 		serialize_s16(p, t->flags_captured);
-		serialize_int(p, s16, t->extra_drones, -1, MAX_RESPAWNS);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -839,12 +837,9 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_s16(p, kills);
 			s16 flags_captured;
 			serialize_s16(p, flags_captured);
-			s16 extra_drones;
-			serialize_int(p, s16, extra_drones, -1, MAX_RESPAWNS);
 			if (!Game::level.local || src == Net::MessageSource::Loopback)
 			{
 				t.ref()->kills = kills;
-				t.ref()->extra_drones = extra_drones;
 				t.ref()->flags_captured = flags_captured;
 			}
 			break;
@@ -1206,8 +1201,8 @@ void Team::update_all_client_only(const Update& u)
 s16 Team::initial_energy() const
 {
 	return (Game::session.config.game_type == GameType::Assault && team() == 1 && Game::session.type != SessionType::Story)
-		? Game::session.config.start_energy_attacker
-		: Game::session.config.start_energy;
+		? Game::session.config.ruleset.start_energy_attacker
+		: Game::session.config.ruleset.start_energy;
 }
 
 SpawnPoint* Team::default_spawn_point() const
@@ -1223,10 +1218,10 @@ SpawnPoint* Team::default_spawn_point() const
 PlayerManager::Visibility PlayerManager::visibility[MAX_PLAYERS * MAX_PLAYERS];
 
 PlayerManager::PlayerManager(Team* team, const char* u)
-	: spawn_timer((Game::session.type == SessionType::Story && team->team() == 1) ? 0 : Game::session.config.spawn_delay), // defenders in story mode get to spawn instantly
+	: spawn_timer((Game::session.type == SessionType::Story && team->team() == 1) ? 0 : Game::session.config.ruleset.spawn_delay), // defenders in story mode get to spawn instantly
 	score_accepted(Team::match_state == Team::MatchState::Done),
 	team(team),
-	upgrades(Game::session.config.upgrades_default),
+	upgrades(Game::session.config.ruleset.upgrades_default),
 	abilities{ Ability::None, Ability::None },
 	instance(),
 	spawn(),
@@ -1245,7 +1240,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	is_admin()
 {
 	{
-		const StaticArray<Ability, MAX_ABILITIES>& start_abilities = Game::session.config.start_abilities;
+		const StaticArray<Ability, MAX_ABILITIES>& start_abilities = Game::session.config.ruleset.start_abilities;
 		for (s32 i = 0; i < start_abilities.length; i++)
 		{
 			Ability ability = start_abilities[i];
@@ -1256,7 +1251,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	}
 
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& (Game::session.config.upgrades_allow | Game::session.config.upgrades_default)
+		&& (Game::session.config.ruleset.upgrades_allow | Game::session.config.ruleset.upgrades_default)
 		&& Game::session.type == SessionType::Story
 		&& Game::session.config.game_type == GameType::Assault
 		&& team->team() == 0)
@@ -1657,7 +1652,7 @@ namespace PlayerManagerNet
 void internal_spawn_go(PlayerManager* m, SpawnPoint* point)
 {
 	vi_assert(Game::level.local && point);
-	m->spawn_timer = Game::session.config.spawn_delay;
+	m->spawn_timer = Game::session.config.ruleset.spawn_delay;
 	m->spawn.fire(point->spawn_position());
 }
 
@@ -2137,7 +2132,7 @@ b8 PlayerManager::upgrade_available(Upgrade u) const
 		// make sure that the upgrade is allowed and we have enough money for it
 		const UpgradeInfo& info = UpgradeInfo::list[s32(u)];
 		return (info.type != UpgradeInfo::Type::Ability || !has_ability(Ability(u))) // can't do an ability upgrade if we already have the ability equipped
-			&& ((Game::session.config.upgrades_allow | Game::session.config.upgrades_default) & (1 << s32(u)))
+			&& ((Game::session.config.ruleset.upgrades_allow | Game::session.config.ruleset.upgrades_default) & (1 << s32(u)))
 			&& (has_upgrade(u) || energy >= upgrade_cost(u));
 	}
 }
@@ -2275,7 +2270,7 @@ PlayerManager::State PlayerManager::state() const
 
 b8 PlayerManager::can_transition_state() const
 {
-	if (!Game::level.has_feature(Game::FeatureLevel::Abilities) || !(Game::session.config.upgrades_allow | Game::session.config.upgrades_default))
+	if (!Game::level.has_feature(Game::FeatureLevel::Abilities) || !(Game::session.config.ruleset.upgrades_allow | Game::session.config.ruleset.upgrades_default))
 		return false;
 
 	Entity* e = instance.ref();

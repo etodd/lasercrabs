@@ -544,7 +544,7 @@ AssetID game_type_string(GameType type)
 	return game_type_strings[s32(type)];
 }
 
-void game_type_string(UIText* text, GameType type, s8 team_count, s8 max_players)
+void game_type_string(UIText* text, Net::Master::Ruleset::Preset preset, GameType type, s8 team_count, s8 max_players)
 {
 	AssetID teams_type;
 	switch (team_count)
@@ -580,7 +580,10 @@ void game_type_string(UIText* text, GameType type, s8 team_count, s8 max_players
 			break;
 		}
 	}
-	text->text(0, "%s %s", _(teams_type), _(game_type_string(type)));
+	if (preset == Net::Master::Ruleset::Preset::Default)
+		text->text(0, "%s %s", _(teams_type), _(game_type_string(type)));
+	else
+		text->text(0, "%s %s %s", Net::Master::Ruleset::preset_name(preset), _(teams_type), _(game_type_string(type)));
 }
 
 UIMenu::Origin multiplayer_menu_origin()
@@ -677,12 +680,6 @@ void multiplayer_entry_edit_update(const Update& u)
 				}
 
 				{
-					// game type
-					if (UIMenu::enum_option(&config->game_type, menu->slider_item(u, _(strings::game_type), _(game_type_string(config->game_type)))))
-						data.multiplayer.active_server_dirty = true;
-				}
-
-				{
 					// levels
 					sprintf(str, "%d", s32(config->levels.length));
 					if (menu->item(u, _(strings::levels), str))
@@ -691,56 +688,6 @@ void multiplayer_entry_edit_update(const Update& u)
 						menu->end(u);
 						return;
 					}
-				}
-
-				switch (config->game_type)
-				{
-					case GameType::Assault:
-					{
-						// respawns
-						s16* respawns = &config->respawns;
-						sprintf(str, "%hd", *respawns);
-						delta = menu->slider_item(u, _(strings::respawns), str);
-						*respawns = vi_max(1, vi_min(MAX_RESPAWNS, s32(*respawns) + delta * (*respawns >= (delta > 0 ? 10 : 11) ? 5 : 1)));
-						if (delta)
-							data.multiplayer.active_server_dirty = true;
-						break;
-					}
-					case GameType::Deathmatch:
-					{
-						// kill limit
-						s16* kill_limit = &config->kill_limit;
-						sprintf(str, "%hd", *kill_limit);
-						delta = menu->slider_item(u, _(strings::kill_limit), str);
-						*kill_limit = vi_max(1, vi_min(MAX_RESPAWNS, s32(*kill_limit) + delta * (*kill_limit >= (delta > 0 ? 10 : 11) ? 5 : 1)));
-						if (delta)
-							data.multiplayer.active_server_dirty = true;
-						break;
-					}
-					case GameType::CaptureTheFlag:
-					{
-						// flag limit
-						s16* flag_limit = &config->flag_limit;
-						sprintf(str, "%hd", *flag_limit);
-						delta = menu->slider_item(u, _(strings::flag_limit), str);
-						*flag_limit = vi_max(1, vi_min(MAX_RESPAWNS, s32(*flag_limit) + delta));
-						if (delta)
-							data.multiplayer.active_server_dirty = true;
-						break;
-					}
-					default:
-						vi_assert(false);
-						break;
-				}
-
-				{
-					// time limit
-					u8* time_limit = &config->time_limit_minutes[s32(config->game_type)];
-					sprintf(str, _(strings::timer), s32(*time_limit), 0);
-					delta = menu->slider_item(u, _(strings::time_limit), str);
-					*time_limit = vi_max(1, vi_min(254, s32(*time_limit) + delta * (*time_limit >= (delta > 0 ? 10 : 11) ? 5 : 1)));
-					if (delta)
-						data.multiplayer.active_server_dirty = true;
 				}
 
 				{
@@ -792,116 +739,172 @@ void multiplayer_entry_edit_update(const Update& u)
 				}
 
 				{
-					// drone shield
-					s8* drone_shield = &config->drone_shield;
-					sprintf(str, "%d", s32(*drone_shield));
-					delta = menu->slider_item(u, _(strings::drone_shield), str);
-					*drone_shield = vi_max(0, vi_min(DRONE_SHIELD_AMOUNT, (*drone_shield) + delta));
-					if (delta)
+					// game type
+					if (UIMenu::enum_option(&config->game_type, menu->slider_item(u, _(strings::game_type), _(game_type_string(config->game_type)))))
 						data.multiplayer.active_server_dirty = true;
 				}
 
 				{
-					// spawn delay
-					s8* spawn_delay = &config->spawn_delay;
-					sprintf(str, "%d", s32(*spawn_delay));
-					delta = menu->slider_item(u, _(strings::spawn_delay), str);
-					*spawn_delay = vi_max(0, vi_min(120, (*spawn_delay) + delta * (*spawn_delay >= (delta > 0 ? 10 : 11) ? 5 : 1)));
+					// time limit
+					u8* time_limit = &config->time_limit_minutes[s32(config->game_type)];
+					sprintf(str, _(strings::timer), s32(*time_limit), 0);
+					delta = menu->slider_item(u, _(strings::time_limit), str);
+					*time_limit = vi_max(1, vi_min(254, s32(*time_limit) + delta * (*time_limit >= (delta > 0 ? 10 : 11) ? 5 : 1)));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
 				}
 
+				switch (config->game_type)
 				{
-					// start energy
-					s16* start_energy = &config->start_energy;
-					sprintf(str, "%d", s32(*start_energy));
-					delta = menu->slider_item(u, _(strings::start_energy), str);
-					*start_energy = vi_max(0, vi_min(MAX_START_ENERGY, (*start_energy) + (delta * 50)));
-					if (delta)
-						data.multiplayer.active_server_dirty = true;
-				}
-
-				if (config->game_type == GameType::Assault)
-				{
-					// start energy attacker
-					s16* start_energy_attacker = &config->start_energy_attacker;
-					sprintf(str, "%d", s32(*start_energy_attacker));
-					delta = menu->slider_item(u, _(strings::start_energy_attacker), str);
-					*start_energy_attacker = vi_max(0, vi_min(MAX_START_ENERGY, (*start_energy_attacker) + (delta * 50)));
-					if (delta)
-						data.multiplayer.active_server_dirty = true;
-				}
-
-				{
-					// cooldown speed
-					u8* cooldown_speed_index = &config->cooldown_speed_index;
-					sprintf(str, "%d%%%%", s32(config->cooldown_speed() * 100.0f));
-					delta = menu->slider_item(u, _(strings::cooldown_speed), str);
-					*cooldown_speed_index = vi_max(1, vi_min(COOLDOWN_SPEED_MAX_INDEX, s32(*cooldown_speed_index) + delta));
-					if (delta)
-						data.multiplayer.active_server_dirty = true;
-				}
-
-				{
-					// enable batteries
-					b8* enable_batteries = &config->enable_batteries;
-					delta = menu->slider_item(u, _(strings::enable_batteries), _(*enable_batteries ? strings::on : strings::off));
-					if (delta)
+					case GameType::Assault:
+						break;
+					case GameType::Deathmatch:
 					{
-						*enable_batteries = !(*enable_batteries);
-						data.multiplayer.active_server_dirty = true;
+						// kill limit
+						s16* kill_limit = &config->kill_limit;
+						sprintf(str, "%hd", *kill_limit);
+						delta = menu->slider_item(u, _(strings::kill_limit), str);
+						*kill_limit = vi_max(1, vi_min(MAX_RESPAWNS, s32(*kill_limit) + delta * (*kill_limit >= (delta > 0 ? 10 : 11) ? 5 : 1)));
+						if (delta)
+							data.multiplayer.active_server_dirty = true;
+						break;
 					}
-				}
-
-				{
-					// battery stealth
-					b8* enable_battery_stealth = &config->enable_battery_stealth;
-					delta = menu->slider_item(u, _(strings::enable_battery_stealth), _(*enable_battery_stealth ? strings::on : strings::off));
-					if (delta)
+					case GameType::CaptureTheFlag:
 					{
-						*enable_battery_stealth = !(*enable_battery_stealth);
-						data.multiplayer.active_server_dirty = true;
+						// flag limit
+						s16* flag_limit = &config->flag_limit;
+						sprintf(str, "%hd", *flag_limit);
+						delta = menu->slider_item(u, _(strings::flag_limit), str);
+						*flag_limit = vi_max(1, vi_min(MAX_RESPAWNS, s32(*flag_limit) + delta));
+						if (delta)
+							data.multiplayer.active_server_dirty = true;
+						break;
 					}
-				}
-
-				if (config->game_type != GameType::CaptureTheFlag) // no spawn shields in CTF
-				{
-					// spawn shields
-					b8* enable_spawn_shields = &config->enable_spawn_shields;
-					delta = menu->slider_item(u, _(strings::enable_spawn_shields), _(*enable_spawn_shields ? strings::on : strings::off));
-					if (delta)
-					{
-						*enable_spawn_shields = !(*enable_spawn_shields);
-						data.multiplayer.active_server_dirty = true;
-					}
-				}
-
-				{
-					// upgrades
-					sprintf(str, "%d", s32(BitUtility::popcount(s16((1 << s32(Upgrade::count)) - 1) & (config->upgrades_allow | config->upgrades_default))));
-					if (menu->item(u, _(strings::upgrades), str))
-					{
-						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Upgrades);
-						menu->end(u);
-						return;
-					}
-				}
-
-				{
-					// start abilities
-					sprintf(str, "%d", s32(config->start_abilities.length));
-					if (menu->item(u, _(strings::start_abilities), str))
-					{
-						multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::StartAbilities);
-						menu->end(u);
-						return;
-					}
+					default:
+						vi_assert(false);
+						break;
 				}
 
 				{
 					// region
 					if (UIMenu::enum_option(&config->region, menu->slider_item(u, _(strings::region), _(Menu::region_string(config->region)))))
 						data.multiplayer.active_server_dirty = true;
+				}
+
+				{
+					// preset
+					if (UIMenu::enum_option(&config->preset, menu->slider_item(u, _(strings::preset), Net::Master::Ruleset::preset_name(config->preset))))
+						data.multiplayer.active_server_dirty = true;
+				}
+
+				if (config->preset == Net::Master::Ruleset::Preset::Custom)
+				{
+					{
+						// drone shield
+						s8* drone_shield = &config->ruleset.drone_shield;
+						sprintf(str, "%d", s32(*drone_shield));
+						delta = menu->slider_item(u, _(strings::drone_shield), str);
+						*drone_shield = vi_max(0, vi_min(DRONE_SHIELD_AMOUNT, (*drone_shield) + delta));
+						if (delta)
+							data.multiplayer.active_server_dirty = true;
+					}
+
+					{
+						// spawn delay
+						s8* spawn_delay = &config->ruleset.spawn_delay;
+						sprintf(str, "%d", s32(*spawn_delay));
+						delta = menu->slider_item(u, _(strings::spawn_delay), str);
+						*spawn_delay = vi_max(1, vi_min(120, (*spawn_delay) + delta * (*spawn_delay >= (delta > 0 ? 10 : 11) ? 5 : 1)));
+						if (delta)
+							data.multiplayer.active_server_dirty = true;
+					}
+
+					{
+						// start energy
+						s16* start_energy = &config->ruleset.start_energy;
+						sprintf(str, "%d", s32(*start_energy));
+						delta = menu->slider_item(u, _(strings::start_energy), str);
+						*start_energy = vi_max(0, vi_min(MAX_START_ENERGY, (*start_energy) + (delta * 50)));
+						if (delta)
+							data.multiplayer.active_server_dirty = true;
+					}
+
+					if (config->game_type == GameType::Assault)
+					{
+						// start energy attacker
+						s16* start_energy_attacker = &config->ruleset.start_energy_attacker;
+						sprintf(str, "%d", s32(*start_energy_attacker));
+						delta = menu->slider_item(u, _(strings::start_energy_attacker), str);
+						*start_energy_attacker = vi_max(0, vi_min(MAX_START_ENERGY, (*start_energy_attacker) + (delta * 50)));
+						if (delta)
+							data.multiplayer.active_server_dirty = true;
+					}
+
+					{
+						// cooldown speed
+						u8* cooldown_speed_index = &config->ruleset.cooldown_speed_index;
+						sprintf(str, "%d%%%%", s32(config->ruleset.cooldown_speed() * 100.0f));
+						delta = menu->slider_item(u, _(strings::cooldown_speed), str);
+						*cooldown_speed_index = vi_max(1, vi_min(COOLDOWN_SPEED_MAX_INDEX, s32(*cooldown_speed_index) + delta));
+						if (delta)
+							data.multiplayer.active_server_dirty = true;
+					}
+
+					{
+						// enable batteries
+						b8* enable_batteries = &config->ruleset.enable_batteries;
+						delta = menu->slider_item(u, _(strings::enable_batteries), _(*enable_batteries ? strings::on : strings::off));
+						if (delta)
+						{
+							*enable_batteries = !(*enable_batteries);
+							data.multiplayer.active_server_dirty = true;
+						}
+					}
+
+					{
+						// battery stealth
+						b8* enable_battery_stealth = &config->ruleset.enable_battery_stealth;
+						delta = menu->slider_item(u, _(strings::enable_battery_stealth), _(*enable_battery_stealth ? strings::on : strings::off));
+						if (delta)
+						{
+							*enable_battery_stealth = !(*enable_battery_stealth);
+							data.multiplayer.active_server_dirty = true;
+						}
+					}
+
+					if (config->game_type != GameType::CaptureTheFlag) // no spawn shields in CTF
+					{
+						// spawn shields
+						b8* enable_spawn_shields = &config->ruleset.enable_spawn_shields;
+						delta = menu->slider_item(u, _(strings::enable_spawn_shields), _(*enable_spawn_shields ? strings::on : strings::off));
+						if (delta)
+						{
+							*enable_spawn_shields = !(*enable_spawn_shields);
+							data.multiplayer.active_server_dirty = true;
+						}
+					}
+
+					{
+						// upgrades
+						sprintf(str, "%d", s32(BitUtility::popcount(s16((1 << s32(Upgrade::count)) - 1) & (config->ruleset.upgrades_allow | config->ruleset.upgrades_default))));
+						if (menu->item(u, _(strings::upgrades), str))
+						{
+							multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Upgrades);
+							menu->end(u);
+							return;
+						}
+					}
+
+					{
+						// start abilities
+						sprintf(str, "%d", s32(config->ruleset.start_abilities.length));
+						if (menu->item(u, _(strings::start_abilities), str))
+						{
+							multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::StartAbilities);
+							menu->end(u);
+							return;
+						}
+					}
 				}
 
 				menu->end(u);
@@ -970,22 +973,22 @@ void multiplayer_entry_edit_update(const Update& u)
 						continue;
 
 					s32 existing_index = -1;
-					for (s32 j = 0; j < config->start_abilities.length; j++)
+					for (s32 j = 0; j < config->ruleset.start_abilities.length; j++)
 					{
-						if (config->start_abilities[j] == Ability(i))
+						if (config->ruleset.start_abilities[j] == Ability(i))
 						{
 							existing_index = j;
 							break;
 						}
 					}
 
-					b8 disabled = existing_index == -1 && config->start_abilities.length == config->start_abilities.capacity();
+					b8 disabled = existing_index == -1 && config->ruleset.start_abilities.length == config->ruleset.start_abilities.capacity();
 					if (menu->item(u, _(info.name), nullptr, disabled, existing_index == -1 ? AssetNull : Asset::Mesh::icon_checkmark))
 					{
 						if (existing_index == -1)
-							config->start_abilities.add(Ability(i));
+							config->ruleset.start_abilities.add(Ability(i));
 						else
-							config->start_abilities.remove(existing_index);
+							config->ruleset.start_abilities.remove(existing_index);
 						data.multiplayer.active_server_dirty = true;
 					}
 				}
@@ -1006,8 +1009,8 @@ void multiplayer_entry_edit_update(const Update& u)
 					return;
 				}
 
-				s16* upgrades_allow = &config->upgrades_allow;
-				s16* upgrades_default = &config->upgrades_default;
+				s16* upgrades_allow = &config->ruleset.upgrades_allow;
+				s16* upgrades_default = &config->ruleset.upgrades_default;
 				for (s32 i = 0; i < s32(Upgrade::count); i++)
 				{
 					b8 is_allowed = (*upgrades_allow) & (1 << i);
@@ -1520,7 +1523,7 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 			}
 
 			{
-				game_type_string(&text, entry.game_type, entry.team_count, entry.max_players);
+				game_type_string(&text, entry.preset, entry.game_type, entry.team_count, entry.max_players);
 				text.draw(params, pos + Vec2(panel_size.x * 0.79f, panel_size.y * 0.5f));
 			}
 
@@ -1701,7 +1704,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 
 		// column 1
 		{
-			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 9 + (details.config.game_type == GameType::Assault ? 1 : 0);
+			s32 rows = (details.state.level == AssetNull ? 1 : 2) + 9;
 			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			if (details.state.level == AssetNull)
@@ -1741,7 +1744,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			}
 
 			// game type
-			game_type_string(&text, details.config.game_type, details.config.team_count, details.config.max_players);
+			game_type_string(&text, details.config.preset, details.config.game_type, details.config.team_count, details.config.max_players);
 			text.draw(params, pos);
 			pos.y -= panel_size.y;
 
@@ -1755,21 +1758,13 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			// kill limit
 			switch (details.config.game_type)
 			{
+				case GameType::Assault:
+					break;
 				case GameType::Deathmatch:
 				{
 					text.text(0, _(strings::kill_limit));
 					text.draw(params, pos);
 					value.text(0, "%d", s32(details.config.kill_limit));
-					value.draw(params, pos + Vec2(panel_size.x, 0));
-					pos.y -= panel_size.y;
-					break;
-				}
-				case GameType::Assault:
-				{
-					// respawns
-					text.text(0, _(strings::respawns));
-					text.draw(params, pos);
-					value.text(0, "%d", s32(details.config.respawns));
 					value.draw(params, pos + Vec2(panel_size.x, 0));
 					pos.y -= panel_size.y;
 					break;
@@ -1798,14 +1793,14 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			// spawn delay
 			text.text(0, _(strings::spawn_delay));
 			text.draw(params, pos);
-			value.text(0, "%d", s32(details.config.spawn_delay));
+			value.text(0, "%d", s32(details.config.ruleset.spawn_delay));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 
 			// start energy
 			text.text(0, _(strings::start_energy));
 			text.draw(params, pos);
-			value.text(0, "%d", s32(details.config.start_energy));
+			value.text(0, "%d", s32(details.config.ruleset.start_energy));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 
@@ -1814,7 +1809,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 				// start energy attacker
 				text.text(0, _(strings::start_energy_attacker));
 				text.draw(params, pos);
-				value.text(0, "%d", s32(details.config.start_energy_attacker));
+				value.text(0, "%d", s32(details.config.ruleset.start_energy_attacker));
 				value.draw(params, pos + Vec2(panel_size.x, 0));
 				pos.y -= panel_size.y;
 			}
@@ -1822,14 +1817,14 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			// enable batteries
 			text.text(0, _(strings::enable_batteries));
 			text.draw(params, pos);
-			value.text(0, _(details.config.enable_batteries ? strings::on : strings::off));
+			value.text(0, _(details.config.ruleset.enable_batteries ? strings::on : strings::off));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 
 			// battery stealth
 			text.text(0, _(strings::enable_battery_stealth));
 			text.draw(params, pos);
-			value.text(0, _(details.config.enable_battery_stealth ? strings::on : strings::off));
+			value.text(0, _(details.config.ruleset.enable_battery_stealth ? strings::on : strings::off));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 
@@ -1837,7 +1832,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			text.text(0, _(strings::enable_spawn_shields));
 			text.draw(params, pos);
 			// no force fields in CTF
-			value.text(0, _(details.config.game_type != GameType::CaptureTheFlag && details.config.enable_spawn_shields ? strings::on : strings::off));
+			value.text(0, _(details.config.game_type != GameType::CaptureTheFlag && details.config.ruleset.enable_spawn_shields ? strings::on : strings::off));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 		}
@@ -1851,7 +1846,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			// drone shield
 			text.text(0, _(strings::drone_shield));
 			text.draw(params, pos);
-			value.text(0, "%d", s32(details.config.drone_shield));
+			value.text(0, "%d", s32(details.config.ruleset.drone_shield));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 
@@ -1859,7 +1854,7 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 				// cooldown speed
 				text.text(0, _(strings::cooldown_speed));
 				text.draw(params, pos);
-				value.text(0, "%d%%", s32(details.config.cooldown_speed() * 100.0f));
+				value.text(0, "%d%%", s32(details.config.ruleset.cooldown_speed() * 100.0f));
 				value.draw(params, pos + Vec2(panel_size.x, 0));
 				pos.y -= panel_size.y;
 			}
@@ -1892,16 +1887,16 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 		// column 3
 		pos = top + Vec2((panel_size.x + padding * 3.0f) * 2.0f, 0);
 		{
-			s32 rows = vi_max(1, s32(details.config.start_abilities.length)) + 1 + s32(Upgrade::count);
+			s32 rows = vi_max(1, s32(details.config.ruleset.start_abilities.length)) + 2 + s32(Upgrade::count);
 			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			// start abilities
-			if (details.config.start_abilities.length > 0)
+			if (details.config.ruleset.start_abilities.length > 0)
 				text.color = UI::color_accent();
 			text.text(0, _(strings::start_abilities));
 			text.draw(params, pos);
 			text.color = UI::color_default;
-			if (details.config.start_abilities.length == 0)
+			if (details.config.ruleset.start_abilities.length == 0)
 			{
 				value.text(0, _(strings::none));
 				value.draw(params, pos + Vec2(panel_size.x, 0));
@@ -1910,9 +1905,9 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			else
 			{
 				pos.y -= panel_size.y;
-				for (s32 i = 0; i < details.config.start_abilities.length; i++)
+				for (s32 i = 0; i < details.config.ruleset.start_abilities.length; i++)
 				{
-					text.text(0, _(UpgradeInfo::list[s32(details.config.start_abilities[i])].name));
+					text.text(0, _(UpgradeInfo::list[s32(details.config.ruleset.start_abilities[i])].name));
 					text.draw(params, pos);
 					pos.y -= panel_size.y;
 				}
@@ -1928,9 +1923,9 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			{
 				text.text(0, _(UpgradeInfo::list[i].name));
 				text.draw(params, pos);
-				if (details.config.upgrades_default & (1 << i))
+				if (details.config.ruleset.upgrades_default & (1 << i))
 					value.text(0, _(strings::upgrade_default));
-				else if (details.config.upgrades_allow & (1 << i))
+				else if (details.config.ruleset.upgrades_allow & (1 << i))
 					value.text(0, "");
 				else
 					value.text(0, _(strings::upgrade_disabled));
@@ -2441,11 +2436,7 @@ void hide_complete()
 void deploy_done()
 {
 	vi_assert(Game::session.type == SessionType::Story);
-	if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_ASSAULT_DRONES)
-	{
-		resource_change(Resource::Drones, -DEFAULT_ASSAULT_DRONES);
-		go(data.zone_selected);
-	}
+	go(data.zone_selected);
 }
 
 void deploy_update(const Update& u)

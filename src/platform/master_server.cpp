@@ -549,7 +549,7 @@ namespace Master
 
 	void server_config_parse(const char* text, ServerConfig* config)
 	{
-		// id, name, game_type, team_count, and is_private are stored in DB row, not here
+		// id, name, max_players, creator_id, game_type, team_count, preset, secret, region, and is_private are stored in DB row, not here
 
 		cJSON* json = cJSON_Parse(text);
 
@@ -564,23 +564,30 @@ namespace Master
 		}
 		ServerConfig defaults;
 		new (&defaults) ServerConfig();
-		config->kill_limit = s16(Json::get_s32(json, "kill_limit", defaults.kill_limit));
-		config->flag_limit = s16(Json::get_s32(json, "flag_limit", defaults.flag_limit));
-		config->respawns = s16(Json::get_s32(json, "respawns", defaults.respawns));
-		config->upgrades_allow = s16(Json::get_s32(json, "upgrades_allow", defaults.upgrades_allow));
-		config->upgrades_default = s16(Json::get_s32(json, "upgrades_default", defaults.upgrades_default));
+
+		config->ruleset.upgrades_allow = s16(Json::get_s32(json, "upgrades_allow", defaults.ruleset.upgrades_allow));
+		config->ruleset.upgrades_default = s16(Json::get_s32(json, "upgrades_default", defaults.ruleset.upgrades_default));
 		{
 			cJSON* start_abilities = cJSON_GetObjectItem(json, "start_abilities");
 			if (start_abilities)
 			{
 				cJSON* u = start_abilities->child;
-				while (u && config->start_abilities.length < config->start_abilities.capacity())
+				while (u && config->ruleset.start_abilities.length < config->ruleset.start_abilities.capacity())
 				{
-					config->start_abilities.add(Ability(u->valueint));
+					config->ruleset.start_abilities.add(Ability(u->valueint));
 					u = u->next;
 				}
 			}
 		}
+		config->ruleset.enable_batteries = b8(Json::get_s32(json, "enable_batteries", defaults.ruleset.enable_batteries));
+		config->ruleset.enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", defaults.ruleset.enable_battery_stealth));
+		config->ruleset.enable_spawn_shields = b8(Json::get_s32(json, "enable_spawn_shields", defaults.ruleset.enable_spawn_shields));
+		config->ruleset.drone_shield = s8(Json::get_s32(json, "drone_shield", defaults.ruleset.drone_shield));
+		config->ruleset.spawn_delay = s8(vi_max(1, vi_min(120, s32(Json::get_s32(json, "spawn_delay", defaults.ruleset.spawn_delay)))));
+		config->ruleset.start_energy = s16(Json::get_s32(json, "start_energy", defaults.ruleset.start_energy));
+		config->ruleset.start_energy_attacker = s16(Json::get_s32(json, "start_energy_attacker", defaults.ruleset.start_energy_attacker));
+		config->ruleset.cooldown_speed_index = u8(Json::get_s32(json, "cooldown_speed_index", defaults.ruleset.cooldown_speed_index));
+
 		config->min_players = s8(Json::get_s32(json, "min_players", defaults.min_players));
 		for (s32 i = 0; i < s32(GameType::count); i++)
 		{
@@ -588,28 +595,49 @@ namespace Master
 			snprintf(key, 64, "time_limit_minutes_%s", ServerConfig::game_type_string(GameType(i)));
 			config->time_limit_minutes[i] = u8(Json::get_s32(json, key, defaults.time_limit_minutes[i]));
 		}
-		config->enable_batteries = b8(Json::get_s32(json, "enable_batteries", defaults.enable_batteries));
-		config->enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", defaults.enable_battery_stealth));
-		config->enable_spawn_shields = b8(Json::get_s32(json, "enable_spawn_shields", defaults.enable_spawn_shields));
-		config->drone_shield = s8(Json::get_s32(json, "drone_shield", defaults.drone_shield));
-		config->spawn_delay = s8(Json::get_s32(json, "spawn_delay", defaults.spawn_delay));
-		config->start_energy = s16(Json::get_s32(json, "start_energy", defaults.start_energy));
-		config->start_energy_attacker = s16(Json::get_s32(json, "start_energy_attacker", defaults.start_energy_attacker));
-		config->cooldown_speed_index = u8(Json::get_s32(json, "cooldown_speed_index", defaults.cooldown_speed_index));
 		config->fill_bots = s8(Json::get_s32(json, "fill_bots", defaults.fill_bots));
+		config->kill_limit = s16(Json::get_s32(json, "kill_limit", defaults.kill_limit));
+		config->flag_limit = s16(Json::get_s32(json, "flag_limit", defaults.flag_limit));
 		strncpy(config->secret, Json::get_string(json, "secret", ""), MAX_SERVER_CONFIG_SECRET);
+
 		cJSON_Delete(json);
 	}
 
 	// caller must free() the returned string
 	char* server_config_stringify(const ServerConfig& config)
 	{
-		// id, name, game_type, team_count, and is_private are stored in DB row, not here
-
 		ServerConfig defaults;
 		new (&defaults) ServerConfig();
 
 		cJSON* json = cJSON_CreateObject();
+
+		if (config.ruleset.upgrades_allow != defaults.ruleset.upgrades_allow)
+			cJSON_AddNumberToObject(json, "upgrades_allow", config.ruleset.upgrades_allow);
+		if (config.ruleset.upgrades_default != defaults.ruleset.upgrades_default)
+			cJSON_AddNumberToObject(json, "upgrades_default", config.ruleset.upgrades_default);
+		if (config.ruleset.start_abilities.length > 0)
+		{
+			cJSON* start_abilities = cJSON_CreateArray();
+			cJSON_AddItemToObject(json, "start_abilities", start_abilities);
+			for (s32 i = 0; i < config.ruleset.start_abilities.length; i++)
+				cJSON_AddItemToArray(start_abilities, cJSON_CreateNumber(s32(config.ruleset.start_abilities[i])));
+		}
+		if (config.ruleset.enable_batteries != defaults.ruleset.enable_batteries)
+			cJSON_AddNumberToObject(json, "enable_batteries", config.ruleset.enable_batteries);
+		if (config.ruleset.enable_battery_stealth != defaults.ruleset.enable_battery_stealth)
+			cJSON_AddNumberToObject(json, "enable_battery_stealth", config.ruleset.enable_battery_stealth);
+		if (config.ruleset.enable_spawn_shields != defaults.ruleset.enable_spawn_shields)
+			cJSON_AddNumberToObject(json, "enable_spawn_shields", config.ruleset.enable_spawn_shields);
+		if (config.ruleset.drone_shield != defaults.ruleset.drone_shield)
+			cJSON_AddNumberToObject(json, "drone_shield", config.ruleset.drone_shield);
+		if (config.ruleset.spawn_delay != defaults.ruleset.spawn_delay)
+			cJSON_AddNumberToObject(json, "spawn_delay", config.ruleset.spawn_delay);
+		if (config.ruleset.start_energy != defaults.ruleset.start_energy)
+			cJSON_AddNumberToObject(json, "start_energy", config.ruleset.start_energy);
+		if (config.ruleset.start_energy_attacker != defaults.ruleset.start_energy_attacker)
+			cJSON_AddNumberToObject(json, "start_energy_attacker", config.ruleset.start_energy_attacker);
+		if (config.ruleset.cooldown_speed_index != defaults.ruleset.cooldown_speed_index)
+			cJSON_AddNumberToObject(json, "cooldown_speed_index", config.ruleset.cooldown_speed_index);
 
 		{
 			cJSON* levels = cJSON_CreateArray();
@@ -617,25 +645,14 @@ namespace Master
 			for (s32 i = 0; i < config.levels.length; i++)
 				cJSON_AddItemToArray(levels, cJSON_CreateNumber(config.levels[i]));
 		}
+		if (config.min_players != defaults.min_players)
+			cJSON_AddNumberToObject(json, "min_players", config.min_players);
+		if (config.fill_bots != defaults.fill_bots)
+			cJSON_AddNumberToObject(json, "fill_bots", config.fill_bots);
 		if (config.kill_limit != defaults.kill_limit)
 			cJSON_AddNumberToObject(json, "kill_limit", config.kill_limit);
 		if (config.flag_limit != defaults.flag_limit)
 			cJSON_AddNumberToObject(json, "flag_limit", config.flag_limit);
-		if (config.respawns != defaults.respawns)
-			cJSON_AddNumberToObject(json, "respawns", config.respawns);
-		if (config.upgrades_allow != defaults.upgrades_allow)
-			cJSON_AddNumberToObject(json, "upgrades_allow", config.upgrades_allow);
-		if (config.upgrades_default != defaults.upgrades_default)
-			cJSON_AddNumberToObject(json, "upgrades_default", config.upgrades_default);
-		if (config.start_abilities.length > 0)
-		{
-			cJSON* start_abilities = cJSON_CreateArray();
-			cJSON_AddItemToObject(json, "start_abilities", start_abilities);
-			for (s32 i = 0; i < config.start_abilities.length; i++)
-				cJSON_AddItemToArray(start_abilities, cJSON_CreateNumber(s32(config.start_abilities[i])));
-		}
-		if (config.min_players != defaults.min_players)
-			cJSON_AddNumberToObject(json, "min_players", config.min_players);
 		for (s32 i = 0; i < s32(GameType::count); i++)
 		{
 			if (config.time_limit_minutes[i] != defaults.time_limit_minutes[i])
@@ -645,24 +662,6 @@ namespace Master
 				cJSON_AddNumberToObject(json, key, config.time_limit_minutes[i]);
 			}
 		}
-		if (config.enable_batteries != defaults.enable_batteries)
-			cJSON_AddNumberToObject(json, "enable_batteries", config.enable_batteries);
-		if (config.enable_battery_stealth != defaults.enable_battery_stealth)
-			cJSON_AddNumberToObject(json, "enable_battery_stealth", config.enable_battery_stealth);
-		if (config.enable_spawn_shields != defaults.enable_spawn_shields)
-			cJSON_AddNumberToObject(json, "enable_spawn_shields", config.enable_spawn_shields);
-		if (config.drone_shield != defaults.drone_shield)
-			cJSON_AddNumberToObject(json, "drone_shield", config.drone_shield);
-		if (config.spawn_delay != defaults.spawn_delay)
-			cJSON_AddNumberToObject(json, "spawn_delay", config.spawn_delay);
-		if (config.start_energy != defaults.start_energy)
-			cJSON_AddNumberToObject(json, "start_energy", config.start_energy);
-		if (config.start_energy_attacker != defaults.start_energy_attacker)
-			cJSON_AddNumberToObject(json, "start_energy_attacker", config.start_energy_attacker);
-		if (config.cooldown_speed_index != defaults.cooldown_speed_index)
-			cJSON_AddNumberToObject(json, "cooldown_speed_index", config.cooldown_speed_index);
-		if (config.fill_bots != defaults.fill_bots)
-			cJSON_AddNumberToObject(json, "fill_bots", config.fill_bots);
 
 		char* result = cJSON_Print(json);
 		cJSON_Delete(json);
@@ -673,7 +672,7 @@ namespace Master
 	{
 		config->id = id;
 		vi_assert(id > 0);
-		sqlite3_stmt* stmt = db_query("select name, config, max_players, team_count, game_type, creator_id, is_private, region, secret from ServerConfig where id=?;");
+		sqlite3_stmt* stmt = db_query("select name, config, max_players, team_count, game_type, creator_id, is_private, region, secret, preset from ServerConfig where id=?;");
 		db_bind_int(stmt, 0, id);
 		b8 found = false;
 		if (db_step(stmt))
@@ -688,6 +687,7 @@ namespace Master
 			config->is_private = b8(db_column_int(stmt, 6));
 			config->region = Region(db_column_int(stmt, 7));
 			strncpy(config->secret, db_column_text(stmt, 8), MAX_SERVER_CONFIG_SECRET);
+			config->preset = Ruleset::Preset(db_column_int(stmt, 9));
 			found = true;
 		}
 		db_finalize(stmt);
@@ -1469,7 +1469,7 @@ namespace Master
 		{
 			case ServerListType::Top:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig left join User on User.id=ServerConfig.creator_id left join UserServer on (ServerConfig.id=UserServer.server_id and UserServer.user_id=?) where (ServerConfig.is_private=0 or UserServer.role>1) and (ServerConfig.online=1 or ServerConfig.region=?) and (UserServer.role!=1 or UserServer.role is null) order by ServerConfig.online desc, ServerConfig.score desc limit ?,24");
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type, ServerConfig.preset from ServerConfig left join User on User.id=ServerConfig.creator_id left join UserServer on (ServerConfig.id=UserServer.server_id and UserServer.user_id=?) where (ServerConfig.is_private=0 or UserServer.role>1) and (ServerConfig.online=1 or ServerConfig.region=?) and (UserServer.role!=1 or UserServer.role is null) order by ServerConfig.online desc, ServerConfig.score desc limit ?,24");
 				db_bind_int(stmt, 0, client->client.user_key.id);
 				db_bind_int(stmt, 1, s64(region));
 				db_bind_int(stmt, 2, offset);
@@ -1477,14 +1477,14 @@ namespace Master
 			}
 			case ServerListType::Recent:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role!=1 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type, ServerConfig.preset from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role!=1 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
 				db_bind_int(stmt, 0, client->client.user_key.id);
 				db_bind_int(stmt, 1, offset);
 				break;
 			}
 			case ServerListType::Mine:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role>=3 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type, ServerConfig.preset from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role>=3 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
 				db_bind_int(stmt, 0, client->client.user_key.id);
 				db_bind_int(stmt, 1, offset);
 				break;
@@ -1528,6 +1528,7 @@ namespace Master
 			entry.max_players = s8(db_column_int(stmt, 3));
 			entry.team_count = s8(db_column_int(stmt, 4));
 			entry.game_type = GameType(db_column_int(stmt, 5));
+			entry.preset = Ruleset::Preset(db_column_int(stmt, 6));
 
 			server_state_for_config_id(id, entry.max_players, region, &entry.server_state, client->addr.host.type, &entry.addr);
 
@@ -2092,7 +2093,7 @@ namespace Master
 					// create config in db
 					server_config_generate_secret(config.secret);
 
-					sqlite3_stmt* stmt = db_query("insert into ServerConfig (creator_id, name, config, max_players, team_count, game_type, is_private, online, region, plays, score, secret) values (?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?);");
+					sqlite3_stmt* stmt = db_query("insert into ServerConfig (creator_id, name, config, max_players, team_count, game_type, is_private, online, region, plays, score, secret, preset) values (?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?, ?);");
 					db_bind_int(stmt, 0, node->client.user_key.id);
 					db_bind_text(stmt, 1, config.name);
 					char* json = server_config_stringify(config);
@@ -2105,6 +2106,7 @@ namespace Master
 					db_bind_int(stmt, 7, s64(config.region));
 					db_bind_int(stmt, 8, server_config_score(0, platform::timestamp()));
 					db_bind_text(stmt, 9, config.secret);
+					db_bind_int(stmt, 10, s64(config.preset));
 					config_id = u32(db_exec(stmt));
 
 					// give friends access to new server
@@ -2141,7 +2143,7 @@ namespace Master
 							net_error();
 					}
 
-					sqlite3_stmt* stmt = db_query("update ServerConfig set name=?, config=?, max_players=?, team_count=?, game_type=?, is_private=?, region=?, secret=? where id=?;");
+					sqlite3_stmt* stmt = db_query("update ServerConfig set name=?, config=?, max_players=?, team_count=?, game_type=?, is_private=?, region=?, secret=?, preset=? where id=?;");
 					db_bind_text(stmt, 0, config.name);
 					char* json = server_config_stringify(config);
 					db_bind_text(stmt, 1, json);
@@ -2152,7 +2154,8 @@ namespace Master
 					db_bind_int(stmt, 5, config.is_private);
 					db_bind_int(stmt, 6, s64(config.region));
 					db_bind_text(stmt, 7, config.secret);
-					db_bind_int(stmt, 8, config.id);
+					db_bind_int(stmt, 8, s64(config.preset));
+					db_bind_int(stmt, 9, config.id);
 					db_exec(stmt);
 					config_id = config.id;
 				}
@@ -2323,6 +2326,8 @@ namespace Master
 
 		Sock::init();
 
+		Ruleset::init();
+
 		if (Sock::udp_open(&global.sock, NET_MASTER_PORT))
 		{
 			fprintf(stderr, "%s\n", Sock::get_error());
@@ -2346,7 +2351,7 @@ namespace Master
 			if (init_db)
 			{
 				db_exec("create table User (id integer primary key autoincrement, token integer not null, token_timestamp integer not null, itch_id integer, steam_id integer, gamejolt_id integer, username varchar(256) not null, banned boolean not null, vip boolean not null, completed_campaign boolean not null, unique(itch_id), unique(steam_id));");
-				db_exec("create table ServerConfig (id integer primary key autoincrement, creator_id integer not null, name text not null, config text, max_players integer not null, team_count integer not null, game_type integer not null, is_private boolean not null, online boolean not null, region integer not null, plays integer not null, score integer not null, secret text not null, foreign key (creator_id) references User(id));");
+				db_exec("create table ServerConfig (id integer primary key autoincrement, creator_id integer not null, name text not null, config text, max_players integer not null, team_count integer not null, game_type integer not null, is_private boolean not null, online boolean not null, region integer not null, plays integer not null, score integer not null, secret text not null, preset integer not null default(0), foreign key (creator_id) references User(id));");
 				db_exec("create table UserServer (user_id integer not null, server_id integer not null, timestamp integer not null, role integer not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id), primary key (user_id, server_id));");
 				db_exec("create table Friendship (user1_id integer not null, user2_id integer not null, foreign key (user1_id) references User(id), foreign key (user2_id) references User(id), primary key (user1_id, user2_id));");
 				db_exec("create table AuthAttempt (timestamp integer not null, type integer not null, ip text not null, user_id integer, foreign key (user_id) references User(id));");

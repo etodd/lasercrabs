@@ -195,6 +195,27 @@ void Messenger::remove(const Sock::Address& addr)
 	sequence_ids.erase(addr.hash());
 }
 
+Ruleset Ruleset::presets[s32(Preset::count)];
+
+void Ruleset::init()
+{
+	{
+		// Default
+		Ruleset* ruleset = &presets[s32(Preset::Default)];
+	}
+	{
+		// Arcade
+		Ruleset* ruleset = &presets[s32(Preset::Arcade)];
+		ruleset->enable_batteries = false;
+		ruleset->upgrades_allow = 0;
+		ruleset->upgrades_default = (1 << s32(Upgrade::count)) - 1;
+	}
+	{
+		// Custom
+		Ruleset* ruleset = &presets[s32(Preset::Custom)];
+	}
+}
+
 const char* ServerConfig::game_type_string(GameType type)
 {
 	switch (type)
@@ -214,19 +235,32 @@ const char* ServerConfig::game_type_string(GameType type)
 	}
 }
 
+const char* Ruleset::preset_name(Preset p)
+{
+	switch (p)
+	{
+		case Preset::Default:
+			return "Default";
+		case Preset::Arcade:
+			return "Arcade";
+		case Preset::Custom:
+			return "Custom";
+		default:
+			vi_assert(false);
+			return nullptr;
+	}
+}
+
 const char* ServerConfig::game_type_string_human(GameType type)
 {
 	switch (type)
 	{
 		case GameType::Deathmatch:
 			return "DM";
-			break;
 		case GameType::Assault:
 			return "Assault";
-			break;
 		case GameType::CaptureTheFlag:
 			return "CTF";
-			break;
 		default:
 			vi_assert(false);
 			return nullptr;

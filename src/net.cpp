@@ -762,7 +762,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Team* t = e->get<Team>();
 		serialize_s16(p, t->kills);
 		serialize_s16(p, t->flags_captured);
-		serialize_int(p, s16, t->extra_drones, 0, MAX_RESPAWNS);
 		serialize_ref(p, t->flag_base);
 	}
 

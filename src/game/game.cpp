@@ -292,6 +292,8 @@ void discord_update_presence()
 
 void Game::init(LoopSync* sync)
 {
+	Net::Master::Ruleset::init();
+
 #if !SERVER && !defined(__ORBIS__)
 	if (auth_type == Net::Master::AuthType::Steam)
 	{
@@ -1585,6 +1587,16 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 	Mode last_mode = level.mode;
 	unload_level();
 
+	{
+		// start abilities may not show up in the default upgrades
+		// and we don't want to save them in there in the database (don't want to override user preferences)
+		// so apply them on game load
+		if (session.config.preset != Net::Master::Ruleset::Preset::Custom)
+			session.config.ruleset = Net::Master::Ruleset::presets[s32(session.config.preset)];
+		for (s32 i = 0; i < session.config.ruleset.start_abilities.length; i++)
+			session.config.ruleset.upgrades_default |= (1 << s32(session.config.ruleset.start_abilities[i]));
+	}
+
 	if (m == Mode::Parkour)
 	{
 		if (l != last_level && last_mode == Mode::Parkour)
@@ -1910,7 +1922,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			AI::Team team = AI::Team(Json::get_s32(element, "team"));
 			b8 is_team_spawn = cJSON_HasObjectItem(element, "team");
 			if ((is_team_spawn && Team::list.count() > s32(team))
-				|| (!is_team_spawn && session.config.enable_batteries))
+				|| (!is_team_spawn && session.config.ruleset.enable_batteries))
 				entity = World::alloc<SpawnPointEntity>(team, Json::get_s32(element, "visible", 1));
 			else
 				entity = World::alloc<StaticGeom>(Asset::Mesh::spawn_collision, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
@@ -2023,7 +2035,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		}
 		else if (cJSON_HasObjectItem(element, "Battery"))
 		{
-			if (level.has_feature(FeatureLevel::Batteries) && session.config.enable_batteries)
+			if (level.has_feature(FeatureLevel::Batteries) && session.config.ruleset.enable_batteries)
 			{
 				AI::Team team;
 				if (session.type == SessionType::Story)
@@ -2403,7 +2415,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			for (s32 i = 0; i < Team::list.count(); i++)
 				World::create<FlagEntity>(AI::Team(i));
 		}
-		else if (session.config.enable_spawn_shields)
+		else if (session.config.ruleset.enable_spawn_shields)
 		{
 			// create spawn force fields
 			for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())

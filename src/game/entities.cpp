@@ -64,7 +64,7 @@ DroneEntity::DroneEntity(AI::Team team, const Vec3& pos)
 	}
 	create<Drone>();
 	create<AIAgent>()->team = team;
-	create<Health>(DRONE_HEALTH, DRONE_HEALTH, Game::session.config.drone_shield, Game::session.config.drone_shield)->active_armor_timer = DRONE_INVINCIBLE_TIME;
+	create<Health>(DRONE_HEALTH, DRONE_HEALTH, Game::session.config.ruleset.drone_shield, Game::session.config.ruleset.drone_shield)->active_armor_timer = DRONE_INVINCIBLE_TIME;
 	create<Shield>();
 
 	SkinnedModel* model = create<SkinnedModel>();
@@ -622,7 +622,7 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 	model->mesh = Asset::Mesh::battery;
 	model->shader = Asset::Shader::standard;
 
-	if (Game::session.config.enable_battery_stealth)
+	if (Game::session.config.ruleset.enable_battery_stealth)
 	{
 		PointLight* light = create<PointLight>();
 		light->type = PointLight::Type::Override;
@@ -2093,7 +2093,7 @@ void Turret::update_server(const Update& u)
 
 	cooldown = vi_max(0.0f, cooldown - u.time.delta);
 
-	if (target.ref() && cooldown == 0.0f)
+	if (cooldown == 0.0f && target.ref())
 	{
 		if (can_see(target.ref()))
 		{

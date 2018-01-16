@@ -42,16 +42,16 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 	for (s32 i = 0; i < s32(Upgrade::count); i++)
 	{
 		Upgrade u = Upgrade(i);
-		if ((Game::session.config.upgrades_allow & ~Game::session.config.upgrades_default) & (1 << s16(u)))
+		if ((Game::session.config.ruleset.upgrades_allow & ~Game::session.config.ruleset.upgrades_default) & (1 << s16(u)))
 		{
 			b8 start_with = false;
 
 			const UpgradeInfo& info = UpgradeInfo::list[s32(u)];
 			if (info.type == UpgradeInfo::Type::Ability)
 			{
-				for (s32 j = 0; j < Game::session.config.start_abilities.length; j++)
+				for (s32 j = 0; j < Game::session.config.ruleset.start_abilities.length; j++)
 				{
-					if (Game::session.config.start_abilities[j] == Ability(u))
+					if (Game::session.config.ruleset.start_abilities[j] == Ability(u))
 					{
 						start_with = true;
 						break;
@@ -990,7 +990,7 @@ void PlayerControlAI::actions_populate()
 				action.type = AI::RecordedLife::Action::TypeRunAway;
 				action.pos = i.item()->get<Transform>()->absolute_pos();
 				s8 priority = -1;
-				priority -= Game::session.config.drone_shield - get<Health>()->shield;
+				priority -= Game::session.config.ruleset.drone_shield - get<Health>()->shield;
 				action_queue.push({ priority, action });
 				break;
 			}
@@ -1059,7 +1059,7 @@ void PlayerControlAI::actions_populate()
 						else if (entity_type == AI::RecordedLife::EntityDroneEnemyShield1)
 							priority -= 3;
 
-						priority -= (Game::session.config.drone_shield - tag.shield);
+						priority -= (Game::session.config.ruleset.drone_shield - tag.shield);
 
 						break;
 					}
@@ -1069,7 +1069,7 @@ void PlayerControlAI::actions_populate()
 							continue;
 
 						priority -= 1;
-						priority -= (Game::session.config.drone_shield - tag.shield);
+						priority -= (Game::session.config.ruleset.drone_shield - tag.shield);
 						break;
 					}
 					case AI::RecordedLife::EntityBatteryEnemy:

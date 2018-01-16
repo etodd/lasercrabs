@@ -1119,7 +1119,7 @@ void PlayerHuman::update(const Update& u)
 			kill_cam_rot = camera.ref()->rot;
 			if (UpgradeStation::drone_at(entity->get<Drone>())
 				&& get<PlayerManager>()->can_transition_state()
-				&& (Game::session.config.upgrades_default | get<PlayerManager>()->energy > 0)
+				&& (Game::session.config.ruleset.upgrades_default | get<PlayerManager>()->energy > 0)
 				&& !entity->get<Drone>()->flag.ref())
 			{
 				if (chat_focus == ChatFocus::None && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
@@ -1190,7 +1190,7 @@ void PlayerHuman::update(const Update& u)
 						for (s32 i = 0; i < s32(Upgrade::count); i++)
 						{
 							Upgrade upgrade = Upgrade(i);
-							if ((Game::session.config.upgrades_allow | Game::session.config.upgrades_default) & (1 << s32(upgrade)))
+							if ((Game::session.config.ruleset.upgrades_allow | Game::session.config.ruleset.upgrades_default) & (1 << s32(upgrade)))
 							{
 								const UpgradeInfo& info = UpgradeInfo::list[s32(upgrade)];
 								b8 can_upgrade = !upgrade_in_progress
@@ -1276,7 +1276,7 @@ void PlayerHuman::update(const Update& u)
 			Entity* k = killed_by.ref();
 			if (k)
 				kill_cam_rot = Quat::look(Vec3::normalize(k->get<Transform>()->absolute_pos() - camera.ref()->pos));
-			if (get<PlayerManager>()->spawn_timer < Game::session.config.spawn_delay - 1.0f)
+			if (get<PlayerManager>()->spawn_timer < Game::session.config.ruleset.spawn_delay - 1.0f)
 				camera.ref()->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), camera.ref()->rot, kill_cam_rot);
 			break;
 		}
@@ -1717,24 +1717,16 @@ void match_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Ancho
 	switch (anchor_x)
 	{
 		case UIText::Anchor::Min:
-		{
 			break;
-		}
 		case UIText::Anchor::Center:
-		{
 			p.x += box.x * -0.5f;
 			break;
-		}
 		case UIText::Anchor::Max:
-		{
 			p.x -= box.x;
 			break;
-		}
 		default:
-		{
 			vi_assert(false);
 			break;
-		}
 	}
 		
 	UI::box(params, Rect2(p, box).outset(padding), UI::color_background);
@@ -1915,7 +1907,7 @@ Upgrade PlayerHuman::upgrade_selected() const
 		s32 index = 0;
 		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{
-			if ((Game::session.config.upgrades_allow | Game::session.config.upgrades_default) & (1 << i))
+			if ((Game::session.config.ruleset.upgrades_allow | Game::session.config.ruleset.upgrades_default) & (1 << i))
 			{
 				if (index == menu.selected - 1)
 				{
@@ -2242,12 +2234,12 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 	// draw abilities
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& (Game::session.config.upgrades_allow | Game::session.config.upgrades_default))
+		&& (Game::session.config.ruleset.upgrades_allow | Game::session.config.ruleset.upgrades_default))
 	{
 		if (mode == UIMode::PvpDefault
 			&& get<PlayerManager>()->can_transition_state()
 			&& UpgradeStation::drone_at(get<PlayerManager>()->instance.ref()->get<Drone>())
-			&& (get<PlayerManager>()->energy > 0 | Game::session.config.upgrades_default))
+			&& (get<PlayerManager>()->energy > 0 | Game::session.config.ruleset.upgrades_default))
 		{
 			// "upgrade!" prompt
 			UIText text;
@@ -2256,7 +2248,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.anchor_y = UIText::Anchor::Center;
 			Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
 			const Vec4* bg;
-			if (get<PlayerManager>()->upgrade_available() || Game::session.config.upgrades_default)
+			if (get<PlayerManager>()->upgrade_available() || Game::session.config.ruleset.upgrades_default)
 			{
 				if (chat_focus == ChatFocus::None && params.sync->input.get(Controls::Interact, gamepad))
 				{
@@ -2299,7 +2291,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 	if (Game::level.mode == Game::Mode::Pvp
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& Game::session.config.upgrades_allow
+		&& Game::session.config.ruleset.upgrades_allow
 		&& (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade))
 	{
 		// energy

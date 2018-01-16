@@ -136,7 +136,6 @@ struct Team : public ComponentType<Team>
 	Ref<Target> spot_target;
 	Ref<Transform> flag_base;
 	s16 kills;
-	s16 extra_drones;
 	s16 flags_captured;
 
 	void awake() {}

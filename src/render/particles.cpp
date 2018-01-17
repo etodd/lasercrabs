@@ -414,10 +414,19 @@ Rain::Rain(const Vec2& size, const Vec3& velocity)
 		audio_kernel[i] = audio_kernel[i] / sum;
 }
 
-void Rain::init()
+void Rain::audio_init()
 {
-	audio_entry = Audio::post_global(AK::EVENTS::PLAY_RAIN_LOOP, Vec3::zero);
-	audio_entry.ref()->flag(AudioEntry::FlagEnableObstructionOcclusion, false);
+	audio_entry = Audio::post_global(AK::EVENTS::PLAY_RAIN_LOOP, Vec3::zero, nullptr, AudioEntry::FlagEnableReverb | AudioEntry::FlagKeepalive);
+}
+
+void Rain::audio_clear()
+{
+	if (audio_entry.ref())
+	{
+		audio_entry.ref()->stop_all();
+		audio_entry.ref()->cleanup();
+	}
+	audio_entry = nullptr;
 }
 
 void Rain::clear()

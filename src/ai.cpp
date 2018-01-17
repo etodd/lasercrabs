@@ -32,7 +32,7 @@ namespace VI
 namespace AI
 {
 
-Array<b8> obstacles;
+Bitmask<nav_max_obstacles> obstacles;
 SyncRingBuffer<SYNC_IN_SIZE> sync_in;
 SyncRingBuffer<SYNC_OUT_SIZE> sync_out;
 b8 render_meshes_dirty;
@@ -238,11 +238,14 @@ b8 match(Team t, TeamMask m)
 
 u32 obstacle_add(const Vec3& pos, r32 radius, r32 height)
 {
+	if (obstacles.count() == nav_max_obstacles)
+		return u32(nav_max_obstacles); // no room
+
 	u32 id;
 	b8 found = false;
-	for (s32 i = 0; i < obstacles.length; i++)
+	for (s32 i = 0; i < obstacles.count(); i++)
 	{
-		if (!obstacles[i])
+		if (!obstacles.get(i))
 		{
 			id = u32(i);
 			found = true;
@@ -250,13 +253,9 @@ u32 obstacle_add(const Vec3& pos, r32 radius, r32 height)
 		}
 	}
 
-	if (found)
-		obstacles[id] = true;
-	else
-	{
-		id = obstacles.length;
-		obstacles.add(true);
-	}
+	if (!found)
+		id = obstacles.end;
+	obstacles.set(id, true);
 
 	sync_in.lock();
 	sync_in.write(Op::ObstacleAdd);
@@ -271,11 +270,14 @@ u32 obstacle_add(const Vec3& pos, r32 radius, r32 height)
 
 void obstacle_remove(u32 id)
 {
-	obstacles[id] = false;
-	sync_in.lock();
-	sync_in.write(Op::ObstacleRemove);
-	sync_in.write(id);
-	sync_in.unlock();
+	if (id < nav_max_obstacles)
+	{
+		obstacles.set(id, false);
+		sync_in.lock();
+		sync_in.write(Op::ObstacleRemove);
+		sync_in.write(id);
+		sync_in.unlock();
+	}
 }
 
 void load(AssetID id, const char* filename, const char* record_filename)

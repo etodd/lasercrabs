@@ -1008,32 +1008,47 @@ void SpawnPoint::update_server_all(const Update& u)
 		&& Game::level.has_feature(Game::FeatureLevel::Turrets)
 		&& Team::match_state == Team::MatchState::Active)
 	{
+		struct TeamSpawnRate
+		{
+			r32 rate;
+			r32 time;
+		};
+
+		TeamSpawnRate spawn_rate[MAX_TEAMS] = {};
+
 		const s32 minion_group = 3;
 		const r32 minion_initial_delay = Game::session.type == SessionType::Story
 			? 3.0f
 			: 60.0f;
 		const r32 minion_spawn_interval = 8.0f; // time between individual minions spawning
 		const r32 minion_group_interval = minion_spawn_interval * 10.0f; // time between minion groups spawning; must be a multiple of minion_spawn_interval
-		r32 spawn_rate_multiplier = Game::session.config.ruleset.enable_batteries ? 1.0f : 2.5f;
-		for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+
+		// calculate spawn rate for each team
 		{
-			// spawn points owned by a team will spawn a minion
-			r32 rate = spawn_rate_multiplier * i.item()->minion_spawn_rate();
-			r32 time = (Team::match_time * rate) - minion_initial_delay;
-			for (auto j = list.iterator(); !j.is_last(); j.next())
+			r32 spawn_rate_multiplier = Game::session.config.ruleset.enable_batteries ? 1.0f : 2.5f;
+			for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 			{
-				if (j.item()->team == i.item()->team())
+				// spawn points owned by a team will spawn a minion
+				TeamSpawnRate* entry = &spawn_rate[i.index];
+				entry->rate = spawn_rate_multiplier * i.item()->minion_spawn_rate();
+				entry->time = (Team::match_time * entry->rate) - minion_initial_delay;
+			}
+		}
+
+		for (auto j = list.iterator(); !j.is_last() && Minion::list.count() < 96; j.next())
+		{
+			if (j.item()->team != AI::TeamNone)
+			{
+				const TeamSpawnRate& entry = spawn_rate[j.item()->team];
+				r32 t = entry.time + j.index * entry.rate * minion_spawn_interval * -0.5f;
+				if (t > 0.0f)
 				{
-					r32 t = time + j.index * minion_spawn_interval * -0.5f;
-					if (t > 0.0f)
+					s32 index = s32(t / minion_spawn_interval);
+					s32 index_last = s32((t - u.time.delta * entry.rate) / minion_spawn_interval);
+					if (index != index_last && (index % s32(minion_group_interval / minion_spawn_interval)) <= minion_group)
 					{
-						s32 index = s32(t / minion_spawn_interval);
-						s32 index_last = s32((t - u.time.delta * rate) / minion_spawn_interval);
-						if (index != index_last && (index % s32(minion_group_interval / minion_spawn_interval)) <= minion_group)
-						{
-							SpawnPosition pos = j.item()->spawn_position();
-							ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, pos.pos, Quat::euler(0, pos.angle, 0), nullptr, j.item()->team);
-						}
+						SpawnPosition pos = j.item()->spawn_position();
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, pos.pos, Quat::euler(0, pos.angle, 0), nullptr, j.item()->team);
 					}
 				}
 			}
@@ -4702,6 +4717,8 @@ void TramRunner::update_server(const Update& u)
 			&& offset > t.points[t.points.length - 1].offset) // we hit our goal, we are the front runner, we're a local game, and we're exiting the level
 		{
 #if RELEASE_BUILD
+			Settings::quick_combat_unlocked = true;
+			Loader::settings_save();
 			Game::scheduled_dialog = strings::demo_end;
 			Menu::title();
 #else

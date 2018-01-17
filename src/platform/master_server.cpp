@@ -2590,7 +2590,8 @@ namespace DiscordBot
 	{
 		r64 last_poll;
 		r64 last_stat_mention_timestamp;
-		s32 last_stat_mention_total_players;
+		s32 last_stat_mention_playing;
+		s32 last_stat_mention_available;
 		char last_poll_message_id[MAX_DISCORD_ID_LENGTH + 1];
 	};
 	State state;
@@ -3250,9 +3251,10 @@ namespace DiscordBot
 					s32 available;
 					stats(&playing, &in_lobby, &available);
 
-					s32 total = vi_max(playing, available);
-					if (total > 0
-						&& (total >= state.last_stat_mention_total_players * 2 || timestamp > state.last_stat_mention_timestamp + 30.0 * 60.0))
+					if ((playing > 0 || available > 1)
+						&& (playing >= state.last_stat_mention_playing * 2
+							|| available >= state.last_stat_mention_available * 2
+							|| timestamp > state.last_stat_mention_timestamp + 30.0 * 60.0))
 					{
 						if (state.last_poll_message_id[0]) // if this is the first time we're polling, we just rebooted; don't send out the mention
 						{
@@ -3262,7 +3264,8 @@ namespace DiscordBot
 							msg_post(mention.str().c_str());
 						}
 						state.last_stat_mention_timestamp = timestamp;
-						state.last_stat_mention_total_players = total;
+						state.last_stat_mention_playing = playing;
+						state.last_stat_mention_available = available;
 					}
 				}
 

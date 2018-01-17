@@ -636,7 +636,7 @@ void title_menu(const Update& u, Camera* camera)
 					Scripts::Docks::play();
 					clear();
 				}
-				else if (main_menu.item(u, _(strings::multiplayer)))
+				else if (main_menu.item(u, _(strings::multiplayer), nullptr, !(Settings::god_mode || Settings::quick_combat_unlocked)))
 				{
 					Game::save.reset();
 					Game::session.reset(SessionType::Multiplayer);
@@ -652,9 +652,7 @@ void title_menu(const Update& u, Camera* camera)
 				else
 				{
 					if (main_menu.item(u, _(strings::discord)))
-						open_url("https://discord.gg/rHkXXhR");
-					if (main_menu.item(u, _(strings::mail_list)))
-						open_url("https://eepurl.com/U50O5");
+						open_url("https://discord.gg/eZGapeY");
 					if (main_menu.item(u, _(strings::credits)))
 						main_menu_state = State::Credits;
 					if (main_menu.item(u, _(strings::exit)))
@@ -2186,7 +2184,6 @@ b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disab
 		mouse_selected = check_mouse_select(this, u, items.length - 1);
 
 	if (selected == items.length - 1
-		&& Game::time.total > 0.35f
 		&& (enable_input == EnableInput::Yes || enable_input == EnableInput::NoMovement)
 		&& !Console::visible
 		&& !disabled)
@@ -2224,8 +2221,7 @@ s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b
 	if (gamepad == 0 && Game::ui_gamepad_types[0] == Gamepad::Type::None)
 		mouse_selected = check_mouse_select(this, u, items.length - 1);
 
-	if (selected == items.length - 1
-		&& Game::time.total > 0.5f)
+	if (selected == items.length - 1)
 	{
 		s32 delta = UI::input_delta_horizontal(u, gamepad);
 

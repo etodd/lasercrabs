@@ -72,7 +72,8 @@ struct Rain : public ParticleSystem
 	static r32 audio_kernel[raycast_grid_size * raycast_grid_size];
 	static Ref<AudioEntry> audio_entry;
 
-	static void init();
+	static void audio_init();
+	static void audio_clear();
 	static void spawn(const Update&, r32);
 
 	Vec3 velocity;
@@ -82,8 +83,8 @@ struct Rain : public ParticleSystem
 	s32 raycast_grid_index;
 
 	Rain(const Vec2&, const Vec3&);
-	void spawn(const Update&, const Vec3&, const Vec3&, r32, b8);
 	void clear();
+	void spawn(const Update&, const Vec3&, const Vec3&, r32, b8);
 	void spawn_fill(const Update&, const Vec3&, const Vec3&, r32, r32);
 	b8 pre_draw(const RenderParams&);
 	r32 density(r32) const;

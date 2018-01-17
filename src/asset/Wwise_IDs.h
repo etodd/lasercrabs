@@ -13,6 +13,7 @@ namespace AK
 {
     namespace EVENTS
     {
+        static const AkUniqueID PAUSE_ALL = 3864097025U;
         static const AkUniqueID PLAY_AMB_AREA_01 = 2012228648U;
         static const AkUniqueID PLAY_AMB_AREA_02 = 2012228651U;
         static const AkUniqueID PLAY_BATTERY_CAPTURE = 2178381398U;
@@ -193,6 +194,7 @@ namespace AK
         static const AkUniqueID PLAY_WATER_LOOP = 1564978696U;
         static const AkUniqueID PLAY_ZOOM_IN = 2626091291U;
         static const AkUniqueID PLAY_ZOOM_OUT = 1819052470U;
+        static const AkUniqueID RESUME_ALL = 3679762312U;
         static const AkUniqueID STOP = 788884573U;
         static const AkUniqueID STOP_ALL = 452547817U;
         static const AkUniqueID STOP_AUDIOLOG = 3683249448U;
@@ -212,6 +214,7 @@ namespace AK
         static const AkUniqueID PARKOUR_SLIDE = 2866705659U;
         static const AkUniqueID PARKOUR_WIND = 2655675174U;
         static const AkUniqueID PERSPECTIVE = 3838734001U;
+        static const AkUniqueID TIMESCALE = 4070528516U;
         static const AkUniqueID TURRET_CHARGE = 2996230726U;
         static const AkUniqueID VOLUME_MUSIC = 3891337659U;
         static const AkUniqueID VOLUME_SFX = 3673881719U;
@@ -229,6 +232,7 @@ namespace AK
         static const AkUniqueID AUX_MASTER = 3134780610U;
         static const AkUniqueID BATTERY = 2326215132U;
         static const AkUniqueID DIALOGUE = 3930136735U;
+        static const AkUniqueID DIEGETIC = 1316532907U;
         static const AkUniqueID DRONE = 2739838641U;
         static const AkUniqueID DRONE_DAMAGE = 1489866471U;
         static const AkUniqueID DRONE_LOCOMOTION = 812076015U;

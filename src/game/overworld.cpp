@@ -750,7 +750,13 @@ void multiplayer_entry_edit_update(const Update& u)
 						data.multiplayer.active_server_dirty = true;
 				}
 
-				if (config->preset == Net::Master::Ruleset::Preset::Custom || config->game_type != GameType::Assault)
+				if (config->game_type == GameType::Assault && config->preset != Net::Master::Ruleset::Preset::Custom)
+				{
+					// read-only time limit
+					sprintf(str, _(strings::timer), DEFAULT_ASSAULT_TIME_LIMIT_MINUTES, 0);
+					menu->item(u, _(strings::time_limit), str, true);
+				}
+				else
 				{
 					// time limit
 					u8* time_limit = &config->time_limit_minutes[s32(config->game_type)];
@@ -2403,7 +2409,8 @@ void hide()
 
 void hide_complete()
 {
-	Particles::clear();
+	if (modal())
+		Particles::clear();
 	if (data.camera.ref())
 	{
 		data.camera.ref()->remove();
@@ -3457,8 +3464,6 @@ b8 pvp_colors()
 
 void show_complete()
 {
-	Particles::clear();
-
 	{
 		Camera* restore_camera = data.restore_camera.ref();
 		StoryTab tab_next = data.story.tab;
@@ -3495,6 +3500,7 @@ void show_complete()
 
 	if (modal())
 	{
+		Particles::clear();
 		data.restore_camera.ref()->flag(CameraFlagActive, false);
 		data.camera = Camera::list.add();
 		new (data.camera.ref()) Camera();

@@ -78,6 +78,15 @@
 						<Property Name="SlewRateUp" Type="Real64" Value="2"/>
 					</PropertyList>
 				</GameParameter>
+				<GameParameter Name="Timescale" ID="{28EF426C-2A0E-4FD7-A0F8-842616EEB055}">
+					<PropertyList>
+						<Property Name="InitialValue" Type="Real64" Value="1"/>
+						<Property Name="Max" Type="Real64" Value="1"/>
+						<Property Name="RTPCRamping" Type="int16" Value="1"/>
+						<Property Name="SlewRateDown" Type="Real64" Value="2.5"/>
+						<Property Name="SlewRateUp" Type="Real64" Value="2.5"/>
+					</PropertyList>
+				</GameParameter>
 			</ChildrenList>
 		</WorkUnit>
 	</GameParameters>

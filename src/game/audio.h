@@ -86,7 +86,7 @@ struct AudioEntry
 
 	void flag(s32, b8);
 
-	void init(const Vec3&, Transform*, AudioEntry* = nullptr);
+	void init(const Vec3&, Transform*, AudioEntry* = nullptr, s32 = FlagEnableObstructionOcclusion | FlagEnableForceFieldObstruction | FlagEnableReverb);
 	void cleanup();
 
 	inline ID id()
@@ -137,7 +137,7 @@ struct Audio : ComponentType<Audio>
 	static void update_all(const Update&);
 	static void post_global(AkUniqueID);
 	static b8 post_global_dialogue(AkUniqueID);
-	static AudioEntry* post_global(AkUniqueID, const Vec3&, Transform* = nullptr);
+	static AudioEntry* post_global(AkUniqueID, const Vec3&, Transform* = nullptr, s32 = AudioEntry::FlagEnableObstructionOcclusion | AudioEntry::FlagEnableForceFieldObstruction | AudioEntry::FlagEnableReverb);
 	static void param_global(AkRtpcID, AkRtpcValue);
 	static void listener_list_update();
 	static void listener_enable(s8, AI::Team);

@@ -51,6 +51,10 @@
 							<GameParameterRef Name="Volume_SFX" ID="{31BB14DE-9BFF-4D9D-A09A-D58020485541}"/>
 							<Value>1</Value>
 						</RTPCValue>
+						<RTPCValue>
+							<GameParameterRef Name="Timescale" ID="{28EF426C-2A0E-4FD7-A0F8-842616EEB055}"/>
+							<Value>1.51391302711812E-315</Value>
+						</RTPCValue>
 					</RTPCValueList>
 					<CurrentStateList ShowAll="true"/>
 					<CurrentSwitchList ShowAll="true"/>

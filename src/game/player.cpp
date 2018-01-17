@@ -1248,6 +1248,8 @@ void PlayerHuman::update(const Update& u)
 				UIText::Anchor::Center,
 			};
 			Menu::pause_menu(u, origin, gamepad, &menu, &menu_state);
+			if (menu_state == Menu::State::Hidden && Game::should_pause())
+				Audio::post_global(AK::EVENTS::RESUME_ALL);
 			break;
 		}
 		case UIMode::PvpSelectTeam:
@@ -1327,10 +1329,8 @@ void PlayerHuman::update(const Update& u)
 			break;
 		}
 		default:
-		{
 			vi_assert(false);
 			break;
-		}
 	}
 
 	// close/open pause menu if needed
@@ -1341,29 +1341,22 @@ void PlayerHuman::update(const Update& u)
 			// pause when window loses focus
 			menu_state = Menu::State::Visible;
 			menu.animate();
+			if (Game::should_pause())
+				Audio::post_global(AK::EVENTS::PAUSE_ALL);
 		}
 		else
 #endif
-		if (Game::time.total > 0.5f
-			&& u.last_input->get(Controls::Pause, gamepad)
-			&& !u.input->get(Controls::Pause, gamepad)
-			&& !Game::cancel_event_eaten[gamepad]
+		if (!Game::cancel_event_eaten[gamepad]
 			&& !flag(FlagUpgradeMenuOpen)
-			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
+			&& ((u.last_input->get(Controls::Pause, gamepad) && !u.input->get(Controls::Pause, gamepad) && (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
+				|| (menu_state == Menu::State::Visible && u.last_input->get(Controls::Cancel, gamepad) && !u.input->get(Controls::Cancel, gamepad))))
 		{
 			Game::cancel_event_eaten[gamepad] = true;
 			menu_state = (menu_state == Menu::State::Hidden) ? Menu::State::Visible : Menu::State::Hidden;
 			Audio::post_global(menu_state == Menu::State::Visible ? AK::EVENTS::PLAY_DIALOG_SHOW : AK::EVENTS::PLAY_DIALOG_CANCEL);
 			menu.animate();
-		}
-		else if (menu_state == Menu::State::Visible
-			&& u.last_input->get(Controls::Cancel, gamepad)
-			&& !u.input->get(Controls::Cancel, gamepad)
-			&& !Game::cancel_event_eaten[gamepad])
-		{
-			Game::cancel_event_eaten[gamepad] = true;
-			menu_state = Menu::State::Hidden;
-			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+			if (Game::should_pause())
+				Audio::post_global(menu_state == Menu::State::Visible ? AK::EVENTS::PAUSE_ALL : AK::EVENTS::RESUME_ALL);
 		}
 	}
 }

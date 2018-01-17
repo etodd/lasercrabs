@@ -892,15 +892,8 @@ void Water::awake()
 		if (config.color.w < 0.0f)
 			config.color.w = m->color.w;
 	}
-}
-
-Water::~Water()
-{
-	if (audio.ref())
-	{
-		audio.ref()->stop_all();
-		audio = nullptr;
-	}
+	get<Audio>()->entry()->flag(AudioEntry::FlagEnableForceFieldObstruction | AudioEntry::FlagEnableObstructionOcclusion, false);
+	get<Audio>()->post(m->bounds_radius > 100.0f ? AK::EVENTS::PLAY_OCEAN_LOOP : AK::EVENTS::PLAY_WATER_LOOP);
 }
 
 void Water::update_all(const Update& u)
@@ -955,10 +948,7 @@ void Water::update_all(const Update& u)
 					closest_pos = p;
 				}
 			}
-			if (i.item()->audio.ref())
-				i.item()->audio.ref()->abs_pos = closest_pos;
-			else
-				i.item()->audio = Audio::post_global(m->bounds_radius > 100.0f ? AK::EVENTS::PLAY_OCEAN_LOOP : AK::EVENTS::PLAY_WATER_LOOP, closest_pos);
+			i.item()->get<Audio>()->offset(closest_pos - water_pos);
 		}
 	}
 }

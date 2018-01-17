@@ -216,6 +216,7 @@ struct Game
 	static void auth_failed();
 	static void term();
 
+	static b8 should_pause();
 	static void remove_bots_if_necessary(s32);
 	static void add_local_player(s8);
 

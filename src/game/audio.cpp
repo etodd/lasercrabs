@@ -78,7 +78,7 @@ void Audio::term() {}
 void Audio::update_all(const Update&) {}
 void Audio::post_global(AkUniqueID) {}
 b8 Audio::post_global_dialogue(AkUniqueID) { return false; }
-AudioEntry* Audio::post_global(AkUniqueID, const Vec3&, Transform*) { return nullptr; }
+AudioEntry* Audio::post_global(AkUniqueID, const Vec3&, Transform*, s32) { return nullptr; }
 void Audio::param_global(AkRtpcID, AkRtpcValue) {}
 void Audio::listener_enable(s8, AI::Team) {}
 void Audio::listener_disable(s8) {}
@@ -86,7 +86,7 @@ void Audio::listener_update(s8, const Vec3&, const Quat&) {}
 AkUniqueID Audio::get_id(const char*) { return 0; }
 void Audio::clear() {}
 
-void AudioEntry::init(const Vec3&, Transform*, AudioEntry*) {}
+void AudioEntry::init(const Vec3&, Transform*, AudioEntry*, s32) {}
 void AudioEntry::cleanup() {}
 void AudioEntry::update(r32) {}
 void AudioEntry::update_spatialization(UpdateType) {}
@@ -255,7 +255,7 @@ void Audio::term()
 	AK::MemoryMgr::Term();
 }
 
-void AudioEntry::init(const Vec3& npos, Transform* nparent, AudioEntry* parent_entry)
+void AudioEntry::init(const Vec3& npos, Transform* nparent, AudioEntry* parent_entry, s32 f)
 {
 	revision++;
 	pos = npos;
@@ -283,7 +283,7 @@ void AudioEntry::init(const Vec3& npos, Transform* nparent, AudioEntry* parent_e
 	}
 	else
 	{
-		flags = Flag(FlagEnableObstructionOcclusion | FlagEnableForceFieldObstruction | FlagEnableReverb);
+		flags = s8(f);
 		update_spatialization(UpdateType::All);
 		memcpy(obstruction, obstruction_target, sizeof(obstruction));
 		memcpy(occlusion, occlusion_target, sizeof(occlusion));
@@ -608,10 +608,10 @@ b8 Audio::post_dialogue(AkUniqueID event_id)
 	return entry()->post_dialogue(event_id);
 }
 
-AudioEntry* Audio::post_global(AkUniqueID event_id, const Vec3& pos, Transform* parent)
+AudioEntry* Audio::post_global(AkUniqueID event_id, const Vec3& pos, Transform* parent, s32 flags)
 {
 	AudioEntry* e = AudioEntry::list.add();
-	e->init(pos, parent, nullptr);
+	e->init(pos, parent, nullptr, flags);
 	e->post(event_id);
 	return e;
 }

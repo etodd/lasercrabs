@@ -1600,7 +1600,6 @@ const char* AssetLookup::String::names[] =
 	"locke_h03",
 	"locke_h04",
 	"losing",
-	"mail_list",
 	"main_menu",
 	"map_by",
 	"master_timeout",

@@ -472,7 +472,7 @@ void Game::update(InputState* input, const InputState* last_input)
 #else
 	update_game = (level.local || Net::Client::mode() == Net::Client::Mode::Connected)
 		&& !Overworld::modal()
-		&& (!level.local || PlayerHuman::list.count() != 1 || PlayerHuman::list.iterator().item()->ui_mode() != PlayerHuman::UIMode::Pause); // don't update game while paused in local game with only one player
+		&& (!should_pause() || PlayerHuman::list.iterator().item()->ui_mode() != PlayerHuman::UIMode::Pause);
 #endif
 
 	if (update_game)
@@ -780,6 +780,7 @@ void Game::update(InputState* input, const InputState* last_input)
 
 	World::flush();
 
+	Audio::param_global(AK::GAME_PARAMETERS::TIMESCALE, session.effective_time_scale());
 	Audio::update_all(u);
 
 #if !SERVER
@@ -1477,6 +1478,7 @@ void Game::unload_level()
 	PlayerHuman::clear(); // clear some random player-related stuff
 
 	Particles::clear();
+	Rain::audio_clear();
 	ShellCasing::clear();
 	ParticleEffect::clear();
 
@@ -2577,10 +2579,8 @@ void Game::awake_all()
 		Loader::mesh_permanent(Asset::Mesh::icon_reticle_invalid);
 	}
 
-#if !SERVER
 	if (level.rain > 0.0f)
-		Rain::init();
-#endif
+		Rain::audio_init();
 
 #if !SERVER
 	if (Settings::expo)
@@ -2600,6 +2600,11 @@ void Game::awake_all()
 #if !SERVER && !defined(__ORBIS__)
 	discord_update_presence();
 #endif
+}
+
+b8 Game::should_pause()
+{
+	return level.local && PlayerHuman::list.count() == 1;
 }
 
 

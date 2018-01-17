@@ -129,11 +129,9 @@ struct Water : public ComponentType<Water>
 
 	Config config;
 	RenderMask mask;
-	Ref<AudioEntry> audio;
 
 	Water(AssetID = AssetNull);
 	void awake();
-	~Water();
 	void draw_hollow(const RenderParams&);
 	b8 contains(const Vec3&) const;
 };

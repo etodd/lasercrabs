@@ -118,7 +118,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.3f, // switch cooldown
-		6.0f, // use cooldown
+		15.0f, // use cooldown
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_rectifier,
@@ -163,7 +163,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.3f, // switch cooldown
-		6.0f, // use cooldown
+		10.0f, // use cooldown
 		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_GRENADE,
 		Asset::Mesh::icon_grenade,
@@ -186,56 +186,56 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::bolter,
 		strings::description_bolter,
 		Asset::Mesh::icon_bolter,
-		100,
+		200,
 		Type::Ability,
 	},
 	{
 		strings::active_armor,
 		strings::description_active_armor,
 		Asset::Mesh::icon_active_armor,
-		100,
+		200,
 		Type::Ability,
 	},
 	{
 		strings::rectifier,
 		strings::description_rectifier,
 		Asset::Mesh::icon_rectifier,
-		250,
+		350,
 		Type::Ability,
 	},
 	{
 		strings::minion_boost,
 		strings::description_minion_boost,
 		Asset::Mesh::icon_minion,
-		250,
+		350,
 		Type::Ability,
 	},
 	{
 		strings::shotgun,
 		strings::description_shotgun,
 		Asset::Mesh::icon_shotgun,
-		350,
+		450,
 		Type::Ability,
 	},
 	{
 		strings::sniper,
 		strings::description_sniper,
 		Asset::Mesh::icon_sniper,
-		350,
+		450,
 		Type::Ability,
 	},
 	{
 		strings::force_field,
 		strings::description_force_field,
 		Asset::Mesh::icon_force_field,
-		500,
+		600,
 		Type::Ability,
 	},
 	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
-		500,
+		600,
 		Type::Ability,
 	},
 };
@@ -374,7 +374,7 @@ r32 Team::minion_spawn_rate() const
 	r32 rate = Game::session.config.game_type == GameType::Assault ? 1.0f : 0.0f;
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->has_ability(Ability::MinionBoost))
+		if (i.item()->has_ability(Ability::MinionBoost) && i.item()->team.ref() == this)
 		{
 			if (rate == 0.0f)
 				rate = 1.0f;
@@ -1788,7 +1788,13 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 						// if the drone currently has the old ability equipped, update it to the new ability
 						Entity* instance = m->instance.ref();
 						if (instance && instance->get<Drone>()->current_ability == m->abilities[index])
-							instance->get<Drone>()->current_ability = Ability(u);
+						{
+							const AbilityInfo& info = AbilityInfo::list[s32(u)];
+							if (info.type == AbilityInfo::Type::Passive)
+								instance->get<Drone>()->current_ability = Ability::None;
+							else
+								instance->get<Drone>()->current_ability = Ability(u);
+						}
 					}
 					m->abilities[index] = Ability(u);
 					m->ability_flash_time[index] = Game::real_time.total;
@@ -2082,11 +2088,6 @@ b8 PlayerManager::upgrade_start(Upgrade u, s8 ability_slot)
 	}
 	else
 		return false;
-}
-
-void PlayerManager::upgrade_complete()
-{
-	PlayerManagerNet::upgrade_completed(this, current_upgrade_ability_slot, current_upgrade);
 }
 
 s16 PlayerManager::upgrade_cost(Upgrade u) const
@@ -2498,7 +2499,7 @@ void PlayerManager::update_server(const Update& u)
 			switch (s)
 			{
 				case State::Upgrading:
-					upgrade_complete();
+					PlayerManagerNet::upgrade_completed(this, current_upgrade_ability_slot, current_upgrade);
 					break;
 				default:
 					vi_assert(false);

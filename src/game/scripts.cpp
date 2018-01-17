@@ -1416,6 +1416,7 @@ namespace tutorial
 			Team::match_time = 0.0f;
 			data->state = TutorialState::Turrets;
 			Game::level.feature_level = Game::FeatureLevel::Turrets;
+			Team::list[1].spot_target = Turret::list[0].get<Target>();
 			Actor::tut(strings::tut_turrets);
 		}
 	}
@@ -1479,6 +1480,7 @@ namespace tutorial
 			{
 				Team::core_module_delay = 1.0f;
 				data->state = TutorialState::Capture;
+				Team::list[1].spot_target = Game::level.core_force_field.ref()->get<Target>();
 				Actor::tut(strings::tut_capture);
 			}
 		}

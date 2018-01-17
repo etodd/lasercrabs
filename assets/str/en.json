@@ -260,7 +260,7 @@
 		"tut_battery": "Capture one of the hanging batteries.\n[{{Zoom}}] to zoom.\n[{{Primary}}] to launch.",
 		"tut_upgrade": "Batteries give you spark. Use your spark to buy an upgrade.",
 		"tut_ability": "Press [{{Ability2}}] to select the ability, then [{{Primary}}] to use it. Press [{{Ability1}}] to switch back.",
-		"tut_turrets": "Your batteries will spawn minions to help you. Protect them as they destroy the turret. ",
+		"tut_turrets": "Your batteries will spawn minions. Protect them as they destroy the turret. ",
 		"tut_capture": "Destroy the core modules to capture the zone.",
 
 		"tut_climb": "[{{Parkour}}] to climb.",

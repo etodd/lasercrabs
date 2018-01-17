@@ -265,12 +265,12 @@ void AudioEntry::init(const Vec3& npos, Transform* nparent, AudioEntry* parent_e
 	else
 		abs_pos = pos;
 	playing = 0;
-	flags = Flag(FlagEnableObstructionOcclusion | FlagEnableForceFieldObstruction | FlagEnableReverb);
 
 	AK::SoundEngine::RegisterGameObj(ak_id());
 
 	if (parent_entry)
 	{
+		flags = parent_entry->flags;
 		memcpy(obstruction, parent_entry->obstruction, sizeof(obstruction));
 		memcpy(obstruction_target, parent_entry->obstruction_target, sizeof(obstruction_target));
 		memcpy(occlusion, parent_entry->occlusion, sizeof(occlusion));
@@ -283,6 +283,7 @@ void AudioEntry::init(const Vec3& npos, Transform* nparent, AudioEntry* parent_e
 	}
 	else
 	{
+		flags = Flag(FlagEnableObstructionOcclusion | FlagEnableForceFieldObstruction | FlagEnableReverb);
 		update_spatialization(UpdateType::All);
 		memcpy(obstruction, obstruction_target, sizeof(obstruction));
 		memcpy(occlusion, occlusion_target, sizeof(occlusion));

@@ -4434,7 +4434,8 @@ void PlayerControlHuman::update(const Update& u)
 			if (movement_enabled())
 			{
 				// spot
-				if (u.input->get(Controls::Spot, gamepad)
+				if (Game::level.has_feature(Game::FeatureLevel::All) // disable spotting in tutorial
+					&& u.input->get(Controls::Spot, gamepad)
 					&& !u.last_input->get(Controls::Spot, gamepad))
 				{
 					PlayerControlHumanNet::Message msg;

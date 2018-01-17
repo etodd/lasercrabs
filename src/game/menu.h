@@ -57,6 +57,7 @@ struct UIMenu
 	{
 		No,
 		Yes,
+		NoMovement,
 		count,
 	};
 
@@ -80,7 +81,7 @@ struct UIMenu
 	UIScroll scroll;
 	s8 selected;
 	s8 gamepad;
-	b8 allow_select;
+	EnableInput enable_input;
 
 	UIMenu();
 	void clear();

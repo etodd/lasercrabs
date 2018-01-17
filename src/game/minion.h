@@ -59,10 +59,12 @@ struct Minion : public ComponentType<Minion>
 	Array<Ref<Entity>> unreachable_targets;
 	Goal goal;
 	AI::Path path;
+	Vec3 obstacle_pos;
 	r32 attack_timer;
 	r32 path_timer;
 	r32 target_timer;
 	r32 target_scan_timer;
+	u32 obstacle_id = u32(-1);
 	Ref<PlayerManager> owner;
 	s8 path_index;
 	b8 charging;
@@ -90,9 +92,9 @@ struct Minion : public ComponentType<Minion>
 	void update_server(const Update&);
 	void team(AI::Team);
 
-	b8 can_see(Entity*, b8 = false) const;
+	b8 can_see(Entity*, b8 = false, b8 = true) const;
 
-	void new_goal(const Vec3& = Vec3::zero, b8 = true);
+	void new_goal(b8 = true);
 	void set_path(const AI::Result&);
 	void turn_to(const Vec3&);
 };

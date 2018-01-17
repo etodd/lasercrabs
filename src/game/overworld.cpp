@@ -750,6 +750,7 @@ void multiplayer_entry_edit_update(const Update& u)
 						data.multiplayer.active_server_dirty = true;
 				}
 
+				if (config->preset == Net::Master::Ruleset::Preset::Custom || config->game_type != GameType::Assault)
 				{
 					// time limit
 					u8* time_limit = &config->time_limit_minutes[s32(config->game_type)];
@@ -3496,6 +3497,7 @@ void show_complete()
 	{
 		data.restore_camera.ref()->flag(CameraFlagActive, false);
 		data.camera = Camera::list.add();
+		new (data.camera.ref()) Camera();
 		data.camera.ref()->mask = 0;
 		data.camera.ref()->flag(CameraFlagColors, false);
 		data.camera.ref()->pos = global.camera_offset_pos;

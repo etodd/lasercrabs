@@ -589,7 +589,7 @@ void Game::update(InputState* input, const InputState* last_input)
 				{
 					// check if we need to clear the gamepad flag
 					if (gamepad.type == Gamepad::Type::None
-						|| input->cursor.length_squared() > 0.0f
+						|| input->mouse_relative.length_squared() > 0.0f
 						|| input->keys.any())
 					{
 						ui_gamepad_types[0] = Gamepad::Type::None;
@@ -1590,11 +1590,19 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		// start abilities may not show up in the default upgrades
 		// and we don't want to save them in there in the database (don't want to override user preferences)
 		// so apply them on game load
-		if (session.config.preset != Net::Master::Ruleset::Preset::Custom)
-			session.config.ruleset = Net::Master::Ruleset::presets[s32(session.config.preset)];
 		for (s32 i = 0; i < session.config.ruleset.start_abilities.length; i++)
 			session.config.ruleset.upgrades_default |= (1 << s32(session.config.ruleset.start_abilities[i]));
 		session.config.ruleset.upgrades_allow &= ~session.config.ruleset.upgrades_default;
+
+		// if we're playing an actual preset, then overwrite the ruleset
+		if (session.config.preset != Net::Master::Ruleset::Preset::Custom)
+		{
+			session.config.ruleset = Net::Master::Ruleset::presets[s32(session.config.preset)];
+
+			// Assault always has the same time limit unless it's Custom preset
+			if (session.config.game_type == GameType::Assault)
+				session.config.time_limit_minutes[s32(GameType::Assault)] = DEFAULT_ASSAULT_TIME_LIMIT_MINUTES;
+		}
 	}
 
 	if (m == Mode::Parkour)

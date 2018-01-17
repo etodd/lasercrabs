@@ -234,7 +234,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s32 ability_count() const;
 	b8 ability_valid(Ability) const;
 	b8 upgrade_start(Upgrade, s8 = 0);
-	void upgrade_complete();
 	Upgrade upgrade_highest_owned_or_available() const;
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
 	s16 upgrade_cost(Upgrade) const;

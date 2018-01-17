@@ -1858,7 +1858,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 
 	b8 exit = !Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad);
 
-	menu->start(u, origin, gamepad, (input == UIMenu::EnableInput::Yes && mode == TeamSelectMode::Normal && !selected) ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::No); // can select different players in Normal mode when no player is selected
+	menu->start(u, origin, gamepad, (input == UIMenu::EnableInput::Yes && mode == TeamSelectMode::Normal && !selected) ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::NoMovement); // can select different players in Normal mode when no player is selected
 	
 	if (mode == TeamSelectMode::Normal)
 	{
@@ -2004,7 +2004,7 @@ UIMenu::UIMenu()
 	items(),
 	animation_time(),
 	scroll(),
-	allow_select(true)
+	enable_input(EnableInput::Yes)
 {
 }
 
@@ -2019,7 +2019,7 @@ void UIMenu::animate()
 	selected = 0;
 	scroll.pos = 0;
 	animation_time = Game::real_time.total;
-	allow_select = false; // prevent items being selected for just this frame
+	enable_input = EnableInput::No; // prevent items being selected for just this frame
 }
 
 void UIMenu::start(const Update& u, const Origin& o, s8 g, EnableInput input)
@@ -2041,7 +2041,7 @@ void UIMenu::start(const Update& u, const Origin& o, s8 g, EnableInput input)
 	else
 		active[g] = this;
 
-	allow_select = input == EnableInput::Yes;
+	enable_input = input;
 	if (input == EnableInput::Yes)
 	{
 		s32 delta = UI::input_delta_vertical(u, gamepad);
@@ -2146,7 +2146,7 @@ b8 check_mouse_select(UIMenu* menu, const Update& u, s32 item)
 {
 	if (item_rect(*menu, item).contains(u.input->cursor))
 	{
-		if (menu->allow_select)
+		if (menu->enable_input == UIMenu::EnableInput::Yes)
 		{
 			if (menu->selected != item)
 				Audio::post_global(AK::EVENTS::PLAY_MENU_MOVE);
@@ -2187,7 +2187,7 @@ b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disab
 
 	if (selected == items.length - 1
 		&& Game::time.total > 0.35f
-		&& allow_select
+		&& (enable_input == EnableInput::Yes || enable_input == EnableInput::NoMovement)
 		&& !Console::visible
 		&& !disabled)
 	{
@@ -2264,7 +2264,7 @@ s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b
 
 void UIMenu::end(const Update& u)
 {
-	if (allow_select && gamepad == 0)
+	if (enable_input == EnableInput::Yes && gamepad == 0)
 	{
 		if (u.input->keys.get(s32(KeyCode::MouseWheelUp)))
 			scroll.pos = vi_max(0, scroll.pos - 1);

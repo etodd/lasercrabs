@@ -91,6 +91,11 @@ Minion::~Minion()
 		get<Audio>()->stop(AK::EVENTS::STOP_MINION_CHARGE);
 		charging = false;
 	}
+	if (obstacle_id != u32(-1))
+	{
+		AI::obstacle_remove(obstacle_id);
+		obstacle_id = u32(-1);
+	}
 }
 
 void Minion::team(AI::Team t)
@@ -101,7 +106,7 @@ void Minion::team(AI::Team t)
 		get<AIAgent>()->team = t;
 		get<SkinnedModel>()->team = s8(t);
 		if (Game::level.local)
-			get<Minion>()->new_goal(Vec3::zero, false); // don't allow entity targets; must be a random path
+			get<Minion>()->new_goal(false); // don't allow entity targets; must be a random path
 	}
 }
 
@@ -277,14 +282,14 @@ b8 Minion::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 	return LMath::ray_sphere_intersect(ray_start, ray_end, head_pos(), MINION_HEAD_RADIUS);
 }
 
-r32 entity_cost(const Minion* me, const Vec3& pos, AI::Team team, const Vec3& direction, const Entity* target)
+r32 entity_cost(const Minion* me, const Vec3& pos, AI::Team team, const Entity* target)
 {
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
 
 	if (!target->has<ForceField>())
 	{
-		ForceField* target_force_field = ForceField::inside(team, target_pos);
-		if (target_force_field && target_force_field->flags & ForceField::FlagInvincible)
+		ForceField* target_force_field = ForceField::inside(~(1 << team), target_pos);
+		if (target_force_field && (target_force_field->flags & ForceField::FlagInvincible))
 			return FLT_MAX; // can't do it
 	}
 
@@ -294,8 +299,6 @@ r32 entity_cost(const Minion* me, const Vec3& pos, AI::Team team, const Vec3& di
 			return FLT_MAX; // can't do it
 	}
 
-	const r32 direction_cost = DRONE_MAX_DISTANCE;
-
 	Vec3 to_target = target_pos - pos;
 	r32 total_distance;
 
@@ -304,74 +307,51 @@ r32 entity_cost(const Minion* me, const Vec3& pos, AI::Team team, const Vec3& di
 		total_distance = (path_zone->choke_point - pos).length() + (target_pos - path_zone->choke_point - pos).length();
 	else
 		total_distance = to_target.length();
-	total_distance += (to_target.dot(direction) < 0.0f ? direction_cost : 0.0f);
-
-	if (target->has<Rectifier>()) // we don't like to attack rectifiers
-		total_distance += DRONE_MAX_DISTANCE;
 
 	return total_distance;
 }
 
-Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
+Entity* closest_target(Minion* me, AI::Team team)
 {
-	// check spot target first
-	{
-		Target* spot = Team::list[s32(team)].spot_target.ref();
-		if (spot)
-		{
-			if (me->can_see(spot->entity()))
-			{
-				AI::Team target_team;
-				AI::entity_info(spot->entity(), team, &target_team);
-				if (target_team == team)
-				{
-					// the spot is telling us to defend a friendly thing and we're already within line of sight of it
-					// so force a random position target (i.e., patrol around the spotted entity)
-					return nullptr;
-				}
-			}
-			return spot->entity();
-		}
-	}
-
 	Entity* best = nullptr;
 	r32 best_cost = FLT_MAX;
 	Vec3 pos = me->get<Transform>()->absolute_pos();
 
-	if (Turret::list.count() > 0)
+	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 	{
-		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+		Turret* item = i.item();
+		if (item->team != team)
 		{
-			Turret* item = i.item();
-			if (item->team != team)
+			if (me->can_see(item->entity(), false, false))
+				return item->entity();
+			r32 cost = entity_cost(me, pos, team, item->entity());
+			if (cost < best_cost)
 			{
-				if (me->can_see(item->entity()))
-					return item->entity();
-				r32 cost = entity_cost(me, pos, team, direction, item->entity());
-				if (cost < best_cost)
-				{
-					best = item->entity();
-					best_cost = cost;
-				}
+				best = item->entity();
+				best_cost = cost;
 			}
 		}
 	}
-	else
+
+	if (best)
+		return best;
+
+	if (team == 1 && Game::level.core_force_field.ref())
+		return Game::level.core_force_field.ref()->entity();
+
+	for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
 	{
-		for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+		CoreModule* item = i.item();
+		if (item->team != team)
 		{
-			CoreModule* item = i.item();
-			if (item->team != team)
+			Vec3 item_pos = item->get<Transform>()->absolute_pos();
+			if (me->can_see(item->entity()))
+				return item->entity();
+			r32 cost = entity_cost(me, pos, team, item->entity());
+			if (cost < best_cost)
 			{
-				Vec3 item_pos = item->get<Transform>()->absolute_pos();
-				if (me->can_see(item->entity()))
-					return item->entity();
-				r32 cost = entity_cost(me, pos, team, direction, item->entity());
-				if (cost < best_cost)
-				{
-					best = item->entity();
-					best_cost = cost;
-				}
+				best = item->entity();
+				best_cost = cost;
 			}
 		}
 	}
@@ -387,7 +367,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
 				return item->entity();
-			r32 cost = entity_cost(me, pos, team, direction, item->entity());
+			r32 cost = entity_cost(me, pos, team, item->entity());
 			if (cost < best_cost)
 			{
 				best = item->entity();
@@ -404,7 +384,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
 				return item->entity();
-			r32 cost = entity_cost(me, pos, team, direction, item->entity());
+			r32 cost = entity_cost(me, pos, team, item->entity());
 			if (cost < best_cost)
 			{
 				best = item->entity();
@@ -421,7 +401,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
 				return item->entity();
-			r32 cost = entity_cost(me, pos, team, direction, item->entity());
+			r32 cost = entity_cost(me, pos, team, item->entity());
 			if (cost < best_cost)
 			{
 				best = item->entity();
@@ -438,7 +418,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
 				return item->entity();
-			r32 cost = entity_cost(me, pos, team, direction, item->entity());
+			r32 cost = entity_cost(me, pos, team, item->entity());
 			if (cost < best_cost)
 			{
 				best = item->entity();
@@ -455,7 +435,7 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
 				return item->entity();
-			r32 cost = entity_cost(me, pos, team, direction, item->entity());
+			r32 cost = entity_cost(me, pos, team, item->entity());
 			if (cost < best_cost)
 			{
 				best = item->entity();
@@ -464,19 +444,96 @@ Entity* closest_target(Minion* me, AI::Team team, const Vec3& direction)
 		}
 	}
 
+	if (Game::session.config.game_type != GameType::Assault)
+	{
+		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+		{
+			PlayerCommon* item = i.item();
+			if (item->get<AIAgent>()->team != team)
+			{
+				Vec3 item_pos = item->get<Transform>()->absolute_pos();
+				if (me->can_see(item->entity()))
+					return item->entity();
+				r32 cost = entity_cost(me, pos, team, item->entity());
+				if (cost < best_cost)
+				{
+					best = item->entity();
+					best_cost = cost;
+				}
+			}
+		}
+	}
+
 	return best;
+}
+
+ForceField* force_field_between_me_and_target(Minion* me)
+{
+	if (Entity* goal = me->goal.entity.ref())
+	{
+		AI::Team team = me->get<AIAgent>()->team;
+		// check if there is a force field between us and our goal
+		Vec3 pos = me->get<Walker>()->base_pos();
+		if (goal->has<ForceField>())
+		{
+			if (ForceField* field = ForceField::inside(~(1 << team), pos))
+			{
+				if (!(field->flags & ForceField::FlagInvincible))
+					return field;
+			}
+		}
+		else
+		{
+			Vec3 target_pos = goal->get<Target>()->absolute_pos();
+			if (ForceField::hash(team, pos) != ForceField::hash(team, target_pos))
+			{
+				if (ForceField* field = ForceField::inside(~(1 << team), pos))
+				{
+					if (!(field->flags & ForceField::FlagInvincible))
+						return field;
+				}
+				else if (ForceField* field = ForceField::inside(~(1 << team), target_pos))
+				{
+					if (!(field->flags & ForceField::FlagInvincible)
+						&& me->can_see(field->entity()))
+						return field;
+				}
+			}
+		}
+	}
+	return nullptr;
 }
 
 Entity* visible_target(Minion* me, AI::Team team)
 {
-	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+	if (team == 0 || Game::session.config.game_type != GameType::Assault) // only defenders go after players in Assault
 	{
-		PlayerCommon* player = i.item();
-		if (player->get<AIAgent>()->team != team)
+		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 		{
-			if (me->can_see(player->entity(), true))
-				return player->entity();
+			PlayerCommon* player = i.item();
+			if (player->get<AIAgent>()->team != team)
+			{
+				if (me->can_see(player->entity(), true))
+					return player->entity();
+			}
 		}
+	}
+
+	if (ForceField* field = force_field_between_me_and_target(me))
+		return field->entity();
+
+	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+	{
+		Turret* turret = i.item();
+		if (turret->team != team && me->can_see(turret->entity()))
+			return turret->entity();
+	}
+
+	for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+	{
+		CoreModule* core = i.item();
+		if (core->team != team && me->can_see(core->entity()))
+			return core->entity();
 	}
 
 	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
@@ -486,53 +543,37 @@ Entity* visible_target(Minion* me, AI::Team team)
 			return minion->entity();
 	}
 
-	if (Turret::list.count() > 0)
+	if (team == 0 || Game::session.config.game_type != GameType::Assault) // only defenders go after this stuff in Assault
 	{
-		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+		for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 		{
-			Turret* turret = i.item();
-			if (turret->team != team && me->can_see(turret->entity()))
-				return turret->entity();
+			Grenade* grenade = i.item();
+			if (grenade->team() != team && me->can_see(grenade->entity()))
+				return grenade->entity();
 		}
-	}
-	else
-	{
-		for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+
+		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 		{
-			CoreModule* core = i.item();
-			if (core->team != team && me->can_see(core->entity()))
-				return core->entity();
+			ForceField* field = i.item();
+			if (field->team != team
+				&& !(field->flags & ForceField::FlagInvincible)
+				&& me->can_see(field->entity()))
+				return field->entity();
 		}
-	}
 
-	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
-	{
-		Grenade* grenade = i.item();
-		if (grenade->team() != team && me->can_see(grenade->entity()))
-			return grenade->entity();
-	}
+		for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
+		{
+			Battery* battery = i.item();
+			if (battery->team != team && battery->team != AI::TeamNone && me->can_see(battery->entity()))
+				return battery->entity();
+		}
 
-	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
-	{
-		ForceField* field = i.item();
-		if (field->team != team
-			&& !(field->flags & ForceField::FlagInvincible)
-			&& me->can_see(field->entity()))
-			return field->entity();
-	}
-
-	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
-	{
-		Battery* battery = i.item();
-		if (battery->team != team && battery->team != AI::TeamNone && me->can_see(battery->entity()))
-			return battery->entity();
-	}
-
-	for (auto i = Rectifier::list.iterator(); !i.is_last(); i.next())
-	{
-		Rectifier* rectifier = i.item();
-		if (rectifier->team != team && !rectifier->has<Battery>() && me->can_see(rectifier->entity()))
-			return rectifier->entity();
+		for (auto i = Rectifier::list.iterator(); !i.is_last(); i.next())
+		{
+			Rectifier* rectifier = i.item();
+			if (rectifier->team != team && !rectifier->has<Battery>() && me->can_see(rectifier->entity()))
+				return rectifier->entity();
+		}
 	}
 
 	return nullptr;
@@ -614,7 +655,7 @@ void Minion::update_server(const Update& u)
 						target_timer = 0;
 					}
 				}
-				else if (goal.entity.ref() && can_see(goal.entity.ref()))
+				else if (goal.entity.ref() && !can_see(goal.entity.ref()))
 					goal.entity = nullptr; // our current target no longer matches our criteria
 			}
 		}
@@ -699,12 +740,19 @@ void Minion::update_server(const Update& u)
 						if (recalc)
 						{
 							Vec3 goal_pos = goal_path_position(goal, pos);
-							if (ForceField::hash(get<AIAgent>()->team, pos, ForceField::HashMode::OnlyInvincible) == ForceField::hash(get<AIAgent>()->team, goal_pos, ForceField::HashMode::OnlyInvincible)
-								|| (goal_pos - pos).length_squared() > FORCE_FIELD_RADIUS * 1.5f * FORCE_FIELD_RADIUS * 1.5f) // if we're far away, keep going toward the target even though there's a force field around it
+							if (ForceField::hash(get<AIAgent>()->team, pos, ForceField::HashMode::OnlyInvincible) == ForceField::hash(get<AIAgent>()->team, goal_pos, ForceField::HashMode::OnlyInvincible))
 							{
-								// recalc path
-								path_request = PathRequest::Target;
-								AI::pathfind(get<AIAgent>()->team, pos, goal_pos, ObjectLinkEntryArg<Minion, const AI::Result&, &Minion::set_path>(id()));
+								if (ForceField* field = force_field_between_me_and_target(this))
+								{
+									goal.entity = field->entity();
+									goal.type = Goal::Type::Target;
+								}
+								else
+								{
+									// recalc path
+									path_request = PathRequest::Target;
+									AI::pathfind(get<AIAgent>()->team, pos, goal_pos, ObjectLinkEntryArg<Minion, const AI::Result&, &Minion::set_path>(id()));
+								}
 							}
 							else // won't be able to reach the goal; find a new one
 								new_goal();
@@ -748,36 +796,27 @@ void Minion::update_server(const Update& u)
 			if (ray_length > 0.1f)
 			{
 				ray /= ray_length;
-
-				// simple obstacle avoidance against other minions
-				for (auto i = list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item() != this)
-					{
-						Vec3 diff = i.item()->get<Walker>()->base_pos() - pos;
-						if (fabsf(diff.y) < WALKER_HEIGHT * 0.5f)
-						{
-							diff.y = 0.0f;
-							r32 distance = diff.length();
-							r32 dot = diff.dot(ray);
-							if (distance < WALKER_MINION_RADIUS * 2.0f * 1.25f
-								&& dot > 0.0f && dot < WALKER_MINION_RADIUS * 2.0f * 1.25f)
-							{
-								diff /= distance;
-								Vec3 right = diff.cross(Vec3(0, 1, 0));
-								if (right.dot(get<Walker>()->right()) < 0.0f)
-									right *= -1.0f;
-								ray = right;
-								break;
-							}
-						}
-					}
-				}
 				get<Walker>()->dir = Vec2(ray.x, ray.z);
 			}
 		}
 		else
 			get<Walker>()->dir = Vec2::zero;
+	}
+
+	// dynamic obstacle
+	{
+		r32 speed = get<Walker>()->net_speed;
+		Vec3 pos = get<Walker>()->base_pos();
+		if ((speed > 0.1f || (obstacle_pos - pos).length_squared() > WALKER_MINION_RADIUS) && obstacle_id != u32(-1))
+		{
+			AI::obstacle_remove(obstacle_id);
+			obstacle_id = u32(-1);
+		}
+		else if (speed < 0.1f && obstacle_id == u32(-1) && get<Walker>()->support.ref())
+		{
+			obstacle_pos = pos;
+			obstacle_id = AI::obstacle_add(pos, WALKER_MINION_RADIUS, get<Walker>()->capsule_height() + WALKER_SUPPORT_HEIGHT);
+		}
 	}
 
 	// update animation
@@ -959,10 +998,10 @@ void Minion::killed(Entity* killer)
 	}
 }
 
-b8 minion_vision_check(AI::Team team, const Vec3& start, const Vec3& end, Entity* target)
+b8 minion_vision_check(AI::Team team, const Vec3& start, const Vec3& end, Entity* target, b8 check_force_fields)
 {
 	btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
-	Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionElectric | CollisionAllTeamsForceField) & ~Team::force_field_mask(team));
+	Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionElectric | (check_force_fields ? CollisionAllTeamsForceField : 0)) & ~Team::force_field_mask(team));
 	if (ray_callback.hasHit())
 	{
 		Entity* hit = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
@@ -974,7 +1013,7 @@ b8 minion_vision_check(AI::Team team, const Vec3& start, const Vec3& end, Entity
 		return true;
 }
 
-b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
+b8 Minion::can_see(Entity* target, b8 limit_vision_cone, b8 check_force_fields) const
 {
 	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth)
 		|| (target->has<Drone>() && target->get<Drone>()->state() != Drone::State::Crawl)
@@ -985,8 +1024,11 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 
 	Vec3 hand = aim_pos(minion_angle_to(this, target_pos));
 
-	if (!target->has<ForceField>() && ForceField::hash(get<AIAgent>()->team, hand) != ForceField::hash(get<AIAgent>()->team, target_pos))
-		return false;
+	{
+		ForceField::HashMode hash_mode = check_force_fields ? ForceField::HashMode::All : ForceField::HashMode::OnlyInvincible;
+		if (!target->has<ForceField>() && ForceField::hash(get<AIAgent>()->team, hand, hash_mode) != ForceField::hash(get<AIAgent>()->team, target_pos, hash_mode))
+			return false;
+	}
 
 	Vec3 head = head_pos();
 
@@ -999,13 +1041,13 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone) const
 	return distance < MINION_VISION_RANGE
 		&& (!limit_vision_cone || Vec3::normalize(diff).dot(get<Walker>()->forward()) > 0.707f)
 		&& (!target->has<Parkour>() || fabsf(diff.y) < MINION_HEARING_RANGE)
-		&& minion_vision_check(get<AIAgent>()->team, head, target_pos, target)
-		&& minion_vision_check(get<AIAgent>()->team, hand, target_pos, target);
+		&& minion_vision_check(get<AIAgent>()->team, head, target_pos, target, check_force_fields)
+		&& minion_vision_check(get<AIAgent>()->team, hand, target_pos, target, check_force_fields);
 }
 
-void Minion::new_goal(const Vec3& direction, b8 allow_entity_target)
+void Minion::new_goal(b8 allow_entity_target)
 {
-	Entity* target = allow_entity_target ? closest_target(this, get<AIAgent>()->team, direction) : nullptr;
+	Entity* target = allow_entity_target ? closest_target(this, get<AIAgent>()->team) : nullptr;
 	if (target != goal.entity.ref() || (!target && !goal.entity.ref()))
 	{
 		goal.entity = target;

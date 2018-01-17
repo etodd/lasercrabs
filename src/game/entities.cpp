@@ -330,10 +330,26 @@ b8 Health::can_take_damage(Entity* damager) const
 
 	if (has<Drone>())
 	{
-		return !UpgradeStation::drone_inside(get<Drone>()) // invincible inside upgrade station
-			&& get<Drone>()->state() == Drone::State::Crawl; // invincible when flying or dashing
+		if (UpgradeStation::drone_inside(get<Drone>()))
+			return false; // invincible inside upgrade station
+		else if (get<Drone>()->state() != Drone::State::Crawl)
+		{
+			// normally invincible while flying or dashing
+
+			// except to drone bolts
+			if (damager && damager->has<Bolt>())
+			{
+				Bolt::Type t = damager->get<Bolt>()->type;
+				if (t == Bolt::Type::DroneBolter || t == Bolt::Type::DroneShotgun)
+					return true;
+			}
+
+			return false;
+		}
+
+		return true;
 	}
-	else if (has<Battery>() && damager->has<Bolt>())
+	else if (has<Battery>() && damager && damager->has<Bolt>())
 		return get<Battery>()->team != damager->get<Bolt>()->team;
 	else
 		return true;
@@ -998,20 +1014,22 @@ void SpawnPoint::update_server_all(const Update& u)
 			: 60.0f;
 		const r32 minion_spawn_interval = 8.0f; // time between individual minions spawning
 		const r32 minion_group_interval = minion_spawn_interval * 10.0f; // time between minion groups spawning; must be a multiple of minion_spawn_interval
+		r32 spawn_rate_multiplier = Game::session.config.ruleset.enable_batteries ? 1.0f : 2.5f;
 		for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 		{
 			// spawn points owned by a team will spawn a minion
-			r32 time = (Team::match_time * i.item()->minion_spawn_rate()) - minion_initial_delay;
+			r32 rate = spawn_rate_multiplier * i.item()->minion_spawn_rate();
+			r32 time = (Team::match_time * rate) - minion_initial_delay;
 			for (auto j = list.iterator(); !j.is_last(); j.next())
 			{
-				r32 t = time + j.index * minion_spawn_interval * -0.5f;
-				if (t > 0.0f)
+				if (j.item()->team == i.item()->team())
 				{
-					s32 index = s32(t / minion_spawn_interval);
-					s32 index_last = s32((t - u.time.delta) / minion_spawn_interval);
-					if (index != index_last && (index % s32(minion_group_interval / minion_spawn_interval)) <= minion_group)
+					r32 t = time + j.index * minion_spawn_interval * -0.5f;
+					if (t > 0.0f)
 					{
-						if (j.item()->team == i.item()->team())
+						s32 index = s32(t / minion_spawn_interval);
+						s32 index_last = s32((t - u.time.delta * rate) / minion_spawn_interval);
+						if (index != index_last && (index % s32(minion_group_interval / minion_spawn_interval)) <= minion_group)
 						{
 							SpawnPosition pos = j.item()->spawn_position();
 							ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, pos.pos, Quat::euler(0, pos.angle, 0), nullptr, j.item()->team);

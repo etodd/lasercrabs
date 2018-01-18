@@ -1008,7 +1008,7 @@ b8 minion_vision_check(AI::Team team, const Vec3& start, const Vec3& end, Entity
 
 b8 Minion::can_see(Entity* target, b8 limit_vision_cone, b8 check_force_fields) const
 {
-	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth)
+	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth == 1.0f)
 		|| (target->has<Drone>() && target->get<Drone>()->state() != Drone::State::Crawl)
 		|| (target->has<Rectifier>() && target->get<Rectifier>()->stealth))
 		return false;

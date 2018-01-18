@@ -244,7 +244,6 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	Entity* incoming_attacker() const;
 	Vec3 look_dir() const;
 	Quat look() const;
-	r32 detect_danger() const;
 	void clamp_rotation(const Vec3&, r32 = 0.0f);
 	b8 movement_enabled() const;
 	r32 angle_vertical_total() const;
@@ -301,7 +300,6 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		enum class Type : s8
 		{
 			DroneVisible,
-			DroneOutOfRange,
 			Minion,
 			Battery,
 			BatteryOutOfRange,

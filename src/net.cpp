@@ -485,7 +485,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		AIAgent* a = e->get<AIAgent>();
 		serialize_s8(p, a->team);
-		serialize_bool(p, a->stealth);
+		serialize_r32_range(p, a->stealth, 0.0f, 1.0f, 8);
 	}
 
 	if (e->has<Drone>())
@@ -1423,6 +1423,10 @@ template<typename Stream> b8 serialize_drone(Stream* p, DroneState* state, const
 	else if (Stream::IsReading)
 		state->cooldown_ability_switch = 0.0f;
 
+	// no need to serialize vulnerability
+	// clients can calculate it for themselves
+	// it's only stored in memory on the server for rewinding purposes
+
 	return true;
 }
 
@@ -1755,6 +1759,7 @@ void state_frame_build(StateFrame* frame)
 		drone->revision = i.item()->revision;
 		drone->cooldown = i.item()->cooldown;
 		drone->cooldown_ability_switch = i.item()->cooldown_ability_switch;
+		drone->vulnerability = i.item()->vulnerability();
 	}
 }
 
@@ -1924,6 +1929,8 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 				drone->cooldown = next.cooldown;
 				drone->cooldown_ability_switch = next.cooldown_ability_switch;
 			}
+
+			drone->vulnerability = next.vulnerability;
 
 			index = b.drones_active.next(index);
 		}

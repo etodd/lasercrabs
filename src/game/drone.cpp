@@ -440,9 +440,11 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 
 			const r32 SIMULATION_STEP = Net::tick_rate() * Game::session.effective_time_scale();
 
+			b8 rewound = false;
+			Net::StateFrame state_frame;
 			while (timestamp < Net::timestamp())
 			{
-				Net::StateFrame state_frame;
+				rewound = true;
 				Net::state_frame_by_timestamp(&state_frame, timestamp);
 
 				if (bolt->simulate(SIMULATION_STEP, &hit, &state_frame))
@@ -454,7 +456,7 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 			Net::finalize(bolt_entity);
 
 			if (hit.entity) // we hit something, register it instantly
-				bolt->hit_entity(hit);
+				bolt->hit_entity(hit, rewound ? &state_frame : nullptr);
 		}
 		else
 		{
@@ -553,6 +555,18 @@ Vec3 grenade_spawn_dir(const Vec3& dir_normalized)
 	dir_adjusted.y += 0.5f;
 	dir_adjusted.normalize();
 	return dir_adjusted;
+}
+
+DroneVulnerability Drone::vulnerability() const
+{
+	if (get<Health>()->active_armor_timer > 0.0f)
+		return DroneVulnerability::ActiveArmor;
+	else if (UpgradeStation::drone_inside(this))
+		return DroneVulnerability::None; // invincible inside upgrade station
+	else if (get<Drone>()->state() != Drone::State::Crawl)
+		return DroneVulnerability::DroneBolts; // only drone bolts can damage us while flying or dashing
+	else
+		return DroneVulnerability::All; // anything can damage us
 }
 
 b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
@@ -676,27 +690,28 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_ref(p, target);
 
 			if (apply_msg)
+			{
 				client_hit_effects(drone, target.ref(), DroneHitType::Target);
 
-			// damage messages
+				if (Game::level.local && target.ref()->has<Shield>())
+				{
+					// check if we can damage them
+					Net::StateFrame state_frame_data;
+					const Net::StateFrame* state_frame = nullptr;
+					if (drone->net_state_frame(&state_frame_data))
+						state_frame = &state_frame_data;
 
-			if (target.ref()->has<Shield>())
-			{
-				// check if we can damage them
-				if (target.ref()->get<Health>()->can_take_damage(drone->entity()))
-				{
-					// we hurt them
-					if (Game::level.local) // if we're a client, this has already been handled by the server
-						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref()));
-				}
-				else
-				{
-					// we didn't hurt them
-					if (Game::level.local)
+					if (target.ref()->get<Health>()->can_take_damage(drone->entity(), state_frame))
 					{
+						// we hurt them
+						target.ref()->get<Health>()->damage(drone->entity(), impact_damage(drone, target.ref()), state_frame);
+					}
+					else
+					{
+						// we didn't hurt them
 						// check if they had active armor on and so should damage us
 						if (drone->state() != State::Crawl
-							&& target.ref()->get<Health>()->active_armor()
+							&& target.ref()->get<Health>()->active_armor(state_frame)
 							&& target.ref()->has<AIAgent>()
 							&& target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team)
 							drone->get<Health>()->damage_force(target.ref(), ACTIVE_ARMOR_DIRECT_DAMAGE);
@@ -763,7 +778,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if ((Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())) // only do cooldowns for remote drones or AI drones; local players will have already done this
 				drone->cooldown_recoil_setup(ability);
 
-			if (Game::level.local == (src == Net::MessageSource::Remote))
+			if (Game::level.local == (src == Net::MessageSource::Loopback))
 				manager->ability_cooldown_apply(ability);
 
 			Vec3 my_pos;
@@ -848,9 +863,11 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 							const r32 SIMULATION_STEP = Net::tick_rate() * Game::session.effective_time_scale();
 
+							b8 rewound = false;
+							Net::StateFrame state_frame;
 							while (timestamp < Net::timestamp())
 							{
-								Net::StateFrame state_frame;
+								rewound = true;
 								Net::state_frame_by_timestamp(&state_frame, timestamp);
 
 								if (grenade->simulate(SIMULATION_STEP, &hit, &state_frame))
@@ -862,7 +879,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							Net::finalize(grenade_entity);
 
 							if (hit.entity) // we hit something, register it instantly
-								grenade->hit_entity(hit);
+								grenade->hit_entity(hit, rewound ? &state_frame : nullptr);
 						}
 						else
 						{
@@ -2514,20 +2531,26 @@ void Drone::update_offset()
 	get_offset(&get<SkinnedModel>()->offset);
 }
 
-void Drone::stealth(Entity* e, b8 enable)
+void Drone::stealth(Entity* e, b8 stealthing)
 {
-	if (enable != e->get<AIAgent>()->stealth)
+	r32 old_value = e->get<AIAgent>()->stealth;
+	r32 new_value;
+	if (stealthing)
+		new_value = vi_min(1.0f, old_value + Game::time.delta / RECTIFIER_STEALTH_TIME);
+	else
+		new_value = vi_max(0.0f, old_value - Game::time.delta / RECTIFIER_STEALTH_TIME);
+	e->get<AIAgent>()->stealth = new_value;
+
+	if ((old_value == 1.0f) != (new_value == 1.0f))
 	{
-		if (enable)
+		if (new_value == 1.0f)
 		{
-			e->get<AIAgent>()->stealth = true;
 			e->get<SkinnedModel>()->alpha();
 			e->get<SkinnedModel>()->color.w = 0.7f;
 			e->get<SkinnedModel>()->mask = 1 << s32(e->get<AIAgent>()->team); // only display to fellow teammates
 		}
 		else
 		{
-			e->get<AIAgent>()->stealth = false;
 			if (!e->has<Drone>() || e->get<Drone>()->state() == State::Crawl)
 				e->get<SkinnedModel>()->alpha_if_obstructing();
 			else
@@ -2711,9 +2734,6 @@ void Drone::update_client(const Update& u)
 	{
 		// crawling
 
-		if (!get<AIAgent>()->stealth)
-			get<SkinnedModel>()->alpha_if_obstructing();
-
 		{
 			// update lerped pos so we crawl smoothly
 			Quat abs_rot;
@@ -2887,9 +2907,6 @@ void Drone::update_client(const Update& u)
 	{
 		// flying or dashing
 
-		if (!get<AIAgent>()->stealth)
-			get<SkinnedModel>()->alpha_disable();
-
 		if (get<Animator>()->layers[0].animation == AssetNull)
 		{
 			// this means that we were crawling, but were interrupted.
@@ -3030,7 +3047,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 
 			if (!already_hit)
 			{
-				if (!hit.entity.ref()->has<Health>() || !hit.entity.ref()->get<Health>()->can_take_damage(entity())) // it's invincible; always bounce off
+				if (!hit.entity.ref()->has<Health>() || !hit.entity.ref()->get<Health>()->can_take_damage(entity(), state_frame)) // it's invincible; always bounce off
 					stop = true;
 				else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()))
 					stop = true; // it has health or shield to spare; we'll bounce off

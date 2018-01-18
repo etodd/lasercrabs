@@ -372,8 +372,8 @@ void record_close(u32);
 
 struct AIAgent : public ComponentType<AIAgent>
 {
+	r32 stealth;
 	AI::Team team;
-	b8 stealth;
 	void awake() {}
 };
 

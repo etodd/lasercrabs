@@ -730,7 +730,7 @@ void entity_info(const Entity* e, Team query_team, Team* team, s8* type)
 				_type = shield <= 1 ? RecordedLife::EntityDroneFriendShield1 : RecordedLife::EntityDroneFriendShield2;
 			else
 			{
-				if (e->get<AIAgent>()->stealth)
+				if (e->get<AIAgent>()->stealth == 1.0f)
 				{
 					_team = TeamNone;
 					_type = RecordedLife::EntityNone;
@@ -857,7 +857,7 @@ void RecordedLife::Tag::init(const PlayerManager* manager)
 	if (player)
 	{
 		shield = player->get<Health>()->shield;
-		stealth = player->get<AIAgent>()->stealth;
+		stealth = player->get<AIAgent>()->stealth == 1.0f;
 
 		{
 			Quat rot;

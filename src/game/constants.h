@@ -155,12 +155,12 @@
 
 #define RECTIFIER_HEAL_INTERVAL 4.0f
 #define RECTIFIER_HEAL_MAX_CONCURRENT 6
-#define RECTIFIER_LINGER_TIME 3.0f
+#define RECTIFIER_STEALTH_TIME 2.0f
 #define RECTIFIER_TRACK_TIME 1.5f
 #define RECTIFIER_RANGE 11.0f
 #define RECTIFIER_RADIUS 0.2f
 #define RECTIFIER_HEALTH 6
-#define ABILITY_UNSTEALTH_TIME 0.5f // time after using an ability when stealth is disabled
+#define ABILITY_UNSTEALTH_TIME 0.3f // time after using an ability when stealth is disabled (ish, it's actually longer than this)
 #define BATTERY_HEALTH 6
 #define GRENADE_HEALTH 2
 
@@ -177,7 +177,7 @@
 
 #define BOLT_SPEED_MINION 12.0f
 #define BOLT_SPEED_TURRET 12.0f
-#define BOLT_SPEED_DRONE_BOLTER 20.0f
+#define BOLT_SPEED_DRONE_BOLTER 25.0f
 #define BOLT_SPEED_DRONE_SHOTGUN 40.0f
 #define BOLT_LENGTH 0.5f
 #define BOLT_LIGHT_RADIUS 10.0f

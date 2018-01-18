@@ -68,14 +68,14 @@ struct Health : public ComponentType<Health>
 	void update_server(const Update&);
 	void update_client(const Update&);
 	void awake() {}
-	void damage(Entity*, s8);
+	void damage(Entity*, s8, const Net::StateFrame* = nullptr);
 	void damage_force(Entity*, s8);
 	void reset_hp();
 	void kill(Entity*);
 	void add(s8);
 	s8 total() const;
-	b8 active_armor() const;
-	b8 can_take_damage(Entity*) const;
+	b8 active_armor(const Net::StateFrame* = nullptr) const;
+	b8 can_take_damage(Entity*, const Net::StateFrame* = nullptr) const;
 };
 
 struct Shield : public ComponentType<Shield>
@@ -467,7 +467,7 @@ struct Bolt : public ComponentType<Bolt>
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void update_client_all(const Update&);
 	static b8 default_raycast_filter(Entity*, AI::Team);
-	static b8 raycast(const Vec3&, const Vec3&, s16, AI::Team, Hit*, b8(*)(Entity*, AI::Team), Net::StateFrame* = nullptr, r32 = 0.0f);
+	static b8 raycast(const Vec3&, const Vec3&, s16, AI::Team, Hit*, b8(*)(Entity*, AI::Team), const Net::StateFrame* = nullptr, r32 = 0.0f);
 	
 	Vec3 velocity;
 	Vec3 last_pos;
@@ -482,8 +482,8 @@ struct Bolt : public ComponentType<Bolt>
 
 	b8 visible() const; // bolts are invisible and essentially inert while they are waiting for damage buffer
 	void reflect(const Entity*, ReflectionType = ReflectionType::Homing, const Vec3& = Vec3::zero);
-	b8 simulate(r32, Hit* = nullptr, Net::StateFrame* = nullptr); // returns true if the bolt hit something
-	void hit_entity(const Hit&);
+	b8 simulate(r32, Hit* = nullptr, const Net::StateFrame* = nullptr); // returns true if the bolt hit something
+	void hit_entity(const Hit&, const Net::StateFrame* = nullptr);
 };
 
 struct BoltEntity : public Entity
@@ -555,13 +555,13 @@ struct Grenade : public ComponentType<Grenade>
 	void awake();
 
 	void hit_by(const TargetEvent&);
-	void hit_entity(const Bolt::Hit&);
+	void hit_entity(const Bolt::Hit&, const Net::StateFrame* = nullptr);
 	void killed_by(Entity*);
 	AI::Team team() const;
 	void explode();
 	void set_owner(PlayerManager*);
 
-	b8 simulate(r32, Bolt::Hit* = nullptr, Net::StateFrame* = nullptr); // returns true if grenade hits something
+	b8 simulate(r32, Bolt::Hit* = nullptr, const Net::StateFrame* = nullptr); // returns true if grenade hits something
 };
 
 struct Target : public ComponentType<Target>

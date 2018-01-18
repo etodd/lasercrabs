@@ -779,11 +779,15 @@ void pause_menu(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMen
 						menu->animate();
 					}
 
-					if (PlayerHuman::count_local() <= 1 && menu->item(u, _(strings::server_settings)))
-					{
-						*state = State::Hidden;
+				}
+
+				if (PlayerHuman::count_local() <= 1 && menu->item(u, _(strings::server_settings)))
+				{
+					*state = State::Hidden;
+					if (me->is_admin)
 						Overworld::server_settings(me->get<PlayerHuman>()->camera.ref());
-					}
+					else
+						Overworld::server_settings_readonly(me->get<PlayerHuman>()->camera.ref());
 				}
 			}
 			if (menu->item(u, _(strings::settings)))

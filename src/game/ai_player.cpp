@@ -738,12 +738,12 @@ b8 battery_filter(const PlayerControlAI* control, const Entity* e)
 b8 minion_filter(const PlayerControlAI* control, const Entity* e)
 {
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
-		&& !e->get<AIAgent>()->stealth;
+		&& e->get<AIAgent>()->stealth < 1.0f;
 }
 
 MemoryStatus minion_memory_filter(const PlayerControlAI* control, const Entity* e)
 {
-	if (e->get<AIAgent>()->stealth)
+	if (e->get<AIAgent>()->stealth == 1.0f)
 		return MemoryStatus::Keep;
 
 	if (e->get<AIAgent>()->team == control->get<AIAgent>()->team)
@@ -762,7 +762,7 @@ MemoryStatus rectifier_memory_filter(const PlayerControlAI* control, const Entit
 
 MemoryStatus drone_memory_filter(const PlayerControlAI* control, const Entity* e)
 {
-	if (e->get<AIAgent>()->stealth)
+	if (e->get<AIAgent>()->stealth == 1.0f)
 		return MemoryStatus::Keep; // don't update it, but also don't forget it
 
 	if (e->get<AIAgent>()->team == control->get<AIAgent>()->team)
@@ -783,7 +783,7 @@ b8 drone_run_filter(const PlayerControlAI* control, const Entity* e)
 b8 drone_find_filter(const PlayerControlAI* control, const Entity* e)
 {
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
-		&& !e->get<AIAgent>()->stealth
+		&& e->get<AIAgent>()->stealth < 1.0f
 		&& (e->get<Health>()->shield <= control->get<Health>()->shield);
 }
 
@@ -883,18 +883,7 @@ void PlayerControlAI::update_memory()
 	update_component_memory<Minion>(this, &minion_memory_filter);
 	update_component_memory<Rectifier>(this, &rectifier_memory_filter);
 	update_component_memory<ForceField>(this, &default_memory_filter);
-
-	// update memory of enemy drone positions based on team rectifier data
-
 	update_component_memory<Drone>(this, &drone_memory_filter);
-
-	const Team& team = Team::list[(s32)get<AIAgent>()->team];
-	for (s32 i = 0; i < MAX_PLAYERS; i++)
-	{
-		const Team::RectifierTrack& track = team.player_tracks[i];
-		if (track.tracking && track.entity.ref())
-			add_memory(&player.ref()->memory, track.entity.ref(), track.entity.ref()->get<Transform>()->absolute_pos());
-	}
 }
 
 void PlayerControlAI::set_path(const AI::DronePath& p)

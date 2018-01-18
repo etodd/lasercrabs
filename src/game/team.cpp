@@ -262,7 +262,7 @@ void Team::awake_all()
 	winner = nullptr;
 	score_summary.length = 0;
 	for (s32 i = 0; i < MAX_PLAYERS * MAX_PLAYERS; i++)
-		PlayerManager::visibility[i] = { nullptr };
+		PlayerManager::visibility[i] = { 0.0f };
 }
 
 s32 Team::teams_with_active_players()
@@ -434,34 +434,28 @@ Team* Team::with_most_flags()
 	return result;
 }
 
-b8 visibility_check(Entity* i, Entity* j, r32* distance)
+b8 visibility_check(Entity* i, Entity* j, r32 i_range)
 {
 	Vec3 start = i->get<Transform>()->absolute_pos();
 	Vec3 end = j->get<Transform>()->absolute_pos();
 	Vec3 diff = end - start;
 
 	r32 dist_sq = diff.length_squared();
-	if (dist_sq == 0.0f)
-	{
-		*distance = 0.0f;
+	if (btFuzzyZero(dist_sq))
 		return true;
-	}
-	else
+	else if (dist_sq < i_range * i_range)
 	{
 		btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
 		Physics::raycast(&ray_callback, CollisionAudio);
 		if (!ray_callback.hasHit())
-		{
-			*distance = sqrtf(dist_sq);
 			return true;
-		}
 	}
 
 	return false;
 }
 
 // determine which rectifiers can see the given player
-void update_visibility_rectifier(Entity* visibility[][MAX_TEAMS], PlayerManager* player, Entity* player_entity)
+void get_rectifier_visibility(b8 visibility[MAX_TEAMS], Entity* player_entity)
 {
 	Quat player_rot;
 	Vec3 player_pos;
@@ -472,42 +466,16 @@ void update_visibility_rectifier(Entity* visibility[][MAX_TEAMS], PlayerManager*
 	{
 		if (i.item()->team != AI::TeamNone)
 		{
-			Entity** entry = &visibility[player->id()][s32(i.item()->team)];
+			b8* entry = &visibility[s32(i.item()->team)];
 			if (!(*entry))
 			{
 				Vec3 to_rectifier = i.item()->get<Transform>()->absolute_pos() - player_pos;
 				if (to_rectifier.length_squared() < RECTIFIER_RANGE * RECTIFIER_RANGE
 					&& to_rectifier.dot(normal) > 0.0f)
-					*entry = player_entity;
+					*entry = true;
 			}
 		}
 	}
-}
-
-void update_stealth_state(PlayerManager* player, AIAgent* a, Entity* visibility[][MAX_TEAMS])
-{
-	Quat player_rot;
-	Vec3 player_pos;
-	a->get<Transform>()->absolute(&player_pos, &player_rot);
-	player_pos += player_rot * Vec3(0, 0, -DRONE_RADIUS);
-	Vec3 normal = player_rot * Vec3(0, 0, 1);
-
-	// if we are within range of their own rectifiers
-	// and not detected by enemy rectifiers
-	// then we should be stealthed
-	b8 stealth_enabled = true;
-	UpgradeStation* upgrade_station = UpgradeStation::drone_inside(a->get<Drone>());
-	if (upgrade_station && upgrade_station->timer == 0.0f) // always stealthed inside upgrade stations (but not while transitioning)
-		stealth_enabled = true;
-	else if (Game::time.total - a->get<Drone>()->last_ability_fired < ABILITY_UNSTEALTH_TIME)
-		stealth_enabled = false;
-	else if (!Rectifier::can_see(1 << a->team, player_pos, normal))
-		stealth_enabled = false;
-	else
-	{
-		// check if any enemy rectifiers can see us
-	}
-	Drone::stealth(a->entity(), stealth_enabled);
 }
 
 void update_visibility(const Update& u)
@@ -527,19 +495,39 @@ void update_visibility(const Update& u)
 
 	// determine which drones are seen by which teams
 	// and update their stealth state
-	Entity* visibility[MAX_PLAYERS][MAX_TEAMS] = {};
 	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 	{
 		Entity* player_entity = player.item()->instance.ref();
 		if (player_entity && player_entity->has<Drone>())
 		{
-			if (player_entity->get<Drone>()->state() == Drone::State::Crawl) // we're on a wall and can thus be detected
+			AI::Team team = player.item()->team.ref()->team();
+			b8 stealthing = false;
+			UpgradeStation* upgrade_station = UpgradeStation::drone_inside(player_entity->get<Drone>());
+			if (upgrade_station && upgrade_station->timer == 0.0f) // always stealthed inside upgrade stations (but not while transitioning)
+				stealthing = true;
+			else if (Game::time.total - player_entity->get<Drone>()->last_ability_fired < ABILITY_UNSTEALTH_TIME)
+				stealthing = false;
+			else if (player_entity->get<Drone>()->state() == Drone::State::Crawl) // we're on a wall and can thus be detected
 			{
-				update_visibility_rectifier(visibility, player.item(), player_entity);
-				update_stealth_state(player.item(), player_entity->get<AIAgent>(), visibility);
+				b8 rectifier_visibility[MAX_TEAMS] = {};
+				get_rectifier_visibility(rectifier_visibility, player_entity);
+				stealthing = rectifier_visibility[team]; // if player's own rectifiers can see them, they're stealthing
+				if (stealthing)
+				{
+					// unless another team's rectifiers can see them too
+					for (s32 i = 0; i < Team::list.count(); i++)
+					{
+						if (i != team && rectifier_visibility[i])
+						{
+							stealthing = false;
+							break;
+						}
+					}
+				}
 			}
 			else
-				Drone::stealth(player_entity, false); // always visible while flying or dashing
+				stealthing = false; // always visible while flying or dashing
+			Drone::stealth(player_entity, stealthing);
 		}
 	}
 
@@ -559,74 +547,17 @@ void update_visibility(const Update& u)
 		{
 			Team* j_team = j.item()->team.ref();
 
+			PlayerManager::Visibility* visibility = &PlayerManager::visibility[PlayerManager::visibility_hash(i.item(), j.item())];
+
 			if (i_team == j_team)
-				continue;
-
-			PlayerManager::Visibility detected = { nullptr };
-
-			Entity* j_actual_entity = j.item()->instance.ref();
-			if (j_actual_entity && !j_actual_entity->get<AIAgent>()->stealth)
-			{
-				// i_entity detecting j_actual_entity
-				r32 distance;
-				if ((visibility_check(i_entity, j_actual_entity, &distance)
-					&& distance < i_range))
-					detected.entity = j_actual_entity;
-			}
-
-			PlayerManager::visibility[PlayerManager::visibility_hash(i.item(), j.item())] = detected;
-		}
-	}
-
-	for (auto t = Team::list.iterator(); !t.is_last(); t.next())
-	{
-		Team* team = t.item();
-
-		// update tracking timers.
-
-		for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
-		{
-			AI::Team player_team = player.item()->team.ref()->team();
-			if (team->team() == player_team)
-				continue;
-
-			Entity* detected_entity = visibility[player.index][team->id()];
-			Team::RectifierTrack* track = &team->player_tracks[player.index];
-			if (detected_entity)
-			{
-				// team's rectifiers are picking up the Drone
-				if (track->entity.ref() == detected_entity)
-				{
-					if (track->tracking)
-						track->timer = RECTIFIER_LINGER_TIME; // this is how much time we'll continue to track them after we can no longer detect them
-					else
-					{
-						// tracking but not yet alerted
-						track->timer += u.time.delta;
-						if (track->timer >= RECTIFIER_TRACK_TIME)
-							team->track(player.item(), detected_entity);
-					}
-				}
-				else if (detected_entity->get<Drone>()->state() == Drone::State::Crawl)
-				{
-					// not tracking yet; insert new track entry
-					// (only start tracking if the Drone is attached to a wall; don't start tracking if Drone is mid-air)
-
-					new (track) Team::RectifierTrack();
-					track->entity = detected_entity;
-				}
-			}
+				visibility->value = true;
 			else
 			{
-				// team's rectifiers don't see the Drone
-				// done tracking
-				if (track->tracking && track->entity.ref() && track->timer > 0.0f) // track still remains active for RECTIFIER_LINGER_TIME seconds
-					track->timer -= u.time.delta;
-				else
+				Entity* j_entity = j.item()->instance.ref();
+				if (j_entity && j_entity->get<AIAgent>()->stealth < 1.0f)
 				{
-					// done tracking
-					track->entity = nullptr;
-					track->tracking = false;
+					// i_entity detecting j_actual_entity
+					visibility->value = visibility_check(i_entity, j_entity, i_range);
 				}
 			}
 		}
@@ -2186,15 +2117,7 @@ void PlayerManager::ability_cooldown_apply(Ability a)
 	if (info.cooldown_use > 0.0f)
 	{
 		vi_assert(ability_cooldown[s32(a)] < info.cooldown_use_threshold);
-		r32 c;
-#if SERVER
-		if (has<PlayerHuman>())
-			c = info.cooldown_use - Net::rtt(get<PlayerHuman>());
-		else
-#endif
-			c = info.cooldown_use;
-
-		ability_cooldown[s32(a)] = c;
+		ability_cooldown[s32(a)] += info.cooldown_use;
 	}
 }
 
@@ -2509,7 +2432,8 @@ void PlayerManager::update_client_only(const Update& u)
 	for (s32 i = 0; i < s32(Ability::count); i++)
 	{
 		const AbilityInfo& info = AbilityInfo::list[i];
-		ability_cooldown[i] = vi_max(info.cooldown_use_threshold, ability_cooldown[i] - u.time.delta); // can't set it below threshold until server says we can
+		r32 min = ability_cooldown[i] >= info.cooldown_use_threshold ? info.cooldown_use_threshold : 0.0f;
+		ability_cooldown[i] = vi_max(min, ability_cooldown[i] - u.time.delta); // can't set it below threshold until server says we can
 	}
 }
 

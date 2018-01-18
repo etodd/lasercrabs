@@ -1273,7 +1273,6 @@ const char* AssetLookup::String::names[] =
 	"enable_batteries",
 	"enable_battery_stealth",
 	"enable_spawn_shields",
-	"enemy_tracking",
 	"energy",
 	"energy_added",
 	"energy_generation",

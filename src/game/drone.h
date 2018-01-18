@@ -138,6 +138,8 @@ struct Drone : public ComponentType<Drone>
 	Ability current_ability;
 	b8 dash_combo;
 
+	DroneVulnerability vulnerability() const;
+
 	Drone();
 	~Drone();
 	void awake();

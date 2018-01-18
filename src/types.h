@@ -52,6 +52,15 @@ const AssetID AssetNull = AssetID(-1);
 typedef s16 ID;
 const ID IDNull = ID(MAX_ENTITIES);
 
+enum class DroneVulnerability : s8
+{
+	None,
+	All,
+	DroneBolts,
+	ActiveArmor,
+	count,
+};
+
 enum class ServerListType : s8
 {
 	Top,

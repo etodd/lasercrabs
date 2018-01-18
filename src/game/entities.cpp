@@ -213,18 +213,18 @@ void Health::update_server(const Update& u)
 			{
 				if (src->has<Bolt>())
 				{
-					if (can_take_damage(src))
+					if (active_armor())
+						src->get<Bolt>()->reflect(entity());
+					else
 					{
 						health_internal_apply_damage(this, src, entry->damage);
 						World::remove_deferred(src);
 					}
-					else
-						src->get<Bolt>()->reflect(entity());
 				}
-				else if (can_take_damage(src))
-					health_internal_apply_damage(this, src, entry->damage);
 				else if (active_armor() && src->has<Drone>() && entry->type != BufferedDamage::Type::Sniper) // damage them back
 					src->get<Health>()->damage_force(entity(), ACTIVE_ARMOR_DIRECT_DAMAGE);
+				else
+					health_internal_apply_damage(this, src, entry->damage);
 			}
 			damage_buffer.remove(i);
 			i--;
@@ -242,6 +242,7 @@ b8 Health::damage_buffer_required(const Entity* src) const
 #if SERVER
 	return has<PlayerControlHuman>()
 		&& !get<PlayerControlHuman>()->local() // we are a remote player
+		&& get<PlayerCommon>()->manager.ref()->has_ability(Ability::ActiveArmor)
 		&& src
 		&& (!src->has<PlayerControlHuman>() || !PlayerHuman::players_on_same_client(entity(), src)); // the attacker is remote from the player
 #else
@@ -249,10 +250,10 @@ b8 Health::damage_buffer_required(const Entity* src) const
 #endif
 }
 
-void Health::damage(Entity* src, s8 damage)
+void Health::damage(Entity* src, s8 damage, const Net::StateFrame* state_frame)
 {
 	vi_assert(Game::level.local);
-	vi_assert(can_take_damage(src));
+	vi_assert(can_take_damage(src, state_frame));
 	if (hp > 0 && damage > 0)
 	{
 		if (damage_buffer_required(src))
@@ -313,41 +314,56 @@ s8 Health::total() const
 	return hp + shield;
 }
 
-b8 Health::active_armor() const
+b8 Health::active_armor(const Net::StateFrame* state_frame) const
 {
 	if (has<CoreModule>())
 		return active_armor_timer > 0.0f || Turret::list.count() > 0 || Game::level.mode != Game::Mode::Pvp || Team::core_module_delay > 0.0f;
 	else if (has<ForceField>())
 		return active_armor_timer > 0.0f || (get<ForceField>()->flags & ForceField::FlagInvincible);
+	else if (has<Drone>())
+	{
+		if (state_frame && state_frame->drones_active.get(get<Drone>()->id()))
+			return state_frame->drones[get<Drone>()->id()].vulnerability == DroneVulnerability::ActiveArmor;
+		else
+			return active_armor_timer > 0.0f;
+	}
 	else
 		return active_armor_timer > 0.0f;
 }
 
-b8 Health::can_take_damage(Entity* damager) const
+b8 Health::can_take_damage(Entity* damager, const Net::StateFrame* state_frame) const
 {
-	if (active_armor())
+	if (active_armor(state_frame))
 		return false;
 
 	if (has<Drone>())
 	{
-		if (UpgradeStation::drone_inside(get<Drone>()))
-			return false; // invincible inside upgrade station
-		else if (get<Drone>()->state() != Drone::State::Crawl)
+		DroneVulnerability v;
+		if (state_frame && state_frame->drones_active.get(get<Drone>()->id()))
+			v = state_frame->drones[get<Drone>()->id()].vulnerability;
+		else
+			v = get<Drone>()->vulnerability();
+		switch (v)
 		{
-			// normally invincible while flying or dashing
-
-			// except to drone bolts
-			if (damager && damager->has<Bolt>())
+			case DroneVulnerability::None:
+			case DroneVulnerability::ActiveArmor:
+				return false;
+			case DroneVulnerability::DroneBolts:
 			{
-				Bolt::Type t = damager->get<Bolt>()->type;
-				if (t == Bolt::Type::DroneBolter || t == Bolt::Type::DroneShotgun)
-					return true;
+				if (damager && damager->has<Bolt>())
+				{
+					Bolt::Type t = damager->get<Bolt>()->type;
+					if (t == Bolt::Type::DroneBolter || t == Bolt::Type::DroneShotgun)
+						return true;
+				}
+				return false;
 			}
-
-			return false;
+			case DroneVulnerability::All:
+				return true;
+			default:
+				vi_assert(false);
+				return false;
 		}
-
-		return true;
 	}
 	else if (has<Battery>() && damager && damager->has<Bolt>())
 		return get<Battery>()->team != damager->get<Bolt>()->team;
@@ -2029,8 +2045,8 @@ b8 Turret::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 b8 Turret::can_see(Entity* target) const
 {
-	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth)
-		|| (target->has<Rectifier>() && target->get<Rectifier>()->stealth))
+	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth == 1.0f)
+		|| (target->has<Rectifier>() && target->get<Rectifier>()->stealth == 1.0f))
 		return false;
 
 	Vec3 pos = get<Transform>()->absolute_pos();
@@ -2613,7 +2629,7 @@ b8 Bolt::default_raycast_filter(Entity* e, AI::Team team)
 		&& (!e->has<ForceField>() || e->get<ForceField>()->team != team); // ignore friendly force fields
 }
 
-b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, AI::Team team, Hit* out_hit, b8(*filter)(Entity*, AI::Team), Net::StateFrame* state_frame, r32 extra_radius)
+b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, AI::Team team, Hit* out_hit, b8(*filter)(Entity*, AI::Team), const Net::StateFrame* state_frame, r32 extra_radius)
 {
 	out_hit->entity = nullptr;
 	r32 closest_hit_distance_sq = FLT_MAX;
@@ -2665,7 +2681,7 @@ b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, AI::T
 }
 
 // returns true if the bolt hit something
-b8 Bolt::simulate(r32 dt, Hit* out_hit, Net::StateFrame* state_frame)
+b8 Bolt::simulate(r32 dt, Hit* out_hit, const Net::StateFrame* state_frame)
 {
 	if (!visible()) // waiting for damage buffer
 		return false;
@@ -2762,7 +2778,7 @@ void Bolt::reflect(const Entity* hit_object, ReflectionType reflection_type, con
 		BoltNet::reflect(this);
 }
 
-void Bolt::hit_entity(const Hit& hit)
+void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 {
 	Entity* hit_object = hit.entity;
 
@@ -2849,7 +2865,7 @@ void Bolt::hit_entity(const Hit& hit)
 			}
 		}
 
-		if (!hit_object->has<Health>() || !hit_object->get<Health>()->can_take_damage(entity()))
+		if (!hit_object->has<Health>() || !hit_object->get<Health>()->can_take_damage(entity(), state_frame))
 			damage = 0;
 
 		if (hit_force_field_collision)
@@ -2860,7 +2876,7 @@ void Bolt::hit_entity(const Hit& hit)
 				reflect(hit_object, ReflectionType::Simple, hit.normal);
 			}
 		}
-		else if (hit_object->get<Health>()->active_armor())
+		else if (hit_object->get<Health>()->active_armor(state_frame))
 		{
 			damage = 0;
 			if (hit_object->has<Shield>())
@@ -3407,7 +3423,7 @@ namespace GrenadeNet
 
 b8 grenade_trigger_filter(Entity* e, AI::Team team)
 {
-	return (e->has<AIAgent>() && e->get<AIAgent>()->team != team && !e->get<AIAgent>()->stealth)
+	return (e->has<AIAgent>() && e->get<AIAgent>()->team != team && e->get<AIAgent>()->stealth < 1.0f)
 		|| (e->has<ForceField>() && e->get<ForceField>()->team != team)
 		|| (e->has<ForceFieldCollision>() && e->get<ForceFieldCollision>()->field.ref()->team != team)
 		|| (e->has<Rectifier>() && !e->has<Battery>() && e->get<Rectifier>()->team != team)
@@ -3422,7 +3438,7 @@ b8 grenade_hit_filter(Entity* e, AI::Team team)
 }
 
 // returns true if grenade hits something
-b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, Net::StateFrame* state_frame)
+b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, const Net::StateFrame* state_frame)
 {
 	vi_assert(Game::level.local);
 	Transform* t = get<Transform>();
@@ -3468,7 +3484,7 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, Net::StateFrame* state_frame)
 	return false;
 }
 
-void Grenade::hit_entity(const Bolt::Hit& hit)
+void Grenade::hit_entity(const Bolt::Hit& hit, const Net::StateFrame* state_frame)
 {
 	if (grenade_hit_filter(hit.entity, team()))
 	{

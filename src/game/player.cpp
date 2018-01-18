@@ -1670,7 +1670,7 @@ r32 ability_draw(const RenderParams& params, const PlayerManager* manager, const
 			if (cooldown < info.cooldown_use_threshold)
 				percentage = 0.0f;
 			else
-				percentage = 1.0f - ((cooldown - info.cooldown_use_threshold) / (info.cooldown_use - info.cooldown_use_threshold));
+				percentage = 1.0f - ((cooldown - info.cooldown_use_threshold) / info.cooldown_use);
 		}
 	}
 
@@ -1808,9 +1808,17 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	p.y += text.bounds().y + MENU_ITEM_PADDING * -3.0f;
 	p.x += width * -0.5f;
 
-	// "deploying..."
+	{
+		// game type
+		Overworld::game_type_string(&text, Game::session.config.preset, Game::session.config.game_type, Team::list.count(), Game::session.config.max_players);
+		UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
+		text.draw(params, p);
+		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+	}
+
 	if (!manager->instance.ref())
 	{
+		// deploying or waiting
 		if (Team::match_state == Team::MatchState::Active)
 		{
 			if (Game::session.config.game_type == GameType::Assault)
@@ -1916,30 +1924,11 @@ Upgrade PlayerHuman::upgrade_selected() const
 	return upgrade;
 }
 
-// returns the actual detected entity, if any. could be the original player, or something else.
-Entity* player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visible, b8* tracking = nullptr)
+b8 player_determine_visibility(PlayerCommon* me, PlayerCommon* other_player)
 {
 	// make sure we can see this guy
-	AI::Team team = me->get<AIAgent>()->team;
-	const Team::RectifierTrack track = Team::list[s32(team)].player_tracks[other_player->manager.id];
-	if (tracking)
-		*tracking = track.tracking;
-
-	if (other_player->get<AIAgent>()->team == team)
-	{
-		*visible = true;
-		return other_player->entity();
-	}
-	else
-	{
-		const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(me->manager.ref(), other_player->manager.ref())];
-		*visible = visibility.entity.ref();
-
-		if (track.tracking)
-			return track.entity.ref();
-		else
-			return visibility.entity.ref();
-	}
+	const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(me->manager.ref(), other_player->manager.ref())];
+	return visibility.value;
 }
 
 void player_draw_flag(const RenderParams& params, const Flag* flag)
@@ -2083,8 +2072,7 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 				{
 					if (instance)
 					{
-						b8 carrier_visible;
-						player_determine_visibility(instance->get<PlayerCommon>(), carrier->get<PlayerCommon>(), &carrier_visible);
+						b8 carrier_visible = player_determine_visibility(instance->get<PlayerCommon>(), carrier->get<PlayerCommon>());
 						if (carrier_visible)
 							player_draw_flag(params, our_flag);
 					}
@@ -2890,14 +2878,12 @@ Entity* PlayerCommon::incoming_attacker() const
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
 		const PlayerManager::Visibility& visibility = PlayerManager::visibility[PlayerManager::visibility_hash(manager, i.item()->manager.ref())];
-		if (visibility.entity.ref())
+		if (visibility.value)
 		{
 			// determine if they're attacking us
 			if (i.item()->get<Drone>()->state() != Drone::State::Crawl
 				&& Vec3::normalize(i.item()->get<Drone>()->velocity).dot(Vec3::normalize(me - i.item()->get<Transform>()->absolute_pos())) > 0.98f)
-			{
 				return i.item()->entity();
-			}
 		}
 	}
 
@@ -2940,27 +2926,6 @@ Entity* PlayerCommon::incoming_attacker() const
 	}
 
 	return nullptr;
-}
-
-r32 PlayerCommon::detect_danger() const
-{
-	AI::Team my_team = get<AIAgent>()->team;
-	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
-	{
-		Team* team = i.item();
-		if (team->team() == my_team)
-			continue;
-
-		Team::RectifierTrack* track = &team->player_tracks[manager.id];
-		if (track->entity.ref() == entity())
-		{
-			if (track->tracking)
-				return 1.0f;
-			else
-				return track->timer / RECTIFIER_TRACK_TIME;
-		}
-	}
-	return 0.0f;
 }
 
 Vec3 PlayerCommon::look_dir() const
@@ -3216,10 +3181,8 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 							r32 dot = Vec3::normalize(i.item()->get<Transform>()->absolute_pos() - msg.target).dot(msg.dir);
 							if (dot > closest_dot)
 							{
-								b8 tracking;
-								b8 visible;
-								Entity* detected_entity = player_determine_visibility(c->get<PlayerCommon>(), i.item()->get<PlayerCommon>(), &visible, &tracking);
-								if (visible && detected_entity == i.item()->entity())
+								b8 visible = player_determine_visibility(c->get<PlayerCommon>(), i.item()->get<PlayerCommon>());
+								if (visible)
 								{
 									closest_dot = dot;
 									target = i.item()->get<Target>();
@@ -3303,41 +3266,28 @@ void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerCo
 {
 	Vec3 me = p->get<Transform>()->absolute_pos();
 
-	b8 show;
-
-	b8 in_range;
-
-	if (type == PlayerControlHuman::TargetIndicator::Type::DroneOutOfRange)
+	b8 show = true;
+	r32 range = p->get<Drone>()->range();
+	b8 in_range = (target->absolute_pos() - me).length_squared() < range * range;
+	if (!in_range)
 	{
-		in_range = false;
-		show = true; // show even out of range
-	}
-	else
-	{
-		show = true;
-
-		r32 range = p->get<Drone>()->range();
-		in_range = (target->absolute_pos() - me).length_squared() < range * range;
-		if (!in_range)
-		{
-			// out of range; some indicators just disappear; others change
-			if (type == PlayerControlHuman::TargetIndicator::Type::Battery)
-				type = PlayerControlHuman::TargetIndicator::Type::BatteryOutOfRange;
-			else if (type == PlayerControlHuman::TargetIndicator::Type::BatteryEnemy)
-				type = PlayerControlHuman::TargetIndicator::Type::BatteryEnemyOutOfRange;
-			else if (type == PlayerControlHuman::TargetIndicator::Type::BatteryFriendly)
-				type = PlayerControlHuman::TargetIndicator::Type::BatteryFriendlyOutOfRange;
-			else if (type == PlayerControlHuman::TargetIndicator::Type::Turret)
-				type = PlayerControlHuman::TargetIndicator::Type::TurretOutOfRange;
-			else if (type == PlayerControlHuman::TargetIndicator::Type::TurretFriendly)
-				type = PlayerControlHuman::TargetIndicator::Type::TurretFriendlyOutOfRange;
-			else if (type == PlayerControlHuman::TargetIndicator::Type::CoreModule)
-				type = PlayerControlHuman::TargetIndicator::Type::CoreModuleOutOfRange;
-			else if (type == PlayerControlHuman::TargetIndicator::Type::CoreModuleFriendly)
-				type = PlayerControlHuman::TargetIndicator::Type::CoreModuleFriendlyOutOfRange;
-			else
-				show = false; // don't show this indicator because it's out of range
-		}
+		// out of range; some indicators just disappear; others change
+		if (type == PlayerControlHuman::TargetIndicator::Type::Battery)
+			type = PlayerControlHuman::TargetIndicator::Type::BatteryOutOfRange;
+		else if (type == PlayerControlHuman::TargetIndicator::Type::BatteryEnemy)
+			type = PlayerControlHuman::TargetIndicator::Type::BatteryEnemyOutOfRange;
+		else if (type == PlayerControlHuman::TargetIndicator::Type::BatteryFriendly)
+			type = PlayerControlHuman::TargetIndicator::Type::BatteryFriendlyOutOfRange;
+		else if (type == PlayerControlHuman::TargetIndicator::Type::Turret)
+			type = PlayerControlHuman::TargetIndicator::Type::TurretOutOfRange;
+		else if (type == PlayerControlHuman::TargetIndicator::Type::TurretFriendly)
+			type = PlayerControlHuman::TargetIndicator::Type::TurretFriendlyOutOfRange;
+		else if (type == PlayerControlHuman::TargetIndicator::Type::CoreModule)
+			type = PlayerControlHuman::TargetIndicator::Type::CoreModuleOutOfRange;
+		else if (type == PlayerControlHuman::TargetIndicator::Type::CoreModuleFriendly)
+			type = PlayerControlHuman::TargetIndicator::Type::CoreModuleFriendlyOutOfRange;
+		else
+			show = false; // don't show this indicator because it's out of range
 	}
 
 	if (show)
@@ -3366,12 +3316,10 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 	{
 		if (other_player.item()->get<AIAgent>()->team != team)
 		{
-			b8 tracking;
-			b8 visible;
-			Entity* detected_entity = player_determine_visibility(p->get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+			b8 visible = player_determine_visibility(p->get<PlayerCommon>(), other_player.item());
 
-			if (visible || tracking)
-				player_add_target_indicator(p, detected_entity->get<Target>(), visible ? PlayerControlHuman::TargetIndicator::Type::DroneVisible : PlayerControlHuman::TargetIndicator::Type::DroneOutOfRange);
+			if (visible)
+				player_add_target_indicator(p, other_player.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::DroneVisible);
 		}
 	}
 
@@ -4108,8 +4056,7 @@ void PlayerControlHuman::update(const Update& u)
 					{
 						const TargetIndicator indicator = target_indicators[i];
 
-						if (indicator.type == TargetIndicator::Type::DroneOutOfRange
-							|| indicator.type == TargetIndicator::Type::BatteryOutOfRange
+						if (indicator.type == TargetIndicator::Type::BatteryOutOfRange
 							|| indicator.type == TargetIndicator::Type::BatteryFriendly
 							|| indicator.type == TargetIndicator::Type::BatteryFriendlyOutOfRange
 							|| indicator.type == TargetIndicator::Type::BatteryEnemyOutOfRange
@@ -5050,7 +4997,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				break;
 			}
 			case TargetIndicator::Type::BatteryFriendly:
-			case TargetIndicator::Type::DroneOutOfRange:
 			case TargetIndicator::Type::Rectifier:
 			case TargetIndicator::Type::ForceField:
 			case TargetIndicator::Type::Grenade:
@@ -5422,9 +5368,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 	{
 		if (other_player.item() != get<PlayerCommon>())
 		{
-			b8 tracking;
-			b8 visible;
-			Entity* detected_entity = player_determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+			b8 visible = player_determine_visibility(get<PlayerCommon>(), other_player.item());
 
 			b8 friendly = other_player.item()->get<AIAgent>()->team == team;
 
@@ -5434,77 +5378,48 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				enemy_dangerous_visible = true;
 			}
 
-			b8 draw;
-			Vec2 p;
-			const Vec4* color;
+			if (visible)
+			{
+				const Vec4* color = friendly ? &Team::ui_color_friend() : &Team::ui_color_enemy();
 
-			if (friendly)
-			{
-				Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, DRONE_RADIUS * 2.0f, 0);
-				draw = UI::project(params, pos3d, &p);
-				color = &Team::ui_color_friend();
-			}
-			else
-			{
-				// highlight the username and draw it even if it's offscreen
-				if (detected_entity)
+				// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
+
+				Vec3 pos3d = other_player.item()->get<Transform>()->absolute_pos() + Vec3(0, DRONE_RADIUS * 2.0f, 0);
+				Vec2 p;
+				if (UI::project(params, pos3d, &p))
 				{
-					Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, DRONE_RADIUS * 2.0f, 0);
+					Vec2 username_pos = p;
+					username_pos.y += UI_TEXT_SIZE_DEFAULT * UI::scale;
 
-					if (friendly)
-						color = &Team::ui_color_friend();
-					else
-						color = &Team::ui_color_enemy();
-
-					// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
-
-					if (tracking)
 					{
-						// if we're tracking them, clamp their username to the screen
-						draw = true;
-						UI::is_onscreen(params, pos3d, &p);
+						UIText username;
+						username.anchor_x = UIText::Anchor::Center;
+						username.anchor_y = UIText::Anchor::Min;
+						username.color = *color;
+						username.text_raw(player.ref()->gamepad, other_player.item()->manager.ref()->username);
+
+						UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::color_background);
+
+						username.draw(params, username_pos);
 					}
-					else // if not tracking, only draw username if it's directly visible on screen
-						draw = UI::project(params, pos3d, &p);
-				}
-				else
-				{
-					// not visible or tracking right now
-					draw = false;
-				}
-			}
 
-			if (draw)
-			{
-				Vec2 username_pos = p;
-				username_pos.y += UI_TEXT_SIZE_DEFAULT * UI::scale;
-
-				UIText username;
-				username.anchor_x = UIText::Anchor::Center;
-				username.anchor_y = UIText::Anchor::Min;
-				username.color = *color;
-				username.text_raw(player.ref()->gamepad, other_player.item()->manager.ref()->username);
-
-				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::color_background);
-
-				username.draw(params, username_pos);
-
-				{
-					PlayerManager* other_manager = other_player.item()->manager.ref();
-					s32 ability_count = other_manager->ability_count();
-					if (ability_count > 0)
 					{
-						r32 item_size = UI_TEXT_SIZE_DEFAULT * UI::scale * 0.75f;
-						Vec2 p2 = username_pos + Vec2((ability_count * -0.5f + 0.5f) * item_size + ((ability_count - 1) * HP_BOX_SPACING * -0.5f), (UI_TEXT_SIZE_DEFAULT * UI::scale) + item_size);
-						UI::box(params, { Vec2(p2.x + item_size * -0.5f - HP_BOX_SPACING, p2.y + item_size * -0.5f - HP_BOX_SPACING), Vec2((ability_count * item_size) + ((ability_count + 1) * HP_BOX_SPACING), item_size + HP_BOX_SPACING * 2.0f) }, UI::color_background);
-						for (s32 i = 0; i < MAX_ABILITIES; i++)
+						PlayerManager* other_manager = other_player.item()->manager.ref();
+						s32 ability_count = other_manager->ability_count();
+						if (ability_count > 0)
 						{
-							Ability ability = other_manager->abilities[i];
-							if (ability != Ability::None)
+							r32 item_size = UI_TEXT_SIZE_DEFAULT * UI::scale * 0.75f;
+							Vec2 p2 = username_pos + Vec2((ability_count * -0.5f + 0.5f) * item_size + ((ability_count - 1) * HP_BOX_SPACING * -0.5f), (UI_TEXT_SIZE_DEFAULT * UI::scale) + item_size);
+							UI::box(params, { Vec2(p2.x + item_size * -0.5f - HP_BOX_SPACING, p2.y + item_size * -0.5f - HP_BOX_SPACING), Vec2((ability_count * item_size) + ((ability_count + 1) * HP_BOX_SPACING), item_size + HP_BOX_SPACING * 2.0f) }, UI::color_background);
+							for (s32 i = 0; i < MAX_ABILITIES; i++)
 							{
-								const AbilityInfo& info = AbilityInfo::list[s32(ability)];
-								UI::mesh(params, info.icon, p2, Vec2(item_size), ability == other_player.item()->get<Drone>()->current_ability ? UI::color_default : *color);
-								p2.x += item_size + HP_BOX_SPACING;
+								Ability ability = other_manager->abilities[i];
+								if (ability != Ability::None)
+								{
+									const AbilityInfo& info = AbilityInfo::list[s32(ability)];
+									UI::mesh(params, info.icon, p2, Vec2(item_size), ability == other_player.item()->get<Drone>()->current_ability ? UI::color_default : *color);
+									p2.x += item_size + HP_BOX_SPACING;
+								}
 							}
 						}
 					}
@@ -5525,80 +5440,50 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		text.anchor_x = UIText::Anchor::Min;
 		text.anchor_y = UIText::Anchor::Max;
 
-		{
-			b8 danger = enemy_visible && (enemy_dangerous_visible || is_vulnerable) && !get<AIAgent>()->stealth;
+		b8 danger = enemy_visible && (enemy_dangerous_visible || is_vulnerable) && get<AIAgent>()->stealth < 1.0f;
 
-			if (get<AIAgent>()->stealth)
+		if (get<AIAgent>()->stealth == 1.0f)
+		{
+			// stealth indicator
+			text.color = UI::color_accent();
+			text.text(player.ref()->gamepad, _(strings::stealth));
+			UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
+			text.draw(params, ui_anchor);
+		}
+		else if (danger && (is_vulnerable ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total)))
+		{
+			// danger indicator
+			text.color = UI::color_alert();
+			text.text(player.ref()->gamepad, _(strings::danger));
+			UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
+			text.draw(params, ui_anchor);
+		}
+		ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
+
+		// shield indicator
+		if (is_vulnerable)
+		{
+			if (danger ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total))
 			{
-				// stealth indicator
-				text.color = UI::color_accent();
-				text.text(player.ref()->gamepad, _(strings::stealth));
-				UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
-				text.draw(params, ui_anchor);
-			}
-			else if (danger && (is_vulnerable ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total)))
-			{
-				// danger indicator
 				text.color = UI::color_alert();
-				text.text(player.ref()->gamepad, _(strings::danger));
+				text.text(player.ref()->gamepad, _(strings::shield_down));
 				UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
 				text.draw(params, ui_anchor);
 			}
-			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
 
-			// shield indicator
-			if (is_vulnerable)
+			if (danger)
 			{
-				if (danger ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total))
-				{
-					text.color = UI::color_alert();
-					text.text(player.ref()->gamepad, _(strings::shield_down));
-					UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
-					text.draw(params, ui_anchor);
-				}
-
-				if (danger)
-				{
-					if (UI::flash_function(Game::real_time.total) && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
-						Audio::post_global(AK::EVENTS::PLAY_UI_SHIELD_DOWN_BEEP);
-				}
-				else
-				{
-					if (UI::flash_function_slow(Game::real_time.total) && !UI::flash_function_slow(Game::real_time.total - Game::real_time.delta))
-						Audio::post_global(AK::EVENTS::PLAY_DANGER_BEEP);
-				}
+				if (UI::flash_function(Game::real_time.total) && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
+					Audio::post_global(AK::EVENTS::PLAY_UI_SHIELD_DOWN_BEEP);
 			}
-
-			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
+			else
+			{
+				if (UI::flash_function_slow(Game::real_time.total) && !UI::flash_function_slow(Game::real_time.total - Game::real_time.delta))
+					Audio::post_global(AK::EVENTS::PLAY_DANGER_BEEP);
+			}
 		}
 
-		// detect danger
-		{
-			r32 detect_danger = get<PlayerCommon>()->detect_danger();
-			if (detect_danger > 0.0f)
-			{
-				text.text(player.ref()->gamepad, _(strings::enemy_tracking));
-				Rect2 box = text.rect(ui_anchor).outset(8 * UI::scale);
-				if (detect_danger == 1.0f)
-				{
-					if (UI::flash_function_slow(Game::real_time.total))
-					{
-						UI::box(params, box, UI::color_background);
-						text.color = UI::color_alert();
-						text.draw(params, ui_anchor);
-					}
-				}
-				else
-				{
-					// draw bar
-					UI::box(params, box, UI::color_background);
-					UI::box(params, { box.pos, Vec2(box.size.x * detect_danger, box.size.y) }, UI::color_alert());
-					text.color = UI::color_background;
-					text.draw(params, ui_anchor);
-				}
-			}
-			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
-		}
+		ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
 	}
 
 	// reticle
@@ -5640,10 +5525,10 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		if (get<Drone>()->cooldown_ability_switch == 0.0f)
 		{
 			r32 cooldown_use = player.ref()->get<PlayerManager>()->ability_cooldown[s32(a)];
-			if (cooldown_use > 0.0f) // ability cooldown reticle
+			if (info.cooldown_use_threshold > 0.0f && cooldown_use >= info.cooldown_use_threshold) // ability cooldown reticle
 			{
 				UI::mesh(params, Asset::Mesh::icon_reticle_invalid, pos, Vec2(32.0f * UI::scale), *color);
-				UI::triangle_percentage(params, { pos, Vec2(47.0f * UI::scale) }, 1.0f - (cooldown_use / info.cooldown_use), *color, PI);
+				UI::triangle_percentage(params, { pos, Vec2(47.0f * UI::scale) }, 1.0f - ((cooldown_use - info.cooldown_use_threshold) / info.cooldown_use), *color, PI);
 			}
 			else if (reticle_valid) // normal reticle
 			{

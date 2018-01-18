@@ -1116,9 +1116,12 @@ void multiplayer_entry_view_update(const Update& u)
 	{
 		if (cancel)
 		{
-			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
-			multiplayer_state_transition(Data::Multiplayer::State::Browse);
 			Game::cancel_event_eaten[0] = true;
+			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+			if (Game::level.mode == Game::Mode::Pvp) // we are currently in the server we're viewing
+				hide();
+			else
+				multiplayer_state_transition(Data::Multiplayer::State::Browse);
 			return;
 		}
 		else if (data.multiplayer.active_server.is_admin
@@ -1270,7 +1273,8 @@ void multiplayer_top_bar_layout(Data::Multiplayer::TopBarLayout* layout)
 			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::Back, _(strings::prompt_back));
 			if (data.multiplayer.active_server.is_admin)
 				multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::EditServer, _(strings::prompt_entry_edit));
-			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::ConnectServer, _(strings::prompt_connect));
+			if (Game::level.mode != Game::Mode::Pvp) // if we're not currently connected to the server we're viewing
+				multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::ConnectServer, _(strings::prompt_connect));
 			break;
 		}
 		case Data::Multiplayer::State::EntryEdit:
@@ -3489,8 +3493,12 @@ void show_complete()
 	if (data.state == State::Multiplayer && Game::level.mode == Game::Mode::Pvp)
 	{
 		// we're editing a server while playing in that server
+		vi_assert(PlayerHuman::count_local() == 1);
 		multiplayer_switch_tab(ServerListType::Mine);
-		multiplayer_state_transition(Data::Multiplayer::State::EntryEdit);
+		if (PlayerHuman::for_gamepad(0)->get<PlayerManager>()->is_admin)
+			multiplayer_state_transition(Data::Multiplayer::State::EntryEdit);
+		else
+			multiplayer_state_transition(Data::Multiplayer::State::EntryView);
 		data.multiplayer.active_server.config.id = Game::session.config.id;
 		multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigGet);
 #if !SERVER
@@ -3738,6 +3746,11 @@ void shop_flags(s32 flags)
 
 // show server settings for current server
 void server_settings(Camera* cam)
+{
+	show(cam, State::Multiplayer);
+}
+
+void server_settings_readonly(Camera* cam)
 {
 	show(cam, State::Multiplayer);
 }

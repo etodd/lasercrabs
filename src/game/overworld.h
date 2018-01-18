@@ -57,6 +57,8 @@ void draw_override(const RenderParams&);
 void show(Camera*, State, StoryTab = StoryTab::Map);
 void shop_flags(s32);
 void server_settings(Camera*);
+void server_settings_readonly(Camera*);
+void game_type_string(UIText*, Net::Master::Ruleset::Preset, GameType, s8, s8);
 void clear();
 void execute(const char*);
 void zone_change(AssetID, ZoneState);

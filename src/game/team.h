@@ -77,13 +77,6 @@ struct Team : public ComponentType<Team>
 		count,
 	};
 
-	struct RectifierTrack
-	{
-		r32 timer;
-		Ref<Entity> entity;
-		b8 tracking;
-	};
-
 	struct ScoreSummaryItem
 	{
 		s32 amount;
@@ -133,7 +126,6 @@ struct Team : public ComponentType<Team>
 		return me == them ? color_friend : color_enemy;
 	}
 
-	RectifierTrack player_tracks[MAX_PLAYERS];
 	Ref<Target> spot_target;
 	Ref<Transform> flag_base;
 	s16 kills;
@@ -141,7 +133,6 @@ struct Team : public ComponentType<Team>
 
 	void awake() {}
 	b8 has_active_player() const;
-	void track(PlayerManager*, Entity*);
 	s32 player_count() const;
 	r32 minion_spawn_rate() const;
 	s16 increment() const;
@@ -187,7 +178,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 
 	struct Visibility
 	{
-		Ref<Entity> entity;
+		b8 value;
 	};
 
 	static s32 visibility_hash(const PlayerManager*, const PlayerManager*);

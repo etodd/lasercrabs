@@ -800,12 +800,12 @@ void Minion::update_server(const Update& u)
 	{
 		r32 speed = get<Walker>()->net_speed;
 		Vec3 pos = get<Walker>()->base_pos();
-		if ((speed > 0.1f || (obstacle_pos - pos).length_squared() > WALKER_MINION_RADIUS) && obstacle_id != u32(-1))
+		if ((!goal.entity.ref() || speed > 0.1f || (obstacle_pos - pos).length_squared() > WALKER_MINION_RADIUS) && obstacle_id != u32(-1))
 		{
 			AI::obstacle_remove(obstacle_id);
 			obstacle_id = u32(-1);
 		}
-		else if (speed < 0.1f && obstacle_id == u32(-1) && get<Walker>()->support.ref())
+		else if (speed < 0.1f && obstacle_id == u32(-1) && get<Walker>()->support.ref() && attack_timer > 0.0f && goal.entity.ref())
 		{
 			obstacle_pos = pos;
 			obstacle_id = AI::obstacle_add(pos, WALKER_MINION_RADIUS, get<Walker>()->capsule_height() + WALKER_SUPPORT_HEIGHT);

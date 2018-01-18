@@ -39,6 +39,7 @@ struct AbilityInfo
 	r32 cooldown_movement;
 	r32 cooldown_switch;
 	r32 cooldown_use;
+	r32 cooldown_use_threshold;
 	r32 recoil_velocity;
 	AkUniqueID equip_sound;
 	AssetID icon;

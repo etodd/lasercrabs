@@ -1662,11 +1662,16 @@ r32 ability_draw(const RenderParams& params, const PlayerManager* manager, const
 	else
 	{
 		icon = info.icon;
-		r32 cooldown = manager->ability_cooldown[s32(ability)];
-		if (cooldown == 0.0f)
+		if (info.cooldown_use == 0.0f)
 			percentage = 0.0f;
 		else
-			percentage = 1.0f - (cooldown / info.cooldown_use);
+		{
+			r32 cooldown = manager->ability_cooldown[s32(ability)];
+			if (cooldown < info.cooldown_use_threshold)
+				percentage = 0.0f;
+			else
+				percentage = 1.0f - ((cooldown - info.cooldown_use_threshold) / (info.cooldown_use - info.cooldown_use_threshold));
+		}
 	}
 
 	return draw_icon_text(params, gamepad, pos, icon, string, percentage, *color);

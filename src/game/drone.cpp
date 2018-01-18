@@ -763,6 +763,9 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if ((Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())) // only do cooldowns for remote drones or AI drones; local players will have already done this
 				drone->cooldown_recoil_setup(ability);
 
+			if (Game::level.local == (src == Net::MessageSource::Remote))
+				manager->ability_cooldown_apply(ability);
+
 			Vec3 my_pos;
 			Quat my_rot;
 			drone->get<Transform>()->absolute(&my_pos, &my_rot);
@@ -1519,7 +1522,6 @@ void Drone::cooldown_recoil_setup(Ability a)
 	cooldown_last_local_change = Game::real_time.total;
 	last_ability_fired = Game::time.total;
 	get<PlayerCommon>()->recoil_add(info.recoil_velocity);
-	get<PlayerCommon>()->manager.ref()->ability_cooldown_apply(a);
 }
 
 // if the property in question is remote controlled, adjustment is the amount that should be subtracted due to network lag

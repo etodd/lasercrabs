@@ -914,9 +914,14 @@ void Water::update_all(const Update& u)
 				{
 					const Game::WaterSoundNegativeSpace& space = Game::level.water_sound_negative_spaces[j];
 					Vec3 diff = p - space.pos;
+					diff.y = 0.0f;
 					r32 distance = diff.length();
 					if (distance < space.radius)
+					{
+						r32 original_y = p.y;
 						p = space.pos + diff * (space.radius / distance);
+						p.y = original_y;
+					}
 				}
 				listeners.add(p);
 			}

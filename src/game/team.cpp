@@ -101,6 +101,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		0.275f, // movement cooldown
 		0.3f, // switch cooldown
 		0.0f, // use cooldown
+		0.0f, // use cooldown threshold
 		0.7f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BOLTER,
 		Asset::Mesh::icon_bolter,
@@ -110,6 +111,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		2.75f, // cooldown
 		0.0f, // switch cooldown
 		0.0f, // use cooldown
+		0.0f, // use cooldown threshold
 		0.0f, // recoil velocity
 		AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR,
 		Asset::Mesh::icon_active_armor,
@@ -119,6 +121,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.3f, // switch cooldown
 		15.0f, // use cooldown
+		10.0f, // use cooldown threshold
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_rectifier,
@@ -128,6 +131,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		0.0f, // cooldown
 		0.0f, // switch cooldown
 		0.0f, // use cooldown
+		0.0f, // use cooldown threshold
 		0.0f, // recoil velocity
 		AK_InvalidID,
 		Asset::Mesh::icon_minion,
@@ -137,6 +141,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		2.5f, // movement cooldown
 		0.4f, // switch cooldown
 		0.0f, // use cooldown
+		0.0f, // use cooldown threshold
 		1.7f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_SHOTGUN,
 		Asset::Mesh::icon_shotgun,
@@ -146,6 +151,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		2.5f, // movement cooldown
 		0.5f, // switch cooldown
 		0.0f, // use cooldown
+		0.0f, // use cooldown threshold
 		1.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_SNIPER,
 		Asset::Mesh::icon_sniper,
@@ -155,6 +161,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.5f, // switch cooldown
 		30.0f, // use cooldown
+		15.0f, // use cooldown threshold
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_force_field,
@@ -164,6 +171,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.3f, // switch cooldown
 		10.0f, // use cooldown
+		5.0f, // use cooldown threshold
 		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_GRENADE,
 		Asset::Mesh::icon_grenade,
@@ -173,6 +181,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		1.2f + (DRONE_MAX_DISTANCE / DRONE_FLY_SPEED), // movement cooldown
 		0.0f, // switch cooldown
 		0.0f, // use cooldown
+		0.0f, // use cooldown threshold
 		0.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_NONE,
 		Asset::Mesh::icon_chevron,
@@ -186,56 +195,56 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::bolter,
 		strings::description_bolter,
 		Asset::Mesh::icon_bolter,
-		200,
+		250,
 		Type::Ability,
 	},
 	{
 		strings::active_armor,
 		strings::description_active_armor,
 		Asset::Mesh::icon_active_armor,
-		200,
+		250,
 		Type::Ability,
 	},
 	{
 		strings::rectifier,
 		strings::description_rectifier,
 		Asset::Mesh::icon_rectifier,
-		350,
+		400,
 		Type::Ability,
 	},
 	{
 		strings::minion_boost,
 		strings::description_minion_boost,
 		Asset::Mesh::icon_minion,
-		350,
+		400,
 		Type::Ability,
 	},
 	{
 		strings::shotgun,
 		strings::description_shotgun,
 		Asset::Mesh::icon_shotgun,
-		450,
+		600,
 		Type::Ability,
 	},
 	{
 		strings::sniper,
 		strings::description_sniper,
 		Asset::Mesh::icon_sniper,
-		450,
+		600,
 		Type::Ability,
 	},
 	{
 		strings::force_field,
 		strings::description_force_field,
 		Asset::Mesh::icon_force_field,
-		600,
+		800,
 		Type::Ability,
 	},
 	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
-		600,
+		800,
 		Type::Ability,
 	},
 };
@@ -339,16 +348,6 @@ void Team::transition_next()
 s16 Team::force_field_mask(AI::Team t)
 {
 	return 1 << (8 + t);
-}
-
-void Team::track(PlayerManager* player, Entity* e)
-{
-	// enemy player has been detected by `tracked_by`
-	vi_assert(player->team.ref() != this);
-
-	RectifierTrack* track = &player_tracks[player->id()];
-	track->tracking = true; // got em
-	track->entity = e;
 }
 
 s32 Team::player_count() const
@@ -507,14 +506,6 @@ void update_stealth_state(PlayerManager* player, AIAgent* a, Entity* visibility[
 	else
 	{
 		// check if any enemy rectifiers can see us
-		for (auto t = Team::list.iterator(); !t.is_last(); t.next())
-		{
-			if (t.item()->team() != a->team && t.item()->player_tracks[player->id()].entity.ref() == a->entity())
-			{
-				stealth_enabled = false;
-				break;
-			}
-		}
 	}
 	Drone::stealth(a->entity(), stealth_enabled);
 }
@@ -1329,7 +1320,7 @@ b8 PlayerManager::ability_valid(Ability ability) const
 
 	{
 		const AbilityInfo& info = AbilityInfo::list[s32(ability)];
-		if (ability_cooldown[s32(ability)] > 0.0f)
+		if (info.cooldown_use > 0.0f && ability_cooldown[s32(ability)] >= info.cooldown_use_threshold)
 			return false;
 	}
 
@@ -1642,6 +1633,7 @@ namespace PlayerManagerNet
 			serialize_enum(p, PlayerManager::Message, msg);
 		}
 		serialize_enum(p, Ability, a);
+		serialize_r32(p, m->ability_cooldown[s32(a)]);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -1995,6 +1987,8 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 		{
 			Ability a;
 			serialize_enum(p, Ability, a);
+			r32 value;
+			serialize_r32(p, value);
 
 			if (!m)
 				return true;
@@ -2002,7 +1996,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			if (m->is_local())
 				Audio::post_global(AK::EVENTS::PLAY_DRONE_CHARGE_RESTORE);
 
-			m->ability_cooldown[s32(a)] = 0.0f;
+			m->ability_cooldown[s32(a)] = value;
 
 			// flash ability
 			for (s32 i = 0; i < MAX_ABILITIES; i++)
@@ -2191,7 +2185,7 @@ void PlayerManager::ability_cooldown_apply(Ability a)
 	const AbilityInfo& info = AbilityInfo::list[s32(a)];
 	if (info.cooldown_use > 0.0f)
 	{
-		vi_assert(ability_cooldown[s32(a)] == 0.0f);
+		vi_assert(ability_cooldown[s32(a)] < info.cooldown_use_threshold);
 		r32 c;
 #if SERVER
 		if (has<PlayerHuman>())
@@ -2480,12 +2474,12 @@ void PlayerManager::update_server(const Update& u)
 
 	for (s32 i = 0; i < s32(Ability::count); i++)
 	{
-		if (ability_cooldown[i] > 0.0f)
-		{
-			ability_cooldown[i] = vi_max(0.0f, ability_cooldown[i] - u.time.delta);
-			if (ability_cooldown[i] == 0.0f) // let clients know
-				PlayerManagerNet::ability_cooldown_ready(this, Ability(i));
-		}
+		const AbilityInfo& info = AbilityInfo::list[i];
+		b8 ready_previous = ability_cooldown[i] < info.cooldown_use_threshold;
+		ability_cooldown[i] = vi_max(0.0f, ability_cooldown[i] - u.time.delta);
+		b8 ready_now = ability_cooldown[i] < info.cooldown_use_threshold;
+		if (ready_now && !ready_previous)
+			PlayerManagerNet::ability_cooldown_ready(this, Ability(i));
 	}
 
 	State s = state();
@@ -2514,8 +2508,8 @@ void PlayerManager::update_client_only(const Update& u)
 	state_timer = vi_max(0.0f, state_timer - u.time.delta);
 	for (s32 i = 0; i < s32(Ability::count); i++)
 	{
-		if (ability_cooldown[i] > 0.0f)
-			ability_cooldown[i] = vi_max(0.01f, ability_cooldown[i] - u.time.delta); // can't set to zero until the server says so
+		const AbilityInfo& info = AbilityInfo::list[i];
+		ability_cooldown[i] = vi_max(info.cooldown_use_threshold, ability_cooldown[i] - u.time.delta); // can't set it below threshold until server says we can
 	}
 }
 

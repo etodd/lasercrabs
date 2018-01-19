@@ -262,7 +262,7 @@ void Team::awake_all()
 	winner = nullptr;
 	score_summary.length = 0;
 	for (s32 i = 0; i < MAX_PLAYERS * MAX_PLAYERS; i++)
-		PlayerManager::visibility[i] = { 0.0f };
+		PlayerManager::visibility[i].value = false;
 }
 
 s32 Team::teams_with_active_players()

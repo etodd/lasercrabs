@@ -26,7 +26,7 @@ namespace Asset
 	}
 	namespace Bone
 	{
-		const s32 count = 411;
+		const s32 count = 415;
 		const AssetID character_camera = 0;
 		const AssetID character_claw1_L = 9;
 		const AssetID character_claw1_R = 15;
@@ -112,15 +112,15 @@ namespace Asset
 		const AssetID drone_c1 = 3;
 		const AssetID drone_c2 = 4;
 		const AssetID drone_root = 0;
-		const AssetID hobo_ball_l = 48;
-		const AssetID hobo_ball_r = 52;
-		const AssetID hobo_bottle = 53;
-		const AssetID hobo_calf_l = 46;
-		const AssetID hobo_calf_r = 50;
+		const AssetID hobo_ball_l = 50;
+		const AssetID hobo_ball_r = 54;
+		const AssetID hobo_bottle = 55;
+		const AssetID hobo_calf_l = 48;
+		const AssetID hobo_calf_r = 52;
 		const AssetID hobo_clavicle_l = 5;
 		const AssetID hobo_clavicle_r = 24;
-		const AssetID hobo_foot_l = 47;
-		const AssetID hobo_foot_r = 51;
+		const AssetID hobo_foot_l = 49;
+		const AssetID hobo_foot_r = 53;
 		const AssetID hobo_hand_l = 8;
 		const AssetID hobo_hand_r = 27;
 		const AssetID hobo_head = 44;
@@ -138,6 +138,8 @@ namespace Asset
 		const AssetID hobo_middle_02_r = 32;
 		const AssetID hobo_middle_03_l = 14;
 		const AssetID hobo_middle_03_r = 33;
+		const AssetID hobo_mouth_lower = 46;
+		const AssetID hobo_mouth_upper = 45;
 		const AssetID hobo_neck_01 = 43;
 		const AssetID hobo_pelvis = 1;
 		const AssetID hobo_pinky_01_l = 15;
@@ -156,8 +158,8 @@ namespace Asset
 		const AssetID hobo_spine_01 = 2;
 		const AssetID hobo_spine_02 = 3;
 		const AssetID hobo_spine_03 = 4;
-		const AssetID hobo_thigh_l = 45;
-		const AssetID hobo_thigh_r = 49;
+		const AssetID hobo_thigh_l = 47;
+		const AssetID hobo_thigh_r = 51;
 		const AssetID hobo_thumb_01_l = 21;
 		const AssetID hobo_thumb_01_r = 40;
 		const AssetID hobo_thumb_02_l = 22;
@@ -364,20 +366,20 @@ namespace Asset
 		const AssetID samsa_torso = 5;
 		const AssetID samsa_wing_l = 6;
 		const AssetID samsa_wing_r = 13;
-		const AssetID seven_ball_l = 48;
-		const AssetID seven_ball_r = 52;
-		const AssetID seven_bp_clavicle_l = 55;
-		const AssetID seven_bp_clavicle_r = 57;
-		const AssetID seven_bp_spine_02 = 53;
-		const AssetID seven_bp_spine_03 = 54;
-		const AssetID seven_bp_upperarm_l = 56;
-		const AssetID seven_bp_upperarm_r = 58;
-		const AssetID seven_calf_l = 46;
-		const AssetID seven_calf_r = 50;
+		const AssetID seven_ball_l = 50;
+		const AssetID seven_ball_r = 54;
+		const AssetID seven_bp_clavicle_l = 57;
+		const AssetID seven_bp_clavicle_r = 59;
+		const AssetID seven_bp_spine_02 = 55;
+		const AssetID seven_bp_spine_03 = 56;
+		const AssetID seven_bp_upperarm_l = 58;
+		const AssetID seven_bp_upperarm_r = 60;
+		const AssetID seven_calf_l = 48;
+		const AssetID seven_calf_r = 52;
 		const AssetID seven_clavicle_l = 5;
 		const AssetID seven_clavicle_r = 24;
-		const AssetID seven_foot_l = 47;
-		const AssetID seven_foot_r = 51;
+		const AssetID seven_foot_l = 49;
+		const AssetID seven_foot_r = 53;
 		const AssetID seven_hand_l = 8;
 		const AssetID seven_hand_r = 27;
 		const AssetID seven_head = 44;
@@ -395,6 +397,8 @@ namespace Asset
 		const AssetID seven_middle_02_r = 32;
 		const AssetID seven_middle_03_l = 14;
 		const AssetID seven_middle_03_r = 33;
+		const AssetID seven_mouth_lower = 46;
+		const AssetID seven_mouth_upper = 45;
 		const AssetID seven_neck_01 = 43;
 		const AssetID seven_pelvis = 1;
 		const AssetID seven_pinky_01_l = 15;
@@ -413,8 +417,8 @@ namespace Asset
 		const AssetID seven_spine_01 = 2;
 		const AssetID seven_spine_02 = 3;
 		const AssetID seven_spine_03 = 4;
-		const AssetID seven_thigh_l = 45;
-		const AssetID seven_thigh_r = 49;
+		const AssetID seven_thigh_l = 47;
+		const AssetID seven_thigh_r = 51;
 		const AssetID seven_thumb_01_l = 21;
 		const AssetID seven_thumb_01_r = 40;
 		const AssetID seven_thumb_02_l = 22;

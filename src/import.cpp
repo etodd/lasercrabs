@@ -235,7 +235,7 @@ namespace platform
 
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
-const s32 version = 36;
+const s32 version = 37;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -685,7 +685,6 @@ struct StaticMeshes
 {
 	Mesh terminal;
 	Mesh interactable;
-	Mesh turret_base;
 	Mesh spawn_collision;
 	Map<Mesh> meshes;
 
@@ -695,7 +694,6 @@ struct StaticMeshes
 		{
 			Mesh::read(&terminal, ASSET_OUT_FOLDER"terminal_collision.msh");
 			Mesh::read(&interactable, ASSET_OUT_FOLDER"interactable_collision.msh");
-			Mesh::read(&turret_base, ASSET_OUT_FOLDER"turret_base.msh");
 			Mesh::read(&spawn_collision, ASSET_OUT_FOLDER"spawn_collision.msh");
 		}
 	}
@@ -2042,11 +2040,6 @@ void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, Manifest& manifes
 		{
 			if (!filter || filter(&static_meshes.interactable))
 				consolidate_nav_geometry_mesh(result, static_meshes.interactable, mat);
-		}
-		else if (cJSON_HasObjectItem(element, "Turret"))
-		{
-			if (!filter || filter(&static_meshes.turret_base))
-				consolidate_nav_geometry_mesh(result, static_meshes.turret_base, mat);
 		}
 		else if (cJSON_HasObjectItem(element, "SpawnPoint") && Json::get_s32(element, "visible", 1))
 		{

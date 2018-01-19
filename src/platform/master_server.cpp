@@ -596,6 +596,7 @@ namespace Master
 		}
 		config->fill_bots = s8(Json::get_s32(json, "fill_bots", defaults.fill_bots));
 		config->kill_limit = s16(Json::get_s32(json, "kill_limit", defaults.kill_limit));
+		config->energy_collected_limit = s16(Json::get_s32(json, "energy_collected_limit", defaults.energy_collected_limit));
 		config->flag_limit = s16(Json::get_s32(json, "flag_limit", defaults.flag_limit));
 		strncpy(config->secret, Json::get_string(json, "secret", ""), MAX_SERVER_CONFIG_SECRET);
 
@@ -648,6 +649,8 @@ namespace Master
 			cJSON_AddNumberToObject(json, "fill_bots", config.fill_bots);
 		if (config.kill_limit != defaults.kill_limit)
 			cJSON_AddNumberToObject(json, "kill_limit", config.kill_limit);
+		if (config.energy_collected_limit != defaults.energy_collected_limit)
+			cJSON_AddNumberToObject(json, "energy_collected_limit", config.energy_collected_limit);
 		if (config.flag_limit != defaults.flag_limit)
 			cJSON_AddNumberToObject(json, "flag_limit", config.flag_limit);
 		for (s32 i = 0; i < s32(GameType::count); i++)

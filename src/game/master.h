@@ -212,6 +212,7 @@ struct ServerConfig
 	StaticArray<AssetID, 32> levels;
 	s16 kill_limit = 10;
 	s16 flag_limit = 3;
+	s16 energy_collected_limit = 3000;
 	Ruleset ruleset;
 	Region region;
 	Ruleset::Preset preset;
@@ -220,7 +221,7 @@ struct ServerConfig
 	s8 min_players = 1;
 	s8 team_count = 2;
 	s8 fill_bots; // if = 0, no bots. if > 0, total number of desired players including bots is fill_bots + 1
-	u8 time_limit_minutes[s32(GameType::count)] = { DEFAULT_ASSAULT_TIME_LIMIT_MINUTES, 10, 10 }; // Assault, Deathmatch, CaptureTheFlag
+	u8 time_limit_minutes[s32(GameType::count)] = { DEFAULT_ASSAULT_TIME_LIMIT_MINUTES, 10, 10, 10 }; // Assault, Deathmatch, CaptureTheFlag, Domination
 	char name[MAX_SERVER_CONFIG_NAME + 1];
 	char secret[MAX_SERVER_CONFIG_SECRET + 1];
 	b8 is_private;
@@ -255,16 +256,17 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 			serialize_int(p, u8, c->time_limit_minutes[i], 1, 254);
 		serialize_int(p, s16, c->kill_limit, 0, MAX_RESPAWNS);
 		serialize_int(p, s16, c->flag_limit, 0, MAX_RESPAWNS);
+		serialize_int(p, s16, c->energy_collected_limit, 1, MAX_ENERGY_LIMIT);
 		serialize_int(p, u16, c->levels.length, 1, c->levels.capacity());
 		for (s32 i = 0; i < c->levels.length; i++)
 			serialize_s16(p, c->levels[i]);
 		serialize_int(p, s8, c->max_players, 1, MAX_PLAYERS);
 		serialize_int(p, s8, c->min_players, 1, MAX_PLAYERS);
 		serialize_int(p, s8, c->fill_bots, 0, MAX_PLAYERS - 1);
-		if (c->game_type == GameType::Deathmatch)
-			serialize_int(p, s8, c->team_count, 2, MAX_TEAMS);
-		else
+		if (c->game_type == GameType::Assault || c->game_type == GameType::CaptureTheFlag)
 			c->team_count = 2;
+		else
+			serialize_int(p, s8, c->team_count, 2, MAX_TEAMS);
 		c->team_count = vi_min(c->team_count, c->max_players);
 		serialize_u32(p, c->creator_id);
 		serialize_enum(p, Region, c->region);

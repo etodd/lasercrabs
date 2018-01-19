@@ -434,6 +434,24 @@ Team* Team::with_most_flags()
 	return result;
 }
 
+Team* Team::with_most_energy_collected()
+{
+	s16 highest_energy_collected = 0;
+	Team* result = nullptr;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		s16 energy_collected = i.item()->energy_collected;
+		if (energy_collected == highest_energy_collected)
+			result = nullptr;
+		else if (energy_collected > highest_energy_collected)
+		{
+			highest_energy_collected = energy_collected;
+			result = i.item();
+		}
+	}
+	return result;
+}
+
 b8 visibility_check(Entity* i, Entity* j, r32 i_range)
 {
 	Vec3 start = i->get<Transform>()->absolute_pos();
@@ -608,6 +626,7 @@ namespace TeamNet
 		}
 		serialize_s16(p, t->kills);
 		serialize_s16(p, t->flags_captured);
+		serialize_s16(p, t->energy_collected);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -745,6 +764,10 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					{
 						team_add_score_summary_item(i.item(), _(strings::kills), i.item()->kills);
 						team_add_score_summary_item(i.item(), _(strings::deaths), i.item()->deaths);
+						if (Game::session.config.game_type == GameType::CaptureTheFlag)
+							team_add_score_summary_item(i.item(), _(strings::flags), i.item()->flags_captured);
+						else if (Game::session.config.game_type == GameType::Domination)
+							team_add_score_summary_item(i.item(), _(strings::energy_collected), i.item()->energy_collected);
 					}
 				}
 			}
@@ -759,10 +782,13 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_s16(p, kills);
 			s16 flags_captured;
 			serialize_s16(p, flags_captured);
+			s16 energy_collected;
+			serialize_s16(p, energy_collected);
 			if (!Game::level.local || src == Net::MessageSource::Loopback)
 			{
 				t.ref()->kills = kills;
 				t.ref()->flags_captured = flags_captured;
+				t.ref()->energy_collected = energy_collected;
 			}
 			break;
 		}
@@ -981,15 +1007,17 @@ void Team::update_all_server(const Update& u)
 	{
 		Team* team_with_most_kills = Game::session.config.game_type == GameType::Deathmatch ? with_most_kills() : nullptr;
 		Team* team_with_most_flags = Game::session.config.game_type == GameType::CaptureTheFlag ? with_most_flags() : nullptr;
+		Team* team_with_most_energy_collected = Game::session.config.game_type == GameType::Domination ? with_most_energy_collected() : nullptr;
 		if (!Game::level.noclip
 			&& ((match_time > Game::session.config.time_limit() && Game::level.has_feature(Game::FeatureLevel::All)) // no time limit in tutorial
 			|| (Game::level.has_feature(Game::FeatureLevel::All) && teams_with_active_players() <= 1 && Game::level.ai_config.length == 0)
 			|| (Game::session.config.game_type == GameType::Assault && CoreModule::count(1 << 0) == 0)
 			|| (Game::session.config.game_type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::session.config.kill_limit)
-			|| (Game::session.config.game_type == GameType::CaptureTheFlag && team_with_most_flags && team_with_most_flags->flags_captured >= Game::session.config.flag_limit)))
+			|| (Game::session.config.game_type == GameType::CaptureTheFlag && team_with_most_flags && team_with_most_flags->flags_captured >= Game::session.config.flag_limit)
+			|| (Game::session.config.game_type == GameType::Domination && team_with_most_energy_collected && team_with_most_energy_collected->energy_collected >= Game::session.config.energy_collected_limit)))
 		{
 			// determine the winner, if any
-			Team* w = nullptr;
+			Team* w = nullptr; // winning team
 			Team* team_with_player = nullptr;
 			s32 teams_with_players = 0;
 			for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -1005,6 +1033,8 @@ void Team::update_all_server(const Update& u)
 				w = team_with_player;
 			else if (Game::session.config.game_type == GameType::Deathmatch)
 				w = team_with_most_kills;
+			else if (Game::session.config.game_type == GameType::Domination)
+				w = team_with_most_energy_collected;
 			else if (Game::session.config.game_type == GameType::Assault)
 			{
 				if (CoreModule::count(1 << 0) == 0)
@@ -1025,6 +1055,8 @@ void Team::update_all_server(const Update& u)
 				World::remove_deferred(i.item()->entity());
 			}
 
+			for (auto i = list.iterator(); !i.is_last(); i.next())
+				TeamNet::update_counts(i.item());
 			TeamNet::send_match_state(MatchState::Done, w);
 
 			if (Game::session.type == SessionType::Story)
@@ -1328,6 +1360,7 @@ namespace PlayerManagerNet
 		serialize_s16(p, m->kills);
 		serialize_s16(p, m->deaths);
 		serialize_s16(p, m->flags_captured);
+		serialize_s16(p, m->energy_collected);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -1733,18 +1766,21 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			s16 kills;
 			s16 deaths;
 			s16 flags_captured;
+			s16 energy_collected;
 			serialize_s16(p, kills);
 			serialize_s16(p, deaths);
 			serialize_s16(p, flags_captured);
+			serialize_s16(p, energy_collected);
 
 			if (!m)
 				return true;
 		
-			if (!Game::level.local || src == Net::MessageSource::Loopback) // server does not accept these messages from clients
+			if (Game::level.local == (src == Net::MessageSource::Loopback)) // server does not accept these messages from clients
 			{
 				m->kills = kills;
 				m->deaths = deaths;
 				m->flags_captured = flags_captured;
+				m->energy_collected = energy_collected;
 			}
 			break;
 		}
@@ -2076,6 +2112,11 @@ void PlayerManager::add_energy(s32 c)
 {
 	if (Game::level.local)
 		energy = s16(vi_max(0, s32(energy) + c));
+	if (c > 0)
+	{
+		energy_collected = s16(s32(energy_collected) + c);
+		team.ref()->energy_collected = s16(s32(team.ref()->energy_collected) + c);
+	}
 }
 
 void PlayerManager::add_energy_and_notify(s32 c)

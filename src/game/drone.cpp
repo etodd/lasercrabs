@@ -557,16 +557,16 @@ Vec3 grenade_spawn_dir(const Vec3& dir_normalized)
 	return dir_adjusted;
 }
 
-DroneVulnerability Drone::vulnerability() const
+DroneCollisionState Drone::collision_state() const
 {
 	if (get<Health>()->active_armor_timer > 0.0f)
-		return DroneVulnerability::ActiveArmor;
+		return DroneCollisionState::ActiveArmor;
 	else if (UpgradeStation::drone_inside(this))
-		return DroneVulnerability::None; // invincible inside upgrade station
+		return DroneCollisionState::UpgradeStation; // invincible inside upgrade station
 	else if (get<Drone>()->state() != Drone::State::Crawl)
-		return DroneVulnerability::DroneBolts; // only drone bolts can damage us while flying or dashing
+		return DroneCollisionState::FlyingDashing; // only drone bolts can damage us while flying or dashing
 	else
-		return DroneVulnerability::All; // anything can damage us
+		return DroneCollisionState::Default; // anything can damage us
 }
 
 b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
@@ -770,8 +770,14 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			Vec3 pos;
 			Vec3 normal;
 			RigidBody* parent;
-			if (!drone->can_spawn(ability, dir_normalized, &pos, &normal, &parent))
-				return true;
+			{
+				Net::StateFrame state_frame_data;
+				const Net::StateFrame* state_frame = nullptr;
+				if (drone->net_state_frame(&state_frame_data))
+					state_frame = &state_frame_data;
+				if (!drone->can_spawn(ability, dir_normalized, state_frame, &pos, &normal, &parent))
+					return true;
+			}
 
 			Quat rot = Quat::look(normal);
 
@@ -1334,7 +1340,23 @@ b8 Drone::could_shoot(const Vec3& trace_start, const Vec3& dir, Vec3* final_pos,
 	return false;
 }
 
-b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_normal, RigidBody** hit_parent, b8* hit_target) const
+Vec3 target_position(Entity* me, const Net::StateFrame* state_frame, Target* target)
+{
+	// do rewinding, unless we're checking collisions between two players on the same client
+	if (state_frame
+		&& Game::net_transform_filter(target->entity(), Game::level.mode)
+		&& !PlayerHuman::players_on_same_client(me, target->entity()))
+	{
+		Vec3 pos;
+		Quat rot;
+		Net::transform_absolute(*state_frame, target->get<Transform>()->id(), &pos, &rot);
+		return pos + (rot * target->local_offset); // todo possibly: rewind local_offset as well?
+	}
+	else
+		return target->absolute_pos();
+}
+
+b8 Drone::can_spawn(Ability a, const Vec3& dir, const Net::StateFrame* state_frame, Vec3* final_pos, Vec3* final_normal, RigidBody** hit_parent, b8* hit_target) const
 {
 	const AbilityInfo& info = AbilityInfo::list[s32(a)];
 
@@ -1395,15 +1417,14 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_nor
 	// check targets
 	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 	{
-		if (should_collide(i.item())
+		if (should_collide(i.item(), state_frame)
 			|| i.item()->has<Minion>()) // raycast against friendly minions so we can easily spawn minions next to each other
 		{
 			{
 				// check actual position
-				Vec3 target_pos = i.item()->absolute_pos();
+				Vec3 target_pos = target_position(entity(), state_frame, i.item());
 				Vec3 intersection;
-				r32 radius = i.item()->radius();
-				if (LMath::ray_sphere_intersect(trace_start, trace_end, target_pos, radius, &intersection)
+				if (LMath::ray_sphere_intersect(trace_start, trace_end, target_pos, i.item()->radius(), &intersection)
 					&& (intersection - trace_start).length_squared() < (ray_callback.pos - trace_start).length_squared())
 				{
 					ray_callback.hit = true;
@@ -2533,48 +2554,31 @@ void Drone::update_offset()
 
 void Drone::stealth(Entity* e, b8 stealthing)
 {
-	r32 old_value = e->get<AIAgent>()->stealth;
 	r32 new_value;
-	if (stealthing)
-		new_value = vi_min(1.0f, old_value + Game::time.delta / RECTIFIER_STEALTH_TIME);
-	else
-		new_value = vi_max(0.0f, old_value - Game::time.delta / RECTIFIER_STEALTH_TIME);
-	e->get<AIAgent>()->stealth = new_value;
-
-	if ((old_value == 1.0f) != (new_value == 1.0f))
 	{
-		if (new_value == 1.0f)
-		{
-			e->get<SkinnedModel>()->alpha();
-			e->get<SkinnedModel>()->color.w = 0.7f;
-			e->get<SkinnedModel>()->mask = 1 << s32(e->get<AIAgent>()->team); // only display to fellow teammates
-		}
+		r32 old_value = e->get<AIAgent>()->stealth;
+		if (stealthing)
+			new_value = vi_min(1.0f, old_value + Game::time.delta / RECTIFIER_STEALTH_TIME);
 		else
-		{
-			if (!e->has<Drone>() || e->get<Drone>()->state() == State::Crawl)
-				e->get<SkinnedModel>()->alpha_if_obstructing();
-			else
-				e->get<SkinnedModel>()->alpha_disable();
-			e->get<SkinnedModel>()->color.w = MATERIAL_NO_OVERRIDE;
-			e->get<SkinnedModel>()->mask = RENDER_MASK_DEFAULT; // display to everyone
-		}
+			new_value = vi_max(0.0f, old_value - Game::time.delta / RECTIFIER_STEALTH_TIME);
+		e->get<AIAgent>()->stealth = new_value;
 	}
-}
 
-Vec3 target_position(Entity* me, const Net::StateFrame* state_frame, Target* target)
-{
-	// do rewinding, unless we're checking collisions between two players on the same client
-	if (state_frame
-		&& Game::net_transform_filter(target->entity(), Game::level.mode)
-		&& !PlayerHuman::players_on_same_client(me, target->entity()))
+	if (new_value == 1.0f)
 	{
-		Vec3 pos;
-		Quat rot;
-		Net::transform_absolute(*state_frame, target->get<Transform>()->id(), &pos, &rot);
-		return pos + (rot * target->local_offset); // todo possibly: rewind local_offset as well?
+		e->get<SkinnedModel>()->alpha();
+		e->get<SkinnedModel>()->color.w = 0.7f;
+		e->get<SkinnedModel>()->mask = 1 << s32(e->get<AIAgent>()->team); // only display to fellow teammates
 	}
 	else
-		return target->absolute_pos();
+	{
+		if (!e->has<Drone>() || e->get<Drone>()->state() == State::Crawl)
+			e->get<SkinnedModel>()->alpha_if_obstructing();
+		else
+			e->get<SkinnedModel>()->alpha_disable();
+		e->get<SkinnedModel>()->color.w = MATERIAL_NO_OVERRIDE;
+		e->get<SkinnedModel>()->mask = RENDER_MASK_DEFAULT; // display to everyone
+	}
 }
 
 void Drone::update_server(const Update& u)
@@ -2931,15 +2935,30 @@ s32 Drone::Hit::Comparator::compare(const Hit& a, const Hit& b)
 		return -1;
 }
 
-b8 Drone::should_collide(const Target* target) const
+b8 Drone::should_collide(const Target* target, const Net::StateFrame* state_frame) const
 {
-	AI::Team my_team = get<AIAgent>()->team;
-	return target != get<Target>() // don't collide with self
-		&& (!target->has<Drone>() || !UpgradeStation::drone_inside(target->get<Drone>())) // ignore drones inside upgrade stations
-		&& (!target->has<Rectifier>() || target->get<Rectifier>()->team != my_team) // ignore friendly rectifiers
-		&& (!target->has<ForceField>() || target->get<ForceField>()->team != my_team) // ignore friendly force fields
-		&& (!target->has<Minion>() || target->get<AIAgent>()->team != my_team) // ignore friendly minions
-		&& (!target->has<Grenade>() || target->get<Grenade>()->team() != my_team || current_ability == Ability::Sniper); // ignore friendly grenades unless we're sniping them
+	if (target == get<Target>())
+		return false; // don't collide with self
+	else if (target->has<Drone>())
+	{
+		DroneCollisionState target_collision_state;
+		if (state_frame
+			&& state_frame->drones_active.get(target->get<Drone>()->id())
+			&& !PlayerHuman::players_on_same_client(entity(), target->entity()))
+			target_collision_state = state_frame->drones[target->get<Drone>()->id()].collision_state;
+		else
+			target_collision_state = target->get<Drone>()->collision_state();
+
+		return target_collision_state != DroneCollisionState::UpgradeStation;
+	}
+	else
+	{
+		AI::Team my_team = get<AIAgent>()->team;
+		return (!target->has<Rectifier>() || target->get<Rectifier>()->team != my_team) // ignore friendly rectifiers
+			&& (!target->has<ForceField>() || target->get<ForceField>()->team != my_team) // ignore friendly force fields
+			&& (!target->has<Minion>() || target->get<AIAgent>()->team != my_team) // ignore friendly minions
+			&& (!target->has<Grenade>() || target->get<Grenade>()->team() != my_team || current_ability == Ability::Sniper); // ignore friendly grenades unless we're sniping them
+	}
 }
 
 void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, const Net::StateFrame* state_frame, Hits* result, s32 recursion_level, Entity* ignore) const
@@ -2984,25 +3003,50 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 		for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->entity() == ignore // don't collide with ignored entity
-				|| !should_collide(i.item()))
+				|| !should_collide(i.item(), state_frame))
 				continue;
 
 			Vec3 p = target_position(entity(), state_frame, i.item());
 
+			r32 target_radius = i.item()->radius();
 			r32 raycast_radius = (current_ability == Ability::None && i.item()->has<Shield>()) ? DRONE_SHIELD_RADIUS : 0.0f;
 			Vec3 intersection;
-			if (LMath::ray_sphere_intersect(ray_start, ray_end, p, i.item()->radius() + raycast_radius, &intersection))
+			if (LMath::ray_sphere_intersect(ray_start, ray_end, p, target_radius + raycast_radius, &intersection))
 			{
 				Vec3 normal = Vec3::normalize(intersection - p);
-				intersection -= normal * raycast_radius;
-				result->hits.add(
+				intersection = p + normal * target_radius;
+
+				// check if the intersection point is actually accessible or if it's inside the environment
+				b8 hit;
+
+				if (LMath::ray_sphere_intersect(ray_start, ray_end, p, target_radius + 0.09f, &intersection))
 				{
-					intersection,
-					normal,
-					(intersection - ray_start).length() / distance_total,
-					i.item()->entity(),
-					i.item()->has<Shield>() ? Hit::Type::Shield : Hit::Type::Target,
-				});
+					hit = true; // the center of our drone actually hit the enemy drone
+
+					// update intersection point
+					normal = Vec3::normalize(intersection - p);
+					intersection = p + normal * target_radius;
+				}
+				else
+				{
+					// it's a shield-shield collision
+					// so make sure the intersection point is not inside the environment geometry
+					RaycastCallbackExcept ray_callback(ray_start, intersection, entity());
+					drone_environment_raycast(this, &ray_callback, mode);
+					hit = !ray_callback.hasHit();
+				}
+
+				if (hit)
+				{
+					result->hits.add(
+					{
+						intersection,
+						normal,
+						(intersection - ray_start).length() / distance_total,
+						i.item()->entity(),
+						i.item()->has<Shield>() ? Hit::Type::Shield : Hit::Type::Target,
+					});
+				}
 			}
 		}
 	}

@@ -107,6 +107,7 @@ struct Team : public ComponentType<Team>
 	static s32 teams_with_active_players();
 	static Team* with_most_kills();
 	static Team* with_most_flags();
+	static Team* with_most_energy_collected();
 	static Team* with_least_players(s32* = nullptr);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void draw_ui(const RenderParams&);
@@ -130,6 +131,7 @@ struct Team : public ComponentType<Team>
 	Ref<Transform> flag_base;
 	s16 kills;
 	s16 flags_captured;
+	s16 energy_collected;
 
 	void awake() {}
 	b8 has_active_player() const;
@@ -198,6 +200,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	Ref<Team> team;
 	Ref<Entity> instance;
 	s16 energy;
+	s16 energy_collected;
 	s16 kills;
 	s16 deaths;
 	s16 flags_captured;

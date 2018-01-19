@@ -293,12 +293,6 @@ r32 entity_cost(const Minion* me, const Vec3& pos, AI::Team team, const Entity* 
 			return FLT_MAX; // can't do it
 	}
 
-	for (s32 i = 0; i < me->unreachable_targets.length; i++)
-	{
-		if (me->unreachable_targets[i].ref() == target)
-			return FLT_MAX; // can't do it
-	}
-
 	Vec3 to_target = target_pos - pos;
 	r32 total_distance;
 
@@ -606,7 +600,7 @@ Vec3 Minion::goal_path_position(const Goal& g, const Vec3& minion_pos)
 				return closest_point;
 			}
 			else if (t->has<Turret>())
-				return e->get<Transform>()->to_world(Vec3(0, 0, -TURRET_HEIGHT + DRONE_RADIUS));
+				return e->get<Transform>()->to_world(Vec3(0, 0, TURRET_HEIGHT * -0.75f));
 			else if (t->has<Battery>())
 				return e->get<Battery>()->spawn_point.ref()->get<Transform>()->absolute_pos() + Vec3(0, DRONE_RADIUS, 0);
 			else
@@ -798,17 +792,20 @@ void Minion::update_server(const Update& u)
 
 	// dynamic obstacle
 	{
-		r32 speed = get<Walker>()->net_speed;
 		Vec3 pos = get<Walker>()->base_pos();
-		if ((!goal.entity.ref() || speed > 0.1f || (obstacle_pos - pos).length_squared() > WALKER_MINION_RADIUS) && obstacle_id != u32(-1))
+		if (obstacle_id != u32(-1) && (!goal.entity.ref() || get<Walker>()->dir.length_squared() > 0.0f || (obstacle_pos - pos).length_squared() > WALKER_MINION_RADIUS))
 		{
+			// moving
 			AI::obstacle_remove(obstacle_id);
 			obstacle_id = u32(-1);
+			get<RigidBody>()->set_collision_masks(CollisionMinionMoving, get<RigidBody>()->collision_filter);
 		}
-		else if (speed < 0.1f && obstacle_id == u32(-1) && get<Walker>()->support.ref() && attack_timer > 0.0f && goal.entity.ref())
+		else if (obstacle_id == u32(-1) && get<Walker>()->dir.length_squared() == 0.0f && get<Walker>()->support.ref())
 		{
+			// standing still
 			obstacle_pos = pos;
 			obstacle_id = AI::obstacle_add(pos, WALKER_MINION_RADIUS, get<Walker>()->capsule_height() + WALKER_SUPPORT_HEIGHT);
+			get<RigidBody>()->set_collision_masks(CollisionWalker, get<RigidBody>()->collision_filter);
 		}
 	}
 
@@ -1092,15 +1089,9 @@ void Minion::set_path(const AI::Result& result)
 			if ((path[i] - get<Walker>()->base_pos()).length_squared() < 0.3f * 0.3f)
 				path_index = i;
 		}
-
-		if (goal.type == Goal::Type::Target) // we successfully did a pathfind to our target; reset unreachable_targets
-			unreachable_targets.length = 0;
 	}
 	else if (path.length == 0 && goal.type == Goal::Type::Target)
-	{
-		unreachable_targets.add(goal.entity);
 		goal.entity = nullptr; // can't path there
-	}
 
 	if (path_request != PathRequest::Repath)
 	{

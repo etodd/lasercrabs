@@ -138,7 +138,7 @@ struct Drone : public ComponentType<Drone>
 	Ability current_ability;
 	b8 dash_combo;
 
-	DroneVulnerability vulnerability() const;
+	DroneCollisionState collision_state() const;
 
 	Drone();
 	~Drone();
@@ -195,11 +195,11 @@ struct Drone : public ComponentType<Drone>
 	b8 go(const Vec3&);
 
 	b8 direction_is_toward_attached_wall(const Vec3&) const;
-	b8 should_collide(const Target*) const;
+	b8 should_collide(const Target*, const Net::StateFrame* = nullptr) const;
 	b8 can_shoot(const Vec3&, Vec3* = nullptr, b8* = nullptr, const Net::StateFrame* = nullptr) const;
 	b8 can_shoot(const Target*, Vec3* = nullptr, r32 = DRONE_FLY_SPEED, const Net::StateFrame* = nullptr) const;
 	b8 could_shoot(const Vec3&, const Vec3&, Vec3* = nullptr, Vec3* = nullptr, b8* = nullptr, const Net::StateFrame* = nullptr) const;
-	b8 can_spawn(Ability, const Vec3&, Vec3* = nullptr, Vec3* = nullptr, RigidBody** = nullptr, b8* = nullptr) const;
+	b8 can_spawn(Ability, const Vec3&, const Net::StateFrame* = nullptr, Vec3* = nullptr, Vec3* = nullptr, RigidBody** = nullptr, b8* = nullptr) const;
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr, r32 = DRONE_FLY_SPEED) const; // shoot or dash
 

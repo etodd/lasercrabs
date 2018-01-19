@@ -222,13 +222,12 @@ const char* ServerConfig::game_type_string(GameType type)
 	{
 		case GameType::Deathmatch:
 			return "dm";
-			break;
 		case GameType::Assault:
 			return "as";
-			break;
 		case GameType::CaptureTheFlag:
 			return "ctf";
-			break;
+		case GameType::Domination:
+			return "dom";
 		default:
 			vi_assert(false);
 			return nullptr;
@@ -237,6 +236,7 @@ const char* ServerConfig::game_type_string(GameType type)
 
 const char* ServerConfig::game_type_string_human(GameType type)
 {
+	// not localized because this is used for Discord rich presence
 	switch (type)
 	{
 		case GameType::Deathmatch:
@@ -245,6 +245,8 @@ const char* ServerConfig::game_type_string_human(GameType type)
 			return "Assault";
 		case GameType::CaptureTheFlag:
 			return "CTF";
+		case GameType::Domination:
+			return "Domination";
 		default:
 			vi_assert(false);
 			return nullptr;

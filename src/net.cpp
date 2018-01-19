@@ -746,6 +746,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_s16(p, m->kills);
 		serialize_s16(p, m->deaths);
 		serialize_s16(p, m->flags_captured);
+		serialize_s16(p, m->energy_collected);
 		s32 username_length;
 		if (Stream::IsWriting)
 			username_length = s32(strlen(m->username));
@@ -762,6 +763,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Team* t = e->get<Team>();
 		serialize_s16(p, t->kills);
 		serialize_s16(p, t->flags_captured);
+		serialize_s16(p, t->energy_collected);
 		serialize_ref(p, t->flag_base);
 	}
 
@@ -1423,7 +1425,7 @@ template<typename Stream> b8 serialize_drone(Stream* p, DroneState* state, const
 	else if (Stream::IsReading)
 		state->cooldown_ability_switch = 0.0f;
 
-	// no need to serialize vulnerability
+	// no need to serialize collision state
 	// clients can calculate it for themselves
 	// it's only stored in memory on the server for rewinding purposes
 
@@ -1759,7 +1761,7 @@ void state_frame_build(StateFrame* frame)
 		drone->revision = i.item()->revision;
 		drone->cooldown = i.item()->cooldown;
 		drone->cooldown_ability_switch = i.item()->cooldown_ability_switch;
-		drone->vulnerability = i.item()->vulnerability();
+		drone->collision_state = i.item()->collision_state();
 	}
 }
 
@@ -1930,7 +1932,7 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 				drone->cooldown_ability_switch = next.cooldown_ability_switch;
 			}
 
-			drone->vulnerability = next.vulnerability;
+			drone->collision_state = next.collision_state;
 
 			index = b.drones_active.next(index);
 		}

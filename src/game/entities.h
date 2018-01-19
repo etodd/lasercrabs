@@ -348,7 +348,6 @@ struct ForceField : public ComponentType<ForceField>
 
 	r32 spawn_death_timer;
 	r32 damage_timer;
-	u32 obstacle_id;
 	Ref<ForceFieldCollision> collision;
 	AI::Team team;
 	s8 flags;

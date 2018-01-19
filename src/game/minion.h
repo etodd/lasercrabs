@@ -56,7 +56,6 @@ struct Minion : public ComponentType<Minion>
 	static void update_client_all(const Update&);
 	static Vec3 goal_path_position(const Goal&, const Vec3&);
 
-	Array<Ref<Entity>> unreachable_targets;
 	Goal goal;
 	AI::Path path;
 	Vec3 obstacle_pos;

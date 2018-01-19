@@ -172,6 +172,7 @@ void RigidBody::awake()
 			| CollisionParkour
 			| CollisionElectric
 			| CollisionWalker
+			| CollisionMinionMoving
 			| CollisionTarget
 			| CollisionAudio
 		);

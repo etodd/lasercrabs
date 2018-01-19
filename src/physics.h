@@ -15,13 +15,14 @@ enum CollisionGroup
 	CollisionDefault = btBroadphaseProxy::DefaultFilter, // 1 << 0
 	CollisionStatic = btBroadphaseProxy::StaticFilter, // 1 << 1
 	CollisionWalker = 1 << 2,
-	CollisionInaccessible = 1 << 3,
-	CollisionTarget = 1 << 4,
-	CollisionDroneIgnore = 1 << 5,
-	CollisionTeamAForceField = 1 << 6,
-	CollisionTeamBForceField = 1 << 7,
-	CollisionTeamCForceField = 1 << 8,
-	CollisionTeamDForceField = 1 << 9,
+	CollisionMinionMoving = 1 << 3,
+	CollisionInaccessible = 1 << 4,
+	CollisionTarget = 1 << 5,
+	CollisionDroneIgnore = 1 << 6,
+	CollisionTeamAForceField = 1 << 7,
+	CollisionTeamBForceField = 1 << 8,
+	CollisionTeamCForceField = 1 << 9,
+	CollisionTeamDForceField = 1 << 10,
 	CollisionAllTeamsForceField =
 	(
 		CollisionTeamAForceField
@@ -29,12 +30,12 @@ enum CollisionGroup
 		| CollisionTeamCForceField
 		| CollisionTeamDForceField
 	),
-	CollisionParkour = 1 << 11,
-	CollisionElectric = 1 << 12,
-	CollisionAudio = 1 << 13,
+	CollisionParkour = 1 << 12,
+	CollisionElectric = 1 << 13,
+	CollisionAudio = 1 << 14,
 };
 
-#define DRONE_PERMEABLE_MASK (CollisionTarget | CollisionDroneIgnore | CollisionDefault | CollisionWalker)
+#define DRONE_PERMEABLE_MASK (CollisionTarget | CollisionDroneIgnore | CollisionDefault | CollisionWalker | CollisionMinionMoving)
 #define DRONE_INACCESSIBLE_MASK (CollisionInaccessible | CollisionElectric | DRONE_PERMEABLE_MASK | CollisionAllTeamsForceField)
 
 struct RaycastCallbackExcept : btCollisionWorld::ClosestRayResultCallback

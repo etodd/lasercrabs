@@ -1780,18 +1780,15 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 	switch (position)
 	{
 		case ScoreboardPosition::Center:
-		{
 			p = vp.size * Vec2(0.5f, 0.8f);
 			break;
-		}
 		case ScoreboardPosition::Bottom:
-		{
 			p = vp.size * Vec2(0.5f, 0.3f);
 			break;
-		}
 		default:
 		{
 			vi_assert(false);
+			p = Vec2::zero;
 			break;
 		}
 	}
@@ -1842,8 +1839,22 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 
 		// team header
 		s32 player_count = team_ref.player_count();
-		if (Game::session.config.game_type == GameType::CaptureTheFlag
-			|| (Game::session.config.game_type == GameType::Deathmatch && player_count > 1))
+
+		s32 team_score;
+		switch (Game::session.config.game_type)
+		{
+			case GameType::CaptureTheFlag:
+				team_score = team_ref.flags_captured;
+				break;
+			case GameType::Domination:
+				team_score = team_ref.energy_collected;
+				break;
+			default:
+				team_score = team_ref.kills;
+				break;
+		}
+
+		if (player_count > 1)
 		{
 			text.anchor_x = UIText::Anchor::Min;
 			text.color = Team::ui_color(manager->team.ref()->team(), team);
@@ -1852,7 +1863,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 			text.draw(params, p);
 
 			text.anchor_x = UIText::Anchor::Max;
-			text.text(0, "%d", s32(Game::session.config.game_type == GameType::CaptureTheFlag ? team_ref.flags_captured : team_ref.kills));
+			text.text(0, "%d", team_score);
 			text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
 
 			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -1883,10 +1894,23 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 				text.wrap_width = 0;
 
 				s32 score;
-				if (Game::session.config.game_type == GameType::CaptureTheFlag)
-					score = s32(i.item()->flags_captured);
-				else // if there's only one player on the team, show all team kills as belonging to that player
-					score = s32(player_count == 1 ? team_ref.kills : i.item()->kills);
+				if (player_count == 1)
+					score = team_score;
+				else
+				{
+					switch (Game::session.config.game_type)
+					{
+						case GameType::CaptureTheFlag:
+							score = i.item()->flags_captured;
+							break;
+						case GameType::Domination:
+							score = i.item()->energy_collected;
+							break;
+						default:
+							score = i.item()->kills;
+							break;
+					}
+				}
 
 				text.text(0, "%d", score);
 				text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
@@ -3485,17 +3509,6 @@ void PlayerControlHuman::awake()
 		link_arg<const DroneReflectEvent&, &PlayerControlHuman::drone_reflecting>(get<Drone>()->reflecting);
 		link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Drone>()->hit);
 
-		if (Team::match_state == Team::MatchState::Done && Game::level.has_feature(Game::FeatureLevel::All))
-		{
-			if (Game::session.config.game_type == GameType::Assault)
-				player.ref()->assault_status_display();
-			else if (Game::session.config.game_type == GameType::Deathmatch)
-			{
-				if (player.ref()->get<PlayerManager>()->deaths == 0)
-					player.ref()->msg(_(strings::attack), PlayerHuman::FlagMessageGood);
-			}
-		}
-
 		player.ref()->camera_center = get<Drone>()->center_lerped();
 	}
 	else
@@ -4336,7 +4349,7 @@ void PlayerControlHuman::update(const Update& u)
 						{
 							Vec3 hit;
 							b8 hit_target;
-							if (get<Drone>()->can_spawn(ability, detach_dir, &hit, nullptr, nullptr, &hit_target))
+							if (get<Drone>()->can_spawn(ability, detach_dir, nullptr, &hit, nullptr, nullptr, &hit_target))
 							{
 								if (AbilityInfo::list[s32(ability)].type == AbilityInfo::Type::Shoot)
 								{

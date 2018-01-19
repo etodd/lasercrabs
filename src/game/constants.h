@@ -7,11 +7,12 @@
 #define MAX_GAMEPADS 4
 
 #define MAX_RESPAWNS 1000
+#define MAX_ENERGY_LIMIT 30000
 
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 20
+#define GAME_VERSION 21
 
 #define STEAM_APP_ID 728100
 #define DISCORD_APP_ID "367724608469860353"
@@ -177,7 +178,7 @@
 
 #define BOLT_SPEED_MINION 12.0f
 #define BOLT_SPEED_TURRET 12.0f
-#define BOLT_SPEED_DRONE_BOLTER 25.0f
+#define BOLT_SPEED_DRONE_BOLTER 20.0f
 #define BOLT_SPEED_DRONE_SHOTGUN 40.0f
 #define BOLT_LENGTH 0.5f
 #define BOLT_LIGHT_RADIUS 10.0f

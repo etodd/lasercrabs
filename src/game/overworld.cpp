@@ -535,6 +535,7 @@ static const AssetID game_type_strings[s32(GameType::count)] =
 	strings::game_type_assault,
 	strings::game_type_deathmatch,
 	strings::game_type_capture_the_flag,
+	strings::game_type_domination,
 };
 
 static const AssetID preset_strings[s32(Net::Master::Ruleset::Preset::count)] =
@@ -723,7 +724,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 					s8* team_count = &config->team_count;
 					sprintf(str, "%hhd", *team_count);
-					delta = menu->slider_item(u, _(strings::teams), str, config->game_type == GameType::Assault);
+					delta = menu->slider_item(u, _(strings::teams), str, config->game_type == GameType::Assault || config->game_type == GameType::CaptureTheFlag);
 
 					s32 max_teams = vi_min(s32(config->max_players), MAX_TEAMS);
 					for (s32 i = 0; i < config->levels.length; i++)
@@ -777,7 +778,7 @@ void multiplayer_entry_edit_update(const Update& u)
 						s16* kill_limit = &config->kill_limit;
 						sprintf(str, "%hd", *kill_limit);
 						delta = menu->slider_item(u, _(strings::kill_limit), str);
-						*kill_limit = vi_max(1, vi_min(MAX_RESPAWNS, s32(*kill_limit) + delta * (*kill_limit >= (delta > 0 ? 10 : 11) ? 5 : 1)));
+						*kill_limit = s16(vi_max(1, vi_min(MAX_RESPAWNS, s32(*kill_limit) + delta * (*kill_limit >= (delta > 0 ? 10 : 11) ? 5 : 1))));
 						if (delta)
 							data.multiplayer.active_server_dirty = true;
 						break;
@@ -788,7 +789,18 @@ void multiplayer_entry_edit_update(const Update& u)
 						s16* flag_limit = &config->flag_limit;
 						sprintf(str, "%hd", *flag_limit);
 						delta = menu->slider_item(u, _(strings::flag_limit), str);
-						*flag_limit = vi_max(1, vi_min(MAX_RESPAWNS, s32(*flag_limit) + delta));
+						*flag_limit = s16(vi_max(1, vi_min(MAX_RESPAWNS, s32(*flag_limit) + delta)));
+						if (delta)
+							data.multiplayer.active_server_dirty = true;
+						break;
+					}
+					case GameType::Domination:
+					{
+						// energy collected limit
+						s16* energy_collected_limit = &config->energy_collected_limit;
+						sprintf(str, "%hd", *energy_collected_limit);
+						delta = menu->slider_item(u, _(strings::energy_collected_limit), str);
+						*energy_collected_limit = s16(vi_max(1, vi_min(MAX_ENERGY_LIMIT, s32(*energy_collected_limit) + delta * (*energy_collected_limit >= (delta > 0 ? 5000 : 5001) ? 250 : 500))));
 						if (delta)
 							data.multiplayer.active_server_dirty = true;
 						break;
@@ -1785,6 +1797,16 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 					text.text(0, _(strings::flag_limit));
 					text.draw(params, pos);
 					value.text(0, "%d", s32(details.config.flag_limit));
+					value.draw(params, pos + Vec2(panel_size.x, 0));
+					pos.y -= panel_size.y;
+					break;
+				}
+				case GameType::Domination:
+				{
+					// energy collected limit
+					text.text(0, _(strings::energy_collected_limit));
+					text.draw(params, pos);
+					value.text(0, "%d", s32(details.config.energy_collected_limit));
 					value.draw(params, pos + Vec2(panel_size.x, 0));
 					pos.y -= panel_size.y;
 					break;

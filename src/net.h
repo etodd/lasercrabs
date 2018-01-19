@@ -87,7 +87,7 @@ struct DroneState
 {
 	r32 cooldown;
 	r32 cooldown_ability_switch;
-	DroneVulnerability vulnerability;
+	DroneCollisionState collision_state;
 	Revision revision;
 };
 

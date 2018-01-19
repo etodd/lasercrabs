@@ -52,11 +52,11 @@ const AssetID AssetNull = AssetID(-1);
 typedef s16 ID;
 const ID IDNull = ID(MAX_ENTITIES);
 
-enum class DroneVulnerability : s8
+enum class DroneCollisionState : s8
 {
-	None,
-	All,
-	DroneBolts,
+	Default,
+	UpgradeStation,
+	FlyingDashing,
 	ActiveArmor,
 	count,
 };
@@ -135,6 +135,7 @@ enum class GameType : s8
 	Assault,
 	Deathmatch,
 	CaptureTheFlag,
+	Domination,
 	count,
 };
 

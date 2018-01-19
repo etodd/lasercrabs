@@ -1254,6 +1254,10 @@ void game_end_cheat(b8 win)
 
 		if (Game::session.config.game_type == GameType::Deathmatch)
 			player->kills = Game::session.config.kill_limit;
+		else if (Game::session.config.game_type == GameType::Domination)
+			player->team.ref()->energy_collected = Game::session.config.energy_collected_limit;
+		else if (Game::session.config.game_type == GameType::CaptureTheFlag)
+			player->team.ref()->flags_captured = Game::session.config.flag_limit;
 		else if (Game::session.config.game_type == GameType::Assault)
 		{
 			if (player->team.ref()->team() == 0) // defending
@@ -1882,19 +1886,13 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		}
 		else if (cJSON_HasObjectItem(element, "Turret"))
 		{
-			Entity* base = World::alloc<StaticGeom>(Asset::Mesh::turret_base, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
-
 			if (session.config.game_type == GameType::Assault)
 			{
-				World::awake(base);
-
 				absolute_pos += absolute_rot * Vec3(0, 0, TURRET_HEIGHT);
 				entity = World::alloc<TurretEntity>(AI::Team(0));
 				entity->get<Health>()->hp = Json::get_s32(element, "hp", TURRET_HEALTH);
 				ingress_points_get(json, element, entity->get<MinionTarget>());
 			}
-			else
-				entity = base;
 		}
 		else if (cJSON_HasObjectItem(element, "PathZone"))
 		{

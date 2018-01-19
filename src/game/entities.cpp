@@ -323,7 +323,7 @@ b8 Health::active_armor(const Net::StateFrame* state_frame) const
 	else if (has<Drone>())
 	{
 		if (state_frame && state_frame->drones_active.get(get<Drone>()->id()))
-			return state_frame->drones[get<Drone>()->id()].vulnerability == DroneVulnerability::ActiveArmor;
+			return state_frame->drones[get<Drone>()->id()].collision_state == DroneCollisionState::ActiveArmor;
 		else
 			return active_armor_timer > 0.0f;
 	}
@@ -338,17 +338,21 @@ b8 Health::can_take_damage(Entity* damager, const Net::StateFrame* state_frame) 
 
 	if (has<Drone>())
 	{
-		DroneVulnerability v;
-		if (state_frame && state_frame->drones_active.get(get<Drone>()->id()))
-			v = state_frame->drones[get<Drone>()->id()].vulnerability;
+		DroneCollisionState collision_state;
+		if (state_frame
+			&& state_frame->drones_active.get(get<Drone>()->id())
+			&& !PlayerHuman::players_on_same_client(entity(), damager))
+			collision_state = state_frame->drones[get<Drone>()->id()].collision_state;
 		else
-			v = get<Drone>()->vulnerability();
-		switch (v)
+			collision_state = get<Drone>()->collision_state();
+		switch (collision_state)
 		{
-			case DroneVulnerability::None:
-			case DroneVulnerability::ActiveArmor:
+			case DroneCollisionState::Default:
+				return true;
+			case DroneCollisionState::UpgradeStation:
+			case DroneCollisionState::ActiveArmor:
 				return false;
-			case DroneVulnerability::DroneBolts:
+			case DroneCollisionState::FlyingDashing:
 			{
 				if (damager && damager->has<Bolt>())
 				{
@@ -358,8 +362,6 @@ b8 Health::can_take_damage(Entity* damager, const Net::StateFrame* state_frame) 
 				}
 				return false;
 			}
-			case DroneVulnerability::All:
-				return true;
 			default:
 				vi_assert(false);
 				return false;
@@ -674,7 +676,7 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 
 	model->offset.scale(Vec3(BATTERY_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(BATTERY_RADIUS), 0.1f, CollisionTarget, ~CollisionAllTeamsForceField & ~CollisionWalker);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(BATTERY_RADIUS), 0.1f, CollisionTarget, ~CollisionAllTeamsForceField & ~CollisionWalker & ~CollisionMinionMoving);
 	body->set_damping(0.5f, 0.5f);
 	body->set_ccd(true);
 
@@ -1041,7 +1043,9 @@ void SpawnPoint::update_server_all(const Update& u)
 
 		// calculate spawn rate for each team
 		{
-			r32 spawn_rate_multiplier = Game::session.config.ruleset.enable_batteries ? 1.0f : 2.5f;
+			r32 spawn_rate_multiplier =
+				(Game::session.config.game_type == GameType::Assault ? 1.0f : 0.75f)
+				* (Game::session.config.ruleset.enable_batteries ? 1.0f : 2.5f);
 			for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 			{
 				// spawn points owned by a team will spawn a minion
@@ -1911,7 +1915,7 @@ TurretEntity::TurretEntity(AI::Team team)
 	create<MinionTarget>();
 
 	View* view = create<View>();
-	view->mesh = Asset::Mesh::turret_top;
+	view->mesh = Asset::Mesh::turret;
 	view->shader = Asset::Shader::culled;
 	view->team = s8(team);
 	
@@ -2238,8 +2242,7 @@ ForceField::ForceField()
 	spawn_death_timer(FORCE_FIELD_ANIM_TIME),
 	damage_timer(),
 	flags(),
-	collision(),
-	obstacle_id(-1)
+	collision()
 {
 }
 
@@ -2249,8 +2252,6 @@ void ForceField::awake()
 	{
 		link_arg<Entity*, &ForceField::killed>(get<Health>()->killed);
 		link_arg<const HealthEvent&, &ForceField::health_changed>(get<Health>()->changed);
-		if (Game::level.local)
-			obstacle_id = AI::obstacle_add(get<Transform>()->to_world(Vec3(0, 0, FORCE_FIELD_BASE_OFFSET * -0.5f)) + Vec3(0, FORCE_FIELD_BASE_OFFSET * -0.5f, 0), FORCE_FIELD_BASE_OFFSET * 0.5f, FORCE_FIELD_BASE_OFFSET);
 	}
 	get<Audio>()->entry()->flag(AudioEntry::FlagEnableForceFieldObstruction, false);
 	get<Audio>()->post(AK::EVENTS::PLAY_FORCE_FIELD_LOOP);
@@ -2262,12 +2263,6 @@ ForceField::~ForceField()
 		World::remove_deferred(collision.ref()->entity());
 
 	get<Audio>()->stop_all();
-
-	if (!(flags & FlagPermanent))
-	{
-		if (obstacle_id != u32(-1))
-			AI::obstacle_remove(obstacle_id);
-	}
 }
 
 Vec3 ForceField::base_pos() const
@@ -2469,25 +2464,28 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 	}
 
 	// collision
-	Entity* f = World::create<Empty>();
-	f->get<Transform>()->absolute_pos(abs_pos);
-	ForceFieldCollision* collision = f->add<ForceFieldCollision>();
-	collision->field = field;
+	{
+		Entity* f = World::create<Empty>();
+		f->get<Transform>()->absolute_pos(abs_pos);
+		ForceFieldCollision* collision = f->add<ForceFieldCollision>();
+		collision->field = field;
 
-	View* view = f->add<View>();
-	view->team = s8(team);
-	view->mesh = Asset::Mesh::force_field_sphere;
-	view->shader = Asset::Shader::fresnel;
-	view->alpha();
-	view->color.w = 0.35f;
+		View* view = f->add<View>();
+		view->team = s8(team);
+		view->mesh = Asset::Mesh::force_field_sphere;
+		view->shader = Asset::Shader::fresnel;
+		view->alpha();
+		view->color.w = 0.35f;
 
-	CollisionGroup team_group = CollisionGroup(1 << (8 + team));
+		{
+			CollisionGroup team_group = CollisionGroup(1 << (8 + team));
+			f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_group, CollisionTarget, view->mesh);
+		}
 
-	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_group, CollisionTarget, view->mesh);
+		Net::finalize_child(f);
 
-	Net::finalize_child(f);
-
-	field->collision = collision;
+		field->collision = collision;
+	}
 }
 
 r32 Bolt::speed(Type t, b8 reflected)
@@ -3363,7 +3361,7 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	g->owner = owner;
 	g->velocity = dir * GRENADE_LAUNCH_SPEED;
 
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionTarget, ~CollisionParkour & ~CollisionElectric & ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionWalker);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionTarget, ~CollisionParkour & ~CollisionElectric & ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionWalker & ~CollisionMinionMoving);
 
 	PointLight* light = create<PointLight>();
 	light->radius = BOLT_LIGHT_RADIUS;
@@ -4065,7 +4063,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 					Net::finalize(last_segment->entity());
 
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
-				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionDroneIgnore, ~CollisionWalker & ~CollisionAllTeamsForceField);
+				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionDroneIgnore, ~CollisionWalker & ~CollisionMinionMoving & ~CollisionAllTeamsForceField);
 				box->add<Rope>()->flags = flags;
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);
@@ -4824,7 +4822,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 	Transform* transform = create<Transform>();
 
 	const Mesh* mesh = Loader::mesh(Asset::Mesh::tram_mesh);
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionDroneIgnore, ~CollisionWalker & ~CollisionInaccessible & ~CollisionParkour & ~CollisionStatic & ~CollisionAudio & ~CollisionElectric);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionDroneIgnore, ~CollisionWalker & ~CollisionMinionMoving & ~CollisionInaccessible & ~CollisionParkour & ~CollisionStatic & ~CollisionAudio & ~CollisionElectric);
 	body->set_restitution(0.75f);
 	body->set_damping(0.5f, 0.5f);
 

@@ -141,6 +141,11 @@ namespace Master
 	{
 		void update();
 	}
+
+	namespace Signup
+	{
+		void handle_api(mg_connection*, int, void*);
+	}
 }
 
 namespace CrashReport
@@ -235,6 +240,7 @@ void register_endpoints(mg_connection* conn)
 	mg_register_http_endpoint(conn, "/crash_dump", handle_upload);
 	mg_register_http_endpoint(conn, "/dashboard", Master::Dashboard::handle_static);
 	mg_register_http_endpoint(conn, "/dashboard/api", Master::Dashboard::handle_api);
+	mg_register_http_endpoint(conn, "/signup", Master::Signup::handle_api);
 }
 
 void init()
@@ -392,9 +398,9 @@ namespace Master
 		}
 	}
 
-	void db_bind_text(sqlite3_stmt* stmt, s32 index, const char* text)
+	void db_bind_text(sqlite3_stmt* stmt, s32 index, const char* text, s32 length = -1)
 	{
-		if (sqlite3_bind_text(stmt, index + 1, text, -1, SQLITE_TRANSIENT))
+		if (sqlite3_bind_text(stmt, index + 1, text, length, SQLITE_TRANSIENT))
 		{
 			fprintf(stderr, "SQL: Could not bind text at index %d.\nError: %s", index, sqlite3_errmsg(global.db));
 			vi_assert(false);
@@ -2357,6 +2363,7 @@ namespace Master
 				db_exec("create table AuthAttempt (timestamp integer not null, type integer not null, ip text not null, user_id integer, foreign key (user_id) references User(id));");
 				db_exec("create table DiscordUser (id integer primary key, time_offset_half_hour integer, member_available_role boolean not null);");
 				db_exec("create table DiscordPlaytime (user_id integer, start integer not null, end integer not null);");
+				db_exec("create table Email (email text, key text);");
 			}
 			db_exec("update ServerConfig set online=0;");
 		}
@@ -3518,9 +3525,75 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 			);
 			mg_printf_http_chunk(conn, "%s", "Bad Request");
 			mg_send_http_chunk(conn, "", 0);
+
+			return;
 		}
 	}
 }
+
+}
+
+namespace Signup
+{
+
+
+void handle_api(mg_connection* conn, int ev, void* ev_data)
+{
+	b8 valid = false;
+	switch (ev)
+	{
+		case MG_EV_HTTP_MULTIPART_REQUEST:
+		case MG_EV_HTTP_PART_BEGIN:
+		case MG_EV_HTTP_PART_END:
+		case MG_EV_HTTP_MULTIPART_REQUEST_END:
+			valid = true; // continue
+			break;
+		case MG_EV_HTTP_PART_DATA:
+		{
+			mg_http_multipart_part* part = (mg_http_multipart_part*)ev_data;
+			if (strcmp(part->var_name, "email") == 0 && part->data.len < 256)
+			{
+				sqlite3_stmt* stmt = db_query("insert into Email (email) values (?);");
+				db_bind_text(stmt, 0, part->data.p, s32(part->data.len));
+				db_exec(stmt);
+
+				mg_printf
+				(
+					conn, "%s",
+					"HTTP/1.1 200 OK\r\n"
+					"Content-Type: text/plain\r\n"
+					"Transfer-Encoding: chunked\r\n"
+					"Access-Control-Allow-Origin: *\r\n"
+					"\r\n"
+				);
+
+				mg_send_http_chunk(conn, "", 0);
+
+				valid = true;
+			}
+		}
+		default:
+			break;
+	}
+
+	if (!valid)
+	{
+		mg_printf
+		(
+			conn, "%s",
+			"HTTP/1.1 400 Bad Request\r\n"
+			"Content-Type: text/html\r\n"
+			"Transfer-Encoding: chunked\r\n"
+			"\r\n"
+		);
+
+		mg_printf_http_chunk(conn, "%s", "Bad Request");
+		mg_send_http_chunk(conn, "", 0);
+
+		return;
+	}
+}
+
 
 }
 

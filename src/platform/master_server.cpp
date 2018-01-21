@@ -3496,9 +3496,9 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 				mg_printf_http_chunk(conn, "%s", sqlite3_errmsg(global.db));
 			else
 			{
-				std::ostringstream line;
 				while (true)
 				{
+					std::ostringstream line;
 					s32 result = sqlite3_step(stmt);
 					if (result == SQLITE_ROW)
 					{

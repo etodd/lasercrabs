@@ -27,6 +27,7 @@
 #include "sha1/sha1.h"
 #include <ctype.h>
 #include <sstream>
+#include <algorithm>
 
 #define DEBUG_SQL 0
 
@@ -3553,9 +3554,21 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 			mg_http_multipart_part* part = (mg_http_multipart_part*)ev_data;
 			if (strcmp(part->var_name, "email") == 0 && part->data.len < 256)
 			{
-				sqlite3_stmt* stmt = db_query("insert into Email (email) values (?);");
-				db_bind_text(stmt, 0, part->data.p, s32(part->data.len));
-				db_exec(stmt);
+				std::string email(part->data.p, part->data.len);
+				std::transform(email.begin(), email.end(), email.begin(), ::tolower);
+				sqlite3_stmt* stmt = db_query("select key from Email where email=?;");
+				db_bind_text(stmt, 0, email.c_str());
+				if (db_step(stmt))
+				{
+					// already in database
+				}
+				else
+				{
+					sqlite3_stmt* stmt2 = db_query("insert into Email (email) values (?);");
+					db_bind_text(stmt2, 0, email.c_str());
+					db_exec(stmt2);
+				}
+				db_finalize(stmt);
 
 				mg_printf
 				(

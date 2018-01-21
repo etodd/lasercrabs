@@ -297,6 +297,7 @@ namespace Master
 #define MASTER_TOKEN_TIMEOUT (86400 * 2)
 #define MASTER_SERVER_LOAD_TIMEOUT 10.0
 
+	r64 real_timestamp;
 	r64 global_timestamp;
 
 	struct Node // could be a server or client
@@ -2462,15 +2463,11 @@ namespace Master
 
 		r64 last_audit = 0.0;
 		r64 last_match = 0.0;
-		r64 last_update = platform::time();
 
 		while (true)
 		{
-			{
-				r64 t = platform::time();
-				global_timestamp += vi_min(0.25, t - last_update);
-				last_update = t;
-			}
+			global_timestamp = platform::time();
+			real_timestamp = platform::timestamp();
 
 			DiscordBot::update();
 
@@ -2626,6 +2623,9 @@ namespace DiscordBot
 
 	void msg_post(const char* msg)
 	{
+#if OFFLINE_DEV
+		vi_debug("%s", msg);
+#else
 		CURL* curl = curl_easy_init();
 		curl_easy_setopt(curl, CURLOPT_URL, Settings::discord_webhook);
 
@@ -2642,6 +2642,7 @@ namespace DiscordBot
 		headers = curl_slist_append(headers, "Content-Type: application/json");
 		headers = curl_slist_append(headers, "Expect:"); // initialize custom header list stating that Expect: 100-continue is not wanted
 		Http::add(curl, nullptr, headers);
+#endif
 	}
 
 	void cmd_acknowledge(cJSON* msg)
@@ -2851,9 +2852,8 @@ namespace DiscordBot
 
 		{
 			sqlite3_stmt* stmt = db_query("select count(distinct user_id) from DiscordPlaytime where start < ? and end > ?");
-			s64 t = s64(platform::timestamp());
-			db_bind_int(stmt, 0, t);
-			db_bind_int(stmt, 1, t);
+			db_bind_int(stmt, 0, s64(real_timestamp));
+			db_bind_int(stmt, 1, s64(real_timestamp));
 			db_step(stmt);
 			*available = db_column_int(stmt, 0);
 			db_finalize(stmt);
@@ -3099,7 +3099,6 @@ namespace DiscordBot
 					sqlite3_stmt* stmt = db_query("select start, end from DiscordPlaytime;");
 					b8 has_entry = false;
 					s64 offset_seconds = time_offset_half_hour * 30 * 60;
-					s64 timestamp = s64(platform::timestamp());
 					while (db_step(stmt))
 					{
 						s64 start = db_column_int(stmt, 0) + offset_seconds;
@@ -3108,7 +3107,7 @@ namespace DiscordBot
 						std::tm tm;
 
 						char start_str[129] = {};
-						if (start < timestamp + offset_seconds)
+						if (start < s64(real_timestamp) + offset_seconds)
 							strcpy(start_str, "Now");
 						else
 						{
@@ -3172,6 +3171,93 @@ namespace DiscordBot
 		Http::add(curl, callback, headers, id);
 	}
 
+	void poll_update()
+	{
+		{
+			sqlite3_stmt* stmt = db_query("delete from DiscordPlaytime where end < ?;");
+			db_bind_int(stmt, 0, s64(real_timestamp));
+			db_exec(stmt);
+		}
+
+		// add members to available role
+		{
+			sqlite3_stmt* stmt = db_query("select distinct DiscordPlaytime.user_id from DiscordPlaytime left join DiscordUser on DiscordPlaytime.user_id=DiscordUser.id where DiscordPlaytime.start <= ? and DiscordPlaytime.end > ? and DiscordUser.member_available_role=0;");
+			db_bind_int(stmt, 0, s64(real_timestamp));
+			db_bind_int(stmt, 1, s64(real_timestamp));
+			typedef StaticArray<char, MAX_DISCORD_ID_LENGTH + 1> DiscordId;
+			Array<DiscordId> member_ids;
+			while (db_step(stmt))
+			{
+				const char* member_id = db_column_text(stmt, 0);
+				s32 length = strlen(member_id);
+				vi_assert(length <= MAX_DISCORD_ID_LENGTH);
+
+				DiscordId* entry = member_ids.add();
+				entry->length = length;
+				strncpy(entry->data, member_id, MAX_DISCORD_ID_LENGTH);
+
+				available_role_request(member_id, "PUT", &available_role_callback_add);
+			}
+			db_finalize(stmt);
+
+			if (member_ids.length > 0)
+			{
+				s32 playing;
+				s32 in_lobby;
+				s32 available;
+				stats(&playing, &in_lobby, &available);
+
+				if (vi_max(playing + in_lobby, available) > 0)
+				{
+					std::ostringstream mention;
+					for (s32 i = 0; i < member_ids.length; i++)
+						mention << "<@" << member_ids[i].data << "> ";
+					build_stat_msg(&mention, playing, in_lobby, available);
+					msg_post(mention.str().c_str());
+				}
+			}
+		}
+
+		// remove members from available role
+		{
+			sqlite3_stmt* stmt = db_query("select distinct DiscordUser.id from DiscordUser where DiscordUser.member_available_role=1 and (select count(1) from DiscordPlaytime where DiscordPlaytime.user_id=DiscordUser.id and DiscordPlaytime.start <= ? and DiscordPlaytime.end > ?)=0;");
+			db_bind_int(stmt, 0, s64(real_timestamp));
+			db_bind_int(stmt, 1, s64(real_timestamp));
+			while (db_step(stmt))
+			{
+				const char* member_id = db_column_text(stmt, 0);
+				available_role_request(member_id, "DELETE", &available_role_callback_remove);
+			}
+			db_finalize(stmt);
+		}
+
+		// stat mention
+		if (global_timestamp > state.last_stat_mention_timestamp + 60.0)
+		{
+			s32 playing;
+			s32 in_lobby;
+			s32 available;
+			stats(&playing, &in_lobby, &available);
+
+			if ((playing > 0 || available > 1)
+				&& (playing >= vi_max(1, state.last_stat_mention_playing * 2)
+					|| available >= vi_max(1, state.last_stat_mention_available * 2)
+					|| global_timestamp > state.last_stat_mention_timestamp + (30.0 * 60.0)))
+			{
+				if (state.last_poll_message_id[0]) // if this is the first time we're polling, we just rebooted; don't send out the mention
+				{
+					std::ostringstream mention;
+					mention << "<@&" << Settings::discord_available_role_id << ">";
+					build_stat_msg(&mention, playing, in_lobby, available);
+					msg_post(mention.str().c_str());
+				}
+				state.last_stat_mention_timestamp = global_timestamp;
+				state.last_stat_mention_playing = playing;
+				state.last_stat_mention_available = available;
+			}
+		}
+	}
+
 	void poll_callback(s32 code, const char* data, u64 user_data)
 	{
 		if (code == 200 && data)
@@ -3194,91 +3280,7 @@ namespace DiscordBot
 					}
 				}
 
-				// delete old playtime records
-				s64 timestamp = s64(platform::timestamp());
-				{
-					sqlite3_stmt* stmt = db_query("delete from DiscordPlaytime where end < ?;");
-					db_bind_int(stmt, 0, timestamp);
-					db_exec(stmt);
-				}
-
-				// add members to available role
-				{
-					sqlite3_stmt* stmt = db_query("select distinct DiscordPlaytime.user_id from DiscordPlaytime left join DiscordUser on DiscordPlaytime.user_id=DiscordUser.id where DiscordPlaytime.start <= ? and DiscordPlaytime.end > ? and DiscordUser.member_available_role=0;");
-					db_bind_int(stmt, 0, timestamp);
-					db_bind_int(stmt, 1, timestamp);
-					typedef StaticArray<char, MAX_DISCORD_ID_LENGTH + 1> DiscordId;
-					Array<DiscordId> member_ids;
-					while (db_step(stmt))
-					{
-						const char* member_id = db_column_text(stmt, 0);
-						s32 length = strlen(member_id);
-						vi_assert(length <= MAX_DISCORD_ID_LENGTH);
-
-						DiscordId* entry = member_ids.add();
-						entry->length = length;
-						strncpy(entry->data, member_id, MAX_DISCORD_ID_LENGTH);
-
-						available_role_request(member_id, "PUT", &available_role_callback_add);
-					}
-					db_finalize(stmt);
-
-					if (member_ids.length > 0)
-					{
-						s32 playing;
-						s32 in_lobby;
-						s32 available;
-						stats(&playing, &in_lobby, &available);
-
-						if (vi_max(playing + in_lobby, available) > 0)
-						{
-							std::ostringstream mention;
-							for (s32 i = 0; i < member_ids.length; i++)
-								mention << "<@" << member_ids[i].data << "> ";
-							build_stat_msg(&mention, playing, in_lobby, available);
-							msg_post(mention.str().c_str());
-						}
-					}
-				}
-
-				// remove members from available role
-				{
-					sqlite3_stmt* stmt = db_query("select distinct DiscordUser.id from DiscordUser where DiscordUser.member_available_role=1 and (select count(1) from DiscordPlaytime where DiscordPlaytime.user_id=DiscordUser.id and DiscordPlaytime.start <= ? and DiscordPlaytime.end > ?)=0;");
-					db_bind_int(stmt, 0, timestamp);
-					db_bind_int(stmt, 1, timestamp);
-					while (db_step(stmt))
-					{
-						const char* member_id = db_column_text(stmt, 0);
-						available_role_request(member_id, "DELETE", &available_role_callback_remove);
-					}
-					db_finalize(stmt);
-				}
-
-				// stat mention
-				if (timestamp > state.last_stat_mention_timestamp + 60.0)
-				{
-					s32 playing;
-					s32 in_lobby;
-					s32 available;
-					stats(&playing, &in_lobby, &available);
-
-					if ((playing > 0 || available > 1)
-						&& (playing >= state.last_stat_mention_playing * 2
-							|| available >= state.last_stat_mention_available * 2
-							|| timestamp > state.last_stat_mention_timestamp + 30.0 * 60.0))
-					{
-						if (state.last_poll_message_id[0]) // if this is the first time we're polling, we just rebooted; don't send out the mention
-						{
-							std::ostringstream mention;
-							mention << "<@&" << Settings::discord_available_role_id << ">";
-							build_stat_msg(&mention, playing, in_lobby, available);
-							msg_post(mention.str().c_str());
-						}
-						state.last_stat_mention_timestamp = timestamp;
-						state.last_stat_mention_playing = playing;
-						state.last_stat_mention_available = available;
-					}
-				}
+				poll_update();
 
 				// remember most recent message id
 				if (json->child)
@@ -3293,6 +3295,10 @@ namespace DiscordBot
 
 	void poll()
 	{
+#if OFFLINE_DEV
+		poll_update();
+		state.last_poll_message_id[0] = '0';
+#else
 		CURL* curl = curl_easy_init();
 		char url[MAX_PATH_LENGTH + 1] = {};
 		if (state.last_poll_message_id[0])
@@ -3300,14 +3306,20 @@ namespace DiscordBot
 		else
 			snprintf(url, MAX_PATH_LENGTH, "https://discordapp.com/api/v6/channels/%s/messages", Settings::discord_channel_id);
 		Http::get_headers(url, &poll_callback, auth_headers(curl));
+#endif
 	}
 
 	void update()
 	{
-		if (Settings::discord_webhook[0] && Master::global_timestamp - state.last_poll > 5.0)
+		if (global_timestamp - state.last_poll > 5.0)
 		{
-			state.last_poll = Master::global_timestamp;
-			poll();
+#if !OFFLINE_DEV
+			if (Settings::discord_webhook[0])
+#endif
+			{
+				state.last_poll = global_timestamp;
+				poll();
+			}
 		}
 	}
 }

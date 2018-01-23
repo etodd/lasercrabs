@@ -114,6 +114,8 @@ struct Parkour : public ComponentType<Parkour>
 	~Parkour();
 
 	void footstep();
+	void claw_sound();
+	void wall_climb_claw_sound();
 	void climb_sound();
 
 	void killed(Entity*);

@@ -142,9 +142,11 @@ namespace AK
         static const AkUniqueID PLAY_OVERWORLD_MOVE = 3749213116U;
         static const AkUniqueID PLAY_OVERWORLD_SHOW = 3935148276U;
         static const AkUniqueID PLAY_PARKOUR_BREATHING = 2176843955U;
+        static const AkUniqueID PLAY_PARKOUR_CLAW = 3701108750U;
         static const AkUniqueID PLAY_PARKOUR_CLIMB = 1530104406U;
         static const AkUniqueID PLAY_PARKOUR_COLLECTIBLE_PICKUP = 1377678954U;
         static const AkUniqueID PLAY_PARKOUR_FOOTSTEP = 1407435961U;
+        static const AkUniqueID PLAY_PARKOUR_GRAPPLE = 2740569748U;
         static const AkUniqueID PLAY_PARKOUR_INTERACT = 3428809693U;
         static const AkUniqueID PLAY_PARKOUR_JUMP = 3928088679U;
         static const AkUniqueID PLAY_PARKOUR_LAND_HARD = 64743920U;
@@ -153,6 +155,7 @@ namespace AK
         static const AkUniqueID PLAY_PARKOUR_ROLL = 2795713858U;
         static const AkUniqueID PLAY_PARKOUR_SLIDE = 3397163066U;
         static const AkUniqueID PLAY_PARKOUR_TOPOUT = 1638007016U;
+        static const AkUniqueID PLAY_PARKOUR_WALL_CLIMB_CLAW = 2976917949U;
         static const AkUniqueID PLAY_PARKOUR_WIND = 2240612133U;
         static const AkUniqueID PLAY_RAIN_LOOP = 1012011693U;
         static const AkUniqueID PLAY_RECTIFIER_PING = 415448958U;

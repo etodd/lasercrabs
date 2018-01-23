@@ -947,6 +947,48 @@
 										</Action>
 									</ChildrenList>
 								</Event>
+								<Event Name="Play_Parkour_Claw" ID="{A6FF3442-B0E6-4A7B-B142-A047024AE0AC}">
+									<ChildrenList>
+										<Action Name="" ID="{1B75F1CF-4677-4A11-ABD6-B40D023F187C}" ShortID="788249278">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="claw" ID="{BCC04A53-FEC7-4A3A-A85A-437732A7F8F8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Parkour_Grapple" ID="{5A8498DC-64F3-4EE0-B606-D23A990E7372}">
+									<ChildrenList>
+										<Action Name="" ID="{AA73E5C9-2FF6-4C9C-BC5E-744C0DCA4313}" ShortID="698708055">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_grapple" ID="{D44903D9-5DD2-4658-8A74-AE2A6771EFB3}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Parkour_Wall_Climb_Claw" ID="{A7328913-23BD-42C8-A8A5-C1833D93E16E}">
+									<ChildrenList>
+										<Action Name="" ID="{401DAA48-8E5F-4C65-AEA1-9EB95CFCCDCB}" ShortID="145575672">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="wall_climb_claw" ID="{BE4476C0-55B1-4AF7-9FC2-37BFE59921C0}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
 							</ChildrenList>
 						</Folder>
 						<Event Name="Play_Explosion" ID="{6F0DBF32-EE0B-45FC-9DEF-71F7FD036F6A}">

@@ -107,6 +107,16 @@ void Parkour::awake()
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.0f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_land, 0.1f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_land_hard, 0.1f));
+	link<&Parkour::wall_climb_claw_sound>(animator->trigger(Asset::Animation::character_wall_run_straight, 0.5f));
+	link<&Parkour::wall_climb_claw_sound>(animator->trigger(Asset::Animation::character_wall_run_straight, 0.0f));
+	link<&Parkour::wall_climb_claw_sound>(animator->trigger(Asset::Animation::character_climb_up, 0.5f));
+	link<&Parkour::wall_climb_claw_sound>(animator->trigger(Asset::Animation::character_climb_up, 0.0f));
+	link<&Parkour::wall_climb_claw_sound>(animator->trigger(Asset::Animation::character_climb_down, 0.5f));
+	link<&Parkour::wall_climb_claw_sound>(animator->trigger(Asset::Animation::character_climb_down, 0.0f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_straight, 0.5f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_straight, 0.0f));
+	link<&Parkour::claw_sound>(animator->trigger(Asset::Animation::character_terminal_enter, 1.5f));
+	link<&Parkour::claw_sound>(animator->trigger(Asset::Animation::character_terminal_exit, 2.5f));
 	link<&Parkour::pickup_animation_complete>(animator->trigger(Asset::Animation::character_pickup, 2.5f));
 	link_arg<r32, &Parkour::land>(get<Walker>()->land);
 	link_arg<Entity*, &Parkour::killed>(get<Health>()->killed);
@@ -176,7 +186,7 @@ void Parkour::head_to_object_space(Vec3* pos, Quat* rot) const
 void Parkour::footstep()
 {
 	if ((fsm.current == State::Normal || fsm.current == State::WallRun)
-		&& Game::time.total - last_footstep_time > 0.2f)
+		&& Game::time.total - last_footstep_time > 0.15f)
 	{
 		Vec3 base_pos = get<Walker>()->base_pos();
 		if (fsm.current == State::WallRun)
@@ -211,6 +221,16 @@ void Parkour::footstep()
 
 		last_footstep_time = Game::time.total;
 	}
+}
+
+void Parkour::claw_sound()
+{
+	get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_CLAW);
+}
+
+void Parkour::wall_climb_claw_sound()
+{
+	get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_WALL_CLIMB_CLAW);
 }
 
 void Parkour::climb_sound()
@@ -1485,6 +1505,8 @@ b8 Parkour::grapple_try(const Vec3& start_pos, const Quat& start_rot)
 		{
 			if (fsm.current == State::Climb)
 				parkour_stop_climbing(this);
+
+			get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_GRAPPLE);
 
 			fsm.transition(State::Grapple);
 			grapple_start_pos = get<Transform>()->absolute_pos();

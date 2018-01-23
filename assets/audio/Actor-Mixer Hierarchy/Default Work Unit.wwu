@@ -7231,6 +7231,148 @@
 										<ActiveSource Name="DEC_Parkour_hard_landing" ID="{C083E0C0-45D1-4E7B-B1FA-F705CE6731F5}" Platform="Linked"/>
 									</ActiveSourceList>
 								</Sound>
+								<RandomSequenceContainer Name="claw" ID="{BCC04A53-FEC7-4A3A-A85A-437732A7F8F8}" ShortID="438944579">
+									<PropertyList>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-1</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="claw0" ID="{D6DC011E-CB2C-41AF-B514-671045DDB92D}" ShortID="274066283">
+											<PropertyList>
+												<Property Name="PositioningType" Type="int16" Value="1"/>
+												<Property Name="Spatialization" Type="bool" Value="False"/>
+												<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Diegetic" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Parkour_mantle" ID="{C5ED2991-8424-4C59-BF05-529CF5433F39}" ShortID="1065087463">
+													<PropertyList>
+														<Property Name="TrimBegin" Type="Real64" Value="9.74877004373177E-02"/>
+														<Property Name="TrimEnd" Type="Real64" Value="0.47562181122449"/>
+													</PropertyList>
+													<Language>SFX</Language>
+													<AudioFile>DEC_Parkour_mantle.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Parkour_mantle" ID="{C5ED2991-8424-4C59-BF05-529CF5433F39}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</RandomSequenceContainer>
+								<RandomSequenceContainer Name="wall_climb_claw" ID="{BE4476C0-55B1-4AF7-9FC2-37BFE59921C0}" ShortID="1034671472">
+									<PropertyList>
+										<Property Name="Volume" Type="Real64">
+											<ValueList>
+												<Value>-4</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="DEC_Parkour_climb1" ID="{A6B0D8A3-C49B-4A64-9290-E4F868F210A8}" ShortID="857796618">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Parkour_climb1" ID="{81A3F59D-1A98-4E62-AE6B-A94C52A02C42}" ShortID="1037071919">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Parkour_climb1.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Parkour_climb1" ID="{81A3F59D-1A98-4E62-AE6B-A94C52A02C42}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_Parkour_climb2" ID="{7379FF72-A63C-4667-ACED-8031472EC341}" ShortID="866106800">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Parkour_climb2" ID="{CEDB17C4-9E43-4F58-A176-F12C763AADE4}" ShortID="512261334">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Parkour_climb2.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Parkour_climb2" ID="{CEDB17C4-9E43-4F58-A176-F12C763AADE4}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_Parkour_climb3" ID="{49486B6F-5C3F-4227-9CBA-7D7C907FC057}" ShortID="128255782">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Parkour_climb3" ID="{93C712CC-99EC-4541-A8B9-861E6FEEAE74}" ShortID="911972010">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Parkour_climb3.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Parkour_climb3" ID="{93C712CC-99EC-4541-A8B9-861E6FEEAE74}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+										<Sound Name="DEC_Parkour_climb4" ID="{74FF42BD-AE5C-4AFD-A881-8CB8C91DE043}" ShortID="259258192">
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="DEC_Parkour_climb4" ID="{DFC6879A-FDE6-4DB8-A9FB-048444C5A22E}" ShortID="1012508666">
+													<Language>SFX</Language>
+													<AudioFile>DEC_Parkour_climb4.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="DEC_Parkour_climb4" ID="{DFC6879A-FDE6-4DB8-A9FB-048444C5A22E}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</RandomSequenceContainer>
 							</ChildrenList>
 						</ActorMixer>
 						<RandomSequenceContainer Name="Collectible" ID="{214C2598-7B90-41AA-AC8D-FF2A4801B2A2}" ShortID="232746315">
@@ -7323,6 +7465,49 @@
 							</ChildrenList>
 							<ActiveSourceList>
 								<ActiveSource Name="DEC_Parkour_interact" ID="{160E4655-6C22-4AF2-A79C-763072875EE9}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="DEC_Parkour_grapple" ID="{D44903D9-5DD2-4658-8A74-AE2A6771EFB3}" ShortID="941679158">
+							<PropertyList>
+								<Property Name="Pitch" Type="int32">
+									<ModifierList>
+										<ModifierInfo>
+											<Modifier Name="" ID="{6A84532F-3AFE-4D35-8456-4B48D6F8A7BB}">
+												<PropertyList>
+													<Property Name="Enabled" Type="bool" Value="True"/>
+													<Property Name="Max" Type="Real64" Value="200"/>
+													<Property Name="Min" Type="Real64" Value="-200"/>
+												</PropertyList>
+											</Modifier>
+										</ModifierInfo>
+									</ModifierList>
+								</Property>
+								<Property Name="Volume" Type="Real64">
+									<ValueList>
+										<Value>-5</Value>
+									</ValueList>
+								</Property>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="SFX" ID="{6985FA3D-2022-427D-AD3B-F4D679129AC1}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="DEC_Parkour_grapple" ID="{9EF5A73D-0E79-4809-8679-E3B2002AC547}" ShortID="641978412">
+									<PropertyList>
+										<Property Name="TrimBegin" Type="Real64" Value="0.245861323696145"/>
+										<Property Name="TrimEnd" Type="Real64" Value="2.50264810090703"/>
+									</PropertyList>
+									<Language>SFX</Language>
+									<AudioFile>DEC_Parkour_grapple.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="DEC_Parkour_grapple" ID="{9EF5A73D-0E79-4809-8679-E3B2002AC547}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>

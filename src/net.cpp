@@ -347,7 +347,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| TramRunner::component_mask
 		| Collectible::component_mask
 		| Water::component_mask
-		| Flag::component_mask;
+		| Flag::component_mask
+		| Glass::component_mask;
 
 	if (Stream::IsWriting)
 	{

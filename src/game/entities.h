@@ -259,6 +259,38 @@ struct FlagEntity : public Entity
 	FlagEntity(AI::Team);
 };
 
+struct Glass : public ComponentType<Glass>
+{
+	void awake() {}
+
+	void shatter(const Vec3&);
+};
+
+struct GlassEntity : public Entity
+{
+	GlassEntity(const Vec2&);
+};
+
+struct GlassShard
+{
+	static Array<GlassShard> list;
+	static AssetID index_buffer;
+	static AssetID index_buffer_edges;
+
+	static void add(const Vec2&, const Vec2&, const Vec2&, const Vec3&, const Quat&);
+	static void clear();
+	static void update_all(const Update&);
+	static void draw_all(const RenderParams&);
+
+	Quat rot;
+	Vec3 pos;
+	r32 timestamp;
+	r32 radius;
+	AssetID mesh_id;
+
+	void cleanup();
+};
+
 struct CoreModuleEntity : public Entity
 {
 	CoreModuleEntity(AI::Team, Transform*, const Vec3&, const Quat&);

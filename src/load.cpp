@@ -643,7 +643,7 @@ s32 Loader::dynamic_mesh_permanent(s32 attribs, b8 dynamic)
 
 void Loader::dynamic_mesh_free(s32 id)
 {
-	if (id != AssetNull && dynamic_meshes[id].type != AssetNone)
+	if (id != AssetNull && dynamic_meshes[id - static_mesh_count].type != AssetNone)
 	{
 #if !SERVER
 		RenderSync* sync = swapper->get();

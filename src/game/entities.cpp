@@ -1808,6 +1808,180 @@ FlagEntity::FlagEntity(AI::Team team)
 	flag_build_force_field(Team::list[team].flag_base.ref(), team);
 }
 
+void Glass::shatter(const Vec3& shatter_point)
+{
+	Vec3 pos;
+	Quat rot;
+	get<Transform>()->absolute(&pos, &rot);
+	Vec2 center;
+	{
+		Vec3 normal = rot * Vec3(0, 0, 1);
+		Vec3 center3 = shatter_point - normal * (shatter_point - pos).dot(normal);
+		center3 = rot.inverse() * (center3 - pos); // to local space
+		center = Vec2(center3.x, center3.y);
+	}
+	const Vec3& size = get<RigidBody>()->size;
+	Vec2 corner1(-size.x, -size.y);
+	Vec2 corner2(-size.x, size.y);
+	Vec2 corner3(size.x, -size.y);
+	Vec2 corner4(size.x, size.y);
+	GlassShard::add(center, corner1, corner2, pos, rot);
+	GlassShard::add(center, corner2, corner4, pos, rot);
+	GlassShard::add(center, corner4, corner3, pos, rot);
+	GlassShard::add(center, corner3, corner1, pos, rot);
+	World::remove(entity());
+}
+
+Array<GlassShard> GlassShard::list;
+AssetID GlassShard::index_buffer = AssetNull;
+AssetID GlassShard::index_buffer_edges = AssetNull;
+
+void GlassShard::add(const Vec2& a, const Vec2& b, const Vec2& c, const Vec3& pos, const Quat& rot)
+{
+	GlassShard* shard = list.add();
+	new (shard) GlassShard();
+	shard->timestamp = Game::time.total;
+	shard->mesh_id = Loader::dynamic_mesh(1);
+	shard->rot = rot;
+	Vec2 center = (a + b + c) * 0.33333333f;
+	shard->pos = pos + rot * Vec3(center.x, center.y, 0);
+	Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
+
+	RenderSync* sync = Loader::swapper->get();
+	sync->write(RenderOp::UpdateAttribBuffers);
+	sync->write(shard->mesh_id);
+
+	{
+		sync->write<s32>(3);
+		Vec2 a_recentered = a - center;
+		Vec2 b_recentered = b - center;
+		Vec2 c_recentered = c - center;
+		Vec3 vertices[] =
+		{
+			Vec3(a_recentered.x, a_recentered.y, 0.0f),
+			Vec3(b_recentered.x, b_recentered.y, 0.0f),
+			Vec3(c_recentered.x, c_recentered.y, 0.0f),
+		};
+		sync->write<Vec3>(vertices, 3);
+
+		shard->radius = sqrtf(vi_max(a_recentered.length_squared(), vi_max(b_recentered.length_squared(), c_recentered.length_squared())));
+	}
+
+	{
+		sync->write(RenderOp::UpdateIndexBuffer);
+		sync->write(shard->mesh_id);
+
+		sync->write<s32>(3);
+		s32 indices[3] = { 0, 1, 2 };
+		sync->write<s32>(indices, 3);
+	}
+
+	{
+		sync->write(RenderOp::UpdateEdgesIndexBuffer);
+		sync->write(shard->mesh_id);
+
+		sync->write<s32>(6);
+		s32 indices[6] =
+		{
+			0, 1,
+			1, 2, 
+			2, 1,
+		};
+		sync->write<s32>(indices, 6);
+	}
+}
+
+void GlassShard::clear()
+{
+	// dynamic meshes are temporary; they'll automatically be freed
+	list.length = 0;
+}
+
+void GlassShard::cleanup()
+{
+	Loader::dynamic_mesh_free(mesh_id);
+}
+
+void GlassShard::update_all(const Update& u)
+{
+	for (s32 i = 0; i < list.length; i++)
+	{
+		GlassShard* shard = &list[i];
+		if (u.time.total - shard->timestamp > 5.0f)
+		{
+			list.remove(i);
+			i--;
+		}
+	}
+}
+
+void GlassShard::draw_all(const RenderParams& params)
+{
+	Loader::shader(Asset::Shader::flat);
+
+	RenderSync* sync = params.sync;
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::flat);
+	sync->write(params.technique);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(Vec4(1, 1, 1, 0.5f));
+
+	Mat4 m;
+	for (s32 i = 0; i < list.length; i++)
+	{
+		const GlassShard& shard = list[i];
+		m.make_transform(shard.pos, Vec3(1), shard.rot);
+
+		if (!params.camera->visible_sphere(shard.pos, shard.radius))
+			return;
+
+		Mat4 mvp = m * params.view_projection;
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::mvp);
+		sync->write(RenderDataType::Mat4);
+		sync->write<s32>(1);
+		sync->write<Mat4>(mvp);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::mv);
+		sync->write(RenderDataType::Mat4);
+		sync->write<s32>(1);
+		sync->write<Mat4>(m * params.view);
+
+		if (params.flags & RenderFlagEdges)
+		{
+			sync->write(RenderOp::MeshEdges);
+			sync->write(shard.mesh_id);
+		}
+		else
+		{
+			sync->write(RenderOp::Mesh);
+			sync->write(RenderPrimitiveMode::Triangles);
+			sync->write(shard.mesh_id);
+		}
+	}
+}
+
+GlassEntity::GlassEntity(const Vec2& size)
+{
+	create<Transform>();
+
+	create<RigidBody>(RigidBody::Type::Box, Vec3(size.x, size.y, 0.1f), 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+
+	View* view = create<View>();
+	view->mesh = Asset::Mesh::glass_pane;
+	view->shader = Asset::Shader::flat;
+	view->alpha();
+	view->offset = Mat4::make_scale(Vec3(size.x, size.y, 1.0f));
+
+	create<Glass>();
+}
+
 CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3& pos, const Quat& rot)
 {
 	Transform* transform = create<Transform>();
@@ -2905,6 +3079,12 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 	}
 	else
 		basis = hit.normal;
+
+	if (hit_object->has<Glass>())
+	{
+		hit_object->get<Glass>()->shatter(hit.point);
+		destroy = false;
+	}
 
 	{
 		ParticleEffect::Type particle_type;

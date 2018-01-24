@@ -758,6 +758,7 @@ void Game::update(InputState* input, const InputState* last_input)
 			(*updates[i])(u);
 
 #if !SERVER
+		GlassShard::update_all(u);
 		if (level.rain > 0.0f)
 			Rain::spawn(u, level.rain);
 #endif
@@ -948,6 +949,8 @@ void Game::draw_opaque(const RenderParams& render_params)
 
 void Game::draw_alpha(const RenderParams& render_params)
 {
+	GlassShard::draw_all(render_params);
+
 	if (render_params.camera->flag(CameraFlagFog))
 	{
 		Skybox::draw_alpha(render_params);
@@ -1178,6 +1181,8 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 void Game::draw_hollow(const RenderParams& render_params)
 {
+	GlassShard::draw_all(render_params);
+
 	Overworld::draw_hollow(render_params);
 
 	SkyPattern::draw_hollow(render_params);
@@ -1466,6 +1471,7 @@ void Game::unload_level()
 
 	level.local = true;
 
+	GlassShard::clear();
 	Overworld::clear();
 	Ascensions::clear();
 	Asteroids::clear();
@@ -2379,6 +2385,11 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				level.finder.add("locke", locke);
 				level.scripts.add(Script::find("locke"));
 			}
+		}
+		else if (cJSON_HasObjectItem(element, "Glass"))
+		{
+			Vec3 scale = Json::get_vec3(element, "scale");
+			entity = World::alloc<GlassEntity>(Vec2(scale.x, scale.y));
 		}
 		else if (cJSON_HasObjectItem(element, "Empty") || cJSON_HasObjectItem(element, "Camera"))
 			entity = World::alloc<Empty>();

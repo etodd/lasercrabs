@@ -61,8 +61,9 @@ COMPONENT_TYPE(38, Collectible) \
 COMPONENT_TYPE(39, Water) \
 COMPONENT_TYPE(40, MinionTarget) \
 COMPONENT_TYPE(41, Flag) \
+COMPONENT_TYPE(42, Glass) \
 
-Family World::families = 42;
+Family World::families = 43;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

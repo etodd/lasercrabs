@@ -10,7 +10,7 @@
 namespace VI
 {
 
-enum CollisionGroup
+enum CollisionGroup : s16
 {
 	CollisionDefault = btBroadphaseProxy::DefaultFilter, // 1 << 0
 	CollisionStatic = btBroadphaseProxy::StaticFilter, // 1 << 1
@@ -33,7 +33,7 @@ enum CollisionGroup
 	CollisionParkour = 1 << 12,
 	CollisionElectric = 1 << 13,
 	CollisionAudio = 1 << 14,
-	CollisionGlass = 1 << 15,
+	CollisionGlass = s16(1 << 15),
 };
 
 #define DRONE_PERMEABLE_MASK (CollisionTarget | CollisionDroneIgnore | CollisionDefault | CollisionWalker | CollisionMinionMoving)

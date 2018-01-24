@@ -1626,7 +1626,6 @@ b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			{
 				flag->at_base = false;
 				flag->get<View>()->mask = RENDER_MASK_DEFAULT;
-				vi_debug("Flag dropped. Current timer: %f New timer: %f", flag->timer, timer);
 				flag->timer = timer;
 
 				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_UNDER_ATTACK);
@@ -1905,10 +1904,7 @@ b8 Glass::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	if (!Net::serialize_position(p, &dir, Net::Resolution::Medium))
 		net_error();
 	if (Game::level.local == (src == Net::MessageSource::Loopback))
-	{
-		vi_debug("Shatter message received");
 		glass_shatter_apply(ref.ref(), shatter_point, dir);
-	}
 	return true;
 }
 

@@ -238,6 +238,7 @@ namespace VI
 
 #if defined(__APPLE__)
 		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
+		SDL_SetHint(SDL_HINT_VIDEO_HIGHDPI_DISABLED, "1");
 #endif
 
 		// initialize SDL
@@ -336,12 +337,31 @@ namespace VI
 
 			Loader::settings_load(modes, { current_mode.w, current_mode.h });
 		}
-
+		
+		u32 window_mode;
+		switch (Settings::window_mode)
+		{
+			case WindowMode::Windowed:
+				window_mode = 0;
+				break;
+			case WindowMode::Fullscreen:
+				window_mode = SDL_WINDOW_FULLSCREEN;
+				break;
+			case WindowMode::Borderless:
+				window_mode = SDL_WINDOW_BORDERLESS;
+				break;
+			default:
+			{
+				window_mode = 0;
+				vi_assert(false);
+				break;
+			}
+		}
 		window = SDL_CreateWindow
 		(
-			"Deceiver",
-			0,
-			0,
+			"DECEIVER",
+			SDL_WINDOWPOS_CENTERED,
+			SDL_WINDOWPOS_CENTERED,
 			Settings::display().width, Settings::display().height,
 			SDL_WINDOW_OPENGL
 			| SDL_WINDOW_SHOWN
@@ -349,8 +369,10 @@ namespace VI
 			| SDL_WINDOW_INPUT_FOCUS
 			| SDL_WINDOW_MOUSE_FOCUS
 			| SDL_WINDOW_MOUSE_CAPTURE
+#if !defined(__APPLE__)
 			| SDL_WINDOW_ALLOW_HIGHDPI
-			| (Settings::fullscreen ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_BORDERLESS)
+#endif
+			| window_mode
 		);
 
 		// open a window and create its OpenGL context
@@ -447,7 +469,7 @@ namespace VI
 		}
 
 		DisplayMode resolution_current = Settings::display();
-		b8 resolution_current_fullscreen = Settings::fullscreen;
+		WindowMode resolution_current_window_mode = Settings::window_mode;
 		b8 resolution_current_vsync = Settings::vsync;
 
 		glGetError(); // clear initial error caused by GLEW
@@ -747,7 +769,7 @@ namespace VI
 						resolution_current_vsync = sync->vsync;
 					}
 
-					if (desired.width != resolution_current.width || desired.height != resolution_current.height)
+					if (desired.width != resolution_current.width || desired.height != resolution_current.height || sync->window_mode != resolution_current_window_mode)
 					{
 						SDL_DisplayMode new_mode = {};
 						for (s32 i = 0; i < SDL_GetNumDisplayModes(0); i++)
@@ -759,25 +781,38 @@ namespace VI
 						}
 
 						vi_assert(new_mode.w == desired.width && new_mode.h == desired.height);
-						if (sync->fullscreen)
-							SDL_SetWindowDisplayMode(window, &new_mode);
-						else
+						switch (sync->window_mode)
 						{
-							SDL_SetWindowSize(window, new_mode.w, new_mode.h);
-							SDL_SetWindowPosition(window, 0, 0);
+							case WindowMode::Windowed:
+							{
+								SDL_SetWindowFullscreen(window, 0);
+								SDL_SetWindowBordered(window, SDL_TRUE);
+								SDL_SetWindowSize(window, new_mode.w, new_mode.h);
+								SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+								break;
+							}
+							case WindowMode::Fullscreen:
+							{
+								SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+								SDL_SetWindowDisplayMode(window, &new_mode);
+								SDL_SetWindowPosition(window, 0, 0);
+								break;
+							}
+							case WindowMode::Borderless:
+							{
+								SDL_SetWindowFullscreen(window, 0);
+								SDL_SetWindowBordered(window, SDL_FALSE);
+								SDL_SetWindowSize(window, new_mode.w, new_mode.h);
+								SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+								break;
+							}
+							default:
+								vi_assert(false);
+								break;
 						}
 
 						resolution_current = desired;
-					}
-
-					if (sync->fullscreen != resolution_current_fullscreen)
-					{
-						if (SDL_SetWindowFullscreen(window, sync->fullscreen ? SDL_WINDOW_FULLSCREEN : 0))
-						{
-							fprintf(stderr, "Failed to set fullscreen mode: %s\n", SDL_GetError());
-							return -1;
-						}
-						resolution_current_fullscreen = sync->fullscreen;
+						resolution_current_window_mode = sync->window_mode;
 					}
 				}
 			}

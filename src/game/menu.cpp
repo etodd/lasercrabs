@@ -55,10 +55,10 @@ Ref<Camera> camera_connecting;
 Controls currently_editing_control = Controls::count;
 b8 currently_editing_control_enable_input; // should we be listening for any and all button presses to apply to the control binding we're currently editing?
 s32 display_mode_index;
-b8 display_mode_fullscreen;
+WindowMode display_mode_window_mode;
 b8 display_mode_vsync;
 s32 display_mode_index_last;
-b8 display_mode_fullscreen_last;
+WindowMode display_mode_window_mode_last;
 b8 display_mode_vsync_last;
 Ref<PlayerManager> teams_selected_player[MAX_GAMEPADS] = {};
 FriendshipState teams_selected_player_friendship[MAX_GAMEPADS] = {};
@@ -735,7 +735,7 @@ void open_url(const char* url)
 	snprintf(buffer, MAX_PATH_LENGTH, "xdg-open \"%s\"", url);
 	system(buffer);
 #endif
-	if (Settings::fullscreen)
+	if (Settings::window_mode == WindowMode::Fullscreen)
 		Game::minimize = true;
 }
 
@@ -1479,21 +1479,21 @@ b8 settings_controls(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 void settings_graphics_cancel(s8)
 {
 	Settings::display_mode_index = display_mode_index = display_mode_index_last;
-	Settings::fullscreen = display_mode_fullscreen = display_mode_fullscreen_last;
+	Settings::window_mode = display_mode_window_mode = display_mode_window_mode_last;
 	Settings::vsync = display_mode_vsync = display_mode_vsync_last;
 }
 
 void settings_graphics_init()
 {
 	display_mode_index = display_mode_index_last = Settings::display_mode_index;
-	display_mode_fullscreen = display_mode_fullscreen_last = Settings::fullscreen;
+	display_mode_window_mode = display_mode_window_mode_last = Settings::window_mode;
 	display_mode_vsync = display_mode_vsync_last = Settings::vsync;
 }
 
 void settings_graphics_apply(s8)
 {
 	display_mode_index_last = display_mode_index;
-	display_mode_fullscreen_last = display_mode_fullscreen;
+	display_mode_window_mode_last = display_mode_window_mode;
 	display_mode_vsync_last = display_mode_vsync;
 }
 
@@ -1521,9 +1521,26 @@ b8 settings_graphics(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 	}
 
 	{
-		delta = menu->slider_item(u, _(strings::fullscreen), _(display_mode_fullscreen ? strings::on : strings::off));
-		if (delta != 0)
-			display_mode_fullscreen = !display_mode_fullscreen;
+		AssetID value;
+		switch (display_mode_window_mode)
+		{
+			case WindowMode::Windowed:
+				value = strings::windowed;
+				break;
+			case WindowMode::Fullscreen:
+				value = strings::fullscreen;
+				break;
+			case WindowMode::Borderless:
+				value = strings::borderless;
+				break;
+			default:
+			{
+				value = AssetNull;
+				vi_assert(false);
+				break;
+			}
+		}
+		UIMenu::enum_option(&display_mode_window_mode, menu->slider_item(u, _(strings::window_mode), _(value)));
 	}
 
 	{
@@ -1635,11 +1652,11 @@ b8 settings_graphics(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 	{
 		Game::cancel_event_eaten[gamepad] = true;
 		if (display_mode_index != Settings::display_mode_index
-			|| display_mode_fullscreen != Settings::fullscreen
+			|| display_mode_window_mode != Settings::window_mode
 			|| display_mode_vsync != Settings::vsync)
 		{
 			Settings::display_mode_index = display_mode_index;
-			Settings::fullscreen = display_mode_fullscreen;
+			Settings::window_mode = display_mode_window_mode;
 			Settings::vsync = display_mode_vsync;
 			dialog_with_time_limit(gamepad, settings_graphics_apply, settings_graphics_cancel, 10.0f, _(strings::prompt_resolution_apply));
 		}
@@ -2128,7 +2145,7 @@ b8 UIMenu::add_item(Item::Type type, const char* string, const char* value, b8 d
 	else
 		item->label.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING - MENU_ITEM_PADDING_LEFT;
 	item->label.anchor_x = UIText::Anchor::Min;
-	item->label.anchor_y = item->value.anchor_y = UIText::Anchor::Min;
+	item->label.anchor_y = item->value.anchor_y = UIText::Anchor::Center;
 
 	b8 is_selected = active[gamepad] == this && selected == items.length - 1;
 	item->label.color = item->value.color = (disabled || active[gamepad] != this) ? UI::color_disabled() : (is_selected ? UI::color_accent() : UI::color_default);
@@ -2215,6 +2232,10 @@ s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b
 	if (!add_item(Item::Type::Slider, label, value, disabled, icon))
 		return 0;
 
+	Item* item = &items[items.length - 1];
+	if (item->value.bounds().x > MENU_ITEM_PADDING * 9.0f)
+		item->value.size = MENU_ITEM_FONT_SIZE * 0.7f;
+
 	if (Console::visible || active[gamepad] != this)
 		return 0;
 
@@ -2234,21 +2255,21 @@ s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b
 			if (item_slider_down_rect(*this, items.length - 1).contains(u.input->cursor))
 			{
 				if (u.input->keys.get(s32(KeyCode::MouseLeft))) // show that the user is getting ready to alter this slider
-					items[items.length - 1].value.color = UI::color_alert();
+					item->value.color = UI::color_alert();
 				else if (u.last_input->keys.get(s32(KeyCode::MouseLeft)))
 					delta = -1;
 			}
 			else if (item_slider_up_rect(*this, items.length - 1).contains(u.input->cursor))
 			{
 				if (u.input->keys.get(s32(KeyCode::MouseLeft))) // show that the user is getting ready to alter this slider
-					items[items.length - 1].value.color = UI::color_alert();
+					item->value.color = UI::color_alert();
 				else if (u.last_input->keys.get(s32(KeyCode::MouseLeft)))
 					delta = 1;
 			}
 			else if (allow_select == SliderItemAllowSelect::Yes)
 			{
 				if (u.input->keys.get(s32(KeyCode::MouseLeft))) // show that the user is getting ready to select this slider
-					items[items.length - 1].label.color = UI::color_alert();
+					item->label.color = UI::color_alert();
 				else if (u.last_input->keys.get(s32(KeyCode::MouseLeft)))
 					delta = INT_MIN;
 			}
@@ -2370,15 +2391,15 @@ void UIMenu::draw_ui(const RenderParams& params) const
 			UI::box(params, { rect.pos + Vec2(0, MENU_ITEM_PADDING), Vec2(4 * UI::scale, item.label.size * UI::scale) }, item.label.color);
 
 		if (item.icon != AssetNull)
-			UI::mesh(params, item.icon, rect.pos + Vec2(MENU_ITEM_PADDING_LEFT * 0.5f, MENU_ITEM_PADDING + MENU_ITEM_FONT_SIZE * 0.5f), Vec2(UI::scale * MENU_ITEM_FONT_SIZE), item.label.color);
+			UI::mesh(params, item.icon, rect.pos + Vec2(MENU_ITEM_PADDING_LEFT * 0.5f, MENU_ITEM_PADDING + MENU_ITEM_FONT_SIZE * UI::scale * 0.5f), Vec2(UI::scale * MENU_ITEM_FONT_SIZE), item.label.color);
 
-		item.label.draw(params, rect.pos + Vec2(MENU_ITEM_PADDING_LEFT, MENU_ITEM_PADDING));
+		item.label.draw(params, rect.pos + Vec2(MENU_ITEM_PADDING_LEFT, MENU_ITEM_PADDING + MENU_ITEM_FONT_SIZE * UI::scale * 0.5f));
 
 		r32 value_offset_time = (2 + vi_min(i, 6)) * 0.06f;
 		if (Game::real_time.total - animation_time > value_offset_time)
 		{
 			if (item.value.has_text())
-				item.value.draw(params, rect.pos + Vec2(MENU_ITEM_PADDING_LEFT + MENU_ITEM_VALUE_OFFSET, MENU_ITEM_PADDING));
+				item.value.draw(params, rect.pos + Vec2(MENU_ITEM_PADDING_LEFT + MENU_ITEM_VALUE_OFFSET, MENU_ITEM_PADDING + MENU_ITEM_FONT_SIZE * UI::scale * 0.5f));
 			if (item.type == Item::Type::Slider)
 			{
 				{

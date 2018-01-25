@@ -1765,7 +1765,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 			Game::minimize = false;
 		}
 		sync_render->display_mode = Settings::display();
-		sync_render->fullscreen = Settings::fullscreen;
+		sync_render->window_mode = Settings::window_mode;
 		sync_render->vsync = Settings::vsync;
 
 		memcpy(&last_input, &sync_render->input, sizeof(last_input));

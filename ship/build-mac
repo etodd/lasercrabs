@@ -1,14 +1,17 @@
 #!/bin/bash
+cd "`dirname "$0"`"
+cd ..
 rm -rf final
 mkdir -p final/DECEIVER.app/Contents/MacOS
 mkdir final/DECEIVER.app/Contents/Resources
 cp build/deceiver final/DECEIVER.app/Contents/MacOS
 cp -R build/assets/ final/DECEIVER.app/Contents/MacOS/assets
 cp build/gamecontrollerdb.txt final/DECEIVER.app/Contents/MacOS
-cp build.txt final/DECEIVER.app/Contents/MacOS
 cp build/libsteam_api.dylib final/DECEIVER.app/Contents/MacOS
-cp Info.plist final/DECEIVER.app/Contents
-cp icon.icns final/DECEIVER.app/Contents/Resources/icon.icns
-cp .itch-mac.toml final/.itch.toml
-cp shipme.txt final/readme.txt
-cp run-mac-linux final/DECEIVER.app/Contents/MacOS/deceiver-launcher
+cp ship/build.txt final/DECEIVER.app/Contents/MacOS
+cp ship/Info.plist final/DECEIVER.app/Contents
+cp ship/icon.icns final/DECEIVER.app/Contents/Resources/icon.icns
+cp ship/.itch-mac.toml final/.itch.toml
+cp ship/shipme.txt final/readme.txt
+cp ship/run-mac-linux final/DECEIVER.app/Contents/MacOS/deceiver-launcher
+cd ship

@@ -9,6 +9,14 @@
 namespace VI
 {
 
+enum class WindowMode : s8
+{
+	Windowed,
+	Fullscreen,
+	Borderless,
+	count,
+};
+
 
 struct DisplayMode
 {
@@ -126,8 +134,8 @@ struct LoopSync : RenderSync
 {
 	DisplayMode display_mode;
 	InputState input;
+	WindowMode window_mode;
 	b8 vsync;
-	b8 fullscreen;
 	b8 quit;
 	b8 minimize;
 };

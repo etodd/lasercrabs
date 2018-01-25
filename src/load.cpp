@@ -42,7 +42,7 @@ namespace Settings
 	u8 sfx;
 	u8 music;
 	u8 fov;
-	b8 fullscreen;
+	WindowMode window_mode;
 	b8 vsync;
 	b8 volumetric_lighting;
 	b8 antialiasing;
@@ -259,13 +259,7 @@ void Loader::settings_load(const Array<DisplayMode>& modes, const DisplayMode& c
 		}
 	}
 
-	s32 default_fullscreen;
-#if _WIN32
-	default_fullscreen = 0;
-#else
-	default_fullscreen = 1;
-#endif
-	Settings::fullscreen = b8(Json::get_s32(json, "fullscreen", default_fullscreen));
+	Settings::window_mode = WindowMode(vi_max(0, vi_min(s32(WindowMode::count) - 1, Json::get_s32(json, "fullscreen", s32(WindowMode::Borderless)))));
 	Settings::vsync = b8(Json::get_s32(json, "vsync", 0));
 	Settings::sfx = u8(Json::get_s32(json, "sfx", 100));
 	Settings::music = u8(Json::get_s32(json, "music", 100));
@@ -371,7 +365,7 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "net_client_interpolation_mode", s32(Settings::net_client_interpolation_mode));
 	cJSON_AddNumberToObject(json, "width", Settings::display().width);
 	cJSON_AddNumberToObject(json, "height", Settings::display().height);
-	cJSON_AddNumberToObject(json, "fullscreen", Settings::fullscreen);
+	cJSON_AddNumberToObject(json, "fullscreen", s32(Settings::window_mode));
 	cJSON_AddNumberToObject(json, "vsync", Settings::vsync);
 	cJSON_AddNumberToObject(json, "sfx", Settings::sfx);
 	cJSON_AddNumberToObject(json, "music", Settings::music);

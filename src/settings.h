@@ -68,7 +68,7 @@ namespace Settings
 
 	extern ShadowQuality shadow_quality;
 	extern Region region;
-	extern b8 fullscreen;
+	extern WindowMode window_mode;
 	extern b8 vsync;
 	extern b8 volumetric_lighting;
 	extern b8 antialiasing;

@@ -12,10 +12,10 @@
 	<string>deceiver</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en-US</string>
-	<key>NSHumanReadableCopyright</key>
-	<string>© 2018 Helvetica Scenario</string>
 	<key>CFBundleIconFile</key>
 	<string>icon.icns</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2018 Helvetica Scenario</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>

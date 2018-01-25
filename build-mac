@@ -1,13 +1,14 @@
 #!/bin/bash
 rm -rf final
-mkdir final
-cd final
-cd ..
-cp build/deceiver final
-cp -R build/assets/ final/assets
-cp build/gamecontrollerdb.txt final
-cp build/libsteam_api.dylib final
+mkdir -p final/DECEIVER.app/Contents/MacOS
+mkdir final/DECEIVER.app/Contents/Resources
+cp build/deceiver final/DECEIVER.app/Contents/MacOS
+cp -R build/assets/ final/DECEIVER.app/Contents/MacOS/assets
+cp build/gamecontrollerdb.txt final/DECEIVER.app/Contents/MacOS
+cp build.txt final/DECEIVER.app/Contents/MacOS
+cp build/libsteam_api.dylib final/DECEIVER.app/Contents/MacOS
+cp Info.plist final/DECEIVER.app/Contents
+cp icon.icns final/DECEIVER.app/Contents/Resources/icon.icns
 cp .itch-mac.toml final/.itch.toml
-cp build.txt final
 cp shipme.txt final/readme.txt
-cp run-mac-linux final/deceiver-launcher
+cp run-mac-linux final/DECEIVER.app/Contents/MacOS/deceiver-launcher

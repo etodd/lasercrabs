@@ -735,7 +735,7 @@ void open_url(const char* url)
 	snprintf(buffer, MAX_PATH_LENGTH, "xdg-open \"%s\"", url);
 	system(buffer);
 #endif
-	if (Settings::window_mode == WindowMode::Fullscreen)
+	if (Settings::window_mode != WindowMode::Windowed)
 		Game::minimize = true;
 }
 

@@ -1497,6 +1497,19 @@ void settings_graphics_apply(s8)
 	display_mode_vsync_last = display_mode_vsync;
 }
 
+void settings_graphics_try(s8 gamepad)
+{
+	if (display_mode_index != Settings::display_mode_index
+		|| display_mode_window_mode != Settings::window_mode
+		|| display_mode_vsync != Settings::vsync)
+	{
+		Settings::display_mode_index = display_mode_index;
+		Settings::window_mode = display_mode_window_mode;
+		Settings::vsync = display_mode_vsync;
+		dialog_with_time_limit(gamepad, settings_graphics_apply, settings_graphics_cancel, 10.0f, _(strings::prompt_resolution_apply));
+	}
+}
+
 // returns true if this menu should remain open
 b8 settings_graphics(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu)
 {
@@ -1512,12 +1525,17 @@ b8 settings_graphics(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 	{
 		const DisplayMode& mode = Loader::display_modes[display_mode_index];
 		snprintf(str, MAX_ITEM, "%dx%d", mode.width, mode.height);
-		delta = menu->slider_item(u, _(strings::resolution), str);
-		display_mode_index += delta;
-		if (display_mode_index < 0)
-			display_mode_index = Loader::display_modes.length - 1;
-		else if (display_mode_index >= Loader::display_modes.length)
-			display_mode_index = 0;
+		delta = menu->slider_item(u, _(strings::resolution), str, false, AssetNull, UIMenu::SliderItemAllowSelect::Yes);
+		if (delta == INT_MIN) // slider item was clicked
+			settings_graphics_try(gamepad);
+		else
+		{
+			display_mode_index += delta;
+			if (display_mode_index < 0)
+				display_mode_index = Loader::display_modes.length - 1;
+			else if (display_mode_index >= Loader::display_modes.length)
+				display_mode_index = 0;
+		}
 	}
 
 	{
@@ -1540,12 +1558,18 @@ b8 settings_graphics(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 				break;
 			}
 		}
-		UIMenu::enum_option(&display_mode_window_mode, menu->slider_item(u, _(strings::window_mode), _(value)));
+		delta = menu->slider_item(u, _(strings::window_mode), _(value), false, AssetNull, UIMenu::SliderItemAllowSelect::Yes);
+		if (delta == INT_MIN) // slider item was clicked
+			settings_graphics_try(gamepad);
+		else
+			UIMenu::enum_option(&display_mode_window_mode, delta);
 	}
 
 	{
-		delta = menu->slider_item(u, _(strings::vsync), _(display_mode_vsync ? strings::on : strings::off));
-		if (delta != 0)
+		delta = menu->slider_item(u, _(strings::vsync), _(display_mode_vsync ? strings::on : strings::off), false, AssetNull, UIMenu::SliderItemAllowSelect::Yes);
+		if (delta == INT_MIN) // slider item was clicked
+			settings_graphics_try(gamepad);
+		else if (delta != 0)
 			display_mode_vsync = !display_mode_vsync;
 	}
 #endif
@@ -1651,15 +1675,7 @@ b8 settings_graphics(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 	if (exit)
 	{
 		Game::cancel_event_eaten[gamepad] = true;
-		if (display_mode_index != Settings::display_mode_index
-			|| display_mode_window_mode != Settings::window_mode
-			|| display_mode_vsync != Settings::vsync)
-		{
-			Settings::display_mode_index = display_mode_index;
-			Settings::window_mode = display_mode_window_mode;
-			Settings::vsync = display_mode_vsync;
-			dialog_with_time_limit(gamepad, settings_graphics_apply, settings_graphics_cancel, 10.0f, _(strings::prompt_resolution_apply));
-		}
+		settings_graphics_try(gamepad);
 		return false;
 	}
 
@@ -1918,10 +1934,8 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 			s32 delta = menu->slider_item(u, i.item()->username, value, disabled, icon, UIMenu::SliderItemAllowSelect::Yes);
 			if (i.item()->team_scheduled != AI::TeamNone)
 			{
-				if (delta == INT_MIN // slider item was clicked
-					|| (input == UIMenu::EnableInput::Yes && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad)))
+				if (delta == INT_MIN) // slider item was clicked
 				{
-					Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
 					i.item()->set_can_spawn(true);
 					teams_selected_player[gamepad] = nullptr;
 				}
@@ -2250,6 +2264,14 @@ s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b
 	{
 		s32 delta = UI::input_delta_horizontal(u, gamepad);
 
+		if (allow_select == SliderItemAllowSelect::Yes)
+		{
+			if (u.input->get(Controls::Interact, gamepad))
+				item->label.color = UI::color_alert(); // show that the user is getting ready to activate this slider
+			else if (u.last_input->get(Controls::Interact, gamepad))
+				delta = INT_MIN;
+		}
+
 		if (mouse_selected)
 		{
 			if (item_slider_down_rect(*this, items.length - 1).contains(u.input->cursor))
@@ -2275,7 +2297,9 @@ s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b
 			}
 		}
 
-		if (delta != 0)
+		if (delta == INT_MIN)
+			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+		else if (delta != 0)
 			Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER);
 		return delta;
 	}

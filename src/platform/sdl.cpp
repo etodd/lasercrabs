@@ -238,7 +238,6 @@ namespace VI
 
 #if defined(__APPLE__)
 		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
-		SDL_SetHint(SDL_HINT_VIDEO_HIGHDPI_DISABLED, "1");
 #endif
 
 		// initialize SDL
@@ -367,9 +366,7 @@ namespace VI
 			| SDL_WINDOW_SHOWN
 			| SDL_WINDOW_INPUT_FOCUS
 			| SDL_WINDOW_MOUSE_FOCUS
-#if !defined(__APPLE__)
 			| SDL_WINDOW_ALLOW_HIGHDPI
-#endif
 			| window_mode
 		);
 
@@ -377,19 +374,21 @@ namespace VI
 		if (!window)
 		{
 			fprintf(stderr, "Failed to open SDL window. Most likely your GPU is out of date! %s\n", SDL_GetError());
-			SDL_Quit();
-			return -1;
+			vi_assert(false);
 		}
 
 		SDL_GLContext context = SDL_GL_CreateContext(window);
 		if (!context)
 		{
 			fprintf(stderr, "Failed to create GL context: %s\n", SDL_GetError());
-			return -1;
+			vi_assert(false);
 		}
 
 		if (vsync_set(Settings::vsync))
-			return -1;
+		{
+			fprintf(stderr, "Failed to set vsync\n");
+			vi_assert(false);
+		}
 
 		{
 			glewExperimental = true; // needed for core profile
@@ -398,7 +397,7 @@ namespace VI
 			if (glew_result != GLEW_OK)
 			{
 				fprintf(stderr, "Failed to initialize GLEW: %s\n", glewGetErrorString(glew_result));
-				return -1;
+				vi_assert(false);
 			}
 		}
 
@@ -787,9 +786,9 @@ namespace VI
 							}
 							case WindowMode::Fullscreen:
 							{
-								SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+								SDL_SetWindowSize(window, new_mode.w, new_mode.h);
 								SDL_SetWindowDisplayMode(window, &new_mode);
-								SDL_SetWindowPosition(window, 0, 0);
+								SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
 								break;
 							}
 							case WindowMode::Borderless:

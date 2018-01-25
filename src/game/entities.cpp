@@ -644,6 +644,7 @@ void Shield::update_client(const Update& u)
 		else
 			armor_view->color.w = vi_max(0.0f, armor_view->color.w + u.time.delta * -5.0f);
 		alpha_mask(armor_view, mask);
+		armor_view->offset.make_transform(offset_pos, Vec3(DRONE_OVERSHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO * 1.1f), Quat::identity);
 	}
 }
 

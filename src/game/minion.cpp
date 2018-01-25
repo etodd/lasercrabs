@@ -220,6 +220,12 @@ void Minion::melee_damage()
 		}
 	}
 
+	if (Game::level.local)
+	{
+		Vec3 forward = get<Walker>()->forward();
+		Glass::shatter_all(damage_pos + forward * (WALKER_MINION_RADIUS * -0.5f), damage_pos + forward * (WALKER_MINION_RADIUS * 0.25f));
+	}
+
 	// spark effects
 	if (did_damage)
 	{
@@ -639,19 +645,14 @@ void Minion::update_server(const Update& u)
 			if (allow_new_target)
 			{
 				Entity* target_candidate = visible_target(this, get<AIAgent>()->team);
-				if (target_candidate)
+				if (target_candidate && target_candidate != goal.entity.ref())
 				{
-					if (target_candidate != goal.entity.ref())
-					{
-						// look, a shiny!
-						path.length = 0;
-						goal.type = Goal::Type::Target;
-						goal.entity = target_candidate;
-						target_timer = 0;
-					}
+					// look, a shiny!
+					path.length = 0;
+					goal.type = Goal::Type::Target;
+					goal.entity = target_candidate;
+					target_timer = 0;
 				}
-				else if (goal.entity.ref() && !can_see(goal.entity.ref()))
-					goal.entity = nullptr; // our current target no longer matches our criteria
 			}
 		}
 
@@ -991,7 +992,7 @@ void Minion::killed(Entity* killer)
 b8 minion_vision_check(AI::Team team, const Vec3& start, const Vec3& end, Entity* target, b8 check_force_fields)
 {
 	btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
-	Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionElectric | (check_force_fields ? CollisionAllTeamsForceField : 0)) & ~Team::force_field_mask(team));
+	Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionElectric | CollisionParkour | (check_force_fields ? CollisionAllTeamsForceField : 0)) & ~Team::force_field_mask(team));
 	if (ray_callback.hasHit())
 	{
 		Entity* hit = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];

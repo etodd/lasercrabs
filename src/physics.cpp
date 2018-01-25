@@ -58,13 +58,8 @@ void Physics::sync_dynamic()
 		}
 	}
 
-	for (s32 i = 0; i < ShellCasing::list.length; i++)
-	{
-		ShellCasing* s = &ShellCasing::list[i];
-		btTransform transform = s->btBody->getInterpolationWorldTransform();
-		s->pos = transform.getOrigin();
-		s->rot = transform.getRotation();
-	}
+	ShellCasing::sync_physics();
+	GlassShard::sync_physics();
 }
 
 RaycastCallbackExcept::RaycastCallbackExcept(const Vec3& a, const Vec3& b, const Entity* entity)
@@ -105,6 +100,15 @@ btScalar RaycastCallbackExcept::addSingleResult(btCollisionWorld::LocalRayResult
 }
 
 void Physics::raycast(btCollisionWorld::ClosestRayResultCallback* ray_callback, s16 mask)
+{
+	ray_callback->m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+	ray_callback->m_collisionFilterMask = mask;
+	ray_callback->m_collisionFilterGroup = -1;
+	Physics::btWorld->rayTest(ray_callback->m_rayFromWorld, ray_callback->m_rayToWorld, *ray_callback);
+}
+
+void Physics::raycast(btCollisionWorld::AllHitsRayResultCallback* ray_callback, s16 mask)
 {
 	ray_callback->m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;

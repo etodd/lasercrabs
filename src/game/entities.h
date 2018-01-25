@@ -261,9 +261,16 @@ struct FlagEntity : public Entity
 
 struct Glass : public ComponentType<Glass>
 {
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
+	static void shatter_all(const Vec3&, const Vec3&);
+
+	r32 client_side_shatter_timer; // if this above zero, we've been shattered locally, and we're waiting for server confirmation. if it goes to zero, we reset
+
 	void awake() {}
 
-	void shatter(const Vec3&);
+	void shatter(const Vec3&, const Vec3&);
+
+	void update_client_only(const Update&);
 };
 
 struct GlassEntity : public Entity
@@ -277,15 +284,18 @@ struct GlassShard
 	static AssetID index_buffer;
 	static AssetID index_buffer_edges;
 
-	static void add(const Vec2&, const Vec2&, const Vec2&, const Vec3&, const Quat&);
+	static GlassShard* add(const Vec2&, const Vec2&, const Vec2&, const Vec3&, const Quat&, const Vec3&, const Vec3&);
+	static GlassShard* add(const Vec2&, const Vec2&, const Vec2&, const Vec2&, const Vec3&, const Quat&, const Vec3&, const Vec3&);
 	static void clear();
 	static void update_all(const Update&);
 	static void draw_all(const RenderParams&);
+	static void sync_physics();
 
+	btCollisionShape* btShape;
+	btRigidBody* btBody;
 	Quat rot;
 	Vec3 pos;
 	r32 timestamp;
-	r32 radius;
 	AssetID mesh_id;
 
 	void cleanup();
@@ -626,6 +636,7 @@ struct ShellCasing
 	static void clear();
 	static void update_all(const Update&);
 	static void draw_all(const RenderParams&);
+	static void sync_physics();
 
 	btRigidBody* btBody;
 	btBoxShape* btShape;

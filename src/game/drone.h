@@ -64,6 +64,7 @@ struct Drone : public ComponentType<Drone>
 			ForceField,
 			Shield,
 			Target,
+			Glass,
 			None, // empty space; used as the final hit entry if no hit was registered
 			count,
 		};

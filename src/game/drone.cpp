@@ -526,6 +526,14 @@ void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone:
 		Audio::post_global(AK::EVENTS::PLAY_SNIPER_WHIFF, closest_position);
 	}
 
+	// shatter glass
+	for (s32 i = 0; i < hits->index_end; i++)
+	{
+		const Drone::Hit& hit = hits->hits[i];
+		if (hit.type == Drone::Hit::Type::Glass && hit.entity.ref())
+			hit.entity.ref()->get<Glass>()->shatter(hit.pos, ray_end - ray_start);
+	}
+
 	// effects
 	{
 		Vec3 line_start = ray_start;
@@ -1402,7 +1410,7 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, const Net::StateFrame* state_fra
 		RaycastCallbackExcept physics_ray_callback(trace_start, trace_end, entity());
 		s16 force_field_mask = info.type == AbilityInfo::Type::Build
 			? ~ally_force_field_mask() // only ignore friendly force fields; we don't want to build something on a force field
-			: ~CollisionAllTeamsForceField; // ignore all force fields
+			: ~CollisionGlass & ~CollisionAllTeamsForceField; // ignore all force fields
 		Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & force_field_mask);
 
 		ray_callback.hit = physics_ray_callback.hasHit();
@@ -1494,7 +1502,7 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, const Net::StateFrame* state_fra
 		// build-type ability
 		if (ray_callback.hit
 			&& !ray_callback.entity->has<Target>()
-			&& !(ray_callback.entity->get<RigidBody>()->collision_group & DRONE_INACCESSIBLE_MASK))
+			&& !(ray_callback.entity->get<RigidBody>()->collision_group & (DRONE_INACCESSIBLE_MASK | CollisionGlass)))
 		{
 			{
 				// check if this thing we're building will intersect with an invincible force field
@@ -3051,6 +3059,23 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 		}
 	}
 
+	// glass
+	{
+		btCollisionWorld::AllHitsRayResultCallback ray_callback(ray_start, ray_end);
+		Physics::raycast(&ray_callback, CollisionGlass);
+		for (s32 i = 0; i < ray_callback.m_collisionObjects.size(); i++)
+		{
+			result->hits.add(
+			{
+				ray_callback.m_hitPointWorld[i],
+				ray_callback.m_hitNormalWorld[i],
+				(ray_callback.m_hitPointWorld[i] - ray_start).length() / distance_total,
+				&Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()],
+				Hit::Type::Glass,
+			});
+		}
+	}
+
 	// sort collisions
 	Hit::Comparator comparator;
 	Quicksort::sort<Hit, Hit::Comparator>(result->hits.data, 0, result->hits.length, &comparator);
@@ -3097,7 +3122,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 					stop = true; // it has health or shield to spare; we'll bounce off
 			}
 		}
-		else if (hit.type == Hit::Type::Target)
+		else if (hit.type == Hit::Type::Target || hit.type == Hit::Type::Glass)
 		{
 			// go through it, don't stop
 		}
@@ -3203,6 +3228,8 @@ void Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* h
 			if (s == State::Fly && i == hits.index_end)
 				reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
 		}
+		else if (hit.type == Hit::Type::Glass)
+			hit.entity.ref()->get<Glass>()->shatter(hit.pos, ray_end - ray_start);
 		else if (hit.type == Hit::Type::Environment)
 		{
 			vi_assert(i == hits.index_end); // no more hits should come after we hit an environment surface

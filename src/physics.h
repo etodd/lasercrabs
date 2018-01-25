@@ -33,10 +33,11 @@ enum CollisionGroup
 	CollisionParkour = 1 << 12,
 	CollisionElectric = 1 << 13,
 	CollisionAudio = 1 << 14,
+	CollisionGlass = 1 << 15,
 };
 
 #define DRONE_PERMEABLE_MASK (CollisionTarget | CollisionDroneIgnore | CollisionDefault | CollisionWalker | CollisionMinionMoving)
-#define DRONE_INACCESSIBLE_MASK (CollisionInaccessible | CollisionElectric | DRONE_PERMEABLE_MASK | CollisionAllTeamsForceField)
+#define DRONE_INACCESSIBLE_MASK (CollisionInaccessible | CollisionElectric | DRONE_PERMEABLE_MASK | CollisionAllTeamsForceField | CollisionGlass)
 
 struct RaycastCallbackExcept : btCollisionWorld::ClosestRayResultCallback
 {
@@ -69,6 +70,7 @@ struct Physics
 	static void sync_dynamic();
 
 	static void raycast(btCollisionWorld::ClosestRayResultCallback*, s16 = ~CollisionTarget & ~CollisionWalker);
+	static void raycast(btCollisionWorld::AllHitsRayResultCallback*, s16 = ~CollisionTarget & ~CollisionWalker);
 };
 
 struct RigidBody : public ComponentType<RigidBody>

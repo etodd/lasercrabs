@@ -1195,6 +1195,20 @@
 								</Action>
 							</ChildrenList>
 						</Event>
+						<Event Name="Play_Glass_Shatter" ID="{DD9FCB99-1700-4C86-A92A-A6A6E3A2B3A6}">
+							<ChildrenList>
+								<Action Name="" ID="{683E861B-EDCF-4540-A612-D82C72EC9664}" ShortID="1040477883">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="shatter" ID="{E1181F0A-B73F-467C-AEC3-F1971BD84D3D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
 					</ChildrenList>
 				</Folder>
 				<Folder Name="dialogue_range_unlimited" ID="{04E54C47-F0F5-451B-8777-7B7C24045653}" ShortID="896672305">

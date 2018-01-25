@@ -4883,6 +4883,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 				net_error();
 			break;
 		}
+		case MessageType::Glass:
+		{
+			if (!Glass::net_msg(p, src))
+				net_error();
+			break;
+		}
 		case MessageType::Flag:
 		{
 			if (!Flag::net_msg(p, src))

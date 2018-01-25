@@ -59,7 +59,7 @@ StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& ab
 
 	Loader::mesh(model->mesh);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | group, ~CollisionStatic & ~CollisionAudio & mask, mesh_id, flags);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | group, ~CollisionStatic & ~CollisionAudio & ~CollisionGlass & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric & mask, mesh_id, flags);
 	body->set_restitution(0.75f);
 }
 

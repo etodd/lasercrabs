@@ -699,6 +699,8 @@ void Game::update(InputState* input, const InputState* last_input)
 		{
 			for (auto i = Flag::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_client_only(u);
+			for (auto i = Glass::list.iterator(); !i.is_last(); i.next())
+				i.item()->update_client_only(u);
 		}
 
 		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
@@ -1181,8 +1183,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 void Game::draw_hollow(const RenderParams& render_params)
 {
-	GlassShard::draw_all(render_params);
-
 	Overworld::draw_hollow(render_params);
 
 	SkyPattern::draw_hollow(render_params);
@@ -1844,18 +1844,18 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 					{
 						// inaccessible
 						if (no_parkour) // no parkour material
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible | extra_collision, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible | extra_collision);
 						else
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | CollisionInaccessible | extra_collision, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | CollisionInaccessible | extra_collision);
 						m->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 					}
 					else
 					{
 						// accessible
 						if (no_parkour) // no parkour material
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, extra_collision, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, extra_collision);
 						else
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | extra_collision, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | extra_collision);
 					}
 
 					m->get<View>()->texture = texture;
@@ -2389,7 +2389,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		else if (cJSON_HasObjectItem(element, "Glass"))
 		{
 			Vec3 scale = Json::get_vec3(element, "scale");
-			entity = World::alloc<GlassEntity>(Vec2(scale.x, scale.y));
+			entity = World::alloc<GlassEntity>(Vec2(fabsf(scale.x), fabsf(scale.y)));
 		}
 		else if (cJSON_HasObjectItem(element, "Empty") || cJSON_HasObjectItem(element, "Camera"))
 			entity = World::alloc<Empty>();

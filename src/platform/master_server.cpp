@@ -2923,13 +2923,15 @@ namespace DiscordBot
 					// user has set local time offset
 
 					std::time_t now = std::time(nullptr);
-					std::tm now_local = *std::localtime(&now);
-					std::tm start = now_local;
-					std::tm end = now_local;
+
+					std::tm start;
+					std::tm end;
 
 					if (strcmp(cmd, "!play") == 0 || strcmp(cmd, "!p") == 0)
 					{
 						// play now
+						start = *std::localtime(&now);
+						end = start;
 						end.tm_min += 30;
 					}
 					else
@@ -2944,6 +2946,12 @@ namespace DiscordBot
 						char* time_str = strchr(cmd, ' ') + 1;
 						if (!(*time_str))
 							return;
+
+						std::tm now_local = *std::localtime(&now);
+						now_local.tm_min -= time_offset_half_hour * 30;
+						mktime(&now_local);
+						start = now_local;
+						end = now_local;
 
 						if (!parse_time_range(time_str, &start, &end))
 						{
@@ -3040,6 +3048,10 @@ namespace DiscordBot
 					s32 offset_hour = now_local.tm_hour - user_hour;
 					s32 offset_minute = now_local.tm_min - user_minute;
 					s32 offset_half_hour = offset_hour * 2 + (offset_minute >= 30 ? 1 : 0);
+					if (offset_half_hour > 24)
+						offset_half_hour -= 48;
+					else if (offset_half_hour < -24)
+						offset_half_hour += 48;
 
 					if (user_exists(author_id))
 					{

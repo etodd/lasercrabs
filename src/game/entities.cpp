@@ -969,7 +969,7 @@ SpawnPointEntity::SpawnPointEntity(AI::Team team, b8 visible)
 		upgrade_station->get<Transform>()->parent = get<Transform>();
 		Net::finalize_child(upgrade_station);
 
-		create<RigidBody>(RigidBody::Type::Mesh, Vec3(1.0f), 0.0f, CollisionStatic | CollisionParkour, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::spawn_collision);
+		create<RigidBody>(RigidBody::Type::Mesh, Vec3(1.0f), 0.0f, CollisionStatic | CollisionParkour, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric & ~CollisionGlass, Asset::Mesh::spawn_collision);
 	}
 }
 
@@ -1808,63 +1808,187 @@ FlagEntity::FlagEntity(AI::Team team)
 	flag_build_force_field(Team::list[team].flag_base.ref(), team);
 }
 
-void Glass::shatter(const Vec3& shatter_point)
+void glass_shatter_apply(Glass* glass, const Vec3& shatter_point, const Vec3& dir)
 {
-	Vec3 pos;
-	Quat rot;
-	get<Transform>()->absolute(&pos, &rot);
-	Vec2 center;
+	if (glass->client_side_shatter_timer == 0.0f) // if glass has already been shattered on client side, don't do it again
 	{
-		Vec3 normal = rot * Vec3(0, 0, 1);
-		Vec3 center3 = shatter_point - normal * (shatter_point - pos).dot(normal);
-		center3 = rot.inverse() * (center3 - pos); // to local space
-		center = Vec2(center3.x, center3.y);
+#if !SERVER
+		Vec3 pos;
+		Quat rot;
+		glass->get<Transform>()->absolute(&pos, &rot);
+		Vec2 center;
+		Vec3 shatter_point_flattened;
+		{
+			Vec3 normal = rot * Vec3(0, 0, 1);
+			shatter_point_flattened = shatter_point - normal * (shatter_point - pos).dot(normal);
+			Vec3 center3 = rot.inverse() * (shatter_point_flattened - pos); // to local space
+			center = Vec2(center3.x, center3.y);
+		}
+		const Vec3& size = glass->get<RigidBody>()->size;
+		Vec2 corner1(-size.x, -size.y);
+		Vec2 corner2(-size.x, size.y);
+		Vec2 corner3(size.x, -size.y);
+		Vec2 corner4(size.x, size.y);
+		Vec2 a_corner1 = Vec2::lerp(0.3333f, center, corner1);
+		Vec2 a_corner2 = Vec2::lerp(0.3333f, center, corner2);
+		Vec2 a_corner3 = Vec2::lerp(0.3333f, center, corner3);
+		Vec2 a_corner4 = Vec2::lerp(0.3333f, center, corner4);
+		Vec2 b_corner1 = Vec2::lerp(0.75f, center, corner1);
+		Vec2 b_corner2 = Vec2::lerp(0.75f, center, corner2);
+		Vec2 b_corner3 = Vec2::lerp(0.75f, center, corner3);
+		Vec2 b_corner4 = Vec2::lerp(0.75f, center, corner4);
+		Vec3 impulse = dir * (2.0f / dir.length());
+
+		GlassShard::add(center, a_corner1, a_corner2, pos, rot, shatter_point_flattened, impulse);
+		GlassShard::add(a_corner1, b_corner1, a_corner2, b_corner2, pos, rot, shatter_point_flattened, impulse);
+		GlassShard::add(b_corner1, corner1, b_corner2, corner2, pos, rot, shatter_point_flattened, impulse);
+
+		GlassShard::add(center, a_corner2, a_corner4, pos, rot, shatter_point_flattened, impulse);
+		GlassShard::add(a_corner2, b_corner2, a_corner4, b_corner4, pos, rot, shatter_point_flattened, impulse);
+		GlassShard::add(b_corner2, corner2, b_corner4, corner4, pos, rot, shatter_point_flattened, impulse);
+
+		GlassShard::add(center, a_corner4, a_corner3, pos, rot, shatter_point_flattened, impulse);
+		GlassShard::add(a_corner4, b_corner4, a_corner3, b_corner3, pos, rot, shatter_point_flattened, impulse);
+		GlassShard::add(b_corner4, corner4, b_corner3, corner3, pos, rot, shatter_point_flattened, impulse);
+
+		GlassShard::add(center, a_corner3, a_corner1, pos, rot, shatter_point_flattened, impulse);
+		GlassShard::add(a_corner3, b_corner3, a_corner1, b_corner1, pos, rot, shatter_point_flattened, impulse);
+		GlassShard::add(b_corner3, corner3, b_corner1, corner1, pos, rot, shatter_point_flattened, impulse);
+
+		Audio::post_global(AK::EVENTS::PLAY_GLASS_SHATTER, shatter_point_flattened);
+#endif
+
+		if (Game::level.local)
+			World::remove(glass->entity());
+		else
+		{
+			// client-side prediction; give time for the server to confirm the shatter
+			glass->client_side_shatter_timer = 1.0f;
+			glass->get<View>()->mask = 0;
+			RigidBody* body = glass->get<RigidBody>();
+			body->set_collision_masks(CollisionDroneIgnore, body->collision_group);
+		}
 	}
-	const Vec3& size = get<RigidBody>()->size;
-	Vec2 corner1(-size.x, -size.y);
-	Vec2 corner2(-size.x, size.y);
-	Vec2 corner3(size.x, -size.y);
-	Vec2 corner4(size.x, size.y);
-	GlassShard::add(center, corner1, corner2, pos, rot);
-	GlassShard::add(center, corner2, corner4, pos, rot);
-	GlassShard::add(center, corner4, corner3, pos, rot);
-	GlassShard::add(center, corner3, corner1, pos, rot);
-	World::remove(entity());
+}
+
+namespace GlassNet
+{
+	b8 shatter(Glass* glass, const Vec3& shatter_point, const Vec3& dir)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Glass);
+		{
+			Ref<Glass> ref = glass;
+			serialize_ref(p, ref);
+		}
+		Vec3 pos = shatter_point;
+		if (!Net::serialize_position(p, &pos, Net::Resolution::Low))
+			net_error();
+		Vec3 d = dir;
+		if (!Net::serialize_position(p, &d, Net::Resolution::Medium))
+			net_error();
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
+b8 Glass::net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+	Ref<Glass> ref;
+	serialize_ref(p, ref);
+	Vec3 shatter_point;
+	if (!Net::serialize_position(p, &shatter_point, Net::Resolution::Low))
+		net_error();
+	Vec3 dir;
+	if (!Net::serialize_position(p, &dir, Net::Resolution::Medium))
+		net_error();
+	if (Game::level.local == (src == Net::MessageSource::Loopback))
+	{
+		vi_debug("Shatter message received");
+		glass_shatter_apply(ref.ref(), shatter_point, dir);
+	}
+	return true;
+}
+
+void Glass::shatter(const Vec3& shatter_point, const Vec3& dir)
+{
+	if (Game::level.local)
+		GlassNet::shatter(this, shatter_point, dir);
+	else // client shatters it instantly, then waits a certain amount of time for the server to confirm
+		glass_shatter_apply(this, shatter_point, dir);
 }
 
 Array<GlassShard> GlassShard::list;
 AssetID GlassShard::index_buffer = AssetNull;
 AssetID GlassShard::index_buffer_edges = AssetNull;
 
-void GlassShard::add(const Vec2& a, const Vec2& b, const Vec2& c, const Vec3& pos, const Quat& rot)
+GlassShard* glass_shard_init()
 {
-	GlassShard* shard = list.add();
+	GlassShard* shard = GlassShard::list.add();
 	new (shard) GlassShard();
 	shard->timestamp = Game::time.total;
 	shard->mesh_id = Loader::dynamic_mesh(1);
+	Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
+	return shard;
+}
+
+void glass_shard_physics(const Vec3* vertices, s32 vertex_count, const Vec3& pos, const Quat& rot, r32 mass, btRigidBody** out_body, btCollisionShape** out_shape)
+{
+	btConvexHullShape* btShape = new btConvexHullShape((const btScalar*)(vertices), vertex_count, sizeof(Vec3));
+
+	btVector3 localInertia(0, 0, 0);
+	btShape->calculateLocalInertia(mass, localInertia);
+
+	btRigidBody::btRigidBodyConstructionInfo info(mass, 0, btShape, localInertia);
+
+	info.m_startWorldTransform = btTransform(rot, pos);
+	btRigidBody* btBody = new btRigidBody(info);
+	btBody->setWorldTransform(info.m_startWorldTransform);
+
+	btBody->setUserIndex(-1);
+	btBody->setRestitution(0.5f);
+	btBody->setDamping(0.25f, 0.25f);
+
+	Physics::btWorld->addRigidBody(btBody, CollisionDroneIgnore, CollisionStatic | CollisionElectric | CollisionParkour | CollisionInaccessible);
+
+	*out_body = btBody;
+	*out_shape = btShape;
+}
+
+GlassShard* GlassShard::add(const Vec2& a, const Vec2& b, const Vec2& c, const Vec3& pos, const Quat& rot, const Vec3& impulse_pos, const Vec3& impulse)
+{
+	GlassShard* shard = glass_shard_init();
 	shard->rot = rot;
 	Vec2 center = (a + b + c) * 0.33333333f;
 	shard->pos = pos + rot * Vec3(center.x, center.y, 0);
-	Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
 
 	RenderSync* sync = Loader::swapper->get();
 	sync->write(RenderOp::UpdateAttribBuffers);
 	sync->write(shard->mesh_id);
 
 	{
-		sync->write<s32>(3);
+		const r32 gap = 0.1f;
 		Vec2 a_recentered = a - center;
+		a_recentered += a_recentered * (-gap / a_recentered.length());
 		Vec2 b_recentered = b - center;
+		b_recentered += b_recentered * (-gap / b_recentered.length());
 		Vec2 c_recentered = c - center;
+		c_recentered += c_recentered * (-gap / c_recentered.length());
 		Vec3 vertices[] =
 		{
 			Vec3(a_recentered.x, a_recentered.y, 0.0f),
 			Vec3(b_recentered.x, b_recentered.y, 0.0f),
 			Vec3(c_recentered.x, c_recentered.y, 0.0f),
+			Vec3(a_recentered.x, a_recentered.y, 0.05f),
+			Vec3(b_recentered.x, b_recentered.y, 0.05f),
+			Vec3(c_recentered.x, c_recentered.y, 0.05f),
 		};
+		r32 radius = sqrtf(vi_max(a_recentered.length_squared(), vi_max(b_recentered.length_squared(), c_recentered.length_squared())));
+		glass_shard_physics(vertices, 6, shard->pos, shard->rot, radius * radius * 0.2f, &shard->btBody, &shard->btShape);
+		shard->btBody->applyImpulse(impulse, (impulse_pos - shard->pos) * 0.25f);
+		sync->write<s32>(3);
 		sync->write<Vec3>(vertices, 3);
-
-		shard->radius = sqrtf(vi_max(a_recentered.length_squared(), vi_max(b_recentered.length_squared(), c_recentered.length_squared())));
 	}
 
 	{
@@ -1889,26 +2013,112 @@ void GlassShard::add(const Vec2& a, const Vec2& b, const Vec2& c, const Vec3& po
 		};
 		sync->write<s32>(indices, 6);
 	}
+
+	return shard;
+}
+
+GlassShard* GlassShard::add(const Vec2& a, const Vec2& b, const Vec2& c, const Vec2& d, const Vec3& pos, const Quat& rot, const Vec3& impulse_pos, const Vec3& impulse)
+{
+	GlassShard* shard = glass_shard_init();
+	shard->rot = rot;
+	Vec2 center = (a + b + c + d) * 0.25f;
+	shard->pos = pos + rot * Vec3(center.x, center.y, 0);
+
+	RenderSync* sync = Loader::swapper->get();
+	sync->write(RenderOp::UpdateAttribBuffers);
+	sync->write(shard->mesh_id);
+
+	{
+		const r32 gap = 0.1f;
+		Vec2 a_recentered = a - center;
+		a_recentered += a_recentered * (-gap / a_recentered.length());
+		Vec2 b_recentered = b - center;
+		b_recentered += b_recentered * (-gap / b_recentered.length());
+		Vec2 c_recentered = c - center;
+		c_recentered += c_recentered * (-gap / c_recentered.length());
+		Vec2 d_recentered = d - center;
+		d_recentered += d_recentered * (-gap / d_recentered.length());
+		Vec3 vertices[] =
+		{
+			Vec3(a_recentered.x, a_recentered.y, 0.0f),
+			Vec3(b_recentered.x, b_recentered.y, 0.0f),
+			Vec3(c_recentered.x, c_recentered.y, 0.0f),
+			Vec3(d_recentered.x, d_recentered.y, 0.0f),
+			Vec3(a_recentered.x, a_recentered.y, 0.05f),
+			Vec3(b_recentered.x, b_recentered.y, 0.05f),
+			Vec3(c_recentered.x, c_recentered.y, 0.05f),
+			Vec3(d_recentered.x, d_recentered.y, 0.05f),
+		};
+		r32 radius = sqrtf(vi_max(a_recentered.length_squared(), vi_max(b_recentered.length_squared(), vi_max(c_recentered.length_squared(), d_recentered.length_squared()))));
+		glass_shard_physics(vertices, 8, shard->pos, shard->rot, radius * radius * 0.2f, &shard->btBody, &shard->btShape);
+		shard->btBody->applyImpulse(impulse, (impulse_pos - shard->pos) * 0.25f);
+		sync->write<s32>(4);
+		sync->write<Vec3>(vertices, 4);
+	}
+
+	{
+		sync->write(RenderOp::UpdateIndexBuffer);
+		sync->write(shard->mesh_id);
+
+		sync->write<s32>(6);
+		s32 indices[6] = { 0, 1, 2, 1, 3, 2 };
+		sync->write<s32>(indices, 6);
+	}
+
+	{
+		sync->write(RenderOp::UpdateEdgesIndexBuffer);
+		sync->write(shard->mesh_id);
+
+		sync->write<s32>(8);
+		s32 indices[8] =
+		{
+			0, 1,
+			1, 3,
+			3, 2,
+			2, 0,
+		};
+		sync->write<s32>(indices, 8);
+	}
+
+	return shard;
 }
 
 void GlassShard::clear()
 {
 	// dynamic meshes are temporary; they'll automatically be freed
+	for (s32 i = 0; i < list.length; i++)
+		list[i].cleanup();
 	list.length = 0;
 }
 
 void GlassShard::cleanup()
 {
 	Loader::dynamic_mesh_free(mesh_id);
+	Physics::btWorld->removeRigidBody(btBody);
+	delete btBody;
+	delete btShape;
 }
 
+void GlassShard::sync_physics()
+{
+	for (s32 i = 0; i < list.length; i++)
+	{
+		GlassShard* s = &list[i];
+		btTransform transform = s->btBody->getInterpolationWorldTransform();
+		s->pos = transform.getOrigin();
+		s->rot = transform.getRotation();
+	}
+}
+
+#define GLASS_SHARD_LIFETIME 5.0f
 void GlassShard::update_all(const Update& u)
 {
 	for (s32 i = 0; i < list.length; i++)
 	{
 		GlassShard* shard = &list[i];
-		if (u.time.total - shard->timestamp > 5.0f)
+		if (u.time.total - shard->timestamp > GLASS_SHARD_LIFETIME)
 		{
+			shard->cleanup();
 			list.remove(i);
 			i--;
 		}
@@ -1924,34 +2134,32 @@ void GlassShard::draw_all(const RenderParams& params)
 	sync->write(Asset::Shader::flat);
 	sync->write(params.technique);
 
-	sync->write(RenderOp::Uniform);
-	sync->write(Asset::Uniform::diffuse_color);
-	sync->write(RenderDataType::Vec4);
-	sync->write<s32>(1);
-	sync->write<Vec4>(Vec4(1, 1, 1, 0.5f));
-
 	Mat4 m;
 	for (s32 i = 0; i < list.length; i++)
 	{
 		const GlassShard& shard = list[i];
 		m.make_transform(shard.pos, Vec3(1), shard.rot);
 
-		if (!params.camera->visible_sphere(shard.pos, shard.radius))
-			return;
-
-		Mat4 mvp = m * params.view_projection;
-
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::mvp);
 		sync->write(RenderDataType::Mat4);
 		sync->write<s32>(1);
-		sync->write<Mat4>(mvp);
+		sync->write<Mat4>(m * params.view_projection);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::mv);
 		sync->write(RenderDataType::Mat4);
 		sync->write<s32>(1);
 		sync->write<Mat4>(m * params.view);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::diffuse_color);
+		sync->write(RenderDataType::Vec4);
+		sync->write<s32>(1);
+		r32 lifetime = Game::time.total - shard.timestamp;
+		r32 blend = 1.0f - (lifetime / GLASS_SHARD_LIFETIME);
+		blend = vi_min(1.0f, blend / 0.2f);
+		sync->write<Vec4>(Vec4(1, 1, 1, 0.5f * blend));
 
 		if (params.flags & RenderFlagEdges)
 		{
@@ -1967,11 +2175,37 @@ void GlassShard::draw_all(const RenderParams& params)
 	}
 }
 
+void Glass::shatter_all(const Vec3& start, const Vec3& end)
+{
+	btCollisionWorld::AllHitsRayResultCallback ray_callback(start, end);
+	Physics::raycast(&ray_callback, CollisionGlass);
+	for (s32 i = 0; i < ray_callback.m_collisionObjects.size(); i++)
+	{
+		Entity* entity = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
+		entity->get<Glass>()->shatter(ray_callback.m_hitPointWorld[i], end - start);
+	}
+}
+
+void Glass::update_client_only(const Update& u)
+{
+	if (client_side_shatter_timer > 0.0f)
+	{
+		client_side_shatter_timer = vi_max(0.0f, client_side_shatter_timer - u.time.delta);
+		if (client_side_shatter_timer == 0.0f)
+		{
+			// server never confirmed shatter; reset
+			RigidBody* body = get<RigidBody>();
+			body->set_collision_masks(CollisionGlass, body->collision_group);
+			get<View>()->mask = RENDER_MASK_DEFAULT;
+		}
+	}
+}
+
 GlassEntity::GlassEntity(const Vec2& size)
 {
 	create<Transform>();
 
-	create<RigidBody>(RigidBody::Type::Box, Vec3(size.x, size.y, 0.1f), 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+	create<RigidBody>(RigidBody::Type::Box, Vec3(size.x, size.y, 0.1f), 0.0f, CollisionGlass, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric & ~CollisionGlass & ~CollisionAllTeamsForceField);
 
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::glass_pane;
@@ -2871,6 +3105,8 @@ b8 Bolt::simulate(r32 dt, Hit* out_hit, const Net::StateFrame* state_frame)
 	Vec3 next_pos = pos + velocity * dt;
 	Vec3 trace_end = next_pos + Vec3::normalize(velocity) * BOLT_LENGTH;
 
+	Glass::shatter_all(pos, trace_end);
+
 	Hit hit;
 	if (raycast(pos, trace_end, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team)), team, &hit, &default_raycast_filter, state_frame))
 	{
@@ -3079,12 +3315,6 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 	}
 	else
 		basis = hit.normal;
-
-	if (hit_object->has<Glass>())
-	{
-		hit_object->get<Glass>()->shatter(hit.point);
-		destroy = false;
-	}
 
 	{
 		ParticleEffect::Type particle_type;
@@ -3419,6 +3649,17 @@ void ShellCasing::spawn(const Vec3& pos, const Quat& rot, Type type)
 	Physics::btWorld->addRigidBody(entry->btBody, CollisionDroneIgnore, CollisionStatic);
 }
 
+void ShellCasing::sync_physics()
+{
+	for (s32 i = 0; i < list.length; i++)
+	{
+		ShellCasing* s = &list[i];
+		btTransform transform = s->btBody->getInterpolationWorldTransform();
+		s->pos = transform.getOrigin();
+		s->rot = transform.getRotation();
+	}
+}
+
 void ShellCasing::update_all(const Update& u)
 {
 	// rigid body transforms are synced in Physics::sync_dynamic()
@@ -3541,7 +3782,7 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	g->owner = owner;
 	g->velocity = dir * GRENADE_LAUNCH_SPEED;
 
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionTarget, ~CollisionParkour & ~CollisionElectric & ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionWalker & ~CollisionMinionMoving);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS * 2.0f), 0.0f, CollisionTarget, ~CollisionParkour & ~CollisionElectric & ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionAllTeamsForceField & ~CollisionWalker & ~CollisionMinionMoving & ~CollisionGlass);
 
 	PointLight* light = create<PointLight>();
 	light->radius = BOLT_LIGHT_RADIUS;
@@ -3639,9 +3880,7 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, const Net::StateFrame* state_fr
 
 		if (!btVector3(next_pos - pos).fuzzyZero())
 		{
-			Vec3 v = velocity;
-			if (v.length_squared() > 0.0f)
-				v.normalize();
+			Glass::shatter_all(pos, next_pos);
 
 			Bolt::Hit hit;
 			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team())), team(), &hit, &grenade_hit_filter, state_frame, DRONE_SHIELD_RADIUS))
@@ -3744,6 +3983,14 @@ void Grenade::explode()
 
 	AI::Team my_team = team();
 	u32 my_hash = ForceField::hash(my_team, me);
+
+	for (auto i = Glass::list.iterator(); !i.is_last(); i.next())
+	{
+		Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+		Vec3 diff = pos - me;
+		if (diff.length() < (GRENADE_RANGE * 0.75f) + i.item()->get<View>()->radius)
+			i.item()->shatter(pos, diff);
+	}
 
 	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 	{
@@ -4718,7 +4965,7 @@ ShopEntity::ShopEntity()
 	model->shader = Asset::Shader::standard;
 	model->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::shop_collision);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric & ~CollisionGlass, Asset::Mesh::shop_collision);
 	body->set_restitution(0.75f);
 }
 
@@ -4771,7 +5018,7 @@ TerminalEntity::TerminalEntity()
 	anim->layers[1].blend_time = 0.0f;
 	anim->trigger(Asset::Animation::terminal_close, 1.33f).link(&closed);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::terminal_collision);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric & ~CollisionGlass, Asset::Mesh::terminal_collision);
 	body->set_restitution(0.75f);
 }
 
@@ -4827,7 +5074,7 @@ TramRunnerEntity::TramRunnerEntity(s8 track, b8 is_front)
 	View* model = create<View>(Asset::Mesh::tram_runner);
 	model->shader = Asset::Shader::standard;
 	model->color.w = MATERIAL_INACCESSIBLE;
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric, Asset::Mesh::tram_runner);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric & ~CollisionGlass, Asset::Mesh::tram_runner);
 	body->set_restitution(0.75f);
 	TramRunner* r = create<TramRunner>();
 	r->track = track;
@@ -5002,7 +5249,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 	Transform* transform = create<Transform>();
 
 	const Mesh* mesh = Loader::mesh(Asset::Mesh::tram_mesh);
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionDroneIgnore, ~CollisionWalker & ~CollisionMinionMoving & ~CollisionInaccessible & ~CollisionParkour & ~CollisionStatic & ~CollisionAudio & ~CollisionElectric);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionDroneIgnore, ~CollisionWalker & ~CollisionMinionMoving & ~CollisionInaccessible & ~CollisionParkour & ~CollisionStatic & ~CollisionAudio & ~CollisionElectric & ~CollisionGlass);
 	body->set_restitution(0.75f);
 	body->set_damping(0.5f, 0.5f);
 
@@ -5048,7 +5295,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 		anim->layers[0].blend_time = 0.0f;
 		anim->layers[1].blend_time = 0.0f;
 
-		RigidBody* body = doors->create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionDroneIgnore & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric, Asset::Mesh::tram_collision_door);
+		RigidBody* body = doors->create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionDroneIgnore & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric & ~CollisionGlass, Asset::Mesh::tram_collision_door);
 		body->set_restitution(0.75f);
 		
 		doors->create<PlayerTrigger>()->radius = 8.0f; // trigger for exiting
@@ -5180,7 +5427,7 @@ void Tram::doors_open(b8 open)
 	}
 	else
 	{
-		body->set_collision_masks(CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionDroneIgnore & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric); // enable collision
+		body->set_collision_masks(CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionDroneIgnore & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric & ~CollisionGlass); // enable collision
 		anim->layers[0].animation = AssetNull;
 		anim->layers[1].play(Asset::Animation::tram_doors_close);
 		get<Audio>()->post(AK::EVENTS::PLAY_TRAM_CLOSE);

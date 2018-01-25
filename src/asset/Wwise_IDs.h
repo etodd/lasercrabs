@@ -52,6 +52,7 @@ namespace AK
         static const AkUniqueID PLAY_FIRE_LOOP = 1779335U;
         static const AkUniqueID PLAY_FORCE_FIELD_LOOP = 427547487U;
         static const AkUniqueID PLAY_FORCE_FIELD_SPAWN = 1877727510U;
+        static const AkUniqueID PLAY_GLASS_SHATTER = 3578185652U;
         static const AkUniqueID PLAY_GRENADE_ARM = 1073857507U;
         static const AkUniqueID PLAY_GRENADE_ATTACH = 2813332440U;
         static const AkUniqueID PLAY_GRENADE_BEEP = 4011376411U;

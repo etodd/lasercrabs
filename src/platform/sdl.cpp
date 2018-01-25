@@ -365,10 +365,8 @@ namespace VI
 			Settings::display().width, Settings::display().height,
 			SDL_WINDOW_OPENGL
 			| SDL_WINDOW_SHOWN
-			| SDL_WINDOW_INPUT_GRABBED
 			| SDL_WINDOW_INPUT_FOCUS
 			| SDL_WINDOW_MOUSE_FOCUS
-			| SDL_WINDOW_MOUSE_CAPTURE
 #if !defined(__APPLE__)
 			| SDL_WINDOW_ALLOW_HIGHDPI
 #endif
@@ -382,10 +380,6 @@ namespace VI
 			SDL_Quit();
 			return -1;
 		}
-
-#if defined(__APPLE__)
-		SDL_SetWindowGrab(window, SDL_TRUE);
-#endif
 
 		SDL_GLContext context = SDL_GL_CreateContext(window);
 		if (!context)

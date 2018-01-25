@@ -328,6 +328,7 @@
 		"prompt_gamejolt_username": "Enter GameJolt username:",
 		"prompt_gamejolt_token": "Enter GameJolt game token:",
 		"prompt_itch": "You will be redirected to login with your itch account.",
+		"prompt_itch_again": "Use your browser to login.",
 		"god_mode_enabled": "God mode enabled",
 
 		"zone_unavailable": "Zone unavailable",

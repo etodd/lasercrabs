@@ -259,7 +259,15 @@ void Loader::settings_load(const Array<DisplayMode>& modes, const DisplayMode& c
 		}
 	}
 
-	Settings::window_mode = WindowMode(vi_max(0, vi_min(s32(WindowMode::count) - 1, Json::get_s32(json, "fullscreen", s32(WindowMode::Borderless)))));
+	{
+		WindowMode default_window_mode;
+#if defined(__APPLE__)
+		default_window_mode = WindowMode::Fullscreen;
+#else
+		default_window_mode = WindowMode::Borderless;
+#endif
+		Settings::window_mode = WindowMode(vi_max(0, vi_min(s32(WindowMode::count) - 1, Json::get_s32(json, "fullscreen", s32(default_window_mode)))));
+	}
 	Settings::vsync = b8(Json::get_s32(json, "vsync", 0));
 	Settings::sfx = u8(Json::get_s32(json, "sfx", 100));
 	Settings::music = u8(Json::get_s32(json, "music", 100));

@@ -601,6 +601,7 @@ namespace Docks
 		StaticArray<Ref<Transform>, 8> wallrun_footsteps2;
 		TutorialState state;
 		b8 dada_talked;
+		b8 itch_prompted;
 	};
 	
 	static Data* data;
@@ -793,14 +794,21 @@ namespace Docks
 		}
 	}
 
-	void itch_redirect(s8)
+	void itch_prompt_cancel(s8 = 0)
 	{
-		Menu::open_url("https://itch.io/user/oauth?client_id=96b70c5d535c7101941dcbb0648ca2e3&scope=profile%3Ame&response_type=token&redirect_uri=http%3A%2F%2Flocalhost%3A3499%2Fauth");
+		Game::quit = true;
 	}
 
-	void itch_prompt()
+	void itch_prompt(s8 = 0)
 	{
-		Menu::dialog(0, &itch_redirect, _(strings::prompt_itch));
+		if (data->itch_prompted)
+		{
+			Menu::open_url("https://itch.io/user/oauth?client_id=96b70c5d535c7101941dcbb0648ca2e3&scope=profile%3Ame&response_type=token&redirect_uri=http%3A%2F%2Flocalhost%3A3499%2Fauth");
+			Menu::dialog_with_cancel(0, &itch_prompt, &itch_prompt_cancel, _(strings::prompt_itch_again));
+		}
+		else
+			Menu::dialog_with_cancel(0, &itch_prompt, &itch_prompt_cancel, _(strings::prompt_itch));
+		data->itch_prompted = true;
 	}
 
 	void itch_register_endpoints(mg_connection* conn)

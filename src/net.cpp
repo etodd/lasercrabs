@@ -2597,14 +2597,10 @@ b8 packet_handle_master(StreamRead* p)
 	{
 		case Master::Message::Ack:
 		case Master::Message::Keepalive:
-		{
 			break;
-		}
 		case Master::Message::Disconnect:
-		{
 			state_persistent.master.reset();
 			break;
-		}
 		case Master::Message::ServerLoad:
 		{
 			if (!Master::serialize_server_config(p, &Game::session.config))
@@ -2694,15 +2690,11 @@ b8 packet_handle_master(StreamRead* p)
 			break;
 		}
 		case Master::Message::WrongVersion:
-		{
-			// todo: something
+			Game::quit = true;
 			break;
-		}
 		default:
-		{
 			net_error();
 			break;
-		}
 	}
 
 	return true;
@@ -3306,6 +3298,8 @@ struct StateClient
 	Mode mode;
 	ReplayMode replay_mode;
 	StoryModeTeam requested_story_mode_team;
+	Master::ClientConnectionStep connection_step;
+	s8 wait_slot_queue_position;
 	s8 flags = FlagLowLatencyInterpolation;
 
 	b8 flag(Flags f) const
@@ -3464,7 +3458,7 @@ b8 master_request_server_list(ServerListType type, s32 offset)
 
 void master_cancel_outgoing()
 {
-	state_persistent.master.reset();
+	state_persistent.master.cancel_outgoing();
 }
 
 b8 ping(const Sock::Address& addr, u32 token)
@@ -3933,6 +3927,7 @@ b8 master_request_server(u32 id, const char* secret, AssetID level, StoryModeTea
 	state_client.requested_server_id = id;
 	state_client.requested_level = level;
 	state_client.requested_story_mode_team = story_mode_team;
+	state_client.connection_step = Master::ClientConnectionStep::ContactingMaster;
 
 	master_send(Master::Message::Disconnect);
 	state_persistent.master.reset();
@@ -3941,6 +3936,18 @@ b8 master_request_server(u32 id, const char* secret, AssetID level, StoryModeTea
 	master_send_server_request();
 
 	return true;
+}
+
+Master::ClientConnectionStep connection_step()
+{
+	vi_assert(state_client.mode == Mode::ContactingMaster);
+	return state_client.connection_step;
+}
+
+s8 wait_slot_queue_position()
+{
+	vi_assert(state_client.mode == Mode::ContactingMaster && state_client.connection_step == Master::ClientConnectionStep::WaitingForSlot);
+	return state_client.wait_slot_queue_position;
 }
 
 void tick(const Update& u, r32 dt)
@@ -4186,6 +4193,12 @@ b8 packet_handle_master(StreamRead* p)
 			serialize_int(p, s32, length, 0, MAX_USERNAME);
 			serialize_bytes(p, (u8*)(username), length);
 			Ascensions::add(username);
+			break;
+		}
+		case Master::Message::ClientConnectionStep:
+		{
+			serialize_enum(p, Master::ClientConnectionStep, state_client.connection_step);
+			serialize_s8(p, state_client.wait_slot_queue_position);
 			break;
 		}
 		default:
@@ -4592,6 +4605,9 @@ void packet_read(const Update& u, PacketEntry* entry)
 
 	state_common.bandwidth_in_counter += entry->packet.bytes_total;
 
+	char buffer[512];
+	entry->address.str(buffer);
+
 	if (entry->packet.bytes_total > 0 && entry->packet.read_checksum())
 	{
 		packet_decompress(&entry->packet, entry->packet.bytes_total);
@@ -4738,6 +4754,11 @@ void reset()
 	Server::reset();
 #else
 	Client::reset();
+#endif
+
+#if DEBUG_LAG
+	for (s32 i = 0; i < lag_buffer.length; i++)
+		lag_buffer[i].timestamp = 0.0f; // make sure these packets get consumed
 #endif
 
 	state_common.~StateCommon();

@@ -1,7 +1,9 @@
 {
 	"str":
 	{
-		"contacting_master": "Allocating server...",
+		"contacting_master": "Contacting master server...",
+		"allocating_server": "Allocating server...",
+		"waiting_for_slot": "Waiting for slot (queue position %d)",
 		"connecting": "Connecting...",
 		"connection_failed": "Connection failed.",
 		"server_full": "Server full.",

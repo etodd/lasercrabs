@@ -107,7 +107,6 @@ b8 messenger_send_ack(SequenceID seq, Sock::Address addr, Sock::Handle* sock)
 	return true;
 }
 
-// returns true if the packet is in order and should be processed
 void Messenger::received(Message type, SequenceID seq, const Sock::Address& addr, Sock::Handle* sock)
 {
 	if (type == Message::Ack)
@@ -166,12 +165,20 @@ void Messenger::update(r64 timestamp, Sock::Handle* sock, s32 max_outgoing)
 	}
 }
 
+void Messenger::cancel_outgoing()
+{
+#if DEBUG_MSG
+	vi_debug("%s", "Canceling all outgoing messages");
+#endif
+	outgoing.length = 0;
+}
+
 void Messenger::reset()
 {
+	cancel_outgoing();
 #if DEBUG_MSG
 	vi_debug("%s", "Resetting all connections");
 #endif
-	outgoing.length = 0;
 	sequence_ids.clear();
 }
 

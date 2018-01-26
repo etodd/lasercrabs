@@ -26,6 +26,14 @@ struct UserKey
 	}
 };
 
+enum class ClientConnectionStep : s8
+{
+	ContactingMaster,
+	AllocatingServer,
+	WaitingForSlot,
+	count,
+};
+
 enum class Message : s8
 {
 	Ack,
@@ -35,6 +43,7 @@ enum class Message : s8
 	ServerStatusUpdate, // game server telling master what it's up to
 	ServerLoad, // master telling a server to load a certain level
 	ExpectClient, // master telling a server to expect a certain client to connect to it
+	ClientConnectionStep, // master telling a client the status of their connection request
 	ClientConnect, // master telling a client to connect to a game server
 	ClientRequestServer, // a client requesting to connect to a virtual server; master will allocate it if necessary
 	ClientRequestServerDetails, // a client requesting to connect to a virtual server; master will allocate it if necessary
@@ -86,6 +95,7 @@ struct Messenger
 	void update(r64, Sock::Handle*, s32 = 0);
 	void remove(const Sock::Address&);
 	void reset();
+	void cancel_outgoing();
 
 	// these assume packets have already been checksummed and compressed
 	void send(const StreamWrite&, r64, const Sock::Address&, Sock::Handle*);

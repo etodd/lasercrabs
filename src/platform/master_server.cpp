@@ -1798,6 +1798,40 @@ namespace Master
 		return true;
 	}
 
+	s8 client_wait_position(const Node* client)
+	{
+		u32 desired_server_id = client->server_state.id;
+		s8 result = 0;
+		for (s32 i = 0; i < global.clients_waiting.length; i++)
+		{
+			Node* c = node_for_hash(global.clients_waiting[i]);
+			if (c->server_state.id == desired_server_id)
+				result++;
+			if (result == 127)
+				break;
+		}
+		return result - 1; // don't count the client themselves
+	}
+
+	b8 send_client_connection_step(const Node* client, ClientConnectionStep step, s8 wait_position = 0)
+	{
+		using Stream = StreamWrite;
+		StreamWrite p;
+		packet_init(&p);
+		global.messenger.add_header(&p, client->addr, Message::ClientConnectionStep);
+		{
+			ClientConnectionStep s = step;
+			serialize_enum(&p, ClientConnectionStep, s);
+		}
+		{
+			s8 w = wait_position;
+			serialize_s8(&p, w);
+		}
+		packet_finalize(&p);
+		global.messenger.send(p, global_timestamp, client->addr, &global.sock);
+		return true;
+	}
+
 	char hex_char(u8 c)
 	{
 		if (c < 10)
@@ -2028,6 +2062,8 @@ namespace Master
 						// add to client waiting list
 						global.clients_waiting.add(node->addr.hash());
 						node->transition(Node::State::ClientWaiting);
+
+						send_client_connection_step(node, ClientConnectionStep::AllocatingServer);
 					}
 				}
 				else // invalid state transition
@@ -2532,10 +2568,17 @@ namespace Master
 					Node* server = client_requested_server(client);
 					if (server)
 					{
+						// server is already running
 						if (server_open_slots(server) >= client->server_state.player_slots)
 						{
 							client_connect_to_existing_server(client, server);
 							i--; // client has been removed from clients_waiting
+						}
+						else
+						{
+							// not enough room for client; let the client know
+							s8 wait_position = client_wait_position(client);
+							send_client_connection_step(client, ClientConnectionStep::WaitingForSlot, wait_position);
 						}
 					}
 					else

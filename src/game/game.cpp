@@ -1894,7 +1894,6 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		{
 			if (session.config.game_type == GameType::Assault)
 			{
-				absolute_pos += absolute_rot * Vec3(0, 0, TURRET_HEIGHT);
 				entity = World::alloc<TurretEntity>(AI::Team(0));
 				entity->get<Health>()->hp = Json::get_s32(element, "hp", TURRET_HEALTH);
 				ingress_points_get(json, element, entity->get<MinionTarget>());

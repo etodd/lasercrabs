@@ -1068,25 +1068,52 @@ void draw_ui(const RenderParams& params)
 #if !SERVER
 	if (!Game::level.local)
 	{
-		// "connecting..."
-		AssetID str;
-		switch (Net::Client::mode())
+		Net::Client::Mode mode = Net::Client::mode();
+		if (mode == Net::Client::Mode::ContactingMaster
+			|| mode == Net::Client::Mode::Connecting
+			|| mode == Net::Client::Mode::Loading)
 		{
-			case Net::Client::Mode::ContactingMaster:
-				str = strings::contacting_master;
-				break;
-			case Net::Client::Mode::Connecting:
-				str = strings::connecting;
-				break;
-			case Net::Client::Mode::Loading:
-				str = strings::loading;
-				break;
-			default:
-				str = AssetNull;
-				break;
+			// "connecting..."
+			char str[UI_TEXT_MAX + 1];
+			switch (mode)
+			{
+				case Net::Client::Mode::ContactingMaster:
+				{
+					switch (Net::Client::connection_step())
+					{
+						case Net::Master::ClientConnectionStep::ContactingMaster:
+							strncpy(str, _(strings::contacting_master), UI_TEXT_MAX);
+							break;
+						case Net::Master::ClientConnectionStep::AllocatingServer:
+							strncpy(str, _(strings::allocating_server), UI_TEXT_MAX);
+							break;
+						case Net::Master::ClientConnectionStep::WaitingForSlot:
+							snprintf(str, UI_TEXT_MAX, _(strings::waiting_for_slot), s32(Net::Client::wait_slot_queue_position()) + 1);
+							break;
+						default:
+						{
+							str[0] = '\0';
+							vi_assert(false);
+							break;
+						}
+					}
+					break;
+				}
+				case Net::Client::Mode::Connecting:
+					strncpy(str, _(strings::connecting), UI_TEXT_MAX);
+					break;
+				case Net::Client::Mode::Loading:
+					strncpy(str, _(strings::loading), UI_TEXT_MAX);
+					break;
+				default:
+				{
+					str[0] = '\0';
+					vi_assert(false);
+					break;
+				}
+			}
+			progress_infinite(params, str, viewport.size * 0.5f);
 		}
-		if (str != AssetNull)
-			progress_infinite(params, _(str), viewport.size * 0.5f);
 	}
 #endif
 

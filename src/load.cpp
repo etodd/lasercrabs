@@ -262,7 +262,7 @@ void Loader::settings_load(const Array<DisplayMode>& modes, const DisplayMode& c
 	{
 		WindowMode default_window_mode;
 #if defined(__APPLE__)
-		default_window_mode = WindowMode::Fullscreen;
+		default_window_mode = WindowMode::Windowed;
 #else
 		default_window_mode = WindowMode::Borderless;
 #endif

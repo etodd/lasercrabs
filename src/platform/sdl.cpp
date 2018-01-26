@@ -330,11 +330,35 @@ namespace VI
 					modes.add({ mode.w, mode.h });
 			}
 
-			SDL_DisplayMode current_mode;
-			if (SDL_GetDesktopDisplayMode(0, &current_mode))
-				vi_assert(false);
+			DisplayMode default_display_mode;
+#if defined(__APPLE__)
+			{
+				// default to windowed mode on mac
+				// find largest display mode smaller than the current one
+				SDL_DisplayMode current_mode;
+				if (SDL_GetDesktopDisplayMode(0, &current_mode))
+					vi_assert(false);
 
-			Loader::settings_load(modes, { current_mode.w, current_mode.h });
+				for (s32 i = 0; i < modes.length; i++)
+				{
+					const DisplayMode& m = modes[i];
+					if (m.width == current_mode.w && m.height == current_mode.h)
+					{
+						default_display_mode = modes[vi_max(0, i - 1)];
+						break;
+					}
+				}
+			}
+#else
+			{
+				SDL_DisplayMode current_mode;
+				if (SDL_GetDesktopDisplayMode(0, &current_mode))
+					vi_assert(false);
+				default_display_mode = { current_mode.w, current_mode.h };
+			}
+#endif
+
+			Loader::settings_load(modes, default_display_mode);
 		}
 		
 		u32 window_mode;

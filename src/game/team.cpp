@@ -1152,11 +1152,6 @@ void Team::update_all_client_only(const Update& u)
 	update_visibility(u);
 }
 
-s16 Team::initial_energy() const
-{
-	return Game::session.config.ruleset.start_energy;
-}
-
 SpawnPoint* Team::default_spawn_point() const
 {
 	for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
@@ -1181,7 +1176,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	current_upgrade(Upgrade::None),
 	state_timer(),
 	upgrade_completed(),
-	energy(team->initial_energy()),
+	energy(Game::session.config.ruleset.start_energy),
 	kills(),
 	deaths(),
 	flags_captured(),
@@ -1368,12 +1363,6 @@ namespace PlayerManagerNet
 	b8 team_switch(PlayerManager* m, AI::Team t)
 	{
 		vi_assert(Game::level.local);
-
-		if (Game::session.config.game_type == GameType::Assault && t != m->team.ref()->team())
-		{
-			const Team& team = Team::list[s32(t)];
-			m->energy = team.initial_energy();
-		}
 
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);

@@ -139,7 +139,6 @@ struct Team : public ComponentType<Team>
 	r32 minion_spawn_rate() const;
 	s16 increment() const;
 	void add_kills(s32);
-	s16 initial_energy() const;
 	SpawnPoint* default_spawn_point() const;
 
 	inline AI::Team team() const

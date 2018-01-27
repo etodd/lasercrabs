@@ -3966,6 +3966,23 @@ void Grenade::hit_entity(const Bolt::Hit& hit, const Net::StateFrame* state_fram
 	}
 }
 
+b8 grenade_line_of_sight(AI::Team my_team, const Vec3& me, const Vec3& pos, const Entity* target)
+{
+	b8 line_of_sight = true;
+	btCollisionWorld::ClosestRayResultCallback ray_callback(me, pos);
+	Physics::raycast(&ray_callback, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(my_team)));
+	if (ray_callback.hasHit())
+	{
+		// something's blocking the way
+		// but we might be trying to damage a force field, so see if the thing blocking our way is the actual force field
+		Entity* entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+		if (entity->has<ForceFieldCollision>())
+			entity = entity->get<ForceFieldCollision>()->field.ref()->entity();
+		line_of_sight = entity == target;
+	}
+	return line_of_sight;
+}
+
 void Grenade::explode()
 {
 	vi_assert(Game::level.local);
@@ -3979,7 +3996,6 @@ void Grenade::explode()
 	ParticleEffect::spawn(ParticleEffect::Type::Grenade, me, Quat::look(Vec3(0, 1, 0))); // also handles physics impulses
 
 	AI::Team my_team = team();
-	u32 my_hash = ForceField::hash(my_team, me);
 
 	for (auto i = Glass::list.iterator(); !i.is_last(); i.next())
 	{
@@ -3994,54 +4010,55 @@ void Grenade::explode()
 		if (i.item()->can_take_damage(entity()))
 		{
 			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-			if (i.item()->has<ForceField>() || ForceField::hash(my_team, pos) == my_hash)
+			r32 distance = (pos - me).length();
+
+			if (i.item()->has<ForceField>())
+				distance -= FORCE_FIELD_RADIUS;
+
+			s8 damage = 0;
+			if (i.item()->has<Drone>())
 			{
-				r32 distance = (pos - me).length();
-
-				if (i.item()->has<ForceField>())
-					distance -= FORCE_FIELD_RADIUS;
-
-				if (i.item()->has<Drone>())
-				{
-					distance *= (i.item()->get<AIAgent>()->team == my_team) ? 2.0f : 1.0f;
-					if (distance < GRENADE_RANGE * 0.4f)
-						i.item()->damage(entity(), 3);
-					else if (distance < GRENADE_RANGE * 0.7f)
-						i.item()->damage(entity(), 2);
-					else if (distance < GRENADE_RANGE)
-						i.item()->damage(entity(), 1);
-				}
-				else if (i.item()->has<CoreModule>())
-				{
-					distance *= (i.item()->get<CoreModule>()->team == my_team) ? 2.0f : 1.0f;
-					if (distance < GRENADE_RANGE)
-						i.item()->damage(entity(), 4);
-				}
-				else if (i.item()->has<Turret>())
-				{
-					distance *= (i.item()->get<Turret>()->team == my_team) ? 2.0f : 1.0f;
-					if (distance < GRENADE_RANGE)
-						i.item()->damage(entity(), 8);
-				}
-				else if (i.item()->has<ForceField>())
-				{
-					if (distance < GRENADE_RANGE && i.item()->get<ForceField>()->team != my_team)
-						i.item()->damage(entity(), 16);
-				}
-				else if (i.item()->has<Grenade>() && i.item()->get<Grenade>()->team() == my_team)
-				{
-					// don't damage friendly grenades (no chain reaction)
-				}
-				else
-				{
-					if ((i.item()->has<Rectifier>() && i.item()->get<Rectifier>()->team == my_team)
-						|| (i.item()->has<Battery>() && i.item()->get<Battery>()->team == my_team))
-						distance *= 2.0f;
-
-					if (distance < GRENADE_RANGE)
-						i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 6 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1));
-				}
+				distance *= (i.item()->get<AIAgent>()->team == my_team) ? 2.0f : 1.0f;
+				if (distance < GRENADE_RANGE * 0.4f)
+					damage = 3;
+				else if (distance < GRENADE_RANGE * 0.7f)
+					damage = 2;
+				else if (distance < GRENADE_RANGE)
+					damage = 1;
 			}
+			else if (i.item()->has<CoreModule>())
+			{
+				distance *= (i.item()->get<CoreModule>()->team == my_team) ? 2.0f : 1.0f;
+				if (distance < GRENADE_RANGE)
+					damage = 4;
+			}
+			else if (i.item()->has<Turret>())
+			{
+				distance *= (i.item()->get<Turret>()->team == my_team) ? 2.0f : 1.0f;
+				if (distance < GRENADE_RANGE)
+					damage = 8;
+			}
+			else if (i.item()->has<ForceField>())
+			{
+				if (distance < GRENADE_RANGE && i.item()->get<ForceField>()->team != my_team)
+					damage = 16;
+			}
+			else if (i.item()->has<Grenade>() && i.item()->get<Grenade>()->team() == my_team)
+			{
+				// don't damage friendly grenades (no chain reaction)
+			}
+			else
+			{
+				if ((i.item()->has<Rectifier>() && i.item()->get<Rectifier>()->team == my_team)
+					|| (i.item()->has<Battery>() && i.item()->get<Battery>()->team == my_team))
+					distance *= 2.0f;
+
+				if (distance < GRENADE_RANGE)
+					damage = distance < GRENADE_RANGE * 0.5f ? 6 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1);
+			}
+
+			if (damage > 0 && grenade_line_of_sight(my_team, me, pos, i.item()->entity()))
+				i.item()->damage(entity(), damage);
 		}
 	}
 }
@@ -4138,10 +4155,11 @@ void Grenade::update_client_server_all(const Update& u)
 				{
 					if (grenade_trigger_filter(i.item()->entity(), my_team))
 					{
-						r32 distance = (i.item()->get<Transform>()->absolute_pos() - me).length();
+						Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+						r32 distance = (pos - me).length();
 						if (i.item()->has<ForceField>())
 							distance -= FORCE_FIELD_RADIUS;
-						if (distance < GRENADE_RANGE * 0.5f)
+						if (distance < GRENADE_RANGE * 0.5f && grenade_line_of_sight(my_team, me, pos, i.item()->entity()))
 						{
 							countdown = true;
 							break;

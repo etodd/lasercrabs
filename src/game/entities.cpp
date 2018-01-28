@@ -1069,7 +1069,7 @@ void SpawnPoint::update_server_all(const Update& u)
 					if (index != index_last && (index % s32(minion_group_interval / minion_spawn_interval)) <= minion_group)
 					{
 						SpawnPosition pos = j.item()->spawn_position();
-						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, pos.pos, Quat::euler(0, pos.angle, 0), nullptr, j.item()->team);
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, pos.pos, Quat::euler(0, pos.angle, 0), nullptr, nullptr, j.item()->team);
 					}
 				}
 			}
@@ -1295,11 +1295,12 @@ UpgradeStationEntity::UpgradeStationEntity(SpawnPoint* p)
 	view->color.w = MATERIAL_NO_OVERRIDE;
 }
 
-RectifierEntity::RectifierEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat& abs_rot)
+RectifierEntity::RectifierEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat& abs_rot, Transform* parent)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = abs_pos;
 	transform->rot = abs_rot;
+	transform->reparent(parent);
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::rectifier;
@@ -1329,6 +1330,11 @@ Rectifier::Rectifier(AI::Team t, PlayerManager* o)
 
 void Rectifier::awake()
 {
+	if (Transform* parent = get<Transform>()->parent.ref())
+	{
+		if (parent->has<Minion>())
+			parent->get<Minion>()->carrying = entity();
+	}
 	if (!has<Battery>())
 		link_arg<Entity*, &Rectifier::killed_by>(get<Health>()->killed);
 }
@@ -1723,7 +1729,7 @@ void flag_build_force_field(Transform* flag, AI::Team team)
 	Quat abs_rot;
 	flag->absolute(&abs_pos, &abs_rot);
 
-	ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, abs_pos + abs_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), abs_rot, nullptr, team);
+	ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, abs_pos + abs_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), abs_rot, nullptr, nullptr, team);
 }
 
 #define FLAG_RADIUS 0.2f
@@ -2653,6 +2659,11 @@ ForceField::ForceField()
 
 void ForceField::awake()
 {
+	if (Transform* parent = get<Transform>()->parent.ref())
+	{
+		if (parent->has<Minion>())
+			parent->get<Minion>()->carrying = entity();
+	}
 	if (!(flags & FlagPermanent))
 	{
 		link_arg<Entity*, &ForceField::killed>(get<Health>()->killed);
@@ -2871,7 +2882,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 	// collision
 	{
 		Entity* f = World::create<Empty>();
-		f->get<Transform>()->absolute_pos(abs_pos);
+		f->get<Transform>()->parent = transform;
 		ForceFieldCollision* collision = f->add<ForceFieldCollision>();
 		collision->field = field;
 
@@ -3334,6 +3345,7 @@ template<typename Stream> b8 serialize_particle_effect(Stream* p, ParticleEffect
 {
 	serialize_enum(p, ParticleEffect::Type, e->type);
 	serialize_ref(p, e->owner);
+	serialize_ref(p, e->parent);
 	serialize_s8(p, e->team);
 	if (!Net::serialize_position(p, &e->pos, Net::Resolution::Low))
 		net_error();
@@ -3342,7 +3354,7 @@ template<typename Stream> b8 serialize_particle_effect(Stream* p, ParticleEffect
 	return true;
 }
 
-b8 ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot, PlayerManager* owner, AI::Team team)
+b8 ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot, Transform* parent, PlayerManager* owner, AI::Team team)
 {
 	vi_assert(Game::level.local);
 	using Stream = Net::StreamWrite;
@@ -3350,8 +3362,11 @@ b8 ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot, PlayerManager
 
 	ParticleEffect e;
 	e.type = t;
-	e.pos = pos;
-	e.rot = rot;
+	e.pos = e.abs_pos = pos;
+	e.rot = e.abs_rot = rot;
+	if (parent)
+		parent->to_local(&e.pos, &e.rot);
+	e.parent = parent;
 	e.team = team;
 	e.owner = owner;
 	if (!serialize_particle_effect(p, &e))
@@ -3486,10 +3501,15 @@ void ParticleEffect::update_all(const Update& u)
 		}
 		else
 		{
+			e->abs_pos = e->pos;
+			e->abs_rot = e->rot;
+			if (Transform* parent = e->parent.ref())
+				parent->to_world(&e->abs_pos, &e->abs_rot);
+
 			const r32 threshold = SPAWN_EFFECT_LIFETIME - SPAWN_EFFECT_THRESHOLD;
 			if (e->lifetime < threshold && e->lifetime + u.time.delta >= threshold)
 			{
-				EffectLight::add(e->pos, GRENADE_RANGE * 0.5f, 0.75f, EffectLight::Type::Shockwave);
+				EffectLight::add(e->abs_pos, GRENADE_RANGE * 0.5f, 0.75f, EffectLight::Type::Shockwave);
 				if (Game::level.local && (e->owner.ref() || e->type == Type::SpawnMinion || e->type == Type::SpawnForceField))
 				{
 					switch (e->type)
@@ -3499,17 +3519,17 @@ void ParticleEffect::update_all(const Update& u)
 						case Type::SpawnMinion:
 						{
 							AI::Team team = e->owner.ref() ? e->owner.ref()->team.ref()->team() : e->team;
-							Net::finalize(World::create<MinionEntity>(e->pos + Vec3(0, 1, 0), e->rot, team, e->owner.ref()));
+							Net::finalize(World::create<MinionEntity>(e->abs_pos + Vec3(0, 1, 0), e->abs_rot, team, e->owner.ref()));
 							break;
 						}
 						case Type::SpawnForceField:
 						{
 							AI::Team team = e->owner.ref() ? e->owner.ref()->team.ref()->team() : e->team;
-							Net::finalize(World::create<ForceFieldEntity>(nullptr, e->pos, e->rot, team));
+							Net::finalize(World::create<ForceFieldEntity>(e->parent.ref(), e->abs_pos, e->abs_rot, team));
 							break;
 						}
 						case Type::SpawnRectifier:
-							Net::finalize(World::create<RectifierEntity>(e->owner.ref(), e->pos, e->rot));
+							Net::finalize(World::create<RectifierEntity>(e->owner.ref(), e->abs_pos, e->abs_rot, e->parent.ref()));
 							break;
 						default:
 							vi_assert(false);
@@ -3555,21 +3575,21 @@ void ParticleEffect::draw_alpha(const RenderParams& p)
 				case Type::SpawnRectifier:
 				{
 					size = Vec3(height_scale * DRONE_SHIELD_RADIUS * 1.1f);
-					m.make_transform(e.pos, size, Quat::identity);
+					m.make_transform(e.abs_pos, size, Quat::identity);
 					mesh = Asset::Mesh::sphere_highres;
 					break;
 				}
 				case Type::SpawnMinion:
 				{
 					size = Vec3(radius_scale * WALKER_MINION_RADIUS * 1.5f, height_scale * (WALKER_HEIGHT * 2.0f + WALKER_SUPPORT_HEIGHT), radius_scale * WALKER_MINION_RADIUS * 1.5f);
-					m.make_transform(e.pos, size, Quat::identity);
+					m.make_transform(e.abs_pos, size, Quat::identity);
 					mesh = Asset::Mesh::cylinder;
 					break;
 				}
 				case Type::SpawnForceField:
 				{
 					size = Vec3(radius_scale * FORCE_FIELD_BASE_RADIUS * 1.75f, height_scale * (FORCE_FIELD_BASE_OFFSET + DRONE_RADIUS * 2.0f), radius_scale * FORCE_FIELD_BASE_RADIUS * 1.75f);
-					m.make_transform(e.pos + e.rot * Vec3(0, 0, -FORCE_FIELD_BASE_OFFSET), size, e.rot * Quat::euler(0, 0, PI * 0.5f));
+					m.make_transform(e.abs_pos + e.abs_rot * Vec3(0, 0, -FORCE_FIELD_BASE_OFFSET), size, e.abs_rot * Quat::euler(0, 0, PI * 0.5f));
 					mesh = Asset::Mesh::cylinder;
 					break;
 				}
@@ -3776,6 +3796,7 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	create<Audio>();
 
 	Grenade* g = create<Grenade>();
+	g->team = owner->team.ref()->team();
 	g->owner = owner;
 	g->velocity = dir * GRENADE_LAUNCH_SPEED;
 
@@ -3802,13 +3823,22 @@ b8 Grenade::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	using Stream = Net::StreamRead;
 	Ref<Grenade> ref;
 	serialize_ref(p, ref);
-	if (ref.ref())
-	{
-		State state;
-		serialize_enum(p, State, state);
 
+	State state;
+	serialize_enum(p, State, state);
+
+	Ref<Transform> parent;
+	if (state == State::Attached)
+		serialize_ref(p, parent);
+
+	if (Game::level.local == (src == Net::MessageSource::Loopback))
+	{
 		if (state == State::Attached)
+		{
+			if (parent.ref()->has<Minion>())
+				parent.ref()->get<Minion>()->carrying = ref.ref()->entity();
 			ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_ATTACH);
+		}
 		else if (ref.ref()->state == State::Inactive && state == State::Active)
 			ref.ref()->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_ARM);
 
@@ -3832,6 +3862,8 @@ namespace GrenadeNet
 			serialize_ref(p, ref);
 		}
 		serialize_enum(p, Grenade::State, s);
+		if (s == Grenade::State::Attached)
+			serialize_ref(p, g->get<Transform>()->parent);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -3880,7 +3912,7 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, const Net::StateFrame* state_fr
 			Glass::shatter_all(pos, next_pos);
 
 			Bolt::Hit hit;
-			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team())), team(), &hit, &grenade_hit_filter, state_frame, DRONE_SHIELD_RADIUS))
+			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team)), team, &hit, &grenade_hit_filter, state_frame, DRONE_SHIELD_RADIUS))
 			{
 				if (out_hit)
 					*out_hit = hit;
@@ -3900,9 +3932,9 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, const Net::StateFrame* state_fr
 
 void Grenade::hit_entity(const Bolt::Hit& hit, const Net::StateFrame* state_frame)
 {
-	if (grenade_hit_filter(hit.entity, team()))
+	if (grenade_hit_filter(hit.entity, team))
 	{
-		if (hit.entity->has<Minion>() && hit.entity->get<AIAgent>()->team == team())
+		if (hit.entity->has<Minion>() && hit.entity->get<AIAgent>()->team == team)
 		{
 			// check if minion already has a grenade attached to it
 			b8 attach = true;
@@ -3925,8 +3957,7 @@ void Grenade::hit_entity(const Bolt::Hit& hit, const Net::StateFrame* state_fram
 				get<Transform>()->parent = hit.entity->get<Transform>();
 				get<Transform>()->pos = Vec3::zero;
 				get<Transform>()->rot = Quat::identity;
-				if (state != State::Attached)
-					GrenadeNet::send_state_change(this, State::Attached);
+				GrenadeNet::send_state_change(this, State::Attached);
 			}
 			else
 			{
@@ -3966,8 +3997,14 @@ void Grenade::hit_entity(const Bolt::Hit& hit, const Net::StateFrame* state_fram
 	}
 }
 
-b8 grenade_line_of_sight(AI::Team my_team, const Vec3& me, const Vec3& pos, const Entity* target)
+b8 grenade_line_of_sight(Entity* grenade, AI::Team my_team, const Vec3& me, const Vec3& pos, const Entity* target)
 {
+	if (grenade == target)
+		return false;
+
+	if (btVector3(me - pos).fuzzyZero())
+		return true;
+
 	b8 line_of_sight = true;
 	btCollisionWorld::ClosestRayResultCallback ray_callback(me, pos);
 	Physics::raycast(&ray_callback, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(my_team)));
@@ -3995,8 +4032,6 @@ void Grenade::explode()
 	Vec3 me = get<Transform>()->absolute_pos();
 	ParticleEffect::spawn(ParticleEffect::Type::Grenade, me, Quat::look(Vec3(0, 1, 0))); // also handles physics impulses
 
-	AI::Team my_team = team();
-
 	for (auto i = Glass::list.iterator(); !i.is_last(); i.next())
 	{
 		Vec3 pos = i.item()->get<Transform>()->absolute_pos();
@@ -4018,7 +4053,7 @@ void Grenade::explode()
 			s8 damage = 0;
 			if (i.item()->has<Drone>())
 			{
-				distance *= (i.item()->get<AIAgent>()->team == my_team) ? 2.0f : 1.0f;
+				distance *= (i.item()->get<AIAgent>()->team == team) ? 2.0f : 1.0f;
 				if (distance < GRENADE_RANGE * 0.4f)
 					damage = 3;
 				else if (distance < GRENADE_RANGE * 0.7f)
@@ -4028,36 +4063,36 @@ void Grenade::explode()
 			}
 			else if (i.item()->has<CoreModule>())
 			{
-				distance *= (i.item()->get<CoreModule>()->team == my_team) ? 2.0f : 1.0f;
+				distance *= (i.item()->get<CoreModule>()->team == team) ? 2.0f : 1.0f;
 				if (distance < GRENADE_RANGE)
 					damage = 4;
 			}
 			else if (i.item()->has<Turret>())
 			{
-				distance *= (i.item()->get<Turret>()->team == my_team) ? 2.0f : 1.0f;
+				distance *= (i.item()->get<Turret>()->team == team) ? 2.0f : 1.0f;
 				if (distance < GRENADE_RANGE)
 					damage = 8;
 			}
 			else if (i.item()->has<ForceField>())
 			{
-				if (distance < GRENADE_RANGE && i.item()->get<ForceField>()->team != my_team)
+				if (distance < GRENADE_RANGE && i.item()->get<ForceField>()->team != team)
 					damage = 16;
 			}
-			else if (i.item()->has<Grenade>() && i.item()->get<Grenade>()->team() == my_team)
+			else if (i.item()->has<Grenade>() && i.item()->get<Grenade>()->team == team)
 			{
 				// don't damage friendly grenades (no chain reaction)
 			}
 			else
 			{
-				if ((i.item()->has<Rectifier>() && i.item()->get<Rectifier>()->team == my_team)
-					|| (i.item()->has<Battery>() && i.item()->get<Battery>()->team == my_team))
+				if ((i.item()->has<Rectifier>() && i.item()->get<Rectifier>()->team == team)
+					|| (i.item()->has<Battery>() && i.item()->get<Battery>()->team == team))
 					distance *= 2.0f;
 
 				if (distance < GRENADE_RANGE)
 					damage = distance < GRENADE_RANGE * 0.5f ? 6 : (distance < GRENADE_RANGE * 0.75f ? 3 : 1);
 			}
 
-			if (damage > 0 && grenade_line_of_sight(my_team, me, pos, i.item()->entity()))
+			if (damage > 0 && grenade_line_of_sight(entity(), team, me, pos, i.item()->entity()))
 				i.item()->damage(entity(), damage);
 		}
 	}
@@ -4067,14 +4102,6 @@ void Grenade::set_owner(PlayerManager* m)
 {
 	// not synced over network
 	owner = m;
-	get<View>()->team = m ? s8(m->team.ref()->team()) : AI::TeamNone;
-	if (!m)
-		state = State::Inactive;
-}
-
-AI::Team Grenade::team() const
-{
-	return owner.ref() ? owner.ref()->team.ref()->team() : AI::TeamNone;
 }
 
 r32 Grenade::particle_accumulator;
@@ -4144,22 +4171,21 @@ void Grenade::update_client_server_all(const Update& u)
 			}
 
 			Vec3 me = transform->absolute_pos();
-			AI::Team my_team = i.item()->team();
 
 			b8 countdown = false;
 			if (i.item()->timer > GRENADE_DELAY * 0.5f) // once the countdown is past 50%, it's irreversible
 				countdown = true;
 			else
 			{
-				for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+				for (auto j = Health::list.iterator(); !j.is_last(); j.next())
 				{
-					if (grenade_trigger_filter(i.item()->entity(), my_team))
+					if (grenade_trigger_filter(j.item()->entity(), i.item()->team))
 					{
-						Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+						Vec3 pos = j.item()->get<Transform>()->absolute_pos();
 						r32 distance = (pos - me).length();
-						if (i.item()->has<ForceField>())
+						if (j.item()->has<ForceField>())
 							distance -= FORCE_FIELD_RADIUS;
-						if (distance < GRENADE_RANGE * 0.5f && grenade_line_of_sight(my_team, me, pos, i.item()->entity()))
+						if (distance < GRENADE_RANGE * 0.5f && grenade_line_of_sight(i.item()->entity(), i.item()->team, me, pos, j.item()->entity()))
 						{
 							countdown = true;
 							break;

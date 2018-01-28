@@ -770,7 +770,7 @@ void entity_info(const Entity* e, Team query_team, Team* team, s8* type)
 	else if (e->has<Grenade>())
 	{
 		b8 attached = e->get<Transform>()->parent.ref();
-		_team = e->get<Grenade>()->team();
+		_team = e->get<Grenade>()->team;
 		if (_team == query_team)
 			_type = attached ? RecordedLife::EntityGrenadeFriendAttached : RecordedLife::EntityGrenadeFriendDetached;
 		else

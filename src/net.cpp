@@ -501,6 +501,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		Minion* m = e->get<Minion>();
 		serialize_ref(p, m->owner);
+		serialize_ref(p, m->carrying);
 	}
 
 	if (e->has<Turret>())
@@ -664,6 +665,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Grenade* g = e->get<Grenade>();
 		serialize_ref(p, g->owner);
 		serialize_enum(p, Grenade::State, g->state);
+		serialize_s8(p, g->team);
 	}
 
 	if (e->has<Battery>())
@@ -4853,7 +4855,7 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		}
 		case MessageType::Grenade:
 		{
-			if (!Grenade::net_msg(p, MessageSource::Remote))
+			if (!Grenade::net_msg(p, src))
 				net_error();
 			break;
 		}

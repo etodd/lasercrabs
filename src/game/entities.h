@@ -202,7 +202,7 @@ struct UpgradeStationEntity : public Entity
 
 struct RectifierEntity : public Entity
 {
-	RectifierEntity(PlayerManager*, const Vec3&, const Quat&);
+	RectifierEntity(PlayerManager*, const Vec3&, const Quat&, Transform* = nullptr);
 };
 
 struct Rectifier : public ComponentType<Rectifier>
@@ -552,16 +552,19 @@ struct ParticleEffect
 
 	static Array<ParticleEffect> list;
 
-	static b8 spawn(Type, const Vec3&, const Quat&, PlayerManager* = nullptr, AI::Team = AI::TeamNone);
+	static b8 spawn(Type, const Vec3&, const Quat&, Transform* = nullptr, PlayerManager* = nullptr, AI::Team = AI::TeamNone);
 	static b8 net_msg(Net::StreamRead*);
 	static void update_all(const Update&);
 	static void clear();
 	static b8 is_spawn_effect(Type);
 	static void draw_alpha(const RenderParams&);
 
-	Vec3 pos;
 	Quat rot;
+	Quat abs_rot;
+	Vec3 pos;
+	Vec3 abs_pos;
 	r32 lifetime;
+	Ref<Transform> parent;
 	Ref<PlayerManager> owner;
 	AI::Team team;
 	Type type;
@@ -591,6 +594,7 @@ struct Grenade : public ComponentType<Grenade>
 	Vec3 velocity;
 	r32 timer;
 	Ref<PlayerManager> owner;
+	AI::Team team;
 	State state;
 
 	void awake();
@@ -598,7 +602,6 @@ struct Grenade : public ComponentType<Grenade>
 	void hit_by(const TargetEvent&);
 	void hit_entity(const Bolt::Hit&, const Net::StateFrame* = nullptr);
 	void killed_by(Entity*);
-	AI::Team team() const;
 	void explode();
 	void set_owner(PlayerManager*);
 

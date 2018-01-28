@@ -2935,7 +2935,7 @@ Entity* PlayerCommon::incoming_attacker() const
 	// check grenades
 	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team() != my_team && i.item()->state != Grenade::State::Exploded)
+		if (i.item()->team != my_team && i.item()->state != Grenade::State::Exploded)
 		{
 			Vec3 grenade_pos = i.item()->get<Transform>()->absolute_pos();
 			if ((grenade_pos - me).length_squared() < GRENADE_RANGE * GRENADE_RANGE)
@@ -3407,7 +3407,7 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 	// grenades
 	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team() != team)
+		if (i.item()->team != team)
 			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Grenade);
 	}
 
@@ -5094,7 +5094,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		// highlight enemy grenades in-air
 		for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->team() != team
+			if (i.item()->team != team
 				&& !i.item()->get<Transform>()->parent.ref())
 			{
 				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
@@ -5106,7 +5106,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					UI::indicator(params, pos, Team::ui_color_enemy(), true);
 
 					UIText text;
-					text.color = Team::ui_color(team, i.item()->team());
+					text.color = Team::ui_color(team, i.item()->team);
 					text.text(player.ref()->gamepad, _(strings::grenade_incoming));
 					text.anchor_x = UIText::Anchor::Center;
 					text.anchor_y = UIText::Anchor::Center;

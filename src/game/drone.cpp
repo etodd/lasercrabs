@@ -805,7 +805,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					// place a rectifier
 					if (Game::level.local)
-						ParticleEffect::spawn(ParticleEffect::Type::SpawnRectifier, pos + rot * Vec3(0, 0, RECTIFIER_RADIUS), rot, manager);
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnRectifier, pos + rot * Vec3(0, 0, RECTIFIER_RADIUS), rot, parent->has<Minion>() ? parent->get<Transform>() : nullptr, manager);
 
 					// effects
 					particle_trail(my_pos, pos);
@@ -818,7 +818,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					// spawn a force field
 					if (Game::level.local)
-						ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, pos + rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), rot, manager);
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, pos + rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), rot, parent->has<Minion>() ? parent->get<Transform>() : nullptr, manager);
 
 					// effects
 					particle_trail(my_pos, pos);
@@ -1500,9 +1500,7 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, const Net::StateFrame* state_fra
 	else
 	{
 		// build-type ability
-		if (ray_callback.hit
-			&& !ray_callback.entity->has<Target>()
-			&& !(ray_callback.entity->get<RigidBody>()->collision_group & (DRONE_INACCESSIBLE_MASK | CollisionGlass)))
+		if (ray_callback.hit)
 		{
 			{
 				// check if this thing we're building will intersect with an invincible force field
@@ -1511,44 +1509,52 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, const Net::StateFrame* state_fra
 					return false;
 			}
 
-			// make sure there's enough room
-			Vec3 space_check_pos = ray_callback.pos;
-			Vec3 space_check_dir = ray_callback.normal;
-			r32 required_space;
-			switch (a)
+			if (ray_callback.entity->has<Minion>())
+				return true;
+			else if (ray_callback.entity->has<Target>()
+				|| (ray_callback.entity->get<RigidBody>()->collision_group & (DRONE_INACCESSIBLE_MASK | CollisionGlass)))
+				return false;
+			else
 			{
-				case Ability::ForceField:
-					required_space = FORCE_FIELD_BASE_OFFSET;
-					break;
-				case Ability::Rectifier:
-					required_space = DRONE_SHIELD_RADIUS;
-					break;
-				default:
+				// make sure there's enough room
+				Vec3 space_check_pos = ray_callback.pos;
+				Vec3 space_check_dir = ray_callback.normal;
+				r32 required_space;
+				switch (a)
 				{
-					required_space = 0.0f;
-					vi_assert(false);
-					break;
+					case Ability::ForceField:
+						required_space = FORCE_FIELD_BASE_OFFSET;
+						break;
+					case Ability::Rectifier:
+						required_space = DRONE_SHIELD_RADIUS;
+						break;
+					default:
+					{
+						required_space = 0.0f;
+						vi_assert(false);
+						break;
+					}
 				}
-			}
 
-			space_check_pos += space_check_dir * 0.01f;
+				space_check_pos += space_check_dir * 0.01f;
 
-			Vec3 ray_hit = ray_callback.pos + ray_callback.normal * 0.01f;
-			if ((space_check_pos - ray_hit).length_squared() > 0.01f * 0.01f)
-			{
-				RaycastCallbackExcept physics_ray_callback(ray_hit, space_check_pos, entity());
-				Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & ~ally_force_field_mask());
-				if (physics_ray_callback.hasHit())
-					return false; // something in the way
-			}
+				Vec3 ray_hit = ray_callback.pos + ray_callback.normal * 0.01f;
+				if ((space_check_pos - ray_hit).length_squared() > 0.01f * 0.01f)
+				{
+					RaycastCallbackExcept physics_ray_callback(ray_hit, space_check_pos, entity());
+					Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & ~ally_force_field_mask());
+					if (physics_ray_callback.hasHit())
+						return false; // something in the way
+				}
 
-			{
-				RaycastCallbackExcept physics_ray_callback(space_check_pos, space_check_pos + space_check_dir * required_space, entity());
-				Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & ~ally_force_field_mask());
-				if (physics_ray_callback.hasHit())
-					return false; // not enough space
+				{
+					RaycastCallbackExcept physics_ray_callback(space_check_pos, space_check_pos + space_check_dir * required_space, entity());
+					Physics::raycast(&physics_ray_callback, ~CollisionDroneIgnore & ~ally_force_field_mask());
+					if (physics_ray_callback.hasHit())
+						return false; // not enough space
+				}
+				return true;
 			}
-			return true;
 		}
 		else // nowhere to build
 			return false;
@@ -2965,7 +2971,7 @@ b8 Drone::should_collide(const Target* target, const Net::StateFrame* state_fram
 		return (!target->has<Rectifier>() || target->get<Rectifier>()->team != my_team) // ignore friendly rectifiers
 			&& (!target->has<ForceField>() || target->get<ForceField>()->team != my_team) // ignore friendly force fields
 			&& (!target->has<Minion>() || target->get<AIAgent>()->team != my_team) // ignore friendly minions
-			&& (!target->has<Grenade>() || target->get<Grenade>()->team() != my_team || current_ability == Ability::Sniper); // ignore friendly grenades unless we're sniping them
+			&& (!target->has<Grenade>() || target->get<Grenade>()->team != my_team || current_ability == Ability::Sniper); // ignore friendly grenades unless we're sniping them
 	}
 }
 

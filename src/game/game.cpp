@@ -864,18 +864,19 @@ void Game::add_local_player(s8 gamepad)
 // return true if this entity's transform needs synced over the network
 b8 Game::net_transform_filter(const Entity* t, Mode mode)
 {
-	// energy pickups are not synced in parkour mode
-
-	const ComponentMask mask =
+	return t->component_mask &
 	(
 		Drone::component_mask
+		| Grenade::component_mask
+		| Rectifier::component_mask
+		| ForceField::component_mask
 		| Bolt::component_mask
 		| Minion::component_mask
-		| Grenade::component_mask
 		| Flag::component_mask
 		| Battery::component_mask
+		| ForceField::component_mask
+		| Rectifier::component_mask
 	);
-	return t->component_mask & mask;
 }
 
 #if SERVER
@@ -1938,7 +1939,10 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				|| (!is_team_spawn && session.config.ruleset.enable_batteries))
 				entity = World::alloc<SpawnPointEntity>(team, Json::get_s32(element, "visible", 1));
 			else
+			{
 				entity = World::alloc<StaticGeom>(Asset::Mesh::spawn_collision, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+				entity->get<View>()->mesh = Asset::Mesh::spawn_dressing;
+			}
 		}
 		else if (cJSON_HasObjectItem(element, "FlagBase"))
 		{

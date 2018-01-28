@@ -413,7 +413,7 @@ Entity* closest_target(Minion* me, AI::Team team)
 	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 	{
 		Grenade* item = i.item();
-		if (item->team() != team)
+		if (item->team != team)
 		{
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
@@ -548,7 +548,7 @@ Entity* visible_target(Minion* me, AI::Team team)
 		for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 		{
 			Grenade* grenade = i.item();
-			if (grenade->team() != team && me->can_see(grenade->entity()))
+			if (grenade->team != team && me->can_see(grenade->entity()))
 				return grenade->entity();
 		}
 
@@ -708,7 +708,6 @@ void Minion::update_server(const Update& u)
 							if (!g->get<Target>()->predict_intersection(hand_pos, BOLT_SPEED_MINION, nullptr, &aim_pos))
 								aim_pos = g->get<Target>()->absolute_pos();
 							turn_to(aim_pos);
-							path.length = 0;
 
 							Animator::Layer* anim_layer = &get<Animator>()->layers[0];
 
@@ -719,15 +718,24 @@ void Minion::update_server(const Update& u)
 							{
 								if ((aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
 								{
+									path.length = 0;
 									anim_layer->speed = 1.0f;
 									anim_layer->behavior = Animator::Behavior::Default;
 									anim_layer->play(Asset::Animation::character_melee);
 									attack_timer = 0.0f;
 								}
-								else if (can_attack)
-									fire(aim_pos);
-								else if (attack_timer == 0.0f)
-									attack_timer = MINION_ATTACK_TIME;
+								else
+								{
+									Entity* c = carrying.ref();
+									if (!c || !c->has<Grenade>()) // if we're carrying a grenade, never do ranged attacks
+									{
+										path.length = 0;
+										if (can_attack)
+											fire(aim_pos);
+										else if (attack_timer == 0.0f)
+											attack_timer = MINION_ATTACK_TIME;
+									}
+								}
 							}
 						}
 					}
@@ -763,6 +771,7 @@ void Minion::update_server(const Update& u)
 		const Animator::Layer& layer = get<Animator>()->layers[0];
 		if (path_index < path.length
 			&& layer.animation != Asset::Animation::character_fire
+			&& layer.animation != Asset::Animation::character_aim
 			&& layer.animation != Asset::Animation::character_melee)
 		{
 			Vec3 flat_pos = pos;

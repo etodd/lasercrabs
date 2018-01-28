@@ -65,6 +65,7 @@ struct Minion : public ComponentType<Minion>
 	r32 target_scan_timer;
 	u32 obstacle_id = u32(-1);
 	Ref<PlayerManager> owner;
+	Ref<Entity> carrying;
 	s8 path_index;
 	b8 charging;
 	PathRequest path_request;

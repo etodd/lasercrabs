@@ -1,3 +1,4 @@
+cd "%~dp0"
 cd ..
 rm -rf final
 mkdir final

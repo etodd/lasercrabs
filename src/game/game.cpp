@@ -695,9 +695,12 @@ void Game::update(InputState* input, const InputState* last_input)
 				i.item()->update_client(u);
 			for (auto i = Glass::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_client(u);
-			Bolt::update_client_all(u);
-			Turret::update_client_all(u);
 		}
+
+#if !SERVER
+		Bolt::update_client_all(u);
+		Turret::update_client_all(u);
+#endif
 
 		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);

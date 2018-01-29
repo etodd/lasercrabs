@@ -714,8 +714,7 @@ void Minion::update_server(const Update& u)
 
 							Animator::Layer* anim_layer = &get<Animator>()->layers[0];
 
-							if (fabsf(LMath::angle_to(get<Walker>()->target_rotation, get<Walker>()->rotation)) < PI * 0.05f // make sure we're looking at the target
-								&& target_timer > MINION_ATTACK_TIME * 0.25f // give some reaction time
+							if (target_timer > MINION_ATTACK_TIME * 0.25f // give some reaction time
 								&& anim_layer->animation != Asset::Animation::character_melee
 								&& Team::match_state == Team::MatchState::Active)
 							{
@@ -729,7 +728,8 @@ void Minion::update_server(const Update& u)
 								}
 								else if (!has_grenade())
 								{
-									if (can_attack)
+									if (can_attack
+										&& fabsf(LMath::angle_to(get<Walker>()->target_rotation, get<Walker>()->rotation)) < PI * 0.05f) // make sure we're looking at the target
 										fire(aim_pos);
 									else if (attack_timer == 0.0f)
 										attack_timer = MINION_ATTACK_TIME;

@@ -1481,7 +1481,7 @@ void Rectifier::update_all(const Update& u)
 
 			for (auto j = ForceField::list.iterator(); !j.is_last(); j.next())
 			{
-				if (!(j.item()->flags & ForceField::FlagPermanent) && j.item()->team == i.item()->team)
+				if (!(j.item()->flags & (ForceField::FlagPermanent | ForceField::FlagInvincible)) && j.item()->team == i.item()->team)
 					rectifier_update(i.index, me, j.item()->entity(), owner);
 			}
 
@@ -2775,7 +2775,7 @@ void ForceField::killed(Entity* e)
 		PlayerManager::entity_killed_by(entity(), e);
 	}
 
-	if (!(flags & FlagPermanent))
+	if (has<View>())
 	{
 		if (Game::level.local)
 		{

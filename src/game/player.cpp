@@ -1639,7 +1639,7 @@ r32 ability_draw(const RenderParams& params, const PlayerManager* manager, const
 	if (mode == AbilityDrawMode::UpgradeMenu)
 		color = manager->get<PlayerHuman>()->ability_upgrade_slot == index - 1 ? &UI::color_default : &UI::color_accent();
 	else if (index > 0 && Game::real_time.total - manager->ability_flash_time[index - 1] < msg_time)
-		color = UI::flash_function(Game::time.total) ? &UI::color_default : &UI::color_background;
+		color = UI::flash_function(Game::real_time.total) ? &UI::color_default : &UI::color_background;
 	else if (info.type == AbilityInfo::Type::Passive)
 		color = &UI::color_disabled();
 	else if (!manager->ability_valid(ability) || !manager->instance.ref()->get<PlayerCommon>()->movement_enabled())
@@ -4997,7 +4997,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				break;
 			case TargetIndicator::Type::TurretAttacking:
 			{
-				if (UI::flash_function(Game::time.total))
+				if (UI::flash_function(Game::real_time.total))
 					UI::indicator(params, indicator.pos, UI::color_alert(), true);
 				break;
 			}
@@ -5052,7 +5052,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 						if (i.item()->target.ref() == entity())
 						{
-							if (UI::flash_function(Game::time.total))
+							if (UI::flash_function(Game::real_time.total))
 								UI::indicator(params, turret_pos, Team::ui_color_enemy(), true);
 							enemy_visible = true;
 						}
@@ -5463,7 +5463,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
 			text.draw(params, ui_anchor);
 		}
-		else if (danger && (is_vulnerable ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total)))
+		else if (danger && (is_vulnerable ? UI::flash_function(Game::time.total) : UI::flash_function_slow(Game::time.total)))
 		{
 			// danger indicator
 			text.color = UI::color_alert();
@@ -5476,7 +5476,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		// shield indicator
 		if (is_vulnerable)
 		{
-			if (danger ? UI::flash_function(Game::real_time.total) : UI::flash_function_slow(Game::real_time.total))
+			if (danger ? UI::flash_function(Game::time.total) : UI::flash_function_slow(Game::time.total))
 			{
 				text.color = UI::color_alert();
 				text.text(player.ref()->gamepad, _(strings::shield_down));
@@ -5486,12 +5486,12 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 			if (danger)
 			{
-				if (UI::flash_function(Game::real_time.total) && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
+				if (UI::flash_function(Game::time.total) && !UI::flash_function(Game::time.total - Game::time.delta))
 					Audio::post_global(AK::EVENTS::PLAY_UI_SHIELD_DOWN_BEEP);
 			}
 			else
 			{
-				if (UI::flash_function_slow(Game::real_time.total) && !UI::flash_function_slow(Game::real_time.total - Game::real_time.delta))
+				if (UI::flash_function_slow(Game::time.total) && !UI::flash_function_slow(Game::time.total - Game::time.delta))
 					Audio::post_global(AK::EVENTS::PLAY_DANGER_BEEP);
 			}
 		}

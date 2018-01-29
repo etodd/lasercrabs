@@ -677,20 +677,6 @@ void pathfind(const NavGameState& nav_game_state, AI::Team team, const Vec3& a, 
 
 		if (path->length > 1)
 			path->remove_ordered(0);
-
-		if (path->length > 0)
-		{
-			u32 hash_start = force_field_hash(nav_game_state, team, start);
-			for (s32 i = 0; i < path->length; i++)
-			{
-				if (force_field_hash(nav_game_state, team, (*path)[i]) != hash_start)
-				{
-					// path goes through an enemy force field
-					path->length = 0;
-					break;
-				}
-			}
-		}
 	}
 }
 

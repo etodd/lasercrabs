@@ -1,0 +1,12 @@
+"DepotBuildConfig"
+{
+	"DepotID" "728101"
+	"ContentRoot" "../final"
+	"FileMapping"
+	{
+		"LocalPath" "*"
+		"DepotPath" "."
+		"recursive" "1"
+	}
+	"FileExclusion" "build.txt"
+}

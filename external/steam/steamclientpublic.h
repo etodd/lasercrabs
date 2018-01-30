@@ -135,6 +135,8 @@ enum EResult
 	k_EResultTooManyPending = 108,				// There are too many of this thing pending already
 	k_EResultNoSiteLicensesFound = 109,			// No site licenses found
 	k_EResultWGNetworkSendExceeded = 110,		// the WG couldn't send a response because we exceeded max network send size
+	k_EResultAccountNotFriends = 111,			// the user is not mutually friends
+	k_EResultLimitedUserAccount = 112,			// the user is limited
 };
 
 // Error codes for use with the voice functions
@@ -277,6 +279,7 @@ enum EAppOwnershipFlags
 
 //-----------------------------------------------------------------------------
 // Purpose: designed as flags to allow filters masks
+// NOTE: If you add to this, please update PackageAppType (SteamConfig) as well as populatePackageAppType 
 //-----------------------------------------------------------------------------
 enum EAppType
 {
@@ -508,6 +511,25 @@ enum EVRHMDType
 	k_eEVRHMDType_Oculus_Rift = 23, // Oculus rift
 
 	k_eEVRHMDType_Oculus_Unknown = 40, // // Oculus unknown HMD
+
+	k_eEVRHMDType_Acer_Unknown = 50, // Acer unknown HMD
+	k_eEVRHMDType_Acer_WindowsMR = 51, // Acer QHMD Windows MR headset
+
+	k_eEVRHMDType_Dell_Unknown = 60, // Dell unknown HMD
+	k_eEVRHMDType_Dell_Visor = 61, // Dell Visor Windows MR headset
+
+	k_eEVRHMDType_Lenovo_Unknown = 70, // Lenovo unknown HMD
+	k_eEVRHMDType_Lenovo_Explorer = 71, // Lenovo Explorer Windows MR headset
+
+	k_eEVRHMDType_HP_Unknown = 80, // HP unknown HMD
+	k_eEVRHMDType_HP_WindowsMR = 81, // HP Windows MR headset
+
+	k_eEVRHMDType_Samsung_Unknown = 90, // Samsung unknown HMD
+	k_eEVRHMDType_Samsung_Odyssey = 91, // Samsung Odyssey Windows MR headset
+
+	k_eEVRHMDType_Unannounced_Unknown = 100, // Unannounced unknown HMD
+	k_eEVRHMDType_Unannounced_WindowsMR = 101, // Unannounced Windows MR headset
+
 };
 
 
@@ -517,6 +539,15 @@ enum EVRHMDType
 static inline bool BIsOculusHMD( EVRHMDType eType )
 {
 	return eType == k_eEVRHMDType_Oculus_DK1 || eType == k_eEVRHMDType_Oculus_DK2 || eType == k_eEVRHMDType_Oculus_Rift || eType == k_eEVRHMDType_Oculus_Unknown;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: true if this is from a Windows MR HMD
+//-----------------------------------------------------------------------------
+static inline bool BIsWindowsMRHeadset( EVRHMDType eType )
+{
+	return eType >= k_eEVRHMDType_Acer_WindowsMR && eType <= k_eEVRHMDType_Unannounced_WindowsMR;
 }
 
 

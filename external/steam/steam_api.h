@@ -23,7 +23,6 @@
 #include "isteammusic.h"
 #include "isteammusicremote.h"
 #include "isteamhttp.h"
-#include "isteamunifiedmessages.h"
 #include "isteamcontroller.h"
 #include "isteamugc.h"
 #include "isteamapplist.h"
@@ -115,7 +114,6 @@ inline ISteamMatchmakingServers *SteamMatchmakingServers();
 inline ISteamRemoteStorage *SteamRemoteStorage();
 inline ISteamScreenshots *SteamScreenshots();
 inline ISteamHTTP *SteamHTTP();
-inline ISteamUnifiedMessages *SteamUnifiedMessages();
 inline ISteamController *SteamController();
 inline ISteamUGC *SteamUGC();
 inline ISteamAppList *SteamAppList();
@@ -149,7 +147,6 @@ public:
 	ISteamRemoteStorage* SteamRemoteStorage() const			{ return m_pSteamRemoteStorage; }
 	ISteamScreenshots*	SteamScreenshots() const			{ return m_pSteamScreenshots; }
 	ISteamHTTP*			SteamHTTP() const					{ return m_pSteamHTTP; }
-	ISteamUnifiedMessages* SteamUnifiedMessages() const		{ return m_pSteamUnifiedMessages; }
 	ISteamController*	SteamController() const				{ return m_pController; }
 	ISteamUGC*			SteamUGC() const					{ return m_pSteamUGC; }
 	ISteamAppList*		SteamAppList() const				{ return m_pSteamAppList; }
@@ -173,7 +170,6 @@ private:
 	ISteamRemoteStorage *m_pSteamRemoteStorage;
 	ISteamScreenshots	*m_pSteamScreenshots;
 	ISteamHTTP			*m_pSteamHTTP;
-	ISteamUnifiedMessages *m_pSteamUnifiedMessages;
 	ISteamController	*m_pController;
 	ISteamUGC			*m_pSteamUGC;
 	ISteamAppList		*m_pSteamAppList;

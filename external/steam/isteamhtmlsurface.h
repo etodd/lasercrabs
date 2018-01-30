@@ -451,6 +451,15 @@ CALLBACK_MEMBER( 0, HHTMLBrowser, unBrowserHandle ) // the handle of the surface
 END_DEFINE_CALLBACK_1()
 
 
+//-----------------------------------------------------------------------------
+// Purpose: The browser has restarted due to an internal failure, use this new handle value
+//-----------------------------------------------------------------------------
+DEFINE_CALLBACK( HTML_BrowserRestarted_t, k_iSteamHTMLSurfaceCallbacks + 27 )
+CALLBACK_MEMBER( 0, HHTMLBrowser, unBrowserHandle ) // this is the new browser handle after the restart
+CALLBACK_MEMBER( 1, HHTMLBrowser, unOldBrowserHandle ) // the handle for the browser before the restart, if your handle was this then switch to using unBrowserHandle for API calls
+END_DEFINE_CALLBACK_2()
+
+
 #pragma pack( pop )
 
 

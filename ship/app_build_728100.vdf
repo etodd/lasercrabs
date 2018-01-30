@@ -1,0 +1,14 @@
+"appbuild"
+{
+	"appid" "728100"
+	"desc" "DECEIVER"
+	"setlive" ""
+	"buildoutput" "./cache/"
+	"depots"
+	{
+		"728101" "depot_build_728101.vdf"
+		"728102" "depot_build_728102.vdf"
+		"728103" "depot_build_728103.vdf"
+		"728104" "depot_build_728104.vdf"
+	}
+}

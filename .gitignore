@@ -1,5 +1,7 @@
 /build/
 /final/
+/final-linux/
+/final-mac/
 /pdb/
 /ps/
 __pycache__
@@ -22,3 +24,4 @@ __pycache__
 *.cache
 /src/asset/version.h
 /thirdparty
+ship/cache

@@ -4054,7 +4054,7 @@ void Grenade::hit_entity(const Bolt::Hit& hit, const Net::StateFrame* state_fram
 {
 	if (grenade_hit_filter(hit.entity, team))
 	{
-		if (hit.entity->has<Minion>() && hit.entity->get<AIAgent>()->team == team)
+		if (hit.entity->has<Minion>())
 		{
 			// check if minion already has a grenade attached to it
 			b8 attach = true;
@@ -4077,11 +4077,16 @@ void Grenade::hit_entity(const Bolt::Hit& hit, const Net::StateFrame* state_fram
 				get<Transform>()->parent = hit.entity->get<Transform>();
 				get<Transform>()->pos = Vec3::zero;
 				get<Transform>()->rot = Quat::identity;
+
 				GrenadeNet::send_state_change(this, State::Attached);
 			}
 			else
 			{
 				// bounce off minion
+
+				if (hit.entity->get<AIAgent>()->team != team)
+					timer = vi_max(timer, GRENADE_DELAY - 0.3f); // quick fuse
+
 				velocity = velocity.reflect(hit.normal) * 0.5f;
 				if (state != State::Active)
 					GrenadeNet::send_state_change(this, State::Active);

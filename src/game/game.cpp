@@ -640,11 +640,7 @@ void Game::update(InputState* input, const InputState* last_input)
 		}
 
 		for (auto i = TramRunner::list.iterator(); !i.is_last(); i.next())
-		{
-			if (level.local)
-				i.item()->update_server(u);
-			i.item()->update_client(u);
-		}
+			i.item()->update(u);
 
 		Physics::sync_static();
 
@@ -682,14 +678,12 @@ void Game::update(InputState* input, const InputState* last_input)
 
 			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
-			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
-				i.item()->update_server(u);
 			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
-			for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
 			for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
+				i.item()->update_server(u);
+			for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
+				i.item()->update_server(u);
 			for (auto i = Bolt::list.iterator(); !i.is_last(); i.next())
 				i.item()->simulate(u.time.delta);
 			for (auto i = Flag::list.iterator(); !i.is_last(); i.next())
@@ -698,31 +692,24 @@ void Game::update(InputState* input, const InputState* last_input)
 		else
 		{
 			for (auto i = Flag::list.iterator(); !i.is_last(); i.next())
-				i.item()->update_client_only(u);
+				i.item()->update_client(u);
 			for (auto i = Glass::list.iterator(); !i.is_last(); i.next())
-				i.item()->update_client_only(u);
+				i.item()->update_client(u);
+			Bolt::update_client_all(u);
+			Turret::update_client_all(u);
 		}
 
 		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
-			i.item()->update_client(u);
-		Bolt::update_client_all(u);
-		Turret::update_client_all(u);
-		Minion::update_client_all(u);
-		Grenade::update_client_server_all(u);
+			i.item()->update(u);
+		Minion::update_all(u);
+		Grenade::update_all(u);
 		for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = AirWave::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = UpgradeStation::list.iterator(); !i.is_last(); i.next())
-			i.item()->update_client(u);
-		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
-		{
-			if (level.local || (i.item()->has<PlayerControlHuman>() && i.item()->get<PlayerControlHuman>()->local()))
-				i.item()->update_server(u);
-		}
-		Drone::update_client_all(u);
-		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
+		Drone::update_all(u);
 		for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		Battery::update_all(u);
@@ -731,11 +718,11 @@ void Game::update(InputState* input, const InputState* last_input)
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-			i.item()->update_client(u);
+			i.item()->update(u);
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		{
 			if (!level.local && i.item()->local() && i.item()->has<Walker>())
-				i.item()->get<Walker>()->update(u); // walkers are normally only updated on the server
+				i.item()->get<Walker>()->update_server(u); // walkers are normally only updated on the server
 			i.item()->update(u);
 		}
 		for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
@@ -746,7 +733,7 @@ void Game::update(InputState* input, const InputState* last_input)
 				i.item()->get<Animator>()->update_server(u);
 		}
 
-		Shield::update_client_all(u);
+		Shield::update_all(u);
 
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 			i.item()->update_late(u);

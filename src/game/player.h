@@ -240,7 +240,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	void awake();
 
 	void recoil_add(r32);
-	void update_client(const Update&);
+	void update(const Update&);
 	Entity* incoming_attacker() const;
 	Vec3 look_dir() const;
 	Quat look() const;

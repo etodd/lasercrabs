@@ -299,6 +299,9 @@ r32 entity_cost(const Minion* me, const Vec3& pos, AI::Team team, const Entity* 
 			return FLT_MAX; // can't do it
 	}
 
+	if (target == me->carrying.ref())
+		return FLT_MAX; // can't do it
+
 	Vec3 to_target = target_pos - pos;
 	r32 total_distance;
 
@@ -724,17 +727,12 @@ void Minion::update_server(const Update& u)
 									anim_layer->play(Asset::Animation::character_melee);
 									attack_timer = 0.0f;
 								}
-								else
+								else if (!has_grenade())
 								{
-									Entity* c = carrying.ref();
-									if (!c || !c->has<Grenade>()) // if we're carrying a grenade, never do ranged attacks
-									{
-										path.length = 0;
-										if (can_attack)
-											fire(aim_pos);
-										else if (attack_timer == 0.0f)
-											attack_timer = MINION_ATTACK_TIME;
-									}
+									if (can_attack)
+										fire(aim_pos);
+									else if (attack_timer == 0.0f)
+										attack_timer = MINION_ATTACK_TIME;
 								}
 							}
 						}
@@ -826,27 +824,21 @@ void Minion::update_server(const Update& u)
 		if (layer->animation != Asset::Animation::character_fire
 			&& layer->animation != Asset::Animation::character_melee)
 		{
-			if (get<Walker>()->support.ref() && get<Walker>()->dir.length_squared() > 0.0f)
+			layer->behavior = Animator::Behavior::Loop;
+			if (attack_timer > 0.0f)
+			{
+				layer->speed = 1.0f;
+				layer->play(Asset::Animation::character_aim);
+			}
+			else if (get<Walker>()->support.ref() && get<Walker>()->dir.length_squared() > 0.0f)
 			{
 				r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
 				layer->speed = (net_speed / get<Walker>()->speed) * 1.2f;
-				layer->behavior = Animator::Behavior::Loop;
 				layer->play(Asset::Animation::character_walk);
-			}
-			else if (attack_timer > 0.0f)
-			{
-				if (layer->animation != Asset::Animation::character_aim)
-				{
-					layer->speed = 1.0f;
-					layer->behavior = Animator::Behavior::Loop;
-					layer->animation = Asset::Animation::character_aim;
-					layer->time = 0.0f;
-				}
 			}
 			else
 			{
 				layer->speed = 1.0f;
-				layer->behavior = Animator::Behavior::Loop;
 				layer->play(Asset::Animation::character_idle);
 			}
 		}
@@ -866,8 +858,24 @@ void Minion::fire(const Vec3& target)
 }
 
 r32 Minion::particle_accumulator;
-void Minion::update_client_all(const Update& u)
+void Minion::update_all(const Update& u)
 {
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		Minion* m = i.item();
+
+		if (Game::level.local)
+			m->update_server(u);
+
+		minion_model_offset(&m->get<SkinnedModel>()->offset, m->get<Walker>()->rotation, m->get<Walker>()->capsule_height());
+
+		// update head position
+		{
+			m->get<Target>()->local_offset = Vec3(0.1f, 0, 0);
+			m->get<Animator>()->to_local(Asset::Bone::character_head, &m->get<Target>()->local_offset);
+		}
+	}
+
 #if !SERVER
 	const r32 interval = 0.02f;
 	particle_accumulator += u.time.delta;
@@ -903,18 +911,6 @@ void Minion::update_client_all(const Update& u)
 		}
 	}
 #endif
-
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		Minion* m = i.item();
-		minion_model_offset(&m->get<SkinnedModel>()->offset, m->get<Walker>()->rotation, m->get<Walker>()->capsule_height());
-
-		// update head position
-		{
-			m->get<Target>()->local_offset = Vec3(0.1f, 0, 0);
-			m->get<Animator>()->to_local(Asset::Bone::character_head, &m->get<Target>()->local_offset);
-		}
-	}
 }
 
 void Minion::hit_by(const TargetEvent& e)
@@ -1017,7 +1013,8 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone, b8 check_force_fields) 
 {
 	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth == 1.0f)
 		|| (target->has<Drone>() && target->get<Drone>()->state() != Drone::State::Crawl)
-		|| (target->has<Rectifier>() && target->get<Rectifier>()->stealth))
+		|| (target->has<Rectifier>() && target->get<Rectifier>()->stealth)
+		|| target == carrying.ref())
 		return false;
 
 	Vec3 target_pos = target->get<Target>()->absolute_pos();
@@ -1042,7 +1039,8 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone, b8 check_force_fields) 
 		&& (!limit_vision_cone || Vec3::normalize(diff).dot(get<Walker>()->forward()) > 0.707f)
 		&& (!target->has<Parkour>() || fabsf(diff.y) < MINION_HEARING_RANGE)
 		&& minion_vision_check(get<AIAgent>()->team, head, target_pos, target, check_force_fields)
-		&& minion_vision_check(get<AIAgent>()->team, hand, target_pos, target, check_force_fields);
+		&& minion_vision_check(get<AIAgent>()->team, hand, target_pos, target, check_force_fields)
+		&& (!has_grenade() || (aim_pos(get<Walker>()->rotation) - target_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE); // can only melee if holding a grenade
 }
 
 void Minion::new_goal(b8 allow_entity_target)
@@ -1115,6 +1113,12 @@ void Minion::set_path(const AI::Result& result)
 void Minion::turn_to(const Vec3& target)
 {
 	get<Walker>()->target_rotation = minion_angle_to(this, target);
+}
+
+b8 Minion::has_grenade() const
+{
+	Entity* c = carrying.ref();
+	return c && c->has<Grenade>();
 }
 
 

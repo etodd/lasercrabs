@@ -2853,7 +2853,7 @@ void PlayerCommon::recoil_add(r32 velocity)
 	recoil_velocity = vi_max(recoil_velocity, velocity);
 }
 
-void PlayerCommon::update_client(const Update& u)
+void PlayerCommon::update(const Update& u)
 {
 	recoil_velocity = vi_max(vi_min(-0.1f, recoil * -9.0f), recoil_velocity - 8.0f * u.time.delta);
 	recoil = vi_max(0.0f, recoil + recoil_velocity * u.time.delta);

@@ -44,7 +44,7 @@ struct PlayerAI
 	{
 		return ID(this - &list[0]);
 	}
-	void update(const Update&);
+	void update_server(const Update&);
 	void spawn(const SpawnPosition&);
 	void spawn_callback(const AI::DronePathNode&);
 };
@@ -114,7 +114,7 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	void drone_done_flying_or_dashing();
 	void drone_hit(Entity*);
 	void drone_detaching();
-	void update(const Update&);
+	void update_server(const Update&);
 	const AI::Config& config() const;
 };
 

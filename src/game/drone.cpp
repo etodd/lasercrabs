@@ -805,7 +805,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					// place a rectifier
 					if (Game::level.local)
-						ParticleEffect::spawn(ParticleEffect::Type::SpawnRectifier, pos + rot * Vec3(0, 0, RECTIFIER_RADIUS), rot, parent->has<Minion>() ? parent->get<Transform>() : nullptr, manager);
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnRectifier, pos + rot * Vec3(0, 0, RECTIFIER_RADIUS), rot, parent->get<Transform>(), manager);
 
 					// effects
 					particle_trail(my_pos, pos);
@@ -818,7 +818,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					// spawn a force field
 					if (Game::level.local)
-						ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, pos + rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), rot, parent->has<Minion>() ? parent->get<Transform>() : nullptr, manager);
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, pos + rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), rot, parent->get<Transform>(), manager);
 
 					// effects
 					particle_trail(my_pos, pos);
@@ -2659,10 +2659,14 @@ void Drone::update_server(const Update& u)
 }
 
 r32 Drone::particle_accumulator;
-void Drone::update_client_all(const Update& u)
+void Drone::update_all(const Update& u)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (Game::level.local || (i.item()->has<PlayerControlHuman>() && i.item()->get<PlayerControlHuman>()->local()))
+			i.item()->update_server(u);
 		i.item()->update_client(u);
+	}
 
 	const r32 particle_interval = 0.025f;
 	particle_accumulator += u.time.delta;

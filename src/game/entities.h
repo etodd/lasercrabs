@@ -65,8 +65,7 @@ struct Health : public ComponentType<Health>
 	Health(s8 = 0, s8 = 0, s8 = 0, s8 = 0);
 
 	b8 damage_buffer_required(const Entity*) const;
-	void update_server(const Update&);
-	void update_client(const Update&);
+	void update(const Update&);
 	void awake() {}
 	void damage(Entity*, s8, const Net::StateFrame* = nullptr);
 	void damage_force(Entity*, s8);
@@ -80,7 +79,7 @@ struct Health : public ComponentType<Health>
 
 struct Shield : public ComponentType<Shield>
 {
-	static void update_client_all(const Update&);
+	static void update_all(const Update&);
 
 	Ref<View> inner;
 	Ref<View> outer;
@@ -188,7 +187,7 @@ struct UpgradeStation : public ComponentType<UpgradeStation>
 	Mode mode;
 
 	void awake() {}
-	void update_client(const Update&);
+	void update(const Update&);
 	void drone_enter(Drone*);
 	void drone_exit();
 	void transform(Vec3*, Quat*) const;
@@ -216,6 +215,7 @@ struct Rectifier : public ComponentType<Rectifier>
 	static void update_all(const Update&);
 	static void draw_alpha_all(const RenderParams&);
 
+	Vec3 abs_pos_attached;
 	Ref<PlayerManager> owner;
 	AI::Team team;
 	b8 stealth;
@@ -251,7 +251,7 @@ struct Flag : public ComponentType<Flag>
 	void player_entered_trigger(Entity*);
 	void drop();
 	void update_server(const Update&);
-	void update_client_only(const Update&);
+	void update_client(const Update&);
 };
 
 struct FlagEntity : public Entity
@@ -270,7 +270,7 @@ struct Glass : public ComponentType<Glass>
 
 	void shatter(const Vec3&, const Vec3&);
 
-	void update_client_only(const Update&);
+	void update_client(const Update&);
 };
 
 struct GlassEntity : public Entity
@@ -378,6 +378,7 @@ struct ForceField : public ComponentType<ForceField>
 	{
 		FlagPermanent = 1 << 0,
 		FlagInvincible = 1 << 1,
+		FlagAttached = 1 << 2,
 	};
 
 	enum class Type
@@ -388,6 +389,7 @@ struct ForceField : public ComponentType<ForceField>
 		count,
 	};
 
+	Vec3 abs_pos_attached;
 	r32 spawn_death_timer;
 	r32 damage_timer;
 	Ref<ForceFieldCollision> collision;
@@ -587,7 +589,7 @@ struct Grenade : public ComponentType<Grenade>
 	};
 
 	static r32 particle_accumulator;
-	static void update_client_server_all(const Update&);
+	static void update_all(const Update&);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
 	Vec3 abs_pos_attached;
@@ -772,8 +774,7 @@ struct TramRunner : public ComponentType<TramRunner>
 
 	void awake();
 
-	void update_server(const Update&);
-	void update_client(const Update&);
+	void update(const Update&);
 
 	void set(r32);
 };

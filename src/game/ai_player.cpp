@@ -94,7 +94,7 @@ PlayerAI::PlayerAI(PlayerManager* m, const AI::Config& config)
 	m->spawn.link<PlayerAI, const SpawnPosition&, &PlayerAI::spawn>(this);
 }
 
-void PlayerAI::update(const Update& u)
+void PlayerAI::update_server(const Update& u)
 {
 	if (Team::match_state == Team::MatchState::Done)
 	{
@@ -1302,7 +1302,7 @@ b8 action_can_interrupt(s8 type)
 	return type != AI::RecordedLife::Action::TypeUpgrade;
 }
 
-void PlayerControlAI::update(const Update& u)
+void PlayerControlAI::update_server(const Update& u)
 {
 	if (get<Drone>()->state() == Drone::State::Crawl && Team::match_state == Team::MatchState::Active)
 	{

@@ -46,7 +46,7 @@ struct Walker : public ComponentType<Walker>
 	r32 default_capsule_height() const;
 	void crouch(b8);
 
-	void update(const Update&);
+	void update_server(const Update&);
 };
 
 }

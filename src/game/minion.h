@@ -53,7 +53,7 @@ struct Minion : public ComponentType<Minion>
 
 	static Minion* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static s32 count(AI::TeamMask);
-	static void update_client_all(const Update&);
+	static void update_all(const Update&);
 	static Vec3 goal_path_position(const Goal&, const Vec3&);
 
 	Goal goal;
@@ -91,6 +91,7 @@ struct Minion : public ComponentType<Minion>
 	void killed(Entity*);
 	void update_server(const Update&);
 	void team(AI::Team);
+	b8 has_grenade() const;
 
 	b8 can_see(Entity*, b8 = false, b8 = true) const;
 

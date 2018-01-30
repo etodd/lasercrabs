@@ -168,7 +168,7 @@ void update_net_speed(const Update& u, Walker* w, const Vec3& v, const Vec3& sup
 	}
 }
 
-void Walker::update(const Update& u)
+void Walker::update_server(const Update& u)
 {
 	support = nullptr;
 

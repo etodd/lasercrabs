@@ -180,60 +180,62 @@ void health_internal_apply_damage(Health* h, Entity* e, s8 damage)
 	}
 }
 
-void Health::update_server(const Update& u)
+void Health::update(const Update& u)
 {
-	if (shield < shield_max)
+	if (Game::level.local)
 	{
-		r32 old_timer = regen_timer;
-		regen_timer -= u.time.delta;
-		if (regen_timer < SHIELD_REGEN_TIME)
+		// regen
+		if (shield < shield_max)
 		{
-			const r32 regen_interval = SHIELD_REGEN_TIME / r32(shield_max);
-			if (s32(old_timer / regen_interval) != s32(regen_timer / regen_interval))
+			r32 old_timer = regen_timer;
+			regen_timer -= u.time.delta;
+			if (regen_timer < SHIELD_REGEN_TIME)
 			{
-				HealthEvent e =
+				const r32 regen_interval = SHIELD_REGEN_TIME / r32(shield_max);
+				if (s32(old_timer / regen_interval) != s32(regen_timer / regen_interval))
 				{
-					nullptr,
-					0,
-					1,
-				};
-				health_send_event(this, &e);
-			}
-		}
-	}
-
-	for (s32 i = 0; i < damage_buffer.length; i++)
-	{
-		BufferedDamage* entry = &damage_buffer[i];
-		entry->delay -= u.time.delta;
-		if (entry->delay < 0.0f) // IT'S TIME
-		{
-			Entity* src = entry->source.ref();
-			if (src)
-			{
-				if (src->has<Bolt>())
-				{
-					if (active_armor())
-						src->get<Bolt>()->reflect(entity());
-					else
+					HealthEvent e =
 					{
-						health_internal_apply_damage(this, src, entry->damage);
-						World::remove_deferred(src);
-					}
+						nullptr,
+						0,
+						1,
+					};
+					health_send_event(this, &e);
 				}
-				else if (active_armor() && src->has<Drone>() && entry->type != BufferedDamage::Type::Sniper) // damage them back
-					src->get<Health>()->damage_force(entity(), ACTIVE_ARMOR_DIRECT_DAMAGE);
-				else
-					health_internal_apply_damage(this, src, entry->damage);
 			}
-			damage_buffer.remove(i);
-			i--;
+		}
+
+		// damage buffering
+		for (s32 i = 0; i < damage_buffer.length; i++)
+		{
+			BufferedDamage* entry = &damage_buffer[i];
+			entry->delay -= u.time.delta;
+			if (entry->delay < 0.0f) // IT'S TIME
+			{
+				Entity* src = entry->source.ref();
+				if (src)
+				{
+					if (src->has<Bolt>())
+					{
+						if (active_armor())
+							src->get<Bolt>()->reflect(entity());
+						else
+						{
+							health_internal_apply_damage(this, src, entry->damage);
+							World::remove_deferred(src);
+						}
+					}
+					else if (active_armor() && src->has<Drone>() && entry->type != BufferedDamage::Type::Sniper) // damage them back
+						src->get<Health>()->damage_force(entity(), ACTIVE_ARMOR_DIRECT_DAMAGE);
+					else
+						health_internal_apply_damage(this, src, entry->damage);
+				}
+				damage_buffer.remove(i);
+				i--;
+			}
 		}
 	}
-}
 
-void Health::update_client(const Update& u)
-{
 	active_armor_timer = vi_max(0.0f, active_armor_timer - u.time.delta);
 }
 
@@ -468,7 +470,7 @@ Shield::~Shield()
 	}
 }
 
-void Shield::update_client_all(const Update& u)
+void Shield::update_all(const Update& u)
 {
 	static r32 particle_accumulator = 0.0f;
 	static r32 particle_interval = 0.05f;
@@ -1208,7 +1210,7 @@ UpgradeStation* UpgradeStation::closest_available(AI::TeamMask mask, const Vec3&
 }
 
 #define UPGRADE_STATION_OFFSET Vec3(0, 0, -0.2f)
-void UpgradeStation::update_client(const Update& u)
+void UpgradeStation::update(const Update& u)
 {
 	if (mode == Mode::Activating && !drone.ref())
 	{
@@ -1298,9 +1300,14 @@ UpgradeStationEntity::UpgradeStationEntity(SpawnPoint* p)
 RectifierEntity::RectifierEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat& abs_rot, Transform* parent)
 {
 	Transform* transform = create<Transform>();
-	transform->pos = abs_pos;
-	transform->rot = abs_rot;
-	transform->reparent(parent);
+	if (parent && parent->has<Minion>())
+		transform->parent = parent; // parent at 0, 0, 0
+	else
+	{
+		transform->pos = abs_pos;
+		transform->rot = abs_rot;
+		transform->reparent(parent);
+	}
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::rectifier;
@@ -1392,6 +1399,47 @@ void rectifier_update(s32 rectifier_index, const Vec3& rectifier_pos, Entity* e,
 	}
 }
 
+// returns true if entity is still alive afterward
+b8 entity_minion_attach_update(Transform* transform, Vec3* abs_pos_attached, r32 offset_minion, r32 offset_normal, r32 scale = 1.0f)
+{
+	if (Transform* parent = transform->parent.ref())
+	{
+		if (parent->has<Animator>())
+		{
+			Vec3 pos(0.1f, 0.0f, -0.12f - offset_minion);
+			Quat rot = Quat::euler(0, PI, 0);
+			parent->get<Animator>()->to_local(Asset::Bone::character_spine, &pos, &rot);
+			transform->get<View>()->offset.make_transform(pos, Vec3(scale), rot);
+			*abs_pos_attached = parent->to_world(pos);
+		}
+		else
+		{
+			transform->get<View>()->offset = Mat4::make_scale(Vec3(scale));
+			*abs_pos_attached = transform->absolute_pos();
+		}
+		return true;
+	}
+	else if (Game::level.local)
+	{
+		// parent is gone; reattach to something
+		btCollisionWorld::ClosestRayResultCallback ray_callback(*abs_pos_attached, *abs_pos_attached + Vec3(0, -3.0f, 0));
+		Physics::raycast(&ray_callback, CollisionStatic);
+		if (ray_callback.hasHit() && !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
+		{
+			Entity* entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+			transform->pos = ray_callback.m_hitPointWorld + (ray_callback.m_hitNormalWorld * offset_normal);
+			transform->rot = Quat::look(ray_callback.m_hitNormalWorld);
+			transform->reparent(entity->get<Transform>());
+			return true;
+		}
+		else
+		{
+			transform->get<Health>()->kill(nullptr);
+			return false;
+		}
+	}
+}
+
 Array<InstanceVertex> Rectifier::heal_effects;
 s8 Rectifier::heal_counts[MAX_ENTITIES];
 Bitmask<MAX_ENTITIES> Rectifier::heal_targets;
@@ -1408,12 +1456,21 @@ void Rectifier::update_all(const Update& u)
 	heal_effects.length = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
+		Transform* transform = i.item()->get<Transform>();
+
+		if (!i.item()->has<Battery>())
+		{
+			if (!entity_minion_attach_update(transform, &i.item()->abs_pos_attached, RECTIFIER_RADIUS, RECTIFIER_RADIUS, RECTIFIER_RADIUS))
+				continue;
+		}
+
 		if (i.item()->team != AI::TeamNone)
 		{
+			Vec3 me = transform->absolute_pos();
+
 			PlayerManager* owner = i.item()->owner.ref();
 
 			// buff friendly turrets, force fields, and minions
-			Vec3 me = i.item()->get<Transform>()->absolute_pos();
 			for (auto j = Turret::list.iterator(); !j.is_last(); j.next())
 			{
 				if (j.item()->team == i.item()->team)
@@ -1786,7 +1843,7 @@ void Flag::update_server(const Update& u)
 	}
 }
 
-void Flag::update_client_only(const Update& u)
+void Flag::update_client(const Update& u)
 {
 	if (!get<Transform>()->parent.ref() && !at_base)
 		timer = vi_max(0.0f, timer - u.time.delta);
@@ -2189,7 +2246,7 @@ void Glass::shatter_all(const Vec3& start, const Vec3& end)
 	}
 }
 
-void Glass::update_client_only(const Update& u)
+void Glass::update_client(const Update& u)
 {
 	if (client_side_shatter_timer > 0.0f)
 	{
@@ -2647,6 +2704,7 @@ u32 ForceField::hash(AI::Team my_team, const Vec3& pos, HashMode mode)
 
 #define FORCE_FIELD_ANIM_TIME 0.4f
 #define FORCE_FIELD_DAMAGE_TIME 0.15f
+#define FORCE_FIELD_BASE_RADIUS 0.385f
 
 ForceField::ForceField()
 	: team(AI::TeamNone),
@@ -2769,7 +2827,7 @@ void ForceField::update_all(const Update& u)
 		particle_accumulator -= interval;
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			if (!(i.item()->flags & FlagPermanent))
+			if (!(i.item()->flags & FlagInvincible))
 			{
 				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 
@@ -2786,6 +2844,15 @@ void ForceField::update_all(const Update& u)
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
+		if (i.item()->flags & FlagAttached)
+		{
+			Transform* parent = i.item()->get<Transform>()->parent.ref();
+			if (!parent || !parent->has<Minion>())
+				i.item()->get<View>()->mesh = Asset::Mesh::force_field_base;
+			if (!entity_minion_attach_update(i.item()->get<Transform>(), &i.item()->abs_pos_attached, FORCE_FIELD_BASE_RADIUS, FORCE_FIELD_BASE_OFFSET))
+				continue;
+		}
+
 		View* v = i.item()->collision.ref()->get<View>();
 
 		if (i.item()->spawn_death_timer > 0.0f)
@@ -2811,10 +2878,42 @@ void ForceField::update_all(const Update& u)
 			if (Game::level.local && blend == 1.0f && hp == 0)
 				World::remove(i.item()->entity());
 		}
-		else if (i.item()->damage_timer > 0.0f)
+		else
 		{
-			i.item()->damage_timer = vi_max(0.0f, i.item()->damage_timer - u.time.delta);
-			v->color.w = 0.35f + (i.item()->damage_timer / FORCE_FIELD_DAMAGE_TIME) * 0.65f;
+			if (Game::level.local) // check for collisions
+			{
+				Vec3 me = i.item()->get<Transform>()->absolute_pos();
+				b8 attached = i.item()->flags & FlagAttached;
+				AI::Team my_team = i.item()->team;
+				auto j = i;
+				if (!j.is_last())
+					j.next(); // don't need to check against self
+				for (; !j.is_last(); j.next())
+				{
+					if (j.item()->team == my_team && (attached || (j.item()->flags & FlagAttached)) && j.item()->spawn_death_timer == 0.0f)
+					{
+						Vec3 them = j.item()->get<Transform>()->absolute_pos();
+						if ((me - them).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS)
+						{
+							ParticleEffect::spawn(ParticleEffect::Type::ImpactLarge, (me + them) * 0.5f, Quat::look(Vec3(0, 1, 0)));
+							if (attached)
+							{
+								i.item()->get<Health>()->kill(nullptr);
+								break;
+							}
+							else
+								j.item()->get<Health>()->kill(nullptr);
+						}
+					}
+				}
+			}
+
+			// damage animation
+			if (i.item()->damage_timer > 0.0f)
+			{
+				i.item()->damage_timer = vi_max(0.0f, i.item()->damage_timer - u.time.delta);
+				v->color.w = 0.35f + (i.item()->damage_timer / FORCE_FIELD_DAMAGE_TIME) * 0.65f;
+			}
 		}
 	}
 }
@@ -2838,12 +2937,17 @@ b8 ForceField::can_spawn(AI::Team team, const Vec3& abs_pos, r32 radius)
 	return true;
 }
 
-#define FORCE_FIELD_BASE_RADIUS 0.385f
 ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const Quat& abs_rot, AI::Team team, ForceField::Type type)
 {
 	Transform* transform = create<Transform>();
-	transform->absolute(abs_pos, abs_rot);
-	transform->reparent(parent);
+	if (parent && parent->has<Minion>())
+		transform->parent = parent; // parent at 0, 0, 0
+	else
+	{
+		transform->pos = abs_pos;
+		transform->rot = abs_rot;
+		transform->reparent(parent);
+	}
 
 	create<Audio>();
 
@@ -2856,27 +2960,34 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 		// normal (non-permanent) force field
 
 		create<Health>(FORCE_FIELD_HEALTH, FORCE_FIELD_HEALTH);
+		create<Target>();
+		create<Shield>();
 
 		if (type == ForceField::Type::Invincible)
 			field->flags |= ForceField::FlagInvincible;
-
-		// destroy any overlapping friendly force field
-		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
+		else if (type == ForceField::Type::Normal)
 		{
-			if (i.item()->team == team
-				&& i.item() != field
-				&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < FORCE_FIELD_RADIUS * 2.0f * FORCE_FIELD_RADIUS * 2.0f
-				&& !(i.item()->flags & ForceField::FlagInvincible))
-				i.item()->destroy();
+			// destroy any overlapping friendly force field
+			for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->team == team
+					&& i.item() != field
+					&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < FORCE_FIELD_RADIUS * 2.0f * FORCE_FIELD_RADIUS * 2.0f
+					&& !(i.item()->flags & ForceField::FlagInvincible))
+					i.item()->destroy();
+			}
+
+			View* model = create<View>();
+			model->team = team;
+			model->mesh = Asset::Mesh::force_field_base;
+			model->shader = Asset::Shader::standard;
+
+			if (parent && parent->has<Minion>())
+			{
+				field->flags |= ForceField::FlagAttached;
+				model->mesh = Asset::Mesh::force_field_base_attached;
+			}
 		}
-
-		View* model = create<View>();
-		model->team = team;
-		model->mesh = Asset::Mesh::force_field_base;
-		model->shader = Asset::Shader::standard;
-
-		create<Target>();
-		create<Shield>();
 	}
 
 	// collision
@@ -3351,6 +3462,13 @@ template<typename Stream> b8 serialize_particle_effect(Stream* p, ParticleEffect
 		net_error();
 	if (!Net::serialize_quat(p, &e->rot, Net::Resolution::Low))
 		net_error();
+	if (Stream::IsReading)
+	{
+		e->abs_pos = e->pos;
+		e->abs_rot = e->rot;
+		if (Transform* parent = e->parent.ref())
+			parent->to_world(&e->abs_pos, &e->abs_rot);
+	}
 	return true;
 }
 
@@ -3387,33 +3505,33 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 
 	if (e.type == Type::Grenade)
 	{
-		Audio::post_global(AK::EVENTS::PLAY_DRONE_GRENADE_EXPLO, e.pos);
-		EffectLight::add(e.pos, GRENADE_RANGE, 0.35f, EffectLight::Type::Explosion);
+		Audio::post_global(AK::EVENTS::PLAY_DRONE_GRENADE_EXPLO, e.abs_pos);
+		EffectLight::add(e.abs_pos, GRENADE_RANGE, 0.35f, EffectLight::Type::Explosion);
 	}
 	else if (e.type == Type::Explosion)
 	{
-		Audio::post_global(AK::EVENTS::PLAY_EXPLOSION, e.pos);
-		EffectLight::add(e.pos, 8.0f, 0.35f, EffectLight::Type::Explosion);
+		Audio::post_global(AK::EVENTS::PLAY_EXPLOSION, e.abs_pos);
+		EffectLight::add(e.abs_pos, 8.0f, 0.35f, EffectLight::Type::Explosion);
 	}
 	else if (e.type == Type::DroneExplosion)
-		EffectLight::add(e.pos, 8.0f, 0.35f, EffectLight::Type::Explosion);
+		EffectLight::add(e.abs_pos, 8.0f, 0.35f, EffectLight::Type::Explosion);
 	else if (e.type == Type::ImpactLarge || e.type == Type::ImpactSmall)
-		Audio::post_global(AK::EVENTS::PLAY_DRONE_BOLT_IMPACT, e.pos);
+		Audio::post_global(AK::EVENTS::PLAY_DRONE_BOLT_IMPACT, e.abs_pos);
 	else if (e.type == Type::SpawnMinion)
-		Audio::post_global(AK::EVENTS::PLAY_MINION_SPAWN, e.pos);
+		Audio::post_global(AK::EVENTS::PLAY_MINION_SPAWN, e.abs_pos);
 	else if (e.type == Type::SpawnDrone)
-		Audio::post_global(AK::EVENTS::PLAY_DRONE_SPAWN, e.pos);
+		Audio::post_global(AK::EVENTS::PLAY_DRONE_SPAWN, e.abs_pos);
 	else if (e.type == Type::SpawnForceField)
-		Audio::post_global(AK::EVENTS::PLAY_FORCE_FIELD_SPAWN, e.pos);
+		Audio::post_global(AK::EVENTS::PLAY_FORCE_FIELD_SPAWN, e.abs_pos);
 	else if (e.type == Type::SpawnRectifier)
-		Audio::post_global(AK::EVENTS::PLAY_RECTIFIER_SPAWN, e.pos);
+		Audio::post_global(AK::EVENTS::PLAY_RECTIFIER_SPAWN, e.abs_pos);
 
 	if (e.type == Type::Grenade)
 	{
 		// camera shake
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		{
-			r32 distance = (i.item()->get<Transform>()->absolute_pos() - e.pos).length();
+			r32 distance = (i.item()->get<Transform>()->absolute_pos() - e.abs_pos).length();
 			if (distance < GRENADE_RANGE * 1.5f)
 				i.item()->camera_shake(LMath::lerpf(vi_max(0.0f, (distance - (GRENADE_RANGE * 0.66f)) / (GRENADE_RANGE * (1.5f - 0.66f))), 1.0f, 0.0f));
 		}
@@ -3423,7 +3541,7 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 		{
 			if (i.item()->state == Grenade::State::Inactive || i.item()->state == Grenade::State::Active)
 			{
-				Vec3 to_item = i.item()->get<Transform>()->absolute_pos() - e.pos;
+				Vec3 to_item = i.item()->get<Transform>()->absolute_pos() - e.abs_pos;
 				r32 distance = to_item.length();
 				to_item /= distance;
 				if (distance < GRENADE_RANGE)
@@ -3441,7 +3559,7 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 		{
 			if (i.item()->mass)
 			{
-				Vec3 to_item = i.item()->get<Transform>()->absolute_pos() - e.pos;
+				Vec3 to_item = i.item()->get<Transform>()->absolute_pos() - e.abs_pos;
 				r32 distance = to_item.length();
 				to_item /= distance;
 				if (distance < GRENADE_RANGE)
@@ -3455,7 +3573,7 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 	}
 
 	if (e.type == Type::ImpactLarge)
-		EffectLight::add(e.pos, GRENADE_RANGE * 0.5f, 0.75f, EffectLight::Type::Shockwave);
+		EffectLight::add(e.abs_pos, GRENADE_RANGE * 0.5f, 0.75f, EffectLight::Type::Shockwave);
 
 	if (is_spawn_effect(e.type))
 	{
@@ -3468,8 +3586,8 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 		{
 			Particles::sparks.add
 			(
-				e.pos,
-				e.rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+				e.abs_pos,
+				e.abs_rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
 				Vec4(1, 1, 1, 1)
 			);
 		}
@@ -4105,7 +4223,7 @@ void Grenade::set_owner(PlayerManager* m)
 }
 
 r32 Grenade::particle_accumulator;
-void Grenade::update_client_server_all(const Update& u)
+void Grenade::update_all(const Update& u)
 {
 	// normal particles
 	const r32 interval = 0.05f;
@@ -5185,7 +5303,7 @@ void TramRunner::awake()
 {
 }
 
-void TramRunner::update_server(const Update& u)
+void TramRunner::update(const Update& u)
 {
 	const r32 ACCEL_TIME = 5.0f;
 	const r32 ACCEL_MAX = TRAM_SPEED_MAX / ACCEL_TIME;
@@ -5260,11 +5378,8 @@ void TramRunner::update_server(const Update& u)
 			tram->get<Audio>()->post(AK::EVENTS::PLAY_TRAM_STOP);
 		}
 	}
-}
 
-void TramRunner::update_client(const Update& u)
-{
-	if (get<RigidBody>()->btBody->isActive() && mersenne::randf_co() < u.time.delta / 3.0f)
+	if (velocity != 0.0f && mersenne::randf_co() < u.time.delta / 3.0f)
 	{
 		b8 left = mersenne::randf_co() < 0.5f;
 		Vec3 pos = get<Transform>()->to_world(Vec3(left ? -0.35f : 0.35f, 0.45f, 0));

@@ -1438,6 +1438,8 @@ b8 entity_minion_attach_update(Transform* transform, Vec3* abs_pos_attached, r32
 			return false;
 		}
 	}
+	else
+		return true;
 }
 
 Array<InstanceVertex> Rectifier::heal_effects;

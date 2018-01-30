@@ -11,9 +11,9 @@ namespace VI
 
 enum class WindowMode : s8
 {
-	Windowed,
-	Fullscreen,
 	Borderless,
+	Fullscreen,
+	Windowed,
 	count,
 };
 

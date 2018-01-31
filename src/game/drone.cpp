@@ -1510,7 +1510,7 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, const Net::StateFrame* state_fra
 			}
 
 			if (ray_callback.entity->has<Minion>())
-				return true;
+				return !ray_callback.entity->get<Minion>()->carrying.ref(); // minion can only carry one thing at a time
 			else if (ray_callback.entity->has<Target>()
 				|| (ray_callback.entity->get<RigidBody>()->collision_group & (DRONE_INACCESSIBLE_MASK | CollisionGlass)))
 				return false;

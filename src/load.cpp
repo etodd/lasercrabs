@@ -349,6 +349,7 @@ void Loader::settings_load(const Array<DisplayMode>& modes, const DisplayMode& c
 
 void Loader::settings_save()
 {
+#if !SERVER
 	cJSON* json = cJSON_CreateObject();
 	cJSON_AddNumberToObject(json, "version", config_version);
 	if (Settings::record)
@@ -360,7 +361,6 @@ void Loader::settings_save()
 	if (strncmp(Settings::master_server, default_master_server, MAX_PATH_LENGTH) != 0)
 		cJSON_AddStringToObject(json, "master_server", Settings::master_server);
 
-#if !SERVER
 	cJSON_AddStringToObject(json, "username", Settings::username);
 	if (Settings::gamejolt_username[0])
 	{
@@ -417,13 +417,13 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(gamepad, "rumble", cJSON_CreateNumber(bindings->rumble));
 		cJSON_AddItemToArray(gamepads, gamepad);
 	}
-#endif
 
 	char path[MAX_PATH_LENGTH + 1];
 	user_data_path(path, config_filename);
 
 	Json::save(json, path);
 	Json::json_free(json);
+#endif
 }
 
 const Mesh* Loader::mesh(AssetID id)

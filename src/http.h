@@ -17,6 +17,9 @@ namespace Http
 typedef void Callback(s32, const char*, u64);
 
 extern char ca_path[MAX_PATH_LENGTH + 1];
+extern char smtp_server[MAX_PATH_LENGTH + 1];
+extern char smtp_username[MAX_USERNAME + 1];
+extern char smtp_password[MAX_AUTH_KEY + 1];
 
 struct Request
 {
@@ -34,7 +37,7 @@ void init();
 Request* get_headers(const char*, Callback* = nullptr, struct curl_slist* = nullptr, u64 = 0);
 Request* get(const char*, Callback* = nullptr, const char* = nullptr, u64 = 0);
 Request* request_for_user_data(u64);
-void smtp(const char*, const char*, const char*, const char*);
+void smtp(const char*, const char*, const char*, const char* = nullptr);
 Request* add(CURL*, Callback* = nullptr, struct curl_slist* = nullptr, u64 = 0);
 void update();
 void term();

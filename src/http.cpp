@@ -17,9 +17,13 @@ namespace Http
 #define DEBUG_HTTP 0
 
 char ca_path[MAX_PATH_LENGTH + 1];
+char smtp_server[MAX_PATH_LENGTH + 1];
+char smtp_username[MAX_USERNAME + 1];
+char smtp_password[MAX_AUTH_KEY + 1];
 
 Request::~Request()
 {
+	curl_easy_cleanup(curl);
 	if (request_headers)
 		curl_slist_free_all(request_headers);
 }
@@ -28,13 +32,15 @@ struct SmtpRequest
 {
 	CURL* curl;
 	curl_slist* recipients;
-	Array<char> data;
-	s32 data_index;
+	curl_slist* request_headers;
+	curl_mime* mime;
 
 	~SmtpRequest()
 	{
-		if (recipients)
-			curl_slist_free_all(recipients);
+		curl_easy_cleanup(curl);
+		curl_slist_free_all(recipients);
+		curl_slist_free_all(request_headers);
+		curl_mime_free(mime);
 	}
 };
 
@@ -125,7 +131,6 @@ void update()
 				request->~SmtpRequest();
 				state.smtp_requests.remove(s32(request - &state.smtp_requests[0]));
 			}
-			curl_easy_cleanup(curl);
 		}
 	}
 }
@@ -206,48 +211,58 @@ Request* get(const char* url, Callback* callback, const char* header, u64 user_d
 	return get_headers(url, callback, headers, user_data);
 }
 
-static size_t smtp_read(void* buffer, size_t element_size, size_t element_count, void* userdata)
-{
-	SmtpRequest* request = (SmtpRequest*)userdata;
-
-	size_t buffer_size = element_size * element_count;
-	if (buffer_size < 1)
-		return 0;
-
-	size_t data_size = vi_min(buffer_size, size_t(request->data.length - request->data_index));
-	if (data_size > 0)
-		memcpy(buffer, &request->data[request->data_index], data_size);
-	request->data_index += s32(data_size);
-
-	return data_size;
-}
-
-void smtp(const char* from, const char* to, const char* subject, const char* body)
+void smtp(const char* to, const char* subject, const char* html, const char* text)
 {
 	SmtpRequest* request = state.smtp_requests.add();
 	new (request) SmtpRequest();
 	request->curl = curl_easy_init();
-	curl_easy_setopt(request->curl, CURLOPT_URL, "smtp://localhost");
-	curl_easy_setopt(request->curl, CURLOPT_MAIL_FROM, from);
+	curl_easy_setopt(request->curl, CURLOPT_URL, smtp_server);
+	curl_easy_setopt(request->curl, CURLOPT_USERNAME, smtp_username);
+	curl_easy_setopt(request->curl, CURLOPT_PASSWORD, smtp_password);
+	curl_easy_setopt(request->curl, CURLOPT_USE_SSL, CURLUSESSL_ALL);
+	if (ca_path[0])
+		curl_easy_setopt(request->curl, CURLOPT_CAPATH, ca_path);
+	curl_easy_setopt(request->curl, CURLOPT_MAIL_FROM, smtp_username);
 	request->recipients = curl_slist_append(request->recipients, to);
 	curl_easy_setopt(request->curl, CURLOPT_MAIL_RCPT, request->recipients);
-	curl_easy_setopt(request->curl, CURLOPT_READFUNCTION, smtp_read);
-	curl_easy_setopt(request->curl, CURLOPT_READDATA, request);
-	curl_easy_setopt(request->curl, CURLOPT_UPLOAD, 1L);
 
-	static const char* format =
-		"To: %s\r\n"
-		"From: %s\r\n"
-		"Subject: %s\r\n"
-		"\r\n" // empty line to divide headers from body, see RFC5322
-		"%s";
+	{
+		char buffer[MAX_PATH_LENGTH + 1] = {};
+		snprintf(buffer, MAX_PATH_LENGTH, "To: %s", to);
+		request->request_headers = curl_slist_append(request->request_headers, buffer);
+
+		snprintf(buffer, MAX_PATH_LENGTH, "From: %s", smtp_username);
+		request->request_headers = curl_slist_append(request->request_headers, buffer);
+
+		snprintf(buffer, MAX_PATH_LENGTH, "Subject: %s", subject);
+		request->request_headers = curl_slist_append(request->request_headers, buffer);
+	}
+
+	curl_easy_setopt(request->curl, CURLOPT_HTTPHEADER, request->request_headers);
 
 #if DEBUG_HTTP
 	curl_easy_setopt(request->curl, CURLOPT_VERBOSE, 1L);
 #endif
 	
-	request->data.resize(s32(strlen(format) + strlen(to) + strlen(from) + strlen(subject) + strlen(body) + 1));
-	sprintf(request->data.data, format, to, from, subject, body);
+	request->mime = curl_mime_init(request->curl);
+	curl_mime* alt = curl_mime_init(request->curl);
+
+	curl_mimepart* part = curl_mime_addpart(alt);
+	if (text)
+		curl_mime_data(part, text, CURL_ZERO_TERMINATED);
+	else
+		curl_mime_data(part, html, CURL_ZERO_TERMINATED); // html and text are the same
+
+	part = curl_mime_addpart(alt);
+	curl_mime_data(part, html, CURL_ZERO_TERMINATED);
+	curl_mime_type(part, "text/html");
+
+	part = curl_mime_addpart(request->mime);
+	curl_mime_subparts(part, alt);
+	curl_mime_type(part, "multipart/alternative");
+	curl_mime_headers(part, curl_slist_append(nullptr, "Content-Disposition: inline"), 1);
+
+	curl_easy_setopt(request->curl, CURLOPT_MIMEPOST, request->mime);
 
 	curl_multi_add_handle(state.curl_multi, request->curl);
 }

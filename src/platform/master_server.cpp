@@ -31,6 +31,8 @@
 
 #define DEBUG_SQL 0
 
+#define DISTRIBUTE_KEYS 0
+
 #if RELEASE_BUILD
 #define OFFLINE_DEV 0
 #else
@@ -145,6 +147,7 @@ namespace Master
 
 	namespace Signup
 	{
+		void email_key(const char*, const char*);
 		void handle_api(mg_connection*, int, void*);
 	}
 }
@@ -229,7 +232,7 @@ void handle_upload(mg_connection* nc, int ev, void* p)
 		{
 			mg_file_upload_handler(nc, ev, p, upload_filename);
 #if RELEASE_BUILD
-			Http::smtp("root@master.deceivergame.com", "support@deceivergame.com", "Deceiver crash dump", "A crash dump has been received.");
+			Http::smtp("support@deceivergame.com", "Deceiver crash dump", "A crash dump has been received.");
 #endif
 			break;
 		}
@@ -2489,6 +2492,21 @@ namespace Master
 						if (ca_path)
 							strncpy(Http::ca_path, ca_path, MAX_PATH_LENGTH);
 					}
+					{
+						const char* smtp_server = Json::get_string(json, "smtp_server");
+						if (smtp_server)
+							strncpy(Http::smtp_server, smtp_server, MAX_PATH_LENGTH);
+					}
+					{
+						const char* smtp_username = Json::get_string(json, "smtp_username");
+						if (smtp_username)
+							strncpy(Http::smtp_username, smtp_username, MAX_USERNAME);
+					}
+					{
+						const char* smtp_password = Json::get_string(json, "smtp_password");
+						if (smtp_password)
+							strncpy(Http::smtp_password, smtp_password, MAX_AUTH_KEY);
+					}
 					cJSON_Delete(json);
 				}
 				else
@@ -3604,6 +3622,28 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 namespace Signup
 {
 
+void email_key(const char* email, const char* key)
+{
+	char html[2048 + 1];
+	const char* html_format = "<div style=\"width: 100%; max-width: 40em; margin-left: auto; margin-right: auto;\">"
+		"<img src=\"https://deceivergame.com/public/header-backdrop.png\" style=\"width: 40em;\" />"
+		"<h1>It's time to play.</h1>"
+		"<p>You're receiving this because either you or a very smart and attractive friend of yours signed you up to play the demo version of DECEIVER.</p>"
+		"<p>Either way, you should get in on this quick. This is all being run by some guy out of his bedroom, so who knows how long it will last.</p>"
+		"<p>GET GOING WHY ARE YOU STILL READING THIS JUST CLICK THE LINK</p>"
+		"<p><a href=\"%s\">%s</a></p></div>";
+	snprintf(html, 2048, html_format, key, key);
+
+	char text[2048 + 1];
+	const char* text_format = "*It's time to play.*\r\n\r\n"
+		"You're receiving this because either you or a very smart and attractive friend of yours signed you up to play the demo version of DECEIVER.\r\n\r\n"
+		"Either way, you should get in on this quick. This is all being run by some guy out of his bedroom, so who knows how long it will last.\r\n\r\n"
+		"GET GOING WHY ARE YOU STILL READING THIS JUST COPY/PASTE THE LINK\r\n\r\n"
+		"%s";
+	snprintf(text, 2048, text_format, key);
+
+	Http::smtp(email, "DECEIVER demo key", html, text);
+}
 
 void handle_api(mg_connection* conn, int ev, void* ev_data)
 {
@@ -3628,12 +3668,33 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 				if (db_step(stmt))
 				{
 					// already in database
+#if DISTRIBUTE_KEYS
+					const char* key = db_column_text(stmt, 0);
+					email_key(email.c_str(), key);
+#endif
 				}
 				else
 				{
+					// not in database
+#if DISTRIBUTE_KEYS
+					sqlite3_stmt* stmt2 = db_query("select key from Email where email is null limit 1");
+					if (db_step(stmt2))
+					{
+						const char* key = db_column_text(stmt2, 0);
+						email_key(email.c_str(), key);
+						sqlite3_stmt* stmt3 = db_query("update Email set email=? where key=?;");
+						db_bind_text(stmt3, 0, email.c_str());
+						db_bind_text(stmt3, 1, key);
+						db_exec(stmt3);
+					}
+					else
+						vi_assert(false); // ran out of keys
+					db_finalize(stmt2);
+#else
 					sqlite3_stmt* stmt2 = db_query("insert into Email (email) values (?);");
 					db_bind_text(stmt2, 0, email.c_str());
 					db_exec(stmt2);
+#endif
 				}
 				db_finalize(stmt);
 

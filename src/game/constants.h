@@ -12,7 +12,7 @@
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 22
+#define GAME_VERSION 23
 
 #define STEAM_APP_ID 728100
 #define DISCORD_APP_ID "367724608469860353"

@@ -130,6 +130,7 @@ struct Battery : public ComponentType<Battery>
 	Ref<SpawnPoint> spawn_point;
 	s16 reward_level;
 	AI::Team team = AI::TeamNone;
+	s8 order;
 
 	void awake();
 	~Battery();
@@ -336,6 +337,7 @@ struct Turret : public ComponentType<Turret>
 	r32 target_check_time;
 	Ref<Entity> target;
 	AI::Team team;
+	s8 order;
 	b8 charging;
 
 	void awake();

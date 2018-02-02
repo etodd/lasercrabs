@@ -697,7 +697,7 @@ void Battery::health_changed(const HealthEvent& e)
 		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::BatteryUnderAttack))
 		{
 			char buffer[UI_TEXT_MAX];
-			snprintf(buffer, UI_TEXT_MAX, _(strings::battery_under_attack), s32(id()) + 1);
+			snprintf(buffer, UI_TEXT_MAX, _(strings::battery_under_attack), s32(order) + 1);
 			PlayerHuman::log_add(buffer, AI::TeamNone, 1 << team);
 		}
 	}
@@ -810,7 +810,7 @@ void Battery::set_team_client(AI::Team t)
 	{
 		PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::BatteryLost); // notify team that they lost this battery
 		char buffer[UI_TEXT_MAX];
-		snprintf(buffer, UI_TEXT_MAX, _(strings::battery_lost), s32(id()) + 1);
+		snprintf(buffer, UI_TEXT_MAX, _(strings::battery_lost), s32(order) + 1);
 		PlayerHuman::log_add(buffer, AI::TeamNone, 1 << team);
 	}
 
@@ -2435,7 +2435,7 @@ static const AssetID turret_names[MAX_TURRETS] =
 
 AssetID Turret::name() const
 {
-	return turret_names[id()];
+	return turret_names[order];
 }
 
 void Turret::health_changed(const HealthEvent& e)
@@ -3333,6 +3333,8 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 					damage = 3;
 				else if (hit_object->has<Minion>())
 					damage = 2;
+				else if (hit_object->has<Turret>())
+					damage = mersenne::rand() % 2; // expected value: 0.5
 				else
 					damage = 1;
 

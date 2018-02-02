@@ -509,6 +509,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Turret* t = e->get<Turret>();
 		serialize_s8(p, t->team);
 		serialize_ref(p, t->target);
+		serialize_s8(p, t->order);
 	}
 
 	if (e->has<Flag>())
@@ -674,6 +675,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_s8(p, b->team);
 		serialize_ref(p, b->light);
 		serialize_ref(p, b->spawn_point);
+		serialize_s8(p, b->order);
 	}
 
 	if (e->has<Rectifier>())

@@ -1886,6 +1886,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			if (session.config.game_type == GameType::Assault)
 			{
 				entity = World::alloc<TurretEntity>(AI::Team(0));
+				entity->get<Turret>()->order = Json::get_s32(element, "order", entity->get<Turret>()->id());
 				entity->get<Health>()->hp = Json::get_s32(element, "hp", TURRET_HEALTH);
 				ingress_points_get(json, element, entity->get<MinionTarget>());
 			}
@@ -2064,6 +2065,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 					team = AI::TeamNone;
 
 				entity = World::alloc<BatteryEntity>(absolute_pos, team);
+				entity->get<Battery>()->order = Json::get_s32(element, "order", entity->get<Battery>()->id());
 
 				absolute_rot = Quat::identity;
 

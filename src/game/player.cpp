@@ -2039,7 +2039,7 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 					{
 						UI::mesh(params, Asset::Mesh::icon_battery, p, Vec2(24.0f * UI::scale), UI::color_background);
 						text.color = Team::ui_color(my_team->team(), i.item()->team);
-						text.text(0, "%d", s32(i.index) + 1);
+						text.text(0, "%d", s32(i.item()->order) + 1);
 						text.draw(params, p);
 					}
 				}

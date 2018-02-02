@@ -709,6 +709,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, w->config.displacement_horizontal, 0, 10, 8);
 		serialize_r32_range(p, w->config.displacement_vertical, 0, 10, 8);
 		serialize_s16(p, w->config.mesh);
+		serialize_bool(p, w->config.ocean);
 		serialize_asset(p, w->config.texture, Loader::static_texture_count);
 	}
 

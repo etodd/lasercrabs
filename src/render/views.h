@@ -116,6 +116,7 @@ struct Water : public ComponentType<Water>
 		r32 displacement_vertical;
 		AssetID texture;
 		AssetID mesh;
+		b8 ocean;
 
 		Config(AssetID = AssetNull);
 	};

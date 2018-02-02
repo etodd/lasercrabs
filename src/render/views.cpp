@@ -848,7 +848,8 @@ Water::Config::Config(AssetID mesh_id)
 	color(-1, -1, -1, -1),
 	displacement_horizontal(2.0f),
 	displacement_vertical(0.75f),
-	texture(Asset::Texture::water_normal)
+	texture(Asset::Texture::water_normal),
+	ocean()
 {
 }
 
@@ -893,7 +894,7 @@ void Water::awake()
 			config.color.w = m->color.w;
 	}
 	get<Audio>()->entry()->flag(AudioEntry::FlagEnableForceFieldObstruction | AudioEntry::FlagEnableObstructionOcclusion, false);
-	get<Audio>()->post(m->bounds_radius > 100.0f ? AK::EVENTS::PLAY_OCEAN_LOOP : AK::EVENTS::PLAY_WATER_LOOP);
+	get<Audio>()->post(config.ocean ? AK::EVENTS::PLAY_OCEAN_LOOP : AK::EVENTS::PLAY_WATER_LOOP);
 }
 
 void Water::update_all(const Update& u)

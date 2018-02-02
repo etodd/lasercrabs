@@ -2124,6 +2124,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			water->config.texture = Loader::find(Json::get_string(element, "texture", "water_normal"), AssetLookup::Texture::names);
 			water->config.displacement_horizontal = Json::get_r32(element, "displacement_horizontal", 1.25f);
 			water->config.displacement_vertical = Json::get_r32(element, "displacement_vertical", 1.0f);
+			water->config.ocean = b8(Json::get_s32(element, "ocean", mesh->bounds_radius > 100.0f ? 1 : 0));
 		}
 		else if (cJSON_HasObjectItem(element, "Prop"))
 		{

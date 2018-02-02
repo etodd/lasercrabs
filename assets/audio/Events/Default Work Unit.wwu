@@ -2544,6 +2544,48 @@
 								</Action>
 							</ChildrenList>
 						</Event>
+						<Event Name="Play_Wind_Medium" ID="{781F23BA-A46C-47C7-A859-A48C190CEAEB}">
+							<ChildrenList>
+								<Action Name="" ID="{A4E2C95E-66C9-479E-9074-EFD8FBC36B2C}" ShortID="481608390">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="Wind_Medium" ID="{E1676921-1E52-445D-8DD9-0A0618EC3203}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_Wind_Low" ID="{DD2D8336-FB43-4F66-9339-87AB42F86C54}">
+							<ChildrenList>
+								<Action Name="" ID="{785B56D5-2146-4103-BB3D-0E6C95EE557B}" ShortID="152306278">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="Wind_Low" ID="{91817416-F990-481B-8D18-FFB14E6B2721}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_Wind_High" ID="{EA16DF62-77AE-4FA1-8804-8B17B0A273AA}">
+							<ChildrenList>
+								<Action Name="" ID="{1C8923E9-C5FC-4638-9A7C-06DE6F5E246F}" ShortID="980651910">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="Wind_High" ID="{C226C985-0F67-4086-AA73-089B2C665DD7}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
 					</ChildrenList>
 				</Folder>
 				<Folder Name="dialogue_2d" ID="{1F8E4B3F-E2B3-4488-A729-D3732E7FBEF6}" ShortID="733761312">

@@ -196,6 +196,9 @@ namespace AK
         static const AkUniqueID PLAY_UPGRADE_STATION_ENTER = 3699445748U;
         static const AkUniqueID PLAY_UPGRADE_STATION_EXIT = 214429910U;
         static const AkUniqueID PLAY_WATER_LOOP = 1564978696U;
+        static const AkUniqueID PLAY_WIND_HIGH = 2244061667U;
+        static const AkUniqueID PLAY_WIND_LOW = 2265523111U;
+        static const AkUniqueID PLAY_WIND_MEDIUM = 281220294U;
         static const AkUniqueID PLAY_ZOOM_IN = 2626091291U;
         static const AkUniqueID PLAY_ZOOM_OUT = 1819052470U;
         static const AkUniqueID RESUME_ALL = 3679762312U;

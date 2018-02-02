@@ -1025,9 +1025,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a02.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{CE5F7B9F-D604-40DB-840D-CBB5C1A8007A}" ShortID="487587765">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a02" ID="{36602AD0-5621-439B-8EE6-118DEC45ABAC}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{CE5F7B9F-D604-40DB-840D-CBB5C1A8007A}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_a03" ID="{D925D455-9CB0-42D3-9DB6-3B68B72ADBBF}" ShortID="862783740">
@@ -1044,9 +1051,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a03.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{C7C5C2FD-B936-45B0-8635-B7DD78988F99}" ShortID="235652641">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a03" ID="{8D3BDF6B-0626-4D7F-9925-4EB195F7874F}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{C7C5C2FD-B936-45B0-8635-B7DD78988F99}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_a04" ID="{0A7C77A5-3C65-41D3-A176-A8878FA7D79E}" ShortID="846670290">
@@ -1063,9 +1077,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a04.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{A66E18AC-39BA-4C73-9CF7-5CA9F6017DA0}" ShortID="844495195">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a04" ID="{0E76A139-F069-494D-AE95-4C7F53BD9E69}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{A66E18AC-39BA-4C73-9CF7-5CA9F6017DA0}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_a05" ID="{C5CC1D42-E338-42E3-A202-C758154C685E}" ShortID="902951731">
@@ -1082,9 +1103,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a05.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{5D873DBA-6905-4966-8756-66C68EED8E25}" ShortID="552685576">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a05" ID="{626B8D76-304A-4168-9813-7EB25212ABF0}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{5D873DBA-6905-4966-8756-66C68EED8E25}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_a06" ID="{9F68D286-5BB4-4ECA-9B0F-D25248A5F7D6}" ShortID="545246192">
@@ -1101,9 +1129,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a06.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{1DAB756D-B5F3-45BB-AA9E-F42804673B7C}" ShortID="110340934">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a06" ID="{F20E2F9F-207D-42C7-AE3F-AEF3383BEB11}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{1DAB756D-B5F3-45BB-AA9E-F42804673B7C}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_a07" ID="{C34778C8-DF4D-4FA0-A1CE-B45F70E23A86}" ShortID="684039081">
@@ -1120,9 +1155,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a07.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{552B3FA2-08FF-42C4-92F3-4779D7142000}" ShortID="931078168">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a07" ID="{4D312555-BD24-442B-9235-15CD4F31D376}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{552B3FA2-08FF-42C4-92F3-4779D7142000}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_a08" ID="{1662DFE4-3215-44D4-BA54-312B9F1E81EF}" ShortID="44619191">
@@ -1139,9 +1181,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a08.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{FE8ED2BE-F544-418C-8FC6-54110A6E9742}" ShortID="12827613">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a08" ID="{4C810A1E-C47C-4BF5-90B5-A2AB0D0C3289}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{FE8ED2BE-F544-418C-8FC6-54110A6E9742}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_a09" ID="{C31F42A7-F029-4780-9E8A-AEA1392CCC6F}" ShortID="122979082">
@@ -1158,9 +1207,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a09.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{1ACD2955-FD4F-4454-9DB1-24647E5F822E}" ShortID="828138933">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a09" ID="{FB63D176-39C5-46F3-B38E-3E9A827D6AAE}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{1ACD2955-FD4F-4454-9DB1-24647E5F822E}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_a10" ID="{4C792144-77C7-4542-9C66-290953629760}" ShortID="403404631">
@@ -1177,9 +1233,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a10.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{B47FF134-4FFC-4CA9-B055-40DD7BA20D30}" ShortID="597317697">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a10" ID="{F0DF50CD-20E2-48B5-8AF6-66C00BAD5EAC}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{B47FF134-4FFC-4CA9-B055-40DD7BA20D30}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_a11" ID="{E2B3EEC4-9868-4A32-B07D-42655CD836EB}" ShortID="216420466">
@@ -1196,9 +1259,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a11.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{FD895E0F-DB80-4469-99DB-267C3A83F131}" ShortID="274229857">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a11" ID="{A1A1C1F5-92B9-4786-B5C9-9F6CD3AC68CB}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{FD895E0F-DB80-4469-99DB-267C3A83F131}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_a12" ID="{985665A1-6E87-48DD-83E3-C39FC7E56E09}" ShortID="692908455">
@@ -1215,9 +1285,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a12.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{C9FC539C-2681-413D-8B94-46CC84269407}" ShortID="681053030">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a12" ID="{DCA19920-7D64-4D8A-A303-DB4993F753EC}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{C9FC539C-2681-413D-8B94-46CC84269407}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_a13" ID="{3B1177EE-6C93-4FCF-8FDC-1A63864D3503}" ShortID="503330463">
@@ -1234,9 +1311,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a13.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{53CD1F1A-0669-4CDC-AB61-5B0E2D298DD9}" ShortID="708524344">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a13" ID="{89768DA9-0166-4D06-8066-1921019AD678}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{53CD1F1A-0669-4CDC-AB61-5B0E2D298DD9}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_a14" ID="{6BDC0526-5FDD-47CE-9DED-29BE6BABAC22}" ShortID="206956471">
@@ -1253,9 +1337,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a14.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{6C124813-1CB2-409E-B35B-863AD0C3C1A2}" ShortID="470723096">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a14" ID="{427FBB28-064A-45B4-98DC-1B68EFF88FF5}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{6C124813-1CB2-409E-B35B-863AD0C3C1A2}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_a15" ID="{0A38DFBC-7E86-46C7-8107-5295F6942ACE}" ShortID="822055502">
@@ -1272,9 +1363,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_a15.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{36685D8B-F6A2-4475-9F62-3BAF3E3C4B96}" ShortID="135171646">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_a15" ID="{C2650B60-5F52-4ABF-AF50-81B655C6A59F}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{36685D8B-F6A2-4475-9F62-3BAF3E3C4B96}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="meursault_arrow" ID="{915EB3DF-0113-4408-8210-4C0EFE2F58F5}" ShortID="956421484">
@@ -1291,9 +1389,16 @@
 									<Language>SFX</Language>
 									<AudioFile>meursault_arrow.wav</AudioFile>
 								</AudioFileSource>
+								<AudioFileSource Name="meursault_a01" ID="{51ABD466-132F-48BE-9C79-362C5B939DB5}" ShortID="197053802">
+									<Language>SFX</Language>
+									<AudioFile>meursault_a01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="177279122"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="meursault_arrow" ID="{6A4E8F8B-3547-4014-8341-97999320C5D2}" Platform="Linked"/>
+								<ActiveSource Name="meursault_a01" ID="{51ABD466-132F-48BE-9C79-362C5B939DB5}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="locke_a02" ID="{B8796ACC-93C8-44E2-85CB-9A413242117E}" ShortID="595151010">
@@ -5661,6 +5766,108 @@
 											</ChildrenList>
 											<ActiveSourceList>
 												<ActiveSource Name="RUMBLE_Area_2_Layer_2_1_LOOPed" ID="{8D90EFDF-AB34-4D37-BAB5-EF9FA7E1084F}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</BlendContainer>
+								<BlendContainer Name="Wind_Low" ID="{91817416-F990-481B-8D18-FFB14E6B2721}" ShortID="392317167">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="lemma_exterior_wind_01" ID="{E0E7CAC4-45B5-4727-BCE5-E6DD808E72D2}" ShortID="283396772">
+											<PropertyList>
+												<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="lemma_exterior_wind_01" ID="{C0E0E62F-E667-41E7-91A6-B5407D3425A9}" ShortID="526266493">
+													<Language>SFX</Language>
+													<AudioFile>lemma_exterior_wind_01.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="lemma_exterior_wind_01" ID="{C0E0E62F-E667-41E7-91A6-B5407D3425A9}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</BlendContainer>
+								<BlendContainer Name="Wind_High" ID="{C226C985-0F67-4086-AA73-089B2C665DD7}" ShortID="677743146">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="lemma_exterior_wind_02" ID="{6207E689-1B36-4D83-BEFF-09EB1A49DE3D}" ShortID="438451518">
+											<PropertyList>
+												<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="lemma_exterior_wind_02" ID="{DE9541C2-A20B-4454-80CF-D3E78E8F81D0}" ShortID="914645643">
+													<Language>SFX</Language>
+													<AudioFile>lemma_exterior_wind_02.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="lemma_exterior_wind_02" ID="{DE9541C2-A20B-4454-80CF-D3E78E8F81D0}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</BlendContainer>
+								<BlendContainer Name="Wind_Medium" ID="{E1676921-1E52-445D-8DD9-0A0618EC3203}" ShortID="597286403">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="lemma_exterior_wind_03" ID="{A5714DB5-AF9C-4B74-AC09-BE7160AD62EE}" ShortID="16027570">
+											<PropertyList>
+												<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="lemma_exterior_wind_03" ID="{8A721552-632A-4600-8E81-7D77EF060AE8}" ShortID="6193907">
+													<Language>SFX</Language>
+													<AudioFile>lemma_exterior_wind_03.wav</AudioFile>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="lemma_exterior_wind_03" ID="{8A721552-632A-4600-8E81-7D77EF060AE8}" Platform="Linked"/>
 											</ActiveSourceList>
 										</Sound>
 									</ChildrenList>

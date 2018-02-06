@@ -98,7 +98,7 @@ AssetID Team::name_long(AI::Team t)
 AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 {
 	{
-		0.275f, // movement cooldown
+		0.265f, // movement cooldown
 		0.3f, // switch cooldown
 		0.0f, // use cooldown
 		0.0f, // use cooldown threshold
@@ -170,15 +170,15 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.3f, // switch cooldown
-		10.0f, // use cooldown
-		5.0f, // use cooldown threshold
+		14.0f, // use cooldown
+		7.0f, // use cooldown threshold
 		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_GRENADE,
 		Asset::Mesh::icon_grenade,
 		Type::Shoot,
 	},
 	{ // Ability::None
-		1.2f + (DRONE_MAX_DISTANCE / DRONE_FLY_SPEED), // movement cooldown
+		2.0f, // movement cooldown
 		0.0f, // switch cooldown
 		0.0f, // use cooldown
 		0.0f, // use cooldown threshold
@@ -195,14 +195,14 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::bolter,
 		strings::description_bolter,
 		Asset::Mesh::icon_bolter,
-		250,
+		300,
 		Type::Ability,
 	},
 	{
 		strings::active_armor,
 		strings::description_active_armor,
 		Asset::Mesh::icon_active_armor,
-		250,
+		300,
 		Type::Ability,
 	},
 	{

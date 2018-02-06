@@ -3345,7 +3345,7 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 				else if (hit_object->has<ForceField>() || hit_object->has<CoreModule>())
 					damage = 1;
 				else if (hit_object->has<Drone>())
-					damage = 1;
+					damage = 1 + (mersenne::rand() % 2); // expected value: 1.5
 				else
 					damage = 2;
 
@@ -4184,18 +4184,18 @@ void Grenade::explode()
 			{
 				distance *= (i.item()->get<CoreModule>()->team == team) ? 2.0f : 1.0f;
 				if (distance < GRENADE_RANGE)
-					damage = 4;
+					damage = 5;
 			}
 			else if (i.item()->has<Turret>())
 			{
 				distance *= (i.item()->get<Turret>()->team == team) ? 2.0f : 1.0f;
 				if (distance < GRENADE_RANGE)
-					damage = 8;
+					damage = 20;
 			}
 			else if (i.item()->has<ForceField>())
 			{
 				if (distance < GRENADE_RANGE && i.item()->get<ForceField>()->team != team)
-					damage = 16;
+					damage = 20;
 			}
 			else if (i.item()->has<Grenade>() && i.item()->get<Grenade>()->team == team)
 			{

@@ -56,10 +56,8 @@ Controls currently_editing_control = Controls::count;
 b8 currently_editing_control_enable_input; // should we be listening for any and all button presses to apply to the control binding we're currently editing?
 s32 display_mode_index;
 WindowMode display_mode_window_mode;
-b8 display_mode_vsync;
 s32 display_mode_index_last;
 WindowMode display_mode_window_mode_last;
-b8 display_mode_vsync_last;
 Ref<PlayerManager> teams_selected_player[MAX_GAMEPADS] = {};
 FriendshipState teams_selected_player_friendship[MAX_GAMEPADS] = {};
 AssetID maps_selected_map = AssetNull;
@@ -1507,32 +1505,27 @@ void settings_graphics_cancel(s8)
 {
 	Settings::display_mode_index = display_mode_index = display_mode_index_last;
 	Settings::window_mode = display_mode_window_mode = display_mode_window_mode_last;
-	Settings::vsync = display_mode_vsync = display_mode_vsync_last;
 }
 
 void settings_graphics_init()
 {
 	display_mode_index = display_mode_index_last = Settings::display_mode_index;
 	display_mode_window_mode = display_mode_window_mode_last = Settings::window_mode;
-	display_mode_vsync = display_mode_vsync_last = Settings::vsync;
 }
 
 void settings_graphics_apply(s8)
 {
 	display_mode_index_last = display_mode_index;
 	display_mode_window_mode_last = display_mode_window_mode;
-	display_mode_vsync_last = display_mode_vsync;
 }
 
 void settings_graphics_try(s8 gamepad)
 {
 	if (display_mode_index != Settings::display_mode_index
-		|| display_mode_window_mode != Settings::window_mode
-		|| display_mode_vsync != Settings::vsync)
+		|| display_mode_window_mode != Settings::window_mode)
 	{
 		Settings::display_mode_index = display_mode_index;
 		Settings::window_mode = display_mode_window_mode;
-		Settings::vsync = display_mode_vsync;
 		dialog_with_time_limit(gamepad, settings_graphics_apply, settings_graphics_cancel, 10.0f, _(strings::prompt_resolution_apply));
 	}
 }
@@ -1593,11 +1586,9 @@ b8 settings_graphics(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 	}
 
 	{
-		delta = menu->slider_item(u, _(strings::vsync), _(display_mode_vsync ? strings::on : strings::off), false, AssetNull, UIMenu::SliderItemAllowSelect::Yes);
-		if (delta == INT_MIN) // slider item was clicked
-			settings_graphics_try(gamepad);
-		else if (delta != 0)
-			display_mode_vsync = !display_mode_vsync;
+		delta = menu->slider_item(u, _(strings::vsync), _(Settings::vsync ? strings::on : strings::off));
+		if (delta != 0)
+			Settings::vsync = !Settings::vsync;
 	}
 #endif
 

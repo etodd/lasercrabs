@@ -135,8 +135,7 @@ namespace platform
 
 		siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
 
-		// Create the child process. 
-
+		// create the child process. 
 		
 		if (!CreateProcess(NULL,
 			const_cast<char*>(cmd.c_str()),     // command line 
@@ -235,7 +234,7 @@ namespace platform
 
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
-const s32 version = 37;
+const s32 version = 38;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -1770,7 +1769,7 @@ void chunk_mesh(const Mesh& in, Chunks<T>* out, r32 cell_size, r32 padding = 0.0
 
 b8 rasterize_tile_layers(const rcConfig& cfg, const Array<Vec3>& in_vertices, const Array<s32>& in_indices, s32 tx, s32 ty, TileCacheCell* out_cell)
 {
-	// Tile bounds.
+	// tile bounds.
 	const float tcs = cfg.tileSize * cfg.cs;
 	
 	rcConfig tcfg;
@@ -1796,24 +1795,24 @@ b8 rasterize_tile_layers(const rcConfig& cfg, const Array<Vec3>& in_vertices, co
 	if (!rcCreateHeightfield(&ctx, *heightfield, tcfg.width, tcfg.height, tcfg.bmin, tcfg.bmax, tcfg.cs, tcfg.ch))
 		return false;
 
-	// Rasterize input polygon soup.
-	// Find triangles which are walkable based on their slope and rasterize them.
+	// rasterize input polygon soup.
+	// find triangles which are walkable based on their slope and rasterize them.
 	{
 		Array<u8> tri_areas(in_indices.length / 3, in_indices.length / 3);
 		rcMarkWalkableTriangles(&ctx, tcfg.walkableSlopeAngle, (r32*)in_vertices.data, in_vertices.length, in_indices.data, in_indices.length / 3, tri_areas.data);
 		rcRasterizeTriangles(&ctx, (r32*)in_vertices.data, in_vertices.length, in_indices.data, tri_areas.data, in_indices.length / 3, *heightfield, tcfg.walkableClimb);
 	}
 
-	// Once all geoemtry is rasterized, we do initial pass of filtering to
+	// once all geoemtry is rasterized, we do initial pass of filtering to
 	// remove unwanted overhangs caused by the conservative rasterization
 	// as well as filter spans where the character cannot possibly stand.
 	rcFilterLowHangingWalkableObstacles(&ctx, tcfg.walkableClimb, *heightfield);
 	rcFilterLedgeSpans(&ctx, tcfg.walkableHeight, tcfg.walkableClimb, *heightfield);
 	rcFilterWalkableLowHeightSpans(&ctx, tcfg.walkableHeight, *heightfield);
 
-	// Partition walkable surface to simple regions.
+	// partition walkable surface to simple regions.
 
-	// Compact the heightfield so that it is faster to handle from now on.
+	// compact the heightfield so that it is faster to handle from now on.
 	rcCompactHeightfield* compact_heightfield = rcAllocCompactHeightfield();
 	if (!compact_heightfield)
 		return false;
@@ -1821,19 +1820,19 @@ b8 rasterize_tile_layers(const rcConfig& cfg, const Array<Vec3>& in_vertices, co
 		return false;
 	rcFreeHeightField(heightfield);
 
-	// Erode the walkable area by agent radius.
+	// erode the walkable area by agent radius.
 	if (!rcErodeWalkableArea(&ctx, tcfg.walkableRadius, *compact_heightfield))
 		return false;
 
-	// Prepare for region partitioning, by calculating distance field along the walkable surface.
+	// prepare for region partitioning, by calculating distance field along the walkable surface.
 	if (!rcBuildDistanceField(&ctx, *compact_heightfield))
 		return false;
 	
-	// Partition the walkable surface into simple regions without holes.
+	// partition the walkable surface into simple regions without holes.
 	if (!rcBuildRegions(&ctx, *compact_heightfield, 0, tcfg.minRegionArea, tcfg.mergeRegionArea))
 		return false;
 
-	// Build heightfield layer set
+	// build heightfield layer set
 	rcHeightfieldLayerSet* lset = rcAllocHeightfieldLayerSet();
 	if (!lset)
 		return false;
@@ -1850,19 +1849,19 @@ b8 rasterize_tile_layers(const rcConfig& cfg, const Array<Vec3>& in_vertices, co
 
 		const rcHeightfieldLayer* layer = &lset->layers[i];
 
-		// Store header
+		// store header
 		dtTileCacheLayerHeader header;
 		header.magic = DT_TILECACHE_MAGIC;
 		header.version = DT_TILECACHE_VERSION;
 
-		// Tile layer location in the navmesh.
+		// tile layer location in the navmesh.
 		header.tx = tx;
 		header.ty = ty;
 		header.tlayer = i;
 		memcpy(header.bmin, layer->bmin, sizeof(layer->bmin));
 		memcpy(header.bmax, layer->bmax, sizeof(layer->bmax));
 
-		// Tile info.
+		// tile info.
 		header.width = (u8)layer->width;
 		header.height = (u8)layer->height;
 		header.minx = (u8)layer->minx;
@@ -2204,11 +2203,8 @@ b8 drone_raycast_chunk(const Array<Vec3>& tris, const Vec3& start, const Vec3& d
 	return hit;
 }
 
-b8 drone_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, const Vec3* end_normal = nullptr, b8* hit_close = nullptr)
+b8 drone_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, Vec3* out_pos = nullptr, Vec3* out_normal = nullptr)
 {
-	if (hit_close)
-		*hit_close = false;
-
 	if (mesh.chunks.length == 0)
 		return false;
 
@@ -2258,13 +2254,10 @@ b8 drone_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, co
 		Vec3 hit_normal;
 		if (drone_raycast_chunk(mesh.get(coord), start, dir, &closest_distance, &hit_normal))
 		{
-			if (hit_close)
-			{
-				if (end_normal && end_normal->dot(hit_normal) < 0.8f)
-					*hit_close = false;
-				else
-					*hit_close = fabs(closest_distance - distance) < DRONE_RADIUS;
-			}
+			if (out_pos)
+				*out_pos = start + dir * closest_distance;
+			if (out_normal)
+				*out_normal = hit_normal;
 			hit = true;
 		}
 
@@ -2294,8 +2287,9 @@ b8 drone_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, co
 	return hit;
 }
 
-Vec3 icosphere[42];
-StaticArray<s32, 6> icosphere_adjacency[42];
+const s32 icosphere_vertices = 42;
+Vec3 icosphere[icosphere_vertices];
+StaticArray<s32, 6> icosphere_adjacency[icosphere_vertices];
 
 void icosphere_edge_add(StaticArray<s32, 6>* adjacency, s32 a, s32 b)
 {
@@ -2441,11 +2435,17 @@ void icosphere_init()
 	}
 }
 
-void icosphere_rasterize(Bitmask<42>* output, const Vec3& vector, const Vec3& normal)
+void icosphere_rasterize(Bitmask<icosphere_vertices>* output, const Vec3& vector)
 {
 	s32 index = icosphere_find(vector);
 	output->set(index, true);
-	if (vector.dot(normal) < -0.707f)
+}
+
+void icosphere_rasterize_thick(Bitmask<icosphere_vertices>* output, const Vec3& vector, const Vec3& normal)
+{
+	s32 index = icosphere_find(vector);
+	output->set(index, true);
+	if (fabsf(vector.dot(normal)) > 0.707f)
 	{
 		const auto& adjacency = icosphere_adjacency[index];
 		for (s32 i = 0; i < adjacency.length; i++)
@@ -2456,155 +2456,182 @@ void icosphere_rasterize(Bitmask<42>* output, const Vec3& vector, const Vec3& no
 	}
 }
 
-DroneNavMeshNode drone_nav_mesh_closest_point(const DroneNavMesh& mesh, const Vec3& p)
+void audio_reverb_calc(const ChunkedTris& mesh_accessible, const ChunkedTris& mesh_inaccessible, const Vec3& pos, ReverbCell* out_reverb)
 {
-	if (mesh.chunks.length == 0)
-		return DRONE_NAV_MESH_NODE_NONE;
+	// calculate center of vertex field
+	s32 icosphere_blockage[MAX_REVERBS] = {};
+	s32 outdoor_blockage = 0;
 
-	DroneNavMesh::Coord chunk_coord = mesh.coord(p);
-	r32 closest_distance = FLT_MAX;
-	DroneNavMeshNode closest = DRONE_NAV_MESH_NODE_NONE;
-	s32 end_x = vi_min(vi_max(chunk_coord.x + 2, 1), mesh.size.x);
-	for (s32 chunk_x = vi_min(vi_max(chunk_coord.x - 1, 0), mesh.size.x - 1); chunk_x < end_x; chunk_x++)
+	Vec3 hit_positions[icosphere_vertices];
+	Vec3 hit_normals[icosphere_vertices];
+
+	b8 hit_valid = false;
+	for (s32 i = 0; i < icosphere_vertices; i++)
 	{
-		s32 end_y = vi_min(vi_max(chunk_coord.y + 2, 1), mesh.size.y);
-		for (s32 chunk_y = vi_min(vi_max(chunk_coord.y - 1, 0), mesh.size.y - 1); chunk_y < end_y; chunk_y++)
+		Vec3 hit_pos;
+		Vec3 hit_normal;
+		b8 hit = drone_raycast(mesh_accessible, pos, pos + icosphere[i] * 100.0f, &hit_pos, &hit_normal);
+
 		{
-			s32 end_z = vi_min(vi_max(chunk_coord.z + 2, 1), mesh.size.z);
-			for (s32 chunk_z = vi_min(vi_max(chunk_coord.z - 1, 0), mesh.size.z - 1); chunk_z < end_z; chunk_z++)
+			Vec3 hit_inaccessible_pos;
+			Vec3 hit_inaccessible_normal;
+			b8 hit_inaccessible = drone_raycast(mesh_inaccessible, pos, pos + icosphere[i] * 100.0f, &hit_inaccessible_pos, &hit_inaccessible_normal);
+
+			if (hit_inaccessible && (!hit || (hit_inaccessible_pos - pos).length_squared() < (hit_pos - pos).length_squared()))
 			{
-				s32 chunk_index = mesh.index({ chunk_x, chunk_y, chunk_z });
-				const DroneNavMeshChunk& chunk = mesh.chunks[chunk_index];
-				for (s32 vertex_index = 0; vertex_index < chunk.vertices.length; vertex_index++)
-				{
-					const DroneNavMeshAdjacency& adjacency = chunk.adjacency[vertex_index];
-					const Vec3& vertex = chunk.vertices[vertex_index];
-					Vec3 to_vertex = vertex - p;
-					r32 distance = to_vertex.length_squared();
-					if (distance < closest_distance)
-					{
-						closest_distance = distance;
-						closest = { s16(chunk_index), s16(vertex_index) };
-					}
-				}
+				hit = hit_inaccessible;
+				hit_pos = hit_inaccessible_pos;
+				hit_normal = hit_inaccessible_normal;
 			}
 		}
-	}
-	return closest;
-}
 
-void audio_reverb_calc(const DroneNavMesh& mesh, const Vec3& pos, ReverbCell* out_reverb)
-{
-	DroneNavMeshNode vertex = drone_nav_mesh_closest_point(mesh, pos);
-	if (vertex.equals(DRONE_NAV_MESH_NODE_NONE))
+		if (hit)
+		{
+			r32 dist_sq = (hit_pos - pos).length_squared();
+			hit_positions[i] = hit_pos;
+			hit_normals[i] = hit_normal;
+			outdoor_blockage++;
+		}
+		else
+		{
+			hit_positions[i] = pos + icosphere[i] * 100.0f;
+			hit_normals[i] = -icosphere[i];
+		}
+
+		hit_valid |= hit_normals[i].dot(icosphere[i]) < 0.0f;
+	}
+
+	if (hit_valid)
+	{
+		Vec3 center = Vec3::zero;
+		for (s32 i = 0; i < icosphere_vertices; i++)
+			center += hit_positions[i] + hit_normals[i] * 5.0f;
+		center /= icosphere_vertices;
+		center = Vec3::lerp(0.25f, pos, center);
+
+		for (s32 i = 0; i < icosphere_vertices; i++)
+		{
+			r32 dist_sq = (hit_positions[i] - center).length_squared();
+			if (dist_sq < 6.0f * 6.0f)
+				icosphere_blockage[0]++;
+			else if (dist_sq < 12.0f * 12.0f)
+				icosphere_blockage[1]++;
+			else
+				icosphere_blockage[2]++;
+		}
+
+		for (s32 i = 0; i < MAX_REVERBS; i++)
+			out_reverb->data[i] = r32(icosphere_blockage[i]) / r32(icosphere_vertices);
+
+		out_reverb->outdoor = 1.0f - (r32(outdoor_blockage) / r32(icosphere_vertices));
+	}
+	else
 	{
 		for (s32 i = 0; i < MAX_REVERBS; i++)
-			out_reverb->data[i] = 0.0f;
-		return;
+			out_reverb->data[i] = -1.0f;
+		out_reverb->outdoor = -1.0f;
 	}
-
-	StaticArray<DroneNavMeshNode, DRONE_NAV_MESH_ADJACENCY * 2> neighbors;
-
-	{
-		// collect neighbors
-		std::set<s32> crawl_visited;
-		StaticArray<DroneNavMeshNode, DRONE_NAV_MESH_ADJACENCY * 2> crawl_queue;
-
-		neighbors.add(vertex);
-		crawl_visited.insert(vertex.hash());
-
-		{
-			const DroneNavMeshAdjacency& adjacency = mesh.chunks[vertex.chunk].adjacency[vertex.vertex];
-
-			for (s32 i = 0; i < adjacency.neighbors.length; i++)
-			{
-				const DroneNavMeshNode& neighbor = adjacency.neighbors[i];
-				if (adjacency.flag(i))
-				{
-					crawl_queue.add(neighbor);
-					crawl_visited.insert(neighbor.hash());
-				}
-				neighbors.add(neighbor);
-			}
-		}
-
-		// crawl neighbors
-		const Vec3& crawl_normal = mesh.chunks[vertex.chunk].normals[vertex.vertex];
-		s32 crawl_queue_index = 0;
-		while (crawl_queue_index < crawl_queue.length && neighbors.length < neighbors.capacity())
-		{
-			DroneNavMeshNode crawl_neighbor = crawl_queue[crawl_queue_index];
-			crawl_queue_index++;
-
-			const DroneNavMeshAdjacency& adjacency = mesh.chunks[crawl_neighbor.chunk].adjacency[crawl_neighbor.vertex];
-			for (s32 i = 0; i < adjacency.neighbors.length && crawl_queue.length < crawl_queue.capacity() && neighbors.length < neighbors.capacity(); i++)
-			{
-				const DroneNavMeshNode& neighbor = adjacency.neighbors[i];
-				if (adjacency.flag(i)
-					&& crawl_visited.find(neighbor.hash()) == crawl_visited.end()
-					&& mesh.chunks[neighbor.chunk].vertices[neighbor.vertex].dot(crawl_normal) > 0.9f
-					&& (pos - mesh.chunks[neighbor.chunk].vertices[neighbor.vertex]).length_squared() < DRONE_MAX_DISTANCE * 0.75f * DRONE_MAX_DISTANCE * 0.75f)
-				{
-					crawl_queue.add(crawl_neighbor);
-					crawl_visited.insert(crawl_neighbor.hash());
-					neighbors.add(neighbor);
-				}
-			}
-		}
-	}
-
-	// calculate center of vertex field
-	Vec3 center = Vec3::zero;
-	for (s32 i = 0; i < neighbors.length; i++)
-	{
-		const DroneNavMeshNode& neighbor = neighbors[i];
-		const Vec3& neighbor_pos = mesh.chunks[neighbor.chunk].vertices[neighbor.vertex];
-		const Vec3& neighbor_normal = mesh.chunks[neighbor.chunk].normals[neighbor.vertex];
-		center += neighbor_pos + neighbor_normal * 3.0f;
-	}
-	center /= neighbors.length;
-
-	Bitmask<42> icosphere_blockage[MAX_REVERBS] = {};
-
-	for (s32 i = 0; i < neighbors.length; i++)
-	{
-		// rasterize neighbors into blockage bitmask;
-		const DroneNavMeshNode& neighbor = neighbors[i];
-		const Vec3& neighbor_pos = mesh.chunks[neighbor.chunk].vertices[neighbor.vertex];
-		const Vec3& neighbor_normal = mesh.chunks[neighbor.chunk].normals[neighbor.vertex];
-		Vec3 diff = neighbor_pos - center;
-		if (diff.dot(neighbor_normal) < 0.0f)
-		{
-			r32 length = diff.length();
-			diff /= length;
-
-			Bitmask<42>* blockage;
-			if (length < 6.0f)
-				blockage = &icosphere_blockage[0];
-			else if (length < 12.0f)
-				blockage = &icosphere_blockage[1];
-			else
-				blockage = &icosphere_blockage[2];
-
-			icosphere_rasterize(blockage, diff, neighbor_normal);
-		}
-	}
-
-	for (s32 i = 0; i < MAX_REVERBS; i++)
-		out_reverb->data[i] = r32(icosphere_blockage[i].count()) / 42.0f;
 }
 
-void reverb_cell_add(ReverbCell* a, ReverbCell* b, r32 weight)
+r32 reverb_cell_add(ReverbCell* a, ReverbCell* b, r32 weight)
 {
-	for (s32 i = 0; i < MAX_REVERBS; i++)
-		a->data[i] += b->data[i] * weight;
+	if (b->data[0] < 0.0f)
+		return 0.0f; // invalid cell
+	else
+	{
+		for (s32 i = 0; i < MAX_REVERBS; i++)
+			a->data[i] += b->data[i] * weight;
+		a->outdoor += b->outdoor * weight;
+		return weight;
+	}
+}
+
+void reverb_smooth(ReverbVoxel* reverb, Array<ReverbCell>* reverb_copy)
+{
+	reverb_copy->resize(reverb->chunks.length);
+	memcpy(reverb_copy->data, reverb->chunks.data, sizeof(ReverbCell) * reverb->chunks.length);
+
+	for (s32 i = 0; i < reverb->chunks.length; i++)
+	{
+		ReverbCell* cell = &reverb->chunks[i];
+		memset(cell, 0, sizeof(*cell));
+
+		ReverbVoxel::Coord coord = reverb->coord(i);
+
+		r32 weight = 0.0f;
+		const r32 subcell_weight = 0.125f;
+
+		if (coord.x < reverb->size.x - 1)
+		{
+			ReverbVoxel::Coord c = coord;
+			c.x++;
+			weight += reverb_cell_add(cell, &((*reverb_copy)[reverb->index(c)]), subcell_weight);
+		}
+
+		if (coord.x > 0)
+		{
+			ReverbVoxel::Coord c = coord;
+			c.x--;
+			weight += reverb_cell_add(cell, &((*reverb_copy)[reverb->index(c)]), subcell_weight);
+		}
+
+		if (coord.y < reverb->size.y - 1)
+		{
+			ReverbVoxel::Coord c = coord;
+			c.y++;
+			weight += reverb_cell_add(cell, &((*reverb_copy)[reverb->index(c)]), subcell_weight);
+		}
+
+		if (coord.y > 0)
+		{
+			ReverbVoxel::Coord c = coord;
+			c.y--;
+			weight += reverb_cell_add(cell, &((*reverb_copy)[reverb->index(c)]), subcell_weight);
+		}
+
+		if (coord.z < reverb->size.z - 1)
+		{
+			ReverbVoxel::Coord c = coord;
+			c.z++;
+			weight += reverb_cell_add(cell, &((*reverb_copy)[reverb->index(c)]), subcell_weight);
+		}
+
+		if (coord.z > 0)
+		{
+			ReverbVoxel::Coord c = coord;
+			c.z--;
+			weight += reverb_cell_add(cell, &((*reverb_copy)[reverb->index(c)]), subcell_weight);
+		}
+
+		if ((*reverb_copy)[i].data[0] < 0.0f)
+		{
+			// invalid cell; normalize output
+			if (weight > 0.0f)
+			{
+				// we've gotten some valid data from surrounding cells; normalize it
+				r32 scale = 1.0f / weight;
+				for (s32 i = 0; i < MAX_REVERBS; i++)
+					cell->data[i] *= scale;
+				cell->outdoor *= scale;
+			}
+			else
+			{
+				// no data
+				for (s32 i = 0; i < MAX_REVERBS; i++)
+					cell->data[i] = -1.0f;
+				cell->outdoor = -1.0f;
+			}
+		}
+		else
+			reverb_cell_add(cell, &((*reverb_copy)[i]), 1.0f - weight);
+	}
 }
 
 void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, DroneNavMesh* out, s32* adjacency_buffer_overflows, s32* orphans)
 {
 	r64 timer = platform::time();
 	const r32 chunk_size = 10.0f;
-	const r32 reverb_chunk_size = 4.0f;
+	const r32 reverb_chunk_size = 3.0f;
 	const r32 chunk_padding = DRONE_RADIUS;
 
 	ChunkedTris accessible_chunked;
@@ -2987,9 +3014,10 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 					if (!drone_raycast(inaccessible_chunked, vertex, neighbor_vertex))
 					{
 						const Vec3& neighbor_normal = out->chunks[neighbor_index.chunk].normals[neighbor_index.vertex];
-						b8 hit_close;
-						drone_raycast(accessible_chunked, vertex, neighbor_vertex, &neighbor_normal, &hit_close);
-						if (hit_close)
+						Vec3 hit_pos;
+						Vec3 hit_normal;
+						drone_raycast(accessible_chunked, vertex, neighbor_vertex, &hit_pos, &hit_normal);
+						if (neighbor_normal.dot(hit_normal) > 0.8f && (neighbor_vertex - hit_pos).length_squared() < DRONE_RADIUS * DRONE_RADIUS)
 						{
 							vertex_adjacency->neighbors.add(neighbor_index);
 							vertex_adjacency->flag(vertex_adjacency->neighbors.length - 1, false); // clear crawl flag
@@ -3053,98 +3081,35 @@ void build_drone_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, Dr
 	printf("Cleaned orphans: %fs\n", platform::time() - timer);
 	timer = platform::time();
 
+	const Vec3 directions[6] =
+	{
+		Vec3(-1, 0, 0),
+		Vec3(1, 0, 0),
+		Vec3(0, -1, 0),
+		Vec3(0, 1, 0),
+		Vec3(0, 0, -1),
+		Vec3(0, 0, 1),
+	};
+
 	// reverb voxel
 	for (s32 i = 0; i < out->reverb.chunks.length; i++)
-	{
-		// sample 6 subcells and take the average
-		ReverbCell subcells[6];
-		const Vec3 directions[6] =
-		{
-			Vec3(-1, 0, 0),
-			Vec3(1, 0, 0),
-			Vec3(0, -1, 0),
-			Vec3(0, 1, 0),
-			Vec3(0, 0, -1),
-			Vec3(0, 0, 1),
-		};
-		Vec3 pos = out->reverb.pos(i);
-		for (s32 j = 0; j < 6; j++)
-			audio_reverb_calc(*out, pos + directions[j] * reverb_chunk_size * 0.5f, &subcells[j]);
+		audio_reverb_calc(accessible_chunked, inaccessible_chunked, out->reverb.pos(i), &out->reverb.chunks[i]);
 
-		ReverbCell* cell = &out->reverb.chunks[i];
-		for (s32 j = 0; j < MAX_REVERBS; j++)
-		{
-			r32 sum = 0.0f;
-			for (s32 k = 0; k < 6; k++)
-				sum += subcells[k].data[j];
-			cell->data[j] = sum / 6.0f;
-		}
+	// smooth
+	{
+		Array<ReverbCell> reverb_copy;
+		reverb_smooth(&out->reverb, &reverb_copy);
+		reverb_smooth(&out->reverb, &reverb_copy);
 	}
 
-	// smooth reverb voxel
-	Array<ReverbCell> reverb_copy;
-	reverb_copy.resize(out->reverb.chunks.length);
-	memcpy(reverb_copy.data, out->reverb.chunks.data, sizeof(ReverbCell) * out->reverb.chunks.length);
-
+	// remap values
 	for (s32 i = 0; i < out->reverb.chunks.length; i++)
 	{
 		ReverbCell* cell = &out->reverb.chunks[i];
-		memset(cell, 0, sizeof(*cell));
-
-		ReverbVoxel::Coord coord = out->reverb.coord(i);
-
-		r32 weight = 0.0f;
-		const r32 subcell_weight = 0.1f;
-
-		if (coord.x < out->reverb.size.x - 1)
-		{
-			ReverbVoxel::Coord c = coord;
-			c.x++;
-			reverb_cell_add(cell, &reverb_copy[out->reverb.index(c)], subcell_weight);
-			weight += subcell_weight;
-		}
-
-		if (coord.x > 0)
-		{
-			ReverbVoxel::Coord c = coord;
-			c.x--;
-			reverb_cell_add(cell, &reverb_copy[out->reverb.index(c)], subcell_weight);
-			weight += subcell_weight;
-		}
-
-		if (coord.y < out->reverb.size.y - 1)
-		{
-			ReverbVoxel::Coord c = coord;
-			c.y++;
-			reverb_cell_add(cell, &reverb_copy[out->reverb.index(c)], subcell_weight);
-			weight += subcell_weight;
-		}
-
-		if (coord.y > 0)
-		{
-			ReverbVoxel::Coord c = coord;
-			c.y--;
-			reverb_cell_add(cell, &reverb_copy[out->reverb.index(c)], subcell_weight);
-			weight += subcell_weight;
-		}
-
-		if (coord.z < out->reverb.size.z - 1)
-		{
-			ReverbVoxel::Coord c = coord;
-			c.z++;
-			reverb_cell_add(cell, &reverb_copy[out->reverb.index(c)], subcell_weight);
-			weight += subcell_weight;
-		}
-
-		if (coord.z > 0)
-		{
-			ReverbVoxel::Coord c = coord;
-			c.z--;
-			reverb_cell_add(cell, &reverb_copy[out->reverb.index(c)], subcell_weight);
-			weight += subcell_weight;
-		}
-
-		reverb_cell_add(cell, &reverb_copy[i], 1.0f - weight);
+		cell->data[0] = vi_max(0.0f, vi_min(1.0f, (cell->data[0] - 0.25f) / 0.4f));
+		cell->data[1] = vi_max(0.0f, vi_min(1.0f, (cell->data[1] - 0.1f) / 0.4f));
+		cell->data[2] = vi_max(0.0f, vi_min(1.0f, (cell->data[2] - 0.15f) / 0.3f));
+		cell->outdoor = vi_max(0.0f, vi_min(1.0f, (cell->outdoor - 0.1f) / 0.25f));
 	}
 
 	printf("Built reverb voxel: %fs\n", platform::time() - timer);

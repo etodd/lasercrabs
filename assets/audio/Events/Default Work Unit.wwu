@@ -2552,7 +2552,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="Wind_Medium" ID="{E1676921-1E52-445D-8DD9-0A0618EC3203}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="Wind_Medium" ID="{A8AB98DA-D4F2-447F-9ECB-0A9D0C9CAA9D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -2566,7 +2566,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="Wind_Low" ID="{91817416-F990-481B-8D18-FFB14E6B2721}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="Wind_Low" ID="{AF04E587-2F6B-4FCE-B96B-F436CD69DEE1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -2580,7 +2580,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="Wind_High" ID="{C226C985-0F67-4086-AA73-089B2C665DD7}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="Wind_High" ID="{84FD7C95-2EFA-4332-BD72-48049053C8AC}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>

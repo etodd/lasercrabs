@@ -387,6 +387,16 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 		else if (target_shield->has<ForceField>())
 			result = (result * 2) + 4;
 	}
+	else
+	{
+		// our velocity vector didn't actually intersect the target shield
+
+		// but our shield may have, in which case it still does 1 damage
+
+		// snipers however, must actually hit the shield
+		if (drone->current_ability == Ability::Sniper)
+			result = 0;
+	}
 
 	return result;
 }
@@ -722,7 +732,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							&& target.ref()->get<Health>()->active_armor(state_frame)
 							&& target.ref()->has<AIAgent>()
 							&& target.ref()->get<AIAgent>()->team != drone->get<AIAgent>()->team)
-							drone->get<Health>()->damage_force(target.ref(), ACTIVE_ARMOR_DIRECT_DAMAGE);
+							drone->get<Health>()->damage_force(target.ref(), DRONE_HEALTH + Game::session.config.ruleset.drone_shield);
 					}
 				}
 			}

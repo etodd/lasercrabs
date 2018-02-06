@@ -903,11 +903,21 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	{
 		s32 ambience_length;
 		if (Stream::IsWriting)
-			ambience_length = s32(strlen(Game::level.ambience));
+			ambience_length = s32(strlen(Game::level.ambience1));
 		serialize_int(p, s32, ambience_length, 0, MAX_AUDIO_EVENT_NAME);
-		serialize_bytes(p, (u8*)Game::level.ambience, ambience_length);
+		serialize_bytes(p, (u8*)Game::level.ambience1, ambience_length);
 		if (Stream::IsReading)
-			Game::level.ambience[ambience_length] = '\0';
+			Game::level.ambience1[ambience_length] = '\0';
+	}
+
+	{
+		s32 ambience_length;
+		if (Stream::IsWriting)
+			ambience_length = s32(strlen(Game::level.ambience2));
+		serialize_int(p, s32, ambience_length, 0, MAX_AUDIO_EVENT_NAME);
+		serialize_bytes(p, (u8*)Game::level.ambience2, ambience_length);
+		if (Stream::IsReading)
+			Game::level.ambience2[ambience_length] = '\0';
 	}
 
 	serialize_enum(p, Game::Mode, Game::level.mode);
@@ -3031,9 +3041,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 	switch (type)
 	{
 		case MessageType::Noop:
-		{
 			break;
-		}
 		case MessageType::LoadingDone:
 		{
 			client->flag(Client::FlagLoadingDone, true);

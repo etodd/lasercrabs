@@ -386,7 +386,11 @@ void AudioEntry::update_spatialization(UpdateType type)
 	}
 
 	if (flag(FlagEnableReverb))
-		AI::audio_reverb_calc(abs_pos, reverb_target);
+	{
+		ReverbCell reverb;
+		AI::audio_reverb_calc(abs_pos, &reverb);
+		memcpy(reverb_target, reverb.data, sizeof(reverb_target));
+	}
 
 	spatialization_update_frame = Audio::spatialization_update_frame;
 }
@@ -543,29 +547,22 @@ void Audio::update_all(const Update& u)
 			}
 
 			// update ambience
-			r32 ambience = 0.1f;
+			r32 ambience_indoor_outdoor = 0.0f;
+			s32 count = 0;
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)
 			{
 				if (listener_mask & (1 << i))
 				{
-					r32 reverb[MAX_REVERBS];
-					AI::audio_reverb_calc(listener[i].pos, reverb);
-
-					r32 reverb_sum = 0.0f;
-					for (s32 j = 0; j < MAX_REVERBS; j++)
-						reverb_sum += reverb[j];
-
-					r32 r;
-					if (reverb_sum == 0.0f)
-						r = 1.0f;
-					else
-						r = ((reverb[1] + reverb[2]) / reverb_sum) + vi_max(0.0f, 1.0f - reverb_sum);
-					ambience = vi_max(ambience, r);
-					if (ambience == 1.0f) // already at max
-						break;
+					ReverbCell reverb;
+					AI::audio_reverb_calc(listener[i].pos, &reverb);
+					ambience_indoor_outdoor += reverb.outdoor;
+					count++;
 				}
 			}
-			param_global(AK::GAME_PARAMETERS::AMBIENCE, ambience);
+			if (count > 0)
+				param_global(AK::GAME_PARAMETERS::AMBIENCE_INDOOR_OUTDOOR, ambience_indoor_outdoor / r32(count));
+			else
+				param_global(AK::GAME_PARAMETERS::AMBIENCE_INDOOR_OUTDOOR, 0.0f);
 		}
 	}
 

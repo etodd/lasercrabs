@@ -5680,7 +5680,7 @@
 				</Folder>
 				<Folder Name="AMBIENCE" ID="{54599BD1-651A-486D-9694-7119D2BDF1E5}" ShortID="784258196">
 					<ChildrenList>
-						<ActorMixer Name="AMBIENCE" ID="{6F9C180A-B770-4B6C-86E0-B2A3815DBC0C}" ShortID="1061644172">
+						<ActorMixer Name="Indoor" ID="{6F9C180A-B770-4B6C-86E0-B2A3815DBC0C}" ShortID="1061644172">
 							<PropertyList>
 								<Property Name="BelowThresholdBehavior" Type="int16" Value="2"/>
 								<Property Name="EnablePositioning" Type="bool" Value="False"/>
@@ -5696,7 +5696,7 @@
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
 								</Reference>
 								<Reference Name="OutputBus">
-									<ObjectRef Name="Ambience" ID="{671FD099-C447-471C-B015-7ADC69B847EE}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+									<ObjectRef Name="Ambience_Indoor" ID="{CCD5F61C-C882-45A7-98FE-C7E84CB43D6E}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
@@ -5706,7 +5706,7 @@
 											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
 										</Reference>
 										<Reference Name="OutputBus">
-											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+											<ObjectRef Name="Ambience_Indoor" ID="{CCD5F61C-C882-45A7-98FE-C7E84CB43D6E}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
 										</Reference>
 									</ReferenceList>
 									<ChildrenList>
@@ -5742,7 +5742,7 @@
 											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
 										</Reference>
 										<Reference Name="OutputBus">
-											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+											<ObjectRef Name="Ambience_Indoor" ID="{CCD5F61C-C882-45A7-98FE-C7E84CB43D6E}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
 										</Reference>
 									</ReferenceList>
 									<ChildrenList>
@@ -5766,108 +5766,6 @@
 											</ChildrenList>
 											<ActiveSourceList>
 												<ActiveSource Name="RUMBLE_Area_2_Layer_2_1_LOOPed" ID="{8D90EFDF-AB34-4D37-BAB5-EF9FA7E1084F}" Platform="Linked"/>
-											</ActiveSourceList>
-										</Sound>
-									</ChildrenList>
-								</BlendContainer>
-								<BlendContainer Name="Wind_Low" ID="{91817416-F990-481B-8D18-FFB14E6B2721}" ShortID="392317167">
-									<ReferenceList>
-										<Reference Name="Conversion">
-											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-										</Reference>
-										<Reference Name="OutputBus">
-											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-										</Reference>
-									</ReferenceList>
-									<ChildrenList>
-										<Sound Name="lemma_exterior_wind_01" ID="{E0E7CAC4-45B5-4727-BCE5-E6DD808E72D2}" ShortID="283396772">
-											<PropertyList>
-												<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Conversion">
-													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-												</Reference>
-												<Reference Name="OutputBus">
-													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-												</Reference>
-											</ReferenceList>
-											<ChildrenList>
-												<AudioFileSource Name="lemma_exterior_wind_01" ID="{C0E0E62F-E667-41E7-91A6-B5407D3425A9}" ShortID="526266493">
-													<Language>SFX</Language>
-													<AudioFile>lemma_exterior_wind_01.wav</AudioFile>
-												</AudioFileSource>
-											</ChildrenList>
-											<ActiveSourceList>
-												<ActiveSource Name="lemma_exterior_wind_01" ID="{C0E0E62F-E667-41E7-91A6-B5407D3425A9}" Platform="Linked"/>
-											</ActiveSourceList>
-										</Sound>
-									</ChildrenList>
-								</BlendContainer>
-								<BlendContainer Name="Wind_High" ID="{C226C985-0F67-4086-AA73-089B2C665DD7}" ShortID="677743146">
-									<ReferenceList>
-										<Reference Name="Conversion">
-											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-										</Reference>
-										<Reference Name="OutputBus">
-											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-										</Reference>
-									</ReferenceList>
-									<ChildrenList>
-										<Sound Name="lemma_exterior_wind_02" ID="{6207E689-1B36-4D83-BEFF-09EB1A49DE3D}" ShortID="438451518">
-											<PropertyList>
-												<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Conversion">
-													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-												</Reference>
-												<Reference Name="OutputBus">
-													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-												</Reference>
-											</ReferenceList>
-											<ChildrenList>
-												<AudioFileSource Name="lemma_exterior_wind_02" ID="{DE9541C2-A20B-4454-80CF-D3E78E8F81D0}" ShortID="914645643">
-													<Language>SFX</Language>
-													<AudioFile>lemma_exterior_wind_02.wav</AudioFile>
-												</AudioFileSource>
-											</ChildrenList>
-											<ActiveSourceList>
-												<ActiveSource Name="lemma_exterior_wind_02" ID="{DE9541C2-A20B-4454-80CF-D3E78E8F81D0}" Platform="Linked"/>
-											</ActiveSourceList>
-										</Sound>
-									</ChildrenList>
-								</BlendContainer>
-								<BlendContainer Name="Wind_Medium" ID="{E1676921-1E52-445D-8DD9-0A0618EC3203}" ShortID="597286403">
-									<ReferenceList>
-										<Reference Name="Conversion">
-											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-										</Reference>
-										<Reference Name="OutputBus">
-											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-										</Reference>
-									</ReferenceList>
-									<ChildrenList>
-										<Sound Name="lemma_exterior_wind_03" ID="{A5714DB5-AF9C-4B74-AC09-BE7160AD62EE}" ShortID="16027570">
-											<PropertyList>
-												<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Conversion">
-													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-												</Reference>
-												<Reference Name="OutputBus">
-													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-												</Reference>
-											</ReferenceList>
-											<ChildrenList>
-												<AudioFileSource Name="lemma_exterior_wind_03" ID="{8A721552-632A-4600-8E81-7D77EF060AE8}" ShortID="6193907">
-													<Language>SFX</Language>
-													<AudioFile>lemma_exterior_wind_03.wav</AudioFile>
-												</AudioFileSource>
-											</ChildrenList>
-											<ActiveSourceList>
-												<ActiveSource Name="lemma_exterior_wind_03" ID="{8A721552-632A-4600-8E81-7D77EF060AE8}" Platform="Linked"/>
 											</ActiveSourceList>
 										</Sound>
 									</ChildrenList>
@@ -5958,6 +5856,7 @@
 								<Sound Name="DEC_Amb_ocean_loop" ID="{E5B365ED-A0D9-4987-8E14-CDA9FBC3D914}" ShortID="254862001">
 									<PropertyList>
 										<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
+										<Property Name="OverrideOutput" Type="bool" Value="True"/>
 										<Property Name="OverridePositioning" Type="bool" Value="True"/>
 										<Property Name="PositioningType" Type="int16" Value="1"/>
 										<Property Name="Volume" Type="Real64">
@@ -5974,7 +5873,7 @@
 											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
 										</Reference>
 										<Reference Name="OutputBus">
-											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+											<ObjectRef Name="Ambience_Outdoor" ID="{671FD099-C447-471C-B015-7ADC69B847EE}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
 										</Reference>
 									</ReferenceList>
 									<ChildrenList>
@@ -5987,6 +5886,139 @@
 										<ActiveSource Name="DEC_Amb_ocean_loop" ID="{FD9D8AE8-C9A4-40F9-A48E-5C10F4D50BF9}" Platform="Linked"/>
 									</ActiveSourceList>
 								</Sound>
+							</ChildrenList>
+						</ActorMixer>
+						<ActorMixer Name="Outdoor" ID="{76C64C31-01FD-419B-B328-4F2F48CBABFD}" ShortID="750359748">
+							<PropertyList>
+								<Property Name="BelowThresholdBehavior" Type="int16" Value="2"/>
+								<Property Name="EnablePositioning" Type="bool" Value="False"/>
+								<Property Name="VirtualVoiceQueueBehavior" Type="int16" Value="2"/>
+								<Property Name="Volume" Type="Real64">
+									<ValueList>
+										<Value>-22</Value>
+									</ValueList>
+								</Property>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Ambience_Outdoor" ID="{671FD099-C447-471C-B015-7ADC69B847EE}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<BlendContainer Name="Wind_Low" ID="{AF04E587-2F6B-4FCE-B96B-F436CD69DEE1}" ShortID="405462685">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="lemma_exterior_wind_01" ID="{0F8BB430-88D3-4FDE-BDD9-9D26DC35D9F7}" ShortID="932866207">
+											<PropertyList>
+												<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="lemma_exterior_wind_01" ID="{45AF854E-E777-41B7-99A5-CA6073392116}" ShortID="674141060">
+													<Language>SFX</Language>
+													<AudioFile>lemma_exterior_wind_01.wav</AudioFile>
+													<ConvertedFileIDList>
+														<File ID="526266493"/>
+													</ConvertedFileIDList>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="lemma_exterior_wind_01" ID="{45AF854E-E777-41B7-99A5-CA6073392116}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</BlendContainer>
+								<BlendContainer Name="Wind_High" ID="{84FD7C95-2EFA-4332-BD72-48049053C8AC}" ShortID="257780685">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="lemma_exterior_wind_02" ID="{089B2BFB-6FA7-446D-A753-DE03E69439C0}" ShortID="737748985">
+											<PropertyList>
+												<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="lemma_exterior_wind_02" ID="{B4129340-DB8A-47C4-A407-FB6DA92C58D9}" ShortID="124030591">
+													<Language>SFX</Language>
+													<AudioFile>lemma_exterior_wind_02.wav</AudioFile>
+													<ConvertedFileIDList>
+														<File ID="914645643"/>
+													</ConvertedFileIDList>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="lemma_exterior_wind_02" ID="{B4129340-DB8A-47C4-A407-FB6DA92C58D9}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</BlendContainer>
+								<BlendContainer Name="Wind_Medium" ID="{A8AB98DA-D4F2-447F-9ECB-0A9D0C9CAA9D}" ShortID="853180339">
+									<ReferenceList>
+										<Reference Name="Conversion">
+											<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+										</Reference>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<Sound Name="lemma_exterior_wind_03" ID="{FAF04FD8-E381-440D-8109-43A212F976EA}" ShortID="792053955">
+											<PropertyList>
+												<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Conversion">
+													<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+												</Reference>
+												<Reference Name="OutputBus">
+													<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+												</Reference>
+											</ReferenceList>
+											<ChildrenList>
+												<AudioFileSource Name="lemma_exterior_wind_03" ID="{F23E4AD5-73BC-438F-BAD6-4D4E4924DBDA}" ShortID="662392329">
+													<Language>SFX</Language>
+													<AudioFile>lemma_exterior_wind_03.wav</AudioFile>
+													<ConvertedFileIDList>
+														<File ID="6193907"/>
+													</ConvertedFileIDList>
+												</AudioFileSource>
+											</ChildrenList>
+											<ActiveSourceList>
+												<ActiveSource Name="lemma_exterior_wind_03" ID="{F23E4AD5-73BC-438F-BAD6-4D4E4924DBDA}" Platform="Linked"/>
+											</ActiveSourceList>
+										</Sound>
+									</ChildrenList>
+								</BlendContainer>
 							</ChildrenList>
 						</ActorMixer>
 					</ChildrenList>

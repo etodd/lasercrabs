@@ -226,7 +226,7 @@ void Health::update(const Update& u)
 						}
 					}
 					else if (active_armor() && src->has<Drone>() && entry->type != BufferedDamage::Type::Sniper) // damage them back
-						src->get<Health>()->damage_force(entity(), ACTIVE_ARMOR_DIRECT_DAMAGE);
+						src->get<Health>()->damage_force(entity(), DRONE_HEALTH + Game::session.config.ruleset.drone_shield);
 					else
 						health_internal_apply_damage(this, src, entry->damage);
 				}
@@ -2604,14 +2604,6 @@ void Turret::update_server(const Update& u)
 			target_check_time += TURRET_TARGET_CHECK_TIME;
 			check_target();
 		}
-	}
-
-	cooldown_heal -= u.time.delta;
-	if (cooldown_heal < 0.0f)
-	{
-		cooldown_heal += TURRET_HEAL_INTERVAL;
-		if (get<Health>()->hp < get<Health>()->hp_max)
-			get<Health>()->add(1);
 	}
 
 	cooldown = vi_max(0.0f, cooldown - u.time.delta);

@@ -1734,7 +1734,9 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			level.rain = Json::get_r32(element, "rain");
 
 			if (cJSON_HasObjectItem(element, "ambience"))
-				strncpy(level.ambience, Json::get_string(element, "ambience"), MAX_AUDIO_EVENT_NAME);
+				strncpy(level.ambience1, Json::get_string(element, "ambience"), MAX_AUDIO_EVENT_NAME);
+			if (cJSON_HasObjectItem(element, "ambience2"))
+				strncpy(level.ambience2, Json::get_string(element, "ambience2"), MAX_AUDIO_EVENT_NAME);
 
 			// fill team lookup table
 			{
@@ -2592,8 +2594,10 @@ void Game::awake_all()
 		Audio::volume_multiplier(Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying ? 0.25f : 1.0f);
 #endif
 
-	if (level.ambience[0])
-		Audio::post_global(Audio::get_id(level.ambience));
+	if (level.ambience1[0])
+		Audio::post_global(Audio::get_id(level.ambience1));
+	if (level.ambience2[0])
+		Audio::post_global(Audio::get_id(level.ambience2));
 
 	for (s32 i = 0; i < level.scripts.length; i++)
 		Script::list[level.scripts[i]].function(level.finder);

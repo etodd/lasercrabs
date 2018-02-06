@@ -465,7 +465,7 @@ u32 audio_pathfind(const Vec3& a, const Vec3& b, AudioEntry* entry, s8 listener,
 	return id;
 }
 
-void audio_reverb_calc(const Vec3& pos, r32* output)
+void audio_reverb_calc(const Vec3& pos, ReverbCell* output)
 {
 	Worker::audio_reverb_calc(ctx, pos, output);
 }

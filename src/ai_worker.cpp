@@ -553,22 +553,128 @@ r32 audio_pathfind(const DroneNavContext& ctx, const Vec3& a, const Vec3& b)
 	return scorer.highest_total_score;
 }
 
-void audio_reverb_calc(const DroneNavContext& ctx, const Vec3& pos, r32* out_reverb)
+void reverb_lerp(ReverbCell* out, r32 x, const ReverbCell& a, const ReverbCell& b)
+{
+	for (s32 i = 0; i < MAX_REVERBS; i++)
+		out->data[i] = LMath::lerpf(x, a.data[i], b.data[i]);
+	out->outdoor = LMath::lerpf(x, a.outdoor, b.outdoor);
+}
+
+void audio_reverb_calc(const DroneNavContext& ctx, const Vec3& pos, ReverbCell* out_reverb)
 {
 	if (ctx.mesh.reverb.chunks.length > 0)
 	{
-		ReverbVoxel::Coord coord = ctx.mesh.reverb.clamped_coord(ctx.mesh.reverb.coord(pos));
-		const ReverbCell& cell = ctx.mesh.reverb.get(coord);
-		memcpy(out_reverb, cell.data, sizeof(cell.data));
-		out_reverb[0] = vi_max(0.0f, vi_min(1.0f, (out_reverb[0] - 0.3f) / 0.7f));
-		out_reverb[1] = vi_max(0.0f, vi_min(1.0f, (out_reverb[1] - 0.3f) / 0.7f));
-		out_reverb[2] = vi_max(0.0f, vi_min(1.0f, (out_reverb[2] - 0.2f) / 0.6f));
+		// x y z
+		// 0 0 0
+		ReverbVoxel::Coord origin = ctx.mesh.reverb.clamped_coord(ctx.mesh.reverb.coord(pos));
+
+		Vec3 diff = pos - ctx.mesh.reverb.pos(origin);
+
+		ReverbCell x1;
+		ReverbCell x2;
+		ReverbCell x3;
+		ReverbCell x4;
+
+		r32 off_grid_amount;
+
+		{
+			s32 dx = diff.x > 0.0f ? 1 : -1;
+			s32 dy = diff.y > 0.0f ? 1 : -1;
+			s32 dz = diff.z > 0.0f ? 1 : -1;
+
+			// rescale diff from 0 to 0.5
+			{
+				r32 scale = 1.0f / ctx.mesh.reverb.chunk_size;
+				diff.x *= dx * scale;
+				diff.y *= dy * scale;
+				diff.z *= dz * scale;
+
+				off_grid_amount = vi_max(0.0f, vi_max(diff.x - 0.5f, vi_max(diff.y - 0.5f, diff.z - 0.5f)));
+				diff.x = vi_min(0.5f, diff.x);
+				diff.y = vi_min(0.5f, diff.y);
+				diff.z = vi_min(0.5f, diff.z);
+			}
+
+			// 0 0 1
+			ReverbVoxel::Coord oz = origin;
+			oz.z += dz;
+			oz = ctx.mesh.reverb.clamped_coord(oz);
+
+			// 0 1 0
+			ReverbVoxel::Coord oy = origin;
+			oy.y += dy;
+			oy = ctx.mesh.reverb.clamped_coord(oy);
+
+			// 0 1 1
+			ReverbVoxel::Coord oyz = origin;
+			oyz.y += dy;
+			oyz.z += dz;
+			oyz = ctx.mesh.reverb.clamped_coord(oyz);
+
+			// 1 0 0
+			ReverbVoxel::Coord ox = origin;
+			ox.x += dx;
+			ox = ctx.mesh.reverb.clamped_coord(ox);
+
+			// 1 0 1
+			ReverbVoxel::Coord oxz = origin;
+			oxz.x += dx;
+			oxz.z += dz;
+			oxz = ctx.mesh.reverb.clamped_coord(oxz);
+
+			// 1 1 0
+			ReverbVoxel::Coord oxy = origin;
+			oxy.x += dx;
+			oxy.y += dy;
+			oxy = ctx.mesh.reverb.clamped_coord(oxy);
+
+			// 1 1 1
+			ReverbVoxel::Coord oxyz = origin;
+			oxyz.x += dx;
+			oxyz.y += dy;
+			oxyz.z += dz;
+			oxyz = ctx.mesh.reverb.clamped_coord(oxyz);
+
+			const ReverbCell& value_origin = ctx.mesh.reverb.get(origin);
+			const ReverbCell& value_oz = ctx.mesh.reverb.get(oz);
+			const ReverbCell& value_oy = ctx.mesh.reverb.get(oy);
+			const ReverbCell& value_oyz = ctx.mesh.reverb.get(oyz);
+			const ReverbCell& value_ox = ctx.mesh.reverb.get(ox);
+			const ReverbCell& value_oxz = ctx.mesh.reverb.get(oxz);
+			const ReverbCell& value_oxy = ctx.mesh.reverb.get(oxy);
+			const ReverbCell& value_oxyz = ctx.mesh.reverb.get(oxyz);
+			reverb_lerp(&x1, diff.x, value_origin, value_ox);
+			reverb_lerp(&x2, diff.x, value_oy, value_oxy);
+			reverb_lerp(&x3, diff.x, value_oz, value_oxz);
+			reverb_lerp(&x4, diff.x, value_oyz, value_oxyz);
+		}
+
+		ReverbCell y1;
+		ReverbCell y2;
+		reverb_lerp(&y1, diff.y, x1, x2);
+		reverb_lerp(&y2, diff.y, x3, x4);
+
+		ReverbCell on_grid_value;
+		reverb_lerp(&on_grid_value, diff.z, y1, y2);
+
+		if (off_grid_amount > 0.0f)
+		{
+			const ReverbCell off_grid_value =
+			{
+				{
+					0.0f,
+					0.0f,
+					1.0f,
+				},
+				1.0f,
+			};
+			reverb_lerp(out_reverb, vi_min(1.0f, off_grid_amount / 5.0f), on_grid_value, off_grid_value);
+		}
+		else
+			*out_reverb = on_grid_value;
 	}
 	else
-	{
-		for (s32 i = 0; i < MAX_REVERBS; i++)
-			out_reverb[i] = 0.0f;
-	}
+		*out_reverb = {};
 }
 
 // find a path using vertices as close as possible to the given points

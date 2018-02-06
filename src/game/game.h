@@ -152,11 +152,12 @@ struct Game
 		AI::Team team_lookup[MAX_TEAMS];
 		FeatureLevel feature_level;
 		Mode mode;
-		char ambience[MAX_AUDIO_EVENT_NAME + 1];
+		StoryModeTeam story_mode_team;
+		char ambience1[MAX_AUDIO_EVENT_NAME + 1];
+		char ambience2[MAX_AUDIO_EVENT_NAME + 1];
 		b8 local = true;
 		b8 noclip;
 		b8 config_scheduled_apply; // true if we have a scheduled ServerConfig we need to apply on the next level transition
-		StoryModeTeam story_mode_team;
 
 		b8 has_feature(FeatureLevel) const;
 		AI::Team team_lookup_reverse(AI::Team) const;

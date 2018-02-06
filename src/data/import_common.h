@@ -302,6 +302,7 @@ struct DroneNavMeshChunk
 struct ReverbCell
 {
 	r32 data[MAX_REVERBS];
+	r32 outdoor;
 };
 
 struct ReverbVoxel : Chunks<ReverbCell>

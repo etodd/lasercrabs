@@ -134,6 +134,25 @@ template<s16 size> struct Bitmask
 			}
 		}
 	}
+
+	void add(const Bitmask<size>& other)
+	{
+		start = vi_min(start, other.start);
+		end = vi_max(end, other.end);
+		s32 start_index = start / (sizeof(u32) * 8);
+		s32 end_index = ((end - 1) / (sizeof(u32) * 8)) + 1;
+		for (s32 i = start_index; i < end_index; i++)
+			data[i] |= other.data[i];
+	}
+
+	void subtract(const Bitmask<size>& other)
+	{
+		for (s32 i = other.start; i < other.end; i++)
+		{
+			if (other.get(i))
+				set(i, false);
+		}
+	}
 };
 
 template<typename T, s16 size>

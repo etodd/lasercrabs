@@ -168,7 +168,7 @@ void debug_draw_nav_mesh(const RenderParams&);
 void draw_hollow(const RenderParams&);
 r32 audio_pathfind(const Vec3&, const Vec3&);
 u32 audio_pathfind(const Vec3&, const Vec3&, AudioEntry*, s8, r32);
-void audio_reverb_calc(const Vec3&, r32*);
+void audio_reverb_calc(const Vec3&, ReverbCell*);
 
 b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);
 
@@ -247,7 +247,7 @@ namespace Worker
 	void loop();
 
 	r32 audio_pathfind(const DroneNavContext&, const Vec3&, const Vec3&);
-	void audio_reverb_calc(const DroneNavContext&, const Vec3&, r32*);
+	void audio_reverb_calc(const DroneNavContext&, const Vec3&, ReverbCell*);
 }
 
 extern ComponentMask entity_mask;

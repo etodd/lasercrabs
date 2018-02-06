@@ -38,7 +38,7 @@
 						</GameParameter>
 					</ChildrenList>
 				</Folder>
-				<GameParameter Name="Ambience" ID="{009637B5-397A-45CB-AC3E-1579D1CBD448}">
+				<GameParameter Name="Ambience_Indoor_Outdoor" ID="{009637B5-397A-45CB-AC3E-1579D1CBD448}">
 					<PropertyList>
 						<Property Name="InitialValue" Type="Real64" Value="1"/>
 						<Property Name="Max" Type="Real64" Value="1"/>

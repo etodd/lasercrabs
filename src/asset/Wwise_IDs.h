@@ -215,7 +215,7 @@ namespace AK
 
     namespace GAME_PARAMETERS
     {
-        static const AkUniqueID AMBIENCE = 85412153U;
+        static const AkUniqueID AMBIENCE_INDOOR_OUTDOOR = 2407163608U;
         static const AkUniqueID MINION_WEAPON_CHARGE = 691397373U;
         static const AkUniqueID PARKOUR_BREATH = 1605332778U;
         static const AkUniqueID PARKOUR_SLIDE = 2866705659U;
@@ -235,7 +235,8 @@ namespace AK
 
     namespace BUSSES
     {
-        static const AkUniqueID AMBIENCE = 85412153U;
+        static const AkUniqueID AMBIENCE_INDOOR = 4257519889U;
+        static const AkUniqueID AMBIENCE_OUTDOOR = 323399808U;
         static const AkUniqueID AUX_MASTER = 3134780610U;
         static const AkUniqueID BATTERY = 2326215132U;
         static const AkUniqueID DIALOGUE = 3930136735U;

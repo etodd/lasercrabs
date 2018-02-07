@@ -1159,7 +1159,7 @@ namespace Docks
 			}
 
 			if (data->state == TutorialState::Climb
-				&& (parkour->fsm.current == Parkour::State::Climb || parkour->fsm.current == Parkour::State::Mantle))
+				&& (parkour->fsm.current == ParkourState::Climb || parkour->fsm.current == ParkourState::Mantle))
 			{
 				data->state = TutorialState::WallRun;
 				Actor::tut_clear();

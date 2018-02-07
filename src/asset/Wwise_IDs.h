@@ -151,8 +151,10 @@ namespace AK
         static const AkUniqueID PLAY_PARKOUR_INTERACT = 3428809693U;
         static const AkUniqueID PLAY_PARKOUR_JUMP = 3928088679U;
         static const AkUniqueID PLAY_PARKOUR_LAND_HARD = 64743920U;
+        static const AkUniqueID PLAY_PARKOUR_LAND_HARD_VOCALS = 3238509109U;
         static const AkUniqueID PLAY_PARKOUR_LAND_SOFT = 701197667U;
         static const AkUniqueID PLAY_PARKOUR_MANTLE = 3213510858U;
+        static const AkUniqueID PLAY_PARKOUR_MANTLE_VOCALS = 2092393935U;
         static const AkUniqueID PLAY_PARKOUR_ROLL = 2795713858U;
         static const AkUniqueID PLAY_PARKOUR_SLIDE = 3397163066U;
         static const AkUniqueID PLAY_PARKOUR_TOPOUT = 1638007016U;

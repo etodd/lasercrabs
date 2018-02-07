@@ -6558,6 +6558,9 @@
 								</Property>
 							</PropertyList>
 							<ReferenceList>
+								<Reference Name="Attenuation">
+									<ObjectRef Name="Atten20" ID="{66FF368F-246F-423C-AD7C-4B99890C0E5F}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+								</Reference>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
 								</Reference>
@@ -6722,7 +6725,7 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<RandomSequenceContainer Name="LandHard" ID="{7071055C-F5F4-4E89-A630-0FCDA45CF068}" ShortID="23308265">
+								<RandomSequenceContainer Name="LandHardVocals" ID="{7071055C-F5F4-4E89-A630-0FCDA45CF068}" ShortID="23308265">
 									<PropertyList>
 										<Property Name="Pitch" Type="int32">
 											<ModifierList>
@@ -6844,7 +6847,7 @@
 										</Sound>
 									</ChildrenList>
 								</RandomSequenceContainer>
-								<RandomSequenceContainer Name="Mantle" ID="{46D49F10-CE72-4258-BFDE-0FD38A0CA4B9}" ShortID="83526393">
+								<RandomSequenceContainer Name="MantleVocals" ID="{46D49F10-CE72-4258-BFDE-0FD38A0CA4B9}" ShortID="83526393">
 									<PropertyList>
 										<Property Name="Volume" Type="Real64">
 											<ValueList>

@@ -786,16 +786,6 @@
 							<ChildrenList>
 								<Event Name="Play_Parkour_Mantle" ID="{F493ABC2-8104-4A65-900F-E300107E7019}">
 									<ChildrenList>
-										<Action Name="" ID="{0E4A63A7-B153-45FF-882A-B03B261B0C5C}" ShortID="62299365">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Mantle" ID="{46D49F10-CE72-4258-BFDE-0FD38A0CA4B9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
 										<Action Name="" ID="{EE995BDF-2C2D-4786-907A-C9152C366E1E}" ShortID="753879438">
 											<PropertyList>
 												<Property Name="ActionType" Type="int16" Value="1"/>
@@ -826,16 +816,6 @@
 								<Event Name="Play_Parkour_Slide" ID="{2C8B90FF-219F-48DD-AABE-E6247A72387C}"/>
 								<Event Name="Play_Parkour_Topout" ID="{2BB47BCB-D5D7-4C97-AA69-3974BE92380D}">
 									<ChildrenList>
-										<Action Name="" ID="{7D1A682F-8837-4593-9D59-2222DD9A7888}" ShortID="64193802">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="Mantle" ID="{46D49F10-CE72-4258-BFDE-0FD38A0CA4B9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
 										<Action Name="" ID="{2D3772AE-7ECC-4C93-B19F-7FA267011DD8}" ShortID="593594964">
 											<PropertyList>
 												<Property Name="ActionType" Type="int16" Value="1"/>
@@ -896,16 +876,6 @@
 								<Event Name="Play_Parkour_Land_Hard" ID="{024C2322-2321-46C7-B770-85FFAA1C424A}">
 									<ChildrenList>
 										<Action Name="" ID="{4BEBBE18-2D3C-414E-BDC3-49803E4CDA09}" ShortID="973795113">
-											<PropertyList>
-												<Property Name="ActionType" Type="int16" Value="1"/>
-											</PropertyList>
-											<ReferenceList>
-												<Reference Name="Target">
-													<ObjectRef Name="LandHard" ID="{7071055C-F5F4-4E89-A630-0FCDA45CF068}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-												</Reference>
-											</ReferenceList>
-										</Action>
-										<Action Name="" ID="{A1C363E7-91C6-465C-880B-E8E8C26898F0}" ShortID="50353497">
 											<PropertyList>
 												<Property Name="ActionType" Type="int16" Value="1"/>
 											</PropertyList>
@@ -984,6 +954,34 @@
 											<ReferenceList>
 												<Reference Name="Target">
 													<ObjectRef Name="wall_climb_claw" ID="{BE4476C0-55B1-4AF7-9FC2-37BFE59921C0}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Parkour_Land_Hard_Vocals" ID="{3BF67C22-BD57-4FB7-8152-E358E61DFC7A}">
+									<ChildrenList>
+										<Action Name="" ID="{4376C76E-4716-4272-9486-8006D5EEF54F}" ShortID="272627987">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="LandHardVocals" ID="{7071055C-F5F4-4E89-A630-0FCDA45CF068}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Parkour_Mantle_Vocals" ID="{C0AF5CDD-9AD3-4BBE-9A45-5A0469759BE3}">
+									<ChildrenList>
+										<Action Name="" ID="{43BBF358-96C1-4363-A707-4F4336C6D542}" ShortID="444365088">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="MantleVocals" ID="{46D49F10-CE72-4258-BFDE-0FD38A0CA4B9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>

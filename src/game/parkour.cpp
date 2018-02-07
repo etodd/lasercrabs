@@ -41,6 +41,120 @@ namespace VI
 
 #define ANIMATION_SPEED_MULTIPLIER 2.1f
 
+namespace ParkourNet
+{
+	enum class EffectType : s8
+	{
+		JumpNormal,
+		JumpDouble,
+		Mantle,
+		TopOut,
+		count,
+	};
+
+	b8 send_effect(Parkour* parkour, EffectType e)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Parkour);
+
+		{
+			Ref<Parkour> ref = parkour;
+			serialize_ref(p, ref);
+		}
+
+		serialize_enum(p, EffectType, e);
+
+		Net::msg_finalize(p);
+
+		return true;
+	}
+}
+
+b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+	Ref<Parkour> ref;
+	serialize_ref(p, ref);
+	ParkourNet::EffectType e;
+	serialize_enum(p, ParkourNet::EffectType, e);
+
+	if (Parkour* parkour = ref.ref())
+	{
+		if (parkour->get<PlayerControlHuman>()->local() == (src == Net::MessageSource::Loopback))
+		{
+			if (Game::level.local && src == Net::MessageSource::Remote)
+			{
+				// repeat to clients and self
+				ParkourNet::send_effect(parkour, e);
+			}
+			else
+			{
+				switch (e)
+				{
+					case ParkourNet::EffectType::JumpNormal:
+						parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_JUMP);
+						break;
+					case ParkourNet::EffectType::JumpDouble:
+					{
+						parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_JUMP);
+
+						// tiles
+						{
+							Vec3 spawn_offset = parkour->get<PlayerControlHuman>()->local()
+								? parkour->get<RigidBody>()->btBody->getLinearVelocity()
+								: parkour->get<Target>()->net_velocity;
+							spawn_offset *= 1.5f;
+							spawn_offset.y = 5.0f;
+
+							Vec3 pos = parkour->get<Walker>()->base_pos();
+
+							Quat tile_rot = Quat::look(Vec3(0, 1, 0));
+							const r32 radius = TILE_CREATE_RADIUS - 2.0f;
+							s32 i = 0;
+							for (s32 x = -s32(TILE_CREATE_RADIUS); x <= s32(radius); x++)
+							{
+								for (s32 y = -s32(TILE_CREATE_RADIUS); y <= s32(radius); y++)
+								{
+									if (Vec2(r32(x), r32(y)).length_squared() < radius * radius)
+									{
+										Tile::add(pos + Vec3(r32(x), 0, r32(y)) * TILE_SIZE, tile_rot, spawn_offset, nullptr, 0.15f + 0.05f * i);
+										i++;
+									}
+								}
+							}
+						}
+						break;
+					}
+					case ParkourNet::EffectType::Mantle:
+					{
+						parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_MANTLE);
+						if (Game::session.type == SessionType::Story)
+							parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_MANTLE_VOCALS);
+						break;
+					}
+					case ParkourNet::EffectType::TopOut:
+					{
+						parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_TOPOUT);
+						if (Game::session.type == SessionType::Story)
+							parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_MANTLE_VOCALS);
+						break;
+					}
+					default:
+						vi_assert(false);
+						break;
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+b8 Parkour::ability_enabled(Resource r)
+{
+	return Game::session.type == SessionType::Multiplayer || Game::save.resources[s32()];
+}
+
 Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 {
 	Transform* transform = create<Transform>();
@@ -75,7 +189,22 @@ Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 
 void Parkour::awake()
 {
-	get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_BREATHING);
+	if (Game::session.type == SessionType::Story)
+		get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_BREATHING);
+	else
+	{
+		SkinnedModel* model = get<SkinnedModel>();
+		if (has<PlayerControlHuman>() && get<PlayerControlHuman>()->local())
+		{
+			model->mesh = Asset::Mesh::character_headless;
+			model->mesh_shadow = Asset::Mesh::character;
+		}
+		else
+		{
+			model->mesh = Asset::Mesh::character;
+			model->mesh_shadow = AssetNull;
+		}
+	}
 	get<RigidBody>()->set_ccd(true);
 	Animator* animator = get<Animator>();
 	animator->layers[0].behavior = Animator::Behavior::Loop;
@@ -126,7 +255,8 @@ void Parkour::awake()
 Parkour::~Parkour()
 {
 	get<Audio>()->stop_all();
-	Game::session.grapple_time_scale = 1.0f;
+	if (Game::level.local)
+		Game::session.grapple_time_scale = 1.0f;
 	pickup_animation_complete(); // delete anything we're holding
 }
 
@@ -138,17 +268,19 @@ void Parkour::killed(Entity*)
 
 void Parkour::land(r32 velocity_diff)
 {
-	if (fsm.current == State::Normal)
+	if (fsm.current == ParkourState::Normal)
 	{
 		if (velocity_diff < LANDING_VELOCITY_HARD - 7.0f)
 			get<Health>()->kill(nullptr);
 		else if (velocity_diff < LANDING_VELOCITY_HARD)
 		{
-			fsm.transition(State::HardLanding);
+			fsm.transition(ParkourState::HardLanding);
 			get<Walker>()->max_speed = get<Walker>()->speed = get<Walker>()->net_speed = 0.0f;
 			get<RigidBody>()->btBody->setLinearVelocity(Vec3(0, get<RigidBody>()->btBody->getLinearVelocity().getY(), 0));
 			get<Animator>()->layers[1].play(Asset::Animation::character_land_hard);
 			get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_HARD);
+			if (Game::session.type == SessionType::Story)
+				get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_HARD_VOCALS);
 		}
 		else if (velocity_diff < LANDING_VELOCITY_LIGHT)
 		{
@@ -185,23 +317,23 @@ void Parkour::head_to_object_space(Vec3* pos, Quat* rot) const
 
 void Parkour::footstep()
 {
-	if ((fsm.current == State::Normal || fsm.current == State::WallRun)
+	if ((fsm.current == ParkourState::Normal || fsm.current == ParkourState::WallRun)
 		&& Game::time.total - last_footstep_time > 0.15f)
 	{
 		Vec3 base_pos = get<Walker>()->base_pos();
-		if (fsm.current == State::WallRun)
+		if (fsm.current == ParkourState::WallRun)
 		{
 			Quat rot = Quat::euler(0, get<Walker>()->target_rotation, 0);
 			Vec3 offset;
 			switch (wall_run_state)
 			{
-				case WallRunState::Forward:
+				case ParkourWallRunState::Forward:
 					offset = Vec3(0, 0, WALKER_PARKOUR_RADIUS * 0.8f);
 					break;
-				case WallRunState::Left:
+				case ParkourWallRunState::Left:
 					offset = Vec3(WALKER_PARKOUR_RADIUS * 0.8f, 0, 0);
 					break;
-				case WallRunState::Right:
+				case ParkourWallRunState::Right:
 					offset = Vec3(-WALKER_PARKOUR_RADIUS * 0.8f, 0, 0);
 					break;
 				default:
@@ -235,7 +367,7 @@ void Parkour::wall_climb_claw_sound()
 
 void Parkour::climb_sound()
 {
-	if (fsm.current == State::Climb)
+	if (fsm.current == ParkourState::Climb)
 		get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_CLIMB);
 }
 
@@ -343,7 +475,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 	Vec3 horizontal_velocity_diff = velocity - support_velocity;
 	r32 vertical_velocity_diff = horizontal_velocity_diff.y;
 	horizontal_velocity_diff.y = 0.0f;
-	if (wall_run_state != WallRunState::Forward && horizontal_velocity_diff.length() < MIN_WALLRUN_SPEED)
+	if (wall_run_state != ParkourWallRunState::Forward && horizontal_velocity_diff.length() < MIN_WALLRUN_SPEED)
 		exit_wallrun = true; // we're going too slow
 	else
 	{
@@ -362,7 +494,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		// face the correct direction
 		{
 			Vec3 forward;
-			if (wall_run_state == WallRunState::Forward)
+			if (wall_run_state == ParkourWallRunState::Forward)
 			{
 				forward = -absolute_wall_normal;
 				forward.normalize();
@@ -378,7 +510,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		// animation stuff
 		{
 			Animator::Layer* layer0 = &get<Animator>()->layers[0];
-			if (wall_run_state == WallRunState::Forward)
+			if (wall_run_state == ParkourWallRunState::Forward)
 			{
 				r32 amount = ANIMATION_SPEED_MULTIPLIER * (vertical_velocity_diff / get<Walker>()->speed);
 				layer0->speed = vi_max(0.0f, amount);
@@ -393,12 +525,12 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 			else
 			{
 				layer0->speed = ANIMATION_SPEED_MULTIPLIER * (horizontal_velocity_diff.length() / get<Walker>()->speed);
-				if (wall_run_state == WallRunState::Left)
+				if (wall_run_state == ParkourWallRunState::Left)
 				{
 					layer0->play(Asset::Animation::character_wall_run_left);
 					parkour_sparks(this, u, ParkourHand::Left, layer0->speed);
 				}
-				else if (wall_run_state == WallRunState::Right)
+				else if (wall_run_state == ParkourWallRunState::Right)
 				{
 					layer0->play(Asset::Animation::character_wall_run_right);
 					parkour_sparks(this, u, ParkourHand::Right, layer0->speed);
@@ -417,7 +549,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 	}
 
 	// spawn tiles
-	if (!exit_wallrun && wall_run_state != WallRunState::Forward && Game::save.resources[s32(Resource::ExtendedWallRun)])
+	if (!exit_wallrun && wall_run_state != ParkourWallRunState::Forward && ability_enabled(Resource::ExtendedWallRun))
 	{
 		Vec3 relative_wall_right = relative_wall_run_normal.cross(last_support.ref()->get<Transform>()->to_local_normal(Vec3(0, 1, 0)));
 		relative_wall_right.normalize();
@@ -440,10 +572,10 @@ void parkour_set_collectible_position(Animator* parkour, Transform* collectible)
 
 void parkour_stop_climbing(Parkour* parkour)
 {
-	parkour->fsm.transition(Parkour::State::Normal);
+	parkour->fsm.transition(ParkourState::Normal);
 	parkour->rope = nullptr;
 	parkour->last_support = nullptr;
-	parkour->last_support_wall_run_state = Parkour::WallRunState::None;
+	parkour->last_support_wall_run_state = ParkourWallRunState::None;
 	parkour->last_support_time = Game::time.total;
 	RigidBody::remove_constraint(parkour->rope_constraint);
 	parkour->rope_constraint = IDNull;
@@ -512,14 +644,14 @@ b8 Parkour::TilePos::operator!=(const Parkour::TilePos& other) const
 	return x != other.x || y != other.y;
 }
 
-void Parkour::update(const Update& u)
+void Parkour::update_server(const Update& u)
 {
 	fsm.time += u.time.delta;
 
-	if (fsm.current == State::WallRun && fsm.time > JUMP_GRACE_PERIOD && get<Walker>()->support.ref())
+	if (fsm.current == ParkourState::WallRun && fsm.time > JUMP_GRACE_PERIOD && get<Walker>()->support.ref())
 	{
-		wall_run_state = WallRunState::None;
-		fsm.transition(State::Normal);
+		wall_run_state = ParkourWallRunState::None;
+		fsm.transition(ParkourState::Normal);
 	}
 
 	// animation layers
@@ -549,9 +681,10 @@ void Parkour::update(const Update& u)
 		}
 	}
 
-	Game::session.grapple_time_scale = (flag(FlagTryGrapple) || fsm.current == State::Grapple) ? 0.3f : 1.0f;
+	if (Game::level.local)
+		Game::session.grapple_time_scale = (flag(FlagTryGrapple) || fsm.current == ParkourState::Grapple) ? 0.3f : 1.0f;
 
-	if (fsm.current == State::Grapple)
+	if (fsm.current == ParkourState::Grapple)
 		get<RigidBody>()->set_collision_masks(0, 0);
 	else
 	{
@@ -559,22 +692,22 @@ void Parkour::update(const Update& u)
 		grapple_cooldown = vi_max(0.0f, grapple_cooldown - u.time.delta);
 	}
 
-	get<Animator>()->layers[2].play(fsm.current == State::Grapple
+	get<Animator>()->layers[2].play(fsm.current == ParkourState::Grapple
 		? Asset::Animation::character_grapple_fire
 		: (flag(FlagTryGrapple) ? Asset::Animation::character_grapple_aim : AssetNull));
 
-	if (fsm.current == State::Grapple)
+	if (fsm.current == ParkourState::Grapple)
 	{
-		const r32 grapple_time = 0.15f;
+		const r32 grapple_time = Game::session.type == SessionType::Story ? 0.15f : 0.15f / 0.3f;
 		r32 blend = Ease::cubic_in_out<r32>(vi_min(1.0f, fsm.time / grapple_time));
 		get<Walker>()->absolute_pos(Vec3::lerp(blend, grapple_start_pos, grapple_pos));
 		if (blend == 1.0f)
 		{
-			fsm.transition(State::Normal);
+			fsm.transition(ParkourState::Normal);
 			get<RigidBody>()->btBody->setLinearVelocity(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, get<Walker>()->net_speed));
 		}
 	}
-	else if (fsm.current == State::Mantle)
+	else if (fsm.current == ParkourState::Mantle)
 	{
 		// top-out animation is slower than mantle animation
 		const r32 mantle_time = get<Animator>()->layers[1].animation == Asset::Animation::character_mantle ? 0.4f : 1.2f;
@@ -582,7 +715,7 @@ void Parkour::update(const Update& u)
 		if (fsm.time > mantle_time || !last_support.ref())
 		{
 			// done
-			fsm.transition(State::Normal);
+			fsm.transition(ParkourState::Normal);
 			get<RigidBody>()->btBody->setLinearVelocity(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, get<Walker>()->net_speed));
 		}
 		else
@@ -620,12 +753,12 @@ void Parkour::update(const Update& u)
 		}
 		last_support_time = Game::time.total;
 	}
-	else if (fsm.current == State::HardLanding)
+	else if (fsm.current == ParkourState::HardLanding)
 	{
 		if (get<Animator>()->layers[1].animation != Asset::Animation::character_land_hard)
-			fsm.transition(State::Normal);
+			fsm.transition(ParkourState::Normal);
 	}
-	else if (fsm.current == State::WallRun)
+	else if (fsm.current == ParkourState::WallRun)
 	{
 		get<Animator>()->layers[1].animation = AssetNull;
 		b8 exit_wallrun = false;
@@ -653,13 +786,13 @@ void Parkour::update(const Update& u)
 
 				Quat rot = Quat::euler(0, get<Walker>()->target_rotation, 0);
 				Vec3 forward = rot * Vec3(0, 0, 1);
-				if (wall_run_state == WallRunState::Left || wall_run_state == WallRunState::Right)
+				if (wall_run_state == ParkourWallRunState::Left || wall_run_state == ParkourWallRunState::Right)
 				{
 					// check if we need to switch to a perpendicular wall right in front of us
-					if (!try_wall_run(WallRunState::Forward, forward))
+					if (!try_wall_run(ParkourWallRunState::Forward, forward))
 					{
 						// check if we need to transfer between walls that are slightly angled
-						Vec3 ray_dir = rot * Vec3(r32(wall_run_state == WallRunState::Left ? 1 : -1), 0, 1);
+						Vec3 ray_dir = rot * Vec3(r32(wall_run_state == ParkourWallRunState::Left ? 1 : -1), 0, 1);
 						Vec3 ray_end = ray_start + ray_dir * (WALKER_PARKOUR_RADIUS * WALL_RUN_DISTANCE_RATIO);
 						btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 						Physics::raycast(&ray_callback, CollisionParkour);
@@ -708,12 +841,12 @@ void Parkour::update(const Update& u)
 			}
 			else // ran out of wall to run on
 			{
-				if (wall_run_state == WallRunState::Forward)
+				if (wall_run_state == ParkourWallRunState::Forward)
 				{
 					exit_wallrun = true;
 					try_parkour(MantleAttempt::Force); // do an extra broad raycast to make sure we hit the top if at all possible
 				}
-				else if (Game::save.resources[s32(Resource::ExtendedWallRun)]) // keep going, generate a wall
+				else if (ability_enabled(Resource::ExtendedWallRun)) // keep going, generate a wall
 					exit_wallrun = wallrun(u, last_support.ref(), relative_support_pos, relative_wall_run_normal);
 				else
 				{
@@ -723,13 +856,13 @@ void Parkour::update(const Update& u)
 			}
 		}
 
-		if (exit_wallrun && fsm.current == State::WallRun)
+		if (exit_wallrun && fsm.current == ParkourState::WallRun)
 		{
-			fsm.transition(State::Normal);
-			wall_run_state = WallRunState::None;
+			fsm.transition(ParkourState::Normal);
+			wall_run_state = ParkourWallRunState::None;
 		}
 	}
-	else if (fsm.current == State::Normal)
+	else if (fsm.current == ParkourState::Normal)
 	{
 		b8 allow_run;
 		if (get<Walker>()->support.ref())
@@ -752,7 +885,7 @@ void Parkour::update(const Update& u)
 				layer1->animation = AssetNull; // stop jump animations
 			last_support_time = Game::time.total;
 			last_support = get<Walker>()->support;
-			last_support_wall_run_state = WallRunState::None;
+			last_support_wall_run_state = ParkourWallRunState::None;
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos());
 			lean_target = get<Walker>()->net_speed * angular_velocity * (0.75f / 180.0f) / vi_max(0.0001f, u.time.delta);
 		}
@@ -770,8 +903,8 @@ void Parkour::update(const Update& u)
 
 	// update breath sound
 	{
-		if ((fsm.current != State::Normal || get<Walker>()->net_speed >= RUN_SPEED)
-			&& fsm.current != State::Climb)
+		if ((fsm.current != ParkourState::Normal || get<Walker>()->net_speed >= RUN_SPEED)
+			&& fsm.current != ParkourState::Climb)
 			breathing = vi_min(5.0f, breathing + u.time.delta * (1.0f / 1.0f));
 		else
 			breathing = vi_max(0.0f, breathing + u.time.delta * (-1.0f / 0.6f));
@@ -783,11 +916,11 @@ void Parkour::update(const Update& u)
 	lean += (lean_target - lean) * vi_min(1.0f, 20.0f * u.time.delta);
 
 	Animator::Layer* layer0 = &get<Animator>()->layers[0];
-	if (fsm.current == State::WallRun)
+	if (fsm.current == ParkourState::WallRun)
 	{
 		// animation already handled by wallrun()
 	}
-	else if (fsm.current == State::Climb)
+	else if (fsm.current == ParkourState::Climb)
 	{
 		get<Animator>()->layers[1].animation = AssetNull;
 		if (climb_velocity == 0.0f)
@@ -871,16 +1004,16 @@ void Parkour::update(const Update& u)
 		layer0->speed = 1.0f;
 	}
 
-	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::HardLanding;
+	get<Walker>()->enabled = fsm.current == ParkourState::Normal || fsm.current == ParkourState::HardLanding;
 
 	{
-		if (fsm.current == State::Normal && Game::time.total - last_climb_time > JUMP_GRACE_PERIOD * 2.0f)
+		if (fsm.current == ParkourState::Normal && Game::time.total - last_climb_time > JUMP_GRACE_PERIOD * 2.0f)
 		{
 			// check for stuff to climb
 			Transform* r = parkour_get_rope(this, ParkourRopeSearch::Any);
 			if (r)
 			{
-				fsm.transition(State::Climb);
+				fsm.transition(ParkourState::Climb);
 				rope = r;
 				Vec3 v = get<RigidBody>()->btBody->getLinearVelocity();
 				v.y = 0.0f;
@@ -901,7 +1034,7 @@ void Parkour::update(const Update& u)
 				rope_constraint = RigidBody::add_constraint(constraint);
 			}
 		}
-		else if (fsm.current == State::Climb)
+		else if (fsm.current == ParkourState::Climb)
 		{
 			last_climb_time = Game::time.total;
 			RigidBody* body = get<RigidBody>();
@@ -938,34 +1071,13 @@ void Parkour::update(const Update& u)
 	{
 		Animator::Layer* layer1 = &get<Animator>()->layers[1];
 		if ((layer1->animation == Asset::Animation::character_top_out || layer1->animation == Asset::Animation::character_mantle)
-			&& fsm.current != State::Mantle
+			&& fsm.current != ParkourState::Mantle
 			&& fsm.time > 0.2f)
 			layer1->animation = AssetNull;
 	}
 
 	// update model offset
-	{
-		get<Animator>()->update_server(u);
-		Vec3 model_offset(0, get<Walker>()->capsule_height() * -0.5f - WALKER_SUPPORT_HEIGHT, 0);
-		{
-			Animator::Layer* layer1 = &get<Animator>()->layers[1];
-
-			if (animation_start_support.ref())
-			{
-				Vec3 offset = animation_start_support.ref()->get<Transform>()->to_world(relative_animation_start_pos) - get<Transform>()->absolute_pos();
-				if (layer1->animation == Asset::Animation::character_top_out || layer1->animation == Asset::Animation::character_mantle)
-					model_offset += offset * Ease::quad_out<r32>(layer1->blend);
-				else if (layer1->last_animation == Asset::Animation::character_top_out || layer1->last_animation == Asset::Animation::character_mantle)
-					model_offset += offset * (1.0f - Ease::quad_out<r32>(layer1->blend));
-			}
-		}
-
-		get<SkinnedModel>()->offset.make_transform(
-			model_offset,
-			Vec3(1.0f, 1.0f, 1.0f),
-			Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
-		);
-	}
+	get<Animator>()->update_server(u);
 
 	// handle collectibles
 	{
@@ -990,17 +1102,88 @@ void Parkour::update(const Update& u)
 				parkour_set_collectible_position(get<Animator>(), t);
 		}
 	}
+
+	Vec3 model_offset(0, get<Walker>()->capsule_height() * -0.5f - WALKER_SUPPORT_HEIGHT, 0);
+	{
+		Animator::Layer* layer1 = &get<Animator>()->layers[1];
+
+		if (animation_start_support.ref())
+		{
+			Vec3 offset = animation_start_support.ref()->get<Transform>()->to_world(relative_animation_start_pos) - get<Transform>()->absolute_pos();
+			if (layer1->animation == Asset::Animation::character_top_out || layer1->animation == Asset::Animation::character_mantle)
+				model_offset += offset * Ease::quad_out<r32>(layer1->blend);
+			else if (layer1->last_animation == Asset::Animation::character_top_out || layer1->last_animation == Asset::Animation::character_mantle)
+				model_offset += offset * (1.0f - Ease::quad_out<r32>(layer1->blend));
+		}
+	}
+
+	get<SkinnedModel>()->offset.make_transform
+	(
+		model_offset,
+		Vec3(1.0f, 1.0f, 1.0f),
+		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
+	);
+}
+
+void Parkour::update_client(const Update& u)
+{
+	// client-side wall-run effects for remote players
+	if (!get<PlayerControlHuman>()->local())
+	{
+		Animator::Layer* layer0 = &get<Animator>()->layers[0];
+		b8 tiles = false;
+		if (layer0->animation == Asset::Animation::character_wall_run_straight
+			|| layer0->animation == Asset::Animation::character_wall_slide)
+			parkour_sparks(this, u, ParkourHand::Both, 1.0f);
+		else if (layer0->animation == Asset::Animation::character_wall_run_left)
+		{
+			parkour_sparks(this, u, ParkourHand::Left, 1.0f);
+			tiles = true;
+		}
+		else if (layer0->animation == Asset::Animation::character_wall_run_right)
+		{
+			parkour_sparks(this, u, ParkourHand::Right, 1.0f);
+			tiles = true;
+		}
+
+		if (tiles && relative_wall_run_normal.length_squared() > 0.0f)
+		{
+			// on client-side, relative_wall_run_normal is the absolute wall normal
+			Vec3 normal = Vec3::normalize(relative_wall_run_normal);
+			Vec3 relative_wall_right = normal.cross(Vec3(0, 1, 0));
+			relative_wall_right.normalize();
+			Vec3 relative_wall_up = relative_wall_right.cross(normal);
+			relative_wall_up.normalize();
+
+			// we don't have actual velocity, so use net_velocity calculated by netcode
+			Vec3 spawn_offset = (get<Target>()->net_velocity * 1.5f) + (normal * -3.0f);
+			spawn_tiles(relative_wall_right, relative_wall_up, normal, spawn_offset);
+		}
+
+		get<SkinnedModel>()->offset.make_transform
+		(
+			get<SkinnedModel>()->offset.translation(), // translation is synced across network
+			Vec3(1.0f, 1.0f, 1.0f),
+			Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
+		);
+	}
 }
 
 void Parkour::spawn_tiles(const Vec3& relative_wall_right, const Vec3& relative_wall_up, const Vec3& relative_wall_normal, const Vec3& spawn_offset)
 {
+	Vec3 pos;
+	if (get<PlayerControlHuman>()->local())
+		pos = relative_support_pos;
+	else // don't have support information; re-construct it
+		pos = get<Transform>()->absolute_pos() - relative_wall_run_normal * (WALKER_PARKOUR_RADIUS * WALL_RUN_DISTANCE_RATIO);
+
 	TilePos wall_coord =
 	{
-		s32(relative_support_pos.dot(relative_wall_right) * (1.0f / TILE_SIZE)),
-		s32(relative_support_pos.dot(relative_wall_up) * (1.0f / TILE_SIZE)),
+		s32(pos.dot(relative_wall_right) * (1.0f / TILE_SIZE)),
+		s32(pos.dot(relative_wall_up) * (1.0f / TILE_SIZE)),
 	};
 
-	bool new_wall_coord = true;
+	b8 new_wall_coord = true;
 	if (tile_history.length > 0)
 	{
 		for (s32 i = tile_history.length - 1; i >= 0; i--)
@@ -1015,9 +1198,9 @@ void Parkour::spawn_tiles(const Vec3& relative_wall_right, const Vec3& relative_
 
 	if (new_wall_coord)
 	{
-		r32 relative_wall_z = relative_support_pos.dot(relative_wall_normal) - 0.1f;
+		r32 relative_wall_z = pos.dot(relative_wall_normal) - 0.1f;
 
-		Vec3 absolute_wall_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_normal);
+		Vec3 absolute_wall_normal = last_support.ref() ? last_support.ref()->get<Transform>()->to_world_normal(relative_wall_normal) : relative_wall_run_normal;
 		Quat absolute_wall_rot = Quat::look(absolute_wall_normal);
 
 		s32 i = 0;
@@ -1044,10 +1227,10 @@ void Parkour::spawn_tiles(const Vec3& relative_wall_right, const Vec3& relative_
 						Vec3 relative_tile_pos = (relative_wall_right * relative_tile_wall_coord.x)
 							+ (relative_wall_up * relative_tile_wall_coord.y)
 							+ (relative_wall_normal * relative_wall_z);
-						Vec3 absolute_tile_pos = last_support.ref()->get<Transform>()->to_world(relative_tile_pos);
+						Vec3 absolute_tile_pos = last_support.ref() ? last_support.ref()->get<Transform>()->to_world(relative_tile_pos) : relative_tile_pos;
 
 						r32 anim_time = tile_history.length == 0 ? (0.03f + 0.01f * i) : 0.3f;
-						Tile::add(absolute_tile_pos, absolute_wall_rot, spawn_offset, last_support.ref()->get<Transform>(), anim_time);
+						Tile::add(absolute_tile_pos, absolute_wall_rot, spawn_offset, last_support.ref() ? last_support.ref()->get<Transform>() : nullptr, anim_time);
 
 						i++;
 					}
@@ -1074,6 +1257,14 @@ void Parkour::pickup_animation_complete()
 	}
 }
 
+Vec3 Parkour::absolute_wall_normal() const
+{
+	if (const RigidBody* s = last_support.ref())
+		return s->get<Transform>()->to_world_normal(relative_wall_run_normal);
+	else
+		return relative_wall_run_normal;
+}
+
 const s32 wall_jump_direction_count = 4;
 const s32 wall_run_direction_count = 3;
 Vec3 wall_directions[wall_jump_direction_count] =
@@ -1091,9 +1282,9 @@ void Parkour::do_normal_jump()
 	new_velocity.y = vi_max(0.0f, new_velocity.y) + JUMP_SPEED;
 	body->setLinearVelocity(new_velocity);
 	get<Walker>()->support = nullptr;
-	last_support_wall_run_state = WallRunState::None;
+	last_support_wall_run_state = ParkourWallRunState::None;
 	last_support_time = last_jump_time = Game::time.total;
-	wall_run_state = WallRunState::None;
+	wall_run_state = ParkourWallRunState::None;
 	get<Animator>()->layers[1].play(Asset::Animation::character_jump1);
 }
 
@@ -1136,7 +1327,8 @@ b8 Parkour::try_jump(r32 rotation)
 		return false;
 
 	b8 did_jump = false;
-	if (fsm.current == State::Climb)
+	b8 did_double_jump = false;
+	if (fsm.current == ParkourState::Climb)
 	{
 		parkour_stop_climbing(this);
 		RigidBody* body = get<RigidBody>();
@@ -1146,11 +1338,11 @@ b8 Parkour::try_jump(r32 rotation)
 		body->btBody->setLinearVelocity(velocity * (speed / vi_max(0.01f, velocity_length)) + Vec3(0, JUMP_SPEED, 0));
 		did_jump = true;
 	}
-	else if (fsm.current == State::Normal || fsm.current == State::WallRun)
+	else if (fsm.current == ParkourState::Normal || fsm.current == ParkourState::WallRun)
 	{
 		if ((get<Walker>()->support.ref() && get<Walker>()->support.ref()->btBody->getBroadphaseProxy()->m_collisionFilterGroup & CollisionParkour)
 			|| (
-				last_support_wall_run_state == WallRunState::None
+				last_support_wall_run_state == ParkourWallRunState::None
 				&& Game::time.total - last_support_time < JUMP_GRACE_PERIOD
 				&& last_support.ref() && last_support.ref()->btBody->getBroadphaseProxy()->m_collisionFilterGroup & CollisionParkour
 				))
@@ -1161,7 +1353,7 @@ b8 Parkour::try_jump(r32 rotation)
 		else
 		{
 			// try wall-jumping
-			if (last_support.ref() && Game::time.total - last_support_time < JUMP_GRACE_PERIOD && last_support_wall_run_state != WallRunState::None)
+			if (last_support.ref() && Game::time.total - last_support_time < JUMP_GRACE_PERIOD && last_support_wall_run_state != ParkourWallRunState::None)
 			{
 				wall_jump(rotation, last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal), last_support.ref()->btBody);
 				did_jump = true;
@@ -1189,31 +1381,11 @@ b8 Parkour::try_jump(r32 rotation)
 		}
 	}
 
-	if (!did_jump && flag(FlagCanDoubleJump) && Game::save.resources[s32(Resource::DoubleJump)])
+	if (!did_jump && flag(FlagCanDoubleJump) && ability_enabled(Resource::DoubleJump))
 	{
 		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
 		if (velocity.y < 0.0f) // have to be going down to double jump
 		{
-			Vec3 spawn_offset = velocity * 1.5f;
-			spawn_offset.y = 5.0f;
-
-			Vec3 pos = get<Walker>()->base_pos();
-
-			Quat tile_rot = Quat::look(Vec3(0, 1, 0));
-			const r32 radius = TILE_CREATE_RADIUS - 2.0f;
-			s32 i = 0;
-			for (s32 x = -s32(TILE_CREATE_RADIUS); x <= s32(radius); x++)
-			{
-				for (s32 y = -s32(TILE_CREATE_RADIUS); y <= s32(radius); y++)
-				{
-					if (Vec2(r32(x), r32(y)).length_squared() < radius * radius)
-					{
-						Tile::add(pos + Vec3(r32(x), 0, r32(y)) * TILE_SIZE, tile_rot, spawn_offset, nullptr, 0.15f + 0.05f * i);
-						i++;
-					}
-				}
-			}
-
 			// override horizontal velocity based on current facing angle
 			Vec3 horizontal_velocity = velocity;
 			horizontal_velocity.y = 0.0f;
@@ -1225,6 +1397,7 @@ b8 Parkour::try_jump(r32 rotation)
 
 			flag(FlagCanDoubleJump, false);
 			did_jump = true;
+			did_double_jump = true;
 		}
 	}
 
@@ -1234,8 +1407,8 @@ b8 Parkour::try_jump(r32 rotation)
 			jump_history.remove_ordered(0);
 		jump_history.add(get<Walker>()->base_pos());
 		jumped.fire();
-		get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_JUMP);
-		fsm.transition(State::Normal);
+		ParkourNet::send_effect(this, did_double_jump ? ParkourNet::EffectType::JumpDouble : ParkourNet::EffectType::JumpNormal);
+		fsm.transition(ParkourState::Normal);
 		footstep();
 	}
 
@@ -1292,17 +1465,17 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 {
 	Quat rot = Quat::euler(0, get<Walker>()->target_rotation, 0);
 
-	if (fsm.current == State::Normal)
+	if (fsm.current == ParkourState::Normal)
 	{
-		if (try_wall_run(WallRunState::Forward, rot * Vec3(0, 0, 1)))
+		if (try_wall_run(ParkourWallRunState::Forward, rot * Vec3(0, 0, 1)))
 			return true;
-		if (try_wall_run(WallRunState::Left, rot * Vec3(1, 0, 0)))
+		if (try_wall_run(ParkourWallRunState::Left, rot * Vec3(1, 0, 0)))
 			return true;
-		if (try_wall_run(WallRunState::Right, rot * Vec3(-1, 0, 0)))
+		if (try_wall_run(ParkourWallRunState::Right, rot * Vec3(-1, 0, 0)))
 			return true;
 	}
 
-	if (fsm.current == State::Normal || fsm.current == State::WallRun)
+	if (fsm.current == ParkourState::Normal || fsm.current == ParkourState::WallRun)
 	{
 		// try to mantle
 		Vec3 pos = get<Transform>()->absolute_pos();
@@ -1386,9 +1559,9 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 				b8 top_out = ray_callback.m_hitPointWorld.getY() > pos.y + 0.2f;
 
 				get<Animator>()->layers[1].play(top_out ? Asset::Animation::character_top_out : Asset::Animation::character_mantle);
-				fsm.transition(State::Mantle);
+				fsm.transition(ParkourState::Mantle);
 				last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
-				last_support_wall_run_state = WallRunState::None;
+				last_support_wall_run_state = ParkourWallRunState::None;
 				relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld + Vec3(0, WALKER_SUPPORT_HEIGHT + get<Walker>()->default_capsule_height() * 0.6f, 0));
 				relative_animation_start_pos = pos;
 				relative_animation_start_pos.y = ray_callback.m_hitPointWorld.getY();
@@ -1399,7 +1572,7 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 
 				get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);
 
-				get<Audio>()->post(top_out ? AK::EVENTS::PLAY_PARKOUR_TOPOUT : AK::EVENTS::PLAY_PARKOUR_MANTLE);
+				ParkourNet::send_effect(this, top_out ? ParkourNet::EffectType::TopOut : ParkourNet::EffectType::Mantle);
 
 				return true;
 			}
@@ -1411,11 +1584,11 @@ b8 Parkour::try_parkour(MantleAttempt attempt)
 
 b8 grapple_possible(const Parkour* parkour)
 {
-	return Game::save.resources[s32(Resource::Grapple)]
+	return Parkour::ability_enabled(Resource::Grapple)
 		&& parkour->grapple_cooldown < GRAPPLE_COOLDOWN_THRESHOLD
-		&& parkour->fsm.current != Parkour::State::HardLanding
-		&& parkour->fsm.current != Parkour::State::Mantle
-		&& parkour->fsm.current != Parkour::State::Grapple
+		&& parkour->fsm.current != ParkourState::HardLanding
+		&& parkour->fsm.current != ParkourState::Mantle
+		&& parkour->fsm.current != ParkourState::Grapple
 		&& parkour->get<Animator>()->layers[3].animation == AssetNull
 		&& (!parkour->get<Walker>()->support.ref() || parkour->get<Walker>()->support.ref()->btBody->getBroadphaseProxy()->m_collisionFilterGroup & CollisionParkour);
 }
@@ -1503,12 +1676,12 @@ b8 Parkour::grapple_try(const Vec3& start_pos, const Quat& start_rot)
 		Vec3 normal;
 		if (grapple_raycast(this, start_pos, start_rot, &hit, &normal))
 		{
-			if (fsm.current == State::Climb)
+			if (fsm.current == ParkourState::Climb)
 				parkour_stop_climbing(this);
 
 			get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_GRAPPLE);
 
-			fsm.transition(State::Grapple);
+			fsm.transition(ParkourState::Grapple);
 			grapple_start_pos = get<Transform>()->absolute_pos();
 			grapple_pos = hit + normal * (fabsf(normal.y) > 0.707f ? WALKER_HEIGHT : WALKER_PARKOUR_RADIUS);
 			grapple_cooldown += GRAPPLE_COOLDOWN;
@@ -1531,7 +1704,7 @@ b8 Parkour::grapple_try(const Vec3& start_pos, const Quat& start_rot)
 	return false;
 }
 
-b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
+b8 Parkour::try_wall_run(ParkourWallRunState s, const Vec3& wall_direction)
 {
 	if (Game::time.total - last_jump_time < JUMP_GRACE_PERIOD)
 		return false;
@@ -1544,7 +1717,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 		&& fabsf(ray_callback.m_hitNormalWorld.getY()) < 0.25f
 		&& wall_direction.dot(ray_callback.m_hitNormalWorld) < -0.8f)
 	{
-		if (s == WallRunState::Left || s == WallRunState::Right)
+		if (s == ParkourWallRunState::Left || s == ParkourWallRunState::Right)
 		{
 			// don't do side wall-run if there is a wall directly in front of us
 			Vec3 forward = Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1);
@@ -1569,10 +1742,10 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 		// this prevents the player from spamming the wall-run key to wall-run infinitely
 		b8 add_velocity = !last_support.ref()
 			|| last_support.ref()->entity_id != support_body->getUserIndex()
-			|| last_support_wall_run_state == WallRunState::None
+			|| last_support_wall_run_state == ParkourWallRunState::None
 			|| relative_wall_run_normal.dot(support_entity->get<Transform>()->to_local_normal(wall_normal)) < 0.9f;
 
-		if (s == WallRunState::Forward)
+		if (s == ParkourWallRunState::Forward)
 		{
 			if (add_velocity
 				&& parkour_jump_history_can_jump(this)
@@ -1596,7 +1769,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 			}
 			else // going down
 			{
-				if (last_support_wall_run_state == WallRunState::Forward
+				if (last_support_wall_run_state == ParkourWallRunState::Forward
 					&& Game::time.total - last_support_time < 0.3f)
 					return false; // too soon to wall-run straight again
 				else
@@ -1646,7 +1819,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 		last_support_wall_run_state = s;
 		relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld);
 		relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(wall_normal);
-		fsm.transition(State::WallRun);
+		fsm.transition(ParkourState::WallRun);
 
 		Plane p(wall_normal, ray_callback.m_hitPointWorld);
 
@@ -1655,7 +1828,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 
 		{
 			Vec3 forward;
-			if (wall_run_state == WallRunState::Forward)
+			if (wall_run_state == ParkourWallRunState::Forward)
 			{
 				forward = -wall_normal;
 				forward.normalize();

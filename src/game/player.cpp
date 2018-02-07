@@ -877,6 +877,7 @@ void PlayerHuman::update(const Update& u)
 {
 #if SERVER
 	if (Game::session.type == SessionType::Multiplayer
+		&& Game::level.mode == Game::Mode::Pvp
 		&& Team::match_state == Team::MatchState::Active)
 	{
 		afk_timer -= Game::real_time.delta;
@@ -3582,9 +3583,9 @@ void PlayerControlHuman::drone_reflecting(const DroneReflectEvent& e)
 
 void PlayerControlHuman::parkour_landed(r32 velocity_diff)
 {
-	Parkour::State parkour_state = get<Parkour>()->fsm.current;
+	ParkourState parkour_state = get<Parkour>()->fsm.current;
 	if (velocity_diff < LANDING_VELOCITY_LIGHT
-		&& (parkour_state == Parkour::State::Normal || parkour_state == Parkour::State::HardLanding))
+		&& (parkour_state == ParkourState::Normal || parkour_state == ParkourState::HardLanding))
 	{
 		player.ref()->rumble_add(velocity_diff < LANDING_VELOCITY_HARD ? 0.5f : 0.2f);
 	}
@@ -3787,8 +3788,29 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 
 	if (input_enabled())
 	{
-		// if the remote position is close to what we think it is, snap to it
-		if (get<Drone>()->state() == Drone::State::Crawl // only if we're crawling
+		if (has<Parkour>())
+		{
+			// remote control by a client
+			// just trust the client, it's k
+			Vec3 abs_pos_last = last_pos;
+			get<Transform>()->pos = remote_control.pos;
+			get<Transform>()->rot = Quat::identity;
+			last_pos = remote_control.pos;
+			get<Walker>()->absolute_pos(last_pos); // force rigid body
+			get<PlayerCommon>()->angle_horizontal = get<Walker>()->rotation = get<Walker>()->target_rotation = remote_control.rotation;
+			get<Parkour>()->lean = remote_control.lean;
+			get<Parkour>()->relative_wall_run_normal = remote_control.wall_normal;
+			get<SkinnedModel>()->offset.translation(remote_control.model_offset);
+			get<Target>()->net_velocity = get<Target>()->net_velocity * 0.7f + ((last_pos - abs_pos_last) / Net::tick_rate()) * 0.3f;
+			for (s32 i = 0; i < MAX_ANIMATIONS; i++)
+			{
+				const AnimationLayer& input = remote_control.animations[i];
+				Animator::Layer* output = &get<Animator>()->layers[i];
+				output->animation = input.asset;
+				output->time = input.time;
+			}
+		}
+		else if (get<Drone>()->state() == Drone::State::Crawl // only if we're crawling
 			&& remote_control.parent.ref()) // and only if the remote thinks we're crawling
 		{
 			Transform* t = get<Transform>();
@@ -3796,14 +3818,16 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 			Quat abs_rot;
 			t->absolute(&abs_pos, &abs_rot);
 
+			// if the remote position is close to what we think it is, snap to it
 			Vec3 remote_abs_pos = remote_control.pos;
 			Quat remote_abs_rot = remote_control.rot;
 			remote_control.parent.ref()->to_world(&remote_abs_pos, &remote_abs_rot);
 			r32 tolerance_pos;
 			r32 tolerance_rot;
 			remote_position(&tolerance_pos, &tolerance_rot);
-			if ((remote_abs_pos - abs_pos).length_squared() < tolerance_pos * tolerance_pos
-				&& Quat::angle(remote_abs_rot, abs_rot) < tolerance_rot)
+			if (has<Parkour>() // if we're in parkour mode, just accept it
+				|| ((remote_abs_pos - abs_pos).length_squared() < tolerance_pos * tolerance_pos
+				&& Quat::angle(remote_abs_rot, abs_rot) < tolerance_rot))
 			{
 				t->parent = remote_control.parent;
 				t->absolute(remote_abs_pos, remote_abs_rot);
@@ -3827,6 +3851,21 @@ PlayerControlHuman::RemoteControl PlayerControlHuman::remote_control_get(const U
 	control.pos = t->pos;
 	control.rot = t->rot;
 	control.parent = t->parent;
+	if (has<Parkour>())
+	{
+		control.rotation = get<Walker>()->rotation;
+		control.lean = get<Parkour>()->lean;
+		control.wall_normal = get<Parkour>()->fsm.current == ParkourState::WallRun ? get<Parkour>()->absolute_wall_normal() : Vec3::zero;
+		control.model_offset = get<SkinnedModel>()->offset.translation();
+
+		for (s32 i = 0; i < MAX_ANIMATIONS; i++)
+		{
+			const Animator::Layer& input = get<Animator>()->layers[i];
+			AnimationLayer* output = &control.animations[i];
+			output->asset = input.animation;
+			output->time = input.time;
+		}
+	}
 	return control;
 }
 
@@ -3965,7 +4004,7 @@ void PlayerControlHuman::update(const Update& u)
 
 		if (local())
 		{
-			if (!Game::level.local)
+			if (!Game::level.local && has<Parkour>())
 			{
 				// we are a client and this is a local player
 				// make sure we never get too far from where the server says we should be
@@ -4485,49 +4524,50 @@ void PlayerControlHuman::update(const Update& u)
 	else
 	{
 		// parkour mode
-
+		if (local())
 		{
-			r32 cooldown = get<Parkour>()->grapple_cooldown;
-			if (cooldown < GRAPPLE_COOLDOWN_THRESHOLD && cooldown_last >= GRAPPLE_COOLDOWN_THRESHOLD)
-				Audio::post_global(AK::EVENTS::PLAY_DRONE_CHARGE_RESTORE);
-			cooldown_last = cooldown;
-		}
-
-		// start interaction
-		if (input_enabled()
-			&& get<Animator>()->layers[3].animation == AssetNull
-			&& !u.input->get(Controls::InteractSecondary, gamepad)
-			&& u.last_input->get(Controls::InteractSecondary, gamepad))
-		{
-			Interactable* interactable = Interactable::closest(get<Transform>()->absolute_pos());
-			if (interactable)
 			{
-				switch (interactable->type)
+				r32 cooldown = get<Parkour>()->grapple_cooldown;
+				if (cooldown < GRAPPLE_COOLDOWN_THRESHOLD && cooldown_last >= GRAPPLE_COOLDOWN_THRESHOLD)
+					Audio::post_global(AK::EVENTS::PLAY_DRONE_CHARGE_RESTORE);
+				cooldown_last = cooldown;
+			}
+
+			// start interaction
+			if (input_enabled()
+				&& get<Animator>()->layers[3].animation == AssetNull
+				&& !u.input->get(Controls::InteractSecondary, gamepad)
+				&& u.last_input->get(Controls::InteractSecondary, gamepad))
+			{
+				Interactable* interactable = Interactable::closest(get<Transform>()->absolute_pos());
+				if (interactable)
 				{
+					switch (interactable->type)
+					{
 					case Interactable::Type::Terminal:
 					{
 						switch (Game::save.zones[Game::level.id])
 						{
-							case ZoneState::Locked:
-							case ZoneState::ParkourUnlocked: // open up
-							{
-								interactable->interact();
-								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-								Audio::post_global(AK::EVENTS::PLAY_PARKOUR_INTERACT);
-								anim_base = interactable->entity();
-								break;
-							}
-							case ZoneState::ParkourOwned: // already open; get in
-							{
-								anim_base = interactable->entity();
-								get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
-								break;
-							}
-							default:
-							{
-								vi_assert(false);
-								break;
-							}
+						case ZoneState::Locked:
+						case ZoneState::ParkourUnlocked: // open up
+						{
+							interactable->interact();
+							get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+							Audio::post_global(AK::EVENTS::PLAY_PARKOUR_INTERACT);
+							anim_base = interactable->entity();
+							break;
+						}
+						case ZoneState::ParkourOwned: // already open; get in
+						{
+							anim_base = interactable->entity();
+							get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
+							break;
+						}
+						default:
+						{
+							vi_assert(false);
+							break;
+						}
 						}
 						break;
 					}
@@ -4565,168 +4605,169 @@ void PlayerControlHuman::update(const Update& u)
 						vi_assert(false); // invalid interactable type
 						break;
 					}
+					}
 				}
 			}
-		}
 
-		update_camera_input(u);
+			update_camera_input(u);
 
-		if (get<Parkour>()->fsm.current == Parkour::State::Climb
-			&& input_enabled()
-			&& u.input->get(Controls::Parkour, gamepad))
-		{
-			Vec3 movement = movement_enabled() ? get_movement(u, Quat::identity, gamepad) : Vec3::zero;
-			get<Parkour>()->climb_velocity = movement.z;
-		}
-		else
-			get<Parkour>()->climb_velocity = 0.0f;
-	
-		// set movement unless we're climbing up and down
-		if (!(get<Parkour>()->fsm.current == Parkour::State::Climb && u.input->get(Controls::Parkour, gamepad)))
-		{
-			Vec3 movement = movement_enabled() ? get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, 0), gamepad) : Vec3::zero;
-			Vec2 dir = Vec2(movement.x, movement.z);
-			get<Walker>()->dir = dir;
-		}
-
-		// parkour button
-		{
-			b8 parkour_pressed = movement_enabled() && u.input->get(Controls::Parkour, gamepad);
-
-			if (get<Parkour>()->fsm.current == Parkour::State::WallRun && !parkour_pressed)
+			if (get<Parkour>()->fsm.current == ParkourState::Climb
+				&& input_enabled()
+				&& u.input->get(Controls::Parkour, gamepad))
 			{
-				get<Parkour>()->fsm.transition(Parkour::State::Normal);
-				get<Parkour>()->wall_run_state = Parkour::WallRunState::None;
+				Vec3 movement = movement_enabled() ? get_movement(u, Quat::identity, gamepad) : Vec3::zero;
+				get<Parkour>()->climb_velocity = movement.z;
+			}
+			else
+				get<Parkour>()->climb_velocity = 0.0f;
+
+			// set movement unless we're climbing up and down
+			if (!(get<Parkour>()->fsm.current == ParkourState::Climb && u.input->get(Controls::Parkour, gamepad)))
+			{
+				Vec3 movement = movement_enabled() ? get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, 0), gamepad) : Vec3::zero;
+				Vec2 dir = Vec2(movement.x, movement.z);
+				get<Walker>()->dir = dir;
 			}
 
-			if (parkour_pressed && !u.last_input->get(Controls::Parkour, gamepad))
-				flag(FlagTrySecondary, true);
-			else if (!parkour_pressed)
-				flag(FlagTrySecondary, false);
-
-			if (flag(FlagTrySecondary))
+			// parkour button
 			{
-				if (get<Parkour>()->try_parkour())
-					flag(FlagTrySecondary | FlagTryPrimary, false);
-			}
-		}
+				b8 parkour_pressed = movement_enabled() && u.input->get(Controls::Parkour, gamepad);
 
-		// jump button
-		{
-			b8 jump_pressed = movement_enabled() && u.input->get(Controls::Jump, gamepad);
-			if (jump_pressed && !u.last_input->get(Controls::Jump, gamepad))
-				flag(FlagTryPrimary, true);
-			else if (!jump_pressed)
-				flag(FlagTryPrimary, false);
-
-			if (jump_pressed)
-				get<Parkour>()->lessen_gravity(); // jump higher when the player holds the jump button
-
-			if (flag(FlagTryPrimary))
-			{
-				if (get<Parkour>()->try_jump(get<PlayerCommon>()->angle_horizontal))
-					flag(FlagTrySecondary | FlagTryPrimary, false);
-			}
-		}
-
-		// grapple button
-		if (Game::save.resources[s32(Resource::Grapple)])
-		{
-			if (movement_enabled())
-			{
-				if (get<Parkour>()->flag(Parkour::FlagTryGrapple) && u.input->get(Controls::GrappleCancel, gamepad))
+				if (get<Parkour>()->fsm.current == ParkourState::WallRun && !parkour_pressed)
 				{
-					get<Parkour>()->grapple_cancel();
-					flag(FlagGrappleCanceled, true);
+					get<Parkour>()->fsm.transition(ParkourState::Normal);
+					get<Parkour>()->wall_run_state = ParkourWallRunState::None;
 				}
 
-				b8 grapple_pressed = u.input->get(Controls::Grapple, gamepad);
+				if (parkour_pressed && !u.last_input->get(Controls::Parkour, gamepad))
+					flag(FlagTrySecondary, true);
+				else if (!parkour_pressed)
+					flag(FlagTrySecondary, false);
 
-				if (flag(FlagGrappleCanceled))
+				if (flag(FlagTrySecondary))
 				{
-					if (!grapple_pressed)
-						flag(FlagGrappleCanceled, false);
+					if (get<Parkour>()->try_parkour())
+						flag(FlagTrySecondary | FlagTryPrimary, false);
+				}
+			}
+
+			// jump button
+			{
+				b8 jump_pressed = movement_enabled() && u.input->get(Controls::Jump, gamepad);
+				if (jump_pressed && !u.last_input->get(Controls::Jump, gamepad))
+					flag(FlagTryPrimary, true);
+				else if (!jump_pressed)
+					flag(FlagTryPrimary, false);
+
+				if (jump_pressed)
+					get<Parkour>()->lessen_gravity(); // jump higher when the player holds the jump button
+
+				if (flag(FlagTryPrimary))
+				{
+					if (get<Parkour>()->try_jump(get<PlayerCommon>()->angle_horizontal))
+						flag(FlagTrySecondary | FlagTryPrimary, false);
+				}
+			}
+
+			// grapple button
+			if (Parkour::ability_enabled(Resource::Grapple))
+			{
+				if (movement_enabled())
+				{
+					if (get<Parkour>()->flag(Parkour::FlagTryGrapple) && u.input->get(Controls::GrappleCancel, gamepad))
+					{
+						get<Parkour>()->grapple_cancel();
+						flag(FlagGrappleCanceled, true);
+					}
+
+					b8 grapple_pressed = u.input->get(Controls::Grapple, gamepad);
+
+					if (flag(FlagGrappleCanceled))
+					{
+						if (!grapple_pressed)
+							flag(FlagGrappleCanceled, false);
+					}
+					else
+					{
+						Camera* camera = player.ref()->camera.ref();
+						if (grapple_pressed && !get<Parkour>()->flag(Parkour::FlagTryGrapple))
+							get<Parkour>()->grapple_start(camera->pos, camera->rot);
+						else if (!grapple_pressed && get<Parkour>()->flag(Parkour::FlagTryGrapple))
+							get<Parkour>()->grapple_try(camera->pos, camera->rot);
+					}
 				}
 				else
+				{
+					if (get<Parkour>()->flag(Parkour::FlagTryGrapple))
+						get<Parkour>()->grapple_cancel();
+				}
+
+				if (get<Parkour>()->fsm.current != ParkourState::Grapple)
 				{
 					Camera* camera = player.ref()->camera.ref();
-					if (grapple_pressed && !get<Parkour>()->flag(Parkour::FlagTryGrapple))
-						get<Parkour>()->grapple_start(camera->pos, camera->rot);
-					else if (!grapple_pressed && get<Parkour>()->flag(Parkour::FlagTryGrapple))
-						get<Parkour>()->grapple_try(camera->pos, camera->rot);
+					flag(FlagGrappleValid, get<Parkour>()->grapple_valid(camera->pos, camera->rot, &get<Parkour>()->grapple_pos, &get<Parkour>()->grapple_normal));
 				}
 			}
-			else
+
+			ParkourState parkour_state = get<Parkour>()->fsm.current;
+
 			{
-				if (get<Parkour>()->flag(Parkour::FlagTryGrapple))
-					get<Parkour>()->grapple_cancel();
-			}
+				// if we're just running and not doing any parkour
+				// rotate arms to match the camera view
+				// blend smoothly between the two states (rotating and not rotating)
 
-			if (get<Parkour>()->fsm.current != Parkour::State::Grapple)
-			{
-				Camera* camera = player.ref()->camera.ref();
-				flag(FlagGrappleValid, get<Parkour>()->grapple_valid(camera->pos, camera->rot, &get<Parkour>()->grapple_pos, &get<Parkour>()->grapple_normal));
-			}
-		}
+				r32 arm_angle = LMath::clampf(get<PlayerCommon>()->angle_vertical_total() * 0.75f + arm_angle_offset, -PI * 0.2f, PI * 0.25f);
 
-		Parkour::State parkour_state = get<Parkour>()->fsm.current;
-
-		{
-			// if we're just running and not doing any parkour
-			// rotate arms to match the camera view
-			// blend smoothly between the two states (rotating and not rotating)
-
-			r32 arm_angle = LMath::clampf(get<PlayerCommon>()->angle_vertical_total() * 0.75f + arm_angle_offset, -PI * 0.2f, PI * 0.25f);
-
-			const r32 blend_time = 0.2f;
-			r32 blend;
-			if (parkour_state == Parkour::State::Normal || parkour_state == Parkour::State::Grapple)
-				blend = vi_min(1.0f, get<Parkour>()->fsm.time / blend_time);
-			else if (get<Parkour>()->fsm.last == Parkour::State::Normal)
-				blend = vi_max(0.0f, 1.0f - (get<Parkour>()->fsm.time / blend_time));
-			else
-				blend = 0.0f;
-			Quat offset = Quat::euler(arm_angle * blend, 0, 0);
-			get<Animator>()->override_bone(Asset::Bone::character_upper_arm_L, Vec3::zero, offset);
-			get<Animator>()->override_bone(Asset::Bone::character_upper_arm_R, Vec3::zero, offset);
-		}
-
-		if (parkour_state == Parkour::State::WallRun)
-		{
-			Vec3 wall_normal = get<Parkour>()->last_support.ref()->get<Transform>()->to_world_normal(get<Parkour>()->relative_wall_run_normal);
-
-			Vec3 forward = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical_total()) * Vec3(0, 0, 1);
-
-			if (get<Parkour>()->wall_run_state == Parkour::WallRunState::Forward)
-				get<PlayerCommon>()->clamp_rotation(-wall_normal); // make sure we're always facing the wall
-			else
-			{
-				// we're running along the wall
-				// make sure we can't look backward
-				get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1));
-				if (get<Parkour>()->wall_run_state == Parkour::WallRunState::Left)
-					get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation + PI * -0.5f, 0) * Vec3(0, 0, 1));
+				const r32 blend_time = 0.2f;
+				r32 blend;
+				if (parkour_state == ParkourState::Normal || parkour_state == ParkourState::Grapple)
+					blend = vi_min(1.0f, get<Parkour>()->fsm.time / blend_time);
+				else if (get<Parkour>()->fsm.last == ParkourState::Normal)
+					blend = vi_max(0.0f, 1.0f - (get<Parkour>()->fsm.time / blend_time));
 				else
-					get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Vec3(0, 0, 1));
+					blend = 0.0f;
+				Quat offset = Quat::euler(arm_angle * blend, 0, 0);
+				get<Animator>()->override_bone(Asset::Bone::character_upper_arm_L, Vec3::zero, offset);
+				get<Animator>()->override_bone(Asset::Bone::character_upper_arm_R, Vec3::zero, offset);
 			}
-		}
-		else if (parkour_state == Parkour::State::HardLanding
-			|| parkour_state == Parkour::State::Mantle
-			|| parkour_state == Parkour::State::Climb
-			|| parkour_state == Parkour::State::Grapple)
-		{
-			get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1));
-		}
-		else
-		{
-			get<Walker>()->target_rotation = get<PlayerCommon>()->angle_horizontal;
 
-			// make sure our body is facing within 90 degrees of our target rotation
-			r32 delta = LMath::angle_to(get<Walker>()->rotation, get<PlayerCommon>()->angle_horizontal);
-			if (delta > PI * 0.5f)
-				get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta - PI * 0.5f);
-			else if (delta < PI * -0.5f)
-				get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta + PI * 0.5f);
+			if (parkour_state == ParkourState::WallRun)
+			{
+				Vec3 wall_normal = get<Parkour>()->last_support.ref()->get<Transform>()->to_world_normal(get<Parkour>()->relative_wall_run_normal);
+
+				Vec3 forward = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical_total()) * Vec3(0, 0, 1);
+
+				if (get<Parkour>()->wall_run_state == ParkourWallRunState::Forward)
+					get<PlayerCommon>()->clamp_rotation(-wall_normal); // make sure we're always facing the wall
+				else
+				{
+					// we're running along the wall
+					// make sure we can't look backward
+					get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1));
+					if (get<Parkour>()->wall_run_state == ParkourWallRunState::Left)
+						get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation + PI * -0.5f, 0) * Vec3(0, 0, 1));
+					else
+						get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Vec3(0, 0, 1));
+				}
+			}
+			else if (parkour_state == ParkourState::HardLanding
+				|| parkour_state == ParkourState::Mantle
+				|| parkour_state == ParkourState::Climb
+				|| parkour_state == ParkourState::Grapple)
+			{
+				get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1));
+			}
+			else
+			{
+				get<Walker>()->target_rotation = get<PlayerCommon>()->angle_horizontal;
+
+				// make sure our body is facing within 90 degrees of our target rotation
+				r32 delta = LMath::angle_to(get<Walker>()->rotation, get<PlayerCommon>()->angle_horizontal);
+				if (delta > PI * 0.5f)
+					get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta - PI * 0.5f);
+				else if (delta < PI * -0.5f)
+					get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta + PI * 0.5f);
+			}
 		}
 	}
 }
@@ -4860,7 +4901,7 @@ void PlayerControlHuman::update_late(const Update& u)
 
 		// wind sound and camera shake at high speed
 		{
-			r32 speed = get<Parkour>()->fsm.current == Parkour::State::Mantle || get<Walker>()->support.ref()
+			r32 speed = get<Parkour>()->fsm.current == ParkourState::Mantle || get<Walker>()->support.ref()
 				? 0.0f
 				: get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
 			get<Audio>()->param(AK::GAME_PARAMETERS::PARKOUR_WIND, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
@@ -5331,7 +5372,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					}
 				}
 
-				if (get<Parkour>()->fsm.current == Parkour::State::Climb)
+				if (get<Parkour>()->fsm.current == ParkourState::Climb)
 				{
 					// show climb controls
 					UIText text;
@@ -5360,7 +5401,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		}
 		else if (Settings::parkour_reticle && movement_enabled())
 		{
-			if (Game::save.resources[s32(Resource::Grapple)])
+			if (Parkour::ability_enabled(Resource::Grapple))
 			{
 				if (flag(FlagGrappleValid) && get<Parkour>()->grapple_cooldown < GRAPPLE_COOLDOWN_THRESHOLD)
 					draw_triangular_reticle(params, UI::color_accent(), UI::color_accent()); // draw reticle with center dot
@@ -5398,6 +5439,8 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
 
 				Vec3 pos3d = other_player.item()->get<Transform>()->absolute_pos() + Vec3(0, DRONE_RADIUS * 2.0f, 0);
+				if (other_player.item()->has<Parkour>())
+					pos3d.y += MINION_HEAD_RADIUS * 0.75f;
 				Vec2 p;
 				if (UI::project(params, pos3d, &p))
 				{
@@ -5453,7 +5496,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		text.anchor_x = UIText::Anchor::Min;
 		text.anchor_y = UIText::Anchor::Max;
 
-		b8 danger = enemy_visible && (enemy_dangerous_visible || is_vulnerable) && get<AIAgent>()->stealth < 1.0f;
+		b8 danger = Game::level.mode == Game::Mode::Pvp && enemy_visible && (enemy_dangerous_visible || is_vulnerable) && get<AIAgent>()->stealth < 1.0f;
 
 		if (get<AIAgent>()->stealth == 1.0f)
 		{

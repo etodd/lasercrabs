@@ -8,25 +8,26 @@ namespace Asset
 {
 	namespace Armature
 	{
-		const s32 count = 14;
+		const s32 count = 15;
 		const AssetID character = 0;
-		const AssetID dada = 1;
-		const AssetID drone = 2;
-		const AssetID hobo = 3;
-		const AssetID hologram = 4;
-		const AssetID interactable = 5;
-		const AssetID locke = 6;
-		const AssetID meursault = 7;
-		const AssetID parkour = 8;
-		const AssetID parkour_headless = 9;
-		const AssetID samsa = 10;
-		const AssetID seven = 11;
-		const AssetID terminal = 12;
-		const AssetID tram_doors = 13;
+		const AssetID character_headless = 1;
+		const AssetID dada = 2;
+		const AssetID drone = 3;
+		const AssetID hobo = 4;
+		const AssetID hologram = 5;
+		const AssetID interactable = 6;
+		const AssetID locke = 7;
+		const AssetID meursault = 8;
+		const AssetID parkour = 9;
+		const AssetID parkour_headless = 10;
+		const AssetID samsa = 11;
+		const AssetID seven = 12;
+		const AssetID terminal = 13;
+		const AssetID tram_doors = 14;
 	}
 	namespace Bone
 	{
-		const s32 count = 415;
+		const s32 count = 439;
 		const AssetID character_camera = 0;
 		const AssetID character_claw1_L = 9;
 		const AssetID character_claw1_R = 15;
@@ -41,6 +42,30 @@ namespace Asset
 		const AssetID character_hand_L = 8;
 		const AssetID character_hand_R = 14;
 		const AssetID character_head = 5;
+		const AssetID character_headless_camera = 0;
+		const AssetID character_headless_claw1_L = 9;
+		const AssetID character_headless_claw1_R = 15;
+		const AssetID character_headless_claw2_L = 11;
+		const AssetID character_headless_claw2_R = 16;
+		const AssetID character_headless_claw3_L = 10;
+		const AssetID character_headless_claw3_R = 17;
+		const AssetID character_headless_foot_L = 20;
+		const AssetID character_headless_foot_R = 23;
+		const AssetID character_headless_forearm_L = 7;
+		const AssetID character_headless_forearm_R = 13;
+		const AssetID character_headless_hand_L = 8;
+		const AssetID character_headless_hand_R = 14;
+		const AssetID character_headless_head = 5;
+		const AssetID character_headless_hips = 2;
+		const AssetID character_headless_master = 1;
+		const AssetID character_headless_neck = 4;
+		const AssetID character_headless_shin_L = 19;
+		const AssetID character_headless_shin_R = 22;
+		const AssetID character_headless_spine = 3;
+		const AssetID character_headless_thigh_L = 18;
+		const AssetID character_headless_thigh_R = 21;
+		const AssetID character_headless_upper_arm_L = 6;
+		const AssetID character_headless_upper_arm_R = 12;
 		const AssetID character_hips = 2;
 		const AssetID character_master = 1;
 		const AssetID character_neck = 4;

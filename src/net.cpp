@@ -27,6 +27,7 @@
 #include "game/master.h"
 #include "console.h"
 #include "asset/armature.h"
+#include "asset/animation.h"
 #include "load.h"
 #include "settings.h"
 #include "cjson/cJSON.h"
@@ -251,23 +252,57 @@ template<typename Stream, typename View> b8 serialize_view_skinnedmodel(Stream* 
 
 template<typename Stream> b8 serialize_player_control(Stream* p, PlayerControlHuman::RemoteControl* control)
 {
-	b8 moving;
-	if (Stream::IsWriting)
-		moving = control->movement.length_squared() > 0.0f;
-	serialize_bool(p, moving);
-	if (moving)
-	{
-		serialize_r32_range(p, control->movement.x, -1.0f, 1.0f, 16);
-		serialize_r32_range(p, control->movement.y, -1.0f, 1.0f, 16);
-		serialize_r32_range(p, control->movement.z, -1.0f, 1.0f, 16);
-	}
-	else if (Stream::IsReading)
-		control->movement = Vec3::zero;
-	serialize_ref(p, control->parent);
 	if (!serialize_position(p, &control->pos, Resolution::High))
 		net_error();
-	if (!serialize_quat(p, &control->rot, Resolution::High))
-		net_error();
+	if (Game::level.mode == Game::Mode::Parkour)
+	{
+		serialize_r32_range(p, control->rotation, -PI, PI, 8);
+		serialize_r32_range(p, control->lean, -PI, PI, 8);
+		{
+			b8 wall_run;
+			if (Stream::IsWriting)
+				wall_run = control->wall_normal.length_squared() > 0.0f;
+			serialize_bool(p, wall_run);
+			if (wall_run)
+			{
+				serialize_r32_range(p, control->wall_normal.x, -1.0f, 1.0f, 8);
+				serialize_r32_range(p, control->wall_normal.y, -1.0f, 1.0f, 8);
+				serialize_r32_range(p, control->wall_normal.z, -1.0f, 1.0f, 8);
+			}
+			else if (Stream::IsReading)
+				control->wall_normal = Vec3::zero;
+		}
+		serialize_r32_range(p, control->model_offset.x, -2.0f, 2.0f, 12);
+		serialize_r32_range(p, control->model_offset.y, -2.0f, 2.0f, 12);
+		serialize_r32_range(p, control->model_offset.z, -2.0f, 2.0f, 12);
+		for (s32 i = 0; i < MAX_ANIMATIONS; i++)
+		{
+			AnimationLayer* anim = &control->animations[i];
+			serialize_asset(p, anim->asset, Loader::animation_count);
+			if (anim->asset != AssetNull)
+				serialize_r32_range(p, anim->time, 0, 20.0f, 11);
+		}
+	}
+	else
+	{
+		{
+			b8 moving;
+			if (Stream::IsWriting)
+				moving = control->movement.length_squared() > 0.0f;
+			serialize_bool(p, moving);
+			if (moving)
+			{
+				serialize_r32_range(p, control->movement.x, -1.0f, 1.0f, 16);
+				serialize_r32_range(p, control->movement.y, -1.0f, 1.0f, 16);
+				serialize_r32_range(p, control->movement.z, -1.0f, 1.0f, 16);
+			}
+			else if (Stream::IsReading)
+				control->movement = Vec3::zero;
+		}
+		serialize_ref(p, control->parent);
+		if (!serialize_quat(p, &control->rot, Resolution::High))
+			net_error();
+	}
 	return true;
 }
 
@@ -1394,7 +1429,7 @@ template<typename Stream> b8 serialize_transform(Stream* p, TransformState* tran
 	return true;
 }
 
-template<typename Stream> b8 serialize_minion(Stream* p, MinionState* state, const MinionState* base)
+template<typename Stream> b8 serialize_walker(Stream* p, WalkerState* state, const WalkerState* base)
 {
 	b8 b;
 
@@ -1404,19 +1439,15 @@ template<typename Stream> b8 serialize_minion(Stream* p, MinionState* state, con
 	if (b)
 		serialize_s16(p, state->revision);
 
-	if (Stream::IsWriting)
-		b = !base || state->rotation != base->rotation;
-	serialize_bool(p, b);
-	if (b)
-		serialize_r32_range(p, state->rotation, -PI, PI, 8);
+	serialize_r32_range(p, state->rotation, -PI, PI, 8);
 
 	if (Stream::IsWriting)
-		b = !base || state->animation != base->animation;
+		b = !base || state->animation.asset != base->animation.asset;
 	serialize_bool(p, b);
 	if (b)
-		serialize_asset(p, state->animation, Loader::animation_count);
+		serialize_asset(p, state->animation.asset, Loader::animation_count);
 
-	serialize_r32_range(p, state->animation_time, 0, 20.0f, 11);
+	serialize_r32_range(p, state->animation.time, 0, 20.0f, 11);
 
 	return true;
 }
@@ -1424,6 +1455,8 @@ template<typename Stream> b8 serialize_minion(Stream* p, MinionState* state, con
 template<typename Stream> b8 serialize_drone(Stream* p, DroneState* state, const DroneState* base)
 {
 	b8 b;
+
+	serialize_bool(p, state->active);
 
 	if (Stream::IsWriting)
 		b = !base || state->revision != base->revision;
@@ -1448,12 +1481,56 @@ template<typename Stream> b8 serialize_drone(Stream* p, DroneState* state, const
 	return true;
 }
 
+template<typename Stream> b8 serialize_parkour(Stream* p, ParkourStateFrame* state, const ParkourStateFrame* base)
+{
+	b8 b;
+
+	serialize_bool(p, state->active);
+
+	if (Stream::IsWriting)
+		b = !base || state->revision != base->revision;
+	serialize_bool(p, b);
+	if (b)
+		serialize_s16(p, state->revision);
+
+	serialize_r32_range(p, state->lean, -1.0f, 1.0f, 8);
+
+	for (s32 i = 0; i < MAX_ANIMATIONS - 1; i++)
+	{
+		AnimationLayer* layer = &state->animations[i];
+		if (Stream::IsWriting)
+			b = !base || layer->asset != base->animations[i].asset;
+		serialize_bool(p, b);
+		if (b)
+			serialize_asset(p, layer->asset, Loader::animation_count);
+		if (layer->asset != AssetNull)
+			serialize_r32_range(p, layer->time, 0, 20.0f, 11);
+	}
+
+	if (Stream::IsWriting)
+		b = state->wall_normal.length_squared() > 0.0f;
+	serialize_bool(p, b);
+	if (b)
+	{
+		serialize_r32_range(p, state->wall_normal.x, -1.0f, 1.0f, 8);
+		serialize_r32_range(p, state->wall_normal.y, -1.0f, 1.0f, 8);
+		serialize_r32_range(p, state->wall_normal.z, -1.0f, 1.0f, 8);
+	}
+	else if (Stream::IsReading)
+		state->wall_normal = Vec3::zero;
+
+	serialize_r32_range(p, state->model_offset.x, -2.0f, 2.0f, 12);
+	serialize_r32_range(p, state->model_offset.y, -2.0f, 2.0f, 12);
+	serialize_r32_range(p, state->model_offset.z, -2.0f, 2.0f, 12);
+
+	return true;
+}
+
 template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerState* state, const PlayerManagerState* base)
 {
 	b8 b;
 
-	if (Stream::IsReading)
-		state->active = true;
+	serialize_bool(p, state->active);
 
 	if (Stream::IsWriting)
 		b = !base || state->spawn_timer != base->spawn_timer;
@@ -1508,12 +1585,12 @@ b8 equal_states_transform(const StateFrame* a, const StateFrame* b, s32 index)
 	return false;
 }
 
-b8 equal_states_minion(const StateFrame* frame_a, const StateFrame* frame_b, s32 index)
+b8 equal_states_walker(const StateFrame* frame_a, const StateFrame* frame_b, s32 index)
 {
 	if (frame_a && frame_b)
 	{
-		b8 a_active = frame_a->minions_active.get(index);
-		b8 b_active = frame_b->minions_active.get(index);
+		b8 a_active = frame_a->walkers_active.get(index);
+		b8 b_active = frame_b->walkers_active.get(index);
 		return !a_active && !b_active;
 	}
 	return false;
@@ -1523,9 +1600,9 @@ b8 equal_states_drone(const StateFrame* frame_a, const StateFrame* frame_b, s32 
 {
 	if (frame_a && frame_b)
 	{
-		b8 a_active = frame_a->drones_active.get(index);
-		b8 b_active = frame_b->drones_active.get(index);
-		return !a_active && !b_active;
+		const DroneState& a = frame_a->drones[index];
+		const DroneState& b = frame_b->drones[index];
+		return !a.active && !b.active && a.revision == b.revision;
 	}
 	return false;
 }
@@ -1535,6 +1612,17 @@ b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
 	return a.spawn_timer == b.spawn_timer
 		&& a.energy == b.energy
 		&& a.active == b.active;
+}
+
+b8 equal_states_parkour(const StateFrame* frame_a, const StateFrame* frame_b, s32 index)
+{
+	if (frame_a && frame_b)
+	{
+		const ParkourStateFrame& a = frame_a->parkours[index];
+		const ParkourStateFrame& b = frame_b->parkours[index];
+		return !a.active && !b.active && a.revision == b.revision;
+	}
+	return false;
 }
 
 template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame, const StateFrame* base)
@@ -1628,44 +1716,44 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 		}
 	}
 
-	// minions
+	// walkers
 	{
 		s32 changed_count;
 		if (Stream::IsWriting)
 		{
-			// count changed minions
+			// count changed walkers
 			changed_count = 0;
-			s32 index = vi_min(s32(frame->minions_active.start), base ? s32(base->minions_active.start) : MAX_ENTITIES - 1);
-			while (index < vi_max(s32(frame->minions_active.end), base ? s32(base->minions_active.end) : 0))
+			s32 index = vi_min(s32(frame->walkers_active.start), base ? s32(base->walkers_active.start) : MAX_MINIONS - 1);
+			while (index < vi_max(s32(frame->walkers_active.end), base ? s32(base->walkers_active.end) : 0))
 			{
-				if (!equal_states_minion(frame, base, index))
+				if (!equal_states_walker(frame, base, index))
 					changed_count++;
 				index++;
 			}
 		}
-		serialize_int(p, s32, changed_count, 0, MAX_ENTITIES);
+		serialize_int(p, s32, changed_count, 0, MAX_MINIONS);
 
 		s32 index;
 		if (Stream::IsWriting)
-			index = vi_min(s32(frame->minions_active.start), base ? s32(base->minions_active.start) : MAX_ENTITIES - 1);
+			index = vi_min(s32(frame->walkers_active.start), base ? s32(base->walkers_active.start) : MAX_MINIONS - 1);
 		for (s32 i = 0; i < changed_count; i++)
 		{
 			if (Stream::IsWriting)
 			{
-				while (equal_states_minion(frame, base, index))
+				while (equal_states_walker(frame, base, index))
 					index++;
 			}
 
-			serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
+			serialize_int(p, s32, index, 0, MAX_MINIONS - 1);
 			b8 active;
 			if (Stream::IsWriting)
-				active = frame->minions_active.get(index);
+				active = frame->walkers_active.get(index);
 			serialize_bool(p, active);
 			if (Stream::IsReading)
-				frame->minions_active.set(index, active);
+				frame->walkers_active.set(index, active);
 			if (active)
 			{
-				if (!serialize_minion(p, &frame->minions[index], base ? &base->minions[index] : nullptr))
+				if (!serialize_walker(p, &frame->walkers[index], base ? &base->walkers[index] : nullptr))
 					net_error();
 			}
 			index++;
@@ -1673,46 +1761,30 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 	}
 
 	// drones
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
-		s32 changed_count;
+		b8 serialize;
 		if (Stream::IsWriting)
+			serialize = !base || !equal_states_drone(frame, base, i);
+		serialize_bool(p, serialize);
+		if (serialize)
 		{
-			// count changed drones
-			changed_count = 0;
-			s32 index = vi_min(s32(frame->drones_active.start), base ? s32(base->drones_active.start) : MAX_ENTITIES - 1);
-			while (index < vi_max(s32(frame->drones_active.end), base ? s32(base->drones_active.end) : 0))
-			{
-				if (!equal_states_drone(frame, base, index))
-					changed_count++;
-				index++;
-			}
+			if (!serialize_drone(p, &frame->drones[i], base ? &base->drones[i] : nullptr))
+				net_error();
 		}
-		serialize_int(p, s32, changed_count, 0, MAX_ENTITIES);
+	}
 
-		s32 index;
+	// parkours
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	{
+		b8 serialize;
 		if (Stream::IsWriting)
-			index = vi_min(s32(frame->drones_active.start), base ? s32(base->drones_active.start) : MAX_ENTITIES - 1);
-		for (s32 i = 0; i < changed_count; i++)
+			serialize = !base || !equal_states_parkour(frame, base, i);
+		serialize_bool(p, serialize);
+		if (serialize)
 		{
-			if (Stream::IsWriting)
-			{
-				while (equal_states_drone(frame, base, index))
-					index++;
-			}
-
-			serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
-			b8 active;
-			if (Stream::IsWriting)
-				active = frame->drones_active.get(index);
-			serialize_bool(p, active);
-			if (Stream::IsReading)
-				frame->drones_active.set(index, active);
-			if (active)
-			{
-				if (!serialize_drone(p, &frame->drones[index], base ? &base->drones[index] : nullptr))
-					net_error();
-			}
-			index++;
+			if (!serialize_parkour(p, &frame->parkours[i], base ? &base->parkours[i] : nullptr))
+				net_error();
 		}
 	}
 
@@ -1755,29 +1827,48 @@ void state_frame_build(StateFrame* frame)
 		state->active = true;
 	}
 
-	// minions
-	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+	// walkers
+	for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 	{
-		frame->minions_active.set(i.index, true);
-		MinionState* minion = &frame->minions[i.index];
-		minion->revision = i.item()->revision;
-		u32 quantized_rotation = u32(255.0f * (LMath::angle_range(i.item()->get<Walker>()->rotation) + PI) / (PI * 2.0f));
-		minion->rotation = -PI + r32(quantized_rotation) * (PI * 2.0f) / 255.0f;
+		frame->walkers_active.set(i.index, true);
+		WalkerState* walker = &frame->walkers[i.index];
+		walker->revision = i.item()->revision;
+		u32 quantized_rotation = u32(255.0f * (LMath::angle_range(i.item()->rotation) + PI) / (PI * 2.0f));
+		walker->rotation = -PI + r32(quantized_rotation) * (PI * 2.0f) / 255.0f;
 
 		const Animator::Layer& layer = i.item()->get<Animator>()->layers[0];
-		minion->animation = layer.animation;
-		minion->animation_time = layer.time;
+		walker->animation.asset = layer.animation;
+		walker->animation.time = layer.time;
 	}
 
 	// drones
 	for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
 	{
-		frame->drones_active.set(i.index, true);
 		DroneState* drone = &frame->drones[i.index];
+		drone->active = true;
 		drone->revision = i.item()->revision;
 		drone->cooldown = i.item()->cooldown;
 		drone->cooldown_ability_switch = i.item()->cooldown_ability_switch;
 		drone->collision_state = i.item()->collision_state();
+	}
+
+	// parkours
+	for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
+	{
+		ParkourStateFrame* parkour = &frame->parkours[i.index];
+		parkour->active = true;
+		parkour->revision = i.item()->revision;
+		parkour->lean = i.item()->lean;
+		Animator* animator = i.item()->get<Animator>();
+		for (s32 i = 1; i < MAX_ANIMATIONS; i++)
+		{
+			AnimationLayer* output = &parkour->animations[i - 1];
+			const Animator::Layer& input = animator->layers[i];
+			output->asset = input.animation;
+			output->time = input.time;
+		}
+		parkour->wall_normal = i.item()->absolute_wall_normal();
+		parkour->model_offset = i.item()->get<SkinnedModel>()->offset.translation();
 	}
 }
 
@@ -1820,6 +1911,23 @@ void transform_absolute_to_relative(const StateFrame& frame, s32 index, Vec3* po
 	Quat abs_rot_inverse = abs_rot.inverse();
 	*rot = abs_rot_inverse * *rot;
 	*pos = abs_rot_inverse * (*pos - abs_pos);
+}
+
+void animation_layer_interpolate(const AnimationLayer& last, const AnimationLayer& next, AnimationLayer* result, r32 blend)
+{
+	result->asset = last.asset;
+	if (last.asset == next.asset && fabsf(next.time - last.time) < tick_rate() * 10.0f)
+		result->time = LMath::lerpf(blend, last.time, next.time);
+	else
+	{
+		result->time = last.time + blend * tick_rate();
+		r32 duration = result->asset == AssetNull ? 0.0f : Loader::animation(result->asset)->duration;
+		if (result->time > duration)
+		{
+			result->asset = next.asset;
+			result->time = next.time + result->time - duration;
+		}
+	}
 }
 
 void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFrame* result, r32 timestamp)
@@ -1887,55 +1995,42 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 		}
 	}
 
-	// minions
+	// walkers
 	{
-		result->minions_active = b.minions_active;
-		s32 index = s32(b.minions_active.start);
-		while (index < b.minions_active.end)
+		result->walkers_active = b.walkers_active;
+		s32 index = s32(b.walkers_active.start);
+		while (index < b.walkers_active.end)
 		{
-			MinionState* minion = &result->minions[index];
-			const MinionState& last = a.minions[index];
-			const MinionState& next = b.minions[index];
+			WalkerState* walker = &result->walkers[index];
+			const WalkerState& last = a.walkers[index];
+			const WalkerState& next = b.walkers[index];
 
-			minion->revision = next.revision;
+			walker->revision = next.revision;
 			if (last.revision == next.revision)
 			{
-				minion->rotation = LMath::angle_range(LMath::lerpf(blend, last.rotation, LMath::closest_angle(next.rotation, last.rotation)));
-				minion->animation = last.animation;
-				if (last.animation == next.animation && fabsf(next.animation_time - last.animation_time) < tick_rate() * 10.0f)
-					minion->animation_time = LMath::lerpf(blend, last.animation_time, next.animation_time);
-				else
-				{
-					minion->animation_time = last.animation_time + blend * tick_rate();
-					r32 duration = minion->animation == AssetNull ? 0.0f : Loader::animation(minion->animation)->duration;
-					if (minion->animation_time > duration)
-					{
-						minion->animation = next.animation;
-						minion->animation_time = next.animation_time + minion->animation_time - duration;
-					}
-				}
+				walker->rotation = LMath::angle_range(LMath::lerpf(blend, last.rotation, LMath::closest_angle(next.rotation, last.rotation)));
+				animation_layer_interpolate(last.animation, next.animation, &walker->animation, blend);
 			}
 			else
 			{
-				minion->rotation = next.rotation;
-				minion->animation = next.animation;
-				minion->animation_time = next.animation_time;
+				walker->rotation = next.rotation;
+				walker->animation = next.animation;
 			}
 
-			index = b.minions_active.next(index);
+			index = b.walkers_active.next(index);
 		}
 	}
 
 	// drones
+	for (s32 index = 0; index < MAX_PLAYERS; index++)
 	{
-		result->drones_active = b.drones_active;
-		s32 index = s32(b.drones_active.start);
-		while (index < b.drones_active.end)
-		{
-			DroneState* drone = &result->drones[index];
-			const DroneState& last = a.drones[index];
-			const DroneState& next = b.drones[index];
+		DroneState* drone = &result->drones[index];
+		const DroneState& last = a.drones[index];
+		const DroneState& next = b.drones[index];
 
+		drone->active = next.active;
+		if (drone->active)
+		{
 			drone->revision = next.revision;
 			if (last.revision == next.revision)
 			{
@@ -1949,8 +2044,25 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 			}
 
 			drone->collision_state = next.collision_state;
+		}
+	}
 
-			index = b.drones_active.next(index);
+	// parkours
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	{
+		ParkourStateFrame* parkour = &result->parkours[i];
+		const ParkourStateFrame& last = a.parkours[i];
+		const ParkourStateFrame& next = b.parkours[i];
+		*parkour = next;
+		if (parkour->active)
+		{
+			if (last.revision == next.revision)
+			{
+				parkour->lean = LMath::lerpf(blend, last.lean, next.lean);
+				for (s32 i = 0; i < MAX_ANIMATIONS - 1; i++)
+					animation_layer_interpolate(last.animations[i], next.animations[i], &parkour->animations[i], blend);
+				parkour->model_offset = Vec3::lerp(blend, last.model_offset, next.model_offset);
+			}
 		}
 	}
 }
@@ -3167,6 +3279,12 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 #endif
 			break;
 		}
+		case MessageType::Parkour:
+		{
+			if (!Parkour::net_msg(p, MessageSource::Remote))
+				net_error();
+			break;
+		}
 		default:
 			net_error();
 			break;
@@ -3619,70 +3737,63 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 		{
 			Transform* t = &Transform::list[index];
 			const TransformState& s = frame.transforms[index];
-			if (t->revision == s.revision && Transform::list.active(index))
+			if (Transform::list.active(index) && t->revision == s.revision
+				&& (!t->has<PlayerControlHuman>() || !t->get<PlayerControlHuman>()->local())) // don't immediately overwrite local player positions with the server's data
 			{
-				if (t->has<PlayerControlHuman>() && t->get<PlayerControlHuman>()->player.ref()->local())
-				{
-					// this is a local player; we don't want to immediately overwrite its position with the server's data
-					// let the PlayerControlHuman deal with it
-				}
-				else
-				{
-					t->pos = s.pos;
-					t->rot = s.rot;
-					t->parent = s.parent;
+				t->pos = s.pos;
+				t->rot = s.rot;
+				t->parent = s.parent;
 
-					if (t->has<RigidBody>())
+				if (t->has<RigidBody>())
+				{
+					RigidBody* body = t->get<RigidBody>();
+					btRigidBody* btBody = body->btBody;
+					if (btBody)
 					{
-						RigidBody* body = t->get<RigidBody>();
-						btRigidBody* btBody = body->btBody;
-						if (btBody)
-						{
-							Vec3 abs_pos;
-							Quat abs_rot;
-							transform_absolute(frame, index, &abs_pos, &abs_rot);
+						Vec3 abs_pos;
+						Quat abs_rot;
+						transform_absolute(frame, index, &abs_pos, &abs_rot);
 
-							btTransform world_transform(abs_rot, abs_pos);
-							btTransform old_transform = btBody->getWorldTransform();
-							btBody->setWorldTransform(world_transform);
-							btBody->setInterpolationWorldTransform(world_transform);
-							if ((world_transform.getOrigin() - old_transform.getOrigin()).length2() > 0.01f * 0.01f
-								|| Quat::angle(world_transform.getRotation(), old_transform.getRotation()) > 0.1f)
-								body->activate_linked();
-							else
-								body->btBody->setActivationState(ISLAND_SLEEPING);
-						}
+						btTransform world_transform(abs_rot, abs_pos);
+						btTransform old_transform = btBody->getWorldTransform();
+						btBody->setWorldTransform(world_transform);
+						btBody->setInterpolationWorldTransform(world_transform);
+						if ((world_transform.getOrigin() - old_transform.getOrigin()).length2() > 0.01f * 0.01f
+							|| Quat::angle(world_transform.getRotation(), old_transform.getRotation()) > 0.1f)
+							body->activate_linked();
+						else
+							body->btBody->setActivationState(ISLAND_SLEEPING);
 					}
+				}
 
-					if (frame_next)
+				if (frame_next)
+				{
+					// calculate client-side velocity for components that need it
+					if (t->has<Target>())
 					{
-						// calculate client-side velocity for components that need it
-						if (t->has<Target>())
-						{
-							Vec3 abs_pos_last;
-							Quat abs_rot_last;
-							transform_absolute(frame_last, index, &abs_pos_last, &abs_rot_last);
-							Vec3 abs_pos_next;
-							Quat abs_rot_next;
-							transform_absolute(*frame_next, index, &abs_pos_next, &abs_rot_next);
-							t->get<Target>()->net_velocity = t->get<Target>()->net_velocity * 0.9f + ((abs_pos_next - abs_pos_last) / tick_rate()) * 0.1f;
-						}
-						else if (t->has<TramRunner>())
-						{
-							Vec3 abs_pos_last;
-							transform_absolute(frame_last, index, &abs_pos_last);
-							Vec3 abs_pos_next;
-							transform_absolute(*frame_next, index, &abs_pos_next);
-							t->get<TramRunner>()->velocity = t->get<TramRunner>()->velocity * 0.9f + ((abs_pos_next - abs_pos_last) / tick_rate()).length() * 0.1f;
-						}
-						else if (t->has<Bolt>())
-						{
-							Vec3 abs_pos_last;
-							transform_absolute(frame_last, index, &abs_pos_last);
-							Vec3 abs_pos_next;
-							transform_absolute(*frame_next, index, &abs_pos_next);
-							t->get<Bolt>()->velocity = (abs_pos_next - abs_pos_last) / tick_rate();
-						}
+						Vec3 abs_pos_last;
+						Quat abs_rot_last;
+						transform_absolute(frame_last, index, &abs_pos_last, &abs_rot_last);
+						Vec3 abs_pos_next;
+						Quat abs_rot_next;
+						transform_absolute(*frame_next, index, &abs_pos_next, &abs_rot_next);
+						t->get<Target>()->net_velocity = t->get<Target>()->net_velocity * 0.9f + ((abs_pos_next - abs_pos_last) / tick_rate()) * 0.1f;
+					}
+					else if (t->has<TramRunner>())
+					{
+						Vec3 abs_pos_last;
+						transform_absolute(frame_last, index, &abs_pos_last);
+						Vec3 abs_pos_next;
+						transform_absolute(*frame_next, index, &abs_pos_next);
+						t->get<TramRunner>()->velocity = t->get<TramRunner>()->velocity * 0.9f + ((abs_pos_next - abs_pos_last) / tick_rate()).length() * 0.1f;
+					}
+					else if (t->has<Bolt>())
+					{
+						Vec3 abs_pos_last;
+						transform_absolute(frame_last, index, &abs_pos_last);
+						Vec3 abs_pos_next;
+						transform_absolute(*frame_next, index, &abs_pos_next);
+						t->get<Bolt>()->velocity = (abs_pos_next - abs_pos_last) / tick_rate();
 					}
 				}
 			}
@@ -3695,7 +3806,7 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
 		const PlayerManagerState& state = frame.players[i];
-		if (state.active)
+		if (PlayerManager::list.active(i) && state.active)
 		{
 			PlayerManager* s = &PlayerManager::list[i];
 			s->spawn_timer = state.spawn_timer;
@@ -3703,42 +3814,61 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 		}
 	}
 
-	// minions
+	// walkers
 	{
-		s32 index = frame.minions_active.start;
-		while (index < frame.minions_active.end)
+		s32 index = frame.walkers_active.start;
+		while (index < frame.walkers_active.end)
 		{
-			if (Minion::list.active(index))
+			Walker* w = &Walker::list[index];
+			if (Walker::list.active(index) && w->revision == frame.walkers[index].revision
+				&& (!w->has<PlayerControlHuman>() || !w->get<PlayerControlHuman>()->local()))
 			{
-				const MinionState& s = frame.minions[index];
-				Minion* m = &Minion::list[index];
-				m->get<Walker>()->rotation = s.rotation;
-				Animator::Layer* layer = &m->get<Animator>()->layers[0];
-				layer->animation = s.animation;
-				layer->time = s.animation_time;
+				const WalkerState& s = frame.walkers[index];
+				w->rotation = s.rotation;
+				Animator::Layer* layer = &w->get<Animator>()->layers[0];
+				layer->animation = s.animation.asset;
+				layer->time = s.animation.time;
 			}
 
-			index = frame.minions_active.next(index);
+			index = frame.walkers_active.next(index);
 		}
 	}
 
 	// drones
+	for (s32 index = 0; index < MAX_PLAYERS; index++)
 	{
-		s32 index = frame.drones_active.start;
-		while (index < frame.drones_active.end)
+		const DroneState& state = frame.drones[index];
+		if (Drone::list.active(index) && state.active && state.revision == Drone::list[index].revision)
 		{
-			if (Drone::list.active(index))
-			{
-				const DroneState& state = frame.drones[index];
-				Drone* drone = &Drone::list[index];
-				r32 adjustment;
-				if (drone->cooldown_remote_controlled(&adjustment))
-					drone->cooldown = vi_max(0.0f, state.cooldown - adjustment);
-				if (drone->cooldown_ability_switch_remote_controlled(&adjustment))
-					drone->cooldown_ability_switch = vi_max(0.0f, state.cooldown_ability_switch - adjustment);
-			}
+			Drone* drone = &Drone::list[index];
+			r32 adjustment;
+			if (drone->cooldown_remote_controlled(&adjustment))
+				drone->cooldown = vi_max(0.0f, state.cooldown - adjustment);
+			if (drone->cooldown_ability_switch_remote_controlled(&adjustment))
+				drone->cooldown_ability_switch = vi_max(0.0f, state.cooldown_ability_switch - adjustment);
+		}
+	}
 
-			index = frame.drones_active.next(index);
+	// parkours
+	for (s32 index = 0; index < MAX_PLAYERS; index++)
+	{
+		const ParkourStateFrame& state = frame.parkours[index];
+		if (Parkour::list.active(index) && state.active && state.revision == Parkour::list[index].revision)
+		{
+			Parkour* parkour = &Parkour::list[index];
+			if (!parkour->has<PlayerControlHuman>() || !parkour->get<PlayerControlHuman>()->local())
+			{
+				parkour->lean = state.lean;
+				parkour->relative_wall_run_normal = state.wall_normal;
+				parkour->get<SkinnedModel>()->offset.translation(state.model_offset);
+				for (s32 i = 1; i < MAX_ANIMATIONS; i++)
+				{
+					const AnimationLayer& input = state.animations[i - 1];
+					Animator::Layer* output = &parkour->get<Animator>()->layers[i];
+					output->animation = input.asset;
+					output->time = input.time;
+				}
+			}
 		}
 	}
 }
@@ -4846,6 +4976,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Drone:
 		{
 			if (!Drone::net_msg(p, src))
+				net_error();
+			break;
+		}
+		case MessageType::Parkour:
+		{
+			if (!Parkour::net_msg(p, src))
 				net_error();
 			break;
 		}

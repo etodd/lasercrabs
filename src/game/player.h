@@ -264,6 +264,11 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		Quat rot;
 		Vec3 pos;
 		Vec3 movement;
+		Vec3 wall_normal;
+		Vec3 model_offset;
+		r32 rotation;
+		r32 lean;
+		AnimationLayer animations[MAX_ANIMATIONS];
 		Ref<Transform> parent;
 	};
 

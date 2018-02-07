@@ -45,6 +45,7 @@ enum class MessageType : s8
 	InitDone,
 	LoadingDone,
 	TimeSync,
+	Parkour,
 	Turret,
 	Glass,
 	Flag,
@@ -64,11 +65,10 @@ struct TransformState
 	Resolution resolution;
 };
 
-struct MinionState
+struct WalkerState
 {
 	r32 rotation;
-	r32 animation_time;
-	AssetID animation;
+	AnimationLayer animation;
 	Revision revision;
 };
 
@@ -85,18 +85,29 @@ struct DroneState
 	r32 cooldown_ability_switch;
 	DroneCollisionState collision_state;
 	Revision revision;
+	b8 active;
+};
+
+struct ParkourStateFrame
+{
+	Vec3 wall_normal;
+	Vec3 model_offset;
+	r32 lean;
+	AnimationLayer animations[MAX_ANIMATIONS - 1];
+	Revision revision;
+	b8 active;
 };
 
 struct StateFrame
 {
 	TransformState transforms[MAX_ENTITIES];
 	PlayerManagerState players[MAX_PLAYERS];
-	MinionState minions[MAX_ENTITIES];
+	WalkerState walkers[MAX_MINIONS];
 	DroneState drones[MAX_PLAYERS];
+	ParkourStateFrame parkours[MAX_PLAYERS];
 	r32 timestamp;
 	Bitmask<MAX_ENTITIES> transforms_active;
-	Bitmask<MAX_ENTITIES> minions_active;
-	Bitmask<MAX_PLAYERS> drones_active;
+	Bitmask<MAX_MINIONS> walkers_active;
 	SequenceID sequence_id;
 };
 

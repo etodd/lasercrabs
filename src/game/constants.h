@@ -6,6 +6,10 @@
 
 #define MAX_GAMEPADS 4
 
+#define MAX_MINIONS 96
+
+#define MAX_ANIMATIONS 4
+
 #define MAX_RESPAWNS 1000
 #define MAX_ENERGY_LIMIT 30000
 

@@ -2971,7 +2971,7 @@ b8 Drone::should_collide(const Target* target, const Net::StateFrame* state_fram
 	{
 		DroneCollisionState target_collision_state;
 		if (state_frame
-			&& state_frame->drones_active.get(target->get<Drone>()->id())
+			&& state_frame->drones[target->get<Drone>()->id()].active
 			&& !PlayerHuman::players_on_same_client(entity(), target->entity()))
 			target_collision_state = state_frame->drones[target->get<Drone>()->id()].collision_state;
 		else

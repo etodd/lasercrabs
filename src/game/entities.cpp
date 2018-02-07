@@ -324,7 +324,7 @@ b8 Health::active_armor(const Net::StateFrame* state_frame) const
 		return active_armor_timer > 0.0f || (get<ForceField>()->flags & ForceField::FlagInvincible);
 	else if (has<Drone>())
 	{
-		if (state_frame && state_frame->drones_active.get(get<Drone>()->id()))
+		if (state_frame && state_frame->drones[get<Drone>()->id()].active)
 			return state_frame->drones[get<Drone>()->id()].collision_state == DroneCollisionState::ActiveArmor;
 		else
 			return active_armor_timer > 0.0f;
@@ -342,7 +342,7 @@ b8 Health::can_take_damage(Entity* damager, const Net::StateFrame* state_frame) 
 	{
 		DroneCollisionState collision_state;
 		if (state_frame
-			&& state_frame->drones_active.get(get<Drone>()->id())
+			&& state_frame->drones[get<Drone>()->id()].active
 			&& !PlayerHuman::players_on_same_client(entity(), damager))
 			collision_state = state_frame->drones[get<Drone>()->id()].collision_state;
 		else
@@ -1058,7 +1058,7 @@ void SpawnPoint::update_server_all(const Update& u)
 			}
 		}
 
-		for (auto j = list.iterator(); !j.is_last() && Minion::list.count() < 96; j.next())
+		for (auto j = list.iterator(); !j.is_last() && Minion::list.count() < MAX_MINIONS; j.next())
 		{
 			if (j.item()->team != AI::TeamNone)
 			{
@@ -5510,7 +5510,7 @@ void Tram::set_position()
 
 void Tram::player_entered(Entity* e)
 {
-	if (e->has<Parkour>() && e->get<Parkour>()->fsm.current != Parkour::State::Grapple)
+	if (e->has<Parkour>() && e->get<Parkour>()->fsm.current != ParkourState::Grapple)
 	{
 		if (departing && doors_open()) // close doors and depart
 		{
@@ -5983,9 +5983,10 @@ void AirWave::clear()
 
 void AirWave::draw_alpha(const RenderParams& params)
 {
-	const r32 lifetime = 0.3f;
-	const r32 anim_in_time = 0.02f;
-	const r32 anim_out_time = 0.15f;
+	const r32 multiplier = Game::session.type == SessionType::Story ? 1.0f : (1.0f / 0.3f);
+	const r32 lifetime = 0.3f * multiplier;
+	const r32 anim_in_time = 0.02f * multiplier;
+	const r32 anim_out_time = 0.15f * multiplier;
 	instances.length = 0;
 
 	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::air_wave);

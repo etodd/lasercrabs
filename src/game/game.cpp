@@ -633,8 +633,8 @@ void Game::update(InputState* input, const InputState* last_input)
 		}
 		for (auto i = Animator::list.iterator(); !i.is_last(); i.next())
 		{
-			if (!level.local && i.item()->has<Minion>())
-				i.item()->update_client_only(u); // minion animations are synced over the network
+			if (!level.local && i.item()->has<Walker>() && (!i.item()->has<PlayerControlHuman>() || !i.item()->get<PlayerControlHuman>()->local()))
+				i.item()->update_client_only(u); // walker animations are synced over the network
 			else if (!i.item()->has<Parkour>()) // Parkour component updates the Animator on its own terms
 				i.item()->update_server(u);
 		}
@@ -731,9 +731,10 @@ void Game::update(InputState* input, const InputState* last_input)
 		for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->get<PlayerControlHuman>()->local())
-				i.item()->update(u);
+				i.item()->update_server(u);
 			else if (level.local) // server needs to manually update the animator because it's normally updated by the Parkour component
 				i.item()->get<Animator>()->update_server(u);
+			i.item()->update_client(u);
 		}
 
 		Shield::update_all(u);
@@ -861,11 +862,11 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 		| Rectifier::component_mask
 		| ForceField::component_mask
 		| Bolt::component_mask
-		| Minion::component_mask
 		| Flag::component_mask
 		| Battery::component_mask
 		| ForceField::component_mask
 		| Rectifier::component_mask
+		| Walker::component_mask
 	);
 }
 

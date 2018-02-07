@@ -8,6 +8,11 @@ class btRigidBody;
 namespace VI
 {
 
+namespace Net
+{
+	struct StreamRead;
+}
+
 struct Traceur : public Entity
 {
 	Traceur(const Vec3&, r32, AI::Team);
@@ -25,26 +30,6 @@ struct RigidBody;
 
 struct Parkour : public ComponentType<Parkour>
 {
-	enum class State : s8
-	{
-		Normal,
-		Mantle,
-		HardLanding,
-		WallRun,
-		Climb,
-		Grapple,
-		count,
-	};
-
-	enum class WallRunState : s8
-	{
-		Left,
-		Right,
-		Forward,
-		None,
-		count,
-	};
-
 	enum class MantleAttempt : s8
 	{
 		Normal,
@@ -67,6 +52,9 @@ struct Parkour : public ComponentType<Parkour>
 		FlagTryGrapple = 1 << 1,
 	};
 
+	static b8 ability_enabled(Resource);
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
+
 	Vec3 grapple_start_pos;
 	Vec3 grapple_normal;
 	Vec3 grapple_pos;
@@ -85,14 +73,14 @@ struct Parkour : public ComponentType<Parkour>
 	r32 breathing;
 	StaticArray<TilePos, 8> tile_history;
 	StaticArray<Vec3, 4> jump_history;
-	FSM<State> fsm;
+	FSM<ParkourState> fsm;
 	Ref<RigidBody> last_support;
 	Ref<Transform> rope;
 	Ref<Transform> animation_start_support;
 	ID rope_constraint = IDNull;
 	Link jumped;
-	WallRunState wall_run_state;
-	WallRunState last_support_wall_run_state;
+	ParkourWallRunState wall_run_state;
+	ParkourWallRunState last_support_wall_run_state;
 	s8 flags;
 
 	inline b8 flag(s32 f) const
@@ -132,11 +120,14 @@ struct Parkour : public ComponentType<Parkour>
 	Vec3 hand_pos() const;
 	void head_to_object_space(Vec3*, Quat*) const;
 	void spawn_tiles(const Vec3&, const Vec3&, const Vec3&, const Vec3&);
-	b8 try_wall_run(WallRunState, const Vec3&);
+	b8 try_wall_run(ParkourWallRunState, const Vec3&);
 	void wall_jump(r32, const Vec3&, const btRigidBody*);
 	void pickup_animation_complete();
 
-	void update(const Update&);
+	Vec3 absolute_wall_normal() const;
+
+	void update_server(const Update&);
+	void update_client(const Update&);
 };
 
 }

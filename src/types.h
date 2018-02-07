@@ -153,6 +153,32 @@ enum class StoryModeTeam : s8
 	count,
 };
 
+enum class ParkourState : s8
+{
+	Normal,
+	Mantle,
+	HardLanding,
+	WallRun,
+	Climb,
+	Grapple,
+	count,
+};
+
+enum class ParkourWallRunState : s8
+{
+	Left,
+	Right,
+	Forward,
+	None,
+	count,
+};
+
+struct AnimationLayer
+{
+	r32 time;
+	AssetID asset;
+};
+
 namespace Net
 {
 	enum class MessageSource : s8 // included here to prevent having to include net.h everywhere

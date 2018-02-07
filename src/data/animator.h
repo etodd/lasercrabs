@@ -9,8 +9,6 @@ namespace VI
 struct Transform;
 struct Armature;
 
-#define MAX_ANIMATIONS 4
-
 struct Animator : public ComponentType<Animator>
 {
 	enum class Behavior : s8

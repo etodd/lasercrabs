@@ -554,12 +554,12 @@ void update_visibility(const Update& u)
 	{
 		Entity* i_entity = i.item()->instance.ref();
 
-		if (!i_entity || !i_entity->has<Drone>())
+		if (!i_entity)
 			continue;
 
 		Team* i_team = i.item()->team.ref();
 
-		r32 i_range = i_entity->get<Drone>()->range();
+		r32 i_range = i_entity->has<Drone>() ? i_entity->get<Drone>()->range() : DRONE_MAX_DISTANCE;
 
 		for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 		{
@@ -980,6 +980,8 @@ void Team::update_all_server(const Update& u)
 		}
 	}
 
+	update_visibility(u);
+
 	if (Game::level.mode != Game::Mode::Pvp)
 		return;
 
@@ -1125,8 +1127,6 @@ void Team::update_all_server(const Update& u)
 		if (score_accepted)
 			transition_next(); // time to get out of here
 	}
-
-	update_visibility(u);
 }
 
 void Team::draw_ui(const RenderParams& params)
@@ -1146,9 +1146,6 @@ void Team::update_all(const Update& u)
 
 void Team::update_all_client_only(const Update& u)
 {
-	if (Game::level.mode != Game::Mode::Pvp)
-		return;
-
 	update_visibility(u);
 }
 
@@ -1212,7 +1209,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 
 void PlayerManager::awake()
 {
-	if ((!Game::level.local || Game::session.type == SessionType::Story) && Game::level.mode == Game::Mode::Pvp)
+	if (Game::level.mode != Game::Mode::Special)
 	{
 		char log[512];
 		sprintf(log, _(strings::player_joined), username);
@@ -1222,7 +1219,7 @@ void PlayerManager::awake()
 
 PlayerManager::~PlayerManager()
 {
-	if ((!Game::level.local || Game::session.type == SessionType::Story) && Game::level.mode == Game::Mode::Pvp)
+	if (Game::level.mode != Game::Mode::Special)
 	{
 		char log[512];
 		sprintf(log, _(strings::player_left), username);

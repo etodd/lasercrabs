@@ -4,6 +4,7 @@
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "game/game.h"
 #include "game/entities.h"
+#include "game/player.h"
 
 namespace VI
 {
@@ -165,8 +166,17 @@ void RigidBody::awake()
 	}
 	else
 #endif
-	if (!Game::level.local && Game::net_transform_filter(entity(), Game::level.mode))
+	if (Game::level.local // if the whole game is local, we have local physics
+		|| !Game::net_transform_filter(entity(), Game::level.mode) // entities that are not synced over the network have local physics
+		|| (has<PlayerControlHuman>() && get<PlayerControlHuman>()->local())) // local players have local physics
 	{
+		// local physics
+		m = mass;
+		actual_collision_filter = collision_filter;
+	}
+	else
+	{
+		// physics controlled by remote server
 		m = 0.0f;
 		actual_collision_filter = collision_filter // prevent static-static collisions
 		& ~(
@@ -180,11 +190,6 @@ void RigidBody::awake()
 			| CollisionTarget
 			| CollisionAudio
 		);
-	}
-	else
-	{
-		m = mass;
-		actual_collision_filter = collision_filter;
 	}
 
 	switch (type)

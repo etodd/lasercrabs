@@ -105,7 +105,7 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					// tiles
 					{
 						Vec3 spawn_offset = parkour->get<PlayerControlHuman>()->local()
-							? parkour->get<RigidBody>()->btBody->getLinearVelocity()
+							? Vec3(parkour->get<RigidBody>()->btBody->getLinearVelocity())
 							: parkour->get<Target>()->net_velocity;
 						spawn_offset *= 1.5f;
 						spawn_offset.y = 5.0f;

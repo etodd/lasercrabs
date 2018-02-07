@@ -816,7 +816,7 @@ b8 PlayerHuman::emotes_enabled() const
 		|| mode == UIMode::PvpSelectTeam
 		|| mode == UIMode::PvpSpectate
 		|| mode == UIMode::PvpGameOver
-		|| ((mode == UIMode::ParkourDefault || mode == UIMode::ParkourDead)) && Game::session.type == SessionType::Multiplayer);
+		|| ((mode == UIMode::ParkourDefault || mode == UIMode::ParkourDead) && Game::session.type == SessionType::Multiplayer));
 }
 
 Upgrade player_confirm_upgrade[MAX_GAMEPADS];

@@ -969,7 +969,7 @@ namespace Docks
 				Game::level.mode = Game::Mode::Parkour;
 				data->dada->highlight = true;
 				for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-					i.item()->get<PlayerManager>()->can_spawn = true;
+					i.item()->get<PlayerManager>()->flag(PlayerManager::FlagCanSpawn, true);
 			}
 		}
 		else

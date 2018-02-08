@@ -97,6 +97,7 @@ struct Team : public ComponentType<Team>
 	static r32 core_module_delay;
 	static Ref<Team> winner;
 	static MatchState match_state;
+	static b8 parkour_game_start_impending();
 
 	static void awake_all();
 	static void transition_next();
@@ -174,12 +175,21 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		Leave,
 		Spot,
 		AbilityCooldownReady,
+		ParkourReady,
 		count,
 	};
 
 	struct Visibility
 	{
 		b8 value;
+	};
+
+	enum Flags : s8
+	{
+		FlagScoreAccepted = 1 << 0,
+		FlagCanSpawn = 1 << 1,
+		FlagIsAdmin = 1 << 2,
+		FlagParkourReady = 1 << 3,
 	};
 
 	static s32 visibility_hash(const PlayerManager*, const PlayerManager*);
@@ -189,6 +199,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	static b8 net_msg(Net::StreamRead*, PlayerManager*, Message, Net::MessageSource);
 	static PlayerManager* owner(const Entity*);
 	static void entity_killed_by(Entity*, Entity*);
+	static s32 parkour_ready_count();
 
 	r32 spawn_timer;
 	r32 state_timer;
@@ -209,9 +220,20 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	Upgrade current_upgrade;
 	AI::Team team_scheduled;
 	s8 current_upgrade_ability_slot;
-	b8 score_accepted;
-	b8 can_spawn;
-	b8 is_admin;
+	s8 flags;
+
+	inline void flag(s32 f, b8 value)
+	{
+		if (value)
+			flags |= f;
+		else
+			flags &= ~f;
+	}
+	
+	inline b8 flag(s32 f)
+	{
+		return flags & f;
+	}
 
 	PlayerManager(Team* = nullptr, const char* = nullptr);
 	void awake();
@@ -250,6 +272,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void spot(Target*);
 	void map_schedule(AssetID);
 	void map_skip(AssetID);
+	void parkour_ready(b8);
 };
 
 

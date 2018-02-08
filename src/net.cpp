@@ -234,8 +234,7 @@ template<typename Stream, typename View> b8 serialize_view_skinnedmodel(Stream* 
 	serialize_r32_range(p, v->color.w, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, v->radius, 0.0f, 20.0f, 8);
 	serialize_s16(p, v->mask);
-	serialize_s16(p, v->mesh);
-	serialize_s16(p, v->mesh_shadow);
+	serialize_asset(p, v->mesh, Loader::static_mesh_count);
 	serialize_asset(p, v->shader, Loader::shader_count);
 	serialize_asset(p, v->texture, Loader::static_texture_count);
 	serialize_s8(p, v->team);
@@ -272,9 +271,9 @@ template<typename Stream> b8 serialize_player_control(Stream* p, PlayerControlHu
 			else if (Stream::IsReading)
 				control->wall_normal = Vec3::zero;
 		}
-		serialize_r32_range(p, control->model_offset.x, -2.0f, 2.0f, 12);
-		serialize_r32_range(p, control->model_offset.y, -2.0f, 2.0f, 12);
-		serialize_r32_range(p, control->model_offset.z, -2.0f, 2.0f, 12);
+		serialize_r32_range(p, control->model_offset.x, -3.5f, 3.5f, 12);
+		serialize_r32_range(p, control->model_offset.y, -3.5f, 3.5f, 12);
+		serialize_r32_range(p, control->model_offset.z, -3.5f, 3.5f, 12);
 		for (s32 i = 0; i < MAX_ANIMATIONS; i++)
 		{
 			AnimationLayer* anim = &control->animations[i];
@@ -679,8 +678,10 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 
 	if (e->has<SkinnedModel>())
 	{
-		if (!serialize_view_skinnedmodel(p, e->get<SkinnedModel>()))
+		SkinnedModel* s = e->get<SkinnedModel>();
+		if (!serialize_view_skinnedmodel(p, s))
 			net_error();
+		serialize_asset(p, s->mesh_first_person, Loader::static_mesh_count);
 	}
 
 	if (e->has<Bolt>())
@@ -795,8 +796,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_bytes(p, (u8*)m->username, username_length);
 		if (Stream::IsReading)
 			m->username[username_length] = '\0';
-		serialize_bool(p, m->can_spawn);
-		serialize_bool(p, m->is_admin);
+		serialize_s8(p, m->flags);
 	}
 
 	if (e->has<Team>())
@@ -1519,9 +1519,9 @@ template<typename Stream> b8 serialize_parkour(Stream* p, ParkourStateFrame* sta
 	else if (Stream::IsReading)
 		state->wall_normal = Vec3::zero;
 
-	serialize_r32_range(p, state->model_offset.x, -2.0f, 2.0f, 12);
-	serialize_r32_range(p, state->model_offset.y, -2.0f, 2.0f, 12);
-	serialize_r32_range(p, state->model_offset.z, -2.0f, 2.0f, 12);
+	serialize_r32_range(p, state->model_offset.x, -3.5f, 3.5f, 12);
+	serialize_r32_range(p, state->model_offset.y, -3.5f, 3.5f, 12);
+	serialize_r32_range(p, state->model_offset.z, -3.5f, 3.5f, 12);
 
 	return true;
 }
@@ -2404,6 +2404,11 @@ void transition_level()
 {
 	msg_finalize(msg_new(MessageType::TransitionLevel));
 	state_server.transitioning_level = true;
+	if (Game::level.config_scheduled_apply)
+	{
+		Game::session.config = Game::level.config_scheduled;
+		Game::level.config_scheduled_apply = false;
+	}
 }
 
 // disable entity messages while we're unloading the level
@@ -2746,7 +2751,8 @@ b8 packet_handle_master(StreamRead* p)
 			{
 				Game::session.type = SessionType::Multiplayer;
 				vi_assert(Game::session.config.levels.length > 0);
-				Game::load_level(Overworld::zone_id_for_uuid(Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length]), Game::Mode::Pvp);
+				Game::Mode mode = Game::session.config.time_limit_parkour_ready == 0 ? Game::Mode::Pvp : Game::Mode::Parkour;
+				Game::load_level(Overworld::zone_id_for_uuid(Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length]), mode);
 			}
 			break;
 		}
@@ -3086,7 +3092,12 @@ b8 add_players(Net::StreamRead* p, Client* client, s32 count, const ExpectedClie
 							if (entry.uuid == uuid)
 							{
 								if (entry.team != AI::TeamNone)
-									team_ref = &Team::list[(entry.team + 1) % Team::list.count()];
+								{
+									if (Game::level.mode == Game::Mode::Pvp)
+										team_ref = &Team::list[(entry.team + 1) % Team::list.count()]; // rotate teams
+									else
+										team_ref = &Team::list[entry.team]; // same teams
+								}
 								break;
 							}
 						}
@@ -3128,7 +3139,7 @@ b8 add_players(Net::StreamRead* p, Client* client, s32 count, const ExpectedClie
 			}
 			PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
 			player->master_id = client->user_key.id;
-			manager->is_admin = client->flag(Client::FlagIsAdmin) && gamepad == 0;
+			manager->flag(PlayerManager::FlagIsAdmin, client->flag(Client::FlagIsAdmin) && gamepad == 0);
 			player->uuid = uuid;
 			client->players.add(player);
 			finalize(e);

@@ -90,7 +90,7 @@ PlayerAI::PlayerAI(PlayerManager* m, const AI::Config& config)
 	config(config),
 	spawning()
 {
-	m->can_spawn = true;
+	m->flag(PlayerManager::FlagCanSpawn, true);
 	m->spawn.link<PlayerAI, const SpawnPosition&, &PlayerAI::spawn>(this);
 }
 

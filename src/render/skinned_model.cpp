@@ -21,7 +21,7 @@ Bitmask<MAX_ENTITIES> SkinnedModel::list_alpha_if_obstructing;
 
 SkinnedModel::SkinnedModel()
 	: mesh(AssetNull),
-	mesh_shadow(AssetNull),
+	mesh_first_person(AssetNull),
 	shader(AssetNull),
 	texture(AssetNull),
 	radius(),
@@ -166,7 +166,7 @@ void SkinnedModel::draw(const RenderParams& params, ObstructingBehavior b)
 	
 	m = offset * m;
 
-	AssetID mesh_actual = (params.technique != RenderTechnique::Shadow || (params.flags & RenderFlagEdges)) || mesh_shadow == AssetNull ? mesh : mesh_shadow;
+	AssetID mesh_actual = (mesh_first_person == AssetNull || params.camera != first_person_camera.ref()) ? mesh : mesh_first_person;
 
 	b8 alpha_override = params.flags & RenderFlagAlphaOverride;
 

@@ -757,10 +757,11 @@ void pause_menu(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMen
 			menu->start(u, origin, gamepad);
 			if (menu->item(u, _(strings::resume)))
 				*state = State::Hidden;
-			if (Game::session.type == SessionType::Multiplayer && Game::level.mode == Game::Mode::Pvp)
+			if (Game::session.type == SessionType::Multiplayer)
 			{
 				PlayerManager* me = PlayerHuman::for_gamepad(gamepad)->get<PlayerManager>();
-				if ((me->is_admin || (Game::session.config.game_type == GameType::Assault || Game::session.config.max_players > Game::session.config.team_count))
+				if (Game::level.mode == Game::Mode::Pvp
+					&& (me->flag(PlayerManager::FlagIsAdmin) || (Game::session.config.game_type == GameType::Assault || Game::session.config.max_players > Game::session.config.team_count))
 					&& menu->item(u, _(strings::teams)))
 				{
 					*state = State::Teams;
@@ -768,21 +769,17 @@ void pause_menu(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMen
 					teams_selected_player_friendship[gamepad] = FriendshipState::None;
 					menu->animate();
 				}
-				if (me->is_admin)
+				if (me->flag(PlayerManager::FlagIsAdmin) && menu->item(u, _(strings::levels)))
 				{
-					if (menu->item(u, _(strings::levels)))
-					{
-						*state = State::Maps;
-						maps_selected_map = AssetNull;
-						menu->animate();
-					}
-
+					*state = State::Maps;
+					maps_selected_map = AssetNull;
+					menu->animate();
 				}
 
 				if (PlayerHuman::count_local() <= 1 && menu->item(u, _(strings::server_settings)))
 				{
 					*state = State::Hidden;
-					if (me->is_admin)
+					if (me->flag(PlayerManager::FlagIsAdmin))
 						Overworld::server_settings(me->get<PlayerHuman>()->camera.ref());
 					else
 						Overworld::server_settings_readonly(me->get<PlayerHuman>()->camera.ref());
@@ -1873,11 +1870,11 @@ b8 player(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* men
 			}
 
 			// add/remove admin
-			if (me->is_admin)
+			if (me->flag(PlayerManager::FlagIsAdmin))
 			{
-				if (menu->item(u, _(selected->is_admin ? strings::admin_remove : strings::admin_make)))
+				if (menu->item(u, _(selected->flag(PlayerManager::FlagIsAdmin) ? strings::admin_remove : strings::admin_make)))
 				{
-					if (selected->is_admin)
+					if (selected->flag(PlayerManager::FlagIsAdmin))
 						Menu::dialog_with_cancel(gamepad, &teams_admin_remove, nullptr, _(strings::confirm_admin_remove), selected->username);
 					else
 						Menu::dialog_with_cancel(gamepad, &teams_admin_make, nullptr, _(strings::confirm_admin_make), selected->username);
@@ -1886,11 +1883,11 @@ b8 player(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* men
 		}
 
 		// kick
-		if (me->is_admin && menu->item(u, _(strings::kick)))
+		if (me->flag(PlayerManager::FlagIsAdmin) && menu->item(u, _(strings::kick)))
 			Menu::dialog_with_cancel(gamepad, &teams_kick_player, nullptr, _(strings::confirm_kick), selected->username);
 
 		// ban
-		if (me->is_admin && menu->item(u, _(strings::ban)))
+		if (me->flag(PlayerManager::FlagIsAdmin) && menu->item(u, _(strings::ban)))
 			Menu::dialog_with_cancel(gamepad, &teams_ban_player, nullptr, _(strings::confirm_ban), selected->username);
 	}
 
@@ -1926,7 +1923,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 	{
 		const char* value = _(Team::name_selector(i.item()->team_scheduled == AI::TeamNone ? i.item()->team.ref()->team() : i.item()->team_scheduled));
 		b8 disabled = input == UIMenu::EnableInput::No || (selected && i.item() != selected) || (i.item() != me && mode == TeamSelectMode::MatchStart);
-		AssetID icon = i.item()->can_spawn ? Asset::Mesh::icon_checkmark : AssetNull;
+		AssetID icon = i.item()->flag(PlayerManager::FlagCanSpawn) ? Asset::Mesh::icon_checkmark : AssetNull;
 
 		if (mode == TeamSelectMode::Normal
 			&& input == UIMenu::EnableInput::Yes
@@ -2002,7 +1999,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 		}
 		else
 		{
-			if (mode == TeamSelectMode::MatchStart && me->can_spawn)
+			if (mode == TeamSelectMode::MatchStart && me->flag(PlayerManager::FlagCanSpawn))
 				me->set_can_spawn(false);
 			else
 				return State::Visible;

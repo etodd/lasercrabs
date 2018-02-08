@@ -20,6 +20,7 @@
 #include "render/skinned_model.h"
 #include "net.h"
 #include "ease.h"
+#include "data/ragdoll.h"
 
 namespace VI
 {
@@ -49,6 +50,10 @@ namespace ParkourNet
 		JumpDouble,
 		Mantle,
 		TopOut,
+		LandHard,
+		LandSoft,
+		FallDeath,
+		Grapple,
 		count,
 	};
 
@@ -84,65 +89,86 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		{
 			if (Game::level.local && src == Net::MessageSource::Remote)
 			{
-				// repeat to clients and self
+				// repeat to clients
 				ParkourNet::send_effect(parkour, e);
 			}
-			else
+
+			switch (e)
 			{
-				switch (e)
+				case ParkourNet::EffectType::JumpNormal:
+					parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_JUMP);
+					break;
+				case ParkourNet::EffectType::JumpDouble:
 				{
-					case ParkourNet::EffectType::JumpNormal:
-						parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_JUMP);
-						break;
-					case ParkourNet::EffectType::JumpDouble:
+					parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_JUMP);
+
+					// tiles
 					{
-						parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_JUMP);
+						Vec3 spawn_offset = parkour->get<PlayerControlHuman>()->local()
+							? parkour->get<RigidBody>()->btBody->getLinearVelocity()
+							: parkour->get<Target>()->net_velocity;
+						spawn_offset *= 1.5f;
+						spawn_offset.y = 5.0f;
 
-						// tiles
+						Vec3 pos = parkour->get<Walker>()->base_pos();
+
+						Quat tile_rot = Quat::look(Vec3(0, 1, 0));
+						const r32 radius = TILE_CREATE_RADIUS - 2.0f;
+						s32 i = 0;
+						for (s32 x = -s32(TILE_CREATE_RADIUS); x <= s32(radius); x++)
 						{
-							Vec3 spawn_offset = parkour->get<PlayerControlHuman>()->local()
-								? parkour->get<RigidBody>()->btBody->getLinearVelocity()
-								: parkour->get<Target>()->net_velocity;
-							spawn_offset *= 1.5f;
-							spawn_offset.y = 5.0f;
-
-							Vec3 pos = parkour->get<Walker>()->base_pos();
-
-							Quat tile_rot = Quat::look(Vec3(0, 1, 0));
-							const r32 radius = TILE_CREATE_RADIUS - 2.0f;
-							s32 i = 0;
-							for (s32 x = -s32(TILE_CREATE_RADIUS); x <= s32(radius); x++)
+							for (s32 y = -s32(TILE_CREATE_RADIUS); y <= s32(radius); y++)
 							{
-								for (s32 y = -s32(TILE_CREATE_RADIUS); y <= s32(radius); y++)
+								if (Vec2(r32(x), r32(y)).length_squared() < radius * radius)
 								{
-									if (Vec2(r32(x), r32(y)).length_squared() < radius * radius)
-									{
-										Tile::add(pos + Vec3(r32(x), 0, r32(y)) * TILE_SIZE, tile_rot, spawn_offset, nullptr, 0.15f + 0.05f * i);
-										i++;
-									}
+									Tile::add(pos + Vec3(r32(x), 0, r32(y)) * TILE_SIZE, tile_rot, spawn_offset, nullptr, 0.15f + 0.05f * i);
+									i++;
 								}
 							}
 						}
-						break;
 					}
-					case ParkourNet::EffectType::Mantle:
-					{
-						parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_MANTLE);
-						if (Game::session.type == SessionType::Story)
-							parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_MANTLE_VOCALS);
-						break;
-					}
-					case ParkourNet::EffectType::TopOut:
-					{
-						parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_TOPOUT);
-						if (Game::session.type == SessionType::Story)
-							parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_MANTLE_VOCALS);
-						break;
-					}
-					default:
-						vi_assert(false);
-						break;
+					break;
 				}
+				case ParkourNet::EffectType::Mantle:
+				{
+					parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_MANTLE);
+					if (Game::session.type == SessionType::Story)
+						parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_MANTLE_VOCALS);
+					break;
+				}
+				case ParkourNet::EffectType::TopOut:
+				{
+					parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_TOPOUT);
+					if (Game::session.type == SessionType::Story)
+						parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_MANTLE_VOCALS);
+					break;
+				}
+				case ParkourNet::EffectType::LandHard:
+				{
+					parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_HARD);
+					if (Game::session.type == SessionType::Story)
+						parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_HARD_VOCALS);
+					break;
+				}
+				case ParkourNet::EffectType::LandSoft:
+					parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_SOFT);
+					break;
+				case ParkourNet::EffectType::FallDeath:
+				{
+					if (Game::level.local)
+						parkour->get<Health>()->kill(nullptr);
+					break;
+				}
+				case ParkourNet::EffectType::Grapple:
+				{
+					parkour->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_GRAPPLE);
+					EffectLight::add(parkour->get<Transform>()->absolute_pos() + Vec3(0, -0.1f, 0), (WALKER_MINION_RADIUS * 2.0f) - 0.2f, 0.35f, EffectLight::Type::MuzzleFlash);
+					parkour->fsm.transition(ParkourState::Grapple);
+					break;
+				}
+				default:
+					vi_assert(false);
+					break;
 			}
 		}
 	}
@@ -152,7 +178,7 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 b8 Parkour::ability_enabled(Resource r)
 {
-	return Game::session.type == SessionType::Multiplayer || Game::save.resources[s32()];
+	return Game::save.resources[s32(r)] || (Game::session.type == SessionType::Multiplayer);
 }
 
 Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
@@ -167,8 +193,16 @@ Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 	animator->override_mode = Animator::OverrideMode::OffsetObjectSpace;
 
 	model->shader = Asset::Shader::armature;
-	model->mesh_shadow = Asset::Mesh::parkour;
-	model->mesh = Asset::Mesh::parkour_headless;
+	if (Game::session.type == SessionType::Story)
+	{
+		model->mesh = Asset::Mesh::parkour;
+		model->mesh_first_person = Asset::Mesh::parkour_headless;
+	}
+	else
+	{
+		model->mesh = Asset::Mesh::character;
+		model->mesh_first_person = Asset::Mesh::character_headless;
+	}
 	model->radius = 20.0f;
 	model->color.w = MATERIAL_INACCESSIBLE;
 
@@ -191,26 +225,12 @@ void Parkour::awake()
 {
 	if (Game::session.type == SessionType::Story)
 		get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_BREATHING);
-	else
-	{
-		SkinnedModel* model = get<SkinnedModel>();
-		if (has<PlayerControlHuman>() && get<PlayerControlHuman>()->local())
-		{
-			model->mesh = Asset::Mesh::character_headless;
-			model->mesh_shadow = Asset::Mesh::character;
-		}
-		else
-		{
-			model->mesh = Asset::Mesh::character;
-			model->mesh_shadow = AssetNull;
-		}
-	}
 	get<RigidBody>()->set_ccd(true);
 	Animator* animator = get<Animator>();
 	animator->layers[0].behavior = Animator::Behavior::Loop;
 	animator->layers[0].play(Asset::Animation::character_idle);
 	animator->layers[1].blend_time = 0.2f;
-	animator->layers[2].blend_time = 0.08f;
+	animator->layers[2].blend_time = Game::session.type == SessionType::Story ? 0.08f : (0.08f / 0.3f);
 	animator->layers[2].behavior = Animator::Behavior::Loop;
 	link<&Parkour::climb_sound>(animator->trigger(Asset::Animation::character_climb_down, 0.0f));
 	link<&Parkour::climb_sound>(animator->trigger(Asset::Animation::character_climb_up, 0.0f));
@@ -260,10 +280,14 @@ Parkour::~Parkour()
 	pickup_animation_complete(); // delete anything we're holding
 }
 
-void Parkour::killed(Entity*)
+void Parkour::killed(Entity* killer)
 {
 	if (Game::level.local)
+	{
 		World::remove_deferred(entity());
+		if (Game::session.type == SessionType::Multiplayer)
+			Ragdoll::add(entity(), killer);
+	}
 }
 
 void Parkour::land(r32 velocity_diff)
@@ -271,21 +295,19 @@ void Parkour::land(r32 velocity_diff)
 	if (fsm.current == ParkourState::Normal)
 	{
 		if (velocity_diff < LANDING_VELOCITY_HARD - 7.0f)
-			get<Health>()->kill(nullptr);
+			ParkourNet::send_effect(this, ParkourNet::EffectType::FallDeath);
 		else if (velocity_diff < LANDING_VELOCITY_HARD)
 		{
 			fsm.transition(ParkourState::HardLanding);
 			get<Walker>()->max_speed = get<Walker>()->speed = get<Walker>()->net_speed = 0.0f;
 			get<RigidBody>()->btBody->setLinearVelocity(Vec3(0, get<RigidBody>()->btBody->getLinearVelocity().getY(), 0));
 			get<Animator>()->layers[1].play(Asset::Animation::character_land_hard);
-			get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_HARD);
-			if (Game::session.type == SessionType::Story)
-				get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_HARD_VOCALS);
+			ParkourNet::send_effect(this, ParkourNet::EffectType::LandHard);
 		}
 		else if (velocity_diff < LANDING_VELOCITY_LIGHT)
 		{
 			get<Animator>()->layers[1].play(Asset::Animation::character_land);
-			get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_LAND_SOFT);
+			ParkourNet::send_effect(this, ParkourNet::EffectType::LandSoft);
 		}
 	}
 }
@@ -644,6 +666,11 @@ b8 Parkour::TilePos::operator!=(const Parkour::TilePos& other) const
 	return x != other.x || y != other.y;
 }
 
+r32 grapple_time()
+{
+	return Game::session.type == SessionType::Story ? 0.15f : 0.15f / 0.3f;
+}
+
 void Parkour::update_server(const Update& u)
 {
 	fsm.time += u.time.delta;
@@ -692,19 +719,18 @@ void Parkour::update_server(const Update& u)
 		grapple_cooldown = vi_max(0.0f, grapple_cooldown - u.time.delta);
 	}
 
-	get<Animator>()->layers[2].play(fsm.current == ParkourState::Grapple
-		? Asset::Animation::character_grapple_fire
-		: (flag(FlagTryGrapple) ? Asset::Animation::character_grapple_aim : AssetNull));
+	get<Animator>()->layers[2].play(flag(FlagTryGrapple) ? Asset::Animation::character_grapple_aim : AssetNull);
 
 	if (fsm.current == ParkourState::Grapple)
 	{
-		const r32 grapple_time = Game::session.type == SessionType::Story ? 0.15f : 0.15f / 0.3f;
-		r32 blend = Ease::cubic_in_out<r32>(vi_min(1.0f, fsm.time / grapple_time));
+		r32 blend = Ease::cubic_in_out<r32>(vi_min(1.0f, fsm.time / grapple_time()));
 		get<Walker>()->absolute_pos(Vec3::lerp(blend, grapple_start_pos, grapple_pos));
 		if (blend == 1.0f)
 		{
 			fsm.transition(ParkourState::Normal);
 			get<RigidBody>()->btBody->setLinearVelocity(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, get<Walker>()->net_speed));
+			EffectLight::add(grapple_pos + Vec3(0, -0.1f, 0), (WALKER_MINION_RADIUS * 2.0f) - 0.2f, 0.35f, EffectLight::Type::MuzzleFlash);
+			EffectLight::add(grapple_pos, GRENADE_RANGE * 0.5f, 0.75f, EffectLight::Type::Shockwave);
 		}
 	}
 	else if (fsm.current == ParkourState::Mantle)
@@ -1127,9 +1153,11 @@ void Parkour::update_server(const Update& u)
 
 void Parkour::update_client(const Update& u)
 {
-	// client-side wall-run effects for remote players
+	// client-side effects for remote players
 	if (!get<PlayerControlHuman>()->local())
 	{
+		fsm.time += u.time.delta;
+
 		Animator::Layer* layer0 = &get<Animator>()->layers[0];
 		b8 tiles = false;
 		if (layer0->animation == Asset::Animation::character_wall_run_straight
@@ -1160,12 +1188,52 @@ void Parkour::update_client(const Update& u)
 			spawn_tiles(relative_wall_right, relative_wall_up, normal, spawn_offset);
 		}
 
+		if (fsm.current == ParkourState::Grapple && fsm.time > grapple_time())
+		{
+			fsm.transition(ParkourState::Normal);
+			Vec3 p = get<Transform>()->absolute_pos();
+			EffectLight::add(p + Vec3(0, -0.1f, 0), (WALKER_MINION_RADIUS * 2.0f) - 0.2f, 0.35f, EffectLight::Type::MuzzleFlash);
+			EffectLight::add(p, GRENADE_RANGE * 0.5f, 0.75f, EffectLight::Type::Shockwave);
+		}
+
 		get<SkinnedModel>()->offset.make_transform
 		(
 			get<SkinnedModel>()->offset.translation(), // translation is synced across network
 			Vec3(1.0f, 1.0f, 1.0f),
 			Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
 		);
+	}
+
+	// grapple effects
+	{
+		get<SkinnedModel>()->mask = fsm.current == ParkourState::Grapple ? 0 : RENDER_MASK_DEFAULT;
+
+		if (fsm.current == ParkourState::Grapple)
+		{
+			particle_accumulator += u.real_time.delta;
+
+			Vec3 pos = get<Transform>()->absolute_pos();
+
+			if (!btVector3(pos - last_pos).fuzzyZero())
+			{
+				Glass::shatter_all(last_pos, pos);
+
+				// tracer particles
+				const r32 particle_interval = 0.025f;
+				while (particle_accumulator > particle_interval)
+				{
+					particle_accumulator -= particle_interval;
+					Particles::tracers.add
+					(
+						Vec3::lerp(particle_accumulator / vi_max(0.0001f, u.real_time.delta), last_pos, pos),
+						Vec3::zero,
+						0
+					);
+				}
+
+				last_pos = pos;
+			}
+		}
 	}
 }
 
@@ -1621,7 +1689,7 @@ const Vec3 grapple_raycast_directions[5] =
 b8 grapple_raycast(const Parkour* parkour, const Vec3& start_pos, const Quat& start_rot, Vec3* hit, Vec3* normal)
 {
 	RaycastCallbackExcept ray_callback(start_pos, start_pos + start_rot * Vec3(0, 0, GRAPPLE_RANGE * 1.5f), parkour->entity());
-	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField);
+	Physics::raycast(&ray_callback, ~CollisionDroneIgnore & ~CollisionAllTeamsForceField & ~CollisionGlass);
 	if (ray_callback.hasHit())
 	{
 		if (hit)
@@ -1667,21 +1735,20 @@ b8 Parkour::grapple_valid(const Vec3& start_pos, const Quat& start_rot, Vec3* po
 	return grapple_raycast(this, start_pos, start_rot, pos, normal) && grapple_possible(this);
 }
 
-b8 Parkour::grapple_try(const Vec3& start_pos, const Quat& start_rot)
+b8 Parkour::grapple_try(const Vec3& start_pos, const Vec3& target)
 {
 	flag(FlagTryGrapple, false);
 	if (grapple_possible(this))
 	{
 		Vec3 hit;
 		Vec3 normal;
-		if (grapple_raycast(this, start_pos, start_rot, &hit, &normal))
+		if (grapple_raycast(this, start_pos, Quat::look(Vec3::normalize(target - start_pos)), &hit, &normal))
 		{
 			if (fsm.current == ParkourState::Climb)
 				parkour_stop_climbing(this);
 
-			get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_GRAPPLE);
+			ParkourNet::send_effect(this, ParkourNet::EffectType::Grapple);
 
-			fsm.transition(ParkourState::Grapple);
 			grapple_start_pos = get<Transform>()->absolute_pos();
 			grapple_pos = hit + normal * (fabsf(normal.y) > 0.707f ? WALKER_HEIGHT : WALKER_PARKOUR_RADIUS);
 			grapple_cooldown += GRAPPLE_COOLDOWN;

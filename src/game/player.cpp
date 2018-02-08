@@ -343,7 +343,7 @@ void PlayerHuman::awake()
 	ai_record_id = AI::record_init(Game::level.team_lookup_reverse(get<PlayerManager>()->team.ref()->team()));
 #endif
 
-	if (!get<PlayerManager>()->can_spawn
+	if (!get<PlayerManager>()->flag(PlayerManager::FlagCanSpawn)
 		&& Game::session.type == SessionType::Multiplayer
 		&& (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
 		&& !Game::level.local
@@ -1095,7 +1095,10 @@ void PlayerHuman::update(const Update& u)
 
 	switch (mode)
 	{
+		case UIMode::Noclip:
+			break;
 		case UIMode::ParkourDefault:
+		case UIMode::ParkourDead:
 		{
 			if (audio_log != AssetNull)
 			{
@@ -1112,11 +1115,15 @@ void PlayerHuman::update(const Update& u)
 					}
 				}
 			}
+
+			if (Game::session.type == SessionType::Multiplayer)
+			{
+				if (u.input->get(Controls::InteractSecondary, gamepad) && !u.last_input->get(Controls::InteractSecondary, gamepad))
+					get<PlayerManager>()->parkour_ready(!get<PlayerManager>()->flag(PlayerManager::FlagParkourReady));
+			}
+
 			break;
 		}
-		case UIMode::ParkourDead:
-		case UIMode::Noclip:
-			break;
 		case UIMode::PvpDefault:
 		{
 			kill_cam_rot = camera.ref()->rot;
@@ -1317,7 +1324,7 @@ void PlayerHuman::update(const Update& u)
 				}
 				score_summary_scroll.update(u, Team::score_summary.length, gamepad);
 
-				if (!get<PlayerManager>()->score_accepted && Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
+				if (!get<PlayerManager>()->flag(PlayerManager::FlagScoreAccepted) && Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
 				{
 					// accept score summary
 					if ((!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
@@ -1695,8 +1702,16 @@ void match_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Ancho
 			time_limit = TEAM_SELECT_TIME;
 			break;
 		case Team::MatchState::Active:
-			time_limit = Game::session.config.time_limit();
+		{
+			if (Game::level.mode == Game::Mode::Parkour)
+			{
+				vi_assert(Game::session.type == SessionType::Multiplayer);
+				time_limit = 60.0f * r32(Game::session.config.time_limit_parkour_ready);
+			}
+			else
+				time_limit = Game::session.config.time_limit();
 			break;
+		}
 		case Team::MatchState::Done:
 			time_limit = SCORE_SUMMARY_ACCEPT_TIME;
 			break;
@@ -1730,7 +1745,7 @@ void match_timer_draw(const RenderParams& params, const Vec2& pos, UIText::Ancho
 	{
 		const Vec4* color;
 		b8 draw;
-		if (Team::match_state == Team::MatchState::Active)
+		if (Game::level.mode == Game::Mode::Pvp && Team::match_state == Team::MatchState::Active)
 		{
 			if (remaining > Game::session.config.time_limit() * 0.5f)
 				color = &UI::color_default;
@@ -1794,8 +1809,8 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 		}
 	}
 
-	if (Game::level.mode == Game::Mode::Pvp
-		&& Team::match_state != Team::MatchState::Waiting)
+	if ((Game::level.mode == Game::Mode::Pvp && Team::match_state != Team::MatchState::Waiting)
+		|| (Game::level.mode == Game::Mode::Parkour && PlayerManager::list.count() >= Game::session.config.min_players))
 		match_timer_draw(params, p, UIText::Anchor::Center);
 
 	UIText text;
@@ -1814,9 +1829,19 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 	}
 
-	if (!manager->instance.ref())
+	if (Game::level.mode == Game::Mode::Parkour)
+	{
+		// waiting
+		vi_assert(Game::session.type == SessionType::Multiplayer);
+		UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
+		text.text(0, _(strings::waiting));
+		text.draw(params, p);
+		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+	}
+	else if (!manager->instance.ref())
 	{
 		// deploying or waiting
+		UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
 		if (Team::match_state == Team::MatchState::Active)
 		{
 			if (Game::session.config.game_type == GameType::Assault)
@@ -1826,7 +1851,6 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 		}
 		else
 			text.text(0, _(strings::waiting));
-		UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.draw(params, p);
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 	}
@@ -1863,9 +1887,13 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 			UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, p);
 
-			text.anchor_x = UIText::Anchor::Max;
-			text.text(0, "%d", team_score);
-			text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
+			if (Game::level.mode == Game::Mode::Pvp)
+			{
+				// score
+				text.anchor_x = UIText::Anchor::Max;
+				text.text(0, "%d", team_score);
+				text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
+			}
 
 			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 		}
@@ -1875,46 +1903,66 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 		{
 			if (i.item()->team.ref()->team() == team)
 			{
-				text.anchor_x = UIText::Anchor::Min;
-				text.color = Team::ui_color(manager->team.ref()->team(), i.item()->team.ref()->team());
-				text.text_raw(0, i.item()->username);
 				UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
-				text.draw(params, p);
 
-				// ping
+				text.anchor_x = UIText::Anchor::Min;
+
 				if (!Game::level.local && i.item()->has<PlayerHuman>()) // todo: fake ping for ai players
 				{
+					// ping
 					r32 rtt = Net::rtt(i.item()->get<PlayerHuman>());
-					text.anchor_x = UIText::Anchor::Min;
 					text.color = UI::color_ping(rtt);
 					text.text(0, _(strings::ping), s32(rtt * 1000.0f));
 					text.draw(params, p + Vec2(width * 0.75f, 0));
 				}
 
-				text.anchor_x = UIText::Anchor::Max;
-				text.wrap_width = 0;
-
-				s32 score;
-				if (player_count == 1)
-					score = team_score;
-				else
 				{
-					switch (Game::session.config.game_type)
-					{
-						case GameType::CaptureTheFlag:
-							score = i.item()->flags_captured;
-							break;
-						case GameType::Domination:
-							score = i.item()->energy_collected;
-							break;
-						default:
-							score = i.item()->kills;
-							break;
-					}
+					// username
+					if (Game::level.mode == Game::Mode::Pvp)
+						text.color = Team::ui_color(manager->team.ref()->team(), i.item()->team.ref()->team());
+					else
+						text.color = UI::color_default;
+					text.text_raw(0, i.item()->username);
+					text.draw(params, p);
 				}
 
-				text.text(0, "%d", score);
-				text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
+				if (Game::level.mode == Game::Mode::Pvp)
+				{
+					// score
+					text.anchor_x = UIText::Anchor::Max;
+					text.wrap_width = 0;
+
+					s32 score;
+					if (player_count == 1)
+						score = team_score;
+					else
+					{
+						switch (Game::session.config.game_type)
+						{
+							case GameType::CaptureTheFlag:
+								score = i.item()->flags_captured;
+								break;
+							case GameType::Domination:
+								score = i.item()->energy_collected;
+								break;
+							default:
+								score = i.item()->kills;
+								break;
+						}
+					}
+
+					text.text(0, "%d", score);
+					text.draw(params, p + Vec2(width - MENU_ITEM_PADDING, 0));
+				}
+				else
+				{
+					// ready
+					if (i.item()->flag(PlayerManager::FlagParkourReady))
+					{
+						const r32 icon_size = MENU_ITEM_FONT_SIZE * UI::scale;
+						UI::mesh(params, Asset::Mesh::icon_checkmark, p + Vec2(width - MENU_ITEM_PADDING - icon_size, text.bounds().y * 0.5f), Vec2(icon_size), text.color);
+					}
+				}
 
 				p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 			}
@@ -2318,7 +2366,8 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 	}
 
-	if (mode == UIMode::PvpDefault || mode == UIMode::PvpSpectate)
+	if ((mode == UIMode::PvpDefault || mode == UIMode::PvpSpectate)
+		|| (Game::session.type == SessionType::Multiplayer && (mode == UIMode::ParkourDefault || mode == UIMode::ParkourDead)))
 	{
 		if (params.sync->input.get(Controls::Scoreboard, gamepad))
 			scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Center);
@@ -2519,7 +2568,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 			// press A to continue
 			if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
-				player_button(vp, gamepad, get<PlayerManager>()->score_accepted ? strings::waiting : strings::prompt_accept, chat_focus == ChatFocus::None ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::No, &params);
+				player_button(vp, gamepad, get<PlayerManager>()->flag(PlayerManager::FlagScoreAccepted) ? strings::waiting : strings::prompt_accept, chat_focus == ChatFocus::None ? UIMenu::EnableInput::Yes : UIMenu::EnableInput::No, &params);
 		}
 	}
 
@@ -2589,9 +2638,40 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		draw_logs(params, my_team, gamepad);
 	}
 
-	// overworld notifications
 	if (mode == UIMode::ParkourDefault)
 	{
+		if (Game::session.type == SessionType::Multiplayer)
+		{
+			// waiting to start game
+			UIText text;
+			text.anchor_x = UIText::Anchor::Max;
+			text.anchor_y = UIText::Anchor::Min;
+			text.wrap_width = MENU_ITEM_WIDTH * 0.5f;
+			text.color = UI::color_accent();
+			r32 timer = vi_max(0.0f, (60.0f * r32(Game::session.config.time_limit_parkour_ready)) - Team::match_time);
+			s32 remaining_minutes = s32(timer / 60.0f);
+			s32 remaining_seconds = s32(timer - (remaining_minutes * 60.0f));
+			if (Team::parkour_game_start_impending())
+				text.text(gamepad, _(strings::deploy_timer), remaining_seconds);
+			else
+			{
+				if (PlayerManager::list.count() >= Game::session.config.min_players)
+				{
+					AssetID ready = get<PlayerManager>()->flag(PlayerManager::FlagParkourReady) ? strings::prompt_parkour_unready : strings::prompt_parkour_ready;
+					text.text(gamepad, _(strings::parkour_ready_status_timer), remaining_minutes, remaining_seconds, PlayerManager::parkour_ready_count(), PlayerManager::list.count(), _(ready));
+				}
+				else
+					text.text(gamepad, _(strings::parkour_ready_status), Game::session.config.min_players - PlayerManager::list.count());
+			}
+
+			{
+				Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 24.0f);
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+				text.draw(params, p);
+			}
+		}
+
+		// overworld notifications
 		if (Overworld::zone_under_attack() != AssetNull && Game::session.zone_under_attack_timer > ZONE_UNDER_ATTACK_THRESHOLD)
 		{
 			UIText text;
@@ -2755,10 +2835,10 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 		if (my_team == AI::TeamNone || AI::match(my_team, entry.mask))
 		{
 			text.wrap_width = wrap_width;
-			if (entry.a_team == AI::TeamNone)
+			if (Game::level.mode == Game::Mode::Parkour)
 				text.color = UI::color_accent();
 			else
-				text.color = my_team == entry.a_team ? Team::ui_color_friend() : Team::ui_color_enemy();
+				text.color = Team::ui_color(my_team, entry.a_team);
 
 			if (entry.b[0])
 			{
@@ -2784,10 +2864,10 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 				text.draw(params, p + Vec2(wrap_width * -0.5f, 0));
 
 				text.anchor_x = UIText::Anchor::Max;
-				if (entry.b_team == AI::TeamNone)
+				if (Game::level.mode == Game::Mode::Parkour)
 					text.color = UI::color_accent();
 				else
-					text.color = my_team == entry.b_team ? Team::ui_color_friend() : Team::ui_color_enemy();
+					text.color = Team::ui_color(my_team, entry.b_team);
 				{
 					char buffer[MAX_USERNAME + 1] = {};
 					strncpy(buffer, entry.b, MAX_USERNAME);
@@ -3484,12 +3564,18 @@ void PlayerControlHuman::awake()
 	rtt = Net::rtt(player.ref());
 #endif
 
-	if (player.ref()->local() && !Game::level.local)
+	if (local())
 	{
-		Transform* t = get<Transform>();
-		remote_control.pos = t->pos;
-		remote_control.rot = t->rot;
-		remote_control.parent = t->parent;
+		get<Audio>()->entry()->flag(AudioEntry::FlagEnableObstructionOcclusion, false);
+		get<SkinnedModel>()->first_person_camera = player.ref()->camera.ref();
+
+		if (!Game::level.local)
+		{
+			Transform* t = get<Transform>();
+			remote_control.pos = t->pos;
+			remote_control.rot = t->rot;
+			remote_control.parent = t->parent;
+		}
 	}
 
 	player.ref()->killed_by = nullptr;
@@ -3497,9 +3583,6 @@ void PlayerControlHuman::awake()
 
 	link_arg<const HealthEvent&, &PlayerControlHuman::health_changed>(get<Health>()->changed);
 	link_arg<Entity*, &PlayerControlHuman::killed>(get<Health>()->killed);
-
-	if (player.ref()->local())
-		get<Audio>()->entry()->flag(AudioEntry::FlagEnableObstructionOcclusion, false);
 
 	if (has<Drone>())
 	{
@@ -4544,67 +4627,65 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					switch (interactable->type)
 					{
-					case Interactable::Type::Terminal:
-					{
-						switch (Game::save.zones[Game::level.id])
+						case Interactable::Type::Terminal:
 						{
-						case ZoneState::Locked:
-						case ZoneState::ParkourUnlocked: // open up
-						{
-							interactable->interact();
-							get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-							Audio::post_global(AK::EVENTS::PLAY_PARKOUR_INTERACT);
-							anim_base = interactable->entity();
+							switch (Game::save.zones[Game::level.id])
+							{
+							case ZoneState::Locked:
+							case ZoneState::ParkourUnlocked: // open up
+							{
+								interactable->interact();
+								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+								Audio::post_global(AK::EVENTS::PLAY_PARKOUR_INTERACT);
+								anim_base = interactable->entity();
+								break;
+							}
+							case ZoneState::ParkourOwned: // already open; get in
+							{
+								anim_base = interactable->entity();
+								get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
+								break;
+							}
+							default:
+							{
+								vi_assert(false);
+								break;
+							}
+							}
 							break;
 						}
-						case ZoneState::ParkourOwned: // already open; get in
+						case Interactable::Type::Tram: // tram interactable
 						{
-							anim_base = interactable->entity();
-							get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
+							s8 track = s8(interactable->user_data);
+							AssetID target_level = Game::level.tram_tracks[track].level;
+							Tram* tram = Tram::by_track(track);
+							if (tram->doors_open() // if the tram doors are open, we can always close them
+								|| (!tram->arrive_only && target_level != AssetNull // if the target zone doesn't exist, or if the tram is for arrivals only, nothing else matters, we can't do anything
+									&& Game::save.zones[target_level] != ZoneState::Locked)) // if we've already unlocked it, go ahead
+							{
+								// go right ahead
+								interactable->interact();
+								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+								Audio::post_global(AK::EVENTS::PLAY_PARKOUR_INTERACT);
+								anim_base = interactable->entity();
+							}
+							else if (tram->arrive_only || target_level == AssetNull) // can't leave
+								player.ref()->msg(_(strings::zone_unavailable), PlayerHuman::FlagNone);
+							else if (Game::save.resources[s32(Resource::AccessKeys)] > 0) // ask if they want to use a key
+								Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::access_keys));
+							else // not enough
+								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::access_keys));
+							break;
+						}
+						case Interactable::Type::Shop:
+						{
+							Overworld::show(player.ref()->camera.ref(), Overworld::State::StoryModeOverlay, Overworld::StoryTab::Inventory);
+							Overworld::shop_flags(interactable->user_data);
 							break;
 						}
 						default:
-						{
-							vi_assert(false);
+							vi_assert(false); // invalid interactable type
 							break;
-						}
-						}
-						break;
-					}
-					case Interactable::Type::Tram: // tram interactable
-					{
-						s8 track = s8(interactable->user_data);
-						AssetID target_level = Game::level.tram_tracks[track].level;
-						Tram* tram = Tram::by_track(track);
-						if (tram->doors_open() // if the tram doors are open, we can always close them
-							|| (!tram->arrive_only && target_level != AssetNull // if the target zone doesn't exist, or if the tram is for arrivals only, nothing else matters, we can't do anything
-								&& Game::save.zones[target_level] != ZoneState::Locked)) // if we've already unlocked it, go ahead
-						{
-							// go right ahead
-							interactable->interact();
-							get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-							Audio::post_global(AK::EVENTS::PLAY_PARKOUR_INTERACT);
-							anim_base = interactable->entity();
-						}
-						else if (tram->arrive_only || target_level == AssetNull) // can't leave
-							player.ref()->msg(_(strings::zone_unavailable), PlayerHuman::FlagNone);
-						else if (Game::save.resources[s32(Resource::AccessKeys)] > 0) // ask if they want to use a key
-							Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::access_keys));
-						else // not enough
-							Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::access_keys));
-						break;
-					}
-					case Interactable::Type::Shop:
-					{
-						Overworld::show(player.ref()->camera.ref(), Overworld::State::StoryModeOverlay, Overworld::StoryTab::Inventory);
-						Overworld::shop_flags(interactable->user_data);
-						break;
-					}
-					default:
-					{
-						vi_assert(false); // invalid interactable type
-						break;
-					}
 					}
 				}
 			}
@@ -4691,9 +4772,12 @@ void PlayerControlHuman::update(const Update& u)
 					{
 						Camera* camera = player.ref()->camera.ref();
 						if (grapple_pressed && !get<Parkour>()->flag(Parkour::FlagTryGrapple))
+						{
 							get<Parkour>()->grapple_start(camera->pos, camera->rot);
+							flag(FlagGrappleValid, false);
+						}
 						else if (!grapple_pressed && get<Parkour>()->flag(Parkour::FlagTryGrapple))
-							get<Parkour>()->grapple_try(camera->pos, camera->rot);
+							get<Parkour>()->grapple_try(camera->pos, get<Parkour>()->grapple_pos);
 					}
 				}
 				else
@@ -4704,8 +4788,30 @@ void PlayerControlHuman::update(const Update& u)
 
 				if (get<Parkour>()->fsm.current != ParkourState::Grapple)
 				{
-					Camera* camera = player.ref()->camera.ref();
-					flag(FlagGrappleValid, get<Parkour>()->grapple_valid(camera->pos, camera->rot, &get<Parkour>()->grapple_pos, &get<Parkour>()->grapple_normal));
+					if (get<Parkour>()->flag(Parkour::FlagTryGrapple))
+					{
+						Camera* camera = player.ref()->camera.ref();
+						Vec3 candidate_pos;
+						Vec3 candidate_normal;
+						b8 prev_grapple_valid = flag(FlagGrappleValid);
+						if (prev_grapple_valid)
+						{
+							// check if it's still good
+							prev_grapple_valid = get<Parkour>()->grapple_valid(camera->pos, Quat::look(Vec3::normalize(get<Parkour>()->grapple_pos - camera->pos)));
+							flag(FlagGrappleValid, prev_grapple_valid);
+						}
+
+						b8 candidate_grapple_valid = get<Parkour>()->grapple_valid(camera->pos, camera->rot, &candidate_pos, &candidate_normal);
+						if (candidate_grapple_valid
+							|| !prev_grapple_valid
+							|| Vec3::normalize(get<Parkour>()->grapple_pos - camera->pos).dot(Vec3::normalize(candidate_pos - camera->pos)) < 0.9f)
+						{
+							// new grapple target
+							flag(FlagGrappleValid, candidate_grapple_valid);
+							get<Parkour>()->grapple_pos = candidate_pos;
+							get<Parkour>()->grapple_normal = candidate_normal;
+						}
+					}
 				}
 			}
 
@@ -4901,7 +5007,8 @@ void PlayerControlHuman::update_late(const Update& u)
 
 		// wind sound and camera shake at high speed
 		{
-			r32 speed = get<Parkour>()->fsm.current == ParkourState::Mantle || get<Walker>()->support.ref()
+			ParkourState state = get<Parkour>()->fsm.current;
+			r32 speed = (state == ParkourState::Mantle || state == ParkourState::Grapple || get<Walker>()->support.ref())
 				? 0.0f
 				: get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
 			get<Audio>()->param(AK::GAME_PARAMETERS::PARKOUR_WIND, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
@@ -5424,7 +5531,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		{
 			b8 visible = player_determine_visibility(get<PlayerCommon>(), other_player.item());
 
-			b8 friendly = other_player.item()->get<AIAgent>()->team == team;
+			b8 friendly = Game::level.mode == Game::Mode::Parkour || other_player.item()->get<AIAgent>()->team == team;
 
 			if (visible && !friendly)
 			{
@@ -5434,7 +5541,9 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 			if (visible)
 			{
-				const Vec4* color = friendly ? &Team::ui_color_friend() : &Team::ui_color_enemy();
+				const Vec4* color = Game::level.mode == Game::Mode::Parkour
+					? &UI::color_accent()
+					: (friendly ? &Team::ui_color_friend() : &Team::ui_color_enemy());
 
 				// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
 

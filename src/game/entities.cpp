@@ -2596,7 +2596,7 @@ void Turret::check_target()
 
 void Turret::update_server(const Update& u)
 {
-	if (Game::level.has_feature(Game::FeatureLevel::Turrets))
+	if (Game::level.has_feature(Game::FeatureLevel::Turrets) && Game::level.mode == Game::Mode::Pvp)
 	{
 		target_check_time -= u.time.delta;
 		if (target_check_time < 0.0f)

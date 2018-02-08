@@ -672,8 +672,6 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				drone->get<Animator>()->reset_overrides();
 				drone->get<Animator>()->layers[0].animation = Asset::Animation::drone_dash;
 
-				drone->particle_accumulator = 0;
-
 				if (drone->current_ability == Ability::None)
 				{
 					drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_LAUNCH);

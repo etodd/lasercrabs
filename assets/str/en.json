@@ -54,6 +54,7 @@
 		"core_modules_remaining_spawning": "%s - %d core modules remaining",
 		"core_vulnerable": "Core vulnerable",
 		"time_limit": "Time limit",
+		"time_limit_parkour_ready": "Waiting room time",
 		"kill_limit": "Kills to win",
 		"energy_collected_limit": "Total energy to win",
 		"local": "Local",
@@ -227,6 +228,10 @@
 		"active_armor": "Active Armor",
 		"description_active_armor": "Deflect all incoming damage back at enemies.",
 		"player_kicked": "%s kicked!",
+		"parkour_ready_status": "Waiting for %d more players",
+		"parkour_ready_status_timer": "%d:%02d\n%d/%d ready\n%s",
+		"prompt_parkour_ready": "[{{InteractSecondary}}] to ready up",
+		"prompt_parkour_unready": "Ready - [{{InteractSecondary}}] to cancel",
 
 		"map_by": "%s - by %s",
 		"tab_map": "Map",

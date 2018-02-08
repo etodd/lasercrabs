@@ -20,9 +20,9 @@ struct Traceur : public Entity
 
 #define LANDING_VELOCITY_LIGHT 5.0f * -1.25f
 #define LANDING_VELOCITY_HARD 5.0f * -2.65f
-#define GRAPPLE_COOLDOWN_THRESHOLD 3.0f
-#define GRAPPLE_COOLDOWN 4.5f
-#define GRAPPLE_RANGE 16.0f
+#define GRAPPLE_COOLDOWN_THRESHOLD 4.0f
+#define GRAPPLE_COOLDOWN 8.0f
+#define GRAPPLE_RANGE 12.0f
 
 struct Minion;
 struct Transform;
@@ -61,6 +61,7 @@ struct Parkour : public ComponentType<Parkour>
 	Vec3 relative_wall_run_normal;
 	Vec3 relative_support_pos;
 	Vec3 relative_animation_start_pos;
+	Vec3 last_pos;
 	r32 grapple_cooldown;
 	r32 last_support_time;
 	r32 last_jump_time;
@@ -71,6 +72,7 @@ struct Parkour : public ComponentType<Parkour>
 	r32 last_angle_horizontal;
 	r32 climb_velocity;
 	r32 breathing;
+	r32 particle_accumulator;
 	StaticArray<TilePos, 8> tile_history;
 	StaticArray<Vec3, 4> jump_history;
 	FSM<ParkourState> fsm;
@@ -115,7 +117,7 @@ struct Parkour : public ComponentType<Parkour>
 	b8 grapple_start(const Vec3&, const Quat&);
 	void grapple_cancel();
 	b8 grapple_valid(const Vec3&, const Quat&, Vec3* = nullptr, Vec3* = nullptr) const;
-	b8 grapple_try(const Vec3&, const Quat&);
+	b8 grapple_try(const Vec3&, const Vec3&);
 	Vec3 head_pos() const;
 	Vec3 hand_pos() const;
 	void head_to_object_space(Vec3*, Quat*) const;

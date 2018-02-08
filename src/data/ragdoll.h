@@ -29,6 +29,8 @@ struct Ragdoll : public ComponentType<Ragdoll>
 		count,
 	};
 
+	static void add(Entity*, Entity*);
+
 	Array<BoneBody> bodies;
 	Vec3 impulse;
 	r32 timer = RAGDOLL_TIME;

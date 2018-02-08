@@ -55,6 +55,15 @@ r32 Team::match_time;
 r32 Team::core_module_delay;
 Team::MatchState Team::match_state;
 
+#define PARKOUR_GAME_START_COUNTDOWN 10
+
+b8 Team::parkour_game_start_impending()
+{
+	return Game::session.type == SessionType::Multiplayer
+		&& Game::level.mode == Game::Mode::Parkour
+		&& match_time > (60.0f * r32(Game::session.config.time_limit_parkour_ready)) - r32(PARKOUR_GAME_START_COUNTDOWN);
+}
+
 static const AssetID team_select_names[MAX_TEAMS] =
 {
 	strings::team_select_a,
@@ -333,15 +342,16 @@ void Team::transition_next()
 #if SERVER
 		Net::Server::transition_level();
 #endif
-		if (Game::level.config_scheduled_apply)
-		{
-			Game::session.config = Game::level.config_scheduled;
-			Game::level.config_scheduled_apply = false;
-		}
-
 		if (Game::level.multiplayer_level_scheduled == AssetNull)
 			Game::level.multiplayer_level_schedule();
-		Game::schedule_load_level(Game::level.multiplayer_level_scheduled, Game::Mode::Pvp);
+
+		Game::Mode mode;
+		if (match_state == MatchState::Done)
+			mode = Game::session.config.time_limit_parkour_ready == 0 ? Game::Mode::Pvp : Game::Mode::Parkour;
+		else
+			mode = Game::level.mode;
+		
+		Game::schedule_load_level(Game::level.multiplayer_level_scheduled, mode);
 	}
 }
 
@@ -743,7 +753,7 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				score_summary.length = 0;
 				for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 				{
-					i.item()->score_accepted = false;
+					i.item()->flag(PlayerManager::FlagScoreAccepted, false);
 					AI::Team team = i.item()->team.ref()->team();
 					team_add_score_summary_item(i.item(), i.item()->username);
 					if (Game::session.type == SessionType::Story)
@@ -911,7 +921,7 @@ void team_balance(BalanceMode mode)
 	{
 		if (i.item()->team_scheduled != AI::TeamNone)
 			PlayerManagerNet::team_switch(i.item(), i.item()->team_scheduled);
-		if (!i.item()->can_spawn)
+		if (!i.item()->flag(PlayerManager::FlagCanSpawn))
 			PlayerManagerNet::can_spawn(i.item(), true);
 	}
 }
@@ -929,8 +939,19 @@ void Team::update_all_server(const Update& u)
 	{
 		// check whether we need to transition back to Waiting
 		if (Game::session.type == SessionType::Multiplayer
+			&& Game::scheduled_load_level == AssetNull
 			&& PlayerHuman::list.count() < vi_max(s32(Game::session.config.min_players), Game::session.config.fill_bots ? 1 : 2))
-			match_waiting();
+		{
+			if (Game::session.config.time_limit_parkour_ready > 0) // go back to parkour mode
+			{
+#if SERVER
+				Net::Server::transition_level();
+#endif
+				Game::schedule_load_level(Game::level.id, Game::Mode::Parkour);
+			}
+			else // go back to Waiting state
+				match_waiting();
+		}
 	}
 
 	if (match_state == MatchState::TeamSelect
@@ -952,7 +973,7 @@ void Team::update_all_server(const Update& u)
 			b8 can_spawn = true;
 			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 			{
-				if (!i.item()->can_spawn)
+				if (!i.item()->flag(PlayerManager::FlagCanSpawn))
 				{
 					can_spawn = false;
 					break;
@@ -982,12 +1003,10 @@ void Team::update_all_server(const Update& u)
 
 	update_visibility(u);
 
-	if (Game::level.mode != Game::Mode::Pvp)
-		return;
-
 	// fill bots
-	if (Game::session.config.fill_bots
-		&& (match_state == MatchState::Waiting || match_state == MatchState::TeamSelect || match_state == MatchState::Active)
+	if ((match_state == MatchState::Waiting || match_state == MatchState::TeamSelect || match_state == MatchState::Active)
+		&& Game::level.mode == Game::Mode::Pvp
+		&& Game::session.config.fill_bots
 		&& PlayerHuman::list.count() > 0)
 	{
 		while (PlayerManager::list.count() < vi_min(s32(Game::session.config.max_players), Game::session.config.fill_bots + 1))
@@ -1007,108 +1026,138 @@ void Team::update_all_server(const Update& u)
 
 	if (match_state == MatchState::Active)
 	{
-		Team* team_with_most_kills = Game::session.config.game_type == GameType::Deathmatch ? with_most_kills() : nullptr;
-		Team* team_with_most_flags = Game::session.config.game_type == GameType::CaptureTheFlag ? with_most_flags() : nullptr;
-		Team* team_with_most_energy_collected = Game::session.config.game_type == GameType::Domination ? with_most_energy_collected() : nullptr;
-		if (!Game::level.noclip
-			&& ((match_time > Game::session.config.time_limit() && Game::level.has_feature(Game::FeatureLevel::All)) // no time limit in tutorial
-			|| (Game::level.has_feature(Game::FeatureLevel::All) && teams_with_active_players() <= 1 && Game::level.ai_config.length == 0)
-			|| (Game::session.config.game_type == GameType::Assault && CoreModule::count(1 << 0) == 0)
-			|| (Game::session.config.game_type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::session.config.kill_limit)
-			|| (Game::session.config.game_type == GameType::CaptureTheFlag && team_with_most_flags && team_with_most_flags->flags_captured >= Game::session.config.flag_limit)
-			|| (Game::session.config.game_type == GameType::Domination && team_with_most_energy_collected && team_with_most_energy_collected->energy_collected >= Game::session.config.energy_collected_limit)))
+		if (Game::level.mode == Game::Mode::Parkour && Game::session.type == SessionType::Multiplayer)
 		{
-			// determine the winner, if any
-			Team* w = nullptr; // winning team
-			Team* team_with_player = nullptr;
-			s32 teams_with_players = 0;
-			for (auto i = list.iterator(); !i.is_last(); i.next())
+			if (PlayerManager::list.count() >= Game::session.config.min_players && Game::scheduled_load_level == AssetNull)
 			{
-				if (i.item()->has_active_player())
+				r32 time_limit = 60.0f * r32(Game::session.config.time_limit_parkour_ready);
+				if (PlayerManager::parkour_ready_count() == PlayerManager::list.count())
 				{
-					team_with_player = i.item();
-					teams_with_players++;
-				}
-			}
-
-			if (teams_with_players == 1)
-				w = team_with_player;
-			else if (Game::session.config.game_type == GameType::Deathmatch)
-				w = team_with_most_kills;
-			else if (Game::session.config.game_type == GameType::Domination)
-				w = team_with_most_energy_collected;
-			else if (Game::session.config.game_type == GameType::Assault)
-			{
-				if (CoreModule::count(1 << 0) == 0)
-					w = &list[1]; // attackers win
-				else
-					w = &list[0]; // defenders win
-			}
-			else if (Game::session.config.game_type == GameType::CaptureTheFlag)
-				w = team_with_most_flags;
-
-			// remove player entities
-			for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-			{
-				Vec3 pos;
-				Quat rot;
-				i.item()->get<Transform>()->absolute(&pos, &rot);
-				ParticleEffect::spawn(ParticleEffect::Type::DroneExplosion, pos, rot);
-				World::remove_deferred(i.item()->entity());
-			}
-
-			for (auto i = list.iterator(); !i.is_last(); i.next())
-				TeamNet::update_counts(i.item());
-			TeamNet::send_match_state(MatchState::Done, w);
-
-			if (Game::session.type == SessionType::Story)
-			{
-				// we're in story mode, give the player whatever stuff they have leftover
-				if (PlayerHuman::list.count() > 0)
-				{
-					PlayerManager* player = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-					Overworld::resource_change(Resource::Energy, player->energy);
+					r32 t = time_limit - r32(PARKOUR_GAME_START_COUNTDOWN);
+					if (Team::match_time < t)
+					{
+						Team::match_time = t;
+#if SERVER
+						Net::Server::sync_time();
+#endif
+					}
 				}
 
-				if (w == &list[1]) // attackers won; the zone is going to change owners
+				if (time_limit > 0.0f && Team::match_time > time_limit)
 				{
-					if (Game::save.zones[Game::level.id] == ZoneState::PvpFriendly) // player was defending
-						Overworld::zone_change(Game::level.id, ZoneState::PvpHostile);
-					else // player was attacking
-						Overworld::zone_change(Game::level.id, ZoneState::PvpFriendly);
+					// start the match
+#if SERVER
+					Net::Server::transition_level();
+#endif
+					Game::schedule_load_level(Game::level.id, Game::Mode::Pvp);
 				}
 			}
 		}
-		else
+		else if (Game::level.mode == Game::Mode::Pvp)
 		{
-			// game is still going
-
-			if (Game::session.config.game_type == GameType::Assault && Turret::list.count() == 0)
+			Team* team_with_most_kills = Game::session.config.game_type == GameType::Deathmatch ? with_most_kills() : nullptr;
+			Team* team_with_most_flags = Game::session.config.game_type == GameType::CaptureTheFlag ? with_most_flags() : nullptr;
+			Team* team_with_most_energy_collected = Game::session.config.game_type == GameType::Domination ? with_most_energy_collected() : nullptr;
+			if (!Game::level.noclip
+				&& ((match_time > Game::session.config.time_limit() && Game::level.has_feature(Game::FeatureLevel::All)) // no time limit in tutorial
+					|| (Game::level.has_feature(Game::FeatureLevel::All) && teams_with_active_players() <= 1 && Game::level.ai_config.length == 0)
+					|| (Game::session.config.game_type == GameType::Assault && CoreModule::count(1 << 0) == 0)
+					|| (Game::session.config.game_type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::session.config.kill_limit)
+					|| (Game::session.config.game_type == GameType::CaptureTheFlag && team_with_most_flags && team_with_most_flags->flags_captured >= Game::session.config.flag_limit)
+					|| (Game::session.config.game_type == GameType::Domination && team_with_most_energy_collected && team_with_most_energy_collected->energy_collected >= Game::session.config.energy_collected_limit)))
 			{
-				if (core_module_delay > 0.0f)
+				// determine the winner, if any
+				Team* w = nullptr; // winning team
+				Team* team_with_player = nullptr;
+				s32 teams_with_players = 0;
+				for (auto i = list.iterator(); !i.is_last(); i.next())
 				{
-					core_module_delay = vi_max(0.0f, core_module_delay - u.time.delta);
-					if (core_module_delay == 0.0f)
-						TeamNet::core_vulnerable();
+					if (i.item()->has_active_player())
+					{
+						team_with_player = i.item();
+						teams_with_players++;
+					}
+				}
+
+				if (teams_with_players == 1)
+					w = team_with_player;
+				else if (Game::session.config.game_type == GameType::Deathmatch)
+					w = team_with_most_kills;
+				else if (Game::session.config.game_type == GameType::Domination)
+					w = team_with_most_energy_collected;
+				else if (Game::session.config.game_type == GameType::Assault)
+				{
+					if (CoreModule::count(1 << 0) == 0)
+						w = &list[1]; // attackers win
+					else
+						w = &list[0]; // defenders win
+				}
+				else if (Game::session.config.game_type == GameType::CaptureTheFlag)
+					w = team_with_most_flags;
+
+				// remove player entities
+				for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+				{
+					Vec3 pos;
+					Quat rot;
+					i.item()->get<Transform>()->absolute(&pos, &rot);
+					ParticleEffect::spawn(ParticleEffect::Type::DroneExplosion, pos, rot);
+					World::remove_deferred(i.item()->entity());
+				}
+
+				for (auto i = list.iterator(); !i.is_last(); i.next())
+					TeamNet::update_counts(i.item());
+				TeamNet::send_match_state(MatchState::Done, w);
+
+				if (Game::session.type == SessionType::Story)
+				{
+					// we're in story mode, give the player whatever stuff they have leftover
+					if (PlayerHuman::list.count() > 0)
+					{
+						PlayerManager* player = PlayerHuman::list.iterator().item()->get<PlayerManager>();
+						Overworld::resource_change(Resource::Energy, player->energy);
+					}
+
+					if (w == &list[1]) // attackers won; the zone is going to change owners
+					{
+						if (Game::save.zones[Game::level.id] == ZoneState::PvpFriendly) // player was defending
+							Overworld::zone_change(Game::level.id, ZoneState::PvpHostile);
+						else // player was attacking
+							Overworld::zone_change(Game::level.id, ZoneState::PvpFriendly);
+					}
 				}
 			}
-
-			for (auto i = list.iterator(); !i.is_last(); i.next())
+			else
 			{
-				Target* spot = i.item()->spot_target.ref();
-				if (spot && spot->has<Flag>())
+				// game is still going
+
+				if (Game::session.config.game_type == GameType::Assault && Turret::list.count() == 0)
 				{
-					// check if flag is being carried by an enemy; if so, remove the spot
-					// we don't want people to be able to track their flag's location
-					Transform* parent = spot->get<Transform>()->parent.ref();
-					if (parent && parent->get<AIAgent>()->team != spot->get<Flag>()->team)
-						TeamNet::spot(i.item(), nullptr);
+					if (core_module_delay > 0.0f)
+					{
+						core_module_delay = vi_max(0.0f, core_module_delay - u.time.delta);
+						if (core_module_delay == 0.0f)
+							TeamNet::core_vulnerable();
+					}
+				}
+
+				for (auto i = list.iterator(); !i.is_last(); i.next())
+				{
+					Target* spot = i.item()->spot_target.ref();
+					if (spot && spot->has<Flag>())
+					{
+						// check if flag is being carried by an enemy; if so, remove the spot
+						// we don't want people to be able to track their flag's location
+						Transform* parent = spot->get<Transform>()->parent.ref();
+						if (parent && parent->get<AIAgent>()->team != spot->get<Flag>()->team)
+							TeamNet::spot(i.item(), nullptr);
+					}
 				}
 			}
 		}
 	}
 
-	if (match_state == MatchState::Done && Game::scheduled_load_level == AssetNull)
+	if (Game::level.mode == Game::Mode::Pvp && match_state == MatchState::Done && Game::scheduled_load_level == AssetNull)
 	{
 		// wait for all local players to accept scores
 		b8 score_accepted = true;
@@ -1116,7 +1165,7 @@ void Team::update_all_server(const Update& u)
 		{
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 			{
-				if (!i.item()->get<PlayerManager>()->score_accepted)
+				if (!i.item()->get<PlayerManager>()->flag(PlayerManager::FlagScoreAccepted))
 				{
 					score_accepted = false;
 					break;
@@ -1163,13 +1212,16 @@ PlayerManager::Visibility PlayerManager::visibility[MAX_PLAYERS * MAX_PLAYERS];
 
 PlayerManager::PlayerManager(Team* team, const char* u)
 	: spawn_timer(Game::session.config.ruleset.spawn_delay),
-	score_accepted(Team::match_state == Team::MatchState::Done),
+	flags
+	(
+		(Team::match_state == Team::MatchState::Done ? FlagScoreAccepted : 0)
+		| (Game::session.type == SessionType::Story || Team::match_state == Team::MatchState::Active ? FlagCanSpawn : 0)
+	),
 	team(team),
 	upgrades(Game::session.config.ruleset.upgrades_default),
 	abilities{ Ability::None, Ability::None },
 	instance(),
 	spawn(),
-	can_spawn(Game::session.type == SessionType::Story || Team::match_state == Team::MatchState::Active),
 	current_upgrade(Upgrade::None),
 	state_timer(),
 	upgrade_completed(),
@@ -1180,8 +1232,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	ability_cooldown(),
 	ability_flash_time(),
 	current_upgrade_ability_slot(),
-	team_scheduled(AI::TeamNone),
-	is_admin()
+	team_scheduled(AI::TeamNone)
 {
 	{
 		const StaticArray<Ability, MAX_ABILITIES>& start_abilities = Game::session.config.ruleset.start_abilities;
@@ -1214,6 +1265,19 @@ void PlayerManager::awake()
 		char log[512];
 		sprintf(log, _(strings::player_joined), username);
 		PlayerHuman::log_add(log, team.ref()->team());
+	}
+
+	if (Game::level.mode == Game::Mode::Parkour
+		&& Game::session.type == SessionType::Multiplayer
+		&& PlayerManager::list.count() > 1
+		&& PlayerManager::list.count() == Game::session.config.min_players)
+	{
+		// we just now have enough players to start the game
+		// so restart the countdown
+		Team::match_time = 0.0f;
+#if SERVER
+		Net::Server::sync_time();
+#endif
 	}
 }
 
@@ -1298,6 +1362,23 @@ namespace PlayerManagerNet
 			serialize_ref(p, ref);
 		}
 		serialize_enum(p, PlayerManager::Message, msg);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 parkour_ready(PlayerManager* m, b8 value)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		{
+			PlayerManager::Message msg = PlayerManager::Message::ParkourReady;
+			serialize_enum(p, PlayerManager::Message, msg);
+		}
+		serialize_bool(p, value);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -1602,6 +1683,17 @@ void remove_player_from_local_mask(PlayerManager* m)
 		Game::session.local_player_mask &= ~(1 << m->get<PlayerHuman>()->gamepad);
 }
 
+s32 PlayerManager::parkour_ready_count()
+{
+	s32 result = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->flag(FlagParkourReady))
+			result++;
+	}
+	return result;
+}
+
 b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
@@ -1620,7 +1712,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 				return true;
 
 			if (!Game::level.local || src == Net::MessageSource::Loopback)
-				m->can_spawn = value;
+				m->flag(FlagCanSpawn, value);
 
 			if (Game::level.local
 				&& src == Net::MessageSource::Remote
@@ -1646,7 +1738,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 					if (valid) // actually switch teams
 					{
 						PlayerManagerNet::team_switch(m, m->team_scheduled);
-						if (!m->can_spawn)
+						if (!m->flag(FlagCanSpawn))
 							PlayerManagerNet::can_spawn(m, value); // repeat to all clients
 						if (Team::match_state == Team::MatchState::Active)
 							team_balance(BalanceMode::OnlyBots);
@@ -1657,6 +1749,21 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 				else
 					PlayerManagerNet::can_spawn(m, value); // repeat to all clients
 			}
+			break;
+		}
+		case Message::ParkourReady:
+		{
+			b8 value;
+			serialize_bool(p, value);
+
+			if (!m)
+				return true;
+
+			if (Game::level.local && src == Net::MessageSource::Remote)
+				PlayerManagerNet::parkour_ready(m, value); // repeat to clients and self
+			else if (Game::level.local == (src == Net::MessageSource::Loopback))
+				m->flag(FlagParkourReady, value);
+
 			break;
 		}
 		case Message::TeamSchedule:
@@ -1705,7 +1812,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 		{
 			if (!m)
 				return true;
-			m->score_accepted = true;
+			m->flag(FlagScoreAccepted, true);
 			break;
 		}
 		case Message::UpgradeCompleted:
@@ -1777,7 +1884,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			b8 value;
 			serialize_bool(p, value);
 
-			if (!m || !target.ref() || !m->is_admin || !target.ref()->has<PlayerHuman>())
+			if (!m || !target.ref() || !m->flag(FlagIsAdmin) || !target.ref()->has<PlayerHuman>())
 				return true;
 
 			if (Game::level.local)
@@ -1795,7 +1902,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			if (!Game::level.local
 				|| src == Net::MessageSource::Loopback)
 			{
-				m->is_admin = value;
+				m->flag(FlagIsAdmin, value);
 #if SERVER
 				Net::Server::admin_set(m->get<PlayerHuman>(), value);
 				Net::master_user_role_set(Game::session.config.id, m->get<PlayerHuman>()->master_id, value ? Net::Master::Role::Admin : Net::Master::Role::Allowed);
@@ -1808,7 +1915,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			Ref<PlayerManager> target;
 			serialize_ref(p, target);
 
-			if (!m || !target.ref() || !m->is_admin || !target.ref()->has<PlayerHuman>())
+			if (!m || !target.ref() || !m->flag(FlagIsAdmin) || !target.ref()->has<PlayerHuman>())
 				return true;
 
 			if (Game::level.local)
@@ -1828,7 +1935,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			if (!m)
 				return true;
 
-			if (!m->is_admin || m == kickee.ref())
+			if (!m->flag(FlagIsAdmin) || m == kickee.ref())
 				net_error();
 
 			if (Game::level.local)
@@ -1872,7 +1979,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			if (!m)
 				return true;
 
-			if (!m->is_admin || (map != AssetNull && Overworld::zone_max_teams(map) < Game::session.config.team_count))
+			if (!m->flag(FlagIsAdmin) || (map != AssetNull && Overworld::zone_max_teams(map) < Game::session.config.team_count))
 				net_error();
 
 			if (Game::level.local)
@@ -1888,7 +1995,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			if (!m)
 				return true;
 
-			if (!m->is_admin || Overworld::zone_max_teams(map) < Game::session.config.team_count)
+			if (!m->flag(FlagIsAdmin) || Overworld::zone_max_teams(map) < Game::session.config.team_count)
 				net_error();
 
 			if (Game::level.local)
@@ -2156,13 +2263,13 @@ void PlayerManager::make_admin(b8 value)
 
 void PlayerManager::make_admin(PlayerManager* other, b8 value)
 {
-	vi_assert(is_admin);
+	vi_assert(flag(FlagIsAdmin));
 	PlayerManagerNet::make_other_admin(this, other, value);
 }
 
 void PlayerManager::kick(PlayerManager* kickee)
 {
-	vi_assert(is_admin && kickee != this);
+	vi_assert(flag(FlagIsAdmin) && kickee != this);
 	PlayerManagerNet::kick(this, kickee);
 }
 
@@ -2199,7 +2306,7 @@ void PlayerManager::kick()
 
 void PlayerManager::ban(PlayerManager* other)
 {
-	vi_assert(is_admin);
+	vi_assert(flag(FlagIsAdmin));
 	PlayerManagerNet::ban(this, other);
 }
 
@@ -2404,7 +2511,7 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 
 void PlayerManager::update_server(const Update& u)
 {
-	if (can_spawn
+	if (flag(FlagCanSpawn)
 		&& !instance.ref()
 		&& Team::match_state == Team::MatchState::Active
 		&& !Game::level.noclip)
@@ -2498,6 +2605,11 @@ void PlayerManager::map_skip(AssetID map)
 void PlayerManager::score_accept()
 {
 	PlayerManagerNet::send(this, PlayerManager::Message::ScoreAccept);
+}
+
+void PlayerManager::parkour_ready(b8 value)
+{
+	PlayerManagerNet::parkour_ready(this, value);
 }
 
 

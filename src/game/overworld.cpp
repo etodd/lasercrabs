@@ -738,7 +738,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				{
 					// bots
 					s8* fill_bots = &config->fill_bots;
-					sprintf(str, "%d", s32(*fill_bots ? *fill_bots + 1 : 0));
+					sprintf(str, "%d", s32(*fill_bots));
 					delta = menu->slider_item(u, _(strings::fill_bots), str);
 					*fill_bots = vi_max(0, vi_min(s32(config->max_players - 1), (*fill_bots) + delta));
 					if (delta)
@@ -763,7 +763,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					u8* time_limit = &config->time_limit_minutes[s32(config->game_type)];
 					sprintf(str, _(strings::timer), s32(*time_limit), 0);
 					delta = menu->slider_item(u, _(strings::time_limit), str);
-					*time_limit = vi_max(1, vi_min(254, s32(*time_limit) + delta * (*time_limit >= (delta > 0 ? 10 : 11) ? 5 : 1)));
+					*time_limit = vi_max(1, vi_min(255, s32(*time_limit) + delta * (*time_limit >= (delta > 0 ? 10 : 11) ? 5 : 1)));
 					if (delta)
 						data.multiplayer.active_server_dirty = true;
 				}
@@ -808,6 +808,16 @@ void multiplayer_entry_edit_update(const Update& u)
 					default:
 						vi_assert(false);
 						break;
+				}
+
+				{
+					// parkour ready time limit
+					u8* time_limit = &config->time_limit_parkour_ready;
+					sprintf(str, _(strings::timer), s32(*time_limit), 0);
+					delta = menu->slider_item(u, _(strings::time_limit_parkour_ready), str);
+					*time_limit = vi_max(0, vi_min(255, s32(*time_limit) + delta * (*time_limit >= (delta > 0 ? 10 : 11) ? 5 : 1)));
+					if (delta)
+						data.multiplayer.active_server_dirty = true;
 				}
 
 				{
@@ -1723,9 +1733,9 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 		// column 1
 		{
 			s32 rows = (details.state.level == AssetNull ? 1 : 2)
-				+ 3
+				+ 5
 				+ (details.config.game_type == GameType::Assault ? 0 : 1)
-				+ (details.config.preset == Net::Master::Ruleset::Preset::Custom ? 7 : 0);
+				+ (details.config.preset == Net::Master::Ruleset::Preset::Custom ? 2 : 0);
 			UI::box(params, { pos + Vec2(-padding, panel_size.y * -rows), Vec2(panel_size.x + padding * 2.0f, panel_size.y * rows + padding) }, UI::color_background);
 
 			if (details.state.level != AssetNull)
@@ -1818,19 +1828,26 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 			// bots
 			text.text(0, _(strings::fill_bots));
 			text.draw(params, pos);
-			value.text(0, "%d", s32(details.config.fill_bots ? details.config.fill_bots + 1 : 0));
+			value.text(0, "%d", s32(details.config.fill_bots));
+			value.draw(params, pos + Vec2(panel_size.x, 0));
+			pos.y -= panel_size.y;
+
+			// min players
+			text.text(0, _(strings::min_players));
+			text.draw(params, pos);
+			value.text(0, "%d", s32(details.config.min_players));
+			value.draw(params, pos + Vec2(panel_size.x, 0));
+			pos.y -= panel_size.y;
+
+			// parkour ready time limit
+			text.text(0, _(strings::time_limit_parkour_ready));
+			text.draw(params, pos);
+			value.text(0, "%d:00", s32(details.config.time_limit_parkour_ready));
 			value.draw(params, pos + Vec2(panel_size.x, 0));
 			pos.y -= panel_size.y;
 
 			if (details.config.preset == Net::Master::Ruleset::Preset::Custom)
 			{
-				// spawn delay
-				text.text(0, _(strings::spawn_delay));
-				text.draw(params, pos);
-				value.text(0, "%d", s32(details.config.ruleset.spawn_delay));
-				value.draw(params, pos + Vec2(panel_size.x, 0));
-				pos.y -= panel_size.y;
-
 				// cooldown speed
 				text.text(0, _(strings::cooldown_speed));
 				text.draw(params, pos);
@@ -1842,35 +1859,6 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 				text.text(0, _(strings::drone_shield));
 				text.draw(params, pos);
 				value.text(0, "%d", s32(details.config.ruleset.drone_shield));
-				value.draw(params, pos + Vec2(panel_size.x, 0));
-				pos.y -= panel_size.y;
-
-				// start energy
-				text.text(0, _(strings::start_energy));
-				text.draw(params, pos);
-				value.text(0, "%d", s32(details.config.ruleset.start_energy));
-				value.draw(params, pos + Vec2(panel_size.x, 0));
-				pos.y -= panel_size.y;
-
-				// enable batteries
-				text.text(0, _(strings::enable_batteries));
-				text.draw(params, pos);
-				value.text(0, _(details.config.ruleset.enable_batteries ? strings::on : strings::off));
-				value.draw(params, pos + Vec2(panel_size.x, 0));
-				pos.y -= panel_size.y;
-
-				// battery stealth
-				text.text(0, _(strings::enable_battery_stealth));
-				text.draw(params, pos);
-				value.text(0, _(details.config.ruleset.enable_battery_stealth ? strings::on : strings::off));
-				value.draw(params, pos + Vec2(panel_size.x, 0));
-				pos.y -= panel_size.y;
-
-				// spawn point force fields
-				text.text(0, _(strings::enable_spawn_shields));
-				text.draw(params, pos);
-				// no force fields in CTF
-				value.text(0, _(details.config.game_type != GameType::CaptureTheFlag && details.config.ruleset.enable_spawn_shields ? strings::on : strings::off));
 				value.draw(params, pos + Vec2(panel_size.x, 0));
 				pos.y -= panel_size.y;
 			}
@@ -3517,7 +3505,7 @@ void show_complete()
 		// we're editing a server while playing in that server
 		vi_assert(PlayerHuman::count_local() == 1);
 		multiplayer_switch_tab(ServerListType::Mine);
-		if (PlayerHuman::for_gamepad(0)->get<PlayerManager>()->is_admin)
+		if (PlayerHuman::for_gamepad(0)->get<PlayerManager>()->flag(PlayerManager::FlagIsAdmin))
 			multiplayer_state_transition(Data::Multiplayer::State::EntryEdit);
 		else
 			multiplayer_state_transition(Data::Multiplayer::State::EntryView);
@@ -3570,8 +3558,8 @@ void update(const Update& u)
 	}
 
 #if !SERVER
-	if (Game::level.mode == Game::Mode::Pvp
-		&& Game::session.type == SessionType::Multiplayer
+	if (Game::session.type == SessionType::Multiplayer
+		&& Game::level.mode != Game::Mode::Special
 		&& Net::Client::replay_mode() != Net::Client::ReplayMode::Replaying
 		&& (Net::Client::mode() == Net::Client::Mode::Connected || Game::level.local))
 		multiplayer_in_game_update(u);

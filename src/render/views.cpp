@@ -23,7 +23,6 @@ Array<View::DebugEntry> View::debug_entries;
 
 View::View(AssetID m)
 	: mesh(m),
-	mesh_shadow(AssetNull),
 	shader(AssetNull),
 	texture(AssetNull),
 	offset(Mat4::identity),
@@ -36,7 +35,6 @@ View::View(AssetID m)
 
 View::View()
 	: mesh(AssetNull),
-	mesh_shadow(AssetNull),
 	shader(AssetNull),
 	texture(AssetNull),
 	offset(Mat4::identity),
@@ -234,12 +232,10 @@ void View::debug(AssetID mesh, const Vec3& pos, const Quat& rot, const Vec3& sca
 
 void View::draw(const RenderParams& params) const
 {
-	AssetID mesh_actual = (params.technique != RenderTechnique::Shadow || (params.flags & RenderFlagEdges) || mesh_shadow == AssetNull) ? mesh : mesh_shadow;
-
-	if (mesh_actual == AssetNull || shader == AssetNull)
+	if (mesh == AssetNull || shader == AssetNull)
 		return;
 
-	const Mesh* mesh_data = Loader::mesh(mesh_actual);
+	const Mesh* mesh_data = Loader::mesh(mesh);
 
 	Mat4 m;
 	get<Transform>()->mat(&m);
@@ -364,13 +360,13 @@ void View::draw(const RenderParams& params) const
 	if (params.flags & RenderFlagEdges)
 	{
 		sync->write(RenderOp::MeshEdges);
-		sync->write(mesh_actual);
+		sync->write(mesh);
 	}
 	else
 	{
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);
-		sync->write(mesh_actual);
+		sync->write(mesh);
 	}
 }
 

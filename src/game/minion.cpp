@@ -927,70 +927,7 @@ void Minion::killed(Entity* killer)
 	if (Game::level.local)
 	{
 		World::remove_deferred(entity());
-
-		const s32 RAGDOLL_LIMIT = 6;
-		if (Ragdoll::list.count() >= 6)
-		{
-			Ragdoll* oldest_ragdoll = nullptr;
-			r32 oldest_timer = RAGDOLL_TIME;
-			for (auto i = Ragdoll::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->timer < oldest_timer)
-				{
-					oldest_timer = i.item()->timer;
-					oldest_ragdoll = i.item();
-				}
-			}
-			if (oldest_ragdoll)
-				World::remove(oldest_ragdoll->entity());
-			else
-				return; // all existing ragdolls were created during this frame; there's no use deleting one to replace it with this ragdoll
-		}
-
-		Entity* ragdoll = World::create<Empty>();
-		ragdoll->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());
-
-		// apply the SkinnedModel::offset rotation to the ragdoll transform to make everything work
-		ragdoll->get<Transform>()->absolute_rot(Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0));
-
-		SkinnedModel* new_skin = ragdoll->add<SkinnedModel>();
-		SkinnedModel* old_skin = get<SkinnedModel>();
-		new_skin->mesh = old_skin->mesh;
-		new_skin->mesh_shadow = old_skin->mesh_shadow;
-		new_skin->shader = old_skin->shader;
-		new_skin->texture = old_skin->texture;
-		new_skin->color = old_skin->color;
-		new_skin->team = old_skin->team;
-		new_skin->mask = old_skin->mask;
-
-		// no rotation
-		new_skin->offset.make_transform(
-			Vec3(0, -1.1f, 0),
-			Vec3(1.0f, 1.0f, 1.0f),
-			Quat::identity
-		);
-
-		Animator* new_anim = ragdoll->add<Animator>();
-		Animator* old_anim = get<Animator>();
-		new_anim->armature = old_anim->armature;
-		new_anim->bones.resize(old_anim->bones.length);
-		for (s32 i = 0; i < old_anim->bones.length; i++)
-			new_anim->bones[i] = old_anim->bones[i];
-
-		Ragdoll* r = ragdoll->add<Ragdoll>();
-
-		if (killer)
-		{
-			if (killer->has<Drone>())
-				r->apply_impulse(Ragdoll::Impulse::Head, killer->get<Drone>()->velocity * 0.1f);
-			else
-			{
-				Vec3 killer_to_us = get<Transform>()->absolute_pos() - killer->get<Transform>()->absolute_pos();
-				r->apply_impulse(killer->has<Parkour>() && killer_to_us.y < get<Walker>()->capsule_height() ? Ragdoll::Impulse::Feet : Ragdoll::Impulse::Head, Vec3::normalize(killer_to_us) * 10.0f);
-			}
-		}
-
-		Net::finalize(ragdoll);
+		Ragdoll::add(entity(), killer);
 	}
 }
 

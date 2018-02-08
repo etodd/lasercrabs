@@ -1882,13 +1882,14 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			rope->slack = Json::get_r32(element, "slack");
 			rope->max_distance = Json::get_r32(element, "max_distance", 20.0f);
 			rope->attach_end = b8(Json::get_s32(element, "attach_end"));
-			rope->flags = Rope::FlagClimbable;
+			if (session.type == SessionType::Story)
+				rope->flags = Rope::FlagClimbable;
 		}
 		else if (cJSON_HasObjectItem(element, "Turret"))
 		{
-			if (session.config.game_type == GameType::Assault)
+			if (session.config.game_type == GameType::Assault || level.mode == Mode::Parkour)
 			{
-				entity = World::alloc<TurretEntity>(AI::Team(0));
+				entity = World::alloc<TurretEntity>(level.mode == Mode::Parkour ? AI::TeamNone : AI::Team(0)); // in parkour mode, turrets attack everyone
 				entity->get<Turret>()->order = Json::get_s32(element, "order", entity->get<Turret>()->id());
 				entity->get<Health>()->hp = Json::get_s32(element, "hp", TURRET_HEALTH);
 				ingress_points_get(json, element, entity->get<MinionTarget>());
@@ -1957,17 +1958,14 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			if (session.config.game_type == GameType::Assault)
 			{
 				AI::Team team = AI::Team(Json::get_s32(element, "team"));
-				if (Team::list.count() > s32(team))
-				{
-					absolute_pos += absolute_rot * Vec3(0, DRONE_RADIUS * 0.5f, 0);
-					entity = World::alloc<CoreModuleEntity>(team, nullptr, absolute_pos, absolute_rot);
-					ingress_points_get(json, element, entity->get<MinionTarget>());
-				}
+				absolute_pos += absolute_rot * Vec3(0, DRONE_RADIUS * 0.5f, 0);
+				entity = World::alloc<CoreModuleEntity>(team, nullptr, absolute_pos, absolute_rot);
+				ingress_points_get(json, element, entity->get<MinionTarget>());
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "ForceField"))
 		{
-			if (session.config.game_type == GameType::Assault)
+			if (session.config.game_type == GameType::Assault && level.mode == Mode::Pvp)
 			{
 				AI::Team team = AI::Team(Json::get_s32(element, "team"));
 				if (Team::list.count() > s32(team))

@@ -31,7 +31,6 @@ struct View : public ComponentType<View>
 	r32 radius;
 	RenderMask mask;
 	AssetID mesh;
-	AssetID mesh_shadow;
 	AssetID shader;
 	AssetID texture;
 	s8 team;

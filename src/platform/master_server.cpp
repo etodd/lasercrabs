@@ -599,6 +599,7 @@ namespace Master
 		config->ruleset.cooldown_speed_index = u8(Json::get_s32(json, "cooldown_speed_index", defaults.ruleset.cooldown_speed_index));
 
 		config->min_players = s8(Json::get_s32(json, "min_players", defaults.min_players));
+		config->time_limit_parkour_ready = u8(Json::get_s32(json, "time_limit_parkour_ready", defaults.time_limit_parkour_ready));
 		for (s32 i = 0; i < s32(GameType::count); i++)
 		{
 			char key[64];
@@ -664,6 +665,8 @@ namespace Master
 			cJSON_AddNumberToObject(json, "energy_collected_limit", config.energy_collected_limit);
 		if (config.flag_limit != defaults.flag_limit)
 			cJSON_AddNumberToObject(json, "flag_limit", config.flag_limit);
+		if (config.time_limit_parkour_ready != defaults.time_limit_parkour_ready)
+			cJSON_AddNumberToObject(json, "time_limit_parkour_ready", config.time_limit_parkour_ready);
 		for (s32 i = 0; i < s32(GameType::count); i++)
 		{
 			if (config.time_limit_minutes[i] != defaults.time_limit_minutes[i])

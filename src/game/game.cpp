@@ -1353,7 +1353,6 @@ void Game::execute(const char* cmd)
 		Game::save.resources[s32(Resource::ExtendedWallRun)] = 1;
 		Game::save.resources[s32(Resource::Grapple)] = 1;
 	}
-#endif
 #if !RELEASE_BUILD
 	else if (strstr(cmd, "lds ") == cmd)
 	{
@@ -1368,6 +1367,9 @@ void Game::execute(const char* cmd)
 			Net::Client::master_request_server(0, nullptr, level); // 0 = story mode
 		}
 	}
+#endif
+#endif
+#if !RELEASE_BUILD
 	else if (strstr(cmd, "ld ") == cmd)
 	{
 		// pvp mode

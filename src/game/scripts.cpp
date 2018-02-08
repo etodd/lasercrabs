@@ -858,8 +858,9 @@ namespace Docks
 
 		if (parkour_anim != AssetNull)
 		{
-			Entity* parkour = World::create<Prop>(Asset::Mesh::parkour_headless, Asset::Armature::parkour, parkour_anim);
-			parkour->get<SkinnedModel>()->mesh_shadow = Asset::Mesh::parkour;
+			Entity* parkour = World::create<Prop>(Asset::Mesh::parkour, Asset::Armature::parkour, parkour_anim);
+			parkour->get<SkinnedModel>()->mesh_first_person = Asset::Mesh::parkour;
+			parkour->get<SkinnedModel>()->first_person_camera = Camera::list.iterator().item();
 			data->cutscene_parkour = parkour->get<Animator>();
 			data->cutscene_parkour.ref()->layers[0].blend_time = 0.0f;
 		}

@@ -804,24 +804,19 @@ AssetID emote_strings[s32(PlayerHuman::EmoteCategory::count)][s32(PlayerHuman::E
 
 b8 PlayerHuman::chat_enabled() const
 {
-	UIMode mode = ui_mode();
-	return gamepad == 0
-		&& (mode == UIMode::PvpDefault
-		|| mode == UIMode::PvpUpgrade
-		|| mode == UIMode::PvpKillCam
-		|| mode == UIMode::PvpSelectTeam
-		|| mode == UIMode::PvpSpectate
-		|| mode == UIMode::PvpGameOver);
+	return gamepad == 0 && emotes_enabled();
 }
 
 b8 PlayerHuman::emotes_enabled() const
 {
 	UIMode mode = ui_mode();
 	return (mode == UIMode::PvpDefault
+		|| mode == UIMode::PvpUpgrade
 		|| mode == UIMode::PvpKillCam
 		|| mode == UIMode::PvpSelectTeam
 		|| mode == UIMode::PvpSpectate
-		|| mode == UIMode::PvpGameOver);
+		|| mode == UIMode::PvpGameOver
+		|| ((mode == UIMode::ParkourDefault || mode == UIMode::ParkourDead)) && Game::session.type == SessionType::Multiplayer);
 }
 
 Upgrade player_confirm_upgrade[MAX_GAMEPADS];
@@ -1096,14 +1091,16 @@ void PlayerHuman::update(const Update& u)
 	switch (mode)
 	{
 		case UIMode::Noclip:
+		case UIMode::ParkourDead:
 			break;
 		case UIMode::ParkourDefault:
-		case UIMode::ParkourDead:
 		{
+			PlayerControlHuman* control = get<PlayerManager>()->instance.ref()->get<PlayerControlHuman>();
+
 			if (audio_log != AssetNull)
 			{
 				audio_log_prompt_timer = vi_max(0.0f, audio_log_prompt_timer - u.real_time.delta);
-				if (u.input->get(Controls::Scoreboard, gamepad) && !u.last_input->get(Controls::Scoreboard, gamepad))
+				if (control->input_enabled() && u.input->get(Controls::Scoreboard, gamepad) && !u.last_input->get(Controls::Scoreboard, gamepad))
 				{
 					if (flag(FlagAudioLogPlaying))
 						audio_log_stop();
@@ -1116,7 +1113,7 @@ void PlayerHuman::update(const Update& u)
 				}
 			}
 
-			if (Game::session.type == SessionType::Multiplayer)
+			if (Game::session.type == SessionType::Multiplayer && control->input_enabled())
 			{
 				if (u.input->get(Controls::InteractSecondary, gamepad) && !u.last_input->get(Controls::InteractSecondary, gamepad))
 					get<PlayerManager>()->parkour_ready(!get<PlayerManager>()->flag(PlayerManager::FlagParkourReady));
@@ -2753,7 +2750,7 @@ void PlayerHuman::flag(Flags f, b8 value)
 
 void PlayerHuman::draw_chats(const RenderParams& params) const
 {
-	AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+	AI::Team my_team = Game::level.mode == Game::Mode::Parkour ? AI::TeamNone : get<PlayerManager>()->team.ref()->team();
 
 	UIText text;
 	text.font = Asset::Font::pt_sans;
@@ -2761,6 +2758,7 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 	text.anchor_y = UIText::Anchor::Min;
 	text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 
+	// calculate height
 	s32 count = 0;
 	r32 height = 0;
 	for (s32 i = chats.length - 1; i >= 0 && count < 4; i--)
@@ -2788,7 +2786,10 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 			const ChatEntry& entry = chats[i];
 			if (my_team == AI::TeamNone || AI::match(my_team, entry.mask))
 			{
-				text.color = Team::ui_color(my_team, entry.team);
+				if (my_team == AI::TeamNone)
+					text.color = UI::color_accent();
+				else
+					text.color = Team::ui_color(my_team, entry.team);
 				if (entry.mask == 1 << my_team)
 					text.text(gamepad, "%s %s: %s", entry.username, _(strings::chat_team_prefix), entry.msg);
 				else

@@ -1677,6 +1677,7 @@ const char* AssetLookup::String::names[] =
 	"prompt_options",
 	"prompt_parkour_ready",
 	"prompt_parkour_unready",
+	"prompt_quick_combat",
 	"prompt_region",
 	"prompt_resolution_apply",
 	"prompt_select",

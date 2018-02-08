@@ -596,6 +596,21 @@ void dialog_clear(s8 gamepad)
 	dialog_cancel_callback[gamepad] = nullptr;
 }
 
+Ref<Camera> quick_combat_camera;
+void quick_combat_enter(s8 = 0)
+{
+	if (!Settings::quick_combat_unlocked)
+	{
+		Settings::quick_combat_unlocked = true;
+		Loader::settings_save();
+	}
+	Game::save.reset();
+	Game::session.reset(SessionType::Multiplayer);
+	Game::session.config.game_type = GameType::Assault;
+	Overworld::show(quick_combat_camera.ref(), Overworld::State::Multiplayer);
+	clear();
+}
+
 void exit(s8 gamepad)
 {
 	Game::quit = true;
@@ -634,13 +649,13 @@ void title_menu(const Update& u, Camera* camera)
 					Scripts::Docks::play();
 					clear();
 				}
-				else if (main_menu.item(u, _(strings::multiplayer), nullptr, !(Settings::god_mode || Settings::quick_combat_unlocked)))
+				else if (main_menu.item(u, _(strings::multiplayer)))
 				{
-					Game::save.reset();
-					Game::session.reset(SessionType::Multiplayer);
-					Game::session.config.game_type = GameType::Assault;
-					Overworld::show(camera, Overworld::State::Multiplayer);
-					clear();
+					quick_combat_camera = camera;
+					if (Settings::quick_combat_unlocked)
+						quick_combat_enter();
+					else
+						dialog_with_cancel(0, &quick_combat_enter, &dialog_no_action, _(strings::prompt_quick_combat));
 				}
 				else if (main_menu.item(u, _(strings::settings)))
 				{
@@ -1724,6 +1739,12 @@ b8 maps(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu)
 	{
 		if (Overworld::zone_max_teams(level_id) < Game::session.config.team_count)
 			continue;
+
+		{
+			AssetID uuid = Overworld::zone_uuid_for_id(level_id);
+			if (!LEVEL_ALLOWED(uuid))
+				continue;
+		}
 
 		b8 in_rotation = false;
 		for (s32 j = 0; j < Game::session.config.levels.length; j++)

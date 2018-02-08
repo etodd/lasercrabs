@@ -1260,7 +1260,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 
 void PlayerManager::awake()
 {
-	if (Game::level.mode != Game::Mode::Special)
+	if (Game::level.mode != Game::Mode::Special && !Game::level.local)
 	{
 		char log[512];
 		sprintf(log, _(strings::player_joined), username);
@@ -1997,6 +1997,12 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 
 			if (!m->flag(FlagIsAdmin) || Overworld::zone_max_teams(map) < Game::session.config.team_count)
 				net_error();
+
+			{
+				AssetID uuid = Overworld::zone_uuid_for_id(map);
+				if (!LEVEL_ALLOWED(uuid))
+					net_error();
+			}
 
 			if (Game::level.local)
 			{

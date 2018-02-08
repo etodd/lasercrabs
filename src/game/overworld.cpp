@@ -949,7 +949,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				for (s32 i = 0; i < Asset::Level::count; i++)
 				{
-					if (zone_is_pvp(AssetID(i)) )
+					if (zone_is_pvp(AssetID(i)))
 					{
 						const ZoneNode* node = zone_node_by_id(AssetID(i));
 
@@ -963,7 +963,7 @@ void multiplayer_entry_edit_update(const Update& u)
 							}
 						}
 
-						if (menu->item(u, Loader::level_name(node->id), nullptr, zone_max_teams(AssetID(i)) < config->team_count, existing_index == -1 ? AssetNull : Asset::Mesh::icon_checkmark))
+						if (menu->item(u, Loader::level_name(AssetID(i)), nullptr, zone_max_teams(AssetID(i)) < config->team_count || !LEVEL_ALLOWED(node->uuid), existing_index == -1 ? AssetNull : Asset::Mesh::icon_checkmark))
 						{
 							if (existing_index == -1)
 								config->levels.add(node->uuid);
@@ -2144,6 +2144,11 @@ const ZoneNode* zone_node_by_uuid(AssetID uuid)
 AssetID zone_id_for_uuid(AssetID uuid)
 {
 	return zone_node_by_uuid(uuid)->id;
+}
+
+AssetID zone_uuid_for_id(AssetID id)
+{
+	return zone_node_by_id(id)->uuid;
 }
 
 s16 energy_increment_zone(const ZoneNode& zone)

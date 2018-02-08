@@ -269,6 +269,14 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 		serialize_int(p, s16, c->kill_limit, 0, MAX_RESPAWNS);
 		serialize_int(p, s16, c->flag_limit, 0, MAX_RESPAWNS);
 		serialize_int(p, s16, c->energy_collected_limit, 1, MAX_ENERGY_LIMIT);
+		for (s32 i = 0; i < c->levels.length; i++)
+		{
+			if (!LEVEL_ALLOWED(c->levels[i]))
+			{
+				c->levels.remove(i);
+				i--;
+			}
+		}
 		serialize_int(p, u16, c->levels.length, 1, c->levels.capacity());
 		for (s32 i = 0; i < c->levels.length; i++)
 			serialize_s16(p, c->levels[i]);

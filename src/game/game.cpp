@@ -1314,36 +1314,10 @@ void Game::execute(const char* cmd)
 			}
 		}
 	}
-	else if (strstr(cmd, "lds ") == cmd)
-	{
-		// allocate a story-mode server
-		const char* delimiter = strchr(cmd, ' ');
-		const char* level_name = delimiter + 1;
-		AssetID level = Loader::find_level(level_name);
-		if (level != AssetNull)
-		{
-			unload_level();
-			save.reset();
-			Net::Client::master_request_server(0, nullptr, level); // 0 = story mode
-		}
-	}
 	else if (!level.local && Net::Client::mode() == Net::Client::Mode::Connected)
 	{
 		Net::Client::execute(cmd);
 		return;
-	}
-	else if (strstr(cmd, "ld ") == cmd)
-	{
-		// pvp mode
-		const char* delimiter = strchr(cmd, ' ');
-		const char* level_name = delimiter + 1;
-		AssetID level = Loader::find_level(level_name);
-		if (level != AssetNull)
-		{
-			save.reset();
-			save.zone_current = level;
-			schedule_load_level(level, Mode::Pvp);
-		}
 	}
 	else if (strstr(cmd, "ldp ") == cmd)
 	{
@@ -1381,6 +1355,32 @@ void Game::execute(const char* cmd)
 	}
 #endif
 #if !RELEASE_BUILD
+	else if (strstr(cmd, "lds ") == cmd)
+	{
+		// allocate a story-mode server
+		const char* delimiter = strchr(cmd, ' ');
+		const char* level_name = delimiter + 1;
+		AssetID level = Loader::find_level(level_name);
+		if (level != AssetNull)
+		{
+			unload_level();
+			save.reset();
+			Net::Client::master_request_server(0, nullptr, level); // 0 = story mode
+		}
+	}
+	else if (strstr(cmd, "ld ") == cmd)
+	{
+		// pvp mode
+		const char* delimiter = strchr(cmd, ' ');
+		const char* level_name = delimiter + 1;
+		AssetID level = Loader::find_level(level_name);
+		if (level != AssetNull)
+		{
+			save.reset();
+			save.zone_current = level;
+			schedule_load_level(level, Mode::Pvp);
+		}
+	}
 	else if (strcmp(cmd, "killai") == 0)
 	{
 		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())

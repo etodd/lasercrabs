@@ -57,6 +57,12 @@
 #define NET_SERVER_IDLE_TIME 5.0f
 #define NET_MAX_RTT_COMPENSATION 0.2f
 
+#if RELEASE_BUILD
+#define LEVEL_ALLOWED(x) (x == 3 || x == 8 || x == 9) // Isca, Bithia Dam, Despina
+#else
+#define LEVEL_ALLOWED(x) (true)
+#endif
+
 #define MAX_REVERBS 3
 
 #define MAX_ZONES 64

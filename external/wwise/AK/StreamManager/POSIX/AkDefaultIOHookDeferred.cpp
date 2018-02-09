@@ -41,7 +41,8 @@ written agreement between you and Audiokinetic Inc.
 //
 //////////////////////////////////////////////////////////////////////
 
-#include "stdafx.h"
+#include <AK/SoundEngine/Common/AkTypes.h>
+#include <AK/Tools/Common/AkAssert.h>
 #include "AkDefaultIOHookDeferred.h"
 #include <AK/SoundEngine/Common/AkMemoryMgr.h>
 #include "AkFileHelpers.h"

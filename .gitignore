@@ -9,6 +9,7 @@ __pycache__
 .exrc
 *.blend1
 *.blend2
+*.wproj_migration.log
 .p4config
 /assets/audio/IncrementalSoundBankData.xml
 /assets/audio/*.wsettings

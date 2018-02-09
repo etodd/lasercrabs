@@ -1,3 +1,4 @@
+#include "strings.h"
 #include "entities.h"
 #include "data/animator.h"
 #include "data/components.h"
@@ -22,7 +23,6 @@
 #include "console.h"
 #include "minion.h"
 #include "render/particles.h"
-#include "strings.h"
 #include "data/priority_queue.h"
 #include "net.h"
 #include "team.h"

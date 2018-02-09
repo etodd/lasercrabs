@@ -1,3 +1,4 @@
+#include "strings.h"
 #include "player.h"
 #include "drone.h"
 #include "data/components.h"
@@ -15,7 +16,6 @@
 #include "asset/animation.h"
 #include "asset/armature.h"
 #include "asset/font.h"
-#include "strings.h"
 #include "ease.h"
 #include "render/skinned_model.h"
 #include "render/views.h"

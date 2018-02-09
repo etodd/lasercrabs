@@ -1,5 +1,5 @@
-#include "input.h"
 #include "strings.h"
+#include "input.h"
 #include <math.h>
 #include "lmath.h"
 #include "ease.h"

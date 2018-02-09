@@ -1,4 +1,5 @@
 #include "types.h"
+#include "strings.h"
 #include "vi_assert.h"
 
 #include "render/views.h"
@@ -26,7 +27,6 @@
 #include "asset/Wwise_IDs.h"
 #include "asset/level.h"
 #include "asset/animation.h"
-#include "strings.h"
 #include "input.h"
 #include "mersenne/mersenne-twister.h"
 #include <time.h>

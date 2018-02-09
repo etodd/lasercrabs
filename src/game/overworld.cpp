@@ -1,3 +1,4 @@
+#include "strings.h"
 #include "overworld.h"
 #include "console.h"
 #include "game.h"
@@ -12,7 +13,6 @@
 #include "asset/texture.h"
 #include "asset/lookup.h"
 #include "asset/shader.h"
-#include "strings.h"
 #include "load.h"
 #include "entities.h"
 #include "render/particles.h"

@@ -1,3 +1,5 @@
+#include "strings.h"
+
 #if !SERVER
 #include "mongoose/mongoose.h"
 #endif
@@ -9,7 +11,6 @@
 #include "entities.h"
 #include "common.h"
 #include "game.h"
-#include "strings.h"
 #include "console.h"
 #include <unordered_map>
 #include <string>

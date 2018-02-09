@@ -1,3 +1,4 @@
+#include "strings.h"
 #include "team.h"
 #include "game.h"
 #include "data/components.h"
@@ -5,7 +6,6 @@
 #include "data/animator.h"
 #include "asset/animation.h"
 #include "asset/mesh.h"
-#include "strings.h"
 #include "drone.h"
 #include "minion.h"
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"

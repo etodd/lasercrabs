@@ -507,7 +507,7 @@ void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone:
 
 	// whiff sfx
 	{
-		Vec3 closest_position = ray_start;
+		Camera* closest_camera = nullptr;
 		r32 closest_distance = FLT_MAX;
 		for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
 		{
@@ -518,22 +518,31 @@ void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone:
 				Vec3 line = hit.pos - line_start;
 				r32 line_length = line.length();
 				Vec3 line_normalized = line / line_length;
-				r32 t = vi_min((i.item()->pos - line_start).dot(line_normalized), line_length);
-				if (t > 0.0f)
+				r32 t = (i.item()->pos - line_start).dot(line_normalized);
+				if (t > 0.0f && t < line_length)
 				{
 					Vec3 pos = line_start + line_normalized * t;
 					r32 distance = (pos - i.item()->pos).length_squared();
 					if (distance < closest_distance)
 					{
 						closest_distance = distance;
-						closest_position = pos;
+						closest_camera = i.item();
 					}
 				}
 
 				line_start = hit.pos;
 			}
 		}
-		Audio::post_global(AK::EVENTS::PLAY_SNIPER_WHIFF, closest_position);
+		if (closest_camera)
+		{
+			Vec3 whiff_pos;
+			Vec3 diff = pos - closest_camera->pos;
+			if (diff.length_squared() > 0.0f)
+				whiff_pos = closest_camera->pos + Vec3::normalize(diff) * closest_distance;
+			else
+				whiff_pos = pos;
+			Audio::post_global(AK::EVENTS::PLAY_SNIPER_WHIFF, whiff_pos, nullptr, AudioEntry::FlagEnableObstructionOcclusion);
+		}
 	}
 
 	// shatter glass

@@ -21,8 +21,8 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2017.1.0  Build: 6302
-  Copyright (c) 2006-2017 Audiokinetic Inc.
+  Version: v2017.2.1  Build: 6524
+  Copyright (c) 2006-2018 Audiokinetic Inc.
 *******************************************************************************/
 
 // AkSpeakerVolumes.h
@@ -232,6 +232,17 @@ namespace SpeakerVolumes
 			for ( AkUInt32 uChan = 0; uChan < uNumElements; uChan++ )
 			{
 				in_pVolumesDst[uChan] = ((in_pVolumesDst[uChan] * in_pVolumesDst[uChan]) > (in_pVolumesSrc[uChan] * in_pVolumesSrc[uChan])) ? in_pVolumesDst[uChan] : in_pVolumesSrc[uChan];
+			}
+		}
+
+		/// Get max for all elements of two volume matrices, independently.
+		AkForceInline void Max(MatrixPtr in_pVolumesDst, ConstMatrixPtr in_pVolumesSrc, AkUInt32 in_uNumChannelsIn, AkUInt32 in_uNumChannelsOut)
+		{
+			AkUInt32 uNumElements = Matrix::GetNumElements(in_uNumChannelsIn, in_uNumChannelsOut);
+			AKASSERT((in_pVolumesDst && in_pVolumesSrc) || uNumElements == 0);
+			for (AkUInt32 uChan = 0; uChan < uNumElements; uChan++)
+			{
+				in_pVolumesDst[uChan] = (in_pVolumesDst[uChan] > in_pVolumesSrc[uChan]) ? in_pVolumesDst[uChan] : in_pVolumesSrc[uChan];
 			}
 		}
 	}

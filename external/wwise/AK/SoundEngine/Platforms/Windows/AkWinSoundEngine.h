@@ -21,8 +21,8 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2017.1.0  Build: 6302
-  Copyright (c) 2006-2017 Audiokinetic Inc.
+  Version: v2017.2.1  Build: 6524
+  Copyright (c) 2006-2018 Audiokinetic Inc.
 *******************************************************************************/
 
 // AkWinSoundEngine.h
@@ -56,17 +56,6 @@ enum AkAudioDeviceState
 	AkDeviceState_NotPresent = 1 << 2, ///< The audio device is not present because the audio adapter that connects to the endpoint device has been removed from the system.
 	AkDeviceState_Unplugged = 1 << 3,  ///< The audio device is unplugged.
 	AkDeviceState_All = AkDeviceState_Active | AkDeviceState_Disabled | AkDeviceState_NotPresent | AkDeviceState_Unplugged, ///< Includes audio devices in all states.
-};
-
-///< Used with \ref AK::SoundEngine::AddSecondaryOutput to specify the type of secondary output.
-enum AkAudioOutputType
-{
-	AkOutput_None = 0,		///< Used for uninitialized type, do not use.
-	AkOutput_Dummy,			///< Dummy output, simply eats the audio stream and outputs nothing.
-	AkOutput_Main,			///< Main output.  This cannot be used with AddSecondaryOutput, but can be used to query information about the main output (GetSpeakerConfiguration for example).	
-	AkOutput_Secondary,		///< Adds an output linked to the hardware device specified  (See AddSecondaryOutput).
-	AkOutput_NumBuiltInOutputs,		///< Do not use.
-	AkOutput_Plugin			///< Specify if using Audio Device Plugin Sink.
 };
 
 struct IXAudio2;
@@ -109,9 +98,6 @@ struct AkPlatformInitSettings
 												///< This setting is ignored when using other AkAudioAPI types.
 
 	IXAudio2*			pXAudio2;				///< XAudio2 instance to use for the Wwise sound engine.  If NULL (default) Wwise will initialize its own instance.  Used only if the sink type is XAudio2 in AkInitSettings.outputType.
-
-	AkUInt32			idAudioDevice;			///< Device ID to use for the main audio output, as returned from AK::GetDeviceID or AK::GetDeviceIDFromName.  
-												 												
 };
 
 struct IDirectSound8;

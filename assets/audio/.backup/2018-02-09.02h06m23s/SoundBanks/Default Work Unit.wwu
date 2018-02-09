@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WwiseDocument Type="WorkUnit" ID="{64FDF9F0-D4CC-41AD-A38A-2F68093E61F9}" SchemaVersion="80">
+	<SoundBanks>
+		<WorkUnit Name="Default Work Unit" ID="{64FDF9F0-D4CC-41AD-A38A-2F68093E61F9}" PersistMode="Standalone">
+			<ChildrenList>
+				<SoundBank Name="SOUNDBANK" ID="{488DD558-716E-4013-8961-DA7FE19181EB}">
+					<ObjectInclusionList>
+						<ObjectRef Name="Play_UI_Shield_Down_Beep" ID="{996D37D5-A401-4185-ADA2-CE4155A54FDE}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}" Filter="7" Origin="Manual"/>
+						<ObjectRef Name="Default Work Unit" ID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}" Filter="7" Origin="Manual"/>
+					</ObjectInclusionList>
+					<ObjectExclusionList/>
+					<GameSyncExclusionList/>
+				</SoundBank>
+			</ChildrenList>
+		</WorkUnit>
+	</SoundBanks>
+</WwiseDocument>

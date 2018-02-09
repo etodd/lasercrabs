@@ -21,8 +21,8 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2017.1.0  Build: 6301
-  Copyright (c) 2006-2017 Audiokinetic Inc.
+  Version: v2017.2.1  Build: 6523
+  Copyright (c) 2006-2018 Audiokinetic Inc.
 *******************************************************************************/
 
 // AkMacSoundEngine.h
@@ -53,16 +53,6 @@ struct AkPlatformInitSettings
 	AkUInt32			uSampleRate;			///< Sampling Rate. Default 48000 Hz
 	// Voices.
 	AkUInt16            uNumRefillsInVoice;		///< Number of refill buffers in voice buffer. 2 == double-buffered, defaults to 4.
-};
-
-///< Used with \ref AK::SoundEngine::AddSecondaryOutput to specify the type of secondary output.
-enum AkAudioOutputType
-{
-	AkOutput_None = 0,		///< Used for uninitialized type, do not use.
-	AkOutput_Dummy,			///< Dummy output, simply eats the audio stream and outputs nothing.
-	AkOutput_Main,			///< Main output.  This cannot be used with AddSecondaryOutput, but can be used to query information about the main output (GetSpeakerConfiguration for example).	
-	AkOutput_NumBuiltInOutputs,		///< Do not use.
-	AkOutput_Plugin			///< Specify if using Audio Device Plugin Sink.
 };
 
 #endif //_AK_MAC_SOUND_ENGINE_H_

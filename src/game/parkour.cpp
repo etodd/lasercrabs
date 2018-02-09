@@ -1158,34 +1158,38 @@ void Parkour::update_client(const Update& u)
 	{
 		fsm.time += u.time.delta;
 
-		Animator::Layer* layer0 = &get<Animator>()->layers[0];
-		b8 tiles = false;
-		if (layer0->animation == Asset::Animation::character_wall_run_straight
-			|| layer0->animation == Asset::Animation::character_wall_slide)
-			parkour_sparks(this, u, ParkourHand::Both, 1.0f);
-		else if (layer0->animation == Asset::Animation::character_wall_run_left)
 		{
-			parkour_sparks(this, u, ParkourHand::Left, 1.0f);
-			tiles = true;
-		}
-		else if (layer0->animation == Asset::Animation::character_wall_run_right)
-		{
-			parkour_sparks(this, u, ParkourHand::Right, 1.0f);
-			tiles = true;
-		}
+			b8 tiles = false;
+			{
+				const Animator::Layer& layer0 = get<Animator>()->layers[0];
+				if (layer0.animation == Asset::Animation::character_wall_run_straight
+					|| layer0.animation == Asset::Animation::character_wall_slide)
+					parkour_sparks(this, u, ParkourHand::Both, 1.0f);
+				else if (layer0.animation == Asset::Animation::character_wall_run_left)
+				{
+					parkour_sparks(this, u, ParkourHand::Left, 1.0f);
+					tiles = true;
+				}
+				else if (layer0.animation == Asset::Animation::character_wall_run_right)
+				{
+					parkour_sparks(this, u, ParkourHand::Right, 1.0f);
+					tiles = true;
+				}
+			}
 
-		if (tiles && relative_wall_run_normal.length_squared() > 0.0f)
-		{
-			// on client-side, relative_wall_run_normal is the absolute wall normal
-			Vec3 normal = Vec3::normalize(relative_wall_run_normal);
-			Vec3 relative_wall_right = normal.cross(Vec3(0, 1, 0));
-			relative_wall_right.normalize();
-			Vec3 relative_wall_up = relative_wall_right.cross(normal);
-			relative_wall_up.normalize();
+			if (tiles && relative_wall_run_normal.length_squared() > 0.0f)
+			{
+				// on client-side, relative_wall_run_normal is the absolute wall normal
+				Vec3 normal = Vec3::normalize(relative_wall_run_normal);
+				Vec3 relative_wall_right = normal.cross(Vec3(0, 1, 0));
+				relative_wall_right.normalize();
+				Vec3 relative_wall_up = relative_wall_right.cross(normal);
+				relative_wall_up.normalize();
 
-			// we don't have actual velocity, so use net_velocity calculated by netcode
-			Vec3 spawn_offset = (get<Target>()->net_velocity * 1.5f) + (normal * -3.0f);
-			spawn_tiles(relative_wall_right, relative_wall_up, normal, spawn_offset);
+				// we don't have actual velocity, so use net_velocity calculated by netcode
+				Vec3 spawn_offset = (get<Target>()->net_velocity * 1.5f) + (normal * -3.0f);
+				spawn_tiles(relative_wall_right, relative_wall_up, normal, spawn_offset);
+			}
 		}
 
 		if (fsm.current == ParkourState::Grapple && fsm.time > grapple_time())
@@ -1202,6 +1206,29 @@ void Parkour::update_client(const Update& u)
 			Vec3(1.0f, 1.0f, 1.0f),
 			Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
 		);
+	}
+
+	// claw drag sound
+	{
+		const Animator::Layer& layer0 = get<Animator>()->layers[0];
+		b8 claw_drag_sound = layer0.animation == Asset::Animation::character_wall_slide
+			|| layer0.animation == Asset::Animation::character_wall_run_left
+			|| layer0.animation == Asset::Animation::character_wall_run_right;
+		if (claw_drag_sound && !flag(FlagClawDragSoundPlaying))
+			get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_CLAW_DRAG);
+		else if (!claw_drag_sound && flag(FlagClawDragSoundPlaying))
+			get<Audio>()->stop(AK::EVENTS::STOP_PARKOUR_CLAW_DRAG);
+		flag(FlagClawDragSoundPlaying, claw_drag_sound);
+
+		if (claw_drag_sound)
+		{
+			r32 amount;
+			Vec3 velocity = get<PlayerControlHuman>()->local()
+				? Vec3(get<RigidBody>()->btBody->getLinearVelocity())
+				: get<Target>()->net_velocity;
+			amount = vi_max(0.0f, vi_min(1.0f, velocity.length() / (MAX_SPEED * 1.2f)));
+			get<Audio>()->param(AK::GAME_PARAMETERS::PARKOUR_CLAW_DRAG, amount);
+		}
 	}
 
 	// grapple effects

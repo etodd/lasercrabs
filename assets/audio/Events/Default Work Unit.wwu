@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<WwiseDocument Type="WorkUnit" ID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}" SchemaVersion="80">
+<WwiseDocument Type="WorkUnit" ID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}" SchemaVersion="85">
 	<Events>
 		<WorkUnit Name="Default Work Unit" ID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}" PersistMode="Standalone">
 			<ChildrenList>
@@ -207,7 +207,20 @@
 												</Action>
 											</ChildrenList>
 										</Event>
-										<Event Name="Play_Sniper_Whiff" ID="{59B84C5E-902B-44AF-81EC-1574F2D465B2}"/>
+										<Event Name="Play_Sniper_Whiff" ID="{59B84C5E-902B-44AF-81EC-1574F2D465B2}">
+											<ChildrenList>
+												<Action Name="" ID="{AA0C3F1C-3254-4633-B267-2CC225977A84}" ShortID="264698987">
+													<PropertyList>
+														<Property Name="ActionType" Type="int16" Value="1"/>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Target">
+															<ObjectRef Name="Sniper_Whiff" ID="{4B6DC225-0F72-4801-9D19-F275AF610432}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+														</Reference>
+													</ReferenceList>
+												</Action>
+											</ChildrenList>
+										</Event>
 										<Event Name="Play_Drone_Active_Armor" ID="{7BBEC775-C813-4244-9235-F695E5AB4761}">
 											<ChildrenList>
 												<Action Name="" ID="{BA894100-AE6F-44DC-970E-99BE1DBC6B27}" ShortID="742960595">
@@ -813,7 +826,43 @@
 									</ChildrenList>
 								</Event>
 								<Event Name="Play_Parkour_Roll" ID="{CE8EE5FB-A846-42A9-A487-4D4CDCFE5881}"/>
-								<Event Name="Play_Parkour_Slide" ID="{2C8B90FF-219F-48DD-AABE-E6247A72387C}"/>
+								<Event Name="Play_Parkour_Claw_Drag" ID="{2C8B90FF-219F-48DD-AABE-E6247A72387C}">
+									<ChildrenList>
+										<Action Name="" ID="{0174A8F0-BD4B-40F5-B1A0-0293F047A80B}" ShortID="633882176">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+												<Property Name="FadeTime" Type="Real64" Value="0.2"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_climb_claw_drag" ID="{7F657366-D63B-4CD3-AD82-FA37C3130023}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+										<Action Name="" ID="{ADB795ED-49DF-4FFA-A2D3-7EE10C056001}" ShortID="677692834">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="36"/>
+												<Property Name="SeekPercent" Type="Real64">
+													<ModifierList>
+														<ModifierInfo>
+															<Modifier Name="" ID="{DE55678E-2EF1-4E24-8877-8DBD45407BA6}">
+																<PropertyList>
+																	<Property Name="Enabled" Type="bool" Value="True"/>
+																	<Property Name="Max" Type="Real64" Value="100"/>
+																</PropertyList>
+															</Modifier>
+														</ModifierInfo>
+													</ModifierList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_climb_claw_drag" ID="{7F657366-D63B-4CD3-AD82-FA37C3130023}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
 								<Event Name="Play_Parkour_Topout" ID="{2BB47BCB-D5D7-4C97-AA69-3974BE92380D}">
 									<ChildrenList>
 										<Action Name="" ID="{2D3772AE-7ECC-4C93-B19F-7FA267011DD8}" ShortID="593594964">
@@ -887,8 +936,21 @@
 										</Action>
 									</ChildrenList>
 								</Event>
-								<Event Name="Stop_Parkour_All" ID="{B6CC42D5-5F5E-4BBA-8CF2-9A986C68C2EC}"/>
-								<Event Name="Stop_Parkour_Slide" ID="{8588E130-B849-4454-AA70-05E0BDE13952}"/>
+								<Event Name="Stop_Parkour_Claw_Drag" ID="{8588E130-B849-4454-AA70-05E0BDE13952}">
+									<ChildrenList>
+										<Action Name="" ID="{487DE0E4-3544-4039-A657-A0CBF84AD72E}" ShortID="900388333">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="2"/>
+												<Property Name="FadeTime" Type="Real64" Value="0.2"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_climb_claw_drag" ID="{7F657366-D63B-4CD3-AD82-FA37C3130023}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
 								<Event Name="Play_Parkour_Breathing" ID="{E5777B4F-E1AB-4932-A759-5387DFDBB754}">
 									<ChildrenList>
 										<Action Name="" ID="{AB4B0E9D-ACC1-4AC1-8AFB-B926530C7D69}" ShortID="657349100">

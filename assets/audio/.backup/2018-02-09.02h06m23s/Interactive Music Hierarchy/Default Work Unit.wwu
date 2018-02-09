@@ -1,0 +1,626 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WwiseDocument Type="WorkUnit" ID="{FAE1ED8D-2A2A-4095-8F49-19EC646E00B7}" SchemaVersion="80">
+	<InteractiveMusic>
+		<WorkUnit Name="Default Work Unit" ID="{FAE1ED8D-2A2A-4095-8F49-19EC646E00B7}" PersistMode="Standalone">
+			<ChildrenList>
+				<MusicPlaylistContainer Name="Music_01" ID="{96D73042-02AD-43BA-84E9-35AAAB2545C2}" ShortID="494133818">
+					<PropertyList>
+						<Property Name="GridFrequencyPreset" Type="int16" Value="53"/>
+						<Property Name="Tempo" Type="Real64" Value="111"/>
+					</PropertyList>
+					<ReferenceList>
+						<Reference Name="Conversion">
+							<ObjectRef Name="Vorbis Quality High" ID="{53A9DE0F-3F4F-4B59-8614-3F9E3C7358FC}" WorkUnitID="{F6B2880C-85E5-47FA-A126-645B5DFD9ACC}"/>
+						</Reference>
+						<Reference Name="OutputBus">
+							<ObjectRef Name="Music" ID="{7964C80C-6C7B-447F-AF8B-6C14A891BF66}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+						</Reference>
+					</ReferenceList>
+					<ChildrenList>
+						<MusicSegment Name="Piano_04" ID="{35AFF666-A0B0-47F1-A679-F307E46C56F3}" ShortID="542516928">
+							<PropertyList>
+								<Property Name="EndPosition" Type="Real64" Value="38979.8387096774"/>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<MusicTrack Name="russiaRobot_music_track_01_piano_04" ID="{2ABF56E8-0401-4F3F-90A7-B8E58B6AF543}" ShortID="371370824">
+									<ReferenceList>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="russiaRobot_music_track_01_piano_04" ID="{4E20E7B6-7A39-41DD-BD26-213377F3A93F}" ShortID="954908291">
+											<Language>SFX</Language>
+											<AudioFile>russiaRobot_music_track_01_piano_04.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<TransitionList>
+										<MusicTransition Name="Root" ID="{D2EFBFD9-A711-4C6B-932E-833FA747865D}">
+											<PropertyList>
+												<Property Name="IsFolder" Type="bool" Value="True"/>
+											</PropertyList>
+											<TransitionInfo/>
+										</MusicTransition>
+									</TransitionList>
+									<SequenceList>
+										<MusicTrackSequence Name="" ID="{FA899AE7-C979-4009-9BB5-522123A60A68}">
+											<ClipList>
+												<MusicClip Name="russiaRobot_music_track_01_piano_04" ID="{3D1BCEDB-D469-43ED-A884-EB4C169CB44C}">
+													<PropertyList>
+														<Property Name="EndTrimOffset" Type="Real64" Value="35675.6875"/>
+														<Property Name="FadeInMode" Type="int16" Value="0"/>
+														<Property Name="FadeOutMode" Type="int16" Value="0"/>
+													</PropertyList>
+													<AudioSourceRef Name="russiaRobot_music_track_01_piano_04" ID="{4E20E7B6-7A39-41DD-BD26-213377F3A93F}"/>
+												</MusicClip>
+											</ClipList>
+										</MusicTrackSequence>
+									</SequenceList>
+								</MusicTrack>
+								<MusicTrack Name="russiaRobot_music_track_01_danger_01" ID="{5F4B2F19-2DE9-4166-889B-9160E351DD3C}" ShortID="538710948">
+									<ReferenceList>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="russiaRobot_music_track_01_danger_01" ID="{DF75D66F-FF31-42EE-9CCE-C91F37BDFB33}" ShortID="410005447">
+											<Language>SFX</Language>
+											<AudioFile>russiaRobot_music_track_01_danger_01.wav</AudioFile>
+											<ConvertedFileIDList>
+												<File ID="471791141"/>
+											</ConvertedFileIDList>
+										</AudioFileSource>
+									</ChildrenList>
+									<TransitionList>
+										<MusicTransition Name="Root" ID="{799481B9-5F72-495E-9093-006192FA9EF7}">
+											<PropertyList>
+												<Property Name="IsFolder" Type="bool" Value="True"/>
+											</PropertyList>
+											<TransitionInfo/>
+										</MusicTransition>
+									</TransitionList>
+									<SequenceList>
+										<MusicTrackSequence Name="" ID="{C683164D-A0E4-44DF-821E-A300DCFA4CC1}">
+											<ClipList>
+												<MusicClip Name="russiaRobot_music_track_01_danger_01" ID="{FAF1D556-D77A-46D3-833E-BC088ACBFE9A}">
+													<PropertyList>
+														<Property Name="EndTrimOffset" Type="Real64" Value="38918.9375"/>
+														<Property Name="FadeInMode" Type="int16" Value="0"/>
+														<Property Name="FadeOutMode" Type="int16" Value="0"/>
+													</PropertyList>
+													<AudioSourceRef Name="russiaRobot_music_track_01_danger_01" ID="{DF75D66F-FF31-42EE-9CCE-C91F37BDFB33}"/>
+												</MusicClip>
+											</ClipList>
+										</MusicTrackSequence>
+									</SequenceList>
+								</MusicTrack>
+								<MusicTrack Name="russiaRobot_music_track_01_bass_02" ID="{BC25ABBA-F3D3-4B73-88F4-F694DF1BCE88}" ShortID="809313319">
+									<ReferenceList>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="russiaRobot_music_track_01_bass_01" ID="{FC162F80-EF85-47AF-A5A1-44EB3B969F75}" ShortID="551534347">
+											<Language>SFX</Language>
+											<AudioFile>russiaRobot_music_track_01_bass_01.wav</AudioFile>
+											<ConvertedFileIDList>
+												<File ID="180878532"/>
+											</ConvertedFileIDList>
+										</AudioFileSource>
+									</ChildrenList>
+									<TransitionList>
+										<MusicTransition Name="Root" ID="{7A41071A-C3F6-4590-9348-94947519D0C9}">
+											<PropertyList>
+												<Property Name="IsFolder" Type="bool" Value="True"/>
+											</PropertyList>
+											<TransitionInfo/>
+										</MusicTransition>
+									</TransitionList>
+									<SequenceList>
+										<MusicTrackSequence Name="" ID="{E437A43B-A032-41D1-9308-BA6A6CEFDA1D}">
+											<ClipList>
+												<MusicClip Name="russiaRobot_music_track_01_bass_01" ID="{B6F793F2-1899-4DEF-8DE9-E3F240C39073}">
+													<PropertyList>
+														<Property Name="EndTrimOffset" Type="Real64" Value="38918.9375"/>
+														<Property Name="FadeInMode" Type="int16" Value="0"/>
+														<Property Name="FadeOutMode" Type="int16" Value="0"/>
+													</PropertyList>
+													<AudioSourceRef Name="russiaRobot_music_track_01_bass_01" ID="{FC162F80-EF85-47AF-A5A1-44EB3B969F75}"/>
+												</MusicClip>
+											</ClipList>
+										</MusicTrackSequence>
+									</SequenceList>
+								</MusicTrack>
+							</ChildrenList>
+							<CueList>
+								<MusicCue Name="Entry Cue" ID="{E79C55B2-8221-46F1-B865-0F3E98122636}"/>
+								<MusicCue Name="Exit Cue" ID="{BD5CDDF2-C41F-4580-879B-287B76A8EED4}">
+									<PropertyList>
+										<Property Name="CueType" Type="int16" Value="1"/>
+										<Property Name="TimeMs" Type="Real64" Value="34581.0117302053"/>
+									</PropertyList>
+								</MusicCue>
+							</CueList>
+						</MusicSegment>
+						<MusicSegment Name="Piano_03" ID="{10C1B6C8-751B-4FF4-9A33-E837E76CC05D}" ShortID="82825782">
+							<PropertyList>
+								<Property Name="EndPosition" Type="Real64" Value="38918.9375"/>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<MusicTrack Name="russiaRobot_music_track_01_piano_03" ID="{957A4F25-CD2F-43BC-B1BF-F2BEA45ED933}" ShortID="735626088">
+									<ReferenceList>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="russiaRobot_music_track_01_piano_03" ID="{967891DE-3B0A-4967-883E-784E623DA5B3}" ShortID="137549890">
+											<Language>SFX</Language>
+											<AudioFile>russiaRobot_music_track_01_piano_03.wav</AudioFile>
+											<ConvertedFileIDList>
+												<File ID="633690340"/>
+											</ConvertedFileIDList>
+										</AudioFileSource>
+									</ChildrenList>
+									<TransitionList>
+										<MusicTransition Name="Root" ID="{35C5DE42-C754-4B98-A270-E8D433021905}">
+											<PropertyList>
+												<Property Name="IsFolder" Type="bool" Value="True"/>
+											</PropertyList>
+											<TransitionInfo/>
+										</MusicTransition>
+									</TransitionList>
+									<SequenceList>
+										<MusicTrackSequence Name="" ID="{6AD62692-F30F-4E20-AB94-76DFF10FEB94}">
+											<ClipList>
+												<MusicClip Name="russiaRobot_music_track_01_piano_03" ID="{046D66D2-5A79-41F9-AABC-8F53864F4C08}">
+													<PropertyList>
+														<Property Name="EndTrimOffset" Type="Real64" Value="35675.6875"/>
+														<Property Name="FadeInMode" Type="int16" Value="0"/>
+														<Property Name="FadeOutMode" Type="int16" Value="0"/>
+													</PropertyList>
+													<AudioSourceRef Name="russiaRobot_music_track_01_piano_03" ID="{967891DE-3B0A-4967-883E-784E623DA5B3}"/>
+												</MusicClip>
+											</ClipList>
+										</MusicTrackSequence>
+									</SequenceList>
+								</MusicTrack>
+								<MusicTrack Name="russiaRobot_music_track_01_danger_01" ID="{273A17FF-5837-410E-BD43-04816E24518C}" ShortID="253616361">
+									<ReferenceList>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="russiaRobot_music_track_01_danger_01" ID="{99C7A862-A0DE-4DF2-839C-1002449B9CB4}" ShortID="96958937">
+											<Language>SFX</Language>
+											<AudioFile>russiaRobot_music_track_01_danger_01.wav</AudioFile>
+											<ConvertedFileIDList>
+												<File ID="471791141"/>
+											</ConvertedFileIDList>
+										</AudioFileSource>
+									</ChildrenList>
+									<TransitionList>
+										<MusicTransition Name="Root" ID="{3313B8F0-5112-4DFB-8C8A-DC5252F64AD7}">
+											<PropertyList>
+												<Property Name="IsFolder" Type="bool" Value="True"/>
+											</PropertyList>
+											<TransitionInfo/>
+										</MusicTransition>
+									</TransitionList>
+									<SequenceList>
+										<MusicTrackSequence Name="" ID="{994A0A64-F37B-4CB0-99D9-746E8E444395}">
+											<ClipList>
+												<MusicClip Name="russiaRobot_music_track_01_danger_01" ID="{9E1632AE-ADBE-4A6E-9D7D-EEC97ED23D20}">
+													<PropertyList>
+														<Property Name="EndTrimOffset" Type="Real64" Value="38918.9375"/>
+														<Property Name="FadeInMode" Type="int16" Value="0"/>
+														<Property Name="FadeOutMode" Type="int16" Value="0"/>
+													</PropertyList>
+													<AudioSourceRef Name="russiaRobot_music_track_01_danger_01" ID="{99C7A862-A0DE-4DF2-839C-1002449B9CB4}"/>
+												</MusicClip>
+											</ClipList>
+										</MusicTrackSequence>
+									</SequenceList>
+								</MusicTrack>
+								<MusicTrack Name="russiaRobot_music_track_01_bass_02" ID="{5D993C58-32B9-4493-A7A6-EEB5D832A927}" ShortID="508490496">
+									<ReferenceList>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="russiaRobot_music_track_01_bass_01" ID="{8D400EA4-85EE-4ABD-A17F-204C6CDC2864}" ShortID="861876312">
+											<Language>SFX</Language>
+											<AudioFile>russiaRobot_music_track_01_bass_01.wav</AudioFile>
+											<ConvertedFileIDList>
+												<File ID="180878532"/>
+											</ConvertedFileIDList>
+										</AudioFileSource>
+									</ChildrenList>
+									<TransitionList>
+										<MusicTransition Name="Root" ID="{6FE0FF5E-1834-4285-A0B0-15FE28F2220F}">
+											<PropertyList>
+												<Property Name="IsFolder" Type="bool" Value="True"/>
+											</PropertyList>
+											<TransitionInfo/>
+										</MusicTransition>
+									</TransitionList>
+									<SequenceList>
+										<MusicTrackSequence Name="" ID="{ED2D828F-F29B-482F-9703-487359F494A0}">
+											<ClipList>
+												<MusicClip Name="russiaRobot_music_track_01_bass_01" ID="{61BBAB85-3DA7-429B-9EC0-00C041E75C9A}">
+													<PropertyList>
+														<Property Name="EndTrimOffset" Type="Real64" Value="38918.9375"/>
+														<Property Name="FadeInMode" Type="int16" Value="0"/>
+														<Property Name="FadeOutMode" Type="int16" Value="0"/>
+													</PropertyList>
+													<AudioSourceRef Name="russiaRobot_music_track_01_bass_01" ID="{8D400EA4-85EE-4ABD-A17F-204C6CDC2864}"/>
+												</MusicClip>
+											</ClipList>
+										</MusicTrackSequence>
+									</SequenceList>
+								</MusicTrack>
+							</ChildrenList>
+							<CueList>
+								<MusicCue Name="Entry Cue" ID="{03D5DC67-FF56-4D45-B37B-F257502C5390}"/>
+								<MusicCue Name="Exit Cue" ID="{F2C12EEA-915D-4AD9-B501-72D484872E18}">
+									<PropertyList>
+										<Property Name="CueType" Type="int16" Value="1"/>
+										<Property Name="TimeMs" Type="Real64" Value="34578.8891779397"/>
+									</PropertyList>
+								</MusicCue>
+							</CueList>
+						</MusicSegment>
+						<MusicSegment Name="Piano_01" ID="{FF81C1F3-11CA-4A4B-9FAD-9EBC3979BB6E}" ShortID="73215237">
+							<PropertyList>
+								<Property Name="EndPosition" Type="Real64" Value="38918.9375"/>
+								<Property Name="Tempo" Type="Real64" Value="111"/>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<MusicTrack Name="russiaRobot_music_track_01_piano_01" ID="{EE0AC6C8-B9FE-4878-9FEA-86B28630FCE4}" ShortID="813410999">
+									<ReferenceList>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="russiaRobot_music_track_01_piano_01" ID="{4A415DD6-CF28-4623-B334-2107DB6DBD1F}" ShortID="439661567">
+											<Language>SFX</Language>
+											<AudioFile>russiaRobot_music_track_01_piano_01.wav</AudioFile>
+											<ConvertedFileIDList>
+												<File ID="80163764"/>
+											</ConvertedFileIDList>
+										</AudioFileSource>
+									</ChildrenList>
+									<TransitionList>
+										<MusicTransition Name="Root" ID="{46403FC3-67CE-44C2-A529-DDB88DF233D5}">
+											<PropertyList>
+												<Property Name="IsFolder" Type="bool" Value="True"/>
+											</PropertyList>
+											<TransitionInfo/>
+										</MusicTransition>
+									</TransitionList>
+									<SequenceList>
+										<MusicTrackSequence Name="" ID="{F49BFA3F-1D93-4576-B490-49C232CC3506}">
+											<ClipList>
+												<MusicClip Name="russiaRobot_music_track_01_piano_01" ID="{EBCEC160-5437-4179-AA0F-A5C1CE23462C}">
+													<PropertyList>
+														<Property Name="EndTrimOffset" Type="Real64" Value="38918.9375"/>
+														<Property Name="FadeInMode" Type="int16" Value="0"/>
+														<Property Name="FadeOutMode" Type="int16" Value="0"/>
+													</PropertyList>
+													<AudioSourceRef Name="russiaRobot_music_track_01_piano_01" ID="{4A415DD6-CF28-4623-B334-2107DB6DBD1F}"/>
+												</MusicClip>
+											</ClipList>
+										</MusicTrackSequence>
+									</SequenceList>
+								</MusicTrack>
+								<MusicTrack Name="russiaRobot_music_track_01_danger_01" ID="{CD240B9E-DD09-4ED2-A0D5-394975718A16}" ShortID="571082528">
+									<ReferenceList>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="russiaRobot_music_track_01_danger_01" ID="{032A5569-9709-4BA5-833D-7C01991D6899}" ShortID="471791141">
+											<Language>SFX</Language>
+											<AudioFile>russiaRobot_music_track_01_danger_01.wav</AudioFile>
+										</AudioFileSource>
+									</ChildrenList>
+									<TransitionList>
+										<MusicTransition Name="Root" ID="{289386C5-0F06-41EC-824E-EAB55BAA78B7}">
+											<PropertyList>
+												<Property Name="IsFolder" Type="bool" Value="True"/>
+											</PropertyList>
+											<TransitionInfo/>
+										</MusicTransition>
+									</TransitionList>
+									<SequenceList>
+										<MusicTrackSequence Name="" ID="{293DF97D-A1A8-466B-AD7F-4C431A0CA327}">
+											<ClipList>
+												<MusicClip Name="russiaRobot_music_track_01_danger_01" ID="{7124D6F9-6F07-4409-BADD-D7C58292C6F2}">
+													<PropertyList>
+														<Property Name="EndTrimOffset" Type="Real64" Value="38918.9375"/>
+														<Property Name="FadeInMode" Type="int16" Value="0"/>
+														<Property Name="FadeOutMode" Type="int16" Value="0"/>
+													</PropertyList>
+													<AudioSourceRef Name="russiaRobot_music_track_01_danger_01" ID="{032A5569-9709-4BA5-833D-7C01991D6899}"/>
+												</MusicClip>
+											</ClipList>
+										</MusicTrackSequence>
+									</SequenceList>
+								</MusicTrack>
+								<MusicTrack Name="russiaRobot_music_track_01_bass_02" ID="{6713AC79-D809-456C-9927-A6384648BC76}" ShortID="682099006">
+									<ReferenceList>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="russiaRobot_music_track_01_bass_01" ID="{B390D8D2-4246-4C07-906A-FDA95FAD8D4F}" ShortID="203933102">
+											<Language>SFX</Language>
+											<AudioFile>russiaRobot_music_track_01_bass_01.wav</AudioFile>
+											<ConvertedFileIDList>
+												<File ID="180878532"/>
+											</ConvertedFileIDList>
+										</AudioFileSource>
+									</ChildrenList>
+									<TransitionList>
+										<MusicTransition Name="Root" ID="{9CE1DDE3-FAAB-413C-852C-698F7C0A8D82}">
+											<PropertyList>
+												<Property Name="IsFolder" Type="bool" Value="True"/>
+											</PropertyList>
+											<TransitionInfo/>
+										</MusicTransition>
+									</TransitionList>
+									<SequenceList>
+										<MusicTrackSequence Name="" ID="{27533A99-B0E5-43C9-92C4-430D63117D52}">
+											<ClipList>
+												<MusicClip Name="russiaRobot_music_track_01_bass_01" ID="{101DA345-281D-4DC5-8A8B-189C632B02F2}">
+													<PropertyList>
+														<Property Name="EndTrimOffset" Type="Real64" Value="38918.9375"/>
+														<Property Name="FadeInMode" Type="int16" Value="0"/>
+														<Property Name="FadeOutMode" Type="int16" Value="0"/>
+													</PropertyList>
+													<AudioSourceRef Name="russiaRobot_music_track_01_bass_01" ID="{B390D8D2-4246-4C07-906A-FDA95FAD8D4F}"/>
+												</MusicClip>
+											</ClipList>
+										</MusicTrackSequence>
+									</SequenceList>
+								</MusicTrack>
+							</ChildrenList>
+							<CueList>
+								<MusicCue Name="Entry Cue" ID="{475DF325-2696-4F3D-A3F9-8B1E6CC1E3DD}"/>
+								<MusicCue Name="Exit Cue" ID="{5C812DCD-92C5-46FD-8FE9-F90DF115DC98}">
+									<PropertyList>
+										<Property Name="CueType" Type="int16" Value="1"/>
+										<Property Name="TimeMs" Type="Real64" Value="34578.8891779397"/>
+									</PropertyList>
+								</MusicCue>
+							</CueList>
+						</MusicSegment>
+						<MusicSegment Name="Piano_02" ID="{7B0A893B-15CF-4640-B153-147CAC01C3E1}" ShortID="550144278">
+							<PropertyList>
+								<Property Name="EndPosition" Type="Real64" Value="38918.9375"/>
+							</PropertyList>
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<MusicTrack Name="russiaRobot_music_track_01_piano_02" ID="{72021814-C492-4816-B0C8-CFB7D9D287D5}" ShortID="359144207">
+									<ReferenceList>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="russiaRobot_music_track_01_piano_02" ID="{C0142C60-A34C-4D3B-AC5D-86DA6CC9A0C9}" ShortID="107844632">
+											<Language>SFX</Language>
+											<AudioFile>russiaRobot_music_track_01_piano_02.wav</AudioFile>
+											<ConvertedFileIDList>
+												<File ID="822657689"/>
+											</ConvertedFileIDList>
+										</AudioFileSource>
+									</ChildrenList>
+									<TransitionList>
+										<MusicTransition Name="Root" ID="{B7CEC45C-F5DA-4820-9E7D-785BABF39034}">
+											<PropertyList>
+												<Property Name="IsFolder" Type="bool" Value="True"/>
+											</PropertyList>
+											<TransitionInfo/>
+										</MusicTransition>
+									</TransitionList>
+									<SequenceList>
+										<MusicTrackSequence Name="" ID="{BC4FB874-526F-4E20-93A1-17EF8E9AF026}">
+											<ClipList>
+												<MusicClip Name="russiaRobot_music_track_01_piano_02" ID="{EC175B3A-04C5-40C8-AB8A-9AFF0815071E}">
+													<PropertyList>
+														<Property Name="EndTrimOffset" Type="Real64" Value="38918.9375"/>
+														<Property Name="FadeInMode" Type="int16" Value="0"/>
+														<Property Name="FadeOutMode" Type="int16" Value="0"/>
+													</PropertyList>
+													<AudioSourceRef Name="russiaRobot_music_track_01_piano_02" ID="{C0142C60-A34C-4D3B-AC5D-86DA6CC9A0C9}"/>
+												</MusicClip>
+											</ClipList>
+										</MusicTrackSequence>
+									</SequenceList>
+								</MusicTrack>
+								<MusicTrack Name="russiaRobot_music_track_01_danger_01" ID="{9ABF3D0E-E059-445C-9DA2-E5F50C9F362C}" ShortID="688300613">
+									<ReferenceList>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="russiaRobot_music_track_01_danger_01" ID="{1413A48E-4A6D-4511-8FFC-794E66C9DF77}" ShortID="960252478">
+											<Language>SFX</Language>
+											<AudioFile>russiaRobot_music_track_01_danger_01.wav</AudioFile>
+											<ConvertedFileIDList>
+												<File ID="471791141"/>
+											</ConvertedFileIDList>
+										</AudioFileSource>
+									</ChildrenList>
+									<TransitionList>
+										<MusicTransition Name="Root" ID="{FC473272-9F0D-40F6-8464-9DE025F3078B}">
+											<PropertyList>
+												<Property Name="IsFolder" Type="bool" Value="True"/>
+											</PropertyList>
+											<TransitionInfo/>
+										</MusicTransition>
+									</TransitionList>
+									<SequenceList>
+										<MusicTrackSequence Name="" ID="{71A4E5F8-0D4A-4E94-8277-CB2FEFFD5569}">
+											<ClipList>
+												<MusicClip Name="russiaRobot_music_track_01_danger_01" ID="{C103A5E0-3736-4FA9-942F-AABA7A84AC8D}">
+													<PropertyList>
+														<Property Name="EndTrimOffset" Type="Real64" Value="38918.9375"/>
+														<Property Name="FadeInMode" Type="int16" Value="0"/>
+														<Property Name="FadeOutMode" Type="int16" Value="0"/>
+													</PropertyList>
+													<AudioSourceRef Name="russiaRobot_music_track_01_danger_01" ID="{1413A48E-4A6D-4511-8FFC-794E66C9DF77}"/>
+												</MusicClip>
+											</ClipList>
+										</MusicTrackSequence>
+									</SequenceList>
+								</MusicTrack>
+								<MusicTrack Name="russiaRobot_music_track_01_bass_02" ID="{555040F5-EFCF-47F2-8E25-FFF4B2534F52}" ShortID="808684948">
+									<ReferenceList>
+										<Reference Name="OutputBus">
+											<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+										</Reference>
+									</ReferenceList>
+									<ChildrenList>
+										<AudioFileSource Name="russiaRobot_music_track_01_bass_01" ID="{14337C50-569D-41BB-8BA8-1C85BE14272B}" ShortID="242771111">
+											<Language>SFX</Language>
+											<AudioFile>russiaRobot_music_track_01_bass_01.wav</AudioFile>
+											<ConvertedFileIDList>
+												<File ID="180878532"/>
+											</ConvertedFileIDList>
+										</AudioFileSource>
+									</ChildrenList>
+									<TransitionList>
+										<MusicTransition Name="Root" ID="{A25E87A1-D4BB-4B83-B3EE-A51BFECAD280}">
+											<PropertyList>
+												<Property Name="IsFolder" Type="bool" Value="True"/>
+											</PropertyList>
+											<TransitionInfo/>
+										</MusicTransition>
+									</TransitionList>
+									<SequenceList>
+										<MusicTrackSequence Name="" ID="{E055F856-CF08-4D62-B5FE-4201F6C95EA7}">
+											<ClipList>
+												<MusicClip Name="russiaRobot_music_track_01_bass_01" ID="{71640EBC-ADE5-4EAE-BD89-792129871657}">
+													<PropertyList>
+														<Property Name="EndTrimOffset" Type="Real64" Value="38918.9375"/>
+														<Property Name="FadeInMode" Type="int16" Value="0"/>
+														<Property Name="FadeOutMode" Type="int16" Value="0"/>
+													</PropertyList>
+													<AudioSourceRef Name="russiaRobot_music_track_01_bass_01" ID="{14337C50-569D-41BB-8BA8-1C85BE14272B}"/>
+												</MusicClip>
+											</ClipList>
+										</MusicTrackSequence>
+									</SequenceList>
+								</MusicTrack>
+							</ChildrenList>
+							<CueList>
+								<MusicCue Name="Entry Cue" ID="{883D998F-EFF3-461C-8A3B-37BAFD869CEE}"/>
+								<MusicCue Name="Exit Cue" ID="{102083AF-7F48-4ABD-9966-C3F396F86413}">
+									<PropertyList>
+										<Property Name="CueType" Type="int16" Value="1"/>
+										<Property Name="TimeMs" Type="Real64" Value="34578.8891779397"/>
+									</PropertyList>
+								</MusicCue>
+							</CueList>
+						</MusicSegment>
+					</ChildrenList>
+					<TransitionList>
+						<MusicTransition Name="Root" ID="{2EE860AA-12A6-46C3-B121-2C2DAA83E5F3}">
+							<PropertyList>
+								<Property Name="IsFolder" Type="bool" Value="True"/>
+							</PropertyList>
+							<ChildrenList>
+								<MusicTransition Name="Transition" ID="{7DB4CA2E-0E6B-4DC7-8794-CB43E3F71D16}">
+									<TransitionInfo/>
+								</MusicTransition>
+							</ChildrenList>
+							<TransitionInfo/>
+						</MusicTransition>
+					</TransitionList>
+					<Playlist>
+						<MusicPlaylistItem Name="" ID="{5967D598-3029-4CBD-B474-5017215674DE}" ShortID="1045693086">
+							<PropertyList>
+								<Property Name="LoopCount" Type="int16" Value="0"/>
+							</PropertyList>
+							<ChildrenList>
+								<MusicPlaylistItem Name="" ID="{9C8BE2C8-9C7A-404B-8A93-5F0F32EC04EB}" ShortID="276460321">
+									<PropertyList>
+										<Property Name="NormalOrShuffle" Type="int16" Value="0"/>
+										<Property Name="PlayMode" Type="int16" Value="2"/>
+									</PropertyList>
+									<ChildrenList>
+										<MusicPlaylistItem Name="" ID="{890EB8AA-8F7C-489A-9F5D-437F66F70A14}" ShortID="925011957">
+											<PropertyList>
+												<Property Name="PlaylistItemType" Type="int16" Value="1"/>
+											</PropertyList>
+											<SegmentRef Name="Piano_01" ID="{FF81C1F3-11CA-4A4B-9FAD-9EBC3979BB6E}"/>
+										</MusicPlaylistItem>
+										<MusicPlaylistItem Name="" ID="{4E054420-4556-4AF2-ACDA-7EB339E49914}" ShortID="1054039496">
+											<PropertyList>
+												<Property Name="PlaylistItemType" Type="int16" Value="1"/>
+											</PropertyList>
+											<SegmentRef Name="Piano_02" ID="{7B0A893B-15CF-4640-B153-147CAC01C3E1}"/>
+										</MusicPlaylistItem>
+										<MusicPlaylistItem Name="" ID="{EA80A934-139B-48DB-9208-CAC7E2F90486}" ShortID="1006085533">
+											<PropertyList>
+												<Property Name="PlaylistItemType" Type="int16" Value="1"/>
+											</PropertyList>
+											<SegmentRef Name="Piano_03" ID="{10C1B6C8-751B-4FF4-9A33-E837E76CC05D}"/>
+										</MusicPlaylistItem>
+										<MusicPlaylistItem Name="" ID="{1F3E4D45-FF61-4371-917E-05D19C39EF7C}" ShortID="796721478">
+											<PropertyList>
+												<Property Name="PlaylistItemType" Type="int16" Value="1"/>
+											</PropertyList>
+											<SegmentRef Name="Piano_04" ID="{35AFF666-A0B0-47F1-A679-F307E46C56F3}"/>
+										</MusicPlaylistItem>
+									</ChildrenList>
+								</MusicPlaylistItem>
+							</ChildrenList>
+						</MusicPlaylistItem>
+					</Playlist>
+				</MusicPlaylistContainer>
+			</ChildrenList>
+		</WorkUnit>
+	</InteractiveMusic>
+</WwiseDocument>

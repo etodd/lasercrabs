@@ -9,6 +9,10 @@ if (WIN32)
 		AK/StreamManager/Win32/AkIOThread.h
 		AK/StreamManager/Win32/AkIOThread.cpp
 		AK/StreamManager/Win32/AkPlatformStreamingDefaults.h
+		AK/StreamManager/Win32/AkDefaultIOHookDeferred.h
+		AK/StreamManager/Win32/AkDefaultIOHookDeferred.cpp
+		AK/StreamManager/Win32/AkFilePackageLowLevelIOBlocking.h
+		AK/StreamManager/Win32/AkFilePackageLowLevelIODeferred.h
 	)
 elseif (APPLE)
 	set(WWISE_PLATFORM_INCLUDE_PATHS
@@ -21,7 +25,10 @@ elseif (APPLE)
 		AK/StreamManager/POSIX/AkFileHelpers.h
 		AK/StreamManager/POSIX/AkIOThread.h
 		AK/StreamManager/POSIX/AkIOThread.cpp
-		AK/StreamManager/Mac/AkPlatformStreamingDefaults.h
+		AK/StreamManager/POSIX/AkDefaultIOHookDeferred.h
+		AK/StreamManager/POSIX/AkDefaultIOHookDeferred.cpp
+		AK/StreamManager/POSIX/AkFilePackageLowLevelIOBlocking.h
+		AK/StreamManager/POSIX/AkFilePackageLowLevelIODeferred.h
 	)
 elseif (PLAYSTATION)
 	set(WWISE_PLATFORM_INCLUDE_PATHS
@@ -46,6 +53,10 @@ else() # Linux
 		AK/StreamManager/POSIX/AkFileHelpers.h
 		AK/StreamManager/POSIX/AkIOThread.h
 		AK/StreamManager/POSIX/AkIOThread.cpp
+		AK/StreamManager/POSIX/AkDefaultIOHookDeferred.h
+		AK/StreamManager/POSIX/AkDefaultIOHookDeferred.cpp
+		AK/StreamManager/POSIX/AkFilePackageLowLevelIOBlocking.h
+		AK/StreamManager/POSIX/AkFilePackageLowLevelIODeferred.h
 		AK/StreamManager/Linux/AkPlatformStreamingDefaults.h
 	)
 endif()
@@ -75,6 +86,12 @@ add_library(wwise_integration STATIC
 	AK/StreamManager/Common/AkStreamMgr.cpp
 	AK/StreamManager/Common/AkTransferDeferred.h
 	AK/StreamManager/Common/AkTransferDeferred.cpp
+	AK/StreamManager/Common/AkFilePackage.cpp
+	AK/StreamManager/Common/AkFilePackage.h
+	AK/StreamManager/Common/AkFilePackageLUT.cpp
+	AK/StreamManager/Common/AkFilePackageLUT.h
+	AK/StreamManager/Common/AkFilePackageLowLevelIO.h
+	AK/StreamManager/Common/AkFilePackageLowLevelIO.inl
 	${WWISE_PLATFORM_SOURCES}
 )
 
@@ -104,8 +121,8 @@ if (WIN32)
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Win/Release/AkRoomVerbFX
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Win/Debug/AkDelayFX
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Win/Release/AkDelayFX
-		debug ${CMAKE_CURRENT_SOURCE_DIR}/Win/Debug/AkSynthOne
-		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Win/Release/AkSynthOne
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/Win/Debug/AkSynthOneSource
+		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Win/Release/AkSynthOneSource
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Win/Debug/CommunicationCentral
 	)
 elseif (APPLE)
@@ -126,8 +143,8 @@ elseif (APPLE)
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkRoomVerbFX.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libAkDelayFX.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkDelayFX.a
-		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libAkSynthOne.a
-		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkSynthOne.a
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libAkSynthOneSource.a
+		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkSynthOneSource.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libCommunicationCentral.a
 	)
 elseif (PLAYSTATION)
@@ -148,8 +165,8 @@ elseif (PLAYSTATION)
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkRoomVerbFX.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkDelayFX.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkDelayFX.a
-		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkSynthOne.a
-		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkSynthOne.a
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkSynthOneSource.a
+		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkSynthOneSource.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libCommunicationCentral.a
 	)
 else() # Linux
@@ -171,7 +188,7 @@ else() # Linux
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkRoomVerbFX.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkDelayFX.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkDelayFX.a
-		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkSynthOne.a
-		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkSynthOne.a
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkSynthOneSource.a
+		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkSynthOneSource.a
 	)
 endif()

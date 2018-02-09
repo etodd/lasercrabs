@@ -21,8 +21,8 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2017.1.0  Build: 6302
-  Copyright (c) 2006-2017 Audiokinetic Inc.
+  Version: v2017.2.1  Build: 6524
+  Copyright (c) 2006-2018 Audiokinetic Inc.
 *******************************************************************************/
 
 // AkTypes.h
@@ -101,13 +101,13 @@ typedef AkUInt32		AkChannelMask;				///< Channel mask (similar to WAVE_FORMAT_EX
 typedef AkUInt32		AkModulatorID;				///< Modulator ID
 typedef AkUInt32		AkAcousticTextureID;		///< Acoustic Texture ID
 typedef AkUInt32		AkImageSourceID;			///< Image Source ID
+typedef AkUInt64		AkOutputDeviceID;			///< Audio Output device ID
 
 // Constants.
 static const AkPluginID					AK_INVALID_PLUGINID					= (AkPluginID)-1;		///< Invalid FX ID
 static const AkGameObjectID				AK_INVALID_GAME_OBJECT				= (AkGameObjectID)-1;	///< Invalid game object (may also mean all game objects)
 static const AkUniqueID					AK_INVALID_UNIQUE_ID				=  0;					///< Invalid unique 32-bit ID
 static const AkRtpcID					AK_INVALID_RTPC_ID					=  AK_INVALID_UNIQUE_ID;///< Invalid RTPC ID
-static const AkUInt32					AK_INVALID_LISTENER_INDEX			= (AkUInt32)-1;			///< Invalid listener index
 static const AkPlayingID				AK_INVALID_PLAYING_ID				=  AK_INVALID_UNIQUE_ID;///< Invalid playing ID
 static const AkUInt32					AK_DEFAULT_SWITCH_STATE				=  0;					///< Switch selected if no switch has been set yet
 static const AkMemPoolId				AK_INVALID_POOL_ID					= -1;					///< Invalid pool ID
@@ -119,7 +119,7 @@ static const AkBankID					AK_INVALID_BANK_ID					=  AK_INVALID_UNIQUE_ID;///< In
 static const AkArgumentValueID			AK_FALLBACK_ARGUMENTVALUE_ID		=  0;					///< Fallback argument value ID
 static const AkChannelMask				AK_INVALID_CHANNELMASK				=  0;					///< Invalid channel mask
 static const AkUInt32					AK_INVALID_OUTPUT_DEVICE_ID			=  AK_INVALID_UNIQUE_ID;///< Invalid Device ID
-static const AkGameObjectID				AK_DEFAULT_LISTENER_OBJ				= 0;					///< Default listener ID 0
+
 // Priority.
 static const AkPriority					AK_DEFAULT_PRIORITY					=  50;					///< Default sound / I/O priority
 static const AkPriority					AK_MIN_PRIORITY						=  0;					///< Minimal priority value [0,100]
@@ -130,7 +130,7 @@ static const AkPriority					AK_DEFAULT_BANK_IO_PRIORITY			= AK_DEFAULT_PRIORITY;
 static const AkReal32					AK_DEFAULT_BANK_THROUGHPUT			= 1*1024*1024/1000.f;	///<  Default bank load throughput (1 Mb/ms)
 
 // Bank version
-static const AkUInt32					AK_SOUNDBANK_VERSION =				125;					///<  Version of the soundbank reader
+static const AkUInt32					AK_SOUNDBANK_VERSION =				128;					///<  Version of the soundbank reader
 
 /// Standard function call result.
 enum AKRESULT
@@ -218,7 +218,11 @@ enum AKRESULT
 	AK_CommandTooLarge			= 81,	///< SDK command is too large to fit in the command queue.
 	AK_RejectedByFilter			= 82,	///< A play request was rejected due to the MIDI filter parameters.
 	AK_InvalidCustomPlatformName= 83,	///< Detecting incompatibility between Custom platform of banks and custom platform of connected application
-	AK_DLLCannotLoad			= 84	///< DLL could not be loaded, either because it is not found or one dependency is missing.
+	AK_DLLCannotLoad			= 84,	///< Plugin DLL could not be loaded, either because it is not found or one dependency is missing.
+	AK_DLLPathNotFound			= 85,	///< Plugin DLL search path could not be found.
+	AK_NoJavaVM					= 86,	///< No Java VM provided in AkInitSettings.
+	AK_OpenSLError				= 87,	///< OpenSL returned an error.  Check error log for more details.
+	AK_PluginNotRegistered		= 88,	///< Plugin is not registered.  Make sure to implement a AK::PluginRegistration class for it and use AK_STATIC_LINK_PLUGIN in the game binary.
 };
 
 /// Game sync group type
@@ -299,12 +303,27 @@ enum AkConnectionType
 	ConnectionType_Direct = 0x0,			///< Direct (main, dry) connection.
 	ConnectionType_GameDefSend = 0x1,		///< Connection by a game-defined send.
 	ConnectionType_UserDefSend = 0x2,		///< Connection by a user-defined send.
-	ConnectionType_AudioToMotion = 0x3 		///< Connection by a motion send.
 };
 
 /// 3D vector.
 struct AkVector
 {
+	inline AkVector operator+(const AkVector& b) const
+	{
+		AkVector v;
+
+		v.X = X + b.X;
+		v.Y = Y + b.Y;
+		v.Z = Z + b.Z;
+
+		return v;
+	}
+
+	inline void Zero()
+	{
+		X = 0; Y = 0; Z = 0;
+	}
+
     AkReal32		X;	///< X Position
     AkReal32		Y;	///< Y Position
     AkReal32		Z;	///< Z Position
@@ -450,14 +469,6 @@ struct AkChannelEmitter
 	AkChannelMask	uInputChannels;	///< Channels to which the above position applies.
 };
 
-struct AkChannelEmitterEx : public AkChannelEmitter
-{
-	AkChannelEmitterEx() : AkChannelEmitter(), occlusion(0.f), obstruction(0.f) {}
-
-	AkReal32 occlusion;
-	AkReal32 obstruction;
-};
-
 /// Polar coordinates.
 struct AkPolarCoord
 {
@@ -479,11 +490,14 @@ public:
 	AkEmitterListenerPair() 
 		: fDistance( 0.f )
 		, fEmitterAngle( 0.f )
+		, fListenerAngle( 0.f )
 		, fDryMixGain( 1.f )
 		, fGameDefAuxMixGain( 1.f )
 		, fUserDefAuxMixGain( 1.f )
 		, fOcclusion(0.f)
 		, fObstruction(0.f)
+		, fSpread(0.f)
+		, fFocus(0.f)
 		, uEmitterChannelMask( 0xFFFFFFFF )
 		, m_uListenerID( 0 )
 	{
@@ -498,6 +512,10 @@ public:
 	/// the line that joins the emitter and the listener.
 	inline AkReal32 EmitterAngle() const { return fEmitterAngle; }
 
+	/// Get the absolute angle, in radians between 0 and pi, of the listener's orientation relative to
+	/// the line that joins the emitter and the listener
+	inline AkReal32 ListenerAngle() const { return fListenerAngle; }
+
 	/// Get the occlusion factor for this emitter-listener pair
 	inline AkReal32 Occlusion() const { return fOcclusion; }
 
@@ -507,7 +525,7 @@ public:
 	/// Get the emitter-listener-pair-specific gain (due to distance and cone attenuation), linear [0,1], for a given connection type.
 	inline AkReal32 GetGainForConnectionType(AkConnectionType in_eType) const 
 	{
-		if (in_eType == ConnectionType_Direct || in_eType == ConnectionType_AudioToMotion )
+		if (in_eType == ConnectionType_Direct)
 			return fDryMixGain;
 		else if (in_eType == ConnectionType_GameDefSend)
 			return fGameDefAuxMixGain;
@@ -521,14 +539,17 @@ public:
 	AkTransform emitter;				/// Emitter position.
 	AkReal32 fDistance;					/// Distance between emitter and listener.
 	AkReal32 fEmitterAngle;				/// Angle between position vector and emitter orientation.
+	AkReal32 fListenerAngle;			/// Angle between position vector and listener orientation.
 	AkReal32 fDryMixGain;				/// Emitter-listener-pair-specific gain (due to distance and cone attenuation) for direct connections.
 	AkReal32 fGameDefAuxMixGain;		/// Emitter-listener-pair-specific gain (due to distance and cone attenuation) for game-defined send connections.
 	AkReal32 fUserDefAuxMixGain;		/// Emitter-listener-pair-specific gain (due to distance and cone attenuation) for user-defined send connections.
 	AkReal32 fOcclusion;				/// Emitter-listener-pair-specific occlusion factor
 	AkReal32 fObstruction;				/// Emitter-listener-pair-specific obstruction factor
+	AkReal32 fSpread;					/// Emitter-listener-pair-specific spread
+	AkReal32 fFocus;					/// Emitter-listener-pair-specific focus
 	AkChannelMask uEmitterChannelMask;	/// Channels of the emitter that apply to this ray.
 protected:
-	AkGameObjectID m_uListenerID;		/// Listener mask (in the 3D case, only one bit should be set).
+	AkGameObjectID m_uListenerID;		/// Listener game object ID.
 };
 
 /// Listener information.
@@ -567,19 +588,6 @@ enum AkCurveInterpolation
 //expanded to 32 bits.
 };
 #define AKCURVEINTERPOLATION_NUM_STORAGE_BIT 5 ///< Internal storage restriction, for internal use only.
-
-#ifndef AK_MAX_AUX_PER_OBJ
-	#define AK_MAX_AUX_PER_OBJ			(4) ///< Maximum number of environments in which a single game object may be located at a given time.
-
-	// This define is there to Limit the number of Aux per sound that can be processed.
-	// This value must be >= AK_MAX_AUX_PER_OBJ and >= AK_NUM_AUX_SEND_PER_OBJ (4)
-	#define AK_MAX_AUX_SUPPORTED					(AK_MAX_AUX_PER_OBJ + 4)
-#else
-	// This define is there to Limit the number of Aux per sound that can be processed.
-	// This value must be >= AK_MAX_AUX_PER_OBJ and >= AK_MAX_AUX_PER_NODE
-	#define AK_MAX_AUX_SUPPORTED					AK_MAX_AUX_PER_OBJ
-
-#endif
 
 /// Auxiliary bus sends information per game object per given auxiliary bus.
 struct AkAuxSendValue
@@ -771,6 +779,14 @@ enum AkPanningRule
 	AkPanningRule_Headphones 	= 1		///< Left and right positioned 180 degrees apart.
 };
 
+/// 3D spatialization mode.
+enum Ak3DSpatializationMode
+{
+	AK_SpatializationMode_None = 0,						///< No spatialization
+	AK_SpatializationMode_PositionOnly = 1,				///< Spatialization based on emitter position only.
+	AK_SpatializationMode_PositionAndOrientation = 2	///< Spatialization based on both emitter position and emitter orientation.
+};
+
 /// Bus type bit field.
 enum AkBusHierarchyFlags
 {
@@ -801,8 +817,8 @@ enum AkPluginType
 	AkPluginTypeCodec = 1,	///< Compressor/decompressor plug-in (allows support for custom audio file types).
 	AkPluginTypeSource = 2,	///< Source plug-in: creates sound by synthesis method (no input, just output).
 	AkPluginTypeEffect = 3,	///< Effect plug-in: applies processing to audio data.
-	AkPluginTypeMotionDevice = 4,	///< Motion Device plug-in: feeds movement data to devices.
-	AkPluginTypeMotionSource = 5,	///< Motion Device source plug-in: feeds movement data to device busses.
+	//AkPluginTypeMotionDevice = 4,	///< Motion Device plug-in: feeds movement data to devices. Deprecated by Motion refactor.
+	//AkPluginTypeMotionSource = 5,	///< Motion Device source plug-in: feeds movement data to device busses. Deprecated by Motion refactor.
 	AkPluginTypeMixer = 6,	///< Mixer plug-in: mix voices at the bus level.
 	AkPluginTypeSink = 7,	///< Sink plug-in: implement custom sound engine end point.
 	AkPluginTypeMask = 0xf 	///< Plug-in type mask is 4 bits.

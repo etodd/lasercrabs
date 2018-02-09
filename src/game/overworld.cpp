@@ -478,7 +478,7 @@ void master_server_list_end(ServerListType type, s32 length)
 
 void multiplayer_entry_edit_cancel(s8 gamepad = 0)
 {
-	if (Game::level.mode == Game::Mode::Pvp) // we are currently in the server we're editing
+	if (Game::level.mode != Game::Mode::Special) // we are currently in the server we're editing
 		hide();
 	else
 	{
@@ -623,7 +623,7 @@ void multiplayer_entry_edit_update(const Update& u)
 #if !SERVER
 			Net::Client::master_cancel_outgoing();
 #endif
-			if (Game::level.mode == Game::Mode::Pvp) // we are currently in the server we're editing
+			if (Game::level.mode != Game::Mode::Special) // we are currently in the server we're editing
 				hide();
 		}
 	}
@@ -1089,7 +1089,7 @@ void master_server_config_saved(u32 id, u32 request_id)
 		&& data.multiplayer.state == Data::Multiplayer::State::EntryEdit
 		&& data.multiplayer.request_id == request_id)
 	{
-		if (Game::level.mode == Game::Mode::Pvp) // we're editing a server while playing in it
+		if (Game::level.mode != Game::Mode::Special) // we're editing a server while playing in it
 			PlayerHuman::log_add(_(strings::entry_saved_in_game)); // changes will take effect next round
 		else
 			PlayerHuman::log_add(_(strings::entry_saved));
@@ -1140,7 +1140,7 @@ void multiplayer_entry_view_update(const Update& u)
 		{
 			Game::cancel_event_eaten[0] = true;
 			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
-			if (Game::level.mode == Game::Mode::Pvp) // we are currently in the server we're viewing
+			if (Game::level.mode != Game::Mode::Special) // we are currently in the server we're viewing
 				hide();
 			else
 				multiplayer_state_transition(Data::Multiplayer::State::Browse);
@@ -1295,7 +1295,7 @@ void multiplayer_top_bar_layout(Data::Multiplayer::TopBarLayout* layout)
 			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::Back, _(strings::prompt_back));
 			if (data.multiplayer.active_server.is_admin)
 				multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::EditServer, _(strings::prompt_entry_edit));
-			if (Game::level.mode != Game::Mode::Pvp) // if we're not currently connected to the server we're viewing
+			if (Game::level.mode == Game::Mode::Special) // if we're not currently connected to the server we're viewing
 				multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::ConnectServer, _(strings::prompt_connect));
 			break;
 		}
@@ -1322,7 +1322,10 @@ void multiplayer_update(const Update& u)
 		&& (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::Back, u) || (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)))
 		&& !Game::cancel_event_eaten[0])
 	{
-		title();
+		if (Game::level.mode == Game::Mode::Special)
+			title();
+		else
+			hide();
 		Game::cancel_event_eaten[0] = true;
 		return;
 	}
@@ -3505,7 +3508,7 @@ void show_complete()
 
 	Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_SHOW);
 
-	if (data.state == State::Multiplayer && Game::level.mode == Game::Mode::Pvp)
+	if (data.state == State::Multiplayer && Game::level.mode != Game::Mode::Special)
 	{
 		// we're editing a server while playing in that server
 		vi_assert(PlayerHuman::count_local() == 1);

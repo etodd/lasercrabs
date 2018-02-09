@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WwiseDocument Type="WorkUnit" ID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}" SchemaVersion="80">
+	<Busses>
+		<WorkUnit Name="Default Work Unit" ID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}" PersistMode="Standalone">
+			<ChildrenList>
+				<Bus Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}">
+					<PropertyList>
+						<Property Name="DivergenceCenter" Type="int32">
+							<ValueList>
+								<Value>100</Value>
+							</ValueList>
+						</Property>
+					</PropertyList>
+					<ChildrenList>
+						<Bus Name="Music" ID="{7964C80C-6C7B-447F-AF8B-6C14A891BF66}">
+							<PropertyList>
+								<Property Name="BusVolume" Type="Real64">
+									<RTPCList>
+										<RTPC Name="" ID="{0B774BC8-4D21-48A6-9C9A-86A957E3F85F}" ShortID="853417574">
+											<ReferenceList>
+												<Reference Name="ControlInput">
+													<ObjectRef Name="Volume_Music" ID="{B1E54CCC-5EC7-4345-A62F-3A5A4F0365C8}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+												</Reference>
+											</ReferenceList>
+											<Curve Name="" ID="{F6AE5BCC-8393-4242-A6BE-0091304B06B1}">
+												<PropertyList>
+													<Property Name="Flags" Type="int32" Value="3"/>
+												</PropertyList>
+												<PointList>
+													<Point>
+														<XPos>0</XPos>
+														<YPos>-200</YPos>
+														<Flags>5</Flags>
+													</Point>
+													<Point>
+														<XPos>1</XPos>
+														<YPos>0</YPos>
+														<Flags>37</Flags>
+													</Point>
+												</PointList>
+											</Curve>
+										</RTPC>
+									</RTPCList>
+								</Property>
+								<Property Name="DivergenceCenter" Type="int32">
+									<ValueList>
+										<Value>100</Value>
+									</ValueList>
+								</Property>
+							</PropertyList>
+						</Bus>
+						<Bus Name="SFX" ID="{6985FA3D-2022-427D-AD3B-F4D679129AC1}">
+							<PropertyList>
+								<Property Name="BusVolume" Type="Real64">
+									<RTPCList>
+										<RTPC Name="" ID="{2C0DF0F1-3099-4A37-9F5B-82E7E59F69FE}" ShortID="738367756">
+											<ReferenceList>
+												<Reference Name="ControlInput">
+													<ObjectRef Name="Volume_SFX" ID="{31BB14DE-9BFF-4D9D-A09A-D58020485541}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+												</Reference>
+											</ReferenceList>
+											<Curve Name="" ID="{DF9D485A-A5DC-4EB5-BB5F-0FA74F071704}">
+												<PropertyList>
+													<Property Name="Flags" Type="int32" Value="3"/>
+												</PropertyList>
+												<PointList>
+													<Point>
+														<XPos>0</XPos>
+														<YPos>-200</YPos>
+														<Flags>5</Flags>
+													</Point>
+													<Point>
+														<XPos>1</XPos>
+														<YPos>0</YPos>
+														<Flags>37</Flags>
+													</Point>
+												</PointList>
+											</Curve>
+										</RTPC>
+									</RTPCList>
+								</Property>
+								<Property Name="DivergenceCenter" Type="int32">
+									<ValueList>
+										<Value>100</Value>
+									</ValueList>
+								</Property>
+							</PropertyList>
+							<ChildrenList>
+								<Bus Name="Diegetic" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}">
+									<PropertyList>
+										<Property Name="DivergenceCenter" Type="int32">
+											<ValueList>
+												<Value>100</Value>
+											</ValueList>
+										</Property>
+										<Property Name="Pitch" Type="int32">
+											<RTPCList>
+												<RTPC Name="" ID="{0D5D8475-AF44-4AE8-9197-6ABD1190DE62}" ShortID="44526945">
+													<ReferenceList>
+														<Reference Name="ControlInput">
+															<ObjectRef Name="Timescale" ID="{28EF426C-2A0E-4FD7-A0F8-842616EEB055}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+														</Reference>
+													</ReferenceList>
+													<Curve Name="" ID="{85139E63-286D-4C27-BF1E-E67BE0D9CAF0}">
+														<PropertyList>
+															<Property Name="Flags" Type="int32" Value="65537"/>
+														</PropertyList>
+														<PointList>
+															<Point>
+																<XPos>0</XPos>
+																<YPos>-2000</YPos>
+																<Flags>5</Flags>
+															</Point>
+															<Point>
+																<XPos>1</XPos>
+																<YPos>0</YPos>
+																<Flags>37</Flags>
+															</Point>
+														</PointList>
+													</Curve>
+												</RTPC>
+											</RTPCList>
+										</Property>
+									</PropertyList>
+									<ChildrenList>
+										<Bus Name="Dialogue" ID="{E8A73A5E-056C-46B8-875C-9658C99452FC}">
+											<PropertyList>
+												<Property Name="BusVolume" Type="Real64">
+													<ValueList>
+														<Value>-96</Value>
+													</ValueList>
+												</Property>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Effect0">
+													<Custom>
+														<Effect Name="Wwise Meter (Custom)" ID="{64EEEF32-6D0F-4A6D-9BD6-EDD5A5653DA2}" ShortID="479835529" PluginName="Wwise Meter" CompanyID="0" PluginID="129" PluginType="3"/>
+													</Custom>
+												</Reference>
+											</ReferenceList>
+										</Bus>
+										<Bus Name="Drone" ID="{F2897FA2-9BDE-4F5A-A381-DC57C38A7A00}">
+											<PropertyList>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<ChildrenList>
+												<Bus Name="Drone_Locomotion" ID="{9C0E445F-3FE8-4DF7-8574-C491DDCBEFAA}">
+													<PropertyList>
+														<Property Name="DivergenceCenter" Type="int32">
+															<ValueList>
+																<Value>100</Value>
+															</ValueList>
+														</Property>
+													</PropertyList>
+												</Bus>
+												<Bus Name="Drone_Weapon" ID="{B3406AD5-D809-4E23-B569-92AC51234AB6}">
+													<PropertyList>
+														<Property Name="DivergenceCenter" Type="int32">
+															<ValueList>
+																<Value>100</Value>
+															</ValueList>
+														</Property>
+													</PropertyList>
+												</Bus>
+												<Bus Name="Drone_Damage" ID="{062633BD-A757-4FDE-90C8-744F7496BE36}">
+													<PropertyList>
+														<Property Name="DivergenceCenter" Type="int32">
+															<ValueList>
+																<Value>100</Value>
+															</ValueList>
+														</Property>
+													</PropertyList>
+												</Bus>
+												<Bus Name="Drone_Shield" ID="{4FD89901-AE45-498C-AEE2-F944B87FF526}">
+													<PropertyList>
+														<Property Name="DivergenceCenter" Type="int32">
+															<ValueList>
+																<Value>100</Value>
+															</ValueList>
+														</Property>
+													</PropertyList>
+												</Bus>
+											</ChildrenList>
+										</Bus>
+										<Bus Name="Battery" ID="{7183B393-A1E9-4ABA-A739-264E0BD53EA7}">
+											<PropertyList>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+										</Bus>
+										<Bus Name="Aux_Master" ID="{1872FB17-9C67-44F6-ADA7-ABA3CD55FBA9}">
+											<PropertyList>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<ChildrenList>
+												<AuxBus Name="Reverb_Default" ID="{8AFCF3EE-ADA9-4AF1-B98F-705EFEF65007}">
+													<PropertyList>
+														<Property Name="DivergenceCenter" Type="int32">
+															<ValueList>
+																<Value>100</Value>
+															</ValueList>
+														</Property>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Effect0" CompanyID="4095" PluginID="65535" PluginType="15">
+															<ObjectRef Name="Hall_Medium_Dark" ID="{626B6E38-739B-4689-819F-F81AD3788BDE}" WorkUnitID="{E8613F7D-BAD3-45CD-A3ED-505576F31277}"/>
+														</Reference>
+													</ReferenceList>
+												</AuxBus>
+												<AuxBus Name="Reverb_Huge" ID="{1CBD7C8D-95BE-4367-A51C-D87F12C87F48}">
+													<PropertyList>
+														<Property Name="DivergenceCenter" Type="int32">
+															<ValueList>
+																<Value>100</Value>
+															</ValueList>
+														</Property>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Effect0" CompanyID="4095" PluginID="65535" PluginType="15">
+															<ObjectRef Name="Space_Garage" ID="{1AF92D84-49DD-4BBC-8F29-6C6D10082B6E}" WorkUnitID="{E8613F7D-BAD3-45CD-A3ED-505576F31277}"/>
+														</Reference>
+													</ReferenceList>
+												</AuxBus>
+												<AuxBus Name="Reverb_Small" ID="{9B42A0DE-647B-4B0B-8244-1AC45C78531D}">
+													<PropertyList>
+														<Property Name="DivergenceCenter" Type="int32">
+															<ValueList>
+																<Value>100</Value>
+															</ValueList>
+														</Property>
+													</PropertyList>
+													<ReferenceList>
+														<Reference Name="Effect0" CompanyID="4095" PluginID="65535" PluginType="15">
+															<ObjectRef Name="Church_Small_Wood" ID="{940CCB47-F031-4C6A-B0E6-726CAC418C02}" WorkUnitID="{E8613F7D-BAD3-45CD-A3ED-505576F31277}"/>
+														</Reference>
+													</ReferenceList>
+												</AuxBus>
+											</ChildrenList>
+										</Bus>
+										<Bus Name="Minion" ID="{4D7F44D9-3F11-4CD2-8053-4A4710DF97B1}">
+											<PropertyList>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+										</Bus>
+										<Bus Name="Ambience_Outdoor" ID="{671FD099-C447-471C-B015-7ADC69B847EE}">
+											<PropertyList>
+												<Property Name="BusVolume" Type="Real64">
+													<RTPCList>
+														<RTPC Name="" ID="{747C1E96-6962-430D-AACB-0046D4151D9D}" ShortID="540523535">
+															<ReferenceList>
+																<Reference Name="ControlInput">
+																	<ObjectRef Name="Ambience_Indoor_Outdoor" ID="{009637B5-397A-45CB-AC3E-1579D1CBD448}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+																</Reference>
+															</ReferenceList>
+															<Curve Name="" ID="{25820561-6891-4633-B590-7C9F328EC708}">
+																<PropertyList>
+																	<Property Name="Flags" Type="int32" Value="3"/>
+																</PropertyList>
+																<PointList>
+																	<Point>
+																		<XPos>0</XPos>
+																		<YPos>-200</YPos>
+																		<Flags>5</Flags>
+																	</Point>
+																	<Point>
+																		<XPos>1</XPos>
+																		<YPos>0</YPos>
+																		<Flags>37</Flags>
+																	</Point>
+																</PointList>
+															</Curve>
+														</RTPC>
+													</RTPCList>
+												</Property>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+										</Bus>
+										<Bus Name="ParkourVocals" ID="{A3679190-C4F9-411F-B374-AC1A4144629E}">
+											<PropertyList>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+											<DuckingList>
+												<DuckItem>
+													<BusRef Name="ParkourBreathing" ID="{3B4B3BBF-C360-4A32-8F20-AD80BA15F5E1}"/>
+													<DuckingParam>
+														<Volume>-96</Volume>
+														<FadeInTime>0.100000001490116</FadeInTime>
+														<FadeOutTime>1</FadeOutTime>
+														<FadeCurve>FadeLinear</FadeCurve>
+													</DuckingParam>
+												</DuckItem>
+											</DuckingList>
+										</Bus>
+										<Bus Name="ParkourBreathing" ID="{3B4B3BBF-C360-4A32-8F20-AD80BA15F5E1}">
+											<PropertyList>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+												<Property Name="RecoveryTime" Type="Real64" Value="2"/>
+											</PropertyList>
+										</Bus>
+										<Bus Name="Ambience_Indoor" ID="{CCD5F61C-C882-45A7-98FE-C7E84CB43D6E}">
+											<PropertyList>
+												<Property Name="BusVolume" Type="Real64">
+													<RTPCList>
+														<RTPC Name="" ID="{2ED5CE75-97EB-46BD-BFFE-EFED8DE6F51F}" ShortID="1009413775">
+															<ReferenceList>
+																<Reference Name="ControlInput">
+																	<ObjectRef Name="Ambience_Indoor_Outdoor" ID="{009637B5-397A-45CB-AC3E-1579D1CBD448}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+																</Reference>
+															</ReferenceList>
+															<Curve Name="" ID="{6488DDFE-9583-4204-94ED-7CE314224516}">
+																<PropertyList>
+																	<Property Name="Flags" Type="int32" Value="3"/>
+																</PropertyList>
+																<PointList>
+																	<Point>
+																		<XPos>0</XPos>
+																		<YPos>0</YPos>
+																		<Flags>5</Flags>
+																	</Point>
+																	<Point>
+																		<XPos>1</XPos>
+																		<YPos>-200</YPos>
+																		<Flags>37</Flags>
+																	</Point>
+																</PointList>
+															</Curve>
+														</RTPC>
+													</RTPCList>
+												</Property>
+												<Property Name="DivergenceCenter" Type="int32">
+													<ValueList>
+														<Value>100</Value>
+													</ValueList>
+												</Property>
+											</PropertyList>
+										</Bus>
+									</ChildrenList>
+								</Bus>
+								<Bus Name="UI" ID="{3ECCDB42-2C41-40BC-9EED-68EB2EF11F5C}">
+									<PropertyList>
+										<Property Name="DivergenceCenter" Type="int32">
+											<ValueList>
+												<Value>100</Value>
+											</ValueList>
+										</Property>
+									</PropertyList>
+								</Bus>
+							</ChildrenList>
+						</Bus>
+					</ChildrenList>
+				</Bus>
+				<Bus Name="Master Secondary Bus" ID="{D2E0BC7E-7B3F-4FFE-A670-FAE02761B631}">
+					<PropertyList>
+						<Property Name="DivergenceCenter" Type="int32">
+							<ValueList>
+								<Value>100</Value>
+							</ValueList>
+						</Property>
+					</PropertyList>
+				</Bus>
+				<MotionBus Name="Master Motion Bus" ID="{20A630BA-3398-4676-B927-1004DFE41FD8}"/>
+			</ChildrenList>
+		</WorkUnit>
+	</Busses>
+</WwiseDocument>

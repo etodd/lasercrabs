@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<WwiseDocument Type="WorkUnit" ID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}" SchemaVersion="80">
+<WwiseDocument Type="WorkUnit" ID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}" SchemaVersion="85">
 	<Busses>
 		<WorkUnit Name="Default Work Unit" ID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}" PersistMode="Standalone">
 			<ChildrenList>
@@ -11,6 +11,11 @@
 							</ValueList>
 						</Property>
 					</PropertyList>
+					<ReferenceList>
+						<Reference Name="AudioDevice" PluginName="System" CompanyID="0" PluginID="174" PluginType="7">
+							<ObjectRef Name="System" ID="{D15782D5-3EA6-4092-B838-B819677600A2}" WorkUnitID="{5DD95E1D-45E2-49B7-BCDF-1B8F41375AA5}"/>
+						</Reference>
+					</ReferenceList>
 					<ChildrenList>
 						<Bus Name="Music" ID="{7964C80C-6C7B-447F-AF8B-6C14A891BF66}">
 							<PropertyList>
@@ -389,8 +394,12 @@
 							</ValueList>
 						</Property>
 					</PropertyList>
+					<ReferenceList>
+						<Reference Name="AudioDevice" PluginName="System" CompanyID="0" PluginID="174" PluginType="7">
+							<ObjectRef Name="System" ID="{D15782D5-3EA6-4092-B838-B819677600A2}" WorkUnitID="{5DD95E1D-45E2-49B7-BCDF-1B8F41375AA5}"/>
+						</Reference>
+					</ReferenceList>
 				</Bus>
-				<MotionBus Name="Master Motion Bus" ID="{20A630BA-3398-4676-B927-1004DFE41FD8}"/>
 			</ChildrenList>
 		</WorkUnit>
 	</Busses>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<WwiseDocument Type="WorkUnit" ID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}" SchemaVersion="80">
+<WwiseDocument Type="WorkUnit" ID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}" SchemaVersion="85">
 	<GameParameters>
 		<WorkUnit Name="Default Work Unit" ID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}" PersistMode="Standalone">
 			<ChildrenList>
@@ -55,9 +55,9 @@
 								<Property Name="Max" Type="Real64" Value="1"/>
 							</PropertyList>
 						</GameParameter>
-						<GameParameter Name="Parkour_Slide" ID="{6071C0CE-A3CA-461F-BDE3-5ADA06A81114}">
+						<GameParameter Name="Parkour_Claw_Drag" ID="{6071C0CE-A3CA-461F-BDE3-5ADA06A81114}">
 							<PropertyList>
-								<Property Name="InitialValue" Type="Real64" Value="0"/>
+								<Property Name="InitialValue" Type="Real64" Value="1"/>
 								<Property Name="Max" Type="Real64" Value="1"/>
 							</PropertyList>
 						</GameParameter>

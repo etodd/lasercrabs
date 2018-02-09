@@ -21,8 +21,8 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2017.1.0  Build: 6302
-  Copyright (c) 2006-2017 Audiokinetic Inc.
+  Version: v2017.2.1  Build: 6524
+  Copyright (c) 2006-2018 Audiokinetic Inc.
 *******************************************************************************/
 
 // AkLock.h
@@ -40,9 +40,6 @@ the specific language governing permissions and limitations under the License.
 
 #elif defined (AK_APPLE) 
 #include <AK/Tools/POSIX/AkLock.h>
-
-#elif defined (AK_VITA)
-#include <AK/Tools/Vita/AkLock.h>
 
 #elif defined (AK_ANDROID)
 #include <AK/Tools/POSIX/AkLock.h>

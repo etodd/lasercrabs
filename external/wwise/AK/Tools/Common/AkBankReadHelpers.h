@@ -21,8 +21,8 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2017.1.0  Build: 6302
-  Copyright (c) 2006-2017 Audiokinetic Inc.
+  Version: v2017.2.1  Build: 6524
+  Copyright (c) 2006-2018 Audiokinetic Inc.
 *******************************************************************************/
 
 #ifndef _AK_BANKREADHELPERS_H_
@@ -38,7 +38,7 @@ inline T ReadBankData(
 						)
 {
 	T l_Value;
-#if defined(AK_IOS) || defined(AK_ANDROID) || defined(AK_VITA) || defined(AK_LINUX) || defined(__EMSCRIPTEN__) || defined (AK_NX)
+#if defined(AK_IOS) || defined(AK_ANDROID) || defined(AK_LINUX) || defined(__EMSCRIPTEN__) || defined (AK_NX)
 	typedef struct {T t;} __attribute__((__packed__)) packedStruct;
 	l_Value = ((packedStruct *)in_rptr)->t;
 #else
@@ -159,54 +159,7 @@ inline AkReal64 ReadBankData<AkReal64>(
 }
 #endif
 
-#if defined( __SNC__ ) // Valid for Vita (w/SN Compiler)
-	/// Handle reading float not aligned on proper memory boundaries (banks are byte packed).
-	inline AkReal32 AlignFloat( AkReal32 __unaligned * ptr )
-	{
-		return *ptr;
-	}
-	
-	/// Read data from bank and advance pointer.
-	template<> 
-	inline AkReal32 ReadBankData<AkReal32>( 
-										   AkUInt8*& in_rptr
-	#ifdef _DEBUG
-										   ,AkUInt32& in_rSize
-	#endif
-										   )
-	{
-		AkReal32 l_Value = AlignFloat( ( AkReal32* )in_rptr );
-		in_rptr += sizeof( AkReal32 );
-	#ifdef _DEBUG
-		in_rSize -= sizeof( AkReal32 );
-	#endif
-		return l_Value;
-	}
-	
-	/// Handle reading float not aligned on proper memory boundaries (banks are byte packed).
-	inline AkReal64 AlignFloat( AkReal64 __unaligned * ptr )
-	{
-		return *ptr;
-	}
-	
-	/// Read data from bank and advance pointer.
-	template<> 
-	inline AkReal64 ReadBankData<AkReal64>( 
-										   AkUInt8*& in_rptr
-	#ifdef _DEBUG
-										   ,AkUInt32& in_rSize
-	#endif
-										   )
-	{
-		AkReal64 l_Value = AlignFloat( ( AkReal64* )in_rptr );
-		in_rptr += sizeof( AkReal64 );
-	#ifdef _DEBUG
-		in_rSize -= sizeof( AkReal64 );
-	#endif
-		return l_Value;
-	}
-
-#elif (defined(AK_IOS) && defined(_DEBUG)) // bug with iOS SDK 4.3 in Debug only
+#if (defined(AK_IOS) && defined(_DEBUG)) // bug with iOS SDK 4.3 in Debug only
 
 /// Type conversion helper on some platforms.
 template < typename TO, typename FROM >

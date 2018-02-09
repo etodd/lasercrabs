@@ -21,8 +21,8 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2017.1.0  Build: 6302
-  Copyright (c) 2006-2017 Audiokinetic Inc.
+  Version: v2017.2.1  Build: 6524
+  Copyright (c) 2006-2018 Audiokinetic Inc.
 *******************************************************************************/
 
 #ifndef _AKMONITORERROR_H
@@ -155,6 +155,14 @@ namespace AK
 			ErrorCode_OpusDecodeError,
 			ErrorCode_OpusCreateDecoderFailed,
 
+			ErrorCode_SourcePluginNotFound,
+
+			ErrorCode_VirtualVoiceLimit,
+
+			ErrorCode_AudioDeviceShareSetNotFound,
+
+			ErrorCode_NotEnoughMemoryToStart,
+
 			Num_ErrorCodes // THIS STAYS AT END OF ENUM
 		};
 
@@ -259,100 +267,109 @@ namespace AK
 			AKTEXT("Invalid plug-in execution mode"), // ErrorCode_PluginExecutionInvalid
 			AKTEXT("Could not allocate effect"), // ErrorCode_PluginAllocationFailed
 
-			AKTEXT("Seek table required to seek in Vorbis sources. Please update conversion settings."), // ErrorCode_VorbisRequireSeekTable,
+AKTEXT("Seek table required to seek in Vorbis sources. Please update conversion settings."), // ErrorCode_VorbisRequireSeekTable,
 
-			AKTEXT("Vorbis decoder failure"), // ErrorCode_VorbisDecodeError,
-			AKTEXT("AAC decoder failure"), // ErrorCode_AACDecodeError
+AKTEXT("Vorbis decoder failure"), // ErrorCode_VorbisDecodeError,
+AKTEXT("AAC decoder failure"), // ErrorCode_AACDecodeError
 
-			AKTEXT("Failed creating xWMA decoder"), // ErrorCode_xWMACreateDecoderFailed,
+AKTEXT("Failed creating xWMA decoder"), // ErrorCode_xWMACreateDecoderFailed,
 
-			AKTEXT("Failed creating ATRAC9 decoder"), // ErrorCode_ATRAC9CreateDecoderFailed
-			AKTEXT("Failed creating ATRAC9 decoder: no more ATRAC9 decoding channels available"), // ErrorCode_ATRAC9CreateDecoderFailedChShortage
-			AKTEXT("ATRAC9 decoding failed"), // ErrorCode_ATRAC9DecodeFailed
-			AKTEXT("ATRAC9 context clear failed"), // ErrorCode_ATRAC9ClearContextFailed
-			AKTEXT("ATRAC9 loop section is too small"), // ErrorCode_ATRAC9LoopSectionTooSmall
+AKTEXT("Failed creating ATRAC9 decoder"), // ErrorCode_ATRAC9CreateDecoderFailed
+AKTEXT("Failed creating ATRAC9 decoder: no more ATRAC9 decoding channels available"), // ErrorCode_ATRAC9CreateDecoderFailedChShortage
+AKTEXT("ATRAC9 decoding failed"), // ErrorCode_ATRAC9DecodeFailed
+AKTEXT("ATRAC9 context clear failed"), // ErrorCode_ATRAC9ClearContextFailed
+AKTEXT("ATRAC9 loop section is too small"), // ErrorCode_ATRAC9LoopSectionTooSmall
 
-			AKTEXT("Invalid file header"), // ErrorCode_InvalidAudioFileHeader,
-			AKTEXT("File header too large (due to markers or envelope)"), // ErrorCode_AudioFileHeaderTooLarge,
-			AKTEXT("File or loop region is too small to be played properly"), // ErrorCode_FileTooSmall,
+AKTEXT("Invalid file header"), // ErrorCode_InvalidAudioFileHeader,
+AKTEXT("File header too large (due to markers or envelope)"), // ErrorCode_AudioFileHeaderTooLarge,
+AKTEXT("File or loop region is too small to be played properly"), // ErrorCode_FileTooSmall,
 
-			AKTEXT("Transition not sample-accurate due to mixed channel configurations"), // ErrorCode_TransitionNotAccurateChannel,
-			AKTEXT("Transition not sample-accurate due to source starvation"), // ErrorCode_TransitionNotAccurateStarvation,
-			AKTEXT("Nothing to play"), // ErrorCode_NothingToPlay, 
-			AKTEXT("Play Failed"), // ErrorCode_PlayFailed,	// Notification meaning the play asked was not done for an out of control reason
-											// For example, if The Element has a missing source file.
+AKTEXT("Transition not sample-accurate due to mixed channel configurations"), // ErrorCode_TransitionNotAccurateChannel,
+AKTEXT("Transition not sample-accurate due to source starvation"), // ErrorCode_TransitionNotAccurateStarvation,
+AKTEXT("Nothing to play"), // ErrorCode_NothingToPlay, 
+AKTEXT("Play Failed"), // ErrorCode_PlayFailed,	// Notification meaning the play asked was not done for an out of control reason
+// For example, if The Element has a missing source file.
 
-			AKTEXT("Stinger could not be scheduled in this segment or was dropped"), // ErrorCode_StingerCouldNotBeScheduled,
-			AKTEXT("Segment look-ahead is longer than previous segment in sequence"), // ErrorCode_TooLongSegmentLookAhead,
-			AKTEXT("Cannot schedule music switch transition in upcoming segments: using Exit Cue"), // ErrorCode_CannotScheduleMusicSwitch,
-			AKTEXT("Cannot schedule music segments: Stopping music"), // ErrorCode_TooManySimultaneousMusicSegments,
-			AKTEXT("Music system is stopped because a music playlist is modified"), // ErrorCode_PlaylistStoppedForEditing
-			AKTEXT("Rescheduling music clips because a track was modified"), // ErrorCode_MusicClipsRescheduledAfterTrackEdit
+AKTEXT("Stinger could not be scheduled in this segment or was dropped"), // ErrorCode_StingerCouldNotBeScheduled,
+AKTEXT("Segment look-ahead plus pre-entry duration is longer than previous segment in sequence"), // ErrorCode_TooLongSegmentLookAhead,
+AKTEXT("Cannot schedule music switch transition in upcoming segments: using Exit Cue"), // ErrorCode_CannotScheduleMusicSwitch,
+AKTEXT("Cannot schedule music segments: Stopping music"), // ErrorCode_TooManySimultaneousMusicSegments,
+AKTEXT("Music system is stopped because a music playlist is modified"), // ErrorCode_PlaylistStoppedForEditing
+AKTEXT("Rescheduling music clips because a track was modified"), // ErrorCode_MusicClipsRescheduledAfterTrackEdit
 
-			AKTEXT("Failed creating source"), // ErrorCode_CannotPlaySource_Create,
-			AKTEXT("Virtual source failed becoming physical"), // ErrorCode_CannotPlaySource_VirtualOff,
-			AKTEXT("Error while computing virtual source elapsed time"), // ErrorCode_CannotPlaySource_TimeSkip,
-			AKTEXT("Inconsistent source status"), // ErrorCode_CannotPlaySource_InconsistentState,
-			AKTEXT("Media was not loaded for this source"),// ErrorCode_MediaNotLoaded,
-			AKTEXT("Voice Starvation"), // ErrorCode_VoiceStarving,
-			AKTEXT("Source starvation"), // ErrorCode_StreamingSourceStarving,
-			AKTEXT("XMA decoder starvation"), // ErrorCode_XMADecoderSourceStarving,
-			AKTEXT("XMA decoding error"), // ErrorCode_XMADecodingError
-			AKTEXT("Invalid XMA data - Make sure data is allocated from APU memory and is aligned to 2K."), // ErrorCode_InvalidXMAData
+AKTEXT("Failed creating source"), // ErrorCode_CannotPlaySource_Create,
+AKTEXT("Virtual source failed becoming physical"), // ErrorCode_CannotPlaySource_VirtualOff,
+AKTEXT("Error while computing virtual source elapsed time"), // ErrorCode_CannotPlaySource_TimeSkip,
+AKTEXT("Inconsistent source status"), // ErrorCode_CannotPlaySource_InconsistentState,
+AKTEXT("Media was not loaded for this source"),// ErrorCode_MediaNotLoaded,
+AKTEXT("Voice Starvation"), // ErrorCode_VoiceStarving,
+AKTEXT("Source starvation"), // ErrorCode_StreamingSourceStarving,
+AKTEXT("XMA decoder starvation"), // ErrorCode_XMADecoderSourceStarving,
+AKTEXT("XMA decoding error"), // ErrorCode_XMADecodingError
+AKTEXT("Invalid XMA data - Make sure data is allocated from APU memory and is aligned to 2K."), // ErrorCode_InvalidXMAData
 
-			AKTEXT("Plug-in not registered"), // ErrorCode_PluginNotRegistered,
-			AKTEXT("Codec plug-in not registered"), // ErrorCode_CodecNotRegistered,
-			AKTEXT("Plug-in version doesn't match sound engine version.  Please ensure the plug-in is compatible with this version of Wwise"), //ErrorCode_PluginVersionMismatch
+AKTEXT("Plug-in not registered"), // ErrorCode_PluginNotRegistered,
+AKTEXT("Codec plug-in not registered"), // ErrorCode_CodecNotRegistered,
+AKTEXT("Plug-in version doesn't match sound engine version.  Please ensure the plug-in is compatible with this version of Wwise"), //ErrorCode_PluginVersionMismatch
 
-			AKTEXT("Event ID not found"), // ErrorCode_EventIDNotFound,
+AKTEXT("Event ID not found"), // ErrorCode_EventIDNotFound,
 
-			AKTEXT("Invalid State Group ID"), // ErrorCode_InvalidGroupID,
-			AKTEXT("Selected Child Not Available"), // ErrorCode_SelectedChildNotAvailable,
-			AKTEXT("Selected Node Not Available"), // ErrorCode_SelectedNodeNotAvailable,
-			AKTEXT("Selected Media Not Available"),// ErrorCode_SelectedMediaNotAvailable,
-			AKTEXT("No Valid Switch"), // ErrorCode_NoValidSwitch,
+AKTEXT("Invalid State Group ID"), // ErrorCode_InvalidGroupID,
+AKTEXT("Selected Child Not Available"), // ErrorCode_SelectedChildNotAvailable,
+AKTEXT("Selected Node Not Available"), // ErrorCode_SelectedNodeNotAvailable,
+AKTEXT("Selected Media Not Available"),// ErrorCode_SelectedMediaNotAvailable,
+AKTEXT("No Valid Switch"), // ErrorCode_NoValidSwitch,
 
-			AKTEXT("Selected node not available. Make sure the structure associated to the event is loaded or that the event has been prepared"), // ErrorCode_SelectedNodeNotAvailablePlay,
+AKTEXT("Selected node not available. Make sure the structure associated to the event is loaded or that the event has been prepared"), // ErrorCode_SelectedNodeNotAvailablePlay,
 
-			AKTEXT("Motion voice starvation"), // ErrorCode_FeedbackVoiceStarving,
+AKTEXT("Motion voice starvation"), // ErrorCode_FeedbackVoiceStarving,
 
-			AKTEXT("Bank Load Failed"), // ErrorCode_BankLoadFailed,
-			AKTEXT("Bank Unload Failed"), // ErrorCode_BankUnloadFailed,
-			AKTEXT("Error while loading bank"), // ErrorCode_ErrorWhileLoadingBank,
-			AKTEXT("Insufficient Space to Load Bank"), // ErrorCode_InsufficientSpaceToLoadBank,
+AKTEXT("Bank Load Failed"), // ErrorCode_BankLoadFailed,
+AKTEXT("Bank Unload Failed"), // ErrorCode_BankUnloadFailed,
+AKTEXT("Error while loading bank"), // ErrorCode_ErrorWhileLoadingBank,
+AKTEXT("Insufficient Space to Load Bank"), // ErrorCode_InsufficientSpaceToLoadBank,
 
-			AKTEXT("Lower engine command list is full"), // ErrorCode_LowerEngineCommandListFull,
+AKTEXT("Lower engine command list is full"), // ErrorCode_LowerEngineCommandListFull,
 
-			AKTEXT("No marker in file; seeking to specified location"), // ErrorCode_SeekNoMarker
-			AKTEXT("Cannot seek in sound that is within a continuous container with special transitions"), // ErrorCode_CannotSeekContinuous
-			AKTEXT("Seeking after end of file. Playback will stop"), // ErrorCode_SeekAfterEof
+AKTEXT("No marker in file; seeking to specified location"), // ErrorCode_SeekNoMarker
+AKTEXT("Cannot seek in sound that is within a continuous container with special transitions"), // ErrorCode_CannotSeekContinuous
+AKTEXT("Seeking after end of file. Playback will stop"), // ErrorCode_SeekAfterEof
 
-			AKTEXT("Unknown game object ID. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownGameObject,
+AKTEXT("Unknown game object ID. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownGameObject,
 
-			AKTEXT("Unknown emitter game object ID. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownEmitter,
-			AKTEXT("Unknown listener game object ID. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownListener,
-			AKTEXT("The requested game object is not a listener."), // ErrorCode_GameObjectIsNotListener,
-			AKTEXT("The requested game object is not an emitter."), // ErrorCode_GameObjectIsNotEmitter,
-			
-			AKTEXT("Unknown emitter game object ID on event. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownGameObjectEvent
-			AKTEXT("The requested game object for an event was not registered as an emitter. Make sure the game object is registered as an emitter before using it to post an event."), // ErrorCode_GameObjectIsNotEmitterEvent
+AKTEXT("Unknown emitter game object ID. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownEmitter,
+AKTEXT("Unknown listener game object ID. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownListener,
+AKTEXT("The requested game object is not a listener."), // ErrorCode_GameObjectIsNotListener,
+AKTEXT("The requested game object is not an emitter."), // ErrorCode_GameObjectIsNotEmitter,
 
-			AKTEXT("External source missing from PostEvent call"), // ErrorCode_ExternalSourceNotResolved
-			AKTEXT("Source file is of different format than expected"), //ErrorCode_FileFormatMismatch
-			AKTEXT("Audio command queue is full, blocking caller.  Reduce number of calls to sound engine or boost command queue memory."), // ErrorCode_CommandQueueFull
-			AKTEXT("Audio command is too large to fit in the command queue.  Break the command in smaller pieces."), //ErrorCode_CommandTooLarge
+AKTEXT("Unknown emitter game object ID on event. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownGameObjectEvent
+AKTEXT("The requested game object for an event was not registered as an emitter. Make sure the game object is registered as an emitter before using it to post an event."), // ErrorCode_GameObjectIsNotEmitterEvent
 
-			AKTEXT("Failed creating XMA decoder: no more XMA voices available"), // ErrorCode_XMACreateDecoderLimitReached
-			AKTEXT("Failed seeking in XMA source: stream buffer is smaller than XMA block size"), // ErrorCode_XMAStreamBufferTooSmall
+AKTEXT("External source missing from PostEvent call"), // ErrorCode_ExternalSourceNotResolved
+AKTEXT("Source file is of different format than expected"), //ErrorCode_FileFormatMismatch
+AKTEXT("Audio command queue is full, blocking caller.  Reduce number of calls to sound engine or boost command queue memory."), // ErrorCode_CommandQueueFull
+AKTEXT("Audio command is too large to fit in the command queue.  Break the command in smaller pieces."), //ErrorCode_CommandTooLarge
 
-			AKTEXT("Triggered a note-scoped or playing-instance-scoped modulator in a global context (such as a bus or bus effect).  Modulator will have global scope."), // ErrorCode_ModulatorScopeError_Inst
-			AKTEXT("Triggered a game-object-scoped modulator in a global context (such as a bus or bus effect).  Modulator will have global scope."), // ErrorCode_ModulatorScopeError_Obj
+AKTEXT("Failed creating XMA decoder: no more XMA voices available"), // ErrorCode_XMACreateDecoderLimitReached
+AKTEXT("Failed seeking in XMA source: stream buffer is smaller than XMA block size"), // ErrorCode_XMAStreamBufferTooSmall
 
-			AKTEXT("Ignoring seek after end of playlist"), // ErrorCode_SeekAfterEndOfPlaylist
-			
-			AKTEXT("Seek table required to seek in Opus sources. Please update conversion settings."), // ErrorCode_OpusRequireSeekTable,
-			AKTEXT("Opus decoder failure"), // ErrorCode_OpusDecodeError,
-			AKTEXT("Failed creating Opus decoder"), // ErrorCode_OpusCreateDecoderFailed
+AKTEXT("Triggered a note-scoped or playing-instance-scoped modulator in a global context (such as a bus or bus effect).  Modulator will have global scope."), // ErrorCode_ModulatorScopeError_Inst
+AKTEXT("Triggered a game-object-scoped modulator in a global context (such as a bus or bus effect).  Modulator will have global scope."), // ErrorCode_ModulatorScopeError_Obj
+
+AKTEXT("Ignoring seek after end of playlist"), // ErrorCode_SeekAfterEndOfPlaylist
+
+AKTEXT("Seek table required to seek in Opus sources. Please update conversion settings."), // ErrorCode_OpusRequireSeekTable,
+AKTEXT("Opus decoder failure"), // ErrorCode_OpusDecodeError,
+AKTEXT("Failed creating Opus decoder"), // ErrorCode_OpusCreateDecoderFailed
+
+AKTEXT("Source plugin not found in currently loaded banks."), //ErrorCode_SourcePluginNotFound
+
+AKTEXT("Number of Resume and/or Play-From-Beginning virtual voices has reached warning limit (see Project Settings > Log tab). There may be some infinite, leaked voices.") , // ErrorCode_VirtualVoiceLimit
+
+AKTEXT("AK::SoundEngine::AddOutput() - Device ShareSet not found in Init bank."),	//ErrorCode_AudioDeviceShareSetNotFound
+
+AKTEXT("Not enough memory to start sound."),	//ErrorCode_NotEnoughMemoryToStart
+
 		};
 	}
 }

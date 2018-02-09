@@ -144,6 +144,7 @@ namespace AK
         static const AkUniqueID PLAY_OVERWORLD_SHOW = 3935148276U;
         static const AkUniqueID PLAY_PARKOUR_BREATHING = 2176843955U;
         static const AkUniqueID PLAY_PARKOUR_CLAW = 3701108750U;
+        static const AkUniqueID PLAY_PARKOUR_CLAW_DRAG = 3146416815U;
         static const AkUniqueID PLAY_PARKOUR_CLIMB = 1530104406U;
         static const AkUniqueID PLAY_PARKOUR_COLLECTIBLE_PICKUP = 1377678954U;
         static const AkUniqueID PLAY_PARKOUR_FOOTSTEP = 1407435961U;
@@ -156,7 +157,6 @@ namespace AK
         static const AkUniqueID PLAY_PARKOUR_MANTLE = 3213510858U;
         static const AkUniqueID PLAY_PARKOUR_MANTLE_VOCALS = 2092393935U;
         static const AkUniqueID PLAY_PARKOUR_ROLL = 2795713858U;
-        static const AkUniqueID PLAY_PARKOUR_SLIDE = 3397163066U;
         static const AkUniqueID PLAY_PARKOUR_TOPOUT = 1638007016U;
         static const AkUniqueID PLAY_PARKOUR_WALL_CLIMB_CLAW = 2976917949U;
         static const AkUniqueID PLAY_PARKOUR_WIND = 2240612133U;
@@ -209,8 +209,7 @@ namespace AK
         static const AkUniqueID STOP_AUDIOLOG = 3683249448U;
         static const AkUniqueID STOP_DIALOGUE = 288905442U;
         static const AkUniqueID STOP_MINION_CHARGE = 1499790205U;
-        static const AkUniqueID STOP_PARKOUR_ALL = 405246226U;
-        static const AkUniqueID STOP_PARKOUR_SLIDE = 3858061116U;
+        static const AkUniqueID STOP_PARKOUR_CLAW_DRAG = 374835089U;
         static const AkUniqueID STOP_TRAM_LOOP = 2281239037U;
         static const AkUniqueID STOP_TURRET_CHARGE = 625456941U;
     } // namespace EVENTS
@@ -220,7 +219,7 @@ namespace AK
         static const AkUniqueID AMBIENCE_INDOOR_OUTDOOR = 2407163608U;
         static const AkUniqueID MINION_WEAPON_CHARGE = 691397373U;
         static const AkUniqueID PARKOUR_BREATH = 1605332778U;
-        static const AkUniqueID PARKOUR_SLIDE = 2866705659U;
+        static const AkUniqueID PARKOUR_CLAW_DRAG = 2599282786U;
         static const AkUniqueID PARKOUR_WIND = 2655675174U;
         static const AkUniqueID PERSPECTIVE = 3838734001U;
         static const AkUniqueID TIMESCALE = 4070528516U;
@@ -264,6 +263,12 @@ namespace AK
         static const AkUniqueID REVERB_HUGE = 362420037U;
         static const AkUniqueID REVERB_SMALL = 933527613U;
     } // namespace AUX_BUSSES
+
+    namespace AUDIO_DEVICES
+    {
+        static const AkUniqueID NO_OUTPUT = 2317455096U;
+        static const AkUniqueID SYSTEM = 3859886410U;
+    } // namespace AUDIO_DEVICES
 
 }// namespace AK
 

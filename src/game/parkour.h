@@ -50,6 +50,7 @@ struct Parkour : public ComponentType<Parkour>
 	{
 		FlagCanDoubleJump = 1 << 0,
 		FlagTryGrapple = 1 << 1,
+		FlagClawDragSoundPlaying = 1 << 2,
 	};
 
 	static b8 ability_enabled(Resource);

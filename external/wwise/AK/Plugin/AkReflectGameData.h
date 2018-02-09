@@ -21,8 +21,8 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-Version: v2017.1.0  Build: 6302
-Copyright (c) 2006-2017 Audiokinetic Inc.
+Version: v2017.2.1  Build: 6524
+Copyright (c) 2006-2018 Audiokinetic Inc.
 *******************************************************************************/
 
 #ifndef _AK_REFLECT_GAMEDATA_H_
@@ -33,22 +33,98 @@ Copyright (c) 2006-2017 Audiokinetic Inc.
 #define AK_MAX_NUM_TEXTURE 4
 
 /// Data used to describe one image source in Wwise Reflect.
-struct AkReflectImageSource
+struct AkImageSourceName
 {
-	AkImageSourceID uID;						///< Image source ID (for matching delay lines across frames)
-	AkVector sourcePosition;					///< Image source position, relative to the world.
-	AkReal32 fDistanceScalingFactor;			///< Image source distance scaling. This number effectively scales the sourcePosition vector with respect to the listener, and consequently, scales distance and preserves orientation.
-	AkReal32 fLevel;							///< Game-controlled level for this source, linear.
-	AkUInt32 uNumTexture;						///< Number of valid textures in the texture array.
-	AkUniqueID arTextureID[AK_MAX_NUM_TEXTURE];	///< Unique IDs of the Acoustics Textures Shareset used to filter this image source.
-	AkUInt32 uNumChar;							///< Number of characters of image source name.
+	AkImageSourceName()
+		: uNumChar(0)
+		, pName(NULL)
+	{
+	}
+
+	void SetName(const char * in_pName)
+	{
+		pName = in_pName;
+		if (pName)
+		{
+			uNumChar = (AkUInt32)strlen(in_pName);
+		}
+		else
+		{
+			uNumChar = 0;
+		}
+	}
+
+	AkUInt32 uNumChar;							///< Number of characters in image source name.
 	const char * pName;							///< Optional image source name. Appears in Wwise Reflect's editor when profiling.
 };
 
-/// Data structure sent by the game to an instance of the Wwise Reflect plugin.
+struct AkImageSourceTexture
+{
+	AkImageSourceTexture()
+		: uNumTexture(1)
+	{
+		arTextureID[0] = AK_INVALID_UNIQUE_ID;
+	}
+
+	AkUInt32 uNumTexture;						///< Number of valid textures in the texture array.
+	AkUniqueID arTextureID[AK_MAX_NUM_TEXTURE];	///< Unique IDs of the Acoustics Texture ShareSets used to filter this image source.
+};
+
+struct AkImageSourceParams
+{
+	AkImageSourceParams()
+		: fDistanceScalingFactor(1.f)
+		, fLevel(1.f)
+	{
+		sourcePosition.X = 0.f;
+		sourcePosition.Y = 0.f;
+		sourcePosition.Z = 0.f;
+	}
+
+	AkImageSourceParams(AkVector in_sourcePosition, AkReal32 in_fDistanceScalingFactor, AkReal32 in_fLevel)
+		: sourcePosition(in_sourcePosition)
+		, fDistanceScalingFactor(in_fDistanceScalingFactor)
+		, fLevel(in_fLevel)
+	{
+	}
+
+	AkVector sourcePosition;					///< Image source position, relative to the world.
+	AkReal32 fDistanceScalingFactor;			///< Image source distance scaling. This number effectively scales the sourcePosition vector with respect to the listener and, consequently, scales distance and preserves orientation.
+	AkReal32 fLevel;							///< Game-controlled level for this source, linear.
+};
+
+struct AkReflectImageSource
+{
+	AkReflectImageSource()
+		: uID((AkImageSourceID)-1)
+		, params()
+		, texture()
+		, name()
+	{}
+
+	AkReflectImageSource(AkImageSourceID in_uID, AkVector in_sourcePosition, AkReal32 in_fDistanceScalingFactor, AkReal32 in_fLevel)
+		: uID(in_uID) 
+		, params(in_sourcePosition, in_fDistanceScalingFactor, in_fLevel)
+		, texture()
+		, name()
+	{
+	}
+
+	void SetName(const char * in_pName)
+	{
+		name.SetName(in_pName);
+	}
+
+	AkImageSourceID uID;						///< Image source ID (for matching delay lines across frames)
+	AkImageSourceParams params;
+	AkImageSourceTexture texture;
+	AkImageSourceName name;
+};
+
+/// Data structure sent by the game to an instance of the Wwise Reflect plug-in.
 struct AkReflectGameData
 {
-	AkGameObjectID listenerID;					///< ID of the listener used to compute spatialization and distance evaluation from within the targetted Reflect plugin instance. It needs to be one of the listeners that are listening to the game object associated with the targetted plugin instance. See AK::SoundEngine::SetListeners and AK::SoundEngine::SetGameObjectAuxSendValues.
+	AkGameObjectID listenerID;					///< ID of the listener used to compute spatialization and distance evaluation from within the targeted Reflect plug-in instance. It needs to be one of the listeners that are listening to the game object associated with the targeted plug-in instance. See AK::SoundEngine::SetListeners and AK::SoundEngine::SetGameObjectAuxSendValues.
 	AkUInt32 uNumImageSources;					///< Number of image sources passed in the variable array, below.
 	AkReflectImageSource arSources[1];			///< Variable array of image sources. You should allocate storage for the structure by calling AkReflectGameData::GetSize() with the desired number of sources.
 	

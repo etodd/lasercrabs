@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WwiseDocument Type="WorkUnit" ID="{6C9A9CB0-A13B-4A25-8720-801EEF63E875}" SchemaVersion="80">
+	<Modulators>
+		<WorkUnit Name="Default Work Unit" ID="{6C9A9CB0-A13B-4A25-8720-801EEF63E875}" PersistMode="Standalone">
+			<ChildrenList>
+				<ModulatorEnvelope Name="Minion_Weapon_Charge_Envelope" ID="{98961A3B-40C1-445A-B41B-37ABDDAD9CBF}" ShortID="420115471">
+					<PropertyList>
+						<Property Name="EnvelopeAttackTime" Type="Real64" Value="5"/>
+					</PropertyList>
+				</ModulatorEnvelope>
+			</ChildrenList>
+		</WorkUnit>
+	</Modulators>
+</WwiseDocument>

@@ -21,7 +21,7 @@
 #include <AK/Plugin/AkMeterFXFactory.h>
 #include <AK/Plugin/AkRoomVerbFXFactory.h>
 #include <AK/Plugin/AkDelayFXFactory.h>
-#include <AK/Plugin/AkSynthOneFactory.h>
+#include <AK/Plugin/AkSynthOneSourceFactory.h>
 #include "physics.h"
 #if DEBUG
 	#include <AK/Comm/AkCommunication.h>
@@ -621,19 +621,100 @@ void Audio::param_global(AkRtpcID id, AkRtpcValue value)
 void Audio::listener_list_update()
 {
 	AkGameObjectID listener_ids[MAX_GAMEPADS];
-	s32 count = 0;
+	s32 listener_count = 0;
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
 		if (listener_mask & (1 << i))
 		{
-			listener_ids[count] = listener_id(i);
-			count++;
+			listener_ids[listener_count] = listener_id(i);
+			listener_count++;
 		}
 	}
-	AK::SoundEngine::SetDefaultListeners(listener_ids, count);
+	AK::SoundEngine::SetDefaultListeners(listener_ids, listener_count);
 
 	for (auto i = AudioEntry::list.iterator(); !i.is_last(); i.next())
-		AK::SoundEngine::SetListeners(i.item()->ak_id(), listener_ids, count);
+		AK::SoundEngine::SetListeners(i.item()->ak_id(), listener_ids, listener_count);
+
+	if (listener_count > 0)
+	{
+		AkChannelConfig config = AK::SoundEngine::GetSpeakerConfiguration();
+
+		if (listener_count == 1)
+		{
+			for (s32 i = 0; i < MAX_GAMEPADS; i++)
+			{
+				if (listener_mask & (1 << i))
+				{
+					AK::SoundEngine::SetListenerSpatialization(listener_id(i), true, config);
+					break; // should be only one listener
+				}
+			}
+		}
+		else
+		{
+			// more than one listener; spatialize each listener differently
+
+			// the size returned by AK::SpeakerVolumes::Vector::GetRequiredSize is wrong
+			AkReal32 volumes_left[18 * 4] = 
+			{
+				0.0f, // left
+				-96.3f, // right
+				-6.0f, // center
+				0.0f, // rear left
+				-96.3f, // rear right
+				0.0f, // side left
+				-96.3f, // side right
+				0.0f, // lfe
+			};
+			AkReal32 volumes_right[18 * 4] =
+			{
+				-96.3f, // left
+				0.0f, // right
+				-6.0f, // center
+				-96.3f, // rear left
+				0.0f, // rear right
+				-96.3f, // side left
+				0.0f, // side right
+				0.0f, // lfe
+			};
+			AkReal32 volumes_center[18 * 4] =
+			{
+				-6.0f, // left
+				-6.0f, // right
+				0.0f, // center
+				-6.0f, // rear left
+				-6.0f, // rear right
+				-6.0f, // side left
+				-6.0f, // side right
+				0.0f, // lfe
+			};
+
+			AK::SpeakerVolumes::VectorPtr listener_blueprints[MAX_GAMEPADS - 1][MAX_GAMEPADS];
+			vi_assert(MAX_GAMEPADS == 4); // update this if this changes
+			// two players
+			listener_blueprints[0][0] = volumes_left;
+			listener_blueprints[0][1] = volumes_right;
+			// three players
+			listener_blueprints[1][0] = volumes_center;
+			listener_blueprints[1][1] = volumes_left;
+			listener_blueprints[1][2] = volumes_right;
+			// four players
+			listener_blueprints[2][0] = volumes_left;
+			listener_blueprints[2][1] = volumes_right;
+			listener_blueprints[2][2] = volumes_left;
+			listener_blueprints[2][3] = volumes_right;
+
+			s32 index = 0;
+			for (s32 i = 0; i < MAX_GAMEPADS; i++)
+			{
+				if (listener_mask & (1 << i))
+				{
+					AK::SoundEngine::SetListenerSpatialization(listener_id(i), false, config, listener_blueprints[listener_count - 2][index]);
+					index++;
+				}
+			}
+		}
+	}
 }
 
 void Audio::listener_disable(s8 gamepad)

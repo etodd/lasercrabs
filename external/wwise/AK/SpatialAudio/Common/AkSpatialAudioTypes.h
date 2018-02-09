@@ -21,8 +21,8 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-Version: v2017.1.0  Build: 6302
-Copyright (c) 2006-2017 Audiokinetic Inc.
+Version: v2017.2.1  Build: 6524
+Copyright (c) 2006-2018 Audiokinetic Inc.
 *******************************************************************************/
 
 /// \file 
@@ -40,6 +40,9 @@ class AkImageSourceTriangle;
 class AkImageSourcePlane;
 
 #define AK_MAX_REFLECT_ORDER 4
+#define AK_MAX_SOUND_PROPAGATION_DEPTH 8
+#define AK_DEFAULT_DIFFR_SHADOW_DEGREES (30.0f)
+#define AK_DEFAULT_DIFFR_SHADOW_ATTEN (2.0f)
 
 const AkReal32 kDefaultMaxPathLength = 100.f;
 
@@ -84,6 +87,8 @@ struct AkSpatialAudioID
 	/// Conversion function used internally to convert from a AkSpatialAudioID to a AkGameObjectID.
 	AkGameObjectID AsGameObjectID() const { return (AkGameObjectID)id; }
 	
+	operator AkUInt64 () { return id; }
+
 	AkUInt64 id;
 };
 
@@ -91,7 +96,7 @@ struct AkSpatialAudioID
 /// that conflict with registered game objects' ID's.  Internally, the spatial audio rooms and portals API manages registration and un-registration of game objects that 
 /// represent rooms using AkRoomID's provided by the client; AkRoomID's are convertied to AkGameObjectID's by calling AsGameObjectID(). 
 /// \sa 
-///	- \ref AK::SpatialAudio::AddRoom
+///	- \ref AK::SpatialAudio::SetRoom
 ///	- \ref AK::SpatialAudio::RemoveRoom
 struct AkRoomID : public AkSpatialAudioID
 {
@@ -115,12 +120,12 @@ struct AkRoomID : public AkSpatialAudioID
 /// that conflict with registered game objects' ID's.  Internally, the spatial audio rooms and portals API manages registration and un-registration of game objects that 
 /// represent portals using AkPortalID's provided by the client; AkPortalID's are convertied to AkGameObjectID's by calling AsGameObjectID(). 
 /// \sa 
-///	- \ref AK::SpatialAudio::AddPortal
+///	- \ref AK::SpatialAudio::SetPortal
 ///	- \ref AK::SpatialAudio::RemovePortal  
 typedef AkSpatialAudioID AkPortalID;		
 
 ///< Unique ID for identifying geometry sets.  Chosen by the client using any means desired.  
 /// \sa 
-///	- \ref AK::SpatialAudio::AddGeometrySet
-///	- \ref AK::SpatialAudio::RemoveGeometrySet
+///	- \ref AK::SpatialAudio::SetGeometry
+///	- \ref AK::SpatialAudio::RemoveGeometry
 typedef AkSpatialAudioID AkGeometrySetID;

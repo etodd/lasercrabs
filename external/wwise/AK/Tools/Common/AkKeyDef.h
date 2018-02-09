@@ -21,8 +21,8 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2017.1.0  Build: 6302
-  Copyright (c) 2006-2017 Audiokinetic Inc.
+  Version: v2017.2.1  Build: 6524
+  Copyright (c) 2006-2018 Audiokinetic Inc.
 *******************************************************************************/
 
 #ifndef _KEYDEF_H_
@@ -38,6 +38,12 @@ struct MapStruct
 	bool operator ==(const MapStruct& in_Op) const
 	{
 		return ( (key == in_Op.key) /*&& (item == in_Op.item)*/ );
+	}
+
+	void Transfer(MapStruct<T_KEY, T_ITEM>& in_rSource)
+	{
+		key = in_rSource.key;
+		item.Transfer(in_rSource.item); //transfer ownership of resources.
 	}
 };
 

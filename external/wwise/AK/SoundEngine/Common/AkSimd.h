@@ -21,8 +21,8 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2017.1.0  Build: 6302
-  Copyright (c) 2006-2017 Audiokinetic Inc.
+  Version: v2017.2.1  Build: 6524
+  Copyright (c) 2006-2018 Audiokinetic Inc.
 *******************************************************************************/
 
 // AkSimd.h
@@ -50,10 +50,6 @@ the specific language governing permissions and limitations under the License.
 	#else
 	#include <AK/SoundEngine/Platforms/Mac/AkSimd.h>
 	#endif
-	
-#elif defined( AK_VITA )
-
-	#include <AK/SoundEngine/Platforms/Vita/AkSimd.h>
 
 #elif defined( AK_ANDROID )
 

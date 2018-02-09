@@ -21,8 +21,8 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2017.1.0  Build: 6302
-  Copyright (c) 2006-2017 Audiokinetic Inc.
+  Version: v2017.2.1  Build: 6524
+  Copyright (c) 2006-2018 Audiokinetic Inc.
 *******************************************************************************/
 
 #ifndef _AK_PLATFORM_FUNCS_H_
@@ -84,6 +84,8 @@ namespace AK
 #endif
 #define AK_THREAD_PRIORITY_NORMAL				THREAD_PRIORITY_NORMAL
 #define AK_THREAD_PRIORITY_ABOVE_NORMAL			THREAD_PRIORITY_ABOVE_NORMAL
+#define AK_THREAD_PRIORITY_TIME_CRITICAL		THREAD_PRIORITY_TIME_CRITICAL
+#define AK_THREAD_MODE_BACKGROUND_BEGIN			THREAD_MODE_BACKGROUND_BEGIN
 
 // NULL objects
 #define AK_NULL_THREAD                          NULL
@@ -270,7 +272,8 @@ namespace AKPLATFORM
     {
 		AKASSERT( out_pThread != NULL );
 		AKASSERT( (in_threadProperties.nPriority >= THREAD_PRIORITY_LOWEST && in_threadProperties.nPriority <= THREAD_PRIORITY_HIGHEST)
-			|| ( in_threadProperties.nPriority == THREAD_PRIORITY_TIME_CRITICAL ) );
+			|| ( in_threadProperties.nPriority == THREAD_PRIORITY_TIME_CRITICAL )
+			|| ( in_threadProperties.nPriority == THREAD_MODE_BACKGROUND_BEGIN ) );
 
 		DWORD dwThreadID;
         *out_pThread = ::CreateThread( NULL,							// No security attributes
@@ -291,7 +294,8 @@ namespace AKPLATFORM
         AkSetThreadName( dwThreadID, in_szThreadName );
 
 		// Set properties.
-		if ( !::SetThreadPriority( *out_pThread, in_threadProperties.nPriority ) )
+		if ( !::SetThreadPriority( *out_pThread, in_threadProperties.nPriority ) &&
+			 in_threadProperties.nPriority != THREAD_MODE_BACKGROUND_BEGIN )
         {
             AKASSERT( !"Failed setting thread priority" );
 			AkCloseThread( out_pThread );
@@ -386,12 +390,15 @@ namespace AKPLATFORM
         return ( in_iNow - in_iStart ) / AK::g_fFreqRatio;
     }
 
-	/// String conversion helper
+	/// String conversion helper. If io_pszAnsiString is null, the function returns the required size.
 	inline AkInt32 AkWideCharToChar( const wchar_t*	in_pszUnicodeString,
 									 AkUInt32	in_uiOutBufferSize,
 									 char*	io_pszAnsiString )
 	{
-		int iWritten = ::WideCharToMultiByte(CP_ACP,																	// code page
+		if(!io_pszAnsiString)
+			return WideCharToMultiByte(CP_UTF8, 0, in_pszUnicodeString, -1, NULL, 0, NULL, NULL);
+
+		int iWritten = ::WideCharToMultiByte(CP_UTF8,																	// code page
 									0,																		// performance and mapping flags
 									in_pszUnicodeString,													// wide-character string
 									(int)AkMin( ( (AkUInt32)wcslen( in_pszUnicodeString )), in_uiOutBufferSize-1 ),	// number of chars in string : -1 = NULL terminated string.
@@ -408,7 +415,7 @@ namespace AKPLATFORM
 									 AkUInt32		in_uiOutBufferSize,
 									 void*			io_pvUnicodeStringBuffer )
 	{
-		return ::MultiByteToWideChar(	CP_ACP,								// code page
+		return ::MultiByteToWideChar(	CP_UTF8,							// code page
 										0,									// performance and mapping flags
 										in_pszAnsiString,					// wide-character string
 										-1,									// number of chars in string : -1 = NULL terminated string.

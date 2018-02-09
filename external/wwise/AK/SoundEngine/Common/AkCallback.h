@@ -21,8 +21,8 @@ under the Apache License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 OR CONDITIONS OF ANY KIND, either express or implied. See the Apache License for
 the specific language governing permissions and limitations under the License.
 
-  Version: v2017.1.0  Build: 6302
-  Copyright (c) 2006-2017 Audiokinetic Inc.
+  Version: v2017.2.1  Build: 6524
+  Copyright (c) 2006-2018 Audiokinetic Inc.
 *******************************************************************************/
 
 // AkCallback.h
@@ -309,8 +309,10 @@ enum AkGlobalCallbackLocation
 
 	AkGlobalCallbackLocation_Term = (1 << 7),		///< Sound engine termination.
 
+	AkGlobalCallbackLocation_Monitor = (1 << 8), /// Send monitor data
+
 	// IMPORTANT: Keep in sync with number of locations.
-	AkGlobalCallbackLocation_Num = 8				///< Total number of global callback locations.
+	AkGlobalCallbackLocation_Num = 9				///< Total number of global callback locations.
 };
 
 /// Callback prototype used for global callback registration.
@@ -325,6 +327,25 @@ AK_CALLBACK( void, AkGlobalCallbackFunc )(
 	AkGlobalCallbackLocation in_eLocation,		///< Location where this callback is fired.
 	void * in_pCookie							///< User cookie passed to AK::SoundEngine::RegisterGlobalCallback().
 	);
+
+namespace AK
+{
+	enum AkAudioDeviceEvent 
+	{ 
+		AkAudioDeviceEvent_Initialization,				///< Sent after an Audio Device has initialized.  Initialization might have failed, check the AKRESULT.
+		AkAudioDeviceEvent_Removal,						///< Audio device was removed through explicit call (AK::SoundEngine::RemoveOutput or AK::SoundEngine::Term)
+		AkAudioDeviceEvent_SystemRemoval				///< Audio device was removed because of a system event (disconnection), hardware or driver problem. Check the AKRESULT when called through AkDeviceStatusCallbackFunc, it may give more context.
+	};
+
+	/// Callback for Audio Device status changes.
+	AK_CALLBACK(void, AkDeviceStatusCallbackFunc)(
+		AK::IAkGlobalPluginContext * in_pContext,	///< Engine context.
+		AkUniqueID in_idAudioDeviceShareset,		///< The audio device shareset attached, as passed to AK::SoundEngine::AddOutput or AK::SoundEngine::Init
+		AkUInt32 in_idDeviceID,						///< The audio device specific id, as passed to AK::SoundEngine::AddOutput or AK::SoundEngine::Init
+		AkAudioDeviceEvent in_idEvent,				///< The event for which this callback was called.  See AK::AkAudioDeviceEvent.  AKRESULT may provide more information.
+		AKRESULT in_AkResult						///< Result of the last operation.
+		);
+}
 
 #endif // _AK_CALLBACK_H_
 

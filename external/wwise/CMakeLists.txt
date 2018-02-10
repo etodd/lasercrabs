@@ -29,6 +29,7 @@ elseif (APPLE)
 		AK/StreamManager/POSIX/AkDefaultIOHookDeferred.cpp
 		AK/StreamManager/POSIX/AkFilePackageLowLevelIOBlocking.h
 		AK/StreamManager/POSIX/AkFilePackageLowLevelIODeferred.h
+		AK/StreamManager/Mac/AkPlatformStreamingDefaults.h
 	)
 elseif (PLAYSTATION)
 	set(WWISE_PLATFORM_INCLUDE_PATHS

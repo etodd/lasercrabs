@@ -255,7 +255,7 @@ void deploy_start()
 	vi_assert(Game::session.type == SessionType::Story);
 	data.state = State::StoryModeDeploying;
 	data.timer_deploy = DEPLOY_TIME;
-	Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_DEPLOY_START);
+	Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_DEPLOY_START, 0);
 }
 
 void hide();
@@ -324,7 +324,7 @@ void multiplayer_browse_update(const Update& u)
 		|| (u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0)))
 	{
 		// create server
-		Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+		Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
 		new (&data.multiplayer.active_server.config) Net::Master::ServerConfig();
 		data.multiplayer.active_server.config.region = Settings::region;
 		multiplayer_switch_tab(ServerListType::Mine);
@@ -335,7 +335,7 @@ void multiplayer_browse_update(const Update& u)
 	if (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::ChooseRegion, u)
 		|| (u.last_input->get(Controls::Scoreboard, 0) && !u.input->get(Controls::Scoreboard, 0)))
 	{
-		Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+		Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
 		multiplayer_state_transition(Data::Multiplayer::State::ChangeRegion);
 		return;
 	}
@@ -368,7 +368,7 @@ void multiplayer_browse_update(const Update& u)
 						// select entry
 						data.multiplayer.active_server.config.id = server_list->entries[i].server_state.id;
 						multiplayer_state_transition(Data::Multiplayer::State::EntryView);
-						Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+						Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
 						return;
 					}
 
@@ -386,14 +386,14 @@ void multiplayer_browse_update(const Update& u)
 			data.multiplayer.refresh_timer = 0.0f; // refresh list immediately
 
 		if (server_list->selected != old_selected)
-			Audio::post_global(AK::EVENTS::PLAY_MENU_MOVE);
+			Audio::post_global(AK::EVENTS::PLAY_MENU_MOVE, 0);
 	}
 
 	if (server_list->selected < server_list->entries.length
 		&& (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::Select, u) || (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))))
 	{
 		// select entry
-		Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+		Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
 		data.multiplayer.active_server.config.id = server_list->entries[server_list->selected].server_state.id;
 		multiplayer_state_transition(Data::Multiplayer::State::EntryView);
 		return;
@@ -617,7 +617,7 @@ void multiplayer_entry_edit_update(const Update& u)
 	{
 		if (cancel)
 		{
-			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, 0);
 			data.multiplayer.request_id = 0; // cancel active request
 			Game::cancel_event_eaten[0] = true;
 #if !SERVER
@@ -653,7 +653,7 @@ void multiplayer_entry_edit_update(const Update& u)
 						Menu::dialog(0, &multiplayer_entry_edit_cancel, _(strings::confirm_entry_cancel));
 					else
 					{
-						Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+						Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, 0);
 						multiplayer_entry_edit_cancel();
 						menu->end(u);
 						return;
@@ -940,7 +940,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				if (cancel || menu->item(u, _(strings::back)))
 				{
-					Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+					Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, 0);
 					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Main);
 					Game::cancel_event_eaten[0] = true;
 					menu->end(u);
@@ -983,7 +983,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				if (cancel || menu->item(u, _(strings::back)))
 				{
-					Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+					Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, 0);
 					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Main);
 					Game::cancel_event_eaten[0] = true;
 					menu->end(u);
@@ -1026,7 +1026,7 @@ void multiplayer_entry_edit_update(const Update& u)
 
 				if (cancel || menu->item(u, _(strings::back)))
 				{
-					Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+					Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, 0);
 					multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Main);
 					Game::cancel_event_eaten[0] = true;
 					menu->end(u);
@@ -1125,7 +1125,7 @@ void multiplayer_entry_view_update(const Update& u)
 	{
 		if (cancel)
 		{
-			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, 0);
 			data.multiplayer.request_id = 0; // cancel active request
 			Game::cancel_event_eaten[0] = true;
 			multiplayer_state_transition(Data::Multiplayer::State::Browse);
@@ -1139,7 +1139,7 @@ void multiplayer_entry_view_update(const Update& u)
 		if (cancel)
 		{
 			Game::cancel_event_eaten[0] = true;
-			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, 0);
 			if (Game::level.mode != Game::Mode::Special) // we are currently in the server we're viewing
 				hide();
 			else
@@ -1149,7 +1149,7 @@ void multiplayer_entry_view_update(const Update& u)
 		else if (data.multiplayer.active_server.is_admin
 			&& (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::EditServer, u) || (u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0))))
 		{
-			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
 			multiplayer_state_transition(Data::Multiplayer::State::EntryEdit);
 			return;
 		}
@@ -1161,7 +1161,7 @@ void multiplayer_entry_view_update(const Update& u)
 #if !SERVER
 			Net::Client::master_request_server(id);
 #endif
-			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
 			return;
 		}
 
@@ -1202,21 +1202,21 @@ void title()
 
 void multiplayer_tab_left(s8)
 {
-	Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+	Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
 	multiplayer_switch_tab(ServerListType(vi_max(0, s32(global.multiplayer.tab) - 1)));
 	multiplayer_state_transition(Data::Multiplayer::State::Browse);
 }
 
 void multiplayer_tab_right(s8)
 {
-	Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+	Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
 	multiplayer_switch_tab(ServerListType(vi_min(s32(ServerListType::count) - 1, s32(global.multiplayer.tab) + 1)));
 	multiplayer_state_transition(Data::Multiplayer::State::Browse);
 }
 
 void multiplayer_tab_switch_mouse(s8)
 {
-	Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+	Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
 	multiplayer_switch_tab(data.multiplayer.tab_mouse_try);
 	multiplayer_state_transition(Data::Multiplayer::State::Browse);
 }
@@ -1341,13 +1341,13 @@ void multiplayer_update(const Update& u)
 				&& ((u.last_input->get(Controls::Interact, i) && !u.input->get(Controls::Interact, i))
 					|| (u.last_input->get(Controls::Start, i) && !u.input->get(Controls::Start, i))))
 			{
-				Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER);
+				Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER, i);
 				Game::session.local_player_mask |= 1 << i;
 			}
 			else if (player_active
 				&& u.last_input->get(Controls::Cancel, i) && !u.input->get(Controls::Cancel, i))
 			{
-				Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+				Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, i);
 				Game::session.local_player_mask &= ~(1 << i);
 			}
 		}
@@ -1637,7 +1637,7 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 					text.font = Asset::Font::pt_sans;
 					text.text_raw(0, data.multiplayer.active_server.config.name, UITextFlagSingleLine);
 				}
-				UIMenu::text_clip(&text, data.multiplayer.state_transition_time, 100.0f, 28);
+				UIMenu::text_clip(&text, 0, data.multiplayer.state_transition_time, 100.0f, 28);
 
 				{
 					Vec2 text_pos = pos + Vec2(PADDING, 0);
@@ -1665,7 +1665,7 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 							vi_assert(false);
 							break;
 					}
-					UIMenu::text_clip(&text, data.multiplayer.state_transition_time + 0.1f, 100.0f);
+					UIMenu::text_clip(&text, 0, data.multiplayer.state_transition_time + 0.1f, 100.0f);
 
 					{
 						Vec2 text_pos = pos + Vec2(PADDING, 0);
@@ -2425,7 +2425,7 @@ void hide()
 	{
 		data.timer_transition = TRANSITION_TIME;
 		data.state_next = State::Hidden;
-		Audio::post_global(AK::EVENTS::PLAY_TRANSITION_OUT);
+		Audio::post_global(AK::EVENTS::PLAY_TRANSITION_OUT, 0);
 	}
 }
 
@@ -2496,7 +2496,7 @@ void deploy_update(const Update& u)
 		data.camera.ref()->pos += Vec3(noise::sample2d(Vec2(offset)) * shake, noise::sample2d(Vec2(offset + 67)) * shake, noise::sample2d(Vec2(offset + 137)) * shake);
 
 		if (old_timer >= 0.5f)
-			Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_DEPLOY);
+			Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_DEPLOY, 0);
 	}
 
 	if (data.timer_deploy == 0.0f && old_timer > 0.0f)
@@ -2772,7 +2772,7 @@ void tab_map_update(const Update& u)
 				if (closest)
 				{
 					data.zone_selected = closest->id;
-					Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_MOVE);
+					Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_MOVE, 0);
 				}
 			}
 		}
@@ -2828,7 +2828,7 @@ r32 fog_start;
 void resource_buy(s8 gamepad)
 {
 	data.story.inventory.timer_buy = UPGRADE_TIME;
-	Audio::post_global(AK::EVENTS::PLAY_DRONE_UPGRADE);
+	Audio::post_global(AK::EVENTS::PLAY_DRONE_UPGRADE, gamepad);
 }
 
 Vec2 get_panel_size(const Rect2& rect)
@@ -2869,7 +2869,7 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 		else if (mouse_over_increase && u->last_input->keys.get(s32(KeyCode::MouseLeft)) && !u->input->keys.get(s32(KeyCode::MouseLeft)))
 			delta++;
 		if (delta)
-			Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER);
+			Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER, gamepad);
 		inventory->buy_quantity = s16(vi_max(1, vi_min(32000 / s32(info.cost), inventory->buy_quantity + delta)));
 	}
 
@@ -3006,16 +3006,16 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 				// accept
 				if (can_accept)
 				{
-					Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT);
-					Menu::dialog_clear(0);
-					resource_buy(0);
+					Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT, gamepad);
+					Menu::dialog_clear(gamepad);
+					resource_buy(gamepad);
 				}
 			}
 			else if (cancel_clicked || (!Game::cancel_event_eaten[gamepad] && u->last_input->get(Controls::Cancel, gamepad) && !u->input->get(Controls::Cancel, gamepad)))
 			{
 				// cancel
-				Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
-				Menu::dialog_clear(0);
+				Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, gamepad);
+				Menu::dialog_clear(gamepad);
 				Game::cancel_event_eaten[gamepad] = true;
 			}
 		}
@@ -3110,7 +3110,7 @@ void inventory_items(const Update* u, const RenderParams* p, const Rect2& rect)
 					snprintf(cost_str, UI_TEXT_MAX, "%d", info.cost);
 					if (inventory->menu.item(*u, _(info.description), cost_str, !input || Game::save.resources[s32(Resource::Energy)] < info.cost, info.icon))
 					{
-						Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW);
+						Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW, 0);
 						data.story.inventory.resource_selected = Resource(i);
 						data.story.inventory.buy_quantity = 1;
 						Menu::dialog_custom(0, &inventory_dialog_buy);
@@ -3506,7 +3506,7 @@ void show_complete()
 	if (data.state != State::StoryModeOverlay)
 		data.restore_camera.ref()->flag(CameraFlagColors, false);
 
-	Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_SHOW);
+	Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_SHOW, 0);
 
 	if (data.state == State::Multiplayer && Game::level.mode != Game::Mode::Special)
 	{
@@ -3579,7 +3579,7 @@ void update(const Update& u)
 		data.timer_transition = vi_max(0.0f, data.timer_transition - u.time.delta);
 		if (data.timer_transition < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
 		{
-			Audio::post_global(AK::EVENTS::PLAY_TRANSITION_IN);
+			Audio::post_global(AK::EVENTS::PLAY_TRANSITION_IN, 0);
 			if (data.state_next == State::Hidden)
 				hide_complete();
 			else
@@ -3751,7 +3751,7 @@ void show(Camera* cam, State state, StoryTab tab)
 			hide_complete();
 		else // start transition
 		{
-			Audio::post_global(AK::EVENTS::PLAY_TRANSITION_OUT);
+			Audio::post_global(AK::EVENTS::PLAY_TRANSITION_OUT, 0);
 			data.timer_transition = TRANSITION_TIME;
 		}
 	}

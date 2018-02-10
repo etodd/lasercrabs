@@ -1049,6 +1049,20 @@
 										</Action>
 									</ChildrenList>
 								</Event>
+								<Event Name="Stop_Parkour_Wind" ID="{422F5A63-062C-4323-8F2E-B76BB4A8C670}">
+									<ChildrenList>
+										<Action Name="" ID="{FE4E4DB4-2425-424D-B007-7FD5A48925C9}" ShortID="113915403">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="2"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Parkour_Wind" ID="{8998A440-9F0E-41AF-AA4F-D8914994F5A5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
 							</ChildrenList>
 						</Folder>
 						<Event Name="Play_Explosion" ID="{6F0DBF32-EE0B-45FC-9DEF-71F7FD036F6A}">

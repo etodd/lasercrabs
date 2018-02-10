@@ -889,22 +889,38 @@ void Water::awake()
 		if (config.color.w < 0.0f)
 			config.color.w = m->color.w;
 	}
-	get<Audio>()->entry()->flag(AudioEntry::FlagEnableForceFieldObstruction | AudioEntry::FlagEnableObstructionOcclusion, false);
-	get<Audio>()->post(config.ocean ? AK::EVENTS::PLAY_OCEAN_LOOP : AK::EVENTS::PLAY_WATER_LOOP);
+
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		s32 flags = AudioEntry::FlagEnableReverb | AudioEntry::FlagKeepalive;
+		if (!config.ocean)
+			flags |= AudioEntry::FlagEnableForceFieldObstruction | AudioEntry::FlagEnableObstructionOcclusion;
+		AudioEntry* entry = Audio::post_global(config.ocean ? AK::EVENTS::PLAY_OCEAN_LOOP : AK::EVENTS::PLAY_WATER_LOOP, Vec3::zero, nullptr, flags); // no obstruction/occlusion
+		entry->set_listener_mask(1 << i);
+		audio_entries[i] = entry;
+	}
 }
 
 void Water::update_all(const Update& u)
 {
 	if (Audio::listener_mask)
 	{
-		StaticArray<Vec3, MAX_GAMEPADS> listeners;
+		struct Listener
+		{
+			Vec3 pos;
+			r32 outdoor;
+			s32 index;
+		};
+
+		StaticArray<Listener, MAX_GAMEPADS> listeners;
 
 		// collect listeners
 		for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		{
 			if (Audio::listener_mask & (1 << i))
 			{
-				Vec3 p = Audio::listener[i].pos;
+				const Audio::Listener& listener = Audio::listener[i];
+				Vec3 p = listener.pos;
 
 				// make sure listener is not in a negative space
 				for (s32 j = 0; j < Game::level.water_sound_negative_spaces.length; j++)
@@ -920,7 +936,10 @@ void Water::update_all(const Update& u)
 						p.y = original_y;
 					}
 				}
-				listeners.add(p);
+				Listener* l = listeners.add();
+				l->pos = p;
+				l->outdoor = listener.outdoor;
+				l->index = i;
 			}
 		}
 
@@ -931,26 +950,20 @@ void Water::update_all(const Update& u)
 			Vec3 water_pos = i.item()->get<Transform>()->absolute_pos();
 			Vec3 bmin = water_pos + m->bounds_min;
 			Vec3 bmax = water_pos + m->bounds_max;
-			r32 closest_distance_sq = FLT_MAX;
-			Vec3 closest_pos = water_pos;
 
 			for (s32 j = 0; j < listeners.length; j++)
 			{
-				Vec3 p = listeners[j];
+				const Listener& listener = listeners[j];
+				Vec3 p = listener.pos;
 				p.y = water_pos.y;
 				p.x = vi_max(p.x, bmin.x);
 				p.x = vi_min(p.x, bmax.x);
 				p.z = vi_max(p.z, bmin.z);
 				p.z = vi_min(p.z, bmax.z);
-
-				r32 distance_sq = (p - listeners[j]).length_squared();
-				if (distance_sq < closest_distance_sq)
-				{
-					closest_distance_sq = distance_sq;
-					closest_pos = p;
-				}
+				AudioEntry* audio_entry = i.item()->audio_entries[listener.index].ref();
+				audio_entry->abs_pos = p;
+				audio_entry->param(AK::GAME_PARAMETERS::AMBIENCE_INDOOR_OUTDOOR, listener.outdoor);
 			}
-			i.item()->get<Audio>()->offset(closest_pos - water_pos);
 		}
 	}
 }

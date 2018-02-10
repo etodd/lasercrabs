@@ -210,6 +210,7 @@ namespace AK
         static const AkUniqueID STOP_DIALOGUE = 288905442U;
         static const AkUniqueID STOP_MINION_CHARGE = 1499790205U;
         static const AkUniqueID STOP_PARKOUR_CLAW_DRAG = 374835089U;
+        static const AkUniqueID STOP_PARKOUR_WIND = 2670374615U;
         static const AkUniqueID STOP_TRAM_LOOP = 2281239037U;
         static const AkUniqueID STOP_TURRET_CHARGE = 625456941U;
     } // namespace EVENTS
@@ -218,6 +219,7 @@ namespace AK
     {
         static const AkUniqueID AMBIENCE_INDOOR_OUTDOOR = 2407163608U;
         static const AkUniqueID MINION_WEAPON_CHARGE = 691397373U;
+        static const AkUniqueID MULTIPLE_LISTENERS = 40351615U;
         static const AkUniqueID PARKOUR_BREATH = 1605332778U;
         static const AkUniqueID PARKOUR_CLAW_DRAG = 2599282786U;
         static const AkUniqueID PARKOUR_WIND = 2655675174U;

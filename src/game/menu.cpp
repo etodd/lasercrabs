@@ -167,7 +167,7 @@ void dialog_layout(s8 gamepad, const Update* u, const RenderParams* params)
 		if (dialog_time_limit[gamepad] == 0.0f)
 		{
 			// cancel
-			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, gamepad);
 			DialogCallback c = dialog_cancel_callback[gamepad];
 			dialog_layout_callback[gamepad] = nullptr;
 			dialog_callback[gamepad] = nullptr;
@@ -184,7 +184,7 @@ void dialog_layout(s8 gamepad, const Update* u, const RenderParams* params)
 		if (u->last_input->get(Controls::UIAcceptText, 0) && !u->input->get(Controls::UIAcceptText, 0))
 		{
 			// accept
-			Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT);
+			Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT, gamepad);
 			DialogTextCallback callback = dialog_text_callback;
 			dialog_clear(gamepad);
 			callback(dialog_text_field);
@@ -192,7 +192,7 @@ void dialog_layout(s8 gamepad, const Update* u, const RenderParams* params)
 		else if (!Game::cancel_event_eaten[0] && u->last_input->get(Controls::Cancel, 0) && !u->input->get(Controls::Cancel, 0))
 		{
 			// cancel
-			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+			Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, gamepad);
 			DialogTextCancelCallback cancel_callback = dialog_text_cancel_callback;
 			dialog_clear(gamepad);
 			Game::cancel_event_eaten[0] = true;
@@ -221,7 +221,7 @@ void dialog_layout(s8 gamepad, const Update* u, const RenderParams* params)
 		UI::box(*params, text_rect, UI::color_background);
 		UI::border(*params, text_rect, 2.0f, UI::color_accent());
 
-		UIMenu::text_clip(&text, dialog_time[gamepad], 150.0f);
+		UIMenu::text_clip(&text, gamepad, dialog_time[gamepad], 150.0f);
 		text.draw(*params, pos);
 	}
 
@@ -292,7 +292,7 @@ void dialog_layout(s8 gamepad, const Update* u, const RenderParams* params)
 			if (accept_clicked || (u->last_input->get(Controls::Interact, gamepad) && !u->input->get(Controls::Interact, gamepad)))
 			{
 				// accept
-				Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT);
+				Audio::post_global(AK::EVENTS::PLAY_DIALOG_ACCEPT, gamepad);
 				DialogCallback callback = dialog_callback[gamepad];
 				dialog_layout_callback[gamepad] = nullptr;
 				dialog_callback[gamepad] = nullptr;
@@ -303,7 +303,7 @@ void dialog_layout(s8 gamepad, const Update* u, const RenderParams* params)
 			else if (cancel_clicked || (!Game::cancel_event_eaten[gamepad] && u->last_input->get(Controls::Cancel, gamepad) && !u->input->get(Controls::Cancel, gamepad)))
 			{
 				// cancel
-				Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+				Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, gamepad);
 				DialogCallback cancel_callback = dialog_cancel_callback[gamepad];
 				dialog_layout_callback[gamepad] = nullptr;
 				dialog_callback[gamepad] = nullptr;
@@ -320,9 +320,9 @@ void dialog_layout(s8 gamepad, const Update* u, const RenderParams* params)
 void dialog(s8 gamepad, DialogCallback callback, const char* format, ...)
 {
 	if (callback == &dialog_no_action)
-		Audio::post_global(AK::EVENTS::PLAY_DIALOG_ALERT);
+		Audio::post_global(AK::EVENTS::PLAY_DIALOG_ALERT, gamepad);
 	else
-		Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW);
+		Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW, gamepad);
 
 	va_list args;
 	va_start(args, format);
@@ -347,7 +347,7 @@ void dialog(s8 gamepad, DialogCallback callback, const char* format, ...)
 
 void dialog_with_cancel(s8 gamepad, DialogCallback callback, DialogCallback cancel_callback, const char* format, ...)
 {
-	Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW);
+	Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW, gamepad);
 
 	va_list args;
 	va_start(args, format);
@@ -382,7 +382,7 @@ void dialog_custom(s8 gamepad, DialogLayoutCallback layout)
 
 void dialog_with_time_limit(s8 gamepad, DialogCallback callback, DialogCallback callback_cancel, r32 limit, const char* format, ...)
 {
-	Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW);
+	Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW, gamepad);
 
 	va_list args;
 	va_start(args, format);
@@ -407,7 +407,7 @@ void dialog_with_time_limit(s8 gamepad, DialogCallback callback, DialogCallback 
 
 void dialog_text(DialogTextCallback callback, const char* initial_value, s32 truncate, const char* format, ...)
 {
-	Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW);
+	Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW, 0);
 
 	va_list args;
 	va_start(args, format);
@@ -434,7 +434,7 @@ void dialog_text(DialogTextCallback callback, const char* initial_value, s32 tru
 
 void dialog_text_with_cancel(DialogTextCallback callback, DialogTextCancelCallback cancel_callback, const char* initial_value, s32 truncate, const char* format, ...)
 {
-	Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW);
+	Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW, 0);
 
 	va_list args;
 	va_start(args, format);
@@ -1230,7 +1230,7 @@ void draw_ui(const RenderParams& params)
 		// prompt
 		text.color = UI::color_default;
 		text.text(0, dialog_string[0]);
-		UIMenu::text_clip(&text, dialog_time[0], 100.0f);
+		UIMenu::text_clip(&text, gamepad, dialog_time[0], 100.0f);
 		text.draw(params, field_rect.pos + Vec2(0, field_rect.size.y + MENU_ITEM_PADDING));
 		text.clip = 0;
 
@@ -1953,7 +1953,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 			&& !u.input->get(Controls::UIContextAction, gamepad) && u.last_input->get(Controls::UIContextAction, gamepad))
 		{
 			// open context menu
-			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, gamepad);
 			teams_selected_player[gamepad] = i.item();
 			teams_selected_player_friendship[gamepad] = FriendshipState::None;
 #if !SERVER
@@ -2011,7 +2011,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 
 	if (exit)
 	{
-		Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+		Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, gamepad);
 		Game::cancel_event_eaten[gamepad] = true;
 		if (selected)
 		{
@@ -2041,7 +2041,7 @@ b8 choose_region(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMe
 		&& !Game::cancel_event_eaten[0];
 	if (allow_close == AllowClose::Yes && (cancel || menu->item(u, _(strings::back))))
 	{
-		Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+		Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, gamepad);
 		Game::cancel_event_eaten[0] = true;
 		menu->end(u);
 		return false;
@@ -2116,7 +2116,7 @@ void UIMenu::start(const Update& u, const Origin& o, s8 g, EnableInput input)
 		s32 delta = UI::input_delta_vertical(u, gamepad);
 		if (delta != 0)
 		{
-			Audio::post_global(AK::EVENTS::PLAY_MENU_MOVE);
+			Audio::post_global(AK::EVENTS::PLAY_MENU_MOVE, gamepad);
 			selected += delta;
 		}
 	}
@@ -2200,7 +2200,7 @@ b8 UIMenu::add_item(Item::Type type, const char* string, const char* value, b8 d
 	b8 is_selected = active[gamepad] == this && selected == items.length - 1;
 	item->label.color = item->value.color = (disabled || active[gamepad] != this) ? UI::color_disabled() : (is_selected ? UI::color_accent() : UI::color_default);
 	item->label.text(gamepad, string);
-	text_clip(&item->label, animation_time + (items.length - 1 - scroll.pos) * 0.1f, 100.0f);
+	text_clip(&item->label, gamepad, animation_time + (items.length - 1 - scroll.pos) * 0.1f, 100.0f);
 
 	item->value.anchor_x = UIText::Anchor::Center;
 	item->value.text(gamepad, value);
@@ -2218,7 +2218,7 @@ b8 check_mouse_select(UIMenu* menu, const Update& u, s32 item)
 		if (menu->enable_input == UIMenu::EnableInput::Yes)
 		{
 			if (menu->selected != item)
-				Audio::post_global(AK::EVENTS::PLAY_MENU_MOVE);
+				Audio::post_global(AK::EVENTS::PLAY_MENU_MOVE, 0);
 			menu->selected = item;
 		}
 		return menu->selected == item;
@@ -2269,7 +2269,7 @@ b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disab
 		if ((mouse_selected && u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
 			|| (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad)))
 		{
-			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, gamepad);
 			return true;
 		}
 	}
@@ -2334,9 +2334,9 @@ s32 UIMenu::slider_item(const Update& u, const char* label, const char* value, b
 		}
 
 		if (delta == INT_MIN)
-			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT);
+			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, gamepad);
 		else if (delta != 0)
-			Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER);
+			Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER, gamepad);
 		return delta;
 	}
 	
@@ -2377,7 +2377,7 @@ r32 UIMenu::height() const
 	return (vi_min(items.length, scroll.size) * MENU_ITEM_HEIGHT) - MENU_ITEM_PADDING * 2.0f;
 }
 
-void UIMenu::text_clip_timer(UIText* text, r32 timer, r32 speed, s32 max)
+void UIMenu::text_clip_timer(UIText* text, s8 gamepad, r32 timer, r32 speed, s32 max)
 {
 	r32 clip = timer * speed;
 	text->clip = vi_max(1, s32(clip));
@@ -2394,13 +2394,13 @@ void UIMenu::text_clip_timer(UIText* text, r32 timer, r32 speed, s32 max)
 		&& text->rendered_string[text->clip] != '\t'
 		&& text->rendered_string[text->clip] != '\n')
 	{
-		Audio::post_global(AK::EVENTS::PLAY_CONSOLE_KEY);
+		Audio::post_global(AK::EVENTS::PLAY_CONSOLE_KEY, gamepad);
 	}
 }
 
-void UIMenu::text_clip(UIText* text, r32 start_time, r32 speed, s32 max)
+void UIMenu::text_clip(UIText* text, s8 gamepad, r32 start_time, r32 speed, s32 max)
 {
-	text_clip_timer(text, Game::real_time.total - start_time, speed, max);
+	text_clip_timer(text, gamepad, Game::real_time.total - start_time, speed, max);
 }
 
 const UIMenu::Item* UIMenu::last_visible_item() const

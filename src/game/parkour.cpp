@@ -928,6 +928,7 @@ void Parkour::update_server(const Update& u)
 	}
 
 	// update breath sound
+	if (Game::session.type == SessionType::Story)
 	{
 		if ((fsm.current != ParkourState::Normal || get<Walker>()->net_speed >= RUN_SPEED)
 			&& fsm.current != ParkourState::Climb)

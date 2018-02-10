@@ -128,6 +128,7 @@ struct Water : public ComponentType<Water>
 	static void update_all(const Update&);
 
 	Config config;
+	Ref<AudioEntry> audio_entries[MAX_GAMEPADS];
 	RenderMask mask;
 
 	Water(AssetID = AssetNull);

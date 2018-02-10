@@ -2059,8 +2059,8 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			if (!m)
 				return true;
 
-			if (m->is_local())
-				Audio::post_global(AK::EVENTS::PLAY_DRONE_CHARGE_RESTORE);
+			if (m->is_local() && m->has<PlayerHuman>())
+				Audio::post_global(AK::EVENTS::PLAY_DRONE_CHARGE_RESTORE, m->get<PlayerHuman>()->gamepad);
 
 			m->ability_cooldown[s32(a)] = value;
 

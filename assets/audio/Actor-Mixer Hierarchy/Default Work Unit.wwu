@@ -5868,12 +5868,65 @@
 						<ActorMixer Name="Indoor" ID="{6F9C180A-B770-4B6C-86E0-B2A3815DBC0C}" ShortID="1061644172">
 							<PropertyList>
 								<Property Name="BelowThresholdBehavior" Type="int16" Value="2"/>
-								<Property Name="EnablePositioning" Type="bool" Value="False"/>
+								<Property Name="PositioningType" Type="int16" Value="1">
+									<RTPCList>
+										<RTPC Name="" ID="{A523383B-5E1C-45E7-B2A9-4C0FFAB1CDE6}" ShortID="292804315">
+											<ReferenceList>
+												<Reference Name="ControlInput">
+													<ObjectRef Name="Multiple_Listeners" ID="{1E5515A0-98B9-4C08-ADF9-D037AF42F0AB}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+												</Reference>
+											</ReferenceList>
+											<Curve Name="" ID="{D66AE924-6BD8-46EE-A9A7-2F8993F8FFCA}">
+												<PropertyList>
+													<Property Name="Flags" Type="int32" Value="65537"/>
+												</PropertyList>
+												<PointList>
+													<Point>
+														<XPos>0</XPos>
+														<YPos>0</YPos>
+														<Flags>5</Flags>
+													</Point>
+													<Point>
+														<XPos>1</XPos>
+														<YPos>1</YPos>
+														<Flags>37</Flags>
+													</Point>
+												</PointList>
+											</Curve>
+										</RTPC>
+									</RTPCList>
+								</Property>
 								<Property Name="VirtualVoiceQueueBehavior" Type="int16" Value="2"/>
 								<Property Name="Volume" Type="Real64">
 									<ValueList>
 										<Value>-22</Value>
 									</ValueList>
+									<RTPCList>
+										<RTPC Name="" ID="{4B817D97-F4A8-48EC-8CBC-B4EFC247A68F}" ShortID="395744704">
+											<ReferenceList>
+												<Reference Name="ControlInput">
+													<ObjectRef Name="Ambience_Indoor_Outdoor" ID="{009637B5-397A-45CB-AC3E-1579D1CBD448}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+												</Reference>
+											</ReferenceList>
+											<Curve Name="" ID="{CE8A5E09-8FB0-4AD0-A82B-FBD7AA529412}">
+												<PropertyList>
+													<Property Name="Flags" Type="int32" Value="3"/>
+												</PropertyList>
+												<PointList>
+													<Point>
+														<XPos>0</XPos>
+														<YPos>0</YPos>
+														<Flags>5</Flags>
+													</Point>
+													<Point>
+														<XPos>1</XPos>
+														<YPos>-200</YPos>
+														<Flags>37</Flags>
+													</Point>
+												</PointList>
+											</Curve>
+										</RTPC>
+									</RTPCList>
 								</Property>
 							</PropertyList>
 							<ReferenceList>
@@ -6048,6 +6101,32 @@
 											<ValueList>
 												<Value>-2</Value>
 											</ValueList>
+											<RTPCList>
+												<RTPC Name="" ID="{06511736-393B-4F53-90E7-BBE3FCDA56BC}" ShortID="222717211">
+													<ReferenceList>
+														<Reference Name="ControlInput">
+															<ObjectRef Name="Ambience_Indoor_Outdoor" ID="{009637B5-397A-45CB-AC3E-1579D1CBD448}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+														</Reference>
+													</ReferenceList>
+													<Curve Name="" ID="{C56F8C0E-2FDC-409A-8B2E-80126D7FDE5D}">
+														<PropertyList>
+															<Property Name="Flags" Type="int32" Value="3"/>
+														</PropertyList>
+														<PointList>
+															<Point>
+																<XPos>0</XPos>
+																<YPos>-200</YPos>
+																<Flags>5</Flags>
+															</Point>
+															<Point>
+																<XPos>1</XPos>
+																<YPos>0</YPos>
+																<Flags>37</Flags>
+															</Point>
+														</PointList>
+													</Curve>
+												</RTPC>
+											</RTPCList>
 										</Property>
 									</PropertyList>
 									<ReferenceList>
@@ -6076,12 +6155,65 @@
 						<ActorMixer Name="Outdoor" ID="{76C64C31-01FD-419B-B328-4F2F48CBABFD}" ShortID="750359748">
 							<PropertyList>
 								<Property Name="BelowThresholdBehavior" Type="int16" Value="2"/>
-								<Property Name="EnablePositioning" Type="bool" Value="False"/>
+								<Property Name="PositioningType" Type="int16">
+									<RTPCList>
+										<RTPC Name="" ID="{B9A94A7D-B7D9-443A-A5D4-3C123FF64A1D}" ShortID="416041339">
+											<ReferenceList>
+												<Reference Name="ControlInput">
+													<ObjectRef Name="Multiple_Listeners" ID="{1E5515A0-98B9-4C08-ADF9-D037AF42F0AB}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+												</Reference>
+											</ReferenceList>
+											<Curve Name="" ID="{6A24177A-6AB7-42F4-B8C1-149ACE60EEEB}">
+												<PropertyList>
+													<Property Name="Flags" Type="int32" Value="65537"/>
+												</PropertyList>
+												<PointList>
+													<Point>
+														<XPos>0</XPos>
+														<YPos>0</YPos>
+														<Flags>5</Flags>
+													</Point>
+													<Point>
+														<XPos>1</XPos>
+														<YPos>1</YPos>
+														<Flags>37</Flags>
+													</Point>
+												</PointList>
+											</Curve>
+										</RTPC>
+									</RTPCList>
+								</Property>
 								<Property Name="VirtualVoiceQueueBehavior" Type="int16" Value="2"/>
 								<Property Name="Volume" Type="Real64">
 									<ValueList>
 										<Value>-22</Value>
 									</ValueList>
+									<RTPCList>
+										<RTPC Name="" ID="{4784CE5F-9E1A-4F3D-9800-94052FE8C8A2}" ShortID="1033570024">
+											<ReferenceList>
+												<Reference Name="ControlInput">
+													<ObjectRef Name="Ambience_Indoor_Outdoor" ID="{009637B5-397A-45CB-AC3E-1579D1CBD448}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+												</Reference>
+											</ReferenceList>
+											<Curve Name="" ID="{08AFF7C9-A523-4415-BBDD-48800DF9D18C}">
+												<PropertyList>
+													<Property Name="Flags" Type="int32" Value="3"/>
+												</PropertyList>
+												<PointList>
+													<Point>
+														<XPos>0</XPos>
+														<YPos>-200</YPos>
+														<Flags>5</Flags>
+													</Point>
+													<Point>
+														<XPos>1</XPos>
+														<YPos>0</YPos>
+														<Flags>37</Flags>
+													</Point>
+												</PointList>
+											</Curve>
+										</RTPC>
+									</RTPCList>
 								</Property>
 							</PropertyList>
 							<ReferenceList>
@@ -6898,7 +7030,6 @@
 						<ActorMixer Name="ParkourVocals" ID="{E505D459-049E-4240-833C-283E07A30D56}" ShortID="861819778">
 							<PropertyList>
 								<Property Name="PositioningType" Type="int16" Value="1"/>
-								<Property Name="Spatialization" Type="int16" Value="0"/>
 								<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 							</PropertyList>
 							<ReferenceList>
@@ -7430,6 +7561,34 @@
 							<PropertyList>
 								<Property Name="PlayMechanismLoop" Type="bool" Value="True"/>
 								<Property Name="PlayMechanismStepOrContinuous" Type="int16" Value="0"/>
+								<Property Name="PositioningType" Type="int16" Value="1">
+									<RTPCList>
+										<RTPC Name="" ID="{5A8FBBB8-4FD4-4011-A9A0-438CFBD030CF}" ShortID="960408996">
+											<ReferenceList>
+												<Reference Name="ControlInput">
+													<ObjectRef Name="Multiple_Listeners" ID="{1E5515A0-98B9-4C08-ADF9-D037AF42F0AB}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+												</Reference>
+											</ReferenceList>
+											<Curve Name="" ID="{FF9F2A90-46A5-403F-8AC8-C686C251AB93}">
+												<PropertyList>
+													<Property Name="Flags" Type="int32" Value="65537"/>
+												</PropertyList>
+												<PointList>
+													<Point>
+														<XPos>0</XPos>
+														<YPos>0</YPos>
+														<Flags>5</Flags>
+													</Point>
+													<Point>
+														<XPos>1</XPos>
+														<YPos>1</YPos>
+														<Flags>37</Flags>
+													</Point>
+												</PointList>
+											</Curve>
+										</RTPC>
+									</RTPCList>
+								</Property>
 								<Property Name="Volume" Type="Real64">
 									<ValueList>
 										<Value>3</Value>
@@ -7463,9 +7622,6 @@
 								</Property>
 							</PropertyList>
 							<ReferenceList>
-								<Reference Name="Attenuation">
-									<ObjectRef Name="Atten20" ID="{66FF368F-246F-423C-AD7C-4B99890C0E5F}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
-								</Reference>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
 								</Reference>
@@ -7507,7 +7663,6 @@
 								</Property>
 								<Property Name="IsLoopingEnabled" Type="bool" Value="True"/>
 								<Property Name="PositioningType" Type="int16" Value="1"/>
-								<Property Name="Spatialization" Type="int16" Value="0"/>
 								<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 								<Property Name="Volume" Type="Real64">
 									<ValueList>
@@ -7542,6 +7697,9 @@
 								</Property>
 							</PropertyList>
 							<ReferenceList>
+								<Reference Name="Attenuation">
+									<ObjectRef Name="Atten20" ID="{66FF368F-246F-423C-AD7C-4B99890C0E5F}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+								</Reference>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
 								</Reference>
@@ -7575,7 +7733,6 @@
 									</ModifierList>
 								</Property>
 								<Property Name="PositioningType" Type="int16" Value="1"/>
-								<Property Name="Spatialization" Type="int16" Value="0"/>
 								<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 							</PropertyList>
 							<ReferenceList>
@@ -7824,7 +7981,6 @@
 									</ModifierList>
 								</Property>
 								<Property Name="PositioningType" Type="int16" Value="1"/>
-								<Property Name="Spatialization" Type="int16" Value="0"/>
 								<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 							</PropertyList>
 							<ReferenceList>
@@ -7882,7 +8038,6 @@
 						<Sound Name="DEC_Parkour_interact" ID="{2AA7F5FF-3475-4AE7-80DD-1BB5D6978DFD}" ShortID="512067554">
 							<PropertyList>
 								<Property Name="PositioningType" Type="int16" Value="1"/>
-								<Property Name="Spatialization" Type="int16" Value="0"/>
 								<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 							</PropertyList>
 							<ReferenceList>
@@ -8060,6 +8215,34 @@
 				</Folder>
 				<ActorMixer Name="UI" ID="{156C97DB-FC19-4B4D-9BAC-B83FD1785087}" ShortID="291371428">
 					<PropertyList>
+						<Property Name="PositioningType" Type="int16" Value="1">
+							<RTPCList>
+								<RTPC Name="" ID="{E3F6AAAA-5C75-45F6-BF7F-E2046E6FABAC}" ShortID="540167017">
+									<ReferenceList>
+										<Reference Name="ControlInput">
+											<ObjectRef Name="Multiple_Listeners" ID="{1E5515A0-98B9-4C08-ADF9-D037AF42F0AB}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+										</Reference>
+									</ReferenceList>
+									<Curve Name="" ID="{A5CBEEDA-5ADA-413C-8119-F8EDBE196D63}">
+										<PropertyList>
+											<Property Name="Flags" Type="int32" Value="65537"/>
+										</PropertyList>
+										<PointList>
+											<Point>
+												<XPos>0</XPos>
+												<YPos>0</YPos>
+												<Flags>5</Flags>
+											</Point>
+											<Point>
+												<XPos>1</XPos>
+												<YPos>1</YPos>
+												<Flags>37</Flags>
+											</Point>
+										</PointList>
+									</Curve>
+								</RTPC>
+							</RTPCList>
+						</Property>
 						<Property Name="Priority" Type="int16">
 							<ValueList>
 								<Value>100</Value>
@@ -8879,6 +9062,9 @@
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>
+					<PositioningInfo>
+						<Panner Name="" ID="{71CBDE1B-C997-43E7-87D2-2D2430A0A4A4}"/>
+					</PositioningInfo>
 				</ActorMixer>
 				<Folder Name="Tram" ID="{78E531F8-C4B9-4B52-8887-4B24E6F461BB}" ShortID="425418416">
 					<ChildrenList>

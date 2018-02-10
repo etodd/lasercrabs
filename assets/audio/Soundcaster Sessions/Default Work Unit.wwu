@@ -44,6 +44,10 @@
 							<Value>1</Value>
 						</RTPCValue>
 						<RTPCValue>
+							<GameParameterRef Name="Multiple_Listeners" ID="{1E5515A0-98B9-4C08-ADF9-D037AF42F0AB}"/>
+							<Value>1</Value>
+						</RTPCValue>
+						<RTPCValue>
 							<GameParameterRef Name="Parkour_Wind" ID="{F6905F29-60EE-4D61-80E8-1CE93F7CC94F}"/>
 							<Value>0</Value>
 						</RTPCValue>

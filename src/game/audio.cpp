@@ -76,10 +76,10 @@ r32 Audio::volume_scale = 1.0f;
 b8 Audio::init() { return true; }
 void Audio::term() {}
 void Audio::update_all(const Update&) {}
-void Audio::post_global(AkUniqueID) {}
-b8 Audio::post_global_dialogue(AkUniqueID) { return false; }
+void Audio::post_global(AkUniqueID, s8) {}
+b8 Audio::post_global_dialogue(AkUniqueID, s8) { return false; }
 AudioEntry* Audio::post_global(AkUniqueID, const Vec3&, Transform*, s32) { return nullptr; }
-void Audio::param_global(AkRtpcID, AkRtpcValue) {}
+void Audio::param_global(AkRtpcID, AkRtpcValue, s8) {}
 void Audio::listener_enable(s8, AI::Team) {}
 void Audio::listener_disable(s8) {}
 void Audio::listener_update(s8, const Vec3&, const Quat&) {}
@@ -97,6 +97,7 @@ void AudioEntry::pathfind_result(s8, r32, r32) {}
 b8 AudioEntry::post_dialogue(AkUniqueID) { return false; }
 void AudioEntry::param(AkRtpcID, AkRtpcValue) {}
 void AudioEntry::flag(s32, b8) {}
+void AudioEntry::set_listener_mask(s8) {}
 
 void Audio::awake() {}
 Audio::~Audio() {}
@@ -192,11 +193,17 @@ b8 Audio::init()
 #endif
 
 	// game object for global 2D events
-	AK::SoundEngine::RegisterGameObj(AUDIO_OFFSET_GLOBAL_2D);
-
-	// game objects for listeners
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		// register listener
 		AK::SoundEngine::RegisterGameObj(listener_id(i));
+
+		// register global 2d sound object
+		AK::SoundEngine::RegisterGameObj(AUDIO_OFFSET_GLOBAL_2D + i);
+
+		AK::SoundEngine::SetListeners(AUDIO_OFFSET_GLOBAL_2D + i, 0, 0);
+	}
+	AK::SoundEngine::RegisterGameObj(AUDIO_OFFSET_GLOBAL_2D_ALL); // global 2d for all listeners
 
 	AK::SoundEngine::RegisterBusMeteringCallback(AK::BUSSES::DIALOGUE, AudioEntry::dialogue_volume_callback, AkMeteringFlags(AK_EnableBusMeter_Peak));
 
@@ -265,6 +272,7 @@ void AudioEntry::init(const Vec3& npos, Transform* nparent, AudioEntry* parent_e
 	else
 		abs_pos = pos;
 	playing = 0;
+	listener_mask = -1;
 
 	AK::SoundEngine::RegisterGameObj(ak_id());
 
@@ -314,6 +322,29 @@ void AudioEntry::flag(s32 f, b8 value)
 			memset(reverb_target, 0, sizeof(reverb_target));
 		}
 	}
+}
+
+void audio_listener_mask_to_array(s8 mask, AkGameObjectID* list, s32* listener_count)
+{
+	*listener_count = 0;
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		if (mask & (1 << i))
+		{
+			list[*listener_count] = Audio::listener_id(i);
+			(*listener_count)++;
+		}
+	}
+}
+
+void AudioEntry::set_listener_mask(s8 mask)
+{
+	listener_mask = mask;
+
+	AkGameObjectID listener_ids[MAX_GAMEPADS];
+	s32 listener_count;
+	audio_listener_mask_to_array(mask & Audio::listener_mask, listener_ids, &listener_count);
+	AK::SoundEngine::SetListeners(ak_id(), listener_ids, listener_count);
 }
 
 AkAuxBusID reverb_aux_bus[MAX_REVERBS] =
@@ -543,26 +574,13 @@ void Audio::update_all(const Update& u)
 				{
 					Listener* l = &listener[i];
 					l->force_field_hash = ForceField::hash(l->team, l->pos);
-				}
-			}
 
-			// update ambience
-			r32 ambience_indoor_outdoor = 0.0f;
-			s32 count = 0;
-			for (s32 i = 0; i < MAX_GAMEPADS; i++)
-			{
-				if (listener_mask & (1 << i))
-				{
 					ReverbCell reverb;
 					AI::audio_reverb_calc(listener[i].pos, &reverb);
-					ambience_indoor_outdoor += reverb.outdoor;
-					count++;
+					l->outdoor = reverb.outdoor;
+					param_global(AK::GAME_PARAMETERS::AMBIENCE_INDOOR_OUTDOOR, reverb.outdoor, i);
 				}
 			}
-			if (count > 0)
-				param_global(AK::GAME_PARAMETERS::AMBIENCE_INDOOR_OUTDOOR, ambience_indoor_outdoor / r32(count));
-			else
-				param_global(AK::GAME_PARAMETERS::AMBIENCE_INDOOR_OUTDOOR, 0.0f);
 		}
 	}
 
@@ -574,9 +592,12 @@ AkUniqueID Audio::get_id(const char* str)
 	return AK::SoundEngine::GetIDFromString(str);
 }
 
-void Audio::post_global(AkUniqueID event_id)
+void Audio::post_global(AkUniqueID event_id, s8 gamepad)
 {
-	AK::SoundEngine::PostEvent(event_id, AUDIO_OFFSET_GLOBAL_2D);
+	if (gamepad == -1)
+		AK::SoundEngine::PostEvent(event_id, AUDIO_OFFSET_GLOBAL_2D_ALL);
+	else
+		AK::SoundEngine::PostEvent(event_id, AUDIO_OFFSET_GLOBAL_2D + gamepad);
 }
 
 void Audio::dialogue_done_callback(AkCallbackType type, AkCallbackInfo* info)
@@ -594,9 +615,14 @@ AudioEntry* Audio::entry() const
 	return &AudioEntry::list[entry_id];
 }
 
-b8 Audio::post_global_dialogue(AkUniqueID event_id)
+b8 Audio::post_global_dialogue(AkUniqueID event_id, s8 gamepad)
 {
-	AkPlayingID i = AK::SoundEngine::PostEvent(event_id, AUDIO_OFFSET_GLOBAL_2D, AkCallbackType::AK_EndOfEvent, &dialogue_done_callback);
+	AkGameObjectID object_id;
+	if (gamepad == -1)
+		object_id = AUDIO_OFFSET_GLOBAL_2D_ALL;
+	else
+		object_id = AUDIO_OFFSET_GLOBAL_2D + gamepad;
+	AkPlayingID i = AK::SoundEngine::PostEvent(event_id, object_id, AkCallbackType::AK_EndOfEvent, &dialogue_done_callback);
 	return i != 0;
 }
 
@@ -613,27 +639,39 @@ AudioEntry* Audio::post_global(AkUniqueID event_id, const Vec3& pos, Transform* 
 	return e;
 }
 
-void Audio::param_global(AkRtpcID id, AkRtpcValue value)
+void Audio::param_global(AkRtpcID id, AkRtpcValue value, s8 gamepad)
 {
-	AK::SoundEngine::SetRTPCValue(id, value);
+	if (gamepad == -1)
+		AK::SoundEngine::SetRTPCValue(id, value);
+	else
+		AK::SoundEngine::SetRTPCValue(id, value, AUDIO_OFFSET_GLOBAL_2D + gamepad);
 }
 
 void Audio::listener_list_update()
 {
-	AkGameObjectID listener_ids[MAX_GAMEPADS];
-	s32 listener_count = 0;
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
 		if (listener_mask & (1 << i))
 		{
-			listener_ids[listener_count] = listener_id(i);
-			listener_count++;
+			AkGameObjectID id = listener_id(i);
+			AK::SoundEngine::SetListeners(AUDIO_OFFSET_GLOBAL_2D + i, &id, 1);
 		}
+		else
+			AK::SoundEngine::SetListeners(AUDIO_OFFSET_GLOBAL_2D + i, 0, 0);
 	}
-	AK::SoundEngine::SetDefaultListeners(listener_ids, listener_count);
+
+	s32 listener_count;
+	{
+		AkGameObjectID listener_ids[MAX_GAMEPADS];
+		audio_listener_mask_to_array(listener_mask, listener_ids, &listener_count);
+		AK::SoundEngine::SetDefaultListeners(listener_ids, listener_count);
+		AK::SoundEngine::SetListeners(AUDIO_OFFSET_GLOBAL_2D_ALL, listener_ids, listener_count);
+	}
 
 	for (auto i = AudioEntry::list.iterator(); !i.is_last(); i.next())
-		AK::SoundEngine::SetListeners(i.item()->ak_id(), listener_ids, listener_count);
+		i.item()->set_listener_mask(i.item()->listener_mask);
+
+	param_global(AK::GAME_PARAMETERS::MULTIPLE_LISTENERS, listener_count > 1);
 
 	if (listener_count > 0)
 	{
@@ -677,17 +715,6 @@ void Audio::listener_list_update()
 				0.0f, // side right
 				0.0f, // lfe
 			};
-			AkReal32 volumes_center[18 * 4] =
-			{
-				-6.0f, // left
-				-6.0f, // right
-				0.0f, // center
-				-6.0f, // rear left
-				-6.0f, // rear right
-				-6.0f, // side left
-				-6.0f, // side right
-				0.0f, // lfe
-			};
 
 			AK::SpeakerVolumes::VectorPtr listener_blueprints[MAX_GAMEPADS - 1][MAX_GAMEPADS];
 			vi_assert(MAX_GAMEPADS == 4); // update this if this changes
@@ -695,8 +722,8 @@ void Audio::listener_list_update()
 			listener_blueprints[0][0] = volumes_left;
 			listener_blueprints[0][1] = volumes_right;
 			// three players
-			listener_blueprints[1][0] = volumes_center;
-			listener_blueprints[1][1] = volumes_left;
+			listener_blueprints[1][0] = volumes_left;
+			listener_blueprints[1][1] = volumes_right;
 			listener_blueprints[1][2] = volumes_right;
 			// four players
 			listener_blueprints[2][0] = volumes_left;

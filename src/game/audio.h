@@ -30,6 +30,7 @@
 #define AUDIO_OFFSET_LISTENERS 2
 #define AUDIO_OFFSET_ENTRIES (2 + MAX_GAMEPADS)
 #define AUDIO_OFFSET_GLOBAL_2D (2 + MAX_GAMEPADS + MAX_ENTITIES)
+#define AUDIO_OFFSET_GLOBAL_2D_ALL (AUDIO_OFFSET_GLOBAL_2D + MAX_GAMEPADS)
 
 namespace VI
 {
@@ -78,6 +79,7 @@ struct AudioEntry
 	Revision revision;
 	s8 playing;
 	s8 flags;
+	s8 listener_mask = -1;
 
 	inline b8 flag(s32 f) const
 	{
@@ -88,6 +90,7 @@ struct AudioEntry
 
 	void init(const Vec3&, Transform*, AudioEntry* = nullptr, s32 = FlagEnableObstructionOcclusion | FlagEnableForceFieldObstruction | FlagEnableReverb);
 	void cleanup();
+	void set_listener_mask(s8);
 
 	inline ID id()
 	{
@@ -116,6 +119,7 @@ struct Audio : ComponentType<Audio>
 		Vec3 pos;
 		u32 force_field_hash;
 		AI::Team team;
+		r32 outdoor;
 	};
 
 #if !SERVER
@@ -135,10 +139,10 @@ struct Audio : ComponentType<Audio>
 	static b8 init();
 	static void term();
 	static void update_all(const Update&);
-	static void post_global(AkUniqueID);
-	static b8 post_global_dialogue(AkUniqueID);
+	static void post_global(AkUniqueID, s8 = -1);
+	static b8 post_global_dialogue(AkUniqueID, s8 = -1);
 	static AudioEntry* post_global(AkUniqueID, const Vec3&, Transform* = nullptr, s32 = AudioEntry::FlagEnableObstructionOcclusion | AudioEntry::FlagEnableForceFieldObstruction | AudioEntry::FlagEnableReverb);
-	static void param_global(AkRtpcID, AkRtpcValue);
+	static void param_global(AkRtpcID, AkRtpcValue, s8 = -1);
 	static void listener_list_update();
 	static void listener_enable(s8, AI::Team);
 	static void listener_disable(s8);

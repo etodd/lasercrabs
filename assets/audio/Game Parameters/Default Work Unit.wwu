@@ -87,6 +87,12 @@
 						<Property Name="SlewRateUp" Type="Real64" Value="2.5"/>
 					</PropertyList>
 				</GameParameter>
+				<GameParameter Name="Multiple_Listeners" ID="{1E5515A0-98B9-4C08-ADF9-D037AF42F0AB}">
+					<PropertyList>
+						<Property Name="InitialValue" Type="Real64" Value="0"/>
+						<Property Name="Max" Type="Real64" Value="1"/>
+					</PropertyList>
+				</GameParameter>
 			</ChildrenList>
 		</WorkUnit>
 	</GameParameters>

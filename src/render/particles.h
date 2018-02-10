@@ -70,7 +70,7 @@ struct Rain : public ParticleSystem
 	static r32 particle_accumulator;
 	static const s32 raycast_grid_size = 24; // must be a power of 2
 	static r32 audio_kernel[raycast_grid_size * raycast_grid_size];
-	static Ref<AudioEntry> audio_entry;
+	static Ref<AudioEntry> audio_entries[MAX_GAMEPADS];
 
 	static void audio_init();
 	static void audio_clear();

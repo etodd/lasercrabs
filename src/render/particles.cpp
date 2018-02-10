@@ -382,7 +382,7 @@ const r32 rain_interval_multiplier = 0.00075f;
 const r32 rain_raycast_grid_cell_size = (rain_radius * 2.0f) / Rain::raycast_grid_size;
 r32 Rain::audio_kernel[raycast_grid_size * raycast_grid_size];
 r32 Rain::particle_accumulator;
-Ref<AudioEntry> Rain::audio_entry;
+Ref<AudioEntry> Rain::audio_entries[MAX_GAMEPADS];
 
 Vec3 rain_cell_offset(s32 x, s32 z)
 {
@@ -416,17 +416,25 @@ Rain::Rain(const Vec2& size, const Vec3& velocity)
 
 void Rain::audio_init()
 {
-	audio_entry = Audio::post_global(AK::EVENTS::PLAY_RAIN_LOOP, Vec3::zero, nullptr, AudioEntry::FlagEnableReverb | AudioEntry::FlagKeepalive);
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		AudioEntry* entry = Audio::post_global(AK::EVENTS::PLAY_RAIN_LOOP, Vec3::zero, nullptr, AudioEntry::FlagEnableReverb | AudioEntry::FlagKeepalive);
+		entry->set_listener_mask(1 << i);
+		audio_entries[i] = entry;
+	}
 }
 
 void Rain::audio_clear()
 {
-	if (audio_entry.ref())
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		audio_entry.ref()->stop_all();
-		audio_entry.ref()->cleanup();
+		if (AudioEntry* entry = audio_entries[i].ref())
+		{
+			entry->stop_all();
+			entry->cleanup();
+		}
+		audio_entries[i] = nullptr;
 	}
-	audio_entry = nullptr;
 }
 
 void Rain::clear()
@@ -456,8 +464,6 @@ void Rain::spawn(const Update& u, r32 strength)
 	const r32 raycast_grid_time_to_refresh = 0.5f; // in seconds
 	s32 raycasts_per_frame = s32(u.time.delta * (raycast_grid_size * raycast_grid_size) / raycast_grid_time_to_refresh);
 
-	Vec3 audio_pos = Vec3::zero;
-	r32 audio_score = FLT_MAX;
 	for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
 	{
 		const Camera& camera = *i.item();
@@ -551,12 +557,8 @@ void Rain::spawn(const Update& u, r32 strength)
 				if (closest_score > 0.0015f)
 					average_pos += (closest_pos - average_pos) * 0.5f;
 
-				r32 score = average_pos.length_squared();
-				if (score < audio_score)
-				{
-					audio_score = score;
-					audio_pos = camera.pos + average_pos;
-				}
+				if (AudioEntry* entry = audio_entries[camera.gamepad].ref())
+					entry->abs_pos = camera.pos + average_pos;
 			}
 
 			{
@@ -632,8 +634,6 @@ void Rain::spawn(const Update& u, r32 strength)
 		else
 			rain->clear();
 	}
-	if (audio_entry.ref())
-		audio_entry.ref()->abs_pos = audio_pos;
 #endif
 }
 

@@ -4769,7 +4769,6 @@ WaterEntity::WaterEntity(AssetID mesh_id)
 {
 	create<Transform>();
 	create<Water>(mesh_id);
-	create<Audio>();
 }
 
 PinArray<EffectLight, MAX_ENTITIES> EffectLight::list;

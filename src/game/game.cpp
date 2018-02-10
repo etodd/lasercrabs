@@ -2596,9 +2596,15 @@ void Game::awake_all()
 #endif
 
 	if (level.ambience1[0])
-		Audio::post_global(Audio::get_id(level.ambience1));
+	{
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
+			Audio::post_global(Audio::get_id(level.ambience1), i);
+	}
 	if (level.ambience2[0])
-		Audio::post_global(Audio::get_id(level.ambience2));
+	{
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
+			Audio::post_global(Audio::get_id(level.ambience2), i);
+	}
 
 	for (s32 i = 0; i < level.scripts.length; i++)
 		Script::list[level.scripts[i]].function(level.finder);

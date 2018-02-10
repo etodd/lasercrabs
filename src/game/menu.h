@@ -61,8 +61,8 @@ struct UIMenu
 		count,
 	};
 
-	static void text_clip_timer(UIText*, r32, r32, s32 = 0);
-	static void text_clip(UIText*, r32, r32, s32 = 0);
+	static void text_clip_timer(UIText*, s8, r32, r32, s32 = 0);
+	static void text_clip(UIText*, s8, r32, r32, s32 = 0);
 	template<typename T> static b8 enum_option(T* t, s32 delta)
 	{
 		s32 value_new = s32(*t) + delta;

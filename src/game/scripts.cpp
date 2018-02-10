@@ -328,7 +328,7 @@ void draw_ui(const RenderParams& params)
 			text.anchor_y = UIText::Anchor::Min;
 			text.color = UI::color_default;
 			text.text(params.camera->gamepad, _(instance.text));
-			UIMenu::text_clip(&text, instance.last_cue_real_time, 80.0f);
+			UIMenu::text_clip(&text, params.camera->gamepad, instance.last_cue_real_time, 80.0f);
 
 			{
 				Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.25f);
@@ -373,7 +373,7 @@ void draw_ui(const RenderParams& params)
 			}
 
 			text.text(params.camera->gamepad, _(data->text_tut));
-			UIMenu::text_clip(&text, data->text_tut_real_time, 80.0f);
+			UIMenu::text_clip(&text, params.camera->gamepad, data->text_tut_real_time, 80.0f);
 
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, p);

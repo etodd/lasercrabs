@@ -467,12 +467,12 @@ b8 player_human_notification(Entity* entity, const Vec3& pos, AI::Team team, Pla
 				|| type == PlayerHuman::Notification::Type::BatteryUnderAttack
 				|| type == PlayerHuman::Notification::Type::TurretUnderAttack
 				|| type == PlayerHuman::Notification::Type::CoreModuleUnderAttack)
-				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_UNDER_ATTACK);
+				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_UNDER_ATTACK, i.item()->gamepad);
 			else if (type == PlayerHuman::Notification::Type::ForceFieldDestroyed
 				|| type == PlayerHuman::Notification::Type::BatteryLost
 				|| type == PlayerHuman::Notification::Type::TurretDestroyed
 				|| type == PlayerHuman::Notification::Type::CoreModuleDestroyed)
-				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_LOST);
+				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_LOST, i.item()->gamepad);
 
 			break;
 		}
@@ -743,7 +743,7 @@ void PlayerHuman::upgrade_menu_show()
 		menu.animate();
 		menu.selected = 0;
 		flag(FlagUpgradeMenuOpen, true);
-		Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW);
+		Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW, gamepad);
 		upgrade_last_visit_highest_available = get<PlayerManager>()->upgrade_highest_owned_or_available();
 	}
 }
@@ -751,7 +751,7 @@ void PlayerHuman::upgrade_menu_show()
 void PlayerHuman::upgrade_menu_hide()
 {
 	flag(FlagUpgradeMenuOpen, false);
-	Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL);
+	Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, gamepad);
 	upgrade_station_try_exit();
 }
 
@@ -826,7 +826,7 @@ void player_upgrade_start(s8 gamepad)
 	Entity* entity = player->get<PlayerManager>()->instance.ref();
 	if (entity)
 	{
-		Audio::post_global(AK::EVENTS::PLAY_DRONE_UPGRADE);
+		Audio::post_global(AK::EVENTS::PLAY_DRONE_UPGRADE, gamepad);
 		PlayerControlHumanNet::Message msg;
 		msg.type = PlayerControlHumanNet::Message::Type::UpgradeStart;
 		msg.upgrade = player_confirm_upgrade[gamepad];
@@ -1358,7 +1358,7 @@ void PlayerHuman::update(const Update& u)
 		{
 			Game::cancel_event_eaten[gamepad] = true;
 			menu_state = (menu_state == Menu::State::Hidden) ? Menu::State::Visible : Menu::State::Hidden;
-			Audio::post_global(menu_state == Menu::State::Visible ? AK::EVENTS::PLAY_DIALOG_SHOW : AK::EVENTS::PLAY_DIALOG_CANCEL);
+			Audio::post_global(menu_state == Menu::State::Visible ? AK::EVENTS::PLAY_DIALOG_SHOW : AK::EVENTS::PLAY_DIALOG_CANCEL, gamepad);
 			menu.animate();
 			if (Game::should_pause())
 				Audio::post_global(menu_state == Menu::State::Visible ? AK::EVENTS::PAUSE_ALL : AK::EVENTS::RESUME_ALL);
@@ -2410,7 +2410,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 						sprintf(description, "%s\n%s", _(strings::buy_cost), _(info.description));
 						text.text(gamepad, description, cost);
 					}
-					UIMenu::text_clip(&text, animation_time, 150.0f);
+					UIMenu::text_clip(&text, gamepad, animation_time, 150.0f);
 
 					Vec2 pos = menu.origin.pos + Vec2(MENU_ITEM_WIDTH * -0.5f + padding, menu.height() * -0.5f - padding * 7.0f);
 					UI::box(params, text.rect(pos).outset(padding), UI::color_background);
@@ -2516,7 +2516,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.color = UI::color_alert();
 			text.text(gamepad, _(Game::session.type == SessionType::Story ? strings::story_defeat : strings::defeat));
 		}
-		UIMenu::text_clip(&text, Team::game_over_real_time, 20.0f);
+		UIMenu::text_clip(&text, gamepad, Team::game_over_real_time, 20.0f);
 
 		b8 show_score_summary = Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY;
 		Vec2 title_pos = show_score_summary
@@ -2551,7 +2551,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				amount.wrap_width = 0;
 
 				text.text_raw(gamepad, item.label);
-				UIMenu::text_clip(&text, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + r32(vi_min(i, 6)) * -5.0f);
+				UIMenu::text_clip(&text, gamepad, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + r32(vi_min(i, 6)) * -5.0f);
 				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 				text.draw(params, p);
 				if (item.amount != -1)
@@ -2597,7 +2597,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			UI::box(params, box, UI::color_background);
 			text.draw(params, pos);
 			if (!last_flash)
-				Audio::post_global(flag(FlagMessageGood) ? AK::EVENTS::PLAY_MESSAGE_BEEP_GOOD : AK::EVENTS::PLAY_MESSAGE_BEEP_BAD);
+				Audio::post_global(flag(FlagMessageGood) ? AK::EVENTS::PLAY_MESSAGE_BEEP_GOOD : AK::EVENTS::PLAY_MESSAGE_BEEP_BAD, gamepad);
 		}
 	}
 
@@ -2622,7 +2622,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				if (victim)
 				{
 					text.text(gamepad, _(strings::killed_player), victim->username);
-					UIMenu::text_clip_timer(&text, KILL_POPUP_TIME - k.timer, 50.0f);
+					UIMenu::text_clip_timer(&text, gamepad, KILL_POPUP_TIME - k.timer, 50.0f);
 					Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
 					UI::box(params, box, UI::color_background);
 					text.draw(params, pos);
@@ -2680,7 +2680,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			s32 remaining_minutes = s32(timer / 60.0f);
 			s32 remaining_seconds = s32(timer - (remaining_minutes * 60.0f));
 			text.text(gamepad, _(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), remaining_minutes, remaining_seconds);
-			UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_TIME - timer, 80.0f);
+			UIMenu::text_clip_timer(&text, gamepad, ZONE_UNDER_ATTACK_TIME - timer, 80.0f);
 
 			{
 				Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 5.0f);
@@ -2708,7 +2708,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.anchor_y = UIText::Anchor::Min;
 			text.color = UI::color_accent();
 			text.text(gamepad, _(flag(FlagAudioLogPlaying) ? strings::prompt_stop : strings::prompt_listen));
-			UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_TIME - audio_log_prompt_timer, 80.0f);
+			UIMenu::text_clip_timer(&text, gamepad, ZONE_UNDER_ATTACK_TIME - audio_log_prompt_timer, 80.0f);
 
 			{
 				Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 24.0f);
@@ -2851,7 +2851,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 			else
 				text.text_raw(gamepad, entry.a);
 
-			UIMenu::text_clip(&text, entry.timestamp, 80.0f);
+			UIMenu::text_clip(&text, gamepad, entry.timestamp, 80.0f);
 			text.draw(params, p);
 
 			if (entry.b[0])
@@ -2875,7 +2875,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 					Unicode::truncate(buffer, 17, "...");
 					text.text_raw(0, buffer);
 				}
-				UIMenu::text_clip(&text, entry.timestamp, 80.0f);
+				UIMenu::text_clip(&text, gamepad, entry.timestamp, 80.0f);
 				text.draw(params, p);
 			}
 			p.y += (text.size * UI::scale) + MENU_ITEM_PADDING * 2.0f;
@@ -3603,15 +3603,19 @@ void PlayerControlHuman::awake()
 		link<&PlayerControlHuman::terminal_enter_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_enter, 2.5f));
 		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_interact, 3.8f));
 		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_exit, 4.0f));
-		get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_WIND);
-		get<Audio>()->param(AK::GAME_PARAMETERS::PARKOUR_WIND, 0.0f);
+		Audio::post_global(AK::EVENTS::PLAY_PARKOUR_WIND, player.ref()->gamepad);
+		Audio::param_global(AK::GAME_PARAMETERS::PARKOUR_WIND, 0.0f, player.ref()->gamepad);
 	}
 }
 
 PlayerControlHuman::~PlayerControlHuman()
 {
 	if (has<Parkour>())
+	{
 		get<Audio>()->stop_all();
+		if (player.ref()) // if the player has already been deleted, everything's getting deleted, STOP_ALL will stop it, don't worry about it
+			Audio::post_global(AK::EVENTS::STOP_PARKOUR_WIND, player.ref()->gamepad);
+	}
 	if (player.ref())
 	{
 #if SERVER
@@ -4126,7 +4130,7 @@ void PlayerControlHuman::update(const Update& u)
 			{
 				r32 cooldown = get<Drone>()->cooldown;
 				if (cooldown < DRONE_COOLDOWN_THRESHOLD && cooldown_last >= DRONE_COOLDOWN_THRESHOLD)
-					Audio::post_global(AK::EVENTS::PLAY_DRONE_CHARGE_RESTORE);
+					Audio::post_global(AK::EVENTS::PLAY_DRONE_CHARGE_RESTORE, gamepad);
 				cooldown_last = cooldown;
 			}
 
@@ -4146,19 +4150,19 @@ void PlayerControlHuman::update(const Update& u)
 						if (Settings::gamepads[gamepad].zoom_toggle)
 						{
 							flag(FlagTrySecondary, !flag(FlagTrySecondary));
-							Audio::post_global(flag(FlagTrySecondary) ? AK::EVENTS::PLAY_ZOOM_IN : AK::EVENTS::PLAY_ZOOM_OUT);
+							Audio::post_global(flag(FlagTrySecondary) ? AK::EVENTS::PLAY_ZOOM_IN : AK::EVENTS::PLAY_ZOOM_OUT, gamepad);
 						}
 						else
 						{
 							flag(FlagTrySecondary, true);
-							Audio::post_global(AK::EVENTS::PLAY_ZOOM_IN);
+							Audio::post_global(AK::EVENTS::PLAY_ZOOM_IN, gamepad);
 						}
 					}
 				}
 				else if (!Settings::gamepads[gamepad].zoom_toggle && !zoom_pressed)
 				{
 					if (flag(FlagTrySecondary))
-						Audio::post_global(AK::EVENTS::PLAY_ZOOM_OUT);
+						Audio::post_global(AK::EVENTS::PLAY_ZOOM_OUT, gamepad);
 					flag(FlagTrySecondary, false);
 				}
 
@@ -4613,7 +4617,7 @@ void PlayerControlHuman::update(const Update& u)
 			{
 				r32 cooldown = get<Parkour>()->grapple_cooldown;
 				if (cooldown < GRAPPLE_COOLDOWN_THRESHOLD && cooldown_last >= GRAPPLE_COOLDOWN_THRESHOLD)
-					Audio::post_global(AK::EVENTS::PLAY_DRONE_CHARGE_RESTORE);
+					Audio::post_global(AK::EVENTS::PLAY_DRONE_CHARGE_RESTORE, gamepad);
 				cooldown_last = cooldown;
 			}
 
@@ -4637,7 +4641,7 @@ void PlayerControlHuman::update(const Update& u)
 							{
 								interactable->interact();
 								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-								Audio::post_global(AK::EVENTS::PLAY_PARKOUR_INTERACT);
+								get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 								anim_base = interactable->entity();
 								break;
 							}
@@ -4667,7 +4671,7 @@ void PlayerControlHuman::update(const Update& u)
 								// go right ahead
 								interactable->interact();
 								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-								Audio::post_global(AK::EVENTS::PLAY_PARKOUR_INTERACT);
+								get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 								anim_base = interactable->entity();
 							}
 							else if (tram->arrive_only || target_level == AssetNull) // can't leave
@@ -5012,7 +5016,7 @@ void PlayerControlHuman::update_late(const Update& u)
 			r32 speed = (state == ParkourState::Mantle || state == ParkourState::Grapple || get<Walker>()->support.ref())
 				? 0.0f
 				: get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
-			get<Audio>()->param(AK::GAME_PARAMETERS::PARKOUR_WIND, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
+			Audio::param_global(AK::GAME_PARAMETERS::PARKOUR_WIND, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1), player.ref()->gamepad);
 			r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1);
 			player.ref()->rumble_add(shake);
 			shake *= 0.2f;
@@ -5640,12 +5644,12 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (danger)
 			{
 				if (UI::flash_function(Game::time.total) && !UI::flash_function(Game::time.total - Game::time.delta))
-					Audio::post_global(AK::EVENTS::PLAY_UI_SHIELD_DOWN_BEEP);
+					Audio::post_global(AK::EVENTS::PLAY_UI_SHIELD_DOWN_BEEP, player.ref()->gamepad);
 			}
 			else
 			{
 				if (UI::flash_function_slow(Game::time.total) && !UI::flash_function_slow(Game::time.total - Game::time.delta))
-					Audio::post_global(AK::EVENTS::PLAY_DANGER_BEEP);
+					Audio::post_global(AK::EVENTS::PLAY_DANGER_BEEP, player.ref()->gamepad);
 			}
 		}
 

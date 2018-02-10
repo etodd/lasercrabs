@@ -269,34 +269,6 @@
 										</Bus>
 										<Bus Name="Ambience_Outdoor" ID="{671FD099-C447-471C-B015-7ADC69B847EE}">
 											<PropertyList>
-												<Property Name="BusVolume" Type="Real64">
-													<RTPCList>
-														<RTPC Name="" ID="{747C1E96-6962-430D-AACB-0046D4151D9D}" ShortID="540523535">
-															<ReferenceList>
-																<Reference Name="ControlInput">
-																	<ObjectRef Name="Ambience_Indoor_Outdoor" ID="{009637B5-397A-45CB-AC3E-1579D1CBD448}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
-																</Reference>
-															</ReferenceList>
-															<Curve Name="" ID="{25820561-6891-4633-B590-7C9F328EC708}">
-																<PropertyList>
-																	<Property Name="Flags" Type="int32" Value="3"/>
-																</PropertyList>
-																<PointList>
-																	<Point>
-																		<XPos>0</XPos>
-																		<YPos>-200</YPos>
-																		<Flags>5</Flags>
-																	</Point>
-																	<Point>
-																		<XPos>1</XPos>
-																		<YPos>0</YPos>
-																		<Flags>37</Flags>
-																	</Point>
-																</PointList>
-															</Curve>
-														</RTPC>
-													</RTPCList>
-												</Property>
 												<Property Name="DivergenceCenter" Type="int32">
 													<ValueList>
 														<Value>100</Value>
@@ -336,34 +308,6 @@
 										</Bus>
 										<Bus Name="Ambience_Indoor" ID="{CCD5F61C-C882-45A7-98FE-C7E84CB43D6E}">
 											<PropertyList>
-												<Property Name="BusVolume" Type="Real64">
-													<RTPCList>
-														<RTPC Name="" ID="{2ED5CE75-97EB-46BD-BFFE-EFED8DE6F51F}" ShortID="1009413775">
-															<ReferenceList>
-																<Reference Name="ControlInput">
-																	<ObjectRef Name="Ambience_Indoor_Outdoor" ID="{009637B5-397A-45CB-AC3E-1579D1CBD448}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
-																</Reference>
-															</ReferenceList>
-															<Curve Name="" ID="{6488DDFE-9583-4204-94ED-7CE314224516}">
-																<PropertyList>
-																	<Property Name="Flags" Type="int32" Value="3"/>
-																</PropertyList>
-																<PointList>
-																	<Point>
-																		<XPos>0</XPos>
-																		<YPos>0</YPos>
-																		<Flags>5</Flags>
-																	</Point>
-																	<Point>
-																		<XPos>1</XPos>
-																		<YPos>-200</YPos>
-																		<Flags>37</Flags>
-																	</Point>
-																</PointList>
-															</Curve>
-														</RTPC>
-													</RTPCList>
-												</Property>
 												<Property Name="DivergenceCenter" Type="int32">
 													<ValueList>
 														<Value>100</Value>

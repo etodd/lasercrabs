@@ -13,6 +13,7 @@ __pycache__
 /assets/audio/IncrementalSoundBankData.xml
 /assets/audio/*.wsettings
 /assets/audio/*.validationcache
+/assets/audio/.backup
 /assets/audio/.cache
 /assets/audio/*.prof
 /assets/audio/GeneratedSoundBanks

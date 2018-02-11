@@ -1809,7 +1809,8 @@ void Flag::update_server(const Update& u)
 	if (get<Transform>()->parent.ref())
 	{
 		// we're being carried
-		timer = vi_min(FLAG_RESTORE_TIME, timer + u.time.delta);
+		// restore timer counts up faster than it counts down
+		timer = vi_min(FLAG_RESTORE_TIME, timer + u.time.delta * 1.5f);
 		for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->team() != team
@@ -4965,21 +4966,6 @@ CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)
 			v->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
 			break;
 		}
-		case Resource::DroneKits:
-		{
-			// animated model
-			SkinnedModel* model = create<SkinnedModel>();
-			model->mesh = Asset::Mesh::drone;
-			model->shader = Asset::Shader::armature;
-			model->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
-			model->offset.translate(Vec3(0, 0, DRONE_RADIUS));
-
-			Animator* anim = create<Animator>();
-			anim->armature = Asset::Armature::drone;
-			anim->layers[0].behavior = Animator::Behavior::Loop;
-			anim->layers[0].animation = Asset::Animation::drone_fly;
-			break;
-		}
 		default:
 			vi_assert(false);
 			break;
@@ -4995,7 +4981,6 @@ void Collectible::give_rewards()
 		{
 			case Resource::AccessKeys:
 			case Resource::AudioLog:
-			case Resource::DroneKits:
 				a = 1;
 				break;
 			case Resource::Energy:

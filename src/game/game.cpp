@@ -2344,8 +2344,6 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				Resource type;
 				if (strcmp(type_str, "AccessKeys") == 0)
 					type = Resource::AccessKeys;
-				else if (strcmp(type_str, "DroneKits") == 0)
-					type = Resource::DroneKits;
 				else if (strcmp(type_str, "AudioLog") == 0)
 					type = Resource::AudioLog;
 				else

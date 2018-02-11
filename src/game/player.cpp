@@ -633,7 +633,6 @@ struct Message
 		UpgradeStart,
 		AbilitySelect,
 		Spot,
-		DropFlag,
 		count,
 	};
 
@@ -2272,19 +2271,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		}
 	}
 
-	if (mode == UIMode::PvpDefault && get<PlayerManager>()->instance.ref()->get<Drone>()->flag.ref())
-	{
-		// drop flag control prompt
-		UIText text;
-		text.color = UI::color_accent();
-		text.text(gamepad, _(strings::prompt_drop_flag));
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Center;
-		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
-		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-		text.draw(params, pos);
-	}
-
 	// draw abilities
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
 		&& (Game::session.config.ruleset.upgrades_allow | Game::session.config.ruleset.upgrades_default))
@@ -3179,7 +3165,21 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		case PlayerControlHumanNet::Message::Type::AbilitySelect:
 		{
 			if (msg.ability == Ability::None || c->get<PlayerCommon>()->manager.ref()->has_ability(msg.ability))
+			{
+				if (msg.ability != Ability::None)
+				{
+					// drop flag if we're holding one
+					if (Game::level.local)
+					{
+						Flag* flag = c->get<Drone>()->flag.ref();
+						if (flag)
+							flag->drop();
+					}
+					c->get<Drone>()->flag = nullptr;
+				}
+
 				c->get<Drone>()->ability(msg.ability);
+			}
 			break;
 		}
 		case PlayerControlHumanNet::Message::Type::Spot:
@@ -3318,22 +3318,9 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 			}
 			break;
 		}
-		case PlayerControlHumanNet::Message::Type::DropFlag:
-		{
-			if (Game::level.local)
-			{
-				Flag* flag = c->get<Drone>()->flag.ref();
-				if (flag)
-					flag->drop();
-			}
-			c->get<Drone>()->flag = nullptr;
-			break;
-		}
 		default:
-		{
 			vi_assert(false);
 			break;
-		}
 	}
 
 	return true;
@@ -4284,13 +4271,6 @@ void PlayerControlHuman::update(const Update& u)
 				}
 
 				last_pos = get<Drone>()->center_lerped();
-
-				if (get<Drone>()->flag.ref() && input_enabled() && u.last_input->get(Controls::Interact, gamepad) && u.input->get(Controls::Interact, gamepad))
-				{
-					PlayerControlHumanNet::Message msg;
-					msg.type = PlayerControlHumanNet::Message::Type::DropFlag;
-					PlayerControlHumanNet::send(this, &msg);
-				}
 			}
 			else // flying
 				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical_total());
@@ -5434,7 +5414,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 									case ZoneState::Locked:
 									{
 										if (Overworld::zone_is_pvp(zone))
-											text.color = Game::save.resources[s32(Resource::DroneKits)] > 0 ? UI::color_default : UI::color_disabled();
+											text.color = UI::color_default;
 										else
 											text.color = Game::save.resources[s32(Resource::AccessKeys)] > 0 ? UI::color_default : UI::color_disabled();
 										break;
@@ -5611,6 +5591,16 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		text.anchor_y = UIText::Anchor::Max;
 
 		b8 danger = Game::level.mode == Game::Mode::Pvp && enemy_visible && (enemy_dangerous_visible || is_vulnerable) && get<AIAgent>()->stealth < 1.0f;
+
+		if (has<Drone>() && get<Drone>()->flag.ref())
+		{
+			// flag indicator
+			text.color = UI::color_accent();
+			text.text(player.ref()->gamepad, _(strings::carrying_flag));
+			UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
+			text.draw(params, ui_anchor);
+			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
+		}
 
 		if (get<AIAgent>()->stealth == 1.0f)
 		{

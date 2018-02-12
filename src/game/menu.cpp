@@ -1,3 +1,4 @@
+#include "strings.h"
 #include "menu.h"
 #include "asset/level.h"
 #include "asset/mesh.h"
@@ -12,7 +13,6 @@
 #include "render/views.h"
 #include "console.h"
 #include "mersenne/mersenne-twister.h"
-#include "strings.h"
 #include "settings.h"
 #include "audio.h"
 #include "net.h"

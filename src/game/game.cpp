@@ -1,4 +1,5 @@
 #include "types.h"
+#include "strings.h"
 #include "vi_assert.h"
 
 #include "render/views.h"
@@ -26,7 +27,6 @@
 #include "asset/Wwise_IDs.h"
 #include "asset/level.h"
 #include "asset/animation.h"
-#include "strings.h"
 #include "input.h"
 #include "mersenne/mersenne-twister.h"
 #include <time.h>
@@ -2344,8 +2344,6 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				Resource type;
 				if (strcmp(type_str, "AccessKeys") == 0)
 					type = Resource::AccessKeys;
-				else if (strcmp(type_str, "DroneKits") == 0)
-					type = Resource::DroneKits;
 				else if (strcmp(type_str, "AudioLog") == 0)
 					type = Resource::AudioLog;
 				else

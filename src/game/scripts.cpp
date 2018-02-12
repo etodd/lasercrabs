@@ -1,3 +1,5 @@
+#include "strings.h"
+
 #if !SERVER
 #include "mongoose/mongoose.h"
 #endif
@@ -9,7 +11,6 @@
 #include "entities.h"
 #include "common.h"
 #include "game.h"
-#include "strings.h"
 #include "console.h"
 #include <unordered_map>
 #include <string>
@@ -543,6 +544,7 @@ namespace Docks
 		DadaDone,
 		Jump,
 		Climb,
+		Shop,
 		WallRun,
 		Done,
 		count,
@@ -1162,9 +1164,11 @@ namespace Docks
 			if (data->state == TutorialState::Climb
 				&& (parkour->fsm.current == ParkourState::Climb || parkour->fsm.current == ParkourState::Mantle))
 			{
-				data->state = TutorialState::WallRun;
+				data->state = TutorialState::Shop;
 				Actor::tut_clear();
 			}
+			else if (data->state == TutorialState::Shop && Game::save.resources[s32(Resource::WallRun)])
+				data->state = TutorialState::WallRun;
 
 			if (data->state == TutorialState::WallRun)
 			{
@@ -1299,7 +1303,7 @@ namespace Docks
 		if ((Game::save.zone_last == AssetNull || Game::save.zone_last == Asset::Level::Docks)
 			&& entities.find("energy"))
 		{
-			entities.find("energy")->get<Collectible>()->amount = Overworld::resource_info[s32(Resource::DroneKits)].cost;
+			entities.find("energy")->get<Collectible>()->amount = Overworld::resource_info[s32(Resource::WallRun)].cost;
 			entities.find("jump_trigger")->get<PlayerTrigger>()->entered.link(&jump_trigger);
 			entities.find("dada_spotted_trigger")->get<PlayerTrigger>()->entered.link(&dada_spotted);
 			entities.find("dada_talk_trigger")->get<PlayerTrigger>()->entered.link(&dada_talk);
@@ -1706,7 +1710,7 @@ namespace Slum
 		Actor::Instance* meursault;
 		Ref<Entity> anim_base;
 		b8 anim_played;
-		b8 drones_given;
+		b8 energy_given;
 	};
 	Data* data;
 
@@ -1716,18 +1720,18 @@ namespace Slum
 		data = nullptr;
 	}
 
-	void give_drones()
+	void give_energy()
 	{
-		if (!data->drones_given)
+		if (!data->energy_given)
 		{
-			Overworld::resource_change(Resource::DroneKits, 1);
-			data->drones_given = true;
+			Overworld::resource_change(Resource::Energy, 1000);
+			data->energy_given = true;
 		}
 	}
 
-	void give_drones_animation_callback(Actor::Instance*)
+	void give_energy_animation_callback(Actor::Instance*)
 	{
-		give_drones();
+		give_energy();
 	}
 
 	void trigger(Entity* player)
@@ -1752,7 +1756,7 @@ namespace Slum
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A12, AssetNull, strings::meursault_a12, Actor::Loop::No, Actor::Overlap::No, 1.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A13, AssetNull, strings::meursault_a13, Actor::Loop::No, Actor::Overlap::No, 3.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A14, AssetNull, strings::meursault_a14, Actor::Loop::No, Actor::Overlap::No, 1.0f);
-			data->meursault->cue(&give_drones_animation_callback, 0.0f);
+			data->meursault->cue(&give_energy_animation_callback, 0.0f);
 			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A15, AssetNull, strings::meursault_a15, Actor::Loop::No, Actor::Overlap::No, 2.0f);
 
 			player->get<PlayerControlHuman>()->cinematic(data->anim_base.ref(), Asset::Animation::character_meursault_intro);

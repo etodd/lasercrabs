@@ -1047,9 +1047,14 @@ void UI::update()
 {
 	if (Camera::list.count() > 0)
 	{
-		const Camera* camera = Camera::list.iterator().item();
-		const Rect2& viewport = camera->viewport;
-		scale = get_scale(s32(viewport.size.x), s32(viewport.size.y));
+		// use UI scale of smallest camera
+		r32 s = FLT_MAX;
+		for (auto i = Camera::list.iterator(); !i.is_last(); i.next())
+		{
+			const Rect2& viewport = i.item()->viewport;
+			s = vi_min(s, get_scale(s32(viewport.size.x), s32(viewport.size.y)));
+		}
+		scale = s;
 	}
 }
 

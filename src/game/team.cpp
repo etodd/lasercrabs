@@ -1,3 +1,4 @@
+#include "strings.h"
 #include "team.h"
 #include "game.h"
 #include "data/components.h"
@@ -5,7 +6,6 @@
 #include "data/animator.h"
 #include "asset/animation.h"
 #include "asset/mesh.h"
-#include "strings.h"
 #include "drone.h"
 #include "minion.h"
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
@@ -157,7 +157,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{
-		2.5f, // movement cooldown
+		2.35f, // movement cooldown
 		0.5f, // switch cooldown
 		0.0f, // use cooldown
 		0.0f, // use cooldown threshold
@@ -187,8 +187,8 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{ // Ability::None
-		2.0f, // movement cooldown
-		0.0f, // switch cooldown
+		2.1f, // movement cooldown
+		0.3f, // switch cooldown
 		0.0f, // use cooldown
 		0.0f, // use cooldown threshold
 		0.0f, // recoil velocity
@@ -583,10 +583,9 @@ void update_visibility(const Update& u)
 			{
 				Entity* j_entity = j.item()->instance.ref();
 				if (j_entity && j_entity->get<AIAgent>()->stealth < 1.0f)
-				{
-					// i_entity detecting j_actual_entity
 					visibility->value = visibility_check(i_entity, j_entity, i_range);
-				}
+				else
+					visibility->value = false;
 			}
 		}
 	}

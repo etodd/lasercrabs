@@ -167,7 +167,7 @@
 #define RECTIFIER_TRACK_TIME 1.5f
 #define RECTIFIER_RANGE 11.0f
 #define RECTIFIER_RADIUS 0.2f
-#define RECTIFIER_HEALTH 6
+#define RECTIFIER_HEALTH 1
 #define ABILITY_UNSTEALTH_TIME 0.3f // time after using an ability when stealth is disabled (ish, it's actually longer than this)
 #define BATTERY_HEALTH 6
 #define GRENADE_HEALTH 2

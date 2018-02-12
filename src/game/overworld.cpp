@@ -1,3 +1,4 @@
+#include "strings.h"
 #include "overworld.h"
 #include "console.h"
 #include "game.h"
@@ -12,7 +13,6 @@
 #include "asset/texture.h"
 #include "asset/lookup.h"
 #include "asset/shader.h"
-#include "strings.h"
 #include "load.h"
 #include "entities.h"
 #include "render/particles.h"
@@ -2191,7 +2191,6 @@ Vec3 zone_color(const ZoneNode& zone)
 		case ZoneState::PvpUnlocked:
 			return Vec3(1.0f);
 		case ZoneState::ParkourOwned:
-			return UI::color_accent().xyz();
 		case ZoneState::PvpFriendly:
 			return Team::color_friend.xyz();
 		case ZoneState::PvpHostile:
@@ -2545,10 +2544,9 @@ void group_join(Game::Group g)
 	}
 }
 
-void capture_start(s8 gamepad)
+void capture_start(s8 gamepad = 0)
 {
-	if (zone_can_capture(data.zone_selected)
-		&& Game::save.resources[s32(Resource::DroneKits)] > 0)
+	if (zone_can_capture(data.zone_selected))
 		deploy_start();
 }
 
@@ -2695,15 +2693,7 @@ void tab_map_update(const Update& u)
 				|| (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)) && tab_map_capture_prompt(story_mode_main_view_rect(s32(data.story.tab))).contains(u.input->cursor))))
 			{
 				// capture button
-				if (Game::save.resources[s32(Resource::DroneKits)] > 0)
-				{
-					if (Game::save.zones[data.zone_selected] == ZoneState::PvpFriendly) // defending
-						Menu::dialog(0, &capture_start, _(strings::confirm_defend), 1);
-					else // attacking
-						Menu::dialog(0, &capture_start, _(strings::confirm_capture), 1);
-				}
-				else
-					Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::drone_kits));
+				capture_start();
 			}
 			else
 			{
@@ -2797,27 +2787,27 @@ ResourceInfo resource_info[s32(Resource::count)] =
 	{
 		Asset::Mesh::icon_access_key,
 		strings::access_keys,
-		2000,
+		0,
 	},
-	{
-		Asset::Mesh::icon_drone,
-		strings::drone_kits,
+	{ // WallRun
+		Asset::Mesh::icon_wall_run,
+		strings::wall_run,
 		1000,
 	},
 	{ // DoubleJump
-		AssetNull,
-		AssetNull,
+		Asset::Mesh::icon_double_jump,
+		strings::double_jump,
 		2000,
 	},
 	{ // ExtendedWallRun
-		AssetNull,
-		AssetNull,
-		2000,
+		Asset::Mesh::icon_wall_run,
+		strings::extended_wall_run,
+		5000,
 	},
 	{ // Grapple
-		AssetNull,
-		AssetNull,
-		2000,
+		Asset::Mesh::icon_drone,
+		strings::grapple,
+		10000,
 	},
 	{ // AudioLog
 		AssetNull,
@@ -3087,11 +3077,14 @@ void inventory_items(const Update* u, const RenderParams* p, const Rect2& rect)
 						text.draw(*p, pos + Vec2(icon_size * 2.0f + PADDING * 2.0f, panel_size.y * 0.5f));
 					}
 
-					// current amount
-					text.size = TEXT_SIZE * (story->tab == StoryTab::Inventory ? 1.0f : 0.75f);
-					text.anchor_x = UIText::Anchor::Max;
-					text.text(0, "%d", Game::save.resources[i]);
-					text.draw(*p, pos + Vec2(panel_size.x - PADDING, panel_size.y * 0.5f));
+					if (i < s32(Resource::ConsumableCount))
+					{
+						// current amount
+						text.size = TEXT_SIZE * (story->tab == StoryTab::Inventory ? 1.0f : 0.75f);
+						text.anchor_x = UIText::Anchor::Max;
+						text.text(0, "%d", Game::save.resources[i]);
+						text.draw(*p, pos + Vec2(panel_size.x - PADDING, panel_size.y * 0.5f));
+					}
 				}
 				pos.y -= panel_size.y;
 			}

@@ -404,6 +404,7 @@ struct ForceField : public ComponentType<ForceField>
 	void killed(Entity*);
 	void destroy();
 	void set_team(AI::Team);
+	b8 is_flag_force_field() const;
 	b8 contains(const Vec3&) const;
 	Vec3 base_pos() const;
 };

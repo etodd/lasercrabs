@@ -1788,7 +1788,7 @@ void flag_build_force_field(Transform* flag, AI::Team team)
 	Quat abs_rot;
 	flag->absolute(&abs_pos, &abs_rot);
 
-	ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, abs_pos + abs_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), abs_rot, nullptr, nullptr, team);
+	ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, abs_pos + abs_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), abs_rot, flag, nullptr, team);
 }
 
 #define FLAG_RADIUS 0.2f
@@ -1824,7 +1824,9 @@ void Flag::update_server(const Update& u)
 				get<Transform>()->parent = nullptr;
 				get<Transform>()->pos = pos_cached = flag_base_pos(Team::list[team].flag_base.ref());
 
-				flag_build_force_field(Team::list[team].flag_base.ref(), team);
+				// rebuild all force fields
+				for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+					flag_build_force_field(i.item()->flag_base.ref(), i.item()->team());
 				break;
 			}
 		}
@@ -1839,7 +1841,22 @@ void Flag::update_server(const Update& u)
 			{
 				FlagNet::state_change(this, StateChange::Restored);
 				get<Transform>()->pos = pos_cached = flag_base_pos(Team::list[team].flag_base.ref());
-				flag_build_force_field(Team::list[team].flag_base.ref(), team);
+				b8 all_at_base = true;
+				for (auto i = list.iterator(); !i.is_last(); i.next())
+				{
+					if (!i.item()->at_base)
+					{
+						all_at_base = false;
+						break;
+					}
+				}
+
+				if (all_at_base)
+				{
+					// all flags are at their bases; rebuild all force fields
+					for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+						flag_build_force_field(i.item()->flag_base.ref(), i.item()->team());
+				}
 			}
 		}
 	}
@@ -2678,6 +2695,11 @@ b8 ForceField::contains(const Vec3& pos) const
 	return (pos - get<Transform>()->absolute_pos()).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS;
 }
 
+b8 ForceField::is_flag_force_field() const
+{
+	return contains(Team::list[team].flag_base.ref()->absolute_pos());
+}
+
 // describes which enemy force fields you are currently inside
 u32 ForceField::hash(AI::Team my_team, const Vec3& pos, HashMode mode)
 {
@@ -2765,6 +2787,18 @@ void ForceField::killed(Entity* e)
 		PlayerHuman::notification(get<Transform>()->absolute_pos(), team, PlayerHuman::Notification::Type::ForceFieldDestroyed);
 		PlayerHuman::log_add(_(strings::force_field_destroyed), AI::TeamNone, 1 << team);
 		PlayerManager::entity_killed_by(entity(), e);
+	}
+
+	if (Game::level.local)
+	{
+		if (is_flag_force_field())
+		{
+			for (auto i = list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item() != this && i.item()->is_flag_force_field())
+					i.item()->get<Health>()->kill(nullptr);
+			}
+		}
 	}
 
 	if (has<View>())

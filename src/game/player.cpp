@@ -208,14 +208,15 @@ s32 PlayerHuman::count_local_before(PlayerHuman* h)
 	s32 count = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item() == h)
-			break;
+		if (i.item()->gamepad < h->gamepad)
+		{
 #if !SERVER
-		if (i.item()->local() || Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
+			if (i.item()->local() || Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)
 #else
-		if (i.item()->local())
+			if (i.item()->local())
 #endif
-			count++;
+				count++;
+		}
 	}
 	return count;
 }

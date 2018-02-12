@@ -1110,7 +1110,13 @@ void master_server_details_response(const Net::Master::ServerDetails& details, u
 	{
 		data.multiplayer.active_server = details;
 		data.multiplayer.request_id = 0;
-		data.multiplayer.active_server_dirty = true;
+		if (data.multiplayer.state == Data::Multiplayer::State::EntryView)
+			data.multiplayer.active_server_dirty = true; // dirty means we have data
+		else
+		{
+			vi_assert(data.multiplayer.state == Data::Multiplayer::State::EntryEdit);
+			data.multiplayer.active_server_dirty = false; // dirty means we've made changes
+		}
 		if (details.state.level != AssetNull) // a server is running this config
 			ping_send(details.addr);
 	}

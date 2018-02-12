@@ -357,7 +357,7 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 	s32 result = 1;
 
 	Vec3 intersection;
-	if (LMath::ray_sphere_intersect(me, me + ray_dir * drone->range(), target_pos, DRONE_SHIELD_RADIUS, &intersection))
+	if (LMath::ray_sphere_intersect(me, me + ray_dir * drone->range(), target_pos, target_shield->has<ForceField>() ? FORCE_FIELD_RADIUS : DRONE_SHIELD_RADIUS, &intersection))
 	{
 		Vec3 intersection_dir = Vec3::normalize(intersection - target_pos);
 		r32 dot = intersection_dir.dot(ray_dir);

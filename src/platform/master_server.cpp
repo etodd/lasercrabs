@@ -592,7 +592,6 @@ namespace Master
 		}
 		config->ruleset.enable_batteries = b8(Json::get_s32(json, "enable_batteries", defaults.ruleset.enable_batteries));
 		config->ruleset.enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", defaults.ruleset.enable_battery_stealth));
-		config->ruleset.enable_spawn_shields = b8(Json::get_s32(json, "enable_spawn_shields", defaults.ruleset.enable_spawn_shields));
 		config->ruleset.drone_shield = s8(Json::get_s32(json, "drone_shield", defaults.ruleset.drone_shield));
 		config->ruleset.spawn_delay = s8(vi_max(1, vi_min(120, s32(Json::get_s32(json, "spawn_delay", defaults.ruleset.spawn_delay)))));
 		config->ruleset.start_energy = s16(Json::get_s32(json, "start_energy", defaults.ruleset.start_energy));
@@ -608,7 +607,6 @@ namespace Master
 		}
 		config->fill_bots = s8(Json::get_s32(json, "fill_bots", defaults.fill_bots));
 		config->kill_limit = s16(Json::get_s32(json, "kill_limit", defaults.kill_limit));
-		config->energy_collected_limit = s16(Json::get_s32(json, "energy_collected_limit", defaults.energy_collected_limit));
 		config->flag_limit = s16(Json::get_s32(json, "flag_limit", defaults.flag_limit));
 		strncpy(config->secret, Json::get_string(json, "secret", ""), MAX_SERVER_CONFIG_SECRET);
 
@@ -638,8 +636,6 @@ namespace Master
 			cJSON_AddNumberToObject(json, "enable_batteries", config.ruleset.enable_batteries);
 		if (config.ruleset.enable_battery_stealth != defaults.ruleset.enable_battery_stealth)
 			cJSON_AddNumberToObject(json, "enable_battery_stealth", config.ruleset.enable_battery_stealth);
-		if (config.ruleset.enable_spawn_shields != defaults.ruleset.enable_spawn_shields)
-			cJSON_AddNumberToObject(json, "enable_spawn_shields", config.ruleset.enable_spawn_shields);
 		if (config.ruleset.drone_shield != defaults.ruleset.drone_shield)
 			cJSON_AddNumberToObject(json, "drone_shield", config.ruleset.drone_shield);
 		if (config.ruleset.spawn_delay != defaults.ruleset.spawn_delay)
@@ -661,8 +657,6 @@ namespace Master
 			cJSON_AddNumberToObject(json, "fill_bots", config.fill_bots);
 		if (config.kill_limit != defaults.kill_limit)
 			cJSON_AddNumberToObject(json, "kill_limit", config.kill_limit);
-		if (config.energy_collected_limit != defaults.energy_collected_limit)
-			cJSON_AddNumberToObject(json, "energy_collected_limit", config.energy_collected_limit);
 		if (config.flag_limit != defaults.flag_limit)
 			cJSON_AddNumberToObject(json, "flag_limit", config.flag_limit);
 		if (config.time_limit_parkour_ready != defaults.time_limit_parkour_ready)

@@ -3605,7 +3605,7 @@ s32 proc(s32 argc, char* argv[])
 		}
 	}
 
-	// Initialise SDL
+	// initialize SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
 		fprintf(stderr, "Error: Failed to initialize SDL: %s\n", SDL_GetError());
@@ -3618,7 +3618,7 @@ s32 proc(s32 argc, char* argv[])
 
 	SDL_Window* window = SDL_CreateWindow("", 0, 0, 1, 1, SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN);
 
-	// Open a window and create its OpenGL context
+	// open a window and create its OpenGL context
 	if (!window)
 	{
 		fprintf(stderr, "Error: Failed to open SDL window. Most likely your GPU is out of date!\n");
@@ -3633,7 +3633,7 @@ s32 proc(s32 argc, char* argv[])
 	}
 
 	{
-		glewExperimental = true; // Needed for core profile
+		glewExperimental = true; // needed for core profile
 
 		GLenum glew_result = glewInit();
 		if (glew_result != GLEW_OK)

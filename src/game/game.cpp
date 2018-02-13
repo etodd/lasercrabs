@@ -651,7 +651,7 @@ void Game::update(InputState* input, const InputState* last_input)
 
 		if (level.local)
 		{
-			SpawnPoint::update_server_all(u);
+			MinionSpawner::update_server_all(u);
 			if (session.type == SessionType::Story && level.mode == Mode::Pvp && Team::match_state != Team::MatchState::Done)
 			{
 				// spawn AI players
@@ -1251,8 +1251,6 @@ void game_end_cheat(b8 win)
 
 		if (Game::session.config.game_type == GameType::Deathmatch)
 			player->kills = Game::session.config.kill_limit;
-		else if (Game::session.config.game_type == GameType::Domination)
-			player->team.ref()->energy_collected = Game::session.config.energy_collected_limit;
 		else if (Game::session.config.game_type == GameType::CaptureTheFlag)
 			player->team.ref()->flags_captured = Game::session.config.flag_limit;
 		else if (Game::session.config.game_type == GameType::Assault)
@@ -1260,12 +1258,7 @@ void game_end_cheat(b8 win)
 			if (player->team.ref()->team() == 0) // defending
 				Team::match_time = Game::session.config.time_limit();
 			else // attacking
-			{
-				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-					i.item()->killed(nullptr);
-				for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
-					i.item()->destroy();
-			}
+				Game::level.battery_spawn_index = Game::level.battery_spawns.length; // got all the batteries
 		}
 	}
 }
@@ -1734,6 +1727,8 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 
 			level.feature_level = FeatureLevel(Json::get_s32(element, "feature_level", s32(FeatureLevel::All)));
 
+			level.battery_spawn_group_size = s8(Json::get_s32(element, "battery_spawn_group_size", 1));
+
 			level.rain = Json::get_r32(element, "rain");
 
 			if (cJSON_HasObjectItem(element, "ambience"))
@@ -1887,16 +1882,6 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			if (session.type == SessionType::Story)
 				rope->flags = Rope::FlagClimbable;
 		}
-		else if (cJSON_HasObjectItem(element, "Turret"))
-		{
-			if (session.config.game_type == GameType::Assault || level.mode == Mode::Parkour)
-			{
-				entity = World::alloc<TurretEntity>(level.mode == Mode::Parkour ? AI::TeamNone : AI::Team(0)); // in parkour mode, turrets attack everyone
-				entity->get<Turret>()->order = Json::get_s32(element, "order", entity->get<Turret>()->id());
-				entity->get<Health>()->hp = Json::get_s32(element, "hp", TURRET_HEALTH);
-				ingress_points_get(json, element, entity->get<MinionTarget>());
-			}
-		}
 		else if (cJSON_HasObjectItem(element, "PathZone"))
 		{
 			AI::PathZone* path_zone = level.path_zones.add();
@@ -1930,11 +1915,16 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		}
 		else if (cJSON_HasObjectItem(element, "SpawnPoint"))
 		{
-			AI::Team team = AI::Team(Json::get_s32(element, "team"));
+			AI::Team team = AI::Team(Json::get_s32(element, "team", AI::TeamNone));
 			b8 is_team_spawn = cJSON_HasObjectItem(element, "team");
 			if ((is_team_spawn && Team::list.count() > s32(team))
 				|| (!is_team_spawn && session.config.ruleset.enable_batteries))
-				entity = World::alloc<SpawnPointEntity>(team, Json::get_s32(element, "visible", 1));
+			{
+				if (Game::session.config.game_type == GameType::Deathmatch)
+					entity = World::alloc<SpawnPointEntity>(AI::TeamNone, Json::get_s32(element, "visible", 1));
+				else
+					entity = World::alloc<SpawnPointEntity>(team, Json::get_s32(element, "visible", 1));
+			}
 			else
 			{
 				entity = World::alloc<StaticGeom>(Asset::Mesh::spawn_collision, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
@@ -1952,29 +1942,6 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 					entity->get<View>()->team = s8(team);
 					entity->get<View>()->shader = Asset::Shader::culled;
 					Team::list[s32(team)].flag_base = entity->get<Transform>();
-				}
-			}
-		}
-		else if (cJSON_HasObjectItem(element, "CoreModule"))
-		{
-			if (session.config.game_type == GameType::Assault)
-			{
-				AI::Team team = AI::Team(Json::get_s32(element, "team"));
-				absolute_pos += absolute_rot * Vec3(0, DRONE_RADIUS * 0.5f, 0);
-				entity = World::alloc<CoreModuleEntity>(team, nullptr, absolute_pos, absolute_rot);
-				ingress_points_get(json, element, entity->get<MinionTarget>());
-			}
-		}
-		else if (cJSON_HasObjectItem(element, "ForceField"))
-		{
-			if (session.config.game_type == GameType::Assault && level.mode == Mode::Pvp)
-			{
-				AI::Team team = AI::Team(Json::get_s32(element, "team"));
-				if (Team::list.count() > s32(team))
-				{
-					absolute_pos += absolute_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
-					entity = World::alloc<ForceFieldEntity>(nullptr, absolute_pos, absolute_rot, team, ForceField::Type::Invincible);
-					level.core_force_field = entity->get<ForceField>();
 				}
 			}
 		}
@@ -2053,39 +2020,18 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		}
 		else if (cJSON_HasObjectItem(element, "Battery"))
 		{
-			if (level.has_feature(FeatureLevel::Batteries) && session.config.ruleset.enable_batteries)
+			if (level.has_feature(FeatureLevel::Batteries) && (session.config.ruleset.enable_batteries || session.config.game_type == GameType::Assault))
 			{
-				AI::Team team;
-				if (session.type == SessionType::Story)
-				{
-					if (story_mode_team == StoryModeTeam::Defend // defending; enemy might have already captured some batteries
-						&& mersenne::randf_cc() < 0.2f) // only some batteries though, not all
-						team = team_lookup(level.team_lookup, Json::get_s32(element, "team", 1));
-					else
-						team = AI::TeamNone;
-				}
-				else
-					team = AI::TeamNone;
-
-				entity = World::alloc<BatteryEntity>(absolute_pos, team);
-				entity->get<Battery>()->order = Json::get_s32(element, "order", entity->get<Battery>()->id());
-
-				absolute_rot = Quat::identity;
-
-				RopeEntry* rope = ropes.add();
-				rope->pos = absolute_pos + Vec3(0, 1, 0);
-				rope->rot = Quat::identity;
-				rope->slack = 0.0f;
-				rope->max_distance = 100.0f;
-				rope->attach_end = true;
-				rope->flags = Rope::FlagClimbable;
+				BatterySpawnPoint* entry = level.battery_spawns.add();
+				entry->pos = absolute_pos;
+				entry->order = s8(Json::get_s32(element, "order", level.battery_spawns.length));
 
 				cJSON* links = cJSON_GetObjectItem(element, "links");
 				vi_assert(links && cJSON_GetArraySize(links) == 1);
 				const char* spawn_point_name = links->child->valuestring;
 
 				LevelLink<SpawnPoint>* spawn_link = spawn_links.add();
-				spawn_link->ref = &entity->get<Battery>()->spawn_point;
+				spawn_link->ref = &entry->spawn_point;
 				spawn_link->target_name = spawn_point_name;
 			}
 		}
@@ -2438,23 +2384,40 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			for (s32 i = 0; i < Team::list.count(); i++)
 				World::create<FlagEntity>(AI::Team(i));
 		}
-		else if (session.config.ruleset.enable_spawn_shields)
+
+		if (session.config.game_type == GameType::Assault)
 		{
-			// create spawn force fields
-			for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+			// sort battery spawns
+			struct BatterySpawnPointComparator
 			{
-				if (!i.item()->battery())
+				s32 compare(const BatterySpawnPoint& a, const BatterySpawnPoint& b)
 				{
-					// this is some team's default spawn point; create a force field around it
-					Vec3 absolute_pos;
-					Quat absolute_rot;
-					i.item()->get<Transform>()->absolute(&absolute_pos, &absolute_rot);
-					absolute_pos += absolute_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET);
-					World::create<ForceFieldEntity>(nullptr, absolute_pos, absolute_rot, i.item()->team, ForceField::Type::Permanent);
+					if (a.order > b.order)
+						return 1;
+					else if (a.order == b.order)
+						return 0;
+					else
+						return -1;
 				}
+			};
+
+			BatterySpawnPointComparator comparator;
+			Quicksort::sort<BatterySpawnPoint, BatterySpawnPointComparator>(level.battery_spawns.data, 0, level.battery_spawns.length, &comparator);
+		}
+		else
+		{
+			// shuffle battery spawns
+			for (s32 i = 0; i < level.battery_spawns.length - 1; i++)
+			{
+				BatterySpawnPoint tmp = level.battery_spawns[i];
+				s32 j = i + mersenne::rand() % (level.battery_spawns.length - i);
+				level.battery_spawns[i] = level.battery_spawns[j];
+				level.battery_spawns[j] = tmp;
 			}
 		}
 	}
+
+	vi_assert(s32(level.battery_spawns.length) % s32(level.battery_spawn_group_size) == 0);
 
 	for (s32 i = 0; i < entity_links.length; i++)
 	{
@@ -2607,6 +2570,7 @@ void Game::awake_all()
 	for (s32 i = 0; i < level.scripts.length; i++)
 		Script::list[level.scripts[i]].function(level.finder);
 
+	Battery::awake_all();
 	Team::awake_all();
 
 	Loader::nav_mesh(level.id, session.config.game_type);

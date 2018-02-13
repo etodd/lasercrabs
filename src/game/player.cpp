@@ -467,12 +467,11 @@ b8 player_human_notification(Entity* entity, const Vec3& pos, AI::Team team, Pla
 			if (type == PlayerHuman::Notification::Type::ForceFieldUnderAttack
 				|| type == PlayerHuman::Notification::Type::BatteryUnderAttack
 				|| type == PlayerHuman::Notification::Type::TurretUnderAttack
-				|| type == PlayerHuman::Notification::Type::CoreModuleUnderAttack)
+				|| type == PlayerHuman::Notification::Type::MinionSpawnerUnderAttack)
 				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_UNDER_ATTACK, i.item()->gamepad);
 			else if (type == PlayerHuman::Notification::Type::ForceFieldDestroyed
-				|| type == PlayerHuman::Notification::Type::BatteryLost
 				|| type == PlayerHuman::Notification::Type::TurretDestroyed
-				|| type == PlayerHuman::Notification::Type::CoreModuleDestroyed)
+				|| type == PlayerHuman::Notification::Type::MinionSpawnerDestroyed)
 				Audio::post_global(AK::EVENTS::PLAY_NOTIFICATION_LOST, i.item()->gamepad);
 
 			break;
@@ -481,6 +480,7 @@ b8 player_human_notification(Entity* entity, const Vec3& pos, AI::Team team, Pla
 
 	PlayerHuman::Notification* n = PlayerHuman::notifications.add();
 	n->target = t;
+	n->attached = t;
 	n->pos = t ? t->absolute_pos() : pos;
 	n->timer = NOTIFICATION_TIME;
 	n->team = team;
@@ -544,7 +544,7 @@ void PlayerHuman::update_all(const Update& u)
 
 		Target* target = n->target.ref();
 		n->timer -= u.time.delta;
-		if (n->timer < 0.0f)
+		if (n->timer < 0.0f || (n->attached && !n->target.ref()))
 		{
 			notifications.remove(i);
 			i--;
@@ -1578,24 +1578,6 @@ void PlayerHuman::spawn(const SpawnPosition& normal_spawn_pos)
 	}
 }
 
-void PlayerHuman::assault_status_display()
-{
-	AI::Team team = get<PlayerManager>()->team.ref()->team();
-	char buffer[512];
-	b8 good;
-	if (Turret::list.count() > 0)
-	{
-		good = team == 0;
-		sprintf(buffer, _(strings::turrets_remaining), Turret::list.count());
-	}
-	else
-	{
-		good = team != 0;
-		sprintf(buffer, _(strings::core_modules_remaining), CoreModule::list.count());
-	}
-	msg(buffer, good ? FlagMessageGood : Flags(0));
-}
-
 r32 draw_icon_text(const RenderParams& params, s8 gamepad, const Vec2& pos, AssetID icon, char* string, r32 percentage, const Vec4& color, r32 total_width = 0.0f)
 {
 	r32 icon_size = UI_TEXT_SIZE_DEFAULT * UI::scale;
@@ -1868,9 +1850,6 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 			case GameType::CaptureTheFlag:
 				team_score = team_ref.flags_captured;
 				break;
-			case GameType::Domination:
-				team_score = team_ref.energy_collected;
-				break;
 			default:
 				team_score = team_ref.kills;
 				break;
@@ -1938,9 +1917,6 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 						{
 							case GameType::CaptureTheFlag:
 								score = i.item()->flags_captured;
-								break;
-							case GameType::Domination:
-								score = i.item()->energy_collected;
 								break;
 							default:
 								score = i.item()->kills;
@@ -2023,7 +1999,21 @@ void player_draw_flag(const RenderParams& params, const Flag* flag)
 	}
 }
 
-void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) const
+void draw_bar(const RenderParams& params, r32 value, r32 max, const Vec2& p, const Vec4& color)
+{
+	Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
+	Rect2 bar = { p + (bar_size * -0.5f), bar_size };
+	UI::box(params, bar, UI::color_background);
+	UI::border(params, bar, 2, color);
+	UI::box(params, { bar.pos, Vec2(bar.size.x * (value / max), bar.size.y) }, color);
+}
+
+void draw_health_bar(const RenderParams& params, const Health* health, const Vec2& p, const Vec4& color)
+{
+	draw_bar(params, r32(health->hp), r32(health->hp_max), p, color);
+}
+
+void PlayerHuman::draw_battery_flag_icons(const RenderParams& params) const
 {
 	UIMode mode = ui_mode();
 	if (params.camera == camera.ref()
@@ -2033,13 +2023,8 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 	{
 		Team* my_team = get<PlayerManager>()->team.ref();
 
-		// battery and turret names
+		// battery icons
 		{
-			UIText text;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			text.color = UI::color_background;
-
 			r32 range_sq;
 			Vec3 my_pos;
 			{
@@ -2057,37 +2042,13 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 				}
 			}
 
-			// turret names
-			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-			{
-				Vec3 pos = i.item()->get<Target>()->absolute_pos();
-				if ((pos - my_pos).length_squared() > range_sq)
-				{
-					Vec2 p;
-					if (UI::project(params, pos, &p))
-					{
-						UI::mesh(params, Asset::Mesh::icon_turret, p, Vec2(24.0f * UI::scale), UI::color_background);
-						text.color = Team::ui_color(my_team->team(), i.item()->team);
-						text.text(0, _(i.item()->name()));
-						text.draw(params, p);
-					}
-				}
-			}
-
-			// battery names
 			for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 			{
-				Vec3 pos = i.item()->get<Target>()->absolute_pos();
-				if ((pos - my_pos).length_squared() > range_sq)
+				Vec2 p;
+				if (UI::project(params, i.item()->get<Target>()->absolute_pos(), &p))
 				{
-					Vec2 p;
-					if (UI::project(params, pos, &p))
-					{
-						UI::mesh(params, Asset::Mesh::icon_battery, p, Vec2(24.0f * UI::scale), UI::color_background);
-						text.color = Team::ui_color(my_team->team(), i.item()->team);
-						text.text(0, "%d", s32(i.item()->order) + 1);
-						text.draw(params, p);
-					}
+					// energy bar
+					draw_bar(params, i.item()->energy, BATTERY_ENERGY, p + Vec2(0, 32.0f * UI::scale), UI::color_accent());
 				}
 			}
 		}
@@ -2175,14 +2136,11 @@ void PlayerHuman::draw_turret_battery_flag_icons(const RenderParams& params) con
 						case Notification::Type::DroneDestroyed:
 						case Notification::Type::TurretDestroyed:
 						case Notification::Type::ForceFieldDestroyed:
-						case Notification::Type::CoreModuleDestroyed:
+						case Notification::Type::MinionSpawnerDestroyed:
 							UI::mesh(params, Asset::Mesh::icon_close, p, size, UI::color_alert());
 							break;
-						case Notification::Type::BatteryLost:
-							UI::mesh(params, Asset::Mesh::icon_close, p + Vec2(0, 32.0f * UI::scale), size, UI::color_alert());
-							break;
 						case Notification::Type::TurretUnderAttack:
-						case Notification::Type::CoreModuleUnderAttack:
+						case Notification::Type::MinionSpawnerUnderAttack:
 						{
 							if (UI::flash_function_slow(Game::real_time.total))
 								UI::mesh(params, Asset::Mesh::icon_warning, p + Vec2(0, 56.0f * UI::scale), size, UI::color_accent());
@@ -2214,7 +2172,7 @@ void PlayerHuman::draw_ui_early(const RenderParams& params) const
 {
 	UIMode mode = ui_mode();
 	if (mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade)
-		draw_turret_battery_flag_icons(params);
+		draw_battery_flag_icons(params);
 }
 
 void PlayerHuman::draw_ui(const RenderParams& params) const
@@ -2339,15 +2297,6 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		snprintf(buffer, 16, "%hd", get<PlayerManager>()->energy);
 		Vec2 p = ui_anchor(params) + Vec2(match_timer_width() + UI_TEXT_SIZE_DEFAULT * UI::scale, (UI_TEXT_SIZE_DEFAULT + 16.0f) * -UI::scale);
 		draw_icon_text(params, gamepad, p, Asset::Mesh::icon_battery, buffer, 0.0f, UI::color_accent(), UI_TEXT_SIZE_DEFAULT * 5 * UI::scale);
-
-		if (Game::session.config.game_type == GameType::Assault)
-		{
-			s32 turrets = Turret::list.count();
-			snprintf(buffer, 16, "%d", turrets);
-			p.x += UI_TEXT_SIZE_DEFAULT * 5 * UI::scale;
-			const Vec4& color = turrets > 1 ? UI::color_default : (turrets > 0 ? UI::color_accent() : UI::color_alert());
-			draw_icon_text(params, gamepad, p, Asset::Mesh::icon_turret2, buffer, 0.0f, color, UI_TEXT_SIZE_DEFAULT * 3 * UI::scale);
-		}
 	}
 
 	if ((mode == UIMode::PvpDefault || mode == UIMode::PvpSpectate)
@@ -3206,17 +3155,14 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 						}
 					}
 
-					if (Turret::list.count() == 0)
+					// minion spawners
+					for (auto i = MinionSpawner::list.iterator(); !i.is_last(); i.next())
 					{
-						// core modules
-						for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
+						r32 dot = Vec3::normalize(i.item()->get<Transform>()->absolute_pos() - msg.target).dot(msg.dir);
+						if (dot > closest_dot)
 						{
-							r32 dot = Vec3::normalize(i.item()->get<Transform>()->absolute_pos() - msg.target).dot(msg.dir);
-							if (dot > closest_dot)
-							{
-								closest_dot = dot;
-								target = i.item()->get<Target>();
-							}
+							closest_dot = dot;
+							target = i.item()->get<Target>();
 						}
 					}
 
@@ -3372,14 +3318,6 @@ void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerCo
 			type = PlayerControlHuman::TargetIndicator::Type::BatteryEnemyOutOfRange;
 		else if (type == PlayerControlHuman::TargetIndicator::Type::BatteryFriendly)
 			type = PlayerControlHuman::TargetIndicator::Type::BatteryFriendlyOutOfRange;
-		else if (type == PlayerControlHuman::TargetIndicator::Type::Turret)
-			type = PlayerControlHuman::TargetIndicator::Type::TurretOutOfRange;
-		else if (type == PlayerControlHuman::TargetIndicator::Type::TurretFriendly)
-			type = PlayerControlHuman::TargetIndicator::Type::TurretFriendlyOutOfRange;
-		else if (type == PlayerControlHuman::TargetIndicator::Type::CoreModule)
-			type = PlayerControlHuman::TargetIndicator::Type::CoreModuleOutOfRange;
-		else if (type == PlayerControlHuman::TargetIndicator::Type::CoreModuleFriendly)
-			type = PlayerControlHuman::TargetIndicator::Type::CoreModuleFriendlyOutOfRange;
 		else
 			show = false; // don't show this indicator because it's out of range
 	}
@@ -3443,35 +3381,18 @@ void player_collect_target_indicators(PlayerControlHuman* p)
 			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Rectifier);
 	}
 
-	// turrets and core modules
-	if (Game::level.has_feature(Game::FeatureLevel::Turrets))
+	// minion spawners
+	for (auto i = MinionSpawner::list.iterator(); !i.is_last(); i.next())
 	{
-		if (Turret::list.count() > 0)
-		{
-			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-			{
-				PlayerControlHuman::TargetIndicator::Type type;
-				if (i.item()->target.ref() == p->entity())
-					type = PlayerControlHuman::TargetIndicator::Type::TurretAttacking;
-				else if (i.item()->team == team)
-					type = PlayerControlHuman::TargetIndicator::Type::TurretFriendly;
-				else
-					type = PlayerControlHuman::TargetIndicator::Type::Turret;
-				player_add_target_indicator(p, i.item()->get<Target>(), type);
-			}
-		}
-		else if (Team::core_module_delay == 0.0f)
-		{
-			for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
-			{
-				PlayerControlHuman::TargetIndicator::Type type;
-				if (i.item()->team == team)
-					type = PlayerControlHuman::TargetIndicator::Type::CoreModuleFriendly;
-				else
-					type = PlayerControlHuman::TargetIndicator::Type::CoreModule;
-				player_add_target_indicator(p, i.item()->get<Target>(), type);
-			}
-		}
+		if (i.item()->team != team)
+			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::MinionSpawner);
+	}
+
+	// turrets
+	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team != team)
+			player_add_target_indicator(p, i.item()->get<Target>(), PlayerControlHuman::TargetIndicator::Type::Turret);
 	}
 
 	// grenades
@@ -4187,13 +4108,7 @@ void PlayerControlHuman::update(const Update& u)
 						if (indicator.type == TargetIndicator::Type::BatteryOutOfRange
 							|| indicator.type == TargetIndicator::Type::BatteryFriendly
 							|| indicator.type == TargetIndicator::Type::BatteryFriendlyOutOfRange
-							|| indicator.type == TargetIndicator::Type::BatteryEnemyOutOfRange
-							|| indicator.type == TargetIndicator::Type::TurretOutOfRange
-							|| indicator.type == TargetIndicator::Type::TurretFriendly
-							|| indicator.type == TargetIndicator::Type::TurretFriendlyOutOfRange
-							|| indicator.type == TargetIndicator::Type::CoreModuleFriendly
-							|| indicator.type == TargetIndicator::Type::CoreModuleFriendlyOutOfRange
-							|| indicator.type == TargetIndicator::Type::CoreModuleOutOfRange)
+							|| indicator.type == TargetIndicator::Type::BatteryEnemyOutOfRange)
 							continue;
 
 						Vec3 to_indicator = indicator.pos - camera->pos;
@@ -5009,15 +4924,6 @@ void PlayerControlHuman::update_late(const Update& u)
 	}
 }
 
-void draw_health_bar(const RenderParams& params, const Health* health, const Vec2& p, const Vec4& color)
-{
-	Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
-	Rect2 bar = { p + (bar_size * -0.5f), bar_size };
-	UI::box(params, bar, UI::color_background);
-	UI::border(params, bar, 2, color);
-	UI::box(params, { bar.pos, Vec2(bar.size.x * (r32(health->hp) / r32(health->hp_max)), bar.size.y) }, color);
-}
-
 void draw_cooldown(const RenderParams& params, r32 cooldown, const Vec2& pos, r32 threshold)
 {
 	b8 cooldown_can_go = cooldown < threshold;
@@ -5117,16 +5023,22 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				UI::indicator(params, indicator.pos, UI::color_alert(), false);
 				break;
 			case TargetIndicator::Type::Battery:
-				UI::indicator(params, indicator.pos, UI::color_accent(), false, 1.0f, PI);
+			case TargetIndicator::Type::BatteryOutOfRange:
+				UI::indicator(params, indicator.pos, UI::color_accent(), true, 1.0f, PI);
 				break;
 			case TargetIndicator::Type::BatteryEnemy:
-				UI::indicator(params, indicator.pos, Team::ui_color_enemy(), false, 1.0f, PI);
+			case TargetIndicator::Type::BatteryEnemyOutOfRange:
+				UI::indicator(params, indicator.pos, Team::ui_color_enemy(), true, 1.0f, PI);
+				break;
+			case TargetIndicator::Type::BatteryFriendly:
+			case TargetIndicator::Type::BatteryFriendlyOutOfRange:
+				UI::indicator(params, indicator.pos, Team::ui_color_friend(), true, 1.0f, PI);
 				break;
 			case TargetIndicator::Type::Minion:
 				UI::indicator(params, indicator.pos, Team::ui_color_enemy(), false, 1.0f, PI);
 				break;
 			case TargetIndicator::Type::Turret:
-			case TargetIndicator::Type::CoreModule:
+			case TargetIndicator::Type::MinionSpawner:
 				UI::indicator(params, indicator.pos, Team::ui_color_enemy(), false);
 				break;
 			case TargetIndicator::Type::TurretAttacking:
@@ -5135,25 +5047,9 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					UI::indicator(params, indicator.pos, UI::color_alert(), true);
 				break;
 			}
-			case TargetIndicator::Type::CoreModuleOutOfRange:
-			case TargetIndicator::Type::CoreModuleFriendlyOutOfRange:
-			{
-				Vec2 p;
-				if (UI::project(params, indicator.pos, &p))
-					UI::mesh(params, Asset::Mesh::icon_core_module, p, size, indicator.type == TargetIndicator::Type::CoreModuleOutOfRange ? Team::ui_color_enemy() : Team::ui_color_friend());
-				break;
-			}
-			case TargetIndicator::Type::BatteryFriendly:
 			case TargetIndicator::Type::Rectifier:
 			case TargetIndicator::Type::ForceField:
 			case TargetIndicator::Type::Grenade:
-			case TargetIndicator::Type::TurretFriendly:
-			case TargetIndicator::Type::CoreModuleFriendly:
-			case TargetIndicator::Type::TurretOutOfRange:
-			case TargetIndicator::Type::TurretFriendlyOutOfRange:
-			case TargetIndicator::Type::BatteryOutOfRange:
-			case TargetIndicator::Type::BatteryEnemyOutOfRange:
-			case TargetIndicator::Type::BatteryFriendlyOutOfRange:
 				break;
 			default:
 				vi_assert(false);
@@ -5169,44 +5065,32 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 		AI::Team my_team = get<AIAgent>()->team;
 
-		if (Game::level.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::Turrets))
+		// turret health bars
+		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 		{
-			if (Turret::list.count() > 0)
+			Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
+
+			if ((turret_pos - me).length_squared() < range * range)
 			{
-				// turret health bars
-				for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-				{
-					Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
+				Vec2 p;
+				if (UI::project(params, turret_pos, &p))
+					draw_health_bar(params, i.item()->get<Health>(), p + Vec2(0, 32.0f * UI::scale), Team::ui_color(team, i.item()->team));
 
-					if (i.item()->team == my_team || (turret_pos - me).length_squared() < range * range)
-					{
-						Vec2 p;
-						if (UI::project(params, turret_pos, &p))
-							draw_health_bar(params, i.item()->get<Health>(), p + Vec2(0, 32.0f * UI::scale), Team::ui_color(team, i.item()->team));
-
-						if (i.item()->target.ref() == entity())
-						{
-							if (UI::flash_function(Game::real_time.total))
-								UI::indicator(params, turret_pos, Team::ui_color_enemy(), true);
-							enemy_visible = true;
-						}
-					}
-				}
+				if (i.item()->target.ref() == entity())
+					enemy_visible = true;
 			}
-			else
-			{
-				// core module health bars
-				for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
-				{
-					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+		}
 
-					if (i.item()->team == my_team || (pos - me).length_squared() < range * range)
-					{
-						Vec2 p;
-						if (UI::project(params, pos, &p))
-							draw_health_bar(params, i.item()->get<Health>(), p + Vec2(0, 32.0f * UI::scale), Team::ui_color(team, i.item()->team));
-					}
-				}
+		// minion spawner health bars
+		for (auto i = MinionSpawner::list.iterator(); !i.is_last(); i.next())
+		{
+			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+
+			if ((pos - me).length_squared() < range * range)
+			{
+				Vec2 p;
+				if (UI::project(params, pos, &p))
+					draw_health_bar(params, i.item()->get<Health>(), p + Vec2(0, 32.0f * UI::scale), Team::ui_color(team, i.item()->team));
 			}
 		}
 
@@ -5277,9 +5161,10 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			&& !get<Drone>()->flag.ref()
 			&& (Game::level.has_feature(Game::FeatureLevel::All) || Game::level.feature_level == Game::FeatureLevel::Abilities) // disable prompt in tutorial after ability has been purchased
 			&& manager->upgrade_available() && manager->upgrade_highest_owned_or_available() != player.ref()->upgrade_last_visit_highest_available
-			&& !UpgradeStation::drone_at(get<Drone>()))
+			&& !UpgradeStation::drone_at(get<Drone>())
+			&& !UpgradeStation::drone_inside(get<Drone>()))
 		{
-			UpgradeStation* station = UpgradeStation::closest_available(1 << s32(get<AIAgent>()->team), get<Transform>()->absolute_pos());
+			UpgradeStation* station = UpgradeStation::closest_available(get<AIAgent>()->team, get<Transform>()->absolute_pos());
 			if (station)
 			{
 				Vec3 pos = station->get<Transform>()->absolute_pos();

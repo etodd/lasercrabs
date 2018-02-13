@@ -46,13 +46,12 @@ const Vec4& Team::ui_color_enemy()
 	return Overworld::pvp_colors() ? ui_color_enemy_pvp : ui_color_enemy_normal;
 }
 
-r32 Team::control_point_timer;
+r32 Team::battery_spawn_delay;
 r32 Team::game_over_real_time;
 Ref<Team> Team::winner;
 StaticArray<Team::ScoreSummaryItem, MAX_PLAYERS * PLAYER_SCORE_SUMMARY_ITEMS> Team::score_summary;
 r32 Team::transition_timer;
 r32 Team::match_time;
-r32 Team::core_module_delay;
 Team::MatchState Team::match_state;
 
 #define PARKOUR_GAME_START_COUNTDOWN 10
@@ -137,14 +136,24 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Build,
 	},
 	{
-		0.0f, // cooldown
-		0.0f, // switch cooldown
-		0.0f, // use cooldown
-		0.0f, // use cooldown threshold
-		0.0f, // recoil velocity
-		AK_InvalidID,
+		DRONE_COOLDOWN_MAX, // movement cooldown
+		0.5f, // switch cooldown
+		30.0f, // use cooldown
+		15.0f, // use cooldown threshold
+		0.5f, // recoil velocity
+		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_minion,
-		Type::Passive,
+		Type::Build,
+	},
+	{
+		DRONE_COOLDOWN_MAX, // movement cooldown
+		0.5f, // switch cooldown
+		30.0f, // use cooldown
+		15.0f, // use cooldown threshold
+		0.5f, // recoil velocity
+		AK::EVENTS::PLAY_EQUIP_BUILD,
+		Asset::Mesh::icon_turret,
+		Type::Build,
 	},
 	{
 		2.5f, // movement cooldown
@@ -222,9 +231,16 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		Type::Ability,
 	},
 	{
-		strings::minion_boost,
-		strings::description_minion_boost,
+		strings::minion_spawner,
+		strings::description_minion_spawner,
 		Asset::Mesh::icon_minion,
+		400,
+		Type::Ability,
+	},
+	{
+		strings::turret,
+		strings::description_turret,
+		Asset::Mesh::icon_turret,
 		400,
 		Type::Ability,
 	},
@@ -265,9 +281,16 @@ void Team::awake_all()
 	{
 		match_state = Game::level.mode == Game::Mode::Pvp ? MatchState::Waiting : MatchState::Active;
 		match_time = 0.0f;
-		core_module_delay = CORE_MODULE_DELAY;
+
+		if (Game::level.mode == Game::Mode::Parkour)
+		{
+			// spawn all batteries now
+			for (s32 i = 0; i < Game::level.battery_spawns.length; i++)
+				battery_spawn();
+		}
 	}
 
+	battery_spawn_delay = 0.0f;
 	winner = nullptr;
 	score_summary.length = 0;
 	for (s32 i = 0; i < MAX_PLAYERS * MAX_PLAYERS; i++)
@@ -355,6 +378,20 @@ void Team::transition_next()
 	}
 }
 
+void Team::battery_spawn()
+{
+	const Game::BatterySpawnPoint& p = Game::level.battery_spawns[Game::level.battery_spawn_index];
+
+	AI::Team team = Game::session.config.game_type == GameType::Assault ? 0 : AI::TeamNone;
+
+	Entity* entity = World::create<BatteryEntity>(p.pos, p.spawn_point.ref(), team);
+	Net::finalize(entity);
+	Rope::spawn(p.pos + Vec3(0, 1, 0), Vec3(0, 1, 0), 100.0f);
+
+	Game::level.battery_spawn_index++;
+	battery_spawn_delay = 0.0f;
+}
+
 s16 Team::force_field_mask(AI::Team t)
 {
 	return 1 << (8 + t);
@@ -376,36 +413,6 @@ void Team::add_kills(s32 k)
 	vi_assert(Game::level.local);
 	kills += k;
 	TeamNet::update_counts(this);
-}
-
-r32 Team::minion_spawn_rate() const
-{
-	r32 rate = Game::session.config.game_type == GameType::Assault ? 1.0f : 0.0f;
-	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->has_ability(Ability::MinionBoost) && i.item()->team.ref() == this)
-		{
-			if (rate == 0.0f)
-				rate = 1.0f;
-			else
-				rate *= 1.2f;
-		}
-	}
-	return vi_min(2.0f, rate);
-}
-
-s16 Team::increment() const
-{
-	s16 increment = ENERGY_DEFAULT_INCREMENT;
-
-	// batteries (that may or may not be rectifiers)
-	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->team == team())
-			increment += i.item()->increment();
-	}
-
-	return increment;
 }
 
 Team* Team::with_most_kills()
@@ -598,7 +605,6 @@ namespace TeamNet
 		MatchState,
 		UpdateCounts,
 		MapSchedule,
-		CoreVulnerable,
 		Spot,
 		count,
 	};
@@ -649,18 +655,6 @@ namespace TeamNet
 			serialize_enum(p, Message, type);
 		}
 		serialize_s16(p, id);
-		Net::msg_finalize(p);
-		return true;
-	}
-
-	b8 core_vulnerable()
-	{
-		using Stream = Net::StreamWrite;
-		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Team);
-		{
-			Message type = Message::CoreVulnerable;
-			serialize_enum(p, Message, type);
-		}
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -775,8 +769,6 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						team_add_score_summary_item(i.item(), _(strings::deaths), i.item()->deaths);
 						if (Game::session.config.game_type == GameType::CaptureTheFlag)
 							team_add_score_summary_item(i.item(), _(strings::flags), i.item()->flags_captured);
-						else if (Game::session.config.game_type == GameType::Domination)
-							team_add_score_summary_item(i.item(), _(strings::energy_collected), i.item()->energy_collected);
 					}
 				}
 			}
@@ -804,24 +796,6 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		case TeamNet::Message::MapSchedule:
 		{
 			serialize_s16(p, Game::level.multiplayer_level_scheduled);
-			break;
-		}
-		case TeamNet::Message::CoreVulnerable:
-		{
-			core_module_delay = 0.0f;
-			Game::level.core_force_field.ref()->flags &= ~ForceField::FlagInvincible;
-
-			// let everyone know what happened
-			char buffer[UI_TEXT_MAX];
-			strcpy(buffer, _(strings::core_vulnerable));
-
-			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-			{
-				// it's a good thing if you're not on the defending team
-				b8 good = i.item()->get<PlayerManager>()->team.ref()->team() != 0;
-				i.item()->msg(buffer, good ? PlayerHuman::FlagMessageGood : PlayerHuman::FlagNone);
-			}
-
 			break;
 		}
 		case TeamNet::Message::Spot:
@@ -1056,14 +1030,12 @@ void Team::update_all_server(const Update& u)
 		{
 			Team* team_with_most_kills = Game::session.config.game_type == GameType::Deathmatch ? with_most_kills() : nullptr;
 			Team* team_with_most_flags = Game::session.config.game_type == GameType::CaptureTheFlag ? with_most_flags() : nullptr;
-			Team* team_with_most_energy_collected = Game::session.config.game_type == GameType::Domination ? with_most_energy_collected() : nullptr;
 			if (!Game::level.noclip
 				&& ((match_time > Game::session.config.time_limit() && Game::level.has_feature(Game::FeatureLevel::All)) // no time limit in tutorial
 					|| (Game::level.has_feature(Game::FeatureLevel::All) && teams_with_active_players() <= 1 && Game::level.ai_config.length == 0)
-					|| (Game::session.config.game_type == GameType::Assault && CoreModule::count(1 << 0) == 0)
+					|| (Game::session.config.game_type == GameType::Assault && Battery::list.count() == 0 && Game::level.battery_spawn_index >= Game::level.battery_spawns.length)
 					|| (Game::session.config.game_type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::session.config.kill_limit)
-					|| (Game::session.config.game_type == GameType::CaptureTheFlag && team_with_most_flags && team_with_most_flags->flags_captured >= Game::session.config.flag_limit)
-					|| (Game::session.config.game_type == GameType::Domination && team_with_most_energy_collected && team_with_most_energy_collected->energy_collected >= Game::session.config.energy_collected_limit)))
+					|| (Game::session.config.game_type == GameType::CaptureTheFlag && team_with_most_flags && team_with_most_flags->flags_captured >= Game::session.config.flag_limit)))
 			{
 				// determine the winner, if any
 				Team* w = nullptr; // winning team
@@ -1082,11 +1054,9 @@ void Team::update_all_server(const Update& u)
 					w = team_with_player;
 				else if (Game::session.config.game_type == GameType::Deathmatch)
 					w = team_with_most_kills;
-				else if (Game::session.config.game_type == GameType::Domination)
-					w = team_with_most_energy_collected;
 				else if (Game::session.config.game_type == GameType::Assault)
 				{
-					if (CoreModule::count(1 << 0) == 0)
+					if (Battery::list.count() == 0)
 						w = &list[1]; // attackers win
 					else
 						w = &list[0]; // defenders win
@@ -1130,13 +1100,16 @@ void Team::update_all_server(const Update& u)
 			{
 				// game is still going
 
-				if (Game::session.config.game_type == GameType::Assault && Turret::list.count() == 0)
+				if (Battery::list.count() == 0
+					&& Game::session.config.ruleset.enable_batteries
+					&& Game::level.battery_spawn_index < Game::level.battery_spawns.length
+					&& (Game::level.feature_level == Game::FeatureLevel::Batteries || Game::level.has_feature(Game::FeatureLevel::TutorialAll)))
 				{
-					if (core_module_delay > 0.0f)
+					battery_spawn_delay += u.time.delta;
+					if (battery_spawn_delay > 10.0f)
 					{
-						core_module_delay = vi_max(0.0f, core_module_delay - u.time.delta);
-						if (core_module_delay == 0.0f)
-							TeamNet::core_vulnerable();
+						for (s32 i = 0; i < Game::level.battery_spawn_group_size; i++)
+							battery_spawn();
 					}
 				}
 
@@ -1197,12 +1170,51 @@ void Team::update_all_client_only(const Update& u)
 	update_visibility(u);
 }
 
-SpawnPoint* Team::default_spawn_point() const
+
+SpawnPoint* Team::get_spawn_point() const
 {
-	for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+	if (Game::level.mode == Game::Mode::Parkour || Game::session.config.game_type == GameType::Deathmatch)
 	{
-		if (i.item()->team == team() && !i.item()->battery())
-			return i.item();
+		// random
+		Array<SpawnPoint*> spawns_good;
+		Array<SpawnPoint*> spawns_bad;
+		for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+		{
+			AI::Team spawn_team = i.item()->team;
+			if (spawn_team == AI::TeamNone || spawn_team == team())
+			{
+				Vec3 pos = i.item()->spawn_position().pos;
+
+				b8 good = true;
+				for (auto j = PlayerCommon::list.iterator(); !j.is_last(); j.next())
+				{
+					if (j.item()->get<AIAgent>()->team != team() && (j.item()->get<Transform>()->absolute_pos() - pos).length_squared() < 8.0f * 8.0f)
+					{
+						good = false;
+						break;
+					}
+				}
+
+				if (good)
+					spawns_good.add(i.item());
+				else
+					spawns_bad.add(i.item());
+			}
+		}
+
+		if (spawns_good.length > 0)
+			return spawns_good[mersenne::rand() % spawns_good.length];
+		else
+			return spawns_bad[mersenne::rand() % spawns_bad.length];
+	}
+	else
+	{
+		// only one spawn point
+		for (auto i = SpawnPoint::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->team == team() && !i.item()->battery())
+				return i.item();
+		}
 	}
 	return nullptr;
 }
@@ -1243,13 +1255,6 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 			abilities[i] = ability;
 		}
 	}
-
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& (Game::session.config.ruleset.upgrades_allow | Game::session.config.ruleset.upgrades_default)
-		&& Game::session.type == SessionType::Story
-		&& Game::session.config.game_type == GameType::Assault
-		&& team->team() == 0)
-		energy += s32(Team::match_time / ENERGY_INCREMENT_INTERVAL) * (ENERGY_DEFAULT_INCREMENT * s32(Battery::list.count() * 0.75f));
 
 	if (u)
 		strncpy(username, u, MAX_USERNAME);
@@ -2341,25 +2346,6 @@ b8 PlayerManager::can_transition_state() const
 
 void PlayerManager::update_all(const Update& u)
 {
-	if (Game::level.local)
-	{
-		if (Game::level.mode == Game::Mode::Pvp
-			&& Game::level.has_feature(Game::FeatureLevel::Batteries))
-		{
-			for (auto i = list.iterator(); !i.is_last(); i.next())
-			{
-				r32 interval_per_point = ENERGY_INCREMENT_INTERVAL / i.item()->team.ref()->increment();
-				s32 index = s32((Team::match_time - u.time.delta) / interval_per_point);
-				while (index < s32(Team::match_time / interval_per_point))
-				{
-					// give points to players based on how many batteries they own
-					i.item()->add_energy(1);
-					index++;
-				}
-			}
-		}
-	}
-
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (Game::level.local)
@@ -2379,6 +2365,8 @@ PlayerManager* PlayerManager::owner(const Entity* e)
 		return e->get<Bolt>()->player.ref();
 	else if (e->has<Grenade>())
 		return e->get<Grenade>()->owner.ref();
+	else if (e->has<Turret>())
+		return e->get<Turret>()->owner.ref();
 	return nullptr;
 }
 
@@ -2401,28 +2389,32 @@ void PlayerManager::clear_ownership()
 		if (i.item()->owner.ref() == this)
 			i.item()->set_owner(nullptr);
 	}
+
+	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->owner.ref() == this)
+			i.item()->owner = nullptr;
+	}
+
+	for (auto i = MinionSpawner::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->owner.ref() == this)
+			i.item()->owner = nullptr;
+	}
 }
 
 void killer_name(Entity* killer, PlayerManager* killer_player, PlayerManager* player, char* result)
 {
-	result[0] = '\0';
-
-	Entity* logged_killer = killer;
-	if (killer->has<Bolt>())
-		logged_killer = killer->get<Bolt>()->owner.ref();
-
-	if (logged_killer)
+	if (killer_player)
+		strncpy(result, killer_player->username, MAX_USERNAME);
+	else
 	{
-		if (logged_killer->has<Minion>())
-			strncpy(result, _(strings::minion), MAX_USERNAME);
-		else if (logged_killer->has<Turret>())
-			snprintf(result, MAX_USERNAME + 1, _(strings::turret_name), _(logged_killer->get<Turret>()->name()));
-	}
+		Entity* logged_killer = killer;
+		if (killer->has<Bolt>())
+			logged_killer = killer->get<Bolt>()->owner.ref();
 
-	if (result[0] == '\0')
-	{
-		if (killer_player)
-			strncpy(result, killer_player->username, MAX_USERNAME);
+		if (logged_killer && logged_killer->has<Turret>())
+			strncpy(result, _(strings::turret), MAX_USERNAME);
 		else
 			strncpy(result, _(strings::minion), MAX_USERNAME);
 	}
@@ -2478,25 +2470,10 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 				reward = ENERGY_FORCE_FIELD_DESTROY;
 			else if (e->has<Rectifier>())
 				reward = ENERGY_RECTIFIER_DESTROY;
+			else if (e->has<MinionSpawner>())
+				reward = ENERGY_MINION_SPAWNER_DESTROY;
 			else if (e->has<Turret>())
-			{
 				reward = ENERGY_TURRET_DESTROY;
-				reward_share = true;
-
-				// log message
-				char killer_str[MAX_USERNAME + 1];
-				killer_name(killer, killer_player, player, killer_str);
-
-				char name[MAX_USERNAME + 1];
-				snprintf(name, MAX_USERNAME, _(strings::turret_name), _(e->get<Turret>()->name()));
-
-				PlayerHuman::log_add(killer_str, killer_team, AI::TeamAll, name, team);
-			}
-			else if (e->has<CoreModule>())
-			{
-				reward = ENERGY_CORE_MODULE_DESTROY;
-				reward_share = true;
-			}
 			else
 				vi_assert(false);
 
@@ -2527,11 +2504,11 @@ void PlayerManager::update_server(const Update& u)
 			{
 				spawn_timer = vi_max(0.0f, spawn_timer - u.time.delta);
 				if (spawn_timer == 0.0f)
-					internal_spawn_go(this, team.ref()->default_spawn_point());
+					internal_spawn_go(this, team.ref()->get_spawn_point());
 			}
 		}
 		else if (Game::level.mode == Game::Mode::Parkour)
-			internal_spawn_go(this, team.ref()->default_spawn_point());
+			internal_spawn_go(this, team.ref()->get_spawn_point());
 	}
 
 	for (s32 i = 0; i < s32(Ability::count); i++)

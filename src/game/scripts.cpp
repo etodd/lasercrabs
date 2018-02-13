@@ -1395,7 +1395,7 @@ namespace tutorial
 		Battery,
 		Upgrade,
 		Ability,
-		Turrets,
+		AbilityDone,
 		Capture,
 		Done,
 		count,
@@ -1415,10 +1415,9 @@ namespace tutorial
 		{
 			data->state = TutorialState::Upgrade;
 			Actor::tut(strings::tut_upgrade);
-
 			Game::level.feature_level = Game::FeatureLevel::Abilities;
 			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-			manager->energy = UpgradeInfo::list[s32(Upgrade::Grenade)].cost;
+			manager->energy = UpgradeInfo::list[0].cost;
 		}
 	}
 
@@ -1426,21 +1425,8 @@ namespace tutorial
 	{
 		if (data->state == TutorialState::Ability)
 		{
-			Team::match_time = 0.0f;
-			data->state = TutorialState::Turrets;
-			Game::level.feature_level = Game::FeatureLevel::Turrets;
-			Team::list[1].spot_target = Turret::list[0].get<Target>();
-			Actor::tut(strings::tut_turrets);
-		}
-	}
-
-	void crawl_complete(Entity*)
-	{
-		if (data->state == TutorialState::Crawl)
-		{
-			data->state = TutorialState::Battery;
-			Actor::tut(strings::tut_battery);
-			Game::level.feature_level = Game::FeatureLevel::Batteries;
+			data->state = TutorialState::AbilityDone;
+			Actor::tut(strings::tut_ability_done);
 		}
 	}
 
@@ -1457,7 +1443,7 @@ namespace tutorial
 			if (s32(data->state) <= s32(TutorialState::Crawl))
 			{
 				data->state = TutorialState::Crawl;
-				Actor::tut(strings::tut_crawl);
+				Actor::tut(strings::tut_battery);
 			}
 		}
 
@@ -1487,14 +1473,20 @@ namespace tutorial
 				}
 			}
 		}
-		else if (data->state == TutorialState::Turrets)
+		else if (data->state == TutorialState::AbilityDone)
 		{
-			if (Turret::list.count() == 0)
+			if (PlayerHuman::list.count() > 0)
 			{
-				Team::core_module_delay = 1.0f;
-				data->state = TutorialState::Capture;
-				Team::list[1].spot_target = Game::level.core_force_field.ref()->get<Target>();
-				Actor::tut(strings::tut_capture);
+				Entity* drone = PlayerHuman::list.iterator().item()->get<PlayerManager>()->instance.ref();
+				if (drone && drone->get<Drone>()->current_ability == Ability::None)
+				{
+					Actor::tut_clear();
+					Team::match_time = 0.0f;
+					Team::battery_spawn_delay = 1000.0f;
+					data->state = TutorialState::Capture;
+					Game::level.feature_level = Game::FeatureLevel::TutorialAll;
+					Actor::tut(strings::tut_capture);
+				}
 			}
 		}
 	}
@@ -1518,25 +1510,8 @@ namespace tutorial
 
 			data = new Data();
 
-			{
-				SpawnPoint* default_spawn = Team::list[1].default_spawn_point();
-				Entity* trigger_entity = World::create<Empty>();
-				trigger_entity->get<Transform>()->absolute_pos(default_spawn->get<Transform>()->absolute_pos());
-				PlayerTrigger* trigger = trigger_entity->create<PlayerTrigger>();
-				trigger->radius = DRONE_MAX_DISTANCE;
-				trigger->exited.link(&crawl_complete);
-				World::awake(trigger_entity);
-				Net::finalize(trigger_entity);
-			}
-
-			// remove all but the first turret
-			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.index != 0)
-					World::remove(i.item()->entity());
-			}
-
-			Game::level.feature_level = Game::FeatureLevel::Base;
+			Game::level.feature_level = Game::FeatureLevel::Batteries;
+			Game::level.battery_spawns.length = s8(vi_min(s32(Game::level.battery_spawns.length), 3));
 
 			Game::updates.add(&update);
 			Game::cleanups.add(&cleanup);

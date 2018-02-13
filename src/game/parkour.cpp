@@ -1802,7 +1802,7 @@ b8 Parkour::grapple_try(const Vec3& start_pos, const Vec3& target)
 b8 Parkour::try_wall_run(ParkourWallRunState s, const Vec3& wall_direction)
 {
 	if (Game::time.total - last_jump_time < JUMP_GRACE_PERIOD
-		|| (s != ParkourWallRunState::Forward && !Game::save.resources[s32(Resource::WallRun)]))
+		|| (s != ParkourWallRunState::Forward && !ability_enabled(Resource::WallRun)))
 		return false;
 
 	Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, WALKER_SUPPORT_HEIGHT + get<Walker>()->default_capsule_height() * 0.25f, 0);

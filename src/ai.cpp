@@ -713,7 +713,7 @@ ComponentMask entity_mask = Rectifier::component_mask
 	| Grenade::component_mask
 	| SpawnPoint::component_mask
 	| Turret::component_mask
-	| CoreModule::component_mask;
+	| MinionSpawner::component_mask;
 
 void entity_info(const Entity* e, Team query_team, Team* team, s8* type)
 {
@@ -779,17 +779,22 @@ void entity_info(const Entity* e, Team query_team, Team* team, s8* type)
 	else if (e->has<SpawnPoint>())
 	{
 		_team = e->get<SpawnPoint>()->team;
-		_type = _team == query_team ? RecordedLife::EntitySpawnPointFriend : RecordedLife::EntitySpawnPointEnemy;
+		if (_team == query_team)
+			_type = RecordedLife::EntitySpawnPointFriend;
+		else if (_team == AI::TeamNone)
+			_type = RecordedLife::EntitySpawnPointNeutral;
+		else
+			_type = RecordedLife::EntitySpawnPointEnemy;
 	}
 	else if (e->has<Turret>())
 	{
 		_team = e->get<Turret>()->team;
 		_type = _team == query_team ? RecordedLife::EntityTurretFriend : RecordedLife::EntityTurretEnemy;
 	}
-	else if (e->has<CoreModule>())
+	else if (e->has<MinionSpawner>())
 	{
-		_team = e->get<CoreModule>()->team;
-		_type = e->get<Health>()->can_take_damage(nullptr) ? RecordedLife::EntityCoreModuleInvincible : RecordedLife::EntityCoreModuleVulnerable;
+		_team = e->get<MinionSpawner>()->team;
+		_type = _team == query_team ? RecordedLife::EntityMinionSpawnerFriend : RecordedLife::EntityMinionSpawnerEnemy;
 	}
 	else if (e->has<Flag>())
 	{

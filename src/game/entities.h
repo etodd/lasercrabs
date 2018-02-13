@@ -93,9 +93,11 @@ struct Shield : public ComponentType<Shield>
 	void set_team(AI::Team);
 };
 
+struct SpawnPoint;
+
 struct BatteryEntity : public Entity
 {
-	BatteryEntity(const Vec3&, AI::Team = AI::TeamNone);
+	BatteryEntity(const Vec3&, SpawnPoint*, AI::Team = AI::TeamNone);
 };
 
 struct TargetEvent
@@ -103,8 +105,6 @@ struct TargetEvent
 	Entity* hit_by;
 	Entity* target;
 };
-
-struct SpawnPoint;
 
 struct Battery : public ComponentType<Battery>
 {
@@ -117,27 +117,24 @@ struct Battery : public ComponentType<Battery>
 	};
 
 	static r32 particle_accumulator;
-	static r32 heal_timer;
+	static r32 increment_timer;
 
+	static void awake_all();
 	static void update_all(const Update&);
 	static void sort_all(const Vec3&, Array<Ref<Battery>>*, b8, AI::TeamMask);
 	static Battery* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static s32 count(AI::TeamMask);
 	static b8 net_msg(Net::StreamRead*);
-	static s16 increment(s16);
 
 	Ref<Entity> light;
 	Ref<SpawnPoint> spawn_point;
-	s16 reward_level;
+	s16 energy;
 	AI::Team team = AI::TeamNone;
-	s8 order;
 
 	void awake();
 	~Battery();
 
 	void health_changed(const HealthEvent&);
-	s16 reward() const;
-	s16 increment() const;
 	void killed(Entity*);
 	void hit(const TargetEvent&);
 	b8 set_team(AI::Team, Entity* = nullptr);
@@ -157,8 +154,6 @@ struct SpawnPosition
 
 struct SpawnPoint : public ComponentType<SpawnPoint>
 {
-	static void update_server_all(const Update&);
-
 	AI::Team team;
 
 	void awake() {}
@@ -180,7 +175,7 @@ struct UpgradeStation : public ComponentType<UpgradeStation>
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static UpgradeStation* drone_at(const Drone*);
 	static UpgradeStation* drone_inside(const Drone*);
-	static UpgradeStation* closest_available(AI::TeamMask, const Vec3&, r32* = nullptr);
+	static UpgradeStation* closest_available(AI::Team, const Vec3&, r32* = nullptr);
 
 	r32 timer;
 	Ref<SpawnPoint> spawn_point;
@@ -302,27 +297,26 @@ struct GlassShard
 	void cleanup();
 };
 
-struct CoreModuleEntity : public Entity
+struct MinionSpawnerEntity : public Entity
 {
-	CoreModuleEntity(AI::Team, Transform*, const Vec3&, const Quat&);
+	MinionSpawnerEntity(PlayerManager*, AI::Team, const Vec3&, const Quat&, Transform* = nullptr);
 };
 
-struct CoreModule : public ComponentType<CoreModule>
+struct MinionSpawner : public ComponentType<MinionSpawner>
 {
-	static s32 count(AI::TeamMask);
+	static void update_server_all(const Update&);
 
 	AI::Team team;
+	Ref<PlayerManager> owner;
 
 	void awake();
 	void health_changed(const HealthEvent&);
 	void killed(Entity*);
-	void destroy();
-	void set_team(AI::Team);
 };
 
 struct TurretEntity : public Entity
 {
-	TurretEntity(AI::Team);
+	TurretEntity(PlayerManager*, AI::Team, const Vec3&, const Quat&, Transform* = nullptr);
 };
 
 struct Turret : public ComponentType<Turret>
@@ -335,14 +329,13 @@ struct Turret : public ComponentType<Turret>
 	r32 cooldown;
 	r32 target_check_time;
 	Ref<Entity> target;
+	Ref<PlayerManager> owner;
 	AI::Team team;
-	s8 order;
 	b8 charging;
 
 	void awake();
 	~Turret();
 
-	AssetID name() const;
 	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 	void update_server(const Update&);
@@ -551,6 +544,8 @@ struct ParticleEffect
 		SpawnMinion,
 		SpawnForceField,
 		SpawnRectifier,
+		SpawnMinionSpawner,
+		SpawnTurret,
 		count,
 	};
 

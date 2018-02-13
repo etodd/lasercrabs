@@ -829,8 +829,28 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					break;
 				}
-				case Ability::MinionBoost: // do nothing
+				case Ability::MinionSpawner:
+				{
+					// place a minion spawner
+					if (Game::level.local)
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinionSpawner, pos + rot * Vec3(0, 0, MINION_SPAWNER_RADIUS), rot, parent->get<Transform>(), manager);
+
+					// effects
+					particle_trail(my_pos, pos);
+
 					break;
+				}
+				case Ability::Turret:
+				{
+					// place a turret
+					if (Game::level.local)
+						ParticleEffect::spawn(ParticleEffect::Type::SpawnTurret, pos + rot * Vec3(0, 0, TURRET_RADIUS), rot, parent->get<Transform>(), manager);
+
+					// effects
+					particle_trail(my_pos, pos);
+
+					break;
+				}
 				case Ability::ForceField:
 				{
 					// spawn a force field
@@ -1112,9 +1132,6 @@ b8 Drone::hit_target(Entity* target)
 			return false; // we've already hit this target once during this flight
 	}
 	hit_targets.add(target);
-
-	if (current_ability == Ability::None && get<Health>()->active_armor() && (target->has<Shield>() || target->has<ForceField>()))
-		get<Health>()->active_armor_timer = 0.0f; // damaging a Shield cancels our invincibility
 
 	if (!Game::level.local) // then we are a local player on a client
 	{
@@ -1544,6 +1561,12 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, const Net::StateFrame* state_fra
 						break;
 					case Ability::Rectifier:
 						required_space = DRONE_SHIELD_RADIUS;
+						break;
+					case Ability::MinionSpawner:
+						required_space = 0.5f + WALKER_HEIGHT + WALKER_SUPPORT_HEIGHT + WALKER_MINION_RADIUS * 2.0f;
+						break;
+					case Ability::Turret:
+						required_space = TURRET_RADIUS;
 						break;
 					default:
 					{

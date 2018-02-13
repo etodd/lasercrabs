@@ -954,7 +954,7 @@ void PlayerControlAI::actions_populate()
 			else if (want_upgrade(this, u))
 			{
 				// go to upgrade
-				UpgradeStation* station = UpgradeStation::closest_available(1 << s32(my_team), get<Transform>()->absolute_pos());
+				UpgradeStation* station = UpgradeStation::closest_available(my_team, get<Transform>()->absolute_pos());
 				if (station)
 				{
 					AI::RecordedLife::Action action;
@@ -996,7 +996,7 @@ void PlayerControlAI::actions_populate()
 			| (1 << s32(AI::RecordedLife::EntityBatteryEnemy))
 			| (1 << s32(AI::RecordedLife::EntityBatteryNeutral))
 			| (1 << s32(AI::RecordedLife::EntityTurretEnemy))
-			| (1 << s32(AI::RecordedLife::EntityCoreModuleVulnerable))
+			| (1 << s32(AI::RecordedLife::EntityMinionSpawnerEnemy))
 			| (1 << s32(AI::RecordedLife::EntityRectifierEnemy))))
 	{
 		Vec3 pos = get<Transform>()->absolute_pos();

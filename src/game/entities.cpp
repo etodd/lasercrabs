@@ -64,7 +64,10 @@ DroneEntity::DroneEntity(AI::Team team, const Vec3& pos)
 	}
 	create<Drone>();
 	create<AIAgent>()->team = team;
-	create<Health>(DRONE_HEALTH, DRONE_HEALTH, Game::session.config.ruleset.drone_shield, Game::session.config.ruleset.drone_shield)->active_armor_timer = DRONE_INVINCIBLE_TIME;
+	{
+		Health* health = create<Health>(DRONE_HEALTH, DRONE_HEALTH, Game::session.config.ruleset.drone_shield, Game::session.config.ruleset.drone_shield);
+		health->active_armor_timer = 2.5f; // drones are invincible while spawning
+	}
 	create<Shield>();
 
 	SkinnedModel* model = create<SkinnedModel>();
@@ -318,9 +321,7 @@ s8 Health::total() const
 
 b8 Health::active_armor(const Net::StateFrame* state_frame) const
 {
-	if (has<CoreModule>())
-		return active_armor_timer > 0.0f || Turret::list.count() > 0 || Game::level.mode != Game::Mode::Pvp || Team::core_module_delay > 0.0f;
-	else if (has<ForceField>())
+	if (has<ForceField>())
 		return active_armor_timer > 0.0f || (get<ForceField>()->flags & ForceField::FlagInvincible);
 	else if (has<Drone>())
 	{
@@ -384,10 +385,12 @@ void Shield::awake()
 	if (Game::level.local && !inner.ref() && get<Health>()->shield_max > 0)
 	{
 		AI::Team team;
-		if (has<CoreModule>())
-			team = get<CoreModule>()->team;
+		if (has<MinionSpawner>())
+			team = get<MinionSpawner>()->team;
 		else if (has<Rectifier>())
 			team = get<Rectifier>()->team;
+		else if (has<Turret>())
+			team = get<Turret>()->team;
 		else
 			team = get<AIAgent>()->team;
 
@@ -650,7 +653,7 @@ void Shield::update_client(const Update& u)
 	}
 }
 
-BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
+BatteryEntity::BatteryEntity(const Vec3& p, SpawnPoint* spawn, AI::Team team)
 {
 	create<Transform>()->pos = p;
 
@@ -658,6 +661,7 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 	model->color = Vec4(0.6f, 0.6f, 0.6f, MATERIAL_NO_OVERRIDE);
 	model->mesh = Asset::Mesh::battery;
 	model->shader = Asset::Shader::standard;
+	model->team = s8(team);
 
 	if (Game::session.config.ruleset.enable_battery_stealth)
 	{
@@ -675,7 +679,8 @@ BatteryEntity::BatteryEntity(const Vec3& p, AI::Team team)
 
 	Battery* battery = create<Battery>();
 	battery->team = team;
-	model->team = s8(team);
+	battery->energy = BATTERY_ENERGY;
+	battery->spawn_point = spawn;
 
 	model->offset.scale(Vec3(BATTERY_RADIUS - 0.2f));
 
@@ -694,12 +699,8 @@ void Battery::health_changed(const HealthEvent& e)
 {
 	if (team != AI::TeamNone && e.hp + e.shield < 0 && get<Health>()->hp > 0)
 	{
-		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::BatteryUnderAttack))
-		{
-			char buffer[UI_TEXT_MAX];
-			snprintf(buffer, UI_TEXT_MAX, _(strings::battery_under_attack), s32(order) + 1);
-			PlayerHuman::log_add(buffer, AI::TeamNone, 1 << team);
-		}
+		if (PlayerHuman::notification(get<Target>()->absolute_pos(), team, PlayerHuman::Notification::Type::BatteryUnderAttack))
+			PlayerHuman::log_add(_(strings::battery_under_attack), AI::TeamNone, 1 << team);
 	}
 }
 
@@ -807,12 +808,7 @@ void Battery::hit(const TargetEvent& e)
 void Battery::set_team_client(AI::Team t)
 {
 	if (team != AI::TeamNone && team != t)
-	{
-		PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::BatteryLost); // notify team that they lost this battery
-		char buffer[UI_TEXT_MAX];
-		snprintf(buffer, UI_TEXT_MAX, _(strings::battery_lost), s32(order) + 1);
-		PlayerHuman::log_add(buffer, AI::TeamNone, 1 << team);
-	}
+		PlayerHuman::log_add(_(strings::battery_lost), AI::TeamNone, 1 << team);
 
 	team = t;
 	get<View>()->team = s8(t);
@@ -825,27 +821,104 @@ void Battery::set_team_client(AI::Team t)
 	spawn_point.ref()->set_team(t);
 }
 
+namespace BatteryNet
+{
+	enum class Message : s8
+	{
+		Energy,
+		Team,
+		count,
+	};
+
+	b8 set_team(Battery* b, AI::Team t, Entity* caused_by)
+	{
+		vi_assert(Game::level.local);
+
+		// must be neutral or owned by an enemy
+		b->get<Health>()->reset_hp();
+
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Battery);
+		{
+			Message msg = Message::Team;
+			serialize_enum(p, Message, msg);
+		}
+		{
+			Ref<Battery> ref = b;
+			serialize_ref(p, ref);
+		}
+		serialize_s8(p, t);
+		{
+			Ref<Entity> caused_by_ref = caused_by;
+			serialize_ref(p, caused_by_ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 set_energy(Battery* b, s16 energy)
+	{
+		vi_assert(Game::level.local);
+
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Battery);
+		{
+			Message msg = Message::Energy;
+			serialize_enum(p, Message, msg);
+		}
+		{
+			Ref<Battery> ref = b;
+			serialize_ref(p, ref);
+		}
+		serialize_s16(p, energy);
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
 b8 Battery::net_msg(Net::StreamRead* p)
 {
 	using Stream = Net::StreamRead;
-	Ref<Battery> ref;
-	serialize_ref(p, ref);
-	AI::Team t;
-	serialize_s8(p, t);
-	s16 reward_level;
-	serialize_s16(p, reward_level);
-	Ref<Entity> caused_by;
-	serialize_ref(p, caused_by);
-
-	Battery* pickup = ref.ref();
-	pickup->reward_level = reward_level;
-	if (caused_by.ref() && caused_by.ref()->has<AIAgent>() && t == caused_by.ref()->get<AIAgent>()->team)
+	BatteryNet::Message msg;
+	serialize_enum(p, BatteryNet::Message, msg);
+	switch (msg)
 	{
-		if (pickup->team != t)
-			caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_energy_and_notify(pickup->reward());
-		Audio::post_global(AK::EVENTS::PLAY_BATTERY_CAPTURE, Vec3::zero, pickup->get<Transform>());
+		case BatteryNet::Message::Energy:
+		{
+			Ref<Battery> ref;
+			serialize_ref(p, ref);
+			s16 energy;
+			serialize_s16(p, energy);
+
+			ref.ref()->energy = energy;
+
+			if (energy == 0) // this thing is exhausted
+			{
+				if (SpawnPoint* spawn = ref.ref()->spawn_point.ref())
+					spawn->set_team(AI::TeamNone);
+			}
+
+			break;
+		}
+		case BatteryNet::Message::Team:
+		{
+			Ref<Battery> ref;
+			serialize_ref(p, ref);
+			AI::Team t;
+			serialize_s8(p, t);
+			Ref<Entity> caused_by;
+			serialize_ref(p, caused_by);
+
+			Battery* pickup = ref.ref();
+			if (caused_by.ref() && caused_by.ref()->has<AIAgent>() && t == caused_by.ref()->get<AIAgent>()->team)
+				Audio::post_global(AK::EVENTS::PLAY_BATTERY_CAPTURE, Vec3::zero, pickup->get<Transform>());
+			pickup->set_team_client(t);
+			break;
+		}
+		default:
+			vi_assert(false);
+			break;
 	}
-	pickup->set_team_client(t);
 
 	return true;
 }
@@ -854,27 +927,17 @@ b8 Battery::net_msg(Net::StreamRead* p)
 // the second parameter is the entity that caused the ownership change
 b8 Battery::set_team(AI::Team t, Entity* caused_by)
 {
-	vi_assert(Game::level.local);
-
-	// must be neutral or owned by an enemy
-	get<Health>()->reset_hp();
-	if (t != team)
-		reward_level++;
-
-	using Stream = Net::StreamWrite;
-	Net::StreamWrite* p = Net::msg_new(Net::MessageType::Battery);
-	Ref<Battery> ref = this;
-	serialize_ref(p, ref);
-	serialize_s8(p, t);
-	serialize_s16(p, reward_level);
-	Ref<Entity> caused_by_ref = caused_by;
-	serialize_ref(p, caused_by_ref);
-	Net::msg_finalize(p);
-	return t != team;
+	if (t == team)
+		return false;
+	else
+	{
+		BatteryNet::set_team(this, t, caused_by);
+		return true;
+	}
 }
 
 r32 Battery::particle_accumulator;
-r32 Battery::heal_timer;
+r32 Battery::increment_timer;
 void Battery::update_all(const Update& u)
 {
 	// normal particles
@@ -896,12 +959,12 @@ void Battery::update_all(const Update& u)
 		}
 	}
 
-	b8 heal = false;
-	heal_timer -= u.time.delta;
-	if (heal_timer < 0.0f)
+	b8 increment = false;
+	increment_timer -= u.time.delta;
+	if (increment_timer < 0.0f)
 	{
-		heal = true;
-		heal_timer += 5.0f;
+		increment = Game::level.has_feature(Game::FeatureLevel::Batteries);
+		increment_timer += Game::level.has_feature(Game::FeatureLevel::All) ? BATTERY_ENERGY_INCREMENT_TIME : 1.0f;
 	}
 
 	r32 last_time = u.time.total - u.time.delta;
@@ -916,37 +979,50 @@ void Battery::update_all(const Update& u)
 			Audio::post_global(AK::EVENTS::PLAY_RECTIFIER_PING, Vec3::zero, i.item()->get<Transform>());
 		}
 
-		if (heal && Game::level.local)
+		if (Game::level.local && increment)
 		{
 			Health* health = i.item()->get<Health>();
 			if (health->hp < health->hp_max)
-				health->add(1);
+				health->add(health->hp_max - health->hp);
+
+			if (i.item()->team != AI::TeamNone)
+			{
+				for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
+				{
+					if (j.item()->team.ref()->team() == i.item()->team)
+						j.item()->add_energy(BATTERY_ENERGY_INCREMENT);
+				}
+
+				if (Game::session.config.game_type != GameType::Assault || i.item()->team != 0)
+				{
+					BatteryNet::set_energy(i.item(), vi_max(0, i.item()->energy - BATTERY_ENERGY_INCREMENT));
+					if (i.item()->energy == 0)
+					{
+						// battery exhausted
+						{
+							Vec3 pos;
+							Quat rot;
+							i.item()->get<Transform>()->absolute(&pos, &rot);
+							ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+						}
+						World::remove_deferred(i.item()->entity());
+						if (Game::session.config.game_type == GameType::Assault)
+						{
+							Team::match_time = vi_max(0.0f, Team::match_time - BATTERY_TIME_REWARD);
+#if SERVER
+							Net::Server::sync_time();
+#endif
+						}
+					}
+				}
+			}
 		}
 	}
 }
 
-// instant reward for capturing the battery
-s16 Battery::reward() const
+void Battery::awake_all()
 {
-	return s16(vi_min(9, 1 + (((s32(reward_level) + 1) * 2) / 3)) * 10);
-}
-
-// applied to every player on the owning team every ENERGY_INCREMENT_INTERVAL seconds
-s16 Battery::increment() const
-{
-	return increment(reward_level);
-}
-
-s16 Battery::increment(s16 reward_level)
-{
-	s32 multiplier;
-	if (PlayerManager::list.count() >= 6)
-		multiplier = 2;
-	else if (PlayerManager::list.count() > 2)
-		multiplier = 3;
-	else
-		multiplier = 5;
-	return s16(vi_max(1, vi_min(4, s32(reward_level / 2) + 1)) * multiplier);
+	increment_timer = 0.0f;
 }
 
 SpawnPointEntity::SpawnPointEntity(AI::Team team, b8 visible)
@@ -1023,59 +1099,56 @@ SpawnPosition SpawnPoint::spawn_position() const
 	return result;
 }
 
-void SpawnPoint::update_server_all(const Update& u)
+PlayerManager* minion_spawn_get_owner_spawner(MinionSpawner* m)
 {
-	if (Game::level.mode == Game::Mode::Pvp
-		&& Game::level.has_feature(Game::FeatureLevel::Turrets)
-		&& Team::match_state == Team::MatchState::Active)
+	return m->owner.ref();
+}
+
+PlayerManager* minion_spawn_get_owner_point(SpawnPoint*)
+{
+	return nullptr;
+}
+
+template<typename T> void minion_spawn_all(const Update& u, PlayerManager* (*owner_get)(T*))
+{
+	const s32 minion_group = 3;
+	const r32 minion_initial_delay = Game::session.type == SessionType::Story
+		? 3.0f
+		: 60.0f;
+	const r32 minion_spawn_interval = 8.0f; // time between individual minions spawning
+	const r32 minion_group_interval = minion_spawn_interval * 10.0f; // time between minion groups spawning; must be a multiple of minion_spawn_interval
+
+	for (auto i = T::list.iterator(); !i.is_last() && Minion::list.count() < MAX_MINIONS; i.next())
 	{
-		struct TeamSpawnRate
+		if (i.item()->team != AI::TeamNone)
 		{
-			r32 rate;
-			r32 time;
-		};
-
-		TeamSpawnRate spawn_rate[MAX_TEAMS] = {};
-
-		const s32 minion_group = 3;
-		const r32 minion_initial_delay = Game::session.type == SessionType::Story
-			? 3.0f
-			: 60.0f;
-		const r32 minion_spawn_interval = 8.0f; // time between individual minions spawning
-		const r32 minion_group_interval = minion_spawn_interval * 10.0f; // time between minion groups spawning; must be a multiple of minion_spawn_interval
-
-		// calculate spawn rate for each team
-		{
-			r32 spawn_rate_multiplier =
-				(Game::session.config.game_type == GameType::Assault ? 1.0f : 0.75f)
-				* (Game::session.config.ruleset.enable_batteries ? 1.0f : 2.5f);
-			for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+			r32 t = (Game::time.total - minion_initial_delay) + i.index * minion_spawn_interval * -0.5f;
+			if (t > 0.0f)
 			{
-				// spawn points owned by a team will spawn a minion
-				TeamSpawnRate* entry = &spawn_rate[i.index];
-				entry->rate = spawn_rate_multiplier * i.item()->minion_spawn_rate();
-				entry->time = (Team::match_time * entry->rate) - minion_initial_delay;
-			}
-		}
-
-		for (auto j = list.iterator(); !j.is_last() && Minion::list.count() < MAX_MINIONS; j.next())
-		{
-			if (j.item()->team != AI::TeamNone)
-			{
-				const TeamSpawnRate& entry = spawn_rate[j.item()->team];
-				r32 t = entry.time + j.index * entry.rate * minion_spawn_interval * -0.5f;
-				if (t > 0.0f)
+				s32 index = s32(t / minion_spawn_interval);
+				s32 index_last = s32((t - u.time.delta) / minion_spawn_interval);
+				if (index != index_last && (index % s32(minion_group_interval / minion_spawn_interval)) <= minion_group)
 				{
-					s32 index = s32(t / minion_spawn_interval);
-					s32 index_last = s32((t - u.time.delta * entry.rate) / minion_spawn_interval);
-					if (index != index_last && (index % s32(minion_group_interval / minion_spawn_interval)) <= minion_group)
-					{
-						SpawnPosition pos = j.item()->spawn_position();
-						ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, pos.pos, Quat::euler(0, pos.angle, 0), nullptr, nullptr, j.item()->team);
-					}
+					Vec3 pos;
+					Quat rot;
+					i.item()->get<Transform>()->absolute(&pos, &rot);
+					pos += rot * Vec3(0, 0, 2.0f);
+					pos.y -= 2.0f;
+					ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, pos, Quat::identity, nullptr, owner_get(i.item()), i.item()->team);
 				}
 			}
 		}
+	}
+}
+
+void MinionSpawner::update_server_all(const Update& u)
+{
+	if (Game::level.mode == Game::Mode::Pvp
+		&& Game::level.has_feature(Game::FeatureLevel::TutorialAll)
+		&& Team::match_state == Team::MatchState::Active)
+	{
+		minion_spawn_all<MinionSpawner>(u, minion_spawn_get_owner_spawner);
+		minion_spawn_all<SpawnPoint>(u, minion_spawn_get_owner_point);
 	}
 }
 
@@ -1160,7 +1233,8 @@ UpgradeStation* UpgradeStation::drone_at(const Drone* drone)
 	AI::Team team = drone->get<AIAgent>()->team;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->spawn_point.ref()->team == team
+		AI::Team spawn_team = i.item()->spawn_point.ref()->team;
+		if ((spawn_team == AI::TeamNone || spawn_team == team)
 			&& i.item()->get<PlayerTrigger>()->is_triggered(drone->entity())
 			&& !i.item()->drone.ref())
 			return i.item();
@@ -1180,14 +1254,15 @@ UpgradeStation* UpgradeStation::drone_inside(const Drone* drone)
 	return nullptr;
 }
 
-UpgradeStation* UpgradeStation::closest_available(AI::TeamMask mask, const Vec3& pos, r32* distance)
+UpgradeStation* UpgradeStation::closest_available(AI::Team team, const Vec3& pos, r32* distance)
 {
 	UpgradeStation* closest = nullptr;
 	r32 closest_distance = FLT_MAX;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (AI::match(i.item()->spawn_point.ref()->team, mask) && !i.item()->drone.ref())
+		AI::Team station_team = i.item()->spawn_point.ref()->team;
+		if ((station_team == AI::TeamNone || station_team == team) && !i.item()->drone.ref())
 		{
 			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (d < closest_distance)
@@ -1491,7 +1566,7 @@ void Rectifier::update_all(const Update& u)
 					rectifier_update(i.index, me, j.item()->entity(), owner);
 			}
 
-			for (auto j = CoreModule::list.iterator(); !j.is_last(); j.next())
+			for (auto j = MinionSpawner::list.iterator(); !j.is_last(); j.next())
 			{
 				if (j.item()->team == i.item()->team)
 					rectifier_update(i.index, me, j.item()->entity(), owner);
@@ -2296,109 +2371,79 @@ GlassEntity::GlassEntity(const Vec2& size)
 	create<Glass>();
 }
 
-CoreModuleEntity::CoreModuleEntity(AI::Team team, Transform* parent, const Vec3& pos, const Quat& rot)
+MinionSpawnerEntity::MinionSpawnerEntity(PlayerManager* owner, AI::Team team, const Vec3& abs_pos, const Quat& abs_rot, Transform* parent)
 {
-	Transform* transform = create<Transform>();
-	transform->parent = parent;
-	transform->absolute(pos, rot);
+	{
+		Transform* transform = create<Transform>();
+		transform->pos = abs_pos;
+		transform->rot = abs_rot;
+		transform->reparent(parent);
+	}
 
-	create<Health>(CORE_MODULE_HEALTH, CORE_MODULE_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
+	create<Health>(MINION_SPAWNER_HEALTH, MINION_SPAWNER_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
 
 	View* model = create<View>();
-	model->mesh = Asset::Mesh::core_module;
+	model->mesh = Asset::Mesh::minion_spawner;
 	model->shader = Asset::Shader::standard;
 	model->team = s8(team);
-	model->offset.make_translate(Vec3(0, -DRONE_RADIUS * 0.5f, 0));
+	model->offset.make_translate(Vec3(0, 0, -MINION_SPAWNER_RADIUS));
 
 	create<Target>()->local_offset = Vec3(0, 0, DRONE_RADIUS);
 	create<MinionTarget>();
 
-	create<CoreModule>()->team = team;
+	{
+		MinionSpawner* spawner = create<MinionSpawner>();
+		spawner->owner = owner;
+		spawner->team = team;
+	}
+
+	PointLight* light = create<PointLight>();
+	light->team = s8(team);
+	light->type = PointLight::Type::Normal;
+	light->radius = TURRET_RANGE * 0.5f;
 
 	create<Shield>();
 }
 
-void CoreModule::awake()
+void MinionSpawner::awake()
 {
-	link_arg<Entity*, &CoreModule::killed>(get<Health>()->killed);
+	link_arg<Entity*, &MinionSpawner::killed>(get<Health>()->killed);
 }
 
-// not synced over network
-void CoreModule::set_team(AI::Team t)
-{
-	team = t;
-	get<View>()->team = s8(t);
-	get<Shield>()->set_team(t);
-}
-
-s32 CoreModule::count(AI::TeamMask mask)
-{
-	s32 count = 0;
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (AI::match(i.item()->team, mask))
-			count++;
-	}
-	return count;
-}
-
-void CoreModule::health_changed(const HealthEvent& e)
+void MinionSpawner::health_changed(const HealthEvent& e)
 {
 	if (e.hp + e.shield < 0 && get<Health>()->hp > 0)
 	{
-		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::CoreModuleUnderAttack))
-		{
-			char buffer[UI_TEXT_MAX];
-			snprintf(buffer, UI_TEXT_MAX, "%s", _(strings::core_module_under_attack));
-			PlayerHuman::log_add(buffer, AI::TeamNone, 1 << team);
-		}
+		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::MinionSpawnerUnderAttack))
+			PlayerHuman::log_add(_(strings::minion_spawner_under_attack), AI::TeamNone, 1 << team);
 	}
 }
 
-void CoreModule::killed(Entity* e)
+void MinionSpawner::killed(Entity* e)
 {
-	if (list.count() > 1)
-	{
-		// let everyone know what happened
-		PlayerHuman::notification(get<Transform>()->absolute_pos(), team, PlayerHuman::Notification::Type::CoreModuleDestroyed);
-
-		char buffer[512];
-		sprintf(buffer, _(strings::core_modules_remaining), list.count() - 1);
-		PlayerHuman::log_add(buffer);
-
-		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-		{
-			// it's a good thing if you're not on the defending team
-			b8 good = i.item()->get<PlayerManager>()->team.ref()->team() != 0;
-			i.item()->msg(buffer, good ? PlayerHuman::FlagMessageGood : PlayerHuman::FlagNone);
-		}
-	}
-
+	// let everyone know what happened
+	PlayerHuman::notification(get<Transform>()->absolute_pos(), team, PlayerHuman::Notification::Type::MinionSpawnerDestroyed);
+	PlayerHuman::log_add(_(strings::minion_spawner_destroyed), AI::TeamNone, 1 << team);
 	PlayerManager::entity_killed_by(entity(), e);
 
 	if (Game::level.local)
 	{
-		destroy();
-		Team::match_time = vi_max(0.0f, Team::match_time - CORE_MODULE_TIME_REWARD);
-#if SERVER
-		Net::Server::sync_time();
-#endif
+		Vec3 pos;
+		Quat rot;
+		get<Transform>()->absolute(&pos, &rot);
+		ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+		World::remove_deferred(entity());
 	}
 }
 
-void CoreModule::destroy()
+TurretEntity::TurretEntity(PlayerManager* owner, AI::Team team, const Vec3& abs_pos, const Quat& abs_rot, Transform* parent)
 {
-	vi_assert(Game::level.local);
-	Vec3 pos;
-	Quat rot;
-	get<Transform>()->absolute(&pos, &rot);
-	ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
-	World::remove_deferred(entity());
-}
-
-TurretEntity::TurretEntity(AI::Team team)
-{
-	create<Transform>();
+	{
+		Transform* transform = create<Transform>();
+		transform->pos = abs_pos;
+		transform->rot = abs_rot;
+		transform->reparent(parent);
+	}
 	create<Audio>();
 	create<MinionTarget>();
 
@@ -2407,11 +2452,15 @@ TurretEntity::TurretEntity(AI::Team team)
 	view->shader = Asset::Shader::culled;
 	view->team = s8(team);
 	
-	create<Turret>()->team = team;
+	{
+		Turret* turret = create<Turret>();
+		turret->team = team;
+		turret->owner = owner;
+	}
 
 	create<Target>();
 
-	create<Health>(TURRET_HEALTH, TURRET_HEALTH);
+	create<Health>(TURRET_HEALTH, TURRET_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
 	create<Shield>();
 
 	PointLight* light = create<PointLight>();
@@ -2422,7 +2471,6 @@ TurretEntity::TurretEntity(AI::Team team)
 
 void Turret::awake()
 {
-	vi_assert(id() < MAX_TURRETS);
 	target_check_time = mersenne::randf_oo() * TURRET_TARGET_CHECK_TIME;
 	link_arg<Entity*, &Turret::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &Turret::health_changed>(get<Health>()->changed);
@@ -2441,67 +2489,20 @@ void Turret::set_team(AI::Team t)
 	get<PointLight>()->team = s8(t);
 }
 
-static const AssetID turret_names[MAX_TURRETS] =
-{
-	strings::turret1,
-	strings::turret2,
-	strings::turret3,
-	strings::turret4,
-	strings::turret5,
-	strings::turret6,
-};
-
-AssetID Turret::name() const
-{
-	return turret_names[order];
-}
-
 void Turret::health_changed(const HealthEvent& e)
 {
 	if (e.hp + e.shield < 0 && get<Health>()->hp > 0)
 	{
 		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::TurretUnderAttack))
-		{
-			char buffer[UI_TEXT_MAX];
-			snprintf(buffer, UI_TEXT_MAX, _(strings::turret_under_attack), _(name()));
-			PlayerHuman::log_add(buffer, AI::TeamNone, 1 << team);
-		}
+			PlayerHuman::log_add(_(strings::turret_under_attack), AI::TeamNone, 1 << team);
 	}
 }
 
 void Turret::killed(Entity* by)
 {
 	PlayerManager::entity_killed_by(entity(), by);
-
-	{
-		// let everyone know what happened
-		char buffer[UI_TEXT_MAX];
-		snprintf(buffer, UI_TEXT_MAX, _(strings::turrets_remaining), list.count() - 1);
-
-		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-		{
-			// it's a good thing if you're not on the defending team
-			b8 good = i.item()->get<PlayerManager>()->team.ref()->team() != 0;
-			i.item()->msg(buffer, good ? PlayerHuman::FlagMessageGood : PlayerHuman::FlagNone);
-		}
-	}
-
 	PlayerHuman::notification(get<Transform>()->absolute_pos(), team, PlayerHuman::Notification::Type::TurretDestroyed);
-
-	if (Game::level.local)
-	{
-		Vec3 pos;
-		Quat rot;
-		get<Transform>()->absolute(&pos, &rot);
-		ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
-
-		World::remove_deferred(entity());
-
-		Team::match_time = vi_max(0.0f, Team::match_time - TURRET_TIME_REWARD);
-#if SERVER
-		Net::Server::sync_time();
-#endif
-	}
+	PlayerHuman::log_add(_(strings::turret_destroyed), AI::TeamNone, 1 << team);
 }
 
 namespace TurretNet
@@ -2614,14 +2615,11 @@ void Turret::check_target()
 
 void Turret::update_server(const Update& u)
 {
-	if (Game::level.has_feature(Game::FeatureLevel::Turrets) && Game::level.mode == Game::Mode::Pvp)
+	target_check_time -= u.time.delta;
+	if (target_check_time < 0.0f)
 	{
-		target_check_time -= u.time.delta;
-		if (target_check_time < 0.0f)
-		{
-			target_check_time += TURRET_TARGET_CHECK_TIME;
-			check_target();
-		}
+		target_check_time += TURRET_TARGET_CHECK_TIME;
+		check_target();
 	}
 
 	cooldown = vi_max(0.0f, cooldown - u.time.delta);
@@ -3377,7 +3375,7 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 					damage = MINION_HEALTH;
 				else if (hit_object->has<Turret>())
 					damage = mersenne::rand() % 3 < 2 ? 1 : 0; // expected value: 0.66
-				else if (hit_object->has<ForceField>() || hit_object->has<CoreModule>())
+				else if (hit_object->has<ForceField>() || hit_object->has<MinionSpawner>())
 					damage = 1;
 				else if (hit_object->has<Drone>())
 					damage = 1 + (mersenne::rand() % 2); // expected value: 1.5
@@ -3395,7 +3393,7 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 			}
 			case Type::Minion:
 			{
-				if (hit_object->has<Turret>() || hit_object->has<CoreModule>())
+				if (hit_object->has<Turret>() || hit_object->has<MinionSpawner>())
 					damage = 2;
 				else
 					damage = 1;
@@ -3556,6 +3554,10 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 		Audio::post_global(AK::EVENTS::PLAY_FORCE_FIELD_SPAWN, e.abs_pos);
 	else if (e.type == Type::SpawnRectifier)
 		Audio::post_global(AK::EVENTS::PLAY_RECTIFIER_SPAWN, e.abs_pos);
+	else if (e.type == Type::SpawnMinionSpawner)
+		Audio::post_global(AK::EVENTS::PLAY_MINION_SPAWNER_SPAWN, e.abs_pos);
+	else if (e.type == Type::SpawnTurret)
+		Audio::post_global(AK::EVENTS::PLAY_TURRET_SPAWN, e.abs_pos);
 
 	if (e.type == Type::Grenade)
 	{
@@ -3632,7 +3634,9 @@ b8 ParticleEffect::is_spawn_effect(Type t)
 	return t == Type::SpawnDrone
 		|| t == Type::SpawnMinion
 		|| t == Type::SpawnForceField
-		|| t == Type::SpawnRectifier;
+		|| t == Type::SpawnRectifier
+		|| t == Type::SpawnMinionSpawner
+		|| t == Type::SpawnTurret;
 }
 
 #define SPAWN_EFFECT_THRESHOLD 0.4f
@@ -3680,6 +3684,18 @@ void ParticleEffect::update_all(const Update& u)
 						case Type::SpawnRectifier:
 							Net::finalize(World::create<RectifierEntity>(e->owner.ref(), e->abs_pos, e->abs_rot, e->parent.ref()));
 							break;
+						case Type::SpawnMinionSpawner:
+						{
+							AI::Team team = e->owner.ref() ? e->owner.ref()->team.ref()->team() : e->team;
+							Net::finalize(World::create<MinionSpawnerEntity>(e->owner.ref(), team, e->abs_pos, e->abs_rot, e->parent.ref()));
+							break;
+						}
+						case Type::SpawnTurret:
+						{
+							AI::Team team = e->owner.ref() ? e->owner.ref()->team.ref()->team() : e->team;
+							Net::finalize(World::create<TurretEntity>(e->owner.ref(), team, e->abs_pos, e->abs_rot, e->parent.ref()));
+							break;
+						}
 						default:
 							vi_assert(false);
 							break;
@@ -3722,10 +3738,18 @@ void ParticleEffect::draw_alpha(const RenderParams& p)
 			{
 				case Type::SpawnDrone:
 				case Type::SpawnRectifier:
+				case Type::SpawnTurret:
 				{
 					size = Vec3(height_scale * DRONE_SHIELD_RADIUS * 1.1f);
 					m.make_transform(e.abs_pos, size, Quat::identity);
 					mesh = Asset::Mesh::sphere_highres;
+					break;
+				}
+				case Type::SpawnMinionSpawner:
+				{
+					size = Vec3(radius_scale * 1.01f, height_scale * 0.6f, radius_scale * 1.1f);
+					m.make_transform(e.abs_pos + e.abs_rot * Vec3(0, 0, -MINION_SPAWNER_RADIUS), size, e.abs_rot * Quat::euler(0, 0, PI * 0.5f));
+					mesh = Asset::Mesh::cylinder;
 					break;
 				}
 				case Type::SpawnMinion:
@@ -4025,7 +4049,7 @@ b8 grenade_trigger_filter(Entity* e, AI::Team team)
 		|| (e->has<ForceFieldCollision>() && e->get<ForceFieldCollision>()->field.ref()->team != team)
 		|| (e->has<Rectifier>() && !e->has<Battery>() && e->get<Rectifier>()->team != team)
 		|| (e->has<Turret>() && e->get<Turret>()->team != team)
-		|| (e->has<CoreModule>() && e->get<CoreModule>()->team != team);
+		|| (e->has<MinionSpawner>() && e->get<MinionSpawner>()->team != team);
 }
 
 b8 grenade_hit_filter(Entity* e, AI::Team team)
@@ -4215,9 +4239,9 @@ void Grenade::explode()
 				else if (distance < GRENADE_RANGE)
 					damage = 1;
 			}
-			else if (i.item()->has<CoreModule>())
+			else if (i.item()->has<MinionSpawner>())
 			{
-				distance *= (i.item()->get<CoreModule>()->team == team) ? 2.0f : 1.0f;
+				distance *= (i.item()->get<MinionSpawner>()->team == team) ? 2.0f : 1.0f;
 				if (distance < GRENADE_RANGE)
 					damage = 5;
 			}

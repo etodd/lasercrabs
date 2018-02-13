@@ -144,12 +144,11 @@ struct Ruleset
 	s16 upgrades_default;
 	s16 start_energy = ENERGY_INITIAL;
 	StaticArray<Ability, MAX_ABILITIES> start_abilities;
-	s8 spawn_delay = 5;
+	s8 spawn_delay = 8;
 	s8 drone_shield = DRONE_SHIELD_AMOUNT;
 	u8 cooldown_speed_index = 4; // multiply by 0.25 to get actual value
 	b8 enable_batteries = true;
 	b8 enable_battery_stealth = true;
-	b8 enable_spawn_shields = true;
 
 	r32 cooldown_speed() const
 	{
@@ -222,7 +221,6 @@ struct ServerConfig
 	StaticArray<AssetID, 32> levels;
 	s16 kill_limit = 10;
 	s16 flag_limit = 3;
-	s16 energy_collected_limit = 3000;
 	Ruleset ruleset;
 	Region region;
 	Ruleset::Preset preset;
@@ -232,7 +230,7 @@ struct ServerConfig
 	s8 team_count = 2;
 	u8 time_limit_parkour_ready = 5;
 	s8 fill_bots; // if = 0, no bots. if > 0, total number of desired players including bots is fill_bots + 1
-	u8 time_limit_minutes[s32(GameType::count)] = { DEFAULT_ASSAULT_TIME_LIMIT_MINUTES, 10, 10, 10 }; // Assault, Deathmatch, CaptureTheFlag, Domination
+	u8 time_limit_minutes[s32(GameType::count)] = { DEFAULT_ASSAULT_TIME_LIMIT_MINUTES, 10, 10, }; // Assault, Deathmatch, CaptureTheFlag
 	char name[MAX_SERVER_CONFIG_NAME + 1];
 	char secret[MAX_SERVER_CONFIG_SECRET + 1];
 	b8 is_private;
@@ -250,7 +248,6 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 	{
 		serialize_bool(p, c->ruleset.enable_batteries);
 		serialize_bool(p, c->ruleset.enable_battery_stealth);
-		serialize_bool(p, c->ruleset.enable_spawn_shields);
 		serialize_int(p, s8, c->ruleset.spawn_delay, 0, 120);
 		serialize_s16(p, c->ruleset.upgrades_allow);
 		serialize_s16(p, c->ruleset.upgrades_default);
@@ -268,7 +265,6 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 			serialize_int(p, u8, c->time_limit_minutes[i], 1, 255);
 		serialize_int(p, s16, c->kill_limit, 0, MAX_RESPAWNS);
 		serialize_int(p, s16, c->flag_limit, 0, MAX_RESPAWNS);
-		serialize_int(p, s16, c->energy_collected_limit, 1, MAX_ENERGY_LIMIT);
 		for (s32 i = 0; i < c->levels.length; i++)
 		{
 			if (!LEVEL_ALLOWED(c->levels[i]))

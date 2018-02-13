@@ -353,7 +353,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Health::component_mask
 		| PointLight::component_mask
 		| SpotLight::component_mask
-		| CoreModule::component_mask
+		| MinionSpawner::component_mask
 		| Walker::component_mask
 		| Turret::component_mask
 		| Ragdoll::component_mask
@@ -543,7 +543,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Turret* t = e->get<Turret>();
 		serialize_s8(p, t->team);
 		serialize_ref(p, t->target);
-		serialize_s8(p, t->order);
+		serialize_ref(p, t->owner);
 	}
 
 	if (e->has<Flag>())
@@ -573,10 +573,11 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_ref(p, s->active_armor);
 	}
 
-	if (e->has<CoreModule>())
+	if (e->has<MinionSpawner>())
 	{
-		CoreModule* c = e->get<CoreModule>();
-		serialize_s8(p, c->team);
+		MinionSpawner* m = e->get<MinionSpawner>();
+		serialize_s8(p, m->team);
+		serialize_ref(p, m->owner);
 	}
 
 	if (e->has<PointLight>())
@@ -711,7 +712,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_s8(p, b->team);
 		serialize_ref(p, b->light);
 		serialize_ref(p, b->spawn_point);
-		serialize_s8(p, b->order);
+		serialize_s16(p, b->energy);
 	}
 
 	if (e->has<Rectifier>())
@@ -957,7 +958,6 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 
 	serialize_enum(p, Game::Mode, Game::level.mode);
 	serialize_enum(p, SessionType, Game::session.type);
-	serialize_ref(p, Game::level.core_force_field);
 	serialize_ref(p, Game::level.terminal);
 	serialize_ref(p, Game::level.terminal_interactable);
 	serialize_ref(p, Game::level.shop);
@@ -972,7 +972,6 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	if (!Master::serialize_server_config(p, &Game::session.config))
 		net_error();
 	serialize_r32_range(p, Team::match_time, 0, Game::session.config.time_limit(), 16);
-	serialize_r32_range(p, Team::core_module_delay, 0, CORE_MODULE_DELAY, 8);
 	serialize_enum(p, Team::MatchState, Team::match_state);
 	if (Stream::IsReading)
 		Game::level.finder.map.length = 0;

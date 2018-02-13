@@ -35,7 +35,7 @@ COMPONENT_TYPE(12, Turret) \
 COMPONENT_TYPE(13, Health) \
 COMPONENT_TYPE(14, PointLight) \
 COMPONENT_TYPE(15, SpotLight) \
-COMPONENT_TYPE(16, CoreModule) \
+COMPONENT_TYPE(16, MinionSpawner) \
 COMPONENT_TYPE(17, SpawnPoint) \
 COMPONENT_TYPE(18, UpgradeStation) \
 COMPONENT_TYPE(19, Rope) \

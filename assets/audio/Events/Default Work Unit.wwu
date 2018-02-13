@@ -506,6 +506,20 @@
 										</Action>
 									</ChildrenList>
 								</Event>
+								<Event Name="Play_Minion_Spawner_Spawn" ID="{1FCCD71C-5FD3-41C5-B552-149F849CC989}">
+									<ChildrenList>
+										<Action Name="" ID="{43A4107B-5E1E-47FD-9E20-F54EE2F30E02}" ShortID="325198337">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Minion_Spawn" ID="{8B83B54D-29CC-4478-AF50-48F18AD1613D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
 							</ChildrenList>
 						</Folder>
 						<Folder Name="Battery" ID="{3A110B07-A503-48DA-BEFA-72B5CCA363CA}" ShortID="73261771">
@@ -788,6 +802,20 @@
 											<ReferenceList>
 												<Reference Name="Target">
 													<ObjectRef Name="DEC_CombatSFX_turret_charge_loop" ID="{ED762E5C-AD09-4E22-9212-F53219F7316E}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+									</ChildrenList>
+								</Event>
+								<Event Name="Play_Turret_Spawn" ID="{C603088B-7BB5-4989-89AD-3051BE8DB149}">
+									<ChildrenList>
+										<Action Name="" ID="{EC5AA5D5-721F-4C55-8FCF-54A2610F7E81}" ShortID="846833199">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="Minion_Spawn" ID="{8B83B54D-29CC-4478-AF50-48F18AD1613D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>

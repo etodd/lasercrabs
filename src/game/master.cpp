@@ -213,6 +213,7 @@ void Ruleset::init()
 	{
 		// Arcade
 		Ruleset* ruleset = &presets[s32(Preset::Arcade)];
+		ruleset->spawn_delay = 5;
 		ruleset->enable_batteries = false;
 		ruleset->upgrades_allow = 0;
 		ruleset->upgrades_default = (1 << s32(Upgrade::count)) - 1;
@@ -233,8 +234,6 @@ const char* ServerConfig::game_type_string(GameType type)
 			return "as";
 		case GameType::CaptureTheFlag:
 			return "ctf";
-		case GameType::Domination:
-			return "dom";
 		default:
 			vi_assert(false);
 			return nullptr;
@@ -252,8 +251,6 @@ const char* ServerConfig::game_type_string_human(GameType type)
 			return "Assault";
 		case GameType::CaptureTheFlag:
 			return "CTF";
-		case GameType::Domination:
-			return "Domination";
 		default:
 			vi_assert(false);
 			return nullptr;

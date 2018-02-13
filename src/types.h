@@ -83,7 +83,8 @@ enum class Ability : s8
 	Bolter,
 	ActiveArmor,
 	Rectifier,
-	MinionBoost,
+	MinionSpawner,
+	Turret,
 	Shotgun,
 	Sniper,
 	ForceField,
@@ -97,7 +98,8 @@ enum class Upgrade : s8
 	Bolter,
 	ActiveArmor,
 	Rectifier,
-	MinionBoost,
+	MinionSpawner,
+	Turret,
 	Shotgun,
 	Sniper,
 	ForceField,
@@ -135,7 +137,6 @@ enum class GameType : s8
 	Assault,
 	Deathmatch,
 	CaptureTheFlag,
-	Domination,
 	count,
 };
 

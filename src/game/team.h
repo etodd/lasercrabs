@@ -90,17 +90,17 @@ struct Team : public ComponentType<Team>
 	static const Vec4 color_enemy;
 	static const Vec4 color_friend;
 	static StaticArray<ScoreSummaryItem, MAX_PLAYERS * PLAYER_SCORE_SUMMARY_ITEMS> score_summary;
-	static r32 control_point_timer;
 	static r32 game_over_real_time;
 	static r32 transition_timer;
 	static r32 match_time;
-	static r32 core_module_delay;
+	static r32 battery_spawn_delay;
 	static Ref<Team> winner;
 	static MatchState match_state;
 	static b8 parkour_game_start_impending();
 
 	static void awake_all();
 	static void transition_next();
+	static void battery_spawn();
 	static s16 force_field_mask(AI::Team);
 	static void update_all(const Update&);
 	static void update_all_server(const Update&);
@@ -137,10 +137,8 @@ struct Team : public ComponentType<Team>
 	void awake() {}
 	b8 has_active_player() const;
 	s32 player_count() const;
-	r32 minion_spawn_rate() const;
-	s16 increment() const;
 	void add_kills(s32);
-	SpawnPoint* default_spawn_point() const;
+	SpawnPoint* get_spawn_point() const;
 
 	inline AI::Team team() const
 	{

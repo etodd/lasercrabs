@@ -133,6 +133,7 @@ namespace AK
         static const AkUniqueID PLAY_MINION_MELEE_PULLBACK = 1742005112U;
         static const AkUniqueID PLAY_MINION_MELEE_THRUST = 438759358U;
         static const AkUniqueID PLAY_MINION_SPAWN = 4058052828U;
+        static const AkUniqueID PLAY_MINION_SPAWNER_SPAWN = 800137993U;
         static const AkUniqueID PLAY_MINION_WEAPON_FIRE = 2006027670U;
         static const AkUniqueID PLAY_MUSIC_01 = 3709355747U;
         static const AkUniqueID PLAY_NOTIFICATION_LOST = 4226152292U;
@@ -194,6 +195,7 @@ namespace AK
         static const AkUniqueID PLAY_TRANSITION_IN = 1430076675U;
         static const AkUniqueID PLAY_TRANSITION_OUT = 1264068862U;
         static const AkUniqueID PLAY_TURRET_CHARGE = 3393910755U;
+        static const AkUniqueID PLAY_TURRET_SPAWN = 3919722672U;
         static const AkUniqueID PLAY_UI_SHIELD_DOWN_BEEP = 2330506306U;
         static const AkUniqueID PLAY_UPGRADE_STATION_ENTER = 3699445748U;
         static const AkUniqueID PLAY_UPGRADE_STATION_EXIT = 214429910U;

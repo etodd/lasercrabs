@@ -31,6 +31,7 @@ namespace VI
 	};
 
 	struct ForceField;
+	struct SpawnPoint;
 
 #if DEBUG
 #define DEBUG_AI_CONTROL 0
@@ -52,7 +53,7 @@ struct Game
 		Base,
 		Batteries,
 		Abilities,
-		Turrets,
+		TutorialAll,
 		All,
 		count,
 	};
@@ -124,6 +125,13 @@ struct Game
 		r32 radius;
 	};
 
+	struct BatterySpawnPoint
+	{
+		Vec3 pos;
+		Ref<SpawnPoint> spawn_point;
+		s8 order;
+	};
+
 	struct Level
 	{
 		StaticArray<AI::PathZone, 16> path_zones;
@@ -143,18 +151,20 @@ struct Game
 		StaticArray<Clouds::Config, 4> clouds;
 		StaticArray<SkyDecals::Config, 4> sky_decals;
 		StaticArray<AssetID, 8> scripts;
+		StaticArray<BatterySpawnPoint, 12> battery_spawns;
 		AssetID id = AssetNull;
 		AssetID multiplayer_level_scheduled = AssetNull;
 		Ref<Entity> terminal;
 		Ref<Entity> terminal_interactable;
 		Ref<Entity> shop;
-		Ref<ForceField> core_force_field;
 		AI::Team team_lookup[MAX_TEAMS];
 		FeatureLevel feature_level;
 		Mode mode;
 		StoryModeTeam story_mode_team;
 		char ambience1[MAX_AUDIO_EVENT_NAME + 1];
 		char ambience2[MAX_AUDIO_EVENT_NAME + 1];
+		s8 battery_spawn_index;
+		s8 battery_spawn_group_size;
 		b8 local = true;
 		b8 noclip;
 		b8 config_scheduled_apply; // true if we have a scheduled ServerConfig we need to apply on the next level transition

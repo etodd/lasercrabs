@@ -96,12 +96,11 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 			DroneDestroyed,
 			TurretUnderAttack,
 			TurretDestroyed,
-			CoreModuleUnderAttack,
-			CoreModuleDestroyed,
+			MinionSpawnerUnderAttack,
+			MinionSpawnerDestroyed,
 			ForceFieldUnderAttack,
 			ForceFieldDestroyed,
 			BatteryUnderAttack,
-			BatteryLost,
 			count,
 		};
 
@@ -110,6 +109,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		Ref<Target> target;
 		AI::Team team;
 		Type type;
+		b8 attached;
 	};
 
 	struct KillPopup
@@ -219,11 +219,10 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void update_late(const Update&);
 	void update_camera_rotation(const Update&);
 	void draw_ui_early(const RenderParams&) const;
-	void draw_turret_battery_flag_icons(const RenderParams&) const;
+	void draw_battery_flag_icons(const RenderParams&) const;
 	void draw_ui(const RenderParams&) const;
 	void draw_alpha_late(const RenderParams&) const;
 	void spawn(const SpawnPosition&);
-	void assault_status_display();
 	void energy_notify(s32);
 	void team_set(AI::Team);
 };
@@ -313,17 +312,11 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 			BatteryFriendly,
 			BatteryFriendlyOutOfRange,
 			Rectifier,
+			MinionSpawner,
 			ForceField,
 			Grenade,
 			Turret,
 			TurretAttacking,
-			TurretOutOfRange,
-			TurretFriendly,
-			TurretFriendlyOutOfRange,
-			CoreModule,
-			CoreModuleFriendly,
-			CoreModuleFriendlyOutOfRange,
-			CoreModuleOutOfRange,
 			count,
 		};
 

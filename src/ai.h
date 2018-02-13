@@ -331,14 +331,15 @@ struct RecordedLife
 	static const s8 EntityGrenadeEnemyDetached = 16;
 	static const s8 EntityGrenadeFriendAttached = 17;
 	static const s8 EntityGrenadeFriendDetached = 18;
-	static const s8 EntitySpawnPointFriend = 19;
-	static const s8 EntitySpawnPointEnemy = 20;
-	static const s8 EntityTurretFriend = 21;
-	static const s8 EntityTurretEnemy = 22;
-	static const s8 EntityCoreModuleInvincible = 23;
-	static const s8 EntityCoreModuleVulnerable = 24;
-	static const s8 EntityFlagFriend = 25;
-	static const s8 EntityFlagEnemy = 26;
+	static const s8 EntitySpawnPointEnemy = 19;
+	static const s8 EntitySpawnPointFriend = 20;
+	static const s8 EntitySpawnPointNeutral = 21;
+	static const s8 EntityTurretFriend = 22;
+	static const s8 EntityTurretEnemy = 23;
+	static const s8 EntityMinionSpawnerFriend = 24;
+	static const s8 EntityMinionSpawnerEnemy = 25;
+	static const s8 EntityFlagFriend = 26;
+	static const s8 EntityFlagEnemy = 27;
 
 	Array<Vec3> pos;
 	Array<Vec3> normal;

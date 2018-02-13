@@ -320,32 +320,10 @@ Entity* closest_target(Minion* me, AI::Team team)
 	r32 best_cost = FLT_MAX;
 	Vec3 pos = me->get<Transform>()->absolute_pos();
 
-	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
 	{
-		Turret* item = i.item();
-		if (item->team != team)
-		{
-			if (me->can_see(item->entity(), false, false))
-				return item->entity();
-			r32 cost = entity_cost(me, pos, team, item->entity());
-			if (cost < best_cost)
-			{
-				best = item->entity();
-				best_cost = cost;
-			}
-		}
-	}
-
-	if (best)
-		return best;
-
-	if (team == 1 && Game::level.core_force_field.ref())
-		return Game::level.core_force_field.ref()->entity();
-
-	for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
-	{
-		CoreModule* item = i.item();
-		if (item->team != team)
+		Battery* item = i.item();
+		if (item->team != team && item->team != AI::TeamNone)
 		{
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
@@ -379,10 +357,26 @@ Entity* closest_target(Minion* me, AI::Team team)
 		}
 	}
 
-	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 	{
-		Battery* item = i.item();
-		if (item->team != team && item->team != AI::TeamNone)
+		Turret* item = i.item();
+		if (item->team != team)
+		{
+			if (me->can_see(item->entity(), false, false))
+				return item->entity();
+			r32 cost = entity_cost(me, pos, team, item->entity());
+			if (cost < best_cost)
+			{
+				best = item->entity();
+				best_cost = cost;
+			}
+		}
+	}
+
+	for (auto i = MinionSpawner::list.iterator(); !i.is_last(); i.next())
+	{
+		MinionSpawner* item = i.item();
+		if (item->team != team)
 		{
 			Vec3 item_pos = item->get<Transform>()->absolute_pos();
 			if (me->can_see(item->entity()))
@@ -532,18 +526,18 @@ Entity* visible_target(Minion* me, AI::Team team)
 			return turret->entity();
 	}
 
-	for (auto i = CoreModule::list.iterator(); !i.is_last(); i.next())
-	{
-		CoreModule* core = i.item();
-		if (core->team != team && me->can_see(core->entity()))
-			return core->entity();
-	}
-
 	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 	{
 		Minion* minion = i.item();
 		if (minion->get<AIAgent>()->team != team && me->can_see(minion->entity()))
 			return minion->entity();
+	}
+
+	for (auto i = MinionSpawner::list.iterator(); !i.is_last(); i.next())
+	{
+		MinionSpawner* item = i.item();
+		if (item->team != team && me->can_see(item->entity()))
+			return item->entity();
 	}
 
 	if (team == 0 || Game::session.config.game_type != GameType::Assault) // only defenders go after this stuff in Assault

@@ -1258,7 +1258,11 @@ void game_end_cheat(b8 win)
 			if (player->team.ref()->team() == 0) // defending
 				Team::match_time = Game::session.config.time_limit();
 			else // attacking
+			{
+				for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
+					World::remove(i.item()->entity());
 				Game::level.battery_spawn_index = Game::level.battery_spawns.length; // got all the batteries
+			}
 		}
 	}
 }
@@ -1342,6 +1346,7 @@ void Game::execute(const char* cmd)
 	}
 	else if (strcmp(cmd, "abilities") == 0)
 	{
+		Game::save.resources[s32(Resource::WallRun)] = 1;
 		Game::save.resources[s32(Resource::DoubleJump)] = 1;
 		Game::save.resources[s32(Resource::ExtendedWallRun)] = 1;
 		Game::save.resources[s32(Resource::Grapple)] = 1;
@@ -1604,7 +1609,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		}
 	}
 
-	if (m == Mode::Parkour)
+	if (m == Mode::Parkour && Game::session.type == SessionType::Story)
 	{
 		if (l != last_level && last_mode == Mode::Parkour)
 		{
@@ -1916,20 +1921,12 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		else if (cJSON_HasObjectItem(element, "SpawnPoint"))
 		{
 			AI::Team team = AI::Team(Json::get_s32(element, "team", AI::TeamNone));
-			b8 is_team_spawn = cJSON_HasObjectItem(element, "team");
-			if ((is_team_spawn && Team::list.count() > s32(team))
-				|| (!is_team_spawn && session.config.ruleset.enable_batteries))
-			{
-				if (Game::session.config.game_type == GameType::Deathmatch)
-					entity = World::alloc<SpawnPointEntity>(AI::TeamNone, Json::get_s32(element, "visible", 1));
-				else
-					entity = World::alloc<SpawnPointEntity>(team, Json::get_s32(element, "visible", 1));
-			}
-			else
-			{
-				entity = World::alloc<StaticGeom>(Asset::Mesh::spawn_collision, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
-				entity->get<View>()->mesh = Asset::Mesh::spawn_dressing;
-			}
+			if (session.config.game_type == GameType::Deathmatch
+				|| level.mode == Mode::Parkour
+				|| s32(team) >= Team::list.count())
+				team = AI::TeamNone;
+
+			entity = World::alloc<SpawnPointEntity>(team, Json::get_s32(element, "visible", 1));
 		}
 		else if (cJSON_HasObjectItem(element, "FlagBase"))
 		{
@@ -2373,7 +2370,9 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 	for (s32 i = 0; i < spawn_links.length; i++)
 	{
 		LevelLink<SpawnPoint>* link = &spawn_links[i];
-		*link->ref = level.finder.find(link->target_name)->get<SpawnPoint>();
+		Entity* e = level.finder.find(link->target_name);
+		if (e->has<SpawnPoint>())
+			*link->ref = e->get<SpawnPoint>();
 	}
 
 	if (level.mode == Mode::Pvp)
@@ -2383,6 +2382,17 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			// create flags
 			for (s32 i = 0; i < Team::list.count(); i++)
 				World::create<FlagEntity>(AI::Team(i));
+		}
+
+		// remove batteries above team spawns
+		for (s32 i = 0; i < level.battery_spawns.length; i++)
+		{
+			const BatterySpawnPoint& spawn = level.battery_spawns[i];
+			if (spawn.spawn_point.ref()->team != AI::TeamNone)
+			{
+				level.battery_spawns.remove(i);
+				i--;
+			}
 		}
 
 		if (session.config.game_type == GameType::Assault)
@@ -2416,8 +2426,6 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			}
 		}
 	}
-
-	vi_assert(s32(level.battery_spawns.length) % s32(level.battery_spawn_group_size) == 0);
 
 	for (s32 i = 0; i < entity_links.length; i++)
 	{

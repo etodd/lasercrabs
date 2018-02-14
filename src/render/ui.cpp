@@ -1184,6 +1184,28 @@ void UI::draw(const RenderParams& p)
 	}
 }
 
+void UI::prompt_interact(const RenderParams& params)
+{
+	UIText text;
+	text.text(params.camera->gamepad, _(strings::prompt_interact));
+	text.anchor_x = UIText::Anchor::Center;
+	text.anchor_y = UIText::Anchor::Center;
+	Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+	const Vec4* bg;
+	if (params.sync->input.get(Controls::InteractSecondary, params.camera->gamepad))
+	{
+		bg = &UI::color_accent();
+		text.color = UI::color_background;
+	}
+	else
+	{
+		bg = &UI::color_background;
+		text.color = UI::color_accent();
+	}
+	UI::box(params, text.rect(pos).outset(8.0f * UI::scale), *bg);
+	text.draw(params, pos);
+}
+
 // instantly draw a texture
 void UI::texture(const RenderParams& p, s32 texture, const Rect2& r, const Vec4& color, const Rect2& uv, const AssetID shader)
 {

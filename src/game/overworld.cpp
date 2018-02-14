@@ -2745,15 +2745,20 @@ void tab_map_update(const Update& u)
 
 ResourceInfo resource_info[s32(Resource::count)] =
 {
-	{
+	{ // Energy
 		Asset::Mesh::icon_battery,
 		strings::energy,
 		0,
 	},
-	{
+	{ // AccessKeys
 		Asset::Mesh::icon_access_key,
 		strings::access_keys,
 		0,
+	},
+	{ // LotteryTickets
+		Asset::Mesh::icon_lottery_ticket,
+		strings::lottery_tickets,
+		10,
 	},
 	{ // WallRun
 		Asset::Mesh::icon_wall_run,
@@ -2763,7 +2768,7 @@ ResourceInfo resource_info[s32(Resource::count)] =
 	{ // DoubleJump
 		Asset::Mesh::icon_double_jump,
 		strings::double_jump,
-		2000,
+		5000,
 	},
 	{ // ExtendedWallRun
 		Asset::Mesh::icon_wall_run,
@@ -2773,7 +2778,7 @@ ResourceInfo resource_info[s32(Resource::count)] =
 	{ // Grapple
 		Asset::Mesh::icon_drone,
 		strings::grapple,
-		10000,
+		5000,
 	},
 	{ // AudioLog
 		AssetNull,
@@ -2796,6 +2801,23 @@ void resource_buy(s8 gamepad)
 Vec2 get_panel_size(const Rect2& rect)
 {
 	return Vec2(rect.size.x, PADDING * 2.0f + TEXT_SIZE * UI::scale);
+}
+
+b8 inventory_can_buy(Resource r, s32 count = 1)
+{
+	const ResourceInfo& info = resource_info[s32(r)];
+	s32 energy = Game::save.resources[s32(Resource::Energy)];
+	if (energy < (info.cost * count)
+		|| Game::save.resources[s32(r)] > 0)
+		return false;
+
+	// prevent player from wasting money on lottery tickets if they don't have wall run yet
+	if (r == Resource::LotteryTickets
+		&& !Game::save.resources[s32(Resource::WallRun)]
+		&& (energy - info.cost * count) < resource_info[s32(Resource::WallRun)].cost)
+		return false;
+
+	return true;
 }
 
 void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
@@ -2899,7 +2921,7 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 	if (Game::real_time.total > Menu::dialog_time[gamepad] + DIALOG_ANIM_TIME)
 	{
 		// accept
-		b8 can_accept = Game::save.resources[s32(Resource::Energy)] >= info.cost * inventory->buy_quantity;
+		b8 can_accept = inventory_can_buy(inventory->resource_selected, inventory->buy_quantity);
 		UIText text;
 		text.anchor_y = UIText::Anchor::Min;
 		text.anchor_x = UIText::Anchor::Min;
@@ -2990,6 +3012,9 @@ void inventory_items(const Update* u, const RenderParams* p, const Rect2& rect)
 	Data::Inventory* inventory = &story->inventory;
 	Vec2 panel_size = get_panel_size(rect);
 
+	if (story->tab_timer > 0.0f)
+		return;
+
 	if (story->tab == StoryTab::Inventory)
 		panel_size.x -= PADDING * 2.0f + MENU_ITEM_WIDTH;
 
@@ -3073,7 +3098,7 @@ void inventory_items(const Update* u, const RenderParams* p, const Rect2& rect)
 					const ResourceInfo& info = resource_info[i];
 					char cost_str[UI_TEXT_MAX];
 					snprintf(cost_str, UI_TEXT_MAX, "%d", info.cost);
-					if (inventory->menu.item(*u, _(info.description), cost_str, !input || Game::save.resources[s32(Resource::Energy)] < info.cost, info.icon))
+					if (inventory->menu.item(*u, _(info.description), cost_str, !input || !inventory_can_buy(Resource(i)), info.icon))
 					{
 						Audio::post_global(AK::EVENTS::PLAY_DIALOG_SHOW, 0);
 						data.story.inventory.resource_selected = Resource(i);
@@ -3115,8 +3140,24 @@ void tab_inventory_update(const Update& u)
 			s16 total_cost = info.cost * s16(data.story.inventory.buy_quantity);
 			if (Game::save.resources[s32(Resource::Energy)] >= total_cost)
 			{
-				resource_change(resource, data.story.inventory.buy_quantity);
 				resource_change(Resource::Energy, -total_cost);
+
+				if (resource == Resource::LotteryTickets)
+				{
+					s32 amount = 0;
+					for (s32 i = 0; i < data.story.inventory.buy_quantity; i++)
+					{
+						s32 r = mersenne::rand() % 10000;
+						if (r < 8)
+							amount += 1000;
+						else if (r < 800)
+							amount += 100;
+					}
+					resource_change(Resource::Energy, amount);
+					Menu::dialog(0, &Menu::dialog_no_action, _(strings::lottery_ticket_result), amount);
+				}
+				else
+					resource_change(resource, data.story.inventory.buy_quantity);
 			}
 			data.story.inventory.buy_quantity = 1;
 		}

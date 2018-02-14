@@ -244,6 +244,7 @@ void AudioEntry::dialogue_done_callback(AkCallbackType type, AkCallbackInfo* inf
 		Audio::dialogue_callbacks.length--;
 
 	AudioEntry* entry = AudioEntry::by_ak_id(info->gameObjID);
+	entry->playing = vi_max(0, entry->playing - 1);
 	Transform* t = entry->parent.ref();
 	if (t)
 		Audio::dialogue_callbacks.add(ID(t->entity_id));

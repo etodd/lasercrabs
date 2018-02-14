@@ -1361,7 +1361,7 @@
 				</Folder>
 				<Folder Name="dialogue_range_limited" ID="{4A2B977F-15C3-4B8E-80DA-565AE911FB0D}" ShortID="788023671">
 					<ChildrenList>
-						<Event Name="Play_hobo02" ID="{7AFA0FA1-C342-49A9-A645-8BDD67A8300B}">
+						<Event Name="Play_rex_a02" ID="{7AFA0FA1-C342-49A9-A645-8BDD67A8300B}">
 							<ChildrenList>
 								<Action Name="" ID="{9EB9AB08-5110-4FAE-B4E7-7858C59BAEE0}" ShortID="492123636">
 									<PropertyList>
@@ -1369,13 +1369,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="hobo02" ID="{48A02F2C-601B-430F-9E05-265B52A704F7}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_a02" ID="{48A02F2C-601B-430F-9E05-265B52A704F7}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_hobo03" ID="{D7165F14-5688-46DD-B3C9-72953B6AE3E2}">
+						<Event Name="Play_rex_a03" ID="{D7165F14-5688-46DD-B3C9-72953B6AE3E2}">
 							<ChildrenList>
 								<Action Name="" ID="{C8A0D116-59B4-4349-A52A-9565B376C2BF}" ShortID="652354637">
 									<PropertyList>
@@ -1383,13 +1383,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="hobo03" ID="{C9BC228E-9F5E-4CDA-8478-56207272492A}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_a03" ID="{C9BC228E-9F5E-4CDA-8478-56207272492A}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_hobo01" ID="{6CBF5DB0-CA31-4432-B2D8-575805B801CC}">
+						<Event Name="Play_rex_a01" ID="{6CBF5DB0-CA31-4432-B2D8-575805B801CC}">
 							<ChildrenList>
 								<Action Name="" ID="{15D52F73-F01F-4C27-AD38-301D4688F4A7}" ShortID="593663461">
 									<PropertyList>
@@ -1397,13 +1397,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="hobo01" ID="{AD7935D2-C731-43C7-B8B7-56DDAF58DBD1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_a01" ID="{AD7935D2-C731-43C7-B8B7-56DDAF58DBD1}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_hobo07" ID="{ABCB346C-ED92-49E5-BB1D-7A64BD4674C3}">
+						<Event Name="Play_rex_c02" ID="{ABCB346C-ED92-49E5-BB1D-7A64BD4674C3}">
 							<ChildrenList>
 								<Action Name="" ID="{FA2CFC4D-E093-4633-B8CC-AFBECFF92A8A}" ShortID="123941319">
 									<PropertyList>
@@ -1411,27 +1411,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="hobo07" ID="{FC38538F-AC93-4ACF-845B-E623AD80E22D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_c07" ID="{FC38538F-AC93-4ACF-845B-E623AD80E22D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_hobo09" ID="{EA5B1D54-E2E2-4323-BE4D-9FAFE19E5D0C}">
-							<ChildrenList>
-								<Action Name="" ID="{16DEB3F9-4240-4AB1-84C8-40B67F1D07BA}" ShortID="526004876">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="hobo09" ID="{BF5E524C-6DEB-4012-8D7B-05A53F2DDC77}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_hobo06" ID="{99FD3523-8DE4-44E9-9731-2A69F77FE071}">
+						<Event Name="Play_rex_c01" ID="{99FD3523-8DE4-44E9-9731-2A69F77FE071}">
 							<ChildrenList>
 								<Action Name="" ID="{3F868B81-1F50-4BCA-A110-96FE17965AFF}" ShortID="837455954">
 									<PropertyList>
@@ -1439,13 +1425,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="hobo06" ID="{A0FF3FFD-E485-44F7-BF53-83DE50A7224D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_c06" ID="{A0FF3FFD-E485-44F7-BF53-83DE50A7224D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_hobo04" ID="{C9254E02-0E1E-46E7-8593-2AA4A3694B5A}">
+						<Event Name="Play_rex_a04" ID="{C9254E02-0E1E-46E7-8593-2AA4A3694B5A}">
 							<ChildrenList>
 								<Action Name="" ID="{C2D16B02-9584-4E61-8BB2-ACEBA425150A}" ShortID="312214984">
 									<PropertyList>
@@ -1453,13 +1439,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="hobo04" ID="{E713A85D-A072-4117-B83C-375357A47762}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_a04" ID="{E713A85D-A072-4117-B83C-375357A47762}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_hobo05" ID="{380532DD-CC53-439C-9054-E97AEA56FCF3}">
+						<Event Name="Play_rex_b01" ID="{380532DD-CC53-439C-9054-E97AEA56FCF3}">
 							<ChildrenList>
 								<Action Name="" ID="{7F78C0C5-E2E9-4B1E-BCCD-52A13466ED60}" ShortID="82639624">
 									<PropertyList>
@@ -1467,13 +1453,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="hobo05" ID="{57CA57C3-8502-4C57-8B1C-37829F7AB0C2}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_b01" ID="{57CA57C3-8502-4C57-8B1C-37829F7AB0C2}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_hobo08" ID="{8BE9ABD5-8894-4737-A8E9-75893EB91589}">
+						<Event Name="Play_rex_c03" ID="{8BE9ABD5-8894-4737-A8E9-75893EB91589}">
 							<ChildrenList>
 								<Action Name="" ID="{267C2F40-F088-4521-98BE-0ABB813C11F6}" ShortID="692075423">
 									<PropertyList>
@@ -1481,21 +1467,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="hobo08" ID="{AFE37A8D-D712-4054-B857-87FA1348EBBD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Reference>
-									</ReferenceList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_hobo10" ID="{B81388D0-9AC1-4F71-A8FD-0C60A5F9984B}">
-							<ChildrenList>
-								<Action Name="" ID="{7DD0B098-9DB3-42D4-B7CE-AEC56ECC37E3}" ShortID="697361196">
-									<PropertyList>
-										<Property Name="ActionType" Type="int16" Value="1"/>
-									</PropertyList>
-									<ReferenceList>
-										<Reference Name="Target">
-											<ObjectRef Name="hobo10" ID="{3E058752-F2CF-42EE-91FC-DAA7A7C33FAA}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_c08" ID="{AFE37A8D-D712-4054-B857-87FA1348EBBD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -2575,6 +2547,20 @@
 								</Action>
 							</ChildrenList>
 						</Event>
+						<Event Name="Stop_Drone_Upgrade" ID="{2F1FA356-1916-4F68-8665-94AD9E4D4EC9}">
+							<ChildrenList>
+								<Action Name="" ID="{CACD1FC1-AC51-4C21-86BA-33D14E0A7BC3}" ShortID="334327846">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="2"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="DEC_CombatSFX_drone_upgrade_bar" ID="{DDCEDEB6-A83A-4E75-AF04-73DE5BD640BC}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
 					</ChildrenList>
 				</Folder>
 				<Event Name="Stop_All" ID="{07D81830-164C-4236-BA40-35B363A62413}">
@@ -2610,7 +2596,7 @@
 							</PropertyList>
 							<ReferenceList>
 								<Reference Name="Target">
-									<ObjectRef Name="dialogue_range_unlimited" ID="{268C5A9B-FE0E-4CCA-8A21-B0D3CC20AED4}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+									<ObjectRef Name="Dialogue" ID="{E8A73A5E-056C-46B8-875C-9658C99452FC}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
 								</Reference>
 							</ReferenceList>
 						</Action>
@@ -2692,7 +2678,7 @@
 				</Folder>
 				<Folder Name="dialogue_2d" ID="{1F8E4B3F-E2B3-4488-A729-D3732E7FBEF6}" ShortID="733761312">
 					<ChildrenList>
-						<Event Name="Play_rex01" ID="{1CA51103-2F3B-47FF-ADD1-E20F93AE2E43}">
+						<Event Name="Play_rex_d01" ID="{1CA51103-2F3B-47FF-ADD1-E20F93AE2E43}">
 							<ChildrenList>
 								<Action Name="" ID="{1C6A4053-5FED-4D2F-90E4-AAF419107F7B}" ShortID="730759705">
 									<PropertyList>
@@ -2700,13 +2686,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="rex01" ID="{78F32895-5B1C-4458-A18C-ECB7B78D4918}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_d01" ID="{78F32895-5B1C-4458-A18C-ECB7B78D4918}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_rex09" ID="{AA6D6EED-5E61-4E0D-84AA-8FB59C3C9276}">
+						<Event Name="Play_rex_d09" ID="{AA6D6EED-5E61-4E0D-84AA-8FB59C3C9276}">
 							<ChildrenList>
 								<Action Name="" ID="{D514838E-A49D-4FC3-A80A-4C9AEA2ADC6A}" ShortID="795349200">
 									<PropertyList>
@@ -2714,13 +2700,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="rex09" ID="{99933642-109D-459D-8150-092E1D299142}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_d09" ID="{99933642-109D-459D-8150-092E1D299142}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_rex02" ID="{CE90B426-9CE4-4139-A4F4-B76BEAE51147}">
+						<Event Name="Play_rex_d02" ID="{CE90B426-9CE4-4139-A4F4-B76BEAE51147}">
 							<ChildrenList>
 								<Action Name="" ID="{44273EA4-B217-4B2B-AC55-C606C41B6FEE}" ShortID="269497539">
 									<PropertyList>
@@ -2728,13 +2714,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="rex02" ID="{5A88E829-958F-4A6F-A863-F46E3C246D8D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_d02" ID="{5A88E829-958F-4A6F-A863-F46E3C246D8D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_rex04" ID="{76A94408-B0BA-4E81-B0CF-7265F0FFACB0}">
+						<Event Name="Play_rex_d04" ID="{76A94408-B0BA-4E81-B0CF-7265F0FFACB0}">
 							<ChildrenList>
 								<Action Name="" ID="{97B586A3-5DC7-4150-9500-93008106BAEC}" ShortID="919302390">
 									<PropertyList>
@@ -2742,13 +2728,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="rex04" ID="{B99E2DC0-9BF5-4D10-9DC9-DCC9FB1C8738}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_d04" ID="{B99E2DC0-9BF5-4D10-9DC9-DCC9FB1C8738}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_rex07" ID="{5614E276-AC7C-43A7-A573-18F5960AED1E}">
+						<Event Name="Play_rex_d07" ID="{5614E276-AC7C-43A7-A573-18F5960AED1E}">
 							<ChildrenList>
 								<Action Name="" ID="{A0FBFE40-8145-43D2-AD12-EAE2EECAB7A9}" ShortID="51858904">
 									<PropertyList>
@@ -2756,13 +2742,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="rex07" ID="{96004C6A-A84B-4E37-933D-0C7768E82429}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_d07" ID="{96004C6A-A84B-4E37-933D-0C7768E82429}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_rex06" ID="{79EED6E9-E770-4D8C-9954-0058C483A764}">
+						<Event Name="Play_rex_d06" ID="{79EED6E9-E770-4D8C-9954-0058C483A764}">
 							<ChildrenList>
 								<Action Name="" ID="{B4BE08FB-4069-49F7-9312-5230EE03E7EB}" ShortID="767251697">
 									<PropertyList>
@@ -2770,13 +2756,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="rex06" ID="{7C6C3CC7-7198-4E40-8952-46EE6FF54CB8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_d06" ID="{7C6C3CC7-7198-4E40-8952-46EE6FF54CB8}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_rex10" ID="{A2DDBAD0-BE86-4E32-907B-28314AF81313}">
+						<Event Name="Play_rex_d10" ID="{A2DDBAD0-BE86-4E32-907B-28314AF81313}">
 							<ChildrenList>
 								<Action Name="" ID="{9B95267E-2E9C-46C3-87D6-57787BA16262}" ShortID="212171935">
 									<PropertyList>
@@ -2784,13 +2770,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="rex10" ID="{58B79496-2F24-4E49-8FEE-9BED3D407F1C}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_d10" ID="{58B79496-2F24-4E49-8FEE-9BED3D407F1C}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_rex05" ID="{BBFAD415-8F6D-4842-B613-61BD3B911D6F}">
+						<Event Name="Play_rex_d05" ID="{BBFAD415-8F6D-4842-B613-61BD3B911D6F}">
 							<ChildrenList>
 								<Action Name="" ID="{A55E2914-7DF9-42DA-8553-201772F4B341}" ShortID="387512646">
 									<PropertyList>
@@ -2798,13 +2784,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="rex05" ID="{1416E059-88BC-4C9E-A2EF-67E9BED5C760}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_d05" ID="{1416E059-88BC-4C9E-A2EF-67E9BED5C760}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_rex11" ID="{BA8D0879-9C9D-4F94-A893-32D17E23CE2D}">
+						<Event Name="Play_rex_d11" ID="{BA8D0879-9C9D-4F94-A893-32D17E23CE2D}">
 							<ChildrenList>
 								<Action Name="" ID="{34A6C643-4807-4A6D-9DD1-9D5D16540556}" ShortID="192093499">
 									<PropertyList>
@@ -2812,13 +2798,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="rex11" ID="{C8B1C58A-606A-4C36-BC6B-D9061564D4C0}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_d11" ID="{C8B1C58A-606A-4C36-BC6B-D9061564D4C0}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_rex08" ID="{A0730980-5670-4D46-AC84-D1A63C9449C6}">
+						<Event Name="Play_rex_d08" ID="{A0730980-5670-4D46-AC84-D1A63C9449C6}">
 							<ChildrenList>
 								<Action Name="" ID="{FDF0BDE1-7217-46E9-BC37-DC5FFE7B1C0F}" ShortID="749963403">
 									<PropertyList>
@@ -2826,13 +2812,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="rex08" ID="{1986F7BE-7448-4FE1-9792-10482C1985EF}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_d08" ID="{1986F7BE-7448-4FE1-9792-10482C1985EF}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_rex03" ID="{1902BD73-E9E6-4344-B961-9E3536594433}">
+						<Event Name="Play_rex_d03" ID="{1902BD73-E9E6-4344-B961-9E3536594433}">
 							<ChildrenList>
 								<Action Name="" ID="{744BF139-E3C6-4E1B-9CC2-CD027A8D4E7A}" ShortID="1046246832">
 									<PropertyList>
@@ -2840,13 +2826,13 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="rex03" ID="{442749D2-A40C-4DD9-AADF-355C32980B52}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_d03" ID="{442749D2-A40C-4DD9-AADF-355C32980B52}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_rex12" ID="{E1A67EC9-67CB-4539-8940-BFEA5F3339EE}">
+						<Event Name="Play_rex_d12" ID="{E1A67EC9-67CB-4539-8940-BFEA5F3339EE}">
 							<ChildrenList>
 								<Action Name="" ID="{307B9EC8-D3D9-4138-BE25-13C9123C34E7}" ShortID="579557562">
 									<PropertyList>
@@ -2854,7 +2840,7 @@
 									</PropertyList>
 									<ReferenceList>
 										<Reference Name="Target">
-											<ObjectRef Name="rex12" ID="{5EC28DAD-582E-4D29-8D1A-D15542250BE9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+											<ObjectRef Name="rex_d12" ID="{5EC28DAD-582E-4D29-8D1A-D15542250BE9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>
@@ -2869,6 +2855,20 @@
 									<ReferenceList>
 										<Reference Name="Target">
 											<ObjectRef Name="dialogue_2d" ID="{A791F080-C24F-471B-8F73-59CB887010DE}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Reference>
+									</ReferenceList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_rex_d13" ID="{33A80372-2103-4C82-A868-415BAB5C8511}">
+							<ChildrenList>
+								<Action Name="" ID="{8A12135A-F17E-4D53-80E6-0B7DEE678AA5}" ShortID="684364450">
+									<PropertyList>
+										<Property Name="ActionType" Type="int16" Value="1"/>
+									</PropertyList>
+									<ReferenceList>
+										<Reference Name="Target">
+											<ObjectRef Name="rex_d13" ID="{1867D408-BFD4-4276-A6DC-054446E17608}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Reference>
 									</ReferenceList>
 								</Action>

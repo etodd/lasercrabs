@@ -132,6 +132,8 @@ struct UI
 	static s32 input_delta_vertical(const Update&, s32);
 	static s32 input_delta_horizontal(const Update&, s32);
 
+	static void prompt_interact(const RenderParams&);
+
 	// Instantly draw a texture
 	static void texture(const RenderParams&, const s32, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), const Rect2& = { Vec2::zero, Vec2(1, 1) }, const AssetID = AssetNull);
 

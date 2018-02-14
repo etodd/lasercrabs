@@ -1475,25 +1475,25 @@ b8 Parkour::try_jump(r32 rotation)
 				}
 			}
 		}
-	}
 
-	if (!did_jump && flag(FlagCanDoubleJump) && ability_enabled(Resource::DoubleJump))
-	{
-		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
-		if (velocity.y < 0.0f) // have to be going down to double jump
+		if (!did_jump && flag(FlagCanDoubleJump) && ability_enabled(Resource::DoubleJump))
 		{
-			// override horizontal velocity based on current facing angle
-			Vec3 horizontal_velocity = velocity;
-			horizontal_velocity.y = 0.0f;
-			Vec3 new_velocity = Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, horizontal_velocity.length());
-			new_velocity.y = velocity.y;
-			get<RigidBody>()->btBody->setLinearVelocity(new_velocity);
+			Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
+			if (velocity.y < 0.0f) // have to be going down to double jump
+			{
+				// override horizontal velocity based on current facing angle
+				Vec3 horizontal_velocity = velocity;
+				horizontal_velocity.y = 0.0f;
+				Vec3 new_velocity = Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, horizontal_velocity.length());
+				new_velocity.y = velocity.y;
+				get<RigidBody>()->btBody->setLinearVelocity(new_velocity);
 
-			do_normal_jump();
+				do_normal_jump();
 
-			flag(FlagCanDoubleJump, false);
-			did_jump = true;
-			did_double_jump = true;
+				flag(FlagCanDoubleJump, false);
+				did_jump = true;
+				did_double_jump = true;
+			}
 		}
 	}
 

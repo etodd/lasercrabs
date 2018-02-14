@@ -896,6 +896,18 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 		serialize_bool(p, d->shadowed);
 	}
 
+	serialize_int(p, s8, Game::level.battery_spawn_group_size, 0, Game::level.battery_spawns.capacity());
+	serialize_int(p, s8, Game::level.battery_spawn_index, 0, Game::level.battery_spawns.capacity());
+	serialize_int(p, u16, Game::level.battery_spawns.length, 0, Game::level.battery_spawns.capacity());
+	for (s32 i = 0; i < Game::level.battery_spawns.length; i++)
+	{
+		Game::BatterySpawnPoint* b = &Game::level.battery_spawns[i];
+		if (!serialize_position(p, &b->pos, Net::Resolution::Low))
+			net_error();
+		serialize_ref(p, b->spawn_point);
+		serialize_s8(p, b->order);
+	}
+
 	serialize_int(p, u16, Game::level.water_sound_negative_spaces.length, 0, Game::level.water_sound_negative_spaces.capacity());
 	for (s32 i = 0; i < Game::level.water_sound_negative_spaces.length; i++)
 	{

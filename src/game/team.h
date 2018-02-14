@@ -159,6 +159,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	{
 		CanSpawn,
 		ScoreAccept,
+		UpgradeFailed,
 		UpgradeCompleted,
 		UpdateCounts,
 		MakeAdmin,

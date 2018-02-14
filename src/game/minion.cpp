@@ -441,22 +441,19 @@ Entity* closest_target(Minion* me, AI::Team team)
 		}
 	}
 
-	if (Game::session.config.game_type != GameType::Assault)
+	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
-		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+		PlayerCommon* item = i.item();
+		if (item->get<AIAgent>()->team != team)
 		{
-			PlayerCommon* item = i.item();
-			if (item->get<AIAgent>()->team != team)
+			Vec3 item_pos = item->get<Transform>()->absolute_pos();
+			if (me->can_see(item->entity()))
+				return item->entity();
+			r32 cost = entity_cost(me, pos, team, item->entity());
+			if (cost < best_cost)
 			{
-				Vec3 item_pos = item->get<Transform>()->absolute_pos();
-				if (me->can_see(item->entity()))
-					return item->entity();
-				r32 cost = entity_cost(me, pos, team, item->entity());
-				if (cost < best_cost)
-				{
-					best = item->entity();
-					best_cost = cost;
-				}
+				best = item->entity();
+				best_cost = cost;
 			}
 		}
 	}
@@ -503,16 +500,13 @@ ForceField* force_field_between_me_and_target(Minion* me)
 
 Entity* visible_target(Minion* me, AI::Team team)
 {
-	if (team == 0 || Game::session.config.game_type != GameType::Assault) // only defenders go after players in Assault
+	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
-		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+		PlayerCommon* player = i.item();
+		if (player->get<AIAgent>()->team != team)
 		{
-			PlayerCommon* player = i.item();
-			if (player->get<AIAgent>()->team != team)
-			{
-				if (me->can_see(player->entity(), true))
-					return player->entity();
-			}
+			if (me->can_see(player->entity(), true))
+				return player->entity();
 		}
 	}
 
@@ -540,37 +534,34 @@ Entity* visible_target(Minion* me, AI::Team team)
 			return item->entity();
 	}
 
-	if (team == 0 || Game::session.config.game_type != GameType::Assault) // only defenders go after this stuff in Assault
+	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 	{
-		for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
-		{
-			Grenade* grenade = i.item();
-			if (grenade->team != team && me->can_see(grenade->entity()))
-				return grenade->entity();
-		}
+		Grenade* grenade = i.item();
+		if (grenade->team != team && me->can_see(grenade->entity()))
+			return grenade->entity();
+	}
 
-		for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
-		{
-			ForceField* field = i.item();
-			if (field->team != team
-				&& !(field->flags & ForceField::FlagInvincible)
-				&& me->can_see(field->entity()))
-				return field->entity();
-		}
+	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
+	{
+		ForceField* field = i.item();
+		if (field->team != team
+			&& !(field->flags & ForceField::FlagInvincible)
+			&& me->can_see(field->entity()))
+			return field->entity();
+	}
 
-		for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
-		{
-			Battery* battery = i.item();
-			if (battery->team != team && battery->team != AI::TeamNone && me->can_see(battery->entity()))
-				return battery->entity();
-		}
+	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
+	{
+		Battery* battery = i.item();
+		if (battery->team != team && battery->team != AI::TeamNone && me->can_see(battery->entity()))
+			return battery->entity();
+	}
 
-		for (auto i = Rectifier::list.iterator(); !i.is_last(); i.next())
-		{
-			Rectifier* rectifier = i.item();
-			if (rectifier->team != team && !rectifier->has<Battery>() && me->can_see(rectifier->entity()))
-				return rectifier->entity();
-		}
+	for (auto i = Rectifier::list.iterator(); !i.is_last(); i.next())
+	{
+		Rectifier* rectifier = i.item();
+		if (rectifier->team != team && !rectifier->has<Battery>() && me->can_see(rectifier->entity()))
+			return rectifier->entity();
 	}
 
 	return nullptr;

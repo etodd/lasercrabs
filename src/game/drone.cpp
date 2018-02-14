@@ -370,8 +370,10 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 			else if (dot < -0.8f)
 				result = 2;
 
-			if (target_shield->has<ForceField>())
-				result += 1;
+			if (target_shield->has<ForceField>()
+				|| target_shield->has<MinionSpawner>()
+				|| target_shield->has<Turret>())
+				result *= 2;
 		}
 		else
 		{
@@ -382,10 +384,11 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 				result = 2;
 		}
 
-		if (target_shield->has<Rectifier>())
+		if (target_shield->has<Rectifier>()
+			|| target_shield->has<ForceField>()
+			|| target_shield->has<MinionSpawner>()
+			|| target_shield->has<Turret>())
 			result *= 2;
-		else if (target_shield->has<ForceField>())
-			result = (result * 2) + 4;
 	}
 	else
 	{

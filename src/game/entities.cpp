@@ -987,13 +987,11 @@ void Battery::update_all(const Update& u)
 
 			if (i.item()->team != AI::TeamNone)
 			{
-				for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
-				{
-					if (j.item()->team.ref()->team() == i.item()->team)
-						j.item()->add_energy(BATTERY_ENERGY_INCREMENT);
-				}
+				s32 increment = BATTERY_ENERGY_INCREMENT / Game::level.battery_spawn_group_size;
 
-				if (Game::session.config.game_type != GameType::Assault || i.item()->team != 0)
+				if (Game::session.config.game_type == GameType::Assault && i.item()->team == 0) // owned by defender
+					increment -= (increment / 4);
+				else // drain battery
 				{
 					BatteryNet::set_energy(i.item(), vi_max(0, i.item()->energy - BATTERY_ENERGY_INCREMENT));
 					if (i.item()->energy == 0)
@@ -1014,6 +1012,12 @@ void Battery::update_all(const Update& u)
 #endif
 						}
 					}
+				}
+
+				for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
+				{
+					if (j.item()->team.ref()->team() == i.item()->team)
+						j.item()->add_energy(increment);
 				}
 			}
 		}
@@ -2503,6 +2507,15 @@ void Turret::killed(Entity* by)
 	PlayerManager::entity_killed_by(entity(), by);
 	PlayerHuman::notification(get<Transform>()->absolute_pos(), team, PlayerHuman::Notification::Type::TurretDestroyed);
 	PlayerHuman::log_add(_(strings::turret_destroyed), AI::TeamNone, 1 << team);
+
+	if (Game::level.local)
+	{
+		Vec3 pos;
+		Quat rot;
+		get<Transform>()->absolute(&pos, &rot);
+		ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+		World::remove_deferred(entity());
+	}
 }
 
 namespace TurretNet
@@ -3356,12 +3369,12 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 			{
 				if (hit_object->has<Battery>())
 					damage = 3;
-				else if (hit_object->has<Minion>())
-					damage = 2;
-				else if (hit_object->has<Turret>())
-					damage = mersenne::rand() % 2; // expected value: 0.5
-				else
+				else if (hit_object->has<Drone>())
 					damage = 1;
+				else if (hit_object->has<Minion>() || hit_object->has<ForceField>())
+					damage = 2;
+				else
+					damage = 1 + (mersenne::rand() % 2); // expected value: 1.5
 
 				if (reflected && !hit_object->has<Drone>())
 					damage = (damage * 2) + 2;
@@ -3373,10 +3386,6 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 					damage = BATTERY_HEALTH;
 				else if (hit_object->has<Minion>())
 					damage = MINION_HEALTH;
-				else if (hit_object->has<Turret>())
-					damage = mersenne::rand() % 3 < 2 ? 1 : 0; // expected value: 0.66
-				else if (hit_object->has<ForceField>() || hit_object->has<MinionSpawner>())
-					damage = 1;
 				else if (hit_object->has<Drone>())
 					damage = 1 + (mersenne::rand() % 2); // expected value: 1.5
 				else
@@ -3393,10 +3402,8 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 			}
 			case Type::Minion:
 			{
-				if (hit_object->has<Turret>() || hit_object->has<MinionSpawner>())
-					damage = 2;
-				else
-					damage = 1;
+				damage = 1;
+
 				if (reflected)
 				{
 					damage = MINION_HEALTH;
@@ -4243,22 +4250,32 @@ void Grenade::explode()
 			{
 				distance *= (i.item()->get<MinionSpawner>()->team == team) ? 2.0f : 1.0f;
 				if (distance < GRENADE_RANGE)
-					damage = 5;
+					damage = MINION_SPAWNER_HEALTH + DRONE_SHIELD_AMOUNT;
 			}
 			else if (i.item()->has<Turret>())
 			{
 				distance *= (i.item()->get<Turret>()->team == team) ? 2.0f : 1.0f;
-				if (distance < GRENADE_RANGE)
-					damage = 20;
+				if (distance < GRENADE_RANGE * 0.5f)
+					damage = TURRET_HEALTH + DRONE_SHIELD_AMOUNT;
+				else if (distance < GRENADE_RANGE)
+					damage = TURRET_HEALTH + DRONE_SHIELD_AMOUNT - 6;
 			}
 			else if (i.item()->has<ForceField>())
 			{
-				if (distance < GRENADE_RANGE && i.item()->get<ForceField>()->team != team)
-					damage = 20;
+				if (i.item()->get<ForceField>()->team != team)
+				{
+					if (distance < GRENADE_RANGE)
+						damage = FORCE_FIELD_HEALTH - 10;
+				}
 			}
 			else if (i.item()->has<Grenade>() && i.item()->get<Grenade>()->team == team)
 			{
 				// don't damage friendly grenades (no chain reaction)
+			}
+			else if (i.item()->has<Minion>())
+			{
+				if (distance < GRENADE_RANGE)
+					damage = MINION_HEALTH;
 			}
 			else
 			{
@@ -5258,7 +5275,7 @@ void TerminalInteractable::interacted(Interactable* i)
 			Overworld::zone_change(Game::level.id, ZoneState::ParkourOwned);
 			Overworld::zone_change(AssetID(i->user_data), ZoneState::PvpUnlocked); // user data = target PvP level
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-				i.item()->msg(_(strings::story_victory), PlayerHuman::FlagMessageGood);
+				i.item()->msg(_(strings::terminal_hacked), PlayerHuman::FlagMessageGood);
 			TerminalEntity::open();
 		}
 	}
@@ -6091,5 +6108,6 @@ void AirWave::update(const Update& u)
 	if (u.time.total - timestamp > TILE_LIFE_TIME)
 		list.remove(id());
 }
+
 
 }

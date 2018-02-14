@@ -11,6 +11,7 @@
 								<Value>25</Value>
 							</ValueList>
 						</Property>
+						<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 					</PropertyList>
 					<ReferenceList>
 						<Reference Name="Conversion">
@@ -83,6 +84,7 @@
 				<ActorMixer Name="dialogue_range_20" ID="{03794DCC-E447-40E0-AD9D-43DCC855F696}" ShortID="627578926">
 					<PropertyList>
 						<Property Name="PositioningType" Type="int16" Value="1"/>
+						<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 					</PropertyList>
 					<ReferenceList>
 						<Reference Name="Attenuation">
@@ -96,7 +98,7 @@
 						</Reference>
 					</ReferenceList>
 					<ChildrenList>
-						<Sound Name="hobo01" ID="{AD7935D2-C731-43C7-B8B7-56DDAF58DBD1}" ShortID="274453593">
+						<Sound Name="rex_a01" ID="{AD7935D2-C731-43C7-B8B7-56DDAF58DBD1}" ShortID="274453593">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -115,7 +117,7 @@
 								<ActiveSource Name="hobo01" ID="{D6E495FB-49AB-4FF1-A7D0-902DF78546C6}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="hobo02" ID="{48A02F2C-601B-430F-9E05-265B52A704F7}" ShortID="750046077">
+						<Sound Name="rex_a02" ID="{48A02F2C-601B-430F-9E05-265B52A704F7}" ShortID="750046077">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -141,7 +143,7 @@
 								<ActiveSource Name="hobo01" ID="{59199E36-3C8C-45B2-82FB-39BE0E66DF18}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="hobo03" ID="{C9BC228E-9F5E-4CDA-8478-56207272492A}" ShortID="650019088">
+						<Sound Name="rex_a03" ID="{C9BC228E-9F5E-4CDA-8478-56207272492A}" ShortID="650019088">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -167,7 +169,7 @@
 								<ActiveSource Name="hobo01" ID="{153F44FB-38F8-4D86-9208-1FD86ADE5679}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="hobo04" ID="{E713A85D-A072-4117-B83C-375357A47762}" ShortID="959052307">
+						<Sound Name="rex_a04" ID="{E713A85D-A072-4117-B83C-375357A47762}" ShortID="959052307">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -193,7 +195,7 @@
 								<ActiveSource Name="hobo01" ID="{57B8875B-5C81-4359-AFCE-0ED86E8B50D3}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="hobo05" ID="{57CA57C3-8502-4C57-8B1C-37829F7AB0C2}" ShortID="966806543">
+						<Sound Name="rex_b01" ID="{57CA57C3-8502-4C57-8B1C-37829F7AB0C2}" ShortID="966806543">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -219,7 +221,7 @@
 								<ActiveSource Name="hobo01" ID="{EC966C4A-279F-4E1E-A2C8-2BBE3BC7D795}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="hobo06" ID="{A0FF3FFD-E485-44F7-BF53-83DE50A7224D}" ShortID="9759816">
+						<Sound Name="rex_c06" ID="{A0FF3FFD-E485-44F7-BF53-83DE50A7224D}" ShortID="9759816">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -245,7 +247,7 @@
 								<ActiveSource Name="hobo01" ID="{00BD4205-3D61-4DF5-AB35-9C1B5B21826E}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="hobo07" ID="{FC38538F-AC93-4ACF-845B-E623AD80E22D}" ShortID="1066922079">
+						<Sound Name="rex_c07" ID="{FC38538F-AC93-4ACF-845B-E623AD80E22D}" ShortID="1066922079">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -271,7 +273,7 @@
 								<ActiveSource Name="hobo01" ID="{77612AD1-DC7F-4664-99D5-19EF4160E89F}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="hobo08" ID="{AFE37A8D-D712-4054-B857-87FA1348EBBD}" ShortID="106589291">
+						<Sound Name="rex_c08" ID="{AFE37A8D-D712-4054-B857-87FA1348EBBD}" ShortID="106589291">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -295,58 +297,6 @@
 							</ChildrenList>
 							<ActiveSourceList>
 								<ActiveSource Name="hobo01" ID="{395269E3-A83A-41DF-B6BC-288D35A99EF1}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="hobo09" ID="{BF5E524C-6DEB-4012-8D7B-05A53F2DDC77}" ShortID="759559628">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="hobo09" ID="{78B319C5-B116-406F-991B-D5DA939F764F}" ShortID="964505526">
-									<Language>SFX</Language>
-									<AudioFile>hobo09.wav</AudioFile>
-								</AudioFileSource>
-								<AudioFileSource Name="hobo01" ID="{97486C00-5540-4D85-9D02-152B031E1945}" ShortID="963364196">
-									<Language>SFX</Language>
-									<AudioFile>hobo01.wav</AudioFile>
-									<ConvertedFileIDList>
-										<File ID="769469240"/>
-									</ConvertedFileIDList>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="hobo01" ID="{97486C00-5540-4D85-9D02-152B031E1945}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="hobo10" ID="{3E058752-F2CF-42EE-91FC-DAA7A7C33FAA}" ShortID="268400148">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="hobo10" ID="{1A45E92B-5452-400D-BC02-4058464E6652}" ShortID="761843828">
-									<Language>SFX</Language>
-									<AudioFile>hobo10.wav</AudioFile>
-								</AudioFileSource>
-								<AudioFileSource Name="hobo01" ID="{0A3D9D0F-194F-4703-97DD-454AFD5D4BD7}" ShortID="503814164">
-									<Language>SFX</Language>
-									<AudioFile>hobo01.wav</AudioFile>
-									<ConvertedFileIDList>
-										<File ID="769469240"/>
-									</ConvertedFileIDList>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="hobo01" ID="{0A3D9D0F-194F-4703-97DD-454AFD5D4BD7}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 						<Sound Name="locke_a01" ID="{7CB79A5A-26BF-4E26-9ECD-3DA0178A1DA5}" ShortID="549563186">
@@ -6343,6 +6293,7 @@
 				<ActorMixer Name="dialogue_range_35" ID="{0A63A495-7F09-4693-B8DB-1E5FB8153F7A}" ShortID="67412088">
 					<PropertyList>
 						<Property Name="PositioningType" Type="int16" Value="1"/>
+						<Property Name="UseGameAuxSends" Type="bool" Value="True"/>
 					</PropertyList>
 					<ReferenceList>
 						<Reference Name="Attenuation">
@@ -6529,7 +6480,7 @@
 						</Reference>
 					</ReferenceList>
 					<ChildrenList>
-						<Sound Name="rex01" ID="{78F32895-5B1C-4458-A18C-ECB7B78D4918}" ShortID="870873838">
+						<Sound Name="rex_d01" ID="{78F32895-5B1C-4458-A18C-ECB7B78D4918}" ShortID="870873838">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6548,7 +6499,7 @@
 								<ActiveSource Name="rex01" ID="{6984029D-4C1E-4FBE-A0AF-426D1E90F584}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="rex02" ID="{5A88E829-958F-4A6F-A863-F46E3C246D8D}" ShortID="118258331">
+						<Sound Name="rex_d02" ID="{5A88E829-958F-4A6F-A863-F46E3C246D8D}" ShortID="118258331">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6570,7 +6521,7 @@
 								<ActiveSource Name="rex01" ID="{E4BAA550-114A-42C6-8712-EB3629CDCC82}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="rex03" ID="{442749D2-A40C-4DD9-AADF-355C32980B52}" ShortID="204358306">
+						<Sound Name="rex_d03" ID="{442749D2-A40C-4DD9-AADF-355C32980B52}" ShortID="204358306">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6596,7 +6547,7 @@
 								<ActiveSource Name="rex01" ID="{E2BD9B61-4BB5-4116-9B1A-48CF9854DB47}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="rex04" ID="{B99E2DC0-9BF5-4D10-9DC9-DCC9FB1C8738}" ShortID="144048998">
+						<Sound Name="rex_d04" ID="{B99E2DC0-9BF5-4D10-9DC9-DCC9FB1C8738}" ShortID="144048998">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6622,7 +6573,7 @@
 								<ActiveSource Name="rex01" ID="{6F9CB88C-1B3E-42B4-87DF-72ABA6C04C14}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="rex05" ID="{1416E059-88BC-4C9E-A2EF-67E9BED5C760}" ShortID="168257113">
+						<Sound Name="rex_d05" ID="{1416E059-88BC-4C9E-A2EF-67E9BED5C760}" ShortID="168257113">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6648,7 +6599,7 @@
 								<ActiveSource Name="rex01" ID="{A6829DF7-113A-4010-957B-A0D5F774DF3B}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="rex06" ID="{7C6C3CC7-7198-4E40-8952-46EE6FF54CB8}" ShortID="135876268">
+						<Sound Name="rex_d06" ID="{7C6C3CC7-7198-4E40-8952-46EE6FF54CB8}" ShortID="135876268">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6674,7 +6625,7 @@
 								<ActiveSource Name="rex01" ID="{1EF44952-F1E1-49F4-9F44-2B916AAE5390}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="rex07" ID="{96004C6A-A84B-4E37-933D-0C7768E82429}" ShortID="67751267">
+						<Sound Name="rex_d07" ID="{96004C6A-A84B-4E37-933D-0C7768E82429}" ShortID="67751267">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6700,7 +6651,7 @@
 								<ActiveSource Name="rex01" ID="{620F73BF-EC30-40CA-BAD3-31CDADDFA6A1}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="rex08" ID="{1986F7BE-7448-4FE1-9792-10482C1985EF}" ShortID="923689439">
+						<Sound Name="rex_d08" ID="{1986F7BE-7448-4FE1-9792-10482C1985EF}" ShortID="923689439">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6726,7 +6677,7 @@
 								<ActiveSource Name="rex01" ID="{A5673E3D-9825-4ACC-83D8-33DCF2CCD809}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="rex09" ID="{99933642-109D-459D-8150-092E1D299142}" ShortID="894872514">
+						<Sound Name="rex_d09" ID="{99933642-109D-459D-8150-092E1D299142}" ShortID="894872514">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6752,7 +6703,7 @@
 								<ActiveSource Name="rex09" ID="{BF5148B6-1D50-44E1-A489-3EFDECAD3AB6}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="rex10" ID="{58B79496-2F24-4E49-8FEE-9BED3D407F1C}" ShortID="1013931929">
+						<Sound Name="rex_d10" ID="{58B79496-2F24-4E49-8FEE-9BED3D407F1C}" ShortID="1013931929">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6778,7 +6729,7 @@
 								<ActiveSource Name="rex01" ID="{AFD97370-5A8C-4CCA-9580-8EFD7B023B89}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="rex11" ID="{C8B1C58A-606A-4C36-BC6B-D9061564D4C0}" ShortID="168650926">
+						<Sound Name="rex_d11" ID="{C8B1C58A-606A-4C36-BC6B-D9061564D4C0}" ShortID="168650926">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6804,7 +6755,7 @@
 								<ActiveSource Name="rex01" ID="{46FFDE32-B006-4EE0-871A-AD2691FC64DF}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="rex12" ID="{5EC28DAD-582E-4D29-8D1A-D15542250BE9}" ShortID="1012053434">
+						<Sound Name="rex_d12" ID="{5EC28DAD-582E-4D29-8D1A-D15542250BE9}" ShortID="1012053434">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -6828,6 +6779,35 @@
 							</ChildrenList>
 							<ActiveSourceList>
 								<ActiveSource Name="rex01" ID="{BCE68548-F9C3-487A-AA7D-F03560870496}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="rex_d13" ID="{1867D408-BFD4-4276-A6DC-054446E17608}" ShortID="365142545">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="rex12" ID="{6939D63E-CB51-4AD8-9492-208E71789979}" ShortID="497609329">
+									<Language>SFX</Language>
+									<AudioFile>rex12.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="544985805"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
+								<AudioFileSource Name="rex01" ID="{39D05F03-6904-47AF-B88E-D82829EA8D0B}" ShortID="706870727">
+									<Language>SFX</Language>
+									<AudioFile>rex01.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="980259330"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="rex01" ID="{39D05F03-6904-47AF-B88E-D82829EA8D0B}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>

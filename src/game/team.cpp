@@ -128,7 +128,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.3f, // switch cooldown
-		15.0f, // use cooldown
+		20.0f, // use cooldown
 		10.0f, // use cooldown threshold
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
@@ -138,8 +138,8 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.5f, // switch cooldown
-		30.0f, // use cooldown
-		15.0f, // use cooldown threshold
+		40.0f, // use cooldown
+		20.0f, // use cooldown threshold
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_minion,
@@ -148,8 +148,8 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.5f, // switch cooldown
-		30.0f, // use cooldown
-		15.0f, // use cooldown threshold
+		40.0f, // use cooldown
+		20.0f, // use cooldown threshold
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_turret,
@@ -188,8 +188,8 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		DRONE_COOLDOWN_MAX, // movement cooldown
 		0.3f, // switch cooldown
-		14.0f, // use cooldown
-		7.0f, // use cooldown threshold
+		15.0f, // use cooldown
+		7.5f, // use cooldown threshold
 		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_GRENADE,
 		Asset::Mesh::icon_grenade,
@@ -382,7 +382,7 @@ void Team::battery_spawn()
 {
 	const Game::BatterySpawnPoint& p = Game::level.battery_spawns[Game::level.battery_spawn_index];
 
-	AI::Team team = Game::session.config.game_type == GameType::Assault ? 0 : AI::TeamNone;
+	AI::Team team = (Game::session.config.game_type == GameType::Assault && Game::level.mode == Game::Mode::Pvp) ? 0 : AI::TeamNone;
 
 	Entity* entity = World::create<BatteryEntity>(p.pos, p.spawn_point.ref(), team);
 	Net::finalize(entity);
@@ -1108,7 +1108,8 @@ void Team::update_all_server(const Update& u)
 					battery_spawn_delay += u.time.delta;
 					if (battery_spawn_delay > 10.0f)
 					{
-						for (s32 i = 0; i < Game::level.battery_spawn_group_size; i++)
+						s32 end = vi_min(s32(Game::level.battery_spawns.length), s32(Game::level.battery_spawn_index + Game::level.battery_spawn_group_size));
+						for (s32 i = Game::level.battery_spawn_index; i < end; i++)
 							battery_spawn();
 					}
 				}
@@ -1186,12 +1187,18 @@ SpawnPoint* Team::get_spawn_point() const
 				Vec3 pos = i.item()->spawn_position().pos;
 
 				b8 good = true;
-				for (auto j = PlayerCommon::list.iterator(); !j.is_last(); j.next())
+
+				if (i.item()->battery())
+					good = false;
+				else
 				{
-					if (j.item()->get<AIAgent>()->team != team() && (j.item()->get<Transform>()->absolute_pos() - pos).length_squared() < 8.0f * 8.0f)
+					for (auto j = PlayerCommon::list.iterator(); !j.is_last(); j.next())
 					{
-						good = false;
-						break;
+						if (j.item()->get<AIAgent>()->team != team() && (j.item()->get<Transform>()->absolute_pos() - pos).length_squared() < 8.0f * 8.0f)
+						{
+							good = false;
+							break;
+						}
 					}
 				}
 
@@ -1819,6 +1826,20 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			m->flag(FlagScoreAccepted, true);
 			break;
 		}
+		case Message::UpgradeFailed:
+		{
+			if (!m)
+				return true;
+
+			if (Game::level.local == (src == Net::MessageSource::Loopback))
+			{
+				m->current_upgrade = Upgrade::None;
+				m->state_timer = 0.0f;
+				if (m->has<PlayerHuman>() && m->get<PlayerHuman>()->local())
+					Audio::post_global(AK::EVENTS::STOP_DRONE_UPGRADE, m->get<PlayerHuman>()->gamepad);
+			}
+			break;
+		}
 		case Message::UpgradeCompleted:
 		{
 			s32 index;
@@ -2148,10 +2169,20 @@ b8 PlayerManager::upgrade_start(Upgrade u, s8 ability_slot)
 			current_upgrade = u;
 			current_upgrade_ability_slot = ability_slot;
 		}
+
+		if (has<PlayerHuman>())
+			Audio::post_global(AK::EVENTS::PLAY_DRONE_UPGRADE, get<PlayerHuman>()->gamepad);
+
 		return true;
 	}
 	else
+	{
+#if SERVER
+		// let client know that we failed to start the upgrade
+		PlayerManagerNet::send(this, PlayerManager::Message::UpgradeFailed);
+#endif
 		return false;
+	}
 }
 
 s16 PlayerManager::upgrade_cost(Upgrade u) const

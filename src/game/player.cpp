@@ -826,7 +826,6 @@ void player_upgrade_start(s8 gamepad)
 	Entity* entity = player->get<PlayerManager>()->instance.ref();
 	if (entity)
 	{
-		Audio::post_global(AK::EVENTS::PLAY_DRONE_UPGRADE, gamepad);
 		PlayerControlHumanNet::Message msg;
 		msg.type = PlayerControlHumanNet::Message::Type::UpgradeStart;
 		msg.upgrade = player_confirm_upgrade[gamepad];
@@ -3476,7 +3475,7 @@ void PlayerControlHuman::awake()
 
 	if (local())
 	{
-		get<Audio>()->entry()->flag(AudioEntry::FlagEnableObstructionOcclusion, false);
+		get<Audio>()->entry()->flag(AudioEntry::FlagEnableObstructionOcclusion | AudioEntry::FlagEnableForceFieldObstruction, false);
 		get<SkinnedModel>()->first_person_camera = player.ref()->camera.ref();
 
 		if (!Game::level.local)
@@ -5239,26 +5238,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		{
 			// interact prompt
 			if (closest_interactable)
-			{
-				UIText text;
-				text.text(player.ref()->gamepad, _(strings::prompt_interact));
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				Vec2 pos = viewport.size * Vec2(0.5f, 0.2f);
-				const Vec4* bg;
-				if (params.sync->input.get(Controls::InteractSecondary, player.ref()->gamepad))
-				{
-					bg = &UI::color_accent();
-					text.color = UI::color_background;
-				}
-				else
-				{
-					bg = &UI::color_background;
-					text.color = UI::color_accent();
-				}
-				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), *bg);
-				text.draw(params, pos);
-			}
+				UI::prompt_interact(params);
 
 			if (Settings::waypoints)
 			{

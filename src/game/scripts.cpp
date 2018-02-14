@@ -90,6 +90,7 @@ struct Instance
 {
 	static PinArray<Instance, 8> list;
 
+	Callback interacted;
 	StaticArray<Cue, 32> cues;
 	r32 last_cue_real_time;
 	r32 dialogue_radius;
@@ -148,6 +149,18 @@ struct Instance
 		c->callback = callback;
 		c->delay = delay;
 	}
+	
+	Vec3 pos() const
+	{
+		if (head_bone == AssetNull)
+			return model.ref()->get<Transform>()->absolute_pos();
+		else
+		{
+			Vec3 p;
+			model.ref()->get<Animator>()->to_world(head_bone, &p);
+			return p;
+		}
+	}
 
 	Vec3 collision_offset() const
 	{
@@ -160,6 +173,17 @@ struct Instance
 		}
 		else
 			return Vec3::zero;
+	}
+
+	void stop()
+	{
+		if (model.ref())
+			model.ref()->get<Audio>()->stop(AK::EVENTS::STOP_DIALOGUE);
+		else
+			Audio::post_global(AK::EVENTS::STOP_DIALOGUE);
+		sound_done = true;
+		overlap_animation = true;
+		cues.length = 0;
 	}
 };
 
@@ -212,6 +236,8 @@ void done(Instance* i)
 }
 
 void remove(Instance*);
+
+const r32 interact_distance = 3.5f;
 
 void update(const Update& u)
 {
@@ -291,6 +317,22 @@ void update(const Update& u)
 
 		if (layer)
 			instance->collision.ref()->pos = instance->collision_offset();
+
+		if (instance->interacted)
+		{
+			if (u.last_input->get(Controls::InteractSecondary, 0) && !u.input->get(Controls::InteractSecondary, 0))
+			{
+				Vec3 camera_pos = PlayerHuman::list.iterator().item()->camera.ref()->pos;
+				Vec3 actor_pos = instance->pos();
+				r32 dist_sq = (actor_pos - camera_pos).length_squared();
+				if (dist_sq < interact_distance * interact_distance)
+				{
+					Callback c = instance->interacted;
+					instance->interacted = nullptr;
+					c(instance);
+				}
+			}
+		}
 	}
 
 	Audio::dialogue_callbacks.length = 0;
@@ -306,20 +348,22 @@ void draw_ui(const RenderParams& params)
 		const Instance& instance = *i.item();
 
 		Vec3 actor_pos = Vec3::zero;
+		r32 dist_sq = 0.0f;
 		if (instance.model.ref())
 		{
-			if (instance.head_bone == AssetNull)
-				actor_pos = instance.model.ref()->get<Transform>()->absolute_pos();
-			else
-				instance.model.ref()->get<Animator>()->to_world(instance.head_bone, &actor_pos);
+			actor_pos = instance.pos();
 
 			if (Settings::waypoints && instance.highlight)
 				UI::indicator(params, actor_pos + Vec3(0, -0.4f, 0), UI::color_accent(), true);
+
+			dist_sq = (actor_pos - params.camera->pos).length_squared();
+			if (instance.interacted && dist_sq < interact_distance * interact_distance)
+				UI::prompt_interact(params);
 		}
 
 		if (Settings::subtitles
 			&& instance.text != AssetNull
-			&& (instance.highlight || instance.dialogue_radius == 0.0f || (actor_pos - params.camera->pos).length_squared() < instance.dialogue_radius * instance.dialogue_radius))
+			&& (instance.highlight || instance.dialogue_radius == 0.0f || dist_sq < instance.dialogue_radius * instance.dialogue_radius))
 		{
 			UIText text;
 			text.font = Asset::Font::pt_sans;
@@ -411,7 +455,10 @@ Instance* add(Entity* model = nullptr, AssetID head_bone = AssetNull, IdleBehavi
 	if (model)
 	{
 		if (!model->has<Audio>())
-			model->add<Audio>();
+		{
+			Audio* audio = model->add<Audio>();
+			audio->entry()->flag(AudioEntry::FlagEnableObstructionOcclusion | AudioEntry::FlagEnableForceFieldObstruction, false);
+		}
 
 		// animated actors have collision volumes that are synced up with their bodies
 		if (model->has<Animator>())
@@ -583,6 +630,7 @@ namespace Docks
 #endif
 
 		Actor::Instance* dada;
+		Actor::Instance* rex;
 		Array<PhysicsSoundEntity> carts;
 		r32 wallrun_footstep_timer;
 		s32 wallrun_footstep_index;
@@ -599,11 +647,13 @@ namespace Docks
 		Ref<PlayerTrigger> wallrun_trigger_2;
 		Ref<Animator> cutscene_parkour;
 		Ref<Entity> energy;
+		Ref<Transform> rex_cart;
 		StaticArray<Ref<Transform>, 8> wallrun_footsteps1;
 		StaticArray<Ref<Transform>, 8> wallrun_footsteps2;
 		TutorialState state;
 		b8 dada_talked;
 		b8 itch_prompted;
+		b8 rex_cart_gone;
 	};
 	
 	static Data* data;
@@ -663,19 +713,19 @@ namespace Docks
 		}
 	}
 
-	void hobo_speak(Actor::Instance* hobo)
+	void rex_speak2(Actor::Instance* rex)
 	{
-		hobo->cue(AK::EVENTS::PLAY_HOBO01, Asset::Animation::hobo_idle, strings::hobo01);
-		hobo->cue(AK::EVENTS::PLAY_HOBO02, Asset::Animation::hobo_idle, strings::hobo02);
-		hobo->cue(AK::EVENTS::PLAY_HOBO03, Asset::Animation::hobo_idle, strings::hobo03);
-		hobo->cue(AK::EVENTS::PLAY_HOBO04, Asset::Animation::hobo_idle, strings::hobo04);
-		hobo->cue(AK::EVENTS::PLAY_HOBO05, Asset::Animation::hobo_idle, strings::hobo05);
-		hobo->cue(AK::EVENTS::PLAY_HOBO06, Asset::Animation::hobo_idle, strings::hobo06);
-		hobo->cue(AK::EVENTS::PLAY_HOBO07, Asset::Animation::hobo_idle, strings::hobo07);
-		hobo->cue(AK::EVENTS::PLAY_HOBO08, Asset::Animation::hobo_idle, strings::hobo08);
-		hobo->cue(AK::EVENTS::PLAY_HOBO09, Asset::Animation::hobo_idle, strings::hobo09);
-		hobo->cue(AK::EVENTS::PLAY_HOBO10, Asset::Animation::hobo_idle, strings::hobo10);
-		hobo->cue(&hobo_speak, 4.0f);
+		if (!data->rex_cart_gone)
+			rex->cue(AK::EVENTS::PLAY_REX_B01, Asset::Animation::hobo_idle, strings::rex_b01);
+	}
+
+	void rex_speak(Actor::Instance* rex)
+	{
+		rex->cue(AK::EVENTS::PLAY_REX_A01, Asset::Animation::hobo_idle, strings::rex_a01);
+		rex->cue(AK::EVENTS::PLAY_REX_A02, Asset::Animation::hobo_idle, strings::rex_a02);
+		rex->cue(AK::EVENTS::PLAY_REX_A03, Asset::Animation::hobo_idle, strings::rex_a03);
+		rex->cue(AK::EVENTS::PLAY_REX_A04, Asset::Animation::hobo_idle, strings::rex_a04);
+		rex->cue(rex_speak2);
 	}
 
 	void ivory_ad_play(Actor::Instance* ad)
@@ -853,10 +903,10 @@ namespace Docks
 		}
 	}
 
-	void cutscene_init_common(AssetID hobo_anim, AssetID parkour_anim)
+	void cutscene_init_common(AssetID rex_anim, AssetID parkour_anim)
 	{
-		Entity* hobo = World::create<Prop>(Asset::Mesh::hobo, Asset::Armature::hobo, hobo_anim);
-		hobo->get<Animator>()->layers[0].blend_time = 0.0f;
+		Entity* rex = World::create<Prop>(Asset::Mesh::hobo, Asset::Armature::hobo, rex_anim);
+		rex->get<Animator>()->layers[0].blend_time = 0.0f;
 
 		if (parkour_anim != AssetNull)
 		{
@@ -870,7 +920,7 @@ namespace Docks
 		{
 			Game::level.finder.find("cutscene_props")->get<View>()->mask = RENDER_MASK_DEFAULT;
 			Transform* cutscene = Game::level.finder.find("cutscene")->get<Transform>();
-			hobo->get<Transform>()->absolute(cutscene->pos, cutscene->rot);
+			rex->get<Transform>()->absolute(cutscene->pos, cutscene->rot);
 			if (data->cutscene_parkour.ref())
 				data->cutscene_parkour.ref()->get<Transform>()->absolute(cutscene->pos, cutscene->rot);
 		}
@@ -1132,6 +1182,19 @@ namespace Docks
 			}
 		}
 
+		// check if rex's cart is gone
+		if (!data->rex_cart_gone)
+		{
+			if (data->rex_cart.ref()->absolute_pos().y < 5.0f)
+			{
+				data->rex_cart_gone = true;
+				data->rex->stop();
+				data->rex->cue(AK::EVENTS::PLAY_REX_C01, Asset::Animation::hobo_idle, strings::rex_c01);
+				data->rex->cue(AK::EVENTS::PLAY_REX_C02, Asset::Animation::hobo_idle, strings::rex_c02);
+				data->rex->cue(AK::EVENTS::PLAY_REX_C03, Asset::Animation::hobo_idle, strings::rex_c03);
+			}
+		}
+
 		{
 			// fire
 			r32 offset = Game::time.total * 10.0f;
@@ -1303,7 +1366,7 @@ namespace Docks
 		if ((Game::save.zone_last == AssetNull || Game::save.zone_last == Asset::Level::Docks)
 			&& entities.find("energy"))
 		{
-			entities.find("energy")->get<Collectible>()->amount = Overworld::resource_info[s32(Resource::WallRun)].cost;
+			entities.find("energy")->get<Collectible>()->amount = Overworld::resource_info[s32(Resource::WallRun)].cost + 80;
 			entities.find("jump_trigger")->get<PlayerTrigger>()->entered.link(&jump_trigger);
 			entities.find("dada_spotted_trigger")->get<PlayerTrigger>()->entered.link(&dada_spotted);
 			entities.find("dada_talk_trigger")->get<PlayerTrigger>()->entered.link(&dada_talk);
@@ -1361,6 +1424,8 @@ namespace Docks
 			else
 				break;
 		}
+
+		data->rex_cart = entities.find("cart0")->get<Transform>();
 		data->ivory_ad_text = entities.find("ivory_ad_text")->get<Transform>();
 		data->fire = entities.find("fire")->get<Transform>();
 		data->fire.ref()->entity()->add<Audio>()->post(AK::EVENTS::PLAY_FIRE_LOOP);
@@ -1368,8 +1433,8 @@ namespace Docks
 
 		Actor::init();
 		Loader::animation(Asset::Animation::hobo_idle);
-		Actor::Instance* hobo = Actor::add(entities.find("hobo"), Asset::Bone::hobo_head);
-		hobo_speak(hobo);
+		data->rex = Actor::add(entities.find("hobo"), Asset::Bone::hobo_head);
+		data->rex->interacted = rex_speak;
 
 		Actor::Instance* ivory_ad = Actor::add(entities.find("ivory_ad"));
 		ivory_ad->dialogue_radius = 25.0f;
@@ -1525,7 +1590,6 @@ namespace locke
 	struct Data
 	{
 		Actor::Instance* locke;
-		b8 spoken;
 	};
 
 	Data* data;
@@ -1553,16 +1617,12 @@ namespace locke
 	void trigger(Entity*)
 	{
 		if (Game::level.mode == Game::Mode::Parkour
-			&& !data->spoken)
+			&& !Game::save.locke_spoken)
 		{
-			if (!Game::save.locke_spoken)
-			{
-				Game::save.locke_index++; // locke_index starts at -1
-				if (Game::save.locke_index == 8)
-					Game::save.locke_index = 2; // skip the first two
-			}
+			Game::save.locke_index++; // locke_index starts at -1
+			if (Game::save.locke_index == 8)
+				Game::save.locke_index = 2; // skip the first two
 			Game::save.locke_spoken = true;
-			data->spoken = true;
 			switch (Game::save.locke_index)
 			{
 				case 0:
@@ -1799,18 +1859,19 @@ namespace AudioLogs
 	void rex()
 	{
 		init();
-		data->actor->cue(AK::EVENTS::PLAY_REX01, AssetNull, strings::rex01);
-		data->actor->cue(AK::EVENTS::PLAY_REX02, AssetNull, strings::rex02);
-		data->actor->cue(AK::EVENTS::PLAY_REX03, AssetNull, strings::rex03);
-		data->actor->cue(AK::EVENTS::PLAY_REX04, AssetNull, strings::rex04);
-		data->actor->cue(AK::EVENTS::PLAY_REX05, AssetNull, strings::rex05);
-		data->actor->cue(AK::EVENTS::PLAY_REX06, AssetNull, strings::rex06);
-		data->actor->cue(AK::EVENTS::PLAY_REX07, AssetNull, strings::rex07);
-		data->actor->cue(AK::EVENTS::PLAY_REX08, AssetNull, strings::rex08);
-		data->actor->cue(AK::EVENTS::PLAY_REX09, AssetNull, strings::rex09);
-		data->actor->cue(AK::EVENTS::PLAY_REX10, AssetNull, strings::rex10);
-		data->actor->cue(AK::EVENTS::PLAY_REX11, AssetNull, strings::rex11);
-		data->actor->cue(AK::EVENTS::PLAY_REX12, AssetNull, strings::rex12);
+		data->actor->cue(AK::EVENTS::PLAY_REX_D01, AssetNull, strings::rex_d01);
+		data->actor->cue(AK::EVENTS::PLAY_REX_D02, AssetNull, strings::rex_d02);
+		data->actor->cue(AK::EVENTS::PLAY_REX_D03, AssetNull, strings::rex_d03);
+		data->actor->cue(AK::EVENTS::PLAY_REX_D04, AssetNull, strings::rex_d04);
+		data->actor->cue(AK::EVENTS::PLAY_REX_D05, AssetNull, strings::rex_d05);
+		data->actor->cue(AK::EVENTS::PLAY_REX_D06, AssetNull, strings::rex_d06);
+		data->actor->cue(AK::EVENTS::PLAY_REX_D07, AssetNull, strings::rex_d07);
+		data->actor->cue(AK::EVENTS::PLAY_REX_D08, AssetNull, strings::rex_d08);
+		data->actor->cue(AK::EVENTS::PLAY_REX_D09, AssetNull, strings::rex_d09);
+		data->actor->cue(AK::EVENTS::PLAY_REX_D10, AssetNull, strings::rex_d10);
+		data->actor->cue(AK::EVENTS::PLAY_REX_D11, AssetNull, strings::rex_d11);
+		data->actor->cue(AK::EVENTS::PLAY_REX_D12, AssetNull, strings::rex_d12);
+		data->actor->cue(AK::EVENTS::PLAY_REX_D13, AssetNull, strings::rex_d13);
 		data->actor->cue(&done);
 	}
 

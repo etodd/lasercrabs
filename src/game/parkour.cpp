@@ -1446,7 +1446,7 @@ b8 Parkour::try_jump(r32 rotation)
 			do_normal_jump();
 			did_jump = true;
 		}
-		else
+		else if (ability_enabled(Resource::WallRun))
 		{
 			// try wall-jumping
 			if (last_support.ref() && Game::time.total - last_support_time < JUMP_GRACE_PERIOD && last_support_wall_run_state != ParkourWallRunState::None)

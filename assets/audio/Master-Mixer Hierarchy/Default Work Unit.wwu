@@ -130,11 +130,6 @@
 									<ChildrenList>
 										<Bus Name="Dialogue" ID="{E8A73A5E-056C-46B8-875C-9658C99452FC}">
 											<PropertyList>
-												<Property Name="BusVolume" Type="Real64">
-													<ValueList>
-														<Value>-96</Value>
-													</ValueList>
-												</Property>
 												<Property Name="DivergenceCenter" Type="int32">
 													<ValueList>
 														<Value>100</Value>

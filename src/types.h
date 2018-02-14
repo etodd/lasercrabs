@@ -111,7 +111,6 @@ enum class Upgrade : s8
 enum class Resource : s8
 {
 	Energy,
-	AccessKeys,
 	ConsumableCount,
 	LotteryTickets = ConsumableCount,
 	WallRun,

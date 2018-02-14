@@ -699,7 +699,7 @@ void Battery::health_changed(const HealthEvent& e)
 {
 	if (team != AI::TeamNone && e.hp + e.shield < 0 && get<Health>()->hp > 0)
 	{
-		if (PlayerHuman::notification(get<Target>()->absolute_pos(), team, PlayerHuman::Notification::Type::BatteryUnderAttack))
+		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::BatteryUnderAttack))
 			PlayerHuman::log_add(_(strings::battery_under_attack), AI::TeamNone, 1 << team);
 	}
 }
@@ -989,10 +989,10 @@ void Battery::update_all(const Update& u)
 			{
 				s32 increment = BATTERY_ENERGY_INCREMENT / Game::level.battery_spawn_group_size;
 
-				if (Game::session.config.game_type == GameType::Assault && i.item()->team == 0) // owned by defender
-					increment -= (increment / 4);
-				else // drain battery
+				if (Game::session.config.game_type != GameType::Assault || i.item()->team != 0) // assault defenders do not drain battery
 				{
+					// drain battery
+
 					BatteryNet::set_energy(i.item(), vi_max(0, i.item()->energy - BATTERY_ENERGY_INCREMENT));
 					if (i.item()->energy == 0)
 					{
@@ -1006,7 +1006,7 @@ void Battery::update_all(const Update& u)
 						World::remove_deferred(i.item()->entity());
 						if (Game::session.config.game_type == GameType::Assault)
 						{
-							Team::match_time = vi_max(0.0f, Team::match_time - BATTERY_TIME_REWARD);
+							Team::match_time = vi_max(0.0f, vi_min(Game::session.config.time_limit(), Team::match_time) - (BATTERY_TIME_REWARD / r32(Game::level.battery_spawn_group_size)));
 #if SERVER
 							Net::Server::sync_time();
 #endif
@@ -1119,8 +1119,8 @@ template<typename T> void minion_spawn_all(const Update& u, PlayerManager* (*own
 	const r32 minion_initial_delay = Game::session.type == SessionType::Story
 		? 3.0f
 		: 60.0f;
-	const r32 minion_spawn_interval = 8.0f; // time between individual minions spawning
-	const r32 minion_group_interval = minion_spawn_interval * 10.0f; // time between minion groups spawning; must be a multiple of minion_spawn_interval
+	const r32 minion_spawn_interval = 10.0f; // time between individual minions spawning
+	const r32 minion_group_interval = minion_spawn_interval * 12.0f; // time between minion groups spawning; must be a multiple of minion_spawn_interval
 
 	for (auto i = T::list.iterator(); !i.is_last() && Minion::list.count() < MAX_MINIONS; i.next())
 	{
@@ -5026,7 +5026,6 @@ CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)
 	c->amount = amount;
 	switch (type)
 	{
-		case Resource::AccessKeys:
 		case Resource::Energy:
 		case Resource::AudioLog:
 		{
@@ -5035,7 +5034,7 @@ CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)
 			if (type == Resource::Energy)
 				mesh = Asset::Mesh::energy;
 			else
-				mesh = Asset::Mesh::access_key;
+				mesh = Asset::Mesh::audio_log;
 			View* v = create<View>(mesh);
 			v->shader = Asset::Shader::standard;
 			v->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
@@ -5054,7 +5053,6 @@ void Collectible::give_rewards()
 	{
 		switch (type)
 		{
-			case Resource::AccessKeys:
 			case Resource::AudioLog:
 				a = 1;
 				break;
@@ -5663,10 +5661,7 @@ void TramInteractableEntity::interacted(Interactable* i)
 	{
 		AssetID target_level = Game::level.tram_tracks[track].level;
 		if (Game::save.zones[target_level] == ZoneState::Locked)
-		{
-			Overworld::resource_change(Resource::AccessKeys, -1);
 			Overworld::zone_change(target_level, ZoneState::ParkourUnlocked);
-		}
 		tram->departing = true;
 		tram->doors_open(true);
 	}

@@ -83,6 +83,7 @@ struct Game
 			r32 offset;
 		};
 		StaticArray<Point, 32> points;
+		s32 energy_threshold;
 		AssetID level;
 	};
 

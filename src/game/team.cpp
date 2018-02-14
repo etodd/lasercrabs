@@ -1031,9 +1031,11 @@ void Team::update_all_server(const Update& u)
 			Team* team_with_most_kills = Game::session.config.game_type == GameType::Deathmatch ? with_most_kills() : nullptr;
 			Team* team_with_most_flags = Game::session.config.game_type == GameType::CaptureTheFlag ? with_most_flags() : nullptr;
 			if (!Game::level.noclip
-				&& ((match_time > Game::session.config.time_limit() && Game::level.has_feature(Game::FeatureLevel::All)) // no time limit in tutorial
+				&& ((match_time > Game::session.config.time_limit() // time limit
+					&& Game::level.has_feature(Game::FeatureLevel::All) // no time limit in tutorial
+					&& (Game::session.config.game_type != GameType::Assault || Battery::count(~(1 << 0)) == 0)) // if attackers are holding a battery, ignore the time limit
 					|| (Game::level.has_feature(Game::FeatureLevel::All) && teams_with_active_players() <= 1 && Game::level.ai_config.length == 0)
-					|| (Game::session.config.game_type == GameType::Assault && Battery::list.count() == 0 && Game::level.battery_spawn_index >= Game::level.battery_spawns.length)
+					|| (Game::session.config.game_type == GameType::Assault && Battery::list.count() == 0 && Game::level.battery_spawn_index >= Game::level.battery_spawns.length) // attackers drained all batteries
 					|| (Game::session.config.game_type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::session.config.kill_limit)
 					|| (Game::session.config.game_type == GameType::CaptureTheFlag && team_with_most_flags && team_with_most_flags->flags_captured >= Game::session.config.flag_limit)))
 			{
@@ -1106,7 +1108,7 @@ void Team::update_all_server(const Update& u)
 					&& (Game::level.feature_level == Game::FeatureLevel::Batteries || Game::level.has_feature(Game::FeatureLevel::TutorialAll)))
 				{
 					battery_spawn_delay += u.time.delta;
-					if (battery_spawn_delay > 10.0f)
+					if (battery_spawn_delay > BATTERY_SPAWN_DELAY)
 					{
 						s32 end = vi_min(s32(Game::level.battery_spawns.length), s32(Game::level.battery_spawn_index + Game::level.battery_spawn_group_size));
 						for (s32 i = Game::level.battery_spawn_index; i < end; i++)

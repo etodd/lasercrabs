@@ -2246,7 +2246,11 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				}
 			}
 			vi_assert(track != -1);
-			level.tram_tracks[track].level = Loader::find_level(Json::get_string(element, "level"));
+			{
+				TramTrack* entry = &level.tram_tracks[track];
+				entry->level = Loader::find_level(Json::get_string(element, "level"));
+				entry->energy_threshold = Json::get_s32(element, "energy_threshold");
+			}
 			Entity* runner_a = World::create<TramRunnerEntity>(track, false);
 			Entity* runner_b = World::create<TramRunnerEntity>(track, true);
 			entity = World::alloc<TramEntity>(runner_a->get<TramRunner>(), runner_b->get<TramRunner>());
@@ -2285,9 +2289,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			{
 				const char* type_str = Json::get_string(element, "Collectible");
 				Resource type;
-				if (strcmp(type_str, "AccessKeys") == 0)
-					type = Resource::AccessKeys;
-				else if (strcmp(type_str, "AudioLog") == 0)
+				if (strcmp(type_str, "AudioLog") == 0)
 					type = Resource::AudioLog;
 				else
 					type = Resource::Energy;
@@ -2551,7 +2553,6 @@ void Game::awake_all()
 		Loader::mesh_permanent(Asset::Mesh::icon_battery);
 		Loader::mesh_permanent(Asset::Mesh::icon_arrow_main);
 		Loader::mesh_permanent(Asset::Mesh::icon_active_armor);
-		Loader::mesh_permanent(Asset::Mesh::icon_access_key);
 		Loader::mesh_permanent(Asset::Mesh::icon_ability_pip);
 		Loader::mesh_permanent(Asset::Mesh::icon_reticle_invalid);
 	}

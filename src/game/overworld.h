@@ -23,6 +23,7 @@ struct ResourceInfo
 	AssetID icon;
 	AssetID description;
 	s16 cost;
+	b8 allow_multiple;
 };
 
 enum class State : s8

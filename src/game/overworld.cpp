@@ -229,7 +229,6 @@ struct Data
 
 	struct StoryMode
 	{
-		r64 timestamp_last;
 		StoryTab tab;
 		StoryTab tab_previous;
 		r32 tab_timer = TAB_ANIMATION_TIME;
@@ -2126,26 +2125,6 @@ AssetID zone_uuid_for_id(AssetID id)
 	return zone_node_by_id(id)->uuid;
 }
 
-s16 energy_increment_zone(const ZoneNode& zone)
-{
-	return zone.size * (zone.max_teams == MAX_TEAMS ? 200 : 10);
-}
-
-s16 energy_increment_total()
-{
-	s16 result = 0;
-	for (s32 i = 0; i < global.zones.length; i++)
-	{
-		const ZoneNode& zone = global.zones[i];
-		ZoneState zone_state = Game::save.zones[zone.id];
-		if (zone_state == ZoneState::PvpFriendly)
-			result += energy_increment_zone(zone);
-	}
-	if (Game::save.group != Game::Group::None)
-		result = result / 8;
-	return result;
-}
-
 Vec3 zone_color(const ZoneNode& zone)
 {
 	ZoneState zone_state = Game::save.zones[zone.id];
@@ -2749,41 +2728,43 @@ ResourceInfo resource_info[s32(Resource::count)] =
 		Asset::Mesh::icon_battery,
 		strings::energy,
 		0,
-	},
-	{ // AccessKeys
-		Asset::Mesh::icon_access_key,
-		strings::access_keys,
-		0,
+		true,
 	},
 	{ // LotteryTickets
 		Asset::Mesh::icon_lottery_ticket,
 		strings::lottery_tickets,
 		10,
+		true,
 	},
 	{ // WallRun
 		Asset::Mesh::icon_wall_run,
 		strings::wall_run,
 		1000,
+		false,
 	},
 	{ // DoubleJump
 		Asset::Mesh::icon_double_jump,
 		strings::double_jump,
-		5000,
+		3000,
+		false,
 	},
 	{ // ExtendedWallRun
 		Asset::Mesh::icon_wall_run,
 		strings::extended_wall_run,
-		5000,
+		3000,
+		false,
 	},
 	{ // Grapple
 		Asset::Mesh::icon_drone,
 		strings::grapple,
-		5000,
+		3000,
+		false,
 	},
 	{ // AudioLog
 		AssetNull,
 		strings::audio_log,
 		0,
+		true,
 	},
 };
 
@@ -2845,7 +2826,7 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 		mouse_over_increase = rect_increase.contains(cursor);
 	}
 
-	if (u)
+	if (u && info.allow_multiple)
 	{
 		s32 delta = UI::input_delta_horizontal(*u, 0);
 		if (mouse_over_decrease && u->last_input->keys.get(s32(KeyCode::MouseLeft)) && !u->input->keys.get(s32(KeyCode::MouseLeft)))
@@ -2864,8 +2845,9 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 
 		b8 mouse_click = p->sync->input.keys.get(s32(KeyCode::MouseLeft));
 
-		// decrease
+		if (info.allow_multiple)
 		{
+			// decrease
 			const Vec4* bg;
 			const Vec4* color;
 			if (mouse_over_decrease)
@@ -2898,14 +2880,18 @@ void inventory_dialog_buy(s8 gamepad, const Update* u, const RenderParams* p)
 			UI::triangle(*p, { rect_increase.pos + rect_increase.size * 0.5f, rect_increase.size * 0.5f }, *color, PI * -0.5f);
 		}
 
-		// quantity
 		UIText text;
 		text.size = MENU_ITEM_FONT_SIZE;
 		text.color = Game::save.resources[s32(Resource::Energy)] >= info.cost * inventory->buy_quantity ? UI::color_default : UI::color_alert();
-		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Min;
-		text.text(0, "%hd", inventory->buy_quantity);
-		text.draw(*p, pos + Vec2(MENU_ITEM_WIDTH * 0.1f + MENU_ITEM_PADDING * 2.0f, 0));
+
+		// quantity
+		if (info.allow_multiple)
+		{
+			text.anchor_x = UIText::Anchor::Center;
+			text.text(0, "%hd", inventory->buy_quantity);
+			text.draw(*p, pos + Vec2(MENU_ITEM_WIDTH * 0.1f + MENU_ITEM_PADDING * 2.0f, 0));
+		}
 
 		// description
 		text.anchor_x = UIText::Anchor::Min;
@@ -3068,7 +3054,7 @@ void inventory_items(const Update* u, const RenderParams* p, const Rect2& rect)
 						text.draw(*p, pos + Vec2(icon_size * 2.0f + PADDING * 2.0f, panel_size.y * 0.5f));
 					}
 
-					if (i < s32(Resource::ConsumableCount))
+					if (info.allow_multiple)
 					{
 						// current amount
 						text.size = TEXT_SIZE * (story->tab == StoryTab::Inventory ? 1.0f : 0.75f);
@@ -3337,31 +3323,6 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 
 		s32 index = 0;
 
-		// total energy increment
-		{
-			const char* label;
-			if (story.tab == StoryTab::Map)
-				label = _(Game::save.group == Game::Group::None ? strings::energy_generation_total : strings::energy_generation_group);
-			else
-				label = "+%d";
-			sprintf(buffer, label, s32(energy_increment_total()));
-			Rect2 zone_stat_rect = zone_stat_draw(p, rect, UIText::Anchor::Max, index++, buffer, UI::color_default);
-
-			// energy increment timer
-			r32 icon_size = TEXT_SIZE * 1.5f * UI::scale * (story.tab == StoryTab::Map ? 1.0f : 0.75f);
-			r64 t = r64(platform::timestamp());
-			UI::triangle_percentage
-			(
-				p,
-				{ zone_stat_rect.pos + Vec2(zone_stat_rect.size.x - icon_size * 0.5f, zone_stat_rect.size.y * 0.5f), Vec2(icon_size) },
-				r32(fmod(t, ENERGY_INCREMENT_INTERVAL)) / ENERGY_INCREMENT_INTERVAL,
-				UI::color_default,
-				PI
-			);
-
-			index++; // takes two slots
-		}
-
 		// member of group "x"
 		sprintf(buffer, _(strings::member_of_group), _(group_name[s32(Game::save.group)]));
 		zone_stat_draw(p, rect, UIText::Anchor::Max, index++, buffer, UI::color_accent());
@@ -3403,8 +3364,6 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		const ZoneNode* zone = zone_node_by_id(data.zone_selected);
 		zone_stat_draw(p, rect, UIText::Anchor::Min, 0, Loader::level_name(data.zone_selected), zone_ui_color(*zone));
 		char buffer[255];
-		sprintf(buffer, _(strings::energy_generation), s32(energy_increment_zone(*zone)));
-		zone_stat_draw(p, rect, UIText::Anchor::Min, 1, buffer, UI::color_default);
 
 		if (zone_state == ZoneState::PvpHostile)
 		{
@@ -3421,8 +3380,8 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 
 			if (has_rewards)
 			{
-				zone_stat_draw(p, rect, UIText::Anchor::Min, 2, _(strings::capture_bonus), UI::color_accent());
-				s32 index = 3;
+				zone_stat_draw(p, rect, UIText::Anchor::Min, 1, _(strings::capture_bonus), UI::color_accent());
+				s32 index = 2;
 				for (s32 i = 0; i < s32(Resource::count); i++)
 				{
 					if (zone->rewards[i] > 0)
@@ -3612,15 +3571,6 @@ void update(const Update& u)
 			}
 			if (Game::level.local)
 				zone_random_attack(Game::real_time.delta);
-		}
-
-		// energy increment
-		if (Game::level.local)
-		{
-			r64 t = r64(platform::timestamp());
-			if (s32(t / ENERGY_INCREMENT_INTERVAL) > s32(data.story.timestamp_last / ENERGY_INCREMENT_INTERVAL))
-				resource_change(Resource::Energy, energy_increment_total());
-			data.story.timestamp_last = t;
 		}
 	}
 
@@ -3910,9 +3860,7 @@ void init(cJSON* level)
 					const char* mesh_ref = mesh_json->valuestring;
 					node->mesh = Loader::find_mesh(mesh_ref);
 
-					node->rewards[0] = s16(Json::get_s32(element, "energy", 0));
-					node->rewards[1] = s16(Json::get_s32(element, "access_keys", 0));
-					node->rewards[2] = s16(Json::get_s32(element, "drones", 0));
+					node->rewards[s32(Resource::Energy)] = s16(Json::get_s32(element, "energy"));
 					node->size = s8(Json::get_s32(element, "size", 1));
 					node->max_teams = s8(Json::get_s32(element, "max_teams", 2));
 				}

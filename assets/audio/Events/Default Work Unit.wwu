@@ -889,6 +889,16 @@
 												</Reference>
 											</ReferenceList>
 										</Action>
+										<Action Name="" ID="{39B47714-EA5B-4F56-B190-5B5C58FFCF9A}" ShortID="934841999">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="claw_attach" ID="{1DD8DF0F-932A-4CDA-B16A-372F8B3F6836}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
 									</ChildrenList>
 								</Event>
 								<Event Name="Play_Parkour_Topout" ID="{2BB47BCB-D5D7-4C97-AA69-3974BE92380D}">
@@ -974,6 +984,16 @@
 											<ReferenceList>
 												<Reference Name="Target">
 													<ObjectRef Name="DEC_Parkour_climb_claw_drag" ID="{7F657366-D63B-4CD3-AD82-FA37C3130023}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+												</Reference>
+											</ReferenceList>
+										</Action>
+										<Action Name="" ID="{BE37F6FB-9C6E-4E9A-B579-A636B148F640}" ShortID="470154666">
+											<PropertyList>
+												<Property Name="ActionType" Type="int16" Value="1"/>
+											</PropertyList>
+											<ReferenceList>
+												<Reference Name="Target">
+													<ObjectRef Name="DEC_Parkour_climb_claw_release" ID="{83B63586-B50A-4D87-B3B1-A6C046A6BE77}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 												</Reference>
 											</ReferenceList>
 										</Action>

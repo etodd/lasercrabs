@@ -489,9 +489,9 @@ b8 player_human_notification(Entity* entity, const Vec3& pos, AI::Team team, Pla
 }
 
 // return true if we actually display the notification
-b8 PlayerHuman::notification(const Vec3& pos, AI::Team team, Notification::Type type)
+void PlayerHuman::notification(const Vec3& pos, AI::Team team, Notification::Type type)
 {
-	return player_human_notification(nullptr, pos, team, type);
+	player_human_notification(nullptr, pos, team, type);
 }
 
 // return true if we actually display the notification
@@ -3886,14 +3886,13 @@ void player_confirm_tram_interactable(s8 gamepad)
 		PlayerHuman* player = i.item()->player.ref();
 		if (player->gamepad == gamepad)
 		{
-			vi_assert(Game::save.resources[s32(Resource::AccessKeys)] > 0);
 			Interactable* interactable = Interactable::closest(i.item()->get<Transform>()->absolute_pos());
 			if (interactable)
 			{
-				i.item()->anim_base = interactable->entity();
 				interactable->interact();
 				i.item()->get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 				i.item()->get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_INTERACT);
+				i.item()->anim_base = interactable->entity();
 			}
 			break;
 		}
@@ -4531,50 +4530,47 @@ void PlayerControlHuman::update(const Update& u)
 						{
 							switch (Game::save.zones[Game::level.id])
 							{
-							case ZoneState::Locked:
-							case ZoneState::ParkourUnlocked: // open up
-							{
-								interactable->interact();
-								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-								get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_INTERACT);
-								anim_base = interactable->entity();
-								break;
-							}
-							case ZoneState::ParkourOwned: // already open; get in
-							{
-								anim_base = interactable->entity();
-								get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
-								break;
-							}
-							default:
-							{
-								vi_assert(false);
-								break;
-							}
+								case ZoneState::Locked:
+								case ZoneState::ParkourUnlocked: // open up
+								{
+									interactable->interact();
+									get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+									get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_INTERACT);
+									anim_base = interactable->entity();
+									break;
+								}
+								case ZoneState::ParkourOwned: // already open; get in
+								{
+									anim_base = interactable->entity();
+									get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
+									break;
+								}
+								default:
+									vi_assert(false);
+									break;
 							}
 							break;
 						}
 						case Interactable::Type::Tram: // tram interactable
 						{
 							s8 track = s8(interactable->user_data);
-							AssetID target_level = Game::level.tram_tracks[track].level;
+							const Game::TramTrack& entry = Game::level.tram_tracks[track];
 							Tram* tram = Tram::by_track(track);
 							if (tram->doors_open() // if the tram doors are open, we can always close them
-								|| (!tram->arrive_only && target_level != AssetNull // if the target zone doesn't exist, or if the tram is for arrivals only, nothing else matters, we can't do anything
-									&& Game::save.zones[target_level] != ZoneState::Locked)) // if we've already unlocked it, go ahead
+								|| (!tram->arrive_only && entry.level != AssetNull // if the target zone doesn't exist, or if the tram is for arrivals only, nothing else matters, we can't do anything
+									&& Game::save.zones[entry.level] != ZoneState::Locked)) // if we've already unlocked it, go ahead
 							{
-								// go right ahead
 								interactable->interact();
 								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 								get<Audio>()->post(AK::EVENTS::PLAY_PARKOUR_INTERACT);
 								anim_base = interactable->entity();
 							}
-							else if (tram->arrive_only || target_level == AssetNull) // can't leave
+							else if (tram->arrive_only || entry.level == AssetNull) // can't leave
 								player.ref()->msg(_(strings::zone_unavailable), PlayerHuman::FlagNone);
-							else if (Game::save.resources[s32(Resource::AccessKeys)] > 0) // ask if they want to use a key
-								Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::access_keys));
-							else // not enough
-								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::access_keys));
+							else if (Game::save.resources[s32(Resource::Energy)] >= entry.energy_threshold) // unlock the zone
+								Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::tram_energy_threshold_met), entry.energy_threshold);
+							else // not enough to unlock it
+								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::tram_energy_threshold_warning), entry.energy_threshold);
 							break;
 						}
 						case Interactable::Type::Shop:
@@ -5260,13 +5256,13 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 							Vec2 p;
 							if (UI::project(params, pos + Vec3(0, 3, 0), &p))
 							{
-								AssetID zone = Game::level.tram_tracks[i.item()->track()].level;
+								const Game::TramTrack& entry = Game::level.tram_tracks[i.item()->track()];
 
-								if (zone == AssetNull)
+								if (entry.level == AssetNull)
 									continue;
 
 								UIText text;
-								switch (Game::save.zones[zone])
+								switch (Game::save.zones[entry.level])
 								{
 									case ZoneState::PvpFriendly:
 										text.color = Team::ui_color_friend();
@@ -5279,10 +5275,10 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 										break;
 									case ZoneState::Locked:
 									{
-										if (Overworld::zone_is_pvp(zone))
+										if (Overworld::zone_is_pvp(entry.level))
 											text.color = UI::color_default;
 										else
-											text.color = Game::save.resources[s32(Resource::AccessKeys)] > 0 ? UI::color_default : UI::color_disabled();
+											text.color = Game::save.resources[s32(Resource::Energy)] >= entry.energy_threshold ? UI::color_default : UI::color_disabled();
 										break;
 									}
 									case ZoneState::PvpHostile:
@@ -5292,7 +5288,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 										vi_assert(false);
 										break;
 								}
-								text.text(player.ref()->gamepad, Loader::level_name(zone));
+								text.text(player.ref()->gamepad, Loader::level_name(entry.level));
 								text.anchor_x = UIText::Anchor::Center;
 								text.anchor_y = UIText::Anchor::Center;
 								text.size = UI_TEXT_SIZE_DEFAULT * 0.75f;

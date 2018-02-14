@@ -1053,15 +1053,15 @@ namespace Docks
 				&& Game::scheduled_load_level == AssetNull
 				&& data->transition_timer == 0.0f
 				&& !Overworld::active()
-				&& Game::session.type == SessionType::Story
-				&& !Menu::dialog_active(0))
+				&& Game::session.type == SessionType::Story)
 			{
 				const Vec2 actual_size(1185, 374);
 				Rect2 logo_rect;
+				b8 draw = true;
 				if (Menu::main_menu_state == Menu::State::Hidden)
 				{
 					UIText text;
-					text.color = UI::color_default;
+					text.color = UI::color_accent();
 					text.text(0, "[{{Start}}]");
 					text.anchor_x = UIText::Anchor::Center;
 					text.anchor_y = UIText::Anchor::Center;
@@ -1071,6 +1071,8 @@ namespace Docks
 
 					Vec2 size = actual_size * (p.camera->viewport.size.x * 0.5f / actual_size.x);
 					logo_rect = { p.camera->viewport.size * 0.5f + size * Vec2(-0.5f, -0.5f), size };
+
+					draw = !Menu::dialog_active(0);
 				}
 				else
 				{

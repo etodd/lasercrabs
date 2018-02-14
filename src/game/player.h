@@ -131,7 +131,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static Array<ChatEntry> chats;
 	static Array<Notification> notifications;
 	static b8 notification(Entity*, AI::Team, Notification::Type);
-	static b8 notification(const Vec3&, AI::Team, Notification::Type);
+	static void notification(const Vec3&, AI::Team, Notification::Type);
 
 	static Vec2 camera_topdown_movement(const Update&, s8, const Quat&);
 	static b8 players_on_same_client(const Entity*, const Entity*);

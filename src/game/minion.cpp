@@ -680,45 +680,34 @@ void Minion::update_server(const Update& u)
 					// we're going after the target
 					if (can_see(g))
 					{
-						AI::Team target_team;
-						AI::entity_info(g, get<AIAgent>()->team, &target_team);
-						if (target_team == AI::TeamNone || target_team == get<AIAgent>()->team)
-						{
-							// it's friendly
-							if (path.length == 0 || (path[path.length - 1] - pos).length_squared() < 1.5f * 1.5f)
-								new_goal();
-						}
-						else
-						{
-							// turn to and attack the target
-							Vec3 hand_pos = aim_pos(get<Walker>()->rotation);
-							Vec3 aim_pos;
-							if (!g->get<Target>()->predict_intersection(hand_pos, BOLT_SPEED_MINION, nullptr, &aim_pos))
-								aim_pos = g->get<Target>()->absolute_pos();
-							turn_to(aim_pos);
+						// turn to and attack the target
+						Vec3 hand_pos = aim_pos(get<Walker>()->rotation);
+						Vec3 aim_pos;
+						if (!g->get<Target>()->predict_intersection(hand_pos, BOLT_SPEED_MINION, nullptr, &aim_pos))
+							aim_pos = g->get<Target>()->absolute_pos();
+						turn_to(aim_pos);
 
-							Animator::Layer* anim_layer = &get<Animator>()->layers[0];
+						Animator::Layer* anim_layer = &get<Animator>()->layers[0];
 
-							if (target_timer > MINION_ATTACK_TIME * 0.25f // give some reaction time
-								&& anim_layer->animation != Asset::Animation::character_melee
-								&& Team::match_state == Team::MatchState::Active)
+						if (target_timer > MINION_ATTACK_TIME * 0.25f // give some reaction time
+							&& anim_layer->animation != Asset::Animation::character_melee
+							&& Team::match_state == Team::MatchState::Active)
+						{
+							if ((aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
 							{
-								if ((aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
-								{
-									path.length = 0;
-									anim_layer->speed = 1.0f;
-									anim_layer->behavior = Animator::Behavior::Default;
-									anim_layer->play(Asset::Animation::character_melee);
-									attack_timer = 0.0f;
-								}
-								else if (!has_grenade())
-								{
-									if (can_attack
-										&& fabsf(LMath::angle_to(get<Walker>()->target_rotation, get<Walker>()->rotation)) < PI * 0.05f) // make sure we're looking at the target
-										fire(aim_pos);
-									else if (attack_timer == 0.0f)
-										attack_timer = MINION_ATTACK_TIME;
-								}
+								path.length = 0;
+								anim_layer->speed = 1.0f;
+								anim_layer->behavior = Animator::Behavior::Default;
+								anim_layer->play(Asset::Animation::character_melee);
+								attack_timer = 0.0f;
+							}
+							else if (!has_grenade())
+							{
+								if (can_attack
+									&& fabsf(LMath::angle_to(get<Walker>()->target_rotation, get<Walker>()->rotation)) < PI * 0.05f) // make sure we're looking at the target
+									fire(aim_pos);
+								else if (attack_timer == 0.0f)
+									attack_timer = MINION_ATTACK_TIME;
 							}
 						}
 					}

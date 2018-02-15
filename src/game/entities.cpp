@@ -931,6 +931,7 @@ b8 Battery::set_team(AI::Team t, Entity* caused_by)
 		return false;
 	else
 	{
+		get<Health>()->add(BATTERY_HEALTH);
 		BatteryNet::set_team(this, t, caused_by);
 		return true;
 	}
@@ -981,9 +982,7 @@ void Battery::update_all(const Update& u)
 
 		if (Game::level.local && increment)
 		{
-			Health* health = i.item()->get<Health>();
-			if (health->hp < health->hp_max)
-				health->add(health->hp_max - health->hp);
+			i.item()->get<Health>()->add(BATTERY_HEALTH / 2);
 
 			if (i.item()->team != AI::TeamNone)
 			{
@@ -1119,7 +1118,7 @@ template<typename T> void minion_spawn_all(const Update& u, PlayerManager* (*own
 	const r32 minion_initial_delay = Game::session.type == SessionType::Story
 		? 3.0f
 		: 60.0f;
-	const r32 minion_spawn_interval = 10.0f; // time between individual minions spawning
+	const r32 minion_spawn_interval = 12.0f; // time between individual minions spawning
 	const r32 minion_group_interval = minion_spawn_interval * 12.0f; // time between minion groups spawning; must be a multiple of minion_spawn_interval
 
 	for (auto i = T::list.iterator(); !i.is_last() && Minion::list.count() < MAX_MINIONS; i.next())

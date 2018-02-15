@@ -1744,24 +1744,10 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			// fill team lookup table
 			{
 				s32 offset;
-				if (level.mode == Mode::Pvp)
-				{
-					if (session.type == SessionType::Story)
-					{
-						if (story_mode_team == StoryModeTeam::Defend)
-							offset = 0; // put local player on team 0 (defenders)
-						else
-							offset = 1; // put local player on team 1 (attackers)
-					}
-					else
-					{
-						// shuffle teams and make sure they're packed in the array starting at 0
-						b8 lock_teams = Json::get_s32(element, "lock_teams");
-						offset = lock_teams ? 0 : mersenne::rand() % session.config.team_count;
-					}
-				}
+				if (level.mode == Mode::Pvp && session.config.game_type == GameType::Assault)
+					offset = mersenne::rand() % session.config.team_count; // shuffle teams and make sure they're packed in the array starting at 0
 				else
-					offset = 1; // local player is always on team 1 (attackers) in Parkour or Special mode
+					offset = 0;
 				for (s32 i = 0; i < MAX_TEAMS; i++)
 					level.team_lookup[i] = AI::Team((offset + i) % session.config.team_count);
 			}
@@ -1791,7 +1777,21 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				{
 					if (session.local_player_mask & (1 << i))
 					{
-						AI::Team team = team_lookup(level.team_lookup, i % session.config.team_count);
+						AI::Team team;
+						if (session.type == SessionType::Story)
+						{
+							if (level.mode == Mode::Pvp)
+							{
+								if (story_mode_team == StoryModeTeam::Defend)
+									team = 0; // put local player on team 0 (defenders)
+								else
+									team = 1; // put local player on team 1 (attackers)
+							}
+							else
+								team = team_lookup(level.team_lookup, 0);
+						}
+						else
+							team = team_lookup(level.team_lookup, i % session.config.team_count);
 
 						char username[MAX_USERNAME + 1] = {};
 						snprintf(username, MAX_USERNAME, _(strings::player), i + 1);
@@ -1909,15 +1909,6 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				link = link->next;
 			}
 		}
-		else if (cJSON_HasObjectItem(element, "Minion"))
-		{
-			if (level.mode == Mode::Parkour)
-			{
-				// starts out owned by player if the zone is friendly
-				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
-				entity = World::alloc<MinionEntity>(absolute_pos, absolute_rot, team);
-			}
-		}
 		else if (cJSON_HasObjectItem(element, "SpawnPoint"))
 		{
 			AI::Team team = AI::Team(Json::get_s32(element, "team", AI::TeamNone));
@@ -1925,6 +1916,9 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				|| level.mode == Mode::Parkour
 				|| s32(team) >= Team::list.count())
 				team = AI::TeamNone;
+
+			if (team != AI::TeamNone)
+				team = team_lookup(level.team_lookup, team);
 
 			entity = World::alloc<SpawnPointEntity>(team, Json::get_s32(element, "visible", 1));
 		}
@@ -2402,18 +2396,22 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			// sort battery spawns
 			struct BatterySpawnPointComparator
 			{
+				b8 reverse; // if teams are flipped, then battery spawns should be flipped too
+
 				s32 compare(const BatterySpawnPoint& a, const BatterySpawnPoint& b)
 				{
+					s32 direction = reverse ? -1 : 1;
 					if (a.order > b.order)
-						return 1;
+						return 1 * direction;
 					else if (a.order == b.order)
 						return 0;
 					else
-						return -1;
+						return -1 * direction;
 				}
 			};
 
 			BatterySpawnPointComparator comparator;
+			comparator.reverse = level.team_lookup[0] != 0;
 			Quicksort::sort<BatterySpawnPoint, BatterySpawnPointComparator>(level.battery_spawns.data, 0, level.battery_spawns.length, &comparator);
 		}
 		else

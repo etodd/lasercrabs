@@ -625,15 +625,10 @@ void Minion::update_server(const Update& u)
 		{
 			target_scan_timer = TARGET_SCAN_TIME;
 
-			b8 allow_new_target = !goal.entity.ref()
-				|| !goal.entity.ref()->has<PlayerCommon>()
-				|| force_field_between_me_and_target(this)
-				|| (path.length > 0 && path_index >= path.length);
-
-			if (allow_new_target)
+			Entity* target_candidate = visible_target(this, get<AIAgent>()->team);
+			if (target_candidate != goal.entity.ref())
 			{
-				Entity* target_candidate = visible_target(this, get<AIAgent>()->team);
-				if (target_candidate && target_candidate != goal.entity.ref())
+				if (target_candidate || path_index >= path.length)
 				{
 					// look, a shiny!
 					path.length = 0;

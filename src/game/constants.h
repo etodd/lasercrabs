@@ -156,11 +156,10 @@
 #define MINION_MELEE_RANGE 2.5f
 #define MINION_HEALTH 6
 
-#define RECTIFIER_HEAL_INTERVAL 4.0f
-#define RECTIFIER_HEAL_MAX_CONCURRENT 6
-#define RECTIFIER_STEALTH_TIME 2.0f
+#define RECTIFIER_HEAL_INTERVAL 1.0f
+#define RECTIFIER_HEAL_MAX_CONCURRENT 4
+#define RECTIFIER_STEALTH_TIME 1.0f
 #define ABILITY_UNSTEALTH_TIME 0.3f // time after using an ability when stealth is disabled (ish, it's actually longer than this)
-#define RECTIFIER_TRACK_TIME 1.5f
 #define RECTIFIER_RANGE 11.0f
 #define RECTIFIER_RADIUS 0.2f
 #define RECTIFIER_HEALTH 1

@@ -726,8 +726,9 @@ b8 PlayerControlAI::aim_and_shoot_location(const Update& u, const AI::DronePathN
 b8 default_filter(const PlayerControlAI* control, const Entity* e)
 {
 	AI::Team team = control->get<AIAgent>()->team;
-	return ForceField::hash(team, control->get<Transform>()->absolute_pos())
-		== ForceField::hash(team, e->get<Transform>()->absolute_pos());
+	return e->has<ForceField>()
+		|| (ForceField::hash(team, control->get<Transform>()->absolute_pos())
+			== ForceField::hash(team, e->get<Transform>()->absolute_pos()));
 }
 
 b8 battery_filter(const PlayerControlAI* control, const Entity* e)
@@ -755,6 +756,22 @@ MemoryStatus minion_memory_filter(const PlayerControlAI* control, const Entity* 
 MemoryStatus rectifier_memory_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (e->get<Rectifier>()->team == control->get<AIAgent>()->team || e->has<Battery>())
+		return MemoryStatus::Forget;
+	else
+		return MemoryStatus::Update;
+}
+
+MemoryStatus minion_spawner_memory_filter(const PlayerControlAI* control, const Entity* e)
+{
+	if (e->get<MinionSpawner>()->team == control->get<AIAgent>()->team)
+		return MemoryStatus::Forget;
+	else
+		return MemoryStatus::Update;
+}
+
+MemoryStatus turret_memory_filter(const PlayerControlAI* control, const Entity* e)
+{
+	if (e->get<Turret>()->team == control->get<AIAgent>()->team)
 		return MemoryStatus::Forget;
 	else
 		return MemoryStatus::Update;
@@ -884,6 +901,8 @@ void PlayerControlAI::update_memory()
 	update_component_memory<Rectifier>(this, &rectifier_memory_filter);
 	update_component_memory<ForceField>(this, &default_memory_filter);
 	update_component_memory<Drone>(this, &drone_memory_filter);
+	update_component_memory<MinionSpawner>(this, &minion_spawner_memory_filter);
+	update_component_memory<Turret>(this, &turret_memory_filter);
 }
 
 void PlayerControlAI::set_path(const AI::DronePath& p)
@@ -1076,16 +1095,13 @@ void PlayerControlAI::actions_populate()
 						break;
 					}
 					case AI::RecordedLife::EntityTurretEnemy:
+					case AI::RecordedLife::EntityMinionSpawnerEnemy:
 					case AI::RecordedLife::EntityRectifierEnemy:
 					case AI::RecordedLife::EntityForceFieldEnemy:
-					{
 						break;
-					}
 					default:
-					{
 						vi_assert(false);
 						break;
-					}
 				}
 
 				AI::RecordedLife::Action action;

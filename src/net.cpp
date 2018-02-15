@@ -3052,10 +3052,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			break;
 		}
 		default:
-		{
-			vi_debug("%s", "Discarding packet due to invalid packet type.");
 			net_error();
-		}
+			break;
 	}
 
 	return true;
@@ -4533,10 +4531,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			break;
 		}
 		default:
-		{
-			vi_debug("%s", "Discarding packet due to invalid packet type.");
 			net_error();
-		}
+			break;
 	}
 
 	return true;
@@ -4782,8 +4778,6 @@ void packet_read(const Update& u, PacketEntry* entry)
 		Client::packet_handle(u, &entry->packet, entry->address);
 #endif
 	}
-	else
-		vi_debug("%s", "Discarding packet due to invalid checksum.");
 }
 
 void update_start(const Update& u)

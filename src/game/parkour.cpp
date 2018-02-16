@@ -36,7 +36,7 @@ namespace VI
 #define JUMP_SPEED 5.0f
 #define COLLECTIBLE_RADIUS 1.0f
 
-#define JUMP_GRACE_PERIOD 0.3f
+#define JUMP_GRACE_PERIOD 0.35f
 
 #define TILE_CREATE_RADIUS 4.5f
 

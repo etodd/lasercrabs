@@ -1134,7 +1134,7 @@ template<typename T> void minion_spawn_all(const Update& u, PlayerManager* (*own
 				{
 					Vec3 pos;
 					Quat rot;
-					i.item()->get<Transform>()->absolute(&pos, &rot);
+					i.item()->template get<Transform>()->absolute(&pos, &rot);
 					pos += rot * Vec3(0, 0, 2.0f);
 					pos.y -= 2.0f;
 					ParticleEffect::spawn(ParticleEffect::Type::SpawnMinion, pos, Quat::identity, nullptr, owner_get(i.item()), i.item()->team);

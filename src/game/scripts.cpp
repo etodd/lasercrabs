@@ -673,7 +673,8 @@ namespace Docks
 	{
 		if (data->state == TutorialState::Start
 			|| data->state == TutorialState::DadaSpotted
-			|| data->state == TutorialState::DadaTalking)
+			|| data->state == TutorialState::DadaTalking
+			|| data->state == TutorialState::DadaDone)
 		{
 			data->dada->highlight = false;
 			data->state = TutorialState::Jump;

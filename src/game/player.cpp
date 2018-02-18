@@ -1125,8 +1125,7 @@ void PlayerHuman::update(const Update& u)
 			kill_cam_rot = camera.ref()->rot;
 			if (UpgradeStation::drone_at(entity->get<Drone>())
 				&& get<PlayerManager>()->can_transition_state()
-				&& (Game::session.config.ruleset.upgrades_default || get<PlayerManager>()->energy > 0)
-				&& !entity->get<Drone>()->flag.ref())
+				&& (Game::session.config.ruleset.upgrades_default || get<PlayerManager>()->energy > 0))
 			{
 				if (chat_focus == ChatFocus::None && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 					upgrade_menu_show();

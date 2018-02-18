@@ -213,7 +213,6 @@ void Ruleset::init()
 	{
 		// Arcade
 		Ruleset* ruleset = &presets[s32(Preset::Arcade)];
-		ruleset->spawn_delay = 5;
 		ruleset->enable_batteries = false;
 		ruleset->upgrades_allow = 0;
 		ruleset->upgrades_default = (1 << s32(Upgrade::count)) - 1;

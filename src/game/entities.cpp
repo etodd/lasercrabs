@@ -1208,6 +1208,15 @@ b8 UpgradeStation::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					if (ref.ref()->drone.ref() != d)
 					{
+						// drone must drop flag if it's holding one
+						if (Game::level.local)
+						{
+							Flag* flag = d->flag.ref();
+							if (flag)
+								flag->drop();
+						}
+						d->flag = nullptr;
+
 						ref.ref()->drone = d;
 						ref.ref()->timer = UPGRADE_STATION_ANIM_TIME - ref.ref()->timer;
 						ref.ref()->mode = Mode::Activating;
@@ -1409,7 +1418,7 @@ RectifierEntity::RectifierEntity(PlayerManager* owner, const Vec3& abs_pos, cons
 }
 
 Rectifier::Rectifier(AI::Team t, PlayerManager* o)
-	: team(t), owner(o), stealth()
+	: team(t), owner(o)
 {
 }
 
@@ -1630,26 +1639,6 @@ void Rectifier::set_team(AI::Team t)
 	team = t;
 	get<View>()->team = s8(t);
 	get<PointLight>()->team = s8(t);
-}
-
-void Rectifier::set_stealth(b8 enable)
-{
-	if (stealth != enable)
-	{
-		if (enable)
-		{
-			get<View>()->alpha();
-			get<View>()->color.w = 0.7f;
-			get<View>()->mask = 1 << s32(team); // only display to fellow teammates
-		}
-		else
-		{
-			get<View>()->alpha_disable();
-			get<View>()->color.w = MATERIAL_NO_OVERRIDE;
-			get<View>()->mask = RENDER_MASK_DEFAULT; // display to everyone
-		}
-		stealth = enable;
-	}
 }
 
 // returns true if given team can see the given position
@@ -1903,9 +1892,8 @@ void Flag::update_server(const Update& u)
 				get<Transform>()->parent = nullptr;
 				get<Transform>()->pos = pos_cached = flag_base_pos(Team::list[team].flag_base.ref());
 
-				// rebuild all force fields
-				for (auto i = Team::list.iterator(); !i.is_last(); i.next())
-					flag_build_force_field(i.item()->flag_base.ref(), i.item()->team());
+				// rebuild enemy force field
+				flag_build_force_field(Team::list[team].flag_base.ref(), team);
 				break;
 			}
 		}
@@ -2550,8 +2538,7 @@ b8 Turret::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 b8 Turret::can_see(Entity* target) const
 {
-	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth == 1.0f)
-		|| (target->has<Rectifier>() && target->get<Rectifier>()->stealth == 1.0f))
+	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth == 1.0f))
 		return false;
 
 	Vec3 pos = get<Transform>()->absolute_pos();
@@ -2800,18 +2787,6 @@ void ForceField::killed(Entity* e)
 		PlayerManager::entity_killed_by(entity(), e);
 	}
 
-	if (Game::level.local)
-	{
-		if (is_flag_force_field())
-		{
-			for (auto i = list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item() != this && i.item()->is_flag_force_field())
-					i.item()->get<Health>()->kill(nullptr);
-			}
-		}
-	}
-
 	if (has<View>())
 	{
 		if (Game::level.local)
@@ -2915,7 +2890,7 @@ void ForceField::update_all(const Update& u)
 			}
 
 			if (Game::level.local && blend == 1.0f && hp == 0)
-				World::remove(i.item()->entity());
+				World::remove_deferred(i.item()->entity());
 		}
 		else
 		{

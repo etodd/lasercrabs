@@ -144,7 +144,7 @@ struct Ruleset
 	s16 upgrades_default;
 	s16 start_energy = ENERGY_INITIAL;
 	StaticArray<Ability, MAX_ABILITIES> start_abilities;
-	s8 spawn_delay = 8;
+	s8 spawn_delay = 5;
 	s8 drone_shield = DRONE_SHIELD_AMOUNT;
 	u8 cooldown_speed_index = 4; // multiply by 0.25 to get actual value
 	b8 enable_batteries = true;

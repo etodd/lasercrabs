@@ -919,7 +919,6 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone, b8 check_force_fields) 
 {
 	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth == 1.0f)
 		|| (target->has<Drone>() && target->get<Drone>()->state() != Drone::State::Crawl)
-		|| (target->has<Rectifier>() && target->get<Rectifier>()->stealth)
 		|| target == carrying.ref())
 		return false;
 

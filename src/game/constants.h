@@ -16,7 +16,7 @@
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 25
+#define GAME_VERSION 26
 
 #define STEAM_APP_ID 728100
 #define DISCORD_APP_ID "367724608469860353"
@@ -147,9 +147,9 @@
 #define TURRET_RANGE (DRONE_MAX_DISTANCE - TURRET_RADIUS - DRONE_SHIELD_RADIUS)
 #define TURRET_COOLDOWN 1.5f
 
-#define FLAG_RESTORE_TIME 30.0f
+#define FLAG_RESTORE_TIME 20.0f
 
-#define MINION_HEAD_RADIUS 0.35f
+#define MINION_HEAD_RADIUS 0.4f
 #define MINION_ATTACK_TIME 2.0f
 #define MINION_HEARING_RANGE 8.0f
 #define MINION_VISION_RANGE (DRONE_MAX_DISTANCE * 0.8f)
@@ -162,7 +162,7 @@
 #define ABILITY_UNSTEALTH_TIME 0.3f // time after using an ability when stealth is disabled (ish, it's actually longer than this)
 #define RECTIFIER_RANGE 11.0f
 #define RECTIFIER_RADIUS 0.2f
-#define RECTIFIER_HEALTH 1
+#define RECTIFIER_HEALTH 6
 
 #define BATTERY_HEALTH 6
 #define BATTERY_ENERGY_INCREMENT 48

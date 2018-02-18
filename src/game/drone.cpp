@@ -362,32 +362,39 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 		Vec3 intersection_dir = Vec3::normalize(intersection - target_pos);
 		r32 dot = intersection_dir.dot(ray_dir);
 
-		if (drone->current_ability == Ability::Sniper)
+		if (target_shield->has<ForceField>())
+		{
+			if (drone->current_ability == Ability::Sniper)
+				result = 8;
+			else
+				result = 5;
+		}
+		else if (drone->current_ability == Ability::Sniper)
 		{
 			// require more precision
-			if (dot < -0.9f)
+			if (dot < -0.85f)
 				result = 3;
-			else if (dot < -0.8f)
+			else if (dot < -0.75f)
 				result = 2;
 
-			if (target_shield->has<ForceField>()
-				|| target_shield->has<MinionSpawner>()
+			if (target_shield->has<MinionSpawner>()
+				|| target_shield->has<Rectifier>()
 				|| target_shield->has<Turret>())
 				result *= 2;
 		}
 		else
 		{
 			// flying hit; be more tolerant
-			if (dot < -0.8f)
+			if (dot < -0.75f)
 				result = 3;
 			else
 				result = 2;
 		}
 
-		if (target_shield->has<Rectifier>()
-			|| target_shield->has<ForceField>()
-			|| target_shield->has<MinionSpawner>()
-			|| target_shield->has<Turret>())
+		if (target_shield->has<MinionSpawner>()
+			|| target_shield->has<Rectifier>()
+			|| target_shield->has<Turret>()
+			|| target_shield->has<ForceField>())
 			result *= 2;
 	}
 	else

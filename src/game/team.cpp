@@ -106,11 +106,11 @@ AssetID Team::name_long(AI::Team t)
 AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 {
 	{
-		0.265f, // movement cooldown
+		0.25f, // movement cooldown
 		0.3f, // switch cooldown
 		0.0f, // use cooldown
 		0.0f, // use cooldown threshold
-		0.7f, // recoil velocity
+		0.65f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BOLTER,
 		Asset::Mesh::icon_bolter,
 		Type::Shoot,
@@ -126,7 +126,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Other,
 	},
 	{
-		DRONE_COOLDOWN_MAX, // movement cooldown
+		2.1f, // movement cooldown
 		0.3f, // switch cooldown
 		20.0f, // use cooldown
 		10.0f, // use cooldown threshold
@@ -136,7 +136,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Build,
 	},
 	{
-		DRONE_COOLDOWN_MAX, // movement cooldown
+		2.1f, // movement cooldown
 		0.5f, // switch cooldown
 		40.0f, // use cooldown
 		20.0f, // use cooldown threshold
@@ -146,7 +146,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Build,
 	},
 	{
-		DRONE_COOLDOWN_MAX, // movement cooldown
+		2.1f, // movement cooldown
 		0.5f, // switch cooldown
 		40.0f, // use cooldown
 		20.0f, // use cooldown threshold
@@ -166,7 +166,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{
-		2.35f, // movement cooldown
+		2.1f, // movement cooldown
 		0.5f, // switch cooldown
 		0.0f, // use cooldown
 		0.0f, // use cooldown threshold
@@ -176,7 +176,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{
-		DRONE_COOLDOWN_MAX, // movement cooldown
+		2.1f, // movement cooldown
 		0.5f, // switch cooldown
 		30.0f, // use cooldown
 		15.0f, // use cooldown threshold
@@ -186,7 +186,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Build,
 	},
 	{
-		DRONE_COOLDOWN_MAX, // movement cooldown
+		2.1f, // movement cooldown
 		0.3f, // switch cooldown
 		15.0f, // use cooldown
 		7.5f, // use cooldown threshold
@@ -196,8 +196,8 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{ // Ability::None
-		2.1f, // movement cooldown
-		0.3f, // switch cooldown
+		2.0f, // movement cooldown
+		0.0f, // switch cooldown
 		0.0f, // use cooldown
 		0.0f, // use cooldown threshold
 		0.0f, // recoil velocity
@@ -213,63 +213,63 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::bolter,
 		strings::description_bolter,
 		Asset::Mesh::icon_bolter,
-		300,
+		200,
 		Type::Ability,
 	},
 	{
 		strings::active_armor,
 		strings::description_active_armor,
 		Asset::Mesh::icon_active_armor,
-		300,
+		200,
 		Type::Ability,
 	},
 	{
 		strings::rectifier,
 		strings::description_rectifier,
 		Asset::Mesh::icon_rectifier,
-		300,
+		200,
 		Type::Ability,
 	},
 	{
 		strings::minion_spawner,
 		strings::description_minion_spawner,
 		Asset::Mesh::icon_minion,
-		450,
+		350,
 		Type::Ability,
 	},
 	{
 		strings::turret,
 		strings::description_turret,
 		Asset::Mesh::icon_turret,
-		450,
+		350,
 		Type::Ability,
 	},
 	{
 		strings::shotgun,
 		strings::description_shotgun,
 		Asset::Mesh::icon_shotgun,
-		600,
+		500,
 		Type::Ability,
 	},
 	{
 		strings::sniper,
 		strings::description_sniper,
 		Asset::Mesh::icon_sniper,
-		600,
+		500,
 		Type::Ability,
 	},
 	{
 		strings::force_field,
 		strings::description_force_field,
 		Asset::Mesh::icon_force_field,
-		800,
+		650,
 		Type::Ability,
 	},
 	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
-		800,
+		650,
 		Type::Ability,
 	},
 };
@@ -515,19 +515,6 @@ void get_rectifier_visibility(b8 visibility[MAX_TEAMS], Entity* player_entity)
 
 void update_visibility(const Update& u)
 {
-	// update stealth states of rectifiers
-	for (auto i = Rectifier::list.iterator(); !i.is_last(); i.next())
-	{
-		if (!i.item()->has<Battery>())
-		{
-			Vec3 pos;
-			Quat rot;
-			i.item()->get<Transform>()->absolute(&pos, &rot);
-			Vec3 normal = rot * Vec3(0, 0, 1);
-			i.item()->set_stealth(!Rectifier::can_see(~(1 << i.item()->team), pos - normal * RECTIFIER_RADIUS, normal));
-		}
-	}
-
 	// determine which drones are seen by which teams
 	// and update their stealth state
 	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
@@ -2374,7 +2361,7 @@ b8 PlayerManager::can_transition_state() const
 		return false;
 
 	Drone* drone = e->get<Drone>();
-	return drone->state() == Drone::State::Crawl && !drone->flag.ref();
+	return drone->state() == Drone::State::Crawl;
 }
 
 void PlayerManager::update_all(const Update& u)

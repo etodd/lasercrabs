@@ -214,14 +214,12 @@ struct Rectifier : public ComponentType<Rectifier>
 	Vec3 abs_pos_attached;
 	Ref<PlayerManager> owner;
 	AI::Team team;
-	b8 stealth;
 
 	Rectifier(AI::Team = AI::TeamNone, PlayerManager* = nullptr);
 	void awake();
 
 	void killed_by(Entity*);
 	void set_team(AI::Team);
-	void set_stealth(b8);
 };
 
 struct Flag : public ComponentType<Flag>

@@ -982,7 +982,7 @@ void Battery::update_all(const Update& u)
 
 		if (Game::level.local && increment)
 		{
-			i.item()->get<Health>()->add(BATTERY_HEALTH / 2);
+			i.item()->get<Health>()->add(BATTERY_HEALTH / 3);
 
 			if (i.item()->team != AI::TeamNone)
 			{

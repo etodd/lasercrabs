@@ -90,12 +90,11 @@ struct Minion : public ComponentType<Minion>
 	void fire(const Vec3&);
 	void killed(Entity*);
 	void update_server(const Update&);
-	void team(AI::Team);
 	b8 has_grenade() const;
 
 	b8 can_see(Entity*, b8 = false, b8 = true) const;
 
-	void new_goal(b8 = true);
+	void new_goal();
 	void set_path(const AI::Result&);
 	void turn_to(const Vec3&);
 };

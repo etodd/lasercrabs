@@ -98,18 +98,6 @@ Minion::~Minion()
 	}
 }
 
-void Minion::team(AI::Team t)
-{
-	// not synced over the network
-	if (t != get<AIAgent>()->team)
-	{
-		get<AIAgent>()->team = t;
-		get<SkinnedModel>()->team = s8(t);
-		if (Game::level.local)
-			get<Minion>()->new_goal(false); // don't allow entity targets; must be a random path
-	}
-}
-
 Minion* Minion::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
 	Minion* closest = nullptr;
@@ -626,16 +614,14 @@ void Minion::update_server(const Update& u)
 			target_scan_timer = TARGET_SCAN_TIME;
 
 			Entity* target_candidate = visible_target(this, get<AIAgent>()->team);
-			if (target_candidate != goal.entity.ref())
+			if (target_candidate != goal.entity.ref()
+				&& (target_candidate || path_index >= path.length))
 			{
-				if (target_candidate || path_index >= path.length)
-				{
-					// look, a shiny!
-					path.length = 0;
-					goal.type = Goal::Type::Target;
-					goal.entity = target_candidate;
-					target_timer = 0;
-				}
+				// look, a shiny!
+				path.length = 0;
+				goal.type = Goal::Type::Target;
+				goal.entity = target_candidate;
+				target_timer = 0;
 			}
 		}
 
@@ -675,34 +661,41 @@ void Minion::update_server(const Update& u)
 					// we're going after the target
 					if (can_see(g))
 					{
-						// turn to and attack the target
-						Vec3 hand_pos = aim_pos(get<Walker>()->rotation);
-						Vec3 aim_pos;
-						if (!g->get<Target>()->predict_intersection(hand_pos, BOLT_SPEED_MINION, nullptr, &aim_pos))
-							aim_pos = g->get<Target>()->absolute_pos();
-						turn_to(aim_pos);
-
-						Animator::Layer* anim_layer = &get<Animator>()->layers[0];
-
-						if (target_timer > MINION_ATTACK_TIME * 0.25f // give some reaction time
-							&& anim_layer->animation != Asset::Animation::character_melee
-							&& Team::match_state == Team::MatchState::Active)
+						AI::Team target_team;
+						AI::entity_info(g, get<AIAgent>()->team, &target_team);
+						if (target_team == AI::TeamNone || target_team == get<AIAgent>()->team) // it's friendly, find a new goal
+							new_goal();
+						else
 						{
-							if ((aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
+							// turn to and attack the target
+							Vec3 hand_pos = aim_pos(get<Walker>()->rotation);
+							Vec3 aim_pos;
+							if (!g->get<Target>()->predict_intersection(hand_pos, BOLT_SPEED_MINION, nullptr, &aim_pos))
+								aim_pos = g->get<Target>()->absolute_pos();
+							turn_to(aim_pos);
+
+							Animator::Layer* anim_layer = &get<Animator>()->layers[0];
+
+							if (target_timer > MINION_ATTACK_TIME * 0.25f // give some reaction time
+								&& anim_layer->animation != Asset::Animation::character_melee
+								&& Team::match_state == Team::MatchState::Active)
 							{
-								path.length = 0;
-								anim_layer->speed = 1.0f;
-								anim_layer->behavior = Animator::Behavior::Default;
-								anim_layer->play(Asset::Animation::character_melee);
-								attack_timer = 0.0f;
-							}
-							else if (!has_grenade())
-							{
-								if (can_attack
-									&& fabsf(LMath::angle_to(get<Walker>()->target_rotation, get<Walker>()->rotation)) < PI * 0.05f) // make sure we're looking at the target
-									fire(aim_pos);
-								else if (attack_timer == 0.0f)
-									attack_timer = MINION_ATTACK_TIME;
+								if ((aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
+								{
+									path.length = 0;
+									anim_layer->speed = 1.0f;
+									anim_layer->behavior = Animator::Behavior::Default;
+									anim_layer->play(Asset::Animation::character_melee);
+									attack_timer = 0.0f;
+								}
+								else if (!has_grenade())
+								{
+									if (can_attack
+										&& fabsf(LMath::angle_to(get<Walker>()->target_rotation, get<Walker>()->rotation)) < PI * 0.05f) // make sure we're looking at the target
+										fire(aim_pos);
+									else if (attack_timer == 0.0f)
+										attack_timer = MINION_ATTACK_TIME;
+								}
 							}
 						}
 					}
@@ -948,14 +941,14 @@ b8 Minion::can_see(Entity* target, b8 limit_vision_cone, b8 check_force_fields) 
 		&& (!has_grenade() || (aim_pos(get<Walker>()->rotation) - target_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE); // can only melee if holding a grenade
 }
 
-void Minion::new_goal(b8 allow_entity_target)
+void Minion::new_goal()
 {
-	Entity* target = allow_entity_target ? closest_target(this, get<AIAgent>()->team) : nullptr;
+	Entity* target = closest_target(this, get<AIAgent>()->team);
 	if (target != goal.entity.ref() || (!target && !goal.entity.ref()))
 	{
 		goal.entity = target;
 		auto path_callback = ObjectLinkEntryArg<Minion, const AI::Result&, &Minion::set_path>(id());
-		if (goal.entity.ref())
+		if (target)
 		{
 			goal.type = Goal::Type::Target;
 			if (!can_see(goal.entity.ref()))

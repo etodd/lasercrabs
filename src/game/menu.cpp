@@ -784,7 +784,7 @@ void pause_menu(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMen
 					teams_selected_player_friendship[gamepad] = FriendshipState::None;
 					menu->animate();
 				}
-				if (me->flag(PlayerManager::FlagIsAdmin) && menu->item(u, _(strings::levels)))
+				if (me->flag(PlayerManager::FlagIsAdmin) && menu->item(u, _(strings::next_level)))
 				{
 					*state = State::Maps;
 					maps_selected_map = AssetNull;

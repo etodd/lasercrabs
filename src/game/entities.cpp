@@ -776,6 +776,8 @@ void battery_spawn_force_field(Battery* b)
 
 void Battery::awake()
 {
+	if (Game::level.mode == Game::Mode::Pvp)
+		PlayerHuman::log_add(_(strings::battery_added));
 	link_arg<const TargetEvent&, &Battery::hit>(get<Target>()->target_hit);
 	link_arg<Entity*, &Battery::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &Battery::health_changed>(get<Health>()->changed);
@@ -3353,12 +3355,10 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 		{
 			case Type::DroneBolter:
 			{
-				if (hit_object->has<Battery>())
+				if (hit_object->has<Battery>() || hit_object->has<Minion>() || hit_object->has<ForceField>())
 					damage = 3;
 				else if (hit_object->has<Drone>())
 					damage = 1;
-				else if (hit_object->has<Minion>() || hit_object->has<ForceField>())
-					damage = 2;
 				else
 					damage = 1 + (mersenne::rand() % 2); // expected value: 1.5
 

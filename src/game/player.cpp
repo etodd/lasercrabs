@@ -82,6 +82,11 @@ r32 hp_width(u8 hp, s8 shield, r32 scale = 1.0f)
 	return scale * ((shield + (hp - 1)) * (box_size.x + HP_BOX_SPACING) - HP_BOX_SPACING);
 }
 
+inline b8 pvp_colors()
+{
+	return Settings::pvp_color_scheme == Settings::PvpColorScheme::Normal;
+}
+
 void PlayerHuman::camera_setup_drone(Drone* drone, Camera* camera, Vec3* camera_center, r32 offset)
 {
 	Quat abs_rot;
@@ -128,8 +133,7 @@ void PlayerHuman::camera_setup_drone(Drone* drone, Camera* camera, Vec3* camera_
 
 	camera->range_center = rot_inverse * (abs_pos - camera->pos);
 	camera->range = drone->range();
-	camera->flag(CameraFlagColors, true);
-	camera->flag(CameraFlagFog, true);
+	camera->flag(CameraFlagColors | CameraFlagFog, pvp_colors());
 
 	Vec3 wall_normal_viewspace = rot_inverse * abs_wall_normal;
 	camera->clip_planes[0].redefine(wall_normal_viewspace, camera->range_center + wall_normal_viewspace * -DRONE_RADIUS);
@@ -333,7 +337,7 @@ void PlayerHuman::awake()
 		camera = Camera::add(gamepad);
 		camera.ref()->team = s8(team);
 		camera.ref()->mask = 1 << camera.ref()->team;
-		camera.ref()->flag(CameraFlagColors, true);
+		camera.ref()->flag(CameraFlagColors | CameraFlagFog, pvp_colors());
 
 		camera.ref()->pos = MAP_VIEW_POS;
 		camera.ref()->rot = kill_cam_rot = MAP_VIEW_ROT;
@@ -975,7 +979,7 @@ void PlayerHuman::update(const Update& u)
 			Vec2(r32(s32(blueprint->x * r32(display.width))), r32(s32(blueprint->y * r32(display.height)))),
 			Vec2(r32(s32(blueprint->w * r32(display.width))), r32(s32(blueprint->h * r32(display.height)))),
 		};
-		camera.ref()->flag(CameraFlagColors, true);
+		camera.ref()->flag(CameraFlagColors | CameraFlagFog, pvp_colors());
 
 		if (entity || Game::level.noclip)
 			camera.ref()->flag(CameraFlagActive, true);
@@ -989,7 +993,6 @@ void PlayerHuman::update(const Update& u)
 				{
 					camera.ref()->cull_range = 0;
 					camera.ref()->flag(CameraFlagCullBehindWall, false);
-					camera.ref()->flag(CameraFlagFog, true);
 				}
 				if (flag(FlagUpgradeMenuOpen))
 					upgrade_menu_hide();
@@ -4874,15 +4877,11 @@ void PlayerControlHuman::update_late(const Update& u)
 			camera->flag(CameraFlagFog, true);
 			if (get<Parkour>()->flag(Parkour::FlagTryGrapple))
 			{
-				camera->flag(CameraFlagColors, true);
 				camera->range_center = camera->rot.inverse() * (get<Parkour>()->hand_pos() - camera->pos);
 				camera->range = GRAPPLE_RANGE;
 			}
 			else
-			{
-				camera->flag(CameraFlagColors, true);
 				camera->range = 0.0f;
-			}
 		}
 
 		{

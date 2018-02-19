@@ -218,7 +218,7 @@ struct ServerConfig
 	u32 id;
 	u32 creator_id;
 	StaticArray<AssetID, 32> levels;
-	s16 kill_limit = 10;
+	s16 kill_limit = 15;
 	s16 flag_limit = 3;
 	Ruleset ruleset;
 	Region region;
@@ -229,7 +229,7 @@ struct ServerConfig
 	s8 team_count = 2;
 	u8 time_limit_parkour_ready = 5;
 	s8 fill_bots; // if = 0, no bots. if > 0, total number of desired players including bots is fill_bots + 1
-	u8 time_limit_minutes[s32(GameType::count)] = { DEFAULT_ASSAULT_TIME_LIMIT_MINUTES, 10, 10, }; // Assault, Deathmatch, CaptureTheFlag
+	u8 time_limit_minutes[s32(GameType::count)] = { DEFAULT_ASSAULT_TIME_LIMIT_MINUTES, 10, 15, }; // Assault, Deathmatch, CaptureTheFlag
 	char name[MAX_SERVER_CONFIG_NAME + 1];
 	char secret[MAX_SERVER_CONFIG_SECRET + 1];
 	b8 is_private;

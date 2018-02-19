@@ -18,6 +18,13 @@ namespace Settings
 		count,
 	};
 
+	enum class PvpColorScheme : s8
+	{
+		Normal,
+		HighContrast,
+		count,
+	};
+
 	struct Gamepad
 	{
 		InputBinding bindings[s32(Controls::count)];
@@ -60,6 +67,7 @@ namespace Settings
 	extern u8 music;
 	extern u8 fov;
 	extern NetClientInterpolationMode net_client_interpolation_mode;
+	extern PvpColorScheme pvp_color_scheme;
 
 	inline r32 effective_fov()
 	{

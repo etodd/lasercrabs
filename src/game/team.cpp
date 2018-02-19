@@ -31,7 +31,12 @@ namespace TeamNet
 }
 
 const Vec4 Team::color_friend = Vec4(0.15f, 0.45f, 0.7f, MATERIAL_NO_OVERRIDE);
-const Vec4 Team::color_enemy = Vec4(1.0f, 0.2f, 0.6f, MATERIAL_NO_OVERRIDE);
+const Vec4 color_enemy_pvp = Vec4(1.0f, 0.3f, 0.4f, MATERIAL_NO_OVERRIDE);
+const Vec4 color_enemy_normal = Vec4(1.0f, 0.2f, 0.6f, MATERIAL_NO_OVERRIDE);
+const Vec4& Team::color_enemy()
+{
+	return Overworld::pvp_colors() ? color_enemy_pvp : color_enemy_normal;
+}
 
 const Vec4 ui_color_friend_pvp = Vec4(0.35f, 0.85f, 1.0f, 1);
 const Vec4 ui_color_friend_normal = Vec4(0.35f, 0.85f, 1.0f, 1);
@@ -116,7 +121,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Shoot,
 	},
 	{
-		2.75f, // cooldown
+		1.0f + (ACTIVE_ARMOR_TIME / DRONE_COOLDOWN_THRESHOLD_TIME) + 0.4f, // cooldown
 		0.0f, // switch cooldown
 		0.0f, // use cooldown
 		0.0f, // use cooldown threshold
@@ -128,7 +133,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		2.1f, // movement cooldown
 		0.3f, // switch cooldown
-		20.0f, // use cooldown
+		15.0f, // use cooldown
 		10.0f, // use cooldown threshold
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
@@ -138,8 +143,8 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		2.1f, // movement cooldown
 		0.3f, // switch cooldown
-		40.0f, // use cooldown
-		20.0f, // use cooldown threshold
+		20.0f, // use cooldown
+		10.0f, // use cooldown threshold
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_minion,
@@ -148,8 +153,8 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		2.1f, // movement cooldown
 		0.3f, // switch cooldown
-		40.0f, // use cooldown
-		20.0f, // use cooldown threshold
+		20.0f, // use cooldown
+		10.0f, // use cooldown threshold
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_turret,
@@ -188,8 +193,8 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		2.1f, // movement cooldown
 		0.3f, // switch cooldown
-		15.0f, // use cooldown
-		7.5f, // use cooldown threshold
+		10.0f, // use cooldown
+		5.0f, // use cooldown threshold
 		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_GRENADE,
 		Asset::Mesh::icon_grenade,
@@ -213,63 +218,63 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::bolter,
 		strings::description_bolter,
 		Asset::Mesh::icon_bolter,
-		200,
+		150,
 		Type::Ability,
 	},
 	{
 		strings::active_armor,
 		strings::description_active_armor,
 		Asset::Mesh::icon_active_armor,
-		200,
+		150,
 		Type::Ability,
 	},
 	{
 		strings::rectifier,
 		strings::description_rectifier,
 		Asset::Mesh::icon_rectifier,
-		200,
+		150,
 		Type::Ability,
 	},
 	{
 		strings::minion_spawner,
 		strings::description_minion_spawner,
 		Asset::Mesh::icon_minion,
-		350,
+		250,
 		Type::Ability,
 	},
 	{
 		strings::turret,
 		strings::description_turret,
 		Asset::Mesh::icon_turret,
-		350,
+		250,
 		Type::Ability,
 	},
 	{
 		strings::shotgun,
 		strings::description_shotgun,
 		Asset::Mesh::icon_shotgun,
-		500,
+		350,
 		Type::Ability,
 	},
 	{
 		strings::sniper,
 		strings::description_sniper,
 		Asset::Mesh::icon_sniper,
-		500,
+		350,
 		Type::Ability,
 	},
 	{
 		strings::force_field,
 		strings::description_force_field,
 		Asset::Mesh::icon_force_field,
-		650,
+		450,
 		Type::Ability,
 	},
 	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
-		650,
+		450,
 		Type::Ability,
 	},
 };

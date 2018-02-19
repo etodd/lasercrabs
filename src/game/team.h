@@ -87,7 +87,7 @@ struct Team : public ComponentType<Team>
 
 	static const Vec4& ui_color_enemy();
 	static const Vec4& ui_color_friend();
-	static const Vec4 color_enemy;
+	static const Vec4& color_enemy();
 	static const Vec4 color_friend;
 	static StaticArray<ScoreSummaryItem, MAX_PLAYERS * PLAYER_SCORE_SUMMARY_ITEMS> score_summary;
 	static r32 game_over_real_time;
@@ -125,7 +125,7 @@ struct Team : public ComponentType<Team>
 
 	static inline const Vec4& color(AI::Team me, AI::Team them)
 	{
-		return me == them ? color_friend : color_enemy;
+		return me == them ? color_friend : color_enemy();
 	}
 
 	Ref<Target> spot_target;

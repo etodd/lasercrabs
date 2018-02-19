@@ -58,8 +58,9 @@ enum class MessageType : s8
 
 struct TransformState
 {
-	Vec3 pos;
 	Quat rot;
+	Vec3 pos;
+	Vec3 local_offset;
 	Ref<Transform> parent;
 	Revision revision;
 	Resolution resolution;
@@ -232,7 +233,7 @@ StreamWrite* msg_new_local(MessageType);
 b8 msg_finalize(StreamWrite*);
 r32 rtt(const PlayerHuman*);
 b8 state_frame_by_timestamp(StateFrame*, r32);
-void transform_absolute(const StateFrame&, s32, Vec3*, Quat* = nullptr);
+void transform_absolute(const StateFrame&, s32, Vec3*, Quat* = nullptr, Vec3* = nullptr);
 r32 timestamp();
 b8 player_is_admin(const PlayerHuman*);
 

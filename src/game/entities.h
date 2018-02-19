@@ -90,7 +90,6 @@ struct Shield : public ComponentType<Shield>
 
 	void update_client(const Update&);
 	void health_changed(const HealthEvent&);
-	void set_team(AI::Team);
 };
 
 struct SpawnPoint;
@@ -219,7 +218,6 @@ struct Rectifier : public ComponentType<Rectifier>
 	void awake();
 
 	void killed_by(Entity*);
-	void set_team(AI::Team);
 };
 
 struct Flag : public ComponentType<Flag>
@@ -341,7 +339,6 @@ struct Turret : public ComponentType<Turret>
 	void update_server(const Update&);
 	void check_target();
 	b8 can_see(Entity*) const;
-	void set_team(AI::Team);
 };
 
 struct ForceField;
@@ -396,7 +393,6 @@ struct ForceField : public ComponentType<ForceField>
 	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 	void destroy();
-	void set_team(AI::Team);
 	b8 is_flag_force_field() const;
 	b8 contains(const Vec3&) const;
 	Vec3 base_pos() const;

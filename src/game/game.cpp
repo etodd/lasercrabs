@@ -700,7 +700,6 @@ void Game::update(InputState* input, const InputState* last_input)
 
 		MinionSpawner::update_all(u);
 		Turret::update_all(u);
-		MinionSpawner::update_all(u);
 
 		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
@@ -2475,12 +2474,14 @@ void Game::awake_all()
 			Loader::animation(Asset::Animation::drone_dash);
 			Loader::animation(Asset::Animation::drone_fly);
 			Loader::animation(Asset::Animation::drone_idle);
-			Loader::mesh(Asset::Mesh::rectifier);
+			Loader::mesh(Asset::Mesh::rectifier_normal);
+			Loader::mesh(Asset::Mesh::rectifier_attached);
 			Loader::mesh(Asset::Mesh::force_field_base);
 			Loader::mesh(Asset::Mesh::force_field_base_attached);
 			Loader::mesh(Asset::Mesh::force_field_sphere);
 			Loader::mesh(Asset::Mesh::minion_spawner_main);
 			Loader::mesh(Asset::Mesh::minion_spawner_attached);
+			Loader::mesh(Asset::Mesh::turret);
 
 			Loader::mesh(Asset::Mesh::grenade_attached);
 			Loader::mesh(Asset::Mesh::grenade_detached);

@@ -57,6 +57,7 @@ namespace Settings
 	b8 quick_combat_unlocked;
 	b8 parkour_reticle;
 	NetClientInterpolationMode net_client_interpolation_mode;
+	PvpColorScheme pvp_color_scheme;
 
 	const DisplayMode& display()
 	{
@@ -273,6 +274,7 @@ void Loader::settings_load(const Array<DisplayMode>& modes, const DisplayMode& c
 	Settings::music = u8(Json::get_s32(json, "music", 100));
 	Settings::framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", 300));
 	Settings::net_client_interpolation_mode = Settings::NetClientInterpolationMode(vi_max(0, vi_min(s32(Settings::NetClientInterpolationMode::count) - 1, Json::get_s32(json, "net_client_interpolation_mode"))));
+	Settings::pvp_color_scheme = Settings::PvpColorScheme(vi_max(0, vi_min(s32(Settings::PvpColorScheme::count) - 1, Json::get_s32(json, "pvp_color_scheme"))));
 	Settings::shadow_quality = Settings::ShadowQuality(vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", s32(Settings::ShadowQuality::High)), s32(Settings::ShadowQuality::count) - 1)));
 	Settings::region = Region(Json::get_s32(json, "region", s32(Region::Invalid)));
 	if (s32(Settings::region) < 0 || s32(Settings::region) >= s32(Region::count))
@@ -371,6 +373,7 @@ void Loader::settings_save()
 		cJSON_AddStringToObject(json, "itch_api_key", Settings::itch_api_key);
 	cJSON_AddNumberToObject(json, "framerate_limit", Settings::framerate_limit);
 	cJSON_AddNumberToObject(json, "net_client_interpolation_mode", s32(Settings::net_client_interpolation_mode));
+	cJSON_AddNumberToObject(json, "pvp_color_scheme", s32(Settings::pvp_color_scheme));
 	cJSON_AddNumberToObject(json, "width", Settings::display().width);
 	cJSON_AddNumberToObject(json, "height", Settings::display().height);
 	cJSON_AddNumberToObject(json, "fullscreen", s32(Settings::window_mode));

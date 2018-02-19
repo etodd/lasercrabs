@@ -1824,6 +1824,10 @@ void state_frame_build(StateFrame* frame)
 			transform->rot = i.item()->rot;
 			transform->parent = i.item()->parent.ref(); // ID must come out to IDNull if it's null; don't rely on revision to null the reference
 			transform->resolution = transform_resolution(i.item());
+			if (i.item()->has<Target>())
+				transform->local_offset = i.item()->get<Target>()->local_offset;
+			else
+				transform->local_offset = Vec3::zero;
 		}
 	}
 
@@ -1883,21 +1887,26 @@ void state_frame_build(StateFrame* frame)
 }
 
 // get the absolute pos and rot of the given transform
-void transform_absolute(const StateFrame& frame, s32 index, Vec3* abs_pos, Quat* abs_rot)
+void transform_absolute(const StateFrame& frame, s32 index, Vec3* abs_pos, Quat* abs_rot, Vec3* local_offset)
 {
 	if (abs_rot)
 		*abs_rot = Quat::identity;
 	*abs_pos = Vec3::zero;
+	if (local_offset)
+	{
+		vi_assert(index >= 0 && index < MAX_ENTITIES);
+		*local_offset = frame.transforms[index].local_offset;
+	}
 	while (index != IDNull)
 	{ 
 		if (frame.transforms_active.get(index))
 		{
 			// this transform is being tracked with the dynamic transform system
-			const TransformState* transform = &frame.transforms[index];
+			const TransformState& transform = frame.transforms[index];
 			if (abs_rot)
-				*abs_rot = transform->rot * *abs_rot;
-			*abs_pos = (transform->rot * *abs_pos) + transform->pos;
-			index = transform->parent.id;
+				*abs_rot = transform.rot * *abs_rot;
+			*abs_pos = (transform.rot * *abs_pos) + transform.pos;
+			index = transform.parent.id;
 		}
 		else
 		{
@@ -1906,6 +1915,13 @@ void transform_absolute(const StateFrame& frame, s32 index, Vec3* abs_pos, Quat*
 			if (abs_rot)
 				*abs_rot = transform->rot * *abs_rot;
 			*abs_pos = (transform->rot * *abs_pos) + transform->pos;
+			if (local_offset)
+			{
+				if (transform->has<Target>())
+					*local_offset = transform->get<Target>()->local_offset;
+				else
+					*local_offset = Vec3::zero;
+			}
 			index = transform->parent.ref() ? transform->parent.id : IDNull;
 		}
 	}
@@ -1966,6 +1982,7 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 				{
 					transform->pos = Vec3::lerp(blend, last.pos, next.pos);
 					transform->rot = Quat::slerp(blend, last.rot, next.rot);
+					transform->local_offset = Vec3::lerp(blend, last.local_offset, next.local_offset);
 				}
 				else
 				{
@@ -1978,12 +1995,14 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 
 					transform->pos = Vec3::lerp(blend, last_pos, next.pos);
 					transform->rot = Quat::slerp(blend, last_rot, next.rot);
+					transform->local_offset = Vec3::lerp(blend, last.local_offset, next.local_offset);
 				}
 			}
 			else
 			{
 				transform->pos = next.pos;
 				transform->rot = next.rot;
+				transform->local_offset = next.local_offset;
 			}
 			index = b.transforms_active.next(index);
 		}
@@ -3919,7 +3938,7 @@ void update(const Update& u, r32 dt)
 		if (state_client.mode == Mode::Disconnected)
 			Console::debug("%s", "Disconnected");
 		else
-			Console::debug("%.0fkbps down | %.0fkbps up | %.0fms rtt | %.0fms interp", state_common.bandwidth_in * 8.0f / 500.0f, state_common.bandwidth_out * 8.0f / 500.0f, state_client.server_rtt * 1000.0f, interpolation_delay(nullptr) * 1000.0f);
+			Console::debug("%.0fkbps down | %.0fkbps up | %.0fms rtt | %.0fms interp | %.0f jitter", state_common.bandwidth_in * 8.0f / 500.0f, state_common.bandwidth_out * 8.0f / 500.0f, state_client.server_rtt * 1000.0f, interpolation_delay(nullptr) * 1000.0f, state_client.lag_score);
 	}
 
 	if (state_client.mode == Mode::Disconnected)
@@ -3935,7 +3954,7 @@ void update(const Update& u, r32 dt)
 			if (state_frame_next(state_common.state_history, *frame))
 				state_client.lag_score = vi_max(0.0f, state_client.lag_score - dt);
 			else
-				state_client.lag_score = vi_min(80.0f, state_client.lag_score + 5.0f * dt / tick_rate());
+				state_client.lag_score = vi_min(80.0f, state_client.lag_score + 4.0f * dt / tick_rate());
 
 			switch (Settings::net_client_interpolation_mode)
 			{

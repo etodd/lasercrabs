@@ -451,15 +451,6 @@ void Shield::awake()
 }
 
 // not synced over network
-void Shield::set_team(AI::Team team)
-{
-	if (inner.ref())
-	{
-		inner.ref()->team = s8(team);
-		outer.ref()->team = s8(team);
-	}
-}
-
 Shield::~Shield()
 {
 	if (Game::level.local)
@@ -775,12 +766,22 @@ void Battery::sort_all(const Vec3& pos, Array<Ref<Battery>>* result, b8 closest_
 	Quicksort::sort<Ref<Battery>, Comparator>(result->data, 0, result->length, &key);
 }
 
+void battery_spawn_force_field(Battery* b)
+{
+	Vec3 pos;
+	Quat rot;
+	b->spawn_point.ref()->get<Transform>()->absolute(&pos, &rot);
+	ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, pos + rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), rot, nullptr, nullptr, b->team);
+}
+
 void Battery::awake()
 {
 	link_arg<const TargetEvent&, &Battery::hit>(get<Target>()->target_hit);
 	link_arg<Entity*, &Battery::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &Battery::health_changed>(get<Health>()->changed);
 	set_team_client(team);
+	if (Game::level.local && team != AI::TeamNone)
+		battery_spawn_force_field(this);
 }
 
 Battery::~Battery()
@@ -921,6 +922,8 @@ b8 Battery::set_team(AI::Team t, Entity* caused_by)
 	{
 		get<Health>()->add(BATTERY_HEALTH);
 		BatteryNet::set_team(this, t, caused_by);
+		if (t != AI::TeamNone)
+			battery_spawn_force_field(this);
 		return true;
 	}
 }
@@ -966,7 +969,9 @@ void Battery::update_all(const Update& u)
 			{
 				s32 increment = BATTERY_ENERGY_INCREMENT / Game::level.battery_spawn_group_size;
 
-				if (Game::session.config.game_type != GameType::Assault || i.item()->team != 0) // assault defenders do not drain battery
+				if (Game::session.config.game_type == GameType::Assault && i.item()->team == 0) // assault defenders do not drain battery
+					increment /= 2;
+				else
 				{
 					// drain battery
 
@@ -1436,10 +1441,11 @@ RectifierEntity::RectifierEntity(PlayerManager* owner, const Vec3& abs_pos, cons
 	}
 
 	View* model = create<View>();
-	model->mesh = Asset::Mesh::rectifier;
-	model->color = Team::color_enemy;
+	model->mesh = Asset::Mesh::rectifier_normal;
+	if (parent && parent->has<Minion>())
+		model->mesh = Asset::Mesh::rectifier_attached;
 	model->team = s8(owner->team.ref()->team());
-	model->shader = Asset::Shader::standard;
+	model->shader = Asset::Shader::culled;
 	model->offset.scale(Vec3(RECTIFIER_RADIUS));
 
 	create<Health>(RECTIFIER_HEALTH, RECTIFIER_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
@@ -1494,19 +1500,35 @@ void rectifier_update(s32 rectifier_index, const Vec3& rectifier_pos, Entity* e,
 			Rectifier::heal_counts[e->id()]++;
 
 			r32 time = Game::time.total + (rectifier_index + e->id()) * 0.5f;
-			r32 heal_effect_lerp = (time - (s32(time / RECTIFIER_HEAL_INTERVAL) * RECTIFIER_HEAL_INTERVAL)) / RECTIFIER_HEAL_INTERVAL;
-			if (heal_effect_lerp > 0.5f)
-			{
-				heal_effect_lerp = (heal_effect_lerp - 0.5f) / 0.5f;
 
-				InstanceVertex* instance = Rectifier::heal_effects.add();
-				r32 scale;
-				if (e->has<Minion>())
-					scale = Ease::cubic_in<r32>(heal_effect_lerp, 0.5f, 0.05f);
-				else
-					scale = Ease::cubic_in<r32>(heal_effect_lerp, 1.5f, 0.15f);
-				instance->world_matrix.make_transform(pos, Vec3(scale), Quat::identity);
-				instance->color = Vec4(1, 1, 1, Ease::cubic_in<r32>(heal_effect_lerp));
+			// effects
+			{
+				r32 heal_effect_lerp = (time - (s32(time / RECTIFIER_HEAL_INTERVAL) * RECTIFIER_HEAL_INTERVAL)) / RECTIFIER_HEAL_INTERVAL;
+
+				const r32 particle_interval = RECTIFIER_HEAL_INTERVAL / 8.0f;
+				if (s32(time / particle_interval) != s32((time - Game::time.delta) / particle_interval))
+				{
+					Particles::fast_tracers.add
+					(
+						Vec3::lerp(heal_effect_lerp, rectifier_pos, pos),
+						Vec3::zero,
+						0
+					);
+				}
+
+				if (heal_effect_lerp > 0.5f)
+				{
+					heal_effect_lerp = (heal_effect_lerp - 0.5f) / 0.5f;
+
+					InstanceVertex* instance = Rectifier::heal_effects.add();
+					r32 scale;
+					if (e->has<Minion>())
+						scale = Ease::cubic_in<r32>(heal_effect_lerp, 0.5f, 0.05f);
+					else
+						scale = Ease::cubic_in<r32>(heal_effect_lerp, 1.0f, 0.15f);
+					instance->world_matrix.make_transform(pos, Vec3(scale), Quat::identity);
+					instance->color = Vec4(1, 1, 1, Ease::cubic_in<r32>(heal_effect_lerp));
+				}
 			}
 
 			b8 do_heal = Game::level.local && s32(time / RECTIFIER_HEAL_INTERVAL) != s32((time - Game::time.delta) / RECTIFIER_HEAL_INTERVAL);
@@ -1541,7 +1563,7 @@ void Rectifier::update_all(const Update& u)
 
 		if (!i.item()->has<Battery>())
 		{
-			if (!entity_minion_attach_update(transform, &i.item()->abs_pos_attached, Asset::Mesh::rectifier, RECTIFIER_RADIUS, RECTIFIER_RADIUS, RECTIFIER_RADIUS))
+			if (!entity_minion_attach_update(transform, &i.item()->abs_pos_attached, Asset::Mesh::rectifier_normal, RECTIFIER_RADIUS, RECTIFIER_RADIUS, RECTIFIER_RADIUS))
 				continue;
 		}
 
@@ -1630,14 +1652,6 @@ void Rectifier::draw_alpha_all(const RenderParams& params)
 
 	sync->write(RenderOp::Instances);
 	sync->write(Asset::Mesh::heal_effect);
-}
-
-void Rectifier::set_team(AI::Team t)
-{
-	// not synced over network
-	team = t;
-	get<View>()->team = s8(t);
-	get<PointLight>()->team = s8(t);
 }
 
 // returns true if given team can see the given position
@@ -1942,7 +1956,7 @@ FlagEntity::FlagEntity(AI::Team team)
 	model->mesh = Asset::Mesh::sphere;
 	model->shader = Asset::Shader::standard;
 	model->team = s8(team);
-	model->offset.scale(Vec3(FLAG_RADIUS));
+	model->offset.scale(Vec3(FLAG_RADIUS * 0.94f));
 
 	create<PlayerTrigger>()->radius = DRONE_SHIELD_RADIUS + 0.2f;
 
@@ -2379,7 +2393,7 @@ MinionSpawnerEntity::MinionSpawnerEntity(PlayerManager* owner, AI::Team team, co
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::minion_spawner_main;
-	model->shader = Asset::Shader::standard;
+	model->shader = Asset::Shader::culled;
 	model->team = s8(team);
 	if (parent && parent->has<Minion>())
 		model->mesh = Asset::Mesh::minion_spawner_attached;
@@ -2480,14 +2494,6 @@ void Turret::awake()
 Turret::~Turret()
 {
 	get<Audio>()->stop_all();
-}
-
-// not synced over network
-void Turret::set_team(AI::Team t)
-{
-	team = t;
-	get<View>()->team = s8(t);
-	get<PointLight>()->team = s8(t);
 }
 
 void Turret::health_changed(const HealthEvent& e)
@@ -2771,15 +2777,6 @@ ForceField::~ForceField()
 Vec3 ForceField::base_pos() const
 {
 	return get<Transform>()->to_world(Vec3(0, 0, -FORCE_FIELD_BASE_OFFSET));
-}
-
-// not synced over network
-void ForceField::set_team(AI::Team t)
-{
-	team = t;
-	get<View>()->team = s8(t);
-	collision.ref()->get<View>()->team = s8(t);
-	collision.ref()->get<RigidBody>()->set_collision_masks(CollisionGroup(1 << (8 + team)), CollisionDroneIgnore);
 }
 
 void ForceField::health_changed(const HealthEvent& e)
@@ -3177,7 +3174,9 @@ b8 Bolt::default_raycast_filter(Entity* e, AI::Team team)
 	return (!e->has<AIAgent>() || e->get<AIAgent>()->team != team) // ignore friendlies
 		&& (!e->has<Rectifier>() || e->get<Rectifier>()->team != team) // ignore friendly rectifiers
 		&& (!e->has<Drone>() || !UpgradeStation::drone_inside(e->get<Drone>())) // ignore drones inside upgrade stations
-		&& (!e->has<ForceField>() || e->get<ForceField>()->team != team); // ignore friendly force fields
+		&& (!e->has<ForceField>() || e->get<ForceField>()->team != team) // ignore friendly force fields
+		&& (!e->has<MinionSpawner>() || e->get<MinionSpawner>()->team != team) // ignore friendly minion spawners
+		&& (!e->has<Turret>() || e->get<Turret>()->team != team); // ignore friendly turrets
 }
 
 b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, AI::Team team, Hit* out_hit, b8(*filter)(Entity*, AI::Team), const Net::StateFrame* state_frame, r32 extra_radius)
@@ -3208,8 +3207,9 @@ b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, AI::T
 		{
 			Vec3 pos;
 			Quat rot;
-			Net::transform_absolute(*state_frame, i.item()->get<Transform>()->id(), &pos, &rot);
-			p = pos + (rot * i.item()->local_offset); // todo possibly: rewind local_offset as well?
+			Vec3 local_offset;
+			Net::transform_absolute(*state_frame, i.item()->get<Transform>()->id(), &pos, &rot, &local_offset);
+			p = pos + (rot * local_offset);
 		}
 		else
 			p = i.item()->absolute_pos();
@@ -3362,8 +3362,13 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 				else
 					damage = 1 + (mersenne::rand() % 2); // expected value: 1.5
 
-				if (reflected && !hit_object->has<Drone>())
-					damage = (damage * 2) + 2;
+				if (reflected)
+				{
+					if (hit_object->has<Drone>())
+						damage = 2;
+					else
+						damage = 12;
+				}
 				break;
 			}
 			case Type::DroneShotgun:
@@ -3382,7 +3387,7 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 					if (hit_object->has<Drone>())
 						damage = 1;
 					else
-						damage = (damage * 2) + 2;
+						damage = 6;
 				}
 				break;
 			}
@@ -3392,7 +3397,7 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 
 				if (reflected)
 				{
-					damage = MINION_HEALTH;
+					damage = 12;
 					if (hit_object->has<Minion>())
 						destroy = false;
 				}
@@ -3401,7 +3406,7 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 			case Type::Turret:
 			{
 				if (reflected)
-					damage = 4;
+					damage = 12;
 				else
 					damage = 1;
 				break;
@@ -3974,7 +3979,6 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::grenade_detached;
-	model->color = Team::color_enemy;
 	model->team = s8(owner->team.ref()->team());
 	model->shader = Asset::Shader::standard;
 	model->offset.scale(Vec3(GRENADE_RADIUS));
@@ -4037,13 +4041,18 @@ namespace GrenadeNet
 
 b8 grenade_trigger_filter(Entity* e, AI::Team team)
 {
-	return (e->has<AIAgent>() && e->get<AIAgent>()->team != team)
+	return (e->has<Minion>() && e->get<AIAgent>()->team != team)
 		|| (e->has<ForceField>() && e->get<ForceField>()->team != team)
 		|| (e->has<ForceFieldCollision>() && e->get<ForceFieldCollision>()->field.ref()->team != team)
 		|| (e->has<Rectifier>() && !e->has<Battery>() && e->get<Rectifier>()->team != team)
 		|| (e->has<Turret>() && e->get<Turret>()->team != team)
 		|| (e->has<MinionSpawner>() && e->get<MinionSpawner>()->team != team)
-		|| (e->has<Drone>() && !UpgradeStation::drone_inside(e->get<Drone>()));
+		|| (e->has<Drone>() && e->get<AIAgent>()->team != team && !UpgradeStation::drone_inside(e->get<Drone>()));
+}
+
+b8 grenade_hit_filter(Entity* e, AI::Team team)
+{
+	return e->has<Minion>() || grenade_trigger_filter(e, team);
 }
 
 // returns true if grenade hits something
@@ -4073,7 +4082,7 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, const Net::StateFrame* state_fr
 			Glass::shatter_all(pos, next_pos);
 
 			Bolt::Hit hit;
-			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team)), team, &hit, &grenade_trigger_filter, state_frame, DRONE_SHIELD_RADIUS))
+			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team)), team, &hit, &grenade_hit_filter, state_frame, DRONE_SHIELD_RADIUS))
 			{
 				if (out_hit)
 					*out_hit = hit;
@@ -4093,7 +4102,7 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, const Net::StateFrame* state_fr
 
 void Grenade::hit_entity(const Bolt::Hit& hit, const Net::StateFrame* state_frame)
 {
-	if (grenade_trigger_filter(hit.entity, team))
+	if (grenade_hit_filter(hit.entity, team))
 	{
 		if (hit.entity->has<Minion>())
 		{
@@ -4321,6 +4330,7 @@ void Grenade::update_all(const Update& u)
 						Quat rot = Quat::euler(0, PI, 0);
 						parent->get<Animator>()->to_local(Asset::Bone::character_spine, &pos, &rot);
 						model->offset.make_transform(pos, Vec3(GRENADE_RADIUS), rot);
+						i.item()->get<Target>()->local_offset = pos;
 						i.item()->abs_pos_attached = parent->to_world(pos);
 					}
 					else
@@ -4330,6 +4340,7 @@ void Grenade::update_all(const Update& u)
 				{
 					// no longer attached
 					model->offset = Mat4::make_scale(Vec3(GRENADE_RADIUS));
+					i.item()->get<Target>()->local_offset = Vec3::zero;
 					if (Game::level.local)
 					{
 						transform->pos = i.item()->abs_pos_attached;
@@ -4445,15 +4456,17 @@ b8 Target::predict_intersection(const Vec3& from, r32 speed, const Net::StateFra
 	if (state_frame)
 	{
 		Quat rot;
-		Net::transform_absolute(*state_frame, get<Transform>()->id(), &pos, &rot);
-		pos += rot * local_offset; // todo possibly: rewind local_offset as well?
+		Vec3 l; // local_offset
+		Net::transform_absolute(*state_frame, get<Transform>()->id(), &pos, &rot, &l);
+		pos += rot * l;
 
 		Net::StateFrame state_frame_last;
 		Net::state_frame_by_timestamp(&state_frame_last, state_frame->timestamp - Net::tick_rate());
 		Vec3 pos_last;
 		Quat rot_last;
-		Net::transform_absolute(state_frame_last, get<Transform>()->id(), &pos_last, &rot_last);
-		pos_last += rot_last * local_offset;
+		Vec3 l_last;
+		Net::transform_absolute(state_frame_last, get<Transform>()->id(), &pos_last, &rot_last, &l_last);
+		pos_last += rot_last * l_last;
 
 		v = (pos - pos_last) / Net::tick_rate();
 	}

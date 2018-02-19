@@ -38,6 +38,7 @@
 #include "ease.h"
 #include "parkour.h"
 #include "noise.h"
+#include "data/unicode.h"
 #if !defined(__ORBIS__)
 #include "steam/steam_api.h"
 #endif
@@ -99,6 +100,7 @@ struct Instance
 	Ref<Transform> collision;
 	AssetID text;
 	AssetID head_bone;
+	AkUniqueID sound_current;
 	Revision revision;
 	b8 highlight;
 	b8 sound_done;
@@ -250,13 +252,29 @@ void update(const Update& u)
 
 		if (!instance->sound_done)
 		{
-			for (s32 j = 0; j < Audio::dialogue_callbacks.length; j++)
+			if (instance->sound_current == AK_InvalidID)
 			{
-				ID callback_entity_id = Audio::dialogue_callbacks[j];
-				if (instance->model.id == callback_entity_id)
-				{
+				// time to show dialogue depends on length of text
+				if (instance->text == AssetNull)
 					instance->sound_done = true;
-					instance->text = AssetNull;
+				else
+				{
+					const char* text = _(instance->text);
+					s32 length = Unicode::codepoint_count(text);
+					instance->sound_done = Game::real_time.total - instance->last_cue_real_time > length * 0.05f;
+				}
+			}
+			else
+			{
+				// time to show dialogue depends on audio
+				for (s32 j = 0; j < Audio::dialogue_callbacks.length; j++)
+				{
+					ID callback_entity_id = Audio::dialogue_callbacks[j];
+					if (instance->model.id == callback_entity_id)
+					{
+						instance->sound_done = true;
+						instance->text = AssetNull;
+					}
 				}
 			}
 		}
@@ -272,47 +290,50 @@ void update(const Update& u)
 			|| layer->behavior == Animator::Behavior::Loop
 			|| layer->time == Loader::animation(layer->animation)->duration
 			|| instance->overlap_animation)
-			&& instance->sound_done
-			&& instance->cues.length > 0)
+			&& instance->sound_done)
 		{
-			Cue* cue = &instance->cues[0];
-			if (cue->delay > 0.0f)
-				cue->delay -= u.time.delta;
-			else
+			if (instance->cues.length > 0)
 			{
-				if (cue->callback)
-					cue->callback(instance);
+				Cue* cue = &instance->cues[0];
+				if (cue->delay > 0.0f)
+					cue->delay -= u.time.delta;
 				else
 				{
-					instance->last_cue_real_time = Game::real_time.total;
-					instance->text = cue->text;
-					if (layer)
+					if (cue->callback)
+						cue->callback(instance);
+					else
 					{
-						if (cue->animation != AssetNull)
+						instance->last_cue_real_time = Game::real_time.total;
+						instance->text = cue->text;
+						if (layer)
 						{
-							instance->overlap_animation = cue->overlap == Overlap::Yes ? true : false;
-							layer->behavior = cue->loop == Loop::Yes ? Animator::Behavior::Loop : Animator::Behavior::Freeze;
-							layer->play(cue->animation);
+							if (cue->animation != AssetNull)
+							{
+								instance->overlap_animation = cue->overlap == Overlap::Yes ? true : false;
+								layer->behavior = cue->loop == Loop::Yes ? Animator::Behavior::Loop : Animator::Behavior::Freeze;
+								layer->play(cue->animation);
+							}
+						}
+						else
+							vi_assert(cue->animation == AssetNull);
+
+						instance->sound_done = false;
+						instance->sound_current = cue->sound;
+						if (cue->sound != AK_InvalidID)
+						{
+							if (instance->model.ref())
+								instance->model.ref()->get<Audio>()->post_dialogue(cue->sound);
+							else
+								Audio::post_global_dialogue(cue->sound);
 						}
 					}
-					else
-						vi_assert(cue->animation == AssetNull);
 
-					if (cue->sound == AK_InvalidID)
-						instance->sound_done = true;
-					else
-					{
-						instance->sound_done = false;
-						if (instance->model.ref())
-							instance->model.ref()->get<Audio>()->post_dialogue(cue->sound);
-						else
-							Audio::post_global_dialogue(cue->sound);
-					}
+					if (data && instance->cues.length > 0) // callback might have called cleanup()
+						instance->cues.remove_ordered(0);
 				}
-
-				if (data && instance->cues.length > 0) // callback might have called cleanup()
-					instance->cues.remove_ordered(0);
 			}
+			else // no cues left
+				instance->text = AssetNull;
 		}
 
 		if (layer)
@@ -687,7 +708,7 @@ namespace Docks
 		if (data->state == TutorialState::Start)
 		{
 			data->state = TutorialState::DadaSpotted;
-			data->dada->cue(AK::EVENTS::PLAY_DADA01, Asset::Animation::dada_wait, strings::dada01);
+			data->dada->cue(AK_InvalidID, Asset::Animation::dada_wait, strings::dada01);
 		}
 	}
 
@@ -706,8 +727,8 @@ namespace Docks
 		{
 			data->dada_talked = true;
 			data->dada->highlight = false;
-			data->dada->cue(AK::EVENTS::PLAY_DADA02, Asset::Animation::dada_talk, strings::dada02);
-			data->dada->cue(AK::EVENTS::PLAY_DADA03, Asset::Animation::dada_talk, strings::dada03);
+			data->dada->cue(AK_InvalidID, Asset::Animation::dada_talk, strings::dada02);
+			data->dada->cue(AK_InvalidID, Asset::Animation::dada_talk, strings::dada03);
 			data->dada->cue(AK_InvalidID, Asset::Animation::dada_close_door, AssetNull, Actor::Loop::No);
 			data->dada->cue(&dada_done, 0.0f);
 			data->dada->cue(&Actor::done, 0.0f);
@@ -717,26 +738,26 @@ namespace Docks
 	void rex_speak2(Actor::Instance* rex)
 	{
 		if (!data->rex_cart_gone)
-			rex->cue(AK::EVENTS::PLAY_REX_B01, Asset::Animation::hobo_idle, strings::rex_b01);
+			rex->cue(AK_InvalidID, Asset::Animation::hobo_idle, strings::rex_b01);
 	}
 
 	void rex_speak(Actor::Instance* rex)
 	{
-		rex->cue(AK::EVENTS::PLAY_REX_A01, Asset::Animation::hobo_idle, strings::rex_a01);
-		rex->cue(AK::EVENTS::PLAY_REX_A02, Asset::Animation::hobo_idle, strings::rex_a02);
-		rex->cue(AK::EVENTS::PLAY_REX_A03, Asset::Animation::hobo_idle, strings::rex_a03);
-		rex->cue(AK::EVENTS::PLAY_REX_A04, Asset::Animation::hobo_idle, strings::rex_a04);
+		rex->cue(AK_InvalidID, Asset::Animation::hobo_idle, strings::rex_a01);
+		rex->cue(AK_InvalidID, Asset::Animation::hobo_idle, strings::rex_a02);
+		rex->cue(AK_InvalidID, Asset::Animation::hobo_idle, strings::rex_a03);
+		rex->cue(AK_InvalidID, Asset::Animation::hobo_idle, strings::rex_a04);
 		rex->cue(rex_speak2);
 	}
 
 	void ivory_ad_play(Actor::Instance* ad)
 	{
-		ad->cue(AK::EVENTS::PLAY_IVORY_AD01, AssetNull, strings::ivory_ad01);
-		ad->cue(AK::EVENTS::PLAY_IVORY_AD02, AssetNull, strings::ivory_ad02);
-		ad->cue(AK::EVENTS::PLAY_IVORY_AD03, AssetNull, strings::ivory_ad03);
-		ad->cue(AK::EVENTS::PLAY_IVORY_AD04, AssetNull, strings::ivory_ad04);
-		ad->cue(AK::EVENTS::PLAY_IVORY_AD05, AssetNull, strings::ivory_ad05);
-		ad->cue(AK::EVENTS::PLAY_IVORY_AD06, AssetNull, strings::ivory_ad06);
+		ad->cue(AK_InvalidID, AssetNull, strings::ivory_ad01);
+		ad->cue(AK_InvalidID, AssetNull, strings::ivory_ad02);
+		ad->cue(AK_InvalidID, AssetNull, strings::ivory_ad03);
+		ad->cue(AK_InvalidID, AssetNull, strings::ivory_ad04);
+		ad->cue(AK_InvalidID, AssetNull, strings::ivory_ad05);
+		ad->cue(AK_InvalidID, AssetNull, strings::ivory_ad06);
 		ad->cue(&ivory_ad_play, 4.0f);
 	}
 
@@ -1192,9 +1213,9 @@ namespace Docks
 			{
 				data->rex_cart_gone = true;
 				data->rex->stop();
-				data->rex->cue(AK::EVENTS::PLAY_REX_C01, Asset::Animation::hobo_idle, strings::rex_c01);
-				data->rex->cue(AK::EVENTS::PLAY_REX_C02, Asset::Animation::hobo_idle, strings::rex_c02);
-				data->rex->cue(AK::EVENTS::PLAY_REX_C03, Asset::Animation::hobo_idle, strings::rex_c03);
+				data->rex->cue(AK_InvalidID, Asset::Animation::hobo_idle, strings::rex_c01);
+				data->rex->cue(AK_InvalidID, Asset::Animation::hobo_idle, strings::rex_c02);
+				data->rex->cue(AK_InvalidID, Asset::Animation::hobo_idle, strings::rex_c03);
 			}
 		}
 
@@ -1630,63 +1651,63 @@ namespace locke
 			{
 				case 0:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_A01, Asset::Animation::locke_gesture_one_hand_short, strings::locke_a01, Actor::Loop::No);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_A02, Asset::Animation::locke_gesture_one_hand_short, strings::locke_a02, Actor::Loop::No, Actor::Overlap::Yes);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_A03, Asset::Animation::locke_gesture_both_arms, strings::locke_a03, Actor::Loop::No, Actor::Overlap::Yes);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_A04, Asset::Animation::locke_gesture_both_arms, strings::locke_a04, Actor::Loop::No);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_A05, Asset::Animation::locke_shift_weight, strings::locke_a05, Actor::Loop::No);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_gesture_one_hand_short, strings::locke_a01, Actor::Loop::No);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_gesture_one_hand_short, strings::locke_a02, Actor::Loop::No, Actor::Overlap::Yes);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_gesture_both_arms, strings::locke_a03, Actor::Loop::No, Actor::Overlap::Yes);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_gesture_both_arms, strings::locke_a04, Actor::Loop::No);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_shift_weight, strings::locke_a05, Actor::Loop::No);
 					break;
 				}
 				case 1:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_B01, Asset::Animation::locke_gesture_one_hand_short, strings::locke_b01, Actor::Loop::No);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_B02, Asset::Animation::locke_shift_weight, strings::locke_b02, Actor::Loop::No);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_gesture_one_hand_short, strings::locke_b01, Actor::Loop::No);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_shift_weight, strings::locke_b02, Actor::Loop::No);
 					break;
 				}
 				case 2:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_C01, Asset::Animation::locke_idle, strings::locke_c01);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_C02, Asset::Animation::locke_idle, strings::locke_c02);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_C03, Asset::Animation::locke_idle, strings::locke_c03);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_c01);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_c02);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_c03);
 					break;
 				}
 				case 3:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_D01, Asset::Animation::locke_idle, strings::locke_d01);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_D02, Asset::Animation::locke_idle, strings::locke_d02);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_D03, Asset::Animation::locke_idle, strings::locke_d03);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_D04, Asset::Animation::locke_idle, strings::locke_d04);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_d01);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_d02);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_d03);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_d04);
 					break;
 				}
 				case 4:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_E01, Asset::Animation::locke_idle, strings::locke_e01);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_E02, Asset::Animation::locke_idle, strings::locke_e02);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_E03, Asset::Animation::locke_idle, strings::locke_e03);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_e01);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_e02);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_e03);
 					break;
 				}
 				case 5:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_F01, Asset::Animation::locke_idle, strings::locke_f01);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_F02, Asset::Animation::locke_idle, strings::locke_f02);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_F03, Asset::Animation::locke_idle, strings::locke_f03);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_F04, Asset::Animation::locke_idle, strings::locke_f04);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_F05, Asset::Animation::locke_idle, strings::locke_f05);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_f01);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_f02);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_f03);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_f04);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_f05);
 					break;
 				}
 				case 6:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_G01, Asset::Animation::locke_idle, strings::locke_g01);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_G02, Asset::Animation::locke_idle, strings::locke_g02);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_G03, Asset::Animation::locke_idle, strings::locke_g03);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_g01);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_g02);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_g03);
 					break;
 				}
 				case 7:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_H01, Asset::Animation::locke_idle, strings::locke_h01);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_H02, Asset::Animation::locke_idle, strings::locke_h02);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_H03, Asset::Animation::locke_idle, strings::locke_h03);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE_H04, Asset::Animation::locke_idle, strings::locke_h04);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_h01);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_h02);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_h03);
+					data->locke->cue(AK_InvalidID, Asset::Animation::locke_idle, strings::locke_h04);
 					break;
 				}
 				default:
@@ -1779,23 +1800,23 @@ namespace Slum
 		{
 			data->anim_played = true;
 
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_ARROW, Asset::Animation::meursault_intro, strings::meursault_arrow, Actor::Loop::No, Actor::Overlap::Yes, 0.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A01, AssetNull, strings::meursault_a01, Actor::Loop::No, Actor::Overlap::No, 3.6f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A02, AssetNull, strings::meursault_a02, Actor::Loop::No, Actor::Overlap::No, 3.6f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A03, AssetNull, strings::meursault_a03, Actor::Loop::No, Actor::Overlap::No, 5.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A04, AssetNull, strings::meursault_a04, Actor::Loop::No, Actor::Overlap::No, 4.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A05, AssetNull, strings::meursault_a05, Actor::Loop::No, Actor::Overlap::No, 2.5f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A06, AssetNull, strings::meursault_a06, Actor::Loop::No, Actor::Overlap::No, 1.5f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A07, AssetNull, strings::meursault_a07, Actor::Loop::No, Actor::Overlap::No, 2.8f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A08, AssetNull, strings::meursault_a08, Actor::Loop::No, Actor::Overlap::No, 1.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A09, AssetNull, strings::meursault_a09, Actor::Loop::No, Actor::Overlap::No, 1.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A10, AssetNull, strings::meursault_a10, Actor::Loop::No, Actor::Overlap::No, 5.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A11, AssetNull, strings::meursault_a11, Actor::Loop::No, Actor::Overlap::No, 2.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A12, AssetNull, strings::meursault_a12, Actor::Loop::No, Actor::Overlap::No, 1.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A13, AssetNull, strings::meursault_a13, Actor::Loop::No, Actor::Overlap::No, 3.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A14, AssetNull, strings::meursault_a14, Actor::Loop::No, Actor::Overlap::No, 1.0f);
+			data->meursault->cue(AK_InvalidID, Asset::Animation::meursault_intro, strings::meursault_arrow, Actor::Loop::No, Actor::Overlap::Yes, 0.0f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a01, Actor::Loop::No, Actor::Overlap::No, 3.6f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a02, Actor::Loop::No, Actor::Overlap::No, 3.6f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a03, Actor::Loop::No, Actor::Overlap::No, 5.0f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a04, Actor::Loop::No, Actor::Overlap::No, 4.0f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a05, Actor::Loop::No, Actor::Overlap::No, 2.5f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a06, Actor::Loop::No, Actor::Overlap::No, 1.5f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a07, Actor::Loop::No, Actor::Overlap::No, 2.8f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a08, Actor::Loop::No, Actor::Overlap::No, 1.0f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a09, Actor::Loop::No, Actor::Overlap::No, 1.0f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a10, Actor::Loop::No, Actor::Overlap::No, 5.0f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a11, Actor::Loop::No, Actor::Overlap::No, 2.0f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a12, Actor::Loop::No, Actor::Overlap::No, 1.0f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a13, Actor::Loop::No, Actor::Overlap::No, 3.0f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a14, Actor::Loop::No, Actor::Overlap::No, 1.0f);
 			data->meursault->cue(&give_energy_animation_callback, 0.0f);
-			data->meursault->cue(AK::EVENTS::PLAY_MEURSAULT_A15, AssetNull, strings::meursault_a15, Actor::Loop::No, Actor::Overlap::No, 2.0f);
+			data->meursault->cue(AK_InvalidID, AssetNull, strings::meursault_a15, Actor::Loop::No, Actor::Overlap::No, 2.0f);
 
 			player->get<PlayerControlHuman>()->cinematic(data->anim_base.ref(), Asset::Animation::character_meursault_intro);
 		}
@@ -1862,19 +1883,19 @@ namespace AudioLogs
 	void rex()
 	{
 		init();
-		data->actor->cue(AK::EVENTS::PLAY_REX_D01, AssetNull, strings::rex_d01);
-		data->actor->cue(AK::EVENTS::PLAY_REX_D02, AssetNull, strings::rex_d02);
-		data->actor->cue(AK::EVENTS::PLAY_REX_D03, AssetNull, strings::rex_d03);
-		data->actor->cue(AK::EVENTS::PLAY_REX_D04, AssetNull, strings::rex_d04);
-		data->actor->cue(AK::EVENTS::PLAY_REX_D05, AssetNull, strings::rex_d05);
-		data->actor->cue(AK::EVENTS::PLAY_REX_D06, AssetNull, strings::rex_d06);
-		data->actor->cue(AK::EVENTS::PLAY_REX_D07, AssetNull, strings::rex_d07);
-		data->actor->cue(AK::EVENTS::PLAY_REX_D08, AssetNull, strings::rex_d08);
-		data->actor->cue(AK::EVENTS::PLAY_REX_D09, AssetNull, strings::rex_d09);
-		data->actor->cue(AK::EVENTS::PLAY_REX_D10, AssetNull, strings::rex_d10);
-		data->actor->cue(AK::EVENTS::PLAY_REX_D11, AssetNull, strings::rex_d11);
-		data->actor->cue(AK::EVENTS::PLAY_REX_D12, AssetNull, strings::rex_d12);
-		data->actor->cue(AK::EVENTS::PLAY_REX_D13, AssetNull, strings::rex_d13);
+		data->actor->cue(AK_InvalidID, AssetNull, strings::rex_d01);
+		data->actor->cue(AK_InvalidID, AssetNull, strings::rex_d02);
+		data->actor->cue(AK_InvalidID, AssetNull, strings::rex_d03);
+		data->actor->cue(AK_InvalidID, AssetNull, strings::rex_d04);
+		data->actor->cue(AK_InvalidID, AssetNull, strings::rex_d05);
+		data->actor->cue(AK_InvalidID, AssetNull, strings::rex_d06);
+		data->actor->cue(AK_InvalidID, AssetNull, strings::rex_d07);
+		data->actor->cue(AK_InvalidID, AssetNull, strings::rex_d08);
+		data->actor->cue(AK_InvalidID, AssetNull, strings::rex_d09);
+		data->actor->cue(AK_InvalidID, AssetNull, strings::rex_d10);
+		data->actor->cue(AK_InvalidID, AssetNull, strings::rex_d11);
+		data->actor->cue(AK_InvalidID, AssetNull, strings::rex_d12);
+		data->actor->cue(AK_InvalidID, AssetNull, strings::rex_d13);
 		data->actor->cue(&done);
 	}
 

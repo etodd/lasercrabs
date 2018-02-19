@@ -342,8 +342,9 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 	{
 		Vec3 pos;
 		Quat rot;
-		Net::transform_absolute(state_frame, target_shield->get<Transform>()->id(), &pos, &rot);
-		target_pos = pos + (rot * target_shield->get<Target>()->local_offset); // todo possibly: rewind local_offset as well?
+		Vec3 local_offset;
+		Net::transform_absolute(state_frame, target_shield->get<Transform>()->id(), &pos, &rot, &local_offset);
+		target_pos = pos + (rot * local_offset);
 		target_rot = rot;
 	}
 	else
@@ -365,9 +366,11 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 		if (target_shield->has<ForceField>())
 		{
 			if (drone->current_ability == Ability::Sniper)
-				result = 8;
+				result = 9;
 			else
 				result = 5;
+			if (dot < -0.85f)
+				result += 3;
 		}
 		else if (drone->current_ability == Ability::Sniper)
 		{
@@ -985,7 +988,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					if ((Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local()))
 					{
-						drone->get<Health>()->active_armor_timer = vi_max(drone->get<Health>()->active_armor_timer, ACTIVE_ARMOR_TIME);
+						drone->get<Health>()->active_armor_timer = vi_max(drone->get<Health>()->active_armor_timer, ACTIVE_ARMOR_TIME * Game::session.config.ruleset.cooldown_speed());
 						drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
 					}
 					break;
@@ -1401,8 +1404,9 @@ Vec3 target_position(Entity* me, const Net::StateFrame* state_frame, Target* tar
 	{
 		Vec3 pos;
 		Quat rot;
-		Net::transform_absolute(*state_frame, target->get<Transform>()->id(), &pos, &rot);
-		return pos + (rot * target->local_offset); // todo possibly: rewind local_offset as well?
+		Vec3 local_offset;
+		Net::transform_absolute(*state_frame, target->get<Transform>()->id(), &pos, &rot, &local_offset);
+		return pos + (rot * local_offset);
 	}
 	else
 		return target->absolute_pos();
@@ -1965,7 +1969,7 @@ b8 Drone::go(const Vec3& dir)
 				drone_sniper_effects(this, dir_normalized);
 			else if (a == Ability::ActiveArmor)
 			{
-				get<Health>()->active_armor_timer = ACTIVE_ARMOR_TIME; // show invincibility sparkles instantly
+				get<Health>()->active_armor_timer = ACTIVE_ARMOR_TIME * Game::session.config.ruleset.cooldown_speed(); // show invincibility sparkles instantly
 				get<Audio>()->post(AK::EVENTS::PLAY_DRONE_ACTIVE_ARMOR);
 			}
 		}
@@ -3015,6 +3019,8 @@ b8 Drone::should_collide(const Target* target, const Net::StateFrame* state_fram
 		return (!target->has<Rectifier>() || target->get<Rectifier>()->team != my_team) // ignore friendly rectifiers
 			&& (!target->has<ForceField>() || target->get<ForceField>()->team != my_team) // ignore friendly force fields
 			&& (!target->has<Minion>() || target->get<AIAgent>()->team != my_team) // ignore friendly minions
+			&& (!target->has<MinionSpawner>() || target->get<MinionSpawner>()->team != my_team) // ignore friendly minion spawners
+			&& (!target->has<Turret>() || target->get<Turret>()->team != my_team) // ignore friendly turrets
 			&& (!target->has<Grenade>() || target->get<Grenade>()->team != my_team || current_ability == Ability::Sniper); // ignore friendly grenades unless we're sniping them
 	}
 }

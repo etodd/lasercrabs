@@ -2128,7 +2128,7 @@ Vec3 zone_color(const ZoneNode& zone)
 		case ZoneState::PvpFriendly:
 			return Team::color_friend.xyz();
 		case ZoneState::PvpHostile:
-			return Team::color_enemy.xyz();
+			return Team::color_enemy().xyz();
 		default:
 		{
 			vi_assert(false);
@@ -3435,7 +3435,7 @@ b8 should_draw_zones()
 
 b8 pvp_colors()
 {
-	return false;
+	return modal() || (Game::level.mode == Game::Mode::Pvp && Settings::pvp_color_scheme == Settings::PvpColorScheme::HighContrast);
 }
 
 void show_complete()
@@ -3456,9 +3456,6 @@ void show_complete()
 	}
 
 	data.story.tab_previous = StoryTab((s32(data.story.tab) + 1) % s32(StoryTab::count));
-
-	if (data.state != State::StoryModeOverlay)
-		data.restore_camera.ref()->flag(CameraFlagColors, false);
 
 	Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_SHOW, 0);
 
@@ -3593,7 +3590,8 @@ void update(const Update& u)
 		// pause
 		if (data.state != State::StoryModeDeploying
 			&& data.story.inventory.timer_buy == 0.0f
-			&& !Game::cancel_event_eaten[0])
+			&& !Game::cancel_event_eaten[0]
+			&& !Menu::dialog_active(0))
 		{
 			if (Game::session.type == SessionType::Story && ((u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
 				|| (u.input->get(Controls::Scoreboard, 0) && !u.last_input->get(Controls::Scoreboard, 0))))

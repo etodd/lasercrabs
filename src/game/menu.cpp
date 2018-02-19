@@ -1687,6 +1687,26 @@ b8 settings_graphics(const Update& u, const UIMenu::Origin& origin, s8 gamepad, 
 	}
 
 	{
+		AssetID value;
+		switch (Settings::pvp_color_scheme)
+		{
+			case Settings::PvpColorScheme::Normal:
+				value = strings::pvp_color_scheme_normal;
+				break;
+			case Settings::PvpColorScheme::HighContrast:
+				value = strings::pvp_color_scheme_high_contrast;
+				break;
+			default:
+			{
+				value = AssetNull;
+				vi_assert(false);
+				break;
+			}
+		}
+		UIMenu::enum_option(&Settings::pvp_color_scheme, menu->slider_item(u, _(strings::pvp_color_scheme), _(value)));
+	}
+
+	{
 		b8* scan_lines = &Settings::scan_lines;
 		delta = menu->slider_item(u, _(strings::scan_lines), _(*scan_lines ? strings::on : strings::off));
 		if (delta != 0)

@@ -357,7 +357,7 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 	s32 result = 1;
 
 	Vec3 intersection;
-	if (LMath::ray_sphere_intersect(me, me + ray_dir * drone->range(), target_pos, target_shield->has<ForceField>() ? FORCE_FIELD_RADIUS : DRONE_SHIELD_RADIUS, &intersection))
+	if (LMath::ray_sphere_intersect(me + ray_dir * -FORCE_FIELD_RADIUS, me + ray_dir * DRONE_SNIPE_DISTANCE, target_pos, target_shield->has<ForceField>() ? FORCE_FIELD_RADIUS : DRONE_SHIELD_RADIUS, &intersection))
 	{
 		Vec3 intersection_dir = Vec3::normalize(intersection - target_pos);
 		r32 dot = intersection_dir.dot(ray_dir);
@@ -2618,17 +2618,7 @@ void Drone::update_offset()
 
 void Drone::stealth(Entity* e, b8 stealthing)
 {
-	r32 new_value;
-	{
-		r32 old_value = e->get<AIAgent>()->stealth;
-		if (stealthing)
-			new_value = vi_min(1.0f, old_value + Game::time.delta / RECTIFIER_STEALTH_TIME);
-		else
-			new_value = vi_max(0.0f, old_value - Game::time.delta / RECTIFIER_STEALTH_TIME);
-		e->get<AIAgent>()->stealth = new_value;
-	}
-
-	if (new_value == 1.0f)
+	if (stealthing)
 	{
 		e->get<SkinnedModel>()->alpha();
 		e->get<SkinnedModel>()->color.w = 0.7f;
@@ -3176,10 +3166,17 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 
 			if (!already_hit)
 			{
-				if (!hit.entity.ref()->has<Health>() || !hit.entity.ref()->get<Health>()->can_take_damage(entity(), state_frame)) // it's invincible; always bounce off
+				Entity* e = hit.entity.ref();
+				if (e->has<Health>())
+				{
+					const Health* health = e->get<Health>();
+					if (!health->can_take_damage(entity(), state_frame)) // it's invincible; always bounce off
+						stop = true;
+					else if (s32(health->total()) > impact_damage(this, e))
+						stop = true; // it has health or shield to spare; we'll bounce off
+				}
+				else
 					stop = true;
-				else if (hit.entity.ref()->get<Health>()->total() > impact_damage(this, hit.entity.ref()))
-					stop = true; // it has health or shield to spare; we'll bounce off
 			}
 		}
 		else if (hit.type == Hit::Type::Target || hit.type == Hit::Type::Glass)

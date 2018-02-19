@@ -275,7 +275,6 @@ struct RecordedLife
 		s16 energy;
 		s8 shield;
 		u8 time_remaining;
-		b8 stealth;
 
 		s32 battery_count(BatteryState) const;
 		BatteryState battery(s32) const;
@@ -351,7 +350,6 @@ struct RecordedLife
 	Array<s16> energy;
 	Array<s8> shield;
 	Array<s8> time_remaining;
-	Array<b8> stealth;
 	Array<Action> action;
 	AI::Team team;
 
@@ -373,7 +371,6 @@ void record_close(u32);
 
 struct AIAgent : public ComponentType<AIAgent>
 {
-	r32 stealth;
 	AI::Team team;
 	void awake() {}
 };

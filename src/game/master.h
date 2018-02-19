@@ -148,7 +148,6 @@ struct Ruleset
 	s8 drone_shield = DRONE_SHIELD_AMOUNT;
 	u8 cooldown_speed_index = 4; // multiply by 0.25 to get actual value
 	b8 enable_batteries = true;
-	b8 enable_battery_stealth = true;
 
 	r32 cooldown_speed() const
 	{
@@ -247,7 +246,6 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 	if (c->id != 0) // 0 = story mode
 	{
 		serialize_bool(p, c->ruleset.enable_batteries);
-		serialize_bool(p, c->ruleset.enable_battery_stealth);
 		serialize_int(p, s8, c->ruleset.spawn_delay, 0, 120);
 		serialize_s16(p, c->ruleset.upgrades_allow);
 		serialize_s16(p, c->ruleset.upgrades_default);

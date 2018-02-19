@@ -128,8 +128,8 @@ void PlayerHuman::camera_setup_drone(Drone* drone, Camera* camera, Vec3* camera_
 
 	camera->range_center = rot_inverse * (abs_pos - camera->pos);
 	camera->range = drone->range();
-	camera->flag(CameraFlagColors, false);
-	camera->flag(CameraFlagFog, false);
+	camera->flag(CameraFlagColors, true);
+	camera->flag(CameraFlagFog, true);
 
 	Vec3 wall_normal_viewspace = rot_inverse * abs_wall_normal;
 	camera->clip_planes[0].redefine(wall_normal_viewspace, camera->range_center + wall_normal_viewspace * -DRONE_RADIUS);
@@ -333,7 +333,7 @@ void PlayerHuman::awake()
 		camera = Camera::add(gamepad);
 		camera.ref()->team = s8(team);
 		camera.ref()->mask = 1 << camera.ref()->team;
-		camera.ref()->flag(CameraFlagColors, false);
+		camera.ref()->flag(CameraFlagColors, true);
 
 		camera.ref()->pos = MAP_VIEW_POS;
 		camera.ref()->rot = kill_cam_rot = MAP_VIEW_ROT;
@@ -975,7 +975,7 @@ void PlayerHuman::update(const Update& u)
 			Vec2(r32(s32(blueprint->x * r32(display.width))), r32(s32(blueprint->y * r32(display.height)))),
 			Vec2(r32(s32(blueprint->w * r32(display.width))), r32(s32(blueprint->h * r32(display.height)))),
 		};
-		camera.ref()->flag(CameraFlagColors, Game::level.mode == Game::Mode::Parkour);
+		camera.ref()->flag(CameraFlagColors, true);
 
 		if (entity || Game::level.noclip)
 			camera.ref()->flag(CameraFlagActive, true);
@@ -4874,7 +4874,7 @@ void PlayerControlHuman::update_late(const Update& u)
 			camera->flag(CameraFlagFog, true);
 			if (get<Parkour>()->flag(Parkour::FlagTryGrapple))
 			{
-				camera->flag(CameraFlagColors, false);
+				camera->flag(CameraFlagColors, true);
 				camera->range_center = camera->rot.inverse() * (get<Parkour>()->hand_pos() - camera->pos);
 				camera->range = GRAPPLE_RANGE;
 			}
@@ -5451,7 +5451,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		text.anchor_x = UIText::Anchor::Min;
 		text.anchor_y = UIText::Anchor::Max;
 
-		b8 danger = Game::level.mode == Game::Mode::Pvp && enemy_visible && (enemy_dangerous_visible || is_vulnerable) && get<AIAgent>()->stealth < 1.0f;
+		b8 danger = Game::level.mode == Game::Mode::Pvp && enemy_visible && (enemy_dangerous_visible || is_vulnerable);
 
 		if (has<Drone>() && get<Drone>()->flag.ref())
 		{
@@ -5463,15 +5463,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
 		}
 
-		if (get<AIAgent>()->stealth == 1.0f)
-		{
-			// stealth indicator
-			text.color = UI::color_accent();
-			text.text(player.ref()->gamepad, _(strings::stealth));
-			UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
-			text.draw(params, ui_anchor);
-		}
-		else if (danger && (is_vulnerable ? UI::flash_function(Game::time.total) : UI::flash_function_slow(Game::time.total)))
+		if (danger && (is_vulnerable ? UI::flash_function(Game::time.total) : UI::flash_function_slow(Game::time.total)))
 		{
 			// danger indicator
 			text.color = UI::color_alert();

@@ -873,17 +873,6 @@ void multiplayer_entry_edit_update(const Update& u)
 					}
 
 					{
-						// battery stealth
-						b8* enable_battery_stealth = &config->ruleset.enable_battery_stealth;
-						delta = menu->slider_item(u, _(strings::enable_battery_stealth), _(*enable_battery_stealth ? strings::on : strings::off));
-						if (delta)
-						{
-							*enable_battery_stealth = !(*enable_battery_stealth);
-							data.multiplayer.active_server_dirty = true;
-						}
-					}
-
-					{
 						// upgrades
 						sprintf(str, "%d", s32(BitUtility::popcount(s16((1 << s32(Upgrade::count)) - 1) & (config->ruleset.upgrades_allow | config->ruleset.upgrades_default))));
 						if (menu->item(u, _(strings::upgrades), str))
@@ -3446,7 +3435,7 @@ b8 should_draw_zones()
 
 b8 pvp_colors()
 {
-	return Game::level.mode == Game::Mode::Pvp || (active() && data.state != State::StoryModeOverlay);
+	return false;
 }
 
 void show_complete()

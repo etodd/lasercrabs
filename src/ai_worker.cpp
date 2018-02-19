@@ -6,7 +6,7 @@
 #include "mersenne/mersenne-twister.h"
 #include "game/audio.h"
 
-#define RECORD_VERSION 3
+#define RECORD_VERSION 4
 
 #define DEBUG_WALK 0
 #define DEBUG_DRONE 0
@@ -205,38 +205,9 @@ b8 force_field_raycast(const NavGameState& state, Team my_team, const Vec3& a, c
 	return false;
 }
 
-r32 rectifier_cost(const DroneNavMesh& mesh, const NavGameState& state, Team team, const DroneNavMeshNode& node)
+r32 force_field_cost(const DroneNavMesh& mesh, const NavGameState& state, Team team, const DroneNavMeshNode& node)
 {
 	const Vec3& pos = mesh.chunks[node.chunk].vertices[node.vertex];
-	const Vec3& normal = mesh.chunks[node.chunk].normals[node.vertex];
-	b8 in_friendly_zone = false;
-	b8 in_enemy_zone = false;
-	for (s32 i = 0; i < state.rectifiers.length; i++)
-	{
-		Vec3 to_rectifier = state.rectifiers[i].pos - pos;
-		if (to_rectifier.length_squared() < RECTIFIER_RANGE * RECTIFIER_RANGE)
-		{
-			if (normal.dot(to_rectifier) > 0.0f)
-			{
-				if (state.rectifiers[i].team == team)
-					in_friendly_zone = true;
-				else
-				{
-					in_enemy_zone = true;
-					break;
-				}
-			}
-		}
-	}
-
-	r32 rectifier_cost;
-
-	if (in_enemy_zone)
-		rectifier_cost = 24.0f;
-	else if (in_friendly_zone)
-		rectifier_cost = 0;
-	else
-		rectifier_cost = DRONE_FRIENDLY_BIAS;
 
 	r32 force_field_cost = DRONE_FRIENDLY_BIAS;
 
@@ -254,7 +225,7 @@ r32 rectifier_cost(const DroneNavMesh& mesh, const NavGameState& state, Team tea
 		}
 	}
 
-	return rectifier_cost + force_field_cost;
+	return force_field_cost;
 }
 
 DroneNavMeshNode drone_closest_point(const DroneNavMesh& mesh, const NavGameState& state, Team team, const Vec3& p, const Vec3& normal = Vec3::zero)
@@ -376,7 +347,7 @@ void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const D
 		DroneNavMeshNodeData* start_data = &ctx.key->get(start_vertex);
 		start_data->travel_score = 0;
 		start_data->estimate_score = scorer->score(start_pos);
-		start_data->rectifier_score = (ctx.flags & DroneNavFlagBias) ? rectifier_cost(ctx.mesh, ctx.game_state, team, start_vertex) : 0;
+		start_data->rectifier_score = (ctx.flags & DroneNavFlagBias) ? force_field_cost(ctx.mesh, ctx.game_state, team, start_vertex) : 0;
 		start_data->parent = DRONE_NAV_MESH_NODE_NONE;
 		start_data->flags = DroneNavMeshNodeData::FlagCrawledFromParent
 			| DroneNavMeshNodeData::FlagInQueue;
@@ -475,7 +446,7 @@ void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const D
 						// totally new node, not in queue yet
 						adjacent_data->flag(DroneNavMeshNodeData::FlagCrawledFromParent, adjacency.flag(i));
 						adjacent_data->parent = vertex_node;
-						adjacent_data->rectifier_score = (ctx.flags & DroneNavFlagBias) ? rectifier_cost(ctx.mesh, ctx.game_state, team, adjacent_node) : 0;
+						adjacent_data->rectifier_score = (ctx.flags & DroneNavFlagBias) ? force_field_cost(ctx.mesh, ctx.game_state, team, adjacent_node) : 0;
 						adjacent_data->travel_score = candidate_travel_score;
 						adjacent_data->estimate_score = scorer->score(adjacent_pos);
 						adjacent_data->flag(DroneNavMeshNodeData::FlagVisited, true);

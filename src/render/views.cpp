@@ -294,7 +294,7 @@ void View::draw(const RenderParams& params) const
 		}
 		else
 		{
-			const Vec4& team_color = params.camera->flag(CameraFlagColors) ? Vec4(1) : Team::color(AI::Team(team), AI::Team(params.camera->team));
+			const Vec4& team_color = Team::color(AI::Team(team), AI::Team(params.camera->team));
 			if (params.flags & RenderFlagBackFace)
 				color_final = PVP_INACCESSIBLE;
 			else if (list_alpha.get(id()) || list_additive.get(id()))

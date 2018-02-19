@@ -31,10 +31,10 @@ namespace TeamNet
 }
 
 const Vec4 Team::color_friend = Vec4(0.15f, 0.45f, 0.7f, MATERIAL_NO_OVERRIDE);
-const Vec4 Team::color_enemy = Vec4(1.0f, 0.3f, 0.4f, MATERIAL_NO_OVERRIDE);
+const Vec4 Team::color_enemy = Vec4(1.0f, 0.2f, 0.6f, MATERIAL_NO_OVERRIDE);
 
 const Vec4 ui_color_friend_pvp = Vec4(0.35f, 0.85f, 1.0f, 1);
-const Vec4 ui_color_friend_normal = Vec4(0.0f / 255.0f, 232.0f / 255.0f, 202.0f / 255.0f, 1);
+const Vec4 ui_color_friend_normal = Vec4(0.35f, 0.85f, 1.0f, 1);
 const Vec4& Team::ui_color_friend()
 {
 	return Overworld::pvp_colors() ? ui_color_friend_pvp : ui_color_friend_normal;
@@ -137,7 +137,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		2.1f, // movement cooldown
-		0.5f, // switch cooldown
+		0.3f, // switch cooldown
 		40.0f, // use cooldown
 		20.0f, // use cooldown threshold
 		0.5f, // recoil velocity
@@ -147,7 +147,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		2.1f, // movement cooldown
-		0.5f, // switch cooldown
+		0.3f, // switch cooldown
 		40.0f, // use cooldown
 		20.0f, // use cooldown threshold
 		0.5f, // recoil velocity
@@ -177,7 +177,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	},
 	{
 		2.1f, // movement cooldown
-		0.5f, // switch cooldown
+		0.3f, // switch cooldown
 		30.0f, // use cooldown
 		15.0f, // use cooldown threshold
 		0.5f, // recoil velocity
@@ -515,44 +515,6 @@ void get_rectifier_visibility(b8 visibility[MAX_TEAMS], Entity* player_entity)
 
 void update_visibility(const Update& u)
 {
-	// determine which drones are seen by which teams
-	// and update their stealth state
-	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
-	{
-		Entity* player_entity = player.item()->instance.ref();
-		if (player_entity && player_entity->has<Drone>())
-		{
-			AI::Team team = player.item()->team.ref()->team();
-			b8 stealthing = false;
-			UpgradeStation* upgrade_station = UpgradeStation::drone_inside(player_entity->get<Drone>());
-			if (upgrade_station && upgrade_station->timer == 0.0f) // always stealthed inside upgrade stations (but not while transitioning)
-				stealthing = true;
-			else if (Game::time.total - player_entity->get<Drone>()->last_ability_fired < ABILITY_UNSTEALTH_TIME)
-				stealthing = false;
-			else if (player_entity->get<Drone>()->state() == Drone::State::Crawl) // we're on a wall and can thus be detected
-			{
-				b8 rectifier_visibility[MAX_TEAMS] = {};
-				get_rectifier_visibility(rectifier_visibility, player_entity);
-				stealthing = rectifier_visibility[team]; // if player's own rectifiers can see them, they're stealthing
-				if (stealthing)
-				{
-					// unless another team's rectifiers can see them too
-					for (s32 i = 0; i < Team::list.count(); i++)
-					{
-						if (i != team && rectifier_visibility[i])
-						{
-							stealthing = false;
-							break;
-						}
-					}
-				}
-			}
-			else
-				stealthing = false; // always visible while flying or dashing
-			Drone::stealth(player_entity, stealthing);
-		}
-	}
-
 	// update player visibility
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
@@ -576,7 +538,7 @@ void update_visibility(const Update& u)
 			else
 			{
 				Entity* j_entity = j.item()->instance.ref();
-				if (j_entity && j_entity->get<AIAgent>()->stealth < 1.0f)
+				if (j_entity)
 					visibility->value = visibility_check(i_entity, j_entity, i_range);
 				else
 					visibility->value = false;

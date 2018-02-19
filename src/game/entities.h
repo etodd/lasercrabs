@@ -302,8 +302,9 @@ struct MinionSpawnerEntity : public Entity
 
 struct MinionSpawner : public ComponentType<MinionSpawner>
 {
-	static void update_server_all(const Update&);
+	static void update_all(const Update&);
 
+	Vec3 abs_pos_attached;
 	AI::Team team;
 	Ref<PlayerManager> owner;
 
@@ -321,9 +322,10 @@ struct Turret : public ComponentType<Turret>
 {
 	static r32 particle_accumulator;
 
-	static void update_client_all(const Update&);
+	static void update_all(const Update&);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
+	Vec3 abs_pos_attached;
 	r32 cooldown;
 	r32 target_check_time;
 	Ref<Entity> target;

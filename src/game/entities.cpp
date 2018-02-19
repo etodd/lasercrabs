@@ -663,15 +663,7 @@ BatteryEntity::BatteryEntity(const Vec3& p, SpawnPoint* spawn, AI::Team team)
 	model->shader = Asset::Shader::standard;
 	model->team = s8(team);
 
-	if (Game::session.config.ruleset.enable_battery_stealth)
-	{
-		PointLight* light = create<PointLight>();
-		light->type = PointLight::Type::Override;
-		light->team = s8(team);
-		light->radius = (team == AI::TeamNone) ? 0.0f : RECTIFIER_RANGE;
-
-		create<Rectifier>(team);
-	}
+	create<Rectifier>(team);
 
 	Target* target = create<Target>();
 
@@ -813,11 +805,7 @@ void Battery::set_team_client(AI::Team t)
 	team = t;
 	get<View>()->team = s8(t);
 	if (has<Rectifier>())
-	{
-		get<PointLight>()->team = s8(t);
-		get<PointLight>()->radius = (t == AI::TeamNone) ? 0.0f : RECTIFIER_RANGE;
 		get<Rectifier>()->team = t;
-	}
 	spawn_point.ref()->set_team(t);
 }
 
@@ -968,18 +956,8 @@ void Battery::update_all(const Update& u)
 		increment_timer += Game::level.has_feature(Game::FeatureLevel::All) ? BATTERY_ENERGY_INCREMENT_TIME : 1.0f;
 	}
 
-	r32 last_time = u.time.total - u.time.delta;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		const r32 shockwave_interval = 8.0f;
-		r32 offset = i.index * shockwave_interval * 0.3f;
-		Vec3 me = i.item()->get<Transform>()->absolute_pos();
-		if (s32((u.time.total + offset) / shockwave_interval) != s32((last_time + offset) / shockwave_interval))
-		{
-			EffectLight::add(me, 10.0f, 1.5f, EffectLight::Type::Shockwave);
-			Audio::post_global(AK::EVENTS::PLAY_RECTIFIER_PING, Vec3::zero, i.item()->get<Transform>());
-		}
-
 		if (Game::level.local && increment)
 		{
 			i.item()->get<Health>()->add(BATTERY_HEALTH / 3);
@@ -1144,16 +1122,77 @@ template<typename T> void minion_spawn_all(const Update& u, PlayerManager* (*own
 	}
 }
 
-void MinionSpawner::update_server_all(const Update& u)
+// returns true if entity is still alive afterward
+b8 entity_minion_attach_update(Transform* transform, Vec3* abs_pos_attached, AssetID mesh_normal, r32 offset_minion, r32 offset_normal, r32 scale = 1.0f)
 {
-	if (Game::level.mode == Game::Mode::Pvp
+	View* view = transform->get<View>();
+	if (Transform* parent = transform->parent.ref())
+	{
+		if (parent->has<Minion>())
+		{
+			Vec3 pos(0.1f, 0.0f, -0.12f - offset_minion);
+			Quat rot = Quat::euler(0, PI, 0);
+			parent->get<Animator>()->to_local(Asset::Bone::character_spine, &pos, &rot);
+			view->offset.make_transform(pos, Vec3(scale), rot);
+			transform->get<Target>()->local_offset = pos;
+			*abs_pos_attached = parent->to_world(pos);
+		}
+		else
+		{
+			transform->get<Target>()->local_offset = Vec3::zero;
+			view->mesh = mesh_normal;
+			view->offset = Mat4::make_scale(Vec3(scale));
+		}
+		return true;
+	}
+	else
+	{
+		view->mesh = mesh_normal;
+		view->offset = Mat4::make_scale(Vec3(scale));
+		transform->get<Target>()->local_offset = Vec3::zero;
+
+		if (Game::level.local)
+		{
+			// parent is gone; reattach to something
+			btCollisionWorld::ClosestRayResultCallback ray_callback(*abs_pos_attached, *abs_pos_attached + Vec3(0, -4.0f, 0));
+			Physics::raycast(&ray_callback, CollisionStatic);
+			if (ray_callback.hasHit() && !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
+			{
+				Entity* entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+				transform->pos = ray_callback.m_hitPointWorld + (ray_callback.m_hitNormalWorld * offset_normal);
+				transform->rot = Quat::look(ray_callback.m_hitNormalWorld);
+				transform->reparent(entity->get<Transform>());
+				return true;
+			}
+			else
+			{
+				transform->get<Health>()->kill(nullptr);
+				return false;
+			}
+		}
+		else
+			return true;
+	}
+}
+
+void MinionSpawner::update_all(const Update& u)
+{
+	if (Game::level.local
+		&& Game::level.mode == Game::Mode::Pvp
 		&& Game::level.has_feature(Game::FeatureLevel::TutorialAll)
 		&& Team::match_state == Team::MatchState::Active)
 	{
 		minion_spawn_all<MinionSpawner>(u, minion_spawn_get_owner_spawner);
 		minion_spawn_all<SpawnPoint>(u, minion_spawn_get_owner_point);
 	}
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (!entity_minion_attach_update(i.item()->get<Transform>(), &i.item()->abs_pos_attached, Asset::Mesh::minion_spawner_main, MINION_SPAWNER_RADIUS, MINION_SPAWNER_RADIUS))
+			continue;
+	}
 }
+
 
 namespace UpgradeStationNet
 {
@@ -1405,11 +1444,6 @@ RectifierEntity::RectifierEntity(PlayerManager* owner, const Vec3& abs_pos, cons
 
 	create<Health>(RECTIFIER_HEALTH, RECTIFIER_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
 
-	PointLight* light = create<PointLight>();
-	light->type = PointLight::Type::Override;
-	light->team = s8(owner->team.ref()->team());
-	light->radius = RECTIFIER_RANGE;
-
 	create<Rectifier>(owner->team.ref()->team(), owner);
 
 	create<Target>();
@@ -1486,49 +1520,6 @@ void rectifier_update(s32 rectifier_index, const Vec3& rectifier_pos, Entity* e,
 	}
 }
 
-// returns true if entity is still alive afterward
-b8 entity_minion_attach_update(Transform* transform, Vec3* abs_pos_attached, r32 offset_minion, r32 offset_normal, r32 scale = 1.0f)
-{
-	if (Transform* parent = transform->parent.ref())
-	{
-		if (parent->has<Animator>())
-		{
-			Vec3 pos(0.1f, 0.0f, -0.12f - offset_minion);
-			Quat rot = Quat::euler(0, PI, 0);
-			parent->get<Animator>()->to_local(Asset::Bone::character_spine, &pos, &rot);
-			transform->get<View>()->offset.make_transform(pos, Vec3(scale), rot);
-			*abs_pos_attached = parent->to_world(pos);
-		}
-		else
-		{
-			transform->get<View>()->offset = Mat4::make_scale(Vec3(scale));
-			*abs_pos_attached = transform->absolute_pos();
-		}
-		return true;
-	}
-	else if (Game::level.local)
-	{
-		// parent is gone; reattach to something
-		btCollisionWorld::ClosestRayResultCallback ray_callback(*abs_pos_attached, *abs_pos_attached + Vec3(0, -3.0f, 0));
-		Physics::raycast(&ray_callback, CollisionStatic);
-		if (ray_callback.hasHit() && !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
-		{
-			Entity* entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-			transform->pos = ray_callback.m_hitPointWorld + (ray_callback.m_hitNormalWorld * offset_normal);
-			transform->rot = Quat::look(ray_callback.m_hitNormalWorld);
-			transform->reparent(entity->get<Transform>());
-			return true;
-		}
-		else
-		{
-			transform->get<Health>()->kill(nullptr);
-			return false;
-		}
-	}
-	else
-		return true;
-}
-
 Array<InstanceVertex> Rectifier::heal_effects;
 s8 Rectifier::heal_counts[MAX_ENTITIES];
 Bitmask<MAX_ENTITIES> Rectifier::heal_targets;
@@ -1543,19 +1534,27 @@ void Rectifier::update_all(const Update& u)
 	}
 
 	heal_effects.length = 0;
+	r32 last_time = u.time.total - u.time.delta;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		Transform* transform = i.item()->get<Transform>();
 
 		if (!i.item()->has<Battery>())
 		{
-			if (!entity_minion_attach_update(transform, &i.item()->abs_pos_attached, RECTIFIER_RADIUS, RECTIFIER_RADIUS, RECTIFIER_RADIUS))
+			if (!entity_minion_attach_update(transform, &i.item()->abs_pos_attached, Asset::Mesh::rectifier, RECTIFIER_RADIUS, RECTIFIER_RADIUS, RECTIFIER_RADIUS))
 				continue;
 		}
 
 		if (i.item()->team != AI::TeamNone)
 		{
+			const r32 shockwave_interval = 8.0f;
+			r32 offset = i.index * shockwave_interval * 0.3f;
 			Vec3 me = transform->absolute_pos();
+			if (s32((u.time.total + offset) / shockwave_interval) != s32((last_time + offset) / shockwave_interval))
+			{
+				EffectLight::add(me, 10.0f, 1.5f, EffectLight::Type::Shockwave);
+				Audio::post_global(AK::EVENTS::PLAY_RECTIFIER_PING, Vec3::zero, transform);
+			}
 
 			PlayerManager* owner = i.item()->owner.ref();
 
@@ -2366,20 +2365,26 @@ MinionSpawnerEntity::MinionSpawnerEntity(PlayerManager* owner, AI::Team team, co
 {
 	{
 		Transform* transform = create<Transform>();
-		transform->pos = abs_pos;
-		transform->rot = abs_rot;
-		transform->reparent(parent);
+		if (parent && parent->has<Minion>())
+			transform->parent = parent; // parent at 0, 0, 0
+		else
+		{
+			transform->pos = abs_pos;
+			transform->rot = abs_rot;
+			transform->reparent(parent);
+		}
 	}
 
 	create<Health>(MINION_SPAWNER_HEALTH, MINION_SPAWNER_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
 
 	View* model = create<View>();
-	model->mesh = Asset::Mesh::minion_spawner;
+	model->mesh = Asset::Mesh::minion_spawner_main;
 	model->shader = Asset::Shader::standard;
 	model->team = s8(team);
-	model->offset.make_translate(Vec3(0, 0, -MINION_SPAWNER_RADIUS));
+	if (parent && parent->has<Minion>())
+		model->mesh = Asset::Mesh::minion_spawner_attached;
 
-	create<Target>()->local_offset = Vec3(0, 0, DRONE_RADIUS);
+	create<Target>();
 	create<MinionTarget>();
 
 	{
@@ -2431,9 +2436,14 @@ TurretEntity::TurretEntity(PlayerManager* owner, AI::Team team, const Vec3& abs_
 {
 	{
 		Transform* transform = create<Transform>();
-		transform->pos = abs_pos;
-		transform->rot = abs_rot;
-		transform->reparent(parent);
+		if (parent && parent->has<Minion>())
+			transform->parent = parent; // parent at 0, 0, 0
+		else
+		{
+			transform->pos = abs_pos;
+			transform->rot = abs_rot;
+			transform->reparent(parent);
+		}
 	}
 	create<Audio>();
 	create<MinionTarget>();
@@ -2538,9 +2548,6 @@ b8 Turret::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 b8 Turret::can_see(Entity* target) const
 {
-	if ((target->has<AIAgent>() && target->get<AIAgent>()->stealth == 1.0f))
-		return false;
-
 	Vec3 pos = get<Transform>()->absolute_pos();
 
 	Vec3 target_pos = target->has<Target>() ? target->get<Target>()->absolute_pos() : target->get<Transform>()->absolute_pos();
@@ -2641,8 +2648,16 @@ void Turret::update_server(const Update& u)
 }
 
 r32 Turret::particle_accumulator;
-void Turret::update_client_all(const Update& u)
+void Turret::update_all(const Update& u)
 {
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (Game::level.local)
+			i.item()->update_server(u);
+		if (!entity_minion_attach_update(i.item()->get<Transform>(), &i.item()->abs_pos_attached, Asset::Mesh::turret, TURRET_RADIUS, TURRET_RADIUS))
+			continue;
+	}
+
 	const r32 interval = 0.05f;
 	particle_accumulator += u.time.delta;
 	while (particle_accumulator > interval)
@@ -2860,10 +2875,7 @@ void ForceField::update_all(const Update& u)
 	{
 		if (i.item()->flags & FlagAttached)
 		{
-			Transform* parent = i.item()->get<Transform>()->parent.ref();
-			if (!parent || !parent->has<Minion>())
-				i.item()->get<View>()->mesh = Asset::Mesh::force_field_base;
-			if (!entity_minion_attach_update(i.item()->get<Transform>(), &i.item()->abs_pos_attached, FORCE_FIELD_BASE_RADIUS, FORCE_FIELD_BASE_OFFSET))
+			if (!entity_minion_attach_update(i.item()->get<Transform>(), &i.item()->abs_pos_attached, Asset::Mesh::force_field_base, FORCE_FIELD_BASE_RADIUS, FORCE_FIELD_BASE_OFFSET))
 				continue;
 		}
 
@@ -4025,18 +4037,13 @@ namespace GrenadeNet
 
 b8 grenade_trigger_filter(Entity* e, AI::Team team)
 {
-	return (e->has<AIAgent>() && e->get<AIAgent>()->team != team && e->get<AIAgent>()->stealth < 1.0f)
+	return (e->has<AIAgent>() && e->get<AIAgent>()->team != team)
 		|| (e->has<ForceField>() && e->get<ForceField>()->team != team)
 		|| (e->has<ForceFieldCollision>() && e->get<ForceFieldCollision>()->field.ref()->team != team)
 		|| (e->has<Rectifier>() && !e->has<Battery>() && e->get<Rectifier>()->team != team)
 		|| (e->has<Turret>() && e->get<Turret>()->team != team)
-		|| (e->has<MinionSpawner>() && e->get<MinionSpawner>()->team != team);
-}
-
-b8 grenade_hit_filter(Entity* e, AI::Team team)
-{
-	return (grenade_trigger_filter(e, team) || (e->has<AIAgent>() && (e->get<AIAgent>()->team != team || e->has<Minion>()))) // don't care if the AIAgent is stealthed or not if it's an enemy or a minion
-		&& (!e->has<Drone>() || !UpgradeStation::drone_inside(e->get<Drone>())); // can't hit drones inside upgrade stations
+		|| (e->has<MinionSpawner>() && e->get<MinionSpawner>()->team != team)
+		|| (e->has<Drone>() && !UpgradeStation::drone_inside(e->get<Drone>()));
 }
 
 // returns true if grenade hits something
@@ -4066,7 +4073,7 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, const Net::StateFrame* state_fr
 			Glass::shatter_all(pos, next_pos);
 
 			Bolt::Hit hit;
-			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team)), team, &hit, &grenade_hit_filter, state_frame, DRONE_SHIELD_RADIUS))
+			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team)), team, &hit, &grenade_trigger_filter, state_frame, DRONE_SHIELD_RADIUS))
 			{
 				if (out_hit)
 					*out_hit = hit;
@@ -4086,7 +4093,7 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, const Net::StateFrame* state_fr
 
 void Grenade::hit_entity(const Bolt::Hit& hit, const Net::StateFrame* state_frame)
 {
-	if (grenade_hit_filter(hit.entity, team))
+	if (grenade_trigger_filter(hit.entity, team))
 	{
 		if (hit.entity->has<Minion>())
 		{

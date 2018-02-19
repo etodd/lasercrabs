@@ -738,15 +738,11 @@ b8 battery_filter(const PlayerControlAI* control, const Entity* e)
 
 b8 minion_filter(const PlayerControlAI* control, const Entity* e)
 {
-	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
-		&& e->get<AIAgent>()->stealth < 1.0f;
+	return e->get<AIAgent>()->team != control->get<AIAgent>()->team;
 }
 
 MemoryStatus minion_memory_filter(const PlayerControlAI* control, const Entity* e)
 {
-	if (e->get<AIAgent>()->stealth == 1.0f)
-		return MemoryStatus::Keep;
-
 	if (e->get<AIAgent>()->team == control->get<AIAgent>()->team)
 		return MemoryStatus::Forget;
 	else
@@ -779,9 +775,6 @@ MemoryStatus turret_memory_filter(const PlayerControlAI* control, const Entity* 
 
 MemoryStatus drone_memory_filter(const PlayerControlAI* control, const Entity* e)
 {
-	if (e->get<AIAgent>()->stealth == 1.0f)
-		return MemoryStatus::Keep; // don't update it, but also don't forget it
-
 	if (e->get<AIAgent>()->team == control->get<AIAgent>()->team)
 		return MemoryStatus::Forget; // don't care
 	else
@@ -800,7 +793,6 @@ b8 drone_run_filter(const PlayerControlAI* control, const Entity* e)
 b8 drone_find_filter(const PlayerControlAI* control, const Entity* e)
 {
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
-		&& e->get<AIAgent>()->stealth < 1.0f
 		&& (e->get<Health>()->shield <= control->get<Health>()->shield);
 }
 
@@ -987,8 +979,7 @@ void PlayerControlAI::actions_populate()
 	}
 
 	// run away
-	if (!tag.stealth
-		&& tag.nearby_entities & ((1 << s32(AI::RecordedLife::EntityDroneEnemyShield1) | (1 << s32(AI::RecordedLife::EntityDroneEnemyShield2)))))
+	if (tag.nearby_entities & ((1 << s32(AI::RecordedLife::EntityDroneEnemyShield1) | (1 << s32(AI::RecordedLife::EntityDroneEnemyShield2)))))
 	{
 		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
 		{

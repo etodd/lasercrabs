@@ -651,7 +651,6 @@ void Game::update(InputState* input, const InputState* last_input)
 
 		if (level.local)
 		{
-			MinionSpawner::update_server_all(u);
 			if (session.type == SessionType::Story && level.mode == Mode::Pvp && Team::match_state != Team::MatchState::Done)
 			{
 				// spawn AI players
@@ -676,8 +675,6 @@ void Game::update(InputState* input, const InputState* last_input)
 				}
 			}
 
-			for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-				i.item()->update_server(u);
 			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
 			for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
@@ -699,8 +696,11 @@ void Game::update(InputState* input, const InputState* last_input)
 
 #if !SERVER
 		Bolt::update_client_all(u);
-		Turret::update_client_all(u);
 #endif
+
+		MinionSpawner::update_all(u);
+		Turret::update_all(u);
+		MinionSpawner::update_all(u);
 
 		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
@@ -866,6 +866,8 @@ b8 Game::net_transform_filter(const Entity* t, Mode mode)
 		| Battery::component_mask
 		| ForceField::component_mask
 		| Rectifier::component_mask
+		| Turret::component_mask
+		| MinionSpawner::component_mask
 		| Walker::component_mask
 	);
 }
@@ -2475,7 +2477,10 @@ void Game::awake_all()
 			Loader::animation(Asset::Animation::drone_idle);
 			Loader::mesh(Asset::Mesh::rectifier);
 			Loader::mesh(Asset::Mesh::force_field_base);
+			Loader::mesh(Asset::Mesh::force_field_base_attached);
 			Loader::mesh(Asset::Mesh::force_field_sphere);
+			Loader::mesh(Asset::Mesh::minion_spawner_main);
+			Loader::mesh(Asset::Mesh::minion_spawner_attached);
 
 			Loader::mesh(Asset::Mesh::grenade_attached);
 			Loader::mesh(Asset::Mesh::grenade_detached);

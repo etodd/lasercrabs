@@ -158,8 +158,6 @@
 
 #define RECTIFIER_HEAL_INTERVAL 1.0f
 #define RECTIFIER_HEAL_MAX_CONCURRENT 4
-#define RECTIFIER_STEALTH_TIME 1.0f
-#define ABILITY_UNSTEALTH_TIME 0.3f // time after using an ability when stealth is disabled (ish, it's actually longer than this)
 #define RECTIFIER_RANGE 11.0f
 #define RECTIFIER_RADIUS 0.2f
 #define RECTIFIER_HEALTH 6

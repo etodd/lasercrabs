@@ -554,7 +554,7 @@ const Vec4& UI::color_alert()
 }
 
 const Vec4 color_accent_pvp = Vec4(1.0f, 0.95f, 0.35f, 1);
-const Vec4 color_accent_normal = Vec4(1.0f, 1.0f, 0.4f, 1);
+const Vec4 color_accent_normal = Vec4(1.0f, 0.95f, 0.35f, 1);
 const Vec4& UI::color_accent()
 {
 	return Overworld::pvp_colors() ? color_accent_pvp : color_accent_normal;

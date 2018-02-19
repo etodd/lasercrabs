@@ -520,7 +520,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		AIAgent* a = e->get<AIAgent>();
 		serialize_s8(p, a->team);
-		serialize_r32_range(p, a->stealth, 0.0f, 1.0f, 8);
 	}
 
 	if (e->has<Drone>())

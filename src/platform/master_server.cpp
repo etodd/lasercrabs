@@ -591,7 +591,6 @@ namespace Master
 			}
 		}
 		config->ruleset.enable_batteries = b8(Json::get_s32(json, "enable_batteries", defaults.ruleset.enable_batteries));
-		config->ruleset.enable_battery_stealth = b8(Json::get_s32(json, "enable_battery_stealth", defaults.ruleset.enable_battery_stealth));
 		config->ruleset.drone_shield = s8(Json::get_s32(json, "drone_shield", defaults.ruleset.drone_shield));
 		config->ruleset.spawn_delay = s8(vi_max(1, vi_min(120, s32(Json::get_s32(json, "spawn_delay", defaults.ruleset.spawn_delay)))));
 		config->ruleset.start_energy = s16(Json::get_s32(json, "start_energy", defaults.ruleset.start_energy));
@@ -634,8 +633,6 @@ namespace Master
 		}
 		if (config.ruleset.enable_batteries != defaults.ruleset.enable_batteries)
 			cJSON_AddNumberToObject(json, "enable_batteries", config.ruleset.enable_batteries);
-		if (config.ruleset.enable_battery_stealth != defaults.ruleset.enable_battery_stealth)
-			cJSON_AddNumberToObject(json, "enable_battery_stealth", config.ruleset.enable_battery_stealth);
 		if (config.ruleset.drone_shield != defaults.ruleset.drone_shield)
 			cJSON_AddNumberToObject(json, "drone_shield", config.ruleset.drone_shield);
 		if (config.ruleset.spawn_delay != defaults.ruleset.spawn_delay)

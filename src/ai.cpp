@@ -729,15 +729,7 @@ void entity_info(const Entity* e, Team query_team, Team* team, s8* type)
 			if (_team == query_team)
 				_type = shield <= 1 ? RecordedLife::EntityDroneFriendShield1 : RecordedLife::EntityDroneFriendShield2;
 			else
-			{
-				if (e->get<AIAgent>()->stealth == 1.0f)
-				{
-					_team = TeamNone;
-					_type = RecordedLife::EntityNone;
-				}
-				else
-					_type = shield <= 1 ? RecordedLife::EntityDroneEnemyShield1 : RecordedLife::EntityDroneEnemyShield2;
-			}
+				_type = shield <= 1 ? RecordedLife::EntityDroneEnemyShield1 : RecordedLife::EntityDroneEnemyShield2;
 		}
 		else if (e->has<Minion>())
 			_type = _team == query_team ? RecordedLife::EntityMinionFriend : RecordedLife::EntityMinionEnemy;
@@ -862,7 +854,6 @@ void RecordedLife::Tag::init(const PlayerManager* manager)
 	if (player)
 	{
 		shield = player->get<Health>()->shield;
-		stealth = player->get<AIAgent>()->stealth == 1.0f;
 
 		{
 			Quat rot;
@@ -886,7 +877,6 @@ void RecordedLife::Tag::init(const PlayerManager* manager)
 	else
 	{
 		shield = 0;
-		stealth = false;
 		pos = normal = Vec3::zero;
 		nearby_entities = 0;
 	}
@@ -957,7 +947,6 @@ void RecordedLife::reset()
 	battery_state.length = 0;
 	turret_state.length = 0;
 	nearby_entities.length = 0;
-	stealth.length = 0;
 	action.length = 0;
 }
 
@@ -979,7 +968,6 @@ void RecordedLife::add(const Tag& tag, const Action& a)
 	battery_state.add(tag.battery_state);
 	turret_state.add(tag.turret_state);
 	nearby_entities.add(tag.nearby_entities);
-	stealth.add(tag.stealth);
 	action.add(a);
 }
 
@@ -1071,10 +1059,6 @@ void RecordedLife::serialize(FILE* f, size_t(*func)(void*, size_t, size_t, FILE*
 	func(&nearby_entities.length, sizeof(s32), 1, f);
 	nearby_entities.resize(nearby_entities.length);
 	func(nearby_entities.data, sizeof(s32), nearby_entities.length, f);
-
-	func(&stealth.length, sizeof(s32), 1, f);
-	stealth.resize(stealth.length);
-	func(stealth.data, sizeof(b8), stealth.length, f);
 
 	func(&action.length, sizeof(s32), 1, f);
 	action.resize(action.length);

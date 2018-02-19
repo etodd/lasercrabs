@@ -1533,7 +1533,7 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 					text.color = UI::color_default;
 				s32 max_players = entry.server_state.level == AssetNull ? entry.max_players : entry.server_state.max_players;
 				text.text(0, "%d/%d", vi_max(0, max_players - entry.server_state.player_slots), max_players);
-				text.draw(params, pos + Vec2(panel_size.x * 0.91f, panel_size.y * 0.5f));
+				text.draw(params, pos + Vec2(panel_size.x * 0.89f, panel_size.y * 0.5f));
 			}
 
 			if (entry.server_state.level != AssetNull) // there's a server running this config

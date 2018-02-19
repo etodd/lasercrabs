@@ -20,6 +20,7 @@ extern char ca_path[MAX_PATH_LENGTH + 1];
 extern char smtp_server[MAX_PATH_LENGTH + 1];
 extern char smtp_username[MAX_USERNAME + 1];
 extern char smtp_password[MAX_AUTH_KEY + 1];
+extern b8 smtp_ipv6;
 
 struct Request
 {

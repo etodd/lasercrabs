@@ -15,11 +15,13 @@ namespace Http
 
 
 #define DEBUG_HTTP 0
+#define DEBUG_SMTP 0
 
 char ca_path[MAX_PATH_LENGTH + 1];
 char smtp_server[MAX_PATH_LENGTH + 1];
 char smtp_username[MAX_USERNAME + 1];
 char smtp_password[MAX_AUTH_KEY + 1];
+b8 smtp_ipv6 = false; // HACK
 
 Request::~Request()
 {
@@ -240,7 +242,10 @@ void smtp(const char* to, const char* subject, const char* html, const char* tex
 
 	curl_easy_setopt(request->curl, CURLOPT_HTTPHEADER, request->request_headers);
 
-#if DEBUG_HTTP
+	if (!smtp_ipv6)
+		curl_easy_setopt(request->curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+
+#if DEBUG_SMTP
 	curl_easy_setopt(request->curl, CURLOPT_VERBOSE, 1L);
 #endif
 	

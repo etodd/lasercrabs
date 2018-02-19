@@ -232,7 +232,7 @@ void handle_upload(mg_connection* nc, int ev, void* p)
 		{
 			mg_file_upload_handler(nc, ev, p, upload_filename);
 #if RELEASE_BUILD
-			Http::smtp("support@deceivergame.com", "Deceiver crash dump", "A crash dump has been received.");
+			Http::smtp("support@deceivergame.com", "DECEIVER crash dump", "A crash dump has been received.");
 #endif
 			break;
 		}

@@ -161,7 +161,7 @@ mg_connection* conn_ipv6;
 
 struct mg_str upload_filename(mg_connection* nc, mg_str fname)
 {
-	if (fname.len == 0)
+	if (fname.len == 0 || fname.len > 512)
 		return { nullptr, 0 }; // not cool
 
 	s32 i = 0;
@@ -232,7 +232,8 @@ void handle_upload(mg_connection* nc, int ev, void* p)
 		{
 			mg_file_upload_handler(nc, ev, p, upload_filename);
 #if RELEASE_BUILD
-			Http::smtp("support@deceivergame.com", "DECEIVER crash dump", "A crash dump has been received.");
+			mg_http_multipart_part* mp = (mg_http_multipart_part*)(p);
+			Http::smtp("support@deceivergame.com", "Crash dump", mp->file_name);
 #endif
 			break;
 		}

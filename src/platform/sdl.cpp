@@ -42,7 +42,7 @@ namespace VI
 		{
 			time_t t;
 			::time(&t);
-			return (u64)t;
+			return u64(t);
 		}
 
 		r64 time()
@@ -106,14 +106,14 @@ namespace VI
 		}
 	}
 
-	s32 vsync_set(b8 vsync)
+	b8 vsync_set(b8 vsync)
 	{
 		if (SDL_GL_SetSwapInterval(vsync ? 1 : 0) != 0)
 		{
 			fprintf(stderr, "Failed to set OpenGL swap interval: %s\n", SDL_GetError());
-			return -1;
+			return false;
 		}
-		return 0;
+		return true;
 	}
 
 #if _WIN32
@@ -233,6 +233,10 @@ namespace VI
 	s32 proc()
 	{
 #if _WIN32
+		SetUnhandledExceptionFilter(crash_reporter);
+#endif
+
+#if _WIN32
 		SetProcessDPIAware();
 #endif
 
@@ -251,14 +255,10 @@ namespace VI
 		) < 0)
 		{
 			fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());
-			return -1;
+			vi_assert(false);
 		}
 
 		Loader::data_directory = SDL_GetPrefPath("HelveticaScenario", "Deceiver");
-
-#if _WIN32
-		SetUnhandledExceptionFilter(crash_reporter);
-#endif
 
 		{
 			const char* build_file = "build.txt";
@@ -408,7 +408,7 @@ namespace VI
 			vi_assert(false);
 		}
 
-		if (vsync_set(Settings::vsync))
+		if (!vsync_set(Settings::vsync))
 		{
 			fprintf(stderr, "Failed to set vsync\n");
 			vi_assert(false);
@@ -781,8 +781,8 @@ namespace VI
 				{
 					if (sync->vsync != resolution_current_vsync)
 					{
-						if (vsync_set(sync->vsync))
-							return -1;
+						if (!vsync_set(sync->vsync))
+							vi_assert(false);
 						resolution_current_vsync = sync->vsync;
 					}
 
@@ -943,7 +943,7 @@ namespace VI
 						if (SDL_SetRelativeMouseMode(SDL_FALSE) != 0)
 						{
 							fprintf(stderr, "Failed to set relative mouse mode: %s\n", SDL_GetError());
-							return -1;
+							vi_assert(false);
 						}
 						cursor_visible = true;
 					}
@@ -961,7 +961,7 @@ namespace VI
 						if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0)
 						{
 							fprintf(stderr, "Failed to set relative mouse mode: %s\n", SDL_GetError());
-							return -1;
+							vi_assert(false);
 						}
 						cursor_visible = false;
 						just_enabled_relative = true;

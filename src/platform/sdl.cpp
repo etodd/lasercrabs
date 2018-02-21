@@ -254,8 +254,8 @@ namespace VI
 			| SDL_INIT_JOYSTICK
 		) < 0)
 		{
-			fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());
-			vi_assert(false);
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "SDL Error", SDL_GetError(), nullptr);
+			return 1;
 		}
 
 		Loader::data_directory = SDL_GetPrefPath("HelveticaScenario", "Deceiver");
@@ -337,7 +337,9 @@ namespace VI
 				// find largest display mode smaller than the current one
 				SDL_DisplayMode current_mode;
 				if (SDL_GetDesktopDisplayMode(0, &current_mode))
-					vi_assert(false);
+				{
+					
+				}
 
 				for (s32 i = 0; i < modes.length; i++)
 				{
@@ -353,7 +355,10 @@ namespace VI
 			{
 				SDL_DisplayMode current_mode;
 				if (SDL_GetDesktopDisplayMode(0, &current_mode))
-					vi_assert(false);
+				{
+					SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to get desktop display mode", SDL_GetError(), nullptr);
+					return 1;
+				}
 				default_display_mode = { current_mode.w, current_mode.h };
 			}
 #endif
@@ -397,21 +402,21 @@ namespace VI
 		// open a window and create its OpenGL context
 		if (!window)
 		{
-			fprintf(stderr, "Failed to open SDL window. Most likely your GPU is out of date! %s\n", SDL_GetError());
-			vi_assert(false);
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to open SDL window", SDL_GetError(), nullptr);
+			return 1;
 		}
 
 		SDL_GLContext context = SDL_GL_CreateContext(window);
 		if (!context)
 		{
-			fprintf(stderr, "Failed to create GL context: %s\n", SDL_GetError());
-			vi_assert(false);
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to create GL context", SDL_GetError(), nullptr);
+			return 1;
 		}
 
 		if (!vsync_set(Settings::vsync))
 		{
-			fprintf(stderr, "Failed to set vsync\n");
-			vi_assert(false);
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to set vsync", SDL_GetError(), nullptr);
+			return 1;
 		}
 
 		{
@@ -420,8 +425,8 @@ namespace VI
 			GLenum glew_result = glewInit();
 			if (glew_result != GLEW_OK)
 			{
-				fprintf(stderr, "Failed to initialize GLEW: %s\n", glewGetErrorString(glew_result));
-				vi_assert(false);
+				SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "GLEW init failed", (const char*)(glewGetErrorString(glew_result)), nullptr);
+				return 1;
 			}
 		}
 
@@ -782,7 +787,10 @@ namespace VI
 					if (sync->vsync != resolution_current_vsync)
 					{
 						if (!vsync_set(sync->vsync))
-							vi_assert(false);
+						{
+							SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to set vsync", SDL_GetError(), nullptr);
+							return 1;
+						}
 						resolution_current_vsync = sync->vsync;
 					}
 
@@ -942,8 +950,8 @@ namespace VI
 					{
 						if (SDL_SetRelativeMouseMode(SDL_FALSE) != 0)
 						{
-							fprintf(stderr, "Failed to set relative mouse mode: %s\n", SDL_GetError());
-							vi_assert(false);
+							SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to set relative mouse mode", SDL_GetError(), nullptr);
+							return 1;
 						}
 						cursor_visible = true;
 					}
@@ -960,8 +968,8 @@ namespace VI
 					{
 						if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0)
 						{
-							fprintf(stderr, "Failed to set relative mouse mode: %s\n", SDL_GetError());
-							vi_assert(false);
+							SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to set relative mouse mode", SDL_GetError(), nullptr);
+							return 1;
 						}
 						cursor_visible = false;
 						just_enabled_relative = true;

@@ -1859,7 +1859,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 		if (player_count > 1)
 		{
 			text.anchor_x = UIText::Anchor::Min;
-			text.color = Team::ui_color(manager->team.ref()->team(), team);
+			text.color = Team::color_ui(manager->team.ref()->team(), team);
 			text.text_raw(0, _(Team::name_long(team)));
 			UI::box(params, Rect2(p, Vec2(width, text.bounds().y)).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, p);
@@ -1896,7 +1896,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 				{
 					// username
 					if (Game::level.mode == Game::Mode::Pvp)
-						text.color = Team::ui_color(manager->team.ref()->team(), i.item()->team.ref()->team());
+						text.color = Team::color_ui(manager->team.ref()->team(), i.item()->team.ref()->team());
 					else
 						text.color = UI::color_default;
 					text.text_raw(0, i.item()->username);
@@ -1984,7 +1984,7 @@ void player_draw_flag(const RenderParams& params, const Flag* flag)
 	Vec2 p;
 	if (UI::project(params, pos, &p))
 	{
-		const Vec4& color = Team::ui_color(params.camera->team, flag->team);
+		const Vec4& color = Team::color_ui(params.camera->team, flag->team);
 		UI::centered_box(params, { p, Vec2(32.0f * UI::scale) }, UI::color_background);
 		UI::mesh(params, Asset::Mesh::icon_flag, p, Vec2(24.0f * UI::scale), color);
 
@@ -2095,7 +2095,7 @@ void PlayerHuman::draw_battery_flag_icons(const RenderParams& params) const
 					if (UI::project(params, pos, &p))
 					{
 						UI::centered_box(params, { p, Vec2(32.0f * UI::scale) }, UI::color_background);
-						UI::mesh(params, Asset::Mesh::icon_flag_base, p, Vec2(24.0f * UI::scale), Team::ui_color_friend());
+						UI::mesh(params, Asset::Mesh::icon_flag_base, p, Vec2(24.0f * UI::scale), Team::color_ui_friend());
 					}
 				}
 
@@ -2113,7 +2113,7 @@ void PlayerHuman::draw_battery_flag_icons(const RenderParams& params) const
 				{
 					Vec3 pos = get<PlayerManager>()->team.ref()->flag_base.ref()->absolute_pos();
 					if (instance && instance->get<Drone>()->flag.ref())
-						UI::indicator(params, pos, Team::ui_color_friend(), true);
+						UI::indicator(params, pos, Team::color_ui_friend(), true);
 
 					player_draw_flag(params, our_flag);
 				}
@@ -2201,7 +2201,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		{
 			case EmoteCategory::TeamA:
 			case EmoteCategory::TeamB:
-				text.color = Team::ui_color_friend();
+				text.color = Team::color_ui_friend();
 				break;
 			case EmoteCategory::Everyone:
 				text.color = UI::color_accent();
@@ -2413,7 +2413,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			text.anchor_y = UIText::Anchor::Max;
 
 			// username
-			text.color = Team::ui_color(get<PlayerManager>()->team.ref()->team(), spectating->get<AIAgent>()->team);
+			text.color = Team::color_ui(get<PlayerManager>()->team.ref()->team(), spectating->get<AIAgent>()->team);
 			text.text_raw(gamepad, spectating->get<PlayerCommon>()->manager.ref()->username);
 			Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
 			UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
@@ -2481,7 +2481,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 			for (s32 i = score_summary_scroll.top(); i < score_summary_scroll.bottom(Team::score_summary.length); i++)
 			{
 				const Team::ScoreSummaryItem& item = Team::score_summary[i];
-				text.color = item.player.ref() == get<PlayerManager>() ? UI::color_accent() : Team::ui_color(team, item.team);
+				text.color = item.player.ref() == get<PlayerManager>() ? UI::color_accent() : Team::color_ui(team, item.team);
 
 				UIText amount = text;
 				amount.anchor_x = UIText::Anchor::Max;
@@ -2726,7 +2726,7 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 				if (my_team == AI::TeamNone)
 					text.color = UI::color_accent();
 				else
-					text.color = Team::ui_color(my_team, entry.team);
+					text.color = Team::color_ui(my_team, entry.team);
 				if (entry.mask == 1 << my_team)
 					text.text(gamepad, "%s %s: %s", entry.username, _(strings::chat_team_prefix), entry.msg);
 				else
@@ -2744,7 +2744,7 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 		base_pos.y -= text.size * UI::scale + MENU_ITEM_PADDING * 4.0f;
 		chat_field.get(&text, 32);
 		UI::box(params, text.rect(base_pos).outset(MENU_ITEM_PADDING), UI::color_background);
-		text.color = chat_focus == ChatFocus::Team ? Team::ui_color_friend() : UI::color_default;
+		text.color = chat_focus == ChatFocus::Team ? Team::color_ui_friend() : UI::color_default;
 		text.draw(params, base_pos);
 	}
 }
@@ -2776,7 +2776,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 			if (Game::level.mode == Game::Mode::Parkour)
 				text.color = UI::color_accent();
 			else
-				text.color = Team::ui_color(my_team, entry.a_team);
+				text.color = Team::color_ui(my_team, entry.a_team);
 
 			if (entry.b[0])
 			{
@@ -2805,7 +2805,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 				if (Game::level.mode == Game::Mode::Parkour)
 					text.color = UI::color_accent();
 				else
-					text.color = Team::ui_color(my_team, entry.b_team);
+					text.color = Team::color_ui(my_team, entry.b_team);
 				{
 					char buffer[MAX_USERNAME + 1] = {};
 					strncpy(buffer, entry.b, MAX_USERNAME);
@@ -5021,18 +5021,18 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				break;
 			case TargetIndicator::Type::BatteryEnemy:
 			case TargetIndicator::Type::BatteryEnemyOutOfRange:
-				UI::indicator(params, indicator.pos, Team::ui_color_enemy(), true, 1.0f, PI);
+				UI::indicator(params, indicator.pos, Team::color_ui_enemy(), true, 1.0f, PI);
 				break;
 			case TargetIndicator::Type::BatteryFriendly:
 			case TargetIndicator::Type::BatteryFriendlyOutOfRange:
-				UI::indicator(params, indicator.pos, Team::ui_color_friend(), true, 1.0f, PI);
+				UI::indicator(params, indicator.pos, Team::color_ui_friend(), true, 1.0f, PI);
 				break;
 			case TargetIndicator::Type::Minion:
-				UI::indicator(params, indicator.pos, Team::ui_color_enemy(), false, 1.0f, PI);
+				UI::indicator(params, indicator.pos, Team::color_ui_enemy(), false, 1.0f, PI);
 				break;
 			case TargetIndicator::Type::Turret:
 			case TargetIndicator::Type::MinionSpawner:
-				UI::indicator(params, indicator.pos, Team::ui_color_enemy(), false);
+				UI::indicator(params, indicator.pos, Team::color_ui_enemy(), false);
 				break;
 			case TargetIndicator::Type::TurretAttacking:
 			{
@@ -5067,7 +5067,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			{
 				Vec2 p;
 				if (UI::project(params, turret_pos, &p))
-					draw_health_bar(params, i.item()->get<Health>(), p + Vec2(0, 32.0f * UI::scale), Team::ui_color(team, i.item()->team));
+					draw_health_bar(params, i.item()->get<Health>(), p + Vec2(0, 32.0f * UI::scale), Team::color_ui(team, i.item()->team));
 
 				if (i.item()->target.ref() == entity())
 					enemy_visible = true;
@@ -5083,7 +5083,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			{
 				Vec2 p;
 				if (UI::project(params, pos, &p))
-					draw_health_bar(params, i.item()->get<Health>(), p + Vec2(0, 32.0f * UI::scale), Team::ui_color(team, i.item()->team));
+					draw_health_bar(params, i.item()->get<Health>(), p + Vec2(0, 32.0f * UI::scale), Team::color_ui(team, i.item()->team));
 			}
 		}
 
@@ -5097,7 +5097,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				{
 					Vec2 p;
 					if (UI::project(params, pos, &p))
-						draw_health_bar(params, i.item()->get<Health>(), p + Vec2(0, 40.0f * UI::scale), Team::ui_color(team, i.item()->team));
+						draw_health_bar(params, i.item()->get<Health>(), p + Vec2(0, 40.0f * UI::scale), Team::color_ui(team, i.item()->team));
 				}
 			}
 		}
@@ -5114,10 +5114,10 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 					enemy_visible = true;
 					enemy_dangerous_visible = true;
 
-					UI::indicator(params, pos, Team::ui_color_enemy(), true);
+					UI::indicator(params, pos, Team::color_ui_enemy(), true);
 
 					UIText text;
-					text.color = Team::ui_color(team, i.item()->team);
+					text.color = Team::color_ui(team, i.item()->team);
 					text.text(player.ref()->gamepad, _(strings::grenade_incoming));
 					text.anchor_x = UIText::Anchor::Center;
 					text.anchor_y = UIText::Anchor::Center;
@@ -5161,13 +5161,13 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			if (station)
 			{
 				Vec3 pos = station->get<Transform>()->absolute_pos();
-				Vec2 p = UI::indicator(params, pos, Team::ui_color_friend(), true);
+				Vec2 p = UI::indicator(params, pos, Team::color_ui_friend(), true);
 
 				p.y += UI_TEXT_SIZE_DEFAULT * 2.0f * UI::scale;
 				if (UI::flash_function_slow(Game::real_time.total))
 				{
 					UIText text;
-					text.color = Team::ui_color_friend();
+					text.color = Team::color_ui_friend();
 					text.text(player.ref()->gamepad, _(strings::upgrade_notification));
 					text.anchor_x = UIText::Anchor::Center;
 					text.anchor_y = UIText::Anchor::Center;
@@ -5263,7 +5263,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 								switch (Game::save.zones[entry.level])
 								{
 									case ZoneState::PvpFriendly:
-										text.color = Team::ui_color_friend();
+										text.color = Team::color_ui_friend();
 										break;
 									case ZoneState::ParkourUnlocked:
 										text.color = UI::color_default;
@@ -5280,7 +5280,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 										break;
 									}
 									case ZoneState::PvpHostile:
-										text.color = Team::ui_color_enemy();
+										text.color = Team::color_ui_enemy();
 										break;
 									default:
 										vi_assert(false);
@@ -5388,7 +5388,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 			{
 				const Vec4* color = Game::level.mode == Game::Mode::Parkour
 					? &UI::color_accent()
-					: (friendly ? &Team::ui_color_friend() : &Team::ui_color_enemy());
+					: (friendly ? &Team::color_ui_friend() : &Team::color_ui_enemy());
 
 				// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
 

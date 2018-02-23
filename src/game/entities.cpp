@@ -75,6 +75,7 @@ DroneEntity::DroneEntity(AI::Team team, const Vec3& pos)
 	model->shader = Asset::Shader::armature;
 	model->team = s8(team);
 	model->alpha_if_obstructing();
+	model->color = Team::color_neutral();
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::drone;
@@ -649,7 +650,7 @@ BatteryEntity::BatteryEntity(const Vec3& p, SpawnPoint* spawn, AI::Team team)
 	create<Transform>()->pos = p;
 
 	View* model = create<View>();
-	model->color = Vec4(0.6f, 0.6f, 0.6f, MATERIAL_NO_OVERRIDE);
+	model->color = Team::color_neutral();
 	model->mesh = Asset::Mesh::battery;
 	model->shader = Asset::Shader::standard;
 	model->team = s8(team);
@@ -1026,8 +1027,10 @@ SpawnPointEntity::SpawnPointEntity(AI::Team team, b8 visible)
 		view->mesh = Asset::Mesh::spawn_main;
 		view->shader = Asset::Shader::culled;
 		view->team = s8(team);
+		view->color = Team::color_neutral();
 
 		PointLight* light = create<PointLight>();
+		light->color = Team::color_neutral().xyz();
 		light->offset.z = 2.0f;
 		light->radius = 12.0f;
 		light->team = s8(team);
@@ -1427,7 +1430,7 @@ UpgradeStationEntity::UpgradeStationEntity(SpawnPoint* p)
 	view->mesh = Asset::Mesh::spawn_collision;
 	view->shader = Asset::Shader::culled;
 	view->team = AI::TeamNone;
-	view->color.w = MATERIAL_NO_OVERRIDE;
+	view->color = Team::color_neutral();
 }
 
 RectifierEntity::RectifierEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat& abs_rot, Transform* parent)
@@ -1449,6 +1452,7 @@ RectifierEntity::RectifierEntity(PlayerManager* owner, const Vec3& abs_pos, cons
 	model->team = s8(owner->team.ref()->team());
 	model->shader = Asset::Shader::culled;
 	model->offset.scale(Vec3(RECTIFIER_RADIUS));
+	model->color = Team::color_neutral();
 
 	create<Health>(RECTIFIER_HEALTH, RECTIFIER_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
 
@@ -1959,6 +1963,7 @@ FlagEntity::FlagEntity(AI::Team team)
 	model->shader = Asset::Shader::standard;
 	model->team = s8(team);
 	model->offset.scale(Vec3(FLAG_RADIUS * 0.94f));
+	model->color = Team::color_neutral();
 
 	create<PlayerTrigger>()->radius = DRONE_SHIELD_RADIUS + 0.2f;
 
@@ -2394,6 +2399,7 @@ MinionSpawnerEntity::MinionSpawnerEntity(PlayerManager* owner, AI::Team team, co
 	create<Health>(MINION_SPAWNER_HEALTH, MINION_SPAWNER_HEALTH, DRONE_SHIELD_AMOUNT, DRONE_SHIELD_AMOUNT);
 
 	View* model = create<View>();
+	model->color = Team::color_neutral();
 	model->mesh = Asset::Mesh::minion_spawner_main;
 	model->shader = Asset::Shader::culled;
 	model->team = s8(team);
@@ -2410,6 +2416,7 @@ MinionSpawnerEntity::MinionSpawnerEntity(PlayerManager* owner, AI::Team team, co
 	}
 
 	PointLight* light = create<PointLight>();
+	light->color = Team::color_neutral().xyz();
 	light->team = s8(team);
 	light->type = PointLight::Type::Normal;
 	light->radius = TURRET_RANGE * 0.5f;
@@ -2468,6 +2475,7 @@ TurretEntity::TurretEntity(PlayerManager* owner, AI::Team team, const Vec3& abs_
 	view->mesh = Asset::Mesh::turret;
 	view->shader = Asset::Shader::culled;
 	view->team = s8(team);
+	view->color = Team::color_neutral();
 	
 	{
 		Turret* turret = create<Turret>();
@@ -2481,6 +2489,7 @@ TurretEntity::TurretEntity(PlayerManager* owner, AI::Team team, const Vec3& abs_
 	create<Shield>();
 
 	PointLight* light = create<PointLight>();
+	light->color = Team::color_neutral().xyz();
 	light->team = s8(team);
 	light->type = PointLight::Type::Normal;
 	light->radius = TURRET_RANGE * 0.5f;
@@ -3003,6 +3012,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 			}
 
 			View* model = create<View>();
+			model->color = Team::color_neutral();
 			model->team = team;
 			model->mesh = Asset::Mesh::force_field_base;
 			model->shader = Asset::Shader::standard;
@@ -3068,7 +3078,7 @@ BoltEntity::BoltEntity(AI::Team team, PlayerManager* player, Entity* owner, Bolt
 	{
 		PointLight* light = create<PointLight>();
 		light->radius = BOLT_LIGHT_RADIUS;
-		light->color = Vec3(1, 1, 1);
+		light->color = Team::color_neutral().xyz();
 	}
 
 	r32 speed = Bolt::speed(type);
@@ -3975,9 +3985,10 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 
 	PointLight* light = create<PointLight>();
 	light->radius = BOLT_LIGHT_RADIUS;
-	light->color = Vec3(1, 1, 1);
+	light->color = Team::color_neutral().xyz();
 
 	View* model = create<View>();
+	model->color = Team::color_neutral();
 	model->mesh = Asset::Mesh::grenade_detached;
 	model->team = s8(owner->team.ref()->team());
 	model->shader = Asset::Shader::standard;
@@ -5013,6 +5024,7 @@ CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)
 	PointLight* light = create<PointLight>();
 	light->radius = 6.0f;
 	light->offset = Vec3(0, 0, 0.2f);
+	light->color = Team::color_neutral().xyz();
 
 	Collectible* c = create<Collectible>();
 	c->save_id = save_id;
@@ -5031,7 +5043,7 @@ CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)
 				mesh = Asset::Mesh::audio_log;
 			View* v = create<View>(mesh);
 			v->shader = Asset::Shader::standard;
-			v->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
+			v->color = Team::color_neutral();
 			break;
 		}
 		default:
@@ -5115,13 +5127,13 @@ void Interactable::awake()
 	switch (type)
 	{
 		case Type::Terminal:
-			interacted.link(&TerminalInteractable::interacted);
+			interacted.link(&TerminalInteractableEntity::interacted);
 			break;
 		case Type::Tram:
 			interacted.link(&TramInteractableEntity::interacted);
 			break;
 		case Type::Shop:
-			interacted.link(&ShopInteractable::interacted);
+			interacted.link(&ShopInteractableEntity::interacted);
 			break;
 		default:
 			vi_assert(false);
@@ -5174,19 +5186,19 @@ ShopEntity::ShopEntity()
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::shop_view;
 	model->shader = Asset::Shader::standard;
-	model->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
+	model->color = Team::color_neutral();
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric & ~CollisionGlass, Asset::Mesh::shop_collision);
 	body->set_restitution(0.75f);
 }
 
-ShopInteractable::ShopInteractable()
+ShopInteractableEntity::ShopInteractableEntity()
 {
 	create<Transform>();
 	create<Interactable>(Interactable::Type::Shop);
 }
 
-void ShopInteractable::interacted(Interactable*)
+void ShopInteractableEntity::interacted(Interactable*)
 {
 }
 
@@ -5217,9 +5229,9 @@ TerminalEntity::TerminalEntity()
 	Transform* transform = create<Transform>();
 	
 	SkinnedModel* model = create<SkinnedModel>();
+	model->color = Team::color_neutral();
 	model->mesh = Asset::Mesh::terminal;
 	model->shader = Asset::Shader::armature;
-	model->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::terminal;
@@ -5233,7 +5245,7 @@ TerminalEntity::TerminalEntity()
 	body->set_restitution(0.75f);
 }
 
-TerminalInteractable::TerminalInteractable()
+TerminalInteractableEntity::TerminalInteractableEntity()
 {
 	Transform* transform = create<Transform>();
 
@@ -5252,7 +5264,7 @@ TerminalInteractable::TerminalInteractable()
 	create<Interactable>(Interactable::Type::Terminal);
 }
 
-void TerminalInteractable::interacted(Interactable* i)
+void TerminalInteractableEntity::interacted(Interactable* i)
 {
 	vi_assert(Game::level.mode == Game::Mode::Parkour);
 
@@ -5284,7 +5296,7 @@ TramRunnerEntity::TramRunnerEntity(s8 track, b8 is_front)
 	create<Transform>();
 	View* model = create<View>(Asset::Mesh::tram_runner);
 	model->shader = Asset::Shader::standard;
-	model->color.w = MATERIAL_INACCESSIBLE;
+	model->color = Team::color_neutral();
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAudio & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric & ~CollisionGlass, Asset::Mesh::tram_runner);
 	body->set_restitution(0.75f);
 	TramRunner* r = create<TramRunner>();
@@ -5475,8 +5487,9 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::tram_mesh;
 	view->shader = Asset::Shader::standard;
-	view->color.w = MATERIAL_INACCESSIBLE;
+	view->color = Team::color_neutral();
 
+	// glass
 	{
 		Entity* child = World::alloc<StaticGeom>(Asset::Mesh::tram_collision, Vec3::zero, Quat::identity, CollisionInaccessible, ~CollisionDroneIgnore & ~CollisionInaccessible & ~CollisionParkour & ~CollisionElectric);
 		child->get<Transform>()->parent = transform;
@@ -5487,6 +5500,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 		Net::finalize_child(child);
 	}
 
+	// doors
 	{
 		Entity* doors = World::alloc<Empty>();
 		doors->get<Transform>()->parent = transform;
@@ -5495,7 +5509,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 		SkinnedModel* model = doors->create<SkinnedModel>();
 		model->mesh = Asset::Mesh::tram_doors;
 		model->shader = Asset::Shader::armature;
-		model->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
+		model->color = Team::color_neutral();
 
 		Animator* anim = doors->create<Animator>();
 		anim->armature = Asset::Armature::tram_doors;

@@ -74,7 +74,6 @@ b8 transitioning();
 b8 zone_is_pvp(AssetID);
 s32 zone_max_teams(AssetID);
 void zone_rewards(AssetID, s16*);
-b8 pvp_colors();
 AssetID zone_under_attack();
 void resource_change(Resource, s16);
 r32 resource_change_time(Resource);

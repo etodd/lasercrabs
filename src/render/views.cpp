@@ -294,13 +294,12 @@ void View::draw(const RenderParams& params) const
 		}
 		else
 		{
-			const Vec4& team_color = Team::color(AI::Team(team), AI::Team(params.camera->team));
 			if (params.flags & RenderFlagBackFace)
 				color_final = PVP_INACCESSIBLE;
 			else if (list_alpha.get(id()) || list_additive.get(id()))
-				color_final = Vec4(team_color.xyz(), color.w);
+				color_final = Vec4(Team::color_alpha(AI::Team(team), AI::Team(params.camera->team)), color.w);
 			else
-				color_final = team_color;
+				color_final = Team::color(AI::Team(team), AI::Team(params.camera->team));
 		}
 		if (params.flags & RenderFlagAlphaOverride)
 			color_final.w = 0.7f;

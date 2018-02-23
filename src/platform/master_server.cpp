@@ -848,34 +848,7 @@ namespace Master
 				}
 			}
 			else
-			{
-#if OFFLINE_DEV
-				// log in to the first user in the database
-				UserKey key;
-				key.token = u32(mersenne::rand());
-				sqlite3_stmt* stmt = db_query("select id, banned, username from User order by random() limit 1;");
-				if (db_step(stmt))
-				{
-					key.id = s32(db_column_int(stmt, 0));
-					b8 banned = b8(db_column_int(stmt, 1));
-					const char* username = db_column_text(stmt, 2);
-					if (!banned)
-					{
-						// update existing user
-						sqlite3_stmt* stmt = db_query("update User set token=?, token_timestamp=? where id=?;");
-						db_bind_int(stmt, 0, key.token);
-						db_bind_int(stmt, 1, platform::timestamp());
-						db_bind_int(stmt, 2, key.id);
-						db_exec(stmt);
-
-						node->client.user_key = key;
-						send_auth_response(node->addr, AuthType::Itch, &key, username);
-						return;
-					}
-				}
-#endif
 				send_auth_response(node->addr, AuthType::Itch, nullptr, nullptr);
-			}
 		}
 	}
 
@@ -1915,16 +1888,45 @@ namespace Master
 					case AuthType::Itch:
 					case AuthType::ItchOAuth:
 					{
-						u64 hash = node->addr.hash();
-						if (!Http::request_for_user_data(hash)) // make sure we're not already trying to authenticate this user
+#if OFFLINE_DEV
 						{
-							char* escaped_auth_key = curl_easy_escape(curl, (char*)(auth_key), 0);
-							char header[MAX_PATH_LENGTH + 1] = {};
-							snprintf(header, MAX_PATH_LENGTH, "Authorization: Bearer %s", escaped_auth_key);
-							curl_free(escaped_auth_key);
-							const char* url = auth_type == AuthType::Itch ? "https://itch.io/api/1/jwt/me" : "https://itch.io/api/1/key/me";
-							Http::get(url, &itch_auth_callback, header, hash);
+							// log in to the first user in the database
+							UserKey key;
+							key.token = u32(mersenne::rand());
+							sqlite3_stmt* stmt = db_query("select id, banned, username from User order by random() limit 1;");
+							if (db_step(stmt))
+							{
+								key.id = s32(db_column_int(stmt, 0));
+								b8 banned = b8(db_column_int(stmt, 1));
+								const char* username = db_column_text(stmt, 2);
+								if (!banned)
+								{
+									// update existing user
+									sqlite3_stmt* stmt = db_query("update User set token=?, token_timestamp=? where id=?;");
+									db_bind_int(stmt, 0, key.token);
+									db_bind_int(stmt, 1, platform::timestamp());
+									db_bind_int(stmt, 2, key.id);
+									db_exec(stmt);
+
+									node->client.user_key = key;
+									send_auth_response(node->addr, AuthType::Itch, &key, username);
+								}
+							}
 						}
+#else
+						{
+							u64 hash = node->addr.hash();
+							if (!Http::request_for_user_data(hash)) // make sure we're not already trying to authenticate this user
+							{
+								char* escaped_auth_key = curl_easy_escape(curl, (char*)(auth_key), 0);
+								char header[MAX_PATH_LENGTH + 1] = {};
+								snprintf(header, MAX_PATH_LENGTH, "Authorization: Bearer %s", escaped_auth_key);
+								curl_free(escaped_auth_key);
+								const char* url = auth_type == AuthType::Itch ? "https://itch.io/api/1/jwt/me" : "https://itch.io/api/1/key/me";
+								Http::get(url, &itch_auth_callback, header, hash);
+							}
+						}
+#endif
 						break;
 					}
 					case AuthType::GameJolt:

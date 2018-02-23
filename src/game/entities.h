@@ -719,11 +719,11 @@ struct TerminalEntity : public Entity
 	TerminalEntity();
 };
 
-struct TerminalInteractable : public Entity
+struct TerminalInteractableEntity : public Entity
 {
 	static void interacted(Interactable*);
 
-	TerminalInteractable();
+	TerminalInteractableEntity();
 };
 
 struct ShopEntity : public Entity
@@ -731,13 +731,13 @@ struct ShopEntity : public Entity
 	ShopEntity();
 };
 
-struct ShopInteractable : public Entity
+struct ShopInteractableEntity : public Entity
 {
 	static void interacted(Interactable*);
 	static const s32 flags_default = ~(1 << s32(Resource::Energy))
 		& ~(1 << s32(Resource::AudioLog));
 
-	ShopInteractable();
+	ShopInteractableEntity();
 };
 
 struct TramRunnerEntity : public Entity

@@ -980,7 +980,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
 		{
 			PlayerControlAI* ai = i.item();
-			text.color = Team::ui_color(render_params.camera->team, i.item()->get<AIAgent>()->team);
+			text.color = Team::color_ui(render_params.camera->team, i.item()->get<AIAgent>()->team);
 			for (s32 j = 0; j < ai->path.length; j++)
 			{
 				Vec2 p;
@@ -2305,10 +2305,10 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			level.shop = entity;
 
 			{
-				Entity* i = World::alloc<ShopInteractable>();
+				Entity* i = World::alloc<ShopInteractableEntity>();
 				i->get<Transform>()->parent = entity->get<Transform>();
 				i->get<Transform>()->pos = Vec3(-3.0f, 0, 0);
-				i->get<Interactable>()->user_data = ShopInteractable::flags_default; // todo: allow shop to enable and disable items
+				i->get<Interactable>()->user_data = ShopInteractableEntity::flags_default; // todo: allow shop to enable and disable items
 				World::awake(i);
 			}
 
@@ -2336,7 +2336,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			entity = World::alloc<TerminalEntity>();
 			level.terminal = entity;
 
-			Entity* i = World::alloc<TerminalInteractable>();
+			Entity* i = World::alloc<TerminalInteractableEntity>();
 			i->get<Transform>()->parent = entity->get<Transform>();
 			i->get<Transform>()->pos = Vec3(1.0f, 0, 0);
 			i->get<Interactable>()->user_data = Loader::find_level(Json::get_string(element, "level"));
@@ -2596,6 +2596,11 @@ void Game::awake_all()
 b8 Game::should_pause()
 {
 	return level.local && PlayerHuman::list.count() == 1;
+}
+
+b8 Game::hi_contrast()
+{
+	return Overworld::modal() || (level.mode == Game::Mode::Pvp && Settings::pvp_color_scheme == Settings::PvpColorScheme::HighContrast);
 }
 
 

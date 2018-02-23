@@ -2126,7 +2126,7 @@ Vec3 zone_color(const ZoneNode& zone)
 			return Vec3(1.0f);
 		case ZoneState::ParkourOwned:
 		case ZoneState::PvpFriendly:
-			return Team::color_friend.xyz();
+			return Team::color_friend().xyz();
 		case ZoneState::PvpHostile:
 			return Team::color_enemy().xyz();
 		default:
@@ -2151,9 +2151,9 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 		case ZoneState::ParkourOwned:
 			return UI::color_accent();
 		case ZoneState::PvpFriendly:
-			return Team::ui_color_friend();
+			return Team::color_ui_friend();
 		case ZoneState::PvpHostile:
-			return Team::ui_color_enemy();
+			return Team::color_ui_enemy();
 		default:
 		{
 			vi_assert(false);
@@ -3325,7 +3325,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			zone_statistics(&captured, &hostile, &locked);
 
 			sprintf(buffer, _(strings::zones_captured), captured);
-			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, Game::save.group == Game::Group::None ? Team::ui_color_friend() : UI::color_accent());
+			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, Game::save.group == Game::Group::None ? Team::color_ui_friend() : UI::color_accent());
 
 			sprintf(buffer, _(strings::zones_hostile), hostile);
 			zone_stat_draw(p, rect, UIText::Anchor::Min, index++, buffer, UI::color_alert());
@@ -3431,11 +3431,6 @@ b8 should_draw_zones()
 {
 	return data.state == State::StoryModeDeploying
 		|| (data.state == State::StoryMode && data.story.tab == StoryTab::Map && data.story.tab_timer == 0.0f);
-}
-
-b8 pvp_colors()
-{
-	return modal() || (Game::level.mode == Game::Mode::Pvp && Settings::pvp_color_scheme == Settings::PvpColorScheme::HighContrast);
 }
 
 void show_complete()

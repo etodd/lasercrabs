@@ -256,11 +256,10 @@ void SkinnedModel::draw(const RenderParams& params, ObstructingBehavior b)
 		}
 		else
 		{
-			const Vec4& team_color = Team::color(AI::Team(team), AI::Team(params.camera->team));
 			if (list_alpha.get(id()) || list_additive.get(id()))
-				c = Vec4(team_color.xyz(), color.w);
+				c = Vec4(Team::color_alpha(AI::Team(team), AI::Team(params.camera->team)), color.w);
 			else
-				c = team_color;
+				c = Team::color(AI::Team(team), AI::Team(params.camera->team));
 		}
 
 		if (alpha_override)

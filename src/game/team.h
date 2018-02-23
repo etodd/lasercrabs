@@ -85,10 +85,13 @@ struct Team : public ComponentType<Team>
 		char label[512];
 	};
 
-	static const Vec4& ui_color_enemy();
-	static const Vec4& ui_color_friend();
+	static const Vec4& color_neutral();
+	static const Vec4& color_friend();
 	static const Vec4& color_enemy();
-	static const Vec4 color_friend;
+	static const Vec4& color_ui_friend();
+	static const Vec4& color_ui_enemy();
+	static const Vec3& color_alpha_friend();
+	static const Vec3& color_alpha_enemy();
 	static StaticArray<ScoreSummaryItem, MAX_PLAYERS * PLAYER_SCORE_SUMMARY_ITEMS> score_summary;
 	static r32 game_over_real_time;
 	static r32 transition_timer;
@@ -118,14 +121,19 @@ struct Team : public ComponentType<Team>
 	static AssetID name_selector(AI::Team);
 	static AssetID name_long(AI::Team);
 
-	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
+	static inline const Vec4& color_ui(AI::Team me, AI::Team them)
 	{
-		return them == AI::TeamNone ? UI::color_accent() : (me == them ? ui_color_friend() : ui_color_enemy());
+		return them == AI::TeamNone ? UI::color_accent() : (me == them ? color_ui_friend() : color_ui_enemy());
 	}
 
 	static inline const Vec4& color(AI::Team me, AI::Team them)
 	{
-		return me == them ? color_friend : color_enemy();
+		return me == them ? color_friend() : color_enemy();
+	}
+
+	static inline const Vec3& color_alpha(AI::Team me, AI::Team them)
+	{
+		return me == them ? color_alpha_friend() : color_alpha_enemy();
 	}
 
 	Ref<Target> spot_target;

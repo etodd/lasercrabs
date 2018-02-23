@@ -44,7 +44,7 @@ MinionEntity::MinionEntity(const Vec3& pos, const Quat& quat, AI::Team team, Pla
 	model->shader = Asset::Shader::armature;
 	model->mesh = Asset::Mesh::character;
 	model->team = s8(team);
-	model->color.w = MATERIAL_NO_OVERRIDE;
+	model->color = Team::color_neutral();
 
 	create<Audio>();
 
@@ -327,23 +327,6 @@ Entity* closest_target(Minion* me, AI::Team team)
 
 	if (best)
 		return best;
-
-	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
-	{
-		ForceField* item = i.item();
-		if (item->team != team && !(item->flags & ForceField::FlagInvincible))
-		{
-			Vec3 item_pos = item->get<Transform>()->absolute_pos();
-			if (me->can_see(item->entity()))
-				return item->entity();
-			r32 cost = entity_cost(me, pos, team, item->entity());
-			if (cost < best_cost)
-			{
-				best = item->entity();
-				best_cost = cost;
-			}
-		}
-	}
 
 	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
 	{

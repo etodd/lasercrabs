@@ -30,25 +30,48 @@ namespace TeamNet
 	b8 update_counts(Team*);
 }
 
-const Vec4 Team::color_friend = Vec4(0.15f, 0.45f, 0.7f, MATERIAL_NO_OVERRIDE);
-const Vec4 color_enemy_pvp = Vec4(1.0f, 0.3f, 0.4f, MATERIAL_NO_OVERRIDE);
-const Vec4 color_enemy_normal = Vec4(1.0f, 0.2f, 0.6f, MATERIAL_NO_OVERRIDE);
-const Vec4& Team::color_enemy()
+const Vec4 color_neutral_all = Vec4(0.9f, 0.9f, 0.9f, MATERIAL_NO_OVERRIDE);
+const Vec4& Team::color_neutral()
 {
-	return Overworld::pvp_colors() ? color_enemy_pvp : color_enemy_normal;
+	return color_neutral_all;
 }
 
-const Vec4 ui_color_friend_pvp = Vec4(0.35f, 0.85f, 1.0f, 1);
-const Vec4 ui_color_friend_normal = Vec4(0.35f, 0.85f, 1.0f, 1);
-const Vec4& Team::ui_color_friend()
+const Vec4 color_friend_hi_contrast = Vec4(0.15f, 0.45f, 0.7f, MATERIAL_NO_OVERRIDE);
+const Vec4 color_friend_normal = Vec4(0.3f, 0.4f, 0.7f, MATERIAL_NO_OVERRIDE);
+const Vec4& Team::color_friend()
 {
-	return Overworld::pvp_colors() ? ui_color_friend_pvp : ui_color_friend_normal;
+	return Game::hi_contrast() ? color_friend_hi_contrast : color_friend_normal;
 }
-const Vec4 ui_color_enemy_pvp = Vec4(1.0f, 0.4f, 0.4f, 1);
-const Vec4 ui_color_enemy_normal = Vec4(255.0f / 255.0f, 115.0f / 255.0f, 200.0f / 255.0f, 1);
-const Vec4& Team::ui_color_enemy()
+const Vec4 color_enemy_hi_contrast = Vec4(1.0f, 0.3f, 0.4f, MATERIAL_NO_OVERRIDE);
+const Vec4 color_enemy_normal = Vec4(0.9f, 0.2f, 0.4f, MATERIAL_NO_OVERRIDE);
+const Vec4& Team::color_enemy()
 {
-	return Overworld::pvp_colors() ? ui_color_enemy_pvp : ui_color_enemy_normal;
+	return Game::hi_contrast() ? color_enemy_hi_contrast : color_enemy_normal;
+}
+
+const Vec3 color_alpha_friend_hi_contrast = Vec3(0.15f, 0.45f, 0.75f);
+const Vec3 color_alpha_friend_normal = Vec3(0.1f, 0.5f, 1.0f);
+const Vec3& Team::color_alpha_friend()
+{
+	return Game::hi_contrast() ? color_alpha_friend_hi_contrast : color_alpha_friend_normal;
+}
+const Vec3 color_alpha_enemy_hi_contrast = Vec3(1.0f, 0.3f, 0.4f);
+const Vec3 color_alpha_enemy_normal = Vec3(1.0f, 0.2f, 0.6f);
+const Vec3& Team::color_alpha_enemy()
+{
+	return Game::hi_contrast() ? color_alpha_enemy_hi_contrast : color_alpha_enemy_normal;
+}
+
+const Vec4 color_ui_friend_all = Vec4(0.35f, 0.85f, 1.0f, 1);
+const Vec4& Team::color_ui_friend()
+{
+	return color_ui_friend_all;
+}
+const Vec4 color_ui_enemy_hi_contrast = Vec4(1.0f, 0.4f, 0.4f, 1);
+const Vec4 color_ui_enemy_normal = Vec4(255.0f / 255.0f, 115.0f / 255.0f, 200.0f / 255.0f, 1);
+const Vec4& Team::color_ui_enemy()
+{
+	return Game::hi_contrast() ? color_ui_enemy_hi_contrast : color_ui_enemy_normal;
 }
 
 r32 Team::battery_spawn_delay;

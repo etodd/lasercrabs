@@ -229,6 +229,7 @@ struct Game
 	static void term();
 
 	static b8 should_pause();
+	static b8 hi_contrast();
 	static void remove_bots_if_necessary(s32);
 	static void add_local_player(s8);
 

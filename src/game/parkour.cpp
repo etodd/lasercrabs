@@ -204,7 +204,7 @@ Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 		model->mesh_first_person = Asset::Mesh::character_headless;
 	}
 	model->radius = 20.0f;
-	model->color.w = MATERIAL_INACCESSIBLE;
+	model->color = Team::color_neutral();
 
 	create<Audio>();
 	

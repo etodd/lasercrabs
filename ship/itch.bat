@@ -1,5 +1,5 @@
 cd "%~dp0"
 cd ..
-butler push etodd/deceiver:win final
-butler push etodd/deceiver:linux final-linux
-butler push etodd/deceiver:mac final-mac
+butler push final etodd/deceiver:win
+butler push final-linux etodd/deceiver:linux
+butler push final-mac etodd/deceiver:mac

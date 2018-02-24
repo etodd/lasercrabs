@@ -2754,6 +2754,7 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 	if (chat_focus != ChatFocus::None)
 	{
 		base_pos.y -= text.size * UI::scale + MENU_ITEM_PADDING * 4.0f;
+		text.icon = AssetNull;
 		chat_field.get(&text, 32);
 		UI::box(params, text.rect(base_pos).outset(MENU_ITEM_PADDING), UI::color_background);
 		text.color = chat_focus == ChatFocus::Team ? Team::color_ui_friend() : UI::color_default;
@@ -5475,9 +5476,11 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		{
 			// flag indicator
 			text.color = UI::color_accent();
+			text.icon = Asset::Mesh::icon_flag;
 			text.text(player.ref()->gamepad, _(strings::carrying_flag));
 			UI::box(params, text.rect(ui_anchor).outset(8 * UI::scale), UI::color_background);
 			text.draw(params, ui_anchor);
+			text.icon = AssetNull;
 			ui_anchor.y -= (UI_TEXT_SIZE_DEFAULT + 24) * UI::scale;
 		}
 

@@ -16,7 +16,7 @@
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 27
+#define GAME_VERSION 28
 
 #define STEAM_APP_ID 728100
 #define DISCORD_APP_ID "367724608469860353"
@@ -165,7 +165,7 @@
 #define BATTERY_ENERGY (BATTERY_ENERGY_INCREMENT * 10)
 #define BATTERY_ENERGY_INCREMENT_TIME 6.0f
 #define BATTERY_SPAWN_DELAY 10.0f
-#define BATTERY_TIME_REWARD (BATTERY_SPAWN_DELAY + 150.0f)
+#define BATTERY_TIME_REWARD (BATTERY_SPAWN_DELAY + 135.0f)
 
 #define DEFAULT_ASSAULT_TIME_LIMIT_MINUTES 6
 

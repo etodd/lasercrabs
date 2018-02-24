@@ -216,8 +216,8 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		2.1f, // movement cooldown
 		0.3f, // switch cooldown
-		10.0f, // use cooldown
-		5.0f, // use cooldown threshold
+		15.0f, // use cooldown
+		7.5f, // use cooldown threshold
 		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_GRENADE,
 		Asset::Mesh::icon_grenade,
@@ -255,7 +255,7 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::rectifier,
 		strings::description_rectifier,
 		Asset::Mesh::icon_rectifier,
-		150,
+		250,
 		Type::Ability,
 	},
 	{
@@ -276,28 +276,28 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::shotgun,
 		strings::description_shotgun,
 		Asset::Mesh::icon_shotgun,
-		350,
+		400,
 		Type::Ability,
 	},
 	{
 		strings::sniper,
 		strings::description_sniper,
 		Asset::Mesh::icon_sniper,
-		350,
+		400,
 		Type::Ability,
 	},
 	{
 		strings::force_field,
 		strings::description_force_field,
 		Asset::Mesh::icon_force_field,
-		450,
+		400,
 		Type::Ability,
 	},
 	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
-		450,
+		550,
 		Type::Ability,
 	},
 };
@@ -1252,8 +1252,8 @@ void PlayerManager::awake()
 {
 	if (Game::level.mode != Game::Mode::Special && !Game::level.local)
 	{
-		char log[512];
-		sprintf(log, _(strings::player_joined), username);
+		char log[UI_TEXT_MAX + 1];
+		snprintf(log, UI_TEXT_MAX, _(strings::player_joined), username);
 		PlayerHuman::log_add(log, team.ref()->team(), AI::TeamAll, flag(FlagIsVip));
 	}
 
@@ -1275,8 +1275,8 @@ PlayerManager::~PlayerManager()
 {
 	if (Game::level.mode != Game::Mode::Special)
 	{
-		char log[512];
-		sprintf(log, _(strings::player_left), username);
+		char log[UI_TEXT_MAX + 1];
+		snprintf(log, UI_TEXT_MAX, _(strings::player_left), username);
 		PlayerHuman::log_add(log, team.ref()->team(), AI::TeamAll, flag(FlagIsVip));
 	}
 }
@@ -1795,6 +1795,12 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 				if (m->has<PlayerHuman>())
 					m->get<PlayerHuman>()->team_set(t);
 				m->clear_ownership();
+				if (Team::match_state != Team::MatchState::TeamSelect)
+				{
+					char log[UI_TEXT_MAX + 1];
+					snprintf(log, UI_TEXT_MAX, _(strings::player_switched_team), m->username, _(Team::name_long(t)));
+					PlayerHuman::log_add(log, t, AI::TeamAll, m->flag(FlagIsVip));
+				}
 			}
 			break;
 		}

@@ -679,15 +679,6 @@ BatteryEntity::BatteryEntity(const Vec3& p, SpawnPoint* spawn, AI::Team team)
 	battery->light = e;
 }
 
-void Battery::health_changed(const HealthEvent& e)
-{
-	if (team != AI::TeamNone && e.hp + e.shield < 0 && get<Health>()->hp > 0)
-	{
-		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::BatteryUnderAttack))
-			PlayerHuman::log_add(_(strings::battery_under_attack), AI::TeamNone, 1 << team);
-	}
-}
-
 void Battery::killed(Entity* e)
 {
 	if (Game::level.local)
@@ -781,7 +772,6 @@ void Battery::awake()
 		PlayerHuman::log_add(_(strings::battery_added));
 	link_arg<const TargetEvent&, &Battery::hit>(get<Target>()->target_hit);
 	link_arg<Entity*, &Battery::killed>(get<Health>()->killed);
-	link_arg<const HealthEvent&, &Battery::health_changed>(get<Health>()->changed);
 	set_team_client(team);
 	if (Game::level.local && team != AI::TeamNone)
 		battery_spawn_force_field(this);
@@ -2424,20 +2414,6 @@ MinionSpawnerEntity::MinionSpawnerEntity(PlayerManager* owner, AI::Team team, co
 	create<Shield>();
 }
 
-void MinionSpawner::awake()
-{
-	link_arg<Entity*, &MinionSpawner::killed>(get<Health>()->killed);
-}
-
-void MinionSpawner::health_changed(const HealthEvent& e)
-{
-	if (e.hp + e.shield < 0 && get<Health>()->hp > 0)
-	{
-		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::MinionSpawnerUnderAttack))
-			PlayerHuman::log_add(_(strings::minion_spawner_under_attack), AI::TeamNone, 1 << team);
-	}
-}
-
 void MinionSpawner::killed(Entity* e)
 {
 	// let everyone know what happened
@@ -2499,21 +2475,11 @@ void Turret::awake()
 {
 	target_check_time = mersenne::randf_oo() * TURRET_TARGET_CHECK_TIME;
 	link_arg<Entity*, &Turret::killed>(get<Health>()->killed);
-	link_arg<const HealthEvent&, &Turret::health_changed>(get<Health>()->changed);
 }
 
 Turret::~Turret()
 {
 	get<Audio>()->stop_all();
-}
-
-void Turret::health_changed(const HealthEvent& e)
-{
-	if (e.hp + e.shield < 0 && get<Health>()->hp > 0)
-	{
-		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::TurretUnderAttack))
-			PlayerHuman::log_add(_(strings::turret_under_attack), AI::TeamNone, 1 << team);
-	}
 }
 
 void Turret::killed(Entity* by)
@@ -3365,8 +3331,10 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 		{
 			case Type::DroneBolter:
 			{
-				if (hit_object->has<Battery>() || hit_object->has<Minion>() || hit_object->has<ForceField>())
+				if (hit_object->has<Battery>() || hit_object->has<Minion>())
 					damage = 3;
+				else if (hit_object->has<ForceField>())
+					damage = 2;
 				else if (hit_object->has<Drone>())
 					damage = 1;
 				else
@@ -3375,7 +3343,7 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 				if (reflected)
 				{
 					if (hit_object->has<Drone>())
-						damage = 2;
+						damage = 3;
 					else
 						damage = 12;
 				}
@@ -3387,7 +3355,7 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 					damage = BATTERY_HEALTH;
 				else if (hit_object->has<Minion>())
 					damage = MINION_HEALTH;
-				else if (hit_object->has<Drone>())
+				else if (hit_object->has<Drone>() || hit_object->has<ForceField>())
 					damage = 1 + (mersenne::rand() % 2); // expected value: 1.5
 				else
 					damage = 2;

@@ -366,9 +366,9 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 		if (target_shield->has<ForceField>())
 		{
 			if (drone->current_ability == Ability::Sniper)
-				result = 9;
+				result = 7;
 			else
-				result = 5;
+				result = 3;
 			if (dot < -0.85f)
 				result += 3;
 		}
@@ -3153,7 +3153,7 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 		const Hit& hit = result->hits[i];
 
 		b8 stop = false;
-		if (hit.type == Hit::Type::Shield || hit.type == Hit::Type::ForceField)
+		if (hit.type == Hit::Type::Shield)
 		{
 			b8 already_hit = false;
 

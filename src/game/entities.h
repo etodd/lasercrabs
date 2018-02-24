@@ -133,7 +133,6 @@ struct Battery : public ComponentType<Battery>
 	void awake();
 	~Battery();
 
-	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 	void hit(const TargetEvent&);
 	b8 set_team(AI::Team, Entity* = nullptr);
@@ -306,8 +305,7 @@ struct MinionSpawner : public ComponentType<MinionSpawner>
 	AI::Team team;
 	Ref<PlayerManager> owner;
 
-	void awake();
-	void health_changed(const HealthEvent&);
+	void awake() {}
 	void killed(Entity*);
 };
 
@@ -334,7 +332,6 @@ struct Turret : public ComponentType<Turret>
 	void awake();
 	~Turret();
 
-	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 	void update_server(const Update&);
 	void check_target();

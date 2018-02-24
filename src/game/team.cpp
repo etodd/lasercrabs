@@ -2270,7 +2270,13 @@ void PlayerManager::ability_cooldown_apply(Ability a)
 	const AbilityInfo& info = AbilityInfo::list[s32(a)];
 	if (info.cooldown_use > 0.0f)
 	{
+#if SERVER
+		// server should already have checked this
 		vi_assert(ability_cooldown[s32(a)] < info.cooldown_use_threshold);
+#else
+		// client should just accept whatever the server says
+		ability_cooldown[s32(a)] = vi_min(ability_cooldown[s32(a)], info.cooldown_use_threshold);
+#endif
 		ability_cooldown[s32(a)] += info.cooldown_use;
 	}
 }

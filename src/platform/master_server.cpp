@@ -1150,6 +1150,7 @@ namespace Master
 							}
 						}
 					}
+					cJSON_Delete(json);
 				}
 			}
 			if (!success)
@@ -3382,6 +3383,7 @@ namespace DiscordBot
 					if (id)
 						strncpy(state.last_poll_message_id, id, MAX_DISCORD_ID_LENGTH);
 				}
+				cJSON_Delete(json);
 			}
 		}
 	}

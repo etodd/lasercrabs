@@ -196,7 +196,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		FlagScoreAccepted = 1 << 0,
 		FlagCanSpawn = 1 << 1,
 		FlagIsAdmin = 1 << 2,
-		FlagParkourReady = 1 << 3,
+		FlagIsVip = 1 << 3,
+		FlagParkourReady = 1 << 4,
 	};
 
 	static s32 visibility_hash(const PlayerManager*, const PlayerManager*);

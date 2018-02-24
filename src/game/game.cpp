@@ -2537,7 +2537,6 @@ void Game::awake_all()
 
 		Loader::mesh_permanent(Asset::Mesh::icon_chevron);
 		Loader::mesh_permanent(Asset::Mesh::icon_warning);
-		Loader::mesh_permanent(Asset::Mesh::icon_turret2);
 		Loader::mesh_permanent(Asset::Mesh::icon_turret);
 		Loader::mesh_permanent(Asset::Mesh::icon_spot);
 		Loader::mesh_permanent(Asset::Mesh::icon_sniper);

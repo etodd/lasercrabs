@@ -1892,6 +1892,7 @@ b8 player(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* men
 	menu->start(u, origin, gamepad);
 
 	menu->text(u, selected->username);
+	menu->last_item()->label.icon = selected->flag(PlayerManager::FlagIsVip) ? Asset::Mesh::icon_vip : AssetNull;
 
 	if (menu->item(u, _(strings::back)))
 		exit = true;
@@ -1989,6 +1990,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 			// player selected; we can switch their team
 			menu->selected = menu->items.length; // make sure the menu knows which player we have selected, in case players change
 			s32 delta = menu->slider_item(u, i.item()->username, value, disabled, icon, UIMenu::SliderItemAllowSelect::Yes);
+			menu->last_item()->label.icon = i.item()->flag(PlayerManager::FlagIsVip) ? Asset::Mesh::icon_vip : AssetNull;
 			if (i.item()->team_scheduled != AI::TeamNone)
 			{
 				if (delta == INT_MIN) // slider item was clicked
@@ -2025,6 +2027,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 						i.item()->set_can_spawn(false);
 				}
 			}
+			menu->last_item()->label.icon = i.item()->flag(PlayerManager::FlagIsVip) ? Asset::Mesh::icon_vip : AssetNull;
 		}
 	}
 
@@ -2220,10 +2223,12 @@ b8 UIMenu::add_item(Item::Type type, const char* string, const char* value, b8 d
 
 	b8 is_selected = active[gamepad] == this && selected == items.length - 1;
 	item->label.color = item->value.color = (disabled || active[gamepad] != this) ? UI::color_disabled() : (is_selected ? UI::color_accent() : UI::color_default);
+	item->label.icon = AssetNull;
 	item->label.text(gamepad, string);
 	text_clip(&item->label, gamepad, animation_time + (items.length - 1 - scroll.pos) * 0.1f, 100.0f);
 
 	item->value.anchor_x = UIText::Anchor::Center;
+	item->value.icon = AssetNull;
 	item->value.text(gamepad, value);
 
 	if (!scroll.visible(items.length - 1))
@@ -2424,10 +2429,10 @@ void UIMenu::text_clip(UIText* text, s8 gamepad, r32 start_time, r32 speed, s32 
 	text_clip_timer(text, gamepad, Game::real_time.total - start_time, speed, max);
 }
 
-const UIMenu::Item* UIMenu::last_visible_item() const
+UIMenu::Item* UIMenu::last_item()
 {
 	if (items.length > 0)
-		return &items[scroll.bottom(items.length) - 1];
+		return &items[items.length - 1];
 	else
 		return nullptr;
 }

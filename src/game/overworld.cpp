@@ -1513,8 +1513,10 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 			text.draw(params, pos + Vec2(PADDING, panel_size.y * 0.5f));
 
 			text.clip = 18;
+			text.icon = entry.creator_vip ? Asset::Mesh::icon_vip : AssetNull;
 			text.text_raw(0, entry.creator_username, UITextFlagSingleLine);
 			text.draw(params, pos + Vec2(panel_size.x * 0.4f, panel_size.y * 0.5f));
+			text.icon = AssetNull;
 			text.clip = 0;
 
 			if (entry.server_state.level != AssetNull)

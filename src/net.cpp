@@ -2235,7 +2235,8 @@ struct Client
 
 		FlagLoadingDone = 1 << 1,
 		FlagIsAdmin = 1 << 2,
-		FlagLowLatencyInterpolation = 1 << 3,
+		FlagIsVip = 1 << 3,
+		FlagLowLatencyInterpolation = 1 << 4,
 	};
 
 	Sock::Address address;
@@ -2287,6 +2288,7 @@ struct ExpectedClient
 	r32 timestamp;
 	Master::UserKey user_key;
 	b8 is_admin;
+	b8 is_vip;
 };
 
 b8 msg_process(StreamRead*, Client*, SequenceID);
@@ -2801,6 +2803,8 @@ b8 packet_handle_master(StreamRead* p)
 			serialize_u32(p, key.token);
 			b8 is_admin;
 			serialize_bool(p, is_admin);
+			b8 is_vip;
+			serialize_bool(p, is_vip);
 
 			// first, check if the client already connected
 			b8 already_connected = false;
@@ -2811,6 +2815,7 @@ b8 packet_handle_master(StreamRead* p)
 				{
 					client->auth_timeout = 0.0f;
 					client->flag(Client::FlagIsAdmin, is_admin);
+					client->flag(Client::FlagIsVip, is_vip);
 					if (is_admin)
 					{
 						// let the client's player know they're an admin
@@ -2848,6 +2853,7 @@ b8 packet_handle_master(StreamRead* p)
 				entry->timestamp = state_common.timestamp;
 				entry->user_key = key;
 				entry->is_admin = is_admin;
+				entry->is_vip = is_vip;
 			}
 			break;
 		}
@@ -3167,6 +3173,7 @@ b8 add_players(Net::StreamRead* p, Client* client, s32 count, const ExpectedClie
 			PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
 			player->master_id = client->user_key.id;
 			manager->flag(PlayerManager::FlagIsAdmin, client->flag(Client::FlagIsAdmin) && gamepad == 0);
+			manager->flag(PlayerManager::FlagIsVip, client->flag(Client::FlagIsVip) && gamepad == 0);
 			player->uuid = uuid;
 			client->players.add(player);
 			finalize(e);
@@ -3268,6 +3275,7 @@ b8 msg_process(StreamRead* p, Client* client, SequenceID seq)
 					{
 						client->auth_timeout = 0.0f;
 						client->flag(Client::FlagIsAdmin, expected_client.is_admin);
+						client->flag(Client::FlagIsVip, expected_client.is_vip);
 						teams = expected_client.teams;
 						state_server.expected_clients.remove(i);
 						break;
@@ -3360,6 +3368,7 @@ void reset()
 			expected_client.timestamp = 0.0f;
 			expected_client.user_key = client.user_key;
 			expected_client.is_admin = client.flag(Client::FlagIsAdmin);
+			expected_client.is_vip = client.flag(Client::FlagIsVip);
 			for (s32 j = 0; j < client.players.length; j++)
 			{
 				const PlayerHuman* player = client.players[j].ref();
@@ -4373,7 +4382,9 @@ b8 packet_handle_master(StreamRead* p)
 			s32 length;
 			serialize_int(p, s32, length, 0, MAX_USERNAME);
 			serialize_bytes(p, (u8*)(username), length);
-			Ascensions::add(username);
+			b8 vip;
+			serialize_bool(p, vip);
+			Ascensions::add(username, vip);
 			break;
 		}
 		case Master::Message::ClientConnectionStep:

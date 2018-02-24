@@ -1805,7 +1805,7 @@ b8 Flag::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					char buffer[UI_TEXT_MAX];
 					snprintf(buffer, UI_TEXT_MAX, _(strings::flag_scored), player->username);
-					PlayerHuman::log_add(buffer, player->team.ref()->team());
+					PlayerHuman::log_add(buffer, player->team.ref()->team(), AI::TeamAll, player->flag(PlayerManager::FlagIsVip));
 				}
 				break;
 			}
@@ -5719,10 +5719,11 @@ r32 Ascensions::Entry::scale() const
 	return (Game::level.far_plane_get() / 100.0f) * LMath::lerpf(blend, 1.0f, 0.5f);
 }
 
-void Ascensions::add(const char* username)
+void Ascensions::add(const char* username, b8 vip)
 {
 	Entry* e = list.add();
 	e->timer = ascension_total_time;
+	e->vip = vip;
 	memset(e->username, 0, sizeof(e->username));
 	strncpy(e->username, username, MAX_USERNAME);
 }
@@ -5759,7 +5760,7 @@ void Ascensions::update(const Update& u)
 			{
 				char msg[512];
 				sprintf(msg, _(strings::player_ascended), e->username);
-				PlayerHuman::log_add(msg);
+				PlayerHuman::log_add(msg, AI::TeamNone, AI::TeamAll, e->vip);
 			}
 		}
 	}
@@ -5797,6 +5798,8 @@ void Ascensions::draw_ui(const RenderParams& params)
 					username.anchor_x = UIText::Anchor::Center;
 					username.anchor_y = UIText::Anchor::Min;
 					username.color = UI::color_accent();
+					if (entry.vip)
+						username.icon = Asset::Mesh::icon_vip;
 					username.text_raw(params.camera->gamepad, entry.username);
 					UI::box(params, username.rect(p).outset(8.0f * UI::scale), UI::color_background);
 					username.draw(params, p);

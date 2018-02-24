@@ -63,6 +63,8 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		AI::TeamMask mask;
 		AI::TeamMask a_team;
 		AI::TeamMask b_team;
+		b8 a_vip;
+		b8 b_vip;
 	};
 
 	struct ChatEntry
@@ -72,6 +74,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 		char msg[MAX_CHAT + 1];
 		AI::Team team;
 		AI::TeamMask mask;
+		b8 vip;
 	};
 
 	enum class ChatFocus : s8
@@ -142,7 +145,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static PlayerHuman* for_camera(const Camera*);
 	static PlayerHuman* for_gamepad(s8);
 	static void chat_add(const char*, PlayerManager* player, AI::TeamMask = AI::TeamAll);
-	static void log_add(const char*, AI::Team = AI::TeamNone, AI::TeamMask = AI::TeamAll, const char* = nullptr, AI::Team = AI::TeamNone);
+	static void log_add(const char*, AI::Team = AI::TeamNone, AI::TeamMask = AI::TeamAll, b8 = false, const char* = nullptr, AI::Team = AI::TeamNone, b8 = false);
 	static void clear();
 	static void camera_setup_drone(Drone*, Camera*, Vec3*, r32);
 	static void draw_logs(const RenderParams&, AI::Team, s8);

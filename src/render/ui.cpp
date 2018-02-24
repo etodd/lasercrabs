@@ -24,6 +24,7 @@ UIText::UIText()
 	anchor_x(),
 	anchor_y(),
 	clip(),
+	icon(AssetNull),
 	wrap_width()
 {
 }
@@ -140,6 +141,12 @@ void UIText::refresh_bounds()
 	const char* c = &rendered_string[0];
 	const Vec2 spacing = Vec2(0.075f, 0.3f);
 	r32 wrap = wrap_width / (size * UI::scale);
+	if (icon != AssetNull)
+	{
+		pos.x += 1.0f + spacing.x;
+		normalized_bounds.x = pos.x;
+	}
+
 	while (*c)
 	{
 		const Font::Character& character = f->get(c);
@@ -258,7 +265,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 {
 	s32 vertex_start = UI::vertices.length;
 	Vec2 screen = params.camera->viewport.size * 0.5f;
-	Vec2 offset = pos - screen;
+	Vec2 offset = pos;
 	Vec2 bound = bounds();
 	switch (anchor_x)
 	{
@@ -292,14 +299,20 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 	r32 cs = cosf(rot), sn = sinf(rot);
 
 	const Font* f = Loader::font(font);
-	s32 vertex_index = UI::vertices.length;
-	s32 index_index = UI::indices.length;
 	Vec3 p(0, -1.0f, 0);
 	const char* c = &rendered_string[0];
 	const Vec2 spacing = Vec2(0.075f, 0.3f);
 	r32 scaled_size = size * UI::scale;
 	r32 wrap = wrap_width / scaled_size;
+	if (icon != AssetNull)
+	{
+		UI::mesh(params, icon, offset + Vec2(p.x + 0.5f, p.y + 0.5f) * scaled_size, Vec2(scaled_size), color, rot);
+		p.x += 1.0f + spacing.x;
+	}
+	offset -= screen;
 	s32 char_index = 0;
+	s32 vertex_index = UI::vertices.length;
+	s32 index_index = UI::indices.length;
 	while (*c)
 	{
 		b8 clipped = clip > 0 && char_index == clip - 1;

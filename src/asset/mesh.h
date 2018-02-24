@@ -65,7 +65,7 @@ namespace Asset
 		const AssetID icon_sniper = 53;
 		const AssetID icon_spot = 54;
 		const AssetID icon_turret = 55;
-		const AssetID icon_turret2 = 56;
+		const AssetID icon_vip = 56;
 		const AssetID icon_wall_run = 57;
 		const AssetID icon_warning = 58;
 		const AssetID interactable = 59;

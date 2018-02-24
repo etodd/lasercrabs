@@ -811,8 +811,9 @@ struct Ascensions
 {
 	struct Entry
 	{
-		char username[MAX_USERNAME + 1];
 		r32 timer;
+		char username[MAX_USERNAME + 1];
+		b8 vip;
 
 		Vec3 pos() const;
 		r32 scale() const;
@@ -822,7 +823,7 @@ struct Ascensions
 	static r32 timer;
 	static r32 particle_accumulator;
 
-	static void add(const char*);
+	static void add(const char*, b8);
 	static void update(const Update&);
 	static void draw_ui(const RenderParams&);
 	static void clear();

@@ -1254,7 +1254,7 @@ void PlayerManager::awake()
 	{
 		char log[512];
 		sprintf(log, _(strings::player_joined), username);
-		PlayerHuman::log_add(log, team.ref()->team());
+		PlayerHuman::log_add(log, team.ref()->team(), AI::TeamAll, flag(FlagIsVip));
 	}
 
 	if (Game::level.mode == Game::Mode::Parkour
@@ -1277,7 +1277,7 @@ PlayerManager::~PlayerManager()
 	{
 		char log[512];
 		sprintf(log, _(strings::player_left), username);
-		PlayerHuman::log_add(log, team.ref()->team());
+		PlayerHuman::log_add(log, team.ref()->team(), AI::TeamAll, flag(FlagIsVip));
 	}
 }
 
@@ -1958,7 +1958,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 				// display notification
 				char buffer[UI_TEXT_MAX];
 				snprintf(buffer, UI_TEXT_MAX, _(strings::player_kicked), kickee.ref()->username);
-				PlayerHuman::log_add(buffer, kickee.ref()->team.ref()->team(), AI::TeamAll);
+				PlayerHuman::log_add(buffer, kickee.ref()->team.ref()->team(), AI::TeamAll, kickee.ref()->flag(FlagIsVip));
 				remove_player_from_local_mask(m);
 			}
 			break;
@@ -2413,10 +2413,13 @@ void PlayerManager::clear_ownership()
 	}
 }
 
-void killer_name(Entity* killer, PlayerManager* killer_player, PlayerManager* player, char* result)
+void killer_name(Entity* killer, PlayerManager* killer_player, PlayerManager* player, char* result, b8* result_vip)
 {
 	if (killer_player)
+	{
 		strncpy(result, killer_player->username, MAX_USERNAME);
+		*result_vip = killer_player->flag(PlayerManager::FlagIsVip);
+	}
 	else
 	{
 		Entity* logged_killer = killer;
@@ -2427,6 +2430,7 @@ void killer_name(Entity* killer, PlayerManager* killer_player, PlayerManager* pl
 			strncpy(result, _(strings::turret), MAX_USERNAME);
 		else
 			strncpy(result, _(strings::minion), MAX_USERNAME);
+		*result_vip = false;
 	}
 }
 
@@ -2462,9 +2466,10 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 				{
 					// log message
 					char killer_str[MAX_USERNAME + 1];
-					killer_name(killer, killer_player, player, killer_str);
+					b8 killer_vip;
+					killer_name(killer, killer_player, player, killer_str, &killer_vip);
 
-					PlayerHuman::log_add(killer_str, killer_team, AI::TeamAll, player->username, team);
+					PlayerHuman::log_add(killer_str, killer_team, AI::TeamAll, killer_vip, player->username, team, player->flag(FlagIsVip));
 				}
 
 				if (player && killer_player && killer_player->has<PlayerHuman>())

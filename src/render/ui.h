@@ -29,11 +29,6 @@ struct UIText
 		char value[255];
 	};
 
-	static Array<VariableEntry> variables;
-
-	static void variables_clear();
-	static void variable_add(s8, const char*, const char*);
-
 	enum class Anchor : s8
 	{
 		Min,
@@ -41,9 +36,16 @@ struct UIText
 		Max,
 		count,
 	};
+
+	static Array<VariableEntry> variables;
+
+	static void variables_clear();
+	static void variable_add(s8, const char*, const char*);
+
 	char rendered_string[UI_TEXT_MAX + 1];
 	Vec4 color;
 	AssetID font;
+	AssetID icon;
 	r32 size;
 	r32 wrap_width;
 	Anchor anchor_x;

@@ -165,6 +165,7 @@ struct ServerListEntry
 	s8 team_count;
 	Ruleset::Preset preset;
 	GameType game_type;
+	b8 creator_vip;
 };
 
 template<typename Stream> b8 serialize_server_list_entry(Stream* p, ServerListEntry* s)
@@ -199,6 +200,8 @@ template<typename Stream> b8 serialize_server_list_entry(Stream* p, ServerListEn
 		if (Stream::IsReading)
 			s->creator_username[creator_length] = '\0';
 	}
+
+	serialize_bool(p, s->creator_vip);
 
 	serialize_enum(p, GameType, s->game_type);
 	serialize_enum(p, Ruleset::Preset, s->preset);
@@ -314,6 +317,7 @@ struct ServerDetails
 	Sock::Address addr;
 	char creator_username[MAX_USERNAME + 1];
 	b8 is_admin;
+	b8 creator_vip;
 };
 
 template<typename Stream> b8 serialize_server_details(Stream* p, ServerDetails* d)
@@ -339,6 +343,8 @@ template<typename Stream> b8 serialize_server_details(Stream* p, ServerDetails* 
 		if (Stream::IsReading)
 			d->creator_username[creator_username_length] = '\0';
 	}
+
+	serialize_bool(p, d->creator_vip);
 
 	serialize_bool(p, d->is_admin);
 

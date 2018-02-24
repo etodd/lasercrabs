@@ -711,14 +711,30 @@ namespace Master
 			return Role::None;
 	}
 
-	void username_get(u32 user_id, char* username)
+	b8 user_is_vip(u32 user_id)
 	{
-		sqlite3_stmt* stmt = db_query("select username from User where id=? limit 1;");
+		sqlite3_stmt* stmt = db_query("select vip from User where id=? limit 1;");
 		db_bind_int(stmt, 0, user_id);
 		if (db_step(stmt))
-			strncpy(username, db_column_text(stmt, 0), MAX_USERNAME);
+			return b8(db_column_int(stmt, 0));
 		else
+			return false;
+	}
+
+	void username_vip_get(u32 user_id, char* username, b8* vip = nullptr)
+	{
+		sqlite3_stmt* stmt = db_query("select username, vip from User where id=? limit 1;");
+		db_bind_int(stmt, 0, user_id);
+		if (db_step(stmt))
+		{
+			strncpy(username, db_column_text(stmt, 0), MAX_USERNAME);
+			*vip = b8(db_column_int(stmt, 1));
+		}
+		else
+		{
 			username[0] = '\0';
+			*vip = false;
+		}
 	}
 
 	b8 server_details_get(u32 config_id, u32 user_id, ServerDetails* details, Sock::Host::Type addr_type)
@@ -731,7 +747,7 @@ namespace Master
 
 			details->is_admin = role == Role::Admin;
 			server_state_for_config_id(config_id, details->config.max_players, details->config.region, &details->state, addr_type, &details->addr);
-			username_get(details->config.creator_id, details->creator_username);
+			username_vip_get(details->config.creator_id, details->creator_username, &details->creator_vip);
 			return true;
 		}
 		return false;
@@ -1319,7 +1335,7 @@ namespace Master
 		return role;
 	}
 
-	b8 send_ascension(Node* client, char* username)
+	b8 send_ascension(Node* client, char* username, b8 vip)
 	{
 		using Stream = StreamWrite;
 		StreamWrite p;
@@ -1329,6 +1345,7 @@ namespace Master
 		s32 length = s32(strlen(username));
 		serialize_int(&p, s32, length, 0, MAX_USERNAME);
 		serialize_bytes(&p, (u8*)(username), length);
+		serialize_bool(&p, vip);
 
 		packet_finalize(&p);
 		global.messenger.send(p, global_timestamp, client->addr, &global.sock);
@@ -1351,6 +1368,10 @@ namespace Master
 		{
 			b8 is_admin = role == Role::Admin;
 			serialize_bool(&p, is_admin);
+		}
+		{
+			b8 is_vip = user_is_vip(user->id);
+			serialize_bool(&p, is_vip);
 		}
 		packet_finalize(&p);
 		global.messenger.send(p, global_timestamp, server->addr, &global.sock);
@@ -1448,7 +1469,7 @@ namespace Master
 		{
 			case ServerListType::Top:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type, ServerConfig.preset from ServerConfig left join User on User.id=ServerConfig.creator_id left join UserServer on (ServerConfig.id=UserServer.server_id and UserServer.user_id=?) where (ServerConfig.is_private=0 or UserServer.role>1) and (ServerConfig.online=1 or ServerConfig.region=?) and (UserServer.role!=1 or UserServer.role is null) order by ServerConfig.online desc, ServerConfig.score desc limit ?,24");
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, User.vip, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type, ServerConfig.preset from ServerConfig left join User on User.id=ServerConfig.creator_id left join UserServer on (ServerConfig.id=UserServer.server_id and UserServer.user_id=?) where (ServerConfig.is_private=0 or UserServer.role>1) and (ServerConfig.online=1 or ServerConfig.region=?) and (UserServer.role!=1 or UserServer.role is null) order by ServerConfig.online desc, ServerConfig.score desc limit ?,24");
 				db_bind_int(stmt, 0, client->client.user_key.id);
 				db_bind_int(stmt, 1, s64(region));
 				db_bind_int(stmt, 2, offset);
@@ -1456,14 +1477,14 @@ namespace Master
 			}
 			case ServerListType::Recent:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type, ServerConfig.preset from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role!=1 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, User.vip, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type, ServerConfig.preset from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role!=1 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
 				db_bind_int(stmt, 0, client->client.user_key.id);
 				db_bind_int(stmt, 1, offset);
 				break;
 			}
 			case ServerListType::Mine:
 			{
-				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type, ServerConfig.preset from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role>=3 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
+				stmt = db_query("select ServerConfig.id, ServerConfig.name, User.username, User.vip, ServerConfig.max_players, ServerConfig.team_count, ServerConfig.game_type, ServerConfig.preset from ServerConfig inner join UserServer on UserServer.server_id=ServerConfig.id left join User on User.id=ServerConfig.creator_id where UserServer.user_id=? and UserServer.role>=3 order by ServerConfig.online desc, UserServer.timestamp desc limit ?,24");
 				db_bind_int(stmt, 0, client->client.user_key.id);
 				db_bind_int(stmt, 1, offset);
 				break;
@@ -1504,10 +1525,11 @@ namespace Master
 			strncpy(entry.name, db_column_text(stmt, 1), MAX_SERVER_CONFIG_NAME);
 			memset(entry.creator_username, 0, sizeof(entry.creator_username));
 			strncpy(entry.creator_username, db_column_text(stmt, 2), MAX_USERNAME);
-			entry.max_players = s8(db_column_int(stmt, 3));
-			entry.team_count = s8(db_column_int(stmt, 4));
-			entry.game_type = GameType(db_column_int(stmt, 5));
-			entry.preset = Ruleset::Preset(db_column_int(stmt, 6));
+			entry.creator_vip = b8(db_column_int(stmt, 3));
+			entry.max_players = s8(db_column_int(stmt, 4));
+			entry.team_count = s8(db_column_int(stmt, 5));
+			entry.game_type = GameType(db_column_int(stmt, 6));
+			entry.preset = Ruleset::Preset(db_column_int(stmt, 7));
 
 			server_state_for_config_id(id, entry.max_players, region, &entry.server_state, client->addr.host.type, &entry.addr);
 
@@ -2347,11 +2369,12 @@ namespace Master
 			}
 			case Message::ClientRequestAscension:
 			{
-				sqlite3_stmt* stmt = db_query("select username from User where completed_campaign=1 order by random() limit 1;");
+				sqlite3_stmt* stmt = db_query("select username, vip from User where completed_campaign=1 order by random() limit 1;");
 				while (db_step(stmt))
 				{
 					char* username = (char*)(db_column_text(stmt, 0));
-					send_ascension(node, username);
+					b8 vip = b8(db_column_int(stmt, 1));
+					send_ascension(node, username, vip);
 				}
 				db_finalize(stmt);
 				break;
@@ -3517,7 +3540,7 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 						if (node->client.user_key.id)
 						{
 							char username[MAX_USERNAME];
-							username_get(node->client.user_key.id, username);
+							username_vip_get(node->client.user_key.id, username);
 							cJSON_AddStringToObject(client, "username", username);
 						}
 						else

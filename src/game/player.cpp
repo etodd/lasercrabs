@@ -564,15 +564,18 @@ void PlayerHuman::chat_add(const char* msg, PlayerManager* player, AI::TeamMask 
 	entry->team = player->team.ref()->team();
 	strncpy(entry->username, player->username, MAX_USERNAME);
 	strncpy(entry->msg, msg, MAX_CHAT);
+	entry->vip = player->flag(PlayerManager::FlagIsVip);
 }
 
-void PlayerHuman::log_add(const char* a, AI::Team a_team, AI::TeamMask mask, const char* b, AI::Team b_team)
+void PlayerHuman::log_add(const char* a, AI::Team a_team, AI::TeamMask mask, b8 a_vip, const char* b, AI::Team b_team, b8 b_vip)
 {
 	PlayerHuman::LogEntry* entry = logs.add();
 	entry->timestamp = Game::real_time.total;
 	entry->mask = mask;
 	entry->a_team = a_team;
 	entry->b_team = b_team;
+	entry->a_vip = a_vip;
+	entry->b_vip = b_vip;
 	strncpy(entry->a, a, UI_TEXT_MAX);
 	if (b)
 		strncpy(entry->b, b, UI_TEXT_MAX);
@@ -1899,8 +1902,10 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 						text.color = Team::color_ui(manager->team.ref()->team(), i.item()->team.ref()->team());
 					else
 						text.color = UI::color_default;
+					text.icon = i.item()->flag(PlayerManager::FlagIsVip) ? Asset::Mesh::icon_vip : AssetNull;
 					text.text_raw(0, i.item()->username);
 					text.draw(params, p);
+					text.icon = AssetNull;
 				}
 
 				if (Game::level.mode == Game::Mode::Pvp)
@@ -2414,7 +2419,11 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 
 			// username
 			text.color = Team::color_ui(get<PlayerManager>()->team.ref()->team(), spectating->get<AIAgent>()->team);
-			text.text_raw(gamepad, spectating->get<PlayerCommon>()->manager.ref()->username);
+			{
+				PlayerManager* spectating_manager = spectating->get<PlayerCommon>()->manager.ref();
+				text.icon = spectating_manager->flag(PlayerManager::FlagIsVip) ? Asset::Mesh::icon_vip : AssetNull;
+				text.text_raw(gamepad, spectating_manager->username);
+			}
 			Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
 			UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, pos);
@@ -2558,6 +2567,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				PlayerManager* victim = k.victim.ref();
 				if (victim)
 				{
+					text.icon = victim->flag(PlayerManager::FlagIsVip) ? Asset::Mesh::icon_vip : AssetNull;
 					text.text(gamepad, _(strings::killed_player), victim->username);
 					UIMenu::text_clip_timer(&text, gamepad, KILL_POPUP_TIME - k.timer, 50.0f);
 					Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
@@ -2703,6 +2713,7 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 		const ChatEntry& entry = chats[i];
 		if (my_team == AI::TeamNone || AI::match(my_team, entry.mask))
 		{
+			text.icon = entry.vip ? Asset::Mesh::icon_vip : AssetNull;
 			if (entry.mask == 1 << my_team)
 				text.text(gamepad, "%s %s: %s", entry.username, _(strings::chat_team_prefix), entry.msg);
 			else
@@ -2727,6 +2738,7 @@ void PlayerHuman::draw_chats(const RenderParams& params) const
 					text.color = UI::color_accent();
 				else
 					text.color = Team::color_ui(my_team, entry.team);
+				text.icon = entry.vip ? Asset::Mesh::icon_vip : AssetNull;
 				if (entry.mask == 1 << my_team)
 					text.text(gamepad, "%s %s: %s", entry.username, _(strings::chat_team_prefix), entry.msg);
 				else
@@ -2778,6 +2790,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 			else
 				text.color = Team::color_ui(my_team, entry.a_team);
 
+			text.icon = entry.a_vip ? Asset::Mesh::icon_vip : AssetNull;
 			if (entry.b[0])
 			{
 				char buffer[MAX_USERNAME + 1] = {};
@@ -2798,6 +2811,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 				text.anchor_x = UIText::Anchor::Center;
 				text.color = UI::color_default;
 				text.clip = 0;
+				text.icon = AssetNull;
 				text.text_raw(gamepad, "->");
 				text.draw(params, p + Vec2(wrap_width * -0.5f, 0));
 
@@ -2806,6 +2820,7 @@ void PlayerHuman::draw_logs(const RenderParams& params, AI::Team my_team, s8 gam
 					text.color = UI::color_accent();
 				else
 					text.color = Team::color_ui(my_team, entry.b_team);
+				text.icon = entry.b_vip ? Asset::Mesh::icon_vip : AssetNull;
 				{
 					char buffer[MAX_USERNAME + 1] = {};
 					strncpy(buffer, entry.b, MAX_USERNAME);
@@ -5406,7 +5421,11 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 						username.anchor_x = UIText::Anchor::Center;
 						username.anchor_y = UIText::Anchor::Min;
 						username.color = *color;
-						username.text_raw(player.ref()->gamepad, other_player.item()->manager.ref()->username);
+						{
+							PlayerManager* other_manager = other_player.item()->manager.ref();
+							username.icon = other_manager->flag(PlayerManager::FlagIsVip) ? Asset::Mesh::icon_vip : AssetNull;
+							username.text_raw(player.ref()->gamepad, other_manager->username);
+						}
 
 						UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::color_background);
 

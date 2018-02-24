@@ -89,7 +89,7 @@ struct UIMenu
 	r32 height() const;
 	Rect2 rect(r32 = 1.0f) const;
 	void start(const Update&, const Origin&, s8, EnableInput = EnableInput::Yes);
-	const Item* last_visible_item() const;
+	Item* last_item();
 	b8 add_item(Item::Type, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	b8 item(const Update&, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	b8 text(const Update&, const char*, const char* = nullptr, b8 = true, AssetID = AssetNull);

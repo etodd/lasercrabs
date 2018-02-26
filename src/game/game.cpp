@@ -50,6 +50,7 @@
 #include "data/json.h"
 #include "asset/version.h"
 #if !SERVER && !defined(__ORBIS__)
+#include <sdl/include/SDL.h>
 #include "steam/steam_api.h"
 #include "discord/include/discord-rpc.h"
 #endif
@@ -300,7 +301,10 @@ void Game::init(LoopSync* sync)
 		if (SteamAPI_RestartAppIfNecessary(STEAM_APP_ID))
 			quit = true;
 		else if (!SteamAPI_Init())
-			vi_assert(false);
+		{
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Steam error", "Failed to integrate with Steam! Please make sure Steam is running.", nullptr);
+			quit = true;
+		}
 	}
 
 	{

@@ -142,6 +142,7 @@ namespace Master
 
 	namespace DiscordBot
 	{
+		void init();
 		void update();
 	}
 
@@ -2406,6 +2407,8 @@ namespace Master
 
 		CrashReport::init();
 
+		DiscordBot::init();
+
 		// open sqlite database
 		{
 			b8 init_db = !platform::file_exists("deceiver.db");
@@ -2683,18 +2686,26 @@ namespace DiscordBot
 		s32 last_stat_mention_playing;
 		s32 last_stat_mention_available;
 		char last_poll_message_id[MAX_DISCORD_ID_LENGTH + 1];
+		char escaped_bot_token[MAX_AUTH_KEY + 1];
 	};
 	State state;
 
-	struct curl_slist* auth_headers(CURL* curl)
+	void init()
+	{
+		CURL* curl = curl_easy_init();
+		char* t = curl_easy_escape(curl, (char*)(Settings::discord_bot_token), 0);
+		strncpy(state.escaped_bot_token, t, MAX_AUTH_KEY);
+		curl_free(t);
+		curl_easy_cleanup(curl);
+	}
+
+	struct curl_slist* auth_headers()
 	{
 		struct curl_slist* headers;
 
 		{
 			char auth_header[MAX_PATH_LENGTH + 1] = {};
-			char* escaped_bot_token = curl_easy_escape(curl, (char*)(Settings::discord_bot_token), 0);
-			snprintf(auth_header, MAX_PATH_LENGTH, "Authorization: Bot %s", escaped_bot_token);
-			curl_free(escaped_bot_token);
+			snprintf(auth_header, MAX_PATH_LENGTH, "Authorization: Bot %s", state.escaped_bot_token);
 			headers = curl_slist_append(nullptr, auth_header);
 		}
 
@@ -2720,7 +2731,7 @@ namespace DiscordBot
 			Json::json_free(post);
 		}
 
-		struct curl_slist* headers = auth_headers(curl);
+		struct curl_slist* headers = auth_headers();
 		headers = curl_slist_append(headers, "Content-Type: application/json");
 		headers = curl_slist_append(headers, "Expect:"); // initialize custom header list stating that Expect: 100-continue is not wanted
 		Http::add(curl, nullptr, headers);
@@ -2737,7 +2748,7 @@ namespace DiscordBot
 		curl_easy_setopt(curl, CURLOPT_URL, url);
 
 		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT"); 
-		struct curl_slist* headers = auth_headers(curl);
+		struct curl_slist* headers = auth_headers();
 		headers = curl_slist_append(headers, "Content-Length: 0");
 		headers = curl_slist_append(headers, "Expect:"); // initialize custom header list stating that Expect: 100-continue is not wanted
 		Http::add(curl, nullptr, headers);
@@ -3255,7 +3266,7 @@ namespace DiscordBot
 	{
 		CURL* curl = curl_easy_init();
 		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method); 
-		struct curl_slist* headers = auth_headers(curl);
+		struct curl_slist* headers = auth_headers();
 		headers = curl_slist_append(headers, "Content-Length: 0");
 		headers = curl_slist_append(headers, "Expect:"); // initialize custom header list stating that Expect: 100-continue is not wanted
 		char url[MAX_PATH_LENGTH + 1] = {};
@@ -3394,19 +3405,18 @@ namespace DiscordBot
 		poll_update();
 		state.last_poll_message_id[0] = '0';
 #else
-		CURL* curl = curl_easy_init();
 		char url[MAX_PATH_LENGTH + 1] = {};
 		if (state.last_poll_message_id[0])
 			snprintf(url, MAX_PATH_LENGTH, "https://discordapp.com/api/v6/channels/%s/messages?after=%s", Settings::discord_channel_id, state.last_poll_message_id);
 		else
 			snprintf(url, MAX_PATH_LENGTH, "https://discordapp.com/api/v6/channels/%s/messages", Settings::discord_channel_id);
-		Http::get_headers(url, &poll_callback, auth_headers(curl));
+		Http::get_headers(url, &poll_callback, auth_headers());
 #endif
 	}
 
 	void update()
 	{
-		if (global_timestamp - state.last_poll > 5.0)
+		if (global_timestamp - state.last_poll > 4.0)
 		{
 #if !OFFLINE_DEV
 			if (Settings::discord_webhook[0])

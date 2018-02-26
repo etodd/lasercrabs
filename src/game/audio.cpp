@@ -542,8 +542,9 @@ s16 Audio::spatialization_update_frame;
 void Audio::update_all(const Update& u)
 {
 	// update obstruction and occlusion of the first n entries that we haven't updated yet
+	if (listener_mask)
 	{
-		s32 spatialization_updates = 12 / vi_max(1, s32(BitUtility::popcount(listener_mask)));
+		s32 spatialization_updates = vi_max(1, vi_min(12, s32(720.0f * u.real_time.delta)) / vi_max(1, s32(BitUtility::popcount(listener_mask))));
 
 		for (auto i = AudioEntry::list.iterator(); !i.is_last(); i.next())
 		{

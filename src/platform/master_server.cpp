@@ -31,8 +31,6 @@
 
 #define DEBUG_SQL 0
 
-#define DISTRIBUTE_KEYS 1
-
 #if RELEASE_BUILD
 #define OFFLINE_DEV 0
 #else
@@ -127,6 +125,7 @@ namespace Settings
 	char discord_bot_user_id[MAX_DISCORD_ID_LENGTH + 1];
 	char discord_guild_id[MAX_DISCORD_ID_LENGTH + 1];
 	char discord_available_role_id[MAX_DISCORD_ID_LENGTH + 1];
+	b8 distribute_keys;
 }
 
 namespace Net
@@ -2452,6 +2451,7 @@ namespace Master
 						cJSON* s = cJSON_GetObjectItem(json, "secret");
 						Settings::secret = s ? s->valueint : 0;
 					}
+					Settings::distribute_keys = b8(Json::get_s32(json, "distribute_keys"));
 					{
 						const char* itch_api_key = Json::get_string(json, "itch_api_key");
 						if (itch_api_key)
@@ -3688,35 +3688,36 @@ void email_key(const char* email, const char* key)
 
 void distribute_keys()
 {
-#if DISTRIBUTE_KEYS
-	sqlite3_stmt* stmt_email = db_query("select email from Email where key is null limit 5;");
-	sqlite3_stmt* stmt_key = db_query("select key from Email where email is null;");
-	while (db_step(stmt_email))
+	if (Settings::distribute_keys)
 	{
-		const char* email = db_column_text(stmt_email, 0);
-		if (db_step(stmt_key))
+		sqlite3_stmt* stmt_email = db_query("select email from Email where key is null limit 5;");
+		sqlite3_stmt* stmt_key = db_query("select key from Email where email is null;");
+		while (db_step(stmt_email))
 		{
-			const char* key = db_column_text(stmt_key, 0);
-			email_key(email, key);
+			const char* email = db_column_text(stmt_email, 0);
+			if (db_step(stmt_key))
 			{
-				sqlite3_stmt* stmt_delete = db_query("delete from Email where key=?;");
-				db_bind_text(stmt_delete, 0, key);
-				db_exec(stmt_delete);
-			}
+				const char* key = db_column_text(stmt_key, 0);
+				email_key(email, key);
+				{
+					sqlite3_stmt* stmt_delete = db_query("delete from Email where key=?;");
+					db_bind_text(stmt_delete, 0, key);
+					db_exec(stmt_delete);
+				}
 
-			{
-				sqlite3_stmt* stmt_update = db_query("update Email set key=? where email=?;");
-				db_bind_text(stmt_update, 0, key);
-				db_bind_text(stmt_update, 1, email);
-				db_exec(stmt_update);
+				{
+					sqlite3_stmt* stmt_update = db_query("update Email set key=? where email=?;");
+					db_bind_text(stmt_update, 0, key);
+					db_bind_text(stmt_update, 1, email);
+					db_exec(stmt_update);
+				}
 			}
+			else
+				break;
 		}
-		else
-			break;
+		db_finalize(stmt_key);
+		db_finalize(stmt_email);
 	}
-	db_finalize(stmt_key);
-	db_finalize(stmt_email);
-#endif
 }
 
 void handle_api(mg_connection* conn, int ev, void* ev_data)
@@ -3742,33 +3743,44 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 				if (db_step(stmt))
 				{
 					// already in database
-#if DISTRIBUTE_KEYS
 					const char* key = db_column_text(stmt, 0);
-					email_key(email.c_str(), key);
-#endif
+					if (key && Settings::distribute_keys)
+						email_key(email.c_str(), key);
 				}
 				else
 				{
 					// not in database
-#if DISTRIBUTE_KEYS
-					sqlite3_stmt* stmt2 = db_query("select key from Email where email is null limit 1");
-					if (db_step(stmt2))
+					b8 insert_email;
+					if (Settings::distribute_keys)
 					{
-						const char* key = db_column_text(stmt2, 0);
-						email_key(email.c_str(), key);
-						sqlite3_stmt* stmt3 = db_query("update Email set email=? where key=?;");
-						db_bind_text(stmt3, 0, email.c_str());
-						db_bind_text(stmt3, 1, key);
-						db_exec(stmt3);
+						sqlite3_stmt* stmt2 = db_query("select key from Email where email is null limit 1");
+						if (db_step(stmt2))
+						{
+							const char* key = db_column_text(stmt2, 0);
+							email_key(email.c_str(), key);
+							sqlite3_stmt* stmt3 = db_query("update Email set email=? where key=?;");
+							db_bind_text(stmt3, 0, email.c_str());
+							db_bind_text(stmt3, 1, key);
+							db_exec(stmt3);
+							insert_email = false;
+						}
+						else
+						{
+							// ran out of keys
+							Http::smtp("support@deceivergame.com", "Demo keys exhausted", "Fix it your moron.");
+							insert_email = true;
+						}
+						db_finalize(stmt2);
 					}
-					else
-						vi_assert(false); // ran out of keys
-					db_finalize(stmt2);
-#else
-					sqlite3_stmt* stmt2 = db_query("insert into Email (email) values (?);");
-					db_bind_text(stmt2, 0, email.c_str());
-					db_exec(stmt2);
-#endif
+					else // don't distribute keys
+						insert_email = true;
+
+					if (insert_email)
+					{
+						sqlite3_stmt* stmt2 = db_query("insert into Email (email) values (?);");
+						db_bind_text(stmt2, 0, email.c_str());
+						db_exec(stmt2);
+					}
 				}
 				db_finalize(stmt);
 

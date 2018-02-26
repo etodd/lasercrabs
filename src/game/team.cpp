@@ -342,10 +342,10 @@ Team* Team::with_least_players(s32* player_count)
 	s32 least_players = MAX_PLAYERS + 1;
 	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 	{
-		s32 player_count = i.item()->player_count();
-		if (player_count < least_players)
+		s32 count = i.item()->player_count();
+		if (count < least_players)
 		{
-			least_players = player_count;
+			least_players = count;
 			result = i.item();
 		}
 	}
@@ -397,10 +397,10 @@ void Team::transition_next()
 			Game::level.multiplayer_level_schedule();
 
 		Game::Mode mode;
-		if (match_state == MatchState::Done)
-			mode = Game::session.config.time_limit_parkour_ready == 0 ? Game::Mode::Pvp : Game::Mode::Parkour;
+		if (Game::session.config.time_limit_parkour_ready == 0)
+			mode = Game::Mode::Pvp;
 		else
-			mode = Game::level.mode;
+			mode = Game::Mode::Parkour;
 		
 		Game::schedule_load_level(Game::level.multiplayer_level_scheduled, mode);
 	}
@@ -1722,7 +1722,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 						Team::with_least_players(&least_players);
 						if (least_players == m->team.ref()->player_count())
 							least_players--; // this team would also be losing a player
-						valid = Team::list[m->team_scheduled].player_count() + 1 <= least_players + 2;
+						valid = Team::list[m->team_scheduled].player_count() + 1 <= vi_max(PlayerAI::list.count(), least_players) + 2;
 					}
 
 					if (valid) // actually switch teams
@@ -1790,17 +1790,20 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 					&& m->team.ref()->team() != t
 					&& m->instance.ref())
 					m->instance.ref()->get<Health>()->kill(nullptr);
-				m->team = &Team::list[t];
-				m->team_scheduled = AI::TeamNone;
-				if (m->has<PlayerHuman>())
-					m->get<PlayerHuman>()->team_set(t);
-				m->clear_ownership();
-				if (Team::match_state != Team::MatchState::TeamSelect)
+				if (Team::match_state != Team::MatchState::TeamSelect && m->team.ref()->team() != t)
 				{
+					// game is in progress; clear entity ownership
+					m->clear_ownership();
+
+					// let everyone know
 					char log[UI_TEXT_MAX + 1];
 					snprintf(log, UI_TEXT_MAX, _(strings::player_switched_team), m->username, _(Team::name_long(t)));
 					PlayerHuman::log_add(log, t, AI::TeamAll, m->flag(FlagIsVip));
 				}
+				m->team = &Team::list[t];
+				m->team_scheduled = AI::TeamNone;
+				if (m->has<PlayerHuman>())
+					m->get<PlayerHuman>()->team_set(t);
 			}
 			break;
 		}

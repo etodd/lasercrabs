@@ -2970,11 +2970,18 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 			// destroy any overlapping friendly force field
 			for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
 			{
-				if (i.item()->team == team
-					&& i.item() != field
-					&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < FORCE_FIELD_RADIUS * 2.0f * FORCE_FIELD_RADIUS * 2.0f
-					&& !(i.item()->flags & ForceField::FlagInvincible))
+				// if we're spawning right on top of an enemy force field, destroy it.
+				// this should only happen with battery force fields.
+				// normally it's impossible to spawn a force field inside an enemy force field.
+				r32 radius = (i.item()->team == team)
+					? FORCE_FIELD_RADIUS * 2.0f // friendly force fields can't touch at all
+					: FORCE_FIELD_RADIUS * 0.75f; // enemy force fields shouldn't spawn right on top of each other
+				if (i.item() != field
+					&& !(i.item()->flags & ForceField::FlagInvincible)
+					&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < radius * radius)
+				{
 					i.item()->destroy();
+				}
 			}
 
 			View* model = create<View>();

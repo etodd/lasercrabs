@@ -261,7 +261,7 @@ void update(const Update& u)
 				{
 					const char* text = _(instance->text);
 					s32 length = Unicode::codepoint_count(text);
-					instance->sound_done = Game::real_time.total - instance->last_cue_real_time > length * 0.05f;
+					instance->sound_done = Game::real_time.total - instance->last_cue_real_time > length * 0.06f;
 				}
 			}
 			else

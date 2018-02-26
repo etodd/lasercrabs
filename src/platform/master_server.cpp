@@ -730,12 +730,14 @@ namespace Master
 		if (db_step(stmt))
 		{
 			strncpy(username, db_column_text(stmt, 0), MAX_USERNAME);
-			*vip = b8(db_column_int(stmt, 1));
+			if (vip)
+				*vip = b8(db_column_int(stmt, 1));
 		}
 		else
 		{
 			username[0] = '\0';
-			*vip = false;
+			if (vip)
+				*vip = false;
 		}
 	}
 

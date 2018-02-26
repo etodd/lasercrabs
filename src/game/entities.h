@@ -305,8 +305,8 @@ struct MinionSpawner : public ComponentType<MinionSpawner>
 	AI::Team team;
 	Ref<PlayerManager> owner;
 
-	void awake() {}
-	void killed(Entity*);
+	void awake();
+	void killed_by(Entity*);
 };
 
 struct TurretEntity : public Entity

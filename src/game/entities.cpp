@@ -2414,7 +2414,12 @@ MinionSpawnerEntity::MinionSpawnerEntity(PlayerManager* owner, AI::Team team, co
 	create<Shield>();
 }
 
-void MinionSpawner::killed(Entity* e)
+void MinionSpawner::awake()
+{
+	link_arg<Entity*, &MinionSpawner::killed_by>(get<Health>()->killed);
+}
+
+void MinionSpawner::killed_by(Entity* e)
 {
 	// let everyone know what happened
 	PlayerHuman::notification(get<Transform>()->absolute_pos(), team, PlayerHuman::Notification::Type::MinionSpawnerDestroyed);

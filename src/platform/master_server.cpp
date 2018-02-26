@@ -31,7 +31,7 @@
 
 #define DEBUG_SQL 0
 
-#define DISTRIBUTE_KEYS 0
+#define DISTRIBUTE_KEYS 1
 
 #if RELEASE_BUILD
 #define OFFLINE_DEV 0
@@ -148,6 +148,7 @@ namespace Master
 
 	namespace Signup
 	{
+		void distribute_keys();
 		void email_key(const char*, const char*);
 		void handle_api(mg_connection*, int, void*);
 	}
@@ -295,6 +296,7 @@ namespace Master
 {
 
 #define MASTER_AUDIT_INTERVAL 1.12 // remove inactive nodes every x seconds
+#define MASTER_KEY_DISTRIBUTION_INTERVAL 5.0
 #define MASTER_MATCH_INTERVAL 0.25 // run matchmaking searches every x seconds
 #define MASTER_INACTIVE_THRESHOLD 10.0 // remove node if it's inactive for x seconds
 #define MASTER_CLIENT_CONNECTION_TIMEOUT 10.0 // clients have x seconds to connect to a server once we tell them to
@@ -2405,10 +2407,6 @@ namespace Master
 
 		Http::init();
 
-		CrashReport::init();
-
-		DiscordBot::init();
-
 		// open sqlite database
 		{
 			b8 init_db = !platform::file_exists("deceiver.db");
@@ -2539,13 +2537,24 @@ namespace Master
 			}
 		}
 
+		CrashReport::init();
+
+		DiscordBot::init();
+
 		r64 last_audit = 0.0;
 		r64 last_match = 0.0;
+		r64 last_key_distribution = 0.0;
 
 		while (true)
 		{
 			global_timestamp = platform::time();
 			real_timestamp = platform::timestamp();
+
+			if (global_timestamp - last_key_distribution > MASTER_KEY_DISTRIBUTION_INTERVAL)
+			{
+				last_key_distribution = global_timestamp;
+				Signup::distribute_keys();
+			}
 
 			DiscordBot::update();
 
@@ -3675,6 +3684,39 @@ void email_key(const char* email, const char* key)
 	snprintf(text, 2048, text_format, key);
 
 	Http::smtp(email, "DECEIVER demo key", html, text);
+}
+
+void distribute_keys()
+{
+#if DISTRIBUTE_KEYS
+	sqlite3_stmt* stmt_email = db_query("select email from Email where key is null limit 5;");
+	sqlite3_stmt* stmt_key = db_query("select key from Email where email is null;");
+	while (db_step(stmt_email))
+	{
+		const char* email = db_column_text(stmt_email, 0);
+		if (db_step(stmt_key))
+		{
+			const char* key = db_column_text(stmt_key, 0);
+			email_key(email, key);
+			{
+				sqlite3_stmt* stmt_delete = db_query("delete from Email where key=?;");
+				db_bind_text(stmt_delete, 0, key);
+				db_exec(stmt_delete);
+			}
+
+			{
+				sqlite3_stmt* stmt_update = db_query("update Email set key=? where email=?;");
+				db_bind_text(stmt_update, 0, key);
+				db_bind_text(stmt_update, 1, email);
+				db_exec(stmt_update);
+			}
+		}
+		else
+			break;
+	}
+	db_finalize(stmt_key);
+	db_finalize(stmt_email);
+#endif
 }
 
 void handle_api(mg_connection* conn, int ev, void* ev_data)

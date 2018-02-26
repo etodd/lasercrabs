@@ -1080,7 +1080,7 @@ void Team::update_all_server(const Update& u)
 				// game is still going
 
 				if (Battery::list.count() == 0
-					&& Game::session.config.ruleset.enable_batteries
+					&& (Game::session.config.ruleset.enable_batteries || Game::session.config.game_type == GameType::Assault)
 					&& Game::level.battery_spawn_index < Game::level.battery_spawns.length
 					&& (Game::level.feature_level == Game::FeatureLevel::Batteries || Game::level.has_feature(Game::FeatureLevel::TutorialAll)))
 				{

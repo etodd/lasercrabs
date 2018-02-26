@@ -101,6 +101,14 @@ struct Game
 		count,
 	};
 
+	enum class PreinitResult : s8
+	{
+		Success,
+		Failure,
+		Restarting,
+		count,
+	};
+
 	struct Save
 	{
 		r64 timestamp;
@@ -211,6 +219,7 @@ struct Game
 	static char steam_username[MAX_USERNAME + 1];
 #endif
 
+	static PreinitResult pre_init();
 	static void init(LoopSync*);
 	static void execute(const char*);
 	static void update(InputState*, const InputState*);

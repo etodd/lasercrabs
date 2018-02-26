@@ -291,19 +291,17 @@ void discord_update_presence()
 }
 #endif
 
-void Game::init(LoopSync* sync)
+Game::PreinitResult Game::pre_init()
 {
-	Net::Master::Ruleset::init();
-
 #if !SERVER && !defined(__ORBIS__)
 	if (auth_type == Net::Master::AuthType::Steam)
 	{
 		if (SteamAPI_RestartAppIfNecessary(STEAM_APP_ID))
-			quit = true;
+			return PreinitResult::Restarting;
 		else if (!SteamAPI_Init())
 		{
 			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Steam error", "Failed to integrate with Steam! Please make sure Steam is running.", nullptr);
-			quit = true;
+			return PreinitResult::Failure;
 		}
 	}
 
@@ -315,6 +313,12 @@ void Game::init(LoopSync* sync)
 		Discord_Initialize(DISCORD_APP_ID, &handlers, 1, auth_type == Net::Master::AuthType::Steam ? TOSTRING(STEAM_APP_ID) : nullptr);
 	}
 #endif
+	return PreinitResult::Success;
+}
+
+void Game::init(LoopSync* sync)
+{
+	Net::Master::Ruleset::init();
 
 	// count scripts
 	while (true)

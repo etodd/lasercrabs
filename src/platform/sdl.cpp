@@ -490,6 +490,14 @@ namespace VI
 			SDL_SetCursor(SDL_CreateCursor(data, mask, 32, 32, 14, 16));
 		}
 
+		{
+			Game::PreinitResult pre_init_result = Game::pre_init();
+			if (pre_init_result == Game::PreinitResult::Failure)
+				return 1;
+			else if (pre_init_result == Game::PreinitResult::Restarting)
+				return 0;
+		}
+
 		DisplayMode resolution_current = Settings::display();
 		WindowMode resolution_current_window_mode = Settings::window_mode;
 		b8 resolution_current_vsync = Settings::vsync;

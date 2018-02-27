@@ -963,207 +963,207 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	Clouds::draw_alpha(render_params);
 
-	if (!render_params.camera->mask)
-		return;
-
-	GlassShard::draw_all(render_params);
+	if (render_params.camera->mask)
+	{
+		GlassShard::draw_all(render_params);
 
 #if DEBUG_WALK_AI_PATH
-	{
-		UIText text;
-		text.color = UI::color_accent();
-		for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 		{
-			Minion* minion = i.item();
-			for (s32 j = minion->path_index; j < minion->path.length; j++)
+			UIText text;
+			text.color = UI::color_accent();
+			for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 			{
-				Vec2 p;
-				if (UI::project(render_params, minion->path[j], &p))
+				Minion* minion = i.item();
+				for (s32 j = minion->path_index; j < minion->path.length; j++)
 				{
-					text.text(0, "%d", j);
-					text.draw(render_params, p);
+					Vec2 p;
+					if (UI::project(render_params, minion->path[j], &p))
+					{
+						text.text(0, "%d", j);
+						text.draw(render_params, p);
+					}
 				}
 			}
 		}
-	}
 #endif
 
 #if DEBUG_DRONE_AI_PATH
-	{
-		UIText text;
-		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
 		{
-			PlayerControlAI* ai = i.item();
-			text.color = Team::color_ui(render_params.camera->team, i.item()->get<AIAgent>()->team);
-			for (s32 j = 0; j < ai->path.length; j++)
+			UIText text;
+			for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
 			{
-				Vec2 p;
-				if (UI::project(render_params, ai->path[j].pos, &p))
+				PlayerControlAI* ai = i.item();
+				text.color = Team::color_ui(render_params.camera->team, i.item()->get<AIAgent>()->team);
+				for (s32 j = 0; j < ai->path.length; j++)
 				{
-					text.text(0, "%d", j);
-					text.draw(render_params, p);
+					Vec2 p;
+					if (UI::project(render_params, ai->path[j].pos, &p))
+					{
+						text.text(0, "%d", j);
+						text.draw(render_params, p);
+					}
 				}
 			}
 		}
-	}
 #endif
 
 #if DEBUG_PHYSICS
-	{
-		RenderSync* sync = render_params.sync;
-
-		sync->write(RenderOp::FillMode);
-		sync->write(RenderFillMode::Line);
-
-		Loader::shader_permanent(Asset::Shader::flat);
-
-		sync->write(RenderOp::Shader);
-		sync->write(Asset::Shader::flat);
-		sync->write(render_params.technique);
-
-		for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
 		{
-			RigidBody* body = i.item();
-			if (!body->btBody)
-				continue;
-			btTransform transform = body->btBody->getWorldTransform();
+			RenderSync* sync = render_params.sync;
 
-			Vec3 radius;
-			Vec4 color;
-			AssetID mesh_id;
-			switch (body->type)
+			sync->write(RenderOp::FillMode);
+			sync->write(RenderFillMode::Line);
+
+			Loader::shader_permanent(Asset::Shader::flat);
+
+			sync->write(RenderOp::Shader);
+			sync->write(Asset::Shader::flat);
+			sync->write(render_params.technique);
+
+			for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
 			{
-				case RigidBody::Type::Box:
-				{
-					mesh_id = Asset::Mesh::cube;
-					radius = body->size;
-					color = Vec4(1, 0, 0, 1);
-					break;
-				}
-				case RigidBody::Type::Sphere:
-				{
-					mesh_id = Asset::Mesh::sphere;
-					radius = body->size;
-					color = Vec4(1, 0, 0, 1);
-					break;
-				}
-				case RigidBody::Type::CapsuleX:
-				{
-					// capsules: size.x = radius, size.y = height
-					mesh_id = Asset::Mesh::cube;
-					radius = Vec3((body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x, body->size.x);
-					color = Vec4(0, 1, 0, 1);
-					break;
-				}
-				case RigidBody::Type::CapsuleY:
-				{
-					mesh_id = Asset::Mesh::cube;
-					radius = Vec3(body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x);
-					color = Vec4(0, 1, 0, 1);
-					break;
-				}
-				case RigidBody::Type::CapsuleZ:
-				{
-					mesh_id = Asset::Mesh::cube;
-					radius = Vec3(body->size.x, body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f);
-					color = Vec4(0, 1, 0, 1);
-					break;
-				}
-				default:
+				RigidBody* body = i.item();
+				if (!body->btBody)
 					continue;
+				btTransform transform = body->btBody->getWorldTransform();
+
+				Vec3 radius;
+				Vec4 color;
+				AssetID mesh_id;
+				switch (body->type)
+				{
+					case RigidBody::Type::Box:
+					{
+						mesh_id = Asset::Mesh::cube;
+						radius = body->size;
+						color = Vec4(1, 0, 0, 1);
+						break;
+					}
+					case RigidBody::Type::Sphere:
+					{
+						mesh_id = Asset::Mesh::sphere;
+						radius = body->size;
+						color = Vec4(1, 0, 0, 1);
+						break;
+					}
+					case RigidBody::Type::CapsuleX:
+					{
+						// capsules: size.x = radius, size.y = height
+						mesh_id = Asset::Mesh::cube;
+						radius = Vec3((body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x, body->size.x);
+						color = Vec4(0, 1, 0, 1);
+						break;
+					}
+					case RigidBody::Type::CapsuleY:
+					{
+						mesh_id = Asset::Mesh::cube;
+						radius = Vec3(body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x);
+						color = Vec4(0, 1, 0, 1);
+						break;
+					}
+					case RigidBody::Type::CapsuleZ:
+					{
+						mesh_id = Asset::Mesh::cube;
+						radius = Vec3(body->size.x, body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f);
+						color = Vec4(0, 1, 0, 1);
+						break;
+					}
+					default:
+						continue;
+				}
+
+				if (!render_params.camera->visible_sphere(transform.getOrigin(), vi_max(radius.x, vi_max(radius.y, radius.z))))
+					continue;
+
+				Loader::mesh_permanent(mesh_id);
+
+				Mat4 m;
+				m.make_transform(transform.getOrigin(), radius, transform.getRotation());
+				Mat4 mvp = m * render_params.view_projection;
+
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::mvp);
+				sync->write(RenderDataType::Mat4);
+				sync->write<s32>(1);
+				sync->write<Mat4>(mvp);
+
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::diffuse_color);
+				sync->write(RenderDataType::Vec4);
+				sync->write<s32>(1);
+				sync->write<Vec4>(color);
+
+				sync->write(RenderOp::Mesh);
+				sync->write(RenderPrimitiveMode::Triangles);
+				sync->write(mesh_id);
 			}
 
-			if (!render_params.camera->visible_sphere(transform.getOrigin(), vi_max(radius.x, vi_max(radius.y, radius.z))))
-				continue;
+			for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+			{
+				// render a sphere for the headshot collision volume
+				Vec3 head_pos = i.item()->head_pos();
+				if (!render_params.camera->visible_sphere(head_pos, MINION_HEAD_RADIUS))
+					continue;
 
-			Loader::mesh_permanent(mesh_id);
+				Loader::mesh_permanent(Asset::Mesh::sphere);
 
-			Mat4 m;
-			m.make_transform(transform.getOrigin(), radius, transform.getRotation());
-			Mat4 mvp = m * render_params.view_projection;
+				Mat4 m;
+				m.make_transform(head_pos, Vec3(MINION_HEAD_RADIUS), Quat::identity);
+				Mat4 mvp = m * render_params.view_projection;
 
-			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::mvp);
-			sync->write(RenderDataType::Mat4);
-			sync->write<s32>(1);
-			sync->write<Mat4>(mvp);
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::mvp);
+				sync->write(RenderDataType::Mat4);
+				sync->write<s32>(1);
+				sync->write<Mat4>(mvp);
 
-			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::diffuse_color);
-			sync->write(RenderDataType::Vec4);
-			sync->write<s32>(1);
-			sync->write<Vec4>(color);
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::diffuse_color);
+				sync->write(RenderDataType::Vec4);
+				sync->write<s32>(1);
+				sync->write<Vec4>(Vec4(1, 1, 1, 1));
 
-			sync->write(RenderOp::Mesh);
-			sync->write(RenderPrimitiveMode::Triangles);
-			sync->write(mesh_id);
+				sync->write(RenderOp::Mesh);
+				sync->write(RenderPrimitiveMode::Triangles);
+				sync->write(Asset::Mesh::sphere);
+			}
+
+			sync->write(RenderOp::FillMode);
+			sync->write(RenderFillMode::Fill);
 		}
-
-		for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
-		{
-			// render a sphere for the headshot collision volume
-			Vec3 head_pos = i.item()->head_pos();
-			if (!render_params.camera->visible_sphere(head_pos, MINION_HEAD_RADIUS))
-				continue;
-
-			Loader::mesh_permanent(Asset::Mesh::sphere);
-
-			Mat4 m;
-			m.make_transform(head_pos, Vec3(MINION_HEAD_RADIUS), Quat::identity);
-			Mat4 mvp = m * render_params.view_projection;
-
-			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::mvp);
-			sync->write(RenderDataType::Mat4);
-			sync->write<s32>(1);
-			sync->write<Mat4>(mvp);
-
-			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::diffuse_color);
-			sync->write(RenderDataType::Vec4);
-			sync->write<s32>(1);
-			sync->write<Vec4>(Vec4(1, 1, 1, 1));
-
-			sync->write(RenderOp::Mesh);
-			sync->write(RenderPrimitiveMode::Triangles);
-			sync->write(Asset::Mesh::sphere);
-		}
-
-		sync->write(RenderOp::FillMode);
-		sync->write(RenderFillMode::Fill);
-	}
 #endif
 
-	Rectifier::draw_alpha_all(render_params);
+		Rectifier::draw_alpha_all(render_params);
 
-	SkinnedModel::draw_alpha(render_params);
+		SkinnedModel::draw_alpha(render_params);
 
-	View::draw_alpha(render_params);
+		View::draw_alpha(render_params);
 
-	EffectLight::draw_alpha(render_params);
+		EffectLight::draw_alpha(render_params);
 
-	Tile::draw_alpha(render_params);
-	AirWave::draw_alpha(render_params);
+		Tile::draw_alpha(render_params);
+		AirWave::draw_alpha(render_params);
 
-	ParticleEffect::draw_alpha(render_params);
+		ParticleEffect::draw_alpha(render_params);
 
-	PlayerHuman* player_human = PlayerHuman::for_camera(render_params.camera);
+		PlayerHuman* player_human = PlayerHuman::for_camera(render_params.camera);
 
-	if (player_human)
-		player_human->draw_ui_early(render_params);
+		if (player_human)
+			player_human->draw_ui_early(render_params);
 
-	Ascensions::draw_ui(render_params);
+		Ascensions::draw_ui(render_params);
 
-	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_ui(render_params);
+		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+			i.item()->draw_ui(render_params);
 
-	for (s32 i = 0; i < draws.length; i++)
-		(*draws[i])(render_params);
+		for (s32 i = 0; i < draws.length; i++)
+			(*draws[i])(render_params);
 
-	Overworld::draw_ui(render_params);
+		Overworld::draw_ui(render_params);
 
-	if (player_human)
-		player_human->draw_ui(render_params);
+		if (player_human)
+			player_human->draw_ui(render_params);
+	}
 
 	Team::draw_ui(render_params);
 

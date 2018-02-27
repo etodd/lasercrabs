@@ -931,8 +931,10 @@ void Game::draw_opaque(const RenderParams& render_params)
 		}
 	}
 
-	if (!render_params.camera->mask)
+#if !SERVER
+	if (Net::Client::mode() == Net::Client::Mode::Loading)
 		return;
+#endif
 
 	Overworld::draw_opaque(render_params);
 
@@ -963,7 +965,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	Clouds::draw_alpha(render_params);
 
-	if (render_params.camera->mask)
+#if !SERVER
+	if (Net::Client::mode() != Net::Client::Mode::Loading)
+#endif
 	{
 		GlassShard::draw_all(render_params);
 
@@ -1194,8 +1198,10 @@ void Game::draw_hollow(const RenderParams& render_params)
 
 	SkyPattern::draw_hollow(render_params);
 
-	if (!render_params.camera->mask)
+#if !SERVER
+	if (Net::Client::mode() == Net::Client::Mode::Loading)
 		return;
+#endif
 
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_hollow(render_params);
@@ -1210,15 +1216,19 @@ void Game::draw_hollow(const RenderParams& render_params)
 
 void Game::draw_override(const RenderParams& render_params)
 {
-	if (!render_params.camera->mask)
+#if !SERVER
+	if (Net::Client::mode() == Net::Client::Mode::Loading)
 		return;
+#endif
 	Overworld::draw_override(render_params);
 }
 
 void Game::draw_particles(const RenderParams& render_params)
 {
-	if (!render_params.camera->mask)
+#if !SERVER
+	if (Net::Client::mode() == Net::Client::Mode::Loading)
 		return;
+#endif
 
 	Rope::draw_all(render_params);
 	Asteroids::draw_alpha(render_params);
@@ -1233,8 +1243,10 @@ void Game::draw_particles(const RenderParams& render_params)
 
 void Game::draw_additive(const RenderParams& render_params)
 {
-	if (!render_params.camera->mask)
+#if !SERVER
+	if (Net::Client::mode() == Net::Client::Mode::Loading)
 		return;
+#endif
 
 	View::draw_additive(render_params);
 	SkinnedModel::draw_additive(render_params);
@@ -1242,8 +1254,10 @@ void Game::draw_additive(const RenderParams& render_params)
 
 void Game::draw_alpha_late(const RenderParams& render_params)
 {
-	if (!render_params.camera->mask)
+#if !SERVER
+	if (Net::Client::mode() == Net::Client::Mode::Loading)
 		return;
+#endif
 
 	Water::draw_alpha_late(render_params);
 	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())

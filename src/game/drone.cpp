@@ -17,7 +17,6 @@
 #include "game.h"
 #include "console.h"
 #include "minion.h"
-#include "strings.h"
 #include "render/particles.h"
 #include "net.h"
 #include "team.h"

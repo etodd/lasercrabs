@@ -230,35 +230,23 @@ void update_attrib_buffer(RenderSync* sync, const GLData::Mesh::Attrib* attrib, 
 	switch (attrib->data_type)
 	{
 		case RenderDataType::R32:
-		{
 			glBufferData(GL_ARRAY_BUFFER, count * sizeof(r32) * attrib->element_count, sync->read<r32>(count * attrib->element_count), usage);
 			break;
-		}
 		case RenderDataType::Vec2:
-		{
 			glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec2) * attrib->element_count, sync->read<Vec2>(count * attrib->element_count), usage);
 			break;
-		}
 		case RenderDataType::Vec3:
-		{
 			glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec3) * attrib->element_count, sync->read<Vec3>(count * attrib->element_count), usage);
 			break;
-		}
 		case RenderDataType::Vec4:
-		{
 			glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec4) * attrib->element_count, sync->read<Vec4>(count * attrib->element_count), usage);
 			break;
-		}
 		case RenderDataType::S32:
-		{
 			glBufferData(GL_ARRAY_BUFFER, count * sizeof(s32) * attrib->element_count, sync->read<s32>(count * attrib->element_count), usage);
 			break;
-		}
 		case RenderDataType::Mat4:
-		{
 			glBufferData(GL_ARRAY_BUFFER, count * sizeof(Mat4) * attrib->element_count, sync->read<Mat4>(count * attrib->element_count), usage);
 			break;
-		}
 		default:
 			vi_assert(false);
 			break;
@@ -272,35 +260,23 @@ void update_attrib_sub_buffer(RenderSync* sync, const GLData::Mesh::Attrib* attr
 	switch (attrib->data_type)
 	{
 		case RenderDataType::R32:
-		{
 			glBufferSubData(GL_ARRAY_BUFFER, offset * sizeof(r32) * attrib->element_count, count * sizeof(r32) * attrib->element_count, sync->read<r32>(count * attrib->element_count));
 			break;
-		}
 		case RenderDataType::Vec2:
-		{
 			glBufferSubData(GL_ARRAY_BUFFER, offset * sizeof(Vec2) * attrib->element_count, count * sizeof(Vec2) * attrib->element_count, sync->read<Vec2>(count * attrib->element_count));
 			break;
-		}
 		case RenderDataType::Vec3:
-		{
 			glBufferSubData(GL_ARRAY_BUFFER, offset * sizeof(Vec3) * attrib->element_count, count * sizeof(Vec3) * attrib->element_count, sync->read<Vec3>(count * attrib->element_count));
 			break;
-		}
 		case RenderDataType::Vec4:
-		{
 			glBufferSubData(GL_ARRAY_BUFFER, offset * sizeof(Vec4) * attrib->element_count, count * sizeof(Vec4) * attrib->element_count, sync->read<Vec4>(count * attrib->element_count));
 			break;
-		}
 		case RenderDataType::S32:
-		{
 			glBufferSubData(GL_ARRAY_BUFFER, offset * sizeof(s32) * attrib->element_count, count * sizeof(s32) * attrib->element_count, sync->read<s32>(count * attrib->element_count));
 			break;
-		}
 		case RenderDataType::Mat4:
-		{
 			glBufferSubData(GL_ARRAY_BUFFER, offset * sizeof(Mat4) * attrib->element_count, count * sizeof(Mat4) * attrib->element_count, sync->read<Mat4>(count * attrib->element_count));
 			break;
-		}
 		default:
 			vi_assert(false);
 			break;
@@ -731,8 +707,7 @@ do\
 
 				for (s32 i = 0; i < s32(RenderTechnique::count); i++)
 				{
-					b8 success = compile_shader(TechniquePrefixes::all[i], code, code_length, &GLData::shaders[id][i].handle);
-					vi_assert(success);
+					compile_shader(TechniquePrefixes::all[i], code, code_length, &GLData::shaders[id][i].handle);
 
 					GLData::shaders[id][i].uniforms.resize(GLData::uniform_names.length);
 					for (s32 j = 0; j < GLData::uniform_names.length; j++)

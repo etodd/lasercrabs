@@ -4,6 +4,11 @@ namespace VI
 {
 
 
+b8 RenderParams::update_instances() const
+{
+	return technique == RenderTechnique::Default && !(flags & RenderFlagEdges);
+}
+
 Camera::ViewportBlueprint Camera::viewports_one_player[] =
 {
 	{ 0, 0, 1, 1, },

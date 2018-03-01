@@ -258,7 +258,8 @@
 		"ping": "%dms",
 		"server_settings": "Server settings",
 
-		"tut_battery": "Capture the battery.\n[{{Zoom}}] to zoom.\n[{{Primary}}] to launch.\nDark areas are out of range.",
+		"tut_force_field": "Hit the force field to destroy it.\n[{{Zoom}}] to zoom.\n[{{Primary}}] to launch.\nDark areas are out of range.",
+		"tut_battery": "Capture the battery.",
 		"tut_upgrade": "You are now draining spark from the battery. Use it to buy an upgrade.",
 		"tut_ability": "Press [{{Ability2}}] to select the ability, then [{{Primary}}] to use it.",
 		"tut_ability_done": "Press [{{Ability1}}] to switch back to regular movement.",

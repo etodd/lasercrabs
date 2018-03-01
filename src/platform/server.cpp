@@ -97,7 +97,7 @@ namespace VI
 			sync->quit |= platform::quit;
 			b8 quit = sync->quit;
 
-			sync = render_swapper.swap<SwapType_Read>();
+			sync = render_swapper.swap<SwapType::Read>();
 
 			if (quit || sync->quit)
 				break;

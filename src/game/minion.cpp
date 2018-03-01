@@ -61,7 +61,6 @@ MinionEntity::MinionEntity(const Vec3& pos, const Quat& quat, AI::Team team, Pla
 	create<AIAgent>()->team = team;
 
 	create<Target>();
-
 }
 
 void Minion::awake()
@@ -412,23 +411,6 @@ Entity* closest_target(Minion* me, AI::Team team)
 		}
 	}
 
-	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-	{
-		PlayerCommon* item = i.item();
-		if (item->get<AIAgent>()->team != team)
-		{
-			Vec3 item_pos = item->get<Transform>()->absolute_pos();
-			if (me->can_see(item->entity()))
-				return item->entity();
-			r32 cost = entity_cost(me, pos, team, item->entity());
-			if (cost < best_cost)
-			{
-				best = item->entity();
-				best_cost = cost;
-			}
-		}
-	}
-
 	return best;
 }
 
@@ -544,29 +526,9 @@ Vec3 Minion::goal_path_position(const Goal& g, const Vec3& minion_pos)
 	if (g.type == Goal::Type::Target)
 	{
 		Entity* e = g.entity.ref();
-		vi_assert(e);
-		if (e->has<MinionTarget>())
+		if (e)
 		{
-			MinionTarget* t = e->get<MinionTarget>();
-			if (t->ingress_points.length > 0)
-			{
-				r32 closest_distance_sq = FLT_MAX;
-				Vec3 closest_point;
-				for (s32 i = 0; i < t->ingress_points.length; i++)
-				{
-					const Vec3& pos = t->ingress_points[i];
-					r32 distance_sq = (pos - minion_pos).length_squared();
-					if (distance_sq < closest_distance_sq)
-					{
-						closest_distance_sq = distance_sq;
-						closest_point = pos;
-					}
-				}
-				return closest_point;
-			}
-			else if (t->has<Turret>())
-				return e->get<Transform>()->absolute_pos() + Vec3(0, -1.5f, 0);
-			else if (t->has<Battery>())
+			if (e->has<Battery>())
 				return e->get<Battery>()->spawn_point.ref()->get<Transform>()->absolute_pos() + Vec3(0, DRONE_RADIUS, 0);
 			else
 				return e->get<Transform>()->absolute_pos();

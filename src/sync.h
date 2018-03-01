@@ -141,11 +141,11 @@ template<s32 size> struct SyncRingBuffer
 	}
 };
 
-enum SwapType
+enum class SwapType : s8
 {
-	SwapType_Read,
-	SwapType_Write,
-	SwapType_count,
+	Read,
+	Write,
+	count,
 };
 
 template<typename T, s32 count = 2>
@@ -171,7 +171,7 @@ struct Sync
 		{
 			{
 				std::lock_guard<std::mutex> lock(common->mutex[current]);
-				common->ready[current][!swap_type] = true;
+				common->ready[current][!s32(swap_type)] = true;
 			}
 			common->condition[current].notify_all();
 		}
@@ -180,9 +180,9 @@ struct Sync
 		{
 			s32 next = (current + 1) % count;
 			std::unique_lock<std::mutex> lock(common->mutex[next]);
-			while (!common->ready[next][swap_type])
+			while (!common->ready[next][s32(swap_type)])
 				common->condition[next].wait(lock);
-			common->ready[next][swap_type] = false;
+			common->ready[next][s32(swap_type)] = false;
 			current = next;
 			return &common->data[next];
 		}
@@ -195,7 +195,7 @@ struct Sync
 	};
 
 	T data[count];
-	b8 ready[count][SwapType_count];
+	b8 ready[count][s32(SwapType::count)];
 	mutable std::mutex mutex[count];
 	std::condition_variable condition[count];
 

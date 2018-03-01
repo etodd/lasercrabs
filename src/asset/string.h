@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 670;
+		const s32 count = 671;
 		const AssetID _continue = 0;
 		const AssetID ability1 = 1;
 		const AssetID ability2 = 2;
@@ -648,37 +648,38 @@ namespace Asset
 		const AssetID tut_battery = 636;
 		const AssetID tut_capture = 637;
 		const AssetID tut_climb = 638;
-		const AssetID tut_jump = 639;
-		const AssetID tut_upgrade = 640;
-		const AssetID tut_wallrun = 641;
-		const AssetID ui_context_action = 642;
-		const AssetID unknown = 643;
-		const AssetID upgrade_allowed = 644;
-		const AssetID upgrade_default = 645;
-		const AssetID upgrade_disabled = 646;
-		const AssetID upgrade_notification = 647;
-		const AssetID upgrades = 648;
-		const AssetID upgrading = 649;
-		const AssetID victory = 650;
-		const AssetID volumetric_lighting = 651;
-		const AssetID vsync = 652;
-		const AssetID waiting = 653;
-		const AssetID waiting_for_slot = 654;
-		const AssetID waiting_players = 655;
-		const AssetID wall_run = 656;
-		const AssetID waypoints = 657;
-		const AssetID window_mode = 658;
-		const AssetID windowed = 659;
-		const AssetID wu_gang = 660;
-		const AssetID yes = 661;
-		const AssetID zone_lost = 662;
-		const AssetID zone_unavailable = 663;
-		const AssetID zones_captured = 664;
-		const AssetID zones_hostile = 665;
-		const AssetID zones_locked = 666;
-		const AssetID zones_under_attack = 667;
-		const AssetID zoom = 668;
-		const AssetID zoom_toggle = 669;
+		const AssetID tut_force_field = 639;
+		const AssetID tut_jump = 640;
+		const AssetID tut_upgrade = 641;
+		const AssetID tut_wallrun = 642;
+		const AssetID ui_context_action = 643;
+		const AssetID unknown = 644;
+		const AssetID upgrade_allowed = 645;
+		const AssetID upgrade_default = 646;
+		const AssetID upgrade_disabled = 647;
+		const AssetID upgrade_notification = 648;
+		const AssetID upgrades = 649;
+		const AssetID upgrading = 650;
+		const AssetID victory = 651;
+		const AssetID volumetric_lighting = 652;
+		const AssetID vsync = 653;
+		const AssetID waiting = 654;
+		const AssetID waiting_for_slot = 655;
+		const AssetID waiting_players = 656;
+		const AssetID wall_run = 657;
+		const AssetID waypoints = 658;
+		const AssetID window_mode = 659;
+		const AssetID windowed = 660;
+		const AssetID wu_gang = 661;
+		const AssetID yes = 662;
+		const AssetID zone_lost = 663;
+		const AssetID zone_unavailable = 664;
+		const AssetID zones_captured = 665;
+		const AssetID zones_hostile = 666;
+		const AssetID zones_locked = 667;
+		const AssetID zones_under_attack = 668;
+		const AssetID zoom = 669;
+		const AssetID zoom_toggle = 670;
 	}
 }
 

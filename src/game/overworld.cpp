@@ -1,4 +1,4 @@
-#include "strings.h"
+#include "localization.h"
 #include "overworld.h"
 #include "console.h"
 #include "game.h"

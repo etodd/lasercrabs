@@ -1,4 +1,4 @@
-#include "strings.h"
+#include "localization.h"
 #include "menu.h"
 #include "asset/level.h"
 #include "asset/mesh.h"

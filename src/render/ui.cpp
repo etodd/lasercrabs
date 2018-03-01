@@ -1,4 +1,4 @@
-#include "strings.h"
+#include "localization.h"
 #include "ui.h"
 #include "asset/shader.h"
 #include "load.h"
@@ -440,11 +440,11 @@ s32 UI::input_delta_vertical(const Update& u, s32 gamepad)
 	if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
 	{
 		Vec2 last_joystick(u.last_input->gamepads[gamepad].left_x, u.last_input->gamepads[gamepad].left_y);
-		Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+		Input::dead_zone_cross(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
 		if (last_joystick.y == 0.0f)
 		{
 			Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
-			Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+			Input::dead_zone_cross(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
 			r32 threshold = fabsf(current_joystick.x);
 			if (current_joystick.y < -threshold)
 				result--;
@@ -470,11 +470,11 @@ s32 UI::input_delta_horizontal(const Update& u, s32 gamepad)
 	if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
 	{
 		Vec2 last_joystick(u.last_input->gamepads[gamepad].left_x, u.last_input->gamepads[gamepad].left_y);
-		Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+		Input::dead_zone_cross(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
 		if (last_joystick.x == 0.0f)
 		{
 			Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
-			Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+			Input::dead_zone_cross(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
 			r32 threshold = fabsf(current_joystick.y);
 			if (current_joystick.x < -threshold)
 				result--;

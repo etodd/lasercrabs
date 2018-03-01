@@ -3194,18 +3194,6 @@ namespace DiscordBot
 				build_stat_msg(&response, playing, in_lobby, available, true);
 				msg_post(response.str().c_str());
 			}
-			else if (strcmp(cmd, "!help") == 0 || strcmp(cmd, "!h") == 0)
-			{
-				std::ostringstream response;
-				response << "<@!" << author_id << ">\n" <<
-					"!play - indicate you want to play now!\n"
-					"!play <time range> - indicate desired play time, ex: !play Tue 2pm-3pm\n"
-					"!time <time> - set your local time, ex: !time 7pm\n"
-					"!clear - clear play times\n"
-					"!stats - see who's playing\n"
-					"!schedule - see when people are playing\n";
-				msg_post(response.str().c_str());
-			}
 			else if (strcmp(cmd, "!schedule") == 0 || strcmp(cmd, "!sched") == 0)
 			{
 				s32 time_offset_half_hour;
@@ -3249,6 +3237,18 @@ namespace DiscordBot
 					msg_post(response.str().c_str());
 					db_finalize(stmt);
 				}
+			}
+			else // user is trying to do a !command. show help
+			{
+				std::ostringstream response;
+				response << "<@!" << author_id << ">\n" <<
+					"!play - indicate you want to play now!\n"
+					"!play <time range> - indicate desired play time, ex: !play Tue 2pm-3pm\n"
+					"!time <time> - set your local time, ex: !time 7pm\n"
+					"!clear - clear play times\n"
+					"!stats - see who's playing\n"
+					"!schedule - see when people are playing\n";
+				msg_post(response.str().c_str());
 			}
 		}
 	}

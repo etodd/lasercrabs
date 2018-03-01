@@ -174,6 +174,8 @@ struct RenderParams
 		flags()
 	{
 	}
+
+	b8 update_instances() const;
 };
 
 }

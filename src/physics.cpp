@@ -17,11 +17,11 @@ btDiscreteDynamicsWorld* Physics::btWorld = new btDiscreteDynamicsWorld(dispatch
 
 void Physics::loop(PhysicsSwapper* swapper)
 {
-	PhysicsSync* data = swapper->swap<SwapType_Read>();
+	PhysicsSync* data = swapper->swap<SwapType::Read>();
 	while (!data->quit)
 	{
 		btWorld->stepSimulation(vi_min(data->time.delta, 0.1f), 3, data->timestep);
-		data = swapper->swap<SwapType_Read>();
+		data = swapper->swap<SwapType::Read>();
 	}
 }
 

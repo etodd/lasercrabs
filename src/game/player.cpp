@@ -1,4 +1,4 @@
-#include "strings.h"
+#include "localization.h"
 #include "player.h"
 #include "drone.h"
 #include "data/components.h"

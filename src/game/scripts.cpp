@@ -1,4 +1,4 @@
-#include "strings.h"
+#include "localization.h"
 
 #if !SERVER
 #include "mongoose/mongoose.h"
@@ -299,11 +299,11 @@ void update(const Update& u)
 					cue->delay -= u.time.delta;
 				else
 				{
+					instance->last_cue_real_time = Game::real_time.total;
 					if (cue->callback)
 						cue->callback(instance);
 					else
 					{
-						instance->last_cue_real_time = Game::real_time.total;
 						instance->text = cue->text;
 						if (layer)
 						{
@@ -1480,7 +1480,7 @@ namespace tutorial
 	enum class TutorialState : s8
 	{
 		None,
-		Crawl,
+		ForceField,
 		Battery,
 		Upgrade,
 		Ability,
@@ -1494,13 +1494,14 @@ namespace tutorial
 	{
 		TutorialState state;
 		Ref<Entity> player;
+		Ref<ForceField> force_field;
 	};
 
 	Data* data;
 
 	void drone_target_hit(Entity* e)
 	{
-		if ((data->state == TutorialState::Crawl || data->state == TutorialState::Battery) && e->has<Battery>())
+		if ((data->state == TutorialState::ForceField || data->state == TutorialState::Battery) && e->has<Battery>())
 		{
 			data->state = TutorialState::Upgrade;
 			Actor::tut(strings::tut_upgrade);
@@ -1529,9 +1530,20 @@ namespace tutorial
 			player->get<Drone>()->ability_spawned.link(&ability_spawned);
 			player->get<Drone>()->hit.link(&drone_target_hit);
 
-			if (s32(data->state) <= s32(TutorialState::Crawl))
+			if (s32(data->state) <= s32(TutorialState::ForceField))
 			{
-				data->state = TutorialState::Crawl;
+				data->state = TutorialState::ForceField;
+				Actor::tut(strings::tut_force_field);
+			}
+		}
+
+		if (data->state == TutorialState::ForceField)
+		{
+			if (ForceField::list.count() > 0
+				&& ForceField::list.iterator().item()->get<Health>()->hp == 0)
+			{
+				data->state = TutorialState::Battery;
+				Actor::tut_clear();
 				Actor::tut(strings::tut_battery);
 			}
 		}

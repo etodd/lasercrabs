@@ -1067,7 +1067,7 @@ namespace VI
 
 			b8 quit = sync->quit;
 
-			sync = swapper_render.swap<SwapType_Read>();
+			sync = swapper_render.swap<SwapType::Read>();
 
 			if (quit || sync->quit)
 				break;

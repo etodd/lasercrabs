@@ -1,4 +1,4 @@
-#include "strings.h"
+#include "localization.h"
 #include "asset/lookup.h"
 #include <cstring>
 #include "data/array.h"

@@ -1625,7 +1625,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 	mersenne::srand(u32(platform::timestamp()));
 	noise::reseed();
 
-	LoopSync* sync_render = swapper_render->swap<SwapType_Write>();
+	LoopSync* sync_render = swapper_render->swap<SwapType::Write>();
 
 	Loader::init(swapper_render);
 
@@ -1729,7 +1729,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 			vi_assert(false);
 #endif
 		if (sync_physics)
-			sync_physics = swapper_physics->next<SwapType_Write>();
+			sync_physics = swapper_physics->next<SwapType::Write>();
 		else
 			sync_physics = swapper_physics->get();
 
@@ -1738,7 +1738,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 		sync_physics->time = Game::time;
 		sync_physics->timestep = Game::physics_timestep;
 
-		swapper_physics->done<SwapType_Write>();
+		swapper_physics->done<SwapType::Write>();
 
 #if !SERVER
 		resolution_apply(Settings::display());
@@ -1772,14 +1772,14 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 
 		time_update = r32(platform::time() - time_update_start);
 
-		sync_render = swapper_render->swap<SwapType_Write>();
+		sync_render = swapper_render->swap<SwapType::Write>();
 		sync_render->queue.length = 0;
 	}
 
 	{
-		PhysicsSync* sync_physics = swapper_physics->next<SwapType_Write>();
+		PhysicsSync* sync_physics = swapper_physics->next<SwapType::Write>();
 		sync_physics->quit = true;
-		swapper_physics->done<SwapType_Write>();
+		swapper_physics->done<SwapType::Write>();
 	}
 
 	Game::term();

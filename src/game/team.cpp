@@ -1,4 +1,4 @@
-#include "strings.h"
+#include "localization.h"
 #include "team.h"
 #include "game.h"
 #include "data/components.h"
@@ -216,8 +216,8 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		2.1f, // movement cooldown
 		0.3f, // switch cooldown
-		15.0f, // use cooldown
-		7.5f, // use cooldown threshold
+		20.0f, // use cooldown
+		10.0f, // use cooldown threshold
 		1.0f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_GRENADE,
 		Asset::Mesh::icon_grenade,

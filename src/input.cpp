@@ -1,4 +1,4 @@
-#include "strings.h"
+#include "localization.h"
 #include "input.h"
 #include <math.h>
 #include "lmath.h"

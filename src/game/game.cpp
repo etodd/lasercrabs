@@ -1,5 +1,5 @@
 #include "types.h"
-#include "strings.h"
+#include "localization.h"
 #include "vi_assert.h"
 
 #include "render/views.h"
@@ -57,12 +57,10 @@
 #include "data/unicode.h"
 #include "noise.h"
 
-#if DEBUG
-	#define DEBUG_WALK_NAV_MESH 0
-	#define DEBUG_WALK_AI_PATH 0
-	#define DEBUG_DRONE_AI_PATH 0
-	#define DEBUG_PHYSICS 0
-#endif
+#define DEBUG_WALK_NAV_MESH 0
+#define DEBUG_DRONE_AI_PATH 0
+#define DEBUG_PHYSICS 0
+#define DEBUG_WALK_AI_PATH 0
 
 #include "game.h"
 
@@ -319,7 +317,7 @@ Game::PreinitResult Game::pre_init(const char** error)
 	noise::reseed();
 	Net::Master::Ruleset::init();
 
-	if (*error = Audio::init())
+	if ((*error = Audio::init()))
 		return PreinitResult::Failure;
 
 	return PreinitResult::Success;
@@ -583,21 +581,11 @@ void Game::update(InputState* input, const InputState* last_input)
 						else
 						{
 							Vec2 left(gamepad.left_x, gamepad.left_y);
-							Input::dead_zone(&left.x, &left.y);
+							Input::dead_zone(&left.x, &left.y, UI_JOYSTICK_DEAD_ZONE);
 							if (left.length_squared() > 0.0f)
 							{
 								ui_gamepad_types[0] = gamepad.type;
 								refresh = true;
-							}
-							else
-							{
-								Vec2 right(gamepad.right_x, gamepad.right_y);
-								Input::dead_zone(&right.x, &right.y);
-								if (right.length_squared() > 0.0f)
-								{
-									ui_gamepad_types[0] = gamepad.type;
-									refresh = true;
-								}
 							}
 						}
 					}
@@ -987,13 +975,25 @@ void Game::draw_alpha(const RenderParams& render_params)
 			for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
 			{
 				Minion* minion = i.item();
-				for (s32 j = minion->path_index; j < minion->path.length; j++)
+				if (minion->get<AIAgent>()->team == render_params.camera->team)
 				{
-					Vec2 p;
-					if (UI::project(render_params, minion->path[j], &p))
+					for (s32 j = minion->path_index; j < minion->path.length; j++)
 					{
-						text.text(0, "%d", j);
-						text.draw(render_params, p);
+						Vec2 p;
+						if (UI::project(render_params, minion->path[j], &p))
+						{
+							text.text(0, "%d", j);
+							text.draw(render_params, p);
+						}
+					}
+					if (minion->goal.type == Minion::Goal::Type::Target)
+					{
+						Vec2 p;
+						if (UI::project(render_params, minion->goal_path_position(minion->goal, minion->get<Walker>()->base_pos()), &p))
+						{
+							text.text(0, "*");
+							text.draw(render_params, p);
+						}
 					}
 				}
 			}
@@ -1620,20 +1620,6 @@ cJSON* json_entity_by_name(cJSON* json, const char* name)
 	return nullptr;
 }
 
-void ingress_points_get(cJSON* json, cJSON* element, MinionTarget* target)
-{
-	cJSON* links = cJSON_GetObjectItem(element, "links");
-	cJSON* link = links->child;
-	while (link)
-	{
-		cJSON* linked_entity = json_entity_by_name(json, link->valuestring);
-		vi_assert(linked_entity);
-		if (cJSON_GetObjectItem(linked_entity, "IngressPoint"))
-			target->ingress_points.add(Json::get_vec3(linked_entity, "pos"));
-		link = link->next;
-	}
-}
-
 void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 {
 	vi_debug("Loading level %d", s32(l));
@@ -2069,13 +2055,29 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				entry->pos = absolute_pos;
 				entry->order = s8(Json::get_s32(element, "order", level.battery_spawns.length));
 
-				cJSON* links = cJSON_GetObjectItem(element, "links");
-				vi_assert(links && cJSON_GetArraySize(links) == 1);
-				const char* spawn_point_name = links->child->valuestring;
+				{
+					// find spawn point
+					const char* spawn_point_name = nullptr;
 
-				LevelLink<SpawnPoint>* spawn_link = spawn_links.add();
-				spawn_link->ref = &entry->spawn_point;
-				spawn_link->target_name = spawn_point_name;
+					cJSON* links = cJSON_GetObjectItem(element, "links");
+					cJSON* link = links->child;
+					while (link)
+					{
+						cJSON* linked_entity = json_entity_by_name(json, link->valuestring);
+						vi_assert(linked_entity);
+						if (cJSON_GetObjectItem(linked_entity, "SpawnPoint"))
+						{
+							spawn_point_name = link->valuestring;
+							break;
+						}
+						link = link->next;
+					}
+
+					vi_assert(spawn_point_name);
+					LevelLink<SpawnPoint>* spawn_link = spawn_links.add();
+					spawn_link->ref = &entry->spawn_point;
+					spawn_link->target_name = spawn_point_name;
+				}
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "SkyDecal"))

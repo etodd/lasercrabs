@@ -1,4 +1,4 @@
-#include "strings.h"
+#include "localization.h"
 #include "entities.h"
 #include "data/animator.h"
 #include "data/components.h"
@@ -66,7 +66,7 @@ DroneEntity::DroneEntity(AI::Team team, const Vec3& pos)
 	create<AIAgent>()->team = team;
 	{
 		Health* health = create<Health>(DRONE_HEALTH, DRONE_HEALTH, Game::session.config.ruleset.drone_shield, Game::session.config.ruleset.drone_shield);
-		health->active_armor_timer = 2.5f; // drones are invincible while spawning
+		health->active_armor_timer = GRENADE_DELAY + 0.5f; // drones are invincible while spawning
 	}
 	create<Shield>();
 
@@ -657,7 +657,7 @@ BatteryEntity::BatteryEntity(const Vec3& p, SpawnPoint* spawn, AI::Team team)
 
 	create<Rectifier>(team);
 
-	Target* target = create<Target>();
+	create<Target>();
 
 	create<Health>(BATTERY_HEALTH, BATTERY_HEALTH);
 
@@ -1615,10 +1615,13 @@ void Rectifier::draw_alpha_all(const RenderParams& params)
 
 	RenderSync* sync = params.sync;
 
-	sync->write(RenderOp::UpdateInstances);
-	sync->write(Asset::Mesh::heal_effect);
-	sync->write(heal_effects.length);
-	sync->write<InstanceVertex>(heal_effects.data, heal_effects.length);
+	if (params.update_instances())
+	{
+		sync->write(RenderOp::UpdateInstances);
+		sync->write(Asset::Mesh::heal_effect);
+		sync->write(heal_effects.length);
+		sync->write<InstanceVertex>(heal_effects.data, heal_effects.length);
+	}
 
 	Loader::shader_permanent(Asset::Shader::flat_instanced);
 
@@ -2397,7 +2400,6 @@ MinionSpawnerEntity::MinionSpawnerEntity(PlayerManager* owner, AI::Team team, co
 		model->mesh = Asset::Mesh::minion_spawner_attached;
 
 	create<Target>();
-	create<MinionTarget>();
 
 	{
 		MinionSpawner* spawner = create<MinionSpawner>();
@@ -2450,7 +2452,6 @@ TurretEntity::TurretEntity(PlayerManager* owner, AI::Team team, const Vec3& abs_
 		}
 	}
 	create<Audio>();
-	create<MinionTarget>();
 
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::turret;
@@ -3377,13 +3378,16 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 					if (hit_object->has<Drone>())
 						damage = 1;
 					else
-						damage = 6;
+						damage = MINION_HEALTH;
 				}
 				break;
 			}
 			case Type::Minion:
 			{
-				damage = 1;
+				if (hit_object->has<Drone>() || hit_object->has<Minion>())
+					damage = 1;
+				else
+					damage = 2;
 
 				if (reflected)
 				{
@@ -3398,7 +3402,14 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 				if (reflected)
 					damage = 12;
 				else
-					damage = 1;
+				{
+					if (hit_object->has<Minion>())
+						damage = MINION_HEALTH / 2;
+					else if (hit_object->has<Drone>())
+						damage = 2;
+					else
+						damage = 1;
+				}
 				break;
 			}
 			default:
@@ -3889,7 +3900,7 @@ void ShellCasing::draw_all(const RenderParams& params)
 
 	RenderSync* sync = params.sync;
 
-	if (params.technique == RenderTechnique::Shadow || Settings::shadow_quality == Settings::ShadowQuality::Off)
+	if (params.update_instances())
 	{
 		instances.length = 0;
 		for (s32 i = 0; i < list.length; i++)
@@ -4073,7 +4084,7 @@ b8 Grenade::simulate(r32 dt, Bolt::Hit* out_hit, const Net::StateFrame* state_fr
 			Glass::shatter_all(pos, next_pos);
 
 			Bolt::Hit hit;
-			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team)), team, &hit, &grenade_hit_filter, state_frame, DRONE_SHIELD_RADIUS))
+			if (Bolt::raycast(pos, next_pos, CollisionStatic | (CollisionAllTeamsForceField & Bolt::raycast_mask(team)), team, &hit, &grenade_hit_filter, state_frame, DRONE_SHIELD_RADIUS * DRONE_SHIELD_VIEW_RATIO))
 			{
 				if (out_hit)
 					*out_hit = hit;
@@ -4126,7 +4137,7 @@ void Grenade::hit_entity(const Bolt::Hit& hit, const Net::StateFrame* state_fram
 				// bounce off minion
 
 				if (hit.entity->get<AIAgent>()->team != team)
-					timer = vi_max(timer, GRENADE_DELAY - 0.3f); // quick fuse
+					timer = vi_max(timer, GRENADE_DELAY - GRENADE_QUICK_FUSE); // quick fuse
 
 				velocity = velocity.reflect(hit.normal) * 0.5f;
 				if (state != State::Active)
@@ -4598,7 +4609,7 @@ void Rope::draw_all(const RenderParams& params)
 
 	RenderSync* sync = params.sync;
 
-	if (params.technique == RenderTechnique::Shadow || Settings::shadow_quality == Settings::ShadowQuality::Off)
+	if (params.update_instances())
 	{
 		instances.length = 0;
 		// ropes
@@ -5849,16 +5860,19 @@ void Asteroids::draw_alpha(const RenderParams& params)
 
 	RenderSync* sync = params.sync;
 
-	instances.length = 0;
-	for (s32 i = 0; i < list.length; i++)
+	if (params.update_instances())
 	{
-		const Entry& entry = list[i];
-		r32 scale = 0.03f * vi_min(entry.lifetime, 2.0f) * sqrtf((params.camera->pos - entry.pos).length());
-		if (params.camera->visible_sphere(entry.pos, scale * f_radius))
+		instances.length = 0;
+		for (s32 i = 0; i < list.length; i++)
 		{
-			InstanceVertex* instance = instances.add();
-			instance->world_matrix.make_transform(entry.pos, Vec3(scale), Quat::identity);
-			instance->color = Vec4(1);
+			const Entry& entry = list[i];
+			r32 scale = 0.03f * vi_min(entry.lifetime, 2.0f) * sqrtf((params.camera->pos - entry.pos).length());
+			if (params.camera->visible_sphere(entry.pos, scale * f_radius))
+			{
+				InstanceVertex* instance = instances.add();
+				instance->world_matrix.make_transform(entry.pos, Vec3(scale), Quat::identity);
+				instance->color = Vec4(1);
+			}
 		}
 	}
 
@@ -5928,28 +5942,31 @@ void Tile::add(const Vec3& target_pos, const Quat& target_rot, const Vec3& offse
 
 void Tile::draw_alpha(const RenderParams& params)
 {
-	instances.length = 0;
-
-	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::tile);
-	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
-	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
-
-	for (auto i = list.iterator(); !i.is_last(); i.next())
+	if (params.update_instances())
 	{
-		Tile* tile = i.item();
-		const r32 size = tile->scale();
+		instances.length = 0;
 
-		r32 blend = vi_min(tile->timer / tile->anim_time, 1.0f);
-		Vec3 pos = Vec3::lerp(blend, tile->relative_start_pos, tile->relative_target_pos) + Vec3(sinf(blend * PI) * 0.25f);
-		Quat rot = Quat::slerp(blend, tile->relative_start_rot, tile->relative_target_rot);
-		if (tile->parent.ref())
-			tile->parent.ref()->to_world(&pos, &rot);
+		const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::tile);
+		Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
+		r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
 
-		if (params.camera->visible_sphere(pos, size * f_radius))
+		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			InstanceVertex* instance = instances.add();
-			instance->world_matrix.make_transform(pos, Vec3(size), rot);
-			instance->color = Vec4(1);
+			Tile* tile = i.item();
+			const r32 size = tile->scale();
+
+			r32 blend = vi_min(tile->timer / tile->anim_time, 1.0f);
+			Vec3 pos = Vec3::lerp(blend, tile->relative_start_pos, tile->relative_target_pos) + Vec3(sinf(blend * PI) * 0.25f);
+			Quat rot = Quat::slerp(blend, tile->relative_start_rot, tile->relative_target_rot);
+			if (tile->parent.ref())
+				tile->parent.ref()->to_world(&pos, &rot);
+
+			if (params.camera->visible_sphere(pos, size * f_radius))
+			{
+				InstanceVertex* instance = instances.add();
+				instance->world_matrix.make_transform(pos, Vec3(size), rot);
+				instance->color = Vec4(1);
+			}
 		}
 	}
 
@@ -6032,26 +6049,30 @@ void AirWave::draw_alpha(const RenderParams& params)
 	const r32 lifetime = 0.3f * multiplier;
 	const r32 anim_in_time = 0.02f * multiplier;
 	const r32 anim_out_time = 0.15f * multiplier;
-	instances.length = 0;
-
-	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::air_wave);
-	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
-	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
-
-	for (auto i = list.iterator(); !i.is_last(); i.next())
+	
+	if (params.update_instances())
 	{
-		AirWave* w = i.item();
-		r32 timer = Game::time.total - w->timestamp;
-		if (timer > 0.0f)
+		instances.length = 0;
+
+		const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::air_wave);
+		Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
+		r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
+
+		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			r32 blend = 1.0f;
-			blend = vi_min(blend, Ease::cubic_out<r32>(timer / anim_in_time));
-			blend = vi_min(blend, Ease::cubic_in_out<r32>(1.0f - vi_max(0.0f, vi_min(1.0f, (timer - (lifetime - anim_out_time)) / anim_out_time))));
-			if (params.camera->visible_sphere(w->pos, blend * f_radius))
+			AirWave* w = i.item();
+			r32 timer = Game::time.total - w->timestamp;
+			if (timer > 0.0f)
 			{
-				InstanceVertex* instance = instances.add();
-				instance->world_matrix.make_transform(w->pos, Vec3(blend), w->rot);
-				instance->color = Vec4(1);
+				r32 blend = 1.0f;
+				blend = vi_min(blend, Ease::cubic_out<r32>(timer / anim_in_time));
+				blend = vi_min(blend, Ease::cubic_in_out<r32>(1.0f - vi_max(0.0f, vi_min(1.0f, (timer - (lifetime - anim_out_time)) / anim_out_time))));
+				if (params.camera->visible_sphere(w->pos, blend * f_radius))
+				{
+					InstanceVertex* instance = instances.add();
+					instance->world_matrix.make_transform(w->pos, Vec3(blend), w->rot);
+					instance->color = Vec4(1);
+				}
 			}
 		}
 	}

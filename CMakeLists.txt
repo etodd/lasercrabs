@@ -315,8 +315,8 @@ set(SRC
 	src/lmath.cpp
 	src/input.h
 	src/input.cpp
-	src/strings.h
-	src/strings.cpp
+	src/localization.h
+	src/localization.cpp
 	src/common.h
 	src/common.cpp
 	src/console.h

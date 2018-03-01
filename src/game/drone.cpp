@@ -580,11 +580,21 @@ void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone:
 }
 
 // velocity to give the grenade
-Vec3 grenade_velocity_dir(const Vec3& dir_normalized)
+Vec3 grenade_velocity_dir(const Drone* drone, const Vec3& dir_normalized)
 {
 	Vec3 dir_adjusted = dir_normalized;
 	dir_adjusted.y += 0.2f;
-	dir_adjusted.normalize();
+	Vec3 wall_normal = drone->get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+	{
+		r32 dot = dir_adjusted.dot(wall_normal);
+		if (dot < 0.0f)
+			dir_adjusted = dir_adjusted - wall_normal * dot;
+	}
+	{
+		r32 length = dir_adjusted.length();
+		if (length > 0.001f)
+			dir_adjusted /= length;
+	}
 	return dir_adjusted;
 }
 
@@ -904,7 +914,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					{
 						PlayerManager* manager = drone->get<PlayerCommon>()->manager.ref();
 
-						Entity* grenade_entity = World::create<GrenadeEntity>(manager, my_pos + grenade_spawn_dir(dir_normalized) * (DRONE_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), grenade_velocity_dir(dir_normalized));
+						Entity* grenade_entity = World::create<GrenadeEntity>(manager, my_pos + grenade_spawn_dir(dir_normalized) * (DRONE_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), grenade_velocity_dir(drone, dir_normalized));
 
 						if (manager->has<PlayerHuman>() && !manager->get<PlayerHuman>()->local())
 						{
@@ -1961,7 +1971,7 @@ b8 Drone::go(const Vec3& dir)
 						0.5f,
 						EffectLight::Type::Grenade,
 						nullptr,
-						Quat::look(grenade_velocity_dir(dir_normalized))
+						Quat::look(grenade_velocity_dir(this, dir_normalized))
 					)
 				);
 			}
@@ -2130,7 +2140,7 @@ void drone_dash_fly_simulate(Drone* d, r32 dt, Net::StateFrame* state_frame = nu
 	{
 		Vec3 dir = Vec3::normalize(d->velocity);
 		Vec3 ray_start = position + dir * -DRONE_RADIUS;
-		Vec3 ray_end = next_position + dir * DRONE_RADIUS;
+		Vec3 ray_end = next_position + dir * (DRONE_RADIUS * (Game::level.local ? 1.5f : 1.0f));
 		d->movement_raycast(ray_start, ray_end, nullptr, state_frame);
 	}
 }

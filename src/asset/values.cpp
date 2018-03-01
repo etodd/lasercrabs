@@ -1761,6 +1761,7 @@ const char* AssetLookup::String::names[] =
 	"tut_battery",
 	"tut_capture",
 	"tut_climb",
+	"tut_force_field",
 	"tut_jump",
 	"tut_upgrade",
 	"tut_wallrun",

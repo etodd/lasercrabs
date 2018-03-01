@@ -1136,7 +1136,7 @@ void loop()
 			{
 #if DEBUG_WALK
 				r64 start_time = platform::time();
-				vi_debug("Walk pathfind...");
+				vi_debug("%s", "Walk pathfind...");
 #endif
 
 				AI::Team team;
@@ -1174,7 +1174,7 @@ void loop()
 			{
 #if DEBUG_WALK
 				r64 start_time = platform::time();
-				vi_debug("Walk random path...");
+				vi_debug("%s", "Walk random path...");
 #endif
 				Vec3 start;
 				sync_in.read(&start);
@@ -1227,7 +1227,7 @@ void loop()
 			{
 #if DEBUG_WALK
 				r64 start_time = platform::time();
-				vi_debug("Walkable point query...");
+				vi_debug("%s", "Walkable point query...");
 #endif
 				LinkEntryArg<Path> callback;
 				Vec3 pos;

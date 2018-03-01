@@ -55,6 +55,7 @@
 #include "discord/include/discord-rpc.h"
 #endif
 #include "data/unicode.h"
+#include "noise.h"
 
 #if DEBUG
 	#define DEBUG_WALK_NAV_MESH 0
@@ -291,7 +292,7 @@ void discord_update_presence()
 }
 #endif
 
-Game::PreinitResult Game::pre_init()
+Game::PreinitResult Game::pre_init(const char** error)
 {
 #if !SERVER && !defined(__ORBIS__)
 	if (auth_type == Net::Master::AuthType::Steam)
@@ -313,13 +314,19 @@ Game::PreinitResult Game::pre_init()
 		Discord_Initialize(DISCORD_APP_ID, &handlers, 1, auth_type == Net::Master::AuthType::Steam ? TOSTRING(STEAM_APP_ID) : nullptr);
 	}
 #endif
+
+	mersenne::srand(u32(platform::timestamp()));
+	noise::reseed();
+	Net::Master::Ruleset::init();
+
+	if (*error = Audio::init())
+		return PreinitResult::Failure;
+
 	return PreinitResult::Success;
 }
 
-void Game::init(LoopSync* sync)
+const char* Game::init(LoopSync* sync)
 {
-	Net::Master::Ruleset::init();
-
 	// count scripts
 	while (true)
 	{
@@ -362,15 +369,13 @@ void Game::init(LoopSync* sync)
 		}
 	}
 
-	Audio::init();
-
 	Loader::font_permanent(Asset::Font::lowpoly);
 	Loader::font_permanent(Asset::Font::pt_sans);
 
 	if (!Loader::soundbank_permanent(Asset::Soundbank::Init))
-		vi_assert(false);
+		return "Failed to load init soundbank.";
 	if (!Loader::soundbank_permanent(Asset::Soundbank::SOUNDBANK))
-		vi_assert(false);
+		return "Failed to load default soundbank.";
 
 	// strings
 	{
@@ -380,6 +385,8 @@ void Game::init(LoopSync* sync)
 		// UI
 		{
 			cJSON* json = Json::load(string_file);
+			if (!json)
+				return "Failed to load strings.";
 			cJSON* str = cJSON_GetObjectItem(json, "str");
 			for (s32 i = 0; i < Asset::String::count; i++)
 			{
@@ -407,6 +414,8 @@ void Game::init(LoopSync* sync)
 	Drone::init();
 
 	Menu::splash();
+
+	return nullptr;
 }
 
 void Game::auth_failed()

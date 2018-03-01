@@ -73,7 +73,7 @@ PinArray<AudioEntry, MAX_ENTITIES> AudioEntry::list;
 r32 Audio::volume_scale = 1.0f;
 
 #if SERVER
-b8 Audio::init() { return true; }
+const char* Audio::init() { return nullptr; }
 void Audio::term() {}
 void Audio::update_all(const Update&) {}
 void Audio::post_global(AkUniqueID, s8) {}
@@ -115,16 +115,13 @@ void Audio::offset(const Vec3&) {}
 
 CAkDefaultIOHookBlocking Audio::wwise_io;
 
-b8 Audio::init()
+const char* Audio::init()
 {
 	AkMemSettings memSettings;
 	memSettings.uMaxNumPools = 20;
 
 	if (AK::MemoryMgr::Init(&memSettings) != AK_Success)
-	{
-		fprintf(stderr, "Failed to create the Wwise memory manager.\n");
-		return false;
-	}
+		return "Failed to create the Wwise memory manager.";
 
 	// create the Stream Manager.
 	{
@@ -141,10 +138,7 @@ b8 Audio::init()
 
 		// init registers lowLevelIO as the File Location Resolver if it was not already defined, and creates a streaming device.
 		if (!wwise_io.Init(device_settings))
-		{
-			fprintf(stderr, "Failed to create the Wwise streaming device and low-level IO system.\n");
-			return false;
-		}
+			return "Failed to create the Wwise streaming device and low-level IO system.";
 	}
 
 #if !_WIN32
@@ -163,10 +157,7 @@ b8 Audio::init()
 #endif
 
 		if (AK::SoundEngine::Init(&init_settings, &platform_init_settings) != AK_Success)
-		{
-			fprintf(stderr, "Failed to initialize the Wwise sound engine.\n");
-			return false;
-		}
+			return "Failed to initialize the Wwise sound engine.";
 	}
 
 	{
@@ -174,10 +165,7 @@ b8 Audio::init()
 		AK::MusicEngine::GetDefaultInitSettings(music_settings);
 
 		if (AK::MusicEngine::Init(&music_settings) != AK_Success)
-		{
-			fprintf(stderr, "Failed to initialize the Wwise music engine.\n");
-			return false;
-		}
+			return "Failed to initialize the Wwise music engine.";
 	}
 
 #if DEBUG
@@ -185,10 +173,7 @@ b8 Audio::init()
 		AkCommSettings comm_settings;
 		AK::Comm::GetDefaultInitSettings(comm_settings);
 		if (AK::Comm::Init(comm_settings) != AK_Success)
-		{
-			fprintf(stderr, "Failed to initialize Wwise communication.\n");
-			return false;
-		}
+			return "Failed to initialize Wwise communication.";
 	}
 #endif
 
@@ -210,7 +195,7 @@ b8 Audio::init()
 	param_global(AK::GAME_PARAMETERS::VOLUME_SFX, r32(Settings::sfx) * VOLUME_MULTIPLIER * volume_scale);
 	param_global(AK::GAME_PARAMETERS::VOLUME_MUSIC, r32(Settings::music) * VOLUME_MULTIPLIER * volume_scale);
 
-	return true;
+	return nullptr;
 }
 
 void Audio::volume_multiplier(r32 v)

@@ -219,8 +219,8 @@ struct Game
 	static char steam_username[MAX_USERNAME + 1];
 #endif
 
-	static PreinitResult pre_init();
-	static void init(LoopSync*);
+	static PreinitResult pre_init(const char**);
+	static const char* init(LoopSync*);
 	static void execute(const char*);
 	static void update(InputState*, const InputState*);
 	static void schedule_load_level(AssetID, Mode, r32 = 0.0f);

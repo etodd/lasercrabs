@@ -63,6 +63,15 @@ namespace VI
 
 		Settings::port = port;
 
+		{
+			const char* error;
+			if (Game::pre_init(&error) == Game::PreinitResult::Failure)
+			{
+				fprintf(stderr, "%s", error);
+				return 1;
+			}
+		}
+
 		// launch threads
 
 		Sync<LoopSync> render_sync;

@@ -136,7 +136,7 @@ struct Audio : ComponentType<Audio>
 	static s16 spatialization_update_frame;
 	static PinArray<AudioEntry, MAX_ENTITIES> pool_entity;
 	static PinArray<AudioEntry, MAX_ENTITIES> pool_global_3d;
-	static b8 init();
+	static const char* init();
 	static void term();
 	static void update_all(const Update&);
 	static void post_global(AkUniqueID, s8 = -1);

@@ -110,7 +110,7 @@ namespace VI
 	{
 		if (SDL_GL_SetSwapInterval(vsync ? 1 : 0) != 0)
 		{
-			fprintf(stderr, "Failed to set OpenGL swap interval: %s\n", SDL_GetError());
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Failed to set OpenGL swap interval", SDL_GetError(), nullptr);
 			return false;
 		}
 		return true;
@@ -491,9 +491,13 @@ namespace VI
 		}
 
 		{
-			Game::PreinitResult pre_init_result = Game::pre_init();
+			const char* error;
+			Game::PreinitResult pre_init_result = Game::pre_init(&error);
 			if (pre_init_result == Game::PreinitResult::Failure)
+			{
+				SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "DECEIVER Error", error, nullptr);
 				return 1;
+			}
 			else if (pre_init_result == Game::PreinitResult::Restarting)
 				return 0;
 		}

@@ -86,7 +86,7 @@ namespace VI
 			{
 				controllers[i] = SDL_GameControllerOpen(i);
 				const char* name = SDL_GameControllerName(controllers[i]);
-				if (strstr(name, "DualShock"))
+				if (name && strstr(name, "DualShock"))
 					controller_types[i] = Gamepad::Type::Playstation;
 				else
 					controller_types[i] = Gamepad::Type::Xbox;

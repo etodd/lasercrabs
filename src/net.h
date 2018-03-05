@@ -103,12 +103,12 @@ struct StateFrame
 {
 	TransformState transforms[MAX_ENTITIES];
 	PlayerManagerState players[MAX_PLAYERS];
-	WalkerState walkers[MAX_MINIONS];
+	WalkerState walkers[MAX_ENTITIES];
 	DroneState drones[MAX_PLAYERS];
 	ParkourStateFrame parkours[MAX_PLAYERS];
 	r32 timestamp;
 	Bitmask<MAX_ENTITIES> transforms_active;
-	Bitmask<MAX_MINIONS> walkers_active;
+	Bitmask<MAX_ENTITIES> walkers_active;
 	SequenceID sequence_id;
 };
 

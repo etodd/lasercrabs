@@ -78,7 +78,7 @@ struct Drone : public ComponentType<Drone>
 
 	struct Hits
 	{
-		StaticArray<Hit, 32> hits;
+		Array<Hit> hits;
 		s8 index_end;
 	};
 

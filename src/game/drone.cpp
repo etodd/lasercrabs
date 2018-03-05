@@ -3238,10 +3238,10 @@ void Drone::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end
 			else
 				ignore = nullptr;
 
-			Hits hits2;
-			raycast(mode, hit_end.pos + dir * DRONE_RADIUS, hit_end.pos + dir * DRONE_SNIPE_DISTANCE, state_frame, &hits2, recursion_level + 1, ignore);
-			if (hits2.hits.length < result->hits.capacity() - result->hits.length)
 			{
+				Hits hits2;
+				raycast(mode, hit_end.pos + dir * DRONE_RADIUS, hit_end.pos + dir * DRONE_SNIPE_DISTANCE, state_frame, &hits2, recursion_level + 1, ignore);
+
 				// append hits2 to result->hits
 
 				// remove any hits after index_end

@@ -2432,6 +2432,18 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			*link->ref = e->get<SpawnPoint>();
 	}
 
+	// remove batteries above team spawns, or that have no spawn point
+	for (s32 i = 0; i < level.battery_spawns.length; i++)
+	{
+		const BatterySpawnPoint& spawn = level.battery_spawns[i];
+		SpawnPoint* point = spawn.spawn_point.ref();
+		if (!point || point->team != AI::TeamNone)
+		{
+			level.battery_spawns.remove(i);
+			i--;
+		}
+	}
+
 	if (level.mode == Mode::Pvp)
 	{
 		if (session.config.game_type == GameType::CaptureTheFlag)
@@ -2439,18 +2451,6 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			// create flags
 			for (s32 i = 0; i < Team::list.count(); i++)
 				World::create<FlagEntity>(AI::Team(i));
-		}
-
-		// remove batteries above team spawns, or that have no spawn point
-		for (s32 i = 0; i < level.battery_spawns.length; i++)
-		{
-			const BatterySpawnPoint& spawn = level.battery_spawns[i];
-			SpawnPoint* point = spawn.spawn_point.ref();
-			if (!point || point->team != AI::TeamNone)
-			{
-				level.battery_spawns.remove(i);
-				i--;
-			}
 		}
 
 		if (session.config.game_type == GameType::Assault)

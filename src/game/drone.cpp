@@ -65,6 +65,14 @@ void Drone::init()
 	}
 }
 
+void Drone::Hits::set_to(const Hits& other)
+{
+	hits.resize(other.hits.length);
+	for (s32 i = 0; i < other.hits.length; i++)
+		hits[i] = other.hits[i];
+	index_end = other.index_end;
+}
+
 namespace DroneNet
 {
 
@@ -3328,7 +3336,7 @@ void Drone::movement_raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* h
 	}
 
 	if (hits_out)
-		*hits_out = hits;
+		hits_out->set_to(hits);
 }
 
 }

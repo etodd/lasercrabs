@@ -1512,9 +1512,9 @@ void rectifier_update(s32 rectifier_index, const Vec3& rectifier_pos, Entity* e,
 					);
 				}
 
-				if (heal_effect_lerp > 0.5f)
+				if (heal_effect_lerp > 0.25f)
 				{
-					heal_effect_lerp = (heal_effect_lerp - 0.5f) / 0.5f;
+					heal_effect_lerp = (heal_effect_lerp - 0.25f) / 0.75f;
 
 					InstanceVertex* instance = Rectifier::heal_effects.add();
 					r32 scale;
@@ -3354,12 +3354,7 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 					damage = 1 + (mersenne::rand() % 2); // expected value: 1.5
 
 				if (reflected)
-				{
-					if (hit_object->has<Drone>())
-						damage = 3;
-					else
-						damage = 12;
-				}
+					damage = 12;
 				break;
 			}
 			case Type::DroneShotgun:
@@ -3405,8 +3400,6 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 				{
 					if (hit_object->has<Minion>())
 						damage = MINION_HEALTH / 2;
-					else if (hit_object->has<Drone>())
-						damage = 2;
 					else
 						damage = 1;
 				}

@@ -82,8 +82,8 @@ enum class Ability : s8
 {
 	Bolter,
 	ActiveArmor,
-	Rectifier,
 	MinionSpawner,
+	Rectifier,
 	Turret,
 	Shotgun,
 	Sniper,
@@ -97,8 +97,8 @@ enum class Upgrade : s8
 {
 	Bolter,
 	ActiveArmor,
-	Rectifier,
 	MinionSpawner,
+	Rectifier,
 	Turret,
 	Shotgun,
 	Sniper,

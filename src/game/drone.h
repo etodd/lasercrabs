@@ -80,6 +80,7 @@ struct Drone : public ComponentType<Drone>
 	{
 		Array<Hit> hits;
 		s8 index_end;
+		void set_to(const Hits&);
 	};
 
 	enum class RaycastMode : s8

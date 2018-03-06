@@ -2900,63 +2900,65 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			serialize_int(p, s32, local_players, 1, MAX_GAMEPADS);
 			if (game_version == GAME_VERSION)
 			{
-				if (!client
-					&& state_server.mode == Mode::Active
-					&& Game::session.config.max_players >= PlayerHuman::list.count() + local_players
-					&& state_server.clients.length < state_server.clients.capacity())
+				if (state_server.mode == Mode::Active)
 				{
-					client = state_server.clients.add();
-					client_index = state_server.clients.length - 1;
-					new (client) Client();
-					client->address = address;
-					client->first_load_sequence = state_common.local_sequence_id;
+					if (!client
+						&& Game::session.config.max_players >= PlayerHuman::list.count() + local_players
+						&& state_server.clients.length < state_server.clients.capacity())
 					{
-						char str[NET_MAX_ADDRESS];
-						address.str(str);
-						vi_debug("Client %s starting on sequence %d", str, s32(client->first_load_sequence));
-					}
-
-					if (Settings::record && Game::session.type != SessionType::Story && !state_server.replay_file)
-					{
-						state_server.replay_address = address;
-
-						char filename[MAX_PATH_LENGTH + 1];
-						replay_filename_generate(filename);
-						vi_debug("Recording gameplay to '%s'.", filename);
-						state_server.replay_file = fopen(filename, "wb");
-					}
-
-					// serialize out map data
-					{
-						using Stream = StreamWrite;
-
-						// entity data
-						for (auto j = Entity::list.iterator(); !j.is_last(); j.next())
+						client = state_server.clients.add();
+						client_index = state_server.clients.length - 1;
+						new (client) Client();
+						client->address = address;
+						client->first_load_sequence = state_common.local_sequence_id;
 						{
-							StreamWrite* p = msg_new(&client->msgs_out_load, MessageType::EntityCreate);
-							serialize_int(p, ID, j.index, 0, MAX_ENTITIES - 1);
-							if (!serialize_entity(p, j.item()))
-								vi_assert(false);
-							msg_finalize(p);
+							char str[NET_MAX_ADDRESS];
+							address.str(str);
+							vi_debug("Client %s starting on sequence %d", str, s32(client->first_load_sequence));
 						}
 
-						// done
-						msg_finalize(msg_new(&client->msgs_out_load, MessageType::InitDone));
-					}
-				}
+						if (Settings::record && Game::session.type != SessionType::Story && !state_server.replay_file)
+						{
+							state_server.replay_address = address;
 
-				if (client)
-				{
-					StreamWrite p;
-					packet_build_init(&p, client);
-					packet_send(p, address);
-				}
-				else
-				{
-					// server is full
-					StreamWrite p;
-					packet_build_disconnect(&p, DisconnectReason::ServerFull);
-					packet_send(p, address);
+							char filename[MAX_PATH_LENGTH + 1];
+							replay_filename_generate(filename);
+							vi_debug("Recording gameplay to '%s'.", filename);
+							state_server.replay_file = fopen(filename, "wb");
+						}
+
+						// serialize out map data
+						{
+							using Stream = StreamWrite;
+
+							// entity data
+							for (auto j = Entity::list.iterator(); !j.is_last(); j.next())
+							{
+								StreamWrite* p = msg_new(&client->msgs_out_load, MessageType::EntityCreate);
+								serialize_int(p, ID, j.index, 0, MAX_ENTITIES - 1);
+								if (!serialize_entity(p, j.item()))
+									vi_assert(false);
+								msg_finalize(p);
+							}
+
+							// done
+							msg_finalize(msg_new(&client->msgs_out_load, MessageType::InitDone));
+						}
+					}
+
+					if (client)
+					{
+						StreamWrite p;
+						packet_build_init(&p, client);
+						packet_send(p, address);
+					}
+					else
+					{
+						// server is full
+						StreamWrite p;
+						packet_build_disconnect(&p, DisconnectReason::ServerFull);
+						packet_send(p, address);
+					}
 				}
 			}
 			else

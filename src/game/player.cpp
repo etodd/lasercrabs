@@ -907,7 +907,8 @@ void PlayerHuman::update(const Update& u)
 	if (Game::level.local && Game::level.mode == Game::Mode::Parkour && entity)
 	{
 		btCollisionWorld::ClosestRayResultCallback ray_callback = entity->get<Walker>()->check_support();
-		if (ray_callback.hasHit())
+		if (ray_callback.hasHit()
+			&& ray_callback.m_hitNormalWorld.getY() > WALKER_TRACTION_DOT) // must have traction
 		{
 			const btRigidBody* bt_support = (const btRigidBody*)(ray_callback.m_collisionObject);
 			RigidBody* support = Entity::list.data[bt_support->getUserIndex()].get<RigidBody>();

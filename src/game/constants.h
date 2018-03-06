@@ -16,7 +16,7 @@
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 30
+#define GAME_VERSION 31
 
 #define STEAM_APP_ID 728100
 #define DISCORD_APP_ID "367724608469860353"
@@ -154,8 +154,8 @@
 #define MINION_MELEE_RANGE 2.5f
 #define MINION_HEALTH 6
 
-#define RECTIFIER_HEAL_INTERVAL 1.5f
-#define RECTIFIER_HEAL_AMOUNT 2
+#define RECTIFIER_HEAL_INTERVAL 0.8f
+#define RECTIFIER_HEAL_AMOUNT 1
 #define RECTIFIER_HEAL_MAX_CONCURRENT 4
 #define RECTIFIER_RANGE 11.0f
 #define RECTIFIER_RADIUS 0.2f

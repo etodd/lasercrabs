@@ -154,13 +154,13 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Other,
 	},
 	{
-		2.0f, // movement cooldown
+		2.1f, // movement cooldown
 		0.3f, // switch cooldown
-		15.0f, // use cooldown
+		20.0f, // use cooldown
 		10.0f, // use cooldown threshold
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
-		Asset::Mesh::icon_rectifier,
+		Asset::Mesh::icon_minion,
 		Type::Build,
 	},
 	{
@@ -170,7 +170,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		10.0f, // use cooldown threshold
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
-		Asset::Mesh::icon_minion,
+		Asset::Mesh::icon_rectifier,
 		Type::Build,
 	},
 	{
@@ -252,16 +252,16 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		Type::Ability,
 	},
 	{
-		strings::rectifier,
-		strings::description_rectifier,
-		Asset::Mesh::icon_rectifier,
-		250,
-		Type::Ability,
-	},
-	{
 		strings::minion_spawner,
 		strings::description_minion_spawner,
 		Asset::Mesh::icon_minion,
+		150,
+		Type::Ability,
+	},
+	{
+		strings::rectifier,
+		strings::description_rectifier,
+		Asset::Mesh::icon_rectifier,
 		250,
 		Type::Ability,
 	},

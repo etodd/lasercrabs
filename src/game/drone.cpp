@@ -265,7 +265,7 @@ r32 particle_trail(const Vec3& start, const Vec3& end, r32 offset = 0.0f)
 	return offset + particle_count * 0.05f;
 }
 
-enum class DroneHitType
+enum class DroneHitType : s8
 {
 	Target,
 	Reflection,
@@ -274,13 +274,15 @@ enum class DroneHitType
 
 void client_hit_effects(Drone* drone, Entity* target, DroneHitType type)
 {
-	if (type == DroneHitType::Reflection || (target && target->has<Shield>()))
+	Vec3 pos = drone->get<Transform>()->absolute_pos();
+
+	if (type == DroneHitType::Reflection)
 	{
 		Entity* audio_source = (target && target->has<Audio>() && drone->current_ability == Ability::Sniper) ? target : drone->entity();
 		audio_source->get<Audio>()->post_unattached(AK::EVENTS::PLAY_DRONE_REFLECT);
 	}
-
-	Vec3 pos = drone->get<Transform>()->absolute_pos();
+	else
+		EffectLight::add(pos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 	Quat rot = Quat::look(Vec3::normalize(drone->velocity));
 	for (s32 i = 0; i < 50; i++)
@@ -292,8 +294,6 @@ void client_hit_effects(Drone* drone, Entity* target, DroneHitType type)
 			Vec4(1, 1, 1, 1)
 		);
 	}
-
-	EffectLight::add(pos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 	// controller vibration, etc.
 	drone->hit.fire(target);
@@ -369,7 +369,7 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 			else
 				result = 3;
 			if (dot < -0.85f)
-				result += 3;
+				result += 4;
 		}
 		else if (drone->current_ability == Ability::Sniper)
 		{
@@ -2019,16 +2019,13 @@ void drone_reflection_execute(Drone* d)
 	d->get<Animator>()->layers[0].animation = Asset::Animation::drone_fly;
 
 	Entity* reflected_off = reflection.entity.ref();
-	if (!reflected_off || !reflected_off->has<Target>()) // target hit effects are handled separately
+	if (Game::level.local)
+		DroneNet::reflection_effects(d, reflected_off); // let everyone know we're doing reflection effects
+	else
 	{
-		if (Game::level.local)
-			DroneNet::reflection_effects(d, reflected_off); // let everyone know we're doing reflection effects
-		else
-		{
-			// client-side prediction
-			vi_assert(d->has<PlayerControlHuman>() && d->get<PlayerControlHuman>()->local());
-			client_hit_effects(d, reflected_off, DroneHitType::Reflection);
-		}
+		// client-side prediction
+		vi_assert(d->has<PlayerControlHuman>() && d->get<PlayerControlHuman>()->local());
+		client_hit_effects(d, reflected_off, DroneHitType::Reflection);
 	}
 
 	DroneReflectEvent e;

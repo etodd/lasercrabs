@@ -1216,6 +1216,7 @@ const char* AssetLookup::String::names[] =
 	"defeat",
 	"defend",
 	"demo_end",
+	"demo_notify",
 	"deploy_timer",
 	"deploy_timer_assault",
 	"deploying",

@@ -1950,15 +1950,22 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 		else if (cJSON_HasObjectItem(element, "SpawnPoint"))
 		{
 			AI::Team team = AI::Team(Json::get_s32(element, "team", AI::TeamNone));
-			if (session.config.game_type == GameType::Deathmatch
-				|| level.mode == Mode::Parkour
-				|| s32(team) >= Team::list.count())
-				team = AI::TeamNone;
+			if (session.config.game_type == GameType::Assault && s32(team) >= Team::list.count())
+			{
+				// no spawn point
+				entity = World::alloc<StaticGeom>(Asset::Mesh::spawn_collision, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+				entity->get<View>()->mesh = Asset::Mesh::spawn_dressing;
+			}
+			else
+			{
+				if (session.config.game_type == GameType::Deathmatch || level.mode == Mode::Parkour)
+					team = AI::TeamNone;
 
-			if (team != AI::TeamNone)
-				team = team_lookup(level.team_lookup, team);
+				if (team != AI::TeamNone)
+					team = team_lookup(level.team_lookup, team);
 
-			entity = World::alloc<SpawnPointEntity>(team, Json::get_s32(element, "visible", 1));
+				entity = World::alloc<SpawnPointEntity>(team, Json::get_s32(element, "visible", 1));
+			}
 		}
 		else if (cJSON_HasObjectItem(element, "FlagBase"))
 		{
@@ -2421,7 +2428,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 	{
 		LevelLink<SpawnPoint>* link = &spawn_links[i];
 		Entity* e = level.finder.find(link->target_name);
-		if (e->has<SpawnPoint>())
+		if (e && e->has<SpawnPoint>())
 			*link->ref = e->get<SpawnPoint>();
 	}
 
@@ -2434,11 +2441,12 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 				World::create<FlagEntity>(AI::Team(i));
 		}
 
-		// remove batteries above team spawns
+		// remove batteries above team spawns, or that have no spawn point
 		for (s32 i = 0; i < level.battery_spawns.length; i++)
 		{
 			const BatterySpawnPoint& spawn = level.battery_spawns[i];
-			if (spawn.spawn_point.ref()->team != AI::TeamNone)
+			SpawnPoint* point = spawn.spawn_point.ref();
+			if (!point || point->team != AI::TeamNone)
 			{
 				level.battery_spawns.remove(i);
 				i--;

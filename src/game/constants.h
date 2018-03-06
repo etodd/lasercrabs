@@ -16,7 +16,7 @@
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 29
+#define GAME_VERSION 30
 
 #define STEAM_APP_ID 728100
 #define DISCORD_APP_ID "367724608469860353"
@@ -58,7 +58,7 @@
 #define NET_MAX_RTT_COMPENSATION 0.2f
 
 #if RELEASE_BUILD
-#define LEVEL_ALLOWED(x) (x == 3 || x == 8 || x == 9) // Isca, Bithia Dam, Despina
+#define LEVEL_ALLOWED(x) (x == 3 || x == 8 || x == 9 || x == 7) // Isca, Bithia Dam, Despina, Vashti Square
 #else
 #define LEVEL_ALLOWED(x) (true)
 #endif
@@ -154,11 +154,12 @@
 #define MINION_MELEE_RANGE 2.5f
 #define MINION_HEALTH 6
 
-#define RECTIFIER_HEAL_INTERVAL 1.0f
-#define RECTIFIER_HEAL_MAX_CONCURRENT 5
+#define RECTIFIER_HEAL_INTERVAL 1.5f
+#define RECTIFIER_HEAL_AMOUNT 2
+#define RECTIFIER_HEAL_MAX_CONCURRENT 4
 #define RECTIFIER_RANGE 11.0f
 #define RECTIFIER_RADIUS 0.2f
-#define RECTIFIER_HEALTH 6
+#define RECTIFIER_HEALTH 9
 
 #define BATTERY_HEALTH 6
 #define BATTERY_ENERGY_INCREMENT 24

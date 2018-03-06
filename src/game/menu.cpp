@@ -666,7 +666,8 @@ void title_menu(const Update& u, Camera* camera)
 				{
 					if (main_menu.item(u, _(strings::discord)))
 						open_url("https://discord.gg/eZGapeY");
-					main_menu.item(u, _(strings::kickstarter), nullptr, true);
+					if (main_menu.item(u, _(strings::kickstarter)))
+						open_url("https://www.kickstarter.com/projects/et1337/deceiver-philosophical-shooter");
 					if (main_menu.item(u, _(strings::credits)))
 						main_menu_state = State::Credits;
 					if (main_menu.item(u, _(strings::exit)))
@@ -749,8 +750,7 @@ void open_url(const char* url)
 	snprintf(buffer, MAX_PATH_LENGTH, "xdg-open \"%s\"", url);
 	system(buffer);
 #endif
-	if (Settings::window_mode != WindowMode::Windowed)
-		Game::minimize = true;
+	Game::minimize = true;
 }
 
 b8 player(const Update&, const UIMenu::Origin&, s8, UIMenu*);

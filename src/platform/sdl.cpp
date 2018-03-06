@@ -151,22 +151,22 @@ namespace VI
 		}
 	}
 
-	void mini_dump_name(std::string* name)
+	void mini_dump_name(std::string* name, DWORD64 rip)
 	{
 		std::stringstream builder;
 		builder << BUILD_ID;
 		time_t timev = time(NULL);
 		struct tm * now = localtime(&timev);
-		builder << "-" << now->tm_year + 1900 << "-" << now->tm_mon + 1 << "-" << now->tm_mday << "-" << now->tm_hour << "-" << now->tm_min << "-" << now->tm_sec << "-" << mersenne::rand() << ".dmp";
+		builder << "-" << rip << "-" << now->tm_year + 1900 << "-" << now->tm_mon + 1 << "-" << now->tm_mday << "-" << now->tm_hour << "-" << now->tm_min << "-" << now->tm_sec << "-" << mersenne::rand() << ".dmp";
 		*name = builder.str();
 	}
 
-	void mini_dump_path(std::string* path)
+	void mini_dump_path(std::string* path, DWORD64 rip)
 	{
 		std::stringstream builder;
 		builder << Loader::data_directory;
 		std::string name;
-		mini_dump_name(&name);
+		mini_dump_name(&name, rip);
 		builder << name;
 		*path = builder.str();
 	}
@@ -179,7 +179,7 @@ namespace VI
 	LONG WINAPI crash_reporter(PEXCEPTION_POINTERS exc_info)
 	{
 		std::string path;
-		mini_dump_path(&path);
+		mini_dump_path(&path, exc_info->ContextRecord->Rip);
 
 		create_mini_dump(exc_info, path.c_str());
 

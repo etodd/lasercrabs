@@ -1207,7 +1207,6 @@ void PlayerHuman::update(const Update& u)
 								b8 can_upgrade = !upgrade_in_progress
 									&& chat_focus == ChatFocus::None
 									&& get<PlayerManager>()->upgrade_available(upgrade)
-									&& (Game::level.has_feature(Game::FeatureLevel::All) || !get<PlayerManager>()->upgrades) // only allow one ability upgrade in tutorial
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || UpgradeInfo::list[i].type == UpgradeInfo::Type::Ability) // only allow ability upgrades in tutorial
 									&& (Game::level.has_feature(Game::FeatureLevel::All) || AbilityInfo::list[i].type == AbilityInfo::Type::Shoot); // only allow shooting abilities in tutorial
 								if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
@@ -2230,7 +2229,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		UI::box(params, box, UI::color_background);
 		for (s32 i = 0; i < s32(EmoteCategory::count); i++)
 		{
-			text.text(gamepad, "(%d) %s", i + 1, _(emote_strings[s32(emote_category)][i]));
+			text.text(gamepad, "[{{Emote%d}}] %s", i + 1, _(emote_strings[s32(emote_category)][i]));
 			text.draw(params, p);
 			p.y -= UI_TEXT_SIZE_DEFAULT * UI::scale + MENU_ITEM_PADDING;
 		}

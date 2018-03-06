@@ -154,7 +154,7 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 		Type::Other,
 	},
 	{
-		2.1f, // movement cooldown
+		2.0f, // movement cooldown
 		0.3f, // switch cooldown
 		15.0f, // use cooldown
 		10.0f, // use cooldown threshold

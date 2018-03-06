@@ -1531,8 +1531,8 @@ void rectifier_update(s32 rectifier_index, const Vec3& rectifier_pos, Entity* e,
 			if (do_heal) // apply actual healing
 			{
 				Health* health = e->get<Health>();
-				if (health->hp > 0 && health->hp < health->hp_max)
-					health->add(1);
+				if (health->hp > 0)
+					health->add(RECTIFIER_HEAL_AMOUNT);
 			}
 		}
 	}
@@ -4108,31 +4108,7 @@ void Grenade::hit_entity(const Bolt::Hit& hit, const Net::StateFrame* state_fram
 	{
 		if (hit.entity->has<Minion>())
 		{
-			// check if minion already has a grenade attached to it
-			b8 attach = true;
-			{
-				Transform* minion = hit.entity->get<Transform>();
-				for (auto i = list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item()->get<Transform>()->parent.ref() == minion)
-					{
-						attach = false;
-						break;
-					}
-				}
-			}
-
-			if (attach)
-			{
-				// stick to minion
-				velocity = Vec3::zero;
-				get<Transform>()->parent = hit.entity->get<Transform>();
-				get<Transform>()->pos = Vec3::zero;
-				get<Transform>()->rot = Quat::identity;
-
-				GrenadeNet::send_state_change(this, State::Attached);
-			}
-			else
+			if (hit.entity->get<Minion>()->carrying.ref())
 			{
 				// bounce off minion
 
@@ -4142,6 +4118,16 @@ void Grenade::hit_entity(const Bolt::Hit& hit, const Net::StateFrame* state_fram
 				velocity = velocity.reflect(hit.normal) * 0.5f;
 				if (state != State::Active)
 					GrenadeNet::send_state_change(this, State::Active);
+			}
+			else
+			{
+				// stick to minion
+				velocity = Vec3::zero;
+				get<Transform>()->parent = hit.entity->get<Transform>();
+				get<Transform>()->pos = Vec3::zero;
+				get<Transform>()->rot = Quat::identity;
+
+				GrenadeNet::send_state_change(this, State::Attached);
 			}
 		}
 		else

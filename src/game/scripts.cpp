@@ -261,7 +261,7 @@ void update(const Update& u)
 				{
 					const char* text = _(instance->text);
 					s32 length = Unicode::codepoint_count(text);
-					instance->sound_done = Game::real_time.total - instance->last_cue_real_time > length * 0.06f;
+					instance->sound_done = Game::real_time.total - instance->last_cue_real_time > length * 0.075f;
 				}
 			}
 			else
@@ -675,6 +675,7 @@ namespace Docks
 		b8 dada_talked;
 		b8 itch_prompted;
 		b8 rex_cart_gone;
+		b8 demo_notified;
 	};
 	
 	static Data* data;
@@ -1237,43 +1238,55 @@ namespace Docks
 			}
 		}
 
-		if (Parkour::list.count() > 0 && data->state != TutorialState::Done)
+		if (Parkour::list.count() > 0)
 		{
 			Parkour* parkour = Parkour::list.iterator().item();
-
-			if (!data->player.ref())
+			if (data->state == TutorialState::Done)
 			{
-				// player just spawned
-				data->player = parkour;
-				parkour->jumped.link(&player_jumped);
-			}
-
-			if (data->state == TutorialState::Climb
-				&& (parkour->fsm.current == ParkourState::Climb || parkour->fsm.current == ParkourState::Mantle))
-			{
-				data->state = TutorialState::Shop;
-				Actor::tut_clear();
-			}
-			else if (data->state == TutorialState::Shop && Game::save.resources[s32(Resource::WallRun)])
-				data->state = TutorialState::WallRun;
-
-			if (data->state == TutorialState::WallRun)
-			{
-				StaticArray<Ref<Transform>, 8>* footsteps = nullptr;
-				if (data->wallrun_trigger_1.ref()->is_triggered())
-					footsteps = &data->wallrun_footsteps1;
-				else if (data->wallrun_trigger_2.ref()->is_triggered())
-					footsteps = &data->wallrun_footsteps2;
-
-				if (footsteps)
+				if (!data->demo_notified
+					&& Game::save.zones[s32(Asset::Level::Isca)] == ZoneState::PvpFriendly
+					&& parkour->get<Animator>()->layers[3].animation == AssetNull)
 				{
-					// spawn wallrun footstep shockwave effects
-					data->wallrun_footstep_timer -= u.time.delta;
-					if (data->wallrun_footstep_timer < 0.0f)
+					data->demo_notified = true;
+					Menu::dialog(0, Menu::dialog_no_action, _(strings::demo_notify));
+				}
+			}
+			else
+			{
+				if (!data->player.ref())
+				{
+					// player just spawned
+					data->player = parkour;
+					parkour->jumped.link(&player_jumped);
+				}
+
+				if (data->state == TutorialState::Climb
+					&& (parkour->fsm.current == ParkourState::Climb || parkour->fsm.current == ParkourState::Mantle))
+				{
+					data->state = TutorialState::Shop;
+					Actor::tut_clear();
+				}
+				else if (data->state == TutorialState::Shop && Game::save.resources[s32(Resource::WallRun)])
+					data->state = TutorialState::WallRun;
+
+				if (data->state == TutorialState::WallRun)
+				{
+					StaticArray<Ref<Transform>, 8>* footsteps = nullptr;
+					if (data->wallrun_trigger_1.ref()->is_triggered())
+						footsteps = &data->wallrun_footsteps1;
+					else if (data->wallrun_trigger_2.ref()->is_triggered())
+						footsteps = &data->wallrun_footsteps2;
+
+					if (footsteps)
 					{
-						data->wallrun_footstep_timer += 2.0f / footsteps->length;
-						data->wallrun_footstep_index = (data->wallrun_footstep_index + 1) % footsteps->length;
-						EffectLight::add((*footsteps)[data->wallrun_footstep_index].ref()->absolute_pos(), 1.0f, 1.0f, EffectLight::Type::Shockwave);
+						// spawn wallrun footstep shockwave effects
+						data->wallrun_footstep_timer -= u.time.delta;
+						if (data->wallrun_footstep_timer < 0.0f)
+						{
+							data->wallrun_footstep_timer += 2.0f / footsteps->length;
+							data->wallrun_footstep_index = (data->wallrun_footstep_index + 1) % footsteps->length;
+							EffectLight::add((*footsteps)[data->wallrun_footstep_index].ref()->absolute_pos(), 1.0f, 1.0f, EffectLight::Type::Shockwave);
+						}
 					}
 				}
 			}

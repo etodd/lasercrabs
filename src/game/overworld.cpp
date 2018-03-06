@@ -469,7 +469,7 @@ void master_server_list_end(ServerListType type, s32 length)
 		&& data.state == State::Multiplayer)
 	{
 		Data::Multiplayer::ServerList* list = &data.multiplayer.server_lists[s32(type)];
-		list->entries.resize(length);
+		list->entries.resize(vi_min(list->entries.length, length));
 		list->selected = vi_min(list->selected, list->entries.length - 1);
 		list->scroll.update_menu(list->entries.length);
 	}

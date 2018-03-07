@@ -4284,7 +4284,7 @@ void PlayerControlHuman::update(const Update& u)
 							{
 								Vec3 shield_pos = i.item()->get<Target>()->absolute_pos();
 								Vec3 intersection;
-								if (LMath::ray_sphere_intersect(trace_start, trace_end, shield_pos, DRONE_SHIELD_RADIUS + raycast_radius, &intersection, LMath::RaySphereIntersection::BackFace))
+								if (LMath::ray_sphere_intersect_flattened_plane(trace_start, trace_end, shield_pos, me, DRONE_SHIELD_RADIUS + raycast_radius, &intersection))
 								{
 									b8 hit = true;
 									if (ray_callback.hit)
@@ -4316,7 +4316,7 @@ void PlayerControlHuman::update(const Update& u)
 							const TargetIndicator& indicator = target_indicators[i];
 							Vec3 intersection;
 							if (indicator.type == TargetIndicator::Type::DroneVisible
-								&& LMath::ray_sphere_intersect(trace_start, trace_end, indicator.pos, DRONE_SHIELD_RADIUS + raycast_radius, &intersection, LMath::RaySphereIntersection::BackFace))
+								&& LMath::ray_sphere_intersect_flattened_plane(trace_start, trace_end, indicator.pos, me, DRONE_SHIELD_RADIUS + raycast_radius, &intersection))
 							{
 								b8 hit = true;
 								if (ray_callback.hit)

@@ -15,6 +15,8 @@
 #if _WIN32
 #include <Windows.h>
 #include <DbgHelp.h>
+#include <ShellScalingAPI.h>
+#pragma comment(lib, "Shcore.lib")
 #include "game/menu.h"
 #endif
 #include <time.h>
@@ -237,7 +239,7 @@ namespace VI
 #endif
 
 #if _WIN32
-		SetProcessDPIAware();
+		SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
 #endif
 
 #if defined(__APPLE__)

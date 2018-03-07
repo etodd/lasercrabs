@@ -144,6 +144,33 @@ namespace LMath
 		return false;
 	}
 
+	b8 ray_sphere_intersect_flattened_plane(const Vec3& ray_start, const Vec3& ray_end, const Vec3& sphere_pos, const Vec3& plane_target, r32 sphere_radius, Vec3* intersection)
+	{
+		Vec3 ray = ray_end - ray_start;
+		Vec3 sphere_to_ray_start = ray_start - sphere_pos;
+		r32 ray_start_distance_sq = sphere_to_ray_start.length_squared();
+		r32 sphere_radius_sq = sphere_radius * sphere_radius;
+		r32 dot = sphere_to_ray_start.dot(ray);
+
+		Vec3 hit_pos;
+		b8 hit = ray_sphere_intersect(ray_start, ray_end, sphere_pos, sphere_radius, &hit_pos, RaySphereIntersection::BackFace);
+		if (hit)
+		{
+			Vec3 plane_normal = plane_target - sphere_pos;
+			r32 plane_normal_length = plane_normal.length();
+			if (plane_normal_length > 0.0f)
+			{
+				plane_normal /= plane_normal_length;
+				Plane plane(plane_normal, sphere_pos);
+				*intersection = plane.intersect(ray_start, ray_end);
+			}
+			else
+				*intersection = hit_pos;
+		}
+
+		return hit;
+	}
+
 	const r32 INTENSITY_COEFFICIENT = 0.2f;
 
 	Vec3 desaturate(const Vec3& c)
@@ -277,7 +304,22 @@ Vec3 Plane::project(const Vec3& p) const
 	xform[2][1] = -normal.z * normal.y;
 	xform[2][2] = 1.0f - normal.z * normal.z;
 	return xform * p;
+}
 
+Vec3 Plane::intersect(const Vec3& ray_start, const Vec3& ray_end) const
+{
+	// ray: f(x) = a + x * (b - a)
+	// plane: p . n = d
+
+	// (a + x * (b - a)) . n = d
+	// (a . n) + (x * (b - a)) . n = d
+	// (a . n) + x * ((b - a) . n) = d
+	// d - (a . n) = x * ((b - a) . n)
+	// (d - (a . n)) / ((b - a) . n) = x
+
+	r32 x = (-d - ray_start.dot(normal)) / (ray_end - ray_start).dot(normal);
+
+	return ray_start + x * (ray_end - ray_start);
 }
 
 r32 Plane::normalize(void)

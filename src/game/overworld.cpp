@@ -3827,7 +3827,7 @@ void init(cJSON* level)
 					{
 						cJSON* element2 = level->child;
 						while (element2)
-					{
+						{
 							if (Json::get_s32(element2, "parent") == element_id)
 								node->children.add(zone_pos + Json::get_vec3(element2, "pos"));
 							element2 = element2->next;

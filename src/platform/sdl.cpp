@@ -15,8 +15,6 @@
 #if _WIN32
 #include <Windows.h>
 #include <DbgHelp.h>
-#include <ShellScalingAPI.h>
-#pragma comment(lib, "Shcore.lib")
 #include "game/menu.h"
 #endif
 #include <time.h>
@@ -239,7 +237,40 @@ namespace VI
 #endif
 
 #if _WIN32
-		SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+		{
+			b8 set_dpi_awareness = false;
+			HINSTANCE sh_core_dll = LoadLibrary("Shcore.dll");
+			if (sh_core_dll)
+			{
+				enum ProcessDpiAwareness
+				{
+					ProcessDpiUnaware = 0,
+					ProcessSystemDpiAware = 1,
+					ProcessPerMonitorDpiAware = 2
+				};
+
+				typedef HRESULT(WINAPI* SetProcessDpiAwarenessFuncType)(ProcessDpiAwareness);
+				SetProcessDpiAwarenessFuncType SetProcessDpiAwarenessFunc = reinterpret_cast<SetProcessDpiAwarenessFuncType>(GetProcAddress(sh_core_dll, "SetProcessDpiAwareness"));
+
+				if (SetProcessDpiAwarenessFunc)
+				{
+					// We only check for E_INVALIDARG because we would get
+					// E_ACCESSDENIED if the DPI was already set previously
+					// and S_OK means the call was successful
+					if (SetProcessDpiAwarenessFunc(ProcessPerMonitorDpiAware) == E_INVALIDARG)
+					{
+						SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "DECEIVER Error", "Failed to set DPI awareness", nullptr);
+						return 1;
+					}
+					else
+						set_dpi_awareness = true;
+				}
+				FreeLibrary(sh_core_dll);
+			}
+
+			if (!set_dpi_awareness)
+				SetProcessDPIAware();
+		}
 #endif
 
 #if defined(__APPLE__)

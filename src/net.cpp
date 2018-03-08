@@ -3531,6 +3531,7 @@ b8 master_send_auth()
 
 		serialize_int(&p, s32, Game::auth_key_length, 0, MAX_AUTH_KEY);
 		serialize_bytes(&p, (u8*)Game::auth_key, Game::auth_key_length);
+		serialize_u32(&p, Game::steam_app_id);
 	}
 
 	packet_finalize(&p);

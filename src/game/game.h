@@ -219,6 +219,7 @@ struct Game
 	static char steam_username[MAX_USERNAME + 1];
 #endif
 
+	static u32 steam_app_id;
 	static PreinitResult pre_init(const char**);
 	static const char* init(LoopSync*);
 	static void execute(const char*);

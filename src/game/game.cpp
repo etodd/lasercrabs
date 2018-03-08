@@ -93,6 +93,7 @@ Game::Level Game::level;
 Game::Session Game::session;
 b8 Game::cancel_event_eaten[] = {};
 ScreenQuad Game::screen_quad;
+u32 Game::steam_app_id;
 
 template<typename Stream> b8 serialize_save(Stream* p, Game::Save* s)
 {
@@ -302,6 +303,7 @@ Game::PreinitResult Game::pre_init(const char** error)
 			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Steam error", "Failed to integrate with Steam! Please make sure Steam is running.", nullptr);
 			return PreinitResult::Failure;
 		}
+		steam_app_id = SteamUtils()->GetAppID();
 	}
 
 	{

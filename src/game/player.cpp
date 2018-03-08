@@ -2308,7 +2308,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 	if ((mode == UIMode::PvpDefault || mode == UIMode::PvpSpectate)
 		|| (Game::session.type == SessionType::Multiplayer && (mode == UIMode::ParkourDefault || mode == UIMode::ParkourDead)))
 	{
-		if (params.sync->input.get(Controls::Scoreboard, gamepad))
+		if (chat_focus == ChatFocus::None && params.sync->input.get(Controls::Scoreboard, gamepad))
 			scoreboard_draw(params, get<PlayerManager>(), ScoreboardPosition::Center);
 	}
 

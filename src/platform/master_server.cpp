@@ -1975,23 +1975,30 @@ namespace Master
 					}
 					case AuthType::Steam:
 					{
+						u32 app_id;
+						serialize_u32(p, app_id);
 						u64 hash = node->addr.hash();
 						if (!Http::request_for_user_data(hash)) // make sure we're not already trying to authenticate this user
 						{
-							strncpy(node->client.username, username, MAX_USERNAME);
-
-							char hex_auth_key[(MAX_AUTH_KEY * 2) + 1];
-
-							for (s32 i = 0; i < auth_key_length; i++)
+							if (app_id == 819580 || app_id == 728100)
 							{
-								hex_auth_key[i * 2] = hex_char((auth_key[i] & (0xf0)) >> 4);
-								hex_auth_key[(i * 2) + 1] = hex_char(auth_key[i] & (0xf));
-							}
-							hex_auth_key[auth_key_length * 2] = '\0';
+								strncpy(node->client.username, username, MAX_USERNAME);
 
-							char url[(MAX_PATH_LENGTH * 3) + 1] = {};
-							snprintf(url, MAX_PATH_LENGTH * 3, "https://api.steampowered.com/ISteamUserAuth/AuthenticateUserTicket/v1/?appid=728100&key=%s&ticket=%s", Settings::steam_api_key, hex_auth_key);
-							Http::get(url, &steam_auth_callback, nullptr, hash);
+								char hex_auth_key[(MAX_AUTH_KEY * 2) + 1];
+
+								for (s32 i = 0; i < auth_key_length; i++)
+								{
+									hex_auth_key[i * 2] = hex_char((auth_key[i] & (0xf0)) >> 4);
+									hex_auth_key[(i * 2) + 1] = hex_char(auth_key[i] & (0xf));
+								}
+								hex_auth_key[auth_key_length * 2] = '\0';
+
+								char url[(MAX_PATH_LENGTH * 3) + 1] = {};
+								snprintf(url, MAX_PATH_LENGTH * 3, "https://api.steampowered.com/ISteamUserAuth/AuthenticateUserTicket/v1/?appid=%u&key=%s&ticket=%s", app_id, Settings::steam_api_key, hex_auth_key);
+								Http::get(url, &steam_auth_callback, nullptr, hash);
+							}
+							else
+								steam_auth_result(hash, false, 0, nullptr);
 						}
 						break;
 					}

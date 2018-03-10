@@ -156,8 +156,8 @@ AbilityInfo AbilityInfo::list[s32(Ability::count) + 1] =
 	{
 		2.1f, // movement cooldown
 		0.3f, // switch cooldown
-		20.0f, // use cooldown
-		10.0f, // use cooldown threshold
+		30.0f, // use cooldown
+		15.0f, // use cooldown threshold
 		0.5f, // recoil velocity
 		AK::EVENTS::PLAY_EQUIP_BUILD,
 		Asset::Mesh::icon_minion,
@@ -2545,7 +2545,7 @@ void PlayerManager::update_server(const Update& u)
 	{
 		const AbilityInfo& info = AbilityInfo::list[i];
 		b8 ready_previous = ability_cooldown[i] < info.cooldown_use_threshold;
-		ability_cooldown[i] = vi_max(0.0f, ability_cooldown[i] - u.time.delta);
+		ability_cooldown[i] = vi_max(0.0f, ability_cooldown[i] - u.time.delta * Game::session.config.ruleset.cooldown_speed());
 		b8 ready_now = ability_cooldown[i] < info.cooldown_use_threshold;
 		if (ready_now && !ready_previous)
 			PlayerManagerNet::ability_cooldown_ready(this, Ability(i));
@@ -2579,7 +2579,7 @@ void PlayerManager::update_client_only(const Update& u)
 	{
 		const AbilityInfo& info = AbilityInfo::list[i];
 		r32 min = ability_cooldown[i] >= info.cooldown_use_threshold ? info.cooldown_use_threshold : 0.0f;
-		ability_cooldown[i] = vi_max(min, ability_cooldown[i] - u.time.delta); // can't set it below threshold until server says we can
+		ability_cooldown[i] = vi_max(min, ability_cooldown[i] - u.time.delta * Game::session.config.ruleset.cooldown_speed()); // can't set it below threshold until server says we can
 	}
 }
 

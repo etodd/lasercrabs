@@ -37,7 +37,7 @@ void Physics::sync_static()
 			if (body->isStaticOrKinematicObject())
 			{
 				btTransform transform;
-				i.item()->get<Transform>()->get_bullet(transform);
+				i.item()->get<Transform>()->get_bullet(&transform);
 				body->setWorldTransform(transform);
 				body->setInterpolationWorldTransform(transform);
 			}

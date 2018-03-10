@@ -25,13 +25,13 @@ void Transform::mat(Mat4* m) const
 	}
 }
 
-void Transform::get_bullet(btTransform& world) const
+void Transform::get_bullet(btTransform* world) const
 {
 	Quat abs_rot;
 	Vec3 abs_pos;
 	absolute(&abs_pos, &abs_rot);
-	world.setOrigin(abs_pos);
-	world.setRotation(abs_rot);
+	world->setOrigin(abs_pos);
+	world->setRotation(abs_rot);
 }
 
 void Transform::set_bullet(const btTransform& world)

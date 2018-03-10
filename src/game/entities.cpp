@@ -1090,24 +1090,24 @@ PlayerManager* minion_spawn_get_owner_point(SpawnPoint*)
 	return nullptr;
 }
 
-template<typename T> void minion_spawn_all(const Update& u, PlayerManager* (*owner_get)(T*))
+template<typename T> void minion_spawn_all(const Update& u, PlayerManager* (*owner_get)(T*), r32 interval_multiplier)
 {
 	const s32 minion_group = 3;
 	const r32 minion_initial_delay = Game::session.type == SessionType::Story
 		? 3.0f
 		: 60.0f;
-	const r32 minion_spawn_interval = 12.0f; // time between individual minions spawning
-	const r32 minion_group_interval = minion_spawn_interval * 12.0f; // time between minion groups spawning; must be a multiple of minion_spawn_interval
+	const r32 minion_spawn_interval = 13.0f; // time between individual minions spawning
+	const r32 minion_group_interval = minion_spawn_interval * 13.0f; // time between minion groups spawning; must be a multiple of minion_spawn_interval
 
 	for (auto i = T::list.iterator(); !i.is_last() && Minion::list.count() < MAX_MINIONS; i.next())
 	{
 		if (i.item()->team != AI::TeamNone)
 		{
-			r32 t = (Game::time.total - minion_initial_delay) + i.index * minion_spawn_interval * -0.5f;
+			r32 t = interval_multiplier * ((Game::time.total - minion_initial_delay) + i.index * minion_spawn_interval * -0.5f);
 			if (t > 0.0f)
 			{
 				s32 index = s32(t / minion_spawn_interval);
-				s32 index_last = s32((t - u.time.delta) / minion_spawn_interval);
+				s32 index_last = s32((t - u.time.delta * interval_multiplier) / minion_spawn_interval);
 				if (index != index_last && (index % s32(minion_group_interval / minion_spawn_interval)) <= minion_group)
 				{
 					Vec3 pos;
@@ -1182,8 +1182,8 @@ void MinionSpawner::update_all(const Update& u)
 		&& Game::level.has_feature(Game::FeatureLevel::TutorialAll)
 		&& Team::match_state == Team::MatchState::Active)
 	{
-		minion_spawn_all<MinionSpawner>(u, minion_spawn_get_owner_spawner);
-		minion_spawn_all<SpawnPoint>(u, minion_spawn_get_owner_point);
+		minion_spawn_all<MinionSpawner>(u, minion_spawn_get_owner_spawner, 0.5f);
+		minion_spawn_all<SpawnPoint>(u, minion_spawn_get_owner_point, 1.0f);
 	}
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -2418,6 +2418,11 @@ MinionSpawnerEntity::MinionSpawnerEntity(PlayerManager* owner, AI::Team team, co
 
 void MinionSpawner::awake()
 {
+	if (Transform* parent = get<Transform>()->parent.ref())
+	{
+		if (parent->has<Minion>())
+			parent->get<Minion>()->carrying = entity();
+	}
 	link_arg<Entity*, &MinionSpawner::killed_by>(get<Health>()->killed);
 }
 
@@ -2479,6 +2484,11 @@ TurretEntity::TurretEntity(PlayerManager* owner, AI::Team team, const Vec3& abs_
 
 void Turret::awake()
 {
+	if (Transform* parent = get<Transform>()->parent.ref())
+	{
+		if (parent->has<Minion>())
+			parent->get<Minion>()->carrying = entity();
+	}
 	target_check_time = mersenne::randf_oo() * TURRET_TARGET_CHECK_TIME;
 	link_arg<Entity*, &Turret::killed>(get<Health>()->killed);
 }
@@ -2544,8 +2554,15 @@ b8 Turret::can_see(Entity* target) const
 	if (!target->has<ForceField>() && ForceField::hash(team, pos) != ForceField::hash(team, target_pos))
 		return false;
 
+	if (target->has<Minion>() && target->get<Minion>()->carrying.ref() == entity()) // don't attack the minion if it's carrying us
+		return false;
+
 	Vec3 to_target = target_pos - pos;
 	float distance_to_target = to_target.length();
+
+	if (target->has<ForceField>())
+		distance_to_target -= FORCE_FIELD_RADIUS;
+
 	if (distance_to_target < TURRET_RANGE)
 	{
 		RaycastCallbackExcept ray_callback(pos, target_pos, entity());

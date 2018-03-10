@@ -80,6 +80,8 @@ DroneEntity::DroneEntity(AI::Team team, const Vec3& pos)
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::drone;
 
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(DRONE_RADIUS), 0.0f, CollisionDroneIgnore, ~DRONE_PERMEABLE_MASK & ~get<Drone>()->ally_force_field_mask());
+
 	create<Target>();
 }
 

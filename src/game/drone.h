@@ -170,8 +170,8 @@ struct Drone : public ComponentType<Drone>
 	b8 predict_intersection(const Target*, const Net::StateFrame*, Vec3*, r32) const;
 
 	void reflect(Entity*, const Vec3&, const Vec3&, const Net::StateFrame*);
-	void crawl_wall_edge(const Vec3&, const Vec3&, r32, r32);
-	b8 transfer_wall(const Vec3&, const btCollisionWorld::ClosestRayResultCallback&);
+	void crawl_wall_edge(const Vec3&, const Vec3&, const Vec3&, r32, r32);
+	b8 transfer_wall(const Vec3&, const btCollisionWorld::ClosestConvexResultCallback&);
 	void move(const Vec3&, const Quat&, const ID);
 	void crawl(const Vec3&, r32);
 

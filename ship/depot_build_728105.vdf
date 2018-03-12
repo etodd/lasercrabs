@@ -1,0 +1,11 @@
+"DepotBuildConfig"
+{
+	"DepotID" "728105"
+	"ContentRoot" "./steam-en-mac/"
+	"FileMapping"
+	{
+		"LocalPath" "*"
+		"DepotPath" "./DECEIVER.app/Contents/MacOS/"
+		"recursive" "1"
+	}
+}

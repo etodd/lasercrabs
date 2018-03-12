@@ -8,5 +8,5 @@
 		"DepotPath" "."
 		"recursive" "1"
 	}
-	"FileExclusion" "build.txt"
+	"FileExclusion" "DECEIVER.app/Contents/MacOS/build.txt"
 }

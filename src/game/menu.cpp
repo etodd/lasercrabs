@@ -1133,13 +1133,72 @@ void draw_ui(const RenderParams& params)
 			text.size = 18.0f;
 			text.color = UI::color_default;
 			text.font = Asset::Font::pt_sans;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
 			text.wrap_width = MENU_ITEM_WIDTH;
-			text.text_raw(0, _(strings::credits_full));
-			Vec2 pos = params.camera->viewport.size * 0.5f;
-			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-			text.draw(params, pos);
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Max;
+			text.wrap_width = MENU_ITEM_WIDTH;
+
+			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.75f);
+
+			Rect2 rect = text.rect(pos);
+			const char* credits = _(strings::credits_full);
+			char buffer[UI_TEXT_MAX];
+			while (true)
+			{
+				const char* newline = strchr(credits, '\n');
+				s32 length;
+				if (newline)
+					length = s32(newline - credits);
+				else
+					length = strlen(credits);
+				strncpy(buffer, credits, length);
+				buffer[length] = '\0';
+				text.text_raw(0, buffer);
+				Rect2 r = text.rect(pos).outset(8.0f * UI::scale);
+				{
+					Vec2 new_rect_pos;
+					new_rect_pos.x = vi_min(rect.pos.x, r.pos.x);
+					new_rect_pos.y = vi_min(rect.pos.y, r.pos.y);
+					rect.size.x = vi_max(rect.pos.x + rect.size.x, r.pos.x + r.size.x) - new_rect_pos.x;
+					rect.size.y = vi_max(rect.pos.y + rect.size.y, r.pos.y + r.size.y) - new_rect_pos.y;
+					rect.pos = new_rect_pos;
+				}
+
+				if (newline)
+				{
+					pos.y -= text.bounds().y;
+					credits += length + 1;
+				}
+				else
+					break;
+			}
+
+			UI::box(params, rect, UI::color_background);
+
+			credits = _(strings::credits_full);
+			pos = params.camera->viewport.size * Vec2(0.5f, 0.75f);
+
+			while (true)
+			{
+				const char* newline = strchr(credits, '\n');
+				s32 length;
+				if (newline)
+					length = s32(newline - credits);
+				else
+					length = strlen(credits);
+				strncpy(buffer, credits, length);
+				buffer[length] = '\0';
+				text.text_raw(0, buffer);
+				text.draw(params, pos);
+
+				if (newline)
+				{
+					pos.y -= text.bounds().y;
+					credits += length + 1;
+				}
+				else
+					break;
+			}
 		}
 		
 		{

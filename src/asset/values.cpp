@@ -1533,7 +1533,6 @@ const char* AssetLookup::String::names[] =
 	"key_Z",
 	"kick",
 	"kicked",
-	"kickstarter",
 	"kill_limit",
 	"killed_player",
 	"kills",

@@ -1391,7 +1391,19 @@ b8 Drone::could_shoot(const Vec3& trace_start, const Vec3& dir, Vec3* final_pos,
 	{
 		// need to check that the environment hit is within range
 		// however if we are shooting at a Drone, we can tolerate further environment hits
-		if (allow_further_end || final_hit.fraction * DRONE_SNIPE_DISTANCE < r)
+		b8 valid = allow_further_end || final_hit.fraction * DRONE_SNIPE_DISTANCE < r;
+
+		if (!valid)
+		{
+			// check if there's an enemy force field in range between us and the final environment hit
+			// if so, allow it
+			RaycastCallbackExcept physics_ray_callback(trace_start, trace_end, entity());
+			Physics::raycast(&physics_ray_callback, CollisionAllTeamsForceField & ~ally_force_field_mask());
+			if (physics_ray_callback.hasHit() && physics_ray_callback.m_closestHitFraction * DRONE_SNIPE_DISTANCE < r)
+				valid = true;
+		}
+
+		if (valid)
 		{
 			if (final_pos)
 				*final_pos = final_hit.pos;

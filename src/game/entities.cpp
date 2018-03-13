@@ -80,7 +80,7 @@ DroneEntity::DroneEntity(AI::Team team, const Vec3& pos)
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::drone;
 
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(DRONE_RADIUS), 0.0f, CollisionDroneIgnore, ~DRONE_PERMEABLE_MASK & ~get<Drone>()->ally_force_field_mask());
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(DRONE_RADIUS * 0.75f), 0.0f, CollisionDroneIgnore, ~DRONE_PERMEABLE_MASK & ~get<Drone>()->ally_force_field_mask());
 
 	create<Target>();
 }
@@ -5370,8 +5370,6 @@ void TramRunner::update(const Update& u)
 			&& offset > t.points[t.points.length - 1].offset) // we hit our goal, we are the front runner, we're a local game, and we're exiting the level
 		{
 #if RELEASE_BUILD
-			Settings::quick_combat_unlocked = true;
-			Loader::settings_save();
 			Game::scheduled_dialog = strings::demo_end;
 			Menu::title();
 #else

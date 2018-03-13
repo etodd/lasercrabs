@@ -2,6 +2,16 @@
 #include "localization.h"
 #include "vi_assert.h"
 
+#if !SERVER
+#include "mongoose/mongoose.h"
+#undef sleep // ugh
+#undef S_ISDIR // ugh
+#undef S_ISREG // ugh
+#if !defined(__ORBIS__)
+#include "steam/steam_api.h"
+#endif
+#endif
+
 #include "render/views.h"
 #include "render/render.h"
 #include "render/skinned_model.h"
@@ -69,6 +79,7 @@ namespace VI
 
 b8 Game::quit;
 b8 Game::minimize;
+b8 Game::multiplayer_is_online;
 GameTime Game::time;
 GameTime Game::real_time;
 r64 Game::platform_time;
@@ -254,6 +265,8 @@ void discord_ready()
 void discord_join_game(const char* secret)
 {
 	strncpy(discord_match_secret, secret, MAX_SERVER_CONFIG_SECRET);
+	if (!Game::user_key.id)
+		Game::auth();
 }
 
 void discord_update_presence()
@@ -418,12 +431,316 @@ const char* Game::init(LoopSync* sync)
 	return nullptr;
 }
 
+namespace Auth
+{
+	b8 active;
+
+#if SERVER
+	void gamejolt_prompt() { }
+#else
+	mg_mgr mg;
+	mg_connection* mg_conn_ipv4;
+	mg_connection* mg_conn_ipv6;
+	b8 itch_prompted;
+#if !defined(__ORBIS__)
+	struct SteamCallback
+	{
+		static SteamCallback instance;
+
+		STEAM_CALLBACK(SteamCallback, auth_session_ticket_callback, GetAuthSessionTicketResponse_t);
+	};
+
+	void SteamCallback::auth_session_ticket_callback(GetAuthSessionTicketResponse_t* data)
+	{
+		Net::Client::master_send_auth();
+	}
+
+	SteamCallback steam_callback;
+#endif
+
+	void gamejolt_token_callback(const TextField& text_field)
+	{
+		strncpy(Settings::gamejolt_token, text_field.value.data, MAX_AUTH_KEY);
+		Net::Client::master_send_auth();
+	}
+
+	void gamejolt_username_callback(const TextField& text_field)
+	{
+		strncpy(Settings::gamejolt_username, text_field.value.data, MAX_PATH_LENGTH);
+		Menu::dialog_text(&gamejolt_token_callback, "", MAX_AUTH_KEY, _(strings::prompt_gamejolt_token));
+	}
+
+	void gamejolt_prompt()
+	{
+		Menu::dialog_text(&gamejolt_username_callback, "", MAX_PATH_LENGTH, _(strings::prompt_gamejolt_username));
+	}
+
+	void itch_handle_oauth(mg_connection* conn, int ev, void* ev_data)
+	{
+		if (ev == MG_EV_HTTP_REQUEST)
+		{
+			// GET
+			http_message* msg = (http_message*)(ev_data);
+
+			mg_printf
+			(
+				conn, "%s",
+				"HTTP/1.1 200 OK\r\n"
+				"Content-Type: text/html\r\n"
+				"\r\n"
+				"<html>"
+				"<head><title>Deceiver</title>"
+				"<style>"
+				"* { box-sizing: border-box; }"
+				"body { background-color: #000; color: #fff; font-family: sans-serif; font-size: x-large; font-weight: bold; }"
+				"img { display: block; margin-left: auto; margin-right: auto; width: 100%; max-width: 720px; padding: 3em; padding-bottom: 0px; }"
+				"p { display: block; text-align: center; padding: 3em; }"
+				"</style>"
+				"</head>"
+				"<body>"
+				"<img src=\"https://deceivergame.com/public/header-backdrop.svg\" />"
+				"<p id=\"msg\">Logging in...</p>"
+				"<script>"
+				"var data = new FormData();"
+				"data.append('access_token', window.location.hash.substr(window.location.hash.indexOf('=') + 1));"
+				"var ajax = new XMLHttpRequest();"
+				"var $msg = document.getElementById('msg');"
+				"function msg_error()"
+				"{"
+				"	$msg.innerHTML = 'Login failed! Please try again.';"
+				"}"
+				"ajax.addEventListener('load', function()"
+				"{"
+				"	if (this.status === 200)"
+				"		$msg.innerHTML = 'Login successful! You can close this window and return to the game.';"
+				"	else"
+				"		msg_error();"
+				"});"
+				"ajax.addEventListener('error', msg_error);"
+				"ajax.open('POST', '/auth', true);"
+				"ajax.send(data);"
+				"</script>"
+				"</body>"
+				"</html>"
+			);
+			conn->flags |= MG_F_SEND_AND_CLOSE;
+		}
+		else if (ev == MG_EV_HTTP_PART_DATA)
+		{
+			// POST
+			mg_http_multipart_part* part = (mg_http_multipart_part*)(ev_data);
+			if (strcmp(part->var_name, "access_token") == 0 && part->data.len <= MAX_AUTH_KEY)
+			{
+				// got the access token
+				strncpy(Settings::itch_api_key, part->data.p, part->data.len);
+				Loader::settings_save();
+				Game::auth_key_length = vi_max(0, vi_min(MAX_AUTH_KEY, s32(part->data.len)));
+				memcpy(Game::auth_key, part->data.p, Game::auth_key_length);
+				Menu::dialog_clear(0);
+				Net::Client::master_send_auth();
+
+				mg_printf
+				(
+					conn, "%s",
+					"HTTP/1.1 200 OK\r\n"
+					"Content-Type: text/html\r\n"
+					"\r\n"
+				);
+				conn->flags |= MG_F_SEND_AND_CLOSE;
+			}
+			else
+			{
+				mg_printf
+				(
+					conn, "%s",
+					"HTTP/1.1 400 Bad Request\r\n"
+					"Content-Type: text/html\r\n"
+					"\r\n"
+				);
+				conn->flags |= MG_F_SEND_AND_CLOSE;
+			}
+		}
+	}
+
+	void itch_prompt_cancel(s8 = 0)
+	{
+		Game::quit = true;
+	}
+
+	void itch_prompt(s8 = 0)
+	{
+		if (itch_prompted)
+		{
+			Menu::open_url("https://itch.io/user/oauth?client_id=96b70c5d535c7101941dcbb0648ca2e3&scope=profile%3Ame&response_type=token&redirect_uri=http%3A%2F%2Flocalhost%3A3499%2Fauth");
+			Menu::dialog_with_cancel(0, &itch_prompt, &itch_prompt_cancel, _(strings::prompt_itch_again));
+		}
+		else
+			Menu::dialog_with_cancel(0, &itch_prompt, &itch_prompt_cancel, _(strings::prompt_itch));
+		itch_prompted = true;
+	}
+
+	void itch_register_endpoints(mg_connection* conn)
+	{
+		mg_register_http_endpoint(conn, "/auth", itch_handle_oauth);
+	}
+
+	void itch_ev_handler(mg_connection* conn, int ev, void* ev_data)
+	{
+		switch (ev)
+		{
+			case MG_EV_HTTP_REQUEST:
+			{
+				mg_printf
+				(
+					conn, "%s",
+					"HTTP/1.1 403 Forbidden\r\n"
+					"Content-Type: text/html\r\n"
+					"Transfer-Encoding: chunked\r\n"
+					"\r\n"
+				);
+				mg_printf_http_chunk(conn, "%s", "Forbidden");
+				mg_send_http_chunk(conn, "", 0);
+				break;
+			}
+		}
+	}
+#endif
+
+	void init()
+	{
+		if (active)
+			return;
+
+#if !SERVER
+		switch (Game::auth_type)
+		{
+			case Net::Master::AuthType::GameJolt:
+			{
+				// check if we already have the username and token
+				if (Settings::gamejolt_username[0])
+					Net::Client::master_send_auth();
+				else
+					gamejolt_prompt();
+				break;
+			}
+			case Net::Master::AuthType::Itch:
+			{
+				if (Game::auth_key_length) // launched from itch app
+					Net::Client::master_send_auth();
+				else // launched standalone
+				{
+					Game::auth_type = Net::Master::AuthType::ItchOAuth;
+
+					if (Settings::itch_api_key[0]) // already got an OAuth token
+					{
+						Game::auth_key_length = vi_max(0, vi_min(s32(strlen(Settings::itch_api_key)), MAX_AUTH_KEY));
+						memcpy(Game::auth_key, Settings::itch_api_key, Game::auth_key_length);
+						Net::Client::master_send_auth();
+					}
+					else
+					{
+						// get an OAuth token
+
+						// launch server
+
+						mg_mgr_init(&mg, nullptr);
+						{
+							char addr[32];
+							sprintf(addr, "127.0.0.1:%d", NET_OAUTH_PORT);
+							mg_conn_ipv4 = mg_bind(&mg, addr, itch_ev_handler);
+
+							sprintf(addr, "[::1]:%d", NET_OAUTH_PORT);
+							mg_conn_ipv6 = mg_bind(&mg, addr, itch_ev_handler);
+						}
+
+						if (mg_conn_ipv4)
+						{
+							mg_set_protocol_http_websocket(mg_conn_ipv4);
+							itch_register_endpoints(mg_conn_ipv4);
+							printf("Bound to 127.0.0.1:%d\n", NET_OAUTH_PORT);
+						}
+
+						if (mg_conn_ipv6)
+						{
+							mg_set_protocol_http_websocket(mg_conn_ipv6);
+							itch_register_endpoints(mg_conn_ipv6);
+							printf("Bound to [::1]:%d\n", NET_OAUTH_PORT);
+						}
+
+						vi_assert(mg_conn_ipv4 || mg_conn_ipv6);
+					}
+				}
+				break;
+			}
+			case Net::Master::AuthType::Steam:
+#if !defined(__ORBIS__)
+			{
+				strncpy(Game::steam_username, SteamFriends()->GetPersonaName(), MAX_USERNAME);
+				u32 auth_key_length;
+				SteamUser()->GetAuthSessionTicket(Game::auth_key, MAX_AUTH_KEY, &auth_key_length);
+				Game::auth_key_length = vi_max(0, vi_min(MAX_AUTH_KEY, s32(auth_key_length)));
+				Game::auth_key[Game::auth_key_length] = '\0';
+				break;
+			}
+#endif
+			case Net::Master::AuthType::None:
+				// we either have the auth token or we don't
+				Net::Client::master_send_auth();
+				break;
+			default:
+				vi_assert(false);
+				break;
+		}
+#endif
+
+		active = true;
+	}
+
+	void update()
+	{
+#if !SERVER
+		if (mg_conn_ipv4 || mg_conn_ipv6)
+		{
+			mg_mgr_poll(&mg, 0);
+			if (Game::auth_key_length == 0 && !Menu::dialog_active(0))
+				itch_prompt();
+		}
+#endif
+	}
+
+	void cleanup()
+	{
+#if !SERVER
+		if (mg_conn_ipv4 || mg_conn_ipv6)
+			mg_mgr_free(&mg);
+#endif
+		active = false;
+	}
+}
+
 void Game::auth_failed()
 {
 	if (auth_type == Net::Master::AuthType::GameJolt)
-		Scripts::Docks::gamejolt_prompt();
+		Auth::gamejolt_prompt();
 	else
+	{
+		Auth::cleanup();
 		Menu::dialog(0, &Menu::dialog_no_action, _(strings::auth_failed_permanently));
+	}
+}
+
+void Game::auth_succeeded(const Net::Master::UserKey& key, const char* username)
+{
+	user_key = key;
+	memset(Settings::username, 0, sizeof(Settings::username));
+	strncpy(Settings::username, username, MAX_USERNAME);
+	Loader::settings_save();
+	Auth::cleanup();
+}
+
+void Game::auth()
+{
+	Auth::init();
 }
 
 void Game::update(InputState* input, const InputState* last_input)
@@ -468,10 +785,14 @@ void Game::update(InputState* input, const InputState* last_input)
 	{
 		r32 old_timer = schedule_timer;
 		schedule_timer = vi_max(0.0f, schedule_timer - real_time.delta);
-#if SERVER
 		if (schedule_timer < TRANSITION_TIME && old_timer >= TRANSITION_TIME)
+		{
+			config_apply();
+#if SERVER
 			Net::Server::transition_level(); // let clients know that we're switching levels
 #endif
+		}
+
 		if (scheduled_load_level != AssetNull && schedule_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
 		{
 			load_level(scheduled_load_level, scheduled_mode, StoryModeTeam::Attack);
@@ -766,7 +1087,7 @@ void Game::update(InputState* input, const InputState* last_input)
 	{
 		// don't update game
 #if !SERVER
-		if (Game::session.type == SessionType::Story && Game::level.local)
+		if (Game::level.local)
 		{
 			// we're paused; update player UI
 			PlayerHuman::update_all(u);
@@ -789,7 +1110,18 @@ void Game::update(InputState* input, const InputState* last_input)
 
 	Net::update_end(u);
 
+	Auth::update();
+
 	u.input->cursor_visible = UI::cursor_active();
+}
+
+void Game::config_apply()
+{
+	if (level.config_scheduled_apply)
+	{
+		session.config = level.config_scheduled;
+		level.config_scheduled_apply = false;
+	}
 }
 
 void Game::term()
@@ -2657,7 +2989,7 @@ void Game::awake_all()
 
 b8 Game::should_pause()
 {
-	return level.local && PlayerHuman::list.count() == 1;
+	return level.local && session.type == SessionType::Story && PlayerHuman::list.count() == 1;
 }
 
 b8 Game::hi_contrast()

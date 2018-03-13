@@ -101,8 +101,6 @@ struct DataGlobal
 };
 DataGlobal global;
 
-const AssetID multiplayer_tab_names[s32(ServerListType::count)] = { strings::tab_top, strings::tab_recent, strings::tab_mine, };
-
 struct Data
 {
 	struct Inventory
@@ -249,6 +247,24 @@ struct Data
 
 Data data = Data();
 
+AssetID multiplayer_tab_name(ServerListType t)
+{
+	switch (t)
+	{
+		case ServerListType::Top:
+			return strings::tab_top;
+		case ServerListType::Recent:
+			return strings::tab_recent;
+		case ServerListType::Mine:
+			return data.state == State::MultiplayerOnline ? strings::tab_mine : strings::tab_offline;
+		default:
+		{
+			vi_assert(false);
+			return AssetNull;
+		}
+	}
+}
+
 void deploy_start()
 {
 	vi_assert(Game::session.type == SessionType::Story);
@@ -317,8 +333,54 @@ Rect2 multiplayer_browse_entry_rect(const Data::Multiplayer::TopBarLayout& top_b
 	return { pos, panel_size };
 }
 
+void multiplayer_request_setup(Data::Multiplayer::RequestType type)
+{
+	data.multiplayer.request_id = vi_max(u32(1), u32(mersenne::rand()));
+	data.multiplayer.request_type = type;
+}
+
+void multiplayer_server_config_loaded()
+{
+	data.multiplayer.request_id = 0;
+	if (data.multiplayer.state == Data::Multiplayer::State::EntryView)
+		data.multiplayer.active_server_dirty = true; // dirty means we have data
+	else
+	{
+		vi_assert(data.multiplayer.state == Data::Multiplayer::State::EntryEdit);
+		data.multiplayer.active_server_dirty = false; // dirty means we've made changes
+	}
+}
+
+void multiplayer_offline_config_loaded()
+{
+	Net::Master::ServerDetails* active_server = &data.multiplayer.active_server;
+	active_server->is_admin = true;
+	active_server->creator_username[0] = '\0';
+	active_server->creator_vip = false;
+	active_server->state.level = AssetNull;
+	active_server->state.max_players = MAX_GAMEPADS;
+	active_server->state.player_slots = MAX_GAMEPADS;
+	active_server->state.id = active_server->config.id;
+	multiplayer_server_config_loaded();
+}
+
 void multiplayer_browse_update(const Update& u)
 {
+	// back
+	if ((data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::Back, u) || (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)))
+		&& !Game::cancel_event_eaten[0])
+	{
+		if (Game::level.mode == Game::Mode::Special)
+			title();
+		else
+			hide();
+		Game::cancel_event_eaten[0] = true;
+		return;
+	}
+
+	if (data.state == State::MultiplayerOnline && !Game::user_key.id)
+		return; // must be logged in
+
 	if (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::CreateServer, u)
 		|| (u.last_input->get(Controls::UIContextAction, 0) && !u.input->get(Controls::UIContextAction, 0)))
 	{
@@ -365,9 +427,21 @@ void multiplayer_browse_update(const Update& u)
 					if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
 					{
 						// select entry
-						data.multiplayer.active_server.config.id = server_list->entries[i].server_state.id;
 						multiplayer_state_transition(Data::Multiplayer::State::EntryView);
 						Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
+						if (data.state == State::MultiplayerOnline)
+						{
+							data.multiplayer.active_server.config.id = server_list->entries[i].server_state.id;
+							multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigGet);
+#if !SERVER
+							Net::Client::master_request_server_details(data.multiplayer.active_server.config.id, data.multiplayer.request_id);
+#endif
+						}
+						else
+						{
+							Loader::offline_config_get(server_list->entries[i].server_state.id, &data.multiplayer.active_server.config);
+							multiplayer_offline_config_loaded();
+						}
 						return;
 					}
 
@@ -393,19 +467,34 @@ void multiplayer_browse_update(const Update& u)
 	{
 		// select entry
 		Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
-		data.multiplayer.active_server.config.id = server_list->entries[server_list->selected].server_state.id;
 		multiplayer_state_transition(Data::Multiplayer::State::EntryView);
+		if (data.state == State::MultiplayerOnline)
+		{
+			data.multiplayer.active_server.config.id = server_list->entries[server_list->selected].server_state.id;
+			multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigGet);
+#if !SERVER
+			Net::Client::master_request_server_details(data.multiplayer.active_server.config.id, data.multiplayer.request_id);
+#endif
+		}
+		else
+		{
+			Loader::offline_config_get(server_list->entries[server_list->selected].server_state.id, &data.multiplayer.active_server.config);
+			multiplayer_offline_config_loaded();
+		}
 		return;
 	}
 
-	data.multiplayer.refresh_timer -= u.time.delta;
-	if (data.multiplayer.refresh_timer < 0.0f)
+	if (data.state == State::MultiplayerOnline)
 	{
-		data.multiplayer.refresh_timer += REFRESH_INTERVAL;
+		data.multiplayer.refresh_timer -= u.time.delta;
+		if (data.multiplayer.refresh_timer < 0.0f)
+		{
+			data.multiplayer.refresh_timer += REFRESH_INTERVAL;
 
 #if !SERVER
-		Net::Client::master_request_server_list(global.multiplayer.tab, server_list->selected);
+			Net::Client::master_request_server_list(global.multiplayer.tab, server_list->selected);
 #endif
+		}
 	}
 }
 
@@ -453,20 +542,21 @@ void ping_response(const Sock::Address& addr, u32 token)
 void master_server_list_entry(ServerListType type, s32 index, const Net::Master::ServerListEntry& entry)
 {
 	if (active()
-		&& data.state == State::Multiplayer)
+		&& (data.state == State::MultiplayerOnline || data.state == State::MultiplayerOffline))
 	{
 		Data::Multiplayer::ServerList* list = &data.multiplayer.server_lists[s32(type)];
 		if (index >= list->entries.length)
 			list->entries.resize(index + 1);
 		list->entries.data[index] = entry;
-		ping_send(entry.addr);
+		if (data.state == State::MultiplayerOnline)
+			ping_send(entry.addr);
 	}
 }
 
 void master_server_list_end(ServerListType type, s32 length)
 {
 	if (active()
-		&& data.state == State::Multiplayer)
+		&& (data.state == State::MultiplayerOnline || data.state == State::MultiplayerOffline))
 	{
 		Data::Multiplayer::ServerList* list = &data.multiplayer.server_lists[s32(type)];
 		list->entries.resize(vi_min(list->entries.length, length));
@@ -489,12 +579,6 @@ void multiplayer_entry_edit_cancel(s8 gamepad = 0)
 	Game::cancel_event_eaten[0] = true;
 }
 
-void multiplayer_request_setup(Data::Multiplayer::RequestType type)
-{
-	data.multiplayer.request_id = vi_max(u32(1), u32(mersenne::rand()));
-	data.multiplayer.request_type = type;
-}
-
 void multiplayer_entry_name_edit(const TextField& text_field)
 {
 	vi_assert(data.multiplayer.state == Data::Multiplayer::State::EntryEdit);
@@ -512,20 +596,53 @@ void multiplayer_entry_edit_switch_to_levels(s8 = 0)
 	multiplayer_edit_mode_transition(Data::Multiplayer::EditMode::Levels);
 }
 
+void multiplayer_server_config_saved(u32 id)
+{
+	if (Game::level.mode == Game::Mode::Special) // changes will take effect next round
+		PlayerHuman::log_add(_(strings::entry_saved));
+	else // we're editing a server while playing in it
+		PlayerHuman::log_add(_(strings::entry_saved_in_game));
+	data.multiplayer.server_lists[s32(ServerListType::Mine)].selected = 0;
+	data.multiplayer.server_lists[s32(ServerListType::Mine)].scroll.pos = 0;
+	data.multiplayer.active_server.config.id = id;
+	data.multiplayer.active_server_dirty = false;
+	data.multiplayer.request_id = 0;
+}
+
 void multiplayer_entry_save()
 {
 	vi_assert(data.multiplayer.state == Data::Multiplayer::State::EntryEdit);
-	const Net::Master::ServerConfig& config = data.multiplayer.active_server.config;
-	if (config.levels.length == 0)
+	Net::Master::ServerConfig* config = &data.multiplayer.active_server.config;
+	if (config->levels.length == 0)
 		Menu::dialog(0, &multiplayer_entry_edit_switch_to_levels, _(strings::error_no_levels));
-	else if (strlen(config.name) == 0)
+	else if (strlen(config->name) == 0)
 		Menu::dialog(0, &multiplayer_entry_edit_show_name, _(strings::error_no_name));
 	else
 	{
-		multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigSave);
+		if (data.state == State::MultiplayerOnline)
+		{
+			multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigSave);
 #if !SERVER
-		Net::Client::master_save_server_config(config, data.multiplayer.request_id);
+			Net::Client::master_save_server_config(*config, data.multiplayer.request_id);
 #endif
+		}
+		else
+		{
+			Loader::offline_config_save(config);
+			multiplayer_server_config_saved(config->id);
+			if (Game::level.mode == Game::Mode::Special) // we're on the main menu
+			{
+				// update list entry
+				Net::Master::ServerListEntry entry;
+				Net::Master::server_list_entry_for_config(&entry, *config);
+				master_server_list_entry(ServerListType::Mine, config->id - 1, entry);
+			}
+			else // we're in game
+			{
+				Game::level.config_scheduled = *config;
+				Game::level.config_scheduled_apply = true;
+			}
+		}
 	}
 }
 
@@ -695,6 +812,7 @@ void multiplayer_entry_edit_update(const Update& u)
 					}
 				}
 
+				if (data.state == State::MultiplayerOnline)
 				{
 					// max players
 					s8* max_players = &config->max_players;
@@ -1049,38 +1167,23 @@ void multiplayer_entry_edit_update(const Update& u)
 void master_server_config_saved(u32 id, u32 request_id)
 {
 	if (active()
-		&& data.state == State::Multiplayer
+		&& (data.state == State::MultiplayerOffline || data.state == State::MultiplayerOnline)
 		&& data.multiplayer.state == Data::Multiplayer::State::EntryEdit
 		&& data.multiplayer.request_id == request_id)
 	{
-		if (Game::level.mode != Game::Mode::Special) // we're editing a server while playing in it
-			PlayerHuman::log_add(_(strings::entry_saved_in_game)); // changes will take effect next round
-		else
-			PlayerHuman::log_add(_(strings::entry_saved));
-		data.multiplayer.server_lists[s32(ServerListType::Mine)].selected = 0;
-		data.multiplayer.server_lists[s32(ServerListType::Mine)].scroll.pos = 0;
-		data.multiplayer.active_server.config.id = id;
-		data.multiplayer.active_server_dirty = false;
-		data.multiplayer.request_id = 0;
+		multiplayer_server_config_saved(id);
 	}
 }
 
 void master_server_details_response(const Net::Master::ServerDetails& details, u32 request_id)
 {
 	if (active()
-		&& data.state == State::Multiplayer
+		&& (data.state == State::MultiplayerOffline || data.state == State::MultiplayerOnline)
 		&& (data.multiplayer.state == Data::Multiplayer::State::EntryView || data.multiplayer.state == Data::Multiplayer::State::EntryEdit)
 		&& data.multiplayer.request_id == request_id)
 	{
 		data.multiplayer.active_server = details;
-		data.multiplayer.request_id = 0;
-		if (data.multiplayer.state == Data::Multiplayer::State::EntryView)
-			data.multiplayer.active_server_dirty = true; // dirty means we have data
-		else
-		{
-			vi_assert(data.multiplayer.state == Data::Multiplayer::State::EntryEdit);
-			data.multiplayer.active_server_dirty = false; // dirty means we've made changes
-		}
+		multiplayer_server_config_loaded();
 		if (details.state.level != AssetNull) // a server is running this config
 			ping_send(details.addr);
 	}
@@ -1126,24 +1229,40 @@ void multiplayer_entry_view_update(const Update& u)
 		else if (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::ConnectServer, u)
 			|| (u.input->get(Controls::Interact, 0) && !u.last_input->get(Controls::Interact, 0)))
 		{
-			u32 id = data.multiplayer.active_server.config.id;
-			Game::unload_level();
-#if !SERVER
-			Net::Client::master_request_server(id);
-#endif
 			Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
+			if (data.state == State::MultiplayerOnline)
+			{
+				u32 id = data.multiplayer.active_server.config.id;
+				Game::unload_level();
+#if !SERVER
+				Net::Client::master_request_server(id);
+#endif
+			}
+			else
+			{
+				// offline
+				Net::Master::ServerConfig config = data.multiplayer.active_server.config;
+				Game::unload_level();
+				Game::session.config = config;
+				vi_assert(Game::session.config.levels.length > 0);
+				Game::Mode mode = Game::session.config.time_limit_parkour_ready == 0 ? Game::Mode::Pvp : Game::Mode::Parkour;
+				Game::load_level(Overworld::zone_id_for_uuid(Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length]), mode);
+			}
 			return;
 		}
 
-		data.multiplayer.refresh_timer -= u.time.delta;
-		if (data.multiplayer.refresh_timer < 0.0f)
+		if (data.state == State::MultiplayerOnline)
 		{
-			data.multiplayer.refresh_timer += REFRESH_INTERVAL;
+			data.multiplayer.refresh_timer -= u.time.delta;
+			if (data.multiplayer.refresh_timer < 0.0f)
+			{
+				data.multiplayer.refresh_timer += REFRESH_INTERVAL;
 
-			multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigGet);
+				multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigGet);
 #if !SERVER
-			Net::Client::master_request_server_details(data.multiplayer.active_server.config.id, data.multiplayer.request_id);
+				Net::Client::master_request_server_details(data.multiplayer.active_server.config.id, data.multiplayer.request_id);
 #endif
+			}
 		}
 	}
 }
@@ -1193,7 +1312,9 @@ void multiplayer_tab_switch_mouse(s8)
 
 b8 multiplayer_tab_switch_enabled()
 {
-	return Game::level.mode == Game::Mode::Special && !Menu::dialog_active(0); // only in the main menu; not in-game
+	return Game::level.mode == Game::Mode::Special && !Menu::dialog_active(0) // only in the main menu; not in-game
+		&& data.state == State::MultiplayerOnline // only one tab in offline mode
+		&& Game::user_key.id; // must be logged in
 }
 
 void multiplayer_tab_switch_try(void (*action)(s8))
@@ -1206,13 +1327,26 @@ void multiplayer_tab_switch_try(void (*action)(s8))
 		action(0);
 }
 
+b8 multiplayer_tab_enabled(ServerListType i)
+{
+	return data.state == State::MultiplayerOnline || i == ServerListType::Mine;
+}
+
 Rect2 multiplayer_tab_rect(s32 i)
 {
 	Rect2 rect = multiplayer_main_view_rect();
 	Vec2 tab_size = TAB_SIZE;
+
+	s32 j = 0;
+	for (s32 k = 0; k < i; k++)
+	{
+		if (multiplayer_tab_enabled(ServerListType(k)))
+			j++;
+	}
+
 	return
 	{
-		rect.pos + Vec2(i * (tab_size.x + PADDING), rect.size.y),
+		rect.pos + Vec2(j * (tab_size.x + PADDING), rect.size.y),
 		tab_size,
 	};
 }
@@ -1255,7 +1389,8 @@ void multiplayer_top_bar_layout(Data::Multiplayer::TopBarLayout* layout)
 		case Data::Multiplayer::State::Browse:
 		{
 			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::Back, _(strings::prompt_back));
-			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::ChooseRegion, _(strings::prompt_region), _(Menu::region_string(Settings::region)));
+			if (data.state == State::MultiplayerOnline)
+				multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::ChooseRegion, _(strings::prompt_region), _(Menu::region_string(Settings::region)));
 			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::CreateServer, _(strings::prompt_entry_create));
 			multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::Select, _(strings::prompt_select));
 			break;
@@ -1266,7 +1401,10 @@ void multiplayer_top_bar_layout(Data::Multiplayer::TopBarLayout* layout)
 			if (data.multiplayer.active_server.is_admin)
 				multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::EditServer, _(strings::prompt_entry_edit));
 			if (Game::level.mode == Game::Mode::Special) // if we're not currently connected to the server we're viewing
-				multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::ConnectServer, _(strings::prompt_connect));
+			{
+				AssetID str = data.state == State::MultiplayerOnline ? strings::prompt_connect : strings::prompt_play; // just "play" if we're offline
+				multiplayer_top_bar_button_add(layout, &pos, Layout::Button::Type::ConnectServer, _(str));
+			}
 			break;
 		}
 		case Data::Multiplayer::State::EntryEdit:
@@ -1287,18 +1425,6 @@ void multiplayer_update(const Update& u)
 {
 	if (Menu::main_menu_state != Menu::State::Hidden || Game::scheduled_load_level != AssetNull)
 		return;
-
-	if (data.multiplayer.state == Data::Multiplayer::State::Browse
-		&& (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::Back, u) || (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)))
-		&& !Game::cancel_event_eaten[0])
-	{
-		if (Game::level.mode == Game::Mode::Special)
-			title();
-		else
-			hide();
-		Game::cancel_event_eaten[0] = true;
-		return;
-	}
 
 	for (s32 i = 1; i < MAX_GAMEPADS; i++)
 	{
@@ -1340,7 +1466,7 @@ void multiplayer_update(const Update& u)
 			{
 				for (s32 i = 0; i < s32(ServerListType::count); i++)
 				{
-					if (multiplayer_tab_rect(i).contains(u.input->cursor))
+					if (multiplayer_tab_enabled(ServerListType(i)) && multiplayer_tab_rect(i).contains(u.input->cursor))
 					{
 						if (ServerListType(i) != global.multiplayer.tab)
 						{
@@ -1479,6 +1605,13 @@ void multiplayer_top_bar_draw(const RenderParams& params, const Data::Multiplaye
 
 void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 {
+	if (data.state == State::MultiplayerOnline && !Game::user_key.id)
+	{
+		// not logged in yet
+		Menu::progress_infinite(params, _(strings::connecting), rect.pos + rect.size * 0.5f);
+		return;
+	}
+
 	multiplayer_top_bar_draw(params, data.multiplayer.top_bar);
 	Vec2 panel_size(rect.size.x, PADDING + TEXT_SIZE * UI::scale);
 	Vec2 pos = data.multiplayer.top_bar.rect.pos + Vec2(0, -panel_size.y - PADDING * 1.5f);
@@ -1684,9 +1817,14 @@ void multiplayer_entry_view_draw(const RenderParams& params, const Rect2& rect)
 		text.font = Asset::Font::pt_sans;
 		text.wrap(rect.size.x + padding * -2.0f);
 		{
-			char buffer[UI_TEXT_MAX + 1];
-			snprintf(buffer, UI_TEXT_MAX, _(strings::map_by), details.config.name, details.creator_username);
-			text.text_raw(0, buffer);
+			if (details.creator_username[0])
+			{
+				char buffer[UI_TEXT_MAX + 1];
+				snprintf(buffer, UI_TEXT_MAX, _(strings::map_by), details.config.name, details.creator_username);
+				text.text_raw(0, buffer);
+			}
+			else
+				text.text_raw(0, details.config.name);
 		}
 
 		{
@@ -1927,6 +2065,7 @@ void multiplayer_draw(const RenderParams& params)
 		Vec2 tab_size = TAB_SIZE;
 
 		// left/right tab control prompt
+		if (data.state == State::MultiplayerOnline)
 		{
 			UIText text;
 			text.size = TEXT_SIZE;
@@ -1951,24 +2090,27 @@ void multiplayer_draw(const RenderParams& params)
 			Vec2 pos = rect.pos + Vec2(0, rect.size.y);
 			for (s32 i = 0; i < s32(ServerListType::count); i++)
 			{
-				const Vec4* color;
-				if (ServerListType(i) == global.multiplayer.tab)
+				if (multiplayer_tab_enabled(ServerListType(i)))
 				{
-					if (data.multiplayer.tab_timer > 0.0f)
-						color = UI::flash_function(Game::real_time.total) ? &UI::color_default : &UI::color_disabled();
+					const Vec4* color;
+					if (ServerListType(i) == global.multiplayer.tab)
+					{
+						if (data.multiplayer.tab_timer > 0.0f)
+							color = UI::flash_function(Game::real_time.total) ? &UI::color_default : &UI::color_disabled();
+						else
+							color = &UI::color_accent();
+					}
 					else
-						color = &UI::color_accent();
-				}
-				else
-				{
-					color = &UI::color_disabled();
-					if (Game::ui_gamepad_types[0] == Gamepad::Type::None
-						&& Rect2(pos, tab_size).contains(params.sync->input.cursor))
-						color = params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? &UI::color_alert() : &UI::color_default;
-				}
+					{
+						color = &UI::color_disabled();
+						if (Game::ui_gamepad_types[0] == Gamepad::Type::None
+							&& Rect2(pos, tab_size).contains(params.sync->input.cursor))
+							color = params.sync->input.keys.get(s32(KeyCode::MouseLeft)) ? &UI::color_alert() : &UI::color_default;
+					}
 
-				tab_draw_label(params, _(multiplayer_tab_names[i]), pos, *color);
-				pos.x += tab_size.x + PADDING;
+					tab_draw_label(params, _(multiplayer_tab_name(ServerListType(i))), pos, *color);
+					pos.x += tab_size.x + PADDING;
+				}
 			}
 		}
 
@@ -3456,20 +3598,36 @@ void show_complete()
 
 	Audio::post_global(AK::EVENTS::PLAY_OVERWORLD_SHOW, 0);
 
-	if (data.state == State::Multiplayer && Game::level.mode != Game::Mode::Special)
+	if (data.state == State::MultiplayerOffline && Game::level.mode == Game::Mode::Special)
+	{
+		multiplayer_switch_tab(ServerListType::Mine); // only available tab in offline mode
+		Loader::offline_configs_load();
+	}
+
+	if ((data.state == State::MultiplayerOnline || data.state == State::MultiplayerOffline)
+		&& Game::level.mode != Game::Mode::Special)
 	{
 		// we're editing a server while playing in that server
-		vi_assert(PlayerHuman::count_local() == 1);
 		multiplayer_switch_tab(ServerListType::Mine);
 		if (PlayerHuman::for_gamepad(0)->get<PlayerManager>()->flag(PlayerManager::FlagIsAdmin))
 			multiplayer_state_transition(Data::Multiplayer::State::EntryEdit);
 		else
 			multiplayer_state_transition(Data::Multiplayer::State::EntryView);
-		data.multiplayer.active_server.config.id = Game::session.config.id;
-		multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigGet);
+
+		if (data.state == State::MultiplayerOffline)
+		{
+			data.multiplayer.active_server.config = Game::level.config_scheduled_apply ? Game::level.config_scheduled : Game::session.config;
+			multiplayer_offline_config_loaded();
+		}
+		else
+		{
+			data.multiplayer.active_server.config.id = Game::session.config.id;
+			multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigGet);
 #if !SERVER
-		Net::Client::master_request_server_details(data.multiplayer.active_server.config.id, data.multiplayer.request_id);
+			if (data.state == State::MultiplayerOnline)
+				Net::Client::master_request_server_details(data.multiplayer.active_server.config.id, data.multiplayer.request_id);
 #endif
+		}
 	}
 
 	if (modal())
@@ -3561,7 +3719,8 @@ void update(const Update& u)
 	{
 		switch (data.state)
 		{
-			case State::Multiplayer:
+			case State::MultiplayerOffline:
+			case State::MultiplayerOnline:
 			{
 				multiplayer_update(u);
 				break;
@@ -3649,7 +3808,8 @@ void draw_ui(const RenderParams& params)
 	{
 		switch (data.state)
 		{
-			case State::Multiplayer:
+			case State::MultiplayerOffline:
+			case State::MultiplayerOnline:
 			{
 				multiplayer_draw(params);
 				break;
@@ -3680,6 +3840,12 @@ void draw_ui(const RenderParams& params)
 
 void show(Camera* cam, State state, StoryTab tab)
 {
+	if (state == State::MultiplayerOnline && !Game::user_key.id)
+		Game::auth();
+
+	if (state == State::MultiplayerOffline)
+		Game::multiplayer_is_online = false;
+
 	if (data.timer_transition == 0.0f)
 	{
 		data.restore_camera = cam;
@@ -3705,12 +3871,12 @@ void shop_flags(s32 flags)
 // show server settings for current server
 void server_settings(Camera* cam)
 {
-	show(cam, State::Multiplayer);
+	show(cam, Game::level.local ? State::MultiplayerOffline : State::MultiplayerOnline);
 }
 
 void server_settings_readonly(Camera* cam)
 {
-	show(cam, State::Multiplayer);
+	show(cam, Game::level.local ? State::MultiplayerOffline : State::MultiplayerOnline);
 }
 
 void skip_transition_full()
@@ -3731,7 +3897,7 @@ b8 active()
 
 b8 modal()
 {
-	return active() && data.state != State::StoryModeOverlay && data.state != State::Multiplayer;
+	return active() && data.state != State::StoryModeOverlay && data.state != State::MultiplayerOnline && data.state != State::MultiplayerOffline;
 }
 
 b8 transitioning()

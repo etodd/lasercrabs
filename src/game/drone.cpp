@@ -2383,7 +2383,7 @@ void Drone::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, cons
 		Vec3 next_pos = pos + dir_flattened * dt * speed;
 
 		// make sure we don't penetrate the wall
-		next_pos += other_wall_normal * (DRONE_RADIUS - (next_pos - other_wall_pos).dot(other_wall_normal));
+		next_pos += other_wall_normal * (get<RigidBody>()->size.x - (next_pos - other_wall_pos).dot(other_wall_normal));
 
 		Vec3 wall_ray_start = next_pos + wall_normal * DRONE_RADIUS;
 		Vec3 wall_ray_end = next_pos + wall_normal * DRONE_RADIUS * -2.0f;
@@ -2474,7 +2474,7 @@ void Drone::crawl(const Vec3& dir_raw, r32 dt)
 			btTransform to = from;
 			to.setOrigin(next_pos);
 			btCollisionWorld::ClosestConvexResultCallback ray_callback(from.getOrigin(), to.getOrigin());
-			Physics::btWorld->convexSweepTest((const btConvexShape*)(get<RigidBody>()->btShape), from, to, ray_callback);
+			get<RigidBody>()->convex_sweep_test(&ray_callback, from, to, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
 
 			if (ray_callback.hasHit())
 			{
@@ -2499,7 +2499,7 @@ void Drone::crawl(const Vec3& dir_raw, r32 dt)
 			btTransform to = from;
 			to.setOrigin(next_pos);
 			btCollisionWorld::ClosestConvexResultCallback ray_callback(from.getOrigin(), to.getOrigin());
-			Physics::btWorld->convexSweepTest((const btConvexShape*)(get<RigidBody>()->btShape), from, to, ray_callback);
+			get<RigidBody>()->convex_sweep_test(&ray_callback, from, to, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
 
 			if (ray_callback.hasHit())
 			{

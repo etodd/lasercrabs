@@ -12,6 +12,7 @@
 #include "ai.h"
 #include "settings.h"
 #include "game/master.h"
+#include "game/overworld.h"
 
 namespace VI
 {
@@ -54,7 +55,6 @@ namespace Settings
 	b8 expo;
 	b8 shell_casings;
 	b8 god_mode;
-	b8 quick_combat_unlocked;
 	b8 parkour_reticle;
 	NetClientInterpolationMode net_client_interpolation_mode;
 	PvpColorScheme pvp_color_scheme;
@@ -88,6 +88,7 @@ s32 Loader::armature_count;
 s32 Loader::animation_count;
 
 #define config_filename "config.txt"
+#define offline_configs_filename "offline.txt"
 #define config_version 2
 #define mod_manifest_filename "mod.json"
 #define default_master_server "master.deceivergame.com"
@@ -221,6 +222,121 @@ cJSON* input_binding_json(const InputBinding& binding, const InputBinding& defau
 		return nullptr;
 }
 
+void Loader::offline_configs_load()
+{
+	Overworld::master_server_list_end(ServerListType::Mine, 0);
+
+	char path[MAX_PATH_LENGTH + 1];
+	user_data_path(path, offline_configs_filename);
+	cJSON* json = Json::load(path);
+	if (json)
+	{
+		if (Json::get_s32(json, "version") == config_version)
+		{
+			cJSON* entries = cJSON_GetObjectItem(json, "configs");
+			if (entries)
+			{
+				u32 id = 1;
+				cJSON* element = entries->child;
+				while (element)
+				{
+					Net::Master::ServerListEntry entry;
+					entry.max_players = MAX_GAMEPADS;
+					entry.server_state.id = id;
+					entry.server_state.level = AssetNull;
+					entry.server_state.max_players = MAX_GAMEPADS;
+					entry.server_state.player_slots = MAX_GAMEPADS;
+					entry.creator_username[0] = '\0';
+					entry.creator_vip = false;
+					strncpy(entry.name, Json::get_string(element, "name", ""), MAX_SERVER_CONFIG_NAME);
+					entry.game_type = GameType(vi_max(0, vi_min(s32(GameType::count), Json::get_s32(element, "game_type"))));
+					entry.team_count = vi_max(2, vi_min(MAX_TEAMS, Json::get_s32(element, "team_count")));
+					entry.preset = Net::Master::Ruleset::Preset(vi_max(0, vi_min(s32(Net::Master::Ruleset::Preset::count), Json::get_s32(element, "preset"))));
+
+					Overworld::master_server_list_entry(ServerListType::Mine, id - 1, entry);
+					id++;
+
+					element = element->next;
+				}
+			}
+		}
+		Json::json_free(json);
+	}
+}
+
+void Loader::offline_config_get(s32 id, Net::Master::ServerConfig* config)
+{
+	char path[MAX_PATH_LENGTH + 1];
+	user_data_path(path, offline_configs_filename);
+	cJSON* json = Json::load(path);
+	if (json)
+	{
+		if (Json::get_s32(json, "version") == config_version)
+		{
+			cJSON* entries = cJSON_GetObjectItem(json, "configs");
+			if (entries)
+			{
+				cJSON* element = cJSON_GetArrayItem(entries, id - 1);
+				vi_assert(element);
+				Net::Master::server_config_parse(element, config);
+				config->max_players = MAX_GAMEPADS;
+				config->id = id;
+				strncpy(config->name, Json::get_string(element, "name", ""), MAX_SERVER_CONFIG_NAME);
+				config->game_type = GameType(vi_max(0, vi_min(s32(GameType::count), Json::get_s32(element, "game_type"))));
+				config->team_count = vi_max(2, vi_min(MAX_TEAMS, Json::get_s32(element, "team_count")));
+				config->preset = Net::Master::Ruleset::Preset(vi_max(0, vi_min(s32(Net::Master::Ruleset::Preset::count), Json::get_s32(element, "preset"))));
+			}
+		}
+		Json::json_free(json);
+	}
+}
+
+void Loader::offline_config_save(Net::Master::ServerConfig* config)
+{
+	char path[MAX_PATH_LENGTH + 1];
+	user_data_path(path, offline_configs_filename);
+	cJSON* json = Json::load(path);
+	if (!json
+		|| Json::get_s32(json, "version") != config_version
+		|| !cJSON_GetObjectItem(json, "configs"))
+	{
+		if (json)
+			Json::json_free(json);
+
+		json = cJSON_CreateObject();
+		cJSON_AddNumberToObject(json, "version", config_version);
+		cJSON_AddItemToObject(json, "configs", cJSON_CreateArray());
+	}
+
+	cJSON* configs = cJSON_GetObjectItem(json, "configs");
+
+	cJSON* element = Net::Master::server_config_json(*config);
+
+	{
+		cJSON_AddStringToObject(element, "name", config->name);
+		cJSON_AddNumberToObject(element, "game_type", s32(config->game_type));
+		cJSON_AddNumberToObject(element, "team_count", s32(config->team_count));
+		cJSON_AddNumberToObject(element, "preset", s32(config->preset));
+	}
+
+	{
+		s32 existing_configs_length = cJSON_GetArraySize(configs);
+		if (config->id == 0) // append to end
+		{
+			config->id = existing_configs_length + 1;
+			cJSON_AddItemToArray(configs, element);
+		}
+		else
+		{
+			vi_assert(existing_configs_length >= config->id - 1);
+			cJSON_ReplaceItemInArray(configs, config->id - 1, element);
+		}
+	}
+
+	Json::save(json, path);
+	Json::json_free(json);
+}
+
 void Loader::settings_load(const Array<DisplayMode>& modes, const DisplayMode& current_mode)
 {
 	char path[MAX_PATH_LENGTH + 1];
@@ -295,7 +411,6 @@ void Loader::settings_load(const Array<DisplayMode>& modes, const DisplayMode& c
 	Settings::record = b8(Json::get_s32(json, "record", 0));
 	Settings::expo = b8(Json::get_s32(json, "expo", 0));
 	Settings::god_mode = b8(Json::get_s32(json, "god_mode"));
-	Settings::quick_combat_unlocked = b8(Json::get_s32(json, "quick_combat_unlocked"));
 	Settings::parkour_reticle = b8(Json::get_s32(json, "parkour_reticle"));
 #if SERVER
 	Settings::shell_casings = false;
@@ -392,8 +507,6 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "shell_casings", s32(Settings::shell_casings));
 	if (Settings::god_mode)
 		cJSON_AddNumberToObject(json, "god_mode", 1);
-	if (Settings::quick_combat_unlocked)
-		cJSON_AddNumberToObject(json, "quick_combat_unlocked", 1);
 	cJSON_AddNumberToObject(json, "parkour_reticle", s32(Settings::parkour_reticle));
 
 	cJSON* gamepads = cJSON_CreateArray();

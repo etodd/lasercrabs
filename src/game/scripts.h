@@ -24,7 +24,6 @@ namespace Scripts
 namespace Docks
 {
 	void play();
-	void gamejolt_prompt();
 }
 
 namespace AudioLogs

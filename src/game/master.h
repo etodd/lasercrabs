@@ -6,6 +6,8 @@
 #include "constants.h"
 #include "data/array.h"
 
+struct cJSON;
+
 namespace VI
 {
 
@@ -228,7 +230,7 @@ struct ServerConfig
 	Ruleset::Preset preset;
 	GameType game_type = GameType::Assault;
 	s8 max_players = MAX_PLAYERS;
-	s8 min_players = 1;
+	s8 min_players = 2;
 	s8 team_count = 2;
 	u8 time_limit_parkour_ready = 5;
 	s8 fill_bots; // if = 0, no bots. if > 0, total number of desired players including bots is fill_bots + 1
@@ -309,6 +311,12 @@ template<typename Stream> b8 serialize_server_config(Stream* p, ServerConfig* c)
 	}
 	return true;
 }
+
+void server_config_parse(const char*, ServerConfig*);
+void server_config_parse(cJSON*, ServerConfig*);
+char* server_config_stringify(const ServerConfig&);
+cJSON* server_config_json(const ServerConfig&);
+void server_list_entry_for_config(ServerListEntry*, const ServerConfig&);
 
 struct ServerDetails
 {

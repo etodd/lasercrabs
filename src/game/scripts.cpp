@@ -1,10 +1,5 @@
 #include "localization.h"
 
-#if !SERVER
-#include "mongoose/mongoose.h"
-#endif
-#undef sleep // ugh
-
 #include "scripts.h"
 #include "net.h"
 #include "mersenne/mersenne-twister.h"
@@ -39,9 +34,6 @@
 #include "parkour.h"
 #include "noise.h"
 #include "data/unicode.h"
-#if !defined(__ORBIS__)
-#include "steam/steam_api.h"
-#endif
 
 namespace VI
 {
@@ -618,20 +610,6 @@ namespace Docks
 		count,
 	};
 
-#if !SERVER && !defined(__ORBIS__)
-	struct SteamCallback
-	{
-		static SteamCallback instance;
-
-		STEAM_CALLBACK(SteamCallback, auth_session_ticket_callback, GetAuthSessionTicketResponse_t);
-	};
-
-	void SteamCallback::auth_session_ticket_callback(GetAuthSessionTicketResponse_t* data)
-	{
-		Net::Client::master_send_auth();
-	}
-#endif
-
 	struct PhysicsSoundEntity
 	{
 		Ref<Entity> entity;
@@ -640,16 +618,6 @@ namespace Docks
 
 	struct Data
 	{
-#if !SERVER
-		mg_mgr mg_mgr;
-		mg_connection* mg_conn_ipv4;
-		mg_connection* mg_conn_ipv6;
-#if !defined(__ORBIS__)
-		SteamCallback steam_callback;
-#endif
-
-#endif
-
 		Actor::Instance* dada;
 		Actor::Instance* rex;
 		Array<PhysicsSoundEntity> carts;
@@ -673,7 +641,6 @@ namespace Docks
 		StaticArray<Ref<Transform>, 8> wallrun_footsteps2;
 		TutorialState state;
 		b8 dada_talked;
-		b8 itch_prompted;
 		b8 rex_cart_gone;
 		b8 demo_notified;
 	};
@@ -682,11 +649,6 @@ namespace Docks
 
 	void cleanup()
 	{
-#if !SERVER
-		if (data->mg_conn_ipv4 || data->mg_conn_ipv6)
-			mg_mgr_free(&data->mg_mgr);
-#endif
-
 		delete data;
 		data = nullptr;
 	}
@@ -762,157 +724,6 @@ namespace Docks
 		ad->cue(&ivory_ad_play, 4.0f);
 	}
 
-#if SERVER
-	void gamejolt_prompt() { }
-#else
-	void gamejolt_token_callback(const TextField& text_field)
-	{
-		strncpy(Settings::gamejolt_token, text_field.value.data, MAX_AUTH_KEY);
-		Net::Client::master_send_auth();
-	}
-
-	void gamejolt_username_callback(const TextField& text_field)
-	{
-		strncpy(Settings::gamejolt_username, text_field.value.data, MAX_PATH_LENGTH);
-		Menu::dialog_text(&gamejolt_token_callback, "", MAX_AUTH_KEY, _(strings::prompt_gamejolt_token));
-	}
-
-	void gamejolt_prompt()
-	{
-		Menu::dialog_text(&gamejolt_username_callback, "", MAX_PATH_LENGTH, _(strings::prompt_gamejolt_username));
-	}
-
-	void itch_handle_oauth(mg_connection* conn, int ev, void* ev_data)
-	{
-		if (ev == MG_EV_HTTP_REQUEST)
-		{
-			// GET
-			http_message* msg = (http_message*)(ev_data);
-
-			mg_printf
-			(
-				conn, "%s",
-				"HTTP/1.1 200 OK\r\n"
-				"Content-Type: text/html\r\n"
-				"\r\n"
-				"<html>"
-				"<head><title>Deceiver</title>"
-				"<style>"
-				"* { box-sizing: border-box; }"
-				"body { background-color: #000; color: #fff; font-family: sans-serif; font-size: x-large; font-weight: bold; }"
-				"img { display: block; margin-left: auto; margin-right: auto; width: 100%; max-width: 720px; padding: 3em; padding-bottom: 0px; }"
-				"p { display: block; text-align: center; padding: 3em; }"
-				"</style>"
-				"</head>"
-				"<body>"
-				"<img src=\"https://deceivergame.com/public/header-backdrop.svg\" />"
-				"<p id=\"msg\">Logging in...</p>"
-				"<script>"
-				"var data = new FormData();"
-				"data.append('access_token', window.location.hash.substr(window.location.hash.indexOf('=') + 1));"
-				"var ajax = new XMLHttpRequest();"
-				"var $msg = document.getElementById('msg');"
-				"function msg_error()"
-				"{"
-				"	$msg.innerHTML = 'Login failed! Please try again.';"
-				"}"
-				"ajax.addEventListener('load', function()"
-				"{"
-				"	if (this.status === 200)"
-				"		$msg.innerHTML = 'Login successful! You can close this window and return to the game.';"
-				"	else"
-				"		msg_error();"
-				"});"
-				"ajax.addEventListener('error', msg_error);"
-				"ajax.open('POST', '/auth', true);"
-				"ajax.send(data);"
-				"</script>"
-				"</body>"
-				"</html>"
-			);
-			conn->flags |= MG_F_SEND_AND_CLOSE;
-		}
-		else if (ev == MG_EV_HTTP_PART_DATA)
-		{
-			// POST
-			mg_http_multipart_part* part = (mg_http_multipart_part*)(ev_data);
-			if (strcmp(part->var_name, "access_token") == 0 && part->data.len <= MAX_AUTH_KEY)
-			{
-				// got the access token
-				strncpy(Settings::itch_api_key, part->data.p, part->data.len);
-				Loader::settings_save();
-				Game::auth_key_length = vi_max(0, vi_min(MAX_AUTH_KEY, s32(part->data.len)));
-				memcpy(Game::auth_key, part->data.p, Game::auth_key_length);
-				Menu::dialog_clear(0);
-				Net::Client::master_send_auth();
-
-				mg_printf
-				(
-					conn, "%s",
-					"HTTP/1.1 200 OK\r\n"
-					"Content-Type: text/html\r\n"
-					"\r\n"
-				);
-				conn->flags |= MG_F_SEND_AND_CLOSE;
-			}
-			else
-			{
-				mg_printf
-				(
-					conn, "%s",
-					"HTTP/1.1 400 Bad Request\r\n"
-					"Content-Type: text/html\r\n"
-					"\r\n"
-				);
-				conn->flags |= MG_F_SEND_AND_CLOSE;
-			}
-		}
-	}
-
-	void itch_prompt_cancel(s8 = 0)
-	{
-		Game::quit = true;
-	}
-
-	void itch_prompt(s8 = 0)
-	{
-		if (data->itch_prompted)
-		{
-			Menu::open_url("https://itch.io/user/oauth?client_id=96b70c5d535c7101941dcbb0648ca2e3&scope=profile%3Ame&response_type=token&redirect_uri=http%3A%2F%2Flocalhost%3A3499%2Fauth");
-			Menu::dialog_with_cancel(0, &itch_prompt, &itch_prompt_cancel, _(strings::prompt_itch_again));
-		}
-		else
-			Menu::dialog_with_cancel(0, &itch_prompt, &itch_prompt_cancel, _(strings::prompt_itch));
-		data->itch_prompted = true;
-	}
-
-	void itch_register_endpoints(mg_connection* conn)
-	{
-		mg_register_http_endpoint(conn, "/auth", itch_handle_oauth);
-	}
-
-	void itch_ev_handler(mg_connection* conn, int ev, void* ev_data)
-	{
-		switch (ev)
-		{
-			case MG_EV_HTTP_REQUEST:
-			{
-				mg_printf
-				(
-					conn, "%s",
-					"HTTP/1.1 403 Forbidden\r\n"
-					"Content-Type: text/html\r\n"
-					"Transfer-Encoding: chunked\r\n"
-					"\r\n"
-				);
-				mg_printf_http_chunk(conn, "%s", "Forbidden");
-				mg_send_http_chunk(conn, "", 0);
-				break;
-			}
-		}
-	}
-#endif
-
 #if !RELEASE_BUILD
 	void cutscene_update(const Update& u)
 	{
@@ -983,15 +794,6 @@ namespace Docks
 
 	void update_title(const Update& u)
 	{
-#if !SERVER
-		if (data->mg_conn_ipv4 || data->mg_conn_ipv6)
-		{
-			mg_mgr_poll(&data->mg_mgr, 0);
-			if (Game::auth_key_length == 0 && !Menu::dialog_active(0))
-				itch_prompt();
-		}
-#endif
-
 #if !RELEASE_BUILD
 		if (u.input->keys.get(s32(KeyCode::F1)) && !u.last_input->keys.get(s32(KeyCode::F1)))
 			cutscene_init();
@@ -1016,18 +818,10 @@ namespace Docks
 			};
 			camera->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), 0.1f, Game::level.far_plane_get());
 
-			if (Game::user_key.id)
-			{
-				if (Game::level.mode == Game::Mode::Special
-					&& !Overworld::active()
-					&& !Overworld::transitioning())
-					Menu::title_menu(u, camera);
-			}
-			else
-			{
-				if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0) && !Game::cancel_event_eaten[0])
-					Menu::dialog(0, &Menu::exit, _(strings::confirm_quit));
-			}
+			if (Game::level.mode == Game::Mode::Special
+				&& !Overworld::active()
+				&& !Overworld::transitioning())
+				Menu::title_menu(u, camera);
 		}
 
 		if (data->transition_timer > 0.0f)
@@ -1054,12 +848,11 @@ namespace Docks
 				&& Menu::main_menu_state == Menu::State::Hidden
 				&& Game::scheduled_load_level == AssetNull
 				&& !Overworld::active() && !Overworld::transitioning()
-				&& !Menu::dialog_active(0)
-				&& Game::user_key.id)
+				&& !Menu::dialog_active(0))
 			{
 				if (Game::session.type == SessionType::Multiplayer)
 				{
-					Overworld::show(data->camera.ref(), Overworld::State::Multiplayer);
+					Overworld::show(data->camera.ref(), Game::multiplayer_is_online ? Overworld::State::MultiplayerOnline : Overworld::State::MultiplayerOffline);
 					Overworld::skip_transition_full();
 				}
 				else if (any_input(u))
@@ -1070,49 +863,44 @@ namespace Docks
 
 	void draw_ui(const RenderParams& p)
 	{
-		if (Game::user_key.id)
+		if (Game::level.mode == Game::Mode::Special
+			&& Game::scheduled_load_level == AssetNull
+			&& data->transition_timer == 0.0f
+			&& !Overworld::active()
+			&& Game::session.type == SessionType::Story)
 		{
-			if (Game::level.mode == Game::Mode::Special
-				&& Game::scheduled_load_level == AssetNull
-				&& data->transition_timer == 0.0f
-				&& !Overworld::active()
-				&& Game::session.type == SessionType::Story)
+			const Vec2 actual_size(1185, 374);
+			Rect2 logo_rect;
+			b8 draw = true;
+			if (Menu::main_menu_state == Menu::State::Hidden)
 			{
-				const Vec2 actual_size(1185, 374);
-				Rect2 logo_rect;
-				b8 draw = true;
-				if (Menu::main_menu_state == Menu::State::Hidden)
-				{
-					UIText text;
-					text.color = UI::color_accent();
-					text.text(0, "[{{Start}}]");
-					text.anchor_x = UIText::Anchor::Center;
-					text.anchor_y = UIText::Anchor::Center;
-					Vec2 pos = p.camera->viewport.size * Vec2(0.5f, 0.1f);
-					UI::box(p, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-					text.draw(p, pos);
+				UIText text;
+				text.color = UI::color_accent();
+				text.text(0, "[{{Start}}]");
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				Vec2 pos = p.camera->viewport.size * Vec2(0.5f, 0.1f);
+				UI::box(p, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+				text.draw(p, pos);
 
-					Vec2 size = actual_size * (p.camera->viewport.size.x * 0.5f / actual_size.x);
-					logo_rect = { p.camera->viewport.size * 0.5f + size * Vec2(-0.5f, -0.5f), size };
+				Vec2 size = actual_size * (p.camera->viewport.size.x * 0.5f / actual_size.x);
+				logo_rect = { p.camera->viewport.size * 0.5f + size * Vec2(-0.5f, -0.5f), size };
 
-					draw = !Menu::dialog_active(0);
-				}
-				else
-				{
-					Vec2 menu_pos;
-					menu_pos.x = p.camera->viewport.size.x * 0.5f;
-					if (Menu::main_menu_state == Menu::State::Credits)
-						menu_pos.y = p.camera->viewport.size.y * 0.8f + MENU_ITEM_HEIGHT * -1.5f;
-					else
-						menu_pos.y = p.camera->viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f;
-					Vec2 size = actual_size * ((MENU_ITEM_WIDTH + MENU_ITEM_PADDING * -2.0f) / actual_size.x);
-					logo_rect = { menu_pos + size * Vec2(-0.5f, 0.0f) + Vec2(0.0f, MENU_ITEM_PADDING * 3.0f), size };
-				}
-				UI::sprite(p, Asset::Texture::logo, { logo_rect.pos + logo_rect.size * 0.5f, logo_rect.size });
+				draw = !Menu::dialog_active(0);
 			}
+			else
+			{
+				Vec2 menu_pos;
+				menu_pos.x = p.camera->viewport.size.x * 0.5f;
+				if (Menu::main_menu_state == Menu::State::Credits)
+					menu_pos.y = p.camera->viewport.size.y * 0.8f + MENU_ITEM_HEIGHT * -1.5f;
+				else
+					menu_pos.y = p.camera->viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f;
+				Vec2 size = actual_size * ((MENU_ITEM_WIDTH + MENU_ITEM_PADDING * -2.0f) / actual_size.x);
+				logo_rect = { menu_pos + size * Vec2(-0.5f, 0.0f) + Vec2(0.0f, MENU_ITEM_PADDING * 3.0f), size };
+			}
+			UI::sprite(p, Asset::Texture::logo, { logo_rect.pos + logo_rect.size * 0.5f, logo_rect.size });
 		}
-		else
-			Menu::progress_infinite(p, _(strings::connecting), p.camera->viewport.size * 0.5f);
 
 		if (data->energy.ref()
 			&& data->state != TutorialState::Start && data->state != TutorialState::DadaSpotted && data->state != TutorialState::DadaTalking
@@ -1300,91 +1088,6 @@ namespace Docks
 		Game::cleanups.add(cleanup);
 
 		entities.find("cutscene_props")->get<View>()->mask = 0;
-
-#if !SERVER
-		if (!Game::user_key.id)
-		{
-			switch (Game::auth_type)
-			{
-				case Net::Master::AuthType::GameJolt:
-				{
-					// check if we already have the username and token
-					if (Settings::gamejolt_username[0])
-						Net::Client::master_send_auth();
-					else
-						gamejolt_prompt();
-					break;
-				}
-				case Net::Master::AuthType::Itch:
-				{
-					if (Game::auth_key_length) // launched from itch app
-						Net::Client::master_send_auth();
-					else // launched standalone
-					{
-						Game::auth_type = Net::Master::AuthType::ItchOAuth;
-
-						if (Settings::itch_api_key[0]) // already got an OAuth token
-						{
-							Game::auth_key_length = vi_max(0, vi_min(s32(strlen(Settings::itch_api_key)), MAX_AUTH_KEY));
-							memcpy(Game::auth_key, Settings::itch_api_key, Game::auth_key_length);
-							Net::Client::master_send_auth();
-						}
-						else
-						{
-							// get an OAuth token
-
-							// launch server
-
-							mg_mgr_init(&data->mg_mgr, nullptr);
-							{
-								char addr[32];
-								sprintf(addr, "127.0.0.1:%d", NET_OAUTH_PORT);
-								data->mg_conn_ipv4 = mg_bind(&data->mg_mgr, addr, itch_ev_handler);
-
-								sprintf(addr, "[::1]:%d", NET_OAUTH_PORT);
-								data->mg_conn_ipv6 = mg_bind(&data->mg_mgr, addr, itch_ev_handler);
-							}
-
-							if (data->mg_conn_ipv4)
-							{
-								mg_set_protocol_http_websocket(data->mg_conn_ipv4);
-								itch_register_endpoints(data->mg_conn_ipv4);
-								printf("Bound to 127.0.0.1:%d\n", NET_OAUTH_PORT);
-							}
-
-							if (data->mg_conn_ipv6)
-							{
-								mg_set_protocol_http_websocket(data->mg_conn_ipv6);
-								itch_register_endpoints(data->mg_conn_ipv6);
-								printf("Bound to [::1]:%d\n", NET_OAUTH_PORT);
-							}
-
-							vi_assert(data->mg_conn_ipv4 || data->mg_conn_ipv6);
-						}
-					}
-					break;
-				}
-				case Net::Master::AuthType::Steam:
-#if !defined(__ORBIS__)
-				{
-					strncpy(Game::steam_username, SteamFriends()->GetPersonaName(), MAX_USERNAME);
-					u32 auth_key_length;
-					SteamUser()->GetAuthSessionTicket(Game::auth_key, MAX_AUTH_KEY, &auth_key_length);
-					Game::auth_key_length = vi_max(0, vi_min(MAX_AUTH_KEY, s32(auth_key_length)));
-					Game::auth_key[Game::auth_key_length] = '\0';
-					break;
-				}
-#endif
-				case Net::Master::AuthType::None:
-					// we either have the auth token or we don't
-					Net::Client::master_send_auth();
-					break;
-				default:
-					vi_assert(false);
-					break;
-			}
-		}
-#endif
 
 		if (Game::level.mode == Game::Mode::Special)
 		{

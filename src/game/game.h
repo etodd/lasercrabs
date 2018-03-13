@@ -210,6 +210,7 @@ struct Game
 	static b8 cancel_event_eaten[MAX_GAMEPADS];
 	static b8 quit;
 	static b8 minimize;
+	static b8 multiplayer_is_online;
 	static Net::Master::AuthType auth_type;
 	static const char* language;
 	static u8 auth_key[MAX_AUTH_KEY + 1];
@@ -219,6 +220,7 @@ struct Game
 	static char steam_username[MAX_USERNAME + 1];
 #endif
 
+	static void config_apply();
 	static u32 steam_app_id;
 	static PreinitResult pre_init(const char**);
 	static const char* init(LoopSync*);
@@ -235,7 +237,9 @@ struct Game
 	static void draw_alpha(const RenderParams&);
 	static void draw_alpha_late(const RenderParams&);
 	static void draw_additive(const RenderParams&);
+	static void auth();
 	static void auth_failed();
+	static void auth_succeeded(const Net::Master::UserKey&, const char*);
 	static void term();
 
 	static b8 should_pause();

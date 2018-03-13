@@ -88,7 +88,6 @@ namespace Settings
 	extern b8 expo;
 	extern b8 shell_casings;
 	extern b8 god_mode;
-	extern b8 quick_combat_unlocked;
 	extern b8 parkour_reticle;
 
 	const DisplayMode& display();

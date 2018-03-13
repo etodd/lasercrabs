@@ -596,21 +596,6 @@ void dialog_clear(s8 gamepad)
 	dialog_cancel_callback[gamepad] = nullptr;
 }
 
-Ref<Camera> quick_combat_camera;
-void quick_combat_enter(s8 = 0)
-{
-	if (!Settings::quick_combat_unlocked)
-	{
-		Settings::quick_combat_unlocked = true;
-		Loader::settings_save();
-	}
-	Game::save.reset();
-	Game::session.reset(SessionType::Multiplayer);
-	Game::session.config.game_type = GameType::Assault;
-	Overworld::show(quick_combat_camera.ref(), Overworld::State::Multiplayer);
-	clear();
-}
-
 void exit(s8 gamepad)
 {
 	Game::quit = true;
@@ -644,18 +629,26 @@ void title_menu(const Update& u, Camera* camera)
 			else
 			{
 				main_menu.start(u, origin, 0);
-				if (main_menu.item(u, _(strings::story)))
+				if (main_menu.item(u, _(strings::story), nullptr, true))
 				{
 					Scripts::Docks::play();
 					clear();
 				}
-				else if (main_menu.item(u, _(strings::multiplayer)))
+				else if (main_menu.item(u, _(strings::play_online)))
 				{
-					quick_combat_camera = camera;
-					if (Settings::quick_combat_unlocked)
-						quick_combat_enter();
-					else
-						dialog_with_cancel(0, &quick_combat_enter, &dialog_no_action, _(strings::prompt_quick_combat));
+					Game::save.reset();
+					Game::session.reset(SessionType::Multiplayer);
+					Game::session.config.game_type = GameType::Assault;
+					Overworld::show(camera, Overworld::State::MultiplayerOnline);
+					clear();
+				}
+				else if (main_menu.item(u, _(strings::play_offline)))
+				{
+					Game::save.reset();
+					Game::session.reset(SessionType::Multiplayer);
+					Game::session.config.game_type = GameType::Assault;
+					Overworld::show(camera, Overworld::State::MultiplayerOffline);
+					clear();
 				}
 				else if (main_menu.item(u, _(strings::settings)))
 				{
@@ -666,6 +659,8 @@ void title_menu(const Update& u, Camera* camera)
 				{
 					if (main_menu.item(u, _(strings::discord)))
 						open_url("https://discord.gg/eZGapeY");
+					if (main_menu.item(u, _(strings::newsletter)))
+						open_url("https://eepurl.com/U50O5");
 					if (main_menu.item(u, _(strings::credits)))
 						main_menu_state = State::Credits;
 					if (main_menu.item(u, _(strings::exit)))
@@ -790,7 +785,7 @@ void pause_menu(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMen
 					menu->animate();
 				}
 
-				if (PlayerHuman::count_local() <= 1 && menu->item(u, _(strings::server_settings)))
+				if (gamepad == 0 && menu->item(u, _(strings::server_settings)))
 				{
 					*state = State::Hidden;
 					if (me->flag(PlayerManager::FlagIsAdmin))
@@ -1139,6 +1134,7 @@ void draw_ui(const RenderParams& params)
 			text.wrap_width = MENU_ITEM_WIDTH;
 
 			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.75f);
+			r32 line_spacing = text.size * UI::scale * 0.3f;
 
 			Rect2 rect = text.rect(pos);
 			const char* credits = _(strings::credits_full);
@@ -1166,7 +1162,7 @@ void draw_ui(const RenderParams& params)
 
 				if (newline)
 				{
-					pos.y -= text.bounds().y;
+					pos.y -= text.bounds().y + line_spacing;
 					credits += length + 1;
 				}
 				else
@@ -1193,7 +1189,7 @@ void draw_ui(const RenderParams& params)
 
 				if (newline)
 				{
-					pos.y -= text.bounds().y;
+					pos.y -= text.bounds().y + line_spacing;
 					credits += length + 1;
 				}
 				else
@@ -1207,7 +1203,7 @@ void draw_ui(const RenderParams& params)
 			text.text(0, "[{{Cancel}}]");
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Max;
-			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.1f);
 			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 			text.draw(params, pos);
 		}
@@ -1797,7 +1793,9 @@ void maps_skip_map_cancel(s8 gamepad)
 
 void maps_skip_map(s8 gamepad)
 {
-	PlayerManager* me = PlayerHuman::for_gamepad(gamepad)->get<PlayerManager>();
+	PlayerHuman* human = PlayerHuman::for_gamepad(gamepad);
+	human->menu_state = State::Hidden;
+	PlayerManager* me = human->get<PlayerManager>();
 	me->map_skip(maps_selected_map);
 	maps_selected_map = AssetNull;
 }

@@ -278,6 +278,13 @@ RigidBody::~RigidBody()
 		delete btMesh;
 }
 
+void RigidBody::convex_sweep_test(btCollisionWorld::ClosestConvexResultCallback* callback, const btTransform& from, const btTransform& to, s16 mask)
+{
+	callback->m_collisionFilterMask = mask;
+	callback->m_collisionFilterGroup = -1;
+	Physics::btWorld->convexSweepTest((const btConvexShape*)(btShape), from, to, *callback);
+}
+
 void RigidBody::set_restitution(r32 r)
 {
 	restitution = r;

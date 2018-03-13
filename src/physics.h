@@ -134,6 +134,8 @@ struct RigidBody : public ComponentType<RigidBody>
 	~RigidBody();
 	void awake();
 
+	void convex_sweep_test(btCollisionWorld::ClosestConvexResultCallback*, const btTransform&, const btTransform&, s16 = ~CollisionTarget & ~CollisionWalker);
+
 	void rebuild(); // rebuild bullet objects from our settings
 
 	void set_damping(r32, r32);

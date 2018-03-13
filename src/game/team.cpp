@@ -390,6 +390,7 @@ void Team::transition_next()
 	else
 	{
 		// multiplayer
+		Game::config_apply();
 #if SERVER
 		Net::Server::transition_level();
 #endif
@@ -892,6 +893,7 @@ void Team::update_all_server(const Update& u)
 			&& Game::scheduled_load_level == AssetNull
 			&& PlayerHuman::list.count() < vi_max(s32(Game::session.config.min_players), Game::session.config.fill_bots ? 1 : 2))
 		{
+			Game::config_apply();
 			if (Game::session.config.time_limit_parkour_ready > 0) // go back to parkour mode
 			{
 #if SERVER
@@ -996,6 +998,7 @@ void Team::update_all_server(const Update& u)
 				if (time_limit > 0.0f && Team::match_time > time_limit)
 				{
 					// start the match
+					Game::config_apply();
 #if SERVER
 					Net::Server::transition_level();
 #endif
@@ -1212,7 +1215,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	flags
 	(
 		(Team::match_state == Team::MatchState::Done ? FlagScoreAccepted : 0)
-		| (Game::session.type == SessionType::Story || Team::match_state == Team::MatchState::Active ? FlagCanSpawn : 0)
+		| (Game::level.mode == Game::Mode::Parkour || Team::match_state == Team::MatchState::Active ? FlagCanSpawn : 0)
 	),
 	team(team),
 	upgrades(Game::session.config.ruleset.upgrades_default),
@@ -1241,6 +1244,9 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 			abilities[i] = ability;
 		}
 	}
+
+	if (Game::level.local)
+		flag(FlagIsAdmin, true);
 
 	if (u)
 		strncpy(username, u, MAX_USERNAME);
@@ -1705,7 +1711,9 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 				m->flag(FlagCanSpawn, value);
 
 			if (Game::level.local
+#if SERVER
 				&& src == Net::MessageSource::Remote
+#endif
 				&& (value || Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)) // once the match starts, can_spawn can not go false
 			{
 				if (value && m->team_scheduled != AI::TeamNone)
@@ -1737,7 +1745,11 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 						PlayerManagerNet::team_switch(m, m->team.ref()->team()); // keep their same team (clears team_scheduled)
 				}
 				else
+				{
+#if SERVER
 					PlayerManagerNet::can_spawn(m, value); // repeat to all clients
+#endif
+				}
 			}
 			break;
 		}

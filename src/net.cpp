@@ -39,7 +39,7 @@
 #define DEBUG_ENTITY 0
 #define DEBUG_TRANSFORMS 0
 #define DEBUG_LAG 0
-#define DEBUG_LAG_AMOUNT 0.1f
+#define DEBUG_LAG_AMOUNT 0.5f
 #define DEBUG_PACKET_LOSS 0
 #define DEBUG_PACKET_LOSS_AMOUNT 0.05f
 
@@ -2435,11 +2435,6 @@ void transition_level()
 {
 	msg_finalize(msg_new(MessageType::TransitionLevel));
 	state_server.transitioning_level = true;
-	if (Game::level.config_scheduled_apply)
-	{
-		Game::session.config = Game::level.config_scheduled;
-		Game::level.config_scheduled_apply = false;
-	}
 }
 
 // disable entity messages while we're unloading the level
@@ -4110,6 +4105,7 @@ b8 master_request_server(u32 id, const char* secret, AssetID level, StoryModeTea
 	vi_assert((id == 0) == (level != AssetNull));
 
 	Game::level.local = false;
+	Game::multiplayer_is_online = true;
 	Game::schedule_timer = 0.0f;
 
 	state_client.timeout = 0.0f;
@@ -4280,16 +4276,16 @@ b8 packet_handle_master(StreamRead* p)
 			serialize_bool(p, success);
 			if (success)
 			{
-				serialize_u32(p, Game::user_key.id);
-				serialize_u32(p, Game::user_key.token);
+				Master::UserKey user_key;
+				serialize_u32(p, user_key.id);
+				serialize_u32(p, user_key.token);
 				s32 username_length;
 				serialize_int(p, s32, username_length, 0, MAX_USERNAME);
 				char username[MAX_USERNAME + 1];
 				serialize_bytes(p, (u8*)username, username_length);
 				username[username_length] = '\0';
-				memset(Settings::username, 0, sizeof(Settings::username));
-				strncpy(Settings::username, username, MAX_USERNAME);
-				Loader::settings_save();
+
+				Game::auth_succeeded(user_key, username);
 			}
 			else
 				Game::auth_failed();

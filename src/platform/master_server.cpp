@@ -18,9 +18,9 @@
 #include "asset/level.h"
 #include "asset/version.h"
 #include "cjson/cJSON.h"
+#include "data/json.h"
 #include "sqlite/sqlite3.h"
 #include "mersenne/mersenne-twister.h"
-#include "data/json.h"
 #include "data/unicode.h"
 #include <cmath>
 #include "mongoose/mongoose.h"
@@ -40,6 +40,8 @@
 #define CRASH_DUMP_DIR "crash_dumps/"
 
 #define MAX_DISCORD_ID_LENGTH 32
+
+#define PLAY_TIME (60 * 120) // two hours
 
 namespace VI
 {
@@ -559,121 +561,6 @@ namespace Master
 				i--;
 			}
 		}
-	}
-
-	void server_config_parse(const char* text, ServerConfig* config)
-	{
-		// id, name, max_players, creator_id, game_type, team_count, preset, secret, region, and is_private are stored in DB row, not here
-
-		cJSON* json = cJSON_Parse(text);
-
-		{
-			cJSON* levels = cJSON_GetObjectItem(json, "levels");
-			cJSON* level = levels->child;
-			while (level)
-			{
-				config->levels.add(level->valueint);
-				level = level->next;
-			}
-		}
-		ServerConfig defaults;
-		new (&defaults) ServerConfig();
-
-		config->ruleset.upgrades_allow = s16(Json::get_s32(json, "upgrades_allow", defaults.ruleset.upgrades_allow));
-		config->ruleset.upgrades_default = s16(Json::get_s32(json, "upgrades_default", defaults.ruleset.upgrades_default));
-		{
-			cJSON* start_abilities = cJSON_GetObjectItem(json, "start_abilities");
-			if (start_abilities)
-			{
-				cJSON* u = start_abilities->child;
-				while (u && config->ruleset.start_abilities.length < config->ruleset.start_abilities.capacity())
-				{
-					config->ruleset.start_abilities.add(Ability(u->valueint));
-					u = u->next;
-				}
-			}
-		}
-		config->ruleset.enable_batteries = b8(Json::get_s32(json, "enable_batteries", defaults.ruleset.enable_batteries));
-		config->ruleset.drone_shield = s8(Json::get_s32(json, "drone_shield", defaults.ruleset.drone_shield));
-		config->ruleset.spawn_delay = s8(vi_max(1, vi_min(120, s32(Json::get_s32(json, "spawn_delay", defaults.ruleset.spawn_delay)))));
-		config->ruleset.start_energy = s16(Json::get_s32(json, "start_energy", defaults.ruleset.start_energy));
-		config->ruleset.cooldown_speed_index = u8(Json::get_s32(json, "cooldown_speed_index", defaults.ruleset.cooldown_speed_index));
-
-		config->min_players = s8(Json::get_s32(json, "min_players", defaults.min_players));
-		config->time_limit_parkour_ready = u8(Json::get_s32(json, "time_limit_parkour_ready", defaults.time_limit_parkour_ready));
-		for (s32 i = 0; i < s32(GameType::count); i++)
-		{
-			char key[64];
-			snprintf(key, 64, "time_limit_minutes_%s", ServerConfig::game_type_string(GameType(i)));
-			config->time_limit_minutes[i] = u8(Json::get_s32(json, key, defaults.time_limit_minutes[i]));
-		}
-		config->fill_bots = s8(Json::get_s32(json, "fill_bots", defaults.fill_bots));
-		config->kill_limit = s16(Json::get_s32(json, "kill_limit", defaults.kill_limit));
-		config->flag_limit = s16(Json::get_s32(json, "flag_limit", defaults.flag_limit));
-		strncpy(config->secret, Json::get_string(json, "secret", ""), MAX_SERVER_CONFIG_SECRET);
-
-		cJSON_Delete(json);
-	}
-
-	// caller must free() the returned string
-	char* server_config_stringify(const ServerConfig& config)
-	{
-		ServerConfig defaults;
-		new (&defaults) ServerConfig();
-
-		cJSON* json = cJSON_CreateObject();
-
-		if (config.ruleset.upgrades_allow != defaults.ruleset.upgrades_allow)
-			cJSON_AddNumberToObject(json, "upgrades_allow", config.ruleset.upgrades_allow);
-		if (config.ruleset.upgrades_default != defaults.ruleset.upgrades_default)
-			cJSON_AddNumberToObject(json, "upgrades_default", config.ruleset.upgrades_default);
-		if (config.ruleset.start_abilities.length > 0)
-		{
-			cJSON* start_abilities = cJSON_CreateArray();
-			cJSON_AddItemToObject(json, "start_abilities", start_abilities);
-			for (s32 i = 0; i < config.ruleset.start_abilities.length; i++)
-				cJSON_AddItemToArray(start_abilities, cJSON_CreateNumber(s32(config.ruleset.start_abilities[i])));
-		}
-		if (config.ruleset.enable_batteries != defaults.ruleset.enable_batteries)
-			cJSON_AddNumberToObject(json, "enable_batteries", config.ruleset.enable_batteries);
-		if (config.ruleset.drone_shield != defaults.ruleset.drone_shield)
-			cJSON_AddNumberToObject(json, "drone_shield", config.ruleset.drone_shield);
-		if (config.ruleset.spawn_delay != defaults.ruleset.spawn_delay)
-			cJSON_AddNumberToObject(json, "spawn_delay", config.ruleset.spawn_delay);
-		if (config.ruleset.start_energy != defaults.ruleset.start_energy)
-			cJSON_AddNumberToObject(json, "start_energy", config.ruleset.start_energy);
-		if (config.ruleset.cooldown_speed_index != defaults.ruleset.cooldown_speed_index)
-			cJSON_AddNumberToObject(json, "cooldown_speed_index", config.ruleset.cooldown_speed_index);
-
-		{
-			cJSON* levels = cJSON_CreateArray();
-			cJSON_AddItemToObject(json, "levels", levels);
-			for (s32 i = 0; i < config.levels.length; i++)
-				cJSON_AddItemToArray(levels, cJSON_CreateNumber(config.levels[i]));
-		}
-		if (config.min_players != defaults.min_players)
-			cJSON_AddNumberToObject(json, "min_players", config.min_players);
-		if (config.fill_bots != defaults.fill_bots)
-			cJSON_AddNumberToObject(json, "fill_bots", config.fill_bots);
-		if (config.kill_limit != defaults.kill_limit)
-			cJSON_AddNumberToObject(json, "kill_limit", config.kill_limit);
-		if (config.flag_limit != defaults.flag_limit)
-			cJSON_AddNumberToObject(json, "flag_limit", config.flag_limit);
-		if (config.time_limit_parkour_ready != defaults.time_limit_parkour_ready)
-			cJSON_AddNumberToObject(json, "time_limit_parkour_ready", config.time_limit_parkour_ready);
-		for (s32 i = 0; i < s32(GameType::count); i++)
-		{
-			if (config.time_limit_minutes[i] != defaults.time_limit_minutes[i])
-			{
-				char key[64];
-				snprintf(key, 64, "time_limit_minutes_%s", ServerConfig::game_type_string(GameType(i)));
-				cJSON_AddNumberToObject(json, key, config.time_limit_minutes[i]);
-			}
-		}
-
-		char* result = cJSON_Print(json);
-		cJSON_Delete(json);
-		return result; // caller must free() it
 	}
 
 	b8 server_config_get(u32 id, ServerConfig* config)
@@ -2432,8 +2319,7 @@ namespace Master
 				db_exec("create table UserServer (user_id integer not null, server_id integer not null, timestamp integer not null, role integer not null, foreign key (user_id) references User(id), foreign key (server_id) references ServerConfig(id), primary key (user_id, server_id));");
 				db_exec("create table Friendship (user1_id integer not null, user2_id integer not null, foreign key (user1_id) references User(id), foreign key (user2_id) references User(id), primary key (user1_id, user2_id));");
 				db_exec("create table AuthAttempt (timestamp integer not null, type integer not null, ip text not null, user_id integer, foreign key (user_id) references User(id));");
-				db_exec("create table DiscordUser (id integer primary key, time_offset_half_hour integer, member_available_role boolean not null);");
-				db_exec("create table DiscordPlaytime (user_id integer, start integer not null, end integer not null);");
+				db_exec("create table DiscordUser (id integer primary key, playtime integer, member_available_role boolean not null);");
 				db_exec("create table Email (email text, key text);");
 			}
 			db_exec("update ServerConfig set online=0;");
@@ -2782,161 +2668,6 @@ namespace DiscordBot
 		return exists;
 	}
 
-	// returns true if user has set their time offset
-	b8 user_time_offset_half_hour(const char* id, s32* time_offset_half_hour = nullptr)
-	{
-		sqlite3_stmt* stmt = db_query("select time_offset_half_hour from DiscordUser where id=?;");
-		db_bind_text(stmt, 0, id);
-		b8 time_offset_set = false;
-		if (db_step(stmt))
-		{
-			if (!db_column_null(stmt, 0))
-			{
-				if (time_offset_half_hour)
-					*time_offset_half_hour = s32(db_column_int(stmt, 0));
-				time_offset_set = true;
-			}
-		}
-		db_finalize(stmt);
-		return time_offset_set;
-	}
-
-	// end is the last character parsed
-	b8 parse_time(const char* input, s32* hour = nullptr, s32* minute = nullptr, const char** end = nullptr)
-	{
-		// formats:
-		// 13
-		// 13:30
-		// 1330
-		// 1pm
-		b8 pm = false;
-		b8 am = false;
-
-		if (end)
-			*end = input;
-
-		char time_str[max_command + 1] = {};
-		{
-			s32 index = 0;
-			char c;
-			while ((c = *input) && index < max_command)
-			{
-				if (c == ':')
-				{
-					// skip
-				}
-				else if (c >= '0' && c <= '9')
-				{
-					time_str[index] = c;
-					index++;
-				}
-				else
-				{
-					if (c == 'a')
-						am = true;
-					else if (c == 'p')
-						pm = true;
-					break;
-				}
-				if (end)
-					*end = input;
-				input++;
-			}
-		}
-
-		s32 user_hour;
-		s32 user_minute;
-
-		switch (strlen(time_str))
-		{
-			case 1:
-			case 2:
-			{
-				user_hour = atoi(time_str);
-				user_minute = 0;
-				break;
-			}
-			case 3:
-			{
-				user_hour = time_str[0] - '0';
-				user_minute = atoi(&time_str[1]);
-				break;
-			}
-			case 4:
-			{
-				const char hour_str[3] = { time_str[0], time_str[1], 0 };
-				const char minute_str[3] = { time_str[2], time_str[3], 0 };
-				user_hour = atoi(hour_str);
-				user_minute = atoi(minute_str);
-				break;
-			}
-			default:
-				return false;
-		}
-
-		if (pm)
-		{
-			if (user_hour != 12)
-				user_hour += 12;
-		}
-		else if (am)
-		{
-			if (user_hour == 12)
-				user_hour = 0;
-		}
-
-		if (user_hour >= 0 && user_hour <= 23
-			&& user_minute >= 0 && user_minute <= 59)
-		{
-			if (hour)
-				*hour = user_hour;
-			if (minute)
-				*minute = user_minute;
-			return true;
-		}
-		else
-			return false;
-	}
-
-	const char* first_digit(const char* str)
-	{
-		if (!str)
-			return nullptr;
-
-		while (char c = *str)
-		{
-			if (c >= '0' && c <= '9')
-				return str;
-			str++;
-		}
-		return nullptr;
-	}
-
-	b8 parse_time_range(const char* time_str, std::tm* start, std::tm* end)
-	{
-		const char* end_of_start_time;
-		if (parse_time(time_str, &start->tm_hour, &start->tm_min, &end_of_start_time))
-		{
-			// do we have an end time?
-			end_of_start_time++;
-			const char* end_str = first_digit(end_of_start_time);
-			if (end_str)
-			{
-				if (parse_time(end_str, &end->tm_hour, &end->tm_min))
-					return true;
-			}
-			else
-			{
-				// no end time specified
-				*end = *start;
-				end->tm_min += 30;
-				return true;
-			}
-		}
-
-		return false;
-	}
-
 	void stats(s32* playing, s32* in_lobby, s32* available)
 	{
 		*playing = 0;
@@ -3025,172 +2756,22 @@ namespace DiscordBot
 				}
 			}
 
-			if (strstr(cmd, "!play ") == cmd || strcmp(cmd, "!play") == 0
-				|| strstr(cmd, "!p ") == cmd || strcmp(cmd, "!p") == 0)
+			if (strcmp(cmd, "!play") == 0 || strcmp(cmd, "!p") == 0)
 			{
-				s32 time_offset_half_hour;
-				if (user_time_offset_half_hour(author_id, &time_offset_half_hour))
-				{
-					// user has set local time offset
-
-					std::time_t now = std::time(nullptr);
-
-					std::tm start;
-					std::tm end;
-
-					if (strcmp(cmd, "!play") == 0 || strcmp(cmd, "!p") == 0)
-					{
-						// play now
-						start = *std::localtime(&now);
-						end = start;
-						end.tm_min += 30;
-					}
-					else
-					{
-						// play later
-						// formats:
-						// 7pm
-						// Thursday 7pm
-						// Thursday 7pm-9pm
-
-						// split argument away from command
-						char* time_str = strchr(cmd, ' ') + 1;
-						if (!(*time_str))
-							return;
-
-						std::tm now_local = *std::localtime(&now);
-						now_local.tm_min -= time_offset_half_hour * 30;
-						mktime(&now_local);
-						start = now_local;
-						end = now_local;
-
-						if (!parse_time_range(time_str, &start, &end))
-						{
-							// some other day?
-							start = now_local;
-							end = now_local;
-
-							const char* date_str = time_str;
-							time_str = strchr(time_str, ' ');
-							if (time_str)
-							{
-								time_str++;
-
-								{
-									s32 weekday;
-									if (strstr(date_str, "sun"))
-										weekday = 0;
-									else if (strstr(date_str, "mon"))
-										weekday = 1;
-									else if (strstr(date_str, "tue"))
-										weekday = 2;
-									else if (strstr(date_str, "wed"))
-										weekday = 3;
-									else if (strstr(date_str, "thu"))
-										weekday = 4;
-									else if (strstr(date_str, "fri"))
-										weekday = 5;
-									else if (strstr(date_str, "sat"))
-										weekday = 6;
-									else
-										weekday = -1;
-
-									if (weekday == -1)
-									{
-										if (strstr(date_str, "tom") || strstr(date_str, "tmw")) // tomorrow
-											start.tm_mday++;
-									}
-									else
-									{
-										// day of the week
-										start.tm_mday += weekday - now_local.tm_wday;
-										if (weekday <= now_local.tm_wday)
-											start.tm_mday += 7;
-									}
-								}
-
-								end.tm_mday = start.tm_mday;
-
-								if (!parse_time_range(time_str, &start, &end))
-									return;
-							}
-						}
-
-						// apply user's timezone
-						start.tm_min += time_offset_half_hour * 30;
-						end.tm_min += time_offset_half_hour * 30;
-					}
-					std::time_t start_timestamp = std::mktime(&start);
-					std::time_t end_timestamp = std::mktime(&end);
-
-					if (start_timestamp < now)
-						start_timestamp += 24 * 60 * 60;
-					while (end_timestamp < start_timestamp)
-						end_timestamp += 24 * 60 * 60;
-
-					sqlite3_stmt* stmt = db_query("insert into DiscordPlaytime (user_id, start, end) values (?, ?, ?);");
-					db_bind_text(stmt, 0, author_id);
-					db_bind_int(stmt, 1, s64(start_timestamp));
-					db_bind_int(stmt, 2, s64(end_timestamp));
-					db_exec(stmt);
-
-					cmd_acknowledge(msg);
-				}
-				else
-				{
-					std::ostringstream response;
-					response << "<@!" << author_id << "> First set your local time like this: !time 7pm";
-					msg_post(response.str().c_str());
-				}
+				sqlite3_stmt* stmt = db_query("update DiscordUser set playtime=? where id=?;");
+				db_bind_int(stmt, 0, s64(real_timestamp));
+				db_bind_text(stmt, 1, author_id);
+				db_exec(stmt);
+				cmd_acknowledge(msg);
 			}
-			else if (strstr(cmd, "!time ") == cmd || strstr(cmd, "!t ") == cmd)
+			else if (strcmp(cmd, "!leave") == 0 || strcmp(cmd, "!l") == 0)
 			{
-				// split argument away from command
-				char* time_str = strchr(cmd, ' ') + 1;
-				if (!(*time_str))
-					return;
-
-				s32 user_hour;
-				s32 user_minute;
-				if (parse_time(time_str, &user_hour, &user_minute))
-				{
-					std::time_t now = std::time(nullptr);
-					std::tm now_local = *std::localtime(&now);
-					s32 offset_hour = now_local.tm_hour - user_hour;
-					s32 offset_minute = now_local.tm_min - user_minute;
-					s32 offset_half_hour = offset_hour * 2 + (offset_minute >= 30 ? 1 : 0);
-					if (offset_half_hour > 24)
-						offset_half_hour -= 48;
-					else if (offset_half_hour < -24)
-						offset_half_hour += 48;
-
-					if (user_exists(author_id))
-					{
-						// update existing user
-						sqlite3_stmt* stmt = db_query("update DiscordUser set time_offset_half_hour=? where id=?;");
-						db_bind_int(stmt, 0, offset_half_hour);
-						db_bind_text(stmt, 1, author_id);
-						db_exec(stmt);
-					}
-					else
-					{
-						// create user
-						sqlite3_stmt* stmt = db_query("insert into DiscordUser (id, time_offset_half_hour, member_available_role) values (?, ?, 0);");
-						db_bind_text(stmt, 0, author_id);
-						db_bind_int(stmt, 1, offset_half_hour);
-						db_exec(stmt);
-					}
-					cmd_acknowledge(msg);
-				}
-			}
-			else if (strcmp(cmd, "!clear") == 0 || strcmp(cmd, "!c") == 0)
-			{
-				sqlite3_stmt* stmt = db_query("delete from DiscordPlaytime where user_id=?;");
+				sqlite3_stmt* stmt = db_query("update DiscordUser set playtime=null where id=?;");
 				db_bind_text(stmt, 0, author_id);
 				db_exec(stmt);
 				cmd_acknowledge(msg);
 			}
-			else if (strcmp(cmd, "!stats") == 0)
+			else if (strcmp(cmd, "!stats") == 0 || strcmp(cmd, "!s") == 0)
 			{
 				s32 playing;
 				s32 in_lobby;
@@ -3201,60 +2782,13 @@ namespace DiscordBot
 				build_stat_msg(&response, playing, in_lobby, available, true);
 				msg_post(response.str().c_str());
 			}
-			else if (strcmp(cmd, "!schedule") == 0 || strcmp(cmd, "!sched") == 0)
-			{
-				s32 time_offset_half_hour;
-				if (user_time_offset_half_hour(author_id, &time_offset_half_hour))
-				{
-					std::ostringstream response;
-					sqlite3_stmt* stmt = db_query("select start, end from DiscordPlaytime;");
-					b8 has_entry = false;
-					s64 offset_seconds = time_offset_half_hour * 30 * 60;
-					while (db_step(stmt))
-					{
-						s64 start = db_column_int(stmt, 0) + offset_seconds;
-						s64 end = db_column_int(stmt, 1) + offset_seconds;
-
-						std::tm tm;
-
-						char start_str[129] = {};
-						if (start < s64(real_timestamp) + offset_seconds)
-							strcpy(start_str, "Now");
-						else
-						{
-							tm = *localtime((const time_t*)(&start));
-							strftime(start_str, 128, "%A %I:%M%p", &tm);
-						}
-
-						if (end > start + 3600) // more than an hour
-						{
-							char end_str[129] = {};
-							tm = *localtime((const time_t*)(&end));
-							strftime(end_str, 128, "%A %I:%M%p", &tm);
-							response << start_str << " - " << end_str << "\n";
-						}
-						else
-							response << start_str << "\n";
-
-						has_entry = true;
-					}
-
-					if (!has_entry)
-						response << "Nothing scheduled.";
-					msg_post(response.str().c_str());
-					db_finalize(stmt);
-				}
-			}
 			else // user is trying to do a !command. show help
 			{
 				std::ostringstream response;
 				response << "<@!" << author_id << ">\n" <<
-					"!play - indicate you want to play now!\n"
-					"!play <time range> - indicate desired play time, ex: !play Tue 2pm-3pm\n"
-					"!time <time> - set your local time, ex: !time 7pm\n"
-					"!clear - clear play times\n"
-					"!stats - see who's playing\n"
-					"!schedule - see when people are playing\n";
+					"!play - indicate you want to play!\n"
+					"!leave - indicate you're done playing\n"
+					"!stats - see who's playing";
 				msg_post(response.str().c_str());
 			}
 		}
@@ -3296,17 +2830,10 @@ namespace DiscordBot
 
 	void poll_update()
 	{
-		{
-			sqlite3_stmt* stmt = db_query("delete from DiscordPlaytime where end < ?;");
-			db_bind_int(stmt, 0, s64(real_timestamp));
-			db_exec(stmt);
-		}
-
 		// add members to available role
 		{
-			sqlite3_stmt* stmt = db_query("select distinct DiscordPlaytime.user_id from DiscordPlaytime left join DiscordUser on DiscordPlaytime.user_id=DiscordUser.id where DiscordPlaytime.start <= ? and DiscordPlaytime.end > ? and DiscordUser.member_available_role=0;");
-			db_bind_int(stmt, 0, s64(real_timestamp));
-			db_bind_int(stmt, 1, s64(real_timestamp));
+			sqlite3_stmt* stmt = db_query("select id from DiscordUser where member_available_role=0 and playtime is not null and playtime >= ?;");
+			db_bind_int(stmt, 0, s64(real_timestamp - PLAY_TIME));
 			typedef StaticArray<char, MAX_DISCORD_ID_LENGTH + 1> DiscordId;
 			Array<DiscordId> member_ids;
 			while (db_step(stmt))
@@ -3343,9 +2870,8 @@ namespace DiscordBot
 
 		// remove members from available role
 		{
-			sqlite3_stmt* stmt = db_query("select distinct DiscordUser.id from DiscordUser where DiscordUser.member_available_role=1 and (select count(1) from DiscordPlaytime where DiscordPlaytime.user_id=DiscordUser.id and DiscordPlaytime.start <= ? and DiscordPlaytime.end > ?)=0;");
-			db_bind_int(stmt, 0, s64(real_timestamp));
-			db_bind_int(stmt, 1, s64(real_timestamp));
+			sqlite3_stmt* stmt = db_query("select id from DiscordUser where member_available_role=1 and (playtime is null or playtime < ?);");
+			db_bind_int(stmt, 0, s64(real_timestamp - PLAY_TIME));
 			while (db_step(stmt))
 			{
 				const char* member_id = db_column_text(stmt, 0);

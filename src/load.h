@@ -13,6 +13,15 @@ struct cJSON;
 namespace VI
 {
 
+namespace Net
+{
+	namespace Master
+	{
+		struct ServerListEntry;
+		struct ServerConfig;
+	}
+}
+
 struct Loader
 {
 	enum AssetType { AssetNone, AssetTransient, AssetPermanent };
@@ -106,6 +115,10 @@ struct Loader
 	
 	static void settings_load(const Array<DisplayMode>&, const DisplayMode&);
 	static void settings_save();
+
+	static void offline_configs_load();
+	static void offline_config_get(s32, Net::Master::ServerConfig*);
+	static void offline_config_save(Net::Master::ServerConfig*);
 
 	static void transients_free();
 

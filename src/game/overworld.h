@@ -29,7 +29,8 @@ struct ResourceInfo
 enum class State : s8
 {
 	Hidden,
-	Multiplayer,
+	MultiplayerOnline,
+	MultiplayerOffline,
 	StoryMode,
 	StoryModeOverlay,
 	StoryModeDeploying,

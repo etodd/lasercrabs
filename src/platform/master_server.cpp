@@ -2693,9 +2693,7 @@ namespace DiscordBot
 		}
 
 		{
-			sqlite3_stmt* stmt = db_query("select count(distinct user_id) from DiscordPlaytime where start < ? and end > ?");
-			db_bind_int(stmt, 0, s64(real_timestamp));
-			db_bind_int(stmt, 1, s64(real_timestamp));
+			sqlite3_stmt* stmt = db_query("select count(1) from DiscordUser where member_available_role=1;");
 			db_step(stmt);
 			*available = db_column_int(stmt, 0);
 			db_finalize(stmt);
@@ -2710,6 +2708,25 @@ namespace DiscordBot
 			(*msg) << "\nIn lobby:" << in_lobby;
 		if (available > 0 || include_all)
 			(*msg) << "\nLooking to play: " << available;
+	}
+
+	void ensure_user_exists(const char* id)
+	{
+		b8 exists;
+		{
+			sqlite3_stmt* stmt = db_query("select count(1) from DiscordUser where id=?;");
+			db_bind_text(stmt, 0, id);
+			db_step(stmt);
+			exists = b8(db_column_int(stmt, 0));
+			db_finalize(stmt);
+		}
+
+		if (!exists)
+		{
+			sqlite3_stmt* stmt = db_query("insert into DiscordUser (id, playtime, member_available_role) values (?, null, 0);");
+			db_bind_text(stmt, 0, id);
+			db_exec(stmt);
+		}
 	}
 
 	void msg_handle(cJSON* msg)
@@ -2758,6 +2775,7 @@ namespace DiscordBot
 
 			if (strcmp(cmd, "!play") == 0 || strcmp(cmd, "!p") == 0)
 			{
+				ensure_user_exists(author_id);
 				sqlite3_stmt* stmt = db_query("update DiscordUser set playtime=? where id=?;");
 				db_bind_int(stmt, 0, s64(real_timestamp));
 				db_bind_text(stmt, 1, author_id);
@@ -2766,6 +2784,7 @@ namespace DiscordBot
 			}
 			else if (strcmp(cmd, "!leave") == 0 || strcmp(cmd, "!l") == 0)
 			{
+				ensure_user_exists(author_id);
 				sqlite3_stmt* stmt = db_query("update DiscordUser set playtime=null where id=?;");
 				db_bind_text(stmt, 0, author_id);
 				db_exec(stmt);

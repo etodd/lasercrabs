@@ -312,15 +312,39 @@ void multiplayer_switch_tab(ServerListType type)
 	}
 }
 
+Rect2 multiplayer_viewport()
+{
+	// HACK
+	Camera* camera = data.camera.ref();
+	if (!camera)
+		camera = Camera::list.iterator().item();
+	return camera->viewport;
+}
+
 Rect2 multiplayer_main_view_rect()
 {
-	const DisplayMode& display = Settings::display();
-	Vec2 center = Vec2(r32(display.width), r32(display.height)) * 0.5f;
+	Rect2 vp = multiplayer_viewport();
+	Vec2 center = Vec2(r32(vp.size.x), r32(vp.size.y)) * 0.5f;
 	Vec2 tab_size = TAB_SIZE;
 	return
 	{
 		center + MAIN_VIEW_SIZE * -0.5f + Vec2(0, -tab_size.y),
 		MAIN_VIEW_SIZE,
+	};
+}
+
+UIMenu::Origin multiplayer_menu_origin()
+{
+	Rect2 vp = multiplayer_viewport();
+	r32 y =
+		data.multiplayer.state == Data::Multiplayer::State::EntryEdit && data.multiplayer.edit_mode != Data::Multiplayer::EditMode::Main
+		? (vp.size.y * 0.6f) - MENU_ITEM_HEIGHT * 2.0f
+		: vp.size.y * 0.6f;
+	return
+	{
+		Vec2(vp.size.x * 0.5f, y),
+		UIText::Anchor::Center,
+		UIText::Anchor::Max,
 	};
 }
 
@@ -708,21 +732,6 @@ void game_type_string(UIText* text, Net::Master::Ruleset::Preset preset, GameTyp
 		text->text(0, "%s %s %s", _(preset_strings[s32(preset)]), _(teams_type), _(game_type_string(type)));
 }
 
-UIMenu::Origin multiplayer_menu_origin()
-{
-	const DisplayMode& display = Settings::display();
-	r32 y =
-		data.multiplayer.state == Data::Multiplayer::State::EntryEdit && data.multiplayer.edit_mode != Data::Multiplayer::EditMode::Main
-		? (display.height * 0.6f) - MENU_ITEM_HEIGHT * 2.0f
-		: display.height * 0.6f;
-	return
-	{
-		Vec2(display.width * 0.5f, y),
-		UIText::Anchor::Center,
-		UIText::Anchor::Max,
-	};
-}
-
 void multiplayer_entry_edit_update(const Update& u)
 {
 	b8 cancel = data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::Back, u)
@@ -790,6 +799,7 @@ void multiplayer_entry_edit_update(const Update& u)
 				s32 delta;
 				char str[MAX_PATH_LENGTH + 1];
 
+				if (data.state == State::MultiplayerOnline)
 				{
 					// private
 					b8* is_private = &config->is_private;
@@ -925,6 +935,7 @@ void multiplayer_entry_edit_update(const Update& u)
 						data.multiplayer.active_server_dirty = true;
 				}
 
+				if (data.state == State::MultiplayerOnline)
 				{
 					// region
 					if (UIMenu::enum_option(&config->region, menu->slider_item(u, _(strings::region), _(Menu::region_string(config->region)))))
@@ -1426,25 +1437,28 @@ void multiplayer_update(const Update& u)
 	if (Menu::main_menu_state != Menu::State::Hidden || Game::scheduled_load_level != AssetNull)
 		return;
 
-	for (s32 i = 1; i < MAX_GAMEPADS; i++)
+	if (Game::level.mode == Game::Mode::Special) // only add or remove players beforehand, not in-game
 	{
-		if (u.input->gamepads[i].type == Gamepad::Type::None)
-			Game::session.local_player_mask &= ~(1 << i);
-		else
+		for (s32 i = 1; i < MAX_GAMEPADS; i++)
 		{
-			b8 player_active = Game::session.local_player_mask & (1 << i);
-			if (!player_active
-				&& ((u.last_input->get(Controls::Interact, i) && !u.input->get(Controls::Interact, i))
-					|| (u.last_input->get(Controls::Start, i) && !u.input->get(Controls::Start, i))))
-			{
-				Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER, i);
-				Game::session.local_player_mask |= 1 << i;
-			}
-			else if (player_active
-				&& u.last_input->get(Controls::Cancel, i) && !u.input->get(Controls::Cancel, i))
-			{
-				Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, i);
+			if (u.input->gamepads[i].type == Gamepad::Type::None)
 				Game::session.local_player_mask &= ~(1 << i);
+			else
+			{
+				b8 player_active = Game::session.local_player_mask & (1 << i);
+				if (!player_active
+					&& ((u.last_input->get(Controls::Interact, i) && !u.input->get(Controls::Interact, i))
+						|| (u.last_input->get(Controls::Start, i) && !u.input->get(Controls::Start, i))))
+				{
+					Audio::post_global(AK::EVENTS::PLAY_MENU_ALTER, i);
+					Game::session.local_player_mask |= 1 << i;
+				}
+				else if (player_active
+					&& u.last_input->get(Controls::Cancel, i) && !u.input->get(Controls::Cancel, i))
+				{
+					Audio::post_global(AK::EVENTS::PLAY_DIALOG_CANCEL, i);
+					Game::session.local_player_mask &= ~(1 << i);
+				}
 			}
 		}
 	}
@@ -1736,7 +1750,7 @@ void multiplayer_entry_edit_draw(const RenderParams& params, const Rect2& rect)
 				text.wrap_width = MENU_ITEM_WIDTH + (PADDING * -2.0f);
 				text.size = MENU_ITEM_FONT_SIZE;
 				if (data.multiplayer.active_server.config.name[0] == '\0')
-					text.text(0, _(strings::entry_create));
+					text.text(0, _(data.state == State::MultiplayerOnline ? strings::entry_create_online : strings::entry_create_offline));
 				else
 				{
 					text.font = Asset::Font::pt_sans;

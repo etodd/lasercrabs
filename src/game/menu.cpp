@@ -657,9 +657,9 @@ void title_menu(const Update& u, Camera* camera)
 				}
 				else
 				{
-					if (main_menu.item(u, _(strings::discord)))
+					if (main_menu.item(u, _(strings::discord), nullptr, false, Asset::Mesh::icon_vip))
 						open_url("https://discord.gg/eZGapeY");
-					if (main_menu.item(u, _(strings::newsletter)))
+					if (main_menu.item(u, _(strings::newsletter), nullptr, false, Asset::Mesh::icon_vip))
 						open_url("https://eepurl.com/U50O5");
 					if (main_menu.item(u, _(strings::credits)))
 						main_menu_state = State::Credits;
@@ -1951,9 +1951,9 @@ b8 player(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* men
 
 	if (menu->item(u, _(strings::back)))
 		exit = true;
-	else
+	else if (!Game::level.local)
 	{
-		if (!Game::level.local && selected->get<PlayerHuman>()->gamepad == 0)
+		if (selected->get<PlayerHuman>()->gamepad == 0)
 		{
 			// add/remove friend
 			FriendshipState friendship = teams_selected_player_friendship[gamepad];
@@ -1995,6 +1995,8 @@ b8 player(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* men
 		teams_selected_player[gamepad] = nullptr;
 	}
 
+	menu->end(u);
+
 	return true;
 }
 
@@ -2013,7 +2015,7 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 		if (menu->item(u, _(strings::back)))
 			exit = true;
 
-		if (me->get<PlayerHuman>()->gamepad == 0)
+		if (!Game::level.local && me->get<PlayerHuman>()->gamepad == 0)
 			menu->text(u, _(strings::prompt_options));
 	}
 
@@ -2023,7 +2025,8 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 		b8 disabled = input == UIMenu::EnableInput::No || (selected && i.item() != selected) || (i.item() != me && mode == TeamSelectMode::MatchStart);
 		AssetID icon = i.item()->flag(PlayerManager::FlagCanSpawn) ? Asset::Mesh::icon_checkmark : AssetNull;
 
-		if (mode == TeamSelectMode::Normal
+		if (!Game::level.local
+			&& mode == TeamSelectMode::Normal
 			&& input == UIMenu::EnableInput::Yes
 			&& teams_selected_player[gamepad].ref() == nullptr
 			&& menu->selected == menu->items.length && me != i.item() && i.item()->has<PlayerHuman>()
@@ -2034,7 +2037,8 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 			teams_selected_player[gamepad] = i.item();
 			teams_selected_player_friendship[gamepad] = FriendshipState::None;
 #if !SERVER
-			Net::Client::master_friendship_get(i.item()->get<PlayerHuman>()->master_id);
+			if (!Game::level.local)
+				Net::Client::master_friendship_get(i.item()->get<PlayerHuman>()->master_id);
 #endif
 			menu->end(u);
 			return State::Player;

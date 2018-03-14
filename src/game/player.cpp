@@ -1015,7 +1015,7 @@ void PlayerHuman::update(const Update& u)
 
 	// after this point, it's all input-related stuff
 	if (Console::visible
-		|| Overworld::active()
+		|| (gamepad == 0 && Overworld::active())
 		|| Game::level.mode == Game::Mode::Special
 #if !SERVER
 		|| Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying
@@ -2023,7 +2023,7 @@ void PlayerHuman::draw_battery_flag_icons(const RenderParams& params) const
 {
 	UIMode mode = ui_mode();
 	if (params.camera == camera.ref()
-		&& !Overworld::active()
+		&& (gamepad != 0 || !Overworld::active())
 		&& local()
 		&& (mode == UIMode::PvpSpectate || mode == UIMode::PvpDefault || mode == UIMode::PvpUpgrade))
 	{
@@ -2184,7 +2184,7 @@ void PlayerHuman::draw_ui_early(const RenderParams& params) const
 void PlayerHuman::draw_ui(const RenderParams& params) const
 {
 	if (params.camera != camera.ref()
-		|| Overworld::active()
+		|| (gamepad == 0 && Overworld::active())
 		|| Game::level.noclip
 		|| !local())
 		return;
@@ -3695,7 +3695,7 @@ b8 PlayerControlHuman::input_enabled() const
 	return !Console::visible
 		&& player.ref()->chat_focus == PlayerHuman::ChatFocus::None
 		&& !cinematic_active()
-		&& !Overworld::active()
+		&& (player.ref()->gamepad != 0 || !Overworld::active())
 		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)
 		&& Team::match_state == Team::MatchState::Active
 		&& !Menu::dialog_active(player.ref()->gamepad)
@@ -5003,7 +5003,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 {
 	if (params.technique != RenderTechnique::Default
 		|| params.camera != player.ref()->camera.ref()
-		|| Overworld::active()
+		|| (player.ref()->gamepad == 0 && Overworld::active())
 		|| Game::level.noclip
 		|| Team::match_state == Team::MatchState::Done)
 		return;

@@ -329,7 +329,14 @@ s32 impact_damage(const Drone* drone, const Entity* target_shield)
 		&& (target_shield->get<Drone>()->state() != Drone::State::Crawl || target_shield->get<AIAgent>()->team == drone->get<AIAgent>()->team))
 		return 0;
 
-	Vec3 ray_dir = drone->get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+	Vec3 ray_dir;
+	{
+		r32 speed = drone->velocity.length();
+		if (speed == 0.0f)
+			return 1;
+		else
+			ray_dir = drone->velocity / speed;
+	}
 
 	Net::StateFrame state_frame;
 

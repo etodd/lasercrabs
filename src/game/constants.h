@@ -16,7 +16,7 @@
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 33
+#define GAME_VERSION 34
 
 #define STEAM_APP_ID 728100
 #define DISCORD_APP_ID "367724608469860353"
@@ -138,7 +138,7 @@
 #define DRONE_CAMERA_SMOOTH_TIME 1.0f
 
 #define MINION_SPAWNER_RADIUS 0.3f
-#define MINION_SPAWNER_HEALTH 9
+#define MINION_SPAWNER_HEALTH 6
 
 #define TURRET_HEALTH 12
 #define TURRET_RADIUS 0.5f

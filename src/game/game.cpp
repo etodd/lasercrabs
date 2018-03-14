@@ -1168,7 +1168,6 @@ void Game::add_local_player(s8 gamepad)
 	vi_assert
 	(
 		level.local
-		&& level.mode == Mode::Pvp
 		&& session.type == SessionType::Multiplayer
 		&& PlayerHuman::list.count() < session.config.max_players
 		&& !PlayerHuman::for_gamepad(gamepad)

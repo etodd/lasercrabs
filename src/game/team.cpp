@@ -980,29 +980,47 @@ void Team::update_all_server(const Update& u)
 	{
 		if (Game::level.mode == Game::Mode::Parkour && Game::session.type == SessionType::Multiplayer)
 		{
-			if (PlayerManager::list.count() >= Game::session.config.min_players && Game::scheduled_load_level == AssetNull)
+			if (Game::scheduled_load_level == AssetNull)
 			{
 				r32 time_limit = 60.0f * r32(Game::session.config.time_limit_parkour_ready);
-				if (PlayerManager::parkour_ready_count() == PlayerManager::list.count())
+				if (PlayerManager::list.count() >= Game::session.config.min_players)
 				{
-					r32 t = time_limit - r32(PARKOUR_GAME_START_COUNTDOWN);
-					if (Team::match_time < t)
+					// enough players to start
+
+					if (PlayerManager::parkour_ready_count() == PlayerManager::list.count())
 					{
-						Team::match_time = t;
+						// everyone's ready, skip ahead
+						r32 t = time_limit - r32(PARKOUR_GAME_START_COUNTDOWN);
+						if (Team::match_time < t)
+						{
+							Team::match_time = t;
+#if SERVER
+							Net::Server::sync_time();
+#endif
+						}
+					}
+
+					if (time_limit > 0.0f && Team::match_time > time_limit)
+					{
+						// start the match
+						Game::config_apply();
+#if SERVER
+						Net::Server::transition_level();
+#endif
+						Game::schedule_load_level(Game::level.id, Game::Mode::Pvp);
+					}
+				}
+				else
+				{
+					// not enough players, cancel the countdown
+					r32 t = time_limit - r32(PARKOUR_GAME_START_COUNTDOWN) * 2.0f;
+					if (Team::match_time > t)
+					{
+						Team::match_time = 0.0f;
 #if SERVER
 						Net::Server::sync_time();
 #endif
 					}
-				}
-
-				if (time_limit > 0.0f && Team::match_time > time_limit)
-				{
-					// start the match
-					Game::config_apply();
-#if SERVER
-					Net::Server::transition_level();
-#endif
-					Game::schedule_load_level(Game::level.id, Game::Mode::Pvp);
 				}
 			}
 		}

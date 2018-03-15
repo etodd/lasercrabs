@@ -3242,19 +3242,19 @@ b8 Bolt::raycast(const Vec3& trace_start, const Vec3& trace_end, s16 mask, AI::T
 // returns true if the bolt hit something
 b8 Bolt::simulate(r32 dt, Hit* out_hit, const Net::StateFrame* state_frame)
 {
-	if (!visible()) // waiting for damage buffer
-		return false;
-
-	Vec3 pos = get<Transform>()->absolute_pos();
-
 	remaining_lifetime -= dt;
 	if (!state_frame && remaining_lifetime < 0.0f)
 	{
-		ParticleEffect::spawn(ParticleEffect::Type::Fizzle, pos, Quat::look(Vec3::normalize(velocity)));
+		if (visible())
+			ParticleEffect::spawn(ParticleEffect::Type::Fizzle, get<Transform>()->absolute_pos(), Quat::look(Vec3::normalize(velocity)));
 		World::remove_deferred(entity());
 		return false;
 	}
 
+	if (!visible()) // waiting for damage buffer
+		return false;
+
+	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 next_pos = pos + velocity * dt;
 	Vec3 trace_end = next_pos + Vec3::normalize(velocity) * BOLT_LENGTH;
 
@@ -3459,6 +3459,7 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 				// wait for damage buffer
 				destroy = false;
 				velocity = Vec3::zero;
+				remaining_lifetime = NET_MAX_RTT_COMPENSATION * 2.0f;
 			}
 			hit_object->get<Health>()->damage(entity(), damage);
 		}

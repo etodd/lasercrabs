@@ -629,7 +629,7 @@ void title_menu(const Update& u, Camera* camera)
 			else
 			{
 				main_menu.start(u, origin, 0);
-				if (main_menu.item(u, _(strings::story), nullptr, true))
+				if (main_menu.item(u, _(strings::story), nullptr, !Settings::god_mode))
 				{
 					Scripts::Docks::play();
 					clear();

@@ -3149,7 +3149,8 @@ b8 Bolt::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 	if (ref.ref())
 	{
-		Audio::post_global(AK::EVENTS::PLAY_BOLT_REFLECT, ref.ref()->get<Transform>()->absolute_pos());
+		if (ref.ref()->type != Type::DroneShotgun || mersenne::rand() % 2 == 0)
+			Audio::post_global(AK::EVENTS::PLAY_BOLT_REFLECT, ref.ref()->get<Transform>()->absolute_pos());
 		if (change_team)
 		{
 			ref.ref()->reflected = true;

@@ -242,6 +242,8 @@ struct Game
 	static void auth_succeeded(const Net::Master::UserKey&, const char*);
 	static void term();
 
+	static b8 needs_override();
+
 	static b8 should_pause();
 	static b8 hi_contrast();
 	static void remove_bots_if_necessary(s32);

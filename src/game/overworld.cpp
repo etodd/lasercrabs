@@ -388,6 +388,29 @@ void multiplayer_offline_config_loaded()
 	multiplayer_server_config_loaded();
 }
 
+b8 multiplayer_browse_entry_valid(const Data::Multiplayer::ServerList& server_list, s32 index)
+{
+	return data.state == State::MultiplayerOffline || (index < server_list.entries.length && server_list.entries[index].server_state.id);
+}
+
+void multiplayer_browse_select(const Data::Multiplayer::ServerList& server_list, s32 index)
+{
+	multiplayer_state_transition(Data::Multiplayer::State::EntryView);
+	if (data.state == State::MultiplayerOnline)
+	{
+		data.multiplayer.active_server.config.id = server_list.entries[index].server_state.id;
+		multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigGet);
+#if !SERVER
+		Net::Client::master_request_server_details(data.multiplayer.active_server.config.id, data.multiplayer.request_id);
+#endif
+	}
+	else
+	{
+		Loader::offline_config_get(server_list.entries[index].server_state.id, &data.multiplayer.active_server.config);
+		multiplayer_offline_config_loaded();
+	}
+}
+
 void multiplayer_browse_update(const Update& u)
 {
 	// back
@@ -445,27 +468,15 @@ void multiplayer_browse_update(const Update& u)
 		{
 			for (s32 i = server_list->scroll.top(); i < server_list->scroll.bottom(server_list->entries.length); i++)
 			{
-				if (multiplayer_browse_entry_rect(data.multiplayer.top_bar, *server_list, i).contains(u.input->cursor))
+				if (multiplayer_browse_entry_valid(*server_list, i)
+					&& multiplayer_browse_entry_rect(data.multiplayer.top_bar, *server_list, i).contains(u.input->cursor))
 				{
 					server_list->selected = i;
 					if (u.last_input->keys.get(s32(KeyCode::MouseLeft)) && !u.input->keys.get(s32(KeyCode::MouseLeft)))
 					{
 						// select entry
-						multiplayer_state_transition(Data::Multiplayer::State::EntryView);
 						Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
-						if (data.state == State::MultiplayerOnline)
-						{
-							data.multiplayer.active_server.config.id = server_list->entries[i].server_state.id;
-							multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigGet);
-#if !SERVER
-							Net::Client::master_request_server_details(data.multiplayer.active_server.config.id, data.multiplayer.request_id);
-#endif
-						}
-						else
-						{
-							Loader::offline_config_get(server_list->entries[i].server_state.id, &data.multiplayer.active_server.config);
-							multiplayer_offline_config_loaded();
-						}
+						multiplayer_browse_select(*server_list, i);
 						return;
 					}
 
@@ -486,25 +497,12 @@ void multiplayer_browse_update(const Update& u)
 			Audio::post_global(AK::EVENTS::PLAY_MENU_MOVE, 0);
 	}
 
-	if (server_list->selected < server_list->entries.length
+	if (multiplayer_browse_entry_valid(*server_list, server_list->selected)
 		&& (data.multiplayer.top_bar.button_clicked(Data::Multiplayer::TopBarLayout::Button::Type::Select, u) || (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))))
 	{
 		// select entry
 		Audio::post_global(AK::EVENTS::PLAY_MENU_SELECT, 0);
-		multiplayer_state_transition(Data::Multiplayer::State::EntryView);
-		if (data.state == State::MultiplayerOnline)
-		{
-			data.multiplayer.active_server.config.id = server_list->entries[server_list->selected].server_state.id;
-			multiplayer_request_setup(Data::Multiplayer::RequestType::ConfigGet);
-#if !SERVER
-			Net::Client::master_request_server_details(data.multiplayer.active_server.config.id, data.multiplayer.request_id);
-#endif
-		}
-		else
-		{
-			Loader::offline_config_get(server_list->entries[server_list->selected].server_state.id, &data.multiplayer.active_server.config);
-			multiplayer_offline_config_loaded();
-		}
+		multiplayer_browse_select(*server_list, server_list->selected);
 		return;
 	}
 
@@ -1643,57 +1641,61 @@ void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 		for (s32 i = list.scroll.top(); i < list.scroll.bottom(list.entries.length); i++)
 		{
 			const Net::Master::ServerListEntry& entry = list.entries[i];
-			b8 selected = i == list.selected;
 
 			UI::box(params, { pos, panel_size }, UI::color_background);
 
-			if (selected)
+			if (multiplayer_browse_entry_valid(list, i))
 			{
-				b8 active = (Rect2(pos, panel_size).contains(params.sync->input.cursor) && params.sync->input.keys.get(s32(KeyCode::MouseLeft)))
-					|| params.sync->input.get(Controls::Interact, 0); // is the user pressing down on this entry?
-				UI::border(params, Rect2(pos, panel_size).outset(-2.0f * UI::scale), 2.0f, active ? UI::color_alert() : UI::color_accent());
-			}
+				b8 selected = i == list.selected;
 
-			text.color = selected ? UI::color_accent() : UI::color_default;
-			text.clip = 40;
-			text.text_raw(0, entry.name, UITextFlagSingleLine);
-			text.draw(params, pos + Vec2(PADDING, panel_size.y * 0.5f));
+				if (selected)
+				{
+					b8 active = (Rect2(pos, panel_size).contains(params.sync->input.cursor) && params.sync->input.keys.get(s32(KeyCode::MouseLeft)))
+						|| params.sync->input.get(Controls::Interact, 0); // is the user pressing down on this entry?
+					UI::border(params, Rect2(pos, panel_size).outset(-2.0f * UI::scale), 2.0f, active ? UI::color_alert() : UI::color_accent());
+				}
 
-			text.clip = 18;
-			text.icon = entry.creator_vip ? Asset::Mesh::icon_vip : AssetNull;
-			text.text_raw(0, entry.creator_username, UITextFlagSingleLine);
-			text.draw(params, pos + Vec2(panel_size.x * 0.4f, panel_size.y * 0.5f));
-			text.icon = AssetNull;
-			text.clip = 0;
+				text.color = selected ? UI::color_accent() : UI::color_default;
+				text.clip = 40;
+				text.text_raw(0, entry.name, UITextFlagSingleLine);
+				text.draw(params, pos + Vec2(PADDING, panel_size.y * 0.5f));
 
-			if (entry.server_state.level != AssetNull)
-			{
-				text.text_raw(0, Loader::level_name(entry.server_state.level));
-				text.draw(params, pos + Vec2(panel_size.x * 0.55f, panel_size.y * 0.5f));
-			}
+				text.clip = 18;
+				text.icon = entry.creator_vip ? Asset::Mesh::icon_vip : AssetNull;
+				text.text_raw(0, entry.creator_username, UITextFlagSingleLine);
+				text.draw(params, pos + Vec2(panel_size.x * 0.4f, panel_size.y * 0.5f));
+				text.icon = AssetNull;
+				text.clip = 0;
 
-			{
-				game_type_string(&text, entry.preset, entry.game_type, entry.team_count, entry.max_players);
-				text.draw(params, pos + Vec2(panel_size.x * 0.69f, panel_size.y * 0.5f));
-			}
+				if (entry.server_state.level != AssetNull)
+				{
+					text.text_raw(0, Loader::level_name(entry.server_state.level));
+					text.draw(params, pos + Vec2(panel_size.x * 0.55f, panel_size.y * 0.5f));
+				}
 
-			{
-				if (!selected)
-					text.color = UI::color_default;
-				s32 max_players = entry.server_state.level == AssetNull ? entry.max_players : entry.server_state.max_players;
-				text.text(0, "%d/%d", vi_max(0, max_players - entry.server_state.player_slots), max_players);
-				text.draw(params, pos + Vec2(panel_size.x * 0.88f, panel_size.y * 0.5f));
-			}
+				{
+					game_type_string(&text, entry.preset, entry.game_type, entry.team_count, entry.max_players);
+					text.draw(params, pos + Vec2(panel_size.x * 0.69f, panel_size.y * 0.5f));
+				}
 
-			if (entry.server_state.level != AssetNull) // there's a server running this config
-			{
-				r32 p = ping(entry.addr);
-				if (p > 0.0f)
 				{
 					if (!selected)
-						text.color = UI::color_ping(p);
-					text.text(0, _(strings::ping), s32(p * 1000.0f));
-					text.draw(params, pos + Vec2(panel_size.x * 0.95f, panel_size.y * 0.5f));
+						text.color = UI::color_default;
+					s32 max_players = entry.server_state.level == AssetNull ? entry.max_players : entry.server_state.max_players;
+					text.text(0, "%d/%d", vi_max(0, max_players - entry.server_state.player_slots), max_players);
+					text.draw(params, pos + Vec2(panel_size.x * 0.88f, panel_size.y * 0.5f));
+				}
+
+				if (entry.server_state.level != AssetNull) // there's a server running this config
+				{
+					r32 p = ping(entry.addr);
+					if (p > 0.0f)
+					{
+						if (!selected)
+							text.color = UI::color_ping(p);
+						text.text(0, _(strings::ping), s32(p * 1000.0f));
+						text.draw(params, pos + Vec2(panel_size.x * 0.95f, panel_size.y * 0.5f));
+					}
 				}
 			}
 
@@ -2358,65 +2360,6 @@ void zone_draw_mesh(const RenderParams& params, AssetID mesh, const Vec3& pos, c
 }
 
 #define BACKGROUND_COLOR Vec4(0.8f, 0.8f, 0.8f, 1)
-void zones_draw_override(const RenderParams& params)
-{
-	struct Comparator
-	{
-		r32 priority(const ZoneNode* n)
-		{
-			// sort farthest zones first
-			Vec3 camera_forward = data.camera.ref()->rot * Vec3(0, 0, 1);
-			return camera_forward.dot(n->pos() - data.camera.ref()->pos);
-		}
-
-		s32 compare(const ZoneNode* a, const ZoneNode* b)
-		{
-			r32 pa = priority(a);
-			r32 pb = priority(b);
-			if (pa > pb)
-				return 1;
-			else if (pa == pb)
-				return 0;
-			else
-				return -1;
-		}
-	};
-
-	StaticArray<const ZoneNode*, Asset::Level::count> zones;
-
-	Comparator key;
-
-	for (s32 i = 0; i < global.zones.length; i++)
-	{
-		const ZoneNode* zone = &global.zones[i];
-		// flash if necessary
-		if (Game::session.type == SessionType::Multiplayer
-			|| Game::real_time.total > data.story.map.zones_change_time[zone->id] + 0.5f
-			|| UI::flash_function(Game::real_time.total))
-		{
-			zones.add(zone);
-		}
-	}
-
-	Quicksort::sort<const ZoneNode*, Comparator>(zones.data, 0, zones.length, &key);
-
-	RenderSync* sync = params.sync;
-
-	sync->write(RenderOp::DepthTest);
-	sync->write<b8>(true);
-
-	for (s32 i = 0; i < zones.length; i++)
-	{
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::Back);
-		const ZoneNode& zone = *zones[i];
-		zone_draw_mesh(params, zone.mesh, zone.pos(), Vec4(zone_color(zone), 1.0f));
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::Front);
-		zone_draw_mesh(params, zone.mesh, zone.pos(), BACKGROUND_COLOR);
-	}
-}
-
 // returns current zone node
 const ZoneNode* zones_draw(const RenderParams& params)
 {
@@ -3798,10 +3741,68 @@ void draw_opaque(const RenderParams& params)
 	}
 }
 
+b8 needs_override()
+{
+	return modal() && should_draw_zones();
+}
+
 void draw_override(const RenderParams& params)
 {
-	if (modal() && should_draw_zones())
-		zones_draw_override(params);
+	struct Comparator
+	{
+		r32 priority(const ZoneNode* n)
+		{
+			// sort farthest zones first
+			Vec3 camera_forward = data.camera.ref()->rot * Vec3(0, 0, 1);
+			return camera_forward.dot(n->pos() - data.camera.ref()->pos);
+		}
+
+		s32 compare(const ZoneNode* a, const ZoneNode* b)
+		{
+			r32 pa = priority(a);
+			r32 pb = priority(b);
+			if (pa > pb)
+				return 1;
+			else if (pa == pb)
+				return 0;
+			else
+				return -1;
+		}
+	};
+
+	StaticArray<const ZoneNode*, Asset::Level::count> zones;
+
+	Comparator key;
+
+	for (s32 i = 0; i < global.zones.length; i++)
+	{
+		const ZoneNode* zone = &global.zones[i];
+		// flash if necessary
+		if (Game::session.type == SessionType::Multiplayer
+			|| Game::real_time.total > data.story.map.zones_change_time[zone->id] + 0.5f
+			|| UI::flash_function(Game::real_time.total))
+		{
+			zones.add(zone);
+		}
+	}
+
+	Quicksort::sort<const ZoneNode*, Comparator>(zones.data, 0, zones.length, &key);
+
+	RenderSync* sync = params.sync;
+
+	sync->write(RenderOp::DepthTest);
+	sync->write<b8>(true);
+
+	for (s32 i = 0; i < zones.length; i++)
+	{
+		sync->write<RenderOp>(RenderOp::CullMode);
+		sync->write<RenderCullMode>(RenderCullMode::Back);
+		const ZoneNode& zone = *zones[i];
+		zone_draw_mesh(params, zone.mesh, zone.pos(), Vec4(zone_color(zone), 1.0f));
+		sync->write<RenderOp>(RenderOp::CullMode);
+		sync->write<RenderCullMode>(RenderCullMode::Front);
+		zone_draw_mesh(params, zone.mesh, zone.pos(), BACKGROUND_COLOR);
+	}
 }
 
 void draw_hollow(const RenderParams& params)

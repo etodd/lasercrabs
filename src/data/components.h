@@ -44,9 +44,8 @@ struct PointLight : public ComponentType<PointLight>
 {
 	enum class Type : s8
 	{
-		Normal = 1,
-		Override = 1 << 1,
-		Shockwave = 1 << 2,
+		Normal,
+		Shockwave,
 		count,
 	};
 

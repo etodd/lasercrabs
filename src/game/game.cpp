@@ -1218,6 +1218,7 @@ void Game::draw_opaque(const RenderParams&) { }
 void Game::draw_alpha(const RenderParams&) { }
 void Game::draw_hollow(const RenderParams&) { }
 void Game::draw_override(const RenderParams&) { }
+b8 Game::needs_override() { return false; }
 void Game::draw_particles(const RenderParams&) { }
 void Game::draw_additive(const RenderParams&) { }
 void Game::draw_alpha_late(const RenderParams&) { }
@@ -1557,6 +1558,11 @@ void Game::draw_hollow(const RenderParams& render_params)
 
 	if (Settings::antialiasing)
 		AI::draw_hollow(render_params);
+}
+
+b8 Game::needs_override()
+{
+	return Overworld::needs_override();
 }
 
 void Game::draw_override(const RenderParams& render_params)

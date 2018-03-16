@@ -170,7 +170,7 @@ void render_point_light(const RenderParams& render_params, const Vec3& pos, r32 
 	sync->write(Asset::Mesh::sphere);
 }
 
-void render_point_lights(const RenderParams& render_params, s32 type_mask, const Vec2& inv_buffer_size, s16 team_mask)
+void render_point_lights(const RenderParams& render_params, const Vec2& inv_buffer_size, s16 team_mask)
 {
 	LoopSync* sync = render_params.sync;
 
@@ -222,22 +222,18 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 	for (auto i = PointLight::list.iterator(); !i.is_last(); i.next())
 	{
 		PointLight* light = i.item();
-		if (!(s32(light->type) & type_mask) || !(light->mask & render_params.camera->mask))
-			continue;
-
-		if (light->team != (s8)AI::TeamNone && !((1 << light->team) & team_mask))
-			continue;
-
-		render_point_light(render_params, light->get<Transform>()->to_world(light->offset), light->radius, light->type, light->color, light->team);
+		if ((light->mask & render_params.camera->mask)
+			&& (light->team == s8(AI::TeamNone) || ((1 << light->team) & team_mask)))
+			render_point_light(render_params, light->get<Transform>()->to_world(light->offset), light->radius, light->type, light->color, light->team);
 	}
 
 	if (render_params.camera->mask & RENDER_MASK_DEFAULT)
 	{
 		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 		{
-			if ((i.item()->type == EffectLight::Type::Spark || i.item()->type == EffectLight::Type::BoltDroneBolter || i.item()->type == EffectLight::Type::Grenade) && s32(PointLight::Type::Normal) & type_mask)
+			if (i.item()->type == EffectLight::Type::Spark || i.item()->type == EffectLight::Type::BoltDroneBolter || i.item()->type == EffectLight::Type::Grenade)
 				render_point_light(render_params, i.item()->absolute_pos(), i.item()->radius(), PointLight::Type::Normal, Vec3(i.item()->opacity()), AI::TeamNone);
-			else if (i.item()->type == EffectLight::Type::Shockwave && s32(PointLight::Type::Shockwave) & type_mask)
+			else if (i.item()->type == EffectLight::Type::Shockwave)
 				render_point_light(render_params, i.item()->absolute_pos(), i.item()->radius(), PointLight::Type::Shockwave, Vec3(i.item()->opacity()), AI::TeamNone);
 		}
 	}
@@ -466,6 +462,36 @@ void draw_edges(const RenderParams& render_params)
 	sync->write(false);
 }
 
+void stencil_back_faces(const RenderParams& render_params)
+{
+	if (render_params.camera->cull_range > 0.0f)
+	{
+		Loader::shader_permanent(Asset::Shader::stencil_back_faces);
+
+		RenderSync* sync = render_params.sync;
+		sync->write(RenderOp::Shader);
+		sync->write<AssetID>(Asset::Shader::stencil_back_faces);
+		sync->write(RenderTechnique::Default);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::normal_buffer);
+		sync->write(RenderDataType::Texture);
+		sync->write<s32>(1);
+		sync->write(RenderTextureType::Texture2D);
+		sync->write<AssetID>(g_normal_buffer);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::inv_buffer_size);
+		sync->write(RenderDataType::Vec2);
+		sync->write<s32>(1);
+		sync->write<Vec2>(1.0f / Vec2(r32(Settings::display().width), r32(Settings::display().height)));
+
+		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
+		sync->write(Game::screen_quad.mesh);
+	}
+}
+
 void draw_alpha(const RenderParams& render_params)
 {
 	RenderSync* sync = render_params.sync;
@@ -562,7 +588,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	}
 
 	// render override lights
-	if (!render_params.camera->flag(CameraFlagColors))
+	if (Game::needs_override())
 	{
 		sync->write(RenderOp::DepthTest);
 		sync->write(false);
@@ -576,20 +602,6 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderCullMode::Front);
 		sync->write(RenderOp::BlendMode);
 		sync->write(RenderBlendMode::AlphaDestination);
-
-		if (camera->team == s8(-1))
-		{
-			// render all override lights
-			render_point_lights(render_params, s32(PointLight::Type::Override), inv_buffer_size, -1);
-		}
-		else
-		{
-			// render our team lights first
-			render_point_lights(render_params, s32(PointLight::Type::Override), inv_buffer_size, 1 << camera->team);
-
-			// render other team lights
-			render_point_lights(render_params, s32(PointLight::Type::Override), inv_buffer_size, ~(1 << camera->team));
-		}
 
 		Game::draw_override(render_params);
 
@@ -929,7 +941,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(RenderOp::BlendMode);
 			sync->write(RenderBlendMode::Additive);
 
-			render_point_lights(render_params, s32(PointLight::Type::Normal) | s32(PointLight::Type::Shockwave), inv_buffer_size, -1);
+			render_point_lights(render_params, inv_buffer_size, -1);
 		}
 
 		{
@@ -1218,6 +1230,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			render_params.depth_buffer = color2_depth_buffer;
 			draw_alpha(render_params);
 			draw_edges(render_params); // draw edges directly on scene
+			stencil_back_faces(render_params);
 		}
 
 		sync->write(RenderOp::DepthTest);
@@ -1281,32 +1294,9 @@ void draw(LoopSync* sync, const Camera* camera)
 			render_params.depth_buffer = color2_depth_buffer;
 			draw_alpha(render_params);
 			draw_edges(render_params);
+			stencil_back_faces(render_params);
 
 			// stencil out back faces
-			if (render_params.camera->cull_range > 0.0f)
-			{
-				Loader::shader_permanent(Asset::Shader::stencil_back_faces);
-				sync->write(RenderOp::Shader);
-				sync->write<AssetID>(Asset::Shader::stencil_back_faces);
-				sync->write(RenderTechnique::Default);
-
-				sync->write(RenderOp::Uniform);
-				sync->write(Asset::Uniform::normal_buffer);
-				sync->write(RenderDataType::Texture);
-				sync->write<s32>(1);
-				sync->write(RenderTextureType::Texture2D);
-				sync->write<AssetID>(g_normal_buffer);
-
-				sync->write(RenderOp::Uniform);
-				sync->write(Asset::Uniform::inv_buffer_size);
-				sync->write(RenderDataType::Vec2);
-				sync->write<s32>(1);
-				sync->write<Vec2>(inv_buffer_size);
-
-				sync->write(RenderOp::Mesh);
-				sync->write(RenderPrimitiveMode::Triangles);
-				sync->write(Game::screen_quad.mesh);
-			}
 
 			Game::draw_alpha_late(render_params);
 		}

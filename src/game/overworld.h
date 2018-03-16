@@ -56,6 +56,7 @@ void draw_ui(const RenderParams&);
 void draw_hollow(const RenderParams&);
 void draw_opaque(const RenderParams&);
 void draw_override(const RenderParams&);
+b8 needs_override();
 void show(Camera*, State, StoryTab = StoryTab::Map);
 void shop_flags(s32);
 void server_settings(Camera*);

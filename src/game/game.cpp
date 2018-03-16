@@ -712,7 +712,10 @@ namespace Auth
 	{
 #if !SERVER
 		if (mg_conn_ipv4 || mg_conn_ipv6)
+		{
 			mg_mgr_free(&mg);
+			mg_conn_ipv4 = mg_conn_ipv6 = nullptr;
+		}
 #endif
 		active = false;
 	}

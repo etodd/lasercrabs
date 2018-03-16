@@ -459,7 +459,7 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 
 			r32 timestamp;
 #if SERVER
-			timestamp = Net::timestamp() - (vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt) - Net::interpolation_delay(manager->get<PlayerHuman>())) * Game::session.effective_time_scale();
+			timestamp = Net::timestamp() - (vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt) + Net::interpolation_delay(manager->get<PlayerHuman>())) * Game::session.effective_time_scale();
 #else
 			timestamp = Net::timestamp();
 #endif
@@ -933,7 +933,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 							r32 timestamp;
 #if SERVER
-							timestamp = Net::timestamp() - (vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt) - Net::interpolation_delay(manager->get<PlayerHuman>())) * Game::session.effective_time_scale();
+							timestamp = Net::timestamp() - (vi_min(NET_MAX_RTT_COMPENSATION, drone->get<PlayerControlHuman>()->rtt) + Net::interpolation_delay(manager->get<PlayerHuman>())) * Game::session.effective_time_scale();
 #else
 							timestamp = Net::timestamp();
 #endif
@@ -1304,7 +1304,7 @@ b8 Drone::net_state_frame(Net::StateFrame* state_frame) const
 	{
 		r32 timestamp;
 #if SERVER
-		timestamp = Net::timestamp() - (vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt) - Net::interpolation_delay(get<PlayerControlHuman>()->player.ref())) * Game::session.effective_time_scale();
+		timestamp = Net::timestamp() - (vi_min(NET_MAX_RTT_COMPENSATION, get<PlayerControlHuman>()->rtt) + Net::interpolation_delay(get<PlayerControlHuman>()->player.ref())) * Game::session.effective_time_scale();
 #else
 		// should never happen on client
 		timestamp = 0.0f;
@@ -1659,8 +1659,8 @@ void Drone::cooldown_recoil_setup(Ability a)
 	get<PlayerCommon>()->recoil_add(info.recoil_velocity);
 }
 
-// if the property in question is remote controlled, adjustment is the amount that should be subtracted due to network lag
-b8 is_remote_controlled(const Drone* drone, r32 last_local_change, r32* adjustment)
+// if the cooldown in question is remote controlled, adjustment is the amount that should be subtracted due to network lag
+b8 cooldown_is_remote_controlled(const Drone* drone, r32 last_local_change, r32* adjustment)
 {
 	if (Game::level.local)
 	{
@@ -1676,10 +1676,11 @@ b8 is_remote_controlled(const Drone* drone, r32 last_local_change, r32* adjustme
 			// this facilitates client-side prediction
 			PlayerHuman* player = drone->get<PlayerControlHuman>()->player.ref();
 			r32 rtt = Net::rtt(player);
-			if (Game::real_time.total - last_local_change > (rtt + Net::interpolation_delay(player)) + Net::tick_rate() * 2.0f)
+			r32 interpolation_delay = Net::interpolation_delay(player);
+			if (Game::real_time.total - last_local_change > rtt + interpolation_delay + Net::tick_rate() * 2.0f)
 			{
 				if (adjustment)
-					*adjustment = rtt * DRONE_COOLDOWN_SPEED * Game::session.effective_time_scale();
+					*adjustment = (rtt + interpolation_delay) * DRONE_COOLDOWN_SPEED * Game::session.effective_time_scale();
 				return true;
 			}
 			else
@@ -1702,13 +1703,13 @@ b8 is_remote_controlled(const Drone* drone, r32 last_local_change, r32* adjustme
 // if the cooldown is remote controlled, adjustment is the amount that should be subtracted due to network lag
 b8 Drone::cooldown_remote_controlled(r32* adjustment) const
 {
-	return is_remote_controlled(this, cooldown_last_local_change, adjustment);
+	return cooldown_is_remote_controlled(this, cooldown_last_local_change, adjustment);
 }
 
 // if the cooldown is remote controlled, adjustment is the amount that should be subtracted due to network lag
 b8 Drone::cooldown_ability_switch_remote_controlled(r32* adjustment) const
 {
-	return is_remote_controlled(this, cooldown_ability_switch_last_local_change, adjustment);
+	return cooldown_is_remote_controlled(this, cooldown_ability_switch_last_local_change, adjustment);
 }
 
 void Drone::ensure_detached()

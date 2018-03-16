@@ -60,7 +60,8 @@ struct TransformState
 {
 	Quat rot;
 	Vec3 pos;
-	Vec3 local_offset;
+	Vec3 target_local_offset;
+	Vec3 target_velocity;
 	Ref<Transform> parent;
 	Revision revision;
 	Resolution resolution;

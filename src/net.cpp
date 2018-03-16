@@ -39,7 +39,7 @@
 #define DEBUG_ENTITY 0
 #define DEBUG_TRANSFORMS 0
 #define DEBUG_LAG 0
-#define DEBUG_LAG_AMOUNT 0.5f
+#define DEBUG_LAG_AMOUNT 0.05f
 #define DEBUG_PACKET_LOSS 0
 #define DEBUG_PACKET_LOSS_AMOUNT 0.05f
 
@@ -1825,9 +1825,9 @@ void state_frame_build(StateFrame* frame)
 			transform->parent = i.item()->parent.ref(); // ID must come out to IDNull if it's null; don't rely on revision to null the reference
 			transform->resolution = transform_resolution(i.item());
 			if (i.item()->has<Target>())
-				transform->local_offset = i.item()->get<Target>()->local_offset;
+				transform->target_local_offset = i.item()->get<Target>()->local_offset;
 			else
-				transform->local_offset = Vec3::zero;
+				transform->target_local_offset = Vec3::zero;
 		}
 	}
 
@@ -1895,7 +1895,7 @@ void transform_absolute(const StateFrame& frame, s32 index, Vec3* abs_pos, Quat*
 	if (local_offset)
 	{
 		vi_assert(index >= 0 && index < MAX_ENTITIES);
-		*local_offset = frame.transforms[index].local_offset;
+		*local_offset = frame.transforms[index].target_local_offset;
 	}
 	while (index != IDNull)
 	{ 
@@ -1982,7 +1982,7 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 				{
 					transform->pos = Vec3::lerp(blend, last.pos, next.pos);
 					transform->rot = Quat::slerp(blend, last.rot, next.rot);
-					transform->local_offset = Vec3::lerp(blend, last.local_offset, next.local_offset);
+					transform->target_local_offset = Vec3::lerp(blend, last.target_local_offset, next.target_local_offset);
 				}
 				else
 				{
@@ -1995,14 +1995,14 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 
 					transform->pos = Vec3::lerp(blend, last_pos, next.pos);
 					transform->rot = Quat::slerp(blend, last_rot, next.rot);
-					transform->local_offset = Vec3::lerp(blend, last.local_offset, next.local_offset);
+					transform->target_local_offset = Vec3::lerp(blend, last.target_local_offset, next.target_local_offset);
 				}
 			}
 			else
 			{
 				transform->pos = next.pos;
 				transform->rot = next.rot;
-				transform->local_offset = next.local_offset;
+				transform->target_local_offset = next.target_local_offset;
 			}
 			index = b.transforms_active.next(index);
 		}

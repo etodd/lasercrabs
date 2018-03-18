@@ -163,6 +163,8 @@ namespace LMath
 				plane_normal /= plane_normal_length;
 				Plane plane(plane_normal, sphere_pos);
 				*intersection = plane.intersect(ray_start, ray_end);
+				if ((*intersection - sphere_pos).length_squared() > (sphere_radius * 1.5f) * (sphere_radius * 1.5f))
+					*intersection = hit_pos;
 			}
 			else
 				*intersection = hit_pos;

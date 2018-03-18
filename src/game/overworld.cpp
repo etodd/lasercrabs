@@ -390,7 +390,7 @@ void multiplayer_offline_config_loaded()
 
 b8 multiplayer_browse_entry_valid(const Data::Multiplayer::ServerList& server_list, s32 index)
 {
-	return data.state == State::MultiplayerOffline || (index < server_list.entries.length && server_list.entries[index].server_state.id);
+	return index < server_list.entries.length && (data.state == State::MultiplayerOffline || server_list.entries[index].server_state.id);
 }
 
 void multiplayer_browse_select(const Data::Multiplayer::ServerList& server_list, s32 index)

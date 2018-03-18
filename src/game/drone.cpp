@@ -2375,7 +2375,7 @@ void Drone::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos,
 	}
 }
 
-void Drone::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const Vec3& other_wall_pos, r32 dt, r32 speed)
+void Drone::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const Vec3& other_wall_pos, r32 dt, r32 speed, IncludeDroneRadius include_drone_radius)
 {
 	Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 
@@ -2391,7 +2391,7 @@ void Drone::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, cons
 		Vec3 next_pos = pos + dir_flattened * dt * speed;
 
 		// make sure we don't penetrate the wall
-		next_pos += other_wall_normal * (get<RigidBody>()->size.x - (next_pos - other_wall_pos).dot(other_wall_normal));
+		next_pos += other_wall_normal * ((include_drone_radius == IncludeDroneRadius::Yes ? get<RigidBody>()->size.x : 0.01f) - (next_pos - other_wall_pos).dot(other_wall_normal));
 
 		Vec3 wall_ray_start = next_pos + wall_normal * DRONE_RADIUS;
 		Vec3 wall_ray_end = next_pos + wall_normal * DRONE_RADIUS * -2.0f;
@@ -2399,7 +2399,9 @@ void Drone::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, cons
 		btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray_start, wall_ray_end);
 		Physics::raycast(&ray_callback, ~DRONE_INACCESSIBLE_MASK & ~ally_force_field_mask());
 
-		if (ray_callback.hasHit() && !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
+		if (ray_callback.hasHit()
+			&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK)
+			&& Vec3(ray_callback.m_hitNormalWorld).dot(wall_normal) > 0.95f)
 		{
 			// check for obstacles
 			btCollisionWorld::ClosestRayResultCallback ray_callback2(pos, next_pos + dir_flattened * DRONE_RADIUS);
@@ -2514,7 +2516,7 @@ void Drone::crawl(const Vec3& dir_raw, r32 dt)
 				if (!transfer_wall(dir_normalized, ray_callback))
 				{
 					// Stay on our current wall
-					crawl_wall_edge(dir_normalized, ray_callback.m_hitNormalWorld, ray_callback.m_hitPointWorld, dt, speed);
+					crawl_wall_edge(dir_normalized, ray_callback.m_hitNormalWorld, ray_callback.m_hitPointWorld, dt, speed, IncludeDroneRadius::Yes);
 				}
 				return;
 			}
@@ -2530,20 +2532,48 @@ void Drone::crawl(const Vec3& dir_raw, r32 dt)
 
 		if (ray_callback.hasHit())
 		{
-			// all good, go ahead
-
+			// we have a surface, but is it suitable to walk on?
 			Vec3 other_wall_normal = ray_callback.m_hitNormalWorld;
-			Vec3 dir_flattened_other_wall = dir_normalized - other_wall_normal * other_wall_normal.dot(dir_normalized);
-			// check to make sure that our movement direction won't get flipped if we switch walls.
-			// this prevents jittering back and forth between walls all the time.
-			if (dir_flattened_other_wall.dot(dir_flattened) > 0.0f
-				&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
+
+			if (!(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & DRONE_INACCESSIBLE_MASK))
 			{
-				Vec3 to_next_wall = Vec3(ray_callback.m_hitPointWorld) - attach_point();
-				b8 next_wall_curves_away = wall_normal.dot(to_next_wall) < 0.0f;
-				r32 dir_flattened_dot = dir_flattened_other_wall.dot(wall_normal);
-				if ((next_wall_curves_away && dir_flattened_dot < 0.01f)
-					|| (!next_wall_curves_away && dir_flattened_dot > -0.01f))
+				// check to make sure that our movement direction won't get flipped if we switch walls.
+				// this prevents jittering back and forth between walls all the time.
+				Vec3 dir_flattened_other_wall = dir_normalized - other_wall_normal * other_wall_normal.dot(dir_normalized);
+
+				b8 valid;
+				if (other_wall_normal.dot(wall_normal) > 0.9999f)
+					valid = true;
+				else
+				{
+					// also flatten both the original direction and the direction on the new wall against the seam between the walls
+					// and see if they're going in the same direction
+					Vec3 seam = Vec3::normalize(wall_normal.cross(other_wall_normal));
+
+					Vec3 dir_flattened_other_wall_seam = dir_flattened_other_wall - seam * seam.dot(dir_flattened_other_wall);
+					Vec3 dir_flattened_seam = dir_flattened - seam * seam.dot(dir_flattened);
+					if (dir_flattened_other_wall_seam.dot(dir_flattened_seam) > 0.01f)
+						valid = true;
+					else
+					{
+						valid = false;
+						other_wall_normal = seam.cross(wall_normal);
+					}
+				}
+
+				if (valid)
+				{
+					Vec3 to_next_wall = Vec3(ray_callback.m_hitPointWorld) - attach_point();
+					b8 next_wall_curves_away = wall_normal.dot(to_next_wall) < 0.0f;
+					r32 dir_flattened_dot = dir_flattened_other_wall.dot(wall_normal);
+					if ((next_wall_curves_away && dir_flattened_dot < 0.01f)
+						|| (!next_wall_curves_away && dir_flattened_dot > -0.01f))
+						valid = true;
+					else
+						valid = false;
+				}
+
+				if (valid)
 				{
 					move
 					(
@@ -2555,7 +2585,7 @@ void Drone::crawl(const Vec3& dir_raw, r32 dt)
 				else
 				{
 					// stay on our current wall
-					crawl_wall_edge(dir_normalized, other_wall_normal, ray_callback.m_hitPointWorld, dt, speed);
+					crawl_wall_edge(dir_normalized, other_wall_normal, ray_callback.m_hitPointWorld, dt, speed, IncludeDroneRadius::No);
 				}
 			}
 		}
@@ -2589,7 +2619,7 @@ void Drone::crawl(const Vec3& dir_raw, r32 dt)
 				else
 				{
 					// stay on our current wall
-					crawl_wall_edge(dir_normalized, ray_callback.m_hitNormalWorld, ray_callback.m_hitPointWorld, dt, speed);
+					crawl_wall_edge(dir_normalized, ray_callback.m_hitNormalWorld, ray_callback.m_hitPointWorld, dt, speed, IncludeDroneRadius::No);
 				}
 			}
 		}

@@ -2496,10 +2496,12 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				amount.anchor_x = UIText::Anchor::Max;
 				amount.wrap_width = 0;
 
+				text.icon = item.icon;
 				text.text_raw(gamepad, item.label);
 				UIMenu::text_clip(&text, gamepad, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + r32(vi_min(i, 6)) * -5.0f);
 				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 				text.draw(params, p);
+				text.icon = AssetNull;
 				if (item.amount != -1)
 				{
 					amount.text(gamepad, "%d", item.amount);
@@ -2602,7 +2604,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				if (PlayerManager::list.count() >= Game::session.config.min_players)
 				{
 					AssetID ready = get<PlayerManager>()->flag(PlayerManager::FlagParkourReady) ? strings::prompt_parkour_unready : strings::prompt_parkour_ready;
-					text.text(gamepad, _(strings::parkour_ready_status_timer), remaining_minutes, remaining_seconds, PlayerManager::parkour_ready_count(), PlayerManager::list.count(), _(ready));
+					text.text(gamepad, _(strings::parkour_ready_status_timer), remaining_minutes, remaining_seconds, PlayerManager::count_parkour_ready(), PlayerManager::list.count(), _(ready));
 				}
 				else
 					text.text(gamepad, _(strings::parkour_ready_status), Game::session.config.min_players - PlayerManager::list.count());
@@ -2898,20 +2900,7 @@ void PlayerCommon::health_changed(const HealthEvent& e)
 {
 	if (e.hp + e.shield < 0 && e.source.ref())
 	{
-		Entity* src = e.source.ref();
-
-		PlayerManager* rewardee = nullptr;
-		if (src->has<PlayerCommon>())
-			rewardee = src->get<PlayerCommon>()->manager.ref();
-		else if (src->has<Bolt>())
-		{
-			Entity* owner = src->get<Bolt>()->owner.ref();
-			if (owner && owner->has<PlayerCommon>())
-				rewardee = owner->get<PlayerCommon>()->manager.ref();
-		}
-		else if (src->has<Grenade>())
-			rewardee = src->get<Grenade>()->owner.ref();
-
+		PlayerManager* rewardee = PlayerManager::owner(e.source.ref());
 		if (rewardee && rewardee->team.ref() != manager.ref()->team.ref())
 			rewardee->add_energy_and_notify(s32(e.hp + e.shield) * -ENERGY_DRONE_DAMAGE);
 	}

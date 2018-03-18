@@ -694,12 +694,13 @@ void Team::match_waiting()
 	}
 }
 
-void team_add_score_summary_item(PlayerManager* player, const char* label, s32 amount = -1)
+void team_add_score_summary_item(PlayerManager* player, const char* label, s32 amount = -1, AssetID icon = AssetNull)
 {
 	Team::ScoreSummaryItem* item = Team::score_summary.add();
 	item->amount = amount;
 	item->player = player;
 	item->team = player->team.ref()->team();
+	item->icon = icon;
 	strncpy(item->label, label, 512);
 	item->label[511] = '\0';
 }
@@ -726,7 +727,7 @@ b8 Team::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					i.item()->flag(PlayerManager::FlagScoreAccepted, false);
 					AI::Team team = i.item()->team.ref()->team();
-					team_add_score_summary_item(i.item(), i.item()->username);
+					team_add_score_summary_item(i.item(), i.item()->username, -1, i.item()->flag(PlayerManager::FlagIsVip) ? Asset::Mesh::icon_vip : AssetNull);
 					if (Game::session.type == SessionType::Story)
 					{
 						team_add_score_summary_item(i.item(), _(strings::energy_surplus), i.item()->energy);
@@ -987,7 +988,7 @@ void Team::update_all_server(const Update& u)
 				{
 					// enough players to start
 
-					if (PlayerManager::parkour_ready_count() == PlayerManager::list.count())
+					if (PlayerManager::count_parkour_ready() == PlayerManager::list.count())
 					{
 						// everyone's ready, skip ahead
 						r32 t = time_limit - r32(PARKOUR_GAME_START_COUNTDOWN);
@@ -1697,7 +1698,18 @@ void remove_player_from_local_mask(PlayerManager* m)
 		Game::session.local_player_mask &= ~(1 << m->get<PlayerHuman>()->gamepad);
 }
 
-s32 PlayerManager::parkour_ready_count()
+s32 PlayerManager::count_team_mask(AI::TeamMask mask)
+{
+	s32 result = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team.ref()->team(), mask))
+			result++;
+	}
+	return result;
+}
+
+s32 PlayerManager::count_parkour_ready()
 {
 	s32 result = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -2412,7 +2424,9 @@ void PlayerManager::update_all(const Update& u)
 
 PlayerManager* PlayerManager::owner(const Entity* e)
 {
-	if (e->has<PlayerCommon>())
+	if (!e)
+		return nullptr;
+	else if (e->has<PlayerCommon>())
 		return e->get<PlayerCommon>()->manager.ref();
 	else if (e->has<Minion>())
 		return e->get<Minion>()->owner.ref();

@@ -81,6 +81,7 @@ struct Team : public ComponentType<Team>
 	{
 		s32 amount;
 		Ref<PlayerManager> player;
+		AssetID icon;
 		AI::Team team;
 		char label[512];
 	};
@@ -207,7 +208,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	static b8 net_msg(Net::StreamRead*, PlayerManager*, Message, Net::MessageSource);
 	static PlayerManager* owner(const Entity*);
 	static void entity_killed_by(Entity*, Entity*);
-	static s32 parkour_ready_count();
+	static s32 count_parkour_ready();
+	static s32 count_team_mask(AI::TeamMask);
 
 	r32 spawn_timer;
 	r32 state_timer;

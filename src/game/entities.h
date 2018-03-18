@@ -367,6 +367,7 @@ struct ForceField : public ComponentType<ForceField>
 		FlagPermanent = 1 << 0,
 		FlagInvincible = 1 << 1,
 		FlagAttached = 1 << 2,
+		FlagBattery = 1 << 3,
 	};
 
 	enum class Type
@@ -374,6 +375,7 @@ struct ForceField : public ComponentType<ForceField>
 		Normal,
 		Permanent,
 		Invincible,
+		Battery,
 		count,
 	};
 
@@ -536,6 +538,7 @@ struct ParticleEffect
 		SpawnDrone,
 		SpawnMinion,
 		SpawnForceField,
+		SpawnBatteryForceField,
 		SpawnRectifier,
 		SpawnMinionSpawner,
 		SpawnTurret,

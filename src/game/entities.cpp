@@ -360,17 +360,25 @@ b8 Health::can_take_damage(Entity* damager, const Net::StateFrame* state_frame) 
 				return false;
 			case DroneCollisionState::FlyingDashing:
 			{
-				if (damager && damager->has<Bolt>())
+				// grenades and bolts can still damage drones while they are flying or dashing
+				if (damager)
 				{
-					Bolt::Type t = damager->get<Bolt>()->type;
-					if (t == Bolt::Type::DroneBolter || t == Bolt::Type::DroneShotgun)
+					if (damager->has<Grenade>())
 						return true;
+					else if (damager->has<Bolt>())
+					{
+						Bolt::Type t = damager->get<Bolt>()->type;
+						if (t == Bolt::Type::DroneBolter || t == Bolt::Type::DroneShotgun)
+							return true;
+					}
 				}
 				return false;
 			}
 			default:
+			{
 				vi_assert(false);
 				return false;
+			}
 		}
 	}
 	else if (has<Battery>() && damager && damager->has<Bolt>())
@@ -765,7 +773,7 @@ void battery_spawn_force_field(Battery* b)
 	Vec3 pos;
 	Quat rot;
 	b->spawn_point.ref()->get<Transform>()->absolute(&pos, &rot);
-	ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, pos + rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), rot, nullptr, nullptr, b->team);
+	ParticleEffect::spawn(ParticleEffect::Type::SpawnBatteryForceField, pos + rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), rot, nullptr, nullptr, b->team);
 }
 
 void Battery::awake()
@@ -2781,9 +2789,11 @@ Vec3 ForceField::base_pos() const
 
 void ForceField::health_changed(const HealthEvent& e)
 {
-	if (e.hp + e.shield < 0
-		&& get<Health>()->hp > 0)
+	if (e.hp + e.shield < 0)
 	{
+		PlayerManager* rewardee = PlayerManager::owner(e.source.ref());
+		if (rewardee && rewardee->team.ref()->team() != team)
+			rewardee->add_energy_and_notify(-s32(e.hp + e.shield));
 		damage_timer = FORCE_FIELD_DAMAGE_TIME;
 		if (PlayerHuman::notification(entity(), team, PlayerHuman::Notification::Type::ForceFieldUnderAttack))
 			PlayerHuman::log_add(_(strings::force_field_under_attack), AI::TeamNone, 1 << team);
@@ -2884,7 +2894,7 @@ void ForceField::update_all(const Update& u)
 
 			r32 blend = 1.0f - (i.item()->spawn_death_timer / FORCE_FIELD_ANIM_TIME);
 
-			s8 hp = (i.item()->flags & FlagPermanent) ? FORCE_FIELD_HEALTH : i.item()->get<Health>()->hp;
+			s8 hp = (i.item()->flags & FlagPermanent) ? 1 : i.item()->get<Health>()->hp;
 			if (hp == 0)
 			{
 				// dying
@@ -2976,19 +2986,44 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 
 	ForceField* field = create<ForceField>();
 	field->team = team;
+
+	if (type == ForceField::Type::Battery)
+	{
+		field->flags |= ForceField::FlagBattery;
+
+		// kill all enemy drones inside
+		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->get<AIAgent>()->team != team && (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS)
+				i.item()->get<Health>()->kill(nullptr);
+		}
+	}
+
 	if (type == ForceField::Type::Permanent)
 		field->flags |= ForceField::FlagPermanent | ForceField::FlagInvincible;
 	else
 	{
 		// normal (non-permanent) force field
 
-		create<Health>(FORCE_FIELD_HEALTH, FORCE_FIELD_HEALTH);
+		{
+			s8 health;
+			{
+				s32 enemy_count = PlayerManager::count_team_mask(~(1 << team));
+				if (enemy_count <= 1)
+					health = FORCE_FIELD_HEALTH_NERFED;
+				else if (enemy_count <= 2)
+					health = FORCE_FIELD_HEALTH_NORMAL;
+				else
+					health = FORCE_FIELD_HEALTH_BUFFED;
+			}
+			create<Health>(health, health);
+		}
 		create<Target>();
 		create<Shield>();
 
 		if (type == ForceField::Type::Invincible)
 			field->flags |= ForceField::FlagInvincible;
-		else if (type == ForceField::Type::Normal)
+		else if (type == ForceField::Type::Normal || type == ForceField::Type::Battery)
 		{
 			// destroy any overlapping friendly force field
 			for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
@@ -3561,7 +3596,7 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 		Audio::post_global(AK::EVENTS::PLAY_MINION_SPAWN, e.abs_pos);
 	else if (e.type == Type::SpawnDrone)
 		Audio::post_global(AK::EVENTS::PLAY_DRONE_SPAWN, e.abs_pos);
-	else if (e.type == Type::SpawnForceField)
+	else if (e.type == Type::SpawnForceField || e.type == Type::SpawnBatteryForceField)
 		Audio::post_global(AK::EVENTS::PLAY_FORCE_FIELD_SPAWN, e.abs_pos);
 	else if (e.type == Type::SpawnRectifier)
 		Audio::post_global(AK::EVENTS::PLAY_RECTIFIER_SPAWN, e.abs_pos);
@@ -3645,6 +3680,7 @@ b8 ParticleEffect::is_spawn_effect(Type t)
 	return t == Type::SpawnDrone
 		|| t == Type::SpawnMinion
 		|| t == Type::SpawnForceField
+		|| t == Type::SpawnBatteryForceField
 		|| t == Type::SpawnRectifier
 		|| t == Type::SpawnMinionSpawner
 		|| t == Type::SpawnTurret;
@@ -3674,7 +3710,7 @@ void ParticleEffect::update_all(const Update& u)
 			if (e->lifetime < threshold && e->lifetime + u.time.delta >= threshold)
 			{
 				EffectLight::add(e->abs_pos, GRENADE_RANGE * 0.5f, 0.75f, EffectLight::Type::Shockwave);
-				if (Game::level.local && (e->owner.ref() || e->type == Type::SpawnMinion || e->type == Type::SpawnForceField))
+				if (Game::level.local && (e->owner.ref() || e->type == Type::SpawnMinion || e->type == Type::SpawnForceField || e->type == Type::SpawnBatteryForceField))
 				{
 					switch (e->type)
 					{
@@ -3690,6 +3726,12 @@ void ParticleEffect::update_all(const Update& u)
 						{
 							AI::Team team = e->owner.ref() ? e->owner.ref()->team.ref()->team() : e->team;
 							Net::finalize(World::create<ForceFieldEntity>(e->parent.ref(), e->abs_pos, e->abs_rot, team));
+							break;
+						}
+						case Type::SpawnBatteryForceField:
+						{
+							AI::Team team = e->owner.ref() ? e->owner.ref()->team.ref()->team() : e->team;
+							Net::finalize(World::create<ForceFieldEntity>(e->parent.ref(), e->abs_pos, e->abs_rot, team, ForceField::Type::Battery));
 							break;
 						}
 						case Type::SpawnRectifier:
@@ -3771,6 +3813,7 @@ void ParticleEffect::draw_alpha(const RenderParams& p)
 					break;
 				}
 				case Type::SpawnForceField:
+				case Type::SpawnBatteryForceField:
 				{
 					size = Vec3(radius_scale * FORCE_FIELD_BASE_RADIUS * 1.75f, height_scale * (FORCE_FIELD_BASE_OFFSET + DRONE_RADIUS * 2.0f), radius_scale * FORCE_FIELD_BASE_RADIUS * 1.75f);
 					m.make_transform(e.abs_pos + e.abs_rot * Vec3(0, 0, -FORCE_FIELD_BASE_OFFSET), size, e.abs_rot * Quat::euler(0, 0, PI * 0.5f));
@@ -4255,7 +4298,7 @@ void Grenade::explode()
 				if (i.item()->get<ForceField>()->team != team)
 				{
 					if (distance < GRENADE_RANGE)
-						damage = FORCE_FIELD_HEALTH - 10;
+						damage = FORCE_FIELD_HEALTH_NORMAL - 10;
 				}
 			}
 			else if (i.item()->has<Grenade>() && i.item()->get<Grenade>()->team == team)

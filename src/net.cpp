@@ -709,8 +709,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		Battery* b = e->get<Battery>();
 		serialize_s8(p, b->team);
-		serialize_ref(p, b->light);
 		serialize_ref(p, b->spawn_point);
+		serialize_ref(p, b->force_field_visualization);
 		serialize_s16(p, b->energy);
 	}
 

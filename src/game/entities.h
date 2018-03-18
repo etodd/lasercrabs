@@ -125,8 +125,8 @@ struct Battery : public ComponentType<Battery>
 	static s32 count(AI::TeamMask);
 	static b8 net_msg(Net::StreamRead*);
 
-	Ref<Entity> light;
 	Ref<SpawnPoint> spawn_point;
+	Ref<Entity> force_field_visualization;
 	s16 energy;
 	AI::Team team = AI::TeamNone;
 

@@ -682,11 +682,20 @@ BatteryEntity::BatteryEntity(const Vec3& p, SpawnPoint* spawn, AI::Team team)
 	body->set_damping(0.5f, 0.5f);
 	body->set_ccd(true);
 
-	Entity* e = World::create<Empty>();
-	e->get<Transform>()->parent = get<Transform>();
-	e->add<PointLight>()->radius = 8.0f;
-	Net::finalize_child(e);
-	battery->light = e;
+	create<PointLight>()->radius = 8.0f;
+
+	if (spawn)
+	{
+		Entity* e = World::create<Empty>();
+		Transform* transform = e->get<Transform>();
+		transform->parent = spawn->get<Transform>();
+		transform->pos.z = FORCE_FIELD_BASE_OFFSET;
+		PointLight* light = e->add<PointLight>();
+		light->type = PointLight::Type::Shockwave;
+		light->radius = FORCE_FIELD_RADIUS;
+		Net::finalize_child(e);
+		battery->force_field_visualization = e;
+	}
 }
 
 void Battery::killed(Entity* e)
@@ -789,8 +798,8 @@ void Battery::awake()
 
 Battery::~Battery()
 {
-	if (Game::level.local && light.ref())
-		World::remove_deferred(light.ref());
+	if (Game::level.local && force_field_visualization.ref())
+		World::remove_deferred(force_field_visualization.ref());
 }
 
 void Battery::hit(const TargetEvent& e)

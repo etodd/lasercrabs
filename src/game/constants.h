@@ -16,7 +16,7 @@
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 
-#define GAME_VERSION 37
+#define GAME_VERSION 38
 
 #define STEAM_APP_ID 728100
 #define DISCORD_APP_ID "367724608469860353"
@@ -57,11 +57,7 @@
 #define NET_SERVER_IDLE_TIME 5.0f
 #define NET_MAX_RTT_COMPENSATION 0.2f
 
-#if RELEASE_BUILD
-#define LEVEL_ALLOWED(x) (x == 3 || x == 8 || x == 9 || x == 7) // Isca, Bithia Dam, Despina, Vashti Square
-#else
 #define LEVEL_ALLOWED(x) (true)
-#endif
 
 #define MAX_REVERBS 3
 
@@ -93,14 +89,14 @@
 
 #define ENERGY_INITIAL 0
 #define ENERGY_MINION_KILL 10
-#define ENERGY_RECTIFIER_DESTROY 10
+#define ENERGY_RECTIFIER_DESTROY 20
 #define ENERGY_FORCE_FIELD_DESTROY 10
 #define ENERGY_GRENADE_DESTROY 10
 #define ENERGY_DRONE_DESTROY 5
 #define ENERGY_DRONE_DAMAGE 15
-#define ENERGY_DEFAULT_INCREMENT 0
+#define ENERGY_DIE 40
 #define ENERGY_TURRET_DESTROY 20
-#define ENERGY_MINION_SPAWNER_DESTROY 20
+#define ENERGY_MINION_SPAWNER_DESTROY 15
 
 #define SPAWN_EFFECT_LIFETIME 1.5f
 #define UPGRADE_STATION_RADIUS 0.5f

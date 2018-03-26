@@ -53,8 +53,6 @@ enum class Message : s8
 	ClientRequestServerList, // a client requesting a server list from the master
 	ServerList, // master responding to a client with a server list
 	ClientSaveServerConfig, // a client telling the master server to create or update a server config
-	ClientRequestAscension, // a client is requesting an ascension username from the master server
-	Ascension, // master server responds with an ascension username
 	ServerConfig, // master responding to a client or server with ServerConfig data
 	ServerDetails, // master responding to a client with ServerDetails data
 	ServerConfigSaved, // master telling a client their config was created

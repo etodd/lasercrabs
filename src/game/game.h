@@ -240,6 +240,7 @@ struct Game
 	static void auth();
 	static void auth_failed();
 	static void auth_succeeded(const Net::Master::UserKey&, const char*);
+	static b8 auth_active();
 	static void term();
 
 	static b8 needs_override();

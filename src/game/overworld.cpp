@@ -1617,7 +1617,9 @@ void multiplayer_top_bar_draw(const RenderParams& params, const Data::Multiplaye
 
 void multiplayer_browse_draw(const RenderParams& params, const Rect2& rect)
 {
-	if (data.state == State::MultiplayerOnline && !Game::user_key.id)
+	if (data.state == State::MultiplayerOnline
+		&& !Game::user_key.id
+		&& Game::auth_active())
 	{
 		// not logged in yet
 		Menu::progress_infinite(params, _(strings::connecting), rect.pos + rect.size * 0.5f);

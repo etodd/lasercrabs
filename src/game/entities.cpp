@@ -5758,13 +5758,10 @@ r32 Ascensions::Entry::scale() const
 	return (Game::level.far_plane_get() / 100.0f) * LMath::lerpf(blend, 1.0f, 0.5f);
 }
 
-void Ascensions::add(const char* username, b8 vip)
+void Ascensions::add()
 {
 	Entry* e = list.add();
 	e->timer = ascension_total_time;
-	e->vip = vip;
-	memset(e->username, 0, sizeof(e->username));
-	strncpy(e->username, username, MAX_USERNAME);
 }
 
 void Ascensions::update(const Update& u)
@@ -5775,9 +5772,7 @@ void Ascensions::update(const Update& u)
 		if (timer < 0.0f)
 		{
 			timer = 40.0f + mersenne::randf_co() * 200.0f;
-#if !SERVER
-			Net::Client::master_request_ascension();
-#endif
+			add();
 		}
 	}
 
@@ -5791,17 +5786,6 @@ void Ascensions::update(const Update& u)
 			list.remove(i);
 			i--;
 		}
-		else
-		{
-			// only show notifications in parkour mode
-			if (Game::level.mode == Game::Mode::Parkour
-				&& old_timer >= ascension_total_time * 0.85f && e->timer < ascension_total_time * 0.85f)
-			{
-				char msg[512];
-				sprintf(msg, _(strings::player_ascended), e->username);
-				PlayerHuman::log_add(msg, AI::TeamNone, AI::TeamAll, e->vip);
-			}
-		}
 	}
 
 	// particles
@@ -5814,36 +5798,6 @@ void Ascensions::update(const Update& u)
 		{
 			const Entry& e = list[i];
 			Particles::tracers_skybox.add(e.pos(), e.scale());
-		}
-	}
-}
-
-void Ascensions::draw_ui(const RenderParams& params)
-{
-	if (Game::level.mode != Game::Mode::Pvp)
-	{
-		for (s32 i = 0; i < list.length; i++)
-		{
-			const Entry& entry = list[i];
-			if (entry.timer < ascension_total_time * 0.85f)
-			{
-				Vec2 p;
-				if (UI::project(params, entry.pos(), &p))
-				{
-					p.y += 8.0f * UI::scale;
-
-					UIText username;
-					username.size = 16.0f;
-					username.anchor_x = UIText::Anchor::Center;
-					username.anchor_y = UIText::Anchor::Min;
-					username.color = UI::color_accent();
-					if (entry.vip)
-						username.icon = Asset::Mesh::icon_vip;
-					username.text_raw(params.camera->gamepad, entry.username);
-					UI::box(params, username.rect(p).outset(8.0f * UI::scale), UI::color_background);
-					username.draw(params, p);
-				}
-			}
 		}
 	}
 }

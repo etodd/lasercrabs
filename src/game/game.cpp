@@ -146,7 +146,6 @@ void Game::Save::reset()
 	zone_overworld = AssetNull;
 	locke_index = -1;
 
-	resources[s32(Resource::Energy)] = s16(ENERGY_INITIAL * 3.5f);
 	zones[s32(Asset::Level::Docks)] = ZoneState::ParkourUnlocked;
 }
 
@@ -624,6 +623,7 @@ namespace Auth
 				break;
 			}
 			case Net::Master::AuthType::Itch:
+			case Net::Master::AuthType::ItchOAuth:
 			{
 				if (Game::auth_key_length) // launched from itch app
 					Net::Client::master_send_auth();
@@ -730,6 +730,11 @@ void Game::auth_failed()
 		Auth::cleanup();
 		Menu::dialog(0, &Menu::dialog_no_action, _(strings::auth_failed_permanently));
 	}
+}
+
+b8 Game::auth_active()
+{
+	return Auth::active;
 }
 
 void Game::auth_succeeded(const Net::Master::UserKey& key, const char* username)
@@ -1500,8 +1505,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 		if (player_human)
 			player_human->draw_ui_early(render_params);
-
-		Ascensions::draw_ui(render_params);
 
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 			i.item()->draw_ui(render_params);

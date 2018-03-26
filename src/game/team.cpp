@@ -241,63 +241,63 @@ UpgradeInfo UpgradeInfo::list[s32(Upgrade::count)] =
 		strings::bolter,
 		strings::description_bolter,
 		Asset::Mesh::icon_bolter,
-		150,
+		200,
 		Type::Ability,
 	},
 	{
 		strings::active_armor,
 		strings::description_active_armor,
 		Asset::Mesh::icon_active_armor,
-		150,
+		200,
 		Type::Ability,
 	},
 	{
 		strings::minion_spawner,
 		strings::description_minion_spawner,
 		Asset::Mesh::icon_minion,
-		150,
+		200,
 		Type::Ability,
 	},
 	{
 		strings::rectifier,
 		strings::description_rectifier,
 		Asset::Mesh::icon_rectifier,
-		250,
+		300,
 		Type::Ability,
 	},
 	{
 		strings::turret,
 		strings::description_turret,
 		Asset::Mesh::icon_turret,
-		250,
+		300,
 		Type::Ability,
 	},
 	{
 		strings::shotgun,
 		strings::description_shotgun,
 		Asset::Mesh::icon_shotgun,
-		400,
+		450,
 		Type::Ability,
 	},
 	{
 		strings::sniper,
 		strings::description_sniper,
 		Asset::Mesh::icon_sniper,
-		400,
+		450,
 		Type::Ability,
 	},
 	{
 		strings::force_field,
 		strings::description_force_field,
 		Asset::Mesh::icon_force_field,
-		400,
+		450,
 		Type::Ability,
 	},
 	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
-		550,
+		600,
 		Type::Ability,
 	},
 };
@@ -2518,7 +2518,10 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 					if (killer_player)
 						killer_player->add_kills(1);
 					if (killer_team != AI::TeamNone)
+					{
 						Team::list[killer_team].add_kills(1);
+						player->add_energy(ENERGY_DIE);
+					}
 					player->add_deaths(1);
 				}
 

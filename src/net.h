@@ -203,7 +203,6 @@ namespace Client
 	void replay_file_add(const char*);
 	s32 replay_file_count();
 	b8 lagging();
-	b8 master_request_ascension();
 	b8 master_request_server(u32, const char* = nullptr, AssetID = AssetNull, StoryModeTeam = StoryModeTeam::Attack);
 	Master::ClientConnectionStep connection_step();
 	s8 wait_slot_queue_position();

@@ -3584,17 +3584,6 @@ b8 master_save_server_config(const Master::ServerConfig& config, u32 request_id)
 	return true;
 }
 
-b8 master_request_ascension()
-{
-	using Stream = StreamWrite;
-	StreamWrite p;
-	packet_init(&p);
-	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ClientRequestAscension);
-	packet_finalize(&p);
-	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
-	return true;
-}
-
 b8 master_request_server_details(u32 config_id, u32 request_id)
 {
 	using Stream = StreamWrite;
@@ -4373,17 +4362,6 @@ b8 packet_handle_master(StreamRead* p)
 			b8 state;
 			serialize_bool(p, state);
 			Menu::friendship_state(friend_id, state);
-			break;
-		}
-		case Master::Message::Ascension:
-		{
-			char username[MAX_USERNAME + 1];
-			s32 length;
-			serialize_int(p, s32, length, 0, MAX_USERNAME);
-			serialize_bytes(p, (u8*)(username), length);
-			b8 vip;
-			serialize_bool(p, vip);
-			Ascensions::add(username, vip);
 			break;
 		}
 		case Master::Message::ClientConnectionStep:

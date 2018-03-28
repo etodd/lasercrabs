@@ -82,8 +82,6 @@
 #define MAX_AUTH_KEY 1024
 #define AI_MAX_PATH_LENGTH 64
 
-#define AI_RECORD_WAIT_TIME 1.0f
-
 #define ROPE_SEGMENT_LENGTH 1.0f
 #define ROPE_RADIUS 0.075f
 
@@ -142,6 +140,7 @@
 #define TURRET_COOLDOWN 1.5f
 
 #define FLAG_RESTORE_TIME 20.0f
+#define FLAG_RADIUS 0.2f
 
 #define MINION_HEAD_RADIUS 0.4f
 #define MINION_ATTACK_TIME 1.9f

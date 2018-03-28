@@ -19,8 +19,6 @@
 
 #define DEBUG_AUDIO 0
 
-#define ENABLE_RECORD 0
-
 #if DEBUG_AUDIO
 #include "render/views.h"
 #include "asset/mesh.h"
@@ -31,6 +29,7 @@ namespace VI
 
 namespace AI
 {
+
 
 Bitmask<nav_max_obstacles> obstacles;
 SyncRingBuffer<SYNC_IN_SIZE> sync_in;
@@ -185,49 +184,6 @@ void update(const Update& u)
 	sync_out.unlock();
 }
 
-u32 record_init(AI::Team team)
-{
-	u32 id = record_id_current;
-	record_id_current++;
-	if (record_id_current == 0) // 0 is an invalid record ID
-		record_id_current = 1;
-#if ENABLE_RECORD
-	sync_in.lock();
-	sync_in.write(Op::RecordInit);
-	sync_in.write(id);
-	sync_in.write(team);
-	sync_in.unlock();
-#endif
-
-	return id;
-}
-
-void record_add(u32 id, const AI::RecordedLife::Tag& tag, const AI::RecordedLife::Action& action)
-{
-	vi_assert(id != 0);
-#if ENABLE_RECORD
-	sync_in.lock();
-	sync_in.write(Op::RecordAdd);
-	sync_in.write(id);
-	sync_in.write(tag);
-	sync_in.write(action);
-	sync_in.unlock();
-#endif
-}
-
-void record_close(u32 id)
-{
-	if (id != 0)
-	{
-#if ENABLE_RECORD
-		sync_in.lock();
-		sync_in.write(Op::RecordClose);
-		sync_in.write(id);
-		sync_in.unlock();
-#endif
-	}
-}
-
 b8 match(Team t, TeamMask m)
 {
 	if (m == TeamNone)
@@ -280,21 +236,18 @@ void obstacle_remove(u32 id)
 	}
 }
 
-void load(AssetID id, const char* filename, const char* record_filename)
+void load(AssetID id, const char* filename)
 {
 	sync_in.lock();
 	sync_in.write(Op::Load);
 	sync_in.write(id);
-	s32 length = filename ? s32(strlen(filename)) : 0;
-	vi_assert(length <= MAX_PATH_LENGTH);
-	sync_in.write(length);
-	if (length > 0)
-		sync_in.write(filename, length);
-	length = record_filename ? s32(strlen(record_filename)) : 0;
-	vi_assert(length <= MAX_PATH_LENGTH);
-	sync_in.write(length);
-	if (length > 0)
-		sync_in.write(record_filename, length);
+	{
+		s32 length = filename ? s32(strlen(filename)) : 0;
+		vi_assert(length <= MAX_PATH_LENGTH);
+		sync_in.write(length);
+		if (length > 0)
+			sync_in.write(filename, length);
+	}
 	sync_in.unlock();
 	level_revision++;
 
@@ -715,357 +668,36 @@ ComponentMask entity_mask = Rectifier::component_mask
 	| Turret::component_mask
 	| MinionSpawner::component_mask;
 
-void entity_info(const Entity* e, Team query_team, Team* team, s8* type)
+AI::Team entity_team(const Entity* e)
 {
-	Team _team;
-	s8 _type;
-
 	if (e->has<AIAgent>())
-	{
-		_team = e->get<AIAgent>()->team;
-		if (e->has<Drone>())
-		{
-			s8 shield = e->get<Health>()->shield;
-			if (_team == query_team)
-				_type = shield <= 1 ? RecordedLife::EntityDroneFriendShield1 : RecordedLife::EntityDroneFriendShield2;
-			else
-				_type = shield <= 1 ? RecordedLife::EntityDroneEnemyShield1 : RecordedLife::EntityDroneEnemyShield2;
-		}
-		else if (e->has<Minion>())
-			_type = _team == query_team ? RecordedLife::EntityMinionFriend : RecordedLife::EntityMinionEnemy;
-	}
+		return e->get<AIAgent>()->team;
 	else if (e->has<Battery>())
-	{
-		_team = e->get<Battery>()->team;
-		if (_team == query_team)
-			_type = RecordedLife::EntityBatteryFriend;
-		else if (_team == TeamNone)
-			_type = RecordedLife::EntityBatteryNeutral;
-		else
-			_type = RecordedLife::EntityBatteryEnemy;
-	}
+		return e->get<Battery>()->team;
 	else if (e->has<Rectifier>())
-	{
-		_team = e->get<Rectifier>()->team;
-		_type = _team == query_team ? RecordedLife::EntityRectifierFriend : RecordedLife::EntityRectifierEnemy;
-	}
+		return e->get<Rectifier>()->team;
 	else if (e->has<ForceField>())
-	{
-		_team = e->get<ForceField>()->team;
-		_type = _team == query_team ? RecordedLife::EntityForceFieldFriend : RecordedLife::EntityForceFieldEnemy;
-	}
+		return e->get<ForceField>()->team;
 	else if (e->has<Bolt>())
-	{
-		_team = e->get<Bolt>()->team;
-		_type = _team == query_team ? RecordedLife::EntityBoltFriend : RecordedLife::EntityBoltEnemy;
-	}
+		return e->get<Bolt>()->team;
 	else if (e->has<Grenade>())
-	{
-		b8 attached = e->get<Transform>()->parent.ref();
-		_team = e->get<Grenade>()->team;
-		if (_team == query_team)
-			_type = attached ? RecordedLife::EntityGrenadeFriendAttached : RecordedLife::EntityGrenadeFriendDetached;
-		else
-			_type = attached ? RecordedLife::EntityGrenadeEnemyAttached : RecordedLife::EntityGrenadeEnemyDetached;
-	}
+		return e->get<Grenade>()->team;
 	else if (e->has<SpawnPoint>())
-	{
-		_team = e->get<SpawnPoint>()->team;
-		if (_team == query_team)
-			_type = RecordedLife::EntitySpawnPointFriend;
-		else if (_team == AI::TeamNone)
-			_type = RecordedLife::EntitySpawnPointNeutral;
-		else
-			_type = RecordedLife::EntitySpawnPointEnemy;
-	}
+		return e->get<SpawnPoint>()->team;
 	else if (e->has<Turret>())
-	{
-		_team = e->get<Turret>()->team;
-		_type = _team == query_team ? RecordedLife::EntityTurretFriend : RecordedLife::EntityTurretEnemy;
-	}
+		return e->get<Turret>()->team;
 	else if (e->has<MinionSpawner>())
-	{
-		_team = e->get<MinionSpawner>()->team;
-		_type = _team == query_team ? RecordedLife::EntityMinionSpawnerFriend : RecordedLife::EntityMinionSpawnerEnemy;
-	}
+		return e->get<MinionSpawner>()->team;
 	else if (e->has<Flag>())
-	{
-		_team = e->get<Flag>()->team;
-		_type = _team == query_team ? RecordedLife::EntityFlagFriend : RecordedLife::EntityFlagEnemy;
-	}
+		return e->get<Flag>()->team;
 	else
 	{
-		_team = TeamNone;
-		_type = RecordedLife::EntityNone;
+		return TeamNone;
 		vi_assert(false);
 	}
-
-	if (team)
-		*team = _team;
-	if (type)
-		*type = _type;
 }
 
-b8 record_filter(Entity* e, const Vec3& pos)
-{
-	return (e->get<Transform>()->absolute_pos() - pos).length_squared() < (DRONE_MAX_DISTANCE * 1.5f * DRONE_MAX_DISTANCE * 1.5f);
-}
-
-void RecordedLife::Tag::init(const PlayerManager* manager)
-{
-	energy = manager->energy;
-	upgrades = manager->upgrades;
-
-	AI::Team my_team = manager->team.ref()->team();
-	time_remaining = vi_min(255, vi_max(0, s32((Game::session.config.time_limit() - Game::time.total) * 0.5f)));
-
-	enemy_upgrades = 0;
-	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->team.ref()->team() != my_team)
-			enemy_upgrades |= i.item()->upgrades;
-	}
-
-	battery_state = 0;
-	{
-		vi_assert(Battery::list.count() <= 16);
-		for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
-		{
-			AI::Team t = i.item()->team;
-			if (t == AI::TeamNone)
-				battery_state |= (1 << (i.index * 2)) | (1 << ((i.index * 2) + 1));
-			else if (t == my_team)
-				battery_state |= (1 << (i.index * 2));
-			else
-				battery_state |= (1 << ((i.index * 2) + 1));
-		}
-	}
-
-	turret_state = 0;
-	{
-		vi_assert(Turret::list.count() <= 32);
-		for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
-			turret_state |= 1 << s32(i.index);
-	}
-
-
-	Entity* player = manager->instance.ref();
-
-	if (player)
-	{
-		shield = player->get<Health>()->shield;
-
-		{
-			Quat rot;
-			player->get<Transform>()->absolute(&pos, &rot);
-			normal = rot * Vec3(0, 0, 1);
-		}
-
-		nearby_entities = 0;
-		for (auto i = Entity::iterator(entity_mask); !i.is_last(); i.next())
-		{
-			if (i.item() != player && record_filter(i.item(), pos))
-			{
-				AI::Team team;
-				s8 entity_type;
-				entity_info(i.item(), my_team, &team, &entity_type);
-				if (entity_type != EntityNone)
-					nearby_entities |= 1 << s32(entity_type);
-			}
-		}
-	}
-	else
-	{
-		shield = 0;
-		pos = normal = Vec3::zero;
-		nearby_entities = 0;
-	}
-}
-
-s32 RecordedLife::Tag::battery_count(BatteryState s) const
-{
-	vi_assert(s);
-	s32 count = 0;
-	for (s32 i = 0; i < 32; i += 2)
-	{
-		b8 a = battery_state & (1 << i);
-		b8 b = battery_state & (1 << (i + 1));
-		if (a && b)
-		{
-			if (s & BatteryStateNeutral)
-				count++;
-		}
-		else if (a)
-		{
-			if (s & BatteryStateFriendly)
-				count++;
-		}
-		else if (b)
-		{
-			if (s & BatteryStateEnemy)
-				count++;
-		}
-		else
-			break;
-	}
-	return count;
-}
-
-s32 RecordedLife::Tag::turret_count() const
-{
-	return BitUtility::popcount(turret_state);
-}
-
-b8 RecordedLife::Tag::turret(s32 index) const
-{
-	return turret_state & (1 << index);
-}
-
-RecordedLife::Tag::BatteryState RecordedLife::Tag::battery(s32 index) const
-{
-	b8 a = battery_state & (1 << index);
-	b8 b = battery_state & (1 << (index + 1));
-	if (a && b)
-		return BatteryStateNeutral;
-	else if (a)
-		return BatteryStateFriendly;
-	else if (b)
-		return BatteryStateEnemy;
-	else
-		return BatteryStateNone;
-}
-
-void RecordedLife::reset()
-{
-	shield.length = 0;
-	time_remaining.length = 0;
-	energy.length = 0;
-	pos.length = 0;
-	normal.length = 0;
-	upgrades.length = 0;
-	enemy_upgrades.length = 0;
-	battery_state.length = 0;
-	turret_state.length = 0;
-	nearby_entities.length = 0;
-	action.length = 0;
-}
-
-void RecordedLife::reset(AI::Team t)
-{
-	team = t;
-	reset();
-}
-
-void RecordedLife::add(const Tag& tag, const Action& a)
-{
-	shield.add(tag.shield);
-	time_remaining.add(tag.time_remaining);
-	energy.add(tag.energy);
-	pos.add(tag.pos);
-	normal.add(tag.normal);
-	upgrades.add(tag.upgrades);
-	enemy_upgrades.add(tag.enemy_upgrades);
-	battery_state.add(tag.battery_state);
-	turret_state.add(tag.turret_state);
-	nearby_entities.add(tag.nearby_entities);
-	action.add(a);
-}
-
-RecordedLife::Action::Action()
-{
-	memset(this, 0, sizeof(*this));
-}
-
-RecordedLife::Action& RecordedLife::Action::operator=(const Action& other)
-{
-	memcpy(this, &other, sizeof(*this));
-	return *this;
-}
-
-b8 RecordedLife::Action::fuzzy_equal(const Action& other) const
-{
-	if (type == other.type)
-	{
-		switch (type)
-		{
-			case TypeNone:
-				return true;
-			case TypeMove:
-				return (pos - other.pos).length_squared() < DRONE_MAX_DISTANCE * 0.1f * DRONE_MAX_DISTANCE * 0.1f;
-			case TypeAttack:
-				return entity_type == other.entity_type;
-			case TypeUpgrade:
-				return upgrade == other.upgrade;
-			case TypeAbility:
-				return ability == other.ability;
-			case TypeWait:
-				return true;
-		}
-	}
-	return false;
-}
-
-// these functions get rid of const nonsense so we can pass either one into the serialize function
-size_t RecordedLife::custom_fwrite(void* buffer, size_t size, size_t count, FILE* f)
-{
-	return fwrite(buffer, size, count, f);
-}
-
-size_t RecordedLife::custom_fread(void* buffer, size_t size, size_t count, FILE* f)
-{
-	return fread(buffer, size, count, f);
-}
-
-void RecordedLife::serialize(FILE* f, size_t(*func)(void*, size_t, size_t, FILE*))
-{
-	func(&team, sizeof(AI::Team), 1, f);
-
-	func(&shield.length, sizeof(s32), 1, f);
-	shield.resize(shield.length);
-	func(shield.data, sizeof(s8), shield.length, f);
-
-	func(&time_remaining.length, sizeof(s32), 1, f);
-	time_remaining.resize(time_remaining.length);
-	func(time_remaining.data, sizeof(s8), time_remaining.length, f);
-
-	func(&energy.length, sizeof(s32), 1, f);
-	energy.resize(energy.length);
-	func(energy.data, sizeof(s16), energy.length, f);
-
-	func(&pos.length, sizeof(s32), 1, f);
-	pos.resize(pos.length);
-	func(pos.data, sizeof(Vec3), pos.length, f);
-
-	func(&normal.length, sizeof(s32), 1, f);
-	normal.resize(normal.length);
-	func(normal.data, sizeof(Vec3), normal.length, f);
-
-	func(&upgrades.length, sizeof(s32), 1, f);
-	upgrades.resize(upgrades.length);
-	func(upgrades.data, sizeof(s32), upgrades.length, f);
-
-	func(&enemy_upgrades.length, sizeof(s32), 1, f);
-	enemy_upgrades.resize(enemy_upgrades.length);
-	func(enemy_upgrades.data, sizeof(s32), enemy_upgrades.length, f);
-
-	func(&battery_state.length, sizeof(s32), 1, f);
-	battery_state.resize(battery_state.length);
-	func(battery_state.data, sizeof(s32), battery_state.length, f);
-
-	func(&turret_state.length, sizeof(s32), 1, f);
-	turret_state.resize(turret_state.length);
-	func(turret_state.data, sizeof(s32), turret_state.length, f);
-
-	func(&nearby_entities.length, sizeof(s32), 1, f);
-	nearby_entities.resize(nearby_entities.length);
-	func(nearby_entities.data, sizeof(s32), nearby_entities.length, f);
-
-	func(&action.length, sizeof(s32), 1, f);
-	action.resize(action.length);
-	func(action.data, sizeof(Action), action.length, f);
-}
 
 }
-
 
 }

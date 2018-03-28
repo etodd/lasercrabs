@@ -36,9 +36,6 @@ enum class Op : s8
 	ClosestWalkPoint,
 	UpdateState,
 	Quit,
-	RecordInit,
-	RecordAdd,
-	RecordClose,
 	AudioPathfind,
 	count,
 };
@@ -159,7 +156,7 @@ u32 drone_closest_point(const Vec3&, AI::Team, const LinkEntryArg<const DronePat
 u32 random_path(const Vec3&, const Vec3&, AI::Team, r32, const LinkEntryArg<const Result&>&);
 u32 closest_walk_point(const Vec3&, const LinkEntryArg<const Vec3&>&);
 u32 drone_random_path(DroneAllow, AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const DroneResult&>&);
-void load(AssetID, const char*, const char*);
+void load(AssetID, const char*);
 void init();
 void loop();
 void quit();
@@ -190,7 +187,6 @@ namespace Worker
 
 		r32 travel_score;
 		r32 estimate_score;
-		r32 rectifier_score;
 		DroneNavMeshNode parent;
 		s8 flags;
 
@@ -251,120 +247,7 @@ namespace Worker
 }
 
 extern ComponentMask entity_mask;
-void entity_info(const Entity*, AI::Team, AI::Team*, s8* = nullptr);
-
-struct RecordedLife
-{
-	struct Tag
-	{
-		enum BatteryState
-		{
-			BatteryStateNone = 0,
-			BatteryStateNeutral = 1 << 0,
-			BatteryStateFriendly = 1 << 1,
-			BatteryStateEnemy = 1 << 2,
-		};
-
-		Vec3 pos;
-		Vec3 normal;
-		s32 upgrades;
-		s32 enemy_upgrades;
-		s32 nearby_entities;
-		s32 battery_state;
-		s32 turret_state;
-		s16 energy;
-		s8 shield;
-		u8 time_remaining;
-
-		s32 battery_count(BatteryState) const;
-		BatteryState battery(s32) const;
-		s32 turret_count() const;
-		b8 turret(s32) const;
-
-		void init(const PlayerManager*);
-	};
-
-	struct Action
-	{
-		static const s8 TypeNone = 0;
-		static const s8 TypeMove = 1;
-		static const s8 TypeAttack = 2;
-		static const s8 TypeUpgrade = 3;
-		static const s8 TypeAbility = 4;
-		static const s8 TypeWait = 5;
-		static const s8 TypeRunAway = 6;
-		static const s8 TypeSpawn = 7;
-
-		Vec3 pos; // for move, spawn, and build ability actions
-		Vec3 normal; // for move, spawn, and build ability actions
-		s8 type;
-		union
-		{
-			Ability ability; // for build and shoot ability actions
-			Upgrade upgrade; // for upgrade actions
-		};
-		s8 entity_type; // for attack and shoot ability actions
-		Action();
-		Action& operator=(const Action&);
-
-		b8 fuzzy_equal(const Action&) const;
-	};
-
-	static const s8 EntityNone = -1;
-	static const s8 EntityRectifierEnemy = 0;
-	static const s8 EntityRectifierFriend = 1;
-	static const s8 EntityBatteryEnemy = 2;
-	static const s8 EntityBatteryFriend = 3;
-	static const s8 EntityBatteryNeutral = 4;
-	static const s8 EntityMinionEnemy = 5;
-	static const s8 EntityMinionFriend = 6;
-	static const s8 EntityForceFieldEnemy = 7;
-	static const s8 EntityForceFieldFriend = 8;
-	static const s8 EntityDroneEnemyShield2 = 9;
-	static const s8 EntityDroneEnemyShield1 = 10;
-	static const s8 EntityDroneFriendShield2 = 11;
-	static const s8 EntityDroneFriendShield1 = 12;
-	static const s8 EntityBoltEnemy = 13;
-	static const s8 EntityBoltFriend = 14;
-	static const s8 EntityGrenadeEnemyAttached = 15;
-	static const s8 EntityGrenadeEnemyDetached = 16;
-	static const s8 EntityGrenadeFriendAttached = 17;
-	static const s8 EntityGrenadeFriendDetached = 18;
-	static const s8 EntitySpawnPointEnemy = 19;
-	static const s8 EntitySpawnPointFriend = 20;
-	static const s8 EntitySpawnPointNeutral = 21;
-	static const s8 EntityTurretFriend = 22;
-	static const s8 EntityTurretEnemy = 23;
-	static const s8 EntityMinionSpawnerFriend = 24;
-	static const s8 EntityMinionSpawnerEnemy = 25;
-	static const s8 EntityFlagFriend = 26;
-	static const s8 EntityFlagEnemy = 27;
-
-	Array<Vec3> pos;
-	Array<Vec3> normal;
-	Array<s32> upgrades;
-	Array<s32> enemy_upgrades;
-	Array<s32> nearby_entities;
-	Array<s32> battery_state;
-	Array<s32> turret_state;
-	Array<s16> energy;
-	Array<s8> shield;
-	Array<s8> time_remaining;
-	Array<Action> action;
-	AI::Team team;
-
-	void reset();
-	void reset(AI::Team);
-	void add(const Tag&, const Action&);
-
-	static size_t custom_fwrite(void*, size_t, size_t, FILE*);
-	static size_t custom_fread(void*, size_t, size_t, FILE*);
-	void serialize(FILE*, size_t(*)(void*, size_t, size_t, FILE*));
-};
-
-u32 record_init(Team);
-void record_add(u32, const RecordedLife::Tag&, const RecordedLife::Action&);
-void record_close(u32);
+AI::Team entity_team(const Entity*);
 
 
 }

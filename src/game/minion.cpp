@@ -169,8 +169,7 @@ void Minion::melee_damage()
 	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 	{
 		Entity* e = i.item()->entity();
-		AI::Team team;
-		AI::entity_info(e, my_team, &team);
+		AI::Team team = AI::entity_team(e);
 		if (team != my_team)
 		{
 			Vec3 to_target = e->get<Transform>()->absolute_pos() - damage_pos;
@@ -606,8 +605,7 @@ void Minion::update_server(const Update& u)
 					// we're going after the target
 					if (can_see(g))
 					{
-						AI::Team target_team;
-						AI::entity_info(g, get<AIAgent>()->team, &target_team);
+						AI::Team target_team = AI::entity_team(g);
 						if (target_team == AI::TeamNone || target_team == get<AIAgent>()->team) // it's friendly, find a new goal
 							new_goal();
 						else

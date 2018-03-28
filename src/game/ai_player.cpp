@@ -13,6 +13,7 @@
 #include "net.h"
 #include "team.h"
 #include "player.h"
+#include "settings.h"
 
 namespace VI
 {
@@ -86,7 +87,6 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 PlayerAI::PlayerAI(PlayerManager* m, const AI::Config& config)
 	: manager(m),
 	revision(),
-	memory(),
 	config(config),
 	spawning()
 {
@@ -161,6 +161,38 @@ void PlayerAI::spawn(const SpawnPosition& spawn_pos)
 	}
 }
 
+PlayerControlAI::Action::Action()
+{
+	memset(this, 0, sizeof(*this));
+}
+
+PlayerControlAI::Action& PlayerControlAI::Action::operator=(const Action& other)
+{
+	memcpy(this, &other, sizeof(*this));
+	return *this;
+}
+
+b8 PlayerControlAI::Action::fuzzy_equal(const PlayerControlAI::Action& other) const
+{
+	if (type == other.type)
+	{
+		switch (type)
+		{
+			case TypeNone:
+				return true;
+			case TypeMove:
+				return (pos - other.pos).length_squared() < DRONE_MAX_DISTANCE * 0.1f * DRONE_MAX_DISTANCE * 0.1f;
+			case TypeAttack:
+				return target.ref() == other.target.ref();
+			case TypeUpgrade:
+				return upgrade == other.upgrade;
+			case TypeAbility:
+				return ability == other.ability;
+		}
+	}
+	return false;
+}
+
 PlayerControlAI::PlayerControlAI(PlayerAI* p)
 	: path_index(),
 	player(p),
@@ -173,7 +205,7 @@ PlayerControlAI::PlayerControlAI(PlayerAI* p)
 	aim_timer(),
 	aim_timeout(),
 	inaccuracy(),
-	current(),
+	action_current(),
 	action_queue_key(),
 	action_queue(&action_queue_key),
 	random_look(0, 0, 1),
@@ -221,7 +253,7 @@ void PlayerControlAI::drone_done_flying_or_dashing()
 	inaccuracy = config.inaccuracy_min + (mersenne::randf_cc() * config.inaccuracy_range);
 	aim_timer = 0.0f;
 	aim_timeout = 0.0f;
-	if (current.action.type == AI::RecordedLife::Action::TypeNone)
+	if (action_current.type == Action::TypeNone)
 		action_done(true); // successfully panicked
 	else if (path_index < path.length)
 		path_index++;
@@ -242,83 +274,6 @@ void PlayerControlAI::drone_hit(Entity* e)
 void PlayerControlAI::upgrade_completed(Upgrade upgrade)
 {
 	action_done(true);
-}
-
-void add_memory(Array<PlayerAI::Memory>* memories, Entity* entity, const Vec3& pos)
-{
-	b8 already_found = false;
-	for (s32 j = 0; j < memories->length; j++)
-	{
-		PlayerAI::Memory* m = &(*memories)[j];
-		if (m->entity.ref() == entity)
-		{
-			m->pos = pos;
-			already_found = true;
-			break;
-		}
-	}
-
-	if (!already_found)
-	{
-		PlayerAI::Memory* m = memories->add();
-		m->entity = entity;
-		m->pos = pos;
-	}
-}
-
-enum class MemoryStatus : s8
-{
-	Update, // add or update existing memory
-	Keep, // keep any existing memory, but don't update it
-	Forget, // ignore and delete any existing memory
-	count,
-};
-
-enum UpdateMemoryFlags
-{
-	UpdateMemoryLimitRange = 1,
-};
-
-template<typename Component>
-void update_component_memory(PlayerControlAI* control, MemoryStatus (*filter)(const PlayerControlAI*, const Entity*), UpdateMemoryFlags flags = UpdateMemoryLimitRange)
-{
-	Array<PlayerAI::Memory>* memory = &control->player.ref()->memory;
-	r32 range = control->get<Drone>()->range() * 1.5f;
-	b8 limit_range = flags & UpdateMemoryLimitRange;
-	// remove outdated memories
-	for (s32 i = 0; i < memory->length; i++)
-	{
-		PlayerAI::Memory* m = &(*memory)[i];
-		Entity* entity = m->entity.ref();
-
-		if (!entity)
-		{
-			memory->remove(i);
-			i--;
-			continue;
-		}
-
-		if (!entity->has<Component>())
-			continue;
-
-		if (!limit_range || control->in_range(m->pos, range))
-		{
-			if ((!limit_range || control->in_range(entity->get<Transform>()->absolute_pos(), range))
-				&& filter(control, entity) == MemoryStatus::Forget)
-			{
-				memory->remove(i);
-				i--;
-			}
-		}
-	}
-
-	// add or update memories
-	for (auto i = Component::list.iterator(); !i.is_last(); i.next())
-	{
-		Vec3 pos = i.item()->template get<Transform>()->absolute_pos();
-		if ((!limit_range || control->in_range(pos, range)) && filter(control, i.item()->entity()) == MemoryStatus::Update)
-			add_memory(memory, i.item()->entity(), pos);
-	}
 }
 
 Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target, r32 inaccuracy)
@@ -408,8 +363,8 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 
 	b8 can_move = common->movement_enabled();
 
-	if (current.action.type == AI::RecordedLife::Action::TypeAttack && get<Drone>()->current_ability != current.action.ability)
-		get<Drone>()->ability(current.action.ability);
+	if (action_current.type == Action::TypeAttack && get<Drone>()->current_ability != action_current.ability)
+		get<Drone>()->ability(action_current.ability);
 
 	b8 only_crawling_dashing = false;
 
@@ -723,180 +678,6 @@ b8 PlayerControlAI::aim_and_shoot_location(const Update& u, const AI::DronePathN
 	return true;
 }
 
-b8 default_filter(const PlayerControlAI* control, const Entity* e)
-{
-	AI::Team team = control->get<AIAgent>()->team;
-	return e->has<ForceField>()
-		|| (ForceField::hash(team, control->get<Transform>()->absolute_pos())
-			== ForceField::hash(team, e->get<Transform>()->absolute_pos()));
-}
-
-b8 battery_filter(const PlayerControlAI* control, const Entity* e)
-{
-	return e->get<Battery>()->team != control->get<AIAgent>()->team;
-}
-
-b8 minion_filter(const PlayerControlAI* control, const Entity* e)
-{
-	return e->get<AIAgent>()->team != control->get<AIAgent>()->team;
-}
-
-MemoryStatus minion_memory_filter(const PlayerControlAI* control, const Entity* e)
-{
-	if (e->get<AIAgent>()->team == control->get<AIAgent>()->team)
-		return MemoryStatus::Forget;
-	else
-		return MemoryStatus::Update;
-}
-
-MemoryStatus rectifier_memory_filter(const PlayerControlAI* control, const Entity* e)
-{
-	if (e->get<Rectifier>()->team == control->get<AIAgent>()->team || e->has<Battery>())
-		return MemoryStatus::Forget;
-	else
-		return MemoryStatus::Update;
-}
-
-MemoryStatus minion_spawner_memory_filter(const PlayerControlAI* control, const Entity* e)
-{
-	if (e->get<MinionSpawner>()->team == control->get<AIAgent>()->team)
-		return MemoryStatus::Forget;
-	else
-		return MemoryStatus::Update;
-}
-
-MemoryStatus turret_memory_filter(const PlayerControlAI* control, const Entity* e)
-{
-	if (e->get<Turret>()->team == control->get<AIAgent>()->team)
-		return MemoryStatus::Forget;
-	else
-		return MemoryStatus::Update;
-}
-
-MemoryStatus drone_memory_filter(const PlayerControlAI* control, const Entity* e)
-{
-	if (e->get<AIAgent>()->team == control->get<AIAgent>()->team)
-		return MemoryStatus::Forget; // don't care
-	else
-		return MemoryStatus::Update;
-}
-
-b8 drone_run_filter(const PlayerControlAI* control, const Entity* e)
-{
-	r32 run_chance = control->get<Health>()->shield <= 1 ? 0.3f : 0.1f;
-	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
-		&& e->get<Health>()->hp > control->get<Health>()->hp
-		&& mersenne::randf_co() < run_chance
-		&& (e->get<Drone>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < DRONE_MAX_DISTANCE * 0.5f * DRONE_MAX_DISTANCE * 0.5f);
-}
-
-b8 drone_find_filter(const PlayerControlAI* control, const Entity* e)
-{
-	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
-		&& (e->get<Health>()->shield <= control->get<Health>()->shield);
-}
-
-b8 drone_react_filter(const PlayerControlAI* control, const Entity* e)
-{
-	if (!drone_find_filter(control, e))
-		return false;
-
-	if (!e->get<Health>()->can_take_damage(control->entity()) && mersenne::randf_co() > 0.5f)
-		return false;
-
-	return !e->has<Drone>() || e->get<Drone>()->state() == Drone::State::Crawl;
-}
-
-b8 force_field_filter(const PlayerControlAI* control, const Entity* e)
-{
-	ForceField* field = e->get<ForceField>();
-	return field->team != control->get<AIAgent>()->team && field->contains(control->get<Transform>()->absolute_pos());
-}
-
-MemoryStatus default_memory_filter(const PlayerControlAI* control, const Entity* e)
-{
-	return MemoryStatus::Update;
-}
-
-b8 attack_inbound(const PlayerControlAI* control)
-{
-	return control->get<PlayerCommon>()->incoming_attacker() != nullptr;
-}
-
-s32 geometry_query(const PlayerControlAI* control, r32 range, r32 angle_range, s32 count)
-{
-	Vec3 pos;
-	Quat rot;
-	control->get<Transform>()->absolute(&pos, &rot);
-
-	s16 mask = ~DRONE_PERMEABLE_MASK & ~control->get<Drone>()->ally_force_field_mask();
-	s32 result = 0;
-	for (s32 i = 0; i < count; i++)
-	{
-		Vec3 ray = rot * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * angle_range, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * angle_range, 0) * Vec3(1, 0, 0));
-		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, pos + ray * range);
-		Physics::raycast(&ray_callback, mask);
-		if (ray_callback.hasHit())
-			result++;
-	}
-
-	return result;
-}
-
-s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
-{
-	r32 radius_sq = radius * radius;
-	s32 score = 0;
-	for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
-	{
-		if (AI::match(i.item()->get<AIAgent>()->team, mask)
-			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
-		{
-			score += 3;
-		}
-	}
-
-	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
-	{
-		if (AI::match(i.item()->get<AIAgent>()->team, mask)
-			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
-		{
-			score += 2;
-		}
-	}
-
-	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
-	{
-		if (AI::match(i.item()->team, mask)
-			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
-		{
-			score += 2;
-		}
-	}
-
-	for (auto i = Rectifier::list.iterator(); !i.is_last(); i.next())
-	{
-		if (AI::match(i.item()->team, mask)
-			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
-		{
-			score += 1;
-		}
-	}
-
-	return score;
-}
-
-void PlayerControlAI::update_memory()
-{
-	update_component_memory<Battery>(this, &default_memory_filter);
-	update_component_memory<Minion>(this, &minion_memory_filter);
-	update_component_memory<Rectifier>(this, &rectifier_memory_filter);
-	update_component_memory<ForceField>(this, &default_memory_filter);
-	update_component_memory<Drone>(this, &drone_memory_filter);
-	update_component_memory<MinionSpawner>(this, &minion_spawner_memory_filter);
-	update_component_memory<Turret>(this, &turret_memory_filter);
-}
-
 void PlayerControlAI::set_path(const AI::DronePath& p)
 {
 	path = p;
@@ -907,11 +688,11 @@ void PlayerControlAI::set_path(const AI::DronePath& p)
 
 void PlayerControlAI::action_clear()
 {
-	s8 action_type = current.action.type;
+	s8 action_type = action_current.type;
 
 	active_callback = 0;
-	current.action.type = AI::RecordedLife::Action::TypeNone;
-	current.priority = 0;
+	action_current.type = Action::TypeNone;
+	action_current.priority = 0;
 	path.length = 0;
 	path_index = 0;
 	target = nullptr;
@@ -926,18 +707,148 @@ b8 want_upgrade(PlayerControlAI* player, Upgrade u)
 	return player->get<PlayerCommon>()->manager.ref()->upgrade_available(u);
 }
 
+typedef void EntityForeach(PlayerControlAI*, const Vec3&, Entity*, void*);
+
+void entity_foreach(PlayerControlAI* player, const Vec3& player_pos, AI::TeamMask mask, EntityForeach* action, void* context)
+{
+	for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->get<AIAgent>()->team, mask))
+			action(player, player_pos, i.item()->entity(), context);
+	}
+
+	for (auto i = Minion::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->get<AIAgent>()->team, mask))
+			action(player, player_pos, i.item()->entity(), context);
+	}
+
+	for (auto i = ForceField::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask))
+			action(player, player_pos, i.item()->entity(), context);
+	}
+
+	for (auto i = Rectifier::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask))
+			action(player, player_pos, i.item()->entity(), context);
+	}
+
+	for (auto i = Turret::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask))
+			action(player, player_pos, i.item()->entity(), context);
+	}
+
+	for (auto i = Battery::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask))
+			action(player, player_pos, i.item()->entity(), context);
+	}
+
+	for (auto i = MinionSpawner::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask))
+			action(player, player_pos, i.item()->entity(), context);
+	}
+
+	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask))
+			action(player, player_pos, i.item()->entity(), context);
+	}
+}
+
+struct ProcessEnemyContext
+{
+	Vec3 danger_center;
+	s32 danger;
+	s32 danger_count;
+};
+
+Ability attack_ability(PlayerControlAI* player, Entity* target)
+{
+	PlayerManager* manager = player->get<PlayerCommon>()->manager.ref();
+	if (manager->ability_valid(Ability::Bolter) && mersenne::randf_cc() < 0.5f)
+		return Ability::Bolter;
+	else if (manager->ability_valid(Ability::Sniper) && mersenne::randf_cc() < 0.75f)
+		return Ability::Sniper;
+	else if (manager->ability_valid(Ability::Shotgun))
+		return Ability::Shotgun;
+	else if (manager->ability_valid(Ability::Grenade) && mersenne::randf_cc() < 0.5f)
+		return Ability::Grenade;
+	else
+		return Ability::None;
+}
+
+void process_enemy(PlayerControlAI* player, const Vec3& player_pos, Entity* target, void* context_in)
+{
+	ProcessEnemyContext* context = (ProcessEnemyContext*)(context_in);
+
+	Vec3 target_pos = target->get<Transform>()->absolute_pos();
+	r32 target_distance = (target_pos - player_pos).length();
+
+	s8 priority = 1;
+
+	Ability ability = attack_ability(player, target);
+
+	if (target->has<Drone>())
+	{
+		if (target->get<Health>()->can_take_damage(player->entity()))
+		{
+			s8 shield = target->get<Health>()->shield;
+			s8 shield_max = target->get<Health>()->shield_max;
+			if (shield > shield_max / 2)
+				priority -= 2;
+			else
+				priority -= 3;
+		}
+	}
+	else if (target->has<Minion>() || target->has<Turret>())
+		priority -= 1;
+	else if (target->has<Battery>())
+	{
+		priority -= 3;
+		if (Game::session.config.game_type == GameType::Assault)
+			priority -= 2;
+	}
+
+	if (player->get<Drone>()->can_hit(target->get<Target>()))
+	{
+		priority -= 1;
+
+		if (target->has<Grenade>())
+			priority -= 2;
+
+		if (target->has<Turret>()
+			|| target->has<Minion>()
+			|| target->has<Drone>()
+			|| target->has<Grenade>())
+		{
+			context->danger_center += target_pos;
+			context->danger_count++;
+			context->danger += vi_min(1, -priority);
+		}
+	}
+	else if (target_distance > DRONE_MAX_DISTANCE)
+		priority += 1;
+
+	PlayerControlAI::Action action;
+	action.type = PlayerControlAI::Action::TypeAttack;
+	action.ability = ability;
+	action.target = target;
+	action.priority = priority;
+	player->action_queue.push(action);
+}
+
 void PlayerControlAI::actions_populate()
 {
-	update_memory();
-
 	PlayerManager* manager = get<PlayerCommon>()->manager.ref();
-
-	AI::RecordedLife::Tag tag;
-	tag.init(manager);
 
 	AI::Team my_team = get<AIAgent>()->team;
 
-	if (UpgradeStation::drone_at(get<Drone>()))
+	if (UpgradeStation::drone_at(get<Drone>())) // buy upgrade
 	{
 		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{
@@ -946,16 +857,15 @@ void PlayerControlAI::actions_populate()
 				break;
 			else if (want_upgrade(this, u))
 			{
-				// buy upgrade
-				AI::RecordedLife::Action action;
-				action.type = AI::RecordedLife::Action::TypeUpgrade;
+				Action action;
+				action.type = Action::TypeUpgrade;
 				action.upgrade = u;
-				action_queue.push({ 0, action });
+				action.priority = -3;
+				action_queue.push(action);
 			}
 		}
 	}
-
-	if (BitUtility::popcount(u32(tag.upgrades)) < MAX_ABILITIES)
+	else if (manager->ability_count() < MAX_ABILITIES) // go to upgrade station
 	{
 		for (s32 i = 0; i < s32(Upgrade::count); i++)
 		{
@@ -964,172 +874,102 @@ void PlayerControlAI::actions_populate()
 				break;
 			else if (want_upgrade(this, u))
 			{
-				// go to upgrade
 				UpgradeStation* station = UpgradeStation::closest_available(my_team, get<Transform>()->absolute_pos());
 				if (station)
 				{
-					AI::RecordedLife::Action action;
-					action.type = AI::RecordedLife::Action::TypeMove;
+					Action action;
+					action.type = Action::TypeMove;
 					action.pos = station->get<Transform>()->absolute_pos();
 					action.normal = Vec3(0, 1, 0);
-					action_queue.push({ 0, action });
+					action.priority = 0;
+					action_queue.push(action);
 				}
 			}
 		}
 	}
 
-	// run away
-	if (tag.nearby_entities & ((1 << s32(AI::RecordedLife::EntityDroneEnemyShield1) | (1 << s32(AI::RecordedLife::EntityDroneEnemyShield2)))))
-	{
-		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
-		{
-			if (drone_run_filter(this, i.item()->entity()))
-			{
-				AI::RecordedLife::Action action;
-				action.type = AI::RecordedLife::Action::TypeRunAway;
-				action.pos = i.item()->get<Transform>()->absolute_pos();
-				s8 priority = -1;
-				priority -= Game::session.config.ruleset.drone_shield - get<Health>()->shield;
-				action_queue.push({ priority, action });
-				break;
-			}
-		}
-	}
-
-	b8 added_battery = false;
-
-	// attack nearby entities
-	if (tag.nearby_entities
-		& ((1 << s32(AI::RecordedLife::EntityDroneEnemyShield1))
-			| (1 << s32(AI::RecordedLife::EntityDroneEnemyShield2))
-			| (1 << s32(AI::RecordedLife::EntityMinionEnemy))
-			| (1 << s32(AI::RecordedLife::EntityBatteryEnemy))
-			| (1 << s32(AI::RecordedLife::EntityBatteryNeutral))
-			| (1 << s32(AI::RecordedLife::EntityTurretEnemy))
-			| (1 << s32(AI::RecordedLife::EntityMinionSpawnerEnemy))
-			| (1 << s32(AI::RecordedLife::EntityRectifierEnemy))))
+	// attack entities and/or run away
 	{
 		Vec3 pos = get<Transform>()->absolute_pos();
-		for (s32 i = 0; i < player.ref()->memory.length; i++)
+
+		AI::Team mask = ~(1 << get<AIAgent>()->team);
+
+		ProcessEnemyContext context;
+		entity_foreach(this, pos, mask, &process_enemy, &context);
+		if (context.danger > 5)
 		{
-			const PlayerAI::Memory& memory = player.ref()->memory[i];
+			r32 run_chance = get<Health>()->shield <= 1 ? 0.3f : 0.1f;
+			if (context.danger > 20)
+				run_chance *= 2.0f;
 
-			Entity* entity = memory.entity.ref();
-			if (!entity || !entity->has<Target>())
-				continue;
-
-			AI::Team team;
-			s8 entity_type;
-			AI::entity_info(entity, my_team, &team, &entity_type);
-			if (team != my_team
-				&& entity_type != AI::RecordedLife::EntityNone
-				&& (memory.pos - pos).length_squared() < DRONE_MAX_DISTANCE * DRONE_MAX_DISTANCE
-				&& default_filter(this, entity))
+			if (mersenne::randf_co() < run_chance)
 			{
-				s8 priority = 1;
-				b8 can_hit = get<Drone>()->can_hit(entity->get<Target>());
-
-				Ability ability = Ability::None;
-
-				if (can_hit)
-				{
-					priority -= 1;
-
-					if (manager->ability_valid(Ability::Bolter) && mersenne::randf_cc() < 0.5f)
-						ability = Ability::Bolter;
-					else if (manager->ability_valid(Ability::Sniper) && mersenne::randf_cc() < 0.75f)
-						ability = Ability::Sniper;
-					else if (manager->ability_valid(Ability::Shotgun))
-						ability = Ability::Shotgun;
-					else if (manager->ability_valid(Ability::Grenade) && mersenne::randf_cc() < 0.5f)
-						ability = Ability::Grenade;
-				}
-
-				switch (entity_type)
-				{
-					case AI::RecordedLife::EntityDroneEnemyShield2:
-					case AI::RecordedLife::EntityDroneEnemyShield1:
-					{
-						if (!drone_react_filter(this, entity))
-							continue;
-
-						if (entity_type == AI::RecordedLife::EntityDroneEnemyShield2)
-							priority -= 2;
-						else if (entity_type == AI::RecordedLife::EntityDroneEnemyShield1)
-							priority -= 3;
-
-						priority -= (Game::session.config.ruleset.drone_shield - tag.shield);
-
-						break;
-					}
-					case AI::RecordedLife::EntityMinionEnemy:
-					{
-						if (!minion_filter(this, entity))
-							continue;
-
-						priority -= 1;
-						priority -= (Game::session.config.ruleset.drone_shield - tag.shield);
-						break;
-					}
-					case AI::RecordedLife::EntityBatteryEnemy:
-					case AI::RecordedLife::EntityBatteryNeutral:
-					{
-						if (!battery_filter(this, entity))
-							continue;
-
-						added_battery = true;
-						if (entity_type == AI::RecordedLife::EntityBatteryEnemy)
-							priority -= 1;
-
-						ability = Ability::None;
-
-						break;
-					}
-					case AI::RecordedLife::EntityTurretEnemy:
-					case AI::RecordedLife::EntityMinionSpawnerEnemy:
-					case AI::RecordedLife::EntityRectifierEnemy:
-					case AI::RecordedLife::EntityForceFieldEnemy:
-						break;
-					default:
-						vi_assert(false);
-						break;
-				}
-
-				AI::RecordedLife::Action action;
-				action.type = AI::RecordedLife::Action::TypeAttack;
-				action.ability = ability;
-				action.entity_type = entity_type;
-				action_queue.push({ priority, action });
+				Action action;
+				action.type = Action::TypeRunAway;
+				action.pos = context.danger_center / context.danger_count;
+				action.priority = -2 - (get<Health>()->shield_max - get<Health>()->shield);
+				action_queue.push(action);
 			}
 		}
 	}
 
-	// go after long-range batteries
-	if (!added_battery)
+	if (Game::session.config.game_type == GameType::CaptureTheFlag)
 	{
-		if (Battery::count(AI::TeamNone) > 0)
+		AI::Team my_team = get<AIAgent>()->team;
+		Vec3 my_pos = get<Transform>()->absolute_pos();
+		if (get<Drone>()->flag.ref())
 		{
-			AI::RecordedLife::Action action;
-			action.type = AI::RecordedLife::Action::TypeAttack;
-			action.ability = Ability::None;
-			action.entity_type = AI::RecordedLife::EntityBatteryNeutral;
-			action_queue.push({ 1, action });
+			// carrying enemy flag
+			Vec3 my_base_pos(0, 0, FLAG_RADIUS);
+			Quat my_base_rot = Quat::identity;
+			Team::list[my_team].flag_base.ref()->to_world(&my_base_pos, &my_base_rot);
+			if (Flag::for_team(my_team)->at_base
+				|| Team::list[my_team].player_count() > 1 && (my_base_pos - my_pos).length_squared() > DRONE_MAX_DISTANCE * 2.0f * DRONE_MAX_DISTANCE * 2.0f)
+			{
+				// go to base
+				Action action;
+				action.type = Action::TypeMove;
+				action.pos = my_base_pos;
+				action.normal = my_base_rot * Vec3(0, 0, 1);
+				action.priority = -4;
+				action_queue.push(action);
+			}
 		}
-		if (Battery::count(~(1 << my_team)) > 0)
+
+		// if enemy is carrying our flag, kill them
+		if (Transform* carrier = Flag::for_team(my_team)->get<Transform>()->parent.ref())
 		{
-			AI::RecordedLife::Action action;
-			action.type = AI::RecordedLife::Action::TypeAttack;
-			action.ability = Ability::None;
-			action.entity_type = AI::RecordedLife::EntityBatteryEnemy;
-			action_queue.push({ 0, action });
+			PlayerControlAI::Action action;
+			action.type = PlayerControlAI::Action::TypeAttack;
+			action.ability = attack_ability(this, carrier->entity());
+			action.target = carrier->entity();
+			r32 distance_sq = (my_pos - carrier->absolute_pos()).length_squared();
+			action.priority = -4 - (distance_sq < DRONE_MAX_DISTANCE * 2.0f * DRONE_MAX_DISTANCE * 2.0f ? 1 : 0);
+			action_queue.push(action);
+		}
+
+		{
+			// get the enemy flag
+			Entity* enemy_flag = Flag::for_team(my_team == 0 ? 1 : 0)->entity();
+			if (!enemy_flag->get<Transform>()->parent.ref()) // ignore if it's already being carried by a teammate
+			{
+				PlayerControlAI::Action action;
+				action.type = PlayerControlAI::Action::TypeAttack;
+				action.ability = Ability::None;
+				action.target = enemy_flag;
+				r32 distance_sq = (my_pos - enemy_flag->get<Transform>()->absolute_pos()).length();
+				action.priority = -4 - (distance_sq < DRONE_MAX_DISTANCE * 2.0f  * DRONE_MAX_DISTANCE * 2.0f ? 1 : 0);
+				action_queue.push(action);
+			}
 		}
 	}
 
 	// last resort: panic
 	{
-		AI::RecordedLife::Action action;
-		action.type = AI::RecordedLife::Action::TypeNone;
-		action_queue.push({ 4096, action });
+		Action action;
+		action.type = Action::TypeNone;
+		action.priority = 4096;
+		action_queue.push(action);
 	}
 
 	for (s32 i = 0; i < recent_failed_actions.length; i++)
@@ -1137,7 +977,7 @@ void PlayerControlAI::actions_populate()
 		const FailedAction& failed = recent_failed_actions[i];
 		for (s32 j = 0; j < action_queue.heap.length; j++)
 		{
-			if (failed.timestamp > Game::time.total - 3.0f && action_queue.heap[j].action.fuzzy_equal(failed.action))
+			if (failed.timestamp > Game::time.total - 3.0f && action_queue.heap[j].fuzzy_equal(failed.action))
 			{
 				action_queue.remove(j);
 				break;
@@ -1152,7 +992,7 @@ void PlayerControlAI::action_done(b8 success)
 	vi_debug("Complete: %s", success ? "success" : "fail");
 #endif
 
-	if (current.action.type == AI::RecordedLife::Action::TypeUpgrade)
+	if (action_current.type == Action::TypeUpgrade)
 	{
 		UpgradeStation* upgrade_station = UpgradeStation::drone_inside(get<Drone>());
 		if (upgrade_station)
@@ -1163,7 +1003,7 @@ void PlayerControlAI::action_done(b8 success)
 	{
 		if (recent_failed_actions.length == recent_failed_actions.capacity())
 			recent_failed_actions.remove(recent_failed_actions.length - 1);
-		recent_failed_actions.insert(0, { Game::time.total, current.action });
+		recent_failed_actions.insert(0, { Game::time.total, action_current });
 	}
 
 	action_clear();
@@ -1178,35 +1018,62 @@ void PlayerControlAI::action_done(b8 success)
 	action_execute(action_queue.pop());
 }
 
-void PlayerControlAI::action_execute(const ActionEntry& a)
+void PlayerControlAI::action_execute(const Action& a)
 {
 #if DEBUG_AI_CONTROL
-	if (current.action.type == AI::RecordedLife::Action::TypeNone)
-		vi_debug("Executing action: %d", s32(a.action.type));
-#endif
-	current = a;
-
-	switch (current.action.type)
+	if (action_current.type == Action::TypeNone)
 	{
-		case AI::RecordedLife::Action::TypeMove:
+		vi_debug("Executing action: %d", s32(a.type));
+		if (Entity* target = a.target.ref())
+		{
+			const char* target_type;
+			if (target->has<Drone>())
+				target_type = "Drone";
+			else if (target->has<Minion>())
+				target_type = "Minion";
+			else if (target->has<ForceField>())
+				target_type = "ForceField";
+			else if (target->has<Rectifier>())
+				target_type = "Rectifier";
+			else if (target->has<Turret>())
+				target_type = "Turret";
+			else if (target->has<Battery>())
+				target_type = "Battery";
+			else if (target->has<MinionSpawner>())
+				target_type = "MinionSpawner";
+			else if (target->has<Grenade>())
+				target_type = "Grenade";
+			else if (target->has<Flag>())
+				target_type = "Flag";
+			else
+				target_type = "Other";
+			vi_debug("Target: %s", target_type);
+		}
+	}
+#endif
+	action_current = a;
+
+	switch (action_current.type)
+	{
+		case Action::TypeMove:
 		{
 			auto callback = ObjectLinkEntryArg<PlayerControlAI, const AI::DroneResult&, &PlayerControlAI::callback_path>(id());
 			Vec3 pos;
 			Quat rot;
 			get<Transform>()->absolute(&pos, &rot);
-			active_callback = AI::drone_pathfind(AI::DronePathfind::LongRange, AI::DroneAllow::All, get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), current.action.pos, current.action.normal, callback);
+			active_callback = AI::drone_pathfind(AI::DronePathfind::LongRange, AI::DroneAllow::All, get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), action_current.pos, action_current.normal, callback);
 			break;
 		}
-		case AI::RecordedLife::Action::TypeRunAway:
+		case Action::TypeRunAway:
 		{
 			auto callback = ObjectLinkEntryArg<PlayerControlAI, const AI::DroneResult&, &PlayerControlAI::callback_path>(id());
 			Vec3 pos;
 			Quat rot;
 			get<Transform>()->absolute(&pos, &rot);
-			active_callback = AI::drone_pathfind(AI::DronePathfind::Away, AI::DroneAllow::All, get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), current.action.pos, Vec3::zero, callback);
+			active_callback = AI::drone_pathfind(AI::DronePathfind::Away, AI::DroneAllow::All, get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), action_current.pos, Vec3::zero, callback);
 			break;
 		}
-		case AI::RecordedLife::Action::TypeUpgrade:
+		case Action::TypeUpgrade:
 		{
 			UpgradeStation* upgrade_station = UpgradeStation::drone_at(get<Drone>());
 			if (!upgrade_station)
@@ -1214,75 +1081,34 @@ void PlayerControlAI::action_execute(const ActionEntry& a)
 			else
 			{
 				upgrade_station->drone_enter(get<Drone>());
-				if (!get<PlayerCommon>()->manager.ref()->upgrade_start(Upgrade(current.action.upgrade)))
+				if (!get<PlayerCommon>()->manager.ref()->upgrade_start(Upgrade(action_current.upgrade)))
 					action_done(false); // fail
 			}
 			break;
 		}
-		case AI::RecordedLife::Action::TypeAttack:
+		case Action::TypeAttack:
 		{
-			AI::Team my_team = get<AIAgent>()->team;
-			Target* closest = nullptr;
-			r32 closest_distance_sq = FLT_MAX;
-			Vec3 pos;
-			Quat rot;
-			get<Transform>()->absolute(&pos, &rot);
-			for (auto i = Target::list.iterator(); !i.is_last(); i.next())
-			{
-				Entity* entity = i.item()->entity();
-				AI::Team team;
-				s8 entity_type;
-				AI::entity_info(entity, my_team, &team, &entity_type);
-				if (entity_type == current.action.entity_type)
-				{
-					if (!default_filter(this, entity)
-						|| (entity->has<Minion>() && !minion_filter(this, entity))
-						|| (entity->has<Drone>() && !drone_react_filter(this, entity))
-						|| (entity->has<Battery>() && !battery_filter(this, entity)))
-						continue;
-
-					if (get<Drone>()->can_hit(i.item()))
-					{
-						closest = i.item();
-						break;
-					}
-					else
-					{
-						r32 distance_sq = (i.item()->absolute_pos() - pos).length_squared();
-						if (distance_sq < closest_distance_sq)
-						{
-							closest = i.item();
-							closest_distance_sq = distance_sq;
-						}
-					}
-				}
-			}
-			if (closest)
+			if (Entity* attack_target = action_current.target.ref())
 			{
 				target_active = true;
-				target = closest->entity();
-				target_pos = closest->get<Target>()->absolute_pos();
-				if (!get<Drone>()->can_hit(closest))
+				target = attack_target;
+				target_pos = attack_target->get<Target>()->absolute_pos();
+				if (!get<Drone>()->can_hit(attack_target->get<Target>()))
 				{
 					// pathfind
+					Vec3 pos;
+					Quat rot;
+					get<Transform>()->absolute(&pos, &rot);
 					auto callback = ObjectLinkEntryArg<PlayerControlAI, const AI::DroneResult&, &PlayerControlAI::callback_path>(id());
-					active_callback = AI::drone_pathfind(AI::DronePathfind::Target, AI::DroneAllow::All, my_team, pos, rot * Vec3(0, 0, 1), closest->get<Target>()->absolute_pos(), Vec3::zero, callback);
+					active_callback = AI::drone_pathfind(AI::DronePathfind::Target, AI::DroneAllow::All, get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), attack_target->get<Target>()->absolute_pos(), Vec3::zero, callback);
 				}
 			}
 			else
 				action_done(false); // fail
 			break;
 		}
-		case AI::RecordedLife::Action::TypeNone:
-		{
-			// update method will handle panicking
-			break;
-		}
-		case AI::RecordedLife::Action::TypeWait:
-		{
-			// do nothing and wait to be interrupted by another action
-			break;
-		}
+		case Action::TypeNone:
+			break; // update method will handle panicking
 		// todo: TypeAbility
 		default:
 		{
@@ -1306,7 +1132,7 @@ void PlayerControlAI::callback_path(const AI::DroneResult& result)
 
 b8 action_can_interrupt(s8 type)
 {
-	return type != AI::RecordedLife::Action::TypeUpgrade;
+	return type != PlayerControlAI::Action::TypeUpgrade;
 }
 
 void PlayerControlAI::update_server(const Update& u)
@@ -1315,10 +1141,10 @@ void PlayerControlAI::update_server(const Update& u)
 	{
 		const AI::Config& config = player.ref()->config;
 
-		if (current.action.type != AI::RecordedLife::Action::TypeNone)
+		if (action_current.type != Action::TypeNone)
 		{
 			// reevaulate whether we should interrupt the current action and switch to another
-			if (action_can_interrupt(current.action.type))
+			if (action_can_interrupt(action_current.type))
 			{
 				reeval_timer -= u.time.delta;
 				if (reeval_timer < 0.0f)
@@ -1328,10 +1154,10 @@ void PlayerControlAI::update_server(const Update& u)
 					action_queue.clear();
 					actions_populate();
 
-					if (action_queue.peek().action.fuzzy_equal(current.action))
+					if (action_queue.peek().fuzzy_equal(action_current))
 						action_queue.pop(); // make sure we don't have a duplicate in the action queue
 
-					if (action_queue.peek().priority < current.priority) // switch to a new action
+					if (action_queue.peek().priority < action_current.priority) // switch to a new action
 					{
 						action_clear();
 						action_execute(action_queue.pop());
@@ -1347,7 +1173,7 @@ void PlayerControlAI::update_server(const Update& u)
 				else if (target.ref()->has<Target>())
 				{
 					if ((target.ref()->get<Target>()->absolute_pos() - target_pos).length_squared() > 8.0f * 8.0f)
-						action_execute(current); // recalculate path
+						action_execute(action_current); // recalculate path
 
 					if (target_shot_at)
 					{
@@ -1414,7 +1240,7 @@ void PlayerControlAI::update_server(const Update& u)
 				// look randomly
 				aim(u, random_look, inaccuracy);
 
-				if (current.action.type == AI::RecordedLife::Action::TypeNone)
+				if (action_current.type == Action::TypeNone)
 				{
 					// pathfinding routines failed; panic
 					PlayerCommon* common = get<PlayerCommon>();
@@ -1443,10 +1269,9 @@ void PlayerControlAI::update_server(const Update& u)
 		Vec2(s32(blueprint->x * r32(display.width)), s32(blueprint->y * r32(display.height))),
 		Vec2(s32(blueprint->w * r32(display.width)), s32(blueprint->h * r32(display.height))),
 	};
-	r32 aspect = camera.ref()->viewport.size.y == 0 ? 1 : camera.ref()->viewport.size.x / camera.ref()->viewport.size.y;
-	camera.ref()->perspective(80.0f * PI * 0.5f / 180.0f, aspect, 0.02f, Game::level.skybox.far_plane);
+	camera.ref()->perspective(80.0f * PI * 0.5f / 180.0f, 0.02f, Game::level.skybox.far_plane);
 	camera.ref()->rot = Quat::euler(0.0f, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
-	PlayerHuman::camera_setup_drone(entity(), camera.ref(), nullptr, nullptr, DRONE_THIRD_PERSON_OFFSET);
+	PlayerHuman::camera_setup_drone(get<Drone>(), camera.ref(), nullptr, DRONE_THIRD_PERSON_OFFSET);
 #endif
 }
 

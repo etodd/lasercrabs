@@ -2497,11 +2497,9 @@ void PlayerManager::entity_killed_by(Entity* e, Entity* killer)
 {
 	if (killer)
 	{
-		AI::Team team;
-		AI::entity_info(e, AI::TeamNone, &team);
+		AI::Team team = AI::entity_team(e);
 
-		AI::Team killer_team;
-		AI::entity_info(killer, AI::TeamNone, &killer_team);
+		AI::Team killer_team = AI::entity_team(killer);
 
 		if (killer_team != team)
 		{

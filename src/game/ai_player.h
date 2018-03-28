@@ -22,18 +22,10 @@ struct Target;
 
 struct PlayerAI
 {
-	struct Memory
-	{
-		Vec3 pos;
-		Vec3 velocity;
-		Ref<Entity> entity;
-	};
-
 	static PinArray<PlayerAI, MAX_PLAYERS> list;
 
 	static AI::Config generate_config(AI::Team, r32);
 
-	Array<Memory> memory;
 	Ref<PlayerManager> manager;
 	Revision revision;
 	AI::Config config;
@@ -49,35 +41,50 @@ struct PlayerAI
 	void spawn_callback(const AI::DronePathNode&);
 };
 
-struct ActionEntry
-{
-	s32 priority;
-	AI::RecordedLife::Action action;
-};
-
-struct ActionEntryKey
-{
-	r32 priority(const ActionEntry& e)
-	{
-		return r32(e.priority);
-	}
-};
-
-struct FailedAction
-{
-	r32 timestamp;
-	AI::RecordedLife::Action action;
-};
-
 struct PlayerControlAI : public ComponentType<PlayerControlAI>
 {
-#if DEBUG_AI_CONTROL
-	Ref<Camera> camera;
-#endif
+	struct Action
+	{
+		static const s8 TypeNone = 0;
+		static const s8 TypeMove = 1;
+		static const s8 TypeAttack = 2;
+		static const s8 TypeUpgrade = 3;
+		static const s8 TypeAbility = 4;
+		static const s8 TypeRunAway = 5;
 
-	PriorityQueue<ActionEntry, ActionEntryKey> action_queue;
+		Vec3 pos; // for move, spawn, and build ability actions
+		Vec3 normal; // for move, spawn, and build ability actions
+		s32 priority;
+		Ref<Entity> target;
+		s8 type;
+		union
+		{
+			Ability ability; // for build and shoot ability actions
+			Upgrade upgrade; // for upgrade actions
+		};
+		Action();
+		Action& operator=(const Action&);
+
+		b8 fuzzy_equal(const Action&) const;
+	};
+
+	struct ActionKey
+	{
+		r32 priority(const Action& e)
+		{
+			return r32(e.priority);
+		}
+	};
+
+	struct FailedAction
+	{
+		r32 timestamp;
+		Action action;
+	};
+
+	PriorityQueue<Action, ActionKey> action_queue;
 	StaticArray<FailedAction, 4> recent_failed_actions;
-	ActionEntry current;
+	Action action_current;
 	Vec3 target_pos;
 	Vec3 random_look;
 	u32 active_callback;
@@ -89,23 +96,25 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	s32 path_index;
 	Ref<PlayerAI> player;
 	Ref<Entity> target;
+#if DEBUG_AI_CONTROL
+	Ref<Camera> camera;
+#endif
 	b8 target_shot_at;
 	b8 target_hit;
 	b8 target_active;
-	ActionEntryKey action_queue_key;
+	ActionKey action_queue_key;
 
 	PlayerControlAI(PlayerAI* = nullptr);
 	void awake();
 	~PlayerControlAI();
 
 	void action_clear();
-	void action_execute(const ActionEntry&);
+	void action_execute(const Action&);
 	void action_done(b8);
 	void actions_populate();
 
 	void callback_path(const AI::DroneResult&);
 	void upgrade_completed(Upgrade);
-	void update_memory();
 	Vec2 aim(const Update&, const Vec3&, r32);
 	void aim_and_shoot_target(const Update&, const Vec3&, Target*);
 	b8 aim_and_shoot_location(const Update&, const AI::DronePathNode&, const AI::DronePathNode&, r32);

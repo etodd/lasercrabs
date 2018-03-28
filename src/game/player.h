@@ -170,9 +170,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	r32 emote_timer;
 	r32 audio_log_prompt_timer;
 	s32 spectate_index;
-#if SERVER
-	u32 ai_record_id;
-#endif
 	u32 master_id;
 	Menu::State menu_state;
 	s16 energy_notification_accumulator;
@@ -336,14 +333,10 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 	Array<TargetIndicator> target_indicators;
 	Array<PositionEntry> position_history;
-#if SERVER
-	AI::RecordedLife::Tag ai_record_tag;
-#endif
 	Reticle reticle;
 	RemoteControl remote_control;
 	Vec3 last_pos;
 #if SERVER
-	r32 ai_record_wait_timer;
 	r32 rtt;
 #endif
 	r32 fov;

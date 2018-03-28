@@ -307,7 +307,6 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	energy_notification_accumulator(),
 #if SERVER
 	afk_timer(AFK_TIME),
-	ai_record_id(),
 #endif
 	flags(local ? FlagLocal : 0),
 	chat_field(),
@@ -344,10 +343,6 @@ void PlayerHuman::awake()
 		camera.ref()->perspective(Settings::effective_fov(), MAP_VIEW_NEAR, MAP_VIEW_FAR);
 	}
 
-#if SERVER
-	ai_record_id = AI::record_init(Game::level.team_lookup_reverse(get<PlayerManager>()->team.ref()->team()));
-#endif
-
 	if (!get<PlayerManager>()->flag(PlayerManager::FlagCanSpawn)
 		&& Game::session.type == SessionType::Multiplayer
 		&& (Team::match_state == Team::MatchState::Waiting || Team::match_state == Team::MatchState::TeamSelect)
@@ -368,8 +363,6 @@ PlayerHuman::~PlayerHuman()
 	}
 #if SERVER
 	Net::Server::player_deleting(this);
-	AI::record_close(ai_record_id);
-	ai_record_id = 0;
 #endif
 }
 
@@ -3293,19 +3286,6 @@ s32 PlayerControlHuman::count_local()
 void PlayerControlHuman::drone_done_flying_or_dashing()
 {
 	camera_shake_timer = 0.0f; // stop screen shake
-#if SERVER
-	if (get<Health>()->can_take_damage(nullptr))
-	{
-		AI::RecordedLife::Action action;
-		action.type = AI::RecordedLife::Action::TypeMove;
-		Quat rot;
-		get<Transform>()->absolute(&action.pos, &rot);
-		action.normal = rot * Vec3(0, 0, 1);
-		AI::record_add(player.ref()->ai_record_id, ai_record_tag, action);
-		ai_record_wait_timer = AI_RECORD_WAIT_TIME;
-	}
-	ai_record_tag.init(player.ref()->get<PlayerManager>());
-#endif
 }
 
 void player_add_target_indicator(PlayerControlHuman* p, Target* target, PlayerControlHuman::TargetIndicator::Type type)
@@ -3464,8 +3444,6 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 	position_history(),
 	cooldown_last(),
 #if SERVER
-	ai_record_tag(),
-	ai_record_wait_timer(AI_RECORD_WAIT_TIME),
 	rtt(),
 #endif
 	anim_base()
@@ -3530,13 +3508,6 @@ PlayerControlHuman::~PlayerControlHuman()
 		get<Audio>()->stop_all();
 		if (player.ref()) // if the player has already been deleted, everything's getting deleted, STOP_ALL will stop it, don't worry about it
 			Audio::post_global(AK::EVENTS::STOP_PARKOUR_WIND, player.ref()->gamepad);
-	}
-	if (player.ref())
-	{
-#if SERVER
-		AI::record_close(player.ref()->ai_record_id);
-		player.ref()->ai_record_id = AI::record_init(Game::level.team_lookup_reverse(player.ref()->get<PlayerManager>()->team.ref()->team()));
-#endif
 	}
 }
 
@@ -3618,57 +3589,6 @@ void PlayerControlHuman::hit_target(Entity* target)
 void PlayerControlHuman::drone_detaching()
 {
 	camera_shake_timer = 0.0f; // stop screen shake
-
-#if SERVER
-	ai_record_tag.init(player.ref()->get<PlayerManager>());
-
-	player_collect_target_indicators(this);
-
-	AI::Team my_team = get<AIAgent>()->team;
-	Vec3 me = get<Transform>()->absolute_pos();
-	Vec3 dir = Vec3::normalize(get<Drone>()->velocity);
-	r32 closest_distance = DRONE_MAX_DISTANCE;
-	r32 closest_dot = 0.8f;
-	s8 closest_entity_type = AI::RecordedLife::EntityNone;
-	r32 target_prediction_speed = get<Drone>()->target_prediction_speed();
-
-	Net::StateFrame state_frame_data;
-	Net::StateFrame* state_frame = nullptr;
-	if (get<Drone>()->net_state_frame(&state_frame_data))
-		state_frame = &state_frame_data;
-
-	for (auto i = Entity::iterator(AI::entity_mask & ~Bolt::component_mask); !i.is_last(); i.next())
-	{
-		AI::Team team;
-		s8 entity_type;
-		AI::entity_info(i.item(), my_team, &team, &entity_type);
-		if (team != my_team)
-		{
-			Vec3 pos;
-			if (!i.item()->has<Target>() || !get<Drone>()->predict_intersection(i.item()->get<Target>(), state_frame, &pos, target_prediction_speed))
-				pos = i.item()->get<Transform>()->absolute_pos();
-
-			Vec3 to_target = pos - me;
-			r32 distance = to_target.length();
-			if (distance < closest_distance)
-			{
-				to_target /= distance;
-				r32 dot = to_target.dot(dir);
-				if (dot > closest_dot)
-				{
-					RaycastCallbackExcept ray_callback(me, pos, entity());
-					Physics::raycast(&ray_callback, CollisionStatic);
-					if (!ray_callback.hasHit())
-					{
-						closest_distance = distance;
-						closest_dot = dot;
-						closest_entity_type = entity_type;
-					}
-				}
-			}
-		}
-	}
-#endif
 }
 
 void PlayerControlHuman::camera_shake(r32 amount) // amount ranges from 0 to 1
@@ -4484,19 +4404,6 @@ void PlayerControlHuman::update(const Update& u)
 			// if we're dashing or flying, the RTT is set based on the sequence number of the command we received
 			if (get<Drone>()->state() == Drone::State::Crawl)
 				rtt = Net::rtt(player.ref());
-
-			ai_record_wait_timer -= u.time.delta;
-			if (ai_record_wait_timer < 0.0f)
-			{
-				ai_record_wait_timer += AI_RECORD_WAIT_TIME;
-				if (get<Health>()->can_take_damage(nullptr))
-				{
-					AI::RecordedLife::Action action;
-					action.type = AI::RecordedLife::Action::TypeWait;
-					AI::record_add(player.ref()->ai_record_id, ai_record_tag, action);
-				}
-				ai_record_tag.init(player.ref()->get<PlayerManager>());
-			}
 
 			get<Drone>()->crawl(remote_control.movement, u.time.delta);
 			last_pos = get<Drone>()->center_lerped();

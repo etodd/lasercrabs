@@ -1582,14 +1582,7 @@ void Rectifier::update_all(const Update& u)
 
 		if (i.item()->team != AI::TeamNone)
 		{
-			const r32 shockwave_interval = 8.0f;
-			r32 offset = i.index * shockwave_interval * 0.3f;
 			Vec3 me = transform->absolute_pos();
-			if (s32((u.time.total + offset) / shockwave_interval) != s32((last_time + offset) / shockwave_interval))
-			{
-				EffectLight::add(me, 10.0f, 1.5f, EffectLight::Type::Shockwave);
-				Audio::post_global(AK::EVENTS::PLAY_RECTIFIER_PING, Vec3::zero, transform);
-			}
 
 			PlayerManager* owner = i.item()->owner.ref();
 
@@ -1886,8 +1879,6 @@ void flag_build_force_field(Transform* flag, AI::Team team)
 
 	ParticleEffect::spawn(ParticleEffect::Type::SpawnForceField, abs_pos + abs_rot * Vec3(0, 0, FORCE_FIELD_BASE_OFFSET), abs_rot, flag, nullptr, team);
 }
-
-#define FLAG_RADIUS 0.2f
 
 Vec3 flag_base_pos(Transform* flag_base)
 {
@@ -2623,8 +2614,7 @@ void Turret::check_target()
 	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 	{
 		Entity* e = i.item()->entity();
-		AI::Team e_team;
-		AI::entity_info(e, team, &e_team);
+		AI::Team e_team = AI::entity_team(e);
 		if (e_team != AI::TeamNone
 			&& e_team != team
 			&& can_see(i.item()->entity()))
@@ -3376,8 +3366,7 @@ void Bolt::reflect(const Entity* hit_object, ReflectionType reflection_type, con
 	if (reflection_type == ReflectionType::Homing)
 	{
 		// change team
-		AI::Team reflect_team;
-		AI::entity_info(hit_object, team, &reflect_team);
+		AI::Team reflect_team = AI::entity_team(hit_object);
 		BoltNet::reflect(this, reflect_team, PlayerManager::owner(hit_object), hit_object);
 	}
 	else

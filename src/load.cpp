@@ -1202,18 +1202,14 @@ void Loader::level_free(cJSON* json)
 void Loader::nav_mesh(AssetID id, GameType game_type)
 {
 	if (id == AssetNull)
-		AI::load(AssetNull, nullptr, nullptr);
+		AI::load(AssetNull, nullptr);
 	else
-	{
-		char record_path[MAX_PATH_LENGTH + 1];
-		ai_record_path(record_path, id, game_type);
-		AI::load(id, nav_mesh_path(id), record_path);
-	}
+		AI::load(id, nav_mesh_path(id));
 }
 
 void Loader::nav_mesh_free()
 {
-	AI::load(AssetNull, nullptr, nullptr);
+	AI::load(AssetNull, nullptr);
 }
 
 b8 Loader::soundbank(AssetID id)
@@ -1404,12 +1400,5 @@ void Loader::user_data_path(char* path, const char* filename)
 	sprintf(path, "%s%s", Loader::data_directory, filename);
 }
 
-void Loader::ai_record_path(char* path, AssetID level, GameType type)
-{
-	char clean_level_name[MAX_PATH_LENGTH + 1];
-	strncpy(clean_level_name, level_name(level), MAX_PATH_LENGTH);
-	clean_name(clean_level_name);
-	sprintf(path, "air/%s_%s.air", clean_level_name, Net::Master::ServerConfig::game_type_string(type));
-}
 
 }

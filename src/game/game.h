@@ -33,9 +33,7 @@ namespace VI
 	struct ForceField;
 	struct SpawnPoint;
 
-#if DEBUG
 #define DEBUG_AI_CONTROL 0
-#endif
 
 struct Game
 {

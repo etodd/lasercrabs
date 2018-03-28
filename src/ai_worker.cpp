@@ -6,8 +6,6 @@
 #include "mersenne/mersenne-twister.h"
 #include "game/audio.h"
 
-#define RECORD_VERSION 4
-
 #define DEBUG_WALK 0
 #define DEBUG_DRONE 0
 #define DEBUG_AUDIO 0
@@ -18,8 +16,8 @@
 
 // bias toward longer shots
 #define DRONE_PATH_BIAS 4.0f
-// bias toward staying inside friendly areas
-#define DRONE_FRIENDLY_BIAS 8.0f
+// bias away from enemy force fields
+#define DRONE_FORCE_FIELD_BIAS 12.0f
 
 namespace VI
 {
@@ -121,9 +119,6 @@ struct AwayScorer : AstarScorer
 		if (v.equals(start_vertex)) // we need to go somewhere other than here
 			return false;
 
-		if (data.rectifier_score <= DRONE_FRIENDLY_BIAS) // inside a friendly rectifier zone or force field
-			return true;
-
 		const Vec3& vertex = mesh->chunks[v.chunk].vertices[v.vertex];
 		if ((vertex - away_pos).length_squared() < minimum_distance * minimum_distance)
 			return false; // needs to be farther away
@@ -200,32 +195,26 @@ b8 force_field_raycast(const NavGameState& state, Team my_team, const Vec3& a, c
 	{
 		const ForceFieldState& field = state.force_fields[i];
 		if (field.team != my_team && LMath::ray_sphere_intersect(a, b, field.pos, FORCE_FIELD_RADIUS))
-			return true;
+		{
+			if ((a - field.pos).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS
+				&& (b - field.pos).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS)
+				continue; // both are inside force field; we're good
+			else
+				return true;
+		}
 	}
 	return false;
 }
 
-r32 force_field_cost(const DroneNavMesh& mesh, const NavGameState& state, Team team, const DroneNavMeshNode& node)
+r32 force_field_cost(const DroneNavMesh& mesh, const NavGameState& state, Team my_team, const DroneNavMeshNode& a, const DroneNavMeshNode& b)
 {
-	const Vec3& pos = mesh.chunks[node.chunk].vertices[node.vertex];
+	const Vec3& pos_a = mesh.chunks[a.chunk].vertices[a.vertex];
+	const Vec3& pos_b = mesh.chunks[b.chunk].vertices[b.vertex];
 
-	r32 force_field_cost = DRONE_FRIENDLY_BIAS;
-
-	for (s32 i = 0; i < state.force_fields.length; i++)
-	{
-		const ForceFieldState& field = state.force_fields[i];
-		if (field.team == team)
-		{
-			Vec3 to_field = field.pos - pos;
-			if (to_field.length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS)
-			{
-				force_field_cost = 0.0f;
-				break;
-			}
-		}
-	}
-
-	return force_field_cost;
+	if (force_field_raycast(state, my_team, pos_a, pos_b))
+		return DRONE_FORCE_FIELD_BIAS;
+	else
+		return 0.0f;
 }
 
 DroneNavMeshNode drone_closest_point(const DroneNavMesh& mesh, const NavGameState& state, Team team, const Vec3& p, const Vec3& normal = Vec3::zero)
@@ -347,7 +336,6 @@ void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const D
 		DroneNavMeshNodeData* start_data = &ctx.key->get(start_vertex);
 		start_data->travel_score = 0;
 		start_data->estimate_score = scorer->score(start_pos);
-		start_data->rectifier_score = (ctx.flags & DroneNavFlagBias) ? force_field_cost(ctx.mesh, ctx.game_state, team, start_vertex) : 0;
 		start_data->parent = DRONE_NAV_MESH_NODE_NONE;
 		start_data->flags = DroneNavMeshNodeData::FlagCrawledFromParent
 			| DroneNavMeshNodeData::FlagInQueue;
@@ -405,8 +393,7 @@ void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const D
 
 				const Vec3& adjacent_pos = ctx.mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
 
-				if (!drone_flags_match(adjacency.flag(i), rule)
-					|| force_field_raycast(ctx.game_state, team, vertex_pos, adjacent_pos))
+				if (!drone_flags_match(adjacency.flag(i), rule))
 				{
 					// flags don't match or it's in a different force field
 					// therefore it's unreachable
@@ -415,9 +402,10 @@ void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const D
 				else
 				{
 					r32 candidate_travel_score = vertex_data->travel_score
-						+ vertex_data->rectifier_score
-						+ (adjacent_pos - vertex_pos).length()
-						+ ((ctx.flags & DroneNavFlagBias) ? DRONE_PATH_BIAS : 0); // bias toward longer shots
+						+ (adjacent_pos - vertex_pos).length();
+					
+					if (ctx.flags & DroneNavFlagBias)
+						candidate_travel_score += DRONE_PATH_BIAS + force_field_cost(ctx.mesh, ctx.game_state, team, vertex_node, adjacent_node);
 
 					if (adjacent_data->flag(DroneNavMeshNodeData::FlagInQueue))
 					{
@@ -446,7 +434,6 @@ void drone_astar(const DroneNavContext& ctx, DroneAllow rule, Team team, const D
 						// totally new node, not in queue yet
 						adjacent_data->flag(DroneNavMeshNodeData::FlagCrawledFromParent, adjacency.flag(i));
 						adjacent_data->parent = vertex_node;
-						adjacent_data->rectifier_score = (ctx.flags & DroneNavFlagBias) ? force_field_cost(ctx.mesh, ctx.game_state, team, adjacent_node) : 0;
 						adjacent_data->travel_score = candidate_travel_score;
 						adjacent_data->estimate_score = scorer->score(adjacent_pos);
 						adjacent_data->flag(DroneNavMeshNodeData::FlagVisited, true);
@@ -471,10 +458,7 @@ void drone_pathfind(const DroneNavContext& ctx, DroneAllow rule, Team team, cons
 	scorer.end_vertex = end_vertex;
 	scorer.end_pos = ctx.mesh.chunks[end_vertex.chunk].vertices[end_vertex.vertex];
 	const Vec3& start_pos = ctx.mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
-	if (force_field_hash(ctx.game_state, team, start_pos) != force_field_hash(ctx.game_state, team, scorer.end_pos))
-		return; // in a different force field; unreachable
-	else
-		drone_astar(ctx, rule, team, start_vertex, &scorer, path);
+	drone_astar(ctx, rule, team, start_vertex, &scorer, path);
 }
 
 #if DEBUG_AUDIO_VISUALIZATION
@@ -653,9 +637,6 @@ void audio_reverb_calc(const DroneNavContext& ctx, const Vec3& pos, ReverbCell* 
 void drone_pathfind_hit(const DroneNavContext& ctx, DroneAllow rule, Team team, const Vec3& start, const Vec3& start_normal, const Vec3& target, DronePath* path)
 {
 	path->length = 0;
-	if (force_field_hash(ctx.game_state, team, start) != force_field_hash(ctx.game_state, team, target))
-		return; // in a different force field; unreachable
-
 	DroneNavMeshNode target_closest_vertex = drone_closest_point(ctx.mesh, ctx.game_state, team, target, Vec3::zero);
 	if (target_closest_vertex.equals(DRONE_NAV_MESH_NODE_NONE))
 		return;
@@ -757,37 +738,6 @@ void pathfind(const NavGameState& nav_game_state, AI::Team team, const Vec3& a, 
 	}
 }
 
-struct RecordedLifeEntry
-{
-	u32 id;
-	RecordedLife data;
-};
-Array<RecordedLifeEntry> records_in_progress;
-
-AI::RecordedLife* record_in_progress_by_id(u32 id)
-{
-	for (s32 i = 0; i < records_in_progress.length; i++)
-	{
-		if (records_in_progress[i].id == id)
-			return &records_in_progress[i].data;
-	}
-	return nullptr;
-}
-
-void record_in_progress_remove(u32 id)
-{
-	for (s32 i = 0; i < records_in_progress.length; i++)
-	{
-		if (records_in_progress[i].id == id)
-		{
-			records_in_progress[i].data.~RecordedLife();
-			records_in_progress.remove(i);
-			return;
-		}
-	}
-	vi_assert(false);
-}
-
 void loop()
 {
 	nav_mesh_query = dtAllocNavMeshQuery();
@@ -816,8 +766,6 @@ void loop()
 		&astar_queue,
 		0,
 	};
-	Array<RecordedLife> records;
-	char record_path[MAX_PATH_LENGTH + 1];
 
 	Array<u32> obstacle_recast_ids;
 
@@ -853,16 +801,12 @@ void loop()
 					new (&drone_nav_mesh_key) DroneNavMeshKey();
 
 					nav_game_state.clear();
-
-					for (s32 i = 0; i < records.length; i++)
-						records[i].~RecordedLife();
-					records.length = 0;
 				}
 
 				AssetID level_id;
 				sync_in.read(&level_id);
 
-				// get filenames of nav mesh and records and load them
+				// get nav mesh filename and load it
 				FILE* f = nullptr;
 				s32 data_length = 0;
 				{
@@ -872,70 +816,17 @@ void loop()
 					sync_in.read(&path_length);
 					vi_assert(path_length <= MAX_PATH_LENGTH);
 					sync_in.read(path, path_length);
+					sync_in.unlock();
 					path[path_length] = '\0';
 
-					// read records
+					// unlock sync
 					{
-						s32 record_path_length;
-						sync_in.read(&record_path_length);
-						vi_assert(record_path_length <= MAX_PATH_LENGTH);
-						sync_in.read(record_path, record_path_length);
-						record_path[record_path_length] = '\0';
-						sync_in.unlock();
-						if (record_path_length > 0)
-						{
-							b8 create_file = false;
-							FILE* f = fopen(record_path, "rb");
-							if (f)
-							{
-								s32 version;
-								fread(&version, sizeof(s32), 1, f);
-								if (version == GAME_VERSION)
-								{
-									fseek(f, 0, SEEK_END);
-									s32 end = ftell(f);
-									fseek(f, sizeof(s32), SEEK_SET);
-									while (ftell(f) != end)
-									{
-										RecordedLife* record = records.add();
-										new (record) RecordedLife();
-										record->serialize(f, &RecordedLife::custom_fread);
-									}
-									fclose(f);
-									printf("Read %d records from '%s'.\n", records.length, record_path);
-								}
-								else
-								{
-									fclose(f);
-									fprintf(stderr, "Version mismatch in '%s'. Expected %d, got %d. Truncating.\n", record_path, RECORD_VERSION, version);
-									create_file = true;
-								}
-							}
-							else
-							{
-								create_file = true;
-								fprintf(stderr, "Failed to open '%s'.\n", record_path);
-							}
+						level_revision++;
 
-#if SERVER
-							if (create_file)
-							{
-								printf("Creating '%s'.\n", record_path);
-								f = fopen(record_path, "wb");
-								if (f)
-								{
-									s32 version = RECORD_VERSION;
-									fwrite(&version, sizeof(s32), 1, f);
-									fclose(f);
-								}
-								else
-								{
-									fprintf(stderr, "Failed to open '%s' for writing.\n", record_path);
-									vi_assert(false);
-								}
-							}
-#endif
-						}
+						sync_out.lock();
+						sync_out.write(Callback::Load);
+						sync_out.write(level_revision);
+						sync_out.unlock();
 					}
 
 					// open nav mesh file
@@ -1078,15 +969,6 @@ void loop()
 #if DEBUG_WALK || DEBUG_DRONE || DEBUG_AUDIO
 				vi_debug("Done in %fs.", r32(platform::time() - start_time));
 #endif
-
-				{
-					level_revision++;
-
-					sync_out.lock();
-					sync_out.write(Callback::Load);
-					sync_out.write(level_revision);
-					sync_out.unlock();
-				}
 
 				break;
 			}
@@ -1435,58 +1317,6 @@ void loop()
 				sync_in.unlock();
 				break;
 			}
-			case Op::RecordInit:
-			{
-				u32 id;
-				AI::Team team;
-				sync_in.read(&id);
-				sync_in.read(&team);
-				sync_in.unlock();
-
-				RecordedLifeEntry entry;
-				entry.id = id;
-				entry.data.reset(team);
-				records_in_progress.add(entry);
-				break;
-			}
-			case Op::RecordAdd:
-			{
-				u32 id;
-				RecordedLife::Tag tag;
-				RecordedLife::Action action;
-				sync_in.read(&id);
-				sync_in.read(&tag);
-				sync_in.read(&action);
-				sync_in.unlock();
-				record_in_progress_by_id(id)->add(tag, action);
-				break;
-			}
-			case Op::RecordClose:
-			{
-				u32 id;
-				sync_in.read(&id);
-				sync_in.unlock();
-
-				if (id != 0) // 0 is an invalid record ID
-				{
-					RecordedLife* record = record_in_progress_by_id(id);
-
-					if (record->action.length > 0)
-					{
-						// save AI record
-						FILE* f = fopen(record_path, "ab");
-						if (!f)
-						{
-							fprintf(stderr, "Can't open air file '%s'\n", record_path);
-							vi_assert(false);
-						}
-						record->serialize(f, &RecordedLife::custom_fwrite);
-						fclose(f);
-					}
-					record_in_progress_remove(id);
-				}
-				break;
-			}
 			case Op::AudioPathfind:
 			{
 				Ref<AudioEntry> entry;
@@ -1551,7 +1381,7 @@ void DroneNavMeshKey::reset()
 r32 DroneNavMeshKey::priority(const DroneNavMeshNode& a)
 {
 	const DroneNavMeshNodeData& data = get(a);
-	return data.travel_score + data.estimate_score + data.rectifier_score;
+	return data.travel_score + data.estimate_score;
 }
 
 DroneNavMeshNodeData& DroneNavMeshKey::get(const DroneNavMeshNode& node)

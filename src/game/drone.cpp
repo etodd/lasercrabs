@@ -325,8 +325,7 @@ void sniper_hit_effects(const Drone::Hit& hit)
 
 s32 impact_damage(const Drone* drone, const Entity* target_shield)
 {
-	if (target_shield->has<Drone>()
-		&& (target_shield->get<Drone>()->state() != Drone::State::Crawl || target_shield->get<AIAgent>()->team == drone->get<AIAgent>()->team))
+	if (target_shield->has<Drone>() && target_shield->get<AIAgent>()->team == drone->get<AIAgent>()->team)
 		return 0;
 
 	Vec3 ray_dir;
@@ -1864,7 +1863,7 @@ r32 Drone::target_prediction_speed() const
 
 r32 Drone::range() const
 {
-	return current_ability == Ability::Sniper ? DRONE_SNIPE_DISTANCE : DRONE_MAX_DISTANCE;
+	return current_ability == Ability::Sniper ? DRONE_SNIPE_DISTANCE : DRONE_MAX_DISTANCE * 2.0f;
 }
 
 b8 Drone::go(const Vec3& dir)

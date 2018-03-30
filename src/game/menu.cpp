@@ -21,6 +21,7 @@
 #include "ease.h"
 #include "data/components.h"
 #include "team.h"
+#include "asset/version.h"
 
 namespace VI
 {
@@ -634,6 +635,15 @@ void title_menu(const Update& u, Camera* camera)
 					Scripts::Docks::play();
 					clear();
 				}
+				else if (main_menu.item(u, _(strings::tutorial)))
+				{
+					Game::save.reset();
+					Game::session.reset(SessionType::Story);
+					Game::session.config.game_type = GameType::Assault;
+					Game::save.zone_current = Asset::Level::Isca;
+					Game::schedule_load_level(Asset::Level::Isca, Game::Mode::Pvp);
+					clear();
+				}
 				else if (main_menu.item(u, _(strings::play_online)))
 				{
 					Game::save.reset();
@@ -655,17 +665,12 @@ void title_menu(const Update& u, Camera* camera)
 					main_menu_state = State::Settings;
 					main_menu.animate();
 				}
-				else
-				{
-					if (main_menu.item(u, _(strings::discord), nullptr, false, Asset::Mesh::icon_vip))
-						open_url("https://discord.gg/eZGapeY");
-					if (main_menu.item(u, _(strings::newsletter), nullptr, false, Asset::Mesh::icon_vip))
-						open_url("https://eepurl.com/U50O5");
-					if (main_menu.item(u, _(strings::credits)))
-						main_menu_state = State::Credits;
-					if (main_menu.item(u, _(strings::exit)))
-						dialog(0, &exit, _(strings::confirm_quit));
-				}
+				else if (main_menu.item(u, _(strings::discord), nullptr, false, Asset::Mesh::icon_vip))
+					open_url("https://discord.gg/eZGapeY");
+				else if (main_menu.item(u, _(strings::credits)))
+					main_menu_state = State::Credits;
+				else if (main_menu.item(u, _(strings::exit)))
+					dialog(0, &exit, _(strings::confirm_quit));
 				main_menu.end(u);
 			}
 			break;
@@ -1241,6 +1246,14 @@ void draw_ui(const RenderParams& params)
 			Vec2 pos = params.camera->viewport.size * Vec2(0.1f, 0.1f);
 			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 			text.draw(params, pos);
+		}
+
+		// build id
+		{
+			UIText text;
+			text.font = Asset::Font::pt_sans;
+			text.text_raw(0, BUILD_ID);
+			text.draw(params, Vec2::zero);
 		}
 	}
 #endif

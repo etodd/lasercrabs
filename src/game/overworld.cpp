@@ -1251,11 +1251,10 @@ void multiplayer_entry_view_update(const Update& u)
 			{
 				// offline
 				Net::Master::ServerConfig config = data.multiplayer.active_server.config;
-				Game::unload_level();
 				Game::session.config = config;
 				vi_assert(Game::session.config.levels.length > 0);
 				Game::Mode mode = Game::session.config.time_limit_parkour_ready == 0 ? Game::Mode::Pvp : Game::Mode::Parkour;
-				Game::load_level(Overworld::zone_id_for_uuid(Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length]), mode);
+				Game::schedule_load_level(Overworld::zone_id_for_uuid(Game::session.config.levels[mersenne::rand() % Game::session.config.levels.length]), mode);
 			}
 			return;
 		}

@@ -49,7 +49,6 @@
 #include "minion.h"
 #include "render/particles.h"
 #include "ai_player.h"
-#include "usernames.h"
 #include "net.h"
 #include "parkour.h"
 #include "overworld.h"
@@ -58,7 +57,6 @@
 #include <dirent.h>
 #include "settings.h"
 #include "data/json.h"
-#include "asset/version.h"
 #if !SERVER && !defined(__ORBIS__)
 #include <sdl/include/SDL.h>
 #include "steam/steam_api.h"
@@ -96,6 +94,7 @@ char Game::steam_username[MAX_USERNAME + 1];
 
 Gamepad::Type Game::ui_gamepad_types[MAX_GAMEPADS] = { };
 AssetID Game::scheduled_load_level = AssetNull;
+Game::TransitioningLevel Game::scheduled_level_transitioning;
 AssetID Game::scheduled_dialog = AssetNull;
 Game::Mode Game::scheduled_mode = Game::Mode::Pvp;
 r32 Game::schedule_timer;
@@ -793,16 +792,15 @@ void Game::update(InputState* input, const InputState* last_input)
 	{
 		r32 old_timer = schedule_timer;
 		schedule_timer = vi_max(0.0f, schedule_timer - real_time.delta);
-		if (schedule_timer < TRANSITION_TIME && old_timer >= TRANSITION_TIME)
-		{
-			config_apply();
 #if SERVER
+		if (schedule_timer < TRANSITION_TIME && old_timer >= TRANSITION_TIME)
 			Net::Server::transition_level(); // let clients know that we're switching levels
 #endif
-		}
 
 		if (scheduled_load_level != AssetNull && schedule_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
 		{
+			if (scheduled_level_transitioning == TransitioningLevel::Yes)
+				config_apply();
 			load_level(scheduled_load_level, scheduled_mode, StoryModeTeam::Attack);
 			if (scheduled_dialog != AssetNull)
 			{
@@ -987,30 +985,6 @@ void Game::update(InputState* input, const InputState* last_input)
 
 		if (level.local)
 		{
-			if (session.type == SessionType::Story && level.mode == Mode::Pvp && Team::match_state != Team::MatchState::Done)
-			{
-				// spawn AI players
-				for (s32 i = 0; i < level.ai_config.length; i++)
-				{
-					const AI::Config& config = level.ai_config[i];
-					if (Team::match_time > config.spawn_time)
-					{
-						Entity* e = World::create<ContainerEntity>();
-						PlayerManager* manager = e->add<PlayerManager>(&Team::list[s32(config.team)], Usernames::all[mersenne::rand_u32() % Usernames::count]);
-						if (config.spawn_time == 0.0f)
-							manager->spawn_timer = 0.01f; // spawn instantly
-
-						PlayerAI* player = PlayerAI::list.add();
-						new (player) PlayerAI(manager, config);
-
-						Net::finalize(e);
-
-						level.ai_config.remove(i);
-						i--;
-					}
-				}
-			}
-
 			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
 			for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
@@ -1526,19 +1500,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 		Menu::draw_letterbox(render_params, schedule_timer, TRANSITION_TIME);
 
 	if (render_params.camera->gamepad == 0 && Game::level.id != Asset::Level::splash)
-	{
 		Console::draw_ui(render_params);
-
-#if RELEASE_BUILD
-		// build id
-		{
-			UIText text;
-			text.font = Asset::Font::pt_sans;
-			text.text(0, "DECEIVER %s", BUILD_ID);
-			text.draw(render_params, Vec2::zero);
-		}
-#endif
-	}
 }
 
 void Game::draw_hollow(const RenderParams& render_params)
@@ -1783,11 +1745,6 @@ void Game::execute(const char* cmd)
 		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
 			i.item()->get<Health>()->kill(nullptr);
 	}
-	else if (strcmp(cmd, "spawn") == 0)
-	{
-		for (s32 i = 0; i < level.ai_config.length; i++)
-			level.ai_config[i].spawn_time = 0.0f;
-	}
 	else if (strcmp(cmd, "win") == 0)
 		game_end_cheat(true);
 	else if (strcmp(cmd, "lose") == 0)
@@ -1841,12 +1798,13 @@ void Game::execute(const char* cmd)
 #endif
 }
 
-void Game::schedule_load_level(AssetID level_id, Mode m, r32 delay)
+void Game::schedule_load_level(AssetID level_id, Mode m, TransitioningLevel transitioning)
 {
 	vi_debug("Scheduling level load: %d", s32(level_id));
 	scheduled_load_level = level_id;
 	scheduled_mode = m;
-	schedule_timer = TRANSITION_TIME + delay;
+	schedule_timer = TRANSITION_TIME;
+	scheduled_level_transitioning = transitioning;
 }
 
 void Game::unload_level()
@@ -2010,6 +1968,7 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 	time.total = 0.0f;
 
 	scheduled_load_level = AssetNull;
+	scheduled_level_transitioning = TransitioningLevel::No;
 
 	Physics::btWorld->setGravity(btVector3(0, -13.0f, 0));
 
@@ -2373,31 +2332,6 @@ void Game::load_level(AssetID l, Mode m, StoryModeTeam story_mode_team)
 			space.pos = absolute_pos;
 			space.radius = Json::get_vec3(element, "scale", Vec3(1)).x;
 			level.water_sound_negative_spaces.add(space);
-		}
-		else if (cJSON_HasObjectItem(element, "AIPlayer"))
-		{
-			// only add an AI player if we are in story mode
-			if (session.type == SessionType::Story)
-			{
-				AI::Team team_original = Json::get_s32(element, "team", 1);
-				AI::Team team = team_lookup(level.team_lookup, team_original);
-				if (ai_player_count > 1)
-				{
-					// 2v2 map
-					if (story_mode_team == StoryModeTeam::Defend && (team_original == 1 || mersenne::randf_cc() < 0.5f))
-						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // enemy is attacking; they're there from the beginning
-					else
-						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_TIME * 1.5f)));
-				}
-				else
-				{
-					// 1v1 map
-					if (story_mode_team == StoryModeTeam::Defend)
-						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // player is defending, enemy is already there
-					else // player is attacking, eventually enemy will come to defend
-						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_TIME * 1.5f)));
-				}
-			}
 		}
 		else if (cJSON_HasObjectItem(element, "Battery"))
 		{

@@ -318,7 +318,7 @@ void Team::awake_all()
 		}
 	}
 
-	battery_spawn_delay = 0.0f;
+	battery_spawn_delay = Game::level.has_feature(Game::FeatureLevel::All) ? 0.0f : BATTERY_SPAWN_DELAY;
 	winner = nullptr;
 	score_summary.length = 0;
 	for (s32 i = 0; i < MAX_PLAYERS * MAX_PLAYERS; i++)
@@ -361,12 +361,6 @@ Team* Team::with_least_players(s32* player_count)
 
 b8 Team::has_active_player() const
 {
-	for (s32 i = 0; i < Game::level.ai_config.length; i++)
-	{
-		if (Game::level.ai_config[i].team == team())
-			return true;
-	}
-
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team.ref() == this)
@@ -384,13 +378,15 @@ void Team::transition_next()
 #if SERVER
 		Game::unload_level(); // disconnect any connected players
 #else
-		Game::schedule_load_level(Game::save.zone_current, Game::Mode::Parkour);
+		if (Game::save.zone_current == Game::level.id)
+			Menu::title();
+		else
+			Game::schedule_load_level(Game::save.zone_current, Game::Mode::Parkour);
 #endif
 	}
 	else
 	{
 		// multiplayer
-		Game::config_apply();
 #if SERVER
 		Net::Server::transition_level();
 #endif
@@ -398,12 +394,12 @@ void Team::transition_next()
 			Game::level.multiplayer_level_schedule();
 
 		Game::Mode mode;
-		if (Game::session.config.time_limit_parkour_ready == 0)
+		if (Game::level.config_current_or_scheduled().time_limit_parkour_ready == 0)
 			mode = Game::Mode::Pvp;
 		else
 			mode = Game::Mode::Parkour;
 		
-		Game::schedule_load_level(Game::level.multiplayer_level_scheduled, mode);
+		Game::schedule_load_level(Game::level.multiplayer_level_scheduled, mode, Game::TransitioningLevel::Yes);
 	}
 }
 
@@ -418,7 +414,7 @@ void Team::battery_spawn()
 	Rope::spawn(p.pos + Vec3(0, 1, 0), Vec3(0, 1, 0), 100.0f);
 
 	Game::level.battery_spawn_index++;
-	battery_spawn_delay = 0.0f;
+	battery_spawn_delay = Game::level.has_feature(Game::FeatureLevel::All) ? 0.0f : BATTERY_SPAWN_DELAY;
 }
 
 s16 Team::force_field_mask(AI::Team t)
@@ -894,13 +890,12 @@ void Team::update_all_server(const Update& u)
 			&& Game::scheduled_load_level == AssetNull
 			&& PlayerHuman::list.count() < vi_max(s32(Game::session.config.min_players), Game::session.config.fill_bots ? 1 : 2))
 		{
-			Game::config_apply();
-			if (Game::session.config.time_limit_parkour_ready > 0) // go back to parkour mode
+			if (Game::level.config_current_or_scheduled().time_limit_parkour_ready > 0) // go back to parkour mode
 			{
 #if SERVER
 				Net::Server::transition_level();
 #endif
-				Game::schedule_load_level(Game::level.id, Game::Mode::Parkour);
+				Game::schedule_load_level(Game::level.id, Game::Mode::Parkour, Game::TransitioningLevel::Yes);
 			}
 			else // go back to Waiting state
 				match_waiting();
@@ -1004,11 +999,10 @@ void Team::update_all_server(const Update& u)
 					if (time_limit > 0.0f && Team::match_time > time_limit)
 					{
 						// start the match
-						Game::config_apply();
 #if SERVER
 						Net::Server::transition_level();
 #endif
-						Game::schedule_load_level(Game::level.id, Game::Mode::Pvp);
+						Game::schedule_load_level(Game::level.id, Game::Mode::Pvp, Game::TransitioningLevel::Yes);
 					}
 				}
 				else
@@ -1033,7 +1027,7 @@ void Team::update_all_server(const Update& u)
 				&& ((match_time > Game::session.config.time_limit() // time limit
 					&& Game::level.has_feature(Game::FeatureLevel::All) // no time limit in tutorial
 					&& (Game::session.config.game_type != GameType::Assault || Battery::count(~(1 << 0)) == 0)) // if attackers are holding a battery, ignore the time limit
-					|| (Game::level.has_feature(Game::FeatureLevel::All) && teams_with_active_players() <= 1 && Game::level.ai_config.length == 0)
+					|| (Game::level.has_feature(Game::FeatureLevel::All) && teams_with_active_players() <= 1)
 					|| (Game::session.config.game_type == GameType::Assault && Battery::list.count() == 0 && Game::level.battery_spawn_index >= Game::level.battery_spawns.length) // attackers drained all batteries
 					|| (Game::session.config.game_type == GameType::Deathmatch && team_with_most_kills && team_with_most_kills->kills >= Game::session.config.kill_limit)
 					|| (Game::session.config.game_type == GameType::CaptureTheFlag && team_with_most_flags && team_with_most_flags->flags_captured >= Game::session.config.flag_limit)))

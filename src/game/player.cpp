@@ -2443,7 +2443,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		if (winner == get<PlayerManager>()->team.ref()) // we won
 		{
 			text.color = UI::color_accent();
-			text.text(gamepad, _(Game::session.type == SessionType::Story ? strings::story_victory : strings::victory));
+			text.text(gamepad, _(strings::victory));
 		}
 		else if (!winner) // it's a draw
 		{
@@ -2453,7 +2453,7 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 		else // we lost
 		{
 			text.color = UI::color_alert();
-			text.text(gamepad, _(Game::session.type == SessionType::Story ? strings::story_defeat : strings::defeat));
+			text.text(gamepad, _(strings::defeat));
 		}
 		UIMenu::text_clip(&text, gamepad, Team::game_over_real_time, 20.0f);
 

@@ -743,13 +743,13 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::camera_light_strength);
 			sync->write(RenderDataType::R32);
 			sync->write<s32>(1);
-			sync->write(render_params.camera->flag(CameraFlagColors) ? 0.25f : 0.7f);
+			sync->write(0.3f);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::camera_light_radius);
 			sync->write(RenderDataType::R32);
 			sync->write<s32>(1);
-			sync->write(render_params.camera->flag(CameraFlagColors) ? 6.0f : render_params.camera->range);
+			sync->write(render_params.camera->range ? render_params.camera->range * 0.75f: 6.0f);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::range);

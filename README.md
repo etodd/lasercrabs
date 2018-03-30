@@ -1,4 +1,4 @@
-Deceiver
+DECEIVER
 ========
 
 Features
@@ -12,7 +12,7 @@ separate threads for physics, rendering, AI, and game logic
 - Create levels, models, animations, and ragdoll rigs in Blender
 - Deferred rendering, cascaded shadow maps, edge detection, bloom, SSAO, weather effects
 - Geometry-based font rendering and UI system
-- UDP client-server network architecture
+- [Online multiplayer](http://etodd.io/2018/02/20/poor-mans-netcode/)
 - Online user profile system via [sqlite](https://sqlite.org/)
 - Authentication via [Steam](http://store.steampowered.com/), [itch.io](https://itch.io), or [GameJolt](https://gamejolt.com)
 - Localization support
@@ -96,37 +96,10 @@ Credits
 - Ian Cuslidge - level design for "Plaza"
 - Bobpoblo - level design for "Crossing"
 
-Asset license
--------------
+License
+-------
 
-All rights reserved for images, sounds, music, models, animations, fonts,
-levels, dialogue files, and all other game data. They are available for
-download here for convenience, but may not be redistributed without express
-permission.
-
-All code not including the `external` directory is available under the
-following license:
-
-The MIT License
----------------
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Everything excluding the `external` directory is public domain.
 
 Wwise SDK
 ---------

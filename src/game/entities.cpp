@@ -19,7 +19,6 @@
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "menu.h"
 #include "data/ragdoll.h"
-#include "usernames.h"
 #include "console.h"
 #include "minion.h"
 #include "render/particles.h"
@@ -360,7 +359,7 @@ b8 Health::can_take_damage(Entity* damager, const Net::StateFrame* state_frame) 
 				return false;
 			case DroneCollisionState::FlyingDashing:
 			{
-				// grenades and bolts can still damage drones while they are flying or dashing
+				// grenades, bolts, and snipers can still damage drones while they are flying or dashing
 				if (damager)
 				{
 					if (damager->has<Grenade>())
@@ -368,9 +367,10 @@ b8 Health::can_take_damage(Entity* damager, const Net::StateFrame* state_frame) 
 					else if (damager->has<Bolt>())
 					{
 						Bolt::Type t = damager->get<Bolt>()->type;
-						if (t == Bolt::Type::DroneBolter || t == Bolt::Type::DroneShotgun)
-							return true;
+						return t == Bolt::Type::DroneBolter || t == Bolt::Type::DroneShotgun;
 					}
+					else if (damager->has<Drone>())
+						return damager->get<Drone>()->current_ability == Ability::Sniper;
 				}
 				return false;
 			}

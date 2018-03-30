@@ -1321,8 +1321,6 @@ namespace tutorial
 			&& Game::level.local
 			&& !Game::save.tutorial_complete)
 		{
-			Game::level.ai_config.length = 0; // no bots
-
 			Actor::init();
 
 			data = new Data();

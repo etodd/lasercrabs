@@ -361,8 +361,6 @@ set(SRC
 	src/game/menu.cpp
 	src/game/scripts.h
 	src/game/scripts.cpp
-	src/game/usernames.h
-	src/game/usernames.cpp
 	src/game/parkour.h
 	src/game/parkour.cpp
 	external/sdl_controllers/gamecontrollerdb.txt

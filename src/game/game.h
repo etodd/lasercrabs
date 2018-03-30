@@ -144,7 +144,6 @@ struct Game
 		StaticArray<AI::PathZone, 16> path_zones;
 		EntityFinder finder;
 		StaticArray<TramTrack, 3> tram_tracks;
-		StaticArray<AI::Config, MAX_PLAYERS> ai_config;
 		StaticArray<DirectionalLight, MAX_DIRECTIONAL_LIGHTS> directional_lights;
 		Net::Master::ServerConfig config_scheduled;
 		Vec3 ambient_color;
@@ -184,6 +183,17 @@ struct Game
 		r32 far_plane_get() const;
 		r32 fog_start_get() const;
 		r32 fog_end_get() const;
+		const Net::Master::ServerConfig& config_current_or_scheduled() const
+		{
+			return config_scheduled_apply ? config_scheduled : Game::session.config;
+		}
+	};
+
+	enum class TransitioningLevel : s8
+	{
+		No,
+		Yes,
+		count,
 	};
 
 	static Session session;
@@ -204,6 +214,7 @@ struct Game
 	static r32 schedule_timer;
 	static Mode scheduled_mode;
 	static AssetID scheduled_load_level;
+	static TransitioningLevel scheduled_level_transitioning;
 	static AssetID scheduled_dialog;
 	static b8 cancel_event_eaten[MAX_GAMEPADS];
 	static b8 quit;
@@ -224,7 +235,8 @@ struct Game
 	static const char* init(LoopSync*);
 	static void execute(const char*);
 	static void update(InputState*, const InputState*);
-	static void schedule_load_level(AssetID, Mode, r32 = 0.0f);
+
+	static void schedule_load_level(AssetID, Mode, TransitioningLevel = TransitioningLevel::No);
 	static void unload_level();
 	static void load_level(AssetID, Mode, StoryModeTeam = StoryModeTeam::Attack);
 	static void awake_all();

@@ -3114,7 +3114,8 @@ BoltEntity::BoltEntity(AI::Team team, PlayerManager* player, Entity* owner, Bolt
 	r32 speed = Bolt::speed(type);
 
 	Bolt* b = create<Bolt>();
-	b->remaining_lifetime = (DRONE_MAX_DISTANCE * 0.99f) / speed;
+	r32 range = type == Bolt::Type::DroneBolter ? (DRONE_MAX_DISTANCE * 2.0f) : DRONE_MAX_DISTANCE;
+	b->remaining_lifetime = (range * 0.99f) / speed;
 	b->team = team;
 	b->owner = owner;
 	b->player = player;
@@ -3389,6 +3390,8 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 	Vec3 basis;
 	if (hit_object->has<Health>())
 	{
+		if (reflected && hit_object->has<Minion>())
+			destroy = false;
 		basis = Vec3::normalize(velocity);
 		s8 damage;
 		switch (type)
@@ -3432,15 +3435,13 @@ void Bolt::hit_entity(const Hit& hit, const Net::StateFrame* state_frame)
 			{
 				if (hit_object->has<Drone>() || hit_object->has<Minion>())
 					damage = 1;
+				else if (hit_object->has<ForceField>())
+					damage = 4;
 				else
 					damage = 2;
 
 				if (reflected)
-				{
 					damage = 12;
-					if (hit_object->has<Minion>())
-						destroy = false;
-				}
 				break;
 			}
 			case Type::Turret:
@@ -4296,7 +4297,7 @@ void Grenade::explode()
 				if (i.item()->get<ForceField>()->team != team)
 				{
 					if (distance < GRENADE_RANGE)
-						damage = FORCE_FIELD_HEALTH_NORMAL - 10;
+						damage = FORCE_FIELD_HEALTH_NORMAL - 20;
 				}
 			}
 			else if (i.item()->has<Grenade>() && i.item()->get<Grenade>()->team == team)

@@ -1,5 +1,5 @@
-DECEIVER
-========
+LASER CRABS
+===========
 
 Features
 --------
@@ -36,16 +36,9 @@ Windows quickstart
 6. Ensure [Wwise](https://www.audiokinetic.com/) 2017.1.0 build 6302 is installed and `WwiseCLI`
 is available on the path
 7. Run `setup-win.bat`
-8. Open `build/deceiver.sln` in Visual Studio
-9. Set the `deceiver`, `deceiversrv`, and `deceivermaster` projects to startup by default
-10. To connect to your local server rather than the main server, create the file `C:\Users\<user>\AppData\Roaming\HelveticaScenario\Deceiver\config.txt` with the following contents:
-```
-{
-	"version":	2,
-	"master_server":	"::1"
-}
-```
-11. Hit F5 to run the game
+8. Open `build/lasercrabs.sln` in Visual Studio
+9. Set the `lasercrabs` project to start up by default
+10. Hit F5 to run the game
 
 Linux quickstart
 ----------------
@@ -57,14 +50,7 @@ to build the Linux soundbanks.
 4. Copy the soundbanks into `assets/audio/GeneratedSoundBanks/Linux`
 5. If you are on Debian/Ubuntu, run `./setup-debian-deps`. Otherwise you'll need to install these dependencies yourself.
 6. Run `./setup-linux`
-7. To connect to your local server rather than the main server, create the file `/home/<user>/.local/share/HelveticaScenario/Deceiver/config.txt` with the following contents:
-```
-{
-	"version":	2,
-	"master_server":	"::1"
-}
-```
-8. Run `./deceivermaster`, `./deceiversrv`, and `./deceiver` from the `build` folder
+7. Run `./lasercrabs` from the `build` folder
 
 Mac quickstart
 --------------
@@ -78,14 +64,7 @@ is available on the path
 5. Wwise might have trouble generating soundbanks the first time. You might
 need to delete any cache files and open the project manually in Wwise first.
 6. Run `./setup-mac`
-7. To connect to your local server rather than the main server, create the file `/Users/<user>/Library/Application Support/HelveticaScenario/Deceiver/config.txt` with the following contents:
-```
-{
-	"version":	2,
-	"master_server":	"::1"
-}
-```
-8. Run `./deceivermaster`, `./deceiversrv`, and `./deceiver` from the `build` folder
+7. Run `./lasercrabs` from the `build` folder
 
 Credits
 -------

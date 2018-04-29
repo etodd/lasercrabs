@@ -91,7 +91,7 @@ s32 Loader::animation_count;
 #define offline_configs_filename "offline.txt"
 #define config_version 2
 #define mod_manifest_filename "mod.json"
-#define default_master_server "master.deceivergame.com"
+#define default_master_server "master.lasercrabs.com"
 
 Array<const char*> mod_level_names;
 Array<const char*> mod_level_paths;
@@ -241,11 +241,11 @@ void Loader::offline_configs_load()
 				while (element)
 				{
 					Net::Master::ServerListEntry entry;
-					entry.max_players = MAX_GAMEPADS;
+					entry.max_players = MAX_PLAYERS;
 					entry.server_state.id = id;
 					entry.server_state.level = AssetNull;
-					entry.server_state.max_players = MAX_GAMEPADS;
-					entry.server_state.player_slots = MAX_GAMEPADS;
+					entry.server_state.max_players = MAX_PLAYERS;
+					entry.server_state.player_slots = MAX_PLAYERS;
 					entry.creator_username[0] = '\0';
 					entry.creator_vip = false;
 					strncpy(entry.name, Json::get_string(element, "name", ""), MAX_SERVER_CONFIG_NAME);
@@ -279,7 +279,7 @@ void Loader::offline_config_get(s32 id, Net::Master::ServerConfig* config)
 				cJSON* element = cJSON_GetArrayItem(entries, id - 1);
 				vi_assert(element);
 				Net::Master::server_config_parse(element, config);
-				config->max_players = MAX_GAMEPADS;
+				config->max_players = MAX_PLAYERS;
 				config->id = id;
 				strncpy(config->name, Json::get_string(element, "name", ""), MAX_SERVER_CONFIG_NAME);
 				config->game_type = GameType(vi_max(0, vi_min(s32(GameType::count), Json::get_s32(element, "game_type"))));

@@ -1,6 +1,6 @@
 # CMake entry point
 cmake_minimum_required (VERSION 2.6)
-project (deceiver)
+project (lasercrabs)
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/lvl)
@@ -439,8 +439,8 @@ if (SERVER)
 		${SRC}
 		src/platform/server.cpp
 	)
-	#enable_unity_build(deceiversrv SRC_SERVER)
-	add_executable(deceiversrv ${SRC_SERVER})
+	#enable_unity_build(lasercrabsrv SRC_SERVER)
+	add_executable(lasercrabsrv ${SRC_SERVER})
 
 	## master
 	set(SRC_MASTER
@@ -466,23 +466,23 @@ if (SERVER)
 		src/http.h
 		src/http.cpp
 	)
-	#enable_unity_build(deceivermaster SRC_MASTER)
-	add_executable(deceivermaster
+	#enable_unity_build(lasercrabmaster SRC_MASTER)
+	add_executable(lasercrabmaster
 		${SRC_MASTER}
 	)
 
-	target_include_directories(deceiversrv PRIVATE
+	target_include_directories(lasercrabsrv PRIVATE
 		${SERVER_CLIENT_INCLUDES}
 		external/wwise
 	)
 
-	target_include_directories(deceivermaster PRIVATE
+	target_include_directories(lasercrabmaster PRIVATE
 		${ALL_INCLUDES}
 		external/curl/include
 		${CMAKE_CURRENT_BINARY_DIR}/external/curl/include/curl
 	)
 
-	target_link_libraries(deceiversrv
+	target_link_libraries(lasercrabsrv
 		BulletDynamics
 		BulletCollision
 		BulletSoftBody
@@ -496,17 +496,17 @@ if (SERVER)
 	)
 
 	if (APPLE)
-		target_link_libraries(deceivermaster ${OPENSSL_LIBRARIES})
+		target_link_libraries(lasercrabmaster ${OPENSSL_LIBRARIES})
 	elseif (WIN32)
 	else()
-		target_link_libraries(deceiversrv "-lpthread")
-		target_link_libraries(deceivermaster "-lpthread")
+		target_link_libraries(lasercrabsrv "-lpthread")
+		target_link_libraries(lasercrabmaster "-lpthread")
 	endif()
 
-	target_compile_definitions(deceiversrv PRIVATE -DSERVER=1)
-	target_compile_definitions(deceivermaster PRIVATE -DMASTER_SERVER=1)
+	target_compile_definitions(lasercrabsrv PRIVATE -DSERVER=1)
+	target_compile_definitions(lasercrabmaster PRIVATE -DMASTER_SERVER=1)
 
-	target_link_libraries(deceivermaster
+	target_link_libraries(lasercrabmaster
 		zlibstatic
 		cJSON
 		sqlite
@@ -526,16 +526,16 @@ if (CLIENT)
 			src/platform/ps/glvm.cpp
 			src/platform/ps/main.cpp
 		)
-		#enable_unity_build(deceiver SRC_PLAYSTATION)
-		add_executable(deceiver ${SRC_PLAYSTATION})
+		#enable_unity_build(lasercrabs SRC_PLAYSTATION)
+		add_executable(lasercrabs ${SRC_PLAYSTATION})
 	else()
 		set(SRC_CLIENT
 			${SRC}
 			src/platform/glvm.cpp
 			src/platform/sdl.cpp
 		)
-		#enable_unity_build(deceiver SRC_CLIENT)
-		add_executable(deceiver ${SRC_CLIENT})
+		#enable_unity_build(lasercrabs SRC_CLIENT)
+		add_executable(lasercrabs ${SRC_CLIENT})
 
 		## discord
 		set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -543,33 +543,33 @@ if (CLIENT)
 		set(USE_STATIC_CRT ON CACHE BOOL "" FORCE)
 		add_subdirectory(external/discord)
 
-		target_include_directories(deceiver PRIVATE
+		target_include_directories(lasercrabs PRIVATE
 			${SDL2_BINARY_DIR}/include
 			external/curl/include
 			${CMAKE_CURRENT_BINARY_DIR}/external/curl/include/curl
 		)
 
-		target_link_libraries(deceiver discord-rpc)
+		target_link_libraries(lasercrabs discord-rpc)
 	endif()
 
 	add_custom_command(
-		TARGET deceiver POST_BUILD
+		TARGET lasercrabs POST_BUILD
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
 	)
 
-	target_include_directories(deceiver PRIVATE ${SERVER_CLIENT_INCLUDES})
+	target_include_directories(lasercrabs PRIVATE ${SERVER_CLIENT_INCLUDES})
 
 	if(WIN32)
-		set_property(TARGET deceiver APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
-		set_property(TARGET deceiver APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
-		set_property(TARGET deceiver APPEND PROPERTY LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
-		set_property(TARGET deceiver APPEND PROPERTY LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
-		set_property(TARGET deceiver APPEND PROPERTY LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
+		set_property(TARGET lasercrabs APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+		set_property(TARGET lasercrabs APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
+		set_property(TARGET lasercrabs APPEND PROPERTY LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
+		set_property(TARGET lasercrabs APPEND PROPERTY LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
+		set_property(TARGET lasercrabs APPEND PROPERTY LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
 	endif(WIN32)
 
 	## libraries
 
-	target_link_libraries(deceiver
+	target_link_libraries(lasercrabs
 		${OPENGL_LIBRARIES}
 		${SDL_LIBS}
 		BulletDynamics
@@ -590,31 +590,31 @@ if (CLIENT)
 	
 	## Steam
 	if (WIN32)
-		target_link_libraries(deceiver ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/win64/steam_api64.lib)
+		target_link_libraries(lasercrabs ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/win64/steam_api64.lib)
 		add_custom_command(
-			TARGET deceiver POST_BUILD
+			TARGET lasercrabs POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/win64/steam_api64.dll ${CMAKE_CURRENT_BINARY_DIR}/steam_api64.dll
 		)
 	elseif (APPLE)
-		target_link_libraries(deceiver ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/osx32/libsteam_api.dylib)
+		target_link_libraries(lasercrabs ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/osx32/libsteam_api.dylib)
 		add_custom_command(
-			TARGET deceiver POST_BUILD
+			TARGET lasercrabs POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/osx32/libsteam_api.dylib ${CMAKE_CURRENT_BINARY_DIR}/libsteam_api.dylib
 		)
 	elseif (PLAYSTATION)
 	else() # Linux
-		target_link_libraries(deceiver ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/linux64/libsteam_api.so)
+		target_link_libraries(lasercrabs ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/linux64/libsteam_api.so)
 		add_custom_command(
-			TARGET deceiver POST_BUILD
+			TARGET lasercrabs POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/external/steam/linux64/libsteam_api.so ${CMAKE_CURRENT_BINARY_DIR}/libsteam_api.so
 		)
 	endif()
 
 	if (APPLE)
-		target_link_libraries(deceiver "-framework AudioUnit -framework AudioToolbox" "-framework CoreAudio" ${OPENSSL_LIBRARIES})
+		target_link_libraries(lasercrabs "-framework AudioUnit -framework AudioToolbox" "-framework CoreAudio" ${OPENSSL_LIBRARIES})
 	elseif (WIN32)
 	else()
-		target_link_libraries(deceiver "-lpthread")
+		target_link_libraries(lasercrabs "-lpthread")
 	endif()
 endif()
 
@@ -790,10 +790,10 @@ if (NOT PLAYSTATION)
 	)
 	add_dependencies(assets import)
 	if (CLIENT)
-		add_dependencies(deceiver assets)
+		add_dependencies(lasercrabs assets)
 	endif()
 	if (SERVER)
-		add_dependencies(deceiversrv assets)
-		add_dependencies(deceivermaster assets)
+		add_dependencies(lasercrabsrv assets)
+		add_dependencies(lasercrabmaster assets)
 	endif()
 endif()

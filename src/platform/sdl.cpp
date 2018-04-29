@@ -259,7 +259,7 @@ namespace VI
 					// and S_OK means the call was successful
 					if (SetProcessDpiAwarenessFunc(ProcessPerMonitorDpiAware) == E_INVALIDARG)
 					{
-						SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "DECEIVER Error", "Failed to set DPI awareness", nullptr);
+						SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "LASER CRABS Error", "Failed to set DPI awareness", nullptr);
 						return 1;
 					}
 					else
@@ -291,7 +291,7 @@ namespace VI
 			return 1;
 		}
 
-		Loader::data_directory = SDL_GetPrefPath("HelveticaScenario", "Deceiver");
+		Loader::data_directory = SDL_GetPrefPath("HelveticaScenario", "LASERCRABS");
 
 		{
 			const char* build_file = "build.txt";
@@ -420,7 +420,7 @@ namespace VI
 		}
 		window = SDL_CreateWindow
 		(
-			"DECEIVER",
+			"LASER CRABS",
 			SDL_WINDOWPOS_CENTERED,
 			SDL_WINDOWPOS_CENTERED,
 			Settings::display().width, Settings::display().height,
@@ -528,7 +528,7 @@ namespace VI
 			Game::PreinitResult pre_init_result = Game::pre_init(&error);
 			if (pre_init_result == Game::PreinitResult::Failure)
 			{
-				SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "DECEIVER Error", error, nullptr);
+				SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "LASER CRABS Error", error, nullptr);
 				return 1;
 			}
 			else if (pre_init_result == Game::PreinitResult::Restarting)

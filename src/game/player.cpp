@@ -3720,7 +3720,8 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 			get<Transform>()->rot = Quat::identity;
 			last_pos = remote_control.pos;
 			get<Walker>()->absolute_pos(last_pos); // force rigid body
-			get<PlayerCommon>()->angle_horizontal = get<Walker>()->rotation = get<Walker>()->target_rotation = remote_control.rotation;
+			get<PlayerCommon>()->angle_horizontal = get<Walker>()->rotation = get<Walker>()->target_rotation = remote_control.angle_horizontal;
+			get<PlayerCommon>()->angle_vertical = remote_control.angle_vertical;
 			get<Parkour>()->lean = remote_control.lean;
 			get<Parkour>()->relative_wall_run_normal = remote_control.wall_normal;
 			get<SkinnedModel>()->offset.translation(remote_control.model_offset);
@@ -3741,6 +3742,9 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 			Quat abs_rot;
 			t->absolute(&abs_pos, &abs_rot);
 
+			get<PlayerCommon>()->angle_horizontal = remote_control.angle_horizontal;
+			get<PlayerCommon>()->angle_vertical = remote_control.angle_vertical;
+
 			// if the remote position is close to what we think it is, snap to it
 			Vec3 remote_abs_pos = remote_control.pos;
 			Quat remote_abs_rot = remote_control.rot;
@@ -3748,9 +3752,8 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 			r32 tolerance_pos;
 			r32 tolerance_rot;
 			remote_position(&tolerance_pos, &tolerance_rot);
-			if (has<Parkour>() // if we're in parkour mode, just accept it
-				|| ((remote_abs_pos - abs_pos).length_squared() < tolerance_pos * tolerance_pos
-				&& Quat::angle(remote_abs_rot, abs_rot) < tolerance_rot))
+			if ((remote_abs_pos - abs_pos).length_squared() < tolerance_pos * tolerance_pos
+				&& Quat::angle(remote_abs_rot, abs_rot) < tolerance_rot)
 			{
 				t->parent = remote_control.parent;
 				t->absolute(remote_abs_pos, remote_abs_rot);
@@ -3776,7 +3779,8 @@ PlayerControlHuman::RemoteControl PlayerControlHuman::remote_control_get(const U
 	control.parent = t->parent;
 	if (has<Parkour>())
 	{
-		control.rotation = get<Walker>()->rotation;
+		control.angle_horizontal = get<Walker>()->rotation;
+		control.angle_vertical = get<PlayerCommon>()->angle_vertical;
 		control.lean = get<Parkour>()->lean;
 		control.wall_normal = get<Parkour>()->fsm.current == ParkourState::WallRun ? get<Parkour>()->absolute_wall_normal() : Vec3::zero;
 		control.model_offset = get<SkinnedModel>()->offset.translation();
@@ -3788,6 +3792,11 @@ PlayerControlHuman::RemoteControl PlayerControlHuman::remote_control_get(const U
 			output->asset = input.animation;
 			output->time = input.time;
 		}
+	}
+	else
+	{
+		control.angle_horizontal = get<PlayerCommon>()->angle_horizontal;
+		control.angle_vertical = get<PlayerCommon>()->angle_vertical;
 	}
 	return control;
 }

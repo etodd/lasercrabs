@@ -85,6 +85,8 @@ struct DroneState
 {
 	r32 cooldown;
 	r32 cooldown_ability_switch;
+	r32 angle_horizontal;
+	r32 angle_vertical;
 	DroneCollisionState collision_state;
 	Revision revision;
 	b8 active;

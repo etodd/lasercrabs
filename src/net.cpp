@@ -255,7 +255,8 @@ template<typename Stream> b8 serialize_player_control(Stream* p, PlayerControlHu
 		net_error();
 	if (Game::level.mode == Game::Mode::Parkour)
 	{
-		serialize_r32_range(p, control->rotation, -PI, PI, 8);
+		serialize_r32_range(p, control->angle_horizontal, -PI, PI, 8);
+		serialize_r32_range(p, control->angle_vertical, -PI, PI, 8);
 		serialize_r32_range(p, control->lean, -PI, PI, 8);
 		{
 			b8 wall_run;
@@ -297,6 +298,8 @@ template<typename Stream> b8 serialize_player_control(Stream* p, PlayerControlHu
 			}
 			else if (Stream::IsReading)
 				control->movement = Vec3::zero;
+			serialize_r32_range(p, control->angle_horizontal, -PI, PI, 8);
+			serialize_r32_range(p, control->angle_vertical, -PI, PI, 8);
 		}
 		serialize_ref(p, control->parent);
 		if (!serialize_quat(p, &control->rot, Resolution::High))
@@ -1475,6 +1478,8 @@ template<typename Stream> b8 serialize_drone(Stream* p, DroneState* state, const
 		serialize_s16(p, state->revision);
 
 	serialize_r32_range(p, state->cooldown, 0, DRONE_COOLDOWN_MAX, 8);
+	serialize_r32_range(p, state->angle_horizontal, -PI, PI, 8);
+	serialize_r32_range(p, state->angle_vertical, -PI, PI, 8);
 
 	if (Stream::IsWriting)
 		b = state->cooldown_ability_switch > 0.0f;
@@ -1808,6 +1813,12 @@ Resolution transform_resolution(const Transform* t)
 	return Resolution::Medium;
 }
 
+r32 quantized_rotation(r32 r)
+{
+	u32 quantized = u32(255.0f * (LMath::angle_range(r) + PI) / (PI * 2.0f));
+	return -PI + r32(quantized) * (PI * 2.0f) / 255.0f;
+}
+
 void state_frame_build(StateFrame* frame)
 {
 	frame->sequence_id = state_common.local_sequence_id;
@@ -1847,8 +1858,7 @@ void state_frame_build(StateFrame* frame)
 		frame->walkers_active.set(i.index, true);
 		WalkerState* walker = &frame->walkers[i.index];
 		walker->revision = i.item()->revision;
-		u32 quantized_rotation = u32(255.0f * (LMath::angle_range(i.item()->rotation) + PI) / (PI * 2.0f));
-		walker->rotation = -PI + r32(quantized_rotation) * (PI * 2.0f) / 255.0f;
+		walker->rotation = quantized_rotation(i.item()->rotation);
 
 		const Animator::Layer& layer = i.item()->get<Animator>()->layers[0];
 		walker->animation.asset = layer.animation;
@@ -1860,6 +1870,9 @@ void state_frame_build(StateFrame* frame)
 	{
 		DroneState* drone = &frame->drones[i.index];
 		drone->active = true;
+		PlayerCommon* common = i.item()->get<PlayerCommon>();
+		drone->angle_horizontal = quantized_rotation(common->angle_horizontal);
+		drone->angle_vertical = quantized_rotation(common->angle_vertical);
 		drone->revision = i.item()->revision;
 		drone->cooldown = i.item()->cooldown;
 		drone->cooldown_ability_switch = i.item()->cooldown_ability_switch;
@@ -2065,9 +2078,13 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 			{
 				drone->cooldown = LMath::lerpf(blend, last.cooldown, next.cooldown);
 				drone->cooldown_ability_switch = LMath::lerpf(blend, last.cooldown_ability_switch, next.cooldown_ability_switch);
+				drone->angle_horizontal = LMath::angle_range(LMath::lerpf(blend, last.angle_horizontal, LMath::closest_angle(next.angle_horizontal, last.angle_horizontal)));
+				drone->angle_vertical = LMath::angle_range(LMath::lerpf(blend, last.angle_vertical, LMath::closest_angle(next.angle_vertical, last.angle_vertical)));
 			}
 			else
 			{
+				drone->angle_horizontal = next.angle_horizontal;
+				drone->angle_vertical = next.angle_vertical;
 				drone->cooldown = next.cooldown;
 				drone->cooldown_ability_switch = next.cooldown_ability_switch;
 			}
@@ -3875,6 +3892,12 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 		if (Drone::list.active(index) && state.active && state.revision == Drone::list[index].revision)
 		{
 			Drone* drone = &Drone::list[index];
+			if (!drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
+			{
+				PlayerCommon* common = drone->get<PlayerCommon>();
+				common->angle_horizontal = state.angle_horizontal;
+				common->angle_vertical = state.angle_vertical;
+			}
 			r32 adjustment;
 			if (drone->cooldown_remote_controlled(&adjustment))
 				drone->cooldown = vi_max(0.0f, state.cooldown - adjustment);

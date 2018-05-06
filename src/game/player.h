@@ -265,7 +265,8 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		Vec3 movement;
 		Vec3 wall_normal;
 		Vec3 model_offset;
-		r32 rotation;
+		r32 angle_horizontal;
+		r32 angle_vertical;
 		r32 lean;
 		AnimationLayer animations[MAX_ANIMATIONS];
 		Ref<Transform> parent;

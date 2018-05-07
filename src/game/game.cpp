@@ -1046,6 +1046,9 @@ void Game::update(InputState* input, const InputState* last_input)
 			i.item()->update_client(u);
 		}
 
+		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
+			i.item()->update_client_late(u);
+
 		Shield::update_all(u);
 
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
@@ -2822,6 +2825,17 @@ void Game::awake_all()
 			Loader::mesh(Asset::Mesh::minion_spawner_main);
 			Loader::mesh(Asset::Mesh::minion_spawner_attached);
 			Loader::mesh(Asset::Mesh::turret);
+
+			Loader::mesh(Asset::Mesh::weapon_grenade);
+			Loader::armature(Asset::Armature::weapon_grenade);
+			Loader::mesh(Asset::Mesh::weapon_sniper);
+			Loader::armature(Asset::Armature::weapon_sniper);
+			Loader::mesh(Asset::Mesh::weapon_shotgun);
+			Loader::armature(Asset::Armature::weapon_shotgun);
+			Loader::mesh(Asset::Mesh::weapon_bolter);
+			Loader::armature(Asset::Armature::weapon_bolter);
+			Loader::mesh(Asset::Mesh::weapon_build);
+			Loader::armature(Asset::Armature::weapon_build);
 
 			Loader::mesh(Asset::Mesh::grenade_attached);
 			Loader::mesh(Asset::Mesh::grenade_detached);

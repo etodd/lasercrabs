@@ -1109,10 +1109,15 @@ Drone::Drone()
 
 Drone::~Drone()
 {
-	if (Game::level.local && flag.ref())
+	if (Game::level.local)
 	{
-		flag.ref()->drop();
-		flag = nullptr;
+		if (flag.ref())
+		{
+			flag.ref()->drop();
+			flag = nullptr;
+		}
+		if (weapon_model.ref())
+			World::remove_deferred(weapon_model.ref());
 	}
 }
 
@@ -1122,6 +1127,23 @@ void Drone::awake()
 	link_arg<Entity*, &Drone::killed>(get<Health>()->killed);
 	get<Transform>()->absolute(&lerped_pos, &lerped_rotation);
 	update_offset();
+	if (Game::level.local && !weapon_model.ref())
+	{
+		// inner shield
+		Entity* weapon = World::create<Empty>();
+		weapon->get<Transform>()->parent = get<Transform>();
+
+		Animator* anim = weapon->create<Animator>();
+
+		SkinnedModel* s = weapon->add<SkinnedModel>();
+		s->team = s8(get<AIAgent>()->team);
+		s->mesh = Asset::Mesh::cube;
+		s->shader = Asset::Shader::standard;
+		s->alpha_if_obstructing();
+		weapon_model = weapon;
+
+		Net::finalize_child(weapon);
+	}
 }
 
 Drone::State Drone::state() const
@@ -3049,6 +3071,53 @@ void Drone::update_client(const Update& u)
 
 		get<Transform>()->absolute(&lerped_pos, &lerped_rotation);
 		update_offset();
+	}
+}
+
+void Drone::update_client_late(const Update& u)
+{
+	if (Entity* w = weapon_model.ref())
+	{
+		if (state() == State::Crawl && current_ability != Ability::None)
+		{
+			Animator* a = w->get<Animator>();
+			SkinnedModel* s = w->get<SkinnedModel>();
+			s->mask = RENDER_MASK_DEFAULT;
+			switch (current_ability)
+			{
+				case Ability::Bolter:
+					a->armature = Asset::Armature::weapon_bolter;
+					s->mesh = Asset::Mesh::weapon_bolter;
+					break;
+				case Ability::Shotgun:
+					a->armature = Asset::Armature::weapon_shotgun;
+					s->mesh = Asset::Mesh::weapon_shotgun;
+					break;
+				case Ability::Sniper:
+					a->armature = Asset::Armature::weapon_sniper;
+					s->mesh = Asset::Mesh::weapon_sniper;
+					break;
+				case Ability::Grenade:
+					a->armature = Asset::Armature::weapon_grenade;
+					s->mesh = Asset::Mesh::weapon_grenade;
+					break;
+				case Ability::MinionSpawner:
+				case Ability::Rectifier:
+				case Ability::ForceField:
+				case Ability::Turret:
+					a->armature = Asset::Armature::weapon_build;
+					s->mesh = Asset::Mesh::weapon_build;
+					break;
+				default:
+					vi_assert(false);
+					break;
+			}
+			Transform* t = w->get<Transform>();
+			t->pos = get<SkinnedModel>()->offset.translation();
+			t->rot = get<Transform>()->absolute_rot().inverse() * get<PlayerCommon>()->look();
+		}
+		else
+			w->get<SkinnedModel>()->mask = 0;
 	}
 }
 

@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Armature
 	{
-		const s32 count = 15;
+		const s32 count = 20;
 		const AssetID character = 0;
 		const AssetID character_headless = 1;
 		const AssetID dada = 2;
@@ -24,10 +24,15 @@ namespace Asset
 		const AssetID seven = 12;
 		const AssetID terminal = 13;
 		const AssetID tram_doors = 14;
+		const AssetID weapon_bolter = 15;
+		const AssetID weapon_build = 16;
+		const AssetID weapon_grenade = 17;
+		const AssetID weapon_shotgun = 18;
+		const AssetID weapon_sniper = 19;
 	}
 	namespace Bone
 	{
-		const s32 count = 439;
+		const s32 count = 444;
 		const AssetID character_camera = 0;
 		const AssetID character_claw1_L = 9;
 		const AssetID character_claw1_R = 15;
@@ -467,6 +472,11 @@ namespace Asset
 		const AssetID tram_doors_door4 = 3;
 		const AssetID tram_doors_door5 = 4;
 		const AssetID tram_doors_door6 = 5;
+		const AssetID weapon_bolter_root = 0;
+		const AssetID weapon_build_root = 0;
+		const AssetID weapon_grenade_root = 0;
+		const AssetID weapon_shotgun_root = 0;
+		const AssetID weapon_sniper_root = 0;
 	}
 }
 

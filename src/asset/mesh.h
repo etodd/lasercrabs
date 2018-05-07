@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const s32 count = 101;
+		const s32 count = 106;
 		const AssetID actor_collision = 0;
 		const AssetID air_wave = 1;
 		const AssetID asteroid = 2;
@@ -110,6 +110,11 @@ namespace Asset
 		const AssetID tri_tube = 98;
 		const AssetID turret = 99;
 		const AssetID water = 100;
+		const AssetID weapon_bolter = 101;
+		const AssetID weapon_build = 102;
+		const AssetID weapon_grenade = 103;
+		const AssetID weapon_shotgun = 104;
+		const AssetID weapon_sniper = 105;
 	}
 }
 

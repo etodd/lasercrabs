@@ -531,6 +531,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, a->cooldown, 0, DRONE_COOLDOWN_MAX, 8);
 		serialize_r32_range(p, a->cooldown_ability_switch, 0, DRONE_COOLDOWN_ABILITY_SWITCH_MAX, 6);
 		serialize_int(p, Ability, a->current_ability, 0, s32(Ability::count) + 1);
+		serialize_ref(p, a->weapon_model);
 	}
 
 	if (e->has<Minion>())

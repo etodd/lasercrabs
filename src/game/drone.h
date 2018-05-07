@@ -133,6 +133,7 @@ struct Drone : public ComponentType<Drone>
 	LinkArg<Entity*> hit;
 	LinkArg<Ability> ability_spawned;
 	Ref<Flag> flag;
+	Ref<Entity> weapon_model;
 	Link detaching;
 	Link dashing;
 	Link done_flying;
@@ -216,6 +217,7 @@ struct Drone : public ComponentType<Drone>
 
 	void update_server(const Update&);
 	void update_client(const Update&);
+	void update_client_late(const Update&);
 };
 
 }

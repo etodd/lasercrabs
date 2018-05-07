@@ -333,6 +333,9 @@ void Animator::update_client_only(const Update& u)
 
 void Animator::update_world_transforms()
 {
+	if (armature == AssetNull)
+		return;
+
 	const Armature* arm = Loader::armature(armature);
 	bones.resize(arm->hierarchy.length);
 	if (offsets.length < arm->hierarchy.length)

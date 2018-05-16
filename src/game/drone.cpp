@@ -3114,7 +3114,28 @@ void Drone::update_client_late(const Update& u)
 			}
 			Transform* t = w->get<Transform>();
 			t->pos = get<SkinnedModel>()->offset.translation();
-			t->rot = get<Transform>()->absolute_rot().inverse() * get<PlayerCommon>()->look();
+
+			Quat rot = get<Transform>()->absolute_rot();
+
+			r32 angle_horizontal = get<PlayerCommon>()->angle_horizontal;
+			r32 angle_vertical = get<PlayerCommon>()->angle_vertical_total();
+
+			{
+				Vec3 wall = rot * Vec3(0, 0, 1);
+				Vec3 forward = Quat::euler(0, angle_horizontal, angle_vertical) * Vec3(0, 0, 1);
+
+				r32 dot = forward.dot(wall);
+				s32 iterations = 0;
+				while (iterations < 10 && dot < 0.002f)
+				{
+					forward = Vec3::normalize(forward - dot * wall);
+					angle_vertical = -asinf(forward.y);
+					angle_horizontal = atan2f(forward.x, forward.z);
+					dot = forward.dot(wall);
+					iterations++;
+				}
+			}
+			t->rot = rot.inverse() * Quat::euler(0, angle_horizontal, angle_vertical);
 		}
 		else
 			w->get<SkinnedModel>()->mask = 0;

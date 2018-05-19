@@ -924,7 +924,7 @@ void PlayerControlAI::actions_populate()
 			Quat my_base_rot = Quat::identity;
 			Team::list[my_team].flag_base.ref()->to_world(&my_base_pos, &my_base_rot);
 			if (Flag::for_team(my_team)->at_base
-				|| Team::list[my_team].player_count() > 1 && (my_base_pos - my_pos).length_squared() > DRONE_MAX_DISTANCE * 2.0f * DRONE_MAX_DISTANCE * 2.0f)
+				|| (Team::list[my_team].player_count() > 1 && (my_base_pos - my_pos).length_squared() > DRONE_MAX_DISTANCE * 2.0f * DRONE_MAX_DISTANCE * 2.0f))
 			{
 				// go to base
 				Action action;

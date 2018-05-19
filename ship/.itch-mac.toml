@@ -1,4 +1,4 @@
 [[actions]]
 name = "play"
-path = "DECEIVER.app/Contents/MacOS/deceiver-launcher"
+path = "LASERCRABS.app/Contents/MacOS/lasercrabs-launcher"
 scope = "profile:me"

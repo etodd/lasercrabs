@@ -1,5 +1,5 @@
-LASER CRABS
-===========
+LASERCRABS
+==========
 
 Features
 --------

@@ -1,5 +1,5 @@
-Deceiver
-========
+LASERCRABS
+==========
 
 Requirements
 ------------
@@ -14,9 +14,9 @@ Settings
 
 Settings are stored in the following locations:
 
-- Windows: C:\Users\<user>\AppData\Roaming\HelveticaScenario\Deceiver\config.txt
-- Mac: /Users/<user>/Library/Application Support/HelveticaScenario/Deceiver/config.txt
-- Linux: /home/<user>/.local/share/HelveticaScenario/Deceiver/config.txt
+- Windows: C:\Users\<user>\AppData\Roaming\HelveticaScenario\LASERCRABS\config.txt
+- Mac: /Users/<user>/Library/Application Support/HelveticaScenario/LASERCRABS/config.txt
+- Linux: /home/<user>/.local/share/HelveticaScenario/LASERCRABS/config.txt
 
 Credits
 -------

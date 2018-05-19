@@ -259,7 +259,7 @@ namespace VI
 					// and S_OK means the call was successful
 					if (SetProcessDpiAwarenessFunc(ProcessPerMonitorDpiAware) == E_INVALIDARG)
 					{
-						SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "LASER CRABS Error", "Failed to set DPI awareness", nullptr);
+						SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "LASERCRABS Error", "Failed to set DPI awareness", nullptr);
 						return 1;
 					}
 					else
@@ -420,7 +420,7 @@ namespace VI
 		}
 		window = SDL_CreateWindow
 		(
-			"LASER CRABS",
+			"LASERCRABS",
 			SDL_WINDOWPOS_CENTERED,
 			SDL_WINDOWPOS_CENTERED,
 			Settings::display().width, Settings::display().height,
@@ -528,7 +528,7 @@ namespace VI
 			Game::PreinitResult pre_init_result = Game::pre_init(&error);
 			if (pre_init_result == Game::PreinitResult::Failure)
 			{
-				SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "LASER CRABS Error", error, nullptr);
+				SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "LASERCRABS Error", error, nullptr);
 				return 1;
 			}
 			else if (pre_init_result == Game::PreinitResult::Restarting)

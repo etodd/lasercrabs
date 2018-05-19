@@ -3,7 +3,7 @@ cd "`dirname "$0"`"
 cd ..
 rm -rf final
 mkdir final
-cp build/deceiver final
+cp build/lasercrabs final
 cp -R build/assets/ final/assets
 cp build/gamecontrollerdb.txt final
 cp build/libsteam_api.so final
@@ -11,5 +11,5 @@ cp /usr/lib/x86_64-linux-gnu/libstdc++.so.6 final
 cp ship/.itch-linux.toml final/.itch.toml
 cp ship/build.txt final
 cp ship/shipme.txt final/readme.txt
-cp ship/run-mac-linux final/deceiver-launcher
+cp ship/run-mac-linux final/lasercrabs-launcher
 cd ship

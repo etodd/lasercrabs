@@ -2,16 +2,16 @@
 cd "`dirname "$0"`"
 cd ..
 rm -rf final
-mkdir -p final/DECEIVER.app/Contents/MacOS
-mkdir final/DECEIVER.app/Contents/Resources
-cp build/deceiver final/DECEIVER.app/Contents/MacOS
-cp -R build/assets/ final/DECEIVER.app/Contents/MacOS/assets
-cp build/gamecontrollerdb.txt final/DECEIVER.app/Contents/MacOS
-cp build/libsteam_api.dylib final/DECEIVER.app/Contents/MacOS
-cp ship/build.txt final/DECEIVER.app/Contents/MacOS
-cp ship/Info.plist final/DECEIVER.app/Contents
-cp ship/icon.icns final/DECEIVER.app/Contents/Resources/icon.icns
+mkdir -p final/LASERCRABS.app/Contents/MacOS
+mkdir final/LASERCRABS.app/Contents/Resources
+cp build/lasercrabs final/LASERCRABS.app/Contents/MacOS
+cp -R build/assets/ final/LASERCRABS.app/Contents/MacOS/assets
+cp build/gamecontrollerdb.txt final/LASERCRABS.app/Contents/MacOS
+cp build/libsteam_api.dylib final/LASERCRABS.app/Contents/MacOS
+cp ship/build.txt final/LASERCRABS.app/Contents/MacOS
+cp ship/Info.plist final/LASERCRABS.app/Contents
+cp ship/icon.icns final/LASERCRABS.app/Contents/Resources/icon.icns
 cp ship/.itch-mac.toml final/.itch.toml
 cp ship/shipme.txt final/readme.txt
-cp ship/run-mac-linux final/DECEIVER.app/Contents/MacOS/deceiver-launcher
+cp ship/run-mac-linux final/LASERCRABS.app/Contents/MacOS/lasercrabs-launcher
 cd ship

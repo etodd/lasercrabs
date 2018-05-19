@@ -5,7 +5,7 @@
 	"FileMapping"
 	{
 		"LocalPath" "*"
-		"DepotPath" "./DECEIVER.app/Contents/MacOS/"
+		"DepotPath" "./LASERCRABS.app/Contents/MacOS/"
 		"recursive" "1"
 	}
 }

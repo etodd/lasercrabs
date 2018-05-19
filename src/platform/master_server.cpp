@@ -236,7 +236,7 @@ void handle_upload(mg_connection* nc, int ev, void* p)
 			mg_file_upload_handler(nc, ev, p, upload_filename);
 #if RELEASE_BUILD
 			mg_http_multipart_part* mp = (mg_http_multipart_part*)(p);
-			Http::smtp("support@deceivergame.com", "Crash dump", mp->file_name);
+			Http::smtp("support@lasercrabs.com", "Crash dump", mp->file_name);
 #endif
 			break;
 		}
@@ -2275,9 +2275,9 @@ namespace Master
 
 		// open sqlite database
 		{
-			b8 init_db = !platform::file_exists("deceiver.db");
+			b8 init_db = !platform::file_exists("lasercrabs.db");
 			
-			if (sqlite3_open("deceiver.db", &global.db))
+			if (sqlite3_open("lasercrabs.db", &global.db))
 			{
 				fprintf(stderr, "Can't open sqlite database: %s", sqlite3_errmsg(global.db));
 				return 1;
@@ -2584,7 +2584,7 @@ namespace DiscordBot
 			headers = curl_slist_append(nullptr, auth_header);
 		}
 
-		headers = curl_slist_append(headers, "User-Agent: DiscordBot (http://deceivergame.com, " BUILD_ID ")");
+		headers = curl_slist_append(headers, "User-Agent: DiscordBot (http://lasercrabs.com, " BUILD_ID ")");
 
 		return headers;
 	}
@@ -3192,9 +3192,9 @@ void email_key(const char* email, const char* key)
 {
 	char html[2048 + 1];
 	const char* html_format = "<div style=\"width: 100%; max-width: 40em; margin-left: auto; margin-right: auto;\">"
-		"<img src=\"https://deceivergame.com/public/header-backdrop.png\" style=\"width: 40em;\" />"
+		"<img src=\"https://lasercrabs.com/public/header-backdrop.png\" style=\"width: 40em;\" />"
 		"<h1>It's time to play.</h1>"
-		"<p>You're receiving this because either you or a very smart and attractive friend of yours signed you up to play the demo version of DECEIVER.</p>"
+		"<p>You're receiving this because either you or a very smart and attractive friend of yours signed you up to play the demo version of LASERCRABS.</p>"
 		"<p>Either way, you should get in on this quick. This is all being run by some guy out of his bedroom, so who knows how long it will last.</p>"
 		"<p>GET GOING WHY ARE YOU STILL READING THIS JUST CLICK THE LINK</p>"
 		"<p><a href=\"%s\">%s</a></p></div>";
@@ -3202,13 +3202,13 @@ void email_key(const char* email, const char* key)
 
 	char text[2048 + 1];
 	const char* text_format = "*It's time to play.*\r\n\r\n"
-		"You're receiving this because either you or a very smart and attractive friend of yours signed you up to play the demo version of DECEIVER.\r\n\r\n"
+		"You're receiving this because either you or a very smart and attractive friend of yours signed you up to play the demo version of LASERCRABS.\r\n\r\n"
 		"Either way, you should get in on this quick. This is all being run by some guy out of his bedroom, so who knows how long it will last.\r\n\r\n"
 		"GET GOING WHY ARE YOU STILL READING THIS JUST COPY/PASTE THE LINK\r\n\r\n"
 		"%s";
 	snprintf(text, 2048, text_format, key);
 
-	Http::smtp(email, "DECEIVER demo key", html, text);
+	Http::smtp(email, "LASERCRABS demo key", html, text);
 }
 
 void distribute_keys()
@@ -3292,7 +3292,7 @@ void handle_api(mg_connection* conn, int ev, void* ev_data)
 						else
 						{
 							// ran out of keys
-							Http::smtp("support@deceivergame.com", "Demo keys exhausted", "Fix it your moron.");
+							Http::smtp("support@lasercrabs.com", "Demo keys exhausted", "Fix it your moron.");
 							insert_email = true;
 						}
 						db_finalize(stmt2);

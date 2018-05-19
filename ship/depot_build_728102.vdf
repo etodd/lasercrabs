@@ -8,5 +8,5 @@
 		"DepotPath" "."
 		"recursive" "1"
 	}
-	"FileExclusion" "DECEIVER.app/Contents/MacOS/build.txt"
+	"FileExclusion" "LASERCRABS.app/Contents/MacOS/build.txt"
 }

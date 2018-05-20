@@ -697,6 +697,7 @@ const char* AssetLookup::Animation::values[] =
 	"assets/tram_doors_close.anm",
 	"assets/tram_doors_open.anm",
 	"assets/tram_doors_opened.anm",
+	"assets/weapon_sniper_draw.anm",
 	0,
 };
 
@@ -784,6 +785,7 @@ const char* AssetLookup::Animation::names[] =
 	"tram_doors_close",
 	"tram_doors_open",
 	"tram_doors_opened",
+	"weapon_sniper_draw",
 	0,
 };
 

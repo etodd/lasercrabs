@@ -787,7 +787,44 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					drone->cooldown_ability_switch = info.cooldown_switch;
 					drone->cooldown_ability_switch_last_local_change = Game::real_time.total;
 					if (info.type != AbilityInfo::Type::Other)
+					{
 						drone->current_ability = ability;
+						Entity* weapon = drone->weapon_model.ref();
+						Animator* a = weapon->get<Animator>();
+						SkinnedModel* model = weapon->get<SkinnedModel>();
+						switch (ability)
+						{
+							case Ability::Bolter:
+								a->armature = Asset::Armature::weapon_bolter;
+								model->mesh = Asset::Mesh::weapon_bolter;
+								break;
+							case Ability::Shotgun:
+								a->armature = Asset::Armature::weapon_shotgun;
+								model->mesh = Asset::Mesh::weapon_shotgun;
+								break;
+							case Ability::Sniper:
+								a->armature = Asset::Armature::weapon_sniper;
+								a->layers[0].play(Asset::Animation::weapon_sniper_draw);
+								model->mesh = Asset::Mesh::weapon_sniper;
+								break;
+							case Ability::Grenade:
+								a->armature = Asset::Armature::weapon_grenade;
+								model->mesh = Asset::Mesh::weapon_grenade;
+								break;
+							case Ability::MinionSpawner:
+							case Ability::Rectifier:
+							case Ability::ForceField:
+							case Ability::Turret:
+								a->armature = Asset::Armature::weapon_build;
+								model->mesh = Asset::Mesh::weapon_build;
+								break;
+							case Ability::None:
+								break;
+							default:
+								vi_assert(false);
+								break;
+						}
+					}
 				}
 			}
 			break;
@@ -1107,20 +1144,6 @@ Drone::Drone()
 {
 }
 
-Drone::~Drone()
-{
-	if (Game::level.local)
-	{
-		if (flag.ref())
-		{
-			flag.ref()->drop();
-			flag = nullptr;
-		}
-		if (weapon_model.ref())
-			World::remove_deferred(weapon_model.ref());
-	}
-}
-
 void Drone::awake()
 {
 	get<Animator>()->layers[0].behavior = Animator::Behavior::Loop;
@@ -1132,8 +1155,7 @@ void Drone::awake()
 		// inner shield
 		Entity* weapon = World::create<Empty>();
 		weapon->get<Transform>()->parent = get<Transform>();
-
-		Animator* anim = weapon->create<Animator>();
+		weapon->create<Animator>();
 
 		SkinnedModel* s = weapon->add<SkinnedModel>();
 		s->alpha_if_obstructing();
@@ -1143,6 +1165,20 @@ void Drone::awake()
 		weapon_model = weapon;
 
 		Net::finalize_child(weapon);
+	}
+}
+
+Drone::~Drone()
+{
+	if (Game::level.local)
+	{
+		if (flag.ref())
+		{
+			flag.ref()->drop();
+			flag = nullptr;
+		}
+		if (weapon_model.ref())
+			World::remove_deferred(weapon_model.ref());
 	}
 }
 
@@ -3074,35 +3110,6 @@ void Drone::update_client_late(const Update& u)
 			Animator* a = w->get<Animator>();
 			SkinnedModel* model = w->get<SkinnedModel>();
 			model->mask = RENDER_MASK_DEFAULT;
-			switch (current_ability)
-			{
-				case Ability::Bolter:
-					a->armature = Asset::Armature::weapon_bolter;
-					model->mesh = Asset::Mesh::weapon_bolter;
-					break;
-				case Ability::Shotgun:
-					a->armature = Asset::Armature::weapon_shotgun;
-					model->mesh = Asset::Mesh::weapon_shotgun;
-					break;
-				case Ability::Sniper:
-					a->armature = Asset::Armature::weapon_sniper;
-					model->mesh = Asset::Mesh::weapon_sniper;
-					break;
-				case Ability::Grenade:
-					a->armature = Asset::Armature::weapon_grenade;
-					model->mesh = Asset::Mesh::weapon_grenade;
-					break;
-				case Ability::MinionSpawner:
-				case Ability::Rectifier:
-				case Ability::ForceField:
-				case Ability::Turret:
-					a->armature = Asset::Armature::weapon_build;
-					model->mesh = Asset::Mesh::weapon_build;
-					break;
-				default:
-					vi_assert(false);
-					break;
-			}
 			Transform* t = w->get<Transform>();
 
 			Quat rot = get<Transform>()->absolute_rot();

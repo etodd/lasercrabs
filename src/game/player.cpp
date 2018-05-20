@@ -2988,11 +2988,11 @@ void PlayerCommon::clamp_rotation(const Vec3& direction, r32 dot_limit)
 	while (iterations < 10 && dot < -dot_limit - 0.002f)
 	{
 		forward = Vec3::normalize(forward - (dot + dot_limit) * direction);
-		angle_vertical = -asinf(forward.y);
-		angle_horizontal = atan2f(forward.x, forward.z);
 		dot = forward.dot(direction);
 		iterations++;
 	}
+	angle_vertical = -asinf(forward.y);
+	angle_horizontal = atan2f(forward.x, forward.z);
 }
 
 void reticle_raycast(RaycastCallbackExcept* ray_callback)
@@ -4112,7 +4112,7 @@ void PlayerControlHuman::update(const Update& u)
 					if (scale > 0.0f)
 						get<PlayerCommon>()->clamp_rotation(get<Drone>()->rotation_clamp(), LMath::lerpf(Ease::cubic_in_out<r32>(scale), 1.0f, 0.707f));
 				}
-				camera->rot = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical_total());
+				camera->rot = Quat::euler(0.0f, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical_total());
 
 				// crawling
 				{

@@ -1142,6 +1142,8 @@ struct Quat
 	Vec3 operator* (const Vec3& rkVector) const;
 
 	static Quat euler(r32 pitch, r32 yaw, r32 roll);
+	static Quat euler_yrp(r32 pitch, r32 yaw, r32 roll);
+	static Quat euler_ryp(r32 pitch, r32 yaw, r32 roll);
 
 	static r32 angle(const Quat& a, const Quat& b);
 

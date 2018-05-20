@@ -1083,17 +1083,6 @@ Quat Quat::euler(r32 roll, r32 yaw, r32 pitch)
 	r32 cycr = cy*cr;
 	r32 sysr = sy*sr;
 
-	// yaw, roll, pitch
-	/*
-	return Quat
-	(
-		cp*cycr  - sp*sysr,
-		cp*sysr  + sp*cycr,
-		cp*sy*cr + sp*cy*sr,
-		cp*cy*sr - sp*sy*cr
-	);
-	*/
-
 	// yaw, pitch, roll
 	return Quat
 	(
@@ -1101,6 +1090,51 @@ Quat Quat::euler(r32 roll, r32 yaw, r32 pitch)
 		sp*cycr  + cp*sysr,
 		cp*sy*cr - sp*cy*sr,
 		cp*cy*sr - sp*sy*cr
+	);
+}
+
+Quat Quat::euler_yrp(r32 roll, r32 yaw, r32 pitch)
+{
+	// assuming the angles are in radians.
+	r32 cy = cosf(yaw * 0.5f);
+	r32 sy = sinf(yaw * 0.5f);
+	r32 cr = cosf(roll * 0.5f);
+	r32 sr = sinf(roll * 0.5f);
+	r32 cp = cosf(pitch * 0.5f);
+	r32 sp = sinf(pitch * 0.5f);
+	r32 cycr = cy*cr;
+	r32 sysr = sy*sr;
+
+	// yaw, roll, pitch
+	return Quat
+	(
+		cp*cycr  - sp*sysr,
+		cp*sysr  + sp*cycr,
+		cp*sy*cr + sp*cy*sr,
+		cp*cy*sr - sp*sy*cr
+	);
+}
+
+
+Quat Quat::euler_ryp(r32 roll, r32 yaw, r32 pitch)
+{
+	// assuming the angles are in radians.
+	r32 cy = cosf(yaw * 0.5f);
+	r32 sy = sinf(yaw * 0.5f);
+	r32 cr = cosf(roll * 0.5f);
+	r32 sr = sinf(roll * 0.5f);
+	r32 cp = cosf(pitch * 0.5f);
+	r32 sp = sinf(pitch * 0.5f);
+	r32 cycr = cy*cr;
+	r32 sysr = sy*sr;
+
+	// roll, yaw, pitch
+	return Quat
+	(
+		-sysr*sp + cycr*cp,
+		sr*cy*cp + sy*sp*cr,
+		-sr*sp*cy + sy*cr*cp,
+		sysr*cp + sp*cr*cy
 	);
 }
 

@@ -1136,10 +1136,10 @@ void Drone::awake()
 		Animator* anim = weapon->create<Animator>();
 
 		SkinnedModel* s = weapon->add<SkinnedModel>();
+		s->alpha_if_obstructing();
 		s->team = s8(get<AIAgent>()->team);
 		s->mesh = Asset::Mesh::cube;
 		s->shader = Asset::Shader::standard;
-		s->alpha_if_obstructing();
 		weapon_model = weapon;
 
 		Net::finalize_child(weapon);
@@ -2500,17 +2500,20 @@ void Drone::crawl(const Vec3& dir_raw, r32 dt)
 			Vec3 next_pos = pos + dir_normalized * dt * speed;
 			
 			// check for obstacles
-			btTransform from;
-			get<Transform>()->get_bullet(&from);
-			btTransform to = from;
-			to.setOrigin(next_pos);
-			btCollisionWorld::ClosestConvexResultCallback ray_callback(from.getOrigin(), to.getOrigin());
-			get<RigidBody>()->convex_sweep_test(&ray_callback, from, to, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
-
-			if (ray_callback.hasHit())
+			if (btVector3(next_pos - pos).length2() > SIMD_EPSILON)
 			{
-				if (transfer_wall(dir_normalized, ray_callback))
-					return;
+				btTransform from;
+				get<Transform>()->get_bullet(&from);
+				btTransform to = from;
+				to.setOrigin(next_pos);
+				btCollisionWorld::ClosestConvexResultCallback ray_callback(from.getOrigin(), to.getOrigin());
+				get<RigidBody>()->convex_sweep_test(&ray_callback, from, to, ~DRONE_PERMEABLE_MASK & ~ally_force_field_mask());
+
+				if (ray_callback.hasHit())
+				{
+					if (transfer_wall(dir_normalized, ray_callback))
+						return;
+				}
 			}
 		}
 
@@ -2524,6 +2527,7 @@ void Drone::crawl(const Vec3& dir_raw, r32 dt)
 		Vec3 next_pos = pos + dir_flattened * dt * speed;
 
 		// check for obstacles
+		if (btVector3(next_pos - pos).length2() > SIMD_EPSILON)
 		{
 			btTransform from;
 			get<Transform>()->get_bullet(&from);
@@ -2705,25 +2709,6 @@ void Drone::get_offset(Mat4* mat, OffsetMode mode) const
 void Drone::update_offset()
 {
 	get_offset(&get<SkinnedModel>()->offset);
-}
-
-void Drone::stealth(Entity* e, b8 stealthing)
-{
-	if (stealthing)
-	{
-		e->get<SkinnedModel>()->alpha();
-		e->get<SkinnedModel>()->color.w = 0.7f;
-		e->get<SkinnedModel>()->mask = 1 << s32(e->get<AIAgent>()->team); // only display to fellow teammates
-	}
-	else
-	{
-		if (!e->has<Drone>() || e->get<Drone>()->state() == State::Crawl)
-			e->get<SkinnedModel>()->alpha_if_obstructing();
-		else
-			e->get<SkinnedModel>()->alpha_disable();
-		e->get<SkinnedModel>()->color.w = MATERIAL_NO_OVERRIDE;
-		e->get<SkinnedModel>()->mask = RENDER_MASK_DEFAULT; // display to everyone
-	}
 }
 
 void Drone::update_server(const Update& u)
@@ -3076,49 +3061,57 @@ void Drone::update_client(const Update& u)
 
 void Drone::update_client_late(const Update& u)
 {
+	State s = state();
+	if (s == State::Crawl)
+		get<SkinnedModel>()->alpha_if_obstructing();
+	else
+		get<SkinnedModel>()->alpha_disable();
+
 	if (Entity* w = weapon_model.ref())
 	{
-		if (state() == State::Crawl && current_ability != Ability::None)
+		if (s == State::Crawl && current_ability != Ability::None)
 		{
 			Animator* a = w->get<Animator>();
-			SkinnedModel* s = w->get<SkinnedModel>();
-			s->mask = RENDER_MASK_DEFAULT;
+			SkinnedModel* model = w->get<SkinnedModel>();
+			model->mask = RENDER_MASK_DEFAULT;
 			switch (current_ability)
 			{
 				case Ability::Bolter:
 					a->armature = Asset::Armature::weapon_bolter;
-					s->mesh = Asset::Mesh::weapon_bolter;
+					model->mesh = Asset::Mesh::weapon_bolter;
 					break;
 				case Ability::Shotgun:
 					a->armature = Asset::Armature::weapon_shotgun;
-					s->mesh = Asset::Mesh::weapon_shotgun;
+					model->mesh = Asset::Mesh::weapon_shotgun;
 					break;
 				case Ability::Sniper:
 					a->armature = Asset::Armature::weapon_sniper;
-					s->mesh = Asset::Mesh::weapon_sniper;
+					model->mesh = Asset::Mesh::weapon_sniper;
 					break;
 				case Ability::Grenade:
 					a->armature = Asset::Armature::weapon_grenade;
-					s->mesh = Asset::Mesh::weapon_grenade;
+					model->mesh = Asset::Mesh::weapon_grenade;
 					break;
 				case Ability::MinionSpawner:
 				case Ability::Rectifier:
 				case Ability::ForceField:
 				case Ability::Turret:
 					a->armature = Asset::Armature::weapon_build;
-					s->mesh = Asset::Mesh::weapon_build;
+					model->mesh = Asset::Mesh::weapon_build;
 					break;
 				default:
 					vi_assert(false);
 					break;
 			}
 			Transform* t = w->get<Transform>();
-			t->pos = get<SkinnedModel>()->offset.translation();
 
 			Quat rot = get<Transform>()->absolute_rot();
 
+			t->pos = get<SkinnedModel>()->offset.translation();
+
 			r32 angle_horizontal = get<PlayerCommon>()->angle_horizontal;
 			r32 angle_vertical = get<PlayerCommon>()->angle_vertical_total();
+			r32 angle_roll;
 
 			{
 				Vec3 wall = rot * Vec3(0, 0, 1);
@@ -3126,16 +3119,27 @@ void Drone::update_client_late(const Update& u)
 
 				r32 dot = forward.dot(wall);
 				s32 iterations = 0;
-				while (iterations < 10 && dot < 0.002f)
+				const r32 dot_limit = 0.4f;
+				while (iterations < 10 && dot < -dot_limit - 0.002f)
 				{
-					forward = Vec3::normalize(forward - dot * wall);
-					angle_vertical = -asinf(forward.y);
-					angle_horizontal = atan2f(forward.x, forward.z);
+					forward = Vec3::normalize(forward - (dot + dot_limit) * wall);
 					dot = forward.dot(wall);
 					iterations++;
 				}
+
+				forward = rot.inverse() * forward;
+				angle_vertical = -asinf(forward.y);
+				angle_horizontal = atan2f(forward.x, forward.z);
+
+				iterations = 0;
+				Quat gun_space = rot * Quat::euler(0.0f, angle_horizontal, angle_vertical);
+				Vec3 wall_gun_space = gun_space.inverse() * wall;
+				wall_gun_space.z = 0.0f;
+				wall_gun_space.normalize();
+				angle_roll = atan2f(wall_gun_space.y, wall_gun_space.x);
 			}
-			t->rot = rot.inverse() * Quat::euler(0, angle_horizontal, angle_vertical);
+
+			t->rot = Quat::euler(angle_roll + PI * -0.5f, angle_horizontal, angle_vertical);
 		}
 		else
 			w->get<SkinnedModel>()->mask = 0;

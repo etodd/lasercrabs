@@ -73,7 +73,6 @@ DroneEntity::DroneEntity(AI::Team team, const Vec3& pos)
 	model->mesh = Asset::Mesh::drone;
 	model->shader = Asset::Shader::armature;
 	model->team = s8(team);
-	model->alpha_if_obstructing();
 	model->color = Team::color_neutral();
 
 	Animator* anim = create<Animator>();

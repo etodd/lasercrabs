@@ -108,7 +108,6 @@ struct Drone : public ComponentType<Drone>
 
 	static Drone* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
-	static void stealth(Entity*, b8);
 	static void update_all(const Update&);
 	static void init();
 

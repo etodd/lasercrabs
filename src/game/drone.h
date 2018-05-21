@@ -153,7 +153,6 @@ struct Drone : public ComponentType<Drone>
 
 	b8 net_state_frame(Net::StateFrame*) const;
 
-	Vec3 rotation_clamp() const;
 	Vec3 camera_center() const;
 	void ability(Ability);
 	void cooldown_recoil_setup(Ability);

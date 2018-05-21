@@ -504,11 +504,13 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 
 void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone::Hits* hits = nullptr)
 {
+	drone->weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_sniper_fire);
+
 	Vec3 pos = drone->get<Transform>()->absolute_pos();
 
 	ShellCasing::spawn(pos, Quat::look(dir_normalized), ShellCasing::Type::Sniper);
 	drone->get<Audio>()->post(AK::EVENTS::PLAY_SNIPER_FIRE);
-	EffectLight::add(pos + dir_normalized * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 2.0f, 0.1f, EffectLight::Type::MuzzleFlash);
+	EffectLight::add(pos + dir_normalized * 0.85f, DRONE_RADIUS * 2.0f, 0.1f, EffectLight::Type::MuzzleFlash);
 
 	drone->hit_targets.length = 0;
 	Vec3 ray_start = pos + dir_normalized * -DRONE_RADIUS;
@@ -800,6 +802,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 								break;
 							case Ability::Shotgun:
 								a->armature = Asset::Armature::weapon_shotgun;
+								a->layers[0].play(Asset::Animation::weapon_shotgun_draw);
 								model->mesh = Asset::Mesh::weapon_shotgun;
 								break;
 							case Ability::Sniper:
@@ -824,6 +827,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 								vi_assert(false);
 								break;
 						}
+						a->update_world_transforms();
 					}
 				}
 			}
@@ -1031,6 +1035,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					{
 						drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
 						Vec3 my_pos = drone->get<Transform>()->absolute_pos();
+						drone->weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_shotgun_fire);
 						ShellCasing::spawn(my_pos, Quat::look(dir_normalized), ShellCasing::Type::Shotgun);
 						EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 3.0f, DRONE_RADIUS * 3.0f, 0.1f, EffectLight::Type::MuzzleFlash);
 						drone->dash_start(-dir_normalized, my_pos, DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
@@ -1152,16 +1157,14 @@ void Drone::awake()
 	update_offset();
 	if (Game::level.local && !weapon_model.ref())
 	{
-		// inner shield
 		Entity* weapon = World::create<Empty>();
 		weapon->get<Transform>()->parent = get<Transform>();
-		weapon->create<Animator>();
+		weapon->create<Animator>()->layers[0].blend_time = 0.0f;
 
 		SkinnedModel* s = weapon->add<SkinnedModel>();
 		s->alpha_if_obstructing();
 		s->team = s8(get<AIAgent>()->team);
-		s->mesh = Asset::Mesh::cube;
-		s->shader = Asset::Shader::standard;
+		s->shader = Asset::Shader::armature;
 		weapon_model = weapon;
 
 		Net::finalize_child(weapon);
@@ -1991,6 +1994,7 @@ b8 Drone::go(const Vec3& dir)
 				get<Audio>()->post(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
 				Quat target_quat = Quat::look(dir_normalized);
 				Vec3 my_pos = get<Transform>()->absolute_pos();
+				weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_shotgun_fire);
 				ShellCasing::spawn(my_pos, target_quat, ShellCasing::Type::Shotgun);
 				EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 3.0f, DRONE_RADIUS * 3.0f, 0.1f, EffectLight::Type::MuzzleFlash);
 				for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
@@ -2868,14 +2872,9 @@ b8 Drone::bolter_can_fire() const
 	return Game::time.total - last_ability_fired > interval;
 }
 
-Vec3 Drone::rotation_clamp() const
-{
-	return lerped_rotation * Vec3(0, 0, 1);
-}
-
 Vec3 Drone::camera_center() const
 {
-	return center_lerped() + lerped_rotation * Vec3(0, 0, 0.5f);
+	return center_lerped() + lerped_rotation * Vec3(0, 0, 0.75f);
 }
 
 void Drone::update_client(const Update& u)
@@ -3105,10 +3104,9 @@ void Drone::update_client_late(const Update& u)
 
 	if (Entity* w = weapon_model.ref())
 	{
+		SkinnedModel* model = w->get<SkinnedModel>();
 		if (s == State::Crawl && current_ability != Ability::None)
 		{
-			Animator* a = w->get<Animator>();
-			SkinnedModel* model = w->get<SkinnedModel>();
 			model->mask = RENDER_MASK_DEFAULT;
 			Transform* t = w->get<Transform>();
 
@@ -3149,7 +3147,7 @@ void Drone::update_client_late(const Update& u)
 			t->rot = Quat::euler(angle_roll + PI * -0.5f, angle_horizontal, angle_vertical);
 		}
 		else
-			w->get<SkinnedModel>()->mask = 0;
+			model->mask = 0;
 	}
 }
 

@@ -183,7 +183,7 @@ void SkinnedModel::draw(const RenderParams& params, ObstructingBehavior b)
 		
 		if (b != ObstructingBehavior::Normal)
 		{
-			if (LMath::ray_sphere_intersect(params.camera->pos, params.camera->pos + params.camera->rot * Vec3(0, 0, params.camera->cull_range), m.translation(), max_radius * 0.5f))
+			if (LMath::ray_sphere_intersect(params.camera->pos, params.camera->pos + params.camera->rot * Vec3(0, 0, params.camera->cull_range), m.translation(), 0.25f))
 			{
 				// obstructing
 				if (b == ObstructingBehavior::Hide)

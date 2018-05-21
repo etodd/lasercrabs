@@ -279,7 +279,7 @@ void PlayerControlAI::upgrade_completed(Upgrade upgrade)
 Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target, r32 inaccuracy)
 {
 	PlayerCommon* common = get<PlayerCommon>();
-	Vec3 wall_normal = get<Drone>()->rotation_clamp();
+	Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 
 	const AI::Config& config = player.ref()->config;
 	r32 target_angle_horizontal;
@@ -445,7 +445,7 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 		Vec3 to_target = target - pos;
 		r32 distance_to_target = to_target.length();
 		to_target /= distance_to_target;
-		Vec3 wall_normal = get<Drone>()->rotation_clamp();
+		Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 
 		Vec2 target_angles = aim(u, to_target, inaccuracy);
 
@@ -515,7 +515,7 @@ b8 PlayerControlAI::aim_and_shoot_location(const Update& u, const AI::DronePathN
 		// except if we're shooting at an enemy Drone and we're on the same surface as them, then crawl
 		if (can_move)
 		{
-			Vec3 wall_normal = get<Drone>()->rotation_clamp();
+			Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 			Vec3 to_target_convex = (node.pos + node.normal * DRONE_RADIUS) - pos;
 			Vec3 to_target_crawl;
 			if (wall_normal.dot(to_target_convex) > 0.0f && node.normal.dot(wall_normal) < 0.9f)

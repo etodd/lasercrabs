@@ -6,6 +6,8 @@
 namespace VI
 {
 
+#define DEBUG_VIEW 0
+
 
 struct AudioEntry;
 
@@ -22,7 +24,7 @@ struct View : public ComponentType<View>
 
 	static Bitmask<MAX_ENTITIES> list_alpha;
 	static Bitmask<MAX_ENTITIES> list_additive;
-#if !RELEASE_BUILD
+#if DEBUG_VIEW
 	static Array<DebugEntry> debug_entries;
 #endif
 
@@ -43,7 +45,7 @@ struct View : public ComponentType<View>
 
 	static void draw_mesh(const RenderParams&, AssetID, AssetID, AssetID, const Mat4&, const Vec4&, r32 = 0.0f);
 
-#if !RELEASE_BUILD
+#if DEBUG_VIEW
 	static void debug(AssetID, const Vec3&, const Quat& = Quat::identity, const Vec3& = Vec3(1), const Vec4& = Vec4(1, 1, 1, 0.5f));
 #endif
 

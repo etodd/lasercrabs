@@ -17,7 +17,7 @@ namespace VI
 
 Bitmask<MAX_ENTITIES> View::list_alpha;
 Bitmask<MAX_ENTITIES> View::list_additive;
-#if !RELEASE_BUILD
+#if DEBUG_VIEW
 Array<View::DebugEntry> View::debug_entries;
 #endif
 
@@ -76,7 +76,7 @@ void View::draw_alpha(const RenderParams& params)
 			i.item()->draw(params);
 	}
 
-#if !RELEASE_BUILD
+#if DEBUG_VIEW
 	Mat4 m;
 	for (s32 i = 0; i < debug_entries.length; i++)
 	{
@@ -218,7 +218,7 @@ void View::draw_mesh(const RenderParams& params, AssetID mesh, AssetID shader, A
 	}
 }
 
-#if !RELEASE_BUILD
+#if DEBUG_VIEW
 void View::debug(AssetID mesh, const Vec3& pos, const Quat& rot, const Vec3& scale, const Vec4& color)
 {
 	DebugEntry* entry = debug_entries.add();

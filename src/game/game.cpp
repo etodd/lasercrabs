@@ -784,7 +784,7 @@ void Game::update(InputState* input, const InputState* last_input)
 		time.delta = r32(dt2);
 	}
 
-#if !RELEASE_BUILD
+#if DEBUG_VIEW
 	View::debug_entries.length = 0;
 #endif
 
@@ -2830,8 +2830,12 @@ void Game::awake_all()
 			Loader::armature(Asset::Armature::weapon_grenade);
 			Loader::mesh(Asset::Mesh::weapon_sniper);
 			Loader::armature(Asset::Armature::weapon_sniper);
+			Loader::animation(Asset::Animation::weapon_sniper_draw);
+			Loader::animation(Asset::Animation::weapon_sniper_fire);
 			Loader::mesh(Asset::Mesh::weapon_shotgun);
 			Loader::armature(Asset::Armature::weapon_shotgun);
+			Loader::animation(Asset::Animation::weapon_shotgun_draw);
+			Loader::animation(Asset::Animation::weapon_shotgun_fire);
 			Loader::mesh(Asset::Mesh::weapon_bolter);
 			Loader::armature(Asset::Armature::weapon_bolter);
 			Loader::mesh(Asset::Mesh::weapon_build);

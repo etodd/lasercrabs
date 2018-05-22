@@ -32,7 +32,7 @@ namespace Asset
 	}
 	namespace Bone
 	{
-		const s32 count = 451;
+		const s32 count = 452;
 		const AssetID character_camera = 0;
 		const AssetID character_claw1_L = 9;
 		const AssetID character_claw1_R = 15;
@@ -472,6 +472,7 @@ namespace Asset
 		const AssetID tram_doors_door4 = 3;
 		const AssetID tram_doors_door5 = 4;
 		const AssetID tram_doors_door6 = 5;
+		const AssetID weapon_bolter_barrel = 1;
 		const AssetID weapon_bolter_root = 0;
 		const AssetID weapon_build_root = 0;
 		const AssetID weapon_grenade_root = 0;

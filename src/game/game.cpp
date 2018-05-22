@@ -2838,6 +2838,8 @@ void Game::awake_all()
 			Loader::animation(Asset::Animation::weapon_shotgun_fire);
 			Loader::mesh(Asset::Mesh::weapon_bolter);
 			Loader::armature(Asset::Armature::weapon_bolter);
+			Loader::animation(Asset::Animation::weapon_bolter_draw);
+			Loader::animation(Asset::Animation::weapon_bolter_fire);
 			Loader::mesh(Asset::Mesh::weapon_build);
 			Loader::armature(Asset::Armature::weapon_build);
 

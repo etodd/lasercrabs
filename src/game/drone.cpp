@@ -798,6 +798,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						{
 							case Ability::Bolter:
 								a->armature = Asset::Armature::weapon_bolter;
+								a->layers[0].play(Asset::Animation::weapon_bolter_draw);
 								model->mesh = Asset::Mesh::weapon_bolter;
 								break;
 							case Ability::Shotgun:
@@ -1018,7 +1019,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
 					{
 						drone->get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
-						EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
+						drone->weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_bolter_fire);
+						EffectLight::add(my_pos + dir_normalized * 0.65f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
 						ShellCasing::spawn(drone->get<Transform>()->absolute_pos(), Quat::look(dir_normalized), ShellCasing::Type::Bolter);
 					}
 					break;
@@ -2020,7 +2022,8 @@ b8 Drone::go(const Vec3& dir)
 				// create fake bolt
 				get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
 				Vec3 my_pos = get<Transform>()->absolute_pos();
-				EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
+				EffectLight::add(my_pos + dir_normalized * 0.65f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
+				weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_bolter_fire);
 				ShellCasing::spawn(my_pos, Quat::look(dir_normalized), ShellCasing::Type::Bolter);
 				fake_projectiles.add
 				(

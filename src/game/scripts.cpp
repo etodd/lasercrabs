@@ -869,7 +869,7 @@ namespace Docks
 			&& !Overworld::active()
 			&& Game::session.type == SessionType::Story)
 		{
-			const Vec2 actual_size(1280, 304);
+			const Vec2 actual_size(1920, 458);
 			Rect2 logo_rect;
 			b8 draw = true;
 			if (Menu::main_menu_state == Menu::State::Hidden)

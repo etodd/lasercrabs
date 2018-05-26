@@ -1,5 +1,5 @@
 [Unit]
-Description=deceiversrv3
+Description=lasercrabsrv4
 After=syslog.target
 After=network.target
 OnFailure=unit-status-mail@%n.service
@@ -7,8 +7,8 @@ OnFailure=unit-status-mail@%n.service
 [Service]
 LimitCORE=infinity
 User=root
-WorkingDirectory=/root/deceiver
-ExecStart=/root/deceiver/deceiversrv 21367
+WorkingDirectory=/root/lasercrabs
+ExecStart=/root/deceiver/lasercrabsrv 21368
 Restart=on-failure
 
 [Install]

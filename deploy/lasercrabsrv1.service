@@ -8,7 +8,7 @@ OnFailure=unit-status-mail@%n.service
 LimitCORE=infinity
 User=root
 WorkingDirectory=/root/lasercrabs
-ExecStart=/root/deceiver/lasercrabsrv 21365
+ExecStart=/root/lasercrabs/lasercrabsrv 21365
 Restart=on-failure
 
 [Install]

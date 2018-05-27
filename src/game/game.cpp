@@ -2828,6 +2828,8 @@ void Game::awake_all()
 
 			Loader::mesh(Asset::Mesh::weapon_grenade);
 			Loader::armature(Asset::Armature::weapon_grenade);
+			Loader::animation(Asset::Animation::weapon_grenade_draw);
+			Loader::animation(Asset::Animation::weapon_grenade_fire);
 			Loader::mesh(Asset::Mesh::weapon_sniper);
 			Loader::armature(Asset::Armature::weapon_sniper);
 			Loader::animation(Asset::Animation::weapon_sniper_draw);
@@ -2842,6 +2844,8 @@ void Game::awake_all()
 			Loader::animation(Asset::Animation::weapon_bolter_fire);
 			Loader::mesh(Asset::Mesh::weapon_build);
 			Loader::armature(Asset::Armature::weapon_build);
+			Loader::animation(Asset::Animation::weapon_build_draw);
+			Loader::animation(Asset::Animation::weapon_build_fire);
 
 			Loader::mesh(Asset::Mesh::grenade_attached);
 			Loader::mesh(Asset::Mesh::grenade_detached);

@@ -3800,7 +3800,7 @@ PlayerControlHuman::RemoteControl PlayerControlHuman::remote_control_get(const U
 	}
 	else
 	{
-		control.angle_horizontal = get<PlayerCommon>()->angle_horizontal;
+		control.angle_horizontal = LMath::angle_range(get<PlayerCommon>()->angle_horizontal);
 		control.angle_vertical = get<PlayerCommon>()->angle_vertical;
 	}
 	return control;

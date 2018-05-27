@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Animation
 	{
-		const s32 count = 87;
+		const s32 count = 91;
 		const AssetID character_aim = 0;
 		const AssetID character_climb_down = 1;
 		const AssetID character_climb_up = 2;
@@ -92,10 +92,14 @@ namespace Asset
 		const AssetID tram_doors_opened = 80;
 		const AssetID weapon_bolter_draw = 81;
 		const AssetID weapon_bolter_fire = 82;
-		const AssetID weapon_shotgun_draw = 83;
-		const AssetID weapon_shotgun_fire = 84;
-		const AssetID weapon_sniper_draw = 85;
-		const AssetID weapon_sniper_fire = 86;
+		const AssetID weapon_build_draw = 83;
+		const AssetID weapon_build_fire = 84;
+		const AssetID weapon_grenade_draw = 85;
+		const AssetID weapon_grenade_fire = 86;
+		const AssetID weapon_shotgun_draw = 87;
+		const AssetID weapon_shotgun_fire = 88;
+		const AssetID weapon_sniper_draw = 89;
+		const AssetID weapon_sniper_fire = 90;
 	}
 }
 

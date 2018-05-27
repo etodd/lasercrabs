@@ -33,6 +33,7 @@ Animator::Layer::Layer()
 
 Animator::Animator()
 	: armature(AssetNull),
+	armature_last(AssetNull),
 	layers(),
 	bindings(),
 	triggers(),
@@ -61,7 +62,7 @@ static s32 find_keyframe_index(const Array<T>& keyframes, r32 time)
 
 void Animator::Layer::play(AssetID a)
 {
-	if (animation != a)
+	if (animation != a || behavior == Behavior::Freeze)
 	{
 		animation = a;
 		if (behavior == Behavior::Loop && a != AssetNull)
@@ -337,18 +338,18 @@ void Animator::update_world_transforms()
 		return;
 
 	const Armature* arm = Loader::armature(armature);
-	bones.resize(arm->hierarchy.length);
-	if (offsets.length < arm->hierarchy.length)
+	if (armature != armature_last)
 	{
-		s32 old_length = offsets.length;
+		bones.resize(arm->hierarchy.length);
 		offsets.resize(arm->hierarchy.length);
-		for (s32 i = old_length; i < offsets.length; i++)
+		for (s32 i = 0; i < offsets.length; i++)
 		{
 			if (override_mode == OverrideMode::Override)
 				offsets[i].make_transform(arm->bind_pose[i].pos, Vec3(1, 1, 1), arm->bind_pose[i].rot);
 			else
 				offsets[i] = Mat4::identity;
 		}
+		armature_last = armature;
 	}
 
 	if (override_mode == OverrideMode::Override)

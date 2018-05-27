@@ -31,7 +31,7 @@ Windows quickstart
 2. Install [Visual Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx) 2017.
 3. Install the [DirectX SDK](https://www.microsoft.com/en-us/download/confirmation.aspx?id=6812)
 4. Install [CMake](http://www.cmake.org/download/)
-5. Ensure [Blender](http://blender.org) 2.78c is installed and
+5. Ensure [Blender](http://blender.org) 2.79b is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm)
 6. Ensure [Wwise](https://www.audiokinetic.com/) 2017.1.0 build 6302 is installed and `WwiseCLI`
 is available on the path
@@ -57,7 +57,7 @@ Mac quickstart
 
 1. Clone the repository and pull down the submodules. You will need [Git LFS](https://git-lfs.github.com/).
 2. Install [Homebrew](http://brew.sh/)
-3. Ensure [Blender](http://blender.org) 2.78c is installed and
+3. Ensure [Blender](http://blender.org) 2.79b is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm)
 4. Ensure [Wwise](https://www.audiokinetic.com/) 2017.1.0 build 6302 is installed and `WwiseCLI.sh`
 is available on the path

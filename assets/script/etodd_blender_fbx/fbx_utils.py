@@ -94,6 +94,7 @@ FBX_LIGHT_DECAY_TYPES = {
     'CONSTANT': 0,                   # None.
     'INVERSE_LINEAR': 1,             # Linear.
     'INVERSE_SQUARE': 2,             # Quadratic.
+    'INVERSE_COEFFICIENTS': 2,       # Quadratic...
     'CUSTOM_CURVE': 2,               # Quadratic.
     'LINEAR_QUADRATIC_WEIGHTED': 2,  # Quadratic.
 }
@@ -728,6 +729,7 @@ class AnimationCurveNodeWrapper:
         'LCL_ROTATION': ("Lcl Rotation", "R", ("X", "Y", "Z")),
         'LCL_SCALING': ("Lcl Scaling", "S", ("X", "Y", "Z")),
         'SHAPE_KEY': ("DeformPercent", "DeformPercent", ("DeformPercent",)),
+        'CAMERA_FOCAL': ("FocalLength", "FocalLength", ("FocalLength",)),
     }
 
     def __init__(self, elem_key, kind, force_keying, force_startend_keying, default_values=...):

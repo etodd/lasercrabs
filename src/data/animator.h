@@ -86,6 +86,7 @@ struct Animator : public ComponentType<Animator>
 	Layer layers[MAX_ANIMATIONS];
 	OverrideMode override_mode;
 	AssetID armature;
+	AssetID armature_last;
 
 	Animator();
 	void awake();

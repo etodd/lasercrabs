@@ -504,12 +504,11 @@ void drone_bolt_spawn(Drone* drone, const Vec3& my_pos, const Vec3& dir_normaliz
 
 void drone_sniper_effects(Drone* drone, const Vec3& dir_normalized, const Drone::Hits* hits = nullptr)
 {
-	drone->weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_sniper_fire);
-
 	Vec3 pos = drone->get<Transform>()->absolute_pos();
 
 	ShellCasing::spawn(pos, Quat::look(dir_normalized), ShellCasing::Type::Sniper);
 	drone->get<Audio>()->post(AK::EVENTS::PLAY_SNIPER_FIRE);
+	drone->weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_sniper_fire);
 	EffectLight::add(pos + dir_normalized * 0.85f, DRONE_RADIUS * 2.0f, 0.1f, EffectLight::Type::MuzzleFlash);
 
 	drone->hit_targets.length = 0;
@@ -813,6 +812,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 								break;
 							case Ability::Grenade:
 								a->armature = Asset::Armature::weapon_grenade;
+								a->layers[0].play(Asset::Animation::weapon_grenade_draw);
 								model->mesh = Asset::Mesh::weapon_grenade;
 								break;
 							case Ability::MinionSpawner:
@@ -820,6 +820,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							case Ability::ForceField:
 							case Ability::Turret:
 								a->armature = Asset::Armature::weapon_build;
+								a->layers[0].play(Asset::Animation::weapon_build_draw);
 								model->mesh = Asset::Mesh::weapon_build;
 								break;
 							case Ability::None:
@@ -897,6 +898,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, pos);
+					drone->weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_build_fire);
 
 					break;
 				}
@@ -908,6 +910,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, pos);
+					drone->weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_build_fire);
 
 					break;
 				}
@@ -919,6 +922,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, pos);
+					drone->weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_build_fire);
 
 					break;
 				}
@@ -930,6 +934,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, pos);
+					drone->weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_build_fire);
 
 					break;
 				}
@@ -955,6 +960,7 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					if (Game::level.local || !drone->has<PlayerControlHuman>() || !drone->get<PlayerControlHuman>()->local())
 					{
 						drone->get<Audio>()->post(AK::EVENTS::PLAY_GRENADE_SPAWN);
+						drone->weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_grenade_fire);
 						EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
 					}
 
@@ -1037,8 +1043,8 @@ b8 Drone::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					{
 						drone->get<Audio>()->post(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
 						Vec3 my_pos = drone->get<Transform>()->absolute_pos();
-						drone->weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_shotgun_fire);
 						ShellCasing::spawn(my_pos, Quat::look(dir_normalized), ShellCasing::Type::Shotgun);
+						drone->weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_shotgun_fire);
 						EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 3.0f, DRONE_RADIUS * 3.0f, 0.1f, EffectLight::Type::MuzzleFlash);
 						drone->dash_start(-dir_normalized, my_pos, DRONE_DASH_TIME * 0.25f); // HACK: set target to current position so it is not used
 					}
@@ -1161,7 +1167,9 @@ void Drone::awake()
 	{
 		Entity* weapon = World::create<Empty>();
 		weapon->get<Transform>()->parent = get<Transform>();
-		weapon->create<Animator>()->layers[0].blend_time = 0.0f;
+		Animator* animator = weapon->create<Animator>();
+		animator->layers[0].blend_time = 0.0f;
+		animator->layers[0].behavior = Animator::Behavior::Freeze;
 
 		SkinnedModel* s = weapon->add<SkinnedModel>();
 		s->alpha_if_obstructing();
@@ -1996,8 +2004,8 @@ b8 Drone::go(const Vec3& dir)
 				get<Audio>()->post(AK::EVENTS::PLAY_DRONE_SHOTGUN_FIRE);
 				Quat target_quat = Quat::look(dir_normalized);
 				Vec3 my_pos = get<Transform>()->absolute_pos();
-				weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_shotgun_fire);
 				ShellCasing::spawn(my_pos, target_quat, ShellCasing::Type::Shotgun);
+				weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_shotgun_fire);
 				EffectLight::add(my_pos + dir_normalized * DRONE_RADIUS * 3.0f, DRONE_RADIUS * 3.0f, 0.1f, EffectLight::Type::MuzzleFlash);
 				for (s32 i = 0; i < DRONE_SHOTGUN_PELLETS; i++)
 				{
@@ -2022,8 +2030,8 @@ b8 Drone::go(const Vec3& dir)
 				// create fake bolt
 				get<Audio>()->post(AK::EVENTS::PLAY_BOLT_SPAWN);
 				Vec3 my_pos = get<Transform>()->absolute_pos();
-				EffectLight::add(my_pos + dir_normalized * 0.65f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
 				weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_bolter_fire);
+				EffectLight::add(my_pos + dir_normalized * 0.65f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
 				ShellCasing::spawn(my_pos, Quat::look(dir_normalized), ShellCasing::Type::Bolter);
 				fake_projectiles.add
 				(
@@ -2045,6 +2053,7 @@ b8 Drone::go(const Vec3& dir)
 				Vec3 my_pos = get<Transform>()->absolute_pos();
 				Vec3 dir_spawn = grenade_spawn_dir(dir_normalized);
 
+				weapon_model.ref()->get<Animator>()->layers[0].play(Asset::Animation::weapon_grenade_fire);
 				EffectLight::add(my_pos + dir_spawn * DRONE_RADIUS * 2.0f, DRONE_RADIUS * 1.5f, 0.1f, EffectLight::Type::MuzzleFlash);
 				fake_projectiles.add
 				(

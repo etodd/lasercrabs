@@ -1520,9 +1520,9 @@ void draw(LoopSync* sync, const Camera* camera)
 		if (UI::scale < 1.0f)
 			sync->write<s32>(3);
 		else if (UI::scale == 1.0f)
-			sync->write<s32>(4);
+			sync->write<s32>(6);
 		else
-			sync->write<s32>(5);
+			sync->write<s32>(10);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::depth_buffer);

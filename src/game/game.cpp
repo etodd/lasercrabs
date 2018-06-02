@@ -155,7 +155,11 @@ Game::Session::Session()
 
 r32 Game::Session::effective_time_scale() const
 {
+#if SERVER
 	return time_scale * grapple_time_scale;
+#else
+	return time_scale * grapple_time_scale * (Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying ? Net::Client::replay_speed : 1.0f);
+#endif
 }
 
 s32 Game::Session::local_player_count() const

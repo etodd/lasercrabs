@@ -3450,6 +3450,7 @@ DisconnectReason disconnect_reason;
 r32 master_auth_timer;
 Array<std::array<char, MAX_PATH_LENGTH + 1> > replay_files;
 s32 replay_file_index;
+r32 replay_speed = 1.0f;
 
 void replay_file_add(const char* filename)
 {
@@ -4813,6 +4814,11 @@ void packet_read(const Update& u, PacketEntry* entry)
 void update_start(const Update& u)
 {
 	r32 dt = vi_min(u.real_time.delta, NET_MAX_FRAME_TIME);
+#if !SERVER
+	if (Client::state_client.replay_mode == Client::ReplayMode::Replaying)
+		dt *= Client::replay_speed;
+#endif
+
 	state_common.timestamp += dt;
 
 #if !SERVER

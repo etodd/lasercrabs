@@ -583,17 +583,17 @@ void PlayerHuman::clear()
 	notifications.length = 0;
 }
 
-void PlayerHuman::update_camera_rotation(const Update& u)
+void PlayerHuman::update_camera_rotation(const Update& u, r32 time_scale)
 {
 	{
-		r32 s = speed_mouse * Settings::gamepads[gamepad].effective_sensitivity_mouse() * Game::session.effective_time_scale();
+		r32 s = speed_mouse * Settings::gamepads[gamepad].effective_sensitivity_mouse() * time_scale;
 		angle_horizontal -= u.input->mouse_relative.x * s;
 		angle_vertical += u.input->mouse_relative.y * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
 	}
 
 	if (u.input->gamepads[gamepad].type != Gamepad::Type::None)
 	{
-		r32 s = speed_joystick * Settings::gamepads[gamepad].effective_sensitivity_gamepad() * Game::time.delta;
+		r32 s = speed_joystick * Settings::gamepads[gamepad].effective_sensitivity_gamepad() * Game::real_time.delta * time_scale;
 		Vec2 rotation(u.input->gamepads[gamepad].right_x, u.input->gamepads[gamepad].right_y);
 		Input::dead_zone(&rotation.x, &rotation.y);
 		angle_horizontal -= rotation.x * s;
@@ -1284,7 +1284,7 @@ void PlayerHuman::update(const Update& u)
 		case UIMode::PvpSpectate:
 		{
 			// we're dead but others still playing; spectate
-			update_camera_rotation(u);
+			update_camera_rotation(u, Game::session.effective_time_scale());
 
 			camera.ref()->perspective(Settings::effective_fov(), 0.02f, Game::level.far_plane_get());
 
@@ -1369,18 +1369,31 @@ void PlayerHuman::update_late(const Update& u)
 	if (Game::level.noclip)
 	{
 		// noclip
-		update_camera_rotation(u);
+		update_camera_rotation(u, 1.0f);
 
-		camera.ref()->perspective(u.input->keys.get(s32(KeyCode::E)) ? fov_zoom : Settings::effective_fov(), 0.02f, Game::level.far_plane_get());
+		b8 noclip_controls = !Console::visible && chat_focus == ChatFocus::None;
+
+		camera.ref()->perspective((noclip_controls && u.input->keys.get(s32(KeyCode::E))) ? fov_zoom : Settings::effective_fov(), 0.02f, Game::level.far_plane_get());
 		camera.ref()->range = 0;
 		camera.ref()->cull_range = 0;
 
-		if (!Console::visible && chat_focus == ChatFocus::None)
+		if (noclip_controls)
 		{
+			if (u.input->keys.get(s32(KeyCode::Space)) && !u.last_input->keys.get(s32(KeyCode::Space)))
+			{
+				if (Net::Client::replay_speed > 0.0f)
+					Net::Client::replay_speed = 0.0f;
+				else
+					Net::Client::replay_speed = 1.0f;
+			}
+			if (u.input->keys.get(s32(KeyCode::MouseWheelDown)))
+				Net::Client::replay_speed = vi_max(0.0f, Net::Client::replay_speed - 0.1f);
+			else if (u.input->keys.get(s32(KeyCode::MouseWheelUp)))
+				Net::Client::replay_speed = vi_min(4.0f, Net::Client::replay_speed + 0.1f);
 			r32 speed = u.input->get(Controls::Parkour, gamepad) ? 24.0f : 4.0f;
 			if (u.input->keys.get(s32(KeyCode::LAlt)))
 				speed *= 0.2f;
-			camera.ref()->pos += (u.time.delta * speed) * PlayerControlHuman::get_movement(u, camera.ref()->rot, gamepad);
+			camera.ref()->pos += (u.real_time.delta * speed) * PlayerControlHuman::get_movement(u, camera.ref()->rot, gamepad);
 		}
 	}
 	else if (Net::Client::replay_mode() == Net::Client::ReplayMode::Replaying)

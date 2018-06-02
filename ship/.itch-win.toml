@@ -3,5 +3,5 @@ name = "vcredist-2017-x64"
 
 [[actions]]
 name = "play"
-path = "deceiver.exe"
+path = "lasercrabs.exe"
 scope = "profile:me"

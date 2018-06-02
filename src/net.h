@@ -197,6 +197,7 @@ namespace Client
 	
 	extern MasterError master_error;
 	extern DisconnectReason disconnect_reason;
+	extern r32 replay_speed;
 
 	b8 master_send_auth();
 	void connect(Sock::Address);

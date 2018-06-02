@@ -217,7 +217,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	Upgrade upgrade_selected() const;
 	void update(const Update&);
 	void update_late(const Update&);
-	void update_camera_rotation(const Update&);
+	void update_camera_rotation(const Update&, r32);
 	void draw_ui_early(const RenderParams&) const;
 	void draw_battery_flag_icons(const RenderParams&) const;
 	void draw_ui(const RenderParams&) const;

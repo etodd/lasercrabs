@@ -74,7 +74,7 @@ void skip_transition_half();
 b8 modal();
 b8 transitioning();
 b8 zone_is_pvp(AssetID);
-s32 zone_max_teams(AssetID);
+s32 zone_max_teams(AssetID, GameType);
 void zone_rewards(AssetID, s16*);
 AssetID zone_under_attack();
 void resource_change(Resource, s16);

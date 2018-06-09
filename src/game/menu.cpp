@@ -1826,7 +1826,7 @@ b8 maps(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu)
 
 	for (AssetID level_id = 0; level_id < AssetID(Asset::Level::count); level_id++)
 	{
-		if (Overworld::zone_max_teams(level_id) < Game::session.config.team_count)
+		if (Overworld::zone_max_teams(level_id, Game::session.config.game_type) < Game::session.config.team_count)
 			continue;
 
 		{

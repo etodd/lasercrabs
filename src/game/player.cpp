@@ -1865,7 +1865,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager, S
 				break;
 		}
 
-		if (player_count > 1)
+		if (player_count > 1 || Game::session.config.game_type == GameType::Assault)
 		{
 			text.anchor_x = UIText::Anchor::Min;
 			text.color = Team::color_ui(manager->team.ref()->team(), team);

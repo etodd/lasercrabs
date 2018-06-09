@@ -1706,6 +1706,14 @@ b8 Drone::can_spawn(Ability a, const Vec3& dir, const Net::StateFrame* state_fra
 					if (physics_ray_callback.hasHit())
 						return false; // not enough space
 				}
+
+				if (a == Ability::MinionSpawner || a == Ability::Turret)
+				{
+					// make sure it's far enough away from any enemy force fields
+					if (ForceField::inside(~(1 << get<AIAgent>()->team), space_check_pos, 0.75f))
+						return false;
+				}
+
 				return true;
 			}
 		}

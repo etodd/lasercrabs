@@ -2705,19 +2705,19 @@ void Turret::update_all(const Update& u)
 }
 
 // returns true if the given position is inside an enemy force field
-ForceField* ForceField::inside(AI::TeamMask mask, const Vec3& pos)
+ForceField* ForceField::inside(AI::TeamMask mask, const Vec3& pos, r32 extra_radius)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (AI::match(i.item()->team, mask) && i.item()->contains(pos))
+		if (AI::match(i.item()->team, mask) && i.item()->contains(pos, extra_radius))
 			return i.item();
 	}
 	return nullptr;
 }
 
-b8 ForceField::contains(const Vec3& pos) const
+b8 ForceField::contains(const Vec3& pos, r32 extra_radius) const
 {
-	return (pos - get<Transform>()->absolute_pos()).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS;
+	return (pos - get<Transform>()->absolute_pos()).length_squared() < (FORCE_FIELD_RADIUS + extra_radius) * (FORCE_FIELD_RADIUS + extra_radius);
 }
 
 b8 ForceField::is_flag_force_field() const
@@ -2992,7 +2992,7 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 		// kill all enemy drones inside
 		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->get<AIAgent>()->team != team && (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < FORCE_FIELD_RADIUS * FORCE_FIELD_RADIUS)
+			if (i.item()->get<AIAgent>()->team != team && (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < (FORCE_FIELD_RADIUS + DRONE_RADIUS) * (FORCE_FIELD_RADIUS + DRONE_RADIUS))
 				i.item()->get<Health>()->kill(nullptr);
 		}
 	}

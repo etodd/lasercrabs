@@ -851,8 +851,11 @@ void multiplayer_entry_edit_update(const Update& u)
 					delta = menu->slider_item(u, _(strings::teams), str, config->game_type == GameType::Assault || config->game_type == GameType::CaptureTheFlag);
 
 					s32 max_teams = vi_min(s32(config->max_players), MAX_TEAMS);
-					for (s32 i = 0; i < config->levels.length; i++)
-						max_teams = vi_min(max_teams, s32(zone_node_by_uuid(config->levels[i])->max_teams));
+					if (config->game_type != GameType::Deathmatch)
+					{
+						for (s32 i = 0; i < config->levels.length; i++)
+							max_teams = vi_min(max_teams, s32(zone_node_by_uuid(config->levels[i])->max_teams));
+					}
 
 					*team_count = s8(vi_max(2, vi_min(max_teams, *team_count + delta)));
 					if (delta)
@@ -1054,7 +1057,7 @@ void multiplayer_entry_edit_update(const Update& u)
 							}
 						}
 
-						if (menu->item(u, Loader::level_name(AssetID(i)), nullptr, zone_max_teams(AssetID(i)) < config->team_count || !LEVEL_ALLOWED(node->uuid), existing_index == -1 ? AssetNull : Asset::Mesh::icon_checkmark))
+						if (menu->item(u, Loader::level_name(AssetID(i)), nullptr, zone_max_teams(AssetID(i), config->game_type) < config->team_count || !LEVEL_ALLOWED(node->uuid), existing_index == -1 ? AssetNull : Asset::Mesh::icon_checkmark))
 						{
 							if (existing_index == -1)
 								config->levels.add(node->uuid);
@@ -2610,15 +2613,20 @@ void zone_change(AssetID zone, ZoneState state)
 	data.story.map.zones_change_time[zone] = Game::real_time.total;
 }
 
-s32 zone_max_teams(AssetID zone_id)
+s32 zone_max_teams(AssetID zone_id, GameType game_type)
 {
-	const ZoneNode* z = zone_node_by_id(zone_id);
-	return z ? z->max_teams : 0;
+	if (game_type == GameType::Deathmatch)
+		return MAX_TEAMS;
+	else
+	{
+		const ZoneNode* z = zone_node_by_id(zone_id);
+		return z ? z->max_teams : 0;
+	}
 }
 
 b8 zone_is_pvp(AssetID zone_id)
 {
-	return zone_max_teams(zone_id) > 0;
+	return zone_max_teams(zone_id, GameType::Assault) > 0;
 }
 
 void zone_rewards(AssetID zone_id, s16* rewards)

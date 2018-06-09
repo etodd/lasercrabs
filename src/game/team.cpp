@@ -2028,7 +2028,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			if (!m)
 				return true;
 
-			if (!m->flag(FlagIsAdmin) || (map != AssetNull && Overworld::zone_max_teams(map) < Game::session.config.team_count))
+			if (!m->flag(FlagIsAdmin) || (map != AssetNull && Overworld::zone_max_teams(map, Game::session.config.game_type) < Game::session.config.team_count))
 				net_error();
 
 			if (Game::level.local)
@@ -2044,7 +2044,7 @@ b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Message msg, Net
 			if (!m)
 				return true;
 
-			if (!m->flag(FlagIsAdmin) || Overworld::zone_max_teams(map) < Game::session.config.team_count)
+			if (!m->flag(FlagIsAdmin) || Overworld::zone_max_teams(map, Game::session.config.game_type) < Game::session.config.team_count)
 				net_error();
 
 			{

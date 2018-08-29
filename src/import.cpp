@@ -3140,7 +3140,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 	{
 		printf("%s\n", asset_out_path.c_str());
 		std::ostringstream cmdbuilder;
-		cmdbuilder << "blender \"" << asset_in_path << "\" --background --factory-startup --python " << script_blend_to_lvl_path(state) << " -- ";
+		cmdbuilder << "blender \"" << asset_in_path << "\" --background --threads 1 --factory-startup --python " << script_blend_to_lvl_path(state) << " -- ";
 		cmdbuilder << "\"" << asset_out_path << "\"";
 		std::string cmd = cmdbuilder.str();
 

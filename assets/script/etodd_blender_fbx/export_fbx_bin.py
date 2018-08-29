@@ -1067,6 +1067,9 @@ def fbx_data_mesh_elements(root, me_obj, scene_data, done_meshes):
         t_lc = array.array(data_types.ARRAY_FLOAT64, (0.0,)) * len(me.loops) * 4
         for colindex, collayer in enumerate(me.vertex_colors):
             collayer.data.foreach_get("color", t_lc)
+            for i, number in enumerate(t_lc):
+                if math.isnan(number):
+                    t_lc[i] = 0
             lay_vcol = elem_data_single_int32(geom, b"LayerElementColor", colindex)
             elem_data_single_int32(lay_vcol, b"Version", FBX_GEOMETRY_VCOLOR_VERSION)
             elem_data_single_string_unicode(lay_vcol, b"Name", collayer.name)

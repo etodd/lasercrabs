@@ -2989,11 +2989,19 @@ ForceFieldEntity::ForceFieldEntity(Transform* parent, const Vec3& abs_pos, const
 	{
 		field->flags |= ForceField::FlagBattery;
 
-		// kill all enemy drones inside
-		for (auto i = Drone::list.iterator(); !i.is_last(); i.next())
+		// kill all enemy things inside
+		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->get<AIAgent>()->team != team && (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < (FORCE_FIELD_RADIUS + DRONE_RADIUS) * (FORCE_FIELD_RADIUS + DRONE_RADIUS))
-				i.item()->get<Health>()->kill(nullptr);
+			if (!i.item()->has<Battery>())
+			{
+				AI::Team other_team = AI::entity_team(i.item()->entity());
+				if (other_team != AI::TeamNone
+					&& other_team != team
+					&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < (FORCE_FIELD_RADIUS + DRONE_RADIUS) * (FORCE_FIELD_RADIUS + DRONE_RADIUS))
+				{
+					i.item()->kill(nullptr);
+				}
+			}
 		}
 	}
 

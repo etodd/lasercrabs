@@ -70,7 +70,7 @@ void StreamWrite::reset()
 
 void StreamWrite::bits(u32 value, s32 bits)
 {
-	vi_assert(bits > 0);
+	vi_assert(bits >= 0);
 	vi_assert(bits <= 32);
 	value &= (u64(1) << bits) - 1;
 
@@ -233,7 +233,7 @@ s32 StreamRead::bytes_read() const
 
 void StreamRead::bits(u32& output, s32 bits)
 {
-	vi_assert(bits > 0);
+	vi_assert(bits >= 0);
 	vi_assert(bits <= 32);
 	vi_assert(bits_read + bits <= data.length * 32);
 

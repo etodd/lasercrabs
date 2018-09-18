@@ -136,7 +136,7 @@ inline int bits_required(u32 min, u32 max)
 #define serialize_int(stream, type, value, _min, _max)\
 do\
 {\
-	vi_assert(s64(_min) < s64(_max));\
+	vi_assert(s64(_min) <= s64(_max));\
 	u32 _b = Net::bits_required(_min, _max);\
 	if ((stream)->would_overflow(_b))\
 		net_error();\

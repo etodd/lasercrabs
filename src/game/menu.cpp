@@ -74,9 +74,7 @@ b8 maps(const Update&, const UIMenu::Origin&, s8, UIMenu*);
 
 static const AssetID region_strings[] =
 {
-	strings::region_useast,
-	strings::region_uswest,
-	strings::region_europe,
+	strings::region_us,
 };
 
 AssetID region_string(Region region)
@@ -2129,6 +2127,13 @@ State teams(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* m
 // returns true if menu should stay open
 b8 choose_region(const Update& u, const UIMenu::Origin& origin, s8 gamepad, UIMenu* menu, AllowClose allow_close)
 {
+	if (s32(Region::count) == 1)
+	{
+		Settings::region = Region(0);
+		Loader::settings_save();
+		return false;
+	}
+
 	menu->start(u, origin, 0);
 
 	menu->text(u, _(strings::choose_region));

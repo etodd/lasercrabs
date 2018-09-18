@@ -71,9 +71,7 @@ enum class ServerListType : s8
 
 enum class Region : s8
 {
-	USEast,
-	USWest,
-	Europe,
+	US,
 	count,
 	Invalid = count,
 };

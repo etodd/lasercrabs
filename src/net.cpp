@@ -4426,7 +4426,6 @@ b8 packet_handle_master(StreamRead* p)
 		case Master::Message::Disconnect:
 		{
 			state_persistent.master.reset();
-			state_client.mode = Mode::Disconnected;
 			break;
 		}
 		case Master::Message::ClientConnect:

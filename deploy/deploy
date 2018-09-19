@@ -3,11 +3,5 @@
 rsync $1/lasercrabmaster $1/../deploy/dashboard.html root@master.deceivergame.com:~/lasercrabs/
 ssh root@master.deceivergame.com systemctl restart lasercrabmaster
 
-rsync -r $1/lasercrabsrv $1/assets root@useast1.deceivergame.com:~/lasercrabs/
-ssh root@useast1.deceivergame.com systemctl restart lasercrabsrv1 lasercrabsrv2 lasercrabsrv3 lasercrabsrv4
-
-rsync -r $1/lasercrabsrv $1/assets root@uswest1.deceivergame.com:~/lasercrabs/
-ssh root@uswest1.deceivergame.com systemctl restart lasercrabsrv1 lasercrabsrv2 lasercrabsrv3 lasercrabsrv4
-
-rsync -r $1/lasercrabsrv $1/assets root@eu1.deceivergame.com:~/lasercrabs/
-ssh root@eu1.deceivergame.com systemctl restart lasercrabsrv1 lasercrabsrv2 lasercrabsrv3 lasercrabsrv4
+rsync -r $1/lasercrabsrv $1/assets root@uscentral1.deceivergame.com:~/lasercrabs/
+ssh root@uscentral1.deceivergame.com systemctl restart lasercrabsrv1 lasercrabsrv2 lasercrabsrv3 lasercrabsrv4

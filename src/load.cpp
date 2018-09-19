@@ -393,7 +393,9 @@ void Loader::settings_load(const Array<DisplayMode>& modes, const DisplayMode& c
 	Settings::pvp_color_scheme = Settings::PvpColorScheme(vi_max(0, vi_min(s32(Settings::PvpColorScheme::count) - 1, Json::get_s32(json, "pvp_color_scheme"))));
 	Settings::shadow_quality = Settings::ShadowQuality(vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", s32(Settings::ShadowQuality::High)), s32(Settings::ShadowQuality::count) - 1)));
 	Settings::region = Region(Json::get_s32(json, "region", s32(Region::Invalid)));
-	if (s32(Settings::region) < 0 || s32(Settings::region) >= s32(Region::count))
+	if (s32(Region::count) <= 1)
+		Settings::region = Region(0);
+	else if (s32(Settings::region) < 0 || s32(Settings::region) >= s32(Region::count))
 	{
 		Settings::region = Region::Invalid;
 #if SERVER

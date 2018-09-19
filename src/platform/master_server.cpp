@@ -1,4 +1,5 @@
 ﻿#define _AMD64_
+#define NOMINMAX
 
 #include "http.h"
 #include "curl/curl.h"
@@ -30,6 +31,9 @@
 #include <algorithm>
 #include <sodium.h>
 #include "next/next.h"
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 
 #define DEBUG_SQL 0
 
@@ -130,7 +134,8 @@ namespace Settings
 	char discord_bot_user_id[MAX_DISCORD_ID_LENGTH + 1];
 	char discord_guild_id[MAX_DISCORD_ID_LENGTH + 1];
 	char discord_available_role_id[MAX_DISCORD_ID_LENGTH + 1];
-	u8 next_customer_private_key[NEXT_PRIVATE_KEY_BYTES];
+	u64 next_customer_id;
+	u8 next_customer_private_key[64];
 	b8 distribute_keys;
 }
 
@@ -1632,88 +1637,114 @@ namespace Master
 				s32 route_data_length = base64_decode_data(route_data_base64, &route_data[0], route_data.length);
 				route_data.resize(route_data_length);
 				send_client_connect(client, &route_data);
+				Json::json_free(json);
 			}
 		}
 	}
 
 	void request_client_route(Node* server, Node* client)
 	{
-        // request
-        char* request;
-        s32 request_size;
-        char request_base64[4096];
-        s32 request_base64_size;
-        char* wrapper;
+		u64 hash = client->addr.hash();
+		if (Http::request_for_user_data(hash)) // make sure we're not already requesting a route for this user
+			return;
 
-        {
-        	cJSON* doc = cJSON_CreateObject();
+		// request
+		rapidjson::StringBuffer request_buffer;
+		rapidjson::StringBuffer wrapper_buffer;
 
-			cJSON_AddNumberToObject(doc, "KbpsUp", 60);
-			cJSON_AddNumberToObject(doc, "KbpsDown", 400);
+		{
+			rapidjson::Document doc;
+			doc.SetObject();
 
-            cJSON_AddStringToObject(doc, "MaxPricePerGig", "0.08");
-            cJSON_AddStringToObject(doc, "DirectPricePerGig", "0.0");
+			rapidjson::Document::AllocatorType& allocator = doc.GetAllocator();
 
-			cJSON_AddNumberToObject(doc, "AcceptableLatency", 40.0f);
-			cJSON_AddNumberToObject(doc, "AcceptableJitter", 10.0f);
-			cJSON_AddNumberToObject(doc, "AcceptablePacketLoss", 2.0f);
-			cJSON_AddNumberToObject(doc, "UserId", client->client.user_key.id);
+			rapidjson::Value value;
+			value.SetUint(60);
+			doc.AddMember("KbpsUp", value, allocator);
 
-			cJSON_AddNumberToObject(doc, "DestRelay", next_relay_id("v2.vultr.chicago"));
+			value.SetUint(400);
+			doc.AddMember("KbpsDown", value, allocator);
 
-            char value_base64[2048];
+			const char* max_price_per_gig = "0.50";
+			value.SetString(max_price_per_gig, rapidjson::SizeType(strlen(max_price_per_gig)), allocator);
+			doc.AddMember("MaxPricePerGig", value, allocator);
 
-            base64_encode_data(server->server.public_key, sizeof(server->server.public_key), value_base64, sizeof(value_base64));
-            cJSON_AddStringToObject(doc, "ServerPublicKey", value_base64);
+			const char* direct_price_per_gig = "0.0";
+			value.SetString(direct_price_per_gig, rapidjson::SizeType(strlen(direct_price_per_gig)), allocator);
+			doc.AddMember("DirectPricePerGig", value, allocator);
+
+			value.SetDouble(40.0);
+			doc.AddMember("AcceptableLatency", value, allocator);
+
+			value.SetDouble(10.0);
+			doc.AddMember("AcceptableJitter", value, allocator);
+
+			value.SetDouble(2.0);
+			doc.AddMember("AcceptablePacketLoss", value, allocator);
+
+			value.SetUint64(client->client.user_key.id);
+			doc.AddMember("UserId", value, allocator);
+
+			value.SetUint64(next_relay_id("v2.vultr.chicago"));
+			doc.AddMember("DestRelay", value, allocator);
+
+			char value_base64[2048];
+
+			base64_encode_data(server->server.public_key, sizeof(server->server.public_key), value_base64, sizeof(value_base64));
+			value.SetString(value_base64, rapidjson::SizeType(strlen(value_base64)), allocator);
+			doc.AddMember("ServerPublicKey", value, allocator);
 
 			char server_address_string[256];
 			Sock::Address server_address = server_public_ip(server, client->addr.host.type);
 			server_address.str(server_address_string);
-            base64_encode_data((u8*)(server_address_string), strlen(server_address_string), value_base64, sizeof(value_base64));
-            cJSON_AddStringToObject(doc, "ServerAddress", value_base64);
+			base64_encode_data((u8*)(server_address_string), strlen(server_address_string), value_base64, sizeof(value_base64));
 
-            base64_encode_data(client->client.client_info, client->client.client_info_length, value_base64, sizeof(value_base64));
-            cJSON_AddStringToObject(doc, "ClientInfo", value_base64);
+			value.SetString(value_base64, rapidjson::SizeType(strlen(value_base64)), allocator);
+			doc.AddMember("ServerAddress", value, allocator);
 
-			request = cJSON_Print(doc);
-			request_size = int(strlen(request));
+			base64_encode_data(client->client.client_info, client->client.client_info_length, value_base64, sizeof(value_base64));
+			value.SetString(value_base64, rapidjson::SizeType(strlen(value_base64)), allocator);
+			doc.AddMember("ClientInfo", value, allocator);
 
-            request_base64_size = base64_encode_data((u8*)(request), request_size, request_base64, sizeof(request_base64));
-
-			Json::json_free(doc);
-        }
-
-        {
-        	cJSON* doc = cJSON_CreateObject();
-
-			cJSON_AddNumberToObject(doc, "CustomerId", 12);
-
-            u8 signature[crypto_sign_BYTES];
-            crypto_sign_detached(signature, nullptr, (unsigned char*)(request), strlen(request), Settings::next_customer_private_key);
-
-            char signature_base64[crypto_sign_BYTES * 2];
-            base64_encode_data(signature, sizeof(signature), signature_base64, sizeof(signature_base64));
-            cJSON_AddStringToObject(doc, "HMAC", signature_base64);
-
-			cJSON_AddStringToObject(doc, "RouteRequest", request_base64);
-			wrapper = cJSON_Print(doc);
-
-			Json::json_free(doc);
+			rapidjson::Writer<rapidjson::StringBuffer> writer(request_buffer);
+			doc.Accept(writer);
 		}
 
-		free(request);
+		{
+			rapidjson::Document doc;
+			doc.SetObject();
+
+			rapidjson::Document::AllocatorType& allocator = doc.GetAllocator();
+
+			rapidjson::Value value;
+			value.SetUint64(Settings::next_customer_id);
+			doc.AddMember("CustomerId", value, allocator);
+
+			uint8_t signature[crypto_sign_BYTES];
+			crypto_sign_detached(signature, NULL, (unsigned char *)(request_buffer.GetString()), request_buffer.GetSize(), Settings::next_customer_private_key);
+
+			char value_base64[4096];
+			int size_base64 = base64_encode_data(signature, sizeof(signature), value_base64, sizeof(value_base64));
+			value.SetString(value_base64, size_base64, allocator);
+			doc.AddMember("HMAC", value, allocator);
+
+			size_base64 = base64_encode_data((u8*)(request_buffer.GetString()), request_buffer.GetSize(), value_base64, sizeof(value_base64));
+			value.SetString(value_base64, size_base64, allocator);
+			doc.AddMember("RouteRequest", value, allocator);
+
+			rapidjson::Writer<rapidjson::StringBuffer> writer(wrapper_buffer);
+			doc.Accept(writer);
+		}
 
 		CURL* curl = curl_easy_init();
 		curl_easy_setopt(curl, CURLOPT_URL, NEXT_MASTER_ADDRESS "/v2/router/route");
 		curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, long(5000));
-		curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, wrapper);
+		curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, wrapper_buffer.GetString());
 
 		struct curl_slist * headers = nullptr;
 		headers = curl_slist_append(headers, "Content-Type: application/json");
 		headers = curl_slist_append(headers, "Expect:"); // initialize custom header list stating that Expect: 100-continue is not wanted
-		Http::add(curl, route_callback, headers, client->addr.hash());
-
-		free(wrapper);
+		Http::add(curl, route_callback, headers, hash);
 	}
 
 	s8 server_client_slots_connecting(Node* server)
@@ -2667,6 +2698,11 @@ namespace Master
 						const char* next_customer_private_key_base64 = Json::get_string(json, "next_customer_private_key");
 						if (next_customer_private_key_base64)
 							base64_decode_data(next_customer_private_key_base64, Settings::next_customer_private_key, sizeof(Settings::next_customer_private_key));
+					}
+					{
+						const char* next_customer_id = Json::get_string(json, "next_customer_id");
+						if (next_customer_id)
+							Settings::next_customer_id = strtoull(next_customer_id, nullptr, 10);
 					}
 					cJSON_Delete(json);
 				}

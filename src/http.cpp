@@ -191,6 +191,8 @@ Request* add(CURL* curl, Callback* callback, struct curl_slist* headers, u64 use
 	}
 
 	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &write_callback);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, request);
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, request->error);
 	if (ca_path[0])
 		curl_easy_setopt(curl, CURLOPT_CAPATH, ca_path);

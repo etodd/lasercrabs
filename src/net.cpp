@@ -97,6 +97,14 @@ void address_to_next(const Sock::Address& in, next_address_t * out)
 		out->type = NEXT_ADDRESS_NONE;
 }
 
+void next_print_function(int level, const char * fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+	vfprintf(stderr, fmt, args);
+	va_end(args);
+}
+
 b8 show_stats;
 
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
@@ -2503,6 +2511,8 @@ b8 master_send_status_update()
 
 void init()
 {
+	next_set_print_function(next_print_function);
+	next_set_log_level(NEXT_LOG_LEVEL_INFO);
 	if (next_init(NEXT_MASTER_ADDRESS) != NEXT_OK)
 		vi_assert(false);
 
@@ -3778,6 +3788,8 @@ b8 add_player(s8 gamepad)
 
 void init()
 {
+	next_set_print_function(next_print_function);
+	next_set_log_level(NEXT_LOG_LEVEL_INFO);
 	if (next_init(NEXT_MASTER_ADDRESS) != NEXT_OK)
 		vi_assert(false);
 
@@ -4073,7 +4085,11 @@ void update(const Update& u, r32 dt)
 		if (state_client.mode == Mode::Disconnected)
 			Console::debug("%s", "Disconnected");
 		else
-			Console::debug("%.0fkbps down | %.0fkbps up | %.0fms rtt | %.0fms interp | %.0f jitter", state_common.bandwidth_in * 8.0f / 500.0f, state_common.bandwidth_out * 8.0f / 500.0f, state_client.server_rtt * 1000.0f, interpolation_delay(nullptr) * 1000.0f, state_client.lag_score);
+		{
+			next_client_stats_t stats;
+			next_client_stats(state_client_persistent.next, &stats);
+			Console::debug("%.0fkbps down | %.0fkbps up | %.0fms next rtt | %0.fms direct rtt | %.0fms interp | %.0f jitter", state_common.bandwidth_in * 8.0f / 500.0f, state_common.bandwidth_out * 8.0f / 500.0f, stats.next_rtt, stats.direct_rtt, interpolation_delay(nullptr) * 1000.0f, state_client.lag_score);
+		}
 	}
 
 	if (state_client.mode == Mode::Disconnected)
@@ -4207,14 +4223,15 @@ b8 master_send_server_request()
 	packet_init(&p);
 	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ClientRequestServer);
 
+	serialize_u32(&p, Game::user_key.id);
+	serialize_u32(&p, Game::user_key.token);
+
 	size_t client_info_length;
 	u8* client_info = next_client_info_create(state_client_persistent.next, &client_info_length);
 	serialize_int(&p, size_t, client_info_length, 0, 4096);
 	serialize_bytes(&p, client_info, s32(client_info_length));
 	next_client_info_destroy(client_info);
 
-	serialize_u32(&p, Game::user_key.id);
-	serialize_u32(&p, Game::user_key.token);
 	serialize_u32(&p, state_client.requested_server_id);
 	if (state_client.requested_server_id == 0) // story mode
 	{

@@ -1493,14 +1493,15 @@ namespace Master
 		const u32 ROUTE_PREFIX_TYPE_LENGTH = 1 + 4;
 
 		char server_address[256];
-		server->addr.str(server_address);
+		server_public_ip(server, client->addr.host.type).str(server_address);
 
 		u32 server_address_length = u32(strlen(server_address));
 
 		u8 prefix_type = ROUTE_PREFIX_TYPE_DIRECT;
 		u32 prefix_length = ROUTE_PREFIX_TYPE_LENGTH + server_address_length;
 
-		serialize_int(&p, s32, prefix_length, 0, 4096);
+		serialize_int(&p, u32, prefix_length, 0, 4096);
+		serialize_align(&p);
 		serialize_u8(&p, prefix_type);
 		serialize_u32(&p, prefix_length);
 		serialize_bytes(&p, (u8*)(server_address), server_address_length);

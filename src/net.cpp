@@ -47,8 +47,6 @@
 #define MASTER_AUTH_TIMEOUT 8.0f
 #define NET_EXPECTED_CLIENT_TIMEOUT 30.0f
 
-#define NEXT_MASTER_ADDRESS "https://v2.networknext.com"
-
 namespace VI
 {
 
@@ -61,7 +59,7 @@ void address_from_next(const next_address_t * in, Sock::Address* out)
 	if (in->type == NEXT_ADDRESS_IPV4)
 	{
 		out->host.type = Sock::Host::Type::IPv4;
-        out->host.ipv4 = u32(in->data.ipv4[0])
+		out->host.ipv4 = u32(in->data.ipv4[0])
 			| (u32(in->data.ipv4[1]) << 8)
 			| (u32(in->data.ipv4[2]) << 16)
 			| (u32(in->data.ipv4[3]) << 24);
@@ -85,10 +83,10 @@ void address_to_next(const Sock::Address& in, next_address_t * out)
 	if (in.host.type == Sock::Host::Type::IPv4)
 	{
 		out->type = NEXT_ADDRESS_IPV4;
-        out->data.ipv4[3] = uint8_t((in.host.ipv4 & 0xFF000000) >> 24);
-        out->data.ipv4[2] = uint8_t((in.host.ipv4 & 0x00FF0000) >> 16);
-        out->data.ipv4[1] = uint8_t((in.host.ipv4 & 0x0000FF00) >> 8);
-        out->data.ipv4[0] = uint8_t(in.host.ipv4 & 0x000000FF);
+		out->data.ipv4[3] = u8((in.host.ipv4 & 0xFF000000) >> 24);
+		out->data.ipv4[2] = u8((in.host.ipv4 & 0x00FF0000) >> 16);
+		out->data.ipv4[1] = u8((in.host.ipv4 & 0x0000FF00) >> 8);
+		out->data.ipv4[0] = u8(in.host.ipv4 & 0x000000FF);
 	}
 	else if (in.host.type == Sock::Host::Type::IPv6)
 	{
@@ -2381,11 +2379,12 @@ struct StateServerPersistent
 {
 	Sock::Address public_ipv4;
 	Sock::Address public_ipv6;
+	u8 next_public_key[NEXT_PUBLIC_KEY_BYTES];
 	next_server_t* next;
 };
 StateServerPersistent state_server_persistent;
 
-void next_server_packet_received(next_server_t* server, void* context, uint64_t session_id, next_address_t* address, uint8_t* packet_data, int packet_bytes)
+void next_server_packet_received(next_server_t* server, void* context, u64 session_id, next_address_t* address, u8* packet_data, s32 packet_bytes)
 {
 	PacketEntry entry(state_common.timestamp);
 	memcpy(entry.packet.data.data, packet_data, packet_bytes);
@@ -2398,7 +2397,7 @@ void packet_send(const StreamWrite& p, const Sock::Address& address)
 {
 	next_address_t next_address;
 	address_to_next(address, &next_address);
-	next_server_send_packet_to_address( state_server_persistent.next, &next_address, (uint8_t*)(p.data.data), p.bytes_written() );
+	next_server_send_packet_to_address( state_server_persistent.next, &next_address, (u8*)(p.data.data), p.bytes_written() );
 	state_common.bandwidth_out_counter += p.bytes_written();
 	Server::packet_sent(p, address);
 }
@@ -2480,6 +2479,9 @@ b8 master_send_status_update()
 	packet_init(&p);
 	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ServerStatusUpdate);
 	serialize_u64(&p, Settings::secret);
+
+	serialize_bytes(&p, state_server_persistent.next_public_key, NEXT_PUBLIC_KEY_BYTES);
+
 	Master::ServerState s;
 	server_state(&s);
 	if (!serialize_server_state(&p, &s))
@@ -2506,6 +2508,8 @@ void init()
 
 	next_server_config_t config;
 	memset(&config, 0, sizeof(config));
+	next_generate_keypair(config.public_key, config.private_key);
+	memcpy(state_server_persistent.next_public_key, config.public_key, sizeof(config.private_key));
 	config.packet_received_callback = next_server_packet_received;
 	char bind_address[512];
 	snprintf(bind_address, sizeof(bind_address), "0.0.0.0:%hu", Settings::port);
@@ -3543,6 +3547,7 @@ s32 replay_file_count()
 }
 
 b8 msg_process(StreamRead*);
+void connect();
 
 struct StateClient
 {
@@ -3596,7 +3601,7 @@ struct StateClientPersistent
 };
 StateClientPersistent state_client_persistent;
 
-void next_client_packet_received(next_client_t* client, void* context, uint8_t* packet_data, int packet_bytes)
+void next_client_packet_received(next_client_t* client, void* context, u8* packet_data, s32 packet_bytes)
 {
 	PacketEntry entry(state_common.timestamp);
 	memcpy(entry.packet.data.data, packet_data, packet_bytes);
@@ -3607,7 +3612,7 @@ void next_client_packet_received(next_client_t* client, void* context, uint8_t* 
 
 void packet_send(const StreamWrite& p)
 {
-	next_client_send_packet(state_client_persistent.next, (uint8_t*)p.data.data, p.bytes_written());
+	next_client_send_packet(state_client_persistent.next, (u8*)p.data.data, p.bytes_written());
 	state_common.bandwidth_out_counter += p.bytes_written();
 }
 
@@ -3709,6 +3714,7 @@ b8 master_request_server_details(u32 config_id, u32 request_id)
 	StreamWrite p;
 	packet_init(&p);
 	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ClientRequestServerDetails);
+
 	serialize_u32(&p, Game::user_key.id);
 	serialize_u32(&p, Game::user_key.token);
 	serialize_u32(&p, request_id);
@@ -4170,7 +4176,6 @@ void handle_server_disconnect(DisconnectReason reason)
 {
 	disconnect_reason = reason;
 	state_client.mode = Mode::Disconnected;
-	next_client_close_session(state_client_persistent.next);
 	if (state_client.replay_mode == ReplayMode::Replaying)
 	{
 		if (replay_files.length > 0)
@@ -4183,12 +4188,12 @@ void handle_server_disconnect(DisconnectReason reason)
 	}
 	else if (state_client.flag(StateClient::FlagReconnect))
 	{
-		Sock::Address addr = state_client.server_address;
 		Game::unload_level();
-		connect(addr);
+		connect();
 	}
 	else
 	{
+		next_client_close_session(state_client_persistent.next);
 		Game::unload_level();
 		if (Game::session.type == SessionType::Story && reason == DisconnectReason::ServerResetting)
 			Game::schedule_load_level(Game::save.zone_current, Game::Mode::Parkour);
@@ -4201,6 +4206,13 @@ b8 master_send_server_request()
 	StreamWrite p;
 	packet_init(&p);
 	state_persistent.master.add_header(&p, state_persistent.master_addr, Master::Message::ClientRequestServer);
+
+	size_t client_info_length;
+	u8* client_info = next_client_info_create(state_client_persistent.next, &client_info_length);
+	serialize_int(&p, size_t, client_info_length, 0, 4096);
+	serialize_bytes(&p, client_info, s32(client_info_length));
+	next_client_info_destroy(client_info);
+
 	serialize_u32(&p, Game::user_key.id);
 	serialize_u32(&p, Game::user_key.token);
 	serialize_u32(&p, state_client.requested_server_id);
@@ -4318,14 +4330,11 @@ void tick(const Update& u, r32 dt)
 	}
 }
 
-void connect(Sock::Address addr)
+void connect()
 {
 	Game::level.local = false;
 	Game::schedule_timer = 0.0f;
-	state_client.server_address = addr;
-	char address_str[512];
-	addr.str(address_str);
-	next_client_open_session_direct(state_client_persistent.next, address_str);
+	Sock::Address::get(&state_client.server_address, "127.0.0.1", 3495); // fake
 	state_client.timeout = 0.0f;
 	state_client.mode = Mode::Connecting;
 	if (Settings::record && Game::session.type != SessionType::Story)
@@ -4342,13 +4351,6 @@ void connect(Sock::Address addr)
 		state_client.replay_file = fopen(filename, "wb");
 		vi_assert(state_client.replay_file);
 	}
-}
-
-void connect(const char* ip, u16 port)
-{
-	Sock::Address addr;
-	Sock::Address::get(&addr, ip, port);
-	connect(addr);
 }
 
 void replay(const char* filename)
@@ -4430,10 +4432,13 @@ b8 packet_handle_master(StreamRead* p)
 		}
 		case Master::Message::ClientConnect:
 		{
-			Sock::Address addr;
-			if (!Sock::Address::serialize(p, &addr))
-				net_error();
-			connect(addr);
+			Array<u8> route_data;
+			s32 route_data_length;
+			serialize_int(p, s32, route_data_length, 0, 4096);
+			route_data.resize(route_data_length);
+			serialize_bytes(p, &route_data[0], route_data.length);
+			next_client_open_session(state_client_persistent.next, &route_data[0], route_data.length);
+			connect();
 			master_send(Master::Message::Disconnect);
 			state_persistent.master.reset();
 			break;
@@ -4794,11 +4799,6 @@ b8 lagging()
 	return state_client.mode == Mode::Disconnected
 		|| (state_client.msgs_in_history.msg_frames.length > 0
 			&& state_common.timestamp - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > tick_rate() * 20.0f);
-}
-
-Sock::Address server_address()
-{
-	return state_client.server_address;
 }
 
 b8 execute(const char* string)

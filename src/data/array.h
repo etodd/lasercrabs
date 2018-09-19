@@ -140,6 +140,9 @@ struct Array
 	{
 		if (data)
 			free(data);
+		data = 0;
+		length = 0;
+		reserved = 0;
 	}
 
 	inline const T& operator [] (s32 i) const

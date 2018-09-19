@@ -13,6 +13,8 @@
 #define MAX_RESPAWNS 1000
 #define MAX_ENERGY_LIMIT 30000
 
+#define NEXT_MASTER_ADDRESS "https://v2.networknext.com"
+
 // if you change this, make sure to allocate more physics categories for each team's force field
 #define MAX_TEAMS 4
 

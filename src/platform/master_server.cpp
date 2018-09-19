@@ -28,6 +28,8 @@
 #include <ctype.h>
 #include <sstream>
 #include <algorithm>
+#include <sodium.h>
+#include "next/next.h"
 
 #define DEBUG_SQL 0
 
@@ -40,6 +42,7 @@
 #define CRASH_DUMP_DIR "crash_dumps/"
 
 #define MAX_DISCORD_ID_LENGTH 32
+#define MAX_PUBLIC_KEY 512
 
 #define PLAY_TIME (60 * 120) // two hours
 
@@ -127,6 +130,7 @@ namespace Settings
 	char discord_bot_user_id[MAX_DISCORD_ID_LENGTH + 1];
 	char discord_guild_id[MAX_DISCORD_ID_LENGTH + 1];
 	char discord_available_role_id[MAX_DISCORD_ID_LENGTH + 1];
+	u8 next_customer_private_key[NEXT_PRIVATE_KEY_BYTES];
 	b8 distribute_keys;
 }
 
@@ -202,7 +206,7 @@ struct mg_str upload_filename(mg_connection* nc, mg_str fname)
 	return result;
 }
 
-void ev_handler(mg_connection* conn, int ev, void* ev_data)
+void ev_handler(mg_connection* conn, s32 ev, void* ev_data)
 {
 	switch (ev)
 	{
@@ -223,7 +227,7 @@ void ev_handler(mg_connection* conn, int ev, void* ev_data)
 	}
 }
 
-void handle_upload(mg_connection* nc, int ev, void* p)
+void handle_upload(mg_connection* nc, s32 ev, void* p)
 {
 	switch (ev)
 	{
@@ -324,12 +328,15 @@ namespace Master
 
 		struct Client
 		{
+			u8* client_info;
+			size_t client_info_length;
 			UserKey user_key;
 			char username[MAX_USERNAME + 1];
 		};
 
 		struct Server
 		{
+			u8 public_key[NEXT_PUBLIC_KEY_BYTES];
 			Sock::Address public_ipv4;
 			Sock::Address public_ipv6;
 		};
@@ -1133,17 +1140,26 @@ namespace Master
 			// reset any clients trying to connect to this server
 			server_remove_clients_connecting(node);
 		}
-		else if (node->state == Node::State::ClientWaiting)
+		else
 		{
-			// it's a client waiting for a server; remove it from the wait list
+			// it's a client
+			if (node->client.client_info)
+				free(node->client.client_info);
+			node->client.client_info = nullptr;
+			node->client.client_info_length = 0;
+
+			if (node->state == Node::State::ClientWaiting)
 			{
-				u64 hash = addr.hash();
-				for (s32 i = 0; i < global.clients_waiting.length; i++)
+				// it's a client waiting for a server; remove it from the wait list
 				{
-					if (global.clients_waiting[i] == hash)
+					u64 hash = addr.hash();
+					for (s32 i = 0; i < global.clients_waiting.length; i++)
 					{
-						global.clients_waiting.remove(i);
-						i--;
+						if (global.clients_waiting[i] == hash)
+						{
+							global.clients_waiting.remove(i);
+							i--;
+						}
 					}
 				}
 			}
@@ -1445,20 +1461,259 @@ namespace Master
 		return true;
 	}
 
-	b8 send_client_connect(Node* server, const Sock::Address& addr)
+	b8 send_client_connect(Node* client, Array<u8>* route_data)
 	{
 		using Stream = StreamWrite;
 		StreamWrite p;
 		packet_init(&p);
-		global.messenger.add_header(&p, addr, Message::ClientConnect);
+		global.messenger.add_header(&p, client->addr, Message::ClientConnect);
 
-		Sock::Address server_addr = addr.host.type == Sock::Host::Type::IPv4 ? server->server.public_ipv4 : server->server.public_ipv6;
-		if (!Sock::Address::serialize(&p, &server_addr))
-			net_error();
+		serialize_int(&p, s32, route_data->length, 0, 4096);
+		serialize_bytes(&p, &(*route_data)[0], route_data->length);
 
 		packet_finalize(&p);
-		global.messenger.send(p, global_timestamp, addr, &global.sock);
+		global.messenger.send(p, global_timestamp, client->addr, &global.sock);
 		return true;
+	}
+
+	static const unsigned char base64_table_encode[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+	s32 base64_encode_data(const u8* input, size_t input_length, char* output, size_t output_size)
+	{
+		vi_assert(input);
+		vi_assert(output);
+		vi_assert(output_size > 0);
+
+		char* pos;
+		const u8* end;
+		const u8* in;
+
+		size_t output_length = 4 * ((input_length + 2) / 3); // 3-byte blocks to 4-byte
+
+		if (output_length < input_length)
+		{
+			return -1; // integer overflow
+		}
+
+		if (output_length >= output_size)
+		{
+			return -1; // not enough room in output buffer
+		}
+
+		end = input + input_length;
+		in = input;
+		pos = output;
+		while (end - in >= 3)
+		{
+			*pos++ = base64_table_encode[in[0] >> 2];
+			*pos++ = base64_table_encode[((in[0] & 0x03) << 4) | (in[1] >> 4)];
+			*pos++ = base64_table_encode[((in[1] & 0x0f) << 2) | (in[2] >> 6)];
+			*pos++ = base64_table_encode[in[2] & 0x3f];
+			in += 3;
+		}
+
+		if (end - in)
+		{
+			*pos++ = base64_table_encode[in[0] >> 2];
+			if (end - in == 1)
+			{
+				*pos++ = base64_table_encode[(in[0] & 0x03) << 4];
+				*pos++ = '=';
+			}
+			else
+			{
+				*pos++ = base64_table_encode[((in[0] & 0x03) << 4) | (in[1] >> 4)];
+				*pos++ = base64_table_encode[(in[1] & 0x0f) << 2];
+			}
+			*pos++ = '=';
+		}
+
+		output[output_length] = '\0';
+
+		return int(output_length);
+	}
+
+	static const s32 base64_table_decode[256] =
+	{
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 62, 63, 62, 62, 63, 52, 53, 54, 55,
+		56, 57, 58, 59, 60, 61,  0,  0,  0,  0,  0,  0,  0,  0,  1,  2,  3,  4,  5,  6,
+		7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,  0,
+		0,  0,  0, 63,  0, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+		41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
+	};
+
+	s32 base64_decode_data(const char* input, u8* output, size_t output_size)
+	{
+		vi_assert(input);
+		vi_assert(output);
+		vi_assert(output_size > 0);
+
+		size_t input_length = strlen(input);
+		s32 pad = input_length > 0 && (input_length % 4 || input[input_length - 1] == '=');
+		size_t L = (( input_length + 3) / 4 - pad) * 4;
+		size_t output_length = L / 4 * 3 + pad;
+
+		if (output_length > output_size)
+		{
+			return -1;
+		}
+
+		for (size_t i = 0, j = 0; i < L; i += 4)
+		{
+			s32 n = base64_table_decode[int(input[i])] << 18 | base64_table_decode[int(input[i + 1])] << 12 | base64_table_decode[int(input[i + 2])] << 6 | base64_table_decode[int(input[i + 3])];
+			output[j++] = u8(n >> 16);
+			output[j++] = u8(n >> 8 & 0xFF);
+			output[j++] = u8(n & 0xFF);
+		}
+
+		if (pad)
+		{
+			s32 n = base64_table_decode[int(input[L])] << 18 | base64_table_decode[int(input[L + 1])] << 12;
+			output[output_length - 1] = u8(n >> 16);
+
+			if (input_length > L + 2 && input[L + 2] != '=')
+			{
+				n |= base64_table_decode[int(input[L + 2])] << 6;
+				output_length += 1;
+				if (output_length > output_size)
+				{
+					return -1;
+				}
+				output[output_length - 1] = u8(n >> 8 & 0xFF);
+			}
+		}
+
+		return int(output_length);
+	}
+
+
+	typedef u64 fnv_t;
+
+	void fnv_init(fnv_t * fnv)
+	{
+		*fnv = 0xCBF29CE484222325;
+	}
+
+	void fnv_write(fnv_t* fnv, const u8* data, size_t size)
+	{
+		for (size_t i = 0; i < size; i++)
+		{
+			(*fnv) ^= data[i];
+			(*fnv) *= 0x00000100000001B3;
+		}
+	}
+
+	u64 fnv_finalize(fnv_t* fnv)
+	{
+		return *fnv;
+	}
+
+	u64 next_relay_id(const char * name)
+	{
+		fnv_t fnv;
+		fnv_init(&fnv);
+		fnv_write(&fnv, (u8*)(name), strlen(name));
+		return fnv_finalize(&fnv);
+	}
+
+	void route_callback(s32 code, const char* data, u64 user_data)
+	{
+		Node* client = node_for_hash(user_data);
+		if (code == 200 && client)
+		{
+			cJSON* json = cJSON_Parse(data);
+			if (json)
+			{
+				const char* route_data_base64 = Json::get_string(json, "RouteData");
+				Array<u8> route_data;
+				route_data.resize(strlen(route_data_base64));
+				s32 route_data_length = base64_decode_data(route_data_base64, &route_data[0], route_data.length);
+				route_data.resize(route_data_length);
+				send_client_connect(client, &route_data);
+			}
+		}
+	}
+
+	void request_client_route(Node* server, Node* client)
+	{
+        // request
+        char* request;
+        s32 request_size;
+        char request_base64[4096];
+        s32 request_base64_size;
+        char* wrapper;
+
+        {
+        	cJSON* doc = cJSON_CreateObject();
+
+			cJSON_AddNumberToObject(doc, "KbpsUp", 60);
+			cJSON_AddNumberToObject(doc, "KbpsDown", 400);
+
+            cJSON_AddStringToObject(doc, "MaxPricePerGig", "0.08");
+            cJSON_AddStringToObject(doc, "DirectPricePerGig", "0.0");
+
+			cJSON_AddNumberToObject(doc, "AcceptableLatency", 40.0f);
+			cJSON_AddNumberToObject(doc, "AcceptableJitter", 10.0f);
+			cJSON_AddNumberToObject(doc, "AcceptablePacketLoss", 2.0f);
+			cJSON_AddNumberToObject(doc, "UserId", client->client.user_key.id);
+
+			cJSON_AddNumberToObject(doc, "DestRelay", next_relay_id("v2.vultr.chicago"));
+
+            char value_base64[2048];
+
+            base64_encode_data(server->server.public_key, sizeof(server->server.public_key), value_base64, sizeof(value_base64));
+            cJSON_AddStringToObject(doc, "ServerPublicKey", value_base64);
+
+			char server_address_string[256];
+			Sock::Address server_address = server_public_ip(server, client->addr.host.type);
+			server_address.str(server_address_string);
+            base64_encode_data((u8*)(server_address_string), strlen(server_address_string), value_base64, sizeof(value_base64));
+            cJSON_AddStringToObject(doc, "ServerAddress", value_base64);
+
+            base64_encode_data(client->client.client_info, client->client.client_info_length, value_base64, sizeof(value_base64));
+            cJSON_AddStringToObject(doc, "ClientInfo", value_base64);
+
+			request = cJSON_Print(doc);
+			request_size = int(strlen(request));
+
+            request_base64_size = base64_encode_data((u8*)(request), request_size, request_base64, sizeof(request_base64));
+
+			Json::json_free(doc);
+        }
+
+        {
+        	cJSON* doc = cJSON_CreateObject();
+
+			cJSON_AddNumberToObject(doc, "CustomerId", 12);
+
+            u8 signature[crypto_sign_BYTES];
+            crypto_sign_detached(signature, nullptr, (unsigned char*)(request), strlen(request), Settings::next_customer_private_key);
+
+            char signature_base64[crypto_sign_BYTES * 2];
+            base64_encode_data(signature, sizeof(signature), signature_base64, sizeof(signature_base64));
+            cJSON_AddStringToObject(doc, "HMAC", signature_base64);
+
+			cJSON_AddStringToObject(doc, "RouteRequest", request_base64);
+			wrapper = cJSON_Print(doc);
+
+			Json::json_free(doc);
+		}
+
+		free(request);
+
+		CURL* curl = curl_easy_init();
+		curl_easy_setopt(curl, CURLOPT_URL, NEXT_MASTER_ADDRESS "/v2/router/route");
+		curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, long(5000));
+		curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, wrapper);
+
+		struct curl_slist * headers = nullptr;
+		headers = curl_slist_append(headers, "Content-Type: application/json");
+		headers = curl_slist_append(headers, "Expect:"); // initialize custom header list stating that Expect: 100-continue is not wanted
+		Http::add(curl, route_callback, headers, client->addr.hash());
+
+		free(wrapper);
 	}
 
 	s8 server_client_slots_connecting(Node* server)
@@ -1605,7 +1860,7 @@ namespace Master
 	void client_connect_to_existing_server(Node* client, Node* server)
 	{
 		send_server_expect_client(server, &client->client.user_key);
-		send_client_connect(server, client->addr);
+		request_client_route(server, client);
 		client_queue_join(server, client);
 	}
 
@@ -1886,6 +2141,12 @@ namespace Master
 				if (!check_user_key(p, node))
 					return false;
 
+				s32 client_info_length;
+				serialize_int(p, s32, client_info_length, 0, 4096);
+				node->client.client_info_length = client_info_length;
+				node->client.client_info = (u8*)(calloc(1, client_info_length));
+				serialize_bytes(p, node->client.client_info, node->client.client_info_length);
+
 				u32 requested_server_id;
 				serialize_u32(p, requested_server_id);
 
@@ -2141,6 +2402,9 @@ namespace Master
 				serialize_u64(p, secret);
 				if (secret != Settings::secret)
 					net_error();
+
+				serialize_bytes(p, node->server.public_key, sizeof(node->server.public_key));
+
 				ServerState s;
 				if (!serialize_server_state(p, &s))
 					net_error();
@@ -2161,7 +2425,11 @@ namespace Master
 							{
 								const ClientConnection& connection = global.clients_connecting[i];
 								if (connection.server.equals(node->addr))
-									send_client_connect(node, connection.client);
+								{
+									Node* client = node_for_address(connection.client);
+									if (client)
+										request_client_route(node, client);
+								}
 							}
 						}
 					}
@@ -2395,6 +2663,11 @@ namespace Master
 						if (smtp_password)
 							strncpy(Http::smtp_password, smtp_password, MAX_AUTH_KEY);
 					}
+					{
+						const char* next_customer_private_key_base64 = Json::get_string(json, "next_customer_private_key");
+						if (next_customer_private_key_base64)
+							base64_decode_data(next_customer_private_key_base64, Settings::next_customer_private_key, sizeof(Settings::next_customer_private_key));
+					}
 					cJSON_Delete(json);
 				}
 				else
@@ -2552,7 +2825,7 @@ namespace Master
 
 namespace DiscordBot
 {
-	const int max_command = 32;
+	const s32 max_command = 32;
 
 	struct State
 	{
@@ -2997,7 +3270,7 @@ b8 auth(mg_connection* conn, http_message* msg)
 	return true;
 }
 
-void handle_static(mg_connection* conn, int ev, void* ev_data)
+void handle_static(mg_connection* conn, s32 ev, void* ev_data)
 {
 	if (ev == MG_EV_HTTP_REQUEST)
 	{
@@ -3010,7 +3283,7 @@ void handle_static(mg_connection* conn, int ev, void* ev_data)
 	}
 }
 
-void handle_api(mg_connection* conn, int ev, void* ev_data)
+void handle_api(mg_connection* conn, s32 ev, void* ev_data)
 {
 	if (ev == MG_EV_HTTP_REQUEST)
 	{
@@ -3245,7 +3518,7 @@ void distribute_keys()
 	}
 }
 
-void handle_api(mg_connection* conn, int ev, void* ev_data)
+void handle_api(mg_connection* conn, s32 ev, void* ev_data)
 {
 	b8 valid = false;
 	switch (ev)

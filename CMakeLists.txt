@@ -703,6 +703,7 @@ if (SERVER)
 		${ALL_INCLUDES}
 		external/curl/include
 		${CMAKE_CURRENT_BINARY_DIR}/external/curl/include/curl
+		external/sodium/src/libsodium/include/
 	)
 
 	target_link_libraries(lasercrabsrv
@@ -735,6 +736,7 @@ if (SERVER)
 		cJSON
 		sqlite
 		libcurl
+		sodium
 		mersenne
 		mongoose
 		sha1

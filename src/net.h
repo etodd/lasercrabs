@@ -200,8 +200,6 @@ namespace Client
 	extern r32 replay_speed;
 
 	b8 master_send_auth();
-	void connect(Sock::Address);
-	void connect(const char*, u16);
 	void replay(const char* = nullptr);
 	void replay_file_add(const char*);
 	s32 replay_file_count();
@@ -221,8 +219,6 @@ namespace Client
 	b8 add_player(s8);
 
 	ReplayMode replay_mode();
-
-	Sock::Address server_address();
 
 	b8 execute(const char*);
 }

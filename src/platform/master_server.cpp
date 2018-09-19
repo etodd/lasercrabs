@@ -1482,6 +1482,43 @@ namespace Master
 		return true;
 	}
 
+	b8 send_client_connect_direct(Node* client, Node* server)
+	{
+		using Stream = StreamWrite;
+		StreamWrite p;
+		packet_init(&p);
+		global.messenger.add_header(&p, client->addr, Message::ClientConnect);
+
+		const u32 ROUTE_PREFIX_TYPE_DIRECT = 2;
+		const u32 ROUTE_PREFIX_TYPE_LENGTH = 1 + 4;
+
+		char server_address[256];
+		server->addr.str(server_address);
+
+		u32 server_address_length = u32(strlen(server_address));
+
+		u8 prefix_type = ROUTE_PREFIX_TYPE_DIRECT;
+		u32 prefix_length = ROUTE_PREFIX_TYPE_LENGTH + server_address_length;
+
+		serialize_int(&p, s32, prefix_length, 0, 4096);
+		serialize_u8(&p, prefix_type);
+		serialize_u32(&p, prefix_length);
+		serialize_bytes(&p, (u8*)(server_address), server_address_length);
+
+		packet_finalize(&p);
+		global.messenger.send(p, global_timestamp, client->addr, &global.sock);
+		return true;
+	}
+
+	Node* client_requested_server(Node* client)
+	{
+		// if the user is requesting to connect to a virtual server that is already active, they can connect immediately
+		if (client->server_state.id)
+			return server_for_config_id(client->server_state.id);
+
+		return nullptr;
+	}
+
 	static const unsigned char base64_table_encode[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 	s32 base64_encode_data(const u8* input, size_t input_length, char* output, size_t output_size)
@@ -1627,18 +1664,28 @@ namespace Master
 	void route_callback(s32 code, const char* data, u64 user_data)
 	{
 		Node* client = node_for_hash(user_data);
-		if (code == 200 && client)
+		if (client)
 		{
-			cJSON* json = cJSON_Parse(data);
-			if (json)
+			if (code == 200)
 			{
-				const char* route_data_base64 = Json::get_string(json, "RouteData");
-				Array<u8> route_data;
-				route_data.resize(strlen(route_data_base64));
-				s32 route_data_length = base64_decode_data(route_data_base64, &route_data[0], route_data.length);
-				route_data.resize(route_data_length);
-				send_client_connect(client, &route_data);
-				Json::json_free(json);
+				cJSON* json = cJSON_Parse(data);
+				if (json)
+				{
+					const char* route_data_base64 = Json::get_string(json, "RouteData");
+					Array<u8> route_data;
+					route_data.resize(strlen(route_data_base64));
+					s32 route_data_length = base64_decode_data(route_data_base64, &route_data[0], route_data.length);
+					route_data.resize(route_data_length);
+					send_client_connect(client, &route_data);
+					Json::json_free(json);
+				}
+			}
+			else
+			{
+				// failed to get route
+				Node* server = client_requested_server(client);
+				if (server)
+					send_client_connect_direct(client, server);
 			}
 		}
 	}
@@ -1858,15 +1905,6 @@ namespace Master
 		b8 result = b8(db_column_int(stmt, 0));
 		db_finalize(stmt);
 		return result;
-	}
-
-	Node* client_requested_server(Node* client)
-	{
-		// if the user is requesting to connect to a virtual server that is already active, they can connect immediately
-		if (client->server_state.id)
-			return server_for_config_id(client->server_state.id);
-
-		return nullptr;
 	}
 
 	void client_queue_join(Node* server, Node* client)

@@ -506,6 +506,7 @@ namespace Master
 		{
 			auto i = global.nodes.insert(std::pair<u64, Node>(hash, Node()));
 			n = &i.first->second;
+			memset(n, 0, sizeof(*n));
 			n->addr = addr;
 		}
 		else

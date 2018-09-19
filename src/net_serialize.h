@@ -110,7 +110,7 @@ union Single
 
 inline int bits_required(u32 min, u32 max)
 {
-	return 32 - __builtin_clz(max - min);
+	return (min == max) ? 0 : (32 - __builtin_clz(max - min));
 }
 
 #else // #ifdef __GNUC__

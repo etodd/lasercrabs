@@ -219,6 +219,228 @@ add_subdirectory(external/curl)
 set_target_properties(html pdf opts-html opts-pdf PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
 add_definitions(-DCURL_STATICLIB)
 
+## next
+
+add_library(sodium STATIC
+	external/sodium/src/libsodium/crypto_aead/chacha20poly1305/sodium/aead_chacha20poly1305.c
+	external/sodium/src/libsodium/crypto_aead/xchacha20poly1305/sodium/aead_xchacha20poly1305.c
+	external/sodium/src/libsodium/crypto_auth/crypto_auth.c
+	external/sodium/src/libsodium/crypto_auth/hmacsha256/auth_hmacsha256.c
+	external/sodium/src/libsodium/crypto_auth/hmacsha512/auth_hmacsha512.c
+	external/sodium/src/libsodium/crypto_auth/hmacsha512256/auth_hmacsha512256.c
+	external/sodium/src/libsodium/crypto_box/crypto_box.c
+	external/sodium/src/libsodium/crypto_box/crypto_box_easy.c
+	external/sodium/src/libsodium/crypto_box/crypto_box_seal.c
+	external/sodium/src/libsodium/crypto_box/curve25519xsalsa20poly1305/box_curve25519xsalsa20poly1305.c
+	external/sodium/src/libsodium/crypto_core/ed25519/ref10/ed25519_ref10.c
+	external/sodium/src/libsodium/crypto_core/hchacha20/core_hchacha20.c
+	external/sodium/src/libsodium/crypto_core/hsalsa20/ref2/core_hsalsa20_ref2.c
+	external/sodium/src/libsodium/crypto_core/hsalsa20/core_hsalsa20.c
+	external/sodium/src/libsodium/crypto_core/salsa/ref/core_salsa_ref.c
+	external/sodium/src/libsodium/crypto_generichash/crypto_generichash.c
+	external/sodium/src/libsodium/crypto_generichash/blake2b/generichash_blake2.c
+	external/sodium/src/libsodium/crypto_generichash/blake2b/ref/blake2.h
+	external/sodium/src/libsodium/crypto_generichash/blake2b/ref/blake2b-compress-ref.c
+	external/sodium/src/libsodium/crypto_generichash/blake2b/ref/blake2b-load-sse2.h
+	external/sodium/src/libsodium/crypto_generichash/blake2b/ref/blake2b-load-sse41.h
+	external/sodium/src/libsodium/crypto_generichash/blake2b/ref/blake2b-load-avx2.h
+	external/sodium/src/libsodium/crypto_generichash/blake2b/ref/blake2b-ref.c
+	external/sodium/src/libsodium/crypto_generichash/blake2b/ref/generichash_blake2b.c
+	external/sodium/src/libsodium/crypto_hash/crypto_hash.c
+	external/sodium/src/libsodium/crypto_hash/sha256/hash_sha256.c
+	external/sodium/src/libsodium/crypto_hash/sha256/cp/hash_sha256_cp.c
+	external/sodium/src/libsodium/crypto_hash/sha512/hash_sha512.c
+	external/sodium/src/libsodium/crypto_hash/sha512/cp/hash_sha512_cp.c
+	external/sodium/src/libsodium/crypto_kdf/blake2b/kdf_blake2b.c
+	external/sodium/src/libsodium/crypto_kdf/crypto_kdf.c
+	external/sodium/src/libsodium/crypto_kx/crypto_kx.c
+	external/sodium/src/libsodium/crypto_onetimeauth/crypto_onetimeauth.c
+	external/sodium/src/libsodium/crypto_onetimeauth/poly1305/onetimeauth_poly1305.c
+	external/sodium/src/libsodium/crypto_onetimeauth/poly1305/onetimeauth_poly1305.h
+	external/sodium/src/libsodium/crypto_onetimeauth/poly1305/donna/poly1305_donna.h
+	external/sodium/src/libsodium/crypto_onetimeauth/poly1305/donna/poly1305_donna32.h
+	external/sodium/src/libsodium/crypto_onetimeauth/poly1305/donna/poly1305_donna64.h
+	external/sodium/src/libsodium/crypto_onetimeauth/poly1305/donna/poly1305_donna.c
+	external/sodium/src/libsodium/crypto_pwhash/argon2/argon2-core.c
+	external/sodium/src/libsodium/crypto_pwhash/argon2/argon2-core.h
+	external/sodium/src/libsodium/crypto_pwhash/argon2/argon2-encoding.c
+	external/sodium/src/libsodium/crypto_pwhash/argon2/argon2-encoding.h
+	external/sodium/src/libsodium/crypto_pwhash/argon2/argon2-fill-block-ref.c
+	external/sodium/src/libsodium/crypto_pwhash/argon2/argon2.c
+	external/sodium/src/libsodium/crypto_pwhash/argon2/argon2.h
+	external/sodium/src/libsodium/crypto_pwhash/argon2/blake2b-long.c
+	external/sodium/src/libsodium/crypto_pwhash/argon2/blake2b-long.h
+	external/sodium/src/libsodium/crypto_pwhash/argon2/blamka-round-ref.h
+	external/sodium/src/libsodium/crypto_pwhash/argon2/pwhash_argon2i.c
+	external/sodium/src/libsodium/crypto_pwhash/argon2/pwhash_argon2id.c
+	external/sodium/src/libsodium/crypto_pwhash/crypto_pwhash.c
+	external/sodium/src/libsodium/crypto_scalarmult/crypto_scalarmult.c
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/ref10/x25519_ref10.c
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/ref10/x25519_ref10.h
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/scalarmult_curve25519.c
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/scalarmult_curve25519.h
+	external/sodium/src/libsodium/crypto_secretbox/crypto_secretbox.c
+	external/sodium/src/libsodium/crypto_secretbox/crypto_secretbox_easy.c
+	external/sodium/src/libsodium/crypto_secretbox/xsalsa20poly1305/secretbox_xsalsa20poly1305.c
+	external/sodium/src/libsodium/crypto_secretstream/xchacha20poly1305/secretstream_xchacha20poly1305.c
+	external/sodium/src/libsodium/crypto_shorthash/crypto_shorthash.c
+	external/sodium/src/libsodium/crypto_shorthash/siphash24/shorthash_siphash24.c
+	external/sodium/src/libsodium/crypto_shorthash/siphash24/ref/shorthash_siphash24_ref.c
+	external/sodium/src/libsodium/crypto_shorthash/siphash24/ref/shorthash_siphash_ref.h
+	external/sodium/src/libsodium/crypto_sign/crypto_sign.c
+	external/sodium/src/libsodium/crypto_sign/ed25519/sign_ed25519.c
+	external/sodium/src/libsodium/crypto_sign/ed25519/ref10/keypair.c
+	external/sodium/src/libsodium/crypto_sign/ed25519/ref10/open.c
+	external/sodium/src/libsodium/crypto_sign/ed25519/ref10/sign.c
+	external/sodium/src/libsodium/crypto_sign/ed25519/ref10/sign_ed25519_ref10.h
+	external/sodium/src/libsodium/crypto_stream/chacha20/stream_chacha20.c
+	external/sodium/src/libsodium/crypto_stream/chacha20/stream_chacha20.h
+	external/sodium/src/libsodium/crypto_stream/chacha20/ref/chacha20_ref.h
+	external/sodium/src/libsodium/crypto_stream/chacha20/ref/chacha20_ref.c
+	external/sodium/src/libsodium/crypto_stream/crypto_stream.c
+	external/sodium/src/libsodium/crypto_stream/salsa20/stream_salsa20.c
+	external/sodium/src/libsodium/crypto_stream/salsa20/stream_salsa20.h
+	external/sodium/src/libsodium/crypto_stream/salsa20/ref/salsa20_ref.c
+	external/sodium/src/libsodium/crypto_stream/salsa20/ref/salsa20_ref.h
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6/salsa20_xmm6.c
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6/salsa20_xmm6.h
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6int/salsa20_xmm6int-avx2.c
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6int/salsa20_xmm6int-avx2.h
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6int/salsa20_xmm6int-sse2.c
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6int/salsa20_xmm6int-sse2.h
+	external/sodium/src/libsodium/crypto_stream/xsalsa20/stream_xsalsa20.c
+	external/sodium/src/libsodium/crypto_verify/sodium/verify.c
+	external/sodium/src/libsodium/include/sodium/private/common.h
+	external/sodium/src/libsodium/include/sodium/private/ed25519_ref10.h
+	external/sodium/src/libsodium/include/sodium/private/implementations.h
+	external/sodium/src/libsodium/include/sodium/private/mutex.h
+	external/sodium/src/libsodium/include/sodium/private/sse2_64_32.h
+	external/sodium/src/libsodium/randombytes/randombytes.c
+	external/sodium/src/libsodium/randombytes/sysrandom/randombytes_sysrandom.c
+	external/sodium/src/libsodium/sodium/codecs.c
+	external/sodium/src/libsodium/sodium/core.c
+	external/sodium/src/libsodium/sodium/runtime.c
+	external/sodium/src/libsodium/sodium/utils.c
+	external/sodium/src/libsodium/sodium/version.c
+	external/sodium/src/libsodium/crypto_core/ed25519/ref10/fe_25_5/base.h
+	external/sodium/src/libsodium/crypto_core/ed25519/ref10/fe_25_5/base2.h
+	external/sodium/src/libsodium/crypto_core/ed25519/ref10/fe_25_5/constants.h
+	external/sodium/src/libsodium/crypto_core/ed25519/ref10/fe_25_5/fe.h
+	external/sodium/src/libsodium/include/sodium/private/ed25519_ref10_fe_25_5.h
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6/salsa20_xmm6-asm.S
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6/salsa20_xmm6.c
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6/salsa20_xmm6.h
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/consts.S
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/fe51_mul.S
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/fe51_nsquare.S
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/fe51_pack.S
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/ladder.S
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/ladder_base.S
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/consts_namespace.h
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/curve25519_sandy2x.c
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/curve25519_sandy2x.h
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/fe.h
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/fe51.h
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/fe51_invert.c
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/fe51_namespace.h
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/fe_frombytes_sandy2x.c
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/ladder.h
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/ladder_base.h
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/ladder_base_namespace.h
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/ladder_namespace.h
+	external/sodium/src/libsodium/crypto_scalarmult/curve25519/sandy2x/sandy2x.S
+	external/sodium/src/libsodium/crypto_box/curve25519xchacha20poly1305/box_curve25519xchacha20poly1305.c
+	external/sodium/src/libsodium/crypto_box/curve25519xchacha20poly1305/box_seal_curve25519xchacha20poly1305.c
+	external/sodium/src/libsodium/crypto_core/ed25519/core_ed25519.c
+	external/sodium/src/libsodium/crypto_pwhash/scryptsalsa208sha256/crypto_scrypt-common.c
+	external/sodium/src/libsodium/crypto_pwhash/scryptsalsa208sha256/crypto_scrypt.h
+	external/sodium/src/libsodium/crypto_pwhash/scryptsalsa208sha256/scrypt_platform.c
+	external/sodium/src/libsodium/crypto_pwhash/scryptsalsa208sha256/pbkdf2-sha256.c
+	external/sodium/src/libsodium/crypto_pwhash/scryptsalsa208sha256/pbkdf2-sha256.h
+	external/sodium/src/libsodium/crypto_pwhash/scryptsalsa208sha256/pwhash_scryptsalsa208sha256.c
+	external/sodium/src/libsodium/crypto_pwhash/scryptsalsa208sha256/nosse/pwhash_scryptsalsa208sha256_nosse.c
+	external/sodium/src/libsodium/crypto_scalarmult/ed25519/ref10/scalarmult_ed25519_ref10.c
+	external/sodium/src/libsodium/crypto_secretbox/xchacha20poly1305/secretbox_xchacha20poly1305.c
+	external/sodium/src/libsodium/crypto_shorthash/siphash24/shorthash_siphashx24.c
+	external/sodium/src/libsodium/crypto_shorthash/siphash24/ref/shorthash_siphashx24_ref.c
+	external/sodium/src/libsodium/crypto_sign/ed25519/ref10/obsolete.c
+	external/sodium/src/libsodium/crypto_stream/salsa2012/ref/stream_salsa2012_ref.c
+	external/sodium/src/libsodium/crypto_stream/salsa2012/stream_salsa2012.c
+	external/sodium/src/libsodium/crypto_stream/salsa208/ref/stream_salsa208_ref.c
+	external/sodium/src/libsodium/crypto_stream/salsa208/stream_salsa208.c
+	external/sodium/src/libsodium/crypto_stream/xchacha20/stream_xchacha20.c
+	external/sodium/src/libsodium/randombytes/salsa20/randombytes_salsa20_random.c
+	external/sodium/src/libsodium/crypto_onetimeauth/poly1305/sse2/poly1305_sse2.c
+	external/sodium/src/libsodium/crypto_onetimeauth/poly1305/sse2/poly1305_sse2.h
+	external/sodium/src/libsodium/crypto_pwhash/scryptsalsa208sha256/sse/pwhash_scryptsalsa208sha256_sse.c
+	external/sodium/src/libsodium/crypto_generichash/blake2b/ref/blake2b-compress-ssse3.c
+	external/sodium/src/libsodium/crypto_generichash/blake2b/ref/blake2b-compress-ssse3.h
+	external/sodium/src/libsodium/crypto_pwhash/argon2/argon2-fill-block-ssse3.c
+	external/sodium/src/libsodium/crypto_pwhash/argon2/blamka-round-ssse3.h
+	external/sodium/src/libsodium/crypto_stream/chacha20/dolbeau/chacha20_dolbeau-ssse3.c
+	external/sodium/src/libsodium/crypto_stream/chacha20/dolbeau/chacha20_dolbeau-ssse3.h
+	external/sodium/src/libsodium/crypto_stream/chacha20/dolbeau/u0.h
+	external/sodium/src/libsodium/crypto_stream/chacha20/dolbeau/u1.h
+	external/sodium/src/libsodium/crypto_stream/chacha20/dolbeau/u4.h
+	external/sodium/src/libsodium/crypto_generichash/blake2b/ref/blake2b-compress-sse41.c
+	external/sodium/src/libsodium/crypto_generichash/blake2b/ref/blake2b-compress-sse41.h
+	external/sodium/src/libsodium/crypto_generichash/blake2b/ref/blake2b-compress-avx2.c
+	external/sodium/src/libsodium/crypto_generichash/blake2b/ref/blake2b-compress-avx2.h
+	external/sodium/src/libsodium/crypto_pwhash/argon2/argon2-fill-block-avx2.c
+	external/sodium/src/libsodium/crypto_pwhash/argon2/blamka-round-avx2.h
+	external/sodium/src/libsodium/crypto_stream/chacha20/dolbeau/chacha20_dolbeau-avx2.c
+	external/sodium/src/libsodium/crypto_stream/chacha20/dolbeau/chacha20_dolbeau-avx2.h
+	external/sodium/src/libsodium/crypto_stream/chacha20/dolbeau/u8.h
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6int/salsa20_xmm6int-avx2.c
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6int/salsa20_xmm6int-avx2.h
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6int/u0.h
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6int/u1.h
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6int/u4.h
+	external/sodium/src/libsodium/crypto_stream/salsa20/xmm6int/u8.h
+	external/sodium/src/libsodium/crypto_pwhash/argon2/argon2-fill-block-avx512f.c
+	external/sodium/src/libsodium/crypto_pwhash/argon2/blamka-round-avx512f.h
+)
+target_include_directories(sodium PRIVATE
+	external/sodium/src/libsodium/include/sodium/
+)
+target_compile_definitions(sodium PUBLIC -DSODIUM_STATIC -DSODIUM_EXPORT=)
+if (WIN32)
+	target_compile_definitions(sodium PRIVATE -Dinline=__inline -DNATIVE_LITTLE_ENDIAN -D_CRT_SECURE_NO_WARNINGS)
+endif(WIN32)
+
+if (WIN32)
+	set(NEXT_PLATFORM_FILES
+		external/next/next_windows.h
+		external/next/next_windows.cpp
+	)
+else()
+	set(NEXT_PLATFORM_FILES
+		external/next/next_unix.h
+		external/next/next_unix.cpp
+	)
+endif()
+
+add_library(next STATIC
+	${NEXT_PLATFORM_FILES}
+	external/next/next.h
+	external/next/next.cpp
+	external/next/next_internal.h
+	external/next/next_internal.cpp
+	external/next/next_curl.h
+	external/next/next_curl.cpp 
+)
+target_compile_definitions(next PRIVATE -DNEXT_EXPORT)
+target_include_directories(next PRIVATE
+	external/curl/include
+	external
+	external/sodium/src/libsodium/include/
+)
+target_link_libraries(next libcurl sodium)
+if(WIN32)
+else()
+	target_link_libraries(next "-lpthread")
+endif()
+
 ## includes
 
 set(ZLIB_INCLUDE_DIR
@@ -494,6 +716,7 @@ if (SERVER)
 		cJSON
 		mersenne
 		zlibstatic
+		next
 	)
 
 	if (APPLE)
@@ -587,6 +810,7 @@ if (CLIENT)
 		zlibstatic
 		libcurl
 		mongoose
+		next
 	)
 	
 	## Steam

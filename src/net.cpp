@@ -34,6 +34,7 @@
 #include <array>
 #include "data/import_common.h"
 #include "data/unicode.h"
+#include "next/next.h"
 
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0
@@ -46,12 +47,57 @@
 #define MASTER_AUTH_TIMEOUT 8.0f
 #define NET_EXPECTED_CLIENT_TIMEOUT 30.0f
 
+#define NEXT_MASTER_ADDRESS "https://v2.networknext.com"
+
 namespace VI
 {
 
 
 namespace Net
 {
+
+void address_from_next(const next_address_t * in, Sock::Address* out)
+{
+	if (in->type == NEXT_ADDRESS_IPV4)
+	{
+		out->host.type = Sock::Host::Type::IPv4;
+        out->host.ipv4 = u32(in->data.ipv4[0])
+			| (u32(in->data.ipv4[1]) << 8)
+			| (u32(in->data.ipv4[2]) << 16)
+			| (u32(in->data.ipv4[3]) << 24);
+		out->port = in->port;
+	}
+	else if (in->type == NEXT_ADDRESS_IPV6)
+	{
+		out->host.type = Sock::Host::Type::IPv6;
+		memcpy(out->host.ipv6, in->data.ipv6, sizeof(out->host.ipv6));
+		out->port = in->port;
+	}
+	else
+	{
+		memset(out, 0, sizeof(*out));
+	}
+}
+
+void address_to_next(const Sock::Address& in, next_address_t * out)
+{
+	out->port = in.port;
+	if (in.host.type == Sock::Host::Type::IPv4)
+	{
+		out->type = NEXT_ADDRESS_IPV4;
+        out->data.ipv4[3] = uint8_t((in.host.ipv4 & 0xFF000000) >> 24);
+        out->data.ipv4[2] = uint8_t((in.host.ipv4 & 0x00FF0000) >> 16);
+        out->data.ipv4[1] = uint8_t((in.host.ipv4 & 0x0000FF00) >> 8);
+        out->data.ipv4[0] = uint8_t(in.host.ipv4 & 0x000000FF);
+	}
+	else if (in.host.type == Sock::Host::Type::IPv6)
+	{
+		out->type = NEXT_ADDRESS_IPV6;
+		memcpy(out->data.ipv6, in.host.ipv6, sizeof(in.host.ipv6));
+	}
+	else
+		out->type = NEXT_ADDRESS_NONE;
+}
 
 b8 show_stats;
 
@@ -143,11 +189,25 @@ StateCommon state_common;
 
 struct StatePersistent
 {
-	Sock::Handle sock;
+	Sock::Handle master_sock;
 	Master::Messenger master;
 	Sock::Address master_addr;
 };
 StatePersistent state_persistent;
+
+struct PacketEntry
+{
+	r32 timestamp;
+	StreamRead packet;
+	Sock::Address address;
+	PacketEntry(r32 t) : timestamp(t), packet(), address() {}
+};
+
+#if DEBUG_LAG
+Array<PacketEntry> lag_buffer;
+#endif
+
+void packet_received(PacketEntry*);
 
 r32 internal_interpolation_delay(b8 low_latency)
 {
@@ -161,15 +221,6 @@ namespace Server
 }
 #endif
 
-void packet_send(const StreamWrite& p, const Sock::Address& address)
-{
-	Sock::udp_send(&state_persistent.sock, address, p.data.data, p.bytes_written());
-	state_common.bandwidth_out_counter += p.bytes_written();
-#if SERVER
-	Server::packet_sent(p, address);
-#endif
-}
-
 b8 master_send(Master::Message msg)
 {
 	using Stream = StreamWrite;
@@ -177,7 +228,7 @@ b8 master_send(Master::Message msg)
 	packet_init(&p);
 	state_persistent.master.add_header(&p, state_persistent.master_addr, msg);
 	packet_finalize(&p);
-	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.master_sock);
 	return true;
 }
 
@@ -2234,7 +2285,7 @@ b8 master_user_role_set(u32 server_id, u32 user_id, Master::Role role)
 	serialize_enum(&p, Master::Role, role);
 
 	packet_finalize(&p);
-	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.master_sock);
 	return true;
 }
 
@@ -2330,8 +2381,27 @@ struct StateServerPersistent
 {
 	Sock::Address public_ipv4;
 	Sock::Address public_ipv6;
+	next_server_t* next;
 };
 StateServerPersistent state_server_persistent;
+
+void next_server_packet_received(next_server_t* server, void* context, uint64_t session_id, next_address_t* address, uint8_t* packet_data, int packet_bytes)
+{
+	PacketEntry entry(state_common.timestamp);
+	memcpy(entry.packet.data.data, packet_data, packet_bytes);
+	entry.packet.resize_bytes(packet_bytes);
+	address_from_next(address, &entry.address);
+	packet_received(&entry);
+}
+
+void packet_send(const StreamWrite& p, const Sock::Address& address)
+{
+	next_address_t next_address;
+	address_to_next(address, &next_address);
+	next_server_send_packet_to_address( state_server_persistent.next, &next_address, (uint8_t*)(p.data.data), p.bytes_written() );
+	state_common.bandwidth_out_counter += p.bytes_written();
+	Server::packet_sent(p, address);
+}
 
 b8 client_owns(const Client* c, Entity* e)
 {
@@ -2422,7 +2492,7 @@ b8 master_send_status_update()
 		net_error();
 
 	packet_finalize(&p);
-	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.master_sock);
 
 	state_server.master_timer = 0.0f;
 
@@ -2431,7 +2501,16 @@ b8 master_send_status_update()
 
 void init()
 {
-	if (Sock::udp_open(&state_persistent.sock, Settings::port))
+	if (next_init(NEXT_MASTER_ADDRESS) != NEXT_OK)
+		vi_assert(false);
+
+	next_server_config_t config;
+	memset(&config, 0, sizeof(config));
+	config.packet_received_callback = next_server_packet_received;
+	char bind_address[512];
+	snprintf(bind_address, sizeof(bind_address), "0.0.0.0:%hu", Settings::port);
+	state_server_persistent.next = next_server_create(&config, bind_address);
+	if (Sock::udp_open(&state_persistent.master_sock))
 	{
 		fprintf(stderr, "%s\n", Sock::get_error());
 		vi_assert(false);
@@ -2709,7 +2788,7 @@ void tick(const Update& u, r32 dt)
 	state_server.master_timer += dt;
 	if (state_server.master_timer > NET_MASTER_STATUS_INTERVAL)
 		master_send_status_update();
-	state_persistent.master.update(state_common.timestamp, &state_persistent.sock, 4);
+	state_persistent.master.update(state_common.timestamp, &state_persistent.master_sock, 4);
 
 	StateFrame* frame = nullptr;
 
@@ -2767,7 +2846,7 @@ b8 packet_handle_master(StreamRead* p)
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	Master::Message type;
 	serialize_enum(p, Master::Message, type);
-	state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.sock);
+	state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.master_sock);
 
 	switch (type)
 	{
@@ -2881,7 +2960,7 @@ b8 packet_handle_master(StreamRead* p)
 	return true;
 }
 
-b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
+b8 packet_handle(StreamRead* p, const Sock::Address& address)
 {
 	if (address.equals(state_persistent.master_addr))
 		return packet_handle_master(p);
@@ -3511,6 +3590,27 @@ struct StateClient
 };
 StateClient state_client;
 
+struct StateClientPersistent
+{
+	next_client_t* next;
+};
+StateClientPersistent state_client_persistent;
+
+void next_client_packet_received(next_client_t* client, void* context, uint8_t* packet_data, int packet_bytes)
+{
+	PacketEntry entry(state_common.timestamp);
+	memcpy(entry.packet.data.data, packet_data, packet_bytes);
+	entry.packet.resize_bytes(packet_bytes);
+	entry.address = state_client.server_address;
+	packet_received(&entry);
+}
+
+void packet_send(const StreamWrite& p)
+{
+	next_client_send_packet(state_client_persistent.next, (uint8_t*)p.data.data, p.bytes_written());
+	state_common.bandwidth_out_counter += p.bytes_written();
+}
+
 b8 master_send_auth()
 {
 	master_auth_timer = MASTER_AUTH_TIMEOUT;
@@ -3549,7 +3649,7 @@ b8 master_send_auth()
 	}
 
 	packet_finalize(&p);
-	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.master_sock);
 	return true;
 }
 
@@ -3563,7 +3663,7 @@ b8 master_friendship_request(u32 friend_id, Master::Message msg)
 	serialize_u32(&p, Game::user_key.token);
 	serialize_u32(&p, friend_id);
 	packet_finalize(&p);
-	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.master_sock);
 	return true;
 }
 
@@ -3599,7 +3699,7 @@ b8 master_save_server_config(const Master::ServerConfig& config, u32 request_id)
 	if (!Master::serialize_server_config(&p, &c))
 		net_error();
 	packet_finalize(&p);
-	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.master_sock);
 	return true;
 }
 
@@ -3614,7 +3714,7 @@ b8 master_request_server_details(u32 config_id, u32 request_id)
 	serialize_u32(&p, request_id);
 	serialize_u32(&p, config_id);
 	packet_finalize(&p);
-	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.master_sock);
 	return true;
 }
 
@@ -3636,7 +3736,7 @@ b8 master_request_server_list(ServerListType type, s32 offset)
 	serialize_enum(&p, ServerListType, type);
 	serialize_s32(&p, offset);
 	packet_finalize(&p);
-	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.master_sock);
 	return true;
 }
 
@@ -3656,7 +3756,7 @@ b8 ping(const Sock::Address& addr, u32 token)
 	}
 	serialize_u32(&p, token);
 	packet_finalize(&p);
-	packet_send(p, addr);
+	Sock::udp_send(&state_persistent.master_sock, addr, p.data.data, p.bytes_written());
 	return true;
 }
 
@@ -3672,7 +3772,15 @@ b8 add_player(s8 gamepad)
 
 void init()
 {
-	if (Sock::udp_open(&state_persistent.sock))
+	if (next_init(NEXT_MASTER_ADDRESS) != NEXT_OK)
+		vi_assert(false);
+
+	next_client_config_t config;
+	memset(&config, 0, sizeof(config));
+	config.packet_received_callback = next_client_packet_received;
+	state_client_persistent.next = next_client_create( &config );
+
+	if (Sock::udp_open(&state_persistent.master_sock))
 	{
 		fprintf(stderr, "%s\n", Sock::get_error());
 		vi_assert(false);
@@ -4062,6 +4170,7 @@ void handle_server_disconnect(DisconnectReason reason)
 {
 	disconnect_reason = reason;
 	state_client.mode = Mode::Disconnected;
+	next_client_close_session(state_client_persistent.next);
 	if (state_client.replay_mode == ReplayMode::Replaying)
 	{
 		if (replay_files.length > 0)
@@ -4110,7 +4219,7 @@ b8 master_send_server_request()
 		serialize_int(&p, s8, local_players, 1, MAX_GAMEPADS);
 	}
 	packet_finalize(&p);
-	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.sock);
+	state_persistent.master.send(p, state_common.timestamp, state_persistent.master_addr, &state_persistent.master_sock);
 	return true;
 }
 
@@ -4177,7 +4286,7 @@ void tick(const Update& u, r32 dt)
 			vi_debug("Connecting to %s...", str);
 			StreamWrite p;
 			packet_build_connect(&p);
-			packet_send(p, state_client.server_address);
+			packet_send(p);
 			break;
 		}
 		case Mode::Loading:
@@ -4197,7 +4306,7 @@ void tick(const Update& u, r32 dt)
 
 				StreamWrite p;
 				packet_build_update(&p, u);
-				packet_send(p, state_client.server_address);
+				packet_send(p);
 
 				state_common.local_sequence_id = sequence_advance(state_common.local_sequence_id, 1);
 			}
@@ -4214,6 +4323,9 @@ void connect(Sock::Address addr)
 	Game::level.local = false;
 	Game::schedule_timer = 0.0f;
 	state_client.server_address = addr;
+	char address_str[512];
+	addr.str(address_str);
+	next_client_open_session_direct(state_client_persistent.next, address_str);
 	state_client.timeout = 0.0f;
 	state_client.mode = Mode::Connecting;
 	if (Settings::record && Game::session.type != SessionType::Story)
@@ -4277,7 +4389,7 @@ b8 packet_handle_master(StreamRead* p)
 	serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 	Master::Message type;
 	serialize_enum(p, Master::Message, type);
-	state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.sock);
+	state_persistent.master.received(type, seq, state_persistent.master_addr, &state_persistent.master_sock);
 	master_auth_timer = 0.0f;
 	master_error = MasterError::None;
 	switch (type)
@@ -4404,7 +4516,7 @@ b8 packet_handle_master(StreamRead* p)
 	return true;
 }
 
-b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
+b8 packet_handle(StreamRead* p, const Sock::Address& address)
 {
 	if (address.equals(state_persistent.master_addr))
 		return packet_handle_master(p);
@@ -4662,7 +4774,7 @@ void reset()
 	{
 		StreamWrite p;
 		packet_build_disconnect(&p);
-		packet_send(p, state_client.server_address);
+		packet_send(p);
 	}
 
 	if (state_client.replay_mode == ReplayMode::Recording)
@@ -4776,19 +4888,7 @@ b8 remove(Entity* e)
 
 #define NET_MAX_FRAME_TIME 0.2f
 
-struct PacketEntry
-{
-	r32 timestamp;
-	StreamRead packet;
-	Sock::Address address;
-	PacketEntry(r32 t) : timestamp(t), packet(), address() {}
-};
-
-#if DEBUG_LAG
-Array<PacketEntry> lag_buffer;
-#endif
-
-void packet_read(const Update& u, PacketEntry* entry)
+void packet_read(PacketEntry* entry)
 {
 #if DEBUG_PACKET_LOSS
 	if (mersenne::randf_co() < DEBUG_PACKET_LOSS_AMOUNT) // packet loss simulation
@@ -4797,16 +4897,41 @@ void packet_read(const Update& u, PacketEntry* entry)
 
 	state_common.bandwidth_in_counter += entry->packet.bytes_total;
 
-	char buffer[512];
-	entry->address.str(buffer);
-
 	if (entry->packet.bytes_total > 0 && entry->packet.read_checksum())
 	{
 		packet_decompress(&entry->packet, entry->packet.bytes_total);
 #if SERVER
-		Server::packet_handle(u, &entry->packet, entry->address);
+		Server::packet_handle(&entry->packet, entry->address);
 #else
-		Client::packet_handle(u, &entry->packet, entry->address);
+		Client::packet_handle(&entry->packet, entry->address);
+#endif
+	}
+}
+
+void packet_received(PacketEntry* entry)
+{
+	if (entry->packet.bytes_total > 0)
+	{
+#if DEBUG_LAG
+		lag_buffer.add(*entry); // save for later
+#else
+
+#if SERVER
+		packet_read(entry); // read packet instantly
+#else
+		if (Client::state_client.replay_mode != Client::ReplayMode::Replaying)
+		{
+			if (Client::state_client.replay_mode == Client::ReplayMode::Recording
+				&& entry->address.equals(Client::state_client.server_address))
+			{
+				s16 size = s16(entry->packet.bytes_total);
+				fwrite(&size, sizeof(s16), 1, Client::state_client.replay_file);
+				fwrite(entry->packet.data.data, sizeof(s8), entry->packet.bytes_total, Client::state_client.replay_file);
+			}
+			packet_read(entry); // read packet instantly
+		}
+#endif
+
 #endif
 	}
 }
@@ -4839,7 +4964,7 @@ void update_start(const Update& u)
 					if (fread(entry.packet.data.data, sizeof(s8), bytes_received, Client::state_client.replay_file) == bytes_received)
 					{
 						entry.packet.resize_bytes(bytes_received);
-						packet_read(u, &entry);
+						packet_read(&entry);
 						packet_successfully_read = true;
 					}
 				}
@@ -4855,30 +4980,19 @@ void update_start(const Update& u)
 	while (true)
 	{
 		PacketEntry entry(state_common.timestamp);
-		s32 bytes_received = Sock::udp_receive(&state_persistent.sock, &entry.address, entry.packet.data.data, NET_MAX_PACKET_SIZE);
+		s32 bytes_received = Sock::udp_receive(&state_persistent.master_sock, &entry.address, entry.packet.data.data, NET_MAX_PACKET_SIZE);
 		entry.packet.resize_bytes(bytes_received);
 		if (bytes_received > 0)
-		{
-#if DEBUG_LAG
-			lag_buffer.add(entry); // save for later
-#else
-#if !SERVER
-			if (Client::state_client.replay_mode == Client::ReplayMode::Replaying)
-				continue; // ignore all incoming packets while we're replaying
-			else if (Client::state_client.replay_mode == Client::ReplayMode::Recording
-				&& entry.address.equals(Client::state_client.server_address))
-			{
-				s16 size = s16(bytes_received);
-				fwrite(&size, sizeof(s16), 1, Client::state_client.replay_file);
-				fwrite(entry.packet.data.data, sizeof(s8), bytes_received, Client::state_client.replay_file);
-			}
-#endif
-			packet_read(u, &entry); // read packet instantly
-#endif
-		}
+			packet_received(&entry);
 		else
 			break;
 	}
+
+#if SERVER
+	next_server_update(Server::state_server_persistent.next);
+#else
+	next_client_update(Client::state_client_persistent.next);
+#endif
 
 #if DEBUG_LAG
 	// wait DEBUG_LAG_AMOUNT before reading packet
@@ -4917,7 +5031,7 @@ void update_end(const Update& u)
 	// server always runs at 60 FPS
 	Server::tick(u, dt);
 #else
-	state_persistent.master.update(state_common.timestamp, &state_persistent.sock, 4);
+	state_persistent.master.update(state_common.timestamp, &state_persistent.master_sock, 4);
 
 	if (Game::level.local || Client::state_client.replay_mode == Client::ReplayMode::Replaying)
 		state_common.msgs_out.length = 0; // clear out message queue because we're never going to send these
@@ -4938,7 +5052,13 @@ void update_end(const Update& u)
 void term()
 {
 	reset();
-	Sock::close(&state_persistent.sock);
+	Sock::close(&state_persistent.master_sock);
+#if SERVER
+	next_server_destroy(Server::state_server_persistent.next);
+#else
+	next_client_destroy(Client::state_client_persistent.next);
+#endif
+	next_term();
 }
 
 // unload net state (for example when switching levels)

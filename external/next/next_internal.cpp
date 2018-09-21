@@ -1442,7 +1442,7 @@ int next_read_route_prefix( next_route_prefix_t * prefix, uint8_t ** buffer, int
     uint8_t * p = *buffer;
 
     if ( buffer_length < NEXT_ROUTE_PREFIX_BYTES )
-        return 1;
+        return NEXT_ERROR;
 
     prefix->prefix_type = next_read_uint8( &p );
     prefix->prefix_length = next_read_uint32( &p );
@@ -1451,7 +1451,7 @@ int next_read_route_prefix( next_route_prefix_t * prefix, uint8_t ** buffer, int
         case NEXT_ROUTE_PREFIX_TYPE_SERVER_ADDRESS:
         {
             if ( prefix->prefix_length != NEXT_ROUTE_PREFIX_TYPE_SERVER_ADDRESS_BYTES )
-                return 1;
+                return NEXT_ERROR;
             next_read_address( &p, (next_address_t *)( &prefix->prefix_value[0] ) );
         }
         break;
@@ -1460,14 +1460,14 @@ int next_read_route_prefix( next_route_prefix_t * prefix, uint8_t ** buffer, int
         case NEXT_ROUTE_PREFIX_TYPE_FORCED_ROUTE:
         {
             if ( prefix->prefix_length != NEXT_ROUTE_PREFIX_TYPE_NULL_BYTES )
-                return 1;
+                return NEXT_ERROR;
         }
         break;
 
         case NEXT_ROUTE_PREFIX_TYPE_DIRECT:
         {
             if ( prefix->prefix_length > NEXT_ROUTE_PREFIX_BYTES + NEXT_MAX_ADDRESS_STRING_LENGTH )
-                return 1;
+                return NEXT_ERROR;
             next_read_bytes( &p, prefix->prefix_value, prefix->prefix_length - NEXT_ROUTE_PREFIX_BYTES );
             prefix->prefix_value[prefix->prefix_length - NEXT_ROUTE_PREFIX_BYTES] = '\0'; // null-terminate server address string
         }
@@ -1475,12 +1475,12 @@ int next_read_route_prefix( next_route_prefix_t * prefix, uint8_t ** buffer, int
 
         default:
         {
-            return 1;
+            return NEXT_ERROR;
         }
     }
 
     *buffer += prefix->prefix_length;
-    return 0;
+    return NEXT_OK;
 }
 
 // ---------------------------------------------------------------
@@ -1737,7 +1737,7 @@ void next_sleep_until_next_frame( double start_frame_time, double frame_delta_ti
 
 // --------------------------------------------------
 
-bool next_ping_token_read( next_ping_token_t * token, uint8_t * data )
+int next_ping_token_read( next_ping_token_t * token, uint8_t * data )
 {
     next_assert( token );
     next_assert( data );
@@ -1746,15 +1746,15 @@ bool next_ping_token_read( next_ping_token_t * token, uint8_t * data )
     token->create_timestamp = next_read_uint64( &p );
     token->expire_timestamp = next_read_uint64( &p );
     next_read_address( &p, &token->relay_address );
+
     if ( token->relay_address.type == NEXT_ADDRESS_NONE )
-    {
-        return false;
-    }
+        return NEXT_ERROR;
+
     next_read_bytes( &p, token->private_data, NEXT_PING_TOKEN_PRIVATE_BYTES );
-    return true;
+    return NEXT_OK;
 }
 
-bool next_nearest_relays_parse( const char * input, next_nearest_relays_t * output, next_ip2location_t * ip2location )
+int next_nearest_relays_parse( const char * input, next_nearest_relays_t * output, next_ip2location_t * ip2location )
 {
     next_assert( input );
 
@@ -1763,19 +1763,19 @@ bool next_nearest_relays_parse( const char * input, next_nearest_relays_t * outp
     return next_nearest_relays_parse_document( document, output, ip2location );
 }
 
-bool next_nearest_relays_parse_document( next_json_document_t & document, next_nearest_relays_t * output, next_ip2location_t * ip2location )
+int next_nearest_relays_parse_document( next_json_document_t & document, next_nearest_relays_t * output, next_ip2location_t * ip2location )
 {
     if ( !document.IsObject() || !document.HasMember( "Relays" ) )
     {
         next_printf( NEXT_LOG_LEVEL_DEBUG, "invalid root in near response json" );
-        return false;
+        return NEXT_ERROR;
     }
 
     const next_json_value_t & relays = document["Relays"];
     if ( !relays.IsArray() ) 
     {
         next_printf( NEXT_LOG_LEVEL_DEBUG, "could not find relays array in near response json" );
-        return false;
+        return NEXT_ERROR;
     }
 
     if ( ip2location )
@@ -1785,10 +1785,10 @@ bool next_nearest_relays_parse_document( next_json_document_t & document, next_n
         {
             next_json_value_t & value = document["IP2Location"];
             if ( value.GetStringLength() > 0
-                && !next_ip2location_parse( value.GetString(), ip2location ) )
+                && next_ip2location_parse( value.GetString(), ip2location ) != NEXT_OK )
             {
                 next_printf( NEXT_LOG_LEVEL_DEBUG, "could not parse ip2location in near response json" );
-                return false;
+                return NEXT_ERROR;
             }
         }
         if ( document.HasMember( "IP" ) )
@@ -1801,13 +1801,13 @@ bool next_nearest_relays_parse_document( next_json_document_t & document, next_n
                 if ( next_base64_decode_string( value.GetString(), address_str, sizeof( address_str ) ) == -1 )
                 {
                     next_printf( NEXT_LOG_LEVEL_DEBUG, "failed to base64 decode IP address from near response json: %s", value.GetString() );
-                    return false;
+                    return NEXT_ERROR;
                 }
                 
                 if ( next_address_parse( &ip2location->ip, address_str ) != NEXT_OK )
                 {
                     next_printf( NEXT_LOG_LEVEL_DEBUG, "could not parse IP address from near response json", address_str );
-                    return false;
+                    return NEXT_ERROR;
                 }
             }
         }
@@ -1827,19 +1827,19 @@ bool next_nearest_relays_parse_document( next_json_document_t & document, next_n
         if ( id.GetType() != rapidjson::kNumberType )
         {
             next_printf( NEXT_LOG_LEVEL_DEBUG, "relay id should be number type" );
-            return false;
+            return NEXT_ERROR;
         }
 
         if ( token.GetType() != rapidjson::kStringType )
         {
             next_printf( NEXT_LOG_LEVEL_DEBUG, "relay token should be string type" );
-            return false;
+            return NEXT_ERROR;
         }
 
         if ( address.GetType() != rapidjson::kStringType )
         {
             next_printf( NEXT_LOG_LEVEL_DEBUG, "relay address should be string type" );
-            return false;
+            return NEXT_ERROR;
         }
 
         next_near_relay_t * relay = &output->relays[output->relay_count];
@@ -1853,13 +1853,13 @@ bool next_nearest_relays_parse_document( next_json_document_t & document, next_n
             if ( bytes != NEXT_PING_TOKEN_BYTES )
             {
                 next_printf( NEXT_LOG_LEVEL_DEBUG, "failed to decode ping token base64" );
-                return false;
+                return NEXT_ERROR;
             }
 
-            if ( !next_ping_token_read( &relay->ping_token, token_data ) )
+            if ( next_ping_token_read( &relay->ping_token, token_data ) != NEXT_OK )
             {
                 next_printf( NEXT_LOG_LEVEL_DEBUG, "failed to read ping token" );
-                return false;
+                return NEXT_ERROR;
             }
         }
 
@@ -1869,19 +1869,19 @@ bool next_nearest_relays_parse_document( next_json_document_t & document, next_n
             if ( next_base64_decode_string( address.GetString(), address_str, sizeof( address_str ) ) == -1 )
             {
                 next_printf( NEXT_LOG_LEVEL_DEBUG, "failed to base64 decode relay address: %s", address.GetString() );
-                return false;
+                return NEXT_ERROR;
             }
             if ( next_address_parse( &relay->address, (char *)( address_str ) ) != NEXT_OK )
             {
                 next_printf( NEXT_LOG_LEVEL_DEBUG, "failed to parse relay address string: %s", address_str );
-                return false;
+                return NEXT_ERROR;
             }
         }
 
         output->relay_count++;
     }
 
-    return true;
+    return NEXT_OK;
 }
 
 void next_nearest_relays_ip2location_override( next_http_t * context, const char * latitude, const char * longitude, next_http_callback_t * callback, void * user_data )
@@ -1938,40 +1938,40 @@ static const char * ip2location_token( char * output, size_t output_size, const 
     return NULL;
 }
 
-bool next_ip2location_parse( const char * input, next_ip2location_t * data )
+int next_ip2location_parse( const char * input, next_ip2location_t * data )
 {
     next_assert( input );
     next_assert( data );
     
     const char * token = ip2location_token( data->country_code, sizeof(data->country_code), input, ';' );
     if ( !token )
-        return false;
+        return NEXT_ERROR;
 
     token = ip2location_token( data->country, sizeof(data->country), token, ';' );
     if ( !token )
-        return false;
+        return NEXT_ERROR;
 
     token = ip2location_token( data->region, sizeof(data->region), token, ';' );
     if ( !token )
-        return false;
+        return NEXT_ERROR;
 
     token = ip2location_token( data->city, sizeof(data->city), token, ';' );
     if ( !token )
-        return false;
+        return NEXT_ERROR;
 
     token = ip2location_token( data->latitude, sizeof(data->latitude), token, ';' );
     if ( !token )
-        return false;
+        return NEXT_ERROR;
 
     token = ip2location_token( data->longitude, sizeof(data->longitude), token, ';' );
     if ( !token )
-        return false;
+        return NEXT_ERROR;
 
     token = ip2location_token( data->isp, sizeof(data->isp), token, ';' );
     if ( !token )
-        return false;
+        return NEXT_ERROR;
 
-    return true;
+    return NEXT_OK;
 }
 
 // ------------------------------------------------------------

@@ -177,7 +177,7 @@ int next_socket_create( next_socket_t * s, const next_address_t * address, int t
     if ( s->handle == INVALID_SOCKET )
     {
         next_printf( NEXT_LOG_LEVEL_ERROR, "failed to create socket" );
-        return NEXT_SOCKET_ERROR_CREATE_FAILED;
+        return NEXT_ERROR_SOCKET_CREATE_FAILED;
     }
 
     // force IPv6 only if necessary
@@ -189,7 +189,7 @@ int next_socket_create( next_socket_t * s, const next_address_t * address, int t
         {
             next_printf( NEXT_LOG_LEVEL_ERROR, "failed to set socket ipv6 only" );
             next_socket_destroy( s );
-            return NEXT_SOCKET_ERROR_SOCKOPT_IPV6_ONLY_FAILED;
+            return NEXT_ERROR_SOCKET_SOCKOPT_IPV6_ONLY_FAILED;
         }
     }
 
@@ -199,14 +199,14 @@ int next_socket_create( next_socket_t * s, const next_address_t * address, int t
     {
         next_printf( NEXT_LOG_LEVEL_ERROR, "failed to set socket send buffer size" );
         next_socket_destroy( s );
-        return NEXT_SOCKET_ERROR_SOCKOPT_SNDBUF_FAILED;
+        return NEXT_ERROR_SOCKET_SOCKOPT_SNDBUF_FAILED;
     }
 
     if ( setsockopt( s->handle, SOL_SOCKET, SO_RCVBUF, (char*)( &receive_buffer_size ), sizeof( int ) ) != 0 )
     {
         next_printf( NEXT_LOG_LEVEL_ERROR, "failed to set socket receive buffer size" );
         next_socket_destroy( s );
-        return NEXT_SOCKET_ERROR_SOCKOPT_RCVBUF_FAILED;
+        return NEXT_ERROR_SOCKET_SOCKOPT_RCVBUF_FAILED;
     }
 
     // bind to port
@@ -226,7 +226,7 @@ int next_socket_create( next_socket_t * s, const next_address_t * address, int t
         {
             next_printf( NEXT_LOG_LEVEL_ERROR, "failed to bind socket (ipv6)" );
             next_socket_destroy( s );
-            return NEXT_SOCKET_ERROR_BIND_IPV6_FAILED;
+            return NEXT_ERROR_SOCKET_BIND_IPV6_FAILED;
         }
     }
     else
@@ -244,7 +244,7 @@ int next_socket_create( next_socket_t * s, const next_address_t * address, int t
         {
             next_printf( NEXT_LOG_LEVEL_ERROR, "failed to bind socket (ipv4)" );
             next_socket_destroy( s );
-            return NEXT_SOCKET_ERROR_BIND_IPV4_FAILED;
+            return NEXT_ERROR_SOCKET_BIND_IPV4_FAILED;
         }
     }
 
@@ -260,7 +260,7 @@ int next_socket_create( next_socket_t * s, const next_address_t * address, int t
             {
                 next_printf( NEXT_LOG_LEVEL_ERROR, "failed to get socket port (ipv6)" );
                 next_socket_destroy( s );
-                return NEXT_SOCKET_ERROR_GET_SOCKNAME_IPV6_FAILED;
+                return NEXT_ERROR_SOCKET_GET_SOCKNAME_IPV6_FAILED;
             }
             s->address.port = next_ntohs( sin.sin6_port );
         }
@@ -272,7 +272,7 @@ int next_socket_create( next_socket_t * s, const next_address_t * address, int t
             {
                 next_printf( NEXT_LOG_LEVEL_ERROR, "failed to get socket port (ipv4)" );
                 next_socket_destroy( s );
-                return NEXT_SOCKET_ERROR_GET_SOCKNAME_IPV4_FAILED;
+                return NEXT_ERROR_SOCKET_GET_SOCKNAME_IPV4_FAILED;
             }
             s->address.port = next_ntohs( sin.sin_port );
         }
@@ -286,7 +286,7 @@ int next_socket_create( next_socket_t * s, const next_address_t * address, int t
         if ( ioctlsocket( s->handle, FIONBIO, &nonBlocking ) != 0 )
         {
             next_socket_destroy( s );
-            return NEXT_SOCKET_ERROR_SET_NON_BLOCKING_FAILED;
+            return NEXT_ERROR_SOCKET_SET_NON_BLOCKING_FAILED;
         }
     }
     else if ( timeout > 0 )
@@ -294,14 +294,14 @@ int next_socket_create( next_socket_t * s, const next_address_t * address, int t
         // set receive timeout
         DWORD tv = timeout;
         if ( setsockopt( s->handle, SOL_SOCKET, SO_RCVTIMEO, (const char *)( &tv ), sizeof( tv ) ) < 0 )
-            return NEXT_SOCKET_ERROR_SOCKOPT_RCVTIMEO_FAILED;
+            return NEXT_ERROR_SOCKET_SOCKOPT_RCVTIMEO_FAILED;
     }
     else
     {
         // timeout < 0, socket is blocking with no timeout
     }
 
-    return NEXT_SOCKET_ERROR_NONE;
+    return NEXT_ERROR_SOCKET_NONE;
 }
 
 void next_socket_destroy( next_socket_t * socket )

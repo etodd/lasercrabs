@@ -225,6 +225,7 @@ struct next_client_t
     double counter_check_last;
     double counter_post_last;
     int mode;
+	int error;
     int route_request_bytes;
     int route_state_bytes;
     int route_request_sending;
@@ -298,6 +299,11 @@ static void client_set_state( next_client_t * client, int value )
     client->shared.state = value;
 }
 
+static void client_set_error( next_client_t * client, int value )
+{
+    client->error = value;
+}
+
 static next_thread_return_t NEXT_THREAD_FUNC client_thread_listen( void * arg );
 
 next_client_t * next_client_create( next_client_config_t * config )
@@ -309,7 +315,7 @@ next_client_t * next_client_create( next_client_config_t * config )
     bind_address.type = NEXT_ADDRESS_IPV4;
     bind_address.port = 0;
     next_socket_t socket;
-    if ( next_socket_create( &socket, &bind_address, 100, NEXT_SOCKET_SNDBUF_SIZE, NEXT_SOCKET_RCVBUF_SIZE, 0 ) != NEXT_SOCKET_ERROR_NONE )
+    if ( next_socket_create( &socket, &bind_address, 100, NEXT_SOCKET_SNDBUF_SIZE, NEXT_SOCKET_RCVBUF_SIZE, 0 ) != NEXT_ERROR_SOCKET_NONE )
         return NULL;
 
     next_client_t * client = (next_client_t*) next_alloc( sizeof(next_client_t) );
@@ -449,27 +455,21 @@ static bool client_insecure_callback( int response_code, const char * response, 
     if ( !success )
     {
         next_printf( NEXT_LOG_LEVEL_ERROR, "client insecure session failed" );
-        client_set_state( client, NEXT_CLIENT_STATE_FAILED_INSECURE_SESSION );
+		client_set_error( client, NEXT_ERROR_CLIENT_INSECURE_SESSION_FAILED );
+        client_set_state( client, NEXT_CLIENT_STATE_READY );
     }
 
-    return false; // false means we destroyed the http context; don't try to process any more messages
+    return true;
 }
 
-void next_client_open_session_insecure( next_client_t * client, next_client_insecure_session_data_t * session_data )
+int next_client_open_session_insecure( next_client_t * client, next_client_insecure_session_data_t * session_data )
 {
     next_assert( client );
 
     if ( !client )
-        return;
+        return NEXT_ERROR_INVALID_PARAMETER;
 
     next_printf( NEXT_LOG_LEVEL_DEBUG, "opening insecure session. don't ship with this!" );
-
-    if ( client->shared.state != NEXT_CLIENT_STATE_READY )
-    {
-        next_printf( NEXT_LOG_LEVEL_ERROR, "can't open insecure session. client is not ready" );
-        client_set_state( client, NEXT_CLIENT_STATE_ERROR_INVALID_STATE );
-        return;
-    }
 
     next_client_close_session( client );
 
@@ -529,11 +529,10 @@ void next_client_open_session_insecure( next_client_t * client, next_client_inse
             char server_address_base64[512];
             next_base64_encode_string( session_data->server_address, server_address_base64, sizeof( server_address_base64 ) );
             next_address_t server_address;
-            if ( !next_address_parse( &server_address, session_data->server_address ) )
+            if ( next_address_parse( &server_address, session_data->server_address ) != NEXT_OK )
             {
                 next_printf( NEXT_LOG_LEVEL_ERROR, "bad server address: %s", session_data->server_address );
-                client_set_state( client, NEXT_CLIENT_STATE_BAD_SERVER_ADDRESS );
-                return;
+                return NEXT_ERROR_CLIENT_BAD_SERVER_ADDRESS;
             }
             client->server_address = server_address;
             doc.AddMember( "Mode", client->mode, allocator );
@@ -591,6 +590,8 @@ void next_client_open_session_insecure( next_client_t * client, next_client_inse
     client_set_state( client, NEXT_CLIENT_STATE_INSECURE_REQUESTING );
 
     next_http_nonblock_post_json( &client->http, "/v2/router/route", wrapper_buffer.GetString(), client_insecure_callback, client, 10000 );
+
+	return NEXT_OK;
 }
 
 static bool client_backup_flow_if_possible( next_client_t * client )
@@ -617,21 +618,14 @@ static bool client_backup_flow_if_possible( next_client_t * client )
     return false;
 }
 
-void next_client_open_session( next_client_t * client, uint8_t * route_data, int route_data_bytes )
+int next_client_open_session( next_client_t * client, uint8_t * route_data, int route_data_bytes )
 {
     next_assert( client );
     next_assert( route_data );
     next_assert( route_data_bytes > 0 );
 
     if ( !client )
-        return;
-
-    if ( client->shared.state < NEXT_CLIENT_STATE_READY )
-    {
-        next_printf( NEXT_LOG_LEVEL_ERROR, "can't open session. isn't ready yet", client->shared.state );
-        client_set_state( client, NEXT_CLIENT_STATE_ERROR_INVALID_STATE );
-        return;
-    }
+        return NEXT_ERROR_INVALID_PARAMETER;
 
     next_client_close_session( client );
 
@@ -639,11 +633,10 @@ void next_client_open_session( next_client_t * client, uint8_t * route_data, int
 
     uint8_t * p = route_data;
 
-    if ( next_read_route_prefix( &prefix, &p, route_data_bytes ) != 0 )
+    if ( next_read_route_prefix( &prefix, &p, route_data_bytes ) != NEXT_OK )
     {
         next_printf( NEXT_LOG_LEVEL_ERROR, "route data is invalid. bad route prefix." );
-        client_set_state( client, NEXT_CLIENT_STATE_INVALID_ROUTE );
-        return;
+        return NEXT_ERROR_CLIENT_INVALID_ROUTE;
     }
 
     memset( &client->server_address, 0, sizeof( next_address_t ) );
@@ -753,8 +746,7 @@ void next_client_open_session( next_client_t * client, uint8_t * route_data, int
         if ( client->config.network_next_only )
         {
             next_printf( NEXT_LOG_LEVEL_ERROR, "received direct route, but network_next_only is set in config" );
-            client_set_state( client, NEXT_CLIENT_STATE_INVALID_ROUTE );
-            return;
+            return NEXT_ERROR_CLIENT_INVALID_ROUTE ;
         }
 
         if ( prefix.prefix_type == NEXT_ROUTE_PREFIX_TYPE_SERVER_ADDRESS )
@@ -770,38 +762,37 @@ void next_client_open_session( next_client_t * client, uint8_t * route_data, int
         else
         {
             next_printf( NEXT_LOG_LEVEL_ERROR, "route data is invalid. invalid route prefix (%hhu)", prefix.prefix_type );
-            client_set_state( client, NEXT_CLIENT_STATE_BAD_SERVER_ADDRESS );
+            return NEXT_ERROR_CLIENT_BAD_SERVER_ADDRESS;
         }
     }
+
+	return NEXT_OK;
 }
 
-void next_client_open_session_direct( next_client_t * client, const char * server_address_string )
+int next_client_open_session_direct( next_client_t * client, const char * server_address_string )
 {
     next_assert( client );
 
     if ( !client )
-        return;
+        return NEXT_ERROR_INVALID_PARAMETER;
 
     if ( client->config.network_next_only )
     {
         next_printf( NEXT_LOG_LEVEL_ERROR, "can't open direct session. network_next_only is set in config" );
-        client_set_state( client, NEXT_CLIENT_STATE_ERROR_NEXT_ONLY );
-        return;
+        return NEXT_ERROR_CLIENT_NEXT_ONLY;
     }
 
     if ( client->mode == NEXT_CLIENT_MODE_FORCE_NEXT )
     {
         next_printf( NEXT_LOG_LEVEL_ERROR, "can't open direct session. client is in FORCE_NEXT mode" );
-        client_set_state( client, NEXT_CLIENT_STATE_ERROR_NEXT_ONLY );
-        return;
+        return NEXT_ERROR_CLIENT_NEXT_ONLY;
     }
 
     next_address_t server_address;
-    if ( !next_address_parse( &server_address, server_address_string ) )
+    if ( next_address_parse( &server_address, server_address_string ) != NEXT_OK )
     {
         next_printf( NEXT_LOG_LEVEL_ERROR, "bad server address: %s", server_address_string );
-        client_set_state( client, NEXT_CLIENT_STATE_BAD_SERVER_ADDRESS );
-        return;
+        return NEXT_ERROR_CLIENT_BAD_SERVER_ADDRESS;
     }
 
     next_client_close_session( client );
@@ -815,6 +806,8 @@ void next_client_open_session_direct( next_client_t * client, const char * serve
     client->route_request_sending = NEXT_ROUTE_REQUEST_SENDING_NONE;
 
     client->counters[NEXT_CLIENT_COUNTER_OPEN_SESSION_DIRECT]++;
+
+	return NEXT_OK;
 }
 
 static next_client_route_t * client_get_send_route( next_client_t * client )
@@ -900,6 +893,8 @@ void next_client_close_session( next_client_t * client )
             client_send_destroy_packet( client, &client->route_current.flow_token, client->route_current.sequence++ );
         }
     }
+
+	client_set_error( client, NEXT_OK );
 
     if ( client->shared.state > NEXT_CLIENT_STATE_READY )
     {
@@ -1199,7 +1194,7 @@ static int client_route_data_read(
     }
 
     uint8_t * p = data;
-    if ( next_read_route_prefix( prefix, &p, data_length ) != 0 )
+    if ( next_read_route_prefix( prefix, &p, data_length ) != NEXT_OK )
     {
         next_flow_log( NEXT_LOG_LEVEL_ERROR, current_flow_token->flow_id, current_flow_token->flow_version, "invalid route data prefix: type %d, size %d", prefix->prefix_type, prefix->prefix_length );
         return NEXT_ERROR;
@@ -1260,7 +1255,7 @@ static void client_route_update( next_client_t * client, const char * response )
 
     if ( !client->force_route )
     {
-        if ( next_nearest_relays_parse_document( doc, &client->nearest_relays, NULL ) )
+        if ( next_nearest_relays_parse_document( doc, &client->nearest_relays, NULL ) == NEXT_OK )
         {
             next_flow_log( NEXT_LOG_LEVEL_INFO, flow_id, flow_version, "received %d near relays", client->nearest_relays.relay_count );
         }
@@ -1550,7 +1545,7 @@ static void client_done_locating( next_client_t * client )
         if ( client->config.network_next_only )
         {
             next_printf( NEXT_LOG_LEVEL_ERROR, "no near relays" );
-            client_set_state( client, NEXT_CLIENT_STATE_FAILED_TO_LOCATE );
+            client_set_error( client, NEXT_ERROR_CLIENT_FAILED_TO_LOCATE );
         }
         else
         {
@@ -1587,7 +1582,7 @@ static bool nearest_relays_callback( int response_code, const char * response, v
         return true;
     }
 
-    if ( !next_nearest_relays_parse( response, &nearest_relays, &ip2location ) )
+    if ( next_nearest_relays_parse( response, &nearest_relays, &ip2location ) != NEXT_OK )
     {
         next_printf( NEXT_LOG_LEVEL_WARN, "failed to parse near relays response" );
         return true;
@@ -2411,24 +2406,27 @@ static void client_update_timeouts( next_client_t * client, double time )
     const uint64_t flow_id = client->route_current.flow_token.flow_id;
     const uint8_t flow_version = client->route_current.flow_token.flow_version;
 
-    if ( ( client->shared.state == NEXT_CLIENT_STATE_ESTABLISHED || client->shared.state == NEXT_CLIENT_STATE_REQUESTING ) && 
-          !client->backup_flow && client->route_update_next + 5.0 < time )
+    if ( ( client->shared.state == NEXT_CLIENT_STATE_ESTABLISHED || client->shared.state == NEXT_CLIENT_STATE_REQUESTING )
+		&& !client->backup_flow
+		&& client->route_update_next + 5.0 < time )
     {
         if ( !client_backup_flow_if_possible( client ) )
         {
             next_flow_log( NEXT_LOG_LEVEL_ERROR, flow_id, flow_version, "route update timed out" );
-            client_set_state( client, NEXT_CLIENT_STATE_ROUTE_TIMED_OUT );
+            client_set_error( client, NEXT_ERROR_CLIENT_ROUTE_TIMED_OUT );
+			client_set_state( client, NEXT_CLIENT_STATE_READY );
             client->counters[NEXT_CLIENT_COUNTER_ROUTE_UPDATE_TIMEOUT]++;
             return;
         }
     }
 
-    if ( ( client->shared.state == NEXT_CLIENT_STATE_ESTABLISHED || client->shared.state == NEXT_CLIENT_STATE_REQUESTING || 
-           client->shared.state == NEXT_CLIENT_STATE_DIRECT || client->backup_flow ) && 
-           client->route_current.time_last_packet_received + client->config.session_timeout_seconds <= time )
+    if ( ( client->shared.state == NEXT_CLIENT_STATE_ESTABLISHED || client->shared.state == NEXT_CLIENT_STATE_REQUESTING
+		|| client->shared.state == NEXT_CLIENT_STATE_DIRECT || client->backup_flow )
+		&& client->route_current.time_last_packet_received + client->config.session_timeout_seconds <= time )
     {
         next_flow_log( NEXT_LOG_LEVEL_ERROR, flow_id, flow_version, "client timed out" );
-        client_set_state( client, NEXT_CLIENT_STATE_TIMED_OUT );
+        client_set_error( client, NEXT_ERROR_CLIENT_TIMED_OUT );
+		client_set_state( client, NEXT_CLIENT_STATE_READY );
         client->counters[NEXT_CLIENT_COUNTER_SERVER_TO_CLIENT_TIMEOUT]++;
         return;
     }
@@ -2555,6 +2553,12 @@ int next_client_state( next_client_t * client )
     next_mutex_release( &client->shared.mutex );
     
     return value;
+}
+
+int next_client_error( next_client_t * client )
+{
+    next_assert( client );
+    return client ? client->error : NEXT_OK;
 }
 
 uint64_t next_client_id( next_client_t * client )
@@ -2746,7 +2750,7 @@ next_server_t * next_server_create( next_server_config_t * config, const char * 
         return NULL;
 
     next_socket_t socket;
-    if ( next_socket_create( &socket, &bind_address, 100, NEXT_SOCKET_SNDBUF_SIZE, NEXT_SOCKET_RCVBUF_SIZE, 0 ) != NEXT_SOCKET_ERROR_NONE )
+    if ( next_socket_create( &socket, &bind_address, 100, NEXT_SOCKET_SNDBUF_SIZE, NEXT_SOCKET_RCVBUF_SIZE, 0 ) != NEXT_ERROR_SOCKET_NONE )
         return NULL;
 
     next_server_t * server = (next_server_t*) next_alloc( sizeof(next_server_t) );

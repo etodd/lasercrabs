@@ -14,8 +14,16 @@
 #define NEXT_VERSION_MINOR            14
 #define NEXT_VERSION_GITHUB          "7e8ad02d"
 
-#define NEXT_OK                                             1
-#define NEXT_ERROR                                          0
+#define NEXT_OK                                             0
+#define NEXT_ERROR                                          1
+#define NEXT_ERROR_INVALID_PARAMETER                        2
+#define NEXT_ERROR_CLIENT_INSECURE_SESSION_FAILED           3
+#define NEXT_ERROR_CLIENT_FAILED_TO_LOCATE                  4
+#define NEXT_ERROR_CLIENT_INVALID_ROUTE                     5
+#define NEXT_ERROR_CLIENT_BAD_SERVER_ADDRESS                6
+#define NEXT_ERROR_CLIENT_ROUTE_TIMED_OUT                   7
+#define NEXT_ERROR_CLIENT_TIMED_OUT                         8
+#define NEXT_ERROR_CLIENT_NEXT_ONLY                         9
 
 #define NEXT_MTU                                         1100
 
@@ -34,15 +42,6 @@
 
 #define NEXT_MAX_ADDRESS_STRING_LENGTH                    256
 
-#define NEXT_CLIENT_STATE_ERROR_INVALID_STATE              -9
-#define NEXT_CLIENT_STATE_ERROR_NEXT_ONLY                  -8
-#define NEXT_CLIENT_STATE_ERROR_DIRECT_ONLY                -7
-#define NEXT_CLIENT_STATE_FAILED_INSECURE_SESSION          -6
-#define NEXT_CLIENT_STATE_FAILED_TO_LOCATE                 -5
-#define NEXT_CLIENT_STATE_INVALID_ROUTE                    -4
-#define NEXT_CLIENT_STATE_BAD_SERVER_ADDRESS               -3
-#define NEXT_CLIENT_STATE_ROUTE_TIMED_OUT                  -2
-#define NEXT_CLIENT_STATE_TIMED_OUT                        -1
 #define NEXT_CLIENT_STATE_STOPPED                           0
 #define NEXT_CLIENT_STATE_LOCATING                          1
 #define NEXT_CLIENT_STATE_READY                             2
@@ -141,11 +140,11 @@ NEXT_EXPORT_FUNC uint8_t * next_client_info_create( next_client_t * client, size
 
 NEXT_EXPORT_FUNC void next_client_info_destroy( uint8_t * client_info );
 
-NEXT_EXPORT_FUNC void next_client_open_session( next_client_t * client, uint8_t * route_data, int route_bytes );
+NEXT_EXPORT_FUNC int next_client_open_session( next_client_t * client, uint8_t * route_data, int route_bytes );
 
-NEXT_EXPORT_FUNC void next_client_open_session_direct( next_client_t * client, const char * server_address );
+NEXT_EXPORT_FUNC int next_client_open_session_direct( next_client_t * client, const char * server_address );
 
-NEXT_EXPORT_FUNC void next_client_open_session_insecure( next_client_t * client, next_client_insecure_session_data_t * session_data );
+NEXT_EXPORT_FUNC int next_client_open_session_insecure( next_client_t * client, next_client_insecure_session_data_t * session_data );
 
 NEXT_EXPORT_FUNC void next_client_close_session( next_client_t * client );
 
@@ -154,6 +153,8 @@ NEXT_EXPORT_FUNC void next_client_update( next_client_t * client );
 NEXT_EXPORT_FUNC void next_client_mode( next_client_t * client, int mode );
 
 NEXT_EXPORT_FUNC void next_client_send_packet( next_client_t * client, uint8_t * packet_data, int packet_bytes );
+
+NEXT_EXPORT_FUNC int next_client_error( next_client_t * client );
 
 NEXT_EXPORT_FUNC int next_client_state( next_client_t * client );
 

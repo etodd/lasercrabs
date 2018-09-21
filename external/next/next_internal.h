@@ -105,17 +105,17 @@ typedef __int64 int64_t;
 
 #define NEXT_CLIENT_MODE_RANDOM                               255
 
-#define NEXT_SOCKET_ERROR_NONE                                  0
-#define NEXT_SOCKET_ERROR_CREATE_FAILED                         1
-#define NEXT_SOCKET_ERROR_SET_NON_BLOCKING_FAILED               2
-#define NEXT_SOCKET_ERROR_SOCKOPT_IPV6_ONLY_FAILED              3
-#define NEXT_SOCKET_ERROR_SOCKOPT_RCVBUF_FAILED                 4
-#define NEXT_SOCKET_ERROR_SOCKOPT_SNDBUF_FAILED                 5
-#define NEXT_SOCKET_ERROR_SOCKOPT_RCVTIMEO_FAILED               6
-#define NEXT_SOCKET_ERROR_BIND_IPV4_FAILED                      7
-#define NEXT_SOCKET_ERROR_BIND_IPV6_FAILED                      8
-#define NEXT_SOCKET_ERROR_GET_SOCKNAME_IPV4_FAILED              9
-#define NEXT_SOCKET_ERROR_GET_SOCKNAME_IPV6_FAILED             10
+#define NEXT_ERROR_SOCKET_NONE                                  0
+#define NEXT_ERROR_SOCKET_CREATE_FAILED                         1
+#define NEXT_ERROR_SOCKET_SET_NON_BLOCKING_FAILED               2
+#define NEXT_ERROR_SOCKET_SOCKOPT_IPV6_ONLY_FAILED              3
+#define NEXT_ERROR_SOCKET_SOCKOPT_RCVBUF_FAILED                 4
+#define NEXT_ERROR_SOCKET_SOCKOPT_SNDBUF_FAILED                 5
+#define NEXT_ERROR_SOCKET_SOCKOPT_RCVTIMEO_FAILED               6
+#define NEXT_ERROR_SOCKET_BIND_IPV4_FAILED                      7
+#define NEXT_ERROR_SOCKET_BIND_IPV6_FAILED                      8
+#define NEXT_ERROR_SOCKET_GET_SOCKNAME_IPV4_FAILED              9
+#define NEXT_ERROR_SOCKET_GET_SOCKNAME_IPV6_FAILED             10
 
 #define NEXT_SOCKET_FLAG_REUSEPORT                         (1<<0)
 
@@ -434,7 +434,7 @@ struct next_ip2location_t
     char isp[256];
 };
 
-bool next_ip2location_parse( const char * input, next_ip2location_t * output );
+int next_ip2location_parse( const char * input, next_ip2location_t * output );
 
 struct next_ping_token_t
 {
@@ -445,7 +445,7 @@ struct next_ping_token_t
     uint8_t private_data[NEXT_PING_TOKEN_PRIVATE_BYTES];
 };
 
-bool next_ping_token_read( next_ping_token_t * token, uint8_t * data );
+int next_ping_token_read( next_ping_token_t * token, uint8_t * data );
 
 struct next_near_relay_t
 {
@@ -462,8 +462,8 @@ struct next_nearest_relays_t
 
 void next_nearest_relays( next_http_t * context, next_http_callback_t * callback, void * user_data );
 void next_nearest_relays_ip2location_override( next_http_t * context, const char * latitude, const char * longitude, next_http_callback_t * callback, void * user_data );
-bool next_nearest_relays_parse( const char * input, next_nearest_relays_t * output, next_ip2location_t * ip2location );
-bool next_nearest_relays_parse_document( next_json_document_t & doc, next_nearest_relays_t * output, next_ip2location_t * ip2location );
+int next_nearest_relays_parse( const char * input, next_nearest_relays_t * output, next_ip2location_t * ip2location );
+int next_nearest_relays_parse_document( next_json_document_t & doc, next_nearest_relays_t * output, next_ip2location_t * ip2location );
 
 #ifdef _MSC_VER
 #define SODIUM_STATIC

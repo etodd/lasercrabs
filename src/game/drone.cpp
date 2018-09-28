@@ -1144,6 +1144,7 @@ Drone::Drone()
 	hit_targets(),
 	cooldown(),
 	cooldown_last_local_change(),
+	cooldown_ability_switch(),
 	cooldown_ability_switch_last_local_change(),
 	current_ability(Ability::None),
 	fake_projectiles(),
@@ -1154,7 +1155,8 @@ Drone::Drone()
 	lerped_rotation(),
 	lerped_pos(),
 	last_pos(),
-	hit()
+	hit(),
+	weapon_model()
 {
 }
 
